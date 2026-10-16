@@ -13,6 +13,7 @@ import { useMe, useRuns } from "@/lib/api/hooks";
 import type { RunStatus, ScheduleRun } from "@/lib/api/schemas";
 import type { MessageKey, Vars } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { isBaselineRun } from "@/lib/api/council";
 
 export const RUN_STATUS_KIND: Record<RunStatus, StatusKind> = { QUEUED: "preoccupied", RUNNING: "pclab", FEASIBLE: "feasible", OPTIMAL: "feasible", FEASIBLE_PARTIAL: "warning", INFEASIBLE: "infeasible", TIMEOUT: "infeasible", ERROR: "infeasible", FAILED: "infeasible", CANCELLED: "preoccupied" };
 
@@ -89,12 +90,12 @@ export function RunsList() {
         minSize: 72,
         grow: 1,
         maxSize: 320,
-        text: (r) => (isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : [`#${r.id}`, r.label?.trim()].filter(Boolean).join(" · ")) + (r.parent_run_id ? `  ${t("glass.report.childOf", { id: r.parent_run_id })}` : ""),
+        text: (r) => (isBaselineRun(r) ? t("baseline.listName", { id: r.id }) : isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : [`#${r.id}`, r.label?.trim()].filter(Boolean).join(" · ")) + (r.parent_run_id ? `  ${t("glass.report.childOf", { id: r.parent_run_id })}` : ""),
         sortValue: (r) => r.id,
         cell: (r) => (
           <span className="flex min-w-0 items-baseline gap-1.5">
             <Link href={`/runs/${r.id}`} className="truncate font-medium text-label-1 hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={(e) => e.stopPropagation()}>
-              {isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : `#${r.id}`}
+              {isBaselineRun(r) ? t("baseline.listName", { id: r.id }) : isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : `#${r.id}`}
             </Link>
             {/* the planner's own name for the run (ScheduleRun.label); an import board already names its file */}
             {!isImportBoard(r) && r.label?.trim() ? <span className="truncate type-callout text-label-2" data-testid="run-label">{r.label.trim()}</span> : null}

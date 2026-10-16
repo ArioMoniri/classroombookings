@@ -35,6 +35,9 @@ SPECS: dict[str, SettingSpec] = {
         SettingSpec("timezone", default="Europe/Istanbul"),
         # review D16: hosts a live CRBS MySQL DSN may name (app/services/crbs_dsn.py); empty = none
         SettingSpec("crbs_dsn_allowed_hosts", default=""),
+        # KVKK ai_personal (consent gates 2026-10-16; app.services.kvkk.ai_personal_default): "included" = only an
+        # explicit withdrawal keeps a person out of AI requests, "excluded" = not granted is excluded
+        SettingSpec("kvkk.ai_personal_default", default="included"),
     )
 }
 

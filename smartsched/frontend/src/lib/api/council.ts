@@ -124,8 +124,32 @@ export const ReviewOut = z.object({
 });
 export type ReviewOut = z.infer<typeof ReviewOut>;
 
+/** `result.baseline_run` of a commit (app/council/baseline.py `as_baseline_run`): the schedule-map entries of the
+ * committed files written to the term's one "Baseline: imported schedule" run; the other counters
+ * (`linked_by_start`, `clipped_outside_term`, `entries_unplaceable`, `exam_entries_skipped`, ...) come along. */
+export const BaselineRunResult = z
+  .object({
+    run_id: z.number(),
+    run_created: z.boolean(),
+    created: z.number().default(0),
+    updated: z.number().default(0),
+    unchanged: z.number().default(0),
+    linked: z.number().default(0),
+    unlinked: z.number().default(0),
+  })
+  .catchall(z.union([z.number(), z.boolean()]));
+export type BaselineRunResult = z.infer<typeof BaselineRunResult>;
+/** `ScheduleRun.label` / `params.source` of that run */
+export const BASELINE_LABEL = "Baseline: imported schedule";
+export const BASELINE_SOURCE = "COUNCIL_BASELINE";
+/** the term's baseline import run (a schedule map written by an intake commit), not a solver run */
+export function isBaselineRun(r: { params: { source?: string } }): boolean {
+  return r.params.source === BASELINE_SOURCE;
+}
+
 export const CommitOut = z
   .object({
+    baseline_run: BaselineRunResult.nullish(),
     term_id: z.number(),
     term_code: z.string(),
     term_created: z.boolean(),

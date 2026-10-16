@@ -4918,7 +4918,82 @@
         "exchange": "the provider did not answer",
         "disabled": "calendar sync is off",
         "not_configured": "your administrator has not set this provider up"
-      }
+      },
+      "needsConsent": "To connect your calendar, first give your calendar sync consent under Privacy."
     }
+  },
+  "baseline": {
+    "title": "Schedule map → baseline run",
+    "checking": "Looking for the term's baseline run…",
+    "intoExisting": "The schedule map in these files goes into the baseline run of {term} (#{id}). The same entries are updated; no second run is made.",
+    "intoNew": "The schedule map in these files goes into a new baseline run for {term}: “Baseline: imported schedule”.",
+    "keeps": "A re-solve takes this run as its parent, so classes stay where the published board has them. The exact counts show after saving.",
+    "openRun": "Open the baseline run (#{id})",
+    "resolve": "Re-solve keeping this board",
+    "resultNew": "Baseline run #{id} created",
+    "resultUpdated": "Baseline run #{id} updated",
+    "created": "New entries",
+    "updated": "Changed",
+    "unchanged": "Same",
+    "linked": "Linked to a request",
+    "unlinked": "Not linked",
+    "linkedHint": "Entries linked to a request keep that class in place in a re-solve; unlinked ones show on the board but belong to no request.",
+    "skip": {
+      "clipped_outside_term": "{n} entries fell outside the term's dates and were not written",
+      "entries_unplaceable": "{n} entries were not written: their week, day, time or room could not be read",
+      "exam_entries_skipped": "{n} exam entries were skipped (exam boards link exam requests)",
+      "duplicates_in_commit": "{n} duplicate entries were written once"
+    },
+    "listName": "Baseline: imported schedule #{id}",
+    "runTitle": "Imported schedule (baseline run)",
+    "runLead": "The classes of the uploaded schedule maps live in this run. A re-solve that takes it as its parent keeps the published board.",
+    "sources": "Source files"
+  },
+  "relax": {
+    "label": "When not every class fits",
+    "choice": {
+      "term": "Term setting",
+      "lock_first": "Locked first",
+      "most_classes_first": "Most classes first"
+    },
+    "desc": {
+      "term": "The rule chosen for the term applies; without one, locked rows are kept first.",
+      "lock_first": "Locked rows first, then coordinator priority, then the most classes.",
+      "most_classes_first": "The most classes first, then coordinator priority, then locked rows."
+    },
+    "unknown": "The stored rule cannot be read; pick one and save it.",
+    "short": {
+      "lock_first": "locked rows first",
+      "most_classes_first": "the most classes first"
+    },
+    "source": {
+      "run": "chosen for this run",
+      "term": "term setting",
+      "default": "default",
+      "invalid_setting": "the term setting was invalid, the default was used"
+    },
+    "used": "Classes that do not fit: {policy} ({source})",
+    "term": {
+      "title": "Classes that do not fit · {term}",
+      "lead": "Every solve of this term without a choice of its own uses this rule. A run can pick its own in the Re-solve dialog.",
+      "save": "Save for the term",
+      "saved": "Saved for {term}",
+      "savedNow": "Saved in this session.",
+      "fromRun": "The latest solve (#{id}) ran with this term setting.",
+      "fromDefault": "The latest solve (#{id}) ran with no term setting, on the default.",
+      "unknown": "The stored value cannot be read and no solve of this term shows it yet."
+    }
+  },
+  "resolveRun": {
+    "open": "Re-solve keeping this",
+    "openBaseline": "Solve keeping this board",
+    "title": "Re-solve keeping this run",
+    "titleBaseline": "Solve keeping the imported schedule",
+    "lead": "The new solve takes run #{id} as its parent; classes stay in place unless a rule or a clash needs a move.",
+    "leadBaseline": "The new solve takes baseline run #{id} as its parent; classes stay where the published board has them and only what the rules or clashes need changes.",
+    "label": "Name (optional)",
+    "labelPlaceholder": "Re-solve from #{id}",
+    "start": "Start the solve",
+    "started": "Run #{id} started"
   }
 }

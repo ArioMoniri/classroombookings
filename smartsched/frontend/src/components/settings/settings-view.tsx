@@ -24,6 +24,7 @@ import { LocaleToggle } from "@/components/shell/locale-toggle";
 import { AiPolicyCard } from "./ai-policy";
 import { CalendarSyncAdmin } from "./calendar-sync-admin";
 import { CalendarPushAdmin } from "./calendar-push-admin";
+import { RelaxationTermCard } from "@/components/runs/relaxation-term-card";
 import { WebhooksAdmin } from "./webhooks-admin";
 import { PoliciesAdmin } from "@/components/policies/policies-admin";
 import { PublicScheduleAdmin } from "@/components/public-schedule/public-schedule-admin";
@@ -386,7 +387,15 @@ export function SettingsView() {
         <TabsContent value="general"><GeneralCard /></TabsContent>
         <TabsContent value="appearance"><AppearanceCard /></TabsContent>
         {admin ? <TabsContent value="ai"><AiCard /></TabsContent> : null}
-        {admin ? <TabsContent value="solver"><SolverCard /></TabsContent> : null}
+        {admin ? (
+          <TabsContent value="solver">
+            <div className="space-y-5">
+              <SolverCard />
+              {/* the active term's relaxation policy (term.<id>.relaxation_policy) */}
+              <RelaxationTermCard />
+            </div>
+          </TabsContent>
+        ) : null}
         {admin ? <TabsContent value="import"><ImportCard /></TabsContent> : null}
         {can("setup.settings") ? (
           <TabsContent value="integrations">

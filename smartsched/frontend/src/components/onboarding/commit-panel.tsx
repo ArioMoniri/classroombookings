@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { councilApi, type CommitDryRun, type CommitIn, type CommitOut, type CouncilJob } from "@/lib/api/council";
 import { useI18n } from "@/lib/i18n/provider";
+import { BaselinePreview, BaselineResult } from "./baseline-summary";
 import { useOnboardingCopy } from "./copy";
 import { PlanTermFields } from "./review-panel";
 
@@ -96,6 +97,8 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
           />
         </div>
         {blocking ? <p className="type-footnote text-status-infeasible-fg">{t("onboarding.blockingBeforeCommit", { count: blocking })}</p> : null}
+        {/* the schedule map goes to the term's one baseline run (P19-I5): say which one before saving */}
+        {!result ? <BaselinePreview job={job} termCode={term.code} /> : null}
 
         {/* ④ Fark */}
         <div className="flex flex-wrap items-center gap-2">
@@ -169,6 +172,7 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
             <p className="type-footnote text-label-2">{t("onboarding.rulesCreated", { count: result.constraints_created.length })}</p>
           </div>
         ) : null}
+        {result?.baseline_run ? <BaselineResult baseline={result.baseline_run} /> : null}
       </CardContent>
     </Card>
   );

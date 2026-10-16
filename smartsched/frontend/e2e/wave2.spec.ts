@@ -17,6 +17,10 @@
  *    a period under the legal floor; the inventory downloads as CSV.
  * 5. Phone 390 × 844 (touch): the resolver, Admin › KVKK, Profil › Gizlilik and the public room page have no sideways
  *    scroll; the main actions are ≥ 44 px.
+ * 6. Backend asks batch 3 in the UI: withdrawing the photo and calendar-sync consents asks first and the toast shows
+ *    the server's `effects[]` (a real feed link revoked); find-room opened with a GG.AA.YYYY date gives "Neden?" the
+ *    full verdict (the result's `period_id`) for a request-only and a refused room; a retention 422 (over 36 500 days)
+ *    is shown at its field; the queue's "Tümü" (`status=all`) lists a refused request the default view hides; phone.
  *
  * Everything the spec changes is its own (users, bookings, policies, the public switch is restored to off).
  *
@@ -35,6 +39,10 @@ const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch:
 const CLASH_DAY = "2026-03-05";
 const REFUSED_DAY = "2026-03-27";
 const REQUEST_DAY = "2026-02-26";
+/** batch 3: a request-only day and a refused day of this spec's own rules (week 4, Wednesday / Tuesday) */
+const B3_REQUEST_DAY = "2026-03-04";
+const B3_REFUSED_DAY = "2026-03-03";
+const B3_USER = { username: `w2.b3.${STAMP}`, email: `w2.b3.${STAMP}@uni.edu.tr`, password: "Ogretmen-2026!" };
 
 test.describe.configure({ mode: "serial", timeout: 300_000 });
 test.skip(!REAL, SKIP_REASON);
@@ -415,5 +423,145 @@ test("5. phone: the resolver has no sideways scroll and 44 px options", async ({
   await noSideScroll(p);
   const option = p.locator('[data-testid^="resolver-option-"]').first();
   if (await option.count()) expect((await option.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await p.context().close();
+});
+
+/** "2026-03-04" → "04.03.2026" (GG.AA.YYYY, how people type dates here) */
+const ggaa = (iso: string) => iso.split("-").reverse().join(".");
+/** the backend's effect sentence as the toast writes it: Turkish capital first letter, full stop */
+const sentence = (m: string) => {
+  const s = m.trim().charAt(0).toLocaleUpperCase("tr-TR") + m.trim().slice(1);
+  return /[.!?]$/.test(s) ? s : `${s}.`;
+};
+/** dismiss the notice gate if a notice of an earlier spec is unread */
+async function ackNotice(token: string): Promise<void> {
+  const me = await api<{ notice: { id: number } | null; needs_ack: boolean }>("GET", "/me/privacy", undefined, token);
+  if (me.needs_ack && me.notice) await api("POST", "/me/privacy/ack", { notice_id: me.notice.id }, token);
+}
+
+test("6. batch 3: withdrawal effects in the toast; find-room 'Neden?' verdict; a retention 422 at its field; 'Tümü'", async ({ page, browser }) => {
+  // --- Gizlilik: the server's effects in the toast (photo: nothing stored; calendar sync: a real feed link revoked)
+  await ackNotice(ctx.teacherToken);
+  for (const purpose of ["photo", "calendar_sync"]) await api("POST", `/me/consents/${purpose}`, undefined, ctx.teacherToken);
+  const feed = await call("POST", "/calendar/feeds/tokens", { label: `e2e ${STAMP}` }, ctx.teacherToken);
+  expect(feed.status, JSON.stringify(feed.body)).toBe(201);
+  await signInAs(page, TEACHER.username, TEACHER.password);
+  await page.goto("/profile#privacy");
+  const privacy = page.getByTestId("privacy-section");
+  const photo = privacy.getByTestId("consent-photo");
+  await expect(photo).toContainText("kayıtlı profil fotoğrafınız hemen silinir");
+  await photo.getByTestId("consent-switch-photo").click();
+  await expect(page.getByRole("alertdialog").or(page.getByRole("dialog"))).toContainText("Fotoğraf rızası geri alınsın mı?");
+  const [photoRes] = await Promise.all([
+    page.waitForResponse((r) => r.url().endsWith("/me/consents/photo") && r.request().method() === "DELETE"),
+    page.getByRole("button", { name: "Geri al ve fotoğrafı sil" }).click(),
+  ]);
+  const photoOut = (await photoRes.json()) as { removed_photo: number; effects: { code: string; message_tr: string }[] };
+  expect(photoOut.effects.map((e) => e.code)).toEqual([photoOut.removed_photo ? "photo_deleted" : "photo_none"]);
+  const toasts = page.locator("[data-sonner-toast]");
+  await expect(toasts.filter({ hasText: "Rıza geri alındı" }).first()).toContainText(sentence(photoOut.effects[0]!.message_tr));
+  await expect(photo.getByTestId("consent-switch-photo")).not.toBeChecked();
+
+  const cal = privacy.getByTestId("consent-calendar_sync");
+  await expect(cal).toContainText("takvim abonelik bağlantılarınız hemen iptal edilir");
+  await cal.getByTestId("consent-switch-calendar_sync").click();
+  const [calRes] = await Promise.all([
+    page.waitForResponse((r) => r.url().endsWith("/me/consents/calendar_sync") && r.request().method() === "DELETE"),
+    page.getByRole("button", { name: "Geri al ve bağlantıları kaldır" }).click(),
+  ]);
+  const calOut = (await calRes.json()) as { revoked_feeds: number; effects: { code: string; count: number | null; message_tr: string }[] };
+  expect(calOut.revoked_feeds).toBeGreaterThanOrEqual(1);
+  const revoked = calOut.effects.find((e) => e.code === "feeds_revoked")!;
+  expect(revoked.count).toBe(calOut.revoked_feeds);
+  await expect(toasts.filter({ hasText: revoked.message_tr.slice(2, 40) }).first()).toContainText(sentence(revoked.message_tr));
+  // the link is gone at once: a second withdrawal finds nothing to revoke
+  const again = await api<{ effects: { code: string }[] }>("DELETE", "/me/consents/calendar_sync", undefined, ctx.teacherToken);
+  expect(again.effects.map((e) => e.code)).toEqual(["calendar_none"]);
+
+  // --- find-room: GG.AA.YYYY in the link; "Neden?" asks with the result's period_id → the full verdict
+  const reqRule = await api<{ id: number }>("POST", "/booking-policies", { name: `E2E b3 talep ${STAMP}`, role_codes: ["TEACHER"], effect: "request", blackouts: [{ from: B3_REQUEST_DAY, label: "Bölüm toplantısı" }] });
+  ctx.policies.push(reqRule.id);
+  const refRule = await api<{ id: number }>("POST", "/booking-policies", { name: `E2E b3 kapalı ${STAMP}`, role_codes: ["TEACHER"], blackouts: [{ from: B3_REFUSED_DAY, label: "Kapalı gün" }] });
+  ctx.policies.push(refRule.id);
+  const verdictCalls: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/booking-policies/effective")) verdictCalls.push(r.url());
+  });
+  await page.goto(`/find-room?date=${ggaa(B3_REQUEST_DAY)}`);
+  const view = page.getByTestId("find-room");
+  await view.getByTestId("fr-search").click();
+  await expect(view.getByTestId("fr-summary")).toBeVisible();
+  const requestable = view.locator('[data-testid^="fr-room-"][data-status="requestable"]').first();
+  await expect(requestable).toBeVisible();
+  await requestable.getByTestId("policy-why").click();
+  const why = page.getByTestId("policy-why-panel");
+  await expect(why).toContainText("Onaylayıcılara gider");
+  await expect(why.getByTestId("policy-why-violations")).toBeVisible();
+  await expect(why).toContainText(`E2E b3 talep ${STAMP}`);
+  expect(verdictCalls.some((u) => /[?&]period_id=\d+/.test(u) && u.includes(`date=${B3_REQUEST_DAY}`)), verdictCalls.join("\n")).toBe(true);
+  await page.keyboard.press("Escape");
+
+  // a refused day: the refused rooms are among "Uymayan" with the busy ones shown
+  await page.goto(`/find-room?date=${ggaa(B3_REFUSED_DAY)}`);
+  await view.getByRole("switch", { name: "Dolu derslikleri de göster" }).click();
+  await view.getByTestId("fr-search").click();
+  await expect(view.getByTestId("fr-summary")).toBeVisible();
+  await view.getByText(/Uymayan \d+ derslik/).click();
+  const refused = view.locator('[data-testid^="fr-room-"][data-status="policy"]').first();
+  await expect(refused).toBeVisible();
+  await refused.getByTestId("policy-why").click();
+  await expect(why).toContainText("Rezerve edilemez");
+  await expect(why.getByTestId("policy-why-violations")).toContainText(/Kapalı gün|kapalı/i);
+  await page.keyboard.press("Escape");
+
+  // --- retention: over 36 500 days passes the form, the backend's 422 lands at the days field
+  await signInAs(page);
+  await page.goto("/admin/kvkk?tab=retention");
+  const audit = page.getByTestId("retention-audit");
+  const days = audit.getByTestId("retention-days-audit");
+  await days.fill("40000");
+  const [put] = await Promise.all([page.waitForResponse((r) => r.url().includes("/admin/retention/audit") && r.request().method() === "PUT"), audit.getByTestId("retention-save-audit").click()]);
+  expect(put.status()).toBe(422);
+  const detail = ((await put.json()) as { detail: { errors: { field: string; floor_days?: number; max_days?: number }[] } }).detail;
+  const e = detail.errors.find((x) => x.field === "retain_days")!;
+  const fieldErr = audit.getByTestId("retention-field-error-audit-retain_days");
+  await expect(fieldErr).toHaveText(`${e.floor_days} ile ${e.max_days} gün arasında.`);
+  await expect(days).toHaveAttribute("aria-invalid", "true");
+  await expect(audit.getByTestId("retention-error-audit")).toHaveCount(0);
+  await days.fill("400");
+  await expect(fieldErr).toHaveCount(0);
+
+  // --- the queue: a refused request is hidden by "Açık" and listed by "Tümü"
+  await api("POST", "/users", { username: B3_USER.username, email: B3_USER.email, firstname: "Bilgi", lastname: "İsteyen", role: "TEACHER", password: B3_USER.password });
+  const b3Token = await loginToken(B3_USER.username, B3_USER.password);
+  const info = await api<{ id: number }>("POST", "/me/data-requests", { kind: "info", note: "Hangi verilerim tutuluyor?" }, b3Token);
+  await api("POST", `/admin/dsr/${info.id}/refuse`, { reason: "Talep kimlik doğrulaması olmadan yapıldı" });
+  await page.goto("/admin/kvkk?tab=requests");
+  const queue = page.getByTestId("dsr-queue");
+  await expect(queue.getByTestId("dsr-filter-open")).toBeVisible();
+  await expect(queue.getByTestId(`dsr-${info.id}`)).toHaveCount(0);
+  const [all] = await Promise.all([page.waitForResponse((r) => r.url().includes("/admin/dsr?status=all")), queue.getByTestId("dsr-filter-all").click()]);
+  expect(all.status()).toBe(200);
+  await expect(queue.getByTestId(`dsr-${info.id}`)).toContainText("Reddedildi");
+
+  // --- phone: the four filters and the field error fit 390 px
+  const p = await phone(browser, { id: ADMIN_EMAIL, password: ADMIN_PASSWORD });
+  const later = p.getByTestId("notice-gate-later");
+  await p.goto("/admin/kvkk?tab=requests");
+  if (await later.isVisible().catch(() => false)) await later.click();
+  const pq = p.getByTestId("dsr-queue");
+  await expect(pq).toBeVisible();
+  const allOption = pq.getByTestId("dsr-filter-all");
+  if (await allOption.isVisible().catch(() => false)) await allOption.click();
+  else await pq.locator("select").first().selectOption("all");
+  await expect(pq.getByTestId(`dsr-${info.id}`)).toBeVisible();
+  await noSideScroll(p);
+  await p.goto("/admin/kvkk?tab=retention");
+  const pa = p.getByTestId("retention-audit");
+  await pa.getByTestId("retention-days-audit").fill("40000");
+  await pa.getByTestId("retention-save-audit").click();
+  await expect(pa.getByTestId("retention-field-error-audit-retain_days")).toBeVisible();
+  await noSideScroll(p);
+  expect((await pa.getByTestId("retention-save-audit").boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await p.context().close();
 });

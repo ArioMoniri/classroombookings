@@ -691,6 +691,35 @@ async def grant(session: AsyncSession, user: User, purpose: str) -> None:
     await audit.record(session, "kvkk.consent_grant", "consent", purpose, after={"user_id": user.id}, actor=user)
 
 
+#: what a never-given ``ai_personal`` consent means (owner / legal question, ROADMAP batch 3): ``included`` (default,
+#: the institution's AI sign-off is the basis until the person withdraws) or ``excluded`` (not granted = excluded)
+AI_PERSONAL_DEFAULT_KEY = "kvkk.ai_personal_default"
+AI_PERSONAL_DEFAULTS = ("included", "excluded")
+_AI_PERSONAL_WORDS = {
+    "included": "included",
+    "include": "included",
+    "dahil": "included",  # "dahil", "DÂHİL", "Dâhil"
+    "excluded": "excluded",
+    "exclude": "excluded",
+    "haric": "excluded",  # "hariç", "HARİÇ", "HARIC"
+}
+
+
+def parse_ai_personal_default(value: Any) -> str | None:
+    """``included`` / ``excluded`` from an admin's input (English or Turkish, any case, dotted / dotless i,
+    circumflex, NBSP); ``None`` if neither."""
+    if not isinstance(value, str):
+        return None
+    return _AI_PERSONAL_WORDS.get(tr_norm.fold(value))
+
+
+async def ai_personal_default(session: AsyncSession) -> str:
+    """The stored ``kvkk.ai_personal_default`` (``included`` when unset or unreadable)."""
+    from app.services import settings_service
+
+    return parse_ai_personal_default(await settings_service.get_value(session, AI_PERSONAL_DEFAULT_KEY)) or "included"
+
+
 #: where a person grants a consent: Profil › Gizlilik (the ``#privacy`` section of the profile page)
 GRANT_PATH = "/profile#privacy"
 

@@ -62,12 +62,12 @@ function useConnectResult() {
     if (r.ok) toast.success(t("calendarPush.me.connectedToast", { provider: name }));
     else toast.error(t("calendarPush.me.connectError", { reason: r.reason && REASONS.has(r.reason) ? t(`calendarPush.me.reason.${r.reason as "denied"}`) : (r.reason ?? "") }));
     void qc.invalidateQueries({ queryKey: SYNC_KEY });
-    document.getElementById("calendar-push")?.scrollIntoView({ block: "start" });
+    document.getElementById("calendar-push")?.scrollIntoView?.({ block: "start" });
     router.replace(path || RETURN_PATH, { scroll: false });
   }, [params, qc, t, router, path]);
 }
 
-function Connection({ c }: { c: SyncConnector }) {
+function Connection({ c, needsConsent }: { c: SyncConnector; needsConsent: boolean }) {
   const { t, locale } = useI18n();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<"connect" | "disconnect" | "resync" | "calendar" | null>(null);
@@ -136,7 +136,7 @@ function Connection({ c }: { c: SyncConnector }) {
                 : t("calendarPush.me.notConnected")}
           </p>
         </div>
-        {c.configured ? (
+        {c.configured && !(needsConsent && !c.connected) ? (
           c.connected && !reauth ? (
             <Button variant="ghost" size="sm" onClick={() => setConfirm(true)} disabled={busy !== null} data-testid={`calendar-disconnect-${c.provider}`}>
               <Unplug aria-hidden />
@@ -214,6 +214,7 @@ export function CalendarConnectionsSection() {
   const { t, locale } = useI18n();
   const status = useQuery({ queryKey: SYNC_KEY, queryFn: crbs.calendar.sync, retry: false, staleTime: 30_000 });
   const s = status.data;
+  const needsConsent = !!s?.consent?.required && !s.consent.granted;
   return (
     <section aria-labelledby="pf-calendar-push" id="calendar-push" className="scroll-mt-20" data-testid="calendar-connections">
       <Suspense fallback={null}>
@@ -230,10 +231,18 @@ export function CalendarConnectionsSection() {
         {status.isLoading ? <Loading /> : null}
         {status.isError ? <Alert tone="error">{errorText(wave1Error(status.error), locale)}</Alert> : null}
         {s && !s.enabled ? <Alert tone="warning" testId="calendar-connections-off">{t("calendarPush.me.off")}</Alert> : null}
+        {s?.enabled && needsConsent ? (
+          <Alert tone="warning" testId="calendar-connections-consent">
+            {t("calendarPush.me.needsConsent")}{" "}
+            <Link href="#privacy" className="font-medium text-tint-text underline-offset-4 hover:underline">
+              {t("calendarPush.me.consentLink")}
+            </Link>
+          </Alert>
+        ) : null}
         {s?.enabled ? (
           <ul className="grid gap-2">
             {s.connectors.map((c) => (
-              <Connection key={c.provider} c={c} />
+              <Connection key={c.provider} c={c} needsConsent={needsConsent} />
             ))}
           </ul>
         ) : null}

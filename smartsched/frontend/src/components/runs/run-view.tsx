@@ -32,6 +32,10 @@ import { SoftBreakdown } from "./soft-breakdown";
 import { usePermissions } from "@/lib/permissions";
 import { CancelRunButton } from "./cancel-run";
 import { MissingWeeks } from "./missing-weeks";
+import { BaselineRunCard } from "./baseline-card";
+import { RunPolicyLine } from "./relaxation";
+import { ResolveRunButton } from "./resolve-run";
+import { isBaselineRun } from "@/lib/api/council";
 import { PublishRunButton } from "./publish-run";
 import { runIssueCounts, summaryExtras, verdictExceptions, waiverOf, type VerdictException } from "./run-truth";
 import { useCalendarIndex } from "@/lib/api/calendar";
@@ -193,6 +197,8 @@ export function RunView({ id }: { id: number }) {
             <Button variant="outline" nativeButton={false} render={<a href={api.runs.exportUrl(r.id, "xlsx")} download />}>
               <Download /> {t("runs.export")}
             </Button>
+            {/* a new solve with this run as its parent (stability on) and its relaxation policy */}
+            {canPlan && finished && r.status !== "CANCELLED" ? <ResolveRunButton run={r} autoOpen={params.get("resolve") === "1"} /> : null}
             <Button nativeButton={false} render={<Link href="/generate" />}>
               {t("glass.report.editAndSolve")}
             </Button>
@@ -225,6 +231,7 @@ export function RunView({ id }: { id: number }) {
                 <Verdict r={r} headline={headline} exceptions={exceptions} />
                 {partial ? <p className="mt-1 type-callout text-label-2">{t("glass.report.partialHint", { n: n(unplaced) })}</p> : null}
                 <MissingWeeks runId={r.id} stats={r.stats_detail ?? r.stats} />
+                <RunPolicyLine r={r} />
                 {canPlan && finished && r.status !== "CANCELLED" ? (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <PublishRunButton run={r} published={publishedId} exceptions={exceptions} />
@@ -249,6 +256,7 @@ export function RunView({ id }: { id: number }) {
                     <dd className="type-kpi text-label-1">{duration(r)}</dd>
                   </div>
                 </dl>
+                {isBaselineRun(r) ? <BaselineRunCard r={r} /> : null}
                 {extras.forcedOverrides.length ? (
                   <section className="mt-4 grid gap-1.5 rounded-lg bg-status-warning px-3 py-2" data-testid="forced-overrides" aria-labelledby="forced-title">
                     <h3 id="forced-title" className="flex items-center gap-1.5 type-callout font-semibold text-status-warning-fg">

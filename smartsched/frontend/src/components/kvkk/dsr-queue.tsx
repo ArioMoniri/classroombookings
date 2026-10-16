@@ -117,10 +117,10 @@ export function DsrQueue() {
                 ) : null}
                 {r.status === "OPEN" || r.status === "IN_PROGRESS" ? (
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" onClick={() => start(r, false)} data-testid={`dsr-complete-${r.id}`}>
+                    <Button size="sm" className="pointer-coarse:min-h-11" onClick={() => start(r, false)} data-testid={`dsr-complete-${r.id}`}>
                       {r.kind === "erase" ? t("kvkk.dsr.erase") : t("kvkk.dsr.complete")}
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => start(r, true)} data-testid={`dsr-refuse-${r.id}`}>
+                    <Button size="sm" variant="outline" className="pointer-coarse:min-h-11" onClick={() => start(r, true)} data-testid={`dsr-refuse-${r.id}`}>
                       {t("kvkk.dsr.refuse")}
                     </Button>
                   </div>

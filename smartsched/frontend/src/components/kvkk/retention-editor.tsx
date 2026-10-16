@@ -232,7 +232,8 @@ function RetentionRow({ row }: { row: RetentionPolicy }) {
         <p className="type-footnote text-label-3" data-testid={`retention-last-${row.data_class}`}>
           {row.last_run_at ? t("kvkk.retention.lastRun", { date: when(row.last_run_at, true), counts: counts.map(([k, v]) => `${k}: ${v}`).join(", ") || "0" }) : t("kvkk.retention.neverRun")}
         </p>
-        <Button size="sm" onClick={() => put({ retain_days: n, action, legal_hold: hold, legal_hold_reason: hold ? reason.trim() : null }, t("kvkk.retention.saved"))} {...busyProps(save.isPending, !dirty || below || holdNeedsReason)} data-testid={`retention-save-${row.data_class}`}>
+        {/* touch: a 44 px target (M-02) */}
+        <Button size="sm" className="pointer-coarse:min-h-11" onClick={() => put({ retain_days: n, action, legal_hold: hold, legal_hold_reason: hold ? reason.trim() : null }, t("kvkk.retention.saved"))} {...busyProps(save.isPending, !dirty || below || holdNeedsReason)} data-testid={`retention-save-${row.data_class}`}>
           <BusyLabel busy={save.isPending} label={t("busy.saving")}>
             {t("crbs.common.save")}
           </BusyLabel>

@@ -4917,7 +4917,82 @@
         "exchange": "sağlayıcı yanıtı alınamadı",
         "disabled": "takvim eşitleme kapalı",
         "not_configured": "yönetici bu sağlayıcıyı kurmamış"
-      }
+      },
+      "needsConsent": "Takviminizi bağlamak için önce Gizlilik bölümünde takvim eşitleme rızanızı verin."
     }
+  },
+  "baseline": {
+    "title": "Program haritası → temel çalıştırma",
+    "checking": "Dönemin temel çalıştırması aranıyor…",
+    "intoExisting": "Bu dosyalardaki program haritası {term} döneminin temel çalıştırmasına (#{id}) yazılacak. Aynı girişler güncellenir, ikinci bir çalıştırma açılmaz.",
+    "intoNew": "Bu dosyalardaki program haritası {term} dönemi için açılacak yeni temel çalıştırmaya yazılacak: “Baseline: imported schedule”.",
+    "keeps": "Yeniden çözüm bu çalıştırmayı üst çalıştırma alır; dersler yayımlanan tablodaki yerlerinde kalır. Kesin sayılar kaydedince görünür.",
+    "openRun": "Temel çalıştırmayı aç (#{id})",
+    "resolve": "Bu tabloyu koruyarak yeniden çöz",
+    "resultNew": "Temel çalıştırma #{id} oluşturuldu",
+    "resultUpdated": "Temel çalıştırma #{id} güncellendi",
+    "created": "Yeni giriş",
+    "updated": "Değişen",
+    "unchanged": "Aynı",
+    "linked": "Talebe bağlı",
+    "unlinked": "Bağlanamayan",
+    "linkedHint": "Talebe bağlı girişler yeniden çözümde aynı dersin yerini korur; bağlanamayanlar tabloda görünür ama bir talebe ait değildir.",
+    "skip": {
+      "clipped_outside_term": "{n} giriş dönem tarihlerinin dışında kaldı, yazılmadı",
+      "entries_unplaceable": "{n} giriş hafta, gün, saat ya da derslik okunamadığı için yazılmadı",
+      "exam_entries_skipped": "{n} sınav girişi atlandı (sınav tabloları sınav taleplerine bağlanır)",
+      "duplicates_in_commit": "{n} yinelenen giriş bir kez yazıldı"
+    },
+    "listName": "Temel: içe aktarılan program #{id}",
+    "runTitle": "İçe aktarılan program (temel çalıştırma)",
+    "runLead": "Yüklenen program haritalarındaki dersler bu çalıştırmada durur. Yeniden çözüm bunu üst çalıştırma alırsa yayımlanan tablo korunur.",
+    "sources": "Kaynak dosyalar"
+  },
+  "relax": {
+    "label": "Her ders sığmazsa",
+    "choice": {
+      "term": "Dönem ayarı",
+      "lock_first": "Önce kilitliler",
+      "most_classes_first": "Önce en çok ders"
+    },
+    "desc": {
+      "term": "Dönem için seçilen kural uygulanır; seçilmemişse önce kilitli satırlar korunur.",
+      "lock_first": "Önce kilitli satırlar, sonra koordinatör önceliği, sonra en çok ders yerleşir.",
+      "most_classes_first": "Önce en çok ders yerleşir, sonra koordinatör önceliği, sonra kilitli satırlar gelir."
+    },
+    "unknown": "Kayıtlı kural okunamıyor; bir seçim yapıp kaydedin.",
+    "short": {
+      "lock_first": "önce kilitli satırlar",
+      "most_classes_first": "önce en çok ders"
+    },
+    "source": {
+      "run": "bu çalıştırmada seçildi",
+      "term": "dönem ayarı",
+      "default": "varsayılan",
+      "invalid_setting": "dönem ayarı geçersizdi, varsayılan kullanıldı"
+    },
+    "used": "Sığmayan dersler: {policy} ({source})",
+    "term": {
+      "title": "Sığmayan dersler · {term}",
+      "lead": "Bu dönemde kendi seçimi olmayan her çözüm bu kuralla çalışır. Bir çalıştırma kendi kuralını “Yeniden çöz” penceresinde seçebilir.",
+      "save": "Dönem için kaydet",
+      "saved": "{term} için kaydedildi",
+      "savedNow": "Bu oturumda kaydedildi.",
+      "fromRun": "Son çözüm (#{id}) bu dönem ayarıyla çalıştı.",
+      "fromDefault": "Son çözüm (#{id}) dönem ayarı olmadan, varsayılanla çalıştı.",
+      "unknown": "Kayıtlı değer okunamıyor ve bu dönemde bunu gösteren bir çözüm yok."
+    }
+  },
+  "resolveRun": {
+    "open": "Koruyarak yeniden çöz",
+    "openBaseline": "Bu tabloyu koruyarak çöz",
+    "title": "Bu çalıştırmayı koruyarak yeniden çöz",
+    "titleBaseline": "İçe aktarılan programı koruyarak çöz",
+    "lead": "Yeni çözüm #{id} çalıştırmasını üst çalıştırma alır; dersler bir kural ya da çakışma gerektirmedikçe yerlerinde kalır.",
+    "leadBaseline": "Yeni çözüm temel çalıştırma #{id}'yi üst çalıştırma alır; dersler yayımlanan tablodaki yerlerinde kalır, yalnız kuralların ya da çakışmaların gerektirdiği değişir.",
+    "label": "Ad (isteğe bağlı)",
+    "labelPlaceholder": "#{id} üzerinden yeniden çözüm",
+    "start": "Çözümü başlat",
+    "started": "Çalıştırma #{id} başladı"
   }
 }

@@ -470,6 +470,8 @@ export const SyncStatus = z.object({
     url_templates: FeedTemplates,
   }),
   connectors: z.array(SyncConnector).default([]),
+  /** consent gates (2026-10-16): with sync on, links and connections need the person's calendar_sync consent */
+  consent: z.object({ purpose: z.string(), required: z.boolean(), granted: z.boolean() }).optional(),
 });
 export type SyncStatus = z.infer<typeof SyncStatus>;
 export const FeedTokenCreated = z.object({ id: z.number(), label: z.string().nullish(), token: z.string(), hint: z.string(), urls: FeedTemplates });

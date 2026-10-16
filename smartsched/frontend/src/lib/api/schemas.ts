@@ -286,6 +286,12 @@ export const RunParams = z.object({
   workers: z.number().default(8),
   stability: z.boolean().default(true),
   weights: z.record(z.string(), z.number()).default({}),
+  /** the run's own relaxation policy (`params.relaxation_policy`; unset = the term setting, else lock_first) */
+  relaxation_policy: z.enum(["lock_first", "most_classes_first"]).optional(),
+  /** "COUNCIL_BASELINE": the term's schedule-map baseline run written by an intake commit (app/council/baseline.py) */
+  source: z.string().optional(),
+  /** the files a baseline run was read from, each once by sha256 */
+  sources: z.array(z.object({ sha256: z.string().nullish(), file: z.string().nullish(), job: z.number().nullish() })).optional(),
 });
 export type RunParams = z.infer<typeof RunParams>;
 
@@ -326,6 +332,8 @@ export const RunCreate = z.object({
   params: RunParams.partial().optional(),
   prompt: z.string().optional(),
   parent_run_id: z.number().nullable().optional(),
+  /** the planner's name for the run (`ScheduleRun.label`) */
+  label: z.string().max(255).nullable().optional(),
 });
 export type RunCreate = z.infer<typeof RunCreate>;
 

@@ -92,11 +92,11 @@ function NoticeCard({ notice, needsAck }: { notice: { id: number; version: numbe
       </div>
       {open ? <Markdown source={notice.body_md} className="max-h-[50vh] overflow-y-auto rounded-lg bg-fill-3 p-3 type-callout text-label-1" /> : null}
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
           {open ? t("privacy.notice.hide") : t("privacy.notice.show")}
         </Button>
         {needsAck ? (
-          <Button size="sm" onClick={() => ack.mutate(notice.id, { onSuccess: () => toast.success(t("privacy.notice.acked")), onError: (e) => toast.error(errorText(wave1Error(e), locale)) })} {...busyProps(ack.isPending)} data-testid="privacy-ack">
+          <Button size="sm" className="pointer-coarse:min-h-11" onClick={() => ack.mutate(notice.id, { onSuccess: () => toast.success(t("privacy.notice.acked")), onError: (e) => toast.error(errorText(wave1Error(e), locale)) })} {...busyProps(ack.isPending)} data-testid="privacy-ack">
             <BusyLabel busy={ack.isPending} label={t("busy.saving")}>
               {t("privacy.notice.ack")}
             </BusyLabel>
@@ -285,7 +285,7 @@ function RequestsCard({ requests, dueDays }: { requests: Dsr[]; dueDays: number 
                   {r.status === "DONE" && r.kind !== "export" ? <p className="type-footnote text-label-2">{t("privacy.request.done", { date: when(r.handled_at) })}</p> : null}
                 </div>
                 {r.downloadable ? (
-                  <Button variant="outline" size="sm" className="self-start sm:self-auto" onClick={() => void download(r.id)} {...busyProps(downloading === r.id)} data-testid={`privacy-download-${r.id}`}>
+                  <Button variant="outline" size="sm" className="self-start sm:self-auto pointer-coarse:min-h-11" onClick={() => void download(r.id)} {...busyProps(downloading === r.id)} data-testid={`privacy-download-${r.id}`}>
                     <BusyLabel busy={downloading === r.id} label={t("busy.loading")} icon={<Download aria-hidden />}>
                       {t("privacy.request.download")}
                     </BusyLabel>
