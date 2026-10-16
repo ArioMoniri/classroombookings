@@ -1627,3 +1627,10 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - R1-M-12: the Studio switched the week
 - [ ] **Owner decision, R1-M-07 (KVKK):** the AI personal-data default is "included unless withdrawn". The orchestrator recommends `excluded` (silence ≠ consent for cross-border transfer). It is the admin setting from the consent-gates work. Waiting for the owner.
 - The remaining round-1 findings (phone targets, approval wording, Taleplerim layout, KVKK export completeness, focus loss, mixed language and the rest) go to the suggester and loop builders once the staff report is in.
+- **Staff round 1** (`round-1-staff.md`): 3 blockers, 17 major, 14 minor, 5 suggestions.
+  - Blockers:
+    - R1-S-01: a TIP-room move was treated as soft and published at 99. Sent to the integrity agent, which must also make publish refuse anything below 100.
+    - R1-S-02: the nursing rule crashes the pre-check. Sent to the integrity agent.
+    - R1-S-03: a .docx blocks intake with AI off. Goes to the suggester's intake lane.
+  - R1-S-04 (minimal re-solve unplaces 17 classes) and R1-S-06 (an ERROR run shows Yayınla) also went to the integrity agent.
+- The round-1 suggester is running: it dedupes the 117 findings into lane tickets (ROADMAP "Flow loop tickets — round 1" plus `rounds/round-1-tickets.json`). Next: one builder per lane, then round-2 re-test.
