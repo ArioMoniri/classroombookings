@@ -60,14 +60,14 @@ async def build_items(session: AsyncSession, job: CouncilJob) -> list[dict[str, 
     decided = await decisions(session, job.id)
     items: list[dict[str, Any]] = []
 
-    def add(item_id: str, kind: str, title: str, **extra: Any) -> None:
+    def add(item_id: str, kind: str, title: str, *, legacy_id: str | None = None, **extra: Any) -> None:
         items.append(
             {
                 "id": item_id,
                 "kind": kind,
                 "title": title,
                 "blocking": kind in BLOCKING,
-                "decision": decided.get(item_id),
+                "decision": decided.get(item_id) or (decided.get(legacy_id) if legacy_id else None),
                 **extra,
             }
         )
@@ -122,13 +122,16 @@ async def build_items(session: AsyncSession, job: CouncilJob) -> list[dict[str, 
                     )
     dataset = await storage.latest(session, job.id, "dataset")
     if dataset is not None:
+        from app.council.memory import legacy_merge_item_id, merge_item_id
+
         for m in dataset.payload.get("merges", []):
             add(
-                f"merge:{m['kind']}:{m['a']}|{m['b']}",
+                merge_item_id(m),  # opaque: the names stay inside `current` (planners only, T-R1-22)
                 "merge",
                 f"Same {m['kind']}? '{m['a']}' and '{m['b']}'",
                 confidence=m["score"],
                 current=m,
+                legacy_id=legacy_merge_item_id(m),
             )
     issues = await storage.latest(session, job.id, "issues")
     if issues is not None:

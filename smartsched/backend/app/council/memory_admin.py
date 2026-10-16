@@ -9,6 +9,10 @@ The rows hold hashes only; the description is rebuilt from the source job (its f
 headers). Headers, merge names and rule texts are file content: they are given to ``planning.edit`` only (like
 ``GET /council/jobs/{id}/review``); viewers see file names, kinds, fields and dates.
 
+A merge row keeps the pair's hash and kind, never the names (T-R1-22). A planner sees the two spellings of a person
+only while the source job still holds the pair *and* one of them is a live instructor's name (an accepted merge
+keeps the first): after masking or erasure renamed the people, the row reads "Birleştirme (öğretim elemanı)".
+
 Forgetting (``DELETE /council/memory/{id}``, ``DELETE /council/memory?signature=``) is a learning reset of scope
 ``intake`` (:mod:`app.services.learning`): the rows are hidden at once, ``POST /learning/resets/{id}/undo`` restores
 them for 30 days, the daily purge deletes them afterwards. One ``council.memory.forget`` audit event per forget.
@@ -24,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.council import memory, storage
 from app.council import text as tx
-from app.models import CouncilJob, LearnedObservation, LearningReset, User
+from app.models import CouncilJob, Instructor, LearnedObservation, LearningReset, User
 from app.models.base import utcnow
 from app.services.events import publish_event
 
@@ -39,6 +43,8 @@ GROUP_OF = {
     "intake_merge": "merge",
     "intake_rule": "rule",
 }
+#: the merge kinds in words (the reconciler merges spellings of people and room codes)
+MERGE_KIND = {"instructor": ("öğretim elemanı", "instructor"), "room": ("derslik", "room")}
 ACTIONS = {
     "accept": ("kabul edildi", "accepted"),
     "reject": ("reddedildi", "rejected"),
@@ -76,15 +82,25 @@ async def _job_info(session: AsyncSession, job: CouncilJob) -> dict[str, Any]:
     for g in (job.plan or {}).get("groups", []):
         fs = [int(x) for x in g.get("files") or []]
         files[memory._file_sig(sigs, fs)] = [names.get(x, str(x)) for x in fs]
-    return {"grids": grids, "headers": headers, "files": files, "names": names}
+    dataset = await storage.latest(session, job.id, "dataset")
+    merges = {memory._merge_key(m): m for m in (dataset.payload.get("merges", []) if dataset is not None else [])}
+    return {"grids": grids, "headers": headers, "files": files, "names": names, "merges": merges}
+
+
+async def _live_people(session: AsyncSession) -> set[str]:
+    """Folded names of the instructors as they are now (after masking or erasure, the old spellings are gone)."""
+    return {tx.fold(n) for n in (await session.execute(select(Instructor.full_name))).scalars() if n}
 
 
 def _col(attribute: str) -> int | None:
     return int(attribute[4:]) if attribute.startswith("col:") and attribute[4:].isdigit() else None
 
 
-def describe(r: LearnedObservation, info: dict[str, Any] | None, content: bool) -> dict[str, Any]:
-    """``{tr, en}`` sentence and the context (file, sheet, header, ...) of one memory row."""
+def describe(
+    r: LearnedObservation, info: dict[str, Any] | None, content: bool, people: set[str] | None = None
+) -> dict[str, Any]:
+    """``{tr, en}`` sentence and the context (file, sheet, header, ...) of one memory row. ``people``: the folded
+    live instructor names (a merge pair of people is named only while one of them is still among them)."""
     detail = r.detail or {}
     item = str(detail.get("item") or "")
     value = None if r.value == "-" else r.value
@@ -125,16 +141,21 @@ def describe(r: LearnedObservation, info: dict[str, Any] | None, content: bool) 
         tr, en = f"{on}dönem {r.value}", f"{on}term {r.value}"
     elif r.kind == "intake_merge":
         a_tr, a_en = ACTIONS.get(r.value, (r.value, r.value))
-        parts = item.split(":", 2)  # merge:<kind>:<a>|<b>
-        mkind = parts[1] if len(parts) == 3 else ""
+        # the row keeps the kind only (T-R1-22); a legacy row's item id is read for its kind, never for names
+        mkind = str(detail.get("merge_kind") or (item.split(":", 2)[1] if item.count(":") >= 2 else "") or "")
         ctx["merge_kind"] = mkind or None
-        pair = parts[2].split("|", 1) if len(parts) == 3 else []
-        if content and len(pair) == 2:
-            ctx.update(a=pair[0], b=pair[1])
-            tr = f"Birleştirme ({mkind}) '{pair[0]}' = '{pair[1]}': {a_tr}"
-            en = f"Merge ({mkind}) '{pair[0]}' = '{pair[1]}': {a_en}"
+        k_tr, k_en = MERGE_KIND.get(mkind, (mkind, mkind))
+        m = (info or {}).get("merges", {}).get(r.subject_key) if content else None
+        named = m is not None and (
+            mkind != "instructor"
+            or (people is not None and bool({tx.fold(m.get("a") or ""), tx.fold(m.get("b") or "")} & people))
+        )
+        if m is not None and named:
+            ctx.update(a=m["a"], b=m["b"])
+            tr = f"Birleştirme ({k_tr}) '{m['a']}' = '{m['b']}': {a_tr}"
+            en = f"Merge ({k_en}) '{m['a']}' = '{m['b']}': {a_en}"
         else:
-            tr, en = f"Birleştirme ({mkind}): {a_tr}", f"Merge ({mkind}): {a_en}"
+            tr, en = f"Birleştirme ({k_tr}): {a_tr}", f"Merge ({k_en}): {a_en}"
     elif r.kind == "intake_rule":
         a_tr, a_en = ACTIONS.get(r.value, (r.value, r.value))
         parts = item.split(":")  # rule:<file>:<n>
@@ -166,6 +187,9 @@ def _group_label(kind_group: str, rows: list[dict[str, Any]]) -> dict[str, str]:
         if ctx.get("a") and ctx.get("b"):  # file content: planners only (describe(content=True))
             pair = f"'{ctx['a']}' = '{ctx['b']}'"
             return {"tr": f"Birleştirme {pair}", "en": f"Merge {pair}"}
+        k_tr, k_en = MERGE_KIND.get(str(ctx.get("merge_kind") or ""), ("", ""))
+        if k_tr:
+            return {"tr": f"Birleştirme ({k_tr})", "en": f"Merge ({k_en})"}
         return {"tr": "Birleştirme kararı", "en": "Merge decision"}
     if ctx.get("file"):
         return {"tr": f"Kural kararı · {ctx['file']}", "en": f"Rule decision · {ctx['file']}"}
@@ -215,6 +239,7 @@ async def listing(
             latest[(r.kind, r.subject_key, r.attribute)] = r.id
     jobs: dict[int, dict[str, Any] | None] = {}
     users: dict[int, str | None] = {}
+    people = await _live_people(session) if content and any(r.kind == "intake_merge" for r in rows) else None
     items: list[dict[str, Any]] = []
     for r in rows:
         if r.source_id not in jobs:
@@ -223,7 +248,7 @@ async def listing(
         if r.actor_id is not None and r.actor_id not in users:
             u = await session.get(User, r.actor_id)
             users[r.actor_id] = (u.full_name or u.email or u.username) if u is not None else None
-        d = describe(r, jobs[r.source_id], content)
+        d = describe(r, jobs[r.source_id], content, people)
         items.append(
             {
                 "id": r.id,

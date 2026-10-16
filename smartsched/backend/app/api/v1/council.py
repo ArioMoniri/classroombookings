@@ -515,6 +515,10 @@ async def list_memory(
 ) -> dict[str, Any]:
     """What the intake remembers (app/council/memory_admin.py): rows with a TR / EN description and the groups,
     one per signature; ``effective`` marks the row the next matching upload is offered."""
+    from app.council import memory
+
+    if await memory.scrub_legacy(db):  # merge rows written before T-R1-22 held the two names in their item id
+        await db.commit()
     try:
         return await memory_admin.listing(
             db, signature=signature, kind=kind, job_id=job_id, content=access.can("planning.edit")

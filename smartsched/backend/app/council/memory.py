@@ -70,6 +70,19 @@ def _merge_key(m: dict[str, Any]) -> str:
     return _h("merge", m.get("kind"), tx.fold(m.get("a") or ""), tx.fold(m.get("b") or ""))
 
 
+def merge_item_id(m: dict[str, Any]) -> str:
+    """Opaque review item id of a merge proposal: ``merge:<kind>:<16 hex of the folded pair's hash>`` (T-R1-22).
+
+    The two spellings are names of people (or room codes): they travel only inside the item's ``current`` and only
+    to planners (``content=true``), never in an id that viewers, the audit log or the intake memory keep."""
+    return f"merge:{m.get('kind')}:{_merge_key(m)[:16]}"
+
+
+def legacy_merge_item_id(m: dict[str, Any]) -> str:
+    """The id of a merge before T-R1-22 (``merge:<kind>:<a>|<b>``): read only, for decisions stored back then."""
+    return f"merge:{m.get('kind')}:{m.get('a')}|{m.get('b')}"
+
+
 def _rule_key(item: dict[str, Any]) -> str:
     return _h(
         "rule", tx.fold(item.get("text") or (item.get("current") or {}).get("nl_text") or item.get("title") or "")
@@ -155,7 +168,12 @@ async def remember(
                     source_id=job.id,
                     actor_id=actor.id if actor is not None else None,
                     detail={
-                        "item": item_id,
+                        # a merge row keeps the pair's hash (subject_key) and its kind, never the item id or names
+                        **(
+                            {"merge_kind": item.get("current", {}).get("kind")}
+                            if kind == "intake_merge"
+                            else {"item": item_id}
+                        ),
                         "action": decision["action"],
                         "at": now.isoformat(timespec="minutes"),
                         **detail,
@@ -163,7 +181,37 @@ async def remember(
                 )
             )
             n += 1
+    await scrub_legacy(session)
     await session.flush()
+    return n
+
+
+async def scrub_legacy(session: AsyncSession) -> int:
+    """Drop the item id from merge rows written before T-R1-22 (it held the two names): keep only the kind.
+
+    Idempotent; flushes, the caller commits. Run by :func:`remember` and by the memory listing."""
+    rows = (
+        (
+            await session.execute(
+                select(LearnedObservation).where(
+                    LearnedObservation.subject_type == SUBJECT, LearnedObservation.kind == "intake_merge"
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    n = 0
+    for r in rows:
+        detail = dict(r.detail or {})
+        if "item" not in detail:
+            continue
+        parts = str(detail.pop("item") or "").split(":", 2)
+        detail.setdefault("merge_kind", parts[1] if len(parts) == 3 else None)
+        r.detail = detail
+        n += 1
+    if n:
+        await session.flush()
     return n
 
 
@@ -319,4 +367,16 @@ async def recall(session: AsyncSession, job: CouncilJob, items: list[dict[str, A
     return extra
 
 
-__all__ = ["KINDS", "SUBJECT", "attach_term", "facts", "grid_signature", "recall", "remember", "signatures"]
+__all__ = [
+    "KINDS",
+    "SUBJECT",
+    "attach_term",
+    "facts",
+    "grid_signature",
+    "legacy_merge_item_id",
+    "merge_item_id",
+    "recall",
+    "remember",
+    "scrub_legacy",
+    "signatures",
+]

@@ -40,6 +40,7 @@ from app.council import airows, critic, fastpath, formats, storage
 from app.council import text as tx
 from app.council.baseline import as_baseline_run, target_run
 from app.council.dryrun import ChangeRecorder, summarize
+from app.council.memory import legacy_merge_item_id, merge_item_id
 from app.council.reconcile import rid, room_key
 from app.council.review import build_items, decisions, effective_plan
 from app.importers.catalog import Catalog
@@ -602,7 +603,7 @@ async def commit(
     dataset_art = await storage.latest(session, job.id, "dataset")
     dataset = dataset_art.payload if dataset_art is not None else {}
     for m in dataset.get("merges", []):
-        md = decided.get(f"merge:{m['kind']}:{m['a']}|{m['b']}")
+        md = decided.get(merge_item_id(m)) or decided.get(legacy_merge_item_id(m))
         if not md or md.get("action") != "accept":
             continue
         if m["kind"] == "room":
