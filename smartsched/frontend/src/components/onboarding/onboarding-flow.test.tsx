@@ -29,6 +29,9 @@ function withDryRun(backend: ReturnType<typeof councilBackend>, policy: { intake
   };
 }
 
+// every test starts at a clean address: the flow writes ?job=<id> into it (T-R1-26)
+beforeEach(() => window.history.replaceState(null, "", "/onboarding"));
+
 function renderFlow() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -121,5 +124,27 @@ describe("OnboardingFlow with the AI policy off (T-R1-23)", () => {
     expect(drop.querySelectorAll('[data-method="ai"]')).toHaveLength(0);
     expect(drop.querySelectorAll('[data-method="off"]')).toHaveLength(2);
     expect(screen.getByTestId("onboarding-start")).toHaveTextContent("Başlat · 3 dosya");
+  });
+});
+
+describe("OnboardingFlow keeps the job in the address (T-R1-26)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("reopens ?job=<id> after a reload and lists the recent jobs otherwise", async () => {
+    const backend = councilBackend();
+    vi.stubGlobal("fetch", withDryRun(backend, { intake_enabled: true }));
+    window.history.replaceState(null, "", "/onboarding?job=1");
+    renderFlow();
+    await screen.findByTestId("onboarding-progress");
+    expect(backend.calls).toContain("GET /api/v1/council/jobs/1");
+    expect(screen.queryByTestId("onboarding-drop")).toBeNull();
+    // a new job: the address forgets the old one and the recent jobs are offered
+    await userEvent.setup().click(screen.getByRole("button", { name: "New onboarding" }));
+    expect(window.location.search).toBe("");
+    const recent = await screen.findByTestId("onboarding-recent");
+    expect(within(recent).getByRole("button", { name: "Open job 1" })).toBeInTheDocument();
   });
 });

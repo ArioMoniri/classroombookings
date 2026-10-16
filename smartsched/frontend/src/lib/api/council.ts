@@ -307,6 +307,7 @@ export const councilApi = {
     return request("/council/jobs", { method: "POST", formData: fd, schema: CouncilJob });
   },
   /** `lang`: the reader's language; the council's messages come back in Turkish for "tr" (T-R1-23) */
+  list: (limit = 5) => request("/council/jobs", { query: { limit }, schema: z.array(CouncilJobBrief), silent: true }),
   get: (id: number, lang?: string) => request(`/council/jobs/${id}`, { query: lang ? { lang } : undefined, schema: CouncilJob, silent: true }),
   review: (id: number, lang?: string) => request(`/council/jobs/${id}/review`, { query: lang ? { lang } : undefined, schema: ReviewOut }),
   decide: (id: number, decisions: DecisionIn[], lang?: string) =>
@@ -322,6 +323,10 @@ export const councilApi = {
   forget: (id: number) => request(`/council/memory/${id}`, { method: "DELETE", schema: MemoryForgetOut }),
   forgetSignature: (signature: string) => request("/council/memory", { method: "DELETE", query: { signature }, schema: MemoryForgetOut }),
 };
+
+/** One line of GET /council/jobs (newest first): the recent jobs a reload or a new tab reopens (T-R1-26). */
+export const CouncilJobBrief = z.object({ id: z.number(), status: z.enum(JOB_STATUSES), files: z.number(), ai_mode: z.string(), created_at: z.string() }).passthrough();
+export type CouncilJobBrief = z.infer<typeof CouncilJobBrief>;
 
 export const ACTIVE_JOB = new Set<CouncilJob["status"]>(["QUEUED", "RUNNING"]);
 

@@ -71,6 +71,10 @@ const tr = {
   severity: { error: "hata", warning: "uyarı", info: "bilgi" } as Record<string, string>,
   termKind: { REGULAR: "normal dönem", SUMMER: "yaz okulu", FINAL: "final", BUT: "bütünleme" } as Record<string, string>,
   baselineIntoNew: (term: string) => `Bu dosyalardaki program haritası ${term} dönemi için açılacak yeni temel çalıştırmaya (içe aktarılan program) yazılacak.`,
+  // T-R1-26: the job in the address and the recent jobs
+  recentJobs: "Son işler",
+  recentJob: (id: number, files: string, status: string, at: string) => `#${id} · ${files} dosya · ${status} · ${at}`,
+  openJob: (id: number) => `${id} numaralı işi aç`,
   // T-R1-24: commit confirm and its Turkish summary
   entity: { meeting_requests: "Talepler", exam_requests: "Sınav talepleri", sections: "Şubeler", courses: "Dersler", instructors: "Öğretim elemanları", section_instructors: "Şube–öğretim elemanı bağları", rooms: "Derslikler", buildings: "Binalar", constraints: "Kurallar", terms: "Dönemler", programs: "Programlar", timetable_weeks: "Haftalar", term_dates: "Dönem tarihleri", holidays: "Tatiller", schedule_runs: "Çalıştırmalar", assignments: "Program girişleri", blocks: "Kapalı saatler", room_groups: "Derslik grupları", room_tags: "Derslik etiketleri", term_schedules: "Ders saati çizelgeleri" } as Record<string, string>,
   entityOther: "Diğer kayıtlar",
@@ -151,6 +155,9 @@ const en: Copy = {
   severity: { error: "error", warning: "warning", info: "info" },
   termKind: { REGULAR: "regular term", SUMMER: "summer school", FINAL: "finals", BUT: "resits" },
   baselineIntoNew: (term: string) => `The schedule map of these files goes to a new baseline run (the imported schedule) for term ${term}.`,
+  recentJobs: "Recent jobs",
+  recentJob: (id: number, files: string, status: string, at: string) => `#${id} · ${files} files · ${status} · ${at}`,
+  openJob: (id: number) => `Open job ${id}`,
   entity: { meeting_requests: "Requests", exam_requests: "Exam requests", sections: "Sections", courses: "Courses", instructors: "Instructors", section_instructors: "Section–instructor links", rooms: "Rooms", buildings: "Buildings", constraints: "Rules", terms: "Terms", programs: "Programmes", timetable_weeks: "Weeks", term_dates: "Term dates", holidays: "Holidays", schedule_runs: "Runs", assignments: "Timetable entries", blocks: "Blocked times", room_groups: "Room groups", room_tags: "Room tags", term_schedules: "Period grids" },
   entityOther: "Other records",
   commitConfirmTitle: (term: string) => `Write into ${term}?`,

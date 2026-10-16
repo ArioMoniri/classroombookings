@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
@@ -22,9 +22,27 @@ import { councilKey, useCouncilJob } from "./use-council-job";
  * file and agent) -> review the low-confidence items -> commit into a term.
  */
 export function OnboardingFlow() {
-  const { t, locale } = useI18n();
+  const { t, n, locale } = useI18n();
   const qc = useQueryClient();
-  const [jobId, setJobId] = useState<number | null>(null);
+  const [jobId, setJobIdState] = useState<number | null>(null);
+  // the job lives in the address (?job=<id>): a reload or a shared link reopens it (T-R1-26). window.history, not
+  // the router: the page needs no Suspense boundary and the URL change re-renders nothing else
+  const setJobId = (id: number | null) => {
+    setJobIdState(id);
+    try {
+      const url = new URL(window.location.href);
+      if (id === null) url.searchParams.delete("job");
+      else url.searchParams.set("job", String(id));
+      window.history.replaceState(window.history.state, "", url);
+    } catch {
+      /* no history API (tests): state only */
+    }
+  };
+  useEffect(() => {
+    const id = Number(new URLSearchParams(window.location.search).get("job"));
+    if (Number.isInteger(id) && id > 0) setJobIdState(id);
+  }, []);
+  const recent = useQuery({ queryKey: ["council-jobs"], queryFn: () => councilApi.list(5), enabled: jobId === null });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CommitOut | null>(null);
@@ -120,6 +138,20 @@ export function OnboardingFlow() {
         </p>
       ) : null}
       {jobId === null ? <FileDrop busy={busy} onStart={start} /> : null}
+      {jobId === null && recent.data?.length ? (
+        <nav aria-label={c.recentJobs} data-testid="onboarding-recent">
+          <h2 className="mb-1 type-footnote font-semibold text-label-2">{c.recentJobs}</h2>
+          <ul className="flex flex-wrap gap-2">
+            {recent.data.map((j) => (
+              <li key={j.id}>
+                <Button size="sm" variant="outline" className="min-h-11 sm:min-h-8" aria-label={c.openJob(j.id)} onClick={() => { setResult(null); setJobId(j.id); }} data-testid={`onboarding-recent-${j.id}`}>
+                  {c.recentJob(j.id, n(j.files), c.status[j.status] ?? j.status, j.created_at.slice(0, 16).replace("T", " "))}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
       {/* what earlier reviews taught the intake (resettable): inspect and forget before the next upload */}
       {jobId === null ? <IntakeMemoryPanel compact /> : null}
       {job.data ? <CouncilProgress job={job.data} /> : null}
