@@ -1639,6 +1639,43 @@
       "goal": "You are the **consent UI** builder for SmartSched's Next.js frontend (/home/user/classroombookings/smartsched/frontend). Branch claude/gracious-cerf-w1598m (checked out; shared tree). Ledger id: consent-ui-2026-10-16. Read docs/ROADMAP.md \"Consent gates finished\". ## Contracts (backend landed) 1. **…",
       "ledger": "Consent UI follow-ups",
       "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-16 10:21"
+    },
+    {
+      "id": "a43bad5cf323fb9e0",
+      "description": "Persona tester: admin",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-16 10:21",
+      "scope": "",
+      "goal": "You are the **admin persona tester** (round 1 of the flow loop) for SmartSched. Repo /home/user/classroombookings, branch claude/gracious-cerf-w1598m (shared tree; you only write reports). Ledger id: flow-r1-admin-2026-10-16. ## Persona The institution's system administrator: sets up the system, use…",
+      "ledger": "Persona tester: admin",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ae9b3ffdef58b388b",
+      "description": "Persona tester: academician",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-16 10:21",
+      "scope": "",
+      "goal": "You are the **academician persona tester** (round 1 of the flow loop) for SmartSched. Repo /home/user/classroombookings, branch claude/gracious-cerf-w1598m (shared tree; you only write reports). Ledger id: flow-r1-academician-2026-10-16. ## Persona A Turkish university academician (öğretim üyesi) wh…",
+      "ledger": "Persona tester: academician",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a305971451e927fc6",
+      "description": "Persona tester: planner/staff",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-16 10:21",
+      "scope": "",
+      "goal": "You are the **planning-office staff persona tester** (round 1 of the flow loop) for SmartSched. Repo /home/user/classroombookings, branch claude/gracious-cerf-w1598m (shared tree; you only write reports). Ledger id: flow-r1-staff-2026-10-16. ## Persona The university planning-office coordinator (pla…",
+      "ledger": "Persona tester: planner/staff",
+      "resumed": false,
       "status": "running"
     }
   ]

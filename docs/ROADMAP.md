@@ -1599,3 +1599,14 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - [x] Commit `baseline: {mode: auto|skip|run, run_id?}`: skip writes no schedule map, run writes it into another finished COURSE run of the term (not the active one), with its own source keys; the Kaydet step has the control.
 - [ ] Owner question: may a schedule map be written into the term's active (published) run? Today that is refused (409); choose another run or the baseline run.
 - [ ] **Owner question (batch 4):** writing a schedule map into the term's active, published run is refused (409) today. Keep that, or allow it with an explicit confirmation?
+
+### Consent UI finished; flow loop round 1 started (2026-10-16)
+
+- Consent UI done:
+  - a shared calendar consent step in My bookings, the sync sheet and Profil › Takvim aktarımı, with the 409 link to Gizlilik
+  - the Admin › KVKK "Yapay zekâ ve kişisel veri" setting
+  - the Gizlilik AI state chip and reason
+  - erasure failures and calendars in the queue
+  - `e2e/consent.spec.ts` 5/5, twice
+- Every feature row in docs/features.yml is done except the README recordings, which are refreshed on the final UI.
+- **Flow loop round 1:** three persona testers (academician, admin, planning staff) run every flow at 1440 and 390 px on their own stacks. They write `docs/testing/flows/rounds/round-1-*.md` and `.jsonl`. Next come the suggester, then loop builders, then a re-test, until there are no blocker or major findings.
