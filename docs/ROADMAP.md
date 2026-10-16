@@ -1396,3 +1396,13 @@ request from the admin panel; wishes are never applied by themselves; 390 px; TR
   - the public kiosk page
   - Profil › Gizlilik and the first-login notice sheet
   - Admin › KVKK
+
+### Backend test isolation finished (2026-10-16)
+
+- Done:
+  - The fast suite is order-independent. On a frozen tree it ran forward, reversed and shuffled, 1 515 passed each time. The only failure was the then-stale language files, since regenerated.
+  - Fixes: autouse `_fresh_channel_registry` and `_fresh_worker_state` fixtures in `tests/conftest.py`.
+  - A real production bug: an import job's heartbeat ignored a cancel that arrived inside a beat and could block shutdown. Fixed in `app/workers/queue.py`, with a regression test.
+  - `SMARTSCHED_TEST_ORDER=reverse|shuffle:<seed>` re-runs the suite in another order.
+- [ ] The stabilisation gate must run on one fixed commit: the shared tree changes during a 30-minute suite.
+- [ ] Optional: the backend gate could use `-o tmp_path_retention_policy=failed` to save pod disk. The language-file check stays in the backend gate (`test_crbs_languages`), since the frontend gate image has no backend Python.

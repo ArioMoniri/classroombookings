@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `a43d327` (committed 2026-10-16 06:09 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `fbca170` (committed 2026-10-16 06:09 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-137 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 113 · stopped 7 · superseded 7.
+137 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 114 · stopped 7 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -154,7 +154,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Phase 19 UI follow-up` | frontend-engineer | 2026-10-16 01:20 |
 | `Design migration + mobile sweep` | frontend-engineer | 2026-10-16 01:35 |
 | `Backend test isolation fix` | backend-engineer | 2026-10-16 02:09 |
-| `RESUME backend test isolation` | backend-engineer | 2026-10-16 02:16 |
 | `Planning analytics + invigilation UI` | frontend-engineer | 2026-10-16 04:42 |
 | `E2E suite stabilisation` | frontend-engineer | 2026-10-16 05:24 |
 | `UI primitives` | frontend-engineer | 2026-10-16 05:24 |
@@ -225,7 +224,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **175 ticked · 296 open** checkboxes in 65 sections (62 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **175 ticked · 298 open** checkboxes in 66 sections (63 with open items).
 
 <details><summary>Per section</summary>
 
@@ -296,6 +295,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Backend follow-ups finished (2026-10-16) | 2 | 5 |
 | Planning analytics backend finished (2026-10-16); analytics UI launched | 0 | 5 |
 | Bookings wave-2 backend finished (2026-10-16); wave-2 + KVKK UI launched | 0 | 2 |
+| Backend test isolation finished (2026-10-16) | 0 | 2 |
 
 </details>
 

@@ -1389,7 +1389,8 @@
       "goal": "1. Run the full fast suite as the pod CI backend gate runs it (smartsched/deploy/pod-ci/gates/*.sh and the Makefile; it was `make test`: `-m 'not slow' --ignore=tests/solver`), with `--basetemp=$(mktemp -d -p /tmp/claude-0/-home-user-classroombookings/ac8cf3be-4f7b-53da-a7ff-63cf01e137b0/scratchpad)` and `-p no:cacheprovider`. Run it in the background and write output to a file so a restart doesn'…",
       "ledger": "RESUME backend test isolation",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-16 06:10"
     },
     {
       "id": "ae5cc5d35e4b5f213",
