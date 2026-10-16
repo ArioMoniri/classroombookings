@@ -19,7 +19,7 @@ from app.models import Assignment, Course, Instructor, MeetingRequest, Room, Sec
 from sqlalchemy import select
 
 from tests.crbs_env import env  # noqa: F401
-from tests.integrations_support import kvkk_sign_off
+from tests.integrations_support import calendar_consent, kvkk_sign_off
 
 
 @pytest.fixture(autouse=True)
@@ -74,6 +74,7 @@ async def _psy262(env):  # type: ignore[no-untyped-def]  # noqa: F811
 
 async def _feed(env, path: str) -> tuple[str, list[icalendar.Event]]:  # type: ignore[no-untyped-def]  # noqa: F811
     _, teacher = await env.user("akademisyen.takvim@uni.edu.tr")
+    await calendar_consent(env.client, teacher)
     tok = (await env.client.post("/api/v1/calendar/feeds/tokens", json={}, headers=teacher)).json()["token"]
     r = await env.client.get(f"/api/v1/calendar/feeds/{tok}/{path}")
     assert r.status_code == 200, r.text

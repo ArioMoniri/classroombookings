@@ -24,6 +24,24 @@ When it is off:
 * `GET /calendar/sync` reports `enabled: false` so the panel can show "Takvim eşitleme yönetici tarafından
   kapatıldı" / "Calendar sync was turned off by the administrator".
 
+**The person's consent (consent gates 2026-10-16).** While the switch is on (signed off), creating a feed link
+(`POST /calendar/feeds/tokens`, `POST /calendar/feeds/reset`, `POST /bookings/feed/token`) or starting a push
+connection (`POST /calendar/connectors/{provider}/connect`) needs the user's active `calendar_sync` consent
+(Profil › Gizlilik, `POST /me/consents/calendar_sync`). Without it the answer is **409** and nothing changes (a
+refused reset keeps the existing links):
+
+```json
+{"detail": {"code": "consent_required", "purpose": "calendar_sync",
+            "message": "This needs your consent \"Sync with my calendar (Google / Microsoft)\". You can give it under Profile › Privacy.",
+            "message_en": "…same…",
+            "message_tr": "Bunun için \"Takvimimle eşitleme (Google / Microsoft)\" rızanız gerekir. Rızanızı Profil › Gizlilik bölümünden verebilirsiniz.",
+            "label_tr": "Takvimimle eşitleme (Google / Microsoft)", "label_en": "Sync with my calendar (Google / Microsoft)",
+            "grant_path": "/profile#privacy", "grant_api": "POST /api/v1/me/consents/calendar_sync"}}
+```
+
+`GET /calendar/sync` carries `consent: {"purpose": "calendar_sync", "required": <switch on>, "granted": <bool>}` so
+the panel can ask first. Withdrawing the consent revokes every link and disconnects every push calendar.
+
 The bearer-authenticated downloads `GET /bookings/feed/user.ics` and `/bookings/feed/room/{id}.ics` (CRBS
 parity, a file the signed-in user downloads) are not affected.
 
@@ -76,7 +94,8 @@ their own switch (decision text). While off, endpoints can be registered and tes
 | `POST /calendar/feeds/reset` | | `201` `FeedTokenCreated`; **every** older link of the user stops working |
 | `GET /calendar/feeds/options` | | the feeds the user may subscribe to (below) |
 
-A user may hold at most 10 links (`409` above that). `FeedTokenCreated`:
+A user may hold at most 10 links (`409` above that). Creating or resetting needs the `calendar_sync` consent while
+the switch is on (`409` `consent_required`, §0). `FeedTokenCreated`:
 
 ```json
 {
@@ -156,7 +175,7 @@ never shipped; `configured` is `true` only when both the client id and the clien
 | Method & path | Body / query | Answer |
 |---|---|---|
 | `GET /calendar/connectors` | | the `connectors` array of `GET /calendar/sync` |
-| `POST /calendar/connectors/{provider}/connect` | `{"return_path": "/profile/calendar"}` (optional, must start with `/`) | `200 {"authorize_url": "https://accounts.google.com/o/oauth2/v2/auth?…"}`; `404` unknown provider; `409` not configured; `403` KVKK switch off |
+| `POST /calendar/connectors/{provider}/connect` | `{"return_path": "/profile/calendar"}` (optional, must start with `/`) | `200 {"authorize_url": "https://accounts.google.com/o/oauth2/v2/auth?…"}`; `404` unknown provider; `409` `consent_required` (no `calendar_sync` consent, §0), then `409` not configured; `403` KVKK switch off |
 | `GET /calendar/connectors/{provider}/callback` | `?code=&state=` (or `?error=`) — called by the provider, no JWT | `302` to the panel: `{public_url}{return_path}?calendar=connected&provider=google` or `?calendar=error&provider=google&reason=<code>` |
 | `GET /calendar/connectors/{provider}/calendars` | | `200 [{"id": "primary", "name": "Ayşe Yılmaz", "primary": true, "can_write": true}]` |
 | `PUT /calendar/connectors/{provider}` | `{"calendar_id": "…", "calendar_name": "Dersler"}` (name optional, shown in the panel) | `200` connector; queues a full resync into that calendar (events move out of the previous one) |

@@ -105,7 +105,11 @@ async def test_push_connect_needs_the_consent_and_starts_nothing_without_it(env,
     fake = FakeGoogle()
     monkeypatch.setattr(calendar_connectors, "http_client", client_factory(fake))
     await kvkk_sign_off(env)
-    body = {"google_client_id": "google-client-id-uni", "google_client_secret": "google-secret-uni", "public_url": PANEL}
+    body = {
+        "google_client_id": "google-client-id-uni",
+        "google_client_secret": "google-secret-uni",
+        "public_url": PANEL,
+    }
     assert (await env.client.put("/api/v1/calendar/admin/settings", json=body, headers=env.admin)).status_code == 200
     uid, gokce = await env.user("gokce.sahin@uni.edu.tr", full_name="Gökçe Şahin")
     for provider in ("google", "microsoft"):
@@ -117,7 +121,9 @@ async def test_push_connect_needs_the_consent_and_starts_nothing_without_it(env,
         assert list((await s.execute(select(OAuthState).where(OAuthState.user_id == uid))).scalars()) == []
     assert fake.requests == []
     assert (await env.client.post("/api/v1/me/consents/calendar_sync", headers=gokce)).status_code == 200
-    r = await env.client.post("/api/v1/calendar/connectors/google/connect", json={"return_path": "/profile"}, headers=gokce)
+    r = await env.client.post(
+        "/api/v1/calendar/connectors/google/connect", json={"return_path": "/profile"}, headers=gokce
+    )
     assert r.status_code == 200, r.text
     assert r.json()["authorize_url"].startswith("https://accounts.google.com/")
 
@@ -170,13 +176,19 @@ async def _google_connected(env, monkeypatch, email: str, name: str):  # type: i
     fake = FakeGoogle()
     monkeypatch.setattr(calendar_connectors, "http_client", client_factory(fake))
     await kvkk_sign_off(env)
-    body = {"google_client_id": "google-client-id-uni", "google_client_secret": "google-secret-uni", "public_url": PANEL}
+    body = {
+        "google_client_id": "google-client-id-uni",
+        "google_client_secret": "google-secret-uni",
+        "public_url": PANEL,
+    }
     assert (await env.client.put("/api/v1/calendar/admin/settings", json=body, headers=env.admin)).status_code == 200
     uid, who = await env.user(email, full_name=name)
     assert (await env.client.post("/api/v1/me/consents/calendar_sync", headers=who)).status_code == 200
     r = await env.book(who, "A101", TODAY, "P1")
     assert r.status_code in (201, 202), r.text
-    r = await env.client.post("/api/v1/calendar/connectors/google/connect", json={"return_path": "/profile"}, headers=who)
+    r = await env.client.post(
+        "/api/v1/calendar/connectors/google/connect", json={"return_path": "/profile"}, headers=who
+    )
     assert r.status_code == 200, r.text
     q = {k: v[0] for k, v in parse_qs(urlsplit(r.json()["authorize_url"]).query).items()}
     fake.codes["4/0AeanS0erase-code"] = q["code_challenge"]
@@ -190,7 +202,9 @@ async def _google_connected(env, monkeypatch, email: str, name: str):  # type: i
 
 
 async def _erase(env, who: dict) -> dict:  # type: ignore[type-arg]  # noqa: F811
-    r = await env.client.post("/api/v1/me/data-requests", json={"kind": "erase", "note": "Kurumdan ayrıldım"}, headers=who)
+    r = await env.client.post(
+        "/api/v1/me/data-requests", json={"kind": "erase", "note": "Kurumdan ayrıldım"}, headers=who
+    )
     assert r.status_code == 201, r.text
     r = await env.client.post(f"/api/v1/admin/dsr/{r.json()['id']}/complete", json={"note": "Tamam"}, headers=env.admin)
     assert r.status_code == 200, r.text
@@ -239,9 +253,7 @@ async def test_provider_failures_are_recorded_and_never_block_the_erasure(env, m
         ("POST", "oauth2.googleapis.com/revoke", httpx.Response(503, json={"error": "temporarily_unavailable"})),
     ]
     async with dbmod.get_session_factory()() as s:
-        s.add(
-            CalendarConnection(user_id=uid, provider="microsoft", access_token_enc="gAAAAAbozuk-" + "rotated-key")
-        )
+        s.add(CalendarConnection(user_id=uid, provider="microsoft", access_token_enc="gAAAAAbozuk-" + "rotated-key"))
         await s.commit()
     result = await _erase(env, who)
     by = {x["provider"]: x for x in result["calendar"]}
@@ -327,7 +339,9 @@ async def test_ai_personal_default_excluded_means_not_granted_is_excluded(env): 
         ["included", "excluded"],
     )
     assert d["message_tr"] and d["message_tr"] != d["message_en"]
-    assert (await env.client.get("/api/v1/settings", headers=env.admin)).json()["kvkk.ai_personal_default"] == "included"
+    assert (await env.client.get("/api/v1/settings", headers=env.admin)).json()[
+        "kvkk.ai_personal_default"
+    ] == "included"
     # Turkish words, capitals and NBSP read as the setting
     r = await put(" HARİÇ ")
     assert r.status_code == 200, r.text
@@ -342,7 +356,9 @@ async def test_ai_personal_default_excluded_means_not_granted_is_excluded(env): 
     assert (await _privacy(env, ismail))["ai_excluded"] is False
     # the change is in the audit log (settings rows are tracked)
     async with dbmod.get_session_factory()() as s:
-        rows = list((await s.execute(select(AuditEvent).where(AuditEvent.entity_id == "kvkk.ai_personal_default"))).scalars())
+        rows = list(
+            (await s.execute(select(AuditEvent).where(AuditEvent.entity_id == "kvkk.ai_personal_default"))).scalars()
+        )
         assert rows and rows[-1].after and "excluded" in str(rows[-1].after)
     # back to the default
     r = await put("Dahil")

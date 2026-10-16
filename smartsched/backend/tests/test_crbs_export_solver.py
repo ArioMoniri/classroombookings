@@ -14,7 +14,7 @@ from app.services.solver_bridge import build_solver_input
 from app.solver import model as sm
 
 from tests.crbs_env import env  # noqa: F401
-from tests.integrations_support import kvkk_sign_off
+from tests.integrations_support import calendar_consent, kvkk_sign_off
 
 
 @pytest.fixture(autouse=True)
@@ -68,7 +68,8 @@ async def test_ics_feeds(env):  # noqa: F811
     assert "SUMMARY:A 101 – P1" in unfolded and "LOCATION:A 101" in unfolded
     assert "Şube toplantısı – İç Hastalıkları\\; ölçme\\, değerlendirme" in unfolded  # RFC 5545 escaping
     assert all(len(line.encode()) <= 75 for line in text.split("\r\n"))  # folded
-    # calendar apps cannot send a bearer header: token links
+    # calendar apps cannot send a bearer header: token links (the calendar_sync consent first, sign-off on)
+    await calendar_consent(env.client, teacher)
     tok = (await env.client.post("/api/v1/bookings/feed/token", headers=teacher)).json()
     feed = await env.client.get(tok["user_feed"])
     assert feed.status_code == 200 and "BEGIN:VEVENT" in feed.text

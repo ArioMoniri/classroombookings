@@ -341,3 +341,10 @@ async def kvkk_sign_off(env: Any) -> None:
     # switching it on schedules a drain on this (fixture) event loop; let it finish so a test starts with no task
     await worker.wait_idle()
     await worker.shutdown()
+
+
+async def calendar_consent(client: Any, headers: dict[str, str]) -> None:
+    """The person's own ``calendar_sync`` consent (Profil › Gizlilik): with the sign-off on, a feed link or a push
+    connection needs it (consent gates 2026-10-16). Granting twice is harmless."""
+    r = await client.post("/api/v1/me/consents/calendar_sync", headers=headers)
+    assert r.status_code == 200, r.text

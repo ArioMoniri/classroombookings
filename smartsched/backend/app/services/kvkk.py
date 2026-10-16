@@ -695,9 +695,7 @@ GRANT_PATH = "/profile#privacy"
 
 async def has_consent(session: AsyncSession, user_id: int, purpose: str) -> bool:
     """``user_id`` holds an active (granted, not withdrawn) consent for ``purpose``."""
-    q = select(Consent.id).where(
-        Consent.user_id == user_id, Consent.purpose == purpose, Consent.withdrawn_at.is_(None)
-    )
+    q = select(Consent.id).where(Consent.user_id == user_id, Consent.purpose == purpose, Consent.withdrawn_at.is_(None))
     return (await session.execute(q.limit(1))).first() is not None
 
 

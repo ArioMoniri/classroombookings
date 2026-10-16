@@ -20,7 +20,7 @@ import icalendar
 import pytest
 
 from tests.crbs_env import env  # noqa: F401
-from tests.integrations_support import kvkk_sign_off
+from tests.integrations_support import calendar_consent, kvkk_sign_off
 
 
 @pytest.fixture(autouse=True)
@@ -60,6 +60,7 @@ async def _setup(env):  # type: ignore[no-untyped-def]  # noqa: F811
 
 
 async def _vevents(env, headers):  # type: ignore[no-untyped-def]  # noqa: F811
+    await calendar_consent(env.client, headers)
     tok = (await env.client.post("/api/v1/calendar/feeds/tokens", json={}, headers=headers)).json()["token"]
     r = await env.client.get(f"/api/v1/calendar/feeds/{tok}/mine.ics")
     assert r.status_code == 200, r.text

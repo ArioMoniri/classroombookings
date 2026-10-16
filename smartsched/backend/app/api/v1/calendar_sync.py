@@ -16,10 +16,9 @@ from app.core import throttle
 from app.importers import normalize as n
 from app.models import CalendarConnection, CalendarSyncJob, User
 from app.models.base import utcnow
-from app.services import audit
+from app.services import audit, kvkk
 from app.services import calendar_connectors as conn_svc
 from app.services import calendar_feeds as feeds
-from app.services import kvkk
 from app.services.bookings_perms import load_access
 from app.services.bookings_settings import get_group, set_group
 
