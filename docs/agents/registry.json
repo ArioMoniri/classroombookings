@@ -2121,6 +2121,14 @@
       "ledger": "E2E gate run on HEAD",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a96d95dcbe37f099a",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 02:10",
+      "left_off": "continue with the suggester and round 2 builders when reports are in"
     }
   ]
 }
