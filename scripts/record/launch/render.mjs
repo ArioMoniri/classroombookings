@@ -367,6 +367,7 @@ async function renderChunk(ctx, c) {
   const ff = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "image2pipe", "-framerate", String(FPS), "-c:v", "png", "-i", "-",
     "-c:v", "libx264rgb", "-preset", "ultrafast", "-qp", "0", "-pix_fmt", "rgb24", tmp], { stdio: ["pipe", "inherit", "inherit"] });
   const closed = new Promise((ok, fail) => ff.on("close", (code) => (code === 0 ? ok() : fail(new Error(`ffmpeg chunk ${c.i} exited ${code}`)))));
+  closed.catch(() => undefined); // a chunk abandoned below kills its ffmpeg: that rejection is expected
   try {
     for (let f = c.a; f < c.b; f++) {
       const png = await shoot(ctx, (f / FPS) * 1000);
@@ -381,7 +382,6 @@ async function renderChunk(ctx, c) {
     ff.stdin.destroy();
     ff.kill("SIGKILL");
     rmSync(tmp, { force: true });
-    done -= 0;
     throw e;
   }
   ff.stdin.end();

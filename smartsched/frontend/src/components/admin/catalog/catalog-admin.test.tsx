@@ -14,10 +14,11 @@ const tr = (k: Parameters<typeof translate>[1], v?: Record<string, string | numb
 
 let perms = ["planning.view", "planning.edit"];
 let calls: { method: string; url: string; body?: unknown }[] = [];
-let instructors = [
+const INSTRUCTORS = [
   { id: 1, full_name: "Ayşe Yılmaz", canonical_name: "ayse yilmaz", title: "Dr. Öğr. Üyesi", email: null },
-  { id: 2, full_name: "Mehmet Demir", canonical_name: "mehmet demir", title: null, email: "m.demir@uni.edu.tr" },
+  { id: 2, full_name: "Mehmet Demir", canonical_name: "mehmet demir", title: null as string | null, email: "m.demir@uni.edu.tr" as string | null },
 ];
+let instructors = INSTRUCTORS;
 const usage: Record<number, unknown> = {
   1: { entity: "instructor", id: 1, uses: { sections: 3 }, blocked: true, action: "delete", last_change: { actor: "Yönetici Ayşe", at: "2026-10-17T19:30:00+00:00", action: "instructor.update" } },
   2: { entity: "instructor", id: 2, uses: {}, blocked: false, action: "delete", last_change: null },
@@ -27,6 +28,7 @@ const sections = [{ id: 50, term_id: 7, course_id: 9, program_id: null, label: "
 
 function mockApi() {
   calls = [];
+  instructors = INSTRUCTORS.map((i) => ({ ...i }));
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {

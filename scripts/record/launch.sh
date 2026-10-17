@@ -129,7 +129,7 @@ do_clips() {
     [[ -f "$CT/$name.take.json" ]] || continue
     local fmt=clip take="$journey"; [[ "$device" == phone ]] && fmt=phone-clip take="$journey-phone"
     if [[ ! -f "$CL/$take.mp4" ]]; then
-      [[ -f "$CT/$take.full.mkv" ]] || $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --out "$CT/$take.full.mkv" </dev/null
+      [[ -f "$CT/$take.full.mkv" ]] || $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --out "$CT/$take.full.mkv" </dev/null || { log "render of $take failed"; continue; }
       local vf="scale=1600:960:flags=lanczos"; [[ "$device" == phone ]] && vf="scale=720:1280:flags=lanczos"
       h264 "$CT/$take.full.mkv" "$CL/$take.mp4" 12000000 "$vf" 60
       $N ffmpeg -nostdin -hide_banner -loglevel error -y -sseof -2.5 -i "$CT/$take.full.mkv" -frames:v 1 -vf "scale=1200:-2:flags=lanczos" "$CL/$take-poster.png"
@@ -137,7 +137,7 @@ do_clips() {
     local src="$CT/$take.full.mkv"
     if [[ "$clip" != - ]]; then
       src="$CT/$id.clip.mkv"
-      [[ -f "$src" ]] || $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --clip "$clip" --out "$src" </dev/null
+      [[ -f "$src" ]] || $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --clip "$clip" --out "$src" </dev/null || { log "render of clip $id failed"; continue; }
     fi
     local w=1280 q fps=30; [[ "$device" == phone ]] && w=540
     for q in 82 74 66 58 50; do

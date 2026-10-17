@@ -44,6 +44,16 @@ async def open_feature(ctx: Ctx, args: OpenFeatureArgs) -> s.CardBase:
     return cards.nav(entry, permitted_names(ctx.access))
 
 
+#: data hit kinds as people read them (no raw keys in the UI)
+KIND_LABEL = {
+    "room": ("Salon", "Room"),
+    "course": ("Ders", "Course"),
+    "instructor": ("Öğretim elemanı", "Instructor"),
+    "program": ("Program", "Programme"),
+    "section": ("Şube", "Section"),
+}
+
+
 class SearchSiteArgs(Args):
     q: Annotated[str, Field(max_length=200, description="what to look for, in the user's words")] = ""
 
@@ -87,7 +97,7 @@ async def search_site(ctx: Ctx, args: SearchSiteArgs) -> s.CardBase:
             rows.append(
                 s.Row(
                     id=f"{d['kind']}:{d['id']}",
-                    cells={"title": d["label"], "where": s.Txt(**sub) if sub else cards.txt(d["kind"])},
+                    cells={"title": d["label"], "where": s.Txt(**sub) if sub else cards.txt(*KIND_LABEL[d["kind"]])},
                 )
             )
     return s.ListCard(

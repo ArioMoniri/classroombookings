@@ -1114,8 +1114,9 @@ async def disconnect(
         "events_failed": 0,
         "revoke": "none",
         "errors": [],
-        "calendar_deleted": None if owned is None else False,
     }
+    if owned is not None:  # the outcome keeps its shape for legacy connections (KVKK erasure records it)
+        out["calendar_deleted"] = False
     token = plain.get("refresh") or plain.get("access")
 
     async def cleanup(res: dict[str, Any], items: list[tuple[str, str]]) -> None:

@@ -344,12 +344,11 @@ async def transcribe(
             except (ProviderError, TimeoutError) as exc:
                 text = "the speech provider did not answer in time" if isinstance(exc, TimeoutError) else str(exc)
                 await meter.record(
-                    **base,
+                    **{**base, "detail": f"target={target}; {text}"[:255]},
                     provider=att.provider,
                     model=att.model,
                     outcome="provider_error",
                     reason_code="provider_error",
-                    detail=text[:255],
                     latency_ms=elapsed(),
                 )
                 log.info("voice provider %s failed (%s)", att.provider, type(exc).__name__)

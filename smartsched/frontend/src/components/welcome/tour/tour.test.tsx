@@ -77,7 +77,7 @@ describe("TourRunner (react-joyride adapter)", () => {
     expect(card).toHaveAttribute("role", "dialog");
     expect(card).toHaveAttribute("aria-modal", "true");
     expect(screen.getByTestId("tour-live")).toHaveTextContent("Adım 1 / 3: Hızlı rezervasyon");
-    expect(screen.getByTestId("tour-ring")).toBeInTheDocument();
+    expect(await screen.findByTestId("tour-ring")).toBeInTheDocument();
     expect(api.events).toContainEqual({ guide_key: "tour", event: "started" });
 
     fireEvent.click(screen.getByTestId("tour-next"));
@@ -105,8 +105,8 @@ describe("TourRunner (react-joyride adapter)", () => {
     expect(useWelcomeStore.getState().tour).toBeNull();
     rerender(<></>);
     expect(document.documentElement.hasAttribute(TOUR_RUNNING_ATTR)).toBe(false);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByText("Rezervasyonlarım")));
     void target;
-    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
   }, 15_000);
 
   it("Tab stays inside the card; ← / → move between steps", async () => {

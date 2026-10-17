@@ -32,7 +32,7 @@ export function tourAnchorFor(href: string): string | undefined {
   return NAV_ANCHORS[href.split(/[?#]/)[0] ?? href];
 }
 
-function visible(el: HTMLElement): boolean {
+export function visible(el: HTMLElement): boolean {
   if (!el.isConnected) return false;
   const r = el.getBoundingClientRect();
   if (r.width === 0 && r.height === 0) return false;
