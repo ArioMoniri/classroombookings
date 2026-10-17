@@ -811,7 +811,7 @@ async def check_scope(session: AsyncSession, access: Access, kind: str, scope_id
 
 
 async def active_consent_id(session: AsyncSession, user_id: int) -> int | None:
-    from app.models import Consent
+    from app.models.kvkk import Consent
 
     q = (
         select(Consent.id)
@@ -970,7 +970,6 @@ async def export_options(session: AsyncSession, access: Access) -> dict[str, Any
     own = access.user.department_id if access.user.department_id in {d.id for d in deps} else None
     taught = sorted(await cc.taught_program_ids(session, linked) & {d.id for d in deps})
     default_dep = own or (taught[0] if taught else (deps[0].id if deps and not everything else None))
-    switches = await scope_switches(session)
     scopes: list[dict[str, Any]] = []
     for kind in ("my_classes", "department_classes", "my_bookings"):
         tr, en = cc.SCOPE_LABELS[kind]

@@ -47,10 +47,13 @@ export default {
       await rec.click(view.getByTestId(`fr-feature-${this.pc.id}`), { after: 300 });
     }, { clip: "find-room", zoom: false });
     await rec.step(tr(ctx, "Free rooms that fit, ranked, each with its reason", "Sığan boş derslikler, sıralı ve nedenleriyle"), async () => {
-      await rec.click(view.getByTestId("fr-search"));
-      await view.getByTestId("fr-summary").waitFor({ timeout: 30_000 });
-      await view.getByTestId("fr-results").locator("li").first().waitFor({ timeout: 30_000 });
-      await rec.frame(view.getByTestId("fr-results"), { dwell: 1000 });
+      // the redesigned page searches as you type: the Search button and the summary line are optional
+      const search = view.getByTestId("fr-search");
+      if (await search.isVisible().catch(() => false)) await rec.click(search);
+      const results = view.locator('[data-testid="fr-results"], [data-testid^="fr-reserve-"]').first();
+      await results.waitFor({ timeout: 30_000 });
+      const list = view.getByTestId("fr-results");
+      await rec.frame((await list.isVisible().catch(() => false)) ? list : view.locator('[data-testid^="fr-reserve-"]').first(), { dwell: 1000 });
     }, { clip: "find-room", zoom: false, poster: true });
     await rec.step(tr(ctx, "Reserve straight from the list", "Doğrudan listeden rezerve edin"), async () => {
       const btn = view.locator('[data-testid^="fr-reserve-"]').first();

@@ -39,6 +39,7 @@ from app.ai.providers.base import (
     tool_result_text,
 )
 from app.ai.providers.openai_compat import _status_error
+from app.ai.providers.url_guard import ensure_safe
 
 log = logging.getLogger(__name__)
 
@@ -72,6 +73,8 @@ class GeminiAdapter(ProviderAdapter):
 
     async def _request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         headers = {"x-goog-api-key": self._key, "Content-Type": "application/json"}
+        if self._transport is None:  # a real socket: SSRF guard after DNS resolution (docs/SECURITY.md R12)
+            await ensure_safe(self.base_url, allow_local=False)
         async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as http:
             resp = await http.request(method, f"{self.base_url}{path}", headers=headers, json=payload)
         if resp.status_code >= 400:

@@ -2800,8 +2800,8 @@
       "ledger": "CAL-F: calendar export UI",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 22:26",
-      "left_off": "Still waiting for CAL-B's API contract. The UI, unit tests and e2e draft are in place, and the watcher will re-invoke me once API.md exists."
+      "finished_at": "2026-10-17 22:31",
+      "left_off": "The second watcher (20 minutes) is still running, so I'm waiting for API.md."
     },
     {
       "id": "a188be943a3fea75a",

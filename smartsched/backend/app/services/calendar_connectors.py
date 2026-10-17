@@ -979,3 +979,46 @@ async def connectors_out(session: AsyncSession, user: User) -> list[dict[str, An
             )
         out.append(item)
     return out
+
+
+#: Google scopes broader than SmartSched needs (every calendar of the account): flagged, never forced to reconnect
+BROAD_GOOGLE_SCOPES = ("https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/calendar ")
+
+
+def least_privilege(conn: CalendarConnection) -> bool:
+    """Owner decision 2026-10-17 (6): a Google grant on every calendar (``calendar.events``) is flagged "Daha az
+    izinle yeniden bağlan"; Microsoft's ``Calendars.ReadWrite`` is already the least Graph offers."""
+    if conn.provider != "google":
+        return True
+    granted = f"{conn.scopes or ''} "
+    return not any(s in granted for s in BROAD_GOOGLE_SCOPES)
+
+
+async def push_out(session: AsyncSession, user: User) -> list[dict[str, Any]]:
+    """The person's push connections for ``GET /calendar/subscriptions`` (CAL-06/07; ``connectors_out`` keeps its
+    shape for W3-HUB)."""
+    out: list[dict[str, Any]] = []
+    for p in PROVIDERS.values():
+        conn = await get_connection(session, user.id, p.name)
+        if conn is None:
+            continue
+        lean = least_privilege(conn)
+        out.append(
+            {
+                "channel": f"push:{p.name}",
+                "provider": p.name,
+                "label": p.label,
+                "status": conn.status,
+                "export_scopes": list(conn.export_scopes or ["my_bookings"]),
+                "owned_calendar": bool(conn.owned_calendar),
+                "calendar_name": conn.calendar_name,
+                "account_email": conn.account_email,
+                "account_verified": conn.account_verified,
+                "last_synced_at": conn.last_synced_at.isoformat() if conn.last_synced_at else None,
+                "last_reconciled_at": conn.last_reconciled_at.isoformat() if conn.last_reconciled_at else None,
+                "least_privilege": lean,
+                "reconnect_tr": None if lean else "Daha az izinle yeniden bağlan",
+                "reconnect_en": None if lean else "Reconnect with fewer permissions",
+            }
+        )
+    return out
