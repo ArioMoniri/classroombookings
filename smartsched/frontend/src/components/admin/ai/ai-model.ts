@@ -246,7 +246,7 @@ export function isSpeechModel(m: Pick<SyncedModel, "id" | "modalities">, kind: S
 /** Whether a provider says it can do `kind` (providers from a backend without capabilities: judged by models). */
 export function providerCan(p: Pick<Provider, "capabilities" | "models">, kind: SpeechKind = "stt"): boolean {
   if (p.capabilities?.length) return p.capabilities.includes(kind);
-  return p.models.some((m) => isSpeechModel(m, kind));
+  return (p.models ?? []).some((m) => isSpeechModel(m, kind));
 }
 
 /** The providers a speech route may use, each with only its speech-capable models. */

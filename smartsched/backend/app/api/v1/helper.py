@@ -1,0 +1,125 @@
+"""The helper ("Yardımcı") API: search, the card contract, the action cards, confirm / undo and memory.
+
+* ``GET  /helper/search``                  pages, "Nerede?" answers and data hits; no AI, no metering (HB-02)
+* ``GET  /helper/schema``                  ``helper.card.v1`` JSON Schema + the action argument schemas (HB-07)
+* ``GET  /helper/status``                  what the status chip shows (helper.md A6)
+* ``GET  /helper/actions``                 the actions the caller may run (shortcuts, "Burada yap")
+* ``POST /helper/actions/{name}/card``     a card for an action with partial args, **no model call** (A4): a read
+  runs; a write is previewed and answers ``confirm`` (all args resolved, A1), ``form`` or ``choice`` (HB-05)
+* ``POST /helper/actions/confirm`` / ``/undo``                                                     (HB-05)
+* ``GET / POST / DELETE /helper/notes``, ``PUT /helper/memory``                                    (HB-09)
+
+Everything runs as the signed-in person (``CurrentAccess``), through the same services as the pages.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.ai.helper import cards
+from app.ai.helper import schema as cs
+from app.ai.helper.actions import registry as reg
+from app.ai.helper.search import search as run_search
+from app.api.deps import DB, CurrentAccess
+
+router = APIRouter(prefix="/helper", tags=["helper"])
+
+
+def refused(status: int, code: str, tr: str, en: str, **data: Any) -> HTTPException:
+    """The project's error shape (``code``, ``message`` = English, ``message_tr``, ``message_en``) plus the card the
+    helper shows for it."""
+    kind = "limit" if status == 429 else ("refusal" if status in (403, 404) else "error")
+    card = cards.dump(cards.status(kind, code if code.replace("_", "").isalpha() else "error", tr, en))
+    return HTTPException(
+        status, {"code": code, "message": en, "message_en": en, "message_tr": tr, "card": card, **data}
+    )
+
+
+async def gate(a: reg.Action, db: DB, access: CurrentAccess) -> None:
+    """The REST twin's bookings gate (maintenance mode), so the helper is never a way around it."""
+    if a.gate is None:
+        return
+    from app.api.v1 import bookings as bookings_api
+
+    if a.gate == "maintenance":
+        await bookings_api.maintenance_gate(access, db)
+    else:
+        await bookings_api.list_gate(access, db)
+
+
+def _action_out(a: reg.Action) -> dict[str, Any]:
+    return {
+        "name": a.name,
+        "kind": a.kind,
+        "risk": a.risk,
+        "card": a.card,
+        "summary": {"tr": a.summary_tr, "en": a.summary_en},
+    }
+
+
+@router.get("/search")
+async def search(
+    db: DB,
+    access: CurrentAccess,
+    q: str = Query("", max_length=200),
+    limit: int = Query(6, ge=1, le=6),
+    term_id: int | None = None,
+) -> dict[str, Any]:
+    return await run_search(
+        db, access, q, limit=limit, term_id=term_id, allowed_actions=reg.permitted_names(access)
+    )
+
+
+@router.get("/schema")
+async def schema(_: CurrentAccess) -> dict[str, Any]:
+    return {
+        "card": cs.card_json_schema(),
+        "actions": {a.name: {**_action_out(a), "args": reg.strict_schema(a.args)} for a in reg.all_actions()},
+    }
+
+
+@router.get("/status")
+async def status(_: CurrentAccess) -> dict[str, Any]:
+    """helper.md A6. Until the model turn loop lands (HB-06, after VO-01) the helper answers from the index only, so
+    the chip reads "Yapay zekâ kapalı" and nothing is sent to any model."""
+    return {"mode": "index", "provider_kind": None, "provider_label": None, "fallback_active": False}
+
+
+@router.get("/actions")
+async def actions(access: CurrentAccess) -> list[dict[str, Any]]:
+    return [_action_out(a) for a in reg.permitted(access)]
+
+
+class CardIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    args: dict[str, Any] = Field(default_factory=dict)
+
+
+async def build_card(name: str, args: dict[str, Any], db: DB, access: CurrentAccess) -> dict[str, Any]:
+    a = reg.get(name)
+    if a is None:
+        raise refused(404, "unknown_action", "Böyle bir işlem yok.", "There is no such action.")
+    if not a.allowed(access):
+        raise refused(403, "not_allowed", "Bu işlem hesabınızda yok.", "This isn't available on your account.")
+    if reg.RATE.hit(access.user_id, a):
+        raise refused(429, "rate_limited", "Çok sık denediniz; bir dakika sonra yeniden deneyin.",
+                      "Too many tries; try again in a minute.")
+    await gate(a, db, access)
+    try:
+        parsed = reg.parse_args(a, args)
+    except reg.ArgsInvalid as exc:
+        raise refused(422, "invalid_args", "İşlemin bilgileri eksik ya da hatalı.",
+                      "The action's details are missing or invalid.", issues=exc.issues) from exc
+    try:
+        card = await a.run(reg.Ctx(db, access), parsed)
+    except reg.ActionRefused as exc:
+        raise refused(exc.status, exc.code, exc.tr, exc.en, **exc.data) from exc
+    return cards.dump(card)
+
+
+@router.post("/actions/{name}/card")
+async def action_card(name: str, body: CardIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
+    return await build_card(name, body.args, db, access)

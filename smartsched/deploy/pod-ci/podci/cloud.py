@@ -61,6 +61,19 @@ class Cloud:
             raise
         return str(resp["Parameter"]["Value"])
 
+    def get_params_under(self, sub: str) -> dict[str, str]:
+        """``{last path segment: value}`` of the parameters directly below {prefix}/{sub} (decrypted)."""
+        ssm = self.client("ssm")
+        out: dict[str, str] = {}
+        kw: dict[str, Any] = {"Path": f"{self.ssm_prefix}/{sub}", "Recursive": False, "WithDecryption": True}
+        while True:
+            resp = ssm.get_parameters_by_path(**kw)
+            for p in resp.get("Parameters", []):
+                out[str(p["Name"]).rsplit("/", 1)[-1]] = str(p["Value"])
+            if not resp.get("NextToken"):
+                return out
+            kw["NextToken"] = resp["NextToken"]
+
     def put_param(self, name: str, value: str, secure: bool) -> None:
         ssm = self.client("ssm")
         full = f"{self.ssm_prefix}/{name}"
@@ -100,6 +113,10 @@ class NoCloud(Cloud):
 
     def get_param(self, name: str, decrypt: bool = True) -> str | None:
         return self.params.get(name)
+
+    def get_params_under(self, sub: str) -> dict[str, str]:
+        head = f"{sub.strip('/')}/"
+        return {k[len(head):]: v for k, v in self.params.items() if k.startswith(head) and "/" not in k[len(head):]}
 
     def put_param(self, name: str, value: str, secure: bool) -> None:
         self.params[name] = value

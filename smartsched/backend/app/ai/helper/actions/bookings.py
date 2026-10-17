@@ -162,6 +162,7 @@ SLOT_TEXT = {
     description="Show one room's periods on one day: free, booked or in the timetable.",
     route="GET /bookings/grid",
     card="list",
+    gate="maintenance",
     route_args={"date": "date"},
     resolved=("room",),
 )
@@ -245,6 +246,7 @@ class MyBookingsArgs(Args):
     description="List the user's own upcoming bookings (with a cancel button each).",
     route="GET /bookings/mine",
     card="list",
+    gate="list",
     resolved=("days",),
 )
 async def my_bookings(ctx: Ctx, args: MyBookingsArgs) -> s.CardBase:

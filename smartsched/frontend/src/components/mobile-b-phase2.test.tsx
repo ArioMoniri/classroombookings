@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { ScheduleRun } from "@/lib/api/schemas";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { PublishRunButton } from "./runs/publish-run";
+import { focusClassChip } from "./timetable/focus-chip";
 
 const ROOT = join(process.cwd(), "src/components");
 const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
@@ -73,5 +74,23 @@ describe("fix 5 · /classes on a touch tablet uses the cards, and its search doe
   });
   it("the inline search is 16 px on a coarse pointer", () => {
     expect(src.split("\n").find((l) => l.includes('aria-label={t("classes.searchLabel")}'))).toContain("pointer-coarse:text-base");
+  });
+});
+
+describe("fix 6 · timetable: closing the inspector with Escape keeps focus on the class (768 measured <body>)", () => {
+  it("focusClassChip moves focus to the chip of the class the inspector showed, else to the title", async () => {
+    document.body.innerHTML = '<h2 id="calendar-title" tabindex="-1">Hafta 3</h2><button data-testid="calendar-event" data-assignment-id="41">PHAR 240</button>';
+    focusClassChip(41);
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    expect(document.activeElement?.getAttribute("data-assignment-id")).toBe("41");
+    focusClassChip(999);
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    expect(document.activeElement?.id).toBe("calendar-title");
+    document.body.innerHTML = "";
+  });
+  it("the Escape path uses it when focus is inside the inspector", () => {
+    const src = read("timetable/calendar-view.tsx");
+    const esc = src.slice(src.indexOf('if (e.key === "Escape") {'), src.indexOf('if (e.key === "?")'));
+    expect(esc).toContain("focusClassChip(");
   });
 });

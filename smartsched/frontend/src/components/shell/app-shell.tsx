@@ -24,6 +24,7 @@ import { useGlobalShortcuts } from "./use-global-shortcuts";
 import { useWorkspaceStore, useWorkspaceUser } from "./workspace";
 import { useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { PrivacyNoticeGate } from "@/components/privacy/notice-gate";
+import { WelcomePageSlot, WelcomeProvider } from "@/components/welcome";
 
 function OfflineBanner() {
   const { t } = useI18n();
@@ -179,6 +180,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <MaintenanceBanner />
         <main id="main" tabIndex={-1} className="flex-1 outline-hidden pt-3 pr-[max(1rem,env(safe-area-inset-right))] pb-[calc(6rem+env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] lg:px-8 lg:pt-4 lg:pb-8">
           <div className="mx-auto w-full max-w-[1600px]">
+            {/* WG-06 / WG-07: the hint strip and the "Başlarken" card at the top of the page */}
+            <WelcomePageSlot />
             <RouteGuard>{children}</RouteGuard>
           </div>
         </main>
@@ -195,6 +198,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <UserSync />
       {/* A4 KVKK: the current privacy notice until acknowledged (never over /admin/kvkk; admins may postpone) */}
       <PrivacyNoticeGate />
+      {/* WG-04: the welcome guide (sheet, tour, checklist list, hints); it waits for any other dialog */}
+      <WelcomeProvider />
     </div>
   );
 }

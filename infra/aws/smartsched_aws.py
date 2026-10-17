@@ -243,6 +243,8 @@ class Settings:
     idle_cpu_percent: float = 5.0
     docker_version: str = ""
     budget_action: bool = True
+    #: deploy-time settings ``(KEY, value, secret)`` for SSM {prefix}/bootstrap/<KEY> (bootstrap_values)
+    bootstrap: tuple[tuple[str, str, bool], ...] = ()
 
 
 # ------------------------------------------------------------------------------------------------
@@ -856,6 +858,71 @@ def list_parameters(aws: Aws, region: str | None = None) -> list[str]:
             return sorted(names)
 
 
+# ------------------------------------------------------------------------------------------------
+# deploy-time settings: SSM {prefix}/bootstrap/<KEY> -> the pod's deploy.sh environment ->
+# smartsched/deploy/seed/bootstrap_settings.py (written into the database once; the admin panel wins later)
+# ------------------------------------------------------------------------------------------------
+#: flag dest -> variable (non-secret values)
+BOOTSTRAP_FLAGS = {"org_name": "ORG_NAME", "ai_provider": "AI_PROVIDER", "ai_base_url": "AI_BASE_URL",
+                   "smtp_host": "SMTP_HOST", "smtp_port": "SMTP_PORT", "smtp_security": "SMTP_SECURITY",
+                   "smtp_user": "SMTP_USERNAME", "smtp_from": "SMTP_FROM", "smtp_from_name": "SMTP_FROM_NAME",
+                   "security_contact": "SECURITY_CONTACT"}
+#: taken from the caller's environment only (secrets never on a command line; client ids next to their secrets)
+BOOTSTRAP_ENV = ("AI_API_KEY", "SMTP_PASSWORD", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "MICROSOFT_CLIENT_ID",
+                 "MICROSOFT_CLIENT_SECRET", "MICROSOFT_TENANT")
+BOOTSTRAP_SECRETS = frozenset({"AI_API_KEY", "SMTP_PASSWORD", "GOOGLE_CLIENT_SECRET", "MICROSOFT_CLIENT_SECRET"})
+BOOTSTRAP_KEYS = (*BOOTSTRAP_FLAGS.values(), *BOOTSTRAP_ENV, "OBSERVABILITY")
+SEED_TOOL = HERE.parent.parent / "smartsched/deploy/seed/bootstrap_settings.py"
+
+
+def _check_with_seed_tool(values: dict[str, str]) -> None:
+    """The deploy tool's own input checks (stdlib only), so a typo fails here and not on the pod 20 minutes later."""
+    if not SEED_TOOL.is_file():
+        return
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("smartsched_bootstrap_settings", SEED_TOOL)
+    if spec is None or spec.loader is None:
+        return
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    try:
+        mod.collect(values)
+    except mod.BootstrapError as exc:
+        raise BootstrapError(f"deploy-time settings: {exc}") from exc
+
+
+def bootstrap_values(a: argparse.Namespace, env: dict[str, str] | None = None) -> dict[str, tuple[str, bool]]:
+    """``{KEY: (value, secret)}`` from the flags and the environment; refused input raises BootstrapError."""
+    env = os.environ if env is None else env
+    out: dict[str, tuple[str, bool]] = {}
+    for dest, key in BOOTSTRAP_FLAGS.items():
+        value = str(getattr(a, dest, None) or "").strip()
+        if value:
+            out[key] = (value, False)
+    for key in BOOTSTRAP_ENV:
+        value = str(env.get(key) or "").strip()
+        if value:
+            out[key] = (value, key in BOOTSTRAP_SECRETS)
+    if getattr(a, "observability", None) is not None:
+        out["OBSERVABILITY"] = ("1" if a.observability else "0", False)
+    _check_with_seed_tool({k: v for k, (v, _) in out.items()})
+    return out
+
+
+def store_bootstrap(aws: Aws, values: dict[str, tuple[str, bool]]) -> list[str]:
+    """Write the values to SSM {prefix}/bootstrap/<KEY> (SecureString for secrets); returns the names."""
+    names = []
+    for key, (value, secure) in values.items():
+        name = f"{SSM_PREFIX}/bootstrap/{key}"
+        put_parameter(aws, name, value, secure=secure)
+        names.append(name)
+    if names:
+        log(f"deploy-time settings stored in SSM: {', '.join(k for k in values)} (values not shown)")
+    return names
+
+
 def parameter_names() -> dict[str, str]:
     return {
         "panel_url": f"{SSM_PREFIX}/panel_url",
@@ -880,6 +947,8 @@ class UpResult:
     admin_email: str
     estimate: dict[str, float]
     parameters: dict[str, str] = field(default_factory=parameter_names)
+    #: SSM names of the deploy-time settings written by this run (never their values)
+    bootstrap_parameters: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {**self.__dict__, "read_admin_password": read_password_hint(self.region)}
@@ -895,6 +964,8 @@ def cmd_up(aws: Aws, s: Settings, account: str, sleep: Callable[[float], None] =
     log(f"instance profile {pod_profile}")
     vpc_id, subnet_id = default_subnet(aws, s.instance_type)
     sg_id = ensure_security_group(aws, vpc_id, s.ssh_cidr)
+    # before the instance boots: pod-bootstrap.sh reads them for the first deploy
+    boot_names = store_bootstrap(aws, {k: (v, sec) for k, v, sec in s.bootstrap}) if s.bootstrap else []
 
     existing = find_instances(aws)
     if len(existing) > 1:
@@ -907,6 +978,9 @@ def cmd_up(aws: Aws, s: Settings, account: str, sleep: Callable[[float], None] =
         inst = launch_instance(aws, s, subnet_id, sg_id, render_user_data(s, domain), sleep=sleep)
     else:
         log(f"instance {inst['InstanceId']} exists ({inst['State']['Name']}, {inst['InstanceType']})")
+        if boot_names:
+            log("deploy-time settings: the running pod writes them at its next pod CI deploy, once per group; "
+                "a group already set in the admin panel is kept")
         if inst["InstanceType"] != s.instance_type:
             log(f"warning: running type {inst['InstanceType']} != requested {s.instance_type}; `down` + `up` to change")
         if inst["State"]["Name"] in ("stopped", "stopping"):
@@ -926,7 +1000,8 @@ def cmd_up(aws: Aws, s: Settings, account: str, sleep: Callable[[float], None] =
     hourly, _ = ec2_hourly_price(aws, s.region, s.instance_type)
     gp3, _ = gp3_price(aws, s.region)
     return UpResult(region=s.region, account=account, instance_id=iid, public_ip=public_ip, panel_url=url,
-                    admin_email=s.admin_email, estimate=estimate_monthly(hourly, gp3, s.volume_gb))
+                    admin_email=s.admin_email, estimate=estimate_monthly(hourly, gp3, s.volume_gb),
+                    bootstrap_parameters=boot_names)
 
 
 def orphans(aws: Aws, region: str | None = None) -> dict[str, list[str]]:
@@ -1255,6 +1330,7 @@ def cmd_plan(s: Settings, public_ip: str = "203.0.113.10") -> dict[str, Any]:
             "pod_role_policy": pod_role_policy("123456789012", s.region, "i-PLACEHOLDER"),
             "parameters": parameter_names(),
         },
+        "bootstrap_parameters": sorted(f"{SSM_PREFIX}/bootstrap/{k}" for k, _, _ in s.bootstrap),
         "panel_url_example": f"https://{panel_domain(public_ip)}",
         "estimated_monthly_usd_fallback_prices": estimate_monthly(hourly, gp3, s.volume_gb),
         "user_data_bytes": len(render_user_data(s, panel_domain(public_ip)).encode()),
@@ -1294,6 +1370,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--keep-parameters", action="store_true", help="`down` keeps the pod's SSM parameters")
     p.add_argument("--delete-budget", action="store_true", help="`down` also deletes the pod's budget")
     p.add_argument("--from-env", default="POD_GITHUB_TOKEN", help="env var holding the token (put-github-token)")
+    g = p.add_argument_group(
+        "deploy-time settings (`up`; SSM {prefix}/bootstrap/*, written into the database once by the pod's deploy; "
+        "secrets from the environment only: AI_API_KEY, SMTP_PASSWORD, GOOGLE_CLIENT_ID/_SECRET, "
+        "MICROSOFT_CLIENT_ID/_SECRET/_TENANT)")
+    g.add_argument("--org-name", default=None, help="institution name")
+    g.add_argument("--ai-provider", default=None, help="anthropic (default), openai, gemini, ... (key: $AI_API_KEY)")
+    g.add_argument("--ai-base-url", default=None, help="OpenAI-compatible / Azure endpoint")
+    g.add_argument("--smtp-host", default=None)
+    g.add_argument("--smtp-port", default=None)
+    g.add_argument("--smtp-security", default=None, choices=["starttls", "ssl", "none"])
+    g.add_argument("--smtp-user", default=None, help="SMTP user name (password: $SMTP_PASSWORD)")
+    g.add_argument("--smtp-from", default=None, help="sender address")
+    g.add_argument("--smtp-from-name", default=None)
+    g.add_argument("--security-contact", default=None, help="security.txt contact e-mail")
+    g.add_argument("--observability", dest="observability", action="store_true", default=None,
+                   help="Prometheus/Loki/Grafana on the pod (default: on, the pod has 8 GB)")
+    g.add_argument("--no-observability", dest="observability", action="store_false")
     p.add_argument("--json", action="store_true", help="print the result as JSON on stdout")
     p.add_argument("--output-json", default=None, help="also write the (secret-free) result to this file")
     return p
@@ -1313,7 +1406,9 @@ def settings_from_args(a: argparse.Namespace, region: str) -> Settings:
                     ci_branches=tuple(b for b in a.ci_branches.split(",") if b) if a.ci_branches else POD.ci_branches,
                     cpu_credits=a.cpu_credits,
                     idle_minutes=a.idle_minutes, docker_version=a.docker_version,
-                    budget_action=not a.no_budget_action)
+                    budget_action=not a.no_budget_action,
+                    bootstrap=tuple((k, v, sec) for k, (v, sec) in bootstrap_values(a).items())
+                    if a.command in ("up", "plan") else ())
 
 
 def emit(result: Any, a: argparse.Namespace) -> None:
@@ -1329,6 +1424,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         use_pod(resolve_pod(a.pod or a.deploy_branch))
         log(f"pod {POD.name}: branch {a.deploy_branch or POD.branch}, SSM {SSM_PREFIX}, instance {INSTANCE_NAME}")
+        if a.command in ("up", "plan"):
+            bootstrap_values(a)  # refuse bad deploy-time settings before any AWS call
         if a.command in ("plan", "render-user-data"):
             s = settings_from_args(a, region or NEAR_TURKIYE[0])
             if a.command == "render-user-data":

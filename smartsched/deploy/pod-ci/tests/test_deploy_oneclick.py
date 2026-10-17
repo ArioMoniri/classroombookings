@@ -184,7 +184,7 @@ def test_admin_email_flag_after_the_first_start_warns(tmp_path: Path) -> None:
     env = fake_env(tmp_path)
     assert deploy(env, "--admin-email", "admin@uni.edu.tr").returncode == 0
     r = deploy(env, "--admin-email", "other@uni.edu.tr")
-    assert r.returncode == 0 and "Kullanıcılar" in r.stderr
+    assert r.returncode == 0 and "first start only" in r.stderr
     assert env_file(tmp_path)["ADMIN_EMAIL"] == "admin@uni.edu.tr"
 
 

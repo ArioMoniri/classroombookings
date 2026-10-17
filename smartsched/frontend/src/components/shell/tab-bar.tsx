@@ -17,6 +17,7 @@ import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
 import { QUICK_RESERVE_ITEM } from "./nav-config";
 import { usePermissions } from "@/lib/api/shell-extra";
 import { isActive, navTestId, useNavBadges } from "./sidebar";
+import { tourAnchorFor } from "@/components/welcome";
 
 type Tab = { href: string; labelKey: MessageKey; icon: typeof LayoutDashboard; badge?: "needsReview"; permission?: string | string[] };
 
@@ -101,7 +102,7 @@ export function TabBar() {
     return (
       <li key={key} className="flex min-w-0 list-none">
         {extra.href ? (
-          <Link href={extra.href} aria-label={aria} aria-current={active ? "page" : undefined} className={cls} data-testid={extra.testId}>
+          <Link href={extra.href} aria-label={aria} aria-current={active ? "page" : undefined} className={cls} data-testid={extra.testId} data-tour={tourAnchorFor(extra.href)}>
             {content}
           </Link>
         ) : (

@@ -19,6 +19,7 @@ import { useUiStore } from "@/stores/ui";
 import { visibleNavGroups, type NavItem } from "./nav-config";
 import { useActiveTerm } from "./term-switcher";
 import { useCycleTheme } from "./theme-toggle";
+import { useWelcomeCommands } from "@/components/welcome";
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -92,6 +93,7 @@ export function CommandPalette() {
     setOpen(false);
     router.push(href);
   };
+  const welcomeCommands = useWelcomeCommands();
 
   const actions = [
     { value: "action-generate", icon: PlayCircle, label: t("palette.generateWeek"), keys: ["G", "G"], run: () => go("/generate"), words: "generate oluştur plan solve", allowed: can("planning.edit") },
@@ -100,6 +102,8 @@ export function CommandPalette() {
     // T1 (wave 1): "boş derslik" / "find a room", for every signed-in user
     { value: "action-find-room", icon: CalendarSearch, label: t("wave1.find.palette"), run: () => go("/find-room"), words: "boş derslik bul find free room oda ara salon amfi", allowed: true },
     { value: "action-room", icon: Warehouse, label: t("palette.newRoom"), run: () => go("/admin/rooms?tab=rooms&new=1"), words: "room derslik yeni new oda", allowed: can("setup.rooms") },
+    // WG-06: Yardım › Turu yeniden başlat, Başlarken listesi
+    ...welcomeCommands,
   ].filter((a) => a.allowed && matches(text, a.label, a.words));
   // the profile (names, language, password) belongs to every user, so it is always in "Go to" (UI gap audit #1);
   // every setup section the user may open is too (admin persona M-44: "Onay kur" → "Onay kuralları")

@@ -211,9 +211,7 @@ def estimate(
                     fv = fill[:, d - 1, p - 1]
                     fv = fv[~np.isnan(fv)]
                     sf = float(fv.mean() * 100.0) if fv.size else None
-                out.append(
-                    CellEstimate(d, p, g, value, lo, hi, mean, n, int(mask.sum()), sf, value >= threshold)
-                )
+                out.append(CellEstimate(d, p, g, value, lo, hi, mean, n, int(mask.sum()), sf, value >= threshold))
     return out
 
 
@@ -324,7 +322,9 @@ async def term_cube(session: Any, term_id: int, period_kind: str = "LECTURE") ->
         from app.services.grid import assignment_weeks
 
         for a in rows:
-            size = sizes.get(("m", a.meeting_request_id)) if a.meeting_request_id else sizes.get(("e", a.exam_request_id))  # type: ignore[call-overload]
+            size = (
+                sizes.get(("m", a.meeting_request_id)) if a.meeting_request_id else sizes.get(("e", a.exam_request_id))
+            )  # type: ignore[call-overload]
             if not size or not a.room_ids:
                 continue
             per_room = max(1, int(size) // max(1, len(a.room_ids)))
@@ -361,11 +361,16 @@ async def peaks(
     term = await session.get(Term, term_id) if term_id is not None else None
     if term is None and term_id is None:
         term = (await session.execute(select(Term).where(Term.is_active.is_(True)).limit(1))).scalar_one_or_none()
-        if term is None or not (
-            await session.execute(
-                select(ScheduleRun.id).where(ScheduleRun.term_id == term.id, ScheduleRun.is_active.is_(True)).limit(1)
-            )
-        ).first():
+        if (
+            term is None
+            or not (
+                await session.execute(
+                    select(ScheduleRun.id)
+                    .where(ScheduleRun.term_id == term.id, ScheduleRun.is_active.is_(True))
+                    .limit(1)
+                )
+            ).first()
+        ):
             term = (
                 await session.execute(
                     select(Term)
@@ -407,9 +412,7 @@ async def peaks(
         "sources": tc.sources,
         "cells": [c.as_dict() for c in cells],
         "peaks": [c.as_dict() for c in peak_cells],
-        "period_profile": [
-            {"period": p + 1, "value": round(float(v), 1)} for p, v in enumerate(prof_arr.tolist())
-        ],
+        "period_profile": [{"period": p + 1, "value": round(float(v), 1)} for p, v in enumerate(prof_arr.tolist())],
         "method": "shrunk_weekly_mean",
         "basis": _t(
             f"{len(tc.weeks)} haftanın yayımlanmış programı, blokları ve rezervasyonları; tatiller hariç",

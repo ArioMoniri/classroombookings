@@ -15,6 +15,7 @@ import { COARSE_POINTER, useMediaQuery } from "@/components/ui/use-media-query";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
+import { HelpMenuGroup } from "@/components/welcome";
 
 export function initials(name: string | null | undefined, email: string): string {
   const src = name?.trim() || email;
@@ -52,6 +53,7 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
             variant="ghost"
             aria-label={t("nav.account")}
             data-testid="user-menu"
+            data-tour="user-menu"
             className={cn("gap-2 p-0 text-left font-normal", compact ? "size-(--control-h-md)" : collapsed ? "size-9 rounded-xl" : "h-auto w-full justify-start rounded-xl px-2 py-1.5")}
           >
             <Avatar className="size-7">
@@ -87,6 +89,8 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
+        {/* WG-06: Yardım (Turu yeniden başlat, Başlarken listesi, Yenilikler) */}
+        <HelpMenuGroup />
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={() => void logout()} data-testid="logout">
           <LogOut /> {t("nav.logout")}

@@ -55,6 +55,7 @@ import { useCalendarData } from "./use-calendar-data";
 import { StaleVeil, useDeferredView } from "./stale-veil";
 import { WeekScrubber } from "./week-scrubber";
 import { BareButton } from "@/components/shell/bare-button";
+import { focusClassChip } from "./focus-chip";
 
 const ALLDAY_H = 22;
 
@@ -492,8 +493,13 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       if (e.key === "Escape") {
         // the overlay sidebar (narrow windows) closes first: it covers its own toggle (round-1 R1-S-26)
         if (sidebarOpen && !wide && !embedded) setSidebarOpen(false);
-        else if (selection.size) setSelection(new Set());
-        else setInspectorOpen(false);
+        else {
+          // focus inside the inspector would fall to <body> when it empties: back to the class chip (mobile-b phase 2)
+          const inInspector = Boolean((document.activeElement as HTMLElement | null)?.closest?.('[data-testid="class-inspector"]'));
+          if (selection.size) setSelection(new Set());
+          else setInspectorOpen(false);
+          if (inInspector) focusClassChip(selectedEvents[0]?.a.id);
+        }
         return;
       }
       if (e.key === "?") return void setShortcuts(true);
@@ -1027,10 +1033,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
                 setInspectorOpen(false);
                 setSelection(new Set());
                 update({ sel: null });
-                requestAnimationFrame(() => {
-                  const chip = aid !== undefined ? document.querySelector<HTMLElement>(`[data-testid="calendar-event"][data-assignment-id="${aid}"]`) : null;
-                  (chip ?? document.getElementById("calendar-title"))?.focus();
-                });
+                focusClassChip(aid);
               }}
               onMove={() => setMoveFor(selected)}
               onLock={(locked) => actions.lock([selected.a.id], locked, selected.a.label)}

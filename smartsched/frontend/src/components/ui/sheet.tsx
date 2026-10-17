@@ -67,8 +67,7 @@ export function shouldDismissSheet(dy: number, height: number, velocity: number)
 }
 
 /** The grabber's pointer handlers: the popup follows the finger (no transition), then closes or snaps back. */
-function useSheetDrag(popupRef: React.RefObject<HTMLDivElement | null>) {
-  const closeRef = React.useRef<HTMLButtonElement>(null)
+function useSheetDrag(popupRef: React.RefObject<HTMLDivElement | null>, closeRef: React.RefObject<HTMLButtonElement | null>) {
   const start = React.useRef<{ y: number; t: number } | null>(null)
   const end = (e: React.PointerEvent) => {
     const s = start.current
@@ -93,7 +92,7 @@ function useSheetDrag(popupRef: React.RefObject<HTMLDivElement | null>) {
     onPointerUp: end,
     onPointerCancel: end,
   }
-  return { closeRef, handlers }
+  return handlers
 }
 
 function SheetContent({
@@ -108,7 +107,8 @@ function SheetContent({
 }) {
   const popupRef = React.useRef<HTMLDivElement>(null)
   const trapTab = useFocusTrap(popupRef)
-  const grab = useSheetDrag(popupRef)
+  const closeRef = React.useRef<HTMLButtonElement>(null)
+  const grab = useSheetDrag(popupRef, closeRef)
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -126,8 +126,8 @@ function SheetContent({
       >
         {side === "bottom" ? (
           <>
-            <div aria-hidden data-slot="sheet-grabber" {...grab.handlers} className="relative mx-auto h-1 w-9 shrink-0 cursor-grab touch-none rounded-full bg-fill-1 after:absolute after:-inset-x-20 after:-inset-y-4 after:content-['']" />
-            <SheetPrimitive.Close ref={grab.closeRef} hidden tabIndex={-1} aria-hidden data-slot="sheet-drag-close" />
+            <div aria-hidden data-slot="sheet-grabber" {...grab} className="relative mx-auto h-1 w-9 shrink-0 cursor-grab touch-none rounded-full bg-fill-1 after:absolute after:-inset-x-20 after:-inset-y-4 after:content-['']" />
+            <SheetPrimitive.Close ref={closeRef} hidden tabIndex={-1} aria-hidden data-slot="sheet-drag-close" />
           </>
         ) : null}
         {children}

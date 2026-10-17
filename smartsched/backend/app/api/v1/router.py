@@ -202,3 +202,8 @@ api_router.include_router(seasons_api.router)
 from app.api.v1 import voice as voice_api  # noqa: E402
 
 api_router.include_router(voice_api.router)
+
+# AI helper "Yardımcı" HB-01…HB-09: no-AI search, card contract, action cards, confirm / undo, memory (app/ai/helper)
+from app.api.v1 import helper as helper_api  # noqa: E402
+
+api_router.include_router(helper_api.router)

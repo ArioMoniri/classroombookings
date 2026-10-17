@@ -472,7 +472,15 @@ async def resolve_profile(
     active profile (an admin's beats a built-in at equal specificity; the latest approved wins a tie)."""
     if override is not None and str(override).lower() == "none":
         return None
-    rows = await active_profiles(session)
+    return pick_profile(await active_profiles(session), season, period_kind, override)
+
+
+def pick_profile(
+    rows: Sequence[SeasonProfile], season: str, period_kind: str, override: str | None = None
+) -> ResolvedProfile | None:
+    """:func:`resolve_profile` on already loaded active rows (no SQL: the booking-policy index calls it per date)."""
+    if override is not None and str(override).lower() == "none":
+        return None
     if override:
         for r in rows:
             if r.key == override:

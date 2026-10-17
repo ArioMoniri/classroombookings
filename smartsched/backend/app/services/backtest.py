@@ -21,7 +21,7 @@ Everything here is computed from the workbooks through the production parsers (n
 from __future__ import annotations
 
 import math
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -125,7 +125,13 @@ class Result:
     passed: bool
 
     def as_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "name": self.name, "metrics": self.metrics, "targets": self.targets, "passed": self.passed}
+        return {
+            "id": self.id,
+            "name": self.name,
+            "metrics": self.metrics,
+            "targets": self.targets,
+            "passed": self.passed,
+        }
 
 
 def b1_weekly_volume(bahar_grid: Any) -> Result:
@@ -192,3 +198,229 @@ def spearman(x: Sequence[float], y: Sequence[float]) -> float:
         return out
 
     return pearson(ranks(x), ranks(y))
+
+
+# ------------------------------------------------------------------------------------------------ B3 (AS-07)
+
+
+def building_course_room_periods(parsed: Any) -> dict[int, dict[str, int]]:
+    out: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for s in parsed.sheets:
+        if s.kind != "LECTURE":
+            continue
+        for e in s.entries:
+            if e.cell.kind == "COURSE":
+                out[s.week_index][e.room_code[:1]] += e.end_period - e.start_period + 1
+    return {w: dict(v) for w, v in sorted(out.items())}
+
+
+def b3_building_demand(bahar_grid: Any, guz_grid: Any, guz_list: Any) -> Result:
+    """Güz weeks 1-2 course room-periods per building = (the Güz requests' weekly room-periods) x (the Bahar share
+    of each building, week by week); 80 % ranges from the Bahar weekly shares and the Bahar weekly level spread."""
+    from app.services import forecast as fc
+
+    bahar = building_course_room_periods(bahar_grid)
+    shares: dict[str, list[float]] = defaultdict(list)
+    for _w, by_b in bahar.items():
+        tot = sum(by_b.values())
+        for b in sorted({k for v in bahar.values() for k in v}):
+            shares[b].append(by_b.get(b, 0) / tot if tot else 0.0)
+    totals = np.asarray([sum(v.values()) for v in bahar.values()], float)
+    rel_sd = float(totals.std() / totals.mean()) if totals.size > 1 else 0.0
+    needs = fc.needs_from_planning_rows(guz_list.rows)
+    actual = building_course_room_periods(guz_grid)
+    rows, inside, n_cells = [], 0, 0
+    wapes = {}
+    per_building_err: dict[str, list[float]] = defaultdict(list)
+    for w, by_b in actual.items():
+        level = float(sum(x.span for x in needs if x.weeks is None or w in x.weeks))
+        fcast = fc.shape_times_level(level, shares, rel_level_sd=rel_sd)
+        a_list, f_list = [], []
+        for b in sorted(set(fcast) | set(by_b)):
+            v, lo, hi = fcast.get(b, (0.0, 0.0, 0.0))
+            a = float(by_b.get(b, 0))
+            a_list.append(a)
+            f_list.append(v)
+            n_cells += 1
+            inside += int(lo <= a <= hi)
+            per_building_err[b].append(abs(a - v) / a * 100.0 if a else 0.0)
+            rows.append(
+                {
+                    "week": w,
+                    "building": b,
+                    "actual": a,
+                    "forecast": round(v, 1),
+                    "lo80": round(lo, 1),
+                    "hi80": round(hi, 1),
+                }
+            )
+        wapes[w] = round(wape(a_list, f_list), 2)
+    overall = wape([r["actual"] for r in rows], [r["forecast"] for r in rows])
+    coverage = inside / n_cells * 100.0 if n_cells else math.nan
+    return Result(
+        "B3",
+        "Bina talebi: Bahar şekli × Güz talep düzeyi / building demand: Bahar shape × Fall request level",
+        {
+            "wape_pct": round(overall, 2),
+            "wape_by_week_pct": wapes,
+            "ape_by_building_pct": {b: [round(x, 1) for x in v] for b, v in sorted(per_building_err.items())},
+            "coverage80_pct": round(coverage, 1),
+            "level_requests": {w: float(sum(x.span for x in needs if x.weeks is None or w in x.weeks)) for w in actual},
+            "cells": rows,
+        },
+        {"wape_pct": "<= 15", "coverage80_pct": "reported (target >= 70)"},
+        overall <= 15.0,
+    )
+
+
+# ------------------------------------------------------------------------------------------------ B5 (AS-10)
+
+
+def b5_what_if(bahar_list: Any, room_master: Path | None = None, pct: float = 10.0) -> Result:
+    from app.services import forecast as fc
+
+    rooms = fc.rooms_from_master_csv(room_master or FIXTURES / "room_master.csv")
+    needs = fc.needs_from_planning_rows(bahar_list.rows)
+    base = fc.fit_report(needs, rooms)
+    scen = fc.fit_report(fc.apply_what_if(needs, fc.WhatIf(enrolment_pct=pct)), rooms)
+    again = fc.fit_report(fc.apply_what_if(needs, fc.WhatIf(enrolment_pct=pct)), rooms)
+    return Result(
+        "B5",
+        f"Ne olur: Bahar talepleri %{pct:+g} kontenjan / what-if {pct:+g} % enrolment on the Bahar requests",
+        {
+            "classes": base["classes"],
+            "no_fit_0pct": base["no_fit"],
+            f"no_fit_{pct:+g}pct": scen["no_fit"],
+            "shortfall_cells_0pct": base["shortfall_cells"],
+            f"shortfall_cells_{pct:+g}pct": scen["shortfall_cells"],
+            "shortfall_total_0pct": base["shortfall_total"],
+            f"shortfall_total_{pct:+g}pct": scen["shortfall_total"],
+            "deterministic": scen == again,
+            "top_shortfall_cells": scen["cells"][:5],
+        },
+        {"no_fit": "> the 0 % count", "deterministic": True},
+        scen["no_fit"] > base["no_fit"] and scen == again,
+    )
+
+
+# ------------------------------------------------------------------------------------------------ B7, exam load (AS-11)
+
+
+def exam_spans(exam_list: Any) -> dict[tuple[str, Any], list[tuple[int, int]]]:
+    """(room code, date) -> exam period spans of the Final list's dated rows with definitive rooms."""
+    out: dict[tuple[str, Any], list[tuple[int, int]]] = defaultdict(list)
+    for r in exam_list.rows:
+        codes = list(getattr(r.definitive, "room_codes", []) or [])
+        if r.date is None or not codes or not r.periods.start_period:
+            continue
+        for c in codes:
+            out[(c, r.date)].append((int(r.periods.start_period), int(r.periods.end_period)))
+    return dict(out)
+
+
+def b7_slot_holds(exam_list: Any, buffer_periods: int = 1) -> Result:
+    from datetime import timedelta
+
+    from app.services.booking_policies import ExamSlotIndex
+
+    spans = exam_spans(exam_list)
+    ids = {c: i + 1 for i, c in enumerate(sorted({c for c, _d in spans}))}
+    idx = ExamSlotIndex(None, buffer_periods, {(ids[c], d): v for (c, d), v in spans.items()})
+    held = idx.held_room_periods()
+    rooms = {c for c, _d in spans}
+    mondays = sorted({d - timedelta(days=d.weekday()) for _c, d in spans})
+    days = [m + timedelta(days=i) for m in mondays for i in range(7)]
+    closed = len(rooms) * len(days) * 18
+    exam_rp = sum(e - s + 1 for v in spans.values() for s, e in v)
+    uncovered = 0
+    for (c, d), v in spans.items():
+        for s, e in v:
+            for p in range(s, e + 1):
+                if idx.covers(ids[c], d, p, p) is None:
+                    uncovered += 1
+    return Result(
+        "B7",
+        "Sınav saatine göre tutma / slot-level exam holds (Final 2026)",
+        {
+            "exam_rooms": len(rooms),
+            "exam_days_closed": len(days),
+            "exam_room_periods": exam_rp,
+            "held_room_periods": len(held),
+            "closed_room_periods": closed,
+            "freed_room_periods": closed - len(held),
+            "exam_room_periods_bookable": uncovered,
+            "buffer_periods": buffer_periods,
+        },
+        {"freed_room_periods": "> 0", "exam_room_periods_bookable": 0},
+        closed - len(held) > 0 and uncovered == 0,
+    )
+
+
+def exam_day_load(exam_list: Any) -> Result:
+    """Exams with a date and a room per weekday of the Final period: the peak day and its ratio to the mean."""
+    from app.services.exam_load import day_load
+
+    load = day_load(
+        [
+            (r.date, int(r.enrolment or 0))
+            for r in exam_list.rows
+            if r.date is not None and getattr(r.definitive, "room_codes", None)
+        ]
+    )
+    return Result(
+        "B6a",
+        "Sınav günü yükü / exam day load (Final 2026)",
+        load,
+        {"peak_to_mean": "1.86 ± 0.01 (measured 2026-10-17)"},
+        abs(load["peak_to_mean"] - 1.86) <= 0.01,
+    )
+
+
+# ------------------------------------------------------------------------------------------------ all
+
+
+@dataclass
+class Fixtures:
+    bahar_grid: Any
+    guz_grid: Any
+    bahar_list: Any
+    guz_list: Any
+    exam_list: Any
+
+
+def load_fixtures() -> Fixtures:
+    from app.importers.exam_list import parse_exam_list
+    from app.importers.planning_list import parse_planning_list
+    from app.importers.weekly_grid import parse_weekly_grid
+
+    return Fixtures(
+        parse_weekly_grid(BAHAR_GRID, year=2026),
+        parse_weekly_grid(GUZ_GRID, year=2026),
+        parse_planning_list(BAHAR_LIST),
+        parse_planning_list(GUZ_LIST),
+        parse_exam_list(EXAM_LIST),
+    )
+
+
+def run_all(fx: Fixtures | None = None) -> list[Result]:
+    fx = fx or load_fixtures()
+    out = [
+        b1_weekly_volume(fx.bahar_grid),
+        b2_shape_transfer(fx.bahar_grid, fx.guz_grid),
+        b3_building_demand(fx.bahar_grid, fx.guz_grid, fx.guz_list),
+        b5_what_if(fx.bahar_list),
+        exam_day_load(fx.exam_list),
+        b7_slot_holds(fx.exam_list),
+    ]
+    return out
+
+
+def table(results: Sequence[Result]) -> str:
+    """Plain-text table for the CLI."""
+    lines = [f"{'ID':4} {'OK':4} name / metrics"]
+    for r in results:
+        keep = {k: v for k, v in r.metrics.items() if not isinstance(v, list | dict) or k.endswith("_pct")}
+        lines.append(f"{r.id:4} {'yes' if r.passed else 'NO':4} {r.name}")
+        lines.append(f"          {keep}")
+        lines.append(f"          targets: {r.targets}")
+    return "\n".join(lines)

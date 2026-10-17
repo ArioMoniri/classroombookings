@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import re
 import secrets
+import shlex
 import string
 from pathlib import Path
 
@@ -80,3 +81,25 @@ def prepare(env_file: Path, example: Path, values: dict[str, str]) -> list[str]:
 def ssm_values(env_file: Path) -> dict[str, tuple[str, bool]]:
     env = parse(env_file.read_text(encoding="utf-8"))
     return {ssm: (env[key], key != "ADMIN_EMAIL") for key, ssm in SSM_MAP.items() if env.get(key)}
+
+
+# Deploy-time settings stored by `smartsched_aws.py up` in SSM {prefix}/bootstrap/<KEY>: handed to deploy.sh as
+# environment variables (seed/bootstrap_settings.py writes each group into the database once; the admin panel wins
+# later). Only these names pass: an SSM parameter can never set PATH, LD_PRELOAD or a compose variable.
+BOOTSTRAP_KEYS = (
+    "ORG_NAME", "AI_PROVIDER", "AI_API_KEY", "AI_BASE_URL", "SMTP_HOST", "SMTP_PORT", "SMTP_SECURITY",
+    "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_FROM", "SMTP_FROM_NAME", "SECURITY_CONTACT", "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET", "MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET", "MICROSOFT_TENANT",
+    # deploy.sh: the observability profile default written into .env on the first run
+    "OBSERVABILITY",
+)
+
+
+def bootstrap_env(params: dict[str, str]) -> dict[str, str]:
+    """The known, non-empty deploy-time settings of ``params`` (SSM names below {prefix}/bootstrap/)."""
+    return {k: params[k] for k in BOOTSTRAP_KEYS if (params.get(k) or "").strip()}
+
+
+def shell_exports(values: dict[str, str]) -> str:
+    """``KEY='value'`` lines for ``set -a; . file`` (shell-quoted: no expansion of what SSM holds)."""
+    return "".join(f"{k}={shlex.quote(v)}\n" for k, v in values.items())

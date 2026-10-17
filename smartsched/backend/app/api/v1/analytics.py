@@ -13,9 +13,10 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Response
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
-from app.api.deps import DB, Viewer
+from app.api.deps import DB, Planner, Viewer
 from app.models import ScheduleRun, Term
 from app.services import scenario_compare as sc
 from app.services import utilisation as util
@@ -213,8 +214,80 @@ async def peaks_view(
         w.writerow(["group_by", "group", "day", "period", "value", "lo80", "hi80", "n_weeks", "seat_fill", "peak"])
         for c in data["cells"]:
             w.writerow(
-                [group_by, c["group"], c["day"], c["period"], c["value"], c["lo80"], c["hi80"], c["n_weeks"],
-                 c["seat_fill"] if c["seat_fill"] is not None else "", int(c["peak"])]
+                [
+                    group_by,
+                    c["group"],
+                    c["day"],
+                    c["period"],
+                    c["value"],
+                    c["lo80"],
+                    c["hi80"],
+                    c["n_weeks"],
+                    c["seat_fill"] if c["seat_fill"] is not None else "",
+                    int(c["peak"]),
+                ]
             )
         return _csv(buf.getvalue(), f"yogun-saatler-{data['term_id'] or 'yok'}-{group_by}.csv")
     return data
+
+
+@router.get("/forecast/demand", response_model=None)
+async def forecast_demand(
+    db: DB,
+    _: Viewer,
+    term_id: int | None = None,
+    group_by: Literal["building", "weekday", "period", "tag", "capacity_band", "cell"] = "building",
+) -> dict[str, Any]:
+    """Room demand per group: ``requests`` (the term's own list), ``seasonal_naive`` or ``none`` + ``needs``."""
+    from app.services import forecast
+
+    return await forecast.demand_forecast(db, term_id, group_by)
+
+
+@router.get("/forecast/shortfall", response_model=None)
+async def forecast_shortfall(db: DB, _: Viewer, term_id: int, peaks_only: bool = False) -> dict[str, Any]:
+    """Demand vs suitable supply per (weekday, period, room group) with the competing requests."""
+    from app.services import forecast
+
+    try:
+        return await forecast.shortfall(db, term_id, peaks_only=peaks_only)
+    except LookupError as exc:
+        raise HTTPException(
+            404, {"code": "term_not_found", "message_tr": "dönem bulunamadı", "message_en": "term not found"}
+        ) from exc
+
+
+class WhatIfIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    term_id: int
+    enrolment_pct: float = Field(0.0, ge=-90, le=200)
+    scope: Literal["all", "faculty", "program"] = "all"
+    scope_value: str | None = Field(None, max_length=255)
+    rooms_closed: list[int] = Field(default_factory=list, max_length=500)
+    extra_sections: int = Field(0, ge=0, le=200)
+    solve: bool = False
+
+
+@router.post("/forecast/what-if", response_model=None)
+async def forecast_what_if(body: WhatIfIn, db: DB, user: Planner) -> dict[str, Any]:
+    """Room fit and shortfall today vs the scenario; ``solve: true`` queues a draft run "Senaryo: ..." (never
+    active)."""
+    from app.services import forecast
+
+    if body.scope != "all" and not body.scope_value:
+        raise HTTPException(
+            422,
+            {
+                "code": "scope_value",
+                "message": "a faculty or programme scope needs scope_value",
+                "message_en": "a faculty or programme scope needs scope_value",
+                "message_tr": "fakülte ya da program kapsamı için scope_value gerekli",
+            },
+        )
+    try:
+        return await forecast.what_if(db, body.term_id, body.model_dump(), user)
+    except LookupError as exc:
+        raise HTTPException(
+            404, {"code": "term_not_found", "message_tr": "dönem bulunamadı", "message_en": "term not found"}
+        ) from exc

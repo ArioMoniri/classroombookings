@@ -600,6 +600,7 @@ class PolicyIndex:
     _season: dict[tuple[int, date], tuple[str, Any]] = field(default_factory=dict)
     _calendar: dict[int, Any] = field(default_factory=dict)
     _slots: dict[int, ExamSlotIndex] = field(default_factory=dict)
+    _profiles: list[Any] | None = None
 
     async def season_of_date(self, session: AsyncSession, term_id: int, d: date) -> tuple[str, Any]:
         """(period kind of ``d``, the season profile that applies then or None)."""
@@ -616,7 +617,9 @@ class PolicyIndex:
                     self._calendar[term_id] = await seasons.load_calendar(session, term)
                 weeks_rows, holidays, segs = self._calendar[term_id]
                 kind = seasons.period_kind_on(term, d, weeks_rows, holidays, segs)
-                self._season[key] = (kind, await seasons.resolve_profile(session, seasons.season_of(term), kind))
+                if self._profiles is None:
+                    self._profiles = await seasons.active_profiles(session)
+                self._season[key] = (kind, seasons.pick_profile(self._profiles, seasons.season_of(term), kind))
         return self._season[key]
 
     async def overlays_for(

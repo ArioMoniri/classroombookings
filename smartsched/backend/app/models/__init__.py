@@ -184,3 +184,8 @@ __all__ += ["DemandEvent", "LearnedPriorSnapshot", "LearningVersion", "SeasonPro
 from app.models.welcome import WelcomeContent, WelcomeProgress  # noqa: E402
 
 __all__ += ["WelcomeContent", "WelcomeProgress"]
+
+# AU-B two-step sign-in, passkeys, trusted devices, sign-in challenges (alembic 0043_mfa)
+from app.models.mfa import AuthChallenge, MfaRecoveryCode, TrustedDevice, UserMfa, WebAuthnCredential  # noqa: E402
+
+__all__ += ["AuthChallenge", "MfaRecoveryCode", "TrustedDevice", "UserMfa", "WebAuthnCredential"]

@@ -214,9 +214,8 @@ class AppBackend:  # pragma: no cover - exercised through the subprocess tests w
 
     async def admin(self) -> Any:
         if self._admin is None:
-            from sqlalchemy import select
-
             from app.models import User
+            from sqlalchemy import select
 
             q = select(User).where(User.role == "ADMIN", User.is_active.is_(True)).order_by(User.id).limit(1)
             self._admin = (await self.s.execute(q)).scalar_one_or_none()

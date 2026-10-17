@@ -84,7 +84,8 @@ def parse_transcription(body: dict[str, Any]) -> Transcript:
     text = body.get("text")
     if not isinstance(text, str):
         raise ProviderError("the provider answered without a transcript")
-    usage = body.get("usage") if isinstance(body.get("usage"), dict) else {}
+    raw_usage = body.get("usage")
+    usage: dict[str, Any] = raw_usage if isinstance(raw_usage, dict) else {}
     duration = usage.get("seconds") if usage.get("type") == "duration" else body.get("duration")
     langs = body.get("languages") or []
     language = langs[0].get("code") if langs and isinstance(langs[0], dict) else body.get("language")

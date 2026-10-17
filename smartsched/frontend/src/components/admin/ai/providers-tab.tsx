@@ -59,6 +59,7 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
   const test = useTestProvider();
   const voiceTest = useTestProvider();
   const sttModel = firstSpeechModel(p);
+  const caps = p.capabilities ?? []; // absent on a backend without voice
   const [secrets, setSecrets] = useState<Record<string, string>>({});
   const [config, setConfig] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(p.config).filter(([k]) => k !== "enabled").map(([k, v]) => [k, String(v ?? "")])));
   const [transfer, setTransfer] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(p.transfer).map(([k, v]) => [k, String(v ?? "")])));
@@ -100,10 +101,10 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
             {p.local ? <Badge tone="feasible">{t("aiAdmin.provider.local")}</Badge> : null}
             {p.keyless && !p.secrets.length ? <Badge variant="outline">{t("aiAdmin.provider.keyless")}</Badge> : null}
           </div>
-          {p.capabilities.length ? (
+          {caps.length ? (
             <p className="type-footnote text-label-2" data-testid={`ai-provider-caps-${p.id}`}>
               <span className="sr-only">{t("voice.admin.caps")}: </span>
-              {CAPABILITIES.filter((c) => p.capabilities.includes(c))
+              {CAPABILITIES.filter((c) => caps.includes(c))
                 .map((c) => t(`voice.admin.cap.${c}` as MessageKey))
                 .join(" · ")}
             </p>
@@ -203,7 +204,7 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
               ))}
             </NativeSelect>
           </Field>
-          {p.capabilities.includes("stt") ? (
+          {caps.includes("stt") ? (
             <div className="flex items-start gap-2 md:col-span-2">
               <Checkbox id={`${ids.base}-voice`} checked={transfer.processes_voice === "true"} disabled={!canEdit} onCheckedChange={(v) => setTransfer((x) => ({ ...x, processes_voice: v ? "true" : "false" }))} data-testid={`ai-transfer-voice-${p.id}`} />
               <div className="min-w-0">
@@ -214,7 +215,7 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
               </div>
             </div>
           ) : null}
-          {p.capabilities.includes("stt") && transfer.processes_voice === "true" ? (
+          {caps.includes("stt") && transfer.processes_voice === "true" ? (
             <Field label={t("voice.admin.audioRetention")} htmlFor={`${ids.base}-tr-audio`}>
               <Input id={`${ids.base}-tr-audio`} value={transfer.audio_retention ?? ""} disabled={!canEdit} onChange={(e) => setTransfer((x) => ({ ...x, audio_retention: e.target.value }))} />
             </Field>

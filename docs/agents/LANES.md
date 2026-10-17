@@ -20,7 +20,6 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 
 | Lane | Ledger name | What | Brief / tickets | Ports | Waits on |
 |---|---|---|---|---|---|
-| Round-3 lane C (intake) | `loop-r3-laneC` | R3-S-04, R3-M-02/03/04/07 (re-upload deltas, phone onboarding), the person_match merge review in the council, AI notices on the onboarding upload | ROUND3.md, ROADMAP round-2/3 blocks | 19320/19321 | — |
 | CAL-B | `cal-b-2026-10-17` | Calendar export backend CAL-01..07 (stable UIDs, scoped links, .ics, push to a dedicated calendar); migration 0039 | ROADMAP "Calendar export & sync" | — | — |
 | CAL-F | `cal-f-2026-10-17` | "Takvimime ekle" 3-tap sheet + admin settings CAL-08/09 | same | 19750/19751 | CAL-B API |
 | Launch video | `media-launch` | Recordly + Lottie + Remotion launch/explainer/README videos, phone variants | MEDIA.md | own | final UI |
@@ -53,7 +52,7 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | Helper frontend HX-01..13 | HB-A + WG-F + mobile A (shell mounts) | docs/design/v3/helper.md; helper UX design done 2026-10-18 |
 | CH-04..12 chart migrations | charts phase 2 | |
 | RF-04, RF-10 (phone month arrows, density) | mobile A/B | |
-| RF-06, RF-08, RF-09 (re-import keeps admin edits, seed imports in history, editable period grid) | round-3 lane C, CAL-B | |
+| RF-06, RF-08, RF-09 (re-import keeps admin edits, seed imports in history, editable period grid) | CAL-B (lane C done 2026-10-18) | |
 | RF-12 (SAML metadata signature) | — | SAML library done |
 | Round-4 persona testers (staff, academician, admin) | the fix lanes above | re-seed: old snapshots lack migrations ≥ 0037 |
 | Auth frontend AUX | auth UX + AU-B | |

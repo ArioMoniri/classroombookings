@@ -371,7 +371,7 @@ export function SettingsView() {
   const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
-  const { can } = usePermissions();
+  const { can, perms } = usePermissions();
   const admin = can(["planning.admin", "setup.settings"]);
   const tabs = [
     { value: "general", label: t("settings.general"), show: true },
@@ -399,6 +399,16 @@ export function SettingsView() {
   useEffect(() => {
     document.querySelector(`[data-testid="tab-${tab}"]`)?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [tab]);
+  // mobile-b phase 2 (CLS): until /auth/me answers, the tab list and the chosen tab are unknown; a fixed-height
+  // placeholder instead of the fallback tab that would be swapped a moment later (CLS 0.41-0.63 at 390 / 768)
+  if (perms === undefined) {
+    return (
+      <div className="max-w-[960px]" data-testid="settings">
+        <PageHeader title={t("settings.title")} />
+        <div className="min-h-[60dvh] animate-pulse rounded-2xl bg-fill-3" aria-busy="true" data-testid="settings-loading" />
+      </div>
+    );
+  }
   return (
     <div className={tab === "slots" ? "max-w-[1120px]" : "max-w-[960px]"} data-testid="settings">
       <PageHeader title={t("settings.title")} subtitle={admin ? t("settings.subtitle") : t("glass.settings.subtitleUser")} />

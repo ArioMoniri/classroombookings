@@ -18,7 +18,8 @@ from podci.cloud import NoCloud
 from podci.config import Config
 from podci.state import Store
 
-_spec = importlib.util.spec_from_file_location("deploy_bootstrap_pod", REPO / "smartsched/deploy/seed/bootstrap_settings.py")
+_spec = importlib.util.spec_from_file_location("deploy_bootstrap_pod",
+                                              REPO / "smartsched/deploy/seed/bootstrap_settings.py")
 assert _spec and _spec.loader
 boot = importlib.util.module_from_spec(_spec)
 sys.modules["deploy_bootstrap_pod"] = boot
@@ -26,7 +27,7 @@ _spec.loader.exec_module(boot)
 
 
 def test_bootstrap_keys_are_the_tools_keys_plus_observability() -> None:
-    assert envfile.BOOTSTRAP_KEYS == (*boot.ALL_KEYS, "OBSERVABILITY")
+    assert (*boot.ALL_KEYS, "OBSERVABILITY") == envfile.BOOTSTRAP_KEYS
 
 
 def test_bootstrap_env_keeps_known_non_empty_keys_only() -> None:

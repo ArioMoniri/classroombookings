@@ -37,6 +37,8 @@ export function useGlobalShortcuts() {
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // WG-05: a guided tour owns the keyboard while it runs (html[data-tour-running])
+      if (document.documentElement.hasAttribute("data-tour-running")) return;
       const { router, locale, setLocale, languages, cycleTheme, items } = latest.current;
       const store = useUiStore.getState();
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {

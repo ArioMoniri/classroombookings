@@ -86,6 +86,10 @@ class Action:
     rate: tuple[int, int] = (30, 60)
     #: holders of this permission do not get the action (the nav's hideWith, e.g. my requests for planners)
     hide_with: str | None = None
+    #: the result carries free text other people wrote (a model turn that ran it loses its write tools, §2.4)
+    taints: bool = False
+    #: the REST twin's bookings gate (``maintenance`` = ``bookings.maintenance_gate``, ``list`` = ``list_gate``)
+    gate: Literal["maintenance", "list"] | None = None
 
     def allowed(self, access: Access) -> bool:
         if self.hide_with and self.hide_with in access.perms:
@@ -112,6 +116,8 @@ def action(
     risk: Risk = "R0",
     rate: tuple[int, int] = (30, 60),
     hide_with: str | None = None,
+    taints: bool = False,
+    gate: Literal["maintenance", "list"] | None = None,
 ) -> Callable[[Runner], Runner]:
     if card not in s.CARD_TYPES:
         raise ValueError(f"{name}: unknown card type {card}")
@@ -135,6 +141,8 @@ def action(
             risk=risk,
             rate=rate,
             hide_with=hide_with,
+            taints=taints,
+            gate=gate,
         )
         return fn
 
@@ -164,12 +172,24 @@ def permitted_names(access: Access) -> list[str]:
 # ------------------------------------------------------------------------------------------- strict schema
 
 
+#: JSON Schema keywords strict tool use does not accept (claude-api skill, "JSON Schema Limitations"); the server
+#: enforces them anyway with the pydantic model in :func:`parse_args`
+_UNSUPPORTED = frozenset(
+    {"title", "default", "examples", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
+     "minLength", "maxLength", "pattern", "minItems", "maxItems", "uniqueItems"}
+)
+
+
 def _strip(node: Any) -> Any:
     if isinstance(node, dict):
-        out = {k: _strip(v) for k, v in node.items() if k not in ("title", "default", "examples")}
+        out: dict[str, Any] = {}
+        for k, v in node.items():
+            if k == "properties" and isinstance(v, dict):
+                out[k] = {name: _strip(sub) for name, sub in v.items()}  # property names are kept as they are
+            elif k not in _UNSUPPORTED:
+                out[k] = _strip(v)
         if out.get("type") == "object" or "properties" in out:
-            props = out.get("properties", {})
-            out["required"] = list(props)
+            out["required"] = list(out.get("properties", {}))
             out["additionalProperties"] = False
         return out
     if isinstance(node, list):

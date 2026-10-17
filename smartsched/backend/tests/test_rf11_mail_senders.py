@@ -218,8 +218,16 @@ async def test_series_created_by_the_owner_and_opt_out(env, monkeypatch):  # noq
     assert row.body.startswith("A 102 dersliğinde her Perşembe P1 yinelenen rezervasyonunuz oluşturuldu")
     tid, teacher = await env.user("hatice.ozturk@uni.edu.tr")
     await _opt_out(env, teacher, "series.created")
-    body = {**_series(tid, "2026-02-26"), "room_id": env.rooms["A101"], "period_id": env.periods["P1"]}
-    assert (await env.client.post("/api/v1/bookings/recurring", json=body, headers=env.planner)).status_code == 201
+    body = {
+        **_series(tid),
+        "date": "2026-03-19",
+        "start": "2026-03-19",
+        "end": "2026-03-26",
+        "room_id": env.rooms["A102"],
+        "period_id": env.periods["P1"],
+    }
+    r = await env.client.post("/api/v1/bookings/recurring", json=body, headers=env.planner)
+    assert r.status_code == 201, r.text
     await worker.wait_idle()
     assert await _rows("series_created", tid) == []
     assert len(await _bell(tid, "series.created")) == 1
@@ -264,7 +272,14 @@ async def test_series_changed_reaches_the_approver_who_approved_it(env, monkeypa
         lastname="Ayrancıgil",
         approves_for=[{"type": "all"}],
     )
-    aid, ayse = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")
+    roles = (await c.get("/api/v1/roles", headers=env.admin)).json()
+    teacher_perms = next(r for r in roles if r["code"] == "TEACHER")["permissions"]
+    perms = sorted({p if isinstance(p, str) else p["name"] for p in teacher_perms} | {"book_recur.create"})
+    r = await c.post("/api/v1/roles", json={"name": "Seri ayıran akademisyen", "permissions": perms}, headers=env.admin)
+    assert r.status_code == 201, r.text
+    aid, ayse = await env.user(
+        "ayse.yilmaz@uni.edu.tr", role=None, role_id=r.json()["id"], firstname="Ayşe", lastname="Yılmaz"
+    )
     body = {**_series(aid, "2026-03-05"), "room_id": env.rooms["A102"], "period_id": env.periods["P1"]}
     body.pop("user_id")
     r = await c.post("/api/v1/bookings/recurring", json=body, headers=ayse)
@@ -319,7 +334,8 @@ async def test_approval_submitted_receipt_once_and_opt_out(env, monkeypatch):  #
     # the decision moves nothing back to "submitted"; a second request after the opt-out sends no receipt
     oid, ozge = await env.user("ozge.ince@uni.edu.tr")
     await _opt_out(env, ozge, "approval.submitted")
-    assert (await env.book(ozge, "A101", THU, "P1")).status_code == 202
+    r = await env.book(ozge, "A201", date(2026, 2, 18), "P3")
+    assert r.status_code == 202, r.text
     await worker.wait_idle()
     assert await _rows("approval_submitted", oid) == []
     assert len(await _bell(oid, "approval.submitted")) == 1
@@ -381,7 +397,8 @@ async def test_new_device_sign_in_once_per_device(env, monkeypatch):  # noqa: F8
     await worker.wait_idle()
     rows = await _rows("new_device_sign_in", tid)
     assert len(rows) == 1 and rows[0].subject == "Yeni bir cihazdan giriş yapıldı"
-    assert "Chrome, Windows" in rows[0].body and rows[0].link == "/profile#security"
+    assert "Cihaz: Chrome, Windows" in rows[0].body and rows[0].link == "/profile#security"
+    assert "Zaman: " in rows[0].body
     await _login(env, email, SAFARI_IPHONE, "85.105.12.40")  # another browser and OS
     await _login(env, email, CHROME_WIN, "212.156.4.9")  # another network
     await _login(env, email, SAFARI_IPHONE, "85.105.12.41")

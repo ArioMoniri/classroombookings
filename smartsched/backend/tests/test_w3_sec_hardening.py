@@ -203,12 +203,19 @@ def test_nginx_security_headers_and_csrf_fence() -> None:
     # security.txt is built by the backend from the admin's settings (wave3-sec2, test_w3_sec2_security_txt.py)
     assert "location = /.well-known/security.txt" in NGINX
     assert "    location / {" in NGINX  # the pod CI renders /ci/ before this line
+    # voice input (VO-05): the microphone only for our own origin, a 6 MB limit on the clip upload
+    assert 'Permissions-Policy "camera=(), microphone=(self), geolocation=()' in NGINX
+    assert "microphone=()" not in NGINX
+    voice = NGINX.split("location = /api/v1/ai/voice/transcribe {", 1)[1].split("\n    }", 1)[0]
+    assert "client_max_body_size 6m;" in voice and "if ($smartsched_origin_bad = \"w\") { return 403; }" in voice
 
 
 def test_caddy_edge_headers() -> None:
     assert 'Strict-Transport-Security "max-age=31536000; includeSubDomains"' in CADDY
     for name in ("X-Content-Type-Options", "Referrer-Policy", "X-Frame-Options", "Content-Security-Policy"):
         assert f"?{name} " in CADDY, name
+    assert "microphone=(self)" in CADDY and "microphone=()" not in CADDY
+    assert "request_body /api/v1/ai/voice/transcribe {\n\t\tmax_size 6MB" in CADDY
 
 
 # ----------------------------------------------------------------------------------------- RLS on SQLite

@@ -604,6 +604,7 @@ async def _on_logged_in(session: AsyncSession, payload: dict[str, Any]) -> None:
     lang = await _lang(session, user)
     fmt = await bookings_i18n.formatter(session, lang)
     local = now.replace(tzinfo=UTC).astimezone(await _tz(session)).replace(tzinfo=None)
+    stamp, device = f"{fmt.long(local.date())} {fmt.time(local.time())}", device_label(ua, lang)
     await send(
         session,
         user,
@@ -613,8 +614,9 @@ async def _on_logged_in(session: AsyncSession, payload: dict[str, Any]) -> None:
         link="/profile#security",
         locale=lang,
         data={"auth_method": payload.get("auth_method"), "device": device_label(ua, "en")},
-        when=f"{fmt.long(local.date())} {fmt.time(local.time())}",
-        device=device_label(ua, lang),
+        when=stamp,
+        device=device,
+        details=[("Zaman", stamp), ("Cihaz", device)] if lang == "tr" else [("When", stamp), ("Device", device)],
     )
 
 

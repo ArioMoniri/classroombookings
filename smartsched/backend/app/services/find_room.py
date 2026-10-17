@@ -642,7 +642,7 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
     if ledger:
         from app.services import demand
 
-        await demand.record_search(info.term.id, open_dates or dates, s0, s1 + dur - 1, q, free_count)
+        await demand.record_search(info.term.id, open_dates or dates, s0, s1 + dur - 1, q, free_count, sorted(tags))
     return {
         "query_echo": _echo(q),
         "term_id": info.term.id,

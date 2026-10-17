@@ -21,6 +21,7 @@ import { visibleNavGroups, type NavItem } from "./nav-config";
 import { TermSwitcher, useActiveTerm } from "./term-switcher";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
+import { ChecklistPill, NewBadge, tourAnchorFor } from "@/components/welcome";
 
 /** Counts are scoped to the selected term (usability M14: the FINAL term showed Bahar's 231). */
 export function useNavBadges(): Record<NonNullable<NavItem["badge"]>, number> {
@@ -76,9 +77,15 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
               hint: !collapsed && item.key ? <KbdHint keys={["G", item.key.toUpperCase()]} sequence thenLabel={t("glass.shell.then")} /> : undefined,
               "aria-label": aria,
               "data-testid": navTestId(item.href),
+              "data-tour": tourAnchorFor(item.href),
               onClick: onNavigate,
               className: cn(collapsed && "justify-center px-0"),
-              children: collapsed ? <span className="sr-only">{label}</span> : label,
+              children: collapsed ? <span className="sr-only">{label}</span> : (
+                <>
+                  {label}
+                  <NewBadge href={item.href} />
+                </>
+              ),
             };
             if (!collapsed) return <SidebarGlassItem key={item.href} {...props} render={<Link href={item.href} />} />;
             // collapsed: the tooltip root has no DOM, so the <li> stays a direct child of the list
@@ -151,6 +158,7 @@ export function Sidebar() {
           <NavList collapsed={collapsed} />
         </SidebarGlassContent>
         <SidebarGlassFooter className={cn(collapsed && "items-center")}>
+          <ChecklistPill collapsed={collapsed} />
           <div className={cn("flex items-center gap-1", collapsed && "flex-col")}>
             <div className="min-w-0 flex-1">
               <UserMenu collapsed={collapsed} />

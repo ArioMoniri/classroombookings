@@ -120,9 +120,12 @@ async def record(
         log.warning("demand ledger write failed", exc_info=True)
 
 
-async def record_search(term_id: int | None, dates: list[date], start: int, end: int, q: Any, free: int) -> None:
-    """Called by ``find_room.find_rooms`` with its resolved query: one row per search."""
-    feats = [*(getattr(q, "tags", None) or [])]
+async def record_search(
+    term_id: int | None, dates: list[date], start: int, end: int, q: Any, free: int, tags: Iterable[str] = ()
+) -> None:
+    """Called by ``find_room.find_rooms`` with its resolved query (``tags``: the room tags the search asked for,
+    from the chips and the text): one row per search."""
+    feats = [*tags]
     for fr in getattr(q, "features", None) or []:
         feats.append(str(getattr(fr, "field", "")))
     buildings = getattr(q, "buildings", None) or []

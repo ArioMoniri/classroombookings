@@ -93,7 +93,7 @@ def _ogg(data: bytes) -> float | None:
     else:
         return None
     last = data.rfind(b"OggS")
-    granule = struct.unpack_from("<q", data, last + 6)[0]
+    granule = int(struct.unpack_from("<q", data, last + 6)[0])
     if granule < 0 or not rate:
         return None
     return max(granule - pre_skip, 0) / rate
