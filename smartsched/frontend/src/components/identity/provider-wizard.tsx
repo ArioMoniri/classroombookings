@@ -97,7 +97,7 @@ export function ProviderWizard({ providerId, onBack }: { providerId: number; onB
   useEffect(() => headingRef.current?.focus(), []);
   if (q.isLoading) return <Loading />;
   if (q.isError || !q.data) return <Alert tone="error">{problemText(q.error, locale) ?? t("identity.loadError")}</Alert>;
-  return <Wizard key={q.data.provider.version} setup={q.data} onBack={onBack} headingRef={headingRef} keep={{ step, setStep, test, setTest }} />;
+  return <Wizard key={q.data.provider.id} setup={q.data} onBack={onBack} headingRef={headingRef} keep={{ step, setStep, test, setTest }} />;
 }
 
 function Wizard({ setup, onBack, headingRef, keep }: { setup: Setup; onBack: () => void; headingRef: React.RefObject<HTMLHeadingElement | null>; keep: Kept }) {

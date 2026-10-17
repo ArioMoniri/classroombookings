@@ -66,7 +66,7 @@ describe("T-R2-04: tab-bar labels fit their column", () => {
     await waitFor(() => expect(tabs().length).toBeGreaterThanOrEqual(3));
     const names = tabs().map((a) => a.getAttribute("aria-label"));
     // W3-SLOT follow-up: "Rezerve et" (/reserve, the quick reservation) is the teacher's first tab
-    expect(names).toEqual(["Rezerve et", "Rezerve", "Benimkiler", "Taleplerim"]);
+    expect(names).toEqual(["Rezerve et", "Takvim", "Benimkiler", "Taleplerim"]); // the grid tab reads "Takvim", never confused with "Rezerve et"
     expect(tabs()[0]).toHaveAttribute("href", "/reserve");
     for (const a of tabs()) {
       const label = a.querySelector("[data-slot=tab-label]")!;
