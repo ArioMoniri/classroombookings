@@ -46,6 +46,8 @@ OPS_PERMS = ("setup.settings", "planning.admin")
 notify_dispatch.EVENTS.setdefault(EVENT, ("Sistem uyarıları (yöneticiler)", "System alerts (administrators)"))
 
 _task: asyncio.Task[None] | None = None
+#: the last pass of this process (``GET /ops/status`` ``alert_relay``)
+last_result: dict[str, Any] = {}
 
 
 def fingerprint(labels: dict[str, Any]) -> str:
@@ -205,6 +207,8 @@ async def _loop(interval: float) -> None:
     while True:
         try:
             out = await poll_once()
+            last_result.clear()
+            last_result.update(out, at=datetime.now(UTC).isoformat(timespec="seconds"))
             if out.get("notified") or out.get("resolved"):
                 log.info("alert relay: %s", out)
         except asyncio.CancelledError:

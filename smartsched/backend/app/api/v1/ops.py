@@ -40,6 +40,7 @@ from app.models.base import utcnow
 from app.models.channels import ChannelDelivery
 from app.models.error_event import STATUSES, ErrorEvent
 from app.models.integrations import CalendarSyncJob
+from app.services import ops_alerts as alert_relay
 from app.services.bookings_perms import load_access
 
 router = APIRouter(prefix="/ops", tags=["ops"])
@@ -246,6 +247,8 @@ async def ops_status(
         "grafana_path": cfg.grafana_public,
         "podci": podci,
         "alerts": alerts,
+        # the alert relay (app/services/ops_alerts.py): admins get firing / resolved alerts as event ops.alert
+        "alert_relay": dict(alert_relay.last_result) or None,
     }
 
 

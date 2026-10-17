@@ -20,7 +20,10 @@ from tests.crbs_support import make_user
 T0 = datetime(2026, 10, 17, 18, 0, tzinfo=UTC)
 ALERT = {
     "labels": {"alertname": "SmartSchedHigh5xx", "severity": "warning"},
-    "annotations": {"summary_tr": "İsteklerin %2'sinden fazlası 5xx ile bitiyor (10 dk).", "summary_en": "More than 2 % 5xx."},
+    "annotations": {
+        "summary_tr": "İsteklerin %2'sinden fazlası 5xx ile bitiyor (10 dk).",
+        "summary_en": "More than 2 % 5xx.",
+    },
     "state": "firing",
     "activeAt": "2026-10-17T17:50:00Z",
 }
@@ -44,7 +47,9 @@ class FakeProm:
 def prom(monkeypatch):
     fake = FakeProm()
     real = httpx.AsyncClient
-    monkeypatch.setattr(ops_alerts.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(fake.handler), **kw))
+    monkeypatch.setattr(
+        ops_alerts.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(fake.handler), **kw)
+    )
     monkeypatch.setenv("OPS_PROMETHEUS_URL", "http://prometheus:9090")
     return fake
 
@@ -95,7 +100,12 @@ async def test_fire_once_renotify_after_6h_resolve_once(client, prom):
 
     # Prometheus down: nothing is resolved
     prom.down = True
-    assert await ops_alerts.poll_once(now=T0 + timedelta(hours=7)) == {"firing": 0, "notified": 0, "resolved": 0, "error": "ConnectError"}
+    assert await ops_alerts.poll_once(now=T0 + timedelta(hours=7)) == {
+        "firing": 0,
+        "notified": 0,
+        "resolved": 0,
+        "error": "ConnectError",
+    }
 
     # gone: resolved once
     prom.down = False
