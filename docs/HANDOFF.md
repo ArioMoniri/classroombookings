@@ -55,7 +55,8 @@ the locked-class self-move (recommend: keep as re-deciding the lock), T-R1-25 pe
 - Admin account: `umutk@getvivax.com`; the password is in AWS SSM Parameter Store `/smartsched/admin_password`
   (SecureString; read it with `aws ssm get-parameter --name /smartsched/admin_password --with-decryption` or AWS
   CloudShell). It is never written to the repository.
-- Start/stop: push `infra/aws/POD_ACTION` with `start` / `status` / `stop` (OIDC role, docs/deploy/AWS.md); the pod
+- Start/stop: push `infra/aws/POD_ACTION` with `start` / `status` / `stop` **on `claude/gracious-cerf-w1598m` or
+  `claude/smartsched-universal` only** (the OIDC trust policy refuses any other branch; docs/deploy/AWS.md); the pod
   deploys `claude/gracious-cerf-w1598m` (institution data) and builds `claude/smartsched-universal` (empty profile).
 
 ## Environment notes for the resuming session
@@ -82,6 +83,7 @@ Round-2 sweeper (after lanes C and E finish): `ui/date-field.tsx` calendar butto
 
 ## Progress log (newest first)
 
+- 2026-10-17 20:45 UTC — **pod start**: the 5e406d3f start from focused-wright failed at the OIDC step (trust policy allows only the gracious and universal branches); re-pushed from gracious as 7cb5f9e7, run 39067471382 green (`smartsched_aws.py start` ok); waiting for the app to come up. **W3-OPS follow-up done**: alert relay to admins without Alertmanager (ops_alerts.py, dedup by delivery ledger, 6 h reminder, restart-safe resolve), BACKEND_MEMORY 3500m with the observability profile, deploy/backup.sh feeding the backup-age alert; pytest 30. Ask to W3-MAIL: add `ops.alert` to notify_dispatch.EVENTS.
 - 2026-10-17 20:35 UTC — **round-3 lane B fixes done**: R3-S-02 focus lands on the refreshed find-room summary after a stale-result refusal; R3-A-01 a selected feature chip counts as asked; R2-A-11 was a tester-script error (the note was sent as a top-level key; the API field is per-slot `notes`), feed is correct, two regression tests added. Round-4 testers must send `slots: [{mbs_id, notes}]`.
 - 2026-10-17 20:32 UTC — **W3-OPS shipped**: Prometheus metrics (private /metrics, multi-worker), grouped PII-scrubbed error tracking (0036_error_events, one head), `observability` compose profile (Prometheus 3, Loki, Grafana Alloy instead of Promtail, Grafana 13; measured 0.37–0.49 GB, under the 768 MiB budget), six Turkish-first dashboards, /admin/ops panel (status cards, firing alerts, error groups, log tail, Grafana links); pytest 25, vitest 14, e2e 3/3. Follow-ups sent: nginx /grafana/ locations → W3-SEC; AI metric hooks → W3-AI; BACKEND_MEMORY=3500m default + an alert relay to admins (no Alertmanager) → W3-OPS. Docker image builds fail inside this sandbox (proxy CA), so images are built by pod CI.
 - 2026-10-17 20:25 UTC — **W3-DES2 done**: docs/design/v3/emails.md (one themed 600 px e-mail system, 25 kinds with TR/EN copy, dark-mode handling per client, checks EM-01…20), integrations.md (gallery + 5-step guided setup, multi-provider sign-in buttons of equal weight, SMTP wizard defaulting to OAuth for Microsoft 365), messages.md (bell/toast/banner/empty-state rules and copy); 19 SVG mock-ups. Routed to W3-MAIL, W3-HUB, W3-IDP and W3-AI (Turkish percent suffix in the AI banner). Motion rows still to copy into v2/motion.md at docs time.
