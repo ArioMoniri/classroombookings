@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 22:46",
-      "left_off": "Docs are written; only the final suite count (for the PROGRESS DONE row) is outstanding."
+      "finished_at": "2026-10-17 23:46",
+      "left_off": "Waiting for the monitor's suite result."
     },
     {
       "id": "afe38e299d6f66d51",

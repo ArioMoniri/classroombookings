@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `34b2193` (committed 2026-10-17 23:30 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `7274a1f` (committed 2026-10-17 23:46 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 62 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 63 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -124,6 +124,7 @@ Done 62 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.ym
 | Invitations per provider: invite by e-mail with the provider or a local password (set from the link), themed invitation e-mail (W3-MAIL send_kind), resend, renew, revoke (disables the unused placeholder, T-R1-35), bulk invite from a Turkish Excel CSV; account_created e-mail on self sign-up and local acceptance | Done: POST /auth/sso/admin/invites (provider, send_email), /bulk, /{id}/resend, POST /auth/sso/invites/{token}/password; components/identity/invites-panel.tsx, local-invite-accept.tsx | wave 3b (W3-IDP) | [`test_w3b_idp_invites.py`](../smartsched/backend/tests/test_w3b_idp_invites.py) |
 | /login with several providers: equal-weight buttons in the admins' order (Microsoft and Google branding), at most 3 + 'Diğer giriş yolları', invite shows only the invited method, provider error codes domain / invite_provider in TR/EN | Done: components/identity/provider-buttons.tsx in components/auth/sign-in-page.tsx; auth.providers in GET /org/public | wave 3b (W3-IDP) | [`identity-wizard.test.tsx`](../smartsched/frontend/src/components/identity/identity-wizard.test.tsx) |
 | Calendar export for academicians (backend): 'Derslerim' and 'Bölümümün dersleri' from the published run only, as scope-bound revocable subscription links (classes.ics, department-classes/{id}.ics), one-off .ics files and push into a dedicated 'SmartSched – Derslerim' Google (calendar.app.created) / Microsoft calendar; stable class UIDs across re-publishes and room moves, SEQUENCE on every change, CANCELLED tombstones, Europe/Istanbul VTIMEZONE, RFC 7986 NAME/SOURCE, version-key ETag/304 + Last-Modified, 1 MB cap; department rule (own, taught, calendar.department_feed); per-scope approval with consent id and audit; verified accounts for push (identity, Workspace hd, Entra tid, own e-mail / institution domain, admin-allowed domains); nightly repair 03:30 | Done: alembic 0039_calendar_classes; app/services/calendar_classes.py + calendar_feeds.py + calendar_connectors.py + api/v1/calendar_sync.py + workers/integrations.py; tests test_cal_01..07_*; frontend sheet = CAL-08/09 (CAL-F) | calendar export (CAL-B, CAL-01..07) | [`test_cal_06_push.py`](../smartsched/backend/tests/test_cal_06_push.py) |
+| Welcome guide per role (backend): audiences from permissions + the instructor link (academician, staff, approver, dept_admin, viewer, planner, admin; never role codes), one server-decided automatic surface per call (first sign-in sheet, 'Sonra' back after 3 days at most twice, role-change delta with only the new audiences, admin 'show again', else one wave-3 feature hint for accounts created before its release, 60 days), self-ticking 'Başlarken' checklist from real rows and audit events (booking, decision, channel, calendar link, intake commit, run, publish, org/mail/rooms/users), deep-link / kiosk / embed / maintenance suppression; admin switches, TR/EN text overrides with version conflict (409 stale naming the editor), completion stats with groups under 5 hidden; RLS owner-only progress rows; KVKK export + erasure | Done: alembic 0040_welcome_guide (welcome_progress + welcome_content, PG policy rls_owner); app/services/welcome.py + welcome_hints.py + api/v1/welcome.py; kvkk.py export file welcome_guide + erase count; tests test_wg_01_*, test_wg_02_signals, test_wg_03_admin; frontend = WG-04..08 (WG-F) | welcome guide (WG-B, WG-01..03) | [`test_wg_01_welcome.py`](../smartsched/backend/tests/test_wg_01_welcome.py) |
 
 <!-- /AUTO:status -->
 
@@ -165,13 +166,12 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-273 agents in [`docs/agents/registry.json`](agents/registry.json): running 13 · finished 242 · stopped 11 · superseded 7.
+275 agents in [`docs/agents/registry.json`](agents/registry.json): running 14 · finished 243 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
 | `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
 | `CAL-B` | backend-engineer | 2026-10-17 21:54 |
-| `Security follow-ups from W3-SEC` | general-purpose | 2026-10-17 22:17 |
 | `WG-B` | backend-engineer | 2026-10-17 22:58 |
 | `WG-F` | frontend-engineer | 2026-10-17 22:58 |
 | `AS-B` | backend-engineer | 2026-10-17 23:01 |
@@ -182,6 +182,8 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `RF-2` | backend-engineer | 2026-10-17 23:22 |
 | `HB-A` | ai-engineer | 2026-10-17 23:28 |
 | `One-click deploy both branches` | devops-engineer | 2026-10-17 23:30 |
+| `AU-B` | general-purpose | 2026-10-17 23:36 |
+| `Auth screens design (login, 2FA, passkeys)` | design-pro | 2026-10-17 23:36 |
 
 <!-- /AUTO:agents -->
 

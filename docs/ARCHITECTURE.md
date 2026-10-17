@@ -101,7 +101,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-37 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0041_adaptive`**. A new migration goes on top of it (`alembic heads` must print one line).
+38 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0042_ai_usage_audio`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -142,6 +142,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 35 | `0039_calendar_classes` | `0038_email_templates` | Calendar export for academicians (CAL-01, docs/research/2026-10-17-calendar-export.md §3.2) |
 | 36 | `0040_welcome_guide` | `0039_calendar_classes` | Welcome guide per role (WG-01; docs/design/v3/welcome-guide.md §6.3, app/models/welcome.py) |
 | 37 | `0041_adaptive` | `0040_welcome_guide` | Adaptive scheduling (AS-03, AS-05, AS-13; docs/research/2026-10-17-adaptive-scheduling.md) |
+| 38 | `0042_ai_usage_audio` | `0041_adaptive` | Voice metering on ``ai_usage`` (VO-02; docs/research/2026-10-17-voice-ai.md §3.3) |
 
 <!-- /AUTO:migrations -->
 

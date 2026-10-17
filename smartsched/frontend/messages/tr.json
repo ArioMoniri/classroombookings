@@ -6576,8 +6576,8 @@
     "check": {
       "title": "Başlarken",
       "pill": "Başlarken {done} / {total}",
-      "pillLabel": "Başlarken, {total} adımdan {done} tamam",
-      "progress": "{total} adımdan {done} tamam",
+      "pillLabel": "Başlarken, {total} adımdan {done} tanesi tamam",
+      "progress": "{total} adımdan {done} tanesi tamam",
       "next": "Sıradaki: {item}",
       "hide": "Gizle",
       "allDone": "Hepsi tamam. Listeyi gizleyebilirsiniz.",
