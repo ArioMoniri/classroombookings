@@ -23,11 +23,12 @@ import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import { ACTION_PREFIXES, ACTION_SENTENCES, ARCHIVED_KINDS, archivedCounts, auditQuery, auditSubject, auditTail, canUndo, dedupeOptions, diffRows, emptyAuditFilters, ENTITY_ALIASES, ENTITY_TYPES, isProgramUndo, undoBlockers, undoReasons, valueText, type AuditFilterForm } from "./audit-model";
+import { ACTION_PREFIXES, ACTION_SENTENCES, ARCHIVED_KINDS, archivedCounts, auditQuery, auditReason, auditSubject, auditTail, canUndo, dedupeOptions, diffRows, emptyAuditFilters, ENTITY_ALIASES, ENTITY_TYPES, isProgramUndo, undoBlockers, undoReasons, valueText, type AuditFilterForm } from "./audit-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { DateField } from "@/components/ui/date-field";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsPhone } from "@/components/bookings/use-is-phone";
+import { focusAfter } from "@/components/bookings/focus-after";
 
 export function AuditView() {
   const { t, locale } = useI18n();
@@ -285,7 +286,14 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
   const words = { yes: t("wave1.audit.yes"), no: t("wave1.audit.no") };
   const panel = `audit-${e.id}`;
   return (
-    <li className="not-last:edge-hairline-b" data-testid={`audit-event-${e.id}`} data-action={e.action}>
+    <li
+      className="not-last:edge-hairline-b focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)"
+      data-testid={`audit-event-${e.id}`}
+      data-action={e.action}
+      data-audit-id={e.id}
+      tabIndex={-1}
+      aria-label={`${auditSentence(e.action, e.entity_type, t)} ${auditTail(e)}`.trim()}
+    >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
         <BareButton
           onClick={() => setOpen((x) => !x)}
@@ -304,12 +312,12 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
             </span>
             <span className="block truncate type-footnote text-label-3 tabular-nums">
               {e.ts ? fmt.dateTime(e.ts) : ""} · {e.actor_label ?? t(`wave1.audit.actorType.${e.actor_type === "user" ? "user" : "system"}`)}
-              {e.reason ? ` · ${e.reason}` : ""}
+              {auditReason(e.reason, t) ? ` · ${auditReason(e.reason, t)}` : ""}
             </span>
           </span>
         </BareButton>
         {canUndo(e) ? (
-          <Button size="sm" variant="outline" onClick={onUndo} data-testid={`audit-undo-${e.id}`}>
+          <Button size="sm" variant="outline" className="pointer-coarse:h-11 pointer-coarse:px-4" onClick={onUndo} data-testid={`audit-undo-${e.id}`}>
             <Undo2 aria-hidden />
             {t("wave1.audit.undo")}
           </Button>
@@ -388,6 +396,7 @@ function UndoDialog({ event, onClose }: { event: AuditEvent | null; onClose: () 
         toast.success(t("wave1.audit.undoneN", { n: out.booking_ids.length || out.undone }));
       }
       onClose();
+      focusAfter([`[data-audit-id="${event.id}"]`]);
     } catch (e) {
       const err = wave1Error(e);
       setRefusal({ text: errorText(err, locale), ...undoReasons(err.data), blockers: undoBlockers(err.data, locale) });
