@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `7a3f315` (committed 2026-10-17 21:39 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `e14a47e` (committed 2026-10-17 21:54 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 55 · Backend only 0 · In progress 1 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 57 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -116,6 +116,9 @@ Done 55 · Backend only 0 · In progress 1 · Planned 0 (from [`docs/features.ym
 | AI guardrails: deterministic scope classifier (code, translation, essays, general questions), prompt-injection detection in typed text and uploads (TR + EN: override, role-play, system-prompt / key exfiltration, tool-call smuggling, encoded payloads), spotlighting preamble, output check (offered tools, schema, no links / code), per-feature caps, per-user rate and concurrency limits, KVKK transfer basis per provider; refusals logged with a reason and visible to admins; red-team self-test | Done: app/ai/guardrails.py, app/ai/redteam_guard_cases.json (44 cases); /admin/ai Koruma with a dry-run test bench | wave 3 (W3-AI) | [`test_w3_ai_guardrails.py`](../smartsched/backend/tests/ai/test_w3_ai_guardrails.py) |
 | Guided SMTP setup shared by every admin: 12 provider presets (Google app password / OAuth2 / relay, Microsoft 365 OAuth2 XOAUTH2, Amazon SES, SendGrid, Mailgun, Postmark, Brevo, Resend, Yandex 360, campus server) with console steps and copy values, write-only encrypted secrets, KVKK md. 9 acknowledgement for providers abroad, SPF / DKIM / DMARC check with Turkish guidance, test e-mail with an SMTP transcript excerpt and Turkish error hints, 'Son değişiklik', send the mail that waited | Done: app/services/mail*.py, app/api/v1/mail_admin.py (/api/v1/mail/*), components/admin/email/smtp-wizard.tsx; DNS tests tests/test_w3b_mail_dns.py (fake resolver); docs/deploy/email.md | wave 3b (W3-MAIL) | [`test_w3b_mail_smtp.py`](../smartsched/backend/tests/test_w3b_mail_smtp.py) |
 | Themed HTML + plain-text e-mails for every message (25 kinds, TR + EN): one renderer app.emails.render(kind, locale, **ctx) -> (subject, html, text), table layout, 600 px, dark-mode safe, bulletproof VML button, preheader, CID logo, escaped values, variants per provider / reason / state; admin subject and intro overrides per kind and language with live desktop / phone preview and test send | Done: design docs/design/v3/emails.md; wired paths keep recipients and plain text (tests/test_w3b_mail_wiring.py); alembic 0038_email_templates (outbox link + locale); components/admin/email/email-templates.tsx; EmailSettingsPanel for /admin/integrations | wave 3b (W3-MAIL) | [`test_w3b_mail_render.py`](../smartsched/backend/tests/test_w3b_mail_render.py) |
+| Integrations gallery (Yönetim › Entegrasyonlar, /admin/integrations): organisation-wide connector cards for identity, e-mail, calendar, channels, webhooks / automation and AI with status words, last check, last change (who, when), Kur / Yönet, a Kullanımda switch through each area's own endpoint, Dikkat isteyen row, search, deep links, phone rows and a setup sheet embedding each area's panel | Done: GET /api/v1/integrations/status (app/api/v1/integrations.py; contract integration_status(session) per area); vitest components/admin/integrations/*.test.ts*; tests/test_w3b_hub_integrations.py | wave 3b (W3-HUB) | [`w3-hub.spec.ts`](../smartsched/frontend/e2e/w3-hub.spec.ts) |
+| Guided n8n / Activepieces / Pipedream / Zapier webhook setup: platform steps, paste the trigger URL, signing secret shown once with copy, headers and an HMAC-SHA256 check snippet per platform, test event with the delivery result | Done: uses the existing /webhooks API; e2e w3-hub test 1 on the real backend | wave 3b (W3-HUB) | [`integrations-gallery.test.tsx`](../smartsched/frontend/src/components/admin/integrations/integrations-gallery.test.tsx) |
+| Integration bell events integration.error and integration.secret_expiring to administrators through the dispatcher (once per occurrence) | In progress: relay in app/api/v1/integrations.py; waits for notify_dispatch.EVENTS entries and start_alert_relay() at startup (integrator) | wave 3b (W3-HUB) | [`test_w3b_hub_integrations.py`](../smartsched/backend/tests/test_w3b_hub_integrations.py) |
 
 <!-- /AUTO:status -->
 
@@ -157,7 +160,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-251 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 225 · stopped 11 · superseded 7.
+254 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 228 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -165,10 +168,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
 | `Mobile optimiser A` | frontend-engineer | 2026-10-17 19:56 |
 | `Mobile optimiser B` | frontend-engineer | 2026-10-17 19:56 |
-| `W3-HUB` | frontend-engineer | 2026-10-17 19:58 |
 | `W3-IDP` | backend-engineer | 2026-10-17 19:58 |
 | `Wave-3 integrator` | general-purpose | 2026-10-17 21:25 |
-| `Pod CI gates green on HEAD` | devops-engineer | 2026-10-17 21:39 |
+| `CAL-B` | backend-engineer | 2026-10-17 21:54 |
+| `CAL-F` | frontend-engineer | 2026-10-17 21:54 |
 
 <!-- /AUTO:agents -->
 
@@ -235,7 +238,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **324 ticked · 361 open** checkboxes in 88 sections (84 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **328 ticked · 375 open** checkboxes in 90 sections (86 with open items).
 
 <details><summary>Per section</summary>
 
@@ -329,6 +332,8 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Wave 3 — W3-AI (2026-10-17) | 5 | 3 |
 | Wave 3b — W3-MAIL (2026-10-17) | 5 | 1 |
 | Wave 3 — W3-SLOT (2026-10-17) | 7 | 5 |
+| Wave 3b — W3-HUB (2026-10-17) | 4 | 2 |
+| Calendar export & sync for academicians (owner request 2026-10-17) | 0 | 12 |
 
 </details>
 

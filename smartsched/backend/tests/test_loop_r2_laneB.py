@@ -267,6 +267,7 @@ async def test_r2_a11_an_approved_request_carries_its_note_into_mine_ics(env):  
     """R2-A-11 (round 3): the note typed in the book sheet reaches DESCRIPTION also when the booking went request →
     approval (approval-first), not only when it was booked directly."""
     import icalendar
+
     from tests.integrations_support import calendar_consent, kvkk_sign_off
 
     c = env.client
@@ -297,6 +298,7 @@ async def test_r2_a11_an_approved_two_period_request_carries_its_note_into_mine_
     """R2-A-11 as the academician ran it: P-P+1 sent as one submission (multi) with the sheet's note, approved as a
     whole by the approver: the one merged VEVENT carries the note."""
     import icalendar
+
     from tests.integrations_support import calendar_consent, kvkk_sign_off
 
     c = env.client

@@ -144,35 +144,36 @@ async def get_draft(
 
 async def _create_draft(session: AsyncSession, term_id: int, user_id: int, kind: str) -> StudioDraft:
     """Idempotent get-or-create: two first visits racing on the unique (term, user, kind) key both get the
-    one draft (the loser's INSERT fails, it re-reads the winner's row) instead of a 500 (usability U2)."""
+    one draft (usability U2). The INSERT runs in a SAVEPOINT, so the loser rolls back only that INSERT and
+    re-reads the winner's row; a full session rollback expired the request's other rows (the ``User`` of
+    PUT /terms/{id}/studio -> MissingGreenlet -> 500, pod CI e2e 2026-10-17)."""
     from sqlalchemy.exc import IntegrityError
 
+    draft = StudioDraft(
+        term_id=term_id,
+        user_id=user_id,
+        kind=kind,
+        version=1,
+        horizon="TERM",
+        horizon_params={},
+        excluded_event_ids=[],
+        pins=[],
+        disabled_rule_ids=[],
+        rule_overrides={},
+        params={},
+    )
     try:
-        draft = StudioDraft(
-            term_id=term_id,
-            user_id=user_id,
-            kind=kind,
-            version=1,
-            horizon="TERM",
-            horizon_params={},
-            excluded_event_ids=[],
-            pins=[],
-            disabled_rule_ids=[],
-            rule_overrides={},
-            params={},
-        )
-        session.add(draft)
-        await session.commit()
+        async with session.begin_nested():
+            session.add(draft)
     except IntegrityError:
-        await session.rollback()
-        draft = (
+        return (
             await session.execute(
                 select(StudioDraft).where(
                     StudioDraft.term_id == term_id, StudioDraft.user_id == user_id, StudioDraft.kind == kind
                 )
             )
         ).scalar_one()
-        return draft
+    await session.commit()
     await session.refresh(draft)
     return draft
 

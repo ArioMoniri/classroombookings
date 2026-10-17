@@ -93,6 +93,15 @@ async def _cached(request: Request, db: DB, out: dict[str, Any]) -> Response:
     return JSONResponse(out, headers=headers)
 
 
+async def _with_slot_labels(db: DB, out: dict[str, Any]) -> dict[str, Any]:
+    """The label part of the administrator's slot display (W3-SLOT, slot-display.md §5): the kiosk is not signed in,
+    so it cannot read GET /bookings/slot-display. Items are never hidden by the visible-period window here."""
+    from app.api.v1.bookings import slot_display
+
+    sd = await slot_display(db)
+    return {**out, "slot_display": {k: sd[k] for k in ("label", "period_name", "time_format")}}
+
+
 @router.get("")
 async def public_index(request: Request, db: DB) -> Response:
     _limit(request)
@@ -113,7 +122,7 @@ async def public_room(
         out = await svc.room_day(db, code, d)
     except svc.NotFound as exc:
         raise _not_found() from exc
-    return await _cached(request, db, out)
+    return await _cached(request, db, await _with_slot_labels(db, out))
 
 
 @router.get("/buildings/{code}")
@@ -126,7 +135,7 @@ async def public_building(
         out = await svc.building_day(db, code, d)
     except svc.NotFound as exc:
         raise _not_found() from exc
-    return await _cached(request, db, out)
+    return await _cached(request, db, await _with_slot_labels(db, out))
 
 
 @admin_router.get("/settings")

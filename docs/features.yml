@@ -347,7 +347,7 @@
   note: "uses the existing /webhooks API; e2e w3-hub test 1 on the real backend"
 - feature: "Integration bell events integration.error and integration.secret_expiring to administrators through the dispatcher (once per occurrence)"
   area: platform
-  status: partial
+  status: in-progress
   phase: "wave 3b (W3-HUB)"
   evidence: smartsched/backend/tests/test_w3b_hub_integrations.py
   note: "relay in app/api/v1/integrations.py; waits for notify_dispatch.EVENTS entries and start_alert_relay() at startup (integrator)"
