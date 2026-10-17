@@ -600,7 +600,7 @@ export function BookingsView() {
         ) : null}
       </div>
 
-      {lens === "grid" ? <Legend /> : null}
+      {lens === "grid" ? <Legend approvalFirst={approvalFirst} /> : null}
 
       {multi && selected.size > 0 ? (
         <Toolbar placement="floating-bottom" aria-label={t("crbs.multi.tray")} data-testid="multi-tray" data-print-hide>
@@ -749,7 +749,7 @@ const LEGEND: { tone: SlotTone; key: Parameters<ReturnType<typeof useI18n>["t"]>
   { tone: "unavailable", key: "crbs.legend.unavailable" },
 ];
 
-function Legend() {
+function Legend({ approvalFirst = false }: { approvalFirst?: boolean }) {
   const { t } = useI18n();
   return (
     <div className="flex flex-col gap-2">
