@@ -11,6 +11,8 @@
  *   the panel's public address; without one the card asks for it first (the address is editable here).
  * - The KVKK sign-off is the calendar-sync one (CalendarSyncAdmin, M-18): while sync is off the card says users
  *   cannot connect yet, and shows the sign-off record when there is one.
+ * - CAL-09 (2026-10-17): the push rules block (components/calendar-export/admin-settings.tsx) under the public
+ *   address; it renders only the settings the backend answers with. Export and props unchanged (W3-HUB embeds it).
  */
 import { CalendarCog, Check, Copy } from "lucide-react";
 import { useState, type FormEvent } from "react";
@@ -22,6 +24,7 @@ import { BusyLabel } from "@/components/ui/busy-label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PushRuleSettings } from "@/components/calendar-export/admin-settings";
 import { useIntegrationSettings, useSaveIntegrationSettings, type IntegrationSettings, type IntegrationSettingsIn, type OAuthClientOut } from "@/lib/api/approval-first";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
@@ -244,6 +247,8 @@ export function CalendarPushAdmin() {
               {s.calendar_sync_signoff ? <SignoffRecord signoff={s.calendar_sync_signoff} /> : null}
             </div>
             <PublicUrl key={`url-${s.public_url ?? ""}-${s.public_url_source ?? ""}`} s={s} />
+            {/* CAL-09: verified accounts only + allowed domains, the OAuth client source, the Google scope mode */}
+            <PushRuleSettings />
             {PUSH_PROVIDERS.map((p) => (
               <ProviderClient key={`${p}-${s[p]?.client_id ?? ""}-${s[p]?.tenant ?? ""}`} provider={p} s={s} />
             ))}
