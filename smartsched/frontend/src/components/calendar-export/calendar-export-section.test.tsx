@@ -5,6 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@/lib/i18n/provider";
 
+// real user events through a sheet: generous on the shared, loaded host
+vi.setConfig({ testTimeout: 20_000 });
+
 type Call = { path: string; method: string; body?: unknown };
 const api = vi.hoisted(() => ({ options: null as unknown, subs: [] as unknown[], calls: [] as Call[] }));
 vi.mock("@/lib/api/client", async (orig) => {

@@ -37,7 +37,7 @@ do_record() {
     [[ "$device" == phone ]] && dsf=${LAUNCH_PHONE_DSF:-2} vp=390x844
     log "take $journey ($device, ${vp} @${dsf}x, UI $UI_LANG, captions en)"
     REC_DEVICE="$device" REC_DSF="$dsf" REC_VIEWPORT="$vp" REC_CAPTION_LANG=en \
-      $N node "$HERE/record.mjs" --journey "$journey" --lang "$UI_LANG" --engine frames --out "$TAKES" || log "take $journey FAILED (see $TAKES/*.failure.png); the other takes go on"
+      $N node "$HERE/record.mjs" --journey "$journey" --lang "$UI_LANG" --engine frames --out "$TAKES" </dev/null || log "take $journey FAILED (see $TAKES/*.failure.png); the other takes go on"
   done <<<"$list"
 }
 
@@ -52,7 +52,7 @@ do_render() {
 h264() { # in out maxbytes vf fps
   local in="$1" out="$2" max="$3" vf="$4" fps="$5" crf
   for crf in 18 20 22 24 26 28; do
-    $N ffmpeg -hide_banner -loglevel error -y -i "$in" -vf "$vf,format=yuv420p" -r "$fps" -c:v libx264 -profile:v high -preset slow -crf "$crf" \
+    $N ffmpeg -nostdin -hide_banner -loglevel error -y -i "$in" -vf "$vf,format=yuv420p" -r "$fps" -c:v libx264 -profile:v high -preset slow -crf "$crf" \
       -x264-params "keyint=$((fps * 4)):min-keyint=$fps" -movflags +faststart -an "$out"
     [[ $(size "$out") -le $max ]] && { log "$(basename "$out"): crf $crf, $(mb "$out")"; return 0; }
   done
@@ -64,7 +64,7 @@ do_encode() {
   # 1. the launch video: 1920x1080 60 fps H.264 High (plays everywhere), <= 25 MB
   h264 "$L" "$DIST/smartsched-launch.mp4" 25000000 "scale=1920:1080:flags=lanczos" 60
   # 2. AV1 in WebM (SVT-AV1, 10-bit): the same picture at a fraction of the bytes, for browsers that play AV1
-  $N ffmpeg -hide_banner -loglevel error -y -i "$L" -vf "format=yuv420p10le" -c:v libsvtav1 -preset 5 -crf 34 -g 240 \
+  $N ffmpeg -nostdin -hide_banner -loglevel error -y -i "$L" -vf "format=yuv420p10le" -c:v libsvtav1 -preset 5 -crf 34 -g 240 \
     -svtav1-params "tune=0" -an "$DIST/smartsched-launch-av1.webm"
   log "smartsched-launch-av1.webm: $(mb "$DIST/smartsched-launch-av1.webm")"
   # 3. a copy for a GitHub user-attachments upload on a free plan (10 MB limit): 1920x1080 at 30 fps
@@ -90,18 +90,18 @@ PY
   local from="${win%-*}" to="${win#*-}" q w fps
   for spec in "1280 30 80" "1280 30 70" "1280 30 60" "1280 24 60" "1280 24 50"; do
     read -r w fps q <<<"$spec"
-    $N ffmpeg -hide_banner -loglevel error -y -ss "$from" -to "$to" -i "$L" -vf "fps=$fps,scale=$w:-2:flags=lanczos" -c:v libwebp_anim \
+    $N ffmpeg -nostdin -hide_banner -loglevel error -y -ss "$from" -to "$to" -i "$L" -vf "fps=$fps,scale=$w:-2:flags=lanczos" -c:v libwebp_anim \
       -lossless 0 -quality "$q" -compression_level 6 -preset picture -loop 0 -an "$DIST/smartsched-loop.webp"
     [[ $(size "$DIST/smartsched-loop.webp") -le 5000000 ]] && break
   done
   log "smartsched-loop.webp: ${w}px ${fps} fps q$q, $(mb "$DIST/smartsched-loop.webp") (window $from-$to s)"
   # animated AVIF of the same loop (smaller; not used in the README until GitHub's raw host is checked for .avif)
-  $N ffmpeg -hide_banner -loglevel error -y -ss "$from" -to "$to" -i "$L" -vf "fps=30,scale=1280:-2:flags=lanczos,format=yuv420p" -c:v libsvtav1 -preset 6 -crf 36 \
+  $N ffmpeg -nostdin -hide_banner -loglevel error -y -ss "$from" -to "$to" -i "$L" -vf "fps=30,scale=1280:-2:flags=lanczos,format=yuv420p" -c:v libsvtav1 -preset 6 -crf 36 \
     -an -f avif "$DIST/smartsched-loop.avif" 2>/dev/null && log "smartsched-loop.avif: $(mb "$DIST/smartsched-loop.avif")" || log "animated AVIF not written (ffmpeg without the avif muxer)"
   # 7. posters (the loop's first frame, the launch video's title frame) as PNG at full size
-  $N ffmpeg -hide_banner -loglevel error -y -ss "$from" -i "$L" -frames:v 1 -vf "scale=1280:-2:flags=lanczos" "$DIST/smartsched-loop-poster.png"
-  $N ffmpeg -hide_banner -loglevel error -y -ss 3.4 -i "$L" -frames:v 1 "$DIST/smartsched-launch-poster.png"
-  [[ -f "$V" ]] && $N ffmpeg -hide_banner -loglevel error -y -ss 3.4 -i "$V" -frames:v 1 -vf "scale=540:-2:flags=lanczos" "$DIST/smartsched-launch-vertical-poster.png"
+  $N ffmpeg -nostdin -hide_banner -loglevel error -y -ss "$from" -i "$L" -frames:v 1 -vf "scale=1280:-2:flags=lanczos" "$DIST/smartsched-loop-poster.png"
+  $N ffmpeg -nostdin -hide_banner -loglevel error -y -ss 3.4 -i "$L" -frames:v 1 "$DIST/smartsched-launch-poster.png"
+  [[ -f "$V" ]] && $N ffmpeg -nostdin -hide_banner -loglevel error -y -ss 3.4 -i "$V" -frames:v 1 -vf "scale=540:-2:flags=lanczos" "$DIST/smartsched-launch-vertical-poster.png"
   # report
   for f in "$DIST"/*; do
     printf '%-40s %10s  %s\n' "$(basename "$f")" "$(mb "$f")" "$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,profile,width,height,avg_frame_rate,bit_rate -show_entries format=duration -of compact=p=0:nk=1 "$f" 2>/dev/null | tr '\n' ' ')"
@@ -120,7 +120,7 @@ do_clips() {
       local dsf=${LAUNCH_DSF:-1.5} vp=1440x810; [[ "$device" == phone ]] && dsf=${LAUNCH_PHONE_DSF:-2} vp=390x844
       log "clip take $journey ($device)"
       REC_DEVICE="$device" REC_DSF="$dsf" REC_VIEWPORT="$vp" REC_CAPTION_LANG=en \
-        $N node "$HERE/record.mjs" --journey "$journey" --lang "$UI_LANG" --engine frames --out "$CT" || { log "take $journey failed"; continue; }
+        $N node "$HERE/record.mjs" --journey "$journey" --lang "$UI_LANG" --engine frames --out "$CT" </dev/null || { log "take $journey failed"; continue; }
     fi
   done <<<"$list"
   # 2. renders + encodes
@@ -129,26 +129,26 @@ do_clips() {
     [[ -f "$CT/$name.take.json" ]] || continue
     local fmt=clip take="$journey"; [[ "$device" == phone ]] && fmt=phone-clip take="$journey-phone"
     if [[ ! -f "$CL/$take.mp4" ]]; then
-      $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --out "$CT/$take.full.mkv"
+      [[ -f "$CT/$take.full.mkv" ]] || $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --out "$CT/$take.full.mkv" </dev/null
       local vf="scale=1600:960:flags=lanczos"; [[ "$device" == phone ]] && vf="scale=720:1280:flags=lanczos"
       h264 "$CT/$take.full.mkv" "$CL/$take.mp4" 12000000 "$vf" 60
-      $N ffmpeg -hide_banner -loglevel error -y -sseof -2.5 -i "$CT/$take.full.mkv" -frames:v 1 -vf "scale=1200:-2:flags=lanczos" "$CL/$take-poster.png"
+      $N ffmpeg -nostdin -hide_banner -loglevel error -y -sseof -2.5 -i "$CT/$take.full.mkv" -frames:v 1 -vf "scale=1200:-2:flags=lanczos" "$CL/$take-poster.png"
     fi
     local src="$CT/$take.full.mkv"
     if [[ "$clip" != - ]]; then
       src="$CT/$id.clip.mkv"
-      $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --clip "$clip" --out "$src"
+      [[ -f "$src" ]] || $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --clip "$clip" --out "$src" </dev/null
     fi
     local w=1280 q fps=30; [[ "$device" == phone ]] && w=540
     for q in 82 74 66 58 50; do
-      $N ffmpeg -hide_banner -loglevel error -y -i "$src" -vf "fps=$fps,scale=$w:-2:flags=lanczos" -c:v libwebp_anim -lossless 0 -quality "$q" \
+      $N ffmpeg -nostdin -hide_banner -loglevel error -y -i "$src" -vf "fps=$fps,scale=$w:-2:flags=lanczos" -c:v libwebp_anim -lossless 0 -quality "$q" \
         -compression_level 6 -preset picture -loop 0 -an "$CL/$id.webp"
       [[ $(size "$CL/$id.webp") -le 4000000 ]] && break
     done
     # GIF fallback: 25 fps (an exact 4/100 s delay), diff palette, a width ladder until <= 9 MB
     local gw; for gw in 1120 1040 960 880 800; do
       [[ "$device" == phone ]] && gw=$((gw * 45 / 100))
-      $N ffmpeg -hide_banner -loglevel error -y -i "$src" -vf "fps=25,scale=$gw:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=256:stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle" \
+      $N ffmpeg -nostdin -hide_banner -loglevel error -y -i "$src" -vf "fps=25,scale=$gw:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=256:stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle" \
         -loop 0 "$CL/$id.gif"
       [[ $(size "$CL/$id.gif") -le 9000000 ]] && break
     done

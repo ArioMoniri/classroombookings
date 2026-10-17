@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `60aaf94` (committed 2026-10-17 22:40 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `220124b` (committed 2026-10-17 23:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 61 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 62 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -123,6 +123,7 @@ Done 61 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.ym
 | Guided identity-provider setup (5 steps): console values built from the public URL with Kopyala (redirect URI, entity id, ACS, scopes, logout URL, SP metadata), discovery / metadata check rows, a real test login in a popup that reports the claims (no account, no stored token), provider errors translated into cause + fix + step, then Etkinleştir | Done: components/identity/{identity-providers-panel,provider-wizard,providers-api,providers-model}.ts*; IdentityProvidersPanel embedded in Settings › sso and by W3-HUB; e2e/w3-idp.spec.ts with e2e/w3-idp-mock-issuer.py | wave 3b (W3-IDP) | [`identity-wizard.test.tsx`](../smartsched/frontend/src/components/identity/identity-wizard.test.tsx) |
 | Invitations per provider: invite by e-mail with the provider or a local password (set from the link), themed invitation e-mail (W3-MAIL send_kind), resend, renew, revoke (disables the unused placeholder, T-R1-35), bulk invite from a Turkish Excel CSV; account_created e-mail on self sign-up and local acceptance | Done: POST /auth/sso/admin/invites (provider, send_email), /bulk, /{id}/resend, POST /auth/sso/invites/{token}/password; components/identity/invites-panel.tsx, local-invite-accept.tsx | wave 3b (W3-IDP) | [`test_w3b_idp_invites.py`](../smartsched/backend/tests/test_w3b_idp_invites.py) |
 | /login with several providers: equal-weight buttons in the admins' order (Microsoft and Google branding), at most 3 + 'Diğer giriş yolları', invite shows only the invited method, provider error codes domain / invite_provider in TR/EN | Done: components/identity/provider-buttons.tsx in components/auth/sign-in-page.tsx; auth.providers in GET /org/public | wave 3b (W3-IDP) | [`identity-wizard.test.tsx`](../smartsched/frontend/src/components/identity/identity-wizard.test.tsx) |
+| Calendar export for academicians (backend): 'Derslerim' and 'Bölümümün dersleri' from the published run only, as scope-bound revocable subscription links (classes.ics, department-classes/{id}.ics), one-off .ics files and push into a dedicated 'SmartSched – Derslerim' Google (calendar.app.created) / Microsoft calendar; stable class UIDs across re-publishes and room moves, SEQUENCE on every change, CANCELLED tombstones, Europe/Istanbul VTIMEZONE, RFC 7986 NAME/SOURCE, version-key ETag/304 + Last-Modified, 1 MB cap; department rule (own, taught, calendar.department_feed); per-scope approval with consent id and audit; verified accounts for push (identity, Workspace hd, Entra tid, own e-mail / institution domain, admin-allowed domains); nightly repair 03:30 | Done: alembic 0039_calendar_classes; app/services/calendar_classes.py + calendar_feeds.py + calendar_connectors.py + api/v1/calendar_sync.py + workers/integrations.py; tests test_cal_01..07_*; frontend sheet = CAL-08/09 (CAL-F) | calendar export (CAL-B, CAL-01..07) | [`test_cal_06_push.py`](../smartsched/backend/tests/test_cal_06_push.py) |
 
 <!-- /AUTO:status -->
 
@@ -164,17 +165,21 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-257 agents in [`docs/agents/registry.json`](agents/registry.json): running 7 · finished 232 · stopped 11 · superseded 7.
+267 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 238 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
 | `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
-| `Mobile optimiser A` | frontend-engineer | 2026-10-17 19:56 |
 | `Mobile optimiser B` | frontend-engineer | 2026-10-17 19:56 |
 | `CAL-B` | backend-engineer | 2026-10-17 21:54 |
 | `Security follow-ups from W3-SEC` | general-purpose | 2026-10-17 22:17 |
-| `Install SAML library (signxml)` | devops-engineer | 2026-10-17 22:37 |
-| `Welcome guide research + design` | design-pro | 2026-10-17 22:37 |
+| `Audit` | strict-reviewer | 2026-10-17 22:45 |
+| `WG-B` | backend-engineer | 2026-10-17 22:58 |
+| `WG-F` | frontend-engineer | 2026-10-17 22:58 |
+| `AS-B` | backend-engineer | 2026-10-17 23:01 |
+| `Charts phase 2` | design-pro | 2026-10-17 23:12 |
+| `Helper UX design (generative UI)` | design-pro | 2026-10-17 23:12 |
+| `Helper architecture + AI governance` | general-purpose | 2026-10-17 23:12 |
 
 <!-- /AUTO:agents -->
 
@@ -241,7 +246,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **333 ticked · 376 open** checkboxes in 91 sections (87 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **339 ticked · 430 open** checkboxes in 95 sections (91 with open items).
 
 <details><summary>Per section</summary>
 
@@ -329,7 +334,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Flow loop round 1: academician and admin reports in (2026-10-16) | 2 | 2 |
 | Round 1 integrity fixes (2026-10-16) | 10 | 2 |
 | Wave 3 enhancements (ranked, research 2026-10-17) | 0 | 26 |
-| Wave 3 — W3-SEC (2026-10-17) | 3 | 4 |
+| Wave 3 — W3-SEC (2026-10-17) | 9 | 2 |
 | Wave 3b (owner request 2026-10-17 ~20:15 UTC): identity, e-mail and integration setup | 0 | 4 |
 | Wave 3 — W3-OPS (2026-10-17) | 6 | 2 |
 | Wave 3 — W3-AI (2026-10-17) | 5 | 3 |
@@ -338,6 +343,10 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Wave 3b — W3-HUB (2026-10-17) | 4 | 2 |
 | Calendar export & sync for academicians (owner request 2026-10-17) | 0 | 12 |
 | Wave 3b — W3-IDP identity providers (2026-10-17) | 5 | 1 |
+| Welcome guide per role (owner request 2026-10-17) | 0 | 11 |
+| Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 0 | 20 |
+| Voice for AI features (owner request 2026-10-17) | 0 | 13 |
+| Charts & telemetry views (owner request 2026-10-17) | 0 | 12 |
 
 </details>
 

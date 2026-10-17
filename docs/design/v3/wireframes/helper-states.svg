@@ -1,0 +1,68 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='760' viewBox='0 0 1440 760' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Yardımcı durumları: sınır, yapay zekâ kapalı, bellek'>
+<title>Yardımcı durumları: sınır, yapay zekâ kapalı, bellek</title>
+<rect width='1440' height='760' fill='#F4F6F9'/>
+<text x='24' y='44' font-size='22' font-weight='700' fill='#0F172A' text-anchor='start'>Durumlar</text>
+<rect x='24' y='70' width='440' height='600' rx='20' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='44' y='104' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>Yardımcı</text>
+<rect x='136' y='86' width='126' height='24' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='148' cy='98' r='4' fill='#B91C1C'/>
+<text x='158' y='102' font-size='11' font-weight='600' fill='#0F172A' text-anchor='start'>Sınıra ulaşıldı</text>
+<line x1='24' y1='124' x2='464' y2='124' stroke='#E2E8F0' stroke-width='1'/>
+<text x='44' y='160' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Kısayollar hâlâ çalışır:</text>
+<rect x='44' y='174' width='97' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='92.5' y='200.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Salon ayır</text>
+<rect x='149' y='174' width='125' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='211.5' y='200.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Takvimime ekle</text>
+<rect x='282' y='174' width='139' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='351.5' y='200.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Rezervasyonlarım</text>
+<rect x='44' y='540' width='400' height='54' rx='10' fill='#FEE2E2' fill-opacity='1'/>
+<text x='56' y='564' font-size='12' font-weight='500' fill='#B91C1C' text-anchor='start'>Bu ayki yapay zekâ sınırınıza ulaştınız. 1 Kasım'da</text>
+<text x='56' y='582' font-size='12' font-weight='500' fill='#B91C1C' text-anchor='start'>yenilenir. Arama ve kısayollar çalışıyor.</text>
+<rect x='44' y='606' width='400' height='48' rx='14' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='60' y='635' font-size='13' font-weight='400' fill='#94A3B8' text-anchor='start'>Yapay zekâ sınırda</text>
+<text x='44' y='700' font-size='12' font-weight='700' fill='#7C3AED' text-anchor='start'>A · %100 sınır: besteci kapalı, neden açıklamada</text>
+<rect x='484' y='70' width='440' height='600' rx='20' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='504' y='104' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>Yardımcı</text>
+<rect x='596' y='86' width='138' height='24' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='608' cy='98' r='4' fill='#94A3B8'/>
+<text x='618' y='102' font-size='11' font-weight='600' fill='#0F172A' text-anchor='start'>Yapay zekâ kapalı</text>
+<line x1='484' y1='124' x2='924' y2='124' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='504' y='144' width='400' height='60' rx='12' fill='#EFF6FF' fill-opacity='1'/>
+<text x='516' y='168' font-size='12' font-weight='500' fill='#2563EB' text-anchor='start'>Rehber modu: yapay zekâ kapalıyken de sayfaları</text>
+<text x='516' y='186' font-size='12' font-weight='500' fill='#2563EB' text-anchor='start'>ve kısayolları bulabilirsiniz.</text>
+<rect x='504' y='220' width='400' height='48' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='520' y='250' font-size='15' font-weight='500' fill='#0F172A' text-anchor='start'>tatil</text>
+<rect x='504' y='282' width='400' height='52' rx='10' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='520' y='304' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Tatiller</text>
+<text x='520' y='322' font-size='11' font-weight='400' fill='#64748B' text-anchor='start'>Yönetim › Dönem ve saatler</text>
+<rect x='504' y='342' width='400' height='52' rx='10' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='520' y='364' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>“Tatil ekle” düğmesi</text>
+<text x='520' y='382' font-size='11' font-weight='400' fill='#64748B' text-anchor='start'>Nerede? · Göster</text>
+<text x='504' y='700' font-size='12' font-weight='700' fill='#7C3AED' text-anchor='start'>B · kurum yapay zekâyı kapattı: dizin + kısayollar, besteci yok</text>
+<rect x='944' y='70' width='440' height='600' rx='20' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='964' y='110' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>Profil › Yardımcı neleri hatırlıyor?</text>
+<rect x='964' y='132' width='400' height='52' rx='12' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='980' y='163' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>Yardımcı yaptıklarımı hatırlasın</text>
+<rect x='1308' y='146' width='44' height='24' rx='12' fill='#2563EB' fill-opacity='1'/>
+<circle cx='1340' cy='158' r='9' fill='#FFFFFF'/>
+<rect x='964' y='202' width='400' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='980' y='224' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>A 204 rezerve edildi</text>
+<text x='980' y='242' font-size='11' font-weight='400' fill='#64748B' text-anchor='start'>Son görev · 17 Eki</text>
+<rect x='1284' y='208' width='64' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1316.0' y='232.32' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Sil</text>
+<rect x='964' y='262' width='400' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='980' y='284' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Takvimime ekle: Google</text>
+<text x='980' y='302' font-size='11' font-weight='400' fill='#64748B' text-anchor='start'>Son görev · 15 Eki</text>
+<rect x='1284' y='268' width='64' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1316.0' y='292.32' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Sil</text>
+<rect x='964' y='322' width='400' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='980' y='344' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Tercih edilen bina: B blok</text>
+<text x='980' y='362' font-size='11' font-weight='400' fill='#64748B' text-anchor='start'>Tercih · 12 Eki</text>
+<rect x='1284' y='328' width='64' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1316.0' y='352.32' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Sil</text>
+<rect x='964' y='400' width='140' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1034.0' y='426.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Tümünü sil</text>
+<text x='964' y='470' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Yardımcı yalnızca bu listeyi hatırlar. Konuşmalarınız</text>
+<text x='964' y='488' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>kaydedilmez. Bu bilgiler hesabınız silinince silinir.</text>
+<text x='964' y='700' font-size='12' font-weight='700' fill='#7C3AED' text-anchor='start'>C · bellek: görünür, tek tek silinir, 90 gün, KVKK DSR</text>
+</svg>

@@ -1,0 +1,67 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='760' viewBox='0 0 1440 760' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Chart shell states: loading, empty, error, partial, stale, too-few points'>
+<title>Chart shell states: loading, empty, error, partial, stale, too-few points</title>
+<rect width='1440' height='760' fill='#F4F6F9'/>
+<text x='32' y='48' font-size='22' font-weight='700' fill='#0F172A' text-anchor='start'>ChartCard durumları (aynı kabuk, aynı yükseklik: düzen kaymaz)</text>
+<rect x='32' y='80' width='440' height='300' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='52' y='110' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Yükleniyor</text>
+<text x='52' y='132' font-size='12' font-weight='400' fill='#475569' text-anchor='start'></text>
+<rect x='52' y='122' width='260' height='12' rx='6' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='68' y='290' width='22' height='40' rx='3' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='100' y='253' width='22' height='77' rx='3' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='132' y='216' width='22' height='114' rx='3' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='164' y='179' width='22' height='151' rx='3' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='196' y='262' width='22' height='68' rx='3' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='228' y='225' width='22' height='105' rx='3' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='260' y='188' width='22' height='142' rx='3' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='292' y='271' width='22' height='59' rx='3' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='324' y='234' width='22' height='96' rx='3' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='356' y='197' width='22' height='133' rx='3' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='388' y='280' width='22' height='50' rx='3' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='420' y='243' width='22' height='87' rx='3' fill='#EEF2F6' fill-opacity='1'/>
+<text x='52' y='364' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>skeleton-reveal (free): pulse 1000 ms → reveal 400→180 ms; aria-busy</text>
+<rect x='500' y='80' width='440' height='300' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='520' y='110' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Boş dönem</text>
+<text x='520' y='132' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Bu dönemde rezervasyon yok.</text>
+<text x='720.0' y='230' font-size='14' font-weight='600' fill='#0F172A' text-anchor='middle'>Henüz gösterilecek veri yok</text>
+<text x='720.0' y='252' font-size='12' font-weight='400' fill='#475569' text-anchor='middle'>Dönemi değiştirin ya da ilk rezervasyonu yapın.</text>
+<rect x='640.0' y='276' width='160' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='720.0' y='302.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Dönemi değiştir</text>
+<text x='520' y='364' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>eksen ve çerçeve çizilmez; yalnız cümle + tek eylem</text>
+<rect x='968' y='80' width='440' height='300' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='988' y='110' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Hata</text>
+<text x='988' y='132' font-size='12' font-weight='400' fill='#475569' text-anchor='start'></text>
+<rect x='988' y='160' width='400' height='72' rx='12' fill='#FEE2E2' fill-opacity='1' stroke='#FCA5A5' stroke-width='1'/>
+<text x='1004' y='188' font-size='13' font-weight='700' fill='#B91C1C' text-anchor='start'>Veriler yüklenemedi.</text>
+<text x='1004' y='210' font-size='12' font-weight='400' fill='#B91C1C' text-anchor='start'>Sunucu yanıt vermedi (504). Önceki veriler gösterilmiyor.</text>
+<rect x='988' y='248' width='140' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1058.0' y='274.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Yeniden dene</text>
+<text x='988' y='364' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>role=alert yok: kartın içinde role=status; odak 'Yeniden dene'</text>
+<rect x='32' y='420' width='440' height='300' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='52' y='450' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Eksik dönem</text>
+<text x='52' y='472' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Bu hafta henüz bitmedi: Perşembe'den sonrası yok.</text>
+<rect x='82' y='550' width='48' height='120' rx='3' fill='#2563EB' fill-opacity='1'/>
+<text x='106' y='686' font-size='11' font-weight='400' fill='#64748B' text-anchor='middle'>Pzt</text>
+<rect x='158' y='520' width='48' height='150' rx='3' fill='#2563EB' fill-opacity='1'/>
+<text x='182' y='686' font-size='11' font-weight='400' fill='#64748B' text-anchor='middle'>Sal</text>
+<rect x='234' y='535' width='48' height='135' rx='3' fill='#2563EB' fill-opacity='1'/>
+<text x='258' y='686' font-size='11' font-weight='400' fill='#64748B' text-anchor='middle'>Çar</text>
+<defs><pattern id='pp' width='6' height='6' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'><rect width='6' height='6' fill='#2563EB' fill-opacity='.25'/><line x1='0' y1='0' x2='0' y2='6' stroke='#2563EB' stroke-width='2.5'/></pattern></defs>
+<rect x='310' y='600' width='48' height='70' rx='3' fill='url(#pp)'/>
+<text x='334' y='686' font-size='11' font-weight='400' fill='#64748B' text-anchor='middle'>Per</text>
+<text x='410' y='686' font-size='11' font-weight='400' fill='#64748B' text-anchor='middle'>Cum</text>
+<text x='52' y='704' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>decal (ECharts aria.decal) / CSS hatch + 'bugün, eksik' metni</text>
+<rect x='500' y='420' width='440' height='300' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='520' y='450' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Eski veri</text>
+<text x='520' y='472' font-size='12' font-weight='400' fill='#475569' text-anchor='start'></text>
+<rect x='520' y='464' width='400' height='36' rx='10' fill='#FEF3C7' fill-opacity='1'/>
+<text x='532' y='487' font-size='12' font-weight='600' fill='#B45309' text-anchor='start'>⚠ Son güncelleme 2 saat önce · Prometheus yanıt vermiyor</text>
+<polyline points='540.0,600.0 546.4,592.5195159968863 552.8,585.1557624447287 559.2,578.0236482548371 565.6,571.2344676837478 572.0,564.8941636235722 578.4,559.1016743985999 584.8,553.9473898658384 591.2,549.5117409115262 597.6,545.8639443540543 604.0,543.0609228386649 610.4,541.1464165786107 616.8,540.1503008037567 623.2,540.0881195676101 629.6,540.9608431875638 636.0,542.7548531034183 642.4,545.4421543904591 648.8,548.9808126108928 655.2,553.3156081867247 661.6,558.3788980828037 668.0,564.0916713537626 674.4,570.3647820833946 680.8,577.1003404768601 687.2,584.1932403981948 693.6,591.532799516408 700.0,599.0044864662391 706.4,606.4917080718066 712.8,613.8776287441214 719.2,621.0469936613772 725.6,627.8879272818965 732.0,634.2936791245406 738.4,640.1642895742641 744.8,645.4081497184757 751.2,649.9434308734792 757.6,653.6993614937151 764.0,656.6173315380578 770.4,658.6518070599059 776.8,659.7710407491887 783.2,659.9575673385227 789.6,659.2084761428665 796.0,657.5354564797883 802.4000000000001,654.9646152615746 808.8,651.5360696055956 815.2,647.3033208201058 821.6,642.3324195342235 828.0,636.7009349999539 834.4000000000001,630.4967446499555 840.8,623.8166627995948 847.2,616.7649298919356 853.6,609.4515858604885 860.0,601.9907529928535 866.4000000000001,594.4988550905894 872.8,587.0928007147311 879.2,579.8881588667949 885.6,572.997355573163 892.0,566.5279195145436 898.4000000000001,560.5808040768727 904.8,555.2488120074908 911.2,550.6151472593097 917.6,546.7521166209555' fill='none' stroke='#2563EB' stroke-width='2' stroke-linejoin='round'/>
+<line x1='540' y1='670' x2='920' y2='670' stroke='#CBD5E1' stroke-width='1'/>
+<text x='520' y='704' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>grafik kalır, uyarı şeridi metinle; renk tek başına değil</text>
+<rect x='968' y='420' width='440' height='300' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='988' y='450' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Az veri → sayı</text>
+<text x='988' y='472' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>2 gün veri var; grafik yerine sayı gösterilir.</text>
+<text x='988' y='560' font-size='36' font-weight='700' fill='#0F172A' text-anchor='start'>1.092</text>
+<text x='988' y='586' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>token · son 2 gün</text>
+<text x='988' y='704' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>&lt; 3 nokta: grafik yok, StatTile (choosing-a-form)</text>
+</svg>

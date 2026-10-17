@@ -179,19 +179,28 @@ export function TopBar() {
   );
 }
 
-/** Phones: a chrome bar with the page title (large titles live in the content) and the account. */
+/**
+ * Phones: a chrome bar with the page title (large titles live in the content) and the account.
+ * mobile-a fixes 4 + 14: on a short landscape screen (≤ 500 px tall) it scrolls away with the page instead of sticking
+ * (header + tab bar took 27 % of 390 px); below 360 px wide it carries the search the tab bar has no room for.
+ */
 export function MobileTopBar() {
+  const { t } = useI18n();
+  const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const crumbs = useBreadcrumbs();
   const { solid, tint, titleOpacity, reduce, scrolled } = useThickening();
   const title = crumbs.at(-1)?.label ?? "";
   const tintOnly = useTintOnlyChrome();
   return (
-    <header className="sticky top-0 z-30 box-content flex h-12 items-center gap-2 pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] lg:hidden" data-scrolled={scrolled} data-chrome={tintOnly ? "tint" : "glass"}>
+    <header className="sticky top-0 z-30 box-content flex h-12 items-center gap-2 pt-[env(safe-area-inset-top)] [@media(max-height:500px)]:static pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] lg:hidden" data-scrolled={scrolled} data-chrome={tintOnly ? "tint" : "glass"}>
       <span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-20", !tintOnly && BACKDROP)} />
       <motion.span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-10 edge-hairline-b", tintOnly ? "bg-(--mat-chrome-solid)" : "bg-(--mat-chrome)")} style={{ opacity: solid ? 1 : reduce ? undefined : tint }} animate={reduce && !solid ? { opacity: scrolled ? 1 : 0.35 } : undefined} transition={tween.fadeIn} />
       <motion.p className="type-headline min-w-0 flex-1 truncate text-label-1" style={{ opacity: reduce ? (scrolled ? 1 : 0) : titleOpacity }} aria-hidden>
         {title}
       </motion.p>
+      <Button variant="ghost" size="icon" onClick={() => setPaletteOpen(true)} aria-label={t("nav.search")} className="hidden max-[359px]:inline-flex" data-testid="open-palette-narrow">
+        <Search aria-hidden />
+      </Button>
       <WhatsNewIndicator />
       <NotificationBell />
       <UserMenu compact />

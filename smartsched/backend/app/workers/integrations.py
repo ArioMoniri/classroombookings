@@ -195,12 +195,74 @@ async def wait_idle(timeout: float = 60.0) -> None:
 
 
 async def on_startup() -> None:
-    """Pick up rows a previous process left (pending retries, expired leases)."""
+    """Pick up rows a previous process left (pending retries, expired leases); start the nightly calendar repair
+    (not in tests: they call :func:`nightly_once`)."""
     schedule_drain()
+    from app.core.config import get_settings
+
+    if get_settings().environment != "test":
+        start_nightly()
+
+
+#: CAL-06: the nightly repair of the pushed calendars runs at this Istanbul time
+NIGHTLY_AT = (3, 30)
+_nightly_task: asyncio.Task[None] | None = None
+
+
+def seconds_until_nightly(now_utc: datetime) -> float:
+    """Seconds from ``now_utc`` (naive UTC) to the next 03:30 Europe/Istanbul."""
+    from datetime import UTC
+    from zoneinfo import ZoneInfo
+
+    local = now_utc.replace(tzinfo=UTC).astimezone(ZoneInfo("Europe/Istanbul"))
+    target = local.replace(hour=NIGHTLY_AT[0], minute=NIGHTLY_AT[1], second=0, microsecond=0)
+    if target <= local:
+        target += timedelta(days=1)
+    return (target - local).total_seconds()
+
+
+async def nightly_once() -> int:
+    """Queue one ``nightly`` job per pushed calendar and record when it ran (admin status)."""
+    from app.core.db import get_session_factory
+    from app.services import calendar_connectors
+    from app.services.bookings_settings import set_group
+
+    async with get_session_factory()() as session:
+        queued = await calendar_connectors.queue_nightly(session)
+        await set_group(
+            session,
+            "integrations",
+            {
+                "nightly_reconcile_at": {"at": utcnow().isoformat(timespec="seconds") + "Z", "queued": queued}
+            },  # fmt: skip
+        )
+        await session.commit()
+    schedule_drain()
+    return queued
+
+
+async def _nightly_loop() -> None:
+    while True:
+        await asyncio.sleep(seconds_until_nightly(utcnow()))
+        try:
+            await nightly_once()
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - a failing night must not stop the next one
+            log.exception("nightly calendar repair failed")
+
+
+def start_nightly() -> None:
+    global _nightly_task
+    if _nightly_task is None or _nightly_task.done():
+        _nightly_task = asyncio.create_task(_nightly_loop(), name="calendar-nightly")
 
 
 async def shutdown() -> None:
-    global _queue, _timer
+    global _queue, _timer, _nightly_task
+    if _nightly_task is not None:
+        _nightly_task.cancel()
+        _nightly_task = None
     if _timer is not None:
         _timer.cancel()
         _timer = None
@@ -240,9 +302,83 @@ async def affected_booking_ids(session: AsyncSession, ev: Any) -> list[int]:
     return sorted(ids)
 
 
+#: CAL-06: published-plan changes that reach the pushed class calendars
+CLASS_ACTIONS = ("run.activate", "run.delete", "assignment.move", "assignment.bulk_move", "assignment.restore")
+
+
+async def affected_class_targets(session: AsyncSession, ev: Any) -> tuple[set[int], set[int]] | None:
+    """Who a move touches: the users linked to the teachers of the moved rows' sections and the rows' departments.
+    ``None`` = everybody with a class scope (a publish, a deletion, or rows that cannot be traced); ``(set(), set())``
+    = nobody (the rows belong to a draft run, which never reaches a calendar)."""
+    from app.importers import normalize as n
+    from app.models import Assignment, Course, Instructor, MeetingRequest, ScheduleRun, Section, SectionInstructor
+
+    if not str(ev.action).startswith("assignment."):
+        return None
+    ids = {int(i[0]) for i in ev.items if str(i[0]).isdigit()}
+    for _id, _before, after in ev.items:
+        if isinstance(after, dict) and str(after.get("split_into") or "").isdigit():
+            ids.add(int(after["split_into"]))
+    if not ids:
+        return None
+    rows = list((await session.execute(select(Assignment).where(Assignment.id.in_(sorted(ids))))).scalars())
+    if not rows:
+        return None
+    runs = {
+        r.id: r
+        for r in (
+            await session.execute(select(ScheduleRun).where(ScheduleRun.id.in_({a.run_id for a in rows})))
+        ).scalars()
+    }
+    rows = [a for a in rows if (run := runs.get(a.run_id)) is not None and run.is_active and run.kind == "COURSE"]
+    if not rows:
+        return set(), set()
+    term_ids = {runs[a.run_id].term_id for a in rows}
+    sections: set[int] = set()
+    mr_ids = {a.meeting_request_id for a in rows if a.meeting_request_id}
+    if mr_ids:
+        q = select(MeetingRequest.section_id).where(MeetingRequest.id.in_(sorted(mr_ids)))
+        sections |= {int(x) for x in (await session.execute(q)).scalars()}
+    keys = {n.course_key(c) for a in rows if not a.meeting_request_id for c in (a.course_codes or []) if c}
+    if keys:
+        q2 = (
+            select(Section.id, Course.code)
+            .join(Course, Course.id == Section.course_id)
+            .where(Section.term_id.in_(sorted(term_ids)))
+        )
+        sections |= {int(sid) for sid, code in (await session.execute(q2)).all() if n.course_key(code) in keys}
+    if not sections:
+        return None
+    programs = {
+        int(p)
+        for p in (await session.execute(select(Section.program_id).where(Section.id.in_(sorted(sections))))).scalars()
+        if p is not None
+    }
+    users = {
+        int(u)
+        for u in (
+            await session.execute(
+                select(Instructor.user_id)
+                .join(SectionInstructor, SectionInstructor.instructor_id == Instructor.id)
+                .where(SectionInstructor.section_id.in_(sorted(sections)), Instructor.user_id.is_not(None))
+            )
+        ).scalars()
+        if u is not None
+    }
+    return users, programs
+
+
 async def on_domain_event(session: AsyncSession, ev: Any) -> None:
     from app.services import calendar_connectors, webhooks
 
+    if ev.action in CLASS_ACTIONS:
+        targets = await affected_class_targets(session, ev)
+        if targets is None:
+            await calendar_connectors.queue_classes(session)
+        elif targets[0] or targets[1]:
+            await calendar_connectors.queue_classes(session, user_ids=targets[0], programs=targets[1])
+        if not ev.action.startswith("run.activate"):
+            return  # moves are not booking events (run.activate also re-checks bookings, as before)
     ids = await affected_booking_ids(session, ev)
     await calendar_connectors.queue_bookings(session, ids)
     await webhooks.on_event(session, ev, ids)
@@ -251,5 +387,5 @@ async def on_domain_event(session: AsyncSession, ev: Any) -> None:
 def register() -> None:
     from app.services import events
 
-    for pattern in ("booking.*", "series.*", "approval.*", "run.activate"):
+    for pattern in ("booking.*", "series.*", "approval.*", "run.activate", "run.delete", "assignment.*"):
         events.subscribe(pattern, on_domain_event)

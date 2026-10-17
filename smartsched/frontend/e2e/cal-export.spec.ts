@@ -71,8 +71,8 @@ async function token(identifier: string, password: string): Promise<string> {
 type Sub = { id: number | string; scope_kind: string; channel: string };
 async function revokeAll(identifier: string, password: string): Promise<void> {
   const tk = await token(identifier, password);
-  const subs = await call<Sub[] | { items: Sub[] }>("GET", "/calendar/subscriptions", undefined, tk);
-  const list = Array.isArray(subs.body) ? subs.body : (subs.body?.items ?? []);
+  const subs = await call<Sub[] | { links?: Sub[]; items?: Sub[] }>("GET", "/calendar/subscriptions", undefined, tk);
+  const list = Array.isArray(subs.body) ? subs.body : (subs.body?.links ?? subs.body?.items ?? []);
   for (const s of list) await call("DELETE", `/calendar/subscriptions/${s.id}`, undefined, tk);
 }
 
@@ -112,6 +112,9 @@ test.afterAll(async () => {
   if (!ctx.syncWasOn) await call("PUT", "/calendar/admin/settings", { calendar_sync_enabled: false });
   await ctx.api.dispose();
 });
+
+/** a feed URL (absolute on the panel's public address, or relative) on this stack's backend */
+const toApi = (u: string) => u.replace(/^(https?:\/\/[^/]+)?\/api\/v1/, API);
 
 async function openSheet(page: Page): Promise<void> {
   await page.goto("/profile#calendar");
@@ -175,7 +178,7 @@ for (const [label, device] of [
       }
       const https = await page.getByTestId("cal-link-https-value").inputValue();
       expect(await page.getByTestId("cal-link-apple").getAttribute("href")).toMatch(/^webcal:\/\//);
-      const feed = await ctx.api.get(https.replace(/^https?:\/\/[^/]+\/api\/v1/, API));
+      const feed = await ctx.api.get(toApi(https));
       expect(feed.status()).toBe(200);
       expect(feed.headers()["content-type"]).toContain("text/calendar");
       const ics = await feed.text();
@@ -200,7 +203,7 @@ for (const [label, device] of [
       await page.getByTestId("cal-remove-confirm").click();
       await expect(row).toHaveCount(0);
       await expect.poll(() => page.evaluate(() => document.activeElement?.closest("[data-row-id]") !== null || document.activeElement?.getAttribute("data-testid") === "cal-open")).toBe(true);
-      const after = await ctx.api.get(made.urls.https.replace(/^https?:\/\/[^/]+\/api\/v1/, API));
+      const after = await ctx.api.get(toApi(made.urls.https));
       expect(after.status()).toBe(404);
     });
 
@@ -211,11 +214,11 @@ for (const [label, device] of [
       // not linked: Derslerim is closed with its reason
       await expect(page.getByTestId("cal-scope-my_classes")).toHaveAttribute("aria-disabled", "true");
       await expect(page.getByTestId("cal-scope-reason-my_classes")).toContainText("öğretim elemanı kaydına bağlı değil");
-      const card = page.getByTestId(`cal-scope-department_classes:${ctx.departmentId}`);
-      if (await card.count()) {
-        await expect(card).toHaveAttribute("aria-disabled", "true");
-        await expect(card).toContainText("Bu bölümün derslerini dışa aktarma yetkiniz yok.");
-      }
+      // no department he may export: the department card is closed with the reason (no department list)
+      const card = page.getByTestId("cal-scope-department_classes");
+      await expect(card).toHaveAttribute("aria-disabled", "true");
+      await expect(card).toContainText("Bu bölümün derslerini dışa aktarma yetkiniz yok.");
+      await expect(page.getByTestId(`cal-scope-department_classes:${ctx.departmentId}`)).toHaveCount(0);
       const forged = await call<{ detail?: { code?: string } }>("POST", "/calendar/subscriptions", { scope_kind: "department_classes", scope_id: ctx.departmentId, channel: "link" }, await token(MEHMET.username, MEHMET.password));
       expect(forged.status).toBe(403);
       expect(forged.body.detail?.code).toBe("department_not_allowed");

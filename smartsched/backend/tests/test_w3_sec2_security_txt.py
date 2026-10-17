@@ -131,3 +131,18 @@ def test_nginx_proxies_security_txt_to_the_backend() -> None:
     assert "location = /security.txt" in NGINX
     tail = NGINX[NGINX.index("location = /security.txt") :]
     assert "proxy_pass http://smartsched_backend;" in tail[: tail.index("}")]
+
+
+async def test_canonical_follows_the_public_url_when_set(client, monkeypatch):  # type: ignore[no-untyped-def]  # noqa: F811
+    """Behind nginx on a non-default port the Host header loses the port; the configured public URL does not."""
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("PUBLIC_URL", "https://planlama.uni.edu.tr:8443")
+    get_settings.cache_clear()
+    try:
+        f = _fields((await client.get("/.well-known/security.txt", headers={"host": "127.0.0.1"})).text)
+    finally:
+        monkeypatch.delenv("PUBLIC_URL")
+        get_settings.cache_clear()
+    assert f["Canonical"] == ["https://planlama.uni.edu.tr:8443/.well-known/security.txt"]
+    assert f["Contact"] == ["mailto:security@planlama.uni.edu.tr"]

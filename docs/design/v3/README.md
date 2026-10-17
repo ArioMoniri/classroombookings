@@ -10,6 +10,7 @@ Lane W3-DES. Each spec has user goals, references with licences, information hie
 | [slot-display.md](slot-display.md) | W3-SLOT | `/settings?tab=slots` + every booking surface | `wireframes/slot-display-{1440,390,matrix}.svg` |
 | [ai-admin.md](ai-admin.md) | W3-AI | `/admin/ai` | `wireframes/ai-admin-{usage-1440,providers-1440,390,banners}.svg` |
 | [ops-panel.md](ops-panel.md) | W3-OPS | `/admin/ops` | `wireframes/ops-{status-1440,errors-logs-1440,390}.svg` |
+| [charts.md](charts.md) | charts (CH-01…CH-12) | `/admin/ai`, `/admin/ops`, `/dashboard`, `/runs`, `/profile` + `components/charts/**` | `wireframes/charts-{shell-1440,states,surfaces-1440,390,user-390}.svg` (`src/ch.py`) |
 
 Wireframes are generated: `python3 -I wireframes/src/<qr|sd|ai|ops>.py wireframes` from inside `wireframes/src`
 (`wf.py` is the shared kit). Purple text in a wireframe is an annotation, not UI copy. Model ids and numbers in the

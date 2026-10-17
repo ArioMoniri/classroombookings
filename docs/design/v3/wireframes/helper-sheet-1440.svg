@@ -1,0 +1,101 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Yardımcı yan paneli ve eylem kartı (masaüstü)'>
+<title>Yardımcı yan paneli ve eylem kartı (masaüstü)</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='40' y='101' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Panel</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Haftalık program</text>
+<text x='40' y='173' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Çalıştırmalar</text>
+<text x='32' y='210' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>REZERVASYONLAR</text>
+<rect x='24' y='224' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='245' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Hızlı rezervasyon</text>
+<text x='40' y='281' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezervasyonlar</text>
+<text x='32' y='318' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>YÖNETİM</text>
+<text x='40' y='353' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Ayarlar</text>
+<text x='40' y='389' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Kullanıcılar</text>
+<text x='40' y='425' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Dönem ve saatler</text>
+<text x='40' y='461' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Yapay zekâ</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'></text>
+<rect x='276' y='16' width='380' height='40' rx='20' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='294' y='41' font-size='13' font-weight='500' fill='#475569' text-anchor='start'>Rezervasyonlar  /  Hızlı rezervasyon</text>
+<rect x='1020' y='16' width='396' height='40' rx='20' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1026' y='18' width='300' height='36' rx='18' fill='#EEF2F7' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='1046' cy='36' r='6' fill='none' stroke='#64748B' stroke-width='2'/>
+<text x='1062' y='41' font-size='13' font-weight='400' fill='#64748B' text-anchor='start'>Ara veya sor…</text>
+<rect x='1274' y='26' width='40' height='20' rx='5' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1294' y='40' font-size='11' font-weight='600' fill='#475569' text-anchor='middle'>⌘K</text>
+<circle cx='1350' cy='36' r='9' fill='none' stroke='#64748B' stroke-width='2'/>
+<circle cx='1384' cy='36' r='9' fill='none' stroke='#64748B' stroke-width='2'/>
+<text x='276' y='110' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Hızlı rezervasyon</text>
+<rect x='276' y='140' width='112' height='52' rx='8' fill='#E2E8F0' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='396' y='140' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='516' y='140' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='636' y='140' width='112' height='52' rx='8' fill='#E2E8F0' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='756' y='140' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='276' y='200' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='396' y='200' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='516' y='200' width='112' height='52' rx='8' fill='#E2E8F0' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='636' y='200' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='756' y='200' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='276' y='260' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='396' y='260' width='112' height='52' rx='8' fill='#E2E8F0' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='516' y='260' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='636' y='260' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='756' y='260' width='112' height='52' rx='8' fill='#E2E8F0' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='276' y='320' width='112' height='52' rx='8' fill='#E2E8F0' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='396' y='320' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='516' y='320' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='636' y='320' width='112' height='52' rx='8' fill='#E2E8F0' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='756' y='320' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='276' y='380' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='396' y='380' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='516' y='380' width='112' height='52' rx='8' fill='#E2E8F0' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='636' y='380' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='756' y='380' width='112' height='52' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1024' y='68' width='400' height='820' rx='20' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1044' y='102' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>Yardımcı</text>
+<rect x='1136' y='84' width='100' height='24' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='1148' cy='96' r='4' fill='#15803D'/>
+<text x='1158' y='100' font-size='11' font-weight='600' fill='#0F172A' text-anchor='start'>Yerel model</text>
+<text x='1364' y='102' font-size='18' font-weight='700' fill='#475569' text-anchor='start'>⋯</text>
+<text x='1400' y='102' font-size='16' font-weight='600' fill='#475569' text-anchor='end'>✕</text>
+<line x1='1024' y1='122' x2='1424' y2='122' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1174' y='138' width='230' height='36' rx='16' fill='#E2E8F0' fill-opacity='1'/>
+<text x='1186' y='161' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Yarın 10'da boş salon var mı?</text>
+<rect x='1044' y='186' width='360' height='36' rx='10' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1058' y='209' font-size='12' font-weight='500' fill='#475569' text-anchor='start'>Derslik bul · 3 salon bulundu · katlandı</text>
+<rect x='1174' y='238' width='230' height='36' rx='16' fill='#E2E8F0' fill-opacity='1'/>
+<text x='1186' y='261' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>A 204'ü ayır</text>
+<text x='1044' y='300' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>A 204 yarın 10:00–10:50 boş. Onay gerekmiyor.</text>
+<rect x='1044' y='316' width='360' height='210' rx='14' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1060' y='342' font-size='14' font-weight='650' fill='#0F172A' text-anchor='start'>Salon rezervasyonu</text>
+<text x='1060' y='378' font-size='12' font-weight='500' fill='#475569' text-anchor='start'>Salon</text>
+<rect x='1144' y='360' width='244' height='30' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1154' y='380' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>A 204 · 40 kişi · projeksiyon</text>
+<text x='1378' y='380' font-size='12' font-weight='500' fill='#64748B' text-anchor='start'>▾</text>
+<text x='1060' y='416' font-size='12' font-weight='500' fill='#475569' text-anchor='start'>Gün</text>
+<rect x='1144' y='398' width='244' height='30' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1154' y='418' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>Yarın, 18 Eki Cumartesi</text>
+<text x='1378' y='418' font-size='12' font-weight='500' fill='#64748B' text-anchor='start'>▾</text>
+<text x='1060' y='454' font-size='12' font-weight='500' fill='#475569' text-anchor='start'>Ders saati</text>
+<rect x='1144' y='436' width='244' height='30' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1154' y='456' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>3. saat · 10:00–10:50</text>
+<text x='1378' y='456' font-size='12' font-weight='500' fill='#64748B' text-anchor='start'>▾</text>
+<rect x='1060' y='478' width='328' height='36' rx='18.0' fill='#2563EB' fill-opacity='1'/>
+<text x='1224.0' y='500.68' font-size='13' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Rezerve et: A 204 · yarın 10:00</text>
+<rect x='1044' y='728' width='360' height='30' rx='8' fill='#FEF3C7' fill-opacity='1'/>
+<text x='1056' y='748' font-size='11' font-weight='500' fill='#B45309' text-anchor='start'>Bu ayki kullanım hakkınızın %84'ü kullanıldı. 1 Kasım'da yenilenir.</text>
+<rect x='1044' y='766' width='170' height='26' rx='13' fill='#EFF6FF' fill-opacity='1'/>
+<text x='1056' y='783' font-size='11' font-weight='500' fill='#2563EB' text-anchor='start'>Bu sayfa: Hızlı rezervasyon  ✕</text>
+<rect x='1044' y='800' width='360' height='48' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1060' y='829' font-size='13' font-weight='400' fill='#64748B' text-anchor='start'>Bir şey sorun ya da yapmak istediğinizi yazın…</text>
+<circle cx='1380' cy='824' r='14' fill='#2563EB'/>
+<text x='1044' y='870' font-size='11' font-weight='400' fill='#475569' text-anchor='start'>ⓘ Yanıtlar yapay zekâ ile üretilir; kontrol edin.</text>
+<text x='276' y='520' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Panel modal değil: sayfa açık ve kullanılabilir kalır (Göster için gerekli)</text>
+<text x='276' y='540' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>400 px, sağda, kaydırma yok; cam yüzey 2/3 (kabuk çubuğu + panel)</text>
+<text x='276' y='560' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Kart = katalogdan tipli şema; düğme etkiyi ve nesneyi söyler (R1: tek dokunuş)</text>
+<text x='276' y='580' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Eski bekleyen kart tek satıra katlanır; aynı anda tek odak</text>
+<text x='276' y='600' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Kullanım bandı = mevcut AiUsageBanner; durum çipi: Yerel / Bulut / Kapalı</text>
+<text x='276' y='620' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>⌘J doğrudan açar; Esc kapatır, odak açan düğmeye döner; F6 sayfa ↔ panel</text>
+</svg>

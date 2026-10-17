@@ -33,7 +33,7 @@ import {
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { relativeWhen } from "./model";
-import { providerName, scopeName } from "./steps";
+import { Advanced, providerName, scopeName } from "./steps";
 
 /** defaults of the research doc §3.8, used while the backend sends a partial map */
 const SCOPE_DEFAULTS: Record<string, boolean> = { my_classes: true, department_classes: true, my_bookings: true };
@@ -148,23 +148,6 @@ function ScopeBlocks({ s }: { s: ExportAdminSettings }) {
               testId={`cal-admin-scope-${k}`}
             />
           ))}
-          {s.department_rule != null ? (
-            <fieldset className="grid gap-0.5 pt-2" disabled={pending || !scopes.department_classes} data-testid="cal-admin-rules">
-              <legend className="type-callout font-semibold text-label-1">{t("calendarExport.admin.who")}</legend>
-              {DEPARTMENT_RULES.map((r) => (
-                <Row
-                  key={r}
-                  id={`${base}-rule-${r}`}
-                  label={t(`calendarExport.admin.rule.${r}`)}
-                  hint={r === "permission" ? t("calendarExport.admin.rulePermissionHint") : undefined}
-                  checked={!!rules[r]}
-                  disabled={pending || !scopes.department_classes}
-                  onChange={(v) => put({ department_rule: { ...rules, [r]: v } })}
-                  testId={`cal-admin-rule-${r}`}
-                />
-              ))}
-            </fieldset>
-          ) : null}
         </Group>
       ) : null}
       {s.export_fields != null ? (
@@ -183,13 +166,36 @@ function ScopeBlocks({ s }: { s: ExportAdminSettings }) {
           ))}
         </Group>
       ) : null}
-      {s.feed_future_days != null ? <HorizonForm key={`${s.feed_past_days}-${s.feed_future_days}-${s.feed_cancelled_grace_days}`} s={s} /> : null}
       {error ? (
         <p role="alert" className="type-footnote text-status-infeasible-fg">
           {error}
         </p>
       ) : null}
-      <StatusBlock />
+      {/* the simplicity principle: who may export a department, the time range and the counts are for the few */}
+      <Advanced testId="cal-admin-advanced">
+        <p className="type-footnote text-label-2">{t("calendarExport.admin.advancedHint")}</p>
+        {s.department_rule != null ? (
+          <Group title={t("calendarExport.admin.who")} testId="cal-admin-who">
+            <fieldset className="grid gap-0.5" disabled={pending || !scopes.department_classes} data-testid="cal-admin-rules">
+              <legend className="sr-only">{t("calendarExport.admin.who")}</legend>
+              {DEPARTMENT_RULES.map((r) => (
+                <Row
+                  key={r}
+                  id={`${base}-rule-${r}`}
+                  label={t(`calendarExport.admin.rule.${r}`)}
+                  hint={r === "permission" ? t("calendarExport.admin.rulePermissionHint") : undefined}
+                  checked={!!rules[r]}
+                  disabled={pending || !scopes.department_classes}
+                  onChange={(v) => put({ department_rule: { ...rules, [r]: v } })}
+                  testId={`cal-admin-rule-${r}`}
+                />
+              ))}
+            </fieldset>
+          </Group>
+        ) : null}
+        {s.feed_future_days != null ? <HorizonForm key={`${s.feed_past_days}-${s.feed_future_days}-${s.feed_cancelled_grace_days}`} s={s} /> : null}
+        <StatusBlock />
+      </Advanced>
     </div>
   );
 }
@@ -377,6 +383,8 @@ function PushBlocks({ s }: { s: ExportAdminSettings }) {
           ) : null}
         </>
       ) : null}
+      {s.calendar_client_source != null || s.google_scope_mode != null ? (
+        <Advanced testId="cal-admin-push-advanced">
       {s.calendar_client_source != null ? (
         <fieldset className="grid pt-1" disabled={pending}>
           <legend className="type-callout font-semibold text-label-1">{t("calendarExport.admin.source")}</legend>
@@ -390,6 +398,8 @@ function PushBlocks({ s }: { s: ExportAdminSettings }) {
           <Radio name={`${base}-gscope`} value="app_created" current={s.google_scope_mode} label={t("calendarExport.admin.googleAppCreated")} onPick={(v) => put({ google_scope_mode: v })} disabled={pending} testId="cal-admin-gscope-app_created" />
           <Radio name={`${base}-gscope`} value="events" current={s.google_scope_mode} label={t("calendarExport.admin.googleEvents")} hint={t("calendarExport.admin.googleEventsHint")} onPick={(v) => put({ google_scope_mode: v })} disabled={pending} testId="cal-admin-gscope-events" />
         </fieldset>
+      ) : null}
+        </Advanced>
       ) : null}
       {error ? (
         <p role="alert" className="type-footnote text-status-infeasible-fg">

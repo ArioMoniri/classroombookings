@@ -33,7 +33,7 @@ describe("Dialog on phones is a column: sticky header and footer, a scrolling bo
       </Dialog>,
     );
     const popup = screen.getByTestId("dlg");
-    expect(popup).toHaveClass("flex", "flex-col", "max-sm:overflow-hidden", "max-sm:max-h-[calc(100dvh-3rem)]", "max-sm:bg-(--mat-thick-solid)");
+    expect(popup).toHaveClass("flex", "flex-col", "max-sm:overflow-hidden", "max-sm:max-h-[calc(100dvh-3rem-var(--kb-inset,0px))]", "max-sm:bg-(--mat-thick-solid)");
     expect(popup).not.toHaveClass("max-sm:overflow-y-auto");
     const body = popup.querySelector("[data-slot=dialog-body]")!;
     expect(body).toHaveClass("overflow-y-auto", "min-h-0", "flex-1", "scroll-pb-24", "[&>*]:scroll-pb-24");

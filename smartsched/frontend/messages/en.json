@@ -6122,10 +6122,10 @@
       "pushLead": "Changes reach your calendar within a few minutes. A separate \"SmartSched – Derslerim\" calendar is created.",
       "pushConnected": "Connected account: {account}",
       "pushNotConnected": "After you approve, you sign in to your {provider} account.",
-      "link": "Calendar link",
+      "link": "Subscription link",
       "linkLead": "Apple Calendar, Google or Outlook subscribe to this link. Updates arrive within a few minutes to 12 hours, depending on the app.",
-      "file": "Download an .ics file",
-      "fileLead": "A one-off copy. Later changes do not arrive by themselves.",
+      "file": "Download as a file",
+      "fileLead": "A one-off copy (.ics). Later changes do not arrive by themselves.",
       "fileBadge": "Does not update",
       "none": "Your organisation has not opened any export channel yet.",
       "refreshTitle": "How often do the apps refresh?",
@@ -6172,8 +6172,8 @@
       "copy": "Copy link",
       "copyWebcal": "Copy the webcal link",
       "copied": "Copied",
-      "https": "https link",
-      "webcal": "webcal link",
+      "https": "Link (https)",
+      "webcal": "Link for Apple (webcal)",
       "linkNote": "Do not open the link, subscribe to it; opening it makes a copy that never updates.",
       "linkOnce": "This link is shown only now. Keep it private: anyone who has it can see this calendar.",
       "fileTitle": "File downloaded",
@@ -6272,7 +6272,658 @@
       "failedJobs": "Failed jobs",
       "reconcile": "Last nightly reconcile",
       "reconcileNever": "Has not run yet",
-      "byScope": "{scope}: {n}"
+      "byScope": "{scope}: {n}",
+      "advancedHint": "The defaults suit most organisations."
+    },
+    "advanced": "Advanced"
+  },
+  "welcome": {
+    "audience": {
+      "academician": "Academician",
+      "staff": "Staff",
+      "approver": "Approver",
+      "dept_admin": "Department admin",
+      "viewer": "Viewer",
+      "planner": "Planner",
+      "admin": "Admin"
+    },
+    "sheet": {
+      "start": "Take the short tour (1 min)",
+      "startShort": "Start tour",
+      "later": "Later",
+      "never": "Don't show again",
+      "checklist": "Getting started list",
+      "restartHint": "You can open this guide any time from Help › Restart the tour.",
+      "updated": "Updated",
+      "delta": "You have new permissions",
+      "deltaLead": "New permissions were added to your account. These are now open to you.",
+      "also": "Also",
+      "next": "Next",
+      "letsGo": "Let's go",
+      "page": "{n} / {total}",
+      "slide": "slide",
+      "preview": "Preview: no progress is saved.",
+      "badge": "{audience} · {department}",
+      "cardOpen": "{title}: open",
+      "academician": {
+        "title": "Welcome to SmartSched, {name}",
+        "lead": "See your classes, book a free room in three taps, add them to your calendar.",
+        "cards": {
+          "quick_reserve": {
+            "title": "Quick reserve",
+            "body": "The next free slot is preselected: pick a room, tap Reserve."
+          },
+          "my_requests": {
+            "title": "My requests",
+            "body": "Your class planning requests and their approval status in one place."
+          },
+          "my_bookings": {
+            "title": "My bookings",
+            "body": "See your bookings, cancel them or withdraw a request."
+          },
+          "calendar": {
+            "title": "Add to my calendar",
+            "body": "Add your classes to Google, Outlook or Apple Calendar."
+          }
+        }
+      },
+      "staff": {
+        "title": "Welcome to SmartSched, {name}",
+        "lead": "Find a free room for meetings and events and book it in a few taps.",
+        "cards": {
+          "quick_reserve": {
+            "title": "Quick reserve",
+            "body": "Book one slot for today or tomorrow right away."
+          },
+          "find_room": {
+            "title": "Find a room",
+            "body": "List free rooms by headcount and features (projector, computers)."
+          },
+          "approval_rooms": {
+            "title": "Rooms that need approval",
+            "body": "If the button says \"Request\", the room's approver decides and you are notified."
+          },
+          "my_bookings": {
+            "title": "My bookings",
+            "body": "See and cancel your bookings."
+          }
+        }
+      },
+      "approver": {
+        "title": "Welcome to your approvals, {name}",
+        "lead": "You decide the booking requests that reach you here.",
+        "cards": {
+          "approvals": {
+            "title": "Approvals inbox",
+            "body": "Booking requests for your rooms wait here. When you reject one you pick a reason, and the person sees it."
+          }
+        }
+      },
+      "dept_admin": {
+        "title": "Welcome to your department, {name}",
+        "lead": "You book for colleagues and make term-long recurring bookings.",
+        "cards": {
+          "book_for_other": {
+            "title": "Book for someone else",
+            "body": "Use \"On behalf of\" in the booking form to book for a colleague."
+          },
+          "recurring": {
+            "title": "Recurring series",
+            "body": "Book a room at the same time every week for the term; holidays are skipped."
+          },
+          "dept_calendar": {
+            "title": "Department calendar",
+            "body": "Share your department's classes as a calendar link."
+          }
+        }
+      },
+      "viewer": {
+        "title": "Welcome, {name}",
+        "lead": "Follow the published timetable and room usage here.",
+        "cards": {
+          "dashboard": {
+            "title": "Dashboard",
+            "body": "The term at a glance."
+          },
+          "timetable": {
+            "title": "Weekly timetable",
+            "body": "Filter by department, instructor or room."
+          },
+          "runs": {
+            "title": "Runs",
+            "body": "See which plan is published and how plans differ."
+          },
+          "heatmap": {
+            "title": "Utilisation heatmap",
+            "body": "Room usage hour by hour."
+          }
+        }
+      },
+      "planner": {
+        "title": "Welcome to the planning office, {name}",
+        "lead": "From files to a published timetable in five steps.",
+        "cards": {
+          "intake": {
+            "title": "Set up from files",
+            "body": "Drop the Excel files; classes, instructors and rules are read."
+          },
+          "requests": {
+            "title": "Requests",
+            "body": "Review and approve what instructors ask for."
+          },
+          "generate": {
+            "title": "Generate",
+            "body": "Check the rules and run the solver."
+          },
+          "timetable": {
+            "title": "Weekly timetable",
+            "body": "Drag to move, pin, see conflicts."
+          },
+          "publish": {
+            "title": "Publish",
+            "body": "Open a checked plan to everyone."
+          }
+        }
+      },
+      "admin": {
+        "title": "Welcome to administration, {name}",
+        "lead": "You set up your institution in four parts; these cards show the order.",
+        "cards": {
+          "users": {
+            "title": "Users and roles",
+            "body": "Invite people, give roles; nobody can grant more than they hold."
+          },
+          "rooms": {
+            "title": "Rooms and access",
+            "body": "Define rooms, groups and who may book them."
+          },
+          "terms": {
+            "title": "Term and times",
+            "body": "Enter terms, holidays and period schemes."
+          },
+          "rules": {
+            "title": "Rules and connections",
+            "body": "Approval rules, e-mail, sign-in methods and integrations."
+          },
+          "welcome": {
+            "title": "Welcome guide",
+            "body": "Switch this guide on or off and edit its texts for your institution."
+          }
+        }
+      }
+    },
+    "tour": {
+      "counter": "Step {n} of {total}",
+      "live": "Step {n} of {total}: {title}",
+      "back": "Back",
+      "next": "Next",
+      "finish": "Finish",
+      "end": "End tour",
+      "ended": "Tour closed. You can come back from Help › Restart the tour.",
+      "done": "Tour finished. The getting started list is in the sidebar.",
+      "donePhone": "Tour finished. The getting started list is under More.",
+      "skipped": "This step's place is not on this screen; moved to the next one.",
+      "label": "Guided tour",
+      "step": {
+        "nav-reserve": {
+          "title": "Quick reserve",
+          "body": "Book a free room here in three taps."
+        },
+        "reserve-when": {
+          "title": "Pick the time first",
+          "body": "The day and slot come preselected; tap another slot if you like."
+        },
+        "nav-my-bookings": {
+          "title": "My bookings",
+          "body": "Your bookings and those waiting for approval."
+        },
+        "nav-my-requests": {
+          "title": "My requests",
+          "body": "Send next term's slot and room requests here and follow their approval."
+        },
+        "user-menu": {
+          "title": "Profile and help",
+          "body": "Calendar, notifications and this tour are always here."
+        },
+        "nav-find-room": {
+          "title": "Find a room",
+          "body": "Use headcount and feature filters to find free rooms."
+        },
+        "nav-approvals": {
+          "title": "Approvals",
+          "body": "The count shows requests waiting for you."
+        },
+        "approvals-row-actions": {
+          "title": "Decide",
+          "body": "Approve, or reject with a reason.",
+          "bodyEmpty": "No requests are waiting right now; when one arrives, Approve and Reject buttons appear here."
+        },
+        "nav-bookings": {
+          "title": "Bookings",
+          "body": "Recurring and on-behalf bookings use the form here."
+        },
+        "nav-dashboard": {
+          "title": "Dashboard",
+          "body": "The term at a glance."
+        },
+        "nav-timetable": {
+          "title": "Weekly timetable",
+          "body": "Filter the timetable by department, instructor or room."
+        },
+        "nav-runs": {
+          "title": "Runs",
+          "body": "Plans and publishing live here."
+        },
+        "nav-heatmap": {
+          "title": "Utilisation heatmap",
+          "body": "See room usage hour by hour."
+        },
+        "nav-onboarding": {
+          "title": "Set up from files",
+          "body": "Drop the Excel files here."
+        },
+        "nav-requests": {
+          "title": "Requests",
+          "body": "Review instructors' requests here."
+        },
+        "nav-generate": {
+          "title": "Generate",
+          "body": "Check the rules and run the solver here."
+        },
+        "nav-moderation": {
+          "title": "Moderation",
+          "body": "Decide requests in bulk."
+        },
+        "nav-admin": {
+          "title": "Setup",
+          "body": "All settings in four groups."
+        },
+        "admin-group-users": {
+          "title": "People",
+          "body": "Users, roles and departments."
+        },
+        "admin-group-resources": {
+          "title": "Rooms",
+          "body": "Rooms, groups and access."
+        },
+        "admin-group-timetable": {
+          "title": "Calendar",
+          "body": "Terms, holidays and periods."
+        },
+        "nav-integrations": {
+          "title": "Integrations",
+          "body": "Identity, e-mail, calendar and automation connections."
+        },
+        "nav-welcome-admin": {
+          "title": "Welcome guide",
+          "body": "Switch this guide on or off and edit its texts."
+        }
+      }
+    },
+    "check": {
+      "title": "Getting started",
+      "pill": "Getting started {done} / {total}",
+      "pillLabel": "Getting started, {done} of {total} done",
+      "progress": "{done} of {total} done",
+      "next": "Next: {item}",
+      "hide": "Hide",
+      "allDone": "All done. You can hide the list.",
+      "markDone": "Mark as done",
+      "stateDone": "done",
+      "stateTodo": "to do",
+      "ticked": "{item} done",
+      "hidden": "List hidden. Open it again from Help › Getting started list.",
+      "profile": {
+        "title": "Complete your profile",
+        "sub": "Department and language"
+      },
+      "first_booking": {
+        "title": "Make your first booking",
+        "sub": "Three taps with quick reserve"
+      },
+      "channel": {
+        "title": "Choose a notification channel",
+        "sub": "E-mail or a linked channel"
+      },
+      "calendar": {
+        "title": "Add your classes to your calendar",
+        "sub": "Google, Outlook or Apple"
+      },
+      "requests_seen": {
+        "title": "Have a look at My requests",
+        "sub": "Your class planning requests"
+      },
+      "find_room_filter": {
+        "title": "Search rooms with a filter",
+        "sub": "Headcount or features"
+      },
+      "calendar_bookings": {
+        "title": "Add your bookings to your calendar",
+        "sub": "From My bookings"
+      },
+      "first_decision": {
+        "title": "Decide your first request",
+        "sub": "In the approvals inbox"
+      },
+      "approver_channel": {
+        "title": "Choose where approval notices reach you",
+        "sub": "Profile › Notification channels"
+      },
+      "book_for_other": {
+        "title": "Book for a colleague",
+        "sub": "The \"On behalf of\" field"
+      },
+      "recurring": {
+        "title": "Create a recurring series",
+        "sub": "Same time every week"
+      },
+      "timetable_seen": {
+        "title": "Open the timetable",
+        "sub": "The published timetable"
+      },
+      "compare_seen": {
+        "title": "Compare two plans",
+        "sub": "Runs › Compare"
+      },
+      "intake_done": {
+        "title": "Upload your files",
+        "sub": "Set up from files"
+      },
+      "requests_reviewed": {
+        "title": "Decide a request",
+        "sub": "Requests"
+      },
+      "first_run": {
+        "title": "Make your first run",
+        "sub": "Generate"
+      },
+      "published": {
+        "title": "Publish a plan",
+        "sub": "Runs"
+      },
+      "org_ready": {
+        "title": "Name and time zone",
+        "sub": "Admin › Settings"
+      },
+      "rooms_added": {
+        "title": "Add rooms",
+        "sub": "Admin › Rooms"
+      },
+      "users_invited": {
+        "title": "Invite the first users",
+        "sub": "Admin › Users"
+      },
+      "mail_ready": {
+        "title": "Set up e-mail sending",
+        "sub": "Admin › E-mail"
+      },
+      "welcome_reviewed": {
+        "title": "Review the welcome guide",
+        "sub": "Admin › Welcome guide"
+      }
+    },
+    "hints": {
+      "new": "New",
+      "newLabel": "{item}: new",
+      "try": "Try it",
+      "dismiss": "Got it",
+      "allNews": "All news",
+      "quick_reserve": {
+        "title": "New: Quick reserve.",
+        "body": "Today's next free slot is preselected. Pick a room and tap Reserve."
+      },
+      "calendar_export": {
+        "title": "New: Add to my calendar.",
+        "body": "Add your classes and bookings to Google, Outlook or Apple Calendar. You approve each one first."
+      },
+      "admin_ai": {
+        "title": "New: AI settings.",
+        "body": "Choose providers, the model per feature and the monthly limit here."
+      },
+      "admin_ops": {
+        "title": "New: System status.",
+        "body": "Service health, error groups and recent logs on one page."
+      },
+      "admin_integrations": {
+        "title": "New: Integrations.",
+        "body": "Set up and monitor identity, e-mail, calendar and automation connections here."
+      }
+    },
+    "help": {
+      "group": "Help",
+      "restart": "Restart the tour",
+      "checklist": "Getting started list",
+      "checklistCount": "Getting started list ({done} / {total})",
+      "whatsNew": "What's new",
+      "shortcuts": "Keyboard shortcuts",
+      "restartWords": "guide tour welcome help onboarding",
+      "checklistWords": "getting started checklist help"
+    },
+    "admin": {
+      "nav": "Welcome guide",
+      "title": "Welcome guide",
+      "lead": "Welcome sheet, guided tour, getting started list and feature hints: switch them on or off and edit the texts for your institution.",
+      "noAccessTitle": "You don't have access to this page",
+      "noAccessBody": "People with the organisation settings or planning admin permission edit the welcome guide.",
+      "tab": {
+        "general": "General",
+        "texts": "Texts",
+        "stats": "Completion"
+      },
+      "part": {
+        "enabled": {
+          "title": "Welcome guide",
+          "body": "When off, nobody sees the welcome sheet."
+        },
+        "tour": {
+          "title": "Guided tour",
+          "body": "When off, the \"Take the short tour\" button is hidden."
+        },
+        "checklist": {
+          "title": "Getting started list",
+          "body": "The sidebar list and the home page card."
+        },
+        "hints": {
+          "title": "Feature hints",
+          "body": "One-time short notes and \"New\" badges for new features."
+        },
+        "hints_for_all": {
+          "title": "Show hints to everyone",
+          "body": "Shows hints once more even to people who closed earlier ones (for a big release)."
+        }
+      },
+      "preview": {
+        "title": "Try it on yourself first",
+        "body": "Opens the welcome sheet of the audience you choose; no progress is saved.",
+        "open": "Preview",
+        "audience": "Audience"
+      },
+      "saved": "Saved.",
+      "saveFailed": "Could not save. Try again.",
+      "texts": {
+        "audiences": "Audience",
+        "tr": "Turkish",
+        "en": "English",
+        "field": {
+          "title": "Title",
+          "lead": "Lead line"
+        },
+        "cardTitle": "{card}: title",
+        "cardBody": "{card}: text",
+        "reset": "Reset to default",
+        "resetLabel": "{field} ({locale}): reset to default",
+        "preview": "Preview",
+        "save": "Save",
+        "count": "{n} / {max}",
+        "tooLong": "At most {max} characters.",
+        "badPlaceholder": "Only the {name} and {department} placeholders can be used.",
+        "placeholders": "Placeholders: {name} (the person's name), {department}. Order, links and icons are fixed.",
+        "lastChange": "Last change: {who}, {when}",
+        "never": "Not changed yet; the product texts are used.",
+        "stale": "{name} changed this text while you were editing it. Reload the page and try again.",
+        "staleSomeone": "someone else",
+        "confirmTitle": "Save the texts",
+        "confirmBody": "Show the guide again to this audience after saving?",
+        "reshow": "Yes, with an \"Updated\" badge",
+        "cancel": "Cancel",
+        "unsaved": "There are unsaved changes."
+      },
+      "stats": {
+        "days": "Last {n} days",
+        "range": "Range",
+        "shown": "Saw the sheet",
+        "tour": "Tour",
+        "checklist": "List ≥ 80%",
+        "dismissed": "Dismissed",
+        "median": "To first booking",
+        "medianValue": "{n} days",
+        "small": "Fewer than 5",
+        "smallBody": "No numbers are shown for groups smaller than 5.",
+        "none": "—",
+        "privacy": "Aggregate numbers only; there is no per-person list and no export. The numbers never leave SmartSched.",
+        "empty": "No data yet.",
+        "loadFailed": "The numbers could not be loaded."
+      }
+    }
+  },
+  "voice": {
+    "mic": {
+      "start": "Dictate",
+      "stop": "Stop recording",
+      "hold": "Press and hold to talk",
+      "shortcut": "Ctrl+Shift+M"
+    },
+    "strip": {
+      "starting": "Opening the microphone…",
+      "later": "The text comes when you stop talking.",
+      "done": "Done",
+      "cancel": "Cancel",
+      "lock": "Lock",
+      "transcribing": "Transcribing…"
+    },
+    "announce": {
+      "started": "Recording. The text comes when you stop talking.",
+      "locked": "Recording locked; you can lift your finger.",
+      "cancelled": "Recording cancelled.",
+      "inserted": "The text is in the box. You can correct it before sending."
+    },
+    "chip": "Entered by voice",
+    "level": "Input level",
+    "captions": {
+      "label": "Live captions (on this device only)"
+    },
+    "consent": {
+      "title": "Voice input",
+      "where": "Your voice is sent to {provider} to be transcribed.",
+      "whereRegion": "Your voice is sent to {provider} ({region}) to be transcribed.",
+      "whereLocal": "Your voice is transcribed by {provider} on the institution's own server.",
+      "providerUnknown": "the voice service your administrators chose",
+      "noKeep": "No recording is kept; only the transcribed text comes back to you.",
+      "review": "The text goes into the box. Nothing is sent until you correct it and send it yourself.",
+      "browser": "Your browser will now ask for the microphone.",
+      "withdraw": "You can withdraw this consent at any time in Profile › Privacy.",
+      "accept": "Agree and start",
+      "later": "Not now",
+      "error": "Your consent could not be saved. Try again."
+    },
+    "error": {
+      "permission_denied": "Microphone access was blocked. Turn it on from the lock icon in the address bar.",
+      "policy_blocked": "Microphone use is turned off for this site. Tell your administrator.",
+      "no_device": "No microphone found.",
+      "device_busy": "Another app is using the microphone. Close it and try again.",
+      "insecure": "Voice input works only over a secure (https) connection.",
+      "unsupported": "This browser cannot record audio. You can keep typing.",
+      "too_long": "Recordings can be at most {n} seconds; recording stopped.",
+      "empty": "No speech was detected. Try again.",
+      "consent_required": "Voice input needs your consent.",
+      "ai_voice_limit_reached": "You have reached today's voice input limit ({used}/{limit} min). You can keep typing.",
+      "ai_voice_limit_reached_plain": "You have reached your voice input limit. You can keep typing.",
+      "voice_off": "Your administrators have turned voice input off. You can keep typing.",
+      "not_configured": "No voice model has been chosen.",
+      "ai_transfer_basis_missing": "This voice service has no KVKK transfer record; an administrator must add it.",
+      "provider_error": "The recording could not be transcribed. Try again or type instead."
+    },
+    "help": {
+      "chrome": "Chrome / Edge: lock icon in the address bar › Microphone › Allow, then reload the page.",
+      "firefox": "Firefox: microphone icon in the address bar › Unblock, then try again.",
+      "safari": "Safari: Safari › Settings for This Website › Microphone › Allow."
+    },
+    "admin": {
+      "feature": "Voice input",
+      "featureTts": "Read aloud",
+      "need": "Turns speech into text. Only speech-capable models are listed.",
+      "noModel": "With no model chosen, nobody sees the mic.",
+      "unset": "Not chosen (mic hidden)",
+      "noSpeechModels": "No speech-capable model is synced. Sync a speech-capable provider on the Providers tab.",
+      "cap": {
+        "text": "Text",
+        "stt": "Speech→text",
+        "tts": "Read aloud",
+        "audio_native": "Native audio"
+      },
+      "caps": "Capabilities",
+      "test": "Voice test",
+      "testing": "Testing voice…",
+      "testOk": "Voice test passed: “{preview}”",
+      "testFail": "Voice test failed: {detail}",
+      "processesVoice": "This provider processes voice",
+      "processesVoiceHint": "Tick this if recordings will be sent to this provider; the KVKK transfer record must cover voice too.",
+      "audioRetention": "How long the provider keeps audio",
+      "card": {
+        "title": "Voice",
+        "lead": "People can talk into the AI text boxes. The voice is transcribed by the voice service chosen on the Models tab; the text goes into the box and the person corrects and sends it.",
+        "enabled": "Turn voice input on",
+        "enabledHint": "While off, nobody sees the mic.",
+        "noRoute": "First choose a model for \"Voice input\" on the Models tab.",
+        "advanced": "Advanced",
+        "consent": "Ask for consent on first use",
+        "consentHint": "KVKK: the person sees which service their voice goes to and agrees.",
+        "maxSeconds": "Longest recording (seconds)",
+        "maxSecondsHint": "Between 10 and 120.",
+        "localOnly": "In-house voice service only",
+        "localOnlyHint": "While on, no recording goes to a cloud voice service.",
+        "vocabulary": "Vocabulary hint",
+        "vocabularyHint": "Sends room, building and course codes to the voice service as a hint; never people's names.",
+        "vocab": {
+          "catalog": "Room and course codes",
+          "off": "Off"
+        },
+        "captions": "Live captions",
+        "captionsHint": "Shown only when the browser can process speech on the device; cloud recognition is never used.",
+        "captionsMode": {
+          "on_device": "On the device only",
+          "off": "Off"
+        },
+        "review": "The text is always shown to the person before it is sent.",
+        "retention": "Recordings are not kept on the server.",
+        "saved": "Voice settings saved.",
+        "save": "Save voice settings",
+        "invalidSeconds": "The longest recording must be between 10 and 120 seconds."
+      },
+      "limits": {
+        "title": "Voice time",
+        "lead": "In minutes. 0 = no limit.",
+        "orgMonthly": "Organisation, monthly (min)",
+        "userDaily": "Per person, daily (min)",
+        "userMonthly": "Per person, monthly (min)",
+        "advanced": "Advanced: by role and by person",
+        "rolesHint": "A field left empty follows the default.",
+        "daily": "Daily (min)",
+        "monthly": "Monthly (min)",
+        "userId": "User no.",
+        "addUser": "Add person",
+        "remove": "Remove"
+      },
+      "usage": {
+        "title": "Voice input",
+        "total": "{min} min of voice transcribed in this period.",
+        "byDay": "Voice by day (min)",
+        "minutes": "{n} min"
+      },
+      "me": {
+        "line": "Voice input: today {day} min{dayLimit} · this month {month} min{monthLimit}",
+        "of": " / {n}"
+      }
     }
   }
 }

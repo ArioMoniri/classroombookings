@@ -9,7 +9,7 @@ container; "reported" means a third-party source that could not be confirmed.
 
 | Question | Decision | Main evidence |
 |---|---|---|
-| How to render | **Offline, frame by frame, in headless Chromium** (`scripts/record/launch/`: our own compositor page + `lottie-web` already in the frontend lockfile), from **lossless captures** (Chrome screencast PNG frames at 2x on desktop, 3x on the phone) | No screen video in the chain, so the camera, cursor and captions are exactly 60 fps whatever the host load was during the take (the old clips were 20 fps GIFs; the host's load average is 25-37 on 4 cores). Remotion would do the same job but needs a paid Company License for a for-profit organisation over 3 people (§3) |
+| How to render | **Offline, frame by frame, in headless Chromium** (`scripts/record/launch/`: our own compositor page + `lottie-web` already in the frontend lockfile), from **lossless captures** (Chrome screencast PNG frames at 1.5x on desktop, 2x on the phone) | No screen video in the chain, so the camera, cursor and captions are exactly 60 fps whatever the host load was during the take (the old clips were 20 fps GIFs; the host's load average is 25-37 on 4 cores). Remotion does the same job; its free licence applies (individual open-source project, owner-confirmed 2026-10-17), see §3 for why the first release keeps this renderer |
 | Hero video | **MP4, H.264 High, 1920x1080, 60 fps, `+faststart`, ≤ 25 MB**; plus **AV1 in WebM** (SVT-AV1, 10-bit) for browsers that play AV1; plus a **1080x1920 vertical cut** | H.264 is the only codec GitHub's own docs recommend for attachments (§4.1); AV1 is smaller at equal quality but not universal on Apple devices |
 | README top | **Animated WebP loop** (1280 px, 30 fps, ≤ 5 MB) with a PNG poster, linking to the MP4 | GitHub serves a repository `.webp` as `content-type: image/webp` (checked, §4.2) and the README already shows WebP screens; `<video>` with a repository path is not playable (the raw host sends MP4 as `application/octet-stream` + `nosniff`, checked) |
 | Inline player in the README | Only through a **`github.com/user-attachments/...` URL**, which a person creates by dragging the MP4 into GitHub's web editor (≤ 10 MB on a free plan). `launch.sh encode` writes `smartsched-launch-attach.mp4` (≤ 9.8 MB) for that | GitHub docs: video attachments 10 MB (free) / 100 MB (paid) (§4.1); reported: GitHub expands a bare user-attachments URL into a `<video>` element |
@@ -27,6 +27,17 @@ container; "reported" means a third-party source that could not be confirmed.
 | **Lottie / dotLottie / Rive** (npm `lottie-web` 5.13.0 2025-05-21 MIT; `@lottiefiles/dotlottie-web` 0.81.0 2026-10-06 MIT; `@rive-app/canvas` 2.45.0 2026-10-17 MIT) | dotLottie is a zipped Lottie with a WASM (ThorVG) player; Rive has its own state-machine format and editor | Our four animations are Lottie JSON (`docs/lottie/*.json`). `lottie-web`'s SVG renderer is vector, so `goToAndStop(frame)` at any size is crisp, and fractional frames give 60 fps motion from 30 fps sources. dotLottie/Rive would add a format and a player for no gain here |
 
 ## 3. Why not Remotion (in one paragraph)
+
+**Update 2026-10-17 (owner):** Remotion free licence: individual open-source project, owner-confirmed 2026-10-17. The
+licence is therefore no longer a reason. The renderer stays the one in `scripts/record/launch/` for this release
+because it was already rendering the first cut when the owner allowed Remotion, it is deterministic and resumable on
+this shared host (chunked, crash-retrying workers), and it needs no new packages; switching would re-implement the
+same compositing for no visible gain. A Remotion port remains a one-to-one mapping (below) if the owner wants
+explainer videos edited in Remotion Studio; it would live in `scripts/record/remotion/` with its own pinned
+package.json and render with `--browser-executable` pointing at `/opt/pw-browsers` (no browser download),
+`--concurrency=2`, under `nice`.
+
+The original reasoning, before the owner's confirmation:
 
 Remotion is the state of the art for "video as React", and its renderer works exactly like ours: a page per frame,
 screenshots, ffmpeg. The deciding facts were the licence (§2: a Company License for for-profit organisations over 3

@@ -495,6 +495,13 @@
   .dark { --hairline: rgba(255, 255, 255, 0.42); --hairline-strong: rgba(255, 255, 255, 0.6); --label-2: #d2d2d8; --label-3: #c4c4cb; }
 }
 
+/* mobile-a fix 6 (2026-10-17): on touch screens an in-content glass card (Card variant="glass", data-glass="regular") uses its
+   opaque material: stacked blurs on a long page (/profile, five cards) dropped 9–32 frames per fling. Glass stays on the
+   floating chrome (top bar, tab bar, capsules), as card.tsx intends. */
+@media (pointer: coarse) {
+  [data-glass="regular"] { --mat-regular: var(--mat-regular-solid); --mat-regular-filter: none; }
+}
+
 /* ---------- Materials as utilities (variants work: md:glass-chrome, dark:…) ---------- */
 @utility glass-ultra-thin {
   background: var(--grain), var(--sheen), linear-gradient(var(--mat-ultra-thin), var(--mat-ultra-thin));
@@ -582,27 +589,29 @@
 @utility type-title-3 {
   font-size: var(--text-title-3); line-height: var(--text-title-3-lh); font-weight: 600; letter-spacing: -0.012em;
 }
+/* mobile-a fix 13 (2026-10-17): the text styles below are in rem (same 11–14 px at the default 16 px root) so the OS /
+   browser text size reaches them; only the KPI numerals stay fixed. */
 /* KPI numerals: fixed, tabular, never fluid (they must line up across cards). */
 @utility type-kpi {
   font-size: 28px; line-height: 32px; font-weight: 650; letter-spacing: -0.021em; font-variant-numeric: tabular-nums;
 }
 @utility type-headline {
-  font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: -0.006em;
+  font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; letter-spacing: -0.006em;
 }
 @utility type-body {
-  font-size: 14px; line-height: 20px; font-weight: 400; letter-spacing: -0.003em;
+  font-size: 0.875rem; line-height: 1.25rem; font-weight: 400; letter-spacing: -0.003em;
 }
 @utility type-callout {
-  font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: 0;
+  font-size: 0.8125rem; line-height: 1.125rem; font-weight: 400; letter-spacing: 0;
 }
 @utility type-footnote {
-  font-size: 12px; line-height: 16px; font-weight: 400; letter-spacing: 0.002em;
+  font-size: 0.75rem; line-height: 1rem; font-weight: 400; letter-spacing: 0.002em;
 }
 @utility type-caption {
-  font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.012em;
+  font-size: 0.6875rem; line-height: 0.875rem; font-weight: 500; letter-spacing: 0.012em;
 }
 @utility type-overline {
-  font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  font-size: 0.6875rem; line-height: 0.875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
 }
 
 @layer base {

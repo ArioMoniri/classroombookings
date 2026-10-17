@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 from typing import Any
 
 from app.core.config import get_settings
@@ -128,6 +129,10 @@ def clean_client_params(params: dict[str, Any]) -> dict[str, Any]:
             out[key] = value
         elif key == "priorities":
             out[key] = clean_priorities(value)
+        elif key == "season_profile":  # AS-01/AS-03: "none" (no season profile) or the key of a profile to use
+            if not isinstance(value, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_\-]{0,63}", value):
+                raise ParamError("params.season_profile must be 'none' or a season profile key")
+            out[key] = value
         elif key == "block_run_ids":
             if not isinstance(value, list) or len(value) > MAX_BLOCK_RUNS:
                 raise ParamError(f"params.block_run_ids must be a list of at most {MAX_BLOCK_RUNS} run ids")

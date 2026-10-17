@@ -6121,10 +6121,10 @@
       "pushLead": "Değişiklikler birkaç dakika içinde takviminize yansır. Ayrı bir \"SmartSched – Derslerim\" takvimi oluşturulur.",
       "pushConnected": "Bağlı hesap: {account}",
       "pushNotConnected": "Onayladıktan sonra {provider} hesabınıza giriş yaparsınız.",
-      "link": "Takvim bağlantısı",
+      "link": "Abonelik bağlantısı",
       "linkLead": "Apple Takvim, Google veya Outlook bu bağlantıya abone olur. Güncellemeler uygulamaya göre birkaç dakika ile 12 saat arasında gelir.",
-      "file": ".ics dosyası indir",
-      "fileLead": "Tek seferlik kopya. Sonraki değişiklikler kendiliğinden gelmez.",
+      "file": "Dosya olarak indir",
+      "fileLead": "Tek seferlik kopya (.ics). Sonraki değişiklikler kendiliğinden gelmez.",
       "fileBadge": "Güncellenmez",
       "none": "Kurumunuz henüz bir aktarım yolu açmadı.",
       "refreshTitle": "Uygulamalar ne sıklıkla yeniler?",
@@ -6171,8 +6171,8 @@
       "copy": "Bağlantıyı kopyala",
       "copyWebcal": "webcal bağlantısını kopyala",
       "copied": "Kopyalandı",
-      "https": "https bağlantısı",
-      "webcal": "webcal bağlantısı",
+      "https": "Bağlantı (https)",
+      "webcal": "Apple için bağlantı (webcal)",
       "linkNote": "Bağlantıyı açmayın, abone olun; açarsanız güncellenmeyen bir kopya oluşur.",
       "linkOnce": "Bu bağlantı yalnızca şimdi gösterilir. Gizli tutun: bağlantıyı bilen herkes bu takvimi görebilir.",
       "fileTitle": "Dosya indirildi",
@@ -6271,7 +6271,658 @@
       "failedJobs": "Başarısız iş",
       "reconcile": "Son gece eşitlemesi",
       "reconcileNever": "Henüz çalışmadı",
-      "byScope": "{scope}: {n}"
+      "byScope": "{scope}: {n}",
+      "advancedHint": "Varsayılanlar çoğu kurum için uygundur."
+    },
+    "advanced": "Gelişmiş"
+  },
+  "welcome": {
+    "audience": {
+      "academician": "Öğretim elemanı",
+      "staff": "İdari personel",
+      "approver": "Onaylayıcı",
+      "dept_admin": "Bölüm yöneticisi",
+      "viewer": "İzleyici",
+      "planner": "Planlamacı",
+      "admin": "Yönetici"
+    },
+    "sheet": {
+      "start": "Kısa turu başlat (1 dk)",
+      "startShort": "Turu başlat",
+      "later": "Sonra",
+      "never": "Bir daha gösterme",
+      "checklist": "Başlarken listesi",
+      "restartHint": "Bu rehberi her zaman Yardım › Turu yeniden başlat ile açabilirsiniz.",
+      "updated": "Güncellendi",
+      "delta": "Yeni yetkileriniz var",
+      "deltaLead": "Hesabınıza yeni yetkiler eklendi. Bunlar artık sizin için açık.",
+      "also": "Ayrıca",
+      "next": "İleri",
+      "letsGo": "Başlayalım",
+      "page": "{n} / {total}",
+      "slide": "slayt",
+      "preview": "Önizleme: ilerleme kaydedilmez.",
+      "badge": "{audience} · {department}",
+      "cardOpen": "{title}: aç",
+      "academician": {
+        "title": "SmartSched'e hoş geldiniz, {ad}",
+        "lead": "Derslerinizi görün, boş bir salonu üç dokunuşta ayırın, takviminize ekleyin.",
+        "cards": {
+          "quick_reserve": {
+            "title": "Hızlı rezervasyon",
+            "body": "Sıradaki boş saat hazır gelir: salonu seçin, Rezerve et."
+          },
+          "my_requests": {
+            "title": "Taleplerim",
+            "body": "Ders planlama talepleriniz ve onay durumları tek yerde."
+          },
+          "my_bookings": {
+            "title": "Rezervasyonlarım",
+            "body": "Rezervasyonlarınızı görün, iptal edin ya da talebi geri çekin."
+          },
+          "calendar": {
+            "title": "Takvimime ekle",
+            "body": "Derslerinizi Google, Outlook ya da Apple takviminize ekleyin."
+          }
+        }
+      },
+      "staff": {
+        "title": "SmartSched'e hoş geldiniz, {ad}",
+        "lead": "Toplantı ve etkinlikler için boş salonu bulun, birkaç dokunuşta ayırın.",
+        "cards": {
+          "quick_reserve": {
+            "title": "Hızlı rezervasyon",
+            "body": "Bugün ya da yarın için tek bir saati hemen ayırın."
+          },
+          "find_room": {
+            "title": "Salon bul",
+            "body": "Kişi sayısı ve özelliğe (projeksiyon, bilgisayar) göre boş salonları listeleyin."
+          },
+          "approval_rooms": {
+            "title": "Onay gereken salonlar",
+            "body": "Düğme \"Talep et\" diyorsa salon sorumlusu onaylar; sonucu bildirim olarak alırsınız."
+          },
+          "my_bookings": {
+            "title": "Rezervasyonlarım",
+            "body": "Rezervasyonlarınızı görün, iptal edin."
+          }
+        }
+      },
+      "approver": {
+        "title": "Onay kutunuza hoş geldiniz, {ad}",
+        "lead": "Size gelen rezervasyon taleplerini buradan karara bağlarsınız.",
+        "cards": {
+          "approvals": {
+            "title": "Onay kutusu",
+            "body": "Size gelen rezervasyon talepleri burada bekler. Reddederken bir gerekçe seçersiniz; kişi bunu görür."
+          }
+        }
+      },
+      "dept_admin": {
+        "title": "Bölümünüz için hoş geldiniz, {ad}",
+        "lead": "Meslektaşlarınız adına ve dönem boyunca tekrarlı rezervasyon yaparsınız.",
+        "cards": {
+          "book_for_other": {
+            "title": "Başkası adına rezervasyon",
+            "body": "Rezervasyon formunda \"Kimin adına\" alanıyla bir meslektaşınız için ayırın."
+          },
+          "recurring": {
+            "title": "Dönemlik tekrar",
+            "body": "Bir salonu dönem boyunca her hafta aynı saate ayırın; tatiller atlanır."
+          },
+          "dept_calendar": {
+            "title": "Bölüm takvimi",
+            "body": "Bölümünüzün derslerini takvim bağlantısıyla paylaşın."
+          }
+        }
+      },
+      "viewer": {
+        "title": "Hoş geldiniz, {ad}",
+        "lead": "Yayınlanan ders programını ve salon doluluğunu buradan izlersiniz.",
+        "cards": {
+          "dashboard": {
+            "title": "Panel",
+            "body": "Dönemin durumu bir bakışta."
+          },
+          "timetable": {
+            "title": "Haftalık program",
+            "body": "Bölüm, hoca ya da salona göre süzün."
+          },
+          "runs": {
+            "title": "Çalıştırmalar",
+            "body": "Hangi planın yayında olduğunu ve farklarını görün."
+          },
+          "heatmap": {
+            "title": "Doluluk haritası",
+            "body": "Salonların saat saat doluluğu."
+          }
+        }
+      },
+      "planner": {
+        "title": "Planlama ofisine hoş geldiniz, {ad}",
+        "lead": "Dosyalardan yayınlanmış bir programa beş adımda.",
+        "cards": {
+          "intake": {
+            "title": "Dosyalardan kur",
+            "body": "Excel dosyalarını bırakın; dersler, hocalar ve kurallar okunur."
+          },
+          "requests": {
+            "title": "Talepler",
+            "body": "Hocalardan gelen istekleri inceleyin ve onaylayın."
+          },
+          "generate": {
+            "title": "Oluştur",
+            "body": "Kuralları kontrol edin, çözücüyü çalıştırın."
+          },
+          "timetable": {
+            "title": "Haftalık program",
+            "body": "Sürükleyerek taşıyın, kilitleyin, çakışmaları görün."
+          },
+          "publish": {
+            "title": "Yayınla",
+            "body": "Kontrolden geçen planı herkese açın."
+          }
+        }
+      },
+      "admin": {
+        "title": "Yönetim paneline hoş geldiniz, {ad}",
+        "lead": "Kurumunuzu dört bölümde kurarsınız; bu kartlar sırayı gösterir.",
+        "cards": {
+          "users": {
+            "title": "Kullanıcılar ve roller",
+            "body": "Davet edin, rol verin; kimse kendi yetkisinden fazlasını veremez."
+          },
+          "rooms": {
+            "title": "Salonlar ve erişim",
+            "body": "Salonları, grupları ve kimin ayırabileceğini tanımlayın."
+          },
+          "terms": {
+            "title": "Dönem ve saatler",
+            "body": "Dönemleri, tatilleri ve ders saati şemalarını girin."
+          },
+          "rules": {
+            "title": "Kurallar ve bağlantılar",
+            "body": "Onay kuralları, e-posta, giriş yöntemleri ve entegrasyonlar."
+          },
+          "welcome": {
+            "title": "Karşılama rehberi",
+            "body": "Bu rehberi açıp kapatın, metinlerini kurumunuza göre düzenleyin."
+          }
+        }
+      }
+    },
+    "tour": {
+      "counter": "Adım {n} / {total}",
+      "live": "Adım {n} / {total}: {title}",
+      "back": "Geri",
+      "next": "İleri",
+      "finish": "Bitir",
+      "end": "Turu bitir",
+      "ended": "Tur kapatıldı. Yardım › Turu yeniden başlat ile dönebilirsiniz.",
+      "done": "Tur bitti. Başlarken listesi kenar çubuğunda.",
+      "donePhone": "Tur bitti. Başlarken listesi Daha sekmesinde.",
+      "skipped": "Bu adımın yeri bu ekranda yok; sonrakine geçildi.",
+      "label": "Rehberli tur",
+      "step": {
+        "nav-reserve": {
+          "title": "Hızlı rezervasyon",
+          "body": "Boş bir salonu buradan üç dokunuşta ayırırsınız."
+        },
+        "reserve-when": {
+          "title": "Önce zamanı seçin",
+          "body": "Gün ve ders saati hazır seçili gelir; başka bir saate dokunabilirsiniz."
+        },
+        "nav-my-bookings": {
+          "title": "Rezervasyonlarım",
+          "body": "Yaptığınız ve onay bekleyen rezervasyonlar burada."
+        },
+        "nav-my-requests": {
+          "title": "Taleplerim",
+          "body": "Gelecek dönem için ders saati ve salon taleplerinizi buradan gönderir, onay durumlarını izlersiniz."
+        },
+        "user-menu": {
+          "title": "Profil ve yardım",
+          "body": "Takvim, bildirimler ve bu tur her zaman burada."
+        },
+        "nav-find-room": {
+          "title": "Salon bul",
+          "body": "Kişi sayısı ve özellik filtreleriyle boş salonları bulun."
+        },
+        "nav-approvals": {
+          "title": "Onaylar",
+          "body": "Sayı, size bekleyen talepleri gösterir."
+        },
+        "approvals-row-actions": {
+          "title": "Karar verin",
+          "body": "Onayla ya da gerekçeyle reddet.",
+          "bodyEmpty": "Şu an bekleyen talep yok; geldiğinde burada Onayla ve Reddet düğmeleri olur."
+        },
+        "nav-bookings": {
+          "title": "Rezervasyonlar",
+          "body": "Tekrarlı ve başkası adına rezervasyonlar buradaki formdan."
+        },
+        "nav-dashboard": {
+          "title": "Panel",
+          "body": "Dönemin durumu bir bakışta."
+        },
+        "nav-timetable": {
+          "title": "Haftalık program",
+          "body": "Programı bölüm, hoca ya da salona göre süzün."
+        },
+        "nav-runs": {
+          "title": "Çalıştırmalar",
+          "body": "Planlar ve yayınlama buradan."
+        },
+        "nav-heatmap": {
+          "title": "Doluluk haritası",
+          "body": "Salonların saat saat doluluğunu görün."
+        },
+        "nav-onboarding": {
+          "title": "Dosyalardan kur",
+          "body": "Excel dosyalarını buraya bırakırsınız."
+        },
+        "nav-requests": {
+          "title": "Talepler",
+          "body": "Hocalardan gelen istekleri burada inceleyin."
+        },
+        "nav-generate": {
+          "title": "Oluştur",
+          "body": "Kuralları kontrol edip çözücüyü buradan çalıştırırsınız."
+        },
+        "nav-moderation": {
+          "title": "Moderasyon",
+          "body": "Talepleri toplu karara bağlayın."
+        },
+        "nav-admin": {
+          "title": "Kurulum",
+          "body": "Tüm ayarlar dört grupta."
+        },
+        "admin-group-users": {
+          "title": "Kişiler",
+          "body": "Kullanıcılar, roller ve bölümler."
+        },
+        "admin-group-resources": {
+          "title": "Salonlar",
+          "body": "Salonlar, gruplar ve erişim."
+        },
+        "admin-group-timetable": {
+          "title": "Takvim",
+          "body": "Dönemler, tatiller ve ders saatleri."
+        },
+        "nav-integrations": {
+          "title": "Entegrasyonlar",
+          "body": "Kimlik, e-posta, takvim ve otomasyon bağlantıları."
+        },
+        "nav-welcome-admin": {
+          "title": "Karşılama rehberi",
+          "body": "Bu rehberi açıp kapatın ve metinlerini düzenleyin."
+        }
+      }
+    },
+    "check": {
+      "title": "Başlarken",
+      "pill": "Başlarken {done} / {total}",
+      "pillLabel": "Başlarken, {total} adımdan {done} tamam",
+      "progress": "{total} adımdan {done} tamam",
+      "next": "Sıradaki: {item}",
+      "hide": "Gizle",
+      "allDone": "Hepsi tamam. Listeyi gizleyebilirsiniz.",
+      "markDone": "Bitti olarak işaretle",
+      "stateDone": "tamamlandı",
+      "stateTodo": "yapılacak",
+      "ticked": "{item} tamamlandı",
+      "hidden": "Liste gizlendi. Yardım › Başlarken listesi ile açabilirsiniz.",
+      "profile": {
+        "title": "Profilinizi tamamlayın",
+        "sub": "Bölüm ve dil"
+      },
+      "first_booking": {
+        "title": "İlk rezervasyonunuzu yapın",
+        "sub": "Hızlı rezervasyonla üç dokunuş"
+      },
+      "channel": {
+        "title": "Bildirim kanalı seçin",
+        "sub": "E-posta ya da bağlı bir kanal"
+      },
+      "calendar": {
+        "title": "Derslerinizi takviminize ekleyin",
+        "sub": "Google, Outlook ya da Apple"
+      },
+      "requests_seen": {
+        "title": "Taleplerim sayfasına göz atın",
+        "sub": "Ders planlama talepleriniz"
+      },
+      "find_room_filter": {
+        "title": "Bir filtreyle salon arayın",
+        "sub": "Kişi sayısı ya da özellik"
+      },
+      "calendar_bookings": {
+        "title": "Rezervasyonlarınızı takviminize ekleyin",
+        "sub": "Rezervasyonlarım sayfasından"
+      },
+      "first_decision": {
+        "title": "İlk talebi karara bağlayın",
+        "sub": "Onaylar kutusunda"
+      },
+      "approver_channel": {
+        "title": "Onay bildirimlerini nereden alacağınızı seçin",
+        "sub": "Profil › Bildirim kanalları"
+      },
+      "book_for_other": {
+        "title": "Bir meslektaşınız adına rezervasyon yapın",
+        "sub": "\"Kimin adına\" alanı"
+      },
+      "recurring": {
+        "title": "Dönemlik bir tekrar oluşturun",
+        "sub": "Her hafta aynı saat"
+      },
+      "timetable_seen": {
+        "title": "Haftalık programı açın",
+        "sub": "Yayınlanan program"
+      },
+      "compare_seen": {
+        "title": "İki planı karşılaştırın",
+        "sub": "Çalıştırmalar › Karşılaştır"
+      },
+      "intake_done": {
+        "title": "Dosyalarınızı yükleyin",
+        "sub": "Dosyalardan kur"
+      },
+      "requests_reviewed": {
+        "title": "Bir talebi karara bağlayın",
+        "sub": "Talepler"
+      },
+      "first_run": {
+        "title": "İlk çalıştırmayı yapın",
+        "sub": "Oluştur"
+      },
+      "published": {
+        "title": "Bir planı yayınlayın",
+        "sub": "Çalıştırmalar"
+      },
+      "org_ready": {
+        "title": "Kurum adı ve saat dilimi",
+        "sub": "Yönetim › Ayarlar"
+      },
+      "rooms_added": {
+        "title": "Salonları ekleyin",
+        "sub": "Yönetim › Salonlar"
+      },
+      "users_invited": {
+        "title": "İlk kullanıcıları davet edin",
+        "sub": "Yönetim › Kullanıcılar"
+      },
+      "mail_ready": {
+        "title": "E-posta gönderimini kurun",
+        "sub": "Yönetim › E-posta"
+      },
+      "welcome_reviewed": {
+        "title": "Karşılama rehberine göz atın",
+        "sub": "Yönetim › Karşılama rehberi"
+      }
+    },
+    "hints": {
+      "new": "Yeni",
+      "newLabel": "{item}: yeni",
+      "try": "Dene",
+      "dismiss": "Anladım",
+      "allNews": "Tüm yenilikler",
+      "quick_reserve": {
+        "title": "Yeni: Hızlı rezervasyon.",
+        "body": "Bugünün bir sonraki boş saati hazır gelir. Salonu seçin, Rezerve et'e dokunun."
+      },
+      "calendar_export": {
+        "title": "Yeni: Takvimime ekle.",
+        "body": "Derslerinizi ve rezervasyonlarınızı Google, Outlook ya da Apple takviminize ekleyin. Her eklemeden önce onayınız sorulur."
+      },
+      "admin_ai": {
+        "title": "Yeni: Yapay zekâ ayarları.",
+        "body": "Sağlayıcıları, özellik başına modeli ve aylık sınırı buradan seçin."
+      },
+      "admin_ops": {
+        "title": "Yeni: Sistem durumu.",
+        "body": "Servislerin durumu, hata grupları ve son kayıtlar tek sayfada."
+      },
+      "admin_integrations": {
+        "title": "Yeni: Entegrasyonlar.",
+        "body": "Kimlik, e-posta, takvim ve otomasyon bağlantılarını buradan kurun ve izleyin."
+      }
+    },
+    "help": {
+      "group": "Yardım",
+      "restart": "Turu yeniden başlat",
+      "checklist": "Başlarken listesi",
+      "checklistCount": "Başlarken listesi ({done} / {total})",
+      "whatsNew": "Yenilikler",
+      "shortcuts": "Klavye kısayolları",
+      "restartWords": "rehber tur karşılama yardım başlarken",
+      "checklistWords": "başlarken liste kontrol yardım"
+    },
+    "admin": {
+      "nav": "Karşılama rehberi",
+      "title": "Karşılama rehberi",
+      "lead": "Karşılama penceresi, rehberli tur, Başlarken listesi ve yeni özellik ipuçları: açın, kapatın, metinleri kurumunuza göre düzenleyin.",
+      "noAccessTitle": "Bu sayfaya erişiminiz yok",
+      "noAccessBody": "Karşılama rehberini kurum ayarları ya da planlama yönetimi yetkisi olanlar düzenler.",
+      "tab": {
+        "general": "Genel",
+        "texts": "Metinler",
+        "stats": "Tamamlanma"
+      },
+      "part": {
+        "enabled": {
+          "title": "Karşılama rehberi",
+          "body": "Kapalıyken kimseye karşılama penceresi gösterilmez."
+        },
+        "tour": {
+          "title": "Rehberli tur",
+          "body": "Kapalıyken \"Kısa turu başlat\" düğmesi görünmez."
+        },
+        "checklist": {
+          "title": "Başlarken listesi",
+          "body": "Kenar çubuğundaki liste ve ana sayfa kartı."
+        },
+        "hints": {
+          "title": "Yeni özellik ipuçları",
+          "body": "Yeni özellikler için tek seferlik kısa notlar ve \"Yeni\" etiketleri."
+        },
+        "hints_for_all": {
+          "title": "Herkese ipucu göster",
+          "body": "Daha önce ipucunu kapatanlara da bir kez daha gösterir (büyük bir sürüm için)."
+        }
+      },
+      "preview": {
+        "title": "Önce kendinizde deneyin",
+        "body": "Seçtiğiniz kitlenin karşılama penceresini açar; ilerleme kaydedilmez.",
+        "open": "Önizle",
+        "audience": "Kitle"
+      },
+      "saved": "Kaydedildi.",
+      "saveFailed": "Kaydedilemedi. Yeniden deneyin.",
+      "texts": {
+        "audiences": "Kitle",
+        "tr": "Türkçe",
+        "en": "İngilizce",
+        "field": {
+          "title": "Başlık",
+          "lead": "Giriş cümlesi"
+        },
+        "cardTitle": "{card}: başlık",
+        "cardBody": "{card}: metin",
+        "reset": "Varsayılana dön",
+        "resetLabel": "{field} ({locale}): varsayılana dön",
+        "preview": "Önizle",
+        "save": "Kaydet",
+        "count": "{n} / {max}",
+        "tooLong": "En fazla {max} karakter.",
+        "badPlaceholder": "Yalnızca {ad} ve {bölüm} yer tutucuları kullanılabilir.",
+        "placeholders": "Yer tutucular: {ad} (kişinin adı), {bölüm} (bölümü). Sıra, bağlantılar ve simgeler sabittir.",
+        "lastChange": "Son değişiklik: {who}, {when}",
+        "never": "Henüz değiştirilmedi; ürün metinleri kullanılıyor.",
+        "stale": "Bu metni siz düzenlerken {ad} değiştirdi. Sayfayı yenileyip yeniden deneyin.",
+        "staleSomeone": "başka biri",
+        "confirmTitle": "Metinleri kaydet",
+        "confirmBody": "Kaydedince bu kitleye rehber yeniden gösterilsin mi?",
+        "reshow": "Evet, \"Güncellendi\" etiketiyle",
+        "cancel": "Vazgeç",
+        "unsaved": "Kaydedilmemiş değişiklikler var."
+      },
+      "stats": {
+        "days": "Son {n} gün",
+        "range": "Dönem",
+        "shown": "Gördü",
+        "tour": "Tur",
+        "checklist": "Liste ≥ %80",
+        "dismissed": "Kapattı",
+        "median": "İlk rezervasyona",
+        "medianValue": "{n} gün",
+        "small": "5'ten az",
+        "smallBody": "5 kişiden küçük gruplar için sayı gösterilmez.",
+        "none": "—",
+        "privacy": "Yalnızca toplu sayılar; kişi listesi ve dışa aktarma yoktur. Sayılar SmartSched'den çıkmaz.",
+        "empty": "Henüz veri yok.",
+        "loadFailed": "Sayılar yüklenemedi."
+      }
+    }
+  },
+  "voice": {
+    "mic": {
+      "start": "Sesle yaz",
+      "stop": "Kaydı durdur",
+      "hold": "Konuşmak için basılı tutun",
+      "shortcut": "Ctrl+Shift+M"
+    },
+    "strip": {
+      "starting": "Mikrofon açılıyor…",
+      "later": "Konuşma bitince yazıya dökülecek.",
+      "done": "Bitti",
+      "cancel": "Vazgeç",
+      "lock": "Kilitle",
+      "transcribing": "Yazıya dökülüyor…"
+    },
+    "announce": {
+      "started": "Kayıt başladı. Konuşma bitince yazıya dökülecek.",
+      "locked": "Kayıt kilitlendi; parmağınızı kaldırabilirsiniz.",
+      "cancelled": "Kayıt iptal edildi.",
+      "inserted": "Metin kutuya eklendi. Göndermeden önce düzeltebilirsiniz."
+    },
+    "chip": "Sesle girildi",
+    "level": "Ses düzeyi",
+    "captions": {
+      "label": "Anlık altyazı (yalnızca bu cihazda)"
+    },
+    "consent": {
+      "title": "Sesli giriş",
+      "where": "Sesiniz yazıya dökülmek için {provider} hizmetine gönderilir.",
+      "whereRegion": "Sesiniz yazıya dökülmek için {provider} hizmetine ({region}) gönderilir.",
+      "whereLocal": "Sesiniz kurumun kendi sunucusundaki {provider} hizmetinde yazıya dökülür.",
+      "providerUnknown": "yöneticilerin seçtiği ses",
+      "noKeep": "Ses kaydı saklanmaz; yalnızca yazıya dökülmüş metin size döner.",
+      "review": "Metin kutuya gelir. Siz düzeltip gönderene kadar hiçbir yere gönderilmez.",
+      "browser": "Tarayıcınız şimdi mikrofon izni isteyecek.",
+      "withdraw": "Onayınızı istediğiniz zaman Profil › Gizlilik'ten geri alabilirsiniz.",
+      "accept": "Kabul et ve başla",
+      "later": "Şimdi değil",
+      "error": "Onayınız kaydedilemedi. Tekrar deneyin."
+    },
+    "error": {
+      "permission_denied": "Mikrofon izni verilmedi. Adres çubuğundaki kilit simgesinden mikrofonu açabilirsiniz.",
+      "policy_blocked": "Bu sitede mikrofon kullanımı kapalı. Yöneticinize bildirin.",
+      "no_device": "Mikrofon bulunamadı.",
+      "device_busy": "Mikrofon başka bir uygulama tarafından kullanılıyor. O uygulamayı kapatıp tekrar deneyin.",
+      "insecure": "Ses girişi yalnızca güvenli bağlantıda (https) çalışır.",
+      "unsupported": "Bu tarayıcı ses kaydını desteklemiyor. Yazarak devam edebilirsiniz.",
+      "too_long": "Kayıt en fazla {n} saniye olabilir; kayıt durduruldu.",
+      "empty": "Ses algılanmadı. Tekrar deneyin.",
+      "consent_required": "Sesli giriş için onayınız gerekiyor.",
+      "ai_voice_limit_reached": "Bugünkü sesli giriş sınırınıza ulaştınız ({used}/{limit} dk). Yazarak devam edebilirsiniz.",
+      "ai_voice_limit_reached_plain": "Sesli giriş sınırınıza ulaştınız. Yazarak devam edebilirsiniz.",
+      "voice_off": "Sesli giriş yöneticiler tarafından kapatıldı. Yazarak devam edebilirsiniz.",
+      "not_configured": "Ses için bir model seçilmedi.",
+      "ai_transfer_basis_missing": "Bu ses hizmeti için KVKK aktarım kaydı yok; yönetici tamamlamalı.",
+      "provider_error": "Ses yazıya dökülemedi. Tekrar deneyin ya da yazarak devam edin."
+    },
+    "help": {
+      "chrome": "Chrome / Edge: adres çubuğundaki kilit simgesi › Mikrofon › İzin ver, sonra sayfayı yenileyin.",
+      "firefox": "Firefox: adres çubuğundaki mikrofon simgesi › Engellemeyi kaldır, sonra tekrar deneyin.",
+      "safari": "Safari: Safari › Bu Web Sitesi için Ayarlar › Mikrofon › İzin Ver."
+    },
+    "admin": {
+      "feature": "Sesle yazma",
+      "featureTts": "Sesli okuma",
+      "need": "Konuşmayı yazıya döker. Yalnızca ses destekli modeller listelenir.",
+      "noModel": "Model seçilmezse mikrofon kimseye gösterilmez.",
+      "unset": "Seçilmedi (mikrofon gizli)",
+      "noSpeechModels": "Ses destekli eşitlenmiş model yok. Sağlayıcılar sekmesinde ses destekli bir sağlayıcıyı eşitleyin.",
+      "cap": {
+        "text": "Metin",
+        "stt": "Ses→yazı",
+        "tts": "Sesli okuma",
+        "audio_native": "Doğal ses"
+      },
+      "caps": "Yetenekler",
+      "test": "Ses testi",
+      "testing": "Ses deneniyor…",
+      "testOk": "Ses testi başarılı: “{preview}”",
+      "testFail": "Ses testi başarısız: {detail}",
+      "processesVoice": "Bu sağlayıcı ses işler",
+      "processesVoiceHint": "Ses kayıtları bu sağlayıcıya gönderilecekse işaretleyin; KVKK aktarım kaydı sesi de kapsamalı.",
+      "audioRetention": "Ses kaydının sağlayıcıda saklanma süresi",
+      "card": {
+        "title": "Ses",
+        "lead": "Kullanıcılar yapay zekâ kutularına konuşarak yazabilir. Ses, Modeller sekmesinde seçilen ses hizmetinde yazıya dökülür; metin kutuya gelir ve kullanıcı düzeltip kendisi gönderir.",
+        "enabled": "Sesli girişi aç",
+        "enabledHint": "Kapalıyken mikrofon kimseye gösterilmez.",
+        "noRoute": "Önce Modeller sekmesinde \"Sesle yazma\" için bir model seçin.",
+        "advanced": "Gelişmiş",
+        "consent": "İlk kullanımda onay iste",
+        "consentHint": "KVKK: kullanıcı, sesinin hangi hizmete gittiğini görür ve onaylar.",
+        "maxSeconds": "En uzun kayıt (saniye)",
+        "maxSecondsHint": "10 ile 120 arasında.",
+        "localOnly": "Yalnızca kurum içi ses hizmeti",
+        "localOnlyHint": "Açıkken bulut ses hizmetlerine hiçbir kayıt gönderilmez.",
+        "vocabulary": "Sözlük ipucu",
+        "vocabularyHint": "Derslik, bina ve ders kodlarını ses hizmetine ipucu olarak gönderir; kişi adları gönderilmez.",
+        "vocab": {
+          "catalog": "Derslik ve ders kodları",
+          "off": "Kapalı"
+        },
+        "captions": "Anlık altyazı",
+        "captionsHint": "Yalnızca tarayıcı sesi cihazda işleyebiliyorsa gösterilir; bulut tanıma hiçbir zaman kullanılmaz.",
+        "captionsMode": {
+          "on_device": "Yalnızca cihazda",
+          "off": "Kapalı"
+        },
+        "review": "Metin her zaman gönderilmeden önce kullanıcıya gösterilir.",
+        "retention": "Ses kayıtları sunucuda saklanmaz.",
+        "saved": "Ses ayarları kaydedildi.",
+        "save": "Ses ayarlarını kaydet",
+        "invalidSeconds": "En uzun kayıt 10 ile 120 saniye arasında olmalı."
+      },
+      "limits": {
+        "title": "Ses süresi",
+        "lead": "Dakika olarak. 0 = sınır yok.",
+        "orgMonthly": "Kurum, aylık (dk)",
+        "userDaily": "Kişi başı, günlük (dk)",
+        "userMonthly": "Kişi başı, aylık (dk)",
+        "advanced": "Gelişmiş: role ve kişiye göre",
+        "rolesHint": "Boş bırakılan alan varsayılanı izler.",
+        "daily": "Günlük (dk)",
+        "monthly": "Aylık (dk)",
+        "userId": "Kullanıcı no",
+        "addUser": "Kişi ekle",
+        "remove": "Kaldır"
+      },
+      "usage": {
+        "title": "Sesli giriş",
+        "total": "Bu dönem {min} dk ses yazıya döküldü.",
+        "byDay": "Günlere göre ses (dk)",
+        "minutes": "{n} dk"
+      },
+      "me": {
+        "line": "Sesli giriş: bugün {day} dk{dayLimit} · bu ay {month} dk{monthLimit}",
+        "of": " / {n}"
+      }
     }
   }
 }

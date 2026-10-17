@@ -189,3 +189,38 @@ describe("manage list", () => {
     expect(fileName("department_classes", "2026-bahar", "Psikoloji Bölümü")).toBe("bolum-psikoloji-bolumu-2026-bahar.ics");
   });
 });
+
+describe("CAL-B contract adapters", () => {
+  it("turns {links, push} into one row per link and per push scope, plus the connections", async () => {
+    const { SubscriptionsOut, parseScope } = await import("@/lib/api/calendar-export");
+    const out = SubscriptionsOut.parse({
+      links: [{ id: 3, scope_kind: "my_classes", scope_label: "Derslerim", last_used_at: "2026-10-17T10:10:00" }],
+      push: [{ provider: "google", status: "ACTIVE", export_scopes: ["my_bookings", "department_classes:7", { kind: "my_classes" }], least_privilege: false, account_email: "a@uni.edu.tr", last_synced_at: null }],
+    });
+    expect(out.rows.map((r) => `${r.channel}:${r.id}`)).toEqual(["link:3", "push:push:google:my_bookings", "push:push:google:department_classes:7", "push:push:google:my_classes"]);
+    expect(out.rows[2]).toMatchObject({ scope_kind: "department_classes", scope_id: 7, provider: "google", legacy_scope: true });
+    expect(out.connections[0]).toMatchObject({ provider: "google", connected: true, legacy_scope: true, account_email: "a@uni.edu.tr" });
+    expect(parseScope("department_classes:12")).toEqual({ kind: "department_classes", id: 12 });
+    expect(parseScope(42)).toBeNull();
+  });
+
+  it("reads the options' reason object, preview and provider map", async () => {
+    const { ExportOptionsIn } = await import("@/lib/api/calendar-export");
+    const o = ExportOptionsIn.parse({
+      enabled: true,
+      scopes: [
+        { kind: "department_classes", available: true, reason: null, departments: [{ id: 7, name: "Psikoloji" }, { id: 8, name: "Felsefe" }], default_department_id: 7, preview: { upcoming_count: 310, sample: { summary: "PSY 101", location: "A 1", start: "2026-10-19T09:00:00", end: "2026-10-19T10:00:00", text_tr: "PSY 101 — A 1 — Pzt 09:00–10:00" }, fields: [{ key: "course_code" }, { key: "section" }, { key: "room" }] } },
+        { kind: "my_classes", available: false, reason: { code: "not_linked", message_tr: "bağlı değil", message_en: "not linked" } },
+      ],
+      channels: { push: { google: { label: "Google", configured: true }, freshness_tr: "x" }, link: { available: false }, file: { available: true } },
+    });
+    expect(o.channels).toEqual({ link: false, file: true, push: [{ provider: "google", configured: true, connected: false, scopes: [] }] });
+    const c = scopeChoices(o, "tr");
+    expect(c.map((x) => x.key)).toEqual(["my_classes", "department_classes:7", "department_classes:8"]);
+    expect(c[0]).toMatchObject({ available: false, reason: "not_linked" });
+    expect(c[1]).toMatchObject({ upcoming: 310, fields: ["code", "room"] });
+    expect(c[1]!.sample?.text_tr).toBe("PSY 101 — A 1 — Pzt 09:00–10:00");
+    expect(c[2]!.sample).toBeNull();
+    expect(sampleLine(c[1]!.sample!, "tr", "Şube")).toBe("PSY 101 — A 1 — Pzt 09:00–10:00");
+  });
+});

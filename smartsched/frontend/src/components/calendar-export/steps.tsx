@@ -51,6 +51,20 @@ export function StepHeading({ id, headingRef, children }: { id: string; headingR
   );
 }
 
+/** "Gelişmiş": the details a first-time user does not need (owner's simplicity principle, 2026-10-17). */
+export function Advanced({ children, testId, className }: { children: ReactNode; testId: string; className?: string }) {
+  const { t } = useI18n();
+  return (
+    <details className={cn("group rounded-xl px-3 edge-control", className)} data-testid={testId}>
+      <summary className="flex min-h-11 cursor-pointer items-center gap-1 type-callout font-medium text-label-2 marker:content-none focus-visible:outline-2 focus-visible:outline-(--focus) rounded-lg" data-testid={`${testId}-toggle`}>
+        <ChevronRight className="size-4 shrink-0 transition-transform group-open:rotate-90" aria-hidden />
+        {t("calendarExport.advanced")}
+      </summary>
+      <div className="grid gap-3 pb-3">{children}</div>
+    </details>
+  );
+}
+
 const cardClass = "flex w-full min-h-14 items-start gap-3 rounded-2xl bg-fill-3 px-4 py-3 text-left edge-control transition-colors hover:bg-fill-2";
 
 function ScopeIcon({ kind }: { kind: string }) {
@@ -137,7 +151,7 @@ export function HowStep({ channels, onPick }: { channels: Channel[]; onPick: (c:
           const lead = c.kind === "push" ? t("calendarExport.how.pushLead") : c.kind === "link" ? t("calendarExport.how.linkLead") : t("calendarExport.how.fileLead");
           return (
             <li key={channelKey(c)}>
-              <BareButton className={cardClass} onClick={() => onPick(c)} aria-describedby={refreshId} data-testid={`cal-channel-${channelKey(c)}`}>
+              <BareButton className={cardClass} onClick={() => onPick(c)} data-testid={`cal-channel-${channelKey(c)}`}>
                 <Icon className="mt-0.5 size-5 shrink-0 text-tint-text" aria-hidden />
                 <span className="grid min-w-0 flex-1 gap-0.5">
                   <span className="flex flex-wrap items-center gap-2">
@@ -156,7 +170,8 @@ export function HowStep({ channels, onPick }: { channels: Channel[]; onPick: (c:
           );
         })}
       </ul>
-      <section id={refreshId} aria-label={t("calendarExport.how.refreshTitle")} className="grid gap-1 rounded-xl bg-fill-3 px-3 py-2.5" data-testid="cal-refresh-times">
+      <Advanced testId="cal-how-advanced">
+      <section id={refreshId} aria-label={t("calendarExport.how.refreshTitle")} className="grid gap-1" data-testid="cal-refresh-times">
         <p className="type-footnote font-semibold text-label-1">{t("calendarExport.how.refreshTitle")}</p>
         <ul className="grid gap-0.5 type-footnote text-label-2">
           {channels.some((c) => c.kind === "push") ? <li>{t("calendarExport.how.refreshPush")}</li> : null}
@@ -170,6 +185,7 @@ export function HowStep({ channels, onPick }: { channels: Channel[]; onPick: (c:
           {channels.some((c) => c.kind === "file") ? <li>{t("calendarExport.how.fileLead")}</li> : null}
         </ul>
       </section>
+      </Advanced>
     </div>
   );
 }
@@ -271,6 +287,27 @@ function CopyRow({ id, label, value, testId }: { id: string; label: string; valu
   );
 }
 
+function CopyButton({ value, testId }: { value: string; testId: string }) {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    void navigator.clipboard?.writeText(value).then(
+      () => {
+        setCopied(true);
+        toast.success(t("calendarExport.done.copied"));
+        window.setTimeout(() => setCopied(false), 1500);
+      },
+      () => undefined,
+    );
+  };
+  return (
+    <Button variant="outline" className="min-h-11 w-full sm:w-fit" onClick={copy} data-testid={testId}>
+      {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+      {copied ? t("calendarExport.done.copied") : t("calendarExport.done.copy")}
+    </Button>
+  );
+}
+
 /** The subscribe actions of a fresh link (after approval, and after "Bağlantıyı yenile" in the manage list). */
 export function LinkResult({ urls, name, testId = "cal-link" }: { urls: { https: string; webcal?: string | null; google?: string | null; outlook?: string | null }; name: string; testId?: string }) {
   const { t } = useI18n();
@@ -292,12 +329,15 @@ export function LinkResult({ urls, name, testId = "cal-link" }: { urls: { https:
           {t("calendarExport.done.outlook")}
         </Button>
       </div>
-      <CopyRow id={`${id}-https`} label={t("calendarExport.done.https")} value={l.https} testId={`${testId}-https`} />
-      <CopyRow id={`${id}-webcal`} label={t("calendarExport.done.webcal")} value={l.webcal} testId={`${testId}-webcal`} />
+      <CopyButton value={l.https} testId={`${testId}-copy`} />
       <p className="rounded-xl bg-status-warning px-3 py-2 type-footnote text-status-warning-fg" data-testid={`${testId}-note`}>
         {t("calendarExport.done.linkNote")}
       </p>
       <p className="type-footnote text-label-2">{t("calendarExport.done.linkOnce")}</p>
+      <Advanced testId={`${testId}-advanced`}>
+        <CopyRow id={`${id}-https`} label={t("calendarExport.done.https")} value={l.https} testId={`${testId}-https`} />
+        <CopyRow id={`${id}-webcal`} label={t("calendarExport.done.webcal")} value={l.webcal} testId={`${testId}-webcal`} />
+      </Advanced>
     </div>
   );
 }

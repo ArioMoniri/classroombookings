@@ -1,0 +1,116 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1640' height='844' viewBox='0 0 1640 844' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Yardımcı telefonda: arama, konuşma, kart, Göster'>
+<title>Yardımcı telefonda: arama, konuşma, kart, Göster</title>
+<rect width='1640' height='844' fill='#F4F6F9'/>
+<g>
+<g transform='translate(0,0)'><rect width='390' height='844' rx='36' fill='#F4F6F9' stroke='#E2E8F0'/>
+<rect x='16' y='56' width='358' height='48' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='32' y='86' font-size='16' font-weight='500' fill='#0F172A' text-anchor='start'>yarın 10 a 204</text>
+<text x='358' y='86' font-size='14' font-weight='600' fill='#2563EB' text-anchor='end'>İptal</text>
+<text x='20' y='128' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Salonlar</text>
+<rect x='12' y='136' width='366' height='56' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='28' y='160' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>A 204</text>
+<text x='28' y='180' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>B blok · 40 kişi</text>
+<text x='20' y='216' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Kısayollar</text>
+<rect x='12' y='224' width='366' height='56' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='28' y='248' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Yarın 10:00 için A 204'ü ayır</text>
+<text x='28' y='268' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Hızlı rezervasyon</text>
+<text x='20' y='304' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Yardımcıya sor</text>
+<rect x='12' y='312' width='366' height='56' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='28' y='336' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Yardımcıya sor: “yarın 10 a 204”</text>
+<text x='28' y='356' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Bulut · Anthropic</text>
+<text x='20' y='520' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Tam ekran palet; satırlar 56 px; giriş 16 px</text>
+<text x='20' y='536' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Tab çubuğundaki yuvarlak arama düğmesi açar</text>
+<text x='20' y='552' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Kısayol yapay zekâ çağırmadan kartı açar</text>
+<text x='16' y='838' font-size='12' font-weight='700' fill='#7C3AED'>A</text></g>
+<g transform='translate(410,0)'><rect width='390' height='844' rx='36' fill='#F4F6F9' stroke='#E2E8F0'/>
+<text x='20' y='30' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>9:41</text>
+<text x='30' y='78' font-size='18' font-weight='600' fill='#475569' text-anchor='start'>✕</text>
+<text x='120' y='78' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>Yardımcı</text>
+<rect x='208' y='62' width='138' height='24' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='220' cy='74' r='4' fill='#2563EB'/>
+<text x='230' y='78' font-size='11' font-weight='600' fill='#0F172A' text-anchor='start'>Bulut · Anthropic</text>
+<line x1='0' y1='100' x2='390' y2='100' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='120' y='116' width='250' height='36' rx='16' fill='#E2E8F0' fill-opacity='1'/>
+<text x='132' y='139' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Yarın 10:00 için A 204'ü ayır</text>
+<text x='20' y='182' font-size='14' font-weight='400' fill='#0F172A' text-anchor='start'>A 204 yarın 10:00–10:50 boş.</text>
+<rect x='12' y='196' width='366' height='210' rx='14' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='28' y='222' font-size='14' font-weight='650' fill='#0F172A' text-anchor='start'>Salon rezervasyonu</text>
+<text x='28' y='258' font-size='12' font-weight='500' fill='#475569' text-anchor='start'>Salon</text>
+<rect x='112' y='240' width='250' height='30' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='122' y='260' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>A 204 · 40 kişi · projeksiyon</text>
+<text x='352' y='260' font-size='12' font-weight='500' fill='#64748B' text-anchor='start'>▾</text>
+<text x='28' y='296' font-size='12' font-weight='500' fill='#475569' text-anchor='start'>Gün</text>
+<rect x='112' y='278' width='250' height='30' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='122' y='298' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>Yarın, 18 Eki Cumartesi</text>
+<text x='352' y='298' font-size='12' font-weight='500' fill='#64748B' text-anchor='start'>▾</text>
+<text x='28' y='334' font-size='12' font-weight='500' fill='#475569' text-anchor='start'>Ders saati</text>
+<rect x='112' y='316' width='250' height='30' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='122' y='336' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>3. saat · 10:00–10:50</text>
+<text x='352' y='336' font-size='12' font-weight='500' fill='#64748B' text-anchor='start'>▾</text>
+<rect x='28' y='358' width='334' height='36' rx='18.0' fill='#2563EB' fill-opacity='1'/>
+<text x='195.0' y='380.68' font-size='13' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Rezerve et: A 204 · yarın 10:00</text>
+<rect x='12' y='690' width='366' height='52' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='28' y='722' font-size='16' font-weight='400' fill='#64748B' text-anchor='start'>Bir şey sorun…</text>
+<circle cx='352' cy='716' r='16' fill='#2563EB'/>
+<text x='20' y='770' font-size='11' font-weight='400' fill='#475569' text-anchor='start'>ⓘ Yanıtlar yapay zekâ ile üretilir.</text>
+<text x='20' y='440' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Tam ekran (aria-modal); tab çubuğu gizli</text>
+<text x='20' y='456' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Birincil 48 px tam genişlik; alanlar yerel seçiciler</text>
+<text x='16' y='838' font-size='12' font-weight='700' fill='#7C3AED'>B</text></g>
+<g transform='translate(820,0)'><rect width='390' height='844' rx='36' fill='#F4F6F9' stroke='#E2E8F0'/>
+<text x='30' y='78' font-size='18' font-weight='600' fill='#475569' text-anchor='start'>✕</text>
+<text x='120' y='78' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>Yardımcı</text>
+<line x1='0' y1='100' x2='390' y2='100' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='12' y='120' width='366' height='120' rx='14' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='28' y='146' font-size='14' font-weight='650' fill='#0F172A' text-anchor='start'>Salon rezervasyonu</text>
+<circle cx='40' cy='172' r='10' fill='#DCFCE7'/>
+<polyline points='35,172 39,176 46,167' fill='none' stroke='#15803D' stroke-width='2.2' stroke-linejoin='round'/>
+<text x='58' y='177' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>A 204 yarın 10:00–10:50 için rezerve edildi.</text>
+<text x='28' y='212' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Rezervasyonu aç</text>
+<text x='362' y='212' font-size='13' font-weight='600' fill='#2563EB' text-anchor='end'>Geri al</text>
+<rect x='12' y='770' width='366' height='52' rx='14' fill='#0F172A' fill-opacity='1'/>
+<text x='28' y='801' font-size='14' font-weight='600' fill='#FFFFFF' text-anchor='start'>Rezerve edildi</text>
+<text x='362' y='801' font-size='14' font-weight='600' fill='#93C5FD' text-anchor='end'>Geri al (8 sn)</text>
+<text x='20' y='280' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Odak sonuç satırına gider; canlı bölge duyurur</text>
+<text x='20' y='296' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Geri al: kartta ve 8 sn'lik bildirimde</text>
+<text x='20' y='312' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Takip çipleri: “Takvimime ekle” · “Başka saat”</text>
+<rect x='20' y='330' width='133' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='86.5' y='356.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Takvimime ekle</text>
+<rect x='170' y='330' width='103' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='221.5' y='356.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Başka saat</text>
+<text x='16' y='838' font-size='12' font-weight='700' fill='#7C3AED'>C</text></g>
+<g transform='translate(1230,0)'><rect width='390' height='844' rx='36' fill='#F4F6F9' stroke='#E2E8F0'/>
+<text x='20' y='30' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>9:41</text>
+<text x='370' y='30' font-size='12' font-weight='500' fill='#0F172A' text-anchor='end'>100%</text>
+<text x='20' y='92' font-size='30' font-weight='700' fill='#0F172A' text-anchor='start'>Profil</text>
+<rect x='0' y='761' width='390' height='83' rx='0' fill='#FFFFFF' fill-opacity='0.94'/>
+<line x1='0' y1='761' x2='390' y2='761' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='28.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='39.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Rezerve et</text>
+<rect x='106.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='117.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Rezervasyonlarım</text>
+<rect x='184.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='195.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Derslik bul</text>
+<rect x='262.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='273.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Taleplerim</text>
+<rect x='340.0' y='771' width='22' height='22' rx='6' fill='#2563EB' fill-opacity='1' stroke='#2563EB' stroke-width='1.5'/>
+<text x='351.0' y='809' font-size='10' font-weight='600' fill='#2563EB' text-anchor='middle'>Daha</text>
+<rect x='128.0' y='835' width='134' height='5' rx='3' fill='#0F172A' fill-opacity='1'/>
+<rect x='16' y='120' width='358' height='56' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='154' font-size='15' font-weight='500' fill='#0F172A' text-anchor='start'>Bildirimler</text>
+<rect x='16' y='186' width='358' height='56' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='220' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Takvim</text>
+<rect x='10' y='180' width='370' height='68' rx='16' fill='none' fill-opacity='1' stroke='#2563EB' stroke-width='3'/>
+<rect x='0' y='0' width='390' height='844' rx='0' fill='#0F172A' fill-opacity='0.25'/>
+<rect x='0' y='520' width='390' height='241' rx='24' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='20' y='556' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>Takvim</text>
+<text x='20' y='582' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Derslerinizi ve rezervasyonlarınızı Google, Outlook</text>
+<text x='20' y='600' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>ya da Apple takviminize buradan eklersiniz.</text>
+<rect x='20' y='630' width='168' height='48' rx='24.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='104.0' y='659.4' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Anladım</text>
+<rect x='200' y='630' width='170' height='48' rx='24.0' fill='#2563EB' fill-opacity='1'/>
+<text x='285.0' y='659.4' font-size='15' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Yardımcıya dön</text>
+<text x='20' y='700' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Panel kapanır, sayfa açılır, halka hedefte;</text>
+<text x='20' y='716' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>adım kartı alta yaslanır (WG-05 telefon düzeni)</text>
+<text x='16' y='838' font-size='12' font-weight='700' fill='#7C3AED'>D</text></g>
+</g>
+</svg>

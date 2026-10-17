@@ -1,0 +1,92 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='“Nerede?” yanıtı ve Göster (masaüstü)'>
+<title>“Nerede?” yanıtı ve Göster (masaüstü)</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='40' y='101' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Panel</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Haftalık program</text>
+<text x='40' y='173' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Çalıştırmalar</text>
+<text x='32' y='210' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>REZERVASYONLAR</text>
+<text x='40' y='245' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Hızlı rezervasyon</text>
+<text x='40' y='281' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezervasyonlar</text>
+<text x='32' y='318' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>YÖNETİM</text>
+<text x='40' y='353' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Ayarlar</text>
+<rect x='24' y='368' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='389' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Kullanıcılar</text>
+<text x='40' y='425' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Dönem ve saatler</text>
+<text x='40' y='461' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Yapay zekâ</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'></text>
+<rect x='276' y='16' width='380' height='40' rx='20' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='294' y='41' font-size='13' font-weight='500' fill='#475569' text-anchor='start'>Yönetim  /  Kullanıcılar</text>
+<rect x='1020' y='16' width='396' height='40' rx='20' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1026' y='18' width='300' height='36' rx='18' fill='#EEF2F7' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='1046' cy='36' r='6' fill='none' stroke='#64748B' stroke-width='2'/>
+<text x='1062' y='41' font-size='13' font-weight='400' fill='#64748B' text-anchor='start'>Ara veya sor…</text>
+<rect x='1274' y='26' width='40' height='20' rx='5' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1294' y='40' font-size='11' font-weight='600' fill='#475569' text-anchor='middle'>⌘K</text>
+<circle cx='1350' cy='36' r='9' fill='none' stroke='#64748B' stroke-width='2'/>
+<circle cx='1384' cy='36' r='9' fill='none' stroke='#64748B' stroke-width='2'/>
+<text x='276' y='110' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Kullanıcılar</text>
+<rect x='826' y='86' width='140' height='40' rx='20.0' fill='#2563EB' fill-opacity='1'/>
+<text x='896.0' y='111.04' font-size='14' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Davet et</text>
+<rect x='276' y='140' width='700' height='44' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='167' font-size='13' font-weight='400' fill='#64748B' text-anchor='start'>Ad, e-posta ya da bölüm ara</text>
+<rect x='276' y='200' width='700' height='44' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='227' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>A. T.</text>
+<text x='396' y='227' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Öğretim elemanı</text>
+<rect x='276' y='248' width='700' height='44' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='275' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>P. T.</text>
+<text x='396' y='275' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Personel</text>
+<rect x='276' y='296' width='700' height='44' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='323' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>F. B.</text>
+<text x='396' y='323' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Yönetici</text>
+<rect x='276' y='344' width='700' height='44' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='371' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>S. K.</text>
+<text x='396' y='371' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Öğretim elemanı</text>
+<rect x='276' y='392' width='700' height='44' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='419' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>M. Y.</text>
+<text x='396' y='419' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Onaylayıcı</text>
+<rect x='276' y='440' width='700' height='44' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='467' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>E. D.</text>
+<text x='396' y='467' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Personel</text>
+<rect x='276' y='488' width='700' height='44' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='515' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>H. Ö.</text>
+<text x='396' y='515' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Öğretim elemanı</text>
+<rect x='0' y='0' width='1024' height='900' rx='0' fill='#0F172A' fill-opacity='0.25'/>
+<rect x='820' y='80' width='152' height='52' rx='26' fill='none' fill-opacity='1' stroke='#2563EB' stroke-width='3'/>
+<rect x='826' y='86' width='140' height='40' rx='20.0' fill='#2563EB' fill-opacity='1'/>
+<text x='896.0' y='111.04' font-size='14' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Davet et</text>
+<rect x='596' y='146' width='360' height='130' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='612' y='174' font-size='15' font-weight='650' fill='#0F172A' text-anchor='start'>Davet et</text>
+<text x='612' y='196' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Yeni kişileri e-posta ile buradan davet edersiniz.</text>
+<rect x='612' y='216' width='110' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='667.0' y='240.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Anladım</text>
+<rect x='732' y='216' width='200' height='40' rx='20.0' fill='#2563EB' fill-opacity='1'/>
+<text x='832.0' y='240.68' font-size='13' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Yardımcıya dön</text>
+<rect x='1024' y='68' width='400' height='820' rx='20' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1044' y='102' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>Yardımcı</text>
+<rect x='1136' y='84' width='138' height='24' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='1148' cy='96' r='4' fill='#94A3B8'/>
+<text x='1158' y='100' font-size='11' font-weight='600' fill='#0F172A' text-anchor='start'>Yapay zekâ kapalı</text>
+<line x1='1024' y1='122' x2='1424' y2='122' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1174' y='142' width='230' height='36' rx='16' fill='#E2E8F0' fill-opacity='1'/>
+<text x='1186' y='165' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>kullanıcı nasıl davet edilir</text>
+<rect x='1044' y='194' width='360' height='236' rx='14' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1060' y='222' font-size='14' font-weight='650' fill='#0F172A' text-anchor='start'>Kullanıcı davet et</text>
+<text x='1060' y='246' font-size='12' font-weight='600' fill='#2563EB' text-anchor='start'>Yönetim › Kullanıcılar › Davet et</text>
+<text x='1060' y='274' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>1. Kullanıcılar sayfasını açın.</text>
+<text x='1060' y='294' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>2. Sağ üstte “Davet et”e basın.</text>
+<text x='1060' y='314' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>3. E-posta ve rolü girip gönderin.</text>
+<rect x='1060' y='334' width='110' height='40' rx='20.0' fill='#2563EB' fill-opacity='1'/>
+<text x='1115.0' y='358.68' font-size='13' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Göster</text>
+<rect x='1180' y='334' width='120' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1240.0' y='358.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Sayfayı aç</text>
+<text x='1140.0' y='404.68' font-size='13' font-weight='600' fill='#2563EB' text-anchor='middle'>Burada yap</text>
+<rect x='1044' y='718' width='360' height='70' rx='12' fill='#EFF6FF' fill-opacity='1'/>
+<text x='1056' y='744' font-size='12' font-weight='500' fill='#2563EB' text-anchor='start'>Rehber modu: yapay zekâ kapalıyken de sayfaları</text>
+<text x='1056' y='762' font-size='12' font-weight='500' fill='#2563EB' text-anchor='start'>ve kısayolları bulabilirsiniz.</text>
+<rect x='1044' y='800' width='360' height='48' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1060' y='829' font-size='13' font-weight='400' fill='#64748B' text-anchor='start'>Ne arıyorsunuz?</text>
+<text x='40' y='860' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Yapay zekâ kapalı: yanıt özellik dizininden gelir (deterministik). Göster = WG-05 halkası, 1 adımlık tur; hedef tıklanabilir kalır; perde %25</text>
+</svg>

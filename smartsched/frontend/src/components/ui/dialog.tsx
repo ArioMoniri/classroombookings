@@ -89,8 +89,9 @@ function DialogContent({
         onKeyDown={trapTab}
         className={cn(
           "t-modal glass-thick fixed top-1/2 left-1/2 z-50 flex w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-3xl [--dialog-pad:1.25rem] p-(--dialog-pad) text-sm text-label-1 outline-hidden sm:max-w-sm",
-          // phone bottom sheet (see the header): these max-sm: variants sort after callers' unprefixed classes
-          "max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-h-[calc(100dvh-3rem)] max-sm:overflow-hidden max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:border-b-[length:env(safe-area-inset-bottom)] max-sm:border-b-transparent max-sm:bg-(--mat-thick-solid) max-sm:backdrop-filter-none",
+          // phone bottom sheet (see the header): these max-sm: variants sort after callers' unprefixed classes; mobile-a
+          // (2026-10-17): Chrome edge-to-edge inset pattern, and --kb-inset (ui/keyboard-clearance) lifts it above the iOS keyboard
+          "max-sm:top-auto max-sm:bottom-[calc(var(--kb-inset,0px)+env(safe-area-inset-bottom,0px)-env(safe-area-max-inset-bottom,env(safe-area-inset-bottom,0px)))] max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-h-[calc(100dvh-3rem-var(--kb-inset,0px))] max-sm:overflow-hidden max-sm:rounded-t-3xl max-sm:rounded-b-none max-sm:border-b-[length:env(safe-area-max-inset-bottom,env(safe-area-inset-bottom,0px))] max-sm:border-b-transparent max-sm:bg-(--mat-thick-solid) max-sm:backdrop-filter-none",
           className
         )}
         {...props}

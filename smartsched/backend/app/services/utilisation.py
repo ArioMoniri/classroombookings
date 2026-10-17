@@ -14,6 +14,8 @@ Definitions (stated in every response under ``definitions``):
   and they are left out of the percentage: ``pct = occupied / (capacity - blocked)``; ``pct_with_blocks`` counts
   them as used (``(occupied + blocked) / capacity``);
 * ``capacity``: rooms x weeks in scope for a cell (one week by default; ``scope=term`` averages the whole horizon).
+* holidays (``holidays`` rows) and HOLIDAY weeks are closed days: left out of ``occupied`` and of ``capacity``
+  (AS-02, ``app.services.seasons.closed_days``).
 
 Columns: ``axis=day`` (Monday..Sunday, aggregated over the weeks in scope; the course default) or ``axis=date``
 (one column per week + day with its calendar date when the term has dates; the exam default).
@@ -38,6 +40,7 @@ from app.models import (
     Assignment,
     Block,
     Booking,
+    Holiday,
     Instructor,
     MeetingRequest,
     Room,
@@ -50,6 +53,7 @@ from app.models import (
 from app.services.calendar import date_for, week_index_for_date
 from app.services.calendar_views import DAY_EN, DAY_EN_SHORT, DAY_TR, DAY_TR_SHORT, clock
 from app.services.grid import assignment_weeks
+from app.services.seasons import closed_days
 from app.services.solver_bridge import horizon_weeks
 
 PERIODS_PER_DAY = 18
@@ -152,8 +156,13 @@ class Occupancy:
     #: (week, day) -> calendar date (when the term has dates)
     dates: dict[tuple[int, int], date | None] = field(default_factory=dict)
     notes: list[dict[str, Any]] = field(default_factory=list)
+    #: (week, day) pairs of holidays and HOLIDAY weeks (AS-02, ``seasons.closed_days``): out of the numerator and the
+    #: denominator
+    closed: set[tuple[int, int]] = field(default_factory=set)
 
     def add(self, room: int, week: int, day: int, start: int, end: int, source: str) -> None:
+        if (week, day) in self.closed:
+            return
         for p in range(max(1, start), min(PERIODS_PER_DAY, end) + 1):
             self.cells[(room, week, day, p)].add(source)
 
@@ -366,6 +375,8 @@ async def build_scope(
                     count[w] += 1
         weeks = [min(count, key=lambda w: (-count[w], w))] if count else horizon[:1]
     occ = Occupancy()
+    holidays = list((await session.execute(select(Holiday).where(Holiday.term_id == term.id))).scalars())
+    occ.closed = closed_days(term, weeks_rows, holidays)
     for r in runs:
         _add_run(occ, r, rows_by_run[r.id], weeks, term, weeks_rows)
     counted = {"assignments": sum(len(v) for v in rows_by_run.values()), "blocks": 0, "bookings": 0}
@@ -470,7 +481,8 @@ def _count(sc: Scope, room_ids: list[int], weeks: list[int], days: list[int], pe
                         held += 1
                     elif "block" in src:
                         blocked += 1
-    cap = len(room_ids) * len(weeks) * len(days) * len(ps)
+    open_days = sum(1 for w in weeks for d in days if (w, d) not in sc.occ.closed)
+    cap = len(room_ids) * open_days * len(ps)
     return _cell(occupied, held, blocked, cap)
 
 
@@ -515,6 +527,10 @@ DEFINITIONS = {
     "held": _t(
         "Bekleyen rezervasyon talebi slotu tutuyorsa ayrıca sayılır (dolu sayılmaz)",
         "A pending booking request that still holds its slot is counted separately (not as occupied)",
+    ),
+    "holidays": _t(
+        "Tatil günleri ve tatil haftaları ne dolulukta ne kapasitede sayılır",
+        "Holidays and holiday weeks count neither as occupied nor as capacity",
     ),
 }
 

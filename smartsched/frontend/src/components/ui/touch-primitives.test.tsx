@@ -118,9 +118,9 @@ describe("Sheet on phones", () => {
     const sheet = screen.getByRole("dialog");
     expect(sheet).toHaveClass(
       "max-sm:data-[side=bottom]:inset-x-0",
-      "max-sm:data-[side=bottom]:bottom-0",
+      "max-sm:data-[side=bottom]:bottom-[calc(var(--kb-inset,0px)+env(safe-area-inset-bottom,0px)-env(safe-area-max-inset-bottom,env(safe-area-inset-bottom,0px)))]",
       "max-sm:data-[side=bottom]:rounded-b-none",
-      "max-sm:data-[side=bottom]:border-b-[length:env(safe-area-inset-bottom)]",
+      "max-sm:data-[side=bottom]:border-b-[length:env(safe-area-max-inset-bottom,env(safe-area-inset-bottom,0px))]",
       "p-5",
     );
     // the floating sheet on larger screens is unchanged except for the safe-area lift

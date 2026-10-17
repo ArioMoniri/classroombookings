@@ -46,7 +46,6 @@ from typing import Any
 from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.importers import normalize as n
 from app.models import (
     ConstraintRow,
     Course,
@@ -68,6 +67,7 @@ from app.models.learning import SuggestionFeedback
 from app.services import constraint_guard
 from app.services.events import publish_event
 from app.services.learning_extract import BANDS, SIGNALS, band_range
+from app.services.seasons import season_of  # AS-02: one definition, re-exported here
 from app.services.tr_grammar import _spoken_tail
 
 log = logging.getLogger("smartsched.learning")
@@ -147,20 +147,6 @@ def level_of(confidence: float) -> dict[str, str] | None:
         if confidence >= lo:
             return {"code": en, "tr": tr, "en": en.capitalize()}
     return None
-
-
-def season_of(term: Term) -> str:
-    folded = n.fold(term.code or "").upper()
-    for key, words in (
-        ("BAHAR", ("BAHAR", "SPRING")),
-        ("GUZ", ("GUZ", "FALL", "AUTUMN")),
-        ("YAZ", ("YAZ", "SUMMER")),
-        ("BUT", ("BUT",)),
-        ("FINAL", ("FINAL",)),
-    ):
-        if any(w in folded for w in words):
-            return key
-    return (term.kind or "REGULAR").upper()
 
 
 def term_date(term: Term) -> date:

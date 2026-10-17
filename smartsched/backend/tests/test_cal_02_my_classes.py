@@ -108,7 +108,9 @@ async def test_cal_02_my_classes_feed_holds_exactly_the_linked_instructors_meeti
         assert live is not None
         _, id_map = await run_copy.clone_as_draft(s, live, actor=None, reason="CAL-02 draft")
         await s.execute(
-            update(Assignment).where(Assignment.id == id_map[p.week5_assignment_id]).values(start_period=1, end_period=3)
+            update(Assignment)
+            .where(Assignment.id == id_map[p.week5_assignment_id])
+            .values(start_period=1, end_period=3)
         )
         await s.commit()
     again = await env.client.get(f"/api/v1/calendar/feeds/{sub['token']}/classes.ics")
@@ -159,6 +161,8 @@ def test_cal_02_fields_allow_list_and_co_instructors_switch() -> None:
     bare = cc.EventContext(cc.Fields(course_title=False, department=False, link=False), frozenset(), PANEL, names)
     assert cc.description(o, bare) is None
     assert set(cc.Fields().as_dict()) == set(cc.FIELD_KEYS) and cc.Fields().as_dict()["co_instructors"] is False
-    assert cc.ascii_slug("2026-BAHAR") == "2026-bahar" and cc.ascii_slug("Psikoloji (İngilizce)") == "psikoloji-ingilizce"
+    assert (
+        cc.ascii_slug("2026-BAHAR") == "2026-bahar" and cc.ascii_slug("Psikoloji (İngilizce)") == "psikoloji-ingilizce"
+    )
     assert n.course_key("PSY 262") == "PSY262"
     assert date(2026, 3, 2).isoweekday() == 1

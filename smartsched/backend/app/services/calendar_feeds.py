@@ -70,17 +70,23 @@ async def sync_enabled(session: AsyncSession) -> bool:
     return bool(await get_value(session, "integrations", "calendar_sync_enabled"))
 
 
-async def sync_enabled_one_query(session: AsyncSession) -> bool:
-    """:func:`sync_enabled` in one query (the switch and its KVKK sign-off together): the CAL-05 304 path."""
+async def feed_switches(session: AsyncSession) -> dict[str, bool]:
+    """In one query (the CAL-05 304 path): ``enabled`` (the KVKK switch with its sign-off, :func:`sync_enabled`) and
+    the admin's switch per export scope (``my_classes`` / ``department_classes`` / ``my_bookings``)."""
     from app.models import Setting
     from app.services import bookings_settings as bs
 
     group, key, signoff = bs.SIGNOFF_GATED
-    names = (f"{group}.{key}", f"{group}.{signoff}")
+    switch_keys = {"my_classes": "export_my_classes", "department_classes": "export_department_classes",
+                   "my_bookings": "export_my_bookings"}  # fmt: skip
+    names = [f"{group}.{key}", f"{group}.{signoff}", *(f"{group}.{k}" for k in switch_keys.values())]
     rows = {r.key: r.value for r in (await session.execute(select(Setting).where(Setting.key.in_(names)))).scalars()}
     specs = bs.GROUPS[group]
     on = bs._decode(specs[key], rows.get(names[0]))
-    return bool(on) and bs.kvkk_signed(bs._decode(specs[signoff], rows.get(names[1])))
+    out = {"enabled": bool(on) and bs.kvkk_signed(bs._decode(specs[signoff], rows.get(names[1])))}
+    for kind, k in switch_keys.items():
+        out[kind] = bool(bs._decode(specs[k], rows.get(f"{group}.{k}")))
+    return out
 
 
 def clean_public_url(value: Any) -> str:
@@ -862,7 +868,7 @@ async def create_subscription(
 
 
 async def rotate_subscription(session: AsyncSession, access: Access, row: CalendarFeedToken) -> tuple[Any, str]:
-    """"Bağlantıyı yenile": a new link of the same scope (re-checked), the old one revoked."""
+    """Rotate ("Bağlantıyı yenile"): a new link of the same scope (re-checked), the old one revoked."""
     kind, scope_id, label = row.scope_kind, row.scope_id, row.label
     if kind is None:
         await session.delete(row)
@@ -1005,13 +1011,25 @@ async def export_options(session: AsyncSession, access: Access) -> dict[str, Any
         p.name: {"label": p.label, "configured": await conn_svc.client_config(session, p) is not None}
         for p in conn_svc.PROVIDERS.values()
     }
+    # CAL-07: say which account to use before the person leaves for the provider's consent screen
+    hint = (await conn_svc.verify_account(session, access.user, conn_svc.PROVIDERS["google"],
+                                          conn_svc.AccountInfo(None, None))).domain  # fmt: skip
+    verified_only = await conn_svc.push_verified_only(session)
+    verification = {"required": verified_only, "domain": hint,
+                    **({k: v for k, v in conn_svc.not_verified_detail(hint).items() if k.startswith("message")}
+                       if verified_only else {})}  # fmt: skip
     return {
         "enabled": enabled,
         "consent": await consent_state(session, access.user),
         "linked": bool(linked),
         "scopes": scopes,
         "channels": {
-            "push": {**providers, "freshness_tr": FRESHNESS["push"][0], "freshness_en": FRESHNESS["push"][1]},
+            "push": {
+                **providers,
+                "freshness_tr": FRESHNESS["push"][0],
+                "freshness_en": FRESHNESS["push"][1],
+                "verification": verification,
+            },
             "link": {"available": enabled, "freshness_tr": FRESHNESS["link"][0], "freshness_en": FRESHNESS["link"][1]},
             "file": {"available": True, "freshness_tr": FRESHNESS["file"][0], "freshness_en": FRESHNESS["file"][1]},
         },

@@ -45,12 +45,12 @@ function SecurityContactForm() {
   const ids = useId();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: KEY, queryFn: () => request("/admin/security-contact", { schema: Contact, silent: true }) });
-  const [form, setForm] = useState<Record<FieldName, string>>({ contact_email: "", contact_url: "", policy_url: "", preferred_languages: "tr, en" });
+  // the typed values; null = show what the server holds (no effect copying server data into state)
+  const [edits, setEdits] = useState<Record<FieldName, string> | null>(null);
+  const form: Record<FieldName, string> = edits ?? { contact_email: q.data?.contact_email ?? "", contact_url: q.data?.contact_url ?? "", policy_url: q.data?.policy_url ?? "", preferred_languages: q.data?.preferred_languages ?? "tr, en" };
+  const setForm = (next: (f: Record<FieldName, string>) => Record<FieldName, string>) => setEdits(next(form));
   const [error, setError] = useState<{ field: FieldName | null; text: string } | null>(null);
   const refs = useRef<Partial<Record<FieldName, HTMLInputElement | null>>>({});
-  useEffect(() => {
-    if (q.data) setForm({ contact_email: q.data.contact_email ?? "", contact_url: q.data.contact_url ?? "", policy_url: q.data.policy_url ?? "", preferred_languages: q.data.preferred_languages ?? "tr, en" });
-  }, [q.data]);
   useEffect(() => {
     if (error?.field) refs.current[error.field]?.focus();
   }, [error]);
@@ -60,6 +60,7 @@ function SecurityContactForm() {
     onSuccess: (data: Contact) => {
       setError(null);
       qc.setQueryData(KEY, data);
+      setEdits(null);
       toast.success(t("settings.securityContact.saved"));
     },
     onError: (e: unknown) => {
@@ -96,7 +97,7 @@ function SecurityContactForm() {
           noValidate
           onSubmit={(e) => {
             e.preventDefault();
-            save.mutate({ ...form });
+            if (!save.isPending) save.mutate({ ...form });
           }}
         >
           {FIELDS.map((name) => (
@@ -118,7 +119,8 @@ function SecurityContactForm() {
             </Field>
           ))}
           <div className="flex flex-wrap items-center gap-3 md:col-span-2">
-            <Button type="submit" disabled={save.isPending} className="pointer-coarse:min-h-11" data-testid="security-contact-save">
+            {/* never disabled while saving: a disabled button drops the focus to <body>; a second submit is ignored */}
+            <Button type="submit" aria-busy={save.isPending || undefined} className="pointer-coarse:min-h-11" data-testid="security-contact-save">
               {t("settings.securityContact.save")}
             </Button>
             <p className="type-footnote text-label-3" data-testid="security-contact-last">

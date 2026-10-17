@@ -173,3 +173,14 @@ __all__ = [
 from app.models.ai_usage import AIUsage  # noqa: E402
 
 __all__ += ["AIUsage"]
+
+# adaptive scheduling AS-03 / AS-05 / AS-13: season profiles, period segments, demand ledger, learning versions
+from app.models.learning import LearnedPriorSnapshot, LearningVersion  # noqa: E402
+from app.models.seasons import DemandEvent, SeasonProfile, SeasonSegment  # noqa: E402
+
+__all__ += ["DemandEvent", "LearnedPriorSnapshot", "LearningVersion", "SeasonProfile", "SeasonSegment"]
+
+# welcome guide per role WG-01: per-user progress + admin text overrides (alembic 0040_welcome_guide)
+from app.models.welcome import WelcomeContent, WelcomeProgress  # noqa: E402
+
+__all__ += ["WelcomeContent", "WelcomeProgress"]
