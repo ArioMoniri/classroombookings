@@ -1156,6 +1156,8 @@
       "reason": "Reason",
       "reasonHint": "Kept with the booking and shown to whoever booked it.",
       "done": "{n} booking(s) cancelled",
+      "doneReason": "{n} booking(s) cancelled · Reason: {reason}",
+      "kept": "{n} left as they were",
       "reasonHintOwn": "Kept with the cancelled booking and shown on its card."
     },
     "status": {
@@ -2412,6 +2414,7 @@
     },
     "grid": {
       "hint": "Click a free period to reserve it. Drag across periods or Shift-click to reserve several in a row.",
+      "hintRequest": "Click a free period to request it. Drag across periods or Shift-click to request several in a row.",
       "longPress": "Touch and hold a grey cell to see why it cannot be booked."
     },
     "lens": {
@@ -2454,6 +2457,7 @@
     "book": {
       "periods": "Periods",
       "periodsHint": "Add the periods before or after to reserve them together.",
+      "periodsHintRequest": "Add the periods before or after to request them together.",
       "period": "Period",
       "submitN": "Reserve {n} periods",
       "doneN": "Reserved {room}, {date}: {n} periods",
@@ -2757,7 +2761,7 @@
       "features": "Features",
       "atLeast": "{name}, at least",
       "buildings": "Buildings",
-      "building": "{b} block",
+      "building": "Block {b}",
       "text": "Search text",
       "textHint": "Room code, name, notes or a feature",
       "textPlaceholder": "e.g. projector",

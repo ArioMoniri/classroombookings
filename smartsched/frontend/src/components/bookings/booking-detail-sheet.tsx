@@ -8,6 +8,7 @@ import { CalendarClock, Info, Pencil, Repeat, Trash2, User } from "lucide-react"
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
+import { cancelToastText } from "./cancel-toast";
 import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { useShake } from "@/components/ui/input";
@@ -403,7 +404,7 @@ function CancelDialog({ booking: b, open, onOpenChange, onCancelled, fmt }: { bo
         setError(null);
         cancel.mutate(undefined, {
           onSuccess: (res) => {
-            toast.success(t("crbs.cancel.done", { n: res.cancelled.length }));
+            toast.success(cancelToastText(t, res.cancelled.length, { reason }));
             onOpenChange(false);
             onCancelled();
             // the freed cell in the grid, else the next row of My bookings

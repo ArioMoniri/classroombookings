@@ -288,6 +288,16 @@ export function wholeSpan(slots: GridSlot[]): GridSlot[] | null {
   return slots.length && slots.every(isSelectable) ? slots : null;
 }
 
+/**
+ * The building chip: a bare "A" and the setup's own "A Blok" both read "A Blok" in Turkish and "Block A" in English
+ * (T-R2-16, R2-A-08: the chips kept the Turkish word in the English UI; persona U-10: never "A Blok Blok"). A longer
+ * name ("Merkez Bina") is shown as it is.
+ */
+export function buildingLabel(b: string, t: (key: "wave1.find.building", values: { b: string }) => string): string {
+  const code = /^\s*([^\s]{1,3})\s+(blok|bloğu|block|building)\s*$/i.exec(b)?.[1] ?? (b.trim().length <= 3 ? b.trim() : null);
+  return code ? t("wave1.find.building", { b: code }) : b;
+}
+
 /** The first date a result is free on (multi-date searches report per date). */
 export function firstFreeDate(row: Pick<FindRow, "per_date">, slots: { date: string }[]): string | null {
   const free = row.per_date?.find((d) => d.status === "free" || d.status === "requestable");

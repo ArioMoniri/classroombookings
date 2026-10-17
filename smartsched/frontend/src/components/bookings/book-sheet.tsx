@@ -286,7 +286,8 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
                 );
               })}
             </div>
-            <p className="type-footnote text-label-3">{t("reserve.book.periodsHint")}</p>
+            {/* T-R2-16 (R2-A-07): the helper promises what the submit does: a request under approval-first */}
+            <p className="type-footnote text-label-3">{t(asks ? "reserve.book.periodsHintRequest" : "reserve.book.periodsHint")}</p>
           </fieldset>
         ) : null}
         {kinds.length > 1 ? (

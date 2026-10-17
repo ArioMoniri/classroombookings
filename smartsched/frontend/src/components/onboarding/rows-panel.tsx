@@ -35,7 +35,7 @@ function summary(r: CouncilRow): string {
 }
 
 export function RowsPanel({ jobId, onChanged }: { jobId: number; onChanged: () => void }) {
-  const { n } = useI18n();
+  const { n, locale } = useI18n();
   const c = useOnboardingCopy();
   const qc = useQueryClient();
   const rows = useQuery({ queryKey: rowsKey(jobId), queryFn: () => councilApi.rows(jobId, { method: "ai", state: "pending", limit: 200 }) });

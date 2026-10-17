@@ -6,6 +6,7 @@
 import { focusAfter } from "./focus-after";
 import { useState } from "react";
 import { toast } from "sonner";
+import { cancelToastText } from "./cancel-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { BOOKING_KEYS, crbs, crbsError, useCrbsMutation } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
@@ -29,7 +30,7 @@ export function CancelManyDialog({ ids, open, onOpenChange, onDone, description,
       onConfirm={() =>
         m.mutate(undefined, {
           onSuccess: (res) => {
-            toast.success(t("crbs.mine.cancelManyDone", { n: res.cancelled.length, skipped: res.skipped.length }));
+            toast.success(cancelToastText(t, res.cancelled.length, { reason, skipped: res.skipped.length }));
             setReason("");
             onDone();
             focusAfter(['[data-testid="booking-list"] li button', '[data-testid="booking-grid"] button[data-tone="available"]']);

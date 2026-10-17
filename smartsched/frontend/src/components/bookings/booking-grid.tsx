@@ -495,7 +495,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
         </table>
       </div>
       <p id={`${scope}-hint`} className="sr-only">
-        {t("reserve.grid.hint")}
+        {t(approvalFirst ? "reserve.grid.hintRequest" : "reserve.grid.hint")}
       </p>
       {/* persona U-24: the span is announced while it is drawn (pointer drag, Shift+arrows, Shift-click) */}
       <p role="status" aria-live="polite" className="sr-only" data-testid="grid-span-status">

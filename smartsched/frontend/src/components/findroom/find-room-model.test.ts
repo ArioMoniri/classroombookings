@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Grid } from "@/lib/api/crbs";
-import { altWhyQuery, asRequestable, buildQuery, compactWeeks, emptyForm, formFromRecent, isFeatureMiss, isoDate, normaliseClock, ownRequestFor, parseWeeks, reserveSpan, slotsFor, whyQuery, wholeSpan } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildingLabel, buildQuery, compactWeeks, emptyForm, formFromRecent, isFeatureMiss, isoDate, normaliseClock, ownRequestFor, parseWeeks, reserveSpan, slotsFor, whyQuery, wholeSpan } from "./find-room-model";
 
 describe("T-R1-14 find-room results", () => {
   it("folds the near misses that lack the asked feature (find_room.py's 'free; missing:' reason)", () => {
@@ -56,6 +56,15 @@ const grid = {
 } as unknown as Grid;
 
 describe("reserve target", () => {
+  it("T-R2-16: the building chip reads 'A Blok' in Turkish and 'Block A' in English, whatever the setup named it", () => {
+    const tr = (_k: string, v: { b: string }) => `${v.b} Blok`;
+    const en = (_k: string, v: { b: string }) => `Block ${v.b}`;
+    expect(buildingLabel("A", tr)).toBe("A Blok");
+    expect(buildingLabel("A Blok", tr)).toBe("A Blok");
+    expect(buildingLabel("A Blok", en)).toBe("Block A");
+    expect(buildingLabel("C", en)).toBe("Block C");
+    expect(buildingLabel("Merkez Bina", en)).toBe("Merkez Bina");
+  });
   it("T-R2-14: a stale result whose window is no longer free in full is refused, not trimmed", () => {
     const g = asRequestable(grid, 5, "2026-02-18", 1, 2);
     expect(wholeSpan(slotsFor(g, 5, "2026-02-18", 1, 2))?.map((s) => s.period_id)).toEqual([1, 2]);

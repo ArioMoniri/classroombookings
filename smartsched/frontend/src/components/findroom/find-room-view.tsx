@@ -34,7 +34,7 @@ import { errorText, pickLang, useFacets, useMyRequests, useRecentSearches, w1Key
 import { intlLocale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { altWhyQuery, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, recentParts, SHOWN, slotsFor, whyQuery, wholeSpan, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, buildingLabel, recentParts, SHOWN, slotsFor, whyQuery, wholeSpan, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -554,10 +554,6 @@ export function FindRoomView() {
   );
 }
 
-/** "A Blok" stays "A Blok"; a bare "A" becomes "A Blok" / "A block" (persona U-10: no "A Blok Blok"). */
-function buildingLabel(b: string, t: ReturnType<typeof useI18n>["t"]): string {
-  return /\b(blok|bloğu|block|bina|building)\b/i.test(b) || b.length > 3 ? b : t("wave1.find.building", { b });
-}
 
 /* ------------------------------------------------------------------------------------- features */
 

@@ -1155,6 +1155,8 @@
       "reason": "Gerekçe",
       "reasonHint": "Rezervasyonla birlikte saklanır ve rezervasyon sahibine gösterilir.",
       "done": "{n} rezervasyon iptal edildi",
+      "doneReason": "{n} rezervasyon iptal edildi · Gerekçe: {reason}",
+      "kept": "{n} olduğu gibi kaldı",
       "reasonHintOwn": "Gerekçe iptal edilen rezervasyonla birlikte saklanır ve kartında görünür."
     },
     "status": {
@@ -2411,6 +2413,7 @@
     },
     "grid": {
       "hint": "Boş bir saate tıklayıp rezerve edin. Art arda birkaç ders saati için sürükleyin ya da Shift ile tıklayın.",
+      "hintRequest": "Boş bir saate tıklayıp talep edin. Art arda birkaç ders saati için sürükleyin ya da Shift ile tıklayın.",
       "longPress": "Gri bir hücrenin neden rezerve edilemediğini görmek için basılı tutun."
     },
     "lens": {
@@ -2453,6 +2456,7 @@
     "book": {
       "periods": "Ders saatleri",
       "periodsHint": "Birlikte rezerve etmek için önceki ya da sonraki saatleri ekleyin.",
+      "periodsHintRequest": "Birlikte talep etmek için önceki ya da sonraki saatleri ekleyin.",
       "period": "Ders saati",
       "submitN": "{n} ders saatini rezerve et",
       "doneN": "{room}, {date}: {n} ders saati rezerve edildi",

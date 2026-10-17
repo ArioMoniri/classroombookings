@@ -24,7 +24,7 @@ import { useOnboardingCopy } from "./copy";
 import { PlanTermFields } from "./review-panel";
 
 export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: CouncilJob; blocking: number; busy: boolean; result: CommitOut | null; onCommit: (body: CommitIn) => void }) {
-  const { t, n } = useI18n();
+  const { t, n, locale } = useI18n();
   const c = useOnboardingCopy();
   const groups = job.plan?.groups ?? [];
   const [group, setGroup] = useState(0);
