@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 08:33",
-      "left_off": "Pending now: the stack rebuild (background, notifies on completion), the council/drafts suite (green5.txt). The final Playwright run depends on the rebuild and the hand-off edits depend on that run, so nothing else can be requested independently at this point."
+      "finished_at": "2026-10-17 08:36",
+      "left_off": "Nothing else is independent right now: the suite result, the lane B compile fix, and everything downstream of them are all pending background work."
     },
     {
       "id": "afe38e299d6f66d51",

@@ -220,8 +220,9 @@ test("T-R2-04 phone tab-bar labels fit their column, nothing overlaps, the 99+ b
     const page = await newPage(browser, PHONE, id, pw);
     await page.goto(route);
     await expect(page.locator('nav[aria-label="Sekmeler"]')).toBeVisible();
+    // the tabs follow the permission list and the counts (GET /auth/me, /requests): wait for the full set
+    await expect.poll(async () => ((await page.evaluate(M09)) as Row[]).length, { timeout: 15_000 }).toBeGreaterThanOrEqual(4);
     const rows = (await page.evaluate(M09)) as Row[];
-    expect(rows.length).toBeGreaterThanOrEqual(4);
     for (const r of rows) {
       expect(r.sw, `${route} label '${r.text}' scrollWidth ${r.sw} > clientWidth ${r.cw}`).toBeLessThanOrEqual(r.cw);
       expect(r.text.startsWith(r.name.split(",")[0]!), `${route} innerText '${r.text}' starts with '${r.name}'`).toBe(true);
