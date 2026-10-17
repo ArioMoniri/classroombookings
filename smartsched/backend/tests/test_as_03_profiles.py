@@ -8,7 +8,7 @@ sheets of the Bahar 2026 weekly grid."""
 from __future__ import annotations
 
 from app.core.db import get_session_factory
-from app.models import AuditEvent, ScheduleRun, User
+from app.models import AuditEvent, ScheduleRun
 from app.services.seasons import BUILTIN_KEYS
 from app.workers.queue import get_queue
 from sqlalchemy import select
@@ -37,12 +37,11 @@ async def _run(client, h, tid: int, **params) -> dict:
 
 
 async def _planner(client) -> dict[str, str]:
-    from app.core.security import hash_password
+    from tests.crbs_support import make_user
 
-    async with get_session_factory()() as s:
-        s.add(User(email="planner@example.com", full_name="Planlamacı", role="PLANNER", password_hash=hash_password("planner1234")))
-        await s.commit()
-    return await login(client, "planner@example.com", "planner1234")
+    admin = await login(client)
+    _uid, h = await make_user(client, admin, "planner@example.com", role="PLANNER")
+    return h
 
 
 async def test_as_03_draft_activate_run_edit_revert(client, stub_solver, parsed_bahar_grid, parsed_bahar_list):

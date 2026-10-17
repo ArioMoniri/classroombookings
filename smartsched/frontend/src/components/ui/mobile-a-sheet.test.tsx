@@ -112,7 +112,7 @@ describe("bottom sheet on phones", () => {
 describe("--kb-inset on the open popup", () => {
   it("is set from the visual viewport when the keyboard opens, and cleared when it closes", () => {
     const vv = Object.assign(new EventTarget(), { height: 844, offsetTop: 0, width: 390 });
-    vi.spyOn(window, "visualViewport", "get").mockReturnValue(vv as unknown as VisualViewport);
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: vv });
     vi.spyOn(window, "innerHeight", "get").mockReturnValue(844);
     tr(
       <Dialog open>
@@ -132,5 +132,6 @@ describe("--kb-inset on the open popup", () => {
       vv.dispatchEvent(new Event("resize"));
     });
     expect(popup.style.getPropertyValue("--kb-inset")).toBe("0px");
+    Reflect.deleteProperty(window, "visualViewport");
   });
 });

@@ -176,7 +176,6 @@ function ScopeBlocks({ s }: { s: ExportAdminSettings }) {
         <p className="type-footnote text-label-2">{t("calendarExport.admin.advancedHint")}</p>
         {s.department_rule != null ? (
           <Group title={t("calendarExport.admin.who")} testId="cal-admin-who">
-          {s.department_rule != null ? (
             <fieldset className="grid gap-0.5" disabled={pending || !scopes.department_classes} data-testid="cal-admin-rules">
               <legend className="sr-only">{t("calendarExport.admin.who")}</legend>
               {DEPARTMENT_RULES.map((r) => (
@@ -192,7 +191,6 @@ function ScopeBlocks({ s }: { s: ExportAdminSettings }) {
                 />
               ))}
             </fieldset>
-          ) : null}
           </Group>
         ) : null}
         {s.feed_future_days != null ? <HorizonForm key={`${s.feed_past_days}-${s.feed_future_days}-${s.feed_cancelled_grace_days}`} s={s} /> : null}
