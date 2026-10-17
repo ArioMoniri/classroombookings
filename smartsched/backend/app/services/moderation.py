@@ -2057,7 +2057,8 @@ def violating(view: SegmentView) -> set[int]:
     exactly what the term run decided, not a violation."""
     from app.solver.repair import violating_events
 
-    return violating_events(view)
+    found: set[int] = violating_events(view)
+    return found
 
 
 def move_cause(

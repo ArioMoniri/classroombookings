@@ -147,7 +147,9 @@ async def test_recurring_series_skips_holidays_and_timetable_and_respects_limit(
     # the teacher's replaced booking is cancelled with a reason, and she was notified (outbox: no SMTP)
     mine = (await env.client.get("/api/v1/bookings/mine", params={"status": "ALL"}, headers=teacher)).json()
     replaced = next(b for b in mine if b["date"] == "2026-03-05")
-    assert replaced["status"] == "CANCELLED" and replaced["cancel_reason"] == f"replaced by series #{out['series_id']}"
+    assert (
+        replaced["status"] == "CANCELLED" and replaced["cancel_reason"] == f"replaced_by_series:{out['series_id']}"
+    )  # coded since T-R2-17 d
     outbox = (await env.client.get("/api/v1/booking-admin/outbox", headers=env.admin)).json()
     cancel_mail = next(o for o in outbox if o["kind"] == "booking_cancelled")
     assert cancel_mail["to_email"] == "hoca@uni.edu.tr" and cancel_mail["status"] == "UNSENT"
@@ -237,7 +239,9 @@ async def test_limits_max_active_window_and_past(env):  # noqa: F811
         f"/api/v1/roles/{teacher_role}", json={"range_min": None, "range_max": None}, headers=env.admin
     )
     past = await env.book(teacher, "A101", date(2026, 2, 13), "P1")
-    assert past.status_code == 409 and past.json()["detail"]["code"] == "range_min"
+    assert (
+        past.status_code == 409 and past.json()["detail"]["code"] == "past"
+    )  # T-R2-17 d: one code for a date before today
 
 
 async def test_room_acl_by_department_and_access_checker(env):  # noqa: F811
