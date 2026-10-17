@@ -2746,7 +2746,8 @@
       "goal": "You are the wave-3 INTEGRATOR for SmartSched in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md and WAVE3.md, WAVE3B.md (same folder) first; their hard rules apply: NE…",
       "ledger": "Wave-3 integrator: cross-lane asks",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 22:13"
     },
     {
       "id": "ab89b91f69c3f0014",
