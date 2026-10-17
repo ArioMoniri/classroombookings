@@ -1501,6 +1501,8 @@ async def _finish_test(
             target, why = await _mapped_role(db, prov, claims)
             report["mapped_role"] = _role_ref(target) if target is not None and why == "mapping" else None
     if prov is not None:
+        # the guided setup unlocks "Etkinleştir" only after a successful round trip (design v3 §5.4)
+        prov.options = {**(prov.options or {}), "test_ok": err is None, "test_at": report["at"]}
         prov.last_check_at, prov.last_check_ok = utcnow(), err is None
         prov.last_check_detail = ("test login ok" if err is None else f"test login: {err.code}")[:255]
     if res is not None:

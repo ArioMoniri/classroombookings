@@ -75,7 +75,9 @@ def _style() -> str:
         ".em-row th,.em-row td{display:block !important;width:auto !important;padding-left:16px !important}"
         ".em-row th{padding-bottom:0 !important;font-size:13px !important;line-height:18px !important}"
         "}"
-        "@media (prefers-color-scheme:dark){" + "".join(swaps) + "}"
+        "@media (prefers-color-scheme:dark){"
+        + "".join(swaps)
+        + "}"
         + "".join(f"[data-ogsc] {s}" for s in ogsc)
         + "".join(f"[data-ogsb] {s}" for s in ogsb)
     )
@@ -135,7 +137,8 @@ def items(rows: list[str]) -> str:
 def callout(kind: str, tone: str, label: str, body: str) -> str:
     fg, bg = tone_colours(tone)
     return (
-        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;">'
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px "
+            "0;">'
         f'<tr><td data-block="{kind}" class="em-{tone} em-{tone}-bar" style="padding:14px 16px;background-color:{bg};'
         f'border-left:4px solid {fg};border-radius:8px;font-family:{FONT};font-size:15px;line-height:22px;color:{L["t1"]};">'
         f'<strong class="em-{tone}-fg" style="display:block;color:{fg};font-size:15px;line-height:22px;'
@@ -153,7 +156,8 @@ def chips(rows: list[str]) -> str:
 
 def code_box(label: str, code: str, spelled: str) -> str:
     return (
-        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;">'
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px "
+            "0;">'
         f'<tr><td data-block="code" class="em-detail em-t3" align="center" style="padding:16px;background-color:{L["detail"]};'
         f'border-radius:12px;font-family:{FONT};color:{L["t3"]};font-size:13px;line-height:18px;">{label}<br>'
         f'<span class="em-t1" aria-label="{spelled}" style="display:inline-block;margin-top:6px;font-family:{MONO};'
@@ -168,7 +172,7 @@ def details(rows: list[tuple[str, str]], tone: str | None = None) -> str:
     bar_cls = f" em-{tone}-bar" if bar else ""
     cells = "".join(
         f'<tr class="em-row"><th scope="row" class="em-t3" style="padding:7px 12px 7px 16px;font-family:{FONT};'
-        f'font-size:14px;line-height:24px;font-weight:500;color:{L["t3"]};text-align:left;vertical-align:top;'
+        f"font-size:14px;line-height:24px;font-weight:500;color:{L['t3']};text-align:left;vertical-align:top;"
         f'width:154px;">{k}</th><td class="em-t1" style="padding:7px 16px 7px 0;font-family:{FONT};font-size:16px;'
         f'line-height:24px;font-weight:600;color:{L["t1"]};vertical-align:top;">{v}</td></tr>'
         for k, v in rows
@@ -256,7 +260,8 @@ def page(p: Page) -> str:
         '<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->'
         f'<table role="article" aria-roledescription="{p.article_label}" aria-label="{p.title}" width="600" '
         'cellpadding="0" cellspacing="0" border="0" class="em-wrap" style="width:100%;max-width:600px;">'
-        f'<tr><td class="em-card em-pad" style="background-color:{L["card"]};border-radius:16px;padding:0 40px 32px 40px;">'
+        f'<tr><td class="em-card em-pad" style="background-color:{L["card"]};border-radius:16px;padding:0 40px 32px "
+            "40px;">'
         # header: tile + "SmartSched" (live text) left, the organisation right; 1 px line under
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="em-line" '
         f'style="border-bottom:1px solid {L["line"]};margin:0 0 24px 0;"><tr>'

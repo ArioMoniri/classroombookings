@@ -51,7 +51,7 @@ def _post(url: str, data: dict[str, str], timeout: float) -> dict[str, Any]:
             f"token endpoint refused: {code} {desc}".strip(),
             f"Erişim jetonu alınamadı: {code} {desc}".strip(),
         )
-    return body
+    return dict(body)
 
 
 def _request(smtp: dict[str, Any]) -> tuple[str, dict[str, str]]:
@@ -60,7 +60,9 @@ def _request(smtp: dict[str, Any]) -> tuple[str, dict[str, str]]:
     secret = str(smtp.get("oauth_client_secret") or "")
     refresh = str(smtp.get("oauth_refresh_token") or "")
     if not client_id or not secret:
-        raise OAuthError("OAuth2 needs a client ID and a client secret", "OAuth2 için istemci kimliği ve gizli anahtar gerekir")
+        raise OAuthError(
+            "OAuth2 needs a client ID and a client secret", "OAuth2 için istemci kimliği ve gizli anahtar gerekir"
+        )
     if provider == "google":
         if not refresh:
             raise OAuthError("Google OAuth2 needs a refresh token", "Google OAuth2 için yenileme jetonu gerekir")

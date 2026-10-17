@@ -80,7 +80,11 @@ async def test_approval_paths_keep_recipients_and_text(env, monkeypatch):  # noq
     r = await c.put("/api/v1/org/settings", json={"approval_mode": "all"}, headers=env.admin)
     assert r.status_code == 200, r.text
     gid, gozde = await env.user(
-        "gozde.ayrancigil@uni.edu.tr", role="ADMIN", firstname="Gözde", lastname="Ayrancıgil", approves_for=[{"type": "all"}]
+        "gozde.ayrancigil@uni.edu.tr",
+        role="ADMIN",
+        firstname="Gözde",
+        lastname="Ayrancıgil",
+        approves_for=[{"type": "all"}],
     )
     aid, ayse = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")
     r = await env.book(ayse, "A102", THU, "P1")

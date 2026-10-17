@@ -164,7 +164,8 @@ def build_message(
     if rendered is not None:
         msg.add_alternative(rendered.html, subtype="html")
         if rendered.uses_cid_logo:
-            html_part = msg.get_payload()[1]
+            html_part = msg.get_body(preferencelist=("html",))
+            assert isinstance(html_part, EmailMessage)
             html_part.add_related(
                 emails.logo_png(),
                 maintype="image",
@@ -233,7 +234,7 @@ def _open(smtp: Mapping[str, Any], transcript: Transcript | None) -> smtplib.SMT
         return smtplib.SMTP(host, port, timeout=timeout)
     server: smtplib.SMTP
     server = smtplib.SMTP_SSL(timeout=timeout, context=ctx) if security == "ssl" else smtplib.SMTP(timeout=timeout)
-    server._print_debug = transcript.hook  # type: ignore[method-assign]
+    server._print_debug = transcript.hook  # type: ignore[attr-defined]
     server.set_debuglevel(1)
     transcript.add(f"* {host}:{port} ({'SSL/TLS' if security == 'ssl' else security.upper()})")
     server.connect(host, port)
@@ -305,16 +306,21 @@ def explain(exc: BaseException, smtp: Mapping[str, Any]) -> tuple[str, str]:
         )
     if isinstance(exc, smtplib.SMTPResponseException) and exc.smtp_code == 530:
         return (
-            "Sunucu önce şifreli bağlantı ya da oturum açma istiyor: güvenlik için STARTTLS seçin ve kullanıcı bilgilerini girin.",
+            "Sunucu önce şifreli bağlantı ya da oturum açma istiyor: güvenlik için STARTTLS seçin ve kullanıcı "
+            "bilgilerini girin.",
             "The server wants encryption or a sign-in first: choose STARTTLS and enter the credentials.",
         )
     if isinstance(exc, ssl.SSLError):
         return (
-            "TLS bağlantısı kurulamadı: 465 için SSL/TLS, 587 için STARTTLS seçin; sunucunun sertifikası geçerli olmalı.",
+            "TLS bağlantısı kurulamadı: 465 için SSL/TLS, 587 için STARTTLS seçin; sunucunun sertifikası geçerli "
+            "olmalı.",
             "The TLS handshake failed: use SSL/TLS for 465 and STARTTLS for 587; the server certificate must be valid.",
         )
     if isinstance(exc, socket.gaierror):
-        return ("Sunucu adı çözülemedi: ana bilgisayar adını kontrol edin.", "The host name did not resolve: check the host.")
+        return (
+            "Sunucu adı çözülemedi: ana bilgisayar adını kontrol edin.",
+            "The host name did not resolve: check the host.",
+        )
     if isinstance(exc, TimeoutError | socket.timeout):
         return (
             "Sunucuya ulaşılamadı (zaman aşımı): ana bilgisayar adı ve bağlantı noktası doğru mu, güvenlik duvarı "

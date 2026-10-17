@@ -138,7 +138,10 @@ def spelled(code: str) -> str:
 # --------------------------------------------------------------------------------------------------
 
 _REASON = re.compile(r"^(?:Gerekçe|Reason)\s*:\s*(.+)$")
-_SUGGEST = re.compile(r"^(?:Önerilen derslikler|Suggested rooms|Aynı saatte boş derslikler|Rooms free at the same time)\b[^:]*:\s*(.+?)\.?$")
+_SUGGEST = re.compile(
+    r"^(?:Önerilen derslikler|Suggested rooms|Aynı saatte boş derslikler|Rooms free at the same "
+    "time)\b[^:]*:\s*(.+?)\.?$"
+)
 _ITEM = re.compile(r"^\s*[-•]\s+(.+)$")
 
 
@@ -181,7 +184,9 @@ def _blocks(body: str, S: Mapping[str, str], tone: str) -> list[str]:
             flush()
             names = [x.strip() for x in m.group(1).split(",") if x.strip()]
             out.append(
-                layout.callout("suggestions", "info", esc(S["layout.suggestions"]), layout.chips([esc(x) for x in names]))
+                layout.callout(
+                    "suggestions", "info", esc(S["layout.suggestions"]), layout.chips([esc(x) for x in names])
+                )
             )
             continue
         para.append(line)
@@ -194,7 +199,9 @@ def _blocks(body: str, S: Mapping[str, str], tone: str) -> list[str]:
 # --------------------------------------------------------------------------------------------------
 
 
-def _values(kind: KindSpec, ctx: Mapping[str, Any], S: Mapping[str, str], brand: Brand) -> tuple[dict[str, Any], dict[str, str]]:
+def _values(
+    kind: KindSpec, ctx: Mapping[str, Any], S: Mapping[str, str], brand: Brand
+) -> tuple[dict[str, Any], dict[str, str]]:
     """(placeholder values, raw enum values)."""
     v: dict[str, Any] = {}
     for k, val in ctx.items():
@@ -338,7 +345,9 @@ def render(
     prefs_url = safe_url("/profile?tab=notifications", base_url) if k.footer == "switchable" else None
     kvkk_url = safe_url(brand.kvkk_url or "", base_url) if brand.kvkk_url else None
     auto = (
-        _fill(S["layout.footer.reply_to"], {"reply_to": brand.reply_to}) if brand.reply_to else S["layout.footer.no_reply"]
+        _fill(S["layout.footer.reply_to"], {"reply_to": brand.reply_to})
+        if brand.reply_to
+        else S["layout.footer.no_reply"]
     ) or ""
     footer_org = _fill(S["layout.footer.org"], {"org": org}) or org
 

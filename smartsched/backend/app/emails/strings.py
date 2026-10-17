@@ -65,7 +65,7 @@ TR: dict[str, str] = {
     "password_reset.cta": "Parolayı sıfırla",
     "password_reset.after": (
         "Kod {valid_hours} saat geçerlidir ve bir kez kullanılabilir. Düğme açılmazsa giriş sayfasında "
-        "\"Parolamı unuttum\" adımına bu kodu yazın."
+        '"Parolamı unuttum" adımına bu kodu yazın.'
     ),
     "password_reset.note": "Bu isteği siz yapmadınız mı? Bir şey yapmanız gerekmez; parolanız değişmez.",
     # --- 8.2 invitation -----------------------------------------------------------------------------
@@ -87,27 +87,31 @@ TR: dict[str, str] = {
     "invitation.provider.microsoft.preheader": (
         "Microsoft iş veya okul hesabınızla katılın. Davet {expires} tarihine kadar geçerli."
     ),
-    "invitation.provider.google.preheader": "Google Workspace hesabınızla katılın. Davet {expires} tarihine kadar geçerli.",
-    "invitation.provider.oidc.preheader": "{provider_name} hesabınızla katılın. Davet {expires} tarihine kadar geçerli.",
-    "invitation.provider.saml.preheader": "{provider_name} hesabınızla katılın. Davet {expires} tarihine kadar geçerli.",
+    "invitation.provider.google.preheader": "Google Workspace hesabınızla katılın. Davet {expires} tarihine kadar "
+    "geçerli.",
+    "invitation.provider.oidc.preheader": "{provider_name} hesabınızla katılın. Davet {expires} tarihine kadar "
+    "geçerli.",
+    "invitation.provider.saml.preheader": "{provider_name} hesabınızla katılın. Davet {expires} tarihine kadar "
+    "geçerli.",
     "invitation.provider.ldap.preheader": "Kurum hesabınızla katılın. Davet {expires} tarihine kadar geçerli.",
     "invitation.provider.local.after": "Açılan sayfada kullanıcı adınızı görür ve parolanızı belirlersiniz.",
     "invitation.provider.microsoft.after": (
-        "Açılan sayfada \"Microsoft ile giriş yap\" düğmesine basın ve bu adresle giriş yapın. Hesabınız ilk "
+        'Açılan sayfada "Microsoft ile giriş yap" düğmesine basın ve bu adresle giriş yapın. Hesabınız ilk '
         "girişte bağlanır."
     ),
     "invitation.provider.google.after": (
-        "Açılan sayfada \"Google ile oturum açın\" düğmesine basın ve bu adresle giriş yapın."
+        'Açılan sayfada "Google ile oturum açın" düğmesine basın ve bu adresle giriş yapın.'
     ),
-    "invitation.provider.oidc.after": "Açılan sayfada \"{provider_name} ile giriş yap\" düğmesine basın.",
-    "invitation.provider.saml.after": "Açılan sayfada \"{provider_name} ile giriş yap\" düğmesine basın.",
+    "invitation.provider.oidc.after": 'Açılan sayfada "{provider_name} ile giriş yap" düğmesine basın.',
+    "invitation.provider.saml.after": 'Açılan sayfada "{provider_name} ile giriş yap" düğmesine basın.',
     "invitation.provider.ldap.after": "Açılan sayfada kurum kullanıcı adınız ve parolanızla giriş yapın.",
     # --- 8.3 account_created -----------------------------------------------------------------------
     "account_created.subject": "SmartSched hesabınız hazır",
     "account_created.status": "Hesap açıldı",
     "account_created.heading": "Hoş geldiniz, {name}",
     "account_created.method.sso.preheader": "{provider} ile giriş yaptınız; rolünüz: {role}.",
-    "account_created.method.local.preheader": "Bir yönetici hesabınızı açtı. Parolanızı {valid_hours} saat içinde belirleyin.",
+    "account_created.method.local.preheader": "Bir yönetici hesabınızı açtı. Parolanızı {valid_hours} saat içinde "
+    "belirleyin.",
     "account_created.method.sso.intro": (
         "{org} SmartSched hesabınız ilk girişinizde açıldı. Rolünüz: {role}. Rolünüzü yalnızca bir yönetici "
         "değiştirebilir."
@@ -137,7 +141,7 @@ TR: dict[str, str] = {
     "booking_created.status": "Rezerve edildi",
     "booking_created.heading": "{actor} sizin adınıza derslik ayırdı",
     "booking_created.cta": "Rezervasyonu görüntüle",
-    "booking_created.why": "Bu e-postayı, \"Biri benim adıma rezervasyon yaptı\" bildirimi açık olduğu için aldınız.",
+    "booking_created.why": 'Bu e-postayı, "Biri benim adıma rezervasyon yaptı" bildirimi açık olduğu için aldınız.',
     # --- 8.6 room_owner_booking ----------------------------------------------------------------------
     "room_owner.subject": "{room} için yeni rezervasyon",
     "room_owner.body": "{actor} sorumlu olduğunuz dersliği ayırttı{series}:\n{items}\n",
@@ -161,7 +165,7 @@ TR: dict[str, str] = {
     ),
     "approval_submitted.cta": "Talebimi görüntüle",
     "approval_submitted.note": "Vazgeçerseniz talebi Rezervasyonlarım'dan geri çekebilirsiniz.",
-    "approval_submitted.why": "Bu e-postayı, \"Talebim alındı\" bildirimi açık olduğu için aldınız.",
+    "approval_submitted.why": 'Bu e-postayı, "Talebim alındı" bildirimi açık olduğu için aldınız.',
     # --- 8.8-8.12 approvals (same sentences as the bell: app/services/approvals.py TEXTS) -------------
     "approval_requested.subject": "Onay bekleyen oda talebi: {what}",
     "approval_requested.preheader": "{who} onay istiyor: {what}",
@@ -179,14 +183,14 @@ TR: dict[str, str] = {
     "approval_approved.heading": "Oda talebiniz onaylandı",
     "approval_approved.intro": "{who} talebinizi onayladı: {what}.",
     "approval_approved.cta": "Rezervasyonu görüntüle",
-    "approval_approved.why": "Bu e-postayı, \"Talebim onaylandı\" bildirimi açık olduğu için aldınız.",
+    "approval_approved.why": 'Bu e-postayı, "Talebim onaylandı" bildirimi açık olduğu için aldınız.',
     "approval_rejected.subject": "Oda talebiniz reddedildi: {what}",
     "approval_rejected.preheader": "Gerekçe: {reason}. Başka bir saat veya derslik deneyebilirsiniz.",
     "approval_rejected.status": "Reddedildi",
     "approval_rejected.heading": "Oda talebiniz reddedildi",
     "approval_rejected.intro": "{who} talebinizi reddetti: {what}.\nGerekçe: {reason}{alt}",
     "approval_rejected.cta": "Başka bir derslik bul",
-    "approval_rejected.why": "Bu e-postayı, \"Talebim reddedildi\" bildirimi açık olduğu için aldınız.",
+    "approval_rejected.why": 'Bu e-postayı, "Talebim reddedildi" bildirimi açık olduğu için aldınız.',
     "approval_withdrawn.subject": "Oda talebi geri çekildi: {what}",
     "approval_withdrawn.preheader": "{who} talebini geri çekti; bir şey yapmanız gerekmez.",
     "approval_withdrawn.status": "Geri çekildi",
@@ -216,7 +220,7 @@ TR: dict[str, str] = {
     "booking_cancelled.cause.replaced_by_series.preheader": "Yerine yeni bir seri geldi.",
     "booking_cancelled.cause.undo_of.preheader": "Bir işlem geri alındı.",
     "booking_cancelled.cta": "Başka bir derslik bul",
-    "booking_cancelled.why": "Bu e-postayı, \"Rezervasyonum iptal edildi\" bildirimi açık olduğu için aldınız.",
+    "booking_cancelled.why": 'Bu e-postayı, "Rezervasyonum iptal edildi" bildirimi açık olduğu için aldınız.',
     # --- 8.14 booking_conflict_resolved ----------------------------------------------------------------
     "booking_conflict_resolved.subject": "Rezervasyonunuz yayınlanan programa göre değişti",
     "booking_conflict_resolved.preheader": "Yeni derslik ve saatler içeride.",
@@ -235,7 +239,7 @@ TR: dict[str, str] = {
     "booking_reminder.intro": "Merhaba {name}, rezervasyonunuz: {room}, {date} {period}.",
     "booking_reminder.cta": "Rezervasyonu görüntüle",
     "booking_reminder.note": "Gerekmiyorsa iptal edin; derslik başkasına açılır.",
-    "booking_reminder.why": "Bu e-postayı, \"Rezervasyon hatırlatmaları\" bildirimi açık olduğu için aldınız.",
+    "booking_reminder.why": 'Bu e-postayı, "Rezervasyon hatırlatmaları" bildirimi açık olduğu için aldınız.',
     # --- 8.16-8.17 series ------------------------------------------------------------------------------
     "series_created.subject": "Yinelenen rezervasyon: {room} · {pattern}",
     "series_created.preheader": "{count} tarih · seri #{series_id}",
@@ -243,14 +247,14 @@ TR: dict[str, str] = {
     "series_created.heading": "Yinelenen rezervasyonunuz oluşturuldu",
     "series_created.intro": "{who} sizin için {room} dersliğinde {pattern} rezervasyon oluşturdu.\n{items}",
     "series_created.cta": "Seriyi görüntüle",
-    "series_created.why": "Bu e-postayı, \"Yinelenen rezervasyonlarım\" bildirimi açık olduğu için aldınız.",
+    "series_created.why": 'Bu e-postayı, "Yinelenen rezervasyonlarım" bildirimi açık olduğu için aldınız.',
     "series_changed.subject": "Seri #{series_id} değişti: {room}",
     "series_changed.preheader": "{change}",
     "series_changed.status": "Değişti",
     "series_changed.heading": "Yinelenen rezervasyonunuz değişti",
     "series_changed.intro": "{who} seri #{series_id} üzerinde değişiklik yaptı: {change}.\n{items}",
     "series_changed.cta": "Seriyi görüntüle",
-    "series_changed.why": "Bu e-postayı, \"Yinelenen rezervasyonlarım\" bildirimi açık olduğu için aldınız.",
+    "series_changed.why": 'Bu e-postayı, "Yinelenen rezervasyonlarım" bildirimi açık olduğu için aldınız.',
     # --- 8.18 calendar_consent (personal; the organisation variant is scope.org) -----------------------
     "calendar_consent.subject": "{provider} takviminiz bağlandı",
     "calendar_consent.state.off.subject": "{provider} takviminizin bağlantısı kaldırıldı",
@@ -288,7 +292,8 @@ TR: dict[str, str] = {
     "kvkk_request.status.refused.heading": "Talebiniz karşılanamadı",
     "kvkk_request.intro": "{request_kind} talebiniz işlendi.\n{detail}",
     "kvkk_request.status.received.intro": "{request_kind} talebiniz kaydedildi. Kanun, yanıt için 30 gün tanır.",
-    "kvkk_request.status.refused.intro": "{request_kind} talebiniz aşağıdaki gerekçeyle karşılanamadı.\nGerekçe: {detail}",
+    "kvkk_request.status.refused.intro": "{request_kind} talebiniz aşağıdaki gerekçeyle karşılanamadı.\nGerekçe: "
+    "{detail}",
     "kvkk_request.cta": "Taleplerimi görüntüle",
     "kvkk_request.note": "Kanun gereği bazı kayıtlar takma adla saklanır (denetim kaydı).",
     "kvkk_request.status.refused.note": "İtiraz için Kişisel Verileri Koruma Kurulu'na başvurabilirsiniz.",
@@ -317,7 +322,8 @@ TR: dict[str, str] = {
     "ai_usage_alert.level.org_near.subject": "Kurum yapay zekâ bütçesi: %{percent} kullanıldı",
     "ai_usage_alert.level.org_near.preheader": "{used} / {limit} token · {reset_date} yenilenir",
     "ai_usage_alert.level.org_near.heading": "Kurum bütçesi azalıyor",
-    "ai_usage_alert.level.org_near.intro": "{who}: kurumun bu ayki yapay zekâ bütçesinin yüzde {percent} kadarı kullanıldı.",
+    "ai_usage_alert.level.org_near.intro": "{who}: kurumun bu ayki yapay zekâ bütçesinin yüzde {percent} kadarı "
+    "kullanıldı.",
     "ai_usage_alert.level.org_near.cta": "Limitleri aç",
     "ai_usage_alert.level.org_limit.subject": "Kurum yapay zekâ bütçesi doldu",
     "ai_usage_alert.level.org_limit.preheader": "Yapay zekâ istekleri durdu.",
@@ -340,7 +346,7 @@ TR: dict[str, str] = {
     "ops_alert.severity.critical": "Kritik",
     "ops_alert.severity.warning": "Uyarı",
     "ops_alert.severity.info": "Bilgi",
-    "ops_alert.why": "Bu e-postayı, \"Operasyon uyarıları\" bildirimi açık olduğu için aldınız.",
+    "ops_alert.why": 'Bu e-postayı, "Operasyon uyarıları" bildirimi açık olduğu için aldınız.',
     # --- 8.22-8.24 existing kinds ----------------------------------------------------------------------
     "timetable_published.subject": "{term} programı yayınlandı: derslerinizde değişiklik var",
     "timetable_published.heading": "Derslerinizde değişiklik var",
@@ -360,7 +366,8 @@ TR: dict[str, str] = {
     "smtp_test.preheader": "Bu iletiyi gördüyseniz bildirimler kullanıcılara ulaşır.",
     "smtp_test.heading": "E-posta ayarları çalışıyor",
     "smtp_test.intro": (
-        "Bu bir deneme iletisidir. {host} üzerinden gönderildi. Bu iletiyi gördüyseniz bildirimler kullanıcılara ulaşır."
+        "Bu bir deneme iletisidir. {host} üzerinden gönderildi. Bu iletiyi gördüyseniz bildirimler kullanıcılara "
+        "ulaşır."
     ),
     "smtp_test.why": "Bu e-postayı, bir yönetici e-posta ayarlarını denediği için aldınız.",
 }
@@ -408,13 +415,14 @@ EN: dict[str, str] = {
     "layout.row.request_kind": "Request type",
     "layout.row.due": "Due",
     "password_reset.subject": "Your password reset code",
-    "password_reset.preheader": "The code is valid for {valid_hours} hours. If you did not ask for it, ignore this e-mail.",
+    "password_reset.preheader": "The code is valid for {valid_hours} hours. If you did not ask for it, ignore this "
+    "e-mail.",
     "password_reset.heading": "Reset your password",
     "password_reset.intro": "Hello {name}, a password reset was requested for your {org} SmartSched account.",
     "password_reset.cta": "Reset password",
     "password_reset.after": (
         "The code is valid for {valid_hours} hours and works once. If the button does not open, enter this code at "
-        "\"Forgot password\" on the sign-in page."
+        '"Forgot password" on the sign-in page.'
     ),
     "password_reset.note": "Didn't ask for this? You don't need to do anything; your password stays the same.",
     "invitation.subject": "{inviter} invited you to SmartSched",
@@ -430,25 +438,27 @@ EN: dict[str, str] = {
     "invitation.provider.saml": "{provider_name} (organisation single sign-on)",
     "invitation.provider.ldap": "Organisation username and password (LDAP)",
     "invitation.provider.local.preheader": "Set your password and join. Valid until {expires}.",
-    "invitation.provider.microsoft.preheader": "Join with your Microsoft work or school account. Valid until {expires}.",
+    "invitation.provider.microsoft.preheader": "Join with your Microsoft work or school account. Valid until "
+    "{expires}.",
     "invitation.provider.google.preheader": "Join with your Google Workspace account. Valid until {expires}.",
     "invitation.provider.oidc.preheader": "Join with your {provider_name} account. Valid until {expires}.",
     "invitation.provider.saml.preheader": "Join with your {provider_name} account. Valid until {expires}.",
     "invitation.provider.ldap.preheader": "Join with your organisation account. Valid until {expires}.",
     "invitation.provider.local.after": "On the page that opens you see your username and set a password.",
     "invitation.provider.microsoft.after": (
-        "On the page that opens choose \"Sign in with Microsoft\" and use this address. Your account is linked at the "
+        'On the page that opens choose "Sign in with Microsoft" and use this address. Your account is linked at the '
         "first sign-in."
     ),
-    "invitation.provider.google.after": "On the page that opens choose \"Sign in with Google\" and use this address.",
-    "invitation.provider.oidc.after": "On the page that opens choose \"Sign in with {provider_name}\".",
-    "invitation.provider.saml.after": "On the page that opens choose \"Sign in with {provider_name}\".",
+    "invitation.provider.google.after": 'On the page that opens choose "Sign in with Google" and use this address.',
+    "invitation.provider.oidc.after": 'On the page that opens choose "Sign in with {provider_name}".',
+    "invitation.provider.saml.after": 'On the page that opens choose "Sign in with {provider_name}".',
     "invitation.provider.ldap.after": "On the page that opens sign in with your organisation username and password.",
     "account_created.subject": "Your SmartSched account is ready",
     "account_created.status": "Account created",
     "account_created.heading": "Welcome, {name}",
     "account_created.method.sso.preheader": "You signed in with {provider}; your role: {role}.",
-    "account_created.method.local.preheader": "An administrator created your account. Set your password within {valid_hours} hours.",
+    "account_created.method.local.preheader": "An administrator created your account. Set your password within "
+    "{valid_hours} hours.",
     "account_created.method.sso.intro": (
         "Your {org} SmartSched account was created at your first sign-in. Your role: {role}. Only an administrator can "
         "change it."
@@ -463,7 +473,8 @@ EN: dict[str, str] = {
     "new_device_sign_in.subject": "New sign-in from another device",
     "new_device_sign_in.preheader": "{when} · {device}. If this wasn't you, sign it out.",
     "new_device_sign_in.heading": "Your account was used on a new device",
-    "new_device_sign_in.intro": "Hello {name}, your {org} SmartSched account was signed in on a device we haven't seen before.",
+    "new_device_sign_in.intro": "Hello {name}, your {org} SmartSched account was signed in on a device we haven't "
+    "seen before.",
     "new_device_sign_in.cta": "This wasn't me",
     "new_device_sign_in.note": (
         "If it was you, there is nothing to do. If not, the button shows your sessions; you can sign them all out and "
@@ -474,7 +485,7 @@ EN: dict[str, str] = {
     "booking_created.status": "Booked",
     "booking_created.heading": "{actor} booked a room for you",
     "booking_created.cta": "View booking",
-    "booking_created.why": "You received this because \"Someone booked a room for me\" notifications are on.",
+    "booking_created.why": 'You received this because "Someone booked a room for me" notifications are on.',
     "room_owner.subject": "New booking in {room}",
     "room_owner.body": "{actor} booked a room you own{series}:\n{items}\n",
     "room_owner.series": " (series #{series_id})",
@@ -495,14 +506,15 @@ EN: dict[str, str] = {
     ),
     "approval_submitted.cta": "View my request",
     "approval_submitted.note": "If you change your mind, withdraw it from My bookings.",
-    "approval_submitted.why": "You received this because \"My request was received\" notifications are on.",
+    "approval_submitted.why": 'You received this because "My request was received" notifications are on.',
     "approval_requested.subject": "Room request awaiting approval: {what}",
     "approval_requested.preheader": "{who} asks for approval: {what}",
     "approval_requested.status": "Awaiting approval",
     "approval_requested.heading": "A request is waiting for your approval",
     "approval_requested.intro": "{who} asks for approval: {what}.",
     "approval_requested.cta": "Review request",
-    "approval_requested.note": "Decisions are made in the app; the links in this e-mail never approve or decline on their own.",
+    "approval_requested.note": "Decisions are made in the app; the links in this e-mail never approve or decline on "
+    "their own.",
     "approval_requested.why": "You received this because you approve requests for this room.",
     "approval_approved.subject": "Your room request was approved: {what}",
     "approval_approved.preheader": "The room is booked for you at these times.",
@@ -510,14 +522,14 @@ EN: dict[str, str] = {
     "approval_approved.heading": "Your room request was approved",
     "approval_approved.intro": "{who} approved your request: {what}.",
     "approval_approved.cta": "View booking",
-    "approval_approved.why": "You received this because \"My request was approved\" notifications are on.",
+    "approval_approved.why": 'You received this because "My request was approved" notifications are on.',
     "approval_rejected.subject": "Your room request was declined: {what}",
     "approval_rejected.preheader": "Reason: {reason}. You can try another time or room.",
     "approval_rejected.status": "Declined",
     "approval_rejected.heading": "Your room request was declined",
     "approval_rejected.intro": "{who} declined your request: {what}.\nReason: {reason}{alt}",
     "approval_rejected.cta": "Find another room",
-    "approval_rejected.why": "You received this because \"My request was declined\" notifications are on.",
+    "approval_rejected.why": 'You received this because "My request was declined" notifications are on.',
     "approval_withdrawn.subject": "Room request withdrawn: {what}",
     "approval_withdrawn.preheader": "{who} withdrew it; nothing to do.",
     "approval_withdrawn.status": "Withdrawn",
@@ -546,7 +558,7 @@ EN: dict[str, str] = {
     "booking_cancelled.cause.replaced_by_series.preheader": "Replaced by a new series.",
     "booking_cancelled.cause.undo_of.preheader": "An action was undone.",
     "booking_cancelled.cta": "Find another room",
-    "booking_cancelled.why": "You received this because \"My booking was cancelled\" notifications are on.",
+    "booking_cancelled.why": 'You received this because "My booking was cancelled" notifications are on.',
     "booking_conflict_resolved.subject": "Your booking changed to fit the published timetable",
     "booking_conflict_resolved.preheader": "New rooms and times inside.",
     "booking_conflict_resolved.status": "Changed",
@@ -563,21 +575,21 @@ EN: dict[str, str] = {
     "booking_reminder.intro": "Hello {name}, your booking: {room}, {date} {period}.",
     "booking_reminder.cta": "View booking",
     "booking_reminder.note": "If you no longer need it, cancel it so others can book the room.",
-    "booking_reminder.why": "You received this because \"Booking reminders\" notifications are on.",
+    "booking_reminder.why": 'You received this because "Booking reminders" notifications are on.',
     "series_created.subject": "Recurring booking: {room} · {pattern}",
     "series_created.preheader": "{count} dates · series #{series_id}",
     "series_created.status": "Booked",
     "series_created.heading": "Your recurring booking was created",
     "series_created.intro": "{who} created a recurring booking for you in {room}, {pattern}.\n{items}",
     "series_created.cta": "View series",
-    "series_created.why": "You received this because \"My recurring bookings\" notifications are on.",
+    "series_created.why": 'You received this because "My recurring bookings" notifications are on.',
     "series_changed.subject": "Series #{series_id} changed: {room}",
     "series_changed.preheader": "{change}",
     "series_changed.status": "Changed",
     "series_changed.heading": "Your recurring booking changed",
     "series_changed.intro": "{who} changed series #{series_id}: {change}.\n{items}",
     "series_changed.cta": "View series",
-    "series_changed.why": "You received this because \"My recurring bookings\" notifications are on.",
+    "series_changed.why": 'You received this because "My recurring bookings" notifications are on.',
     "calendar_consent.subject": "Your {provider} calendar is connected",
     "calendar_consent.state.off.subject": "Your {provider} calendar was disconnected",
     "calendar_consent.preheader": "Your bookings are copied to it.",
@@ -594,7 +606,8 @@ EN: dict[str, str] = {
     "calendar_consent.scope.org.heading": "Calendar sync turned on (KVKK consent recorded)",
     "calendar_consent.scope.org.preheader": "{actor}, {when}",
     "calendar_consent.scope.org.intro": (
-        "{actor} turned calendar sync on at {when} and gave KVKK consent for the organisation. Booking date, time, room "
+        "{actor} turned calendar sync on at {when} and gave KVKK consent for the organisation. Booking date, time, "
+        "room "
         "and note can be copied to calendars users connect (servers abroad)."
     ),
     "calendar_consent.scope.org.cta": "Open integrations",
@@ -612,8 +625,10 @@ EN: dict[str, str] = {
     "kvkk_request.status.received.heading": "We received your request",
     "kvkk_request.status.refused.heading": "Your request could not be fulfilled",
     "kvkk_request.intro": "Your {request_kind} request was processed.\n{detail}",
-    "kvkk_request.status.received.intro": "Your {request_kind} request was recorded. The law allows 30 days for an answer.",
-    "kvkk_request.status.refused.intro": "Your {request_kind} request could not be fulfilled for the reason below.\nReason: {detail}",
+    "kvkk_request.status.received.intro": "Your {request_kind} request was recorded. The law allows 30 days for an "
+    "answer.",
+    "kvkk_request.status.refused.intro": "Your {request_kind} request could not be fulfilled for the reason "
+    "below.\nReason: {detail}",
     "kvkk_request.cta": "View my requests",
     "kvkk_request.note": "By law some records are kept pseudonymised (audit log).",
     "kvkk_request.status.refused.note": "You can appeal to the Turkish Personal Data Protection Board (KVKK Kurulu).",
@@ -661,7 +676,7 @@ EN: dict[str, str] = {
     "ops_alert.severity.critical": "Critical",
     "ops_alert.severity.warning": "Warning",
     "ops_alert.severity.info": "Info",
-    "ops_alert.why": "You received this because \"Operations alerts\" notifications are on.",
+    "ops_alert.why": 'You received this because "Operations alerts" notifications are on.',
     "timetable_published.subject": "The {term} timetable is published: your classes changed",
     "timetable_published.heading": "Your classes changed",
     "timetable_published.intro": "The {term} timetable was published. Your changed classes:\n{items}",
@@ -679,7 +694,8 @@ EN: dict[str, str] = {
     "smtp_test.subject": "SmartSched test message",
     "smtp_test.preheader": "If you can read this, notifications will reach your users.",
     "smtp_test.heading": "E-mail settings work",
-    "smtp_test.intro": "This is a test message. Sent through {host}. If you can read this, notifications will reach your users.",
+    "smtp_test.intro": "This is a test message. Sent through {host}. If you can read this, notifications will reach "
+    "your users.",
     "smtp_test.why": "You received this because an administrator tested the e-mail settings.",
 }
 

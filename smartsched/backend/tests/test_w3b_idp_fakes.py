@@ -53,7 +53,11 @@ class FakeIssuer:
 
     @property
     def authorize(self) -> str:
-        return "https://accounts.google.com/o/oauth2/v2/auth" if self.google else f"{self.issuer}/protocol/openid-connect/auth"
+        return (
+            "https://accounts.google.com/o/oauth2/v2/auth"
+            if self.google
+            else f"{self.issuer}/protocol/openid-connect/auth"
+        )
 
     @property
     def token(self) -> str:
@@ -61,7 +65,11 @@ class FakeIssuer:
 
     @property
     def jwks(self) -> str:
-        return "https://www.googleapis.com/oauth2/v3/certs" if self.google else f"{self.issuer}/protocol/openid-connect/certs"
+        return (
+            "https://www.googleapis.com/oauth2/v3/certs"
+            if self.google
+            else f"{self.issuer}/protocol/openid-connect/certs"
+        )
 
     def discovery(self) -> dict[str, Any]:
         doc = {
@@ -100,8 +108,10 @@ class FakeIssuer:
         return {k: v for k, v in base.items() if v is not None}
 
     def handles(self, url: str) -> bool:
-        return url.startswith(self.issuer) or url in (self.token, self.jwks) or (
-            self.google and url == "https://accounts.google.com/.well-known/openid-configuration"
+        return (
+            url.startswith(self.issuer)
+            or url in (self.token, self.jwks)
+            or (self.google and url == "https://accounts.google.com/.well-known/openid-configuration")
         )
 
     async def __call__(self, req: Any) -> Any:
@@ -129,10 +139,17 @@ class FakeIssuer:
             ):
                 return http.Response(400, json={"error": "invalid_grant"})
             claims = self.claims(grant["nonce"], **grant["claims"])
-            token = jwt.encode({"alg": "RS256", "kid": self.key.kid, "typ": "JWT"}, claims, grant.get("key") or self.key)
+            token = jwt.encode(
+                {"alg": "RS256", "kid": self.key.kid, "typ": "JWT"}, claims, grant.get("key") or self.key
+            )
             return http.Response(
                 200,
-                json={"access_token": "fake-access", "refresh_token": "fake-refresh", "id_token": token, "token_type": "Bearer"},
+                json={
+                    "access_token": "fake-access",
+                    "refresh_token": "fake-refresh",
+                    "id_token": token,
+                    "token_type": "Bearer",
+                },
             )
         return http.Response(404, json={"error": "not_found", "url": url})
 
@@ -151,7 +168,9 @@ class IdpEnv:
         return r.json()
 
     async def put(self, pid: int, headers: dict[str, str] | None = None, **body: Any) -> Any:
-        return await self.client.put(f"/api/v1/auth/sso/admin/providers/{pid}", json=body, headers=headers or self.admin)
+        return await self.client.put(
+            f"/api/v1/auth/sso/admin/providers/{pid}", json=body, headers=headers or self.admin
+        )
 
     async def keycloak(self, **extra: Any) -> dict[str, Any]:
         """A configured and enabled Keycloak provider (slug ``keycloak``)."""

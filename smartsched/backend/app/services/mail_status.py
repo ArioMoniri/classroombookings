@@ -24,7 +24,10 @@ async def integration_status(session: AsyncSession) -> list[dict[str, Any]]:
     tr, en = _DETAIL[st["state"]]
     if st["state"] == "connected":
         via = preset.label if preset else st["host"]
-        tr, en = f"{via} üzerinden {st['from_address']} adresiyle gönderir.", f"Sends as {st['from_address']} via {via}."
+        tr, en = (
+            f"{via} üzerinden {st['from_address']} adresiyle gönderir.",
+            f"Sends as {st['from_address']} via {via}.",
+        )
         if not st["tested"]:
             tr += " Henüz deneme iletisi gönderilmedi."
             en += " No test message was sent yet."

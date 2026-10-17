@@ -152,6 +152,8 @@ async def provider_out(db: AsyncSession, row: SsoProvider) -> dict[str, Any]:
         "redirect_uri": sso.redirect_uri(base, row.name) if base and row.kind != kinds.SAML else None,
         "start_url": f"/api/v1/auth/sso/{row.name}/start",
         "identities": int(identities),
+        "test_ok": opts.get("test_ok"),
+        "test_at": opts.get("test_at"),
         "last_check_at": _iso(row.last_check_at),
         "last_check_ok": row.last_check_ok,
         "last_check_detail": row.last_check_detail,
@@ -358,8 +360,8 @@ async def create(db: AsyncSession, actor: User, body: dict[str, Any]) -> SsoProv
             wanted = "adfs-saml"
         slug = await _free_slug(db, wanted)
     label = plain(str(body.get("display_name") or "")) or None
-    if label is None and presets and preset != "generic":
-        label = presets[preset]["label"]
+    if label is None and presets and preset and preset != "generic":
+        label = str(presets[preset]["label"])
     last = (await db.execute(select(func.max(SsoProvider.sort_order)))).scalar_one()
     opts: dict[str, Any] = {"preset": preset} if preset else {}
     p = presets.get(preset or "", {})
@@ -467,9 +469,10 @@ async def update(db: AsyncSession, actor: User, row: SsoProvider, values: dict[s
             )
         if (await db.execute(select(SsoProvider.id).where(SsoProvider.name == slug))).first() is not None:
             raise _bad("slug_taken", "this slug is in use", "Bu kısa ad kullanımda", 409)
-        for model in (SsoInvite, SsoRoleMapping):
-            for r in (await db.execute(select(model).where(model.provider == row.name))).scalars():
-                r.provider = slug
+        for inv in (await db.execute(select(SsoInvite).where(SsoInvite.provider == row.name))).scalars():
+            inv.provider = slug
+        for m in (await db.execute(select(SsoRoleMapping).where(SsoRoleMapping.provider == row.name))).scalars():
+            m.provider = slug
         row.name = slug
     if "display_name" in values:
         label = plain(str(values["display_name"] or ""))

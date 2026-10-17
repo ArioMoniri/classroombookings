@@ -81,13 +81,15 @@ PRESETS: tuple[Preset, ...] = (
                 "SmartSched",
             ),
             S(
-                "Kullanıcı adına tam e-posta adresini, parolaya 16 karakterlik uygulama şifresini boşluksuz yapıştırın.",
+                "Kullanıcı adına tam e-posta adresini, parolaya 16 karakterlik uygulama şifresini boşluksuz "
+                "yapıştırın.",
                 "Paste the full e-mail address as the username and the 16-character app password without spaces.",
             ),
             S(
                 "Workspace yöneticisi: Yönetici Konsolu > Uygulamalar > Google Workspace > Gmail > Kimlik doğrulama "
                 "bölümünde DKIM'i başlatın.",
-                "Workspace admin: start DKIM under Admin console > Apps > Google Workspace > Gmail > Authenticate email.",
+                "Workspace admin: start DKIM under Admin console > Apps > Google Workspace > Gmail > Authenticate "
+                "email.",
             ),
         ),
         notes_tr="Kurumda uygulama şifreleri kapalıysa OAuth2 ön ayarını kullanın.",
@@ -110,7 +112,8 @@ PRESETS: tuple[Preset, ...] = (
             S(
                 "Google Cloud Console > API'ler ve Hizmetler > Kimlik bilgileri bölümünde 'OAuth istemci kimliği' "
                 "(Web uygulaması) oluşturun.",
-                "In Google Cloud Console > APIs & Services > Credentials create an 'OAuth client ID' (Web application).",
+                "In Google Cloud Console > APIs & Services > Credentials create an 'OAuth client ID' (Web "
+                "application).",
             ),
             S(
                 "Yetkili yönlendirme URI'si olarak OAuth Playground adresini ekleyin.",
@@ -119,7 +122,8 @@ PRESETS: tuple[Preset, ...] = (
             ),
             S(
                 "OAuth Playground'da kendi istemci kimliğinizle şu kapsamı yetkilendirin ve yenileme jetonunu alın.",
-                "In the OAuth Playground, authorise this scope with your own client and exchange it for a refresh token.",
+                "In the OAuth Playground, authorise this scope with your own client and exchange it for a refresh "
+                "token.",
                 "https://mail.google.com/",
             ),
             S(
@@ -162,7 +166,8 @@ PRESETS: tuple[Preset, ...] = (
                 "Exchange Online PowerShell'de hizmet sorumlusunu kaydedin ve posta kutusuna izin verin.",
                 "In Exchange Online PowerShell register the service principal and grant it the mailbox.",
                 "New-ServicePrincipal -AppId <uygulama-kimliği> -ObjectId <kurumsal-uygulama-nesne-kimliği>; "
-                "Add-MailboxPermission -Identity bildirim@uni.edu.tr -User <hizmet-sorumlusu-kimliği> -AccessRights FullAccess",
+                "Add-MailboxPermission -Identity bildirim@uni.edu.tr -User <hizmet-sorumlusu-kimliği> -AccessRights "
+                "FullAccess",
             ),
             S(
                 "Posta kutusunda SMTP AUTH'u açın.",
@@ -175,7 +180,8 @@ PRESETS: tuple[Preset, ...] = (
             ),
         ),
         notes_tr="Microsoft 365'te parola ile SMTP girişi (Basic auth) 2026'da kapatıldı; bu ön ayar OAuth2 kullanır.",
-        notes_en="Password sign-in for SMTP (Basic auth) was retired in Microsoft 365 in 2026; this preset uses OAuth2.",
+        notes_en="Password sign-in for SMTP (Basic auth) was retired in Microsoft 365 in 2026; this preset uses "
+        "OAuth2.",
     ),
     Preset(
         id="amazon_ses",
@@ -203,7 +209,8 @@ PRESETS: tuple[Preset, ...] = (
             ),
             S("SES > SMTP ayarları > SMTP kimlik bilgileri oluştur.", "SES > SMTP settings > Create SMTP credentials."),
             S(
-                "Hesap korumalı alandaysa (sandbox) üretim erişimi isteyin; yoksa yalnızca doğrulanmış adreslere gider.",
+                "Hesap korumalı alandaysa (sandbox) üretim erişimi isteyin; yoksa yalnızca doğrulanmış adreslere "
+                "gider.",
                 "If the account is in the sandbox, request production access; otherwise mail only reaches verified "
                 "addresses.",
             ),
@@ -236,7 +243,11 @@ PRESETS: tuple[Preset, ...] = (
                 "Settings > Sender Authentication > Authenticate Your Domain: verilen CNAME kayıtlarını DNS'e ekleyin.",
                 "Settings > Sender Authentication > Authenticate Your Domain: add the CNAME records to DNS.",
             ),
-            S("Kullanıcı adı 'apikey', parola API anahtarıdır.", "The username is 'apikey', the password the API key.", "apikey"),
+            S(
+                "Kullanıcı adı 'apikey', parola API anahtarıdır.",
+                "The username is 'apikey', the password the API key.",
+                "apikey",
+            ),
         ),
     ),
     Preset(
@@ -362,7 +373,8 @@ PRESETS: tuple[Preset, ...] = (
                 "Ask for a sending account (e.g. notifications@uni.edu.tr) and permission to send from this server.",
             ),
             S(
-                "Alan adının SPF kaydına sunucunun adresini, DKIM için seçiciyi ve bir DMARC kaydını eklemelerini isteyin.",
+                "Alan adının SPF kaydına sunucunun adresini, DKIM için seçiciyi ve bir DMARC kaydını eklemelerini "
+                "isteyin.",
                 "Ask them to add the server to the domain's SPF record, a DKIM selector and a DMARC record.",
             ),
         ),

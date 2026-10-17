@@ -33,13 +33,13 @@ from app.services.identity.oidc import namespace, plain, secure_url
 
 try:  # optional: python -m pip install signxml
     from lxml import etree
-    from signxml import XMLVerifier
     from signxml.exceptions import InvalidInput, InvalidSignature
+    from signxml.verifier import XMLVerifier
 
     AVAILABLE = True
 except ImportError:  # pragma: no cover - exercised by monkeypatching AVAILABLE in the tests
     etree = None  # type: ignore[assignment]
-    XMLVerifier = None  # type: ignore[assignment,misc]
+    XMLVerifier = None  # type: ignore[assignment,misc,unused-ignore]
     AVAILABLE = False
 
 NS = {
@@ -249,7 +249,10 @@ def _verify(data: bytes, certs: tuple[str, ...]) -> Any:
     last: Exception | None = None
     for cert in certs:
         try:
-            return XMLVerifier().verify(data, x509_cert=cert, expect_references=1).signed_xml
+            result = XMLVerifier().verify(data, x509_cert=cert, expect_references=1)
+            if isinstance(result, list):  # several references: never accepted for SAML
+                raise InvalidInput("several signed references")
+            return result.signed_xml
         except (InvalidSignature, InvalidInput) as exc:
             last = exc
     raise SamlError("invalid_token", f"signature: {type(last).__name__ if last else 'no certificate'}")

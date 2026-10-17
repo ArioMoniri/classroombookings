@@ -29,7 +29,13 @@ _BY_KIND: dict[str, dict[str, dict[str, Any] | Any]] = {
         "en": {"expires": "16 November 2026", "role": "Teacher"},
     },
     "account_created": {
-        "*": {"username": "ayse.yilmaz", "actor": "Fatih Demir", "method": "local", "valid_hours": 24, "cta_url": f"{BASE}/login"},
+        "*": {
+            "username": "ayse.yilmaz",
+            "actor": "Fatih Demir",
+            "method": "local",
+            "valid_hours": 24,
+            "cta_url": f"{BASE}/login",
+        },
         "tr": {"role": "Öğretim elemanı"},
         "en": {"role": "Teacher"},
     },
@@ -45,7 +51,9 @@ _BY_KIND: dict[str, dict[str, dict[str, Any] | Any]] = {
     },
     "approval_submitted": {"*": {"what": _WHAT, "cta_url": f"{BASE}/bookings/mine?request=7"}},
     "approval_requested": {"*": {"who": "Ayşe Yılmaz", "what": _WHAT, "cta_url": f"{BASE}/approvals?request=7"}},
-    "approval_approved": {"*": {"who": "Gözde Ayrancıgil", "what": _WHAT, "cta_url": f"{BASE}/bookings/mine?request=7"}},
+    "approval_approved": {
+        "*": {"who": "Gözde Ayrancıgil", "what": _WHAT, "cta_url": f"{BASE}/bookings/mine?request=7"}
+    },
     "approval_rejected": {
         "*": {
             "who": "Gözde Ayrancıgil",
@@ -86,7 +94,13 @@ _BY_KIND: dict[str, dict[str, dict[str, Any] | Any]] = {
         "en": {"detail": "A copy of your data can be downloaded under Profile > Privacy for 7 days."},
     },
     "ai_usage_alert": {
-        "*": {"who": "Fatih Demir", "percent": 80, "used": "400.000", "limit": "500.000", "cta_url": f"{BASE}/admin/ai"},
+        "*": {
+            "who": "Fatih Demir",
+            "percent": 80,
+            "used": "400.000",
+            "limit": "500.000",
+            "cta_url": f"{BASE}/admin/ai",
+        },
         "tr": {"reset_date": "1 Kasım 2026"},
         "en": {"reset_date": "1 November 2026"},
     },
@@ -134,8 +148,8 @@ def sample_context(kind: str, locale: str = "tr") -> dict[str, Any]:
     lang = "tr" if locale == "tr" else "en"
     entry = _BY_KIND.get(kind, {})
     out: dict[str, Any] = dict(_COMMON)
-    out.update(entry.get("*", {}))  # type: ignore[arg-type]
-    out.update(entry.get(lang, {}))  # type: ignore[arg-type]
+    out.update(entry.get("*", {}))
+    out.update(entry.get(lang, {}))
     if entry.get("items") is True:
         out["items"] = list(_ITEMS[lang])
     return out

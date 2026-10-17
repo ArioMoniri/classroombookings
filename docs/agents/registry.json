@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 20:32",
-      "left_off": "Both the week-order tests and the stack build are running; the Playwright run needs the stack and the hand-off needs both, so I'll wait for their notices."
+      "finished_at": "2026-10-17 20:48",
+      "left_off": "Waiting on the stack rebuild and the week-order tests (both in the background)."
     },
     {
       "id": "afe38e299d6f66d51",

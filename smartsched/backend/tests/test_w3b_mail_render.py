@@ -136,7 +136,9 @@ def test_user_values_are_escaped_everywhere() -> None:
 
 
 def test_unsafe_link_schemes_are_dropped() -> None:
-    out = render("booking_created", "tr", **{**sample_context("booking_created", "tr"), "cta_url": "javascript:alert(1)"})
+    out = render(
+        "booking_created", "tr", **{**sample_context("booking_created", "tr"), "cta_url": "javascript:alert(1)"}
+    )
     assert "javascript:" not in out.html and out.cta_url is None
 
 
@@ -184,7 +186,9 @@ def test_precomposed_body_keeps_the_plain_text_and_themes_lists_and_reasons() ->
 
 
 def test_turkish_text_is_normalised() -> None:
-    out = render("booking_cancelled", "tr", subject="Rezervasyonunuz\xa0iptal edildi", body="İptal\xa0edildi:\n- A\xa0101")
+    out = render(
+        "booking_cancelled", "tr", subject="Rezervasyonunuz\xa0iptal edildi", body="İptal\xa0edildi:\n- A\xa0101"
+    )
     assert "\xa0" not in out.subject and "\xa0" not in out.text
     assert out.subject == "Rezervasyonunuz iptal edildi"
 
@@ -255,23 +259,42 @@ def test_variants_pick_their_sentences() -> None:
     assert "Sign in with Microsoft" in ms.text and ms.preheader.startswith("Join with your Microsoft")
     oidc = render("invitation", "tr", **{**sample_context("invitation", "tr"), "provider": "oidc"})
     assert "Kampüs girişi ile giriş yap" in oidc.text and "Kampüs girişi (kurumsal giriş)" not in oidc.subject
-    resolved = render("ops_alert", "tr", **{**sample_context("ops_alert", "tr"), "state": "resolved", "duration": "12 dk"})
-    assert resolved.subject.startswith("Çözüldü:") and 'data-block="status"' in resolved.html and "Çözüldü" in resolved.html
+    resolved = render(
+        "ops_alert", "tr", **{**sample_context("ops_alert", "tr"), "state": "resolved", "duration": "12 dk"}
+    )
+    assert (
+        resolved.subject.startswith("Çözüldü:")
+        and 'data-block="status"' in resolved.html
+        and "Çözüldü" in resolved.html
+    )
     assert "#63E08B" in resolved.html  # success tone in dark mode
-    held = render("approval_submitted", "tr", **{**sample_context("approval_submitted", "tr"), "hold": "held", "held_until": "19 Şubat 2026 12:00"})
+    held = render(
+        "approval_submitted",
+        "tr",
+        **{**sample_context("approval_submitted", "tr"), "hold": "held", "held_until": "19 Şubat 2026 12:00"},
+    )
     assert "tutulur" in held.text
     plain = render("approval_submitted", "tr", **sample_context("approval_submitted", "tr"))
     assert "tutulur" not in plain.text and "onaylanan talep dersliği alır" in plain.text
     undo = render("booking_cancelled", "en", **{**sample_context("booking_cancelled", "en"), "reason": "undo_of:41"})
     assert "Undo (#41)" in undo.text and undo.preheader == "An action was undone."
-    words = render("booking_cancelled", "tr", **{**sample_context("booking_cancelled", "tr"), "reason": "Bölüm toplantısı"})
+    words = render(
+        "booking_cancelled", "tr", **{**sample_context("booking_cancelled", "tr"), "reason": "Bölüm toplantısı"}
+    )
     assert "Gerekçe: Bölüm toplantısı" in words.text and words.preheader == "Fatih Demir iptal etti."
 
 
 def test_composed_mode_never_shows_an_unfillable_shipped_part() -> None:
-    out = render("booking_created", "tr", subject="Sizin adınıza rezervasyon yapıldı", body="Fatih Bey sizin adınıza 1 rezervasyon yaptı:\n- A 101")
+    out = render(
+        "booking_created",
+        "tr",
+        subject="Sizin adınıza rezervasyon yapıldı",
+        body="Fatih Bey sizin adınıza 1 rezervasyon yaptı:\n- A 101",
+    )
     assert not PLACEHOLDER.search(out.html + out.text) and "<h1" in out.html
-    kv = render("kvkk_request", "tr", subject="Kişisel veri (silme) talebiniz reddedildi", body="Yasal saklama süresi dolmadı.")
+    kv = render(
+        "kvkk_request", "tr", subject="Kişisel veri (silme) talebiniz reddedildi", body="Yasal saklama süresi dolmadı."
+    )
     assert "Kişisel veri (silme) talebiniz reddedildi</h1>" in kv.html  # variant-dependent heading: the subject
 
 

@@ -26,7 +26,12 @@ async def _smtp(idp, monkeypatch) -> None:  # type: ignore[no-untyped-def]  # no
     FakeSMTP.sent, FakeSMTP.fail = [], False
     r = await idp.client.put(
         "/api/v1/mail/settings",
-        json={"host": "smtp.uni.edu.tr", "username": "bildirim", "password": "smtp-gizli", "from_address": "bildirim@uni.edu.tr"},
+        json={
+            "host": "smtp.uni.edu.tr",
+            "username": "bildirim",
+            "password": "smtp-gizli",
+            "from_address": "bildirim@uni.edu.tr",
+        },
         headers=idp.admin,
     )
     assert r.status_code == 200, r.text
@@ -37,8 +42,13 @@ async def test_invite_email_is_themed_and_the_outbox_never_keeps_the_link(idp, m
     await idp.keycloak()
     r = await idp.client.post(
         INV,
-        json={"email": "Gözde.AYRANCIGİL@uni.edu.tr", "full_name": "Gözde Ayrancıgil", "provider": "keycloak",
-              "send_email": True, "locale": "tr"},
+        json={
+            "email": "Gözde.AYRANCIGİL@uni.edu.tr",
+            "full_name": "Gözde Ayrancıgil",
+            "provider": "keycloak",
+            "send_email": True,
+            "locale": "tr",
+        },
         headers=idp.admin,
     )
     assert r.status_code == 201, r.text
@@ -50,7 +60,7 @@ async def test_invite_email_is_themed_and_the_outbox_never_keeps_the_link(idp, m
     assert msg["To"] == "gözde.ayrancigil@uni.edu.tr"
     html = msg.get_body(preferencelist=("html",)).get_content()
     plain = msg.get_body(preferencelist=("plain",)).get_content()
-    assert token in html and "Keycloak" in html and "Gözde Ayrancıgil" in plain
+    assert token in html and "Keycloak" in html and token in plain and "Administrator" in plain
     (row,) = await _all(NotificationOutbox, NotificationOutbox.kind == "invitation")
     assert row.status == "SENT" and token not in row.body
     # resend: the same link again
@@ -81,7 +91,9 @@ async def test_local_password_invite_sets_a_password_and_signs_in(idp) -> None: 
     assert short.status_code == 422
     ok = await idp.client.post(f"/api/v1/auth/sso/invites/{token}/password", json={"password": "Güçlü-parola-2026"})
     assert ok.status_code == 200, ok.text
-    r = await idp.client.post("/api/v1/auth/login", json={"email": "misafir.hoca@uni.edu.tr", "password": "Güçlü-parola-2026"})
+    r = await idp.client.post(
+        "/api/v1/auth/login", json={"email": "misafir.hoca@uni.edu.tr", "password": "Güçlü-parola-2026"}
+    )
     assert r.status_code == 200, r.text
     again = await idp.client.post(f"/api/v1/auth/sso/invites/{token}/password", json={"password": "Başka-parola-1"})
     assert again.status_code == 404  # one time
@@ -110,14 +122,13 @@ async def test_bulk_invite_from_a_turkish_excel_csv(idp) -> None:  # noqa: F811
         "AYŞE.KAYA@UNİ.EDU.TR;Ayşe\xa0Kaya;Öğretmen;keycloak\n"
         "mehmet.oz@uni.edu.tr;Mehmet Öz;;\n"
         "bozuk-adres;Bozuk;;\n"
-        "ayse.kaya@uni.edu.tr;Tekrar;;\n"
+        "ayşe.kaya@uni.edu.tr;Tekrar;;\n"
         "rol.yok@uni.edu.tr;Rol Yok;Rektör;\n"
         "\n"
     )
     r = await idp.client.post(f"{INV}/bulk", json={"csv": csv, "provider": "local"}, headers=idp.admin)
     assert r.status_code == 200, r.text
     out = r.json()
-    print("BULK", out["errors"])
     created = {c["email"]: c for c in out["created"]}
     assert set(created) == {"ayşe.kaya@uni.edu.tr", "mehmet.oz@uni.edu.tr"}
     assert created["ayşe.kaya@uni.edu.tr"]["provider"] == "keycloak"  # the row's column wins

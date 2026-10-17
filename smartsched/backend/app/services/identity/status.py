@@ -46,7 +46,7 @@ async def integration_status(session: AsyncSession) -> list[dict[str, Any]]:
                     "method": "PUT",
                     "path": f"/auth/sso/admin/providers/{row.id}",
                     "field": "enabled",
-                    "enable_in_setup": not (p["configured"] and p["last_check_ok"]),
+                    "enable_in_setup": not (p["configured"] and p["test_ok"]),
                 },
                 "ref": {"provider_id": row.id, "kind": row.kind},
             }

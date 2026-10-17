@@ -102,7 +102,9 @@ async def put_settings(body: MailSettingsIn, db: DB, _: MailAdmin) -> dict[str, 
     if data.get("provider") and mail_presets.get(data["provider"]) is None:
         raise _err(422, "unknown_preset", "unknown provider preset", "bilinmeyen sağlayıcı ön ayarı")
     if data.get("host") and not _HOST.match(data["host"]):
-        raise _err(422, "bad_host", "the host must be a server name or IP", "sunucu adı bir ana bilgisayar adı ya da IP olmalı")
+        raise _err(
+            422, "bad_host", "the host must be a server name or IP", "sunucu adı bir ana bilgisayar adı ya da IP olmalı"
+        )
     for key in ("from_address", "reply_to"):
         if data.get(key):
             try:
@@ -114,7 +116,12 @@ async def put_settings(body: MailSettingsIn, db: DB, _: MailAdmin) -> dict[str, 
         elif key in data:
             data[key] = ""
     if data.get("dkim_selector") and not _SELECTOR.match(data["dkim_selector"]):
-        raise _err(422, "bad_selector", "a DKIM selector is letters, digits, '.', '-', '_'", "DKIM seçici harf, rakam, '.', '-', '_' içerir")
+        raise _err(
+            422,
+            "bad_selector",
+            "a DKIM selector is letters, digits, '.', '-', '_'",
+            "DKIM seçici harf, rakam, '.', '-', '_' içerir",
+        )
     stored = await get_group(db, "smtp", reveal=True)
     merged = {**stored, **data}
     if (
@@ -128,8 +135,14 @@ async def put_settings(body: MailSettingsIn, db: DB, _: MailAdmin) -> dict[str, 
             "credentials are never sent over an unencrypted connection: choose STARTTLS or SSL/TLS",
             "Parola şifrelenmemiş bağlantıyla gönderilmez: güvenlik için STARTTLS ya da SSL/TLS seçin.",
         )
-    if str(merged.get("auth_mode")) == "xoauth2" and data.get("auth_mode") == "xoauth2" and not merged.get("oauth_provider"):
-        raise _err(422, "oauth_provider", "choose Google or Microsoft for OAuth2", "OAuth2 için Google ya da Microsoft seçin")
+    if (
+        str(merged.get("auth_mode")) == "xoauth2"
+        and data.get("auth_mode") == "xoauth2"
+        and not merged.get("oauth_provider")
+    ):
+        raise _err(
+            422, "oauth_provider", "choose Google or Microsoft for OAuth2", "OAuth2 için Google ya da Microsoft seçin"
+        )
     await set_group(db, "smtp", data)
     await db.commit()
     return await _settings_out(db)
@@ -178,7 +191,12 @@ async def dns_check(body: DnsIn, db: DB, _: MailAdmin) -> dict[str, Any]:
     smtp = await get_group(db, "smtp")
     domain = _clean(body.domain) or str(smtp.get("from_address") or "")
     if not domain:
-        raise _err(422, "no_domain", "save a from-address or enter a domain", "bir gönderen adresi kaydedin ya da alan adı girin")
+        raise _err(
+            422,
+            "no_domain",
+            "save a from-address or enter a domain",
+            "bir gönderen adresi kaydedin ya da alan adı girin",
+        )
     selector = _clean(body.selector) or str(smtp.get("dkim_selector") or "") or None
     if selector and not _SELECTOR.match(selector):
         raise _err(422, "bad_selector", "bad DKIM selector", "geçersiz DKIM seçici")
@@ -203,7 +221,10 @@ def _kind(kind: str) -> emails.KindSpec:
 async def _overrides_of(db: Any, spec: emails.KindSpec) -> dict[str, dict[str, str | None]]:
     keys = {spec.keys["subject"]: "subject", spec.keys["intro"]: "intro"}
     q = select(Translation).where(Translation.set == "email", Translation.key.in_(list(keys)))
-    out: dict[str, dict[str, str | None]] = {"tr": {"subject": None, "intro": None}, "en": {"subject": None, "intro": None}}
+    out: dict[str, dict[str, str | None]] = {
+        "tr": {"subject": None, "intro": None},
+        "en": {"subject": None, "intro": None},
+    }
     for t in (await db.execute(q)).scalars():
         if t.language in out:
             out[t.language][keys[t.key]] = t.text
@@ -282,7 +303,14 @@ async def preview(kind: str, body: DraftIn, db: DB, _: MailAdmin) -> dict[str, A
     if b.org_name:
         ctx["org"] = b.org_name
     r = emails.render(kind, body.locale, strings=strings, brand=b, **ctx)
-    return {"kind": kind, "locale": body.locale, "subject": r.subject, "html": r.html, "text": r.text, "preheader": r.preheader}
+    return {
+        "kind": kind,
+        "locale": body.locale,
+        "subject": r.subject,
+        "html": r.html,
+        "text": r.text,
+        "preheader": r.preheader,
+    }
 
 
 @router.put("/templates/{kind}")

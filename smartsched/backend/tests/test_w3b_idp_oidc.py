@@ -326,7 +326,10 @@ async def test_login_buttons_follow_the_admin_order(idp) -> None:  # noqa: F811
     r = await idp.client.put(f"{ADMIN}/order", json={"ids": [g["id"], kc["id"]]}, headers=idp.admin)
     assert r.status_code == 200, r.text
     auth = (await idp.client.get("/api/v1/org/public")).json()["auth"]
-    assert [(p["name"], p["label"]) for p in auth["providers"]] == [("google", "Google Workspace"), ("keycloak", "Kurum girişi")]
+    assert [(p["name"], p["label"]) for p in auth["providers"]] == [
+        ("google", "Google Workspace"),
+        ("keycloak", "Kurum girişi"),
+    ]
     assert auth["microsoft"]["enabled"] is False and auth["local_enabled"] is True
     out = (await idp.client.get("/api/v1/auth/sso/providers")).json()
     assert [p["name"] for p in out["providers"]][1:] == ["google", "keycloak"]

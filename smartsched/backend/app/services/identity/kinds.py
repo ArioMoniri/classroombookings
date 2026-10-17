@@ -314,7 +314,8 @@ def presets_for(kind: str) -> dict[str, dict[str, Any]]:
 
 def steps_for(kind: str, preset: str | None) -> dict[str, list[str]]:
     if kind == OIDC:
-        return OIDC_PRESETS.get(preset or "generic", OIDC_PRESETS["generic"])["steps"]
+        steps: dict[str, list[str]] = OIDC_PRESETS.get(preset or "generic", OIDC_PRESETS["generic"])["steps"]
+        return steps
     return STEPS.get(kind, {"tr": [], "en": []})
 
 

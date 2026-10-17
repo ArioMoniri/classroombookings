@@ -152,7 +152,9 @@ def domain_of(address: str) -> str:
     return dom.replace("İ", "i").lower()
 
 
-def _r(check: str, status: str, record: str | None, tr: str, en: str, fix_tr: str = "", fix_en: str = "") -> dict[str, Any]:
+def _r(
+    check: str, status: str, record: str | None, tr: str, en: str, fix_tr: str = "", fix_en: str = ""
+) -> dict[str, Any]:
     return {
         "check": check,
         "status": status,
@@ -258,7 +260,9 @@ async def check_dkim(resolver: Resolver, domain: str, selectors: Iterable[str]) 
                     "Sağlayıcı panelinden yeni anahtarı DNS'e girin.",
                     "Enter the new key from your provider's console in DNS.",
                 )
-            return _r("dkim", "ok", rec[:300], f"DKIM anahtarı bulundu (seçici: {sel}).", f"DKIM key found (selector: {sel}).")
+            return _r(
+                "dkim", "ok", rec[:300], f"DKIM anahtarı bulundu (seçici: {sel}).", f"DKIM key found (selector: {sel})."
+            )
     if failures == len(sels):
         return _r("dkim", "unknown", None, "DKIM kaydı okunamadı.", "Could not read the DKIM record.")
     return _r(
@@ -276,7 +280,9 @@ async def check_dmarc(resolver: Resolver, domain: str) -> dict[str, Any]:
     try:
         txt = await resolver.txt(f"_dmarc.{domain}")
     except DnsError as exc:
-        return _r("dmarc", "unknown", None, f"DMARC kaydı okunamadı ({exc}).", f"Could not read the DMARC record ({exc}).")
+        return _r(
+            "dmarc", "unknown", None, f"DMARC kaydı okunamadı ({exc}).", f"Could not read the DMARC record ({exc})."
+        )
     rec = next((t for t in txt if t.replace(" ", "").lower().startswith("v=dmarc1")), None)
     if rec is None:
         return _r(

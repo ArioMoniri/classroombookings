@@ -48,7 +48,9 @@ def _keypair(cn: str = "idp.uni.edu.tr") -> tuple[bytes, bytes]:
         .not_valid_after(now + timedelta(days=365))
         .sign(key, hashes.SHA256())
     )
-    pem_key = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+    pem_key = key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+    )
     return pem_key, cert.public_bytes(serialization.Encoding.PEM)
 
 

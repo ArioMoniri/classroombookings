@@ -64,8 +64,18 @@ async def _configure(c, h, **extra):  # type: ignore[no-untyped-def]
 
 def test_presets_fill_host_port_tls_and_console_steps() -> None:
     by = {p["id"]: p for p in mail_presets.presets_out()}
-    assert {"google_app_password", "google_oauth2", "microsoft365_oauth2", "amazon_ses", "sendgrid", "mailgun",
-            "postmark", "brevo", "yandex", "custom"} <= set(by)
+    assert {
+        "google_app_password",
+        "google_oauth2",
+        "microsoft365_oauth2",
+        "amazon_ses",
+        "sendgrid",
+        "mailgun",
+        "postmark",
+        "brevo",
+        "yandex",
+        "custom",
+    } <= set(by)
     assert (by["google_app_password"]["host"], by["google_app_password"]["port"]) == ("smtp.gmail.com", 587)
     ms = by["microsoft365_oauth2"]
     assert ms["auth_mode"] == "xoauth2" and ms["oauth_provider"] == "microsoft" and ms["security"] == "starttls"
@@ -231,7 +241,10 @@ async def test_template_overrides_preview_and_test_send(client, sink) -> None:  
     await _configure(client, h)
     lst = (await client.get("/api/v1/mail/templates", headers=h)).json()
     rej = next(t for t in lst if t["kind"] == "approval_rejected")
-    assert rej["shipped"]["tr"]["subject"].startswith("Oda talebiniz reddedildi") and rej["overrides"]["tr"]["subject"] is None
+    assert (
+        rej["shipped"]["tr"]["subject"].startswith("Oda talebiniz reddedildi")
+        and rej["overrides"]["tr"]["subject"] is None
+    )
     assert "reason" in rej["placeholders"]
     # preview with an unsaved draft
     p = await client.post(
@@ -253,7 +266,11 @@ async def test_template_overrides_preview_and_test_send(client, sink) -> None:  
     tr = (await client.get("/api/v1/org/translations", params={"language": "tr"}, headers=h)).json()
     assert any(t["key"] == "approval_rejected.subject" and t["set"] == "email" for t in tr)
     # test send of the template with sample data
-    t = (await client.post("/api/v1/mail/templates/approval_rejected/test", json={"locale": "en", "to": "hoca@uni.edu.tr"}, headers=h)).json()
+    t = (
+        await client.post(
+            "/api/v1/mail/templates/approval_rejected/test", json={"locale": "en", "to": "hoca@uni.edu.tr"}, headers=h
+        )
+    ).json()
     assert t["ok"] is True
     got = sink.messages[-1].message
     assert str(got["Subject"]).startswith("[Deneme / Test] Your room request was declined")
