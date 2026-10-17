@@ -49,6 +49,15 @@ the locked-class self-move (recommend: keep as re-deciding the lock), T-R1-25 pe
 4. Round 2 re-test (three persona testers → suggester → builders) until no blocker/major.
 5. Stabilisation, universal sync, deploy via `infra/aws/POD_ACTION`, README media, BLUF.
 
+## Access (production pod)
+
+- Panel: `https://98-86-98-164.sslip.io` (Elastic IP 98.86.98.164, us-east-1, instance `i-0c04b735e03446110`); pod CI at `/ci/`.
+- Admin account: `umutk@getvivax.com`; the password is in AWS SSM Parameter Store `/smartsched/admin_password`
+  (SecureString; read it with `aws ssm get-parameter --name /smartsched/admin_password --with-decryption` or AWS
+  CloudShell). It is never written to the repository.
+- Start/stop: push `infra/aws/POD_ACTION` with `start` / `status` / `stop` (OIDC role, docs/deploy/AWS.md); the pod
+  deploys `claude/gracious-cerf-w1598m` (institution data) and builds `claude/smartsched-universal` (empty profile).
+
 ## Environment notes for the resuming session
 
 - The AWS keys injected into the focused-wright container were temporary and expired at 22:48 UTC on
@@ -73,6 +82,7 @@ Round-2 sweeper (after lanes C and E finish): `ui/date-field.tsx` calendar butto
 
 ## Progress log (newest first)
 
+- 2026-10-17 18:59 UTC — **owner request (wave 3)**: multi-provider AI chosen and synced by admins, per-user token metering with thresholds, alerts and hard limits, guardrails against prompt injection and out-of-scope use, platform security + PostgreSQL row-level security, an ops panel with Grafana/Prometheus/Loki and error tracking, admin-controlled slot display, a simple quick-reservation flow, plus designer, UX, researcher, docs/README/media agents and clean branches (universal = empty profile, gracious = the institution's xlsx data). Launched lanes W3-AI (:19510), W3-SEC (:19520, migration 0035), W3-OPS (:19530, migration 0036), W3-SLOT (:19540), W3-DES (docs/design/v3), W3-RES (docs/research); migration chain fixed 0033 → 0034_ai_usage → 0035_rls_policies → 0036_error_events. Round-3 testers resumed after the model limit (snapshot 8db884fd). The live pod does not answer (likely idle-stopped); the container's AWS keys expired, so it is started through infra/aws/POD_ACTION once the work is merged into the deploy branch.
 - 2026-10-17 09:54 UTC — `test_generate_from_draft_with_stub_and_cpsat` fixed at the root (pre-existing since the round-1 integrity work, confirmed by lane S on deb38315 and 34bab840): a draft pin that moves a planning-list lock is the planner's own decision, now recorded in stats.carried_locks as STUDIO_PIN so the planner check lists it as an accepted exception (cause manual) instead of a broken locked_room rule; hard 100 again. Backend gate is green on this head apart from the full-suite re-run still to do at stabilisation.
 - 2026-10-17 09:49 UTC — backend gate on 528e095d: lint clean, 1662 passed / 3 failed; mypy one no-any-return (fixed). Two failures were test drift behind lane B's coded cancel reasons (`replaced_by_series:<id>`, `past`) and are fixed; `test_studio_generate::test_generate_from_draft_with_stub_and_cpsat` now ends at hard 99 instead of 100 after the round-2 solver changes → lane S is root-causing it. Round-3 testers running.
 - 2026-10-17 09:09 UTC — **round 3 (re-test) started** on snapshot `8db884fd`: staff (:19410/11), academician (:19420/21), admin (:19430/31, fresh :19432/33) re-run the round-3 list, every R2 finding they authored and the remaining R1 ids; reports → rounds/round-3-<persona>.md/.jsonl with a release verdict per persona. Backend fast gate running on 528e095d.

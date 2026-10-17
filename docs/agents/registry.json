@@ -2450,6 +2450,78 @@
       "ledger": "Round-3 re-test: academician",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "ab3505a8e2af92845",
+      "description": "W3-SLOT: slot display + quick reserve",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 18:58",
+      "scope": "",
+      "goal": "You are lane **W3-SLOT** of SmartSched wave 3 (ledger `wave3-slot-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3.md and COMMON.md (same folder) and follow them. The owner asked: \"slot size decision of how it is shown is cont…",
+      "ledger": "W3-SLOT: slot display + quick reserve",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "abadefef6ea993f6e",
+      "description": "W3-SEC: security hardening + RLS",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 18:58",
+      "scope": "",
+      "goal": "You are lane **W3-SEC** of SmartSched wave 3 (ledger `wave3-sec-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3.md and COMMON.md (same folder) and follow them. The owner asked: \"all platform should have the needed security me…",
+      "ledger": "W3-SEC: security hardening + RLS",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a7bbfb1dcc86e5464",
+      "description": "W3-OPS: observability + error tracking",
+      "subagent_type": "devops-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 18:58",
+      "scope": "",
+      "goal": "You are lane **W3-OPS** of SmartSched wave 3 (ledger `wave3-ops-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3.md and COMMON.md (same folder) and follow them. The owner asked: \"admin panel having operational details like Gra…",
+      "ledger": "W3-OPS: observability + error tracking",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "acba49a0cfa818b0d",
+      "description": "W3-AI: provider gateway, usage, guardrails",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 18:58",
+      "scope": "",
+      "goal": "You are lane **W3-AI** of SmartSched wave 3 (ledger `wave3-ai-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3.md and COMMON.md (same folder) and follow them. Load the `claude-api` skill before touching the Anthropic code. Rea…",
+      "ledger": "W3-AI: provider gateway, usage, guardrails",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a911c24913c40fd56",
+      "description": "W3-RES: 2026 research + feature analysis",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 18:58",
+      "scope": "",
+      "goal": "You are lane **W3-RES** (researcher, feature analyzer, enhancer) of SmartSched wave 3 (ledger `wave3-res-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3.md and COMMON.md rule 1 (never commit; write only your own files). Repo …",
+      "ledger": "W3-RES: 2026 research + feature analysis",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a3071e67f61360412",
+      "description": "W3-DES: designer + UX specs",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-17 18:58",
+      "scope": "",
+      "goal": "You are lane **W3-DES** (designer + UX) of SmartSched wave 3 (ledger `wave3-des-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3.md (lanes and owner's words) and the existing design system: docs/design/tokens.md, docs/design/v…",
+      "ledger": "W3-DES: designer + UX specs",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
