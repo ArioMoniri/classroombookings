@@ -530,6 +530,10 @@ async def purge_expired(session: AsyncSession, now: datetime | None = None) -> d
             p.data_class,
             after={"retain_days": p.retain_days, "action": p.action, "counts": counts},
         )
+    # AS-05: the aggregate find-room / booking demand ledger keeps demand.retention_days (default 400)
+    from app.services import demand
+
+    out["demand"] = await demand.purge(session, now)
     await session.flush()
     return out
 

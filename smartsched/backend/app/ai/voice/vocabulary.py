@@ -8,10 +8,9 @@ stays in the transcript and is handled on send like typed text.
 
 from __future__ import annotations
 
+from app.models import Building, Course, Room
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models import Building, Course, Room
 
 LIMIT = 80
 
@@ -25,10 +24,7 @@ async def catalog_terms(session: AsyncSession, *, limit: int = LIMIT) -> list[st
     buildings = (await session.execute(select(Building.name).order_by(Building.code).limit(10))).scalars()
     courses = (
         await session.execute(
-            select(Course.display_code)
-            .where(Course.archived.is_(False))
-            .order_by(Course.code)
-            .limit(limit // 2)
+            select(Course.display_code).where(Course.archived.is_(False)).order_by(Course.code).limit(limit // 2)
         )
     ).scalars()
     out: list[str] = []

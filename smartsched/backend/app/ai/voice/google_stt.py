@@ -17,7 +17,6 @@ from collections.abc import Sequence
 from typing import Any
 
 import httpx
-
 from app.ai.providers.base import ModelInfo, ProviderError
 from app.ai.voice.speech import HttpSpeechAdapter, Transcript, clean_terms, locale
 

@@ -76,7 +76,9 @@ async def test_google_chirp3_eu_location():
 
 async def test_google_stt_refuses_a_location_that_is_not_a_region_name():
     with pytest.raises(ProviderError):
-        make_speech_adapter("google_stt", secrets={"api_key": KEY}, config={"project_id": "p", "region": "eu.evil.com/x"})
+        make_speech_adapter(
+            "google_stt", secrets={"api_key": KEY}, config={"project_id": "p", "region": "eu.evil.com/x"}
+        )
     with pytest.raises(ProviderError):
         make_speech_adapter("google_stt", secrets={"api_key": KEY}, config={"region": "eu"})  # no project
 

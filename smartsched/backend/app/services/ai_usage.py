@@ -12,6 +12,10 @@
   user's limits to the alert recipients (in-app bell + e-mail through :mod:`app.services.notify_dispatch`, at most once
   per period and threshold). The user sees a banner from ``GET /ai/me/usage``.
 * Reports: by user / feature / model / provider / day, period totals, recent refusals.
+* Voice (VO-02): a speech-to-text call is a row with ``modality=audio_in`` and ``audio_ms``. :func:`reserve_audio`
+  checks the org cost budget, the org's monthly audio seconds and the person's daily / monthly audio seconds
+  (``user_daily_audio_s`` 600, ``user_monthly_audio_s`` 6000 by default; ``roles`` / ``users`` overrides with
+  ``audio_daily`` / ``audio_monthly``); the reports carry ``audio_minutes``.
 * Row-level security (docs/SECURITY.md §4, R12): ``ai_usage`` rows are owner-scoped for a teacher on PostgreSQL. The
   org-wide aggregates (the budget check in :func:`reserve`, the budget ratio of :func:`org_state`, the admin reports
   and refusals) are deliberate cross-user reads and run inside ``rls.system_scope``; a per-user total stays scoped.
@@ -247,6 +251,7 @@ class Reservation:
     user_id: int | None
     tokens: int
     cost: float
+    audio_ms: int = 0
 
 
 _RESERVED: dict[int, Reservation] = {}
@@ -256,6 +261,10 @@ _NEXT = [0]
 def _reserved(user_id: int | None = None) -> tuple[int, float]:
     items = [r for r in _RESERVED.values() if user_id is None or r.user_id == user_id]
     return sum(r.tokens for r in items), sum(r.cost for r in items)
+
+
+def _reserved_audio_ms(user_id: int | None = None) -> int:
+    return sum(r.audio_ms for r in _RESERVED.values() if user_id is None or r.user_id == user_id)
 
 
 def settle(reservation: Reservation | None) -> None:
@@ -284,20 +293,23 @@ async def totals(session: AsyncSession, *, user_id: int | None = None, now: date
     out: dict[str, Any] = {}
     for name, (start, end) in b.items():
         q = select(
-            func.coalesce(func.sum(_TOKENS), 0), func.coalesce(func.sum(AIUsage.cost_usd), 0.0), func.count(AIUsage.id)
+            func.coalesce(func.sum(_TOKENS), 0),
+            func.coalesce(func.sum(AIUsage.cost_usd), 0.0),
+            func.count(AIUsage.id),
+            func.coalesce(func.sum(AIUsage.audio_ms), 0),
         ).where(AIUsage.created_at >= start, AIUsage.created_at < end)
         if user_id is not None:
             q = q.where(AIUsage.user_id == user_id)
         try:
             if user_id is None:  # the org's total: everyone's rows, also inside a teacher's request (RLS)
                 async with rls.system_scope(session):
-                    tokens, cost, calls = (await session.execute(q)).one()
+                    tokens, cost, calls, audio_ms = (await session.execute(q)).one()
             else:
-                tokens, cost, calls = (await session.execute(q)).one()
+                tokens, cost, calls, audio_ms = (await session.execute(q)).one()
         except (OperationalError, ProgrammingError):  # an old schema without ai_usage: count nothing, never block
             log.warning("ai_usage table missing; run the migrations (alembic upgrade head)")
             await session.rollback()
-            tokens, cost, calls = 0, 0.0, 0
+            tokens, cost, calls, audio_ms = 0, 0.0, 0, 0
         for r in _OUTBOX:
             if start <= r["created_at"] < end and (user_id is None or r.get("user_id") == user_id):
                 tokens += sum(
@@ -305,9 +317,11 @@ async def totals(session: AsyncSession, *, user_id: int | None = None, now: date
                     for k in ("input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens")
                 )
                 cost += float(r.get("cost_usd") or 0)
+                audio_ms += int(r.get("audio_ms") or 0)
         out[f"{name}_tokens"] = int(tokens)
         out[f"{name}_cost_usd"] = round(float(cost), 6)
         out[f"{name}_calls"] = int(calls)
+        out[f"{name}_audio_ms"] = int(audio_ms)
     return out
 
 
@@ -325,6 +339,21 @@ def user_limits(limits: dict[str, Any], user: User | None) -> dict[str, int]:
             daily = int(own.get("daily", daily) or 0)
             monthly = int(own.get("monthly", monthly) or 0)
     return {"daily": daily, "monthly": monthly}
+
+
+def user_audio_limits(limits: dict[str, Any], user: User | None) -> dict[str, int]:
+    """Daily / monthly audio seconds of ``user``: the per-user override, else the role's, else the default
+    (0 = no limit)."""
+    daily = int(limits.get("user_daily_audio_s") or 0)
+    monthly = int(limits.get("user_monthly_audio_s") or 0)
+    if user is not None:
+        role = (limits.get("roles") or {}).get(str(user.role or ""))
+        person = (limits.get("users") or {}).get(str(user.id))
+        for own in (role, person):
+            if isinstance(own, dict):
+                daily = int(own.get("audio_daily", daily) or 0)
+                monthly = int(own.get("audio_monthly", monthly) or 0)
+    return {"daily_s": daily, "monthly_s": monthly}
 
 
 def org_budget(limits: dict[str, Any], now: datetime | None = None) -> dict[str, float]:
@@ -363,6 +392,39 @@ async def reserve(
                 raise LimitRefusal("ai_limit_reached", "user_monthly", mine["month_tokens"], lim["monthly"])
     _NEXT[0] += 1
     res = Reservation(_NEXT[0], user_id, int(est_tokens), float(est_cost))
+    _RESERVED[res.id] = res
+    return res
+
+
+async def reserve_audio(
+    session: AsyncSession, *, user_id: int | None, est_audio_s: float, est_cost: float, now: datetime | None = None
+) -> Reservation:
+    """Before a speech-to-text call: the org cost budget (voice counts toward it), the org's monthly audio seconds
+    and the person's daily / monthly audio seconds, with this clip's estimate; raises :class:`LimitRefusal`
+    (``ai_budget_exceeded`` | ``ai_voice_limit_reached``; ``used`` / ``limit`` in seconds for audio)."""
+    limits = await gw.get_limits(session)
+    budget = org_budget(limits, now)
+    org = await totals(session, now=now)
+    _, r_cost = _reserved()
+    est_ms = int(round(est_audio_s * 1000))
+    if budget["cost_usd"] and org["month_cost_usd"] + r_cost + est_cost > budget["cost_usd"]:
+        raise LimitRefusal("ai_budget_exceeded", "org_cost", org["month_cost_usd"], budget["cost_usd"])
+    org_audio = int(limits.get("org_monthly_audio_s") or 0)
+    if org_audio and org["month_audio_ms"] + _reserved_audio_ms() + est_ms > org_audio * 1000:
+        raise LimitRefusal("ai_voice_limit_reached", "org_audio", org["month_audio_ms"] / 1000, org_audio)
+    if user_id is not None:
+        lim = user_audio_limits(limits, await session.get(User, user_id))
+        if lim["daily_s"] or lim["monthly_s"]:
+            mine = await totals(session, user_id=user_id, now=now)
+            held = _reserved_audio_ms(user_id)
+            if lim["daily_s"] and mine["day_audio_ms"] + held + est_ms > lim["daily_s"] * 1000:
+                raise LimitRefusal("ai_voice_limit_reached", "user_daily", mine["day_audio_ms"] / 1000, lim["daily_s"])
+            if lim["monthly_s"] and mine["month_audio_ms"] + held + est_ms > lim["monthly_s"] * 1000:
+                raise LimitRefusal(
+                    "ai_voice_limit_reached", "user_monthly", mine["month_audio_ms"] / 1000, lim["monthly_s"]
+                )
+    _NEXT[0] += 1
+    res = Reservation(_NEXT[0], user_id, 0, float(est_cost), est_ms)
     _RESERVED[res.id] = res
     return res
 
@@ -420,8 +482,13 @@ async def user_state(session: AsyncSession, user: User, now: datetime | None = N
         state = "hard"
     elif org["state"] == "soft" and state in {"ok", "none"}:
         state = "org_soft"
+    audio = user_audio_limits(limits, user)
     return {
         **t,
+        "day_audio_s": round(t["day_audio_ms"] / 1000),
+        "month_audio_s": round(t["month_audio_ms"] / 1000),
+        "audio_daily_limit_s": audio["daily_s"],
+        "audio_monthly_limit_s": audio["monthly_s"],
         "daily_limit": lim["daily"],
         "monthly_limit": lim["monthly"],
         "daily_pct": pd,
@@ -578,6 +645,7 @@ async def report(
             func.coalesce(func.sum(AIUsage.cost_usd), 0.0).label("cost_usd"),
             func.coalesce(func.sum(AIUsage.latency_ms), 0).label("latency_ms_sum"),
             func.coalesce(func.sum(case((AIUsage.outcome != "ok", 1), else_=0)), 0).label("refused"),
+            func.coalesce(func.sum(AIUsage.audio_ms), 0).label("audio_ms"),
         )
         .where(AIUsage.created_at >= s, AIUsage.created_at < e)
         .group_by(key)
@@ -609,6 +677,7 @@ async def report(
             "cost_usd": round(float(r.cost_usd), 6),
             "avg_latency_ms": int(r.latency_ms_sum / r.calls) if r.calls else 0,
             "refused": int(r.refused or 0),
+            "audio_minutes": round(int(r.audio_ms or 0) / 60000, 3),
         }
         if group == "user":
             u = users.get(r.key) if r.key is not None else None
@@ -626,7 +695,12 @@ async def _report_days(session: AsyncSession, start: datetime, end: datetime) ->
         rows = (
             await session.execute(
                 select(
-                    AIUsage.created_at, _TOKENS.label("tokens"), AIUsage.cost_usd, AIUsage.outcome, AIUsage.feature
+                    AIUsage.created_at,
+                    _TOKENS.label("tokens"),
+                    AIUsage.cost_usd,
+                    AIUsage.outcome,
+                    AIUsage.feature,
+                    AIUsage.audio_ms,
                 ).where(AIUsage.created_at >= start, AIUsage.created_at < end)
             )
         ).all()
@@ -640,12 +714,17 @@ async def _report_days(session: AsyncSession, start: datetime, end: datetime) ->
             "tokens": 0,
             "cost_usd": 0.0,
             "refused": 0,
+            "audio_minutes": 0.0,
             "features": {},
         }
         d += timedelta(days=1)
-    for created, tokens, cost, outcome, feature in rows:
+    for created, tokens, cost, outcome, feature, audio_ms in rows:
         k = _local(created.replace(tzinfo=UTC)).date().isoformat()
-        item = days.setdefault(k, {"key": k, "calls": 0, "tokens": 0, "cost_usd": 0.0, "refused": 0, "features": {}})
+        item = days.setdefault(
+            k,
+            {"key": k, "calls": 0, "tokens": 0, "cost_usd": 0.0, "refused": 0, "audio_minutes": 0.0, "features": {}},
+        )
+        item["audio_minutes"] = round(item["audio_minutes"] + int(audio_ms or 0) / 60000, 3)
         item["features"][feature] = item["features"].get(feature, 0) + int(tokens or 0)
         item["calls"] += 1
         item["tokens"] += int(tokens or 0)
@@ -701,9 +780,11 @@ __all__ = [
     "refusals",
     "report",
     "reserve",
+    "reserve_audio",
     "reset_state",
     "settle",
     "totals",
+    "user_audio_limits",
     "user_limits",
     "user_state",
 ]

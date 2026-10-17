@@ -160,7 +160,9 @@ async def test_reports_and_my_usage_have_audio_minutes(client, monkeypatch):
     assert sum(d["audio_minutes"] for d in days) == pytest.approx(1.5)
     by_user = (await client.get("/api/v1/ai/admin/usage?group=user", headers=h)).json()["rows"]
     assert by_user[0]["audio_minutes"] == pytest.approx(1.5)
-    by_feature = {r["key"]: r for r in (await client.get("/api/v1/ai/admin/usage?group=feature", headers=h)).json()["rows"]}
+    by_feature = {
+        r["key"]: r for r in (await client.get("/api/v1/ai/admin/usage?group=feature", headers=h)).json()["rows"]
+    }
     assert by_feature["voice_stt"]["audio_minutes"] == pytest.approx(1.5)
     me = (await client.get("/api/v1/ai/me/usage", headers=h)).json()
     assert me["day_audio_s"] == 90 and me["month_audio_s"] == 90

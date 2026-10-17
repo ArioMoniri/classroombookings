@@ -204,7 +204,9 @@ def _label(group: str, key: tuple[Any, ...]) -> dict[str, str]:
     if group == "weekday":
         return _t(_DAY_TR.get(key[0], str(key[0])), _DAY_EN.get(key[0], str(key[0])))
     if group == "building":
-        return _t("Bina seçilmedi", "No building filter") if key[0] == "*" else _t(f"{key[0]} blok", f"Building {key[0]}")
+        return (
+            _t("Bina seçilmedi", "No building filter") if key[0] == "*" else _t(f"{key[0]} blok", f"Building {key[0]}")
+        )
     if group == "headcount_band":
         return _t(f"{key[0]} kişi", f"{key[0]} people")
     return _t(str(key[0]), str(key[0]))

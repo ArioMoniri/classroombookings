@@ -306,24 +306,27 @@ async def _describe_change(session: AsyncSession, lang: str, items: Sequence[dom
     parts: list[str] = []
     for field in ("room_id", "date", "period_id", "notes", "department_id", "user_id"):
         pair = next(
-            ((b or {}).get(field), (a or {}).get(field))
-            for _id, b, a in items
-            if (b or {}).get(field) != (a or {}).get(field)
-        ) if any((b or {}).get(field) != (a or {}).get(field) for _id, b, a in items) else None
+            (
+                ((b or {}).get(field), (a or {}).get(field))
+                for _id, b, a in items
+                if (b or {}).get(field) != (a or {}).get(field)
+            ),
+            None,
+        )
         if pair is None:
             continue
         old, new = pair
         if field == "notes":
-            parts.append(words["notes"].format(new=bookings_i18n_clean(new)) if new else words["notes_removed"])
+            parts.append(words["notes"].format(new=_one_line(new)) if new else words["notes_removed"])
         elif field == "room_id":
-            ro, rn = await session.get(Room, old) if old else None, await session.get(Room, new) if new else None
-            parts.append(
-                words[field].format(old=ro.display_name if ro else "-", new=rn.display_name if rn else "-")
-            )
+            ro = await session.get(Room, old) if old else None
+            rn = await session.get(Room, new) if new else None
+            parts.append(words[field].format(old=ro.display_name if ro else "-", new=rn.display_name if rn else "-"))
         elif field == "date":
             parts.append(words[field].format(old=_dmy(old), new=_dmy(new)))
         elif field == "period_id":
-            po, pn = await session.get(BookingPeriod, old) if old else None, await session.get(BookingPeriod, new)
+            po = await session.get(BookingPeriod, old) if old else None
+            pn = await session.get(BookingPeriod, new) if new else None
             new_label = f"{pn.name} ({fmt.time(pn.time_start)}-{fmt.time(pn.time_end)})" if pn else "-"
             parts.append(words[field].format(old=po.name if po else "-", new=new_label))
         elif field == "user_id":
@@ -334,7 +337,7 @@ async def _describe_change(session: AsyncSession, lang: str, items: Sequence[dom
     return "; ".join(parts)
 
 
-def bookings_i18n_clean(value: Any) -> str:
+def _one_line(value: Any) -> str:
     from app.emails import clean
 
     return " ".join(clean(value).split())

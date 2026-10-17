@@ -15,7 +15,6 @@ from collections.abc import Sequence
 from typing import Any
 
 import httpx
-
 from app.ai.providers.base import ModelInfo, ProviderError
 from app.ai.providers.openai_compat import DEFAULT_BASE_URLS
 from app.ai.voice.speech import EXTENSIONS, HttpSpeechAdapter, Transcript, clean_terms

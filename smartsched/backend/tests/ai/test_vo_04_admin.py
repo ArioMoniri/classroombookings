@@ -112,8 +112,15 @@ async def test_speech_only_provider_sync_and_test(client):
     h = await login(client)
     r = await client.put(
         "/api/v1/ai/admin/providers/deepgram",
-        json={"api_key": KEY, "transfer": {"region": "eu", "kvkk_mechanism": "standard_contract",
-                                            "processes_voice": True, "audio_retention": "silinir (sözleşme)"}},
+        json={
+            "api_key": KEY,
+            "transfer": {
+                "region": "eu",
+                "kvkk_mechanism": "standard_contract",
+                "processes_voice": True,
+                "audio_retention": "silinir (sözleşme)",
+            },
+        },
         headers=h,
     )
     assert r.status_code == 200, r.text
@@ -128,7 +135,8 @@ async def test_speech_only_provider_sync_and_test(client):
     assert r.status_code == 200 and r.json()["ok"] is True and r.json()["kind"] == "stt"
     assert seen and seen[0].url.host == "api.eu.deepgram.com"
     r = await client.put(
-        "/api/v1/ai/admin/routes", json={"features": {"voice_stt": {"provider": "deepgram", "model": "nova-3"}}},
+        "/api/v1/ai/admin/routes",
+        json={"features": {"voice_stt": {"provider": "deepgram", "model": "nova-3"}}},
         headers=h,
     )
     assert r.status_code == 200, r.text

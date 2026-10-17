@@ -14,7 +14,6 @@ import json
 from collections.abc import Sequence
 
 import httpx
-
 from app.ai.providers.base import ModelInfo, ProviderError
 from app.ai.voice.speech import EXTENSIONS, HttpSpeechAdapter, Transcript, clean_terms, locale
 

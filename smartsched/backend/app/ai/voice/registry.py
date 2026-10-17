@@ -13,7 +13,6 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-
 from app.ai.providers import PROVIDERS
 from app.ai.providers.base import ProviderError
 from app.ai.voice.speech import SpeechAdapter

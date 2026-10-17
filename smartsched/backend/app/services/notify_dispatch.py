@@ -114,6 +114,17 @@ EVENTS: dict[str, tuple[str, str]] = {
         "Süresi dolacak gizli anahtarlar (yöneticiler)",
         "Expiring client secrets (administrators)",
     ),
+    # RF-11 (2026-10-18): the senders of app.services.mail_senders (kinds booking_reminder, series_created,
+    # series_changed, approval_submitted, calendar_consent, new_device_sign_in)
+    "booking.reminder": ("Rezervasyon hatırlatmaları", "Booking reminders"),
+    "series.created": ("Yinelenen rezervasyonum oluşturuldu", "My recurring booking was created"),
+    "series.changed": (
+        "Yinelenen rezervasyonum (ya da onayladığım bir seri) değişti",
+        "My recurring booking (or a series I approved) changed",
+    ),
+    "approval.submitted": ("Talebim alındı", "My request was received"),
+    "calendar.consent": ("Takvim eşitleme iznim değişti", "My calendar sync consent changed"),
+    "new_device.sign_in": ("Hesabıma yeni bir cihazdan giriş yapıldı", "My account was signed in on a new device"),
 }
 
 

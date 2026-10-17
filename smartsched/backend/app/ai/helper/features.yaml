@@ -287,7 +287,7 @@
 - id: profile.helper_memory
   kind: tab
   route: /profile
-  title: {tr: Yardımcı neleri hatırlıyor?, en: What the helper remembers}
+  title: {tr: "Yardımcı neleri hatırlıyor?", en: What the helper remembers}
   path: {tr: [Profil, Yardımcı], en: [Profile, Helper]}
   synonyms:
     tr: [yardımcı belleği, hatırladıkların, notlarımı sil, hafızayı temizle, unut]
