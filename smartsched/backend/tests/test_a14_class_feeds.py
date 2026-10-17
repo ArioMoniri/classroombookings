@@ -72,8 +72,8 @@ async def _psy262(env):  # type: ignore[no-untyped-def]  # noqa: F811
     return room, sec.program_id, names
 
 
-async def _feed(env, path: str) -> tuple[str, list[icalendar.Event]]:  # type: ignore[no-untyped-def]  # noqa: F811
-    _, teacher = await env.user("akademisyen.takvim@uni.edu.tr")
+async def _feed(env, path: str, **extra) -> tuple[str, list[icalendar.Event]]:  # type: ignore[no-untyped-def]  # noqa: F811
+    _, teacher = await env.user("akademisyen.takvim@uni.edu.tr", **extra)
     await calendar_consent(env.client, teacher)
     tok = (await env.client.post("/api/v1/calendar/feeds/tokens", json={}, headers=teacher)).json()["token"]
     r = await env.client.get(f"/api/v1/calendar/feeds/{tok}/{path}")
@@ -101,7 +101,8 @@ async def test_room_feed_has_the_published_classes(env):  # noqa: F811
 
 async def test_department_feed_has_its_classes_without_instructors(env):  # noqa: F811
     room, program_id, names = await _psy262(env)
-    text, evs = await _feed(env, f"department/{program_id}.ics")
+    # CAL-03: a department feed needs the own department, a taught section's department or calendar.department_feed
+    text, evs = await _feed(env, f"department/{program_id}.ics", department_id=program_id)
     ev = _monday_psy262(evs)
     assert str(ev["LOCATION"]) == room.display_name
     assert not any(nm and nm in text for nm in names)

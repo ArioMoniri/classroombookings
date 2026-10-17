@@ -2798,7 +2798,9 @@
       "goal": "You are lane CAL-F (calendar export frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-firs…",
       "ledger": "CAL-F: calendar export UI",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 22:26",
+      "left_off": "Still waiting for CAL-B's API contract. The UI, unit tests and e2e draft are in place, and the watcher will re-invoke me once API.md exists."
     },
     {
       "id": "a188be943a3fea75a",

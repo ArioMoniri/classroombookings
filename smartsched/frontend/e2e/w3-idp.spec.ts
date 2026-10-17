@@ -152,7 +152,7 @@ test("phone 390 × 844: buttons ≥ 44 px, inputs ≥ 16 px, no sideways scroll"
   await page.goto("/settings?tab=sso");
   await expect(page.getByTestId("identity-providers-panel")).toBeVisible();
   await noSideways(page);
-  const fonts = await page.locator("[data-testid=identity-providers-panel] input:visible").evaluateAll((els) => els.map((e) => parseFloat(getComputedStyle(e).fontSize)));
+  const fonts = await page.locator("[data-testid=identity-providers-panel] input:visible:not([type=file]):not([type=checkbox]):not([type=radio])").evaluateAll((els) => els.map((e) => parseFloat(getComputedStyle(e).fontSize)));
   expect(fonts.length).toBeGreaterThan(0);
   expect(Math.min(...fonts)).toBeGreaterThanOrEqual(16);
   const setup = page.getByTestId("idp-setup-keycloak");

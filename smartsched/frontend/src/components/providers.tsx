@@ -38,7 +38,7 @@ function ApiErrorBridge() {
   return null;
 }
 
-export function Providers({ locale, children }: { locale: Locale; children: ReactNode }) {
+export function Providers({ locale, nonce, children }: { locale: Locale; nonce?: string; children: ReactNode }) {
   const [client] = useState(
     () =>
       new QueryClient({
@@ -49,7 +49,7 @@ export function Providers({ locale, children }: { locale: Locale; children: Reac
   );
   return (
     <QueryClientProvider client={client}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange nonce={nonce}>
         <I18nProvider initialLocale={locale}>
           {/* motion/react follows the OS and the in-app Reduce motion switch (motion.md §2, pattern §0) */}
           <AppearanceMotionConfig>

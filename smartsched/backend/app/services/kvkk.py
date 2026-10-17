@@ -1510,6 +1510,9 @@ async def _person_records(session: AsyncSession, user: User, rooms: dict[int, st
             "account_email": c.account_email,
             "calendar_name": c.calendar_name,
             "scopes": c.scopes,
+            # CAL-06: what SmartSched pushes into that calendar (my_classes, department_classes:<id>, my_bookings)
+            "export_scopes": c.export_scopes or ["my_bookings"],
+            "account_verified": c.account_verified,
             "status": c.status,
             "last_synced_at": c.last_synced_at,
             "created_at": c.created_at,
@@ -1521,6 +1524,10 @@ async def _person_records(session: AsyncSession, user: User, rooms: dict[int, st
             "record": "feed link / takvim bağlantı adresi",
             "hint": f"…{t.hint}" if t.hint else None,
             "label": t.label,
+            # CAL-03: the one scope a link serves (none = a legacy link for every feed) and the consent it rests on
+            "scope_kind": t.scope_kind,
+            "scope_id": t.scope_id,
+            "consent_id": t.consent_id,
             "created_at": t.created_at,
             "last_used_at": t.last_used_at,
         }

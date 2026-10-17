@@ -168,6 +168,7 @@ export function InvitesPanel({ providers }: { providers: Provider[] }) {
             <input
               type="file"
               accept=".csv,text/csv,text/plain"
+              data-testid="inv-bulk-file"
               aria-label={t("identity.invites.bulkFile")}
               className="type-callout"
               onChange={async (e) => {

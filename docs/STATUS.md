@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `ed376a8` (committed 2026-10-17 22:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `555208f` (committed 2026-10-17 22:19 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -164,7 +164,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-254 agents in [`docs/agents/registry.json`](agents/registry.json): running 6 · finished 230 · stopped 11 · superseded 7.
+255 agents in [`docs/agents/registry.json`](agents/registry.json): running 6 · finished 231 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -173,7 +173,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Mobile optimiser B` | frontend-engineer | 2026-10-17 19:56 |
 | `W3-IDP` | backend-engineer | 2026-10-17 19:58 |
 | `CAL-B` | backend-engineer | 2026-10-17 21:54 |
-| `CAL-F` | frontend-engineer | 2026-10-17 21:54 |
+| `Security follow-ups from W3-SEC` | general-purpose | 2026-10-17 22:17 |
 
 <!-- /AUTO:agents -->
 
@@ -240,7 +240,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **328 ticked · 375 open** checkboxes in 90 sections (86 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **333 ticked · 376 open** checkboxes in 91 sections (87 with open items).
 
 <details><summary>Per section</summary>
 
@@ -336,6 +336,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Wave 3 — W3-SLOT (2026-10-17) | 7 | 5 |
 | Wave 3b — W3-HUB (2026-10-17) | 4 | 2 |
 | Calendar export & sync for academicians (owner request 2026-10-17) | 0 | 12 |
+| Wave 3b — W3-IDP identity providers (2026-10-17) | 5 | 1 |
 
 </details>
 

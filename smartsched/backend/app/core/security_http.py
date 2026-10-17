@@ -5,9 +5,10 @@ Rate limits (in-process sliding windows, :class:`app.core.throttle.Throttle`; pe
 
 * per **user** (the ``uid`` of a valid bearer token) for the AI routes, the uploads and the own password change;
 * per **client address** for the unauthenticated sign-in / reset / SSO exchange routes and as a ceiling on the AI
-  and upload routes. Loopback and the Docker bridge range (172.16.0.0/12) are proxy hops, not clients: they are not
-  limited per address (the Next.js route handler is one such hop until it forwards ``X-Forwarded-For``; the
-  per-account limits of ``app.core.ratelimit`` / ``throttle`` still apply behind it).
+  and upload routes. The client address is the TCP peer, or, when the peer is a trusted proxy hop
+  (``FORWARDED_ALLOW_IPS``: loopback and the Docker bridge range 172.16.0.0/12 by default), the rightmost
+  ``X-Forwarded-For`` entry that is not a hop (:func:`client_address`; nginx -> the Next.js route handler -> here).
+  A hop that forwards nothing is not limited per address; the per-account limits still apply behind it.
 
 Over a limit the answer is 429 ``{code: rate_limited, message, message_en, message_tr, retry_after}`` with a
 ``Retry-After`` header. The test environment does not enforce them unless :data:`LIMITS` ``.enforce_in_tests`` is set
@@ -114,11 +115,25 @@ def _default_rules() -> list[Rule]:
 
 LIMITS = Limits(rules=_default_rules())
 
-_PROXY_NETS = (
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("172.16.0.0/12"),
-)
+_NETS_CACHE: dict[str, tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]] = {}
+
+
+def _proxy_nets() -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    """The trusted proxy hops (``FORWARDED_ALLOW_IPS``; default loopback + 172.16.0.0/12, the Docker bridge range)."""
+    raw = get_settings().forwarded_allow_ips
+    nets = _NETS_CACHE.get(raw)
+    if nets is None:
+        parsed = []
+        for part in raw.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                parsed.append(ipaddress.ip_network(part, strict=False))
+            except ValueError:
+                continue  # a malformed entry trusts nothing
+        nets = _NETS_CACHE[raw] = tuple(parsed)
+    return nets
 
 
 def is_proxy_hop(address: str) -> bool:
@@ -126,7 +141,40 @@ def is_proxy_hop(address: str) -> bool:
         ip = ipaddress.ip_address(address)
     except ValueError:
         return True  # "testclient", "?" ...: not a client address
-    return any(ip in net for net in _PROXY_NETS)
+    return any(ip in net for net in _proxy_nets())
+
+
+def _valid_ip(value: str) -> str | None:
+    host = value.strip()
+    if host.startswith("[") and "]" in host:  # [v6]:port
+        host = host[1 : host.index("]")]
+    elif host.count(":") == 1:  # v4:port
+        host = host.split(":", 1)[0]
+    try:
+        return str(ipaddress.ip_address(host))
+    except ValueError:
+        return None
+
+
+def client_address(scope: Scope) -> str:
+    """The client's address: the TCP peer, or, when the peer is a trusted proxy hop (nginx, the Next.js route
+    handler), the rightmost ``X-Forwarded-For`` entry that is not itself a hop. A browser that writes the header
+    is not believed (its peer address is not a hop). F3: without this every browser shared the frontend's address.
+    """
+    client = scope.get("client")
+    peer = str(client[0]) if client else "?"
+    if not is_proxy_hop(peer):
+        return peer
+    values = [v.decode("latin-1") for k, v in scope.get("headers") or () if k == b"x-forwarded-for"]
+    if not values:
+        return peer
+    chain = [h for h in (_valid_ip(p) for p in ",".join(values).split(",")) if h]
+    if not chain:
+        return peer
+    for host in reversed(chain):
+        if not is_proxy_hop(host):
+            return host
+    return chain[0]
 
 
 def _uid(scope: Scope) -> int | None:
@@ -232,10 +280,14 @@ class SecurityMiddleware:
                 ).encode("utf-8"),
             )
             return
+        client = scope.get("client")
+        address = client_address(scope)
+        if client and address != client[0]:
+            # every later reader (the login failure cap in app.core.ratelimit, the audit's client network) sees
+            # the browser, not the proxy hop
+            scope["client"] = (address, client[1] if len(client) > 1 else 0)
         settings = get_settings()
         if settings.environment != "test" or LIMITS.enforce_in_tests:
-            client = scope.get("client")
-            address = client[0] if client else "?"
             hit = check(method, path, address, _uid(scope))
             if hit is not None:
                 rule, retry = hit
@@ -269,4 +321,4 @@ async def _answer(send: Send, status: int, body: bytes, headers: list[tuple[byte
     await send({"type": "http.response.body", "body": body})
 
 
-__all__ = ["LIMITS", "Rule", "SecurityMiddleware", "check", "is_proxy_hop", "max_body_bytes"]
+__all__ = ["LIMITS", "Rule", "SecurityMiddleware", "check", "client_address", "is_proxy_hop", "max_body_bytes"]

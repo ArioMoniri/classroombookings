@@ -591,8 +591,10 @@ async def taught_program_ids(session: AsyncSession, instructor_ids: list[int]) -
 
 
 async def department_rule(session: AsyncSession, access: Any) -> tuple[bool, set[int]]:
-    """``(every department allowed, the allowed ids otherwise)`` for ``access`` (owner decision 2026-10-17)."""
-    if access.can(DEPARTMENT_PERMISSION):
+    """``(every department allowed, the allowed ids otherwise)`` for ``access`` (owner decision 2026-10-17).
+    ``planning.view`` holders (the planning office) read every published timetable on /timetable already, so they
+    pass as well; it exposes nothing new."""
+    if access.can(DEPARTMENT_PERMISSION) or access.can("planning.view"):
         return True, set()
     user: User = access.user
     allowed = await taught_program_ids(session, await linked_instructor_ids(session, user.id))

@@ -34,7 +34,6 @@ export type Reason = (typeof REASONS)[number];
 export const FIELD_KEYS = ["code", "title", "room", "time", "department", "co_instructors", "link", "booking_title"] as const;
 export type FieldKey = (typeof FIELD_KEYS)[number];
 
-const scopeKind = z.enum(SCOPE_KINDS);
 const when = z.string().nullish();
 
 export const SampleEvent = z

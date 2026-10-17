@@ -3,6 +3,7 @@
  * - attaches `Authorization: Bearer <jwt>` from the httpOnly cookie
  * - `auth/login` and `auth/sso/exchange` (the Microsoft sign-in ticket) store the JWT in the cookie and return the
  *   user (plus the exchange's `next` / `welcome` / `inviter_name`), never the token
+ * - forwards the client address from nginx (`x-forwarded-for`, `x-real-ip`; docs/SECURITY.md F3)
  * - redirects pass through (`auth/sso/entra/start` → Microsoft, `…/callback` → the panel), with `Location`
  * There is no mock mode: every request goes to the real backend.
  */
@@ -32,7 +33,11 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<Response> {
   const token = jar.get(AUTH_COOKIE)?.value;
 
   const headers = new Headers();
-  for (const name of ["content-type", "accept", "accept-language"]) {
+  // x-forwarded-for / x-real-ip: the client address nginx wrote ($remote_addr), so the backend's per-address
+  // sign-in caps count the browser and not this container (docs/SECURITY.md F3). The backend believes them only
+  // from a proxy hop (app/core/security_http.py client_address); Next itself sets x-forwarded-for to the socket
+  // peer when nothing in front of it did.
+  for (const name of ["content-type", "accept", "accept-language", "x-forwarded-for", "x-real-ip"]) {
     const v = req.headers.get(name);
     if (v) headers.set(name, v);
   }

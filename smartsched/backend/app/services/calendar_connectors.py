@@ -779,7 +779,8 @@ async def queue_bookings(session: AsyncSession, booking_ids: list[int]) -> int:
         CalendarEventLink.booking_id.in_(ids)
     )
     for bid, cid in (await session.execute(q2)).all():
-        linked.setdefault(bid, set()).add(cid)
+        if bid is not None:
+            linked.setdefault(int(bid), set()).add(cid)
     added = 0
     for bid in ids:
         targets = set(conns_by_user.get(owners.get(bid) or -1, [])) | linked.get(bid, set())
@@ -799,8 +800,10 @@ async def _expand_full(session: AsyncSession, conn: CalendarConnection) -> None:
     since = await booking_svc.today(session) - timedelta(days=PUSH_PAST_DAYS)
     q = select(Booking.id).where(Booking.user_id == conn.user_id, Booking.status == BOOKED, Booking.date >= since)
     ids = set((await session.execute(q)).scalars())
-    q2 = select(CalendarEventLink.booking_id).where(CalendarEventLink.connection_id == conn.id)
-    ids |= set((await session.execute(q2)).scalars())
+    q2 = select(CalendarEventLink.booking_id).where(
+        CalendarEventLink.connection_id == conn.id, CalendarEventLink.booking_id.is_not(None)
+    )
+    ids |= {int(b) for b in (await session.execute(q2)).scalars() if b is not None}
     for bid in sorted(ids):
         await _queue_job(session, conn.id, bid)
 

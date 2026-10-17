@@ -58,7 +58,6 @@ function refusalText(e: unknown, t: ReturnType<typeof useI18n>["t"], locale: str
 }
 
 export function CalendarExportSheet({ open, onOpenChange, resume }: { open: boolean; onOpenChange: (open: boolean) => void; resume?: PendingPush | null }) {
-  const { t } = useI18n();
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -66,7 +65,6 @@ export function CalendarExportSheet({ open, onOpenChange, resume }: { open: bool
         showCloseButton
         className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-[560px] max-sm:inset-0! max-sm:h-dvh! max-sm:w-full! max-sm:max-w-none! max-sm:rounded-none! max-sm:pt-[env(safe-area-inset-top)]"
         data-testid="cal-sheet"
-        aria-label={t("calendarExport.sheetTitle")}
       >
         {open ? <Flow onClose={() => onOpenChange(false)} resume={resume ?? null} /> : null}
       </SheetContent>
@@ -293,17 +291,18 @@ function Done({ result, choice, resumed }: { result: Result; choice: ScopeChoice
 
 function PushProgress({ provider, kind, departmentId, scope }: { provider: string; kind: ScopeChoice["kind"]; departmentId: number | null; scope: string }) {
   const { t, locale } = useI18n();
-  const [stopPolling, setStopPolling] = useState(false);
-  const subs = useSubscriptions(true, !stopPolling);
+  const [timedOut, setTimedOut] = useState(false);
+  const [lastDone, setLastDone] = useState(false);
+  // poll every 3 s until the row says done; give up after two minutes (the manage list keeps the state)
+  const subs = useSubscriptions(true, !timedOut && !lastDone);
   const row = findPushRow(subs.data, provider, kind, departmentId);
   const p = pushProgress(row);
   const done = !!p?.done;
+  if (done !== lastDone) setLastDone(done);
   useEffect(() => {
-    if (done) setStopPolling(true);
-    // give up polling after two minutes; the manage list keeps the state
-    const id = window.setTimeout(() => setStopPolling(true), 120_000);
+    const id = window.setTimeout(() => setTimedOut(true), 120_000);
     return () => window.clearTimeout(id);
-  }, [done]);
+  }, []);
   const who = providerName(provider, t);
   const when = relativeWhen(row?.last_synced_at, locale, { today: t("calendarExport.manage.today"), yesterday: t("calendarExport.manage.yesterday") });
   return (
