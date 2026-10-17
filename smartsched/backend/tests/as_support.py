@@ -129,3 +129,17 @@ async def add_meeting(
     s.add(mr)
     await s.flush()
     return mr.id
+
+
+async def add_grid_term(s: AsyncSession, code: str, parsed_grid: Any, *, kind: str = "REGULAR") -> Term:
+    """A term whose ``Week`` rows are the sheets of a parsed weekly grid (index, kind, start date and name), as
+    ``import_weekly_grid`` writes them."""
+    sheets = sorted(parsed_grid.sheets, key=lambda sh: sh.week_index)
+    first = next((sh.start_date for sh in sheets if sh.start_date), None)
+    term = Term(code=code, name=code, kind=kind, week_count=len(sheets), start_date=first)
+    s.add(term)
+    await s.flush()
+    for sh in sheets:
+        s.add(Week(term_id=term.id, index=sh.week_index, kind=sh.kind, start_date=sh.start_date, label=sh.name[:128]))
+    await s.flush()
+    return term

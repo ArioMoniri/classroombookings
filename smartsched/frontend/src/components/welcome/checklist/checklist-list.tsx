@@ -73,10 +73,10 @@ function Tick({ done }: { done: boolean }) {
   return (
     <span aria-hidden className={cn("relative flex size-6 shrink-0 items-center justify-center rounded-full", done ? "" : "edge-control")}>
       {done ? (
-        <motion.span className="absolute inset-0 rounded-full bg-status-feasible-fg" initial={reduce ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={reduce ? { duration: 0 } : { duration: dur.fast }} />
+        <motion.span className="absolute inset-0 rounded-full bg-status-feasible" initial={reduce ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={reduce ? { duration: 0 } : { duration: dur.fast }} />
       ) : null}
       {done ? (
-        <svg viewBox="0 0 16 16" className="relative size-3.5 text-white">
+        <svg viewBox="0 0 16 16" className="relative size-3.5 text-status-feasible-fg">
           <motion.path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={reduce ? { duration: 0 } : { duration: dur.slow, delay: dur.fast }} />
         </svg>
       ) : null}
@@ -126,7 +126,7 @@ export function ChecklistRows({ model, onNavigate, phone }: { model: ChecklistMo
   return (
     <>
       <ul className="flex flex-col" data-testid="checklist-rows">
-        {model.items.map(row)}
+        {model.visible.map(row)}
       </ul>
       <p className="sr-only" aria-live="polite" data-testid="checklist-live">
         {live}
@@ -141,7 +141,7 @@ export function ChecklistAllDone() {
   const reduce = useReduce();
   return (
     <div className="flex items-center gap-3 rounded-xl bg-fill-3 p-3" data-testid="checklist-all-done">
-      <motion.span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-status-feasible-fg text-white" initial={reduce ? false : { scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={reduce ? { duration: 0 } : springs.bouncySubtle}>
+      <motion.span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-status-feasible text-status-feasible-fg" initial={reduce ? false : { scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={reduce ? { duration: 0 } : springs.bouncySubtle}>
         <Check className="size-4" />
       </motion.span>
       <p className="type-callout text-label-1">{t("welcome.check.allDone")}</p>

@@ -91,6 +91,7 @@ export const CARDS: Record<Audience, CardDef[]> = {
   ],
 };
 
+/** 5 steps or fewer per audience (owner principle 2026-10-17; the spec's 6-step planner and admin tours were trimmed). */
 export const STEPS: Record<Audience, StepDef[]> = {
   academician: [
     { anchor: "nav-reserve" },
@@ -103,13 +104,12 @@ export const STEPS: Record<Audience, StepDef[]> = {
   approver: [{ anchor: "nav-approvals" }, { anchor: "approvals-row-actions", route: "/approvals" }],
   dept_admin: [{ anchor: "nav-bookings" }],
   viewer: [{ anchor: "nav-dashboard" }, { anchor: "nav-timetable" }, { anchor: "nav-runs" }, { anchor: "nav-heatmap" }],
-  planner: [{ anchor: "nav-onboarding" }, { anchor: "nav-requests" }, { anchor: "nav-generate" }, { anchor: "nav-timetable" }, { anchor: "nav-moderation" }, { anchor: "nav-runs" }],
+  planner: [{ anchor: "nav-onboarding" }, { anchor: "nav-requests" }, { anchor: "nav-generate" }, { anchor: "nav-timetable" }, { anchor: "nav-runs" }],
   admin: [
     { anchor: "nav-admin", route: "/admin" },
     { anchor: "admin-group-users", route: "/admin" },
     { anchor: "admin-group-resources", route: "/admin" },
     { anchor: "admin-group-timetable", route: "/admin" },
-    { anchor: "nav-integrations" },
     { anchor: "nav-welcome-admin" },
   ],
 };

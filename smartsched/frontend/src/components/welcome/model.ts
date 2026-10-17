@@ -8,8 +8,10 @@ import { type Audience, isAudience } from "@/lib/api/welcome";
 import { CARDS, ITEMS, STEPS, cardDef, itemDef, orderAudiences, primaryOf } from "./content";
 
 export const MAX_CARDS = 5;
-export const MAX_STEPS = 7;
+/** owner principle 2026-10-17 ("calm and obvious"): a tour of 5 steps or fewer, at most 5 checklist rows visible at a time */
+export const MAX_STEPS = 5;
 export const MAX_ITEMS = 6;
+export const MAX_VISIBLE_ITEMS = 5;
 
 export interface ResolvedCard {
   key: string;
@@ -115,7 +117,11 @@ export function buildSteps(state: WelcomeState | undefined, opts: { previewAudie
           .flatMap((a) => STEPS[a].map((s) => ({ anchor: s.anchor, route: s.route, interactive: !!s.interactive, audience: a }))),
       ];
   const seen = new Set<string>();
-  return raw.filter((s) => (seen.has(s.anchor) ? false : (seen.add(s.anchor), true))).slice(0, MAX_STEPS);
+  const unique = raw.filter((s) => (seen.has(s.anchor) ? false : (seen.add(s.anchor), true)));
+  // the secondaries' extra steps (approver, department admin) always fit: the primary's own steps are trimmed first
+  const extras = unique.filter((s) => s.audience !== primary).slice(0, MAX_STEPS - 1);
+  const own = unique.filter((s) => s.audience === primary).slice(0, MAX_STEPS - extras.length);
+  return [...own, ...extras];
 }
 
 /* ------------------------------------------------------------------------------------------ checklist */
@@ -133,6 +139,8 @@ export interface ChecklistModel {
   hidden: boolean;
   next: ResolvedItem | null;
   allDone: boolean;
+  /** the rows on screen: at most 5, open items first, in the product order */
+  visible: ResolvedItem[];
 }
 
 /** The server's items (its `done` always wins), max 6; the catalog only fills in a missing href / manual flag. */
@@ -154,7 +162,9 @@ export function buildChecklist(state: WelcomeState | undefined, localDone: Reado
     .slice(0, MAX_ITEMS);
   const done = items.filter((i) => i.done).length;
   const total = items.length;
-  return { items, done, total, hidden: state.checklist.hidden, next: items.find((i) => !i.done) ?? null, allDone: total > 0 && done === total };
+  const keep = new Set([...items.filter((i) => !i.done), ...items.filter((i) => i.done)].slice(0, MAX_VISIBLE_ITEMS).map((i) => i.key));
+  const visible = items.filter((i) => keep.has(i.key));
+  return { items, done, total, hidden: state.checklist.hidden, next: items.find((i) => !i.done) ?? null, allDone: total > 0 && done === total, visible };
 }
 
 /* ------------------------------------------------------------------------------------------ text */

@@ -2928,6 +2928,30 @@
       "ledger": "AS-B: adaptive scheduling backend",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "aceed343f47091067",
+      "description": "Helper architecture + AI governance",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 23:12",
+      "scope": "",
+      "goal": "You are a senior professional engineer and architect for SmartSched (repo /home/user/classroombookings; FastAPI backend smartsched/backend with the AI gateway in app/ai — 8 providers, per-feature routes, metering in ai_usage, guardrails, /admin/ai; row-level security in app/core/rls.py; audit; KVKK)…",
+      "ledger": "Helper architecture + AI governance",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a8c629056ee8521c1",
+      "description": "Helper UX design (generative UI)",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-17 23:12",
+      "scope": "",
+      "goal": "You are the AI-HELPER UX designer for SmartSched (repo /home/user/classroombookings; Next.js frontend smartsched/frontend; design docs in docs/design/v2 and v3). Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md, especially the …",
+      "ledger": "Helper UX design (generative UI)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
