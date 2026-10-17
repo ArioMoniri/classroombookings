@@ -8,6 +8,8 @@ docs_rc=0
 section "docs check (scripts/docs/sync_docs.py --check)"
 python3 -I scripts/docs/sync_docs.py --check --diff || docs_rc=1
 python3 -I -m unittest discover -s scripts/docs/tests || docs_rc=1
+section "README media check (scripts/record/check_readme.py)"
+python3 -I scripts/record/check_readme.py || docs_rc=1
 section "deploy/validate.sh"
 bash smartsched/deploy/validate.sh
 if [[ $docs_rc -ne 0 ]]; then
