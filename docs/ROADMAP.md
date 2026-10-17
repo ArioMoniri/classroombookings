@@ -2988,3 +2988,120 @@ Collisions are marked per ticket.
   - Provider TTS (Azure neural tr-TR, OpenAI `gpt-4o-mini-tts`, speaches Piper) behind `tts_enabled`.
   - Mount on explain (`components/classes/class-inspector.tsx`) and chat replies.
 Order: (security follow-up closed) → VO-01 → VO-02 (migration) / VO-05 (headers first) → VO-03 → VO-04 → VO-06 → VO-07 / VO-08 → VO-09 → VO-10; VO-11…13 later.
+
+### Charts & telemetry views (owner request 2026-10-17)
+
+Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, tokens §6, phone §7, motion §8, a11y §9, budget §10). Wireframes: `docs/design/v3/wireframes/charts-*.svg`. Decision: EvilCharts **ECharts** (`echarts-bar-chart`, `echarts-line-chart`, `echarts-area-chart`; MIT, echarts Apache-2.0) becomes the single engine for time series behind one `ChartCard` shell. `BarList` / `Meter` / `StatTile` / `KpiNumber` / `HeatGrid` stay for rankings, quotas and grids. Recharts is removed in CH-09. Every frontend ticket follows Turkish-first strings under `charts.*`, 44 px targets and 16 px inputs on phones, reduced motion, and free transitions.dev recipes only. Every ticket is verified at 1440 and 390×844 touch (tr-TR, Europe/Istanbul).
+
+- [ ] CH-01 · frontend · no migration · **Phase 2, starts on the orchestrator's "phase 2 go"** (package.json/lockfile are in use by another agent).
+  - Do: `npm install echarts`; `npx shadcn@latest add @evilcharts/echarts-bar-chart @evilcharts/echarts-line-chart @evilcharts/echarts-area-chart` (pulls `echarts-{chart,tooltip,legend,dot,brush}`); move from `src/components/evilcharts/**` to `src/components/charts/evil/{charts,ui}/`; re-point imports; add a header per file (source URL, MIT © 2026 Gurbinder, "Modified: …").
+  - Allowed patches: import paths; an injected `valueFormatter` instead of bare `toLocaleString()`; `AriaComponent` registered for `aria.decal`.
+  - Paperwork: a row in `src/components/ui/SOURCES.md` (ask the design-system owner if it is not ours) and in charts.md §sources.
+  accept:
+  - `git diff package.json` adds `echarts` only;
+  - `grep -r "@/registry" src/components/charts` = 0;
+  - `npx tsc --noEmit`, `npx eslint src/components/charts`, `node scripts/check-design.mjs` clean;
+  - the `next build` route table is recorded before and after: routes without charts +0 kB first-load; the lazy chart chunk ≤ 240 kB gz.
+  files: new `smartsched/frontend/src/components/charts/evil/**`, `smartsched/frontend/package.json` + `package-lock.json` (echarts only), `src/components/ui/SOURCES.md` (one row), `docs/design/v3/charts.md` §sources.
+  tester: frontend build/perf tester.
+- [ ] CH-02 · frontend · no migration · **Phase 2.** Shared `ChartCard` shell per charts.md §5.
+  - Files: `chart-card.tsx`, `chart-lazy.tsx` (`next/dynamic`, `ssr: false`), `chart-summary.ts`, `chart-table.tsx`, `chart-csv.ts`, `chart-format.ts`, `chart-tokens.ts`, `period-picker.tsx`.
+  - States: loading / empty / error / partial / stale / too-few-points (< 3 → `StatTile`).
+  - Table twin always in the DOM; ⋯ menu (CSV, image, table, print).
+  - Renderer rule: SVG ≤ 300 marks, canvas above, SVG on print.
+  - `animationType="none"`; the free recipes `skeleton-reveal` (reveal retimed to 180 ms), `tooltip`, `text-states-swap`.
+  - Messages under `charts.*` (tr + en).
+  accept:
+  - vitest `src/components/charts/*.test.ts(x)`: summary builders tr/en; CSV has a BOM, `;` + decimal comma in tr and `,` in en; the table matches the CSV rows; each state renders with a stable height; the renderer switches at 300 marks and on `beforeprint`; dispose on unmount; reduced motion → no pulse;
+  - `npx tsc --noEmit`, eslint, `node scripts/check-design.mjs` clean;
+  - a demo story/test page is **not** mounted on any app route (no surface edits in phase 2).
+  files: new `smartsched/frontend/src/components/charts/*.{ts,tsx}`, `smartsched/frontend/messages/{tr,en}.json` (`charts.*` only); ask the motion.md owner to add §3.18 "Charts" from charts.md §8.
+  tester: frontend unit tester + a11y tester (axe on the shell fixture, NVDA/VoiceOver reading order: title → summary → table).
+- [ ] CH-03 · frontend · no migration · Chart keyboard + colour-blind + print layer.
+  - Keyboard: plot wrapper `tabIndex=0` `role="group"`; ←/→/Home/End move the focused bucket via `dispatchAction({type:"showTip"})`; Esc hides; a polite live region reads the bucket (debounced 250 ms).
+  - Colour: `decal: "auto"` when the user toggles "Grafiklerde desen" (per-user preference) or `forced-colors: active`.
+  - Print CSS: hide the menu and period control, print the table twin.
+  accept:
+  - vitest for the key handler and live text;
+  - Playwright `e2e/charts-a11y.spec.ts` on the shell fixture at 1440 + 390 touch: keyboard scrub reads "14 Ekim Çarşamba: toplam 82.300 token"; focus never on `<body>`; `emulateMedia({forcedColors:"active"})` shows patterns; `page.pdf()` contains an SVG chart + the table.
+  files: `smartsched/frontend/src/components/charts/chart-keyboard.ts(x)`, `chart-print.css` (or a module in `chart-card.tsx`), profile preference key (ask the profile owner), `e2e/charts-a11y.spec.ts`, `playwright.config.ts` (append testMatch).
+  tester: a11y tester (keyboard + screen reader + forced colours).
+- [ ] CH-04 · frontend · no migration · Migrate dashboard `PeriodArea` to `ChartCard` + `echarts-area-chart`.
+  - Single series `--seq-4`; peak in the summary ("En yoğun saat 10:30 (%86)").
+  - SVG renderer; the existing sr-only table moves into the shell twin.
+  - `BuildingBars` and `UtilisationHeatmap` stay unchanged.
+  accept:
+  - vitest `dashboard-charts.test.tsx`: `periodSeries` unchanged, summary text;
+  - Playwright on the real stack (planner persona Fatih Bey) at 1440 + 390: the chart, summary, table toggle and CSV opened in a tr-TR Excel-compatible parser;
+  - M-01/02/03/05 on `/dashboard`;
+  - `grep EvilAreaChart src/components/dashboard` = 0.
+  files: `smartsched/frontend/src/components/dashboard/dashboard-charts.tsx` (current owner: frontend dashboard / design-system), `messages` keys under `charts.dashboard.*`.
+  tester: planner persona tester.
+- [ ] CH-05 · frontend · no migration · Migrate the AI "Günlük token kullanımı" stacked bar to `ChartCard` + `echarts-bar-chart` (`stackType="stacked"`).
+  - Colours stay `SERIES_COLOR` (fixed order, "Diğer" = `--label-3`); today hatched.
+  - Phone: weekly sums ≤ 5 columns; 7 g / 30 g / Dönem picker.
+  - The meters, tiles and BarList stay unchanged.
+  accept:
+  - vitest `ai-admin.test.tsx` updated: `dayChartData` and `activeSeries` unchanged; the legend order is fixed when a series is filtered out (colour follows the entity);
+  - Playwright `w3-ai` admin flow at 1440 + 390: tooltip on tap, CSV with 5 feature columns + total;
+  - M-01/02/03/05 on `/admin/ai`;
+  - `grep EvilBarChart src/components/admin/ai` = 0.
+  files: `smartsched/frontend/src/components/admin/ai/usage-tab.tsx`, `ai-model.ts` (current owner: W3-AI).
+  tester: admin persona tester.
+- [ ] CH-06 · frontend · no migration · Migrate the ops "İstekler" hand-drawn SVG to three small multiples (requests/min, 5xx/min, p95 ms), each with its own axis and a shared x.
+  - `echarts-line-chart`, canvas, `sampling: "lttb"`; 1 sa / 24 sa / 7 g.
+  - Stale strip when Prometheus/Loki is down; Grafana links unchanged.
+  accept:
+  - vitest `ops-model.test.ts` (keep `totals`; retire `chartGeometry` only if nothing else uses it) + `ops-panel.test.tsx`: the summary "Dakikada ort. 42 istek; 19:21'de 5xx artışı";
+  - Playwright ops spec at 1440 + 390: 1,440 points render with ≤ 3 dropped frames on tooltip scrub (motion-audit pattern);
+  - M-01/02/03/05 on `/admin/ops`.
+  files: `smartsched/frontend/src/components/admin/ops/ops-panel.tsx`, `ops-model.ts` (current owner: W3-OPS).
+  tester: admin/ops tester.
+- [ ] CH-07 · backend + frontend · no migration · Bookings per week (term) and request outcomes per week.
+  - Backend: read-only `GET /bookings/stats/weekly?term_id=` (counts per ISO week, exam weeks flagged, current week `partial: true`) and `GET /requests/stats` reuse (exists).
+  - Frontend: two `ChartCard`s with `echarts-bar-chart` on the admin overview: the exam week direct-labelled "Sınav haftası", the current week hatched.
+  accept:
+  - pytest `test_ch_07_*`: counts equal a SQL recount on the Bahar fixture; RLS/permission `bookings.admin`;
+  - vitest for the model;
+  - Playwright at 1440 + 390 on the real stack.
+  files: `smartsched/backend/app/api/v1/bookings.py` (append one route) + `app/services/booking_stats.py` (new) (owner: W3-SLOT; ask before editing); `smartsched/frontend/src/components/admin/admin-overview.tsx` (admin lane) + `src/lib/api/crbs.ts` (append).
+  tester: admin persona tester.
+- [ ] CH-08 · frontend · no migration · Soft score across this term's runs on `/runs`: `echarts-line-chart` + dots, the active run labelled, shown only with ≥ 3 finished runs (else nothing); a tap on a dot opens that run.
+  accept:
+  - vitest for the model (order by `finished_at`, cancelled runs excluded);
+  - Playwright planner flow at 1440 + 390; keyboard ←/→ moves between runs and Enter opens one.
+  files: `smartsched/frontend/src/components/runs/runs-list.tsx` (+ new `runs/score-history.tsx`) (current owner: runs lane; AS-17 also touches `components/runs/**`: coordinate).
+  tester: planner persona tester.
+- [ ] CH-09 · frontend · no migration · Remove Recharts after CH-04/05 have landed.
+  - Delete `src/components/ui/evilcharts/**` (Recharts files, incl. the unused radial/brush/background/dot); drop `recharts` from package.json.
+  - Update SOURCES.md (keep the EvilCharts MIT LICENSE file: the ECharts files still need it).
+  accept:
+  - `grep -rn "recharts" src package.json` = 0;
+  - `next build` net change on `/dashboard` and `/admin/ai` ≤ +110 kB gz vs before CH-01;
+  - full vitest + tsc + eslint + check:design green.
+  files: `smartsched/frontend/src/components/ui/evilcharts/**`, `package.json`, `package-lock.json`, `src/components/ui/SOURCES.md` (owner: design-system; package.json needs the orchestrator's go).
+  tester: frontend build/perf tester.
+- [ ] CH-10 · later · frontend · no migration · Audit events per day (30 g, `echarts-bar-chart`) above the audit table, only if admins ask for it; a click on a column filters the table to that day.
+  accept: vitest + Playwright at 1440 + 390; the table filter is keyboard reachable.
+  files: `smartsched/frontend/src/components/audit/audit-view.tsx` (admin lane).
+  tester: admin persona tester.
+- [ ] CH-11 · frontend (+ small backend) · no migration · User and academician statistics without a chart library (charts.md §4 rows 17–19, `charts-user-390.svg`).
+  - `/my-bookings` + `/profile`: three `StatTile`s (aktif / bu dönem / açık talep) + "3 / 5 aktif rezervasyon hakkı kullanıldı".
+  - `/profile` for academicians: "Haftalık ders yüküm" `BarList` by weekday ("ders yok" for 0), each row a 44 px link to that day in `/timetable`.
+  - AI meter unchanged.
+  - The data source for the load is the open question in charts.md §13.2.
+  accept:
+  - vitest for the tiles and load model;
+  - Playwright academician + user flows at 1440 + 390 on the real stack (REC_TEACHER=1);
+  - the ECharts chunk is **not** requested on `/profile` or `/my-bookings` (network assertion).
+  files: `smartsched/frontend/src/components/bookings/my-bookings-view.tsx` (W3-SLOT), `src/components/admin/profile-view.tsx` + new `src/components/profile/my-load.tsx` (profile owner), backend `GET /me/load` only if §13.2 decides so.
+  tester: academician + user persona tester.
+- [ ] CH-12 · tester · no migration · Persona pass over every chart surface after CH-04…CH-06 + CH-11.
+  - Personas: admin (`/admin/ai`, `/admin/ops`), planner (`/dashboard`, `/runs`), user and academician (`/profile`, `/my-bookings`), kiosk (confirm no chart and no motion).
+  - Viewports: 1440 mouse + 390×844 touch, tr-TR, light + dark + reduced motion + forced colours.
+  - Each step: CSV opened, table twin read with a screen reader, print preview.
+  - Run `e2e/motion-audit.spec.ts` on the chart routes.
+  accept: a report `docs/testing/2026-10-xx-charts-persona.md` with pass/fail per step, screenshots per viewport and theme, the bundle table, and tickets for failures.
+  files: that report only; scratch otherwise.
+  tester: QA persona tester.
+Order: CH-01 → CH-02 → CH-03 → CH-04 → CH-05 → CH-06 → CH-09 → CH-11 → CH-07 → CH-08 → CH-12; CH-10 later.

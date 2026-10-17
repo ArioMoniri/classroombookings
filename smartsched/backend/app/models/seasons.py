@@ -1,4 +1,4 @@
-"""Adaptive scheduling (docs/research/2026-10-17-adaptive-scheduling.md; tickets AS-03, AS-05; the shared adaptive migration).
+"""Adaptive scheduling tables (docs/research/2026-10-17-adaptive-scheduling.md; AS-03, AS-05; one shared migration).
 
 * ``season_profiles``: versioned per-season configuration a run and the booking rules pick up. A row applies to
   ``applies_to`` = ``[{"season": BAHAR|GUZ|YAZ|FINAL|BUT|*, "period_kind": LECTURE|EXAM|...|*}]`` and carries a

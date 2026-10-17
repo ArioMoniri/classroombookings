@@ -226,7 +226,10 @@ def periods(
         run.clear()
 
     for w in rows:
-        if run and ((w.kind or "LECTURE").upper() != (run[-1].kind or "LECTURE").upper() or int(w.index) != int(run[-1].index) + 1):
+        if run and (
+            (w.kind or "LECTURE").upper() != (run[-1].kind or "LECTURE").upper()
+            or int(w.index) != int(run[-1].index) + 1
+        ):
             flush()
         run.append(w)
     flush()
@@ -455,7 +458,9 @@ def match_score(applies_to: Iterable[Mapping[str, Any]], season: str, period_kin
 async def active_profiles(session: AsyncSession) -> list[SeasonProfile]:
     return list(
         (
-            await session.execute(select(SeasonProfile).where(SeasonProfile.status == "active").order_by(SeasonProfile.id))
+            await session.execute(
+                select(SeasonProfile).where(SeasonProfile.status == "active").order_by(SeasonProfile.id)
+            )
         ).scalars()
     )
 
@@ -550,7 +555,9 @@ class EffectiveWeights:
         }
 
 
-def merge_layers(layers: Sequence[tuple[str, Mapping[str, int]]]) -> tuple[dict[str, int], dict[str, str], dict[str, int]]:
+def merge_layers(
+    layers: Sequence[tuple[str, Mapping[str, int]]],
+) -> tuple[dict[str, int], dict[str, str], dict[str, int]]:
     weights = dict(DEFAULT_WEIGHTS)
     source = {k: "default" for k in DEFAULT_WEIGHTS}
     overrides: dict[str, int] = {}

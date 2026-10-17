@@ -36,8 +36,6 @@ export interface WelcomeSheetProps {
   checklistEnabled: boolean;
   preview?: boolean;
   onAction: (action: SheetAction) => void;
-  /** after the close animation; `focus` says where focus should go */
-  onClosed?: () => void;
 }
 
 export function WelcomeSheet({ open, model, state, tourEnabled, checklistEnabled, preview, onAction }: WelcomeSheetProps) {

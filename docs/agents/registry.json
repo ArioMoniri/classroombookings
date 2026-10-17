@@ -2603,7 +2603,8 @@
       "goal": "You are **mobile optimiser A** (staff/teacher/public routes) of SmartSched (ledger `mobile-a-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/MEDIA.md, COMMON.md and WAVE3.md (same folder), docs/testing/flows/MOBILE.md (M-01…M-14 an…",
       "ledger": "Mobile optimiser A: user routes audit",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:11"
     },
     {
       "id": "a4199b8bf88f2d00b",
@@ -2876,7 +2877,8 @@
       "goal": "You are the CHARTS/TELEMETRY designer for SmartSched (repo /home/user/classroombookings; Next.js frontend smartsched/frontend; shadcn/ui + Tailwind; design docs in docs/design/v2 and v3). Read these first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/b…",
       "ledger": "Charts design: telemetry & stats",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:12"
     },
     {
       "id": "a314b099460f4038b",

@@ -46,7 +46,6 @@ from typing import Any
 from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.importers import normalize as n
 from app.models import (
     ConstraintRow,
     Course,

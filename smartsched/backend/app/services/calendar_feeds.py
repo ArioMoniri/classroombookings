@@ -1011,13 +1011,25 @@ async def export_options(session: AsyncSession, access: Access) -> dict[str, Any
         p.name: {"label": p.label, "configured": await conn_svc.client_config(session, p) is not None}
         for p in conn_svc.PROVIDERS.values()
     }
+    # CAL-07: say which account to use before the person leaves for the provider's consent screen
+    hint = (await conn_svc.verify_account(session, access.user, conn_svc.PROVIDERS["google"],
+                                          conn_svc.AccountInfo(None, None))).domain  # fmt: skip
+    verified_only = await conn_svc.push_verified_only(session)
+    verification = {"required": verified_only, "domain": hint,
+                    **({k: v for k, v in conn_svc.not_verified_detail(hint).items() if k.startswith("message")}
+                       if verified_only else {})}  # fmt: skip
     return {
         "enabled": enabled,
         "consent": await consent_state(session, access.user),
         "linked": bool(linked),
         "scopes": scopes,
         "channels": {
-            "push": {**providers, "freshness_tr": FRESHNESS["push"][0], "freshness_en": FRESHNESS["push"][1]},
+            "push": {
+                **providers,
+                "freshness_tr": FRESHNESS["push"][0],
+                "freshness_en": FRESHNESS["push"][1],
+                "verification": verification,
+            },
             "link": {"available": enabled, "freshness_tr": FRESHNESS["link"][0], "freshness_en": FRESHNESS["link"][1]},
             "file": {"available": True, "freshness_tr": FRESHNESS["file"][0], "freshness_en": FRESHNESS["file"][1]},
         },
