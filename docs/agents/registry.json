@@ -2412,7 +2412,8 @@
       "goal": "You are **sweeper 3** of round 2 for SmartSched (ledger name `loop-r2-sweeper3-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md and follow its rules (no commits, test-first, hand-off format, own ports). Lane E is still run…",
       "ledger": "Sweeper 3: round-2 leftovers",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 09:08"
     }
   ]
 }
