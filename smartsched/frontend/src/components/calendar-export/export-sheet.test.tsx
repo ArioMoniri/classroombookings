@@ -126,7 +126,15 @@ describe("CalendarExportSheet", () => {
     expect(channels.map((b) => b.getAttribute("data-testid"))).toEqual(["cal-channel-push:google", "cal-channel-link", "cal-channel-file"]);
     expect(screen.getByTestId("cal-channel-push:google")).toHaveTextContent("Önerilen");
     expect(screen.getByTestId("cal-channel-file")).toHaveTextContent("Güncellenmez");
-    expect(screen.getByTestId("cal-refresh-times")).toHaveTextContent("Google Takvim: genellikle 12 saate kadar");
+    // the simplicity principle: refresh times sit behind a closed "Gelişmiş"; the cards read without jargon
+    const how = screen.getByTestId("cal-how-advanced");
+    expect(how.tagName).toBe("DETAILS");
+    expect(how).not.toHaveAttribute("open");
+    expect(screen.getByTestId("cal-how-advanced-toggle")).toHaveTextContent("Gelişmiş");
+    expect(within(how).getByTestId("cal-refresh-times")).toHaveTextContent("Google Takvim: genellikle 12 saate kadar");
+    expect(screen.getByTestId("cal-channels")).not.toHaveTextContent(/webcal|token|ics dosyası|REFRESH/i);
+    expect(screen.getByTestId("cal-channel-link")).toHaveTextContent("Abonelik bağlantısı");
+    expect(screen.getByTestId("cal-channel-file")).toHaveTextContent("Dosya olarak indir");
     await user.click(screen.getByTestId("cal-channel-link")); // tap 2
 
     expect(await screen.findByRole("heading", { name: "Takviminize şunlar gönderilecek" })).toBeInTheDocument();
@@ -154,7 +162,14 @@ describe("CalendarExportSheet", () => {
     expect(screen.getByTestId("cal-link-apple")).toHaveAttribute("href", "webcal://plan.uni.edu.tr/api/v1/calendar/feeds/sst_abc/classes.ics");
     expect(screen.getByTestId("cal-link-google").getAttribute("href")).toContain("calendar.google.com/calendar/r?cid=webcal");
     expect(screen.getByTestId("cal-link-outlook").getAttribute("href")).toContain("addfromweb?url=https");
-    expect(screen.getByTestId("cal-link-https-copy")).toHaveTextContent("Bağlantıyı kopyala");
+    // one copy button by default; the raw https / webcal addresses only under "Gelişmiş"
+    expect(screen.getByTestId("cal-link-copy")).toHaveTextContent("Bağlantıyı kopyala");
+    const adv = screen.getByTestId("cal-link-advanced");
+    expect(adv).not.toHaveAttribute("open");
+    expect(within(adv).getByTestId("cal-link-webcal-value")).toBeInTheDocument();
+    await user.click(screen.getByTestId("cal-link-advanced-toggle"));
+    expect(adv).toHaveAttribute("open");
+    expect(within(adv).getByTestId("cal-link-https-copy")).toHaveTextContent("Bağlantıyı kopyala");
     expect(screen.getByTestId("cal-link-note")).toHaveTextContent("Bağlantıyı açmayın, abone olun");
     await waitFor(() => expect(screen.getByRole("heading", { name: "Bağlantınız hazır" })).toHaveFocus());
   });

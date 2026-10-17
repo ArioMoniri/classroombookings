@@ -3122,3 +3122,244 @@ Order: CH-01 → CH-02 → CH-03 → CH-04 → CH-05 → CH-06 → CH-09 → CH-
 - [ ] RF-11 major: senders for reminder, series created and changed, approval submitted and calendar consent; new-device sign-in after the security follow-up; correct the 'template only' labels in /admin/email — lane RF-2
 - [ ] RF-12 major: SAML federation metadata signature check — after the SAML library lane
 
+
+### AI helper: backend, governance, local models (owner request 2026-10-17)
+
+Ledger `helper-arch-2026-10-17`. Research, audit (file:line), design, local-model matrix, security review, test plan and owner questions: [docs/research/2026-10-17-ai-helper-architecture.md](research/2026-10-17-ai-helper-architecture.md). The UX and the card visuals come from the helper UX designer: `docs/design/v3/helper.md` (HX tickets). The card contract here (§5.3) follows that document when it lands.
+
+Principles:
+- The model chooses typed actions. The server builds every card, and writes run only after the person confirms.
+- "Where is X" works with no AI: a feature index searched with BM25.
+- Quotas chain: org → faculty → department → role → user.
+- Every feature works with a local OpenAI-compatible model or degrades in a defined way.
+
+Lanes: **ai-engineer** (`app/ai/**`, `app/helper/**`, `app/api/v1/{helper,ai_admin}.py`), **backend** (models, migrations, `services/ai_usage.py`, permissions), **devops**, **tester**.
+
+Gates:
+- HB-06, HB-10, HB-12 and HB-13 start only after the **security follow-up** lane (owner of `app/ai/providers/**` and `app/services/ai_usage.py`) is checkpointed.
+- HB-06 and HB-12 follow **VO-01**.
+- HB-10 follows **VO-02**: one migration each, next head, never two heads.
+- HB-15 follows **VO-04** (both edit `ai_admin.py`).
+- HB-16 follows **VO-05** (compose).
+
+Ranked tickets:
+
+- [ ] HB-01 · ai-engineer · no migration · **can start now** · Feature index and no-AI search core.
+  - `app/helper/features.yaml`: id, route, title/synonyms/steps TR+EN, the `data-tour` anchor (WG-05 names), permission any-of, audiences, `actions[]`, `since`.
+  - `app/helper/index.py`: loader with schema validation; BM25 over text folded with `guardrails.fold` plus a light Turkish suffix strip; field weights; the permission filter applied before ranking.
+  - `app/helper/data/routes.json`: generated from `frontend/src/app/**/page.tsx` by `scripts/helper/routes.py`.
+  accept: pytest `tests/helper/test_hb_01_*.py`:
+  - every entry's route is in routes.json;
+  - no duplicate ids;
+  - fixture `where_queries.json` (≥ 120 TR/EN persona queries, typos, ASCII-folded) scores top-1 ≥ 85 % and top-3 ≥ 95 % with no network;
+  - an academician `Access` never gets a `setup.*` page.
+  vitest asks (frontend owner): `nav-index.test.ts`, which fails when an `href` in `nav-config.ts` or `admin/nav-items.ts` has no index entry.
+  files: new `backend/app/helper/{__init__,index,features.yaml}`, `backend/app/helper/data/routes.json`, `scripts/helper/routes.py`, `backend/tests/helper/**`.
+  collision: WG-B/WG-F own the anchor names. Read only; ask WG-F for any missing `data-tour` ids.
+- [ ] HB-02 · ai-engineer · no migration · **can start now** · `GET /helper/search?q=&limit=`: index hits as `nav` cards, plus data hits from the palette's sources (courses, sections, instructors, programmes, booking rooms) through the person's own permissions; no AI, no metering.
+  accept:
+  - pytest: 4 personas × 10 queries; a 403 source is skipped, not fatal;
+  - p95 < 50 ms on the seeded stack;
+  - Turkish-first strings.
+  files: new `backend/app/api/v1/helper.py` (search route only), `backend/app/helper/search.py`, tests. Ask: one `include_router` line in `backend/app/api/v1/router.py` (router owner).
+  frontend twin (HX, designer lane): a "Nasıl yapılır" group in `command-palette.tsx`.
+- [ ] HB-03 · ai-engineer · no migration · **can start now** · Action registry core and the 10 read actions.
+  - `@action` decorator: name, kind, permission any-of, pydantic `args` (`extra="forbid"` → strict tool schema), service, REST twin `route`, card, `rate`.
+  - `tools_for(access, hits, settings)` gives ≤ 10 tools.
+  - Read actions 1–10 of the research doc §5.2: open_feature, search_site, find_free_rooms, room_day_schedule, my_bookings, my_requests_status, approvals_inbox, run_status, requests_needing_review, my_ai_usage.
+  - They call the same services as the REST routes, with the person's `Access`.
+  accept:
+  - drift test: every action's `route` exists in `app.api.v1.router`, with the same permission dependency and a compatible request model;
+  - permission matrix for 4 personas × 10 actions;
+  - the strict-schema budget (`catalog.py:820-826` rules) holds for any 10-tool subset;
+  - read actions are side-effect free (no `session.add`/commit, checked with a session spy).
+  files: new `backend/app/helper/actions/{__init__,registry,nav,bookings,approvals,planning,usage}.py`, tests.
+- [ ] HB-04 · backend · **migration (next head at merge time; VO-02, AS-03/05/13 and CAL also plan one: re-check `alembic heads`, never two heads)** · Helper tables:
+  - `helper_action_invocations`: id, user_id, action, args_hash, preview_hash, nonce **unique**, status `previewed/confirmed/done/failed/undone`, audit_id, undo_of, created_at, expires_at;
+  - `helper_threads`, `helper_messages`, `helper_notes`, `helper_events` (columns in research §5.4 and §5.7).
+  - SQLite + PostgreSQL; RLS policies owner-scoped (like `ai_usage`; fan-out not needed).
+  - `helper_events` user_id is nulled after 90 days by the daily purge.
+  accept:
+  - upgrade/downgrade on SQLite and PostgreSQL;
+  - RLS: a teacher reads only their own rows;
+  - the purge job test.
+  files: new `backend/alembic/versions/00NN_helper.py`, `backend/app/models/helper.py`, `backend/app/models/__init__.py` (export), `backend/app/core/rls.py` only if a new policy helper is needed (ask the W3-SEC owner), tests.
+- [ ] HB-05 · ai-engineer · no migration (tables from HB-04) · Write actions with preview, confirm, idempotency, audit and undo:
+  - actions: `create_booking`, `cancel_my_booking`, `withdraw_my_request`, `decide_approval`, `undo_last_helper_action`;
+  - `preview()` uses the service's check path (`booking_policies.enforce`, free-slot check) with no writes;
+  - confirm token: HMAC (user, action, canonical args, preview hash, exp 10 min, nonce);
+  - `POST /helper/actions/confirm` claims the nonce, re-checks access, re-runs the preview and compares its hash (409 with a new preview), then executes through the service and records `audit.record("helper.action.<name>", via="helper")`;
+  - `POST /helper/actions/undo` reuses `services/bookings_undo.py`;
+  - per-action rate limits.
+  accept: pytest
+  - nothing is written without confirm;
+  - a reused / expired / other-user token → 409 / 410 / 403;
+  - a slot taken between preview and confirm → 409 with alternatives;
+  - undo within 24 h and before the start, refused after;
+  - approval mode `all` turns `create_booking` into a request;
+  - red-team RA-01, 03, 04, 05, 06, 11 (research §7.2) pass offline.
+  files: `backend/app/helper/actions/{bookings,approvals,undo}.py`, `backend/app/helper/confirm.py`, `backend/app/api/v1/helper.py` (confirm/undo routes), tests.
+- [ ] HB-06 · ai-engineer · no migration · **after the security follow-up and VO-01 (same lines in `context.py`/`gateway.py`)** · Gateway feature `helper` and the turn loop.
+  - Registration:
+    - `FEATURES`/`FEATURE_LABELS` ("Yardımcı"/"Helper");
+    - `DEFAULT_CAPS["helper"] = {max_tokens: 4000, max_tool_rounds: 4, timeout_s: 60}`;
+    - `PERSONAL_FEATURES += helper`;
+    - `MAX_INPUT_CHARS["helper"] = 1000`.
+  - `POST /helper/turn`, SSE events `run_started`/`text`/`tool_start`/`tool`/`card`/`run_finished`/`error`:
+    - index pre-route, then `tools_for`;
+    - ≤ 4 rounds;
+    - every tool result spotlighted;
+    - the taint flag drops write tools after untrusted free text;
+    - server-built cards; the model's text becomes one `answer` card.
+  - Fallback to index mode on 422/429/409/502 and timeout.
+  accept: pytest with the scripted fake SDK:
+  - a full read turn;
+  - a write turn ends at a `confirm` card;
+  - RA-02/RA-09 taint;
+  - fallback paths;
+  - every SSE `card` validates against `/helper/schema`;
+  - one `ai_usage` row per model call with feature `helper`.
+  files: `backend/app/ai/context.py`, `backend/app/ai/gateway.py` (`DEFAULT_CAPS`, `PERSONAL_FEATURES`), `backend/app/ai/guardrails.py` (`MAX_INPUT_CHARS` only), new `backend/app/helper/{turn,cards}.py`, `backend/app/ai/prompts/helper.md`, `backend/app/api/v1/helper.py`, tests.
+- [ ] HB-07 · ai-engineer · no migration · **can start now; align with `docs/design/v3/helper.md` when it lands** · Card contract `helper.card.v1`: pydantic union `answer`/`nav`/`list`/`facts`/`form`/`confirm`/`result`/`limit`/`refusal`/`error` (research §5.3), `GET /helper/schema` (cards + action arg schemas), and form-field kinds derived from action `args`.
+  accept:
+  - snapshot test of the JSON Schema;
+  - no card field can carry a URL or HTML (schema pattern + test);
+  - every TR string has an EN twin;
+  - the designer signs off the field list in `helper.md` (or lists the differences as asks).
+  files: new `backend/app/schemas/helper.py`, `backend/app/helper/cards.py` (builders), tests. Frontend twin: HX renderer (designer lane).
+- [ ] HB-08 · ai-engineer · no migration · **can start now** · Helper guardrails:
+  - `app/helper/guard.py`: off-scope means no scheduling signal and an index score below the threshold, which gives a 0-token refusal card + the top 3 hits;
+  - the index vocabulary feeds the scope check;
+  - "answer names a page without a `nav` card" replaces the text with the index answer;
+  - corpus: `redteam_guard_cases.json` gains ≥ 40 `helper` cases (TR/EN);
+  - new `tests/helper/redteam_actions.json` RA-01…RA-15.
+  accept:
+  - `redteam.summarize_guard`: 0 false negatives on the off-scope set;
+  - ≤ 2 % false positives on the 120 where-queries;
+  - RA-13/RA-14 pass;
+  - `POST /ai/admin/redteam` includes the helper cases.
+  files: new `backend/app/helper/guard.py`, `backend/app/ai/redteam_guard_cases.json` (append), `backend/app/ai/redteam.py` (case loader only if needed), tests.
+- [ ] HB-09 · ai-engineer · no migration (tables from HB-04) · **can start after HB-04** · Memory with consent:
+  - `GET/POST/DELETE /helper/notes`; a note is created only from a user action (`source=user_button|user_confirmed`);
+  - limits: ≤ 20 notes, ≤ 200 chars each;
+  - a person's name from the redactor list is refused in a note;
+  - retention: notes 180 days since last use, threads 30 days;
+  - withdrawing `ai_personal` deletes the notes and turns memory off.
+  accept:
+  - pytest for consent, limits, purge, DSR export lists notes and threads, erasure deletes them;
+  - RA-12 passes.
+  files: new `backend/app/helper/memory.py`, routes in `backend/app/api/v1/helper.py`, tests. Asks (KVKK owner): one `DATA_CLASSES` row and the purge registration in `backend/app/services/kvkk.py`.
+- [ ] HB-10 · backend · **migration (next head, after VO-02's `ai_usage` migration; after the security follow-up hands off `services/ai_usage.py`)** · Quota chain and multi-worker reservations.
+  - Columns: `ai_usage.department_id`, `ai_usage.faculty_id` (snapshot at record time; index `(created_at, faculty_id)`).
+  - Table `ai_reservations`.
+  - `ai.limits` gains `faculties` (with `managers`), `departments`, `features`, `unassigned`.
+  - `reserve` order: org → feature → faculty → department → role (by `role_id`, falling back to the code) → user, under `pg_advisory_xact_lock` (no-op on SQLite).
+  - The rate limiter and concurrency gate are counted from the table; `check_alerts` covers units.
+  - TR/EN refusal texts per scope.
+  - Nothing configured means unchanged behaviour.
+  accept: pytest
+  - ceilings per level;
+  - the snapshot survives a department change;
+  - department sum ≤ faculty (422);
+  - two engines on one PostgreSQL cannot both pass the last reservation;
+  - the old `test_w3_ai_gateway.py` suite stays green;
+  - the `guardrails.py:633` docstring is corrected.
+  files: `backend/app/models/ai_usage.py`, `backend/app/services/ai_usage.py`, `backend/app/ai/gateway.py` (`DEFAULT_LIMITS`), `backend/app/ai/pipeline.py` (rate / concurrency calls), `backend/app/ai/guardrails.py` (limiter classes), `backend/app/api/v1/ai_admin.py` (`LimitsIn`; **after VO-04**), new `backend/alembic/versions/00NN_ai_quota_units.py`, tests.
+- [ ] HB-11 · backend · no migration · Faculty quota managers.
+  - Permission `ai.usage_faculty` ("Fakültemin yapay zekâ kullanımını görme ve paylaştırma"), seeded by `ensure_permissions_and_roles`; it needs a `PERMISSION_TR` label.
+  - Scope: `faculties[id].managers`, else the faculty of the manager's own department.
+  - `GET /ai/faculty/usage` gives totals, by department, by feature and the trend; by person only with `show_people`.
+  - `PUT /ai/faculty/allocations`: split within the faculty, sum ≤ the faculty allocation; audited `ai.faculty_allocation`.
+  - Cross-user reads run in `rls.system_scope` after a SQL-side `faculty_id` filter.
+  accept:
+  - pytest: a manager sees only their faculty;
+  - RA-11;
+  - `show_people` off hides users;
+  - audit rows;
+  - permission label in TR/EN.
+  files: `backend/app/services/bookings_perms.py` (one permission row + TR label; ask the permissions owner if one is running), new `backend/app/api/v1/ai_faculty.py`, `backend/app/services/ai_usage.py` (report filter), tests. Frontend twin: HX "Fakülteler" sub-tab in `/admin/ai › Sınırlar`.
+- [ ] HB-12 · ai-engineer · no migration · **after the security follow-up and VO-01 (extends VO-01's `ModelInfo` capability fields)** · Capability detection on model sync and route validation.
+  - `ModelInfo.capabilities` {tools, tool_choice, strict_tools, json_schema, vision, pdf, context_window, parallel_tools, source, checked_at}.
+  - Sync sniffs the server type through `url_guard`: Ollama `/api/show`, vLLM `/v1/models` `max_model_len`, LM Studio `/api/v0/models`, llama.cpp `/props`, OpenRouter `supported_parameters`.
+  - `test?probe=true` runs a forced-tool, a json_schema and a 32×32 image probe (< 1000 tokens, metered `test`).
+  - Admin override per model, audited.
+  - `validate_route` refuses `model_lacks_capability` / `context_too_small` per the research §5.8 table; unknown capability is a warning.
+  accept:
+  - pytest with mocked transports for Ollama-like, vLLM-like, LM Studio-like and llama.cpp-like servers;
+  - a chat route to a no-tools model → 422 TR/EN;
+  - the probe results stored;
+  - no request to a blocked address during sniffing.
+  files: `backend/app/ai/providers/base.py`, `backend/app/ai/providers/openai_compat.py` (`list_models`, new `probe`), `backend/app/ai/gateway.py` (`validate_route`), `backend/app/api/v1/ai_admin.py` (sync/test; **after VO-04**), tests.
+- [ ] HB-13 · ai-engineer · no migration · **after the security follow-up; the `ingest.py` part after intake lane C** · Local-model degrade fixes.
+  - Forced tool choice for single-tool features (`client.py`: `force_tool=` → Anthropic `{"type":"tool"}` / OpenAI named function).
+  - JSON-schema emulation when `tool_choice` is false or unknown (wrap the result into a `tool_use` block).
+  - Invalid tool JSON becomes an `INVALID_JSON` tool result instead of a whole-call `ProviderError` (`providers/base.py:543-552`).
+  - PDF document blocks are rasterised to PNG when the route lacks `pdf` (`formats_media.pdf_pages`).
+  - `max_tokens` is clamped to the context window; `context_too_small` is raised before sending.
+  - `transfer_ok` decides "local" from the resolved addresses (`url_guard.Verdict.local`) instead of the host name (`gateway.py:236-259`).
+  accept: pytest with mocked transports:
+  - rules/intake on an Ollama-like server without `tool_choice` produce proposals;
+  - the chat-upload scanned PDF works on an OpenAI-compatible VLM mock;
+  - a name resolving public with `allow_local` needs a transfer record;
+  - a name resolving private does not;
+  - existing provider tests stay green.
+  files: `backend/app/ai/client.py`, `backend/app/ai/providers/openai_compat.py`, `backend/app/ai/providers/base.py`, `backend/app/ai/elicit.py` (pass `force_tool`), `backend/app/council/llm.py` (`call_tool` `force_tool`), `backend/app/ai/ingest.py` (rasterise branch, `:441-500`), `backend/app/ai/gateway.py` (`transfer_ok`), tests.
+- [ ] HB-14 · ai-engineer · no migration (tables from HB-04) · Telemetry and feedback.
+  - `helper_events` writer; `POST /helper/feedback` {turn_id, thumb, note ≤ 300}.
+  - Prometheus `smartsched_helper_turns{mode,outcome}`, `smartsched_helper_actions{action,stage,outcome}`, `smartsched_helper_latency_seconds{mode}` (no user label).
+  - Log fields named after the OTel GenAI conventions (`gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.tool.name`, `gen_ai.usage.*`).
+  - `GET /ai/admin/helper/summary?days=`: modes, fallback share, deflection, the action funnel, thumbs, p50/p95, cost per feature, index misses with k ≥ 5 users.
+  accept:
+  - pytest: counters move;
+  - no prompt text stored;
+  - k-anonymity on misses;
+  - the summary matches seeded events.
+  files: new `backend/app/helper/telemetry.py`, `backend/app/core/observability.py` (three metric definitions; ask the W3-OPS owner), `backend/app/api/v1/helper.py`, `backend/app/api/v1/ai_admin.py` (summary route; **after VO-04**), tests.
+- [ ] HB-15 · ai-engineer · no migration · **after VO-04 (same file)** · Admin controls `ai.helper`:
+  - `GET/PUT /ai/admin/helper`: enabled, mode `ai|index`, audiences, per-action enable/audiences, memory, retention, feedback notes;
+  - audited `ai.helper`;
+  - defaults per research §8: index-only until `helper` is routed, writes limited to own bookings, requests and approvals;
+  - audiences from WG-B's `services/welcome.py` audience function, imported, not copied.
+  accept:
+  - pytest: an action switched off disappears from `tools_for` and from list-card buttons;
+  - mode `index` makes 0 model calls;
+  - the audit row.
+  files: new `backend/app/helper/settings.py`, `backend/app/api/v1/ai_admin.py`, tests. Frontend twin: HX "Yardımcı" tab in `/admin/ai`.
+- [ ] HB-16 · devops · no migration · **after VO-05 (same compose file)** · Local model host runbook and optional profile.
+  - `docs/deploy/local-models.md`: GPU sizing table, vLLM and Ollama commands, `OLLAMA_CONTEXT_LENGTH ≥ 16384`, `--tool-call-parser`, firewall (the backend → GPU host only), `allow_local`, the KVKK note.
+  - Optional compose profile `ollama`, off by default; never on the 8 GB pod by default.
+  - `deploy/pins.py` pins the image.
+  accept:
+  - `docker compose --profile ollama config` validates;
+  - the runbook walk-through on a test host registers the server, sync shows capabilities (HB-12), and the helper answers in Turkish.
+  files: `smartsched/deploy/docker-compose.yml` (profile only), `smartsched/deploy/pins.py`, `smartsched/deploy/README.md`, new `docs/deploy/local-models.md`.
+- [ ] HB-17 · tester · no migration · Local-model bench.
+  - Fixtures per feature (helper 60 turns, chat 30, rules 30, intake 10 files, council vision 10 scans, explain 20 runs).
+  - Models: Qwen3.5-9B, Gemma 4 26B-A4B, Qwen3-14B on vLLM and Ollama; Kumru-7B / Trendyol for explain only; one cloud baseline.
+  - Metrics: tool-call validity, schema-valid rate, task success, Turkish quality (2 raters), p50/p95 latency, tokens/s on the GPU host and CPU on the pod.
+  - Output: the "supported local models" table for the admin hint.
+  accept:
+  - a report `docs/testing/ai/2026-10-local-models.md` with raw numbers;
+  - the recommended default confirmed or replaced.
+  files: `backend/tests/fixtures/helper/**`, the report; scratch otherwise.
+- [ ] HB-18 · tester · no migration · Red team and persona runs.
+  - RA-01…RA-15 live on cloud and local routes.
+  - Personas: academician, approver, planner, admin; each at 1440 mouse and 390×844 touch (tr-TR, Europe/Istanbul); modes AI-cloud, AI-local and index-only.
+  - MOBILE M-01/02/03/05 on the helper sheet.
+  - The simplicity principle: "where do I click" answered within 2 taps; "overwhelming" is a major finding.
+  accept:
+  - a report with screenshots;
+  - every RA case pass/fail with evidence;
+  - 0 writes without confirm in the audit log.
+  files: `smartsched/frontend/e2e/hb-*.spec.ts` (+ a playwright `testMatch` append, ask the config owner), the report.
+- [ ] HB-19 · later · Expose the action registry as an MCP server with MCP Apps (`ui://` cards) for external assistants. It needs OAuth scopes per action and a separate KVKK review.
+- [ ] HB-20 · later · AG-UI wire adapter for `/helper/turn` (event-name mapping only), if the institution adopts a CopilotKit or Agent Framework client.
+
+Sequence:
+- Parallel now: HB-01, HB-02, HB-03, HB-07, HB-08.
+- Then HB-04, followed by HB-05 and HB-09.
+- After the security follow-up: VO-01, then HB-06 + HB-12, then HB-13.
+- After VO-02: HB-10, then HB-11.
+- After VO-04: HB-14 (admin route), then HB-15.
+- After VO-05: HB-16.
+- HB-17 runs from HB-12 onward, and HB-18 last.

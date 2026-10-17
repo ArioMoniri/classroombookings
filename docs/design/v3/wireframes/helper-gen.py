@@ -20,9 +20,9 @@ def trigger(s, x, y, w=280):
     s.t(x + w - 32, y + 22, "⌘K", 11, 600, MUTED, "middle")
 
 
-def topbar(s, x0=276, trig=True):
+def topbar(s, x0=276, trig=True, crumb="Yönetim  /  Kullanıcılar"):
     s.r(x0, 16, 380, 40, CARD, 20, LINE)
-    s.t(x0 + 18, 41, "Yönetim  /  Kullanıcılar", 13, 500, MUTED)
+    s.t(x0 + 18, 41, crumb, 13, 500, MUTED)
     s.r(s.w - 420, 16, 396, 40, CARD, 20, LINE)
     if trig:
         trigger(s, s.w - 414, 18, 300)
@@ -126,7 +126,7 @@ def search_1440():
 def sheet_1440():
     s = S(1440, 900, "Yardımcı yan paneli ve eylem kartı (masaüstü)")
     s.desk_shell("", 4, ADMIN_NAV)
-    topbar(s)
+    topbar(s, crumb="Rezervasyonlar  /  Hızlı rezervasyon")
     s.t(276, 110, "Hızlı rezervasyon", 28, 700)
     for r in range(5):
         for c in range(5):
@@ -137,12 +137,12 @@ def sheet_1440():
     chip_status(s, x + 112, y + 16, "Yerel model", OK)
     s.t(x + w - 60, y + 34, "⋯", 18, 700, MUTED); s.t(x + w - 24, y + 34, "✕", 16, 600, MUTED, "end")
     s.line(x, y + 54, x + w, y + 54)
-    bubble_user(s, x + 120, y + 74, 260, "Yarın 10:00 için A 204'ü ayır")
-    s.t(x + 20, y + 140, "A 204 yarın 10:00–10:50 boş. Onay gerekmiyor.", 13, 400)
-    card_book(s, x + 20, y + 156, w - 40, "proposed")
-    s.t(x + 20, y + 400, "Önceki adım", 11, 600, SOFT)
-    s.r(x + 20, y + 410, w - 40, 36, "#F8FAFC", 10, LINE)
-    s.t(x + 34, y + 433, "Derslik bul · 3 salon bulundu · bekliyor", 12, 500, MUTED)
+    bubble_user(s, x + 150, y + 70, 230, "Yarın 10'da boş salon var mı?")
+    s.r(x + 20, y + 118, w - 40, 36, "#F8FAFC", 10, LINE)
+    s.t(x + 34, y + 141, "Derslik bul · 3 salon bulundu · katlandı", 12, 500, MUTED)
+    bubble_user(s, x + 150, y + 170, 230, "A 204'ü ayır")
+    s.t(x + 20, y + 232, "A 204 yarın 10:00–10:50 boş. Onay gerekmiyor.", 13, 400)
+    card_book(s, x + 20, y + 248, w - 40, "proposed")
     s.r(x + 20, y + 660, w - 40, 30, WARNBG, 8)
     s.t(x + 32, y + 680, "Bu ayki kullanım hakkınızın %84'ü kullanıldı. 1 Kasım'da yenilenir.", 11, 500, WARN)
     s.r(x + 20, y + 698, 170, 26, TINT, 13)

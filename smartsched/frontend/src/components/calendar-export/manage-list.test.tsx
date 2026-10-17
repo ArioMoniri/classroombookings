@@ -105,7 +105,12 @@ describe("CalendarExportManage", () => {
     expect(rows[0]).toHaveTextContent(/Google Takvim · Son eşitleme bugün \d\d:\d\d/);
     expect(rows[1]).toHaveTextContent("Psikoloji bölümünün dersleri");
     expect(screen.getByTestId("cal-row-state-3")).toHaveTextContent(/Bağlantı · Takviminiz en son \d\d:\d\d'(da|de|ta|te) çekti/);
-    expect(screen.getByTestId("cal-sync-push:google:my_classes")).toBeInTheDocument();
+    // one visible action per row (Kaldır); syncing by hand and renewing a link under a closed "Gelişmiş"
+    expect(screen.getByTestId("cal-remove-3")).toBeInTheDocument();
+    expect(screen.getByTestId("cal-row-advanced-3")).not.toHaveAttribute("open");
+    expect(within(screen.getByTestId("cal-row-advanced-push:google:my_classes")).getByTestId("cal-sync-push:google:my_classes")).toBeInTheDocument();
+    expect(within(screen.getByTestId("cal-row-advanced-3")).getByTestId("cal-rotate-3")).toBeInTheDocument();
+    expect(within(screen.getByTestId("cal-account-advanced-google")).getByTestId("cal-disconnect-google")).toBeInTheDocument();
     expect(screen.getByTestId("cal-rotate-3")).toBeInTheDocument();
   });
 

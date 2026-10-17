@@ -2,7 +2,7 @@
 // Source: https://evilcharts.com (src/registry/charts/echarts-bar-chart.tsx) via shadcn registry @evilcharts/echarts-bar-chart (https://evilcharts.com/r/echarts-bar-chart.json) — https://github.com/legions-developer/evilcharts
 // Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
 // Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
-// Modified: import paths (code + comments); <Tooltip valueFormatter labelFormatter> injected formatters (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters)
+// Modified: import paths (code + comments); <Tooltip valueFormatter labelFormatter className> injected formatters and tooltip class (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters)
 
 import {
   DEFAULT_ECHARTS_RENDERER,
@@ -283,6 +283,7 @@ export interface TooltipProps {
   // SmartSched patch: injected formatters (default: the upstream `toLocaleString()` / raw axis value).
   valueFormatter?: (value: number) => string; // formats every tooltip value
   labelFormatter?: (label: string) => string; // formats the tooltip heading (the bucket)
+  className?: string; // class on the ECharts tooltip root (the shell's transitions.dev `tooltip` entrance)
   variant?: TooltipVariant; // visual style of the tooltip surface
   roundness?: TooltipRoundness; // border-radius of the tooltip
   defaultIndex?: number; // data index the tooltip shows by default, with no hover
@@ -329,6 +330,7 @@ type TooltipSlot = {
   present: boolean;
   valueFormatter?: (value: number) => string;
   labelFormatter?: (label: string) => string;
+  className?: string;
   variant: TooltipVariant;
   roundness: TooltipRoundness;
   defaultIndex?: number;
@@ -424,6 +426,7 @@ function collectConfig(children: ReactNode): CollectedConfig {
         position: props.position ?? "variable",
         valueFormatter: props.valueFormatter,
         labelFormatter: props.labelFormatter,
+        className: props.className,
       };
     } else if (type === Legend) {
       const props = child.props as LegendProps;
@@ -1042,6 +1045,7 @@ function buildTooltipOption(ctx: OptionBuildContext): TooltipComponentOption {
       strokeWidth: STROKE_WIDTH,
     }),
     formatter: createTooltipFormatter(ctx),
+    className: tooltipSlot.className, // SmartSched patch
   };
 }
 
