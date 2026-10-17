@@ -511,6 +511,54 @@ async def test_person_reset_hides_undo_restores_and_planner_gets_403(env: Env):
     assert r.status_code == 409 and expired in r.text
 
 
+async def test_person_reset_deactivates_priors_at_once_and_keeps_the_accepted_card(env: Env):
+    """Round-2 T-R2-24 (R2-M-05): a person reset must not depend on the lazy recompute of the next read. The
+    person's priors are inactive the moment the reset commits (a stale read that was in flight cannot show them
+    as open), the accepted suggestion stays listed as accepted (its rule is a normal preference now), and the
+    undo brings the open ones back."""
+    term, _ = await _next_bahar(["SYS 19", "RAD 202"])
+    await env.client.post(f"{API}/learning/refresh", json={}, headers=env.planner)
+    before = await _suggestions(env, term)
+    person = _pick(before, "instructor", "building")
+    pid = person["subject"]["id"]
+    mine = await _suggestions(env, term, person_id=pid)
+    assert len(mine) >= 2, mine
+    accepted = mine[0]["id"]
+    r = await env.client.post(f"{API}/learning/suggestions/{accepted}/accept", json={}, headers=env.planner)
+    assert r.status_code == 201, r.text
+    keys = [("instructor", str(pid))]
+
+    async def active_ids() -> set[int]:
+        async with _session() as s:
+            q = select(LearnedPrior.id).where(
+                LearnedPrior.term_id == term, LearnedPrior.active.is_(True), learning._subject_clause(LearnedPrior, keys)
+            )
+            return {int(i) for i in (await s.execute(q)).scalars()}
+
+    assert {i["id"] for i in mine} <= await active_ids()
+    r = await env.client.post(
+        f"{API}/learning/reset", json={"scope": "person", "value": pid, "reason": "görev değişikliği"}, headers=env.admin
+    )
+    assert r.status_code == 201, r.text
+    rid = r.json()["id"]
+    # inactive in the database right away: no GET /suggestions ran in between
+    assert await active_ids() == set()
+    # the listing shows the accepted card only, in every state filter
+    after = await _suggestions(env, term, person_id=pid, state="all")
+    assert [(i["id"], i["state"]) for i in after] == [(accepted, "accepted")]
+    assert await _suggestions(env, term, person_id=pid) == []
+    assert await _suggestions(env, term, person_id=pid, state="snoozed") == []
+    assert await _suggestions(env, term, person_id=pid, state="dismissed") == []
+    # the whole-term listing agrees (the person is gone from "open")
+    assert pid not in {i["subject"]["id"] for i in await _suggestions(env, term) if i["subject"]["type"] == "instructor"}
+    # undo: the open ones come back without waiting for a read
+    r = await env.client.post(f"{API}/learning/resets/{rid}/undo", headers=env.admin)
+    assert r.status_code == 200, r.text
+    assert {i["id"] for i in mine} <= await active_ids()
+    back = {i["id"]: i["state"] for i in await _suggestions(env, term, person_id=pid, state="all")}
+    assert back == {i["id"]: ("accepted" if i["id"] == accepted else "open") for i in mine}
+
+
 async def test_purge_removes_expired_observations_and_they_stay_unlearned(env: Env):
     r = await env.client.post(
         f"{API}/learning/reset",
