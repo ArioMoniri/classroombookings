@@ -60,6 +60,15 @@ the locked-class self-move (recommend: keep as re-deciding the lock), T-R1-25 pe
 - Builder stacks use ports 19210/19211 (A2), 19220/19221 (B2), 19230/19231 (E2), 19240/19241 (F2),
   19250/19251 (H); SMTP sinks 2541–2543. Round-2 testers take the re-test rows of README §4.2 (+100).
 
+## Leftovers queued for a sweeper agent (after lane H finishes)
+
+- T-R1-30 part: `components/auth/sign-in-page.tsx` SSO hint prints `self_signup_role_name` ("Teacher"); use the localised role label (`roleLabelIn` / `self_signup_role_label[locale]`).
+- `lib/api/crbs.ts`: `ImportResult` zod schema strips `warning`, `error_tr/en`, `summary*` (lane E2's bilingual CSV import rows); `AdminRoom` may add `code_label`, `building_code`.
+- `components/moderation/moderation-console.tsx`: switch the header's pct() call to `suffix: "poss"` ("%72'si").
+- `app/welcome/page.tsx` still exports its own viewport (harmless duplicate of the root one).
+- `tests/test_crbs_languages`: regenerate the locale data after all message-key changes (see the test for the command).
+- Owner-decision items stay open: R1-M-07, R1-S-37, locked-class self-move, T-R1-25 person key.
+
 ## Progress log (newest first)
 
 - 2026-10-17 00:20 UTC — **lane E2 handed off** 8/9: T-R1-31, 32, 33, 34 done; 35, 36, 37, 38 re-verified and ticked; T-R1-30 partly (login SSO hint prints the raw role name → sweeper, components/auth/sign-in-page.tsx). pytest 118, vitest 100, e2e loop-r1-laneE 5/5. Asks: relaxation-term-card phone sizes → lane H; lib/api/crbs.ts zod fields, moderation-console pct(poss) → sweeper. E2 is being resumed once more for the org-settings focus/capsule ask (T-R1-12 part). Checkpoint 4 = the commit carrying this line.
