@@ -824,6 +824,10 @@ async def commit(
     term_code, tid = term.code, term.id
 
     year = int(g.get("year") or job.year_hint or utcnow().year)
+    # the term's length the user confirmed (term.week_count in the request) outranks the planner group's guess, so
+    # the importers of every job of the term read "Tüm dönem" the same way (T-R2-19: a job with more files guessed
+    # 16 weeks, the next one 14, and every request's weeks "changed")
+    week_count = int((term_spec or {}).get("week_count") or g.get("week_count") or term.week_count or 14)
     reports: list[dict[str, Any]] = []
     records = await storage.records_by_file(session, job)
     routes = {f["index"]: f.get("route") or "" for f in job.files}
@@ -842,7 +846,7 @@ async def commit(
             name,
             term_code,
             year=year,
-            week_count=int(g.get("week_count") or 14),
+            week_count=week_count,
             on_conflict=on_conflict,
         )
         d = rep.to_dict()

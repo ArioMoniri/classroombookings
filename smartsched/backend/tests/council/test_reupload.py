@@ -97,12 +97,12 @@ async def test_general_then_fast_path_share_one_key_and_the_dry_run_predicts_the
     import json as _j
     probe = await _dry(client, h, (await upload(client, h, (BAHAR_LIST.name, BAHAR_LIST.read_bytes()), ai="false"))["id"])
     print("DBG_PROBE", _j.dumps(probe["counts"].get("meeting_requests")), _j.dumps(probe["result"]["fast_path"][0]["updated"]))
-    print("DBG_PROBE_ROWS", _j.dumps([r for r in probe["rows"] if r["entity"] == "meeting_requests"][:6], ensure_ascii=False)[:2500])
+    print("DBG_PROBE_ROWS", _j.dumps([r for r in probe["rows"] if r["entity"] == "meeting_requests" and any(f["field"] == "archived" for f in r.get("fields", []))][:6], ensure_ascii=False)[:2500])
     from app.core.db import get_session_factory as _gsf
     from app.models import MeetingRequest as _MR, Section as _S, Course as _Co, Program as _P
     from sqlalchemy import select as _sel
     async with _gsf()() as _s:
-        for r in [r for r in probe["rows"] if r["entity"] == "meeting_requests"][:6]:
+        for r in [r for r in probe["rows"] if r["entity"] == "meeting_requests" and any(f["field"] == "archived" for f in r.get("fields", []))][:6]:
             mr = await _s.get(_MR, r["id"])
             sec = await _s.get(_S, mr.section_id)
             co = await _s.get(_Co, sec.course_id)
