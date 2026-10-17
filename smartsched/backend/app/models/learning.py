@@ -169,6 +169,42 @@ class SuggestionFeedback(Base):
     )
 
 
+class LearningVersion(Base):
+    """One learning refresh (manual, nightly or a revert) of a term (AS-13): counts, a checksum of the term's active
+    prior set and the diff against the previous version (new / dropped / changed suggestions, as prior scopes, no
+    names). Its prior set is kept in :class:`LearnedPriorSnapshot`, so "Bu sürüme dön" can restore it."""
+
+    __tablename__ = "learning_versions"
+    __table_args__ = (UniqueConstraint("term_id", "number", name="uq_learning_versions_term_number"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    term_id: Mapped[int] = mapped_column(ForeignKey("terms.id", ondelete="CASCADE"), index=True)
+    number: Mapped[int] = mapped_column(Integer)
+    #: manual | nightly | revert
+    trigger: Mapped[str] = mapped_column(String(16), default="manual")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    observations: Mapped[int] = mapped_column(Integer, default=0)
+    priors: Mapped[int] = mapped_column(Integer, default=0)
+    suggestible: Mapped[int] = mapped_column(Integer, default=0)
+    checksum: Mapped[str] = mapped_column(String(64))
+    #: {"new": [...], "dropped": [...], "changed": [...], "counts": {...}} against the previous version
+    diff: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    #: the version a revert restored
+    restored_from: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class LearnedPriorSnapshot(Base):
+    """The active prior rows of a term at one :class:`LearningVersion`, as compact JSON (ids, scopes, numbers,
+    proposals and the name-free explanation templates; erased people are removed by the KVKK erasure)."""
+
+    __tablename__ = "learned_prior_snapshots"
+
+    version_id: Mapped[int] = mapped_column(ForeignKey("learning_versions.id", ondelete="CASCADE"), primary_key=True)
+    term_id: Mapped[int] = mapped_column(ForeignKey("terms.id", ondelete="CASCADE"), index=True)
+    rows: Mapped[list[Any]] = mapped_column(JSON, default=list)
+
+
 __all__ = [
     "ATTRIBUTES",
     "FEEDBACK_ACTIONS",
@@ -176,6 +212,8 @@ __all__ = [
     "SUBJECT_TYPES",
     "LearnedObservation",
     "LearnedPrior",
+    "LearnedPriorSnapshot",
+    "LearningVersion",
     "LearningReset",
     "SuggestionFeedback",
 ]

@@ -610,8 +610,570 @@ async def effective_weights(
     return EffectiveWeights(weights, source, overrides, profile, season, pkind, warnings + run_warn)
 
 
+# ------------------------------------------------------------------------------------------------ profile admin
+
+#: overlay keys (AS-04): limits reuse the booking-policy columns; ``exam_hold`` overrides the exam-period mode
+OVERLAY_LIMITS = (
+    ("max_active_bookings", 0, 10_000),
+    ("min_notice_workdays", 0, 365),
+    ("max_advance_days", 0, 3650),
+    ("max_duration_minutes", 10, 24 * 60),
+    ("buffer_minutes", 0, 240),
+)
+EXAM_HOLD_MODES = ("off", "request", "closed", "slots")
+OVERLAY_EFFECTS = ("refuse", "request")
+#: weight names a profile may set: the solver's defaults plus the opt-in peak smoothing of AS-08
+EXTRA_WEIGHT_KEYS = frozenset({"peak_smoothing"})
+
+
+class SeasonError(Exception):
+    """A refused profile / segment change (``status`` 404 / 409 / 422), Turkish and English."""
+
+    def __init__(self, status: int, code: str, message_en: str, message_tr: str, **extra: Any) -> None:
+        super().__init__(message_en)
+        self.status, self.code, self.message_en, self.message_tr, self.extra = (
+            status,
+            code,
+            message_en,
+            message_tr,
+            extra,
+        )
+
+    def as_detail(self) -> dict[str, Any]:
+        return {
+            "code": self.code,
+            "message": self.message_en,
+            "message_en": self.message_en,
+            "message_tr": self.message_tr,
+            **self.extra,
+        }
+
+
+def weight_keys() -> list[str]:
+    return sorted(set(DEFAULT_WEIGHTS) | EXTRA_WEIGHT_KEYS)
+
+
+def _invalid(message_en: str, message_tr: str, **extra: Any) -> SeasonError:
+    return SeasonError(422, "profile_invalid", message_en, message_tr, **extra)
+
+
+def validate_weights(raw: Any) -> dict[str, int]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, Mapping) or len(raw) > MAX_WEIGHT_KEYS:
+        raise _invalid(
+            f"solver_weights must be an object with at most {MAX_WEIGHT_KEYS} entries",
+            f"solver_weights en çok {MAX_WEIGHT_KEYS} girdili bir nesne olmalı",
+        )
+    known = set(weight_keys())
+    out: dict[str, int] = {}
+    for k, v in raw.items():
+        if k not in known:
+            raise _invalid(f"unknown weight {k!r}", f"bilinmeyen ağırlık: {k}", field="solver_weights", key=k)
+        ok = isinstance(v, int | float) and not isinstance(v, bool) and float(v).is_integer()
+        if not ok or not 0 <= int(v) <= MAX_WEIGHT:
+            raise _invalid(
+                f"weight {k} must be a whole number 0..{MAX_WEIGHT}",
+                f"{k} ağırlığı 0 ile {MAX_WEIGHT} arasında bir tam sayı olmalı",
+                field="solver_weights",
+                key=k,
+            )
+        out[str(k)] = int(v)
+    return out
+
+
+def validate_applies_to(raw: Any) -> list[dict[str, str]]:
+    if not isinstance(raw, list) or not raw or len(raw) > 20:
+        raise _invalid(
+            "applies_to must be a list of 1..20 {season, period_kind} entries",
+            "applies_to 1-20 adet {season, period_kind} girdisinden oluşan bir liste olmalı",
+        )
+    out: list[dict[str, str]] = []
+    from app.models.seasons import SEASONS
+
+    for a in raw:
+        if not isinstance(a, Mapping):
+            raise _invalid("applies_to entries are objects", "applies_to girdileri nesne olmalı")
+        season = n.fold(str(a.get("season") or "*")).upper()
+        kind = str(a.get("period_kind") or "*").upper()
+        if season not in (*SEASONS, "*"):
+            raise _invalid(
+                f"season {a.get('season')!r}: one of {', '.join(SEASONS)} or *",
+                f"dönem {a.get('season')}: {', '.join(SEASONS)} ya da * olmalı",
+                field="applies_to",
+            )
+        if kind not in (*PERIOD_KINDS, "*"):
+            raise _invalid(
+                f"period_kind {a.get('period_kind')!r}: one of {', '.join(PERIOD_KINDS)} or *",
+                f"dönem türü {a.get('period_kind')}: {', '.join(PERIOD_KINDS)} ya da * olmalı",
+                field="applies_to",
+            )
+        out.append({"season": season, "period_kind": kind})
+    return out
+
+
+def validate_overlays(raw: Any) -> list[dict[str, Any]]:
+    """Booking overlays (AS-04): ``{"scope": "all" | "tag:PC" | "building:A" | "room:A101", "period_kinds": [...],
+    "effect": "refuse" | "request", <limit>: n, "exam_hold": off|request|closed|slots, "buffer_periods": 0..4}``."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or len(raw) > 20:
+        raise _invalid(
+            "booking_overlays must be a list of at most 20", "booking_overlays en çok 20 girdili liste olmalı"
+        )
+    out: list[dict[str, Any]] = []
+    for o in raw:
+        if not isinstance(o, Mapping):
+            raise _invalid("booking_overlays entries are objects", "booking_overlays girdileri nesne olmalı")
+        scope = n.clean_text(str(o.get("scope") or "all")) or "all"
+        kind, _sep, value = scope.partition(":")
+        kind = kind.strip().lower()
+        if kind not in ("all", "tag", "building", "room") or (kind != "all" and not value.strip()):
+            raise _invalid(
+                f"overlay scope {scope!r}: all, tag:<TAG>, building:<code> or room:<code>",
+                f"kapsam {scope}: all, tag:<ETİKET>, building:<bina> ya da room:<oda> olmalı",
+                field="booking_overlays",
+            )
+        item: dict[str, Any] = {"scope": "all" if kind == "all" else f"{kind}:{n.tr_upper(value.strip())}"}
+        if kind == "room":
+            item["scope"] = f"room:{n.tr_upper(value.strip()).replace(' ', '')}"
+        kinds = o.get("period_kinds")
+        if kinds is not None:
+            if not isinstance(kinds, list) or any(str(k).upper() not in PERIOD_KINDS for k in kinds):
+                raise _invalid(
+                    f"period_kinds: a list of {', '.join(PERIOD_KINDS)}",
+                    f"period_kinds: {', '.join(PERIOD_KINDS)} değerlerinden oluşan bir liste olmalı",
+                    field="booking_overlays",
+                )
+            item["period_kinds"] = sorted({str(k).upper() for k in kinds})
+        effect = str(o.get("effect") or "refuse")
+        if effect not in OVERLAY_EFFECTS:
+            raise _invalid("overlay effect: refuse or request", "etki: refuse ya da request", field="booking_overlays")
+        item["effect"] = effect
+        has = False
+        for key, lo, hi in OVERLAY_LIMITS:
+            v = o.get(key)
+            if v is None:
+                continue
+            if isinstance(v, bool) or not isinstance(v, int) or not lo <= v <= hi:
+                raise _invalid(f"{key} must be {lo}..{hi}", f"{key} {lo} ile {hi} arasında olmalı", field=key)
+            item[key], has = int(v), True
+        hold = o.get("exam_hold")
+        if hold is not None:
+            if hold not in EXAM_HOLD_MODES:
+                raise _invalid(
+                    f"exam_hold: one of {', '.join(EXAM_HOLD_MODES)}",
+                    f"sınav tutma kipi: {', '.join(EXAM_HOLD_MODES)}",
+                    field="exam_hold",
+                )
+            item["exam_hold"], has = hold, True
+            bp = o.get("buffer_periods", 1)
+            if isinstance(bp, bool) or not isinstance(bp, int) or not 0 <= bp <= 4:
+                raise _invalid("buffer_periods must be 0..4", "buffer_periods 0 ile 4 arasında olmalı")
+            item["buffer_periods"] = int(bp)
+        if not has:
+            raise _invalid("an overlay needs a limit or exam_hold", "bir ek kural en az bir sınır içermeli")
+        out.append(item)
+    return out
+
+
+def _text(raw: Any, field_name: str, max_len: int = 128) -> str:
+    text = n.clean_text(str(raw)) if raw is not None else None
+    if not text:
+        raise _invalid(f"{field_name} is required", f"{field_name} gerekli", field=field_name)
+    return text[:max_len]
+
+
+def _explanation(raw: Any) -> dict[str, str]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, Mapping):
+        raise _invalid("explanation is {tr, en}", "explanation {tr, en} olmalı")
+    return {k: (n.clean_text(str(raw.get(k))) or "")[:2000] for k in ("tr", "en") if raw.get(k)}
+
+
+def profile_out(row: SeasonProfile | Mapping[str, Any]) -> dict[str, Any]:
+    if isinstance(row, Mapping):  # a built-in
+        return {
+            "id": None,
+            "key": row["key"],
+            "version": row["version"],
+            "name": _t(row["name_tr"], row["name_en"]),
+            "name_tr": row["name_tr"],
+            "name_en": row["name_en"],
+            "applies_to": list(row["applies_to"]),
+            "solver_weights": dict(row["solver_weights"]),
+            "booking_overlays": list(row["booking_overlays"]),
+            "peak_threshold_pct": row["peak_threshold_pct"],
+            "status": "active",
+            "builtin": True,
+            "origin": "builtin",
+            "parent_id": None,
+            "created_by": None,
+            "approved_by": None,
+            "approved_at": None,
+            "explanation": dict(row["explanation"]),
+            "evidence": {},
+            "source": f"profile:{row['key']}@{row['version']}",
+            "weights_diff": [],
+        }
+    return {
+        "id": row.id,
+        "key": row.key,
+        "version": row.version,
+        "name": _t(row.name_tr, row.name_en),
+        "name_tr": row.name_tr,
+        "name_en": row.name_en,
+        "applies_to": list(row.applies_to or []),
+        "solver_weights": dict(row.solver_weights or {}),
+        "booking_overlays": list(row.booking_overlays or []),
+        "peak_threshold_pct": row.peak_threshold_pct,
+        "status": row.status,
+        "builtin": False,
+        "origin": row.origin,
+        "parent_id": row.parent_id,
+        "created_by": row.created_by,
+        "approved_by": row.approved_by,
+        "approved_at": row.approved_at.isoformat() if row.approved_at else None,
+        "explanation": dict(row.explanation or {}),
+        "evidence": dict(row.evidence or {}),
+        "source": f"profile:{row.key}@{row.version}",
+        # what differs from the standard (default) weights: the "ağırlıklar" diff of the admin page
+        "weights_diff": [
+            {"key": k, "default": DEFAULT_WEIGHTS.get(k), "value": int(v)}
+            for k, v in sorted((row.solver_weights or {}).items())
+            if DEFAULT_WEIGHTS.get(k) != v
+        ],
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+async def list_profiles(session: AsyncSession) -> dict[str, Any]:
+    rows = list(
+        (await session.execute(select(SeasonProfile).order_by(SeasonProfile.key, SeasonProfile.version))).scalars()
+    )
+    return {
+        "profiles": [profile_out(p) for p in BUILTIN_PROFILES] + [profile_out(r) for r in rows],
+        "weight_keys": weight_keys(),
+        "defaults": dict(DEFAULT_WEIGHTS),
+        "seasons": [{"key": k, "label": _t(*v)} for k, v in SEASON_LABEL.items()],
+        "period_kinds": [{"key": k, "label": _t(*KIND_LABEL[k])} for k in PERIOD_KINDS],
+    }
+
+
+async def get_profile(session: AsyncSession, profile_id: int) -> SeasonProfile:
+    row = await session.get(SeasonProfile, profile_id)
+    if row is None:
+        raise SeasonError(404, "profile_not_found", "season profile not found", "dönem profili bulunamadı")
+    return row
+
+
+def _clean_key(raw: Any) -> str:
+    import re
+
+    key = n.fold(str(raw or "")).lower().strip().replace(" ", "-")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_\-]{0,63}", key):
+        raise _invalid(
+            "key: 1-64 characters a-z, 0-9, - and _", "anahtar: 1-64 karakter (a-z, 0-9, - ve _)", field="key"
+        )
+    if key in BUILTIN_KEYS or key == "none":
+        raise SeasonError(409, "profile_builtin", f"{key!r} is a built-in profile", f"{key} yerleşik bir profil")
+    return key
+
+
+def _fields(data: Mapping[str, Any], base: SeasonProfile | None = None) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    if base is None or "name_tr" in data:
+        out["name_tr"] = _text(data.get("name_tr"), "name_tr")
+    if base is None or "name_en" in data:
+        out["name_en"] = _text(data.get("name_en"), "name_en")
+    if base is None or "applies_to" in data:
+        out["applies_to"] = validate_applies_to(data.get("applies_to"))
+    if base is None or "solver_weights" in data:
+        out["solver_weights"] = validate_weights(data.get("solver_weights"))
+    if base is None or "booking_overlays" in data:
+        out["booking_overlays"] = validate_overlays(data.get("booking_overlays"))
+    if base is None or "peak_threshold_pct" in data:
+        pt = data.get("peak_threshold_pct", DEFAULT_PEAK_THRESHOLD)
+        if isinstance(pt, bool) or not isinstance(pt, int) or not 50 <= pt <= 100:
+            raise _invalid("peak_threshold_pct must be 50..100", "yoğunluk eşiği %50 ile %100 arasında olmalı")
+        out["peak_threshold_pct"] = int(pt)
+    if base is None or "explanation" in data:
+        out["explanation"] = _explanation(data.get("explanation"))
+    if "evidence" in data:
+        ev = data.get("evidence")
+        if ev is not None and not isinstance(ev, Mapping):
+            raise _invalid("evidence is an object", "evidence bir nesne olmalı")
+        out["evidence"] = dict(ev or {})
+    return out
+
+
+async def _next_version(session: AsyncSession, key: str) -> int:
+    from sqlalchemy import func
+
+    cur = (await session.execute(select(func.max(SeasonProfile.version)).where(SeasonProfile.key == key))).scalar()
+    return int(cur or 0) + 1
+
+
+async def create_profile(
+    session: AsyncSession, data: Mapping[str, Any], *, actor: Any, origin: str = "admin"
+) -> SeasonProfile:
+    """A new draft (version = the key's next version). Drafts never apply until :func:`activate_profile`."""
+    key = _clean_key(data.get("key"))
+    fields = _fields(data)
+    row = SeasonProfile(
+        key=key,
+        version=await _next_version(session, key),
+        status="draft",
+        origin=origin if origin in ("admin", "learned", "proposed") else "admin",
+        created_by=getattr(actor, "id", None),
+        **fields,
+    )
+    session.add(row)
+    await session.flush()
+    await _audit(session, "season_profile.create", row, actor)
+    return row
+
+
+async def update_profile(
+    session: AsyncSession, profile_id: int, data: Mapping[str, Any], *, actor: Any
+) -> SeasonProfile:
+    """A draft is edited in place; an active profile gets a new draft version (``parent_id`` = the active one);
+    a retired version is read-only (409)."""
+    row = await get_profile(session, profile_id)
+    fields = _fields(data, base=row)
+    if row.status == "draft":
+        before = profile_out(row)
+        for k, v in fields.items():
+            setattr(row, k, v)
+        await session.flush()
+        await _audit(session, "season_profile.update", row, actor, before=before)
+        return row
+    if row.status != "active":
+        raise SeasonError(
+            409,
+            "profile_retired",
+            "a retired version is read-only; edit the active version",
+            "emekliye ayrılmış sürüm değiştirilemez; etkin sürümü düzenleyin",
+        )
+    child = SeasonProfile(
+        key=row.key,
+        version=await _next_version(session, row.key),
+        status="draft",
+        origin=row.origin,
+        parent_id=row.id,
+        created_by=getattr(actor, "id", None),
+        name_tr=row.name_tr,
+        name_en=row.name_en,
+        applies_to=list(row.applies_to or []),
+        solver_weights=dict(row.solver_weights or {}),
+        booking_overlays=list(row.booking_overlays or []),
+        peak_threshold_pct=row.peak_threshold_pct,
+        explanation=dict(row.explanation or {}),
+        evidence=dict(row.evidence or {}),
+    )
+    for k, v in fields.items():
+        setattr(child, k, v)
+    session.add(child)
+    await session.flush()
+    await _audit(session, "season_profile.update", child, actor, before=profile_out(row))
+    return child
+
+
+async def activate_profile(session: AsyncSession, profile_id: int, *, actor: Any) -> SeasonProfile:
+    """Approve a draft (or bring back a retired version): it becomes the key's only active version."""
+    from app.models.base import utcnow
+
+    row = await get_profile(session, profile_id)
+    if row.status == "active":
+        return row
+    for other in (
+        await session.execute(
+            select(SeasonProfile).where(SeasonProfile.key == row.key, SeasonProfile.status == "active")
+        )
+    ).scalars():
+        other.status = "retired"
+    row.status = "active"
+    row.approved_by = getattr(actor, "id", None)
+    row.approved_at = utcnow()
+    await session.flush()
+    await _audit(session, "season_profile.activate", row, actor)
+    return row
+
+
+async def revert_profile(session: AsyncSession, profile_id: int, *, actor: Any) -> SeasonProfile:
+    """ "Geri al": the active version ``profile_id`` is retired and its parent becomes active again."""
+    from app.models.base import utcnow
+
+    row = await get_profile(session, profile_id)
+    if row.status != "active":
+        raise SeasonError(
+            409, "profile_not_active", "only the active version can be reverted", "yalnız etkin sürüm geri alınabilir"
+        )
+    if row.parent_id is None:
+        raise SeasonError(
+            409,
+            "profile_no_parent",
+            "this is the first version: nothing to revert to",
+            "ilk sürüm: dönülecek önceki sürüm yok",
+        )
+    parent = await get_profile(session, row.parent_id)
+    row.status = "retired"
+    parent.status = "active"
+    parent.approved_by = getattr(actor, "id", None)
+    parent.approved_at = utcnow()
+    await session.flush()
+    await _audit(session, "season_profile.revert", parent, actor, before=profile_out(row))
+    return parent
+
+
+async def retire_profile(session: AsyncSession, profile_id: int, *, actor: Any) -> SeasonProfile:
+    row = await get_profile(session, profile_id)
+    before = profile_out(row)
+    if row.status == "draft":
+        await session.delete(row)
+        await session.flush()
+        await _audit(session, "season_profile.delete", None, actor, before=before, entity_id=profile_id)
+        return row
+    row.status = "retired"
+    await session.flush()
+    await _audit(session, "season_profile.retire", row, actor, before=before)
+    return row
+
+
+async def _audit(
+    session: AsyncSession,
+    action: str,
+    row: SeasonProfile | None,
+    actor: Any,
+    *,
+    before: dict[str, Any] | None = None,
+    entity_id: int | None = None,
+) -> None:
+    from app.services.audit import jsonable
+    from app.services.events import publish_event
+
+    await publish_event(
+        session,
+        action,
+        "season_profile",
+        row.id if row is not None else entity_id,
+        before=jsonable(before) if before else None,
+        after=jsonable(profile_out(row)) if row is not None else None,
+        actor=actor,
+    )
+
+
+# ------------------------------------------------------------------------------------------------ segments
+
+
+def validate_segment(data: Mapping[str, Any], base: SeasonSegment | None = None) -> dict[str, Any]:
+    from app.services.booking_policies import _parse_date
+
+    out: dict[str, Any] = {}
+    if base is None or "kind" in data:
+        kind = str(data.get("kind") or "").upper()
+        if kind not in PERIOD_KINDS:
+            raise SeasonError(
+                422,
+                "segment_invalid",
+                f"kind: one of {', '.join(PERIOD_KINDS)}",
+                f"tür: {', '.join(PERIOD_KINDS)} olmalı",
+            )
+        out["kind"] = kind
+    for k in ("week_from", "week_to"):
+        if k in data:
+            v = data.get(k)
+            if v is not None and (isinstance(v, bool) or not isinstance(v, int) or not 1 <= v <= 60):
+                raise SeasonError(422, "segment_invalid", f"{k} must be 1..60", f"{k} 1 ile 60 arasında olmalı")
+            out[k] = v
+    for k in ("date_from", "date_to"):
+        if k in data:
+            v = data.get(k)
+            try:
+                out[k] = _parse_date(v) if v not in (None, "") else None
+            except ValueError as exc:
+                raise SeasonError(422, "segment_invalid", f"{k}: YYYY-MM-DD", f"{k}: GG.AA.YYYY") from exc
+    wf = out.get("week_from", base.week_from if base else None)
+    wt = out.get("week_to", base.week_to if base else None)
+    df = out.get("date_from", base.date_from if base else None)
+    dt = out.get("date_to", base.date_to if base else None)
+    if wf is None and df is None:
+        raise SeasonError(
+            422,
+            "segment_invalid",
+            "a segment needs week_from or date_from",
+            "bir dönem parçası hafta ya da tarih ister",
+        )
+    if wf is not None and wt is not None and wt < wf:
+        raise SeasonError(422, "segment_invalid", "week_to is before week_from", "bitiş haftası başlangıçtan önce")
+    if df is not None and dt is not None and dt < df:
+        raise SeasonError(422, "segment_invalid", "date_to is before date_from", "bitiş tarihi başlangıçtan önce")
+    kind = out.get("kind", base.kind if base else "LECTURE")
+    tr_default, en_default = KIND_LABEL.get(kind, (kind, kind))
+    if base is None or "label_tr" in data:
+        out["label_tr"] = (n.clean_text(str(data.get("label_tr") or "")) or tr_default)[:128]
+    if base is None or "label_en" in data:
+        out["label_en"] = (n.clean_text(str(data.get("label_en") or "")) or en_default)[:128]
+    if "status" in data:
+        st = str(data.get("status") or "active")
+        if st not in ("draft", "active"):
+            raise SeasonError(422, "segment_invalid", "status: draft or active", "durum: draft ya da active")
+        out["status"] = st
+    return out
+
+
+def segment_out(sg: SeasonSegment) -> dict[str, Any]:
+    return {
+        "id": sg.id,
+        "term_id": sg.term_id,
+        "kind": sg.kind,
+        "kind_label": _t(*KIND_LABEL.get(sg.kind, (sg.kind, sg.kind))),
+        "week_from": sg.week_from,
+        "week_to": sg.week_to,
+        "date_from": sg.date_from.isoformat() if sg.date_from else None,
+        "date_to": sg.date_to.isoformat() if sg.date_to else None,
+        "label": _t(sg.label_tr, sg.label_en),
+        "status": sg.status,
+    }
+
+
+async def term_periods(session: AsyncSession, term_id: int) -> dict[str, Any]:
+    term = await session.get(Term, term_id)
+    if term is None:
+        raise SeasonError(404, "term_not_found", "term not found", "dönem bulunamadı")
+    weeks_rows, holidays, segs = await load_calendar(session, term)
+    season = season_of(term)
+    label = SEASON_LABEL.get(season, (season, season))
+    out_periods = [p.as_dict() for p in periods(term, weeks_rows, holidays, segs)]
+    return {
+        "term_id": term.id,
+        "term_code": term.code,
+        "season": {"key": season, "label": _t(*label)},
+        "periods": out_periods,
+        "segments": [segment_out(sg) for sg in segs],
+        "empty": not out_periods,
+        "needs": None
+        if out_periods
+        else _t(
+            "Dönemin hafta türleri yok: haftalık çizelgeyi içe aktarın ya da Haftalar sayfasında işaretleyin",
+            "The term has no week kinds: import the weekly grid or mark them on the Weeks page",
+        ),
+    }
+
+
 __all__ = [
     "BUILTIN_KEYS",
+    "SeasonError",
+    "activate_profile",
+    "create_profile",
+    "list_profiles",
+    "profile_out",
+    "revert_profile",
+    "term_periods",
+    "update_profile",
+    "validate_overlays",
     "BUILTIN_PROFILES",
     "COURSE_SKIP_KINDS",
     "EffectiveWeights",

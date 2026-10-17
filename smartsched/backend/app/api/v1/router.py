@@ -187,3 +187,13 @@ api_router.include_router(mail_admin.router)
 from app.api.v1 import security_contact  # noqa: E402
 
 api_router.include_router(security_contact.router)
+
+# welcome guide per role WG-01…WG-03 (sheet, tour, checklist, hints, admin texts and stats; app/services/welcome.py)
+from app.api.v1 import welcome as welcome_api  # noqa: E402
+
+api_router.include_router(welcome_api.router)
+
+# adaptive scheduling AS-03: season profiles and the season calendar (app/services/seasons.py; /admin/weeks)
+from app.api.v1 import seasons as seasons_api  # noqa: E402
+
+api_router.include_router(seasons_api.router)

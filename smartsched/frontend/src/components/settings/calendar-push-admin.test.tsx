@@ -6,6 +6,9 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@/lib/i18n/provider";
 
+// user events on a shared, loaded host (load average above 20 on 4 cores during the CAL lanes)
+vi.setConfig({ testTimeout: 20_000 });
+
 const state = vi.hoisted(() => ({ settings: null as unknown, put: vi.fn() }));
 vi.mock("@/lib/api/client", async (orig) => ({
   ...(await orig<typeof import("@/lib/api/client")>()),

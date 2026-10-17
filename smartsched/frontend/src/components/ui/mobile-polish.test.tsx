@@ -37,16 +37,16 @@ describe("Dialog on phones (MOBILE.md M-04)", () => {
     // whose body scrolls (T-R1-03), on the solid material
     expect(popup).toHaveClass(
       "max-sm:top-auto",
-      "max-sm:bottom-0",
+      "max-sm:bottom-[calc(var(--kb-inset,0px)+env(safe-area-inset-bottom,0px)-env(safe-area-max-inset-bottom,env(safe-area-inset-bottom,0px)))]",
       "max-sm:left-0",
       "max-sm:w-full",
       "max-sm:max-w-none",
       "max-sm:translate-x-0",
       "max-sm:translate-y-0",
-      "max-sm:max-h-[calc(100dvh-3rem)]",
+      "max-sm:max-h-[calc(100dvh-3rem-var(--kb-inset,0px))]",
       "max-sm:overflow-hidden",
       "max-sm:rounded-b-none",
-      "max-sm:border-b-[length:env(safe-area-inset-bottom)]",
+      "max-sm:border-b-[length:env(safe-area-max-inset-bottom,env(safe-area-inset-bottom,0px))]",
       "max-sm:border-b-transparent",
       "max-sm:bg-(--mat-thick-solid)",
     );

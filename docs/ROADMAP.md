@@ -3107,3 +3107,18 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
 Order: CH-01 → CH-02 → CH-03 → CH-04 → CH-05 → CH-06 → CH-09 → CH-11 → CH-07 → CH-08 → CH-12; CH-10 later.
 
 > Owner decision 2026-10-18: voice uses cloud APIs/models that support audio, chosen and moderated by admins; no on-prem Whisper (the `voice-local` profile in VO-05 is dropped).
+
+### Real-not-fake & admin editability (owner request 2026-10-17; audit docs/testing/audits/2026-10-17-no-mock-and-editability.md)
+- [ ] RF-01 blocker: the /classes "Öğrenci" (enrolment) edit is persisted (schemas/requests.py, classes-page.tsx) — lane RF-1
+- [ ] RF-02 blocker: the admin default solver seed and weights reach every run (merged server-side and recorded on the run) — AS-B, AS-01
+- [ ] RF-03 blocker: the "Davet e-postası gönder" switch works (users-admin-identity.tsx → send_email) — lane RF-1
+- [ ] RF-04 blocker: the phone month arrows on /timetable work (mobile-calendar.tsx) — after the mobile optimisers
+- [ ] RF-05 blocker: admin screens to view, edit and delete instructors, courses, faculties/departments and imported sections, using the existing routes and lib/api/catalog-admin.ts — lane RF-1
+- [ ] RF-06 major: re-import keeps admin edits (room capacity and tags, programme renames, exam requests and archived rows, FILE preference rules) with a diff review — after lane C
+- [ ] RF-07 major: learning refresh button + nightly refresh; correct, disable or tune individual habits — AS-B, AS-13
+- [ ] RF-08 major: seeded workbooks are recorded as imports with an actor, a report and a download — after lane C
+- [ ] RF-09 major: period grid and term week calendar editable by admins — after lane C / CAL-B
+- [ ] RF-10 major: the personal 'Yoğunluk' setting also applies to the timetable — after the mobile optimisers
+- [ ] RF-11 major: senders for reminder, series created and changed, approval submitted and calendar consent; new-device sign-in after the security follow-up; correct the 'template only' labels in /admin/email — lane RF-2
+- [ ] RF-12 major: SAML federation metadata signature check — after the SAML library lane
+

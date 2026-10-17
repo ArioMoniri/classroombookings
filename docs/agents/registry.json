@@ -2852,7 +2852,8 @@
       "goal": "Adversarial product audit of SmartSched (repo /home/user/classroombookings, smartsched/backend + smartsched/frontend, branch claude/focused-wright-ktt0ss). You are read-only: change nothing. Write your report to /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchp…",
       "ledger": "Audit: no demo/mock/placeholder features",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:21"
     },
     {
       "id": "a67479c051488493d",

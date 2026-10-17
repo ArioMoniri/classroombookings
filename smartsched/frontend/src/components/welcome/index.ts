@@ -4,5 +4,4 @@ export { WelcomePageSlot } from "./page-slot";
 export { ChecklistPill } from "./checklist/checklist-pill";
 export { HelpMenuGroup, DrawerWelcomeRows, useWelcomeCommands } from "./help-menu";
 export { NewBadge } from "./hints/new-badge";
-export { tourAnchorFor } from "./tour/anchors";
-export { TOUR_RUNNING_ATTR } from "./tour/tour-runner";
+export { TOUR_RUNNING_ATTR, tourAnchorFor } from "./tour/anchors";

@@ -184,6 +184,15 @@ DATA_CLASSES: dict[str, dict[str, Any]] = {
         "retention": None,
         "kept": "tutulmaz",
     },
+    # welcome guide per role (WG-03, app/services/welcome.py): show / hide the guide; no content, clicks or timings
+    "welcome": {
+        "tr": "Karşılama rehberi durumu: rehberin gösterilip gösterilmediği, ertelendiği, turun adımı, tamamlanan maddeler",
+        "en": "Welcome guide state: whether the guide was shown, snoozed or finished, the tour step, items done",
+        "tables": ["welcome_progress"],
+        "legal_basis": "KVKK m.5/2(f) meşru menfaat (rehberi doğru kişiye bir kez göstermek)",
+        "retention": None,
+        "kept": "hesapla birlikte; silme talebinde silinir",
+    },
 }
 FLOORS = {k: v["retention"]["floor_days"] for k, v in DATA_CLASSES.items() if v["retention"]}
 
@@ -1121,6 +1130,9 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, Any]:
         {"kind": o.kind, "attribute": o.attribute, "value": o.value, "weight": o.weight, "ts": o.ts} for o in obs
     ]
     data["data_requests"] = [dsr_out(r) for r in await mine(session, user)]
+    from app.services import welcome as welcome_svc  # WG-03: the welcome guide's per-person state
+
+    data["welcome_guide"] = await welcome_svc.dsr_rows(session, uid)
     data.update(await _person_records(session, user, rooms))
     return await _scrub_others(session, user, data)
 
@@ -1784,6 +1796,10 @@ EXPORT_FILES: dict[str, tuple[str, str]] = {
         "Size özel rezervasyon sınırları (R: rolün değeri, U: size özel, X: sınırsız).",
         "Booking limits set for you (R: the role's value, U: your own, X: unlimited).",
     ),
+    "welcome_guide": (
+        "Karşılama rehberinin sizin için durumu (gösterildi, ertelendi, tur adımı, tamamlanan maddeler).",
+        "The welcome guide's state for you (shown, snoozed, tour step, items done).",
+    ),
 }
 
 
@@ -2204,6 +2220,9 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
     ):
         counts[name] = await _count_delete(session, stmt)
     counts["calendar_connections"] += n_conns  # disconnected in step 0 (the delete above catches any left)
+    from app.services import welcome as welcome_svc  # WG-03: the welcome guide's per-person state
+
+    counts["welcome_progress"] = await welcome_svc.erase(session, uid)
     counts["profile_photo"] = delete_profile_photo(uid)
     await session.execute(update(Room).where(Room.owner_user_id == uid).values(owner_user_id=None))
     # 4. learned observations of the person (and of their instructor record), then the link

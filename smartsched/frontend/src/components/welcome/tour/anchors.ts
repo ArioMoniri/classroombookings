@@ -4,6 +4,9 @@
  * Several elements may carry one anchor (sidebar + tab bar): the visible one wins.
  */
 
+/** Set on <html> while a tour runs: the global shortcuts and ⌘K pause (use-global-shortcuts.ts reads it). */
+export const TOUR_RUNNING_ATTR = "data-tour-running";
+
 /** nav href → anchor name (`/moderation/me` → `nav-my-requests`, `/admin/welcome` → `nav-welcome-admin`). */
 const NAV_ANCHORS: Readonly<Record<string, string>> = {
   "/reserve": "nav-reserve",

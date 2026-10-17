@@ -18,13 +18,12 @@ import { useI18n } from "@/lib/i18n/provider";
 import { useReduce } from "@/lib/motion";
 import { useUiStore } from "@/stores/ui";
 import { focusPageHeading, useWelcomeStore, type TourRequest } from "../welcome-store";
-import { isFocusable, waitForAnchor } from "./anchors";
+import { TOUR_RUNNING_ATTR, isFocusable, waitForAnchor } from "./anchors";
 import type { EngineStep } from "./engine";
 import JoyrideAdapter from "./joyride-adapter";
 import { SpotlightRing } from "./spotlight-ring";
 import { HEADING_FALLBACK, samePath, stepCopy } from "./steps";
 
-export const TOUR_RUNNING_ATTR = "data-tour-running";
 const DOCKED = "(max-width: 639.98px)";
 const SIDEBAR = "(min-width: 1024px)";
 

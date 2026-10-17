@@ -66,7 +66,9 @@ async def test_as_03_draft_activate_run_edit_revert(client, stub_solver, parsed_
     r = await client.post(f"/api/v1/seasons/profiles/{v1['id']}/activate", headers=h)
     assert r.status_code == 200 and r.json()["status"] == "active" and r.json()["approved_by"]
     # edit the active v1 -> v2 draft; activate v2 -> v1 retired
-    r = await client.put(f"/api/v1/seasons/profiles/{v1['id']}", json={"solver_weights": {"room_preference": 6}}, headers=h)
+    r = await client.put(
+        f"/api/v1/seasons/profiles/{v1['id']}", json={"solver_weights": {"room_preference": 6}}, headers=h
+    )
     assert r.status_code == 200, r.text
     v2 = r.json()
     assert (v2["version"], v2["status"], v2["parent_id"]) == (2, "draft", v1["id"])
@@ -99,15 +101,31 @@ async def test_as_03_draft_activate_run_edit_revert(client, stub_solver, parsed_
     assert run["stats"]["weights_source"]["room_preference"] == "profile:bahar-ders@2"
     # every step is audited
     async with get_session_factory()() as s:
-        actions = [a for (a,) in (await s.execute(select(AuditEvent.action).where(AuditEvent.entity_type == "season_profile"))).all()]
-    assert {"season_profile.create", "season_profile.update", "season_profile.activate", "season_profile.revert"} <= set(actions)
+        actions = [
+            a
+            for (a,) in (
+                await s.execute(select(AuditEvent.action).where(AuditEvent.entity_type == "season_profile"))
+            ).all()
+        ]
+    assert {
+        "season_profile.create",
+        "season_profile.update",
+        "season_profile.activate",
+        "season_profile.revert",
+    } <= set(actions)
 
 
 async def test_as_03_validation_and_builtins(client, parsed_bahar_grid, parsed_bahar_list):
     h = await login(client)
     r = await client.post(
         "/api/v1/seasons/profiles",
-        json={"key": "kotu", "name_tr": "Kötü", "name_en": "Bad", "applies_to": BAHAR_LECTURE, "solver_weights": {"room_preference": 10_001}},
+        json={
+            "key": "kotu",
+            "name_tr": "Kötü",
+            "name_en": "Bad",
+            "applies_to": BAHAR_LECTURE,
+            "solver_weights": {"room_preference": 10_001},
+        },
         headers=h,
     )
     assert r.status_code == 422
@@ -115,13 +133,24 @@ async def test_as_03_validation_and_builtins(client, parsed_bahar_grid, parsed_b
     assert d["code"] == "profile_invalid" and "room_preference" in d["message_tr"] and d["message_en"]
     r = await client.post(
         "/api/v1/seasons/profiles",
-        json={"key": "kotu", "name_tr": "Kötü", "name_en": "Bad", "applies_to": [{"season": "KIS", "period_kind": "LECTURE"}]},
+        json={
+            "key": "kotu",
+            "name_tr": "Kötü",
+            "name_en": "Bad",
+            "applies_to": [{"season": "KIS", "period_kind": "LECTURE"}],
+        },
         headers=h,
     )
     assert r.status_code == 422 and "KIS" in r.json()["detail"]["message_tr"]
     r = await client.post(
         "/api/v1/seasons/profiles",
-        json={"key": "kotu", "name_tr": "Kötü", "name_en": "Bad", "applies_to": BAHAR_LECTURE, "solver_weights": {"no_such_rule": 3}},
+        json={
+            "key": "kotu",
+            "name_tr": "Kötü",
+            "name_en": "Bad",
+            "applies_to": BAHAR_LECTURE,
+            "solver_weights": {"no_such_rule": 3},
+        },
         headers=h,
     )
     assert r.status_code == 422 and "no_such_rule" in r.json()["detail"]["message_en"]
@@ -155,7 +184,13 @@ async def test_as_03_periods_and_segments(client, parsed_bahar_grid, parsed_baha
     tid = await _seed(parsed_bahar_grid, parsed_bahar_list)
     r = await client.post(
         f"/api/v1/seasons/terms/{tid}/segments",
-        json={"kind": "ADD_DROP", "week_from": 1, "week_to": 2, "label_tr": "Ekle-bırak: 1–2. hafta", "label_en": "Add/drop: weeks 1–2"},
+        json={
+            "kind": "ADD_DROP",
+            "week_from": 1,
+            "week_to": 2,
+            "label_tr": "Ekle-bırak: 1–2. hafta",
+            "label_en": "Add/drop: weeks 1–2",
+        },
         headers=h,
     )
     assert r.status_code == 201, r.text
@@ -173,7 +208,9 @@ async def test_as_03_periods_and_segments(client, parsed_bahar_grid, parsed_baha
     assert ("EXAM", 17, 18, "week") in kinds
     assert out["periods"][0]["date_from"] == "2026-02-02"
     r = await client.post(
-        f"/api/v1/seasons/terms/{tid}/segments", json={"kind": "PARTY", "week_from": 1, "label_tr": "x", "label_en": "x"}, headers=h
+        f"/api/v1/seasons/terms/{tid}/segments",
+        json={"kind": "PARTY", "week_from": 1, "label_tr": "x", "label_en": "x"},
+        headers=h,
     )
     assert r.status_code == 422
     r = await client.delete(f"/api/v1/seasons/segments/{seg['id']}", headers=h)
@@ -190,7 +227,13 @@ async def test_as_03_profile_for_exam_period_kind(engine, parsed_bahar_grid, par
     async with get_session_factory()() as s:
         p = await seasons.create_profile(
             s,
-            {"key": "final", "name_tr": "Final", "name_en": "Final", "applies_to": [{"season": "*", "period_kind": "EXAM"}], "solver_weights": {"exam_gap": 20}},
+            {
+                "key": "final",
+                "name_tr": "Final",
+                "name_en": "Final",
+                "applies_to": [{"season": "*", "period_kind": "EXAM"}],
+                "solver_weights": {"exam_gap": 20},
+            },
             actor=None,
         )
         await seasons.activate_profile(s, p.id, actor=None)

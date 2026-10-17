@@ -117,7 +117,7 @@ describe("CalendarExportManage", () => {
     await user.click(screen.getByTestId("cal-remove-confirm"));
     await waitFor(() => expect(screen.queryByTestId("cal-row-3")).not.toBeInTheDocument());
     expect(api.calls.some((c) => c.method === "DELETE" && c.path === "/calendar/subscriptions/3")).toBe(true);
-    await waitFor(() => expect(screen.getByTestId("cal-rotate-5")).toHaveFocus());
+    await waitFor(() => expect(screen.getByTestId("cal-remove-5")).toHaveFocus());
   });
 
   it("Kaldır on a push scope puts the account's scopes back without it", async () => {
@@ -130,7 +130,7 @@ describe("CalendarExportManage", () => {
     await user.click(screen.getByTestId("cal-remove-confirm"));
     await waitFor(() => expect(screen.queryByTestId("cal-row-push:google:my_classes")).not.toBeInTheDocument());
     expect(api.calls.find((c) => c.method === "PUT" && c.path === "/calendar/connectors/google/scopes")?.body).toEqual({ scopes: [] });
-    await waitFor(() => expect(screen.getByTestId("cal-rotate-3")).toHaveFocus());
+    await waitFor(() => expect(screen.getByTestId("cal-remove-3")).toHaveFocus());
   });
 
   it("removing the last row moves focus to the Takvimime ekle button", async () => {
