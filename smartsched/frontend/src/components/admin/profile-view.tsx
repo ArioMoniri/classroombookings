@@ -17,6 +17,7 @@ import { Input, useShake } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMe, useCrbsMutation, useOrgPublic, useProfile, type Profile } from "@/lib/api/crbs";
 import { LOCALE_INFO, displayLocale, isLocale, translate } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { roleLabel } from "@/lib/i18n/roles";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, Field, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
@@ -36,11 +37,12 @@ export function ProfileView() {
   const { t } = useI18n();
   const q = useProfile();
   const me = useCrbsMe();
+  const phone = useIsPhone();
   return (
     <div className="flex max-w-2xl flex-col gap-8">
       <PageTitle title={t("crbs.profile.title")} subtitle={q.data ? [q.data.username ?? q.data.email, q.data.role_name ? roleLabel(t, { code: q.data.role, name: q.data.role_name }) : null].filter(Boolean).join(" · ") : undefined} />
       <ProfileSsoNotice />
-      {q.isLoading ? <Loading /> : q.data ? <ProfileForm key={q.data.id} data={q.data} /> : <Alert tone="error">{bookingErrorMessage(crbsError(q.error), t)}</Alert>}
+      {q.isLoading ? <Loading /> : q.data ? <ProfileForm key={q.data.id} data={q.data} phone={phone} /> : <Alert tone="error">{bookingErrorMessage(crbsError(q.error), t)}</Alert>}
       <MicrosoftAccountSection />
       <section aria-labelledby="pf-channels" id="channels" className="scroll-mt-20">
         <SectionTitle id="pf-channels">{t("channels.me.title")}</SectionTitle>
@@ -64,11 +66,20 @@ export function ProfileView() {
           {t("crbs.nav.myBookings")}
         </Link>
       </p>
+      {/* MOBILE M-05: on a phone the details form's save button stays in reach above the tab bar while the whole page
+          scrolls (the form itself is `#profile-form`); on wider screens it sits in the form */}
+      {phone && q.data ? (
+        <div className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 flex px-4 py-2 glass-chrome">
+          <Button type="submit" form="profile-form" data-testid="profile-save">
+            {t("crbs.common.save")}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function ProfileForm({ data }: { data: Profile }) {
+function ProfileForm({ data, phone }: { data: Profile; phone: boolean }) {
   const { t, locale, setLocale } = useI18n();
   const org = useOrgPublic();
   const qc = useQueryClient();
@@ -88,8 +99,9 @@ function ProfileForm({ data }: { data: Profile }) {
   return (
     <section aria-labelledby="pf-details">
       <SectionTitle id="pf-details">{t("crbs.profile.details")}</SectionTitle>
-      <Card variant="glass" className="gap-3 px-4 max-sm:overflow-visible">
+      <Card variant="glass" className="gap-3 px-4">
         <form
+          id="profile-form"
           className="flex flex-col gap-3"
           onSubmit={(e) => {
             e.preventDefault();
@@ -135,13 +147,14 @@ function ProfileForm({ data }: { data: Profile }) {
             </Field>
           </div>
           {error ? <Alert tone="error">{error}</Alert> : null}
-          {/* MOBILE M-05: on a phone the save button stays in reach above the tab bar while the form scrolls */}
-          <div className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 flex px-4 py-2 glass-chrome sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none">
-            <Button type="submit" disabled={save.isPending} data-testid="profile-save" aria-busy={save.isPending || undefined}>
-              <BusyLabel busy={save.isPending} label={t("busy.saving")}>
-              {t("crbs.common.save")}</BusyLabel>
-            </Button>
-          </div>
+          {phone ? null : (
+            <div>
+              <Button type="submit" disabled={save.isPending} data-testid="profile-save" aria-busy={save.isPending || undefined}>
+                <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+                {t("crbs.common.save")}</BusyLabel>
+              </Button>
+            </div>
+          )}
         </form>
       </Card>
     </section>

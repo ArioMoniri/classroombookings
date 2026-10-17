@@ -662,7 +662,9 @@
             "smartsched/frontend/src/components/approvals/rules-admin.tsx"
           ],
           "dedup": "see also ROADMAP 'Approval-first UI finished' (closed); new gap",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "verdict 'request' + 'Talep et' wording everywhere; checked on stack desktop+phone, e2e green"
         },
         {
           "id": "T-R1-11",
@@ -687,7 +689,9 @@
             "smartsched/backend/app/api/v1/moderation.py"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "own rows from /moderation/me/matchings, pair wraps, Tab stops, term names; checked at 1440 + 390"
         },
         {
           "id": "T-R1-12",
@@ -712,7 +716,9 @@
             "smartsched/frontend/src/components/approvals/approvals-view.tsx"
           ],
           "dedup": "re-seen: U-07 / A-21 (open; the wave-1 agent has finished, so this lane takes it over). The notice-gate focus is in T-R1-28",
-          "depends_on": []
+          "depends_on": [],
+          "status": "partly",
+          "resolution": "grid/wish/find-room/Reddet focus verified; Ayarlar › Kaydet still BODY (admin/org-settings.tsx, lane E)"
         },
         {
           "id": "T-R1-13",
@@ -735,7 +741,9 @@
             "smartsched/frontend/src/components/approvals/approvals-view.tsx"
           ],
           "dedup": "re-seen: A-12 (open)",
-          "depends_on": []
+          "depends_on": [],
+          "status": "partly",
+          "resolution": "UI grouping/drawer/conflict options done; SQLite reuses multi_booking_id (services/bookings.py) so every submission shares group_id 1"
         },
         {
           "id": "T-R1-14",
@@ -757,7 +765,9 @@
             "smartsched/frontend/src/components/bookings/free-slots-list.tsx"
           ],
           "dedup": "re-seen: U-06 (own pending missing from the grid, open)",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "own pending marked, feature-missing folded, no ms; checked desktop+phone"
         },
         {
           "id": "T-R1-15",
@@ -780,7 +790,9 @@
             "smartsched/backend/app/services/teacher_preferences.py"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "one-language notices, Turkish states, own withdrawal read, term name in wish mails; checked with the SMTP sink"
         },
         {
           "id": "T-R1-16",
@@ -802,7 +814,9 @@
             "smartsched/frontend/src/components/moderation/my-wishes.tsx"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "409 duplicate_pending, send disabled with the reason, one class order, no empty §; checked API + UI"
         },
         {
           "id": "T-R1-17",
@@ -825,7 +839,9 @@
             "smartsched/frontend/src/components/bookings/cancel-many-dialog.tsx"
           ],
           "dedup": "see also persona U-23 (feed defaults)",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "dept default 'Bölüm seçin', reset revokes (404/200), dated existing-link text, cancel reason + approver note; checked desktop+phone"
         },
         {
           "id": "T-R1-18",
@@ -843,7 +859,9 @@
             "smartsched/frontend/src/components/approvals/approvals-view.tsx"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "d on a row and in the drawer opens the reject dialog; checked keyboard-only"
         },
         {
           "id": "T-R1-19",
@@ -863,7 +881,9 @@
             "smartsched/frontend/src/components/bookings/date-format.ts"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "0 page errors on phone /bookings twice"
         },
         {
           "id": "T-R1-20",
@@ -888,7 +908,9 @@
             "smartsched/backend/app/api/v1/moderation.py"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "course code finds the teacher, p opens priority, kinds in words, 403 with message_tr; checked desktop+phone"
         }
       ],
       "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"
@@ -1222,7 +1244,9 @@
             "smartsched/backend/app/api/v1/sso.py"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "partly",
+          "resolution": "Screens, titles and the providers endpoint localised and verified on stack 2026-10-17; /login SSO hint still prints the stored role name: components/auth/sign-in-page.tsx (lane A) must read self_signup_role_label."
         },
         {
           "id": "T-R1-31",
@@ -1247,7 +1271,9 @@
           "dedup": "re-seen: persona-admin M-36 / M-41 messages",
           "depends_on": [
             "integrity agent hand-over of lib/api/client.ts"
-          ]
+          ],
+          "status": "done",
+          "resolution": "Bilingual coded validation errors (schemas/messages.py) for webhooks, SSO, room photo, CSV rows; client strips the pydantic prefix, prefers message_tr, keeps the English detail expandable. Verified on stack, desktop + phone."
         },
         {
           "id": "T-R1-32",
@@ -1267,7 +1293,9 @@
             "smartsched/frontend/src/components/audit/audit-view.tsx"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "Domain sentences for every audit action/entity (act.* keys, subject from the snapshot), deduplicated filters, Turkish undo title, phone list starts at 182 px. Verified on stack, desktop + phone."
         },
         {
           "id": "T-R1-33",
@@ -1290,7 +1318,9 @@
             "smartsched/frontend/src/components/admin/roles-admin.tsx"
           ],
           "dedup": "re-seen: persona-admin M-38 (still open)",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "CSV header read by column names (+ email_exists, summary line), visible reason per disabled permission, filters in the URL, phone filter sheet, 'Oluşturuluyor…'. Verified on stack, desktop + phone."
         },
         {
           "id": "T-R1-34",
@@ -1310,7 +1340,9 @@
             "smartsched/backend/app/api/v1/room_admin.py"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "Code shown as 'T 101 · name', capacity editable in the sheet (PUT /room-admin/rooms), building follows the group. Verified on stack; api/v1/rooms.py code canonicalisation left as is (not lane E)."
         },
         {
           "id": "T-R1-35",
@@ -1331,7 +1363,9 @@
             "smartsched/backend/app/api/v1/sso.py"
           ],
           "dedup": "linked: T-R1-09",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "Re-verified on stack 2026-10-17 (role picker, invite token once, revoke disables, not_enabled)."
         },
         {
           "id": "T-R1-36",
@@ -1350,7 +1384,9 @@
             "smartsched/frontend/src/components/policies/policy-form.tsx"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "Re-verified on stack 2026-10-17; room count now always numeric ('0 sınav odası seçili; …')."
         },
         {
           "id": "T-R1-37",
@@ -1368,7 +1404,9 @@
             "smartsched/frontend/src/components/admin/profile-view.tsx"
           ],
           "dedup": "re-seen: persona-user U-09 language follow-ups",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "Re-verified on stack 2026-10-17, both viewports; phone save bar sticky (M-05)."
         },
         {
           "id": "T-R1-38",
@@ -1387,7 +1425,9 @@
             "smartsched/frontend/src/components/admin/admin-gate.tsx"
           ],
           "dedup": "new",
-          "depends_on": []
+          "depends_on": [],
+          "status": "done",
+          "resolution": "Re-verified 2026-10-17; pct() gained suffix 'poss' (3rd-person possessive) for lane F."
         }
       ],
       "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"

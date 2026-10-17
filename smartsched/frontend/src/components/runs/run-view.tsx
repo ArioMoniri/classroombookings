@@ -285,7 +285,7 @@ export function RunView({ id }: { id: number }) {
   const scope = r.horizon_params.weeks.length ? t("glass.dashboard.weeksN", { list: r.horizon_params.weeks.join(", ") }) : t("glass.dashboard.wholeTerm");
 
   return (
-    <div data-testid="run-view">
+    <div data-testid="run-view" className={canPlan && finished && PUBLISHABLE.has(r.status) ? "max-sm:pb-16" : undefined}>
       <Link href="/runs" className="mb-2 inline-flex min-h-11 items-center gap-1 type-callout text-label-2 hover:text-label-1 pointer-fine:min-h-0">
         <ArrowLeft className="size-4" aria-hidden /> {t("runs.title")}
       </Link>
@@ -339,8 +339,12 @@ export function RunView({ id }: { id: number }) {
                 <RunPolicyLine r={r} />
                 {canPlan && finished && PUBLISHABLE.has(r.status) ? (
                   // round-1 R1-S-06: ERROR / FAILED / INFEASIBLE runs have nothing to publish
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <PublishRunButton run={r} published={publishedId} exceptions={truth ? [] : exceptions} truth={truth} />
+                  // phones: the same button becomes a capsule above the tab bar (MOBILE.md M-05; round-1 R1-S-16: "Yayınla"
+                  // sat outside the bottom 40 %); one element, one test id, on every viewport
+                  <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:pointer-events-none max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-sm:z-30 max-sm:mt-0 max-sm:justify-end max-sm:px-4" data-testid="run-publish-row">
+                    <div className="max-sm:pointer-events-auto max-sm:rounded-full max-sm:bg-(--mat-thick-solid) max-sm:p-1 max-sm:shadow-elev-3 max-sm:edge-hairline max-sm:[&_button]:min-h-11 max-sm:[&_button]:rounded-full max-sm:[&_button]:px-5">
+                      <PublishRunButton run={r} published={publishedId} exceptions={truth ? [] : exceptions} truth={truth} />
+                    </div>
                   </div>
                 ) : null}
                 <dl className="mt-5 grid gap-x-6 gap-y-4 pt-4 hairline-t [grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr))]">

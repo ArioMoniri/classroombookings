@@ -48,6 +48,10 @@ import { GroupSlotLine, RequestReason, RequestTimeline, SlotLine, StatusPill } f
 
 type Box = "open" | "decided";
 
+/** MOBILE.md M-02 (loop-r1-laneB2): the period chips of a submission are 32 px pills; on coarse pointers they grow to
+ *  44 px so their tap zones never overlap the group buttons under them. */
+export const SIBLING_CHIP_CLASS = "pointer-coarse:h-11 pointer-coarse:min-w-11 pointer-coarse:px-4";
+
 export function ApprovalsView() {
   const { t } = useI18n();
   useProfileLanguage();
@@ -356,7 +360,7 @@ function RequestDetail({ id, onSwitch, onDone, group, pendingKey }: { id: number
                 const sb = s.bookings[0];
                 const label = sb ? (sb.start_period === sb.end_period ? `P${sb.start_period}` : `P${sb.start_period}–P${sb.end_period}`) : `#${s.id}`;
                 return (
-                  <Button key={s.id} size="xs" variant={s.id === r.id ? "default" : "outline"} aria-current={s.id === r.id ? "true" : undefined} onClick={() => onSwitch(s.id)} data-testid={`approval-sibling-${s.id}`}>
+                  <Button key={s.id} size="xs" className={SIBLING_CHIP_CLASS} variant={s.id === r.id ? "default" : "outline"} aria-current={s.id === r.id ? "true" : undefined} onClick={() => onSwitch(s.id)} data-testid={`approval-sibling-${s.id}`}>
                     {label}
                     {isOpen(s) ? null : <span className="sr-only">, {s.status}</span>}
                   </Button>

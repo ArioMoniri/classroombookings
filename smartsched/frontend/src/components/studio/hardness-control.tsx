@@ -59,7 +59,8 @@ export function HardnessControl({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+    // touch: the sm segments and the help button take the 44 px height themselves (MOBILE.md M-02, round-1 R1-S-16)
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
       <div className="flex items-center gap-1">
         <span id={`${id}-hl`} className="sr-only">
           {t("studio.rule.mustOrTry")}
@@ -78,7 +79,7 @@ export function HardnessControl({
         />
         <Popover>
           <PopoverTrigger
-            render={<IconButton size="sm" shape="rect" label={t("studio.rule.whatsThis")} title="" className="text-label-2 hover:text-label-1" />}
+            render={<IconButton size="sm" shape="rect" label={t("studio.rule.whatsThis")} title="" className="text-label-2 hover:text-label-1 pointer-coarse:size-11" />}
           >
             <HelpCircle className="size-3.5" aria-hidden />
           </PopoverTrigger>

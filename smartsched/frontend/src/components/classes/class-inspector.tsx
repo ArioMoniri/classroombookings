@@ -275,7 +275,7 @@ export function ClassInspector(p: InspectorProps) {
         <SectionBlock title={t("calendar.insp.who")}>
           <p className="type-callout tabular-nums">{size || "—"} {lang === "tr" ? "öğrenci" : "students"}{cap ? ` · ${cap} ${lang === "tr" ? "koltuk" : "seats"}` : ""}</p>
           {(row?.instructors.length ? row.instructors.map((i) => ({ id: i.id ?? null, name: i.name })) : (a?.instr ?? []).map((n, i) => ({ id: a?.instr_ids[i] ?? null, name: n }))).map((i) => (
-            i.id ? <Link key={`${i.id}-${i.name}`} href={`/timetable?lens=week&subject=instructor:${i.id}${p.runId ? `&run=${p.runId}` : ""}`} className="inline-flex w-fit items-center type-callout text-tint-text hover:underline pointer-coarse:min-h-11">{i.name}</Link> : <span key={i.name} className="type-callout">{i.name}</span>
+            i.id ? <Link key={`${i.id}-${i.name}`} href={`/timetable?lens=week&subject=instructor:${i.id}${p.runId ? `&run=${p.runId}` : ""}`} className="inline-flex w-fit items-center type-callout text-tint-text hover:underline pointer-coarse:min-h-11 pointer-coarse:min-w-11">{i.name}</Link> : <span key={i.name} className="type-callout">{i.name}</span>
           ))}
           {prog && (row?.program_id ?? a?.prog_id) && years[0] ? (
             <Link href={`/timetable?lens=week&subject=cohort:${row?.program_id ?? a?.prog_id}:${years[0]}${p.runId ? `&run=${p.runId}` : ""}`} className="inline-flex w-fit items-center type-callout text-tint-text hover:underline pointer-coarse:min-h-11">{t("calendar.subject.cohortLabel", { program: prog, year: years[0] })}</Link>

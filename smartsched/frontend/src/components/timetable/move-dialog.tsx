@@ -258,8 +258,7 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm, can
             <p className="type-footnote text-label-2" data-testid="move-force-admin-only">{t("calendar.move.forceAdmin")}</p>
           )
         ) : null}
-        {/* phones: "Taşı" stays in reach while the sheet scrolls (MOBILE.md M-05) */}
-        <DialogFooter className="max-sm:sticky max-sm:bottom-0 max-sm:z-10">
+        <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>{t("calendar.insp.cancel")}</Button>
           {canForce && shown && shown.hard.length && changed ? (
             <Button

@@ -142,7 +142,7 @@ export function DayTimeCell({ row, onSave }: { row: ClassRow; onSave: (patch: Me
         }
       }}
     >
-      <AdaptiveTrigger render={<BareButton className={cn("rounded px-1 text-left whitespace-nowrap hover:bg-fill-2", row.start_period === null && "text-status-warning-fg")} aria-label={t("studio.classes.editValue", { field: t("studio.classes.col.dayTime"), value: label })} data-edit="dayTime" />}>
+      <AdaptiveTrigger render={<BareButton className={cn("rounded px-1 text-left whitespace-nowrap hover:bg-fill-2 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center", row.start_period === null && "text-status-warning-fg")} aria-label={t("studio.classes.editValue", { field: t("studio.classes.col.dayTime"), value: label })} data-edit="dayTime" />}>
         {label}
       </AdaptiveTrigger>
       <AdaptiveContent title={t("studio.classes.col.dayTime")} className="w-80" align="start">
@@ -230,7 +230,7 @@ export function PinCell({ row, pin, unlocked, roomCode, rooms, onPin, onUnpin, o
   const label = pin ? (pin.room_ids.length ? pin.room_ids.map(roomCode).join(", ") : pin.day ? `${dayName(pin.day, locale, "short")} P${pin.start_period ?? ""}` : t("studio.pin.pinned")) : null;
   return (
     <AdaptivePopover open={open} onOpenChange={onOpenChange}>
-      <AdaptiveTrigger render={<BareButton className={cn("inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs pointer-coarse:min-h-11", pin ? "bg-status-locked text-status-locked-fg" : "text-label-2 hover:bg-fill-2")} aria-label={pin ? t("studio.pin.pinnedTo", { where: label ?? "" }) : unlocked ? t("studio.pin.unlockedHint") : t("studio.pin.title")} data-testid="pin-button" data-unlocked={!pin && unlocked ? "true" : undefined} />}>
+      <AdaptiveTrigger render={<BareButton className={cn("inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center", pin ? "bg-status-locked text-status-locked-fg" : "text-label-2 hover:bg-fill-2")} aria-label={pin ? t("studio.pin.pinnedTo", { where: label ?? "" }) : unlocked ? t("studio.pin.unlockedHint") : t("studio.pin.title")} data-testid="pin-button" data-unlocked={!pin && unlocked ? "true" : undefined} />}>
         {pin ? <Lock className="size-3.5" aria-hidden /> : <LockOpen className="size-3.5" aria-hidden />}
         {label ? <span className="max-w-24 truncate">{label}</span> : unlocked ? <span className="max-w-24 truncate">{t("studio.pin.unlocked")}</span> : null}
       </AdaptiveTrigger>

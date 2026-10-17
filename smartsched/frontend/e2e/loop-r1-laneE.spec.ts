@@ -133,7 +133,8 @@ test("T-R1-34 + T-R1-31: a new room keeps its code, its capacity is editable, a 
   expect(pe).toBe("Dosya bir jpg, png, gif ya da webp görseli değil.");
   await page.getByTestId("room-save").click();
   await expect.poll(async () => (await api<{ capacity: number }>("GET", `/rooms/${room.id}`)).capacity).toBe(42);
-  expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
+  // focus goes back to the row's edit button once the sheet has closed (README §4.7), never to <body>
+  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
 });
 
 test("T-R1-33: a CSV header names the columns, the filters live in the address, the limited admin reads why a box is off", async ({ page, browser }) => {
@@ -208,6 +209,7 @@ test("phone: users and audit start their lists high, no sideways scroll; weekday
   await noSideScroll(page);
 
   await page.goto("/admin/schedules");
+  await expect(page.locator('[role="group"] button[aria-pressed]').first()).toBeVisible();
   const boxes = await page.evaluate(() => {
     const g = [...document.querySelectorAll('[role="group"]')].find((x) => x.querySelectorAll("button[aria-pressed]").length >= 7);
     return g ? [...g.querySelectorAll("button[aria-pressed]")].map((b) => { const r = b.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; }) : [];

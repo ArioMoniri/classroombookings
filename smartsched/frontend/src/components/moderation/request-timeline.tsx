@@ -100,10 +100,11 @@ export function TermGroup({ g, canEdit, defaultOpen = true }: { g: HistoryTerm; 
   return (
     <motion.section layout={animate ? "position" : false} transition={springs.smooth} aria-labelledby={id} className="flex flex-col" data-testid="term-group">
       <div className="flex items-center gap-2 border-b border-hairline pb-1">
-        <h3 id={id} className="type-headline">{g.term_code}</h3>
+        {/* T-R1-11 / M-02 (loop-r1-laneB2): the term as people say it ("Bahar 2026"), never its code */}
+        <h3 id={id} className="type-headline">{g.term_name || g.term_code}</h3>
         <span className="type-footnote text-label-2">{src}</span>
         {judged ? <span className="type-footnote text-label-2 tabular-nums">· {t("moderation.timeline.met", { met: n(met), of: n(judged) })}</span> : null}
-        <Button variant="ghost" size="icon-xs" className="ml-auto" aria-expanded={open} aria-controls={`${id}-list`} aria-label={t(open ? "moderation.timeline.collapse" : "moderation.timeline.expand", { term: g.term_code })} onClick={() => setOpen((o) => !o)}>
+        <Button variant="ghost" size="icon-xs" className="ml-auto pointer-coarse:size-11" aria-expanded={open} aria-controls={`${id}-list`} aria-label={t(open ? "moderation.timeline.collapse" : "moderation.timeline.expand", { term: g.term_name || g.term_code })} onClick={() => setOpen((o) => !o)}>
           <ChevronDown className={cn("transition-transform duration-(--dur-fast)", !open && "-rotate-90")} aria-hidden />
         </Button>
       </div>

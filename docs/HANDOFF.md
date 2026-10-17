@@ -27,7 +27,7 @@ had 8 builder lanes. At `455f9703`:
 | Lane | Done (code landed) | Open | Notes |
 |---|---|---|---|
 | A touch/keyboard/shell | T-R1-01…09 (all; A2 finished 00:00 UTC) | — | ticked |
-| B approvals/bookings | T-R1-10, 11, 12, 13, 14, 17, 18, 19, 20 | T-R1-15, T-R1-16 | landed tickets not yet re-checked nor ticked in ROADMAP |
+| B approvals/bookings | T-R1-10, 11, 14, 15, 16, 17, 18, 19, 20 (B2 finished 00:10 UTC) | T-R1-12 part (org-settings focus → E2), T-R1-13 part (multi_booking_id reuse → orchestrator) | |
 | C intake/council | T-R1-21–26 | T-R1-25 "rename one instructor" part | needs an owner decision: a stable person key (staff number column) or the merge-review flow |
 | D KVKK | T-R1-27, 28, 29 | — | ticked |
 | E i18n/admin | T-R1-30, 35, 36, 37, 38 | T-R1-31, 32, 33, 34 | + lane-A hand-on: admin schedule weekday toggles |
@@ -62,6 +62,7 @@ the locked-class self-move (recommend: keep as re-deciding the lock), T-R1-25 pe
 
 ## Progress log (newest first)
 
+- 2026-10-17 00:10 UTC — **lane B2 handed off** 9/11: T-R1-15, 16 done; 10, 11, 14, 17, 18, 19, 20 re-verified and ticked; T-R1-12 partly (Ayarlar › Rezervasyon onayı › Kaydet focus → lane E2, org-settings.tsx); T-R1-13 partly (correct grouping blocked by multi_booking_id rowid reuse on SQLite in services/bookings.py — orchestrator fixes). e2e loop-r1-laneB 5/5, vitest 194. Checkpoint 3 = the commit carrying this line.
 - 2026-10-17 00:00 UTC — **lane A2 handed off** 8/8: T-R1-02…09 done and verified at 1440 + 390 touch (keyboard clearance, phone dialog layout, bell sheet, notification cards by role, tab bar/shortcuts/toasts, Turkish accessible names, breadcrumbs, login field messages + permission-based landing). vitest 167, e2e loop-r1-laneA 8/8. Ask routed to lane B2: /my-bookings row M-02 (checkbox hit area cut by chip/date button). Checkpoint 2 = the commit carrying this line.
 - 2026-10-16 23:40 UTC — **lane F2 handed off**: T-R1-42 (invigilation pool matches masked/titled exam names; pool line, empty-pool reason + one-tap all-instructors) and T-R1-39 part 2 (board placements feed the moderation match rate, 72 % on Güz) done and verified desktop+phone; tests test_loop_r1_laneF2.py, e2e loop-r1-laneF 6/6. Tag `handoff/focused-wright-1`. Open asks routed: pct() possessive case → lane E2; keyboard-clearance scrollIntoView guard → lane A2; MOBILE.md /exams/invigilation row → orchestrator.
 - 2026-10-16 22:30 UTC — session focused-wright started; branch + start tag pushed; registry agents of the

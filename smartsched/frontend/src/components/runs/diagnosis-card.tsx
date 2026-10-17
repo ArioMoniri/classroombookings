@@ -47,20 +47,20 @@ export function DiagnosisCard({ d, section, count = 1, onApply, applying, onChat
                 ))}
               </div>
               {options.length > visible.length ? (
-                <Button variant="link" size="sm" onClick={() => setMore(true)} className="mt-1 ml-2.5">
+                <Button variant="link" size="sm" onClick={() => setMore(true)} className="mt-1 ml-2.5 pointer-coarse:min-h-11">
                   {t("glass.report.moreFixes", { n: options.length - visible.length })}
                 </Button>
               ) : null}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {/* secondary: many cards share the region, so none of them is the page's single tint action (A6) */}
-                <Button size="sm" variant="secondary" onClick={() => onApply(choice)} {...busyProps(applying, !chosen)} aria-label={applying ? t("studio.check.applying") : `${t("glass.report.applyFix")}: ${chosen?.text ?? ""}`} data-testid="diagnosis-apply">
+                <Button size="sm" variant="secondary" className="pointer-coarse:min-h-11" onClick={() => onApply(choice)} {...busyProps(applying, !chosen)} aria-label={applying ? t("studio.check.applying") : `${t("glass.report.applyFix")}: ${chosen?.text ?? ""}`} data-testid="diagnosis-apply">
                   <BusyLabel busy={applying} label={t("studio.check.applying")}>{t("glass.report.applyFix")}</BusyLabel>
                 </Button>
                 <span className="type-footnote text-label-3">{t("glass.report.applyHint")}</span>
               </div>
             </fieldset>
           ) : onChat && section === "unplaced" ? (
-            <Button variant="link" size="sm" onClick={onChat} className="mt-1.5 gap-1">
+            <Button variant="link" size="sm" onClick={onChat} className="mt-1.5 gap-1 pointer-coarse:min-h-11">
               <MessageSquare className="size-3.5" aria-hidden /> {t("glass.report.askChat")}
               <ChevronRight className="size-3.5" aria-hidden />
             </Button>

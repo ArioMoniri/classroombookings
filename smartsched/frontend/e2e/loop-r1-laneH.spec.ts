@@ -201,9 +201,9 @@ test("T-R1-48 · the Sorun KPI is one server-side number at 1440 and 390; no odo
 });
 
 test("T-R1-49 · skip link to the grid, Başlangıç haftası in the move dialog, one unplaced count, Çalıştırma # in the history", async ({ page }) => {
-  test.skip(!ctx.weekRun, "no finished Bahar week run on this stack (stack.sh runs)");
-  const r = ctx.weekRun!;
-  const week = r.horizon_params.weeks[0] ?? 3;
+  test.skip(!ctx.termRun, "no finished Bahar term run on this stack (stack.sh runs)");
+  const r = ctx.termRun!; // its classes span the term, so the move dialog offers the week scopes
+  const week = 3;
   await login(page);
   await page.goto(`/timetable?run=${r.id}&week=${week}`);
   await page.getByTestId("time-grid").waitFor();
@@ -223,7 +223,12 @@ test("T-R1-49 · skip link to the grid, Başlangıç haftası in the move dialog
   // the sidebar's unplaced count is the run's API number
   const unplacedApi = Number(((r.stats.truth as { unplaced?: number } | undefined)?.unplaced ?? r.stats.unplaced ?? Number(r.stats.events_total) - Number(r.stats.placed)) || 0);
   const sidebar = page.getByTestId("calendar-sidebar");
-  if (await sidebar.isVisible()) await expect(sidebar).toContainText(`Yerleşmeyenler (${unplacedApi})`);
+  if (await sidebar.isVisible()) {
+    await expect(sidebar).toContainText(`Yerleşmeyenler (${unplacedApi})`);
+    // the sidebar names the run's term, whatever the shell's working term is (R1-S-26)
+    const terms = await api<{ id: number; name: string }[]>("GET", "/terms");
+    await expect(sidebar.getByTestId("sidebar-term")).toHaveText(terms.find((t) => t.id === r.term_id)?.name ?? "");
+  }
   // open a class, then its move dialog: the scope "from" needs a start-week select
   const chip = page.getByTestId("calendar-event").first();
   await chip.click();

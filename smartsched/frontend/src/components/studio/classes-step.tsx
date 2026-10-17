@@ -475,7 +475,10 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
               return (
                 <li key={r.id} data-index={v.index} ref={virt.measureElement} style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${v.start}px)` }} className={cn("border-b p-3", out && "bg-fill-3 text-label-3 [&_*]:text-label-3")} data-testid="class-row" data-class-id={r.id}>
                   <div className="flex items-start gap-3">
-                    <Checkbox checked={selected.has(r.id)} onClick={(e) => { e.preventDefault(); toggleSelect(r.id, false); }} aria-label={t("studio.classes.selectRow", { name: `${r.course_code} §${r.section_label ?? ""}` })} className="mt-1" />
+                    {/* phone cards: a 44 px cell around the 16 px checkbox, so its tap area never overlaps the row's switch (R1-S-16) */}
+                    <span className="flex shrink-0 items-start pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:-my-1 pointer-coarse:-ml-2">
+                      <Checkbox checked={selected.has(r.id)} onClick={(e) => { e.preventDefault(); toggleSelect(r.id, false); }} aria-label={t("studio.classes.selectRow", { name: `${r.course_code} §${r.section_label ?? ""}` })} className="mt-1 pointer-coarse:mt-0" />
+                    </span>
                     <div className="min-w-0 flex-1 text-sm">
                       <p className="font-mono text-xs font-semibold">
                         {r.course_code} <span className="text-label-2">§{r.section_label}</span> {out ? <span className="ml-1 rounded border px-1 font-sans text-2xs pointer-coarse:type-caption font-normal text-label-2">{t("studio.classes.leftOutChip")}</span> : null}
@@ -488,7 +491,9 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                         <PinCell row={r} pin={placedByEvent.get(r.id)} unlocked={unlockedIds.has(r.id)} roomCode={sentence.roomCode} rooms={rooms} onPin={pin} onUnpin={() => unpin(r.id)} />
                       </p>
                     </div>
-                    <Switch checked={!out} onCheckedChange={() => toggleIn(r)} aria-label={t("studio.classes.inPlanLabel", { name: `${r.course_code} §${r.section_label ?? ""}` })} data-testid="in-plan" className="mt-1" />
+                    <span className="flex shrink-0 items-start pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:-my-1 pointer-coarse:-mr-2">
+                      <Switch checked={!out} onCheckedChange={() => toggleIn(r)} aria-label={t("studio.classes.inPlanLabel", { name: `${r.course_code} §${r.section_label ?? ""}` })} data-testid="in-plan" className="mt-1 pointer-coarse:mt-0" />
+                    </span>
                   </div>
                 </li>
               );

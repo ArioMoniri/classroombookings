@@ -313,7 +313,7 @@ export function SlotChip({ slot, onChange, readOnly, uncertain }: { slot: Slot; 
         if (open) setDraft(slot.value);
       }}
     >
-      <AdaptiveTrigger render={<BareButton className={cn(cls, "hover:border-primary hover:text-primary pointer-coarse:min-h-11")} aria-label={label} data-testid={`slot-${slot.name}`} />}>
+      <AdaptiveTrigger render={<BareButton className={cn(cls, "hover:border-primary hover:text-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center")} aria-label={label} data-testid={`slot-${slot.name}`} />}>
         <span className="truncate">{slot.display}</span>
       </AdaptiveTrigger>
       <AdaptiveContent className="w-80" title={t(slotNameKey(slot.field.type))}>

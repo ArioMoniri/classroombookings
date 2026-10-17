@@ -24,6 +24,7 @@ import {
   type BookingOut,
 } from "@/lib/api/crbs";
 import { bookingCapabilities } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/provider";
 import { Field, Loading, PageTitle, SectionTitle, SelectField } from "@/components/admin/kit";
 import { MyRequests } from "@/components/approvals/my-requests";
@@ -38,6 +39,12 @@ import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
 import { BareButton } from "@/components/shell/bare-button";
 
 type Tab = "upcoming" | "past" | "cancelled";
+
+/** MOBILE.md M-02 (loop-r1-laneB2, lane-A2 ask): a row stacks a 16 px checkbox, the room chip and the date line; on
+ *  coarse pointers the row keeps 20 px between the checkbox (its 44 px zone reaches 14 px past the box) and the
+ *  text, and each text control is at least 44 × 44, so no tap zone is cut by its neighbour. */
+export const BOOKING_ROW_CLASS = "flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b pointer-coarse:gap-5";
+export const BOOKING_ROW_CONTROL_CLASS = "pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:py-1";
 
 export function MyBookingsView() {
   const { t } = useI18n();
@@ -213,19 +220,19 @@ function BookingList({
   return (
     <ul className="flex flex-col" data-testid="booking-list">
       {rows.map((b) => (
-        <li key={b.id} className="flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b" data-booking-id={b.id}>
+        <li key={b.id} className={BOOKING_ROW_CLASS} data-booking-id={b.id}>
           {selectable ? <Checkbox checked={selected?.has(b.id) ?? false} onCheckedChange={(v) => onToggle?.(b.id, v === true)} aria-label={t("crbs.mine.select", { room: b.room_name, date: fmt.short(b.date) })} /> : null}
           <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
             <span className="min-w-0">
               <span className="block type-headline text-label-1">
                 {/* CRBS user_bookings.php: the room name opens the room-info drawer */}
-                <BareButton onClick={() => onRoom?.(b.room_id, b.date)} disabled={!onRoom} className="rounded-sm hover:text-tint-text disabled:hover:text-label-1" aria-label={t("crbs.roomInfo.open", { name: b.room_name })} data-testid={`mine-room-${b.id}`}>
+                <BareButton onClick={() => onRoom?.(b.room_id, b.date)} disabled={!onRoom} className={cn("rounded-sm hover:text-tint-text disabled:hover:text-label-1", BOOKING_ROW_CONTROL_CLASS)} aria-label={t("crbs.roomInfo.open", { name: b.room_name })} data-testid={`mine-room-${b.id}`}>
                   {b.room_name}
                 </BareButton>
                 <span> · {b.period_name}</span>
                 {b.time_start ? <span className="ml-1.5 font-normal text-label-3 tabular-nums">{fmt.time(b.time_start)}</span> : null}
               </span>
-              <BareButton onClick={() => onOpen(b.id)} className="flex w-full items-center gap-1 truncate rounded-sm text-left type-footnote text-label-2 hover:text-label-1">
+              <BareButton onClick={() => onOpen(b.id)} className={cn("flex w-full items-center gap-1 truncate rounded-sm text-left type-footnote text-label-2 hover:text-label-1", BOOKING_ROW_CONTROL_CLASS)}>
                 {b.type === "recurring" ? <Repeat className="size-3 shrink-0" aria-label={t("crbs.legend.recurring")} /> : null}
                 {fmt.long(b.date)}
                 {showUser && b.user_name ? ` · ${b.user_name}` : ""}

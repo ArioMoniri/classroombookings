@@ -202,8 +202,11 @@ function AppearanceCard() {
           <SettingsRow label={t("glass.settings.accent")} hint={t("glass.settings.accentHint")}>
             <div role="radiogroup" aria-label={t("glass.settings.accent")} className="flex items-center gap-2">
               {ACCENTS.map((a) => (
-                <button key={a} type="button" role="radio" aria-checked={accent === a} aria-label={t(`glass.settings.accents.${a}`)} title={t(`glass.settings.accents.${a}`)} onClick={() => set(a)} data-testid={`accent-${a}`} className="relative flex size-7 items-center justify-center rounded-full outline-hidden after:absolute after:-inset-2 after:rounded-full focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus)" style={{ background: ACCENT_SWATCH[a] }}>
-                  {accent === a ? <Check className="size-4 text-white" aria-hidden /> : null}
+                <button key={a} type="button" role="radio" aria-checked={accent === a} aria-label={t(`glass.settings.accents.${a}`)} title={t(`glass.settings.accents.${a}`)} onClick={() => set(a)} data-testid={`accent-${a}`} className="relative flex size-7 items-center justify-center rounded-full outline-hidden pointer-coarse:size-11 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus)">
+                  {/* MOBILE M-02: the swatch is 28 px, the button 44 px on touch */}
+                  <span className="flex size-7 items-center justify-center rounded-full" style={{ background: ACCENT_SWATCH[a] }}>
+                    {accent === a ? <Check className="size-4 text-white" aria-hidden /> : null}
+                  </span>
                 </button>
               ))}
             </div>
