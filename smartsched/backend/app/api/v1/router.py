@@ -167,3 +167,8 @@ api_router.include_router(kvkk_api.admin_router)
 from app.api.v1 import ops as ops_api  # noqa: E402
 
 api_router.include_router(ops_api.router)
+
+# wave 3 W3-AI: AI gateway administration (providers, models, usage, limits, guardrails) and GET /ai/me/usage
+from app.api.v1 import ai_admin  # noqa: E402
+
+api_router.include_router(ai_admin.router)

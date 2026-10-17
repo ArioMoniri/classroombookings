@@ -106,8 +106,38 @@ async def _write(rows: list[dict[str, Any]]) -> None:
                     pass
 
 
+_OPS_OUTCOME = {"ok": "ok", "provider_error": "error", "refused_by_guardrail": "blocked", "limit_reached": "limited"}
+
+
+def _ops_metric(fields: dict[str, Any]) -> None:
+    """The aggregated Prometheus counters of W3-OPS (``app.core.observability.record_ai_call``; no user label)."""
+    try:
+        from app.core import observability
+
+        hook = getattr(observability, "record_ai_call", None)
+        if hook is None:
+            return
+        detail = str(fields.get("detail") or "")
+        outcome = _OPS_OUTCOME.get(str(fields.get("outcome")), "error")
+        if outcome == "error" and "in time" in detail:
+            outcome = "timeout"
+        hook(
+            provider=str(fields.get("provider") or ""),
+            model=str(fields.get("model") or ""),
+            feature=str(fields.get("feature") or "other"),
+            outcome=outcome,
+            input_tokens=int(fields.get("input_tokens") or 0),
+            output_tokens=int(fields.get("output_tokens") or 0),
+            latency_s=(int(fields.get("latency_ms") or 0) / 1000.0),
+            cost_usd=float(fields.get("cost_usd") or 0.0),
+        )
+    except Exception:  # noqa: BLE001 - metrics never break a call
+        return
+
+
 async def record(**fields: Any) -> None:
-    """Write one usage row (never raises: metering must not break a call)."""
+    """Write one usage row (never raises: metering must not break a call) and count it for W3-OPS."""
+    _ops_metric(fields)
     fields.setdefault("created_at", datetime.now(UTC).replace(tzinfo=None))
     for key in ("detail", "reason_code", "model", "feature", "provider"):
         if isinstance(fields.get(key), str):
@@ -427,6 +457,7 @@ async def report(
     end: datetime | None = None,
     q: str | None = None,
     limit: int = 500,
+    user_id: int | None = None,
 ) -> list[dict[str, Any]]:
     """Usage grouped by ``group`` within ``[start, end)`` (default: this month)."""
     if group not in GROUPS:
@@ -450,6 +481,8 @@ async def report(
         .where(AIUsage.created_at >= s, AIUsage.created_at < e)
         .group_by(key)
     )
+    if user_id is not None:
+        stmt = stmt.where(AIUsage.user_id == user_id)
     if group == "user" and q:
         like = f"%{q.strip().lower()}%"
         stmt = stmt.join(User, User.id == AIUsage.user_id).where(
@@ -489,20 +522,28 @@ async def _report_days(session: AsyncSession, start: datetime, end: datetime) ->
     """Per local (Europe/Istanbul) day, every day of the range present (0 for a quiet day)."""
     rows = (
         await session.execute(
-            select(AIUsage.created_at, _TOKENS.label("tokens"), AIUsage.cost_usd, AIUsage.outcome).where(
-                AIUsage.created_at >= start, AIUsage.created_at < end
-            )
+            select(
+                AIUsage.created_at, _TOKENS.label("tokens"), AIUsage.cost_usd, AIUsage.outcome, AIUsage.feature
+            ).where(AIUsage.created_at >= start, AIUsage.created_at < end)
         )
     ).all()
     days: dict[str, dict[str, Any]] = {}
     d = _local(start.replace(tzinfo=UTC)).date()
     last = _local(end.replace(tzinfo=UTC) - timedelta(seconds=1)).date()
     while d <= last and len(days) < 400:
-        days[d.isoformat()] = {"key": d.isoformat(), "calls": 0, "tokens": 0, "cost_usd": 0.0, "refused": 0}
+        days[d.isoformat()] = {
+            "key": d.isoformat(),
+            "calls": 0,
+            "tokens": 0,
+            "cost_usd": 0.0,
+            "refused": 0,
+            "features": {},
+        }
         d += timedelta(days=1)
-    for created, tokens, cost, outcome in rows:
+    for created, tokens, cost, outcome, feature in rows:
         k = _local(created.replace(tzinfo=UTC)).date().isoformat()
-        item = days.setdefault(k, {"key": k, "calls": 0, "tokens": 0, "cost_usd": 0.0, "refused": 0})
+        item = days.setdefault(k, {"key": k, "calls": 0, "tokens": 0, "cost_usd": 0.0, "refused": 0, "features": {}})
+        item["features"][feature] = item["features"].get(feature, 0) + int(tokens or 0)
         item["calls"] += 1
         item["tokens"] += int(tokens or 0)
         item["cost_usd"] = round(item["cost_usd"] + float(cost or 0), 6)

@@ -3,7 +3,7 @@
     # token) whether the caller is an admin: 204 -> proxied with X-WEBAUTH-USER (Grafana auth.proxy), 401 -> the
     # login page, 403 -> 403. The client's own X-WEBAUTH-USER never reaches Grafana (always overwritten).
     # A variable upstream + Docker's resolver: nginx starts (and /grafana/ answers 502) when Grafana is not running.
-    location = /grafana { return 301 /grafana/; }
+    location = /grafana { absolute_redirect off; return 301 /grafana/; }
     location /grafana/ {
         auth_request /_ops/grafana-auth;
         error_page 401 = @grafana_login;
@@ -29,5 +29,6 @@
         proxy_set_header Cookie          $http_cookie;
     }
     location @grafana_login {
+        absolute_redirect off;
         return 302 /login?next=$request_uri;
     }

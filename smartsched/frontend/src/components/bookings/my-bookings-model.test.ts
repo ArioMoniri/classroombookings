@@ -44,3 +44,20 @@ describe("T-R2-13 my-bookings rows", () => {
     expect(rows).toHaveLength(4);
   });
 });
+
+describe("openRequestCount (W3-SLOT, round-3 academician)", () => {
+  it("counts open requests apart, one per submission, never decided or withdrawn ones", async () => {
+    const { openRequestCount } = await import("./my-bookings-model");
+    expect(openRequestCount(undefined)).toBe(0);
+    expect(
+      openRequestCount([
+        { id: 1, status: "PENDING", group_id: 7 },
+        { id: 2, status: "PENDING", group_id: 7 },
+        { id: 3, status: "PENDING" },
+        { id: 4, status: "REJECTED" },
+        { id: 5, status: "WITHDRAWN" },
+        { id: 6, status: "APPROVED" },
+      ]),
+    ).toBe(2);
+  });
+});

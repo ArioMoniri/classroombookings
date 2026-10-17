@@ -149,7 +149,7 @@ def _uid(scope: Scope) -> int | None:
 def _header(scope: Scope, name: bytes) -> str | None:
     for k, v in scope.get("headers") or ():
         if k == name:
-            return v.decode("latin-1")
+            return str(v.decode("latin-1"))
     return None
 
 

@@ -261,3 +261,15 @@
   status: done
   phase: "owner instruction 2026-10-15"
   note: "390 px touch probe over 42 routes: 519 → 22 offenders; phone day views for dense grids; dialogs and sheets as bottom sheets"
+- feature: "PostgreSQL row-level security on per-person tables (notifications, consents, DSR, feed tokens, AI usage, teacher wishes, bookings, approvals)"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-SEC)"
+  evidence: smartsched/backend/tests/test_w3_sec_rls_postgres.py
+  note: "alembic 0035_rls_policies + app/core/rls.py; 44 existing API tests re-run green on PostgreSQL with RLS on (tests/test_w3_sec_rls_postgres_api.py)"
+- feature: "Security hardening: rate limits (login, reset, SSO, password change, AI, uploads), body-size fence, CSP / HSTS / frame / permissions headers, CSRF fence, security.txt, CSV formula escaping"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-SEC)"
+  evidence: smartsched/backend/tests/test_w3_sec_hardening.py
+  note: "docs/SECURITY.md; checked through nginx 1.24 with Playwright at 1440 and 390 px"

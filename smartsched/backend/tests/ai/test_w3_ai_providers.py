@@ -80,6 +80,7 @@ def test_registry_lists_every_provider_and_credentials_rule():
         "openai_compatible",
         "gemini",
         "bedrock",
+        "vertex",
     }
     assert has_credentials("openai_compatible", {})  # a local Ollama needs no key
     assert not has_credentials("openai", {})
@@ -470,3 +471,16 @@ def test_anthropic_errors_map_to_short_texts():
     other = ValueError("x")
     assert a.translate_error(other, "m") is other
     assert json.dumps(PROVIDERS["bedrock"].to_dict())
+
+
+async def test_vertex_uses_bare_ids_and_offers_the_claude_catalog():
+    from app.ai.providers.anthropic_adapter import VertexAdapter
+
+    raw = _Raw([])
+    v = VertexAdapter(project_id="my-proj", region="global", raw=raw)
+    await v.create({"model": "claude-opus-5-5", "max_tokens": 1, "messages": []})
+    assert raw.messages.calls[0]["model"] == "claude-opus-5-5" and v.use_fallbacks is False
+    ids = [m.id for m in await v.list_models()]
+    assert "claude-opus-5-5" in ids and "claude-haiku-5-5" in ids
+    with pytest.raises(ProviderError):
+        VertexAdapter(project_id="", region="global", raw=raw)

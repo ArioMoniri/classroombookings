@@ -38,6 +38,26 @@ file upload ─┘   names only, ids resolved server-side └── review in th
 | `chat.py` | `handle_chat()` (read tools run, edit tools only record; with `on_event` streamed for `POST /runs/{id}/chat/stream` (SSE `text` / `tool_start` / `tool` / `retry` / `done` / `error`): tools get `eager_input_streaming`, every input is validated client-side (`INVALID_JSON` error result), unparseable turns are re-issued at most twice, `max_tokens` / refusal turns never act), `apply_diff()` (validation + child run), `explain_run()` (template, or grounded model prose). |
 | `prompts/*.md` | System prompts (`mapping.md` is shared by elicitation and chat). |
 
+## Gateway (wave 3 W3-AI, 2026-10-17)
+
+Every model call goes through one provider-neutral gateway. Callers did not change: they still use
+`AIClient.complete` / `stream_complete` and read Anthropic-shaped messages.
+
+| Module | Role |
+|---|---|
+| `providers/` | One adapter per provider behind `ProviderAdapter` (Anthropic-shaped request in, SDK-shaped message out): `anthropic_adapter.py` (official SDK; `BedrockAdapter` = `AsyncAnthropicBedrockMantle`, `VertexAdapter` = `AsyncAnthropicVertex`), `openai_compat.py` (OpenAI, Azure OpenAI `/openai/v1`, OpenRouter, any `base_url` such as a local Ollama / vLLM; REST over `httpx`), `gemini.py` (Gemini API REST). No SDK is required except `anthropic`; Bedrock model listing uses `boto3` when installed. Gateways such as LiteLLM are never imported (only reachable as an external OpenAI-compatible URL). |
+| `gateway.py` | Settings `ai.*`: provider secrets (encrypted, write-only; the Anthropic key stays `anthropic_api_key`), config, synced models (`fetched_at`), last test, KVKK transfer record per provider, routes (`ai.routes`: a global default + one route per feature `rules` / `chat` / `intake` / `vision` / `explain` / `booking_nl`, each provider + model + effort / temperature / caps + fallback), limits, guardrail switches. Nothing configured = the historic behaviour (Anthropic, `anthropic_model`, no limits). |
+| `context.py` | `ai_scope(feature, user_id=, user_text=)`: chat, elicit, ingest and explain declare their feature and the typed text; the council and the calendar explain are recognised from the call stack; the user comes from the request's audit context. |
+| `pipeline.py` | Per call: transfer basis (409 `ai_transfer_basis_missing` for a provider abroad without a record), tool-round cap, requests per minute and concurrent calls per user, the input guard (once per interaction), limits with reservation (`ai_limit_reached` / `ai_budget_exceeded`, 429), caps + guard preamble, provider call with one fallback, output guard, one `ai_usage` row per outcome, threshold alerts. |
+| `guardrails.py` | Deterministic pre-classifier (TR + EN): prompt injection (override, role-play, system-prompt / secret exfiltration, tool-call smuggling, encoded payloads; folding case, Turkish letters, homoglyphs, zero-width and spaced letters), length / code-like structure, scope (code, translation, essays, general knowledge). Upload neutralisation (`sanitize.clean_for_model` removes instruction-like sentences, marks notes to the assistant). Output checks (offered tools only, schema-valid structured output, links / code / active HTML removed). Canned TR/EN texts per reason code. |
+| `redteam_guard_cases.json` | Guard corpus (OWASP LLM01/02/05/06/07/10, TR + EN, benign false-positive cases); `redteam.score_guard_cases` / `summarize_guard`; `POST /ai/admin/redteam` runs it. |
+
+Metering: `app/services/ai_usage.py` + table `ai_usage` (alembic `0034_ai_usage`): user, feature, provider,
+model, tokens (input / output / cache), estimated cost (`PRICE_TABLE_VERSION` or the provider's synced price),
+latency, outcome (`ok` / `refused_by_guardrail` / `provider_error` / `limit_reached`), reason code, prompt SHA-256 +
+length (never the text), request id, guard verdict, inference region. Admin API `app/api/v1/ai_admin.py`
+(`/ai/admin/*`, `planning.admin` or `setup.settings`); every user reads `GET /ai/me/usage`. UI: `/admin/ai`.
+
 ## Safety rules
 
 1. **Nothing is auto-applied.** Elicitation and uploads return proposals; chat returns a `ProposedDiff`.
@@ -109,5 +129,7 @@ the model params in `resolve.resolve_proposal`.
 `python -m pytest tests/ai -q` (mocked SDK, in-memory / temp SQLite, real CP-SAT for the repair path).
 Red-team eval: `app/ai/redteam.py` scores the fixed cases of `tests/ai/redteam_cases.json` (paraphrase, re-ordering,
 ambiguous rooms, injection in uploads); `tests/ai/test_redteam.py` runs them offline with scripted output and live
-(`::test_live_redteam`, prints the summary) when a key is set. `tests/ai/test_live_smoke.py` calls the real API only when `ANTHROPIC_API_KEY` is set
+(`::test_live_redteam`, prints the summary) when a key is set. Gateway tests: `tests/ai/test_w3_ai_providers.py` (adapters, mocked transports), `test_w3_ai_guardrails.py` (corpus,
+invariance), `test_w3_ai_gateway.py` (pipeline, metering, limits, alerts, fallback), `test_w3_ai_api.py` (admin API and
+permissions). `tests/ai/test_live_smoke.py` calls the real API only when `ANTHROPIC_API_KEY` is set
 (`SMARTSCHED_LIVE_MODEL` overrides the model) and checks that the strict schemas compile server-side.

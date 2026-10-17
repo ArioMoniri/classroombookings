@@ -9,7 +9,7 @@
 6. caps (``max_tokens``, effort, timeout) and the guard preamble in ``system``;
 7. the provider call (one retry on the route's fallback provider / model after a provider failure);
 8. output guard (only offered tools, schema-valid structured output, no links / code in free text);
-9. one ``ai_usage`` row per outcome, settle the reservation, threshold alerts, the W3-OPS metric hook.
+9. one ``ai_usage`` row per outcome (which also feeds the W3-OPS metric), settle the reservation, threshold alerts.
 
 A refused call raises :class:`AIGuardError` (an ``HTTPException`` with ``{code, message, message_tr, message_en}``:
 422 guard, 429 limits / rate, 409 transfer basis); a bad answer raises :class:`app.ai.client.AIOutputRejected` (an
@@ -88,6 +88,8 @@ class GatewayContext:
         cfg = self.configs.get(provider) or {}
         if provider != "anthropic" and not cfg.get("enabled", True):
             return False
+        if provider == "vertex" and not cfg.get("project_id"):
+            return False
         return provider in PROVIDERS and has_credentials(provider, self.secrets.get(provider) or {})
 
     def adapter(self, provider: str, model: str, temperature: float | None) -> ProviderAdapter:
@@ -133,18 +135,6 @@ def _usage_fields(message: Any) -> dict[str, Any]:
         "inference_geo": str(geo)[:32] if geo else None,
         "request_id": str(getattr(message, "_request_id", "") or "")[:64] or None,
     }
-
-
-def _ops_hook(**fields: Any) -> None:
-    """Aggregated metric for W3-OPS (no user label); optional - the module may not exist yet."""
-    try:
-        from app.core import observability  # type: ignore[attr-defined, unused-ignore]
-
-        hook = getattr(observability, "record_ai_call", None)
-        if hook is not None:
-            hook(**fields)
-    except Exception:  # noqa: BLE001 - metrics never break a call
-        return
 
 
 async def run_call(
@@ -308,16 +298,6 @@ async def run_call(
             if flags:
                 common["detail"] = ",".join(flags)[:255]
         await meter.record(**common, outcome="ok")
-        _ops_hook(
-            feature=feature,
-            provider=served_provider,
-            model=served_model,
-            outcome="ok",
-            input_tokens=usage["input_tokens"],
-            output_tokens=usage["output_tokens"],
-            cost_usd=cost,
-            latency_ms=common["latency_ms"],
-        )
         return message
     finally:
         meter.settle(reservation)

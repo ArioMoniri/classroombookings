@@ -232,6 +232,10 @@ export function resetClientReporter(): void {
 
 function describe(value: unknown): { message: string; kind?: string; stack?: string } {
   if (value instanceof Error) return { message: value.message || value.name, kind: value.name, stack: value.stack };
+  if (value && typeof value === "object" && "name" in value && "message" in value) {
+    const v = value as { name: unknown; message: unknown; stack?: unknown };
+    return { message: String(v.message || v.name), kind: String(v.name), stack: typeof v.stack === "string" ? v.stack : undefined };
+  }
   if (typeof value === "string") return { message: value };
   try {
     return { message: JSON.stringify(value).slice(0, 500) };

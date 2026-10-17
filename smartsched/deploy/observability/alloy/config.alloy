@@ -29,18 +29,18 @@ loki.process "containers" {
       project = "attrs.\"com.docker.compose.project\"",
     }
   }
-  // only containers of this compose project (pod CI gate containers and others are dropped)
-  stage.match {
-    selector            = "{service=\"\"}"
-    action              = "drop"
-    drop_counter_reason = "not_compose"
-  }
   stage.template {
     source   = "keep"
     template = "{{ if eq .project \"" + coalesce(sys.env("COMPOSE_PROJECT"), "smartsched") + "\" }}1{{ else }}0{{ end }}"
   }
   stage.labels {
     values = {service = "", stream = "", keep = ""}
+  }
+  // only containers of this compose project (pod CI gate containers and anything else are dropped)
+  stage.match {
+    selector            = "{service=\"\"}"
+    action              = "drop"
+    drop_counter_reason = "not_compose"
   }
   stage.match {
     selector            = "{keep=\"0\"}"

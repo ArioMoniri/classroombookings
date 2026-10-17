@@ -314,8 +314,8 @@ async def ops_requests(_admin: OpsAdmin, minutes: Annotated[int, Query(ge=5, le=
         start = end - (minutes - 1) * 60
         try:
             req, err, p95 = await asyncio.gather(
-                _prom_range(cfg, "sum(increase(smartsched_http_requests_total[1m]))", start, end, 60),
-                _prom_range(cfg, 'sum(increase(smartsched_http_requests_total{status=~"5.."}[1m]))', start, end, 60),
+                _prom_range(cfg, "sum(increase(smartsched_http_requests_total[2m])) / 2", start, end, 60),
+                _prom_range(cfg, 'sum(increase(smartsched_http_requests_total{status=~"5.."}[2m])) / 2', start, end, 60),
                 _prom_range(
                     cfg,
                     "histogram_quantile(0.95, sum by (le) (rate(smartsched_http_request_duration_seconds_bucket[5m])))",

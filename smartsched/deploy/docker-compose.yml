@@ -253,8 +253,8 @@ services:
   # ---- optional observability (profile "observability"; observability/README.md) ---------------------------
   # Internal network only: no ports. Grafana is reached through the proxy at /grafana/ after the SmartSched admin
   # check (forward-auth to /api/v1/ops/grafana-auth); Grafana trusts the proxy's X-WEBAUTH-USER header.
-  # Memory caps total 768 MiB (Prometheus 256 + Loki 192 + Grafana 192 + Alloy 128); GOMEMLIMIT keeps each Go
-  # runtime under its cap.
+  # Memory caps total 768 MiB (Prometheus 192 + Loki 160 + Grafana 320 + Alloy 96; Grafana 13 needs ~240 MiB at start,
+  # 192 MiB was OOM-killed in the measurement run); GOMEMLIMIT keeps each Go runtime under its cap.
   prometheus:
     profiles: ["observability"]
     image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
@@ -266,7 +266,7 @@ services:
       - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-1GB}
       - --web.enable-remote-write-receiver
     environment:
-      GOMEMLIMIT: 210MiB
+      GOMEMLIMIT: 160MiB
     volumes:
       - ./observability/prometheus:/etc/prometheus:ro
       - prometheus-data:/prometheus
@@ -285,7 +285,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: ${PROMETHEUS_MEMORY:-256m}
+          memory: ${PROMETHEUS_MEMORY:-192m}
     logging: *default-logging
 
   loki:
@@ -299,7 +299,7 @@ services:
     image: smartsched-loki:${SMARTSCHED_TAG:-0.1.0}
     restart: unless-stopped
     environment:
-      GOMEMLIMIT: 160MiB
+      GOMEMLIMIT: 130MiB
     volumes:
       - loki-data:/loki
     expose:
@@ -319,7 +319,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: ${LOKI_MEMORY:-192m}
+          memory: ${LOKI_MEMORY:-160m}
     logging: *default-logging
 
   alloy:
@@ -338,14 +338,15 @@ services:
       - --server.http.listen-addr=0.0.0.0:12345
       - --disable-reporting
     environment:
-      GOMEMLIMIT: 105MiB
+      GOMEMLIMIT: 80MiB
       COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-smartsched}
       PG_DSN: postgresql://${POSTGRES_USER:-smartsched}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-smartsched}?sslmode=disable
     # root inside the container only to read the json-file logs (/var/lib/docker/containers is 0700 root):
-    # every capability dropped except DAC_READ_SEARCH (read any file, write none), read-only root filesystem
+    # every capability dropped except DAC_OVERRIDE (needed to read those files and to write its own data volume,
+    # whose directory belongs to the image's alloy user); every host mount is read-only, the root filesystem too
     user: "0:0"
     cap_drop: [ALL]
-    cap_add: [DAC_READ_SEARCH]
+    cap_add: [DAC_OVERRIDE]
     read_only: true
     tmpfs:
       - /tmp
@@ -370,7 +371,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: ${ALLOY_MEMORY:-128m}
+          memory: ${ALLOY_MEMORY:-96m}
     logging: *default-logging
 
   grafana:
@@ -381,7 +382,7 @@ services:
       prometheus:
         condition: service_healthy
     environment:
-      GOMEMLIMIT: 160MiB
+      GOMEMLIMIT: 250MiB
       GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
       GF_SERVER_ENFORCE_DOMAIN: "false"
@@ -427,7 +428,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: ${GRAFANA_MEMORY:-192m}
+          memory: ${GRAFANA_MEMORY:-320m}
     logging: *default-logging
 
 volumes:

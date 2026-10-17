@@ -6,9 +6,9 @@ person typed. The entry points of the AI layer declare that with :func:`ai_scope
     with ai_scope("chat", user_id=user.id, user_text=message):
         ...  # every model call in here is metered as chat for that user; the text is checked once
 
-Resolution order for the user: the ``user_id`` of the innermost scope, then :func:`set_actor` (the request's
-signed-in user, set by the API dependency), then the caller's session identity map when it holds exactly one
-``User`` (the account ``get_current_user`` loaded), else ``None`` (a background job: org budget only).
+Resolution order for the user: the ``user_id`` of the scope, then :func:`set_actor`, then the request's audit
+context on the caller's session (``session.info["audit_ctx"].actor_id``, set for every ``/api/v1`` request), then
+the only ``User`` in the session's identity map, else ``None`` (a background job: org budget only).
 
 Features (research R-AI-01): ``rules`` (rules from text), ``chat`` (chat edits), ``intake`` (uploads / the
 Ingestion Council), ``vision`` (scans and images), ``explain`` (explanations), ``booking_nl`` (booking requests in
@@ -90,9 +90,17 @@ def current_actor() -> int | None:
 
 
 def actor_from_session(session: Any) -> int | None:
-    """The only ``User`` in the session's identity map (the signed-in account), else ``None``."""
+    """The signed-in user of the request this session belongs to: the audit context every ``/api/v1`` request sets
+    (``app.api.v1.audit.audit_context`` -> ``session.info["audit_ctx"].actor_id``), else the only ``User`` in the
+    session's identity map, else ``None``."""
     if session is None:
         return None
+    try:
+        ctx = session.info.get("audit_ctx")
+        if ctx is not None and getattr(ctx, "actor_id", None):
+            return int(ctx.actor_id)
+    except Exception:  # noqa: BLE001
+        pass
     try:
         from app.models import User
 

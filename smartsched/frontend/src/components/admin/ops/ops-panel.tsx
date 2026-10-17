@@ -5,7 +5,7 @@
  * dashboards, and a log tail from Loki. Admins only (`setup.settings` or `planning.admin`; the backend checks again).
  * Phone-ready: one column, 44 px targets, 16 px inputs; nothing depends on hover.
  */
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Alert, Loading, NoAccess, PageTitle } from "@/components/admin/kit";
 import { Button } from "@/components/ui/button";
@@ -54,16 +54,21 @@ function StatusPill({ status }: { status: CardStatus }) {
 export function OpsPanel() {
   const { t } = useI18n();
   const { can, loading } = usePermissions();
-  const status = useOpsStatus();
-  const [logFilter, setLogFilter] = useState<{ service: string; q: string } | null>(null);
-  const logRef = useRef<HTMLHeadingElement>(null);
   if (loading) return <Loading />;
   if (!can(OPS_PERMS)) return <NoAccess title={t("crbs.admin.noAccessTitle")} body={t("ops.noAccess")} />;
+  return <OpsPanelBody />;
+}
+
+function OpsPanelBody() {
+  const { t } = useI18n();
+  const status = useOpsStatus();
+  const [logFilter, setLogFilter] = useState<{ service: string; q: string; n: number } | null>(null);
+  const logRef = useRef<HTMLHeadingElement>(null);
   const forbidden = status.error instanceof HttpError && status.error.status === 403;
   if (forbidden) return <NoAccess title={t("crbs.admin.noAccessTitle")} body={t("ops.noAccess")} />;
 
   const findInLogs = (requestId: string) => {
-    setLogFilter({ service: "backend", q: requestId });
+    setLogFilter((f) => ({ service: "backend", q: requestId, n: (f?.n ?? 0) + 1 }));
     requestAnimationFrame(() => logRef.current?.focus());
   };
 
@@ -77,7 +82,7 @@ export function OpsPanel() {
       <RequestsChart />
       <ErrorGroups onFindInLogs={findInLogs} />
       <GrafanaSection />
-      <LogTail headingRef={logRef} preset={logFilter} />
+      <LogTail key={logFilter?.n ?? 0} headingRef={logRef} preset={logFilter} />
     </div>
   );
 }
@@ -124,6 +129,8 @@ function StatusCards({ s }: { s: OpsStatus }) {
                   </p>
                 ))}
                 {k === "podci" && s.podci.configured ? (
+                  // /ci/ is the pod CI page nginx serves next to the app (not a Next.js route)
+                  // eslint-disable-next-line @next/next/no-html-link-for-pages
                   <a className="type-footnote text-tint-text underline-offset-2 hover:underline pointer-coarse:min-h-11 pointer-coarse:py-2" href="/ci/">
                     {t("ops.card.podci.open")}
                   </a>
@@ -310,8 +317,7 @@ function ErrorRow({ e, expanded, onToggle, onAct, busy, onFindInLogs }: { e: Err
 function GrafanaSection() {
   const { t, locale } = useI18n();
   const q = useOpsDashboards();
-  const [origin, setOrigin] = useState("");
-  useEffect(() => setOrigin(window.location.origin), []);
+  const origin = typeof window === "undefined" ? "" : window.location.origin; // client-only (HydrationGate)
   const up = q.data?.grafana.reachable;
   const embeds = up && origin ? (q.data?.dashboards ?? []).slice(0, 2).map((d) => d.panels[0]).filter((p) => p && sameOrigin(p.embed, origin)) : [];
   return (
@@ -350,17 +356,11 @@ const LIMITS = ["50", "100", "200"] as const;
 
 function LogTail({ headingRef, preset }: { headingRef: React.RefObject<HTMLHeadingElement | null>; preset: { service: string; q: string } | null }) {
   const { t, locale } = useI18n();
-  const [service, setService] = useState("backend");
-  const [text, setText] = useState("");
+  // a "find in logs" click remounts this section (key) with the request id as the filter, fetched at once
+  const [service, setService] = useState(preset?.service ?? "backend");
+  const [text, setText] = useState(preset?.q ?? "");
   const [limit, setLimit] = useState<(typeof LIMITS)[number]>("100");
-  const [args, setArgs] = useState<{ service: string; q: string; limit: number; minutes: number } | null>(null);
-  useEffect(() => {
-    if (!preset) return;
-    setService(preset.service);
-    setText(preset.q);
-    setArgs({ service: preset.service, q: preset.q, limit: Number(limit), minutes: 1440 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new preset (a "find in logs" click) refetches
-  }, [preset]);
+  const [args, setArgs] = useState<{ service: string; q: string; limit: number; minutes: number } | null>(preset ? { service: preset.service, q: preset.q, limit: 100, minutes: 1440 } : null);
   const q = useOpsLogs(args);
   const fmt = (ms: number) => new Date(ms).toLocaleTimeString(intlLocale(locale), { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   return (

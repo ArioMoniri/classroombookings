@@ -8,6 +8,8 @@ the general reader accepts: a request the term really does not have yet."""
 
 from __future__ import annotations
 
+import pytest
+
 from tests.api_fixtures import login
 from tests.council import exports
 from tests.council.conftest import BAHAR_LIST, EN_CSV
@@ -124,3 +126,58 @@ async def test_general_then_fast_path_share_one_key_and_the_dry_run_predicts_the
     assert _n(dry_c["counts"], "meeting_requests", "create") == 0, dry_c["counts"]["meeting_requests"]
     assert _share_unchanged(dry_c["counts"], "meeting_requests") >= 0.99, dry_c["counts"]["meeting_requests"]
     assert _share_unchanged(dry_c["counts"], "sections") >= 0.99, dry_c["counts"]["sections"]
+
+
+def _ui_body(job: dict) -> dict:
+    """The body the onboarding commit panel sends: planner group 0 and the group's own guess of the term length
+    (commit-panel.tsx: term.week_count = group.week_count) - 16 for the workbook + English CSV, 14 for the export."""
+    g = job["plan"]["groups"][0]
+    return {
+        "group": 0,
+        "term": {"code": "2026-BAHAR", "name": "2026 Bahar", "week_count": g["week_count"]},
+        "allow_pending": True,
+    }
+
+
+@pytest.mark.parametrize("term_weeks", [19, None], ids=["term-exists-19-weeks", "term-made-by-the-first-commit"])
+async def test_the_cp1254_export_after_the_workbook_rewrites_no_weeks(client, term_weeks):
+    """R3-S-04 (T-R2-19): the staff tester's order on a fresh stack. The term exists (stack.sh makes it with 19
+    weeks) or the first commit makes it; Job A (the workbook + its English CSV) is committed the way the UI sends
+    it (the planner group's guess, 16 weeks); then the office's cp1254 ';' export of the same unchanged list (Job C,
+    whose group guesses 14 weeks) is dry-run the same way. One term, one length: whatever the file guesses, the
+    importers read 'Tüm dönem' as the term's weeks, so Job C rewrites no weeks and is >= 99 % unchanged."""
+    h = await login(client)
+    if term_weeks is not None:
+        r = await client.post(
+            "/api/v1/terms",
+            headers=h,
+            json={"code": "2026-BAHAR", "name": "2026 Bahar", "is_active": True, "week_count": term_weeks},
+        )
+        assert r.status_code == 201, r.text
+    job_a = await upload(
+        client, h, (BAHAR_LIST.name, BAHAR_LIST.read_bytes()), (EN_CSV.name, EN_CSV.read_bytes()), ai="false"
+    )
+    r = await client.post(f"/api/v1/council/jobs/{job_a['id']}/commit", headers=h, json=_ui_body(job_a))
+    assert r.status_code == 200, r.text
+
+    cp = exports.csv_bytes(BAHAR_LIST, delimiter=";", encoding="cp1254", decimal=",", dotted_times=True)
+    job_c = await upload(client, h, ("bahar_listesi_noktali_virgul.csv", cp), ai="false")
+    assert job_c["files"][0]["route"] == "fast:planning-list", job_c["files"][0]
+    r = await client.post(
+        f"/api/v1/council/jobs/{job_c['id']}/commit", headers=h, json={**_ui_body(job_c), "dry_run": True}
+    )
+    assert r.status_code == 200, r.text
+    dry = r.json()
+    mr = dry["counts"]["meeting_requests"]
+    weeks_rewritten = [
+        row["id"]
+        for row in dry["rows"]
+        if row["entity"] == "meeting_requests" and any(f["field"] == "weeks" for f in row.get("fields") or [])
+    ]
+    import json as _j  # DBG
+
+    print("DBG_W", _j.dumps([r for r in dry["rows"] if r["entity"] == "meeting_requests"], ensure_ascii=False)[:4000])
+    assert weeks_rewritten == [], (len(weeks_rewritten), mr)
+    assert _n(dry["counts"], "meeting_requests", "create") == 0, mr
+    assert _share_unchanged(dry["counts"], "meeting_requests") >= 0.99, mr
+    assert _share_unchanged(dry["counts"], "sections") >= 0.99, dry["counts"]["sections"]

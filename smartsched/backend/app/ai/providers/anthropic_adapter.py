@@ -31,6 +31,13 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 EAGER_FIELD = "eager_input_streaming"
 
 
+def _iso(value: Any) -> str | None:
+    if value is None or value == "":
+        return None
+    iso = getattr(value, "isoformat", None)
+    return str(iso()) if callable(iso) else str(value)
+
+
 class AnthropicAdapter(ProviderAdapter):
     name = "anthropic"
 
@@ -123,9 +130,7 @@ class AnthropicAdapter(ProviderAdapter):
                 ModelInfo(
                     id=str(m.id),
                     display_name=str(getattr(m, "display_name", "") or m.id),
-                    created_at=created.isoformat()
-                    if hasattr(created, "isoformat")
-                    else (str(created) if created else None),
+                    created_at=_iso(created),
                     context_window=getattr(m, "max_input_tokens", None),
                     max_output=getattr(m, "max_tokens", None),
                 )
@@ -243,4 +248,52 @@ class BedrockAdapter(AnthropicAdapter):
         return mapped
 
 
-__all__ = ["EAGER_FIELD", "FALLBACK_BETA", "FALLBACK_MODELS", "AnthropicAdapter", "BedrockAdapter", "bedrock_model_id"]
+class VertexAdapter(AnthropicAdapter):
+    """Claude on Google Cloud Vertex AI (``AsyncAnthropicVertex``; needs ``anthropic[vertex]`` / ``google-auth``).
+    Auth is Google Application Default Credentials on the server, no key in the database; ``project_id`` and
+    ``region`` (``global`` recommended) come from the provider config. Vertex model ids are the bare first-party
+    ids. Vertex has no model-list endpoint for partner models, so a sync offers the Claude ids of the price table
+    (``source: catalog``); the Test button proves which of them the project can call."""
+
+    name = "vertex"
+
+    def __init__(
+        self, *, project_id: str, region: str, timeout_s: float = 120.0, max_retries: int = 3, raw: Any | None = None
+    ) -> None:
+        if not project_id:
+            raise ProviderError("Vertex AI needs a Google Cloud project id")
+        self.region = region or "global"
+        if raw is None:
+            try:
+                from anthropic import AsyncAnthropicVertex
+            except ImportError as exc:  # pragma: no cover - part of the anthropic SDK
+                raise ProviderError("the anthropic SDK has no Vertex client") from exc
+            try:
+                raw = AsyncAnthropicVertex(
+                    project_id=project_id, region=self.region, timeout=timeout_s, max_retries=max_retries
+                )
+            except Exception as exc:  # noqa: BLE001 - google-auth missing or no default credentials
+                raise ProviderError(f"Vertex AI client could not start ({type(exc).__name__})") from exc
+        super().__init__("", "", raw=raw, use_fallbacks=False)
+
+    async def list_models(self) -> list[ModelInfo]:
+        from app.ai.client import PRICING_USD_PER_MTOK
+
+        return [ModelInfo(id=m, display_name=m, created_at=None) for m in PRICING_USD_PER_MTOK]
+
+    def translate_error(self, exc: Exception, model: str) -> Exception:
+        mapped = super().translate_error(exc, model)
+        if isinstance(mapped, ProviderError):
+            return ProviderError(str(mapped).replace("Anthropic", "Vertex AI"))
+        return mapped
+
+
+__all__ = [
+    "VertexAdapter",
+    "EAGER_FIELD",
+    "FALLBACK_BETA",
+    "FALLBACK_MODELS",
+    "AnthropicAdapter",
+    "BedrockAdapter",
+    "bedrock_model_id",
+]

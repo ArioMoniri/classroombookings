@@ -207,7 +207,7 @@ async def set_provider_secret(session: AsyncSession, provider: str, name: str, v
 
 
 async def provider_config(session: AsyncSession, provider: str) -> dict[str, Any]:
-    cfg = await get_json(session, f"ai.provider.{provider}.config", {})
+    cfg: dict[str, Any] = dict(await get_json(session, f"ai.provider.{provider}.config", {}))
     spec = PROVIDERS[provider]
     if spec.default_base_url and not cfg.get("base_url"):
         cfg["base_url"] = spec.default_base_url
@@ -216,7 +216,7 @@ async def provider_config(session: AsyncSession, provider: str) -> dict[str, Any
 
 
 async def synced_models(session: AsyncSession, provider: str) -> dict[str, Any]:
-    return await get_json(session, f"ai.provider.{provider}.models", {"fetched_at": None, "models": []})
+    return dict(await get_json(session, f"ai.provider.{provider}.models", {"fetched_at": None, "models": []}))
 
 
 async def store_synced_models(
@@ -246,7 +246,7 @@ def is_local_url(url: str | None) -> bool:
 
 
 async def transfer_record(session: AsyncSession, provider: str) -> dict[str, Any]:
-    return await get_json(session, f"ai.provider.{provider}.transfer", {})
+    return dict(await get_json(session, f"ai.provider.{provider}.transfer", {}))
 
 
 def transfer_ok(provider: str, config: dict[str, Any], record: dict[str, Any]) -> bool:
@@ -294,6 +294,8 @@ async def all_routes(session: AsyncSession) -> dict[str, ResolvedRoute]:
 async def provider_usable(session: AsyncSession, provider: str) -> bool:
     cfg = await provider_config(session, provider)
     if provider != DEFAULT_PROVIDER and not cfg.get("enabled", True):
+        return False
+    if provider == "vertex" and not cfg.get("project_id"):
         return False
     return has_credentials(provider, await provider_secrets(session, provider))
 

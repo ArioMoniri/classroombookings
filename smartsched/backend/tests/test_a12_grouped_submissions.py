@@ -73,7 +73,8 @@ async def test_one_submission_is_one_group_one_inbox_entry_one_decision_one_even
     mine = (await c.get("/api/v1/bookings/mine", params={"status": "ALL"}, headers=ayse)).json()
     assert len(mine) == 3 and {b["group_id"] for b in mine} == {gid}
     totals = (await c.get("/api/v1/bookings/dashboard", headers=ayse)).json()["totals"]
-    assert totals["all"] == 1 and totals["all_periods"] == 3
+    # W3-SLOT (round-3 academician, orchestrator 2026-10-17): an open submission is shown apart, as one, not as a booking
+    assert totals["pending"] == 1 and totals["all"] == 0 and totals["all_periods"] == 0
 
     grouped = (await c.get("/api/v1/approvals/inbox", params={"grouped": 1}, headers=gozde)).json()
     (entry,) = grouped

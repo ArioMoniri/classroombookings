@@ -47,7 +47,7 @@ import { EntityIcon } from "@/components/admin/icons";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
 import { useIsCompact, useIsPhone } from "./use-is-phone";
 import { applySlotDisplay, hiddenPeriodCount, openingView } from "./slot-display";
-import { useSlotDisplay } from "./use-slot-display";
+import { useShownGrid, useSlotDisplay } from "./use-slot-display";
 import { SlotDisplaySheet } from "@/components/settings/slot-display";
 
 type Display = "day" | "room";
@@ -80,7 +80,7 @@ export function BookingsView() {
   const num = (k: string) => (params.get(k) ? Number(params.get(k)) : undefined);
   const query: GridQuery = { display, date: params.get("date") ?? undefined, term_id: num("term"), room_group_id: num("group"), room_id: num("room") };
   const grid = useBookingGrid(query, ctx.isSuccess);
-  const g = useMemo(() => (grid.data ? applySlotDisplay(grid.data, slotDisplay, revealHidden) : undefined), [grid.data, slotDisplay, revealHidden]);
+  const g = useShownGrid(grid.data, slotDisplay, revealHidden);
   const hiddenCount = grid.data ? hiddenPeriodCount(grid.data.periods, slotDisplay) : 0;
   // the administrator made quick reserve the landing view: a bare /bookings opens it (links with parameters stay here)
   useEffect(() => {

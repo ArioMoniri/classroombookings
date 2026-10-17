@@ -250,3 +250,39 @@ def test_rls_migration_is_a_noop_on_sqlite(tmp_path) -> None:  # type: ignore[no
     _run(url, command.upgrade, "0035_rls_policies")
     _run(url, command.downgrade, "0034_ai_usage")
     _run(url, command.upgrade, "head")
+
+
+def test_nginx_sends_only_token_feeds_straight_to_the_backend() -> None:
+    """Found on the W3-SEC stack check: ``/calendar/feeds/options`` (and POST ``tokens`` / ``reset``, DELETE
+    ``tokens/{id}``) are cookie-authenticated routes. The feed location sent them past the Next.js handler without a
+    bearer token; the 401 that came back cleared the session cookie, which signed the user out on /my-bookings."""
+    m = re.search(r"location ~ (\S+) \{\n\s+access_log off;\n\s+proxy_pass http://smartsched_backend;", NGINX)
+    assert m is not None
+    rx = re.compile(m.group(1))
+    for path in (
+        "/api/v1/calendar/feeds/sst_abc/mine.ics",
+        "/api/v1/calendar/feeds/sst_abc/room/12.ics",
+        "/api/v1/calendar/feeds/sst_abc/room-group/3.ics",
+        "/api/v1/ics/abc/user.ics",
+        "/api/v1/ics/abc/room/7.ics",
+    ):
+        assert rx.match(path), path
+    for path in (
+        "/api/v1/calendar/feeds/options",
+        "/api/v1/calendar/feeds/tokens",
+        "/api/v1/calendar/feeds/tokens/4",
+        "/api/v1/calendar/feeds/reset",
+    ):
+        assert not rx.match(path), path
+
+
+def test_no_third_party_llm_gateway_in_the_dependencies() -> None:
+    """Supply chain (W3E-05): LiteLLM 1.82.7 / 1.82.8 on PyPI were malicious (March 2026). Providers are called through
+    the vendor SDKs and the W3-AI gateway's own code; no proxy / gateway package may enter the lock or package.json."""
+    lock = (BACKEND / "requirements.lock").read_text(encoding="utf-8").lower()
+    pyproject = (BACKEND / "pyproject.toml").read_text(encoding="utf-8").lower()
+    package = (BACKEND.parent / "frontend/package.json").read_text(encoding="utf-8").lower()
+    for name in ("litellm", "langchain", "llama-index", "llama_index", "portkey", "openrouter"):
+        assert name not in lock and name not in pyproject and f'"{name}' not in package, name
+    pins = [ln for ln in lock.splitlines() if ln and not ln.startswith("#")]
+    assert pins and all("==" in ln for ln in pins)  # every backend dependency pinned to one version

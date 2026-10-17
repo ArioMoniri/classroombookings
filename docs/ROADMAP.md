@@ -2534,3 +2534,16 @@ Ledger `wave3-res-2026-10-17`. Source, evidence and scoring (value × fit × 4 �
 - [ ] W3E-24 · 4.0 · W3-OPS · Optional GlitchTip profile (all-in-one ≤ 512 MiB) for a Sentry-style UI; self-hosted Sentry ruled out (16 GB + 16 GB swap)
 - [ ] W3E-25 · 3.0 · solver · Research spike: room-wise decomposition + incremental repair for term-wide models; offline agentic model reformulation behind the planner gate
 - [ ] W3E-26 · 2.4 · integrations · Teams / Outlook bot or add-in for booking and check-in
+
+### Wave 3 — W3-SEC (2026-10-17)
+
+- [x] Security audit plus docs/SECURITY.md: threat model, controls with files, RLS design, residual risks and a findings table (14 findings: 9 fixed, 4 open with asks, 1 accepted)
+  done (wave3-sec-2026-10-17; docs/SECURITY.md)
+- [x] PostgreSQL row-level security on the per-person tables
+  done (alembic 0035_rls_policies: `smartsched_rls` NOLOGIN role and policies on inapp_notifications, consents, dsr_requests, calendar_feed_tokens, ai_usage, TEACHER constraints, bookings, booking_series, approval_requests; app/core/rls.py per-transaction GUCs, fan-out inserts, `system_scope`; app/api/deps.py binds the signed-in user; no-op on SQLite. tests/test_w3_sec_rls_postgres.py 6 passed; tests/test_w3_sec_rls_postgres_api.py re-runs 44 existing booking, approval, KVKK, feed and preference tests on PostgreSQL with RLS on, all 44 pass)
+- [x] Hardening
+  done (rate limits for login, reset confirm, SSO exchange, own password change, AI and uploads; a body-size fence; API security headers (app/core/security_http.py); nginx CSP, HSTS, frame rules with a /grafana/ exception, Permissions-Policy, COOP, a CSRF fence, `X-Forwarded-For` = `$remote_addr`, security.txt; Caddy edge headers; CSV formula escaping in 6 exports; the feed-location bug that signed users out fixed. tests/test_w3_sec_hardening.py 17 passed; nginx 1.24 `-t` and live checks; `caddy adapt`; Playwright through nginx at 1440 and 390 touch: no page errors, identical rendering, same-origin writes 200, cross-origin 403)
+- [ ] Frontend forwards `X-Forwarded-For`, so per-address login limits become per client (SECURITY R1)
+- [ ] Nonce-based CSP from a Next.js middleware (R3)
+- [ ] uvicorn `--forwarded-allow-ips` limited to the compose subnet (R2); hash-pinned lock and a dependency-audit step in the pod CI validate gate (§6)
+- [ ] RLS for calendar_connections, notify channel links, notice_acks and multi_bookings; move the cross-user sweeps into `rls.system_scope` so the booking policies can be tightened (R4, R5)

@@ -36,7 +36,7 @@ import { CalendarSyncPanel } from "./calendar-sync";
 import { CancelManyDialog } from "./cancel-many-dialog";
 import { RoomInfoSheet } from "./room-info-sheet";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
-import { groupBookings } from "./my-bookings-model";
+import { groupBookings, openRequestCount } from "./my-bookings-model";
 import { cancelReasonText } from "./cancel-reason";
 import { BareButton } from "@/components/shell/bare-button";
 
@@ -100,6 +100,8 @@ export function MyBookingsView() {
           dash.data ? (
             <span data-testid="mine-totals">
               {t("crbs.mine.totals", { active: dash.data.totals.active, session: dash.data.totals.session, all: dash.data.totals.all })}
+              {/* W3-SLOT: the totals are live bookings; open requests are named apart */}
+              {openRequestCount(requests.data) ? <span data-testid="mine-pending">{` · ${t("quickReserve.pendingApart", { n: openRequestCount(requests.data) })}`}</span> : null}
               {dash.data.limits.max_active_bookings != null ? ` · ${t("crbs.mine.limit", { n: dash.data.limits.max_active_bookings })}` : ""}
               {dash.data.limits.max_active_bookings != null ? (
                 <span data-testid="mine-can-create">{` · ${t("reserve.mine.canCreate", { n: Math.max(0, dash.data.limits.max_active_bookings - (dash.data.totals.active_periods ?? dash.data.totals.active)) })}`}</span>

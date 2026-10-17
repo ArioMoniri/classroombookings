@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from app.ai.providers.anthropic_adapter import AnthropicAdapter, BedrockAdapter
+from app.ai.providers.anthropic_adapter import AnthropicAdapter, BedrockAdapter, VertexAdapter
 from app.ai.providers.base import (
     GBlock,
     GMessage,
@@ -86,6 +86,15 @@ PROVIDERS: dict[str, ProviderSpec] = {
             ("region",),
             claude=True,
         ),
+        ProviderSpec(
+            "vertex",
+            "Google Vertex AI (Claude)",
+            "Google Vertex AI (Claude)",
+            (),
+            ("project_id", "region"),
+            keyless=True,
+            claude=True,
+        ),
     )
 }
 
@@ -93,7 +102,7 @@ PROVIDERS: dict[str, ProviderSpec] = {
 def has_credentials(provider: str, secrets: dict[str, str]) -> bool:
     spec = PROVIDERS[provider]
     if spec.keyless:
-        return True
+        return True  # a local server; Vertex authenticates with the server's Google credentials
     if provider == "bedrock":
         return bool(
             secrets.get("api_key") or (secrets.get("aws_access_key_id") and secrets.get("aws_secret_access_key"))
@@ -141,6 +150,14 @@ def make_adapter(
             max_retries=max_retries,
             raw=raw,
         )
+    if provider == "vertex":
+        return VertexAdapter(
+            project_id=str(cfg.get("project_id") or ""),
+            region=str(cfg.get("region") or "global"),
+            timeout_s=timeout_s,
+            max_retries=max_retries,
+            raw=raw,
+        )
     if provider == "gemini":
         return GeminiAdapter(
             api_key=secrets.get("api_key", ""),
@@ -173,6 +190,7 @@ __all__ = [
     "ProviderError",
     "ProviderSpec",
     "ProviderUnsupported",
+    "VertexAdapter",
     "has_credentials",
     "make_adapter",
 ]

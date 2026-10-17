@@ -318,26 +318,42 @@ _SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
 _INT = re.compile(r"^-?(?:0|[1-9]\d{0,14})$")
 _FLOAT = re.compile(r"^-?(?:0|[1-9]\d{0,14})\.\d{1,17}$")
 _ISO_DATE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}))?$")
+#: Turkish Excel's date (and date-time) text: "10.10.2025", "11.01.1900", "10.10.2025 10:10"
+_TR_DATE = re.compile(r"^(\d{2})\.(\d{2})\.(\d{4})(?: (\d{2}):(\d{2}))?$")
 
 
-def typed(v: str) -> Any:
+def typed(v: str, decimal: str = ".") -> Any:
     """A grid cell as Excel would type it on opening the file: integers, floats in their canonical text and ISO
     dates become values (the importers read a planning list's ``Şube`` 1.2 as sections "1,2", like the workbook);
-    everything else (times, comma decimals, codes with leading zeros) stays text for the importers to parse."""
+    everything else (times, codes with leading zeros) stays text for the importers to parse.
+
+    ``decimal=","`` (a ';'-separated export of a Turkish Excel, R3-S-04): "0,5208333333333334" (an unformatted
+    12:30) and "0,4" are numbers and "10.10.2025" / "11.01.1900 00:00" are dates, as Turkish Excel types them on
+    opening, so the importers read the export exactly like the workbook it came from."""
     from datetime import datetime
 
     if not v:
         return None
     if _INT.match(v):
         return int(v)
+    # a comma-decimal file writes 0.4 as "0,4"; a second comma ("1,2,3") or a dot as well is no number
+    text = v.replace(",", ".") if decimal == "," and v.count(",") == 1 and "." not in v else v
     # only the canonical text of a float ("1.2", "0.5208333333333334"): a Turkish dotted time "11.40" or
-    # "8.30" is never how a number is written back, so it stays text for the time parser
-    if _FLOAT.match(v) and (repr(float(v)) == v or len(v.split(".")[1]) >= 15):
-        return float(v)
+    # "8.30" (or "11,40") is never how a number is written back, so it stays text for the time parser
+    if _FLOAT.match(text) and (repr(float(text)) == text or len(text.split(".")[1]) >= 15):
+        return float(text)
     m = _ISO_DATE.match(v)
     if m:
         try:
             y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            h, mi = int(m.group(4) or 0), int(m.group(5) or 0)
+            return datetime(y, mo, d, h, mi)
+        except ValueError:
+            return v
+    m = _TR_DATE.match(v) if decimal == "," else None
+    if m:
+        try:
+            d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
             h, mi = int(m.group(4) or 0), int(m.group(5) or 0)
             return datetime(y, mo, d, h, mi)
         except ValueError:
@@ -367,7 +383,7 @@ def grids_to_xlsx(rendered: Rendered, target: Path) -> Path:
             while last + 1 < number:  # blank rows keep the source row numbers (provenance)
                 ws.append([])
                 last += 1
-            ws.append([typed(v) for v in row])
+            ws.append([typed(v, g.decimal) for v in row])
             last = max(last + 1, number)
     if not rendered.grids:
         wb.create_sheet("Sayfa1")

@@ -527,7 +527,21 @@ async def test_usage_reports(session):
     assert by_feature == {"chat": 110, "rules": 50}
     days = await meter.report(session, "day")
     assert sum(d["tokens"] for d in days) == 160 and len(days) >= 28
+    assert sum(d["features"].get("chat", 0) for d in days) == 110
     refusals = await meter.refusals(session)
     assert refusals[0]["reason_code"] == "out_of_scope_code" and refusals[0]["user_label"] == "mehmet"
     org = await meter.org_state(session)
     assert org["month_tokens"] == 160 and org["state"] == "none"
+
+
+async def test_every_row_feeds_the_ops_metric_without_a_user_label(session, monkeypatch):
+    from app.core import observability
+
+    seen: list[dict[str, Any]] = []
+    monkeypatch.setattr(observability, "record_ai_call", lambda **kw: seen.append(kw))
+    await meter.record(
+        user_id=5, feature="chat", provider="anthropic", model="m", outcome="limit_reached", latency_ms=1500
+    )
+    await meter.record(user_id=5, feature="chat", provider="anthropic", model="m", outcome="refused_by_guardrail")
+    assert [s["outcome"] for s in seen] == ["limited", "blocked"]
+    assert seen[0]["latency_s"] == 1.5 and all("user_id" not in s for s in seen)

@@ -36,3 +36,11 @@ export function groupBookings(rows: readonly BookingOut[]): BookingRow[] {
     return { id: first.id, ids: bookings.map((b) => b.id), bookings, first, last, periodLabel: bookings.length > 1 ? `${p0}–${p1}` : p0 };
   });
 }
+
+/**
+ * W3-SLOT (round-3 academician): the totals line counts live bookings only (GET /bookings/dashboard `totals`); open
+ * requests are named apart. One submission (A-12: several periods share `group_id`) is one request.
+ */
+export function openRequestCount(requests: readonly { id: number; status: string; group_id?: number | null }[] | undefined): number {
+  return new Set((requests ?? []).filter((r) => r.status === "PENDING").map((r) => (r.group_id != null ? `g${r.group_id}` : `r${r.id}`))).size;
+}

@@ -677,6 +677,8 @@ class Writer:
         out: dict[str, int] = {}
         for w in group.get("weeks", []):
             idx = int(w["index"])
+            if self.term.week_count and idx > int(self.term.week_count):
+                continue  # beyond the term's own length (a file's longer guess): no week row, no label (R3-S-04)
             if w.get("label"):
                 out[w["label"]] = idx
             if idx in existing:
@@ -826,10 +828,11 @@ async def commit(
     term_code, tid = term.code, term.id
 
     year = int(g.get("year") or job.year_hint or utcnow().year)
-    # the term's length the user confirmed (term.week_count in the request) outranks the planner group's guess, so
-    # the importers of every job of the term read "Tüm dönem" the same way (T-R2-19: a job with more files guessed
-    # 16 weeks, the next one 14, and every request's weeks "changed")
-    week_count = int((term_spec or {}).get("week_count") or g.get("week_count") or term.week_count or 14)
+    # one term, one length (T-R2-19, R3-S-04): the importers read "Tüm dönem" as the TERM's weeks, never as this
+    # job's guess. A new term took its length from the request (or the planner group) when _term made it; an existing
+    # term keeps its own, whatever a later file guesses (the workbook + English CSV group guessed 16 weeks, the cp1254
+    # export 14, the term had 19: each import rewrote the weeks of 1,333 requests)
+    week_count = int(term.week_count or 14)
     reports: list[dict[str, Any]] = []
     records = await storage.records_by_file(session, job)
     routes = {f["index"]: f.get("route") or "" for f in job.files}

@@ -2438,7 +2438,8 @@
       "goal": "You are the **admin / coordinator persona tester** for flow loop **round 3** (re-test) of SmartSched, ledger `flow-r3-admin-2026-10-17`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/ROUND3.md first, then ROUND2.md (the rules it inherits), the…",
       "ledger": "Round-3 re-test: admin",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 19:46"
     },
     {
       "id": "a83ab3e9315a818c0",
@@ -2557,6 +2558,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-17 19:20",
+      "left_off": "start the pod and give me the working link"
+    },
+    {
+      "id": "a38125dc0d2e7faa3",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 19:31",
       "left_off": "start the pod and give me the working link"
     }
   ]

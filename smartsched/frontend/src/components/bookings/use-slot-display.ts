@@ -5,9 +5,11 @@
  * failure falls back to the defaults, so a surface always draws.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import type { Grid } from "@/lib/api/crbs";
 import { z } from "zod";
 import { request } from "@/lib/api/client";
-import { DEFAULT_SLOT_DISPLAY, parseSlotDisplay, slotDisplayExtra, type SlotDisplay } from "./slot-display";
+import { applySlotDisplay, DEFAULT_SLOT_DISPLAY, parseSlotDisplay, slotDisplayExtra, type SlotDisplay } from "./slot-display";
 
 export const SLOT_DISPLAY_KEY = ["slot-display"] as const;
 
@@ -36,4 +38,9 @@ export function useSaveSlotDisplay() {
       await qc.invalidateQueries({ queryKey: ["settings"] });
     },
   });
+}
+
+/** A grid as the administrator wants it shown (applySlotDisplay), memoised: same object while inputs are the same. */
+export function useShownGrid(grid: Grid | undefined, sd: SlotDisplay, reveal = false): Grid | undefined {
+  return useMemo(() => (grid ? applySlotDisplay(grid, sd, reveal) : undefined), [grid, sd, reveal]);
 }

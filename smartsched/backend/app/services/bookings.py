@@ -1807,7 +1807,7 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
     # A-12: totals count sessions -- the periods of one submission (multi-booking) on one day and room are one
     # session; ``*_periods`` keep CRBS's row counts
     # T-R2-13 (R2-S-10): one basis for the three numbers: live rows only (a cancelled booking is not a booking any
-    # more; a pending request still counts as A-12 did), counted as sessions like ``active``; ``cancelled`` is apart
+    # more), counted as sessions like ``active``; ``cancelled`` and ``pending`` are apart
     all_rows = (
         await session.execute(
             select(
@@ -1815,7 +1815,10 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
             ).where(Booking.user_id == access.user_id)
         )
     ).all()
-    rows = [r for r in all_rows if r.status != CANCELLED]
+    # W3-SLOT (round-3 academician): only live bookings count; a rejected / withdrawn / expired request never was one,
+    # and an open request is shown apart (``pending``), so the line matches the bookings listed under it
+    rows = [r for r in all_rows if r.status == BOOKED]
+    pending_rows = [r for r in all_rows if r.status == PENDING]
     current = sorted(await current_term_ids(session, t))  # computed from the dates like CRBS (audit B3)
 
     def sessions(items: list[Any]) -> int:
@@ -1834,6 +1837,7 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
             "all_periods": len(rows),
             "session_periods": len(in_session),
             "cancelled": sum(1 for r in all_rows if r.status == CANCELLED),
+            "pending": sessions(pending_rows),
             # sessions, like ``all`` / ``session``; ``active_periods`` is the row count the booking limit uses
             "active": sessions(active),
             "active_periods": len(active),
