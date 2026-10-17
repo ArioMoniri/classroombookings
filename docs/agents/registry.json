@@ -2263,7 +2263,7 @@
       "ledger": "R2 lane A: shell/ui/auth",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 08:45",
+      "finished_at": "2026-10-17 08:47",
       "left_off": "Only the rebuild is outstanding (background watcher bt6qxrmr0 will notify me); the anonymous-route re-sweep, the PROGRESS DONE row, the stack shutdown and the final report all depend on it, so there is nothing independent to request this turn."
     },
     {
