@@ -530,7 +530,7 @@ async def multi_delete(mb_id: int, db: DB, access: Acc) -> None:
 
 
 @router.post("/multi/{mb_id}/create")
-async def multi_create(mb_id: int, body: MultiCreateIn, db: DB, access: Acc) -> dict[str, Any]:
+async def multi_create(mb_id: int, body: MultiCreateIn, db: DB, access: Acc, response: Response) -> dict[str, Any]:
     choices: dict[int, dict[str, Any]] = {}
     for c in body.slots:
         d = c.model_dump(exclude_unset=True)
@@ -546,11 +546,15 @@ async def multi_create(mb_id: int, body: MultiCreateIn, db: DB, access: Acc) -> 
             d.pop("instances", None)
         choices[c.mbs_id] = d
     try:
-        return await svc.create_from_selection(
+        out = await svc.create_from_selection(
             db, access, mb_id, body.type, choices, body.dry_run, confirm_unpublished=body.confirm_unpublished
         )
     except svc.BookingError as exc:
         raise _err(exc) from exc
+    # T-R2-17 (c): like POST /bookings, a submission that became a request (approval-first, P1) answers 202
+    if not body.dry_run and any(b.get("status") == "PENDING" for b in out.get("created", []) if isinstance(b, dict)):
+        response.status_code = 202
+    return out
 
 
 # --- lists ----------------------------------------------------------------------------------------

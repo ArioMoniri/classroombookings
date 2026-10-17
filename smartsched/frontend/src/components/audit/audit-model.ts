@@ -3,6 +3,7 @@
  * vocabulary and the undo refusal reasons. Pure functions, unit-tested in audit-model.test.ts.
  */
 import type { AuditEvent } from "@/lib/api/wave1";
+import type { MessageKey } from "@/lib/i18n";
 
 export const ENTITY_TYPES = [
   "booking",
@@ -146,6 +147,20 @@ export function auditSubject(e: Pick<AuditEvent, "after" | "before" | "entity_id
 }
 
 /** "name · #id" / "#id" / "" for the row's tail; the id alone when the snapshot already names the record. */
+/** `undo_of:<audit id>`: the coded cancel reason an undo writes on the booking and its audit row
+ * (`bookings_undo.undo_reason`); null for a reason a person typed. */
+export function undoReasonId(reason: string | null | undefined): number | null {
+  const m = /^undo_of:(\d+)$/.exec(reason ?? "");
+  return m ? Number(m[1]) : null;
+}
+
+/** The reason line of a row: a coded reason in the UI language ("Geri alma: #164"), free text as typed, else null. */
+export function auditReason(reason: string | null | undefined, t: (key: MessageKey, vars?: Record<string, string | number>) => string): string | null {
+  if (!reason) return null;
+  const id = undoReasonId(reason);
+  return id === null ? reason : t("wave1.audit.reasonUndoOf", { id });
+}
+
 export function auditTail(e: Pick<AuditEvent, "after" | "before" | "entity_id" | "entity_type">): string {
   const subject = auditSubject(e);
   const id = e.entity_id ? `#${e.entity_id}` : "";

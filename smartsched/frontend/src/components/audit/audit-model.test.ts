@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACTION_SENTENCES, archivedCounts, auditQuery, auditSubject, auditTail, canUndo, dedupeOptions, diffRows, emptyAuditFilters, ENTITY_ALIASES, ENTITY_TYPES, undoBlockers, undoReasons, valueText } from "./audit-model";
+import { ACTION_SENTENCES, archivedCounts, auditQuery, auditReason, auditSubject, auditTail, canUndo, dedupeOptions, diffRows, emptyAuditFilters, ENTITY_ALIASES, ENTITY_TYPES, undoBlockers, undoReasonId, undoReasons, valueText } from "./audit-model";
 import { auditSentence, entityLabel } from "./audit-view";
 import { translate, type MessageKey } from "@/lib/i18n";
 
@@ -89,5 +89,18 @@ describe("programme undo (undo_via program_draft)", () => {
       { value: "3", label: "P. L.", hint: "pl" },
     ]);
     expect(out.map((o) => o.label)).toEqual(["A. T. (a.t)", "A. T. (at2)", "P. L."]);
+  });
+  // T-R2-31 (R2-M-11): the undo writes a coded reason; the row renders it in the UI language, never "undo of #164"
+  it("renders the coded undo reason in the UI language and free text as typed", () => {
+    const tr = (k: MessageKey, v?: Record<string, string | number>) => translate("tr", k, v);
+    const en = (k: MessageKey, v?: Record<string, string | number>) => translate("en", k, v);
+    expect(undoReasonId("undo_of:164")).toBe(164);
+    expect(undoReasonId("yanlışlık")).toBeNull();
+    expect(undoReasonId(null)).toBeNull();
+    expect(auditReason("undo_of:164", tr)).toBe("Geri alma: #164");
+    expect(auditReason("undo_of:164", en)).toBe("Undo of #164");
+    expect(auditReason("yanlışlık", tr)).toBe("yanlışlık");
+    expect(auditReason(null, tr)).toBeNull();
+    expect(auditReason("undo_of:164", tr)).not.toMatch(/undo of/i);
   });
 });

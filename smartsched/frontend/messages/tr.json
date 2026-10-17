@@ -3065,6 +3065,7 @@
       "undo": "Geri al",
       "undone": "geri alındı",
       "undoOf": "#{id} geri alındı",
+      "reasonUndoOf": "Geri alma: #{id}",
       "undoTitle": "{action} geri alınsın mı?",
       "undoBody": "Rezervasyon eski haline getirilir. Çakışmalar yeniden denetlenir.",
       "undoneN": "{n, plural, other {# rezervasyon geri getirildi}}",

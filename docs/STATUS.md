@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `34bab84` (committed 2026-10-17 05:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `fb2f26f` (committed 2026-10-17 05:25 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-211 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 184 · stopped 11 · superseded 7.
+212 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 186 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -156,7 +156,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `R2 lane D` | general-purpose | 2026-10-17 05:12 |
 | `R2 lane E` | general-purpose | 2026-10-17 05:12 |
 | `R2 lane F` | general-purpose | 2026-10-17 05:12 |
-| `R2 lane G` | general-purpose | 2026-10-17 05:12 |
 | `R2 lane S` | solver-engineer | 2026-10-17 05:12 |
 
 <!-- /AUTO:agents -->

@@ -43,7 +43,7 @@ async def test_reupload_of_the_list_and_its_export_plans_nothing_new(client):
     import json as _j; from collections import Counter as _C
     _ups=[row for row in export["rows"] if row["change"] == "update" and row["entity"]=="meeting_requests"]
     print("DBG_FIELDS", _C(f["field"] for row in _ups for f in row["fields"]))
-    print("DBG_SAMPLE", _j.dumps(_ups[:6], ensure_ascii=False, default=str))
+    print("DBG_SAMPLE", _j.dumps([u for u in _ups if any(f["field"].endswith("time") for f in u["fields"])][:6], ensure_ascii=False, default=str))
     # only the MDF-516 request the importer refused: its course, section, request and its one teacher
     assert [row["key"] for row in created if row["entity"] == "courses"] == ["MDF516"]
     assert _n(c, "meeting_requests", "create") == 1 and _n(c, "sections", "create") == 1

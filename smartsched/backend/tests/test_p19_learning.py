@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import shutil
 import threading
+from collections import defaultdict
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import timedelta
@@ -519,8 +520,11 @@ async def test_person_reset_deactivates_priors_at_once_and_keeps_the_accepted_ca
     term, _ = await _next_bahar(["SYS 19", "RAD 202"])
     await env.client.post(f"{API}/learning/refresh", json={}, headers=env.planner)
     before = await _suggestions(env, term)
-    person = _pick(before, "instructor", "building")
-    pid = person["subject"]["id"]
+    per_person: dict[int, int] = defaultdict(int)
+    for i in before:
+        if i["subject"]["type"] == "instructor":
+            per_person[int(i["subject"]["id"])] += 1
+    pid = max(per_person, key=lambda k: per_person[k])  # the person with the most open suggestions
     mine = await _suggestions(env, term, person_id=pid)
     assert len(mine) >= 2, mine
     accepted = mine[0]["id"]

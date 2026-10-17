@@ -420,12 +420,20 @@ class Writer:
         (T-R1-25: a re-uploaded export must not rewrite the term; T-R2-19: equal after normalisation is
         unchanged)."""
         out: dict[str, Any] = {}
+        # the periods are derived from the times (each reader snaps its own way): they follow a time the file
+        # changed and never move on their own
+        same_times = all(
+            fields.get(k) is None or plain(fields.get(k)) == plain(getattr(mr, k)) for k in ("start_time", "end_time")
+        )
         for k, v in fields.items():
             if k in ("source_key", "section_id", "parse_warnings"):
                 continue
             cur = getattr(mr, k)
             if k in ("source_row_index", "archived"):  # bookkeeping; an archived row the file lists comes back
                 out[k] = v
+            elif k in ("start_period", "end_period"):
+                if v is not None and (cur is None or not same_times):
+                    out[k] = v
             elif k in ("day", "days"):
                 if fields.get("days"):
                     out[k] = v

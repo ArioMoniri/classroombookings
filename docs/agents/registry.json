@@ -2307,7 +2307,8 @@
       "goal": "You are the round-2 **test planner (lane G)** of SmartSched, ledger `loop-r2-laneG-2026-10-17`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md then .../briefs/ROUND2-BUILD.md (no commits, no stack needed for this lane). Ticket: **T-R2…",
       "ledger": "R2 lane G: test plan drift",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 05:26"
     },
     {
       "id": "a4d2fb5b171e35f6d",
@@ -2328,6 +2329,14 @@
       "status": "finished",
       "finished_at": "2026-10-17 05:12",
       "left_off": "keep going till all lanes finish then deploy to aws"
+    },
+    {
+      "id": "a971e5c119b773e1a",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 05:26",
+      "left_off": "Checkpoint `fb2f26f2` pushed. Nine agents are still running; the next watchdog is armed for 05:56."
     }
   ]
 }

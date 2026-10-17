@@ -3066,6 +3066,7 @@
       "undo": "Undo",
       "undone": "undone",
       "undoOf": "undoes #{id}",
+      "reasonUndoOf": "Undo of #{id}",
       "undoTitle": "Undo {action}?",
       "undoBody": "The booking is put back as it was. Conflicts are checked again.",
       "undoneN": "{n, plural, one {# booking restored} other {# bookings restored}}",
