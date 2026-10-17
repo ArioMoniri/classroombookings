@@ -282,7 +282,7 @@ function FeedRow({ id, title, url, name, picker }: { id: string; title: string; 
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
         {/* the link wraps inside its box (break-all) instead of running past it (R2-S-21) */}
-        <Textarea ref={field} readOnly rows={2} value={url} aria-label={`${title}: ${t("reserve.sync.https")}`} onFocus={(e) => e.currentTarget.select()} className="min-h-0 min-w-0 flex-1 resize-none break-all font-mono type-footnote" data-testid={`sync-url-${id}`} />
+        <Textarea ref={field} readOnly rows={2} value={url} aria-label={`${title}: ${t("reserve.sync.https")}`} onFocus={(e) => e.currentTarget.select()} className="min-h-0 min-w-0 flex-1 resize-none break-all font-mono type-footnote pointer-coarse:min-h-11" data-testid={`sync-url-${id}`} />
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button variant="outline" className="min-h-11 sm:min-h-0" aria-label={t("reserve.sync.copy", { what: t("reserve.sync.https") })} onClick={() => void copy(url)} disabled={!url} data-testid={`sync-copy-${id}`}>
             <Copy aria-hidden />

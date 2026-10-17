@@ -439,7 +439,9 @@ class Writer:
             if k in ("source_row_index", "archived"):  # bookkeeping; an archived row the file lists comes back
                 out[k] = v
             elif k in ("start_period", "end_period"):
-                if v is not None and (cur is None or not same_times):
+                # a pair: both or neither (a row with one end snapped and the other unknown is no gap to fill)
+                both = fields.get("start_period") is not None and fields.get("end_period") is not None
+                if both and ((mr.start_period is None and mr.end_period is None) or not same_times):
                     out[k] = v
             elif k in ("day", "days"):
                 if fields.get("days"):

@@ -16,7 +16,6 @@ from app.api.deps import DB, CurrentAccess, CurrentUser, bearer, get_current_use
 from app.core.config import get_settings
 from app.core.identity import clean_email, fold_username
 from app.core.images import ImageError, sanitize_image
-from app.schemas import messages
 from app.core.security import hash_password, revoke_tokens, verify_password
 from app.importers import normalize as n
 from app.models import (
@@ -32,6 +31,7 @@ from app.models import (
     User,
 )
 from app.models.catalog import Room
+from app.schemas import messages
 from app.schemas.auth import ChangePasswordIn, ProfileIn, ProfileOut, ResetConfirmIn, ResetRequestIn
 from app.schemas.crbs import (
     LdapSettingsIn,

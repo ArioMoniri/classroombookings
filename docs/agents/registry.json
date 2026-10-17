@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 08:21",
-      "left_off": "Everything left depends on the two running checks (pytest `test_reupload.py` final run → green4.txt; Playwright lane C spec → pw2.txt, monitored). I'll apply the ROADMAP / JSON / PROGRESS hand-off once they report."
+      "finished_at": "2026-10-17 08:24",
+      "left_off": "Both remaining items (pytest result, Playwright result) are waiting on background runs I already started; nothing else can be requested independently right now."
     },
     {
       "id": "afe38e299d6f66d51",

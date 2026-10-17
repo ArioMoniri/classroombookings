@@ -49,9 +49,9 @@ export function MyRequests({ fmt }: { fmt: DateFormatter }) {
         <ul>
           {entries.map((e) =>
             e.requests.length > 1 ? (
-              <GroupRow key={e.key} reqs={e.requests} fmt={fmt} initiallyOpen={e.requests.some((r) => r.id === asked)} />
+              <GroupRow key={e.key} reqs={e.requests} fmt={fmt} asked={asked} initiallyOpen={e.requests.some((r) => r.id === asked)} />
             ) : (
-              <RequestRow key={e.key} req={e.requests[0]!} fmt={fmt} initiallyOpen={e.requests[0]!.id === asked} />
+              <RequestRow key={e.key} req={e.requests[0]!} fmt={fmt} asked={asked} initiallyOpen={e.requests[0]!.id === asked} />
             ),
           )}
         </ul>
@@ -61,14 +61,19 @@ export function MyRequests({ fmt }: { fmt: DateFormatter }) {
 }
 
 /** One submission of several periods: one status (or the periods' own when they differ), one slot line. */
-function GroupRow({ reqs, fmt, initiallyOpen }: { reqs: ApprovalRequest[]; fmt: DateFormatter; initiallyOpen: boolean }) {
+function GroupRow({ reqs, fmt, initiallyOpen, asked }: { reqs: ApprovalRequest[]; fmt: DateFormatter; initiallyOpen: boolean; asked: number | null }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(initiallyOpen);
   const [, startTransition] = useTransition();
   const ref = useRef<HTMLLIElement>(null);
+  // T-R2-17 (R2-A-09): a bell item selected while already on /my-bookings changes ?request= on the same page: the
+  // asked row expands, scrolls into view and takes the focus (the first mount did this through the initial state only)
   useEffect(() => {
-    if (initiallyOpen) ref.current?.scrollIntoView?.({ block: "center" });
-  }, [initiallyOpen]);
+    if (!initiallyOpen) return;
+    setExpanded(true);
+    ref.current?.scrollIntoView?.({ block: "center" });
+    ref.current?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+  }, [initiallyOpen, asked]);
   const r0 = reqs[0]!;
   const status = groupStatus(reqs);
   const openReqs = reqs.filter(isOpen);
@@ -175,15 +180,20 @@ function WithdrawButton({ reqs, label, focusTo }: { reqs: ApprovalRequest[]; lab
   );
 }
 
-function RequestRow({ req: r, fmt, initiallyOpen }: { req: ApprovalRequest; fmt: DateFormatter; initiallyOpen: boolean }) {
+function RequestRow({ req: r, fmt, initiallyOpen, asked }: { req: ApprovalRequest; fmt: DateFormatter; initiallyOpen: boolean; asked: number | null }) {
   const { t, locale } = useI18n();
   const [expanded, setExpanded] = useState(initiallyOpen);
   // the timeline renders as a transition, so the tap answers at once (academician A-32: a 451 ms frame)
   const [, startTransition] = useTransition();
   const ref = useRef<HTMLLIElement>(null);
+  // T-R2-17 (R2-A-09): a bell item selected while already on /my-bookings changes ?request= on the same page: the
+  // asked row expands, scrolls into view and takes the focus (the first mount did this through the initial state only)
   useEffect(() => {
-    if (initiallyOpen) ref.current?.scrollIntoView?.({ block: "center" });
-  }, [initiallyOpen]);
+    if (!initiallyOpen) return;
+    setExpanded(true);
+    ref.current?.scrollIntoView?.({ block: "center" });
+    ref.current?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+  }, [initiallyOpen, asked]);
   const suggestions = r.status === "REJECTED" ? suggestionRooms(suggestionsOf(r)) : [];
   const { first } = requestSlots(r);
   const findHref = (date: string | null) => {
