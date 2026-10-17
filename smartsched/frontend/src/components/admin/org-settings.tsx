@@ -205,7 +205,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
           <FieldRow label={t("crbs.org.enabledLanguages")} hint={t("crbs.org.enabledLanguagesHint")}>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5" data-testid="org-languages">
               {LANGS.map((l) => (
-                <label key={l.code} lang={l.code} className="flex min-h-8 items-center gap-1.5 type-callout text-label-1">
+                <label key={l.code} lang={l.code} className="flex min-h-8 items-center gap-1.5 type-callout text-label-1 pointer-coarse:min-h-11">
                   <Checkbox
                     checked={enabled.includes(l.code)}
                     onCheckedChange={(x) => {

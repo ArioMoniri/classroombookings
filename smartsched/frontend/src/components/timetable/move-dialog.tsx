@@ -81,6 +81,21 @@ function scopeMask(ev: CalEvent, s: ScopeValue): number {
   return maskOf(ws);
 }
 
+/** A target room the class does not fit is a hard issue of the move (round-2 T-R2-30, R2-M-12: the dry run said
+ * 'uygun' for a 'Sığmaz' room, the plain 'Taşı' stayed enabled and the server refused on commit). Not for exams
+ * (seat flow is checked per sitting) and never when the server already named capacity. */
+export function capacityIssue(size: number | null | undefined, room: FreeRoom | undefined, exam: boolean): CheckIssue | null {
+  if (exam || !room || !size || room.status !== "too_small" || size <= room.capacity) return null;
+  return {
+    code: "capacity",
+    severity: "hard",
+    text: {
+      tr: `${size} öğrenci ${room.capacity} kişilik ${room.code}'e sığmaz`.replace(`${room.code}'e`, `${room.code}${/[aıou]\s*$/i.test(room.code) ? "'a" : "'e"}`),
+      en: `${size} students do not fit ${room.code} (${room.capacity} seats)`,
+    },
+  };
+}
+
 function Issues({ hard, soft, lang }: { hard: CheckIssue[] | { text: { tr: string; en: string } }[]; soft: { text: { tr: string; en: string } }[]; lang: "tr" | "en" }) {
   if (!hard.length && !soft.length) return null;
   return (
@@ -173,7 +188,10 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm, can
     const g = r.status === "free" ? groups[0] : r.status === "too_small" ? groups[1] : r.status === "busy" ? groups[2] : groups[3];
     g.rooms.push(r);
   }
-  const shown = server ?? check;
+  const base = server ?? check;
+  const target = finder.data?.rooms.find((r) => r.room_id === room);
+  const tooSmall = capacityIssue(ev.a.size, target, model.exam);
+  const shown = base && tooSmall && !base.hard.some((h) => h.code === "capacity" || h.code === "seats") ? { ...base, ok: false, hard: [...base.hard, tooSmall] } : base;
   const ok = !!shown && shown.hard.length === 0;
   const changed = room !== ev.room || day !== ev.day || sp !== ev.sp;
   const fromRoom = model.roomById.get(ev.room)?.name ?? "";
@@ -243,7 +261,7 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm, can
         </div>
         <div className="flex flex-col gap-1.5">
           {shown ? <Issues hard={shown.hard} soft={shown.soft} lang={lang} /> : null}
-          {server && server.ok ? <p className="type-footnote text-status-feasible-fg" data-testid="move-server-ok">✓ {t("calendar.move.serverOk")}</p> : null}
+          {server && server.ok && ok ? <p className="type-footnote text-status-feasible-fg" data-testid="move-server-ok">✓ {t("calendar.move.serverOk")}</p> : null}
           {scope.scope === "from" && ok ? <p className="type-footnote text-label-2">{t("calendar.move.split", { room: fromRoom })}</p> : null}
         </div>
         {shown && shown.hard.length && changed ? (

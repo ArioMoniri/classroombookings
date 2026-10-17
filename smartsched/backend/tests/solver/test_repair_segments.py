@@ -8,11 +8,13 @@ back a chain of moves whose old cells are free as a whole, and record why each f
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import replace
 
-from app.solver import repair as rp
 from app.solver.model import Assignment, Block, SolverResult
 from tests.solver.conftest import event, make_input, room
+
+rp = importlib.import_module("app.solver.repair")  # the package re-exports the function under this name
 
 W = (1, 2, 3)
 OK = ("OPTIMAL", "FEASIBLE")
@@ -89,11 +91,14 @@ def test_repair_frees_only_the_segment_whose_cell_breaks_a_rule_now() -> None:
     res = rp.repair(inp2, current, [2], time_limit_s=10.0, keep_changed=False, scope={2}, free=bad, view=view)
     assert res.status in OK and res.hard_score == 100
     rows = _rows(res.assignments, 1)
-    assert {(tuple(a.room_ids), frozenset(a.weeks)) for a in rows} == {((3,), frozenset({1})), ((1,), frozenset({2, 3}))}
+    assert {(tuple(a.room_ids), frozenset(a.weeks)) for a in rows} == {
+        ((3,), frozenset({1})),
+        ((1,), frozenset({2, 3})),
+    }
     rep = res.stats["repair"]
     assert rep["dropped"] == []
     # the move of week 1 carries its cause: the published cell broke a rule
-    assert rep["freed_by"][str(1)] == {"cause": "base_conflict"} or rep["freed_by"][1] == {"cause": "base_conflict"}
+    assert {int(k): v for k, v in rep["freed_by"].items()} == {1: {"cause": "base_conflict"}}
 
 
 def test_moved_diff_compares_week_segment_rows() -> None:
@@ -123,16 +128,16 @@ def test_minimal_change_puts_back_a_cyclic_swap_outside_the_scope() -> None:
 
 
 def test_repair_records_why_each_event_was_freed() -> None:
+    """The user moved class 1 into class 2's room: 2 is freed as a neighbour of 1 (and says so); 3 is untouched."""
     rooms = (room(1, "A101", 60), room(2, "A102", 60), room(3, "A103", 60))
-    a = event(1, weeks=W, day=1, start=1, instructor_keys=("INS:1",))
-    b = event(2, weeks=W, day=1, start=1, instructor_keys=("INS:1",))  # a neighbour of 1 (same instructor)
-    c = event(3, weeks=W, day=2, start=1)  # unrelated
-    inp = make_input(rooms, (a, b, c), weeks=W, workers=1, time_limit_s=5.0, best_effort=True)
+    evs = tuple(event(i, weeks=W, day=1 if i < 3 else 2, start=1) for i in (1, 2, 3))
+    inp = make_input(rooms, evs, weeks=W, workers=1, time_limit_s=5.0, best_effort=True)
     wk = frozenset(W)
-    current = [Assignment(1, 1, 1, 2, (1,), wk), Assignment(2, 1, 1, 2, (2,), wk), Assignment(3, 2, 1, 2, (1,), wk)]
-    res = rp.repair(inp, current, [1], time_limit_s=5.0, keep_changed=False, scope={1}, radius=1)
+    edited = [Assignment(1, 1, 1, 2, (2,), wk), Assignment(2, 1, 1, 2, (2,), wk), Assignment(3, 2, 1, 2, (1,), wk)]
+    res = rp.repair(inp, edited, [1], time_limit_s=5.0, keep_changed=True, scope={1}, radius=1)
+    assert res.status in OK and res.hard_score == 100
     rep = res.stats["repair"]
-    assert rep["changed"] == [1] and set(rep["freed"]) == {1, 2}
-    freed_by = {int(k): v for k, v in rep["freed_by"].items()}
-    assert freed_by == {2: {"cause": "neighbour", "of": 1}}
+    assert rep["changed"] == [1] and rep["freed"] == [2]
+    assert {int(k): v for k, v in rep["freed_by"].items()} == {2: {"cause": "neighbour", "of": 1}}
     assert rep["dropped"] == [] and 3 not in rep["freed"]
+    assert [m["event_id"] for m in rep["moved"]] == [2]  # 2 gave way; the edit itself is the input

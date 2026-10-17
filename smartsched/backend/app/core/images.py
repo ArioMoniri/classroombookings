@@ -86,7 +86,12 @@ class ImageError(ValueError):
 def sanitize_image(data: bytes, *, max_side: int = MAX_SIDE, max_bytes: int = MAX_BYTES) -> tuple[bytes, str]:
     """Return ``(re-encoded bytes, extension)`` for a JPEG/PNG/GIF upload; :class:`ImageError` otherwise."""
     if len(data) > max_bytes:
-        raise ImageError(413, f"image larger than {max_bytes // (1024 * 1024)} MB", f"Görsel {max_bytes // (1024 * 1024)} MB'tan büyük.", "image_too_large")
+        raise ImageError(
+            413,
+            f"image larger than {max_bytes // (1024 * 1024)} MB",
+            f"Görsel {max_bytes // (1024 * 1024)} MB'tan büyük.",
+            "image_too_large",
+        )
     if not data:
         raise ImageError(400, "empty file", "Dosya boş.", "image_empty")
     try:
@@ -95,19 +100,39 @@ def sanitize_image(data: bytes, *, max_side: int = MAX_SIDE, max_bytes: int = MA
             probe = Image.open(io.BytesIO(data))
             fmt = probe.format or ""
             if fmt not in ALLOWED_FORMATS:
-                raise ImageError(400, "unsupported image type (jpg, png, gif)", "Desteklenmeyen görsel türü; jpg, png ya da gif yükleyin.", "image_type")
+                raise ImageError(
+                    400,
+                    "unsupported image type (jpg, png, gif)",
+                    "Desteklenmeyen görsel türü; jpg, png ya da gif yükleyin.",
+                    "image_type",
+                )
             width, height = probe.size
             if width < 1 or height < 1 or width * height > MAX_PIXELS:
-                raise ImageError(413, f"image dimensions {width}x{height} are too large", f"Görsel boyutları ({width}×{height}) çok büyük.", "image_dimensions")
+                raise ImageError(
+                    413,
+                    f"image dimensions {width}x{height} are too large",
+                    f"Görsel boyutları ({width}×{height}) çok büyük.",
+                    "image_dimensions",
+                )
             probe.verify()  # verify() leaves the image unusable: decode a second handle
             img = Image.open(io.BytesIO(data))
             img.load()
     except ImageError:
         raise
     except (UnidentifiedImageError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
-        raise ImageError(400, "the file is not a readable jpg, png or gif image", "Dosya okunabilir bir jpg, png ya da gif görseli değil.", "image_unreadable") from exc
+        raise ImageError(
+            400,
+            "the file is not a readable jpg, png or gif image",
+            "Dosya okunabilir bir jpg, png ya da gif görseli değil.",
+            "image_unreadable",
+        ) from exc
     except (OSError, SyntaxError, ValueError) as exc:  # truncated / corrupt data
-        raise ImageError(400, "the file is not a readable jpg, png or gif image", "Dosya okunabilir bir jpg, png ya da gif görseli değil.", "image_unreadable") from exc
+        raise ImageError(
+            400,
+            "the file is not a readable jpg, png or gif image",
+            "Dosya okunabilir bir jpg, png ya da gif görseli değil.",
+            "image_unreadable",
+        ) from exc
     return _encode(img, fmt, max_side), ALLOWED_FORMATS[fmt]
 
 

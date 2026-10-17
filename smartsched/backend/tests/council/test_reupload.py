@@ -40,10 +40,6 @@ async def test_reupload_of_the_list_and_its_export_plans_nothing_new(client):
     export = await _dry(client, h, (await upload(client, h, (EN_CSV.name, EN_CSV.read_bytes()), ai="false"))["id"])
     c = export["counts"]
     created = [row for row in export["rows"] if row["change"] == "create"]
-    import json as _j; from collections import Counter as _C
-    _ups=[row for row in export["rows"] if row["change"] == "update" and row["entity"]=="meeting_requests"]
-    print("DBG_FIELDS", _C(f["field"] for row in _ups for f in row["fields"]))
-    print("DBG_SAMPLE", _j.dumps([u for u in _ups if any(f["field"].endswith("time") for f in u["fields"])][:6], ensure_ascii=False, default=str))
     # only the MDF-516 request the importer refused: its course, section, request and its one teacher
     assert [row["key"] for row in created if row["entity"] == "courses"] == ["MDF516"]
     assert _n(c, "meeting_requests", "create") == 1 and _n(c, "sections", "create") == 1
@@ -94,6 +90,19 @@ async def test_general_then_fast_path_share_one_key_and_the_dry_run_predicts_the
     # I5 / D14: the workbook's 1,511 requests + the one row the importer refuses (MDF-516) - never a second copy
     # of the rows the CSV already wrote
     total = await _active_meetings()
+    import json as _j
+    print("DBG_GENERAL", _j.dumps(real_a["general"]), _j.dumps(dry_a["counts"]["meeting_requests"]))
+    print("DBG_CREATED", _j.dumps([r for r in dry_a["rows"] if r["change"] == "create" and r["entity"] in ("meeting_requests", "sections")], ensure_ascii=False)[:3000])
+    print("DBG_UPDATED", _j.dumps([r for r in dry_a["rows"] if r["change"] == "update" and r["entity"] == "meeting_requests"][:8], ensure_ascii=False)[:3000])
+    from app.core.db import get_session_factory as _gsf
+    from app.models import MeetingRequest as _MR, Section as _S, Course as _Co
+    from sqlalchemy import select as _sel
+    async with _gsf()() as _s:
+        arch = (await _s.execute(_sel(_MR, _Co.code, _S.label).join(_S, _MR.section_id == _S.id).join(_Co, _S.course_id == _Co.id).where(_MR.archived.is_(True)))).all()
+        print("DBG_ARCHIVED", len(arch))
+        for mr, code, label in arch[:12]:
+            sib = (await _s.execute(_sel(_MR).where(_MR.section_id == mr.section_id, _MR.archived.is_(False)))).scalars().all()
+            print("DBG_A", code, label, mr.days, str(mr.start_time), str(mr.end_time), mr.source_key, mr.source_row_index, "| active:", [(x.days, str(x.start_time), x.source_key[-6:], x.source_row_index) for x in sib])
     assert 1511 <= total <= 1512, total
     assert _n(dry_a["counts"], "meeting_requests", "create") <= total - n_b + 1, dry_a["counts"]["meeting_requests"]
 

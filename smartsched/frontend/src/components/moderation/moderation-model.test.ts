@@ -13,6 +13,7 @@ import {
   chipCount,
   diffRows,
   filterMatchings,
+  hiddenByChip,
   filterPeople,
   isDraftChild,
   matchingSentence,
@@ -223,5 +224,19 @@ describe("moderation model", () => {
     const scope = new HttpError(409, "409", { detail: { code: "scope_reduction", message: "run 21 covers weeks [3] only", message_tr: "#21 yalnız 3. haftaları kapsıyor", active: {}, new: {} } });
     expect(refusal(scope, "tr")).toMatchObject({ message: "#21 yalnız 3. haftaları kapsıyor", scopeReduction: true });
     expect(refusal(new HttpError(422, "a repair names the changed requests", "a repair names the changed requests"), "en").message).toBe("a repair names the changed requests");
+  });
+});
+
+describe("search under a quick filter (round-2 T-R2-25 / R2-M-16)", () => {
+  it("counts the rows a search finds that the selected chip hides", () => {
+    const rows = [phar114(), phar114({ request_id: 545, label: "PSY 277 §1", verdict: "satisfied" }), phar114({ request_id: 546, label: "PSY 277 §1", verdict: "satisfied", requested: { ...phar114().requested, room_text: "LAB" } })];
+    // "Karşılanmayan" + "PSY 277": nothing shown, two rows under "Tümü"
+    expect(filterMatchings(rows, "unsatisfied", "PSY 277")).toEqual([]);
+    expect(hiddenByChip(rows, "unsatisfied", "PSY 277")).toBe(2);
+    // the chip "Tümü" hides nothing; an empty search under a chip is a plain empty filter, not a hidden search
+    expect(hiddenByChip(rows, "all", "PSY 277")).toBe(0);
+    expect(hiddenByChip(rows, "satisfied", "")).toBe(0);
+    // a search that matches nothing anywhere has nothing hidden
+    expect(hiddenByChip(rows, "unsatisfied", "ZZZ 999")).toBe(0);
   });
 });

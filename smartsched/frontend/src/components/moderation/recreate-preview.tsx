@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Progress } from "@/components/ui/progress";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useRun } from "@/lib/api/hooks";
+import { isResponseShapeError } from "@/lib/api/error-text";
 import { moderationApi, refusal, useDiff, usePeople, useRunRules, type DiffOut } from "@/lib/api/moderation";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
@@ -309,17 +310,23 @@ export function PublishDialog({ open, onOpenChange, diff, termId, onPublished }:
   const people = usePeople(open ? termId : null);
   const targets = notifyTargets(diff.affected_instructor_ids, people.data?.items ?? []);
   const c = diff.counts!;
+  const published = (notified: number | null) => {
+    toast.success(t("moderation.preview.publishedToast", { id: diff.run_id }));
+    if (typeof notified === "number") toast.success(t("moderation.publish.notified", { n: n(notified) }));
+    onOpenChange(false);
+    onPublished(); // the diff and run queries refetch: the preview state reads "✓ Yayında" from the server
+  };
   const publish = async () => {
     setBusy(true);
     setError(null);
     try {
       const out = await moderationApi.activate(diff.run_id, confirmScope, notify && targets.linked.length > 0);
-      toast.success(t("moderation.preview.publishedToast", { id: diff.run_id }));
-      if (typeof out.notified === "number") toast.success(t("moderation.publish.notified", { n: n(out.notified) }));
-      onOpenChange(false);
-      onPublished();
+      published(out.notified ?? null);
     } catch (e) {
-      setError(refusal(e, lang));
+      // T-R2-23 (R2-M-02): the server answered 2xx, so the plan IS published; only the client's schema disagreed
+      // with the body. Treat it as done and let the refetch show the server's state, never zod's English text.
+      if (isResponseShapeError(e)) published(null);
+      else setError(refusal(e, lang));
     } finally {
       setBusy(false);
     }

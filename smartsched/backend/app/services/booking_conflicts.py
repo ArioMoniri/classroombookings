@@ -218,29 +218,53 @@ async def active_run(session: AsyncSession, run_id: int) -> ScheduleRun:
     return run
 
 
-def _group_key(c: BookingConflict, b: Booking | None = None) -> str:
+def _group_key(c: BookingConflict, b: Booking | None = None, together: list[Booking] | None = None) -> str:
     """A series is one row; so is a submission of several periods (T-R1-13, A-12: one multi-booking, one date, one
-    room), so its options keep the periods together; anything else is one row per booking."""
+    room), so its options keep the periods together. T-R2-13 (R1-M-26): the periods a person requested one by one
+    for the same room and day, back to back (``together`` from ``_submission``), are one row too; anything else is
+    one row per booking."""
     if c.series_id:
         return f"series:{c.series_id}"
     if b is not None and b.multi_booking_id:
         return f"multi:{b.multi_booking_id}:{b.date.isoformat()}:{b.room_id}"
+    if together and len(together) > 1:
+        return f"adjacent:{together[0].id}"
     return f"booking:{c.booking_id}"
 
 
 async def _submission(session: AsyncSession, b: Booking) -> list[Booking]:
     """The periods booked or requested together with ``b`` (same multi-booking, date and room), in period order;
-    ``[b]`` for a series instance or a lone booking."""
-    if b.series_id or not b.multi_booking_id:
+    ``[b]`` for a series instance. A lone single booking or request joins the ones its owner made for the same
+    room and day in the periods right next to it (T-R2-13: the staff's "P7-P8 request" sent as two POSTs reads as
+    one request, as it does in Taleplerim), so the resolver's options keep them together."""
+    if b.series_id:
         return [b]
+    if b.multi_booking_id:
+        q = select(Booking).where(
+            Booking.multi_booking_id == b.multi_booking_id,
+            Booking.date == b.date,
+            Booking.room_id == b.room_id,
+            Booking.status.in_((BOOKED, PENDING)),
+        )
+        rows = list((await session.execute(q.order_by(Booking.start_period, Booking.id))).scalars())
+        return rows or [b]
     q = select(Booking).where(
-        Booking.multi_booking_id == b.multi_booking_id,
+        Booking.user_id == b.user_id,
         Booking.date == b.date,
         Booking.room_id == b.room_id,
-        Booking.status.in_((BOOKED, PENDING)),
+        Booking.status == b.status,
+        Booking.series_id.is_(None),
+        Booking.multi_booking_id.is_(None),
     )
     rows = list((await session.execute(q.order_by(Booking.start_period, Booking.id))).scalars())
-    return rows or [b]
+    run: list[Booking] = []
+    for x in rows:
+        if run and x.start_period != run[-1].end_period + 1:
+            if any(y.id == b.id for y in run):
+                break
+            run = []
+        run.append(x)
+    return run if any(y.id == b.id for y in run) else [b]
 
 
 def _period_text(s: int, e: int) -> str:
@@ -475,7 +499,7 @@ async def plan(session: AsyncSession, access: Access, run_id: int) -> dict[str, 
     groups: dict[str, list[tuple[BookingConflict, Booking | None]]] = defaultdict(list)
     for c in rows:
         b = await session.get(Booking, c.booking_id)
-        groups[_group_key(c, b)].append((c, b))
+        groups[_group_key(c, b, await _submission(session, b) if b is not None else None)].append((c, b))
     out_groups: list[dict[str, Any]] = []
     for key, pairs in groups.items():
         live = [(c, b) for c, b in pairs if b is not None]

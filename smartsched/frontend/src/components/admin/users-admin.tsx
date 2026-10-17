@@ -517,7 +517,7 @@ export function UsersAdmin() {
  * the role list is not readable, so only the seeded codes are offered and only Administrator is known to be
  * out of reach; the backend's 403 explains anything else.
  */
-function RoleSelect({ value, onChange, canListRoles, id }: { value: string; onChange: (v: string) => void; canListRoles: boolean; id?: string }) {
+function RoleSelect({ value, onChange, canListRoles, id, error }: { value: string; onChange: (v: string) => void; canListRoles: boolean; id?: string; error?: string | null }) {
   const { t } = useI18n();
   const { perms } = usePermissions();
   const roles = useRoles(canListRoles);
@@ -525,9 +525,12 @@ function RoleSelect({ value, onChange, canListRoles, id }: { value: string; onCh
     ? roles.data.map((r) => ({ value: `id:${r.id}`, label: roleLabel(t, r), check: roleGrantCheck(perms, r) }))
     : SEEDED.map((r) => ({ value: `code:${r.code}`, label: t(r.key as MessageKey), check: roleGrantCheck(perms, { code: r.code }) }));
   const anyDisabled = options.some((o) => !o.check.allowed);
+  // T-R2-32 (R2-M-20, F-11 S01): a missing role is said next to the field, read with it (aria-describedby), not only
+  // in the form's alert
+  const describedBy = [error && id ? `${id}-error` : null, anyDisabled && id ? `${id}-hint` : null].filter(Boolean).join(" ") || undefined;
   return (
     <>
-      <SelectField id={id} value={value} onChange={(e) => onChange(e.target.value)} aria-describedby={anyDisabled && id ? `${id}-hint` : undefined}>
+      <SelectField id={id} value={value} onChange={(e) => onChange(e.target.value)} aria-describedby={describedBy} aria-invalid={error ? true : undefined}>
         <option value="">{t("crbs.users.pickRole")}</option>
         {options.map((o) => (
           <option key={o.value} value={o.value} disabled={!o.check.allowed && o.value !== value}>
@@ -535,6 +538,11 @@ function RoleSelect({ value, onChange, canListRoles, id }: { value: string; onCh
           </option>
         ))}
       </SelectField>
+      {error ? (
+        <p id={id ? `${id}-error` : undefined} className="type-footnote text-status-infeasible-fg" role="alert" data-testid="role-error">
+          {error}
+        </p>
+      ) : null}
       {anyDisabled ? (
         <p id={id ? `${id}-hint` : undefined} className="type-footnote text-label-3" data-testid="role-disabled-hint">
           {t("crbs.users.roleDisabledHint")}
@@ -587,6 +595,7 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
     password2: "",
   });
   const [error, setError] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((prev) => ({ ...prev, [k]: v }));
   const body = (): UserIn & { role?: string } => ({
     username: f.username.trim() || null,
@@ -615,7 +624,11 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
           e.preventDefault();
           setError(null);
           if (!f.username.trim() && !f.email.trim()) return setError(t("crbs.users.needIdentity"));
-          if (!f.role) return setError(t("crbs.users.needRole"));
+          if (!f.role) {
+            setRoleError(t("crbs.users.needRole"));
+            document.getElementById("u-role")?.focus();
+            return;
+          }
           if (f.password !== f.password2) return setError(t("admingaps.users.passwordMismatch"));
           save.mutate(undefined, {
             onSuccess: (u) => {
@@ -646,7 +659,16 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
             <Input id="u-ext" value={f.ext} onChange={(e) => set("ext", e.target.value)} />
           </Field>
           <Field label={t("crbs.users.role")} htmlFor="u-role">
-            <RoleSelect id="u-role" value={f.role} onChange={(v) => set("role", v)} canListRoles={canListRoles} />
+            <RoleSelect
+              id="u-role"
+              value={f.role}
+              onChange={(v) => {
+                set("role", v);
+                if (v) setRoleError(null);
+              }}
+              canListRoles={canListRoles}
+              error={roleError}
+            />
           </Field>
           <Field label={t("crbs.users.department")} htmlFor="u-dept">
             <SelectField id="u-dept" value={f.department} onChange={(e) => set("department", e.target.value)}>

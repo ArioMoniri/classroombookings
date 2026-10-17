@@ -226,8 +226,8 @@ or all week segments of one request.  Tiers, most significant first:
 
 | `relaxation_policy` | tiers |
 |---|---|
-| `lock_first` (default) | trusted locks kept (`Event.locked` + `lock_trusted`, count) → coordinator priority levels (highest first; each level counts its unplaced requests, so one more request of a higher level beats any number of lower ones) → requests (only when all priorities are equal) → event-weeks → tool-made locks |
-| `most_classes_first` | requests → event-weeks → priority levels → locks (the pre-2026-10-15 objective when no priority is set) |
+| `lock_first` (default) | trusted locks kept (`Event.locked` + `lock_trusted`, count) → coordinator priority levels (highest first; each level counts its unplaced requests, so one more request of a higher level beats any number of lower ones) → requests (only when all priorities are equal) → **previous** (requests placed in `SolverInput.previous`: a re-solve never trades a published class for a newcomer of equal priority and count — round-2 T-R2-34) → event-weeks → tool-made locks |
+| `most_classes_first` | requests → previous → event-weeks → priority levels → locks (the pre-2026-10-15 objective when no priority is set) |
 
 `Event.priority` (int, higher wins, clamped to −100..100, default 0) comes from the bridge (run param
 `priorities`: request id → int; Phase 19 persists it per request).  `policy.tiers(inp)` builds the tiers,
@@ -242,7 +242,8 @@ request for a lower one.
 
 Every unplaced event's `unplaced` diagnosis carries `params.policy = {policy, priority, reason, winners}`
 with `reason` ∈ `lock_clash_priority`, `lock_clash_tie`, `lock_clash_more_locks`, `locked_row_kept`,
-`lower_priority`, `most_classes`, `no_option` (`policy.loss_reason`: the placed events holding a room or
+`lower_priority`, `published_kept` (a class of the previous timetable holds it at equal priority),
+`most_classes`, `no_option` (`policy.loss_reason`: the placed events holding a room or
 key of one of its options); the bridge renders TR / EN texts ("Kilitli satır korundu: …", "Lower priority
 than …", "Karşılanmadı: kilit çakışması; … daha yüksek öncelikli") and a `policy_losses` summary
 (`stats.policy_losses` by reason).  Two locks in one room at once (`locked_overlap`, policy Q5) carry
@@ -272,7 +273,10 @@ Segments get new negative ids, labels `"MAT 112 §1 [w9]"`, inherit every key/ta
 constraints that named the event (`event_ids`, `groups`), get `previous` re-keyed by weeks, and form one
 soft `same_room_across_weeks` group (marked `week_segments`), so one room for all weeks is still
 preferred.  Every split is reported (`week_split` warning: `reason` = `blocked` / `locked_clash` /
-`no_common_room` / `no_room_all_weeks`, `kept_weeks`, `moved_weeks`, `uncovered_weeks`).
+`no_common_room` / `no_room_all_weeks` / `previous_room_changes`, `kept_weeks`, `moved_weeks`,
+`uncovered_weeks`).  `split_by_rows(split, rows_by_event)` splits an unlocked fixed-time event along the week
+partition of its *previous* placement (a residual round of the base run changed its room in some weeks): the
+repair reads the stored rows as the segments they are.
 
 `solve_segmented(inp)` = split → `solve` → (best effort) **residual round** (skipped when its validated
 hint cannot complete any more request, `residual_gain`, review M5): fixed-time events left
@@ -435,15 +439,31 @@ LLM rendering in `app/ai`.
 
 ## Repair and validation (`repair.py`)
 
-`repair(inp, assignments, changed_event_ids, time_limit_s, keep_changed=True, radius=1)` locks every
-assignment except the *neighbours* of the changed events (events sharing a room slot, a cohort key
-or an instructor key at an overlapping time, within `radius` conflict hops); with `keep_changed`
+`repair(inp, assignments, changed_event_ids, time_limit_s, keep_changed=True, radius=1, scope=None, free=None,
+view=None)` locks every assignment except the *neighbours* of the changed events (events sharing a room slot,
+a cohort key or an instructor key at an overlapping time, within `radius` conflict hops); with `keep_changed`
 the edited events are locked to their new position (that is the user's intent), otherwise they are
 freed too. The residual model is tiny, `previous=assignments` drives the stability objective and the
 hints, and an impossible edit comes back `INFEASIBLE` with a diagnosis.
 
-`stats["repair"]` lists `changed`, `freed`, `locked`, and (P19-S2) `moved` — every event whose placement
-changed, `{event_id, from, to}` (`moved_diff`; `to` None = dropped), `moved_count`, `dropped` and
+**Week segments (round-2 T-R2-34).**  The repair works on `segment_view(inp, assignments)`: the input split
+like the term run splits it (`weeksplit.split_blocked_weeks`, plus `split_by_rows` for events whose stored
+rows change room between weeks), with exactly one current placement per segment.  A planner-locked class
+whose blocked week sits in another room is two segments, each judged (`violating_events(view)`: the segments
+whose published cell breaks a hard rule now) and locked on its own — read as one class in one room it was a
+lock violation, got freed, could not be placed in the blocked week and was dropped (the Güz term lost 17
+classes that way after one pin).  `free` names further segments to free (the violating ones; as a mapping,
+the changed event each one holds the cell of); `scope` names the edited requests: after the solve
+`minimal_change(view, result, scope)` puts every moved or dropped segment outside the scope back into its
+published cell when that keeps every hard rule — one by one, then whole chains of moved events that took
+each other's old cells (a swap, a room rotation; up to `MAX_REVERT_CLUSTER`).  The result is translated back
+to the original events (`weeksplit.to_original`).
+
+`stats["repair"]` lists `changed`, `freed`, `freed_by` (why each freed event outside the changed set was
+freed: `{"cause": "neighbour", "of": <event>}` or `{"cause": "base_conflict"}` — the moderation diff turns it
+into the move's cause, so no move outside the scope is "unexplained"), `locked`, `reverted`, `segments`, and
+(P19-S2) `moved` — every event whose placement changed, `{event_id, from, to}` (`moved_diff`; `to` None =
+dropped; an event placed in several rows carries `segments` in week order), `moved_count`, `dropped` and
 `hard_violations` of the placed events (re-evaluated: a repair never trades a hard rule silently).  With
 `workers=1` the repair runs in deterministic time: the same input gives the same child, bit for bit.
 

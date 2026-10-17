@@ -506,8 +506,8 @@ async def booking_out(session: AsyncSession, access: Access, b: Booking, *, deta
 # --------------------------------------------------------------------------------------------------
 
 
-async def active_booking_count(session: AsyncSession, user_id: int) -> int:
-    """``Users_model::get_scheduled_booking_count``: future single bookings the user made for themself."""
+async def active_bookings(session: AsyncSession, user_id: int) -> list[Booking]:
+    """``Users_model::get_scheduled_booking_count``'s rows: future single bookings the user made for themself."""
     now = await now_local(session)
     rows = (
         await session.execute(
@@ -522,7 +522,13 @@ async def active_booking_count(session: AsyncSession, user_id: int) -> int:
             )
         )
     ).all()
-    return sum(1 for b, p in rows if b.date > now.date() or p.time_start > now.time())
+    return [b for b, p in rows if b.date > now.date() or p.time_start > now.time()]
+
+
+async def active_booking_count(session: AsyncSession, user_id: int) -> int:
+    """``Users_model::get_scheduled_booking_count``: the number of rows (the ``max_active_bookings`` limit counts
+    periods, as CRBS does)."""
+    return len(await active_bookings(session, user_id))
 
 
 async def check_window(
@@ -1777,13 +1783,16 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
     )
     # A-12: totals count sessions -- the periods of one submission (multi-booking) on one day and room are one
     # session; ``*_periods`` keep CRBS's row counts
-    rows = (
+    # T-R2-13 (R2-S-10): one basis for the three numbers: booked rows only (a cancelled booking is not a booking any
+    # more, a pending request is not one yet), counted as sessions like ``active``; ``cancelled`` is reported apart
+    all_rows = (
         await session.execute(
-            select(Booking.id, Booking.multi_booking_id, Booking.date, Booking.room_id, Booking.term_id).where(
-                Booking.user_id == access.user_id
-            )
+            select(
+                Booking.id, Booking.multi_booking_id, Booking.date, Booking.room_id, Booking.term_id, Booking.status
+            ).where(Booking.user_id == access.user_id)
         )
     ).all()
+    rows = [r for r in all_rows if r.status == BOOKED]
     current = sorted(await current_term_ids(session, t))  # computed from the dates like CRBS (audit B3)
 
     def sessions(items: list[Any]) -> int:
@@ -1791,6 +1800,7 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
 
     in_session = [r for r in rows if current and r.term_id == current[0]]
     total_all, total_session = sessions(list(rows)), sessions(in_session)
+    active = await active_bookings(session, access.user_id)
     return {
         "user_bookings": mine,
         "room_bookings": in_my_rooms,
@@ -1800,7 +1810,10 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
             "session": int(total_session),
             "all_periods": len(rows),
             "session_periods": len(in_session),
-            "active": await active_booking_count(session, access.user_id),
+            "cancelled": sum(1 for r in all_rows if r.status == CANCELLED),
+            # sessions, like ``all`` / ``session``; ``active_periods`` is the row count the booking limit uses
+            "active": sessions(active),
+            "active_periods": len(active),
         },
         "limits": await effective_limits(session, access.user),
     }

@@ -7,13 +7,16 @@ and give every move outside the edit a cause.
 
 from __future__ import annotations
 
+import importlib
+
 from app.models import ScheduleRun
 from app.services import moderation as m
 from app.solver import model as sm
-from app.solver import repair as rp
 from app.solver.model import Assignment, Block
 
 from tests.solver.conftest import event, make_input, room
+
+rp = importlib.import_module("app.solver.repair")  # the package re-exports the function under this name
 
 W = (1, 2, 3)
 

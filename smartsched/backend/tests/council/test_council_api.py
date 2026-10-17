@@ -98,12 +98,12 @@ async def test_heuristic_job_reviews_and_commits_general_files(client):
         term = (await s.execute(select(Term).where(Term.code == "2026-BAHAR-EN"))).scalar_one()
     assert a101.capacity == 58 and a101.exam_capacity == 30  # room master, not overwritten
     assert term.periods_json and term.periods_json[0]["start"] == "08:30"
-    # rows are keyed on the term + their natural key (D14), so the same file in a new job updates instead of
-    # duplicating
-    keys = f"CC:{term.id}:M:%"
+    # rows are keyed on the term + their natural key (D14; T-R2-19: the planning-list importer's identity, so
+    # both paths share one key), so the same file in a new job updates instead of duplicating
+    keys = f"PL:{term.code}:id:%"
     n = await _count(MeetingRequest, MeetingRequest.source_key.like(keys))
     assert n == out["general"]["meeting_requests"]
-    locked = await _count(MeetingRequest, MeetingRequest.status == "LOCKED", MeetingRequest.source_key.like("CC:%"))
+    locked = await _count(MeetingRequest, MeetingRequest.status == "LOCKED", MeetingRequest.source_key.like("PL:%"))
     assert locked > 0.5 * n  # assigned rooms of the export are the planner's definitive rooms
 
     # committing again updates, never duplicates
@@ -124,7 +124,12 @@ async def test_low_confidence_mapping_blocks_until_reviewed(client):
     job = await _run(client, h, EN_CSV, review_threshold=0.99)
     assert job["status"] == "REVIEW" and job["summary"]["blocking_items"] > 0
     r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={"group": 0})
-    assert r.status_code == 409 and "must be decided" in r.json()["detail"]
+    assert r.status_code == 409, r.text
+    detail = r.json()["detail"]  # T-R2-21: coded, Turkish, counts only (no item titles, no person names)
+    assert detail["code"] == "review_pending" and detail["count"] == job["summary"]["blocking_items"]
+    assert detail["message"] == f"{detail['count']} review item(s) must be decided first"
+    assert detail["message_tr"] == f"Önce {detail['count']} inceleme kararı verilmeli."
+    assert "e.g." not in r.text and "'" not in detail["message"]
     review = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
     remarks = next(it for it in review["items"] if it["kind"] == "mapping" and "Remarks" in it["title"])
     assert remarks["current"]["field"] == "notes" and remarks["samples"]

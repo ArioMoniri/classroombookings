@@ -22,7 +22,7 @@ the carried locks, one CP-SAT worker, never activated; ``repair`` frees only the
 requests (``app.solver.repair.repair``), ``full`` re-solves everything with stability. :func:`resolve_diff`
 compares the child with its base: moved (from -> to, with the cause), unchanged, newly placed, unplaceable
 (with the reason), hard / soft score, waived rules. Academician needs Q9: in ``repair`` mode no published class
-outside the changed requests moves unless that places more (:func:`_minimal_change`).
+outside the changed requests moves unless a hard rule forces it (``app.solver.repair.minimal_change`` on week segments).
 
 Draft edits (M3): :func:`matching_action` writes a targeted pin / preference (``constraint_guard``) or an unlock
 on a draft child run, never on the published run.
@@ -35,7 +35,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -61,6 +61,9 @@ from app.models import (
 from app.services.bookings_perms import Access
 from app.services.calendar_views import clock, tr_fold, when
 from app.solver import model as sm
+
+if TYPE_CHECKING:
+    from app.solver.repair import SegmentView
 
 log = logging.getLogger(__name__)
 
@@ -95,7 +98,15 @@ POLICY_STEP: dict[str, tuple[int, str, str]] = {
     "lock_clash_priority": (2, "adım 2 · öncelik", "step 2 · priority"),
     "lower_priority": (2, "adım 2 · öncelik", "step 2 · priority"),
     "most_classes": (3, "adım 3 · en çok ders", "step 3 · most classes"),
+    "published_kept": (4, "adım 4 · yayımdaki plan", "step 4 · published timetable"),
 }
+#: a newcomer that lost to a class of the published timetable at equal priority (round-2 T-R2-34)
+PUBLISHED_KEPT_TEXT = (
+    "Yayımdaki planda yerleşmiş dersler korundu: {w} (öncelik eşit; yeniden çözüm yayımdaki bir dersi yeni bir ders "
+    "için yerinden etmez).",
+    "Classes of the published timetable are kept: {w} (equal priority; a re-solve never displaces a published class "
+    "for a new one).",
+)
 
 
 class ModerationError(Exception):
@@ -588,6 +599,12 @@ def reason_for(
         step = POLICY_STEP.get(str(pol.get("reason") or ""))
         text = d.get("text") if isinstance(d.get("text"), dict) else None
         culprits = [{"request_id": w, "label": td.labels.get(int(w), f"#{w}")} for w in _ints(pol.get("winners"))[:5]]
+        if pol.get("reason") == "published_kept" and culprits:
+            names = ", ".join(str(c["label"]) for c in culprits[:3])
+            text = _t(
+                str((text or {}).get("tr") or "") + " " + PUBLISHED_KEPT_TEXT[0].format(w=names),
+                str((text or {}).get("en") or "") + " " + PUBLISHED_KEPT_TEXT[1].format(w=names),
+            )
         return {
             "code": str(d.get("code") or "unplaced"),
             "text": text or _t(str(d.get("message") or "Yerleşmedi"), str(d.get("message") or "Not placed")),
@@ -1979,14 +1996,15 @@ def _fits(e: sm.Event, r: sm.Room) -> bool:
     return cap >= e.size and e.required_tags <= r.tags and not (e.forbidden_tags & r.tags)
 
 
-def slot_blockers(inp: sm.SolverInput, current: Iterable[sm.Assignment], seeds: Iterable[int]) -> set[int]:
+def slot_blockers(inp: sm.SolverInput, current: Iterable[sm.Assignment], seeds: Iterable[int]) -> dict[int, int]:
     """Events placed in the requested cell of a changed event (a shared room it could use, its cohort or its
-    instructor at that time): the repair frees them too, so an edited or re-prioritised request that is not placed
-    (or asks for a new cell) gets its chance (``repair.neighbours`` only looks at current placements)."""
+    instructor at that time) -> that changed event: the repair frees them too, so an edited or re-prioritised request
+    that is not placed (or asks for a new cell) gets its chance (``repair.neighbours`` only looks at current
+    placements).  Works on a :class:`SegmentView` (``view.inp``, ``view.current``, segment ids) as on plain input."""
     events = {e.id: e for e in inp.events}
     cur = list(current)
-    out: set[int] = set()
-    for sid in seeds:
+    out: dict[int, int] = {}
+    for sid in sorted(seeds):
         e = events.get(sid)
         if e is None:
             continue
@@ -2002,23 +2020,23 @@ def slot_blockers(inp: sm.SolverInput, current: Iterable[sm.Assignment], seeds: 
             if other is None or a.event_id == sid or not _overlaps(slot, a):
                 continue
             if set(a.room_ids) & cand or e.cohort_keys & other.cohort_keys or e.instructor_keys & other.instructor_keys:
-                out.add(a.event_id)
+                out.setdefault(a.event_id, sid)
     return out
 
 
 def base_assignments(inp: sm.SolverInput, base: ScheduleRun | None) -> list[sm.Assignment]:
     """The base run's placements per solver event: the solver's own (``stats.solver_assignments``), else the
-    bridge's ``previous`` (rebuilt from the stored rows) cleaned of rooms outside the pool."""
+    bridge's ``previous`` (rebuilt from the stored rows) cleaned of rooms outside the pool.  A class whose room
+    changes between weeks (``weeksplit``) has one row per room set: every row is kept (round-2 T-R2-34: reading only
+    the first row made the other weeks' placement a lock violation and the class was dropped)."""
     from app.services.solver_bridge import solver_assignments_of
 
     events = {e.id: e for e in inp.events}
     stored = solver_assignments_of(base) if base is not None else None
     if stored is not None:
-        seen: set[int] = set()
         out = []
         for a in stored:
-            if a.event_id in events and a.event_id not in seen:
-                seen.add(a.event_id)
+            if a.event_id in events and a not in out:
                 out.append(a)
         return out
     pool = {r.id for r in inp.rooms}
@@ -2032,87 +2050,54 @@ def base_assignments(inp: sm.SolverInput, base: ScheduleRun | None) -> list[sm.A
     return out
 
 
-def violating(inp: sm.SolverInput, assignments: list[sm.Assignment]) -> set[int]:
-    """Events of ``assignments`` in a hard violation of ``inp`` (the base placements against the child's rules:
-    a pin written on the draft, a request edited since). The repair frees them instead of locking them there."""
-    from app.solver.repair import validate
+def violating(view: SegmentView) -> set[int]:
+    """Segments of the base placements in a hard violation of the child's rules (a pin written on the draft, a
+    booking or block added since, a request edited): the repair frees them instead of locking them there.  Judged
+    on the week segments (``repair.violating_events``): a locked class whose blocked week sits in another room is
+    exactly what the term run decided, not a violation."""
+    from app.solver.repair import violating_events
 
-    placed = {a.event_id for a in assignments}
-    sub = replace(inp, events=tuple(e for e in inp.events if e.id in placed), best_effort=False)
-    return {int(i) for v in validate(sub, assignments) if v.hard for i in v.event_ids}
-
-
-def _rescore(inp: sm.SolverInput, assignments: list[sm.Assignment]) -> tuple[int, int, dict[str, int], int]:
-    """(hard, soft, breakdown, hard violations) of the placed events (a partial result's unplaced events are
-    reported apart, as in ``repair``)."""
-    from app.solver.repair import score, validate
-
-    placed = {a.event_id for a in assignments}
-    sub = replace(inp, events=tuple(e for e in inp.events if e.id in placed), best_effort=False)
-    hard, soft, breakdown = score(sub, assignments)
-    return hard, soft, breakdown, sum(1 for v in validate(sub, assignments) if v.hard)
+    return violating_events(view)
 
 
-def _minimal_change(
-    inp: sm.SolverInput, current: list[sm.Assignment], result: sm.SolverResult, scope: set[int]
-) -> list[int]:
-    """Academician needs Q9: a published class outside the changed requests keeps its cell unless moving it was
-    needed. Every moved or dropped event outside ``scope`` whose old cell is still free (reverting it keeps every
-    hard rule) is put back; deterministic (sorted order, repeated until nothing changes). Returns the reverted event
-    ids and rewrites ``result`` in place (assignments, scores, ``stats.repair.moved``)."""
-    from app.solver.repair import moved_diff
-
-    before = {a.event_id: a for a in current}
-    after = {a.event_id: a for a in result.assignments}
-    _hard0, _s0, _b0, viol0 = _rescore(inp, list(after.values()))
-    reverted: list[int] = []
-    changed = True
-    while changed:
-        changed = False
-        for m in moved_diff(list(before.values()), list(after.values())):
-            eid = int(m["event_id"])
-            # a class the repair dropped (``to`` None) is put back too when its old cell still keeps every hard rule:
-            # a minimal re-solve never unplaces a placed class for a soft wish (round-1 R1-S-04)
-            if eid in scope or m["from"] is None or eid in reverted or eid not in before:
-                continue
-            trial = dict(after)
-            trial[eid] = before[eid]
-            if _rescore(inp, list(trial.values()))[3] <= viol0:
-                after = trial
-                reverted.append(eid)
-                changed = True
-    if reverted:
-        final = [after[k] for k in sorted(after)]
-        hard, soft, breakdown, _v = _rescore(inp, final)
-        restored = {eid for eid in reverted if eid not in {a.event_id for a in result.assignments}}
-        if restored:
-            # classes put back in their published cell are placed again: their "cannot be placed" lines go
-            result.diagnoses = [
-                d
-                for d in result.diagnoses
-                if not (len(d.event_ids) == 1 and d.event_ids[0] in restored and d.severity == "error")
-            ]
-            for d in result.diagnoses:
-                if d.code == "unplaced_summary":
-                    d.event_ids = [i for i in d.event_ids if i not in restored]
-            total = int(result.stats.get("events_total") or len(inp.events))
-            result.stats["placed"] = len(final)
-            result.stats["unplaced"] = max(0, total - len(final))
-            result.stats["restored_to_published"] = sorted(restored)
-        result.assignments = final
-        result.hard_score, result.soft_score = hard, soft
-        result.objective_breakdown = breakdown
-        rep = dict(result.stats.get("repair") or {})
-        moved = moved_diff(current, final)
-        rep.update(
-            {
-                "moved": moved,
-                "moved_count": sum(1 for x in moved if x["to"] is not None and x["from"] is not None),
-                "reverted": sorted(reverted),
-            }
-        )
-        result.stats["repair"] = rep
-    return sorted(reverted)
+def move_cause(
+    rep: Mapping[str, Any], request_id: int, head_of: Mapping[int, int], labels: Mapping[int, str]
+) -> dict[str, Any] | None:
+    """Why the repair freed (and so could move) a request outside the edited scope: it held the cell a changed request
+    asked for or was its conflict neighbour (``freed_neighbour``), or its published cell itself broke a hard rule
+    (``base_conflict``).  From ``stats.repair.freed_by`` (keys are solver events; a joint-lecture member is looked up
+    through its head).  ``None`` when the repair did not free it (then nothing explains the move)."""
+    freed_by = rep.get("freed_by") if isinstance(rep, Mapping) else None
+    if not isinstance(freed_by, Mapping):
+        return None
+    ev = head_of.get(request_id, request_id)
+    info = freed_by.get(str(ev), freed_by.get(ev))
+    if not isinstance(info, Mapping):
+        return None
+    me = labels.get(request_id, labels.get(ev, f"#{request_id}"))
+    if info.get("cause") == "base_conflict":
+        return {
+            "code": "base_conflict",
+            "text": _t(
+                f"{me} taşındı: yayımdaki hücresi artık kesin bir kuralı bozuyordu (sonradan eklenen rezervasyon / "
+                "blok ya da taslak kuralı)",
+                f"{me} moved: its published cell broke a hard rule now (a booking or block added since, or a draft "
+                "rule)",
+            ),
+        }
+    of = info.get("of")
+    if of is None:
+        return None
+    other = labels.get(int(of), f"#{of}")
+    return {
+        "code": "freed_neighbour",
+        "request_id": int(of),
+        "label": other,
+        "text": _t(
+            f"{other} için yeniden çözülen komşulukta: {me} onun istediği hücreyi tutuyordu ya da onunla çakışıyordu",
+            f"Re-solved in the neighbourhood of {other}: {me} held the cell it asked for or clashed with it",
+        ),
+    }
 
 
 async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -> dict[str, Any]:
@@ -2120,7 +2105,7 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
     the base's locks carried, stability on, one worker), then ``repair`` on the neighbourhood of the changed
     requests or a full solve. Infeasible stays INFEASIBLE with its diagnosis (nothing is relaxed silently)."""
     from app.services import solver_bridge
-    from app.solver.repair import repair
+    from app.solver.repair import repair, segment_view
     from app.workers import run_jobs
 
     def report(phase: str, pct: int) -> None:
@@ -2155,27 +2140,42 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
     reverted: list[int] = []
     try:
         if mode == "repair":
-            broken = violating(inp, current) - changed
-            seeds = changed | broken | slot_blockers(inp, current, changed)
+            # the base timetable as week segments (T-R2-34): a class whose blocked week sits in another room is
+            # two segments, each judged and locked on its own, not one class in a room it never had in every week
+            view = segment_view(inp, current)
+            changed_seg = view.expand(changed)
+            broken_seg = violating(view) - changed_seg
+            blockers = slot_blockers(view.inp, view.current, changed_seg)
+            free: dict[int, int | None] = dict.fromkeys(sorted(broken_seg))
+            for seg, for_seed in sorted(blockers.items()):
+                if seg not in changed_seg:
+                    free.setdefault(seg, for_seed)
+            broken = view.roots(broken_seg)
+            seeds = changed | broken | view.roots(blockers)
             result = await run_jobs.solve_off_loop(
                 run_id,
                 limit,
                 repair,
                 inp,
                 current,
-                sorted(seeds),
+                sorted(changed),
                 limit,
                 keep_changed=False,
                 radius=int(mod.get("radius", DEFAULT_RADIUS)),
+                scope=changed,
+                free=free,
+                view=view,
             )
-            if result.assignments and current and result.status != "ERROR":  # best effort: INFEASIBLE + placements
-                reverted = _minimal_change(inp, current, result, changed)
+            reverted = list(_ints((result.stats.get("repair") or {}).get("reverted")))
         else:
+            # a full re-solve keeps the base's placements as its stability target row by row (a week segment's room
+            # included), so the only moves are the ones a hard rule or the edit forces (T-R2-34)
+            full_inp = replace(inp, previous=tuple(current)) if current else inp
             result = await run_jobs.solve_off_loop(
                 run_id,
                 limit,
                 solver_bridge._call_solver,  # noqa: SLF001 - the bridge's solve entry (week splitting included)
-                inp,
+                full_inp,
                 None,
                 str((run.params or {}).get("solver", "auto")),
                 split_weeks=solver_bridge.run_mode(dict(run.params or {}), "split_blocked_weeks"),
@@ -2330,6 +2330,9 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun, compare_to: in
         for e in ((cst.get("moderation") or {}).get("base_violations") or [])
         for m in members_of.get(int(e), [int(e)])
     }
+    rep = st.get("repair") or {}
+    head_of = {m: h for h, ms in members_of.items() for m in ms}
+    labels_by_mr = {mr.id: label_of(mr) for mr in after.meetings}
     old_place: dict[int, Place | None] = {}
     new_place: dict[int, Place | None] = {}
     for mr in in_scope:
@@ -2386,6 +2389,18 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun, compare_to: in
         causes: list[dict[str, Any]] = []
         if mr.id in changed:
             causes.append({"code": "changed", "text": _t("Değiştirilen talep", "Edited request")})
+        elif _cell_set(b_rows) < _cell_set(a_rows):
+            # every published cell is kept and weeks it had no room in are placed now (a partially placed class
+            # completed by the re-solve): not a move away from anything
+            causes.append(
+                {
+                    "code": "weeks_completed",
+                    "text": _t(
+                        "Yayımdaki hücreleri korundu; eksik haftaları da yerleşti",
+                        "Its published cells are kept; its missing weeks were placed too",
+                    ),
+                }
+            )
         else:
             for oid, other_new in new_place.items():
                 if oid == mr.id or other_new is None:
@@ -2414,7 +2429,12 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun, compare_to: in
                     )
             causes = causes[:5]
             if not causes:
-                # no class took its old cell: Q9 counts it (repair mode reverts such moves, _minimal_change)
+                # no class took its old cell: the repair's own record says why it was freed (it held the cell an
+                # edited request asked for, or its published cell broke a rule); without that, Q9 counts it
+                freed = move_cause(rep, mr.id, head_of, labels_by_mr)
+                if freed is not None:
+                    causes.append(freed)
+            if not causes:
                 causes.append(
                     {
                         "code": "unexplained",
@@ -2428,7 +2448,6 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun, compare_to: in
     outside = [m for m in moved if not m["in_scope"]]
     touched = [*moved, *newly, *(u for u in unplaceable if u["was_placed"])]
     affected = sorted({i for m in touched for i in m["instructor_ids"]})
-    rep = st.get("repair") or {}
     diags = [
         {"code": d.get("code"), "text": d.get("text"), "message": d.get("message"), "event_ids": d.get("event_ids")}
         for d in child.diagnosis or []

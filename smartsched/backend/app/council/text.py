@@ -174,6 +174,10 @@ _RANGE_RX = re.compile(
 )
 
 
+#: a day fraction with at least three decimals (``0.5208333``, ``,729166``); "0.5" alone stays ambiguous
+_FRACTION_RX = re.compile(r"0?[.,]\d{3,}")
+
+
 def _ampm(text: str) -> time | None:
     m = _AMPM_RX.search(text)
     if not m:
@@ -194,6 +198,11 @@ def parse_clock(value: Any) -> time | None:
         t = _ampm(value)
         if t is not None:
             return t
+        # an Excel time written out as its day fraction ("0.5208333333333334" = 12:30, a CSV export of a time
+        # cell with no format): a fraction, not the clock "0:52" (T-R2-19)
+        frac = _FRACTION_RX.fullmatch(value.strip())
+        if frac:
+            return n.parse_time(float(frac.group(0).replace(",", ".")))
         m = _CLOCK_RX.search(value)
         if m and len(value.strip()) <= 12:
             h, mi = int(m.group(1)), int(m.group(2))

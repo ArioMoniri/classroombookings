@@ -11,7 +11,7 @@ Saved views: ``GET/POST /views``, ``PUT/DELETE /views/{id}``.
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from sqlalchemy import select
@@ -46,6 +46,15 @@ from app.services.planning_audit import assignment_snapshot, record_assignments,
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["calendar"])
+
+#: the forced-move refusal for a planner (round-2 T-R2-30, R1-S-24: the 403 had no Turkish sentence)
+FORCE_ADMIN_ONLY: dict[str, Any] = {
+    "code": "forbidden",
+    "permission": "planning.admin",
+    "message": "moving despite a conflict is admin-only",
+    "message_en": "moving despite a conflict is admin-only",
+    "message_tr": "Çakışmaya rağmen taşıma yalnız yöneticilere açık; çakışmasız bir derslik ya da saat seçin",
+}
 
 
 async def _run(db: DB, run_id: int) -> ScheduleRun:
@@ -221,8 +230,8 @@ async def _bulk(db: DB, user: object, run: ScheduleRun, body: BulkMoveIn) -> Bul
     if body.force:
         access = await load_access(db, user)  # type: ignore[arg-type]
         if "planning.admin" not in access.perms:
-            # orchestrator decision 4: forcing a move despite a conflict is admin-only
-            raise HTTPException(403, "moving despite a conflict is admin-only")
+            # orchestrator decision 4: forcing a move despite a conflict is admin-only (TR + EN, round-2 T-R2-30)
+            raise HTTPException(403, dict(FORCE_ADMIN_ONLY))
     ctx = await cv.load_run_context(db, run)
     try:
         plans = cv.plan_moves(ctx, body.moves)

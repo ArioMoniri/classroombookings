@@ -488,7 +488,13 @@ function ValuesGrid({ features, rooms }: { features: Feature[]; rooms: AdminRoom
 
 function CellInput({ feature: f, value, onChange, label }: { feature: Feature; value: FeatureValue; onChange: (v: FeatureValue) => void; label: string }) {
   const { t } = useI18n();
-  if (f.kind === "BOOLEAN") return <Checkbox checked={value === true} onCheckedChange={(v) => onChange(v === true)} aria-label={label} />;
+  // touch (T-R2-32, M-02): every cell is a 44 px row, so the 16 px box's hit area is not covered by the next row
+  if (f.kind === "BOOLEAN")
+    return (
+      <span className="inline-flex items-center justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+        <Checkbox checked={value === true} onCheckedChange={(v) => onChange(v === true)} aria-label={label} />
+      </span>
+    );
   if (f.kind === "NUMBER")
     return (
       <Input
@@ -497,14 +503,14 @@ function CellInput({ feature: f, value, onChange, label }: { feature: Feature; v
         step="any"
         inputMode="decimal"
         aria-label={label}
-        className="h-7 w-20"
+        className="h-7 w-20 pointer-coarse:h-11 pointer-coarse:w-24"
         value={typeof value === "number" ? value : ""}
         onChange={(e) => onChange(e.target.value === "" ? null : Math.max(0, Number(e.target.value)))}
       />
     );
   if (f.kind === "SELECT")
     return (
-      <SelectField aria-label={label} className="h-7 min-w-28" value={typeof value === "number" ? String(value) : ""} onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}>
+      <SelectField aria-label={label} className="h-7 min-w-28 pointer-coarse:h-11" value={typeof value === "number" ? String(value) : ""} onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}>
         <option value="">—</option>
         {f.options.map((o) => (
           <option key={o.id} value={o.id}>
@@ -517,12 +523,12 @@ function CellInput({ feature: f, value, onChange, label }: { feature: Feature; v
     const ids = Array.isArray(value) ? value : [];
     return (
       <details className="relative">
-        <summary className="max-w-40 cursor-pointer list-none truncate rounded-md px-1.5 py-1 text-label-1 outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" aria-label={label}>
+        <summary className="flex max-w-40 cursor-pointer list-none items-center truncate rounded-md px-1.5 py-1 text-label-1 outline-hidden pointer-coarse:min-h-11 hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" aria-label={label}>
           {valueLabel(f, ids, { yes: "", no: "" }) || <span className="text-label-3">{t("wave1.features.pick")}</span>}
         </summary>
         <div className="absolute z-30 mt-1 flex min-w-40 flex-col gap-1 rounded-xl bg-(--mat-thick-solid) p-2 shadow-lg">
           {f.options.map((o) => (
-            <label key={o.id} className="flex items-center gap-2 whitespace-nowrap">
+            <label key={o.id} className="flex items-center gap-2 whitespace-nowrap pointer-coarse:min-h-11">
               <Checkbox checked={ids.includes(o.id)} onCheckedChange={(v) => onChange(v === true ? [...ids, o.id].sort((a, b) => a - b) : ids.filter((x) => x !== o.id))} />
               {o.value}
             </label>
@@ -531,7 +537,7 @@ function CellInput({ feature: f, value, onChange, label }: { feature: Feature; v
       </details>
     );
   }
-  return <Input aria-label={label} maxLength={255} className="h-7 w-36" value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />;
+  return <Input aria-label={label} maxLength={255} className="h-7 w-36 pointer-coarse:h-11" value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />;
 }
 
 /* ------------------------------------------------------------------------------------ bulk CSV */
@@ -638,7 +644,7 @@ function BulkDialog({ features, rooms, onClose }: { features: Feature[]; rooms: 
             </div>
           ) : null}
           {report.errors ? (
-            <label className="flex items-center gap-2 type-callout text-label-1">
+            <label className="flex items-center gap-2 type-callout text-label-1 pointer-coarse:min-h-11">
               <Checkbox checked={skip} onCheckedChange={(v) => setSkip(v === true)} />
               {t("wave1.features.skipErrors")}
             </label>

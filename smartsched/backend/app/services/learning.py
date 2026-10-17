@@ -43,7 +43,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.importers import normalize as n
@@ -393,7 +393,10 @@ async def ensure_priors(session: AsyncSession, term_id: int, *, force: bool = Fa
     if not force and has and _FRESH.get(key) == fp:
         return False
     await recompute_priors(session, term_id)
-    _FRESH[key] = fp
+    # a reset or an extraction that committed while this recompute ran must trigger the next one (T-R2-24):
+    # the term is marked fresh only when the evidence it read is still the evidence in the database
+    if await _fingerprint(session) == fp:
+        _FRESH[key] = fp
     return True
 
 
@@ -403,8 +406,13 @@ def _forget(term_id: int | None = None) -> None:
             _FRESH.pop(k, None)
 
 
-async def recompute_priors(session: AsyncSession, term_id: int) -> int:
-    """Upsert the priors of target term ``term_id`` from the visible observations (``reset_id IS NULL``)."""
+async def recompute_priors(
+    session: AsyncSession, term_id: int, *, subjects: list[tuple[str, str]] | None = None
+) -> int:
+    """Upsert the priors of target term ``term_id`` from the visible observations (``reset_id IS NULL``).
+
+    ``subjects`` (``[(subject_type, subject_key), ...]``) limits the work to those subjects' priors: a person reset
+    and its undo recompute the person at once (milliseconds) instead of leaving the whole term to the next read."""
     terms = {t.id: t for t in (await session.execute(select(Term))).scalars()}
     target = terms.get(term_id)
     if target is None:
@@ -429,6 +437,8 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
         LearnedObservation.source_id,
         LearnedObservation.detail,
     ).where(LearnedObservation.reset_id.is_(None), LearnedObservation.subject_type != "intake")
+    if subjects is not None:
+        q = q.where(_subject_clause(LearnedObservation, subjects))
     groups: dict[tuple[str, str, str], _Group] = defaultdict(_Group)
     cross: dict[tuple[str, str, str, str], bool] = defaultdict(bool)
     seasons = {tid: season_of(t) for tid, t in terms.items()}
@@ -540,6 +550,8 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
         LearnedPrior.suggestible,
         *cols,
     ).where(LearnedPrior.term_id == term_id)
+    if subjects is not None:
+        q_old = q_old.where(_subject_clause(LearnedPrior, subjects))
     existing: dict[tuple[str, str, str, str], tuple[int, bool, bool, dict[str, Any]]] = {}
     for row in (await session.execute(q_old)).all():
         existing[(row[1], row[2], row[3], row[4])] = (row[0], row[5], row[6], dict(zip(fields, row[7:], strict=True)))
@@ -737,12 +749,19 @@ async def suggestions(
         q_sec = select(Section.id).where(Section.term_id == term_id, Section.course_id == course_id)
         wanted |= {("section", str(s)) for s in (await session.execute(q_sec)).scalars()}
     feedback = await _feedback_state(session, term_id)
-    q = select(LearnedPrior).where(LearnedPrior.term_id == term_id, LearnedPrior.active.is_(True))
+    # an acceptance outlives a memory reset of its subject (its LEARNED rule is a normal preference now, T-R2-24):
+    # the card stays listed as accepted although the prior is inactive
+    accepted_ids = [fb.prior_id for fb in feedback.values() if fb.action == "ACCEPT" and fb.prior_id is not None]
+    visible = LearnedPrior.active.is_(True)
+    if accepted_ids:
+        visible = or_(visible, LearnedPrior.id.in_(accepted_ids))
+    q = select(LearnedPrior).where(LearnedPrior.term_id == term_id, visible)
     # suggested priors, plus decided ones (a dismissal lowers the score below the threshold: History still lists it)
     priors = [
         p
         for p in (await session.execute(q)).scalars()
-        if (p.suggestible or (p.subject_type, p.subject_key, p.attribute, p.value) in feedback)
+        if (p.active and p.suggestible or (p.subject_type, p.subject_key, p.attribute, p.value) in feedback)
+        and (p.active or feedback[(p.subject_type, p.subject_key, p.attribute, p.value)].action == "ACCEPT")
         and (wanted is None or (p.subject_type, p.subject_key) in wanted)
     ]
     targets = await _targets(session, term_id)
@@ -1166,9 +1185,17 @@ async def _person_keys(session: AsyncSession, instructor_id: int) -> list[tuple[
 
 
 def _subject_clause(model: Any, keys: list[tuple[str, str]]) -> Any:
-    from sqlalchemy import and_, or_
+    from sqlalchemy import and_
 
     return or_(*(and_(model.subject_type == st, model.subject_key == sk) for st, sk in keys))
+
+
+async def _recompute_subjects(session: AsyncSession, keys: list[tuple[str, str]]) -> None:
+    """Recompute the priors of ``keys`` in every target term that holds one (a person reset and its undo, T-R2-24):
+    the person's suggestions close or reopen in the same transaction, not on the next read."""
+    q = select(LearnedPrior.term_id).where(_subject_clause(LearnedPrior, keys)).distinct()
+    for tid in (await session.execute(q)).scalars():
+        await recompute_priors(session, int(tid), subjects=keys)
 
 
 async def _scope(session: AsyncSession, scope: str, value: Any) -> tuple[str | None, Any, Any]:
@@ -1230,6 +1257,8 @@ async def reset(session: AsyncSession, actor: User, *, scope: str, value: Any, r
             .execution_options(synchronize_session=False),
         )
     rs.counts = {"observations": int(n_obs or 0), "feedback": int(n_fb or 0), "suggestions": before_open}
+    if scope == "person" and scope_value is not None:
+        await _recompute_subjects(session, await _person_keys(session, int(scope_value)))
     _forget()
     await publish_event(
         session,
@@ -1324,6 +1353,8 @@ async def undo_reset(
         .execution_options(synchronize_session=False),
     )
     rs.undone_at, rs.undone_by = now, actor.id
+    if rs.scope_type == "person" and rs.scope_value is not None and str(rs.scope_value).isdigit():
+        await _recompute_subjects(session, await _person_keys(session, int(rs.scope_value)))
     _forget()
     await publish_event(
         session,

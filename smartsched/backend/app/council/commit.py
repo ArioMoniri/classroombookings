@@ -79,7 +79,14 @@ SECTION_MODES = {"F2F", "ONLINE", "HYBRID", "UZEM", "ASYNC", "HOSPITAL", "SIMULA
 
 
 class CommitError(ValueError):
-    """Commit refused (HTTP 409 at the API): pending blocking review items, unknown group/term."""
+    """Commit refused (HTTP 409 at the API): pending blocking review items, unknown group/term. With ``code`` the
+    API answers a coded body (``code``, ``message``, ``message_tr`` and the extras) instead of the bare text."""
+
+    def __init__(self, message: str, *, code: str | None = None, message_tr: str | None = None, **extra: Any) -> None:
+        super().__init__(message)
+        self.detail: dict[str, Any] | None = (
+            {"code": code, "message": message, "message_tr": message_tr or message, **extra} if code else None
+        )
 
 
 def _t(s: str | None) -> time | None:
@@ -775,11 +782,22 @@ async def commit(
     if ai_pending:  # P19-A2: allow_pending never covers rows the AI model read
         raise CommitError(
             f"{len(ai_pending)} row(s) read by the AI model must be accepted, edited or rejected first "
-            f"(e.g. {ai_pending[0]}); allow_pending does not apply to them"
+            f"(e.g. {ai_pending[0]}); allow_pending does not apply to them",
+            code="ai_rows_pending",
+            count=len(ai_pending),
+            message_tr=f"Yapay zekâ ile okunan {len(ai_pending)} satır önce onaylanmalı, düzeltilmeli ya da "
+            "reddedilmeli.",
         )
     pending = [it for it in pending if it["kind"] != "ai_rows"]
     if pending and not allow_pending:
-        raise CommitError(f"{len(pending)} review item(s) must be decided first (e.g. {pending[0]['title']})")
+        # T-R2-21 / R2-S-13: counts only - a merge item's title names two people, and a refusal body is no place
+        # for names (KVKK); the review list has them for those who may see them
+        raise CommitError(
+            f"{len(pending)} review item(s) must be decided first",
+            code="review_pending",
+            count=len(pending),
+            message_tr=f"Önce {len(pending)} inceleme kararı verilmeli.",
+        )
 
     if term_id is not None:
         term = await session.get(Term, term_id)

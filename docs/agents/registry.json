@@ -2320,7 +2320,9 @@
       "goal": "You are the round-2 **solver-integrity builder (lane S)** of SmartSched, ledger `loop-r2-laneS-2026-10-17`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md then .../briefs/ROUND2-BUILD.md and follow them (no commits; test-first; backen…",
       "ledger": "R2 lane S: minimal-change re-solve",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 05:35",
+      "left_off": "The three re-solve replays (full mode #11, pin #12, wizard #13) and the moderation pytest suite are still running in the background (each solve has a 120 s limit and the host is shared). I will wait for their completion notifications before filling in the hand-off numbers."
     },
     {
       "id": "a0d0d5d9bf11862e6",
@@ -2337,6 +2339,14 @@
       "status": "finished",
       "finished_at": "2026-10-17 05:26",
       "left_off": "Checkpoint `fb2f26f2` pushed. Nine agents are still running; the next watchdog is armed for 05:56."
+    },
+    {
+      "id": "a5ad2db8b82370432",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 05:27",
+      "left_off": "continue when round 2 builders finish and deploy to aws"
     }
   ]
 }

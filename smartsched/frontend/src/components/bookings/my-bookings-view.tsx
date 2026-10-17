@@ -36,6 +36,7 @@ import { CalendarSyncPanel } from "./calendar-sync";
 import { CancelManyDialog } from "./cancel-many-dialog";
 import { RoomInfoSheet } from "./room-info-sheet";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
+import { groupBookings } from "./my-bookings-model";
 import { BareButton } from "@/components/shell/bare-button";
 
 type Tab = "upcoming" | "past" | "cancelled";
@@ -100,7 +101,7 @@ export function MyBookingsView() {
               {t("crbs.mine.totals", { active: dash.data.totals.active, session: dash.data.totals.session, all: dash.data.totals.all })}
               {dash.data.limits.max_active_bookings != null ? ` · ${t("crbs.mine.limit", { n: dash.data.limits.max_active_bookings })}` : ""}
               {dash.data.limits.max_active_bookings != null ? (
-                <span data-testid="mine-can-create">{` · ${t("reserve.mine.canCreate", { n: Math.max(0, dash.data.limits.max_active_bookings - dash.data.totals.active) })}`}</span>
+                <span data-testid="mine-can-create">{` · ${t("reserve.mine.canCreate", { n: Math.max(0, dash.data.limits.max_active_bookings - (dash.data.totals.active_periods ?? dash.data.totals.active)) })}`}</span>
               ) : null}
             </span>
           ) : null
@@ -217,11 +218,18 @@ function BookingList({
   approverNote?: (bookingId: number) => string | null;
 }) {
   const { t } = useI18n();
+  // T-R2-13 (A-12): the periods of one submission on one day are one row ("C 303 · P7–P8 (13:30–15:00)")
+  const groups = useMemo(() => groupBookings(rows), [rows]);
   return (
     <ul className="flex flex-col" data-testid="booking-list">
-      {rows.map((b) => (
-        <li key={b.id} className={BOOKING_ROW_CLASS} data-booking-id={b.id}>
-          {selectable ? <Checkbox checked={selected?.has(b.id) ?? false} onCheckedChange={(v) => onToggle?.(b.id, v === true)} aria-label={t("crbs.mine.select", { room: b.room_name, date: fmt.short(b.date) })} /> : null}
+      {groups.map((g) => {
+        const b = g.first;
+        const note = g.ids.map((id) => approverNote?.(id) ?? null).find((n) => n) ?? null;
+        const time = b.time_start ? (g.bookings.length > 1 && g.last.time_end ? `${fmt.time(b.time_start)}–${fmt.time(g.last.time_end)}` : fmt.time(b.time_start)) : null;
+        const allSelected = g.ids.every((id) => selected?.has(id));
+        return (
+        <li key={g.id} className={BOOKING_ROW_CLASS} data-booking-id={g.id} data-booking-ids={g.ids.join(",")} data-periods={g.bookings.length}>
+          {selectable ? <Checkbox checked={allSelected} onCheckedChange={(v) => g.ids.forEach((id) => onToggle?.(id, v === true))} aria-label={t("crbs.mine.select", { room: `${b.room_name} ${g.periodLabel}`, date: fmt.short(b.date) })} /> : null}
           <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
             <span className="min-w-0">
               <span className="block type-headline text-label-1">
@@ -229,8 +237,8 @@ function BookingList({
                 <BareButton onClick={() => onRoom?.(b.room_id, b.date)} disabled={!onRoom} className={cn("rounded-sm hover:text-tint-text disabled:hover:text-label-1", BOOKING_ROW_CONTROL_CLASS)} aria-label={t("crbs.roomInfo.open", { name: b.room_name })} data-testid={`mine-room-${b.id}`}>
                   {b.room_name}
                 </BareButton>
-                <span> · {b.period_name}</span>
-                {b.time_start ? <span className="ml-1.5 font-normal text-label-3 tabular-nums">{fmt.time(b.time_start)}</span> : null}
+                <span> · {g.periodLabel}</span>
+                {time ? <span className="ml-1.5 font-normal text-label-3 tabular-nums">{g.bookings.length > 1 ? `(${time})` : time}</span> : null}
               </span>
               <BareButton onClick={() => onOpen(b.id)} className={cn("flex w-full items-center gap-1 truncate rounded-sm text-left type-footnote text-label-2 hover:text-label-1", BOOKING_ROW_CONTROL_CLASS)}>
                 {b.type === "recurring" ? <Repeat className="size-3 shrink-0" aria-label={t("crbs.legend.recurring")} /> : null}
@@ -238,22 +246,33 @@ function BookingList({
                 {showUser && b.user_name ? ` · ${b.user_name}` : ""}
                 {b.notes ? ` · ${b.notes}` : ""}
               </BareButton>
-              {/* T-R1-17 (R1-A-22): why it was cancelled, and what the approver wrote */}
+              {/* a span: each period opens its own detail (per-period edit / cancel inside) */}
+              {g.bookings.length > 1 ? (
+                <span className="flex flex-wrap items-center gap-x-2 type-footnote text-label-3" data-testid={`mine-periods-${g.id}`}>
+                  {g.bookings.map((x) => (
+                    <BareButton key={x.id} onClick={() => onOpen(x.id)} className={cn("rounded-sm tabular-nums hover:text-label-1", BOOKING_ROW_CONTROL_CLASS)} aria-label={t("crbs.mine.openPeriod", { period: x.period_name ?? `P${x.start_period}` })} data-testid={`mine-period-${x.id}`}>
+                      {x.period_name ?? `P${x.start_period}`}
+                    </BareButton>
+                  ))}
+                </span>
+              ) : null}
+              {/* T-R1-17 (R1-A-22): why it was cancelled, and what the approver wrote (once per submission) */}
               {b.status === "CANCELLED" && b.cancel_reason ? (
                 <span className="block type-footnote text-label-2" data-testid={`mine-cancel-reason-${b.id}`}>
                   {t("crbs.mine.cancelReason", { reason: b.cancel_reason })}
                 </span>
               ) : null}
-              {b.status !== "CANCELLED" && approverNote?.(b.id) ? (
+              {b.status !== "CANCELLED" && note ? (
                 <span className="block type-footnote text-label-2" data-testid={`mine-approver-note-${b.id}`}>
-                  {t("crbs.mine.approverNote", { note: approverNote(b.id)! })}
+                  {t("crbs.mine.approverNote", { note })}
                 </span>
               ) : null}
             </span>
             {b.status === "CANCELLED" ? <span className="shrink-0 type-footnote font-medium text-label-3">{t("crbs.status.cancelled")}</span> : b.status !== "BOOKED" ? <StatusPill status={b.status} /> : null}
           </div>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

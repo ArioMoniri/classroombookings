@@ -820,6 +820,7 @@ def validate_payload(payload: Mapping[str, Any], ctx: Context) -> list[Issue]:
                     code=label,
                 )
             ids_here: set[int] = set()
+            new_names_here: set[str] = set()  # new people by canonical name: the commit creates one record
             for slot, ref in enumerate(refs):
                 ref = _dict(ref)
                 ipath = f"{spath}.instructors.{slot}"
@@ -924,7 +925,22 @@ def validate_payload(payload: Mapping[str, Any], ctx: Context) -> list[Issue]:
                                 units=sorted(units.values()),
                             )
                             continue
+                    elif parsed.canonical in new_names_here:
+                        # R2-M-07: 'Yeni kişi' pressed twice for the same name: the commit would create one
+                        # record and list it twice (catalog_admin: "instructor N is listed twice"), so it is
+                        # refused here, on the step, with a fix
+                        add(
+                            "instructors",
+                            "error",
+                            "instructor_twice",
+                            ipath,
+                            f"Bu kişi bu şubede zaten var: {parsed.full_name}",
+                            f"This person is already on this section: {parsed.full_name}",
+                            name=parsed.full_name,
+                        )
+                        continue
                     else:
+                        new_names_here.add(parsed.canonical)
                         add(
                             "instructors",
                             "info",
@@ -941,8 +957,8 @@ def validate_payload(payload: Mapping[str, Any], ctx: Context) -> list[Issue]:
                             "error",
                             "instructor_twice",
                             ipath,
-                            "Aynı kişi iki kez",
-                            "The same person twice",
+                            f"Bu kişi bu şubede zaten var: {ctx.instructors[iid].full_name}",
+                            f"This person is already on this section: {ctx.instructors[iid].full_name}",
                             id=iid,
                         )
                     ids_here.add(iid)

@@ -21,6 +21,26 @@ export function refusalCode(e: unknown): string | null {
   return typeof b?.code === "string" ? b.code : null;
 }
 
+/* ------------------------------------------------------------------ a 2xx whose body failed the client's schema (T-R2-23) */
+
+const SHAPE_PREFIX = /^Invalid response for /;
+
+/**
+ * True for the error `request()` raises when the server answered 2xx but the body did not match the client's zod
+ * schema (round-2 R2-M-02: the publish succeeded while the UI printed "Invalid response … Invalid input"). The
+ * server's state is the truth then: callers refresh and show the outcome, never zod's text.
+ */
+export function isResponseShapeError(e: unknown): boolean {
+  return e instanceof HttpError && e.status === 500 && SHAPE_PREFIX.test(e.message);
+}
+
+/** What a person reads for such a shape failure: the request went through, the page refreshed itself. */
+export function responseShapeText(locale: string): string {
+  return locale === "tr"
+    ? "İşlem sunucuda tamamlandı; yanıt beklenen biçimde olmadığı için sayfa yenilendi."
+    : "The server completed the action; its reply had an unexpected shape, so the page was refreshed.";
+}
+
 const STALE_CODES = new Set(["stale", "version_conflict", "changed", "conflict", "plan_stale", "draft_changed"]);
 const STALE_TEXT = /changed since|stale|version|başka biri|değişti/i;
 
@@ -39,6 +59,7 @@ export function isStaleConflict(e: unknown): boolean {
  * Turkish): only a Turkish sentence is returned, never the backend's English detail (usability m1).
  */
 export function serverMessage(e: unknown, locale: string, strict = false): string | null {
+  if (isResponseShapeError(e)) return responseShapeText(locale);
   const b = refusalBody(e);
   const tr = b?.message_tr ?? b?.tr;
   if (strict && locale === "tr") return typeof tr === "string" && tr.trim() ? tr : null;

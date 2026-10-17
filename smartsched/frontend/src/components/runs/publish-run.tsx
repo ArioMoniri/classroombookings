@@ -31,6 +31,7 @@ import { partialCounts } from "./runs-list";
 import { sectionOf } from "./diagnosis-format";
 import { isStaleConflict, refusalBody, serverMessage } from "@/lib/api/error-text";
 import { BROKEN_RULE_TR, brokenText, type RunTruth, type VerdictException } from "./run-truth";
+import { focusAfter } from "@/components/bookings/focus-after";
 
 const rec = (v: unknown): Record<string, unknown> | null => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
 
@@ -87,6 +88,8 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
       setReduction(null);
       setForcedRefusal(null);
       toast.success(t("runs.publish.done", { id: run.id }));
+      // round-2 T-R2-30 (R2-M-26): the dialog closes and the button is gone; focus lands on the 'Yayında' badge
+      focusAfter(['[data-testid="run-published"]']);
     },
     onError: (e) => {
       // round-1 R1-M-02: each 409 in its own words; the scope and the forced breaks get their own confirm
@@ -112,7 +115,7 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
   });
   if (run.is_active) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-status-feasible px-2.5 py-1 type-footnote font-medium text-status-feasible-fg" data-testid="run-published">
+      <span tabIndex={-1} className="inline-flex items-center gap-1 rounded-full bg-status-feasible px-2.5 py-1 type-footnote font-medium text-status-feasible-fg focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="run-published">
         <BadgeCheck className="size-3.5" aria-hidden /> {t("runs.publish.published")}
       </span>
     );

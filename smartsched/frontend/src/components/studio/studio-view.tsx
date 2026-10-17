@@ -69,7 +69,8 @@ function useStepStatus(): Record<StudioStep, string> {
   const active = useStudioStore((s) => s.activeRun);
   const weeks = summary.weeks;
   return {
-    scope: local.horizon === "TERM" ? t("studio.stepStatus.term", { n: weeks.length }) : weeks.length ? t("studio.stepStatus.weeks", { from: weeks[0], to: weeks[weeks.length - 1], n: weeks.length }) : t("studio.stepStatus.noWeeks"),
+    // a whole-term plan counts the term's weeks, not the dated week rows (Güz: 2 of 14; round-2 T-R2-27, R1-S-22)
+    scope: local.horizon === "TERM" ? t("studio.stepStatus.term", { n: summary.weekCount }) : weeks.length ? t("studio.stepStatus.weeks", { from: weeks[0], to: weeks[weeks.length - 1], n: weeks.length }) : t("studio.stepStatus.noWeeks"),
     classes: t("studio.stepStatus.classes", { in: n(summary.classesIn), out: n(summary.classesOut) }),
     rules: `${t("studio.stepStatus.rules", { must: n(summary.must), try: n(summary.tryTo) })}${summary.problems ? ` · ⚠${summary.problems}` : ""}`,
     check: t(summary.readiness === "ready" ? "studio.check.ready" : summary.readiness === "needs_look" ? "studio.check.needsLook" : summary.readiness === "blocked" ? "studio.check.blocked" : summary.readiness === "checking" ? "studio.check.checking" : "studio.check.unknown"),

@@ -369,7 +369,8 @@ function WizardBody({ initial }: { initial: DraftOut }) {
             <p className="type-caption text-label-3">{t("programWizard.rail.draftNote", { term: termCode })}</p>
           </div>
         </nav>
-        <main className="flex min-w-0 flex-col gap-4 max-lg:pb-24" aria-labelledby="wizard-step-title">
+        {/* R2-M-20 / T-R2-22: the shell renders the page's one <main>; the step body is a labelled section */}
+        <section className="flex min-w-0 flex-col gap-4 max-lg:pb-24" aria-labelledby="wizard-step-title" data-testid="wizard-step">
           <details className="rounded-xl border border-hairline px-3 py-2 xl:hidden" data-testid="preview-disclosure">
             <summary className="min-h-11 cursor-pointer content-center type-callout font-semibold md:min-h-8">{t("programWizard.preview.label")}</summary>
             <Preview p={p} v={v} termCode={termCode} />
@@ -404,7 +405,7 @@ function WizardBody({ initial }: { initial: DraftOut }) {
             <Button variant="ghost" onClick={back} disabled={step === "program"} data-testid="wizard-back"><ChevronLeft aria-hidden />{t("common.back")}</Button>
             {step !== "generate" ? <Button onClick={() => void next()} data-testid="wizard-next">{t("common.next")}<ChevronRight aria-hidden /></Button> : null}
           </div>
-        </main>
+        </section>
         <aside className="hidden rounded-2xl border border-hairline p-4 xl:sticky xl:top-4 xl:block xl:self-start" aria-label={t("programWizard.preview.label")}>
           <Preview p={p} v={v} termCode={termCode} />
         </aside>

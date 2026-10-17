@@ -20,6 +20,8 @@ export interface NewRule {
   weight: number;
   nl_text: string | null;
   source?: Constraint["source"];
+  /** an administrator's written reason for a hard pin into a room the class does not fit (`capacity_override`) */
+  reason?: string;
 }
 
 /** Every rule mutation in the studio, each recorded on the undo stack with its inverse. */
@@ -91,7 +93,8 @@ export function useRuleActions() {
 
   const create = useCallback(
     async (r: NewRule, label?: string): Promise<number> => {
-      const body = { term_id: termId, run_id: null, kind: r.kind, params: r.params, hardness: r.hardness, weight: r.weight, source: r.source ?? "ADMIN", nl_text: r.nl_text, enabled: true } as const;
+      // `reason`: the pin guard's override text for an administrator (round-2 T-R2-30); the API ignores it otherwise
+      const body = { term_id: termId, run_id: null, kind: r.kind, params: r.params, hardness: r.hardness, weight: r.weight, source: r.source ?? "ADMIN", nl_text: r.nl_text, enabled: true, ...(r.reason ? { reason: r.reason } : {}) } as const;
       let created = await api.constraints.create(body);
       await refresh(["rules", "classes", "summary"]);
       store.getState().record({

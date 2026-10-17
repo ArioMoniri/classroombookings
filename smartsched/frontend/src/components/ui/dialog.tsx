@@ -12,6 +12,8 @@
 // the popup, so the title, the close button and the primary action stay in view while the form scrolls
 // (MOBILE.md M-05: the save button in the bottom 40 %). The phone surface is the solid thick material (no
 // see-through tab bar). Keyboard: scroll-padding-bottom 6 rem + ui/keyboard-clearance, as in ui/sheet (T-R1-02).
+// T-R2-02 (R2-A-03, R2-S-16): every popup is modal — aria-modal="true" and its own Tab trap (ui/focus-trap), so a
+// confirm (role="alertdialog") never lets Tab out to the skip link and the logo; Esc and the focus return stay base-ui's.
 
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
@@ -19,6 +21,7 @@ import { cn } from "cn"
 
 import { Button } from "@/components/ui/button"
 import { KeyboardClearance } from "@/components/ui/keyboard-clearance"
+import { useFocusTrap } from "@/components/ui/focus-trap"
 import { XIcon } from "lucide-react"
 import { useT } from "@/lib/i18n/provider"
 
@@ -74,11 +77,16 @@ function DialogContent({
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
 }) {
+  const popupRef = React.useRef<HTMLDivElement>(null)
+  const trapTab = useFocusTrap(popupRef)
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
+        aria-modal="true"
+        ref={popupRef}
+        onKeyDown={trapTab}
         className={cn(
           "t-modal glass-thick fixed top-1/2 left-1/2 z-50 flex w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-3xl [--dialog-pad:1.25rem] p-(--dialog-pad) text-sm text-label-1 outline-hidden sm:max-w-sm",
           // phone bottom sheet (see the header): these max-sm: variants sort after callers' unprefixed classes

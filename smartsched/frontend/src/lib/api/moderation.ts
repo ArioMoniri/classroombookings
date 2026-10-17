@@ -8,7 +8,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { HttpError, request } from "./client";
-import { ScheduleRun } from "./schemas";
+import { isResponseShapeError, responseShapeText } from "./error-text";
 
 /* ------------------------------------------------------------------ shapes */
 
@@ -359,7 +359,20 @@ export const MeOut = z.object({
 });
 export type MeOut = z.infer<typeof MeOut>;
 
-export const ActivateOut = ScheduleRun.and(z.object({ notified: z.number().nullable().optional(), notify: z.record(z.string(), z.unknown()).nullable().optional() }));
+/**
+ * `POST /runs/{id}/activate`: the run plus the notification summary. Loose on purpose (T-R2-23 / R2-M-02): the
+ * server's run body grows (nested `stats`, truth, forced moves …) and a publish that succeeded must never be shown
+ * as a failure because of a field the preview does not read. Only the id is required; everything else passes
+ * through for whoever wants it.
+ */
+export const ActivateOut = z.looseObject({
+  id: z.number(),
+  is_active: z.boolean().optional(),
+  status: z.string().optional(),
+  term_id: z.number().optional(),
+  notified: z.number().nullable().optional(),
+  notify: z.record(z.string(), z.unknown()).nullable().optional(),
+});
 export type ActivateOut = z.infer<typeof ActivateOut>;
 export const ResolveQueued = z.object({ run_id: z.number(), status: z.string(), base_run_id: z.number() });
 export const MatchingActionOut = z.object({
@@ -510,6 +523,8 @@ export function useSetPriority() {
  */
 export function refusal(e: unknown, lang: "tr" | "en"): { message: string; issues: string[]; scopeReduction: boolean } {
   if (!(e instanceof HttpError)) return { message: e instanceof Error ? e.message : String(e), issues: [], scopeReduction: false };
+  // a 2xx whose body failed the client's schema is not a refusal: the person reads what happened, not zod's text
+  if (isResponseShapeError(e)) return { message: responseShapeText(lang), issues: [], scopeReduction: false };
   const raw = e.detail as unknown;
   const body = raw && typeof raw === "object" && "detail" in (raw as Record<string, unknown>) ? (raw as Record<string, unknown>).detail : raw;
   if (typeof body === "string") return { message: body, issues: [], scopeReduction: false };

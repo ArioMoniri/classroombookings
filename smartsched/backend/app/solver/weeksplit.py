@@ -470,7 +470,9 @@ def split_by_rows(split: WeekSplit, rows_by_event: Mapping[int, Iterable[Assignm
                 [root],
                 ["same_room_across_weeks"],
                 f"{e.label}: the previous timetable changes its room between weeks, so it is scheduled in week "
-                "segments " + "; ".join(f"w{weeks_text(g)}" for g in groups) + " at the same time, preferably in one room",
+                "segments "
+                + "; ".join(f"w{weeks_text(g)}" for g in groups)
+                + " at the same time, preferably in one room",
                 ["accept the room change", "release a block in the affected weeks to keep one room all term"],
                 "warning",
                 "week_split",

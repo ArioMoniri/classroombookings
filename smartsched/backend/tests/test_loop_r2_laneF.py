@@ -63,7 +63,9 @@ async def test_undo_of_a_cancel_restores_without_a_reason_sentence(env):  # noqa
     _, ayse = await env.user("ayse.restore@uni.edu.tr")
     c = env.client
     bid = (await env.book(ayse, "A106", MON, "P1")).json()["id"]
-    assert (await c.post(f"/api/v1/bookings/{bid}/cancel", json={"reason": "yanlışlık"}, headers=ayse)).status_code == 200
+    assert (
+        await c.post(f"/api/v1/bookings/{bid}/cancel", json={"reason": "yanlışlık"}, headers=ayse)
+    ).status_code == 200
     cancel = await _last(env, ayse, action="booking.cancel")
     r = await c.post(f"{AUDIT}/{cancel['id']}/undo", headers=ayse)
     assert r.status_code == 200 and r.json()["action"] == "booking.restore", r.text
@@ -99,7 +101,9 @@ async def test_duplicate_feature_name_is_a_coded_turkish_409(env):  # noqa: F811
 async def test_feature_value_refusal_through_room_fields_carries_message_tr(env):  # noqa: F811
     c = env.client
     f = (await c.post(FEAT, json={"name": "PC sayısı", "type": "NUMBER"}, headers=env.admin)).json()
-    r = await c.put(f"/api/v1/room-admin/rooms/{env.rooms['A101']}/fields", json={str(f["id"]): "çok"}, headers=env.admin)
+    r = await c.put(
+        f"/api/v1/room-admin/rooms/{env.rooms['A101']}/fields", json={str(f["id"]): "çok"}, headers=env.admin
+    )
     assert r.status_code == 422, r.text
     detail = r.json()["detail"]
     assert detail["code"] == "invalid_values"
@@ -136,7 +140,10 @@ def test_image_errors_carry_a_code_and_turkish_text():
 
     cases = {
         b"": ("image_empty", "Dosya boş."),
-        b"\x89PNG\r\n\x1a\n" + b"\x00" * 32: ("image_unreadable", "Dosya okunabilir bir jpg, png ya da gif görseli değil."),
+        b"\x89PNG\r\n\x1a\n" + b"\x00" * 32: (
+            "image_unreadable",
+            "Dosya okunabilir bir jpg, png ya da gif görseli değil.",
+        ),
         b"x" * 11: ("image_too_large", "Görsel 0 MB'tan büyük."),
     }
     for data, (code, tr) in cases.items():
@@ -167,14 +174,20 @@ async def test_relinking_the_same_instructor_writes_no_audit_row(sso):  # noqa: 
         s.add(a)
         await s.commit()
         ia = a.id
-    r = await sso.client.post("/api/v1/auth/sso/admin/invites", json={"email": "r2f.serbest@uni.edu.tr"}, headers=sso.admin)
+    r = await sso.client.post(
+        "/api/v1/auth/sso/admin/invites", json={"email": "r2f.serbest@uni.edu.tr"}, headers=sso.admin
+    )
     assert r.status_code == 201, r.text
     uid = r.json()["user_id"]
     url = f"/api/v1/auth/sso/admin/users/{uid}/instructor"
 
     async def links() -> int:
         async with dbmod.get_session_factory()() as s:
-            return (await s.execute(select(func.count()).select_from(AuditEvent).where(AuditEvent.action == "user.instructor_link"))).scalar_one()
+            return (
+                await s.execute(
+                    select(func.count()).select_from(AuditEvent).where(AuditEvent.action == "user.instructor_link")
+                )
+            ).scalar_one()
 
     before = await links()
     assert (await sso.client.put(url, json={"instructor_id": ia}, headers=sso.admin)).status_code == 200

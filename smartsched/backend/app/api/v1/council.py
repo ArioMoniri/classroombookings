@@ -406,7 +406,7 @@ async def post_commit(job_id: int, body: CommitIn, db: DB, user: Planner) -> dic
     except term_lock.TermLocked as exc:
         raise locked_409(exc) from exc  # the imports' 409: holder and since when, TR + EN
     except CommitError as exc:
-        raise HTTPException(409, str(exc)) from exc
+        raise HTTPException(409, exc.detail or str(exc)) from exc  # coded refusals carry message_tr (T-R2-21)
 
 
 @router.post("/jobs/{job_id}/rerun", response_model=CouncilJobOut, status_code=202)

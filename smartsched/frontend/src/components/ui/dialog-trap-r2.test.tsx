@@ -12,6 +12,8 @@ import { ConfirmDialog } from "@/components/admin/kit";
 import { I18nProvider } from "@/lib/i18n/provider";
 
 const tr = (ui: React.ReactNode) => render(<I18nProvider initialLocale="tr">{ui}</I18nProvider>);
+/** base-ui moves the initial focus a tick after mount: let it settle before the test picks its own focus */
+const settled = () => new Promise((r) => setTimeout(r, 50));
 
 describe("T-R2-02: confirm dialogs trap focus", () => {
   it("DialogContent is aria-modal and Tab cycles inside it in both directions", async () => {
@@ -32,6 +34,7 @@ describe("T-R2-02: confirm dialogs trap focus", () => {
     expect(dlg).toHaveAttribute("aria-modal", "true");
     const first = screen.getByRole("button", { name: "Vazgeç" });
     const last = screen.getByRole("button", { name: "Geri çek" });
+    await settled();
     last.focus();
     await user.tab();
     expect(document.activeElement).toBe(first);
@@ -56,6 +59,7 @@ describe("T-R2-02: confirm dialogs trap focus", () => {
     );
     const sheet = screen.getByTestId("sheet");
     expect(sheet).toHaveAttribute("aria-modal", "true");
+    await settled();
     screen.getByRole("button", { name: "Geri çek" }).focus();
     await user.tab();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Vazgeç" }));

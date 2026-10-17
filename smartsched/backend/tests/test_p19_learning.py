@@ -18,7 +18,6 @@ from __future__ import annotations
 import asyncio
 import shutil
 import threading
-from collections import defaultdict
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import timedelta
@@ -37,6 +36,7 @@ from app.models import (
     Course,
     Instructor,
     LearnedObservation,
+    LearnedPrior,
     LearningReset,
     MeetingRequest,
     Room,
@@ -519,48 +519,61 @@ async def test_person_reset_deactivates_priors_at_once_and_keeps_the_accepted_ca
     undo brings the open ones back."""
     term, _ = await _next_bahar(["SYS 19", "RAD 202"])
     await env.client.post(f"{API}/learning/refresh", json={}, headers=env.planner)
-    before = await _suggestions(env, term)
-    per_person: dict[int, int] = defaultdict(int)
-    for i in before:
-        if i["subject"]["type"] == "instructor":
-            per_person[int(i["subject"]["id"])] += 1
-    pid = max(per_person, key=lambda k: per_person[k])  # the person with the most open suggestions
-    mine = await _suggestions(env, term, person_id=pid)
-    assert len(mine) >= 2, mine
-    accepted = mine[0]["id"]
-    r = await env.client.post(f"{API}/learning/suggestions/{accepted}/accept", json={}, headers=env.planner)
-    assert r.status_code == 201, r.text
-    keys = [("instructor", str(pid))]
+    people = sorted(
+        {int(i["subject"]["id"]) for i in await _suggestions(env, term) if i["subject"]["type"] == "instructor"}
+    )
+    assert len(people) >= 2, people
+    p_open, p_acc = people[0], people[1]
 
-    async def active_ids() -> set[int]:
+    async def active_ids(pid: int) -> set[int]:
         async with _session() as s:
             q = select(LearnedPrior.id).where(
-                LearnedPrior.term_id == term, LearnedPrior.active.is_(True), learning._subject_clause(LearnedPrior, keys)
+                LearnedPrior.term_id == term,
+                LearnedPrior.active.is_(True),
+                learning._subject_clause(LearnedPrior, [("instructor", str(pid))]),
             )
             return {int(i) for i in (await s.execute(q)).scalars()}
 
-    assert {i["id"] for i in mine} <= await active_ids()
+    # 1. open suggestions: inactive in the database the moment the reset returns (no GET /suggestions in between)
+    mine = {i["id"] for i in await _suggestions(env, term, person_id=p_open)}
+    assert mine and mine <= await active_ids(p_open)
     r = await env.client.post(
-        f"{API}/learning/reset", json={"scope": "person", "value": pid, "reason": "görev değişikliği"}, headers=env.admin
+        f"{API}/learning/reset",
+        json={"scope": "person", "value": p_open, "reason": "görev değişikliği"},
+        headers=env.admin,
     )
     assert r.status_code == 201, r.text
     rid = r.json()["id"]
-    # inactive in the database right away: no GET /suggestions ran in between
-    assert await active_ids() == set()
-    # the listing shows the accepted card only, in every state filter
-    after = await _suggestions(env, term, person_id=pid, state="all")
-    assert [(i["id"], i["state"]) for i in after] == [(accepted, "accepted")]
-    assert await _suggestions(env, term, person_id=pid) == []
-    assert await _suggestions(env, term, person_id=pid, state="snoozed") == []
-    assert await _suggestions(env, term, person_id=pid, state="dismissed") == []
-    # the whole-term listing agrees (the person is gone from "open")
-    assert pid not in {i["subject"]["id"] for i in await _suggestions(env, term) if i["subject"]["type"] == "instructor"}
-    # undo: the open ones come back without waiting for a read
+    assert r.json()["counts"]["suggestions"] == len(mine)
+    assert await active_ids(p_open) == set()
+    for state in ("all", "open", "snoozed", "dismissed"):
+        assert await _suggestions(env, term, person_id=p_open, state=state) == []
+    assert p_open not in {
+        int(i["subject"]["id"]) for i in await _suggestions(env, term) if i["subject"]["type"] == "instructor"
+    }
+    # undo: active again without waiting for a read; the listing agrees
     r = await env.client.post(f"{API}/learning/resets/{rid}/undo", headers=env.admin)
     assert r.status_code == 200, r.text
-    assert {i["id"] for i in mine} <= await active_ids()
-    back = {i["id"]: i["state"] for i in await _suggestions(env, term, person_id=pid, state="all")}
-    assert back == {i["id"]: ("accepted" if i["id"] == accepted else "open") for i in mine}
+    assert mine <= await active_ids(p_open)
+    assert {i["id"] for i in await _suggestions(env, term, person_id=p_open)} == mine
+
+    # 2. an accepted suggestion stays listed as accepted after the person's reset (its rule is a preference now)
+    acc = (await _suggestions(env, term, person_id=p_acc))[0]["id"]
+    r = await env.client.post(f"{API}/learning/suggestions/{acc}/accept", json={}, headers=env.planner)
+    assert r.status_code == 201, r.text
+    r = await env.client.post(
+        f"{API}/learning/reset",
+        json={"scope": "person", "value": p_acc, "reason": "görev değişikliği"},
+        headers=env.admin,
+    )
+    assert r.status_code == 201, r.text
+    assert await active_ids(p_acc) == set()
+    assert [(i["id"], i["state"]) for i in await _suggestions(env, term, person_id=p_acc, state="all")] == [
+        (acc, "accepted")
+    ]
+    assert await _suggestions(env, term, person_id=p_acc) == []
+    async with _session() as s:  # the LEARNED rule is untouched by the reset
+        assert (await s.execute(select(func.count()).where(ConstraintRow.source == "LEARNED"))).scalar_one() == 1
 
 
 async def test_purge_removes_expired_observations_and_they_stay_unlearned(env: Env):

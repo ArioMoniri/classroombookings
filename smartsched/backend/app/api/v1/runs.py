@@ -40,6 +40,15 @@ from app.workers.queue import JobState, get_queue, worker_id
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
+#: the forced-move refusal for a planner (round-1 T-R1-29 / round-2 T-R2-30: TR and EN, like ``deps.forbidden``)
+FORCE_ADMIN_ONLY: dict[str, Any] = {
+    "code": "forbidden",
+    "permission": "planning.admin",
+    "message": "moving despite a conflict is admin-only",
+    "message_en": "moving despite a conflict is admin-only",
+    "message_tr": "Çakışmaya rağmen taşıma yalnız yöneticilere açık; çakışmasız bir derslik ya da saat seçin",
+}
+
 TERMINAL = set(TERMINAL_STATUSES)  # includes FEASIBLE_PARTIAL (best-effort partial timetable)
 
 
@@ -210,10 +219,37 @@ async def cancel_run(run_id: int, db: DB, user: Planner) -> RunOut:
     (``StopSearch``) and its partial result discarded. 409 for a run that already finished."""
     run = await _run(db, run_id)
     if run.status not in {"QUEUED", "RUNNING"}:
-        raise HTTPException(409, f"run {run_id} is {run.status}; only QUEUED or RUNNING runs can be cancelled")
+        raise HTTPException(
+            409,
+            {
+                "code": "run_not_active",
+                "status": run.status,
+                "message": f"run {run_id} is {run.status}; only QUEUED or RUNNING runs can be cancelled",
+                "message_tr": f"#{run_id} çalıştırması {run.status} durumunda; yalnız sırada bekleyen ya da çözülen "
+                "bir çalıştırma iptal edilebilir",
+            },
+        )
     if not await _cancel(db, run, user):
-        raise HTTPException(409, f"run {run_id} is {run.status}; it finished before the cancel")
+        raise HTTPException(
+            409,
+            {
+                "code": "run_finished_first",
+                "status": run.status,
+                "message": f"run {run_id} is {run.status}; it finished before the cancel",
+                "message_tr": f"#{run_id} çalıştırması iptalden önce bitti ({run.status})",
+            },
+        )
     return (await runs_out(db, [run]))[0]
+
+
+def _cancelled_by(user: Any) -> str:
+    """Who stopped a run, as the rest of the UI names people (round-2 R2-M-17: the report read
+    'admin@smartsched.local tarafından'): the display name, else the username, else the e-mail."""
+    for attr in ("full_name", "username", "email"):
+        v = getattr(user, attr, None) if user is not None else None
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    return "a planner"
 
 
 async def _cancel(db: AsyncSession, run: ScheduleRun, user: Any) -> bool:
@@ -228,7 +264,7 @@ async def _cancel(db: AsyncSession, run: ScheduleRun, user: Any) -> bool:
         .where(ScheduleRun.id == run.id, ScheduleRun.status.in_(("QUEUED", "RUNNING")))
         .values(
             status="CANCELLED",
-            error=f"cancelled by {getattr(user, 'email', None) or 'a planner'}",
+            error=f"cancelled by {_cancelled_by(user)}",
             finished_at=datetime.now(UTC).replace(tzinfo=None),
             stats={**(run.stats or {}), "phase": "cancelled"},
         )
@@ -510,8 +546,8 @@ async def export_run(
     name = f"smartsched-run{run.id}"
     # a week run's board / csv is named after its week(s) (R1-M-38: "smartsched-run7-hafta4.xlsx"); term runs,
     # ics and crbs keep the plain name
-    week_name = name + _week_suffix(run)
     wk = await _export_weeks(db, run, weeks) if weeks else None
+    week_name = name + _week_suffix(run, wk)
     if format == "xlsx":
         data = await export_xlsx(db, run, wk)
         return Response(
@@ -537,12 +573,16 @@ async def export_run(
     )
 
 
-def _week_suffix(run: ScheduleRun) -> str:
-    """``"-hafta4"`` for a WEEK run (``"-hafta4-6"`` when it spans several weeks), ``""`` for every other run."""
-    if run.horizon != "WEEK":
+def _week_suffix(run: ScheduleRun, exported: list[int] | None = None) -> str:
+    """``"-hafta4"`` for a WEEK run (``"-hafta4-6"`` when it spans several weeks) or for any run exported with
+    ``?weeks=`` (round-2 T-R2-29, R1-M-38: a term run's week-4 board was 'smartsched-run8.xlsx'); ``""`` otherwise."""
+    if exported:
+        weeks = sorted({int(w) for w in exported})
+    elif run.horizon != "WEEK":
         return ""
-    raw = (run.horizon_params or {}).get("weeks") or [(run.horizon_params or {}).get("week")]
-    weeks = sorted({int(w) for w in raw if isinstance(w, int | str) and str(w).isdigit()})
+    else:
+        raw = (run.horizon_params or {}).get("weeks") or [(run.horizon_params or {}).get("week")]
+        weeks = sorted({int(w) for w in raw if isinstance(w, int | str) and str(w).isdigit()})
     if not weeks:
         return ""
     return f"-hafta{weeks[0]}" if len(weeks) == 1 else f"-hafta{weeks[0]}-{weeks[-1]}"
@@ -784,7 +824,7 @@ async def _check_force(db: AsyncSession, user: Any, reason: str | None, conflict
 
     rules = sorted({str(c.get("kind") or "conflict") for c in conflicts})
     if "planning.admin" not in (await load_access(db, user)).perms:
-        raise HTTPException(403, {"message": "moving despite a conflict is admin-only", "rules": rules})
+        raise HTTPException(403, {**FORCE_ADMIN_ONLY, "rules": rules})
     if not publish_guard.valid_reason(reason):
         raise HTTPException(
             422,

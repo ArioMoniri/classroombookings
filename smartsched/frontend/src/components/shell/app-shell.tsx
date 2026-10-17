@@ -75,6 +75,14 @@ function Shortcuts() {
 }
 
 /**
+ * Whether the shell must send the user to /login/change-password: only a settled /me that says so (T-R2-03, R2-S-02:
+ * the cached "true" while the query refetches after a change bounced the user back to the empty form).
+ */
+export function mustChangePassword(me: { data?: { force_password_reset?: boolean } | undefined; isFetching: boolean }): boolean {
+  return !me.isFetching && (me.data?.force_password_reset ?? false);
+}
+
+/**
  * Per-user state: appearance preferences (motion, transparency, accent) and the workspace memory
  * (term, run, week). When the signed-in user changes, the session term switches to the one they used last;
  * every later term change is remembered for them.
@@ -87,7 +95,7 @@ function UserSync() {
   const setUserKey = useWorkspaceUser((s) => s.setUserKey);
   const router = useRouter();
   const pathname = usePathname();
-  const mustChange = me.data?.force_password_reset ?? false;
+  const mustChange = mustChangePassword(me);
   useEffect(() => {
     // a 401 anywhere = the session is gone (expired, revoked by a password change, signed out elsewhere):
     // clear the cookie and go to the login page once, with a notice, instead of rendering empty lists

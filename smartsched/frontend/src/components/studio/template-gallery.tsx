@@ -15,7 +15,8 @@ import { AffectedBadge } from "./rule-card";
 import { FIELD_KEY, issueMessages } from "./rule-helpers";
 import { defaultParams, plainSentence, programDisplay, readAppliesTo, readField, templateIssues, tokens, writeAppliesTo, writeField, type AppliesTo, type Params } from "./rule-sentence";
 import { relatedPrograms } from "./chip-prefill";
-import { SlotChip, SlotEditor } from "./slot-picker";
+import { SlotChip, SlotEditor, classSize, fitMark } from "./slot-picker";
+import { Textarea } from "@/components/ui/textarea";
 import { useStudio } from "./studio-context";
 import { useStudioData } from "./studio-data";
 import { useRuleActions } from "./use-rule-actions";
@@ -99,9 +100,10 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
 
 function Builder({ template, eventIds, prefill, onBack, onDone }: { template: RuleTemplate; eventIds?: number[]; prefill?: BuilderPrefill | null; onBack: () => void; onDone: () => void }) {
   const { t, n, locale } = useI18n();
-  const { sentence, meta, termId, kind, advanced } = useStudio();
-  const { classes } = useStudioData();
+  const { sentence, meta, termId, kind, advanced, isAdmin } = useStudio();
+  const { classes, rooms } = useStudioData();
   const actions = useRuleActions();
+  const [reason, setReason] = useState("");
   const [params, setParams] = useState<Params>(() => {
     const base = { ...defaultParams(template), ...(prefill?.params ?? {}) };
     const applies = template.fields.find((f) => f.type === "applies_to" || f.type === "courses");
@@ -141,6 +143,14 @@ function Builder({ template, eventIds, prefill, onBack, onDone }: { template: Ru
   };
   const appliesField = template.fields.find((f) => f.type === "applies_to");
   const who: AppliesTo = appliesField ? readAppliesTo(params) : { mode: "all" };
+  // capacity of a hard room pin (round-2 T-R2-30, R2-M-12): the classes the template names and the rooms it pins
+  const coursesField = template.fields.find((f) => f.type === "courses");
+  const roomsField = template.fields.find((f) => f.type === "rooms" || f.type === "room");
+  const classIds = coursesField ? (readField(coursesField, params, sentence) as unknown[] | null | undefined ?? []).map(Number).filter(Number.isFinite) : eventIds ?? [];
+  const pinSize = classSize(classes, classIds);
+  const pinnedRoomIds = roomsField ? [readField(roomsField, params, sentence)].flat().map(Number).filter(Number.isFinite) : [];
+  const tooSmall = hardness === "hard" && template.kind === "room_pin" ? pinnedRoomIds.map((id) => rooms.find((r) => r.id === id)).filter((r): r is NonNullable<typeof r> => !!r && fitMark(pinSize, r.capacity, "tr") !== null) : [];
+  const needsReason = tooSmall.length > 0 && isAdmin && reason.trim().length < 3;
   // programmes with classes in this term when the class list is in (the 146-programme catalogue otherwise)
   const inTerm = useMemo(() => (classes?.length ? sentence.programs.filter((p) => classes.some((c) => c.program_name === p)) : sentence.programs), [classes, sentence.programs]);
   const related = who.mode === "programs" ? relatedPrograms(who.programs.map((p) => programDisplay(p, sentence)), inTerm) : [];
@@ -155,7 +165,7 @@ function Builder({ template, eventIds, prefill, onBack, onDone }: { template: Ru
     try {
       // the rule came from a template, so the list says "Şablon", not "Yönetici" (round-1 R1-S-08): `_source_ref` is
       // the metadata param the backend keeps out of the solver and returns as the rule's `source_ref`
-      await actions.create({ kind: template.kind, params: { ...params, _source_ref: { via: "template", template: template.id } }, hardness, weight, nl_text: plainSentence(tokens(template, params, sentence)), source: "ADMIN" });
+      await actions.create({ kind: template.kind, params: { ...params, _source_ref: { via: "template", template: template.id } }, hardness, weight, nl_text: plainSentence(tokens(template, params, sentence)), source: "ADMIN", reason: tooSmall.length && isAdmin ? reason.trim() : undefined });
       actions.undoToast(t("studio.builder.added"));
       onDone();
     } finally {
@@ -202,10 +212,27 @@ function Builder({ template, eventIds, prefill, onBack, onDone }: { template: Ru
               <span className="text-sm font-medium">
                 {t(FIELD_KEY[f.name] ?? "studio.slot.value")} {f.required || f.type === "applies_to_others" ? <span className="text-xs font-normal text-label-2">{t("studio.builder.required")}</span> : <span className="text-xs font-normal text-label-2">{t("studio.builder.optional")}</span>}
               </span>
-              <SlotEditor field={f} value={readField(f, params, sentence)} onChange={(v) => set(f.name, v)} />
+              <SlotEditor field={f} value={readField(f, params, sentence)} onChange={(v) => set(f.name, v)} context={{ classIds }} />
             </div>
           ))}
       </div>
+      {tooSmall.length ? (
+        // the pin guard refuses a hard pin the class does not fit; an administrator keeps it with a written reason
+        // (`capacity_override`, listed on the run), a planner picks another room (round-2 T-R2-30, R2-M-12)
+        <div id="builder-too-small" className="grid gap-1.5 rounded-xl bg-status-warning px-3 py-2" data-testid="builder-too-small">
+          <p className="type-callout font-medium text-status-warning-fg">
+            {locale === "tr"
+              ? `${tooSmall.map((r) => `${r.display_name} (${r.capacity})`).join(", ")} ${n(pinSize ?? 0)} öğrenciye sığmaz.${isAdmin ? " Yönetici olarak gerekçeyle yine de sabitleyebilirsiniz; gerekçe çalıştırma raporunda listelenir." : " Yalnız bir yönetici gerekçeyle sabitleyebilir; başka bir derslik seçin."}`
+              : `${tooSmall.map((r) => `${r.display_name} (${r.capacity})`).join(", ")} cannot seat ${n(pinSize ?? 0)} students.${isAdmin ? " As an administrator you may pin anyway with a reason; it is listed in the run report." : " Only an administrator may pin with a reason; pick another room."}`}
+          </p>
+          {isAdmin ? (
+            <>
+              <label htmlFor="builder-reason" className="type-footnote font-semibold text-label-1">{locale === "tr" ? "Gerekçe (zorunlu)" : "Reason (required)"}</label>
+              <Textarea id="builder-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("calendar.move.forcePlaceholder")} data-testid="builder-reason" />
+            </>
+          ) : null}
+        </div>
+      ) : null}
       {template.note ? <p className="rounded-md bg-fill-2/60 px-2.5 py-1.5 text-xs text-label-2">{template.note[pairLang(locale)]}</p> : null}
       <HardnessControl hardness={hardness} weight={weight} allowed={template.allowed_hardness} onHardness={setHardness} onWeight={setWeight} scale={meta?.weight_scale} advanced={advanced} idPrefix="builder" />
       {problems.length ? (
@@ -219,7 +246,7 @@ function Builder({ template, eventIds, prefill, onBack, onDone }: { template: Ru
         <Button variant="ghost" onClick={onBack}>
           <ArrowLeft aria-hidden /> {t("studio.builder.back")}
         </Button>
-        <Button onClick={() => void add()} {...busyProps(saving, issues.length > 0)} aria-describedby={problems.length ? "builder-issues" : undefined} data-testid="builder-add">
+        <Button onClick={() => void add()} {...busyProps(saving, issues.length > 0 || needsReason || (tooSmall.length > 0 && !isAdmin))} aria-describedby={problems.length ? "builder-issues" : tooSmall.length ? "builder-too-small" : undefined} data-testid="builder-add">
           <BusyLabel busy={saving} label={t("studio.tray.accepting")} icon={<Plus aria-hidden />}>{" "}{t("studio.builder.add")}</BusyLabel>
         </Button>
       </div>

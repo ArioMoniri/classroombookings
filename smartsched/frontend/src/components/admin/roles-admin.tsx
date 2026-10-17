@@ -191,7 +191,7 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
         </div>
       </section>
       {locked ? <Alert tone="info">{t("crbs.roles.adminLocked")}</Alert> : null}
-      {catalogue.data ? <PermissionMatrix catalogue={catalogue.data} value={perms} onToggle={toggle} disabled={readOnly} held={held} /> : <Loading />}
+      {catalogue.data ? <PermissionMatrix catalogue={catalogue.data} value={perms} onToggle={toggle} disabled={readOnly} held={held} locked={locked} /> : <Loading />}
       </fieldset>
       {error ? <Alert tone="error">{error}</Alert> : null}
       <div className="flex flex-wrap justify-between gap-2">
@@ -286,13 +286,13 @@ function RoleUsers({ role }: { role: Role }) {
   );
 }
 
-/** T-R1-33 (R1-M-21, F-11 S04): the reason a permission cannot be granted, as text under its label, not only in a tooltip (M-11). */
+/** T-R1-33 (R1-M-21, F-11 S04): the reason a permission cannot be granted, as text under its label, not only in a tooltip (M-11).
+ * T-R2-32: every disabled box has one: not held by the editor, a read-only role, or the locked Administrator role. */
 function DisabledHint({ why }: { why: string | undefined }) {
-  const { t } = useI18n();
   if (!why) return null;
   return (
     <span className="block type-caption text-label-3" data-testid="role-disabled-hint">
-      {t("crbs.roles.notHeldHint")}
+      {why}
     </span>
   );
 }
@@ -304,6 +304,7 @@ export function PermissionMatrix({
   disabled,
   only,
   held,
+  locked,
 }: {
   catalogue: PermissionCatalogue;
   value: ReadonlySet<string>;
@@ -312,11 +313,20 @@ export function PermissionMatrix({
   only?: "bookings";
   /** the editor's own permissions: anything else is disabled (no escalation); omitted = no such limit */
   held?: ReadonlySet<string>;
+  /** the Administrator role: every permission is kept (the reason shown under its disabled boxes) */
+  locked?: boolean;
 }) {
   const { t } = useI18n();
   const phone = useIsPhone();
   const off = (name: string) => !!disabled || (!!held && !held.has(name));
-  const why = (name: string) => (!disabled && held && !held.has(name) ? t("crbs.roles.notHeld") : undefined);
+  const notHeld = (name: string) => !!held && !held.has(name);
+  // the reason under a disabled box (T-R2-32): the editor lacks the permission (even in a read-only role: that is why
+  // it is read-only), else the role is read-only for them, else it is the locked Administrator role
+  const why = (name: string): string | undefined => {
+    if (notHeld(name)) return t("crbs.roles.notHeldHint");
+    if (!disabled) return undefined;
+    return t(locked ? "crbs.roles.lockedHint" : "crbs.roles.readOnlyHint");
+  };
   const book = catalogue.bookings;
   return (
     <div className="flex flex-col gap-5">
@@ -326,8 +336,8 @@ export function PermissionMatrix({
               <legend className="mb-2 type-headline text-label-1">{GROUP_KEYS[group] ? t(GROUP_KEYS[group]!) : group}</legend>
               <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
                 {items.map((p) => (
-                  <label key={p.name} className={cn("flex items-start gap-2 type-callout text-label-1", off(p.name) && "text-label-3")} title={why(p.name) ?? p.name} data-not-held={why(p.name) ? "true" : undefined} data-permission={p.name}>
-                    <Checkbox className="mt-0.5" checked={value.has(p.name)} disabled={off(p.name)} onCheckedChange={(v) => onToggle(p.name, v === true)} />
+                  <label key={p.name} className={cn("flex items-start gap-2 type-callout text-label-1 pointer-coarse:min-h-11 pointer-coarse:items-center", off(p.name) && "text-label-3")} title={why(p.name) ?? p.name} data-not-held={notHeld(p.name) ? "true" : undefined} data-permission={p.name}>
+                    <Checkbox className="mt-0.5 pointer-coarse:mt-0" checked={value.has(p.name)} disabled={off(p.name)} onCheckedChange={(v) => onToggle(p.name, v === true)} />
                     {/* the API key is in the tooltip, not under every label (UI/UX review §3) */}
                     <span>
                       {permLabel(t, p.name, p.description)}
@@ -344,7 +354,7 @@ export function PermissionMatrix({
         {book.room ? (
           <div className="mb-2 flex flex-col gap-1.5">
             {book.room.map((p) => (
-              <label key={p.name} className={cn("flex items-center gap-2 type-callout text-label-1", off(p.name) && "text-label-3")} title={why(p.name)}>
+              <label key={p.name} className={cn("flex items-center gap-2 type-callout text-label-1 pointer-coarse:min-h-11", off(p.name) && "text-label-3")} title={why(p.name)}>
                 <Checkbox checked={value.has(p.name)} disabled={off(p.name)} onCheckedChange={(v) => onToggle(p.name, v === true)} />
                 <span>
                   {permLabel(t, p.name, p.description)}
@@ -362,7 +372,7 @@ export function PermissionMatrix({
                 {BOOK_ACTIONS.map((a) => {
                   const name = `${g}.${a}`;
                   return (
-                    <label key={a} className={cn("flex min-h-11 items-center gap-3 type-callout text-label-1 not-last:hairline-b", off(name) && "text-label-3")} title={why(name)} data-not-held={why(name) ? "true" : undefined} data-permission={name}>
+                    <label key={a} className={cn("flex min-h-11 items-center gap-3 type-callout text-label-1 not-last:hairline-b", off(name) && "text-label-3")} title={why(name)} data-not-held={notHeld(name) ? "true" : undefined} data-permission={name}>
                       <Checkbox checked={value.has(name)} disabled={off(name)} onCheckedChange={(v) => onToggle(name, v === true)} />
                       <span>
                         {t(`crbs.perm.action_${a}` as MessageKey)}

@@ -34,9 +34,9 @@ describe("T-R2-03: forced password change leaves the page", () => {
         </I18nProvider>
       </QueryClientProvider>,
     );
-    await user.type(screen.getByLabelText(/Mevcut parola|Şu anki parola/i), "Old-2026!");
-    await user.type(screen.getByLabelText(/^Yeni parola/i), "Flow-2026!pw");
-    await user.type(screen.getByLabelText(/tekrar/i), "Flow-2026!pw");
+    await user.type(document.getElementById("cur")!, "Old-2026!");
+    await user.type(document.getElementById("new")!, "Flow-2026!pw");
+    await user.type(document.getElementById("again")!, "Flow-2026!pw");
     await user.click(screen.getByRole("button", { name: /Kaydet/ }));
     await waitFor(() => expect(router.replace).toHaveBeenCalled());
     expect(changePassword).toHaveBeenCalledTimes(1);

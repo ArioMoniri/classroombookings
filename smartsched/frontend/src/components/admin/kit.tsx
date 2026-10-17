@@ -123,7 +123,8 @@ export function ConfirmDialog({
   const t = useT();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      {/* T-R2-02: a confirmation is an alertdialog (modal, focus trapped by ui/dialog) */}
+      <DialogContent role="alertdialog" className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}

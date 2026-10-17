@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -12,10 +13,15 @@ import { changePassword } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
 import { AuthCard } from "./auth-card";
 
-/** Forced password change after login (`password_change_required`, POST /auth/change-password). */
+/**
+ * Forced password change after login (`password_change_required`, POST /auth/change-password).
+ * T-R2-03 (R2-S-02): after the 200 the cached /me is marked settled (force_password_reset false) and refetched BEFORE
+ * the navigation, or the shell read the stale "true" and sent the user straight back here with empty fields.
+ */
 export function ChangePasswordForm() {
   const { t } = useI18n();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useSearchParams();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -30,6 +36,8 @@ export function ChangePasswordForm() {
     setError(null);
     try {
       await changePassword({ current_password: current || null, new_password: next });
+      queryClient.setQueryData<{ force_password_reset?: boolean } | undefined>(["me", "full"], (me) => (me ? { ...me, force_password_reset: false } : me));
+      void queryClient.invalidateQueries({ queryKey: ["me"] });
       toast.success(t("glass.auth.changed"));
       const target = params.get("next");
       router.replace(target && target.startsWith("/") && !target.startsWith("//") ? target : "/dashboard");

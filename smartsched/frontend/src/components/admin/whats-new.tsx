@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { crbs, useChangelog, useCrbsMutation, type Changelog } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
+import { ChevronDown } from "lucide-react";
 import { useHydrated } from "@/lib/use-hydrated";
 import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { Loading } from "./kit";
@@ -44,12 +45,34 @@ function Entries({ data }: { data: Changelog }) {
 }
 
 export function WhatsNewPanel() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const q = useChangelog();
   const seen = useCrbsMutation(() => crbs.org.changelogSeen(), [["crbs", "changelog"]]);
+  // T-R2-33 (R2-M-18): CHANGELOG.md is written in English. Outside the English UI the list sits in a closed
+  // <details lang="en"> behind a Turkish line, so no English sentence is on the Turkish screen until asked for.
+  const english = locale === "en";
   return (
     <Card className="gap-3 px-4">
-      {q.isLoading ? <Loading /> : q.data ? <Entries data={q.data} /> : null}
+      {q.isLoading ? (
+        <Loading />
+      ) : q.data ? (
+        english ? (
+          <Entries data={q.data} />
+        ) : (
+          <details className="group/news" data-testid="news-english">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg type-callout text-label-1 focus-visible:outline-2 focus-visible:outline-(--focus)">
+              <ChevronDown className="size-4 shrink-0 text-label-3 transition-transform duration-(--dur-fast) group-open/news:rotate-180" aria-hidden />
+              <span className="min-w-0">
+                <span className="block">{t("crbs.news.show")}</span>
+                <span className="block type-footnote text-label-3">{t("crbs.news.englishOnly")}</span>
+              </span>
+            </summary>
+            <div lang="en" className="pt-2">
+              <Entries data={q.data} />
+            </div>
+          </details>
+        )
+      ) : null}
       {q.data?.unread ? (
         <div>
           <Button variant="outline" size="sm" onClick={() => seen.mutate(undefined)}>
@@ -63,7 +86,7 @@ export function WhatsNewPanel() {
 
 /** Header button for the shell: a dot while there is something new; opening it marks it as seen. */
 export function WhatsNewIndicator({ className }: { className?: string }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const q = useChangelog();
   const [open, setOpen] = useState(false);
   const seen = useCrbsMutation(() => crbs.org.changelogSeen(), [["crbs", "changelog"]]);
@@ -92,7 +115,10 @@ export function WhatsNewIndicator({ className }: { className?: string }) {
           <SheetHeader className="px-5 pt-5">
             <SheetTitle className="type-title-3">{t("crbs.news.title")}</SheetTitle>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">{q.data ? <Entries data={q.data} /> : <Loading />}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+            {locale === "en" ? null : <p className="pb-3 type-footnote text-label-3">{t("crbs.news.englishOnly")}</p>}
+            <div lang="en">{q.data ? <Entries data={q.data} /> : <Loading />}</div>
+          </div>
         </SheetContent>
       </Sheet>
     </>

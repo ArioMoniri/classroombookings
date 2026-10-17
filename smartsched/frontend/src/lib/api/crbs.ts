@@ -78,6 +78,8 @@ export const BookingOut = z.object({
   id: z.number(),
   type: z.enum(["single", "recurring"]),
   series_id: z.number().nullish(),
+  /** A-12: the submission (multi-booking) the booking was made in; the periods of one share it */
+  group_id: z.number().nullish(),
   term_id: z.number().nullish(),
   status: z.string(),
   date: z.string(),
@@ -368,7 +370,9 @@ export const Dashboard = z.object({
   user_bookings: z.array(BookingOut),
   room_bookings: z.array(BookingOut),
   owned_room_ids: z.array(z.number()),
-  totals: z.object({ all: z.number(), session: z.number(), active: z.number() }),
+  // T-R2-13: all / session / active count sessions (one submission on one day and room = one); `active_periods`
+  // is the row count the `max_active_bookings` limit uses; `cancelled` is apart
+  totals: z.object({ all: z.number(), session: z.number(), active: z.number(), active_periods: z.number().optional(), cancelled: z.number().optional() }),
   limits: Limits,
 });
 export type Dashboard = z.infer<typeof Dashboard>;

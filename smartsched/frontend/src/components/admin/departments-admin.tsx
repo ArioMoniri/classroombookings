@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { crbs, crbsError, useCrbsMutation, useDepartments, type Department } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
+import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle } from "./kit";
 import { useErrorToast } from "./admin-gate";
@@ -24,6 +25,7 @@ export function DepartmentsAdmin() {
   const [editing, setEditing] = useState<Department | "new" | null>(null);
   const [deleting, setDeleting] = useState<Department | null>(null);
   const toastError = useErrorToast();
+  const phone = useIsPhone();
   const del = useCrbsMutation((d: Department) => crbs.departments.remove(d.id), [["crbs", "departments"]]);
   const rows = useMemo(() => (list.data ?? []).filter((d) => !q || fold(d.name).includes(fold(q))), [list.data, q]);
   return (
@@ -42,11 +44,36 @@ export function DepartmentsAdmin() {
       <Card className="py-0">
         {list.isLoading ? (
           <Loading className="px-4" />
+        ) : phone ? (
+          /* phones (MOBILE.md M-07, T-R2-32): one card per department, the name on line 1, 44 px actions */
+          <ul data-testid="departments-cards" aria-label={t("crbs.admin.departments.title")}>
+            {rows.map((d) => (
+              <li key={d.id} className="flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b" data-testid={`department-card-${d.id}`}>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 type-headline text-label-1">
+                    <EntityIcon name={d.icon} />
+                    <span className="truncate">{d.name}</span>
+                  </span>
+                  <span className="block truncate type-footnote text-label-2">
+                    {[d.description || null, t("crbs.departments.usersCount", { n: d.user_count })].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center">
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.departments.editNamed", { name: d.name })} onClick={() => setEditing(d)}>
+                    <Pencil />
+                  </Button>
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.departments.deleteNamed", { name: d.name })} onClick={() => setDeleting(d)}>
+                    <Trash2 />
+                  </Button>
+                </span>
+              </li>
+            ))}
+          </ul>
         ) : (
-          <Table>
+          <Table data-testid="departments-table">
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">{t("crbs.common.name")}</TableHead>
+                <TableHead className="sticky left-0 z-10 bg-(--mat-thick-solid) pl-4">{t("crbs.common.name")}</TableHead>
                 <TableHead className="hidden md:table-cell">{t("crbs.common.description")}</TableHead>
                 <TableHead className="text-right">{t("crbs.departments.users")}</TableHead>
                 <TableHead className="w-24 pr-4">
@@ -57,7 +84,7 @@ export function DepartmentsAdmin() {
             <TableBody>
               {rows.map((d) => (
                 <TableRow key={d.id}>
-                  <TableCell className="pl-4 font-medium text-label-1">
+                  <TableCell className="sticky left-0 z-10 bg-(--mat-thick-solid) pl-4 font-medium text-label-1">
                     <span className="flex items-center gap-1.5">
                       <EntityIcon name={d.icon} />
                       {d.name}

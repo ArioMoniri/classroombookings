@@ -120,7 +120,7 @@ export function CouncilProgress({ job }: { job: CouncilJob }) {
                 </td>
                 <td className="px-2 py-2">
                   <span className="flex flex-wrap items-center gap-1.5">
-                    {readMethod(job, f) ? <MethodBadge method={readMethod(job, f) ?? "direct"} /> : null}
+                    {readMethod(job, f) ? <MethodBadge method={readMethod(job, f) ?? "direct"} whenOff={f.route === "vision" || f.route === "ai-off" ? "unread" : "direct"} /> : null}
                     {f.route && f.route !== "ai-off" ? <span className="type-footnote text-label-2" data-route={f.route}>{c.route(f.route)}</span> : null}
                     {f.language && f.language !== "und" ? <span className="type-footnote text-label-2">· {f.language}</span> : null}
                   </span>

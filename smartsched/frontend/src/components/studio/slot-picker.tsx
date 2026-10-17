@@ -32,9 +32,30 @@ function ToggleChip({ on, onClick, children, label }: { on: boolean; onClick: ()
 
 const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
+/** 'sığmaz (100 > 30)' when `size` students do not fit `capacity` seats; null when they do or the size is unknown
+ * (round-2 T-R2-30, R2-M-12: the pin template listed 'B 201 · 30 koltuk' for the 100-student ING 302 with no mark). */
+export function fitMark(size: number | null | undefined, capacity: number, lang: "tr" | "en"): string | null {
+  if (!size || size <= capacity) return null;
+  return lang === "tr" ? `sığmaz (${size} > ${capacity})` : `too small (${size} > ${capacity})`;
+}
+
+/** The largest enrolment among the classes a rule's `courses` field names (the size a room must seat). */
+export function classSize(classes: readonly { id: number; enrolment: number | null }[] | undefined, ids: readonly number[] | undefined): number | null {
+  if (!classes || !ids?.length) return null;
+  const sizes = classes.filter((c) => ids.includes(c.id)).map((c) => c.enrolment ?? 0);
+  const max = Math.max(0, ...sizes);
+  return max > 0 ? max : null;
+}
+
+/** What a slot editor knows about the rest of its template (the rooms field marks the rooms the chosen classes do not fit). */
+export interface SlotContext {
+  classIds?: number[];
+}
+
 /** The editor for one slot type (room combobox, programme picker, day chips, period range, stepper…). */
-export function SlotEditor({ field, value, onChange }: { field: TemplateField; value: unknown; onChange: (v: unknown) => void }) {
+export function SlotEditor({ field, value, onChange, context }: { field: TemplateField; value: unknown; onChange: (v: unknown) => void; context?: SlotContext }) {
   const { t, locale } = useI18n();
+  const lang = locale === "tr" ? "tr" : "en";
   const { rooms, classes, sentence, termWeeks } = useStudioData();
   const [q, setQ] = useState("");
   const qf = fold(q).trim();
@@ -186,24 +207,30 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
       const single = field.type === "room";
       const list = rooms.filter((r) => r.is_bookable && (!qf || fold(`${r.display_name} ${r.code} ${r.capacity} ${r.tags.join(" ")}`).includes(qf))).slice(0, 80);
       const chosen = single ? (value === null || value === undefined ? [] : [Number(value)]) : nums;
+      // the size the room must seat: the largest class the template's courses field names (R2-M-12)
+      const size = classSize(classes, context?.classIds);
       return (
         <div className="grid gap-2">
           <SearchBox value={q} onChange={setQ} label={t("common.room")} />
           <div className="max-h-56 space-y-0.5 overflow-y-auto" role="group" aria-label={t("common.rooms")}>
-            {list.map((r) => (
-              <label key={r.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-fill-2">
-                <input
-                  type={single ? "radio" : "checkbox"}
-                  name={single ? "room-pick" : undefined}
-                  checked={chosen.includes(r.id)}
-                  onChange={() => onChange(single ? r.id : toggle(nums, r.id))}
-                />
-                <span className="font-mono">{r.display_name}</span>
-                <span className="ml-auto text-xs text-label-2">
-                  {r.capacity} {t("common.seats")}
-                </span>
-              </label>
-            ))}
+            {list.map((r) => {
+              const mark = fitMark(size, r.capacity, lang);
+              return (
+                <label key={r.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-fill-2" data-testid={`room-option-${r.id}`} data-fits={mark ? "0" : "1"}>
+                  <input
+                    type={single ? "radio" : "checkbox"}
+                    name={single ? "room-pick" : undefined}
+                    checked={chosen.includes(r.id)}
+                    onChange={() => onChange(single ? r.id : toggle(nums, r.id))}
+                  />
+                  <span className="font-mono">{r.display_name}</span>
+                  <span className={cn("ml-auto text-xs", mark ? "text-status-warning-fg" : "text-label-2")}>
+                    {r.capacity} {t("common.seats")}
+                    {mark ? ` · ${mark}` : ""}
+                  </span>
+                </label>
+              );
+            })}
           </div>
           {!single && chosen.length > 1 && field.ordered ? <p className="text-xs text-label-2">{t("studio.slot.ordered", { list: chosen.map(sentence.roomCode).join(" › ") })}</p> : null}
         </div>
@@ -215,15 +242,20 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
         <div className="grid gap-2">
           <SearchBox value={q} onChange={setQ} label={t("requests.course")} />
           <div className="max-h-56 space-y-0.5 overflow-y-auto" role="group" aria-label={t("requests.course")}>
-            {list.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-fill-2">
-                <input type="checkbox" checked={nums.includes(c.id)} onChange={() => onChange(toggle(nums, c.id))} />
-                <span className="font-mono text-xs">
-                  {c.course_code} §{c.section_label}
-                </span>
-                <span className="truncate text-xs text-label-2">{c.program_name}</span>
-              </label>
-            ))}
+            {list.map((c) => {
+              // each meeting with its day and time (R2-M-12: ING 302 was listed twice with nothing to tell them apart)
+              const when = c.time_label ?? (c.day && c.start_period && c.end_period ? `${sentence.dayName(c.day)} P${c.start_period}–P${c.end_period}` : null);
+              return (
+                <label key={c.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-fill-2" data-testid={`course-option-${c.id}`}>
+                  <input type="checkbox" checked={nums.includes(c.id)} onChange={() => onChange(toggle(nums, c.id))} />
+                  <span className="font-mono text-xs">
+                    {c.course_code} §{c.section_label}
+                  </span>
+                  {when ? <span className="shrink-0 text-xs text-label-1 tabular-nums">{when}</span> : null}
+                  <span className="truncate text-xs text-label-2">{c.program_name}</span>
+                </label>
+              );
+            })}
           </div>
         </div>
       );
