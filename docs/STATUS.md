@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `a05cad9` (committed 2026-10-17 20:32 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `6e8d40f` (committed 2026-10-17 21:02 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -108,7 +108,7 @@ Done 51 · Backend only 0 · In progress 1 · Planned 0 (from [`docs/features.ym
 | Security hardening: rate limits (login, reset, SSO, password change, AI, uploads), body-size fence, CSP / HSTS / frame / permissions headers, CSRF fence, security.txt, CSV formula escaping | Done: docs/SECURITY.md; checked through nginx 1.24 with Playwright at 1440 and 390 px | wave 3 (W3-SEC) | [`test_w3_sec_hardening.py`](../smartsched/backend/tests/test_w3_sec_hardening.py) |
 | Operations panel /admin/ops: service status cards (API, DB, queues, mail, disk, errors, Grafana / Prometheus / Loki, pod CI, last deploy), firing alerts, request/latency mini chart, Grafana links + same-origin panels, Loki log tail | Done: app/api/v1/ops.py, components/admin/ops/**; checked at 1440 and 390 touch (M-01/M-02/M-03) on a stack with the observability profile running | wave 3 (W3-OPS) | [`w3-ops.spec.ts`](../smartsched/frontend/e2e/w3-ops.spec.ts) |
 | Grouped error tracking: backend exceptions / 5xx, ERROR log records with a traceback and browser errors (window.onerror, unhandled rejections, error boundaries) as PII-scrubbed groups with new / acknowledged / resolved / ignored, 90-day retention, optional Sentry | Done: alembic 0036_error_events; POST /api/v1/ops/errors rate limited, <= 8 KB | wave 3 (W3-OPS) | [`test_w3_ops_observability.py`](../smartsched/backend/tests/test_w3_ops_observability.py) |
-| Prometheus metrics (/metrics, multiprocess-safe; routes by template, DB pool, queues, outbox, bookings, approvals, login failures, AI calls hook, guard refusals, TLS expiry) + observability compose profile (Prometheus, Loki, Alloy, Grafana with 6 Turkish-first dashboards, 15 alert rules) behind the admin session at /grafana/ | Done: 768 MiB of caps, ~0.37-0.49 GB measured; /grafana/ needs the nginx snippet pasted by W3-SEC (observability/nginx/grafana.locations); alert delivery to notification channels not wired | wave 3 (W3-OPS) | [`README.md`](../smartsched/deploy/observability/README.md) |
+| Prometheus metrics (/metrics, multiprocess-safe; routes by template, DB pool, queues, outbox, bookings, approvals, login failures, AI calls hook, guard refusals, TLS expiry) + observability compose profile (Prometheus, Loki, Alloy, Grafana with 6 Turkish-first dashboards, 15 alert rules) behind the admin session at /grafana/ | Done: 768 MiB of caps, ~0.37-0.49 GB measured; /grafana/ needs the nginx snippet pasted by W3-SEC (observability/nginx/grafana.locations); alerts reach admins as ops.alert through the dispatcher (app/services/ops_alerts.py); deploy/backup.sh feeds the backup-age alert | wave 3 (W3-OPS) | [`README.md`](../smartsched/deploy/observability/README.md) |
 | AI provider gateway chosen by admins: Anthropic (default), OpenAI, Azure OpenAI, OpenRouter, any OpenAI-compatible base URL (Ollama / vLLM), Google Gemini, AWS Bedrock and Vertex AI (Claude); keys write-only and encrypted, models synced from each provider's API, a test call, one provider + model + effort + fallback per AI feature with a global default | Done: app/ai/providers/**, app/ai/gateway.py, app/ai/pipeline.py; /admin/ai Sağlayıcılar + Modeller; without any key nothing changes (Anthropic + anthropic_model) | wave 3 (W3-AI) | [`test_w3_ai_providers.py`](../smartsched/backend/tests/ai/test_w3_ai_providers.py) |
 | AI usage metering per user (feature, provider, model, input / output / cache tokens, estimated cost from a versioned price table, latency, outcome, reason, prompt hash + length, never the text) with org monthly budget, per-user daily / monthly limits (default, per role, per person), reservation before the call, 80 % alerts (bell + e-mail) and a user banner, hard limit refused in Turkish | Done: alembic 0034_ai_usage, app/services/ai_usage.py; /admin/ai Kullanım + Limitler; Profil › Yapay zekâ kullanımım; audited top-ups | wave 3 (W3-AI) | [`test_w3_ai_gateway.py`](../smartsched/backend/tests/ai/test_w3_ai_gateway.py) |
 | AI guardrails: deterministic scope classifier (code, translation, essays, general questions), prompt-injection detection in typed text and uploads (TR + EN: override, role-play, system-prompt / key exfiltration, tool-call smuggling, encoded payloads), spotlighting preamble, output check (offered tools, schema, no links / code), per-feature caps, per-user rate and concurrency limits, KVKK transfer basis per provider; refusals logged with a reason and visible to admins; red-team self-test | Done: app/ai/guardrails.py, app/ai/redteam_guard_cases.json (44 cases); /admin/ai Koruma with a dry-run test bench | wave 3 (W3-AI) | [`test_w3_ai_guardrails.py`](../smartsched/backend/tests/ai/test_w3_ai_guardrails.py) |
@@ -153,7 +153,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-248 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 220 · stopped 11 · superseded 7.
+249 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 221 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -233,7 +233,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **303 ticked · 355 open** checkboxes in 85 sections (81 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **307 ticked · 352 open** checkboxes in 85 sections (81 with open items).
 
 <details><summary>Per section</summary>
 
@@ -318,12 +318,12 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Consent gates finished (2026-10-16) | 1 | 2 |
 | Remaining feature UIs finished (2026-10-16) | 0 | 2 |
 | Batch 4 finished (2026-10-16) | 5 | 2 |
-| Flow loop round 1: academician and admin reports in (2026-10-16) | 0 | 4 |
+| Flow loop round 1: academician and admin reports in (2026-10-16) | 2 | 2 |
 | Round 1 integrity fixes (2026-10-16) | 10 | 2 |
 | Wave 3 enhancements (ranked, research 2026-10-17) | 0 | 26 |
 | Wave 3 — W3-SEC (2026-10-17) | 3 | 4 |
 | Wave 3b (owner request 2026-10-17 ~20:15 UTC): identity, e-mail and integration setup | 0 | 4 |
-| Wave 3 — W3-OPS (2026-10-17) | 4 | 3 |
+| Wave 3 — W3-OPS (2026-10-17) | 6 | 2 |
 
 </details>
 

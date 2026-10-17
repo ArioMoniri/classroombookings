@@ -123,6 +123,9 @@ async def test_run_lifecycle_with_stub_solver(client, stub_solver):
         headers=h,
     )
     assert r.json()["ok"] is True and r.json()["assignment"]["origin"] == "MANUAL"
+    # owner decision 2026-10-17 (R1-S-37): the forced move on the published run went into a new draft copy
+    draft_id = r.json()["draft_run_id"]
+    assert draft_id and draft_id != run_id and r.json()["live_run_id"] == run_id
     r = await client.post(f"/api/v1/runs/{run_id}/assignments/{target['id']}/lock", headers=h)
     assert r.json()["is_locked"] is True
     # check-room against the active run from the inbox
@@ -130,7 +133,9 @@ async def test_run_lifecycle_with_stub_solver(client, stub_solver):
     r = await client.post(
         f"/api/v1/requests/meetings/{mr_id}/check-room", json={"room_ids": [a204["room_id"]]}, headers=h
     )
-    assert r.status_code == 200 and r.json()["ok"] is False  # the forced move now occupies A 204 too
+    assert (
+        r.status_code == 200 and r.json()["ok"] is True
+    )  # the live plan is unchanged: the forced move is in the draft
     meetings = (
         await client.get("/api/v1/requests/meetings", params={"term_id": term_id, "search": "PSI 155"}, headers=h)
     ).json()

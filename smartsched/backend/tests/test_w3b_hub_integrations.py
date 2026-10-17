@@ -284,3 +284,30 @@ async def _fail_delivery(endpoint_id: int) -> None:
             )
         )
         await s.commit()
+
+
+async def test_live_area_contracts_feed_the_gallery(client):
+    """Whatever area modules expose ``integration_status`` today answer through the hub (W3-MAIL ships
+    app.services.mail_status); an area without one is listed in ``asks`` instead."""
+    import importlib.util
+
+    body = await _status(client, await login(client))
+    cards = _cards(body)
+    asked = {a["area"] for a in body["asks"]}
+    for area, (_lane, modules) in hub.CONTRACTS.items():
+        exposed = any(
+            importlib.util.find_spec(m) is not None
+            and callable(getattr(importlib.import_module(m), hub.CONTRACT_FN, None))
+            for m in modules
+        )
+        area_cards = [c for c in cards.values() if c["area"] == area]
+        assert area_cards, area
+        if exposed:
+            assert all(c["source"] == "contract" for c in area_cards), area
+            assert area not in asked
+        elif area in hub.BUILTINS:
+            assert all(c["source"] == "builtin" for c in area_cards), area
+        else:
+            assert area in asked and [c["status"] for c in area_cards] == ["unknown"]
+    smtp = cards["email.smtp"]
+    assert smtp["status"] in hub.STATUSES and smtp["name_tr"] == "E-posta (SMTP)"

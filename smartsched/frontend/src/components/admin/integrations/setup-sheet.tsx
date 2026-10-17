@@ -7,8 +7,8 @@
  * on open and back to the card on close.
  *
  * Content is the owning area's own admin panel, embedded unchanged (read-only reuse):
- *   identity   → Microsoft Entra sign-in (components/identity/sso-settings) + LDAP (components/admin/ldap-settings)
- *                until W3-IDP's IdentityProvidersPanel lands
+ *   identity   → W3-IDP's IdentityProvidersPanel (every sign-in provider, its guided setup, invitations), opened
+ *                at the card's provider (`identity.<name>` → initialSetup)
  *   email      → SMTP + outbox (components/admin/email-settings) until W3-MAIL's EmailSettingsPanel lands
  *   calendar   → calendar sync sign-off + Google / Microsoft 365 OAuth clients (components/settings/calendar-*)
  *   channels   → notification channels (components/channels/channels-admin)
@@ -19,8 +19,7 @@ import { useRef } from "react";
 import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { ChannelsAdmin } from "@/components/channels/channels-admin";
 import { EmailSettingsView } from "@/components/admin/email-settings";
-import { LdapSettingsView } from "@/components/admin/ldap-settings";
-import { SsoSettings } from "@/components/identity/sso-settings";
+import { IdentityProvidersPanel } from "@/components/identity/identity-providers-panel";
 import { CalendarPushAdmin } from "@/components/settings/calendar-push-admin";
 import { CalendarSyncAdmin } from "@/components/settings/calendar-sync-admin";
 import { WebhooksAdmin } from "@/components/settings/webhooks-admin";
@@ -133,14 +132,15 @@ function AreaContent({ area, card }: { area: AreaKey; card: ConnectorCard | null
   const { t } = useI18n();
   const pending = card?.source === "missing" ? <Alert tone="info">{t("integrations.sheet.pending")}</Alert> : null;
   switch (area) {
-    case "identity":
+    case "identity": {
+      const tail = card?.key.startsWith("identity.") ? card.key.slice("identity.".length) : null;
       return (
         <div className="grid gap-5">
           {pending}
-          <SsoSettings />
-          <LdapSettingsView />
+          <IdentityProvidersPanel initialSetup={tail && tail !== "providers" ? tail : null} />
         </div>
       );
+    }
     case "email":
       return (
         <div className="grid gap-5">

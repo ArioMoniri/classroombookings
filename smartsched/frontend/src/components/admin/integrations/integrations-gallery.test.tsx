@@ -43,8 +43,7 @@ vi.mock("next/navigation", () => {
 });
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
 // the embedded area panels have their own tests; here they are stand-ins
-vi.mock("@/components/identity/sso-settings", () => ({ SsoSettings: () => <div data-testid="embed-sso">Entra</div> }));
-vi.mock("@/components/admin/ldap-settings", () => ({ LdapSettingsView: () => <div data-testid="embed-ldap">LDAP</div> }));
+vi.mock("@/components/identity/identity-providers-panel", () => ({ IdentityProvidersPanel: ({ initialSetup }: { initialSetup: string | null }) => <div data-testid="embed-idp">providers {String(initialSetup)}</div> }));
 vi.mock("@/components/admin/email-settings", () => ({ EmailSettingsView: () => <div data-testid="embed-email">SMTP</div> }));
 vi.mock("@/components/settings/calendar-push-admin", () => ({ CalendarPushAdmin: () => <div data-testid="embed-calendar-push">push</div> }));
 vi.mock("@/components/settings/calendar-sync-admin", () => ({ CalendarSyncAdmin: () => <div data-testid="embed-calendar-sync">sync</div> }));
@@ -248,12 +247,18 @@ describe("IntegrationsGallery", () => {
     expect(state.pushed).toEqual(["/admin/ai"]);
   });
 
-  it("embeds the existing identity and e-mail panels until the new ones land", async () => {
+  it("embeds W3-IDP's identity providers panel (and the e-mail panel) in the sheet", async () => {
     renderIt("area=identity&setup=identity.providers");
     const sheet = await screen.findByTestId("setup-sheet");
-    expect(await within(sheet).findByTestId("embed-sso")).toBeInTheDocument();
-    expect(within(sheet).getByTestId("embed-ldap")).toBeInTheDocument();
+    expect(await within(sheet).findByTestId("embed-idp")).toHaveTextContent("providers null");
     expect(within(sheet).getByText(/yeni kurulum ekranı hazırlanıyor/)).toBeInTheDocument();
+  });
+
+  it("opens the e-mail card's SMTP panel", async () => {
+    renderIt("area=email&setup=email.smtp");
+    const sheet = await screen.findByTestId("setup-sheet");
+    expect(await within(sheet).findByTestId("embed-email")).toBeInTheDocument();
+    expect(within(sheet).getByTestId("setup-lines")).toHaveTextContent("Son değişiklik: Ayşe Yılmaz,");
   });
 
   it("guided n8n setup: paste the URL, save, copy the secret once, send a test event and see it arrive", { timeout: 30_000 }, async () => {

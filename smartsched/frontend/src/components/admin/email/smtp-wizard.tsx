@@ -136,7 +136,7 @@ function Wizard({ data, presets }: { data: MailSettings; presets: Preset[] }) {
         </h3>
         {step === "provider" ? <ProviderStep presets={presets} value={v.provider ?? ""} onPick={(p) => setD((prev) => ({ ...prev, ...presetFill(p) }))} /> : null}
         {step === "connection" ? <ConnectionStep v={v} data={data} preset={preset} set={set} /> : null}
-        {step === "sender" ? <SenderStep v={v} preset={preset} set={set} /> : null}
+        {step === "sender" ? <SenderStep v={v} stored={data.abroad_ack} ticked={d.abroad_ack === true} preset={preset} set={set} /> : null}
         {step === "domain" ? <DomainStep v={v} result={dns} onResult={setDns} set={set} /> : null}
         {step === "test" ? <TestStep result={test} onResult={setTest} configured={data.configured} /> : null}
         {step === "enable" ? <EnableStep data={data} /> : null}
@@ -350,13 +350,11 @@ function ConnectionStep({ v, data, preset, set }: { v: MailSettings & MailSettin
   );
 }
 
-const d_ack = (v: MailSettings & MailSettingsIn): boolean => v.abroad_ack === true;
-
-function SenderStep({ v, preset, set }: { v: MailSettings & MailSettingsIn; preset: Preset | undefined; set: Setter }) {
+function SenderStep({ v, stored, ticked, preset, set }: { v: MailSettings & MailSettingsIn; stored: MailSettings["abroad_ack"]; ticked: boolean; preset: Preset | undefined; set: Setter }) {
   const { t } = useI18n();
   const fmt = useBookingFormat();
   const ids = useId();
-  const acked = v.abroad_ack && typeof v.abroad_ack === "object" && v.abroad_ack.provider === preset?.id ? v.abroad_ack : null;
+  const acked = stored && stored.provider === preset?.id ? stored : null;
   return (
     <div className="flex flex-col gap-3">
       <Field label={t("email.field.from")} htmlFor={`${ids}-from`} hint={t("email.field.fromHint")}>
@@ -376,7 +374,7 @@ function SenderStep({ v, preset, set }: { v: MailSettings & MailSettingsIn; pres
             <p className="type-footnote">{t("email.abroad.recorded", { by: acked.by ?? "-", at: acked.at ? fmt.dateTime(acked.at) : "-" })}</p>
           ) : (
             <label className="mt-2 flex min-h-11 items-center gap-2">
-              <Checkbox checked={(d_ack(v)) } onCheckedChange={(c) => set("abroad_ack", c === true)} />
+              <Checkbox checked={ticked} onCheckedChange={(c) => set("abroad_ack", c === true)} />
               <span>{t("email.abroad.check")}</span>
             </label>
           )}

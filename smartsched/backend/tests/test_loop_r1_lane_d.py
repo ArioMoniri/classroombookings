@@ -199,12 +199,12 @@ async def test_export_holds_every_record_about_the_person_and_no_one_else(real: 
     assert set(wishes) == {acc, rej}
     assert wishes[acc]["status"] == "accepted" and wishes[acc]["note"] == "Projeksiyonlu sınıf daha uygun"
     assert wishes[rej]["status"] == "rejected" and wishes[rej]["reason_code"] == "capacity"
-    assert wishes[rej]["reason"] == "A blokta laboratuvar yok; [Planlamacı] ile görüşün"
-    assert wishes[rej]["decided_by"] == "Planlamacı / planner"
+    assert wishes[rej]["reason"] == "A blokta laboratuvar yok; [Yönetici] ile görüşün"
+    assert wishes[rej]["decided_by"] == "Yönetici / administrator"
 
     # the coordinator's priority note about the person; the change audited with the person as its subject
     pn = next(x for x in data["priority_notes"] if x["term_code"] == "2026-BAHAR")
-    assert pn["note"] == "Engelli öğrencisi var" and pn["updated_by"] == "Planlamacı / planner"
+    assert pn["note"] == "Engelli öğrencisi var" and pn["updated_by"] == "Yönetici / administrator"
     acts = {a["action"] for a in data["audit_as_subject"]}
     assert "person.priority" in acts, acts
     assert all(
