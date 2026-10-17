@@ -351,7 +351,7 @@ backend only so far are listed in [docs/STATUS.md](docs/STATUS.md).
 
 <!-- AUTO:status only=done -->
 
-Done 43 · Backend only 0 · In progress 1 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
+Done 45 · Backend only 0 · In progress 1 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
 
 | Feature | Area | Evidence |
 |---|---|---|
@@ -398,6 +398,8 @@ Done 43 · Backend only 0 · In progress 1 · Planned 0. Done items only; the fu
 | Docs that update themselves: generated blocks from the sources of truth, checked in pod CI | Platform, CI and docs | [`sync_docs.py`](scripts/docs/sync_docs.py) |
 | Design-system overhaul from the UI/UX review (sizing, controls, columns, de-AI changes) | Platform, CI and docs | [`visual-quality.spec.ts`](smartsched/frontend/e2e/visual-quality.spec.ts) |
 | Mobile optimisation of every screen (390 and 768 px) | Platform, CI and docs |  |
+| PostgreSQL row-level security on per-person tables (notifications, consents, DSR, feed tokens, AI usage, teacher wishes, bookings, approvals) | Platform, CI and docs | [`test_w3_sec_rls_postgres.py`](smartsched/backend/tests/test_w3_sec_rls_postgres.py) |
+| Security hardening: rate limits (login, reset, SSO, password change, AI, uploads), body-size fence, CSP / HSTS / frame / permissions headers, CSRF fence, security.txt, CSV formula escaping | Platform, CI and docs | [`test_w3_sec_hardening.py`](smartsched/backend/tests/test_w3_sec_hardening.py) |
 
 <!-- /AUTO:status -->
 
@@ -422,6 +424,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `cdf0f0d` (committed 2026-10-17 19:20 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `86370b3` (committed 2026-10-17 19:57 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

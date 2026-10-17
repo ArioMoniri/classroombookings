@@ -389,6 +389,217 @@ def minimal_change(view: SegmentView, result: SolverResult, scope: Iterable[int]
     return sorted(view.roots(reverted))
 
 
+# ------------------------------------------------------------------------------- the published timetable is kept
+
+
+def _rows_clash(a: Assignment, ea: Event, b: Assignment, eb: Event) -> bool:
+    """Two placement rows compete: overlapping time in a shared week and a shared room, cohort or instructor."""
+    if a.day != b.day or a.start > b.end or b.start > a.end:
+        return False
+    if not (a.weeks or ea.weeks) & (b.weeks or eb.weeks):
+        return False
+    if set(a.room_ids) & set(b.room_ids) and not (ea.share_room and eb.share_room):
+        return True
+    return bool(ea.cohort_keys & eb.cohort_keys or ea.instructor_keys & eb.instructor_keys)
+
+
+def _cells(rows: list[Assignment]) -> frozenset[tuple[int, int, int, tuple[int, ...], frozenset[int]]]:
+    return frozenset((a.day, a.start, a.end, tuple(sorted(a.room_ids)), a.weeks) for a in rows)
+
+
+def _rank(e: Event) -> tuple[int, int]:
+    """Who keeps a contested cell under ``lock_first``: the planner's trusted lock, then the coordinator priority."""
+    from app.solver.policy import clamp_priority, trusted_locked
+
+    return (1 if trusted_locked(e) else 0, clamp_priority(e.priority))
+
+
+def keep_published(
+    inp: SolverInput,
+    current: Iterable[Assignment],
+    result: SolverResult,
+    scope: Iterable[int],
+    *,
+    unlocked_forbidden_tags: Mapping[int, frozenset[str]] | None = None,
+) -> dict[str, list[int]]:
+    """Round-3 R3-M-01: a re-solve never gives a published class (``current``) outside the edited ``scope`` away for a
+    class that was not placed before at equal (or lower) lock / priority rank, and never moves one whose published
+    cell is still free.  Works on the result in original event ids (several rows per event allowed), after the
+    solve (repair or full), so the guarantee holds by construction — not only when the search proves the
+    relaxation's ``previous`` tier optimal within its time limit.
+
+    * a moved published class whose published rows clash with nothing placed goes back (hard rules re-checked);
+    * a dropped published class goes back to its published rows when everything in their way is a newcomer of no
+      higher rank (evicted) or a published class that moved (put back too, transitively, up to
+      :data:`MAX_REVERT_CLUSTER`); a class of the scope or an unmoved published class in the way keeps the loss.
+      Accepted only when no hard violation is added and the relaxation policy's cost does not get worse; an
+      evicted newcomer that fits after all is placed again.
+    * every evicted newcomer gets an ``unplaced`` diagnosis with ``policy.reason = "published_kept"`` naming the
+      published classes that kept the cell.
+
+    Rewrites ``result`` in place (assignments, diagnoses, placement stats, soft score) and returns
+    ``{"reverted", "restored", "evicted"}`` (original event ids, sorted)."""
+    from app.solver import policy as pol
+    from app.solver.model import Diagnosis
+
+    events = {e.id: e for e in inp.events}
+    scope_ids = {int(i) for i in scope}
+    base: dict[int, list[Assignment]] = _rows_by_event(inp, current)
+    after: dict[int, list[Assignment]] = _rows_by_event(inp, result.assignments)
+    cost_inp = replace(inp, previous=tuple(a for rows in base.values() for a in rows))
+
+    def flat(rows: dict[int, list[Assignment]]) -> list[Assignment]:
+        return [a for k in sorted(rows) for a in rows[k]]
+
+    def violations(rows: dict[int, list[Assignment]]) -> int:
+        view = segment_view(inp, flat(rows), unlocked_forbidden_tags=unlocked_forbidden_tags)
+        return _hard_count(view.inp, view.current)
+
+    def clashing(rows: dict[int, list[Assignment]], eid: int, mine: list[Assignment]) -> list[int]:
+        e = events[eid]
+        return [
+            y
+            for y in sorted(rows)
+            if y != eid and any(_rows_clash(a, e, b, events[y]) for a in mine for b in rows[y])
+        ]
+
+    v_now = violations(after)
+    cost_now = pol.cost(cost_inp, after)
+    reverted: list[int] = []
+    restored: list[int] = []
+    evicted: dict[int, list[int]] = {}  # newcomer -> the published classes that took its cell back
+    changed = True
+    while changed:
+        changed = False
+        # 1) a published class that moved although its published cell is free goes back
+        for eid in sorted(base):
+            if eid in scope_ids or eid not in after or _cells(after[eid]) == _cells(base[eid]):
+                continue
+            if clashing(after, eid, base[eid]):
+                continue
+            trial = {**after, eid: base[eid]}
+            v = violations(trial)
+            if v <= v_now:
+                after, v_now = trial, v
+                reverted.append(eid)
+                changed = True
+        # 2) a published class that was dropped: put back, evicting newcomers of no higher rank
+        lost = sorted((x for x in base if x not in after and x not in scope_ids), key=lambda x: (*(-r for r in _rank(events[x])), x))
+        for eid in lost:
+            trial = {**after, eid: base[eid]}
+            out_now: list[int] = []
+            back: list[int] = []
+            queue = [eid]
+            ok = True
+            while queue and ok:
+                x = queue.pop(0)
+                for y in clashing(trial, x, trial[x]):
+                    if y in scope_ids:
+                        ok = False
+                    elif y not in base:
+                        if _rank(events[y]) > _rank(events[eid]):
+                            ok = False
+                        else:
+                            del trial[y]
+                            out_now.append(y)
+                    elif _cells(trial[y]) != _cells(base[y]) and y not in back:
+                        trial[y] = base[y]
+                        back.append(y)
+                        queue.append(y)
+                        ok = len(back) < MAX_REVERT_CLUSTER
+                    else:
+                        ok = False  # an unmoved published class (or one put back already) holds it
+                    if not ok:
+                        break
+            if not ok:
+                continue
+            v = violations(trial)
+            if v > v_now or pol.cost(cost_inp, trial) > cost_now:
+                continue
+            for y in list(out_now):  # an evicted newcomer that fits after all stays
+                if not clashing(trial, y, after[y]):
+                    t2 = {**trial, y: after[y]}
+                    v2 = violations(t2)
+                    if v2 <= v:
+                        trial, v = t2, v2
+                        out_now.remove(y)
+            after, v_now, cost_now = trial, v, pol.cost(cost_inp, trial)
+            restored.append(eid)
+            reverted.extend(back)
+            for y in out_now:
+                evicted.setdefault(y, []).append(eid)
+            changed = True
+    if not (reverted or restored or evicted):
+        return {"reverted": [], "restored": [], "evicted": []}
+    final = flat(after)
+    gone = set(evicted)
+    back_in = set(restored)
+    result.assignments = final
+    # the solver's hard score stands (no hard violation was added); the soft score follows the new placement
+    view = segment_view(inp, final, unlocked_forbidden_tags=unlocked_forbidden_tags)
+    placed = {a.event_id for a in view.current}
+    sub = replace(view.inp, events=tuple(e for e in view.inp.events if e.id in placed), best_effort=False)
+    _hard, soft, breakdown = score(sub, view.current)
+    result.soft_score, result.objective_breakdown = soft, breakdown
+    diags = [
+        d
+        for d in result.diagnoses
+        if not (len(d.event_ids) == 1 and d.event_ids[0] in back_in and d.severity == "error")
+    ]
+    for d in diags:
+        if d.code == "unplaced_summary":
+            d.event_ids = [i for i in d.event_ids if i not in back_in] + sorted(gone)
+    labels = {e.id: e.label for e in inp.events}
+    rooms = {r.id: r for r in inp.rooms}
+    for y in sorted(gone):
+        e, winners = events[y], sorted(set(evicted[y]))
+        rows = result_rows = [a for a in result_rows_of(result, y)] if False else []
+        del rows, result_rows
+        mine = [a for a in _rows_by_event(inp, current).get(y, [])] or [
+            a for a in index_rows(result_before) if a.event_id == y
+        ] if False else []
+        del mine
+        names = ", ".join(labels.get(w, f"#{w}") for w in winners)
+        diags.append(
+            Diagnosis(
+                [y],
+                ["stability"],
+                f"{e.label} cannot be placed: {names} of the published timetable keeps the cell at equal or higher "
+                "priority (a re-solve never displaces a published class for a new one)",
+                [f"raise the priority of {e.label} to place it before {names}", "move it to another time or room"],
+                "error",
+                "unplaced",
+                {
+                    "day": e.fixed_day,
+                    "start": e.fixed_start,
+                    "end": None if e.fixed_start is None else e.fixed_start + e.duration - 1,
+                    "problem": "published_kept",
+                    "room_codes": sorted({rooms[r].code for w in winners for a in base[w] for r in a.room_ids if r in rooms}),
+                    "policy": {
+                        "policy": pol.policy_name(inp.relaxation_policy),
+                        "priority": pol.clamp_priority(e.priority),
+                        "reason": "published_kept",
+                        "winners": winners,
+                    },
+                },
+            )
+        )
+    result.diagnoses = diags
+    st = result.stats
+    have = {a.event_id for a in final}
+    if isinstance(st.get("placed"), int):
+        st["placed"] = int(st["placed"]) + len(back_in) - len(gone)
+        total = int(st.get("events_total") or len(inp.events))
+        st["unplaced"] = max(0, total - int(st["placed"]))
+    if isinstance(st.get("unplaced_ids"), list):
+        st["unplaced_ids"] = [i for i in st["unplaced_ids"] if i not in have] + sorted(gone - set(st["unplaced_ids"]))
+    if back_in:
+        st["restored_to_published"] = sorted(set(st.get("restored_to_published") or []) | back_in)
+    st["published_kept"] = {"reverted": sorted(reverted), "restored": sorted(restored), "evicted": sorted(gone)}
+    st["policy_cost"] = list(cost_now)
+    return {"reverted": sorted(reverted), "restored": sorted(restored), "evicted": sorted(gone)}
+
+
 # -------------------------------------------------------------------------------------------------------- diff
 
 
@@ -444,6 +655,7 @@ __all__ = [
     "MAX_REVERT_CLUSTER",
     "SegmentView",
     "Violation",
+    "keep_published",
     "minimal_change",
     "moved_diff",
     "neighbourhood",

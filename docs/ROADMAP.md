@@ -2547,3 +2547,9 @@ Ledger `wave3-res-2026-10-17`. Source, evidence and scoring (value × fit × 4 �
 - [ ] Nonce-based CSP from a Next.js middleware (R3)
 - [ ] uvicorn `--forwarded-allow-ips` limited to the compose subnet (R2); hash-pinned lock and a dependency-audit step in the pod CI validate gate (§6)
 - [ ] RLS for calendar_connections, notify channel links, notice_acks and multi_bookings; move the cross-user sweeps into `rls.system_scope` so the booking policies can be tightened (R4, R5)
+
+### Wave 3b (owner request 2026-10-17 ~20:15 UTC): identity, e-mail and integration setup
+- [ ] W3-IDP: several identity providers set by admins and shared by all admins (Microsoft Entra, Google Workspace, any OIDC issuer, SAML 2.0 for Shibboleth / YETKİM, LDAP), guided setup with a test login, per-provider invitations, sign-in buttons; migration 0037_identity_providers.
+- [ ] W3-MAIL: SMTP setup wizard with provider presets, test send and SPF/DKIM/DMARC checks; themed HTML + text e-mails in Turkish and English for every message (reset, invite, booking and request decisions, reminders, consent, KVKK, AI and ops alerts) with admin preview and overrides.
+- [ ] W3-HUB: Pipedream-like integrations gallery at /admin/integrations (Kimlik, E-posta, Takvim, Kanallar, Webhook ve otomasyon, Yapay zekâ) with status and guided setup cards.
+- [ ] W3-DES2: designs for every e-mail and in-app message following the brand, plus the integrations gallery and setup sheets (docs/design/v3/emails.md, messages.md, integrations.md).

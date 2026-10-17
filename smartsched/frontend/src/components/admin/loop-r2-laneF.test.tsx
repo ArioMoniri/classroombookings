@@ -9,7 +9,7 @@
  * - T-R2-31: the audit row is the focus target after an undo and renders a coded reason (audit-model.test.ts).
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
@@ -117,6 +117,10 @@ describe("Kurum ayarları › Yenilikler (T-R2-33, R2-M-18)", () => {
     expect(details.open).toBe(false);
     expect(details.querySelector("summary")).toHaveTextContent("İngilizce notları göster");
     expect(details.querySelector("summary")).toHaveTextContent("Sürüm notları İngilizce yazılır.");
+    // round 3: the English list is not in the DOM while the detail is closed; opened, it is marked lang=en
+    expect(details.querySelector('[lang="en"]')).toBeNull();
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
     expect(details.querySelector('[lang="en"]')).toHaveTextContent("Roles with permission sets");
   });
   it("shows the list directly in the English UI", () => {

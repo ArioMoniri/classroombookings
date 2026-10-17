@@ -237,12 +237,17 @@ def loss_reason(inp: SolverInput, e: Event, competitors: Iterable[int], by_id: M
     def ids(xs: list[Event]) -> list[int]:
         return [x.id for x in sorted(xs, key=lambda x: (-clamp_priority(x.priority), -x.size, x.id))][:5]
 
+    had = previously_placed(inp)
     if policy == "lock_first":
         if trusted_locked(e) and locks:
             hi = [x for x in locks if clamp_priority(x.priority) > clamp_priority(e.priority)]
             if hi:
                 return {**out, "reason": "lock_clash_priority", "winners": ids(hi)}
             eq = [x for x in locks if clamp_priority(x.priority) == clamp_priority(e.priority)]
+            kept_eq = [x for x in eq if x.id in had]
+            if kept_eq and e.id not in had:
+                # the published lock keeps the room before any size / count tie-break (round-3 R3-M-01)
+                return {**out, "reason": "published_kept", "winners": ids(kept_eq)}
             if eq:
                 return {**out, "reason": "lock_clash_tie", "winners": ids(eq)}
             return {**out, "reason": "lock_clash_more_locks", "winners": ids(locks)}
@@ -250,7 +255,6 @@ def loss_reason(inp: SolverInput, e: Event, competitors: Iterable[int], by_id: M
             return {**out, "reason": "locked_row_kept", "winners": ids(locks)}
         if higher:
             return {**out, "reason": "lower_priority", "winners": ids(higher)}
-    had = previously_placed(inp)
     kept = [x for x in events if x.id in had]
     if kept and e.id not in had:
         return {**out, "reason": "published_kept", "winners": ids(kept)}

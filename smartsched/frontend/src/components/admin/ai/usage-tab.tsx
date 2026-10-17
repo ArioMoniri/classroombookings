@@ -92,7 +92,11 @@ function DailyChart({ rows, loading, lastDays }: { rows: UsageRow[]; loading: bo
   const points = useMemo(() => dayChartData(rows, locale, lastDays), [rows, locale, lastDays]);
   const series = activeSeries(points);
   const label = (s: ChartSeries) => (s === "other" ? t("aiAdmin.feature.other") : labels.feature(s));
-  const config = useMemo(() => Object.fromEntries(series.map((s) => [s, { label: label(s), colors: { light: [SERIES_COLOR[s]], dark: [SERIES_COLOR[s]] } }])), [series.join(","), locale]); // eslint-disable-line react-hooks/exhaustive-deps
+  const key = series.join(",");
+  const config = useMemo(
+    () => Object.fromEntries(key.split(",").filter(Boolean).map((s) => [s, { label: s === "other" ? t("aiAdmin.feature.other") : labels.feature(s), colors: { light: [SERIES_COLOR[s as ChartSeries]], dark: [SERIES_COLOR[s as ChartSeries]] } }])),
+    [key, t, labels],
+  );
   const total = points.reduce((a, p) => a + p.total, 0);
   const top = series.map((s) => ({ s, v: points.reduce((a, p) => a + p[s], 0) })).sort((a, b) => b.v - a.v)[0];
   return (

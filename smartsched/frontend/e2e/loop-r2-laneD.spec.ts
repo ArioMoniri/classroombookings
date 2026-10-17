@@ -7,8 +7,10 @@
  *    toast forever; the e2e gate burned 17 min on it twice). The toast is gone once the preview renders, and
  *    `preview-publish` is clickable right away.
  * 2. T-R2-23 (R2-M-02): publishing the preview shows "Yayınlandı: #N artık geçerli plan", the state "✓ Yayında" and
- *    no English schema text, although the server's activate body carries nested stats. The published run G0 is
- *    restored at the end.
+ *    no English schema text, although the server's activate body carries nested stats; afterwards focus is on the
+ *    "✓ Yayında" status, never on <body> (round 3, R3-M-06). The published run G0 is restored at the end.
+ * 3. Round 3 R3-M-06: a SECTION priority saved from the matching inspector (`p` on an Eşleşmeler row, "Tüm şube")
+ *    returns focus to that row, never to <body>.
  *
  *   E2E_REAL=1 E2E_API_URL=http://127.0.0.1:19340 NEXT_PUBLIC_API_URL=http://127.0.0.1:19340 PW_PORT=19341 \
  *     npx playwright test e2e/loop-r2-laneD.spec.ts
@@ -76,6 +78,29 @@ test("the started toast never covers 'Onayla ve yayınla'; the preview publishes
   await expect(page.getByTestId("preview-state")).toHaveText(/✓ Yayında/, { timeout: 30_000 });
   await expect(page.getByText(/Invalid response|Invalid input|schema mismatch/)).toHaveCount(0);
   await expect(page.getByTestId("publish-refused")).toHaveCount(0);
+  // R3-M-06: the publish button is gone with the dialog; focus is on the status, not on <body>
+  await expect(page.getByTestId("preview-state")).toBeFocused({ timeout: 5_000 });
   const runs = await api<Run[]>("GET", "/runs");
   expect(runs.find((r) => r.id === runId)?.is_active).toBe(true);
+});
+
+test("a section priority saved in the inspector returns focus to its row (R3-M-06)", async ({ page }) => {
+  await login(page);
+  await page.goto("/moderation?tab=matchings");
+  await page.getByTestId("chip-all").click();
+  await page.getByTestId("moderation-search").fill("PSY 277");
+  const row = page.getByTestId("matchings-table").getByTestId("mod-row").first();
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  const rowId = await row.getAttribute("data-row-id");
+  await row.focus();
+  await page.keyboard.press("p");
+  const insp = page.getByTestId("matching-inspector");
+  await insp.getByText("Tüm şube", { exact: true }).first().click();
+  await insp.getByTestId("priority-save").click();
+  await expect(page.getByText(/PSY 277.*öncelik kaydedildi/).first()).toBeVisible({ timeout: 15_000 });
+  await expect(insp).toBeHidden();
+  await expect.poll(() => page.evaluate(() => (document.activeElement as HTMLElement | null)?.closest("[data-row-id]")?.getAttribute("data-row-id") ?? document.activeElement?.tagName), { timeout: 5_000 }).toBe(rowId);
+  // and after the toast is gone, too (the sheet's own focus return comes after its exit animation)
+  await page.waitForTimeout(1_000);
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
 });

@@ -41,7 +41,7 @@ pinLanguage("tr");
 
 type Counts = Record<string, { create: number; update: number; unchanged: number; conflict: number }>;
 type Job = { id: number; status: string; files: { index: number; filename: string; route: string | null }[]; summary?: Record<string, number> };
-const ctx = {} as { api: APIRequestContext; admin: string; jobB: number; jobA: number; mergeJob: number; draftId: number; termId: number };
+const ctx = {} as { api: APIRequestContext; admin: string; jobB: number; jobA: number; mergeJob: number; phoneJob: number; draftId: number; termId: number };
 
 async function call<T = unknown>(method: "GET" | "POST" | "PUT" | "DELETE", p: string, body?: unknown, token = ctx.admin): Promise<{ status: number; body: T }> {
   const res = await ctx.api.fetch(`${API}${p}`, { method, data: body, headers: { Authorization: `Bearer ${token}` } });
@@ -123,11 +123,21 @@ test("T-R2-19 F-08 S07/S08/S10/S11 (API): the dry run predicts the commit, one k
   expect(n(d.counts, "meeting_requests", "update")).toBe(0);
   expect(n(d.counts, "meeting_requests", "unchanged") + (d.result.general.duplicates_skipped ?? 0)).toBeGreaterThanOrEqual(nB);
 
+  // R3-M-02: the very workbook again, the way the tester called the API (term_id only, the term's own 19 weeks):
+  // no request's weeks are rewritten
+  const weeksRewritten = (rows: { entity: string; fields?: { field: string }[] }[]) => rows.filter((r) => r.entity === "meeting_requests" && (r.fields ?? []).some((f) => f.field === "weeks")).length;
+  const jobX = await job([PLANNING_LIST]);
+  const x = await api<{ counts: Counts; rows: { entity: string; fields?: { field: string }[] }[] }>("POST", `/council/jobs/${jobX.id}/commit`, { group: 0, term_id: ctx.termId, allow_pending: true, dry_run: true });
+  expect(weeksRewritten(x.rows)).toBe(0);
+  expect(n(x.counts, "meeting_requests", "create")).toBe(0);
+  expect(share(x.counts, "meeting_requests")).toBeGreaterThanOrEqual(0.99);
+
   // S11: Job C, the office's cp1254 ';' export (fast path): >= 99 % unchanged
   test.skip(!CP1254, "LANEC_CP1254 names the cp1254 ';' export (tests/council/exports.csv_bytes)");
   const jobC = await job([CP1254]);
   expect(jobC.files[0].route).toBe("fast:planning-list");
-  const c = await api<{ counts: Counts }>("POST", `/council/jobs/${jobC.id}/commit`, { ...BODY, dry_run: true });
+  const c = await api<{ counts: Counts; rows: { entity: string; fields?: { field: string }[] }[] }>("POST", `/council/jobs/${jobC.id}/commit`, { group: 0, term_id: ctx.termId, allow_pending: true, dry_run: true });
+  expect(weeksRewritten(c.rows)).toBe(0); // R3-S-04
   expect(n(c.counts, "meeting_requests", "create")).toBe(0);
   expect(share(c.counts, "meeting_requests")).toBeGreaterThanOrEqual(0.99);
   expect(share(c.counts, "sections")).toBeGreaterThanOrEqual(0.99);
@@ -137,6 +147,7 @@ test("T-R2-21 F-08 S08: the refusal for undecided merges is coded, Turkish and n
   // a job with merge items: the workbook again (its instructor spellings), into a new term so nothing is remembered
   const merge = await job([PLANNING_LIST, MEMO, SCAN_PDF]);
   ctx.mergeJob = merge.id;
+  ctx.phoneJob = (await job([PLANNING_LIST, EN_CSV])).id; // left undecided for the phone checks (R3-M-03)
   const review = await api<{ blocking: number; items: { id: string; kind: string; blocking: boolean; decision: unknown }[] }>("GET", `/council/jobs/${merge.id}/review`);
   test.skip(review.blocking === 0, "the council settled every spelling alone on this stack: nothing to refuse");
   const r = await call<{ detail: Record<string, unknown> }>("POST", `/council/jobs/${merge.id}/commit`, { group: 0, term: TERM });
@@ -157,6 +168,10 @@ test("T-R2-21 F-08 S08: the refusal for undecided merges is coded, Turkish and n
   await expect(docRows.first()).toBeVisible({ timeout: 30_000 }); // the table follows the job query
   await expect(docRows.locator('[data-slot="method-badge"]').first()).toHaveText(/Doğrudan|Okunmadı|YZ kapalı/);
   await expect(progress.locator('[data-method="ai"]')).toHaveCount(0);
+  // R3-M-04: the commit panel offers the existing 2026-BAHAR (the stack made it, 19 weeks), not a new "BAHAR"
+  const commit = page.getByTestId("onboarding-commit");
+  await expect(commit.getByTestId("onboarding-term-match")).toContainText(`Var olan dönem: ${TERM.code}`, { timeout: 30_000 });
+  await expect(commit.getByTestId("term-code")).toHaveValue(TERM.code);
 });
 
 test("T-R2-20 F-08 S01/S03/S08 at 1440: recent jobs after a reload, /onboarding/<id>, a keyboard drop zone, accept, a live commit bar", async ({ page }) => {
@@ -257,11 +272,12 @@ for (const route of ["/onboarding", "/onboarding/<job>", "/programs/new/<draft>"
     const page = await context.newPage();
     try {
       await login(page);
-      const url = route.replace("<job>", String(ctx.mergeJob ?? ctx.jobA)).replace("<draft>", String(ctx.draftId));
+      const url = route.replace("<job>", String(ctx.phoneJob ?? ctx.mergeJob ?? ctx.jobA)).replace("<draft>", String(ctx.draftId));
       await page.goto(url);
       await page.waitForLoadState("networkidle");
       if (route.startsWith("/programs")) await expect(page.getByTestId("wizard-footer")).toBeVisible({ timeout: 30_000 });
       else await expect(page.getByTestId("onboarding")).toBeVisible({ timeout: 30_000 });
+      if (route === "/onboarding/<job>") await expect(page.getByTestId("onboarding-review")).toBeVisible({ timeout: 60_000 });
       // M-01
       expect(await noSidewaysScroll(page), "no sideways scroll").toBeTruthy();
       // M-02: visible controls in the page body (the shell's tab bar is lane A's)
@@ -303,6 +319,20 @@ for (const route of ["/onboarding", "/onboarding/<job>", "/programs/new/<draft>"
       if (route.startsWith("/programs")) {
         expect(box, "primary action visible").toBeTruthy();
         expect(box!.y + box!.height / 2, "within the bottom 40 %").toBeGreaterThan(844 * 0.6);
+      }
+      if (route === "/onboarding/<job>") {
+        // R3-M-03: the review is long; "Yaz" floats above the tab bar wherever the page is scrolled to
+        await expect(page.getByTestId("onboarding-review")).toBeVisible({ timeout: 30_000 });
+        expect(await page.locator('[data-testid^="review-merge:"] button').count(), "undecided review buttons on the page").toBeGreaterThan(0);
+        for (const y of [0, 2000, 6000]) {
+          await page.evaluate((top) => window.scrollTo(0, top), y);
+          await page.waitForTimeout(250);
+          const cap = await page.getByTestId("onboarding-commit-capsule-button").boundingBox();
+          expect(cap, `capsule visible at scroll ${y}`).toBeTruthy();
+          expect(cap!.height).toBeGreaterThanOrEqual(44);
+          expect(cap!.y + cap!.height / 2, `capsule in the bottom 40 % at scroll ${y}`).toBeGreaterThan(844 * 0.6);
+          expect(cap!.y + cap!.height, "above the tab bar").toBeLessThan(844 - 60);
+        }
       }
     } finally {
       await context.close();

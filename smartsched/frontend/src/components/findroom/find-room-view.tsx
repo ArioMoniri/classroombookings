@@ -158,7 +158,8 @@ export function FindRoomView() {
       const span = wholeSpan(slotsFor(grid, roomId, date, start, end));
       if (!span) {
         toast.error(t("wave1.find.notFree"));
-        void run(f, false);
+        // R3-S-02: the pressed card leaves with the refreshed list, so the refreshed summary takes the focus (not <body>)
+        void run(f, false, true);
         return;
       }
       setTarget({ slot: span[0]!, grid, span });

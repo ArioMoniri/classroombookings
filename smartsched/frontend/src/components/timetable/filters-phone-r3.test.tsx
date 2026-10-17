@@ -6,7 +6,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { fixtureIndex } from "@/test/fixtures/calendar-index";
-import { CalendarSidebar } from "./calendar-sidebar";
+import { CalendarSidebar, type CalendarSidebarProps } from "./calendar-sidebar";
 import { EMPTY_FILTERS, eventFilter } from "./model/filters";
 import { buildModel, eventsOf } from "./model/index-model";
 
@@ -46,7 +46,7 @@ describe("CalendarSidebar compact (phone sheet)", () => {
   it("drops the mini month, gives the search 16 px / 44 px and every chip and row a 44 px height", () => {
     render(
       <I18nProvider initialLocale="tr">
-        <CalendarSidebar {...(props as never)} compact />
+        <CalendarSidebar {...(props as unknown as CalendarSidebarProps)} compact />
       </I18nProvider>,
     );
     const aside = screen.getByTestId("calendar-sidebar");
@@ -65,7 +65,7 @@ describe("CalendarSidebar compact (phone sheet)", () => {
   it("the desktop sidebar keeps its mini month and compact sizes off", () => {
     render(
       <I18nProvider initialLocale="tr">
-        <CalendarSidebar {...(props as never)} />
+        <CalendarSidebar {...(props as unknown as CalendarSidebarProps)} />
       </I18nProvider>,
     );
     const aside = screen.getByTestId("calendar-sidebar");

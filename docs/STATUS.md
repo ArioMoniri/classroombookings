@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `cdf0f0d` (committed 2026-10-17 19:20 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `86370b3` (committed 2026-10-17 19:57 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 43 · Backend only 0 · In progress 1 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 45 · Backend only 0 · In progress 1 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -104,6 +104,8 @@ Done 43 · Backend only 0 · In progress 1 · Planned 0 (from [`docs/features.ym
 | Design-system overhaul from the UI/UX review (sizing, controls, columns, de-AI changes) | Done: tokens, primitives, DataTable columns and the check:design gate; migrating the older screens is in progress | owner feedback 2026-10-15 | [`visual-quality.spec.ts`](../smartsched/frontend/e2e/visual-quality.spec.ts) |
 | README recordings and a real screenshot gallery for the current UI | In progress | 16 | [`record`](../scripts/record) |
 | Mobile optimisation of every screen (390 and 768 px) | Done: 390 px touch probe over 42 routes: 519 → 22 offenders; phone day views for dense grids; dialogs and sheets as bottom sheets | owner instruction 2026-10-15 |  |
+| PostgreSQL row-level security on per-person tables (notifications, consents, DSR, feed tokens, AI usage, teacher wishes, bookings, approvals) | Done: alembic 0035_rls_policies + app/core/rls.py; 44 existing API tests re-run green on PostgreSQL with RLS on (tests/test_w3_sec_rls_postgres_api.py) | wave 3 (W3-SEC) | [`test_w3_sec_rls_postgres.py`](../smartsched/backend/tests/test_w3_sec_rls_postgres.py) |
+| Security hardening: rate limits (login, reset, SSO, password change, AI, uploads), body-size fence, CSP / HSTS / frame / permissions headers, CSRF fence, security.txt, CSV formula escaping | Done: docs/SECURITY.md; checked through nginx 1.24 with Playwright at 1440 and 390 px | wave 3 (W3-SEC) | [`test_w3_sec_hardening.py`](../smartsched/backend/tests/test_w3_sec_hardening.py) |
 
 <!-- /AUTO:status -->
 
@@ -145,15 +147,21 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-232 agents in [`docs/agents/registry.json`](agents/registry.json): running 5 · finished 209 · stopped 11 · superseded 7.
+241 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 212 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
-| `Round-3 re-test` | user-tester | 2026-10-17 09:09 |
 | `W3-AI` | ai-engineer | 2026-10-17 18:58 |
 | `W3-OPS` | devops-engineer | 2026-10-17 18:58 |
 | `W3-SEC` | backend-engineer | 2026-10-17 18:58 |
 | `W3-SLOT` | frontend-engineer | 2026-10-17 18:58 |
+| `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
+| `Mobile optimiser A` | frontend-engineer | 2026-10-17 19:56 |
+| `Mobile optimiser B` | frontend-engineer | 2026-10-17 19:56 |
+| `W3-DES2` | design-pro | 2026-10-17 19:58 |
+| `W3-HUB` | frontend-engineer | 2026-10-17 19:58 |
+| `W3-IDP` | backend-engineer | 2026-10-17 19:58 |
+| `W3-MAIL` | backend-engineer | 2026-10-17 19:58 |
 
 <!-- /AUTO:agents -->
 
@@ -220,7 +228,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **296 ticked · 344 open** checkboxes in 82 sections (78 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **299 ticked · 352 open** checkboxes in 84 sections (80 with open items).
 
 <details><summary>Per section</summary>
 
@@ -308,6 +316,8 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Flow loop round 1: academician and admin reports in (2026-10-16) | 0 | 4 |
 | Round 1 integrity fixes (2026-10-16) | 10 | 2 |
 | Wave 3 enhancements (ranked, research 2026-10-17) | 0 | 26 |
+| Wave 3 — W3-SEC (2026-10-17) | 3 | 4 |
+| Wave 3b (owner request 2026-10-17 ~20:15 UTC): identity, e-mail and integration setup | 0 | 4 |
 
 </details>
 

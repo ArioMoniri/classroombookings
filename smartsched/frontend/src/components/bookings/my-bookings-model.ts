@@ -54,10 +54,12 @@ export function rowIndexOf(bookingId: number): number {
 }
 
 /**
- * R3-S-05: where focus goes after the row at `index` is cancelled (for focusAfter, which re-focuses while the list
- * refetches): the row that takes its place, else the one before it, else the list heading. Never <body>.
+ * R3-S-05: after the row at `index` was cancelled and the list re-rendered without it, focus the row that took its
+ * place, else the one before it, else the list heading. Never <body>. Returns the focused element.
  */
-export function rowFocusAfterRemoval(index: number): string[] {
-  const row = (n: number) => `${LIST} > li:nth-child(${n}) [data-row-open]`;
-  return [...(index >= 0 ? [row(index + 1), ...(index > 0 ? [row(index)] : [])] : []), "#mine-list"];
+export function focusRowAfterRemoval(index: number): HTMLElement | null {
+  const rows = [...document.querySelectorAll<HTMLElement>(`${LIST} > li [data-row-open]`)];
+  const target = rows[Math.max(0, index)] ?? rows[index - 1] ?? rows[rows.length - 1] ?? document.getElementById("mine-list");
+  target?.focus();
+  return target;
 }
