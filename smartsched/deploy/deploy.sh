@@ -140,6 +140,13 @@ ensure_env() {
     (( mem_kb >= 7 * 1024 * 1024 )) && obs_default=1
     printf '# observability profile by default (deploy.sh --observability / --no-observability override one run)\nOBSERVABILITY=%s\n' "$obs_default" >> "$ENV_FILE"
     log "OBSERVABILITY=$obs_default written to $ENV_FILE (host memory $((mem_kb / 1024)) MiB)"
+    # with the profile on, the stock backend cap (4g) gives way to the profile's 768 MiB: limits stay <= 7.75 GB on
+    # an 8 GB host (observability/README.md "Memory budget"). Only the stock value is changed, once; edit it back
+    # in .env to override.
+    if [[ $obs_default == 1 && "$(env_get BACKEND_MEMORY)" == 4g ]]; then
+      sed -i.bak "s|^BACKEND_MEMORY=4g[[:space:]]*$|BACKEND_MEMORY=3500m|" "$ENV_FILE" && rm -f "$ENV_FILE.bak"
+      log "BACKEND_MEMORY=3500m written to $ENV_FILE (observability profile on; set it back to 4g to override)"
+    fi
   fi
   # ADMIN_EMAIL has no default (no-placeholder audit m1): take it from the environment on the first run.
   if [[ -z "$(env_get ADMIN_EMAIL)" && -n "${ADMIN_EMAIL:-}" ]]; then

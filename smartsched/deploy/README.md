@@ -207,13 +207,9 @@ The database and the `uploads` volume are the state. Keep a copy of `.env` too, 
 decrypts the stored API keys.
 
 ```bash
-# /etc/cron.d/smartsched-backup: nightly at 02:30, keep 14 days
-30 2 * * * root cd /opt/classroombookings/smartsched/deploy && \
-  docker compose --env-file .env exec -T db pg_dump -U smartsched -Fc smartsched \
-    > /var/backups/smartsched/db-$(date +\%F).dump && \
-  docker run --rm -v smartsched_uploads:/u:ro -v /var/backups/smartsched:/b alpine:3.24 \
-    tar czf /b/uploads-$(date +\%F).tgz -C /u . && \
-  find /var/backups/smartsched -type f -mtime +14 -delete
+# /etc/cron.d/smartsched-backup: nightly at 02:30, keep 14 days (backup.sh: pg_dump -Fc + the uploads volume,
+# then the textfile metric the observability profile alerts on when the last backup is older than 26 h)
+30 2 * * * root /opt/classroombookings/smartsched/deploy/backup.sh >> /var/log/smartsched-backup.log 2>&1
 ```
 
 (`smartsched_uploads` is `<COMPOSE_PROJECT_NAME>_uploads`. Copy `/var/backups/smartsched` off the

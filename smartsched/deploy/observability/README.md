@@ -30,8 +30,11 @@ cAdvisor are replaced by Alloy's embedded components; there are no per-container
 no Docker socket): the "Bellek" panel shows each service's own process memory and the host's used memory.
 
 **Memory budget on the 8 GB pod.** The core caps are db 2g + backend 4g + frontend 1g + proxy 256m + caddy 256m
-= 7.5 GB of *limits* (not reservations; the stack normally uses far less). With the profile the limits add up to
-8.25 GB: set `BACKEND_MEMORY=3500m` in the pod's `.env` if you want the caps to stay under the node's memory.
+= 7.5 GB of *limits* (caps, not reservations; the stack normally uses far less). When `deploy.sh` turns the profile
+on for a `.env` (first run on a host with >= 7 GiB) it also lowers the stock `BACKEND_MEMORY=4g` to `3500m`, so the
+limits total **7.75 GB** with the profile: db 2048 + backend 3500 + frontend 1024 + proxy 256 + caddy 256 +
+observability 768 MiB = 7852 MiB. Any other `BACKEND_MEMORY` value is kept; set it back to `4g` to override
+(limits 8.25 GB).
 
 ## Access and security
 
@@ -76,19 +79,22 @@ Hatalar ve günlükler (Loki). The uids and the panels `/admin/ops` embeds are l
 `prometheus/alerts.yml`: backend down, a failing HTTP probe, 5xx > 2 %, p95 > 2 s, disk > 80 %, host memory
 < 10 %, DB connections > 80 %, database down, ≥ 3 solver failures in an hour, mail backlog, a new error group,
 AI budget 80 % / 100 % (`smartsched_ai_budget_used_ratio`, set by W3-AI through
-`observability.set_ai_budget_ratio`), last backup > 26 h, TLS certificate < 14 days. Firing alerts are listed on
-`/admin/ops` and in Grafana. Delivery to the notification channels (e-mail / Telegram / Teams) is not wired yet:
-there is no Alertmanager in the 768 MiB budget.
+`observability.set_ai_budget_ratio`), last backup > 26 h, TLS certificate < 14 days.
+
+Delivery without an Alertmanager: the backend's **alert relay** (`app/services/ops_alerts.py`) polls Prometheus
+`/api/v1/alerts` every 60 s and sends each new firing alert, a reminder every 6 h while it keeps firing, and one
+"resolved" notice to every admin (`setup.settings` / `planning.admin`) as notification event `ops.alert`: the bell,
+the themed e-mail and any channel the admin connected, switchable in the notification preferences. Delivery is
+idempotent per admin and channel (the dispatcher's ledger), so several workers or replicas never double-send; the
+firing set is kept in the settings row `ops.alert_relay`, so a restart still resolves what was firing. Firing
+alerts are also listed on `/admin/ops` and in Grafana.
 
 ## Backups
 
-Alloy reads `/var/lib/smartsched/textfile/*.prom`. Add one line to the nightly backup cron (deploy README
-"Backups") after a successful dump:
-
-```
-echo "smartsched_backup_last_success_timestamp_seconds $(date +%s)" > /var/lib/smartsched/textfile/backup.prom.tmp \
-  && mv /var/lib/smartsched/textfile/backup.prom.tmp /var/lib/smartsched/textfile/backup.prom
-```
+`deploy/backup.sh` (nightly cron line in `deploy/README.md` "Backups") dumps the database, archives the uploads
+volume, keeps 14 days and, after a successful run, writes
+`smartsched_backup_last_success_timestamp_seconds` into `/var/lib/smartsched/textfile/backup.prom` (atomic rename).
+Alloy reads that directory; `SmartSchedBackupStale` fires when the last success is older than 26 h.
 
 ## Horizontal scaling
 
