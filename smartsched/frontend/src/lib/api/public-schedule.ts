@@ -45,13 +45,22 @@ export const PublicItem = z.object({
 });
 export type PublicItem = z.infer<typeof PublicItem>;
 
-export const PublicRoomDay = z.object({ date: z.string(), room: PublicRoom, items: z.array(PublicItem).default([]) });
+/** W3-SLOT: the label part of the administrator's slot display (the kiosk is not signed in; absent on an older backend) */
+export const PublicSlotLabels = z.object({
+  label: z.enum(["both", "period", "time"]).catch("both"),
+  period_name: z.enum(["schedule", "ordinal"]).catch("schedule"),
+  time_format: z.enum(["range", "start"]).catch("range"),
+});
+export type PublicSlotLabels = z.infer<typeof PublicSlotLabels>;
+
+export const PublicRoomDay = z.object({ date: z.string(), room: PublicRoom, items: z.array(PublicItem).default([]), slot_display: PublicSlotLabels.optional() });
 export type PublicRoomDay = z.infer<typeof PublicRoomDay>;
 
 export const PublicBuildingDay = z.object({
   date: z.string(),
   building: z.object({ code: z.string(), name: z.string() }),
   rooms: z.array(PublicRoom.extend({ items: z.array(PublicItem).default([]) })).default([]),
+  slot_display: PublicSlotLabels.optional(),
 });
 export type PublicBuildingDay = z.infer<typeof PublicBuildingDay>;
 
