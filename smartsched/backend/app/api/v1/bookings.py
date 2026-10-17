@@ -34,6 +34,7 @@ from app.services import bookings_calendar as cal
 from app.services import bookings_export as export
 from app.services import bookings_notify  # noqa: F401  (registers the notification event handlers)
 from app.services import rooms_features as features
+from app.services import settings_service as runtime_settings
 from app.services.bookings_calendar import date_infos, fgcol, term_info
 from app.services.bookings_collation import tr_sort_key
 from app.services.bookings_perms import Access, effective_limits
@@ -282,7 +283,66 @@ async def context(db: DB, access: Acc) -> dict[str, Any]:
         "limits": await effective_limits(db, access.user),
         "active_bookings": await svc.active_booking_count(db, access.user_id),
         "remaining_bookings": await svc.remaining_bookings(db, access),
+        "slot_display": await slot_display(db),
     }
+
+
+# --- slot display (wave 3 W3-SLOT) ------------------------------------------------------------------------------
+
+SLOT_DISPLAY_PREFIX = "booking.slot_display."
+_SLOT_CHOICES: dict[str, tuple[str, ...]] = {
+    "unit": ("periods", "blocks"),
+    "label": ("both", "name", "time"),
+    "density": ("comfortable", "compact"),
+    "default_view": ("day", "room", "week"),
+}
+_BLOCK_MINUTES = (15, 30, 60)
+_MIN_LENGTH_MAX = 8
+
+
+def _clock(value: Any) -> str | None:
+    text = str(value or "").strip()
+    parts = text.split(":")
+    if len(parts) != 2 or not all(p.isdigit() for p in parts):
+        return None
+    h, m = int(parts[0]), int(parts[1])
+    return f"{h:02d}:{m:02d}" if 0 <= h <= 23 and 0 <= m <= 59 else None
+
+
+async def slot_display(db: DB) -> dict[str, Any]:
+    """The administrator's slot display, sanitised: PUT /settings stores ``extra`` as given, so a value a surface
+    cannot draw falls back to its default here (one read path for every booking surface)."""
+    raw = {
+        key[len(SLOT_DISPLAY_PREFIX) :]: await runtime_settings.get_value(db, key)
+        for key in runtime_settings.SPECS
+        if key.startswith(SLOT_DISPLAY_PREFIX)
+    }
+    out: dict[str, Any] = {}
+    for name, allowed in _SLOT_CHOICES.items():
+        value = str(raw.get(name) or "").strip().lower()
+        out[name] = value if value in allowed else runtime_settings.SPECS[SLOT_DISPLAY_PREFIX + name].default
+    block = raw.get("block_minutes")
+    out["block_minutes"] = block if block in _BLOCK_MINUTES else 30
+    start, end = _clock(raw.get("day_start")), _clock(raw.get("day_end"))
+    if start and end and start >= end:
+        start = end = None
+    out["day_start"], out["day_end"] = start, end
+    out["hide_weekend"] = bool(raw.get("hide_weekend"))
+    names: list[str] = []
+    for part in str(raw.get("hidden_periods") or "").split(","):
+        name = part.strip()[:40]
+        if name and name.casefold() not in {n.casefold() for n in names}:
+            names.append(name)  # matched case-insensitively by the surfaces
+    out["hidden_periods"] = names[:40]
+    length = raw.get("min_length")
+    out["min_length"] = max(1, min(_MIN_LENGTH_MAX, length)) if isinstance(length, int) else 1
+    return out
+
+
+@router.get("/slot-display")
+async def get_slot_display(db: DB, _: CurrentAccess) -> dict[str, Any]:
+    """Read-only for every signed-in user (no maintenance gate: it is display configuration)."""
+    return await slot_display(db)
 
 
 def _person(u: User) -> str:

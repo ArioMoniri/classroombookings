@@ -38,6 +38,26 @@ SPECS: dict[str, SettingSpec] = {
         # KVKK ai_personal (consent gates 2026-10-16; app.services.kvkk.ai_personal_default): "included" = only an
         # explicit withdrawal keeps a person out of AI requests, "excluded" = not granted is excluded
         SettingSpec("kvkk.ai_personal_default", default="included"),
+        # wave 3 W3-SLOT: how a slot is shown wherever bookings appear (grid, free slots, find-room, /reserve, kiosk).
+        # Written by ADMIN through PUT /settings ``extra``; read (sanitised) by everyone from GET /bookings/context
+        # ``slot_display`` and GET /bookings/slot-display (app/api/v1/bookings.py). unit: periods | blocks
+        SettingSpec("booking.slot_display.unit", default="periods"),
+        # blocks: 15 | 30 | 60 minutes, drawn onto the periods (bookings stay per period)
+        SettingSpec("booking.slot_display.block_minutes", default=30, kind="int"),
+        # name ("P3") | time ("10:30–11:20") | both
+        SettingSpec("booking.slot_display.label", default="both"),
+        # compact | comfortable
+        SettingSpec("booking.slot_display.density", default="comfortable"),
+        # day (all rooms, one day) | room (one room, its week) | week (free slots of the week)
+        SettingSpec("booking.slot_display.default_view", default="day"),
+        # visible window "HH:MM" (empty = the whole day): periods outside it are hidden (evening classes)
+        SettingSpec("booking.slot_display.day_start", default=""),
+        SettingSpec("booking.slot_display.day_end", default=""),
+        SettingSpec("booking.slot_display.hide_weekend", default=False, kind="bool"),
+        # comma-separated period names that are never shown ("P0, P18")
+        SettingSpec("booking.slot_display.hidden_periods", default=""),
+        # the shortest booking the simple surfaces offer, counted in the unit (periods or blocks), 1..8
+        SettingSpec("booking.slot_display.min_length", default=1, kind="int"),
     )
 }
 

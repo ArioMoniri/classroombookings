@@ -2449,7 +2449,8 @@
       "goal": "You are the **academician persona tester** for flow loop **round 3** (re-test) of SmartSched, ledger `flow-r3-academician-2026-10-17`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/ROUND3.md first, then ROUND2.md (the rules it inherits), then …",
       "ledger": "Round-3 re-test: academician",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 19:02"
     },
     {
       "id": "ab3505a8e2af92845",
@@ -2522,6 +2523,14 @@
       "ledger": "W3-DES: designer + UX specs",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a55daeba861258f8c",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 18:59",
+      "left_off": "start the pod now so I can log in"
     }
   ]
 }
