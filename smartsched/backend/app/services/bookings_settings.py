@@ -91,6 +91,8 @@ SMTP_SPECS: dict[str, Spec] = {
         Spec("oauth_refresh_token", default="", secret=True),
         Spec("reply_to", default=""),
         Spec("dkim_selector", default=""),  # the selector the provider console shows (DNS check)
+        # KVKK md. 9 acknowledgement for a provider abroad: {"by", "by_user_id", "at", "provider"} (W3-MAIL)
+        Spec("abroad_ack", "json", None),
     )
 }
 BOOKINGS_SPECS: dict[str, Spec] = {

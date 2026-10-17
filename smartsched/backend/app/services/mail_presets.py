@@ -4,9 +4,11 @@ Each preset fills host / port / TLS mode / sign-in method and lists, in Turkish 
 provider's console. ``spf_include`` and ``dkim_selectors`` drive the DNS check of the from-domain
 (:mod:`app.services.mail_dns`). Values were checked against the providers' public documentation in October 2026:
 
-* Microsoft 365: Basic authentication (username + password) for SMTP AUTH in Exchange Online is being retired
-  (Microsoft announced the rejection of Basic auth for SMTP AUTH from March 2026, completed by April 2026); the preset
-  is OAuth2 (XOAUTH2) with an app registration (client credentials, ``SMTP.SendAsApp``).
+* Microsoft 365: Exchange Online turns Basic authentication (username + password) for SMTP AUTH off by default
+  from December 2026 (message center MC786329; docs/design/v3/integrations.md §7.1); the preset is OAuth2 (XOAUTH2)
+  with an app registration (client credentials, ``SMTP.SendAsApp``).
+* ``abroad``: the provider's servers are outside Türkiye; saving it needs the KVKK md. 9 acknowledgement
+  (integrations.md §7.1), recorded with the administrator's name and the date (``smtp.abroad_ack``).
 * Google: an app password needs 2-Step Verification; OAuth2 (scope ``https://mail.google.com/``) works for
   Workspace and Gmail accounts.
 """
@@ -47,6 +49,8 @@ class Preset:
     notes_tr: str = ""
     notes_en: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
+    #: servers outside Türkiye: the KVKK md. 9 acknowledgement is required (integrations.md §7.1)
+    abroad: bool = False
 
     def out(self) -> dict[str, Any]:
         d = asdict(self)
@@ -179,12 +183,18 @@ PRESETS: tuple[Preset, ...] = (
                 "Paste the directory (tenant) ID, the application (client) ID and the secret here.",
             ),
         ),
-        notes_tr="Microsoft 365'te parola ile SMTP girişi (Basic auth) 2026'da kapatıldı; bu ön ayar OAuth2 kullanır.",
-        notes_en="Password sign-in for SMTP (Basic auth) was retired in Microsoft 365 in 2026; this preset uses "
-        "OAuth2.",
+        notes_tr=(
+            "Exchange Online, parola ile SMTP girişini (Basic auth) Aralık 2026'dan itibaren varsayılan olarak "
+            "kapatıyor (MC786329); bu ön ayar OAuth2 kullanır. Gönderen adresine 'Farklı gönder' izni gerekir."
+        ),
+        notes_en=(
+            "Exchange Online turns password SMTP (Basic auth) off by default from December 2026 (MC786329); this "
+            "preset uses OAuth2. The from-address needs 'Send As' permission."
+        ),
     ),
     Preset(
         id="amazon_ses",
+        abroad=True,
         label="Amazon SES",
         host="email-smtp.eu-central-1.amazonaws.com",
         port=587,
@@ -220,6 +230,7 @@ PRESETS: tuple[Preset, ...] = (
     ),
     Preset(
         id="sendgrid",
+        abroad=True,
         label="SendGrid (Twilio)",
         host="smtp.sendgrid.net",
         port=587,
@@ -252,6 +263,7 @@ PRESETS: tuple[Preset, ...] = (
     ),
     Preset(
         id="mailgun",
+        abroad=True,
         label="Mailgun",
         host="smtp.eu.mailgun.org",
         port=587,
@@ -280,6 +292,7 @@ PRESETS: tuple[Preset, ...] = (
     ),
     Preset(
         id="postmark",
+        abroad=True,
         label="Postmark",
         host="smtp.postmarkapp.com",
         port=587,
@@ -307,6 +320,7 @@ PRESETS: tuple[Preset, ...] = (
     ),
     Preset(
         id="brevo",
+        abroad=True,
         label="Brevo (Sendinblue)",
         host="smtp-relay.brevo.com",
         port=587,
@@ -351,6 +365,62 @@ PRESETS: tuple[Preset, ...] = (
                 "Yandex 360 admin > Domains: add the DKIM record to DNS.",
             ),
         ),
+    ),
+    Preset(
+        id="resend",
+        label="Resend",
+        abroad=True,
+        host="smtp.resend.com",
+        port=587,
+        security="starttls",
+        auth_mode="password",
+        username_hint_tr="Kullanıcı adı her zaman: resend",
+        username_hint_en="The username is always: resend",
+        password_label_tr="API anahtarı",
+        password_label_en="API key",
+        console_url="https://resend.com/api-keys",
+        spf_include=("amazonses.com",),
+        dkim_selectors=("resend",),
+        hosts=("smtp.resend.com",),
+        extra={"username": "resend"},
+        steps=(
+            S("API Keys > Create API Key: 'Sending access' izniyle.", "API Keys > Create API Key with 'Sending access'."),
+            S(
+                "Domains > Add Domain: verilen MX, SPF (send alt alanı) ve DKIM (resend._domainkey) kayıtlarını ekleyin.",
+                "Domains > Add Domain: add the MX, SPF (send subdomain) and DKIM (resend._domainkey) records.",
+            ),
+            S("Kullanıcı adı 'resend', parola API anahtarıdır.", "The username is 'resend', the password the API key.", "resend"),
+        ),
+    ),
+    Preset(
+        id="google_relay",
+        label="Google Workspace (SMTP aktarma hizmeti)",
+        host="smtp-relay.gmail.com",
+        port=587,
+        security="starttls",
+        auth_mode="none",
+        username_hint_tr="IP izin listesiyle boş bırakın; SMTP kimlik doğrulaması seçildiyse Workspace hesabı",
+        username_hint_en="Leave empty with an IP allow-list; a Workspace account if SMTP authentication is required",
+        console_url="https://admin.google.com/ac/apps/gmail/routing",
+        spf_include=("_spf.google.com",),
+        dkim_selectors=("google",),
+        steps=(
+            S(
+                "Yönetici Konsolu > Uygulamalar > Google Workspace > Gmail > Yönlendirme > SMTP aktarma hizmeti: "
+                "'SmartSched' adında bir kural ekleyin.",
+                "Admin console > Apps > Google Workspace > Gmail > Routing > SMTP relay service: add a rule "
+                "named 'SmartSched'.",
+                "SmartSched",
+            ),
+            S(
+                "İzin verilen gönderenler: 'Yalnızca alan adlarımdaki adresler'; kimlik doğrulama: sunucunun IP adresi "
+                "ya da SMTP kimlik doğrulaması; 'TLS şifrelemesi gerektir' açık.",
+                "Allowed senders: 'Only addresses in my domains'; authentication: the server's IP address or SMTP "
+                "authentication; 'Require TLS encryption' on.",
+            ),
+        ),
+        notes_tr="Uygulama parolası, 2 adımlı doğrulaması açık hesapta üretilir; hesap parolası asla kullanılmaz.",
+        notes_en="An app password is created on an account with 2-Step Verification; never the account password.",
     ),
     Preset(
         id="custom",

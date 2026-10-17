@@ -213,7 +213,7 @@ TR: dict[str, str] = {
     "booking_cancelled.body": "{actor} {count} rezervasyonunuzu iptal etti:\n{items}{reason}\n",
     "booking_cancelled.reason": "\nGerekçe: {reason}",
     "booking_cancelled.reason.replaced_by_series": "Seri #{id} ile değiştirildi",
-    "booking_cancelled.reason.undo_of": "Geri alma (#{id})",
+    "booking_cancelled.reason.undo_of": "Geri alma: #{id}",  # = the UI (cancel-reason.ts)
     "booking_cancelled.status": "İptal edildi",
     "booking_cancelled.heading": "Rezervasyonunuz iptal edildi",
     "booking_cancelled.preheader": "{actor} iptal etti.",
@@ -551,7 +551,7 @@ EN: dict[str, str] = {
     "booking_cancelled.body": "{actor} cancelled {count} of your bookings:\n{items}{reason}\n",
     "booking_cancelled.reason": "\nReason: {reason}",
     "booking_cancelled.reason.replaced_by_series": "Replaced by series #{id}",
-    "booking_cancelled.reason.undo_of": "Undo (#{id})",
+    "booking_cancelled.reason.undo_of": "Undo of #{id}",
     "booking_cancelled.status": "Cancelled",
     "booking_cancelled.heading": "Your booking was cancelled",
     "booking_cancelled.preheader": "{actor} cancelled it.",

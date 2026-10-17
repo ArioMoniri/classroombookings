@@ -137,12 +137,14 @@ def items(rows: list[str]) -> str:
 def callout(kind: str, tone: str, label: str, body: str) -> str:
     fg, bg = tone_colours(tone)
     return (
-        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px "
-            "0;">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        'style="margin:0 0 24px 0;">'
         f'<tr><td data-block="{kind}" class="em-{tone} em-{tone}-bar" style="padding:14px 16px;background-color:{bg};'
-        f'border-left:4px solid {fg};border-radius:8px;font-family:{FONT};font-size:15px;line-height:22px;color:{L["t1"]};">'
+        f"border-left:4px solid {fg};border-radius:8px;font-family:{FONT};font-size:15px;line-height:22px;"
+        f'color:{L["t1"]};">'
         f'<strong class="em-{tone}-fg" style="display:block;color:{fg};font-size:15px;line-height:22px;'
-        f'font-weight:600;">{label}</strong><span class="em-t1" style="color:{L["t1"]};">{body}</span></td></tr></table>'
+        f'font-weight:600;">{label}</strong><span class="em-t1" style="color:{L["t1"]};'
+        f'">{body}</span></td></tr></table>'
     )
 
 
@@ -156,9 +158,10 @@ def chips(rows: list[str]) -> str:
 
 def code_box(label: str, code: str, spelled: str) -> str:
     return (
-        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px "
-            "0;">'
-        f'<tr><td data-block="code" class="em-detail em-t3" align="center" style="padding:16px;background-color:{L["detail"]};'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        'style="margin:0 0 24px 0;">'
+        '<tr><td data-block="code" class="em-detail em-t3" align="center" style="padding:16px;'
+        f"background-color:{L['detail']};"
         f'border-radius:12px;font-family:{FONT};color:{L["t3"]};font-size:13px;line-height:18px;">{label}<br>'
         f'<span class="em-t1" aria-label="{spelled}" style="display:inline-block;margin-top:6px;font-family:{MONO};'
         f'font-size:24px;line-height:32px;font-weight:600;letter-spacing:2px;color:{L["t1"]};word-break:break-all;">'
@@ -189,7 +192,8 @@ def button(url: str, label: str, plain_label_len: int) -> str:
     width = max(240, int(9.5 * plain_label_len + 56))
     b, bt = L["button"], L["button_text"]
     return (
-        '<table role="presentation" border="0" cellspacing="0" cellpadding="0" class="em-btn-wrap" style="margin:0 0 24px 0;">'
+        '<table role="presentation" border="0" cellspacing="0" cellpadding="0" class="em-btn-wrap" style="margin:0 0'
+        ' 24px 0;">'
         f'<tr><td align="center" bgcolor="{b}" class="em-btn" style="border-radius:12px;background-color:{b};">'
         "<!--[if mso]>"
         f'<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" '
@@ -198,7 +202,8 @@ def button(url: str, label: str, plain_label_len: int) -> str:
         f'font-size:16px;font-weight:600;">{label}</center></v:roundrect>'
         "<![endif]-->"
         "<!--[if !mso]><!-->"
-        f'<a href="{url}" class="em-btn-a" target="_blank" style="display:inline-block;padding:14px 28px;min-width:184px;'
+        f'<a href="{url}" class="em-btn-a" target="_blank" style="display:inline-block;padding:14px 28px;'
+        "min-width:184px;"
         f"border:1px solid {b};border-radius:12px;font-family:{FONT};font-size:16px;line-height:20px;font-weight:600;"
         f'color:{bt};text-decoration:none;text-align:center;mso-hide:all;">{label}</a>'
         "<!--<![endif]-->"
@@ -257,19 +262,22 @@ def page(p: Page) -> str:
         f'mso-hide:all;font-size:1px;line-height:1px;color:{L["canvas"]};">{p.preheader}{pre_pad}</div>'
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="em-canvas" '
         f'style="background-color:{L["canvas"]};"><tr><td align="center" class="em-outer" style="padding:24px 12px;">'
-        '<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->'
+        '<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0"'
+        ' border="0"><tr><td><![endif]-->'
         f'<table role="article" aria-roledescription="{p.article_label}" aria-label="{p.title}" width="600" '
         'cellpadding="0" cellspacing="0" border="0" class="em-wrap" style="width:100%;max-width:600px;">'
-        f'<tr><td class="em-card em-pad" style="background-color:{L["card"]};border-radius:16px;padding:0 40px 32px "
-            "40px;">'
+        f'<tr><td class="em-card em-pad" style="background-color:{L["card"]};border-radius:16px;padding:0 40px 32px'
+        ' 40px;">'
         # header: tile + "SmartSched" (live text) left, the organisation right; 1 px line under
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="em-line" '
         f'style="border-bottom:1px solid {L["line"]};margin:0 0 24px 0;"><tr>'
         f'<td style="padding:20px 0;vertical-align:middle;width:38px;"><img src="{p.logo_src}" width="28" height="28" '
         'alt="" style="display:block;width:28px;height:28px;border:0;border-radius:7px;"></td>'
-        f'<td class="em-t1" style="padding:20px 0;vertical-align:middle;font-family:{FONT};font-size:16px;line-height:20px;'
+        f'<td class="em-t1" style="padding:20px 0;vertical-align:middle;font-family:{FONT};font-size:16px;'
+        "line-height:20px;"
         f'font-weight:600;color:{L["t1"]};">SmartSched</td>'
-        f'<td class="em-t3" align="right" style="padding:20px 0;vertical-align:middle;font-family:{FONT};font-size:13px;'
+        f'<td class="em-t3" align="right" style="padding:20px 0;vertical-align:middle;font-family:{FONT};'
+        "font-size:13px;"
         f'line-height:18px;font-weight:500;color:{L["t3"]};">{p.org}</td>'
         "</tr></table>"
         f"{pill}"
@@ -278,7 +286,8 @@ def page(p: Page) -> str:
         f'<div style="height:8px;line-height:8px;font-size:8px;">&#8202;</div>'
         f"{''.join(p.blocks)}"
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="em-line" '
-        f'style="border-top:1px solid {L["line"]};margin:8px 0 0 0;"><tr><td style="padding-top:16px;">{footer}</td></tr></table>'
+        f'style="border-top:1px solid {L["line"]};margin:8px 0 0 0;"><tr><td style="padding-top:16px;'
+        f'">{footer}</td></tr></table>'
         "</td></tr></table>"
         "<!--[if mso]></td></tr></table><![endif]-->"
         "</td></tr></table>"

@@ -91,7 +91,7 @@ export function SetupSheet({ open, cardKey, card, tab, loading, canEdit, busy, o
           <SheetDescription>{t("integrations.sheet.lead")}</SheetDescription>
           {card?.toggle && canEdit ? (
             <label className="flex items-center justify-between gap-3 rounded-xl bg-fill-2 px-3 py-1 type-callout text-label-1 pointer-coarse:min-h-11" data-testid="setup-inuse">
-              <span>{t("integrations.card.inUse")}</span>
+              <span aria-hidden>{t("integrations.card.inUse")}</span>
               <Switch checked={switchState(card).checked} disabled={busy} onCheckedChange={(next) => onSwitch(card, next)} aria-label={t("integrations.card.switchLabel", { name: cardName(card, locale) })} />
             </label>
           ) : null}

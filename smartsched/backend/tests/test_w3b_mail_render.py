@@ -277,7 +277,7 @@ def test_variants_pick_their_sentences() -> None:
     plain = render("approval_submitted", "tr", **sample_context("approval_submitted", "tr"))
     assert "tutulur" not in plain.text and "onaylanan talep dersliği alır" in plain.text
     undo = render("booking_cancelled", "en", **{**sample_context("booking_cancelled", "en"), "reason": "undo_of:41"})
-    assert "Undo (#41)" in undo.text and undo.preheader == "An action was undone."
+    assert "Undo of #41" in undo.text and undo.preheader == "An action was undone."
     words = render(
         "booking_cancelled", "tr", **{**sample_context("booking_cancelled", "tr"), "reason": "Bölüm toplantısı"}
     )

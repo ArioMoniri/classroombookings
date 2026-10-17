@@ -140,7 +140,7 @@ def spelled(code: str) -> str:
 _REASON = re.compile(r"^(?:Gerekçe|Reason)\s*:\s*(.+)$")
 _SUGGEST = re.compile(
     r"^(?:Önerilen derslikler|Suggested rooms|Aynı saatte boş derslikler|Rooms free at the same "
-    "time)\b[^:]*:\s*(.+?)\.?$"
+    r"time)\b[^:]*:\s*(.+?)\.?$"
 )
 _ITEM = re.compile(r"^\s*[-•]\s+(.+)$")
 

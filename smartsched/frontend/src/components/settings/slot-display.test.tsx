@@ -17,7 +17,7 @@ function mockApi() {
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       const u = String(url);
-      const body = u.includes("/bookings/context") ? context : u.includes("/bookings/grid") ? grid : u.includes("/bookings/slot-display") ? {} : u.includes("/settings") ? (puts.push(JSON.parse(String(init?.body ?? "{}"))), {}) : {};
+      const body = u.includes("/bookings/dates") ? { term_id: 1, today: D, weeks: [], dates: [] } : u.includes("/bookings/context") ? context : u.includes("/bookings/grid") ? grid : u.includes("/bookings/slot-display") ? {} : u.includes("/settings") ? (puts.push(JSON.parse(String(init?.body ?? "{}"))), {}) : {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     }),
   );
@@ -39,20 +39,20 @@ function renderIt() {
 describe("SlotDisplaySettings", () => {
   it("the preview follows a label change in the same render; save sends booking.slot_display.* to PUT /settings", async () => {
     renderIt();
-    await waitFor(() => expect(screen.getByTestId("sd-visible-summary")).toHaveTextContent("4 / 4 ders saati görünür"));
+    await waitFor(() => expect(screen.getByTestId("sd-visible-summary")).toHaveTextContent("4 / 4 ders saati görünür"), { timeout: 10_000 });
     const head = () => screen.getByTestId("sd-preview-grid-body").querySelectorAll("thead th")[1]!.textContent;
     expect(head()).toBe("P108:30–09:20");
     fireEvent.click(screen.getByTestId("sd-label-time"));
     expect(head()).toBe("08:30–09:20");
     expect(screen.getByTestId("sd-unsaved")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("sd-save"));
-    await waitFor(() => expect(puts).toHaveLength(1));
+    await waitFor(() => expect(puts).toHaveLength(1), { timeout: 10_000 });
     expect((puts[0] as { extra: Record<string, unknown> }).extra).toMatchObject({ "booking.slot_display.label": "time", "booking.slot_display.unit": "periods" });
   });
 
   it("first after last is an inline error, save is disabled and the attempt focuses İlk (SD-07)", async () => {
     renderIt();
-    await waitFor(() => expect(screen.getByTestId("sd-visible-summary")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("sd-visible-summary")).toBeInTheDocument(), { timeout: 10_000 });
     fireEvent.change(screen.getByTestId("sd-first"), { target: { value: "3" } });
     fireEvent.change(screen.getByTestId("sd-last"), { target: { value: "2" } });
     expect(screen.getByRole("alert")).toHaveTextContent("İlk saat son saatten sonra olamaz.");

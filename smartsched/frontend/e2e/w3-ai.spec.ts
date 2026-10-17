@@ -136,7 +136,7 @@ test("1. admin desktop: stub provider synced, tested, routed; metered call, refu
   await expect(card.getByTestId("ai-provider-status-openai_compatible")).toContainText("Bağlı");
   expect(calls.some((c) => c.path.endsWith("/models"))).toBeTruthy();
   // no key, no transfer record needed: the stub is a local server
-  await expect(card.getByText("Yerel sunucu")).toBeVisible();
+  await expect(card.getByText("Yerel sunucu: veri kurum dışına çıkmaz")).toBeVisible();
 
   await page.getByTestId("ai-tab-models").click();
   await page.getByTestId("ai-route-provider-rules").selectOption("openai_compatible");

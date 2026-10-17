@@ -332,6 +332,19 @@ BASE_STRINGS: dict[str, dict[str, dict[str, str]]] = {
 }
 
 
+# wave 3b W3-MAIL: the themed e-mails' copy (app/emails/strings.py) joins set "email", so GET /org/i18n, the
+# translations admin and the e-mail template screen edit one set of keys; the CRBS keys above keep their texts.
+def _merge_email_copy() -> None:
+    from app.emails.strings import SHIPPED
+
+    for lang, copy in SHIPPED.items():
+        own = BASE_STRINGS.setdefault(lang, {}).setdefault("email", {})
+        BASE_STRINGS[lang]["email"] = {**copy, **own}
+
+
+_merge_email_copy()
+
+
 async def overrides(session: AsyncSession, language: str) -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
     q = select(Translation).where(Translation.language == language).order_by(Translation.set, Translation.key)
