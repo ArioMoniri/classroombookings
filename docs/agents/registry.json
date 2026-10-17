@@ -2913,6 +2913,18 @@
       "ledger": "WG-B: welcome guide backend",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a11216155165962e6",
+      "description": "AS-B: adaptive scheduling backend",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 23:01",
+      "scope": "",
+      "goal": "You are lane AS-B (adaptive scheduling backend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-fi…",
+      "ledger": "AS-B: adaptive scheduling backend",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

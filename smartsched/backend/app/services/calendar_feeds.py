@@ -70,17 +70,23 @@ async def sync_enabled(session: AsyncSession) -> bool:
     return bool(await get_value(session, "integrations", "calendar_sync_enabled"))
 
 
-async def sync_enabled_one_query(session: AsyncSession) -> bool:
-    """:func:`sync_enabled` in one query (the switch and its KVKK sign-off together): the CAL-05 304 path."""
+async def feed_switches(session: AsyncSession) -> dict[str, bool]:
+    """In one query (the CAL-05 304 path): ``enabled`` (the KVKK switch with its sign-off, :func:`sync_enabled`) and
+    the admin's switch per export scope (``my_classes`` / ``department_classes`` / ``my_bookings``)."""
     from app.models import Setting
     from app.services import bookings_settings as bs
 
     group, key, signoff = bs.SIGNOFF_GATED
-    names = (f"{group}.{key}", f"{group}.{signoff}")
+    switch_keys = {"my_classes": "export_my_classes", "department_classes": "export_department_classes",
+                   "my_bookings": "export_my_bookings"}  # fmt: skip
+    names = [f"{group}.{key}", f"{group}.{signoff}", *(f"{group}.{k}" for k in switch_keys.values())]
     rows = {r.key: r.value for r in (await session.execute(select(Setting).where(Setting.key.in_(names)))).scalars()}
     specs = bs.GROUPS[group]
     on = bs._decode(specs[key], rows.get(names[0]))
-    return bool(on) and bs.kvkk_signed(bs._decode(specs[signoff], rows.get(names[1])))
+    out = {"enabled": bool(on) and bs.kvkk_signed(bs._decode(specs[signoff], rows.get(names[1])))}
+    for kind, k in switch_keys.items():
+        out[kind] = bool(bs._decode(specs[k], rows.get(f"{group}.{k}")))
+    return out
 
 
 def clean_public_url(value: Any) -> str:

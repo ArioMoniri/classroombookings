@@ -189,14 +189,15 @@ async def serve_feed(request: Request, db: DB, token: str, kind: str, scope_id: 
     key = feeds.hash_token(token or "")
     if throttle.FEED_PER_TOKEN.hit(key):
         raise _too_many(key, throttle.FEED_PER_TOKEN)
-    if not await feeds.sync_enabled_one_query(db):
+    switches = await feeds.feed_switches(db)
+    if not switches["enabled"]:
         raise _not_found()
     try:
         row, user = await feeds.resolve_token_row(db, token)
     except feeds.FeedNotFound as exc:
         raise _not_found() from exc
-    if not feeds.token_serves(row, kind, scope_id):
-        raise _not_found()
+    if not feeds.token_serves(row, kind, scope_id) or not switches.get(row.scope_kind or "", True):
+        raise _not_found()  # another scope's path, or a scope the administrator switched off
     newest = (await db.execute(select(func.max(AuditEvent.id)))).scalar_one_or_none()
     day = datetime.now(UTC).astimezone(ZoneInfo("Europe/Istanbul")).date()
     version = hashlib.sha256(f"v1|{row.id}|{kind}|{scope_id}|{newest}|{day}".encode()).hexdigest()
