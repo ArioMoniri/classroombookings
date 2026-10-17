@@ -132,8 +132,10 @@ test.describe("doors and branding", () => {
     await open(page, "/login");
     const hints = page.getByTestId("signin-hints");
     await expect(hints).toContainText("iş veya okul hesab");
-    const role = (await admin.get<{ auth: { self_signup_role_name: string } }>("/auth/sso/providers")).auth.self_signup_role_name;
-    await expect(hints).toContainText(role);
+    // T-R1-30: the hint prints the localised role label ("Öğretim elemanı"), not the stored role name ("Teacher")
+    const auth = (await admin.get<{ auth: { self_signup_role_name: string; self_signup_role_label?: { tr?: string; en?: string } } }>("/auth/sso/providers")).auth;
+    await expect(hints).toContainText(auth.self_signup_role_label?.tr ?? auth.self_signup_role_name);
+    await expect(hints).not.toContainText(/\bTeacher\b/);
     expect(await page.locator("body").innerText()).not.toMatch(/Azure|Active Directory|Entra|Office 365/);
     await open(page, "/login", "en");
     await expect(page.getByTestId("signin-hints")).toContainText("work or school account");
