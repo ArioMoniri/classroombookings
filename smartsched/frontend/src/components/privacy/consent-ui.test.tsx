@@ -62,7 +62,7 @@ vi.mock("@/lib/api/client", async (orig) => {
 import { CalendarSyncPanel } from "@/components/bookings/calendar-sync";
 import { AiDefaultEditor } from "@/components/kvkk/ai-default";
 import { DsrQueue } from "@/components/kvkk/dsr-queue";
-import { erasureCalendars, erasureFailures } from "@/lib/api/kvkk";
+import { aiDefaultOf, erasureCalendars, erasureFailures } from "@/lib/api/kvkk";
 import { consentRefusal, needsCalendarConsent } from "./calendar-consent";
 import { aiConsentText, PrivacySection } from "./privacy-section";
 import { HttpError } from "@/lib/api/client";
@@ -214,15 +214,31 @@ describe("Gizlilik: the AI consent text", () => {
     expect(screen.getByTestId("consent-ai-text")).toHaveTextContent("Bu rızayı vermediğiniz ve kurumunuz bunu hayır saydığı için dışarıdasınız");
   });
 
-  it("an older backend without the fields reads as included unless withdrawn", async () => {
+  it("an older backend without the fields reads as excluded unless given (owner decision 2026-10-17)", async () => {
     api.privacy = { notice: null, needs_ack: false, consents: [ai(true)], requests: [], due_days: 30 };
     renderIt(<PrivacySection />);
     expect(await screen.findByTestId("consent-ai-state")).toHaveTextContent("Now: your name and e-mail can go into AI requests");
-    expect(screen.getByTestId("consent-ai-text")).toHaveTextContent("includes everyone in AI assistant requests unless they withdraw");
+    expect(screen.getByTestId("consent-ai-text")).toHaveTextContent("You are included because you gave this consent");
+  });
+
+  it("'Verilmedi' sits next to the kept-out text, never next to 'adınız … girebilir' (R1-A-24)", async () => {
+    api.privacy = { notice: null, needs_ack: false, consents: [ai(false)], requests: [], due_days: 30, ai_personal_default: "excluded", ai_excluded: true };
+    renderIt(<PrivacySection />, "tr");
+    const row = await screen.findByTestId("consent-ai_personal");
+    expect(row).toHaveTextContent("Verilmedi");
+    expect(row).not.toHaveTextContent("girebilir");
+    expect(within(row).getByTestId("consent-ai-text")).toHaveTextContent("Rızayı verirseniz dahil olursunuz");
   });
 });
 
 describe("Admin › KVKK: kvkk.ai_personal_default", () => {
+  it("reads a deployment without a stored value as excluded, the default (owner decision 2026-10-17)", () => {
+    expect(aiDefaultOf({})).toBe("excluded");
+    expect(aiDefaultOf(null)).toBe("excluded");
+    expect(aiDefaultOf({ "kvkk.ai_personal_default": "belki" })).toBe("excluded");
+    expect(aiDefaultOf({ "kvkk.ai_personal_default": "included" })).toBe("included");
+  });
+
   it("reads the stored value, explains both options and saves the other one through PUT /settings extra", async () => {
     const user = userEvent.setup();
     renderIt(<AiDefaultEditor />);

@@ -167,7 +167,8 @@ window.draw = async (S) => {
   for (const A of Object.values(anims)) if (!A.holder.dataset.used) A.holder.style.display = "none";
   if (S.preload) for (const s of S.preload) image(s);
   await Promise.all(waits);
-  await new Promise((r) => requestAnimationFrame(() => r()));
+  // no requestAnimationFrame here: a page that is not the focused tab gets no animation frames (several render
+  // workers share one browser); the screenshot itself forces the paint
   return true;
 };
 </script>

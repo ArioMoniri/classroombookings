@@ -36,8 +36,43 @@ log = logging.getLogger(__name__)
 TZ = ZoneInfo("Europe/Istanbul")
 ALERT_EVENT = "ai.usage_alert"
 
-# the alert event is one more row in the dispatcher's preferences matrix (admins can switch the e-mail off)
-nd.EVENTS.setdefault(ALERT_EVENT, ("Yapay zekâ kullanım uyarıları", "AI usage alerts"))
+ALERT_LABEL = ("Yapay zekâ kullanım uyarıları", "AI usage alerts")
+
+
+async def _deliver(session: AsyncSession, user: User, notice: nd.Notice) -> bool:
+    """The dispatcher's built-in channels (in-app bell + e-mail outbox) with its at-most-once ledger
+    (``notification_deliveries``). ``ai.usage_alert`` is not one of the switchable events of
+    :data:`app.services.notify_dispatch.EVENTS` (that registry is owned elsewhere), so the preferences do not apply:
+    administrators always get budget alerts."""
+    from app.models import NotificationDelivery
+
+    sent = False
+    for adapter in nd.channels():
+        if adapter.name not in {"in_app", "email"}:
+            continue
+        q = select(NotificationDelivery.id).where(
+            NotificationDelivery.event_key == notice.key[:160],
+            NotificationDelivery.user_id == user.id,
+            NotificationDelivery.channel == adapter.name,
+        )
+        if (await session.execute(q)).first() is not None:
+            continue
+        if not await adapter.available_for(session, user):
+            continue
+        ledger = NotificationDelivery(
+            event=notice.event, event_key=notice.key[:160], user_id=user.id, channel=adapter.name, status="sent"
+        )
+        session.add(ledger)
+        await session.flush()
+        try:
+            result = await adapter.send(session, user, notice)
+        except Exception as exc:  # noqa: BLE001 - a broken channel never breaks the call that triggered the alert
+            log.exception("ai alert channel %s failed", adapter.name)
+            result = nd.Delivery(adapter.name, "failed", detail=f"{type(exc).__name__}"[:255])
+        ledger.status, ledger.ref_id, ledger.detail = result.status, result.ref_id, result.detail
+        sent = sent or result.status == "sent"
+    await session.flush()
+    return sent
 
 
 # ---------------------------------------------------------------------------------------------- periods
@@ -418,19 +453,15 @@ async def check_alerts(user_id: int | None, now: datetime | None = None) -> list
             for scope, level, pct, who, key in due:
                 for r in recipients:
                     title, body = _alert_texts(scope, level, pct, who, r.language or "tr")
-                    out = await nd.dispatch(
-                        s,
-                        r,
-                        nd.Notice(
-                            event=ALERT_EVENT,
-                            key=key,
-                            title=title,
-                            body=body,
-                            link="/admin/ai?tab=usage",
-                            data={"scope": scope, "level": level, "pct": pct},
-                        ),
+                    notice = nd.Notice(
+                        event=ALERT_EVENT,
+                        key=key,
+                        title=title,
+                        body=body,
+                        link="/admin/ai?tab=usage",
+                        data={"scope": scope, "level": level, "pct": pct},
                     )
-                    if any(d.status == "sent" for d in out):
+                    if await _deliver(s, r, notice):
                         sent.append(key)
             await s.commit()
     except Exception:  # noqa: BLE001 - an alert must never break the call that triggered it

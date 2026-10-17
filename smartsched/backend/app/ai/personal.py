@@ -12,9 +12,10 @@ for that purpose has ``withdrawn_at``) is kept out of every request SmartSched s
   or tool input is mapped back to the person's name on the server, so a rule about that person still resolves.
 
 What a never-given consent means is the setting ``kvkk.ai_personal_default`` (consent gates 2026-10-16; admin, ``PUT
-/settings`` ``extra``): ``included`` (default) -- never-granted is not withdrawn, the institution's AI sign-off
-(``app/ai/policy.py``) is the basis until the person withdraws; ``excluded`` -- "not granted = excluded", every account
-without an active grant is kept out, so only people who granted ``ai_personal`` are sent by name.
+/settings`` ``extra``): ``excluded`` (default, owner decision 2026-10-17 R1-M-07) -- "not granted = excluded", every
+account without an active grant is kept out, so only people who granted ``ai_personal`` are sent by name; ``included``
+(an admin's choice) -- never-granted is not withdrawn, the institution's AI sign-off (``app/ai/policy.py``) is the
+basis until the person withdraws.
 
 Images and scanned PDFs sent as binary blocks cannot be redacted (vision is off by default).
 Streamed text deltas show the token; the final message carries the name.

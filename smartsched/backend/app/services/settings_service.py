@@ -35,9 +35,10 @@ SPECS: dict[str, SettingSpec] = {
         SettingSpec("timezone", default="Europe/Istanbul"),
         # review D16: hosts a live CRBS MySQL DSN may name (app/services/crbs_dsn.py); empty = none
         SettingSpec("crbs_dsn_allowed_hosts", default=""),
-        # KVKK ai_personal (consent gates 2026-10-16; app.services.kvkk.ai_personal_default): "included" = only an
-        # explicit withdrawal keeps a person out of AI requests, "excluded" = not granted is excluded
-        SettingSpec("kvkk.ai_personal_default", default="included"),
+        # KVKK ai_personal (consent gates 2026-10-16; app.services.kvkk.ai_personal_default): "excluded" (default,
+        # owner decision 2026-10-17 R1-M-07: silence is not consent) = not granted is excluded, "included" = only an
+        # explicit withdrawal keeps a person out of AI requests (an admin's choice in Admin > KVKK)
+        SettingSpec("kvkk.ai_personal_default", default="excluded"),
         # wave 3 W3-SLOT (docs/design/v3/slot-display.md §3): how a slot is shown wherever bookings appear (grid,
         # free slots, /reserve, find-room, kiosk). Written by ADMIN through PUT /settings ``extra``; read (sanitised)
         # by every signed-in user: GET /bookings/context ``slot_display``, GET /bookings/slot-display (bookings.py).

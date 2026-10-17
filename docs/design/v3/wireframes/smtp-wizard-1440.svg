@@ -1,0 +1,134 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='1000' viewBox='0 0 1440 1000' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='SMTP ön ayar sihirbazı, 1440'>
+<title>SMTP ön ayar sihirbazı, 1440</title>
+<rect width='1440' height='1000' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='976' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='976' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='40' y='101' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Panel</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Takvim</text>
+<text x='40' y='173' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezerve et</text>
+<text x='32' y='210' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>YÖNETİM</text>
+<text x='40' y='245' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Kullanıcılar</text>
+<rect x='24' y='260' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='281' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Entegrasyonlar</text>
+<text x='40' y='317' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Yapay zekâ</text>
+<text x='40' y='353' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Operasyon</text>
+<text x='40' y='389' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Ayarlar</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Entegrasyonlar</text>
+<rect x='244' y='0' width='1196' height='1000' rx='0' fill='#0F172A' fill-opacity='0.28'/>
+<rect x='700' y='12' width='728' height='976' rx='18' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='724' y='32' width='44' height='44' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='746.0' y='59.0' font-size='11' font-weight='700' fill='#0F172A' text-anchor='middle'>SMTP</text>
+<text x='780' y='52' font-size='20' font-weight='700' fill='#0F172A' text-anchor='start'>E-posta (SMTP)</text>
+<text x='780' y='72' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Son değişiklik: —  · Yapılandırılmadı</text>
+<rect x='724' y='100' width='104' height='4' rx='2' fill='#2563EB' fill-opacity='1'/>
+<text x='724' y='124' font-size='12' font-weight='600' fill='#2563EB' text-anchor='start'>1. Sağlayıcı</text>
+<rect x='836' y='100' width='104' height='4' rx='2' fill='#E2E8F0' fill-opacity='1'/>
+<text x='836' y='124' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>2. Bağlantı</text>
+<rect x='948' y='100' width='104' height='4' rx='2' fill='#E2E8F0' fill-opacity='1'/>
+<text x='948' y='124' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>3. Gönderen</text>
+<rect x='1060' y='100' width='104' height='4' rx='2' fill='#E2E8F0' fill-opacity='1'/>
+<text x='1060' y='124' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>4. Alan adı</text>
+<rect x='1172' y='100' width='104' height='4' rx='2' fill='#E2E8F0' fill-opacity='1'/>
+<text x='1172' y='124' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>5. Deneme</text>
+<rect x='1284' y='100' width='104' height='4' rx='2' fill='#E2E8F0' fill-opacity='1'/>
+<text x='1284' y='124' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>6. Etkinleştir</text>
+<text x='724' y='164' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>1. E-postayı hangi hizmet gönderecek?</text>
+<rect x='724' y='184' width='216' height='80' rx='12' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<rect x='736' y='204' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='756.0' y='229.0' font-size='11' font-weight='700' fill='#0F172A' text-anchor='middle'>M365</text>
+<text x='786' y='220' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Microsoft 365</text>
+<text x='786' y='240' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>smtp.office365.com · 587</text>
+<rect x='952' y='184' width='216' height='80' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='964' y='204' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='984.0' y='229.0' font-size='13' font-weight='700' fill='#0F172A' text-anchor='middle'>G</text>
+<text x='1014' y='220' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Google Workspace</text>
+<text x='1014' y='240' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>smtp-relay.gmail.com · 587</text>
+<rect x='1180' y='184' width='216' height='80' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1192' y='204' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1212.0' y='229.0' font-size='13' font-weight='700' fill='#0F172A' text-anchor='middle'>Y</text>
+<text x='1242' y='220' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Yandex 360</text>
+<text x='1242' y='240' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>smtp.yandex.com · 465</text>
+<rect x='724' y='276' width='216' height='80' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='736' y='296' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='756.0' y='321.0' font-size='11' font-weight='700' fill='#0F172A' text-anchor='middle'>KUR</text>
+<text x='786' y='312' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Kurum SMTP sunucusu</text>
+<text x='786' y='332' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>kendi sunucunuz</text>
+<rect x='952' y='276' width='216' height='80' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='964' y='296' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='984.0' y='321.0' font-size='11' font-weight='700' fill='#0F172A' text-anchor='middle'>SES</text>
+<text x='1014' y='312' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Amazon SES</text>
+<text x='1014' y='332' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>e-posta hizmeti · yurt dışı</text>
+<rect x='1180' y='276' width='216' height='80' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1192' y='296' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1212.0' y='321.0' font-size='13' font-weight='700' fill='#0F172A' text-anchor='middle'>PM</text>
+<text x='1242' y='312' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Postmark</text>
+<text x='1242' y='332' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>e-posta hizmeti · yurt dışı</text>
+<rect x='724' y='368' width='216' height='80' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='736' y='388' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='756.0' y='413.0' font-size='13' font-weight='700' fill='#0F172A' text-anchor='middle'>RS</text>
+<text x='786' y='404' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Resend</text>
+<text x='786' y='424' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>e-posta hizmeti · yurt dışı</text>
+<rect x='952' y='368' width='216' height='80' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='964' y='388' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='984.0' y='413.0' font-size='13' font-weight='700' fill='#0F172A' text-anchor='middle'>BR</text>
+<text x='1014' y='404' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Brevo</text>
+<text x='1014' y='424' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>e-posta hizmeti · yurt dışı</text>
+<rect x='1180' y='368' width='216' height='80' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1192' y='388' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1212.0' y='413.0' font-size='13' font-weight='700' fill='#0F172A' text-anchor='middle'>…</text>
+<text x='1242' y='404' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Özel</text>
+<text x='1242' y='424' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>elle girin</text>
+<rect x='724' y='470' width='680' height='116' rx='12' fill='#FEF3C7' fill-opacity='1'/>
+<text x='740' y='496' font-size='14' font-weight='700' fill='#B45309' text-anchor='start'>Microsoft 365: kimlik doğrulama yöntemi</text>
+<text x='740' y='520' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Önerilen: OAuth 2.0 (Microsoft ile bağlan). Parola (temel kimlik doğrulama) Exchange Online'da</text>
+<text x='740' y='540' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Aralık 2026'dan itibaren varsayılan olarak kapalıdır; yalnızca yöneticiniz açık tuttuysa çalışır.</text>
+<text x='740' y='566' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Kaynak: Microsoft ileti merkezi MC786329 ↗</text>
+<text x='724' y='622' font-size='14' font-weight='600' fill='#475569' text-anchor='start'>Doğrulama</text>
+<rect x='724' y='632' width='178' height='36' rx='18.0' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='813.0' y='654.68' font-size='13' font-weight='600' fill='#2563EB' text-anchor='middle'>OAuth 2.0 (önerilen)</text>
+<rect x='920' y='632' width='201' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1020.5' y='654.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Kullanıcı adı ve parola</text>
+<text x='724' y='700' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Yurt dışı hizmet seçilince 3. adımda KVKK md. 9 onay kutusu çıkar (takvim eşitlemeyle aynı kalıp).</text>
+<text x='724' y='718' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Ön ayar host/port/güvenliği doldurur ve kilitler ('Değiştir' ile açılır).</text>
+<line x1='700' y1='900' x2='1428' y2='900' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='724' y='920' width='100' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='774.0' y='947.4' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Vazgeç</text>
+<rect x='1264' y='920' width='140' height='44' rx='22.0' fill='#2563EB' fill-opacity='1'/>
+<text x='1334.0' y='947.4' font-size='15' font-weight='600' fill='#FFFFFF' text-anchor='middle'>İleri</text>
+<rect x='276' y='120' width='400' height='520' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='152' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>5. Deneme (sonraki adımlardan)</text>
+<circle cx='306' cy='186' r='8' fill='#15803D'/>
+<text x='306' y='190' font-size='10' font-weight='700' fill='#FFFFFF' text-anchor='middle'>✓</text>
+<text x='322' y='190' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>smtp.office365.com:587 bağlantı</text>
+<circle cx='306' cy='218' r='8' fill='#15803D'/>
+<text x='306' y='222' font-size='10' font-weight='700' fill='#FFFFFF' text-anchor='middle'>✓</text>
+<text x='322' y='222' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>STARTTLS · TLS 1.3 · sertifika geçerli</text>
+<circle cx='306' cy='250' r='8' fill='#15803D'/>
+<text x='306' y='254' font-size='10' font-weight='700' fill='#FFFFFF' text-anchor='middle'>✓</text>
+<text x='322' y='254' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>OAuth belirteci alındı (SMTP.Send)</text>
+<circle cx='306' cy='282' r='8' fill='#15803D'/>
+<text x='306' y='286' font-size='10' font-weight='700' fill='#FFFFFF' text-anchor='middle'>✓</text>
+<text x='322' y='286' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>Gönderen izinli: plan@uni.edu.tr</text>
+<circle cx='306' cy='314' r='8' fill='#15803D'/>
+<text x='306' y='318' font-size='10' font-weight='700' fill='#FFFFFF' text-anchor='middle'>✓</text>
+<text x='322' y='318' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>SPF: uni.edu.tr kaydı Microsoft'u içeriyor</text>
+<circle cx='306' cy='346' r='8' fill='#B45309'/>
+<text x='306' y='350' font-size='10' font-weight='700' fill='#FFFFFF' text-anchor='middle'>!</text>
+<text x='322' y='350' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>DMARC kaydı yok (önerilir)</text>
+<circle cx='306' cy='378' r='8' fill='#15803D'/>
+<text x='306' y='382' font-size='10' font-weight='700' fill='#FFFFFF' text-anchor='middle'>✓</text>
+<text x='322' y='382' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>Deneme iletisi gönderildi → siz</text>
+<text x='296' y='430' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Deneme iletisi gelen kutunuza ulaştı mı?</text>
+<rect x='296' y='446' width='110' height='40' rx='20.0' fill='#2563EB' fill-opacity='1'/>
+<text x='351.0' y='471.04' font-size='14' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Evet, geldi</text>
+<rect x='416' y='446' width='220' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='526.0' y='471.04' font-size='14' font-weight='600' fill='#0F172A' text-anchor='middle'>Hayır / istenmeyende</text>
+<rect x='296' y='502' width='360' height='112' rx='12' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='312' y='528' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>6. Etkinleştir</text>
+<text x='312' y='552' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Gönderilmeyi bekleyen 37 bildirim var.</text>
+<rect x='312' y='566' width='132' height='32' rx='16.0' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='378.0' y='586.32' font-size='12' font-weight='600' fill='#2563EB' text-anchor='middle'>Yalnız yenileri</text>
+<rect x='440' y='566' width='181' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='530.5' y='586.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Bekleyenleri de gönder</text>
+</svg>

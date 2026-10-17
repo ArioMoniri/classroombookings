@@ -1,0 +1,34 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='390' height='844' viewBox='0 0 390 844' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Kurulum sayfası, 390'>
+<title>Kurulum sayfası, 390</title>
+<rect width='390' height='844' fill='#F4F6F9'/>
+<text x='20' y='30' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>9:41</text>
+<rect x='16' y='48' width='44' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='38.0' y='77.2' font-size='20' font-weight='600' fill='#0F172A' text-anchor='middle'>‹</text>
+<text x='72' y='76' font-size='18' font-weight='700' fill='#0F172A' text-anchor='start'>Microsoft 365 ile giriş</text>
+<text x='16' y='120' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Adım 2 / 5 · Sağlayıcıda kaydet</text>
+<rect x='16' y='130' width='358' height='6' rx='3' fill='#E2E8F0' fill-opacity='1'/>
+<rect x='16' y='130' width='143' height='6' rx='3' fill='#2563EB' fill-opacity='1'/>
+<text x='16' y='172' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>Microsoft Entra'da uygulamayı kaydedin</text>
+<text x='16' y='204' font-size='14' font-weight='400' fill='#0F172A' text-anchor='start'>1  Uygulama kayıtları › Yeni kayıt</text>
+<text x='16' y='228' font-size='14' font-weight='400' fill='#0F172A' text-anchor='start'>2  Yönlendirme URI'si (Web): aşağıdaki adres</text>
+<text x='16' y='252' font-size='14' font-weight='400' fill='#0F172A' text-anchor='start'>3  Yeni istemci gizli anahtarı</text>
+<text x='16' y='290' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>Yeniden yönlendirme URI'si (Web)</text>
+<rect x='16' y='300' width='358' height='72' rx='10' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='28' y='324' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>https://plan.uni.edu.tr/api/v1/</text>
+<text x='28' y='344' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>auth/sso/entra/callback</text>
+<rect x='16' y='380' width='358' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='195.0' y='407.4' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Kopyala</text>
+<text x='16' y='456' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>API izinleri</text>
+<rect x='16' y='466' width='358' height='48' rx='10' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='28' y='495' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>openid · profile · email · User.Read</text>
+<rect x='16' y='522' width='358' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='195.0' y='549.4' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Kopyala</text>
+<text x='16' y='600' font-size='15' font-weight='600' fill='#2563EB' text-anchor='start'>Entra yönetim merkezini aç ↗</text>
+<rect x='0' y='740' width='390' height='104' rx='0' fill='#FFFFFF' fill-opacity='1'/>
+<line x1='0' y1='740' x2='390' y2='740' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='16' y='756' width='110' height='48' rx='24.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='71.0' y='785.76' font-size='16' font-weight='600' fill='#0F172A' text-anchor='middle'>Geri</text>
+<rect x='138' y='756' width='236' height='48' rx='24.0' fill='#2563EB' fill-opacity='1'/>
+<text x='256.0' y='785.76' font-size='16' font-weight='600' fill='#FFFFFF' text-anchor='middle'>İleri</text>
+<text x='16' y='700' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Değer tam görünür (kırpılmaz); Kopyala 44 px tam genişlik.</text>
+</svg>

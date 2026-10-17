@@ -289,7 +289,9 @@ if (args.plan) process.exit(0);
 const lottieData = Object.fromEntries(story.lotties.map((n) => [n, JSON.parse(readFileSync(join(REPO, "docs/lottie", `${n}-${args.theme}.json`), "utf8"))]));
 
 async function openPage(browser) {
-  const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+  // one context per worker: each is its own window, so no worker is a throttled background tab
+  const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+  const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(pathToFileURL(join(HERE, "compositor.html")).href);
@@ -337,6 +339,7 @@ async function worker(wi) {
   const closed = new Promise((ok, fail) => ff.on("close", (code) => (code === 0 ? ok() : fail(new Error(`ffmpeg part ${wi} exited ${code}`)))));
   for (let f = a; f < b; f++) {
     const png = await shoot(ctx, (f / FPS) * 1000);
+    if (env.LAUNCH_PROFILE && f === a + 30) log(`worker ${wi}: ${((performance.now() - t0) / 30).toFixed(0)} ms per frame (first 30)`);
     if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once("drain", r));
     done++;
     if (done % (FPS * 5) === 0) {

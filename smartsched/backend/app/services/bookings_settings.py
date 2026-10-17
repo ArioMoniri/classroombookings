@@ -81,6 +81,16 @@ SMTP_SPECS: dict[str, Spec] = {
         Spec("from_address", default=""),
         Spec("from_name", default="SmartSched"),
         Spec("timeout_s", "int", 15),
+        # wave 3b W3-MAIL (app/services/mail.py, docs/deploy/email.md): guided setup shared by every admin
+        Spec("provider", default=""),  # a preset id of app/services/mail_presets.py, "" = custom
+        Spec("auth_mode", default="password"),  # password | xoauth2 | none
+        Spec("oauth_provider", default=""),  # google | microsoft (XOAUTH2)
+        Spec("oauth_tenant", default=""),  # Microsoft Entra tenant id (client credentials)
+        Spec("oauth_client_id", default=""),
+        Spec("oauth_client_secret", default="", secret=True),
+        Spec("oauth_refresh_token", default="", secret=True),
+        Spec("reply_to", default=""),
+        Spec("dkim_selector", default=""),  # the selector the provider console shows (DNS check)
     )
 }
 BOOKINGS_SPECS: dict[str, Spec] = {

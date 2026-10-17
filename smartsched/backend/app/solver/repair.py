@@ -455,10 +455,24 @@ def keep_published(
         view = segment_view(inp, flat(rows), unlocked_forbidden_tags=unlocked_forbidden_tags)
         return _hard_count(view.inp, view.current)
 
+    def pair_clash(x: int, mine: list[Assignment], y: int, theirs: list[Assignment]) -> bool:
+        return any(_rows_clash(a, events[x], b, events[y]) for a in mine for b in theirs)
+
     def clashing(rows: dict[int, list[Assignment]], eid: int, mine: list[Assignment]) -> list[int]:
-        e = events[eid]
+        """The events in the way of ``eid`` at ``mine``; an unmoved published class that already shared the cell with it
+        in the published timetable (a fixed-time clash accepted as a warning, a joint lecture) is no obstacle: the hard
+        check judges it."""
         return [
-            y for y in sorted(rows) if y != eid and any(_rows_clash(a, e, b, events[y]) for a in mine for b in rows[y])
+            y
+            for y in sorted(rows)
+            if y != eid
+            and pair_clash(eid, mine, y, rows[y])
+            and not (
+                eid in base
+                and y in base
+                and _cells(rows[y]) == _cells(base[y])
+                and pair_clash(eid, base[eid], y, base[y])
+            )
         ]
 
     after_before = dict(after)  # the solve's own rows (an evicted newcomer's cell, for its diagnosis)

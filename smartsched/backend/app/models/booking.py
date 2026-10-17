@@ -419,6 +419,10 @@ class NotificationOutbox(Base):
     booking_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     subject: Mapped[str] = mapped_column(String(255))
     body: Mapped[str] = mapped_column(Text)
+    #: wave 3b W3-MAIL (alembic 0038): the panel link of the e-mail's button and the reader's language, so the themed
+    #: HTML is rendered when the message is sent (app.emails, app.services.mail); the body stays the plain text
+    link: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    locale: Mapped[str | None] = mapped_column(String(8), nullable=True)
     #: UNSENT (no SMTP / no address) | PENDING (queued, also between retries) | RUNNING | SENT | FAILED
     status: Mapped[str] = mapped_column(String(10), default="UNSENT", index=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)

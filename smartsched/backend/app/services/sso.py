@@ -36,6 +36,15 @@ Guard rules (each closes an escalation path):
 Credentials come from the settings screen (``PUT /auth/sso/admin/entra``; the secret Fernet-encrypted with
 APP_SECRET) or, for SSM-driven installs, from ``SSO_ENTRA_TENANT_ID`` / ``SSO_ENTRA_CLIENT_ID`` /
 ``SSO_ENTRA_CLIENT_SECRET`` in the backend environment (used for fields the screen leaves empty).
+
+**Several providers (wave 3b W3-IDP).** Every function takes the provider's slug (``sso_providers.name``; default
+``entra``, the provider above). The kinds ``google_workspace`` (pinned hosted domain ``hd``, ``email_verified``) and
+``oidc`` (any issuer with discovery; exact ``iss``) share this flow through :class:`~app.services.identity.oidc.
+OidcClient`; ``saml`` shares everything after the assertion is verified (app/services/identity/saml.py). Per
+provider: ``allowed_domains`` (a verified address outside them is refused with ``domain``), ``invite_only`` (no
+self sign-up), a role mapping whose rows only apply while their creator could still grant the role (no
+escalation beyond the administrator who set it). The administration of the providers is
+app/services/identity/providers.py.
 """
 
 from __future__ import annotations
@@ -49,7 +58,7 @@ import secrets
 import time
 import unicodedata
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode
 
@@ -78,6 +87,9 @@ from app.services.bookings_perms import (
 from app.services.bookings_settings import get_group
 from app.services.calendar_connectors import STATE_TTL, pkce_pair
 from app.services.calendar_feeds import public_base
+from app.services.identity import kinds as idp_kinds
+from app.services.identity import saml as idp_saml
+from app.services.identity.oidc import OidcClient, namespace, plain
 
 try:  # Authlib >= 1.9 talks httpx2 when it is installed (it is: anthropic depends on it); keep one module for both
     import httpx2 as http
@@ -146,6 +158,9 @@ PUBLIC_CODES: dict[str, str] = {
     "invite_invalid": "invite_invalid",
     "invite_mismatch": "invite_mismatch",
     "already_linked": "already_linked",  # link from the profile only
+    # wave 3b: several providers
+    "domain": "domain",
+    "invite_provider": "invite_provider",
 }
 
 #: the public codes in Turkish and English (GET /auth/sso/providers ``messages``; sign-in.md §6.2/§6.3 copy)
@@ -195,6 +210,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "hesabına bağlı.",
         "en": "This Microsoft account is linked to another SmartSched account, or this account is already linked to "
         "another Microsoft account.",
+    },
+    "domain": {
+        "tr": "Bu adresle giriş yapılamıyor: kurumun izin verdiği bir e-posta alan adıyla giriş yapın.",
+        "en": "This address can't be used here: sign in with an e-mail domain the institution allows.",
+    },
+    "invite_provider": {
+        "tr": "Bu davet başka bir giriş yöntemi için. Davet e-postasındaki düğmeyi kullanın.",
+        "en": "This invitation is for another sign-in method. Use the button in the invitation e-mail.",
     },
     "sso_required": {
         "tr": "Bu hesap için parola ile giriş kapalı. 'Microsoft ile giriş yap' düğmesini kullanın.",
@@ -338,43 +361,37 @@ def _hash(value: str) -> str:
 # --------------------------------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class EntraClient:
-    tenant_id: str
-    client_id: str
-    client_secret: str
-    redirect_uri: str
-
-    @property
-    def authority(self) -> str:
-        return f"{LOGIN_HOST}/{self.tenant_id}/v2.0"
-
-    @property
-    def issuer(self) -> str:
-        return self.authority
-
-    @property
-    def authorize_endpoint(self) -> str:
-        return f"{LOGIN_HOST}/{self.tenant_id}/oauth2/v2.0/authorize"
-
-    @property
-    def token_endpoint(self) -> str:
-        return f"{LOGIN_HOST}/{self.tenant_id}/oauth2/v2.0/token"
-
-    @property
-    def jwks_uri(self) -> str:
-        return f"{LOGIN_HOST}/{self.tenant_id}/discovery/v2.0/keys"
+#: the Entra client is an :class:`OidcClient` of kind ``entra`` (frozen contract shared by every OIDC kind)
+EntraClient = OidcClient
 
 
-def redirect_uri(base: str) -> str:
-    return f"{base}/api/v1/auth/sso/{PROVIDER}/callback"
+def entra_client(tenant: str, client: str, secret: str, redirect: str, slug: str = PROVIDER) -> OidcClient:
+    return OidcClient(
+        slug=slug,
+        kind=idp_kinds.ENTRA,
+        issuer=f"{LOGIN_HOST}/{tenant}/v2.0",
+        authorize_endpoint=f"{LOGIN_HOST}/{tenant}/oauth2/v2.0/authorize",
+        token_endpoint=f"{LOGIN_HOST}/{tenant}/oauth2/v2.0/token",
+        jwks_uri=f"{LOGIN_HOST}/{tenant}/discovery/v2.0/keys",
+        client_id=client,
+        client_secret=secret,
+        redirect_uri=redirect,
+        tenant_id=tenant,
+        scopes=SCOPES,
+        auth_method="client_secret_post",
+    )
 
 
-async def get_provider(db: AsyncSession, *, create: bool = False) -> SsoProvider | None:
-    row = (await db.execute(select(SsoProvider).where(SsoProvider.name == PROVIDER))).scalar_one_or_none()
-    if row is None and create:
+def redirect_uri(base: str, slug: str = PROVIDER) -> str:
+    return f"{base}/api/v1/auth/sso/{slug}/callback"
+
+
+async def get_provider(db: AsyncSession, *, create: bool = False, slug: str = PROVIDER) -> SsoProvider | None:
+    row = (await db.execute(select(SsoProvider).where(SsoProvider.name == slug))).scalar_one_or_none()
+    if row is None and create and slug == PROVIDER:
         row = SsoProvider(
             name=PROVIDER,
+            kind=idp_kinds.ENTRA,
             enabled=False,
             self_signup=True,
             oidc_only_non_admins=False,
@@ -396,14 +413,15 @@ def _credentials(row: SsoProvider | None) -> tuple[str | None, str | None, str |
     ignored (logged)."""
     from_env: list[str] = []
     tenant = row.tenant_id if row is not None else None
-    if not tenant and _env("tenant_id"):
+    env_ok = row is None or row.name == PROVIDER  # SSM values belong to the original Entra provider only
+    if not tenant and env_ok and _env("tenant_id"):
         try:
             tenant = clean_tenant(_env("tenant_id"))
             from_env.append("tenant_id")
         except ValueError:
             log.warning("ignoring %s: not a tenant GUID", ENV_KEYS["tenant_id"])
     client = row.client_id if row is not None else None
-    if not client and _env("client_id"):
+    if not client and env_ok and _env("client_id"):
         try:
             client = clean_guid(_env("client_id"))
             from_env.append("client_id")
@@ -415,28 +433,81 @@ def _credentials(row: SsoProvider | None) -> tuple[str | None, str | None, str |
             secret = decrypt_secret(row.client_secret_enc)
         except ValueError:
             log.warning("the stored Entra client secret cannot be decrypted (APP_SECRET changed?)")
-    if not secret and _env("client_secret"):
+    if not secret and env_ok and _env("client_secret"):
         secret = _env("client_secret")
         from_env.append("client_secret")
     return tenant, client, secret, from_env
 
 
-async def client_config(db: AsyncSession, row: SsoProvider | None = None) -> EntraClient | None:
-    """The OIDC client when tenant, client id, secret and the public URL are all known (enabled or not)."""
+async def client_config(db: AsyncSession, row: SsoProvider | None = None) -> OidcClient | None:
+    """The OIDC client when the provider's values and the public URL are all known (enabled or not); ``None`` for a
+    SAML provider (see :func:`saml_config`)."""
     row = row or await get_provider(db)
-    tenant, client, secret, _ = _credentials(row)
     base, _src = await public_base(db)
+    if row is not None and row.kind != idp_kinds.ENTRA:
+        if row.kind not in (idp_kinds.GOOGLE, idp_kinds.OIDC) or not (row.client_id and base):
+            return None
+        tenant_unused, client, secret, _ = _credentials(row)
+        if not (client and secret):
+            return None
+        from app.services.identity.oidc import client_from
+
+        return client_from(
+            row, client_id=client, client_secret=secret, redirect=redirect_uri(base, row.name), opts=row.options or {}
+        )
+    tenant, client, secret, _ = _credentials(row)
     if not (tenant and client and secret and base):
         return None
-    return EntraClient(tenant, client, secret, redirect_uri(base))
+    slug = row.name if row is not None else PROVIDER
+    return entra_client(tenant, client, secret, redirect_uri(base, slug), slug)
 
 
-async def active_client(db: AsyncSession) -> tuple[SsoProvider, EntraClient] | None:
-    row = await get_provider(db)
+async def saml_config(db: AsyncSession, row: SsoProvider) -> idp_saml.SamlConfig | None:
+    base, _src = await public_base(db)
+    if row.kind != idp_kinds.SAML or not base:
+        return None
+    return idp_saml.config_from(row, base, row.options or {})
+
+
+async def active_client(db: AsyncSession, slug: str = PROVIDER) -> tuple[SsoProvider, OidcClient] | None:
+    row = await get_provider(db, slug=slug)
     if row is None or not row.enabled:
         return None
     cfg = await client_config(db, row)
     return (row, cfg) if cfg is not None else None
+
+
+def provider_label(row: SsoProvider, locale: str = "tr") -> str:
+    return (row.display_name or "").strip() or (LABEL if row.kind == idp_kinds.ENTRA else idp_kinds.default_label(row.kind, locale))
+
+
+async def enabled_providers(db: AsyncSession) -> list[dict[str, Any]]:
+    """The sign-in buttons of /login: every enabled and usable provider in the administrators' order."""
+    q = select(SsoProvider).where(SsoProvider.enabled.is_(True)).order_by(SsoProvider.sort_order, SsoProvider.id)
+    out: list[dict[str, Any]] = []
+    for row in (await db.execute(q)).scalars():
+        usable = (
+            await saml_config(db, row) is not None and idp_saml.AVAILABLE
+            if row.kind == idp_kinds.SAML
+            else await client_config(db, row) is not None
+        )
+        if not usable:
+            continue
+        out.append(
+            {
+                "name": row.name,
+                "kind": row.kind,
+                "label": provider_label(row),
+                "label_en": provider_label(row, "en"),
+                "badge": idp_kinds.BADGES.get(row.kind, "SSO"),
+                "start_url": f"/api/v1/auth/sso/{row.name}/start",
+                "enabled": True,
+                "domain_hint": row.domain_hint,
+                "self_signup": bool(row.self_signup and not row.invite_only),
+                "order": row.sort_order,
+            }
+        )
+    return out
 
 
 async def _default_role(db: AsyncSession, row: SsoProvider | None) -> Role | None:
@@ -505,7 +576,18 @@ async def public_auth(db: AsyncSession) -> dict[str, Any]:
     row = await get_provider(db)
     enabled = await active_client(db) is not None
     role = await _default_role(db, row)
+    buttons = await enabled_providers(db)
+    oidc_only = (
+        await db.execute(
+            select(func.count(SsoProvider.id)).where(
+                SsoProvider.enabled.is_(True), SsoProvider.oidc_only_non_admins.is_(True)
+            )
+        )
+    ).scalar_one()
     return {
+        #: wave 3b: one button per enabled provider in the administrators' order (``microsoft`` stays for the
+        #: original Entra provider)
+        "providers": buttons,
         "microsoft": {
             "enabled": enabled,
             "label": LABEL,
@@ -514,7 +596,7 @@ async def public_auth(db: AsyncSession) -> dict[str, Any]:
             "self_signup": bool(row.self_signup) if row is not None else True,
         },
         #: false: the password form is reachable only through ``/login?method=local`` (break-glass)
-        "local_enabled": not (enabled and row is not None and row.oidc_only_non_admins),
+        "local_enabled": not (buttons and oidc_only),
         "ldap_enabled": bool((await get_group(db, "ldap"))["enabled"]),
         "self_signup_role_name": role.name if role is not None else None,
         # T-R1-30: the hint "Your account opens as <role>" reads in the reader's language (built-in names localised)
@@ -636,9 +718,11 @@ async def is_admin_user(db: AsyncSession, user: User) -> bool:
 
 
 async def password_login_allowed(db: AsyncSession, user: User) -> bool:
-    """False when ``oidc_only_non_admins`` is on (and Entra sign-in enabled) and ``user`` is no administrator."""
-    row = await get_provider(db)
-    if row is None or not row.enabled or not row.oidc_only_non_admins:
+    """False when ``oidc_only_non_admins`` is on for an enabled provider and ``user`` is no administrator."""
+    q = select(func.count(SsoProvider.id)).where(
+        SsoProvider.enabled.is_(True), SsoProvider.oidc_only_non_admins.is_(True)
+    )
+    if not (await db.execute(q)).scalar_one():
         return True
     return await is_admin_user(db, user)
 
@@ -656,17 +740,26 @@ async def record_password_refusal(db: AsyncSession, user: User, method: str) -> 
 # --------------------------------------------------------------------------------------------------
 
 
-def clean_mapping_value(claim: str, value: str) -> str:
-    if claim == "group":
+_GROUP_RX = re.compile(r"^[^\x00-\x1f\x7f]{1,160}$")
+
+
+def clean_mapping_value(claim: str, value: str, kind: str = idp_kinds.ENTRA) -> str:
+    """Entra: a group object id (GUID) or an app role value. Other kinds: the group / role value as the provider
+    sends it (Keycloak ``/staff/planners``, eduPersonEntitlement ``urn:mace:…``), NBSP and zero-width removed."""
+    if claim == "group" and kind == idp_kinds.ENTRA:
         return clean_guid(value, "group object id")
     text = _plain(value)
+    if claim == "group":
+        if not _GROUP_RX.match(text):
+            raise ValueError("a group value has 1..160 characters and no control characters")
+        return text
     if not _APP_ROLE_RX.match(text):
         raise ValueError("an app role value has 1..120 characters and no spaces (e.g. SmartSched.Planner)")
     return text
 
 
-async def list_mappings(db: AsyncSession) -> list[dict[str, Any]]:
-    q = select(SsoRoleMapping).where(SsoRoleMapping.provider == PROVIDER).order_by(SsoRoleMapping.id)
+async def list_mappings(db: AsyncSession, slug: str = PROVIDER) -> list[dict[str, Any]]:
+    q = select(SsoRoleMapping).where(SsoRoleMapping.provider == slug).order_by(SsoRoleMapping.id)
     out = []
     for m in (await db.execute(q)).scalars():
         role = await db.get(Role, m.role_id)
@@ -681,9 +774,14 @@ def _grants_admin(role: Role) -> bool:
     return role.code == "ADMIN" or is_privileged_role(role)
 
 
-async def add_mapping(db: AsyncSession, actor: User, claim: str, value: str, role_id: int) -> SsoRoleMapping:
+async def add_mapping(
+    db: AsyncSession, actor: User, claim: str, value: str, role_id: int, slug: str = PROVIDER
+) -> SsoRoleMapping:
+    row = await get_provider(db, create=True, slug=slug)
+    if row is None:
+        raise SsoAdminError(404, "not_found", "provider not found", "Kimlik sağlayıcısı bulunamadı")
     try:
-        clean = clean_mapping_value(claim, value)
+        clean = clean_mapping_value(claim, value, row.kind)
     except ValueError as exc:
         raise SsoAdminError(422, "invalid_value", str(exc), "Geçersiz eşleme değeri") from exc
     role = await db.get(Role, role_id)
@@ -696,8 +794,6 @@ async def add_mapping(db: AsyncSession, actor: User, claim: str, value: str, rol
             "you cannot map to a role whose permissions you do not all hold",
             "Tüm izinlerine sahip olmadığınız bir role eşleme yapamazsınız",
         )
-    row = await get_provider(db, create=True)
-    assert row is not None
     if _grants_admin(role) and not row.allow_admin_mapping:
         raise SsoAdminError(
             422,
@@ -708,13 +804,13 @@ async def add_mapping(db: AsyncSession, actor: User, claim: str, value: str, rol
     clash = (
         await db.execute(
             select(SsoRoleMapping.id).where(
-                SsoRoleMapping.provider == PROVIDER, SsoRoleMapping.claim == claim, SsoRoleMapping.value == clean
+                SsoRoleMapping.provider == slug, SsoRoleMapping.claim == claim, SsoRoleMapping.value == clean
             )
         )
     ).scalar_one_or_none()
     if clash is not None:
         raise SsoAdminError(409, "duplicate", "this value is already mapped", "Bu değer zaten eşlenmiş")
-    m = SsoRoleMapping(provider=PROVIDER, claim=claim, value=clean, role_id=role.id, created_by=actor.id)
+    m = SsoRoleMapping(provider=slug, claim=claim, value=clean, role_id=role.id, created_by=actor.id)
     db.add(m)
     await db.flush()
     await audit.record(
@@ -722,15 +818,15 @@ async def add_mapping(db: AsyncSession, actor: User, claim: str, value: str, rol
         "sso.mapping_create",
         "sso_role_mapping",
         m.id,
-        after={"claim": claim, "value": clean, "role_id": role.id, "role": role.code or role.name},
+        after={"claim": claim, "value": clean, "role_id": role.id, "role": role.code or role.name, "provider": slug},
         actor=actor,
     )
     return m
 
 
-async def delete_mapping(db: AsyncSession, actor: User, mapping_id: int) -> None:
+async def delete_mapping(db: AsyncSession, actor: User, mapping_id: int, slug: str = PROVIDER) -> None:
     m = await db.get(SsoRoleMapping, mapping_id)
-    if m is None or m.provider != PROVIDER:
+    if m is None or m.provider != slug:
         raise SsoAdminError(404, "not_found", "mapping not found", "Eşleme bulunamadı")
     role = await db.get(Role, m.role_id)
     if role is not None and not await may_grant_role(db, actor, role):
@@ -748,20 +844,30 @@ async def delete_mapping(db: AsyncSession, actor: User, mapping_id: int) -> None
 
 async def _mapped_role(db: AsyncSession, row: SsoProvider, claims: dict[str, Any]) -> tuple[Role | None, str]:
     """(target role, why) from the mapping, or (None, reason) when the mapping does not apply to this login."""
-    q = select(SsoRoleMapping).where(SsoRoleMapping.provider == PROVIDER)
+    q = select(SsoRoleMapping).where(SsoRoleMapping.provider == row.name)
     mappings = list((await db.execute(q)).scalars())
     if not row.role_mapping_enabled or not mappings:
         return None, "mapping off"
     names = claims.get("_claim_names")
     if isinstance(names, dict) and "groups" in names:
         return None, "group overage"  # >200 groups: Entra left them out; never demote on missing data
-    app_roles = {str(r) for r in claims.get("roles") or [] if isinstance(r, str)}
-    groups = {str(g).lower() for g in claims.get("groups") or [] if isinstance(g, str)}
+    app_roles = set(claims.get("_roles") or ())
+    groups = set(claims.get("_groups") or ())
     best: Role | None = None
+    creators: dict[int, User | None] = {}
     for m in mappings:
         if (m.claim == "role" and m.value in app_roles) or (m.claim == "group" and m.value in groups):
             role = await db.get(Role, m.role_id)
             if role is None or (_grants_admin(role) and not row.allow_admin_mapping):
+                continue
+            # no escalation beyond the administrator who set the mapping: it applies only while its creator could
+            # still grant the role (a demoted or deleted creator's mapping is inert)
+            if m.created_by is None:
+                continue
+            if m.created_by not in creators:
+                creators[m.created_by] = await db.get(User, m.created_by)
+            creator = creators[m.created_by]
+            if creator is None or not creator.is_active or not await may_grant_role(db, creator, role):
                 continue
             if best is None or len(role.permissions) > len(best.permissions):
                 best = role
@@ -850,25 +956,87 @@ async def jwks(uri: str, *, unknown_kid: str | None = None) -> KeySet:
     return await _fetch_jwks(uri)
 
 
-def _registry(cfg: EntraClient) -> jwt.JWTClaimsRegistry:
+def _registry(cfg: OidcClient) -> jwt.JWTClaimsRegistry:
+    essential: dict[str, Any] = {"oid": {"essential": True}} if cfg.kind == idp_kinds.ENTRA else {}
+    if cfg.kind != idp_kinds.ENTRA:
+        essential["sub"] = {"essential": True}
     return jwt.JWTClaimsRegistry(
         leeway=LEEWAY_S,
         aud={"essential": True, "value": cfg.client_id},
         exp={"essential": True},
-        oid={"essential": True},
         nonce={"essential": True},
+        **essential,
     )
 
 
-async def validate_id_token(cfg: EntraClient, id_token: Any, nonce_hash: str | None) -> dict[str, Any]:
-    """Signature (RS256 via the tenant's JWKS), exact ``iss`` and ``tid`` (``tenant``), guests (``guest``), ``aud``,
-    ``exp`` / ``nbf``, ``nonce``, a GUID ``oid`` (``invalid_token``). Raises :class:`SsoError`."""
+def _claim_values(value: Any) -> list[str]:
+    """A claim that should be a list of strings: a list, one string (space- or comma-separated is kept whole), or
+    nothing."""
+    if isinstance(value, str):
+        return [_plain(value)] if value.strip() else []
+    if isinstance(value, list):
+        return [_plain(v) for v in value if isinstance(v, str) and v.strip()]
+    return []
+
+
+def _check_issuer(cfg: OidcClient, claims: dict[str, Any]) -> None:
+    """Per kind: Entra pins ``iss`` + ``tid`` and refuses guests; Google pins the hosted domain ``hd``; a generic
+    issuer must match exactly. All refusals are ``tenant`` (the account is from the wrong organisation)."""
+    iss = claims.get("iss")
+    if cfg.kind == idp_kinds.ENTRA:
+        # the tenant first: a correctly signed token of another tenant (Entra signs every tenant with the same keys)
+        if iss != cfg.issuer or str(claims.get("tid") or "").lower() != cfg.tenant_id:
+            raise SsoError("tenant", f"iss={str(iss)[:90]} tid={str(claims.get('tid'))[:40]}")
+        idp = claims.get("idp")
+        if (isinstance(idp, str) and idp and idp != cfg.issuer) or str(claims.get("acct", "0")) == "1":
+            raise SsoError("guest", f"guest account (idp={str(idp)[:80]})")
+        return
+    if cfg.kind == idp_kinds.GOOGLE:
+        from app.services.identity.oidc import GOOGLE_ISSUERS
+
+        if iss not in GOOGLE_ISSUERS:
+            raise SsoError("tenant", f"iss={str(iss)[:90]}")
+        hd = str(claims.get("hd") or "").lower()
+        if not hd or hd not in cfg.hosted_domains:  # a personal gmail.com account has no hd
+            raise SsoError("tenant", f"hd={hd[:80] or '-'}")
+        return
+    if iss != cfg.issuer:
+        raise SsoError("tenant", f"iss={str(iss)[:90]}")
+
+
+def _normalise_claims(cfg: OidcClient, claims: dict[str, Any]) -> dict[str, Any]:
+    """Adds the provider-independent keys the sign-in code reads: ``_kind``, ``_sub`` / ``_ns`` (the identity),
+    ``_roles`` / ``_groups`` (the mapping), ``_trust_email``."""
+    claims["_kind"] = cfg.kind
+    claims["_trust_email"] = cfg.trust_email
+    if cfg.kind == idp_kinds.ENTRA:
+        oid = str(claims.get("oid") or "").lower()
+        if not _GUID_RX.match(oid):
+            raise SsoError("invalid_token", "claims: oid is not a GUID")
+        claims["oid"] = oid
+        claims["_sub"], claims["_ns"] = oid, str(claims["tid"]).lower()
+        claims["_roles"] = _claim_values(claims.get("roles"))
+        claims["_groups"] = [g.lower() for g in _claim_values(claims.get("groups"))]
+        return claims
+    sub = str(claims.get("sub") or "")
+    if not sub or len(sub) > 255 or any(ord(ch) < 32 for ch in sub):
+        raise SsoError("invalid_token", "claims: unusable sub")
+    claims["_sub"], claims["_ns"] = sub, cfg.tenant_id
+    claims["_roles"] = _claim_values(claims.get(cfg.roles_claim))
+    claims["_groups"] = _claim_values(claims.get(cfg.groups_claim))
+    return claims
+
+
+async def validate_id_token(cfg: OidcClient, id_token: Any, nonce_hash: str | None) -> dict[str, Any]:
+    """Signature (the provider's JWKS), the issuer per kind (``tenant``; Entra guests ``guest``), ``aud``,
+    ``exp`` / ``nbf``, ``nonce``, the subject (``invalid_token``). Raises :class:`SsoError`."""
     if not isinstance(id_token, str) or not id_token or not nonce_hash:
         raise SsoError("invalid_token", "no id_token")
     keyset = await jwks(cfg.jwks_uri)
+    algs = list(cfg.algorithms or ("RS256",))
     try:
         try:
-            token = jwt.decode(id_token, keyset, algorithms=["RS256"])
+            token = jwt.decode(id_token, keyset, algorithms=algs)
         except InvalidKeyIdError:
             kid = ""
             try:
@@ -876,18 +1044,13 @@ async def validate_id_token(cfg: EntraClient, id_token: Any, nonce_hash: str | N
             except Exception:  # noqa: BLE001 - malformed header: decode below fails the same way
                 kid = ""
             keyset = await jwks(cfg.jwks_uri, unknown_kid=kid)
-            token = jwt.decode(id_token, keyset, algorithms=["RS256"])
+            token = jwt.decode(id_token, keyset, algorithms=algs)
     except JoseError as exc:
         raise SsoError("invalid_token", f"signature: {exc.error}") from exc
     except ValueError as exc:
         raise SsoError("invalid_token", "malformed id_token") from exc
-    claims = dict(token.claims)
-    # the tenant first: a correctly signed token of another tenant (Entra signs every tenant with the same keys)
-    if claims.get("iss") != cfg.issuer or str(claims.get("tid") or "").lower() != cfg.tenant_id:
-        raise SsoError("tenant", f"iss={str(claims.get('iss'))[:90]} tid={str(claims.get('tid'))[:40]}")
-    idp = claims.get("idp")
-    if (isinstance(idp, str) and idp and idp != cfg.issuer) or str(claims.get("acct", "0")) == "1":
-        raise SsoError("guest", f"guest account (idp={str(idp)[:80]})")
+    claims = {k: v for k, v in dict(token.claims).items() if not k.startswith("_") or k == "_claim_names"}
+    _check_issuer(cfg, claims)
     try:
         _registry(cfg).validate(claims)
     except JoseError as exc:
@@ -897,17 +1060,24 @@ async def validate_id_token(cfg: EntraClient, id_token: Any, nonce_hash: str | N
         raise SsoError("invalid_token", "claims: several audiences")
     if not hmac.compare_digest(_hash(str(claims.get("nonce"))), nonce_hash):
         raise SsoError("invalid_token", "claims: nonce mismatch")
-    oid = str(claims.get("oid") or "").lower()
-    if not _GUID_RX.match(oid):
-        raise SsoError("invalid_token", "claims: oid is not a GUID")
-    claims["oid"] = oid
-    return claims
+    return _normalise_claims(cfg, claims)
+
+
+def _truthy(value: Any) -> bool:
+    return value is True or str(value).lower() in ("1", "true")
 
 
 def verified_identifiers(claims: dict[str, Any]) -> list[str]:
-    """Folded UPN / e-mail values the tenant vouches for: the member's UPN (``preferred_username`` / ``upn``) and
-    the ``email`` claim only with ``xms_edov`` (e-mail domain owner verified). In order of preference for the
-    account e-mail."""
+    """Folded UPN / e-mail values the provider vouches for. Entra: the member's UPN (``preferred_username`` /
+    ``upn``) and the ``email`` claim only with ``xms_edov`` (e-mail domain owner verified). Google / OIDC: ``email``
+    with ``email_verified`` (or the provider's "trust the e-mail" switch, ADFS); SAML: the ``mail`` attribute. In
+    order of preference for the account e-mail."""
+    kind = claims.get("_kind", idp_kinds.ENTRA)
+    if kind != idp_kinds.ENTRA:
+        e = _fold_email(claims.get("email"))
+        if e and (_truthy(claims.get("email_verified")) or claims.get("_trust_email")):
+            return [e]
+        return []
     out: list[str] = []
     edov = claims.get("xms_edov")
     if edov is True or str(edov).lower() in ("1", "true"):
@@ -926,12 +1096,12 @@ def verified_identifiers(claims: dict[str, Any]) -> list[str]:
 # --------------------------------------------------------------------------------------------------
 
 
-def _oauth(cfg: EntraClient) -> AsyncOAuth2Client:
+def _oauth(cfg: OidcClient) -> AsyncOAuth2Client:
     return AsyncOAuth2Client(
         client_id=cfg.client_id,
         client_secret=cfg.client_secret,
-        token_endpoint_auth_method="client_secret_post",
-        scope=SCOPES,
+        token_endpoint_auth_method=cfg.auth_method,
+        scope=cfg.scopes,
         redirect_uri=cfg.redirect_uri,
         code_challenge_method="S256",
         timeout=HTTP_TIMEOUT_S,
@@ -946,7 +1116,7 @@ async def _purge_expired(db: AsyncSession) -> None:
 
 async def _authorize(
     db: AsyncSession,
-    cfg: EntraClient,
+    cfg: OidcClient,
     purpose: str,
     *,
     user_id: int | None,
@@ -961,7 +1131,7 @@ async def _authorize(
     db.add(
         SsoAuthState(
             state_hash=_hash(state),
-            provider=PROVIDER,
+            provider=cfg.slug,
             purpose=purpose,
             nonce_hash=_hash(nonce),
             code_verifier_enc=encrypt_secret(verifier),
@@ -972,7 +1142,15 @@ async def _authorize(
         )
     )
     await db.flush()
-    extra: dict[str, str] = {"response_mode": "query", "prompt": prompt if prompt in PROMPTS else "select_account"}
+    extra: dict[str, str] = dict(cfg.extra_authorize)
+    if cfg.kind == idp_kinds.ENTRA:
+        extra.update(response_mode="query", prompt=prompt if prompt in PROMPTS else "select_account")
+    elif cfg.kind == idp_kinds.GOOGLE:
+        extra["prompt"] = prompt if prompt in PROMPTS else "select_account"
+    elif prompt in PROMPTS:
+        extra["prompt"] = str(prompt)
+    if purpose == "test":
+        extra["prompt"] = "login" if cfg.kind != idp_kinds.GOOGLE else "select_account"
     if login_hint:
         extra["login_hint"] = login_hint
     async with _oauth(cfg) as client:
@@ -989,11 +1167,30 @@ async def error_url(db: AsyncSession, code: str, *, link: bool = False, **params
     return f"{base}{'/profile' if link else '/login'}?{query}"
 
 
+async def test_done_url(db: AsyncSession, ok: bool) -> str:
+    base, _ = await public_base(db)
+    return f"{base}/api/v1/auth/sso/test-done?{urlencode({'ok': '1' if ok else '0'})}"
+
+
 async def _invite_by_token(db: AsyncSession, token: str | None) -> SsoInvite | None:
     if not token:
         return None
-    q = select(SsoInvite).where(SsoInvite.token_hash == _hash(token[:256]), SsoInvite.provider == PROVIDER)
+    q = select(SsoInvite).where(SsoInvite.token_hash == _hash(token[:256]))
     return (await db.execute(q)).scalar_one_or_none()
+
+
+async def _login_invite(db: AsyncSession, slug: str, invite: str | None) -> tuple[dict[str, Any] | None, str | None]:
+    """(state data, login hint) of a sign-in started from ``/login?invite=``. Raises :class:`SsoError`."""
+    if not invite:
+        return None, None
+    inv = await _invite_by_token(db, invite)
+    if inv is None:
+        raise SsoError("invite_invalid", "unknown invite token")
+    if inv.expires_at < utcnow():
+        raise SsoError("invite_expired", f"invite {inv.id} expired", user_id=inv.user_id)
+    if inv.provider != slug:
+        raise SsoError("invite_provider", f"invite {inv.id} is for {inv.provider}", user_id=inv.user_id)
+    return {"invite_id": inv.id}, inv.email
 
 
 async def start_login(
@@ -1003,22 +1200,18 @@ async def start_login(
     invite: str | None = None,
     prompt: str | None = None,
     login_hint: str | None = None,
+    slug: str = PROVIDER,
 ) -> str:
-    """Authorize URL (Entra) for a sign-in. Raises :class:`SsoError` (``not_configured``, ``invite_invalid``,
-    ``invite_expired``). The caller commits."""
-    active = await active_client(db)
+    """Authorize URL (or SAML AuthnRequest URL) for a sign-in. Raises :class:`SsoError` (``not_configured``,
+    ``invite_invalid``, ``invite_expired``, ``invite_provider``). The caller commits."""
+    row = await get_provider(db, slug=slug)
+    if row is not None and row.kind == idp_kinds.SAML:
+        return await start_saml(db, row, next_path, invite=invite)
+    active = await active_client(db, slug)
     if active is None:
         raise SsoError("not_configured")
-    data: dict[str, Any] | None = None
-    hint = _fold_email(login_hint)
-    if invite:
-        inv = await _invite_by_token(db, invite)
-        if inv is None:
-            raise SsoError("invite_invalid", "unknown invite token")
-        if inv.expires_at < utcnow():
-            raise SsoError("invite_expired", f"invite {inv.id} expired", user_id=inv.user_id)
-        data = {"invite_id": inv.id}
-        hint = hint or inv.email
+    data, invited = await _login_invite(db, slug, invite)
+    hint = _fold_email(login_hint) or invited
     return await _authorize(
         db,
         active[1],
@@ -1031,18 +1224,23 @@ async def start_login(
     )
 
 
-async def _identity_of(db: AsyncSession, user_id: int) -> UserIdentity | None:
-    q = select(UserIdentity).where(UserIdentity.user_id == user_id, UserIdentity.provider == PROVIDER)
+async def _identity_of(db: AsyncSession, user_id: int, slug: str = PROVIDER) -> UserIdentity | None:
+    q = select(UserIdentity).where(UserIdentity.user_id == user_id, UserIdentity.provider == slug)
     return (await db.execute(q)).scalar_one_or_none()
 
 
-async def start_link(db: AsyncSession, user: User, password: str) -> str:
-    """A signed-in user links their Microsoft account; the password proves the local sign-in now."""
+async def _any_identity(db: AsyncSession, user_id: int) -> UserIdentity | None:
+    q = select(UserIdentity).where(UserIdentity.user_id == user_id).order_by(UserIdentity.id)
+    return (await db.execute(q)).scalars().first()
+
+
+async def start_link(db: AsyncSession, user: User, password: str, slug: str = PROVIDER) -> str:
+    """A signed-in user links their account at the provider; the password proves the local sign-in now."""
     if not user.password_hash or not verify_password(password, user.password_hash):
         raise SsoAdminError(403, "password", "the password is not correct", "Parola doğru değil")
-    if await _identity_of(db, user.id) is not None:
+    if await _identity_of(db, user.id, slug) is not None:
         raise SsoAdminError(409, "already_linked", MESSAGES["already_linked"]["en"], MESSAGES["already_linked"]["tr"])
-    active = await active_client(db)
+    active = await active_client(db, slug)
     if active is None:
         raise SsoAdminError(
             409,
@@ -1053,34 +1251,55 @@ async def start_link(db: AsyncSession, user: User, password: str) -> str:
     return await _authorize(db, active[1], "link", user_id=user.id, return_path=None)
 
 
-async def refuse(db: AsyncSession, err: SsoError, purpose: str, claims: dict[str, Any] | None = None) -> str:
+async def refuse(
+    db: AsyncSession, err: SsoError, purpose: str, claims: dict[str, Any] | None = None, slug: str = PROVIDER
+) -> str:
     """Audit the refusal (``auth.login_refused``, the precise reason) and answer the panel URL with the public code
     and the audit row as ``ref``."""
-    after: dict[str, Any] = {"reason": err.code, "auth_method": "oidc", "provider": PROVIDER, "purpose": purpose}
+    row = await get_provider(db, slug=slug)
+    method = "saml" if row is not None and row.kind == idp_kinds.SAML else "oidc"
+    after: dict[str, Any] = {"reason": err.code, "auth_method": method, "provider": slug, "purpose": purpose}
     if err.detail:
         after["detail"] = err.detail
     if claims:
-        after["tid"], after["oid"] = claims.get("tid"), claims.get("oid")
-    log.info("Entra sign-in refused: %s (%s)", err.code, err.detail)
+        if claims.get("_kind", idp_kinds.ENTRA) == idp_kinds.ENTRA:
+            after["tid"], after["oid"] = claims.get("tid"), claims.get("oid")
+        else:
+            after["iss"], after["sub"] = str(claims.get("iss"))[:120], str(claims.get("_sub"))[:120]
+    log.info("SSO sign-in refused (%s): %s (%s)", slug, err.code, err.detail)
     ev = await audit.record(db, "auth.login_refused", "user", err.user_id, after=after)
     ref = f"S-{ev.id}"
     await db.commit()
+    if purpose == "test":
+        return await test_done_url(db, False)
     public = PUBLIC_CODES.get(err.code, "failed")
     params = {"ref": ref} if public == "failed" else {}
+    if public in ("domain", "invite_provider", "tenant", "unavailable", "signup_closed", "cancelled"):
+        params["provider"] = slug
     return await error_url(db, public, link=purpose == "link", **params, **err.extra)
 
 
-async def finish(db: AsyncSession, *, code: str | None, state: str | None, error: str | None) -> str:
-    """The browser's return from Entra. Always answers a panel URL: ``/login/sso?ticket=…[&next][&welcome]``
-    (sign-in), ``/profile?sso=linked`` (link) or ``/login?error=<code>[&ref][&invite]``."""
+async def _take_state(db: AsyncSession, state: str | None, slug: str) -> SsoAuthState | None:
     row = None
     if state:
         q = select(SsoAuthState).where(SsoAuthState.state_hash == _hash(state[:512]))
         row = (await db.execute(q)).scalar_one_or_none()
-    if row is None or row.purpose not in ("login", "link") or row.provider != PROVIDER or row.expires_at < utcnow():
+    if row is None or row.purpose not in ("login", "link", "test") or row.provider != slug or row.expires_at < utcnow():
         if row is not None:
             await db.delete(row)
-        return await refuse(db, SsoError("state", "unknown, used or expired state"), "login")
+        return None
+    return row
+
+
+async def finish(
+    db: AsyncSession, *, code: str | None, state: str | None, error: str | None, slug: str = PROVIDER
+) -> str:
+    """The browser's return from the OIDC provider. Always answers a URL: ``/login/sso?ticket=…[&next][&welcome]``
+    (sign-in), ``/profile?sso=linked`` (link), the test page (an administrator's test login) or
+    ``/login?error=<code>[&ref][&invite]``."""
+    row = await _take_state(db, state, slug)
+    if row is None:
+        return await refuse(db, SsoError("state", "unknown, used or expired state"), "login", slug=slug)
     purpose, link_user_id, return_path, nonce_hash = row.purpose, row.user_id, row.return_path, row.nonce_hash
     data = dict(row.data or {})
     try:
@@ -1090,26 +1309,33 @@ async def finish(db: AsyncSession, *, code: str | None, state: str | None, error
     await db.delete(row)  # single use, whatever happens next
     await db.commit()
     if error or not code:
-        return await refuse(db, SsoError("denied", str(error or "no code")), purpose)
-    active = await active_client(db)
-    if active is None:
-        return await refuse(db, SsoError("not_configured"), purpose)
-    prov, cfg = active
+        err = SsoError("denied", str(error or "no code"))
+        if purpose == "test":
+            return await _finish_test(db, slug, data, None, err)
+        return await refuse(db, err, purpose, slug=slug)
+    prov = await get_provider(db, slug=slug)
+    cfg = await client_config(db, prov) if prov is not None else None
+    if prov is None or cfg is None or (not prov.enabled and purpose != "test"):
+        return await refuse(db, SsoError("not_configured"), purpose, slug=slug)
     if not verifier:
-        return await refuse(db, SsoError("state", "verifier unreadable"), purpose)
+        return await refuse(db, SsoError("state", "verifier unreadable"), purpose, slug=slug)
     claims: dict[str, Any] | None = None
     try:
         claims = await _exchange_and_validate(cfg, code[:4096], verifier, nonce_hash)
+        if purpose == "test":
+            return await _finish_test(db, slug, data, claims, None)
         if purpose == "link":
             return await _finish_link(db, link_user_id, cfg, claims)
         user, welcome = await _resolve_login(db, prov, cfg, claims, data.get("invite_id"))
     except SsoError as err:
         await db.rollback()
-        return await refuse(db, err, purpose, claims)
+        if purpose == "test":
+            return await _finish_test(db, slug, data, claims, err)
+        return await refuse(db, err, purpose, claims, slug=slug)
     return await _issue_ticket(db, user, return_path, welcome)
 
 
-async def _exchange_and_validate(cfg: EntraClient, code: str, verifier: str, nonce_hash: str | None) -> dict[str, Any]:
+async def _exchange_and_validate(cfg: OidcClient, code: str, verifier: str, nonce_hash: str | None) -> dict[str, Any]:
     try:
         async with _oauth(cfg) as client:
             token = await client.fetch_token(
@@ -1125,22 +1351,196 @@ async def _exchange_and_validate(cfg: EntraClient, code: str, verifier: str, non
     return await validate_id_token(cfg, id_token, nonce_hash)
 
 
-async def _find_identity(db: AsyncSession, claims: dict[str, Any]) -> UserIdentity | None:
+# --------------------------------------------------------------------------------------------------
+# SAML 2.0 (HTTP-Redirect request, HTTP-POST response; app/services/identity/saml.py)
+# --------------------------------------------------------------------------------------------------
+
+
+async def start_saml(
+    db: AsyncSession,
+    row: SsoProvider,
+    next_path: str | None,
+    *,
+    invite: str | None = None,
+    purpose: str = "login",
+    data: dict[str, Any] | None = None,
+) -> str:
+    """The IdP's SSO URL with a deflated AuthnRequest; ``RelayState`` is the state (hashed in ``sso_auth_states``
+    with the request id, so ``InResponseTo`` is checked on the way back)."""
+    if not idp_saml.AVAILABLE:
+        raise SsoError("unavailable", "SAML library (signxml) not installed")
+    cfg = await saml_config(db, row)
+    if cfg is None or (purpose == "login" and not row.enabled):
+        raise SsoError("not_configured")
+    state_data = dict(data or {})
+    if purpose == "login":
+        inv_data, _hint = await _login_invite(db, row.name, invite)
+        state_data.update(inv_data or {})
+    await _purge_expired(db)
+    state, request_id = secrets.token_urlsafe(32), "_" + secrets.token_hex(20)
+    state_data["request_id"] = request_id
+    db.add(
+        SsoAuthState(
+            state_hash=_hash(state),
+            provider=row.name,
+            purpose=purpose,
+            nonce_hash=_hash(request_id),
+            return_path=safe_return_path(next_path),
+            data=state_data,
+            expires_at=utcnow() + STATE_TTL,
+        )
+    )
+    await db.flush()
+    return idp_saml.authn_request_url(cfg, request_id, state, datetime.now(UTC))
+
+
+async def finish_saml(db: AsyncSession, *, slug: str, saml_response: str | None, relay_state: str | None) -> str:
+    """The IdP's POST to the ACS. Same answers as :func:`finish`."""
+    row = await _take_state(db, relay_state, slug)
+    if row is None or row.purpose == "link":
+        return await refuse(db, SsoError("state", "unknown, used or expired RelayState"), "login", slug=slug)
+    purpose, return_path, data = row.purpose, row.return_path, dict(row.data or {})
+    request_id = str(data.get("request_id") or "")
+    await db.delete(row)
+    await db.commit()
+    prov = await get_provider(db, slug=slug)
+    cfg = await saml_config(db, prov) if prov is not None else None
+    if prov is None or cfg is None or (not prov.enabled and purpose != "test"):
+        return await refuse(db, SsoError("not_configured"), purpose, slug=slug)
+    if not saml_response:
+        err = SsoError("denied", "no SAMLResponse")
+        return await (_finish_test(db, slug, data, None, err) if purpose == "test" else refuse(db, err, purpose, slug=slug))
+    claims: dict[str, Any] | None = None
+    try:
+        try:
+            claims = idp_saml.parse_response(cfg, saml_response[: 2 * idp_saml.MAX_XML], request_id, datetime.now(UTC))
+        except idp_saml.SamlError as exc:
+            raise SsoError(exc.code, exc.detail) from exc
+        claims["_kind"] = idp_kinds.SAML
+        claims["_trust_email"] = True
+        claims["_roles"] = []
+        claims["_groups"] = list(claims.get("groups") or [])
+        if purpose == "test":
+            return await _finish_test(db, slug, data, claims, None)
+        user, welcome = await _resolve_login(db, prov, cfg, claims, data.get("invite_id"))
+    except SsoError as err:
+        await db.rollback()
+        if purpose == "test":
+            return await _finish_test(db, slug, data, claims, err)
+        return await refuse(db, err, purpose, claims, slug=slug)
+    return await _issue_ticket(db, user, return_path, welcome)
+
+
+# --------------------------------------------------------------------------------------------------
+# Test login (an administrator runs the full flow in a popup; the claims are reported, nothing is stored but the
+# claim summary for 10 minutes; no account is created, bound or signed in)
+# --------------------------------------------------------------------------------------------------
+
+#: claims never echoed to the test report (protocol values, not facts about the user)
+_TEST_HIDDEN = frozenset({"nonce", "at_hash", "c_hash", "sid", "uti", "rh", "aio", "_attributes"})
+
+
+async def start_test(db: AsyncSession, actor: User, row: SsoProvider) -> tuple[str, str]:
+    """(authorize URL, test id). Works while the provider is still off (that is the point of the test)."""
+    test_id = secrets.token_urlsafe(18)
+    data = {"test_id": test_id, "actor_id": actor.id}
+    if row.kind == idp_kinds.SAML:
+        url = await start_saml(db, row, None, purpose="test", data=data)
+    else:
+        cfg = await client_config(db, row)
+        if cfg is None:
+            raise SsoError("not_configured")
+        url = await _authorize(db, cfg, "test", user_id=actor.id, return_path=None, data=data)
+    db.add(
+        SsoAuthState(
+            state_hash=_hash("test:" + test_id),
+            provider=row.name,
+            purpose="result",
+            user_id=actor.id,
+            data={"status": "pending"},
+            expires_at=utcnow() + STATE_TTL,
+        )
+    )
+    await db.flush()
+    return url, test_id
+
+
+async def _finish_test(
+    db: AsyncSession, slug: str, data: dict[str, Any], claims: dict[str, Any] | None, err: SsoError | None
+) -> str:
+    test_id = str(data.get("test_id") or "")
+    q = select(SsoAuthState).where(SsoAuthState.state_hash == _hash("test:" + test_id), SsoAuthState.purpose == "result")
+    res = (await db.execute(q)).scalar_one_or_none()
+    prov = await get_provider(db, slug=slug)
+    report: dict[str, Any] = {"status": "done", "ok": err is None, "at": utcnow().isoformat(timespec="seconds")}
+    if err is not None:
+        public = PUBLIC_CODES.get(err.code, "failed")
+        report.update(code=public, reason=err.code, detail=err.detail)
+    if claims:
+        shown = {k: v for k, v in claims.items() if not k.startswith("_") and k not in _TEST_HIDDEN}
+        report["claims"] = {k: (v if isinstance(v, (str, int, bool, list)) else str(v)) for k, v in shown.items()}
+        if claims.get("_attributes"):
+            report["attributes"] = claims["_attributes"]
+        ids = verified_identifiers(claims)
+        report["verified_email"] = ids[0] if ids else None
+        report["subject"] = str(claims.get("_sub") or "")[:255]
+        report["groups"] = list(claims.get("_groups") or [])[:50]
+        report["roles"] = list(claims.get("_roles") or [])[:50]
+        if prov is not None:
+            report["domain_ok"] = _domain_allowed(prov, ids)
+            target, why = await _mapped_role(db, prov, claims)
+            report["mapped_role"] = _role_ref(target) if target is not None and why == "mapping" else None
+    if prov is not None:
+        prov.last_check_at, prov.last_check_ok = utcnow(), err is None
+        prov.last_check_detail = ("test login ok" if err is None else f"test login: {err.code}")[:255]
+    if res is not None:
+        res.data = report
+    actor = await db.get(User, int(data["actor_id"])) if data.get("actor_id") else None
+    await audit.record(
+        db,
+        "sso.test_login",
+        "sso_provider",
+        prov.id if prov is not None else None,
+        after={"provider": slug, "ok": err is None, "reason": err.code if err else None},
+        actor=actor,
+    )
+    await db.commit()
+    return await test_done_url(db, err is None)
+
+
+async def test_result(db: AsyncSession, actor: User, row: SsoProvider, test_id: str) -> dict[str, Any] | None:
+    q = select(SsoAuthState).where(
+        SsoAuthState.state_hash == _hash("test:" + test_id[:64]),
+        SsoAuthState.purpose == "result",
+        SsoAuthState.provider == row.name,
+    )
+    res = (await db.execute(q)).scalar_one_or_none()
+    if res is None or res.expires_at < utcnow():
+        return None
+    return dict(res.data or {"status": "pending"})
+
+
+# --------------------------------------------------------------------------------------------------
+# Identity resolution (every kind)
+# --------------------------------------------------------------------------------------------------
+
+
+async def _find_identity(db: AsyncSession, cfg: Any, claims: dict[str, Any]) -> UserIdentity | None:
     q = select(UserIdentity).where(
-        UserIdentity.provider == PROVIDER,
-        UserIdentity.tenant_id == str(claims["tid"]).lower(),
-        UserIdentity.subject == claims["oid"],
+        UserIdentity.provider == cfg.slug,
+        UserIdentity.tenant_id == str(claims["_ns"]),
+        UserIdentity.subject == str(claims["_sub"]),
     )
     return (await db.execute(q)).scalar_one_or_none()
 
 
-def _new_identity(user_id: int, cfg: EntraClient, claims: dict[str, Any], origin: str) -> UserIdentity:
+def _new_identity(user_id: int, cfg: Any, claims: dict[str, Any], origin: str) -> UserIdentity:
     return UserIdentity(
         user_id=user_id,
-        provider=PROVIDER,
-        issuer=cfg.issuer,
-        tenant_id=str(claims["tid"]).lower(),
-        subject=claims["oid"],
+        provider=cfg.slug,
+        issuer=str(cfg.issuer)[:255],
+        tenant_id=str(claims["_ns"]),
+        subject=str(claims["_sub"]),
         origin=origin,
     )
 
@@ -1152,11 +1552,27 @@ def _touch(ident: UserIdentity, claims: dict[str, Any]) -> None:
     ident.last_login_at = utcnow()
 
 
+def _domain_allowed(prov: SsoProvider, verified: list[str]) -> bool:
+    """``allowed_domains`` empty: every address; else the account's verified address must be in one of them."""
+    domains = [d for d in prov.allowed_domains or [] if isinstance(d, str) and d]
+    if not domains:
+        return True
+    return any(e.rsplit("@", 1)[-1] in domains for e in verified)
+
+
+def _identity_facts(ident: UserIdentity, claims: dict[str, Any]) -> dict[str, Any]:
+    if claims.get("_kind", idp_kinds.ENTRA) == idp_kinds.ENTRA:
+        return {"tid": ident.tenant_id, "oid": ident.subject}
+    return {"iss": ident.issuer, "sub": ident.subject}
+
+
 async def _resolve_login(
-    db: AsyncSession, prov: SsoProvider, cfg: EntraClient, claims: dict[str, Any], invite_id: Any
+    db: AsyncSession, prov: SsoProvider, cfg: Any, claims: dict[str, Any], invite_id: Any
 ) -> tuple[User, dict[str, Any] | None]:
     """(user, welcome) -- ``welcome`` is set on the sign-in that created or bound the account."""
-    ident = await _find_identity(db, claims)
+    if not _domain_allowed(prov, verified_identifiers(claims)):
+        raise SsoError("domain", "verified address outside allowed_domains")
+    ident = await _find_identity(db, cfg, claims)
     user = await db.get(User, ident.user_id) if ident is not None else None
     if ident is not None and user is None:  # orphan (no FK enforcement): the identity starts over
         await db.delete(ident)
@@ -1171,23 +1587,24 @@ async def _resolve_login(
     _touch(ident, claims)
     await _apply_mapping(db, prov, user, claims)
     user.last_login_at = utcnow()
-    await events.emit(db, "user.logged_in", {"user_id": user.id, "auth_method": "oidc"})
+    method = "saml" if prov.kind == idp_kinds.SAML else "oidc"
+    await events.emit(db, "user.logged_in", {"user_id": user.id, "auth_method": method})
     await audit.record(
         db,
         "auth.login",
         "user",
         user.id,
-        after={"auth_method": "oidc", "provider": PROVIDER, "tid": ident.tenant_id, "oid": ident.subject},
+        after={"auth_method": method, "provider": prov.name, **_identity_facts(ident, claims)},
         actor=user,
     )
     return user, welcome
 
 
 async def _bind(
-    db: AsyncSession, inv: SsoInvite, cfg: EntraClient, claims: dict[str, Any]
+    db: AsyncSession, inv: SsoInvite, cfg: Any, claims: dict[str, Any]
 ) -> tuple[User, UserIdentity, dict[str, Any]]:
     target = await db.get(User, inv.user_id)
-    if target is None or await _identity_of(db, target.id) is not None:
+    if target is None or await _identity_of(db, target.id, cfg.slug) is not None:
         raise SsoError("invite_invalid", f"invite {inv.id}: account gone or already bound", user_id=inv.user_id)
     inviter = await db.get(User, inv.created_by) if inv.created_by else None
     ident = _new_identity(target.id, cfg, claims, inv.kind)
@@ -1195,7 +1612,7 @@ async def _bind(
     kind, email, invite_id = inv.kind, inv.email, inv.id
     await db.delete(inv)  # one time
     await db.flush()
-    facts = {"kind": kind, "email": email, "invite_id": invite_id, "tid": ident.tenant_id, "oid": ident.subject}
+    facts = {"kind": kind, "email": email, "invite_id": invite_id, "provider": cfg.slug, **_identity_facts(ident, claims)}
     if kind == "invite":
         await audit.record(db, "user.invite_accepted", "user", target.id, after=facts, actor=target)
     await audit.record(db, "auth.identity_bound", "user", target.id, after=facts, actor=target)
@@ -1204,12 +1621,12 @@ async def _bind(
 
 
 async def _first_login(
-    db: AsyncSession, prov: SsoProvider, cfg: EntraClient, claims: dict[str, Any], invite_id: Any
+    db: AsyncSession, prov: SsoProvider, cfg: Any, claims: dict[str, Any], invite_id: Any
 ) -> tuple[User, UserIdentity, dict[str, Any]]:
     verified = verified_identifiers(claims)
     if invite_id is not None:  # started from an invite link
         inv = await db.get(SsoInvite, int(invite_id))
-        if inv is None:
+        if inv is None or inv.provider != prov.name:
             raise SsoError("invite_invalid", f"invite {invite_id} revoked or used")
         if inv.expires_at < utcnow():
             raise SsoError("invite_expired", f"invite {inv.id} expired", user_id=inv.user_id)
@@ -1222,17 +1639,19 @@ async def _first_login(
             raise SsoError("invite_mismatch", f"invite {inv.id}", user_id=inv.user_id, extra=extra)
         return await _bind(db, inv, cfg, claims)
     if verified:
-        q = select(SsoInvite).where(SsoInvite.provider == PROVIDER, SsoInvite.email.in_(verified))
+        q = select(SsoInvite).where(SsoInvite.email.in_(verified))
         inv = (await db.execute(q.order_by(SsoInvite.id))).scalars().first()
         if inv is not None:
+            if inv.provider != prov.name:
+                raise SsoError("invite_provider", f"invite {inv.id} is for {inv.provider}", user_id=inv.user_id)
             if inv.expires_at < utcnow():
                 raise SsoError("invite_expired", f"invite {inv.id} expired", user_id=inv.user_id)
             return await _bind(db, inv, cfg, claims)
         clash = (await db.execute(select(User.id).where(User.email.in_(verified)))).scalars().first()
         if clash is not None:  # never linked by e-mail: an admin's invite or a confirmed link only
-            raise SsoError("account_exists", "verified UPN equals an existing account without an invite", user_id=clash)
-    if not prov.self_signup:
-        raise SsoError("signup_closed", "no account and self sign-up off")
+            raise SsoError("account_exists", "verified address equals an existing account without an invite", user_id=clash)
+    if not prov.self_signup or prov.invite_only:
+        raise SsoError("signup_closed", "no account and self sign-up off (invite only)")
     role = await _default_role(db, prov)
     if role is not None and _too_privileged_for_default(role):
         role = (await db.execute(select(Role).where(Role.code == "TEACHER"))).scalar_one_or_none()
@@ -1255,20 +1674,20 @@ async def _first_login(
         "auth.self_signup",
         "user",
         user.id,
-        after={"role": user.role, "email": user.email, "tid": ident.tenant_id, "oid": ident.subject},
+        after={"role": user.role, "email": user.email, "provider": prov.name, **_identity_facts(ident, claims)},
         actor=user,
     )
     return user, ident, {"welcome": "self"}
 
 
-async def _finish_link(db: AsyncSession, user_id: int | None, cfg: EntraClient, claims: dict[str, Any]) -> str:
+async def _finish_link(db: AsyncSession, user_id: int | None, cfg: Any, claims: dict[str, Any]) -> str:
     user = await db.get(User, user_id) if user_id else None
     if user is None or not user.is_active:
         raise SsoError("link_user", "link user gone or disabled", user_id=user_id)
-    ident = await _find_identity(db, claims)
+    ident = await _find_identity(db, cfg, claims)
     if ident is not None and ident.user_id != user.id:
         raise SsoError("already_linked", "identity belongs to another account", user_id=user.id)
-    own = await _identity_of(db, user.id)
+    own = await _identity_of(db, user.id, cfg.slug)
     if own is not None and ident is None:
         raise SsoError("already_linked", "account linked to another identity", user_id=user.id)
     if ident is None:
@@ -1282,7 +1701,7 @@ async def _finish_link(db: AsyncSession, user_id: int | None, cfg: EntraClient, 
         "auth.identity_bound",
         "user",
         user.id,
-        after={"kind": "link", "tid": ident.tenant_id, "oid": ident.subject, "email_at_login": ident.email_at_login},
+        after={"kind": "link", "provider": cfg.slug, **_identity_facts(ident, claims), "email_at_login": ident.email_at_login},
         actor=user,
     )
     await db.commit()
@@ -1376,6 +1795,14 @@ async def unlink_own(db: AsyncSession, user: User) -> None:
 # --------------------------------------------------------------------------------------------------
 
 
+LOCAL = "local"
+LOCAL_LABEL = {"tr": "Yerel parola", "en": "Local password"}
+
+
+async def _provider_names(db: AsyncSession) -> dict[str, SsoProvider]:
+    return {p.name: p for p in (await db.execute(select(SsoProvider))).scalars()}
+
+
 async def _invite_out(db: AsyncSession, inv: SsoInvite, *, with_link: bool = True) -> dict[str, Any]:
     """An invite for the admin screens. The link (the token) is shown once: in the answer that created or renewed it
     (round-1 R1-M-25, T-R1-35); the list never repeats it (``with_link=False``)."""
@@ -1386,11 +1813,15 @@ async def _invite_out(db: AsyncSession, inv: SsoInvite, *, with_link: bool = Tru
             token = decrypt_secret(inv.token_enc)
         except ValueError:
             token = ""
+    prov = None if inv.provider == LOCAL else await get_provider(db, slug=inv.provider)
     return {
         "id": inv.id,
         "user_id": inv.user_id,
         "email": inv.email,
         "kind": inv.kind,
+        "provider": inv.provider,
+        "provider_kind": prov.kind if prov is not None else LOCAL,
+        "provider_label": provider_label(prov) if prov is not None else LOCAL_LABEL["tr"],
         "status": "invite_expired" if inv.expires_at < utcnow() else "invited",
         "created_at": inv.created_at,
         "expires_at": inv.expires_at,
@@ -1428,12 +1859,33 @@ def _new_token(inv: SsoInvite) -> None:
     inv.token_hash, inv.token_enc = _hash(token), encrypt_secret(token)
 
 
+async def invite_provider(db: AsyncSession, slug: str | None) -> tuple[str, SsoProvider]:
+    """(the slug an invite is for, the provider row whose ``invite_days`` / default role apply). ``local``: a password
+    set from the invite link; its days and default role are the original Entra row's."""
+    name = (slug or PROVIDER).strip().lower()
+    if name == LOCAL:
+        prov = await get_provider(db, create=True)
+        assert prov is not None
+        return LOCAL, prov
+    prov = await get_provider(db, create=name == PROVIDER, slug=name)
+    if prov is None:
+        raise SsoAdminError(422, "unknown_provider", f"unknown identity provider {name!r}", "Bilinmeyen kimlik sağlayıcısı")
+    return name, prov
+
+
 async def _place_invite(
-    db: AsyncSession, actor: User, user: User, email: str, kind: str, days: int | None, prov: SsoProvider
+    db: AsyncSession,
+    actor: User,
+    user: User,
+    email: str,
+    kind: str,
+    days: int | None,
+    prov: SsoProvider,
+    provider: str = PROVIDER,
 ) -> SsoInvite:
     other = (
-        await db.execute(select(SsoInvite).where(SsoInvite.provider == PROVIDER, SsoInvite.email == email))
-    ).scalar_one_or_none()
+        await db.execute(select(SsoInvite).where(SsoInvite.email == email).order_by(SsoInvite.id))
+    ).scalars().first()
     if other is not None and other.user_id != user.id:
         if other.expires_at >= utcnow():
             raise SsoAdminError(
@@ -1443,7 +1895,7 @@ async def _place_invite(
     await db.execute(delete(SsoInvite).where(SsoInvite.user_id == user.id))
     await db.flush()
     inv = SsoInvite(
-        provider=PROVIDER,
+        provider=provider,
         user_id=user.id,
         email=email,
         kind=kind,
@@ -1458,15 +1910,14 @@ async def _place_invite(
         "user.invited" if kind == "invite" else "auth.binding_scheduled",
         "user",
         user.id,
-        after={"kind": kind, "email": email, "expires_at": inv.expires_at},
+        after={"kind": kind, "email": email, "expires_at": inv.expires_at, "provider": provider},
         actor=actor,
     )
     return inv
 
 
 async def create_invite(db: AsyncSession, actor: User, body: dict[str, Any]) -> dict[str, Any]:
-    prov = await get_provider(db, create=True)
-    assert prov is not None
+    slug, prov = await invite_provider(db, body.get("provider"))
     email = _clean_invite_email(body.get("email"))
     holder = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
     reuse: User | None = None
@@ -1475,7 +1926,7 @@ async def create_invite(db: AsyncSession, actor: User, body: dict[str, Any]) -> 
         if pending is None:
             reuse, holder = holder, None  # the account a revoked invite disabled (T-R1-35)
     if holder is not None:
-        if await _identity_of(db, holder.id) is not None:
+        if await _any_identity(db, holder.id) is not None:
             raise SsoAdminError(
                 409,
                 "account_bound",
@@ -1517,15 +1968,17 @@ async def create_invite(db: AsyncSession, actor: User, body: dict[str, Any]) -> 
             email=email,
             full_name=clean_display_name(body.get("full_name")),
             is_active=True,
-            auth_source="oidc",
+            auth_source="local" if slug == LOCAL else "oidc",
             password_hash=None,
             force_password_reset=False,
             department_id=dept,
         )
         db.add(user)
+    if reuse is not None:
+        user.auth_source = "local" if slug == LOCAL else "oidc"
     set_user_role(user, role)
     await db.flush()
-    inv = await _place_invite(db, actor, user, email, "invite", body.get("days"), prov)
+    inv = await _place_invite(db, actor, user, email, "invite", body.get("days"), prov, slug)
     if body.get("instructor_id") is not None:
         await set_instructor(db, actor, user.id, body["instructor_id"])
     return await _invite_out(db, inv)
@@ -1533,11 +1986,13 @@ async def create_invite(db: AsyncSession, actor: User, body: dict[str, Any]) -> 
 
 async def renew_invite(db: AsyncSession, actor: User, invite_id: int) -> dict[str, Any]:
     """A fresh link and the full validity again (the old link stops working)."""
-    prov = await get_provider(db, create=True)
-    assert prov is not None
     inv = await db.get(SsoInvite, invite_id)
     if inv is None:
         raise SsoAdminError(404, "not_found", "invite not found", "Davet bulunamadı")
+    prov = await get_provider(db, create=True, slug=PROVIDER if inv.provider == LOCAL else inv.provider)
+    if prov is None:
+        prov = await get_provider(db, create=True)
+    assert prov is not None
     target = await db.get(User, inv.user_id)
     if target is not None and not await may_manage_user(db, actor, target):
         raise _no_escalation()
@@ -1555,9 +2010,12 @@ async def renew_invite(db: AsyncSession, actor: User, invite_id: int) -> dict[st
     return await _invite_out(db, inv)
 
 
-async def mark_bind(db: AsyncSession, actor: User, user_id: int, email: str | None, days: int | None) -> dict[str, Any]:
-    prov = await get_provider(db, create=True)
-    assert prov is not None
+async def mark_bind(
+    db: AsyncSession, actor: User, user_id: int, email: str | None, days: int | None, provider: str | None = None
+) -> dict[str, Any]:
+    slug, prov = await invite_provider(db, provider)
+    if slug == LOCAL:
+        raise SsoAdminError(422, "unknown_provider", "binding needs an identity provider", "Bağlama bir kimlik sağlayıcısı gerektirir")
     target = await db.get(User, user_id)
     if target is None:
         raise SsoAdminError(404, "not_found", "user not found", "Kullanıcı bulunamadı")
@@ -1570,28 +2028,31 @@ async def mark_bind(db: AsyncSession, actor: User, user_id: int, email: str | No
         )
     if not await may_manage_user(db, actor, target):
         raise _no_escalation()
-    if await _identity_of(db, target.id) is not None:
+    if await _identity_of(db, target.id, slug) is not None:
         raise SsoAdminError(409, "already_linked", MESSAGES["already_linked"]["en"], MESSAGES["already_linked"]["tr"])
     clean = _clean_invite_email(email or target.email)
     holder = (await db.execute(select(User.id).where(User.email == clean, User.id != target.id))).scalar_one_or_none()
     if holder is not None:
         raise SsoAdminError(409, "email_taken", "another account has this e-mail", "Bu e-posta başka bir hesapta")
-    return await _invite_out(db, await _place_invite(db, actor, target, clean, "bind", days, prov))
+    return await _invite_out(db, await _place_invite(db, actor, target, clean, "bind", days, prov, slug))
 
 
-async def list_invites(db: AsyncSession) -> list[dict[str, Any]]:
-    rows = (await db.execute(select(SsoInvite).where(SsoInvite.provider == PROVIDER).order_by(SsoInvite.id))).scalars()
+async def list_invites(db: AsyncSession, provider: str | None = None) -> list[dict[str, Any]]:
+    q = select(SsoInvite).order_by(SsoInvite.id)
+    if provider:
+        q = q.where(SsoInvite.provider == provider)
+    rows = (await db.execute(q)).scalars()
     return [await _invite_out(db, i, with_link=False) for i in rows]
 
 
 async def unused_placeholder(db: AsyncSession, user: User) -> bool:
-    """The account an invite created and nobody ever used: Microsoft-only, no password, never signed in, no linked
-    identity."""
+    """The account an invite created and nobody ever used: no password, never signed in, no linked identity (an
+    identity-provider invite: ``auth_source = oidc``; a local-password invite: ``local`` without a password)."""
     return (
-        user.auth_source == "oidc"
+        user.auth_source in ("oidc", "local")
         and not user.password_hash
         and user.last_login_at is None
-        and await _identity_of(db, user.id) is None
+        and await _any_identity(db, user.id) is None
     )
 
 
@@ -1636,8 +2097,15 @@ async def public_invite(db: AsyncSession, token: str) -> dict[str, Any] | None:
     role = await user_role(db, target) if target is not None else None
     inviter = await db.get(User, inv.created_by) if inv.created_by else None
     left = inv.expires_at - utcnow()
+    prov = None if inv.provider == LOCAL else await get_provider(db, slug=inv.provider)
     return {
         "kind": inv.kind,
+        #: wave 3b: which door the invite opens (``local``: set a password from the link)
+        "provider": inv.provider,
+        "provider_kind": prov.kind if prov is not None else LOCAL,
+        "provider_label": provider_label(prov) if prov is not None else LOCAL_LABEL["tr"],
+        "provider_label_en": provider_label(prov, "en") if prov is not None else LOCAL_LABEL["en"],
+        "start_url": f"/api/v1/auth/sso/{inv.provider}/start" if prov is not None else None,
         "inviter_name": audit.user_label(inviter),
         "role_name": role.name if role is not None else None,
         "invited_masked": mask_email(inv.email),
@@ -1647,16 +2115,18 @@ async def public_invite(db: AsyncSession, token: str) -> dict[str, Any] | None:
     }
 
 
-async def admin_unlink(db: AsyncSession, actor: User, user_id: int) -> None:
+async def admin_unlink(db: AsyncSession, actor: User, user_id: int, slug: str | None = None) -> None:
     target = await db.get(User, user_id)
     if target is None:
         raise SsoAdminError(404, "not_found", "user not found", "Kullanıcı bulunamadı")
     if not await may_manage_user(db, actor, target):
         raise _no_escalation()
-    ident = await _identity_of(db, target.id)
+    ident = await (_identity_of(db, target.id, slug) if slug else _identity_of(db, target.id))
+    if ident is None and not slug:
+        ident = await _any_identity(db, target.id)
     if ident is None:
         raise SsoAdminError(404, "not_linked", "no Microsoft account is linked", "Bağlı bir Microsoft hesabı yok")
-    before = {"tid": ident.tenant_id, "oid": ident.subject}
+    before = {"tid": ident.tenant_id, "oid": ident.subject, "provider": ident.provider}
     await db.delete(ident)
     revoke_tokens(target)  # sessions opened through that identity end too
     await db.flush()
@@ -1702,12 +2172,14 @@ async def user_status(db: AsyncSession) -> dict[str, dict[str, Any]]:
     ``none``), ``auth_methods``, ``invite``, ``binding_pending``, ``self_signup_at``, ``break_glass``,
     ``instructor_id``."""
     now: datetime = utcnow()
-    invites = {
-        i.user_id: i for i in (await db.execute(select(SsoInvite).where(SsoInvite.provider == PROVIDER))).scalars()
-    }
+    invites = {i.user_id: i for i in (await db.execute(select(SsoInvite))).scalars()}
+    kinds_of = {p.name: p.kind for p in (await _provider_names(db)).values()}
+    all_idents: dict[int, list[UserIdentity]] = {}
+    for i in (await db.execute(select(UserIdentity).order_by(UserIdentity.id))).scalars():
+        all_idents.setdefault(i.user_id, []).append(i)
+    # the Entra identity first (the Microsoft column of the Users screen), then the others
     idents = {
-        i.user_id: i
-        for i in (await db.execute(select(UserIdentity).where(UserIdentity.provider == PROVIDER))).scalars()
+        uid: next((i for i in rows if i.provider == PROVIDER), rows[0]) for uid, rows in all_idents.items()
     }
     glass = set((await db.execute(select(User.id).where(*_break_glass_filter()))).scalars())
     linked = await db.execute(select(Instructor.id, Instructor.user_id).where(Instructor.user_id.is_not(None)))
@@ -1716,8 +2188,11 @@ async def user_status(db: AsyncSession) -> dict[str, dict[str, Any]]:
     for u in (await db.execute(select(User).order_by(User.id))).scalars():
         inv, ident = invites.get(u.id), idents.get(u.id)
         methods = []
-        if ident is not None:
-            methods.append("microsoft")
+        for i in all_idents.get(u.id, []):
+            kind = kinds_of.get(i.provider, idp_kinds.ENTRA)
+            m = {idp_kinds.ENTRA: "microsoft", idp_kinds.GOOGLE: "google"}.get(kind, kind)
+            if m not in methods:
+                methods.append(m)
         if u.auth_source == "ldap":
             methods.append("ldap")
         elif u.password_hash:
@@ -1732,7 +2207,13 @@ async def user_status(db: AsyncSession) -> dict[str, dict[str, Any]]:
             status = "none"
         invite = None
         if inv is not None:
-            invite = {"id": inv.id, "kind": inv.kind, "expires_at": inv.expires_at, "invited_by": inv.created_by}
+            invite = {
+                "id": inv.id,
+                "kind": inv.kind,
+                "expires_at": inv.expires_at,
+                "invited_by": inv.created_by,
+                "provider": inv.provider,
+            }
         out[str(u.id)] = {
             "status": status,
             "auth_methods": methods,
@@ -1741,6 +2222,7 @@ async def user_status(db: AsyncSession) -> dict[str, dict[str, Any]]:
             "self_signup_at": ident.created_at if ident is not None and ident.origin == "provision" else None,
             "break_glass": u.id in glass,
             "instructor_id": instructors.get(u.id),
+            "providers": [i.provider for i in all_idents.get(u.id, [])],
         }
     return out
 
@@ -1750,6 +2232,11 @@ async def providers_out(db: AsyncSession) -> dict[str, Any]:
     ms = auth["microsoft"]
     return {
         "auth": auth,
-        "providers": [{"name": PROVIDER, "label": LABEL, "enabled": ms["enabled"], "start_url": ms["start_url"]}],
+        "providers": [{"name": PROVIDER, "label": LABEL, "enabled": ms["enabled"], "start_url": ms["start_url"]}]
+        + [
+            {"name": p["name"], "label": p["label"], "enabled": True, "start_url": p["start_url"], "kind": p["kind"]}
+            for p in auth["providers"]
+            if p["name"] != PROVIDER
+        ],
         "messages": MESSAGES,
     }

@@ -2330,8 +2330,8 @@
       "ledger": "R2 lane S: minimal-change re-solve",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 09:50",
-      "left_off": "The ticket JSON now carries only the three intended lines. The one remaining input is the moderation suite re-run (background); the PROGRESS DONE row and the hand-off follow as soon as it reports."
+      "finished_at": "2026-10-17 20:16",
+      "left_off": "The round-2 chain is still 0/0/0. The full- and repair-mode replays of the section-only edit are the remaining check, running in the background."
     },
     {
       "id": "a0d0d5d9bf11862e6",
@@ -2695,6 +2695,14 @@
       "ledger": "Owner decisions: implement the four choices",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "ac10514d34f05dfa0",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 20:11",
+      "left_off": "is the pod up yet"
     }
   ]
 }
