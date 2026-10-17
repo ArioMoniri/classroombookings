@@ -252,7 +252,8 @@ test("T-R1-49 · skip link to the grid, Başlangıç haftası in the move dialog
 test("T-R1-50 · Yalnızca oluştur reads Oluştur, and no undo check (409) fires on the generate step", async ({ page }) => {
   const errors = trackErrors(page);
   const stamp = Date.now().toString(36).slice(-4).toUpperCase();
-  const prefix = `LH${stamp}`;
+  // a course-code prefix is 2–4 capital letters
+  const prefix = `L${String.fromCharCode(65 + (Date.now() % 26))}${String.fromCharCode(65 + (Math.floor(Date.now() / 26) % 26))}`;
   const course = (n: number, name: string) => ({
     key: `c${n}`,
     code: `${prefix} 10${n}`,

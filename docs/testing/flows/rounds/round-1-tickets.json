@@ -1246,7 +1246,7 @@
           "dedup": "new",
           "depends_on": [],
           "status": "partly",
-          "resolution": "Screens, titles and the providers endpoint localised and verified on stack 2026-10-17; /login SSO hint still prints the stored role name: components/auth/sign-in-page.tsx (lane A) must read self_signup_role_label."
+          "resolution": "Screens, titles and the providers endpoint localised and verified on stack 2026-10-17; /login SSO hint fixed code-level by loop-r1-sweeper-2026-10-17 (sign-in-page.tsx reads self_signup_role_label[locale] / roleLabelIn; vitest 30/30), awaiting a stack re-check of the /login hint in TR."
         },
         {
           "id": "T-R1-31",

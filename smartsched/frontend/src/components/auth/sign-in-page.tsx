@@ -19,6 +19,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type { OrgPublicAuth } from "@/lib/api/identity";
 import { useI18n } from "@/lib/i18n/provider";
+import { roleLabelIn } from "@/lib/i18n/roles";
 import { ease, springs, tween, useFinePointer, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { LocalSignInForm, rememberMethod } from "./local-sign-in";
@@ -37,7 +38,7 @@ export interface SignInPageProps {
 const HINT_IDS = { domain: "signin-hint-account", signup: "signin-hint-signup" } as const;
 
 export function SignInPage({ org, params, invite, lastMethodLocal }: SignInPageProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const reduce = useReduce();
   const fine = useFinePointer();
   const auth = org?.auth ?? null;
@@ -53,7 +54,9 @@ export function SignInPage({ org, params, invite, lastMethodLocal }: SignInPageP
   const msHref = startUrl({ base, next: params.next, invite: validInvite?.token ?? null, loginHint: validInvite?.loginHint ?? null });
 
   const hint1 = orgName ? (domain ? t("signin.microsoft.hintDomain", { org: orgName, domain }) : t("signin.microsoft.hint", { org: orgName })) : domain ? t("signin.microsoft.hintNoOrgDomain", { domain }) : t("signin.microsoft.hintNoOrg");
-  const role = auth?.self_signup_role_name?.trim() || t("signin.microsoft.defaultRole");
+  // T-R1-30: the sign-up role in the reader's language: the API's TR/EN label, else the code through lib/i18n/roles
+  // (a built-in role still carrying "Teacher" reads "Öğretim elemanı"), never the stored English name on its own
+  const role = auth?.self_signup_role_label?.[locale]?.trim() || roleLabelIn(locale, { code: auth?.self_signup_role_code, name: auth?.self_signup_role_name }) || t("signin.microsoft.defaultRole");
 
   return (
     <SignInShell logoUrl={org?.logo_url} kvkkUrl={org?.kvkk_notice_url ?? null} testId="signin-page">

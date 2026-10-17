@@ -578,9 +578,27 @@ export type Constraints = z.infer<typeof Constraints>;
 export const LIMIT_KEYS = ["max_active_bookings", "range_min", "range_max", "recur_max_instances"] as const;
 export type LimitKey = (typeof LIMIT_KEYS)[number];
 
+/** `POST /users/import` (services/bookings_users.py): row texts in the actor's language plus `_tr`/`_en`, and the
+ *  counts + one-line summary (T-R1-33). All additive, so an older backend still parses. */
 export const ImportResult = z.object({
   created: z.number(),
-  results: z.array(z.object({ line: z.number(), username: z.string().nullish(), status: z.string(), error: z.string().nullish() })),
+  results: z.array(
+    z.object({
+      line: z.number(),
+      username: z.string().nullish(),
+      status: z.string(),
+      error: z.string().nullish(),
+      error_tr: z.string().nullish(),
+      error_en: z.string().nullish(),
+      warning: z.string().nullish(),
+      warning_tr: z.string().nullish(),
+      warning_en: z.string().nullish(),
+    }),
+  ),
+  summary: z.record(z.string(), z.number()).nullish(),
+  summary_tr: z.string().nullish(),
+  summary_en: z.string().nullish(),
+  summary_text: z.string().nullish(),
 });
 export type ImportResult = z.infer<typeof ImportResult>;
 export interface ImportDefaults {
@@ -636,6 +654,9 @@ export const AdminRoom = z.object({
   photo_url: z.string().nullish(),
   pos: z.number(),
   fields: z.record(z.string(), z.unknown()).default({}),
+  /** "T 101" for the stored "T101" and the building it sits in (T-R1-34) */
+  code_label: z.string().nullish(),
+  building_code: z.string().nullish(),
 });
 export type AdminRoom = z.infer<typeof AdminRoom>;
 export interface AdminRoomIn {

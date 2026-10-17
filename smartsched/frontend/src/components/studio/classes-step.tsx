@@ -22,6 +22,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
 import { dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { coarseHitArea } from "@/components/ui/hit-area";
 import { ChangedMark, DayTimeCell, ModeCell, PinCell, RoomsCell, StudentsCell } from "./class-cells";
 import { isPlacementPin } from "./studio-reducer";
 import { EMPTY_FILTERS, QUICK_FILTERS, activeFilterCount, filterClasses, filterOptions, quickCounts, type ClassFilters, type QuickFilter } from "./class-filters";
@@ -492,7 +493,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                       </p>
                     </div>
                     <span className="flex shrink-0 items-start pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:-my-1 pointer-coarse:-mr-2">
-                      <Switch checked={!out} onCheckedChange={() => toggleIn(r)} aria-label={t("studio.classes.inPlanLabel", { name: `${r.course_code} §${r.section_label ?? ""}` })} data-testid="in-plan" className="mt-1 pointer-coarse:mt-0" />
+                      <Switch checked={!out} onCheckedChange={() => toggleIn(r)} aria-label={t("studio.classes.inPlanLabel", { name: `${r.course_code} §${r.section_label ?? ""}` })} data-testid="in-plan" className={cn("relative mt-1 pointer-coarse:mt-0", coarseHitArea)} />
                     </span>
                   </div>
                 </li>

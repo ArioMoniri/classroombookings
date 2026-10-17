@@ -25,6 +25,9 @@ export const PublicAuth = z.object({
   local_enabled: z.boolean().default(true),
   ldap_enabled: z.boolean().default(false),
   self_signup_role_name: z.string().nullish(),
+  /** T-R1-30: the role's code (`TEACHER`) and its TR/EN label (built-in names localised); the hint reads these */
+  self_signup_role_code: z.string().nullish(),
+  self_signup_role_label: z.record(z.string(), z.string()).nullish(),
 });
 export type PublicAuth = z.infer<typeof PublicAuth>;
 

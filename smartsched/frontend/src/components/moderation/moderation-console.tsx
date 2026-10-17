@@ -179,7 +179,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
         <>
           {term?.code ?? ""}
           {" · "}
-          {matchings.data ? (runId ? t("moderation.publishedRun", { id: runId, rate: matchings.data.match_rate !== null ? pct(Math.round(matchings.data.match_rate * 100), { locale, suffix: "acc" }) : "—" }) : t("moderation.noPublished")) : <Skeleton className="inline-block h-3 w-40 align-middle" />}
+          {matchings.data ? (runId ? t("moderation.publishedRun", { id: runId, rate: matchings.data.match_rate !== null ? pct(Math.round(matchings.data.match_rate * 100), { locale, suffix: "poss" }) : "—" }) : t("moderation.noPublished")) : <Skeleton className="inline-block h-3 w-40 align-middle" />}
         </>
       }
       actions={

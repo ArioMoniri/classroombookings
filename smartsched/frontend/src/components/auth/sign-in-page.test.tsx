@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { OrgPublicAuth } from "@/lib/api/identity";
+import type { OrgPublicAuth, PublicAuth } from "@/lib/api/identity";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { SignInPage } from "./sign-in-page";
 import { readSignInParams, type InviteState } from "./signin-model";
@@ -46,6 +46,21 @@ describe("SignInPage (docs/design/v2/sign-in.md)", () => {
     document.cookie = "smartsched_last_signin=; max-age=0; path=/";
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("T-R1-30: the sign-up role reads in the UI language (built-in code or the API's bilingual label), never the stored English name", () => {
+    // a Teacher role still carrying its shipped name: the code decides (lib/i18n/roles roleLabelIn)
+    const teacher: PublicAuth = { ...org().auth!, self_signup_role_name: "Teacher", self_signup_role_code: "TEACHER" };
+    const { unmount } = view(org({ auth: teacher }));
+    expect(screen.getByTestId("signin-hints")).toHaveTextContent("hesabınız Öğretim elemanı olarak açılır");
+    expect(screen.getByTestId("signin-hints")).not.toHaveTextContent("Teacher");
+    unmount();
+    const en = view(org({ auth: teacher }), "", null, "en");
+    expect(screen.getByTestId("signin-hints")).toHaveTextContent("creates your account as a Teacher");
+    en.unmount();
+    // the API's own TR/EN label wins when present (a renamed built-in role keeps its name in both)
+    view(org({ auth: { ...teacher, self_signup_role_label: { tr: "Ders veren", en: "Lecturer" } } }));
+    expect(screen.getByTestId("signin-hints")).toHaveTextContent("Ders veren");
+  });
 
   it("Microsoft on: one link to the start route with next, hints with the domain and the sign-up role; no sign-up control (§15 #1 #6 #7)", () => {
     view(org(), "next=/timetable");
