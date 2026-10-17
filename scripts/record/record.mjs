@@ -15,6 +15,11 @@
 //   REC_VIEWPORT     WIDTHxHEIGHT (default 1440x900; record-all.sh uses 1280x800)
 //   REC_FPS          pipeline frame rate (default 30; record-all.sh uses 20, see lib/fps.mjs)
 //   RECORDLY_BIN     extracted Recordly AppImage executable (engine recordly/both)
+//   REC_DEVICE       desktop (default) | phone: 390x844, deviceScaleFactor 3, isMobile + hasTouch (lib/touch.mjs), taps
+//   REC_DSF          device scale factor of a desktop take (default 1; the launch video captures at 2)
+//   REC_CAPTION_LANG caption language when it differs from the UI language (--lang)
+//   --engine frames  the launch video's route (scripts/record/launch): keep the lossless screencast PNG frames +
+//                    <name>.take.json (frames on the recorder clock, steps, pointer, keys); no compositing here
 //   PLAYWRIGHT_BROWSERS_PATH (default /opt/pw-browsers when it exists)
 //
 // Output in --out (default ./recordings/<journey>-<theme>): <name>.mp4 (H.264), <name>.<clip>.gif (REC_GIF=1: one
@@ -64,17 +69,19 @@ if (args.list || !args.journey) {
 }
 if (!all.includes(args.journey)) throw new Error(`unknown journey ${args.journey}; --list shows them`);
 if (!["light", "dark"].includes(args.theme)) throw new Error("--theme must be light or dark");
-if (!["ffmpeg", "recordly", "both", "raw"].includes(args.engine)) throw new Error("--engine must be ffmpeg, recordly, both or raw");
+if (!["ffmpeg", "recordly", "both", "raw", "frames"].includes(args.engine)) throw new Error("--engine must be ffmpeg, recordly, both, raw or frames");
 
 const journey = (await import(pathToFileURL(join(journeysDir, `${args.journey}.mjs`)).href)).default;
-const [vw, vh] = (env.REC_VIEWPORT ?? "1440x900").split("x").map(Number);
+const phone = (env.REC_DEVICE ?? "desktop") === "phone";
+const [vw, vh] = (env.REC_VIEWPORT ?? (phone ? "390x844" : "1440x900")).split("x").map(Number);
 const viewport = { width: vw, height: vh };
+const dsf = Number(env.REC_DSF ?? (phone ? 3 : 1));
 const baseURL = env.REC_BASE_URL ?? "http://127.0.0.1:3610";
 const creds =
   journey.role === "teacher"
     ? { email: env.REC_TEACHER_EMAIL ?? "ogretmen@smartsched.local", password: env.REC_TEACHER_PASSWORD ?? "Teacher-2026!" }
     : { email: env.REC_EMAIL ?? "admin@smartsched.local", password: env.REC_PASSWORD ?? "Admin-2026!" };
-const name = `${journey.id}-${args.theme}${args.lang === "en" ? "" : `-${args.lang}`}`;
+const name = `${journey.id}-${args.theme}${args.lang === "en" ? "" : `-${args.lang}`}${phone ? "-phone" : ""}`;
 const outDir = resolve(args.out ?? join(process.cwd(), "recordings", name));
 mkdirSync(outDir, { recursive: true });
 const log = (...m) => console.log(`[rec ${journey.id}]`, ...m);
@@ -98,7 +105,7 @@ if (args.repolish) {
   const videoDir = join(outDir, ".video");
   // REC_CAPTURE: "video" = Playwright's recordVideo (VP8), "screencast" = lossless PNG frames (lib/screencast.mjs);
 // a journey's own `capture` wins
-  const capture = journey.capture ?? env.REC_CAPTURE ?? "video"; // a journey can insist (see import-generate)
+  const capture = args.engine === "frames" ? "screencast" : journey.capture ?? env.REC_CAPTURE ?? "video"; // a journey can insist (see import-generate)
   if (capture === "screencast") env.REC_LOSSLESS = "1";
   let sc = null;
   rmSync(videoDir, { recursive: true, force: true });
@@ -106,7 +113,8 @@ if (args.repolish) {
   const context = await browser.newContext({
     baseURL,
     viewport,
-    deviceScaleFactor: 1,
+    deviceScaleFactor: dsf,
+    ...(phone ? { isMobile: true, hasTouch: true } : {}),
     colorScheme: args.theme,
     locale: args.lang === "tr" ? "tr-TR" : "en-GB",
     timezoneId: "Europe/Istanbul",
@@ -130,8 +138,8 @@ if (args.repolish) {
     });
   }, args.theme);
   const page = await context.newPage();
-  const rec = new Recorder(page, { speed: Number(args.speed), viewport, log });
-  const ctx = { page, baseURL, creds, lang: args.lang, theme: args.theme, termCode: env.REC_TERM_CODE ?? "2026-BAHAR" };
+  const rec = new Recorder(page, { speed: Number(args.speed), viewport, log, touch: phone });
+  const ctx = { page, baseURL, creds, lang: args.lang, captionLang: env.REC_CAPTION_LANG ?? args.lang, theme: args.theme, device: phone ? "phone" : "desktop", termCode: env.REC_TERM_CODE ?? "2026-BAHAR" };
 
   let failure = null;
   try {
@@ -143,7 +151,7 @@ if (args.repolish) {
     await journey.setup.call(journey, ctx);
     await page.waitForLoadState("networkidle").catch(() => undefined);
     if (capture === "screencast") {
-      sc = await startScreencast(page, join(outDir, ".frames"), viewport);
+      sc = await startScreencast(page, join(outDir, args.engine === "frames" ? `${name}.frames` : ".frames"), viewport, { scale: dsf, keep: args.engine === "frames" });
       await rec.wait(400);
     }
     await rec.syncFlash();
@@ -158,6 +166,23 @@ if (args.repolish) {
   }
   const video = page.video();
   const screencastFile = sc ? await sc.stop(join(outDir, `${name}.screencast.mkv`)).catch((e) => (failure ??= e, null)) : null;
+  if (args.engine === "frames") {
+    await context.close();
+    await browser.close();
+    const tlRec = rec.timeline();
+    if (failure) {
+      writeFileSync(join(outDir, `${name}.timeline.recorder.json`), JSON.stringify(tlRec, null, 2));
+      log(`journey failed: ${failure.message.split("\n")[0]} (screenshot ${name}.failure.png)`);
+      process.exit(2);
+    }
+    const fr = JSON.parse(readFileSync(join(screencastFile, "frames.json"), "utf8"));
+    const take = { version: 1, journey: { id: journey.id, title: journey.title, theme: args.theme, lang: args.lang, captionLang: ctx.captionLang, device: ctx.device },
+      viewport, dsf, framesDir: `${name}.frames`, frames: fr.frames.map((f) => ({ t: +(f.t - tlRec.t0).toFixed(1), file: f.file })), timeline: tlRec };
+    writeFileSync(join(outDir, `${name}.take.json`), JSON.stringify(take));
+    const lags = fr.frames.map((f) => f.lag).filter((x) => x != null).sort((a, b) => a - b);
+    log(`frames: ${take.frames.length} unique PNG frames at ${viewport.width * dsf}x${viewport.height * dsf}, ${((tlRec.marks.end - tlRec.marks.begin) / 1000).toFixed(1)} s, arrival lag p50 ${lags[lags.length >> 1] ?? "-"} ms -> ${name}.take.json`);
+    process.exit(0);
+  }
   await context.close();
   await browser.close();
   const webm = screencastFile ?? (await video?.path());

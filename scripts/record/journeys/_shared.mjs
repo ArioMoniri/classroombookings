@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 export const FIXTURES = resolve(REPO, "smartsched/backend/tests/fixtures");
 
-/** Caption in the requested language. */
-export const tr = (ctx, en, trText) => (ctx.lang === "tr" ? trText : en);
+/** Caption in the requested language (REC_CAPTION_LANG / ctx.captionLang when it differs from the UI language). */
+export const tr = (ctx, en, trText) => ((ctx.captionLang ?? ctx.lang) === "tr" ? trText : en);
 
 /** Log in through the UI without recording it (used in setup(), before the sync flash). */
 export async function login(page, { email, password }) {

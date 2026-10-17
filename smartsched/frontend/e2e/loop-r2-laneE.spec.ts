@@ -488,3 +488,127 @@ test("T-R2-30 · a forced capacity break reads Turkish on the timetable banner a
     expect(back.status, JSON.stringify(back.body ?? back)).toBe(200);
   }
 });
+
+/* ------------------------------------------------------------------ round 3 follow-up (loop-r3-laneE-2026-10-17) */
+
+test("R3-M-05 · phone filters: a full-width bottom sheet, 16 px search, 44 px targets, a sticky show action; the search filters the agenda", async ({ browser }) => {
+  test.skip(!ctx.termRun, "no finished Bahar term run");
+  const phoneCtx = await browser.newContext(PHONE);
+  const phone = await phoneCtx.newPage();
+  await login(phone);
+  await phone.goto(`/timetable?run=${ctx.termRun!.id}&week=3`);
+  await phone.getByTestId("calendar-mobile").waitFor({ timeout: 60_000 });
+  await phone.waitForTimeout(1500);
+  const before = await phone.locator('[data-testid="calendar-mobile"] [data-testid="calendar-event"]').count();
+  expect(before).toBeGreaterThan(1);
+  await phone.getByTestId("open-filters").click();
+  const sheet = phone.getByTestId("filters-sheet");
+  await expect(sheet).toBeVisible();
+  await phone.waitForTimeout(600);
+  await assertTouch(phone);
+  const vp = phone.viewportSize()!;
+  const box = (await sheet.boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(vp.width - 1); // full width (M-04)
+  expect(box.y + box.height).toBeGreaterThanOrEqual(vp.height - 1); // anchored to the bottom
+  const search = phone.getByTestId("calendar-search");
+  expect(await search.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+  // M-02 inside the sheet, every scroll step of its body
+  const bad: unknown[] = [];
+  const body = phone.locator('[data-testid="filters-sheet"] [data-testid="calendar-sidebar"]');
+  const total = await body.evaluate((el) => el.scrollHeight);
+  for (let y = 0; y <= total; y += 300) {
+    await body.evaluate((el, y) => (el.scrollTop = y), y);
+    await phone.waitForTimeout(120);
+    bad.push(...(await phone.evaluate(M02)));
+  }
+  expect(bad.filter((b, i, a) => a.findIndex((x) => JSON.stringify(x) === JSON.stringify(b)) === i)).toEqual([]);
+  // the primary action: sticky in the bottom 40 %
+  const apply = (await phone.getByTestId("filters-apply").boundingBox())!;
+  expect(apply.y).toBeGreaterThanOrEqual(0.6 * vp.height - 1);
+  expect(apply.height).toBeGreaterThanOrEqual(44);
+  // the search filters the day list: one course of the agenda
+  const first = (await phone.locator('[data-testid="calendar-mobile"] [data-testid="calendar-event"]').first().getAttribute("aria-label")) ?? "";
+  const code = (first.match(/^[A-ZÇĞİÖŞÜ]{2,5} \d{3}/) ?? [""])[0];
+  test.skip(!code, `no course code in the first chip's name (${first})`);
+  await search.fill(code);
+  await expect(phone.getByTestId("filters-apply")).not.toHaveText(new RegExp(`^${before} `));
+  await search.press("Enter");
+  await expect(sheet).toBeHidden();
+  const after = await phone.locator('[data-testid="calendar-mobile"] [data-testid="calendar-event"]').count();
+  expect(after).toBeGreaterThan(0);
+  expect(after).toBeLessThan(before);
+  await expect.poll(() => phone.evaluate(() => document.activeElement?.getAttribute("data-testid"))).toBe("calendar-event");
+  await expect(phone.getByTestId("filters-count")).toBeVisible();
+  // no match: the day list says why
+  await phone.getByTestId("open-filters").click();
+  await phone.getByTestId("calendar-search").fill("zzzz yok");
+  await phone.getByTestId("filters-apply").click();
+  await expect(phone.getByTestId("calendar-mobile")).toContainText("Bu filtrelerle gösterilecek ders yok.");
+  await phoneCtx.close();
+});
+
+test("R1-S-26 · at 1440 and 1024 the overlay sidebar leaves its toggle uncovered and Esc closes it", async ({ browser }) => {
+  test.skip(!ctx.termRun, "no finished Bahar term run");
+  for (const width of [1440, 1024]) {
+    const c = await browser.newContext({ viewport: { width, height: 900 }, locale: "tr-TR" });
+    const page = await c.newPage();
+    await login(page);
+    await page.goto(`/timetable?run=${ctx.termRun!.id}&week=3`);
+    await page.getByTestId("calendar-toolbar").waitFor({ timeout: 60_000 });
+    const toggle = page.getByTestId("sidebar-toggle");
+    if (await page.getByTestId("calendar-sidebar").isVisible()) await toggle.click();
+    await expect(page.getByTestId("calendar-sidebar")).toBeHidden();
+    await toggle.click();
+    await expect(page.getByTestId("calendar-sidebar")).toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    // the toggle is not covered: a click at its centre reaches it, and it closes the sidebar
+    const free = await toggle.evaluate((el) => { const r = el.getBoundingClientRect(); const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return t === el || el.contains(t); });
+    expect(free, `${width}: toggle uncovered`).toBe(true);
+    await toggle.click();
+    await expect(page.getByTestId("calendar-sidebar")).toBeHidden();
+    // Esc closes it (also with focus in its search) and focus returns to the toggle
+    await toggle.click();
+    await page.getByTestId("calendar-search").focus();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("calendar-sidebar")).toBeHidden();
+    await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("data-testid"))).toBe("sidebar-toggle");
+    await c.close();
+  }
+});
+
+test("R2-S-08 · /classes view tabs and the inspector's Yerleşimi açıkla are 44 px on the phone; R3-S-06 the solver save is sticky", async ({ browser }) => {
+  test.skip(!ctx.termRun, "no finished Bahar term run");
+  const phoneCtx = await browser.newContext(PHONE);
+  const phone = await phoneCtx.newPage();
+  await login(phone);
+  await phone.goto(`/classes?run=${ctx.termRun!.id}`);
+  await phone.getByTestId("view-tabs").waitFor({ timeout: 60_000 });
+  await phone.waitForTimeout(1500);
+  await assertTouch(phone);
+  const tabs = await phone.locator('[data-testid="view-tabs"] [role="tab"]').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+  expect(tabs.filter((h) => h < 44)).toEqual([]);
+  expect(await m02All(phone)).toEqual([]);
+  // the timetable inspector's "Yerleşimi açıkla"
+  await phone.goto(`/timetable?run=${ctx.termRun!.id}&week=3`);
+  await phone.getByTestId("calendar-mobile").waitFor({ timeout: 60_000 });
+  await phone.locator('[data-testid="calendar-mobile"] [data-testid="calendar-event"]').first().click();
+  const why = phone.getByTestId("explain-placement");
+  await expect(why).toBeVisible({ timeout: 20_000 });
+  expect((await why.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // the solver save: in the bottom 40 % and free at every scroll (M-05)
+  await phone.goto("/settings?tab=solver");
+  const save = phone.getByTestId("save-solver");
+  await save.waitFor({ timeout: 60_000 });
+  const vh = phone.viewportSize()!.height;
+  for (const y of [0, 400, 1e6]) {
+    await phone.evaluate((y) => window.scrollTo(0, y), y);
+    await phone.waitForTimeout(150);
+    const b = (await save.boundingBox())!;
+    const free = await save.evaluate((el) => { const r = el.getBoundingClientRect(); const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return t === el || el.contains(t); });
+    expect(b.y, `scroll ${y}`).toBeGreaterThanOrEqual(0.6 * vh - 1);
+    expect(b.y + b.height).toBeLessThanOrEqual(vh);
+    expect(b.height).toBeGreaterThanOrEqual(44);
+    expect(free, `scroll ${y}`).toBe(true);
+  }
+  await phoneCtx.close();
+});
