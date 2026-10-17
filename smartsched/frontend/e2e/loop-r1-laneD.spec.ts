@@ -233,7 +233,9 @@ test.describe("phone 390", () => {
     expect(b.height).toBeGreaterThanOrEqual(44);
     await ok.tap();
     await expect(gate).toBeHidden();
-    await expect.poll(() => page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName)).toBe("main");
+    // T-R1-28 / T-R1-12: the gate hands focus to the page's `[data-focus-fallback]` landmark, else #main; on a phone
+    // /bookings has one (the free-slots title), so focus lands there, never on <body>
+    await expect.poll(() => page.evaluate(() => (document.activeElement?.id === "main" || document.activeElement?.hasAttribute("data-focus-fallback")) ? "page" : document.activeElement?.id || document.activeElement?.tagName)).toBe("page");
 
     await page.goto("/profile#privacy");
     const section = page.getByTestId("privacy-section");

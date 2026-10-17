@@ -277,7 +277,9 @@ test("2. policies: the editor's refusing rule and an API request rule show in a 
   await page.goto(`/bookings?date=${REQUEST_DAY}&group=${ctx.groupA}&lens=grid`);
   const marked = page.locator('[data-cell][data-tone="available"]:has([data-request-only])').first();
   await expect(marked).toBeVisible();
-  await expect(marked).toHaveAttribute("aria-label", /onaylayıcılara talep olarak gider/);
+  // T-R1-10: every requestable cell reads "Talep et · Onay gerekir" (one helper for the grid, phone slots and find-room)
+  await expect(marked).toHaveAttribute("aria-label", /Talep et · Onay gerekir|onaylayıcılara talep olarak gider/);
+  await expect(marked).not.toHaveAttribute("aria-label", /Rezerve et/);
   await marked.click();
   await expect(page.getByTestId("book-policy-request")).toContainText(/rezervasyona kapalı|Bölüm günü/);
 });

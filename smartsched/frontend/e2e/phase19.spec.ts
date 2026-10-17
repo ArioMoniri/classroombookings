@@ -122,6 +122,8 @@ test("moderation: people → profile → raise a priority → re-solve preview d
   const dialog = page.getByTestId("publish-dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Vazgeç" })).toBeFocused();
+  // R1-S-04 (integrity, round 1): classes that lose their published room are listed and must be acknowledged first
+  if (await dialog.getByTestId("publish-losses").isVisible()) await dialog.getByTestId("publish-losses-ack").check();
   await dialog.getByTestId("publish-confirm").click();
   const refused = dialog.getByTestId("publish-refused");
   const published = page.getByText(/Yayınlandı: #\d+ artık geçerli plan/);

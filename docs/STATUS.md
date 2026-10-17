@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `2fdd220` (committed 2026-10-17 03:51 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `5173e93` (committed 2026-10-17 04:22 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,11 +145,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-197 agents in [`docs/agents/registry.json`](agents/registry.json): running 2 · finished 177 · stopped 11 · superseded 7.
+199 agents in [`docs/agents/registry.json`](agents/registry.json): running 1 · finished 180 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
-| `Round-2 persona tester` | user-tester | 2026-10-17 00:43 |
 | `E2E gate run on HEAD` | frontend-engineer | 2026-10-17 02:09 |
 
 <!-- /AUTO:agents -->

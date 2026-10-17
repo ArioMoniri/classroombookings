@@ -381,6 +381,8 @@ test("moderation: person priority with its source badge, server changes list, re
   const notify = dialog.getByTestId("notify-people");
   await expect(notify).toContainText("Akademisyenlere bildir");
   await expect(notify.getByTestId("notify-list").or(notify.getByText(/bildirim gitmez/))).toBeVisible();
+  // R1-S-04 (integrity, round 1): classes that lose their published room are listed and must be acknowledged first
+  if (await dialog.getByTestId("publish-losses").isVisible()) await dialog.getByTestId("publish-losses-ack").check();
   await dialog.getByTestId("publish-confirm").click();
   await expect(page.getByText(/artık geçerli plan/).or(dialog.getByTestId("publish-refused")).first()).toBeVisible({ timeout: 60_000 });
 });
