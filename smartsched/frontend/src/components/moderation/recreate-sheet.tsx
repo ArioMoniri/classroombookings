@@ -17,6 +17,8 @@ import { useI18n } from "@/lib/i18n/provider";
 import { ChangesList } from "./changes-list";
 
 const LIMITS = ["60", "120", "300"] as const;
+/** the "Yeniden çözüm #n başladı" toast; `recreate-preview.tsx` dismisses it when the preview is on screen */
+export const RECREATE_STARTED_TOAST = "recreate-started";
 
 export function RecreateSheet({ open, onOpenChange, termId, baseRunId, staged, side = "right" }: { open: boolean; onOpenChange: (v: boolean) => void; termId: number; baseRunId: number; staged: number[]; side?: "right" | "bottom" }) {
   const { t, locale, n } = useI18n();
@@ -35,7 +37,9 @@ export function RecreateSheet({ open, onOpenChange, termId, baseRunId, staged, s
     try {
       const out = await moderationApi.resolve(termId, { base_run_id: baseRunId, changed_request_ids: staged, mode: effective, time_limit_s: Number(limit) });
       void qc.invalidateQueries({ queryKey: ["moderation", "changes", termId] });
-      toast.success(t("moderation.recreate.started", { id: out.run_id }));
+      // short and named: the preview page dismisses it as soon as it renders, so Sonner's hover-pause can never keep
+      // it over the sticky footer's "Onayla ve yayınla" (e2e gate, round 2 / T-R2-23)
+      toast.success(t("moderation.recreate.started", { id: out.run_id }), { id: RECREATE_STARTED_TOAST, duration: 4000 });
       onOpenChange(false);
       router.push(`/moderation/recreate/${out.run_id}`);
     } catch (e) {

@@ -1,6 +1,7 @@
 /**
  * Flow loop round 1, lane F (docs/ROADMAP.md "Flow loop tickets — round 1"), on the full recording stack before
- * `stack.sh runs` (Bahar + Güz + Final workbooks, the Güz weekly grid published as board #3, names masked):
+ * `stack.sh runs` (Bahar + Güz + Final workbooks, the Güz weekly grid published as its board, names masked) or the e2e
+ * gate seed (e2e-backend-entry.sh: the same three terms, the Güz board published by e2e-seed-analytics.py):
  *
  *  1. T-R1-39: /dashboard for Güz says the published imported board is the plan (no "henüz çizelge
  *     oluşturulmadı") and its "Derslik doluluğu" is the heatmap's "Genel doluluk" of the same week (±0.5 points);
@@ -12,7 +13,7 @@
  *     round-1-staff R1-S-14 did) a plan with the defaults finds the exam list's people among the masked instructor
  *     rows (pool line "eşleşen N", duties assigned), the imported Final board is offered as "sınav bağlantısı yok",
  *     and a plan whose pool is empty says why in Turkish and offers the one-tap "Tüm eğitmenlerle yeniden çalıştır".
- *  5. T-R1-39 part 2 (lane F2): the /moderation header of Güz with the imported board #3 published reads a match
+ *  5. T-R1-39 part 2 (lane F2): the /moderation header of Güz with the imported board published reads a match
  *     rate above 0 % (board cells matched to the requests by course, day and period).
  *  6. Phone (390, touch) on /exams/invigilation and /moderation: no horizontal scroll (M-01), 44 px controls (M-02),
  *     16 px inputs (M-03).
@@ -66,8 +67,9 @@ type Sugg = { subject: { type: string; id: number | string }; state: string };
 async function useTerm(page: Page, code: string): Promise<TermRow> {
   const terms = await api<TermRow[]>(page, "/terms");
   const term = terms.find((t) => t.code === code);
-  // the Güz board comes from `stack.sh runs`; the e2e gate backend (e2e-backend-entry.sh) seeds Bahar + Final only
-  test.skip(!term, `term ${code} is not on this backend (stack.sh runs imports it; the e2e gate seed does not)`);
+  // the Güz workbooks come with `stack.sh up` and with the e2e gate seed (e2e-backend-entry.sh imports the Güz grid +
+  // planning list, e2e-seed-analytics.py publishes its board); the skip stays as the fallback for a Bahar-only backend
+  test.skip(!term, `term ${code} is not on this backend (stack.sh up and e2e-backend-entry.sh import it)`);
   if (!term) throw new Error(`term ${code} is not on this backend`);
   await page.evaluate((id) => {
     const raw = localStorage.getItem("smartsched.ui");

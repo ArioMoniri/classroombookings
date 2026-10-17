@@ -189,6 +189,12 @@ def test_entry_seeded_mode_imports_seeds_and_solves(tmp_path: Path) -> None:
     assert at("import room-master") < at("solve --term 2026-BAHAR")
     # the analytics runs before the full-term run: the screens open the term's latest usable run
     assert at("import weekly-grid tests/fixtures/final_") < at("e2e-seed-analytics.py") < at("solve --term 2026-BAHAR")
+    # the Güz 2026-27 workbooks (grid + planning list) after Bahar and before Final (Final keeps the newest term id),
+    # before the analytics seed that publishes the Güz board; Güz gets no solver run (e2e-gate-seed 2026-10-17)
+    assert at("import weekly-grid tests/fixtures/bahar_") < at("import weekly-grid tests/fixtures/guz_") \
+        < at("import planning-list tests/fixtures/guz_") < at("import weekly-grid tests/fixtures/final_")
+    assert at("import planning-list tests/fixtures/guz_") < at("e2e-seed-analytics.py")
+    assert "solve --term 2026-GUZ" not in calls
     assert at("solve --term 2026-BAHAR") < at("e2e-backend-serve.py")
 
 

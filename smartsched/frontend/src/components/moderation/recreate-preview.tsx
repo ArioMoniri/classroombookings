@@ -27,6 +27,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
 import { usePermissions } from "@/lib/permissions";
 import { CompareCalendar } from "./compare-calendar";
+import { RECREATE_STARTED_TOAST } from "./recreate-sheet";
 import { ResponsiveDialog } from "./responsive-dialog";
 import { usePhone } from "./use-media";
 import { ModTable, type ModColumn } from "./mod-table";
@@ -74,6 +75,11 @@ export function RecreatePreview({ runId }: { runId: number }) {
       setAnnounce(t("moderation.preview.ready", { moved: d.counts.moved, newly: d.counts.newly_placed, unplaceable: d.counts.unplaceable }));
     }
   }, [d, t]);
+  // the "Yeniden çözüm #n başladı" toast sits bottom-right, exactly over the sticky footer's "Onayla ve yayınla", and
+  // Sonner pauses its expiry under a resting pointer: it goes the moment this page shows the run (T-R2-23 / e2e gate)
+  useEffect(() => {
+    toast.dismiss(RECREATE_STARTED_TOAST);
+  }, [runId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

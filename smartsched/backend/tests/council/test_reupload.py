@@ -87,27 +87,20 @@ async def test_general_then_fast_path_share_one_key_and_the_dry_run_predicts_the
     real_a = r.json()
     # I4: the dry run predicts the commit, entity by entity
     assert real_a["changes"] == dry_a["counts"], (real_a["changes"], dry_a["counts"])
-    # I5 / D14: the workbook's 1,511 requests + the one row the importer refuses (MDF-516) - never a second copy
-    # of the rows the CSV already wrote
+    # I5 / D14: the workbook's 1,511 requests, never a second copy of the rows the CSV already wrote
     total = await _active_meetings()
-    import json as _j
-    print("DBG_GENERAL", _j.dumps(real_a["general"]), _j.dumps(dry_a["counts"]["meeting_requests"]))
-    print("DBG_CREATED", _j.dumps([r for r in dry_a["rows"] if r["change"] == "create" and r["entity"] in ("meeting_requests", "sections")], ensure_ascii=False)[:3000])
-    print("DBG_UPDATED", _j.dumps([r for r in dry_a["rows"] if r["change"] == "update" and r["entity"] == "meeting_requests"][:8], ensure_ascii=False)[:3000])
-    import json as _j
-    probe = await _dry(client, h, (await upload(client, h, (BAHAR_LIST.name, BAHAR_LIST.read_bytes()), ai="false"))["id"])
-    print("DBG_PROBE", _j.dumps(probe["counts"].get("meeting_requests")), _j.dumps(probe["result"]["fast_path"][0]["updated"]))
-    print("DBG_PROBE_ROWS", _j.dumps([r for r in probe["rows"] if r["entity"] == "meeting_requests" and any(f["field"] == "archived" for f in r.get("fields", []))][:6], ensure_ascii=False)[:2500])
-    from app.core.db import get_session_factory as _gsf
-    from app.models import MeetingRequest as _MR, Section as _S, Course as _Co, Program as _P
-    from sqlalchemy import select as _sel
-    async with _gsf()() as _s:
-        for r in [r for r in probe["rows"] if r["entity"] == "meeting_requests" and any(f["field"] == "archived" for f in r.get("fields", []))][:6]:
-            mr = await _s.get(_MR, r["id"])
-            sec = await _s.get(_S, mr.section_id)
-            co = await _s.get(_Co, sec.course_id)
-            print("DBG_ROW", co.code, sec.label, sec.source_key, mr.days, str(mr.start_time), mr.source_key, mr.source_row_index, mr.archived)
-    assert 1511 <= total <= 1512, total
+    # the general reader also accepts two rows the importer refuses (MDF-516: an unrecognised course code; PET 593: no
+    # day): the term holds them once, from Job B
+    assert 1511 <= total <= 1513, total
+    # the workbook alone against this term: everything it knows is there and unchanged; it only archives the two
+    probe = await _dry(
+        client, h, (await upload(client, h, (BAHAR_LIST.name, BAHAR_LIST.read_bytes()), ai="false"))["id"]
+    )
+    assert (
+        _n(probe["counts"], "meeting_requests", "create") == 0
+        and _n(probe["counts"], "meeting_requests", "unchanged") >= 1500
+    )
+    assert _n(probe["counts"], "meeting_requests", "update") <= total - 1511, probe["counts"]["meeting_requests"]
     assert _n(dry_a["counts"], "meeting_requests", "create") <= total - n_b + 1, dry_a["counts"]["meeting_requests"]
 
     # Job D: the same CSV once more: every row is there already

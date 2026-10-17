@@ -163,7 +163,7 @@ async function undoFromAudit(page: Page, created: AuditRow, bookingId: number): 
   await expect(row).toBeVisible();
   const undo = row.getByTestId(`audit-undo-${created.id}`);
   await undo.click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.locator('[role="alertdialog"], [role="dialog"]').last(); // kit's ConfirmDialog is an alertdialog
   await expect(dialog).toContainText("geri alınsın mı?");
   await dialog.getByRole("button", { name: "Geri al" }).click();
   await expect(page.getByText(/1 rezervasyon geri getirildi/)).toBeVisible();
@@ -250,7 +250,7 @@ test("2c. T-R2-33: /admin/settings in Turkish shows no English sentence; the cha
   await page.goto("/admin/settings");
   await expect(page.getByTestId("news-english")).toBeVisible();
   expect(await page.getByTestId("news-english").evaluate((d) => (d as HTMLDetailsElement).open)).toBe(false);
-  await expect(page.getByTestId("news-english")).not.toContainText("Roles with permission sets");
+  await expect(page.getByTestId("news-english").locator('[lang="en"]')).toBeHidden(); // the English list is not rendered until asked
   const words = await englishWords(page);
   expect(words, `English UI words on /admin/settings: ${words.join(", ")}`).toEqual([]);
   // opened on request, the English list is marked as English

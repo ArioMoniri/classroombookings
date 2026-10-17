@@ -266,6 +266,8 @@ test("T-R1-06 tabs, user menu, shortcuts and the welcome toast", async ({ browse
   await login(d, ACAD.username, ACAD.password);
   await d.goto("/moderation/me");
   await expect(d.getByTestId("open-palette")).toHaveAttribute("aria-label", "Komut paleti (Ctrl+K)");
+  // the shell arms the global shortcuts on mount and says so (e2e gate: Shift+? landed before the listener existed)
+  await expect(d.locator('html[data-shortcuts="armed"]')).toHaveCount(1);
   await d.keyboard.press("Shift+?");
   const sheet = d.getByTestId("shortcuts-sheet");
   await expect(sheet).toBeVisible();

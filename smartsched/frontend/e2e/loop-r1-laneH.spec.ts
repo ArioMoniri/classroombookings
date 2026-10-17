@@ -124,8 +124,9 @@ test("T-R1-46 · the nursing chip opens the pre-filled template without an AI ke
 });
 
 test("T-R1-47 · switching the term never shows 0 derslikte; Güz reads 14 hafta with its dated rows", async ({ page }) => {
-  // the Güz term comes from `stack.sh runs`; the e2e gate backend (e2e-backend-entry.sh) seeds Bahar + Final only
-  test.skip(!ctx.hasGuz, "no 2026-GUZ term on this backend (stack.sh runs imports it; the e2e gate seed does not)");
+  // the Güz term comes with `stack.sh up` and with the e2e gate seed (e2e-backend-entry.sh imports the Güz grid +
+  // planning list); the skip stays as the fallback for a Bahar-only backend
+  test.skip(!ctx.hasGuz, "no 2026-GUZ term on this backend (stack.sh up and e2e-backend-entry.sh import it)");
   await login(page);
   await page.goto("/generate");
   await page.getByTestId("scope-step").waitFor();

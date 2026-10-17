@@ -2322,7 +2322,7 @@
       "ledger": "R2 lane S: minimal-change re-solve",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 05:41",
+      "finished_at": "2026-10-17 08:11",
       "left_off": "The ticket JSON now carries only the three intended lines. The one remaining input is the moderation suite re-run (background); the PROGRESS DONE row and the hand-off follow as soon as it reports."
     },
     {
@@ -2368,6 +2368,14 @@
       "ledger": "Gate seed: Güz import + calendar spec",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "aef0ec4556e58e935",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 08:06",
+      "left_off": "continue from where you left off"
     }
   ]
 }

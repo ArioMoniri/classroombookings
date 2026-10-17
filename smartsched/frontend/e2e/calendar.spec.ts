@@ -52,6 +52,21 @@ async function api<T>(page: Page, path: string): Promise<T> {
   return res.body as T;
 }
 
+type FreeRooms = { rooms: { room_id: number; status: string; fit: number | null }[] };
+
+/** Same-origin JSON POST through the Next proxy (expects 200). */
+async function postApi<T>(page: Page, path: string, body: unknown): Promise<T> {
+  const res = await page.evaluate(
+    async ({ url, body }) => {
+      const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body) });
+      return { status: r.status, body: (await r.json()) as unknown };
+    },
+    { url: `/api/v1${path}`, body },
+  );
+  expect(res.status, `POST ${path} → ${res.status}`).toBe(200);
+  return res.body as T;
+}
+
 type RunRow = { id: number; status: string; kind: string; term_code: string | null; params: Record<string, unknown> | null };
 const USABLE = ["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL", "TIMEOUT"];
 
@@ -162,56 +177,62 @@ test.describe("calendar on the real backend", () => {
     expect(room, `${ROOM_CODE} exists`).toBeTruthy();
     const rid = room?.id ?? 0;
 
+    // the solver run keeps some real clashes (an instructor teaching two classes at once): those classes cannot move
+    // without "force", whatever the room. Which of the room's classes clash is data-dependent (on the gate seed every one
+    // of A 204's first eight week-3 chips is in an instructor-overlap group), so pick the candidate through the API the
+    // way the dialog does (free rooms for the slot, then the server dry run) before driving the UI with it
+    const inRoom = before.assignments.filter((a) => a.rooms.includes(rid) && a.weeks.includes(3)).sort((a, b) => a.day - b.day || a.sp - b.sp);
+    expect(inRoom.length, `${ROOM_CODE} has classes in week 3`).toBeGreaterThan(0);
+    let aid = 0;
+    let target = 0;
+    let tried = 0;
+    for (const a of inRoom) {
+      const free = await api<FreeRooms>(page, `/runs/${editable}/free-rooms?day=${a.day}&start_period=${a.sp}&end_period=${a.ep}&exclude_assignment_id=${a.id}`);
+      // the dialog lists the first 40 free rooms (best fit first), the server's order
+      const rooms = free.rooms.filter((r) => r.status === "free").slice(0, 40).filter((r) => r.room_id !== rid);
+      for (const r of rooms.slice(0, 2)) {
+        tried++;
+        const preview = await postApi<{ items: { ok: boolean }[] }>(page, `/runs/${editable}/assignments/${a.id}/move-preview`, { day: a.day, start_period: a.sp, end_period: a.ep, room_ids: [r.room_id], scope: "all" });
+        if (preview.items[0]?.ok) {
+          aid = a.id;
+          target = r.room_id;
+          break;
+        }
+      }
+      if (target) break;
+    }
+    expect(target, `a class in ${ROOM_CODE} (week 3) that can move to a free room: ${inRoom.length} classes, ${tried} dry runs`).toBeGreaterThan(0);
+
     await page.goto(`/timetable?run=${editable}&week=3&lens=week&subject=room:${rid}`);
     const chips = page.locator(`[data-testid=calendar-event][data-room-id="${rid}"]`);
     await expect(chips.first()).toBeVisible({ timeout: 30_000 });
     const insp = page.getByTestId("class-inspector");
     const dialog = page.getByTestId("move-dialog");
 
-    // the solver run keeps some real clashes (an instructor teaching two classes at once): those classes cannot
-    // move without "force", so take the first class whose server dry run to a free room says it fits
-    let aid = 0;
-    let target = 0;
-    const n = Math.min(8, await chips.count());
-    for (let i = 0; i < n && !target; i++) {
-      const chip = chips.nth(i);
-      const id = Number(await chip.getAttribute("data-assignment-id"));
-      await chip.click();
-      await expect(insp).toBeVisible();
-      await expect(page).toHaveURL(new RegExp(`sel=${id}`));
-      if (i === 0) {
-        // inspector: when & where with the fit, status, why here, explain placement
-        await expect(insp.getByTestId("inspector-room")).toContainText(ROOM_CODE);
-        await expect(insp.getByTestId("inspector-fit")).toBeVisible();
-        await expect(insp.getByTestId("inspector-status")).not.toBeEmpty();
-        await insp.getByTestId("explain-placement").click();
-        await expect(insp.getByTestId("explain-result")).toBeVisible({ timeout: 30_000 });
-        await expect(insp.getByTestId("explain-result")).toContainText(/Source: (template|model)/);
-      }
-      await insp.getByTestId("inspector-move").click();
-      await expect(dialog).toBeVisible();
-      const free = dialog.locator(`[data-testid=free-room][data-status=free]:not([data-room-id="${rid}"])`).first();
-      const found = await free.waitFor({ state: "visible", timeout: 15_000 }).then(() => true, () => false);
-      if (!found) {
-        await page.keyboard.press("Escape");
-        continue;
-      }
-      const room2 = Number(await free.getAttribute("data-room-id"));
-      const preview = page.waitForResponse((r) => r.url().includes(`/assignments/${id}/move-preview`) && (r.request().postData() ?? "").includes(`"room_ids":[${room2}]`), { timeout: 20_000 });
-      await free.click();
-      await expect(free).toHaveAttribute("aria-selected", "true");
-      const body = (await (await preview).json()) as { items: { ok: boolean }[] };
-      if (body.items[0]?.ok) {
-        await expect(dialog.getByTestId("move-server-ok")).toBeVisible();
-        aid = id;
-        target = room2;
-      } else {
-        await expect(dialog.getByTestId("move-confirm")).toBeDisabled();
-        await page.keyboard.press("Escape");
-        await expect(dialog).toBeHidden();
-      }
-    }
-    expect(target, "a class in this room that can move to a free room").toBeGreaterThan(0);
+    const chip = page.locator(`[data-testid=calendar-event][data-assignment-id="${aid}"]`).first();
+    await chip.scrollIntoViewIfNeeded();
+    await chip.click();
+    await expect(insp).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`sel=${aid}`));
+    // inspector: when & where with the fit, status, why here, explain placement
+    await expect(insp.getByTestId("inspector-room")).toContainText(ROOM_CODE);
+    await expect(insp.getByTestId("inspector-fit")).toBeVisible();
+    await expect(insp.getByTestId("inspector-status")).not.toBeEmpty();
+    await insp.getByTestId("explain-placement").click();
+    await expect(insp.getByTestId("explain-result")).toBeVisible({ timeout: 30_000 });
+    await expect(insp.getByTestId("explain-result")).toContainText(/Source: (template|model)/);
+
+    // the move dialog: the free-room finder lists the API's target as free; picking it runs the server dry run
+    await insp.getByTestId("inspector-move").click();
+    await expect(dialog).toBeVisible();
+    const free = dialog.locator(`[data-testid=free-room][data-status=free][data-room-id="${target}"]`).first();
+    await expect(free).toBeVisible({ timeout: 15_000 });
+    const preview = page.waitForResponse((r) => r.url().includes(`/assignments/${aid}/move-preview`) && (r.request().postData() ?? "").includes(`"room_ids":[${target}]`), { timeout: 20_000 });
+    await free.click();
+    await expect(free).toHaveAttribute("aria-selected", "true");
+    const body = (await (await preview).json()) as { items: { ok: boolean }[] };
+    expect(body.items[0]?.ok, "the dialog's dry run agrees with the API's").toBe(true);
+    await expect(dialog.getByTestId("move-server-ok")).toBeVisible();
     const original = before.assignments.find((a) => a.id === aid);
     expect(original?.rooms).toContain(rid);
     await dialog.getByTestId("move-confirm").click();

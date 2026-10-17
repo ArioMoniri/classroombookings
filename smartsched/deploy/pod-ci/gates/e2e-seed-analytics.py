@@ -1,5 +1,5 @@
 # ruff: noqa: RUF001, RUF002, RUF003  (the Turkish run labels the spec looks up)
-"""Seed the runs the planning-analytics specs read (e2e/analytics.spec.ts) and publish the imported board.
+"""Seed the runs the planning-analytics specs read (e2e/analytics.spec.ts) and publish the imported boards.
 
 E2E stack only (e2e-backend-entry.sh, after the Bahar imports and the room master, before the full-term solve; the Final
 board and exam list are imported by the entry script with the CLI). Mirrors tests/planning_analytics_support.py
@@ -8,7 +8,8 @@ on the e2e database, with the labels the spec looks up:
   "Bahar 3. hafta (A)"                                     Bahar week 3, solved like POST /runs
   "Bahar 3. hafta, en yoğun derslik çarşamba kapalı (B)"   week 3 again with A's busiest Wednesday room closed
   "Final (A)"                                              the 2026-FINAL exam run
-and the week-3 run calendar.spec.ts edits ("e2e: Bahar 3. hafta (takvim düzenlemeleri)").
+and the week-3 run calendar.spec.ts edits ("e2e: Bahar 3. hafta (takvim düzenlemeleri)"). The imported boards of
+2026-BAHAR and (when imported) 2026-GUZ are published: the terms' plans are their grids, as on a real install.
 
     python e2e-seed-analytics.py            (cwd: smartsched/backend; DATABASE_URL as for the CLI)
 
@@ -25,6 +26,41 @@ from typing import Any
 
 TIME_LIMIT = float(os.environ.get("E2E_ANALYTICS_TIME_LIMIT", "60"))
 USABLE = ("OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL")
+
+
+async def publish_board(factory: Any, code: str, *, required: bool = True) -> int | None:
+    """Make the term's grid-import board run the active (published) COURSE run; None when the term or board is absent."""
+    from app.models import ScheduleRun, Term
+    from sqlalchemy import select
+
+    async with factory() as s:
+        tid = (await s.execute(select(Term.id).where(Term.code == code))).scalar_one_or_none()
+        if tid is None:
+            if required:
+                raise SystemExit(f"term {code} is not imported")
+            print(f"e2e analytics seed: term {code} not imported, no board to publish", flush=True)
+            return None
+        runs = (
+            (
+                await s.execute(
+                    select(ScheduleRun)
+                    .where(ScheduleRun.term_id == int(tid), ScheduleRun.kind == "COURSE")
+                    .order_by(ScheduleRun.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        board = next((r for r in runs if (r.params or {}).get("source") == "GRID_IMPORT"), None)
+        if board is None:
+            raise SystemExit(f"{code} has no grid-import board run")
+        for r in runs:  # off first: one active run per (term, kind) is a unique index
+            r.is_active = False
+        await s.flush()
+        board.is_active = True
+        await s.commit()
+        print(f"e2e analytics seed: {code} board run #{board.id} published", flush=True)
+        return int(board.id)
 
 
 async def main() -> int:
@@ -101,28 +137,11 @@ async def main() -> int:
     )
     # the term's imported weekly board is its published timetable (the heatmap's "Yayındaki program"), as on a real
     # install after the grid import; not A: a week-3 run as the published plan would leave every other week empty
-    # for the specs that read the published plan (room pages, booking grid, moderation)
-    async with factory() as s:
-        runs = (
-            (
-                await s.execute(
-                    select(ScheduleRun)
-                    .where(ScheduleRun.term_id == bahar, ScheduleRun.kind == "COURSE")
-                    .order_by(ScheduleRun.id)
-                )
-            )
-            .scalars()
-            .all()
-        )
-        board = next((r for r in runs if (r.params or {}).get("source") == "GRID_IMPORT"), None)
-        if board is None:
-            raise SystemExit("2026-BAHAR has no grid-import board run")
-        for r in runs:  # off first: one active run per (term, kind) is a unique index
-            r.is_active = False
-        await s.flush()
-        board.is_active = True
-        await s.commit()
-        print(f"e2e analytics seed: board run #{board.id} published", flush=True)
+    # for the specs that read the published plan (room pages, booking grid, moderation). Güz 2026-27 too (round-1 lane
+    # F/H specs: dashboard, moderation header and Studio scope of a term whose plan is the imported board; the entry
+    # script imports it, the recording stack publishes it the same way through POST /runs/{id}/activate)
+    await publish_board(factory, "2026-BAHAR")
+    await publish_board(factory, "2026-GUZ", required=False)
 
     # the run calendar.spec.ts moves classes in (move + undo leaves it "edited", and an edited run is re-checked
     # against the bookings on publishing): its own run, so the full-term run stays publishable for wave2.spec.ts 1

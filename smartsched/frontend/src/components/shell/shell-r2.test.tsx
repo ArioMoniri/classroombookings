@@ -20,6 +20,12 @@ vi.mock("next/navigation", () => ({
 
 import { breadcrumbs } from "./breadcrumbs";
 import { TabBar } from "./tab-bar";
+import { useGlobalShortcuts } from "./use-global-shortcuts";
+
+function Shortcuts() {
+  useGlobalShortcuts();
+  return null;
+}
 
 const ACADEMICIAN = ["book_single.create", "book_recur.create", "room.view"];
 const PLANNER = [...ACADEMICIAN, "planning.view", "planning.edit"];
@@ -94,5 +100,19 @@ describe("T-R2-08: the academician's Taleplerim crumb", () => {
   });
   it("top-bar passes the planning permission into the crumb context", () => {
     expect(readFileSync(join(process.cwd(), "src/components/shell/top-bar.tsx"), "utf8")).toMatch(/planner = perms \? can\("planning\.view"\)/);
+  });
+});
+
+describe("global shortcuts arm on mount (e2e gate: Shift+? flake)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("sets html[data-shortcuts=armed] as soon as the listener is attached and ? opens the sheet before any data loaded", async () => {
+    stubFetch(ACADEMICIAN);
+    const { unmount } = wrap(<Shortcuts />);
+    expect(document.documentElement.getAttribute("data-shortcuts")).toBe("armed");
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true }));
+    const { useUiStore } = await import("@/stores/ui");
+    expect(useUiStore.getState().shortcutsOpen).toBe(true);
+    unmount();
+    expect(document.documentElement.getAttribute("data-shortcuts")).toBeNull();
   });
 });

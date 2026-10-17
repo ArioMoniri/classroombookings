@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `8fe76df` (committed 2026-10-17 05:41 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `8f54832` (committed 2026-10-17 08:06 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,17 +145,17 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-213 agents in [`docs/agents/registry.json`](agents/registry.json): running 7 · finished 188 · stopped 11 · superseded 7.
+216 agents in [`docs/agents/registry.json`](agents/registry.json): running 7 · finished 191 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
-| `E2E gate run on HEAD` | frontend-engineer | 2026-10-17 02:09 |
 | `R2 lane A` | general-purpose | 2026-10-17 05:12 |
 | `R2 lane B` | general-purpose | 2026-10-17 05:12 |
 | `R2 lane C` | general-purpose | 2026-10-17 05:12 |
 | `R2 lane D` | general-purpose | 2026-10-17 05:12 |
 | `R2 lane E` | general-purpose | 2026-10-17 05:12 |
 | `R2 lane F` | general-purpose | 2026-10-17 05:12 |
+| `Gate seed` | devops-engineer | 2026-10-17 08:06 |
 
 <!-- /AUTO:agents -->
 

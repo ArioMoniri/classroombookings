@@ -13,7 +13,15 @@ function isEditable(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.getAttribute("role") === "textbox";
 }
 
-/** ⌘K palette · ⌘B sidebar · g+<key> navigation · t theme · l language · ? shortcuts */
+/** Set on <html> once the keydown listener is attached: Playwright waits for it instead of a fixed delay. */
+export const SHORTCUTS_ARMED_ATTR = "data-shortcuts";
+
+/**
+ * ⌘K palette · ⌘B sidebar · g+<key> navigation · t theme · l language · ? shortcuts.
+ * The listener is attached once on mount and never re-attached (the handler reads the latest router / locale /
+ * permission list through a ref), and html[data-shortcuts="armed"] says so: the e2e gate saw Shift+? land before the
+ * listener existed when the effect re-ran on every permission or locale change (loop-r1-laneA T-R1-06 flake).
+ */
 export function useGlobalShortcuts() {
   const router = useRouter();
   const { locale, setLocale, languages } = useI18n();
@@ -23,8 +31,11 @@ export function useGlobalShortcuts() {
   // the booking entries (g b, g m) come from the same list
   const { perms } = usePermissions();
   const items = useMemo(() => visibleNavGroups((p) => hasPermission(perms, p)).flatMap((g) => g.items), [perms]);
+  const latest = useRef({ router, locale, setLocale, languages, cycleTheme, items });
+  latest.current = { router, locale, setLocale, languages, cycleTheme, items };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const { router, locale, setLocale, languages, cycleTheme, items } = latest.current;
       const store = useUiStore.getState();
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -66,6 +77,10 @@ export function useGlobalShortcuts() {
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [router, locale, setLocale, languages, cycleTheme, items]);
+    document.documentElement.setAttribute(SHORTCUTS_ARMED_ATTR, "armed");
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.documentElement.removeAttribute(SHORTCUTS_ARMED_ATTR);
+    };
+  }, []);
 }
