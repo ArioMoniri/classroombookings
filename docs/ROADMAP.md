@@ -3105,3 +3105,5 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   files: that report only; scratch otherwise.
   tester: QA persona tester.
 Order: CH-01 → CH-02 → CH-03 → CH-04 → CH-05 → CH-06 → CH-09 → CH-11 → CH-07 → CH-08 → CH-12; CH-10 later.
+
+> Owner decision 2026-10-18: voice uses cloud APIs/models that support audio, chosen and moderated by admins; no on-prem Whisper (the `voice-local` profile in VO-05 is dropped).
