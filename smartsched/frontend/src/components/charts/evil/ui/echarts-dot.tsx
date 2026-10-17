@@ -1,3 +1,7 @@
+// Source: https://evilcharts.com (src/registry/ui/echarts-dot.tsx) via shadcn registry @evilcharts/echarts-dot (https://evilcharts.com/r/echarts-dot.json) — https://github.com/legions-developer/evilcharts
+// Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
+// Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
+// Modified: import paths
 import type * as echarts from "echarts/core";
 
 // ─────────────────────────────────────────────────────────────────────────────

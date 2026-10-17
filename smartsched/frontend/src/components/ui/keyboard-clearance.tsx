@@ -78,6 +78,16 @@ export function documentOverlap(field: Box, bars: Box[], vh: number, gap = 8): n
   return down || up
 }
 
+/**
+ * mobile-a fix 8: how much of the window the on-screen keyboard covers when only the visual viewport shrinks (iOS
+ * Safari ignores interactive-widget). 0 when the layout viewport resized with it (Android) or for small differences
+ * (toolbars collapsing, pinch-zoom offsets). A bottom popup is lifted by this much through --kb-inset.
+ */
+export function keyboardInset(innerHeight: number, vvHeight: number, vvOffsetTop: number): number {
+  const covered = Math.round(innerHeight - vvHeight - vvOffsetTop)
+  return covered > 120 ? covered : 0
+}
+
 /** The nearest ancestor (up to and including the popup) that scrolls vertically. */
 function scrollerOf(field: HTMLElement, root: HTMLElement): HTMLElement | null {
   let el: HTMLElement | null = field.parentElement
@@ -117,7 +127,12 @@ export function KeyboardClearance({ scope = "popup" }: { scope?: "popup" | "docu
       }, 80)
     }
     const onFocus = (e: FocusEvent) => reveal(e.target as Element | null)
-    const onResize = () => reveal(document.activeElement)
+    const popup = page ? null : (root.closest(POPUP) as HTMLElement | null)
+    const onResize = () => {
+      const v = window.visualViewport
+      if (popup && v) popup.style.setProperty("--kb-inset", `${keyboardInset(window.innerHeight, v.height, v.offsetTop)}px`)
+      reveal(document.activeElement)
+    }
     root.addEventListener("focusin", onFocus)
     const vv = window.visualViewport
     vv?.addEventListener("resize", onResize)

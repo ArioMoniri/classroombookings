@@ -1,6 +1,11 @@
+// Source: https://evilcharts.com (src/registry/ui/echarts-chart.tsx) via shadcn registry @evilcharts/echarts-chart (https://evilcharts.com/r/echarts-chart.json) — https://github.com/legions-developer/evilcharts
+// Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
+// Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
+// Modified: import paths; `AriaComponent` registered next to the renderers so `aria.decal` (hatch patterns) works
 import { CanvasRenderer, SVGRenderer } from "echarts/renderers";
 import type { ComponentType, ReactNode } from "react";
 import * as echarts from "echarts/core";
+import { AriaComponent } from "echarts/components";
 
 export const ECHARTS_RENDERERS = {
   canvas: "canvas",
@@ -13,7 +18,8 @@ export const DEFAULT_ECHARTS_RENDERER = ECHARTS_RENDERERS.canvas;
 
 // Renderer registration is shared by every modular ECharts chart. Individual
 // chart modules only register the series and components they use.
-echarts.use([CanvasRenderer, SVGRenderer]);
+// SmartSched patch: AriaComponent powers `aria.decal` (hatch patterns, charts.md §6).
+echarts.use([CanvasRenderer, SVGRenderer, AriaComponent]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Theme keys + config — replicated from the repo's <ChartStyle> so the ECharts

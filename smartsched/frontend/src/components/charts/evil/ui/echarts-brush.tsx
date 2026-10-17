@@ -1,4 +1,8 @@
-import { withAlpha, type ResolvedColors } from "@/components/evilcharts/ui/echarts-chart";
+// Source: https://evilcharts.com (src/registry/ui/echarts-brush.tsx) via shadcn registry @evilcharts/echarts-brush (https://evilcharts.com/r/echarts-brush.json) — https://github.com/legions-developer/evilcharts
+// Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
+// Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
+// Modified: import paths
+import { withAlpha, type ResolvedColors } from "@/components/charts/evil/ui/echarts-chart";
 import type { DataZoomComponentOption } from "echarts/components";
 import type { FC } from "react";
 import * as echarts from "echarts/core";

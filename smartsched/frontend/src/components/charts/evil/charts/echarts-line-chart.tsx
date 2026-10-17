@@ -1,4 +1,8 @@
 "use client";
+// Source: https://evilcharts.com (src/registry/charts/echarts-line-chart.tsx) via shadcn registry @evilcharts/echarts-line-chart (https://evilcharts.com/r/echarts-line-chart.json) — https://github.com/legions-developer/evilcharts
+// Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
+// Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
+// Modified: import paths; <Tooltip valueFormatter labelFormatter> injected formatters (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters)
 
 import {
   DEFAULT_ECHARTS_RENDERER,
@@ -11,7 +15,7 @@ import {
   type ChartConfig,
   type EChartsRenderer,
   type ResolvedColors,
-} from "@/components/evilcharts/ui/echarts-chart";
+} from "@/components/charts/evil/ui/echarts-chart";
 import {
   tooltipBaseOption,
   tooltipIndicatorHtml,
@@ -20,7 +24,7 @@ import {
   type TooltipPosition,
   type TooltipRoundness,
   type TooltipVariant,
-} from "@/components/evilcharts/ui/echarts-tooltip";
+} from "@/components/charts/evil/ui/echarts-tooltip";
 import {
   Brush,
   buildBrushDataZoom,
@@ -29,7 +33,7 @@ import {
   type BrushOverlayElements,
   type BrushProps,
   type BrushRange,
-} from "@/components/evilcharts/ui/echarts-brush";
+} from "@/components/charts/evil/ui/echarts-brush";
 import {
   DataZoomComponent,
   GridComponent,
@@ -57,8 +61,8 @@ import {
   sampleGradient,
   type DotItemStyleOption,
   type DotVariant,
-} from "@/components/evilcharts/ui/echarts-dot";
-import { LegendOverlay, type LegendVariant } from "@/components/evilcharts/ui/echarts-legend";
+} from "@/components/charts/evil/ui/echarts-dot";
+import { LegendOverlay, type LegendVariant } from "@/components/charts/evil/ui/echarts-legend";
 import { LineChart, type LineSeriesOption } from "echarts/charts";
 import { motion, useReducedMotion } from "motion/react";
 import type { ComposeOption } from "echarts/core";
@@ -267,6 +271,9 @@ const YAxis: FC<YAxisProps> = () => null;
 const Grid: FC = () => null;
 
 export interface TooltipProps {
+  // SmartSched patch: injected formatters (default: the upstream `toLocaleString()` / raw axis value).
+  valueFormatter?: (value: number) => string; // formats every tooltip value
+  labelFormatter?: (label: string) => string; // formats the tooltip heading (the bucket)
   variant?: TooltipVariant; // visual style of the tooltip surface
   roundness?: TooltipRoundness; // border-radius of the tooltip
   cursor?: boolean; // whether the vertical cursor line follows the pointer
@@ -322,6 +329,8 @@ type YAxisSlot = {
 };
 type TooltipSlot = {
   present: boolean;
+  valueFormatter?: (value: number) => string;
+  labelFormatter?: (label: string) => string;
   variant: TooltipVariant;
   roundness: TooltipRoundness;
   cursor: boolean;
@@ -431,6 +440,8 @@ function collectConfig(children: ReactNode): CollectedConfig {
         roundness: props.roundness ?? "lg",
         cursor: props.cursor ?? true,
         position: props.position ?? "variable",
+        valueFormatter: props.valueFormatter,
+        labelFormatter: props.labelFormatter,
       };
     } else if (type === Legend) {
       const props = child.props as LegendProps;
@@ -803,7 +814,9 @@ function createTooltipFormatter(ctx: OptionBuildContext) {
     const first = rows[0] as { axisValue?: string | number; name?: string };
     // Label shows the RAW axis value — matches ChartTooltipContent (no tick formatter).
     const axisValue = first.axisValue ?? first.name ?? "";
-    const label = String(axisValue);
+    const label = tooltipSlot.labelFormatter
+      ? tooltipSlot.labelFormatter(String(axisValue))
+      : String(axisValue);
 
     // Dedupe by effective key: a buffer line contributes both its solid part
     // (id=key) and its dashed overlay (id=`__buffer-{key}`) at the shared
@@ -843,7 +856,9 @@ function createTooltipFormatter(ctx: OptionBuildContext) {
             ? " opacity-30"
             : "";
         const value =
-          typeof p.value === "number" ? p.value.toLocaleString() : String(p.value ?? "");
+          typeof p.value === "number"
+            ? (tooltipSlot.valueFormatter?.(p.value) ?? p.value.toLocaleString())
+            : String(p.value ?? "");
 
         return tooltipRow({
           indicatorHtml: tooltipIndicatorHtml(key, colorsCount),

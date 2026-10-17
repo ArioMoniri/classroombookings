@@ -59,6 +59,18 @@ the locked-class self-move (recommend: keep as re-deciding the lock), T-R1-25 pe
   `claude/smartsched-universal` only** (the OIDC trust policy refuses any other branch; docs/deploy/AWS.md); the pod
   deploys `claude/gracious-cerf-w1598m` (institution data) and builds `claude/smartsched-universal` (empty profile).
 
+### Manual pod-CI refresh (owner, from a machine with AWS admin credentials or AWS CloudShell)
+Use this only when the pod still fails on its old installed gate scripts. It installs pod CI from the current gracious branch:
+```bash
+CMD=$(aws ssm send-command --region us-east-1 --instance-ids i-0c04b735e03446110 \
+  --document-name AWS-RunShellScript --comment "smartsched pod-ci upgrade" \
+  --parameters 'commands=["set -e","rm -rf /tmp/podci-new","git clone --depth 1 --branch claude/gracious-cerf-w1598m https://github.com/ArioMoniri/classroombookings.git /tmp/podci-new","bash /tmp/podci-new/smartsched/deploy/pod-ci/install.sh --upgrade","systemctl list-timers \"smartsched-*\" --no-pager"]' \
+  --query Command.CommandId --output text)
+sleep 60
+aws ssm get-command-invocation --region us-east-1 --instance-id i-0c04b735e03446110 --command-id "$CMD" \
+  --query '[Status,StandardOutputContent,StandardErrorContent]' --output text
+```
+
 ## Environment notes for the resuming session
 
 - The AWS keys injected into the focused-wright container were temporary and expired at 22:48 UTC on

@@ -1,4 +1,8 @@
-import { indicatorBackground, type ResolvedColors } from "@/components/evilcharts/ui/echarts-chart";
+// Source: https://evilcharts.com (src/registry/ui/echarts-tooltip.tsx) via shadcn registry @evilcharts/echarts-tooltip (https://evilcharts.com/r/echarts-tooltip.json) — https://github.com/legions-developer/evilcharts
+// Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
+// Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
+// Modified: import paths; tooltip label, series label and value text are HTML-escaped (`escapeHtml`) before they reach the ECharts innerHTML tooltip
+import { indicatorBackground, type ResolvedColors } from "@/components/charts/evil/ui/echarts-chart";
 import type { TooltipComponentOption } from "echarts/components";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -7,6 +11,16 @@ import type { TooltipComponentOption } from "echarts/components";
 // `--color-*` vars and Tailwind classes resolve directly (no color read). Each
 // chart composes its own rows but shares the shell/styling and base option.
 // ─────────────────────────────────────────────────────────────────────────────
+
+// SmartSched patch: the tooltip is innerHTML, so every text part is escaped.
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 export type TooltipVariant = "default" | "frosted-glass";
 export type TooltipRoundness = "sm" | "md" | "lg" | "xl";
@@ -51,8 +65,8 @@ export function tooltipRow({
   return `<div class="flex w-full flex-wrap items-center gap-2${dimmed}">
           ${indicatorHtml}
           <div class="flex flex-1 items-center justify-between gap-4 leading-none">
-            <span class="text-muted-foreground">${labelText}</span>
-            <span class="text-foreground font-mono font-medium tabular-nums">${valueText}</span>
+            <span class="text-muted-foreground">${escapeHtml(labelText)}</span>
+            <span class="text-foreground font-mono font-medium tabular-nums">${escapeHtml(valueText)}</span>
           </div>
         </div>`;
 }
@@ -71,7 +85,7 @@ export function tooltipShell({
   variant: TooltipVariant;
 }): string {
   return `<div class="grid min-w-32 items-start gap-1.5 border border-border/50 px-2.5 py-1.5 text-xs shadow-xl ${roundnessClass[roundness]} ${tooltipVariantClass[variant]}">
-      <div class="font-medium text-primary">${label}</div>
+      <div class="font-medium text-primary">${escapeHtml(label)}</div>
       <div class="grid gap-1.5">${body}</div>
     </div>`;
 }

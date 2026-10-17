@@ -2964,6 +2964,30 @@
       "ledger": "Charts phase 2: install + shell",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "adf240663ffd2d762",
+      "description": "VO-F: voice UI (mic button)",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 23:16",
+      "scope": "",
+      "goal": "You are lane VO-F (voice frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md, including the Simplicity principle. Hard rules: NEVER …",
+      "ledger": "VO-F: voice UI (mic button)",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a7ef8ec57e932e231",
+      "description": "VO-B: voice backend (cloud STT)",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 23:16",
+      "scope": "",
+      "goal": "You are lane VO-B (voice backend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pk…",
+      "ledger": "VO-B: voice backend (cloud STT)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
