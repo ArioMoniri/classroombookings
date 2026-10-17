@@ -3015,6 +3015,18 @@
       "ledger": "RF-1: catalog admin screens + blockers",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a6a3c2eba3be265b7",
+      "description": "HB-A: helper index, registry, guardrails",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 23:28",
+      "scope": "",
+      "goal": "You are lane HB-A (AI helper backend, first slice) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read these first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push…",
+      "ledger": "HB-A: helper index, registry, guardrails",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

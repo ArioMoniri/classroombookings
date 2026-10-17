@@ -156,6 +156,7 @@ describe("CalendarExportSheet", () => {
     await user.click(screen.getByTestId("cal-consent-tick"));
     await user.click(screen.getByTestId("cal-submit")); // tap 3
     expect(await screen.findByTestId("cal-link")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Bağlantınız hazır" })).toHaveFocus());
     const posts = api.calls.filter((c) => c.method === "POST").map((c) => c.path);
     expect(posts).toEqual(["/me/consents/calendar_sync", "/calendar/subscriptions"]);
     expect(api.calls.find((c) => c.path === "/calendar/subscriptions" && c.method === "POST")?.body).toEqual({ scope_kind: "my_classes", scope_id: null, channel: "link" });
@@ -171,7 +172,6 @@ describe("CalendarExportSheet", () => {
     expect(adv).toHaveAttribute("open");
     expect(within(adv).getByTestId("cal-link-https-copy")).toHaveTextContent("Bağlantıyı kopyala");
     expect(screen.getByTestId("cal-link-note")).toHaveTextContent("Bağlantıyı açmayın, abone olun");
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Bağlantınız hazır" })).toHaveFocus());
   });
 
   it("department scope sends its department id and no consent box when the consent is given", async () => {
