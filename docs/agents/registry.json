@@ -2237,7 +2237,7 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 08:37",
+      "finished_at": "2026-10-17 08:51",
       "left_off": "Next I need: (1) the council/drafts suite result (bj1zqhtn8 — running), (2) the rebuild + full spec result (by87uvrxr — running), (3) then the hand-off edits, which depend on (2). Both open items are already in flight and nothing further is independent of them, so I'll wait for their completion notices."
     },
     {
