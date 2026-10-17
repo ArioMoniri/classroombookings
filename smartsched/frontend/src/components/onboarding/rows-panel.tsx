@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { councilApi, type CouncilRow, type RowDecisionIn } from "@/lib/api/council";
+import { problemText } from "@/lib/api/error-text";
 import { useI18n } from "@/lib/i18n/provider";
 import { useOnboardingCopy } from "./copy";
 import { MethodBadge } from "./method-badge";
@@ -53,7 +54,7 @@ export function RowsPanel({ jobId, onChanged }: { jobId: number; onChanged: () =
       await qc.invalidateQueries({ queryKey: rowsKey(jobId) });
       onChanged();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
+      toast.error(problemText(e, locale) ?? (e instanceof Error ? e.message : String(e)));
     } finally {
       setBusy(false);
       setConfirming(false);

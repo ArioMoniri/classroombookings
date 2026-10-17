@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { councilApi, type BaselineTarget, type CommitDryRun, type CommitIn, type CommitOut, type CouncilJob } from "@/lib/api/council";
+import { problemText } from "@/lib/api/error-text";
 import { useI18n } from "@/lib/i18n/provider";
 import { BaselinePreview, BaselineResult, BaselineTargetPicker, hasScheduleMap, targetReady } from "./baseline-summary";
 import { useOnboardingCopy } from "./copy";
@@ -62,7 +63,7 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
       setDiff(d);
       return d;
     } catch (e) {
-      setDiffError(e instanceof Error ? e.message : String(e));
+      setDiffError(problemText(e, locale) ?? (e instanceof Error ? e.message : String(e)));
       return null;
     } finally {
       setDiffBusy(false);

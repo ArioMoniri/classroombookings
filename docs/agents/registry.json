@@ -2122,7 +2122,8 @@
       "goal": "You are the **e2e gate runner** for SmartSched (ledger name `e2e-gate-2026-10-17`). Goal: reproduce the pod CI end-to-end gate on the current head of branch `claude/focused-wright-ktt0ss` (repo /home/user/classroombookings, checked out) without Docker, the way the earlier `e2e-stabilisation-2026-10-…",
       "ledger": "E2E gate run on HEAD",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 08:05"
     },
     {
       "id": "a96d95dcbe37f099a",
@@ -2347,6 +2348,14 @@
       "status": "finished",
       "finished_at": "2026-10-17 05:27",
       "left_off": "continue when round 2 builders finish and deploy to aws"
+    },
+    {
+      "id": "ac002f4c2480487a6",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 08:03",
+      "left_off": "continue and give me the BLUF when round 2 lanes finish"
     }
   ]
 }

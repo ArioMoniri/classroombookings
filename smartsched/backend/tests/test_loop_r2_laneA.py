@@ -16,5 +16,7 @@ async def test_short_reset_code_is_a_coded_400(env):  # noqa: F811
         assert detail["message_tr"] == "Kod hatalı ya da süresi dolmuş. Yenisini isteyin."
         assert "String should" not in r.text
     # a wrong but well-formed code answers the very same shape
-    r = await c.post("/api/v1/auth/password-reset/confirm", json={"token": "nope-nope-nope", "password": "Flow-2026!pw"})
+    r = await c.post(
+        "/api/v1/auth/password-reset/confirm", json={"token": "nope-nope-nope", "password": "Flow-2026!pw"}
+    )
     assert r.status_code == 400 and r.json()["detail"]["code"] == "invalid_code"

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { cn } from "@/lib/utils";
 import { ACTIVE_JOB, councilApi, type CommitIn, type CommitOut, type DecisionIn } from "@/lib/api/council";
+import { problemText } from "@/lib/api/error-text";
 import { useI18n } from "@/lib/i18n/provider";
 import { CommitPanel } from "./commit-panel";
 import { CouncilProgress } from "./council-progress";
@@ -80,7 +81,7 @@ export function OnboardingFlow({ initialJobId = null }: { initialJobId?: number 
       setJobId(created.id);
       setResult(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(problemText(e, locale) ?? (e instanceof Error ? e.message : String(e)));
     } finally {
       setBusy(false);
     }
@@ -112,7 +113,7 @@ export function OnboardingFlow({ initialJobId = null }: { initialJobId?: number 
       setResult(await councilApi.commit(jobId, body));
       await qc.invalidateQueries({ queryKey: councilKey(jobId) });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(problemText(e, locale) ?? (e instanceof Error ? e.message : String(e)));
     } finally {
       setBusy(false);
     }
