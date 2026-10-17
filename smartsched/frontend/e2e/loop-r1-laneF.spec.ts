@@ -65,7 +65,10 @@ type Sugg = { subject: { type: string; id: number | string }; state: string };
 /** the working term (shell store) and no remembered dashboard week: the server picks the week */
 async function useTerm(page: Page, code: string): Promise<TermRow> {
   const terms = await api<TermRow[]>(page, "/terms");
-  const term = terms.find((t) => t.code === code)!;
+  const term = terms.find((t) => t.code === code);
+  // the Güz board comes from `stack.sh runs`; the e2e gate backend (e2e-backend-entry.sh) seeds Bahar + Final only
+  test.skip(!term, `term ${code} is not on this backend (stack.sh runs imports it; the e2e gate seed does not)`);
+  if (!term) throw new Error(`term ${code} is not on this backend`);
   await page.evaluate((id) => {
     const raw = localStorage.getItem("smartsched.ui");
     const cur = raw ? (JSON.parse(raw) as { state?: Record<string, unknown>; version?: number }) : {};

@@ -162,17 +162,14 @@ test("1 · academician: Tercih ekle from the class row, time refused as fixed by
   await expect(sheet).toBeVisible();
   await expect(sheet.getByRole("checkbox", { name: /PTL 102 §1/ })).toBeChecked();
 
-  // a time window on a class whose time the department fixed: warned before, refused after, in Turkish
+  // a time window on a class whose time the department fixed: warned, and the send is disabled with the reason
+  // (T-R1-16: no server call and no submit for a time wish on department-fixed classes)
   await sheet.getByTestId("wish-kind-day_window").click();
   await expect(sheet.getByTestId("wish-fixed")).toContainText("bölüm formu sabitliyor");
   await sheet.getByTestId("wish-latest").selectOption("6");
-  // the server's preview already refuses it, in the words a submit would use
-  const pre = sheet.getByTestId("wish-preview-error");
-  await expect(pre.locator("[data-code]")).toHaveAttribute("data-code", "fixed_by_department");
-  await sheet.getByTestId("wish-submit").click();
-  const err = sheet.getByTestId("wish-error");
-  await expect(err).toContainText("Bölüm formu bu dersin gün ve saatini sabitliyor");
-  await expect(err.locator("[data-code]")).toHaveAttribute("data-code", "fixed_by_department");
+  await expect(sheet.getByTestId("wish-submit")).toBeDisabled();
+  await expect(sheet.getByTestId("wish-blocked")).toContainText("bölüm formu sabitliyor");
+  await expect(sheet.getByTestId("wish-error")).toHaveCount(0);
 
   // a room wish from the picker: the bookable rooms by building, with the capacity
   await sheet.getByTestId("wish-kind-room_preference").click();
@@ -208,8 +205,9 @@ test("1 · academician: Tercih ekle from the class row, time refused as fixed by
   await sheet.getByTestId("wish-kind-building_preference").click();
   await sheet.getByTestId("wish-building-C").click();
   await expect(sheet.getByTestId("wish-preview-error")).toContainText("Bölüm formu bu dersler için bunu zaten istiyor");
-  await sheet.getByTestId("wish-submit").click();
-  await expect(sheet.getByTestId("wish-error")).toContainText("Bölüm formu bu dersler için bunu zaten istiyor");
+  // T-R1-16: while the preview refuses, the send is disabled with the reason instead of a second refusal
+  await expect(sheet.getByTestId("wish-submit")).toBeDisabled();
+  await expect(sheet.getByTestId("wish-blocked")).toBeVisible();
   await sheet.getByTestId("wish-building-C").click();
   await sheet.getByTestId("wish-building-input").fill("a");
   await sheet.getByTestId("wish-building-add").click();
