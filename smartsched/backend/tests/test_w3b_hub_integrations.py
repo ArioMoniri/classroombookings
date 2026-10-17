@@ -311,3 +311,67 @@ async def test_live_area_contracts_feed_the_gallery(client):
             assert area in asked and [c["status"] for c in area_cards] == ["unknown"]
     smtp = cards["email.smtp"]
     assert smtp["status"] in hub.STATUSES and smtp["name_tr"] == "E-posta (SMTP)"
+
+
+async def test_alert_relay_bell_events_once_per_occurrence_admins_only(client, monkeypatch):
+    """integration.error / integration.secret_expiring through the dispatcher: once per occurrence and admin,
+    never to a teacher, and nothing (no error) while the events are not registered in notify_dispatch.EVENTS."""
+    from datetime import date
+
+    from app.core import db as dbmod
+    from app.models import InAppNotification
+    from app.services import notify_dispatch
+
+    async def identity(session) -> list[dict[str, Any]]:
+        return [
+            {
+                "key": "identity.okta",
+                "name_tr": "Okta",
+                "name_en": "Okta",
+                "status": "error",
+                "detail_tr": "İstemci gizli anahtarı yanlış ya da süresi dolmuş.",
+                "detail_en": "The client secret is wrong or expired.",
+                "last_check_at": "2026-10-17T18:00:00Z",
+                "secret_expires_at": "2026-11-01",
+                "setup_href": "/admin/integrations?area=identity&setup=identity.okta",
+            }
+        ]
+
+    monkeypatch.setattr(hub, "contract_for", lambda area: identity if area == "identity" else None)
+    admin = await login(client)
+    _, _teacher = await make_user(client, admin, "ogretmen.alert@example.com")
+
+    async def run() -> dict[str, int]:
+        async with dbmod.get_session_factory()() as s:
+            return await hub.alert_pass(s, today=date(2026, 10, 17))
+
+    # not registered yet (the integrator adds them): skipped, no exception
+    events = dict(notify_dispatch.EVENTS)
+    events.pop(hub.EVENT_ERROR, None)
+    events.pop(hub.EVENT_SECRET, None)
+    monkeypatch.setattr(notify_dispatch, "EVENTS", events)
+    assert (await run())["skipped_unregistered"] == 2
+
+    monkeypatch.setattr(
+        notify_dispatch,
+        "EVENTS",
+        {
+            **events,
+            hub.EVENT_ERROR: ("Entegrasyon hataları (yöneticiler)", "Integration errors (administrators)"),
+            hub.EVENT_SECRET: ("Süresi dolacak gizli anahtarlar (yöneticiler)", "Expiring secrets (administrators)"),
+        },
+    )
+    first = await run()
+    assert first["error"] == 1 and first["secret"] == 1
+    again = await run()
+    assert again["error"] == 0 and again["secret"] == 0  # the dispatcher's ledger: once per occurrence
+
+    async with dbmod.get_session_factory()() as s:
+        rows = list((await s.execute(select(InAppNotification))).scalars())
+    titles = sorted(r.title for r in rows)
+    assert titles == [
+        "Entegrasyon hatası: Okta",
+        "Okta: istemci gizli anahtarının süresi 15 gün sonra doluyor",
+    ], titles
+    assert {r.user_id for r in rows} == {1}  # the seeded administrator only, never the teacher
+    assert all(r.link == "/admin/integrations?area=identity&setup=identity.okta" for r in rows)

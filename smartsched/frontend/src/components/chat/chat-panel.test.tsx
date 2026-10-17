@@ -16,6 +16,10 @@ vi.mock("@/lib/api/hooks", async (orig) => ({
   useUndoProposal: () => ({ mutateAsync: vi.fn() }),
 }));
 vi.mock("@/lib/api/shell-extra", async (orig) => ({ ...(await orig<typeof import("@/lib/api/shell-extra")>()), usePermissions: () => ({ can: () => true }) }));
+let usage: Record<string, unknown> | undefined;
+vi.mock("@/lib/api/ai-admin", async (orig) => ({ ...(await orig<typeof import("@/lib/api/ai-admin")>()), useMyAiUsage: () => ({ data: usage }) }));
+const toastError = vi.fn();
+vi.mock("sonner", async (orig) => ({ ...(await orig<typeof import("sonner")>()), toast: Object.assign(vi.fn(), { error: (...a: unknown[]) => toastError(...a), success: vi.fn() }) }));
 let release: () => void = () => undefined;
 const stream = vi.fn();
 vi.mock("./chat-stream", async (orig) => ({ ...(await orig<typeof import("./chat-stream")>()), streamChat: (...a: unknown[]) => stream(...a) }));
@@ -35,6 +39,8 @@ beforeEach(() => {
   Element.prototype.scrollTo ??= vi.fn() as unknown as typeof Element.prototype.scrollTo;
   stream.mockReset();
   sendChat.mockClear();
+  toastError.mockClear();
+  usage = undefined;
 });
 
 describe("ChatPanel streaming (ai-engineer follow-up)", () => {
@@ -62,5 +68,23 @@ describe("ChatPanel streaming (ai-engineer follow-up)", () => {
     await userEvent.type(screen.getByRole("textbox"), "Hello");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
     await vi.waitFor(() => expect(sendChat).toHaveBeenCalledWith("Hello"));
+  });
+
+  it("shows the AI notice always and the at-limit banner from GET /ai/me/usage (wave 3)", () => {
+    usage = { state: "hard", org_state: "ok", pct: 100, daily_pct: 100, monthly_pct: 20 };
+    renderPanel();
+    expect(screen.getByTestId("chat-panel").querySelector("[data-testid=ai-notice]")).not.toBeNull();
+    expect(screen.getByTestId("ai-banner-at")).toBeInTheDocument();
+  });
+
+  it("a gateway refusal in the stream is told in the user's language, never as [object Object]", async () => {
+    stream.mockImplementation(async (_run: number, _msg: string, _lang: string, on: (e: StreamEvent) => void) => {
+      on({ event: "error", data: { status: 429, detail: { code: "ai_limit_reached", message_en: "You reached your AI limit.", message_tr: "Yapay zekâ sınırınıza ulaştınız." } } });
+    });
+    renderPanel();
+    await userEvent.type(screen.getByRole("textbox"), "Hello");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    await vi.waitFor(() => expect(toastError).toHaveBeenCalled());
+    expect(toastError.mock.calls[0][1]).toEqual({ description: "You reached your AI limit." });
   });
 });

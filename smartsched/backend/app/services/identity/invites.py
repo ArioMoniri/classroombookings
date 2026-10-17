@@ -111,8 +111,6 @@ async def invite_link(db: AsyncSession, inv: SsoInvite) -> str | None:
 
 async def send_invite_email(db: AsyncSession, actor: User, inv: SsoInvite, locale: str | None = None) -> dict[str, Any]:
     """E-mail the invite now; ``{sent, status, error}`` (``UNSENT`` without SMTP: the administrator copies the link)."""
-    from app.services.bookings_notify import notify
-
     target = await db.get(User, inv.user_id)
     link = await invite_link(db, inv)
     lang = locale if locale in ("tr", "en") else str(await get_value(db, "org", "default_language") or "tr")
@@ -123,36 +121,26 @@ async def send_invite_email(db: AsyncSession, actor: User, inv: SsoInvite, local
     inviter = audit.user_label(actor) or ""
     expires = human_date(inv.expires_at, lang)
     name = (target.full_name if target is not None else None) or ""
-    subject_tr = f"{org}: SmartSched daveti"
-    subject_en = f"{org}: SmartSched invitation"
-    body = (
-        f"Merhaba {name},\n\n{inviter} sizi {org} SmartSched paneline davet etti. Giriş yöntemi: {provider_name}.\n"
-        f"Daveti kabul etmek için: {link}\nDavet {expires} tarihine kadar geçerlidir.\n\n"
-        f"Hello {name},\n\n{inviter} invited you to the {org} SmartSched panel. Sign-in method: {provider_name}.\n"
-        f"Accept the invitation: {link}\nThe invitation is valid until {expires}.\n"
-    )
-    row = await notify(
+    from app.services import mail
+
+    row = await mail.send_kind(
         db,
-        kind="invitation",
+        "invitation",
         to_email=inv.email,
-        subject=subject_en if lang == "en" else subject_tr,
-        body=body,
-        user_id=inv.user_id,
-        deliver_now=True,
-        link="/login",
+        user=target,
         locale=lang,
-        ctx={
-            "name": name,
-            "org": org,
-            "inviter": inviter,
-            # the renderer's ``provider`` enum (app/emails/kinds.py) and the button label
-            "provider": {"entra": "microsoft", "google_workspace": "google"}.get(prov.kind, prov.kind)
-            if prov is not None
-            else "local",
-            "provider_name": provider_name,
-            "expires": expires,
-            "cta_url": link,
-        },
+        link=link,
+        deliver_now=True,  # the caller reports whether it went out; the live link is never queued
+        name=name,
+        org=org,
+        inviter=inviter,
+        # the renderer's ``provider`` enum (app/emails/kinds.py) and the button label
+        provider={"entra": "microsoft", "google_workspace": "google"}.get(prov.kind, prov.kind)
+        if prov is not None
+        else "local",
+        provider_name=provider_name,
+        expires=expires,
+        cta_url=link,
     )
     status, error = row.status, row.error
     # the outbox keeps the fact, never the live link
@@ -361,4 +349,29 @@ async def accept_local(db: AsyncSession, token: str, password: str) -> User | No
     await db.delete(inv)
     await db.flush()
     await audit.record(db, "user.invite_accepted", "user", user.id, after=facts, actor=user)
+    await send_account_created(db, user, "local")
     return user
+
+
+async def send_account_created(db: AsyncSession, user: User, method: str) -> None:
+    """The themed "account created / welcome" e-mail (``method`` = ``sso`` | ``local``); queued, never blocking."""
+    if not user.email:
+        return
+    try:
+        from app.services import mail
+
+        async with db.begin_nested():
+            await mail.send_kind(
+                db,
+                "account_created",
+                to_email=user.email,
+                user=user,
+                link="/login",
+                method=method,
+                username=user.email,
+                org=str(await get_value(db, "org", "name") or ""),
+            )
+    except Exception:  # noqa: BLE001 - a welcome e-mail never stops a sign-in
+        import logging
+
+        logging.getLogger(__name__).exception("account_created e-mail for user %s failed", user.id)

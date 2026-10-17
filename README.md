@@ -351,7 +351,7 @@ backend only so far are listed in [docs/STATUS.md](docs/STATUS.md).
 
 <!-- AUTO:status only=done -->
 
-Done 51 · Backend only 0 · In progress 1 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
+Done 55 · Backend only 0 · In progress 1 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
 
 | Feature | Area | Evidence |
 |---|---|---|
@@ -406,6 +406,10 @@ Done 51 · Backend only 0 · In progress 1 · Planned 0. Done items only; the fu
 | AI provider gateway chosen by admins: Anthropic (default), OpenAI, Azure OpenAI, OpenRouter, any OpenAI-compatible base URL (Ollama / vLLM), Google Gemini, AWS Bedrock and Vertex AI (Claude); keys write-only and encrypted, models synced from each provider's API, a test call, one provider + model + effort + fallback per AI feature with a global default | Platform, CI and docs | [`test_w3_ai_providers.py`](smartsched/backend/tests/ai/test_w3_ai_providers.py) |
 | AI usage metering per user (feature, provider, model, input / output / cache tokens, estimated cost from a versioned price table, latency, outcome, reason, prompt hash + length, never the text) with org monthly budget, per-user daily / monthly limits (default, per role, per person), reservation before the call, 80 % alerts (bell + e-mail) and a user banner, hard limit refused in Turkish | Platform, CI and docs | [`test_w3_ai_gateway.py`](smartsched/backend/tests/ai/test_w3_ai_gateway.py) |
 | AI guardrails: deterministic scope classifier (code, translation, essays, general questions), prompt-injection detection in typed text and uploads (TR + EN: override, role-play, system-prompt / key exfiltration, tool-call smuggling, encoded payloads), spotlighting preamble, output check (offered tools, schema, no links / code), per-feature caps, per-user rate and concurrency limits, KVKK transfer basis per provider; refusals logged with a reason and visible to admins; red-team self-test | Platform, CI and docs | [`test_w3_ai_guardrails.py`](smartsched/backend/tests/ai/test_w3_ai_guardrails.py) |
+| Guided SMTP setup shared by every admin: 12 provider presets (Google app password / OAuth2 / relay, Microsoft 365 OAuth2 XOAUTH2, Amazon SES, SendGrid, Mailgun, Postmark, Brevo, Resend, Yandex 360, campus server) with console steps and copy values, write-only encrypted secrets, KVKK md. 9 acknowledgement for providers abroad, SPF / DKIM / DMARC check with Turkish guidance, test e-mail with an SMTP transcript excerpt and Turkish error hints, 'Son değişiklik', send the mail that waited | Platform, CI and docs | [`test_w3b_mail_smtp.py`](smartsched/backend/tests/test_w3b_mail_smtp.py) |
+| Themed HTML + plain-text e-mails for every message (25 kinds, TR + EN): one renderer app.emails.render(kind, locale, **ctx) -> (subject, html, text), table layout, 600 px, dark-mode safe, bulletproof VML button, preheader, CID logo, escaped values, variants per provider / reason / state; admin subject and intro overrides per kind and language with live desktop / phone preview and test send | Platform, CI and docs | [`test_w3b_mail_render.py`](smartsched/backend/tests/test_w3b_mail_render.py) |
+| Slot display set by administrators (Ayarlar › Ders saatleri, also /bookings › Görünüm): period rows or time blocks (15/30/60 min drawn onto the periods), label period / time / both (schedule name or ordinal, start or range), density compact / standard / comfortable, first / last visible period, hide short slots and the weekend, default view for desktop and phone, quick-reserve lengths; live preview with the real grid, list and chips; every booking surface reads one useSlotDisplay() | Bookings | [`w3-slot.spec.ts`](smartsched/frontend/e2e/w3-slot.spec.ts) |
+| Quick reservation /reserve (Hızlı rezervasyon): day chips, a slot in the admin's unit, an optional length, how many people and feature chips, a short ranked list of free rooms (own waiting request marked), one primary that says Rezerve et or Talep et, a receipt with the real undo (POST /audit/{id}/undo) or Talebi geri çek; 2 taps for the next free slot, keyboard and screen-reader complete, one thumb at 390 | Bookings | [`w3-slot.spec.ts`](smartsched/frontend/e2e/w3-slot.spec.ts) |
 
 <!-- /AUTO:status -->
 
@@ -430,6 +434,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `6e8d40f` (committed 2026-10-17 21:02 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `8f7da98` (committed 2026-10-17 21:33 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

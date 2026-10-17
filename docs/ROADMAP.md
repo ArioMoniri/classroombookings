@@ -2601,3 +2601,25 @@ R-AI-01…10 (docs/research/2026-10-17-state-of-the-art.md §2.2) folded in wher
 - [x] Every send path through the renderer, recipients and plain text unchanged (outbox body = the bell, text part starts with it; password reset as the code mail; threading by request); alembic `0038_email_templates` (outbox `link`, `locale`); `test_w3b_mail_wiring.py`, `test_w3b_mail_migration.py`; `app.services.mail.send_kind()` for other lanes' kinds.
 - [x] Template list with live preview (sandboxed iframe, 640 / 390 px, TR / EN), subject + intro overrides (translations set `email`), test send; vitest `components/admin/email/*.test.ts*` (13); e2e `e2e/w3-mail.spec.ts` (3, desktop 1440 + phone 390 M-01/02/03) on the W3-MAIL stack.
 - [ ] Not built: one-click `List-Unsubscribe` (emails.md EM-13; needs a signed per-user token route), `.ics` "Takvime ekle" link, details-card rows on wired mails (the dispatcher's `data` is not stored on the outbox), reset-code grouping "K7Q4-M2X9" (the reset API would have to accept the hyphen), sending invitation / account_created / new_device / reminder (templates ship; W3-IDP / W3-SEC call `mail.send_kind`).
+
+### Wave 3 — W3-SLOT (2026-10-17)
+
+- [x] Admin slot display (`booking.slot_display.*`, 14 keys in settings_service SPECS; admin-only write through PUT /settings; sanitised read for every signed-in user in GET /bookings/context `slot_display` and GET /bookings/slot-display)
+  done (backend/app/services/settings_service.py, app/api/v1/bookings.py; tests/test_w3_slot_display.py 5 tests; wave3-slot-2026-10-17)
+- [x] `useSlotDisplay()` + one label rule for every surface (components/bookings/slot-display.ts, use-slot-display.ts): grid (labels, density 32/44/56 px, time blocks with width ∝ minutes and block ticks, hidden periods with a "+N gizli saat" chip, default view), free-slot list, quick reserve, settings preview
+  done (slot-display.test.ts 10, w3-slot-grid.test.tsx 9; e2e w3-slot.spec.ts "SD" at 1440: admin sets Saat + Sıkı, the teacher's grid headers read 10:10–10:50, data-density compact, cells ≤ 32 px, /reserve chips start with the time)
+- [x] Ayarlar › Ders saatleri tab (settings-view.tsx, planning.admin) + /bookings › Görünüm sheet for administrators: Düzen, Etiket, Yoğunluk, Görünen saatler (İlk > Son is an inline error), Varsayılan görünüm (desktop / phone; phone never a multi-room grid), Hızlı rezervasyon süresi, live preview (Tablo / Liste / Hızlı) with synthetic statuses
+  done (components/settings/slot-display.tsx; settings/slot-display.test.tsx 2)
+- [x] Quick reservation `/reserve` (quick-reserve.md): smart default (next open school day and slot), day / slot / length chips, Kaç kişi + feature chips, ranked free rooms from POST /rooms/find, Rezerve et / Talep et decided before the tap, receipt with Geri al (real P7 undo via the new `audit_event_id` on POST /bookings and multi create) or Talebi geri çek, conflict state, Ctrl+Enter, roving radiogroups, sticky footer above the tab bar
+  done (components/quick-reserve/*, app/(app)/reserve/page.tsx; quick-reserve-model.test.ts 10, chip-radio-group.test.tsx 2, tests/test_w3_slot_undo.py; e2e "QR" at 1440 (2 clicks + undo) and 390 touch (2 taps + undo, M-01/M-02/M-03/M-05 on /reserve and /bookings) green on the lane's stack)
+- [x] "Hızlı rezervasyon" first action on /bookings and first sidebar entry (nav-config.ts QUICK_RESERVE_ITEM; crumbs)
+- [x] Round-3: My bookings totals count live bookings only (rejected / withdrawn / expired never; pending as `totals.pending` and "n talep onay bekliyor") (R3-S-01 + the academician's item)
+  done (services/bookings.py dashboard; test_w3_slot_undo.py totals test; test_a12 assertion updated to the new contract; my-bookings-model openRequestCount + vitest)
+- [x] R3-S-05: after cancelling from a My bookings row focus goes to the next row (or the previous / the list heading), never <body>
+  done (my-bookings-view.tsx, my-bookings-model.ts focus helpers, booking-detail-sheet / cancel-many-dialog let the caller place focus; w3-slot-focus.test.ts 4; verified on the stack at 1440 and 390: focus on the next row's button)
+- [ ] Phone tab bar entry for /reserve (tab-bar.tsx + components/admin/nav-items.ts are not this lane's: ask)
+- [ ] find-room start/end options and the public kiosk read the slot display (findroom/*, public-schedule, api/v1/public_schedule.py: asks)
+- [ ] PUT /settings validates booking.slot_display.* values with a 422 (SD-13; settings.py is not this lane's; the read side sanitises meanwhile)
+- [ ] Per-user override of density / default view (slot-display.md `user_override`, SD-09) and server-side labels in e-mail / ICS
+- [ ] min_length is offered by the simple surfaces only; the booking API does not enforce it
+

@@ -77,6 +77,19 @@ describe("role-level capabilities, without assuming three roles", () => {
     expect(canAccessRoute(TEACHER, "/admin/conflicts")).toBe(false);
     expect(canAccessRoute(SECRETARY, "/admin/conflicts")).toBe(false);
   });
+  it("wave 3: /admin/ai and /admin/ops follow their backend guard (planning.admin or setup.settings)", () => {
+    const AI_ADMIN = ["room.view", "planning.view", "planning.admin"];
+    for (const href of ["/admin/ai", "/admin/ops"]) {
+      expect(routeRequirement(href)).toEqual(["planning.admin", "setup.settings"]);
+      expect(routeRequirement(`${href}/usage`)).toEqual(["planning.admin", "setup.settings"]);
+      expect(canAccessRoute(AI_ADMIN, href)).toBe(true);
+      expect(canAccessRoute(["setup.settings"], href)).toBe(true);
+      expect(canAccessRoute(SECRETARY, href)).toBe(false);
+      expect(canAccessRoute(TEACHER, href)).toBe(false);
+    }
+    expect(adminSectionsFor(AI_ADMIN).map((s) => s.id)).toEqual(["conflicts", "ai", "ops"]);
+    expect(adminSectionsFor(["setup.settings"]).map((s) => s.id)).toEqual(["settings", "email", "ai", "ops"]);
+  });
   it("unknown admin sub-routes still need some setup permission", () => {
     expect(routeRequirement("/admin/whatever")).not.toBeNull();
     expect(routeRequirement("/admin/rooms/12")).toEqual(["setup.rooms", "setup.rooms_acl"]);

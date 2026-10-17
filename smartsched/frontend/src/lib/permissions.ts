@@ -157,7 +157,9 @@ export type AdminSectionId =
   | "conflicts"
   | "settings"
   | "authentication"
-  | "email";
+  | "email"
+  | "ai"
+  | "ops";
 
 export interface AdminSection {
   id: AdminSectionId;
@@ -185,6 +187,10 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { id: "settings", href: "/admin/settings", labelKey: "crbs.admin.settings.title", descriptionKey: "crbs.admin.settings.lead", permission: ["setup.settings"], group: "organisation" },
   { id: "authentication", href: "/admin/authentication", labelKey: "crbs.admin.ldap.title", descriptionKey: "crbs.admin.ldap.lead", permission: ["setup.authentication"], group: "organisation" },
   { id: "email", href: "/admin/email", labelKey: "crbs.admin.email.title", descriptionKey: "crbs.admin.email.lead", permission: ["setup.settings"], group: "organisation" },
+  // wave 3: the backend guards (ai_admin.AIAdmin, ops.OpsAdmin) take planning.admin or setup.settings, so a planning
+  // administrator without setup rights reaches these two screens and no other setup section
+  { id: "ai", href: "/admin/ai", labelKey: "aiAdmin.title", descriptionKey: "aiAdmin.lead", permission: ["planning.admin", "setup.settings"], group: "organisation" },
+  { id: "ops", href: "/admin/ops", labelKey: "ops.title", descriptionKey: "ops.lead", permission: ["planning.admin", "setup.settings"], group: "organisation" },
 ];
 
 export function adminSectionsFor(perms: readonly string[] | undefined | null): AdminSection[] {

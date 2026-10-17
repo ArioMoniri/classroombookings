@@ -45,7 +45,7 @@ vi.mock("next/navigation", () => {
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
 // the embedded area panels have their own tests; here they are stand-ins
 vi.mock("@/components/identity/identity-providers-panel", () => ({ IdentityProvidersPanel: ({ initialSetup }: { initialSetup: string | null }) => <div data-testid="embed-idp">providers {String(initialSetup)}</div> }));
-vi.mock("@/components/admin/email-settings", () => ({ EmailSettingsView: () => <div data-testid="embed-email">SMTP</div> }));
+vi.mock("@/components/admin/email-settings", () => ({ EmailSettingsPanel: () => <div data-testid="embed-email">SMTP</div> }));
 vi.mock("@/components/settings/calendar-push-admin", () => ({ CalendarPushAdmin: () => <div data-testid="embed-calendar-push">push</div> }));
 vi.mock("@/components/settings/calendar-sync-admin", () => ({ CalendarSyncAdmin: () => <div data-testid="embed-calendar-sync">sync</div> }));
 vi.mock("@/components/channels/channels-admin", () => ({ ChannelsAdmin: () => <div data-testid="embed-channels">channels</div> }));

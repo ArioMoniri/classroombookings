@@ -2465,7 +2465,8 @@
       "goal": "You are lane **W3-SLOT** of SmartSched wave 3 (ledger `wave3-slot-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3.md and COMMON.md (same folder) and follow them. The owner asked: \"slot size decision of how it is shown is cont…",
       "ledger": "W3-SLOT: slot display + quick reserve",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 21:37"
     },
     {
       "id": "abadefef6ea993f6e",

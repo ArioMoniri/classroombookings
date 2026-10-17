@@ -3,6 +3,7 @@
 // gate every entry on `permission` (any of, from GET /auth/me permissions[]); no permission = every signed-in user
 // (CRBS shows Bookings to everyone; room-level rights come from ACLs the role list cannot see).
 import {
+  Activity,
   BookMarked,
   ClipboardList,
   Building2,
@@ -12,6 +13,7 @@ import {
   CalendarSearch,
   CalendarX2,
   Clock,
+  Cpu,
   DoorOpen,
   History,
   KeyRound,
@@ -79,6 +81,8 @@ export const SECTION_ICONS: Record<string, LucideIcon> = {
   "/admin/approval-rules": Stamp,
   "/admin/audit": History,
   "/admin/kvkk": Lock,
+  "/admin/ai": Cpu,
+  "/admin/ops": Activity,
 };
 
 /** Secondary destinations: the profile (user menu) and every setup screen (⌘K, or a collapsible "Setup" group). */

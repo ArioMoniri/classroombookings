@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `6e8d40f` (committed 2026-10-17 21:02 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `8f7da98` (committed 2026-10-17 21:33 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 51 · Backend only 0 · In progress 1 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 55 · Backend only 0 · In progress 1 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -77,6 +77,8 @@ Done 51 · Backend only 0 · In progress 1 · Planned 0 (from [`docs/features.ym
 | CRBS legacy upgrade: import a running classroombookings database with a dry-run report | Done: import-wizard dry run + fingerprint confirm; live MySQL run on the pod open | P18-LEGACY | [`shell-admin-sweep.spec.ts`](../smartsched/frontend/e2e/shell-admin-sweep.spec.ts) |
 | CRBS superset gate: every classroombookings behaviour and screen has an acceptance test | Done: runs in pod CI (parity gate) | 18 | [`parity_check.py`](../scripts/parity_check.py) |
 | Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows | Done: UI 2026-10-16: /bookings/conflicts/[run] resolver (banner, ranked options, scope, auto -> dry-run review -> apply, 409 problems in their row); Ayarlar › Rezervasyon kuralları + exam period, 'Neden?' in grid / book sheet / find-room; /public kiosk (rooms, buildings, 60 s refresh) with the KVKK sign-off card; Profil › Gizlilik + first-login notice sheet; Yönetim › KVKK (requests, notice, retention, inventory CSV); e2e 5/5 on a real backend incl. phone 390; backend tests/test_wave2_*.py | 17 (P2, P8, V2, A4) | [`wave2.spec.ts`](../smartsched/frontend/e2e/wave2.spec.ts) |
+| Slot display set by administrators (Ayarlar › Ders saatleri, also /bookings › Görünüm): period rows or time blocks (15/30/60 min drawn onto the periods), label period / time / both (schedule name or ordinal, start or range), density compact / standard / comfortable, first / last visible period, hide short slots and the weekend, default view for desktop and phone, quick-reserve lengths; live preview with the real grid, list and chips; every booking surface reads one useSlotDisplay() | Done: booking.slot_display.* settings (key/value, admin write via PUT /settings, sanitised read in GET /bookings/context slot_display + GET /bookings/slot-display); tests test_w3_slot_display.py, slot-display.test.ts, w3-slot-grid.test.tsx, settings/slot-display.test.tsx; find-room and the public kiosk do not read it yet (asks) | wave 3 (W3-SLOT) | [`w3-slot.spec.ts`](../smartsched/frontend/e2e/w3-slot.spec.ts) |
+| Quick reservation /reserve (Hızlı rezervasyon): day chips, a slot in the admin's unit, an optional length, how many people and feature chips, a short ranked list of free rooms (own waiting request marked), one primary that says Rezerve et or Talep et, a receipt with the real undo (POST /audit/{id}/undo) or Talebi geri çek; 2 taps for the next free slot, keyboard and screen-reader complete, one thumb at 390 | Done: POST /bookings and multi create now return audit_event_id (test_w3_slot_undo.py); first sidebar entry and first action on /bookings; the phone tab bar entry is an ask (tab-bar.tsx / admin nav-items.ts) | wave 3 (W3-SLOT) | [`w3-slot.spec.ts`](../smartsched/frontend/e2e/w3-slot.spec.ts) |
 
 **Identity and notifications**
 
@@ -112,6 +114,8 @@ Done 51 · Backend only 0 · In progress 1 · Planned 0 (from [`docs/features.ym
 | AI provider gateway chosen by admins: Anthropic (default), OpenAI, Azure OpenAI, OpenRouter, any OpenAI-compatible base URL (Ollama / vLLM), Google Gemini, AWS Bedrock and Vertex AI (Claude); keys write-only and encrypted, models synced from each provider's API, a test call, one provider + model + effort + fallback per AI feature with a global default | Done: app/ai/providers/**, app/ai/gateway.py, app/ai/pipeline.py; /admin/ai Sağlayıcılar + Modeller; without any key nothing changes (Anthropic + anthropic_model) | wave 3 (W3-AI) | [`test_w3_ai_providers.py`](../smartsched/backend/tests/ai/test_w3_ai_providers.py) |
 | AI usage metering per user (feature, provider, model, input / output / cache tokens, estimated cost from a versioned price table, latency, outcome, reason, prompt hash + length, never the text) with org monthly budget, per-user daily / monthly limits (default, per role, per person), reservation before the call, 80 % alerts (bell + e-mail) and a user banner, hard limit refused in Turkish | Done: alembic 0034_ai_usage, app/services/ai_usage.py; /admin/ai Kullanım + Limitler; Profil › Yapay zekâ kullanımım; audited top-ups | wave 3 (W3-AI) | [`test_w3_ai_gateway.py`](../smartsched/backend/tests/ai/test_w3_ai_gateway.py) |
 | AI guardrails: deterministic scope classifier (code, translation, essays, general questions), prompt-injection detection in typed text and uploads (TR + EN: override, role-play, system-prompt / key exfiltration, tool-call smuggling, encoded payloads), spotlighting preamble, output check (offered tools, schema, no links / code), per-feature caps, per-user rate and concurrency limits, KVKK transfer basis per provider; refusals logged with a reason and visible to admins; red-team self-test | Done: app/ai/guardrails.py, app/ai/redteam_guard_cases.json (44 cases); /admin/ai Koruma with a dry-run test bench | wave 3 (W3-AI) | [`test_w3_ai_guardrails.py`](../smartsched/backend/tests/ai/test_w3_ai_guardrails.py) |
+| Guided SMTP setup shared by every admin: 12 provider presets (Google app password / OAuth2 / relay, Microsoft 365 OAuth2 XOAUTH2, Amazon SES, SendGrid, Mailgun, Postmark, Brevo, Resend, Yandex 360, campus server) with console steps and copy values, write-only encrypted secrets, KVKK md. 9 acknowledgement for providers abroad, SPF / DKIM / DMARC check with Turkish guidance, test e-mail with an SMTP transcript excerpt and Turkish error hints, 'Son değişiklik', send the mail that waited | Done: app/services/mail*.py, app/api/v1/mail_admin.py (/api/v1/mail/*), components/admin/email/smtp-wizard.tsx; DNS tests tests/test_w3b_mail_dns.py (fake resolver); docs/deploy/email.md | wave 3b (W3-MAIL) | [`test_w3b_mail_smtp.py`](../smartsched/backend/tests/test_w3b_mail_smtp.py) |
+| Themed HTML + plain-text e-mails for every message (25 kinds, TR + EN): one renderer app.emails.render(kind, locale, **ctx) -> (subject, html, text), table layout, 600 px, dark-mode safe, bulletproof VML button, preheader, CID logo, escaped values, variants per provider / reason / state; admin subject and intro overrides per kind and language with live desktop / phone preview and test send | Done: design docs/design/v3/emails.md; wired paths keep recipients and plain text (tests/test_w3b_mail_wiring.py); alembic 0038_email_templates (outbox link + locale); components/admin/email/email-templates.tsx; EmailSettingsPanel for /admin/integrations | wave 3b (W3-MAIL) | [`test_w3b_mail_render.py`](../smartsched/backend/tests/test_w3b_mail_render.py) |
 
 <!-- /AUTO:status -->
 
@@ -153,11 +157,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-249 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 221 · stopped 11 · superseded 7.
+250 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 224 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
-| `W3-AI` | ai-engineer | 2026-10-17 18:58 |
 | `W3-SEC` | backend-engineer | 2026-10-17 18:58 |
 | `W3-SLOT` | frontend-engineer | 2026-10-17 18:58 |
 | `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
@@ -165,8 +168,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `Mobile optimiser B` | frontend-engineer | 2026-10-17 19:56 |
 | `W3-HUB` | frontend-engineer | 2026-10-17 19:58 |
 | `W3-IDP` | backend-engineer | 2026-10-17 19:58 |
-| `W3-MAIL` | backend-engineer | 2026-10-17 19:58 |
-| `Owner decisions` | backend-engineer | 2026-10-17 20:10 |
+| `Wave-3 integrator` | general-purpose | 2026-10-17 21:25 |
 
 <!-- /AUTO:agents -->
 
@@ -233,7 +235,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **307 ticked · 352 open** checkboxes in 85 sections (81 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **324 ticked · 361 open** checkboxes in 88 sections (84 with open items).
 
 <details><summary>Per section</summary>
 
@@ -324,6 +326,9 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Wave 3 — W3-SEC (2026-10-17) | 3 | 4 |
 | Wave 3b (owner request 2026-10-17 ~20:15 UTC): identity, e-mail and integration setup | 0 | 4 |
 | Wave 3 — W3-OPS (2026-10-17) | 6 | 2 |
+| Wave 3 — W3-AI (2026-10-17) | 5 | 3 |
+| Wave 3b — W3-MAIL (2026-10-17) | 5 | 1 |
+| Wave 3 — W3-SLOT (2026-10-17) | 7 | 5 |
 
 </details>
 

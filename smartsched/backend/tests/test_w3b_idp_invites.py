@@ -95,7 +95,10 @@ async def test_local_password_invite_sets_a_password_and_signs_in(idp) -> None: 
         "/api/v1/auth/login", json={"email": "misafir.hoca@uni.edu.tr", "password": "Güçlü-parola-2026"}
     )
     assert r.status_code == 200, r.text
+    (welcome,) = await _all(NotificationOutbox, NotificationOutbox.kind == "account_created")
+    assert welcome.to_email == "misafir.hoca@uni.edu.tr" and welcome.status == "UNSENT"  # no SMTP on this test
     again = await idp.client.post(f"/api/v1/auth/sso/invites/{token}/password", json={"password": "Başka-parola-1"})
+
     assert again.status_code == 404  # one time
     actions = [e.action for e in await _all(AuditEvent, AuditEvent.action.like("user.invite%"))]
     assert actions == ["user.invited", "user.invite_accepted"] or "user.invite_accepted" in actions
@@ -149,6 +152,9 @@ async def test_user_status_lists_every_linked_provider(idp) -> None:  # noqa: F8
     await idp.google_ws()
     h = await idp.headers("keycloak", idp.kc)
     me = (await idp.client.get("/api/v1/auth/me", headers=h)).json()
+    assert [r.to_email for r in await _all(NotificationOutbox, NotificationOutbox.kind == "account_created")] == [
+        "ayse.yilmaz@uni.edu.tr"
+    ]  # the self sign-up's welcome e-mail
     st = (await idp.client.get("/api/v1/auth/sso/admin/user-status", headers=idp.admin)).json()[str(me["id"])]
     assert st["status"] == "linked" and st["auth_methods"] == ["oidc"] and st["providers"] == ["keycloak"]
 

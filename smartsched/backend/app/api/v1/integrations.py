@@ -21,11 +21,12 @@ e.g. a KVKK sign-off).
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import logging
 import re
 from collections.abc import Awaitable, Callable, Iterable
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
@@ -170,6 +171,8 @@ class CardIn(BaseModel):
     setup_href: str | None = None
     toggle: dict[str, Any] | None = None
     ref: dict[str, int | str] | None = None
+    #: ISO date a client secret expires (identity providers); drives ``integration.secret_expiring``
+    secret_expires_at: str | None = None
 
 
 class CardOut(BaseModel):
@@ -190,6 +193,7 @@ class CardOut(BaseModel):
     setup_href: str
     toggle: Toggle | None = None
     ref: dict[str, int | str] | None = None
+    secret_expires_at: str | None = None
     source: Literal["contract", "builtin", "missing"]
 
 
@@ -241,6 +245,7 @@ def _normalise(area: str, raw: dict[str, Any], source: Literal["contract", "buil
         setup_href=href,
         toggle=toggle,
         ref=card.ref,
+        secret_expires_at=card.secret_expires_at,
         source=source,
     )
 
@@ -782,8 +787,8 @@ async def _read(session: AsyncSession, area: str) -> tuple[list[CardOut], AskOut
     return (cards or [_unknown(area, source)]), None
 
 
-@router.get("/status", response_model=StatusOut)
-async def integrations_status(db: DB, _: HubAdmin) -> StatusOut:
+async def collect(db: AsyncSession) -> StatusOut:
+    """Every area's cards (read-only); shared by the endpoint and the alert relay."""
     areas: list[AreaOut] = []
     asks: list[AskOut] = []
     for key, label_tr, label_en in AREAS:
@@ -796,3 +801,128 @@ async def integrations_status(db: DB, _: HubAdmin) -> StatusOut:
         for c in a.cards:
             counts[c.status] += 1
     return StatusOut(generated_at=_iso(utcnow()) or "", areas=areas, counts=counts, asks=asks)
+
+
+@router.get("/status", response_model=StatusOut)
+async def integrations_status(db: DB, _: HubAdmin) -> StatusOut:
+    return await collect(db)
+
+
+# --------------------------------------------------------------------------------------------------- alerts
+#
+# Bell events owned by the hub (docs/design/v3/integrations.md; names agreed with W3-MAIL). The integrator adds
+# them to ``notify_dispatch.EVENTS``; until then a pass sends nothing. Each occurrence is delivered once per
+# admin and channel by the dispatcher's own ledger (the key names it), so the relay keeps no state of its own.
+
+EVENT_ERROR = "integration.error"
+EVENT_SECRET = "integration.secret_expiring"
+SECRET_WARN_DAYS = 30
+ALERT_INTERVAL_S = 300.0
+_alert_task: asyncio.Task[None] | None = None
+
+
+async def _setting_admins(session: AsyncSession) -> list[User]:
+    from app.models import Permission, RolePermission
+
+    roles = select(RolePermission.role_id).join(Permission, Permission.id == RolePermission.permission_id)
+    roles = roles.where(Permission.name == "setup.settings")
+    q = select(User).where(User.is_active.is_(True))
+    q = q.where(or_(User.role_id.in_(roles), and_(User.role_id.is_(None), User.role == "ADMIN")))
+    return list((await session.execute(q.order_by(User.id))).scalars())
+
+
+def _alert_texts(card: CardOut, kind: str, english: bool, days: int = 0) -> tuple[str, str]:
+    name = card.name_en if english else card.name_tr
+    detail = (card.detail_en if english else card.detail_tr) or ""
+    if kind == EVENT_ERROR:
+        if english:
+            return f"Integration error: {name}"[:255], f"{detail} Open Integrations to fix it.".strip()
+        return f"Entegrasyon hatası: {name}"[:255], f"{detail} Düzeltmek için Entegrasyonlar sayfasını açın.".strip()
+    if english:
+        return f"{name}: client secret expires in {days} days"[
+            :255
+        ], "Create a new secret at the provider and paste it."
+    return (
+        f"{name}: istemci gizli anahtarının süresi {days} gün sonra doluyor"[:255],
+        "Sağlayıcıda yeni bir gizli anahtar oluşturup yapıştırın.",
+    )
+
+
+async def alert_pass(session: AsyncSession, today: date | None = None) -> dict[str, int]:
+    """One pass: ``integration.error`` for cards in error, ``integration.secret_expiring`` from 30 days before a
+    reported secret expiry. Returns how many (card, event) occurrences reached at least one admin."""
+    from app.services import notify_dispatch
+
+    sent = {"error": 0, "secret": 0, "skipped_unregistered": 0}
+    status = await collect(session)
+    admins = await _setting_admins(session)
+    today = today or utcnow().date()
+    for area in status.areas:
+        for card in area.cards:
+            todo: list[tuple[str, str, int]] = []
+            if card.status == "error":
+                occurrence = card.last_check_at or card.changed_at or "-"
+                todo.append((EVENT_ERROR, f"integration:{card.key}:error:{occurrence}", 0))
+            if card.secret_expires_at:
+                try:
+                    expires = date.fromisoformat(card.secret_expires_at[:10])
+                except ValueError:
+                    expires = None
+                if expires is not None and 0 <= (expires - today).days <= SECRET_WARN_DAYS:
+                    todo.append(
+                        (EVENT_SECRET, f"integration:{card.key}:secret:{expires.isoformat()}", (expires - today).days)
+                    )
+            for event, key, days in todo:
+                if event not in notify_dispatch.EVENTS:
+                    sent["skipped_unregistered"] += 1
+                    continue
+                reached = False
+                for user in admins:
+                    english = str(user.language or "").lower().startswith("en")
+                    title, body = _alert_texts(card, event, english, days)
+                    notice = notify_dispatch.Notice(
+                        event=event,
+                        key=key,
+                        title=title,
+                        body=body,
+                        link=card.setup_href,
+                        data={"integration": card.key, "area": card.area, "status": card.status},
+                    )
+                    out = await notify_dispatch.dispatch(session, user, notice)
+                    reached = reached or any(d.status == "sent" for d in out)
+                if reached:
+                    sent["error" if event == EVENT_ERROR else "secret"] += 1
+    await session.commit()
+    return sent
+
+
+async def _alert_loop(interval: float) -> None:
+    from app.core.db import get_session_factory
+
+    while True:
+        try:
+            async with get_session_factory()() as session:
+                await alert_pass(session)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - the relay must never stop or break the app
+            log.warning("integrations alert pass failed", exc_info=True)
+        await asyncio.sleep(interval)
+
+
+def start_alert_relay(interval: float = ALERT_INTERVAL_S) -> None:
+    """Start the 5-minute alert pass once per process (the integrator calls it next to ``ops_alerts.start()``)."""
+    global _alert_task
+    if _alert_task is None or _alert_task.done():
+        _alert_task = asyncio.get_running_loop().create_task(_alert_loop(interval), name="integrations-alerts")
+
+
+async def stop_alert_relay() -> None:
+    global _alert_task
+    if _alert_task is not None:
+        _alert_task.cancel()
+        try:
+            await _alert_task
+        except asyncio.CancelledError:
+            pass
+        _alert_task = None

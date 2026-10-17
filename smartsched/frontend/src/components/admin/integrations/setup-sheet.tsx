@@ -9,7 +9,7 @@
  * Content is the owning area's own admin panel, embedded unchanged (read-only reuse):
  *   identity   → W3-IDP's IdentityProvidersPanel (every sign-in provider, its guided setup, invitations), opened
  *                at the card's provider (`identity.<name>` → initialSetup)
- *   email      → SMTP + outbox (components/admin/email-settings) until W3-MAIL's EmailSettingsPanel lands
+ *   email      → W3-MAIL's EmailSettingsPanel (SMTP preset wizard, test, templates; components/admin/email-settings)
  *   calendar   → calendar sync sign-off + Google / Microsoft 365 OAuth clients (components/settings/calendar-*)
  *   channels   → notification channels (components/channels/channels-admin)
  *   automation → the guided n8n / Activepieces / Pipedream / Zapier setup, or every webhook (webhooks-admin)
@@ -18,7 +18,7 @@ import { ArrowLeft } from "lucide-react";
 import { useRef } from "react";
 import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { ChannelsAdmin } from "@/components/channels/channels-admin";
-import { EmailSettingsView } from "@/components/admin/email-settings";
+import { EmailSettingsPanel } from "@/components/admin/email-settings";
 import { IdentityProvidersPanel } from "@/components/identity/identity-providers-panel";
 import { CalendarPushAdmin } from "@/components/settings/calendar-push-admin";
 import { CalendarSyncAdmin } from "@/components/settings/calendar-sync-admin";
@@ -145,7 +145,7 @@ function AreaContent({ area, card }: { area: AreaKey; card: ConnectorCard | null
       return (
         <div className="grid gap-5">
           {pending}
-          <EmailSettingsView />
+          <EmailSettingsPanel />
         </div>
       );
     case "calendar":

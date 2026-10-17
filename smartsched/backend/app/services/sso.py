@@ -1697,6 +1697,9 @@ async def _first_login(
         after={"role": user.role, "email": user.email, "provider": prov.name, **_identity_facts(ident, claims)},
         actor=user,
     )
+    from app.services.identity.invites import send_account_created
+
+    await send_account_created(db, user, "sso")
     return user, ident, {"welcome": "self"}
 
 

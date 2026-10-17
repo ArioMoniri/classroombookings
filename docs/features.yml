@@ -321,3 +321,15 @@
   phase: "wave 3b (W3-MAIL)"
   evidence: smartsched/backend/tests/test_w3b_mail_render.py
   note: "design docs/design/v3/emails.md; wired paths keep recipients and plain text (tests/test_w3b_mail_wiring.py); alembic 0038_email_templates (outbox link + locale); components/admin/email/email-templates.tsx; EmailSettingsPanel for /admin/integrations"
+- feature: "Slot display set by administrators (Ayarlar › Ders saatleri, also /bookings › Görünüm): period rows or time blocks (15/30/60 min drawn onto the periods), label period / time / both (schedule name or ordinal, start or range), density compact / standard / comfortable, first / last visible period, hide short slots and the weekend, default view for desktop and phone, quick-reserve lengths; live preview with the real grid, list and chips; every booking surface reads one useSlotDisplay()"
+  area: bookings
+  status: done
+  phase: "wave 3 (W3-SLOT)"
+  evidence: smartsched/frontend/e2e/w3-slot.spec.ts
+  note: "booking.slot_display.* settings (key/value, admin write via PUT /settings, sanitised read in GET /bookings/context slot_display + GET /bookings/slot-display); tests test_w3_slot_display.py, slot-display.test.ts, w3-slot-grid.test.tsx, settings/slot-display.test.tsx; find-room and the public kiosk do not read it yet (asks)"
+- feature: "Quick reservation /reserve (Hızlı rezervasyon): day chips, a slot in the admin's unit, an optional length, how many people and feature chips, a short ranked list of free rooms (own waiting request marked), one primary that says Rezerve et or Talep et, a receipt with the real undo (POST /audit/{id}/undo) or Talebi geri çek; 2 taps for the next free slot, keyboard and screen-reader complete, one thumb at 390"
+  area: bookings
+  status: done
+  phase: "wave 3 (W3-SLOT)"
+  evidence: smartsched/frontend/e2e/w3-slot.spec.ts
+  note: "POST /bookings and multi create now return audit_event_id (test_w3_slot_undo.py); first sidebar entry and first action on /bookings; the phone tab bar entry is an ask (tab-bar.tsx / admin nav-items.ts)"
