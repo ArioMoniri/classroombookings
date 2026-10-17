@@ -124,7 +124,7 @@ function TemplateEditor({ tpl }: { tpl: Template }) {
 
   return (
     <section className="flex min-w-0 flex-col gap-4" aria-labelledby={`${ids}-h`}>
-      <h3 id={`${ids}-h`} ref={headingRef} tabIndex={-1} className="type-title-3 text-label-1 focus:outline-hidden">
+      <h3 id={`${ids}-h`} ref={headingRef} tabIndex={-1} className="type-title-3 text-label-1 focus-visible:outline-2">
         {label}
       </h3>
       <div className="flex flex-wrap items-center gap-3">

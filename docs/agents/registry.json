@@ -2662,7 +2662,8 @@
       "goal": "You are lane **W3-MAIL** of SmartSched wave 3b (ledger `wave3b-mail-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3B.md, WAVE3.md and COMMON.md (same folder) and follow them. Read first: how mail is sent today (grep the backe…",
       "ledger": "W3-MAIL: SMTP wizard + themed e-mails",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 21:32"
     },
     {
       "id": "aa29473588caaba47",

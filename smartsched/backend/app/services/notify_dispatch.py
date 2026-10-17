@@ -104,6 +104,10 @@ EVENTS: dict[str, tuple[str, str]] = {
         "Ders tercihim kabul edilmedi (gerekçesiyle)",
         "My class preference was declined (with the reason)",
     ),
+    # wave 3: budget / per-user AI usage thresholds (app.services.ai_usage; administrators and the user concerned)
+    "ai.usage_alert": ("Yapay zekâ kullanım uyarıları", "AI usage alerts"),
+    # wave 3: Prometheus alerts relayed to administrators (app.services.ops_alerts, every 60 s)
+    "ops.alert": ("Sistem uyarıları (yöneticiler)", "System alerts (administrators)"),
 }
 
 

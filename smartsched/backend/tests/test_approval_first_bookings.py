@@ -392,7 +392,12 @@ def test_channel_registry_is_the_extension_point():
         # P19-T2 "Tercih ekle" decisions (app.services.teacher_preferences.decide)
         "preference.accepted",
         "preference.rejected",
+        # wave 3: AI budget alerts (app.services.ai_usage) and Prometheus alerts to admins (app.services.ops_alerts)
+        "ai.usage_alert",
+        "ops.alert",
     }
+    assert nd.EVENTS["ai.usage_alert"] == ("Yapay zekâ kullanım uyarıları", "AI usage alerts")
+    assert nd.EVENTS["ops.alert"] == ("Sistem uyarıları (yöneticiler)", "System alerts (administrators)")
 
     class Probe(nd.ChannelAdapter):
         name = "probe"

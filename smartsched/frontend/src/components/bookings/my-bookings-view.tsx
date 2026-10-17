@@ -74,10 +74,23 @@ export function MyBookingsView() {
     [requests.data],
   );
   // R3-S-05: after a cancel, focus the row that takes the cancelled row's place (or the heading), never <body>
+  // the row index is taken when the row (or the bulk cancel) is opened: by the time the cancel's onSuccess runs, the
+  // invalidated list may already have refetched without the row
   const pendingFocus = useRef<{ index: number; ids: number[] } | null>(null);
+  const openedIndex = useRef(0);
+  const noteRows = (ids: number[]) => {
+    openedIndex.current = ids.map(rowIndexOf).filter((i) => i >= 0).sort((a, b) => a - b)[0] ?? 0;
+  };
+  const placeFocus = (index: number) => {
+    focusRowAfterRemoval(index);
+    focusAfter(rowSelectorsAfterRemoval(index), 50);
+  };
+  // a tick, not the list: the cancel's callback closes over an older render, so the effect below decides with the
+  // current list (it may already have refetched without the row)
+  const [focusTick, setFocusTick] = useState(0);
   const rememberRow = (ids: number[]) => {
-    const index = ids.map(rowIndexOf).filter((i) => i >= 0).sort((a, b) => a - b)[0] ?? 0;
-    pendingFocus.current = { index, ids };
+    pendingFocus.current = { index: openedIndex.current, ids };
+    setFocusTick((n) => n + 1);
   };
   useEffect(() => {
     const p = pendingFocus.current;
@@ -85,9 +98,8 @@ export function MyBookingsView() {
     if (list.data.some((b) => p.ids.includes(b.id) && b.status !== "CANCELLED")) return; // not refetched yet
     pendingFocus.current = null;
     // after the sheet / dialog has closed (their exit returns focus to a trigger that is gone)
-    focusRowAfterRemoval(p.index);
-    focusAfter(rowSelectorsAfterRemoval(p.index), 50);
-  }, [list.data, list.isFetching]);
+    placeFocus(p.index);
+  }, [list.data, list.isFetching, focusTick]);
   const rows = useMemo(() => {
     const items = [...(list.data ?? [])];
     if (tab === "past") items.reverse();
@@ -150,7 +162,7 @@ export function MyBookingsView() {
             ]}
           />
           {tab === "upcoming" && selected.size > 0 && !phone ? (
-            <Button variant="outline" className="text-status-infeasible-fg" onClick={() => setCancelOpen(true)} data-testid="cancel-selected">
+            <Button variant="outline" className="text-status-infeasible-fg" onClick={() => (noteRows([...selected]), setCancelOpen(true))} data-testid="cancel-selected">
               <Trash2 aria-hidden />
               {t("crbs.mine.cancelSelected", { n: selected.size })}
             </Button>
@@ -162,7 +174,7 @@ export function MyBookingsView() {
           ) : rows.length === 0 ? (
             <p className="px-4 py-6 type-callout text-label-2">{tab === "upcoming" ? t("crbs.mine.emptyUpcoming") : t("crbs.mine.empty")}</p>
           ) : (
-            <BookingList rows={rows} fmt={fmt} selectable={tab === "upcoming"} selected={selected} onToggle={toggle} onOpen={setDetail} onRoom={(id, date) => setRoomInfo({ id, date })} approverNote={approverNote} />
+            <BookingList rows={rows} fmt={fmt} selectable={tab === "upcoming"} selected={selected} onToggle={toggle} onOpen={(id) => (noteRows([id]), setDetail(id))} onRoom={(id, date) => setRoomInfo({ id, date })} approverNote={approverNote} />
           )}
         </Card>
       </section>
@@ -177,7 +189,7 @@ export function MyBookingsView() {
                   <h3 className="type-headline text-label-1">{room.name}</h3>
                   <span className="type-footnote text-label-3">{t("crbs.mine.upcomingCount", { n: room.upcoming.length })}</span>
                 </div>
-                {room.upcoming.length ? <BookingList rows={room.upcoming} fmt={fmt} showUser onOpen={setDetail} onRoom={(id, date) => setRoomInfo({ id, date })} /> : <p className="px-4 pb-3 type-callout text-label-2">{t("crbs.mine.ownedEmpty")}</p>}
+                {room.upcoming.length ? <BookingList rows={room.upcoming} fmt={fmt} showUser onOpen={(id) => (noteRows([id]), setDetail(id))} onRoom={(id, date) => setRoomInfo({ id, date })} /> : <p className="px-4 pb-3 type-callout text-label-2">{t("crbs.mine.ownedEmpty")}</p>}
               </Card>
             ))}
           </div>
@@ -204,7 +216,7 @@ export function MyBookingsView() {
       {tab === "upcoming" && selected.size > 0 && phone ? (
         <div className="fixed inset-x-4 bottom-[calc(var(--shell-bottom-h)+0.75rem)] z-20 flex items-center justify-between gap-3 rounded-2xl glass-chrome px-4 py-2 shadow-elev-2" data-testid="cancel-selected-capsule">
           <span className="type-callout text-label-1">{t("crbs.mine.selectedN", { n: selected.size })}</span>
-          <Button variant="outline" className="text-status-infeasible-fg" onClick={() => setCancelOpen(true)} data-testid="cancel-selected">
+          <Button variant="outline" className="text-status-infeasible-fg" onClick={() => (noteRows([...selected]), setCancelOpen(true))} data-testid="cancel-selected">
             <Trash2 aria-hidden />
             {t("crbs.mine.cancelSelected", { n: selected.size })}
           </Button>

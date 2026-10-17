@@ -366,6 +366,28 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/invigilation/plans/{plan_id}/duties/{duty_id}/lock": (E, "app.services.invigilation"),
     "PUT /api/v1/invigilation/plans/{plan_id}/duties/{duty_id}": (E, "app.services.invigilation"),
     "POST /api/v1/invigilation/plans/{plan_id}/duties": (E, "app.services.invigilation"),
+    # W3-AI provider gateway, limits, guardrails (ai.* audit actions; secrets never reach the log)
+    "PUT /api/v1/ai/admin/providers/{provider}": (E, "app.api.v1.ai_admin"),
+    "POST /api/v1/ai/admin/providers/{provider}/sync": (E, "app.api.v1.ai_admin"),
+    "POST /api/v1/ai/admin/providers/{provider}/test": (T, "ai_usage + setting ai.provider.<p>.test"),
+    "PUT /api/v1/ai/admin/routes": (E, "app.api.v1.ai_admin"),
+    "PUT /api/v1/ai/admin/limits": (E, "app.api.v1.ai_admin"),
+    "POST /api/v1/ai/admin/limits/topup": (E, "app.api.v1.ai_admin"),
+    "PUT /api/v1/ai/admin/guardrails": (E, "app.api.v1.ai_admin"),
+    "POST /api/v1/ai/admin/guardrails/check": (N, "dry run: the deterministic guard's verdict, no model call"),
+    "POST /api/v1/ai/admin/redteam": (N, "dry run: the shipped guard corpus, no model call"),
+    # W3-OPS error tracking: reports are rows of their own table; the triage is an audit event
+    "POST /api/v1/ops/errors": (J, "error_events (grouped, scrubbed client report)"),
+    "POST /api/v1/ops/client-errors": (J, "error_events (alias of POST /ops/errors)"),
+    "POST /api/v1/ops/errors/{error_id}/status": (E, "app.api.v1.ops"),
+    # W3-MAIL SMTP setup + themed e-mails
+    "PUT /api/v1/mail/settings": (T, "settings group smtp (bookings_settings.set_group)"),
+    "POST /api/v1/mail/outbox/requeue": (E, "app.services.mail"),
+    "POST /api/v1/mail/test": (E, "app.services.mail"),
+    "POST /api/v1/mail/dns-check": (N, "DNS lookup of SPF / DKIM / DMARC"),
+    "POST /api/v1/mail/templates/{kind}/preview": (N, "render only"),
+    "PUT /api/v1/mail/templates/{kind}": (T, "translations set email"),
+    "POST /api/v1/mail/templates/{kind}/test": (E, "app.services.mail"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)

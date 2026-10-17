@@ -41,9 +41,7 @@ STATE_KEY = "ops.alert_relay"
 INTERVAL_S = 60.0
 RENOTIFY_S = 6 * 3600
 OPS_PERMS = ("setup.settings", "planning.admin")
-
-# the dispatcher refuses unknown events; ops.alert is listed in the notification preferences next to the others
-notify_dispatch.EVENTS.setdefault(EVENT, ("Sistem uyarıları (yöneticiler)", "System alerts (administrators)"))
+# ops.alert is registered in notify_dispatch.EVENTS (shown in the notification preferences next to the others)
 
 _task: asyncio.Task[None] | None = None
 #: the last pass of this process (``GET /ops/status`` ``alert_relay``)

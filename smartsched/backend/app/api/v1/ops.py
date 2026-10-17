@@ -40,6 +40,7 @@ from app.models.base import utcnow
 from app.models.channels import ChannelDelivery
 from app.models.error_event import STATUSES, ErrorEvent
 from app.models.integrations import CalendarSyncJob
+from app.services import audit
 from app.services import ops_alerts as alert_relay
 from app.services.bookings_perms import load_access
 
@@ -421,6 +422,7 @@ async def set_error_status(error_id: int, body: StatusIn, admin: OpsAdmin, db: D
     e = await db.get(ErrorEvent, error_id)
     if e is None:
         raise HTTPException(404, {"code": "not_found", **_msg("Hata kaydı bulunamadı.", "Error group not found.")})
+    before = e.status
     e.status = body.status
     if body.status == "resolved":
         e.resolved_at = utcnow()
@@ -428,6 +430,16 @@ async def set_error_status(error_id: int, body: StatusIn, admin: OpsAdmin, db: D
     else:
         e.resolved_at = None
         e.resolved_by = None
+    if before != body.status:  # triage is shared between admins: who changed it, from what, to what
+        await audit.record(
+            db,
+            "ops.error.status",
+            "error_event",
+            e.id,
+            before={"status": before},
+            after={"status": body.status},
+            actor=admin,
+        )
     await db.commit()
     return _error_out(e)
 

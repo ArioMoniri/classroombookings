@@ -41,9 +41,9 @@ ALERT_LABEL = ("Yapay zekâ kullanım uyarıları", "AI usage alerts")
 
 async def _deliver(session: AsyncSession, user: User, notice: nd.Notice) -> bool:
     """The dispatcher's built-in channels (in-app bell + e-mail outbox) with its at-most-once ledger
-    (``notification_deliveries``). ``ai.usage_alert`` is not one of the switchable events of
-    :data:`app.services.notify_dispatch.EVENTS` (that registry is owned elsewhere), so the preferences do not apply:
-    administrators always get budget alerts."""
+    (``notification_deliveries``). ``ai.usage_alert`` is listed in
+    :data:`app.services.notify_dispatch.EVENTS` (so it has a label in the preferences screen), but budget alerts
+    bypass the per-event switches here: administrators always get them."""
     from app.models import NotificationDelivery
 
     sent = False

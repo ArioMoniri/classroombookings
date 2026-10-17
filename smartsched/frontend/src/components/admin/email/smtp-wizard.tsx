@@ -131,7 +131,7 @@ function Wizard({ data, presets }: { data: MailSettings; presets: Preset[] }) {
         </ol>
       </nav>
       <section className="flex flex-col gap-4 px-4 py-4" aria-labelledby="mail-step-heading">
-        <h3 id="mail-step-heading" ref={headingRef} tabIndex={-1} className="type-title-3 text-label-1 focus:outline-hidden">
+        <h3 id="mail-step-heading" ref={headingRef} tabIndex={-1} className="type-title-3 text-label-1 focus-visible:outline-2">
           {t(STEP_KEY[step])}
         </h3>
         {step === "provider" ? <ProviderStep presets={presets} value={v.provider ?? ""} onPick={(p) => setD((prev) => ({ ...prev, ...presetFill(p) }))} /> : null}
