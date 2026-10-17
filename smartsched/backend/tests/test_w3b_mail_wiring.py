@@ -67,7 +67,7 @@ async def _smtp(env, monkeypatch):  # type: ignore[no-untyped-def]  # noqa: F811
     r = await env.client.put(
         "/api/v1/calendar/admin/settings", json={"public_url": "https://plan.uni.edu.tr"}, headers=env.admin
     )
-    assert r.status_code in (200, 422), r.text  # the public URL lives with the calendar settings
+    assert r.status_code == 200, r.text  # the panel's public URL lives with the calendar settings
 
 
 def _sent_to(addr: str):  # type: ignore[no-untyped-def]
@@ -85,7 +85,8 @@ async def test_approval_paths_keep_recipients_and_text(env, monkeypatch):  # noq
     aid, ayse = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")
     r = await env.book(ayse, "A102", THU, "P1")
     assert r.status_code == 202, r.text
-    req_id = r.json()["approval_request_id"] if "approval_request_id" in r.json() else r.json()["request"]["id"]
+    (req,) = (await c.get(f"{APPR}/mine", headers=ayse)).json()
+    req_id = req["id"]
     await worker.wait_idle()
     # approvers: the approver only (never the requester), plain text = the bell body, themed HTML in Turkish
     (row,) = await _rows("approval_requested")
@@ -121,7 +122,8 @@ async def test_booking_created_and_cancelled_keep_recipients_and_text(env, monke
     await _smtp(env, monkeypatch)
     c = env.client
     tid, teacher = await env.user("hatice.ozturk@uni.edu.tr", firstname="Hatice", lastname="Öztürk")
-    r = await c.put("/api/v1/users/me", json={"language": "en"}, headers=teacher)
+    r = await c.put("/api/v1/auth/profile", json={"language": "en"}, headers=teacher)
+    assert r.status_code == 200, r.text
     r = await env.book(env.planner, "A102", THU, "P1", user_id=tid)
     assert r.status_code == 201, r.text
     bid = r.json()["id"]
@@ -132,12 +134,12 @@ async def test_booking_created_and_cancelled_keep_recipients_and_text(env, monke
     (msg,) = _sent_to("hatice.ozturk@uni.edu.tr")
     plain, html = _parts(msg)
     assert plain.startswith(bell.body.strip()) and "A 102" in plain
-    assert 'data-block="item"' in html and "A 102" in html and "Rezerve edildi" in html or "Booked" in html
+    assert '<html lang="en"' in html and 'data-block="item"' in html and "A 102" in html and "Booked" in html
     # cancelled by the planner with a reason: the owner gets it, the reason decoded
-    r = await c.request(
-        "DELETE", f"/api/v1/bookings/{bid}", json={"reason": "Bölüm toplantısı"}, headers=env.planner
+    r = await c.post(
+        f"/api/v1/bookings/{bid}/cancel", json={"scope": "one", "reason": "Bölüm toplantısı"}, headers=env.planner
     )
-    assert r.status_code in (200, 204), r.text
+    assert r.status_code == 200, r.text
     await worker.wait_idle()
     (cx,) = await _rows("booking_cancelled")
     (bell,) = await _bell(tid, "booking.cancelled")
@@ -145,8 +147,7 @@ async def test_booking_created_and_cancelled_keep_recipients_and_text(env, monke
     msg = _sent_to("hatice.ozturk@uni.edu.tr")[-1]
     plain, html = _parts(msg)
     assert plain.startswith(bell.body.strip())
-    if "Bölüm toplantısı" in bell.body:
-        assert 'data-block="reason"' in html
+    assert "Bölüm toplantısı" in bell.body and 'data-block="reason"' in html and "Cancelled" in html
 
 
 async def test_password_reset_is_the_themed_code_mail_and_keeps_no_code(env, monkeypatch):  # noqa: F811

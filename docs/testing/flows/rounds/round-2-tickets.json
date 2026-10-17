@@ -898,7 +898,7 @@
       "T-R2-05"
      ],
      "status": "done",
-     "resolution": "page-level fixed Ara capsule on compact; 44 px input/policy-why; M-05/M-02 pass (date-field 32 px is lane A)"
+     "resolution": "page-level fixed Ara capsule on compact; 44 px input/policy-why; M-05/M-02 pass (date-field 32 px is lane A) · r3: chip features count as asked (R3-A-01)"
     },
     {
      "id": "T-R2-11",
@@ -989,7 +989,7 @@
      "dedup": "T-R1-14 follow-up (verified)",
      "depends_on": [],
      "status": "done",
-     "resolution": "stale card refused before the sheet (wholeSpan); verified 1440+390"
+     "resolution": "stale card refused before the sheet (wholeSpan); verified 1440+390 · r3: focus to the refreshed summary (R3-S-02)"
     },
     {
      "id": "T-R2-15",
@@ -1069,7 +1069,7 @@
      "dedup": "R1-S-24 / T-R1-29 residue (range_min); R1-M-17 part (bookings strings); new otherwise",
      "depends_on": [],
      "status": "done",
-     "resolution": "same-page deep link, 202 multi create, coded past/range refusals + replaced_by_series, one audit row per booking; verified"
+     "resolution": "same-page deep link, 202 multi create, coded past/range refusals + replaced_by_series, one audit row per booking; verified · r3: R2-A-11 feed already right; tester script sends top-level `note` (ignored)"
     },
     {
      "id": "T-R2-18",
