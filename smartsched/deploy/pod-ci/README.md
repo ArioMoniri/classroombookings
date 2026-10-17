@@ -32,7 +32,13 @@ nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
 | `deploy` | host | checkout the commit in `/opt/smartsched/src`, render `/ci/` into nginx, `deploy.sh --update --no-pull --tls`, restart proxy, health check, then self-update pod CI | yes (deploy branch) |
 
 Containers run as the `smartsched-ci` uid with `--cpus 2 --memory 3g`, `no-new-privileges`, and are
-removed afterwards. A gate whose `needs` failed is skipped (reported as `error`, never green).
+removed afterwards. The gates run strictly one after another (never in parallel) on a 2 vCPU / 8 GB arm64
+t4g.large that also serves the app (~2 GB). Node containers (`frontend`, the Playwright container of `e2e-real`)
+get `NODE_MEMORY` (4g) and `NODE_OPTIONS=--max-old-space-size=$NODE_HEAP_MB` (3072): V8's default heap ran out
+in run #51 ("Ineffective mark-compacts near heap limit"). Under `CI=1` `vitest.config.mts` uses at most 2 forks
+with a 1536 MB heap each and a 30 s test timeout; Playwright runs `--workers=1`; in `e2e-real` the SMTP sink is
+capped at 256m and the empty backend at 1g. The frontend image build sets the `next build` heap
+(`NODE_BUILD_HEAP_MB`, 3072). No test is skipped to save memory. A gate whose `needs` failed is skipped (reported as `error`, never green).
 The stack smoke test of the Actions workflow is replaced by the real deploy plus its health check.
 
 ## Files
@@ -41,7 +47,7 @@ The stack smoke test of the Actions workflow is replaced by the real deploy plus
 |---|---|
 | `podci/` | the service (stdlib + `python3-boto3`): `state.py` SQLite state machine, `runner.py` poller/worker/heartbeat, `github.py` statuses, `gitops.py` token-in-header git, `web.py` `/ci/`, `nginx.py`, `envfile.py`, `disk.py`, `cloud.py` |
 | `gates/*.sh` | one script per gate (host side, starts its own containers) |
-| `systemd/` | `smartsched-ci-poll.{service,timer}`, `smartsched-ci-worker.{service,path,timer}`, `smartsched-ci-web.service`, `smartsched-ci-update.{service,path}`, `smartsched-upload-purge.{service,timer}` (daily `../purge-uploads.sh`, `Persistent=true` so a purge missed during an idle stop runs after the next boot) |
+| `systemd/` | `smartsched-ci-poll.{service,timer}`, `smartsched-ci-worker.{service,path,timer}`, `smartsched-ci-web.service`, `smartsched-ci-update.{service,path}`, `smartsched-stack.service` (boot: the last good app stack, `gates/stack-up.sh`), `smartsched-upload-purge.{service,timer}` (daily `../purge-uploads.sh`, `Persistent=true` so a purge missed during an idle stop runs after the next boot) |
 | `install.sh` | root: user, `/var/lib/smartsched-ci`, `/opt/smartsched-ci` (atomic swap), units, `/etc/smartsched-ci/ci.env` |
 | `pod-bootstrap.sh` | first boot: `.env` with secrets generated on the pod, SSM sync, `/ci/` basic auth, first deploy, start CI |
 | `ci.env.example` | configuration keys (`PODCI_*`) |
@@ -55,6 +61,17 @@ The stack smoke test of the Actions workflow is replaced by the real deploy plus
   containers and networks (label `smartsched-ci.run`) are removed when a worker starts.
 - **Deploy only when safe**: all blocking gates green and the commit is still the head of the deploy
   branch. The pod's deploy checkout is detached at the tested SHA (`deploy.sh --no-pull`).
+- **A failure never takes the live stack down**: a failed gate never reaches `deploy.sh`; `deploy.sh --update`
+  builds first and then `up -d` (never `down`), so a failed build leaves the running containers alone. A failed
+  deploy (build, migrations, health) is rolled back: the deploy checkout goes back to the last good commit
+  (`/var/lib/smartsched-ci/deployed-sha`, written after every healthy deploy and by `pod-bootstrap.sh`) and
+  `deploy.sh` runs again for it; the deploy status says `rolled back to <sha>` (or that there was nothing to roll
+  back to). Caveat: a migration that already committed is not reverted by the rollback.
+- **Reboot / idle stop**: every compose service has `restart: unless-stopped`, and `smartsched-stack.service`
+  (`gates/stack-up.sh`, after `docker.service`) runs `docker compose up -d --no-build` on the deploy checkout at
+  boot, so the last good stack comes back even if its containers were stopped. It never builds, pulls or stops
+  anything. With no `.env` (the first deploy never ran) it starts nothing: until one deploy succeeds the panel
+  has no stack and no holding page.
 - **Disk**: before every run the worker cleans up, cheapest step first, until `/` is below
   `PODCI_DISK_MAX_PERCENT` (70): workspaces, old runs (keeps 50), dangling images and build cache above
   4 GB, unused images older than 24 h, all build cache, npm/pip caches, all unused images. Images used by

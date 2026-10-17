@@ -2772,6 +2772,30 @@
       "resumed": false,
       "status": "finished",
       "finished_at": "2026-10-17 21:53"
+    },
+    {
+      "id": "a1c30cbd61c86efea",
+      "description": "CAL-B: calendar export backend",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 21:54",
+      "scope": "",
+      "goal": "You are lane CAL-B (calendar export backend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first…",
+      "ledger": "CAL-B: calendar export backend",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a39411690ed09401f",
+      "description": "CAL-F: calendar export UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 21:54",
+      "scope": "",
+      "goal": "You are lane CAL-F (calendar export frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-firs…",
+      "ledger": "CAL-F: calendar export UI",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
