@@ -2714,6 +2714,7 @@
       "classification": "Sheet kind",
       "mapping": "Column mapping",
       "merge": "Same entity?",
+      "person_merge": "Same person? (instructors)",
       "issue": "Findings",
       "rule": "Rule proposals",
       "rule_text": "Rule texts (need AI)",

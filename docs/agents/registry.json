@@ -2639,7 +2639,8 @@
       "goal": "You are lane **W3-HUB** of SmartSched wave 3b (ledger `wave3b-hub-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3B.md, WAVE3.md and COMMON.md (same folder) and follow them. Designer lane W3-DES2 writes `docs/design/v3/integra…",
       "ledger": "W3-HUB: integrations gallery in admin settings",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 21:42"
     },
     {
       "id": "a0f082859babaf93c",
@@ -2756,6 +2757,18 @@
       "scope": "",
       "goal": "SmartSched repo at /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md first: NEVER commit or push (the orchestrator does), never `pkill -f`, run heavy work with `nice -n 1…",
       "ledger": "Pod CI gates green on HEAD",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a589cd86e5a63fe64",
+      "description": "Calendar export research + design",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 21:42",
+      "scope": "",
+      "goal": "You are a senior software engineer and researcher for SmartSched (repo /home/user/classroombookings, FastAPI backend in smartsched/backend, Next.js frontend in smartsched/frontend). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md first…",
+      "ledger": "Calendar export research + design",
       "resumed": false,
       "status": "running"
     }

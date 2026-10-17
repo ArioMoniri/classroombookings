@@ -71,7 +71,7 @@ test("admin sets up Keycloak with the guided setup and a real test login (1440)"
   await expect(page.getByTestId("idp-changed")).toContainText("Son değişiklik:");
   await page.getByTestId("idp-preset-next").click();
   // step 2: the values to paste, from the public URL
-  await expect(page.getByTestId("idp-console-values")).toContainText(`${WEB}/api/v1/auth/sso/keycloak/callback`);
+  await expect(page.locator("[data-testid=idp-copy-redirect_uri] input")).toHaveValue(`${WEB}/api/v1/auth/sso/keycloak/callback`);
   await expect(page.getByTestId("idp-copy-redirect_uri-copy")).toBeVisible();
   await page.getByTestId("idp-console-next").click();
   // step 3: paste the values (NBSP and trailing spaces as copied from a console)

@@ -26,6 +26,7 @@ const KIND_LABEL: Record<Exclude<ReviewKind, "ai_rows">, MessageKey> = {
   classification: "onboarding.kinds.classification",
   mapping: "onboarding.kinds.mapping",
   merge: "onboarding.kinds.merge",
+  person_merge: "onboarding.kinds.person_merge",
   issue: "onboarding.kinds.issue",
   rule: "onboarding.kinds.rule",
   rule_text: "onboarding.kinds.rule_text",
@@ -45,8 +46,15 @@ function decisionLabel(item: ReviewItem, c: ReturnType<typeof useOnboardingCopy>
   return c.decision[item.decision.action] ?? item.decision.action;
 }
 
+/** A person_merge item's own answer labels (owner decision 2026-10-17): merge (accept) / keep as new (reject). */
+function personChoice(item: ReviewItem, code: "merge" | "keep_new", locale: string): string | null {
+  if (item.kind !== "person_merge" || !Array.isArray(item.choices)) return null;
+  const c = (item.choices as { code?: string; label_tr?: string; label_en?: string }[]).find((x) => x.code === code);
+  return (locale === "tr" ? c?.label_tr : c?.label_en) ?? null;
+}
+
 function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: DecisionIn) => void; busy: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [field, setField] = useState<string>(String((item.current?.field as string | null | undefined) ?? ""));
   const [kind, setKind] = useState<string>(String((item.current?.kind as string | undefined) ?? ""));
   const editable = item.kind === "mapping" || item.kind === "classification";
@@ -115,12 +123,12 @@ function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: Dec
             }}
           >
             <Check aria-hidden />
-            {t("onboarding.accept")}
+            {personChoice(item, "merge", locale) ?? t("onboarding.accept")}
           </Button>
           {rejectable ? (
             <Button size="sm" variant="ghost" className="pointer-coarse:min-h-11" disabled={busy} onClick={() => onDecide({ id: item.id, action: "reject" })}>
               <X aria-hidden />
-              {t("onboarding.reject")}
+              {personChoice(item, "keep_new", locale) ?? t("onboarding.reject")}
             </Button>
           ) : null}
         </div>

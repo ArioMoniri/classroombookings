@@ -172,3 +172,57 @@ async def test_keep_new_adds_the_person_and_an_exact_name_asks_nothing(client):
     assert await _people() == people + 1
     async with get_session_factory()() as s:
         assert typed in set((await s.execute(select(Instructor.full_name))).scalars())
+
+
+async def test_a_renamed_instructor_in_a_reuploaded_planning_list_keeps_one_person(client):
+    """The T-R1-25 case on the fast path: the office's cp1254 export of the Bahar list with one instructor's surname
+    respelled ("Kırımlı" -> "Kırımlu") in every row. The importer would create a second person; the review asks, and
+    a merge leaves the term with one person whose sections are all still theirs."""
+    from tests.council import exports
+
+    h = await login(client)
+    await _bahar(client, h)
+    async with get_session_factory()() as s:
+        known = (await s.execute(select(Instructor).where(Instructor.full_name.like("%Elgün Kırımlı%")))).scalar_one()
+        known_id, known_name = known.id, known.full_name
+        sections = set(
+            (
+                await s.execute(select(SectionInstructor.section_id).where(SectionInstructor.instructor_id == known_id))
+            ).scalars()
+        )
+    assert sections
+    people = await _people()
+    text = exports.csv_bytes(BAHAR_LIST, delimiter=";", encoding="cp1254", decimal=",", dotted_times=True).decode(
+        "cp1254"
+    )
+    assert text.count("Kırımlı") >= 1
+    job = await upload(
+        client, h, ("bahar_listesi_noktali_virgul.csv", text.replace("Kırımlı", "Kırımlu").encode("cp1254")), ai="false"
+    )
+    assert job["files"][0]["route"] == "fast:planning-list"
+    items = await _items(client, h, job["id"])
+    (it,) = [i for i in items if i["existing_id"] == known_id]
+    r = await client.post(
+        f"/api/v1/council/jobs/{job['id']}/review",
+        headers=h,
+        json={"decisions": [{"id": i["id"], "action": "accept"} for i in items]},
+    )
+    assert r.status_code == 200, r.text
+    body = {"group": 0, "term": TERM, "allow_pending": True}
+    dry = (
+        await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={**body, "dry_run": True})
+    ).json()
+    assert dry["counts"].get("instructors", {}).get("create", 0) == 0, dry["counts"].get("instructors")
+    r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json=body)
+    assert r.status_code == 200, r.text
+    assert r.json()["general"]["person_links_moved"] >= len(sections)
+    assert await _people() == people
+    async with get_session_factory()() as s:
+        names = set((await s.execute(select(Instructor.full_name))).scalars())
+        assert known_name in names and not any("Kırımlu" in x for x in names)
+        now = set(
+            (
+                await s.execute(select(SectionInstructor.section_id).where(SectionInstructor.instructor_id == known_id))
+            ).scalars()
+        )
+    assert sections <= now

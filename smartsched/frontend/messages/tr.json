@@ -2713,6 +2713,7 @@
       "classification": "Sayfa türü",
       "mapping": "Sütun eşleme",
       "merge": "Aynı kayıt mı?",
+      "person_merge": "Aynı kişi mi? (öğretim elemanları)",
       "issue": "Bulgular",
       "rule": "Kural önerileri",
       "rule_text": "Kural metinleri (yapay zekâ gerekir)",

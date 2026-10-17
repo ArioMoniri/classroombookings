@@ -2623,3 +2623,16 @@ R-AI-01…10 (docs/research/2026-10-17-state-of-the-art.md §2.2) folded in wher
 - [ ] Per-user override of density / default view (slot-display.md `user_override`, SD-09) and server-side labels in e-mail / ICS
 - [ ] min_length is offered by the simple surfaces only; the booking API does not enforce it
 
+
+### Wave 3b — W3-HUB (2026-10-17)
+
+- [x] Integrations gallery at Yönetim › Entegrasyonlar (`/admin/integrations`, nav entry "Entegrasyonlar"), per docs/design/v3/integrations.md: tabs Tümü · Kimlik · E-posta · Takvim · Kanallar · Webhook ve otomasyon · Yapay zekâ with counts (`?area=`, `/admin/integrations/<key>` deep links), search (Turkish-insensitive), summary line, pinned "Dikkat isteyen" row with "Sorunu gider", connector cards in the backend's fixed order (monogram, summary, dot + status word, last check, "Son değişiklik: <ad>, <zaman>", Kur / Yönet / Yönet ↗, "Kullanımda" switch), read-only for planning admins, phone rows of 64 px with the switch moved into the sheet.
+  done (frontend/src/components/admin/integrations/**, src/app/(app)/admin/integrations/**, src/lib/api/integrations.ts, nav-config.ts, messages integrations.*; vitest integrations-model.test.ts + integrations-gallery.test.tsx 25 passed; e2e/w3-hub.spec.ts 4 passed on the own stack 19730/19731 at 1440 and 390 touch incl. MOBILE M-01/02/03/05; wave3b-hub-2026-10-17)
+- [x] Setup sheet shell: 608 px right sheet / full-screen phone page with back button, heading focus on open, focus back to the card on close, sticky primary action; embeds W3-IDP `IdentityProvidersPanel`, W3-MAIL `EmailSettingsPanel`, calendar sync + push admin, channels admin, webhooks admin unchanged.
+  done (setup-sheet.tsx; e2e test 4 checks both embeds without page errors at 1440 and 390)
+- [x] Guided automation setup for n8n / Activepieces / Pipedream / Zapier: platform steps + docs link, paste the URL (POST /webhooks), the signing secret once with Kopyala → Kopyalandı in place (select-on-failure), request headers and a signature-check snippet per platform, test event with the delivery result; phones one step per screen ("Adım n / 4").
+  done (guided-webhook.tsx, copy-field.tsx; e2e test 1 on the real backend)
+- [x] `GET /api/v1/integrations/status` read-only aggregator (admins: setup.settings or planning.admin): area contract `integration_status(session)` (W3-IDP app.services.identity, W3-MAIL app.services.mail_status), built-in readers for calendar / channels / webhooks / AI through public functions, `unknown` + `asks` otherwise; failures isolated, no secrets, toggle paths validated.
+  done (app/api/v1/integrations.py, router.py append; tests/test_w3b_hub_integrations.py 8 passed)
+- [ ] Bell events `integration.error` and `integration.secret_expiring` (relay `alert_pass` / `start_alert_relay` in app/api/v1/integrations.py, tested with the events registered): needs the integrator to add both to `notify_dispatch.EVENTS` and to call `start_alert_relay()` at startup.
+- [ ] IdP / SMTP step contents, drafts and conflict messages of spec §5 / §7 are W3-IDP / W3-MAIL; the hub's own guided flow has no shared server-side draft.

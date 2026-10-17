@@ -89,7 +89,7 @@ export type CouncilJob = z.infer<typeof CouncilJob>;
 
 /** Every kind app/council/review.py emits (ITEM_KINDS; a backend contract test reads this list). A kind the
  * frontend does not know yet still parses (`kind` is any string) and is shown under a generic label (T-R1-21). */
-export const REVIEW_KINDS = ["classification", "mapping", "merge", "issue", "rule", "rule_text", "plan", "file", "ai_rows"] as const;
+export const REVIEW_KINDS = ["classification", "mapping", "merge", "issue", "rule", "rule_text", "plan", "file", "ai_rows", "person_merge"] as const;
 export type ReviewKind = (typeof REVIEW_KINDS)[number];
 export const isReviewKind = (k: string): k is ReviewKind => (REVIEW_KINDS as readonly string[]).includes(k);
 export const ReviewDecision = z.object({ action: z.enum(["accept", "reject", "edit"]), value: z.record(z.string(), z.unknown()).nullable().optional() }).passthrough();

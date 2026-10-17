@@ -333,3 +333,21 @@
   phase: "wave 3 (W3-SLOT)"
   evidence: smartsched/frontend/e2e/w3-slot.spec.ts
   note: "POST /bookings and multi create now return audit_event_id (test_w3_slot_undo.py); first sidebar entry and first action on /bookings; the phone tab bar entry is an ask (tab-bar.tsx / admin nav-items.ts)"
+- feature: "Integrations gallery (Yönetim › Entegrasyonlar, /admin/integrations): organisation-wide connector cards for identity, e-mail, calendar, channels, webhooks / automation and AI with status words, last check, last change (who, when), Kur / Yönet, a Kullanımda switch through each area's own endpoint, Dikkat isteyen row, search, deep links, phone rows and a setup sheet embedding each area's panel"
+  area: platform
+  status: done
+  phase: "wave 3b (W3-HUB)"
+  evidence: smartsched/frontend/e2e/w3-hub.spec.ts
+  note: "GET /api/v1/integrations/status (app/api/v1/integrations.py; contract integration_status(session) per area); vitest components/admin/integrations/*.test.ts*; tests/test_w3b_hub_integrations.py"
+- feature: "Guided n8n / Activepieces / Pipedream / Zapier webhook setup: platform steps, paste the trigger URL, signing secret shown once with copy, headers and an HMAC-SHA256 check snippet per platform, test event with the delivery result"
+  area: platform
+  status: done
+  phase: "wave 3b (W3-HUB)"
+  evidence: smartsched/frontend/src/components/admin/integrations/integrations-gallery.test.tsx
+  note: "uses the existing /webhooks API; e2e w3-hub test 1 on the real backend"
+- feature: "Integration bell events integration.error and integration.secret_expiring to administrators through the dispatcher (once per occurrence)"
+  area: platform
+  status: partial
+  phase: "wave 3b (W3-HUB)"
+  evidence: smartsched/backend/tests/test_w3b_hub_integrations.py
+  note: "relay in app/api/v1/integrations.py; waits for notify_dispatch.EVENTS entries and start_alert_relay() at startup (integrator)"

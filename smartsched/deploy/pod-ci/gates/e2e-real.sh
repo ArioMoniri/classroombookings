@@ -48,7 +48,7 @@ docker run -d "${docker_common[@]}" --name "$backend" --network "$net" --network
   -e E2E_BOOKING_CLOCK="$clock" \
   -w /w/src/smartsched/backend "$PY_IMAGE" bash /ci/e2e-backend-entry.sh >/dev/null
 section "smtp sink"
-docker run -d "${docker_common[@]}" --name "$smtp" --network "$net" --network-alias smtp \
+docker run -d "${docker_common[@]}" --memory 256m --memory-swap 256m --name "$smtp" --network "$net" --network-alias smtp \
   "$PY_IMAGE" python /ci/smtp-sink.py --host 0.0.0.0 --smtp-port 1025 --api-port 8025 >/dev/null
 section "wait for the seeded backend (imports + full-term solve)"
 ok=0
@@ -61,7 +61,9 @@ section "contract fixtures: record + shape diff (report only; copy /w/contract/*
 docker exec "$backend" python /ci/contract-record.py --api http://127.0.0.1:8000 --out /w/contract \
   --compare /w/src/smartsched/frontend/src/lib/api/__fixtures__/real || echo "contract recording failed (report only)"
 section "empty backend (installer)"
-docker run -d "${docker_common[@]}" --name "$empty" --network "$net" --network-alias backend-empty \
+# migrations only, no imports or solves: 1 GB is plenty and keeps the stack inside the 8 GB pod next to the app
+docker run -d "${docker_common[@]}" --memory 1g --memory-swap 1g --name "$empty" --network "$net" \
+  --network-alias backend-empty \
   -e E2E_EMPTY=1 -e E2E_VENV=/w/venv -e E2E_WORKDIR=/w/e2e-empty -e E2E_BOOKING_CLOCK="$clock" \
   -w /w/src/smartsched/backend "$PY_IMAGE" bash /ci/e2e-backend-entry.sh >/dev/null
 section "playwright (E2E_REAL=1, all specs)"
@@ -96,7 +98,8 @@ const api = \"http://backend:8000/api/v1\";
 echo "==== next build (warms .next/cache: the playwright webServer builds again and must start within 300 s)"
 start=$(date +%s); npx next build >/w/next-build.log 2>&1 || { tail -n 60 /w/next-build.log; exit 1; }
 echo "next build: $(( $(date +%s) - start )) s"
-npx playwright test --reporter=list,json
+# one worker (also playwright.config.ts): the specs share one seeded backend and the pod has 2 vCPUs
+npx playwright test --workers=1 --reporter=list,json
 echo "==== no mock/demo code in the production build"
 bash ../deploy/validate.sh --no-mock-build .next/standalone
 '

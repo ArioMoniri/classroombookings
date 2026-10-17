@@ -1,10 +1,14 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, PenLine, ScanText } from "lucide-react";
 import { useRef, useState } from "react";
+import { AiNotice } from "@/components/admin/ai/ai-kit";
+import { AiUsageBanner } from "@/components/admin/ai/my-ai-usage";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph, busyProps } from "@/components/ui/busy-label";
 import { Textarea } from "@/components/ui/textarea";
+import { aiKeys } from "@/lib/api/ai-admin";
 import { api } from "@/lib/api/endpoints";
 import { HttpError } from "@/lib/api/client";
 import type { Unparsed } from "@/lib/api/studio-schemas";
@@ -17,6 +21,16 @@ import { BareButton } from "@/components/shell/bare-button";
 import { chipPrefill } from "./chip-prefill";
 import { useStudioData } from "./studio-data";
 import type { BuilderPrefill } from "./template-gallery";
+
+/** A coded AI gateway refusal (guardrail 422, limit / rate 429: `detail {code, message_tr, message_en}`) in the UI
+ *  language, or null for any other error. */
+export function aiRefusalText(e: unknown, lang: "tr" | "en"): string | null {
+  if (!(e instanceof HttpError) || !e.detail || typeof e.detail !== "object") return null;
+  const outer = e.detail as Record<string, unknown>;
+  const d = (outer.detail && typeof outer.detail === "object" ? outer.detail : outer) as Record<string, unknown>;
+  const text = lang === "tr" ? d.message_tr : d.message_en;
+  return typeof text === "string" && text ? text : null;
+}
 
 const CHIPS: MessageKey[] = ["studio.write.chip.tip", "studio.write.chip.evening", "studio.write.chip.sameRoom", "studio.write.chip.fit", "studio.write.chip.pharmacy", "studio.write.chip.nursing", "studio.write.chip.a204", "studio.write.chip.examGap"];
 
@@ -36,6 +50,7 @@ export function WriteIt({ noKey, onOpenTemplate }: { noKey: boolean; onOpenTempl
   const keyMissing = noKey || keyRejected;
   const [unparsed, setUnparsed] = useState<Unparsed[]>([]);
   const area = useRef<HTMLTextAreaElement>(null);
+  const qc = useQueryClient();
 
   const insert = (phrase: string) => {
     const el = area.current;
@@ -67,10 +82,13 @@ export function WriteIt({ noKey, onOpenTemplate }: { noKey: boolean; onOpenTempl
       setUnparsed([...refusedAsDecisions(refused), ...res.unparsed]);
       if (!res.proposals.length && !res.section_edits.length && !res.unparsed.length) setError(t("studio.write.nothing"));
     } catch (e) {
-      if (e instanceof HttpError && e.status === 409) setKeyRejected(true);
+      const refusal = aiRefusalText(e, pairLang(locale));
+      if (refusal) setError(refusal);
+      else if (e instanceof HttpError && e.status === 409) setKeyRejected(true);
       else setError(t("studio.write.aiError", { reason: e instanceof Error ? e.message : String(e) }));
     } finally {
       setBusy(false);
+      void qc.invalidateQueries({ queryKey: aiKeys.me }); // the near / at-limit banner follows this call's tokens
     }
   };
 
@@ -119,6 +137,8 @@ export function WriteIt({ noKey, onOpenTemplate }: { noKey: boolean; onOpenTempl
           );
         })}
       </div>
+      <AiUsageBanner />
+      <AiNotice />
       {keyMissing ? (
         <p role="note" className="rounded-md bg-status-warning px-2.5 py-1.5 text-xs text-status-warning-fg" data-testid="no-key">
           {t("studio.write.noKey")} {onOpenTemplate ? t("studio.write.noKeyChips") : ""}

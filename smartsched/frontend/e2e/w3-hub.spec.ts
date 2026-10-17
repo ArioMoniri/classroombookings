@@ -285,6 +285,7 @@ test("4. the E-posta and Kimlik sheets embed W3-MAIL's and W3-IDP's panels witho
       if (title) await expect(sheet.getByTestId("setup-title")).toHaveText(title);
       await expect(sheet.getByTestId("setup-sheet-body")).not.toBeEmpty();
       await expect(sheet.getByTestId("setup-done")).toBeVisible();
+      if (q.startsWith("area=email")) await expect(sheet.getByTestId("email-settings-panel")).toBeVisible({ timeout: 30_000 });
       if (q.startsWith("area=identity")) await expect(sheet.getByTestId("identity-providers-panel")).toBeVisible({ timeout: 30_000 });
       expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     }
