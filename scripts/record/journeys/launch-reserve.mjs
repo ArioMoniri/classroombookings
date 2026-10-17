@@ -31,7 +31,11 @@ export default {
       await page.getByTestId("qr-rooms").waitFor({ timeout: 30_000 });
       await rec.frame(page.getByTestId("qr-count"), { dwell: 500 });
       const room = page.locator('[data-testid^="qr-room-"][data-action="book"]').first();
+      // on a phone the confirm sheet is fixed over the lower part of the screen: bring the room into the free part
+      await room.evaluate((el) => el.scrollIntoView({ block: "center", behavior: "smooth" }));
+      await rec.wait(700);
       await rec.click(room, { after: 800 });
+      await page.locator('[data-testid^="qr-room-"][aria-checked="true"]').first().waitFor({ timeout: 10_000 }).catch(() => undefined);
     }, { hold: 300 });
     await rec.step(tr(ctx, "One tap books it; the server checks the slot first", "Tek dokunuş ayırır; sunucu önce saati kontrol eder"), async () => {
       await rec.click(page.getByTestId("qr-submit"), { after: 300 });
