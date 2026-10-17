@@ -16,8 +16,9 @@ import { slotKey } from "./grid-model";
 import { isOwnPending, type FreeRoom } from "./reserve-model";
 import Link from "next/link";
 import { BareButton } from "@/components/shell/bare-button";
+import { DEFAULT_SLOT_DISPLAY, type SlotDisplay } from "./slot-display";
 
-export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve, onRoomInfo, approvalFirst = false, requestFor }: { rooms: FreeRoom[]; loading: boolean; week: boolean; fmt: DateFormatter; deptFirst: boolean; onReserve: (target: BookTarget) => void; onRoomInfo: (roomId: number, date: string) => void; approvalFirst?: boolean; requestFor?: (bookingId: number) => number | null }) {
+export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve, onRoomInfo, approvalFirst = false, requestFor, slotDisplay = DEFAULT_SLOT_DISPLAY }: { rooms: FreeRoom[]; loading: boolean; week: boolean; fmt: DateFormatter; deptFirst: boolean; onReserve: (target: BookTarget) => void; onRoomInfo: (roomId: number, date: string) => void; approvalFirst?: boolean; requestFor?: (bookingId: number) => number | null; slotDisplay?: SlotDisplay }) {
   const { t } = useI18n();
   if (loading && !rooms.length) return <Loading label={t("reserve.free.loading")} />;
   const total = rooms.reduce((n, r) => n + r.count, 0);
@@ -55,7 +56,7 @@ export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve,
                           isOwnPending(s) ? (
                             <PendingChip key={s.period_id} slot={s} room={r} fmt={fmt} requestId={s.booking ? (requestFor?.(s.booking.id) ?? null) : null} />
                           ) : (
-                            <SlotButton key={s.period_id} slot={s} room={r} fmt={fmt} onReserve={onReserve} request={approvalFirst || !!s.request_only} />
+                            <SlotButton key={s.period_id} slot={s} room={r} fmt={fmt} onReserve={onReserve} request={approvalFirst || !!s.request_only} sd={slotDisplay} />
                           )
                         ))}
                       </div>
@@ -71,7 +72,7 @@ export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve,
   );
 }
 
-function SlotButton({ slot, room, fmt, onReserve, request }: { slot: GridSlot; room: FreeRoom; fmt: DateFormatter; onReserve: (target: BookTarget) => void; request: boolean }) {
+function SlotButton({ slot, room, fmt, onReserve, request, sd }: { slot: GridSlot; room: FreeRoom; fmt: DateFormatter; onReserve: (target: BookTarget) => void; request: boolean; sd: SlotDisplay }) {
   const { t } = useI18n();
   const p = room.grid.periods.find((x) => x.id === slot.period_id);
   const time = p ? `${fmt.time(p.time_start)}–${fmt.time(p.time_end)}` : "";
@@ -83,8 +84,9 @@ function SlotButton({ slot, room, fmt, onReserve, request }: { slot: GridSlot; r
       data-testid="free-slot"
       className="flex min-h-11 min-w-16 flex-col items-start justify-center rounded-md bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_7%)] px-2.5 py-1 text-left inset-ring inset-ring-[color-mix(in_oklab,var(--accent)_22%,transparent)] hover:bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_13%)]"
     >
-      <span className="type-caption font-semibold text-tint-text">{p?.name}</span>
-      <span className="type-caption text-label-2 tabular-nums">{p ? fmt.time(p.time_start) : ""}</span>
+      {/* W3-SLOT: "P3", "10:30–11:20" or both, as the administrator chose */}
+      {sd.label !== "time" ? <span className="type-caption font-semibold text-tint-text">{p?.name}</span> : null}
+      {sd.label !== "name" ? <span className={sd.label === "time" ? "type-caption font-semibold text-tint-text tabular-nums" : "type-caption text-label-2 tabular-nums"}>{p ? (sd.label === "time" ? time : fmt.time(p.time_start)) : ""}</span> : null}
     </BareButton>
   );
 }

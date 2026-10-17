@@ -38,27 +38,33 @@ SPECS: dict[str, SettingSpec] = {
         # KVKK ai_personal (consent gates 2026-10-16; app.services.kvkk.ai_personal_default): "included" = only an
         # explicit withdrawal keeps a person out of AI requests, "excluded" = not granted is excluded
         SettingSpec("kvkk.ai_personal_default", default="included"),
-        # wave 3 W3-SLOT: how a slot is shown wherever bookings appear (grid, free slots, find-room, /reserve, kiosk).
-        # Written by ADMIN through PUT /settings ``extra``; read (sanitised) by everyone from GET /bookings/context
-        # ``slot_display`` and GET /bookings/slot-display (app/api/v1/bookings.py). unit: periods | blocks
+        # wave 3 W3-SLOT (docs/design/v3/slot-display.md §3): how a slot is shown wherever bookings appear (grid,
+        # free slots, /reserve, find-room, kiosk). Written by ADMIN through PUT /settings ``extra``; read (sanitised)
+        # by every signed-in user: GET /bookings/context ``slot_display``, GET /bookings/slot-display (bookings.py).
+        # unit: periods (equal rows) | blocks (size follows minutes, 15/30/60-minute blocks drawn onto the periods)
         SettingSpec("booking.slot_display.unit", default="periods"),
-        # blocks: 15 | 30 | 60 minutes, drawn onto the periods (bookings stay per period)
         SettingSpec("booking.slot_display.block_minutes", default=30, kind="int"),
-        # name ("P3") | time ("10:30–11:20") | both
+        # both | period ("P3" / "3. ders") | time ("10:30-11:20")
         SettingSpec("booking.slot_display.label", default="both"),
-        # compact | comfortable
-        SettingSpec("booking.slot_display.density", default="comfortable"),
-        # day (all rooms, one day) | room (one room, its week) | week (free slots of the week); empty = the
-        # organisation's CRBS display type (Kuruluş > displaytype) decides, as before wave 3
-        SettingSpec("booking.slot_display.default_view", default=""),
-        # visible window "HH:MM" (empty = the whole day): periods outside it are hidden (evening classes)
-        SettingSpec("booking.slot_display.day_start", default=""),
-        SettingSpec("booking.slot_display.day_end", default=""),
+        # schedule (the schedule's own period name, as before wave 3) | ordinal ("3. ders")
+        SettingSpec("booking.slot_display.period_name", default="schedule"),
+        # range ("10:30-11:20") | start ("10:30")
+        SettingSpec("booking.slot_display.time_format", default="range"),
+        # compact (32 px rows) | standard (44) | comfortable (56); phones always keep >= 44 px
+        SettingSpec("booking.slot_display.density", default="standard"),
+        # first / last visible period number (0 = the first / the last): evening periods are hidden this way
+        SettingSpec("booking.slot_display.first_period", default=0, kind="int"),
+        SettingSpec("booking.slot_display.last_period", default=0, kind="int"),
+        # hide periods shorter than 35 minutes (transition slots)
+        SettingSpec("booking.slot_display.hide_short", default=False, kind="bool"),
         SettingSpec("booking.slot_display.hide_weekend", default=False, kind="bool"),
-        # comma-separated period names that are never shown ("P0, P18")
-        SettingSpec("booking.slot_display.hidden_periods", default=""),
-        # the shortest booking the simple surfaces offer, counted in the unit (periods or blocks), 1..8
+        # what /bookings opens on: "" = the organisation's CRBS display type | grid_day | grid_room_week |
+        # free_slots | free_week | quick (desktop); free_slots | free_week | quick (phone)
+        SettingSpec("booking.slot_display.default_view_desktop", default=""),
+        SettingSpec("booking.slot_display.default_view_phone", default="free_slots"),
+        # quick reserve lengths, counted in the unit (periods or blocks): from min_length up to quick_span (1..8)
         SettingSpec("booking.slot_display.min_length", default=1, kind="int"),
+        SettingSpec("booking.slot_display.quick_span", default=1, kind="int"),
     )
 }
 

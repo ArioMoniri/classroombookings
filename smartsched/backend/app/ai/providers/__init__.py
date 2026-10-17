@@ -56,10 +56,17 @@ PROVIDERS: dict[str, ProviderSpec] = {
     p.id: p
     for p in (
         ProviderSpec("anthropic", "Anthropic (Claude)", "Anthropic (Claude)", ("api_key",), (), claude=True),
-        ProviderSpec("openai", "OpenAI", "OpenAI", ("api_key",), ("base_url",), default_base_url=DEFAULT_BASE_URLS["openai"]),
+        ProviderSpec(
+            "openai", "OpenAI", "OpenAI", ("api_key",), ("base_url",), default_base_url=DEFAULT_BASE_URLS["openai"]
+        ),
         ProviderSpec("azure_openai", "Azure OpenAI", "Azure OpenAI", ("api_key",), ("base_url",)),
         ProviderSpec(
-            "openrouter", "OpenRouter", "OpenRouter", ("api_key",), ("base_url",), default_base_url=DEFAULT_BASE_URLS["openrouter"]
+            "openrouter",
+            "OpenRouter",
+            "OpenRouter",
+            ("api_key",),
+            ("base_url",),
+            default_base_url=DEFAULT_BASE_URLS["openrouter"],
         ),
         ProviderSpec(
             "openai_compatible",
@@ -88,7 +95,9 @@ def has_credentials(provider: str, secrets: dict[str, str]) -> bool:
     if spec.keyless:
         return True
     if provider == "bedrock":
-        return bool(secrets.get("api_key") or (secrets.get("aws_access_key_id") and secrets.get("aws_secret_access_key")))
+        return bool(
+            secrets.get("api_key") or (secrets.get("aws_access_key_id") and secrets.get("aws_secret_access_key"))
+        )
     return bool(secrets.get("api_key"))
 
 
@@ -113,7 +122,12 @@ def make_adapter(
         if not secrets.get("api_key") and raw is None:
             raise ProviderError("no Anthropic API key configured")
         return AnthropicAdapter(
-            secrets.get("api_key", ""), model, timeout_s=timeout_s, max_retries=max_retries, use_fallbacks=use_fallbacks, raw=raw
+            secrets.get("api_key", ""),
+            model,
+            timeout_s=timeout_s,
+            max_retries=max_retries,
+            use_fallbacks=use_fallbacks,
+            raw=raw,
         )
     if provider == "bedrock":
         if not has_credentials("bedrock", secrets) and raw is None:

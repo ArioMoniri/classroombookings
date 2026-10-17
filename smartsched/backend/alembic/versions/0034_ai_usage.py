@@ -1,8 +1,8 @@
 """AI gateway usage metering (wave 3 W3-AI; app/models/ai_usage.py, app/services/ai_usage.py)
 
 * ``ai_usage``: one row per model call through the gateway and per call a guardrail or a limit refused: user,
-  feature, provider, model, input / output / cache tokens, estimated cost, latency, outcome, reason code. No prompt
-  or answer text is stored.
+  feature, provider, model, input / output / cache tokens, estimated cost, latency, outcome, reason code, prompt
+  SHA-256 + length, price-table version, guard verdict, inference region. No prompt or answer text is stored.
 
 Revision ID: 0034_ai_usage
 Revises: 0033_invig_progress
@@ -41,6 +41,11 @@ def upgrade() -> None:
         sa.Column("reason_code", sa.String(length=48), nullable=True),
         sa.Column("detail", sa.String(length=255), nullable=True),
         sa.Column("request_id", sa.String(length=64), nullable=True),
+        sa.Column("prompt_sha256", sa.String(length=64), nullable=True),
+        sa.Column("prompt_chars", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("price_version", sa.String(length=24), nullable=True),
+        sa.Column("guard_verdict", sa.String(length=16), nullable=True),
+        sa.Column("inference_geo", sa.String(length=32), nullable=True),
     )
     op.create_index("ix_ai_usage_created_at", "ai_usage", ["created_at"])
     op.create_index("ix_ai_usage_user_created", "ai_usage", ["user_id", "created_at"])

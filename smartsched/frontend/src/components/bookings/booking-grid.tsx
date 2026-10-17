@@ -23,7 +23,7 @@ import { crosshairCss, isSelectable, layoutGrid, moveFocus, slotKey, slotText, s
 import { EntityIcon } from "@/components/admin/icons";
 import type { DateFormatter } from "./date-format";
 import { clampSpan, departmentColor, type DepartmentLens } from "./reserve-model";
-import { blockCount, DEFAULT_SLOT_DISPLAY, periodLabel, type SlotDisplay } from "./slot-display";
+import { blockCount, DEFAULT_SLOT_DISPLAY, periodHeight, periodWidth, slotLabel, type SlotDisplay } from "./slot-display";
 
 export const TONE_CLASS: Record<SlotTone, string> = {
   available: "bg-(--mat-thick-solid) text-label-3 hover:bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_9%)] hover:text-tint-text",
@@ -126,6 +126,7 @@ interface Hint {
 }
 
 const HOVER_MS = 350;
+const STANDARD_PERIOD = { time_start: "00:00", time_end: "00:50" };
 const HOLD_MS = 450;
 
 /**
@@ -170,18 +171,23 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
   const cellOf = (target: EventTarget | null) => (target as HTMLElement | null)?.closest<HTMLButtonElement>("[data-cell]") ?? null;
   const slotOf = (el: HTMLElement | null) => (el?.dataset.slotKey ? slotsByKey.get(el.dataset.slotKey) : undefined);
 
+  // W3-SLOT: one label rule for every surface (slot-display.md §5)
+  const labelFormat = useMemo(() => ({ time: fmt.time, ordinal: (n: number) => t("slotDisplay.ordinal", { n }) }), [fmt, t]);
   const header = useCallback(
-    (item: AxisItem): { title: string; sub: string | null; tone?: string } => {
+    (item: AxisItem): { title: string; sub: string | null; a11y?: string } => {
       if (item.kind === "room" && item.room) {
         // CRBS col_room.php: the owner under the room name; the seats stay as the secondary fact
         const sub = [item.room.owner, item.room.capacity ? t("crbs.grid.seats", { n: item.room.capacity }) : null].filter(Boolean).join(" · ");
         return { title: item.room.name, sub: sub || null };
       }
-      if (item.kind === "period" && item.period) return periodLabel(item.period, slotDisplay, fmt.time);
+      if (item.kind === "period" && item.period) {
+        const l = slotLabel(item.period, slotDisplay, labelFormat);
+        return { title: l.primary, sub: l.secondary, a11y: l.a11y };
+      }
       if (item.kind === "date" && item.date) return { title: fmt.weekday(item.date.date), sub: item.date.holiday ?? null };
       return { title: "", sub: null };
     },
-    [fmt, t, slotDisplay],
+    [fmt, t, slotDisplay, labelFormat],
   );
 
   /** why a cell cannot be booked, or the full text of a booking (hint overlay + accessible name) */
@@ -205,10 +211,11 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
 
   const cellLabel = useCallback(
     (row: AxisItem, col: AxisItem, slot: GridSlot | undefined, inSpan: boolean): string => {
-      const parts = [header(row).title, header(col).title];
-      const period = [row, col].find((x) => x.kind === "period")?.period;
-      // the time is always spoken; with "time" labels the header title already is the time
-      if (period && slotDisplay.label !== "time") parts.push(`${fmt.time(period.time_start)}–${fmt.time(period.time_end)}`);
+      // the period is always spoken with its full time range, whatever the visible label (slot-display.md SD-10)
+      const parts = [row, col].map((x) => {
+        const h = header(x);
+        return h.a11y ?? h.title;
+      });
       if (!slot) return [...parts, t("crbs.slot.reason.unavailable")].join(", ");
       const kind = multi ? pickKind(slot) : null;
       let state: string;
@@ -229,7 +236,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
       } else state = explain(slot) ?? "";
       return [...parts, state].join(", ");
     },
-    [approvalFirst, explain, fmt, header, multi, selected, span.length, t, slotDisplay.label],
+    [approvalFirst, explain, header, multi, selected, span.length, t],
   );
 
   const hideHint = useCallback(() => {
@@ -408,10 +415,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
   })();
 
   const corner = columns === "periods" ? (grid.display === "day" ? t("crbs.grid.room") : t("crbs.grid.day")) : t("crbs.grid.period");
-  const compact = slotDisplay.density === "compact";
   const blocks = slotDisplay.unit === "blocks";
-  /** W3-SLOT: a period column is as wide as its blocks in "blocks" mode, narrower when compact */
-  const periodWidth = (p: NonNullable<AxisItem["period"]>) => (blocks ? Math.max(compact ? 56 : 64, blockCount(p, slotDisplay.block_minutes) * (compact ? 26 : 34)) : compact ? 64 : 78);
 
   return (
     <div ref={wrapRef} className="relative">
@@ -440,7 +444,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
           <colgroup>
             <col className="w-[96px]" />
             {layout.cols.map((col) => (
-              <col key={col.key} className={col.kind === "date" ? "w-[112px]" : col.kind === "period" && col.period ? undefined : "w-[78px]"} style={col.kind === "period" && col.period ? { width: periodWidth(col.period) } : undefined} />
+              <col key={col.key} className={col.kind === "date" ? "w-[112px]" : col.kind === "period" && col.period ? undefined : "w-[78px]"} style={col.kind === "period" && col.period ? { width: periodWidth(col.period, slotDisplay) } : undefined} />
             ))}
           </colgroup>
           <thead>
@@ -464,9 +468,11 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
               })}
             </tr>
           </thead>
-          <tbody data-density={slotDisplay.density} data-unit={slotDisplay.unit}>
+          <tbody data-density={slotDisplay.density} data-unit={slotDisplay.unit} data-label={slotDisplay.label}>
             {layout.rows.map((row, r) => {
               const h = header(row);
+              // W3-SLOT: period rows follow their minutes in "blocks" mode; other rows take the density's height
+              const rowH = periodHeight(row.kind === "period" && row.period ? row.period : STANDARD_PERIOD, row.kind === "period" ? slotDisplay : { ...slotDisplay, unit: "periods" });
               return (
                 <tr key={row.key} data-r={r}>
                   <th scope="row" className="sticky left-0 z-10 bg-(--mat-thick-solid) px-2 py-1 text-left align-middle font-semibold whitespace-nowrap text-label-1 border-r border-b border-hairline">
@@ -493,7 +499,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
                           muted={muted}
                           onFocus={onCellFocus}
                           onClick={onCellClick}
-                          compact={compact}
+                          height={rowH}
                           blocks={blocks && col.period ? blockCount(col.period, slotDisplay.block_minutes) : 0}
                         />
                       </td>
@@ -572,7 +578,7 @@ const Cell = memo(function Cell({
   muted,
   onFocus,
   onClick,
-  compact = false,
+  height = 44,
   blocks = 0,
 }: {
   slot: GridSlot | undefined;
@@ -587,8 +593,8 @@ const Cell = memo(function Cell({
   muted: boolean;
   onFocus: (el: HTMLButtonElement) => void;
   onClick: (slot: GridSlot, e: MouseEvent<HTMLButtonElement>) => void;
-  /** W3-SLOT density: 32 px rows with a fine pointer (touch keeps 44 px) */
-  compact?: boolean;
+  /** W3-SLOT density / blocks: the row height with a fine pointer (touch never below 44 px) */
+  height?: number;
   /** W3-SLOT "blocks": hairlines at the block boundaries inside the period (decoration) */
   blocks?: number;
 }) {
@@ -612,10 +618,10 @@ const Cell = memo(function Cell({
       disabled={!slot}
       onFocus={(e) => onFocus(e.currentTarget)}
       onClick={(e) => slot && onClick(slot, e)}
-      style={style}
+      style={{ ...style, ["--cell-h" as string]: `${height}px` }}
       className={cn(
         "group/cell relative flex w-full touch-manipulation flex-col items-start justify-center gap-0.5 overflow-hidden rounded-none px-1.5 py-1 text-left font-normal focus-visible:z-10 focus-visible:-outline-offset-2 disabled:opacity-100",
-        compact ? "h-8 pointer-coarse:h-11" : "h-11",
+        "h-(--cell-h) pointer-coarse:h-[max(44px,var(--cell-h))]",
         TONE_CLASS[tone],
         free && "cursor-pointer",
         free && slot?.past && "text-label-3 opacity-60", // started: still bookable for administrators, but dim

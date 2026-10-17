@@ -14,6 +14,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import rls
 from app.core.db import get_session_factory
 from app.core.security import decode_access_token, token_is_current
 from app.models import User
@@ -57,6 +58,10 @@ async def get_current_user(
         and not request.url.path.endswith(PASSWORD_CHANGE_ALLOWED)
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "password_change_required")
+    if rls.applies(db):  # PostgreSQL row-level security: the rest of the request acts as this user (app/core/rls.py)
+        access = await load_access(db, user)
+        acl = {p for names in (*access.acl_rooms.values(), *access.acl_groups.values()) for p in names}
+        await rls.bind_user(db, user, set(access.perms) | acl)
     return user
 
 

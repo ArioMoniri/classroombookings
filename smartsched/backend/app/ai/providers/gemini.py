@@ -96,7 +96,9 @@ class GeminiAdapter(ProviderAdapter):
                     parts.append({"text": str(b["text"])})
                 elif kind == "tool_use":
                     names[str(b.get("id"))] = str(b.get("name"))
-                    parts.append({"functionCall": {"id": str(b.get("id")), "name": b.get("name"), "args": b.get("input") or {}}})
+                    parts.append(
+                        {"functionCall": {"id": str(b.get("id")), "name": b.get("name"), "args": b.get("input") or {}}}
+                    )
                 elif kind == "tool_result":
                     tid = str(b.get("tool_use_id"))
                     parts.append(

@@ -67,8 +67,8 @@ export function BookingsView() {
   const me = useCrbsMe();
   const org = useOrgPublic();
   const caps = bookingCapabilities(me.data?.permissions);
-  // PUT /settings is ADMIN-only (app/api/deps.py Admin): only they get the slot display sheet
-  const isAdmin = me.data?.role === "ADMIN" || hasPermission(me.data?.permissions, "planning.admin");
+  // PUT /settings needs planning.admin (app/api/deps.py Admin): only they get the slot display sheet
+  const isAdmin = hasPermission(me.data?.permissions, "planning.admin");
 
   // W3-SLOT: the administrator's slot display (labels, density, hidden periods, default view) shapes every surface here
   const { display: slotDisplay } = useSlotDisplay();

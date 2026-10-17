@@ -123,7 +123,9 @@ class AnthropicAdapter(ProviderAdapter):
                 ModelInfo(
                     id=str(m.id),
                     display_name=str(getattr(m, "display_name", "") or m.id),
-                    created_at=created.isoformat() if hasattr(created, "isoformat") else (str(created) if created else None),
+                    created_at=created.isoformat()
+                    if hasattr(created, "isoformat")
+                    else (str(created) if created else None),
                     context_window=getattr(m, "max_input_tokens", None),
                     max_output=getattr(m, "max_tokens", None),
                 )

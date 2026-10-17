@@ -7,7 +7,12 @@ from collections.abc import AsyncIterator
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+from app.core import rls
 from app.core.config import get_settings
+
+# PostgreSQL row-level security: per-transaction ``app.*`` settings from the session's context (app/core/rls.py;
+# a no-op on SQLite)
+rls.install()
 
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None

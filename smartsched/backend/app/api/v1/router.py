@@ -162,3 +162,8 @@ from app.api.v1 import kvkk as kvkk_api  # noqa: E402
 api_router.include_router(kvkk_api.me_router)
 api_router.include_router(kvkk_api.public_router)
 api_router.include_router(kvkk_api.admin_router)
+
+# wave 3 W3-OPS: operations panel (service status, error groups, log tail, Grafana forward-auth; app/api/v1/ops.py)
+from app.api.v1 import ops as ops_api  # noqa: E402
+
+api_router.include_router(ops_api.router)

@@ -176,6 +176,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     _install_error_handlers(app)
+    from app.core.observability import install as install_observability
+
+    install_observability(app)  # W3-OPS: /metrics, /healthz, /readyz, request metrics, error events, Sentry
     app.include_router(api_router, prefix="/api/v1")
     # Only room photos are public. Uploaded workbooks (uploads/imports: instructor names, enrolments)
     # are served through the authenticated ``GET /api/v1/imports/{id}/file``.

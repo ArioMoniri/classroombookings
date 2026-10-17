@@ -292,26 +292,25 @@ async def context(db: DB, access: Acc) -> dict[str, Any]:
 SLOT_DISPLAY_PREFIX = "booking.slot_display."
 _SLOT_CHOICES: dict[str, tuple[str, ...]] = {
     "unit": ("periods", "blocks"),
-    "label": ("both", "name", "time"),
-    "density": ("comfortable", "compact"),
+    "label": ("both", "period", "time"),
+    "period_name": ("schedule", "ordinal"),
+    "time_format": ("range", "start"),
+    "density": ("standard", "compact", "comfortable"),
+    "default_view_phone": ("free_slots", "free_week", "quick"),
 }
-_SLOT_VIEWS = ("day", "room", "week")
+_DESKTOP_VIEWS = ("grid_day", "grid_room_week", "free_slots", "free_week", "quick")
 _BLOCK_MINUTES = (15, 30, 60)
-_MIN_LENGTH_MAX = 8
+_LENGTH_MAX = 8
+_PERIOD_MAX = 30
 
 
-def _clock(value: Any) -> str | None:
-    text = str(value or "").strip()
-    parts = text.split(":")
-    if len(parts) != 2 or not all(p.isdigit() for p in parts):
-        return None
-    h, m = int(parts[0]), int(parts[1])
-    return f"{h:02d}:{m:02d}" if 0 <= h <= 23 and 0 <= m <= 59 else None
+def _int_in(value: Any, lo: int, hi: int, default: int) -> int:
+    return max(lo, min(hi, value)) if isinstance(value, int) and not isinstance(value, bool) else default
 
 
 async def slot_display(db: DB) -> dict[str, Any]:
-    """The administrator's slot display, sanitised: PUT /settings stores ``extra`` as given, so a value a surface
-    cannot draw falls back to its default here (one read path for every booking surface)."""
+    """The administrator's slot display (docs/design/v3/slot-display.md §3), sanitised: PUT /settings stores ``extra``
+    as given, so a value a surface cannot draw falls back to its default here (one read path for every surface)."""
     raw = {
         key[len(SLOT_DISPLAY_PREFIX) :]: await runtime_settings.get_value(db, key)
         for key in runtime_settings.SPECS
@@ -321,23 +320,19 @@ async def slot_display(db: DB) -> dict[str, Any]:
     for name, allowed in _SLOT_CHOICES.items():
         value = str(raw.get(name) or "").strip().lower()
         out[name] = value if value in allowed else runtime_settings.SPECS[SLOT_DISPLAY_PREFIX + name].default
-    view = str(raw.get("default_view") or "").strip().lower()
-    out["default_view"] = view if view in _SLOT_VIEWS else None  # None: the organisation's display type
     block = raw.get("block_minutes")
     out["block_minutes"] = block if block in _BLOCK_MINUTES else 30
-    start, end = _clock(raw.get("day_start")), _clock(raw.get("day_end"))
-    if start and end and start >= end:
-        start = end = None
-    out["day_start"], out["day_end"] = start, end
+    first = _int_in(raw.get("first_period"), 0, _PERIOD_MAX, 0)
+    last = _int_in(raw.get("last_period"), 0, _PERIOD_MAX, 0)
+    if first and last and first > last:  # an impossible window shows every period rather than none
+        first = last = 0
+    out["first_period"], out["last_period"] = first, last
+    out["hide_short"] = bool(raw.get("hide_short"))
     out["hide_weekend"] = bool(raw.get("hide_weekend"))
-    names: list[str] = []
-    for part in str(raw.get("hidden_periods") or "").split(","):
-        name = part.strip()[:40]
-        if name and name.casefold() not in {n.casefold() for n in names}:
-            names.append(name)  # matched case-insensitively by the surfaces
-    out["hidden_periods"] = names[:40]
-    length = raw.get("min_length")
-    out["min_length"] = max(1, min(_MIN_LENGTH_MAX, length)) if isinstance(length, int) else 1
+    view = str(raw.get("default_view_desktop") or "").strip().lower()
+    out["default_view_desktop"] = view if view in _DESKTOP_VIEWS else None  # None: the organisation's display type
+    out["min_length"] = _int_in(raw.get("min_length"), 1, _LENGTH_MAX, 1)
+    out["quick_span"] = max(out["min_length"], _int_in(raw.get("quick_span"), 1, _LENGTH_MAX, 1))
     return out
 
 

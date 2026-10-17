@@ -40,6 +40,8 @@ dependencies = [
   # Microsoft Entra ID sign-in (app/services/sso.py; owner decision 2026-10-15); exact versions in requirements.lock
   "authlib>=1.9.1,<2",  # OIDC client, PKCE (BSD-3-Clause)
   "joserfc>=1.6.8,<2",  # ID token / JWKS verification, Authlib's JOSE library (BSD-3-Clause)
+  # W3-OPS observability (app/core/observability.py): /metrics for Prometheus, multiprocess-safe (Apache-2.0)
+  "prometheus-client>=0.26,<1",
 ]
 
 [project.optional-dependencies]

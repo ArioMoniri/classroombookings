@@ -9,7 +9,11 @@ who, which feature, which provider and model, the token counts, the estimated co
   (unexpected tool call, invalid structured output); ``reason_code`` says which;
 * ``provider_error`` - the provider failed (auth, rate limit, 5xx, network, refusal by the provider's own
   safety system: ``reason_code`` ``provider_refusal``);
-* ``limit_reached`` - an org budget or a per-user token limit was spent (``reason_code`` ``ai_limit_reached``).
+* ``limit_reached`` - a per-user token limit (``reason_code`` ``ai_limit_reached``) or the org budget
+  (``ai_budget_exceeded``) was spent.
+
+Research R-AI-04 (docs/research/2026-10-17-state-of-the-art.md §2.2): a hash and the length of the prompt, never the
+text; the price-table version; the request id; the guard verdict; where inference ran.
 
 Rows are ordinary rows (a KVKK erasure may delete a person's rows; ``user_id`` is set NULL when the account is
 deleted so the org totals stay right).
@@ -52,6 +56,15 @@ class AIUsage(Base):
     #: a short, content-free note (the guard's rule name, the provider's error class); never prompt text
     detail: Mapped[str | None] = mapped_column(String(255), nullable=True)
     request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: SHA-256 and length of the serialised request (system + messages + tools); the text itself is never stored
+    prompt_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    prompt_chars: Mapped[int] = mapped_column(Integer, default=0)
+    #: version of the price table the cost was estimated with (``app.ai.client.PRICE_TABLE_VERSION`` or ``synced``)
+    price_version: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    #: the input guard's verdict: pass | flagged (uploaded text neutralised) | refused | skipped
+    guard_verdict: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    #: where the provider says inference ran (Anthropic ``usage.inference_geo``; Bedrock / Vertex: the region)
+    inference_geo: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     @property
     def total_tokens(self) -> int:

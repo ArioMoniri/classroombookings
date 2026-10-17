@@ -5,6 +5,9 @@
 * E-mail addresses and phone numbers are redacted (``[e-posta]`` / ``[telefon]``): they are personal data
   under KVKK and never needed to map a preference to a rule.
 * The ``<document>`` wrapper the prompts put around file text cannot be opened or closed from inside the file.
+* A sentence that reads as an instruction to the model (instruction override, role-play, system-prompt
+  exfiltration, tool-call markup, encoded payloads; TR + EN) is removed and a note addressed to the assistant is
+  marked as data (:func:`app.ai.guardrails.neutralize_upload`, wave 3 W3-AI); ``counts["injections"]``.
 
 Scheduling data (course codes, rooms, dates, times, periods, enrolments) is left untouched; the patterns are
 deliberately narrow (Turkish numbers with a 0 / +90 / 5xx prefix and international ``+`` numbers).
@@ -46,10 +49,14 @@ def strip_controls(text: str) -> str:
 
 
 def clean_for_model(text: str) -> tuple[str, dict[str, int]]:
-    """``(clean text, counts)`` with counts ``controls``, ``emails``, ``phones``, ``tags``."""
-    stats = {"controls": 0, "emails": 0, "phones": 0, "tags": 0}
+    """``(clean text, counts)`` with counts ``controls``, ``emails``, ``phones``, ``tags``, ``injections``."""
+    from app.ai.guardrails import neutralize_upload
+
+    stats = {"controls": 0, "emails": 0, "phones": 0, "tags": 0, "injections": 0}
     out, stats["controls"] = _CONTROLS_RE.subn("", text or "")
     out, stats["tags"] = _DOC_TAG_RE.subn(TAG_MARK, out)
+    out, findings = neutralize_upload(out)
+    stats["injections"] = len(findings)
     out, stats["emails"] = _EMAIL_RE.subn(EMAIL_MARK, out)
 
     def phone(m: re.Match[str]) -> str:

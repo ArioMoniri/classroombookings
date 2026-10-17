@@ -4,8 +4,9 @@ One row per *group*: every unhandled backend exception, every 5xx answer and eve
 (``POST /api/v1/ops/errors``) is reduced to a fingerprint (source + type + normalised message + in-app frames +
 route template, ``app.core.observability.fingerprint``) and folded into its group: ``count`` and ``last_seen``
 move, the first sample stack is kept. Text is PII-scrubbed before it is stored (``scrub``). ``status`` is set by
-an admin on ``/admin/ops``: ``open`` -> ``resolved`` (a new occurrence reopens the group: regression) or
-``ignored`` (stays ignored, keeps counting).
+an admin on ``/admin/ops``: ``open`` (new) -> ``acknowledged`` -> ``resolved`` (a new occurrence reopens the group:
+regression) or ``ignored`` (stays ignored, keeps counting). Groups unseen for 90 days are purged (KVKK inventory:
+error text is scrubbed, no user id is kept, only the role code).
 """
 
 from __future__ import annotations
@@ -17,10 +18,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, utcnow
 
-OPEN = "open"
+OPEN = "open"  # shown as "Yeni / New"
+ACKNOWLEDGED = "acknowledged"  # "İnceleniyor / Acknowledged": someone is on it; keeps counting
 RESOLVED = "resolved"
 IGNORED = "ignored"
-STATUSES = (OPEN, RESOLVED, IGNORED)
+STATUSES = (OPEN, ACKNOWLEDGED, RESOLVED, IGNORED)
 
 
 class ErrorEvent(Base):
@@ -41,10 +43,12 @@ class ErrorEvent(Base):
     user_role: Mapped[str | None] = mapped_column(String(32), nullable=True)
     release: Mapped[str | None] = mapped_column(String(64), nullable=True)
     sample_stack: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: ``X-Request-ID`` of the last backend occurrence (the log tail filters by it)
+    last_request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     count: Mapped[int] = mapped_column(Integer, default=1)
     first_seen: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     last_seen: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
-    status: Mapped[str] = mapped_column(String(10), default=OPEN, index=True)
+    status: Mapped[str] = mapped_column(String(16), default=OPEN, index=True)
     #: how often a resolved group came back
     reopened: Mapped[int] = mapped_column(Integer, default=0)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
