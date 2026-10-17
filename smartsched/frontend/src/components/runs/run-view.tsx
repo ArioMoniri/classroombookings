@@ -213,15 +213,15 @@ export function RunView({ id }: { id: number }) {
   const applyFix = useApplyFix(id);
   const duration = useDuration();
   const r = run.data;
-  // the run schema the app shares has no `error` field; a cancelled run's "cancelled by <who>" lives there, so the
-  // report reads it once, for cancelled runs only (R1-M-15: by whom and when)
+  // a cancelled run's "cancelled by <who>" is the run's `error` (R1-M-15: by whom and when). The shared schema
+  // carries it now; the light re-read stays as the fallback for a server that does not send the field
   const cancelInfo = useQuery({
     queryKey: ["run-cancel-info", id],
     queryFn: () => request(`/runs/${id}`, { schema: z.object({ error: z.string().nullable().optional(), finished_at: z.string().nullable().optional() }), silent: true }),
-    enabled: r?.status === "CANCELLED",
+    enabled: r?.status === "CANCELLED" && r.error === undefined,
     staleTime: Infinity,
   });
-  const outcome: RunOutcome = r ? runOutcome({ status: r.status, error: cancelInfo.data?.error ?? null, finished_at: r.finished_at ?? cancelInfo.data?.finished_at ?? null }) : { kind: "active" };
+  const outcome: RunOutcome = r ? runOutcome({ status: r.status, error: r.error ?? cancelInfo.data?.error ?? null, finished_at: r.finished_at ?? cancelInfo.data?.finished_at ?? null }) : { kind: "active" };
   const active = outcome.kind === "active";
   const finished = Boolean(r) && !active;
   // a cancelled run has no timetable, scores or problems: the report fetches nothing heavy for it (R1-M-15 / R1-S-28)

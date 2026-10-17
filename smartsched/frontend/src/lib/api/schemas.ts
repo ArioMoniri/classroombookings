@@ -321,6 +321,8 @@ export const ScheduleRun = z.object({
   prompt_text: z.string().nullable(),
   created_at: z.string(),
   finished_at: z.string().nullable(),
+  /** the solver's failure text, or "cancelled by <who>" for a CANCELLED run (R1-M-15); absent on older servers */
+  error: z.string().nullish(),
 });
 export type ScheduleRun = z.infer<typeof ScheduleRun>;
 

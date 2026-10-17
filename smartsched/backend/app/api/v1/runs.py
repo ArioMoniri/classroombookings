@@ -508,13 +508,16 @@ async def export_run(
     (CRBS's booking export columns). Only xlsx honours ``weeks``; the other formats export the whole run."""
     run = await _run(db, run_id)
     name = f"smartsched-run{run.id}"
+    # a week run's board / csv is named after its week(s) (R1-M-38: "smartsched-run7-hafta4.xlsx"); term runs,
+    # ics and crbs keep the plain name
+    week_name = name + _week_suffix(run)
     wk = await _export_weeks(db, run, weeks) if weeks else None
     if format == "xlsx":
         data = await export_xlsx(db, run, wk)
         return Response(
             data,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f'attachment; filename="{name}.xlsx"'},
+            headers={"Content-Disposition": f'attachment; filename="{week_name}.xlsx"'},
         )
     if format == "ics":
         return Response(
@@ -529,7 +532,20 @@ async def export_run(
             headers={"Content-Disposition": f'attachment; filename="{name}-crbs.csv"'},
         )
     text = await export_csv(db, run)
-    return Response(text, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}.csv"'})
+    return Response(
+        text, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{week_name}.csv"'}
+    )
+
+
+def _week_suffix(run: ScheduleRun) -> str:
+    """``"-hafta4"`` for a WEEK run (``"-hafta4-6"`` when it spans several weeks), ``""`` for every other run."""
+    if run.horizon != "WEEK":
+        return ""
+    raw = (run.horizon_params or {}).get("weeks") or [(run.horizon_params or {}).get("week")]
+    weeks = sorted({int(w) for w in raw if isinstance(w, int | str) and str(w).isdigit()})
+    if not weeks:
+        return ""
+    return f"-hafta{weeks[0]}" if len(weeks) == 1 else f"-hafta{weeks[0]}-{weeks[-1]}"
 
 
 _WEEKS_RX = re.compile(r"^\s*\d+\s*(-\s*\d+\s*)?$")

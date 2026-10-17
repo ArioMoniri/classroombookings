@@ -911,7 +911,7 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
             <Alert tone={result.created ? "success" : "warning"} testId="import-summary">
               {t("crbs.import.summary", { created: result.created, total: result.results.length })}
               <span className="mt-1 block type-footnote" data-testid="import-summary-line">
-                {importSummaryLine(result, t)}
+                {result.summary_text ?? importSummaryLine(result, t)}
               </span>
             </Alert>
             {result.results.some((r) => r.status === "forbidden") ? (
@@ -939,6 +939,9 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
                         </Badge>
                         {r.error ? (
                           <span className="ml-2 type-footnote text-label-2">{r.error}</span>
+                        ) : null}
+                        {r.warning ? (
+                          <span className="ml-2 type-footnote text-label-2" data-testid="import-row-warning">{r.warning}</span>
                         ) : null}
                       </TableCell>
                     </TableRow>

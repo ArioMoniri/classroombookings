@@ -63,3 +63,15 @@ describe("how a run ended (round-1 R1-M-15: a cancelled run must not read like a
     expect(runOutcome({ status: "TIMEOUT" })).toEqual({ kind: "finished" });
   });
 });
+
+describe("ScheduleRun.error (round-1 sweeper 2: the shared schema carries the cancel / failure text)", () => {
+  it("parses with, without and with a null error; the report reads it before any extra request", async () => {
+    const { ScheduleRun } = await import("@/lib/api/schemas");
+    const base = { id: 9, term_id: 1, term_code: "2026-BAHAR", kind: "COURSE", horizon: "WEEK", horizon_params: { weeks: [3] }, status: "CANCELLED", params: {}, objective_value: null, soft_score: null, hard_score: null, parent_run_id: null, prompt_text: null, created_at: "2026-10-08T08:00:00Z", finished_at: "2026-10-08T08:01:00Z" };
+    const cancelled = ScheduleRun.parse({ ...base, error: "cancelled by admin@smartsched.local" });
+    expect(cancelled.error).toBe("cancelled by admin@smartsched.local");
+    expect(runOutcome(cancelled)).toEqual({ kind: "cancelled", by: "admin@smartsched.local", at: "2026-10-08T08:01:00Z" });
+    expect(ScheduleRun.parse({ ...base, error: null }).error).toBeNull();
+    expect(ScheduleRun.parse(base).error).toBeUndefined(); // an older server: run-view falls back to the light re-read
+  });
+});

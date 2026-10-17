@@ -44,6 +44,14 @@ async def test_the_visible_week_exports_that_week_only(env):  # noqa: F811
     assert rng.sheetnames == ["Hafta 4", "Hafta 5"]
 
 
+async def test_a_term_run_keeps_the_plain_file_name(env):  # noqa: F811
+    """R1-M-38: only a WEEK run is named ``…-hafta<n>``; the term board and csv stay ``smartsched-run<id>``."""
+    for fmt, ext in (("xlsx", "xlsx"), ("csv", "csv")):
+        r = await env.client.get(f"/api/v1/runs/{env.run_id}/export", params={"format": fmt}, headers=env.planner)
+        assert r.status_code == 200
+        assert r.headers["content-disposition"] == f'attachment; filename="smartsched-run{env.run_id}.{ext}"'
+
+
 async def test_weeks_outside_the_term_are_refused(env):  # noqa: F811
     for bad in ("0", "99", "4,99"):
         r = await _xlsx(env, weeks=bad)

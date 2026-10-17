@@ -266,7 +266,8 @@ function SolverForm({ initial }: { initial: Settings }) {
             </tbody>
           </table>
         </div>
-        <Button size="sm" onClick={() => void save()} disabled={update.isPending} data-testid="save-solver">{t("common.save")}</Button>
+        {/* touch: 44 px save (size sm is 36 on coarse pointers); the three number fields are md = 44 px / 16 px there */}
+        <Button size="sm" className="pointer-coarse:h-11" onClick={() => void save()} disabled={update.isPending} data-testid="save-solver">{t("common.save")}</Button>
       </CardContent>
     </Card>
   );
