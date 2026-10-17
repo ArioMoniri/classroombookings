@@ -1731,7 +1731,9 @@
           "dedup": "re-seen: persona-admin M-29 (still open)",
           "depends_on": [
             "integrity agent hand-over"
-          ]
+          ],
+          "status": "done",
+          "resolution": "done: chips open the pre-filled template without a key (chip-prefill.ts), multi-programme applies-to, related programmes offered, 'Şablon' source, names keep their case; checked on the stack (desktop+phone), e2e loop-r1-laneH T-R1-46"
         },
         {
           "id": "T-R1-47",
@@ -1756,7 +1758,9 @@
           "depends_on": [
             "integrity agent hand-over",
             "T-R1-38"
-          ]
+          ],
+          "status": "done",
+          "resolution": "done: no '0 derslikte' while the term's summary loads, Güz '14 hafta' + dated-rows note, '%…' badge, backend '3. hafta için'; e2e T-R1-47, tests/test_tr_grammar.py"
         },
         {
           "id": "T-R1-48",
@@ -1783,7 +1787,9 @@
           "dedup": "see also R1-M-04 / R1-M-14 / R1-S-20 (integrity)",
           "depends_on": [
             "integrity agent hand-over"
-          ]
+          ],
+          "status": "done",
+          "resolution": "done: cancelled run reads 'İptal edildi · by · when' with no claims, one server-side 'Sorun', no odometer digits, lazy index/rules fetch, distinct local group titles, '3. hafta' publish wording, phone publish capsule; e2e T-R1-48 ×2, phone M-02/M-05"
         },
         {
           "id": "T-R1-49",
@@ -1811,7 +1817,9 @@
           "dedup": "see also R1-M-06 / R1-S-09 (integrity: forced move)",
           "depends_on": [
             "integrity agent hand-over"
-          ]
+          ],
+          "status": "done",
+          "resolution": "done: Başlangıç haftası select + 44 px rows, focus on the moved chip, skip link 'Izgaraya geç', Esc/close for the overlay sidebar, Enter focuses the first match, API unplaced count + run's term in the sidebar, 'Çalıştırma #', dative 'Test dersliğine'; open: export file name (backend api/v1/runs.py, not lane H)"
         },
         {
           "id": "T-R1-50",
@@ -1832,7 +1840,9 @@
           "dedup": "new",
           "depends_on": [
             "integrity agent hand-over"
-          ]
+          ],
+          "status": "done",
+          "resolution": "done: button follows the mode, no 409 undo check, created vs catalogue courses separated in the done/undo texts (backend already archived created courses: test added); checked on the stack + e2e T-R1-50"
         }
       ],
       "done_when": "every ticket's check passes; MOBILE M-02/M-03/M-05 at 390 on the lane's phone_routes; the lane's unit tests; no edits outside `owns` (ask the owning lane instead)"
