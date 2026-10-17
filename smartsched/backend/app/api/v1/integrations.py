@@ -230,7 +230,7 @@ def _normalise(area: str, raw: dict[str, Any], source: Literal["contract", "buil
         name_en=card.name_en,
         summary_tr=card.summary_tr or ph[3],
         summary_en=card.summary_en or ph[4],
-        status=card.status if card.status in STATUSES else "unknown",  # type: ignore[arg-type]
+        status=card.status if card.status in STATUSES else "unknown",
         enabled=card.enabled,
         detail_tr=card.detail_tr,
         detail_en=card.detail_en,
@@ -475,6 +475,7 @@ async def channel_cards(session: AsyncSession) -> list[dict[str, Any]]:
         else:
             status = "disabled"
         gaps = [m for m in missing if m != "enabled"] if status != "not_configured" else missing
+        detail: tuple[str | None, str | None]
         if status == "error":
             detail = ("Son gönderim başarısız oldu.", "The last delivery failed.")
         elif gaps:
@@ -645,6 +646,7 @@ async def automation_cards(session: AsyncSession) -> list[dict[str, Any]]:
             out.append(card)
             continue
         own = await _last_delivery(session, [e.id])
+        dt: tuple[str | None, str | None]
         if not e.active:
             st, dt = (
                 "disabled",
