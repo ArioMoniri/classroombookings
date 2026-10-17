@@ -29,6 +29,10 @@ describe("sweeper 3 / M-05: PageTitle actions capsule", () => {
     );
     expect(wrap.className).not.toMatch(/(^|\s)fixed(\s|$)/);
   });
+  it("/admin/rooms wraps 'Yeni derslik' in the same capsule (its toolbar lives in the rooms tab, not the PageTitle)", () => {
+    const src = readFileSync(join(process.cwd(), "src/components/admin/rooms-admin.tsx"), "utf8");
+    expect(src).toMatch(/<div data-slot="page-actions" className=\{pageActionsCapsule\}>\s*<Button onClick=\{\(\) => setCreating\(true\)\} data-testid="room-new">/);
+  });
   it("renders no capsule without actions", () => {
     render(<PageTitle title="Derslikler" subtitle="Lead" />);
     expect(document.querySelector('[data-slot="page-actions"]')).toBeNull();

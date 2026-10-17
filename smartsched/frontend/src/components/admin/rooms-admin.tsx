@@ -51,7 +51,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { roleLabel } from "@/lib/i18n/roles";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { useIsPhone } from "@/components/bookings/use-is-phone";
-import { Alert, ConfirmDialog, Field, Loading, PageTitle, SelectField } from "./kit";
+import { Alert, ConfirmDialog, Field, Loading, PageTitle, SelectField, pageActionsCapsule } from "./kit";
 import { useErrorToast } from "./admin-gate";
 import { roomTitle } from "./rooms-model";
 import { problemText } from "@/lib/api/error-text";
@@ -307,10 +307,14 @@ function RoomsTab() {
           ))}
           <option value="none">{t("crbs.rooms.noGroup")}</option>
         </SelectField>
-        <Button onClick={() => setCreating(true)} data-testid="room-new">
-          <Plus aria-hidden />
-          {t("admingaps.rooms.new")}
-        </Button>
+        {/* MOBILE M-05 (round 2 sweeper 3): below lg "Yeni derslik" is the PageTitle-style capsule above the tab bar
+            (kit.tsx pageActionsCapsule), on desktop the third toolbar cell as before */}
+        <div data-slot="page-actions" className={pageActionsCapsule}>
+          <Button onClick={() => setCreating(true)} data-testid="room-new">
+            <Plus aria-hidden />
+            {t("admingaps.rooms.new")}
+          </Button>
+        </div>
       </div>
       <Card className="overflow-hidden py-0">
         {rooms.isLoading ? (

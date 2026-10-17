@@ -165,7 +165,7 @@ describe("CalendarSyncPanel consent step", () => {
     renderIt(<CalendarSyncPanel />);
     await user.click(await screen.findByTestId("sync-reset"));
     await user.click(within(await screen.findByTestId("calendar-consent-step")).getByTestId("calendar-consent-grant"));
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("alertdialog"); // ConfirmDialog is an alert dialog since T-R2-02
     await user.click(within(dialog).getByRole("button", { name: /Reset/ }));
     await waitFor(() => expect(posts()).toEqual(["POST /me/consents/calendar_sync", "POST /calendar/feeds/reset"]));
   });

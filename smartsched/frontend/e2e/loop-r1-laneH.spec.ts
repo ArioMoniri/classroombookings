@@ -10,7 +10,7 @@
  * - T-R1-48 run report: a cancelled run reads "İptal edildi" (by whom, when) and none of "karşılandı" / "İhlal yok";
  *   the "Sorun" KPI is the same number at 1440 and 390; main.innerText has no "0 1 2 3 4 5 6 7 8 9" odometer digits;
  *   the publish sheet names a single week as "3. hafta".
- * - T-R1-49 timetable: from the top of /timetable one Tab reaches "Izgaraya geç" and Enter lands on the grid; the move
+ * - T-R1-49 timetable: from the top of /timetable the second Tab reaches "Izgaraya geç" and Enter lands on the grid; the move
  *   dialog offers "Başlangıç haftası"; the sidebar's "Yerleşmeyenler (n)" equals the run's API unplaced count; the
  *   inspector's history says "Çalıştırma #".
  * - T-R1-50 program wizard: with "Yalnızca oluştur" the button reads "Oluştur"; the undo check is never called on the
@@ -213,16 +213,13 @@ test("T-R1-49 · skip link to the grid, Başlangıç haftası in the move dialog
   await login(page);
   await page.goto(`/timetable?run=${r.id}&week=${week}`);
   await page.getByTestId("time-grid").waitFor();
-  // ≤ 5 Tabs from the top: the shell's "İçeriğe atla" (Tab, Enter) then the calendar's own skip link is the next stop
+  // two Tabs from the top: the shell's "İçeriğe atla", then the calendar's own skip link, which T-R2-28 (lane E) portals
+  // right after it as the second Tab stop (round 2 sweeper 3: the old path pressed Enter on the shell link first and
+  // then tabbed up to 4 times, which no longer meets the link)
   await page.keyboard.press("Tab");
   await expect.poll(() => page.evaluate(() => document.activeElement?.textContent?.trim())).toBe("İçeriğe atla");
-  await page.keyboard.press("Enter");
-  let found = false;
-  for (let i = 0; i < 4 && !found; i++) {
-    await page.keyboard.press("Tab");
-    found = await page.evaluate(() => document.activeElement?.getAttribute("data-testid") === "skip-to-grid");
-  }
-  expect(found).toBe(true);
+  await page.keyboard.press("Tab");
+  await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("data-testid"))).toBe("skip-to-grid");
   await expect(page.getByTestId("skip-to-grid")).toHaveText("Izgaraya geç");
   await page.keyboard.press("Enter");
   await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("data-testid"))).toBe("time-grid");
