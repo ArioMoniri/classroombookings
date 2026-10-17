@@ -318,3 +318,71 @@ async def test_undo_archives_the_courses_the_commit_created_and_keeps_catalogue_
         assert kept is not None and kept.archived is False
         gone = [await s.get(Course, cid) for cid in made["courses"]]
         assert gone and all(c is not None and c.archived for c in gone)
+
+
+async def test_the_same_new_person_twice_on_a_section_is_a_step_issue_not_a_raw_422(client: AsyncClient) -> None:
+    """R2-M-07 / T-R2-22: 'Yeni kişi' pressed twice for the same name. Validation refuses it on the instructors step
+    (code ``instructor_twice``, TR/EN, the second slot's path), the pre-check answers the same issue and the commit
+    never reaches catalog_admin's "instructor N is listed twice"."""
+    _h, tid, _uid, planner = await _setup(client)
+    payload = {
+        "program": {
+            "facultyName": "Fen Bilimleri Enstitüsü",
+            "name": "Biyoteknoloji Tezli Yüksek Lisans",
+            "prefix": "BTK",
+        },
+        "courses": [
+            {
+                "key": "c1",
+                "code": "BTK 501",
+                "name": "Biyoteknolojide Yöntemler",
+                "t": 3,
+                "u": 0,
+                "l": 0,
+                "credits": "3",
+                "ects": 7,
+                "year": 1,
+                "mode": "Yüz yüze",
+                "sections": [
+                    {
+                        "key": "s1",
+                        "label": "1",
+                        "enrolment": 20,
+                        "instructors": [
+                            {"name": "Tolga Emre"},
+                            {"name": "TOLGA\xa0EMRE"},
+                        ],  # the same person, typed twice
+                    }
+                ],
+                "pattern": {"theoryBlocks": [3], "days": [3], "start": "13.30", "weeks": "1-14"},
+                "room": {"capacity": None, "tags": [], "building": "", "preferred": ""},
+            }
+        ],
+        "cohorts": [],
+        "rules": {},
+    }
+    did = await _draft(client, planner, tid, payload)
+    v = await _validate(client, planner, did)
+    twice = _issues(v, "instructor_twice")
+    assert len(twice) == 1 and twice[0]["level"] == "error" and v["can_commit"] is False
+    assert twice[0]["step"] == "instructors" and twice[0]["path"] == "courses.c1.sections.s1.instructors.1"
+    assert twice[0]["text"]["tr"] == "Bu kişi bu şubede zaten var: Tolga Emre"
+    assert twice[0]["text"]["en"] == "This person is already on this section: Tolga Emre"
+    assert len(_issues(v, "instructor_new")) == 1  # the first slot is the new person; the second is not another one
+    pre = await client.post(f"{API}/program-drafts/{did}/precheck", headers=planner)
+    assert pre.status_code == 422, pre.text
+    detail = pre.json()["detail"]
+    assert detail["message_tr"] and "instructor_twice" in [i["code"] for i in detail["issues"]]
+    r = await client.post(f"{API}/program-drafts/{did}/commit", json={}, headers=planner)
+    assert r.status_code == 422 and "listed twice" not in r.text and "Kayıt yazılamadı" not in r.text, r.text
+    # one entry for the person: the commit goes through
+    r = await client.patch(
+        f"{API}/program-drafts/{did}",
+        json={"path": "courses.c1.sections.s1.instructors", "value": [{"name": "Tolga Emre"}]},
+        headers=planner,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["validation"]["can_commit"] is True
+    r = await client.post(f"{API}/program-drafts/{did}/commit", json={}, headers=planner)
+    assert r.status_code == 201, r.text
+    assert len(r.json()["created"]["people"]) == 1

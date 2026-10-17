@@ -22,7 +22,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { crbs, crbsError, useCrbsMe, useCrbsMutation, type FeedTokenCreated } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import { Alert, ConfirmDialog, Loading, SelectField } from "@/components/admin/kit";
@@ -137,7 +137,8 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
       <p className="type-callout text-label-2">{t("reserve.sync.lead")}</p>
       {status.isLoading ? <Loading label={t("reserve.sync.loading")} /> : null}
       {status.isError ? <Alert tone="error">{bookingErrorMessage(crbsError(status.error), t)}</Alert> : null}
-      {s && !s.enabled ? <Alert tone="warning">{t("reserve.sync.disabled")}</Alert> : null}
+      {/* T-R2-15 (R2-S-11, R2-M-10): the disabled state is the card's quiet text, not a live region ("toast") */}
+      {s && !s.enabled ? <p className="type-callout text-label-2" data-testid="sync-off">{t("reserve.sync.disabled")}</p> : null}
       {s?.enabled ? (
         link ? (
           <>
@@ -255,7 +256,19 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
 
 function FeedRow({ id, title, url, name, picker }: { id: string; title: string; url: string; name: string; picker?: React.ReactNode }) {
   const { t } = useI18n();
-  const copy = (text: string) => void navigator.clipboard?.writeText(text).then(() => toast.success(t("reserve.sync.copied")));
+  const field = useRef<HTMLTextAreaElement>(null);
+  // T-R2-15 (R2-A-12): a refused clipboard (permission, insecure context) is told and the link is selected to copy by hand
+  const copy = async (text: string) => {
+    try {
+      if (!navigator.clipboard) throw new Error("no clipboard");
+      await navigator.clipboard.writeText(text);
+      toast.success(t("reserve.sync.copied"));
+    } catch {
+      field.current?.focus();
+      field.current?.select();
+      toast.error(t("reserve.sync.copyFailed"));
+    }
+  };
   const webcal = url ? webcalUrl(url) : "";
   const label = `SmartSched – ${name}`;
   return (
@@ -267,14 +280,19 @@ function FeedRow({ id, title, url, name, picker }: { id: string; title: string; 
         </h3>
         {picker ? <div className="min-w-40">{picker}</div> : null}
       </div>
-      <div className="flex gap-2">
-        <Input readOnly value={url} aria-label={`${title}: ${t("reserve.sync.https")}`} onFocus={(e) => e.currentTarget.select()} className="min-w-0 flex-1 font-mono type-footnote" data-testid={`sync-url-${id}`} />
-        <Button variant="outline" size="icon" aria-label={t("reserve.sync.copy", { what: t("reserve.sync.https") })} onClick={() => copy(url)} disabled={!url} data-testid={`sync-copy-${id}`}>
-          <Copy />
-        </Button>
-        <Button variant="outline" size="icon" aria-label={t("reserve.sync.copy", { what: t("reserve.sync.webcal") })} onClick={() => copy(webcal)} disabled={!url} data-testid={`sync-copy-webcal-${id}`}>
-          <CalendarPlus />
-        </Button>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+        {/* the link wraps inside its box (break-all) instead of running past it (R2-S-21) */}
+        <Textarea ref={field} readOnly rows={2} value={url} aria-label={`${title}: ${t("reserve.sync.https")}`} onFocus={(e) => e.currentTarget.select()} className="min-h-0 min-w-0 flex-1 resize-none break-all font-mono type-footnote" data-testid={`sync-url-${id}`} />
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button variant="outline" className="min-h-11 sm:min-h-0" aria-label={t("reserve.sync.copy", { what: t("reserve.sync.https") })} onClick={() => void copy(url)} disabled={!url} data-testid={`sync-copy-${id}`}>
+            <Copy aria-hidden />
+            {t("reserve.sync.copyShort")}
+          </Button>
+          <Button variant="outline" className="min-h-11 sm:min-h-0" aria-label={t("reserve.sync.copy", { what: t("reserve.sync.webcal") })} onClick={() => void copy(webcal)} disabled={!url} data-testid={`sync-copy-webcal-${id}`}>
+            <CalendarPlus aria-hidden />
+            {t("reserve.sync.copyWebcal")}
+          </Button>
+        </div>
       </div>
       {url ? (
         <div className="flex flex-wrap gap-1.5">

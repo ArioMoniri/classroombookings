@@ -19,6 +19,7 @@ import {
   patternHours,
   patternOptions,
   readPayload,
+  samePerson,
   uncohorted,
   type Payload,
 } from "./wizard-model";
@@ -166,5 +167,18 @@ describe("autosave ops", () => {
     const ours = structuredClone(base);
     ours.courses[0]!.name = "Seminer I";
     expect(applyOps(theirs, diffOps(base, ours)).courses.map((c) => c.code)).toEqual(["MBG 532", "MBG 534"]);
+  });
+});
+
+describe("samePerson (R2-M-07: one person once per section)", () => {
+  it("matches ids, and new names up to case, titles, dots, NBSP and Turkish letters", () => {
+    expect(samePerson({ id: 491, name: "T. E." }, { id: 491 })).toBe(true);
+    expect(samePerson({ id: 491 }, { id: 7 })).toBe(false);
+    expect(samePerson({ id: 491, name: "Tolga Emre" }, { name: "Tolga Emre" })).toBe(false); // an id against a new name: the server decides
+    expect(samePerson({ name: "Tolga Emre" }, { name: "TOLGA\u00a0EMRE" })).toBe(true);
+    expect(samePerson({ name: "Dr. Öğr. Üyesi Elçim Elgün Kırımlı" }, { name: "elçim elgün kırımlı" })).toBe(true);
+    expect(samePerson({ name: "İpek Yılmaz" }, { name: "ipek yılmaz" })).toBe(true);
+    expect(samePerson({ name: "Tolga Emre" }, { name: "Tolga Emir" })).toBe(false);
+    expect(samePerson({ name: "" }, { name: "" })).toBe(false);
   });
 });

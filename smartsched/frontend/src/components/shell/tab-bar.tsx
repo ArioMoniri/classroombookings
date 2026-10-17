@@ -29,8 +29,20 @@ const TABS: Tab[] = [
 
 const PILL = "pointer-events-none absolute inset-0 -z-10 rounded-full bg-(--mat-thick) glass-edge";
 /** one equal column per tab; 48 px tall (≥ 44 px target) with the label always shown (review §3 "Mobile tab bar") */
-const ITEM = "relative isolate flex min-h-12 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-full px-1.5";
-const LABEL = "type-caption whitespace-nowrap";
+const ITEM = "relative isolate flex min-h-12 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-full px-1";
+/** T-R2-04 (R2-A-01, R2-S-07): the label never runs into its neighbour: it truncates inside its column (safety net) */
+const LABEL = "type-caption whitespace-nowrap min-w-0 max-w-full truncate";
+/**
+ * Tab-bar-only labels (nav.tab.*): a 390 px phone gives each of four or five columns 59–74 px, so the sidebar words
+ * ("Rezervasyonlar", "Rezervasyonlarım") overlapped (T-R2-04). The sidebar, ⌘K and the crumbs keep the full words.
+ */
+const TAB_LABELS: Readonly<Record<string, MessageKey>> = {
+  "/bookings": "nav.tab.bookings",
+  "/my-bookings": "nav.tab.myBookings",
+  "/find-room": "nav.tab.findRoom",
+  "/approvals": "nav.tab.approvals",
+  "/moderation/me": "nav.tab.myRequests",
+};
 
 export function TabBar() {
   const { t } = useI18n();
@@ -48,7 +60,7 @@ export function TabBar() {
   const planning = TABS.filter((tab) => can(tab.permission));
   const bookings: Tab[] = ADMIN_NAV_ITEMS.filter((i) => i.href.startsWith("/bookings") || i.href.startsWith("/my-bookings") || i.bookings)
     .filter((i) => can(i.permission) && !(i.hideWith && can(i.hideWith)))
-    .map((i) => ({ href: i.href, labelKey: i.labelKey, icon: i.icon }));
+    .map((i) => ({ href: i.href, labelKey: TAB_LABELS[i.href] ?? i.labelKey, icon: i.icon }));
   const tabs = (planning.length >= 3 ? planning : [...bookings, ...planning]).slice(0, 4);
   const activeHref = tabs.find((tab) => isActive(pathname, search, tab.href))?.href;
   // on a page that is not a tab (Profil, Boş derslik bul, Kurulum…) "Diğer" is the current item (MOBILE.md M-09)
@@ -56,18 +68,19 @@ export function TabBar() {
 
   const item = (key: string, label: string, icon: ReactNode, active: boolean, extra: { href?: string; onClick?: () => void; count?: number; testId?: string }) => {
     // the badge comes after the label in the DOM (MOBILE.md M-09: innerText starts with the label, T-R1-06);
-    // it is drawn next to the icon with absolute positioning against the item
+    // it is drawn on the icon's top-right corner, anchored to the item's end so it never leaves the item's box
+    // (T-R2-04, R2-M-13: "99+" ran past a 59 px column when it hung off the icon's centre)
     const content = (
       <>
         {active ? <motion.span layoutId="tab-pill" aria-hidden className={PILL} style={{ borderRadius: 999 }} transition={morph} /> : null}
         <span aria-hidden className={cn("relative flex [&_svg]:size-5 [&_svg]:stroke-[1.75]", active ? "text-tint-text" : "text-label-2")}>
           {icon}
         </span>
-        <span aria-hidden className={cn(LABEL, active ? "font-semibold text-tint-text" : "text-label-2")}>
+        <span aria-hidden data-slot="tab-label" className={cn(LABEL, active ? "font-semibold text-tint-text" : "text-label-2")}>
           {label}
         </span>
         {extra.count ? (
-          <span aria-hidden className="absolute top-1 left-[calc(50%+0.25rem)] h-4 min-w-5 rounded-full bg-status-warning px-1 text-center type-caption leading-4 font-semibold text-status-warning-fg tnum" data-testid="tab-badge">
+          <span aria-hidden className="absolute top-1 right-[max(0.125rem,calc(50%-1.75rem))] h-4 min-w-5 max-w-[calc(100%-0.25rem)] truncate rounded-full bg-status-warning px-1 text-center type-caption leading-4 font-semibold text-status-warning-fg tnum" data-testid="tab-badge">
             {extra.count > 99 ? "99+" : extra.count}
           </span>
         ) : null}

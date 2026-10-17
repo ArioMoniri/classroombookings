@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useAppearancePreferences } from "@/components/ui/appearance-preferences";
+import { KeyboardClearance } from "@/components/ui/keyboard-clearance";
 import { AlertTriangle } from "lucide-react";
 import { useOrgPublic } from "@/lib/api/crbs";
 import { NoAccess } from "@/components/admin/kit";
@@ -186,6 +187,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <TabBar />
         <MobileDrawer />
       </Suspense>
+      {/* T-R2-01: page-level fields scroll clear of the sticky save / search bars and the tab bar when the keyboard opens */}
+      <KeyboardClearance scope="document" />
       <CommandPalette />
       <ShortcutsSheet />
       <Shortcuts />

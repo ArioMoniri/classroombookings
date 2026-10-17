@@ -55,6 +55,12 @@ export type Crumb = { href: string; label: string; current: boolean };
 export interface CrumbContext {
   /** the signed-in academician's own instructor id (GET /moderation/me): their person page is "Geçmişim" */
   ownPersonId?: number | null;
+  /**
+   * `false` for a user without planning.view (the /moderation root renders Taleplerim for them): the trail on
+   * /moderation and /moderation/me is "Taleplerim" alone, never the planners' "Moderasyon" (T-R2-08, R2-A-14).
+   * Omitted or `true`: the planners' console trail.
+   */
+  planner?: boolean;
 }
 
 export function breadcrumbs(pathname: string, t: (key: MessageKey, vars?: Record<string, string | number>) => string, ctx: CrumbContext = {}): Crumb[] {
@@ -65,6 +71,9 @@ export function breadcrumbs(pathname: string, t: (key: MessageKey, vars?: Record
       { href: "/moderation/me", label: t("crbs.nav.myRequests"), current: false },
       { href: pathname, label: t("glass.shell.crumbMyHistory"), current: true },
     ];
+  }
+  if (parts[0] === "moderation" && ctx.planner === false && (parts.length === 1 || (parts.length === 2 && parts[1] === "me"))) {
+    return [{ href: "/moderation/me", label: t("crbs.nav.myRequests"), current: true }];
   }
   const out: Crumb[] = [];
   parts.forEach((seg, i) => {

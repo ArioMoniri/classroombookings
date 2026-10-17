@@ -63,7 +63,7 @@ describe("T-R2-04: tab-bar labels fit their column", () => {
     for (const a of tabs()) {
       const label = a.querySelector("[data-slot=tab-label]")!;
       expect(label).toHaveClass("min-w-0", "max-w-full", "truncate");
-      expect(a.innerText.trim().startsWith(a.getAttribute("aria-label")!)).toBe(true);
+      expect(a.textContent!.trim().startsWith(a.getAttribute("aria-label")!)).toBe(true);
     }
     // the tab-only keys are shorter than the sidebar words in both languages
     for (const [tab, full] of [["nav.tab.bookings", "crbs.nav.bookings"], ["nav.tab.myBookings", "crbs.nav.myBookings"], ["nav.tab.findRoom", "wave1.nav.findRoom"]] as [MessageKey, MessageKey][])
@@ -79,7 +79,7 @@ describe("T-R2-04: tab-bar labels fit their column", () => {
     expect(badge.className).toMatch(/right-\[/);
     expect(badge.className).not.toMatch(/left-\[calc\(50%/);
     const item = badge.closest("a")!;
-    expect(item.innerText.trim().startsWith("Talepler")).toBe(true);
+    expect(item.textContent!.trim().startsWith("Talepler")).toBe(true);
   });
 });
 
@@ -93,6 +93,6 @@ describe("T-R2-08: the academician's Taleplerim crumb", () => {
     expect(breadcrumbs("/moderation/people/157", tr, { planner: false, ownPersonId: 157 }).map((c) => c.label)).toEqual(["Taleplerim", "Geçmişim"]);
   });
   it("top-bar passes the planning permission into the crumb context", () => {
-    expect(readFileSync(join(process.cwd(), "src/components/shell/top-bar.tsx"), "utf8")).toMatch(/planner: can\("planning\.view"\)/);
+    expect(readFileSync(join(process.cwd(), "src/components/shell/top-bar.tsx"), "utf8")).toMatch(/planner = perms \? can\("planning\.view"\)/);
   });
 });

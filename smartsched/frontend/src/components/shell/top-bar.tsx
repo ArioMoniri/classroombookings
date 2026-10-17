@@ -28,10 +28,12 @@ export function useBreadcrumbs(): Crumb[] {
   const pathname = usePathname();
   const { t } = useI18n();
   // T-R1-08: /moderation/people/<own instructor> is the academician's "Geçmişim" (the planners' console is not theirs)
-  const { can } = usePermissions();
+  const { can, perms } = usePermissions();
   const mine = useModerationMe(!can("planning.view") && pathname.startsWith("/moderation/people/"));
   const own = mine.data?.instructor_id ?? null;
-  return useMemo(() => breadcrumbs(pathname, t, { ownPersonId: own }), [pathname, t, own]);
+  // T-R2-08: a teacher's /moderation(/me) crumb is "Taleplerim" alone; until the permissions are known, the planner trail
+  const planner = perms ? can("planning.view") : true;
+  return useMemo(() => breadcrumbs(pathname, t, { ownPersonId: own, planner }), [pathname, t, own, planner]);
 }
 
 /**

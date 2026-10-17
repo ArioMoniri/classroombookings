@@ -58,6 +58,7 @@ import {
   type Step,
   namesakeRecord,
   refusedIssues,
+  samePerson,
 } from "./wizard-model";
 
 type Update = (fn: (p: Payload) => Payload) => void;

@@ -2,6 +2,8 @@
 /**
  * /reset-password: request a one-time code (never reveals whether the account exists; without SMTP the
  * administrators are notified) and set a new password with the code (`?token=` pre-fills it).
+ * T-R2-06 (R2-A-06, R2-S-12): the page has its own password hint (crbs.reset.passwordHint, no LDAP sentence) and names
+ * the 24-hour code lifetime; a short code gets the same coded refusal as a wrong one (backend org.py).
  */
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -96,7 +98,7 @@ function ConfirmForm({ initialToken, onBack }: { initialToken: string; onBack: (
             <Field label={t("crbs.reset.code")} htmlFor="rs-token">
               <Input id="rs-token" className="font-mono" autoComplete="one-time-code" required value={token} onChange={(e) => setToken(e.target.value)} />
             </Field>
-            <Field label={t("crbs.users.newPassword")} htmlFor="rs-pw" hint={t("crbs.users.passwordHint")}>
+            <Field label={t("crbs.users.newPassword")} htmlFor="rs-pw" hint={t("crbs.reset.passwordHint")}>
               <Input id="rs-pw" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
             </Field>
             <Field label={t("crbs.reset.again")} htmlFor="rs-pw2">

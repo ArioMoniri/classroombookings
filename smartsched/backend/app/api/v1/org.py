@@ -649,10 +649,23 @@ async def reset_request(body: ResetRequestIn, db: DB, request: Request) -> dict[
     return {"detail": "if the account exists, instructions were sent or an administrator was notified"}
 
 
+_INVALID_CODE = {
+    "code": "invalid_code",
+    "message": "invalid or expired code",
+    "message_en": "The code is wrong or has expired. Request a new one.",
+    "message_tr": "Kod hatalı ya da süresi dolmuş. Yenisini isteyin.",
+}
+
+
 @auth_router.post("/password-reset/confirm")
 async def reset_confirm(body: ResetConfirmIn, db: DB) -> dict[str, Any]:
-    user = await consume_reset_token(db, body.token, body.password)
+    """Public. A code that is too short or too long is refused exactly like a wrong one (T-R2-06, R2-M-22: the
+    schema's min_length answered a raw English 422)."""
+    token = body.token.strip()
+    if not 8 <= len(token) <= 128:
+        raise HTTPException(400, _INVALID_CODE)
+    user = await consume_reset_token(db, token, body.password)
     if user is None:
-        raise HTTPException(400, "invalid or expired code")
+        raise HTTPException(400, _INVALID_CODE)
     await db.commit()
     return {"ok": True, "user_id": user.id}

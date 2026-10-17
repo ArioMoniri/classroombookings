@@ -13,6 +13,13 @@
     "runs": "Çalıştırmalar", "run": "Çalıştırma", "onboarding": "Dosyalardan kur", "requests": "Talepler"
   },
   "nav": {
+    "tab": {
+      "bookings": "Rezerve",
+      "myBookings": "Benimkiler",
+      "findRoom": "Oda bul",
+      "approvals": "Onaylar",
+      "myRequests": "Taleplerim"
+    },
     "plan": "Planlama", "results": "Sonuçlar", "master": "Ana veriler", "admin": "Yönetim",
     "dashboard": "Özet", "import": "İçe aktar", "onboarding": "Dosyalardan kur", "requests": "Talepler", "generate": "Oluştur",
     "timetable": "Çizelge", "runs": "Çalıştırmalar", "rooms": "Derslikler", "buildings": "Binalar",
@@ -1188,7 +1195,8 @@
       "cancelManyBody": "Artık iptal edilemeyenler (başlamış olanlar) olduğu gibi bırakılır.",
       "cancelManyDone": "{n} iptal edildi, {skipped} olduğu gibi kaldı",
       "cancelReason": "Gerekçe: {reason}",
-      "approverNote": "Onaylayanın notu: {note}"
+      "approverNote": "Onaylayanın notu: {note}",
+      "openPeriod": "{period} saatini aç"
     },
     "feed": {
       "title": "Takvim aboneliği",
@@ -1405,7 +1413,8 @@
       "lead": "E-posta adresinizi ya da kullanıcı adınızı yazın. Hesap varsa e-postayla tek kullanımlık bir kod gelir ya da bir yöneticiye size kod vermesi için bildirim gider.",
       "identifier": "E-posta ya da kullanıcı adı",
       "send": "Kod gönder",
-      "requested": "Hesap varsa kod yolda (ya da bir yöneticiye bildirildi). Kodların süresi bir süre sonra dolar.",
+      "requested": "Hesap varsa kod yolda (ya da bir yöneticiye bildirildi). Kodun süresi 24 saat sonra dolar.",
+      "passwordHint": "En az 8 karakter.",
       "haveCode": "Kodum var",
       "needCode": "Kod istiyorum",
       "backToLogin": "Oturum açmaya dön",
@@ -2502,6 +2511,9 @@
       "webcal": "Takvim uygulaması bağlantısı",
       "copy": "{what} kopyala",
       "copied": "Bağlantı kopyalandı",
+      "copyShort": "Kopyala",
+      "copyWebcal": "webcal kopyala",
+      "copyFailed": "Kopyalanamadı: bağlantıyı alandan seçin",
       "google": "Google Takvim'e ekle",
       "outlook": "Outlook'a ekle",
       "outlookWork": "Microsoft 365",

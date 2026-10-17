@@ -148,3 +148,50 @@ describe("OnboardingFlow keeps the job in the address (T-R1-26)", () => {
     expect(within(recent).getByRole("button", { name: "Open job 1" })).toBeInTheDocument();
   });
 });
+
+describe("OnboardingFlow: the job's own address, a button drop zone and an accept list (T-R2-20)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("opens /onboarding/<id> from the route and goes back to /onboarding for a new job", async () => {
+    const backend = councilBackend();
+    vi.stubGlobal("fetch", withDryRun(backend, { intake_enabled: true }));
+    window.history.replaceState(null, "", "/onboarding/1");
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <I18nProvider initialLocale="en">
+          <OnboardingFlow initialJobId={1} />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    await screen.findByTestId("onboarding-progress");
+    expect(backend.calls).toContain("GET /api/v1/council/jobs/1");
+    expect(screen.queryByTestId("onboarding-drop")).toBeNull();
+    await userEvent.setup().click(screen.getByRole("button", { name: "New onboarding" }));
+    expect(window.location.pathname).toBe("/onboarding");
+    expect(window.location.search).toBe("");
+    await screen.findByTestId("onboarding-recent");
+  });
+
+  it("is one button that the keyboard opens, and the input accepts the listed formats", async () => {
+    const backend = councilBackend();
+    vi.stubGlobal("fetch", withDryRun(backend, { intake_enabled: true }));
+    renderFlow();
+    const zone = screen.getByTestId("onboarding-dropzone");
+    expect(zone.tagName).toBe("BUTTON");
+    expect(zone).toHaveAccessibleName(/Drop files here|Dosyaları buraya/);
+    expect(zone.querySelector("button, input, a, [tabindex]")).toBeNull(); // no nested control
+    const input = screen.getByTestId<HTMLInputElement>("onboarding-input");
+    expect(input.accept.split(",")).toEqual(expect.arrayContaining([".xlsx", ".csv", ".pdf", ".docx", ".ics", "image/*"]));
+    const click = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    zone.focus();
+    await user.keyboard("{Enter}");
+    await user.keyboard(" ");
+    expect(click).toHaveBeenCalledTimes(2);
+  });
+});

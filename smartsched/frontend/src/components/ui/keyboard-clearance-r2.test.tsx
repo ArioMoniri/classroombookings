@@ -22,11 +22,11 @@ describe("T-R2-01: document keyboard clearance", () => {
       <div>
         <main>
           <input aria-label="Yeni parola" />
-          <div data-testid="save" style={{ position: "sticky" }}>
+          <div data-testid="save" className="sticky bottom-22" style={{ position: "sticky" }}>
             <button type="button">Kaydet</button>
           </div>
         </main>
-        <div data-testid="tabs" style={{ position: "fixed" }}>
+        <div data-testid="tabs" className="fixed inset-x-0" style={{ position: "fixed" }}>
           <nav aria-label="Sekmeler" />
         </div>
         <KeyboardClearance scope="document" />
@@ -41,6 +41,7 @@ describe("T-R2-01: document keyboard clearance", () => {
     vi.spyOn(tabs, "getBoundingClientRect").mockReturnValue(rect(440, 508));
     field.scrollIntoView = vi.fn();
     const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
+    Object.defineProperty(document.documentElement, "clientHeight", { configurable: true, value: 508 });
     expect(stickyBarsOf(document.body, field).map((b) => b.getAttribute("data-testid"))).toEqual(["save", "tabs"]);
     field.focus();
     fireEvent.focusIn(field);

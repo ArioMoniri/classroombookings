@@ -2321,8 +2321,8 @@
       "ledger": "R2 lane S: minimal-change re-solve",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 05:36",
-      "left_off": "The moderation suites pass (20 passed: test_p19_moderation, _bridge, _resolve, test_r1_minimal_resolve) alongside the solver gate (168 passed, 3 pre-existing skips). The offline replay of the tester's runs is still on the full-mode re-solve; I will continue when it completes."
+      "finished_at": "2026-10-17 05:38",
+      "left_off": "The end-to-end replay (S10 priority edit, S11 pin + rerun, S12 wizard programme) through the real service path is running on the DB copy; the hand-off entries will be written with its preview counts once it finishes."
     },
     {
       "id": "a0d0d5d9bf11862e6",

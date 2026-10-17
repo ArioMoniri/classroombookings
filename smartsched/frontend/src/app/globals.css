@@ -714,6 +714,26 @@
     scroll-behavior: auto !important;
   }
 }
+/* T-R2-07 @media (prefers-reduced-motion: reduce) (R2-S-15): the Sheet / Dialog popups and overlays neither slide nor
+   fade in or out — no transition and no starting / ending offset, so two frames after the open the sheet is at its
+   resting place (motion_designer: nothing moves). The dialog keeps its centring `translate`; only the transform
+   (scale / phone slide) is cleared. Same rules under the in-app switch below. */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="sheet-content"], [data-slot="dialog-content"], [data-slot="sheet-overlay"], [data-slot="dialog-overlay"] {
+    transition: none !important;
+  }
+  [data-slot="sheet-content"]:is([data-starting-style], [data-ending-style]) {
+    translate: none !important;
+    opacity: 1 !important;
+  }
+  [data-slot="dialog-content"]:is([data-starting-style], [data-ending-style]) {
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  :is([data-slot="sheet-overlay"], [data-slot="dialog-overlay"]):is([data-starting-style], [data-ending-style]) {
+    opacity: 1 !important;
+  }
+}
 /* In-app "Reduce motion" (Settings → Appearance) mirrors the OS preference for CSS. */
 :root[data-motion="reduced"] {
   --spring-snappy-ms: 0ms; --spring-smooth-ms: 0ms; --spring-bouncy-subtle-ms: 0ms;
@@ -726,6 +746,21 @@
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
+}
+/* T-R2-07 :root[data-motion="reduced"]: the same popup rules as under prefers-reduced-motion above. */
+:root[data-motion="reduced"] :is([data-slot="sheet-content"], [data-slot="dialog-content"], [data-slot="sheet-overlay"], [data-slot="dialog-overlay"]) {
+  transition: none !important;
+}
+:root[data-motion="reduced"] [data-slot="sheet-content"]:is([data-starting-style], [data-ending-style]) {
+  translate: none !important;
+  opacity: 1 !important;
+}
+:root[data-motion="reduced"] [data-slot="dialog-content"]:is([data-starting-style], [data-ending-style]) {
+  transform: none !important;
+  opacity: 1 !important;
+}
+:root[data-motion="reduced"] :is([data-slot="sheet-overlay"], [data-slot="dialog-overlay"]):is([data-starting-style], [data-ending-style]) {
+  opacity: 1 !important;
 }
 
 /* Sonner's built-in toast motion is 400 ms; retime to the smooth spring (motion.md §3.1, pattern §5). */

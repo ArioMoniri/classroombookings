@@ -14,6 +14,13 @@
     "requests": "Requests"
   },
   "nav": {
+    "tab": {
+      "bookings": "Bookings",
+      "myBookings": "Mine",
+      "findRoom": "Find room",
+      "approvals": "Approvals",
+      "myRequests": "Requests"
+    },
     "plan": "Plan", "results": "Results", "master": "Master data", "admin": "Admin",
     "dashboard": "Dashboard", "import": "Import", "onboarding": "Set up from files", "requests": "Requests", "generate": "Generate",
     "timetable": "Timetable", "runs": "Runs", "rooms": "Rooms", "buildings": "Buildings",
@@ -1189,7 +1196,8 @@
       "cancelManyBody": "Bookings you may no longer cancel (already started) are left as they are.",
       "cancelManyDone": "{n} cancelled, {skipped} left as they were",
       "cancelReason": "Reason: {reason}",
-      "approverNote": "Approver's note: {note}"
+      "approverNote": "Approver's note: {note}",
+      "openPeriod": "Open {period}"
     },
     "feed": {
       "title": "Calendar subscription",
@@ -1406,7 +1414,8 @@
       "lead": "Enter your e-mail or username. If the account exists you will get a one-time code by e-mail, or an administrator will be told to give you one.",
       "identifier": "E-mail or username",
       "send": "Send me a code",
-      "requested": "If the account exists, a code is on its way (or an administrator has been notified). Codes expire after a while.",
+      "requested": "If the account exists, a code is on its way (or an administrator was notified). The code expires after 24 hours.",
+      "passwordHint": "At least 8 characters.",
       "haveCode": "I have a code",
       "needCode": "I need a code",
       "backToLogin": "Back to sign in",
@@ -2503,6 +2512,9 @@
       "webcal": "Calendar app link",
       "copy": "Copy {what}",
       "copied": "Link copied",
+      "copyShort": "Copy",
+      "copyWebcal": "Copy webcal",
+      "copyFailed": "Could not copy: select the link in the field",
       "google": "Add to Google Calendar",
       "outlook": "Add to Outlook",
       "outlookWork": "Microsoft 365",

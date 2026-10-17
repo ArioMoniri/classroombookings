@@ -820,7 +820,7 @@ def validate_payload(payload: Mapping[str, Any], ctx: Context) -> list[Issue]:
                     code=label,
                 )
             ids_here: set[int] = set()
-            new_names_here: set[str] = set()  # new people by canonical name: the commit creates one record
+            new_names_here: dict[str, str] = {}  # new people by canonical name: the commit creates one record
             for slot, ref in enumerate(refs):
                 ref = _dict(ref)
                 ipath = f"{spath}.instructors.{slot}"
@@ -934,13 +934,13 @@ def validate_payload(payload: Mapping[str, Any], ctx: Context) -> list[Issue]:
                             "error",
                             "instructor_twice",
                             ipath,
-                            f"Bu kişi bu şubede zaten var: {parsed.full_name}",
-                            f"This person is already on this section: {parsed.full_name}",
-                            name=parsed.full_name,
+                            f"Bu kişi bu şubede zaten var: {new_names_here[parsed.canonical]}",
+                            f"This person is already on this section: {new_names_here[parsed.canonical]}",
+                            name=new_names_here[parsed.canonical],
                         )
                         continue
                     else:
-                        new_names_here.add(parsed.canonical)
+                        new_names_here[parsed.canonical] = parsed.full_name
                         add(
                             "instructors",
                             "info",
