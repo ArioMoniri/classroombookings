@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { AiNotice } from "@/components/admin/ai/ai-kit";
+import { AiUsageBanner } from "@/components/admin/ai/my-ai-usage";
 import { roomLabel } from "@/components/runs/diagnosis-format";
 import { DiffTable, type DiffTableRow } from "@/components/ui/beautifului/diff-table";
 import { PromptComposer } from "@/components/ui/beautifului/prompt-composer";
@@ -14,6 +16,7 @@ import { useChat, useSendChat, useSettings, useUndoProposal } from "@/lib/api/ho
 import type { ChatMessage, ChatProposal } from "@/lib/api/schemas";
 import { usePermissions } from "@/lib/api/shell-extra";
 import { qk } from "@/lib/api/hooks";
+import { aiKeys } from "@/lib/api/ai-admin";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { INITIAL_STREAM, streamChat, streamReducer, type StreamState } from "./chat-stream";
 import { applyEdited, type Scope } from "./diff-edits";
@@ -254,8 +257,12 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
         const s = last;
         setLive((l) => (l ? { ...l, s } : l));
       });
-      if (last.error) toast.error(t("glass.chat.sendFailed"), { description: last.error.detail });
+      if (last.error) {
+        const e = last.error;
+        toast.error(t("glass.chat.sendFailed"), { description: (lang === "tr" ? e.messageTr : e.messageEn) ?? e.detail });
+      }
       await qc.invalidateQueries({ queryKey: qk.chat(runId) });
+      void qc.invalidateQueries({ queryKey: aiKeys.me }); // the near / at-limit banner follows this turn's tokens
     } catch {
       if (!started) {
         // the stream could not start (proxy without streaming, older backend): the non-streaming call
@@ -290,6 +297,7 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
         {send.isPending || (live && !live.s.text && !live.s.tools.length) ? <Thinking /> : null}
       </div>
       <div ref={composerRef} className="p-3 hairline-t">
+        <AiUsageBanner />
         {noKey ? (
           <p className="mb-2 type-footnote text-status-warning-fg">
             {t("glass.chat.noKey")}{" "}
@@ -311,6 +319,7 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
           sendLabel={t("chat.send")}
           suggestions={messages.length === 0 && !noKey ? STARTERS[pairLang(locale)] : undefined}
         />
+        <AiNotice className="mt-2" />
       </div>
     </section>
   );

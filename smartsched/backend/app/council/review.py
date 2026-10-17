@@ -13,6 +13,7 @@ Item kinds (``blocking`` items must be decided before commit):
 | ``plan`` | planner: one term group | no | accept, edit {code, name, kind, week_count, start_date, year} |
 | ``file`` | a file that could not be read | no | accept (acknowledged) |
 | ``ai_rows`` | rows read by the AI model (:mod:`app.council.airows`) | yes | per row via ``/rows/decisions`` |
+| ``person_merge`` | person matcher: a renamed known instructor | yes | accept (merge, default), reject (new) |
 
 Decisions are stored as ``review`` artifacts (append-only; the latest decision per item wins) and each post is
 one ``council.review`` audit event. A mapping or classification edit re-runs extract -> reconcile -> planner ->
@@ -36,9 +37,20 @@ from app.models import CouncilJob, User
 from app.models.base import utcnow
 from app.services.events import publish_event
 
-BLOCKING = {"classification", "mapping", "merge"}
+BLOCKING = {"classification", "mapping", "merge", "person_merge"}
 #: every item kind :func:`build_items` emits (the frontend's REVIEW_KINDS must list each: a contract test)
-ITEM_KINDS = ("classification", "mapping", "merge", "issue", "rule", "rule_text", "plan", "file", "ai_rows")
+ITEM_KINDS = (
+    "classification",
+    "mapping",
+    "merge",
+    "issue",
+    "rule",
+    "rule_text",
+    "plan",
+    "file",
+    "ai_rows",
+    "person_merge",
+)
 ACTIONS = {"accept", "reject", "edit"}
 
 
@@ -185,6 +197,9 @@ async def build_items(session: AsyncSession, job: CouncilJob) -> list[dict[str, 
                 files=g["files"],
                 evidence=g.get("evidence", []),
             )
+    # renamed instructors (owner decision 2026-10-17): "Aynı kişi mi?" before a second person is created
+    for item_id, title, extra in await person_merge_items(session, job):
+        add(item_id, "person_merge", title, **extra)
     # rows read by the AI model: one blocking item per file until a person decided each row (P19-A2)
     from app.council import airows
 
@@ -197,6 +212,124 @@ async def build_items(session: AsyncSession, job: CouncilJob) -> list[dict[str, 
         extra["options"] = ["", *FIELDS]
         items.append(extra)
     return items
+
+
+async def _term_ids(session: AsyncSession, job: CouncilJob) -> list[int] | None:
+    """The existing terms the job's planner groups name: the same code, else the one term whose code carries the
+    group's season word and year ("BAHAR" -> "2026-BAHAR"; the commit panel's rule, R3-M-04). ``None``: no group
+    names an existing term (the people of every term are then the known ones)."""
+    import re
+
+    from sqlalchemy import select
+
+    from app.models import Term
+
+    terms = (await session.execute(select(Term.id, Term.code))).all()
+    up = {tid: (code or "").strip().upper() for tid, code in terms}
+    out: list[int] = []
+    for g in (job.plan or {}).get("groups", []):
+        want = str(g.get("code") or "").strip().upper()
+        if not want:
+            continue
+        same = [tid for tid, c in up.items() if c == want]
+        if not same:
+            season = re.sub(r"\d{4}[-/]?\d{0,4}", "", want).replace("-", " ").strip()
+            year = g.get("year") or job.year_hint
+            same = [
+                tid
+                for tid, c in up.items()
+                if season and season in re.split(r"[-_ ]+", c) and (not year or str(year) in c)
+            ]
+            same = same if len(same) == 1 else []
+        out += same
+    return sorted(set(out)) or None
+
+
+async def person_merge_items(session: AsyncSession, job: CouncilJob) -> list[tuple[str, str, dict[str, Any]]]:
+    """``(item id, title, fields)`` of the "Aynı kişi mi?" questions (:mod:`app.services.person_match`): for each
+    instructor a file names who is not a known person yet (the commit would create them), the matcher against the
+    known people of the job's term (their courses from the term's sections, their e-mail); a ``near`` match of exactly
+    one person who teaches a course in common becomes a blocking item, merge by default. ``key`` / ``exact`` reuse the
+    person (as the commit already does), ``ambiguous`` / ``new`` stay as they are. The id is opaque (no name in it,
+    T-R1-22); the names travel in the item's fields, for planners only (``api/v1/council._redact``)."""
+    import hashlib
+
+    from sqlalchemy import select
+
+    from app.council import text as tx
+    from app.importers import normalize as n
+    from app.models import Course, Instructor, Section, SectionInstructor
+    from app.services.person_match import IncomingPerson, KnownPerson, match_person, review_item
+
+    records = await storage.records_by_file(session, job)
+    emails: dict[str, str] = {}
+    staff_nos: dict[str, Any] = {}
+    incoming: dict[tuple[int, str], dict[str, Any]] = {}
+    for fi, recs in sorted(records.items()):
+        for r in recs:
+            if r.get("type") == "staff" and r.get("name"):
+                k = tx.person_key(r["name"])
+                if r.get("email"):
+                    emails.setdefault(k, str(r["email"]))
+                if r.get("staff_no") not in (None, ""):
+                    staff_nos.setdefault(k, r["staff_no"])
+            if r.get("type") != "meeting":
+                continue
+            for raw in r.get("instructors") or []:
+                if n.non_person_reason(raw) is not None or n.canon_person_name(raw) is None:
+                    continue
+                k = tx.person_key(raw)
+                if not k:
+                    continue
+                entry = incoming.setdefault((fi, k), {"raw": raw, "courses": set()})
+                if r.get("course_code"):
+                    entry["courses"].add(str(r["course_code"]))
+    if not incoming:
+        return []
+    canon = {key: n.canon_person_name(e["raw"]).canonical for key, e in incoming.items()}  # type: ignore[union-attr]
+    found = select(Instructor.canonical_name).where(Instructor.canonical_name.in_(set(canon.values())))
+    existing = set((await session.execute(found)).scalars().all())
+    todo = {key: e for key, e in incoming.items() if canon[key] not in existing}
+    if not todo:
+        return []
+    q = (
+        select(Instructor.id, Instructor.full_name, Instructor.email, Course.code)
+        .join(SectionInstructor, SectionInstructor.instructor_id == Instructor.id)
+        .join(Section, Section.id == SectionInstructor.section_id)
+        .join(Course, Course.id == Section.course_id)
+        .where(Instructor.archived.is_(False))
+    )
+    term_ids = await _term_ids(session, job)
+    if term_ids:
+        q = q.where(Section.term_id.in_(term_ids))
+    people: dict[int, dict[str, Any]] = {}
+    by_course: dict[str, set[int]] = {}
+    for iid, name, email, code in (await session.execute(q)).all():
+        p = people.setdefault(iid, {"name": name, "email": email, "courses": set()})
+        p["courses"].add(code)
+        by_course.setdefault(n.course_key(code), set()).add(iid)
+    out: list[tuple[str, str, dict[str, Any]]] = []
+    for (fi, key), e in sorted(todo.items(), key=lambda kv: kv[0]):
+        person = IncomingPerson(
+            name=e["raw"], courses=frozenset(e["courses"]), email=emails.get(key), staff_no=staff_nos.get(key)
+        )
+        # the matcher needs a course in common for a near match: only those people (and a key match) can qualify
+        ids = set().union(*(by_course.get(n.course_key(c), set()) for c in e["courses"])) if e["courses"] else set()
+        if person.email:
+            ids |= {i for i, p in people.items() if (p["email"] or "").strip().lower() == person.email.strip().lower()}
+        known = [
+            KnownPerson(id=i, name=people[i]["name"], courses=frozenset(people[i]["courses"]), email=people[i]["email"])
+            for i in sorted(ids)
+        ]
+        match = match_person(person, known)
+        item = review_item(person, match, known) if match.kind == "near" else None
+        if item is None:
+            continue
+        digest = hashlib.sha256(f"{key}|{item['existing_id']}".encode()).hexdigest()[:16]
+        fields = {k: v for k, v in item.items() if k not in ("kind", "options")}
+        fields.update(choices=item["options"], file_index=fi, raw=e["raw"], title_tr=item["message_tr"])
+        out.append((f"person:{fi}:{digest}", item["message_en"], fields))
+    return out
 
 
 def effective_plan(plan: dict[str, Any], decided: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -337,7 +470,7 @@ async def apply_decisions(
                 if value.get("weight") is not None and not 1 <= int(value["weight"]) <= 10:
                     errors.append(f"{d['id']}: weight must be 1..10")
                     continue
-            if item["kind"] in ("merge", "issue", "rule_text", "file", "ai_rows"):
+            if item["kind"] in ("merge", "person_merge", "issue", "rule_text", "file", "ai_rows"):
                 errors.append(f"{d['id']}: {item['kind']} items can only be accepted or rejected")
                 continue
         stored[d["id"]] = {"action": d["action"], "value": value, "by": user_id, "at": utcnow().isoformat()}

@@ -114,6 +114,11 @@ class ChangeRecorder:
         return (table, pk[0] if len(pk) == 1 else pk)
 
     def _before(self, session: Session, flush_context: Any, instances: Any) -> None:  # noqa: ARG002
+        for obj in session.deleted:  # a row created and removed again in the same commit is no change
+            key = self._ident(obj)
+            if key is not None and key in self.created:
+                del self.created[key]
+                self.updated.pop(key, None)
         for obj in session.new:
             table = _table(obj)
             if table is not None and table not in IGNORED:

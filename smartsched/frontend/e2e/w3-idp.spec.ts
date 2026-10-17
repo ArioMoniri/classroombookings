@@ -41,6 +41,13 @@ test.beforeAll(async () => {
   const tok = (await (await ctx.post(`${API}/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })).json()) as { access_token: string };
   const r = await ctx.put(`${API}/calendar/admin/settings`, { data: { public_url: WEB }, headers: { Authorization: `Bearer ${tok.access_token}` } });
   expect(r.ok()).toBeTruthy();
+  // idempotent reruns: earlier Keycloak providers of this spec are switched off and deleted
+  const auth = { Authorization: `Bearer ${tok.access_token}` };
+  const list = (await (await ctx.get(`${API}/auth/sso/admin/providers`, { headers: auth })).json()) as { providers: { id: number; kind: string; enabled: boolean }[] };
+  for (const p of list.providers.filter((x) => x.kind === "oidc")) {
+    if (p.enabled) await ctx.put(`${API}/auth/sso/admin/providers/${p.id}`, { data: { enabled: false }, headers: auth });
+    await ctx.delete(`${API}/auth/sso/admin/providers/${p.id}`, { headers: auth });
+  }
   await ctx.dispose();
 });
 

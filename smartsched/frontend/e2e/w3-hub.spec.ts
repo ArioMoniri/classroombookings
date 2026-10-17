@@ -267,3 +267,28 @@ test("3. phone 390 touch: M-01/02/03 on the gallery and the sheet, M-05 for the 
   await expect(page.getByTestId("setup-sheet").getByRole("switch", { name: "Zapier: Kullanımda" })).toBeVisible();
   await ctx.close();
 });
+
+test("4. the E-posta and Kimlik sheets embed W3-MAIL's and W3-IDP's panels without page errors (1440 and 390 touch)", async ({ browser }) => {
+  for (const opts of [{ viewport: { width: 1440, height: 900 } }, PHONE]) {
+    const ctx = await browser.newContext(opts);
+    const page = await ctx.newPage();
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await login(page);
+    for (const [q, title] of [
+      ["area=email&setup=email.smtp", "E-posta (SMTP)"],
+      ["area=identity&setup=identity.providers", null],
+    ] as const) {
+      await page.goto(`/admin/integrations?${q}`);
+      const sheet = page.getByTestId("setup-sheet");
+      await expect(sheet).toBeVisible();
+      if (title) await expect(sheet.getByTestId("setup-title")).toHaveText(title);
+      await expect(sheet.getByTestId("setup-sheet-body")).not.toBeEmpty();
+      await expect(sheet.getByTestId("setup-done")).toBeVisible();
+      if (q.startsWith("area=identity")) await expect(sheet.getByTestId("identity-providers-panel")).toBeVisible({ timeout: 30_000 });
+      expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    }
+    expect(errors).toEqual([]);
+    await ctx.close();
+  }
+});

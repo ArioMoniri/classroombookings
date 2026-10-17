@@ -13,7 +13,9 @@ export interface StreamState {
   tools: ToolState[];
   retries: number;
   done: boolean;
-  error: { status: number; detail: string } | null;
+  /** `detail` is the server's text (English when the server sent a coded refusal); a gateway refusal (guardrail 422,
+   * limit / rate 429, transfer basis 409: app/ai/pipeline.AIGuardError) also carries its code and both languages */
+  error: { status: number; detail: string; code?: string; messageTr?: string; messageEn?: string } | null;
 }
 export const INITIAL_STREAM: StreamState = { text: "", tools: [], retries: 0, done: false, error: null };
 
@@ -37,8 +39,18 @@ export function streamReducer(s: StreamState, e: StreamEvent): StreamState {
       return { ...s, retries: s.retries + 1 };
     case "done":
       return { ...s, done: true };
-    case "error":
-      return { ...s, done: true, error: { status: Number(d.status ?? 502), detail: String(d.detail ?? "") } };
+    case "error": {
+      const status = Number(d.status ?? 502);
+      if (d.detail && typeof d.detail === "object") {
+        const x = rec(d.detail);
+        const en = typeof x.message_en === "string" ? x.message_en : undefined;
+        const tr = typeof x.message_tr === "string" ? x.message_tr : undefined;
+        const code = typeof x.code === "string" ? x.code : undefined;
+        const detail = en ?? (typeof x.message === "string" ? x.message : code ?? "");
+        return { ...s, done: true, error: { status, detail, ...(code ? { code } : {}), ...(tr ? { messageTr: tr } : {}), ...(en ? { messageEn: en } : {}) } };
+      }
+      return { ...s, done: true, error: { status, detail: String(d.detail ?? "") } };
+    }
     default:
       return s;
   }

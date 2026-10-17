@@ -64,6 +64,7 @@ from app.models import (
     CouncilJob,
     ExamRequest,
     ImportedSnapshot,
+    Instructor,
     MeetingRequest,
     Room,
     Section,
@@ -710,6 +711,39 @@ class Writer:
         return out
 
 
+async def _merge_imported_people(session: AsyncSession, merges: list[dict[str, Any]]) -> int:
+    """Move the section links of the people a fast-path importer just created under a spelling the reviewer merged
+    into a known person (``person_merge`` accepted) to that person, and remove the new record (it was created by this
+    commit: the review only asks about names that were nobody yet). Returns the links moved."""
+    from app.importers.normalize import canon_person_name
+
+    moved = 0
+    for it in merges:
+        parsed = canon_person_name(it["raw"])
+        target_id = int(it["existing_id"])
+        if parsed is None:
+            continue
+        new = (
+            await session.execute(select(Instructor).where(Instructor.canonical_name == parsed.canonical))
+        ).scalar_one_or_none()
+        if new is None or new.id == target_id:
+            continue
+        links = (
+            (await session.execute(select(SectionInstructor).where(SectionInstructor.instructor_id == new.id)))
+            .scalars()
+            .all()
+        )
+        for link in links:
+            if await session.get(SectionInstructor, (link.section_id, target_id)) is None:
+                session.add(SectionInstructor(section_id=link.section_id, instructor_id=target_id, role=link.role))
+            await session.delete(link)
+            moved += 1
+        await session.flush()
+        await session.delete(new)
+        await session.flush()
+    return moved
+
+
 async def _import_fast(
     session: AsyncSession,
     shape: str,
@@ -807,6 +841,14 @@ async def commit(
             "reddedilmeli.",
         )
     pending = [it for it in pending if it["kind"] != "ai_rows"]
+    # the file's people the reviewer merged into a known person (accept = merge; reject = keep as new)
+    person_merges = [
+        it
+        for it in items
+        if it["kind"] == "person_merge"
+        and (it.get("decision") or {}).get("action") == "accept"
+        and it.get("file_index") in chosen
+    ]
     if pending and not allow_pending:
         # T-R2-21 / R2-S-13: counts only - a merge item's title names two people, and a refusal body is no place
         # for names (KVKK); the review list has them for those who may see them
@@ -898,6 +940,14 @@ async def commit(
         else:
             writer.person_alias[tx.person_key(m["b"])] = m["a"]
         writer.counts["merges_applied"] += 1
+    # "Aynı kişi mi?" answered "merge" (owner decision 2026-10-17): the file's spelling is written as the known
+    # person. The general writer maps it before Catalog.instructor; a fast-path importer created the new spelling as
+    # a person of its own, whose section links move to the known person here (the new record goes again)
+    for it in person_merges:
+        writer.person_alias[tx.person_key(it["raw"])] = it["existing_name"]
+        writer.counts["person_merges_applied"] += 1
+    if fast and person_merges:
+        writer.counts["person_links_moved"] += await _merge_imported_people(session, person_merges)
     duplicates = dataset.get("duplicates", {})
     # general-path files and the record shapes without an importer (intake.v1 JSON, ICS schedule maps)
     general = [i for i in chosen if not routes[i].startswith("fast:") or routes[i][5:] not in fastpath.IMPORTER_SHAPES]

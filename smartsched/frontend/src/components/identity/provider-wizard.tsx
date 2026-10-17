@@ -94,7 +94,7 @@ function Wizard({ setup, onBack, headingRef }: { setup: Setup; onBack: () => voi
   const { t, locale } = useI18n();
   const p = setup.provider;
   const states = stepState(p, { publicUrl: setup.public_url });
-  const [step, setStep] = useState<WizardStep>(() => firstOpenStep(states));
+  const [step, setStep] = useState<WizardStep>(() => (!p.configured && !p.client_id && !p.issuer && !p.saml?.idp_entity_id ? "preset" : firstOpenStep(states)));
   const [test, setTest] = useState<TestResult | null>(null);
   const tested = test?.ok === true || p.test_ok === true;
   const name = locale === "en" ? p.label_en : p.label;

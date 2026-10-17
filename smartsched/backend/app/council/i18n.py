@@ -191,6 +191,7 @@ _r(
     lambda m: f"{SHAPE_TR.get(m['shape'], m['shape'])} aktarıcısı okudu: {m['n']} kayıt",
 )
 _r(r"(?P<n>\d+) records", "{n} kayıt")
+_r(r"Same person\?", "Aynı kişi mi?")
 _r(
     r"free text without tables; record extraction from prose needs the AI model \((?P<why_m>.*)\)",
     "Tablosuz serbest metin; metinden kayıt çıkarmak için yapay zekâ modeli gerekir ({why_m})",
@@ -366,7 +367,8 @@ def localize_item(item: dict[str, Any], lang: str | None) -> dict[str, Any]:
     """A review item with its title (and an issue's severity) for ``lang``; the English stays in ``title_en``."""
     if (lang or "").lower()[:2] != "tr":
         return item
-    out = {**item, "title_en": item.get("title"), "title": localize(item.get("title"), lang)}
+    title_tr = item.get("title_tr") if item.get("kind") == "person_merge" else None  # the matcher's own Turkish
+    out = {**item, "title_en": item.get("title"), "title": title_tr or localize(item.get("title"), lang)}
     if isinstance(item.get("severity"), str):
         out["severity_label"] = SEVERITY_TR.get(item["severity"], item["severity"])
     return out

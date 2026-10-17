@@ -296,6 +296,13 @@ def _redact(item: dict[str, Any]) -> dict[str, Any]:
     if item.get("kind") == "merge":  # the two spellings are names of people or rooms
         out["current"] = {k: v for k, v in (item.get("current") or {}).items() if k in ("kind", "score")}
         out["title"] = f"Same {(item.get('current') or {}).get('kind', 'entity')}?"
+    if item.get("kind") == "person_merge":  # the two names are people's: the question only, no names, no courses
+        out = {
+            k: v
+            for k, v in out.items()
+            if k in ("id", "kind", "blocking", "decision", "file_index", "reason", "distance", "default", "existing_id")
+        }
+        out["title"] = "Same person?"
     if item.get("kind") in ("issue", "rule", "rule_text", "file"):
         out["title"] = {"issue": "Finding", "rule": "Rule proposal", "rule_text": "Rule-like texts", "file": "File"}[
             item["kind"]
