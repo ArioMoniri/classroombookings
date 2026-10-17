@@ -129,9 +129,10 @@ async def test_ai_route_rows_need_a_person_before_commit(client, monkeypatch, mo
 
     body = {"files": [0], "term": TERM, "allow_pending": True}
     r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json=body)
-    assert (
-        r.status_code == 409 and "read by the AI model" in r.json()["detail"] and "allow_pending" in r.json()["detail"]
-    )
+    detail = r.json()["detail"]  # coded since T-R2-21: code, count, message (EN) and message_tr
+    assert r.status_code == 409 and detail["code"] == "ai_rows_pending" and detail["count"] == 36
+    assert "read by the AI model" in detail["message"] and "allow_pending" in detail["message"]
+    assert detail["message_tr"].startswith("Yapay zekâ ile okunan 36 satır")
     r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={**body, "dry_run": True})
     assert r.status_code == 409  # a dry-run is refused for the same reason
 

@@ -2262,7 +2262,9 @@
       "goal": "You are the round-2 loop builder for **lane A (shell, UI primitives, login and auth)** of SmartSched, ledger `loop-r2-laneA-2026-10-17`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md then .../briefs/ROUND2-BUILD.md and follow them. T…",
       "ledger": "R2 lane A: shell/ui/auth",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 08:35",
+      "left_off": "Waiting on the frontend rebuild (one background watcher is armed); every remaining step — the full 8-case e2e run, the round-1 Shift+? check, and the hand-off docs — depends on it, so there is nothing else to request right now."
     },
     {
       "id": "a36ad8aefbab2a108",
