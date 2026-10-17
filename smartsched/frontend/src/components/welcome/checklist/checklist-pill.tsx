@@ -40,7 +40,7 @@ export function ChecklistPill({ collapsed }: { collapsed?: boolean }) {
             )}
           >
             {collapsed ? (
-              <span aria-hidden className="relative flex size-8 items-center justify-center rounded-full" style={{ background: `conic-gradient(var(--tint) ${ratio * 360}deg, var(--fill-1) 0)` }}>
+              <span aria-hidden className="relative flex size-8 items-center justify-center rounded-full" style={{ background: `conic-gradient(var(--accent) ${ratio * 360}deg, var(--fill-1) 0)` }}>
                 <span className="flex size-6 items-center justify-center rounded-full bg-(--mat-chrome-solid)">
                   <ListChecks className="size-3.5 text-label-1" />
                 </span>

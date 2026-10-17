@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlsplit
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -115,7 +116,12 @@ def safe_host(host: str | None) -> str:
     return h if h and len(h) <= 255 and _HOST.match(h) else "localhost"
 
 
-def build(values: dict[str, Any], *, host: str, scheme: str, now: datetime | None = None) -> str:
+def build(values: dict[str, Any], *, host: str, scheme: str, now: datetime | None = None, public_base: str = "") -> str:
+    """The file; ``public_base`` (the panel's public URL, ``scheme://host[:port]``) wins over the request host."""
+    if public_base:
+        parts = urlsplit(public_base)
+        if parts.scheme in ("http", "https") and parts.netloc:
+            scheme, host = parts.scheme, parts.netloc
     host = safe_host(host)
     scheme = "https" if scheme == "https" else "http"
     expires = (now or datetime.now(UTC)) + timedelta(days=365)

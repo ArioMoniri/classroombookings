@@ -19,7 +19,7 @@ import { calendarExportApi, calendarExportKeys, useExportOptions, useRefreshCale
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { RETURN_PATH, legacyProviders, manageRows, nextFocus, pushAccounts, pushScope, relativeWhen } from "./model";
-import { LinkResult, providerName, scopeName } from "./steps";
+import { Advanced, LinkResult, providerName, scopeName } from "./steps";
 
 type T = ReturnType<typeof useI18n>["t"];
 
@@ -142,26 +142,31 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
                 {r.last_error ? <p className="type-footnote text-status-warning-fg">{r.last_error}</p> : null}
               </div>
               <div className="flex flex-wrap gap-2">
-                {r.channel === "push" ? (
-                  <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" data-row-action="" onClick={() => void resync(r)} disabled={busy !== null} aria-busy={busy === `sync-${r.id}` || undefined} data-testid={`cal-sync-${r.id}`}>
-                    <RefreshCw aria-hidden />
-                    <BusyLabel busy={busy === `sync-${r.id}`} label={t("busy.working")}>
-                      {t("calendarExport.manage.syncNow")}
-                    </BusyLabel>
-                  </Button>
-                ) : (
-                  <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" data-row-action="" onClick={() => void rotate(r)} disabled={busy !== null} aria-busy={busy === `rotate-${r.id}` || undefined} data-testid={`cal-rotate-${r.id}`}>
-                    <RotateCw aria-hidden />
-                    <BusyLabel busy={busy === `rotate-${r.id}`} label={t("busy.working")}>
-                      {t("calendarExport.manage.rotate")}
-                    </BusyLabel>
-                  </Button>
-                )}
-                <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" onClick={() => setConfirm(r)} disabled={busy !== null} data-testid={`cal-remove-${r.id}`}>
+                <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" data-row-action="" onClick={() => setConfirm(r)} disabled={busy !== null} data-testid={`cal-remove-${r.id}`}>
                   <Trash2 aria-hidden />
                   {t("calendarExport.manage.remove")}
                 </Button>
               </div>
+              {/* the simplicity principle: syncing by hand and renewing a link are for the few who need them */}
+              <Advanced testId={`cal-row-advanced-${r.id}`} className="bg-fill-3">
+                <div className="flex flex-wrap gap-2">
+                  {r.channel === "push" ? (
+                    <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" onClick={() => void resync(r)} disabled={busy !== null} aria-busy={busy === `sync-${r.id}` || undefined} data-testid={`cal-sync-${r.id}`}>
+                      <RefreshCw aria-hidden />
+                      <BusyLabel busy={busy === `sync-${r.id}`} label={t("busy.working")}>
+                        {t("calendarExport.manage.syncNow")}
+                      </BusyLabel>
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" onClick={() => void rotate(r)} disabled={busy !== null} aria-busy={busy === `rotate-${r.id}` || undefined} data-testid={`cal-rotate-${r.id}`}>
+                      <RotateCw aria-hidden />
+                      <BusyLabel busy={busy === `rotate-${r.id}`} label={t("busy.working")}>
+                        {t("calendarExport.manage.rotate")}
+                      </BusyLabel>
+                    </Button>
+                  )}
+                </div>
+              </Advanced>
               {rotated && String(rotated.id) === String(r.id) ? <LinkResult urls={rotated.made.urls} name={rowTitle(r, t, locale)} testId={`cal-rotated-${r.id}`} /> : null}
             </li>
           ))}
@@ -229,20 +234,31 @@ function Account({ p, legacy, busy, onReconnect, onDisconnected }: { p: PushChan
         ) : null}
       </div>
       {reauth ? <p className="type-footnote text-status-warning-fg">{t("calendarExport.manage.reauth")}</p> : null}
-      {legacy && !reauth ? <p className="type-footnote text-label-2">{t("calendarExport.manage.reconnectLessHint")}</p> : null}
-      <div className="flex flex-wrap gap-2">
-        {reauth || legacy ? (
+      {reauth ? (
+        <div>
           <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" onClick={onReconnect} disabled={busy !== null} aria-busy={busy === `reconnect-${p.provider}` || undefined} data-testid={`cal-reconnect-${p.provider}`}>
             <BusyLabel busy={busy === `reconnect-${p.provider}`} label={t("calendarPush.me.redirecting")}>
-              {reauth ? t("calendarExport.manage.reconnect") : t("calendarExport.manage.reconnectLess")}
+              {t("calendarExport.manage.reconnect")}
             </BusyLabel>
           </Button>
-        ) : null}
-        <Button ref={triggerRef} variant="ghost" size="sm" className="pointer-coarse:min-h-11" onClick={() => setAsking(true)} disabled={busy !== null || working} data-testid={`cal-disconnect-${p.provider}`}>
-          <Unplug aria-hidden />
-          {t("calendarExport.manage.disconnect")}
-        </Button>
-      </div>
+        </div>
+      ) : null}
+      <Advanced testId={`cal-account-advanced-${p.provider}`} className="bg-fill-2">
+        {legacy && !reauth ? <p className="type-footnote text-label-2">{t("calendarExport.manage.reconnectLessHint")}</p> : null}
+        <div className="flex flex-wrap gap-2">
+          {legacy && !reauth ? (
+            <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" onClick={onReconnect} disabled={busy !== null} aria-busy={busy === `reconnect-${p.provider}` || undefined} data-testid={`cal-reconnect-${p.provider}`}>
+              <BusyLabel busy={busy === `reconnect-${p.provider}`} label={t("calendarPush.me.redirecting")}>
+                {t("calendarExport.manage.reconnectLess")}
+              </BusyLabel>
+            </Button>
+          ) : null}
+          <Button ref={triggerRef} variant="ghost" size="sm" className="pointer-coarse:min-h-11" onClick={() => setAsking(true)} disabled={busy !== null || working} data-testid={`cal-disconnect-${p.provider}`}>
+            <Unplug aria-hidden />
+            {t("calendarExport.manage.disconnect")}
+          </Button>
+        </div>
+      </Advanced>
       {error ? (
         <p role="alert" className="type-footnote text-status-infeasible-fg">
           {error}

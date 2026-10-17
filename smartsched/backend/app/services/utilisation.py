@@ -14,6 +14,8 @@ Definitions (stated in every response under ``definitions``):
   and they are left out of the percentage: ``pct = occupied / (capacity - blocked)``; ``pct_with_blocks`` counts
   them as used (``(occupied + blocked) / capacity``);
 * ``capacity``: rooms x weeks in scope for a cell (one week by default; ``scope=term`` averages the whole horizon).
+* holidays (``holidays`` rows) and HOLIDAY weeks are closed days: left out of ``occupied`` and of ``capacity``
+  (AS-02, ``app.services.seasons.closed_days``).
 
 Columns: ``axis=day`` (Monday..Sunday, aggregated over the weeks in scope; the course default) or ``axis=date``
 (one column per week + day with its calendar date when the term has dates; the exam default).

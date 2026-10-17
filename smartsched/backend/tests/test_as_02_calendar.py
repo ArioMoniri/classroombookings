@@ -49,7 +49,9 @@ async def _run(term_id: int) -> ScheduleRun:
         return out
 
 
-async def test_as_02_term_course_run_plans_no_class_in_weeks_16_to_19(engine, stub_solver, parsed_bahar_grid, parsed_bahar_list):
+async def test_as_02_term_course_run_plans_no_class_in_weeks_16_to_19(
+    engine, stub_solver, parsed_bahar_grid, parsed_bahar_list
+):
     tid, mr, _rooms = await _bahar(parsed_bahar_grid, parsed_bahar_list)
     async with get_session_factory()() as s:
         probe = ScheduleRun(term_id=tid, kind="COURSE", horizon="TERM", params={})
@@ -63,7 +65,6 @@ async def test_as_02_term_course_run_plans_no_class_in_weeks_16_to_19(engine, st
     run = await _run(tid)
     async with get_session_factory()() as s:
         rows = list((await s.execute(select(Assignment).where(Assignment.run_id == run.id))).scalars())
-        term = await s.get(type(run).__mapper__.relationships["term"].mapper.class_, tid) if False else None
     assert rows, run.diagnosis
     weeks = {int(w) for a in rows for w in (a.weeks or [])}
     assert weeks and max(weeks) <= 15 and not weeks & {16, 17, 18, 19}
@@ -75,7 +76,6 @@ async def test_as_02_term_course_run_plans_no_class_in_weeks_16_to_19(engine, st
         r = await s.get(ScheduleRun, run.id)
         assert t is not None and r is not None
         assert horizon_weeks(r, t) == list(range(1, 16))
-    assert term is None
 
 
 async def test_as_02_exam_and_week_runs_keep_their_weeks(engine, parsed_bahar_grid, parsed_bahar_list):
@@ -94,31 +94,38 @@ async def test_as_02_exam_and_week_runs_keep_their_weeks(engine, parsed_bahar_gr
         assert horizon_weeks(month, t, kinds=kinds) == [14, 15]
 
 
-async def test_as_02_holiday_thursday_leaves_numerator_and_denominator(engine, stub_solver, parsed_bahar_grid, parsed_bahar_list):
+async def test_as_02_holiday_thursday_leaves_numerator_and_denominator(
+    engine, stub_solver, parsed_bahar_grid, parsed_bahar_list
+):
     tid, _mr, rooms = await _bahar(parsed_bahar_grid, parsed_bahar_list)
     run = await _run(tid)
     async with get_session_factory()() as s:
         before = await room_heatmap(s, run_id=run.id, group_by="building", week=12)
-    thu = next(c for c in before["by_col"] if c["col"] == "d4") if "by_col" in before else None
     col_before = _col(before, "d4")
     assert col_before["occupied"] > 0 and col_before["capacity"] == len(rooms) * 18
     async with get_session_factory()() as s:
-        s.add(Holiday(term_id=tid, name="Ulusal Egemenlik ve Çocuk Bayramı", date_start=THURSDAY_23_NISAN, date_end=THURSDAY_23_NISAN))
+        s.add(
+            Holiday(
+                term_id=tid,
+                name="Ulusal Egemenlik ve Çocuk Bayramı",
+                date_start=THURSDAY_23_NISAN,
+                date_end=THURSDAY_23_NISAN,
+            )
+        )
         await s.commit()
     async with get_session_factory()() as s:
         after = await room_heatmap(s, run_id=run.id, group_by="building", week=12)
         sc = await build_scope(s, run_id=run.id, week=12)
     col_after = _col(after, "d4")
     assert col_after["occupied"] == 0 and col_after["capacity"] == 0
-    assert after["overall"]["capacity"] == before["overall"]["capacity"] - len(rooms) * 18
-    assert after["overall"]["occupied"] == before["overall"]["occupied"] - col_before["occupied"]
+    assert after["overall"]["total"]["capacity"] == before["overall"]["total"]["capacity"] - len(rooms) * 18
+    assert after["overall"]["total"]["occupied"] == before["overall"]["total"]["occupied"] - col_before["occupied"]
     assert (12, 4) in sc.occ.closed
     assert "holidays" in after["definitions"]
     # another Thursday (week 11) is untouched
     async with get_session_factory()() as s:
         wk11 = await room_heatmap(s, run_id=run.id, group_by="building", week=11)
     assert _col(wk11, "d4")["occupied"] == col_before["occupied"]
-    assert thu is None or thu
 
 
 async def test_as_02_holiday_week_is_closed_in_the_heatmap(engine, stub_solver, parsed_bahar_grid, parsed_bahar_list):
@@ -130,7 +137,13 @@ async def test_as_02_holiday_week_is_closed_in_the_heatmap(engine, stub_solver, 
     run = await _run(tid)
     async with get_session_factory()() as s:
         hm = await room_heatmap(s, run_id=run.id, group_by="building", scope="term")
-    assert 10 not in hm["weeks"] or hm["overall"]["capacity"] == len(rooms) * 18 * 7 * (len(hm["weeks"]) - 1)
+    days = len({c["day"] for c in hm["columns"]})
+    # the course run skips the HOLIDAY week, and the heatmap's term scope follows the planned horizon
+    assert hm["weeks"] == [w for w in range(1, 16) if w != 10]
+    assert hm["overall"]["total"]["capacity"] == len(rooms) * 18 * days * 14
+    async with get_session_factory()() as s:
+        wk10 = await room_heatmap(s, run_id=run.id, group_by="building", week=10)
+    assert wk10["overall"]["total"]["capacity"] == 0 and wk10["overall"]["total"]["occupied"] == 0
 
 
 def _col(hm, key):

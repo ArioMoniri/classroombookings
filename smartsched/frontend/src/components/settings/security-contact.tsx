@@ -97,7 +97,7 @@ function SecurityContactForm() {
           noValidate
           onSubmit={(e) => {
             e.preventDefault();
-            save.mutate({ ...form });
+            if (!save.isPending) save.mutate({ ...form });
           }}
         >
           {FIELDS.map((name) => (
@@ -119,7 +119,8 @@ function SecurityContactForm() {
             </Field>
           ))}
           <div className="flex flex-wrap items-center gap-3 md:col-span-2">
-            <Button type="submit" disabled={save.isPending} className="pointer-coarse:min-h-11" data-testid="security-contact-save">
+            {/* never disabled while saving: a disabled button drops the focus to <body>; a second submit is ignored */}
+            <Button type="submit" aria-busy={save.isPending || undefined} className="pointer-coarse:min-h-11" data-testid="security-contact-save">
               {t("settings.securityContact.save")}
             </Button>
             <p className="type-footnote text-label-3" data-testid="security-contact-last">

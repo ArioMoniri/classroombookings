@@ -351,7 +351,7 @@ backend only so far are listed in [docs/STATUS.md](docs/STATUS.md).
 
 <!-- AUTO:status only=done -->
 
-Done 61 · Backend only 0 · In progress 2 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
+Done 62 · Backend only 0 · In progress 2 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
 
 | Feature | Area | Evidence |
 |---|---|---|
@@ -416,6 +416,7 @@ Done 61 · Backend only 0 · In progress 2 · Planned 0. Done items only; the fu
 | Guided identity-provider setup (5 steps): console values built from the public URL with Kopyala (redirect URI, entity id, ACS, scopes, logout URL, SP metadata), discovery / metadata check rows, a real test login in a popup that reports the claims (no account, no stored token), provider errors translated into cause + fix + step, then Etkinleştir | Platform, CI and docs | [`identity-wizard.test.tsx`](smartsched/frontend/src/components/identity/identity-wizard.test.tsx) |
 | Invitations per provider: invite by e-mail with the provider or a local password (set from the link), themed invitation e-mail (W3-MAIL send_kind), resend, renew, revoke (disables the unused placeholder, T-R1-35), bulk invite from a Turkish Excel CSV; account_created e-mail on self sign-up and local acceptance | Platform, CI and docs | [`test_w3b_idp_invites.py`](smartsched/backend/tests/test_w3b_idp_invites.py) |
 | /login with several providers: equal-weight buttons in the admins' order (Microsoft and Google branding), at most 3 + 'Diğer giriş yolları', invite shows only the invited method, provider error codes domain / invite_provider in TR/EN | Platform, CI and docs | [`identity-wizard.test.tsx`](smartsched/frontend/src/components/identity/identity-wizard.test.tsx) |
+| Calendar export for academicians (backend): 'Derslerim' and 'Bölümümün dersleri' from the published run only, as scope-bound revocable subscription links (classes.ics, department-classes/{id}.ics), one-off .ics files and push into a dedicated 'SmartSched – Derslerim' Google (calendar.app.created) / Microsoft calendar; stable class UIDs across re-publishes and room moves, SEQUENCE on every change, CANCELLED tombstones, Europe/Istanbul VTIMEZONE, RFC 7986 NAME/SOURCE, version-key ETag/304 + Last-Modified, 1 MB cap; department rule (own, taught, calendar.department_feed); per-scope approval with consent id and audit; verified accounts for push (identity, Workspace hd, Entra tid, own e-mail / institution domain, admin-allowed domains); nightly repair 03:30 | Platform, CI and docs | [`test_cal_06_push.py`](smartsched/backend/tests/test_cal_06_push.py) |
 
 <!-- /AUTO:status -->
 
@@ -440,6 +441,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `60aaf94` (committed 2026-10-17 22:40 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `220124b` (committed 2026-10-17 23:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

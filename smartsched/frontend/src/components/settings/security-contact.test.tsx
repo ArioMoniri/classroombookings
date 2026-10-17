@@ -89,3 +89,16 @@ describe("SecurityContactCard", () => {
     expect(screen.queryByText("Güvenlik iletişimi")).not.toBeInTheDocument();
   });
 });
+
+describe("SecurityContactCard focus", () => {
+  it("keeps the focus on the save button after saving (never on <body>)", async () => {
+    renderIt();
+    fireEvent.change(await screen.findByLabelText("Güvenlik iletişim e-postası"), { target: { value: "a@uni.edu.tr" } });
+    const button = screen.getByRole("button", { name: "Kaydet" });
+    button.focus();
+    fireEvent.click(button);
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(button).not.toBeDisabled();
+    expect(document.activeElement).toBe(button);
+  });
+});

@@ -27,6 +27,9 @@ interface WelcomeUi {
   dismissedHints: string[];
   /** items marked done in this tab before the refetch lands */
   localDone: string[];
+  /** the one hint auto-shown as a popover this session (the server's `show.kind === "hint"`) */
+  autoHint: string | null;
+  setAutoHint: (key: string | null) => void;
   openSheet: (req: SheetRequest) => void;
   closeSheet: () => void;
   startTour: (req: TourRequest) => void;
@@ -42,6 +45,8 @@ export const useWelcomeStore = create<WelcomeUi>()((set) => ({
   checklistOpen: false,
   dismissedHints: [],
   localDone: [],
+  autoHint: null,
+  setAutoHint: (key) => set({ autoHint: key }),
   openSheet: (req) => set({ sheet: req, checklistOpen: false }),
   closeSheet: () => set({ sheet: null }),
   startTour: (req) => set({ tour: req, sheet: null, checklistOpen: false }),

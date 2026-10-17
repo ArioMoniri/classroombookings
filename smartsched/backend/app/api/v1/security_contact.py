@@ -78,5 +78,10 @@ async def put_contact(body: ContactIn, db: DB, user: Admin) -> dict[str, Any]:
 @public_router.get("/.well-known/security.txt", include_in_schema=False)
 @public_router.get("/security.txt", include_in_schema=False)
 async def security_txt(request: Request, db: DB) -> PlainTextResponse:
-    text = st.build(await st.current(db), host=request.headers.get("host", ""), scheme=request.url.scheme)
+    from app.services.calendar_feeds import public_base  # the panel's public URL (setting, else PUBLIC_URL)
+
+    base, _ = await public_base(db)
+    text = st.build(
+        await st.current(db), host=request.headers.get("host", ""), scheme=request.url.scheme, public_base=base
+    )
     return PlainTextResponse(text, headers={"Cache-Control": "max-age=3600", "X-Content-Type-Options": "nosniff"})

@@ -14,13 +14,14 @@ import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Input, useShake } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { crbs, crbsError, useCrbsMe, useCrbsMutation, useOrgPublic, useProfile, type Profile } from "@/lib/api/crbs";
 import { LOCALE_INFO, displayLocale, isLocale, translate } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
-import { useIsPhone } from "@/components/bookings/use-is-phone";
+import { useIsCompact } from "@/components/bookings/use-is-phone";
 import { roleLabel } from "@/lib/i18n/roles";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
-import { Alert, Field, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
+import { Alert, Field, PageTitle, SectionTitle, SelectField } from "./kit";
 import { MyChannels } from "@/components/channels/my-channels";
 import { MicrosoftAccountSection, ProfileSsoNotice } from "@/components/identity/profile-microsoft";
 import { NotificationPreferencesPanel } from "@/components/notifications/preferences-panel";
@@ -39,12 +40,13 @@ export function ProfileView() {
   const { t } = useI18n();
   const q = useProfile();
   const me = useCrbsMe();
-  const phone = useIsPhone();
+  // mobile-a fix 15: below lg (phones and tablets, where the tab bar shows) the save sits in the sticky bar
+  const compact = useIsCompact();
   return (
     <div className="flex max-w-2xl flex-col gap-8">
       <PageTitle title={t("crbs.profile.title")} subtitle={q.data ? [q.data.username ?? q.data.email, q.data.role_name ? roleLabel(t, { code: q.data.role, name: q.data.role_name }) : null].filter(Boolean).join(" · ") : undefined} />
       <ProfileSsoNotice />
-      {q.isLoading ? <Loading /> : q.data ? <ProfileForm key={q.data.id} data={q.data} phone={phone} /> : <Alert tone="error">{bookingErrorMessage(crbsError(q.error), t)}</Alert>}
+      {q.isLoading ? <ProfileFormSkeleton phone={compact} /> : q.data ? <ProfileForm key={q.data.id} data={q.data} phone={compact} /> : <Alert tone="error">{bookingErrorMessage(crbsError(q.error), t)}</Alert>}
       <MicrosoftAccountSection />
       <section aria-labelledby="pf-channels" id="channels" className="scroll-mt-20">
         <SectionTitle id="pf-channels">{t("channels.me.title")}</SectionTitle>
@@ -75,14 +77,40 @@ export function ProfileView() {
       </p>
       {/* MOBILE M-05: on a phone the details form's save button stays in reach above the tab bar while the whole page
           scrolls (the form itself is `#profile-form`); on wider screens it sits in the form */}
-      {phone && q.data ? (
-        <div className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 flex px-4 py-2 glass-chrome">
+      {compact && q.data ? (
+        <div className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 flex px-4 py-2 glass-chrome" data-testid="profile-save-bar">
           <Button type="submit" form="profile-form" data-testid="profile-save">
             {t("crbs.common.save")}
           </Button>
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * mobile-a fix 1 (CLS 0.45 phone / 0.73 tablet): while the profile loads, hold the details form's space with the same
+ * six label + field rows (and the two hint lines), so the sections below do not jump when the form arrives.
+ */
+function ProfileFormSkeleton({ phone }: { phone: boolean }) {
+  const { t } = useI18n();
+  return (
+    <section aria-labelledby="pf-details" aria-busy="true" data-testid="profile-skeleton">
+      <SectionTitle id="pf-details">{t("crbs.profile.details")}</SectionTitle>
+      <Card variant="glass" className="gap-3 px-4">
+        <span className="sr-only" role="status">{t("crbs.common.loading")}</span>
+        <div className="grid max-w-[360px] gap-3">
+          {[false, false, true, false, false, true].map((hint, i) => (
+            <div key={i} className="flex flex-col gap-1.5" data-slot="skeleton-field">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-(--control-h-md) w-full" />
+              {hint ? <Skeleton className="h-4 w-48" /> : null}
+            </div>
+          ))}
+        </div>
+        {phone ? null : <Skeleton className="h-(--control-h-md) w-24" />}
+      </Card>
+    </section>
   );
 }
 

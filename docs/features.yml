@@ -375,3 +375,9 @@
   phase: "wave 3b (W3-IDP)"
   evidence: smartsched/frontend/src/components/identity/identity-wizard.test.tsx
   note: "components/identity/provider-buttons.tsx in components/auth/sign-in-page.tsx; auth.providers in GET /org/public"
+- feature: "Calendar export for academicians (backend): 'Derslerim' and 'Bölümümün dersleri' from the published run only, as scope-bound revocable subscription links (classes.ics, department-classes/{id}.ics), one-off .ics files and push into a dedicated 'SmartSched – Derslerim' Google (calendar.app.created) / Microsoft calendar; stable class UIDs across re-publishes and room moves, SEQUENCE on every change, CANCELLED tombstones, Europe/Istanbul VTIMEZONE, RFC 7986 NAME/SOURCE, version-key ETag/304 + Last-Modified, 1 MB cap; department rule (own, taught, calendar.department_feed); per-scope approval with consent id and audit; verified accounts for push (identity, Workspace hd, Entra tid, own e-mail / institution domain, admin-allowed domains); nightly repair 03:30"
+  area: platform
+  status: done
+  phase: "calendar export (CAL-B, CAL-01..07)"
+  evidence: smartsched/backend/tests/test_cal_06_push.py
+  note: "alembic 0039_calendar_classes; app/services/calendar_classes.py + calendar_feeds.py + calendar_connectors.py + api/v1/calendar_sync.py + workers/integrations.py; tests test_cal_01..07_*; frontend sheet = CAL-08/09 (CAL-F)"
