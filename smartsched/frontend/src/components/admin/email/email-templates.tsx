@@ -84,10 +84,6 @@ function TemplateEditor({ tpl }: { tpl: Template }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const label = uiLocale === "tr" ? tpl.label_tr : tpl.label_en;
 
-  useEffect(() => {
-    setSubject(tpl.overrides[lang].subject ?? "");
-    setIntro(tpl.overrides[lang].intro ?? "");
-  }, [lang, tpl]);
   useEffect(() => headingRef.current?.focus(), []);
   const draft = useMemo(() => ({ locale: lang, subject: subject || null, intro: intro || null }), [lang, subject, intro]);
   useEffect(() => {
@@ -137,7 +133,11 @@ function TemplateEditor({ tpl }: { tpl: Template }) {
           aria-label={t("email.tpl.language")}
           semantics="radiogroup"
           value={lang}
-          onValueChange={(v) => setLang(v)}
+          onValueChange={(v) => {
+            setLang(v);
+            setSubject(tpl.overrides[v].subject ?? "");
+            setIntro(tpl.overrides[v].intro ?? "");
+          }}
           options={[
             { value: "tr", label: "Türkçe" },
             { value: "en", label: "English" },

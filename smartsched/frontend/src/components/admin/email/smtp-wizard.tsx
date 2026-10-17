@@ -7,7 +7,7 @@
  * Geri / İleri footer sticks above the tab bar, every control 44 px, inputs 16 px.
  */
 import { CheckCircle2, ExternalLink, Send } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CopyField } from "@/components/admin/integrations/copy-field";
 import { Alert, Field, Loading, SelectField } from "@/components/admin/kit";
@@ -441,10 +441,10 @@ function TestStep({ result, onResult, configured }: { result: TestOut | null; on
   const [error, setError] = useState<string | null>(null);
   const [arrived, setArrived] = useState<boolean | null>(null);
   const ids = useId();
-  useEffect(() => setArrived(null), [result]);
   const send = async () => {
     setBusy(true);
     setError(null);
+    setArrived(null);
     try {
       onResult(await mailApi.test(to, locale === "tr" ? "tr" : "en"));
     } catch (e) {
