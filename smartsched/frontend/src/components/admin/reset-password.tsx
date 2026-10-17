@@ -54,7 +54,7 @@ function RequestForm({ onHaveCode }: { onHaveCode: () => void }) {
         <Button variant="link" className="px-0" onClick={onHaveCode}>
           {t("crbs.reset.haveCode")}
         </Button>
-        <Link href="/login" className="text-tint-text underline-offset-4 hover:underline">
+        <Link href="/login" className="inline-flex items-center text-tint-text underline-offset-4 hover:underline pointer-coarse:min-h-11">
           {t("crbs.reset.backToLogin")}
         </Link>
       </div>

@@ -2263,8 +2263,8 @@
       "ledger": "R2 lane A: shell/ui/auth",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 08:35",
-      "left_off": "Waiting on the frontend rebuild (one background watcher is armed); every remaining step — the full 8-case e2e run, the round-1 Shift+? check, and the hand-off docs — depends on it, so there is nothing else to request right now."
+      "finished_at": "2026-10-17 08:45",
+      "left_off": "Only the rebuild is outstanding (background watcher bt6qxrmr0 will notify me); the anonymous-route re-sweep, the PROGRESS DONE row, the stack shutdown and the final report all depend on it, so there is nothing independent to request this turn."
     },
     {
       "id": "a36ad8aefbab2a108",

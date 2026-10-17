@@ -76,7 +76,9 @@ function GroupRow({ reqs, fmt, initiallyOpen, asked }: { reqs: ApprovalRequest[]
   useEffect(() => {
     if (!initiallyOpen) return;
     ref.current?.scrollIntoView?.({ block: "center" });
-    ref.current?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+    // after the notifications sheet's exit (its close returns the focus to the bell), the row keeps the focus
+    const btn = ref.current?.querySelector<HTMLElement>("button[data-testid]");
+    if (btn?.dataset.testid) focusAfter([`[data-testid="${btn.dataset.testid}"]`]);
   }, [initiallyOpen, asked]);
   const r0 = reqs[0]!;
   const status = groupStatus(reqs);
@@ -200,7 +202,9 @@ function RequestRow({ req: r, fmt, initiallyOpen, asked }: { req: ApprovalReques
   useEffect(() => {
     if (!initiallyOpen) return;
     ref.current?.scrollIntoView?.({ block: "center" });
-    ref.current?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+    // after the notifications sheet's exit (its close returns the focus to the bell), the row keeps the focus
+    const btn = ref.current?.querySelector<HTMLElement>("button[data-testid]");
+    if (btn?.dataset.testid) focusAfter([`[data-testid="${btn.dataset.testid}"]`]);
   }, [initiallyOpen, asked]);
   const suggestions = r.status === "REJECTED" ? suggestionRooms(suggestionsOf(r)) : [];
   const { first } = requestSlots(r);

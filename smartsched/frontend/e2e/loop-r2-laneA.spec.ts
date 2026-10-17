@@ -276,8 +276,10 @@ test("T-R2-07 with reduced motion the book sheet and the bell sheet do not slide
       if (inApp) await expect(page.locator('html[data-motion="reduced"]')).toHaveCount(1);
       // a free slot: the phone's free-slot list, the desktop grid's first available cell
       const free = () => (base === PHONE ? page.getByTestId("free-slot") : page.locator('[data-tone="available"]')).first();
-      await page.waitForTimeout(800);
-      for (let i = 0; i < 6 && !(await free().count()); i++) { await page.getByTestId("nav-next").click(); await page.waitForTimeout(800); }
+      const next = page.getByTestId("nav-next").locator("visible=true").first();
+      await expect(next).toBeVisible({ timeout: 30_000 });
+      // a weekend or a full day has no free slot: step forward until one exists
+      for (let i = 0; i < 8 && !(await free().count()); i++) { await next.click(); await page.waitForTimeout(900); }
       await free().click();
       await expect(page.locator("[data-slot=sheet-content],[data-slot=dialog-content]").last()).toBeVisible();
       const book = (await page.evaluate(PROBE)) as P;

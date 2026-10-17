@@ -42,7 +42,8 @@ export function DiagnosisCard({ d, section, count = 1, onApply, applying, onChat
                 {visible.map((o) => (
                   <label key={o.s.id} data-testid="diagnosis-fix-option" className={cn("flex cursor-pointer items-start gap-2 rounded-[10px] px-2.5 py-1.5 type-callout text-label-1 transition-colors duration-(--dur-fast)", choice === o.s.id ? "bg-tint-soft" : "hover:bg-fill-3")}>
                     <input type="radio" name={`${id}-fix`} value={o.s.id} checked={choice === o.s.id} onChange={() => setChoice(o.s.id)} className="mt-[3px] accent-(--accent)" />
-                    <span className="flex-1">{o.text}</span>
+                    {/* phones: a long room list wraps inside the 390 px card instead of widening it (MOBILE M-01, T-R2-26 pass) */}
+                    <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{o.text}</span>
                   </label>
                 ))}
               </div>

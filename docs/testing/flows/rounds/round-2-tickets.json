@@ -658,7 +658,9 @@
       "smartsched/frontend/src/components/findroom/find-room-view.tsx:378 (read-only)"
      ],
      "dedup": "new; same family as T-R1-02 (verified); lane-F2 ask 'keyboard-clearance scrollIntoView guard' (HANDOFF)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "Mount KeyboardClearance scope=\"document\" once in shell/app-shell.tsx: on focusin of a page-level text field (not inside a popup) and on visualViewport resize it scrollIntoView()s the field and then scrolls the window by the largest overlap with any sticky/fixed bar (stickyBarsOf + documentOverlap in ui/keyboard-clearance.tsx; bars in the lower viewport half push down, upper half push up) (loop-r2-laneA-2026-10-17)"
     },
     {
      "id": "T-R2-02",
@@ -679,7 +681,9 @@
       "smartsched/frontend/src/components/approvals/responsive-dialog.tsx:36-66 (read-only)"
      ],
      "dedup": "new (persona-academician A-20 covered the focus return; it is not an open ROADMAP item); see motion T4 (focus after Withdraw)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "ui/focus-trap.ts (tabbablesOf + trapTabKey + useFocusTrap): Dialog and Sheet popups carry aria-modal=\"true\" and trap Tab / Shift+Tab themselves (base-ui's guard-based trap let the 6th Tab out to the skip link); kit ConfirmDialog is role=alertdialog (loop-r2-laneA-2026-10-17)"
     },
     {
      "id": "T-R2-03",
@@ -698,7 +702,9 @@
       "smartsched/frontend/src/components/shell/app-shell.tsx:90-109"
      ],
      "dedup": "new",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "auth/change-password-form.tsx marks the cached /me settled (setQueryData force_password_reset=false) and invalidates ['me'] before router.replace(next); shell/app-shell.tsx mustChangePassword() redirects only on a settled /me (never while isFetching) (loop-r2-laneA-2026-10-17)"
     },
     {
      "id": "T-R2-04",
@@ -719,7 +725,9 @@
       "smartsched/frontend/messages/tr.json nav.* (tab bar keys)"
      ],
      "dedup": "follows T-R1-06 (verified)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "shell/tab-bar.tsx: tab-bar-only labels nav.tab.* (TR Rezerve / Benimkiler / Oda bul / Onaylar / Taleplerim; EN Bookings / Mine / Find room / Approvals / Requests), items px-1, label min-w-0 max-w-full truncate (data-slot=tab-label) as the safety net, the badge anchored to the item's end (right-[max(0.125rem,calc(50%-1.75rem))], 99+ clamp kept) (loop-r2-laneA-2026-10-17)"
     },
     {
      "id": "T-R2-05",
@@ -750,7 +758,9 @@
       "smartsched/frontend/src/app/globals.css (coarse base layer)"
      ],
      "dedup": "rest of T-R1-01 / T-R1-45 (verified: the touch tokens apply; these are own-size controls and clipped hit areas); re-seen R1-M-08, R1-S-16; major because M-02 fails on primary screens (SUGGESTER §3)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "Real 44 px boxes on coarse pointers: Switch 44×44 (min-h/min-w-11, capsule drawn by ::before, thumb ±8/±6 px), Checkbox 44×44 (well by ::before), SegmentedControl track min-h-11 py-0 (segments 38→44, Tabs triggers min-h-11), Chip sm→md height + wrapper py-2 (scrolling chip rows no longer clip the ::after), toast close button 44×44 at the toast's end (sonner TOAST_CLASSNAMES), native checkbox/radio outside a label row margin-block 14px (globals.css coarse base layer), LocaleToggle aria-label = language name (loop-r2-laneA-2026-10-17)"
     },
     {
      "id": "T-R2-06",
@@ -772,7 +782,9 @@
       "smartsched/backend/app/api/v1/org.py:652"
      ],
      "dedup": "U-21 residue; T-R1-30 / T-R1-31 family; the 422-vs-401 SSO ticket part of R2-M-22 is FLE-014",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "crbs.reset.passwordHint ('En az 8 karakter.' / 'At least 8 characters.') used by admin/reset-password.tsx, crbs.reset.requested names '24 saat' / '24 hours'; backend org.py reset_confirm checks the code length itself and answers the coded 400 {code: invalid_code, message_tr: 'Kod hatalı ya da süresi dolmuş. Yenisini isteyin.'} (ResetConfirmIn token min_length dropped) (loop-r2-laneA-2026-10-17)"
     },
     {
      "id": "T-R2-07",
@@ -792,7 +804,9 @@
       "smartsched/frontend/src/app/globals.css:703-722"
      ],
      "dedup": "new (motion audit T5 covers the Studio tray's useReducedMotion, T13 the e2e assertion)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "globals.css: under @media (prefers-reduced-motion: reduce) and :root[data-motion=reduced] the Sheet/Dialog popups and overlays get transition none and no starting/ending offset (translate none / transform none / opacity 1) (loop-r2-laneA-2026-10-17)"
     },
     {
      "id": "T-R2-08",
@@ -810,7 +824,9 @@
       "smartsched/frontend/src/components/shell/breadcrumbs.ts:25-65"
      ],
      "dedup": "leftover of T-R1-08 (verified)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "shell/breadcrumbs.ts CrumbContext.planner: without planning.view the /moderation and /moderation/me trail is 'Taleplerim' alone (top-bar passes can('planning.view') once the permissions are known) (loop-r2-laneA-2026-10-17)"
     }
    ],
    "done_when": "every ticket's check passes; MOBILE M-02/M-05/M-09/M-12 at 390 touch on the lane's phone_routes; vitest for ui/shell/auth; no edits outside `owns` (ask the owning lane instead)"
@@ -1097,7 +1113,9 @@
       "smartsched/backend/app/council/reconcile.py"
      ],
      "dedup": "regression of I4 / I5 ([x] in 'Intake agent finished', head 4f00982): severity raised from the tester's major (SUGGESTER §2.3); T-R1-25 (verified; its open 'rename one instructor' part waits for the person-key decision)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "done: one natural key (the importer's PL:<term>:id:…#n) for both paths, computed in a planning pass; existing rows take only what the file says and they lack / differ after normalisation; week_count from the request; Excel day-fraction times; dry run == commit, re-upload 0/0, cp1254 >= 99 % on the real Bahar list (pytest + fresh stack)"
     },
     {
      "id": "T-R2-20",
@@ -1119,7 +1137,9 @@
       "smartsched/frontend/src/app/(app)/onboarding/** (new [id] route beside page.tsx)"
      ],
      "dedup": "reopens T-R1-26 (its encoding / delimiter / PNG parts verified)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "done: /onboarding/[id] route, button drop zone with accept, review polling while blockers remain, 44 px radio labels, message_tr in refusals; verified 1440 + 390 on the fresh stack"
     },
     {
      "id": "T-R2-21",
@@ -1141,7 +1161,9 @@
       "smartsched/frontend/src/components/onboarding/method-badge.tsx"
      ],
      "dedup": "T-R1-23 / T-R1-29 residue; KVKK hygiene (names in an error body shown only to content users, so minor, not a leak)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "done: 409 {code: review_pending, count, message_tr} without names (and ai_rows_pending); badge shows Doğrudan / Okunmadı with AI off; verified on the fresh stack"
     },
     {
      "id": "T-R2-22",
@@ -1162,7 +1184,9 @@
       "smartsched/backend/app/services/program_drafts.py (validation)"
      ],
      "dedup": "new",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "done: samePerson guard + inline 'Bu kişi bu şubede zaten var' in the step, server instructor_twice step issue (TR/EN), one <main>; verified 1440 + 390 on the fresh stack"
     }
    ],
    "done_when": "every ticket's check passes on a fresh stack (F-08) and the main stack (F-07); pytest for council and program_drafts; MOBILE M-01/M-02 at 390 on /onboarding"

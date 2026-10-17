@@ -120,7 +120,22 @@ test.beforeAll(async () => {
   ctx.weekRun = bahar.filter((r) => r.horizon === "WEEK").sort((a, b) => b.id - a.id)[0] ?? null;
   ctx.otherTermRun = runs.filter((r) => r.term_id !== ctx.bahar.id && finished(r))[0] ?? null;
 });
-test.afterAll(async () => {
+test.afterAll(async ({ browser }) => {
+  // leave the Bahar Studio draft on the scope step (the server remembers the last step per term: another spec's
+  // "/generate then select Bahar" expects the scope step)
+  const page = await browser.newPage();
+  try {
+    await login(page);
+    await page.goto("/generate");
+    await page.getByTestId("scope-step").waitFor({ timeout: 60_000 }).catch(() => undefined);
+    await page.locator("#scope-term").selectOption(String(ctx.bahar.id)).catch(() => undefined);
+    await page.waitForTimeout(1500);
+    await page.getByTestId("rail-step-scope").click().catch(() => undefined);
+    await page.getByTestId("scope-step").waitFor({ timeout: 60_000 }).catch(() => undefined);
+    await page.waitForTimeout(1500);
+  } finally {
+    await page.close();
+  }
   await ctx.api.dispose();
 });
 
