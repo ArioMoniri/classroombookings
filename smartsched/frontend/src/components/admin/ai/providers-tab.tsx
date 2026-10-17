@@ -113,6 +113,28 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
         ) : null}
       </div>
 
+      {p.warnings.map((w) => (
+        <Alert key={w.code} tone="warning" testId={`ai-provider-warning-${p.id}`}>
+          {locale === "tr" ? w.message_tr : w.message_en}
+        </Alert>
+      ))}
+      {canEdit && p.id === "openai_compatible" ? (
+        <div className="flex items-start justify-between gap-3 rounded-lg bg-fill-3 px-3 py-2">
+          <div className="min-w-0">
+            <Label htmlFor={`${ids.base}-local`} className="type-callout text-label-1">
+              {t("aiAdmin.provider.allowLocal")}
+            </Label>
+            <p className="type-footnote text-label-3">{t("aiAdmin.provider.allowLocalHint")}</p>
+          </div>
+          <Switch
+            id={`${ids.base}-local`}
+            checked={p.allow_local}
+            disabled={save.isPending}
+            onCheckedChange={(v) => save.mutate({ p: p.id, body: { allow_local: v } }, { onError: fail })}
+            data-testid={`ai-provider-allow-local-${p.id}`}
+          />
+        </div>
+      ) : null}
       {canEdit ? (
         <div className="grid gap-3 md:grid-cols-2">
           {p.secrets.map((name) => {

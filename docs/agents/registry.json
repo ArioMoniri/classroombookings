@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 22:28",
-      "left_off": "Only the full backend suite remains outstanding; the docs hand-off waits on its counts."
+      "finished_at": "2026-10-17 22:46",
+      "left_off": "Docs are written; only the final suite count (for the PROGRESS DONE row) is outstanding."
     },
     {
       "id": "afe38e299d6f66d51",
@@ -2836,6 +2836,31 @@
       "scope": "",
       "goal": "SmartSched repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md: NEVER commit or push, never `pkill -f`, `nice -n 10`. The owner asked: \"install the needed SAML library…",
       "ledger": "Install SAML library (signxml)",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-17 22:45"
+    },
+    {
+      "id": "a52e366abe7716113",
+      "description": "Audit: no demo/mock/placeholder features",
+      "subagent_type": "strict-reviewer",
+      "isolation": null,
+      "started_at": "2026-10-17 22:45",
+      "scope": "",
+      "goal": "Adversarial product audit of SmartSched (repo /home/user/classroombookings, smartsched/backend + smartsched/frontend, branch claude/focused-wright-ktt0ss). You are read-only: change nothing. Write your report to /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchp…",
+      "ledger": "Audit: no demo/mock/placeholder features",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a67479c051488493d",
+      "description": "Adaptive scheduler research + design",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 22:45",
+      "scope": "",
+      "goal": "You are the ADAPTIVE-SCHEDULING researcher and architect for SmartSched (repo /home/user/classroombookings; FastAPI backend smartsched/backend; OR-Tools CP-SAT solver in app/solver; learning code: grep learning/habit/pattern; exams and invigilation modules; bookings/CRBS module). Read /tmp/claude-0/…",
+      "ledger": "Adaptive scheduler research + design",
       "resumed": false,
       "status": "running"
     }

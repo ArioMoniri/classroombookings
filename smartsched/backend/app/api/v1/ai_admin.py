@@ -183,7 +183,11 @@ async def put_provider(provider: str, body: ProviderIn, db: DB, user: AIAdmin) -
     if body.allow_local is not None:
         if p != "openai_compatible":
             raise _err(
-                422, "unknown_field", "Bu sağlayıcıda bu alan yok.", "This provider has no such field.", field="allow_local"
+                422,
+                "unknown_field",
+                "Bu sağlayıcıda bu alan yok.",
+                "This provider has no such field.",
+                field="allow_local",
             )
         cfg["allow_local"] = bool(body.allow_local)
         changed.append("allow_local")
@@ -211,7 +215,9 @@ async def put_provider(provider: str, body: ProviderIn, db: DB, user: AIAdmin) -
         # No DNS here; every request checks the resolved address again.
         try:
             check_base_url(
-                str(cfg["base_url"]), allow_local=p == "openai_compatible" and cfg.get("allow_local") is True, resolve=False
+                str(cfg["base_url"]),
+                allow_local=p == "openai_compatible" and cfg.get("allow_local") is True,
+                resolve=False,
             )
         except UnsafeBaseURL as exc:
             raise _err(422, "unsafe_url", exc.message_tr, exc.message_en, field="base_url", reason=exc.code) from exc

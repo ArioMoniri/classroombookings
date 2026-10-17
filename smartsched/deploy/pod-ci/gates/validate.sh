@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Gate: smartsched/deploy/validate.sh on the host (python3-yaml, docker compose config, nginx -t if present),
 # plus the docs check: every generated block of the Markdown docs (<!-- AUTO:<name> --> markers) matches its source
-# (scripts/docs/sync_docs.py --check, standard library only) and the generator's own tests pass.
+# (scripts/docs/sync_docs.py --check, standard library only) and the generator's own tests pass. Then the dependency
+# audit report (gates/audit-report.sh: pip-audit + npm audit --omit=dev; report only, never fails the gate).
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$WS/src"
 docs_rc=0
@@ -12,6 +13,8 @@ section "README media check (scripts/record/check_readme.py)"
 python3 -I scripts/record/check_readme.py || docs_rc=1
 section "deploy/validate.sh"
 bash smartsched/deploy/validate.sh
+# report only (pip-audit + npm audit --omit=dev, docs/SECURITY.md §6): prints, never fails the gate
+bash "$GATES_DIR/audit-report.sh" || true
 if [[ $docs_rc -ne 0 ]]; then
   echo "docs check failed: run 'python3 -I scripts/docs/sync_docs.py' and commit the result" >&2
 fi

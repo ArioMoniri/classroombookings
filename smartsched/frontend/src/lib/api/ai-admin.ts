@@ -71,6 +71,9 @@ export const Provider = z.object({
   transfer: Transfer.default({}),
   transfer_ok: z.boolean(),
   local: z.boolean().default(false),
+  // SSRF guard (docs/SECURITY.md R12): the OpenAI-compatible provider's opt-in for a local server, and its warning
+  allow_local: z.boolean().default(false),
+  warnings: z.array(z.object({ code: z.string(), message_tr: z.string(), message_en: z.string() })).default([]),
 });
 export type Provider = z.infer<typeof Provider>;
 const ProviderList = z.object({ providers: z.array(Provider), kvkk_mechanisms: z.array(z.string()) });

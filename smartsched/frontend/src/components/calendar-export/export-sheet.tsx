@@ -32,6 +32,7 @@ import {
   fileName,
   findPushRow,
   notLinked,
+  pushAccounts,
   pushProgress,
   pushScope,
   relativeWhen,
@@ -79,7 +80,10 @@ function Flow({ onClose, resume }: { onClose: () => void; resume: PendingPush | 
   const consent = useConsent();
   const o = options.data;
   const choices = useMemo(() => scopeChoices(o, locale), [o, locale]);
-  const channels = useMemo(() => channelChoices(o), [o]);
+  const subsQ = useSubscriptions();
+  const connections = subsQ.data?.connections;
+  const channels = useMemo(() => channelChoices(o, connections), [o, connections]);
+  const [since, setSince] = useState(() => Date.now());
   const [step, setStep] = useState<Step>(resume ? "done" : "what");
   const [choice, setChoice] = useState<ScopeChoice | null>(null);
   const [channel, setChannel] = useState<Channel | null>(null);
@@ -134,7 +138,8 @@ function Flow({ onClose, resume }: { onClose: () => void; resume: PendingPush | 
       } else {
         const scope = pushScope(choice.kind, choice.departmentId);
         if (channel.connected) {
-          const current = o?.channels.push.find((p) => p.provider === channel.provider)?.scopes ?? [];
+          const current = pushAccounts(o, connections).find((p) => p.provider === channel.provider)?.scopes ?? [];
+          setSince(Date.now());
           await calendarExportApi.pushScopes(channel.provider, [...new Set([...current, scope])]);
           setResult({ kind: "push", provider: channel.provider });
         } else {
@@ -224,7 +229,7 @@ function Flow({ onClose, resume }: { onClose: () => void; resume: PendingPush | 
         {o?.enabled && step === "approve" && choice && channel ? (
           <ApproveStep choice={choice} channel={channel} fields={approvalFields(choice, o.fields)} needsConsent={needsConsent} consent={tick} onConsent={setTick} consentRef={consentRef} locale={locale} />
         ) : null}
-        {step === "done" && result ? <Done result={result} choice={choice} resumed={resumed} /> : null}
+        {step === "done" && result ? <Done result={result} choice={choice} resumed={resumed} since={since} /> : null}
         {error ? (
           <p role="alert" className="type-footnote text-status-infeasible-fg" data-testid="cal-error">
             {error}
@@ -265,7 +270,7 @@ function doneTitle(result: Result | null, t: ReturnType<typeof useI18n>["t"]): s
   return t("calendarExport.sheetTitle");
 }
 
-function Done({ result, choice, resumed }: { result: Result; choice: ScopeChoice | null; resumed: PendingPush | null }) {
+function Done({ result, choice, resumed, since }: { result: Result; choice: ScopeChoice | null; resumed: PendingPush | null; since: number }) {
   const { t } = useI18n();
   const kind = choice?.kind ?? resumed?.kind ?? "my_classes";
   const departmentId = choice?.departmentId ?? resumed?.departmentId ?? null;
@@ -286,17 +291,17 @@ function Done({ result, choice, resumed }: { result: Result; choice: ScopeChoice
       </p>
     );
   }
-  return <PushProgress provider={result.provider} kind={kind} departmentId={departmentId} scope={name} />;
+  return <PushProgress provider={result.provider} kind={kind} departmentId={departmentId} scope={name} since={resumed?.at ?? since} />;
 }
 
-function PushProgress({ provider, kind, departmentId, scope }: { provider: string; kind: ScopeChoice["kind"]; departmentId: number | null; scope: string }) {
+function PushProgress({ provider, kind, departmentId, scope, since }: { provider: string; kind: ScopeChoice["kind"]; departmentId: number | null; scope: string; since: number }) {
   const { t, locale } = useI18n();
   const [timedOut, setTimedOut] = useState(false);
   const [lastDone, setLastDone] = useState(false);
   // poll every 3 s until the row says done; give up after two minutes (the manage list keeps the state)
   const subs = useSubscriptions(true, !timedOut && !lastDone);
-  const row = findPushRow(subs.data, provider, kind, departmentId);
-  const p = pushProgress(row);
+  const row = findPushRow(subs.data?.rows, provider, kind, departmentId);
+  const p = pushProgress(row, since);
   const done = !!p?.done;
   if (done !== lastDone) setLastDone(done);
   useEffect(() => {

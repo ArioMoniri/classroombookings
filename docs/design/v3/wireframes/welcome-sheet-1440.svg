@@ -1,0 +1,77 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Welcome sheet, desktop 1440, academician'>
+<title>Welcome sheet, desktop 1440, academician</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<rect x='24' y='80' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='101' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Hızlı rezervasyon</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezervasyonlar</text>
+<text x='40' y='173' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezervasyonlarım</text>
+<text x='40' y='209' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Derslik bul</text>
+<text x='40' y='245' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Taleplerim</text>
+<text x='32' y='282' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>HESAP</text>
+<text x='40' y='317' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Profil</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Hızlı rezervasyon</text>
+<rect x='0' y='0' width='1440' height='900' rx='0' fill='#0F172A' fill-opacity='0.38'/>
+<rect x='400' y='96' width='640' height='708' rx='24' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1012' y='134' font-size='16' font-weight='500' fill='#64748B' text-anchor='end'>✕</text>
+<text x='840' y='116' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>✕ = Sonra (Esc), focus returns</text>
+<rect x='424' y='152' width='592' height='150' rx='16' fill='#EFF6FF' fill-opacity='1'/>
+<rect x='610.0' y='178' width='32' height='24' rx='6' fill='#2a78d6' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='648.0' y='178' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='686.0' y='178' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='724.0' y='178' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='762.0' y='178' width='32' height='24' rx='6' fill='#e87ba4' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='800.0' y='178' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='610.0' y='208' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='648.0' y='208' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='686.0' y='208' width='32' height='24' rx='6' fill='#eda100' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='724.0' y='208' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='762.0' y='208' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='800.0' y='208' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='610.0' y='238' width='32' height='24' rx='6' fill='#1baf7a' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='648.0' y='238' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='686.0' y='238' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='724.0' y='238' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='762.0' y='238' width='32' height='24' rx='6' fill='#eb6834' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='800.0' y='238' width='32' height='24' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='816.0' cy='250' r='11' fill='#DCFCE7'/>
+<polyline points='810.0,250 815.0,255 823.0,245' fill='none' stroke='#15803D' stroke-width='2.4' stroke-linejoin='round'/>
+<text x='436' y='292' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>Lottie: rol kahramanı (bir kez oynar, poster karede durur)</text>
+<text x='432' y='342' font-size='26' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched'e hoş geldiniz, A. T.</text>
+<text x='432' y='370' font-size='14' font-weight='400' fill='#475569' text-anchor='start'>Derslerinizi görün, boş bir salonu üç dokunuşta ayırın, takviminize ekleyin.</text>
+<rect x='432' y='384' width='194' height='20' rx='10' fill='#EFF6FF' fill-opacity='1'/>
+<text x='529.0' y='398' font-size='11' font-weight='600' fill='#2563EB' text-anchor='middle'>Öğretim elemanı · Psikoloji</text>
+<rect x='432.0' y='418' width='282.0' height='116' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='446.0' y='432' width='32' height='32' rx='9' fill='#2563EB' fill-opacity='0.18'/>
+<rect x='454.0' y='440' width='16' height='16' rx='4' fill='#2563EB' fill-opacity='1'/>
+<text x='446.0' y='484' font-size='14' font-weight='650' fill='#0F172A' text-anchor='start'>Hızlı rezervasyon</text>
+<text x='446.0' y='504' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Sıradaki boş saat hazır gelir:</text>
+<text x='446.0' y='521' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>salonu seçin, Rezerve et.</text>
+<rect x='726.0' y='418' width='282.0' height='116' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='740.0' y='432' width='32' height='32' rx='9' fill='#1baf7a' fill-opacity='0.18'/>
+<rect x='748.0' y='440' width='16' height='16' rx='4' fill='#1baf7a' fill-opacity='1'/>
+<text x='740.0' y='484' font-size='14' font-weight='650' fill='#0F172A' text-anchor='start'>Taleplerim</text>
+<text x='740.0' y='504' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Ders planlama talepleriniz ve onay</text>
+<text x='740.0' y='521' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>durumları tek yerde.</text>
+<rect x='432.0' y='546' width='282.0' height='116' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='446.0' y='560' width='32' height='32' rx='9' fill='#eb6834' fill-opacity='0.18'/>
+<rect x='454.0' y='568' width='16' height='16' rx='4' fill='#eb6834' fill-opacity='1'/>
+<text x='446.0' y='612' font-size='14' font-weight='650' fill='#0F172A' text-anchor='start'>Rezervasyonlarım</text>
+<text x='446.0' y='632' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Rezervasyonlarınızı görün, iptal</text>
+<text x='446.0' y='649' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>edin ya da talebi geri çekin.</text>
+<rect x='726.0' y='546' width='282.0' height='116' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='740.0' y='560' width='32' height='32' rx='9' fill='#eda100' fill-opacity='0.18'/>
+<rect x='748.0' y='568' width='16' height='16' rx='4' fill='#eda100' fill-opacity='1'/>
+<text x='740.0' y='612' font-size='14' font-weight='650' fill='#0F172A' text-anchor='start'>Takvimime ekle</text>
+<text x='740.0' y='632' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Derslerinizi Google, Outlook ya da</text>
+<text x='740.0' y='649' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Apple takviminize ekleyin.</text>
+<text x='432' y='684' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>3–5 cards per audience; stagger 30 ms on first reveal only (≤ 120 ms total)</text>
+<rect x='432' y='708' width='260' height='48' rx='24.0' fill='#2563EB' fill-opacity='1'/>
+<text x='562.0' y='737.4' font-size='15' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Kısa turu başlat (1 dk)</text>
+<rect x='704' y='708' width='150' height='48' rx='24.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='779.0' y='737.4' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Sonra</text>
+<text x='1008' y='738' font-size='14' font-weight='600' fill='#2563EB' text-anchor='end'>Başlarken listesi</text>
+<text x='432' y='786' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Bu rehberi her zaman Yardım › Turu yeniden başlat ile açabilirsiniz.</text>
+</svg>

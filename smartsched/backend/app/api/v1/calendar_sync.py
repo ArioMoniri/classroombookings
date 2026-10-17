@@ -189,7 +189,7 @@ async def serve_feed(request: Request, db: DB, token: str, kind: str, scope_id: 
     key = feeds.hash_token(token or "")
     if throttle.FEED_PER_TOKEN.hit(key):
         raise _too_many(key, throttle.FEED_PER_TOKEN)
-    if not await feeds.sync_enabled(db):
+    if not await feeds.sync_enabled_one_query(db):
         raise _not_found()
     try:
         row, user = await feeds.resolve_token_row(db, token)

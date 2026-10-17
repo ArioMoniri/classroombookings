@@ -15,15 +15,18 @@ import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loading } from "@/components/admin/kit";
-import { calendarExportApi, calendarExportKeys, useExportOptions, useRefreshCalendar, useSubscriptions, type PushChannel, type Subscription, type SubscriptionCreated } from "@/lib/api/calendar-export";
+import { calendarExportApi, calendarExportKeys, useExportOptions, useRefreshCalendar, useSubscriptions, type PushChannel, type Subscription, type SubscriptionCreated, type ScopeKind, type SubscriptionsOut } from "@/lib/api/calendar-export";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
-import { RETURN_PATH, legacyProviders, manageRows, nextFocus, relativeWhen } from "./model";
+import { RETURN_PATH, legacyProviders, manageRows, nextFocus, pushAccounts, pushScope, relativeWhen } from "./model";
 import { LinkResult, providerName, scopeName } from "./steps";
 
 type T = ReturnType<typeof useI18n>["t"];
 
-function rowTitle(r: Subscription, t: T): string {
+function rowTitle(r: Subscription, t: T, locale: string): string {
+  // the backend names the scope itself ("Psikoloji bölümünün dersleri"); the sheet's words otherwise
+  const own = locale === "tr" ? r.scope_label : (r.scope_label_en ?? null);
+  if (own && r.scope_kind === "department_classes") return own;
   return scopeName(r.scope_kind, t, r.scope_kind === "department_classes" ? r.scope_label : null);
 }
 
@@ -46,9 +49,9 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
   const subs = useSubscriptions();
   const options = useExportOptions();
   const refresh = useRefreshCalendar();
-  const rows = manageRows(subs.data);
-  const legacy = legacyProviders(options.data, subs.data);
-  const accounts = (options.data?.channels.push ?? []).filter((p) => p.connected || p.status === "REAUTH");
+  const rows = manageRows(subs.data?.rows);
+  const legacy = legacyProviders(options.data, subs.data?.rows);
+  const accounts = pushAccounts(options.data, subs.data?.connections).filter((p) => p.connected || p.status === "REAUTH");
   const [confirm, setConfirm] = useState<Subscription | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,8 +85,15 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
   const remove = (r: Subscription) =>
     run(`remove-${r.id}`, async () => {
       const next = nextFocus(rows, r.id);
-      await calendarExportApi.remove(r.id);
-      qc.setQueryData<Subscription[]>(calendarExportKeys.subscriptions, (old) => old?.filter((x) => x.id !== r.id));
+      if (r.channel === "push") {
+        // a push scope lives on the connection: put the account's scopes back without this one
+        const acc = accounts.find((a) => a.provider === r.provider);
+        const gone = pushScope(r.scope_kind as ScopeKind, r.scope_id ?? null);
+        await calendarExportApi.pushScopes(r.provider ?? "", (acc?.scopes ?? []).filter((x) => x !== gone && x !== r.scope_kind + (r.scope_id ? `:${r.scope_id}` : "")));
+      } else {
+        await calendarExportApi.remove(r.id);
+      }
+      qc.setQueryData<SubscriptionsOut>(calendarExportKeys.subscriptions, (old) => (old ? { ...old, rows: old.rows.filter((x) => x.id !== r.id) } : old));
       setConfirm(null);
       setFocusAfter(next ?? "fallback");
       toast.success(t("calendarExport.manage.removed"));
@@ -125,7 +135,7 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
           {rows.map((r) => (
             <li key={String(r.id)} data-row-id={String(r.id)} className="grid gap-2 rounded-xl bg-fill-2 px-3 py-3" data-testid={`cal-row-${r.id}`} data-channel={r.channel}>
               <div className="min-w-0">
-                <p className="type-callout font-medium text-label-1">{rowTitle(r, t)}</p>
+                <p className="type-callout font-medium text-label-1">{rowTitle(r, t, locale)}</p>
                 <p className="type-footnote text-label-2" data-testid={`cal-row-state-${r.id}`}>
                   {rowState(r, t, locale)}
                 </p>
@@ -152,7 +162,7 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
                   {t("calendarExport.manage.remove")}
                 </Button>
               </div>
-              {rotated && String(rotated.id) === String(r.id) ? <LinkResult urls={rotated.made.urls} name={rowTitle(r, t)} testId={`cal-rotated-${r.id}`} /> : null}
+              {rotated && String(rotated.id) === String(r.id) ? <LinkResult urls={rotated.made.urls} name={rowTitle(r, t, locale)} testId={`cal-rotated-${r.id}`} /> : null}
             </li>
           ))}
         </ul>
@@ -166,7 +176,7 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
         {/* finalFocus off: a removed row's button is gone, the effect above moves focus to the next row */}
         <DialogContent role="alertdialog" className="sm:max-w-md" finalFocus={false} data-testid="cal-remove-dialog">
           <DialogHeader>
-            <DialogTitle>{confirm ? t("calendarExport.manage.removeTitle", { scope: rowTitle(confirm, t) }) : ""}</DialogTitle>
+            <DialogTitle>{confirm ? t("calendarExport.manage.removeTitle", { scope: rowTitle(confirm, t, locale) }) : ""}</DialogTitle>
             <DialogDescription>{t("calendarExport.manage.removeBody")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>

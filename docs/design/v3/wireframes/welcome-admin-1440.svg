@@ -1,0 +1,124 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Admin: Karşılama rehberi settings, texts and completion'>
+<title>Admin: Karşılama rehberi settings, texts and completion</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='40' y='101' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Panel</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Dosyalardan kur</text>
+<text x='40' y='173' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Talepler</text>
+<text x='40' y='209' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Oluştur</text>
+<text x='40' y='245' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Haftalık program</text>
+<text x='32' y='282' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>YÖNETİM</text>
+<text x='40' y='317' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Ayarlar</text>
+<text x='40' y='353' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Kullanıcılar</text>
+<text x='40' y='389' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Entegrasyonlar</text>
+<text x='40' y='425' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Yapay zekâ</text>
+<text x='40' y='461' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Sistem durumu</text>
+<rect x='24' y='476' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='497' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Karşılama rehberi</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Karşılama rehberi</text>
+<text x='276' y='84' font-size='14' font-weight='400' fill='#475569' text-anchor='start'>Yeni kullanıcıların ilk girişte gördüğü rehberi açın, metinlerini kurumunuza göre düzenleyin.</text>
+<rect x='276' y='104' width='65' height='36' rx='18.0' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='308.5' y='126.68' font-size='13' font-weight='600' fill='#2563EB' text-anchor='middle'>Genel</text>
+<rect x='349' y='104' width='88' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='393.0' y='126.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Metinler</text>
+<rect x='445' y='104' width='103' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='496.5' y='126.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Tamamlanma</text>
+<rect x='276' y='156' width='540' height='300' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='188' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>Rehber</text>
+<text x='296' y='224' font-size='14' font-weight='500' fill='#0F172A' text-anchor='start'>Karşılama rehberi</text>
+<text x='296' y='242' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>İlk girişte rol kartları</text>
+<rect x='746' y='210' width='50' height='30' rx='15' fill='#2563EB' fill-opacity='1'/>
+<circle cx='781' cy='225' r='12' fill='#FFFFFF'/>
+<text x='296' y='272' font-size='14' font-weight='500' fill='#0F172A' text-anchor='start'>Rehberli tur</text>
+<text x='296' y='290' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Gerçek ekranlarda 4–6 adım</text>
+<rect x='746' y='258' width='50' height='30' rx='15' fill='#2563EB' fill-opacity='1'/>
+<circle cx='781' cy='273' r='12' fill='#FFFFFF'/>
+<text x='296' y='320' font-size='14' font-weight='500' fill='#0F172A' text-anchor='start'>Başlarken listesi</text>
+<text x='296' y='338' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Kenar çubuğu ve Daha sekmesi</text>
+<rect x='746' y='306' width='50' height='30' rx='15' fill='#2563EB' fill-opacity='1'/>
+<circle cx='781' cy='321' r='12' fill='#FFFFFF'/>
+<text x='296' y='368' font-size='14' font-weight='500' fill='#0F172A' text-anchor='start'>Yeni özellik ipuçları</text>
+<text x='296' y='386' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Sürüm başına bir kez</text>
+<rect x='746' y='354' width='50' height='30' rx='15' fill='#2563EB' fill-opacity='1'/>
+<circle cx='781' cy='369' r='12' fill='#FFFFFF'/>
+<text x='296' y='416' font-size='14' font-weight='500' fill='#0F172A' text-anchor='start'>Herkese ipucu göster</text>
+<text x='296' y='434' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Önceki ipuçlarını kapatmış olsalar da</text>
+<rect x='746' y='402' width='50' height='30' rx='15' fill='#CBD5E1' fill-opacity='1'/>
+<circle cx='761' cy='417' r='12' fill='#FFFFFF'/>
+<rect x='840' y='156' width='576' height='300' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='860' y='188' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>Tamamlanma (son 30 gün)</text>
+<text x='860' y='212' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>En az 5 kişilik gruplar gösterilir; kişi listesi yoktur.</text>
+<text x='860' y='244' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Kitle</text>
+<text x='1066' y='244' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Gördü</text>
+<text x='1146' y='244' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Tur</text>
+<text x='1226' y='244' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Liste ≥ %80</text>
+<text x='1336' y='244' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Kapattı</text>
+<text x='860' y='272' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>Öğretim elemanı</text>
+<text x='1066' y='272' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>412</text>
+<text x='1146' y='272' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>%58</text>
+<text x='1226' y='272' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>%41</text>
+<text x='1336' y='272' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>%12</text>
+<rect x='1182' y='262' width='30' height='8' rx='4' fill='#E2E8F0' fill-opacity='1'/>
+<rect x='1182' y='262' width='17.4' height='8' rx='4' fill='#2563EB' fill-opacity='1'/>
+<text x='860' y='306' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>İdari personel</text>
+<text x='1066' y='306' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>96</text>
+<text x='1146' y='306' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>%47</text>
+<text x='1226' y='306' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>%52</text>
+<text x='1336' y='306' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>%9</text>
+<rect x='1182' y='296' width='30' height='8' rx='4' fill='#E2E8F0' fill-opacity='1'/>
+<rect x='1182' y='296' width='14.1' height='8' rx='4' fill='#2563EB' fill-opacity='1'/>
+<text x='860' y='340' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>Onaylayıcı</text>
+<text x='1066' y='340' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>14</text>
+<text x='1146' y='340' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>%71</text>
+<text x='1226' y='340' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>%64</text>
+<text x='1336' y='340' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>%7</text>
+<rect x='1182' y='330' width='30' height='8' rx='4' fill='#E2E8F0' fill-opacity='1'/>
+<rect x='1182' y='330' width='21.3' height='8' rx='4' fill='#2563EB' fill-opacity='1'/>
+<text x='860' y='374' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>Planlamacı</text>
+<text x='1066' y='374' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>6</text>
+<text x='1146' y='374' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>%83</text>
+<text x='1226' y='374' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>%50</text>
+<text x='1336' y='374' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>%0</text>
+<rect x='1182' y='364' width='30' height='8' rx='4' fill='#E2E8F0' fill-opacity='1'/>
+<rect x='1182' y='364' width='24.9' height='8' rx='4' fill='#2563EB' fill-opacity='1'/>
+<text x='860' y='408' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>Yönetici</text>
+<text x='1066' y='408' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>&lt;5</text>
+<text x='1146' y='408' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>–</text>
+<text x='1226' y='408' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>–</text>
+<text x='1336' y='408' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>–</text>
+<text x='860' y='446' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>numbers illustrative</text>
+<rect x='276' y='476' width='1140' height='392' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='508' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>Metinler · Öğretim elemanı</text>
+<rect x='296' y='522' width='132' height='34' rx='17.0' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='362.0' y='543.32' font-size='12' font-weight='600' fill='#2563EB' text-anchor='middle'>Öğretim elemanı</text>
+<rect x='434' y='522' width='125' height='34' rx='17.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='496.5' y='543.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>İdari personel</text>
+<rect x='565' y='522' width='97' height='34' rx='17.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='613.5' y='543.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Onaylayıcı</text>
+<rect x='668' y='522' width='139' height='34' rx='17.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='737.5' y='543.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Bölüm yöneticisi</text>
+<rect x='813' y='522' width='97' height='34' rx='17.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='861.5' y='543.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Planlamacı</text>
+<rect x='916' y='522' width='83' height='34' rx='17.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='957.5' y='543.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Yönetici</text>
+<text x='296' y='584' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Başlık (Türkçe)</text>
+<rect x='296' y='592' width='540' height='44' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='310' y='620' font-size='15' font-weight='400' fill='#0F172A' text-anchor='start'>SmartSched'e hoş geldiniz, {ad}</text>
+<text x='856' y='584' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Title (English)</text>
+<rect x='856' y='592' width='540' height='44' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='870' y='620' font-size='15' font-weight='400' fill='#0F172A' text-anchor='start'>Welcome to SmartSched, {name}</text>
+<text x='296' y='664' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Kart 1 · Hızlı rezervasyon</text>
+<rect x='296' y='672' width='540' height='64' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='310' y='700' font-size='14' font-weight='400' fill='#0F172A' text-anchor='start'>Bir sonraki boş saat hazır seçili gelir…</text>
+<text x='296' y='756' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Varsayılana dön</text>
+<rect x='1036' y='800' width='170' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1121.0' y='827.4' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Önizle</text>
+<rect x='1218' y='800' width='178' height='44' rx='22.0' fill='#2563EB' fill-opacity='1'/>
+<text x='1307.0' y='827.4' font-size='15' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Kaydet</text>
+<text x='296' y='826' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Son değişiklik: F. B., 17 Ekim 14:02</text>
+<rect x='576' y='790' width='440' height='64' rx='12' fill='#FEF3C7' fill-opacity='1'/>
+<text x='592' y='816' font-size='13' font-weight='500' fill='#B45309' text-anchor='start'>Kaydedince bu kitleye rehber yeniden</text>
+<text x='592' y='836' font-size='13' font-weight='500' fill='#B45309' text-anchor='start'>gösterilsin mi?  ☐ Evet, ‘Güncellendi’ etiketiyle</text>
+</svg>

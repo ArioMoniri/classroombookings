@@ -46,6 +46,9 @@ export const SampleEvent = z
     department: z.string().nullish(),
     starts_at: z.string(),
     ends_at: z.string(),
+    /** the backend's own line ("PSY 262 · Şube 1 — A 308 — Pzt 13:30–15:50"), Istanbul time */
+    text_tr: z.string().nullish(),
+    text_en: z.string().nullish(),
   })
   .passthrough();
 export type SampleEvent = z.infer<typeof SampleEvent>;
@@ -119,6 +122,7 @@ export const Subscription = z.object({
   scope_kind: z.string(),
   scope_id: z.number().nullish(),
   scope_label: z.string().nullish(),
+  scope_label_en: z.string().nullish(),
   channel: z.enum(["link", "push"]).catch("link"),
   provider: z.string().nullish(),
   hint: z.string().nullish(),
@@ -150,7 +154,130 @@ export const SubscriptionCreated = z
   .passthrough();
 export type SubscriptionCreated = z.infer<typeof SubscriptionCreated>;
 
-const SubscriptionList = z.union([z.array(Subscription), z.object({ items: z.array(Subscription) }).transform((o) => o.items)]);
+/* ------------------------------------------------------------------------------------------- adapters */
+
+type Raw = Record<string, unknown>;
+const isObj = (v: unknown): v is Raw => !!v && typeof v === "object" && !Array.isArray(v);
+const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
+
+/** backend field keys (calendar_classes.FIELD_KEYS) → the sheet's bullets; code + section are one bullet */
+const FIELD_ALIASES: Record<string, FieldKey> = { course_code: "code", section: "code", course_title: "title", code: "code", title: "title", room: "room", time: "time", department: "department", co_instructors: "co_instructors", link: "link", booking_title: "booking_title" };
+
+function adaptSample(v: unknown): unknown {
+  if (!isObj(v)) return v ?? null;
+  return { ...v, starts_at: v.starts_at ?? v.start, ends_at: v.ends_at ?? v.end };
+}
+
+function adaptFields(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: string[] = [];
+  for (const f of v) {
+    const key = FIELD_ALIASES[typeof f === "string" ? f : isObj(f) ? String(f.key) : ""];
+    if (key && !out.includes(key)) out.push(key);
+  }
+  return out;
+}
+
+/** CAL-B `export_options` (reason `{code, message_tr, message_en}`, `preview {upcoming_count, sample, fields}`, the
+ * department list of what the person may export with `default_department_id`) → the sheet's shape. */
+function adaptScope(v: unknown): unknown {
+  if (!isObj(v)) return v;
+  const out: Raw = { ...v };
+  if (isObj(v.reason)) {
+    out.reason = str(v.reason.code);
+    out.reason_tr = str(v.reason.message_tr);
+    out.reason_en = str(v.reason.message_en) ?? str(v.reason.message);
+  }
+  const pv = isObj(v.preview) ? v.preview : null;
+  if (pv) {
+    out.upcoming = typeof pv.upcoming_count === "number" ? pv.upcoming_count : out.upcoming;
+    out.sample = adaptSample(pv.sample);
+    out.fields = adaptFields(pv.fields);
+  } else if (v.sample !== undefined) out.sample = adaptSample(v.sample);
+  if (Array.isArray(v.fields)) out.fields = adaptFields(v.fields);
+  if (Array.isArray(v.departments)) {
+    const dflt = typeof v.default_department_id === "number" ? v.default_department_id : null;
+    out.departments = v.departments.map((d) => {
+      if (!isObj(d)) return d;
+      const own = d.id === dflt && pv;
+      return { ...d, reason: isObj(d.reason) ? str(d.reason.code) : d.reason, sample: own ? out.sample : adaptSample(d.sample), upcoming: own ? out.upcoming : d.upcoming };
+    });
+  }
+  return out;
+}
+
+export function adaptOptions(raw: unknown): unknown {
+  if (!isObj(raw)) return raw;
+  const out: Raw = { ...raw };
+  if (Array.isArray(raw.scopes)) out.scopes = raw.scopes.map(adaptScope);
+  const ch = raw.channels;
+  if (isObj(ch) && ch.push !== undefined && !Array.isArray(ch.push)) {
+    const push = isObj(ch.push)
+      ? Object.entries(ch.push)
+          .filter(([, p]) => isObj(p) && "configured" in p)
+          .map(([provider, p]) => ({ provider, configured: !!(p as Raw).configured, connected: !!(p as Raw).connected }))
+      : [];
+    const avail = (c: unknown) => (typeof c === "boolean" ? c : isObj(c) ? c.available !== false : true);
+    out.channels = { link: avail(ch.link), file: avail(ch.file), push };
+  }
+  return out;
+}
+
+/** A push scope as the connection stores it: "my_classes", "department_classes:7" or `{kind, id}`. */
+export function parseScope(v: unknown): { kind: string; id: number | null } | null {
+  if (typeof v === "string") {
+    const [kind, id] = v.split(":");
+    return kind ? { kind, id: id && /^\d+$/.test(id) ? Number(id) : null } : null;
+  }
+  if (isObj(v) && typeof (v.kind ?? v.scope_kind) === "string") {
+    const id = v.id ?? v.scope_id;
+    return { kind: String(v.kind ?? v.scope_kind), id: typeof id === "number" ? id : null };
+  }
+  return null;
+}
+
+/** CAL-B `GET /calendar/subscriptions` = `{links: [...], push: [{provider, export_scopes, ...}]}` → one manage row
+ * per link and per push scope (`id` = `push:{provider}:{scope}`), plus the push connections. A plain array (older
+ * contract) is the rows. */
+export function adaptSubscriptions(raw: unknown): { rows: unknown[]; connections: unknown[] } {
+  if (Array.isArray(raw)) return { rows: raw, connections: [] };
+  if (!isObj(raw)) return { rows: [], connections: [] };
+  if (Array.isArray(raw.items)) return { rows: raw.items, connections: [] };
+  const links = (Array.isArray(raw.links) ? raw.links : []).map((l) => (isObj(l) ? { ...l, channel: "link" } : l));
+  const rows: unknown[] = [...links];
+  const connections: unknown[] = [];
+  for (const c of Array.isArray(raw.push) ? raw.push : []) {
+    if (!isObj(c)) continue;
+    const provider = String(c.provider ?? "");
+    const scopes = Array.isArray(c.export_scopes) ? c.export_scopes : Array.isArray(c.scopes) ? c.scopes : [];
+    const legacy = c.least_privilege === false;
+    connections.push({ provider, configured: true, connected: c.status !== "REVOKED", account_email: c.account_email, account_verified: c.account_verified, status: c.status, legacy_scope: legacy, scopes: scopes.map((x) => (typeof x === "string" ? x : JSON.stringify(x))) });
+    for (const x of scopes) {
+      const sc = parseScope(x);
+      if (!sc) continue;
+      rows.push({
+        id: `push:${provider}:${sc.kind}${sc.id !== null ? `:${sc.id}` : ""}`,
+        scope_kind: sc.kind,
+        scope_id: sc.id,
+        channel: "push",
+        provider,
+        last_synced_at: c.last_synced_at,
+        status: c.status,
+        account_email: c.account_email,
+        account_verified: c.account_verified,
+        legacy_scope: legacy,
+        pending_jobs: c.pending_jobs,
+        failed_jobs: c.failed_jobs,
+        last_error: c.last_error,
+      });
+    }
+  }
+  return { rows, connections };
+}
+
+export const SubscriptionsOut = z.preprocess(adaptSubscriptions, z.object({ rows: z.array(Subscription), connections: z.array(PushChannel) }));
+export type SubscriptionsOut = z.infer<typeof SubscriptionsOut>;
+export const ExportOptionsIn = z.preprocess(adaptOptions, ExportOptions);
 
 /* ------------------------------------------------------------------------------------------- admin */
 
@@ -255,8 +382,8 @@ async function download(path: string, fallback: string): Promise<{ name: string;
 }
 
 export const calendarExportApi = {
-  options: () => request("/calendar/export/options", { ...s, schema: ExportOptions }),
-  subscriptions: () => request("/calendar/subscriptions", { ...s, schema: SubscriptionList }),
+  options: () => request("/calendar/export/options", { ...s, schema: ExportOptionsIn }),
+  subscriptions: () => request("/calendar/subscriptions", { ...s, schema: SubscriptionsOut }),
   create: (body: { scope_kind: ScopeKind; scope_id?: number | null; channel: "link" }) => request("/calendar/subscriptions", { ...s, method: "POST", body, schema: SubscriptionCreated }),
   remove: (id: number | string) => request(`/calendar/subscriptions/${id}`, { ...s, method: "DELETE" }),
   /** "Bağlantıyı yenile": a new token for the same scope, the old one stops working. An older backend without the

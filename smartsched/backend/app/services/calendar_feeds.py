@@ -70,6 +70,19 @@ async def sync_enabled(session: AsyncSession) -> bool:
     return bool(await get_value(session, "integrations", "calendar_sync_enabled"))
 
 
+async def sync_enabled_one_query(session: AsyncSession) -> bool:
+    """:func:`sync_enabled` in one query (the switch and its KVKK sign-off together): the CAL-05 304 path."""
+    from app.models import Setting
+    from app.services import bookings_settings as bs
+
+    group, key, signoff = bs.SIGNOFF_GATED
+    names = (f"{group}.{key}", f"{group}.{signoff}")
+    rows = {r.key: r.value for r in (await session.execute(select(Setting).where(Setting.key.in_(names)))).scalars()}
+    specs = bs.GROUPS[group]
+    on = bs._decode(specs[key], rows.get(names[0]))
+    return bool(on) and bs.kvkk_signed(bs._decode(specs[signoff], rows.get(names[1])))
+
+
 def clean_public_url(value: Any) -> str:
     """``https://host[:port]`` (or ``http://localhost…`` for a local stack); no path, query or user info. Raises
     ``ValueError``. NBSP / spaces around the value are trimmed."""

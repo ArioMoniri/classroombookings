@@ -247,6 +247,24 @@
     "you": "Siz", "assistant": "Planlayıcı", "streaming": "Yazıyor…", "noKey": "Sohbet için Ayarlar'dan bir Anthropic API anahtarı ekleyin."
   },
   "settings": {
+    "securityContact": {
+      "title": "Güvenlik iletişimi",
+      "lead": "Güvenlik açığı bildirecek kişiler bu adresleri /.well-known/security.txt dosyasında görür (RFC 9116). Dosyanın geçerlilik tarihi her istekte bir yıl ileri alınır.",
+      "email": "Güvenlik iletişim e-postası",
+      "emailHint": "Kurumun bilgi güvenliği biriminin adresi (zorunlu).",
+      "url": "İletişim sayfası (isteğe bağlı)",
+      "policy": "Politika sayfası (isteğe bağlı)",
+      "urlHint": "https:// ile başlayan bir adres.",
+      "languages": "Tercih edilen diller",
+      "languagesHint": "Virgülle ayrılmış dil kodları, ör. tr, en.",
+      "save": "Kaydet",
+      "saved": "Güvenlik iletişimi kaydedildi.",
+      "unset": "Güvenlik iletişim adresi ayarlanmadı",
+      "unsetLead": "Ayarlanana kadar dosya security@<alan adı> adresini gösterir.",
+      "lastChange": "Son değişiklik: {name}, {time}",
+      "never": "Henüz değiştirilmedi.",
+      "failed": "Güvenlik iletişimi kaydedilemedi."
+    },
     "title": "Ayarlar", "subtitle": "Yapay zekâ anahtarı, model, çözücü varsayılanları ve kullanıcılar.", "ai": "Yapay zekâ", "solver": "Çözücü", "users": "Kullanıcılar",
     "general": "Genel", "apiKey": "Anthropic API anahtarı", "apiKeyHint": "Şifreli saklanır; kaydedildikten sonra bir daha gösterilmez.",
     "apiKeyMasked": "…{tail} ile biten anahtar", "noKey": "Kayıtlı anahtar yok", "test": "Anahtarı sına", "testing": "Sınanıyor…",
@@ -5412,6 +5430,8 @@
       "projectId": "Google Cloud proje kimliği",
       "enabled": "Kullanımda",
       "local": "Yerel sunucu: veri kurum dışına çıkmaz",
+      "allowLocal": "Yerel sunucuya izin ver",
+      "allowLocalHint": "Ollama ya da vLLM bu makinede veya kurum ağında çalışıyorsa açın. Bulut meta veri ve yerel bağlantı (169.254.x.x) adresleri yine engellenir.",
       "keyless": "Anahtar gerekmez",
       "save": "Kaydet",
       "saved": "Sağlayıcı kaydedildi.",

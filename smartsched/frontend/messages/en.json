@@ -248,6 +248,24 @@
     "you": "You", "assistant": "Planner", "streaming": "Streaming…", "noKey": "Add an Anthropic API key in Settings to enable chat."
   },
   "settings": {
+    "securityContact": {
+      "title": "Security contact",
+      "lead": "People reporting a vulnerability see these addresses in /.well-known/security.txt (RFC 9116). The file's expiry date moves one year ahead on every request.",
+      "email": "Security contact e-mail",
+      "emailHint": "The address of the institution's information security desk (required).",
+      "url": "Contact page (optional)",
+      "policy": "Policy page (optional)",
+      "urlHint": "An address starting with https://.",
+      "languages": "Preferred languages",
+      "languagesHint": "Comma-separated language tags, e.g. tr, en.",
+      "save": "Save",
+      "saved": "Security contact saved.",
+      "unset": "The security contact address is not set",
+      "unsetLead": "Until it is set, the file names security@<domain>.",
+      "lastChange": "Last change: {name}, {time}",
+      "never": "Not changed yet.",
+      "failed": "The security contact could not be saved."
+    },
     "title": "Settings", "subtitle": "AI key, model, solver defaults and users.", "ai": "AI", "solver": "Solver", "users": "Users",
     "general": "General", "apiKey": "Anthropic API key", "apiKeyHint": "Stored encrypted; never shown again after saving.",
     "apiKeyMasked": "Key ending in {tail}", "noKey": "No key saved", "test": "Test key", "testing": "Testing…",
@@ -5413,6 +5431,8 @@
       "projectId": "Google Cloud project id",
       "enabled": "In use",
       "local": "Local server: data stays in the institution",
+      "allowLocal": "Allow a local server",
+      "allowLocalHint": "Turn on when Ollama or vLLM runs on this machine or the internal network. Cloud metadata and link-local (169.254.x.x) addresses stay blocked.",
       "keyless": "No key needed",
       "save": "Save",
       "saved": "Provider saved.",

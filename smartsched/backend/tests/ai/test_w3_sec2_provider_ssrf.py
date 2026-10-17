@@ -113,14 +113,20 @@ async def test_adapters_check_the_resolved_address_before_any_request(monkeypatc
     assert e.value.code == "local_address"
     # with it, the guard lets the request go (the connection itself then fails: nothing listens there)
     opted = make_adapter(
-        "openai_compatible", model="llama3.1", secrets={}, config={"base_url": "http://127.0.0.1:9/v1", "allow_local": True}
+        "openai_compatible",
+        model="llama3.1",
+        secrets={},
+        config={"base_url": "http://127.0.0.1:9/v1", "allow_local": True},
     )
     with pytest.raises(Exception) as e2:
         await opted.list_models()
     assert not isinstance(e2.value, UnsafeBaseURL)
     # the opt-in belongs to the OpenAI-compatible provider only
     other = make_adapter(
-        "openai", model="gpt", secrets={"api_key": "k"}, config={"base_url": "http://127.0.0.1:9/v1", "allow_local": True}
+        "openai",
+        model="gpt",
+        secrets={"api_key": "k"},
+        config={"base_url": "http://127.0.0.1:9/v1", "allow_local": True},
     )
     with pytest.raises(UnsafeBaseURL):
         await other.list_models()

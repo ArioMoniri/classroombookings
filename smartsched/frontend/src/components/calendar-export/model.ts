@@ -4,7 +4,7 @@
  */
 import { withSuffix } from "@/lib/i18n/turkish";
 import { googleSubscribeUrl, outlookSubscribeUrl, webcalUrl } from "@/components/bookings/reserve-model";
-import { PROVIDERS, REASONS, SCOPE_KINDS, type ExportOptions, type FieldKey, type Provider, type Reason, type SampleEvent, type ScopeKind, type ScopeOption, type Subscription, type SubscriptionUrls } from "@/lib/api/calendar-export";
+import { PROVIDERS, REASONS, SCOPE_KINDS, type ExportOptions, type FieldKey, type Provider, type PushChannel, type Reason, type SampleEvent, type ScopeKind, type ScopeOption, type Subscription, type SubscriptionUrls } from "@/lib/api/calendar-export";
 
 export type Step = "what" | "how" | "approve" | "done";
 export const STEPS: readonly Step[] = ["what", "how", "approve", "done"];
@@ -93,11 +93,19 @@ export function notLinked(options: ExportOptions | undefined): boolean {
 
 export type Channel = { kind: "push"; provider: Provider; connected: boolean; account: string | null; legacy: boolean } | { kind: "link" } | { kind: "file" };
 
+/** The person's push connections: the options' own flags, overlaid by `GET /calendar/subscriptions` `push`. */
+export function pushAccounts(options: ExportOptions | undefined, connections: PushChannel[] | undefined): PushChannel[] {
+  const by = new Map<string, PushChannel>();
+  for (const p of options?.channels.push ?? []) by.set(p.provider, p);
+  for (const c of connections ?? []) by.set(c.provider, { ...by.get(c.provider), ...c, configured: by.get(c.provider)?.configured ?? c.configured });
+  return [...by.values()];
+}
+
 /** Step 2: only the configured channels, push first ("Önerilen"), never a fake button. */
-export function channelChoices(options: ExportOptions | undefined): Channel[] {
+export function channelChoices(options: ExportOptions | undefined, connections?: PushChannel[]): Channel[] {
   if (!options) return [];
   const out: Channel[] = [];
-  for (const p of options.channels.push) {
+  for (const p of pushAccounts(options, connections)) {
     if (!p.configured || !(PROVIDERS as readonly string[]).includes(p.provider)) continue;
     out.push({ kind: "push", provider: p.provider as Provider, connected: p.connected && p.status !== "REAUTH", account: p.account_email ?? null, legacy: !!p.legacy_scope });
   }
@@ -143,6 +151,12 @@ function dayKey(d: Date): string {
 
 /** A sample event as one line: "PSY 262 · Şube 1 — A 308 — Pzt 13:30–15:50". */
 export function sampleParts(sample: SampleEvent, locale: string, sectionWord: string): { what: string; where: string | null; when: string } {
+  // the backend's own line wins ("PSY 262 · Şube 1 — A 308 — Pzt 13:30–15:50", built in Istanbul time)
+  const own = locale === "tr" ? (sample.text_tr ?? sample.text_en) : (sample.text_en ?? sample.text_tr);
+  if (own) {
+    const parts = own.split(" — ");
+    if (parts.length >= 3) return { what: parts.slice(0, -2).join(" — "), where: parts.at(-2) ?? null, when: parts.at(-1) ?? "" };
+  }
   const code = sample.course_code ?? null;
   const what = code ? [code, sample.section ? `${sectionWord} ${sample.section}` : null].filter(Boolean).join(" · ") : (sample.summary ?? sample.title ?? "");
   const start = new Date(sample.starts_at);
@@ -184,12 +198,15 @@ export function subscribeLinks(urls: SubscriptionUrls, name: string): { https: s
   };
 }
 
-/** Push progress "{n}/{m}" from the push row of the scope, or null while the backend does not count. */
-export function pushProgress(sub: Subscription | undefined): { n: number; m: number; done: boolean } | null {
+/** Push progress "{n}/{m}" from the push row of the scope; without counts it is done once the account synced after
+ * the approval (`since`, ms), else null (indeterminate). */
+export function pushProgress(sub: Subscription | undefined, since?: number): { n: number; m: number; done: boolean } | null {
   if (!sub) return null;
   const pending = sub.pending_jobs ?? 0;
   if (typeof sub.total === "number" && typeof sub.synced === "number" && sub.total > 0) return { n: Math.min(sub.synced, sub.total), m: sub.total, done: sub.synced >= sub.total && pending === 0 };
-  return pending === 0 && sub.last_synced_at ? { n: 0, m: 0, done: true } : null;
+  const at = parseUtc(sub.last_synced_at);
+  if (!at || pending > 0) return null;
+  return since === undefined || at.getTime() >= since - 5_000 ? { n: 0, m: 0, done: true } : null;
 }
 
 /** The push row (provider × scope) the approval just created, to follow its progress. */

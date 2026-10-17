@@ -34,15 +34,23 @@ UNSET_WARNING = {
     "message_en": "The security contact address is not set",
 }
 
-_EMAIL = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9-]{1,63})+$")
+_EMAIL = re.compile(
+    r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9-]{1,63})+$"
+)
 _URL = re.compile(r"^https://[A-Za-z0-9.-]+(?::\d{1,5})?(?:/[^\s]*)?$")
 _LANG = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8})*$")
 _HOST = re.compile(r"^(?:[A-Za-z0-9-]{1,63}\.)*[A-Za-z0-9-]{1,63}(?::\d{1,5})?$|^\[[0-9A-Fa-f:.]+\](?::\d{1,5})?$")
 
 _TEXTS = {
     "contact_email": ("Geçerli bir güvenlik iletişim e-postası girin.", "Enter a valid security contact e-mail."),
-    "contact_url": ("İletişim sayfası https:// ile başlayan bir adres olmalı.", "The contact page must be an https:// URL."),
-    "policy_url": ("Politika sayfası https:// ile başlayan bir adres olmalı.", "The policy page must be an https:// URL."),
+    "contact_url": (
+        "İletişim sayfası https:// ile başlayan bir adres olmalı.",
+        "The contact page must be an https:// URL.",
+    ),
+    "policy_url": (
+        "Politika sayfası https:// ile başlayan bir adres olmalı.",
+        "The policy page must be an https:// URL.",
+    ),
     "preferred_languages": (
         "Diller virgülle ayrılmış dil kodları olmalı (ör. tr, en).",
         "Languages must be comma-separated language tags (e.g. tr, en).",

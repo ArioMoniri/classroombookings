@@ -402,7 +402,7 @@ The channels are in-app, e-mail and `services/channels/**`:
 - The sign-in UI follows `docs/design/v2/sign-in.md`.
 
 **Several providers (wave 3b W3-IDP, `0037_identity_providers`)**
-- `sso_providers` holds providers of the kinds `entra`, `google_workspace` (hosted-domain pin), `oidc` (any issuer with discovery; exact `iss`) and `saml` (`services/identity/saml.py`, signxml as the optional `saml` extra); the slug (`name`) keys identities, invites, mappings and states. The original Entra row is kept as it was.
+- `sso_providers` holds providers of the kinds `entra`, `google_workspace` (hosted-domain pin), `oidc` (any issuer with discovery; exact `iss`) and `saml` (`services/identity/saml.py`, signxml a normal pinned dependency since 2026-10-17); the slug (`name`) keys identities, invites, mappings and states. The original Entra row is kept as it was.
 - Per provider: /login order and label, allowed domains, invite-only, the eligible sign-up role, a group/claim mapping that applies only while its creator could still grant the role, write-only secret, audit, version-checked saves.
 - Guided setup (`/auth/sso/admin/providers/{id}/setup|discover|test`): console values from the public URL, discovery / metadata checks, a test login in a popup that reports the claims and stores nothing else. Invites per provider or with a local password, bulk CSV, themed e-mails through `services/mail.send_kind`. UI: `components/identity/**` (`IdentityProvidersPanel`).
 

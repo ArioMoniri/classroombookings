@@ -45,6 +45,7 @@ pip install -q --upgrade pip
 lock=(); [ -f smartsched/backend/requirements.lock ] && lock=(-c smartsched/backend/requirements.lock)
 pip install -q "${lock[@]}" -e "./smartsched/backend[dev]"
 # SAML 2.0 is built in (signxml from the lock): fail loudly rather than let tests/test_w3b_idp_saml.py skip
+python -c "import signxml; from importlib.metadata import version; print(\"signxml\", version(\"signxml\"))"
 cd smartsched/backend
 echo "==== make check (PostgreSQL tests on the postgres service)"; make check
 echo "==== solver gate"; ruff check app/solver && python -m mypy app/solver && python -m pytest tests/solver -q

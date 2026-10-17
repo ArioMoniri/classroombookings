@@ -1,0 +1,61 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Per-feature hints and the Help menu'>
+<title>Per-feature hints and the Help menu</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<text x='32' y='48' font-size='22' font-weight='700' fill='#0F172A' text-anchor='start'>Özellik ipuçları (wave 3) ve Yardım menüsü</text>
+<rect x='32' y='80' width='660' height='330' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='52' y='112' font-size='13' font-weight='600' fill='#64748B' text-anchor='start'>A · Yeni özellik ipucu (masaüstü, bir kez)</text>
+<rect x='52' y='132' width='220' height='36' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='68' y='156' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Hızlı rezervasyon</text>
+<rect x='196' y='140' width='42' height='20' rx='10' fill='#EFF6FF' fill-opacity='1'/>
+<text x='217.0' y='154' font-size='11' font-weight='600' fill='#2563EB' text-anchor='middle'>Yeni</text>
+<rect x='292' y='128' width='380' height='176' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#2563EB' stroke-width='1.5'/>
+<text x='312' y='158' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Yeni: Hızlı rezervasyon</text>
+<text x='312' y='182' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Bugünün bir sonraki boş saati hazır gelir.</text>
+<text x='312' y='200' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Salonu seçin, Rezerve et'e dokunun.</text>
+<rect x='312' y='236' width='120' height='44' rx='22.0' fill='#2563EB' fill-opacity='1'/>
+<text x='372.0' y='263.4' font-size='15' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Dene</text>
+<rect x='444' y='236' width='120' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='504.0' y='263.4' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Anladım</text>
+<text x='52' y='330' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>non-modal popover (role=dialog, aria-modal=false); focus is NOT moved; F6 / ‘?’ reaches it</text>
+<text x='52' y='346' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>max one auto hint per page view; never while a sheet, tour or dialog is open</text>
+<text x='52' y='362' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>dismiss = Anladım / Esc / click outside → state ‘seen’ on the server</text>
+<rect x='716' y='80' width='692' height='330' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='736' y='112' font-size='13' font-weight='600' fill='#64748B' text-anchor='start'>B · Yönetici ipucu (sayfa içi şerit)</text>
+<rect x='736' y='132' width='652' height='76' rx='12' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='1'/>
+<text x='756' y='160' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Yeni: Yapay zekâ ayarları</text>
+<text x='756' y='184' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Sağlayıcıları, özellik başına modeli ve aylık sınırı buradan seçin.</text>
+<text x='1372' y='160' font-size='13' font-weight='600' fill='#2563EB' text-anchor='end'>Anladım</text>
+<rect x='736' y='220' width='652' height='160' rx='12' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='756' y='250' font-size='13' font-weight='400' fill='#64748B' text-anchor='start'>/admin/ai içeriği</text>
+<text x='736' y='400' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>same pattern for /admin/ops, /admin/integrations, calendar export (Profil › Takvim)</text>
+<rect x='32' y='440' width='660' height='420' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='52' y='472' font-size='13' font-weight='600' fill='#64748B' text-anchor='start'>C · Kullanıcı menüsü › Yardım</text>
+<rect x='52' y='492' width='300' height='336' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='72' y='527' font-size='14' font-weight='400' fill='#0F172A' text-anchor='start'>Profil</text>
+<text x='68' y='568' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>YARDIM</text>
+<rect x='60' y='584' width='284' height='36' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='72' y='607' font-size='14' font-weight='500' fill='#2563EB' text-anchor='start'>Turu yeniden başlat</text>
+<text x='72' y='647' font-size='14' font-weight='400' fill='#0F172A' text-anchor='start'>Başlarken listesi</text>
+<text x='332' y='647' font-size='12' font-weight='600' fill='#64748B' text-anchor='end'>2 / 5</text>
+<text x='72' y='687' font-size='14' font-weight='400' fill='#0F172A' text-anchor='start'>Neler yeni</text>
+<text x='332' y='687' font-size='12' font-weight='600' fill='#64748B' text-anchor='end'>●</text>
+<text x='72' y='727' font-size='14' font-weight='400' fill='#0F172A' text-anchor='start'>Klavye kısayolları</text>
+<text x='332' y='727' font-size='12' font-weight='600' fill='#64748B' text-anchor='end'>?</text>
+<text x='68' y='768' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'></text>
+<text x='72' y='807' font-size='14' font-weight='400' fill='#0F172A' text-anchor='start'>Çıkış yap</text>
+<text x='372' y='560' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>also in ⌘K: ‘Turu yeniden başlat’</text>
+<text x='372' y='576' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>restart opens the sheet for the current audience</text>
+<rect x='716' y='440' width='692' height='420' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='736' y='472' font-size='13' font-weight='600' fill='#64748B' text-anchor='start'>D · Telefonda ipucu (sayfa başında kart)</text>
+<rect x='880' y='492' width='300' height='352' rx='24' fill='#F4F6F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='896' y='530' font-size='20' font-weight='700' fill='#0F172A' text-anchor='start'>Profil</text>
+<rect x='896' y='548' width='268' height='108' rx='14' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='1'/>
+<text x='910' y='574' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>Yeni: Takvimime ekle</text>
+<text x='910' y='596' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Derslerinizi kendi takviminize</text>
+<text x='910' y='612' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>ekleyin.</text>
+<rect x='910' y='620' width='110' height='30' rx='15.0' fill='#2563EB' fill-opacity='1'/>
+<text x='965.0' y='639.68' font-size='13' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Dene</text>
+<rect x='1030' y='620' width='120' height='30' rx='15.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1090.0' y='639.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Anladım</text>
+<text x='736' y='870' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>phones: inline card, pushes content down, no overlay (mock at ~70 % scale; real buttons are 44 px)</text>
+</svg>
