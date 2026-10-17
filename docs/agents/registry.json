@@ -2278,7 +2278,8 @@
       "ledger": "R2 lane D: moderation/learning UI",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 21:12"
+      "finished_at": "2026-10-17 21:12",
+      "left_off": "A leftover background wait was stopped at its time limit. It was waiting on a type check of the stack's frontend copy that had already been killed for lack of memory. Nothing is lost: the stack build after it succeeded and the e2e spec then passed 2/2, as in my report. I'm not restarting it."
     },
     {
       "id": "a9e52711559d8cd53",
