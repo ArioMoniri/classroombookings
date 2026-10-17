@@ -673,13 +673,47 @@ async def build_draft_input(
     return await _build_for(session, run, snap)
 
 
+def pin_lock_overrides(inp: sm.SolverInput, members: dict[int, list[int]], snap: dict[str, Any]) -> dict[int, str]:
+    """Request ids whose planning-list lock a draft pin moves (another room, day or start): the planner's own,
+    newer decision. Recorded in ``stats.carried_locks`` as ``STUDIO_PIN`` so the planner check lists the
+    placement as an accepted exception with cause ``manual`` (named in the run truth) instead of a broken
+    ``locked_room`` rule, which would end the run at hard 99 for a move the planner asked for."""
+    head_of = {rid: ev for ev, ids in members.items() for rid in ids}
+    by_id = {e.id: e for e in inp.events}
+    out: dict[int, str] = {}
+    for pin in snap.get("pins") or []:
+        ev = by_id.get(head_of.get(int(pin["event_id"]), -1))
+        if ev is None or ev.locked is None:
+            continue
+        rooms = {int(r) for r in pin.get("room_ids") or []}
+        day = int(pin["day"]) if pin.get("day") is not None else None
+        start = int(pin["start_period"]) if pin.get("start_period") is not None else None
+        lk = ev.locked
+        moved = (
+            (rooms and rooms != set(lk.room_ids))
+            or (day is not None and day != lk.day)
+            or (start is not None and start != lk.start)
+            or bool(pin.get("unlock"))
+        )
+        if moved:
+            for rid in members.get(ev.id, [ev.id]):
+                out[rid] = "STUDIO_PIN"
+    return out
+
+
 async def _build_for(session: AsyncSession, run: ScheduleRun, snap: dict[str, Any]) -> DraftInput:
     inp, members = await solver_bridge.build_solver_input(session, run)
     excluded = [int(i) for i in snap.get("excluded_event_ids") or []]
     touched = {m for ids in members.values() if len(ids) > 1 and set(ids) & set(excluded) for m in ids}
     sizes = await _request_sizes(session, run.kind, touched, (run.stats or {}).get("enrolment_fallbacks"))
     inp2, members2, dropped = apply_draft(inp, members, snap, sizes)
-    return DraftInput(inp2, members2, excluded, dropped, dict(run.stats or {}))
+    stats = dict(run.stats or {})
+    overridden = pin_lock_overrides(inp, members, snap)
+    if overridden:
+        carried = {str(k): str(v) for k, v in (stats.get("carried_locks") or {}).items()}
+        carried.update({str(k): v for k, v in sorted(overridden.items())})
+        stats["carried_locks"] = carried
+    return DraftInput(inp2, members2, excluded, dropped, stats)
 
 
 async def build_solver_input_for_draft(session: AsyncSession, draft: StudioDraft) -> sm.SolverInput:
@@ -698,6 +732,8 @@ async def build_solver_input_for_run(
         return await solver_bridge.build_solver_input(session, run)
     out = await _build_for(session, run, snap)
     run.stats = {**(run.stats or {}), "studio_dropped_events": len(out.dropped_event_ids)}
+    if out.stats.get("carried_locks"):
+        run.stats = {**run.stats, "carried_locks": out.stats["carried_locks"]}
     return out.inp, out.members
 
 

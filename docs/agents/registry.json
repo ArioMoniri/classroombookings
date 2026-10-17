@@ -2330,7 +2330,7 @@
       "ledger": "R2 lane S: minimal-change re-solve",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 08:11",
+      "finished_at": "2026-10-17 09:50",
       "left_off": "The ticket JSON now carries only the three intended lines. The one remaining input is the moderation suite re-run (background); the PROGRESS DONE row and the hand-off follow as soon as it reports."
     },
     {

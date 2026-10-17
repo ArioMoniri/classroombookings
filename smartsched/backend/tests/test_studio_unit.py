@@ -122,3 +122,23 @@ def test_rules_of_excluded_classes_leave_the_draft() -> None:
     out, _, dropped = apply_draft(_inp(a, b, constraints=rules), {1: [1], 2: [2]}, {"excluded_event_ids": [2]})
     assert dropped == [2]
     assert [c.id for c in out.constraints] == [8, 9]
+
+
+def test_pin_that_moves_a_locked_class_is_recorded_as_the_planner_s_decision():
+    """A draft pin that overrides a planning-list lock is the planner's newer intent: the request is carried in
+    stats.carried_locks (STUDIO_PIN) so the planner check lists it as an accepted exception, not a broken lock."""
+    from dataclasses import replace
+
+    from app.services.studio import pin_lock_overrides
+
+    lock = sm.Assignment(event_id=1, day=0, start=1, end=3, room_ids=(601,), weeks=frozenset({1}))
+    a = replace(_ev(1, "PHAR 290", 40, 1), locked=lock)
+    b = _ev(2, "PSY 101", 30, 4)
+    inp = _inp(a, b)
+    members = {1: [1, 11], 2: [2]}
+    moved = pin_lock_overrides(inp, members, {"pins": [{"event_id": 11, "room_ids": [204]}]})
+    assert moved == {1: "STUDIO_PIN", 11: "STUDIO_PIN"}
+    # the same room, day and start: no override
+    assert pin_lock_overrides(inp, members, {"pins": [{"event_id": 1, "room_ids": [601]}]}) == {}
+    # a class without a lock: nothing to record
+    assert pin_lock_overrides(inp, members, {"pins": [{"event_id": 2, "room_ids": [204]}]}) == {}
