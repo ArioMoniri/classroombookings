@@ -871,7 +871,9 @@
       "smartsched/frontend/src/components/bookings/recurring-preview-table.tsx"
      ],
      "dedup": "new",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "load keeps choices; reset note per changed date; verified 1440+390"
     },
     {
      "id": "T-R2-10",
@@ -894,7 +896,9 @@
      "dedup": "round-1 M-05 table row '/find-room M-05 FAIL (Ara not sticky)' had no ticket; T-R1-01 cleaned the primitives",
      "depends_on": [
       "T-R2-05"
-     ]
+     ],
+     "status": "done",
+     "resolution": "page-level fixed Ara capsule on compact; 44 px input/policy-why; M-05/M-02 pass (date-field 32 px is lane A)"
     },
     {
      "id": "T-R2-11",
@@ -914,7 +918,9 @@
      "dedup": "lane-A2 ask -> B2 (HANDOFF 00:00), not done; re-seen R1-S-16 family",
      "depends_on": [
       "T-R2-05"
-     ]
+     ],
+     "status": "done",
+     "resolution": "44 px checkbox label, bulk capsule above the tab bar; M-02/M-05 pass, bulk cancel works"
     },
     {
      "id": "T-R2-12",
@@ -934,7 +940,9 @@
       "smartsched/frontend/src/components/approvals/approvals-view.tsx:140-160,217-260,504-517"
      ],
      "dedup": "T-R1-18 (verified) follow-up; persona-admin 'approvals A/D/R'",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "j/k roving, initialFocus on the title, group actions in the sticky footer on phones; verified"
     },
     {
      "id": "T-R2-13",
@@ -957,7 +965,9 @@
       "smartsched/backend/app/services/booking_conflicts.py"
      ],
      "dedup": "reopens T-R1-13 (part done 17f07e8 + the orchestrator's multi_booking_id fix); A-12 (open, persona-academician); persona-user Enh. #2",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "rows grouped by submission; adjacent requests one conflict row; totals on one basis; verified"
     },
     {
      "id": "T-R2-14",
@@ -977,7 +987,9 @@
       "smartsched/backend/app/api/v1/bookings.py:532"
      ],
      "dedup": "T-R1-14 follow-up (verified)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "stale card refused before the sheet (wholeSpan); verified 1440+390"
     },
     {
      "id": "T-R2-15",
@@ -999,7 +1011,9 @@
       "smartsched/frontend/src/lib/api/crbs.ts (calendar status query)"
      ],
      "dedup": "new; T-R1-17 (verified) touched the same card",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "quiet disabled text, worded 44 px copy buttons with a clipboard catch, wrapping link; /profile alert is settings/calendar-connections (ask)"
     },
     {
      "id": "T-R2-16",
@@ -1024,7 +1038,9 @@
       "smartsched/frontend/messages/{tr,en}.json crbs.cancel.*"
      ],
      "dedup": "leftover of T-R1-10 (verified); U-10 EN side; T-R1-06 toast family",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "mode-aware hints, 'Block A', one cancel toast builder; verified"
     },
     {
      "id": "T-R2-17",
@@ -1051,7 +1067,9 @@
       "smartsched/backend/app/services/bookings.py:531-543,1136,1219-1300"
      ],
      "dedup": "R1-S-24 / T-R1-29 residue (range_min); R1-M-17 part (bookings strings); new otherwise",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "same-page deep link, 202 multi create, coded past/range refusals + replaced_by_series, one audit row per booking; verified"
     },
     {
      "id": "T-R2-18",
@@ -1072,7 +1090,9 @@
       "smartsched/frontend/src/components/conflicts/resolver-model.ts"
      ],
      "dedup": "M-35 ([x], 'rules warn when nobody is designated'): the per-rule case; R1-M-01 (verified: the 500) UI part",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "per-rule approver coverage warning (unit-tested); conflicts apply review already worked on the stack (R2-M-21 not reproduced)"
     }
    ],
    "done_when": "every ticket's check passes; MOBILE M-02/M-05 at 390 touch on the lane's phone_routes; vitest + pytest for the two services; e2e loop-r1-laneB still green"

@@ -2250,7 +2250,8 @@
       "goal": "You are the round-2 loop builder for **lane B (bookings, find-room, approvals, My bookings)** of SmartSched, ledger `loop-r2-laneB-2026-10-17`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md then .../briefs/ROUND2-BUILD.md and follow …",
       "ledger": "R2 lane B: bookings/find-room/approvals",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 08:50"
     },
     {
       "id": "ace4309bd17c71750",
