@@ -42,12 +42,17 @@ dependencies = [
   "joserfc>=1.6.8,<2",  # ID token / JWKS verification, Authlib's JOSE library (BSD-3-Clause)
   # W3-OPS observability (app/core/observability.py): /metrics for Prometheus, multiprocess-safe (Apache-2.0)
   "prometheus-client>=0.26,<1",
+  # W3-IDP SAML 2.0 sign-in (app/services/identity/saml.py; owner request 2026-10-17: built in, not optional):
+  # signxml verifies the XML signatures (Apache-2.0, pure Python on lxml + cryptography; >=4.0.4 fixes
+  # GHSA-6vx8-pcwv-xhf4 / GHSA-gmhf-gg8w-jw42). lxml >=6.1 fixes the iterparse XXE GHSA-vfmq-68hx-4jfw.
+  # Exact versions in requirements.lock; saml.py still degrades to "kütüphane gerekli" if signxml is missing.
+  "signxml>=5.1,<6",
+  "lxml>=6.1,<7",
 ]
 
 [project.optional-dependencies]
-# W3-IDP: SAML 2.0 sign-in (app/services/identity/saml.py) verifies XML signatures with signxml (Apache-2.0, pure
-# Python on lxml + cryptography). Optional: without it SAML providers show "kütüphane gerekli" and cannot be enabled.
-saml = ["signxml>=5.1,<6"]
+# kept as an empty alias so `pip install '.[saml]'` still works: signxml is now a normal dependency (see above)
+saml = []
 dev = [
   "pytest>=8",
   "pytest-asyncio>=0.23",

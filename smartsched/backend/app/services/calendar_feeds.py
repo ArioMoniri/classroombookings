@@ -969,7 +969,7 @@ async def export_options(session: AsyncSession, access: Access) -> dict[str, Any
     deps.sort(key=lambda d: (tr_sort_key(d.name), d.id))
     own = access.user.department_id if access.user.department_id in {d.id for d in deps} else None
     taught = sorted(await cc.taught_program_ids(session, linked) & {d.id for d in deps})
-    default_dep = own or (taught[0] if taught else (deps[0].id if deps and not everything else None))
+    default_dep = own or (taught[0] if taught else (deps[0].id if deps else None))
     scopes: list[dict[str, Any]] = []
     for kind in ("my_classes", "department_classes", "my_bookings"):
         tr, en = cc.SCOPE_LABELS[kind]
