@@ -65,9 +65,16 @@ async def test_w3_slot_my_totals_count_live_bookings_and_pending_apart(env):  # 
     from app.models import Booking
 
     _, teacher = await env.user("w3slot-totals@example.edu")
+    day = date(2026, 2, 18).isoformat()
+    grid = (
+        await env.client.get("/api/v1/bookings/grid", params={"display": "day", "date": day}, headers=teacher)
+    ).json()
+    free = [s for s in grid["slots"] if s["status"] == "available" and s.get("allow_single")][:5]
+    assert len(free) == 5
     ids = []
-    for p in ("P1", "P11", "P13", "P14", "P15"):
-        r = await env.book(teacher, "A101", date(2026, 2, 18), p)
+    for slot in free:
+        body = {"room_id": slot["room_id"], "date": day, "period_id": slot["period_id"]}
+        r = await env.client.post("/api/v1/bookings", json=body, headers=teacher)
         assert r.status_code == 201, r.text
         ids.append(r.json()["id"])
     async with dbmod.get_session_factory()() as s:
