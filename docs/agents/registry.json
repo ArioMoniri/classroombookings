@@ -2321,8 +2321,8 @@
       "ledger": "R2 lane S: minimal-change re-solve",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 05:38",
-      "left_off": "The end-to-end replay (S10 priority edit, S11 pin + rerun, S12 wizard programme) through the real service path is running on the DB copy; the hand-off entries will be written with its preview counts once it finishes."
+      "finished_at": "2026-10-17 05:40",
+      "left_off": "Both background jobs (replay chain and the gates) are running; their results are the only remaining inputs before the hand-off entries, so I will wait for their notifications."
     },
     {
       "id": "a0d0d5d9bf11862e6",

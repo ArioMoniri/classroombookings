@@ -132,16 +132,28 @@ def _segment_rows(split: WeekSplit, rows_by_root: dict[int, list[Assignment]]) -
     return out
 
 
-def segment_view(inp: SolverInput, assignments: Iterable[Assignment], *, split_weeks: bool = True) -> SegmentView:
+def segment_view(
+    inp: SolverInput,
+    assignments: Iterable[Assignment],
+    *,
+    split_weeks: bool = True,
+    unlocked_forbidden_tags: Mapping[int, frozenset[str]] | None = None,
+) -> SegmentView:
     """The segmented picture of ``assignments`` (several rows per event allowed: one per room set and week range).
 
     The input is split like the term run splits it (locked rooms blocked in some weeks, fixed-time events with no
-    common free room); an event whose stored rows change room between weeks without such a split is split along
-    those rows (:func:`weeksplit.split_by_rows`).  Every segment then has exactly one current placement."""
+    common free room; ``unlocked_forbidden_tags`` = the tags an event may not use without its lock, as the bridge
+    passes them to ``solve_segmented`` — a locked class's moved week never lands in a medicine room); an event whose
+    stored rows change room between weeks without such a split is split along those rows
+    (:func:`weeksplit.split_by_rows`).  Every segment then has exactly one current placement."""
     current = list(assignments)
     rows_by_root = _rows_by_event(inp, current)
     base = replace(inp, previous=tuple(a for rows in rows_by_root.values() for a in rows))
-    split = split_blocked_weeks(base) if split_weeks else WeekSplit(inp=normalize_input(base))
+    split = (
+        split_blocked_weeks(base, unlocked_forbidden_tags=unlocked_forbidden_tags)
+        if split_weeks
+        else WeekSplit(inp=normalize_input(base))
+    )
     if split_weeks:
         multi = {
             root: rows
@@ -179,6 +191,7 @@ def repair(
     free: Iterable[int] | Mapping[int, int | None] | None = None,
     view: SegmentView | None = None,
     split_weeks: bool = True,
+    unlocked_forbidden_tags: Mapping[int, frozenset[str]] | None = None,
 ) -> SolverResult:
     """Re-solve only the neighbourhood of the changed events.
 
@@ -201,7 +214,8 @@ def repair(
     solve runs in deterministic time, so the same input gives the same child.
     """
     current = list(assignments)
-    view = view if view is not None else segment_view(inp, current, split_weeks=split_weeks)
+    if view is None:
+        view = segment_view(inp, current, split_weeks=split_weeks, unlocked_forbidden_tags=unlocked_forbidden_tags)
     sinp = view.inp
     seg_cur = index_assignments(view.current)
     changed = view.expand(int(i) for i in changed_event_ids)

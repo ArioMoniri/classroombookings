@@ -2142,7 +2142,11 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
         if mode == "repair":
             # the base timetable as week segments (T-R2-34): a class whose blocked week sits in another room is
             # two segments, each judged and locked on its own, not one class in a room it never had in every week
-            view = segment_view(inp, current)
+            view = segment_view(
+                inp,
+                current,
+                unlocked_forbidden_tags=solver_bridge._unlocked_forbidden_tags(inp),  # noqa: SLF001 - the bridge's own TIP rule
+            )
             changed_seg = view.expand(changed)
             broken_seg = violating(view) - changed_seg
             blockers = slot_blockers(view.inp, view.current, changed_seg)

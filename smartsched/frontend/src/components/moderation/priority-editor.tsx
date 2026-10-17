@@ -6,7 +6,7 @@
  * is the `SubjectPriorityForm` (`PUT /moderation/people|programs/{id}/priority`). Every save is audited and
  * appears in the server's "Yayından beri değişenler" list for the next re-solve. "Kaynağa dön" clears an override.
  */
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -167,11 +167,14 @@ export function SubjectPriorityForm({ subject, id, termId, label, current, note:
   const [error, setError] = useState<string | null>(null);
   const save = useSetSubjectPriority();
   const saveBtn = useRef<HTMLButtonElement>(null);
-  // the parent passes the refetched value down after a save (no remount, so the focus stays on the form; T-R2-25)
-  useEffect(() => {
+  // the parent passes the refetched value down after a save (no remount, so the focus stays on the form; T-R2-25):
+  // the form follows the new value the React way (state adjusted while rendering, no effect)
+  const [seen, setSeen] = useState({ current, initialNote });
+  if (seen.current !== current || seen.initialNote !== initialNote) {
+    setSeen({ current, initialNote });
     setTier(tierOf(current ?? 0));
     setNote(initialNote ?? "");
-  }, [current, initialNote]);
+  }
   const submit = async () => {
     setError(null);
     try {

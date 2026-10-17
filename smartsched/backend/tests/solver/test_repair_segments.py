@@ -63,6 +63,15 @@ def test_segment_view_keeps_every_stored_row_of_a_split_class() -> None:
     assert rp.violating_events(view) == set()
 
 
+def test_segment_view_gives_the_moved_week_its_tag_ban_back() -> None:
+    """The bridge clears the TIP ban of a locked class; the week moved out of its lock room must not use a TIP room."""
+    inp, current = _term_with_blocked_week()
+    view = rp.segment_view(inp, current, unlocked_forbidden_tags={1: frozenset({"TIP"})})
+    seg = next(s for s in view.segments_of(1) if s != 1)
+    by_id = {e.id: e for e in view.inp.events}
+    assert by_id[seg].forbidden_tags == frozenset({"TIP"}) and by_id[1].forbidden_tags == frozenset()
+
+
 def test_repair_after_a_priority_edit_keeps_the_split_class_and_drops_nothing() -> None:
     inp, current = _term_with_blocked_week()
     edited = replace(inp, events=tuple(replace(e, priority=10) if e.id == 2 else e for e in inp.events))

@@ -16,7 +16,7 @@
  */
 import { FolderInput, X } from "lucide-react";
 import { useId, useRef, useState } from "react";
-import { Button, IconButton, buttonVariants } from "@/components/ui/button";
+import { BareButton, Button, IconButton, buttonVariants } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -79,13 +79,12 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
         data-dragging={dragging || undefined}
         className={cn("p-2 transition-colors duration-(--dur-fast)", dragging && "bg-tint-soft")}
       >
-        <button
-          type="button"
+        <BareButton
           data-testid="onboarding-dropzone"
           aria-labelledby={titleId}
           aria-describedby={hintId}
           onClick={() => inputRef.current?.click()}
-          className="flex min-h-11 w-full flex-wrap items-center gap-x-4 gap-y-3 rounded-lg p-2 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
+          className="flex min-h-11 w-full flex-wrap items-center justify-start gap-x-4 gap-y-3 rounded-lg p-2 text-left font-normal whitespace-normal"
         >
           <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fill-2 text-label-2">
             <FolderInput className="size-5 stroke-[1.75]" />
@@ -95,7 +94,7 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
             <span id={hintId} className="block type-footnote text-label-2">{c.dropHint}</span>
           </span>
           <span aria-hidden className={cn(buttonVariants({ variant: "outline" }), "pointer-events-none")}>{c.choose}</span>
-        </button>
+        </BareButton>
         <input ref={inputRef} id={inputId} type="file" multiple accept={ACCEPT} tabIndex={-1} aria-labelledby={titleId} className="sr-only" data-testid="onboarding-input" onChange={(e) => add(e.target.files)} />
       </div>
 

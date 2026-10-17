@@ -94,24 +94,19 @@ async def test_general_then_fast_path_share_one_key_and_the_dry_run_predicts_the
     print("DBG_GENERAL", _j.dumps(real_a["general"]), _j.dumps(dry_a["counts"]["meeting_requests"]))
     print("DBG_CREATED", _j.dumps([r for r in dry_a["rows"] if r["change"] == "create" and r["entity"] in ("meeting_requests", "sections")], ensure_ascii=False)[:3000])
     print("DBG_UPDATED", _j.dumps([r for r in dry_a["rows"] if r["change"] == "update" and r["entity"] == "meeting_requests"][:8], ensure_ascii=False)[:3000])
+    import json as _j
+    probe = await _dry(client, h, (await upload(client, h, (BAHAR_LIST.name, BAHAR_LIST.read_bytes()), ai="false"))["id"])
+    print("DBG_PROBE", _j.dumps(probe["counts"].get("meeting_requests")), _j.dumps(probe["result"]["fast_path"][0]["updated"]))
+    print("DBG_PROBE_ROWS", _j.dumps([r for r in probe["rows"] if r["entity"] == "meeting_requests"][:6], ensure_ascii=False)[:2500])
     from app.core.db import get_session_factory as _gsf
-    from app.models import MeetingRequest as _MR, Section as _S, Course as _Co
+    from app.models import MeetingRequest as _MR, Section as _S, Course as _Co, Program as _P
     from sqlalchemy import select as _sel
     async with _gsf()() as _s:
-        rows = (await _s.execute(_sel(_MR, _Co.code, _S.label, _S.id).join(_S, _MR.section_id == _S.id).join(_Co, _S.course_id == _Co.id).where(_MR.archived.is_(False)))).all()
-        print("DBG_NB", n_b, "total", len(rows))
-        by = {}
-        for mr, code, label, sid in rows:
-            by.setdefault(sid, []).append((mr, code, label))
-        shown = 0
-        for sid, items in by.items():
-            if len(items) < 2: continue
-            for i, (a, code, label) in enumerate(items):
-                for b, _c, _l in items[i+1:]:
-                    if sorted(a.days or []) == sorted(b.days or []) and (a.start_time is None or b.start_time is None or a.start_time == b.start_time):
-                        print("DBG_PAIR", code, label, a.days, str(a.start_time), str(a.end_time), a.source_key, a.source_row_index, "|", str(b.start_time), str(b.end_time), b.source_key, b.source_row_index, "| notes:", (a.notes or "")[:60], "/", (b.notes or "")[:60])
-                        shown += 1
-            if shown > 12: break
+        for r in [r for r in probe["rows"] if r["entity"] == "meeting_requests"][:6]:
+            mr = await _s.get(_MR, r["id"])
+            sec = await _s.get(_S, mr.section_id)
+            co = await _s.get(_Co, sec.course_id)
+            print("DBG_ROW", co.code, sec.label, sec.source_key, mr.days, str(mr.start_time), mr.source_key, mr.source_row_index, mr.archived)
     assert 1511 <= total <= 1512, total
     assert _n(dry_a["counts"], "meeting_requests", "create") <= total - n_b + 1, dry_a["counts"]["meeting_requests"]
 

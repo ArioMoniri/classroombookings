@@ -32,10 +32,10 @@ import { CalendarSyncPanel } from "./calendar-sync";
 
 const sync = (enabled: boolean) => ({ enabled, feeds: { tokens: [], url_templates: { mine: "/m", room: "/r/{id}", department: "/d/{id}" } }, connectors: [], consent: { purpose: "calendar_sync", required: true, granted: true } });
 function renderIt(ui: React.ReactNode) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <I18nProvider locale="tr">{ui}</I18nProvider>
+      <I18nProvider initialLocale="tr">{ui}</I18nProvider>
     </QueryClientProvider>,
   );
 }
@@ -44,11 +44,8 @@ describe("T-R2-15 calendar-sync card", () => {
   beforeEach(() => {
     toast.success.mockReset();
     toast.error.mockReset();
-    try {
-      window.localStorage.clear();
-    } catch {
-      /* no storage */
-    }
+    window.sessionStorage.clear();
+    Object.defineProperty(window, "location", { configurable: true, value: { ...window.location, origin: "https://rez.uni.edu.tr", assign: vi.fn() } });
   });
   it("says sync is off as quiet text: no role=status / alert the toast probes would count", async () => {
     api.sync = sync(false);

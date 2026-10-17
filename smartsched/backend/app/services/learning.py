@@ -752,7 +752,7 @@ async def suggestions(
     # an acceptance outlives a memory reset of its subject (its LEARNED rule is a normal preference now, T-R2-24):
     # the card stays listed as accepted although the prior is inactive
     accepted_ids = [fb.prior_id for fb in feedback.values() if fb.action == "ACCEPT" and fb.prior_id is not None]
-    visible = LearnedPrior.active.is_(True)
+    visible: Any = LearnedPrior.active.is_(True)
     if accepted_ids:
         visible = or_(visible, LearnedPrior.id.in_(accepted_ids))
     q = select(LearnedPrior).where(LearnedPrior.term_id == term_id, visible)
