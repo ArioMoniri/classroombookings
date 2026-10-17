@@ -2800,8 +2800,8 @@
       "ledger": "CAL-F: calendar export UI",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 22:31",
-      "left_off": "The second watcher (20 minutes) is still running, so I'm waiting for API.md."
+      "finished_at": "2026-10-17 23:02",
+      "left_off": "The client is reconciled with CAL-B's in-code contract and 54 vitest tests pass. The watcher is waiting on API.md before the final e2e run."
     },
     {
       "id": "a188be943a3fea75a",

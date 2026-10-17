@@ -113,6 +113,9 @@ test.afterAll(async () => {
   await ctx.api.dispose();
 });
 
+/** a feed URL (absolute on the panel's public address, or relative) on this stack's backend */
+const toApi = (u: string) => u.replace(/^(https?:\/\/[^/]+)?\/api\/v1/, API);
+
 async function openSheet(page: Page): Promise<void> {
   await page.goto("/profile#calendar");
   await page.getByTestId("cal-open").click();
@@ -175,7 +178,7 @@ for (const [label, device] of [
       }
       const https = await page.getByTestId("cal-link-https-value").inputValue();
       expect(await page.getByTestId("cal-link-apple").getAttribute("href")).toMatch(/^webcal:\/\//);
-      const feed = await ctx.api.get(https.replace(/^https?:\/\/[^/]+\/api\/v1/, API));
+      const feed = await ctx.api.get(toApi(https));
       expect(feed.status()).toBe(200);
       expect(feed.headers()["content-type"]).toContain("text/calendar");
       const ics = await feed.text();
@@ -200,7 +203,7 @@ for (const [label, device] of [
       await page.getByTestId("cal-remove-confirm").click();
       await expect(row).toHaveCount(0);
       await expect.poll(() => page.evaluate(() => document.activeElement?.closest("[data-row-id]") !== null || document.activeElement?.getAttribute("data-testid") === "cal-open")).toBe(true);
-      const after = await ctx.api.get(made.urls.https.replace(/^https?:\/\/[^/]+\/api\/v1/, API));
+      const after = await ctx.api.get(toApi(made.urls.https));
       expect(after.status()).toBe(404);
     });
 
