@@ -141,5 +141,15 @@
   },
   "publicSchedule": {
     "dateNav": "päivää"
+  },
+  "quickReserve": {
+    "day": {
+      "label": "päivää"
+    }
+  },
+  "aiAdmin": {
+    "usage": {
+      "day": "päivää"
+    }
   }
 }

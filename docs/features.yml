@@ -273,3 +273,21 @@
   phase: "wave 3 (W3-SEC)"
   evidence: smartsched/backend/tests/test_w3_sec_hardening.py
   note: "docs/SECURITY.md; checked through nginx 1.24 with Playwright at 1440 and 390 px"
+- feature: "Operations panel /admin/ops: service status cards (API, DB, queues, mail, disk, errors, Grafana / Prometheus / Loki, pod CI, last deploy), firing alerts, request/latency mini chart, Grafana links + same-origin panels, Loki log tail"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-OPS)"
+  evidence: smartsched/frontend/e2e/w3-ops.spec.ts
+  note: "app/api/v1/ops.py, components/admin/ops/**; checked at 1440 and 390 touch (M-01/M-02/M-03) on a stack with the observability profile running"
+- feature: "Grouped error tracking: backend exceptions / 5xx, ERROR log records with a traceback and browser errors (window.onerror, unhandled rejections, error boundaries) as PII-scrubbed groups with new / acknowledged / resolved / ignored, 90-day retention, optional Sentry"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-OPS)"
+  evidence: smartsched/backend/tests/test_w3_ops_observability.py
+  note: "alembic 0036_error_events; POST /api/v1/ops/errors rate limited, <= 8 KB"
+- feature: "Prometheus metrics (/metrics, multiprocess-safe; routes by template, DB pool, queues, outbox, bookings, approvals, login failures, AI calls hook, guard refusals, TLS expiry) + observability compose profile (Prometheus, Loki, Alloy, Grafana with 6 Turkish-first dashboards, 15 alert rules) behind the admin session at /grafana/"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-OPS)"
+  evidence: smartsched/deploy/observability/README.md
+  note: "768 MiB of caps, ~0.37-0.49 GB measured; /grafana/ needs the nginx snippet pasted by W3-SEC (observability/nginx/grafana.locations); alert delivery to notification channels not wired"

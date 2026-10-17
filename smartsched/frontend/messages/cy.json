@@ -141,5 +141,15 @@
   },
   "publicSchedule": {
     "dateNav": "Dydd"
+  },
+  "quickReserve": {
+    "day": {
+      "label": "Dydd"
+    }
+  },
+  "aiAdmin": {
+    "usage": {
+      "day": "Dydd"
+    }
   }
 }

@@ -141,5 +141,15 @@
   },
   "publicSchedule": {
     "dateNav": "Den"
+  },
+  "quickReserve": {
+    "day": {
+      "label": "Den"
+    }
+  },
+  "aiAdmin": {
+    "usage": {
+      "day": "Den"
+    }
   }
 }

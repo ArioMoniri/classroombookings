@@ -11,6 +11,11 @@ docs/product/2026-10-15-integrations-options.md §5.5). Alembic ``0026_sso_entra
 * ``sso_role_mappings``: optional (off by default) Entra app role / group object id -> SmartSched role.
 * ``sso_auth_states``: single-use, short-lived rows: the login / link ``state`` (hashed) with the PKCE verifier
   (encrypted) and the nonce (hashed), and the one-time ``ticket`` the panel exchanges for a session.
+
+Wave 3b (``0037_identity_providers``): ``sso_providers`` holds several providers of the kinds ``entra``,
+``google_workspace``, ``oidc`` and ``saml`` (app/services/identity/kinds.py); ``name`` is the provider's URL slug
+(``entra`` for the original row), ``options`` its non-secret kind settings (issuer, discovered endpoints, hosted
+domain, SAML metadata, claim names), ``client_secret_enc`` its only secret. Every other table keys rows by that slug.
 """
 
 from __future__ import annotations
@@ -28,14 +33,31 @@ class SsoProvider(Base):
     __tablename__ = "sso_providers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(16), unique=True)
+    #: the URL slug (``/auth/sso/<name>/start``); ``entra`` for the provider of 0026
+    name: Mapped[str] = mapped_column(String(40), unique=True)
+    #: entra | google_workspace | oidc | saml (app/services/identity/kinds.py)
+    kind: Mapped[str] = mapped_column(String(24), default="entra", server_default="entra")
+    #: the button label on /login ("Microsoft 365", "Google", "Kurum girişi"); ``None``: the kind's default
+    display_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    #: button order on /login (ascending, then id)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    #: e-mail domains a verified address must belong to (``None`` / empty: no restriction)
+    allowed_domains: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    #: new accounts only through an invite (self sign-up / just-in-time provisioning refused)
+    invite_only: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    #: kind settings without secrets: issuer + discovered endpoints, hosted domain, SAML metadata, claim names, preset
+    options: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    #: the last discovery / metadata fetch or test login (status card: Bağlı / Hata + last check)
+    last_check_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_check_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    last_check_detail: Mapped[str | None] = mapped_column(String(255), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     #: the directory (tenant) id, a GUID; "common" / "organizations" / "consumers" are refused
     tenant_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     client_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     client_secret_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
     #: ``sso_self_signup`` (owner decision 2026-10-15, default on): a first sign-in of the pinned tenant creates an
-    #: account with the lowest role; off = invite-only
+    #: account with the lowest role (just-in-time provisioning); off = invite-only
     self_signup: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     #: the institution's sign-in domain shown on the login page (``uni.edu.tr``); display only, never a check
     domain_hint: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -60,11 +82,11 @@ class UserIdentity(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    provider: Mapped[str] = mapped_column(String(16))
+    provider: Mapped[str] = mapped_column(String(40))
     issuer: Mapped[str] = mapped_column(String(255))
     tenant_id: Mapped[str] = mapped_column(String(36))
-    #: Entra ``oid`` (immutable object id of the user in the tenant)
-    subject: Mapped[str] = mapped_column(String(64))
+    #: Entra ``oid`` (immutable object id of the user in the tenant); OIDC ``sub``; SAML persistent NameID
+    subject: Mapped[str] = mapped_column(String(255))
     email_at_login: Mapped[str | None] = mapped_column(String(255), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     #: how the identity was attached: provision | invite | bind | link
@@ -78,7 +100,7 @@ class SsoInvite(Base):
     __table_args__ = (UniqueConstraint("provider", "email", name="uq_sso_invites_email"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    provider: Mapped[str] = mapped_column(String(16))
+    provider: Mapped[str] = mapped_column(String(40))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
     #: folded (Turkish-aware, lower case) UPN / e-mail the verified id_token must carry
     email: Mapped[str] = mapped_column(String(255))
@@ -96,7 +118,7 @@ class SsoRoleMapping(Base):
     __table_args__ = (UniqueConstraint("provider", "claim", "value", name="uq_sso_role_mappings_value"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    provider: Mapped[str] = mapped_column(String(16))
+    provider: Mapped[str] = mapped_column(String(40))
     claim: Mapped[str] = mapped_column(String(8))  # role (app role value) | group (group object id)
     value: Mapped[str] = mapped_column(String(128))
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id", ondelete="CASCADE"), index=True)
@@ -109,7 +131,7 @@ class SsoAuthState(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     state_hash: Mapped[str] = mapped_column(String(64), unique=True)
-    provider: Mapped[str] = mapped_column(String(16))
+    provider: Mapped[str] = mapped_column(String(40))
     purpose: Mapped[str] = mapped_column(String(8))  # login | link | ticket
     nonce_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     code_verifier_enc: Mapped[str | None] = mapped_column(Text, nullable=True)

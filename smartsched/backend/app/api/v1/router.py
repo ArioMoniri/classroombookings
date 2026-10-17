@@ -172,3 +172,8 @@ api_router.include_router(ops_api.router)
 from app.api.v1 import ai_admin  # noqa: E402
 
 api_router.include_router(ai_admin.router)
+
+# wave 3b W3-HUB: integrations gallery status (read-only aggregator over the areas' own status; /admin/integrations)
+from app.api.v1 import integrations as integrations_api  # noqa: E402
+
+api_router.include_router(integrations_api.router)

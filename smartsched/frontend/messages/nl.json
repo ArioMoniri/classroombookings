@@ -141,5 +141,15 @@
   },
   "publicSchedule": {
     "dateNav": "dag"
+  },
+  "quickReserve": {
+    "day": {
+      "label": "dag"
+    }
+  },
+  "aiAdmin": {
+    "usage": {
+      "day": "dag"
+    }
   }
 }

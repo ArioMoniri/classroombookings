@@ -8,6 +8,7 @@
 import { Check } from "lucide-react";
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { BareButton } from "@/components/ui/button";
 
 export interface ChipItem<V extends string> {
   value: V;
@@ -70,9 +71,8 @@ export function ChipRadioGroup<V extends string>({
       {items.map((item, i) => {
         const checked = item.value === value;
         return (
-          <button
+          <BareButton
             key={item.value}
-            type="button"
             role="radio"
             aria-checked={checked}
             aria-disabled={item.disabled || undefined}
@@ -93,7 +93,7 @@ export function ChipRadioGroup<V extends string>({
               <span className="type-callout">{item.label}</span>
               {item.sub ? <span className={cn("type-caption tabular-nums", checked ? "text-tint-text" : "text-label-2", item.disabled && "text-label-3")}>{item.sub}</span> : null}
             </span>
-          </button>
+          </BareButton>
         );
       })}
     </div>

@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 08:51",
-      "left_off": "Next I need: (1) the council/drafts suite result (bj1zqhtn8 — running), (2) the rebuild + full spec result (by87uvrxr — running), (3) then the hand-off edits, which depend on (2). Both open items are already in flight and nothing further is independent of them, so I'll wait for their completion notices."
+      "finished_at": "2026-10-17 20:09",
+      "left_off": "Backend run still going (8 cases × ~2–3 min each); the stack check and hand-off depend on it, so I'll wait for the completion notice."
     },
     {
       "id": "afe38e299d6f66d51",
@@ -2667,6 +2667,14 @@
       "status": "finished",
       "finished_at": "2026-10-17 20:00",
       "left_off": "go with your recommendations, merge and start the pod"
+    },
+    {
+      "id": "aa6d3fb72e9e01b9c",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 20:03",
+      "left_off": "yes merge both branches and start the pod"
     }
   ]
 }

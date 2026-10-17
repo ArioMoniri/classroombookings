@@ -16,6 +16,7 @@ from sqlalchemy import create_engine
 
 from tests.test_crbs_migration import _cfg, _run
 
+IDP_REV = "0037_identity_providers"
 TABLES = ("sso_providers", "user_identities", "sso_invites", "sso_role_mappings", "sso_auth_states")
 
 
@@ -56,6 +57,8 @@ def test_upgrade_keeps_users_matches_the_models_and_round_trips(tmp_path):
     con.commit()
     con.close()
     _run(url, command.upgrade, rev)
+    # the models are the shape after 0037_identity_providers (several providers; test_w3b_idp_migration.py)
+    _run(url, command.upgrade, IDP_REV)
     assert _sso_diff(path) == []
     con = sqlite3.connect(path)
     con.execute("pragma foreign_keys=on")
@@ -95,5 +98,5 @@ def test_upgrade_keeps_users_matches_the_models_and_round_trips(tmp_path):
     assert not names & set(TABLES)
     assert con.execute("select email from users where id = 7").fetchone() == ("sehriban.serbest@uni.edu.tr",)
     con.close()
-    _run(url, command.upgrade, rev)
+    _run(url, command.upgrade, IDP_REV)
     assert _sso_diff(path) == []

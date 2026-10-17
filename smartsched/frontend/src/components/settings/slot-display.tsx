@@ -21,7 +21,7 @@ import { applySlotDisplay, BLOCK_MINUTES, DEFAULT_SLOT_DISPLAY, DESKTOP_VIEWS, d
 import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { useSaveSlotDisplay, useSlotDisplay } from "@/components/bookings/use-slot-display";
-import { Button } from "@/components/ui/button";
+import { BareButton, Button } from "@/components/ui/button";
 import { BusyButton } from "@/components/ui/busy-label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -386,8 +386,7 @@ function SwitchRow({ id, checked, onChange, label, testId }: { id: string; check
 
 function RadioCard({ checked, onSelect, title, help, glyph, testId }: { checked: boolean; onSelect: () => void; title: string; help: string; glyph: ReactNode; testId: string }) {
   return (
-    <button
-      type="button"
+    <BareButton
       role="radio"
       aria-checked={checked}
       onClick={onSelect}
@@ -411,7 +410,7 @@ function RadioCard({ checked, onSelect, title, help, glyph, testId }: { checked:
         <span className="type-headline text-label-1">{title}</span>
         <span className="type-footnote text-label-2">{help}</span>
       </span>
-    </button>
+    </BareButton>
   );
 }
 

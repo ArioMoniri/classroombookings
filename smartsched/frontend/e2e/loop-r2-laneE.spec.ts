@@ -527,7 +527,7 @@ test("R3-M-05 · phone filters: a full-width bottom sheet, 16 px search, 44 px t
   expect(apply.y).toBeGreaterThanOrEqual(0.6 * vp.height - 1);
   expect(apply.height).toBeGreaterThanOrEqual(44);
   // the search filters the day list: one course of the agenda
-  const first = (await phone.locator('[data-testid="calendar-mobile"] [data-testid="calendar-event"]').first().getAttribute("aria-label")) ?? "";
+  const first = (await phone.locator('[data-testid="calendar-mobile"] [data-testid="calendar-event"] span.font-semibold').first().innerText()).trim();
   const code = (first.match(/^[A-ZÇĞİÖŞÜ]{2,5} \d{3}/) ?? [""])[0];
   test.skip(!code, `no course code in the first chip's name (${first})`);
   await search.fill(code);

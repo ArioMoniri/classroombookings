@@ -1,6 +1,6 @@
 import { CalendarDays, FileUp, FolderInput, Inbox, LayoutDashboard, ListChecks, type LucideIcon, PlayCircle, Settings, Users, Warehouse } from "lucide-react";
 import { ClipboardCheck, FolderPlus } from "lucide-react";
-import { GitCompareArrows, Grid3x3, UserCheck } from "lucide-react";
+import { GitCompareArrows, Grid3x3, UserCheck, Zap } from "lucide-react";
 import { Activity } from "lucide-react";
 import { Cpu } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
@@ -80,7 +80,9 @@ export function allNavGroups(): NavGroup[] {
   const bookings = extra.filter((i) => i.bookings || BOOKING_PREFIXES.some((p) => i.href.startsWith(p)));
   const admin = extra.filter((i) => !bookings.includes(i));
   const groups = NAV_GROUPS.map((g) => (g.labelKey === "nav.admin" ? { ...g, items: [...g.items, ...admin.filter((a) => !g.items.some((x) => x.href === a.href))] } : g));
-  return bookings.length ? [{ labelKey: "glass.shell.bookings", items: bookings }, ...groups] : groups;
+  // W3-SLOT (wave 3, one entry): "Hızlı rezervasyon" is the first bookings entry for anyone who may book
+  const quick: NavItem = { href: "/reserve", labelKey: "quickReserve.title", icon: Zap, permission: "book_single.create" };
+  return bookings.length ? [{ labelKey: "glass.shell.bookings", items: [quick, ...bookings] }, ...groups] : groups;
 }
 
 /** Groups and items the user may open (`can` from usePermissions). Empty groups disappear. */
