@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `7274a1f` (committed 2026-10-17 23:46 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `f08e83d` (committed 2026-10-17 23:53 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -166,13 +166,12 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-275 agents in [`docs/agents/registry.json`](agents/registry.json): running 14 · finished 243 · stopped 11 · superseded 7.
+275 agents in [`docs/agents/registry.json`](agents/registry.json): running 13 · finished 244 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
 | `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
 | `CAL-B` | backend-engineer | 2026-10-17 21:54 |
-| `WG-B` | backend-engineer | 2026-10-17 22:58 |
 | `WG-F` | frontend-engineer | 2026-10-17 22:58 |
 | `AS-B` | backend-engineer | 2026-10-17 23:01 |
 | `Charts phase 2` | design-pro | 2026-10-17 23:12 |
@@ -250,7 +249,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **339 ticked · 476 open** checkboxes in 98 sections (94 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **342 ticked · 473 open** checkboxes in 98 sections (94 with open items).
 
 <details><summary>Per section</summary>
 
@@ -347,7 +346,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Wave 3b — W3-HUB (2026-10-17) | 4 | 2 |
 | Calendar export & sync for academicians (owner request 2026-10-17) | 0 | 12 |
 | Wave 3b — W3-IDP identity providers (2026-10-17) | 5 | 1 |
-| Welcome guide per role (owner request 2026-10-17) | 0 | 11 |
+| Welcome guide per role (owner request 2026-10-17) | 3 | 8 |
 | Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 0 | 20 |
 | Voice for AI features (owner request 2026-10-17) | 0 | 13 |
 | Charts & telemetry views (owner request 2026-10-17) | 0 | 12 |

@@ -25,7 +25,6 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | Launch video | `media-launch` | Recordly + Lottie + Remotion launch/explainer/README videos, phone variants | MEDIA.md | own | final UI |
 | Mobile A, phase 2 | `mobile-a` | Fixes 1–15 of docs/testing/mobile/2026-10-17-mobile-a.md plus the shared primitives from mobile B (inputs, small buttons, tab/top bar) | that report | 19620/19621 | — |
 | Mobile B, phase 2 | `mobile-b` | Route-level fixes of docs/testing/mobile/2026-10-17-mobile-b.md (runs, studio, classes, timetable, moderation, admin, dashboard, analytics, invigilation, policies) | that report | 19630/19631 | — |
-| WG-B | `wg-b-2026-10-17` | Welcome guide backend WG-01..03; migration 0040 | ROADMAP "Welcome guide per role", docs/design/v3/welcome-guide.md | — | — |
 | WG-F | `wg-f-2026-10-17` | Welcome sheet, tour (React Joyride), checklist, hints, /admin/welcome WG-04..08 | same | 19780/19781 | WG-B API |
 | Charts phase 2 | `charts-p2-2026-10-17` | EvilCharts ECharts install + ChartCard shell CH-01/02 | docs/design/v3/charts.md | — | — |
 | AS-B | `as-b-2026-10-17` | Adaptive scheduling backend AS-01..07, 09..11, 13, 18 (+ RF-02 weights, RF-07 learning refresh); migration 0041 | docs/research/2026-10-17-adaptive-scheduling.md | — | — |
@@ -55,6 +54,7 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | RF-06, RF-08, RF-09 (re-import keeps admin edits, seed imports in history, editable period grid) | CAL-B (lane C done 2026-10-18) | |
 | RF-12 (SAML metadata signature) | — | SAML library done |
 | Round-4 persona testers (staff, academician, admin) | the fix lanes above | re-seed: old snapshots lack migrations ≥ 0037 |
+| KVKK inventory counts under rls.system_scope (+ welcome_progress in the processing inventory) | — | small backend fix, unowned |
 | Auth frontend AUX | auth UX + AU-B | |
 | README/docs media pass, final merges into gracious + universal | launch video + round 4 | merge rules below |
 

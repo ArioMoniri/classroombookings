@@ -101,7 +101,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-38 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0042_ai_usage_audio`**. A new migration goes on top of it (`alembic heads` must print one line).
+39 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0043_mfa`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -143,6 +143,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 36 | `0040_welcome_guide` | `0039_calendar_classes` | Welcome guide per role (WG-01; docs/design/v3/welcome-guide.md §6.3, app/models/welcome.py) |
 | 37 | `0041_adaptive` | `0040_welcome_guide` | Adaptive scheduling (AS-03, AS-05, AS-13; docs/research/2026-10-17-adaptive-scheduling.md) |
 | 38 | `0042_ai_usage_audio` | `0041_adaptive` | Voice metering on ``ai_usage`` (VO-02; docs/research/2026-10-17-voice-ai.md §3.3) |
+| 39 | `0043_mfa` | `0042_ai_usage_audio` | Two-step sign-in, passkeys, trusted devices (AU-B; app/models/mfa.py, docs/research/2026-10-18-auth-backend.md) |
 
 <!-- /AUTO:migrations -->
 

@@ -2918,7 +2918,8 @@
       "goal": "You are lane WG-B (welcome guide backend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read these first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-fi…",
       "ledger": "WG-B: welcome guide backend",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:53"
     },
     {
       "id": "a11216155165962e6",

@@ -234,6 +234,18 @@ async def _set_setting(args: argparse.Namespace) -> int:
     return 0
 
 
+def _backtest(args: argparse.Namespace) -> int:
+    """``backtest adaptive [--json]``: B1-B7 on the real fixture workbooks; exit 1 when a backtest misses its target."""
+    from app.services import backtest
+
+    results = backtest.run_all()
+    if args.json:
+        print(json.dumps([r.as_dict() for r in results], ensure_ascii=False, indent=2, default=str))
+    else:
+        print(backtest.table(results))
+    return 0 if all(r.passed for r in results) else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="smartsched", description="SmartSched backend CLI")
     p.add_argument("--database-url", default=None)
@@ -280,7 +292,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     ss.add_argument("key", help="e.g. bookings.approval_mode, org.name, timezone")
     ss.add_argument("value", help="text, true/false, a number or JSON (languages)")
+    bt = sub.add_parser("backtest", help="backtests of the adaptive-scheduling models on the fixture workbooks")
+    bt.add_argument(
+        "suite", choices=["adaptive"], help="adaptive: B1-B7 (docs/research/2026-10-17-adaptive-scheduling.md)"
+    )
+    bt.add_argument("--json", action="store_true", help="print the results as JSON")
     args = p.parse_args(argv)
+    if args.cmd == "backtest":
+        return _backtest(args)
     if args.cmd == "set-setting":
         return asyncio.run(_set_setting(args))
     if args.cmd == "learning-refresh":
