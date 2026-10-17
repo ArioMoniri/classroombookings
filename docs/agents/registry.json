@@ -2814,6 +2814,30 @@
       "ledger": "Security follow-ups from W3-SEC",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "aec6575a6b9f762e8",
+      "description": "Welcome guide research + design",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-17 22:37",
+      "scope": "",
+      "goal": "You are the WELCOME-GUIDE designer, researcher and motion designer for SmartSched (repo /home/user/classroombookings; Next.js frontend smartsched/frontend; design system docs in docs/design/v2 and v3). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/br…",
+      "ledger": "Welcome guide research + design",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ad9c72c1304d479cb",
+      "description": "Install SAML library (signxml)",
+      "subagent_type": "devops-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 22:37",
+      "scope": "",
+      "goal": "SmartSched repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md: NEVER commit or push, never `pkill -f`, `nice -n 10`. The owner asked: \"install the needed SAML library…",
+      "ledger": "Install SAML library (signxml)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

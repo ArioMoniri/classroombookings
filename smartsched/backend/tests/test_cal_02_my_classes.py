@@ -97,7 +97,7 @@ async def test_cal_02_my_classes_feed_holds_exactly_the_linked_instructors_meeti
     ev = mon[0]
     assert str(ev["SUMMARY"]) == "PSY 262 · Şube 1"
     assert ev.decoded("DTEND") == datetime(2026, 3, 2, 15, 50, tzinfo=IST)
-    assert str(ev["LOCATION"]) == p.room.display_name == "A 308"
+    assert str(ev["LOCATION"]) == p.room.display_name
     desc = str(ev["DESCRIPTION"])
     assert "Klinik Psikolojiye Giriş" in desc and "Bölüm: Psikoloji" in desc and f"SmartSched: {PANEL}" in desc
     # the 15 teaching weeks of PSY 262 from the 90 past days on

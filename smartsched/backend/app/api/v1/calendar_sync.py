@@ -280,9 +280,11 @@ def scope_refused(exc: cc.ScopeError) -> HTTPException:
     return HTTPException(exc.status, exc.as_detail())
 
 
-async def _deny(db: DB, user: User, kind: str, scope_id: int | None, exc: cc.ScopeError) -> HTTPException:
+async def _deny(db: DB, user_id: int, kind: str, scope_id: int | None, exc: cc.ScopeError) -> HTTPException:
     """``calendar.scope_denied`` for a refused department (403) is audited, then the refusal is returned."""
     if exc.code == "department_not_allowed":
+        # a rotate rolled back first: reload the (expired) actor before it is written into the audit row
+        user = await db.get(User, user_id, populate_existing=True)
         await audit.record(
             db,
             "calendar.scope_denied",
@@ -320,9 +322,8 @@ async def create_subscription(body: SubscriptionIn, db: DB, access: CurrentAcces
     """Tap 3 "Onayla ve ekle" for a link: a token bound to one scope, shown once (CAL-03)."""
     try:
         row, token = await feeds.create_subscription(db, access, body.scope_kind, body.scope_id, body.label)
-    except cc.ScopeError as exc:
-        await db.rollback()
-        raise await _deny(db, access.user, body.scope_kind, body.scope_id, exc) from exc
+    except cc.ScopeError as exc:  # refused before anything was written
+        raise await _deny(db, access.user_id, body.scope_kind, body.scope_id, exc) from exc
     except kvkk.KvkkError as exc:
         raise consent_refused(exc) from exc
     except OverflowError as exc:
@@ -388,12 +389,12 @@ async def revoke_subscription(sub_id: int, db: DB, access: CurrentAccess) -> Res
 async def rotate_subscription(sub_id: int, db: DB, access: CurrentAccess) -> dict[str, Any]:
     """"Bağlantıyı yenile": a new link for the same scope; the old one stops at once."""
     row = await _own_subscription(db, access.user, sub_id)
-    kind, scope_id = row.scope_kind, row.scope_id
+    kind, scope_id, uid = row.scope_kind, row.scope_id, access.user_id
     try:
         new, token = await feeds.rotate_subscription(db, access, row)
     except cc.ScopeError as exc:
-        await db.rollback()
-        raise await _deny(db, access.user, kind or "", scope_id, exc) from exc
+        await db.rollback()  # the old link stays
+        raise await _deny(db, uid, kind or "", scope_id, exc) from exc
     except kvkk.KvkkError as exc:
         raise consent_refused(exc) from exc
     await audit.record(
@@ -434,7 +435,7 @@ async def _file(request: Request, db: DB, access: Any, kind: str, scope_id: int 
     try:
         await feeds.check_scope(db, access, kind, scope_id)
     except cc.ScopeError as exc:
-        raise await _deny(db, access.user, kind, scope_id, exc) from exc
+        raise await _deny(db, access.user_id, kind, scope_id, exc) from exc
     feed_kind = feeds.SCOPE_FEED_KIND[kind]
     target = scope_id if scope_id is not None else access.user_id
     try:

@@ -1,7 +1,7 @@
 """Shared helpers of the calendar export tests (``tests/test_cal_*``; docs/research/2026-10-17-calendar-export.md).
 
 Real Bahar 2026 import (``tests/crbs_env``; clock Monday 16 Feb 2026): PSY 262 "Klinik Psikolojiye Giriş" (Psikoloji,
-section 1, instructor Ezgi Soncu Büyükişcan) is on the published board on Mondays P7-P9 (13:30-15:50) in A 308, one
+section 1, instructor Ezgi Soncu Büyükişcan) is on the published board on Mondays P7-P9 (13:30-15:50) in room 47 (C 504), one
 dated board row per teaching week (weeks 1-15)."""
 
 from __future__ import annotations

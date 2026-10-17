@@ -262,6 +262,17 @@ async def person_merge_items(session: AsyncSession, job: CouncilJob) -> list[tup
     from app.services.person_match import IncomingPerson, KnownPerson, match_person, review_item
 
     records = await storage.records_by_file(session, job)
+    # a spelling the reviewer already merged into another of the files (the reconciler's "merge" item, accepted) is
+    # written as that one: it is asked about as that one, never on its own (it would ask again after the commit)
+    from app.council.memory import legacy_merge_item_id, merge_item_id
+
+    decided = await decisions(session, job.id)
+    dataset = await storage.latest(session, job.id, "dataset")
+    alias: dict[str, str] = {}
+    for m in dataset.payload.get("merges", []) if dataset is not None else []:
+        md = decided.get(merge_item_id(m)) or decided.get(legacy_merge_item_id(m))
+        if m.get("kind") == "instructor" and md and md.get("action") == "accept":
+            alias[tx.person_key(m["b"])] = m["a"]
     emails: dict[str, str] = {}
     staff_nos: dict[str, Any] = {}
     incoming: dict[tuple[int, str], dict[str, Any]] = {}
@@ -275,7 +286,8 @@ async def person_merge_items(session: AsyncSession, job: CouncilJob) -> list[tup
                     staff_nos.setdefault(k, r["staff_no"])
             if r.get("type") != "meeting":
                 continue
-            for raw in r.get("instructors") or []:
+            for cell in r.get("instructors") or []:
+                raw = alias.get(tx.person_key(cell), cell)
                 if n.non_person_reason(raw) is not None or n.canon_person_name(raw) is None:
                     continue
                 k = tx.person_key(raw)
