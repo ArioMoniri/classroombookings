@@ -310,3 +310,59 @@ async def test_hub_card(client, sink) -> None:  # noqa: F811
     r = (await client.get("/api/v1/integrations/status", headers=h)).json()
     email = next(a for a in r["areas"] if a["key"] == "email")
     assert email["cards"][0]["source"] == "contract" and email["cards"][0]["status"] == "connected"
+
+
+async def test_providers_abroad_need_the_kvkk_acknowledgement(client) -> None:  # noqa: F811
+    h = await _admin(client)
+    body = {"provider": "amazon_ses", "host": "email-smtp.eu-central-1.amazonaws.com", "from_address": "b@uni.edu.tr"}
+    r = await client.put("/api/v1/mail/settings", json=body, headers=h)
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "abroad_ack_required"
+    assert "KVKK md. 9" in r.json()["detail"]["message_tr"]
+    r = await client.put("/api/v1/mail/settings", json={**body, "abroad_ack": True}, headers=h)
+    assert r.status_code == 200, r.text
+    ack = r.json()["abroad_ack"]
+    assert ack["provider"] == "amazon_ses" and ack["by"] and ack["at"]
+    # kept: a later edit of the same provider needs no new tick; another provider abroad does
+    assert (await client.put("/api/v1/mail/settings", json={"from_name": "X"}, headers=h)).status_code == 200
+    r = await client.put("/api/v1/mail/settings", json={"provider": "postmark"}, headers=h)
+    assert r.status_code == 422
+    presets = {p["id"]: p for p in (await client.get("/api/v1/mail/presets", headers=h)).json()}
+    assert presets["resend"]["abroad"] and presets["brevo"]["abroad"] and not presets["yandex"]["abroad"]
+    assert presets["google_relay"]["host"] == "smtp-relay.gmail.com"
+    assert "MC786329" in presets["microsoft365_oauth2"]["notes_tr"]
+
+
+async def test_waiting_mail_can_be_sent_after_setup(client, sink) -> None:  # noqa: F811
+    from app.core import db as dbmod
+    from app.services import bookings_notify
+
+    h = await _admin(client)
+    async with dbmod.get_session_factory()() as s:
+        await bookings_notify.notify(s, kind="booking_created", to_email="hoca@uni.edu.tr", subject="S", body="B")
+        await bookings_notify.notify(s, kind="password_reset", to_email="hoca@uni.edu.tr", subject="S", body="x")
+        await s.commit()
+    await _configure(client, h)
+    st = (await client.get("/api/v1/mail/settings", headers=h)).json()
+    assert st["unsent"] == 1  # the reset code is never re-sent
+    r = (await client.post("/api/v1/mail/outbox/requeue", json={}, headers=h)).json()
+    assert r["queued"] == 1 and r["unsent"] == 0
+    from app.workers import integrations as worker
+
+    await worker.wait_idle()
+    await worker.shutdown()
+    assert [m.rcpts for m in sink.messages] == [["hoca@uni.edu.tr"]]
+
+
+def test_microsoft_basic_auth_refusal_is_translated() -> None:
+    import smtplib
+
+    from app.services import mail
+
+    exc = smtplib.SMTPAuthenticationError(535, b"5.7.139 Authentication unsuccessful, basic authentication is disabled")
+    tr, en = mail.explain(exc, {"provider": "microsoft365_oauth2"})
+    assert "OAuth 2.0" in tr and "OAuth 2.0" in en
+    tr, _ = mail.explain(
+        smtplib.SMTPDataError(550, b"5.7.60 SMTP; Client does not have permissions to send as this sender"),
+        {"from_address": "b@uni.edu.tr"},
+    )
+    assert "b@uni.edu.tr adresiyle gönderemiyor" in tr

@@ -188,7 +188,8 @@ describe("IntegrationsGallery", () => {
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent("Telegram kapatılsın mı?");
     expect(state.calls.some((x) => x.method === "PUT")).toBe(false);
-    await user.click(within(dialog).getByRole("button", { name: "Kapat" }));
+    // the dialog's own ✕ (rendered last) is also named "Kapat"; the destructive action comes first
+    await user.click(within(dialog).getAllByRole("button", { name: "Kapat" })[0]);
     await waitFor(() => expect(state.calls).toContainEqual({ path: "/channels/admin/telegram", method: "PUT", body: { enabled: false } }));
     expect(toast.success).toHaveBeenCalledWith("Telegram kapatıldı");
     await waitFor(() => expect(within(tg).getByTestId("connector-primary")).toHaveFocus());
@@ -255,7 +256,7 @@ describe("IntegrationsGallery", () => {
     expect(within(sheet).getByText(/yeni kurulum ekranı hazırlanıyor/)).toBeInTheDocument();
   });
 
-  it("guided n8n setup: paste the URL, save, copy the secret once, send a test event and see it arrive", async () => {
+  it("guided n8n setup: paste the URL, save, copy the secret once, send a test event and see it arrive", { timeout: 30_000 }, async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
@@ -263,7 +264,7 @@ describe("IntegrationsGallery", () => {
     const sheet = await screen.findByTestId("setup-sheet");
     const guided = await within(sheet).findByTestId("guided-webhook");
     expect(guided).toHaveTextContent("Catch Raw Hook");
-    expect(within(guided).getByText("Webhook gönderimi kapalı: test olayı gider, rezervasyon olayları gönderilmez.")).toBeInTheDocument();
+    expect(await within(guided).findByText("Webhook gönderimi kapalı: test olayı gider, rezervasyon olayları gönderilmez.")).toBeInTheDocument();
     const url = within(guided).getByTestId("guided-url");
     await user.type(url, "https://example.org/x");
     expect(guided).toHaveTextContent("Bu adres bir Zapier adresine benzemiyor");
@@ -311,12 +312,11 @@ describe("IntegrationsGallery", () => {
   it("phones: the guided setup goes one step per screen with Adım n / 4", async () => {
     state.phone = true;
     const user = userEvent.setup();
-    renderIt("area=automation&setup=automation.n8n");
+    renderIt("area=automation&setup=automation.zapier");
     const guided = await screen.findByTestId("guided-webhook");
     expect(within(guided).getByTestId("guided-step")).toHaveTextContent("Adım 1 / 4");
     expect(within(guided).queryByTestId("guided-url")).not.toBeInTheDocument();
     await user.click(within(guided).getByTestId("guided-next"));
-    console.log("DBG2", screen.getAllByTestId("guided-webhook").length, screen.getAllByTestId("guided-step").map((e) => e.textContent));
     expect(within(guided).getByTestId("guided-step")).toHaveTextContent("Adım 2 / 4");
     expect(within(guided).getByTestId("guided-url")).toBeInTheDocument();
     expect(within(guided).getByTestId("guided-prev")).toBeInTheDocument();

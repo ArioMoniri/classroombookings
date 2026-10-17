@@ -73,12 +73,12 @@ export function GuidedWebhook({ initialPlatform, webhookId }: { initialPlatform:
     const timer = window.setInterval(() => void qc.invalidateQueries({ queryKey: afKeys.deliveries(endpointId) }), 1500);
     return () => window.clearInterval(timer);
   }, [result?.state, endpointId, qc]);
+  const finished = result && result.state !== "pending" ? result.state : null;
   useEffect(() => {
-    if (result && result.state !== "pending") {
-      void qc.invalidateQueries({ queryKey: integrationsKeys.status });
-      resultRef.current?.focus();
-    }
-  }, [result, qc]);
+    if (!finished) return;
+    void qc.invalidateQueries({ queryKey: integrationsKeys.status });
+    resultRef.current?.focus();
+  }, [finished, deliveryId, qc]);
 
   const refresh = async () => {
     await Promise.all([qc.invalidateQueries({ queryKey: afKeys.webhooks }), qc.invalidateQueries({ queryKey: integrationsKeys.status })]);

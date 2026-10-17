@@ -26,6 +26,8 @@ import { LocalSignInForm, rememberMethod } from "./local-sign-in";
 import { MicrosoftSignIn } from "./microsoft-sign-in";
 import { rich, SignInShell } from "./signin-shell";
 import { doorsFor, startUrl, type InviteState, type SignInParams, type SsoErrorCode } from "./signin-model";
+import { LocalInviteAccept, useInviteProvider } from "@/components/identity/local-invite-accept";
+import { ProviderButtons } from "@/components/identity/provider-buttons";
 
 export interface SignInPageProps {
   /** `null`: the backend could not be reached when the page rendered */
@@ -43,7 +45,16 @@ export function SignInPage({ org, params, invite, lastMethodLocal }: SignInPageP
   const fine = useFinePointer();
   const auth = org?.auth ?? null;
   const doors = doorsFor({ auth, reachable: org !== null, params, invite, lastMethodLocal });
-  const [open, setOpen] = useState(doors.formOpenInitially);
+  // wave 3b W3-IDP (design v3 integrations.md §6): several providers → equal buttons in the admins' order; the
+  // password form stays the quiet second door; an invite shows only the invited method (local: set a password)
+  const buttons = auth?.providers ?? [];
+  const multi = !doors.offline && (buttons.length > 1 || (buttons.length === 1 && buttons[0].kind !== "entra"));
+  const invitedProvider = useInviteProvider(invite?.state === "valid" ? invite.token : null).data;
+  const invitedSlug = invite?.state === "valid" ? (invitedProvider?.provider ?? null) : null;
+  const localInvite = invitedSlug === "local";
+  const disclosure = multi ? !localInvite && invite?.state !== "valid" && ((auth?.local_enabled ?? true) || params.methodLocal) : doors.disclosure;
+  const formPrimary = localInvite || (multi ? false : !doors.microsoft);
+  const [open, setOpen] = useState(multi ? disclosure && (params.methodLocal || lastMethodLocal) : doors.formOpenInitially);
   const [userOpened, setUserOpened] = useState(false);
   const orgName = org?.name?.trim() || null;
   const domain = auth?.microsoft.domain_hint?.trim() || null;
@@ -68,7 +79,23 @@ export function SignInPage({ org, params, invite, lastMethodLocal }: SignInPageP
         {orgName ? t("signin.subtitle", { org: orgName }) : t("signin.subtitleNoOrg")}
       </p>
 
-      {doors.microsoft ? (
+      {localInvite && invite?.state === "valid" ? (
+        <div className="mt-7 flex flex-col gap-2" data-testid="signin-local-invite">
+          <h2 className="type-headline text-label-1">{t("identity.signin.localInviteTitle")}</h2>
+          <LocalInviteAccept token={invite.token} />
+        </div>
+      ) : multi ? (
+        <div className="mt-7">
+          <ProviderButtons
+            providers={buttons}
+            invited={invitedSlug}
+            next={params.next}
+            inviteToken={validInvite?.token ?? null}
+            loginHint={validInvite?.loginHint ?? null}
+            onNavigate={() => rememberMethod("microsoft")}
+          />
+        </div>
+      ) : doors.microsoft ? (
         <div className="mt-7">
           <MicrosoftSignIn href={msHref} label={t("signin.microsoft.label")} busyLabel={t("signin.microsoft.busy")} describedBy={`${HINT_IDS.domain} ${HINT_IDS.signup}`} onNavigate={() => rememberMethod("microsoft")} />
           <div className="mt-3 flex flex-col gap-1.5 type-footnote text-label-2" data-testid="signin-hints">
@@ -84,7 +111,7 @@ export function SignInPage({ org, params, invite, lastMethodLocal }: SignInPageP
         </div>
       ) : null}
 
-      {doors.disclosure ? (
+      {disclosure ? (
         <div className="mt-6 pt-2 hairline-t">
           <Button type="button" variant="ghost" shape="rect" size="lg" aria-expanded={open}
             aria-controls="signin-door2"
@@ -116,9 +143,9 @@ export function SignInPage({ org, params, invite, lastMethodLocal }: SignInPageP
             ) : null}
           </AnimatePresence>
         </div>
-      ) : !doors.microsoft ? (
+      ) : formPrimary ? (
         <div className="mt-7" id="signin-door2">
-          <LocalSignInForm next={params.next} primary resetLink={doors.resetLink} lastMethodLocal={false} autoFocus={fine && !error} footnote={doors.offline ? undefined : t("signin.local.noAccount")} />
+          <LocalSignInForm next={params.next} primary resetLink={doors.resetLink} lastMethodLocal={false} autoFocus={fine && !error && !localInvite} footnote={doors.offline || localInvite ? undefined : t("signin.local.noAccount")} />
         </div>
       ) : null}
     </SignInShell>
@@ -259,6 +286,10 @@ export function errorBody(code: Exclude<SsoErrorCode, "cancelled" | "not_enabled
       return { title: t("signin.error.inviteExpiredTitle"), text: t("signin.error.inviteExpired") };
     case "invite_invalid":
       return { title: t("signin.error.inviteInvalidTitle"), text: t("signin.error.inviteInvalid") };
+    case "domain":
+      return { title: t("identity.signin.errorDomainTitle"), text: t("identity.signin.errorDomain") };
+    case "invite_provider":
+      return { title: t("identity.signin.errorInviteProviderTitle"), text: t("identity.signin.errorInviteProvider") };
     case "invite_mismatch":
       return { title: t("signin.error.inviteMismatchTitle"), text: v.invited && v.signedIn ? t("signin.error.inviteMismatch", { invited: v.invited, signedIn: v.signedIn }) : t("signin.error.inviteMismatchPlain") };
     case "failed":

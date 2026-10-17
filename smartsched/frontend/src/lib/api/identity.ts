@@ -19,9 +19,23 @@ export const MicrosoftAuth = z.object({
   self_signup: z.boolean().default(true),
 });
 
+/** One sign-in button of /login (wave 3b W3-IDP: every enabled provider, in the administrators' order). */
+export const ProviderButton = z.object({
+  name: z.string(),
+  kind: z.string(),
+  label: z.string(),
+  label_en: z.string().optional(),
+  badge: z.string().optional(),
+  start_url: z.string(),
+  domain_hint: z.string().nullish(),
+  self_signup: z.boolean().default(false),
+});
+export type ProviderButton = z.infer<typeof ProviderButton>;
+
 /** The login page's `auth` block (`GET /org/public` → `auth`, also `GET /auth/sso/providers` → `auth`). */
 export const PublicAuth = z.object({
   microsoft: MicrosoftAuth,
+  providers: z.array(ProviderButton).default([]),
   local_enabled: z.boolean().default(true),
   ldap_enabled: z.boolean().default(false),
   self_signup_role_name: z.string().nullish(),

@@ -59,17 +59,21 @@ async def _deliver(session: AsyncSession, user: User, notice: nd.Notice) -> bool
             continue
         if not await adapter.available_for(session, user):
             continue
-        ledger = NotificationDelivery(
-            event=notice.event, event_key=notice.key[:160], user_id=user.id, channel=adapter.name, status="sent"
-        )
-        session.add(ledger)
-        await session.flush()
         try:
-            result = await adapter.send(session, user, notice)
-        except Exception as exc:  # noqa: BLE001 - a broken channel never breaks the call that triggered the alert
+            # one savepoint per channel: a failing channel (an outbox schema behind the code, a broken adapter)
+            # never takes the other channel's notice down with it
+            async with session.begin_nested():
+                ledger = NotificationDelivery(
+                    event=notice.event, event_key=notice.key[:160], user_id=user.id, channel=adapter.name, status="sent"
+                )
+                session.add(ledger)
+                await session.flush()
+                result = await adapter.send(session, user, notice)
+                ledger.status, ledger.ref_id, ledger.detail = result.status, result.ref_id, result.detail
+                await session.flush()
+        except Exception:  # noqa: BLE001 - a broken channel never breaks the call that triggered the alert
             log.exception("ai alert channel %s failed", adapter.name)
-            result = nd.Delivery(adapter.name, "failed", detail=f"{type(exc).__name__}"[:255])
-        ledger.status, ledger.ref_id, ledger.detail = result.status, result.ref_id, result.detail
+            continue
         sent = sent or result.status == "sent"
     await session.flush()
     return sent

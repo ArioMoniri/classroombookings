@@ -73,6 +73,9 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+/** W3-SLOT (wave 3, one entry): "Hızlı rezervasyon" is the first bookings entry for anyone who may book. */
+export const QUICK_RESERVE_ITEM: NavItem = { href: "/reserve", labelKey: "quickReserve.title", icon: Zap, permission: "book_single.create" };
+
 const BOOKING_PREFIXES = ["/bookings", "/my-bookings", "/find-room", "/approvals"];
 
 /** The planning groups plus the CRBS-parity entries: bookings first, admin/setup/profile under "Admin". */
@@ -83,9 +86,7 @@ export function allNavGroups(): NavGroup[] {
   const bookings = extra.filter((i) => i.bookings || BOOKING_PREFIXES.some((p) => i.href.startsWith(p)));
   const admin = extra.filter((i) => !bookings.includes(i));
   const groups = NAV_GROUPS.map((g) => (g.labelKey === "nav.admin" ? { ...g, items: [...g.items, ...admin.filter((a) => !g.items.some((x) => x.href === a.href))] } : g));
-  // W3-SLOT (wave 3, one entry): "Hızlı rezervasyon" is the first bookings entry for anyone who may book
-  const quick: NavItem = { href: "/reserve", labelKey: "quickReserve.title", icon: Zap, permission: "book_single.create" };
-  return bookings.length ? [{ labelKey: "glass.shell.bookings", items: [quick, ...bookings] }, ...groups] : groups;
+  return bookings.length ? [{ labelKey: "glass.shell.bookings", items: [QUICK_RESERVE_ITEM, ...bookings] }, ...groups] : groups;
 }
 
 /** Groups and items the user may open (`can` from usePermissions). Empty groups disappear. */
@@ -95,7 +96,7 @@ export function visibleNavGroups(can: (perm: string | readonly string[] | undefi
     .filter((g) => g.items.length > 0);
 }
 
-export const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+export const ALL_NAV_ITEMS = [...NAV_GROUPS.flatMap((g) => g.items), QUICK_RESERVE_ITEM];
 
 /**
  * Planning pages and the permission each needs (the backend answers 403 without it). The shell renders the

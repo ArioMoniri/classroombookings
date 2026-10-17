@@ -29,7 +29,8 @@ export function LimitsTab({ canEdit }: { canEdit: boolean }) {
   if (q.isError || !q.data) return <Alert tone="error">{errorMessage(q.error, locale, t("aiAdmin.error.load"))}</Alert>;
   return (
     <div className="flex flex-col gap-4" data-testid="ai-limits">
-      <LimitsForm key={JSON.stringify(q.data)} data={q.data} canEdit={canEdit} />
+      {/* mounted once: after a save the form already shows what was stored; a remount would drop the focus */}
+      <LimitsForm data={q.data} canEdit={canEdit} />
       {canEdit ? <Topup data={q.data} /> : null}
     </div>
   );

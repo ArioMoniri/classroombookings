@@ -100,7 +100,6 @@ function DailyChart({ rows, loading, lastDays }: { rows: UsageRow[]; loading: bo
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="type-headline text-label-1">{t("aiAdmin.usage.chart")}</h3>
         <SegmentedControl<"chart" | "table">
-          size="sm"
           aria-label={t("aiAdmin.usage.view")}
           value={view}
           onValueChange={setView}

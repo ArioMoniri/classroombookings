@@ -1,5 +1,14 @@
 # Demo recordings with Recordly
 
+> **2026-10-17: the launch video and the README media move to an offline 60 fps renderer.** `scripts/record/launch.sh`
+> records each journey as lossless Chrome screencast frames (`record.mjs --engine frames`, 1.5x desktop / 2x phone,
+> touch taps on a 390x844 `isMobile` + `hasTouch` context) and `scripts/record/launch/render.mjs` composites every
+> output frame in headless Chromium (spring camera, cursor, ripples, finger taps, keystroke chips, captions, the
+> Lottie intro/outro), so motion is 60 fps whatever the host load was during the take. The per-feature README clips
+> keep their names and are rendered the same way (`launch.sh clips`). See [§8](#8-launch-video-and-60-fps-clips-2026-10-17),
+> [docs/launch/README.md](../launch/README.md) and the research behind it, [docs/launch/RESEARCH.md](../launch/RESEARCH.md).
+> The ffmpeg-expression compositor below (§5) still works and stays the route for quick GIF takes.
+
 How to make the SmartSched "how to use" recordings: by hand with **Recordly** on a Mac (best
 quality), or automatically with the pipeline in `scripts/record/`, which drives the real app with
 Playwright and adds Recordly-style polish. The pipeline can also hand its result to Recordly, either
@@ -249,3 +258,23 @@ connection. `scripts/record/check_readme.py` checks that every referenced file e
   recording never waits for a migration that in-flight backend work has not written yet.
 - `--engine recordly` on Linux is CPU-bound (software WebGL). Use it for one-off renders, or open
   the generated `.recordly` on a Mac and export from there.
+
+## 8. Launch video and 60 fps clips (2026-10-17)
+
+What changed against §5, and why:
+
+| | §5 route (until 2026-10-16) | Launch route (`launch.sh`) |
+|---|---|---|
+| Capture | screencast PNG at 1x, laid out as a 20 fps lossless video | screencast PNG at 1.5x (desktop) / 2x (phone), **kept as frames** with Chrome's paint time (`metadata.timestamp` + the smallest arrival lag as clock offset); a frame identical to the one before is not stored |
+| Pointer | Playwright mouse moved along the path (each `mouse.move` a CDP round trip: under a load of 30 a 0.6 s move took seconds) | `virtualPointer`: the eased path is logged on its planned schedule, the real mouse jumps once; the renderer draws the cursor |
+| Phone | not recorded | `REC_DEVICE=phone`: 390x844, `isMobile`, `hasTouch`, taps (`page.touchscreen.tap`), finger dots instead of a cursor |
+| Keys | not shown | `Recorder.type/press` log `{t, text}` / `{t, key}`; keystroke chips in the corner of the card |
+| Compositing | ffmpeg expressions (piecewise-linear camera, overlay graph), 20-30 fps | a page per output frame (`compositor.html`), 60 fps, sub-pixel CSS transforms; Lottie through `lottie-web` (vector, any size, fractional frames) |
+| Dead air | `REC_GIF_MAX_HOLD` (GIF only) | still stretches > 2 s (`LAUNCH_MAX_IDLE_MS`) are cut to 2 s in every output |
+| Outputs | MP4 1280-1600 px 30 fps, GIF 1040-1120 px 20 fps ≤ 9 MB | launch MP4 1920x1080 60 fps + AV1 WebM + vertical 1080x1920 + attach MP4 ≤ 9.8 MB + WebP loop ≤ 5 MB; clips: MP4 1600x960 60 fps, WebP 1280 px 30 fps ≤ 4 MB, GIF fallback 25 fps ≤ 9 MB |
+
+`stack.sh` learned `REC_IGNORE_TS=1` (build the copy with `typescript.ignoreBuildErrors`): checkpoint commits of
+in-flight lanes did not type-check on 2026-10-17 (`86370b3`), and a recording should not wait for that.
+
+Measured numbers of each render (sizes, durations, bitrates) are in docs/launch/README.md §1/§5 and in the hand-off
+of the render's ledger row in docs/PROGRESS.md.

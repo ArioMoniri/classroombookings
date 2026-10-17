@@ -262,9 +262,14 @@ export const useAiLimits = () => useQuery({ queryKey: aiKeys.limits, queryFn: ai
 export const useAiGuardrails = () => useQuery({ queryKey: aiKeys.guardrails, queryFn: aiAdminApi.guardrails });
 export const useMyAiUsage = (enabled = true) => useQuery({ queryKey: aiKeys.me, queryFn: aiAdminApi.me, enabled, staleTime: 30_000 });
 
+/** Refetch everything of this screen after a write. Not awaited on purpose: the editors are keyed by the server
+ * data and remount on the refetch, and a mutation's per-call `onSuccess` (the toast) is skipped once its component
+ * has unmounted, so the call's own callbacks must run first. */
 function useInvalidate() {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: aiKeys.all });
+  return () => {
+    void qc.invalidateQueries({ queryKey: aiKeys.all });
+  };
 }
 
 export function useSaveProvider() {

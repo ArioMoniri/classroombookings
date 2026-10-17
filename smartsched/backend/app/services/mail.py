@@ -278,6 +278,31 @@ def explain(exc: BaseException, smtp: Mapping[str, Any]) -> tuple[str, str]:
     provider = str(smtp.get("provider") or "")
     if isinstance(exc, mail_oauth.OAuthError):
         return exc.message_tr, exc.message
+    code = getattr(exc, "smtp_code", None)
+    raw = str(getattr(exc, "smtp_error", b"") or exc)
+    if "5.7.30" in raw or "basic auth" in raw.lower() or "basicauthblocked" in raw.lower():
+        return (
+            "Microsoft 365 bu kiracıda parola ile SMTP'yi kapatmış. OAuth 2.0 ile bağlanın.",
+            "Microsoft 365 has password SMTP turned off for this tenant. Connect with OAuth 2.0.",
+        )
+    if "5.7.9" in raw:
+        return ("Google bu hesap için uygulama parolası istiyor.", "Google requires an app password for this account.")
+    if "5.7.60" in raw or "sendasdenied" in raw.lower().replace(" ", ""):
+        sender = str(smtp.get("from_address") or "")
+        return (
+            f"Bu hesap {sender} adresiyle gönderemiyor. Gönderen adresini değiştirin ya da izin verin.",
+            f"This account cannot send as {sender}.",
+        )
+    if isinstance(exc, smtplib.SMTPResponseException | smtplib.SMTPRecipientsRefused) and (
+        code == 554 or "relay" in raw.lower()
+    ):
+        return (
+            "Sunucu bu adresten aktarım kabul etmiyor (IP izin listesi?).",
+            "The server refuses to relay from here (IP allow-list?).",
+        )
+    if isinstance(exc, ssl.SSLCertVerificationError) and "hostname" in str(exc).lower():
+        host = str(smtp.get("host") or "")
+        return (f"Sertifika {host} adı için değil.", f"The certificate is not for {host}.")
     if isinstance(exc, smtplib.SMTPAuthenticationError):
         tr = "Kullanıcı adı ya da parola kabul edilmedi."
         en = "The username or password was not accepted."
@@ -465,6 +490,44 @@ async def last_check(session: AsyncSession) -> dict[str, Any] | None:
         "error": row.error,
         "outbox_id": row.id,
     }
+
+
+def _unsent_q(since: datetime) -> Any:
+    return select(NotificationOutbox).where(
+        NotificationOutbox.status == "UNSENT",
+        NotificationOutbox.to_email.is_not(None),
+        NotificationOutbox.kind.not_in(("password_reset", TEST_KIND)),  # a reset code is never stored
+        NotificationOutbox.created_at >= since,
+    )
+
+
+async def unsent_count(session: AsyncSession, days: int = 7) -> int:
+    from datetime import timedelta
+
+    from sqlalchemy import func
+
+    q = _unsent_q(utcnow() - timedelta(days=days)).with_only_columns(func.count())
+    return int((await session.execute(q)).scalar_one())
+
+
+async def requeue_unsent(session: AsyncSession, actor: User, days: int = 7) -> int:
+    """Queue the e-mails that waited while SMTP was not set up (younger than ``days``) for the worker."""
+    from datetime import timedelta
+
+    from app.services import audit
+    from app.workers import integrations as worker
+
+    if not configured(await get_group(session, "smtp", reveal=True)):
+        return 0
+    rows = list((await session.execute(_unsent_q(utcnow() - timedelta(days=days)))).scalars())
+    now = utcnow()
+    for row in rows:
+        row.status, row.error, row.next_attempt_at = "PENDING", None, now
+    if rows:
+        await audit.record(session, "mail.requeue", "settings", "smtp", after={"count": len(rows)}, actor=actor)
+        worker.kick_after_commit(session)
+    await session.flush()
+    return len(rows)
 
 
 async def status(session: AsyncSession) -> dict[str, Any]:

@@ -33,6 +33,21 @@ describe("day chips", () => {
   });
 });
 
+describe("school days", () => {
+  it("days the schedule has no periods on are not offered", async () => {
+    const { schoolWeekdays } = await import("./quick-reserve-model");
+    const school = schoolWeekdays(periods);
+    expect([...school!]).toEqual([1, 2, 3, 4, 5]);
+    const dates: DateInfo[] = [
+      { date: "2026-10-17", weekday: 6, open: true },
+      { date: "2026-10-18", weekday: 7, open: true },
+      { date: "2026-10-19", weekday: 1, open: true },
+    ];
+    expect(dayChips(dates, "2026-10-17", 7, school).map((c) => c.date)).toEqual(["2026-10-19"]);
+    expect(schoolWeekdays([{ days: null }])).toBeNull();
+  });
+});
+
 describe("slot options", () => {
   const g = grid([free(1), taken(1, 2), taken(2), taken(2, 2), free(3), free(3, 2), free(4), free(17)]);
   it("periods: one option per visible period; started ones are left out; Dolu when no room is free", () => {

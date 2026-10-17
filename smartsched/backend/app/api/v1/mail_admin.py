@@ -71,6 +71,8 @@ class MailSettingsIn(BaseModel):
     reply_to: str | None = Field(default=None, max_length=255)
     timeout_s: int | None = Field(default=None, ge=1, le=120)
     dkim_selector: str | None = Field(default=None, max_length=63)
+    #: "Bildirimi okudum; kurum adına onaylıyorum." (KVKK md. 9, providers abroad; integrations.md §7.1)
+    abroad_ack: bool | None = None
 
     @field_validator("host", "username", "oauth_tenant", "oauth_client_id", "from_name", "dkim_selector", "provider")
     @classmethod
@@ -85,6 +87,7 @@ async def _settings_out(db: Any) -> dict[str, Any]:
     out["status"] = st["state"]
     out["last_check"] = st["last_check"]
     out["last_change"] = st["last_change"]
+    out["unsent"] = await mail.unsent_count(db)
     return out
 
 
@@ -94,7 +97,7 @@ async def get_settings(db: DB, _: MailAdmin) -> dict[str, Any]:
 
 
 @router.put("/settings")
-async def put_settings(body: MailSettingsIn, db: DB, _: MailAdmin) -> dict[str, Any]:
+async def put_settings(body: MailSettingsIn, db: DB, me: MailAdmin) -> dict[str, Any]:
     data = body.model_dump(exclude_unset=True)
     for key in SECRET_KEYS:
         if key in data and data[key] is None:
@@ -143,9 +146,44 @@ async def put_settings(body: MailSettingsIn, db: DB, _: MailAdmin) -> dict[str, 
         raise _err(
             422, "oauth_provider", "choose Google or Microsoft for OAuth2", "OAuth2 için Google ya da Microsoft seçin"
         )
+    ack = data.pop("abroad_ack", None)
+    preset = mail_presets.get(str(merged.get("provider") or ""))
+    if preset is not None and preset.abroad:
+        stored_ack = merged.get("abroad_ack") if isinstance(merged.get("abroad_ack"), dict) else None
+        if ack:
+            from app.models.base import utcnow
+            from app.services.audit import user_label
+
+            data["abroad_ack"] = {
+                "by": user_label(me),
+                "by_user_id": me.id,
+                "at": utcnow().isoformat(timespec="seconds") + "Z",
+                "provider": preset.id,
+            }
+        elif not (stored_ack and stored_ack.get("provider") == preset.id):
+            raise _err(
+                422,
+                "abroad_ack_required",
+                f"{preset.label} servers are abroad: confirm the KVKK art. 9 notice first",
+                f"{preset.label} sunucuları yurt dışında: bildirim e-postaları (alıcı adı, adresi, rezervasyon "
+                "bilgileri) yurt dışına aktarılır (KVKK md. 9). Önce bildirimi onaylayın.",
+                field="abroad_ack",
+            )
     await set_group(db, "smtp", data)
     await db.commit()
     return await _settings_out(db)
+
+
+class RequeueIn(BaseModel):
+    #: "Bekleyenleri de gönder": UNSENT rows younger than 7 days are queued again (integrations.md §7.2 step 6)
+    days: int = Field(default=7, ge=1, le=7)
+
+
+@router.post("/outbox/requeue")
+async def requeue(body: RequeueIn, db: DB, me: MailAdmin) -> dict[str, Any]:
+    n = await mail.requeue_unsent(db, me, days=body.days)
+    await db.commit()
+    return {"queued": n, "unsent": await mail.unsent_count(db)}
 
 
 @router.get("/presets")

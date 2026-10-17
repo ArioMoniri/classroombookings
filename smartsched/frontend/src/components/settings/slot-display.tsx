@@ -31,15 +31,9 @@ import { Switch } from "@/components/ui/switch";
 import { useBookingContext, useBookingDates, useBookingGrid, type Grid, type GridPeriod, type GridSlot } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import { nextWeekday } from "@/components/quick-reserve/quick-reserve-model";
 
 type Surface = "grid" | "list" | "quick";
-
-/** Monday–Friday on or after `iso` */
-export function nextWeekday(iso: string): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
 
 /** The next school day's periods of the default schedule (GET /bookings/grid, unfiltered: the form lists them all;
  *  a Saturday or Sunday has no periods, so the weekend looks ahead to Monday). */

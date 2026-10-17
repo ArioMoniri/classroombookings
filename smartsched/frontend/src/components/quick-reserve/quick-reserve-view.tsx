@@ -44,7 +44,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { ChipRadioGroup } from "./chip-radio-group";
-import { addDay, dayChips, defaultSlot, findQuery, lengthChoices, rankRooms, roomAction, slotOptions, spanFor, type SlotOption } from "./quick-reserve-model";
+import { addDay, dayChips, nextWeekday, schoolWeekdays, defaultSlot, findQuery, lengthChoices, rankRooms, roomAction, slotOptions, spanFor, type SlotOption } from "./quick-reserve-model";
 
 const PEOPLE = [0, 10, 20, 40, 80] as const;
 const SHOW_FIRST = 8;
@@ -78,7 +78,11 @@ export function QuickReserveView() {
 
   // ---- step 1: when
   const [pickedDay, setPickedDay] = useState<string | null>(params.get("date"));
-  const chips = useMemo(() => (today ? dayChips(dates.data?.dates ?? [], today, 7) : []), [dates.data?.dates, today]);
+  // the schedule's school days (a weekday grid lists every period with its `days`): Saturday is not offered when no
+  // period runs on it, even though the term calendar keeps it open
+  const probe = useBookingGrid({ display: "day", date: today ? nextWeekday(today) : undefined, term_id: termId }, !!today && termId != null);
+  const school = useMemo(() => (probe.data ? schoolWeekdays(probe.data.periods) : null), [probe.data]);
+  const chips = useMemo(() => (today && probe.data ? dayChips(dates.data?.dates ?? [], today, 7, school) : []), [dates.data?.dates, today, school, probe.data]);
   const allRooms = !ctx.data?.display.use_room_groups || (ctx.data?.room_groups.length ?? 0) <= 1;
   // smart default (quick-reserve.md §3): today, or the next open day once today's last slot has started
   const firstOpen = chips.find((c) => !c.closed)?.date ?? null;

@@ -16,14 +16,21 @@ export interface DayChip {
   reason: string | null;
 }
 
+/** ISO weekdays (1 = Monday) the schedule has periods on, from the periods' `days`; null when unknown. */
+export function schoolWeekdays(periods: readonly Pick<GridPeriod, "days">[]): ReadonlySet<number> | null {
+  const days = new Set(periods.flatMap((p) => p.days ?? []));
+  return days.size ? days : null;
+}
+
 /** Today, tomorrow and the next school days from `today` (`count` chips). A closed weekday stays, disabled with its
- *  reason (it explains the week); a closed weekend day is left out. */
-export function dayChips(dates: readonly DateInfo[], today: string, count = 7): DayChip[] {
+ *  reason (it explains the week); a closed weekend day, and any day the schedule has no periods on, is left out. */
+export function dayChips(dates: readonly DateInfo[], today: string, count = 7, school: ReadonlySet<number> | null = null): DayChip[] {
   const out: DayChip[] = [];
   const tomorrow = addDay(today, 1);
   for (const d of [...dates].filter((x) => x.date >= today).sort((a, b) => a.date.localeCompare(b.date))) {
     const weekend = d.weekday === 6 || d.weekday === 7;
     if (!d.open && weekend && !d.holiday) continue;
+    if (school && !school.has(d.weekday)) continue;
     out.push({ date: d.date, kind: d.date === today ? "today" : d.date === tomorrow ? "tomorrow" : "day", closed: !d.open || !!d.holiday, holiday: d.holiday ?? null, reason: d.reason ?? null });
     if (out.length >= count) break;
   }
@@ -57,7 +64,8 @@ export interface Now {
  * started yet. `allRooms`: the grid lists every room the user may book, so "no free room" can be said ("Dolu").
  */
 export function slotOptions(grid: Grid, sd: SlotDisplay, now: Now | undefined, allRooms: boolean): SlotOption[] {
-  const visible = grid.periods.filter((p) => periodVisible(p, sd));
+  const weekday = grid.dates.find((d) => d.date === grid.date)?.weekday;
+  const visible = grid.periods.filter((p) => periodVisible(p, sd) && (!weekday || !p.days?.length || p.days.includes(weekday)));
   const isToday = !!now && now.date === grid.date;
   const pastOk = (periodId: number) => grid.slots.some((s) => s.period_id === periodId && s.date === grid.date && s.past && isSelectable(s));
   const freeIn = (periodId: number) => grid.slots.some((s) => s.period_id === periodId && s.date === grid.date && isSelectable(s));
@@ -141,4 +149,11 @@ export function rankRooms(rows: readonly FindRow[], recent: ReadonlySet<number>)
       return a.r.code.localeCompare(b.r.code, "tr") || a.i - b.i;
     })
     .map((x) => x.r);
+}
+
+/** Monday–Friday on or after `iso` (a weekday's day grid lists the schedule's periods with their `days`). */
+export function nextWeekday(iso: string): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
 }

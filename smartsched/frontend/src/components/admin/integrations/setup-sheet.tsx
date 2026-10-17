@@ -100,7 +100,7 @@ export function SetupSheet({ open, cardKey, card, tab, loading, canEdit, busy, o
           {loading ? <Loading /> : null}
           {!loading && cardKey && !card && !guided ? <Alert tone="warning">{t("integrations.sheet.notFound")}</Alert> : null}
           {!canEdit ? <Alert tone="info">{t("integrations.readOnly")}</Alert> : null}
-          {guided && canEdit ? (
+          {loading ? null : guided && canEdit ? (
             <GuidedWebhook key={`${cardKey}-${webhookId ?? "new"}`} initialPlatform={platform} webhookId={webhookId} />
           ) : (
             <>

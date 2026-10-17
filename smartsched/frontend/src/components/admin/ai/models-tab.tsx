@@ -28,7 +28,8 @@ export function ModelsTab({ canEdit }: { canEdit: boolean }) {
   const routes = useAiRoutes();
   if (providers.isLoading || routes.isLoading) return <Loading />;
   if (!providers.data || !routes.data) return <Alert tone="error">{errorMessage(providers.error ?? routes.error, locale, t("aiAdmin.error.load"))}</Alert>;
-  return <RoutesEditor key={JSON.stringify([routes.data.default, routes.data.features])} providers={providers.data.providers} routes={routes.data} canEdit={canEdit} />;
+  // mounted once: after a save the draft already equals what was stored, and a remount would drop the focus
+  return <RoutesEditor providers={providers.data.providers} routes={routes.data} canEdit={canEdit} />;
 }
 
 function RoutesEditor({ providers, routes, canEdit }: { providers: Provider[]; routes: Routes; canEdit: boolean }) {

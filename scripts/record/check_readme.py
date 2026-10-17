@@ -79,7 +79,7 @@ def main(argv: list[str]) -> int:
         missing += m
         used |= u
         external += e
-    media = [p for p in used if any(str(p).startswith(str(ROOT / d)) for d in MEDIA_DIRS + ["docs/images/lottie"])]
+    media = [p for p in used if any(str(p).startswith(str(ROOT / d)) for d in MEDIA_DIRS + ["docs/images/lottie", "docs/launch/media"])]
     total = sum(p.stat().st_size for p in media)
     print(f"checked {len(files)} file(s): {len(used)} local targets, {len(set(external))} external links (not fetched)")
     print(f"referenced media: {len(media)} files, {total / 1e6:.2f} MB")

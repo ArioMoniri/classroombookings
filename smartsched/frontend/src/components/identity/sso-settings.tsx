@@ -28,10 +28,25 @@ import { problemText } from "@/lib/api/error-text";
 import { useI18n } from "@/lib/i18n/provider";
 import { roleLabel } from "@/lib/i18n/roles";
 import { usePermissions } from "@/lib/permissions";
+import { IdentityProvidersPanel } from "./identity-providers-panel";
 
 const KEYS = [identityKeys.config, identityKeys.providers, identityKeys.mappings];
 
+/**
+ * Settings › Kimlik sağlayıcıları (wave 3b W3-IDP): every provider with its guided setup and the invitations
+ * (`IdentityProvidersPanel`, also embedded by W3-HUB in /admin/integrations), then the Microsoft provider's account
+ * switches that only exist there ("Microsoft only for non-administrators", break-glass rule).
+ */
 export function SsoSettings() {
+  return (
+    <div className="flex flex-col gap-8">
+      <IdentityProvidersPanel />
+      <MicrosoftSettings />
+    </div>
+  );
+}
+
+function MicrosoftSettings() {
   const { t, locale } = useI18n();
   const q = useSsoConfig();
   if (q.isLoading) return <Loading />;

@@ -111,7 +111,7 @@ function Bench() {
       <p className="type-footnote text-label-2">{t("aiAdmin.guard.benchLead")}</p>
       <div className="flex flex-wrap gap-2">
         {EXAMPLES.map((k) => (
-          <Button key={k} size="sm" variant="secondary" onClick={() => setText(t(k))}>
+          <Button key={k} variant="secondary" onClick={() => setText(t(k))}>
             {t(k)}
           </Button>
         ))}

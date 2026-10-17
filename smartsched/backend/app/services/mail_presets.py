@@ -384,12 +384,20 @@ PRESETS: tuple[Preset, ...] = (
         hosts=("smtp.resend.com",),
         extra={"username": "resend"},
         steps=(
-            S("API Keys > Create API Key: 'Sending access' izniyle.", "API Keys > Create API Key with 'Sending access'."),
             S(
-                "Domains > Add Domain: verilen MX, SPF (send alt alanı) ve DKIM (resend._domainkey) kayıtlarını ekleyin.",
+                "API Keys > Create API Key: 'Sending access' izniyle.",
+                "API Keys > Create API Key with 'Sending access'.",
+            ),
+            S(
+                "Domains > Add Domain: verilen MX, SPF (send alt alanı) ve DKIM (resend._domainkey) kayıtlarını "
+                "ekleyin.",
                 "Domains > Add Domain: add the MX, SPF (send subdomain) and DKIM (resend._domainkey) records.",
             ),
-            S("Kullanıcı adı 'resend', parola API anahtarıdır.", "The username is 'resend', the password the API key.", "resend"),
+            S(
+                "Kullanıcı adı 'resend', parola API anahtarıdır.",
+                "The username is 'resend', the password the API key.",
+                "resend",
+            ),
         ),
     ),
     Preset(

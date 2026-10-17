@@ -555,3 +555,22 @@ async def test_every_row_feeds_the_ops_metric_without_a_user_label(session, monk
     assert [s["outcome"] for s in seen] == ["limited", "blocked"]
     assert seen[0]["latency_s"] == 1.5 and all("user_id" not in s for s in seen)
     assert guards == ["ai_injection"]
+
+
+async def test_a_broken_email_channel_keeps_the_in_app_alert(session, monkeypatch):
+    from app.services import notify_dispatch as nd
+
+    admin = await _user(session, "y2@uni.edu.tr", role="ADMIN")
+    admin_id = admin.id
+    u = await _user(session, "p9@uni.edu.tr")
+    await gw.put_json(session, gw.LIMITS_KEY, {"user_daily_tokens": 100})
+    await session.commit()
+    await meter.record(user_id=u.id, feature="chat", provider="anthropic", model="m", input_tokens=90, outcome="ok")
+
+    async def boom(self, s, user, notice):
+        raise RuntimeError("outbox schema behind the code")
+
+    monkeypatch.setattr(nd.EmailChannel, "send", boom)
+    assert await meter.check_alerts(u.id)
+    q = select(InAppNotification).where(InAppNotification.user_id == admin_id).execution_options(populate_existing=True)
+    assert [n.kind for n in (await session.execute(q)).scalars()] == ["ai.usage_alert"]
