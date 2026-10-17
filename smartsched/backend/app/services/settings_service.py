@@ -44,12 +44,17 @@ SPECS: dict[str, SettingSpec] = {
 
 def _env_default(key: str) -> Any:
     s = get_settings()
-    return {
+    spec_default = SPECS[key].default if key in SPECS else None
+    value = {
         "anthropic_api_key": s.anthropic_api_key,
         "anthropic_model": s.anthropic_model,
         "solver_default_time_limit": s.solver_default_time_limit,
         "solver_workers": s.solver_workers,
-    }.get(key, SPECS[key].default if key in SPECS else None)
+    }.get(key, spec_default)
+    # an environment variable left empty (ANTHROPIC_MODEL= in a copied .env) is "not set", not a model named ""
+    if key != "anthropic_api_key" and isinstance(value, str) and not value.strip():
+        return spec_default
+    return value
 
 
 def _coerce(spec: SettingSpec | None, value: Any) -> Any:

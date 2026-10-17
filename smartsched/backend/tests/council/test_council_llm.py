@@ -32,7 +32,8 @@ async def test_stored_key_is_not_used_without_the_admin_opt_in(client, fake_sdk)
     await _key(opt_in=False)
     h = await login(client)
     job = await _job(client, h, MEMO_DOCX)
-    assert job["ai_mode"] == "heuristic" and "AI is off for the council" in job["summary"]["ai"]
+    # the job is Turkish (lang=tr), so the API localizes the summary (T-R1-23): the Turkish line of the catalogue
+    assert job["ai_mode"] == "heuristic" and "Yapay zekâ kapalı" in job["summary"]["ai"]
     assert fake_sdk.calls == []
     # the administrator opts in under Settings > AI (default off)
     assert (await client.get("/api/v1/settings", headers=h)).json()["council_ai_enabled"] is False
@@ -265,6 +266,6 @@ async def test_token_budget_stops_model_calls(client, fake_sdk, small_budget):
     job = await _job(client, h, MEMO_DOCX)
     assert len(fake_sdk.calls) == 1
     rules = next(s for s in job["files"][0]["steps"] if s["agent"] == "rules")
-    assert "budget exhausted" in rules["message"]
+    assert "token bütçesi doldu" in rules["message"]  # localized for the Turkish job (T-R1-23)
     review = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
     assert any(it["kind"] == "rule_text" for it in review["items"])
