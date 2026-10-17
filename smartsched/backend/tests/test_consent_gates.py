@@ -9,8 +9,9 @@ Bahar 2026 import (``tests/crbs_env``; clock Monday 16 Feb 2026 08:00):
 * item 2 -- a KVKK erasure disconnects every push calendar through ``calendar_connectors.disconnect`` (the pushed
   events are removed and the grant revoked at the provider) before the rows go; a provider failure is recorded in
   the erasure result and never blocks the erasure;
-* item 3 -- ``kvkk.ai_personal_default`` = ``included`` (default: only an explicit withdrawal keeps a person out of
-  AI requests) | ``excluded`` (not granted = excluded), read by ``app.ai.personal.excluded_user_ids``.
+* item 3 -- ``kvkk.ai_personal_default`` = ``excluded`` (default, owner decision 2026-10-17 R1-M-07 / R1-A-24:
+  silence is not consent for a cross-border transfer, not granted = excluded) | ``included`` (an admin's explicit
+  choice: only a withdrawal keeps a person out of AI requests), read by ``app.ai.personal.excluded_user_ids``.
 """
 
 from __future__ import annotations
@@ -302,12 +303,33 @@ async def _privacy(env, who: dict) -> dict:  # type: ignore[type-arg]  # noqa: F
     return r.json()
 
 
+async def test_ai_personal_default_unset_is_excluded(env):  # noqa: F811
+    """Owner decision 2026-10-17 (R1-M-07 / R1-A-24): a deployment without a stored value excludes everyone who has
+    not granted ``ai_personal``; the Gizlilik row says so (``ai_excluded`` true for a never-granted person)."""
+    never, ayse = await env.user("ayse.yilmaz@uni.edu.tr", full_name="Ayşe Yılmaz")
+    granted, ismail = await env.user("ismail.isik@uni.edu.tr", full_name="İsmail Işık")
+    withdrawn, gokce = await env.user("gokce.sahin@uni.edu.tr", full_name="Gökçe Şahin")
+    assert (await env.client.post("/api/v1/me/consents/ai_personal", headers=ismail)).status_code == 200
+    assert (await env.client.delete("/api/v1/me/consents/ai_personal", headers=gokce)).status_code == 200
+    s = (await env.client.get("/api/v1/settings", headers=env.admin)).json()
+    assert s["kvkk.ai_personal_default"] == "excluded"
+    ex = await _excluded()
+    assert never in ex and withdrawn in ex and granted not in ex
+    p = await _privacy(env, ayse)
+    assert p["ai_personal_default"] == "excluded" and p["ai_excluded"] is True
+    assert (await _privacy(env, ismail))["ai_excluded"] is False
+
+
 async def test_ai_personal_default_included_only_a_withdrawal_excludes(env):  # noqa: F811
     never, ayse = await env.user("ayse.yilmaz@uni.edu.tr", full_name="Ayşe Yılmaz")
     granted, ismail = await env.user("ismail.isik@uni.edu.tr", full_name="İsmail Işık")
     withdrawn, gokce = await env.user("gokce.sahin@uni.edu.tr", full_name="Gökçe Şahin")
     assert (await env.client.post("/api/v1/me/consents/ai_personal", headers=ismail)).status_code == 200
     assert (await env.client.delete("/api/v1/me/consents/ai_personal", headers=gokce)).status_code == 200
+    r = await env.client.put(
+        "/api/v1/settings", json={"extra": {"kvkk.ai_personal_default": "Dâhil"}}, headers=env.admin
+    )
+    assert r.status_code == 200, r.text
     s = (await env.client.get("/api/v1/settings", headers=env.admin)).json()
     assert s["kvkk.ai_personal_default"] == "included"
     assert await _excluded() == [withdrawn]
@@ -341,7 +363,8 @@ async def test_ai_personal_default_excluded_means_not_granted_is_excluded(env): 
     assert d["message_tr"] and d["message_tr"] != d["message_en"]
     assert (await env.client.get("/api/v1/settings", headers=env.admin)).json()[
         "kvkk.ai_personal_default"
-    ] == "included"
+    ] == "excluded"
+    assert (await put("included")).status_code == 200  # an admin's explicit choice first, then back
     # Turkish words, capitals and NBSP read as the setting
     r = await put(" HARİÇ ")
     assert r.status_code == 200, r.text
@@ -360,7 +383,7 @@ async def test_ai_personal_default_excluded_means_not_granted_is_excluded(env): 
             (await s.execute(select(AuditEvent).where(AuditEvent.entity_id == "kvkk.ai_personal_default"))).scalars()
         )
         assert rows and rows[-1].after and "excluded" in str(rows[-1].after)
-    # back to the default
+    # an admin may still choose included
     r = await put("Dahil")
     assert r.status_code == 200 and r.json()["kvkk.ai_personal_default"] == "included"
     assert await _excluded() == [withdrawn]
@@ -416,7 +439,13 @@ async def test_excluded_default_keeps_a_never_granted_instructor_out_of_the_prom
         assert r.status_code == 200, r.text
         return n.tr_casefold(_json.dumps(FakeSDK.calls[-1], ensure_ascii=False))
 
-    assert n.tr_casefold(words[-1]) in await elicit(bare)  # included (default): the name is sent as typed
+    sent = await elicit("[KİŞİ_1]")  # excluded (default 2026-10-17): never granted -> pseudonymised
+    assert n.tr_casefold(words[-1]) not in sent and n.tr_casefold("[KİŞİ_") in sent
+    r = await env.client.put(
+        "/api/v1/settings", json={"extra": {"kvkk.ai_personal_default": "included"}}, headers=env.admin
+    )
+    assert r.status_code == 200, r.text
+    assert n.tr_casefold(words[-1]) in await elicit(bare)  # included (admin's choice): the name is sent as typed
     r = await env.client.put(
         "/api/v1/settings", json={"extra": {"kvkk.ai_personal_default": "excluded"}}, headers=env.admin
     )
