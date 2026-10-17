@@ -18,6 +18,104 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 log = logging.getLogger(__name__)
 
 
+# --- slot display (W3-SLOT, docs/design/v3/slot-display.md §3 / SD-13): refuse what no surface can draw -----------
+
+_SLOT_LABELS_TR = {
+    "unit": "Birim",
+    "block_minutes": "Blok süresi",
+    "label": "Etiket",
+    "period_name": "Ders adı",
+    "time_format": "Saat biçimi",
+    "density": "Yoğunluk",
+    "first_period": "İlk görünen ders",
+    "last_period": "Son görünen ders",
+    "hide_short": "Kısa dersleri gizle",
+    "hide_weekend": "Hafta sonunu gizle",
+    "default_view_desktop": "Masaüstü açılış görünümü",
+    "default_view_phone": "Telefon açılış görünümü",
+    "min_length": "En kısa süre",
+    "quick_span": "Hızlı rezervasyon süresi",
+}
+
+
+def _as_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value.strip())
+    return None
+
+
+def _slot_display_problem(extra: dict[str, Any]) -> HTTPException | None:
+    """422 for the first ``booking.slot_display.*`` value outside its allowed set (``""`` / null resets a key)."""
+    from app.api.v1 import bookings as b
+
+    def refuse(name: str, allowed: str, allowed_en: str) -> HTTPException:
+        label = _SLOT_LABELS_TR.get(name, name)
+        return HTTPException(
+            422,
+            {
+                "code": "invalid_slot_display",
+                "field": f"{b.SLOT_DISPLAY_PREFIX}{name}",
+                "message": f"{name}: {allowed_en}",
+                "message_en": f"Slot display {name}: {allowed_en}",
+                "message_tr": f"Dilim görünümü › {label}: {allowed}",
+            },
+        )
+
+    ints: dict[str, int] = {}
+    for key, value in extra.items():
+        if not key.startswith(b.SLOT_DISPLAY_PREFIX):
+            continue
+        name = key[len(b.SLOT_DISPLAY_PREFIX) :]
+        if key not in ss.SPECS:
+            return refuse(name, "bilinmeyen ayar.", "unknown setting.")
+        if value is None or value == "":
+            continue
+        if name in b._SLOT_CHOICES:
+            choices = b._SLOT_CHOICES[name]
+            if value not in choices:
+                return refuse(
+                    name, "şunlardan biri olmalı: " + ", ".join(choices) + ".", "one of " + ", ".join(choices) + "."
+                )
+        elif name == "default_view_desktop":
+            if value not in b._DESKTOP_VIEWS:
+                views = ", ".join(b._DESKTOP_VIEWS)
+                return refuse(
+                    name, f"boş (kurumun görünümü) ya da şunlardan biri: {views}.", f"empty or one of {views}."
+                )
+        elif name == "block_minutes":
+            if _as_int(value) not in b._BLOCK_MINUTES:
+                return refuse(name, "15, 30 ya da 60 dakika olmalı.", "15, 30 or 60 minutes.")
+        elif name in ("first_period", "last_period"):
+            n = _as_int(value)
+            if n is None or not 0 <= n <= b._PERIOD_MAX:
+                return refuse(
+                    name,
+                    f"0 (hepsi) ile {b._PERIOD_MAX} arasında bir ders numarası olmalı.",
+                    f"a period number from 0 (all) to {b._PERIOD_MAX}.",
+                )
+            ints[name] = n
+        elif name in ("min_length", "quick_span"):
+            n = _as_int(value)
+            if n is None or not 1 <= n <= b._LENGTH_MAX:
+                return refuse(name, f"1 ile {b._LENGTH_MAX} arasında olmalı.", f"from 1 to {b._LENGTH_MAX}.")
+            ints[name] = n
+        elif name in ("hide_short", "hide_weekend"):
+            if not isinstance(value, bool) and str(value).lower() not in ("true", "false"):
+                return refuse(name, "açık ya da kapalı olmalı.", "true or false.")
+    first, last = ints.get("first_period", 0), ints.get("last_period", 0)
+    if first and last and first > last:
+        return refuse(
+            "first_period",
+            "ilk görünen ders son görünen dersten sonra olamaz.",
+            "the first visible period comes after the last.",
+        )
+    return None
+
+
 async def _view(db: DB) -> dict[str, Any]:
     out = await ss.get_all_masked(db)
     # one AI policy (app/ai/policy.py): the council toggle reports the effective intake switch
@@ -35,6 +133,9 @@ async def get_settings_view(db: DB, _: Admin) -> dict[str, Any]:
 @router.put("")
 async def update_settings(body: SettingsUpdate, db: DB, user: Admin) -> dict[str, Any]:
     data = body.model_dump(exclude_unset=True)
+    problem = _slot_display_problem(data.get("extra") or {})
+    if problem is not None:  # before any write: a refused request stores nothing
+        raise problem
     if "council_ai_enabled" in data:
         # the council toggle is the AI intake + vision switch; it carries the KVKK text, so switching it on is
         # the administrator's acknowledgement (sign-off record + ai.policy audit event)

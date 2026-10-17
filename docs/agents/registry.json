@@ -2770,7 +2770,8 @@
       "goal": "You are a senior software engineer and researcher for SmartSched (repo /home/user/classroombookings, FastAPI backend in smartsched/backend, Next.js frontend in smartsched/frontend). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md first…",
       "ledger": "Calendar export research + design",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 21:53"
     }
   ]
 }

@@ -511,7 +511,17 @@ async def update(db: AsyncSession, actor: User, row: SsoProvider, values: dict[s
             )
         row.client_secret_enc = encrypt_secret(text)
     if values.get("secret_expires") is not None:
-        opts["secret_expires"] = str(values["secret_expires"])[:10] or None
+        text = plain(str(values["secret_expires"]))[:10]
+        if text:
+            from datetime import date
+
+            try:
+                date.fromisoformat(text)
+            except ValueError as exc:
+                raise _bad(
+                    "invalid_date", "secret_expires must be YYYY-MM-DD", "Bitiş tarihi YYYY-AA-GG olmalı"
+                ) from exc
+        opts["secret_expires"] = text or None
     if values.get("client_id") is not None:
         cid = plain(str(values["client_id"]))
         if row.kind == kinds.ENTRA and cid:

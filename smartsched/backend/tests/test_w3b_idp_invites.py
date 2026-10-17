@@ -169,6 +169,12 @@ async def test_integration_status_cards_for_the_hub(idp) -> None:  # noqa: F811
     async with dbmod.get_session_factory()() as s:
         cards = {c["key"]: c for c in await identity.integration_status(s)}
     card = cards["identity.keycloak"]
+    assert card["setup_href"] == "/admin/integrations?tab=identity&setup=identity.keycloak"
+    assert card["secret_expires_at"] is None
+    await idp.put(kc["id"], secret_expires="2027-04-30")
+    async with dbmod.get_session_factory()() as s:
+        again = {c["key"]: c for c in await identity.integration_status(s)}
+    assert again["identity.keycloak"]["secret_expires_at"] == "2027-04-30"
     assert card["status"] == "connected" and card["enabled"] is True and card["changed_by"]
     assert card["toggle"] == {
         "method": "PUT",

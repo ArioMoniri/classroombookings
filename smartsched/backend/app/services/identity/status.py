@@ -41,7 +41,9 @@ async def integration_status(session: AsyncSession) -> list[dict[str, Any]]:
                 "last_check_ok": p["last_check_ok"],
                 "changed_by": p["changed_by"],
                 "changed_at": p["changed_at"],
-                "setup_href": f"/admin/integrations?tab=identity&setup={row.name}",
+                "setup_href": f"/admin/integrations?tab=identity&setup=identity.{row.name}",
+                # W3-HUB: drives the "secret expiring" bell event (only providers with a client secret)
+                "secret_expires_at": p["secret_expires"] if p["client_secret_set"] else None,
                 "toggle": {
                     "method": "PUT",
                     "path": f"/auth/sso/admin/providers/{row.id}",

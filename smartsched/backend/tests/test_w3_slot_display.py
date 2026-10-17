@@ -145,14 +145,16 @@ async def test_w3_slot_put_refuses_values_a_surface_cannot_draw(env):  # noqa: F
     }
     for name, value in bad.items():
         r = await env.client.put(
-            "/api/v1/settings", json={"extra": _extra(label="time", **{name: value})}, headers=env.admin
+            "/api/v1/settings",
+            json={"extra": {**_extra(period_name="ordinal"), **_extra(**{name: value})}},
+            headers=env.admin,
         )
         assert r.status_code == 422, (name, r.text)
         detail = r.json()["detail"]
         assert detail["code"] == "invalid_slot_display" and detail["field"] == f"booking.slot_display.{name}"
         assert detail["message_tr"] and detail["message_en"] and detail["message_tr"] != detail["message_en"]
     got = (await env.client.get("/api/v1/bookings/slot-display", headers=env.admin)).json()
-    assert got["label"] == "both"  # the valid key of a refused request was not stored either
+    assert got["period_name"] == "schedule"  # the valid key of a refused request was not stored either
     r = await env.client.put(
         "/api/v1/settings", json={"extra": _extra(first_period=5, last_period=2)}, headers=env.admin
     )

@@ -423,6 +423,7 @@ function ValuesStep({ p, setup, onNext }: { p: Provider; setup: Setup; onNext: (
     idp_entity_id: p.saml?.idp_entity_id ?? "",
     email_attribute: p.saml?.email_attribute ?? "",
     groups_attribute: p.saml?.groups_attribute ?? "",
+    secret_expires: p.secret_expires ?? "",
   });
   const set = (k: keyof typeof v) => (x: string) => setV((o) => ({ ...o, [k]: x }));
   const body: ProviderIn = {};
@@ -430,6 +431,7 @@ function ValuesStep({ p, setup, onNext }: { p: Provider; setup: Setup; onNext: (
   if (p.kind === "entra" && c(v.tenant_id) !== (p.tenant_id ?? "")) body.tenant_id = c(v.tenant_id);
   if (p.kind !== "saml" && c(v.client_id) !== (p.client_id ?? "")) body.client_id = c(v.client_id);
   if (p.kind !== "saml" && v.client_secret) body.client_secret = v.client_secret;
+  if (p.kind !== "saml" && v.secret_expires !== (p.secret_expires ?? "")) body.secret_expires = v.secret_expires;
   if (p.kind === "oidc") {
     if (c(v.issuer) !== (p.issuer ?? "")) body.issuer = c(v.issuer);
     if (c(v.groups_claim) !== p.groups_claim) body.groups_claim = c(v.groups_claim);
@@ -497,6 +499,11 @@ function ValuesStep({ p, setup, onNext }: { p: Provider; setup: Setup; onNext: (
         ) : null}
       </div>
       {p.kind !== "saml" ? <SecretField p={p} value={v.client_secret} onChange={set("client_secret")} /> : null}
+      {p.kind !== "saml" ? (
+        <Field label={t("identity.field.secret_expires")} htmlFor="idp-secret-expires" hint={t("identity.hint.secretExpires")}>
+          <Input id="idp-secret-expires" type="date" value={v.secret_expires} onChange={(e) => set("secret_expires")(e.target.value)} className="max-w-48 text-base sm:text-sm" data-testid="idp-secret-expires" />
+        </Field>
+      ) : null}
       {p.kind === "oidc" ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField id="idp-groups-claim" label={t("identity.field.groups_claim")} hint={t("identity.hint.claims")} value={v.groups_claim} onChange={set("groups_claim")} />
