@@ -2084,6 +2084,14 @@
       "ledger": "Round-2 persona tester: admin",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a46e1d5d29f0bb611",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 00:44",
+      "left_off": "continue when the testers report back"
     }
   ]
 }
