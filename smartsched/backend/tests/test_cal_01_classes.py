@@ -28,8 +28,9 @@ async def _kvkk_signed(env):  # noqa: F811
     await kvkk_sign_off(env)
 
 
-async def _token(env) -> str:  # noqa: F811
-    _, teacher = await env.user("akademisyen.takvim@uni.edu.tr")
+async def _token(env, department_id: int) -> str:  # noqa: F811
+    """A legacy multi-scope link of a Psikoloji teacher (the department rule lets the own department in)."""
+    _, teacher = await env.user("akademisyen.takvim@uni.edu.tr", department_id=department_id)
     await calendar_consent(env.client, teacher)
     return (await env.client.post("/api/v1/calendar/feeds/tokens", json={}, headers=teacher)).json()["token"]
 
@@ -42,7 +43,7 @@ async def _get(env, tok: str, path: str) -> str:  # noqa: F811
 
 async def test_cal_01_uid_survives_a_move_and_a_republish_and_sequence_rises(env):  # noqa: F811
     p = await psy262(env)
-    tok = await _token(env)
+    tok = await _token(env, p.program_id)
     dep_path = f"department/{p.program_id}.ics"
     text = await _get(env, tok, dep_path)
     lint_ics(text, forbidden=p.instructor_names)
@@ -100,7 +101,7 @@ async def test_cal_01_uid_survives_a_move_and_a_republish_and_sequence_rises(env
 
 async def test_cal_01_removed_meeting_is_a_tombstone_then_gone_after_the_grace(env):  # noqa: F811
     p = await psy262(env)
-    tok = await _token(env)
+    tok = await _token(env, p.program_id)
     dep_path = f"department/{p.program_id}.ics"
     first = events(await _get(env, tok, dep_path))
     week6 = by_start(first, datetime(2026, 3, 9, 13, 30, tzinfo=IST))
@@ -132,7 +133,7 @@ async def test_cal_01_removed_meeting_is_a_tombstone_then_gone_after_the_grace(e
 
 async def test_cal_01_old_uids_are_cancelled_once_in_room_feeds(env):  # noqa: F811
     p = await psy262(env)
-    tok = await _token(env)
+    tok = await _token(env, p.program_id)
     evs = events(await _get(env, tok, f"room/{p.room.id}.ics"))
     old_uid = f"class-{p.week5_assignment_id}-{p.room.id}-20260302@smartsched"
     old = [e for e in evs if str(e["UID"]) == old_uid]

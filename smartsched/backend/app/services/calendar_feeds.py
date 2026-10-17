@@ -414,7 +414,7 @@ async def revisions(session: AsyncSession, views: list[EventView]) -> dict[int, 
 
 @dataclass(frozen=True)
 class FeedScope:
-    kind: str  # mine | room | department | room_group
+    kind: str  # mine | room | department | room_group | my_classes | department_classes
     id: int
 
 
@@ -423,9 +423,15 @@ class Feed:
     title: str
     filename: str
     text: str
+    #: the newest LAST-MODIFIED in the feed (CAL-05 ``Last-Modified``)
+    last_modified: datetime | None = None
+    #: CAL-05: a version key computed before rendering; the ETag is derived from it when set
+    version: str | None = None
 
     @property
     def etag(self) -> str:
+        if self.version:
+            return '"' + self.version[:32] + '"'
         return '"' + hashlib.sha256(self.text.encode("utf-8")).hexdigest()[:32] + '"'
 
 
@@ -440,15 +446,44 @@ async def _visible_rooms_of(session: AsyncSession, access: Access, room_ids: lis
     return [r.id for r in rooms if access.can_view_room(r)]
 
 
-async def build_feed(session: AsyncSession, access: Access, scope: FeedScope, *, title: str | None = None) -> Feed:
-    """The calendar of ``scope`` as seen by ``access``; :class:`FeedNotFound` for what the user may not see."""
+#: CAL-05: a department feed above this size is trimmed (feeds above ~1 MB are reported to fail in Google)
+FEED_MAX_BYTES = 1_000_000
+CLASS_KINDS = frozenset({"room", "room_group", "department", "my_classes", "department_classes"})
+BOOKING_KINDS = frozenset({"mine", "room", "room_group", "department"})
+
+
+def _rfc7986(title: str, source: str | None) -> list[str]:
+    from app.core.export_safety import ics_text
+
+    out = [f"NAME:{ics_text(title)}"]
+    if source:
+        out.append(f"SOURCE;VALUE=URI:{source}")
+    return out
+
+
+async def build_feed(
+    session: AsyncSession,
+    access: Access,
+    scope: FeedScope,
+    *,
+    title: str | None = None,
+    source: str | None = None,
+    attachment: bool = False,
+) -> Feed:
+    """The calendar of ``scope`` as seen by ``access``; :class:`FeedNotFound` for what the user may not see.
+    ``source``: the subscription URL (RFC 7986 ``SOURCE``); ``attachment``: a one-off file (CAL-04, no SOURCE)."""
+    from app.services import calendar_classes as cc
+
     group = await get_group(session, "integrations")
     today: date = await booking_svc.today(session)
     since = today - timedelta(days=max(0, int(group["feed_past_days"] or 0)))
-    grace_cutoff = utcnow() - timedelta(days=max(0, int(group["feed_cancelled_grace_days"] or 0)))
+    grace_days = max(0, int(group["feed_cancelled_grace_days"] or 0))
+    grace_cutoff = utcnow() - timedelta(days=grace_days)
     q = select(Booking).where(Booking.date >= since)
     include_pending = False
     room_filter: list[int] | None = None
+    class_filter: cc.ScopeFilter | None = None
+    own_instructors: list[int] = []
     if scope.kind == "mine":
         q = q.where(Booking.user_id == scope.id)
         include_pending = True
@@ -460,12 +495,19 @@ async def build_feed(session: AsyncSession, access: Access, scope: FeedScope, *,
             raise FeedNotFound
         q = q.where(Booking.room_id == room.id)
         default_title, filename = f"SmartSched – {room.display_name}", f"{room.code}.ics"
-    elif scope.kind == "department":
+        class_filter = cc.ScopeFilter(room_ids=frozenset({room.id}), include_legacy=True)
+    elif scope.kind in ("department", "department_classes"):
         dep = await session.get(Program, scope.id)
-        if dep is None:
+        # CAL-03: own department, a department of a section taught, or calendar.department_feed; every poll
+        if dep is None or not await cc.department_allowed(session, access, dep.id):
             raise FeedNotFound
         q = q.where(Booking.department_id == dep.id)
-        default_title, filename = f"SmartSched – {dep.name}", f"department-{dep.id}.ics"
+        if scope.kind == "department":
+            default_title, filename = f"SmartSched – {dep.name}", f"department-{dep.id}.ics"
+        else:
+            default_title = f"SmartSched – {dep.name} dersleri"
+            filename = f"bolum-{cc.ascii_slug(dep.name)}.ics"
+        class_filter = cc.ScopeFilter(program_id=dep.id, include_legacy=scope.kind == "department")
     elif scope.kind == "room_group":
         rg = await session.get(RoomGroup, scope.id)
         if rg is None:
@@ -476,22 +518,30 @@ async def build_feed(session: AsyncSession, access: Access, scope: FeedScope, *,
             raise FeedNotFound
         q = q.where(Booking.room_id.in_(room_filter))
         default_title, filename = f"SmartSched – {rg.name}", f"room-group-{rg.id}.ics"
+        class_filter = cc.ScopeFilter(room_ids=frozenset(room_filter), include_legacy=True)
+    elif scope.kind == "my_classes":
+        own_instructors = await cc.linked_instructor_ids(session, scope.id)
+        if not own_instructors:
+            raise FeedNotFound
+        default_title, filename = "SmartSched – Derslerim", "derslerim.ics"
+        class_filter = cc.ScopeFilter(instructor_ids=frozenset(own_instructors))
     else:
         raise FeedNotFound
-    statuses = {BOOKED, CANCELLED} | ({PENDING} | ENDED if include_pending else set())
-    q = q.where(Booking.status.in_(sorted(statuses))).order_by(Booking.date, Booking.start_period, Booking.id)
-    cache = _Cache(session)
     views: list[EventView] = []
-    for b in (await session.execute(q)).scalars():
-        if b.status != BOOKED and b.status != PENDING and changed_at(b) < grace_cutoff:
-            continue
-        room_row: Room | None = await cache.get(Room, b.room_id)
-        if room_row is None or not _visible(access, b, room_row):
-            continue
-        view = await event_view(cache, access, b)
-        if view is not None:
-            views.append(view)
-    views = merge_blocks(views)
+    if scope.kind in BOOKING_KINDS:
+        statuses = {BOOKED, CANCELLED} | ({PENDING} | ENDED if include_pending else set())
+        q = q.where(Booking.status.in_(sorted(statuses))).order_by(Booking.date, Booking.start_period, Booking.id)
+        cache = _Cache(session)
+        for b in (await session.execute(q)).scalars():
+            if b.status != BOOKED and b.status != PENDING and changed_at(b) < grace_cutoff:
+                continue
+            room_row: Room | None = await cache.get(Room, b.room_id)
+            if room_row is None or not _visible(access, b, room_row):
+                continue
+            view = await event_view(cache, access, b)
+            if view is not None:
+                views.append(view)
+        views = merge_blocks(views)
     revs = await revisions(session, views)
     events = [
         IcsEvent(
@@ -507,166 +557,44 @@ async def build_feed(session: AsyncSession, access: Access, scope: FeedScope, *,
         )
         for v in views
     ]
-    if scope.kind in ("room", "room_group", "department"):  # A-14: the published classes too
-        horizon = today + timedelta(days=CLASS_HORIZON_DAYS)
-        events += await class_events(
+    if class_filter is not None:  # A-14 / CAL-01: the published classes
+        rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
+        base, _ = await public_base(session)
+        ctx = cc.EventContext(
+            fields=await cc.fields_setting(session), own_instructor_ids=frozenset(own_instructors), base_url=base
+        )
+        horizon = await cc.horizon_end(session, today)
+        events += await cc.class_events(
             session,
-            access,
+            class_filter,
             since,
             horizon,
-            room_ids=[scope.id] if scope.kind == "room" else room_filter,
-            program_id=scope.id if scope.kind == "department" else None,
+            grace_days=grace_days,
+            ctx=ctx,
+            room_visible=lambda rid: rid in rooms and access.can_view_room(rooms[rid]),
         )
         events.sort(key=lambda e: (e.start, e.uid))
     tz_name = str(await settings_service.get_value(session, "timezone") or "Europe/Istanbul")
     final_title = title or default_title
-    return Feed(final_title, filename, render_calendar(final_title, tz_name, events))
+    extra = _rfc7986(final_title, None if attachment else source)
+    text = render_calendar(final_title, tz_name, events, extra=extra)
+    if len(text.encode("utf-8")) > FEED_MAX_BYTES:
+        text, events = _trim(final_title, tz_name, events, extra)
+    newest = max((e.last_modified for e in events), default=None)
+    return Feed(final_title, filename, text, last_modified=newest)
 
 
-CLASS_HORIZON_DAYS = 200  # published classes are listed this far ahead (the rest of a term)
+def _trim(title: str, tz_name: str, events: list[IcsEvent], extra: list[str]) -> tuple[str, list[IcsEvent]]:
+    """CAL-05: keep a feed under :data:`FEED_MAX_BYTES`: drop the tombstones first, then the farthest events."""
+    kept = [e for e in events if e.status != "CANCELLED"]
+    text = render_calendar(title, tz_name, kept, extra=extra)
+    while len(text.encode("utf-8")) > FEED_MAX_BYTES and kept:
+        kept = kept[: max(0, int(len(kept) * 0.9))]
+        text = render_calendar(title, tz_name, kept, extra=extra)
+    return text, kept
 
 
-async def class_events(
-    session: AsyncSession,
-    access: Access,
-    d_from: date,
-    d_to: date,
-    *,
-    room_ids: list[int] | None = None,
-    program_id: int | None = None,
-) -> list[IcsEvent]:
-    """A-14: the published (active-run) class meetings in ``room_ids`` or of the department ``program_id`` as busy
-    events. SUMMARY is the course code(s) (or the request's code and section), never the board text, which may
-    name people; no instructor names at all (KVKK). Times come from the term's booking periods, else the standard
-    grid. Rooms the viewer may not see are left out."""
-    from app.models import Assignment, Course, ScheduleRun, Section, Term
-    from app.services.bookings_calendar import term_info
-    from app.services.calendar import period_times
-
-    wanted_ids: set[int] | None = None
-    if program_id is not None:
-        # the department's classes: requests of its sections, and board rows whose course codes are its courses
-        run_ids = list((await session.execute(select(ScheduleRun.id).where(ScheduleRun.is_active.is_(True)))).scalars())
-        if not run_ids:
-            return []
-        keys = {
-            n.course_key(code)
-            for code in (
-                await session.execute(
-                    select(Course.code)
-                    .join(Section, Section.course_id == Course.id)
-                    .where(Section.program_id == program_id)
-                )
-            ).scalars()
-        }
-        rows = list(
-            (
-                await session.execute(
-                    select(Assignment).where(Assignment.run_id.in_(run_ids), Assignment.archived.is_(False))
-                )
-            ).scalars()
-        )
-        mrs = {a.meeting_request_id for a in rows if a.meeting_request_id}
-        own_mr: set[int] = set()
-        if mrs:
-            from app.models import MeetingRequest
-
-            own_mr = set(
-                (
-                    await session.execute(
-                        select(MeetingRequest.id)
-                        .join(Section, Section.id == MeetingRequest.section_id)
-                        .where(MeetingRequest.id.in_(mrs), Section.program_id == program_id)
-                    )
-                ).scalars()
-            )
-        wanted_ids = {
-            a.id
-            for a in rows
-            if (a.meeting_request_id in own_mr) or any(n.course_key(c) in keys for c in (a.course_codes or []))
-        }
-        if not wanted_ids:
-            return []
-        room_ids = sorted({int(r) for a in rows if a.id in wanted_ids for r in (a.room_ids or [])})
-    occ = await booking_svc.timetable_occupancy(session, set(room_ids) if room_ids else None, d_from, d_to)
-    helds = [h for hs in occ.values() for h in hs if h.kind == "timetable"]
-    if wanted_ids is not None:
-        helds = [h for h in helds if h.ref_id in wanted_ids]
-    if not helds:
-        return []
-    assigns = {
-        a.id: a
-        for a in (
-            await session.execute(select(Assignment).where(Assignment.id.in_({h.ref_id for h in helds})))
-        ).scalars()
-    }
-    labels = await booking_svc._request_labels(
-        session, {a.meeting_request_id for a in assigns.values() if a.meeting_request_id}
-    )
-    runs = {
-        r.id: r
-        for r in (
-            await session.execute(select(ScheduleRun).where(ScheduleRun.id.in_({a.run_id for a in assigns.values()})))
-        ).scalars()
-    }
-    # booking-period times per term (start_period -> time_start, end_period -> time_end)
-    times: dict[int, tuple[dict[int, Any], dict[int, Any]]] = {}
-
-    async def period_clock(term_id: int, sp: int, ep: int) -> tuple[Any, Any]:
-        if term_id not in times:
-            term = await session.get(Term, term_id)
-            info = await term_info(session, term) if term is not None else None
-            starts: dict[int, Any] = {}
-            ends: dict[int, Any] = {}
-            if info is not None and info.default_schedule_id:
-                for p in (
-                    await session.execute(
-                        select(BookingPeriod).where(BookingPeriod.schedule_id == info.default_schedule_id)
-                    )
-                ).scalars():
-                    starts.setdefault(p.start_period, p.time_start)
-                    ends.setdefault(p.end_period, p.time_end)
-            times[term_id] = (starts, ends)
-        starts, ends = times[term_id]
-        if sp in starts and ep in ends:
-            return starts[sp], ends[ep]
-        s_txt, e_txt = period_times(sp, ep)
-        return datetime.strptime(s_txt, "%H:%M").time(), datetime.strptime(e_txt, "%H:%M").time()
-
-    # course codes as the planner writes them ("PSY 262"), looked up by course key
-    all_codes = {n.course_key(c) for a in assigns.values() for c in (a.course_codes or []) if c}
-    display: dict[str, str] = {}
-    if all_codes:
-        for code, disp in (await session.execute(select(Course.code, Course.display_code))).all():
-            k = n.course_key(code)
-            if k in all_codes and disp:
-                display.setdefault(k, disp)
-    cache = _Cache(session)
-    out: list[IcsEvent] = []
-    for h in sorted(helds, key=lambda x: (x.date, x.start, x.room_id, x.ref_id)):
-        a = assigns.get(h.ref_id)
-        room: Room | None = await cache.get(Room, h.room_id)
-        if a is None or room is None or not access.can_view_room(room):
-            continue
-        run = runs.get(a.run_id)
-        codes = [display.get(n.course_key(c), c) for c in (a.course_codes or []) if c]
-        what = " / ".join(dict.fromkeys(codes)) or labels.get(a.meeting_request_id or 0, "")
-        t0, t1 = await period_clock(run.term_id if run else 0, h.start, h.end)
-        stamp = (run.finished_at or run.created_at) if run is not None else utcnow()
-        out.append(
-            IcsEvent(
-                uid=f"class-{a.id}-{h.room_id}-{h.date:%Y%m%d}@smartsched",
-                start=datetime.combine(h.date, t0),
-                end=datetime.combine(h.date, t1),
-                summary=f"{what} ({room.display_name})" if what else room.display_name,
-                location=room.display_name,
-                description=None,
-                status="CONFIRMED",
-                sequence=0,
-                last_modified=stamp,
-            )
-        )
-    return out
+CLASS_HORIZON_DAYS = 200  # kept for callers of the A-14 constant (app.services.calendar_classes owns it now)
 
 
 async def feed_options(session: AsyncSession, access: Access) -> dict[str, Any]:

@@ -22,6 +22,7 @@ What the SP does (HTTP-Redirect AuthnRequest, HTTP-POST response to the ACS):
 from __future__ import annotations
 
 import base64
+import importlib
 import zlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -31,15 +32,19 @@ from urllib.parse import urlencode
 from app.services.identity import kinds
 from app.services.identity.oidc import namespace, plain, secure_url
 
-try:  # optional: python -m pip install signxml
-    from lxml import etree
-    from signxml.exceptions import InvalidInput, InvalidSignature
-    from signxml.verifier import XMLVerifier
-
+#: optional (``pip install 'smartsched-backend[saml]'`` = signxml): imported by name so the module type-checks and
+#: imports the same with and without it; without it AVAILABLE is false ("kütüphane gerekli")
+etree: Any = None
+XMLVerifier: Any = None
+InvalidInput: Any = Exception
+InvalidSignature: Any = Exception
+try:
+    etree = importlib.import_module("lxml.etree")
+    _signxml_exc = importlib.import_module("signxml.exceptions")
+    XMLVerifier = importlib.import_module("signxml.verifier").XMLVerifier
+    InvalidInput, InvalidSignature = _signxml_exc.InvalidInput, _signxml_exc.InvalidSignature
     AVAILABLE = True
 except ImportError:  # pragma: no cover - exercised by monkeypatching AVAILABLE in the tests
-    etree = None  # type: ignore[assignment]
-    XMLVerifier = None  # type: ignore[assignment,misc,unused-ignore]
     AVAILABLE = False
 
 NS = {

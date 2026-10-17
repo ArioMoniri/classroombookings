@@ -463,7 +463,7 @@ function ValuesStep({ p, setup, onNext }: { p: Provider; setup: Setup; onNext: (
             busyLabel={t("busy.saving")}
             disabled={!Object.keys(body).length}
             className="min-h-11"
-            onClick={() => save(body, t("identity.saved"))}
+            onClick={() => save(body, t("identity.saved"), () => setV((o) => ({ ...o, client_secret: "", metadata_xml: "" })))}
             data-testid="idp-values-save"
           >
             {t("identity.save")}
@@ -498,7 +498,7 @@ function ValuesStep({ p, setup, onNext }: { p: Provider; setup: Setup; onNext: (
           <TextField id="idp-hd" label={t("identity.field.hosted_domains")} hint={t("identity.hint.domains")} value={v.hosted_domains} onChange={set("hosted_domains")} mono={false} />
         ) : null}
       </div>
-      {p.kind !== "saml" ? <SecretField p={p} value={v.client_secret} onChange={set("client_secret")} /> : null}
+      {p.kind !== "saml" ? <SecretField key={`${p.client_secret_set}-${p.version}`} p={p} value={v.client_secret} onChange={set("client_secret")} /> : null}
       {p.kind !== "saml" ? (
         <Field label={t("identity.field.secret_expires")} htmlFor="idp-secret-expires" hint={t("identity.hint.secretExpires")}>
           <Input id="idp-secret-expires" type="date" value={v.secret_expires} onChange={(e) => set("secret_expires")(e.target.value)} className="max-w-48 text-base sm:text-sm" data-testid="idp-secret-expires" />

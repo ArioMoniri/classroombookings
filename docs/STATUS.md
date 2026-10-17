@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `29ebac9` (committed 2026-10-17 22:01 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `ed376a8` (committed 2026-10-17 22:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -164,16 +164,14 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-254 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 228 · stopped 11 · superseded 7.
+254 agents in [`docs/agents/registry.json`](agents/registry.json): running 6 · finished 230 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
-| `W3-SEC` | backend-engineer | 2026-10-17 18:58 |
 | `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
 | `Mobile optimiser A` | frontend-engineer | 2026-10-17 19:56 |
 | `Mobile optimiser B` | frontend-engineer | 2026-10-17 19:56 |
 | `W3-IDP` | backend-engineer | 2026-10-17 19:58 |
-| `Wave-3 integrator` | general-purpose | 2026-10-17 21:25 |
 | `CAL-B` | backend-engineer | 2026-10-17 21:54 |
 | `CAL-F` | frontend-engineer | 2026-10-17 21:54 |
 

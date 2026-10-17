@@ -2478,7 +2478,8 @@
       "goal": "You are lane **W3-SEC** of SmartSched wave 3 (ledger `wave3-sec-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3.md and COMMON.md (same folder) and follow them. The owner asked: \"all platform should have the needed security me…",
       "ledger": "W3-SEC: security hardening + RLS",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 22:16"
     },
     {
       "id": "a7bbfb1dcc86e5464",
