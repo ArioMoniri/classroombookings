@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `2ec829e` (committed 2026-10-17 04:48 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `ac115b8` (committed 2026-10-17 04:54 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,7 +145,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-201 agents in [`docs/agents/registry.json`](agents/registry.json): running 2 · finished 181 · stopped 11 · superseded 7.
+202 agents in [`docs/agents/registry.json`](agents/registry.json): running 2 · finished 182 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -217,7 +217,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **261 ticked · 318 open** checkboxes in 80 sections (76 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **262 ticked · 352 open** checkboxes in 81 sections (77 with open items).
 
 <details><summary>Per section</summary>
 
@@ -265,7 +265,8 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Intake agent finished (I1–I5, council gaps, intake memory, commit lock, A2–A4; head… | 0 | 4 |
 | Approval-first bookings + user channels + credential-free login (owner request… | 10 | 3 |
 | Standing flow loop: test → suggest → build → re-test (owner request 2026-10-15 22:20) | 0 | 2 |
-| Flow loop tickets — round 1 (suggester, 2026-10-16) | 49 | 4 |
+| Flow loop tickets — round 1 (suggester, 2026-10-16) | 50 | 3 |
+| Flow loop tickets — round 2 (suggester, 2026-10-17) | 0 | 35 |
 | Devops agent finished: first full gate table (5d0e6c2) + seed profiles + per-branch pods | 0 | 1 |
 | Owner decisions 2026-10-15 ~22:45: channels + login (from… | 2 | 4 |
 | Owner decisions 2026-10-15 ~22:50: identity and sign-up | 0 | 1 |

@@ -1,0 +1,1577 @@
+{
+ "round": 2,
+ "ledger": "flow-r2-suggester-2026-10-17",
+ "date": "2026-10-17",
+ "snapshot": "deb38315",
+ "checked_at": "HEAD 2ec829eb (git ls-tree; file hints verified)",
+ "reports": [
+  "docs/testing/flows/rounds/round-2-academician.md",
+  "docs/testing/flows/rounds/round-2-staff.md",
+  "docs/testing/flows/rounds/round-2-admin.md"
+ ],
+ "summary": {
+  "findings": 68,
+  "findings_ticketed": 62,
+  "enhancement_or_decision_only": [
+   "R2-A-17",
+   "R2-A-18",
+   "R2-A-19",
+   "R2-M-24",
+   "R2-M-27",
+   "R2-S-18"
+  ],
+  "tickets": 35,
+  "severity": {
+   "blocker": 1,
+   "major": 12,
+   "minor": 21,
+   "trivial": 1
+  },
+  "per_lane": {
+   "A": {
+    "tickets": 8,
+    "major": 4,
+    "minor": 4
+   },
+   "B": {
+    "tickets": 10,
+    "major": 4,
+    "minor": 6
+   },
+   "C": {
+    "tickets": 4,
+    "blocker": 1,
+    "minor": 3
+   },
+   "D": {
+    "tickets": 3,
+    "major": 2,
+    "minor": 1
+   },
+   "E": {
+    "tickets": 5,
+    "major": 1,
+    "minor": 4
+   },
+   "F": {
+    "tickets": 3,
+    "minor": 3
+   },
+   "S": {
+    "tickets": 1,
+    "major": 1
+   },
+   "G": {
+    "tickets": 1,
+    "trivial": 1
+   }
+  },
+  "regressions": [
+   "T-R2-19 (I4/I5)"
+  ],
+  "round1_ids": {
+   "total": 117,
+   "verified": 91,
+   "verified_in_part": 7,
+   "reopened": 12,
+   "inconclusive": 3,
+   "open_suggestions": 3,
+   "not_re_run": 1,
+   "reopened_ids": [
+    "R1-A-17",
+    "R1-A-35 (FLE-001)",
+    "R1-A-36 (FLE-006)",
+    "R1-S-04",
+    "R1-S-16",
+    "R1-S-19 (old expectation)",
+    "R1-S-22",
+    "R1-S-24",
+    "R1-S-31",
+    "R1-M-07 (decision)",
+    "R1-M-26",
+    "R1-M-35 (FLE-005)"
+   ],
+   "inconclusive_ids": [
+    "R1-S-09",
+    "R1-S-15",
+    "R1-S-26"
+   ]
+  },
+  "round1_tickets": {
+   "total": 50,
+   "verified": 40,
+   "reopened": 10,
+   "newly_ticked": [
+    "T-R1-30"
+   ],
+   "reopened_ids": [
+    "T-R1-01",
+    "T-R1-13",
+    "T-R1-26",
+    "T-R1-29",
+    "T-R1-31",
+    "T-R1-33",
+    "T-R1-34",
+    "T-R1-47",
+    "T-R1-48",
+    "T-R1-49"
+   ]
+  },
+  "decisions": 4,
+  "fixed": 1
+ },
+ "rules": [
+  "One builder per lane. A lane edits only the paths in its `owns` list (tickets may name a path read-only).",
+  "smartsched/frontend/messages/{tr,en}.json are shared: add or change only keys of your own screens' namespaces; pull --no-rebase before every commit; never reorder or reformat the files; regenerate the derived language files (tools.crbs_lang_import) with every message change.",
+  "Lane S (solver-engineer) owns app/solver/** and services/moderation.py alone; lane D's recreate-preview work touches only the frontend and lib/api.",
+  "Lanes B, E and F have tickets that depend on lane A's T-R2-05 (shared primitives): start the other tickets first, finish those after A hands over.",
+  "Test first (vitest / pytest), then the ticket's check on a stack at 1440 + 390 touch; report the commit per ticket so the round-3 testers re-verify.",
+  "Owner-decision items (Blocked by decisions) are not built until the owner answers."
+ ],
+ "round1_verification": {
+  "T-R1-01": {
+   "result": "reopened",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-16: /timetable inspector 'Taşı…' 84×36, /classes chips 32 px, /settings?tab=solver segments 38 px; R1-M-08/R1-M-29 residue (R2-M-13/14) → T-R2-05, T-R2-28, T-R2-29, T-R2-32"
+  },
+  "T-R1-02": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-03; page-level forms are a new case → T-R2-01"
+  },
+  "T-R1-03": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-M-09; R1-M-37 desktop login layout stays FLE-006"
+  },
+  "T-R1-04": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-19, R1-A-04; R1-M-29 residue /settings?tab=solver → T-R2-29"
+  },
+  "T-R1-05": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-23"
+  },
+  "T-R1-06": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-31/37/40, R1-S-33; the 4-tab label overlap is new → T-R2-04"
+  },
+  "T-R1-07": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-10, R1-M-16; the R1-S-24 API-refusal residue → T-R2-17/21/30"
+  },
+  "T-R1-08": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-11; the /moderation/me crumb → T-R2-08"
+  },
+  "T-R1-09": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-27/28/29, R1-M-28, R1-M-21 landing"
+  },
+  "T-R1-10": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-05, R1-M-24; two helper texts → T-R2-16"
+  },
+  "T-R1-11": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-01/12/33/38"
+  },
+  "T-R1-12": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-15/16, R1-M-22"
+  },
+  "T-R1-13": {
+   "result": "reopened",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-17 and R1-M-26: Yaklaşan still two rows, two conflict rows (Taleplerim and the drawer verified) → T-R2-13"
+  },
+  "T-R1-14": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-06/07/08; the stale-result span case is new → T-R2-14"
+  },
+  "T-R1-15": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-09/18/12"
+  },
+  "T-R1-16": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-13/14, R1-S-32"
+  },
+  "T-R1-17": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-20/21/22"
+  },
+  "T-R1-18": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-M-23"
+  },
+  "T-R1-19": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-32"
+  },
+  "T-R1-20": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-25/23, R1-A-10; the R1-S-24 API residue → T-R2-17/21/30"
+  },
+  "T-R1-21": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-03 on a fresh stack"
+  },
+  "T-R1-22": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-18"
+  },
+  "T-R1-23": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-10; residue: 'YZ' chip with AI off, English council 409 → T-R2-21"
+  },
+  "T-R1-24": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-11"
+  },
+  "T-R1-25": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-12 (re-upload in a new job plans 0 creates before masking); the person-key part stays open; R2-M-06 is new evidence → T-R2-19"
+  },
+  "T-R1-26": {
+   "result": "reopened",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-31: the job list is lost on reload (encoding/delimiter/PNG parts verified) → T-R2-20"
+  },
+  "T-R1-27": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-25"
+  },
+  "T-R1-28": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-26, R1-A-15"
+  },
+  "T-R1-29": {
+   "result": "reopened",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-24: the planner's forced-move 403 'moving despite a conflict is admin-only' and the booking range_min 409 have no message_tr → T-R2-30, T-R2-17"
+  },
+  "T-R1-30": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-M-16 (TR role names), R1-A-10 (/login SSO hint 'Öğretim elemanı'); ticked"
+  },
+  "T-R1-31": {
+   "result": "reopened",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-M-17 part: feature name_taken, image validator, 'replaced by series', 'undo of', move texts, org feature sentence → T-R2-33, T-R2-17, T-R2-30, T-R2-31"
+  },
+  "T-R1-32": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-M-18, R1-M-30; new audit items → T-R2-31"
+  },
+  "T-R1-33": {
+   "result": "reopened",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-M-21 part: roles editor shows 0 disabled-permission reasons; R1-M-38 part: weeks-filtered term export name → T-R2-32, T-R2-29"
+  },
+  "T-R1-34": {
+   "result": "reopened",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-M-20 part: the room code is stored without its space → T-R2-32"
+  },
+  "T-R1-35": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-M-25, R1-A-29"
+  },
+  "T-R1-36": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-M-33 (exam weeks); the Administrator-as-target part was not re-checked → round 3"
+  },
+  "T-R1-37": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-30"
+  },
+  "T-R1-38": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-23"
+  },
+  "T-R1-39": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-33; R1-S-15 inconclusive (the board import and run #10 were both active, the 'board alone' state was not reproducible) → T-R2-35 defines the precondition, re-test round 3"
+  },
+  "T-R1-40": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-34 (the prior exists and is hidden room_already_set, the corrected expectation); R1-S-19 was reopened by the staff tester on the old expectation → T-R2-35 corrects the staff rows"
+  },
+  "T-R1-41": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-30, R1-S-33"
+  },
+  "T-R1-42": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-14, R1-S-23"
+  },
+  "T-R1-43": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-39, R1-S-39"
+  },
+  "T-R1-44": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-34"
+  },
+  "T-R1-45": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-A-02/04 (the touch tokens apply on stack.sh builds); R1-M-08/R1-M-29 residue are own-size controls → T-R2-05"
+  },
+  "T-R1-46": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-08, R1-M-13"
+  },
+  "T-R1-47": {
+   "result": "reopened",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-22: the scope rail still reads 'Tüm dönem · 2 hafta' on Güz (the sentence is right) → T-R2-27"
+  },
+  "T-R1-48": {
+   "result": "reopened",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-M-04 part 'Sorun 457' vs 398, R1-M-14 part unplaced list 19/28, R1-S-28 dashboard odometer digits (R2-S-14) → T-R2-26; R1-M-15, R1-S-27, R1-M-27 verified"
+  },
+  "T-R1-49": {
+   "result": "reopened",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-16: inspector 'Taşı…' 84×36 on the phone; R1-M-32 part: skip link is the 30th Tab stop; R1-S-26 inconclusive → T-R2-28, T-R2-35; R1-M-31 verified"
+  },
+  "T-R1-50": {
+   "result": "verified",
+   "sha": "deb38315",
+   "date": "2026-10-17",
+   "note": "R1-S-29"
+  }
+ },
+ "already_fixed": {
+  "R1-M-38 (week export name)": "ff85f52c (sweeper 2, inside the snapshot): WEEK runs export as smartsched-run<id>-hafta<n>.xlsx; the admin's case was a weeks-filtered TERM export → T-R2-29"
+ },
+ "blocked_by_decisions": {
+  "R1-M-07 / R1-A-24": "KVKK: the AI personal-data default is still 'Evet sayılır: geri alınmadıkça dahil'; the orchestrator recommends 'excluded'. Blocks the Admin › KVKK AI default and the Gizlilik AI row wording (F-05 KVKK, F-11 S10). Reopened by the admin tester as a decision, not a defect.",
+  "R1-S-37": "A forced edit on the published plan goes live at once (hard 99 with a banner). Draft copy or banner? Blocks nothing in round 2 but F-10 S06's final expectation.",
+  "R2-A-19": "Profil › Dil offers 'Kurum varsayılanı (Türkçe)' as a third entry while the owner decision (2026-10-15) says tr/en only. Keep or drop? Blocks F-13 A02's picker expectation.",
+  "T-R1-25 person key": "No stable person key in the intake lexicon (staff number / e-mail). Blocks the 'rename one instructor → 1 update' part of F-08 S11 and the instructor half of T-R2-19's re-upload promise; the meeting half is ticketed."
+ },
+ "enhancements": [
+  {
+   "id": "FLE-001",
+   "score": 6,
+   "personas": "academician",
+   "text": "A teacher can ask for a weekly make-up series (it becomes a request with per-date approval), or the sheet says why only single dates are possible",
+   "maps_to": "persona-user Enh. #2 family; new",
+   "flows": "F-02, F-01 S06",
+   "findings": [
+    "R1-A-35"
+   ],
+   "status": "open (R1-A-35 re-seen: not built)"
+  },
+  {
+   "id": "FLE-002",
+   "score": 4,
+   "personas": "planning staff",
+   "text": "A 'Veri temizliği' list in the data-issues report: similar programme names, odd course codes, exam dates outside the term",
+   "maps_to": "new",
+   "flows": "F-09 S03, F-05 S10",
+   "findings": [
+    "R1-S-36"
+   ],
+   "status": "open (R1-S-36 re-seen)"
+  },
+  {
+   "id": "FLE-009",
+   "score": 4,
+   "personas": "academician, staff",
+   "text": "A decided request leaves 'Taleplerim' (or collapses under 'Karara bağlanan') so one booking shows once on Rezervasyonlarım",
+   "maps_to": "new",
+   "flows": "F-04 S03, F-01 S09",
+   "findings": [
+    "R2-A-17"
+   ],
+   "status": "new"
+  },
+  {
+   "id": "FLE-010",
+   "score": 4,
+   "personas": "staff, admin",
+   "text": "Each cancel-scope option states how many dates it cancels ('Bu ve sonrakiler: 3 tarih')",
+   "maps_to": "persona-user Enh. #7",
+   "flows": "F-02 S08",
+   "findings": [
+    "R2-S-18",
+    "R2-M-22"
+   ],
+   "status": "new"
+  },
+  {
+   "id": "FLE-003",
+   "score": 3,
+   "personas": "admin",
+   "text": "The CRBS upgrade dry run lists every permission it adds to or removes from existing roles before 'Yükseltmeyi uygula'",
+   "maps_to": "new (security-adjacent)",
+   "flows": "F-11 CRBS",
+   "findings": [
+    "R1-M-36"
+   ],
+   "status": "open (R1-M-36 not re-run)"
+  },
+  {
+   "id": "FLE-004",
+   "score": 3,
+   "personas": "planning staff",
+   "text": "The relaxation policy card gets a term picker (or sits on the run report), and its hint names the real button",
+   "maps_to": "new",
+   "flows": "F-09 S10",
+   "findings": [
+    "R1-S-38"
+   ],
+   "status": "open (R1-S-38 re-seen)"
+  },
+  {
+   "id": "FLE-011",
+   "score": 3,
+   "personas": "all",
+   "text": "The reset-code mail uses the account's profile language; bilingual only for unknown addresses",
+   "maps_to": "new",
+   "flows": "F-12 S07",
+   "findings": [
+    "R2-A-18"
+   ],
+   "status": "new"
+  },
+  {
+   "id": "FLE-012",
+   "score": 3,
+   "personas": "admin",
+   "text": "The run's accepted exceptions list the admin-reasoned capacity override ('1 kesin kural yönetici gerekçesiyle kapasiteyi aşıyor')",
+   "maps_to": "R1-M-03 integrity (fit 1.5); lane S candidate (run_truth forced_overrides)",
+   "flows": "F-09 S07",
+   "findings": [
+    "R2-M-24"
+   ],
+   "status": "new"
+  },
+  {
+   "id": "FLE-005",
+   "score": 2,
+   "personas": "admin",
+   "text": "Microsoft 365 calendar push defaults to the SSO tenant and says that other tenants receive booking data",
+   "maps_to": "owner decision 'Entra ID' (fit 1.5)",
+   "flows": "F-04 S02",
+   "findings": [
+    "R1-M-35"
+   ],
+   "status": "open (R1-M-35 re-seen: tenant text unchanged)"
+  },
+  {
+   "id": "FLE-006",
+   "score": 2,
+   "personas": "all",
+   "text": "A balanced sign-in page at 1440 (institution name, logo, a help line) with both fields styled alike",
+   "maps_to": "sign-in.md",
+   "flows": "F-12 S01",
+   "findings": [
+    "R1-A-36",
+    "R1-M-37"
+   ],
+   "status": "open (re-seen)"
+  },
+  {
+   "id": "FLE-007",
+   "score": 1,
+   "personas": "planning staff",
+   "text": "Re-measure first loads on an idle host; show a skeleton instead of a blank page on the first Studio load",
+   "maps_to": "new",
+   "flows": "README §8",
+   "findings": [
+    "R1-S-35"
+   ],
+   "status": "open (R1-S-35: /generate first load 7.2–7.8 s under load, no skeleton)"
+  },
+  {
+   "id": "FLE-008",
+   "score": 1,
+   "personas": "admin",
+   "text": "Small polish: week export file name, user filters in the URL, pin-template names 'A 101 · 58 koltuk', gerund busy labels",
+   "maps_to": "motion T1",
+   "flows": "F-10 S09, F-11",
+   "findings": [
+    "R1-M-38"
+   ],
+   "status": "part done ff85f52c (WEEK export names, gerund labels); weeks-filtered term export → T-R2-29"
+  },
+  {
+   "id": "FLE-013",
+   "score": 1,
+   "personas": "all",
+   "text": "The welcome toast uses the whole display name when it is initials ('Hoş geldiniz, A. T.')",
+   "maps_to": "new",
+   "flows": "F-12 S03",
+   "findings": [
+    "R2-M-27"
+   ],
+   "status": "new"
+  },
+  {
+   "id": "FLE-014",
+   "score": 1,
+   "personas": "admin",
+   "text": "POST /auth/sso/exchange with a malformed ticket answers a generic 401, not a pydantic 422",
+   "maps_to": "new",
+   "flows": "F-12 S15",
+   "findings": [
+    "R2-M-22"
+   ],
+   "status": "new"
+  }
+ ],
+ "retest_round3": {
+  "academician": "F-01 S02 / S06b / S09 (bell → request while on /my-bookings); F-03 M-02 / M-05 / M-12 at 390 (filters sheet, results, Ara); F-04 S03 (one row per span) / S04 / S05 (copy with and without clipboard) / S06 (DESCRIPTION); F-05 S01 (crumb, card names); F-12 S05 M-12 (/profile keyboard), S07 (reset page); F-13 A02 (chips in EN), B01 / B02 (sheet under reduced motion), C02 / C05 (confirm trap), M-09 on every route; R1-A-17 via T-R2-13",
+  "staff": "F-02 S04 (recheck keeps choices), S08 / S11 (one toast wording), S10 (undo focus, two audit rows), S12 (coded 'past'); F-03 S07 (stale result refused) + the /find-room phone battery; F-04 S03 / S04 (URL box, copy buttons) / S10 (bulk capsule); F-12 S06 (forced change lands on next), S07; /my-bookings M-02 / M-05; /approvals M-05; F-13 B01 / B02, C02 (trap, j/k, a); R1-S-16 / 22 / 24 / 31 and R1-S-09 / 15 / 26 with the corrected flow files; F-08 S07–S11 on a fresh stack before masking (T-R2-19, T-R2-21)",
+  "admin": "F-02 S04; F-05 S07 (empty state), S08 (planner 403, focus), S10 / S11 (moved_unexplained 0, locked rows kept), S12 (publish toast and state); F-06 S10 (person reset); F-07 S05 / S07 / S08 (duplicate person), S12 (0 moves); F-08 S01 / S03 (job URL, drop zone, accept, live bar); F-09 S01 (rail 14 hafta), S02 / S04 (sığmaz mark, override), S06 (cancel QUEUED, by-line), S07 (one problem count, full unplaced list), S08 (focus) + phone steps 2–3; F-10 S06 (TR banner), S07 (Taşı disabled), phone inspector; F-11 S01 (inline role error), S04 (disabled reasons), S08 (per-rule approver warning), features / photo refusals in TR; F-13 C02 (Enter focus); /settings?tab=solver; /dashboard odometer; R1-M-04 / 14 / 17 / 20 / 21 / 32 / 38 parts; the 42-route phone battery on the lanes' files"
+ },
+ "lanes": [
+  {
+   "lane": "A",
+   "name": "Shell, UI primitives, login and auth",
+   "starts": "now",
+   "owns": [
+    "smartsched/frontend/src/app/layout.tsx",
+    "smartsched/frontend/src/app/globals.css",
+    "smartsched/frontend/src/app/login/**",
+    "smartsched/frontend/src/components/ui/**",
+    "smartsched/frontend/src/components/shell/**",
+    "smartsched/frontend/src/components/auth/**",
+    "smartsched/frontend/src/components/notifications/**",
+    "smartsched/frontend/src/components/admin/reset-password.tsx",
+    "smartsched/frontend/src/components/admin/kit.tsx",
+    "smartsched/frontend/src/components/approvals/responsive-dialog.tsx",
+    "smartsched/frontend/src/components/moderation/responsive-dialog.tsx",
+    "smartsched/frontend/messages/{tr,en}.json (nav.*, common.*, crbs.reset.* keys only)",
+    "smartsched/backend/app/api/v1/org.py (password-reset/confirm only)"
+   ],
+   "phone_routes": "/login /login/change-password /reset-password /profile /my-bookings (toast open) /bookings (recurring sheet) /moderation/me",
+   "tickets": [
+    {
+     "id": "T-R2-01",
+     "lane": "A",
+     "severity": "major",
+     "title": "On a phone, the keyboard covers page-level fields: /profile 'Yeni parola' under the sticky Kaydet bar, /find-room 'Kaç kişi' off-screen or under the Ara capsule",
+     "findings": [
+      "R2-A-02",
+      "R2-S-06"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "ui/keyboard-clearance.tsx is rendered only inside the Sheet and Dialog popups (T-R1-02). Page-level forms have no listener and no scroll-padding for their sticky bars: profile-view.tsx:72 (save bar at bottom 5.5 rem) and find-room-view.tsx:378 (sticky fr-search capsule). With the viewport at 390x508 the field sits under the bar or below the fold and nothing scrolls it into view.",
+     "fix": "Mount KeyboardClearance once in the app shell (shell/app-shell.tsx) for the document scroller: on focusin of a text field and on visualViewport resize, scroll the field clear of any position:sticky bottom bar (measure the overlap as the sheet version does) and give <main> a scroll-padding-bottom of the sticky bar + tab bar. No change in find-room-view / profile-view (lane B / F files).",
+     "check": "MOBILE M-12 at 390x508 after the focus: /profile 'Yeni parola' (F-12 S05) and /find-room 'Kaç kişi' (F-03 S02) fully visible, elementFromPoint(centre) === the field, the sticky Kaydet / Ara stays visible. Playwright: README M-12 snippet on both routes.",
+     "files": [
+      "smartsched/frontend/src/components/ui/keyboard-clearance.tsx",
+      "smartsched/frontend/src/components/shell/app-shell.tsx",
+      "smartsched/frontend/src/components/admin/profile-view.tsx:72 (read-only)",
+      "smartsched/frontend/src/components/findroom/find-room-view.tsx:378 (read-only)"
+     ],
+     "dedup": "new; same family as T-R1-02 (verified); lane-F2 ask 'keyboard-clearance scrollIntoView guard' (HANDOFF)",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-02",
+     "lane": "A",
+     "severity": "major",
+     "title": "The confirm dialogs (withdraw a request, reset the private link) let Tab leave the dialog into the page",
+     "findings": [
+      "R2-A-03",
+      "R2-S-16"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "ui/dialog.tsx:74-116 DialogContent passes role='alertdialog' through, but the popup carries no aria-modal and Tab escapes to the skip link and the logo: the base-ui Popup's focus trap is not active for these confirms (ConfirmDialog in admin/kit.tsx:102 and approvals/responsive-dialog.tsx:36-66 render DialogContent). Enter works and finalFocus returns, so only the trap and the attribute are missing.",
+     "fix": "In ui/dialog.tsx render every popup modal (focus trapped, aria-modal='true'), alertdialog included; a vitest in the phone-sheets-r1 style asserts aria-modal and that Tab from the last control cycles to the first.",
+     "check": "F-13 C02 (withdraw confirm on /my-bookings) and C05 (reset-link confirm) at 1440 keyboard and 768 tablet: ten Tabs inside the open confirm never leave [role=alertdialog]; aria-modal='true'; Esc returns focus to the opener.",
+     "files": [
+      "smartsched/frontend/src/components/ui/dialog.tsx:74-116",
+      "smartsched/frontend/src/components/admin/kit.tsx:102 (read-only)",
+      "smartsched/frontend/src/components/approvals/responsive-dialog.tsx:36-66 (read-only)"
+     ],
+     "dedup": "new (persona-academician A-20 covered the focus return; it is not an open ROADMAP item); see motion T4 (focus after Withdraw)",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-03",
+     "lane": "A",
+     "severity": "major",
+     "title": "After a forced password change, 'Parola değiştirildi' shows but the page stays on /login/change-password with the fields cleared",
+     "findings": [
+      "R2-S-02"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "change-password-form.tsx:35 does router.replace(next). The shell then reads the cached /me (app-shell.tsx:90 me.data?.force_password_reset), which still says true, and app-shell.tsx:109 replaces back to /login/change-password?next=...; the form remounts empty with the button disabled.",
+     "fix": "After the 200, update the me query (setQueryData force_password_reset=false, or await invalidate + refetch) before router.replace; the shell redirects only when a fresh /me says so (never while the me query is refetching).",
+     "check": "F-12 S06 desktop+phone: admin sets force_password_reset; staff logs in, changes the password, sees 'Parola değiştirildi' and the URL is the next target within 2 s; the fields are never shown again; GET /me -> force_password_reset false. e2e: one sign-in.spec case.",
+     "files": [
+      "smartsched/frontend/src/components/auth/change-password-form.tsx:32-36",
+      "smartsched/frontend/src/components/shell/app-shell.tsx:90-109"
+     ],
+     "dedup": "new",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-04",
+     "lane": "A",
+     "severity": "minor",
+     "title": "On a phone the four-tab bar overlaps 'Rezervasyonlar' and 'Rezervasyonlarım' into one word, and 'Talepler 99+' is clipped",
+     "findings": [
+      "R2-A-01",
+      "R2-S-07",
+      "R2-M-13"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "tab-bar.tsx:33 LABEL is whitespace-nowrap with overflow visible; with four 74 px items the 83 / 96 px Turkish labels run into the neighbour. The badge (:70) is positioned absolutely at left calc(50%+0.25rem) and is clipped by the item's box.",
+     "fix": "Shorter tab-bar labels for TR (tab-bar-only nav keys), min-w-0 + truncate as the safety net, a smaller caption at four or more tabs; keep the badge inside the item (clamp 99+, overflow visible on the li, or move it to the icon's corner).",
+     "check": "MOBILE M-09 at 390 as academician (/moderation/me), staff (/bookings) and admin (/requests with 99+): every tab label scrollWidth <= clientWidth, no two label boxes overlap, the badge is inside the nav box; innerText still starts with the label (T-R1-06).",
+     "files": [
+      "smartsched/frontend/src/components/shell/tab-bar.tsx:32-33,70",
+      "smartsched/frontend/messages/tr.json nav.* (tab bar keys)"
+     ],
+     "dedup": "follows T-R1-06 (verified)",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-05",
+     "lane": "A",
+     "severity": "major",
+     "title": "On touch, several primitives keep a sub-44 px target where a parent clips the hit area: toast close 20x20, Switch 38x22, SegmentedControl segments in scrolling lists, Chip sm 24 px, native checkboxes 16 px; the compact locale toggle has title-only names",
+     "findings": [
+      "R2-A-13",
+      "R2-S-08",
+      "R2-S-03",
+      "R2-M-13",
+      "R2-M-23",
+      "R2-S-19"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "The ::after coarseHitArea (ui/hit-area.ts) is clipped wherever an ancestor has overflow:auto/hidden or is a table cell (recurring preview table, card lists, the sonner toast), so a tap 22 px off hits the neighbour; Switch (switch.tsx:22) and SegmentedControl (segmented-control.tsx:20) rely on it alone; sonner.tsx sets no close-button size; Chip size=sm is 24 px (chip.tsx:27); locale-toggle.tsx:34 sets title only.",
+     "fix": "On coarse pointers give the primitives a real box: Switch rows min-h-11 (label row), SegmentedControl track 44 px (segments 38 -> 44), Chip sm takes the md height, Tabs trigger min-h-11, Checkbox / Radio 44 px label rows (globals.css base layer: check the wrappers in tables and grids), toast close button 44x44 through toastOptions classNames; aria-label on the locale buttons.",
+     "check": "MOBILE M-02 at 390 touch (touch.mjs assertTouch, centre re-probe) on /my-bookings with a toast open, /bookings recurring sheet 'Tarihleri göster', /profile#notifications, /settings?tab=integrations, /find-room filters sheet, /login/change-password (M-11): m02.length === 0 and every locale button has an accessible name.",
+     "files": [
+      "smartsched/frontend/src/components/ui/sonner.tsx:44",
+      "smartsched/frontend/src/components/ui/switch.tsx:22",
+      "smartsched/frontend/src/components/ui/segmented-control.tsx:20-76",
+      "smartsched/frontend/src/components/ui/chip.tsx:27",
+      "smartsched/frontend/src/components/ui/tabs.tsx:91",
+      "smartsched/frontend/src/components/ui/checkbox.tsx",
+      "smartsched/frontend/src/components/ui/hit-area.ts",
+      "smartsched/frontend/src/components/shell/locale-toggle.tsx:34",
+      "smartsched/frontend/src/app/globals.css (coarse base layer)"
+     ],
+     "dedup": "rest of T-R1-01 / T-R1-45 (verified: the touch tokens apply; these are own-size controls and clipped hit areas); re-seen R1-M-08, R1-S-16; major because M-02 fails on primary screens (SUGGESTER §3)",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-06",
+     "lane": "A",
+     "severity": "minor",
+     "title": "The reset-password page reuses the LDAP hint, says 'bir süre sonra' instead of 24 hours, and a wrong code is refused in raw English",
+     "findings": [
+      "R2-A-06",
+      "R2-S-12",
+      "R2-M-22"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "reset-password.tsx reuses crbs.users.passwordHint (with the LDAP sentence); crbs.reset.requested reads 'Kodların süresi bir süre sonra dolar.'; org.py:652 password-reset/confirm takes `token` with min_length=8, so a short code is a pydantic 422 'String should have at least 8 characters', not a coded refusal.",
+     "fix": "An own hint key 'En az 8 karakter.'; '24 saat' in the requested text (the mail says so already); validate the code length in the handler and answer the same coded 400 as a wrong code ('Kod hatalı ya da süresi dolmuş. Yenisini isteyin.').",
+     "check": "F-12 S07 at 1440: the page hint has no 'LDAP' / 'Dizin'; the requested text names '24 saat'; curl POST /auth/password-reset/confirm {\"token\":\"12\",\"password\":\"Flow-2026!pw\"} -> 400 with message_tr, no 'String should'.",
+     "files": [
+      "smartsched/frontend/src/components/admin/reset-password.tsx",
+      "smartsched/frontend/messages/{tr,en}.json crbs.reset.*",
+      "smartsched/backend/app/api/v1/org.py:652"
+     ],
+     "dedup": "U-21 residue; T-R1-30 / T-R1-31 family; the 422-vs-401 SSO ticket part of R2-M-22 is FLE-014",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-07",
+     "lane": "A",
+     "severity": "minor",
+     "title": "With reduced motion on (OS or in-app) the book sheet still slides in",
+     "findings": [
+      "R2-S-15"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "ui/sheet.tsx:75 animates translate/opacity through data-starting-style / data-ending-style transitions with --spring-sheet-ms; the reduced-motion rules (globals.css:703, :714-722) zero durations for *, but the popup's transition utilities and the starting-style offset still apply, so two rAF after the open the sheet is at translate 40px / opacity 0 with a running translate animation.",
+     "fix": "Under prefers-reduced-motion and :root[data-motion=reduced] the Sheet / Dialog popups and overlays get transition:none and no starting-style offset; a vitest contract on the class list; nothing moves (motion_designer rule).",
+     "check": "F-13 B01/B02 at 1440 + 390: with reducedMotion 'reduce' and with html[data-motion=reduced], open the book sheet, the bell and the sync panel: two rAF after the tap getComputedStyle translate is none, opacity 1, getAnimations() has no running translate animation.",
+     "files": [
+      "smartsched/frontend/src/components/ui/sheet.tsx:44,75",
+      "smartsched/frontend/src/components/ui/dialog.tsx:83",
+      "smartsched/frontend/src/app/globals.css:703-722"
+     ],
+     "dedup": "new (motion audit T5 covers the Studio tray's useReducedMotion, T13 the e2e assertion)",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-08",
+     "lane": "A",
+     "severity": "minor",
+     "title": "For a teacher the Taleplerim crumb starts with 'Moderasyon'",
+     "findings": [
+      "R2-A-14"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "breadcrumbs.ts gives /moderation its planner label for every user; T-R1-08 special-cased only /moderation/people/<own id> (:63).",
+     "fix": "When the context has no planning.view (the /moderation root renders Taleplerim), the trail on /moderation/me is 'Taleplerim' alone; 'Taleplerim / Geçmişim' stays on the own-person page. breadcrumbs.test.ts case.",
+     "check": "F-05 S01 / F-13 A01 as the academician at 1440 + 390: the crumb on /moderation/me contains no 'Moderasyon'; the admin's trail is unchanged.",
+     "files": [
+      "smartsched/frontend/src/components/shell/breadcrumbs.ts:25-65"
+     ],
+     "dedup": "leftover of T-R1-08 (verified)",
+     "depends_on": []
+    }
+   ],
+   "done_when": "every ticket's check passes; MOBILE M-02/M-05/M-09/M-12 at 390 touch on the lane's phone_routes; vitest for ui/shell/auth; no edits outside `owns` (ask the owning lane instead)"
+  },
+  {
+   "lane": "B",
+   "name": "Bookings, find-room, approvals and My bookings",
+   "starts": "now (T-R2-10 and T-R2-11 finish after lane A's T-R2-05 lands)",
+   "owns": [
+    "smartsched/frontend/src/components/bookings/**",
+    "smartsched/frontend/src/components/findroom/**",
+    "smartsched/frontend/src/components/approvals/** (except responsive-dialog.tsx)",
+    "smartsched/frontend/src/components/conflicts/**",
+    "smartsched/frontend/src/components/policies/policy-why.tsx",
+    "smartsched/frontend/src/lib/api/crbs.ts",
+    "smartsched/frontend/messages/{tr,en}.json (crbs.*, wave1.*, reserve.* keys of these screens)",
+    "smartsched/backend/app/services/bookings.py",
+    "smartsched/backend/app/services/booking_conflicts.py",
+    "smartsched/backend/app/services/find_room.py",
+    "smartsched/backend/app/services/calendar_feeds.py",
+    "smartsched/backend/app/api/v1/bookings.py"
+   ],
+   "phone_routes": "/bookings (book sheet, recurring sheet) /my-bookings (sync panel, selection) /find-room (filters, results) /approvals (drawer) /bookings/conflicts/<run>",
+   "tickets": [
+    {
+     "id": "T-R2-09",
+     "lane": "B",
+     "severity": "major",
+     "title": "'Yeniden denetle' in the weekly series preview silently resets every per-date book / skip / replace choice",
+     "findings": [
+      "R2-M-01",
+      "R2-S-03"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "book-sheet.tsx:179 runPreview dispatches {type:'load', plan, holidays}; recurring-preview.ts:35 'load' rebuilds the per-date actions from the plan's defaults and drops the user's `set` choices. The summary counts coincided, so nothing warned, and the submit body carried the defaults (D3 booked, D4 kept). The same sheet's 'Boşların hepsi' / 'Hiçbiri' buttons are 32 px on touch (R2-S-03 part; the segments are T-R2-05).",
+     "fix": "'load' keeps the existing action for every date still in the plan and marks a date whose availability changed with a row note ('Bu tarih artık dolu; seçiminiz sıfırlandı'); the submit body is built from the kept choices; min-h-11 on the table's bulk buttons on coarse. recurring-preview.test.ts: set D3 skip, D4 replace -> load again -> unchanged.",
+     "check": "F-02 S04 at 1440 + 390: set 'Atla' on D3 and 'Yerine geç' on D4, press Yeniden denetle, submit: the POST /bookings/recurring body has 2026-11-05 do_not_book and 2026-11-12 replace, the toast counts match, the on-behalf booking on D4 is cancelled. M-02 clean in the recurring sheet.",
+     "files": [
+      "smartsched/frontend/src/components/bookings/book-sheet.tsx:179-185",
+      "smartsched/frontend/src/components/bookings/recurring-preview.ts:35-55",
+      "smartsched/frontend/src/components/bookings/recurring-preview.test.ts",
+      "smartsched/frontend/src/components/bookings/recurring-preview-table.tsx"
+     ],
+     "dedup": "new",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-10",
+     "lane": "B",
+     "severity": "major",
+     "title": "On a phone, /find-room's 'Ara' scrolls away once results show, and the filters sheet's chips, switches, segments and the PC input are under 44 px",
+     "findings": [
+      "R2-A-04",
+      "R2-A-05",
+      "R2-S-06"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "find-room-view.tsx:378 makes the fr-search wrapper max-lg:sticky inside the form card, so it leaves with the card when the results scroll (y 1026 at scroll 0 with results, -1817 at the end). The sheet uses Chip size='sm' (:199, :286, :582, :619 -> 24 px), the time-mode SegmentedControl size sm (30 px), a 28 px number input and 38x22 switches; policy-why.tsx's trigger is a 62x16 text link.",
+     "fix": "Move the sticky Ara capsule to the page level (a sibling of the results, bottom calc(tab bar + safe area)) so it stays in the bottom 40 % while the form and the results scroll; Chip / segment / input md sizes on coarse in the sheet (with lane A's T-R2-05 the primitives give the box; this lane removes the sm sizes that stay small), min-h-11 on policy-why on coarse.",
+     "check": "MOBILE M-05 and M-02 at 390 touch on /find-room (empty, filters sheet open, with results): fr-search in the bottom 40 % at scroll 0 / 400 / end; m02.length === 0 including fr-feature-*, building chips, switches, 'PC sayısı', policy-why and Kapat; F-03 S02 / S11 still pass.",
+     "files": [
+      "smartsched/frontend/src/components/findroom/find-room-view.tsx:199,231-245,286-299,378-379,447,582,619",
+      "smartsched/frontend/src/components/policies/policy-why.tsx"
+     ],
+     "dedup": "round-1 M-05 table row '/find-room M-05 FAIL (Ara not sticky)' had no ticket; T-R1-01 cleaned the primitives",
+     "depends_on": [
+      "T-R2-05"
+     ]
+    },
+    {
+     "id": "T-R2-11",
+     "lane": "B",
+     "severity": "major",
+     "title": "On a phone, /my-bookings tabs are 38 px, the row checkboxes have no 44 px hit area, and the bulk 'iptal et' bar sits at the top of the page",
+     "findings": [
+      "R2-S-04"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "my-bookings-view.tsx:224 renders the ui Checkbox (16 px, 1x1 sr-only label) in a row whose chip / date button intercepts the hit area (the lane-A2 ask routed to B2 was not done); the Yaklaşan / Geçmiş / İptal tabs are 38 px segments; the selection bar renders above the list, not as a sticky footer, so it sits at y 8-52 after scrolling.",
+     "fix": "A 44 px label row for the checkbox (the row's left column is the label), tabs 44 px on coarse (ui Tabs with T-R2-05), the bulk bar as a sticky bottom capsule above the tab bar (like the publish capsule) with the count and 'İptal et'.",
+     "check": "MOBILE M-02 + M-05 at 390 touch on /my-bookings with two bookings selected: m02.length === 0; the 'N rezervasyonu iptal et' button is in the bottom 40 % and free (elementFromPoint); F-04 S10 bulk cancel still works.",
+     "files": [
+      "smartsched/frontend/src/components/bookings/my-bookings-view.tsx:43-45,198-230"
+     ],
+     "dedup": "lane-A2 ask -> B2 (HANDOFF 00:00), not done; re-seen R1-S-16 family",
+     "depends_on": [
+      "T-R2-05"
+     ]
+    },
+    {
+     "id": "T-R2-12",
+     "lane": "B",
+     "severity": "major",
+     "title": "On a phone the approve / reject buttons are not a sticky footer; by keyboard Enter lands in the note textarea so A/D/R type into it, and j/k, a do nothing on the list",
+     "findings": [
+      "R2-S-05",
+      "R2-M-09",
+      "R2-S-17"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "approvals-view.tsx:504 SheetFooter is a flex row inside the scrolling sheet body on phones (not sticky: 'onayla' at y 318 of 844 inside the drawer); the drawer autofocuses the 'Talep edene not' textarea; the list has no j/k or arrow roving, and the 'a' legend works only on a focused row (T-R1-18 added A/D/R on rows) or after tabbing out of the note.",
+     "fix": "On max-sm the drawer footer sticks at the bottom (the column layout of T-R1-03's dialog); initialFocus = the drawer title; roving focus j/k/arrows on the inbox list; 'a' approves the open request when focus is in the drawer outside a text field.",
+     "check": "MOBILE M-05 at 390 as admin: open a request from the bell: 'Onayla' is in the bottom 40 % before any scroll; F-13 C02 admin at 1440: focus a row, j -> next row, Enter -> focus on the drawer title, 'a' -> 'onaylandı' toast within 2 s.",
+     "files": [
+      "smartsched/frontend/src/components/approvals/approvals-view.tsx:140-160,217-260,504-517"
+     ],
+     "dedup": "T-R1-18 (verified) follow-up; persona-admin 'approvals A/D/R'",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-13",
+     "lane": "B",
+     "severity": "minor",
+     "title": "A two-period booking is still two rows in Yaklaşan and two conflict rows, and the My bookings totals count on three different bases",
+     "findings": [
+      "R2-A-10",
+      "R2-S-10",
+      "R1-A-17",
+      "R1-M-26"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "T-R1-13 grouped Taleplerim, the approvals drawer and the conflict options, but my-bookings-view.tsx's BookingList (:198) still lists one row per booking; the admin saw the two-period request as separate rows on /bookings/conflicts/<run> (booking_conflicts.py groups bookings, not requests); services/bookings.py:1778-1803 counts 'active' per session (A-12) while 'bu dönem' / 'toplam' count rows including the cancelled one.",
+     "fix": "BookingList groups by multi_booking_id / group_id: one row 'C 303 · P7-P8 (13:30-15:00)' with one status and the approver's note once (per-period cancel inside); one conflict row per request group on the request side too; the three totals on the session basis, cancelled rows excluded from 'bu dönem' and 'toplam' or labelled.",
+     "check": "T-R1-13's check: /my-bookings Yaklaşan shows one row for the P7-P8 request (1440 + 390); /bookings/conflicts/<run> one row for the group; with one cancelled booking present 'N etkin · bu dönem N · toplam N' add up and match GET /bookings/mine.",
+     "files": [
+      "smartsched/frontend/src/components/bookings/my-bookings-view.tsx:198-230",
+      "smartsched/backend/app/services/bookings.py:1766-1810",
+      "smartsched/backend/app/services/booking_conflicts.py"
+     ],
+     "dedup": "reopens T-R1-13 (part done 17f07e8 + the orchestrator's multi_booking_id fix); A-12 (open, persona-academician); persona-user Enh. #2",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-14",
+     "lane": "B",
+     "severity": "minor",
+     "title": "Reserving from a stale find-room result books only the periods still free, without saying so",
+     "findings": [
+      "R2-S-01"
+     ],
+     "verified": "code read",
+     "root_cause": "The result card's onReserve (find-room-view.tsx:708) opens the book sheet with the periods still free (the sheet drops the taken P11 and starts at P12) and the submit books P12 alone. F-03 acceptance 3 expects 'Bu derslik az önce doldu. Liste yenilendi.'; T-R1-14 added it for the own-pending-request case only.",
+     "fix": "Before opening the sheet re-check the requested window; if any period is taken, refuse the card with the stale toast and refresh the list. If a period is taken at submit, the sheet says 'P11 artık dolu; yalnız P12 rezerve edilecek' and asks; the multi create answers 409 when a chosen period is gone instead of a partial success.",
+     "check": "F-03 S07 at 1440 + 390: search P11-P12, book P11 through the API as admin, tap 'rezerve et' on the stale card -> toast 'Bu derslik az önce doldu. Liste yenilendi.', no booking made, the room gone from the list.",
+     "files": [
+      "smartsched/frontend/src/components/findroom/find-room-view.tsx:699-740",
+      "smartsched/frontend/src/components/bookings/book-sheet.tsx",
+      "smartsched/backend/app/api/v1/bookings.py:532"
+     ],
+     "dedup": "T-R1-14 follow-up (verified)",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-15",
+     "lane": "B",
+     "severity": "minor",
+     "title": "The calendar-sync card toasts 'Takvim eşitleme ... kapalı' on pages that did not touch it, its copy buttons are icon-only and 32 px, the URL overflows, and a refused clipboard write is unhandled",
+     "findings": [
+      "R2-S-11",
+      "R2-M-10",
+      "R2-A-12",
+      "R2-S-21"
+     ],
+     "verified": "code read",
+     "root_cause": "calendar-sync.tsx's status query surfaces the server's 'sync disabled' refusal through the global query error toast each time the card mounts or refetches (profile, change-password, /my-bookings after a mutation invalidates SYNC_KEY); copy() at :258 has no catch and the buttons are size='icon' (32 px on fine pointers, icon-only everywhere); the URL field has no overflow handling.",
+     "fix": "The disabled state is data (200 {enabled:false}) or the query is silent and rendered as the card's quiet text; copy buttons with a visible word on phones ('Kopyala'), min-h-11, a catch that toasts 'Kopyalanamadı: bağlantıyı alandan seçin' and selects the field; the URL field wraps (break-all) or scrolls inside its box.",
+     "check": "F-12 S05 /profile and F-02 S07-S11 /my-bookings with sync off: no toast containing 'Takvim eşitleme'; F-04 S04/S05 at 390 touch: copy buttons >= 44 px with visible text, with the clipboard denied a toast appears and no pageerror; the URL box scrollWidth <= clientWidth.",
+     "files": [
+      "smartsched/frontend/src/components/bookings/calendar-sync.tsx:95-115,258-280",
+      "smartsched/frontend/src/lib/api/crbs.ts (calendar status query)"
+     ],
+     "dedup": "new; T-R1-17 (verified) touched the same card",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-16",
+     "lane": "B",
+     "severity": "minor",
+     "title": "Helper texts still promise 'rezerve', the find-room building chips read 'A Blok' in English, and the cancel toast changes wording with the entry point",
+     "findings": [
+      "R2-A-07",
+      "R2-A-08",
+      "R2-S-22"
+     ],
+     "verified": "code read",
+     "root_cause": "book-sheet.tsx's periods hint and booking-grid.tsx's legend use the 'rezerve' keys whatever the mode (T-R1-10 covered cells, slots, buttons and the popover); find-room-view.tsx formats buildings with wave1.find.building '{b} Blok' in both locales (the /bookings group tabs are admin-named data, out of scope); the one-date cancel from the row sheet and the series cancel from the grid use different toast keys (booking-detail-sheet.tsx CancelDialog vs cancel-many-dialog.tsx) and the bulk toast appends '0 olduğu gibi kaldı'.",
+     "fix": "Mode-aware helper keys ('Birlikte talep etmek için...', 'Boş bir saate tıklayıp talep edin.'); EN 'Block A' for the chip; one cancel toast builder: 'N rezervasyon iptal edildi' (+ ' · Gerekçe: ...' when given), singular only for one date, no '0 olduğu gibi kaldı'.",
+     "check": "F-01 S02 with approval_mode=all: no 'rezerve' in the sheet hint and the legend; F-13 A02 EN: /find-room chips read 'Block A'; F-02 S08 / S11 from the grid and from /my-bookings give the same toast for the same outcome; F-04 S10 bulk toast has no '0 olduğu gibi kaldı'.",
+     "files": [
+      "smartsched/frontend/src/components/bookings/book-sheet.tsx",
+      "smartsched/frontend/src/components/bookings/booking-grid.tsx",
+      "smartsched/frontend/src/components/findroom/find-room-view.tsx (wave1.find.building)",
+      "smartsched/frontend/src/components/bookings/booking-detail-sheet.tsx",
+      "smartsched/frontend/src/components/bookings/cancel-many-dialog.tsx",
+      "smartsched/frontend/messages/{tr,en}.json crbs.cancel.*"
+     ],
+     "dedup": "leftover of T-R1-10 (verified); U-10 EN side; T-R1-06 toast family",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-17",
+     "lane": "B",
+     "severity": "minor",
+     "title": "Bookings API and request gaps: the bell deep link does nothing while on /my-bookings, the feed drops the note, the multi create answers 200, booking refusals and reasons are English, a series cancel audits a booking twice",
+     "findings": [
+      "R2-A-09",
+      "R2-A-11",
+      "R2-A-15",
+      "R2-S-13",
+      "R2-M-18",
+      "R2-M-11",
+      "R1-S-24"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "(a) my-requests.tsx:66/180 read initiallyOpen into useState once, so a ?request= change on the same page leaves the row collapsed. (b) calendar_feeds.py's VEVENT has no DESCRIPTION, the sheet's note never reaches the calendar. (c) api/v1/bookings.py:532 multi create answers 200 for a pending outcome. (d) services/bookings.py:531-543 range_min / range_max refusal has no message_tr and says 'at least 0 day(s)'; :1136 cancels with the English reason 'replaced by series #n'. (e) a 'Bu ve sonrakiler' cancel writes the anchor booking's audit row twice (three rows for two bookings).",
+     "fix": "(a) an effect on the asked id expands, scrolls to and focuses the row. (b) the note in DESCRIPTION (SUMMARY stays room · period). (c) 202 like POST /bookings when the result is a request. (d) coded refusals with TR/EN; code 'past' for a past date; the replace reason as a code rendered 'Seri #n ile değiştirildi'. (e) one audit row per cancelled booking.",
+     "check": "F-01 S09: selecting the bell item while on /my-bookings expands the request; F-04 S06: mine.ics has DESCRIPTION with the note; F-01 S06b: multi create -> 202; F-02 S12: curl POST /bookings for yesterday -> 409 code 'past' with message_tr; the replaced booking's card shows a Turkish reason; F-02 S10: a two-booking series cancel writes exactly two 'Rezervasyon iptal edildi' rows.",
+     "files": [
+      "smartsched/frontend/src/components/approvals/my-requests.tsx:34-71,178-186",
+      "smartsched/backend/app/services/calendar_feeds.py",
+      "smartsched/backend/app/api/v1/bookings.py:532",
+      "smartsched/backend/app/services/bookings.py:531-543,1136,1219-1300"
+     ],
+     "dedup": "R1-S-24 / T-R1-29 residue (range_min); R1-M-17 part (bookings strings); new otherwise",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-18",
+     "lane": "B",
+     "severity": "minor",
+     "title": "A rule whose scope no approver covers shows no warning, and 'Önerilenleri uygula' on the conflicts page does nothing visible",
+     "findings": [
+      "R2-M-19",
+      "R2-M-21"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "rules-admin.tsx:97-98 flags 'nobody designated' only when no approver at all has a scope (the M-35 fix), not when the rule's rooms lie outside every approver's scope; the conflicts apply button (conflicts-index.tsx / resolver-model.ts) calls apply without a review step, a toast or a refetch although the API dry run and apply answer 200.",
+     "fix": "Per-rule coverage = an approver whose scopes intersect the rule's rooms / groups / type; otherwise 'Bu kural için atanmış onaycı yok; talepler tüm oda onaycılarına, sonra oda sorumlusuna, sonra yöneticilere düşer' (data-testid approvers-empty on the rule). The apply button opens the dry-run review with counts, applies, toasts 'N ders taşındı' and refetches.",
+     "check": "F-11 S08: with the admin's approver scope reduced to one room, the C Blok and PC rules show the empty-approver warning; /bookings/conflicts/<run>: 'Önerilenleri uygula' -> review dialog with dry-run counts -> apply -> toast and 0 open conflicts.",
+     "files": [
+      "smartsched/frontend/src/components/approvals/rules-admin.tsx:90-135",
+      "smartsched/frontend/src/components/conflicts/conflicts-index.tsx",
+      "smartsched/frontend/src/components/conflicts/resolver-model.ts"
+     ],
+     "dedup": "M-35 ([x], 'rules warn when nobody is designated'): the per-rule case; R1-M-01 (verified: the 500) UI part",
+     "depends_on": []
+    }
+   ],
+   "done_when": "every ticket's check passes; MOBILE M-02/M-05 at 390 touch on the lane's phone_routes; vitest + pytest for the two services; e2e loop-r1-laneB still green"
+  },
+  {
+   "lane": "C",
+   "name": "Intake, council, onboarding and the programme wizard",
+   "starts": "now",
+   "owns": [
+    "smartsched/backend/app/council/**",
+    "smartsched/backend/app/api/v1/council.py",
+    "smartsched/backend/app/services/program_drafts.py",
+    "smartsched/backend/app/api/v1/program_drafts.py",
+    "smartsched/backend/app/schemas/program_drafts.py",
+    "smartsched/frontend/src/components/onboarding/**",
+    "smartsched/frontend/src/components/program-wizard/**",
+    "smartsched/frontend/src/app/(app)/onboarding/**",
+    "smartsched/frontend/src/app/programs/**",
+    "smartsched/backend/tests/council/**, tests/test_followups_program_drafts.py"
+   ],
+   "phone_routes": "/onboarding /onboarding?job=<id> /programs/new/<draft>",
+   "tickets": [
+    {
+     "id": "T-R2-19",
+     "lane": "C",
+     "severity": "blocker",
+     "title": "The intake dry run promises 1,511 new requests that the commit then skips as duplicates; re-uploading the same CSV changes 779 rows and the cp1254 export updates 1,332",
+     "findings": [
+      "R2-M-06"
+     ],
+     "verified": "code read",
+     "root_cause": "council/commit.py keys meeting requests on natural keys (D14, natural('M', skey, days, start), :375) and counts duplicates in the writer (:383, :725 duplicates_skipped), while council/dryrun.py runs the same writer in a flush-only session: the dry run after Job B's commit still planned 1,511 creates that the real commit recognised as duplicates, so the duplicate test and the natural key disagree between the two paths (and between the planning-list route and the CSV-export route: the same meeting gets 'create' in the dry run, 'duplicate' at commit, and 'update' on re-upload when the key matches but a normalised field differs: whitespace, case, cp1254 text).",
+     "fix": "One natural key per meeting across formats (NFC, trimmed, case-folded, Turkish-letter-safe), the duplicate decision inside the writer so the dry run and the commit take one path, and 'unchanged' when every compared field is equal after normalisation; tests on the fixtures: dry-run counts == the commit's; re-upload -> 0 create / 0 update; cp1254 export >= 99 % unchanged.",
+     "check": "F-08 S07/S08 then S10/S11 on a fresh stack before masking: Job A's dry-run counts equal the commit result; Job D (the same CSV) -> create 0 · update 0; Job C (cp1254) -> unchanged >= 99 %; pytest tests/council/.",
+     "files": [
+      "smartsched/backend/app/council/commit.py:144-170,360-390,563-730",
+      "smartsched/backend/app/council/dryrun.py",
+      "smartsched/backend/app/council/reconcile.py"
+     ],
+     "dedup": "regression of I4 / I5 ([x] in 'Intake agent finished', head 4f00982): severity raised from the tester's major (SUGGESTER §2.3); T-R1-25 (verified; its open 'rename one instructor' part waits for the person-key decision)",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-20",
+     "lane": "C",
+     "severity": "minor",
+     "title": "Intake UI: the job list is empty after a reload, /onboarding/<id> is a 404, the drop zone is not a button, no accept list, and the commit bar goes stale",
+     "findings": [
+      "R1-S-31",
+      "R2-M-25"
+     ],
+     "verified": "code read",
+     "root_cause": "onboarding-flow.tsx keeps the running job in state and reads ?job= only on mount (no 'Son işler' list from the jobs API after a reload); there is no app/onboarding/[id] route; file-drop.tsx is a div with a nested button and an input without accept; commit-panel.tsx does not refetch the review state when blockers are decided elsewhere.",
+     "fix": "'Son işler' from GET /council/jobs with links to ?job=<id> and an app/onboarding/[id]/page.tsx that opens the job; the drop zone as a <button> with keyboard activation; accept from the formats list; the commit bar subscribes to the review query.",
+     "check": "F-08 S01/S03/S08 at 1440 + 390: reload /onboarding -> the job list shows the job; /onboarding/1 opens it; Enter / Space on the drop zone opens the picker; the input has accept; after clearing the blockers through the API the bar reads 0 engel without a reload.",
+     "files": [
+      "smartsched/frontend/src/components/onboarding/onboarding-flow.tsx",
+      "smartsched/frontend/src/components/onboarding/file-drop.tsx",
+      "smartsched/frontend/src/components/onboarding/commit-panel.tsx",
+      "smartsched/frontend/src/app/(app)/onboarding/** (new [id] route beside page.tsx)"
+     ],
+     "dedup": "reopens T-R1-26 (its encoding / delimiter / PNG parts verified)",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-21",
+     "lane": "C",
+     "severity": "minor",
+     "title": "The council commit refusal for undecided merges is English and names two instructors; the PDF / DOCX route chip reads 'YZ' while AI is off",
+     "findings": [
+      "R2-S-13",
+      "R1-S-24",
+      "R1-S-10"
+     ],
+     "verified": "code read",
+     "root_cause": "api/v1/council.py's commit guard raises 409 'N review item(s) must be decided first (e.g. Same instructor? ... and ...)' with names from the merge items; onboarding/method-badge.tsx shows the planned route ('YZ') rather than the effective one when the AI policy is off.",
+     "fix": "Coded 409 {code:'review_pending', count, message_tr 'Önce N inceleme kararı verilmeli.'} without names; the badge reads 'Doğrudan' / 'Okunmadı' when AI is off.",
+     "check": "F-08 S08: curl POST /council/jobs/<id>/commit with undecided merges -> 409 with message_tr and no person name in the body; PDF / DOCX rows show no 'YZ' chip with AI off.",
+     "files": [
+      "smartsched/backend/app/api/v1/council.py (commit guard)",
+      "smartsched/backend/app/council/i18n.py",
+      "smartsched/frontend/src/components/onboarding/method-badge.tsx"
+     ],
+     "dedup": "T-R1-23 / T-R1-29 residue; KVKK hygiene (names in an error body shown only to content users, so minor, not a leak)",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-22",
+     "lane": "C",
+     "severity": "minor",
+     "title": "The wizard accepts the same new person twice on a section and then fails with 'Kayıt yazılamadı: instructor 491 is listed twice'; the wizard page has two <main> landmarks",
+     "findings": [
+      "R2-M-07",
+      "R2-M-20"
+     ],
+     "verified": "code read",
+     "root_cause": "program-wizard/steps.tsx's instructor pick appends a new person without checking the section's list; program_drafts.py raises the duplicate as a raw 422 not mapped to a step; program-wizard.tsx renders its own <main> inside the shell's.",
+     "fix": "Refuse or merge the second pick in the step ('Bu kişi bu şubede zaten var'); the server's duplicate check becomes a step-mapped validation item (TR/EN) in the pre-check with 'Düzelt'; <main> -> <section aria-labelledby>.",
+     "check": "F-07 S05/S07/S08: 'Yeni kişi' twice for the same name -> one entry or an inline refusal; the pre-check shows no 'listed twice'; document.querySelectorAll('main').length === 1 on /programs/new/<draft>.",
+     "files": [
+      "smartsched/frontend/src/components/program-wizard/steps.tsx",
+      "smartsched/frontend/src/components/program-wizard/program-wizard.tsx",
+      "smartsched/backend/app/services/program_drafts.py (validation)"
+     ],
+     "dedup": "new",
+     "depends_on": []
+    }
+   ],
+   "done_when": "every ticket's check passes on a fresh stack (F-08) and the main stack (F-07); pytest for council and program_drafts; MOBILE M-01/M-02 at 390 on /onboarding"
+  },
+  {
+   "lane": "D",
+   "name": "Moderation console, learning and the re-solve preview UI",
+   "starts": "now",
+   "owns": [
+    "smartsched/frontend/src/components/moderation/** (except responsive-dialog.tsx)",
+    "smartsched/frontend/src/components/learning/**",
+    "smartsched/frontend/src/lib/api/moderation.ts",
+    "smartsched/frontend/src/lib/api/learning.ts",
+    "smartsched/frontend/src/lib/api/error-text.ts",
+    "smartsched/backend/app/services/learning.py",
+    "smartsched/backend/app/api/v1/learning.py",
+    "smartsched/backend/app/api/v1/moderation.py (permissions only)",
+    "smartsched/backend/tests/test_p19_learning*.py"
+   ],
+   "phone_routes": "/moderation /moderation/me /moderation/people/<id> /moderation/recreate/<id> /moderation/learning",
+   "tickets": [
+    {
+     "id": "T-R2-23",
+     "lane": "D",
+     "severity": "major",
+     "title": "Publishing a re-solve preview succeeds on the server while the admin sees 'Invalid response for POST /runs/12/activate: Invalid input' and 'Yayında değil'",
+     "findings": [
+      "R2-M-02"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "lib/api/moderation.ts:362 ActivateOut = ScheduleRun.and({notified, notify}); the server's activate response (run + notification summary) no longer satisfies ScheduleRun strictly (a field added since: check error / truth / forced / notify shapes), so zod throws after the 2xx; recreate-preview.tsx:312-318 catches it as a failure, prints the English zod message and never invalidates the diff / run queries.",
+     "fix": "A loose ActivateOut ({id, is_active, notified?} with passthrough); on a client-side parse failure after a 2xx treat the publish as done: invalidate the preview and run queries, show the publish toast; lib/api/error-text.ts maps parse errors to a Turkish sentence, never zod text.",
+     "check": "F-05 S12 at 1440: publish from the preview with the losses acknowledged -> toast 'Yayınlandı: #N artık geçerli plan', preview-state '✓ Yayında', no English text; vitest with a recorded activate response; curl POST /runs/<id>/activate body parses with the new schema.",
+     "files": [
+      "smartsched/frontend/src/lib/api/moderation.ts:362-363,418",
+      "smartsched/frontend/src/components/moderation/recreate-preview.tsx:312-320",
+      "smartsched/frontend/src/lib/api/error-text.ts"
+     ],
+     "dedup": "related to T-R1-48's ScheduleRun.error zod work (sweeper 2, ff85f52c)",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-24",
+     "lane": "D",
+     "severity": "major",
+     "title": "Resetting one person's learning memory reports 'Sıfırlandı' but their open suggestions stay open",
+     "findings": [
+      "R2-M-05"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "learning.py:1196 reset() stamps reset_id on LearnedObservation and SuggestionFeedback rows only; the LearnedPrior rows that suggestions() lists are re-derived from the visible observations on the next refresh (:407), so until then the person's priors and their 'open' state are unchanged (reset-all empties the summary through another path).",
+     "fix": "reset() also hides the subject's priors for the scope (hidden_reason 'reset', reset_id) and restores them on undo; suggestions() excludes priors hidden by a live reset; the reset row's counts come from the same query. pytest: reset person -> GET suggestions?person_id -> none open; undo -> back.",
+     "check": "F-06 S10 at 1440: /moderation/people/<id> -> Öğrenilenleri sıfırla -> GET /learning/suggestions?person_id=<id>&state=all shows no open / snoozed / dismissed item (accepted stay); 'Geri al' restores them; the profile shows no suggestion cards.",
+     "files": [
+      "smartsched/backend/app/services/learning.py:407-440,700-770,1196-1256",
+      "smartsched/backend/app/api/v1/learning.py"
+     ],
+     "dedup": "new; P19 learning acceptance L9",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-25",
+     "lane": "D",
+     "severity": "minor",
+     "title": "Moderation console polish: a silent empty search under 'Karşılanmayan', 'PSY 277Teori' read as one word, a planner can set a person priority, focus lost after saving a priority",
+     "findings": [
+      "R2-M-16",
+      "R2-A-16",
+      "R2-M-08",
+      "R2-M-26",
+      "R2-M-11"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "moderation-console.tsx keeps the 'Karşılanmayan' chip when a search runs and shows an empty table; :484 the mine-session span follows the code with no separator in the accessible text; api/v1/moderation.py:295 put_person_priority is open to Planner (planning.edit) while F-05 S08's adopted default is coordinator / admin; priority-editor.tsx returns no focus after the save toast.",
+     "fix": "Empty state 'Karşılanmayan filtresinde yok; Tümü'nde N sonuç' with a one-tap switch; a ' · ' separator or aria-label on the card; person priority needs planning.admin or the coordinator permission (coded 403 for planners), or the owner changes the flow default (noted); focusAfter the edited row.",
+     "check": "F-05 S07: search 'PSY 277' under the default chip -> the empty state names the hidden results; F-05 S01 phone: the card's accessible name contains 'PSY 277 · Teori'; curl PUT /moderation/people/<id>/priority as planner.test -> 403 with message_tr; after saving a priority activeElement !== body.",
+     "files": [
+      "smartsched/frontend/src/components/moderation/moderation-console.tsx:484 + matchings empty state",
+      "smartsched/frontend/src/components/moderation/priority-editor.tsx",
+      "smartsched/backend/app/api/v1/moderation.py:295-300"
+     ],
+     "dedup": "T-R1-20 follow-up (verified); the run-report focus part of R2-M-26 is T-R2-30",
+     "depends_on": []
+    }
+   ],
+   "done_when": "every ticket's check passes; pytest learning; vitest moderation; MOBILE M-02 at 390 on /moderation/me and /moderation/people/<id>"
+  },
+  {
+   "lane": "E",
+   "name": "Studio, runs, timetable and compare",
+   "starts": "now (T-R2-28 and T-R2-29 finish after lane A's T-R2-05 lands)",
+   "owns": [
+    "smartsched/frontend/src/components/runs/**",
+    "smartsched/frontend/src/components/studio/**",
+    "smartsched/frontend/src/components/timetable/**",
+    "smartsched/frontend/src/components/classes/**",
+    "smartsched/frontend/src/components/settings/settings-view.tsx",
+    "smartsched/frontend/src/components/dashboard/dashboard-view.tsx (odometer only, T-R2-26)",
+    "smartsched/backend/app/services/run_truth.py (texts, unplaced list)",
+    "smartsched/backend/app/services/move_guard.py (texts)",
+    "smartsched/backend/app/api/v1/runs.py (cancel guard, export name, :787 text)",
+    "smartsched/backend/app/api/v1/calendar.py:225 (text)",
+    "smartsched/backend/app/api/v1/analytics.py (compare message)"
+   ],
+   "phone_routes": "/generate (steps 2-3) /runs/<id> /timetable (inspector) /classes /settings?tab=solver",
+   "tickets": [
+    {
+     "id": "T-R2-26",
+     "lane": "E",
+     "severity": "major",
+     "title": "The run report shows 'Sorun 457' next to the headline's '398 kabul edilmiş istisna', the unplaced list is shorter than its count, and the dashboard odometers expose their rolling digits",
+     "findings": [
+      "R2-M-04",
+      "R1-M-04",
+      "R1-M-14",
+      "R2-S-14"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "run-view.tsx:263-267 `problems` is the data-issues route's count (457) while the headline comes from stats.truth (398 exceptions); the unplaced list renders the first diagnoses only (19 of 28, 22 of 34); the dashboard KPI odometer (dashboard-view.tsx) renders the rolling digits without aria-hidden (T-R1-48 fixed the run report's only).",
+     "fix": "The KPI and the 'Sorunlar' tab count = truth.broken + truth.exceptions (one number with the headline) plus a labelled second line 'Veri notları N' for data issues; the unplaced list shows every id of the truth's unplaced (virtualised beyond 50); aria-hidden on the odometer digit strips with the value in an sr-only span.",
+     "check": "F-09 S07 at 1440 + 390: the number after 'Sorun' equals the headline's exception count (+ broken); the unplaced list length equals its count; /dashboard main.innerText has no '0 1 2 3 4 5 6 7 8 9' sequence (the T-R1-48 check, extended to /dashboard).",
+     "files": [
+      "smartsched/frontend/src/components/runs/run-view.tsx:227-275,354-410",
+      "smartsched/frontend/src/components/runs/run-truth.ts",
+      "smartsched/frontend/src/components/dashboard/dashboard-view.tsx",
+      "smartsched/backend/app/services/run_truth.py"
+     ],
+     "dedup": "reopens the R1-M-04 part of T-R1-48 (counts) and its R1-M-14 part (unplaced list); R1-S-28 / T-R1-48 residue (dashboard digits)",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-27",
+     "lane": "E",
+     "severity": "minor",
+     "title": "The Studio scope rail says 'Tüm dönem · 2 hafta' while the sentence says 14 weeks; the compare refusal names the wrong reason",
+     "findings": [
+      "R1-S-22",
+      "R2-M-21"
+     ],
+     "verified": "code read",
+     "root_cause": "scope-step.tsx's rail label counts horizon_params.weeks / the term's week list before the Güz dated rows settle (T-R1-47 fixed the sentence only); api/v1/analytics.py's compare answers 'aynı dönemin aynı türden çalıştırmaları değil' for two Bahar course runs that differ in horizon.",
+     "fix": "Rail and sentence read the same settled count (the term's weeks from one query, no fallback to the row count); the compare message names the horizon ('#8 dönem, #11 haftalık: yalnız ortak haftalar karşılaştırılır').",
+     "check": "F-09 S01 Studio on Güz at 1440: the rail reads 'Tüm dönem · 14 hafta' and agrees with the sentence, also right after the term switch; curl GET /analytics/compare?a=8&b=11 -> the message names the horizon.",
+     "files": [
+      "smartsched/frontend/src/components/studio/scope-step.tsx:40-130",
+      "smartsched/backend/app/api/v1/analytics.py (compare message)"
+     ],
+     "dedup": "reopens T-R1-47 part (R1-S-22); R1-M-10 (verified) message residue",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-28",
+     "lane": "E",
+     "severity": "minor",
+     "title": "Phone timetable: the inspector's 'Taşı...' is 36 px in the sheet body, no 'Kilitle' on a split row, no filters sheet, the title flips to 'Pazartesi'; /classes filter chips are 32 px; the skip link is the 30th Tab stop",
+     "findings": [
+      "R2-M-15",
+      "R1-S-16",
+      "R2-S-08",
+      "R1-M-32"
+     ],
+     "verified": "code read",
+     "root_cause": "mobile-calendar.tsx opens the inspector as a 45 % sheet with the actions inline (floating-panel.tsx buttons size sm); the split week-row's lock action is hidden for a one-week piece; the agenda view has no open-filters trigger; document.title is set from the day label while loading; classes/class-cards.tsx filter chips are size sm; the 'Izgaraya geç' skip link (T-R1-49) is rendered after the toolbar, so it is the 30th stop.",
+     "fix": "Inspector actions in a sticky sheet footer with 44 px 'Taşı...' and 'Kilitle' (locking the piece's weeks); a Filtreler trigger + sheet on the agenda view (reuse the desktop filters); the title set once; chips md on coarse; the skip link first in the page order.",
+     "check": "MOBILE M-02/M-05 at 390 touch on /timetable (inspector open) and /classes: m02.length === 0, 'Taşı...' in the bottom 40 %; F-10 phone: 'Kilitle' on the week-3 row, an open-filters trigger exists, document.title is never 'Pazartesi'; at 1440 the second Tab from the page start reaches 'Izgaraya geç'.",
+     "files": [
+      "smartsched/frontend/src/components/timetable/mobile-calendar.tsx",
+      "smartsched/frontend/src/components/timetable/floating-panel.tsx",
+      "smartsched/frontend/src/components/classes/class-cards.tsx",
+      "smartsched/frontend/src/components/timetable/** (skip link placement)"
+     ],
+     "dedup": "reopens T-R1-49 part (R1-S-16, R1-M-32) and the R1-S-16 part of T-R1-01",
+     "depends_on": [
+      "T-R2-05"
+     ]
+    },
+    {
+     "id": "T-R2-29",
+     "lane": "E",
+     "severity": "minor",
+     "title": "Studio rule cards on the phone: 160 segments at 38 px and 16 px class checkboxes; the solver tab shows 14 px inputs, every default weight at 0 and a raw 'w' header; a weeks-filtered term export keeps 'smartsched-run8.xlsx'",
+     "findings": [
+      "R2-M-23",
+      "R2-M-14",
+      "R1-M-29",
+      "R1-M-38"
+     ],
+     "verified": "code read; sweeper 2's claim to verify",
+     "root_cause": "rule-card.tsx's hardness / importance SegmentedControls are size sm (38 px on coarse through ::after only); classes-step.tsx row checkboxes are 16 px; settings-view.tsx:241-263 SolverForm loads initial.default_weights (an empty object when the org saved none -> every slider 0) and prints the literal 'w' (:258); sweeper 2 (ff85f52c, inside the snapshot) set 16 px on coarse for the inputs: find out why the tester still read 14 px; api/v1/runs.py's _week_suffix names WEEK runs only, not a TERM run exported with ?weeks=.",
+     "fix": "44 px rows on coarse (with T-R2-05's primitives); the solver's real defaults when nothing is saved (or a 'varsayılan' marker) and the header 'Ağırlık'; 16 px inputs confirmed on the stack; -haftaN in the file name for any ?weeks= export.",
+     "check": "MOBILE M-02 at 390 on /generate steps 2-3: m02.length === 0; /settings?tab=solver at 390: inputs >= 16 px, non-zero default weights, header 'Ağırlık'; GET /runs/8/export.xlsx?weeks=4 -> Content-Disposition smartsched-run8-hafta4.xlsx.",
+     "files": [
+      "smartsched/frontend/src/components/studio/rule-card.tsx",
+      "smartsched/frontend/src/components/studio/classes-step.tsx",
+      "smartsched/frontend/src/components/settings/settings-view.tsx:241-263",
+      "smartsched/backend/app/api/v1/runs.py (_week_suffix)"
+     ],
+     "dedup": "rest of R1-M-29 (T-R1-01 / T-R1-04 verified in part); FLE-008 part (R1-M-38); sweeper 2 ff85f52c",
+     "depends_on": [
+      "T-R2-05"
+     ]
+    },
+    {
+     "id": "T-R2-30",
+     "lane": "E",
+     "severity": "minor",
+     "title": "Capacity and run polish: no 'sığmaz' mark or UI override in the pin template, meetings listed twice in the course picker, plain 'Taşı' enabled on a 'Sığmaz' room, a QUEUED run cannot be cancelled, the cancelled-by line shows an e-mail, focus falls to body after 'Yayınla', and the move / forced-break texts are English",
+     "findings": [
+      "R2-M-12",
+      "R2-M-17",
+      "R2-M-26",
+      "R2-M-18",
+      "R1-S-24"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "slot-picker.tsx's rooms field ignores the class size (no fit mark, no admin reason field although the API takes capacity_override) and the courses field lists each meeting without day / time; move-dialog.tsx:279-288 disables move-confirm only on !ok, and the dry run's ok stays true for a Sığmaz room while the server refuses; runs.py:207-241 refuses a QUEUED run through the worker path (_cancel false before the queue entry exists) and :231 stores 'cancelled by <email>'; run-view.tsx's publish has no focusAfter; move_guard.py / run_truth.py broken-rule texts read 'A102 week 3 day 1 P1' and calendar.py:225 / runs.py:787 answer 'moving despite a conflict is admin-only' with no TR.",
+     "fix": "Fit mark '· sığmaz (100 > 30)' and an admin reason field in the template; day / time in the course picker; 'Taşı' disabled with the reason when only the forced path is possible; cancel from QUEUED (drop the queue entry) and store the actor's display name; focusAfter the Yayında badge; TR / EN texts for the move refusals and the broken-rule sentences ('A 102 · 3. hafta Pzt P1', message_tr on the 403).",
+     "check": "F-09 S04: the template shows 'sığmaz' for B 201 with ING 302 and an admin reason field; F-10 S07: on a Sığmaz room move-confirm is disabled and the force panel explains; F-09 S06: cancel right after POST /runs -> 200 CANCELLED and the report's by-line shows the display name; F-09 S08: activeElement !== body after 'Yayınla'; F-10 S06: the banner text has no 'week' / 'day'; a planner's forced move -> 403 with message_tr.",
+     "files": [
+      "smartsched/frontend/src/components/studio/slot-picker.tsx",
+      "smartsched/frontend/src/components/studio/template-gallery.tsx",
+      "smartsched/frontend/src/components/timetable/move-dialog.tsx:147-290",
+      "smartsched/frontend/src/components/runs/run-view.tsx (publish focus, cancelled-by)",
+      "smartsched/backend/app/api/v1/runs.py:207-241,787",
+      "smartsched/backend/app/api/v1/calendar.py:225",
+      "smartsched/backend/app/services/move_guard.py",
+      "smartsched/backend/app/services/run_truth.py"
+     ],
+     "dedup": "R1-M-03 follow-up (integrity, verified); R1-S-24 / T-R1-29 residue (move-force 403); R1-M-17 part of T-R1-31 (this lane's texts)",
+     "depends_on": []
+    }
+   ],
+   "done_when": "every ticket's check passes on a stack with runs; MOBILE M-02/M-05 at 390 on the lane's phone_routes; vitest runs/studio/timetable; pytest runs/analytics; e2e loop-r1-laneH still green"
+  },
+  {
+   "lane": "F",
+   "name": "Admin screens, audit and server i18n leftovers",
+   "starts": "now (T-R2-32 finishes after lane A's T-R2-05 lands)",
+   "owns": [
+    "smartsched/frontend/src/components/admin/** (except reset-password.tsx, kit.tsx, profile-view.tsx:72 read-only)",
+    "smartsched/frontend/src/components/audit/**",
+    "smartsched/frontend/src/components/settings/** (except settings-view.tsx)",
+    "smartsched/backend/app/services/bookings_undo.py",
+    "smartsched/backend/app/services/audit.py",
+    "smartsched/backend/app/services/rooms_features.py",
+    "smartsched/backend/app/core/images.py",
+    "smartsched/backend/app/api/v1/room_admin.py",
+    "smartsched/backend/app/services/sso.py:1683-1696",
+    "docs/features.yml (descriptions)"
+   ],
+   "phone_routes": "/admin/users /admin/roles /admin/rooms /admin/departments /admin/settings /admin/audit",
+   "tickets": [
+    {
+     "id": "T-R2-31",
+     "lane": "F",
+     "severity": "minor",
+     "title": "Audit undo: focus falls to body after 'Geri al' and the undone row reads 'undo of #164'",
+     "findings": [
+      "R2-S-09",
+      "R2-M-11"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "audit-view.tsx:380-395 closes the UndoDialog without focusAfter the row; bookings_undo.py:123 / :237 set the English reason 'undo of #<id>', which the audit tail (:303 wave1.audit.undoOf) and the booking card render raw.",
+     "fix": "focusAfter the undone row ([data-audit-id]); the reason as a code {undo_of: id} rendered 'Geri alma: #164' in TR.",
+     "check": "F-02 S10 at 1440: after 'Geri al' activeElement is the row (motion T4); the undone row and the restored booking show no 'undo of'.",
+     "files": [
+      "smartsched/frontend/src/components/audit/audit-view.tsx:380-395",
+      "smartsched/frontend/src/components/audit/audit-model.ts",
+      "smartsched/backend/app/services/bookings_undo.py:123,237"
+     ],
+     "dedup": "motion T4 (focus after audit Undo, open); R1-M-17 part; the duplicate audit row is T-R2-17 (e)",
+     "depends_on": []
+    },
+    {
+     "id": "T-R2-32",
+     "lane": "F",
+     "severity": "minor",
+     "title": "Admin screens on the phone: 16 px checkboxes on roles / features, 20 px room code links with title-only tooltips, the departments table without a pinned column, 16 px language radios; the roles editor shows no disabled-permission reasons; a new room code loses its space; the user form reports a missing role only as a toast; a no-op instructor re-link writes an audit row",
+     "findings": [
+      "R2-M-13",
+      "R2-S-08",
+      "R1-M-21",
+      "R1-M-20",
+      "R2-M-20"
+     ],
+     "verified": "code read",
+     "root_cause": "roles-admin.tsx / features-admin.tsx render native 16 px checkboxes without a 44 px label row; rooms-admin.tsx's code links are 20 px text with title; departments-admin.tsx's table has no pinned first column (M-07); org-settings.tsx's language radios are 16 px; the roles editor's disabled permissions carry no reason (T-R1-33 open part); the room code normalisation strips the space ('T 101' -> 'T101', T-R1-34 open part); users-admin.tsx's role validation only toasts; sso.py:1696 records user.instructor_link when the target is unchanged.",
+     "fix": "44 px label rows for checkboxes / radios on coarse (with T-R2-05), 44 px link rows on /admin/rooms, a pinned first column or cards on /admin/departments; a reason on every disabled permission; whitespace-only normalisation of room codes; an inline role error with aria-describedby; no audit row when before == after.",
+     "check": "MOBILE M-02/M-07 at 390 touch on /admin/roles, /admin/settings (features, language), /admin/rooms, /admin/departments: m02.length === 0, the departments table pinned or carded; F-11 S04: a reason on every disabled permission; creating 'T 101' lists 'T 101'; F-11 S01: the role error is inline; F-05 S00: re-picking the same instructor writes no audit row.",
+     "files": [
+      "smartsched/frontend/src/components/admin/roles-admin.tsx",
+      "smartsched/frontend/src/components/admin/features-admin.tsx",
+      "smartsched/frontend/src/components/admin/rooms-admin.tsx",
+      "smartsched/frontend/src/components/admin/departments-admin.tsx",
+      "smartsched/frontend/src/components/admin/org-settings.tsx",
+      "smartsched/frontend/src/components/admin/users-admin.tsx",
+      "smartsched/frontend/src/components/admin/users-admin-identity.tsx",
+      "smartsched/backend/app/api/v1/room_admin.py",
+      "smartsched/backend/app/services/sso.py:1683-1696"
+     ],
+     "dedup": "rest of R1-M-08 (T-R1-01); reopens T-R1-33 part (R1-M-21) and T-R1-34 part (R1-M-20)",
+     "depends_on": [
+      "T-R2-05"
+     ]
+    },
+    {
+     "id": "T-R2-33",
+     "lane": "F",
+     "severity": "minor",
+     "title": "English server strings still reach the Turkish admin UI: 'a feature named ... exists', 'Görsel işlenemedi: the file is not a readable ...', the English feature sentence on Kurum ayarları",
+     "findings": [
+      "R2-M-18",
+      "R1-M-17"
+     ],
+     "verified": "confirmed in code at HEAD",
+     "root_cause": "rooms_features.py:459 / :486 raise FeatureError(409, 'name_taken', English text) with no message_tr; core/images.py's validator message is English and the UI prefixes it; org-settings.tsx shows the catalogue's English description (docs/features.yml) for the roles / limits feature.",
+     "fix": "Coded refusals with TR / EN (name_taken -> 'Bu adda bir özellik zaten var'); the image validator -> coded unsupported_image with TR; Turkish feature descriptions (features.yml description_tr) or no sentence.",
+     "check": "F-11: creating a duplicate feature -> a Turkish toast; uploading a non-image as a room photo -> a Turkish refusal; /admin/settings in TR passes the EN_WORDS scan.",
+     "files": [
+      "smartsched/backend/app/services/rooms_features.py:459,486",
+      "smartsched/backend/app/core/images.py",
+      "smartsched/frontend/src/components/admin/org-settings.tsx",
+      "docs/features.yml"
+     ],
+     "dedup": "reopens T-R1-31 part (R1-M-17); the bookings strings are T-R2-17, the move texts T-R2-30, the council 409 T-R2-21",
+     "depends_on": []
+    }
+   ],
+   "done_when": "every ticket's check passes; MOBILE M-02/M-07 at 390 on the lane's phone_routes; vitest admin/audit; pytest rooms_features / bookings_undo; e2e loop-r1-laneE still green"
+  },
+  {
+   "lane": "S",
+   "name": "Solver integrity: minimal-change re-solve (solver-engineer)",
+   "starts": "now",
+   "owns": [
+    "smartsched/backend/app/solver/**",
+    "smartsched/backend/app/services/moderation.py",
+    "smartsched/backend/tests/solver/**",
+    "smartsched/backend/tests/test_p19_moderation*.py"
+   ],
+   "phone_routes": "(API and /moderation/recreate/<id> at 1440 only)",
+   "tickets": [
+    {
+     "id": "T-R2-34",
+     "lane": "S",
+     "severity": "major",
+     "title": "A minimal-change re-solve after one priority edit moves 6 classes without a reason and drops 2 planner-locked rows; a pin + rerun loses 17 placed classes; a wizard programme added to Güz moves 1 class 'nedensiz'",
+     "findings": [
+      "R2-M-03",
+      "R1-S-04"
+     ],
+     "verified": "code read",
+     "root_cause": "moderation.py:1749 recreate in repair mode frees neighbours(seeds, radius) (solver/repair.py:33) plus the extra cells of :1984-2037; _minimal_change (:2056) reverts a move only when the old cell keeps every hard rule given the new solution, so a class displaced by a freed-neighbour chain stays moved with no cause (moved_unexplained), and a planner_lock row (origin SOLVER since R1-S-17, not a solver `locked`) outside the changed set is treated as free and can be dropped ('kilit çakışması'); under a new pin the freed neighbourhood's re-solve drops placed classes (17, 15 flagged base_conflict) and the revert loop cannot undo them once their cells are reused.",
+     "fix": "(1) planner_lock rows outside the changed set are hard-locked in repair mode: a soft change never costs a placed locked class, a loss is allowed only when its published cell itself breaks a hard rule now (base_conflict with the rule named); (2) a stability term in the repair objective (a penalty per moved or dropped event outside the scope) so CP-SAT prefers the published cell; (3) every remaining move outside the scope carries its cause (the freed event or the rule), so moved_unexplained is 0 by construction; (4) the pin + rerun path seeds the repair with the published assignment as a hint. Fixtures: Güz #10 + the PSY 277 priority edit, + the ACU 141 pin; the wizard add -> 0 moves; workers=1, fixed seed.",
+     "check": "F-05 S10/S11 on G0 (#10): one priority edit + 'En az değişiklik' -> moved_unexplained 0 and every planner_lock row of #10 present in the child unless listed under base_conflict with its rule; pin ACU 141 + rerun -> newly_unplaced lists only base_conflict losses; F-07 S12: a wizard programme into Güz -> 0 moves outside the new programme; hard 100 kept; pytest tests/solver/test_repair*.py + tests/test_p19_moderation*.py on the fixtures.",
+     "files": [
+      "smartsched/backend/app/services/moderation.py:1749-1860,1984-2110",
+      "smartsched/backend/app/solver/repair.py:33-140",
+      "smartsched/backend/app/solver/cpsat.py (stability objective)",
+      "smartsched/backend/tests/solver/**"
+     ],
+     "dedup": "reopens R1-S-04 (integrity hand-off: 'the 17 losses were not reproduced on the fixtures'); Q9 (ROADMAP Phase 19); the owner decision R1-S-37 does not block this",
+     "depends_on": []
+    }
+   ],
+   "done_when": "the check passes on the Güz fixtures and on the admin tester's F-05 sequence; determinism kept (workers=1, seed); the integrity e2e spec stays green; hand-off lists the touched files for lane D"
+  },
+  {
+   "lane": "G",
+   "name": "Test plan and docs drift (test planner)",
+   "starts": "now",
+   "owns": [
+    "docs/testing/flows/**",
+    "scripts/record/**"
+   ],
+   "phone_routes": "(none)",
+   "tickets": [
+    {
+     "id": "T-R2-35",
+     "lane": "G",
+     "severity": "trivial",
+     "title": "The flow files and the MOBILE route matrix lag the product in nine places, and three round-1 probes could not reach their steps",
+     "findings": [
+      "R2-S-20",
+      "R1-S-19",
+      "R2-M-25",
+      "R1-S-09",
+      "R1-S-15",
+      "R1-S-26"
+     ],
+     "verified": "tester evidence",
+     "root_cause": "F-12 quotes the older auth.* / glass.auth.* strings (the page uses signin.*: subtitle, field labels, 'Parolamı unuttum', the wrong-password and session-expiry sentences; crbs.users.resetWhere text); F-04 names a 'sync-open' control (the panel is inline) and lacks the consent step 'Takvim eşitleme için rızanız gerekiyor'; F-02's end option reads 'Dönem sonuna kadar (dd.mm.yyyy)', its SegmentedControls are role=tablist/tab, and the planner has no can_book_recur (S06 as planner is a permission precondition); F-03's texts ('Özelliği eksik odalar (n)', 'Kapasite 60: 42 kişi için %30 boş koltuk', 'Onay gerekli: talep oluşturulur'); F-06's staff rows still expect an open suggestion for instructor 157 although T-R1-40a corrected the expectation (hidden room_already_set); F-08 S01 and the MOBILE matrix use /onboarding/<id> (the job lives at ?job=<id> until T-R2-20); the R1-S-09 (force path from the timetable: expand the 'Dolu' group), R1-S-15 (board + run both active: define the 'board alone' precondition with stack.sh) and R1-S-26 (calendar-search focus locator) probes never reached their steps.",
+     "fix": "Update the six flow files, MOBILE.md and README §4.2's re-test rows; write the three probes as steps a round-3 tester can follow; note the e2e sign-in.spec drift is with the e2e-gate agent (PROGRESS 02:25), not this lane.",
+     "check": "Round-3 testers report no PASS* / locator-drift row for these steps; python3 -I scripts/docs/sync_docs.py --check passes.",
+     "files": [
+      "docs/testing/flows/F-02-direct-recurring-cancel-scope.md",
+      "docs/testing/flows/F-03-find-room-capacity-feature-reserve.md",
+      "docs/testing/flows/F-04-my-bookings-ics-subscribe-regenerate.md",
+      "docs/testing/flows/F-06-learned-suggestions-memory-reset.md",
+      "docs/testing/flows/F-08-file-intake-review-dryrun-commit.md",
+      "docs/testing/flows/F-12-login-logout-password-session-sso.md",
+      "docs/testing/flows/MOBILE.md",
+      "docs/testing/flows/README.md"
+     ],
+     "dedup": "T-R1-43 family (verified)",
+     "depends_on": []
+    }
+   ],
+   "done_when": "the six flow files, MOBILE.md and README §4.2 updated; sync_docs --check green"
+  }
+ ]
+}
