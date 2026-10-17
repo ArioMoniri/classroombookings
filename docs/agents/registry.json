@@ -2941,7 +2941,8 @@
       "goal": "You are a senior professional engineer and architect for SmartSched (repo /home/user/classroombookings; FastAPI backend smartsched/backend with the AI gateway in app/ai — 8 providers, per-feature routes, metering in ai_usage, guardrails, /admin/ai; row-level security in app/core/rls.py; audit; KVKK)…",
       "ledger": "Helper architecture + AI governance",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:27"
     },
     {
       "id": "a8c629056ee8521c1",

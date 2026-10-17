@@ -575,6 +575,33 @@ async def settings_weights(session: AsyncSession) -> tuple[dict[str, int], list[
     return clean_weights(await ss.get_value(session, "solver_weights"))
 
 
+#: the admin's default solver seed (Ayarlar › Çözücü; stored through ``PUT /settings`` ``extra``, audit RF-02)
+SEED_SETTING = "solver_default_seed"
+
+
+async def effective_seed(session: AsyncSession, run: ScheduleRun) -> tuple[int, str]:
+    """(seed, source) of a run: ``params.seed`` (``run``) > the admin's ``solver_default_seed`` (``settings``) >
+    0 (``default``). Read on the server, so every run path (POST /runs, Studio, moderation re-solves, fix and chat
+    child runs) uses the admin's seed."""
+    params = run.params or {}
+    if params.get("seed") is not None:
+        try:
+            return int(params["seed"]), "run"
+        except (TypeError, ValueError):
+            pass
+    from app.models import Setting
+
+    row = await session.get(Setting, SEED_SETTING)
+    raw = row.value if row is not None and not row.is_secret else None
+    try:
+        value = int(float(str(raw).strip())) if raw not in (None, "") else None
+    except ValueError:
+        value = None
+    if value is not None and 0 <= value <= 2**31 - 1:
+        return value, "settings"
+    return 0, "default"
+
+
 async def effective_weights(
     session: AsyncSession,
     run: ScheduleRun,
@@ -1165,6 +1192,8 @@ async def term_periods(session: AsyncSession, term_id: int) -> dict[str, Any]:
 
 __all__ = [
     "BUILTIN_KEYS",
+    "SEED_SETTING",
+    "effective_seed",
     "SeasonError",
     "activate_profile",
     "create_profile",

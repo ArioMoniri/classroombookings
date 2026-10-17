@@ -11,10 +11,10 @@
 <text x='44' y='160' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Kısayollar hâlâ çalışır:</text>
 <rect x='44' y='174' width='97' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
 <text x='92.5' y='200.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Salon ayır</text>
-<rect x='174' y='174' width='125' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
-<text x='236.5' y='200.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Takvimime ekle</text>
-<rect x='304' y='174' width='139' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
-<text x='373.5' y='200.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Rezervasyonlarım</text>
+<rect x='149' y='174' width='125' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='211.5' y='200.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Takvimime ekle</text>
+<rect x='282' y='174' width='139' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='351.5' y='200.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Rezervasyonlarım</text>
 <rect x='44' y='540' width='400' height='54' rx='10' fill='#FEE2E2' fill-opacity='1'/>
 <text x='56' y='564' font-size='12' font-weight='500' fill='#B91C1C' text-anchor='start'>Bu ayki yapay zekâ sınırınıza ulaştınız. 1 Kasım'da</text>
 <text x='56' y='582' font-size='12' font-weight='500' fill='#B91C1C' text-anchor='start'>yenilenir. Arama ve kısayollar çalışıyor.</text>

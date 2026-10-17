@@ -613,9 +613,11 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     skipped = sorted(set(_raw_horizon(run, term)) - week_set) if not exam else []
     # AS-01: DEFAULT_WEIGHTS < settings solver_weights < active season profile < run params (server side)
     eff = await seasons.effective_weights(session, run, term=term, weeks=weeks, weeks_rows=list(weeks_rows))
+    seed, seed_source = await seasons.effective_seed(session, run)
     run.stats = {
         **{k: v for k, v in (run.stats or {}).items() if k not in ("horizon_skipped_weeks", "weights_warnings")},
         **eff.stats(),
+        "seed": {"value": seed, "source": seed_source},
         HORIZON_STATS_KEY: list(weeks),
         **({"horizon_skipped_weeks": skipped} if skipped else {}),
     }
@@ -1273,7 +1275,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         blocks=tuple(blocks),
         previous=tuple(previous),
         time_limit_s=float(params.get("time_limit_s", 60.0)),
-        seed=int(params.get("seed", 0)),
+        seed=seed,
         workers=solver_workers(params),
         weights=dict(eff.overrides),
         trust_locked_rooms=run_mode(params, "trust_locked_rooms"),

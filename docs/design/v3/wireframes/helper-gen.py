@@ -278,9 +278,9 @@ def phone_390():
 
 # ---------------------------------------------------------------- 5. card catalogue (states and risk classes)
 def cards():
-    s = S(1440, 980, "Eylem kartı kataloğu: risk sınıfları ve durumlar")
+    s = S(1440, 1010, "Eylem kartı kataloğu: risk sınıfları ve durumlar")
     s.t(24, 44, "Eylem kartları (katalog v1): yalnızca tipli şema, mevcut API, risk sınıfına göre onay", 22, 700)
-    col = 340
+    col = 330
 
     def frame(x, y, h, title, risk, accent=None):
         s.r(x, y, col, h, "#F1F5F9", 14, LINE)
@@ -305,8 +305,9 @@ def cards():
     # find_room
     x = 24 + 2 * (col + 20)
     frame(x, y, 200, "Derslik bul · find_room", "R0")
-    for i, ch in enumerate(["Per 14:00", "12+ kişi", "Projeksiyon"]):
-        s.chip(x + 16 + i * 100, y + 46, ch, h=30, size=11)
+    cx = x + 16
+    for ch in ["Per 14:00", "12+ kişi", "Projeksiyon"]:
+        cx += s.chip(cx, y + 46, ch, h=30, size=11) + 6
     for i, r in enumerate(["A 204 · 40", "B 101 · 30", "C 012 · 16"]):
         s.t(x + 16, y + 106 + i * 22, r, 12, 500)
         s.t(x + col - 16, y + 106 + i * 22, "Seç", 12, 600, PRI, "end")
@@ -341,7 +342,7 @@ def cards():
     s.btn(x + 16, y2 + 66, 100, 34, "Yenile", "sec", 12)
     s.note(x, y2 + 126, "10 dk ya da veri değişince (409) eskir", 11)
     # invite_user R2
-    y3 = 520
+    y3 = 560
     x = 24
     frame(x, y3, 300, "Kullanıcı davet et · invite_user", "R2")
     for i, (lab, val) in enumerate([("E-posta", "a.kaya@uni.edu.tr"), ("Ad", "A. K."), ("Rol", "Öğretim elemanı ▾"),
@@ -382,7 +383,7 @@ def cards():
         s.chip(x + 16 + i * 80, y3 + 72, ch, sel=(i == 0), h=32, size=12)
     s.t(x + 16, y3 + 132, "≈ 1.240 satır", 12, 400, MUTED)
     s.btn(x + 16, y3 + 146, col - 32, 40, "İndir (CSV)", "pri", 13)
-    s.note(24, 940, "Model yalnızca {kind, props} seçer; sunucu doğrular, adları kimliğe çözer, izni denetler, önizlemeyi hesaplar. HTML/JS/URL/kimlik modelden gelmez. “evet” yazmak onay sayılmaz.", 12)
+    s.note(24, 990, "Model yalnızca {kind, props} seçer; sunucu doğrular, adları kimliğe çözer, izni denetler, önizlemeyi hesaplar. HTML/JS/URL/kimlik modelden gelmez. “evet” yazmak onay sayılmaz.", 12)
     s.save(os.path.join(OUT, "helper-cards.svg"))
 
 
@@ -397,8 +398,9 @@ def states():
     chip_status(s, x + 112, y + 16, "Sınıra ulaşıldı", BAD)
     s.line(x, y + 54, x + w, y + 54)
     s.t(x + 20, y + 90, "Kısayollar hâlâ çalışır:", 13, 600)
-    for i, ch in enumerate(["Salon ayır", "Takvimime ekle", "Rezervasyonlarım"]):
-        s.chip(x + 20 + i * 130, y + 104, ch, h=44, size=12)
+    cx = x + 20
+    for ch in ["Salon ayır", "Takvimime ekle", "Rezervasyonlarım"]:
+        cx += s.chip(cx, y + 104, ch, h=44, size=12) + 8
     s.r(x + 20, y + 470, w - 40, 54, BADBG, 10)
     s.t(x + 32, y + 494, "Bu ayki yapay zekâ sınırınıza ulaştınız. 1 Kasım'da", 12, 500, BAD)
     s.t(x + 32, y + 512, "yenilenir. Arama ve kısayollar çalışıyor.", 12, 500, BAD)
