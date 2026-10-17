@@ -2,7 +2,7 @@
 // Source: https://evilcharts.com (src/registry/charts/echarts-bar-chart.tsx) via shadcn registry @evilcharts/echarts-bar-chart (https://evilcharts.com/r/echarts-bar-chart.json) — https://github.com/legions-developer/evilcharts
 // Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
 // Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
-// Modified: import paths; <Tooltip valueFormatter labelFormatter> injected formatters (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters)
+// Modified: import paths (code + comments); <Tooltip valueFormatter labelFormatter> injected formatters (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters)
 
 import {
   DEFAULT_ECHARTS_RENDERER,
@@ -195,7 +195,7 @@ export type BarAnimationType =
   | "center-out"
   | "edges-in";
 // TooltipVariant, TooltipRoundness, LegendVariant, and ChartConfig now live in
-// the shared @/registry/ui/echarts/* modules and are imported + re-exported at
+// the shared @/components/charts/evil/ui/echarts/* modules and are imported + re-exported at
 // the top of this file.
 
 export interface EChartsBarChartProps<TData extends Record<string, unknown>> {
@@ -450,7 +450,7 @@ function collectConfig(children: ReactNode): CollectedConfig {
 
 // Color plumbing (ChartConfig, getColorsCount, distributeColors, buildChartCss,
 // normalizeColor, withAlpha, ResolvedColors, resolveColors, flattenColor) plus
-// the theme keys now live in @/registry/ui/echarts-chart and are imported at the
+// the theme keys now live in @/components/charts/evil/ui/echarts-chart and are imported at the
 // top of this file.
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -463,7 +463,7 @@ function collectConfig(children: ReactNode): CollectedConfig {
 const GRAY = "rgba(120, 120, 120, 1)";
 
 // sampleGradient (the color the series gradient shows at t ∈ [0, 1]) now lives in
-// @/registry/ui/echarts-dot and is imported at the top of this file.
+// @/components/charts/evil/ui/echarts-dot and is imported at the top of this file.
 
 // Solid vertical top→bottom color for a series — a plain string when there is
 // one color, else a vertical multi-stop LinearGradient in each bar's own box.
@@ -767,7 +767,7 @@ function barStaggerDelay(type: BarAnimationType, index: number, count: number): 
 
 // The brush overlay primitives (BrushRange, BrushGeometry, BrushOverlayElements,
 // syncBrushOverlay) and the dataZoom builder (buildBrushDataZoom) now live in
-// @/registry/ui/echarts-brush and are imported at the top of this file. The
+// @/components/charts/evil/ui/echarts-brush and are imported at the top of this file. The
 // tooltip shell/row/styling (roundnessClass, tooltipVariantClass,
 // tooltipShell/tooltipRow/tooltipIndicatorHtml), the legend indicators
 // (LegendIndicator/LegendOverlay + fill/outline styles), and indicatorBackground

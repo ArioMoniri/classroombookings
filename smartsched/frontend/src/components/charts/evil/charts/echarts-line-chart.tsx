@@ -2,7 +2,7 @@
 // Source: https://evilcharts.com (src/registry/charts/echarts-line-chart.tsx) via shadcn registry @evilcharts/echarts-line-chart (https://evilcharts.com/r/echarts-line-chart.json) — https://github.com/legions-developer/evilcharts
 // Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
 // Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
-// Modified: import paths; <Tooltip valueFormatter labelFormatter> injected formatters (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters)
+// Modified: import paths (code + comments); <Tooltip valueFormatter labelFormatter> injected formatters (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters)
 
 import {
   DEFAULT_ECHARTS_RENDERER,
@@ -102,7 +102,7 @@ type ArrayItem<T> = T extends readonly (infer U)[] ? U : T;
 type XAxisOption = ArrayItem<NonNullable<EChartsOption["xAxis"]>>;
 type YAxisOption = ArrayItem<NonNullable<EChartsOption["yAxis"]>>;
 
-// DotItemStyleOption now lives in @/registry/ui/echarts-dot and is imported at
+// DotItemStyleOption now lives in @/components/charts/evil/ui/echarts-dot and is imported at
 // the top of this file.
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -186,7 +186,7 @@ export type CurveType =
   | "natural"
   | "step";
 // DotVariant, TooltipVariant, TooltipRoundness, LegendVariant, and ChartConfig
-// now live in the shared @/registry/ui/echarts/* modules and are imported +
+// now live in the shared @/components/charts/evil/ui/echarts/* modules and are imported +
 // re-exported at the top of this file.
 
 export interface EChartsLineChartProps<TData extends Record<string, unknown>> {
@@ -468,9 +468,9 @@ function collectConfig(children: ReactNode): CollectedConfig {
 
 // Color plumbing (ChartConfig, getColorsCount, distributeColors, buildChartCss,
 // normalizeColor, withAlpha, ResolvedColors, resolveColors, seriesPaint) now
-// lives in @/registry/ui/echarts-chart and is imported at the top of this file.
+// lives in @/components/charts/evil/ui/echarts-chart and is imported at the top of this file.
 // Dot helpers (DotVariant, DotItemStyleOption, DotStyle, DOT_SIZES, dotItemStyle,
-// dotStyle, sampleGradient) live in @/registry/ui/echarts-dot.
+// dotStyle, sampleGradient) live in @/components/charts/evil/ui/echarts-dot.
 
 // Builds the stacked glow overlay series for one <Line glowing> (see
 // GLOW_LAYERS). Each copy is silent, tooltip-less, and z-ordered beneath the real
@@ -559,7 +559,7 @@ function buildGlowSeries(params: {
 }
 
 // Brush overlays (BrushRange, BrushGeometry, BrushOverlayElements,
-// BrushOverlayParams, syncBrushOverlay) live in @/registry/ui/echarts-brush
+// BrushOverlayParams, syncBrushOverlay) live in @/components/charts/evil/ui/echarts-brush
 // and are imported at the top of this file.
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -638,8 +638,8 @@ function shimmerWindowStops(center: number, color: string, peak: number) {
 
 // Tooltip HTML primitives (roundnessClass, tooltipVariantClass,
 // tooltipIndicatorHtml, tooltipRow, tooltipShell) live in
-// @/registry/ui/echarts-tooltip; indicatorBackground lives in
-// @/registry/ui/echarts-chart. Both are imported at the top of this file.
+// @/components/charts/evil/ui/echarts-tooltip; indicatorBackground lives in
+// @/components/charts/evil/ui/echarts-chart. Both are imported at the top of this file.
 
 // The `__buffer-` prefix marks the dashed forecast overlay of a buffer line; it
 // carries the SAME key's value, so the tooltip recovers the key from it (see
@@ -651,7 +651,7 @@ const BUFFER_PREFIX = "__buffer-";
 const REVEAL_PREFIX = "__reveal-";
 
 // Legend overlay (legendFillStyle, legendOutlineStyle, LegendIndicator,
-// LegendOverlay) lives in @/registry/ui/echarts-legend and is imported at the
+// LegendOverlay) lives in @/components/charts/evil/ui/echarts-legend and is imported at the
 // top of this file.
 
 // ─────────────────────────────────────────────────────────────────────────────

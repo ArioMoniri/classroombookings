@@ -1,7 +1,7 @@
 // Source: https://evilcharts.com (src/registry/ui/echarts-chart.tsx) via shadcn registry @evilcharts/echarts-chart (https://evilcharts.com/r/echarts-chart.json) — https://github.com/legions-developer/evilcharts
 // Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
 // Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
-// Modified: import paths; `AriaComponent` registered next to the renderers so `aria.decal` (hatch patterns) works
+// Modified: import paths (code + comments); `AriaComponent` registered next to the renderers so `aria.decal` (hatch patterns) works
 import { CanvasRenderer, SVGRenderer } from "echarts/renderers";
 import type { ComponentType, ReactNode } from "react";
 import * as echarts from "echarts/core";
@@ -48,7 +48,7 @@ export type ChartConfig = Record<
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Color plumbing — replicated from the repo's <ChartStyle> so the charts stay
-// self-contained (no @/registry/ui/recharts imports).
+// self-contained (no @/components/charts/evil/ui/recharts imports).
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Max slots a key needs = longest color array across themes (min 1). Both themes

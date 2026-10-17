@@ -2,7 +2,7 @@
 // Source: https://evilcharts.com (src/registry/charts/echarts-area-chart.tsx) via shadcn registry @evilcharts/echarts-area-chart (https://evilcharts.com/r/echarts-area-chart.json) — https://github.com/legions-developer/evilcharts
 // Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
 // Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
-// Modified: import paths; <Tooltip valueFormatter labelFormatter> injected formatters (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters)
+// Modified: import paths (code + comments); <Tooltip valueFormatter labelFormatter> injected formatters (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters)
 
 import {
   DEFAULT_ECHARTS_RENDERER,
@@ -165,7 +165,7 @@ export type CurveType =
   | "natural"
   | "step";
 // DotVariant, TooltipVariant, TooltipRoundness, LegendVariant, and ChartConfig
-// now live in the shared @/registry/ui/echarts/* modules and are imported +
+// now live in the shared @/components/charts/evil/ui/echarts/* modules and are imported +
 // re-exported at the top of this file.
 
 export interface EChartsAreaChartProps<TData extends Record<string, unknown>> {
@@ -447,7 +447,7 @@ function collectConfig(children: ReactNode): CollectedConfig {
 
 // Color plumbing (ChartConfig, getColorsCount, distributeColors, buildChartCss,
 // normalizeColor, withAlpha, ResolvedColors, resolveColors, seriesPaint) now
-// lives in @/registry/ui/echarts-chart and is imported at the top of this file.
+// lives in @/components/charts/evil/ui/echarts-chart and is imported at the top of this file.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fill paints — the ECharts analogue of the Recharts fill variants (§1.1).

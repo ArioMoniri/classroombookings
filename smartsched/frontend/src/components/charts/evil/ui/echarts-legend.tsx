@@ -2,7 +2,7 @@
 // Source: https://evilcharts.com (src/registry/ui/echarts-legend.tsx) via shadcn registry @evilcharts/echarts-legend (https://evilcharts.com/r/echarts-legend.json) — https://github.com/legions-developer/evilcharts
 // Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
 // Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
-// Modified: import paths
+// Modified: import paths (code + comments)
 
 import { getColorsCount, indicatorBackground, type ChartConfig } from "@/components/charts/evil/ui/echarts-chart";
 import type { CSSProperties } from "react";
