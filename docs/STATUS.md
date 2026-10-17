@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `8f7da98` (committed 2026-10-17 21:33 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `7a3f315` (committed 2026-10-17 21:39 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -157,18 +157,18 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-250 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 224 · stopped 11 · superseded 7.
+251 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 225 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
 | `W3-SEC` | backend-engineer | 2026-10-17 18:58 |
-| `W3-SLOT` | frontend-engineer | 2026-10-17 18:58 |
 | `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
 | `Mobile optimiser A` | frontend-engineer | 2026-10-17 19:56 |
 | `Mobile optimiser B` | frontend-engineer | 2026-10-17 19:56 |
 | `W3-HUB` | frontend-engineer | 2026-10-17 19:58 |
 | `W3-IDP` | backend-engineer | 2026-10-17 19:58 |
 | `Wave-3 integrator` | general-purpose | 2026-10-17 21:25 |
+| `Pod CI gates green on HEAD` | devops-engineer | 2026-10-17 21:39 |
 
 <!-- /AUTO:agents -->
 
