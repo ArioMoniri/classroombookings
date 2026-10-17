@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 12
 
     cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    #: proxy hops whose X-Forwarded-For is believed (docs/SECURITY.md F3 / F8): loopback and the Docker bridge
+    #: range the compose network is allocated from. uvicorn reads the same variable (docker-entrypoint.sh).
+    forwarded_allow_ips: str = "127.0.0.1,::1,172.16.0.0/12"
     #: how browsers reach the panel (deploy/.env.example PUBLIC_URL); calendar feed links and OAuth redirect URIs
     #: are built from it unless the admin setting integrations.public_url overrides it
     public_url: str | None = None

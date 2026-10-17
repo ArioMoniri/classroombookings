@@ -178,6 +178,18 @@ INTEGRATIONS_SPECS: dict[str, Spec] = {
         Spec("microsoft_client_id", default=""),
         Spec("microsoft_client_secret", default="", secret=True),
         Spec("microsoft_tenant", default="organizations"),
+        # calendar export for academicians (CAL-02…CAL-07, docs/research/2026-10-17-calendar-export.md §3.8)
+        Spec("export_my_classes", "bool", True),
+        Spec("export_department_classes", "bool", True),
+        Spec("export_my_bookings", "bool", True),
+        Spec("export_field_course_title", "bool", True),
+        Spec("export_field_department", "bool", True),
+        Spec("export_field_co_instructors", "bool", False),  # owner decision 2026-10-17: off unless an admin allows
+        Spec("export_field_link", "bool", True),
+        Spec("push_verified_only", "bool", True),  # owner decision 2026-10-17: only verified institution accounts
+        Spec("push_allowed_domains", "json", None),  # extra e-mail domains an admin allows for push
+        Spec("calendar_client_source", default="own"),  # own | identity (reuse the IdP's OAuth client)
+        Spec("nightly_reconcile_at", "json", None),  # the last nightly repair run (status for the admin panel)
     )
 }
 # P8 exam-period mode (docs/product/booking-enhancements.md §P8; app/services/booking_policies.py). Off by default:

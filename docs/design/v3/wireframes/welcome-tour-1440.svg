@@ -1,0 +1,49 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Guided tour step, desktop 1440, spotlight on a sidebar entry'>
+<title>Guided tour step, desktop 1440, spotlight on a sidebar entry</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<rect x='24' y='80' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='101' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Hızlı rezervasyon</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezervasyonlar</text>
+<text x='40' y='173' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezervasyonlarım</text>
+<text x='40' y='209' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Derslik bul</text>
+<text x='40' y='245' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Taleplerim</text>
+<text x='32' y='282' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>HESAP</text>
+<text x='40' y='317' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Profil</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Hızlı rezervasyon</text>
+<text x='276' y='84' font-size='14' font-weight='400' fill='#475569' text-anchor='start'>Ne zaman, nerede: üç adımda bir ders saati ayırın.</text>
+<rect x='276' y='108' width='1140' height='760' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='300' y='140' width='520' height='48' rx='10' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='300' y='204' width='520' height='48' rx='10' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='300' y='268' width='520' height='48' rx='10' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='300' y='332' width='520' height='48' rx='10' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='300' y='396' width='520' height='48' rx='10' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='300' y='460' width='520' height='48' rx='10' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='0' y='0' width='1440' height='218' rx='0' fill='#0F172A' fill-opacity='0.45'/>
+<rect x='0' y='262' width='1440' height='638' rx='0' fill='#0F172A' fill-opacity='0.45'/>
+<rect x='0' y='218' width='18' height='44' rx='0' fill='#0F172A' fill-opacity='0.45'/>
+<rect x='238' y='218' width='1202' height='44' rx='0' fill='#0F172A' fill-opacity='0.45'/>
+<rect x='18' y='218' width='220' height='44' rx='12' fill='none' fill-opacity='1' stroke='#2563EB' stroke-width='3'/>
+<text x='24' y='860' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>ring = one overlay element moved by transform (spring smooth)</text>
+<rect x='262' y='184' width='380' height='214' rx='18' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<polyline points='262,236 252,244 262,252' fill='#FFFFFF' stroke='#FFFFFF' stroke-width='1' stroke-linejoin='round'/>
+<text x='282' y='216' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Adım 2 / 5</text>
+<text x='622' y='216' font-size='13' font-weight='600' fill='#2563EB' text-anchor='end'>Turu bitir</text>
+<text x='282' y='246' font-size='18' font-weight='700' fill='#0F172A' text-anchor='start'>Taleplerim</text>
+<text x='282' y='272' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Gelecek dönem için ders saati ve salon</text>
+<text x='282' y='290' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>taleplerinizi buradan gönderir, onay</text>
+<text x='282' y='308' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>durumlarını izlersiniz.</text>
+<circle cx='290' cy='362' r='4' fill='#CBD5E1'/>
+<rect x='297' y='358' width='18' height='8' rx='4' fill='#2563EB' fill-opacity='1'/>
+<circle cx='322' cy='362' r='4' fill='#CBD5E1'/>
+<circle cx='338' cy='362' r='4' fill='#CBD5E1'/>
+<circle cx='354' cy='362' r='4' fill='#CBD5E1'/>
+<rect x='422' y='340' width='90' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='467.0' y='367.4' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Geri</text>
+<rect x='524' y='340' width='100' height='44' rx='22.0' fill='#2563EB' fill-opacity='1'/>
+<text x='574.0' y='367.4' font-size='15' font-weight='600' fill='#FFFFFF' text-anchor='middle'>İleri</text>
+<text x='262' y='420' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>role=dialog · aria-labelledby title · live: ‘Adım 2 / 5: Taleplerim’</text>
+<text x='262' y='436' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>Esc = Turu bitir (state: dismissed at step 2) · ← → step · Tab trapped in card</text>
+</svg>

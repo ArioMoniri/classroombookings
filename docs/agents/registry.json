@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 21:47",
-      "left_off": "Both remaining verifications (backend suites, fresh-stack spec) are running in the background; the hand-off waits on their results."
+      "finished_at": "2026-10-17 22:46",
+      "left_off": "Docs are written; only the final suite count (for the PROGRESS DONE row) is outstanding."
     },
     {
       "id": "afe38e299d6f66d51",
@@ -2478,7 +2478,8 @@
       "goal": "You are lane **W3-SEC** of SmartSched wave 3 (ledger `wave3-sec-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3.md and COMMON.md (same folder) and follow them. The owner asked: \"all platform should have the needed security me…",
       "ledger": "W3-SEC: security hardening + RLS",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 22:16"
     },
     {
       "id": "a7bbfb1dcc86e5464",
@@ -2652,7 +2653,8 @@
       "goal": "You are lane **W3-IDP** of SmartSched wave 3b (ledger `wave3b-idp-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3B.md, WAVE3.md and COMMON.md (same folder) and follow them. Read the current identity code first: services/sso.p…",
       "ledger": "W3-IDP: admin-set identity providers",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 22:27"
     },
     {
       "id": "a242ea0825d52e066",
@@ -2746,7 +2748,8 @@
       "goal": "You are the wave-3 INTEGRATOR for SmartSched in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md and WAVE3.md, WAVE3B.md (same folder) first; their hard rules apply: NE…",
       "ledger": "Wave-3 integrator: cross-lane asks",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 22:19"
     },
     {
       "id": "ab89b91f69c3f0014",
@@ -2795,6 +2798,69 @@
       "scope": "",
       "goal": "You are lane CAL-F (calendar export frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-firs…",
       "ledger": "CAL-F: calendar export UI",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-17 22:31",
+      "left_off": "The second watcher (20 minutes) is still running, so I'm waiting for API.md."
+    },
+    {
+      "id": "a188be943a3fea75a",
+      "description": "Security follow-ups from W3-SEC",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 22:17",
+      "scope": "",
+      "goal": "You are the SECURITY FOLLOW-UP lane for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md: NEVER commit or push, test-first, never `pkill -f`, `nice -n …",
+      "ledger": "Security follow-ups from W3-SEC",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "aec6575a6b9f762e8",
+      "description": "Welcome guide research + design",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-17 22:37",
+      "scope": "",
+      "goal": "You are the WELCOME-GUIDE designer, researcher and motion designer for SmartSched (repo /home/user/classroombookings; Next.js frontend smartsched/frontend; design system docs in docs/design/v2 and v3). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/br…",
+      "ledger": "Welcome guide research + design",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ad9c72c1304d479cb",
+      "description": "Install SAML library (signxml)",
+      "subagent_type": "devops-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 22:37",
+      "scope": "",
+      "goal": "SmartSched repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md: NEVER commit or push, never `pkill -f`, `nice -n 10`. The owner asked: \"install the needed SAML library…",
+      "ledger": "Install SAML library (signxml)",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-17 22:45"
+    },
+    {
+      "id": "a52e366abe7716113",
+      "description": "Audit: no demo/mock/placeholder features",
+      "subagent_type": "strict-reviewer",
+      "isolation": null,
+      "started_at": "2026-10-17 22:45",
+      "scope": "",
+      "goal": "Adversarial product audit of SmartSched (repo /home/user/classroombookings, smartsched/backend + smartsched/frontend, branch claude/focused-wright-ktt0ss). You are read-only: change nothing. Write your report to /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchp…",
+      "ledger": "Audit: no demo/mock/placeholder features",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a67479c051488493d",
+      "description": "Adaptive scheduler research + design",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 22:45",
+      "scope": "",
+      "goal": "You are the ADAPTIVE-SCHEDULING researcher and architect for SmartSched (repo /home/user/classroombookings; FastAPI backend smartsched/backend; OR-Tools CP-SAT solver in app/solver; learning code: grep learning/habit/pattern; exams and invigilation modules; bookings/CRBS module). Read /tmp/claude-0/…",
+      "ledger": "Adaptive scheduler research + design",
       "resumed": false,
       "status": "running"
     }

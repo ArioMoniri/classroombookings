@@ -6,6 +6,7 @@ import type { Grid, GridSlot } from "@/lib/api/crbs";
 import type { EffectiveQuery } from "@/lib/api/booking-policies";
 import type { ApprovalRequest, FeatureFilter, FindAlternative, FindQuery, FindRow } from "@/lib/api/wave1";
 import { isSelectable } from "@/components/bookings/grid-model";
+import { periodVisible, slotLabel, type LabelFormat, type SlotDisplay } from "@/components/bookings/slot-display";
 
 export type WhenMode = "date" | "weekday" | "range";
 export type TimeMode = "clock" | "periods" | "duration";
@@ -342,4 +343,29 @@ export function ownRequestFor(room: number, dates: readonly string[], start: num
  */
 export function isFeatureMiss(a: Pick<FindAlternative, "kind" | "reason">): boolean {
   return a.kind === "near_miss" && /;\s*missing:/.test(a.reason?.en ?? "");
+}
+
+/** The generic period count of the find-room selects when the schedule's periods are not known. */
+export const FIND_PERIODS = 18;
+
+/**
+ * W3-SLOT follow-up: the "from / to period" options as the administrator shows slots (slot-display.md §5 find-room
+ * row): the schedule's periods labelled like the grid (inline form) without the hidden ones (window, short periods);
+ * without the periods, the numbers 1..18 inside the visible window as ordinals. A `keep` value stays listed (a recent
+ * search or a deep link that asks for a hidden period still reads).
+ */
+export function periodOptions(
+  periods: readonly Parameters<typeof slotLabel>[0][] | undefined,
+  sd: SlotDisplay,
+  f: LabelFormat,
+  keep: readonly number[] = [],
+): { value: number; label: string }[] {
+  if (periods?.length) {
+    const out = periods.filter((p) => periodVisible(p, sd) || keep.includes(p.start_period)).map((p) => ({ value: p.start_period, label: slotLabel(p, sd, f).inline }));
+    return out.length ? out : periods.map((p) => ({ value: p.start_period, label: slotLabel(p, sd, f).inline }));
+  }
+  const inWindow = (n: number) => (!sd.first_period || n >= sd.first_period) && (!sd.last_period || n <= sd.last_period);
+  return Array.from({ length: FIND_PERIODS }, (_, i) => i + 1)
+    .filter((n) => inWindow(n) || keep.includes(n))
+    .map((n) => ({ value: n, label: f.ordinal(n) }));
 }

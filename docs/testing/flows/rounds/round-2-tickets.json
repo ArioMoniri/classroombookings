@@ -1135,7 +1135,7 @@
      "dedup": "regression of I4 / I5 ([x] in 'Intake agent finished', head 4f00982): severity raised from the tester's major (SUGGESTER §2.3); T-R1-25 (verified; its open 'rename one instructor' part waits for the person-key decision)",
      "depends_on": [],
      "status": "done",
-     "resolution": "done: one natural key (the importer's PL:<term>:id:…#n) for both paths, computed in a planning pass; existing rows take only what the file says and they lack / differ after normalisation; week_count from the request; Excel day-fraction times; dry run == commit, re-upload 0/0, cp1254 >= 99 % on the real Bahar list (pytest + fresh stack)"
+     "resolution": "done: one natural key (the importer's PL:<term>:id:…#n) for both paths, computed in a planning pass; existing rows take only what the file says and they lack / differ after normalisation; week_count from the request; Excel day-fraction times; dry run == commit, re-upload 0/0, cp1254 >= 99 % on the real Bahar list (pytest + fresh stack); round-3 follow-up (loop-r3-laneC-2026-10-17): one week list per term (the term's own length for both readers), the cp1254 export typed like the workbook, so xlsx→xlsx / xlsx→cp1254 / cp1254→xlsx re-uploads rewrite 0 weeks and stay >= 99 % unchanged (R3-S-04, R3-M-02); existing-term offer, phone save capsule, Turkish entity labels (R3-M-03/04/07); renamed instructors as person_merge review items (owner decision)"
     },
     {
      "id": "T-R2-20",

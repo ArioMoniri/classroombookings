@@ -351,7 +351,7 @@ backend only so far are listed in [docs/STATUS.md](docs/STATUS.md).
 
 <!-- AUTO:status only=done -->
 
-Done 57 · Backend only 0 · In progress 2 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
+Done 61 · Backend only 0 · In progress 2 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
 
 | Feature | Area | Evidence |
 |---|---|---|
@@ -412,6 +412,10 @@ Done 57 · Backend only 0 · In progress 2 · Planned 0. Done items only; the fu
 | Quick reservation /reserve (Hızlı rezervasyon): day chips, a slot in the admin's unit, an optional length, how many people and feature chips, a short ranked list of free rooms (own waiting request marked), one primary that says Rezerve et or Talep et, a receipt with the real undo (POST /audit/{id}/undo) or Talebi geri çek; 2 taps for the next free slot, keyboard and screen-reader complete, one thumb at 390 | Bookings | [`w3-slot.spec.ts`](smartsched/frontend/e2e/w3-slot.spec.ts) |
 | Integrations gallery (Yönetim › Entegrasyonlar, /admin/integrations): organisation-wide connector cards for identity, e-mail, calendar, channels, webhooks / automation and AI with status words, last check, last change (who, when), Kur / Yönet, a Kullanımda switch through each area's own endpoint, Dikkat isteyen row, search, deep links, phone rows and a setup sheet embedding each area's panel | Platform, CI and docs | [`w3-hub.spec.ts`](smartsched/frontend/e2e/w3-hub.spec.ts) |
 | Guided n8n / Activepieces / Pipedream / Zapier webhook setup: platform steps, paste the trigger URL, signing secret shown once with copy, headers and an HMAC-SHA256 check snippet per platform, test event with the delivery result | Platform, CI and docs | [`integrations-gallery.test.tsx`](smartsched/frontend/src/components/admin/integrations/integrations-gallery.test.tsx) |
+| Several identity providers set by administrators and shared by all of them (Kimlik sağlayıcıları): Microsoft Entra (tenant pin kept), Google Workspace (hosted-domain pin), any OpenID Connect issuer with discovery (Okta, Keycloak, Auth0, Authentik, ADFS presets) and SAML 2.0 (Shibboleth / eduGAIN / YETKİM; signxml behind an optional import, 'kütüphane gerekli' without it), plus LDAP; per provider: label and /login order, allowed domains, invite-only, sign-up role (eligible roles only), group/claim mapping bounded by its creator's permissions, write-only encrypted secret, audit, Son değişiklik + version conflict | Platform, CI and docs | [`test_w3b_idp_oidc.py`](smartsched/backend/tests/test_w3b_idp_oidc.py) |
+| Guided identity-provider setup (5 steps): console values built from the public URL with Kopyala (redirect URI, entity id, ACS, scopes, logout URL, SP metadata), discovery / metadata check rows, a real test login in a popup that reports the claims (no account, no stored token), provider errors translated into cause + fix + step, then Etkinleştir | Platform, CI and docs | [`identity-wizard.test.tsx`](smartsched/frontend/src/components/identity/identity-wizard.test.tsx) |
+| Invitations per provider: invite by e-mail with the provider or a local password (set from the link), themed invitation e-mail (W3-MAIL send_kind), resend, renew, revoke (disables the unused placeholder, T-R1-35), bulk invite from a Turkish Excel CSV; account_created e-mail on self sign-up and local acceptance | Platform, CI and docs | [`test_w3b_idp_invites.py`](smartsched/backend/tests/test_w3b_idp_invites.py) |
+| /login with several providers: equal-weight buttons in the admins' order (Microsoft and Google branding), at most 3 + 'Diğer giriş yolları', invite shows only the invited method, provider error codes domain / invite_provider in TR/EN | Platform, CI and docs | [`identity-wizard.test.tsx`](smartsched/frontend/src/components/identity/identity-wizard.test.tsx) |
 
 <!-- /AUTO:status -->
 
@@ -436,6 +440,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `e14a47e` (committed 2026-10-17 21:54 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `60aaf94` (committed 2026-10-17 22:40 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

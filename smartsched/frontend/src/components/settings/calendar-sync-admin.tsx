@@ -11,6 +11,8 @@
  *   acknowledgement and writes a new record (`enabled: false`); token feeds answer 404 from then on.
  * - The legal basis the backend stores (an English constant) reads in the user's language.
  * The outgoing webhooks switch lives in WebhooksAdmin, with the endpoints it governs.
+ * CAL-09 (2026-10-17): the calendar-export settings block (components/calendar-export/admin-settings.tsx) sits under
+ * the sign-off; it renders only the settings the backend answers with. Export and props unchanged (W3-HUB embeds it).
  */
 import { CalendarSync, ShieldCheck } from "lucide-react";
 import { useId, useRef, useState } from "react";
@@ -22,6 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ResponsiveDialog } from "@/components/approvals/responsive-dialog";
+import { ExportScopeSettings } from "@/components/calendar-export/admin-settings";
 import { useIntegrationSettings, useSaveIntegrationSettings, type CalendarSignoff } from "@/lib/api/approval-first";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
@@ -111,6 +114,8 @@ export function CalendarSyncAdmin() {
           <Switch id="calendar-sync-switch" checked={!!s?.calendar_sync_enabled} disabled={!s || save.isPending} onCheckedChange={setCalendar} data-testid="calendar-sync-switch" />
         </div>
         {s ? s.calendar_sync_signoff ? <SignoffRecord signoff={s.calendar_sync_signoff} /> : <p className="pt-1 type-footnote text-label-3" data-testid="calendar-no-signoff">{t("notifications.admin.calendar.noSignoff")}</p> : null}
+        {/* CAL-09: scopes, who may export a department, the field allow-list, the horizon and the status counts */}
+        <ExportScopeSettings />
       </CardContent>
 
       <ResponsiveDialog

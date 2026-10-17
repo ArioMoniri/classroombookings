@@ -184,6 +184,8 @@ test("T-R2-20 F-08 S01/S03/S08 at 1440: recent jobs after a reload, /onboarding/
   const recent = page.getByTestId("onboarding-recent");
   await expect(recent).toBeVisible({ timeout: 30_000 });
   expect(await recent.getByRole("button").count()).toBeGreaterThan(0);
+  // the integrator's AI notice beside the drop zone (wave 3): visible on the files step
+  await expect(page.getByTestId("ai-notice")).toBeVisible();
   // the drop zone: one button, Enter and Space open the picker, the input lists the formats
   const zone = page.getByTestId("onboarding-dropzone");
   await expect(zone).toBeVisible();

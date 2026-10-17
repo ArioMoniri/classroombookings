@@ -2,12 +2,16 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { AiNotice } from "@/components/admin/ai/ai-kit";
+import { AiUsageBanner } from "@/components/admin/ai/my-ai-usage";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { cn } from "@/lib/utils";
 import { ACTIVE_JOB, councilApi, type CommitIn, type CommitOut, type DecisionIn } from "@/lib/api/council";
 import { problemText } from "@/lib/api/error-text";
+import { aiRefusalText } from "@/components/studio/write-it";
+import { pairLang } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { CommitPanel } from "./commit-panel";
 import { CouncilProgress } from "./council-progress";
@@ -81,7 +85,8 @@ export function OnboardingFlow({ initialJobId = null }: { initialJobId?: number 
       setJobId(created.id);
       setResult(null);
     } catch (e) {
-      setError(problemText(e, locale) ?? (e instanceof Error ? e.message : String(e)));
+      // a coded AI refusal (422 / 429: quota, guard) reads in the user's words, like the Studio's (write-it.tsx)
+      setError(aiRefusalText(e, pairLang(locale)) ?? problemText(e, locale) ?? (e instanceof Error ? e.message : String(e)));
     } finally {
       setBusy(false);
     }
@@ -151,7 +156,13 @@ export function OnboardingFlow({ initialJobId = null }: { initialJobId?: number 
           <BusyGlyph /> {c.rerunning}
         </p>
       ) : null}
-      {jobId === null ? <FileDrop busy={busy} onStart={start} /> : null}
+      {jobId === null ? (
+        <>
+          <AiUsageBanner />
+          <FileDrop busy={busy} onStart={start} />
+          <AiNotice />
+        </>
+      ) : null}
       {jobId === null && recent.data?.length ? (
         <nav aria-label={c.recentJobs} data-testid="onboarding-recent">
           <h2 className="mb-1 type-footnote font-semibold text-label-2">{c.recentJobs}</h2>

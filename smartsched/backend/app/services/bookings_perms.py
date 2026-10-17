@@ -71,8 +71,14 @@ SKIP_APPROVAL = "bookings.skip_approval"
 APPROVAL_FIRST_PERMISSIONS: tuple[tuple[str, str], ...] = (
     (SKIP_APPROVAL, "Book directly when every booking request needs approval (bookings.approval_mode)"),
 )
+#: calendar export for academicians (CAL-03, docs/research/2026-10-17-calendar-export.md §2.5): export the published
+#: classes of any department (heads of department, coordinators). Without it a person exports their own department
+#: and the departments of the sections they teach. Administrator only by default.
+CALENDAR_PERMISSIONS: tuple[tuple[str, str], ...] = (
+    ("calendar.department_feed", "Export the class calendar of any department"),
+)
 ALL_PERMISSIONS: tuple[tuple[str, str], ...] = (
-    CRBS_PERMISSIONS + SMARTSCHED_PERMISSIONS + WAVE1_PERMISSIONS + APPROVAL_FIRST_PERMISSIONS
+    CRBS_PERMISSIONS + SMARTSCHED_PERMISSIONS + WAVE1_PERMISSIONS + APPROVAL_FIRST_PERMISSIONS + CALENDAR_PERMISSIONS
 )
 PERMISSION_NAMES: frozenset[str] = frozenset(n for n, _ in ALL_PERMISSIONS)
 
@@ -115,6 +121,7 @@ PERMISSION_TR: dict[str, str] = {
     "book_single.request": "Tek seferlik rezervasyon talep etme",
     "book_recur.request": "Yinelenen rezervasyon talep etme",
     SKIP_APPROVAL: "Onaysız doğrudan rezervasyon",
+    "calendar.department_feed": "Bölüm ders takvimini dışa aktarma",
 }
 PERMISSION_EN: dict[str, str] = dict(ALL_PERMISSIONS)
 

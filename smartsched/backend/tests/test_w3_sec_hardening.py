@@ -200,7 +200,8 @@ def test_nginx_security_headers_and_csrf_fence() -> None:
     assert re.search(r"~\^/grafana/\s+\"'self'\";", NGINX) and "default     \"'none'\";" in NGINX
     assert "if ($smartsched_cross_site_write) { return 403; }" in NGINX
     assert "$proxy_add_x_forwarded_for" not in NGINX  # a client-made X-Forwarded-For chain is never passed on
-    assert "location = /.well-known/security.txt" in NGINX and "Expires: 2027-10-17" in NGINX
+    # security.txt is built by the backend from the admin's settings (wave3-sec2, test_w3_sec2_security_txt.py)
+    assert "location = /.well-known/security.txt" in NGINX
     assert "    location / {" in NGINX  # the pod CI renders /ci/ before this line
 
 

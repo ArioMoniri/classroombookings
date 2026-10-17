@@ -50,6 +50,7 @@ from app.models.conflicts import BookingConflict  # noqa: F401
 from app.models.council import CouncilArtifact, CouncilJob, CouncilStep
 from app.models.error_event import ErrorEvent  # noqa: F401  (W3-OPS grouped error events, alembic 0036)
 from app.models.integrations import (
+    CalendarClassRevision,
     CalendarConnection,
     CalendarEventLink,
     CalendarEventRevision,
@@ -89,6 +90,7 @@ __all__ = [
     "AIProposalDecision",
     "CalendarConnection",
     "CalendarEventLink",
+    "CalendarClassRevision",
     "CalendarEventRevision",
     "CalendarFeedToken",
     "CalendarSyncJob",

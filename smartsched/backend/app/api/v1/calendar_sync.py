@@ -3,20 +3,26 @@ Google Calendar / Microsoft 365 push connectors and the administrator's integrat
 
 from __future__ import annotations
 
+import hashlib
 import re
-from typing import Annotated, Any
+from collections import OrderedDict
+from datetime import UTC, datetime
+from email.utils import format_datetime, parsedate_to_datetime
+from typing import Annotated, Any, Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.deps import DB, CurrentAccess, require_permission
 from app.core import throttle
 from app.importers import normalize as n
-from app.models import CalendarConnection, CalendarSyncJob, User
+from app.models import AuditEvent, CalendarConnection, CalendarSyncJob, User
 from app.models.base import utcnow
 from app.services import audit, kvkk
+from app.services import calendar_classes as cc
 from app.services import calendar_connectors as conn_svc
 from app.services import calendar_feeds as feeds
 from app.services.bookings_perms import load_access
@@ -131,26 +137,97 @@ async def token_access_or_404(request: Request, db: DB, token: str) -> Any:
     return await load_access(db, user)
 
 
-def ics_response(request: Request, feed: feeds.Feed) -> Response:
+def _http_date(at: datetime) -> str:
+    return format_datetime(at.replace(tzinfo=UTC), usegmt=True)
+
+
+def _not_modified_since(header: str | None, last_modified: datetime | None) -> bool:
+    if not header or last_modified is None:
+        return False
+    try:
+        since = parsedate_to_datetime(header)
+    except (TypeError, ValueError):
+        return False
+    if since.tzinfo is None:
+        since = since.replace(tzinfo=UTC)
+    return last_modified.replace(tzinfo=UTC, microsecond=0) <= since
+
+
+def ics_response(request: Request, feed: feeds.Feed, *, attachment: bool = False) -> Response:
     headers = {
         "ETag": feed.etag,
-        "Cache-Control": "private, max-age=300",
+        "Cache-Control": "private, no-store" if attachment else "private, max-age=300",
         "Referrer-Policy": "no-referrer",
         "X-Robots-Tag": "noindex, nofollow",
     }
-    if feeds.etag_matches(request.headers.get("if-none-match"), feed.etag):
-        return Response(status_code=304, headers=headers)
-    headers["Content-Disposition"] = f'inline; filename="{feed.filename}"'
+    if feed.last_modified is not None:
+        headers["Last-Modified"] = _http_date(feed.last_modified)
+    if not attachment:
+        inm = request.headers.get("if-none-match")
+        if feeds.etag_matches(inm, feed.etag) or (
+            inm is None and _not_modified_since(request.headers.get("if-modified-since"), feed.last_modified)
+        ):
+            return Response(status_code=304, headers=headers)
+    disposition = "attachment" if attachment else "inline"
+    headers["Content-Disposition"] = f'{disposition}; filename="{feed.filename}"'
     return Response(feed.text.encode("utf-8"), media_type="text/calendar; charset=utf-8", headers=headers)
 
 
+#: CAL-05: token hash -> (version key, Last-Modified of the last full build), to answer If-Modified-Since cheaply
+_LAST_BUILDS: OrderedDict[str, tuple[str, datetime | None]] = OrderedDict()
+_LAST_BUILDS_MAX = 4096
+
+
 async def serve_feed(request: Request, db: DB, token: str, kind: str, scope_id: int | None) -> Response:
-    access = await token_access_or_404(request, db, token)
-    scope = feeds.FeedScope(kind, scope_id if scope_id is not None else access.user_id)
+    """Rate limits, the KVKK switch, the token bound to its scope (CAL-03: any other path is a 404), then the CAL-05
+    conditional GET: a version key (the link, the scope, the newest audit event -- every booking, run, move,
+    setting, role and term change writes one -- and the day) is compared before anything is built, so an unchanged
+    feed costs three queries; the full build follows otherwise."""
+    address = request.client.host if request.client else "?"
+    if throttle.FEED_PER_ADDRESS.hit(f"ip:{address}"):
+        raise _too_many(f"ip:{address}", throttle.FEED_PER_ADDRESS)
+    key = feeds.hash_token(token or "")
+    if throttle.FEED_PER_TOKEN.hit(key):
+        raise _too_many(key, throttle.FEED_PER_TOKEN)
+    if not await feeds.sync_enabled_one_query(db):
+        raise _not_found()
     try:
-        feed = await feeds.build_feed(db, access, scope)
+        row, user = await feeds.resolve_token_row(db, token)
     except feeds.FeedNotFound as exc:
         raise _not_found() from exc
+    if not feeds.token_serves(row, kind, scope_id):
+        raise _not_found()
+    newest = (await db.execute(select(func.max(AuditEvent.id)))).scalar_one_or_none()
+    day = datetime.now(UTC).astimezone(ZoneInfo("Europe/Istanbul")).date()
+    version = hashlib.sha256(f"v1|{row.id}|{kind}|{scope_id}|{newest}|{day}".encode()).hexdigest()
+    etag = '"' + version[:32] + '"'
+    cached = _LAST_BUILDS.get(key)
+    inm = request.headers.get("if-none-match")
+    if feeds.etag_matches(inm, etag) or (
+        inm is None
+        and cached is not None
+        and cached[0] == version
+        and _not_modified_since(request.headers.get("if-modified-since"), cached[1])
+    ):
+        headers = {"ETag": etag, "Cache-Control": "private, max-age=300", "Referrer-Policy": "no-referrer"}
+        if cached is not None and cached[0] == version and cached[1] is not None:
+            headers["Last-Modified"] = _http_date(cached[1])
+        return Response(status_code=304, headers=headers)
+    access = await load_access(db, user)
+    target = scope_id if scope_id is not None else access.user_id
+    scope = feeds.FeedScope(kind, target)
+    base, _ = await feeds.public_base(db)
+    path = feeds.scoped_path(row)
+    source = f"{base}/api/v1/calendar/feeds/{token}/{path}" if base and path else None
+    try:
+        feed = await feeds.build_feed(db, access, scope, source=source)
+    except feeds.FeedNotFound as exc:
+        raise _not_found() from exc
+    feed.version = version
+    _LAST_BUILDS[key] = (version, feed.last_modified)
+    _LAST_BUILDS.move_to_end(key)
+    while len(_LAST_BUILDS) > _LAST_BUILDS_MAX:
+        _LAST_BUILDS.popitem(last=False)
     return ics_response(request, feed)
 
 
@@ -172,6 +249,221 @@ async def feed_department(token: str, department_id: int, request: Request, db: 
 @router.get("/feeds/{token}/room-group/{group_id}.ics")
 async def feed_room_group(token: str, group_id: int, request: Request, db: DB) -> Response:
     return await serve_feed(request, db, token, "room_group", group_id)
+
+
+@router.get("/feeds/{token}/classes.ics")
+async def feed_my_classes(token: str, request: Request, db: DB) -> Response:
+    """CAL-02 "Derslerim": the published classes of the instructor record(s) linked to the link's owner."""
+    return await serve_feed(request, db, token, "my_classes", None)
+
+
+@router.get("/feeds/{token}/department-classes/{department_id}.ics")
+async def feed_department_classes(token: str, department_id: int, request: Request, db: DB) -> Response:
+    """CAL-03 "Bölümümün dersleri": a department's published classes (the department rule on every poll)."""
+    return await serve_feed(request, db, token, "department_classes", department_id)
+
+
+# --------------------------------------------------------------------------------------------------
+# CAL-03 subscriptions (scope-bound links) and the export options
+# --------------------------------------------------------------------------------------------------
+
+ScopeKind = Literal["my_classes", "department_classes", "my_bookings", "room", "room_group"]
+
+
+class SubscriptionIn(BaseModel):
+    scope_kind: ScopeKind
+    scope_id: int | None = Field(default=None, ge=1)
+    label: str | None = Field(default=None, max_length=200)
+
+
+def scope_refused(exc: cc.ScopeError) -> HTTPException:
+    return HTTPException(exc.status, exc.as_detail())
+
+
+async def _deny(db: DB, user_id: int, kind: str, scope_id: int | None, exc: cc.ScopeError) -> HTTPException:
+    """``calendar.scope_denied`` for a refused department (403) is audited, then the refusal is returned."""
+    if exc.code == "department_not_allowed":
+        # a rotate rolled back first: reload the (expired) actor before it is written into the audit row
+        user = await db.get(User, user_id, populate_existing=True)
+        await audit.record(
+            db,
+            "calendar.scope_denied",
+            "calendar_subscription",
+            None,
+            after={"scope_kind": kind, "scope_id": scope_id, "code": exc.code},
+            actor=user,
+        )
+        await db.commit()
+    return scope_refused(exc)
+
+
+async def _links_out(db: DB, row: Any, token: str) -> dict[str, Any]:
+    base, _ = await feeds.public_base(db)
+    path = feeds.scoped_path(row) or "mine.ics"
+    url = f"{base}/api/v1/calendar/feeds/{token}/{path}"
+    label_tr, _ = await feeds.scope_label(db, row.scope_kind, row.scope_id)
+    links = feeds.subscribe_links(url, f"SmartSched – {label_tr}")
+    owner = await db.get(User, row.user_id)
+    assert owner is not None
+    access = await load_access(db, owner)
+    return {
+        **await feeds.subscription_out(db, row),
+        "token": token,
+        "url": url,
+        "urls": {"https": url, **links},
+        "preview": await feeds.preview(db, access, row.scope_kind or "my_bookings", row.scope_id),
+        "note_tr": "Bağlantıyı açmayın, abone olun; açarsanız güncellenmeyen bir kopya oluşur.",
+        "note_en": "Subscribe to the link rather than opening it; opening it makes a copy that never updates.",
+    }
+
+
+@router.post("/subscriptions", status_code=201)
+async def create_subscription(body: SubscriptionIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
+    """Tap 3 "Onayla ve ekle" for a link: a token bound to one scope, shown once (CAL-03)."""
+    try:
+        row, token = await feeds.create_subscription(db, access, body.scope_kind, body.scope_id, body.label)
+    except cc.ScopeError as exc:  # refused before anything was written
+        raise await _deny(db, access.user_id, body.scope_kind, body.scope_id, exc) from exc
+    except kvkk.KvkkError as exc:
+        raise consent_refused(exc) from exc
+    except OverflowError as exc:
+        raise HTTPException(
+            409,
+            {
+                "code": "too_many_links",
+                "message": str(exc),
+                "message_en": f"At most {feeds.MAX_TOKENS_PER_USER} calendar links; remove one first.",
+                "message_tr": f"En çok {feeds.MAX_TOKENS_PER_USER} takvim bağlantınız olabilir; önce birini kaldırın.",
+            },
+        ) from exc
+    await audit.record(
+        db,
+        "calendar.subscription_create",
+        "calendar_subscription",
+        row.id,
+        after={
+            "scope_kind": row.scope_kind,
+            "scope_id": row.scope_id,
+            "channel": "link",
+            "consent_id": row.consent_id,
+            "fields": row.fields,
+            "hint": row.hint,
+        },
+        actor=access.user,
+    )
+    await db.commit()
+    return await _links_out(db, row, token)
+
+
+async def _own_subscription(db: DB, user: User, sub_id: int) -> Any:
+    from app.models import CalendarFeedToken
+
+    row = await db.get(CalendarFeedToken, sub_id)
+    if row is None or row.user_id != user.id:
+        raise HTTPException(
+            404, {"code": "not_found", "message_en": "calendar link not found", "message_tr": "Takvim bağlantısı yok"}
+        )
+    return row
+
+
+@router.get("/subscriptions")
+async def list_subscriptions(db: DB, access: CurrentAccess) -> dict[str, Any]:
+    """The person's links (scope, "en son çekti") and push connections (scopes, "Son eşitleme")."""
+    links = [await feeds.subscription_out(db, t) for t in await feeds.list_tokens(db, access.user_id)]
+    return {"links": links, "push": await conn_svc.push_out(db, access.user)}
+
+
+@router.delete("/subscriptions/{sub_id}", status_code=204)
+async def revoke_subscription(sub_id: int, db: DB, access: CurrentAccess) -> Response:
+    row = await _own_subscription(db, access.user, sub_id)
+    before = {"scope_kind": row.scope_kind, "scope_id": row.scope_id, "hint": row.hint}
+    await db.delete(row)
+    await audit.record(
+        db, "calendar.subscription_revoke", "calendar_subscription", sub_id, before=before, actor=access.user
+    )
+    await db.commit()
+    return Response(status_code=204)
+
+
+@router.post("/subscriptions/{sub_id}/rotate", status_code=201)
+async def rotate_subscription(sub_id: int, db: DB, access: CurrentAccess) -> dict[str, Any]:
+    """"Bağlantıyı yenile": a new link for the same scope; the old one stops at once."""
+    row = await _own_subscription(db, access.user, sub_id)
+    kind, scope_id, uid = row.scope_kind, row.scope_id, access.user_id
+    try:
+        new, token = await feeds.rotate_subscription(db, access, row)
+    except cc.ScopeError as exc:
+        await db.rollback()  # the old link stays
+        raise await _deny(db, uid, kind or "", scope_id, exc) from exc
+    except kvkk.KvkkError as exc:
+        raise consent_refused(exc) from exc
+    await audit.record(
+        db,
+        "calendar.subscription_rotate",
+        "calendar_subscription",
+        new.id,
+        before={"id": sub_id},
+        after={"id": new.id, "scope_kind": kind, "scope_id": scope_id, "hint": new.hint},
+        actor=access.user,
+    )
+    await db.commit()
+    return await _links_out(db, new, token)
+
+
+@router.get("/export/options")
+async def export_options(db: DB, access: CurrentAccess) -> dict[str, Any]:
+    """Tap 1 / 2 of "Takvimime ekle": what the person may export, how, and a preview per scope."""
+    return await feeds.export_options(db, access)
+
+
+# --------------------------------------------------------------------------------------------------
+# CAL-04 one-off .ics files (same engine and UIDs as the links)
+# --------------------------------------------------------------------------------------------------
+
+
+async def _term_slug(db: DB) -> str:
+    runs = await cc.course_runs(db)
+    if not runs:
+        return "takvim"
+    from app.models import Term
+
+    term = await db.get(Term, runs[-1].term_id)
+    return cc.ascii_slug(term.code if term is not None else None)
+
+
+async def _file(request: Request, db: DB, access: Any, kind: str, scope_id: int | None, filename: str) -> Response:
+    try:
+        await feeds.check_scope(db, access, kind, scope_id)
+    except cc.ScopeError as exc:
+        raise await _deny(db, access.user_id, kind, scope_id, exc) from exc
+    feed_kind = feeds.SCOPE_FEED_KIND[kind]
+    target = scope_id if scope_id is not None else access.user_id
+    try:
+        feed = await feeds.build_feed(db, access, feeds.FeedScope(feed_kind, target), attachment=True)
+    except feeds.FeedNotFound as exc:
+        raise _not_found() from exc
+    feed.filename = filename
+    return ics_response(request, feed, attachment=True)
+
+
+@router.get("/export/classes.ics")
+async def export_my_classes(request: Request, db: DB, access: CurrentAccess) -> Response:
+    return await _file(request, db, access, "my_classes", None, f"derslerim-{await _term_slug(db)}.ics")
+
+
+@router.get("/export/department/{department_id}.ics")
+async def export_department(department_id: int, request: Request, db: DB, access: CurrentAccess) -> Response:
+    from app.models import Program
+
+    dep = await db.get(Program, department_id)
+    slug = cc.ascii_slug(dep.name if dep is not None else str(department_id))
+    name = f"bolum-{slug}-{await _term_slug(db)}.ics"
+    return await _file(request, db, access, "department_classes", department_id, name)
+
+
+@router.get("/export/bookings.ics")
+async def export_my_bookings(request: Request, db: DB, access: CurrentAccess) -> Response:
+    return await _file(request, db, access, "my_bookings", None, "rezervasyonlarim.ics")
 
 
 # --------------------------------------------------------------------------------------------------

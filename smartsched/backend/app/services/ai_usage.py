@@ -12,6 +12,9 @@
   user's limits to the alert recipients (in-app bell + e-mail through :mod:`app.services.notify_dispatch`, at most once
   per period and threshold). The user sees a banner from ``GET /ai/me/usage``.
 * Reports: by user / feature / model / provider / day, period totals, recent refusals.
+* Row-level security (docs/SECURITY.md §4, R12): ``ai_usage`` rows are owner-scoped for a teacher on PostgreSQL. The
+  org-wide aggregates (the budget check in :func:`reserve`, the budget ratio of :func:`org_state`, the admin reports
+  and refusals) are deliberate cross-user reads and run inside ``rls.system_scope``; a per-user total stays scoped.
 """
 
 from __future__ import annotations
@@ -27,6 +30,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import gateway as gw
+from app.core import rls
 from app.core.db import get_session_factory
 from app.models import User
 from app.models.ai_usage import AIUsage
@@ -41,9 +45,9 @@ ALERT_LABEL = ("Yapay zekâ kullanım uyarıları", "AI usage alerts")
 
 async def _deliver(session: AsyncSession, user: User, notice: nd.Notice) -> bool:
     """The dispatcher's built-in channels (in-app bell + e-mail outbox) with its at-most-once ledger
-    (``notification_deliveries``). ``ai.usage_alert`` is listed in
-    :data:`app.services.notify_dispatch.EVENTS` (so it has a label in the preferences screen), but budget alerts
-    bypass the per-event switches here: administrators always get them."""
+    (``notification_deliveries``). Administrators' budget alerts bypass the
+    per-event switches here (always-on); the person's own notice goes through
+    :func:`app.services.notify_dispatch.dispatch` instead (:func:`_notify_self`), where their switches apply."""
     from app.models import NotificationDelivery
 
     sent = False
@@ -285,7 +289,11 @@ async def totals(session: AsyncSession, *, user_id: int | None = None, now: date
         if user_id is not None:
             q = q.where(AIUsage.user_id == user_id)
         try:
-            tokens, cost, calls = (await session.execute(q)).one()
+            if user_id is None:  # the org's total: everyone's rows, also inside a teacher's request (RLS)
+                async with rls.system_scope(session):
+                    tokens, cost, calls = (await session.execute(q)).one()
+            else:
+                tokens, cost, calls = (await session.execute(q)).one()
         except (OperationalError, ProgrammingError):  # an old schema without ai_usage: count nothing, never block
             log.warning("ai_usage table missing; run the migrations (alembic upgrade head)")
             await session.rollback()
@@ -452,6 +460,35 @@ def _alert_texts(scope: str, level: str, pct: float, who: str | None, lang: str)
     return title, body
 
 
+async def _notify_self(session: AsyncSession, user_id: int, level: str, pct: float, key: str) -> None:
+    user = await session.get(User, user_id)
+    if user is None:
+        return
+    if (user.language or "tr").startswith("en"):
+        title = f"You used {pct:.0f} % of your AI limit" + (" (limit reached)" if level == "hard" else "")
+        body = ("New AI requests are refused until it resets. " if level == "hard" else "") + "Profile > My AI usage."
+    else:
+        title = f"Yapay zekâ sınırınızın %{pct:.0f} kadarını kullandınız" + (
+            " (sınır doldu)" if level == "hard" else ""
+        )
+        body = (
+            "Sınır yenilenene kadar yeni yapay zekâ istekleri reddedilir. " if level == "hard" else ""
+        ) + "Profil > Yapay zekâ kullanımım."
+    notice = nd.Notice(
+        event=ALERT_EVENT,
+        key=key,
+        title=title,
+        body=body,
+        link="/profile",
+        data={"scope": "self", "level": level, "pct": pct},
+    )
+    try:
+        async with session.begin_nested():
+            await nd.dispatch(session, user, notice)
+    except Exception:  # noqa: BLE001 - a broken channel never breaks the call that triggered the alert
+        log.exception("ai self alert failed")
+
+
 async def check_alerts(user_id: int | None, now: datetime | None = None) -> list[str]:
     """Send the threshold alerts that became due (own session; never raises). Returns the notice keys sent."""
     sent: list[str] = []
@@ -492,6 +529,10 @@ async def check_alerts(user_id: int | None, now: datetime | None = None) -> list
                     )
                     if await _deliver(s, r, notice):
                         sent.append(key)
+                if scope == "user" and user_id is not None:
+                    # the person concerned: their own notice through the dispatcher, so their per-event switches
+                    # (Profil > Bildirimler) apply; the administrators' path above stays always-on
+                    await _notify_self(s, user_id, level, pct, key)
             await s.commit()
     except Exception:  # noqa: BLE001 - an alert must never break the call that triggered it
         log.exception("ai usage alerts failed")
@@ -548,7 +589,8 @@ async def report(
         stmt = stmt.join(User, User.id == AIUsage.user_id).where(
             or_(func.lower(User.email).like(like), func.lower(func.coalesce(User.full_name, "")).like(like))
         )
-    rows = (await session.execute(stmt.order_by(func.coalesce(func.sum(_TOKENS), 0).desc()).limit(limit))).all()
+    async with rls.system_scope(session):  # an admin report (the route checks the right); RLS would hide rows
+        rows = (await session.execute(stmt.order_by(func.coalesce(func.sum(_TOKENS), 0).desc()).limit(limit))).all()
     out: list[dict[str, Any]] = []
     users: dict[int, User] = {}
     if group == "user":
@@ -580,13 +622,14 @@ async def report(
 
 async def _report_days(session: AsyncSession, start: datetime, end: datetime) -> list[dict[str, Any]]:
     """Per local (Europe/Istanbul) day, every day of the range present (0 for a quiet day)."""
-    rows = (
-        await session.execute(
-            select(
-                AIUsage.created_at, _TOKENS.label("tokens"), AIUsage.cost_usd, AIUsage.outcome, AIUsage.feature
-            ).where(AIUsage.created_at >= start, AIUsage.created_at < end)
-        )
-    ).all()
+    async with rls.system_scope(session):  # org-wide (admin report)
+        rows = (
+            await session.execute(
+                select(
+                    AIUsage.created_at, _TOKENS.label("tokens"), AIUsage.cost_usd, AIUsage.outcome, AIUsage.feature
+                ).where(AIUsage.created_at >= start, AIUsage.created_at < end)
+            )
+        ).all()
     days: dict[str, dict[str, Any]] = {}
     d = _local(start.replace(tzinfo=UTC)).date()
     last = _local(end.replace(tzinfo=UTC) - timedelta(seconds=1)).date()
@@ -619,8 +662,10 @@ async def refusals(session: AsyncSession, *, limit: int = 100) -> list[dict[str,
         .order_by(AIUsage.created_at.desc(), AIUsage.id.desc())
         .limit(limit)
     )
+    async with rls.system_scope(session):  # org-wide (admin report)
+        found = (await session.execute(stmt)).all()
     out = []
-    for row, user in (await session.execute(stmt)).all():
+    for row, user in found:
         out.append(
             {
                 "id": row.id,

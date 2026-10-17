@@ -29,12 +29,14 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { BookSheet, type BookTarget } from "@/components/bookings/book-sheet";
 import { focusAfter } from "@/components/bookings/focus-after";
 import { useBookingFormat, useProfileLanguage } from "@/components/bookings/use-booking-format";
-import { crbs, crbsKeys, useBookingContext, useBookingDates, type GridQuery } from "@/lib/api/crbs";
+import { crbs, crbsKeys, useBookingContext, useBookingDates, useBookingGrid, type GridQuery } from "@/lib/api/crbs";
+import { useSlotDisplay } from "@/components/bookings/use-slot-display";
+import { nextWeekday } from "@/components/quick-reserve/quick-reserve-model";
 import { errorText, pickLang, useFacets, useMyRequests, useRecentSearches, w1Keys, wave1, wave1Error, type Feature, type FindAlternative, type FindResponse, type FindRow } from "@/lib/api/wave1";
 import { intlLocale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { altWhyQuery, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, buildingLabel, recentParts, SHOWN, slotsFor, whyQuery, wholeSpan, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, buildingLabel, periodOptions, recentParts, SHOWN, slotsFor, whyQuery, wholeSpan, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -109,6 +111,13 @@ export function FindRoomView() {
   }
   const f = form ?? emptyForm(today || "2026-01-01");
   const set = <K extends keyof FindForm>(k: K, v: FindForm[K]) => setForm((p) => ({ ...(p ?? f), [k]: v }));
+  // W3-SLOT: the period selects read like the grid (the administrator's labels, hidden periods left out); the term's
+  // periods come from one day grid, fetched only while the "periods" time mode is open
+  const slot = useSlotDisplay();
+  const gridDay = today ? nextWeekday(today) : undefined;
+  const dayGrid = useBookingGrid({ display: "day", date: gridDay, term_id: termId }, f.time === "periods" && !!gridDay && ctx.isSuccess);
+  const labelFormat = useMemo(() => ({ time: fmt.time, ordinal: (n: number) => t("slotDisplay.ordinal", { n }) }), [fmt, t]);
+  const periodChoices = periodOptions(dayGrid.data?.periods, slot.display, labelFormat, [f.startPeriod, f.endPeriod]);
 
   const [formError, setFormError] = useState<FormError | null>(null);
   const [result, setResult] = useState<FindResponse | null>(null);
@@ -322,18 +331,18 @@ export function FindRoomView() {
                   <div className="grid grid-cols-2 gap-2">
                     <Field label={t("wave1.find.fromPeriod")} htmlFor="fr-p1">
                       <SelectField id="fr-p1" value={String(f.startPeriod)} onChange={(e) => set("startPeriod", Number(e.target.value))}>
-                        {Array.from({ length: 18 }, (_, i) => (
-                          <option key={i} value={i + 1}>
-                            {t("wave1.find.periodN", { n: i + 1 })}
+                        {periodChoices.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
                           </option>
                         ))}
                       </SelectField>
                     </Field>
                     <Field label={t("wave1.find.toPeriod")} htmlFor="fr-p2" error={formError === "order" ? t(ERROR_KEY.order) : null}>
                       <SelectField id="fr-p2" value={String(f.endPeriod)} onChange={(e) => set("endPeriod", Number(e.target.value))}>
-                        {Array.from({ length: 18 }, (_, i) => (
-                          <option key={i} value={i + 1}>
-                            {t("wave1.find.periodN", { n: i + 1 })}
+                        {periodChoices.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
                           </option>
                         ))}
                       </SelectField>

@@ -119,7 +119,8 @@ async def test_sync_then_route_then_test(client):
     seen = _stub()
     r = await client.put(
         "/api/v1/ai/admin/providers/openai_compatible",
-        json={"base_url": "http://127.0.0.1:19519/v1", "enabled": True},
+        # a local server needs the explicit opt-in (SSRF guard, docs/SECURITY.md R12; wave3-sec2)
+        json={"base_url": "http://127.0.0.1:19519/v1", "enabled": True, "allow_local": True},
         headers=h,
     )
     assert r.status_code == 200 and r.json()["local"] is True and r.json()["transfer_ok"] is True

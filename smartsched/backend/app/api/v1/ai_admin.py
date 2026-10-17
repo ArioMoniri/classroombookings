@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from app.ai import gateway as gw
 from app.ai.context import FEATURE_LABELS, FEATURES
-from app.ai.providers import PROVIDERS, has_credentials, make_adapter
+from app.ai.providers import PROVIDERS, UnsafeBaseURL, check_base_url, has_credentials, make_adapter
 from app.ai.providers.base import ProviderError
 from app.ai.redteam import GUARD_CASES_PATH, load_cases, score_guard_cases, summarize_guard
 from app.api.deps import DB, CurrentUser, require_permission
@@ -62,6 +62,8 @@ class ProviderIn(BaseModel):
     region: str | None = Field(default=None, max_length=64)
     project_id: str | None = Field(default=None, max_length=200)
     enabled: bool | None = None
+    #: openai_compatible only: the explicit opt-in for a local server (Ollama, vLLM) on loopback / a private network
+    allow_local: bool | None = None
     transfer: TransferIn | None = None
 
 
@@ -111,6 +113,7 @@ async def _provider_out(db: DB, p: str) -> dict[str, Any]:
     cfg = await gw.provider_config(db, p)
     synced = await gw.synced_models(db, p)
     transfer = await gw.transfer_record(db, p)
+    allow_local = p == "openai_compatible" and cfg.get("allow_local") is True
     return {
         **spec.to_dict(),
         "keys": {name: gw.masked(secrets.get(name)) for name in spec.secrets},
@@ -125,7 +128,19 @@ async def _provider_out(db: DB, p: str) -> dict[str, Any]:
         "transfer": transfer,
         "transfer_ok": gw.transfer_ok(p, cfg, transfer),
         "local": p == "openai_compatible" and gw.is_local_url(cfg.get("base_url")),
+        "allow_local": allow_local,
+        "warnings": [LOCAL_WARNING] if allow_local else [],
     }
+
+
+#: shown on the provider card while the local-server opt-in is on (docs/SECURITY.md R12)
+LOCAL_WARNING = {
+    "code": "local_url_opt_in",
+    "message_tr": "Yerel sunucuya izin verildi: bu sağlayıcı kurum içi ağdaki ya da bu makinedeki bir adrese "
+    "istek gönderebilir. Yalnızca güvendiğiniz bir Ollama / vLLM sunucusu için açık tutun.",
+    "message_en": "A local server is allowed: this provider may send requests to an address on the internal network "
+    "or this machine. Keep it on only for an Ollama / vLLM server you trust.",
+}
 
 
 @router.get("/ai/admin/providers")
@@ -165,6 +180,17 @@ async def put_provider(provider: str, body: ProviderIn, db: DB, user: AIAdmin) -
             await gw.set_provider_secret(db, p, name, None)
             changed.append(f"clear:{name}")
     cfg = await gw.get_json(db, f"ai.provider.{p}.config", {})
+    if body.allow_local is not None:
+        if p != "openai_compatible":
+            raise _err(
+                422,
+                "unknown_field",
+                "Bu sağlayıcıda bu alan yok.",
+                "This provider has no such field.",
+                field="allow_local",
+            )
+        cfg["allow_local"] = bool(body.allow_local)
+        changed.append("allow_local")
     for fld in ("base_url", "region", "project_id"):
         value = getattr(body, fld)
         if value is None:
@@ -184,6 +210,17 @@ async def put_provider(provider: str, body: ProviderIn, db: DB, user: AIAdmin) -
             )
         cfg[fld] = value or None
         changed.append(fld)
+    if ("base_url" in changed or "allow_local" in changed) and cfg.get("base_url"):
+        # SSRF guard (app/ai/providers/url_guard.py): https, no metadata / link-local, local only with the opt-in.
+        # No DNS here; every request checks the resolved address again.
+        try:
+            check_base_url(
+                str(cfg["base_url"]),
+                allow_local=p == "openai_compatible" and cfg.get("allow_local") is True,
+                resolve=False,
+            )
+        except UnsafeBaseURL as exc:
+            raise _err(422, "unsafe_url", exc.message_tr, exc.message_en, field="base_url", reason=exc.code) from exc
     if body.enabled is not None:
         cfg["enabled"] = bool(body.enabled)
         changed.append("enabled")

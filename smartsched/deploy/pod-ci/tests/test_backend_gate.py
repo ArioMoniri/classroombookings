@@ -56,3 +56,13 @@ def test_gate_fails_and_cleans_up_when_postgres_never_gets_ready(tmp_path: Path)
     lines = log.splitlines()
     assert not any("TEST_POSTGRES_URL=" in c for c in lines)  # the tests never ran against nothing
     assert any(c.startswith("logs ") for c in lines) and lines[-1].startswith("network rm ")
+
+
+def test_saml_library_comes_from_the_lock_and_is_required(tmp_path: Path) -> None:
+    # SAML 2.0 is built in (owner 2026-10-17): signxml is pinned in requirements.lock, installed with it, and the
+    # gate fails if it is missing instead of letting tests/test_w3b_idp_saml.py skip.
+    _, log = run_gate(tmp_path)
+    assert "-c smartsched/backend/requirements.lock" in log
+    assert re.search(r'^python -c "import signxml', log, re.M)
+    lock = (REPO / "smartsched/backend/requirements.lock").read_text()
+    assert re.search(r"^signxml==\d+\.\d+\.\d+$", lock, re.M)

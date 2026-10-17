@@ -154,6 +154,20 @@ async def update_settings(body: SettingsUpdate, db: DB, user: Admin) -> dict[str
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
     extra = data.pop("extra", None) or {}
+    if any(str(k).startswith("security.") for k in extra):
+        # the security.txt contact has one validated, audited path (PUT /admin/security-contact)
+        from app.api.v1.security_contact import refusal
+        from app.services import security_txt as st
+
+        current = await st.current(db)
+        merged = {name: extra.get(key, current.get(name)) for name, key in st.KEYS.items()}
+        try:
+            values = st.validate(merged)
+        except st.InvalidContact as exc:
+            raise refusal(exc) from exc
+        for name, key in st.KEYS.items():
+            if key in extra:
+                extra[key] = values[name]
     if "crbs_dsn_allowed_hosts" in extra:  # one validated path for the SSRF allowlist (review D16)
         data["crbs_dsn_allowed_hosts"] = extra.pop("crbs_dsn_allowed_hosts")
     if data.get("crbs_dsn_allowed_hosts") is not None:

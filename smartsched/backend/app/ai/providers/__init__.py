@@ -23,6 +23,7 @@ from app.ai.providers.base import (
 )
 from app.ai.providers.gemini import GeminiAdapter
 from app.ai.providers.openai_compat import DEFAULT_BASE_URLS, OpenAICompatAdapter
+from app.ai.providers.url_guard import UnsafeBaseURL, check_base_url
 
 
 @dataclass(frozen=True)
@@ -173,6 +174,8 @@ def make_adapter(
         timeout_s=timeout_s,
         temperature=temperature,
         transport=transport,
+        # the administrator's explicit opt-in for a local server (Ollama, vLLM); url_guard.py refuses it otherwise
+        allow_local=provider == "openai_compatible" and cfg.get("allow_local") is True,
     )
 
 
@@ -190,7 +193,9 @@ __all__ = [
     "ProviderError",
     "ProviderSpec",
     "ProviderUnsupported",
+    "UnsafeBaseURL",
     "VertexAdapter",
+    "check_base_url",
     "has_credentials",
     "make_adapter",
 ]

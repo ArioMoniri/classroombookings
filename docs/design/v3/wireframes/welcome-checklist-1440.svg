@@ -1,0 +1,56 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Başlarken checklist, desktop 1440, sidebar pill and panel'>
+<title>Başlarken checklist, desktop 1440, sidebar pill and panel</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='40' y='101' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Hızlı rezervasyon</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezervasyonlar</text>
+<rect x='24' y='152' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='173' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Rezervasyonlarım</text>
+<text x='40' y='209' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Derslik bul</text>
+<text x='40' y='245' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Taleplerim</text>
+<text x='32' y='282' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>HESAP</text>
+<text x='40' y='317' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Profil</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Rezervasyonlarım</text>
+<rect x='24' y='780' width='208' height='92' rx='14' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='1'/>
+<text x='40' y='806' font-size='14' font-weight='700' fill='#2563EB' text-anchor='start'>Başlarken</text>
+<text x='216' y='806' font-size='13' font-weight='600' fill='#2563EB' text-anchor='end'>2 / 5</text>
+<rect x='40' y='820' width='176' height='8' rx='4' fill='#FFFFFF' fill-opacity='1'/>
+<rect x='40' y='820' width='70' height='8' rx='4' fill='#2563EB' fill-opacity='1'/>
+<text x='40' y='852' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>Sıradaki: Bildirim kanalı</text>
+<text x='24' y='770' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>sidebar footer pill (button, aria-expanded)</text>
+<rect x='256' y='456' width='420' height='420' rx='20' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='276' y='492' font-size='18' font-weight='700' fill='#0F172A' text-anchor='start'>Başlarken</text>
+<text x='656' y='492' font-size='13' font-weight='600' fill='#2563EB' text-anchor='end'>Gizle</text>
+<text x='276' y='516' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>5 adımdan 2'si tamam</text>
+<rect x='276' y='528' width='380' height='8' rx='4' fill='#E2E8F0' fill-opacity='1'/>
+<rect x='276' y='528' width='152.0' height='8' rx='4' fill='#2563EB' fill-opacity='1'/>
+<rect x='272' y='552' width='388' height='52' rx='12' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='296' cy='578' r='11' fill='#15803D'/>
+<polyline points='291,578 295,582 302,573' fill='none' stroke='#FFFFFF' stroke-width='2.2' stroke-linejoin='round'/>
+<text x='318' y='574' font-size='14' font-weight='400' fill='#64748B' text-anchor='start'>Profilinizi tamamlayın</text>
+<text x='318' y='592' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Bölüm ve dil</text>
+<rect x='272' y='612' width='388' height='52' rx='12' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='296' cy='638' r='11' fill='#15803D'/>
+<polyline points='291,638 295,642 302,633' fill='none' stroke='#FFFFFF' stroke-width='2.2' stroke-linejoin='round'/>
+<text x='318' y='634' font-size='14' font-weight='400' fill='#64748B' text-anchor='start'>İlk rezervasyonunuzu yapın</text>
+<text x='318' y='652' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Hızlı rezervasyon</text>
+<rect x='272' y='672' width='388' height='52' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='296' cy='698' r='11' fill='#FFFFFF' stroke='#94A3B8' stroke-width='2'/>
+<text x='318' y='694' font-size='14' font-weight='500' fill='#0F172A' text-anchor='start'>Bildirim kanalı seçin</text>
+<text x='318' y='712' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>E-posta, Telegram…</text>
+<text x='644' y='702' font-size='18' font-weight='600' fill='#64748B' text-anchor='end'>›</text>
+<rect x='272' y='732' width='388' height='52' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='296' cy='758' r='11' fill='#FFFFFF' stroke='#94A3B8' stroke-width='2'/>
+<text x='318' y='754' font-size='14' font-weight='500' fill='#0F172A' text-anchor='start'>Derslerinizi takviminize ekleyin</text>
+<text x='318' y='772' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Takvimime ekle</text>
+<text x='644' y='762' font-size='18' font-weight='600' fill='#64748B' text-anchor='end'>›</text>
+<rect x='272' y='792' width='388' height='52' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<circle cx='296' cy='818' r='11' fill='#FFFFFF' stroke='#94A3B8' stroke-width='2'/>
+<text x='318' y='814' font-size='14' font-weight='500' fill='#0F172A' text-anchor='start'>Taleplerim sayfasına göz atın</text>
+<text x='318' y='832' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Taleplerim</text>
+<text x='644' y='822' font-size='18' font-weight='600' fill='#64748B' text-anchor='end'>›</text>
+<text x='256' y='896' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>items tick from server signals (a booking exists, a channel is linked…), not from clicks alone</text>
+<text x='1060' y='84' font-size='14' font-weight='400' fill='#475569' text-anchor='start'>Rezervasyonlarım</text>
+</svg>

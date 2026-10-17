@@ -217,11 +217,18 @@ def _ics_escape(s: str) -> str:
 
 
 async def export_ics(session: AsyncSession, run: ScheduleRun) -> str:
+    """The planner's run export (``format=ics``; any run, draft or published). CAL-04: written by the feeds'
+    renderer (``bookings_export.render_calendar``): ``TZID=Europe/Istanbul`` + VTIMEZONE instead of floating times,
+    a stable DTSTAMP (the run's finish time), course code and room only -- the board notes stay out (they may name
+    people; KVKK minimisation). UIDs stay run-scoped: this is a snapshot of one run, not a subscription."""
+    from app.services import settings_service
+    from app.services.bookings_export import IcsEvent, render_calendar
+
     term = await session.get(Term, run.term_id)
     assert term is not None
     rows = await _rows(session, run)
-    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//SmartSched//EN", "CALSCALE:GREGORIAN"]
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    stamp = (run.finished_at or run.created_at or datetime.now(UTC).replace(tzinfo=None)).replace(microsecond=0)
+    events: list[IcsEvent] = []
     for r in rows:
         weeks = r["_weeks"] or [1]
         for wk in weeks:
@@ -233,19 +240,23 @@ async def export_ics(session: AsyncSession, run: ScheduleRun) -> str:
             end = datetime.combine(d, ep)
             if end <= start:
                 end = start + timedelta(minutes=40)
-            lines += [
-                "BEGIN:VEVENT",
-                f"UID:smartsched-run{run.id}-a{r['assignment_id']}-w{wk}@smartsched",
-                f"DTSTAMP:{stamp}",
-                f"DTSTART:{start:%Y%m%dT%H%M%S}",
-                f"DTEND:{end:%Y%m%dT%H%M%S}",
-                f"SUMMARY:{_ics_escape(r['label'])}",
-                f"LOCATION:{_ics_escape(r['rooms'])}",
-                f"DESCRIPTION:{_ics_escape(r['notes'])}",
-                "END:VEVENT",
-            ]
-    lines.append("END:VCALENDAR")
-    return "\r\n".join(lines) + "\r\n"
+            events.append(
+                IcsEvent(
+                    uid=f"smartsched-run{run.id}-a{r['assignment_id']}-w{wk}@smartsched",
+                    start=start,
+                    end=end,
+                    summary=str(r["label"] or ""),
+                    location=str(r["rooms"] or ""),
+                    description=None,
+                    status="CONFIRMED",
+                    sequence=0,
+                    last_modified=stamp,
+                )
+            )
+    events.sort(key=lambda e: (e.start, e.uid))
+    tz_name = str(await settings_service.get_value(session, "timezone") or "Europe/Istanbul")
+    title = f"SmartSched – {run.label or f'#{run.id}'}"
+    return render_calendar(title, tz_name, events)
 
 
 _FILLS = {

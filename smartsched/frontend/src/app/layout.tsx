@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { requestLocale } from "@/lib/i18n/server";
 import { Providers } from "@/components/providers";
@@ -42,14 +43,16 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await requestLocale();
+  // the per-request CSP nonce from src/proxy.ts (docs/SECURITY.md F9): inline scripts without it do not run
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang={locale} suppressHydrationWarning className={`${inter.variable} ${mono.variable} h-full antialiased`}>
       <head>
         {/* before first paint: in-app Reduce motion / Reduce transparency and the accent preset (no flash) */}
-        <script dangerouslySetInnerHTML={{ __html: appearanceHeadScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: appearanceHeadScript }} />
       </head>
       <body className="flex min-h-full flex-col">
-        <Providers locale={locale}>{children}</Providers>
+        <Providers locale={locale} nonce={nonce}>{children}</Providers>
       </body>
     </html>
   );

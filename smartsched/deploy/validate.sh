@@ -304,7 +304,9 @@ else:
     print(f"  ok   observability profile: {len(obs)} services, no ports, memory caps {total} MiB <= 768 MiB")
 genv = obs.get("grafana", {}).get("environment", {})
 for k, v in (("GF_AUTH_ANONYMOUS_ENABLED", "false"), ("GF_AUTH_DISABLE_LOGIN_FORM", "true"),
-             ("GF_AUTH_PROXY_ENABLED", "true"), ("GF_AUTH_BASIC_ENABLED", "false")):
+             ("GF_AUTH_PROXY_ENABLED", "true"), ("GF_AUTH_BASIC_ENABLED", "false"),
+             # /admin/ops frames /grafana/ same-origin: Grafana's own X-Frame-Options must not deny it (wave3-sec2)
+             ("GF_SECURITY_ALLOW_EMBEDDING", "true"), ("GF_SECURITY_COOKIE_SAMESITE", "lax")):
     if str(genv.get(k, "")).lower() != v:
         print(f"  FAIL grafana {k} must be {v}"); rc = 1
 uids = [json.loads(p.read_text())["uid"] for p in sorted((here / "observability/grafana/dashboards").glob("*.json"))]

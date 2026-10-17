@@ -13,6 +13,10 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+
+# the signature tests need the optional SAML extra (pip install '.[saml]'); the "kütüphane gerekli" state is tested in
+# test_w3b_idp_saml_optional.py without it
+pytest.importorskip("signxml")
 from app.core import db as dbmod
 from app.models import AuditEvent, User
 from app.models.sso import UserIdentity
@@ -265,19 +269,6 @@ async def test_test_login_reports_saml_attributes(saml) -> None:  # type: ignore
     res = (await env.client.get(f"{ADMIN}/{p['id']}/test/{r['test_id']}", headers=env.admin)).json()
     assert res["ok"] is True and res["verified_email"] == "ayse.yilmaz@uni.edu.tr"
     assert res["groups"] == ["urn:mace:uni.edu.tr:planlama"] and "mail" in res["attributes"]
-
-
-async def test_without_the_library_saml_cannot_be_enabled(idp, monkeypatch) -> None:  # noqa: F811
-    monkeypatch.setattr(idp_saml, "AVAILABLE", False)
-    kinds = {k["kind"]: k for k in (await idp.client.get("/api/v1/auth/sso/admin/kinds", headers=idp.admin)).json()}
-    assert kinds["saml"]["library_required"] is True
-    p = await idp.create("saml", preset="shibboleth")
-    assert p["library_required"] is True
-    r = await idp.put(p["id"], metadata_xml=federation_metadata().decode(), idp_entity_id=IDP_ENTITY)
-    lib = next(c for c in r.json()["discovery"]["checks"] if c["key"] == "library")
-    assert lib["ok"] is False and "Kütüphane gerekli" in lib["tr"]
-    r = await idp.put(p["id"], enabled=True)
-    assert r.status_code == 422 and r.json()["detail"]["code"] == "library_required"
 
 
 def test_metadata_parser_refuses_entities_and_needs_the_entity_id_in_an_aggregate() -> None:

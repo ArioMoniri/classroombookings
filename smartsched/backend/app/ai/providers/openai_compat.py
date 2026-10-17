@@ -42,6 +42,7 @@ from app.ai.providers.base import (
     system_text,
     tool_result_text,
 )
+from app.ai.providers.url_guard import ensure_safe
 
 log = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ class OpenAICompatAdapter(ProviderAdapter):
         timeout_s: float = 120.0,
         temperature: float | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
+        allow_local: bool = False,
     ) -> None:
         if flavor not in DEFAULT_BASE_URLS:
             raise ValueError(f"unknown OpenAI-compatible flavor {flavor!r}")
@@ -82,6 +84,8 @@ class OpenAICompatAdapter(ProviderAdapter):
         self._key = api_key or ""
         self._timeout = timeout_s
         self._transport = transport
+        #: the administrator's opt-in for a local server (openai_compatible only; url_guard.py)
+        self._allow_local = allow_local and flavor == "openai_compatible"
         self.temperature = temperature
 
     def __repr__(self) -> str:
@@ -101,6 +105,8 @@ class OpenAICompatAdapter(ProviderAdapter):
         return h
 
     async def _request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        if self._transport is None:  # a real socket: SSRF guard after DNS resolution (docs/SECURITY.md R12)
+            await ensure_safe(self.base_url, allow_local=self._allow_local)
         async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as http:
             resp = await http.request(method, f"{self.base_url}{path}", headers=self._headers(), json=payload)
         if resp.status_code >= 400:

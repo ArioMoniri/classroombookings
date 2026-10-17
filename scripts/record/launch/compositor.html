@@ -65,8 +65,8 @@ function image(src) {
     imgs.set(src, e);
   }
   e.used = ++useTick;
-  if (imgs.size > 24) {
-    const old = [...imgs.entries()].sort((a, b) => a[1].used - b[1].used).slice(0, imgs.size - 24);
+  if (imgs.size > 10) {
+    const old = [...imgs.entries()].sort((a, b) => a[1].used - b[1].used).slice(0, imgs.size - 10);
     for (const [k] of old) imgs.delete(k);
   }
   return e;

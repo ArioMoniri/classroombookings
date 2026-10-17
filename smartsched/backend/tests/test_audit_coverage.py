@@ -289,6 +289,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/runs/{run_id}/assignments/{aid}/explain": (N, "explanation text"),
     # settings, studio (importer agent), terms
     "PUT /api/v1/settings": (T, "Setting (secrets redacted)"),
+    "PUT /api/v1/admin/security-contact": (E, "app.api.v1.security_contact"),
     "POST /api/v1/settings/test-ai": (N, "probe"),
     "PUT /api/v1/studio/meetings/bulk": (E, "app.api.v1.studio"),
     "POST /api/v1/studio/meetings/{mr_id}/revert": (E, "app.api.v1.studio"),

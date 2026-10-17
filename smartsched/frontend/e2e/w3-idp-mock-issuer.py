@@ -23,7 +23,9 @@ from joserfc.jwk import RSAKey
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 19712
 ISSUER = f"http://localhost:{PORT}/realms/uni"
 CLIENT_ID, CLIENT_SECRET = "smartsched-e2e", "e2e-fake-secret"
-KEY = RSAKey.generate_key(2048, parameters={"kid": "e2e-1", "use": "sig", "alg": "RS256"}, private=True)
+#: a new key id per process: the backend caches the JWKS per key id (a restarted mock is a key rotation)
+KID = "e2e-" + secrets.token_hex(4)
+KEY = RSAKey.generate_key(2048, parameters={"kid": KID, "use": "sig", "alg": "RS256"}, private=True)
 CODES: dict[str, dict[str, str]] = {}
 
 
@@ -107,7 +109,7 @@ class Handler(BaseHTTPRequestHandler):
             "name": "Ayşe Yılmaz",
             "groups": ["/personel/planlama"],
         }
-        token = jwt.encode({"alg": "RS256", "kid": "e2e-1", "typ": "JWT"}, claims, KEY)
+        token = jwt.encode({"alg": "RS256", "kid": KID, "typ": "JWT"}, claims, KEY)
         return self._json(200, {"access_token": "e2e-access", "id_token": token, "token_type": "Bearer"})
 
 

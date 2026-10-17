@@ -1,0 +1,43 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='390' height='844' viewBox='0 0 390 844' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Başlarken checklist, phone 390, Daha tab'>
+<title>Başlarken checklist, phone 390, Daha tab</title>
+<rect width='390' height='844' fill='#F4F6F9'/>
+<text x='20' y='30' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>9:41</text>
+<text x='370' y='30' font-size='12' font-weight='500' fill='#0F172A' text-anchor='end'>100%</text>
+<text x='20' y='92' font-size='30' font-weight='700' fill='#0F172A' text-anchor='start'>Daha</text>
+<rect x='0' y='761' width='390' height='83' rx='0' fill='#FFFFFF' fill-opacity='0.94'/>
+<line x1='0' y1='761' x2='390' y2='761' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='28.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='39.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Rezerve et</text>
+<rect x='106.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='117.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Rezervasyonlarım</text>
+<rect x='184.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='195.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Derslik bul</text>
+<rect x='262.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='273.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Taleplerim</text>
+<rect x='340.0' y='771' width='22' height='22' rx='6' fill='#2563EB' fill-opacity='1' stroke='#2563EB' stroke-width='1.5'/>
+<text x='351.0' y='809' font-size='10' font-weight='600' fill='#2563EB' text-anchor='middle'>Daha</text>
+<rect x='128.0' y='835' width='134' height='5' rx='3' fill='#0F172A' fill-opacity='1'/>
+<rect x='20' y='116' width='350' height='92' rx='16' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='1'/>
+<text x='36' y='146' font-size='16' font-weight='700' fill='#2563EB' text-anchor='start'>Başlarken</text>
+<text x='354' y='146' font-size='14' font-weight='600' fill='#2563EB' text-anchor='end'>2 / 5</text>
+<rect x='36' y='160' width='318' height='8' rx='4' fill='#FFFFFF' fill-opacity='1'/>
+<rect x='36' y='160' width='127' height='8' rx='4' fill='#2563EB' fill-opacity='1'/>
+<text x='36' y='192' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>Sıradaki: Bildirim kanalı seçin  ›</text>
+<text x='20' y='224' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>first row of Daha; never a floating button over the tab bar (G1)</text>
+<rect x='20' y='240' width='350' height='48' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='36' y='270' font-size='15' font-weight='500' fill='#0F172A' text-anchor='start'>Profil</text>
+<text x='354' y='270' font-size='18' font-weight='600' fill='#64748B' text-anchor='end'>›</text>
+<rect x='20' y='296' width='350' height='48' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='36' y='326' font-size='15' font-weight='500' fill='#0F172A' text-anchor='start'>Bildirimler</text>
+<text x='354' y='326' font-size='18' font-weight='600' fill='#64748B' text-anchor='end'>›</text>
+<rect x='20' y='352' width='350' height='48' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='36' y='382' font-size='15' font-weight='500' fill='#0F172A' text-anchor='start'>Takvimime ekle</text>
+<text x='354' y='382' font-size='18' font-weight='600' fill='#64748B' text-anchor='end'>›</text>
+<rect x='20' y='408' width='350' height='48' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='36' y='438' font-size='15' font-weight='500' fill='#0F172A' text-anchor='start'>Yardım</text>
+<text x='354' y='438' font-size='18' font-weight='600' fill='#64748B' text-anchor='end'>›</text>
+<rect x='20' y='464' width='350' height='48' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='36' y='494' font-size='15' font-weight='500' fill='#0F172A' text-anchor='start'>Çıkış yap</text>
+<text x='354' y='494' font-size='18' font-weight='600' fill='#64748B' text-anchor='end'>›</text>
+<text x='20' y='536' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>Yardım › Turu yeniden başlat · Başlarken listesi · Neler yeni · Klavye kısayolları</text>
+</svg>

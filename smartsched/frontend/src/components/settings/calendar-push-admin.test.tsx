@@ -131,3 +131,69 @@ describe("CalendarPushAdmin", () => {
     expect(await screen.findByTestId("calendar-push-microsoft-state")).toHaveTextContent("Yapılandırılmadı");
   });
 });
+
+/** CAL-09: the push rules under the public address: verified accounts only + domains, client source, Google scope mode. */
+describe("CalendarPushAdmin › push rules (CAL-09)", () => {
+  beforeEach(() => {
+    state.settings = { ...fresh(), calendar_sync_enabled: true, push_verified_only: true, push_allowed_domains: ["uni.edu.tr"], calendar_client_source: "own", google_scope_mode: "app_created" };
+    state.put.mockReset();
+    state.put.mockImplementation(async (b: Record<string, unknown>) => {
+      state.settings = { ...(state.settings as object), ...b };
+      return state.settings;
+    });
+  });
+
+  it("is absent while the backend has no push rules", async () => {
+    state.settings = fresh();
+    renderCard();
+    await screen.findByTestId("calendar-push-google");
+    expect(screen.queryByTestId("cal-admin-push")).toBeNull();
+  });
+
+  it("shows verified-only on, the domains, the client source and the recommended Google scope", async () => {
+    renderCard();
+    expect(await screen.findByTestId("cal-admin-verified")).toHaveAttribute("data-checked");
+    expect(screen.getByTestId("cal-admin-domains")).toHaveValue("uni.edu.tr");
+    expect(screen.getByTestId("cal-admin-source-own")).toBeChecked();
+    expect(screen.getByTestId("cal-admin-gscope-app_created")).toBeChecked();
+  });
+
+  it("validates and saves the domains, lower-cased and without @", async () => {
+    renderCard();
+    const input = await screen.findByTestId("cal-admin-domains");
+    await userEvent.clear(input);
+    await userEvent.type(input, "Uni.edu.tr, @ogr.uni.edu.tr, not a domain");
+    await userEvent.click(screen.getByTestId("cal-admin-domains-save"));
+    expect(screen.getByTestId("cal-admin-domains-error")).toHaveTextContent("Not a domain: not");
+    expect(state.put).not.toHaveBeenCalled();
+    await userEvent.clear(input);
+    await userEvent.type(input, "Uni.edu.tr, @ogr.uni.edu.tr");
+    await userEvent.click(screen.getByTestId("cal-admin-domains-save"));
+    await waitFor(() => expect(state.put).toHaveBeenCalledWith({ push_allowed_domains: ["uni.edu.tr", "ogr.uni.edu.tr"] }));
+  });
+
+  it("switches the Google scope mode and verified-only with their own keys", async () => {
+    renderCard();
+    await userEvent.click(await screen.findByTestId("cal-admin-gscope-events"));
+    await waitFor(() => expect(state.put).toHaveBeenCalledWith({ google_scope_mode: "events" }));
+    await userEvent.click(screen.getByTestId("cal-admin-verified"));
+    await waitFor(() => expect(state.put).toHaveBeenCalledWith({ push_verified_only: false }));
+  });
+
+  it("keeps the shared cache shape of the KVKK / push panels after a save", async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <I18nProvider initialLocale="tr">
+          <CalendarPushAdmin />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    await userEvent.click(await screen.findByTestId("cal-admin-source-identity"));
+    await waitFor(() => expect(state.put).toHaveBeenCalledWith({ calendar_client_source: "identity" }));
+    const cached = qc.getQueryData(afKeys.integrations) as { google?: { client_id: string }; calendar_client_source?: string };
+    expect(cached.google?.client_id).toBe("");
+    expect(cached.calendar_client_source).toBe("identity");
+    expect(screen.getByText("Oturum açma sağlayıcısının istemcisini kullan")).toBeInTheDocument();
+  });
+});

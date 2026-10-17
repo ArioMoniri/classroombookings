@@ -16,6 +16,11 @@ set -eu
 : "${DB_WAIT_SECONDS:=60}"
 : "${RUN_MIGRATIONS:=1}"
 : "${SEED_ADMIN:=1}"
+# Proxy hops whose X-Forwarded-For uvicorn (and app/core/security_http.py) believe: loopback and the Docker bridge
+# range the compose network is allocated from (docs/SECURITY.md F8). Never '*': a client reaching :8000 directly
+# could then pick its own address. Set it to the compose subnet when the daemon allocates from other pools.
+: "${FORWARDED_ALLOW_IPS:=127.0.0.1,::1,172.16.0.0/12}"
+export FORWARDED_ALLOW_IPS
 export DB_WAIT_SECONDS
 
 python - <<'PY'
@@ -67,5 +72,5 @@ exec uvicorn app.main:app \
   --port "${UVICORN_PORT}" \
   --workers "${UVICORN_WORKERS}" \
   --proxy-headers \
-  --forwarded-allow-ips='*' \
+  --forwarded-allow-ips="${FORWARDED_ALLOW_IPS}" \
   --timeout-graceful-shutdown 30

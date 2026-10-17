@@ -137,6 +137,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from app.services import kvkk as kvkk_jobs
 
     await kvkk_jobs.stop_purge_job()
+    from app.core import observability
+
+    await observability.stop_relays()  # the Prometheus + integrations alert loops (started by the middleware)
     await integrations.shutdown()
     await get_queue().shutdown()
     await dispose_engine()
@@ -185,6 +188,10 @@ def create_app() -> FastAPI:
 
     install_observability(app)  # W3-OPS: /metrics, /healthz, /readyz, request metrics, error events, Sentry
     app.include_router(api_router, prefix="/api/v1")
+    # RFC 9116 /.well-known/security.txt + /security.txt from the admin's settings (nginx proxies both here)
+    from app.api.v1.security_contact import public_router as security_txt_router
+
+    app.include_router(security_txt_router)
     # Only room photos are public. Uploaded workbooks (uploads/imports: instructor names, enrolments)
     # are served through the authenticated ``GET /api/v1/imports/{id}/file``.
     photos = Path(settings.upload_dir) / "rooms"

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Grid } from "@/lib/api/crbs";
-import { altWhyQuery, asRequestable, buildingLabel, buildQuery, compactWeeks, emptyForm, formFromRecent, isFeatureMiss, isoDate, normaliseClock, ownRequestFor, parseWeeks, reserveSpan, slotsFor, whyQuery, wholeSpan } from "./find-room-model";
+import { DEFAULT_SLOT_DISPLAY } from "@/components/bookings/slot-display";
+import { altWhyQuery, asRequestable, buildingLabel, buildQuery, compactWeeks, emptyForm, formFromRecent, isFeatureMiss, isoDate, normaliseClock, ownRequestFor, parseWeeks, periodOptions, reserveSpan, slotsFor, whyQuery, wholeSpan } from "./find-room-model";
 
 describe("T-R1-14 find-room results", () => {
   it("folds the near misses that lack the asked feature (find_room.py's 'free; missing:' reason)", () => {
@@ -95,5 +96,32 @@ describe("reserve target", () => {
     expect(whyQuery({ room_id: 4, per_date: null, period_id: null }, slots).period_id).toBeNull();
     expect(whyQuery({ room_id: 4, per_date: null, period_id: 9 }, []).period_id).toBeNull();
     expect(altWhyQuery({ room_id: 5, dates: ["2026-02-19"], date: null, period_id: 21 }, 3)).toEqual({ room_id: 5, date: "2026-02-19", period_id: 21, term_id: 3 });
+  });
+});
+
+describe("periodOptions: the period selects follow the administrator's slot display (W3-SLOT follow-up)", () => {
+  const f = { time: (s: string) => s, ordinal: (n: number) => `${n}. ders` };
+  const P = (n: number, start: string, end: string, name = `P${n}`) => ({ id: n, name, start_period: n, time_start: start, time_end: end });
+  const periods = [P(1, "08:30", "09:10"), P(2, "09:20", "10:00"), P(3, "10:10", "10:50"), P(4, "10:50", "11:10", "Ara"), P(5, "11:10", "11:50")];
+  it("labels each period like the grid and drops the hidden ones (window, short periods)", () => {
+    const sd = { ...DEFAULT_SLOT_DISPLAY, first_period: 2, last_period: 5, hide_short: true, label: "both" as const, period_name: "schedule" as const, time_format: "start" as const };
+    expect(periodOptions(periods, sd, f)).toEqual([
+      { value: 2, label: "P2 · 09:20" },
+      { value: 3, label: "P3 · 10:10" },
+      { value: 5, label: "P5 · 11:10" },
+    ]);
+  });
+  it("without the schedule's periods: numbers 1..18 inside the visible window, as ordinals", () => {
+    const sd = { ...DEFAULT_SLOT_DISPLAY, first_period: 9, last_period: 11 };
+    expect(periodOptions(undefined, sd, f)).toEqual([
+      { value: 9, label: "9. ders" },
+      { value: 10, label: "10. ders" },
+      { value: 11, label: "11. ders" },
+    ]);
+    expect(periodOptions([], DEFAULT_SLOT_DISPLAY, f)).toHaveLength(18);
+  });
+  it("keeps a selected period that is hidden now, so a recent search still reads (shown with its number)", () => {
+    const sd = { ...DEFAULT_SLOT_DISPLAY, first_period: 2 };
+    expect(periodOptions(periods, sd, f, [1]).map((o) => o.value)).toEqual([1, 2, 3, 4, 5]);
   });
 });

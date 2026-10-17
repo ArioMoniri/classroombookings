@@ -26,6 +26,7 @@ import { MicrosoftAccountSection, ProfileSsoNotice } from "@/components/identity
 import { NotificationPreferencesPanel } from "@/components/notifications/preferences-panel";
 import { PrivacySection } from "@/components/privacy/privacy-section";
 import { CalendarConnectionsSection } from "@/components/settings/calendar-connections";
+import { CalendarExportSection } from "@/components/calendar-export/calendar-export-section";
 import { MyAiUsage } from "@/components/admin/ai/my-ai-usage";
 
 /** language names in themselves (Turkish, English); a legacy stored code (`de`) reads as English */
@@ -52,6 +53,7 @@ export function ProfileView() {
           <MyChannels email={q.data?.email ?? me.data?.email ?? null} />
         </Card>
       </section>
+      <CalendarExportSection />
       {/* Google Calendar / Microsoft 365 push: connect, choose the calendar, disconnect */}
       <CalendarConnectionsSection />
       {/* wave 3 W3-AI: my AI usage against my limit (hidden for people who never used AI and have no limit) */}

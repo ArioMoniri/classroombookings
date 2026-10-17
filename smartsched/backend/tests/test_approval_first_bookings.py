@@ -395,6 +395,9 @@ def test_channel_registry_is_the_extension_point():
         # wave 3: AI budget alerts (app.services.ai_usage) and Prometheus alerts to admins (app.services.ops_alerts)
         "ai.usage_alert",
         "ops.alert",
+        # wave 3b W3-HUB: integration errors / expiring client secrets to administrators (app.api.v1.integrations)
+        "integration.error",
+        "integration.secret_expiring",
     }
     assert nd.EVENTS["ai.usage_alert"] == ("Yapay zekâ kullanım uyarıları", "AI usage alerts")
     assert nd.EVENTS["ops.alert"] == ("Sistem uyarıları (yöneticiler)", "System alerts (administrators)")

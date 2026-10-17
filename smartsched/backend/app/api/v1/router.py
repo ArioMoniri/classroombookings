@@ -182,3 +182,8 @@ api_router.include_router(integrations_api.router)
 from app.api.v1 import mail_admin  # noqa: E402
 
 api_router.include_router(mail_admin.router)
+
+# security follow-up (wave3-sec2): the institution's security.txt contact (admin card Güvenlik iletişimi)
+from app.api.v1 import security_contact  # noqa: E402
+
+api_router.include_router(security_contact.router)

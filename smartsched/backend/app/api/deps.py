@@ -115,6 +115,7 @@ PERMISSION_TR: dict[str, str] = {
     "book_single.request": "Bir onaycının onaylayacağı tek seferlik rezervasyon iste",
     "book_recur.request": "Bir onaycının onaylayacağı yinelenen rezervasyon iste",
     "bookings.skip_approval": "Onaysız doğrudan rezervasyon",
+    "calendar.department_feed": "Bölüm ders takvimini dışa aktarma",
 }
 
 

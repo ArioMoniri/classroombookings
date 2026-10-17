@@ -213,9 +213,12 @@ def _utc(v: datetime) -> str:
     return f"{v:%Y%m%dT%H%M%SZ}"
 
 
-def render_calendar(title: str, tz_name: str, events: list[IcsEvent], *, refresh_minutes: int = 60) -> str:
+def render_calendar(
+    title: str, tz_name: str, events: list[IcsEvent], *, refresh_minutes: int = 60, extra: list[str] | None = None
+) -> str:
     """RFC 5545 VCALENDAR. Audit B11: a zone with one offset all year (Europe/Istanbul) is written as TZID +
-    VTIMEZONE; a zone with daylight saving is written in UTC, which every client reads correctly."""
+    VTIMEZONE; a zone with daylight saving is written in UTC, which every client reads correctly. ``extra``:
+    further calendar properties, already escaped (CAL-02: RFC 7986 ``NAME`` / ``SOURCE``)."""
     tz = _tz(tz_name)
     fixed = _fixed_offset(tz, {e.start.year for e in events} or {datetime.now(UTC).year})
     lines = [
@@ -230,6 +233,8 @@ def render_calendar(title: str, tz_name: str, events: list[IcsEvent], *, refresh
         f"REFRESH-INTERVAL;VALUE=DURATION:PT{refresh_minutes}M",
         f"X-PUBLISHED-TTL:PT{refresh_minutes}M",
     ]
+    for prop in extra or []:
+        lines.extend(_fold(prop))
     if fixed is not None:
         lines += _vtimezone(tz.key, fixed)
 

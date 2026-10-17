@@ -180,10 +180,25 @@ export class Recorder {
   }
 
   async moveOnto(target, { at = [0.5, 0.5] } = {}) {
-    const b = await this.box(target);
+    let b = await this.box(target);
     const x = b.x + b.width * at[0];
     const y = b.y + b.height * at[1];
     await this.moveTo(x, y);
+    if (this.virtualPointer) {
+      // the virtual move took no real pointer time: a dialog that was still animating in when it was measured has
+      // settled now, so aim at where the target is, not where it was
+      const loc = typeof target === "string" ? this.page.locator(target) : target;
+      const nb = await loc.first().boundingBox().catch(() => null);
+      if (nb && (Math.abs(nb.x - b.x) > 1 || Math.abs(nb.y - b.y) > 1 || Math.abs(nb.width - b.width) > 1)) {
+        b = nb;
+        const nx = b.x + b.width * at[0];
+        const ny = b.y + b.height * at[1];
+        this.pointer.push({ t: this.now() + 120, x: nx, y: ny, type: "move" });
+        await this.page.mouse.move(nx, ny);
+        await sleep(120);
+        this.pos = { x: nx, y: ny };
+      }
+    }
     return b;
   }
 

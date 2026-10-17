@@ -11,19 +11,27 @@ const context = { sessions: [], current_term_id: 1, room_groups: [], display: { 
 const grid = { display: "day", term: { id: 1, code: "B", name: "B", start: D, end: D }, date: D, dates: [{ date: D, weekday: 1, open: true }], periods, rooms: [], slots: [], nav: {}, limits: {}, problems: [] };
 
 let puts: unknown[] = [];
+let refuse: Record<string, unknown> | null = null;
+const toastError = vi.fn();
+vi.mock("sonner", async (orig) => ({ ...(await orig<typeof import("sonner")>()), toast: Object.assign(vi.fn(), { error: (...a: unknown[]) => toastError(...a), success: vi.fn() }) }));
 function mockApi() {
   puts = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       const u = String(url);
+      if (refuse && u.includes("/settings") && init?.method === "PUT") return new Response(JSON.stringify({ detail: refuse }), { status: 422, headers: { "Content-Type": "application/json" } });
       const body = u.includes("/bookings/dates") ? { term_id: 1, today: D, weeks: [], dates: [] } : u.includes("/bookings/context") ? context : u.includes("/bookings/grid") ? grid : u.includes("/bookings/slot-display") ? {} : u.includes("/settings") ? (puts.push(JSON.parse(String(init?.body ?? "{}"))), {}) : {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     }),
   );
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  refuse = null;
+  toastError.mockClear();
+});
 
 function renderIt() {
   mockApi();
@@ -61,5 +69,16 @@ describe("SlotDisplaySettings", () => {
     expect(save).toHaveAttribute("aria-disabled", "true");
     fireEvent.change(screen.getByTestId("sd-last"), { target: { value: "0" } });
     expect(screen.getByTestId("sd-visible-summary")).toHaveTextContent("2 / 4 ders saati görünür");
+  });
+
+  it("a 422 from the server names the field: its Turkish message is shown and the field takes the focus (SD-13)", async () => {
+    renderIt();
+    refuse = { code: "invalid_slot_display", field: "booking.slot_display.quick_span", message_en: "Slot display quick_span: from 1 to 8.", message_tr: "Dilim görünümü › Hızlı rezervasyon süresi: 1 ile 8 arasında olmalı." };
+    await waitFor(() => expect(screen.getByTestId("sd-visible-summary")).toBeInTheDocument(), { timeout: 10_000 });
+    fireEvent.click(screen.getByTestId("sd-label-time"));
+    fireEvent.click(screen.getByTestId("sd-save"));
+    await waitFor(() => expect(toastError).toHaveBeenCalled(), { timeout: 10_000 });
+    expect(toastError.mock.calls[0][0]).toBe("Dilim görünümü › Hızlı rezervasyon süresi: 1 ile 8 arasında olmalı.");
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("sd-quick-span")));
   });
 });

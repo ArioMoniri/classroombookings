@@ -14,7 +14,7 @@
 // subtitle track and the README loop window are cut from it by launch.sh). Licence: same as the repository.
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
@@ -333,8 +333,9 @@ async function shoot(ctx, t) {
   return Buffer.from(data, "base64");
 }
 
-const browser = await chromium.launch({ args: ["--allow-file-access-from-files", "--disable-gpu", "--font-render-hinting=none", "--force-color-profile=srgb", "--hide-scrollbars"] });
+const LAUNCH_ARGS = ["--allow-file-access-from-files", "--disable-gpu", "--font-render-hinting=none", "--force-color-profile=srgb", "--hide-scrollbars"];
 if (args.still?.length) {
+  const browser = await chromium.launch({ args: LAUNCH_ARGS });
   const ctx = await openPage(browser);
   for (const spec of args.still) {
     const [sec, file] = spec.split("=");
@@ -345,44 +346,78 @@ if (args.still?.length) {
   process.exit(0);
 }
 
+// Chunks of CHUNK frames, each its own lossless file (out.cNNNN.mkv): a worker owns a browser and pulls chunks from a
+// queue; a finished chunk is never rendered again (a re-run resumes), and a chunk whose browser died (memory pressure
+// on a shared host) is retried on a fresh browser.
 const out = resolve(args.out);
+const CHUNK = Number(env.LAUNCH_CHUNK ?? 600);
 const f0 = Math.round((Number(args.from ?? 0) * FPS));
 const f1 = Math.min(Math.floor((totalMs / 1000) * FPS), args.to ? Math.round(Number(args.to) * FPS) : Infinity);
-const nW = Math.max(1, Number(args.workers));
-const per = Math.ceil((f1 - f0) / nW);
+const chunks = [];
+for (let a = f0, i = 0; a < f1; a += CHUNK, i++) chunks.push({ i, a, b: Math.min(f1, a + CHUNK), file: `${out}.c${String(i).padStart(4, "0")}.mkv`, tries: 0 });
+const todo = chunks.filter((c) => !existsSync(c.file));
+const nW = Math.max(1, Math.min(Number(args.workers), todo.length || 1));
 const t0 = performance.now();
+const total = todo.reduce((n, c) => n + c.b - c.a, 0);
 let done = 0;
-async function worker(wi) {
-  const a = f0 + wi * per;
-  const b = Math.min(f1, a + per);
-  const part = `${out}.part${wi}.mkv`;
-  if (a >= b) return null;
-  const ctx = await openPage(browser);
+log(`${chunks.length} chunks of ${CHUNK} frames, ${chunks.length - todo.length} already rendered, ${nW} workers`);
+
+async function renderChunk(ctx, c) {
+  const tmp = `${c.file}.tmp.mkv`;
   const ff = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "image2pipe", "-framerate", String(FPS), "-c:v", "png", "-i", "-",
-    "-c:v", "libx264rgb", "-preset", "ultrafast", "-qp", "0", "-pix_fmt", "rgb24", part], { stdio: ["pipe", "inherit", "inherit"] });
-  const closed = new Promise((ok, fail) => ff.on("close", (code) => (code === 0 ? ok() : fail(new Error(`ffmpeg part ${wi} exited ${code}`)))));
-  for (let f = a; f < b; f++) {
-    const png = await shoot(ctx, (f / FPS) * 1000);
-    if (env.LAUNCH_PROFILE && f === a + 30) log(`worker ${wi}: ${((performance.now() - t0) / 30).toFixed(0)} ms per frame (first 30)`);
-    if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once("drain", r));
-    done++;
-    if (done % (FPS * 5) === 0) {
-      const el = (performance.now() - t0) / 1000;
-      log(`${done}/${f1 - f0} frames, ${(done / el).toFixed(1)} fps, eta ${(((f1 - f0 - done) / done) * el / 60).toFixed(1)} min`);
+    "-c:v", "libx264rgb", "-preset", "ultrafast", "-qp", "0", "-pix_fmt", "rgb24", tmp], { stdio: ["pipe", "inherit", "inherit"] });
+  const closed = new Promise((ok, fail) => ff.on("close", (code) => (code === 0 ? ok() : fail(new Error(`ffmpeg chunk ${c.i} exited ${code}`)))));
+  try {
+    for (let f = c.a; f < c.b; f++) {
+      const png = await shoot(ctx, (f / FPS) * 1000);
+      if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once("drain", r));
+      done++;
+      if (done % (FPS * 5) === 0) {
+        const el = (performance.now() - t0) / 1000;
+        log(`${done}/${total} frames, ${(done / el).toFixed(1)} fps, eta ${(((total - done) / done) * el / 60).toFixed(1)} min`);
+      }
     }
+  } catch (e) {
+    ff.stdin.destroy();
+    ff.kill("SIGKILL");
+    rmSync(tmp, { force: true });
+    done -= 0;
+    throw e;
   }
   ff.stdin.end();
   await closed;
-  if (ctx.errors.length) log(`page errors (worker ${wi}): ${ctx.errors.slice(0, 3).join(" | ")}`);
-  await ctx.page.close();
-  return part;
+  renameSync(tmp, c.file);
 }
-const parts = (await Promise.all(Array.from({ length: nW }, (_, i) => worker(i)))).filter(Boolean);
-await browser.close();
+
+async function worker(wi) {
+  let browser = null;
+  let ctx = null;
+  for (;;) {
+    const c = todo.shift();
+    if (!c) break;
+    try {
+      if (!browser) {
+        browser = await chromium.launch({ args: LAUNCH_ARGS });
+        ctx = await openPage(browser);
+      }
+      await renderChunk(ctx, c);
+    } catch (e) {
+      c.tries++;
+      log(`worker ${wi}: chunk ${c.i} failed (${e.message.split("\n")[0]}), try ${c.tries}/3 on a fresh browser`);
+      await browser?.close().catch(() => undefined);
+      browser = null;
+      if (c.tries >= 3) throw e;
+      todo.unshift(c);
+    }
+  }
+  if (ctx?.errors.length) log(`page errors (worker ${wi}): ${ctx.errors.slice(0, 3).join(" | ")}`);
+  await browser?.close().catch(() => undefined);
+}
+await Promise.all(Array.from({ length: nW }, (_, i) => worker(i)));
 const list = `${out}.parts.txt`;
-writeFileSync(list, parts.map((p) => `file '${p}'`).join("\n"));
+writeFileSync(list, chunks.map((c) => `file '${c.file}'`).join("\n"));
 await new Promise((ok, fail) => spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", out], { stdio: "inherit" })
   .on("close", (c) => (c === 0 ? ok() : fail(new Error("concat failed")))));
-for (const p of parts) rmSync(p, { force: true });
+if (!env.LAUNCH_KEEP_CHUNKS) for (const c of chunks) rmSync(c.file, { force: true });
 rmSync(list, { force: true });
 log(`master ${out}: ${f1 - f0} frames in ${((performance.now() - t0) / 60000).toFixed(1)} min`);

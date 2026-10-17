@@ -32,6 +32,7 @@ import { LearningMemoryPanel } from "@/components/learning/learning-memory-panel
 import { SsoSettings } from "@/components/identity/sso-settings";
 import { ChannelsAdmin } from "@/components/channels/channels-admin";
 import { SlotDisplaySettings } from "./slot-display";
+import { SecurityContactCard } from "./security-contact";
 import { useSettings, useUpdateSettings } from "@/lib/api/hooks";
 import type { Settings } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
@@ -411,7 +412,13 @@ export function SettingsView() {
             ))}
           </TabsList>
         </div>
-        <TabsContent value="general"><GeneralCard /></TabsContent>
+        <TabsContent value="general">
+          <div className="space-y-5">
+            <GeneralCard />
+            {/* security follow-up wave3-sec2: the institution's security.txt contact (administrators only) */}
+            <SecurityContactCard />
+          </div>
+        </TabsContent>
         <TabsContent value="appearance"><AppearanceCard /></TabsContent>
         {admin ? <TabsContent value="ai"><AiCard /></TabsContent> : null}
         {admin ? (

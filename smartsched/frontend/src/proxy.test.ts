@@ -57,3 +57,41 @@ describe("route guard (src/proxy.ts)", () => {
     expect(target("/reset-password/extra")).toBe(`/login?next=${encodeURIComponent("/reset-password/extra")}`);
   });
 });
+
+describe("nonce Content-Security-Policy (docs/SECURITY.md F9)", () => {
+  const nonceOf = (csp: string | null) => /'nonce-([A-Za-z0-9+/=]+)'/.exec(csp ?? "")?.[1];
+
+  it.each([
+    ["/timetable", "jwt"],
+    ["/timetable", undefined],
+    ["/login", undefined],
+    ["/login", "jwt"],
+    ["/public", undefined],
+  ])("sends a nonce policy on %s (token %s), passed through or redirected", (path, token) => {
+    const res = visit(path, token);
+    const csp = res.headers.get("content-security-policy");
+    expect(csp).toBeTruthy();
+    const directives = Object.fromEntries(csp!.split(";").map((d) => d.trim()).filter(Boolean).map((d) => [d.split(/\s+/)[0], d]));
+    expect(directives["script-src"]).toMatch(/'nonce-[A-Za-z0-9+/=]{16,}'/);
+    expect(directives["script-src"]).toContain("'strict-dynamic'");
+    expect(directives["script-src"]).not.toContain("'unsafe-inline'");
+    expect(directives["script-src"]).not.toContain("'unsafe-eval'");
+    // the rules nginx's own policy carried (it steps aside when this one is present)
+    expect(directives["object-src"]).toBe("object-src 'none'");
+    expect(directives["base-uri"]).toBe("base-uri 'self'");
+    expect(directives["frame-ancestors"]).toBe("frame-ancestors 'none'");
+    expect(directives["form-action"]).toBe("form-action 'self' https://login.microsoftonline.com");
+    expect(directives["default-src"]).toBe("default-src 'self'");
+  });
+
+  it("hands the nonce to the renderer (request headers) and makes a new one per request", () => {
+    const a = visit("/timetable", "jwt");
+    const b = visit("/timetable", "jwt");
+    const na = nonceOf(a.headers.get("content-security-policy"));
+    expect(na).toBeTruthy();
+    expect(na).not.toBe(nonceOf(b.headers.get("content-security-policy")));
+    // NextResponse.next({ request: { headers } }) carries the overridden request headers like this
+    expect(a.headers.get("x-middleware-request-x-nonce")).toBe(na);
+    expect(nonceOf(a.headers.get("x-middleware-request-content-security-policy"))).toBe(na);
+  });
+});
