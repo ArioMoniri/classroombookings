@@ -62,7 +62,12 @@ async def test_t_r2_13_two_requests_sent_one_by_one_for_adjacent_periods_are_one
     for q in (p, p + 1):  # the admin's round-2 run: two POST /bookings, no multi-booking
         r = await c.post(
             "/api/v1/bookings",
-            json={"room_id": rid, "date": day.isoformat(), "period_id": env.periods[f"P{q}"], "confirm_unpublished": True},
+            json={
+                "room_id": rid,
+                "date": day.isoformat(),
+                "period_id": env.periods[f"P{q}"],
+                "confirm_unpublished": True,
+            },
             headers=ayse,
         )
         assert r.status_code == 202, r.text
@@ -83,7 +88,9 @@ async def test_t_r2_13_totals_count_sessions_and_leave_the_cancelled_out(env):  
     a102 = env.rooms["A102"]
     # four free single-bookable periods of A 102 on a Thursday after the published weeks (the grid knows)
     day = date(2026, 5, 7)
-    grid = (await c.get("/api/v1/bookings/grid", params={"display": "day", "date": day.isoformat()}, headers=ayse)).json()
+    grid = (
+        await c.get("/api/v1/bookings/grid", params={"display": "day", "date": day.isoformat()}, headers=ayse)
+    ).json()
     order = {p["id"]: p["start_period"] for p in grid["periods"]}
     free = sorted(
         (s for s in grid["slots"] if s["room_id"] == a102 and s["status"] == "available" and s.get("allow_single")),

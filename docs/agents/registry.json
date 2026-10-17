@@ -2321,8 +2321,8 @@
       "ledger": "R2 lane S: minimal-change re-solve",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 05:40",
-      "left_off": "Both background jobs (replay chain and the gates) are running; their results are the only remaining inputs before the hand-off entries, so I will wait for their notifications."
+      "finished_at": "2026-10-17 05:41",
+      "left_off": "The ticket JSON now carries only the three intended lines. The one remaining input is the moderation suite re-run (background); the PROGRESS DONE row and the hand-off follow as soon as it reports."
     },
     {
       "id": "a0d0d5d9bf11862e6",

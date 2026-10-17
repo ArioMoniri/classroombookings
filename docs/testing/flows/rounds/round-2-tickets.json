@@ -1525,7 +1525,9 @@
       "smartsched/backend/tests/solver/**"
      ],
      "dedup": "reopens R1-S-04 (integrity hand-off: 'the 17 losses were not reproduced on the fixtures'); Q9 (ROADMAP Phase 19); the owner decision R1-S-37 does not block this",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "Repair re-solve reads the base rows as week segments (repair.segment_view / violating_events / minimal_change with chain reverts, freed_by causes); policy 'previous' tier + published_kept; full mode gets previous = base rows. Replay of the tester's F-05/F-07 chain on the Güz DB copy: 9 moved/6 unexplained/2 locked lost -> 0/0/0, pin + rerun 17 lost -> 0, wizard 1 'nedensiz' -> 0; hard 100 kept. pytest tests/solver 169 passed, moderation suites 20 passed."
     }
    ],
    "done_when": "the check passes on the Güz fixtures and on the admin tester's F-05 sequence; determinism kept (workers=1, seed); the integrity e2e spec stays green; hand-off lists the touched files for lane D"

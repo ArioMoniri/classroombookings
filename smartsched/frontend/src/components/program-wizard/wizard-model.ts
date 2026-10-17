@@ -41,14 +41,16 @@ export function samePerson(a: InstructorRef, b: InstructorRef): boolean {
   if (a.id != null || b.id != null) return a.id != null && b.id != null && a.id === b.id;
   const key = (r: InstructorRef) =>
     (r.name ?? "")
-      .replace(/\b(prof|doç|doc|dr|öğr|ogr|üyesi|uyesi|arş|ars|gör|gor|uzm|okt)\b\.?/gi, " ")
-      .replace(/[.\u00a0]/g, " ")
+      .replace(/[.\u00a0,]/g, " ")
       .toLocaleLowerCase("tr")
-      .replace(/\s+/g, " ")
-      .trim();
+      .split(/\s+/)
+      .filter((w) => w && !TITLE_WORDS.has(w))
+      .join(" ");
   const ka = key(a);
   return ka.length > 0 && ka === key(b);
 }
+/** academic titles (lower-cased with the Turkish rules), never part of a person's identity */
+const TITLE_WORDS = new Set(["prof", "doç", "doc", "dr", "öğr", "ogr", "üyesi", "uyesi", "arş", "ars", "gör", "gor", "uzm", "okt", "yrd", "öğretim", "görevlisi", "araştırma", "üye"]);
 
 export interface SectionP {
   key: string;

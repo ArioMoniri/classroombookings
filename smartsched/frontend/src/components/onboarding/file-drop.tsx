@@ -11,7 +11,7 @@
  * tables are read on the server) and the button says "Başlat · N dosya". A policy that cannot be read leaves the
  * switch as it was: the server applies the policy either way.
  *
- * T-R2-20 / R2-M-25: the drop zone is one `<button>` (Enter / Space open the picker, no nested control) and the
+ * T-R2-20 / R2-M-25: the drop zone is one button (Enter / Space open the picker, no nested control) and the
  * file input names the formats the lead lists (`accept`), so a phone's picker offers only those.
  */
 import { FolderInput, X } from "lucide-react";

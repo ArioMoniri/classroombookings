@@ -183,7 +183,7 @@ describe("OnboardingFlow: the job's own address, a button drop zone and an accep
     renderFlow();
     const zone = screen.getByTestId("onboarding-dropzone");
     expect(zone.tagName).toBe("BUTTON");
-    expect(zone).toHaveAccessibleName(/Drop files here|Dosyaları buraya/);
+    expect(zone).toHaveAccessibleName(/Drop files|Dosyaları/);
     expect(zone.querySelector("button, input, a, [tabindex]")).toBeNull(); // no nested control
     const input = screen.getByTestId<HTMLInputElement>("onboarding-input");
     expect(input.accept.split(",")).toEqual(expect.arrayContaining([".xlsx", ".csv", ".pdf", ".docx", ".ics", "image/*"]));
