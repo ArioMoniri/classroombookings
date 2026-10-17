@@ -672,7 +672,7 @@ async def identity_client(session: AsyncSession, provider: Provider) -> tuple[st
     """CAL-07 ``integrations.calendar_client_source = identity``: reuse the enabled sign-in provider's OAuth client
     (W3-IDP's ``sso_providers`` row, read only) -- ``(client id, secret, Entra tenant)``. The administrator adds
     SmartSched's calendar callback to that app registration's redirect URIs."""
-    from app.models import SsoProvider
+    from app.models.sso import SsoProvider
 
     q = select(SsoProvider).where(SsoProvider.kind == IDP_KIND.get(provider.name, ""), SsoProvider.enabled.is_(True))
     for row in (await session.execute(q.order_by(SsoProvider.sort_order, SsoProvider.id))).scalars():
@@ -817,7 +817,7 @@ async def verify_account(session: AsyncSession, user: User | None, provider: Pro
     provider's tenant, (c) its Google ``hd`` is the Workspace provider's hosted domain, (d) its e-mail is the
     person's own sign-in e-mail, or (e) its e-mail domain is one the admin allows or the institution domain of the
     person's own e-mail (never a personal mailbox provider such as gmail.com)."""
-    from app.models import SsoProvider, UserIdentity
+    from app.models.sso import SsoProvider, UserIdentity
 
     if user is None:
         return Verdict(None, None)
@@ -1322,6 +1322,221 @@ async def _reconcile(
         session.add(link)
     link.external_id, link.fingerprint, link.synced_at = external_id, view.fingerprint, utcnow()
     link.calendar_id = target_calendar or ""
+
+
+#: the owner deleted SmartSched's calendar twice (the nightly repair recreated it once): the panel asks the user
+CAL_DELETED = "CAL_DELETED"
+
+
+async def ensure_calendar(session: AsyncSession, api: Api, conn: CalendarConnection, tz_name: str) -> str:
+    """The dedicated "SmartSched – Derslerim" calendar of an owned connection, created on first use."""
+    if conn.calendar_id:
+        return conn.calendar_id
+    cal_id = await api.provider.create_calendar(api, Provider.OWNED_NAME, tz_name)
+    conn.calendar_id, conn.calendar_name, conn.updated_at = cal_id, Provider.OWNED_NAME, utcnow()
+    await session.flush()
+    return cal_id
+
+
+async def desired_classes(session: AsyncSession, conn: CalendarConnection) -> dict[str, ClassItem]:
+    """``uid -> ClassItem`` of the connection's class scopes, as the person may see them now (the department rule is
+    re-checked; a scope the person lost pushes nothing, so its events are deleted)."""
+    from app.services import calendar_classes as cc
+    from app.services.bookings_perms import load_access
+
+    scopes = class_scopes(conn.export_scopes)
+    user = await session.get(User, conn.user_id)
+    if not scopes or user is None or not user.is_active:
+        return {}
+    access = await load_access(session, user)
+    own = await cc.linked_instructor_ids(session, user.id)
+    filters: list[cc.ScopeFilter] = []
+    for scope in scopes:
+        if scope == "my_classes":
+            if own:
+                filters.append(cc.ScopeFilter(instructor_ids=frozenset(own)))
+            continue
+        raw = scope.split(":", 1)[1]
+        if raw.isdigit() and await cc.department_allowed(session, access, int(raw)):
+            filters.append(cc.ScopeFilter(program_id=int(raw)))
+    if not filters:
+        return {}
+    today = await booking_svc.today(session)
+    since, horizon = today - timedelta(days=PUSH_PAST_DAYS), await cc.horizon_end(session, today)
+    snaps = await cc.snapshots(session, since, horizon)
+    base, _ = await feeds.public_base(session)
+    ctx = cc.EventContext(fields=await cc.fields_setting(session), own_instructor_ids=frozenset(own), base_url=base)
+    out: dict[str, ClassItem] = {}
+    for flt in filters:
+        sel = await cc.select_classes(session, flt, since, horizon, grace_days=0, snaps=snaps)
+        for o, _rev in sel.live:
+            if o.uid in out:
+                continue
+            desc = cc.description(o, ctx)
+            fp = hashlib.sha256(f"{o.fingerprint}|{desc or ''}".encode()).hexdigest()
+            out[o.uid] = ClassItem(o.uid, o.start, o.end, o.summary(), o.location, desc, fp)
+    return out
+
+
+async def _reconcile_classes(
+    session: AsyncSession, api: Api, conn: CalendarConnection, job: CalendarSyncJob, tz_name: str
+) -> dict[str, int]:
+    """CAL-06: make the owned calendar match the class scopes -- insert what is missing (deterministic Google id /
+    Graph ``transactionId``), PATCH what changed, DELETE what left the published plan or the scopes. State-based and
+    idempotent: a retried job finds the links it already wrote."""
+    provider = api.provider
+    want = await desired_classes(session, conn)
+    links = {
+        link.item_key: link
+        for link in (
+            await session.execute(
+                select(CalendarEventLink).where(
+                    CalendarEventLink.connection_id == conn.id, CalendarEventLink.item_key.like("class:%")
+                )
+            )
+        ).scalars()
+        if link.item_key
+    }
+    counts = {"inserted": 0, "updated": 0, "deleted": 0}
+    target = conn.calendar_id if conn.owned_calendar else (conn.calendar_id or provider.default_calendar)
+    ctx = PushContext(connection_id=conn.id, job_id=job.id, tz_name=tz_name)
+    for uid, item in sorted(want.items(), key=lambda kv: (kv[1].start, kv[0])):
+        key = f"class:{uid}"
+        link = links.pop(key, None)
+        if link is not None and link.fingerprint == item.fingerprint and (link.calendar_id or None) == (target or None):
+            continue
+        if link is not None and (link.calendar_id or None) != (target or None):
+            await provider.delete(api, link.calendar_id or None, link.external_id)
+            await session.delete(link)
+            await session.flush()
+            link = None
+        external_id = await provider.upsert_class(api, target or "", link.external_id if link else None, item, ctx)
+        if link is None:
+            link = CalendarEventLink(connection_id=conn.id, booking_id=None, item_key=key, calendar_id=target or "")
+            session.add(link)
+            counts["inserted"] += 1
+        else:
+            counts["updated"] += 1
+        link.external_id, link.fingerprint, link.synced_at = external_id, item.fingerprint, utcnow()
+        link.calendar_id = target or ""
+        await session.flush()
+    for link in links.values():
+        await provider.delete(api, link.calendar_id or None, link.external_id)
+        await session.delete(link)
+        counts["deleted"] += 1
+    await session.flush()
+    return counts
+
+
+async def _nightly(
+    session: AsyncSession, api: Api, conn: CalendarConnection, job: CalendarSyncJob, tz_name: str
+) -> None:
+    """CAL-06 nightly repair (03:30 Istanbul) of an owned calendar: events the user deleted are re-created, events
+    the user edited are overwritten, strays are removed; a deleted calendar is re-created once, after that the
+    connection waits for the user (status ``CAL_DELETED``)."""
+    provider = api.provider
+    if not conn.owned_calendar or not conn.calendar_id:
+        await _reconcile_classes(session, api, conn, job, tz_name)
+        return
+    remote = await provider.list_owned(api, conn.calendar_id)
+    now = utcnow()
+    if remote is None:
+        await session.execute(delete(CalendarEventLink).where(CalendarEventLink.connection_id == conn.id))
+        if conn.calendar_recreated_at is not None:
+            conn.status = CAL_DELETED
+            conn.last_error = "SmartSched takvimi silinmiş. Yeniden eklemek için bağlantıyı yenileyin."
+            conn.calendar_id = None
+            return
+        conn.calendar_id, conn.calendar_recreated_at = None, now
+        await ensure_calendar(session, api, conn, tz_name)
+        await _queue_job(session, conn.id, None, "full")
+    else:
+        links = list(
+            (
+                await session.execute(select(CalendarEventLink).where(CalendarEventLink.connection_id == conn.id))
+            ).scalars()
+        )
+        known = {link.external_id for link in links}
+        for link in links:
+            changed = remote.get(link.external_id, "missing")
+            if changed == "missing":
+                await session.delete(link)  # deleted by the user: the diff below re-creates it
+            elif isinstance(changed, datetime) and link.synced_at and changed > link.synced_at + timedelta(seconds=5):
+                link.fingerprint = None  # edited by the user: the diff below overwrites it
+        for external_id in sorted(set(remote) - known):
+            await provider.delete(api, conn.calendar_id, external_id)  # a stray SmartSched event
+        await session.flush()
+        if pushes_bookings(conn.export_scopes):
+            await _queue_job(session, conn.id, None, "full")
+    await _reconcile_classes(session, api, conn, job, tz_name)
+    conn.last_reconciled_at = now
+
+
+def check_export_scopes(raw: list[str]) -> list[tuple[str, int | None]]:
+    """``["my_classes", "department_classes:12", "my_bookings"]`` -> ``[(kind, id)]``; ``ValueError`` otherwise."""
+    out: list[tuple[str, int | None]] = []
+    for item in raw:
+        text = str(item).strip()
+        kind, _, ident = text.partition(":")
+        if kind in ("my_classes", "my_bookings") and not ident:
+            out.append((kind, None))
+        elif kind == "department_classes" and ident.isdigit():
+            out.append((kind, int(ident)))
+        else:
+            raise ValueError(f"unknown push scope {text!r}: my_classes, my_bookings or department_classes:<id>")
+    if not out:
+        raise ValueError("at least one scope")
+    return list(dict.fromkeys(out))
+
+
+def scope_strings(scopes: list[tuple[str, int | None]]) -> list[str]:
+    return [k if i is None else f"{k}:{i}" for k, i in scopes]
+
+
+async def queue_classes(
+    session: AsyncSession, *, user_ids: set[int] | None = None, programs: set[int] | None = None
+) -> int:
+    """One ``classes`` job per affected connection (diff-based, so a re-publish of 600 classes is one job per
+    connection): every connection with a class scope, or only those of ``user_ids`` (my_classes) and ``programs``
+    (department_classes:<id>) when the change is known to be narrower."""
+    if not await feeds.sync_enabled(session):
+        return 0
+    q = select(CalendarConnection).where(CalendarConnection.status == "ACTIVE")
+    added = 0
+    for conn in (await session.execute(q)).scalars():
+        scopes = class_scopes(conn.export_scopes)
+        if not scopes:
+            continue
+        if user_ids is not None or programs is not None:
+            mine = "my_classes" in scopes and conn.user_id in (user_ids or set())
+            dep = any(s.split(":", 1)[1] in {str(p) for p in programs or set()} for s in scopes if ":" in s)
+            if not (mine or dep):
+                continue
+        added += int(await _queue_job(session, conn.id, None, "classes"))
+    if added:
+        worker.kick_after_commit(session)
+    return added
+
+
+async def queue_nightly(session: AsyncSession) -> int:
+    """The nightly repair: one ``nightly`` job per active connection with an owned calendar or class scopes."""
+    if not await feeds.sync_enabled(session):
+        return 0
+    added = 0
+    q = select(CalendarConnection).where(CalendarConnection.status == "ACTIVE")
+    for conn in (await session.execute(q)).scalars():
+        if conn.owned_calendar or class_scopes(conn.export_scopes):
+            added += int(await _queue_job(session, conn.id, None, "nightly"))
+    return added
+
+
+async def set_export_scopes(session: AsyncSession, conn: CalendarConnection, scopes: list[str]) -> list[str]:
+    """``PUT /calendar/connectors/{provider}/scopes`` after the approval step; queues a full reconcile."""
+    before = list(conn.export_scopes or ["my_bookings"])
+    conn.export_scopes, conn.updated_at = list(scopes), utcnow()
+    await session.flush()
+    await queue_full_sync(session, conn)
+    return before
 
 
 async def _process(session: AsyncSession, job: CalendarSyncJob, client: httpx.AsyncClient, now: datetime) -> None:

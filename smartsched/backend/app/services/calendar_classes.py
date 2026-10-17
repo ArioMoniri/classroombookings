@@ -227,9 +227,7 @@ async def term_occurrences(session: AsyncSession, term: Term, run: ScheduleRun) 
     assigns = {
         a.id: a
         for a in (
-            await session.execute(
-                select(Assignment).where(Assignment.run_id == run.id, Assignment.archived.is_(False))
-            )
+            await session.execute(select(Assignment).where(Assignment.run_id == run.id, Assignment.archived.is_(False)))
         ).scalars()
     }
     # sections of the term (course, label, department) and their teachers
@@ -730,14 +728,16 @@ async def select_classes(
     *,
     grace_days: int,
     room_visible: Any = None,
+    snaps: list[TermSnapshot] | None = None,
 ) -> ClassSelection:
     """The occurrences of ``flt`` between ``d_from`` and ``d_to`` plus the tombstones still within the grace
-    period; ``room_visible(room_id) -> bool`` drops occurrences in rooms the viewer may not see."""
+    period; ``room_visible(room_id) -> bool`` drops occurrences in rooms the viewer may not see. ``snaps``: reuse
+    snapshots already refreshed (one push job, several scopes)."""
     cutoff = utcnow() - timedelta(days=max(0, grace_days))
     lo, hi = datetime.combine(d_from, time.min), datetime.combine(d_to, time.max)
     live: list[tuple[ClassOccurrence, CalendarClassRevision | None]] = []
     tombs: list[CalendarClassRevision] = []
-    for snap in await snapshots(session, d_from, d_to):
+    for snap in snaps if snaps is not None else await snapshots(session, d_from, d_to):
         for o in snap.occurrences:
             if not (lo <= o.start <= hi) or not flt.live(o):
                 continue

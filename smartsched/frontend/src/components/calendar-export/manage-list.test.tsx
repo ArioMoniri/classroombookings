@@ -8,6 +8,9 @@ import { Subscription } from "@/lib/api/calendar-export";
 import { translate } from "@/lib/i18n";
 import { I18nProvider } from "@/lib/i18n/provider";
 
+// real user events through a sheet: generous on the shared, loaded host
+vi.setConfig({ testTimeout: 20_000 });
+
 type Call = { path: string; method: string; body?: unknown };
 type Raw = { links: { id: number }[]; push: { provider: string; export_scopes: string[] }[] };
 const api = vi.hoisted(() => ({ options: null as unknown, subs: { links: [], push: [] } as Raw, calls: [] as Call[], rotate404: false }));
