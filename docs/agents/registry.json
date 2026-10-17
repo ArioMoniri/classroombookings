@@ -2888,6 +2888,30 @@
       "ledger": "Voice AI research + design",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "ab46870bd43d06768",
+      "description": "WG-F: welcome guide frontend",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 22:58",
+      "scope": "",
+      "goal": "You are lane WG-F (welcome guide frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md and MEDIA.md (hard rules: NEVER commit or push, t…",
+      "ledger": "WG-F: welcome guide frontend",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ad242099894553afa",
+      "description": "WG-B: welcome guide backend",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 22:58",
+      "scope": "",
+      "goal": "You are lane WG-B (welcome guide backend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read these first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-fi…",
+      "ledger": "WG-B: welcome guide backend",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

@@ -1226,11 +1226,12 @@ async def queue_bookings(session: AsyncSession, booking_ids: list[int]) -> int:
     user_ids = {u for u in owners.values() if u is not None}
     conns_by_user: dict[int, list[int]] = {}
     if user_ids:
-        q = select(CalendarConnection.user_id, CalendarConnection.id).where(
+        q = select(CalendarConnection.user_id, CalendarConnection.id, CalendarConnection.export_scopes).where(
             CalendarConnection.user_id.in_(user_ids), CalendarConnection.status == "ACTIVE"
         )
-        for uid, cid in (await session.execute(q)).all():
-            conns_by_user.setdefault(uid, []).append(cid)
+        for uid, cid, scopes in (await session.execute(q)).all():
+            if pushes_bookings(scopes):  # CAL-06: a classes-only connection gets no booking events
+                conns_by_user.setdefault(uid, []).append(cid)
     linked: dict[int, set[int]] = {}
     q2 = select(CalendarEventLink.booking_id, CalendarEventLink.connection_id).where(
         CalendarEventLink.booking_id.in_(ids)
@@ -1253,16 +1254,35 @@ async def queue_bookings(session: AsyncSession, booking_ids: list[int]) -> int:
 # --------------------------------------------------------------------------------------------------
 
 
+def pushes_bookings(scopes: Any) -> bool:
+    return scopes is None or "my_bookings" in scopes
+
+
+def class_scopes(scopes: Any) -> list[str]:
+    return [str(x) for x in scopes or [] if str(x) == "my_classes" or str(x).startswith("department_classes:")]
+
+
 async def _expand_full(session: AsyncSession, conn: CalendarConnection) -> None:
     since = await booking_svc.today(session) - timedelta(days=PUSH_PAST_DAYS)
-    q = select(Booking.id).where(Booking.user_id == conn.user_id, Booking.status == BOOKED, Booking.date >= since)
-    ids = set((await session.execute(q)).scalars())
+    ids: set[int] = set()
+    if pushes_bookings(conn.export_scopes):
+        q = select(Booking.id).where(Booking.user_id == conn.user_id, Booking.status == BOOKED, Booking.date >= since)
+        ids = set((await session.execute(q)).scalars())
     q2 = select(CalendarEventLink.booking_id).where(
         CalendarEventLink.connection_id == conn.id, CalendarEventLink.booking_id.is_not(None)
     )
     ids |= {int(b) for b in (await session.execute(q2)).scalars() if b is not None}
     for bid in sorted(ids):
         await _queue_job(session, conn.id, bid)
+    has_class_links = (
+        await session.execute(
+            select(CalendarEventLink.id)
+            .where(CalendarEventLink.connection_id == conn.id, CalendarEventLink.item_key.like("class:%"))
+            .limit(1)
+        )
+    ).first() is not None
+    if class_scopes(conn.export_scopes) or has_class_links:
+        await _queue_job(session, conn.id, None, "classes")
 
 
 async def _reconcile(
@@ -1296,7 +1316,9 @@ async def _reconcile(
     ctx = PushContext(connection_id=conn.id, job_id=job.id, tz_name=tz_name)
     external_id = await provider.upsert(api, target_calendar, link.external_id if link else None, view, ctx)
     if link is None:
-        link = CalendarEventLink(connection_id=conn.id, booking_id=b.id, calendar_id=target_calendar or "")
+        link = CalendarEventLink(
+            connection_id=conn.id, booking_id=b.id, item_key=f"booking:{b.id}", calendar_id=target_calendar or ""
+        )
         session.add(link)
     link.external_id, link.fingerprint, link.synced_at = external_id, view.fingerprint, utcnow()
     link.calendar_id = target_calendar or ""
@@ -1319,6 +1341,8 @@ async def _process(session: AsyncSession, job: CalendarSyncJob, client: httpx.As
         return skip("provider not configured")
     if conn.status == "REAUTH":
         return skip("the calendar must be reconnected")
+    if conn.status == CAL_DELETED:
+        return skip("the SmartSched calendar was deleted by its owner")
     if job.kind == "full":
         await _expand_full(session, conn)
         job.status, job.done_at, job.last_error = DONE, now, None
@@ -1327,7 +1351,14 @@ async def _process(session: AsyncSession, job: CalendarSyncJob, client: httpx.As
     api = Api(conn, provider, cfg, client)
     job.attempts += 1
     try:
-        await _reconcile(session, api, conn, job, tz_name)
+        if conn.owned_calendar:
+            await ensure_calendar(session, api, conn, tz_name)
+        if job.kind == "classes":
+            await _reconcile_classes(session, api, conn, job, tz_name)
+        elif job.kind == "nightly":
+            await _nightly(session, api, conn, job, tz_name)
+        else:
+            await _reconcile(session, api, conn, job, tz_name)
     except ProviderError as exc:
         job.last_error = exc.public
         conn.last_error = exc.public
@@ -1336,13 +1367,16 @@ async def _process(session: AsyncSession, job: CalendarSyncJob, client: httpx.As
             job.status, job.done_at = FAILED, now
             return
         retry_at = worker.next_attempt(job.attempts, now) if exc.retryable else None
+        if retry_at is not None and exc.retry_after:  # 429 / 503: never earlier than the provider asked
+            retry_at = max(retry_at, now + timedelta(seconds=exc.retry_after))
         if retry_at is None:
             job.status, job.done_at = FAILED, now
         else:
             job.status, job.next_attempt_at, job.locked_until = PENDING, retry_at, None
         return
     job.status, job.done_at, job.last_error = DONE, now, None
-    conn.last_synced_at, conn.last_error, conn.status = now, None, "ACTIVE"
+    if conn.status != CAL_DELETED:
+        conn.last_synced_at, conn.last_error, conn.status = now, None, "ACTIVE"
 
 
 async def drain_due(now: datetime, limit: int) -> int:
