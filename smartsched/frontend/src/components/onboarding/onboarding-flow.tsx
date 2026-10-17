@@ -39,8 +39,12 @@ export function OnboardingFlow() {
     }
   };
   useEffect(() => {
+    // The job id comes from the address after hydration (the server does not know it): a deferred
+    // update, so the first client render matches the server's and the effect sets no state synchronously.
     const id = Number(new URLSearchParams(window.location.search).get("job"));
-    if (Number.isInteger(id) && id > 0) setJobIdState(id);
+    if (!Number.isInteger(id) || id <= 0) return;
+    const timer = window.setTimeout(() => setJobIdState(id), 0);
+    return () => window.clearTimeout(timer);
   }, []);
   const recent = useQuery({ queryKey: ["council-jobs"], queryFn: () => councilApi.list(5), enabled: jobId === null });
   const [busy, setBusy] = useState(false);
