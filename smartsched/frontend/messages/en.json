@@ -6785,5 +6785,145 @@
         "loadFailed": "The numbers could not be loaded."
       }
     }
+  },
+  "voice": {
+    "mic": {
+      "start": "Dictate",
+      "stop": "Stop recording",
+      "hold": "Press and hold to talk",
+      "shortcut": "Ctrl+Shift+M"
+    },
+    "strip": {
+      "starting": "Opening the microphone…",
+      "later": "The text comes when you stop talking.",
+      "done": "Done",
+      "cancel": "Cancel",
+      "lock": "Lock",
+      "transcribing": "Transcribing…"
+    },
+    "announce": {
+      "started": "Recording. The text comes when you stop talking.",
+      "locked": "Recording locked; you can lift your finger.",
+      "cancelled": "Recording cancelled.",
+      "inserted": "The text is in the box. You can correct it before sending."
+    },
+    "chip": "Entered by voice",
+    "level": "Input level",
+    "captions": {
+      "label": "Live captions (on this device only)"
+    },
+    "consent": {
+      "title": "Voice input",
+      "where": "Your voice is sent to {provider} to be transcribed.",
+      "whereRegion": "Your voice is sent to {provider} ({region}) to be transcribed.",
+      "whereLocal": "Your voice is transcribed by {provider} on the institution's own server.",
+      "providerUnknown": "the voice service your administrators chose",
+      "noKeep": "No recording is kept; only the transcribed text comes back to you.",
+      "review": "The text goes into the box. Nothing is sent until you correct it and send it yourself.",
+      "browser": "Your browser will now ask for the microphone.",
+      "withdraw": "You can withdraw this consent at any time in Profile › Privacy.",
+      "accept": "Agree and start",
+      "later": "Not now",
+      "error": "Your consent could not be saved. Try again."
+    },
+    "error": {
+      "permission_denied": "Microphone access was blocked. Turn it on from the lock icon in the address bar.",
+      "policy_blocked": "Microphone use is turned off for this site. Tell your administrator.",
+      "no_device": "No microphone found.",
+      "device_busy": "Another app is using the microphone. Close it and try again.",
+      "insecure": "Voice input works only over a secure (https) connection.",
+      "unsupported": "This browser cannot record audio. You can keep typing.",
+      "too_long": "Recordings can be at most {n} seconds; recording stopped.",
+      "empty": "No speech was detected. Try again.",
+      "consent_required": "Voice input needs your consent.",
+      "ai_voice_limit_reached": "You have reached today's voice input limit ({used}/{limit} min). You can keep typing.",
+      "ai_voice_limit_reached_plain": "You have reached your voice input limit. You can keep typing.",
+      "voice_off": "Your administrators have turned voice input off. You can keep typing.",
+      "not_configured": "No voice model has been chosen.",
+      "ai_transfer_basis_missing": "This voice service has no KVKK transfer record; an administrator must add it.",
+      "provider_error": "The recording could not be transcribed. Try again or type instead."
+    },
+    "help": {
+      "chrome": "Chrome / Edge: lock icon in the address bar › Microphone › Allow, then reload the page.",
+      "firefox": "Firefox: microphone icon in the address bar › Unblock, then try again.",
+      "safari": "Safari: Safari › Settings for This Website › Microphone › Allow."
+    },
+    "admin": {
+      "feature": "Voice input",
+      "featureTts": "Read aloud",
+      "need": "Turns speech into text. Only speech-capable models are listed.",
+      "noModel": "With no model chosen, nobody sees the mic.",
+      "unset": "Not chosen (mic hidden)",
+      "noSpeechModels": "No speech-capable model is synced. Sync a speech-capable provider on the Providers tab.",
+      "cap": {
+        "text": "Text",
+        "stt": "Speech→text",
+        "tts": "Read aloud",
+        "audio_native": "Native audio"
+      },
+      "caps": "Capabilities",
+      "test": "Voice test",
+      "testing": "Testing voice…",
+      "testOk": "Voice test passed: “{preview}”",
+      "testFail": "Voice test failed: {detail}",
+      "processesVoice": "This provider processes voice",
+      "processesVoiceHint": "Tick this if recordings will be sent to this provider; the KVKK transfer record must cover voice too.",
+      "audioRetention": "How long the provider keeps audio",
+      "card": {
+        "title": "Voice",
+        "lead": "People can talk into the AI text boxes. The voice is transcribed by the voice service chosen on the Models tab; the text goes into the box and the person corrects and sends it.",
+        "enabled": "Turn voice input on",
+        "enabledHint": "While off, nobody sees the mic.",
+        "noRoute": "First choose a model for \"Voice input\" on the Models tab.",
+        "advanced": "Advanced",
+        "consent": "Ask for consent on first use",
+        "consentHint": "KVKK: the person sees which service their voice goes to and agrees.",
+        "maxSeconds": "Longest recording (seconds)",
+        "maxSecondsHint": "Between 10 and 120.",
+        "localOnly": "In-house voice service only",
+        "localOnlyHint": "While on, no recording goes to a cloud voice service.",
+        "vocabulary": "Vocabulary hint",
+        "vocabularyHint": "Sends room, building and course codes to the voice service as a hint; never people's names.",
+        "vocab": {
+          "catalog": "Room and course codes",
+          "off": "Off"
+        },
+        "captions": "Live captions",
+        "captionsHint": "Shown only when the browser can process speech on the device; cloud recognition is never used.",
+        "captionsMode": {
+          "on_device": "On the device only",
+          "off": "Off"
+        },
+        "review": "The text is always shown to the person before it is sent.",
+        "retention": "Recordings are not kept on the server.",
+        "saved": "Voice settings saved.",
+        "save": "Save voice settings",
+        "invalidSeconds": "The longest recording must be between 10 and 120 seconds."
+      },
+      "limits": {
+        "title": "Voice time",
+        "lead": "In minutes. 0 = no limit.",
+        "orgMonthly": "Organisation, monthly (min)",
+        "userDaily": "Per person, daily (min)",
+        "userMonthly": "Per person, monthly (min)",
+        "advanced": "Advanced: by role and by person",
+        "rolesHint": "A field left empty follows the default.",
+        "daily": "Daily (min)",
+        "monthly": "Monthly (min)",
+        "userId": "User no.",
+        "addUser": "Add person",
+        "remove": "Remove"
+      },
+      "usage": {
+        "title": "Voice input",
+        "total": "{min} min of voice transcribed in this period.",
+        "byDay": "Voice by day (min)",
+        "minutes": "{n} min"
+      },
+      "me": {
+        "line": "Voice input: today {day} min{dayLimit} · this month {month} min{monthLimit}",
+        "of": " / {n}"
+      }
+    }
   }
 }

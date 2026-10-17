@@ -6784,5 +6784,145 @@
         "loadFailed": "Sayılar yüklenemedi."
       }
     }
+  },
+  "voice": {
+    "mic": {
+      "start": "Sesle yaz",
+      "stop": "Kaydı durdur",
+      "hold": "Konuşmak için basılı tutun",
+      "shortcut": "Ctrl+Shift+M"
+    },
+    "strip": {
+      "starting": "Mikrofon açılıyor…",
+      "later": "Konuşma bitince yazıya dökülecek.",
+      "done": "Bitti",
+      "cancel": "Vazgeç",
+      "lock": "Kilitle",
+      "transcribing": "Yazıya dökülüyor…"
+    },
+    "announce": {
+      "started": "Kayıt başladı. Konuşma bitince yazıya dökülecek.",
+      "locked": "Kayıt kilitlendi; parmağınızı kaldırabilirsiniz.",
+      "cancelled": "Kayıt iptal edildi.",
+      "inserted": "Metin kutuya eklendi. Göndermeden önce düzeltebilirsiniz."
+    },
+    "chip": "Sesle girildi",
+    "level": "Ses düzeyi",
+    "captions": {
+      "label": "Anlık altyazı (yalnızca bu cihazda)"
+    },
+    "consent": {
+      "title": "Sesli giriş",
+      "where": "Sesiniz yazıya dökülmek için {provider} hizmetine gönderilir.",
+      "whereRegion": "Sesiniz yazıya dökülmek için {provider} hizmetine ({region}) gönderilir.",
+      "whereLocal": "Sesiniz kurumun kendi sunucusundaki {provider} hizmetinde yazıya dökülür.",
+      "providerUnknown": "yöneticilerin seçtiği ses",
+      "noKeep": "Ses kaydı saklanmaz; yalnızca yazıya dökülmüş metin size döner.",
+      "review": "Metin kutuya gelir. Siz düzeltip gönderene kadar hiçbir yere gönderilmez.",
+      "browser": "Tarayıcınız şimdi mikrofon izni isteyecek.",
+      "withdraw": "Onayınızı istediğiniz zaman Profil › Gizlilik'ten geri alabilirsiniz.",
+      "accept": "Kabul et ve başla",
+      "later": "Şimdi değil",
+      "error": "Onayınız kaydedilemedi. Tekrar deneyin."
+    },
+    "error": {
+      "permission_denied": "Mikrofon izni verilmedi. Adres çubuğundaki kilit simgesinden mikrofonu açabilirsiniz.",
+      "policy_blocked": "Bu sitede mikrofon kullanımı kapalı. Yöneticinize bildirin.",
+      "no_device": "Mikrofon bulunamadı.",
+      "device_busy": "Mikrofon başka bir uygulama tarafından kullanılıyor. O uygulamayı kapatıp tekrar deneyin.",
+      "insecure": "Ses girişi yalnızca güvenli bağlantıda (https) çalışır.",
+      "unsupported": "Bu tarayıcı ses kaydını desteklemiyor. Yazarak devam edebilirsiniz.",
+      "too_long": "Kayıt en fazla {n} saniye olabilir; kayıt durduruldu.",
+      "empty": "Ses algılanmadı. Tekrar deneyin.",
+      "consent_required": "Sesli giriş için onayınız gerekiyor.",
+      "ai_voice_limit_reached": "Bugünkü sesli giriş sınırınıza ulaştınız ({used}/{limit} dk). Yazarak devam edebilirsiniz.",
+      "ai_voice_limit_reached_plain": "Sesli giriş sınırınıza ulaştınız. Yazarak devam edebilirsiniz.",
+      "voice_off": "Sesli giriş yöneticiler tarafından kapatıldı. Yazarak devam edebilirsiniz.",
+      "not_configured": "Ses için bir model seçilmedi.",
+      "ai_transfer_basis_missing": "Bu ses hizmeti için KVKK aktarım kaydı yok; yönetici tamamlamalı.",
+      "provider_error": "Ses yazıya dökülemedi. Tekrar deneyin ya da yazarak devam edin."
+    },
+    "help": {
+      "chrome": "Chrome / Edge: adres çubuğundaki kilit simgesi › Mikrofon › İzin ver, sonra sayfayı yenileyin.",
+      "firefox": "Firefox: adres çubuğundaki mikrofon simgesi › Engellemeyi kaldır, sonra tekrar deneyin.",
+      "safari": "Safari: Safari › Bu Web Sitesi için Ayarlar › Mikrofon › İzin Ver."
+    },
+    "admin": {
+      "feature": "Sesle yazma",
+      "featureTts": "Sesli okuma",
+      "need": "Konuşmayı yazıya döker. Yalnızca ses destekli modeller listelenir.",
+      "noModel": "Model seçilmezse mikrofon kimseye gösterilmez.",
+      "unset": "Seçilmedi (mikrofon gizli)",
+      "noSpeechModels": "Ses destekli eşitlenmiş model yok. Sağlayıcılar sekmesinde ses destekli bir sağlayıcıyı eşitleyin.",
+      "cap": {
+        "text": "Metin",
+        "stt": "Ses→yazı",
+        "tts": "Sesli okuma",
+        "audio_native": "Doğal ses"
+      },
+      "caps": "Yetenekler",
+      "test": "Ses testi",
+      "testing": "Ses deneniyor…",
+      "testOk": "Ses testi başarılı: “{preview}”",
+      "testFail": "Ses testi başarısız: {detail}",
+      "processesVoice": "Bu sağlayıcı ses işler",
+      "processesVoiceHint": "Ses kayıtları bu sağlayıcıya gönderilecekse işaretleyin; KVKK aktarım kaydı sesi de kapsamalı.",
+      "audioRetention": "Ses kaydının sağlayıcıda saklanma süresi",
+      "card": {
+        "title": "Ses",
+        "lead": "Kullanıcılar yapay zekâ kutularına konuşarak yazabilir. Ses, Modeller sekmesinde seçilen ses hizmetinde yazıya dökülür; metin kutuya gelir ve kullanıcı düzeltip kendisi gönderir.",
+        "enabled": "Sesli girişi aç",
+        "enabledHint": "Kapalıyken mikrofon kimseye gösterilmez.",
+        "noRoute": "Önce Modeller sekmesinde \"Sesle yazma\" için bir model seçin.",
+        "advanced": "Gelişmiş",
+        "consent": "İlk kullanımda onay iste",
+        "consentHint": "KVKK: kullanıcı, sesinin hangi hizmete gittiğini görür ve onaylar.",
+        "maxSeconds": "En uzun kayıt (saniye)",
+        "maxSecondsHint": "10 ile 120 arasında.",
+        "localOnly": "Yalnızca kurum içi ses hizmeti",
+        "localOnlyHint": "Açıkken bulut ses hizmetlerine hiçbir kayıt gönderilmez.",
+        "vocabulary": "Sözlük ipucu",
+        "vocabularyHint": "Derslik, bina ve ders kodlarını ses hizmetine ipucu olarak gönderir; kişi adları gönderilmez.",
+        "vocab": {
+          "catalog": "Derslik ve ders kodları",
+          "off": "Kapalı"
+        },
+        "captions": "Anlık altyazı",
+        "captionsHint": "Yalnızca tarayıcı sesi cihazda işleyebiliyorsa gösterilir; bulut tanıma hiçbir zaman kullanılmaz.",
+        "captionsMode": {
+          "on_device": "Yalnızca cihazda",
+          "off": "Kapalı"
+        },
+        "review": "Metin her zaman gönderilmeden önce kullanıcıya gösterilir.",
+        "retention": "Ses kayıtları sunucuda saklanmaz.",
+        "saved": "Ses ayarları kaydedildi.",
+        "save": "Ses ayarlarını kaydet",
+        "invalidSeconds": "En uzun kayıt 10 ile 120 saniye arasında olmalı."
+      },
+      "limits": {
+        "title": "Ses süresi",
+        "lead": "Dakika olarak. 0 = sınır yok.",
+        "orgMonthly": "Kurum, aylık (dk)",
+        "userDaily": "Kişi başı, günlük (dk)",
+        "userMonthly": "Kişi başı, aylık (dk)",
+        "advanced": "Gelişmiş: role ve kişiye göre",
+        "rolesHint": "Boş bırakılan alan varsayılanı izler.",
+        "daily": "Günlük (dk)",
+        "monthly": "Aylık (dk)",
+        "userId": "Kullanıcı no",
+        "addUser": "Kişi ekle",
+        "remove": "Kaldır"
+      },
+      "usage": {
+        "title": "Sesli giriş",
+        "total": "Bu dönem {min} dk ses yazıya döküldü.",
+        "byDay": "Günlere göre ses (dk)",
+        "minutes": "{n} dk"
+      },
+      "me": {
+        "line": "Sesli giriş: bugün {day} dk{dayLimit} · bu ay {month} dk{monthLimit}",
+        "of": " / {n}"
+      }
+    }
   }
 }
