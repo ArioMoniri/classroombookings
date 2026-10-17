@@ -131,7 +131,7 @@ function Wizard({ data, presets }: { data: MailSettings; presets: Preset[] }) {
         </ol>
       </nav>
       <section className="flex flex-col gap-4 px-4 py-4" aria-labelledby="mail-step-heading">
-        <h3 id="mail-step-heading" ref={headingRef} tabIndex={-1} className="type-title-3 text-label-1 outline-none">
+        <h3 id="mail-step-heading" ref={headingRef} tabIndex={-1} className="type-title-3 text-label-1 focus:outline-hidden">
           {t(STEP_KEY[step])}
         </h3>
         {step === "provider" ? <ProviderStep presets={presets} value={v.provider ?? ""} onPick={(p) => setD((prev) => ({ ...prev, ...presetFill(p) }))} /> : null}
@@ -172,21 +172,20 @@ function ProviderStep({ presets, value, onPick }: { presets: Preset[]; value: st
       <legend className="mb-3 type-callout text-label-2">{t("email.preset.title")}</legend>
       <div role="radiogroup" className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {presets.map((p) => (
-          <button
+          <Button
             key={p.id}
-            type="button"
-            role="radio"
+                        role="radio"
             aria-checked={value === p.id}
             onClick={() => onPick(p)}
             data-testid={`mail-preset-${p.id}`}
-            className={cn("flex min-h-14 flex-col items-start gap-1 rounded-xl border px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-tint", value === p.id ? "border-tint bg-tint-soft" : "border-hairline-strong hover:bg-fill-2")}
+            className={cn("h-auto whitespace-normal flex min-h-14 flex-col items-start gap-1 rounded-xl border px-3 py-2 text-left", value === p.id ? "border-tint bg-tint-soft" : "border-hairline-strong hover:bg-fill-2")}
           >
             <span className="flex w-full items-center justify-between gap-2 type-headline text-label-1">
               {p.label}
               {p.abroad ? <Badge variant="outline">{t("email.preset.abroad")}</Badge> : null}
             </span>
             <span className="type-footnote text-label-3">{p.host ? `${p.host} · ${p.port}` : "—"}</span>
-          </button>
+          </Button>
         ))}
       </div>
     </fieldset>

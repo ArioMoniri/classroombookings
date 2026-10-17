@@ -31,18 +31,32 @@ export function ProfileSsoNotice() {
   useEffect(() => {
     if (error && error !== "cancelled") ref.current?.focus();
   }, [error]);
-  if (sso === "linked") return <Alert tone="success" data-testid="profile-sso-linked">{t("profile.microsoft.linkedNotice")}</Alert>;
+  if (sso === "linked")
+    return (
+      <Alert tone="success" data-testid="profile-sso-linked">
+        {t("profile.microsoft.linkedNotice")}
+      </Alert>
+    );
   if (sso === "already_linked" || error === "already_linked")
     return (
       <div ref={ref} tabIndex={-1} className="rounded-xl outline-hidden">
-        <Alert tone="error" data-testid="profile-sso-error">{t("profile.microsoft.error.already_linked")}</Alert>
+        <Alert tone="error" data-testid="profile-sso-error">
+          {t("profile.microsoft.error.already_linked")}
+        </Alert>
       </div>
     );
   if (!error) return null;
-  if (error === "cancelled") return <Alert tone="neutral" data-testid="profile-sso-cancelled">{t("profile.microsoft.error.cancelled")}</Alert>;
+  if (error === "cancelled")
+    return (
+      <Alert tone="neutral" data-testid="profile-sso-cancelled">
+        {t("profile.microsoft.error.cancelled")}
+      </Alert>
+    );
   return (
     <div ref={ref} tabIndex={-1} className="rounded-xl outline-hidden">
-      <Alert tone="error" data-testid="profile-sso-error">{t(`profile.microsoft.error.${error}`)}</Alert>
+      <Alert tone="error" data-testid="profile-sso-error">
+        {t(`profile.microsoft.error.${error}`)}
+      </Alert>
     </div>
   );
 }
@@ -71,7 +85,21 @@ export function MicrosoftAccountSection() {
             <span className="min-w-0 flex-1">
               <span className="block type-headline text-label-1">{d.display_name || d.email_at_login || t("profile.microsoft.account")}</span>
               <span className="block truncate type-footnote text-label-2">
-                {[d.email_at_login, d.linked_at ? t("profile.microsoft.linkedOn", { date: fmt.dateTime(d.linked_at) }) : null, d.last_login_at ? t("profile.microsoft.lastLogin", { date: fmt.dateTime(d.last_login_at) }) : null].filter(Boolean).join(" · ")}
+                {[
+                  d.email_at_login,
+                  d.linked_at
+                    ? t("profile.microsoft.linkedOn", {
+                        date: fmt.dateTime(d.linked_at),
+                      })
+                    : null,
+                  d.last_login_at
+                    ? t("profile.microsoft.lastLogin", {
+                        date: fmt.dateTime(d.last_login_at),
+                      })
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </span>
             </span>
             <Button variant="ghost" onClick={() => setUnlinking(true)} data-testid="profile-ms-unlink">

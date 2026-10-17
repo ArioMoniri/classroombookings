@@ -102,7 +102,11 @@ function SsoForm({ cfg }: { cfg: SsoConfig }) {
             <StatusDot tone={cfg.enabled ? "feasible" : "neutral"}>{cfg.enabled ? t("sso.admin.on") : t("sso.admin.off")}</StatusDot>
             <Switch id="sso-enabled" checked={cfg.enabled} disabled={pending} onCheckedChange={(v) => save({ enabled: v })} data-testid="sso-enabled" />
           </FieldRow>
-          {error ? <Alert tone="error" data-testid="sso-error">{error}</Alert> : null}
+          {error ? (
+            <Alert tone="error" data-testid="sso-error">
+              {error}
+            </Alert>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -122,14 +126,38 @@ function SsoForm({ cfg }: { cfg: SsoConfig }) {
             }}
           >
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={<>{t("sso.admin.tenant")} {env.has("tenant_id") ? <EnvBadge /> : null}</>} htmlFor="sso-tenant" hint={t("sso.admin.guidHint")}>
+              <Field
+                label={
+                  <>
+                    {t("sso.admin.tenant")} {env.has("tenant_id") ? <EnvBadge /> : null}
+                  </>
+                }
+                htmlFor="sso-tenant"
+                hint={t("sso.admin.guidHint")}
+              >
                 <Input id="sso-tenant" value={tenant} onChange={(e) => setTenant(e.target.value)} autoComplete="off" spellCheck={false} className="font-mono" data-testid="sso-tenant" />
               </Field>
-              <Field label={<>{t("sso.admin.client")} {env.has("client_id") ? <EnvBadge /> : null}</>} htmlFor="sso-client" hint={t("sso.admin.guidHint")}>
+              <Field
+                label={
+                  <>
+                    {t("sso.admin.client")} {env.has("client_id") ? <EnvBadge /> : null}
+                  </>
+                }
+                htmlFor="sso-client"
+                hint={t("sso.admin.guidHint")}
+              >
                 <Input id="sso-client" value={client} onChange={(e) => setClient(e.target.value)} autoComplete="off" spellCheck={false} className="font-mono" data-testid="sso-client" />
               </Field>
             </div>
-            <Field label={<>{t("sso.admin.secret")} {env.has("client_secret") ? <EnvBadge /> : null}</>} htmlFor="sso-secret" hint={t("sso.admin.secretHint")}>
+            <Field
+              label={
+                <>
+                  {t("sso.admin.secret")} {env.has("client_secret") ? <EnvBadge /> : null}
+                </>
+              }
+              htmlFor="sso-secret"
+              hint={t("sso.admin.secretHint")}
+            >
               {cfg.client_secret_set && !replacing ? (
                 <span className="flex flex-wrap items-center gap-2">
                   <StatusDot tone="feasible">
@@ -140,7 +168,16 @@ function SsoForm({ cfg }: { cfg: SsoConfig }) {
                   </Button>
                 </span>
               ) : (
-                <Input id="sso-secret" type="password" autoComplete="new-password" spellCheck={false} value={secret} onChange={(e) => setSecret(e.target.value)} placeholder={cfg.client_secret_set ? t("sso.admin.secretKeep") : ""} data-testid="sso-secret" />
+                <Input
+                  id="sso-secret"
+                  type="password"
+                  autoComplete="new-password"
+                  spellCheck={false}
+                  value={secret}
+                  onChange={(e) => setSecret(e.target.value)}
+                  placeholder={cfg.client_secret_set ? t("sso.admin.secretKeep") : ""}
+                  data-testid="sso-secret"
+                />
               )}
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -155,7 +192,11 @@ function SsoForm({ cfg }: { cfg: SsoConfig }) {
               <span className="flex items-center gap-2">
                 <Input id="sso-redirect" readOnly value={cfg.redirect_uri ?? ""} className="font-mono" onFocus={(e) => e.currentTarget.select()} data-testid="sso-redirect" />
                 {cfg.redirect_uri ? (
-                  <IconButton label={t("sso.admin.copy")} variant="outline" onClick={() => void navigator.clipboard?.writeText(cfg.redirect_uri ?? "").then(() => toast.success(t("sso.admin.copied")))}>
+                  <IconButton
+                    label={t("sso.admin.copy")}
+                    variant="outline"
+                    onClick={() => void navigator.clipboard?.writeText(cfg.redirect_uri ?? "").then(() => toast.success(t("sso.admin.copied")))}
+                  >
                     <Copy />
                   </IconButton>
                 ) : null}
@@ -176,11 +217,25 @@ function SsoForm({ cfg }: { cfg: SsoConfig }) {
           <CardDescription>{t("sso.admin.accountsLead")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col">
-          <FieldRow label={t("sso.admin.selfSignup")} hint={t("sso.admin.selfSignupHint", { role: cfg.default_role ? roleLabel(t, cfg.default_role) : "—" })} htmlFor="sso-self" className="hairline-b">
+          <FieldRow
+            label={t("sso.admin.selfSignup")}
+            hint={t("sso.admin.selfSignupHint", {
+              role: cfg.default_role ? roleLabel(t, cfg.default_role) : "—",
+            })}
+            htmlFor="sso-self"
+            className="hairline-b"
+          >
             <Switch id="sso-self" checked={cfg.self_signup} disabled={pending} onCheckedChange={(v) => save({ self_signup: v })} data-testid="sso-self-signup" />
           </FieldRow>
           <DefaultRole cfg={cfg} onSave={(id) => save({ default_role_id: id })} />
-          <FieldRow label={t("sso.admin.oidcOnly")} hint={t("sso.admin.oidcOnlyHint", { n: cfg.break_glass_admins })} htmlFor="sso-oidc-only" className="hairline-t">
+          <FieldRow
+            label={t("sso.admin.oidcOnly")}
+            hint={t("sso.admin.oidcOnlyHint", {
+              n: cfg.break_glass_admins,
+            })}
+            htmlFor="sso-oidc-only"
+            className="hairline-t"
+          >
             <Switch id="sso-oidc-only" checked={cfg.oidc_only_non_admins} disabled={pending} onCheckedChange={(v) => save({ oidc_only_non_admins: v })} data-testid="sso-oidc-only" />
           </FieldRow>
           {cfg.oidc_only_non_admins ? <p className="pb-2 type-footnote text-label-2">{t("sso.admin.breakGlassLink")}</p> : null}
@@ -271,7 +326,15 @@ function Mappings() {
               <Badge variant="secondary">{m.claim === "role" ? t("sso.admin.claimRole") : t("sso.admin.claimGroup")}</Badge>
               <span className="min-w-0 flex-1 truncate font-mono type-footnote text-label-1">{m.value}</span>
               <span className="type-callout text-label-1">→ {roleLabel(t, m.role)}</span>
-              <IconButton label={t("sso.admin.mappingDelete")} size="sm" onClick={() => del.mutate(m.id, { onError: (e) => toast.error(problemText(e, locale) ?? apiProblem(e, locale).text ?? t("sso.admin.saveFailed")) })}>
+              <IconButton
+                label={t("sso.admin.mappingDelete")}
+                size="sm"
+                onClick={() =>
+                  del.mutate(m.id, {
+                    onError: (e) => toast.error(problemText(e, locale) ?? apiProblem(e, locale).text ?? t("sso.admin.saveFailed")),
+                  })
+                }
+              >
                 <Trash2 />
               </IconButton>
             </li>
@@ -305,7 +368,16 @@ function Mappings() {
           </SelectField>
         </Field>
         <Field label={claim === "role" ? t("sso.admin.valueRole") : t("sso.admin.valueGroup")} htmlFor="map-value">
-          <Input id="map-value" value={value} onChange={(e) => setValue(e.target.value)} placeholder={claim === "role" ? "SmartSched.Planner" : ""} className="font-mono" autoComplete="off" spellCheck={false} data-testid="map-value" />
+          <Input
+            id="map-value"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={claim === "role" ? "SmartSched.Planner" : ""}
+            className="font-mono"
+            autoComplete="off"
+            spellCheck={false}
+            data-testid="map-value"
+          />
         </Field>
         <Field label={t("sso.admin.mapTo")} htmlFor="map-role">
           <SelectField id="map-role" value={role} onChange={(e) => setRole(e.target.value)} data-testid="map-role">

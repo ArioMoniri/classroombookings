@@ -18,6 +18,7 @@ const state = vi.hoisted(() => ({
   hooks: [] as Record<string, unknown>[],
   deliveries: [] as Record<string, unknown>[],
   webhooksEnabled: false,
+  zapierRef: null as number | null,
 }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
@@ -66,6 +67,7 @@ vi.mock("@/lib/api/client", async (orig) => {
         const b = opts.body as { url: string; events: string[]; description: string };
         const hook = { id: 7, url: b.url, description: b.description, events: b.events, active: true, consecutive_failures: 0, secret_hint: "…wxyz" };
         state.hooks = [hook];
+        state.zapierRef = 7; // the next status answer links the Zapier card to the new webhook
         return { ...hook, secret: "whsec_test_secret_wxyz" };
       }
       if (path === "/webhooks/7/test") {
@@ -108,7 +110,7 @@ function status() {
         key: "automation",
         label_tr: "Webhook ve otomasyon",
         label_en: "Webhooks and automation",
-        cards: [c("automation.webhooks", "Webhook gönderimi", "not_configured"), c("automation.n8n", "n8n", "error", { enabled: true, detail_tr: "Son gönderim başarısız oldu.", ref: { webhook_id: 3 }, toggle: { method: "PUT", path: "/webhooks/3", field: "active", enable_in_setup: false } }), c("automation.zapier", "Zapier", "not_configured")],
+        cards: [c("automation.webhooks", "Webhook gönderimi", "not_configured"), c("automation.n8n", "n8n", "error", { enabled: true, detail_tr: "Son gönderim başarısız oldu.", ref: { webhook_id: 3 }, toggle: { method: "PUT", path: "/webhooks/3", field: "active", enable_in_setup: false } }), state.zapierRef ? c("automation.zapier", "Zapier", "disabled", { enabled: true, ref: { webhook_id: state.zapierRef }, toggle: { method: "PUT", path: `/webhooks/${state.zapierRef}`, field: "active", enable_in_setup: false } }) : c("automation.zapier", "Zapier", "not_configured")],
       },
       { key: "ai", label_tr: "Yapay zekâ", label_en: "AI", cards: [c("ai.providers", "Yapay zekâ sağlayıcıları", "connected", { setup_href: "/admin/ai" })] },
     ],
@@ -140,6 +142,7 @@ describe("IntegrationsGallery", () => {
     state.hooks = [];
     state.deliveries = [];
     state.webhooksEnabled = false;
+    state.zapierRef = null;
     toast.success.mockReset();
     toast.error.mockReset();
   });
@@ -284,6 +287,8 @@ describe("IntegrationsGallery", () => {
     await user.type(url, "https://hooks.zapier.com/hooks/catch/1/abc/");
     await user.click(within(guided).getByTestId("guided-save"));
     await waitFor(() => expect(state.calls).toContainEqual({ path: "/webhooks", method: "POST", body: { url: "https://hooks.zapier.com/hooks/catch/1/abc/", events: ["*"], description: "zapier akışı" } }));
+    // the status refresh after saving links the card to webhook 7: the sheet must keep the one-time secret
+    await waitFor(() => expect(state.calls.filter((x) => x.path === "/integrations/status").length).toBeGreaterThan(1));
     const secret = await within(guided).findByTestId("guided-secret");
     expect(within(secret).getByRole("textbox")).toHaveValue("whsec_test_secret_wxyz");
     expect(guided).toHaveTextContent("Bu anahtar yalnızca şimdi gösterilir.");

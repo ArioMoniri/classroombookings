@@ -28,7 +28,14 @@ export interface SignInProvider extends ButtonLike {
   self_signup?: boolean;
 }
 
-function withQuery(base: string, q: { next?: string | null; invite?: string | null; loginHint?: string | null }): string {
+function withQuery(
+  base: string,
+  q: {
+    next?: string | null;
+    invite?: string | null;
+    loginHint?: string | null;
+  },
+): string {
   const safe = base.startsWith("/") && !base.startsWith("//") ? base : "/login";
   const params = new URLSearchParams();
   if (q.next) params.set("next", q.next);
@@ -72,15 +79,23 @@ function ProviderLink({ p, href, label, busyLabel, onNavigate }: { p: SignInProv
         aria-disabled={busy || undefined}
         data-testid={`login-sso-${p.name}`}
         data-kind={p.kind}
-        style={google ? { fontFamily: 'Roboto, var(--font-inter), system-ui, sans-serif', boxShadow: "inset 0 0 0 1px var(--g-edge)" } : undefined}
+        style={
+          google
+            ? {
+                fontFamily: "Roboto, var(--font-inter), system-ui, sans-serif",
+                fontSize: 14,
+                boxShadow: "inset 0 0 0 1px var(--g-edge)",
+              }
+            : undefined
+        }
         className={cn(
           "relative isolate flex h-(--signin-control-h,44px) w-full items-center justify-center gap-3 overflow-hidden rounded-lg px-3 leading-5 no-underline",
           "transition-transform duration-(--dur-fast) ease-(--spring-snappy) active:scale-[0.97] aria-disabled:cursor-progress pointer-coarse:min-h-12",
           "outline-hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-(--focus)",
           "after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:bg-black/[0.04] after:opacity-0 after:transition-opacity hover:after:opacity-100 dark:after:bg-white/[0.07]",
           google
-            ? "[--g-bg:#ffffff] [--g-fg:#1f1f1f] [--g-edge:#747775] dark:[--g-bg:#131314] dark:[--g-fg:#e3e3e3] dark:[--g-edge:#8e918f] bg-(--g-bg) text-(--g-fg) text-[14px] font-medium"
-            : "bg-(--mat) text-label-1 type-callout font-semibold shadow-[inset_0_0_0_1px_var(--border-control)]",
+            ? "[--g-bg:#ffffff] [--g-fg:#1f1f1f] [--g-edge:#747775] dark:[--g-bg:#131314] dark:[--g-fg:#e3e3e3] dark:[--g-edge:#8e918f] bg-(--g-bg) text-(--g-fg) font-medium"
+            : "bg-(--mat) text-label-1 type-callout font-semibold shadow-(--edge-control)",
           "forced-colors:border forced-colors:border-[ButtonText] forced-colors:bg-[ButtonFace] forced-colors:text-[ButtonText]",
         )}
       >
@@ -89,7 +104,7 @@ function ProviderLink({ p, href, label, busyLabel, onNavigate }: { p: SignInProv
         ) : google ? (
           <GoogleG />
         ) : (
-          <span aria-hidden className="grid h-5 min-w-5 place-items-center rounded-[5px] bg-fill-2 px-1 text-[10px] font-bold tracking-tight text-label-2">
+          <span aria-hidden className="grid h-5 min-w-5 place-items-center rounded-[5px] bg-fill-2 px-1 type-caption font-bold tracking-tight text-label-2">
             {p.badge ?? "SSO"}
           </span>
         )}
@@ -123,7 +138,12 @@ export function ProviderButtons({
   const moreId = useId();
   const layout = buttonLayout(providers, invited);
   const name = (p: SignInProvider) => (locale === "en" ? p.label_en || p.label : p.label);
-  const href = (p: SignInProvider) => withQuery(p.start_url, { next, invite: invited ? inviteToken : null, loginHint: invited ? loginHint : null });
+  const href = (p: SignInProvider) =>
+    withQuery(p.start_url, {
+      next,
+      invite: invited ? inviteToken : null,
+      loginHint: invited ? loginHint : null,
+    });
   const one = (p: SignInProvider) =>
     p.kind === "entra" ? (
       <MicrosoftSignIn key={p.name} href={href(p)} label={t("signin.microsoft.label")} busyLabel={t("signin.microsoft.busy")} onNavigate={() => onNavigate?.(p)} />
@@ -143,8 +163,22 @@ export function ProviderButtons({
       {layout.visible.map(one)}
       {layout.more.length ? (
         <>
-          <Button type="button" variant="ghost" shape="rect" size="lg" aria-expanded={open} aria-controls={moreId} onClick={() => setOpen((o) => !o)} className="justify-between px-2 type-callout" data-testid="signin-more-providers">
-            <span>{t("identity.signin.more", { n: layout.more.length })}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            shape="rect"
+            size="lg"
+            aria-expanded={open}
+            aria-controls={moreId}
+            onClick={() => setOpen((o) => !o)}
+            className="justify-between px-2 type-callout"
+            data-testid="signin-more-providers"
+          >
+            <span>
+              {t("identity.signin.more", {
+                n: layout.more.length,
+              })}
+            </span>
             <ChevronDown aria-hidden className={cn("size-4 transition-transform", open && "rotate-180")} />
           </Button>
           {open ? (

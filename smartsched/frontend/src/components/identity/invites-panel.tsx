@@ -30,7 +30,13 @@ export function InvitesPanel({ providers }: { providers: Provider[] }) {
   const { can } = usePermissions();
   const roles = useRoles(can("setup.roles"));
   const invites = useProviderInvites();
-  const options = [...providers.map((p) => ({ value: p.name, label: locale === "en" ? p.label_en : p.label })), { value: "local", label: t("identity.invites.local") }];
+  const options = [
+    ...providers.map((p) => ({
+      value: p.name,
+      label: locale === "en" ? p.label_en : p.label,
+    })),
+    { value: "local", label: t("identity.invites.local") },
+  ];
   const [provider, setProvider] = useState(options[0]?.value ?? "local");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -42,8 +48,25 @@ export function InvitesPanel({ providers }: { providers: Provider[] }) {
   const [bulk, setBulk] = useState<BulkOut | null>(null);
   const lang = locale === "en" ? "en" : "tr";
   const fail = (e: unknown) => problemText(e, locale) ?? apiProblem(e, locale).text ?? t("identity.saveFailed");
-  const invite = useIdpMutation(() => idp.invite({ email: cleanPasted(email).value, full_name: cleanPasted(name).value || null, role_id: role ? Number(role) : null, provider, send_email: send, locale: lang }));
-  const bulkM = useIdpMutation(() => idp.bulk({ csv, provider, role_id: role ? Number(role) : null, send_email: send, locale: lang }));
+  const invite = useIdpMutation(() =>
+    idp.invite({
+      email: cleanPasted(email).value,
+      full_name: cleanPasted(name).value || null,
+      role_id: role ? Number(role) : null,
+      provider,
+      send_email: send,
+      locale: lang,
+    }),
+  );
+  const bulkM = useIdpMutation(() =>
+    idp.bulk({
+      csv,
+      provider,
+      role_id: role ? Number(role) : null,
+      send_email: send,
+      locale: lang,
+    }),
+  );
   const resend = useIdpMutation((id: number) => idp.resend(id, lang));
   const renew = useIdpMutation((id: number) => idp.renew(id));
   const revoke = useIdpMutation((id: number) => idp.revoke(id));
@@ -66,14 +89,32 @@ export function InvitesPanel({ providers }: { providers: Provider[] }) {
                 setCreated(out);
                 setEmail("");
                 setName("");
-                toast.success(out.email_status === "SENT" ? t("identity.invites.sent", { email: out.email }) : t("identity.invites.created", { email: out.email }));
+                toast.success(
+                  out.email_status === "SENT"
+                    ? t("identity.invites.sent", {
+                        email: out.email,
+                      })
+                    : t("identity.invites.created", {
+                        email: out.email,
+                      }),
+                );
               },
               onError: (err) => setError(fail(err)),
             });
           }}
         >
           <Field label={t("identity.invites.email")} htmlFor="inv-email">
-            <Input id="inv-email" type="email" inputMode="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ad.soyad@uni.edu.tr" className="text-base sm:text-sm" data-testid="inv-email" />
+            <Input
+              id="inv-email"
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ad.soyad@uni.edu.tr"
+              className="text-base sm:text-sm"
+              data-testid="inv-email"
+            />
           </Field>
           <Field label={t("identity.invites.name")} htmlFor="inv-name">
             <Input id="inv-name" value={name} onChange={(e) => setName(e.target.value)} className="text-base sm:text-sm" data-testid="inv-name" />
@@ -107,7 +148,11 @@ export function InvitesPanel({ providers }: { providers: Provider[] }) {
             </BusyButton>
           </div>
         </form>
-        {error ? <Alert tone="error" data-testid="inv-error">{error}</Alert> : null}
+        {error ? (
+          <Alert tone="error" data-testid="inv-error">
+            {error}
+          </Alert>
+        ) : null}
         {created?.link ? (
           <div className="flex flex-col gap-2" data-testid="inv-created">
             {created.email_status && created.email_status !== "SENT" ? <Alert tone="warning">{t("identity.invites.notSent")}</Alert> : null}
@@ -116,7 +161,7 @@ export function InvitesPanel({ providers }: { providers: Provider[] }) {
           </div>
         ) : null}
 
-        <details className="rounded-xl p-3 shadow-[inset_0_0_0_1px_var(--border-control)]" data-testid="inv-bulk">
+        <details className="rounded-xl p-3 shadow-(--edge-control)" data-testid="inv-bulk">
           <summary className="min-h-11 cursor-pointer content-center type-callout font-semibold text-label-1">{t("identity.invites.bulk")}</summary>
           <div className="mt-2 flex flex-col gap-3">
             <p className="type-footnote text-label-2">{t("identity.invites.bulkLead")}</p>
@@ -130,14 +175,27 @@ export function InvitesPanel({ providers }: { providers: Provider[] }) {
                 if (f) setCsv(await f.text());
               }}
             />
-            <Textarea rows={5} value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={"E-posta;Ad Soyad;Rol\nayse.yilmaz@uni.edu.tr;Ayşe Yılmaz;Öğretmen"} className="font-mono text-base sm:text-sm" aria-label={t("identity.invites.bulkText")} data-testid="inv-bulk-text" />
+            <Textarea
+              rows={5}
+              value={csv}
+              onChange={(e) => setCsv(e.target.value)}
+              placeholder={"E-posta;Ad Soyad;Rol\nayse.yilmaz@uni.edu.tr;Ayşe Yılmaz;Öğretmen"}
+              className="font-mono text-base sm:text-sm"
+              aria-label={t("identity.invites.bulkText")}
+              data-testid="inv-bulk-text"
+            />
             <div>
               <BusyButton
                 busy={bulkM.isPending}
                 busyLabel={t("busy.saving")}
                 disabled={!csv.trim()}
                 className="min-h-11"
-                onClick={() => bulkM.mutate(undefined, { onSuccess: setBulk, onError: (err) => toast.error(fail(err)) })}
+                onClick={() =>
+                  bulkM.mutate(undefined, {
+                    onSuccess: setBulk,
+                    onError: (err) => toast.error(fail(err)),
+                  })
+                }
                 data-testid="inv-bulk-submit"
               >
                 {t("identity.invites.bulkSubmit")}
@@ -145,12 +203,20 @@ export function InvitesPanel({ providers }: { providers: Provider[] }) {
             </div>
             {bulk ? (
               <div className="flex flex-col gap-2" data-testid="inv-bulk-result" aria-live="polite">
-                <p className="type-callout text-label-1">{t("identity.invites.bulkDone", { ok: bulk.created.length, bad: bulk.errors.length })}</p>
+                <p className="type-callout text-label-1">
+                  {t("identity.invites.bulkDone", {
+                    ok: bulk.created.length,
+                    bad: bulk.errors.length,
+                  })}
+                </p>
                 {bulk.errors.length ? (
                   <ul className="flex flex-col gap-1 type-footnote">
                     {bulk.errors.map((e) => (
-                      <li key={`${e.line}-${e.code}`} className="text-(--infeasible)">
-                        {t("identity.invites.line", { n: e.line })}: {e.email ? `${e.email} · ` : ""}
+                      <li key={`${e.line}-${e.code}`} className="text-status-infeasible-fg">
+                        {t("identity.invites.line", {
+                          n: e.line,
+                        })}
+                        : {e.email ? `${e.email} · ` : ""}
                         {locale === "en" ? e.en : e.tr}
                       </li>
                     ))}
@@ -168,18 +234,55 @@ export function InvitesPanel({ providers }: { providers: Provider[] }) {
               <div className="min-w-0 flex-1">
                 <p className="truncate type-callout text-label-1">{i.email}</p>
                 <p className="type-footnote text-label-2">
-                  {i.provider_label ?? i.provider} · {t(i.status === "invite_expired" ? "identity.invites.expired" : "identity.invites.open")} · {t("identity.invites.until", { when: new Date(i.expires_at).toLocaleDateString(locale === "tr" ? "tr-TR" : "en-GB", { timeZone: "Europe/Istanbul" }) })}
+                  {i.provider_label ?? i.provider} · {t(i.status === "invite_expired" ? "identity.invites.expired" : "identity.invites.open")} ·{" "}
+                  {t("identity.invites.until", {
+                    when: new Date(i.expires_at).toLocaleDateString(locale === "tr" ? "tr-TR" : "en-GB", { timeZone: "Europe/Istanbul" }),
+                  })}
                 </p>
               </div>
               {i.status === "invited" ? (
-                <Button size="sm" variant="outline" className="min-h-11 sm:min-h-9" disabled={resend.isPending} onClick={() => resend.mutate(i.id, { onSuccess: (r) => toast[r.sent ? "success" : "warning"](t(r.sent ? "identity.invites.resent" : "identity.invites.notSent")), onError: (e) => toast.error(fail(e)) })}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="min-h-11 sm:min-h-9"
+                  disabled={resend.isPending}
+                  onClick={() =>
+                    resend.mutate(i.id, {
+                      onSuccess: (r) => toast[r.sent ? "success" : "warning"](t(r.sent ? "identity.invites.resent" : "identity.invites.notSent")),
+                      onError: (e) => toast.error(fail(e)),
+                    })
+                  }
+                >
                   {t("identity.invites.resend")}
                 </Button>
               ) : null}
-              <Button size="sm" variant="outline" className="min-h-11 sm:min-h-9" disabled={renew.isPending} onClick={() => renew.mutate(i.id, { onSuccess: (r) => setCreated(r), onError: (e) => toast.error(fail(e)) })}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="min-h-11 sm:min-h-9"
+                disabled={renew.isPending}
+                onClick={() =>
+                  renew.mutate(i.id, {
+                    onSuccess: (r) => setCreated(r),
+                    onError: (e) => toast.error(fail(e)),
+                  })
+                }
+              >
                 {t("identity.invites.renew")}
               </Button>
-              <Button size="sm" variant="ghost" className="min-h-11 sm:min-h-9" disabled={revoke.isPending} onClick={() => revoke.mutate(i.id, { onSuccess: () => toast.success(t("identity.invites.revoked")), onError: (e) => toast.error(fail(e)) })} data-testid={`inv-revoke-${i.id}`}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="min-h-11 sm:min-h-9"
+                disabled={revoke.isPending}
+                onClick={() =>
+                  revoke.mutate(i.id, {
+                    onSuccess: () => toast.success(t("identity.invites.revoked")),
+                    onError: (e) => toast.error(fail(e)),
+                  })
+                }
+                data-testid={`inv-revoke-${i.id}`}
+              >
                 {t("identity.invites.revoke")}
               </Button>
             </div>

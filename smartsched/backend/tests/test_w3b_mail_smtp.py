@@ -366,3 +366,40 @@ def test_microsoft_basic_auth_refusal_is_translated() -> None:
         {"from_address": "b@uni.edu.tr"},
     )
     assert "b@uni.edu.tr adresiyle gönderemiyor" in tr
+
+
+async def test_send_kind_is_the_entry_point_for_other_lanes(client, sink) -> None:  # noqa: F811
+    """W3-IDP / W3-SEC send their kinds with one call; the queued mail keeps the words, the HTML is themed."""
+    from app.core import db as dbmod
+    from app.models import User
+    from app.services import mail
+    from app.workers import integrations as worker
+
+    h = await _admin(client)
+    await _configure(client, h)
+    async with dbmod.get_session_factory()() as s:
+        admin = (await s.execute(select(User).where(User.email == "admin@example.com"))).scalar_one()
+        row = await mail.send_kind(
+            s,
+            "invitation",
+            to_email="yeni.hoca@uni.edu.tr",
+            user=None,
+            locale="tr",
+            link="/login?invite=abc",
+            inviter=admin.full_name or "Yönetici",
+            provider="microsoft",
+            expires="16 Kasım 2026",
+        )
+        await s.commit()
+    assert (
+        row.kind == "invitation"
+        and "davet etti" in row.body
+        and "--" not in row.body
+        and row.link == "/login?invite=abc"
+    )
+    await worker.wait_idle()
+    await worker.shutdown()
+    msg = sink.messages[-1].message
+    assert str(msg["Subject"]).endswith("sizi SmartSched'e davet etti")
+    html = msg.get_body(preferencelist=("html",)).get_content()
+    assert "davet etti" in html and '<html lang="tr"' in html and 'data-role="preheader"' in html

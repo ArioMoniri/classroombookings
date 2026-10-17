@@ -37,7 +37,7 @@ do_record() {
     [[ "$device" == phone ]] && dsf=${LAUNCH_PHONE_DSF:-2} vp=390x844
     log "take $journey ($device, ${vp} @${dsf}x, UI $UI_LANG, captions en)"
     REC_DEVICE="$device" REC_DSF="$dsf" REC_VIEWPORT="$vp" REC_CAPTION_LANG=en \
-      $N node "$HERE/record.mjs" --journey "$journey" --lang "$UI_LANG" --engine frames --out "$TAKES"
+      $N node "$HERE/record.mjs" --journey "$journey" --lang "$UI_LANG" --engine frames --out "$TAKES" || log "take $journey FAILED (see $TAKES/*.failure.png); the other takes go on"
   done <<<"$list"
 }
 

@@ -160,7 +160,7 @@ export function buildStory({ format = "landscape", story = "launch", take, steps
     },
     chapter("ch-import", "file-to-rules", "1", "Import", "Start from the planning office's own workbooks", "Weekly grids, planning lists, exam lists and the room master, as they are."),
     takeScene({ id: "import", chapter: { n: "1", label: "Import" }, views: [{ take: T["launch-import"] }] }, format),
-    takeScene({ id: "solve", chapter: { n: "2", label: "Solve" }, views: [{ take: T["launch-run"], steps: [0, 1] }] }, format),
+    takeScene({ id: "solve", chapter: { n: "2", label: "Solve" }, captions: { 0: "A real solver run on the autumn term's data" }, views: [{ take: T["launch-run"], steps: [0, 1] }] }, format),
     chapter("ch-report", "precheck-fix", "3", "Explain", "Nothing is dropped silently", "The run report says what could not be placed, why, and what would fix it.", 2400),
     takeScene({ id: "report", chapter: { n: "3", label: "Explain" }, views: [{ take: T["launch-run"], steps: [2, 3] }] }, format),
     takeScene({ id: "publish", chapter: { n: "4", label: "Publish" }, views: [{ take: T["launch-run"], steps: [4, 5] }] }, format),

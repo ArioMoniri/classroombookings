@@ -107,6 +107,39 @@ def display_name(user: User | None) -> str:
     return user.full_name or " ".join(x for x in (user.firstname, user.lastname) if x) or ""
 
 
+async def send_kind(
+    session: AsyncSession,
+    kind: str,
+    *,
+    to_email: str | None,
+    user: User | None = None,
+    locale: str | None = None,
+    link: str | None = None,
+    deliver_now: bool = False,
+    **ctx: Any,
+) -> NotificationOutbox:
+    """Queue (or send now) one themed e-mail of ``kind`` in the reader's language -- the entry point for senders in
+    other lanes (invitation, account_created: W3-IDP; new_device_sign_in: W3-SEC; booking_reminder, ...). The outbox
+    body is the message's own words (:attr:`Rendered.content`); the HTML is rendered again when it is sent."""
+    from app.services.bookings_notify import notify
+
+    lang = await resolve_locale(session, locale, user)
+    ctx.setdefault("name", display_name(user))
+    rendered = await render_for(session, kind, lang, link=link, **ctx)
+    return await notify(
+        session,
+        kind=kind,
+        to_email=to_email,
+        subject=rendered.subject,
+        body=rendered.content,
+        user_id=user.id if user is not None else None,
+        deliver_now=deliver_now,
+        link=link,
+        locale=lang,
+        ctx={**ctx, "link": link} if deliver_now else None,
+    )
+
+
 async def resolve_locale(session: AsyncSession, locale: str | None = None, user: User | None = None) -> str:
     from app.services import bookings_i18n
 

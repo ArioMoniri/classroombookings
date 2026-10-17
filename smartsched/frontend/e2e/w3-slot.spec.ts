@@ -48,6 +48,14 @@ async function cancelMine() {
   if (ids.length) await ctx.api.post(`${API}/bookings/cancel-multi`, { headers: auth(ctx.teacher), data: { booking_ids: ids, reason: null } });
 }
 
+/** a school day (the weekend has no periods): the next Monday–Friday from the booking clock */
+async function schoolDay(): Promise<string> {
+  const today = ((await (await ctx.api.get(`${API}/bookings/dates`, { headers: auth(ctx.teacher) })).json()) as { today: string }).today;
+  const d = new Date(`${today}T12:00:00Z`);
+  while ([0, 6].includes(d.getUTCDay())) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 async function open(browser: Browser, device: typeof DESKTOP | typeof PHONE, who: { id: string; password: string }): Promise<Page> {
   const context = await browser.newContext(device);
   const page = await context.newPage();
@@ -79,6 +87,8 @@ const M02 = `(() => {
 })()`;
 
 async function mobileChecks(page: Page, label: string) {
+  // the receipt / undo toasts are sonner's (shared chrome, checked by its own lane): measure the page without them
+  await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 15_000 });
   // M-01: no horizontal page scroll
   const m01 = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
   expect(m01.sw, `${label} M-01`).toBeLessThanOrEqual(m01.cw + 1);
@@ -125,7 +135,7 @@ test("SD: the admin changes the slot display; the teacher's grid and /reserve fo
   await admin.context().close();
 
   const teacher = await open(browser, DESKTOP, TEACHER);
-  await teacher.goto("/bookings?lens=grid");
+  await teacher.goto(`/bookings?lens=grid&date=${await schoolDay()}`);
   const grid = teacher.getByTestId("booking-grid");
   await expect(grid).toBeVisible();
   await expect(grid.locator("thead th").nth(1)).toHaveText(/^\d{2}:\d{2}–\d{2}:\d{2}$/);
@@ -190,8 +200,7 @@ test("QR: a teacher books in ≤ 3 clicks from /reserve and undoes it (1440)", a
 test("QR: the same with one thumb at 390 × 844, and MOBILE M-01/02/03/05 on /reserve and /bookings", async ({ browser }) => {
   const page = await open(browser, PHONE, TEACHER);
   await bookInThreeTaps(page, (l) => l.tap());
-  // M-05: the primary action sits in the bottom 40 % of the screen
-  await page.getByTestId("qr-again").tap();
+  // M-05: the primary action sits in the bottom 40 % of the screen (after the undo the same room is selected again)
   const box = await page.getByTestId("qr-submit").boundingBox();
   expect(box).not.toBeNull();
   expect(box!.y).toBeGreaterThan(844 * 0.6);
@@ -201,7 +210,7 @@ test("QR: the same with one thumb at 390 × 844, and MOBILE M-01/02/03/05 on /re
   await page.getByTestId("qr-note-add").tap();
   await expect(page.getByTestId("qr-note")).toBeFocused();
   await mobileChecks(page, "/reserve (note open)");
-  await page.goto("/bookings");
+  await page.goto(`/bookings?date=${await schoolDay()}`);
   await expect(page.getByTestId("free-slots").or(page.getByTestId("booking-grid"))).toBeVisible({ timeout: 20_000 });
   await mobileChecks(page, "/bookings");
   await page.context().close();

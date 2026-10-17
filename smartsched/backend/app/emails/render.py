@@ -60,6 +60,8 @@ class Rendered:
     locale: str = "tr"
     preheader: str = ""
     cta_url: str | None = None
+    #: the message's own words without heading, button and footer: what the outbox stores as the body (= the bell)
+    content: str = ""
 
     def __iter__(self) -> Iterator[str]:  # ``subject, html, text = render(...)``
         return iter((self.subject, self.html, self.text))
@@ -412,7 +414,12 @@ def render(
         foot.append(f"{S['layout.footer.kvkk']}: {kvkk_url}")
     foot.append(auto)
     text_out = "\n\n".join(p for p in parts if p) + "\n\n--\n" + "\n".join(f for f in foot if f) + "\n"
-    return Rendered(subject, html_out, text_out, k.kind if k.kind != "generic" else kind, lang, preheader, cta_url)
+    content = "\n\n".join(
+        p for p in [body, *(parts[2:] if not composed else parts[1:])] if p and not p.startswith(f"{cta_label}: ")
+    )
+    return Rendered(
+        subject, html_out, text_out, k.kind if k.kind != "generic" else kind, lang, preheader, cta_url, content.strip()
+    )
 
 
 def placeholders_in(template: str) -> list[str]:

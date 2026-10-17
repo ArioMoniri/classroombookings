@@ -16,7 +16,8 @@ export default {
   async setup({ page }) {
     const tid = await termId(page, process.env.REC_RUN_TERM ?? "2026-GUZ");
     const list = async () => ((await api(page, `/runs?term_id=${tid}`)).data ?? []).filter((r) => r.kind === "COURSE" && r.horizon === "TERM" && OK.includes(r.status));
-    let run = (await list()).find((r) => !r.is_active && !r.active && !r.published_at);
+    // a solver run (an imported board is a run too, label "Grid import: …"), finished, not the published one
+    let run = (await list()).find((r) => !r.is_active && (r.placed ?? 0) > 0 && !/^Grid import/i.test(r.label ?? ""));
     if (!run) {
       const made = await api(page, "/runs", { method: "POST", body: { term_id: tid, kind: "COURSE", horizon: "TERM", label: "Güz full term", horizon_params: {}, params: { time_limit_s: Number(process.env.REC_RUN_LIMIT ?? 240) } } });
       if (made.status >= 400) throw new Error(`POST /runs: ${made.status} ${JSON.stringify(made.data)}`);
@@ -36,7 +37,7 @@ export default {
   async run(rec, ctx) {
     const { page } = rec;
     const view = page.getByTestId("run-view");
-    await rec.step(tr(ctx, "A solver run of the whole autumn term, on the real data", "Gerçek veriyle tüm güz dönemi için bir çözücü çalıştırması"), async () => {
+    await rec.step(tr(ctx, "A real solver run on the autumn term's data", "Gerçek veriyle tüm güz dönemi için bir çözücü çalıştırması"), async () => {
       const link = page.locator(`a[href$="/runs/${this.runId}"]`).first();
       await rec.click(link, { after: 300 });
       await view.waitFor({ timeout: 30_000 });

@@ -266,6 +266,9 @@ async def test_withdrawing_ai_personal_keeps_the_person_out_of_every_prompt(env,
     uid, teacher = await env.user("gokce.sahin@uni.edu.tr", full_name="Gökçe Şahin")
     async with dbmod.get_session_factory()() as s:
         await ss.set_value(s, "anthropic_api_key", "sk-ant-" + "test-key-0000")
+        # the withdrawal path under an admin's "included" choice (the default is "excluded" since the owner
+        # decision 2026-10-17, R1-M-07: tests/test_consent_gates.py covers it)
+        await ss.set_value(s, "kvkk.ai_personal_default", "included")
         people = list((await s.execute(select(Instructor).order_by(Instructor.id))).scalars())
         # a real Bahar instructor with a Turkish letter in a two-word (or longer) name
         inst = next(

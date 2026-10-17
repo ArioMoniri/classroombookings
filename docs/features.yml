@@ -309,3 +309,15 @@
   phase: "wave 3 (W3-AI)"
   evidence: smartsched/backend/tests/ai/test_w3_ai_guardrails.py
   note: "app/ai/guardrails.py, app/ai/redteam_guard_cases.json (44 cases); /admin/ai Koruma with a dry-run test bench"
+- feature: "Guided SMTP setup shared by every admin: 12 provider presets (Google app password / OAuth2 / relay, Microsoft 365 OAuth2 XOAUTH2, Amazon SES, SendGrid, Mailgun, Postmark, Brevo, Resend, Yandex 360, campus server) with console steps and copy values, write-only encrypted secrets, KVKK md. 9 acknowledgement for providers abroad, SPF / DKIM / DMARC check with Turkish guidance, test e-mail with an SMTP transcript excerpt and Turkish error hints, 'Son değişiklik', send the mail that waited"
+  area: platform
+  status: done
+  phase: "wave 3b (W3-MAIL)"
+  evidence: smartsched/backend/tests/test_w3b_mail_smtp.py
+  note: "app/services/mail*.py, app/api/v1/mail_admin.py (/api/v1/mail/*), components/admin/email/smtp-wizard.tsx; DNS tests tests/test_w3b_mail_dns.py (fake resolver); docs/deploy/email.md"
+- feature: "Themed HTML + plain-text e-mails for every message (25 kinds, TR + EN): one renderer app.emails.render(kind, locale, **ctx) -> (subject, html, text), table layout, 600 px, dark-mode safe, bulletproof VML button, preheader, CID logo, escaped values, variants per provider / reason / state; admin subject and intro overrides per kind and language with live desktop / phone preview and test send"
+  area: platform
+  status: done
+  phase: "wave 3b (W3-MAIL)"
+  evidence: smartsched/backend/tests/test_w3b_mail_render.py
+  note: "design docs/design/v3/emails.md; wired paths keep recipients and plain text (tests/test_w3b_mail_wiring.py); alembic 0038_email_templates (outbox link + locale); components/admin/email/email-templates.tsx; EmailSettingsPanel for /admin/integrations"

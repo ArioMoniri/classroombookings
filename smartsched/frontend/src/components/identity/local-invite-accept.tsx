@@ -14,7 +14,13 @@ import { useI18n } from "@/lib/i18n/provider";
 import { idp } from "./providers-api";
 
 export function useInviteProvider(token: string | null) {
-  return useQuery({ queryKey: ["identity", "invite-provider", token], queryFn: () => idp.publicInvite(token ?? ""), enabled: !!token, retry: false, staleTime: 60_000 });
+  return useQuery({
+    queryKey: ["identity", "invite-provider", token],
+    queryFn: () => idp.publicInvite(token ?? ""),
+    enabled: !!token,
+    retry: false,
+    staleTime: 60_000,
+  });
 }
 
 export function LocalInviteAccept({ token }: { token: string }) {
@@ -55,7 +61,16 @@ export function LocalInviteAccept({ token }: { token: string }) {
       <p className="type-callout text-label-2">{t("identity.localInvite.lead")}</p>
       <div className="grid gap-1.5">
         <Label htmlFor={ids.pw}>{t("identity.localInvite.password")}</Label>
-        <Input id={ids.pw} type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} aria-describedby={error ? ids.err : undefined} className="text-base sm:text-sm" data-testid="local-invite-password" />
+        <Input
+          id={ids.pw}
+          type="password"
+          autoComplete="new-password"
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+          aria-describedby={error ? ids.err : undefined}
+          className="text-base sm:text-sm"
+          data-testid="local-invite-password"
+        />
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor={ids.again}>{t("identity.localInvite.again")}</Label>

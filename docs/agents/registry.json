@@ -2502,7 +2502,8 @@
       "goal": "You are lane **W3-AI** of SmartSched wave 3 (ledger `wave3-ai-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3.md and COMMON.md (same folder) and follow them. Load the `claude-api` skill before touching the Anthropic code. Rea…",
       "ledger": "W3-AI: provider gateway, usage, guardrails",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 21:25"
     },
     {
       "id": "a911c24913c40fd56",

@@ -38,11 +38,24 @@ type T = ReturnType<typeof useI18n>["t"];
 function when(iso: string | null | undefined, locale: string): string {
   if (!iso) return "—";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(locale === "tr" ? "tr-TR" : "en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" });
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString(locale === "tr" ? "tr-TR" : "en-GB", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/Istanbul",
+      });
 }
 
 export function changedLine(t: T, p: Pick<Provider, "changed_by" | "changed_at">, locale: string): string {
-  return p.changed_by ? t("identity.changed", { who: p.changed_by, when: when(p.changed_at, locale) }) : t("identity.changedNever");
+  return p.changed_by
+    ? t("identity.changed", {
+        who: p.changed_by,
+        when: when(p.changed_at, locale),
+      })
+    : t("identity.changedNever");
 }
 
 function useSave(p: Provider) {
@@ -140,7 +153,7 @@ function Wizard({ setup, onBack, headingRef }: { setup: Setup; onBack: () => voi
 
 export function Monogram({ text }: { text: string }) {
   return (
-    <span aria-hidden className="grid h-10 min-w-10 place-items-center rounded-xl bg-fill-2 px-1.5 text-[13px] font-bold text-label-1 shadow-[inset_0_0_0_1px_var(--border-control)]">
+    <span aria-hidden className="grid h-10 min-w-10 place-items-center rounded-xl bg-fill-2 px-1.5 type-caption font-bold text-label-1 shadow-(--edge-control)">
       {text}
     </span>
   );
@@ -158,7 +171,7 @@ export function StatusWord({ status }: { status: Provider["status"] }) {
 
 function StepFrame({ title, lead, children, footer }: { title: string; lead?: ReactNode; children: ReactNode; footer?: ReactNode }) {
   return (
-    <section className="flex flex-col gap-4 rounded-2xl bg-(--mat) p-4 shadow-[inset_0_0_0_1px_var(--border-control)] sm:p-5">
+    <section className="flex flex-col gap-4 rounded-2xl bg-(--mat) p-4 shadow-(--edge-control) sm:p-5">
       <div>
         <h3 className="type-headline text-label-1">{title}</h3>
         {lead ? <p className="mt-1 type-footnote text-label-2">{lead}</p> : null}
@@ -202,17 +215,37 @@ function PresetStep({ p, onNext }: { p: Provider; onNext: () => void }) {
       title={t("identity.step.preset")}
       lead={t("identity.preset.lead")}
       footer={
-        <BusyButton busy={pending} busyLabel={t("busy.saving")} className="min-h-11" data-testid="idp-preset-next" onClick={() => (Object.keys(body).length ? save(body, t("identity.saved"), onNext) : onNext())}>
+        <BusyButton
+          busy={pending}
+          busyLabel={t("busy.saving")}
+          className="min-h-11"
+          data-testid="idp-preset-next"
+          onClick={() => (Object.keys(body).length ? save(body, t("identity.saved"), onNext) : onNext())}
+        >
           {t("identity.next")}
         </BusyButton>
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={t("identity.field.display_name")} htmlFor="idp-label" hint={t("identity.preset.labelHint", { label: label || p.label })}>
+        <Field
+          label={t("identity.field.display_name")}
+          htmlFor="idp-label"
+          hint={t("identity.preset.labelHint", {
+            label: label || p.label,
+          })}
+        >
           <Input id="idp-label" value={label} placeholder={p.label} onChange={(e) => setLabel(e.target.value)} className="text-base sm:text-sm" data-testid="idp-label" />
         </Field>
         <Field label={t("identity.field.slug")} htmlFor="idp-slug" hint={p.identities || p.kind === "entra" ? t("identity.preset.slugLocked") : t("identity.preset.slugHint")}>
-          <Input id="idp-slug" value={slug} disabled={!!p.identities || p.kind === "entra"} onChange={(e) => setSlug(e.target.value.toLowerCase())} className="font-mono text-base sm:text-sm" spellCheck={false} data-testid="idp-slug" />
+          <Input
+            id="idp-slug"
+            value={slug}
+            disabled={!!p.identities || p.kind === "entra"}
+            onChange={(e) => setSlug(e.target.value.toLowerCase())}
+            className="font-mono text-base sm:text-sm"
+            spellCheck={false}
+            data-testid="idp-slug"
+          />
         </Field>
         {p.kind === "google_workspace" || p.kind === "entra" ? (
           <Field label={t(p.kind === "google_workspace" ? "identity.field.hosted_domains" : "identity.field.domain_hint")} htmlFor="idp-domain" hint={t("identity.hint.domains")}>
@@ -258,17 +291,29 @@ function ConsoleStep({ setup, onNext }: { setup: Setup; onNext: () => void }) {
         ))}
       </ol>
       <div className="flex flex-col gap-4" data-testid="idp-console-values">
-        {setup.console.map((v) => (v.value ? <CopyField key={v.key} label={locale === "en" ? v.label_en : v.label_tr} value={v.value} multiline={v.value.length > 60} testId={`idp-copy-${v.key}`} /> : null))}
+        {setup.console.map((v) =>
+          v.value ? <CopyField key={v.key} label={locale === "en" ? v.label_en : v.label_tr} value={v.value} multiline={v.value.length > 60} testId={`idp-copy-${v.key}`} /> : null,
+        )}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" className="min-h-11 sm:min-h-9" onClick={() => void navigator.clipboard?.writeText(all).then(() => toast.success(t("identity.console.copiedAll")))} data-testid="idp-copy-all">
+        <Button
+          variant="outline"
+          className="min-h-11 sm:min-h-9"
+          onClick={() => void navigator.clipboard?.writeText(all).then(() => toast.success(t("identity.console.copiedAll")))}
+          data-testid="idp-copy-all"
+        >
           {t("identity.console.copyAll")}
         </Button>
         <a href={mail} className="inline-flex min-h-11 items-center rounded-lg px-3 type-callout text-(--accent) underline sm:min-h-9">
           {t("identity.console.sendIt")}
         </a>
         {setup.provider.kind === "saml" ? (
-          <a href={`/api/v1/auth/sso/${setup.provider.name}/metadata`} download={`${setup.provider.name}-sp-metadata.xml`} className="inline-flex min-h-11 items-center rounded-lg px-3 type-callout text-(--accent) underline sm:min-h-9" data-testid="idp-sp-metadata">
+          <a
+            href={`/api/v1/auth/sso/${setup.provider.name}/metadata`}
+            download={`${setup.provider.name}-sp-metadata.xml`}
+            className="inline-flex min-h-11 items-center rounded-lg px-3 type-callout text-(--accent) underline sm:min-h-9"
+            data-testid="idp-sp-metadata"
+          >
             {t("identity.console.downloadMetadata")}
           </a>
         ) : null}
@@ -317,10 +362,35 @@ function SecretField({ p, value, onChange }: { p: Provider; value: string; onCha
   );
 }
 
-function TextField({ id, label, hint, value, onChange, placeholder, mono = true }: { id: string; label: string; hint?: string; value: string; onChange: (v: string) => void; placeholder?: string; mono?: boolean }) {
+function TextField({
+  id,
+  label,
+  hint,
+  value,
+  onChange,
+  placeholder,
+  mono = true,
+}: {
+  id: string;
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  mono?: boolean;
+}) {
   return (
     <Field label={label} htmlFor={id} hint={hint}>
-      <Input id={id} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} spellCheck={false} autoComplete="off" className={cn("text-base sm:text-sm", mono && "font-mono")} data-testid={id} />
+      <Input
+        id={id}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        spellCheck={false}
+        autoComplete="off"
+        className={cn("text-base sm:text-sm", mono && "font-mono")}
+        data-testid={id}
+      />
     </Field>
   );
 }
@@ -365,10 +435,23 @@ function ValuesStep({ p, setup, onNext }: { p: Provider; setup: Setup; onNext: (
   return (
     <StepFrame
       title={t("identity.step.values")}
-      lead={missing.length ? t("identity.values.missing", { fields: missing.map((m) => t(`identity.field.${m}` as "identity.field.issuer")).join(", ") }) : t("identity.values.complete")}
+      lead={
+        missing.length
+          ? t("identity.values.missing", {
+              fields: missing.map((m) => t(`identity.field.${m}` as "identity.field.issuer")).join(", "),
+            })
+          : t("identity.values.complete")
+      }
       footer={
         <>
-          <BusyButton busy={pending} busyLabel={t("busy.saving")} disabled={!Object.keys(body).length} className="min-h-11" onClick={() => save(body, t("identity.saved"))} data-testid="idp-values-save">
+          <BusyButton
+            busy={pending}
+            busyLabel={t("busy.saving")}
+            disabled={!Object.keys(body).length}
+            className="min-h-11"
+            onClick={() => save(body, t("identity.saved"))}
+            data-testid="idp-values-save"
+          >
             {t("identity.save")}
           </BusyButton>
           <Button variant="outline" className="min-h-11" disabled={!p.configured} onClick={onNext} data-testid="idp-values-next">
@@ -377,12 +460,29 @@ function ValuesStep({ p, setup, onNext }: { p: Provider; setup: Setup; onNext: (
         </>
       }
     >
-      {p.library_required ? <Alert tone="warning" data-testid="idp-library-required">{t("identity.libraryRequired")}</Alert> : null}
+      {p.library_required ? (
+        <Alert tone="warning" data-testid="idp-library-required">
+          {t("identity.libraryRequired")}
+        </Alert>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         {p.kind === "entra" ? <TextField id="idp-tenant" label={t("identity.field.tenant_id")} hint={t("identity.hint.tenant")} value={v.tenant_id} onChange={set("tenant_id")} /> : null}
-        {p.kind === "oidc" ? <TextField id="idp-issuer" label={t("identity.field.issuer")} hint={t("identity.hint.issuer", { example: setup.issuer_hint ?? "https://idp.uni.edu.tr" })} value={v.issuer} placeholder={setup.issuer_hint ?? ""} onChange={set("issuer")} /> : null}
+        {p.kind === "oidc" ? (
+          <TextField
+            id="idp-issuer"
+            label={t("identity.field.issuer")}
+            hint={t("identity.hint.issuer", {
+              example: setup.issuer_hint ?? "https://idp.uni.edu.tr",
+            })}
+            value={v.issuer}
+            placeholder={setup.issuer_hint ?? ""}
+            onChange={set("issuer")}
+          />
+        ) : null}
         {p.kind !== "saml" ? <TextField id="idp-client" label={t("identity.field.client_id")} value={v.client_id} onChange={set("client_id")} /> : null}
-        {p.kind === "google_workspace" ? <TextField id="idp-hd" label={t("identity.field.hosted_domains")} hint={t("identity.hint.domains")} value={v.hosted_domains} onChange={set("hosted_domains")} mono={false} /> : null}
+        {p.kind === "google_workspace" ? (
+          <TextField id="idp-hd" label={t("identity.field.hosted_domains")} hint={t("identity.hint.domains")} value={v.hosted_domains} onChange={set("hosted_domains")} mono={false} />
+        ) : null}
       </div>
       {p.kind !== "saml" ? <SecretField p={p} value={v.client_secret} onChange={set("client_secret")} /> : null}
       {p.kind === "oidc" ? (
@@ -396,9 +496,23 @@ function ValuesStep({ p, setup, onNext }: { p: Provider; setup: Setup; onNext: (
       ) : null}
       {p.kind === "saml" ? (
         <div className="grid gap-4">
-          <TextField id="idp-metadata-url" label={t("identity.field.metadata_url")} hint={t("identity.hint.metadata")} value={v.metadata_url} placeholder={setup.issuer_hint ?? ""} onChange={set("metadata_url")} />
+          <TextField
+            id="idp-metadata-url"
+            label={t("identity.field.metadata_url")}
+            hint={t("identity.hint.metadata")}
+            value={v.metadata_url}
+            placeholder={setup.issuer_hint ?? ""}
+            onChange={set("metadata_url")}
+          />
           <Field label={t("identity.field.metadata_xml")} htmlFor="idp-metadata-xml">
-            <Textarea id="idp-metadata-xml" rows={4} value={v.metadata_xml} onChange={(e) => set("metadata_xml")(e.target.value)} className="font-mono text-base sm:text-sm" data-testid="idp-metadata-xml" />
+            <Textarea
+              id="idp-metadata-xml"
+              rows={4}
+              value={v.metadata_xml}
+              onChange={(e) => set("metadata_xml")(e.target.value)}
+              className="font-mono text-base sm:text-sm"
+              data-testid="idp-metadata-xml"
+            />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField id="idp-entity" label={t("identity.field.idp_entity_id")} value={v.idp_entity_id} onChange={set("idp_entity_id")} />
@@ -420,7 +534,7 @@ function Checks({ checks }: { checks: Check[] }) {
     <ul className="flex flex-col gap-1.5" data-testid="idp-checks" aria-live="polite">
       {checks.map((c) => (
         <li key={c.key} className="flex items-start gap-2 type-callout" data-testid={`idp-check-${c.key}`} data-ok={c.ok}>
-          {c.ok ? <CheckIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-(--feasible)" /> : <X aria-hidden className="mt-0.5 size-4 shrink-0 text-(--infeasible)" />}
+          {c.ok ? <CheckIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-status-feasible-fg" /> : <X aria-hidden className="mt-0.5 size-4 shrink-0 text-status-infeasible-fg" />}
           <span className="text-label-1">{locale === "en" ? c.en : c.tr}</span>
         </li>
       ))}
@@ -499,7 +613,12 @@ function TestStep({ p, result, onResult, onGoto, onNext }: { p: Provider; result
   );
 }
 
-const STEP_OF: Record<number, WizardStep> = { 1: "preset", 2: "console", 3: "values", 4: "test" };
+const STEP_OF: Record<number, WizardStep> = {
+  1: "preset",
+  2: "console",
+  3: "values",
+  4: "test",
+};
 
 export function TestReport({ r, onGoto }: { r: TestResult; onGoto?: (s: WizardStep) => void }) {
   const { t, locale } = useI18n();
@@ -507,26 +626,33 @@ export function TestReport({ r, onGoto }: { r: TestResult; onGoto?: (s: WizardSt
     const hint = r.hint ? (locale === "en" ? r.hint.en : r.hint.tr) : t("identity.test.failedGeneric");
     const back = r.hint?.step ? STEP_OF[r.hint.step] : null;
     return (
-      <Alert tone="error" title={t("identity.test.failed")} data-testid="idp-test-result" data-ok="false">
-        <span className="block">{hint}</span>
-        {r.detail ? (
-          <details className="mt-1 type-footnote">
-            <summary>{t("identity.test.detail")}</summary>
-            <code className="break-all">{r.hint?.raw ?? r.detail}</code>
-          </details>
-        ) : null}
-        {back && onGoto ? (
-          <Button size="sm" variant="outline" className="mt-2 min-h-11 sm:min-h-9" onClick={() => onGoto(back)}>
-            {t("identity.test.goto", { n: r.hint?.step ?? 0 })}
-          </Button>
-        ) : null}
-      </Alert>
+      <div data-testid="idp-test-result" data-ok="false">
+        <Alert tone="error" title={t("identity.test.failed")}>
+          <span className="block">{hint}</span>
+          {r.detail ? (
+            <details className="mt-1 type-footnote">
+              <summary>{t("identity.test.detail")}</summary>
+              <code className="break-all">{r.hint?.raw ?? r.detail}</code>
+            </details>
+          ) : null}
+          {back && onGoto ? (
+            <Button size="sm" variant="outline" className="mt-2 min-h-11 sm:min-h-9" onClick={() => onGoto(back)}>
+              {t("identity.test.goto", { n: r.hint?.step ?? 0 })}
+            </Button>
+          ) : null}
+        </Alert>
+      </div>
     );
   }
   const claims = Object.entries(r.claims ?? {}).filter(([k]) => !["iss", "aud", "exp", "iat", "nbf"].includes(k));
   return (
     <div className="flex flex-col gap-3" data-testid="idp-test-result" data-ok="true">
-      <Alert tone="success" title={t("identity.test.passed", { email: r.verified_email ?? "—" })}>
+      <Alert
+        tone="success"
+        title={t("identity.test.passed", {
+          email: r.verified_email ?? "—",
+        })}
+      >
         {t("identity.test.groups", { n: r.groups.length })}
         {r.mapped_role ? ` · ${t("identity.test.mapped", { role: r.mapped_role.name })}` : ""}
         {r.domain_ok === false ? ` · ${t("identity.test.domainBlocked")}` : ""}
@@ -571,7 +697,14 @@ function EnableStep({ p, tested, onDone }: { p: Provider; tested: boolean; onDon
       lead={t(inviteOnly ? "identity.enable.summaryInvite" : "identity.enable.summaryOpen", { name, role: role ? roleLabel(t, role) : "—" })}
       footer={
         <>
-          <BusyButton busy={pending} busyLabel={t("busy.saving")} disabled={!tested || !p.configured} className="min-h-11" onClick={() => save(body(true), t("identity.enable.enabled", { name }), onDone)} data-testid="idp-enable">
+          <BusyButton
+            busy={pending}
+            busyLabel={t("busy.saving")}
+            disabled={!tested || !p.configured}
+            className="min-h-11"
+            onClick={() => save(body(true), t("identity.enable.enabled", { name }), onDone)}
+            data-testid="idp-enable"
+          >
             {t("identity.enable.enable")}
           </BusyButton>
           <Button variant="outline" className="min-h-11" disabled={pending} onClick={() => save(body(false), t("identity.saved"), onDone)} data-testid="idp-save-off">
@@ -594,7 +727,17 @@ function EnableStep({ p, tested, onDone }: { p: Provider; tested: boolean; onDon
         <Field label={t("identity.field.default_role")} htmlFor="idp-role" hint={t("identity.hint.defaultRole")}>
           <SelectField id="idp-role" value={roleId} onChange={(e) => setRoleId(e.target.value)} data-testid="idp-role">
             {!roleId ? <option value="">—</option> : null}
-            {(roles.data ?? (p.default_role ? [{ ...p.default_role, permissions: [] as string[] }] : []))
+            {(
+              roles.data ??
+              (p.default_role
+                ? [
+                    {
+                      ...p.default_role,
+                      permissions: [] as string[],
+                    },
+                  ]
+                : [])
+            )
               .filter((r) => signupRoleEligible(r) || r.id === p.default_role?.id)
               .map((r) => (
                 <option key={r.id} value={r.id}>
@@ -644,14 +787,27 @@ function Mappings({ p }: { p: Provider }) {
           setError(null);
           const clean = cleanPasted(value).value;
           if (!clean || !role) return setError(t("identity.mapping.incomplete"));
-          add.mutate({ claim, value: clean, role_id: Number(role) }, { onSuccess: () => setValue(""), onError: (err) => setError(problemText(err, locale) ?? apiProblem(err, locale).text ?? t("identity.saveFailed")) });
+          add.mutate(
+            { claim, value: clean, role_id: Number(role) },
+            {
+              onSuccess: () => setValue(""),
+              onError: (err) => setError(problemText(err, locale) ?? apiProblem(err, locale).text ?? t("identity.saveFailed")),
+            },
+          );
         }}
       >
         <SelectField aria-label={t("identity.mapping.claim")} value={claim} onChange={(e) => setClaim(e.target.value === "role" ? "role" : "group")}>
           <option value="group">{t("identity.mapping.group")}</option>
           <option value="role">{t("identity.mapping.role")}</option>
         </SelectField>
-        <Input aria-label={t("identity.mapping.value")} value={value} onChange={(e) => setValue(e.target.value)} placeholder={p.kind === "saml" ? "urn:mace:uni.edu.tr:planlama" : "/personel/planlama"} className="font-mono text-base sm:text-sm" data-testid="idp-map-value" />
+        <Input
+          aria-label={t("identity.mapping.value")}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={p.kind === "saml" ? "urn:mace:uni.edu.tr:planlama" : "/personel/planlama"}
+          className="font-mono text-base sm:text-sm"
+          data-testid="idp-map-value"
+        />
         <SelectField aria-label={t("identity.mapping.to")} value={role} onChange={(e) => setRole(e.target.value)} data-testid="idp-map-role">
           <option value="">—</option>
           {(roles.data ?? []).map((r) => (

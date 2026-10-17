@@ -353,7 +353,7 @@ class AIClient:
                 message = await run_call(self, kwargs, stream=stream, on_event=on_event, model_override=model_override)
             else:
                 direct = self._direct_kwargs(kwargs)
-                message = await (self._adapter.stream(direct, on_event) if stream else self._adapter.create(direct))
+                message = await (self._adapter.stream(direct, on_event) if stream else self._send(direct))
         except ValueError as exc:
             if stream and not isinstance(exc, ProviderError):  # the SDK's partial-JSON parser gave up on a tool input
                 raise AIStreamJSONError("a streamed tool input could not be parsed") from exc
@@ -368,6 +368,10 @@ class AIClient:
                 raise
             raise AIUpstreamError(str(mapped)) from exc
         return self._finish(message)
+
+    async def _send(self, kwargs: dict[str, Any]) -> Any:
+        """One non-streamed request of a direct client (the seam tests patch, as before the gateway)."""
+        return await self._adapter.create(kwargs)
 
     @staticmethod
     def _direct_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:

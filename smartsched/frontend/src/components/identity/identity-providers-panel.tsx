@@ -37,7 +37,16 @@ export function IdentityProvidersPanel({ initialSetup = null, showInvites = true
   if (q.isLoading) return <Loading />;
   if (q.isError || !q.data) return <Alert tone="error">{problemText(q.error, locale) ?? t("identity.loadError")}</Alert>;
   const list = q.data;
-  const current: View = view ?? (initialSetup ? (list.providers.find((p) => p.name === initialSetup) ? { kind: "setup", id: list.providers.find((p) => p.name === initialSetup)!.id } : { kind: "list" }) : { kind: "list" });
+  const current: View =
+    view ??
+    (initialSetup
+      ? list.providers.find((p) => p.name === initialSetup)
+        ? {
+            kind: "setup",
+            id: list.providers.find((p) => p.name === initialSetup)!.id,
+          }
+        : { kind: "list" }
+      : { kind: "list" });
   if (current.kind === "setup") return <ProviderWizard providerId={current.id} onBack={() => setView({ kind: "list" })} />;
   if (current.kind === "gallery") return <Gallery onBack={() => setView({ kind: "list" })} onCreated={(p) => setView({ kind: "setup", id: p.id })} existing={list.providers} />;
   return (
@@ -86,8 +95,18 @@ export function IdentityProvidersPanel({ initialSetup = null, showInvites = true
 function lastCheck(t: ReturnType<typeof useI18n>["t"], p: Provider, locale: string): string {
   if (!p.last_check_at) return t("identity.neverChecked");
   const d = new Date(p.last_check_at);
-  const when = Number.isNaN(d.getTime()) ? p.last_check_at : d.toLocaleString(locale === "tr" ? "tr-TR" : "en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" });
-  return t(p.last_check_ok ? "identity.checkedOk" : "identity.checkedFail", { when });
+  const when = Number.isNaN(d.getTime())
+    ? p.last_check_at
+    : d.toLocaleString(locale === "tr" ? "tr-TR" : "en-GB", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/Istanbul",
+      });
+  return t(p.last_check_ok ? "identity.checkedOk" : "identity.checkedFail", {
+    when,
+  });
 }
 
 function ProviderRow({ p, first, last, ids, onSetup }: { p: Provider; first: boolean; last: boolean; ids: number[]; onSetup: () => void }) {
@@ -112,7 +131,7 @@ function ProviderRow({ p, first, last, ids, onSetup }: { p: Provider; first: boo
           <StatusWord status={p.status} /> · {lastCheck(t, p, locale)}
         </p>
         <p className="type-footnote text-label-3">{changedLine(t, p, locale)}</p>
-        {p.status === "error" && p.last_check_detail ? <p className="type-footnote text-(--infeasible)">{p.last_check_detail}</p> : null}
+        {p.status === "error" && p.last_check_detail ? <p className="type-footnote text-status-infeasible-fg">{p.last_check_detail}</p> : null}
       </div>
       <div className="flex items-center gap-1">
         <IconButton label={t("identity.moveUp", { name })} size="sm" disabled={first || order.isPending} onClick={() => move(-1)} className="pointer-coarse:size-11">
@@ -134,7 +153,10 @@ function ProviderRow({ p, first, last, ids, onSetup }: { p: Provider; first: boo
             onCheckedChange={(on) => {
               if (on && !p.test_ok) return onSetup(); // the switch opens the sheet at the missing step (§4.1)
               if (!on) return setConfirmOff(true);
-              toggle.mutate(true, { onError: fail, onSuccess: () => toast.success(t("identity.enable.enabled", { name })) });
+              toggle.mutate(true, {
+                onError: fail,
+                onSuccess: () => toast.success(t("identity.enable.enabled", { name })),
+              });
             }}
             data-testid={`idp-switch-${p.name}`}
           />
@@ -148,7 +170,12 @@ function ProviderRow({ p, first, last, ids, onSetup }: { p: Provider; first: boo
         confirmLabel={t("identity.off.confirm")}
         destructive
         busy={toggle.isPending}
-        onConfirm={() => toggle.mutate(false, { onError: fail, onSettled: () => setConfirmOff(false) })}
+        onConfirm={() =>
+          toggle.mutate(false, {
+            onError: fail,
+            onSettled: () => setConfirmOff(false),
+          })
+        }
       />
     </li>
   );
@@ -160,7 +187,13 @@ function Gallery({ onBack, onCreated, existing }: { onBack: () => void; onCreate
   const create = useIdpMutation((b: { kind: ProviderKind; preset?: string }) => idp.create(b));
   const taken = new Set(existing.map((p) => p.kind));
   const pick = (kind: ProviderKind, preset?: string) =>
-    create.mutate({ kind, preset }, { onSuccess: onCreated, onError: (e) => toast.error(problemText(e, locale) ?? apiProblem(e, locale).text ?? t("identity.saveFailed")) });
+    create.mutate(
+      { kind, preset },
+      {
+        onSuccess: onCreated,
+        onError: (e) => toast.error(problemText(e, locale) ?? apiProblem(e, locale).text ?? t("identity.saveFailed")),
+      },
+    );
   return (
     <div className="flex flex-col gap-4" data-testid="idp-gallery">
       <div className="flex items-center gap-2">
@@ -174,7 +207,7 @@ function Gallery({ onBack, onCreated, existing }: { onBack: () => void; onCreate
         {(kinds.data ?? []).map((k: KindCard) => {
           const single = (k.kind === "entra" || k.kind === "google_workspace") && taken.has(k.kind);
           return (
-            <li key={k.kind} className="flex flex-col gap-3 rounded-2xl bg-(--mat) p-4 shadow-[inset_0_0_0_1px_var(--border-control)]" data-testid={`idp-kind-${k.kind}`}>
+            <li key={k.kind} className="flex flex-col gap-3 rounded-2xl bg-(--mat) p-4 shadow-(--edge-control)" data-testid={`idp-kind-${k.kind}`}>
               <div className="flex items-center gap-3">
                 <Monogram text={k.badge} />
                 <div className="min-w-0">
@@ -192,7 +225,15 @@ function Gallery({ onBack, onCreated, existing }: { onBack: () => void; onCreate
               ) : k.presets.length ? (
                 <div className="flex flex-wrap gap-2">
                   {k.presets.map((pr) => (
-                    <Button key={pr.key} size="sm" variant="outline" disabled={create.isPending} className="min-h-11 sm:min-h-9" onClick={() => pick(k.kind as ProviderKind, pr.key)} data-testid={`idp-preset-${k.kind}-${pr.key}`}>
+                    <Button
+                      key={pr.key}
+                      size="sm"
+                      variant="outline"
+                      disabled={create.isPending}
+                      className="min-h-11 sm:min-h-9"
+                      onClick={() => pick(k.kind as ProviderKind, pr.key)}
+                      data-testid={`idp-preset-${k.kind}-${pr.key}`}
+                    >
                       {pr.key === "generic" ? t("identity.gallery.generic") : pr.label}
                     </Button>
                   ))}

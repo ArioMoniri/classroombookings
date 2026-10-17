@@ -48,6 +48,8 @@ import { addDay, dayChips, nextWeekday, schoolWeekdays, defaultSlot, findQuery, 
 
 const PEOPLE = [0, 10, 20, 40, 80] as const;
 const SHOW_FIRST = 8;
+/** one receipt toast at a time; "Geri al" on the receipt dismisses it */
+const TOAST_ID = "quick-reserve-receipt";
 
 const Created = z.object({ id: z.number(), status: z.string(), room_name: z.string().nullish(), audit_event_id: z.number().nullish() }).passthrough();
 type Created = z.infer<typeof Created>;
@@ -186,7 +188,10 @@ export function QuickReserveView() {
       setNoteOpen(false);
       setLive(t(pending ? "quickReserve.receipt.liveRequested" : "quickReserve.receipt.live", { room: room.name }));
       toast.success(t(pending ? "quickReserve.toast.requested" : "quickReserve.toast.booked", { room: room.name }), {
+        id: TOAST_ID,
         duration: 10_000,
+        // MOBILE M-02: the action is a 44 px target on touch
+        classNames: { actionButton: "pointer-coarse:min-h-11 pointer-coarse:px-4" },
         action: { label: t(pending ? "quickReserve.receipt.withdraw" : "quickReserve.receipt.undo"), onClick: () => void undo(r) },
       });
       await Promise.all(BOOKING_KEYS.map((k) => qc.invalidateQueries({ queryKey: k })));
@@ -210,6 +215,7 @@ export function QuickReserveView() {
 
   const undo = async (r: Receipt) => {
     setUndoing(true);
+    toast.dismiss(TOAST_ID);
     try {
       if (r.pending) {
         const reqs = await wave1.approvals.mine();

@@ -40,12 +40,11 @@ export function EmailTemplates() {
               const changed = !!(tpl.overrides.tr.subject || tpl.overrides.tr.intro || tpl.overrides.en.subject || tpl.overrides.en.intro);
               return (
                 <li key={tpl.kind} className="not-last:edge-hairline-b">
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => setKind(tpl.kind)}
                     aria-current={tpl.kind === kind ? "true" : undefined}
                     data-testid={`mail-tpl-${tpl.kind}`}
-                    className={cn("flex min-h-11 w-full flex-col items-start gap-0.5 px-4 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-tint", tpl.kind === kind ? "bg-tint-soft" : "hover:bg-fill-2")}
+                    className={cn("h-auto whitespace-normal rounded-none flex min-h-11 w-full flex-col items-start gap-0.5 px-4 py-2 text-left", tpl.kind === kind ? "bg-tint-soft" : "hover:bg-fill-2")}
                   >
                     <span className="type-headline text-label-1">{locale === "tr" ? tpl.label_tr : tpl.label_en}</span>
                     <span className="flex flex-wrap items-center gap-1.5 type-footnote text-label-3">
@@ -55,7 +54,7 @@ export function EmailTemplates() {
                       </Badge>
                       {changed ? <Badge variant="secondary" tone="tint">{t("email.tpl.changed")}</Badge> : null}
                     </span>
-                  </button>
+                  </Button>
                 </li>
               );
             })}
@@ -125,7 +124,7 @@ function TemplateEditor({ tpl }: { tpl: Template }) {
 
   return (
     <section className="flex min-w-0 flex-col gap-4" aria-labelledby={`${ids}-h`}>
-      <h3 id={`${ids}-h`} ref={headingRef} tabIndex={-1} className="type-title-3 text-label-1 outline-none">
+      <h3 id={`${ids}-h`} ref={headingRef} tabIndex={-1} className="type-title-3 text-label-1 focus:outline-hidden">
         {label}
       </h3>
       <div className="flex flex-wrap items-center gap-3">

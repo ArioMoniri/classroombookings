@@ -74,7 +74,11 @@ export function buttonLayout<T extends ButtonLike>(providers: T[], invited: stri
     return { visible: only, more: [], single: true };
   }
   if (providers.length <= 1) return { visible: providers, more: [], single: true };
-  return { visible: providers.slice(0, 3), more: providers.slice(3), single: false };
+  return {
+    visible: providers.slice(0, 3),
+    more: providers.slice(3),
+    single: false,
+  };
 }
 
 const INVISIBLE = /[​‌‍⁠﻿]/g;
@@ -82,7 +86,10 @@ const INVISIBLE = /[​‌‍⁠﻿]/g;
 /** A pasted value: NBSP → space, zero-width characters removed, outer spaces and quotes trimmed. */
 export function cleanPasted(raw: string): { value: string; trimmed: boolean } {
   const text = raw.normalize("NFKC").replace(INVISIBLE, "").replace(/ /g, " ");
-  const value = text.trim().replace(/^["'`]+|["'`]+$/g, "").trim();
+  const value = text
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .trim();
   return { value, trimmed: value !== raw };
 }
 
@@ -96,14 +103,26 @@ export function looksLikeGuid(value: string): boolean {
 export function parseDomains(text: string): string[] {
   const out: string[] = [];
   for (const part of cleanPasted(text).value.split(/[\s,;]+/)) {
-    const d = part.replace(/[İIı]/g, "i").toLowerCase().replace(/^.*@/, "").replace(/^\.+|\.+$/g, "");
+    const d = part
+      .replace(/[İIı]/g, "i")
+      .toLowerCase()
+      .replace(/^.*@/, "")
+      .replace(/^\.+|\.+$/g, "");
     if (d && !out.includes(d)) out.push(d);
   }
   return out;
 }
 
 /** "Tümünü kopyala": every console value as `Label: value` lines (never a secret: the console values hold none). */
-export function copyAllText(values: { key?: string; label_tr: string; label_en: string; value?: string | null }[], locale: "tr" | "en"): string {
+export function copyAllText(
+  values: {
+    key?: string;
+    label_tr: string;
+    label_en: string;
+    value?: string | null;
+  }[],
+  locale: "tr" | "en",
+): string {
   return values
     .filter((v) => v.value)
     .map((v) => `${locale === "tr" ? v.label_tr : v.label_en}: ${v.value}`)
