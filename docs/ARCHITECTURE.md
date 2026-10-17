@@ -101,7 +101,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-32 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0036_error_events`**. A new migration goes on top of it (`alembic heads` must print one line).
+34 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0038_email_templates`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -137,6 +137,8 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 30 | `0034_ai_usage` | `0033_invig_progress` | AI gateway usage metering (wave 3 W3-AI; app/models/ai_usage.py, app/services/ai_usage.py) |
 | 31 | `0035_rls_policies` | `0034_ai_usage` | PostgreSQL row-level security on the per-person tables (wave 3 W3-SEC; app/core/rls.py, docs/SECURITY.md §4) |
 | 32 | `0036_error_events` | `0035_rls_policies` | Grouped error events for the operations panel (W3-OPS; app/models/error_event.py, app/core/observability.py) |
+| 33 | `0037_identity_providers` | `0036_error_events` | Several identity providers set by administrators (wave 3b W3-IDP; app/services/identity/**, app/services/sso.py) |
+| 34 | `0038_email_templates` | `0037_identity_providers` | Themed e-mails (wave 3b W3-MAIL; app/emails, app/services/mail.py): the outbox remembers the button link and the… |
 
 <!-- /AUTO:migrations -->
 

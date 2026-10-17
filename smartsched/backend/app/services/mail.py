@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import smtplib
 import socket
 import ssl
@@ -116,7 +117,25 @@ async def resolve_locale(session: AsyncSession, locale: str | None = None, user:
 # --------------------------------------------------------------------------------------------------
 
 
-def build_message(smtp: Mapping[str, Any], *, to: str, rendered: emails.Rendered | None, subject: str, text: str) -> MailMessage:
+_THREAD = re.compile(r"[?&](request|series)=(\d+)")
+
+
+def thread_id(link: str | None, domain: str) -> str | None:
+    """``<request-128@uni.edu.tr>`` for every e-mail about one request (or series), so clients thread them
+    (emails.md §6); ``None`` for anything else (security mails never thread)."""
+    m = _THREAD.search(link or "")
+    return f"<{m.group(1)}-{m.group(2)}@{domain}>" if m and domain else None
+
+
+def build_message(
+    smtp: Mapping[str, Any],
+    *,
+    to: str,
+    rendered: emails.Rendered | None,
+    subject: str,
+    text: str,
+    link: str | None = None,
+) -> MailMessage:
     msg = MailMessage()
     from_address = str(smtp["from_address"])
     msg["Subject"] = emails.clean(subject).replace("\n", " ")
@@ -127,7 +146,11 @@ def build_message(smtp: Mapping[str, Any], *, to: str, rendered: emails.Rendered
     msg["Date"] = formatdate(usegmt=True)
     msg["Message-ID"] = make_msgid(domain=from_address.rsplit("@", 1)[-1] or None)
     msg["Auto-Submitted"] = "auto-generated"
-    msg["X-Auto-Response-Suppress"] = "OOF, AutoReply"
+    msg["X-Auto-Response-Suppress"] = "All"
+    thread = thread_id(link, from_address.rsplit("@", 1)[-1])
+    if thread:
+        msg["In-Reply-To"] = thread
+        msg["References"] = thread
     if rendered is not None:
         msg["Content-Language"] = rendered.locale
     msg.set_content(text)

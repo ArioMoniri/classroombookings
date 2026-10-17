@@ -166,7 +166,31 @@ def _ops_metric(fields: dict[str, Any]) -> None:
             latency_s=(int(fields.get("latency_ms") or 0) / 1000.0),
             cost_usd=float(fields.get("cost_usd") or 0.0),
         )
+        refusal = getattr(observability, "record_guard_refusal", None)
+        if refusal is not None and fields.get("outcome") == "refused_by_guardrail":
+            code = str(fields.get("reason_code") or "")
+            refusal(
+                "ai_injection"
+                if code.startswith("prompt_injection")
+                else "ai_scope"
+                if code.startswith(("out_of_scope", "model_scope"))
+                else "ai_output"
+                if code.startswith("output_")
+                else "ai_other"
+            )
     except Exception:  # noqa: BLE001 - metrics never break a call
+        return
+
+
+def _ops_budget(org: dict[str, Any]) -> None:
+    """The org budget ratio for the W3-OPS alerts (scope ``global``; never a user label)."""
+    try:
+        from app.core import observability
+
+        hook = getattr(observability, "set_ai_budget_ratio", None)
+        if hook is not None and org.get("pct") is not None:
+            hook("global", float(org["pct"]) / 100.0)
+    except Exception:  # noqa: BLE001
         return
 
 
@@ -433,6 +457,7 @@ async def check_alerts(user_id: int | None, now: datetime | None = None) -> list
             soft = int(limits.get("soft_pct") or 80)
             due: list[tuple[str, str, float, str | None, str]] = []
             org = await org_state(s, now)
+            _ops_budget(org)
             if org["pct"] is not None and org["pct"] >= soft:
                 level = "hard" if org["pct"] >= 100 else "soft"
                 due.append(("org", level, float(org["pct"]), None, f"ai_usage:org:{org['month']}:{level}"))

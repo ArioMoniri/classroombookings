@@ -539,9 +539,19 @@ async def test_every_row_feeds_the_ops_metric_without_a_user_label(session, monk
 
     seen: list[dict[str, Any]] = []
     monkeypatch.setattr(observability, "record_ai_call", lambda **kw: seen.append(kw))
+    guards: list[str] = []
+    monkeypatch.setattr(observability, "record_guard_refusal", guards.append)
     await meter.record(
         user_id=5, feature="chat", provider="anthropic", model="m", outcome="limit_reached", latency_ms=1500
     )
-    await meter.record(user_id=5, feature="chat", provider="anthropic", model="m", outcome="refused_by_guardrail")
+    await meter.record(
+        user_id=5,
+        feature="chat",
+        provider="anthropic",
+        model="m",
+        outcome="refused_by_guardrail",
+        reason_code="prompt_injection_override",
+    )
     assert [s["outcome"] for s in seen] == ["limited", "blocked"]
     assert seen[0]["latency_s"] == 1.5 and all("user_id" not in s for s in seen)
+    assert guards == ["ai_injection"]

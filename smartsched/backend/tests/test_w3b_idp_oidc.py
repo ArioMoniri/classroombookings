@@ -14,7 +14,7 @@ from app.models.sso import SsoAuthState, SsoProvider, UserIdentity
 from sqlalchemy import select
 
 from tests.api_fixtures import login
-from tests.test_crbs_users import make_user
+from tests.crbs_support import make_user
 from tests.test_w3b_idp_fakes import (  # noqa: F401
     GOOGLE_CLIENT,
     KC_CLIENT,
@@ -337,11 +337,42 @@ async def test_login_buttons_follow_the_admin_order(idp) -> None:  # noqa: F811
     assert [p["name"] for p in auth["providers"]] == ["keycloak"]
 
 
-async def test_provider_delete_refused_while_identities_exist(idp) -> None:  # noqa: F811
+async def test_delete_needs_the_provider_off_and_keeps_the_accounts(idp) -> None:  # noqa: F811
     kc = await idp.keycloak()
     await idp.headers("keycloak", idp.kc)
     r = await idp.client.delete(f"{ADMIN}/{kc['id']}", headers=idp.admin)
-    assert r.status_code == 409 and r.json()["detail"]["code"] == "in_use"
-    p = await idp.create("oidc", preset="okta")
-    assert (await idp.client.delete(f"{ADMIN}/{p['id']}", headers=idp.admin)).status_code == 204
-    assert [r.name for r in await _all(SsoProvider)] == ["keycloak"]
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "enabled"
+    assert (await idp.put(kc["id"], enabled=False)).status_code == 200
+    assert (await idp.client.delete(f"{ADMIN}/{kc['id']}", headers=idp.admin)).status_code == 204
+    assert not await _all(SsoProvider) and not await _all(UserIdentity)
+    assert len(await _all(User, User.email == "ayse.yilmaz@uni.edu.tr")) == 1  # the account stays
+
+
+async def test_one_microsoft_and_one_google_new_oidc_starts_invite_only(idp) -> None:  # noqa: F811
+    await idp.create("google_workspace")
+    r = await idp.client.post(ADMIN, json={"kind": "google_workspace"}, headers=idp.admin)
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "exists"
+    okta = await idp.create("oidc", preset="okta")
+    okta2 = await idp.create("oidc", preset="okta")
+    assert (okta["name"], okta2["name"]) == ("okta", "okta-2")
+    assert okta["invite_only"] is True and okta["groups_claim"] == "groups" and okta["scopes"] == ["groups"]
+    r = await idp.client.post(ADMIN, json={"kind": "oidc", "name": "admin"}, headers=idp.admin)
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "invalid_slug"
+
+
+async def test_stale_version_conflicts_and_disabling_the_last_admin_path_is_refused(idp) -> None:  # noqa: F811
+    kc = await idp.keycloak()
+    r = await idp.put(kc["id"], version="2020-01-01T00:00:00.000000", display_name="Eski")
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "conflict" and "Yenileyin" in r.json()["detail"]["tr"]
+    assert (await idp.put(kc["id"], version=kc["version"], display_name="Kampüs girişi")).status_code == 200
+    # an administrator who signs in only through Keycloak, and no local administrator left
+    h = await idp.headers("keycloak", idp.kc, sub="adm-1", email="tek.yonetici@uni.edu.tr")
+    me = await _me(idp, h)
+    r = await idp.client.put(f"/api/v1/users/{me['id']}", json={"role_id": await _role_id("ADMIN")}, headers=idp.admin)
+    assert r.status_code == 200, r.text
+    async with dbmod.get_session_factory()() as s:
+        seeded = (await s.execute(select(User).where(User.email == "admin@example.com"))).scalar_one()
+        seeded.password_hash = None
+        await s.commit()
+    r = await idp.put(kc["id"], headers=await idp.headers("keycloak", idp.kc, sub="adm-1"), enabled=False)
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "last_admin_path"

@@ -81,7 +81,7 @@ async def deliver(session: AsyncSession, row: NotificationOutbox) -> Notificatio
     # an admin override of the subject (translation set "email") reaches the e-mail; otherwise it is the stored one
     subject = rendered.subject if rendered is not None else row.subject
     text = rendered.text if rendered is not None else row.body
-    msg = mail.build_message(smtp, to=row.to_email, rendered=rendered, subject=subject, text=text)
+    msg = mail.build_message(smtp, to=row.to_email, rendered=rendered, subject=subject, text=text, link=row.link)
     row.attempts = (row.attempts or 0) + 1
     try:
         await asyncio.to_thread(_send, smtp, msg)

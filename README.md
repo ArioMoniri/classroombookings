@@ -351,7 +351,7 @@ backend only so far are listed in [docs/STATUS.md](docs/STATUS.md).
 
 <!-- AUTO:status only=done -->
 
-Done 45 · Backend only 0 · In progress 1 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
+Done 51 · Backend only 0 · In progress 1 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
 
 | Feature | Area | Evidence |
 |---|---|---|
@@ -400,6 +400,12 @@ Done 45 · Backend only 0 · In progress 1 · Planned 0. Done items only; the fu
 | Mobile optimisation of every screen (390 and 768 px) | Platform, CI and docs |  |
 | PostgreSQL row-level security on per-person tables (notifications, consents, DSR, feed tokens, AI usage, teacher wishes, bookings, approvals) | Platform, CI and docs | [`test_w3_sec_rls_postgres.py`](smartsched/backend/tests/test_w3_sec_rls_postgres.py) |
 | Security hardening: rate limits (login, reset, SSO, password change, AI, uploads), body-size fence, CSP / HSTS / frame / permissions headers, CSRF fence, security.txt, CSV formula escaping | Platform, CI and docs | [`test_w3_sec_hardening.py`](smartsched/backend/tests/test_w3_sec_hardening.py) |
+| Operations panel /admin/ops: service status cards (API, DB, queues, mail, disk, errors, Grafana / Prometheus / Loki, pod CI, last deploy), firing alerts, request/latency mini chart, Grafana links + same-origin panels, Loki log tail | Platform, CI and docs | [`w3-ops.spec.ts`](smartsched/frontend/e2e/w3-ops.spec.ts) |
+| Grouped error tracking: backend exceptions / 5xx, ERROR log records with a traceback and browser errors (window.onerror, unhandled rejections, error boundaries) as PII-scrubbed groups with new / acknowledged / resolved / ignored, 90-day retention, optional Sentry | Platform, CI and docs | [`test_w3_ops_observability.py`](smartsched/backend/tests/test_w3_ops_observability.py) |
+| Prometheus metrics (/metrics, multiprocess-safe; routes by template, DB pool, queues, outbox, bookings, approvals, login failures, AI calls hook, guard refusals, TLS expiry) + observability compose profile (Prometheus, Loki, Alloy, Grafana with 6 Turkish-first dashboards, 15 alert rules) behind the admin session at /grafana/ | Platform, CI and docs | [`README.md`](smartsched/deploy/observability/README.md) |
+| AI provider gateway chosen by admins: Anthropic (default), OpenAI, Azure OpenAI, OpenRouter, any OpenAI-compatible base URL (Ollama / vLLM), Google Gemini, AWS Bedrock and Vertex AI (Claude); keys write-only and encrypted, models synced from each provider's API, a test call, one provider + model + effort + fallback per AI feature with a global default | Platform, CI and docs | [`test_w3_ai_providers.py`](smartsched/backend/tests/ai/test_w3_ai_providers.py) |
+| AI usage metering per user (feature, provider, model, input / output / cache tokens, estimated cost from a versioned price table, latency, outcome, reason, prompt hash + length, never the text) with org monthly budget, per-user daily / monthly limits (default, per role, per person), reservation before the call, 80 % alerts (bell + e-mail) and a user banner, hard limit refused in Turkish | Platform, CI and docs | [`test_w3_ai_gateway.py`](smartsched/backend/tests/ai/test_w3_ai_gateway.py) |
+| AI guardrails: deterministic scope classifier (code, translation, essays, general questions), prompt-injection detection in typed text and uploads (TR + EN: override, role-play, system-prompt / key exfiltration, tool-call smuggling, encoded payloads), spotlighting preamble, output check (offered tools, schema, no links / code), per-feature caps, per-user rate and concurrency limits, KVKK transfer basis per provider; refusals logged with a reason and visible to admins; red-team self-test | Platform, CI and docs | [`test_w3_ai_guardrails.py`](smartsched/backend/tests/ai/test_w3_ai_guardrails.py) |
 
 <!-- /AUTO:status -->
 
@@ -424,6 +430,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `cfab3b8` (committed 2026-10-17 19:59 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `a05cad9` (committed 2026-10-17 20:32 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

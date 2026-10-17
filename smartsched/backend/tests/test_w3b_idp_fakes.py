@@ -156,6 +156,7 @@ class IdpEnv:
     async def keycloak(self, **extra: Any) -> dict[str, Any]:
         """A configured and enabled Keycloak provider (slug ``keycloak``)."""
         p = await self.create("oidc", preset="keycloak")
+        extra.setdefault("invite_only", False)  # new OIDC providers start invite-only (design v3 §5.5)
         r = await self.put(p["id"], issuer=KC_ISSUER, client_id=KC_CLIENT, client_secret=KC_SECRET, **extra)
         assert r.status_code == 200, r.text
         r = await self.put(p["id"], enabled=True)
