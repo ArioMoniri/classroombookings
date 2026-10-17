@@ -1973,6 +1973,18 @@
       "status": "finished",
       "finished_at": "2026-10-17 00:08",
       "left_off": "continue with lane H and start round 2 testers when done"
+    },
+    {
+      "id": "a2d06a10b3a539abe",
+      "description": "Sweeper: cross-lane leftovers",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 00:15",
+      "scope": "",
+      "goal": "You are the **round-1 sweeper** for SmartSched (ledger name `loop-r1-sweeper-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md first and follow its rules (no commits, test-first, hand-off format). Lanes A2, B2, E2 and F2 ha…",
+      "ledger": "Sweeper: cross-lane leftovers",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
