@@ -36,3 +36,5 @@ ruvector.db
 .mcp.json
 .claude/proven-config.json
 .claude/.proven-config-version
+# stray package installs at the repository root (tools run with npx from the root)
+node_modules/
