@@ -108,6 +108,12 @@ EVENTS: dict[str, tuple[str, str]] = {
     "ai.usage_alert": ("Yapay zekâ kullanım uyarıları", "AI usage alerts"),
     # wave 3: Prometheus alerts relayed to administrators (app.services.ops_alerts, every 60 s)
     "ops.alert": ("Sistem uyarıları (yöneticiler)", "System alerts (administrators)"),
+    # wave 3b W3-HUB: integration cards in error / client secrets expiring within 30 days (app.api.v1.integrations)
+    "integration.error": ("Entegrasyon hataları (yöneticiler)", "Integration errors (administrators)"),
+    "integration.secret_expiring": (
+        "Süresi dolacak gizli anahtarlar (yöneticiler)",
+        "Expiring client secrets (administrators)",
+    ),
 }
 
 

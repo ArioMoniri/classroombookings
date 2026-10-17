@@ -679,19 +679,36 @@ _relay_started = False
 
 
 def _start_relay() -> None:
-    """Start the Prometheus alert relay (app/services/ops_alerts.py) once per process, outside tests."""
+    """Start the Prometheus alert relay (app/services/ops_alerts.py) and the integrations alert pass
+    (app/api/v1/integrations.py) once per process, outside tests."""
     global _relay_started
     _relay_started = True
     try:
-        from app.core.config import get_settings
+        from app.core import config
 
-        if get_settings().environment == "test":
+        if config.get_settings().environment == "test":
             return
         from app.services import ops_alerts
 
         ops_alerts.start()
     except Exception:  # noqa: BLE001
         log.warning("alert relay not started", exc_info=True)
+        return
+    try:
+        from app.api.v1 import integrations
+
+        integrations.start_alert_relay()
+    except Exception:  # noqa: BLE001
+        log.warning("integrations alert relay not started", exc_info=True)
+
+
+async def stop_relays() -> None:
+    """Shutdown (app.main lifespan): stop both alert loops; a loop that never started is a no-op."""
+    from app.api.v1 import integrations
+    from app.services import ops_alerts
+
+    await ops_alerts.stop()
+    await integrations.stop_alert_relay()
 
 
 class ObservabilityMiddleware:

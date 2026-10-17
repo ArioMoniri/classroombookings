@@ -83,6 +83,8 @@ export const PushChannel = z.object({
   configured: z.boolean().default(false),
   connected: z.boolean().default(false),
   account_email: z.string().nullish(),
+  /** CAL-07: how the account was verified (`sso_identity` | `domain` | `tenant`), `none` for old connections */
+  account_verified: z.string().nullish(),
   status: z.string().nullish(),
   /** an old grant (Google `calendar.events`): offer "Daha az izinle yeniden bağlan" */
   legacy_scope: z.boolean().nullish(),

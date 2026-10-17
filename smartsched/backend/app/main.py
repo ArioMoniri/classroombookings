@@ -137,6 +137,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from app.services import kvkk as kvkk_jobs
 
     await kvkk_jobs.stop_purge_job()
+    from app.core import observability
+
+    await observability.stop_relays()  # the Prometheus + integrations alert loops (started by the middleware)
     await integrations.shutdown()
     await get_queue().shutdown()
     await dispose_engine()

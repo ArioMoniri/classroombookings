@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `e14a47e` (committed 2026-10-17 21:54 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `29ebac9` (committed 2026-10-17 22:01 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 57 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 61 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -119,6 +119,10 @@ Done 57 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.ym
 | Integrations gallery (Yönetim › Entegrasyonlar, /admin/integrations): organisation-wide connector cards for identity, e-mail, calendar, channels, webhooks / automation and AI with status words, last check, last change (who, when), Kur / Yönet, a Kullanımda switch through each area's own endpoint, Dikkat isteyen row, search, deep links, phone rows and a setup sheet embedding each area's panel | Done: GET /api/v1/integrations/status (app/api/v1/integrations.py; contract integration_status(session) per area); vitest components/admin/integrations/*.test.ts*; tests/test_w3b_hub_integrations.py | wave 3b (W3-HUB) | [`w3-hub.spec.ts`](../smartsched/frontend/e2e/w3-hub.spec.ts) |
 | Guided n8n / Activepieces / Pipedream / Zapier webhook setup: platform steps, paste the trigger URL, signing secret shown once with copy, headers and an HMAC-SHA256 check snippet per platform, test event with the delivery result | Done: uses the existing /webhooks API; e2e w3-hub test 1 on the real backend | wave 3b (W3-HUB) | [`integrations-gallery.test.tsx`](../smartsched/frontend/src/components/admin/integrations/integrations-gallery.test.tsx) |
 | Integration bell events integration.error and integration.secret_expiring to administrators through the dispatcher (once per occurrence) | In progress: relay in app/api/v1/integrations.py; waits for notify_dispatch.EVENTS entries and start_alert_relay() at startup (integrator) | wave 3b (W3-HUB) | [`test_w3b_hub_integrations.py`](../smartsched/backend/tests/test_w3b_hub_integrations.py) |
+| Several identity providers set by administrators and shared by all of them (Kimlik sağlayıcıları): Microsoft Entra (tenant pin kept), Google Workspace (hosted-domain pin), any OpenID Connect issuer with discovery (Okta, Keycloak, Auth0, Authentik, ADFS presets) and SAML 2.0 (Shibboleth / eduGAIN / YETKİM; signxml behind an optional import, 'kütüphane gerekli' without it), plus LDAP; per provider: label and /login order, allowed domains, invite-only, sign-up role (eligible roles only), group/claim mapping bounded by its creator's permissions, write-only encrypted secret, audit, Son değişiklik + version conflict | Done: alembic 0037_identity_providers (lossless Entra row, test_w3b_idp_migration.py); app/services/identity/** + app/services/sso.py; SAML tests test_w3b_idp_saml.py (signed / tampered / audience / replay); HUB contract identity.integration_status | wave 3b (W3-IDP) | [`test_w3b_idp_oidc.py`](../smartsched/backend/tests/test_w3b_idp_oidc.py) |
+| Guided identity-provider setup (5 steps): console values built from the public URL with Kopyala (redirect URI, entity id, ACS, scopes, logout URL, SP metadata), discovery / metadata check rows, a real test login in a popup that reports the claims (no account, no stored token), provider errors translated into cause + fix + step, then Etkinleştir | Done: components/identity/{identity-providers-panel,provider-wizard,providers-api,providers-model}.ts*; IdentityProvidersPanel embedded in Settings › sso and by W3-HUB; e2e/w3-idp.spec.ts with e2e/w3-idp-mock-issuer.py | wave 3b (W3-IDP) | [`identity-wizard.test.tsx`](../smartsched/frontend/src/components/identity/identity-wizard.test.tsx) |
+| Invitations per provider: invite by e-mail with the provider or a local password (set from the link), themed invitation e-mail (W3-MAIL send_kind), resend, renew, revoke (disables the unused placeholder, T-R1-35), bulk invite from a Turkish Excel CSV; account_created e-mail on self sign-up and local acceptance | Done: POST /auth/sso/admin/invites (provider, send_email), /bulk, /{id}/resend, POST /auth/sso/invites/{token}/password; components/identity/invites-panel.tsx, local-invite-accept.tsx | wave 3b (W3-IDP) | [`test_w3b_idp_invites.py`](../smartsched/backend/tests/test_w3b_idp_invites.py) |
+| /login with several providers: equal-weight buttons in the admins' order (Microsoft and Google branding), at most 3 + 'Diğer giriş yolları', invite shows only the invited method, provider error codes domain / invite_provider in TR/EN | Done: components/identity/provider-buttons.tsx in components/auth/sign-in-page.tsx; auth.providers in GET /org/public | wave 3b (W3-IDP) | [`identity-wizard.test.tsx`](../smartsched/frontend/src/components/identity/identity-wizard.test.tsx) |
 
 <!-- /AUTO:status -->
 

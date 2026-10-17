@@ -52,6 +52,7 @@ from app.models.error_event import ErrorEvent  # noqa: F401  (W3-OPS grouped err
 from app.models.integrations import (
     CalendarConnection,
     CalendarEventLink,
+    CalendarClassRevision,
     CalendarEventRevision,
     CalendarFeedToken,
     CalendarSyncJob,
@@ -89,6 +90,7 @@ __all__ = [
     "AIProposalDecision",
     "CalendarConnection",
     "CalendarEventLink",
+    "CalendarClassRevision",
     "CalendarEventRevision",
     "CalendarFeedToken",
     "CalendarSyncJob",
