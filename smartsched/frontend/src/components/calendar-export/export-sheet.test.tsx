@@ -39,6 +39,9 @@ vi.mock("@/lib/api/client", async (orig) => {
 
 import { CalendarExportSheet } from "./export-sheet";
 
+// a three-step flow with real user events: generous on the shared, loaded host
+vi.setConfig({ testTimeout: 20_000 });
+
 const sample = { course_code: "PSY 262", section: "1", location: "A 308", starts_at: "2026-10-19T10:30:00Z", ends_at: "2026-10-19T12:50:00Z" };
 function baseOptions(over: Record<string, unknown> = {}) {
   return {
@@ -111,7 +114,7 @@ describe("CalendarExportSheet", () => {
     expect(closed).toHaveAttribute("aria-disabled", "true");
     expect(closed.tagName).toBe("DIV");
     expect(closed).toHaveTextContent("Bu bölümün derslerini dışa aktarma yetkiniz yok. Bölüm başkanınızdan isteyin.");
-  });
+  }, 15_000);
 
   it("link: Derslerim → Takvim bağlantısı → Onayla ve ekle, consent ticked first; shows webcal, Google, Outlook and copy", async () => {
     const user = userEvent.setup();
@@ -250,6 +253,41 @@ describe("CalendarExportSheet", () => {
     renderSheet();
     expect(await screen.findByTestId("cal-off")).toHaveTextContent("Takvim aktarımı kurumunuzda kapalı.");
     expect(screen.queryByTestId("cal-scopes")).not.toBeInTheDocument();
+  });
+
+  it("reads the CAL-B contract (reason object, preview, provider map) and its own sample line", async () => {
+    api.options = {
+      enabled: true,
+      consent: { purpose: "calendar_sync", required: true, granted: true },
+      linked: true,
+      scopes: [
+        {
+          kind: "my_classes",
+          label_tr: "Derslerim",
+          available: true,
+          reason: null,
+          preview: {
+            upcoming_count: 28,
+            sample: { summary: "PSY 262 · Şube 1", location: "A 308", start: "2026-10-19T13:30:00", end: "2026-10-19T15:50:00", text_tr: "PSY 262 · Şube 1 — A 308 — Pzt 13:30–15:50", text_en: "PSY 262 · Section 1 — A 308 — Mon 13:30–15:50" },
+            fields: [{ key: "course_code" }, { key: "section" }, { key: "room" }, { key: "time" }, { key: "department" }, { key: "course_title" }, { key: "link" }],
+          },
+        },
+        { kind: "department_classes", available: false, reason: { code: "department_not_allowed", message_tr: "Bu bölümün derslerini dışa aktarma yetkiniz yok. Bölüm başkanınızdan isteyin.", message_en: "no" }, departments: [], default_department_id: null },
+        { kind: "my_bookings", available: true, reason: null, preview: { upcoming_count: 0, sample: null, fields: [{ key: "room" }, { key: "time" }] } },
+      ],
+      channels: { push: { google: { label: "Google", configured: false }, microsoft: { label: "Microsoft 365", configured: true }, freshness_tr: "x" }, link: { available: true }, file: { available: true } },
+    };
+    const user = userEvent.setup();
+    renderSheet();
+    expect(await screen.findByTestId("cal-scope-department_classes")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByTestId("cal-scope-reason-department_classes")).toHaveTextContent("Bu bölümün derslerini dışa aktarma yetkiniz yok.");
+    await user.click(screen.getByTestId("cal-scope-my_classes"));
+    expect(within(screen.getByTestId("cal-channels")).getAllByRole("button").map((b) => b.getAttribute("data-testid"))).toEqual(["cal-channel-push:microsoft", "cal-channel-link", "cal-channel-file"]);
+    await user.click(screen.getByTestId("cal-channel-link"));
+    const fields = within(screen.getByTestId("cal-fields")).getAllByRole("listitem").map((li) => li.textContent);
+    expect(fields).toEqual(["Ders kodu ve şube", "Derslik", "Gün ve saat", "Bölüm adı", "Ders adı", "SmartSched bağlantısı"]);
+    expect(screen.getByTestId("cal-sample")).toHaveTextContent("PSY 262 · Şube 1");
+    expect(screen.getByTestId("cal-sample")).toHaveTextContent("A 308 — Pzt 13:30–15:50");
   });
 
   it("reads in English", async () => {

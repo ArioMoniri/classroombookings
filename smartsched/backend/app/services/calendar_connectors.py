@@ -45,9 +45,9 @@ from app.models import (
 from app.models.base import utcnow
 from app.models.booking import BOOKED
 from app.models.integrations import DONE, FAILED, PENDING, RUNNING, SKIPPED
+from app.services import audit, settings_service
 from app.services import bookings as booking_svc
 from app.services import calendar_feeds as feeds
-from app.services import settings_service
 from app.services.bookings_settings import get_group
 from app.workers import integrations as worker
 
@@ -66,12 +66,22 @@ class NotConfigured(Exception):
 class ProviderError(Exception):
     """``public``: short, safe to show. ``retryable``: network / 429 / 5xx. ``reauth``: the grant is gone."""
 
-    def __init__(self, public: str, *, status: int | None = None, retryable: bool = False, reauth: bool = False):
+    def __init__(
+        self,
+        public: str,
+        *,
+        status: int | None = None,
+        retryable: bool = False,
+        reauth: bool = False,
+        retry_after: int | None = None,
+    ):
         super().__init__(public)
         self.public = public[:300]
         self.status = status
         self.retryable = retryable
         self.reauth = reauth
+        #: seconds the provider asked us to wait (``Retry-After`` on 429 / 503); the job backs off at least this long
+        self.retry_after = retry_after
 
 
 @dataclass(frozen=True)
@@ -88,6 +98,9 @@ class TokenSet:
     refresh_token: str | None
     expires_in: int
     scope: str | None
+    #: the OpenID id_token of the code exchange (CAL-07 reads ``hd`` / ``tid`` from it; received over TLS from the
+    #: token endpoint, so its claims are trusted without a signature check, OIDC Core §3.1.3.7)
+    id_token: str | None = None
 
 
 def http_client() -> httpx.AsyncClient:
@@ -121,7 +134,16 @@ def _classify(resp: httpx.Response, what: str) -> ProviderError:
     rate_limited = "ratelimit" in detail.replace(" ", "").lower()
     if status == 400 and isinstance(body, dict) and body.get("error") == "invalid_grant":
         return ProviderError(text, status=status, reauth=True)
-    return ProviderError(text, status=status, retryable=status in (408, 429) or status >= 500 or rate_limited)
+    retry_after: int | None = None
+    raw = resp.headers.get("retry-after")
+    if raw and raw.strip().isdigit():
+        retry_after = min(int(raw.strip()), 24 * 3600)
+    return ProviderError(
+        text,
+        status=status,
+        retryable=status in (408, 429) or status >= 500 or rate_limited,
+        retry_after=retry_after,
+    )
 
 
 # --------------------------------------------------------------------------------------------------
@@ -145,12 +167,19 @@ class Provider:
     def token_endpoint(self, cfg: ClientConfig) -> str:
         raise NotImplementedError
 
-    def authorize_url(self, cfg: ClientConfig, state: str, challenge: str) -> str:
+    #: CAL-06: the scopes of a new connection that pushes into a calendar SmartSched creates (least privilege)
+    owned_scopes: tuple[str, ...] = ()
+    #: the dedicated calendar's name (research §3.6)
+    OWNED_NAME = "SmartSched – Derslerim"
+
+    def authorize_url(
+        self, cfg: ClientConfig, state: str, challenge: str, scopes: tuple[str, ...] | None = None
+    ) -> str:
         params = {
             "client_id": cfg.client_id,
             "redirect_uri": cfg.redirect_uri,
             "response_type": "code",
-            "scope": " ".join(self.scopes),
+            "scope": " ".join(scopes or self.scopes),
             "state": state,
             "code_challenge": challenge,
             "code_challenge_method": "S256",
@@ -177,6 +206,7 @@ class Provider:
             refresh_token=data.get("refresh_token"),
             expires_in=int(data.get("expires_in") or 3600),
             scope=data.get("scope"),
+            id_token=data.get("id_token"),
         )
 
     async def exchange(self, client: httpx.AsyncClient, cfg: ClientConfig, code: str, verifier: str) -> TokenSet:
@@ -196,7 +226,34 @@ class Provider:
     async def account(self, api: Api) -> tuple[str | None, str | None]:
         raise NotImplementedError
 
+    async def account_info(self, api: Api, tokens: TokenSet) -> AccountInfo:
+        """CAL-07: who the provider account is (subject, e-mail, Google ``hd``, Entra ``tid``)."""
+        subject, email = await self.account(api)
+        claims = id_token_claims(tokens.id_token)
+        return AccountInfo(
+            subject=subject or claims.get("sub"),
+            email=email or claims.get("email"),
+            hosted_domain=claims.get("hd"),
+            tenant=claims.get("tid"),
+        )
+
     async def calendars(self, api: Api) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    async def create_calendar(self, api: Api, name: str, tz_name: str) -> str:
+        raise NotImplementedError
+
+    async def delete_calendar(self, api: Api, calendar_id: str) -> None:
+        raise NotImplementedError
+
+    async def upsert_class(
+        self, api: Api, calendar_id: str, external_id: str | None, item: ClassItem, ctx: PushContext
+    ) -> str:
+        raise NotImplementedError
+
+    async def list_owned(self, api: Api, calendar_id: str) -> dict[str, datetime | None] | None:
+        """The SmartSched events in the owned calendar (``external id -> last change``); ``None`` when the
+        calendar is gone (the user deleted it)."""
         raise NotImplementedError
 
     async def upsert(
@@ -218,6 +275,45 @@ class PushContext:
     tz_name: str
 
 
+@dataclass(frozen=True)
+class AccountInfo:
+    subject: str | None
+    email: str | None
+    hosted_domain: str | None = None  # Google Workspace ``hd``
+    tenant: str | None = None  # Entra ``tid``
+
+
+@dataclass(frozen=True)
+class ClassItem:
+    """One class event to push (CAL-06): the same content as the feeds (``calendar_classes``)."""
+
+    uid: str
+    start: datetime
+    end: datetime
+    summary: str
+    location: str
+    description: str | None
+    fingerprint: str  # of the pushed content (the occurrence's fingerprint + the description)
+
+
+def id_token_claims(token: str | None) -> dict[str, Any]:
+    """The payload of an id_token (no signature check; see :class:`TokenSet`); ``{}`` when absent or unreadable."""
+    import json
+
+    if not token or token.count(".") < 2:
+        return {}
+    part = token.split(".")[1]
+    try:
+        data = json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def class_event_key(connection_id: int, uid: str) -> str:
+    return hashlib.sha1(f"{connection_id}|{uid}".encode()).hexdigest()[:24]  # noqa: S324 - an id, not a secret
+
+
 class GoogleProvider(Provider):
     name = "google"
     label = "Google Calendar"
@@ -227,6 +323,8 @@ class GoogleProvider(Provider):
         "https://www.googleapis.com/auth/calendar.events",
         "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
     )
+    #: owner decision 2026-10-17 (6): new connections only reach the calendars SmartSched creates
+    owned_scopes = ("openid", "email", "https://www.googleapis.com/auth/calendar.app.created")
     default_calendar = "primary"
     API = "https://www.googleapis.com/calendar/v3"
 
@@ -243,6 +341,73 @@ class GoogleProvider(Provider):
     async def account(self, api: Api) -> tuple[str | None, str | None]:
         data = (await api.call("GET", "https://openidconnect.googleapis.com/v1/userinfo", what="userinfo")).json()
         return data.get("sub"), data.get("email")
+
+    async def account_info(self, api: Api, tokens: TokenSet) -> AccountInfo:
+        data = (await api.call("GET", "https://openidconnect.googleapis.com/v1/userinfo", what="userinfo")).json()
+        claims = id_token_claims(tokens.id_token)
+        return AccountInfo(
+            subject=data.get("sub") or claims.get("sub"),
+            email=data.get("email") or claims.get("email"),
+            hosted_domain=data.get("hd") or claims.get("hd"),
+        )
+
+    async def create_calendar(self, api: Api, name: str, tz_name: str) -> str:
+        resp = await api.call("POST", f"{self.API}/calendars", json={"summary": name, "timeZone": tz_name},
+                              what="calendars.insert")  # fmt: skip
+        return str(resp.json()["id"])
+
+    async def delete_calendar(self, api: Api, calendar_id: str) -> None:
+        await api.call(
+            "DELETE", f"{self.API}/calendars/{quote(calendar_id, safe='')}", ok=(200, 204, 404, 410),
+            what="calendars.delete",
+        )  # fmt: skip
+
+    @staticmethod
+    def class_event_id(ctx: PushContext, uid: str) -> str:
+        return f"smartsched{ctx.connection_id}c{class_event_key(ctx.connection_id, uid)}"  # base32hex
+
+    def class_body(self, item: ClassItem, ctx: PushContext) -> dict[str, Any]:
+        return {
+            "summary": item.summary,
+            "location": item.location,
+            "description": item.description or "",
+            "start": {"dateTime": item.start.strftime("%Y-%m-%dT%H:%M:%S"), "timeZone": ctx.tz_name},
+            "end": {"dateTime": item.end.strftime("%Y-%m-%dT%H:%M:%S"), "timeZone": ctx.tz_name},
+            "status": "confirmed",
+            "transparency": "opaque",
+            "extendedProperties": {"private": {"smartsched": "1", "smartsched_uid": item.uid}},
+        }
+
+    async def upsert_class(
+        self, api: Api, calendar_id: str, external_id: str | None, item: ClassItem, ctx: PushContext
+    ) -> str:
+        body = self.class_body(item, ctx)
+        base = self._events(calendar_id)
+        if external_id:
+            resp = await api.call("PATCH", f"{base}/{quote(external_id, safe='')}", json=body, ok=(200, 404, 410))
+            if resp.status_code == 200:
+                return str(resp.json().get("id") or external_id)
+        eid = self.class_event_id(ctx, item.uid)
+        resp = await api.call("POST", base, json={**body, "id": eid}, ok=(200, 201, 409))
+        if resp.status_code == 409:  # an earlier attempt inserted it (or it was deleted): overwrite, no duplicate
+            resp = await api.call("PATCH", f"{base}/{eid}", json=body, ok=(200,))
+        return str(resp.json().get("id") or eid)
+
+    async def list_owned(self, api: Api, calendar_id: str) -> dict[str, datetime | None] | None:
+        out: dict[str, datetime | None] = {}
+        params = {"privateExtendedProperty": "smartsched=1", "maxResults": "2500", "showDeleted": "false"}
+        while True:
+            resp = await api.call("GET", self._events(calendar_id), params=params, ok=(200, 404, 410),
+                                  what="events.list")  # fmt: skip
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            for e in data.get("items", []):
+                out[str(e["id"])] = _parse_stamp(e.get("updated"))
+            token = data.get("nextPageToken")
+            if not token:
+                return out
+            params = {**params, "pageToken": str(token)}
 
     async def calendars(self, api: Api) -> list[dict[str, Any]]:
         resp = await api.call("GET", f"{self.API}/users/me/calendarList", params={"minAccessRole": "writer"})
@@ -314,6 +479,8 @@ class MicrosoftProvider(Provider):
     name = "microsoft"
     label = "Outlook / Microsoft 365"
     scopes = ("offline_access", "openid", "email", "User.Read", "Calendars.ReadWrite")
+    #: Graph has nothing narrower than Calendars.ReadWrite to create a calendar (research §2.4)
+    owned_scopes = scopes
     default_calendar = None  # /me/events = the user's default calendar
     # immutable ids: an event keeps its id when the user moves it to another folder / calendar
     api_headers = {"Prefer": 'IdType="ImmutableId"'}
@@ -336,6 +503,71 @@ class MicrosoftProvider(Provider):
             await api.call("GET", f"{self.GRAPH}/me", params={"$select": "id,mail,userPrincipalName"}, what="me")
         ).json()
         return data.get("id"), data.get("mail") or data.get("userPrincipalName")
+
+    async def account_info(self, api: Api, tokens: TokenSet) -> AccountInfo:
+        subject, email = await self.account(api)
+        claims = id_token_claims(tokens.id_token)
+        tenant = claims.get("tid")
+        if not tenant:  # no id_token: the directory of the signed-in user (User.Read covers /organization)
+            try:
+                org = await api.call("GET", f"{self.GRAPH}/organization", params={"$select": "id"},
+                                     ok=(200, 403, 404), what="organization")  # fmt: skip
+                if org.status_code == 200:
+                    value = org.json().get("value") or []
+                    tenant = value[0].get("id") if value else None
+            except ProviderError:
+                tenant = None
+        return AccountInfo(subject=subject or claims.get("oid"), email=email, tenant=tenant)
+
+    async def create_calendar(self, api: Api, name: str, tz_name: str) -> str:
+        resp = await api.call("POST", f"{self.GRAPH}/me/calendars", json={"name": name}, ok=(200, 201),
+                              what="calendars.create")  # fmt: skip
+        return str(resp.json()["id"])
+
+    async def delete_calendar(self, api: Api, calendar_id: str) -> None:
+        await api.call("DELETE", f"{self.GRAPH}/me/calendars/{quote(calendar_id, safe='')}",
+                       ok=(200, 204, 404, 410), what="calendars.delete")  # fmt: skip
+
+    def class_body(self, item: ClassItem, ctx: PushContext) -> dict[str, Any]:
+        return {
+            "subject": item.summary,
+            "body": {"contentType": "text", "content": item.description or ""},
+            "start": self._utc(item.start, ctx.tz_name),
+            "end": self._utc(item.end, ctx.tz_name),
+            "location": {"displayName": item.location},
+            "showAs": "busy",
+            "categories": ["SmartSched"],
+        }
+
+    async def upsert_class(
+        self, api: Api, calendar_id: str, external_id: str | None, item: ClassItem, ctx: PushContext
+    ) -> str:
+        body = self.class_body(item, ctx)
+        if external_id:
+            resp = await api.call(
+                "PATCH", f"{self.GRAPH}/me/events/{quote(external_id, safe='')}", json=body, ok=(200, 404, 410)
+            )
+            if resp.status_code == 200:
+                return str(resp.json().get("id") or external_id)
+        url = f"{self.GRAPH}/me/calendars/{quote(calendar_id, safe='')}/events"
+        # transactionId: the same occurrence + content is created once, however often the job is retried
+        tid = "smartsched-" + hashlib.sha1(f"{ctx.connection_id}|{item.uid}|{item.fingerprint}".encode()).hexdigest()  # noqa: S324
+        resp = await api.call("POST", url, json={**body, "transactionId": tid}, ok=(200, 201))
+        return str(resp.json()["id"])
+
+    async def list_owned(self, api: Api, calendar_id: str) -> dict[str, datetime | None] | None:
+        out: dict[str, datetime | None] = {}
+        url: str | None = f"{self.GRAPH}/me/calendars/{quote(calendar_id, safe='')}/events"
+        params: dict[str, str] | None = {"$select": "id,lastModifiedDateTime", "$top": "500"}
+        while url:
+            resp = await api.call("GET", url, params=params, ok=(200, 404, 410), what="events.list")
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            for e in data.get("value", []):
+                out[str(e["id"])] = _parse_stamp(e.get("lastModifiedDateTime"))
+            url, params = data.get("@odata.nextLink"), None
+        return out
 
     async def calendars(self, api: Api) -> list[dict[str, Any]]:
         resp = await api.call(
@@ -396,6 +628,17 @@ class MicrosoftProvider(Provider):
 PROVIDERS: dict[str, Provider] = {p.name: p for p in (GoogleProvider(), MicrosoftProvider())}
 
 
+def _parse_stamp(value: Any) -> datetime | None:
+    """RFC 3339 (``2026-02-16T08:00:00.000Z``) -> naive UTC; ``None`` when absent or unreadable."""
+    if not value:
+        return None
+    try:
+        at = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return at.astimezone(UTC).replace(tzinfo=None) if at.tzinfo else at
+
+
 # --------------------------------------------------------------------------------------------------
 # Configuration and tokens
 # --------------------------------------------------------------------------------------------------
@@ -410,10 +653,37 @@ async def client_config(session: AsyncSession, provider: Provider) -> ClientConf
     g = await get_group(session, "integrations", reveal=True)
     cid = (g.get(f"{provider.name}_client_id") or "").strip()
     secret = (g.get(f"{provider.name}_client_secret") or "").strip()
+    tenant = str(g.get("microsoft_tenant") or "organizations")
     base, _ = await feeds.public_base(session)
+    if not (cid and secret) and g.get("calendar_client_source") == "identity":
+        found = await identity_client(session, provider)
+        if found is not None:
+            cid, secret, tenant = found[0], found[1], found[2] or tenant
     if not (cid and secret and base):
         return None
-    return ClientConfig(cid, secret, redirect_uri(base, provider), str(g.get("microsoft_tenant") or "organizations"))
+    return ClientConfig(cid, secret, redirect_uri(base, provider), tenant)
+
+
+#: SsoProvider.kind per push provider (app/services/identity/kinds.py)
+IDP_KIND = {"google": "google_workspace", "microsoft": "entra"}
+
+
+async def identity_client(session: AsyncSession, provider: Provider) -> tuple[str, str, str | None] | None:
+    """CAL-07 ``integrations.calendar_client_source = identity``: reuse the enabled sign-in provider's OAuth client
+    (W3-IDP's ``sso_providers`` row, read only) -- ``(client id, secret, Entra tenant)``. The administrator adds
+    SmartSched's calendar callback to that app registration's redirect URIs."""
+    from app.models import SsoProvider
+
+    q = select(SsoProvider).where(SsoProvider.kind == IDP_KIND.get(provider.name, ""), SsoProvider.enabled.is_(True))
+    for row in (await session.execute(q.order_by(SsoProvider.sort_order, SsoProvider.id))).scalars():
+        if not (row.client_id and row.client_secret_enc):
+            continue
+        try:
+            secret = decrypt_secret(row.client_secret_enc)
+        except ValueError:
+            continue
+        return row.client_id, secret, row.tenant_id
+    return None
 
 
 def _store_tokens(conn: CalendarConnection, tokens: TokenSet) -> None:
@@ -485,6 +755,120 @@ class Api:
 
 
 # --------------------------------------------------------------------------------------------------
+# CAL-07: verified accounts
+# --------------------------------------------------------------------------------------------------
+
+#: personal mailbox providers: never "the institution's domain", whatever the person's SmartSched e-mail is
+CONSUMER_DOMAINS = frozenset(
+    {
+        "gmail.com",
+        "googlemail.com",
+        "outlook.com",
+        "hotmail.com",
+        "live.com",
+        "msn.com",
+        "yahoo.com",
+        "icloud.com",
+        "me.com",
+        "yandex.com",
+        "yandex.com.tr",
+        "mail.ru",
+        "proton.me",
+        "protonmail.com",
+        "hotmail.com.tr",
+        "windowslive.com",
+    }
+)
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """``kind``: sso_identity | tenant | domain | email (None = not verified); ``domain``: what to ask for."""
+
+    kind: str | None
+    domain: str | None
+
+
+def _domain(email: str | None) -> str | None:
+    text = (email or "").strip().casefold()
+    return text.rsplit("@", 1)[1] if "@" in text else None
+
+
+def clean_domains(values: Any) -> list[str]:
+    """Admin-allowed e-mail domains: trimmed (NBSP too), lower-cased, ``@`` dropped, de-duplicated."""
+    from app.importers import normalize as n
+
+    out: list[str] = []
+    for raw in values or []:
+        text = (n.clean_text(str(raw)) or "").casefold().lstrip("@").strip()
+        if text and "." in text and " " not in text and text not in out:
+            out.append(text)
+    return out
+
+
+async def push_verified_only(session: AsyncSession) -> bool:
+    g = await get_group(session, "integrations")
+    return bool(g.get("push_verified_only", True))
+
+
+async def verify_account(session: AsyncSession, user: User | None, provider: Provider, info: AccountInfo) -> Verdict:
+    """Owner decision 2026-10-17 (3): the provider account counts as the person's when (a) its subject is one of the
+    person's sign-in identities (W3-IDP ``user_identities``, read only), (b) its Entra tenant is the sign-in
+    provider's tenant, (c) its Google ``hd`` is the Workspace provider's hosted domain, (d) its e-mail is the
+    person's own sign-in e-mail, or (e) its e-mail domain is one the admin allows or the institution domain of the
+    person's own e-mail (never a personal mailbox provider such as gmail.com)."""
+    from app.models import SsoProvider, UserIdentity
+
+    if user is None:
+        return Verdict(None, None)
+    own = _domain(user.email)
+    institution = own if own and own not in CONSUMER_DOMAINS else None
+    g = await get_group(session, "integrations")
+    allowed = clean_domains(g.get("push_allowed_domains"))
+    idps = list(
+        (
+            await session.execute(select(SsoProvider).where(SsoProvider.enabled.is_(True)).order_by(SsoProvider.id))
+        ).scalars()
+    )
+    hosted = [
+        str(d).casefold()
+        for p in idps
+        if p.kind == "google_workspace"
+        for d in (p.options or {}).get("hosted_domains") or []
+    ]
+    hint = (hosted[0] if hosted else None) or institution or (allowed[0] if allowed else None)
+    if info.subject:
+        q = select(UserIdentity.id).where(UserIdentity.user_id == user.id, UserIdentity.subject == info.subject)
+        if (await session.execute(q.limit(1))).first() is not None:
+            return Verdict("sso_identity", hint)
+    if provider.name == "microsoft" and info.tenant:
+        tenants = {str(p.tenant_id).casefold() for p in idps if p.kind == "entra" and p.tenant_id}
+        if info.tenant.casefold() in tenants:
+            return Verdict("tenant", hint)
+    if provider.name == "google" and info.hosted_domain and info.hosted_domain.casefold() in hosted:
+        return Verdict("domain", hint)
+    email = (info.email or "").strip().casefold()
+    if email and user.email and email == user.email.strip().casefold():
+        return Verdict("email", hint)
+    dom = _domain(email)
+    if dom and dom not in CONSUMER_DOMAINS and (dom in allowed or dom == institution):
+        return Verdict("domain", hint)
+    return Verdict(None, hint)
+
+
+def not_verified_detail(domain: str | None) -> dict[str, Any]:
+    """The refusal the panel shows after the callback (``reason=account_not_verified&domain=…``)."""
+    what = domain or "kurumsal"
+    return {
+        "code": "account_not_verified",
+        "message_tr": f"Bu hesap kurumunuzun doğrulanmış hesabı değil. {what} uzantılı hesabınızla bağlanın.",
+        "message_en": f"This is not your institution's verified account. Connect with your {domain or 'institution'} "
+        "account.",
+        "domain": domain,
+    }
+
+
+# --------------------------------------------------------------------------------------------------
 # Connect / disconnect
 # --------------------------------------------------------------------------------------------------
 
@@ -498,9 +882,18 @@ async def get_connection(session: AsyncSession, user_id: int, provider: str) -> 
     return (await session.execute(q)).scalar_one_or_none()
 
 
-async def start_authorization(session: AsyncSession, user: User, provider: Provider, return_path: str | None) -> str:
+async def start_authorization(
+    session: AsyncSession,
+    user: User,
+    provider: Provider,
+    return_path: str | None,
+    export_scopes: list[str] | None = None,
+) -> str:
     """The provider's consent screen URL. Without the person's active ``calendar_sync`` consent (sync on) the 409
-    ``consent_required`` :class:`~app.services.kvkk.KvkkError` comes first, before any state row is written."""
+    ``consent_required`` :class:`~app.services.kvkk.KvkkError` comes first, before any state row is written.
+    ``export_scopes`` (CAL-06, already checked by :func:`check_export_scopes`): a new connection that pushes into a
+    calendar SmartSched creates, asked with the least scopes (Google ``calendar.app.created``); ``None`` keeps the
+    legacy bookings-only connect into a chosen calendar."""
     await feeds.require_sync_consent(session, user)
     cfg = await client_config(session, provider)
     if cfg is None:
@@ -519,10 +912,11 @@ async def start_authorization(session: AsyncSession, user: User, provider: Provi
             code_verifier_enc=encrypt_secret(verifier),
             return_path=return_path,
             expires_at=now + STATE_TTL,
+            export_scopes=export_scopes,
         )
     )
     await session.flush()
-    return provider.authorize_url(cfg, state, challenge)
+    return provider.authorize_url(cfg, state, challenge, provider.owned_scopes if export_scopes else None)
 
 
 def _panel(base: str, path: str | None, **params: str) -> str:
@@ -546,7 +940,7 @@ async def finish_authorization(
             await session.delete(row)
             await session.commit()
         return _panel(base, None, calendar="error", provider=provider.name, reason="state")
-    path, user_id = row.return_path, row.user_id
+    path, user_id, export_scopes = row.return_path, row.user_id, row.export_scopes
     try:
         verifier = decrypt_secret(row.code_verifier_enc)
     except ValueError:
@@ -568,6 +962,11 @@ async def finish_authorization(
     if user is None or not user.is_active or not verifier:
         return fail("state")
     conn = await get_connection(session, user_id, provider.name)
+    if conn is not None and export_scopes and not conn.owned_calendar:
+        # a legacy connection reconnected with fewer permissions: its pushed events go with the old grant first
+        await disconnect(session, conn)
+        await session.commit()
+        conn = None
     is_new = conn is None
     if conn is None:
         conn = CalendarConnection(user_id=user_id, provider=provider.name)
@@ -575,18 +974,59 @@ async def finish_authorization(
         try:
             tokens = await provider.exchange(client, cfg, code, verifier)
             _store_tokens(conn, tokens)
-            subject, email = await provider.account(Api(conn, provider, cfg, client))
+            info = await provider.account_info(Api(conn, provider, cfg, client), tokens)
         except (ProviderError, KeyError, ValueError):
             await session.rollback()
             return fail("exchange")
+        verdict = await verify_account(session, user, provider, info)
+        if verdict.kind is None and await push_verified_only(session):
+            # CAL-07: not the person's institution account -- nothing is stored, the grant is given back
+            await session.rollback()
+            grant = tokens.refresh_token or tokens.access_token
+            if provider.can_revoke and grant:
+                try:
+                    await provider.revoke(client, grant)
+                except (ProviderError, httpx.HTTPError):
+                    log.warning("calendar connect refused: revoking the unverified grant failed")
+            refused = await session.get(User, user_id)
+            await audit.record(
+                session,
+                "calendar.push_refused",
+                "calendar_connection",
+                None,
+                after={"provider": provider.name, "reason": "account_not_verified", "domain": verdict.domain},
+                actor=refused,
+            )
+            await session.commit()
+            return _panel(base, path, calendar="error", provider=provider.name, reason="account_not_verified",
+                          domain=verdict.domain or "")  # fmt: skip
+    subject, email = info.subject, info.email
     if not is_new and conn.account_subject and subject and conn.account_subject != subject:
         # another account: the old links point into a calendar we can no longer reach
         await session.execute(delete(CalendarEventLink).where(CalendarEventLink.connection_id == conn.id))
         conn.calendar_id = conn.calendar_name = None
     conn.account_subject, conn.account_email = subject, email
     conn.status, conn.last_error, conn.updated_at = "ACTIVE", None, utcnow()
+    conn.account_verified = verdict.kind or "none"
+    if export_scopes:
+        conn.export_scopes = list(export_scopes)
+        conn.owned_calendar = True
     session.add(conn)
     await session.flush()
+    await audit.record(
+        session,
+        "calendar.push_connect",
+        "calendar_connection",
+        conn.id,
+        after={
+            "provider": provider.name,
+            "account_verified": conn.account_verified,
+            "verified_only": await push_verified_only(session),
+            "export_scopes": list(conn.export_scopes or ["my_bookings"]),
+            "owned_calendar": conn.owned_calendar,
+        },
+        actor=user,
+    )
     await queue_full_sync(session, conn)
     await session.commit()
     worker.schedule_drain()
@@ -654,8 +1094,10 @@ async def disconnect(
             await session.execute(select(CalendarEventLink).where(CalendarEventLink.connection_id == conn.id))
         ).scalars()
     ]
-    targets = links if remove_events else []
-    cfg = await client_config(session, provider) if targets else None
+    owned = conn.calendar_id if (conn.owned_calendar and conn.calendar_id and remove_events) else None
+    # CAL-06: SmartSched's own calendar goes in one call (with every event in it), unlike AutoCalEx (research §2.2)
+    targets = [] if owned else (links if remove_events else [])
+    cfg = await client_config(session, provider) if (targets or owned) else None
     # a detached copy of the credentials: the row itself is deleted below
     ghost = CalendarConnection(
         provider=conn.provider,
@@ -672,6 +1114,7 @@ async def disconnect(
         "events_failed": 0,
         "revoke": "none",
         "errors": [],
+        "calendar_deleted": None if owned is None else False,
     }
     token = plain.get("refresh") or plain.get("access")
 
@@ -679,6 +1122,12 @@ async def disconnect(
         """Remove ``items`` from the external calendar, then revoke the grant; ``res`` is updated as it goes (a
         timed-out wait keeps the counts so far)."""
         async with http_client() as client:
+            if owned is not None and cfg is not None:
+                try:
+                    await provider.delete_calendar(Api(ghost, provider, cfg, client), owned)
+                    res["calendar_deleted"] = True
+                except (ProviderError, httpx.HTTPError) as exc:
+                    res["errors"].append(str(exc)[:200] or type(exc).__name__)
             if items and cfg is None:
                 res["events_failed"] += len(items)
                 res["errors"].append(f"{provider.label} is not configured any more: the pushed events stay")
@@ -711,6 +1160,14 @@ async def disconnect(
 
         worker.run_detached(job, key)
 
+    if owned is not None and token and not wait:
+        out["revoke"] = "queued"
+        in_background([])
+        await session.execute(delete(CalendarSyncJob).where(CalendarSyncJob.connection_id == conn.id))
+        await session.execute(delete(CalendarEventLink).where(CalendarEventLink.connection_id == conn.id))
+        await session.delete(conn)
+        await session.flush()
+        return out
     if wait and token:
         # before the rows go: no write is pending in this transaction while the provider answers
         try:

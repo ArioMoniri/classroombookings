@@ -2825,7 +2825,8 @@
       "goal": "You are the WELCOME-GUIDE designer, researcher and motion designer for SmartSched (repo /home/user/classroombookings; Next.js frontend smartsched/frontend; design system docs in docs/design/v2 and v3). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/br…",
       "ledger": "Welcome guide research + design",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 22:56"
     },
     {
       "id": "ad9c72c1304d479cb",
@@ -2861,6 +2862,30 @@
       "scope": "",
       "goal": "You are the ADAPTIVE-SCHEDULING researcher and architect for SmartSched (repo /home/user/classroombookings; FastAPI backend smartsched/backend; OR-Tools CP-SAT solver in app/solver; learning code: grep learning/habit/pattern; exams and invigilation modules; bookings/CRBS module). Read /tmp/claude-0/…",
       "ledger": "Adaptive scheduler research + design",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ac75a987690e8b533",
+      "description": "Charts design: telemetry & stats",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-17 22:56",
+      "scope": "",
+      "goal": "You are the CHARTS/TELEMETRY designer for SmartSched (repo /home/user/classroombookings; Next.js frontend smartsched/frontend; shadcn/ui + Tailwind; design docs in docs/design/v2 and v3). Read these first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/b…",
+      "ledger": "Charts design: telemetry & stats",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a314b099460f4038b",
+      "description": "Voice AI research + design",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 22:56",
+      "scope": "",
+      "goal": "You are the VOICE-AI researcher and architect for SmartSched (repo /home/user/classroombookings). The backend is smartsched/backend, with the AI gateway in app/ai built by W3-AI: 8 providers, per-feature routes, synced models, metering in ai_usage, guardrails, /admin/ai. The frontend is smartsched/f…",
+      "ledger": "Voice AI research + design",
       "resumed": false,
       "status": "running"
     }
