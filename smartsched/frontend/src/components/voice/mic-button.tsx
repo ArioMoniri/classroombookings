@@ -164,12 +164,12 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
   }, [fromVoice, fieldEl]);
 
   const begin = useCallback(
-    (handsFree: boolean) => {
+    (handsFree: boolean, consented = false) => {
       setErr(null);
       setNotice(null);
       rec.reset();
       if (status.data?.reason === "ai_voice_limit_reached") return setErr({ code: "ai_voice_limit_reached" });
-      if (needsConsent(status.data)) return setConsentOpen(true);
+      if (!consented && needsConsent(status.data)) return setConsentOpen(true);
       setLocked(handsFree);
       void rec.start({ handsFree });
     },
@@ -274,7 +274,8 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
         variant={recording ? "destructive" : "ghost"}
         aria-pressed={recording}
         aria-keyshortcuts="Control+Shift+M Meta+Shift+M"
-        disabled={disabled || busy}
+        disabled={disabled}
+        aria-disabled={busy || undefined}
         onClick={onClick}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -310,7 +311,13 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
             </span>
           ) : (
             <>
-              <Button size="xs" variant="secondary" onClick={() => rec.stop()} disabled={rec.phase !== "recording"} data-testid="voice-done">
+              <Button size="xs" variant="secondary" onClick={() => {
+                  rec.stop();
+                  btn.current?.focus();
+                }}
+                disabled={rec.phase !== "recording"}
+                data-testid="voice-done"
+              >
                 <Check aria-hidden />
                 {t("voice.strip.done")}
               </Button>
@@ -343,7 +350,7 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
       <span className="sr-only" role="status" aria-live="polite">
         {announce}
       </span>
-      <VoiceConsentSheet open={consentOpen} onOpenChange={setConsentOpen} status={status.data} returnFocus={btn} onAccepted={() => begin(true)} />
+      <VoiceConsentSheet open={consentOpen} onOpenChange={setConsentOpen} status={status.data} returnFocus={btn} onAccepted={() => begin(true, true)} />
     </span>
   );
 }
