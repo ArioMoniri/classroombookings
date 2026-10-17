@@ -50,3 +50,46 @@ describe("ReviewPanel kinds", () => {
     expect(onDecide).toHaveBeenCalledWith([{ id: "map:0:0:2", action: "accept" }]);
   });
 });
+
+describe("ReviewPanel person_merge (owner decision 2026-10-17: renamed instructors)", () => {
+  const person = ReviewOut.parse({
+    job_id: 9,
+    status: "REVIEW",
+    blocking: 1,
+    threshold: 0.8,
+    plan: null,
+    content: true,
+    items: [
+      {
+        id: "person:0:0a1b2c3d4e5f6a7b",
+        kind: "person_merge",
+        title: "Dosyadaki “Elçim Elgün Kırımlu”, MAT 112 dersini veren “Elçim Elgün Kırımlı” ile neredeyse aynı. Aynı kişi mi?",
+        blocking: true,
+        decision: null,
+        file_index: 0,
+        existing_id: 41,
+        default: "merge",
+        choices: [
+          { code: "merge", label_tr: "Evet, “Elçim Elgün Kırımlı” ile birleştir", label_en: "Yes, merge into “Elçim Elgün Kırımlı”" },
+          { code: "keep_new", label_tr: "Hayır, yeni kişi olarak ekle", label_en: "No, add as a new person" },
+        ],
+      },
+    ],
+  });
+
+  it("asks in its own section and answers with merge (accept) / keep as new (reject)", async () => {
+    const onDecide = vi.fn();
+    render(
+      <I18nProvider initialLocale="tr">
+        <ReviewPanel review={person} busy={false} onDecide={onDecide} />
+      </I18nProvider>,
+    );
+    expect(screen.getByRole("region", { name: "Aynı kişi mi? (öğretim elemanları)" })).toBeInTheDocument();
+    const row = screen.getByTestId("review-person:0:0a1b2c3d4e5f6a7b");
+    const user = userEvent.setup();
+    await user.click(within(row).getByRole("button", { name: "Evet, “Elçim Elgün Kırımlı” ile birleştir" }));
+    expect(onDecide).toHaveBeenLastCalledWith([{ id: "person:0:0a1b2c3d4e5f6a7b", action: "accept" }]);
+    await user.click(within(row).getByRole("button", { name: "Hayır, yeni kişi olarak ekle" }));
+    expect(onDecide).toHaveBeenLastCalledWith([{ id: "person:0:0a1b2c3d4e5f6a7b", action: "reject" }]);
+  });
+});

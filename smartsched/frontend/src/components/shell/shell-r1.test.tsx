@@ -67,7 +67,8 @@ describe("tab bar (MOBILE.md M-09)", () => {
     wrap(<TabBar />);
     await waitFor(() => expect(screen.getByTestId("tab-nav-moderation-me")).toBeInTheDocument());
     // the bookings tabs as before (Boş derslik bul and Onaylar stay under Diğer), plus Taleplerim
-    expect(tabs().map((a) => a.getAttribute("href"))).toEqual(["/bookings", "/my-bookings", "/moderation/me"]);
+    // W3-SLOT follow-up: "Rezerve et" (/reserve) leads the bookings tabs
+    expect(tabs().map((a) => a.getAttribute("href"))).toEqual(["/reserve", "/bookings", "/my-bookings", "/moderation/me"]);
     const navEl = screen.getByRole("navigation", { name: "Sekmeler" });
     const current = [...navEl.querySelectorAll("[aria-current]")];
     expect(current.map((e) => e.getAttribute("data-testid"))).toEqual(["tab-nav-moderation-me"]);
@@ -100,12 +101,12 @@ describe("tab bar (MOBILE.md M-09)", () => {
     expect(requests).toHaveAttribute("aria-label", "Talepler, 3 inceleme bekliyor");
   });
 
-  it("an approver who can book has the same three tabs; /approvals is a Diğer route, so Diğer is current there", async () => {
+  it("an approver who can book has the same four tabs; /approvals is a Diğer route, so Diğer is current there", async () => {
     nav.pathname = "/approvals";
     stubFetch(APPROVER);
     wrap(<TabBar />);
     await waitFor(() => expect(screen.getByTestId("tab-nav-moderation-me")).toBeInTheDocument());
-    expect(tabs()).toHaveLength(3);
+    expect(tabs()).toHaveLength(4);
     const navEl = screen.getByRole("navigation", { name: "Sekmeler" });
     expect([...navEl.querySelectorAll("[aria-current]")].map((e) => e.getAttribute("data-testid"))).toEqual(["open-drawer"]);
   });

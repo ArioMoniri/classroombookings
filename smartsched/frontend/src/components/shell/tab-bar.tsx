@@ -14,6 +14,7 @@ import { IconButton } from "@/components/ui/button";
 import { BareButton } from "./bare-button";
 import { useUiStore } from "@/stores/ui";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
+import { QUICK_RESERVE_ITEM } from "./nav-config";
 import { usePermissions } from "@/lib/api/shell-extra";
 import { isActive, navTestId, useNavBadges } from "./sidebar";
 
@@ -42,6 +43,7 @@ const TAB_LABELS: Readonly<Record<string, MessageKey>> = {
   "/find-room": "nav.tab.findRoom",
   "/approvals": "nav.tab.approvals",
   "/moderation/me": "nav.tab.myRequests",
+  "/reserve": "nav.tab.reserve",
 };
 
 export function TabBar() {
@@ -58,8 +60,9 @@ export function TabBar() {
   // a teacher has no planning tabs: the bookings entries (admin/nav-items) take their place; a linked academician
   // (Taleplerim, /moderation/me: hidden from planners) gets it as a tab too (T-R1-06, R1-A-31)
   const planning = TABS.filter((tab) => can(tab.permission));
-  const bookings: Tab[] = ADMIN_NAV_ITEMS.filter((i) => i.href.startsWith("/bookings") || i.href.startsWith("/my-bookings") || i.bookings)
-    .filter((i) => can(i.permission) && !(i.hideWith && can(i.hideWith)))
+  // W3-SLOT: "Rezerve et" (/reserve, the quick reservation) is the first bookings tab for anyone who may book
+  const bookings: Tab[] = [QUICK_RESERVE_ITEM, ...ADMIN_NAV_ITEMS.filter((i) => i.href.startsWith("/bookings") || i.href.startsWith("/my-bookings") || i.bookings)]
+    .filter((i) => can(i.permission) && !("hideWith" in i && i.hideWith && can(i.hideWith)))
     .map((i) => ({ href: i.href, labelKey: TAB_LABELS[i.href] ?? i.labelKey, icon: i.icon }));
   const tabs = (planning.length >= 3 ? planning : [...bookings, ...planning]).slice(0, 4);
   const activeHref = tabs.find((tab) => isActive(pathname, search, tab.href))?.href;

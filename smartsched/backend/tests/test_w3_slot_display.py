@@ -88,7 +88,11 @@ async def test_w3_slot_teacher_cannot_write(env):  # noqa: F811
 
 
 async def test_w3_slot_garbage_falls_back_to_defaults(env):  # noqa: F811
-    """PUT /settings stores ``extra`` as given; the read side never hands a surface a value it cannot draw."""
+    """The read side never hands a surface a value it cannot draw, even when a stored row is garbage (an older
+    release, a hand-edited database): PUT /settings refuses such values (SD-13, test below), so they are written here
+    straight through the settings service."""
+    from app.core import db as dbmod
+
     _, teacher = await env.user("w3slot-t4@example.edu")
     garbage = _extra(
         unit="hours",
@@ -104,15 +108,15 @@ async def test_w3_slot_garbage_falls_back_to_defaults(env):  # noqa: F811
         min_length="lots",
         quick_span=0,
     )
-    assert (await env.client.put("/api/v1/settings", json={"extra": garbage}, headers=env.admin)).status_code == 200
+    async with dbmod.get_session_factory()() as s:
+        for key, value in garbage.items():
+            await ss.set_value(s, key, value)
     got = (await env.client.get("/api/v1/bookings/slot-display", headers=teacher)).json()
     assert got == DEFAULTS
     # lengths are clamped to 1..8 and quick_span is never below min_length; first > last shows every period
-    await env.client.put(
-        "/api/v1/settings",
-        json={"extra": _extra(min_length=99, quick_span=2, first_period=12, last_period=3)},
-        headers=env.admin,
-    )
+    async with dbmod.get_session_factory()() as s:
+        for key, value in _extra(min_length=99, quick_span=2, first_period=12, last_period=3).items():
+            await ss.set_value(s, key, value)
     got = (await env.client.get("/api/v1/bookings/slot-display", headers=teacher)).json()
     assert got["min_length"] == 8 and got["quick_span"] == 8
     assert got["first_period"] == 0 and got["last_period"] == 0
@@ -120,3 +124,43 @@ async def test_w3_slot_garbage_falls_back_to_defaults(env):  # noqa: F811
     await env.client.put("/api/v1/settings", json={"extra": _extra(min_length="", quick_span="")}, headers=env.admin)
     got = (await env.client.get("/api/v1/bookings/slot-display", headers=teacher)).json()
     assert got["min_length"] == 1 and got["quick_span"] == 1
+
+
+async def test_w3_slot_put_refuses_values_a_surface_cannot_draw(env):  # noqa: F811
+    """SD-13: PUT /settings with an unknown slot display value answers 422 with the field and a Turkish message, and
+    stores nothing of that request."""
+    bad = {
+        "unit": "hours",
+        "block_minutes": 45,
+        "label": "<script>",
+        "density": "huge",
+        "first_period": "lots",
+        "last_period": -3,
+        "default_view_desktop": "month",
+        "default_view_phone": "grid_day",
+        "min_length": 99,
+        "quick_span": 0,
+        "hide_short": "maybe",
+        "colour": "red",  # not a slot display key at all
+    }
+    for name, value in bad.items():
+        r = await env.client.put(
+            "/api/v1/settings", json={"extra": _extra(label="time", **{name: value})}, headers=env.admin
+        )
+        assert r.status_code == 422, (name, r.text)
+        detail = r.json()["detail"]
+        assert detail["code"] == "invalid_slot_display" and detail["field"] == f"booking.slot_display.{name}"
+        assert detail["message_tr"] and detail["message_en"] and detail["message_tr"] != detail["message_en"]
+    got = (await env.client.get("/api/v1/bookings/slot-display", headers=env.admin)).json()
+    assert got["label"] == "both"  # the valid key of a refused request was not stored either
+    r = await env.client.put(
+        "/api/v1/settings", json={"extra": _extra(first_period=5, last_period=2)}, headers=env.admin
+    )
+    assert r.status_code == 422 and r.json()["detail"]["field"] == "booking.slot_display.first_period"
+    ok = _extra(
+        unit="blocks", block_minutes=15, first_period=2, last_period=9, hide_short=True, min_length=2, quick_span=3
+    )
+    assert (await env.client.put("/api/v1/settings", json={"extra": ok}, headers=env.admin)).status_code == 200
+    got = (await env.client.get("/api/v1/bookings/slot-display", headers=env.admin)).json()
+    assert (got["unit"], got["block_minutes"], got["first_period"], got["last_period"]) == ("blocks", 15, 2, 9)
+    assert got["hide_short"] is True and (got["min_length"], got["quick_span"]) == (2, 3)

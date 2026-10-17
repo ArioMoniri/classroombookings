@@ -19,7 +19,8 @@
       "myBookings": "Mine",
       "findRoom": "Find room",
       "approvals": "Approvals",
-      "myRequests": "Requests"
+      "myRequests": "Requests",
+      "reserve": "Reserve"
     },
     "plan": "Plan", "results": "Results", "master": "Master data", "admin": "Admin",
     "dashboard": "Dashboard", "import": "Import", "onboarding": "Set up from files", "requests": "Requests", "generate": "Generate",

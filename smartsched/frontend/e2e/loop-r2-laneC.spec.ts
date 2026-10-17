@@ -30,6 +30,8 @@ const EN_CSV = path.join(FIXTURES, "universal", "bahar_requests_en.csv");
 const MEMO = path.join(FIXTURES, "universal", "rules_memo.docx");
 const SCAN_PDF = path.join(FIXTURES, "universal", "final_exams_sheet.pdf");
 const CP1254 = process.env.LANEC_CP1254 ?? "";
+/** the cp1254 export with one instructor's surname respelled (Kırımlı -> Kırımlu): a renamed person */
+const RENAMED = process.env.LANEC_RENAMED ?? "";
 const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2, locale: "tr-TR", timezoneId: "Europe/Istanbul" };
 const LONG = 240_000;
 const TERM = { code: "2026-BAHAR", week_count: 14 };
@@ -264,6 +266,30 @@ test("T-R2-22 F-07 S05/S07/S08 at 1440: the same new person twice is refused on 
   expect(pre.status).toBe(422);
   expect(JSON.stringify(pre.body)).not.toMatch(/listed twice|Kayıt yazılamadı/);
   expect(pre.body.detail.message_tr).toBeTruthy();
+});
+
+test("person_merge (owner decision 2026-10-17) at 1440: a renamed instructor is asked about, merged, and nobody new is written", async ({ page }) => {
+  test.skip(!RENAMED, "LANEC_RENAMED names the export with one instructor respelled");
+  const renamed = await job([RENAMED]);
+  const review = await api<{ items: { id: string; kind: string; existing_id?: number; decision: unknown }[] }>("GET", `/council/jobs/${renamed.id}/review`);
+  const asks = review.items.filter((i) => i.kind === "person_merge");
+  expect(asks.length).toBeGreaterThan(0);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page);
+  await page.goto(`/onboarding/${renamed.id}`);
+  const section = page.getByRole("region", { name: "Aynı kişi mi? (öğretim elemanları)" });
+  await expect(section).toBeVisible({ timeout: 60_000 });
+  const row = page.getByTestId(`review-${asks[0].id}`);
+  await expect(row).toContainText("Kırımlu");
+  await expect(row).toContainText("Aynı kişi mi?");
+  await row.getByRole("button", { name: /^Evet, .* ile birleştir$/ }).click();
+  await expect(row).toContainText("onaylandı", { timeout: 30_000 });
+  await api("POST", `/council/jobs/${renamed.id}/review`, { decisions: asks.slice(1).map((i) => ({ id: i.id, action: "accept" })) });
+  const dry = await api<{ counts: Counts }>("POST", `/council/jobs/${renamed.id}/commit`, { group: 0, term_id: ctx.termId, allow_pending: true, dry_run: true });
+  expect(n(dry.counts, "instructors", "create")).toBe(0);
+  const people = await api<{ full_name?: string; name?: string }[] | { items: { full_name?: string }[] }>("GET", "/instructors?limit=2000").catch(() => null);
+  const list = Array.isArray(people) ? people : (people?.items ?? []);
+  expect(list.some((p) => /Kırımlu/.test(String(p.full_name ?? "")))).toBeFalsy();
 });
 
 for (const route of ["/onboarding", "/onboarding/<job>", "/programs/new/<draft>"]) {

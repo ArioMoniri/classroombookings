@@ -80,22 +80,34 @@ function useSave(p: Provider) {
   return { save, error, conflict, pending: m.isPending, setError };
 }
 
+interface Kept {
+  step: WizardStep | null;
+  setStep: (s: WizardStep) => void;
+  test: TestResult | null;
+  setTest: (r: TestResult) => void;
+}
+
 export function ProviderWizard({ providerId, onBack }: { providerId: number; onBack: () => void }) {
   const { t, locale } = useI18n();
   const q = useSetup(providerId);
+  // the step and the last test survive the re-mount after each save (a new version)
+  const [step, setStep] = useState<WizardStep | null>(null);
+  const [test, setTest] = useState<TestResult | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => headingRef.current?.focus(), []);
   if (q.isLoading) return <Loading />;
   if (q.isError || !q.data) return <Alert tone="error">{problemText(q.error, locale) ?? t("identity.loadError")}</Alert>;
-  return <Wizard key={q.data.provider.version} setup={q.data} onBack={onBack} headingRef={headingRef} />;
+  return <Wizard key={q.data.provider.version} setup={q.data} onBack={onBack} headingRef={headingRef} keep={{ step, setStep, test, setTest }} />;
 }
 
-function Wizard({ setup, onBack, headingRef }: { setup: Setup; onBack: () => void; headingRef: React.RefObject<HTMLHeadingElement | null> }) {
+function Wizard({ setup, onBack, headingRef, keep }: { setup: Setup; onBack: () => void; headingRef: React.RefObject<HTMLHeadingElement | null>; keep: Kept }) {
   const { t, locale } = useI18n();
   const p = setup.provider;
   const states = stepState(p, { publicUrl: setup.public_url });
-  const [step, setStep] = useState<WizardStep>(() => (!p.configured && !p.client_id && !p.issuer && !p.saml?.idp_entity_id ? "preset" : firstOpenStep(states)));
-  const [test, setTest] = useState<TestResult | null>(null);
+  const step: WizardStep = keep.step ?? (!p.configured && !p.client_id && !p.issuer && !p.saml?.idp_entity_id ? "preset" : firstOpenStep(states));
+  const setStep = keep.setStep;
+  const test = keep.test;
+  const setTest = keep.setTest;
   const tested = test?.ok === true || p.test_ok === true;
   const name = locale === "en" ? p.label_en : p.label;
   return (

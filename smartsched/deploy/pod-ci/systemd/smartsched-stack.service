@@ -1,0 +1,18 @@
+[Unit]
+Description=SmartSched: start the last good app stack at boot (docker compose up -d --no-build)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=smartsched-ci
+Group=smartsched-ci
+SupplementaryGroups=docker
+EnvironmentFile=-/etc/smartsched-ci/ci.env
+ExecStart=/bin/bash /opt/smartsched-ci/gates/stack-up.sh
+TimeoutStartSec=15min
+
+[Install]
+WantedBy=multi-user.target

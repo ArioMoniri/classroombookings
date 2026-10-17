@@ -65,14 +65,16 @@ describe("T-R2-04: tab-bar labels fit their column", () => {
     wrap(<TabBar />);
     await waitFor(() => expect(tabs().length).toBeGreaterThanOrEqual(3));
     const names = tabs().map((a) => a.getAttribute("aria-label"));
-    expect(names).toEqual(["Rezerve", "Benimkiler", "Taleplerim"]);
+    // W3-SLOT follow-up: "Rezerve et" (/reserve, the quick reservation) is the teacher's first tab
+    expect(names).toEqual(["Rezerve et", "Rezerve", "Benimkiler", "Taleplerim"]);
+    expect(tabs()[0]).toHaveAttribute("href", "/reserve");
     for (const a of tabs()) {
       const label = a.querySelector("[data-slot=tab-label]")!;
       expect(label).toHaveClass("min-w-0", "max-w-full", "truncate");
       expect(a.textContent!.trim().startsWith(a.getAttribute("aria-label")!)).toBe(true);
     }
     // the tab-only keys are shorter than the sidebar words in both languages
-    for (const [tab, full] of [["nav.tab.bookings", "crbs.nav.bookings"], ["nav.tab.myBookings", "crbs.nav.myBookings"], ["nav.tab.findRoom", "wave1.nav.findRoom"]] as [MessageKey, MessageKey][])
+    for (const [tab, full] of [["nav.tab.reserve", "quickReserve.title"], ["nav.tab.bookings", "crbs.nav.bookings"], ["nav.tab.myBookings", "crbs.nav.myBookings"], ["nav.tab.findRoom", "wave1.nav.findRoom"]] as [MessageKey, MessageKey][])
       for (const l of ["tr", "en"] as const) expect(translate(l, tab).length).toBeLessThan(translate(l, full).length + 1);
   });
 

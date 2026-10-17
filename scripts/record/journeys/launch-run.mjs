@@ -43,7 +43,7 @@ export default {
       await view.waitFor({ timeout: 30_000 });
       await page.waitForLoadState("networkidle").catch(() => undefined);
     }, { hold: 300 });
-    await rec.step(tr(ctx, "Every hard rule is kept: no clashes, no room too small, no lecturer twice", "Her katı kural korunur: çakışma yok, küçük derslik yok, aynı anda iki ders yok"), async () => {
+    await rec.step(tr(ctx, "Hard rules held: every exception is one the planning list asked for, named and counted", "Her katı kural korunur: çakışma yok, küçük derslik yok, aynı anda iki ders yok"), async () => {
       await rec.frame(page.getByTestId("run-verdict"), { dwell: 1500 });
       const kpi = page.locator('[data-testid^="kpi-"]').first();
       if (await kpi.isVisible().catch(() => false)) await rec.frame(kpi, { dwell: 900 });
@@ -55,7 +55,7 @@ export default {
       if (await sec.isVisible().catch(() => false)) await rec.frame(sec, { dwell: 1200 });
       await rec.frame(page.getByTestId("diagnosis-card").first(), { dwell: 1300 });
     }, { hold: 300 });
-    await rec.step(tr(ctx, "With what would fix it: a bigger room, another day, a split", "Ve neyin düzelteceğini: daha büyük derslik, başka gün, bölme"), async () => {
+    await rec.step(tr(ctx, "Each comes with concrete fixes: a free room and time, and what else would move", "Ve neyin düzelteceğini: daha büyük derslik, başka gün, bölme"), async () => {
       const opt = page.getByTestId("diagnosis-fix-option").first();
       if (await opt.isVisible().catch(() => false)) await rec.click(opt, { after: 900 });
       else await rec.frame(page.getByTestId("diagnosis-card").first(), { dwell: 1200 });

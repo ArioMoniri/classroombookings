@@ -18,7 +18,8 @@
       "myBookings": "Benimkiler",
       "findRoom": "Oda bul",
       "approvals": "Onaylar",
-      "myRequests": "Taleplerim"
+      "myRequests": "Taleplerim",
+      "reserve": "Rezerve et"
     },
     "plan": "Planlama", "results": "Sonuçlar", "master": "Ana veriler", "admin": "Yönetim",
     "dashboard": "Özet", "import": "İçe aktar", "onboarding": "Dosyalardan kur", "requests": "Talepler", "generate": "Oluştur",
