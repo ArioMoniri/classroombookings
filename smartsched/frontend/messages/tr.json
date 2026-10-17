@@ -1156,6 +1156,7 @@
       "reasonHint": "Rezervasyonla birlikte saklanır ve rezervasyon sahibine gösterilir.",
       "done": "{n} rezervasyon iptal edildi",
       "doneReason": "{n} rezervasyon iptal edildi · Gerekçe: {reason}",
+      "replacedBySeries": "Seri #{id} ile değiştirildi",
       "kept": "{n} olduğu gibi kaldı",
       "reasonHintOwn": "Gerekçe iptal edilen rezervasyonla birlikte saklanır ve kartında görünür."
     },

@@ -544,10 +544,21 @@ async def check_window(
         return
     t = await today(session)
     min_date = t + timedelta(days=lo or 0)
+    # T-R2-17 (R2-S-13, R1-S-24): coded refusals with both languages; a date already gone is "past", not a window
+    if d < t:
+        raise _conflict(
+            "past",
+            f"{d:%d.%m.%Y} is in the past; bookings are made for today or later",
+            message_en=f"{d:%d.%m.%Y} is in the past; bookings are made for today or later",
+            message_tr=f"{d:%d.%m.%Y} geçmiş bir tarih; rezervasyon bugün ya da sonrası için yapılır",
+            min_date=min_date.isoformat(),
+        )
     if d < min_date:
         raise _conflict(
             "range_min",
             f"bookings must be made at least {lo or 0} day(s) ahead (from {min_date:%d.%m.%Y})",
+            message_en=f"bookings must be made at least {lo or 0} day(s) ahead (from {min_date:%d.%m.%Y})",
+            message_tr=f"rezervasyon en az {lo or 0} gün önceden yapılmalı ({min_date:%d.%m.%Y} tarihinden itibaren)",
             min_date=min_date.isoformat(),
         )
     max_date = t + timedelta(days=hi) if hi is not None else info.end
@@ -555,6 +566,8 @@ async def check_window(
         raise _conflict(
             "range_max",
             f"bookings can be made at most {hi} day(s) ahead (until {max_date:%d.%m.%Y})",
+            message_en=f"bookings can be made at most {hi} day(s) ahead (until {max_date:%d.%m.%Y})",
+            message_tr=f"rezervasyon en çok {hi} gün önceye kadar yapılabilir ({max_date:%d.%m.%Y} tarihine kadar)",
             max_date=max_date.isoformat(),
         )
 
@@ -1139,7 +1152,7 @@ async def create_recurring(
         savepoint = await session.begin_nested()
         try:
             if old is not None:
-                ids = await _cancel_rows(session, access, [old], f"replaced by series #{series.id}")
+                ids = await _cancel_rows(session, access, [old], replace_reason(series.id))
             session.add(b)
             await session.flush()
             if b.status != PENDING or b.held_until is not None:
@@ -1167,10 +1180,10 @@ async def create_recurring(
             replaced[0],
             items=[(i, {"status": BOOKED}, {"status": CANCELLED}) for i in replaced],
             actor=access.user,
-            reason=f"replaced by series #{series.id}",
+            reason=replace_reason(series.id),
             term_id=series.term_id,
             notify="booking.cancelled",
-            payload={"booking_ids": replaced, "actor_id": access.user_id, "reason": f"replaced by series #{series.id}"},
+            payload={"booking_ids": replaced, "actor_id": access.user_id, "reason": replace_reason(series.id)},
         )
     if need is None:
         await publish_event(
@@ -1203,6 +1216,12 @@ async def create_recurring(
 # --------------------------------------------------------------------------------------------------
 # Cancel
 # --------------------------------------------------------------------------------------------------
+
+
+def replace_reason(series_id: int) -> str:
+    """The cancel reason a series writes on the booking it replaces: a *code* (``replaced_by_series:<id>``) the UI
+    renders in its language ("Seri #7 ile değiştirildi"), never an English sentence (T-R2-17, R2-M-18)."""
+    return f"replaced_by_series:{series_id}"
 
 
 async def _cancel_rows(session: AsyncSession, access: Access, rows: list[Booking], reason: str | None) -> list[int]:
@@ -1254,13 +1273,17 @@ async def cancel(
         if series is not None:
             series.status, series.cancelled_at, series.cancelled_by = CANCELLED, utcnow(), access.user_id
             series.cancel_reason = reason
+    # T-R2-17 (e): a series scope is one event on the series with one child per booking, so no booking (the anchor)
+    # gets two "Rezervasyon iptal edildi" rows; a single date stays one row on the booking itself
+    many = scope != "one" and b.series_id is not None
     await publish_event(
         session,
         "booking.cancel",
-        "booking",
-        b.id,
+        "booking_series" if many else "booking",
+        b.series_id if many else b.id,
         items=[(r.id, before[r.id], snap(r)) for r in rows if r.id in before],
-        parent_after={"scope": scope},
+        item_type="booking" if many else None,
+        parent_after={"scope": scope, "booking_id": b.id},
         actor=access.user,
         reason=reason,
         term_id=b.term_id,

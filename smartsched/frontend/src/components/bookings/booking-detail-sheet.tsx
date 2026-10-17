@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { cancelToastText } from "./cancel-toast";
+import { cancelReasonText } from "./cancel-reason";
 import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { useShake } from "@/components/ui/input";
@@ -101,11 +102,11 @@ function Detail({ id, fmt, onClose, onRoomInfo }: { id: number; fmt: DateFormatt
           </Alert>
         ) : b.status === "REJECTED" || b.status === "EXPIRED" || b.status === "WITHDRAWN" ? (
           <Alert tone="warning" title={t(STATUS_KEY[b.status]!)}>
-            {b.cancel_reason ? t("crbs.detail.reason", { reason: b.cancel_reason }) : null}
+            {b.cancel_reason ? t("crbs.detail.reason", { reason: cancelReasonText(b.cancel_reason, t)! }) : null}
           </Alert>
         ) : cancelled ? (
           <Alert tone="warning" title={t("crbs.detail.cancelled")}>
-            {b.cancel_reason ? t("crbs.detail.reason", { reason: b.cancel_reason }) : null}
+            {b.cancel_reason ? t("crbs.detail.reason", { reason: cancelReasonText(b.cancel_reason, t)! }) : null}
           </Alert>
         ) : null}
         {mode === "view" ? (

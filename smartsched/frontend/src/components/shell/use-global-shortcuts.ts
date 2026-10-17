@@ -32,7 +32,9 @@ export function useGlobalShortcuts() {
   const { perms } = usePermissions();
   const items = useMemo(() => visibleNavGroups((p) => hasPermission(perms, p)).flatMap((g) => g.items), [perms]);
   const latest = useRef({ router, locale, setLocale, languages, cycleTheme, items });
-  latest.current = { router, locale, setLocale, languages, cycleTheme, items };
+  useEffect(() => {
+    latest.current = { router, locale, setLocale, languages, cycleTheme, items };
+  });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const { router, locale, setLocale, languages, cycleTheme, items } = latest.current;

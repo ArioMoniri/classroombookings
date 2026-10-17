@@ -37,6 +37,7 @@ import { CancelManyDialog } from "./cancel-many-dialog";
 import { RoomInfoSheet } from "./room-info-sheet";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
 import { groupBookings } from "./my-bookings-model";
+import { cancelReasonText } from "./cancel-reason";
 import { BareButton } from "@/components/shell/bare-button";
 
 type Tab = "upcoming" | "past" | "cancelled";
@@ -259,7 +260,7 @@ function BookingList({
               {/* T-R1-17 (R1-A-22): why it was cancelled, and what the approver wrote (once per submission) */}
               {b.status === "CANCELLED" && b.cancel_reason ? (
                 <span className="block type-footnote text-label-2" data-testid={`mine-cancel-reason-${b.id}`}>
-                  {t("crbs.mine.cancelReason", { reason: b.cancel_reason })}
+                  {t("crbs.mine.cancelReason", { reason: cancelReasonText(b.cancel_reason, t)! })}
                 </span>
               ) : null}
               {b.status !== "CANCELLED" && note ? (

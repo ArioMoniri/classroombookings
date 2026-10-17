@@ -136,6 +136,7 @@ async def test_t_r2_13_totals_count_sessions_and_leave_the_cancelled_out(env):  
 
 async def test_t_r2_17_feed_description_carries_the_note(env):  # noqa: F811
     import icalendar
+
     from tests.integrations_support import calendar_consent, kvkk_sign_off
 
     await kvkk_sign_off(env)
@@ -148,7 +149,13 @@ async def test_t_r2_17_feed_description_carries_the_note(env):  # noqa: F811
     r = await env.client.get(f"/api/v1/calendar/feeds/{tok}/mine.ics")
     assert r.status_code == 200, r.text
     cal = icalendar.Calendar.from_ical(r.text)
-    ev = next(e for e in cal.walk("VEVENT") if str(e["UID"]).startswith(f"booking-{b['id']}") or "Telafi" in str(e.get("DESCRIPTION", "")) or str(e.get("SUMMARY", "")).startswith("A 102"))
+    ev = next(
+        e
+        for e in cal.walk("VEVENT")
+        if str(e["UID"]).startswith(f"booking-{b['id']}")
+        or "Telafi" in str(e.get("DESCRIPTION", ""))
+        or str(e.get("SUMMARY", "")).startswith("A 102")
+    )
     assert "Telafi dersi" in str(ev["DESCRIPTION"]), dict(ev)
     assert str(ev["SUMMARY"]).startswith("A 102")  # SUMMARY stays room · period
 
@@ -192,25 +199,37 @@ async def test_t_r2_17_replaced_booking_carries_a_coded_reason(env):  # noqa: F8
     assert r.status_code in (201, 202), r.text
     gone = (await c.get(f"/api/v1/bookings/{old['id']}", headers=ayse)).json()
     assert gone["status"] == "CANCELLED"
-    assert gone["cancel_reason"] == f"replaced_by_series:{r.json()['series_id'] if 'series_id' in r.json() else r.json()['series']['id']}", gone
+    assert (
+        gone["cancel_reason"]
+        == f"replaced_by_series:{r.json()['series_id'] if 'series_id' in r.json() else r.json()['series']['id']}"
+    ), gone
 
 
 async def test_t_r2_17_a_series_cancel_writes_one_audit_row_per_booking(env):  # noqa: F811
     c = env.client
     r = await c.post(
         "/api/v1/bookings/recurring",
-        json={"room_id": env.rooms["A102"], "period_id": env.periods["P1"], "date": THU.isoformat(), "end": date(2026, 2, 26).isoformat()},
+        json={
+            "room_id": env.rooms["A102"],
+            "period_id": env.periods["P1"],
+            "date": THU.isoformat(),
+            "end": date(2026, 2, 26).isoformat(),
+        },
         headers=env.admin,
     )
     assert r.status_code in (201, 202), r.text
     made = r.json()
     ids = sorted(b["id"] for b in (made.get("created") or made.get("bookings") or []))
     assert len(ids) == 2, made
-    r = await c.post(f"/api/v1/bookings/{ids[0]}/cancel", json={"scope": "future", "reason": "Dönem sonu"}, headers=env.admin)
+    r = await c.post(
+        f"/api/v1/bookings/{ids[0]}/cancel", json={"scope": "future", "reason": "Dönem sonu"}, headers=env.admin
+    )
     assert r.status_code == 200, r.text
     assert sorted(r.json()["cancelled"]) == ids
     page = (await c.get("/api/v1/audit", params={"action": "booking.cancel", "limit": 50}, headers=env.admin)).json()
     rows = [e for e in page["items"] if e["entity_type"] == "booking" and e["entity_id"] in {str(i) for i in ids}]
-    assert sorted(e["entity_id"] for e in rows) == [str(i) for i in ids], [(e["entity_type"], e["entity_id"]) for e in page["items"]]
+    assert sorted(e["entity_id"] for e in rows) == [str(i) for i in ids], [
+        (e["entity_type"], e["entity_id"]) for e in page["items"]
+    ]
     parents = [e for e in page["items"] if e["entity_type"] == "booking_series"]
     assert len(parents) == 1 and parents[0]["reason"] == "Dönem sonu", parents

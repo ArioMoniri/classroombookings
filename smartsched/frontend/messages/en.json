@@ -1157,6 +1157,7 @@
       "reasonHint": "Kept with the booking and shown to whoever booked it.",
       "done": "{n} booking(s) cancelled",
       "doneReason": "{n} booking(s) cancelled · Reason: {reason}",
+      "replacedBySeries": "Replaced by series #{id}",
       "kept": "{n} left as they were",
       "reasonHintOwn": "Kept with the cancelled booking and shown on its card."
     },
