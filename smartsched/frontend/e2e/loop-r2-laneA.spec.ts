@@ -195,8 +195,10 @@ test("T-R2-03 a forced password change leaves /login/change-password for `next` 
     await page.locator("#cur").fill(FORCED.password);
     await page.locator("#new").fill(FORCED.next);
     await page.locator("#again").fill(FORCED.next);
-    const t0 = Date.now();
+    const saved = page.waitForResponse((r) => r.url().includes("/auth/change-password") && r.request().method() === "POST");
     await page.getByRole("button", { name: "Kaydet ve devam et" }).click();
+    expect((await saved).status()).toBe(200);
+    const t0 = Date.now(); // the ticket's clock starts at the 200 (the re-login and the /me refetch come after it)
     await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 15_000 });
     expect(Date.now() - t0).toBeLessThan(2000);
     await expect(page.getByText("Parola değiştirildi")).toBeVisible();
@@ -261,23 +263,39 @@ test("T-R2-07 with reduced motion the book sheet and the bell sheet do not slide
   for (const base of [DESKTOP, PHONE]) {
     for (const inApp of [false, true]) {
       const page = await newPage(browser, { ...base, reducedMotion: inApp ? "no-preference" : "reduce" }, TEACHER.id, TEACHER.password);
-      if (inApp) await page.addInitScript(() => document.documentElement.setAttribute("data-motion", "reduced"));
+      if (inApp) {
+        // the in-app switch (Ayarlar › Görünüm › Hareketi azalt) is stored per user; the shell's init script applies it
+        await page.evaluate(async () => {
+          const me = (await (await fetch("/api/v1/auth/me")).json()) as { id: number };
+          localStorage.setItem("smartsched.appearance.lastUser", String(me.id));
+          localStorage.setItem(`smartsched.appearance.${me.id}`, JSON.stringify({ motion: "reduced", transparency: "system" }));
+        });
+      }
       await page.goto("/bookings");
-      if (inApp) await page.evaluate(() => document.documentElement.setAttribute("data-motion", "reduced"));
-      let slot = page.getByTestId("free-slot").first();
-      for (let i = 0; i < 6 && !(await slot.count()); i++) { await page.getByTestId("nav-next").click(); await page.waitForTimeout(800); slot = page.getByTestId("free-slot").first(); }
-      await slot.click();
+      if (inApp) await expect(page.locator('html[data-motion="reduced"]')).toHaveCount(1);
+      // a free slot: the phone's free-slot list, the desktop grid's first available cell
+      const free = () => (base === PHONE ? page.getByTestId("free-slot") : page.locator('[data-tone="available"]')).first();
+      await page.waitForTimeout(800);
+      for (let i = 0; i < 6 && !(await free().count()); i++) { await page.getByTestId("nav-next").click(); await page.waitForTimeout(800); }
+      await free().click();
+      await expect(page.locator("[data-slot=sheet-content],[data-slot=dialog-content]").last()).toBeVisible();
       const book = (await page.evaluate(PROBE)) as P;
       expect(book.translate, `book sheet ${base.viewport.width} inApp=${inApp}`).toBe("none");
       expect(book.opacity).toBe("1");
       expect(book.running).toBe(0);
       if (base === DESKTOP) expect(book.transform).toMatch(/^(none|matrix\(1, 0, 0, 1, )/);
       await page.keyboard.press("Escape");
-      await page.getByTestId("notification-bell").first().click();
-      const bell = (await page.evaluate(PROBE)) as P;
-      expect(bell.translate, `bell ${base.viewport.width} inApp=${inApp}`).toBe("none");
-      expect(bell.opacity).toBe("1");
-      expect(bell.running).toBe(0);
+      await expect(page.locator("[data-slot=sheet-content]")).toHaveCount(0);
+      // the bell is a bottom sheet below md only (T-R1-04); on the desktop the sync panel is the second popup
+      const opener = base === PHONE ? page.getByTestId("notification-bell").locator("visible=true").first() : page.getByTestId("sync-open").locator("visible=true").first();
+      if (await opener.count()) {
+        await opener.click();
+        await expect(page.locator("[data-slot=sheet-content],[data-slot=dialog-content]").last()).toBeVisible();
+        const second = (await page.evaluate(PROBE)) as P;
+        expect(second.translate, `second popup ${base.viewport.width} inApp=${inApp}`).toBe("none");
+        expect(second.opacity).toBe("1");
+        expect(second.running).toBe(0);
+      }
       await page.context().close();
     }
   }

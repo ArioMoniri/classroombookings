@@ -163,7 +163,9 @@ test("T-R1-48 · a cancelled run reads İptal edildi and claims nothing", async 
   const verdict = page.getByTestId("run-verdict");
   await expect(verdict).toHaveAttribute("data-state", "cancelled");
   await expect(verdict).toContainText("İptal edildi");
-  await expect(page.getByTestId("run-cancelled-by")).toContainText(ADMIN_EMAIL);
+  // who stopped it, named as the rest of the UI names people (R2-M-17: display name, else username, else e-mail)
+  const me = await api<{ full_name?: string | null; username?: string | null; email: string }>("GET", "/auth/me");
+  await expect(page.getByTestId("run-cancelled-by")).toContainText(me.full_name?.trim() || me.username?.trim() || ADMIN_EMAIL);
   const hero = await page.getByTestId("run-hero").innerText();
   expect(hero).not.toMatch(/karşılandı|İhlal yok|hiçbir kural bozulmadı/);
   const main = await page.locator("main").innerText();

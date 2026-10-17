@@ -2,7 +2,7 @@
  * Approval workflows (P1, docs/product/wave1-api.md §4): what a request says and how its timeline reads.
  * Pure functions (no React), unit-tested in approvals-model.test.ts.
  */
-import type { ApprovalRequest, Decision, RequestBooking, Rule, RuleSnapshot, Scope, Suggested } from "@/lib/api/wave1";
+import type { ApprovalRequest, Approver, Decision, RequestBooking, Rule, RuleSnapshot, Scope, Suggested } from "@/lib/api/wave1";
 
 export type RequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "WITHDRAWN";
 export type Tone = "pending" | "ok" | "bad" | "muted";
@@ -109,6 +109,34 @@ export function ruleTarget(r: Pick<Rule | RuleSnapshot, "entity_type" | "entity_
 export function stepApprovers(step: { approvers: { type: string; ids?: number[] } }, l: Pick<RuleLookups, "user">): { designated: boolean; names: string[] } {
   if (step.approvers.type !== "users") return { designated: true, names: [] };
   return { designated: false, names: (step.approvers.ids ?? []).map((id) => l.user(id) ?? `#${id}`) };
+}
+
+/**
+ * T-R2-18 (R2-M-19): does any approver who can decide cover the rooms this rule reaches? A scope "all" covers
+ * everything; a room scope covers that room's rule, its group's rule and a tag rule when the room carries the tag; a
+ * group scope covers the rooms in it; a tag scope covers the rooms carrying the tag. Without one, a "designated
+ * approvers" step would fall to every room approver, then the room owner, then the administrators (M-35 was the
+ * case of no scopes at all; this is the per-rule case).
+ */
+export function ruleCovered(
+  rule: Pick<Rule, "entity_type" | "entity_id" | "tag">,
+  approvers: readonly Pick<Approver, "can_decide" | "scopes">[],
+  rooms: readonly { id: number; tags: readonly string[]; groupId: number | null }[],
+): boolean {
+  const tagOf = (t: string | null | undefined) => (t ?? "").toUpperCase();
+  const reached = rooms.filter((r) =>
+    rule.entity_type === "room" ? r.id === rule.entity_id : rule.entity_type === "room_group" ? r.groupId === rule.entity_id : r.tags.some((t) => tagOf(t) === tagOf(rule.tag)),
+  );
+  return approvers.some(
+    (a) =>
+      a.can_decide &&
+      a.scopes.some((s) => {
+        if (s.type === "all") return true;
+        if (s.type === "room") return rule.entity_type === "room" ? s.id === rule.entity_id : reached.some((r) => r.id === s.id);
+        if (s.type === "room_group") return rule.entity_type === "room_group" ? s.id === rule.entity_id : reached.some((r) => r.groupId === s.id);
+        return rule.entity_type === "tag" ? tagOf(s.tag) === tagOf(rule.tag) : reached.some((r) => r.tags.some((t) => tagOf(t) === tagOf(s.tag)));
+      }),
+  );
 }
 
 /* -------------------------------------------------------------------------------------- scopes */

@@ -153,10 +153,10 @@ test("T-R2-21 F-08 S08: the refusal for undecided merges is coded, Turkish and n
   await page.goto(`/onboarding/${merge.id}`);
   const progress = page.getByTestId("onboarding-progress");
   await expect(progress).toBeVisible({ timeout: 30_000 });
-  await expect(progress.locator('[data-method="ai"]')).toHaveCount(0);
-  const docRows = progress.locator("tr").filter({ hasText: /\.(pdf|docx)$/ });
-  expect(await docRows.count()).toBeGreaterThan(0);
+  const docRows = progress.getByRole("row").filter({ hasText: /\.(pdf|docx)/ });
+  await expect(docRows.first()).toBeVisible({ timeout: 30_000 }); // the table follows the job query
   await expect(docRows.locator('[data-slot="method-badge"]').first()).toHaveText(/Doğrudan|Okunmadı|YZ kapalı/);
+  await expect(progress.locator('[data-method="ai"]')).toHaveCount(0);
 });
 
 test("T-R2-20 F-08 S01/S03/S08 at 1440: recent jobs after a reload, /onboarding/<id>, a keyboard drop zone, accept, a live commit bar", async ({ page }) => {
@@ -268,8 +268,10 @@ for (const route of ["/onboarding", "/onboarding/<job>", "/programs/new/<draft>"
       const small = await page.evaluate(() => {
         const out: string[] = [];
         for (const el of Array.from(document.querySelectorAll<HTMLElement>('main button, main a[href], main input:not([type=hidden]), main [role=button], main [role=option]'))) {
-          const r = el.getBoundingClientRect();
-          if (r.width === 0 || r.height === 0 || el.closest(".sr-only") || el.classList.contains("sr-only")) continue;
+          let r = el.getBoundingClientRect();
+          if (r.width <= 1 || r.height <= 1 || el.closest(".sr-only") || el.classList.contains("sr-only")) continue; // visually hidden inputs of composite controls
+          const label = el.tagName === "INPUT" ? el.closest("label") : null;
+          if (label) r = label.getBoundingClientRect(); // a radio / checkbox inside its label: the label is the hit area
           if (r.height < 44 && r.width < 44) out.push(`${el.tagName.toLowerCase()} ${el.textContent?.trim().slice(0, 30)} ${Math.round(r.width)}×${Math.round(r.height)}`);
         }
         return out;

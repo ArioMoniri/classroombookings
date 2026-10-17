@@ -26,7 +26,7 @@ export function MissingWeeks({ runId, stats }: { runId: number; stats: Record<st
       {rows.map((r) => (
         <li key={r.week} className="flex flex-wrap items-baseline gap-x-2">
           <span>{t("glass.report.missingOnlyWeek", { n: n(r.count), week: r.week })}</span>
-          <Link href={`/timetable?run=${runId}&week=${r.week}`} className="font-medium text-tint-text hover:underline">
+          <Link href={`/timetable?run=${runId}&week=${r.week}`} className="inline-flex min-h-11 items-center font-medium text-tint-text hover:underline pointer-fine:min-h-0">
             {t("glass.report.openWeek", { week: r.week })}
           </Link>
         </li>

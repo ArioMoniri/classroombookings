@@ -7,6 +7,11 @@
  *   /dashboard main.innerText has no odometer digit strip.
  * - T-R2-27 Studio on Güz: the rail reads "Tüm dönem · 14 hafta" and agrees with the sentence, also right after the
  *   term switch; the compare refusal names the reason and each run's horizon.
+ * - T-R2-28 phone timetable / classes: MOBILE M-02 clean with the inspector open; "Taşı…" and "Kilitle" (44 px) in the
+ *   sheet footer inside the bottom 40 %; an open-filters trigger opens the filters sheet; document.title is never a
+ *   day name; at 1440 the second Tab from the page start reaches "Izgaraya geç".
+ * - T-R2-29 Studio steps 2–3 and /settings?tab=solver on the phone: M-02 clean, 16 px inputs, the solver's default
+ *   weights (never 0) under "Ağırlık"; GET /runs/<id>/export?weeks=4 is named -hafta4.
  * - T-R2-30 capacity and run polish: the pin template marks "sığmaz" and offers the admin reason; the move dialog
  *   disables "Taşı" on a too-small room and shows the force panel; cancel right after POST /runs → CANCELLED with the
  *   display name; focus is not on body after "Yayınla"; a planner's forced move → 403 with message_tr; the broken
@@ -55,6 +60,45 @@ async function api<T = unknown>(method: "GET" | "POST" | "PUT" | "DELETE", path:
   const r = await call<T>(method, path, body);
   if (r.status >= 400) throw new Error(`${method} ${path} → ${r.status} ${JSON.stringify(r.body)}`);
   return r.body;
+}
+/** MOBILE.md M-02 (touch targets ≥ 44 px or a 44 px hit area), for the elements in view. */
+const M02 = () => {
+  const SEL = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=tab],[role=checkbox],[role=radio],[role=switch],[role=menuitem],[role=option],[role=slider],[tabindex]:not([tabindex="-1"])';
+  const hits = (el: Element, x: number, y: number) => { const t = document.elementFromPoint(x, y); return !!t && (t === el || el.contains(t)); };
+  const bad: { el: string; w: number; h: number }[] = [];
+  for (const el of document.querySelectorAll<HTMLElement>(SEL)) {
+    const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+    if (!r.width || !r.height || cs.visibility === "hidden" || el.closest('[aria-hidden="true"],[inert]')) continue;
+    if (el.checkVisibility && !el.checkVisibility()) continue;
+    if (r.width <= 1 && r.height <= 1 && el !== document.activeElement) continue;
+    if (el.tagName === "A" && cs.display === "inline" && /^(P|LI|TD|SPAN|DD)$/.test(el.parentElement?.tagName ?? "")) continue;
+    let w = r.width, h = r.height;
+    const lab = (el as HTMLInputElement).labels?.[0]; if (lab) { const l = lab.getBoundingClientRect(); w = Math.max(w, l.width); h = Math.max(h, l.height); }
+    if (w >= 44 && h >= 44) continue;
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const VW = document.documentElement.clientWidth, VH = document.documentElement.clientHeight;
+    const inView = cy > 22 && cy < VH - 22 && cx > 22 && cx < VW - 22;
+    if (!inView) continue;
+    if ([[cx - 22, cy], [cx + 21, cy], [cx, cy - 22], [cx, cy + 21]].every(([x, y]) => hits(el, x, y))) continue;
+    bad.push({ el: (el.dataset.testid || el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 40), w: Math.round(w), h: Math.round(h) });
+  }
+  return bad;
+};
+async function m02All(page: Page): Promise<{ el: string; w: number; h: number }[]> {
+  const out: { el: string; w: number; h: number }[] = [];
+  const vh = await page.evaluate(() => document.documentElement.clientHeight);
+  const total = await page.evaluate(() => Math.min(8000, Math.max(document.documentElement.scrollHeight, ...[...document.querySelectorAll("main *")].map((e) => e.scrollHeight))));
+  for (let y = 0; y <= total; y += Math.round(vh * 0.8)) {
+    await page.evaluate((y) => { window.scrollTo(0, y); document.querySelectorAll("main, main *, [role=dialog] *").forEach((e) => { if (e.scrollHeight > e.clientHeight + 4) e.scrollTop = y; }); }, y);
+    await page.waitForTimeout(150);
+    out.push(...(await page.evaluate(M02)));
+  }
+  return out.filter((x, i, arr) => arr.findIndex((y) => JSON.stringify(y) === JSON.stringify(x)) === i);
+}
+async function assertTouch(page: Page): Promise<void> {
+  const s = await page.evaluate(() => ({ coarse: matchMedia("(pointer: coarse)").matches, hover: matchMedia("(hover: none)").matches, touch: navigator.maxTouchPoints }));
+  expect(s, "touch emulation is on (MOBILE.md: assertTouch)").toEqual({ coarse: true, hover: true, touch: expect.any(Number) });
+  expect(s.touch).toBeGreaterThan(0);
 }
 function trackErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -282,4 +326,154 @@ test("T-R2-30 · focus stays off body after Yayınla; the republished run is res
   await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
   await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("data-testid"))).toBe("run-published");
   if (active) await api("POST", `/runs/${active}/activate`, { confirm_scope_reduction: true, confirm_forced_breaks: true });
+});
+
+/* ------------------------------------------------------------------ T-R2-28 */
+
+test("T-R2-28 · phone timetable: M-02 clean, Taşı… / Kilitle in the sheet footer within the bottom 40 %, a filters sheet, no day-name title", async ({ browser }) => {
+  test.skip(!ctx.termRun, "no finished Bahar term run");
+  const phoneCtx = await browser.newContext(PHONE);
+  const phone = await phoneCtx.newPage();
+  await login(phone);
+  const titles = new Set<string>();
+  const poll = setInterval(() => void phone.evaluate(() => document.title).then((t) => titles.add(t)).catch(() => undefined), 40);
+  await phone.goto(`/timetable?run=${ctx.termRun!.id}&week=3`);
+  await phone.getByTestId("calendar-mobile").waitFor({ timeout: 60_000 });
+  await phone.waitForTimeout(2500);
+  clearInterval(poll);
+  expect([...titles].filter((t) => /^(Pazartesi|Salı|Çarşamba|Perşembe|Cuma|Cumartesi|Pazar)$/.test(t))).toEqual([]);
+  await assertTouch(phone);
+  expect(await m02All(phone)).toEqual([]);
+  // the filters: a trigger on the agenda view opens the desktop filters in a sheet
+  await expect(phone.getByTestId("open-filters")).toBeVisible();
+  await phone.getByTestId("open-filters").click();
+  await expect(phone.getByTestId("filters-sheet")).toBeVisible();
+  await expect(phone.getByTestId("calendar-sidebar")).toBeVisible();
+  await phone.keyboard.press("Escape");
+  await expect(phone.getByTestId("filters-sheet")).toBeHidden();
+  // the inspector sheet: both actions in the footer, 44 px, inside the bottom 40 %
+  await phone.evaluate(() => window.scrollTo(0, 0));
+  await phone.getByTestId("calendar-event").first().click();
+  await expect(phone.getByTestId("class-inspector")).toBeVisible({ timeout: 20_000 });
+  const vh = phone.viewportSize()!.height;
+  for (const tid of ["inspector-move", "inspector-lock"]) {
+    const b = (await phone.getByTestId(tid).boundingBox())!;
+    expect(b.height, tid).toBeGreaterThanOrEqual(44);
+    expect(b.y, `${tid} in the bottom 40 %`).toBeGreaterThanOrEqual(0.6 * vh - 1);
+    expect(b.y + b.height).toBeLessThanOrEqual(vh);
+  }
+  await expect(phone.getByTestId("inspector-lock")).toHaveText(/Kilitle|Kilidi aç/);
+  await expect(phone.getByTestId("inspector-move")).toHaveText("Taşı…");
+  expect(await phone.evaluate(M02)).toEqual([]);
+  await phoneCtx.close();
+});
+
+test("T-R2-28 · /classes on the phone is M-02 clean; at 1440 the second Tab reaches Izgaraya geç", async ({ page, browser }) => {
+  test.skip(!ctx.termRun, "no finished Bahar term run");
+  const phoneCtx = await browser.newContext(PHONE);
+  const phone = await phoneCtx.newPage();
+  await login(phone);
+  await phone.goto(`/classes?run=${ctx.termRun!.id}`);
+  await phone.getByTestId("classes").waitFor({ timeout: 60_000 });
+  await phone.waitForTimeout(3000);
+  await assertTouch(phone);
+  expect(await m02All(phone)).toEqual([]);
+  await phoneCtx.close();
+
+  await login(page);
+  await page.goto(`/timetable?run=${ctx.termRun!.id}&week=3`);
+  await page.getByTestId("time-grid").waitFor({ timeout: 60_000 });
+  await page.waitForTimeout(500);
+  await page.keyboard.press("Tab");
+  await expect.poll(() => page.evaluate(() => document.activeElement?.textContent?.trim())).toBe("İçeriğe atla");
+  await page.keyboard.press("Tab");
+  await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("data-testid"))).toBe("skip-to-grid");
+  await expect(page.getByTestId("skip-to-grid")).toHaveText("Izgaraya geç");
+  await page.keyboard.press("Enter");
+  await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("data-testid"))).toBe("time-grid");
+});
+
+/* ------------------------------------------------------------------ T-R2-29 */
+
+test("T-R2-29 · Studio steps 2–3 and the solver tab on the phone: M-02 clean, 16 px inputs, real default weights under Ağırlık", async ({ browser }) => {
+  const phoneCtx = await browser.newContext(PHONE);
+  const phone = await phoneCtx.newPage();
+  await login(phone);
+  await phone.goto("/generate");
+  await phone.getByTestId("scope-step").waitFor({ timeout: 60_000 });
+  await phone.locator("#scope-term").selectOption(String(ctx.bahar.id));
+  await expect(phone.getByTestId("scope-sentence")).toContainText("derslikte", { timeout: 60_000 });
+  await phone.getByTestId("step-next").click();
+  await phone.getByTestId("classes-step").waitFor({ timeout: 60_000 });
+  await phone.waitForTimeout(2500);
+  await assertTouch(phone);
+  expect(await m02All(phone)).toEqual([]);
+  await phone.getByTestId("step-next").click();
+  await phone.getByTestId("rules-step").waitFor({ timeout: 60_000 });
+  await phone.waitForTimeout(2000);
+  await assertTouch(phone);
+  expect(await m02All(phone)).toEqual([]);
+
+  await phone.goto("/settings?tab=solver");
+  await phone.getByTestId("solver-weights").waitFor({ timeout: 60_000 });
+  await phone.waitForTimeout(1000);
+  await assertTouch(phone);
+  expect(await m02All(phone)).toEqual([]);
+  const inputs = await phone.evaluate(() => [...document.querySelectorAll<HTMLInputElement>("main input")].filter((i) => i.checkVisibility()).map((i) => ({ id: i.id || i.type, fs: parseFloat(getComputedStyle(i).fontSize) })));
+  expect(inputs.length).toBeGreaterThanOrEqual(3);
+  expect(inputs.filter((i) => i.fs < 16)).toEqual([]);
+  const weights = await phone.locator('[data-testid^="weight-"]').allInnerTexts();
+  expect(weights.length).toBe(6);
+  expect(weights.filter((w) => Number(w) === 0)).toEqual([]);
+  await expect(phone.getByTestId("solver-weights").locator("thead")).toContainText("Ağırlık");
+  await expect(phone.getByTestId("solver-weights").locator("thead")).not.toContainText(/\bw\b/);
+  await phoneCtx.close();
+});
+
+test("T-R2-29 · a weeks-filtered export of a term run is named -haftaN", async () => {
+  test.skip(!ctx.termRun, "no finished Bahar term run");
+  const res = await ctx.api.fetch(`${API}/runs/${ctx.termRun!.id}/export?weeks=4`, { headers: { Authorization: `Bearer ${ctx.admin}` } });
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-disposition"]).toContain(`smartsched-run${ctx.termRun!.id}-hafta4.xlsx`);
+  const plain = await ctx.api.fetch(`${API}/runs/${ctx.termRun!.id}/export`, { headers: { Authorization: `Bearer ${ctx.admin}` } });
+  expect(plain.headers()["content-disposition"]).toContain(`smartsched-run${ctx.termRun!.id}.xlsx`);
+});
+
+/* ------------------------------------------------------------------ T-R2-30 (F-10 S06) */
+
+test("T-R2-30 · a forced capacity break reads Turkish on the timetable banner and in the truth (no 'week' / 'day'); the move is undone", async ({ page }) => {
+  test.skip(!ctx.termRun, "no finished Bahar term run");
+  const run = ctx.termRun!.id;
+  const asg = await api<{ id: number; day: number; start_period: number; end_period: number; room_ids: number[]; size: number | null; capacity: number | null }[]>("GET", `/runs/${run}/assignments?week=3`);
+  const big = [...asg].filter((a) => a.size).sort((a, b) => (b.size ?? 0) - (a.size ?? 0))[0];
+  const rooms = await api<{ id: number; capacity: number; is_bookable: boolean }[]>("GET", "/rooms");
+  const small = rooms.filter((r) => r.is_bookable && r.capacity > 0 && r.capacity < (big.size ?? 0) / 2).sort((a, b) => a.capacity - b.capacity)[0];
+  test.skip(!small, "no room small enough for a capacity break");
+  const move = (room_ids: number[], force: boolean) =>
+    call<{ detail?: unknown; applied?: number }>("POST", `/runs/${run}/assignments/bulk-move`, { force, reason: force ? "lane E banner check" : undefined, moves: [{ aid: big.id, day: big.day, start_period: big.start_period, end_period: big.end_period, room_ids, scope: "all" }] });
+  // the room may be taken at this slot: try the smallest free one
+  let forced: Awaited<ReturnType<typeof move>> | null = null;
+  for (const r of rooms.filter((r) => r.is_bookable && r.capacity > 0 && r.capacity < (big.size ?? 0) / 2).sort((a, b) => a.capacity - b.capacity).slice(0, 6)) {
+    forced = await move([r.id], true);
+    if (forced.status === 200) break;
+  }
+  expect(forced?.status, JSON.stringify(forced?.body ?? forced)).toBe(200);
+  try {
+    const s = await api<{ truth: Truth }>("GET", `/runs/${run}/summary`);
+    expect(s.truth.broken_count).toBeGreaterThan(0);
+    for (const b of s.truth.broken) {
+      expect(b.message_tr, b.message).toBeTruthy();
+      expect(b.message_tr!).not.toMatch(/\b(week|day)\b/);
+    }
+    await login(page);
+    await page.goto(`/timetable?run=${run}&week=3`);
+    const banner = page.getByTestId("run-broken-banner");
+    await expect(banner).toBeVisible({ timeout: 60_000 });
+    const text = await banner.innerText();
+    expect(text).not.toMatch(/\b(week|day)\b/);
+    expect(text).toMatch(/kesin kural/);
+  } finally {
+    const back = await move(big.room_ids, false);
+    expect(back.status, JSON.stringify(back.body ?? back)).toBe(200);
+  }
 });

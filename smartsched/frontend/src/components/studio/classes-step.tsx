@@ -155,7 +155,11 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
         cell: ({ row }) => {
           const r = row.original;
           const on = !rowState.excluded.has(r.id);
-          return <Switch checked={on} onCheckedChange={() => toggleIn(r)} aria-label={t("studio.classes.inPlanLabel", { name: `${r.course_code} §${r.section_label ?? ""}` })} data-testid="in-plan" />;
+          return (
+            <label className="inline-flex items-center pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center">
+              <Switch checked={on} onCheckedChange={() => toggleIn(r)} aria-label={t("studio.classes.inPlanLabel", { name: `${r.course_code} §${r.section_label ?? ""}` })} data-testid="in-plan" />
+            </label>
+          );
         },
         size: 64,
       },
@@ -377,7 +381,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           </option>
         ))}
       </NativeSelect>
-      <label className="flex items-center gap-1.5 text-sm">
+      <label className="flex items-center gap-1.5 text-sm pointer-coarse:min-h-11">
         <input type="checkbox" checked={filters.changed} onChange={(e) => set({ changed: e.target.checked })} data-testid="filter-changed" /> {t("studio.classes.changedOnly")}
       </label>
     </>
@@ -492,9 +496,10 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                         <PinCell row={r} pin={placedByEvent.get(r.id)} unlocked={unlockedIds.has(r.id)} roomCode={sentence.roomCode} rooms={rooms} onPin={pin} onUnpin={() => unpin(r.id)} />
                       </p>
                     </div>
-                    <span className="flex shrink-0 items-start pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:-my-1 pointer-coarse:-mr-2">
+                    {/* a <label>: the whole 44 px box toggles the switch and counts as its hit area (T-R2-28/29, M-02) */}
+                    <label className="flex shrink-0 items-start pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:-my-1 pointer-coarse:-mr-2">
                       <Switch checked={!out} onCheckedChange={() => toggleIn(r)} aria-label={t("studio.classes.inPlanLabel", { name: `${r.course_code} §${r.section_label ?? ""}` })} data-testid="in-plan" className={cn("relative mt-1 pointer-coarse:mt-0", coarseHitArea)} />
-                    </span>
+                    </label>
                   </div>
                 </li>
               );

@@ -8,6 +8,8 @@ import { CalendarArrowDown } from "lucide-react";
 import { motion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
@@ -171,6 +173,22 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const [zoomBadge, setZoomBadge] = useState<number | null>(null);
   const gridRef = useRef<TimeGridHandle>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  // a slot right after the shell's skip link for the calendar's own (T-R2-28)
+  const [skipSlot, setSkipSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (embedded) return;
+    const shellSkip = document.querySelector<HTMLElement>('[data-app-shell] > a[href="#main"]');
+    if (!shellSkip) return;
+    const el = document.createElement("div");
+    el.dataset.calendarSkip = "";
+    shellSkip.insertAdjacentElement("afterend", el);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the slot exists only once the shell is mounted
+    setSkipSlot(el);
+    return () => {
+      el.remove();
+      setSkipSlot(null);
+    };
+  }, [embedded]);
   const opts = useMemo(() => ({ isAdmin, announce: setAnnounce }), [isAdmin]);
   const actions = useCalendarActions(runId, opts);
 
@@ -740,8 +758,69 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       </div>
     );
   }
+  // the filters sidebar: docked (wide), an overlay (desktop below 1600) or a sheet (phone, round-2 T-R2-28)
+  const sidebar = (className: string) =>
+    model && runId !== null && !embedded ? (
+      <CalendarSidebar
+        ref={searchRef}
+        className={className}
+        model={model}
+        term={data.term}
+        run={data.run}
+        onClose={!wide ? () => setSidebarOpen(false) : undefined}
+        onSearchEnter={() => {
+          // Enter in the search focuses the first match on the board (round-1 R1-S-26)
+          const chip = document.querySelector<HTMLElement>('[data-testid="calendar-event"]');
+          if (chip) chip.focus();
+          else setAnnounce(t("calendar.empty.filtered"));
+        }}
+        runs={data.runs}
+        runId={runId}
+        onRun={(id) => {
+          update({ run: id, sel: null });
+          setSelection(new Set());
+        }}
+        week={liveWeek}
+        day={liveDay}
+        onPickDate={(w, d) => update({ week: w, day: d, ...(vs.lens === "month" || vs.lens === "term" ? { lens: "board" as Lens, board: "day" as const } : {}) })}
+        heat={heat}
+        todayIso={now.iso}
+        filters={filters}
+        onFilters={setFilters}
+        counts={counts}
+        compare={vs.compare}
+        onCompare={(id) => update({ compare: id })}
+        ghosts={ghosts}
+        onGhosts={setGhosts}
+      />
+    ) : null;
+  // keyboard: the shell's top bar and sub-navigation put ~30 Tab stops before the calendar (R1-M-32 / T-R2-28); the
+  // link is portalled right after the shell's "İçeriğe atla", so it is the second Tab stop from the page start
+  const skipLink = (
+    <BareButton
+      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-tint focus:px-3 focus:py-2 focus:type-callout focus:font-medium focus:text-tint-foreground focus:shadow-elev-3"
+      data-testid="skip-to-grid"
+      onClick={() => {
+        const target = document.querySelector<HTMLElement>('[data-testid="time-grid"],[data-testid="day-timeline"],[data-testid="calendar-mobile"],[data-testid="agenda"]') ?? document.querySelector<HTMLElement>('[data-testid="calendar-event"]') ?? document.getElementById("calendar-title");
+        target?.focus();
+      }}
+    >
+      {t("calendar.skipToGrid")}
+    </BareButton>
+  );
   if (mobile && !embedded && model) {
-    return <MobileCalendar model={model} week={liveWeek} day={liveDay} dates={liveDates} onDay={(d) => update({ day: d })} onWeek={setWeek} heat={heat} now={now} selection={selection} onSelect={onSelect} subject={vs.subject} onSubject={(s) => update({ subject: s })} runId={runId} termId={data.term?.id ?? null} actions={actions} readOnly={readOnly} canForce={isAdmin} lens={vs.lens} onLens={setLens} />;
+    return (
+      <>
+        <MobileCalendar model={model} week={liveWeek} day={liveDay} dates={liveDates} onDay={(d) => update({ day: d })} onWeek={setWeek} heat={heat} now={now} selection={selection} onSelect={onSelect} subject={vs.subject} onSubject={(s) => update({ subject: s })} runId={runId} termId={data.term?.id ?? null} actions={actions} readOnly={readOnly} canForce={isAdmin} lens={vs.lens} onLens={setLens} onOpenFilters={runId !== null ? () => setSidebarOpen(true) : undefined} />
+        {/* the desktop filters in a sheet (R2-M-15: the agenda view had no filters) */}
+        <Sheet open={sidebarOpen} onOpenChange={(o) => setSidebarOpen(o)}>
+          <SheetContent side="left" className="w-[min(320px,92vw)] p-0" showCloseButton={false} data-testid="filters-sheet">
+            <SheetTitle className="sr-only">{t("calendar.sidebar.label")}</SheetTitle>
+            {sidebar("h-full w-full")}
+          </SheetContent>
+        </Sheet>
+      </>
+    );
   }
 
   const showScrubber = model && vs.lens !== "month" && vs.lens !== "term";
@@ -763,54 +842,8 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
 
   return (
     <div ref={rootRef} className={cn("relative flex min-h-0 gap-2", className)} style={{ height: embedded ? undefined : fill }} data-testid="calendar">
-      {!embedded && model ? (
-        // keyboard: the sidebar and the toolbar put ~40 Tab stops before the grid; one Tab from the top reaches this
-        // link, Enter lands on the grid (round-1 R1-M-32)
-        <BareButton
-          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-tint focus:px-3 focus:py-2 focus:type-callout focus:font-medium focus:text-tint-foreground focus:shadow-elev-3"
-          data-testid="skip-to-grid"
-          onClick={() => {
-            const target = document.querySelector<HTMLElement>('[data-testid="time-grid"],[data-testid="day-timeline"],[data-testid="calendar-mobile"],[data-testid="agenda"]') ?? document.querySelector<HTMLElement>('[data-testid="calendar-event"]') ?? document.getElementById("calendar-title");
-            target?.focus();
-          }}
-        >
-          {t("calendar.skipToGrid")}
-        </BareButton>
-      ) : null}
-      {sidebarOpen && model && runId !== null && !embedded ? (
-        <CalendarSidebar
-          ref={searchRef}
-          className={cn("w-[272px] shrink-0", !wide && "absolute inset-y-0 left-0 z-40 shadow-elev-3")}
-          model={model}
-          term={data.term}
-          run={data.run}
-          onClose={!wide ? () => setSidebarOpen(false) : undefined}
-          onSearchEnter={() => {
-            // Enter in the search focuses the first match on the board (round-1 R1-S-26)
-            const chip = document.querySelector<HTMLElement>('[data-testid="calendar-event"]');
-            if (chip) chip.focus();
-            else setAnnounce(t("calendar.empty.filtered"));
-          }}
-          runs={data.runs}
-          runId={runId}
-          onRun={(id) => {
-            update({ run: id, sel: null });
-            setSelection(new Set());
-          }}
-          week={liveWeek}
-          day={liveDay}
-          onPickDate={(w, d) => update({ week: w, day: d, ...(vs.lens === "month" || vs.lens === "term" ? { lens: "board" as Lens, board: "day" as const } : {}) })}
-          heat={heat}
-          todayIso={now.iso}
-          filters={filters}
-          onFilters={setFilters}
-          counts={counts}
-          compare={vs.compare}
-          onCompare={(id) => update({ compare: id })}
-          ghosts={ghosts}
-          onGhosts={setGhosts}
-        />
-      ) : null}
+      {!embedded && model ? (skipSlot ? createPortal(skipLink, skipSlot) : skipLink) : null}
+      {sidebarOpen ? sidebar(cn("w-[272px] shrink-0", !wide && "absolute inset-y-0 left-0 z-40 shadow-elev-3")) : null}
 
       <section className="cal-canvas relative flex min-w-0 flex-1 flex-col overflow-hidden" aria-label={t("calendar.lens.label")} onScrollCapture={(e) => {
         const top = (e.target as HTMLElement).scrollTop ?? 0;

@@ -37,6 +37,9 @@ export interface InspectorProps {
   onMove?: () => void;
   /** may return the save promise: the header then shows "Saving…" / "Saved" (calendar.md §9.5) */
   onLock?: (locked: boolean) => void | Promise<unknown>;
+  /** where "Taşı…" / "Kilitle" sit: under the header (default) or in a sticky footer with 44 px buttons (the phone
+   *  sheet, round-2 T-R2-28: MOBILE M-05 wants the route's primary action in the bottom 40 %) */
+  actionsPlacement?: "header" | "footer";
   onPrev?: () => void;
   onNext?: () => void;
   surface: "calendar" | "classes";
@@ -227,7 +230,7 @@ export function ClassInspector(p: InspectorProps) {
           <Button variant="ghost" size="icon-sm" aria-label={t("calendar.insp.close")} onClick={p.onClose}><X /></Button>
         </div>
       </header>
-      {!p.readOnly && aid !== null ? (
+      {!p.readOnly && aid !== null && p.actionsPlacement !== "footer" ? (
         <div className="flex flex-wrap gap-1.5 px-4 pb-3">
           {p.onMove ? <Button size="sm" variant="secondary" onClick={p.onMove} data-testid="inspector-move"><MoveRight aria-hidden />{t("calendar.insp.move")}</Button> : null}
           {onLock ? <Button size="sm" variant="secondary" disabled={save === "saving"} onClick={() => void lockNow(!locked)} data-testid="inspector-lock">{locked ? <LockOpen aria-hidden /> : <Lock aria-hidden />}{locked ? t("calendar.insp.unlock") : t("calendar.insp.lock")}</Button> : null}
@@ -397,6 +400,14 @@ export function ClassInspector(p: InspectorProps) {
           </SectionBlock>
         ) : null}
       </div>
+      {!p.readOnly && aid !== null && p.actionsPlacement === "footer" ? (
+        // the phone sheet's footer: the actions stay in thumb reach whatever the body scrolls to (T-R2-28, M-05)
+        <div className="flex shrink-0 flex-wrap gap-2 bg-(--mat-thick-solid) px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] hairline-t" data-testid="inspector-footer">
+          {p.onMove ? <Button variant="default" className="min-h-11 flex-1" onClick={p.onMove} data-testid="inspector-move"><MoveRight aria-hidden />{t("calendar.insp.move")}</Button> : null}
+          {onLock ? <Button variant="secondary" className="min-h-11 flex-1" disabled={save === "saving"} onClick={() => void lockNow(!locked)} data-testid="inspector-lock">{locked ? <LockOpen aria-hidden /> : <Lock aria-hidden />}{locked ? t("calendar.insp.unlock") : t("calendar.insp.lock")}</Button> : null}
+          {p.surface === "calendar" && mr ? <Button variant="ghost" className="min-h-11 basis-full" render={<Link href={`/classes?id=${mr}${p.runId ? `&run=${p.runId}` : ""}`} />}>{t("calendar.insp.openClasses")}</Button> : null}
+        </div>
+      ) : null}
     </motion.aside>
   );
 }

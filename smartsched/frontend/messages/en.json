@@ -2939,6 +2939,7 @@
       "inactive": "Off",
       "everyTerm": "Every session",
       "noneDesignated": "nobody designated yet",
+      "ruleUncovered": "No approver is designated for this rule; requests fall to every room approver, then the room owner, then the administrators.",
       "designated": "Designated approvers",
       "namedUsers": "Named approvers",
       "kind": {

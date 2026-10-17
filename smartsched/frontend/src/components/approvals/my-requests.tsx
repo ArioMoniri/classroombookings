@@ -68,9 +68,13 @@ function GroupRow({ reqs, fmt, initiallyOpen, asked }: { reqs: ApprovalRequest[]
   const ref = useRef<HTMLLIElement>(null);
   // T-R2-17 (R2-A-09): a bell item selected while already on /my-bookings changes ?request= on the same page: the
   // asked row expands, scrolls into view and takes the focus (the first mount did this through the initial state only)
+  const [seenAsked, setSeenAsked] = useState(asked);
+  if (asked !== seenAsked) {
+    setSeenAsked(asked);
+    if (initiallyOpen) setExpanded(true);
+  }
   useEffect(() => {
     if (!initiallyOpen) return;
-    setExpanded(true);
     ref.current?.scrollIntoView?.({ block: "center" });
     ref.current?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
   }, [initiallyOpen, asked]);
@@ -188,9 +192,13 @@ function RequestRow({ req: r, fmt, initiallyOpen, asked }: { req: ApprovalReques
   const ref = useRef<HTMLLIElement>(null);
   // T-R2-17 (R2-A-09): a bell item selected while already on /my-bookings changes ?request= on the same page: the
   // asked row expands, scrolls into view and takes the focus (the first mount did this through the initial state only)
+  const [seenAsked, setSeenAsked] = useState(asked);
+  if (asked !== seenAsked) {
+    setSeenAsked(asked);
+    if (initiallyOpen) setExpanded(true);
+  }
   useEffect(() => {
     if (!initiallyOpen) return;
-    setExpanded(true);
     ref.current?.scrollIntoView?.({ block: "center" });
     ref.current?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
   }, [initiallyOpen, asked]);

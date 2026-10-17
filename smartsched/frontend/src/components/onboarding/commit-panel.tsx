@@ -85,12 +85,13 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
         <p className="type-callout text-label-2">{t("onboarding.commitHint")}</p>
       </CardHeader>
       <CardContent className="grid max-w-3xl gap-4 type-callout">
+        {/* M-02 (T-R2-20): each group's <label> is the hit area, 44 px tall on a phone; the radio itself is 20 px */}
         {groups.length ? (
           <fieldset className="grid min-w-0 gap-1.5">
             <legend className="mb-1 type-footnote font-semibold text-label-2">{t("onboarding.group")}</legend>
             {groups.map((gr, i) => (
-              <label key={gr.key} className="flex items-start gap-2">
-                <input type="radio" name="term-group" className="mt-1 accent-(--accent)" checked={group === i} onChange={() => pick(i)} />
+              <label key={gr.key} className="flex min-h-11 items-start gap-2 sm:min-h-0">
+                <input type="radio" name="term-group" className="mt-1 size-5 shrink-0 accent-(--accent) sm:size-4" checked={group === i} onChange={() => pick(i)} />
                 <span className="min-w-0">
                   <span className="font-medium text-label-1">{gr.code}</span> · {c.termKind[gr.kind] ?? gr.kind} · {t("onboarding.weeks", { count: gr.week_count })}
                   <span className="block truncate type-footnote text-label-2">{[...gr.files, ...globalFiles].map((f) => names.get(f)).join(", ")}</span>

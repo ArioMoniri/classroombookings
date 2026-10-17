@@ -36,4 +36,18 @@ describe("solver settings on touch", () => {
     expect(thumb).not.toBeNull();
     expect(thumb).toHaveClass("size-4", "after:-inset-2", "pointer-coarse:after:-inset-3.5");
   });
+
+  // round-2 T-R2-29 (R2-M-14): an organisation that saved no weights sees the solver's defaults, not 0, under a
+  // Turkish header; the slider rows are 44 px labels with 16 px text on touch (M-02 / M-03)
+  it("unsaved weights show the solver defaults with a 'varsayılan' marker under the Ağırlık header", () => {
+    expect(solverForm).toContain("SOLVER_DEFAULT_WEIGHTS[k]");
+    expect(solverForm).toContain('{locale === "tr" ? "Ağırlık" : "Weight"}');
+    expect(solverForm).not.toMatch(/font-medium">w<\/th>/);
+    expect(solverForm).toContain('"varsayılan" : "default"');
+    expect(src).toContain("room_preference: 10, building_preference: 5, min_capacity_waste: 1, same_room_across_weeks: 8, stability: 1, exam_gap: 10");
+    const table = solverForm.split("\n").find((l) => l.includes('data-testid="solver-weights"'));
+    expect(table).toContain("pointer-coarse:text-base");
+    const row = solverForm.split("\n").find((l) => l.includes("<label") && l.includes("pointer-coarse:min-h-11"));
+    expect(row).toBeDefined();
+  });
 });

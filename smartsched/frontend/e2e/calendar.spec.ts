@@ -170,7 +170,7 @@ test.describe("calendar on the real backend", () => {
   });
 
   test("inspector, explain, move with the free-room finder, undo restores the backend", async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(240_000); // the API search for a movable class (up to 12 rooms × 10 classes) plus the UI
     const { editable } = await setup(page);
     const before = await api<Index>(page, `/runs/${editable}/calendar-index`);
     const room = before.rooms.find((r) => r.name === ROOM_CODE);
@@ -178,33 +178,43 @@ test.describe("calendar on the real backend", () => {
     const rid = room?.id ?? 0;
 
     // the solver run keeps some real clashes (an instructor teaching two classes at once): those classes cannot move
-    // without "force", whatever the room. Which of the room's classes clash is data-dependent (on the gate seed every one
-    // of A 204's first eight week-3 chips is in an instructor-overlap group), so pick the candidate through the API the
-    // way the dialog does (free rooms for the slot, then the server dry run) before driving the UI with it
-    const inRoom = before.assignments.filter((a) => a.rooms.includes(rid) && a.weeks.includes(3)).sort((a, b) => a.day - b.day || a.sp - b.sp);
-    expect(inRoom.length, `${ROOM_CODE} has classes in week 3`).toBeGreaterThan(0);
+    // without "force", whatever the room. Which classes clash is data-dependent (on the gate seed every one of A 204's
+    // week-3 classes with a free alternative is in an instructor-overlap group), so pick the candidate through the API
+    // the way the dialog does (free rooms for the slot, then the server dry run) before driving the UI with it: the
+    // preferred room first (E2E_ROOM), then the other rooms largest first, until one class can move to a free room
+    const preferred = before.rooms.find((r) => r.id === rid)!;
+    const candidates = [preferred, ...before.rooms.filter((r) => r.id !== rid).sort((a, b) => b.capacity - a.capacity)].slice(0, 12);
+    let roomId = rid;
     let aid = 0;
     let target = 0;
     let tried = 0;
-    for (const a of inRoom) {
-      const free = await api<FreeRooms>(page, `/runs/${editable}/free-rooms?day=${a.day}&start_period=${a.sp}&end_period=${a.ep}&exclude_assignment_id=${a.id}`);
-      // the dialog lists the first 40 free rooms (best fit first), the server's order
-      const rooms = free.rooms.filter((r) => r.status === "free").slice(0, 40).filter((r) => r.room_id !== rid);
-      for (const r of rooms.slice(0, 2)) {
+    const seen: string[] = [];
+    for (const r of candidates) {
+      // the room's week-3 classes in grid order (day, period), the order the week lens draws the chips
+      const inRoom = before.assignments.filter((a) => a.rooms.includes(r.id) && a.weeks.includes(3)).sort((a, b) => a.day - b.day || a.sp - b.sp).slice(0, 10);
+      if (!inRoom.length) continue;
+      seen.push(r.name);
+      for (const a of inRoom) {
+        const free = await api<FreeRooms>(page, `/runs/${editable}/free-rooms?day=${a.day}&start_period=${a.sp}&end_period=${a.ep}&exclude_assignment_id=${a.id}`);
+        // the dialog lists the first 40 free rooms (best fit first), the server's order
+        const other = free.rooms.filter((o) => o.status === "free").slice(0, 40).find((o) => o.room_id !== r.id);
+        if (!other) continue;
         tried++;
-        const preview = await postApi<{ items: { ok: boolean }[] }>(page, `/runs/${editable}/assignments/${a.id}/move-preview`, { day: a.day, start_period: a.sp, end_period: a.ep, room_ids: [r.room_id], scope: "all" });
+        const preview = await postApi<{ items: { ok: boolean }[] }>(page, `/runs/${editable}/assignments/${a.id}/move-preview`, { day: a.day, start_period: a.sp, end_period: a.ep, room_ids: [other.room_id], scope: "all" });
         if (preview.items[0]?.ok) {
+          roomId = r.id;
           aid = a.id;
-          target = r.room_id;
+          target = other.room_id;
           break;
         }
       }
       if (target) break;
     }
-    expect(target, `a class in ${ROOM_CODE} (week 3) that can move to a free room: ${inRoom.length} classes, ${tried} dry runs`).toBeGreaterThan(0);
+    expect(target, `a week-3 class that can move to a free room: rooms ${seen.join(", ")}, ${tried} dry runs`).toBeGreaterThan(0);
+    const roomName = before.rooms.find((r) => r.id === roomId)?.name ?? ROOM_CODE;
 
-    await page.goto(`/timetable?run=${editable}&week=3&lens=week&subject=room:${rid}`);
-    const chips = page.locator(`[data-testid=calendar-event][data-room-id="${rid}"]`);
+    await page.goto(`/timetable?run=${editable}&week=3&lens=week&subject=room:${roomId}`);
+    const chips = page.locator(`[data-testid=calendar-event][data-room-id="${roomId}"]`);
     await expect(chips.first()).toBeVisible({ timeout: 30_000 });
     const insp = page.getByTestId("class-inspector");
     const dialog = page.getByTestId("move-dialog");
@@ -215,7 +225,7 @@ test.describe("calendar on the real backend", () => {
     await expect(insp).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`sel=${aid}`));
     // inspector: when & where with the fit, status, why here, explain placement
-    await expect(insp.getByTestId("inspector-room")).toContainText(ROOM_CODE);
+    await expect(insp.getByTestId("inspector-room")).toContainText(roomName);
     await expect(insp.getByTestId("inspector-fit")).toBeVisible();
     await expect(insp.getByTestId("inspector-status")).not.toBeEmpty();
     await insp.getByTestId("explain-placement").click();
@@ -234,7 +244,7 @@ test.describe("calendar on the real backend", () => {
     expect(body.items[0]?.ok, "the dialog's dry run agrees with the API's").toBe(true);
     await expect(dialog.getByTestId("move-server-ok")).toBeVisible();
     const original = before.assignments.find((a) => a.id === aid);
-    expect(original?.rooms).toContain(rid);
+    expect(original?.rooms).toContain(roomId);
     await dialog.getByTestId("move-confirm").click();
     await expect(dialog).toBeHidden({ timeout: 20_000 });
 

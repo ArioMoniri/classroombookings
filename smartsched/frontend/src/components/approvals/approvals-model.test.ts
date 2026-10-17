@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApprovalRequest } from "@/lib/api/wave1";
-import { conflictAlternatives, groupInbox, normaliseScopes, openDates, requestSlots, ruleTarget, statusTone, timeline, toggleScope } from "./approvals-model";
+import { conflictAlternatives, groupInbox, normaliseScopes, openDates, requestSlots, ruleCovered, ruleTarget, statusTone, timeline, toggleScope } from "./approvals-model";
 
 const booking = (date: string, status = "PENDING") => ({
   id: Number(date.replace(/-/g, "")),
@@ -71,5 +71,33 @@ describe("groupInbox (A-12: one row per submission)", () => {
   });
   it("does not merge the same group id in another room", () => {
     expect(groupInbox([req(1, 9, 3, 5), req(2, 9, 4, 6)])).toHaveLength(2);
+  });
+});
+
+describe("T-R2-18 per-rule approver coverage", () => {
+  const rooms = [
+    { id: 1, name: "A 101", tags: ["PC"], groupId: 10 },
+    { id: 2, name: "C 303", tags: [], groupId: 30 },
+    { id: 3, name: "C 404", tags: ["PC"], groupId: 30 },
+  ];
+  const approver = (scopes: { type: "all" | "room" | "room_group" | "tag"; id?: number | null; tag?: string | null }[], can_decide = true) => ({ user_id: 7, name: "Fatih", email: null, can_decide, scopes });
+  const roomRule = { entity_type: "room" as const, entity_id: 2, tag: null };
+  const groupRule = { entity_type: "room_group" as const, entity_id: 30, tag: null };
+  const tagRule = { entity_type: "tag" as const, entity_id: null, tag: "pc" };
+  it("an approver whose scope touches the rule's rooms covers it; one scoped to another room does not", () => {
+    expect(ruleCovered(roomRule, [approver([{ type: "room", id: 1 }])], rooms)).toBe(false);
+    expect(ruleCovered(roomRule, [approver([{ type: "room", id: 2 }])], rooms)).toBe(true);
+    expect(ruleCovered(roomRule, [approver([{ type: "room_group", id: 30 }])], rooms)).toBe(true);
+    expect(ruleCovered(roomRule, [approver([{ type: "all" }])], rooms)).toBe(true);
+    expect(ruleCovered(roomRule, [approver([{ type: "all" }], false)], rooms)).toBe(false);
+    expect(ruleCovered(roomRule, [approver([])], rooms)).toBe(false);
+  });
+  it("a group rule is covered by a room inside the group, a tag rule by a room carrying the tag", () => {
+    expect(ruleCovered(groupRule, [approver([{ type: "room", id: 3 }])], rooms)).toBe(true);
+    expect(ruleCovered(groupRule, [approver([{ type: "room", id: 1 }])], rooms)).toBe(false);
+    expect(ruleCovered(groupRule, [approver([{ type: "tag", tag: "PC" }])], rooms)).toBe(true);
+    expect(ruleCovered(tagRule, [approver([{ type: "tag", tag: "PC" }])], rooms)).toBe(true);
+    expect(ruleCovered(tagRule, [approver([{ type: "room", id: 2 }])], rooms)).toBe(false);
+    expect(ruleCovered(tagRule, [approver([{ type: "room_group", id: 10 }])], rooms)).toBe(true);
   });
 });

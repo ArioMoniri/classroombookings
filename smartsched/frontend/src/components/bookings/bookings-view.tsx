@@ -753,7 +753,7 @@ function Legend() {
   const { t } = useI18n();
   return (
     <div className="flex flex-col gap-2">
-    <p className="hidden type-footnote text-label-3 sm:block print:hidden">{t("reserve.grid.hint")}</p>
+    <p className="hidden type-footnote text-label-3 sm:block print:hidden">{t(approvalFirst ? "reserve.grid.hintRequest" : "reserve.grid.hint")}</p>
     <p className="type-footnote text-label-3 sm:hidden print:hidden">{t("reserve.grid.longPress")}</p>
     <ul className="flex flex-wrap gap-x-4 gap-y-2 type-footnote text-label-2" aria-label={t("crbs.legend.label")}>
       {LEGEND.map(({ tone, key }) => {

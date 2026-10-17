@@ -21,7 +21,7 @@ import { useCrbsMutation, useOrgSettings } from "@/lib/api/crbs";
 import { errorText, useApprovalRules, useApprovers, wave1, wave1Error, w1Keys, type Approver, type Rule, type RuleIn, type Scope, type StepIn } from "@/lib/api/wave1";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
-import { normaliseScopes, ruleTarget, stepApprovers } from "./approvals-model";
+import { normaliseScopes, ruleCovered, ruleTarget, stepApprovers } from "./approvals-model";
 import { ScopePicker, scopeLabel, useScopeLookups, type ScopeLookups } from "./scope-picker";
 
 const RULE_KEYS = [w1Keys.rules, ["w1", "approvals"]];
@@ -94,12 +94,18 @@ export function ApprovalRulesAdmin() {
                       {r.steps
                         .map((s, i) => {
                           const a = stepApprovers(s, { user: userName });
-                          // admin persona M-35: a "designated approvers" step with nobody designated would never be decided
-                          const none = a.designated && approvers.isSuccess && !approvers.data.some((x) => x.can_decide && x.scopes.length > 0);
+                          // admin persona M-35: a "designated approvers" step with nobody designated would never be decided;
+                          // T-R2-18 (R2-M-19): the same when no approver's scope reaches this rule's rooms
+                          const none = a.designated && approvers.isSuccess && !ruleCovered(r, approvers.data, l.rooms);
                           const who = a.designated ? (none ? `${t("wave1.rules.designated")} (${t("wave1.rules.noneDesignated")})` : t("wave1.rules.designated")) : a.names.join(", ");
                           return r.steps.length > 1 ? `${i + 1}. ${who}` : who;
                         })
                         .join(" → ")}
+                      {r.steps.some((st) => stepApprovers(st, { user: userName }).designated) && approvers.isSuccess && !ruleCovered(r, approvers.data, l.rooms) ? (
+                        <span className="mt-1 block type-footnote text-status-warning-fg" data-testid="rule-approvers-empty" data-rule-id={r.id}>
+                          {t("wave1.rules.ruleUncovered")}
+                        </span>
+                      ) : null}
                     </TableCell>
                     <TableCell className="hidden text-label-2 lg:table-cell">{conditions(r, t).join(" · ") || "—"}</TableCell>
                     <TableCell>{r.active ? <Badge tone="feasible">{t("wave1.rules.active")}</Badge> : <Badge variant="outline">{t("wave1.rules.inactive")}</Badge>}</TableCell>

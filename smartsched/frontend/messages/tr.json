@@ -2938,6 +2938,7 @@
       "inactive": "Kapalı",
       "everyTerm": "Tüm dönemler",
       "noneDesignated": "henüz atanmış onaycı yok",
+      "ruleUncovered": "Bu kural için atanmış onaycı yok; talepler tüm oda onaycılarına, sonra oda sorumlusuna, sonra yöneticilere düşer.",
       "designated": "Atanmış onaycılar",
       "namedUsers": "Belirli onaycılar",
       "kind": {

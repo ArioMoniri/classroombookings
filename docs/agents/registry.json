@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 08:24",
-      "left_off": "Both remaining items (pytest result, Playwright result) are waiting on background runs I already started; nothing else can be requested independently right now."
+      "finished_at": "2026-10-17 08:33",
+      "left_off": "Pending now: the stack rebuild (background, notifies on completion), the council/drafts suite (green5.txt). The final Playwright run depends on the rebuild and the hand-off edits depend on that run, so nothing else can be requested independently at this point."
     },
     {
       "id": "afe38e299d6f66d51",

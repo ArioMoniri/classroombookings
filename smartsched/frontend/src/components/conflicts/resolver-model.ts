@@ -165,3 +165,18 @@ export function dayMonth(iso: string): string {
   const [, m, d] = iso.split("-");
   return d && m ? `${d}.${m}` : iso;
 }
+
+/**
+ * The row heading's time for a group: a submission (the periods of one request, T-R2-13) names its whole span
+ * "P5–P6 (11:50–13:20)", not the first period alone; a lone booking or a series row keeps the first conflict's time.
+ */
+export function groupTime(g: Pick<ConflictGroup, "kind" | "conflicts">): string {
+  const first = g.conflicts[0];
+  if (!first) return "";
+  // a submission: several conflicts of one request group that is not a series (the API's kind "submission")
+  if (g.kind === "series" || g.conflicts.length < 2) return first.time;
+  const sorted = [...g.conflicts].sort((a, b) => a.start_period - b.start_period || a.end_period - b.end_period);
+  const lo = sorted[0]!;
+  const hi = sorted.reduce((m, c) => (c.end_period > m.end_period ? c : m), sorted[0]!);
+  return `P${lo.start_period}–P${hi.end_period} (${lo.time.split("-")[0] ?? ""}–${hi.time.split("-")[1] ?? ""})`;
+}

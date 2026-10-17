@@ -144,3 +144,13 @@ describe("resolver model", () => {
     expect(eventGroup("booking.conflict_resolved")).toBe("bookings");
   });
 });
+
+describe("T-R2-13 group heading time", () => {
+  it("names the whole span of a submission and the first period of anything else", async () => {
+    const { groupTime } = await import("./resolver-model");
+    const c = (start: number, end: number, time: string) => ({ conflict_id: start, booking_id: start, status: "PENDING", date: "2026-10-30", start_period: start, end_period: end, time, room_id: 1, room: "C 303", user_id: 1, user: "P. T.", notes: null, headcount: null, held: null });
+    expect(groupTime({ kind: "submission", conflicts: [c(6, 6, "12:40-13:20"), c(5, 5, "11:50-12:30")] } as never)).toBe("P5–P6 (11:50–13:20)");
+    expect(groupTime({ kind: "booking", conflicts: [c(5, 5, "11:50-12:30")] } as never)).toBe("11:50-12:30");
+    expect(groupTime({ kind: "series", conflicts: [c(5, 5, "11:50-12:30"), c(5, 5, "11:50-12:30")] } as never)).toBe("11:50-12:30");
+  });
+});

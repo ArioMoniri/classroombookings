@@ -70,6 +70,29 @@ describe("ClassInspector", () => {
   });
 });
 
+describe("ClassInspector phone footer (round-2 T-R2-28, R2-M-15)", () => {
+  it("actionsPlacement=footer moves Taşı… and Kilitle into a sticky footer with 44 px buttons", () => {
+    wrap(<ClassInspector {...base({ onMove: vi.fn(), onLock: vi.fn(), actionsPlacement: "footer" })} />);
+    const footer = screen.getByTestId("inspector-footer");
+    const move = screen.getByTestId("inspector-move");
+    const lock = screen.getByTestId("inspector-lock");
+    expect(footer).toContainElement(move);
+    expect(footer).toContainElement(lock);
+    expect(move).toHaveClass("min-h-11");
+    expect(lock).toHaveClass("min-h-11");
+    expect(lock).toHaveTextContent("Lock");
+    // the footer comes after the scrolling body in DOM order
+    const aside = screen.getByTestId("class-inspector");
+    expect(aside.lastElementChild).toBe(footer);
+  });
+
+  it("the default placement keeps the actions under the header (no footer)", () => {
+    wrap(<ClassInspector {...base({ onMove: vi.fn(), onLock: vi.fn() })} />);
+    expect(screen.queryByTestId("inspector-footer")).toBeNull();
+    expect(screen.getByTestId("inspector-move")).toBeInTheDocument();
+  });
+});
+
 describe("ClassInspector notes (A-04)", () => {
   const row = ClassRow.parse({
     id: 42,

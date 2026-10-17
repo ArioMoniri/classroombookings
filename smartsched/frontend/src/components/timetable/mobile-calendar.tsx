@@ -4,7 +4,7 @@
  * a horizontal 7-day strip (swipe to change week, heat dot per day), "Liste · Zaman çizelgesi", subject chips,
  * and the inspector as a bottom sheet. Moving uses "Taşı…" (the Move dialog with the free-room finder); no drag.
  */
-import { CalendarDays, Search } from "lucide-react";
+import { CalendarDays, Search, SlidersHorizontal } from "lucide-react";
 import { useMemo, useRef, useState, type PointerEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -47,6 +47,8 @@ export interface MobileCalendarProps {
   canForce?: boolean;
   lens: Lens;
   onLens: (l: Lens) => void;
+  /** opens the calendar filters (the desktop sidebar in a sheet; round-2 T-R2-28) */
+  onOpenFilters?: () => void;
 }
 
 export function MobileCalendar(p: MobileCalendarProps) {
@@ -135,6 +137,12 @@ export function MobileCalendar(p: MobileCalendarProps) {
             <Button size="sm" variant={p.subject ? "secondary" : "default"} onClick={() => p.onSubject(null)}>{t("calendar.subject.all")}</Button>
             {p.subject ? <Button size="sm">{p.subject.kind === "room" ? (p.model.roomById.get(Number(p.subject.id))?.name ?? "") : p.subject.id}</Button> : null}
             <Button size="sm" variant="secondary" onClick={() => (document.querySelector("[data-testid=subject-picker]") as HTMLElement | null)?.click()}><Search aria-hidden />{t("calendar.subject.label")}</Button>
+            {p.onOpenFilters ? (
+              <Button size="sm" variant="secondary" onClick={p.onOpenFilters} data-testid="open-filters" aria-label={t("calendar.sidebar.label")}>
+                <SlidersHorizontal aria-hidden />
+                {locale === "tr" ? "Filtreler" : "Filters"}
+              </Button>
+            ) : null}
           </div>
           <div className="relative min-h-[60dvh] flex-1">
             {mode === "list" ? (
@@ -171,6 +179,7 @@ export function MobileCalendar(p: MobileCalendarProps) {
                 setOpen(null);
               }}
               onLock={(locked) => p.actions.lock([open.a.id], locked, open.a.label)}
+              actionsPlacement="footer"
               appear={false}
             />
           ) : null}

@@ -32,7 +32,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { pick, springs, tween, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import { applyAuto, buildItems, choosableOptions, dayMonth, EMPTY_DECISION, initialState, needsReason, optionOf, problemsByGroup, progress, rowIssue, scopesFor, summarise, type Decision, type ResolverState } from "./resolver-model";
+import { applyAuto, buildItems, choosableOptions, dayMonth, EMPTY_DECISION, groupTime, initialState, needsReason, optionOf, problemsByGroup, progress, rowIssue, scopesFor, summarise, type Decision, type ResolverState } from "./resolver-model";
 
 const OPTION_ICON: Record<ConflictOption["kind"], typeof DoorOpen> = { move_room: DoorOpen, move_period: CalendarClock, move_day: CalendarClock, cancel: XCircle, override: ShieldAlert };
 const SCOPE_KEY: Record<ResolveScope, MessageKey> = { one: "resolver.scope.one", future: "resolver.scope.future", all: "resolver.scope.all" };
@@ -307,7 +307,7 @@ function GroupCard({
         <h2 id={headingId} className="flex flex-wrap items-center gap-x-2 gap-y-1 type-headline text-label-1">
           {g.kind === "series" ? <Repeat className="size-4 text-label-3" aria-hidden /> : <CalendarClock className="size-4 text-label-3" aria-hidden />}
           <span>{g.room}</span>
-          <span className="type-callout font-normal text-label-2">· {first.time}</span>
+          <span className="type-callout font-normal text-label-2">· {groupTime(g)}</span>
           <span className="rounded-full bg-fill-2 px-2 py-0.5 type-caption text-label-2">
             {g.kind === "series" ? t("resolver.series", { n: g.conflicts.length }) : g.requested ? t("resolver.request") : t("resolver.single")}
           </span>

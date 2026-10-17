@@ -39,6 +39,9 @@ import { useUiStore } from "@/stores/ui";
 import { cn } from "@/lib/utils";
 
 const WEIGHT_KINDS = ["room_preference", "building_preference", "min_capacity_waste", "same_room_across_weeks", "stability", "exam_gap"] as const;
+/** The solver's own defaults (backend app/solver/weights.py DEFAULT_WEIGHTS): what a run uses when the organisation
+ *  saved nothing (round-2 T-R2-29, R2-M-14: every slider read 0 while the runs scored with these). */
+const SOLVER_DEFAULT_WEIGHTS: Record<(typeof WEIGHT_KINDS)[number], number> = { room_preference: 10, building_preference: 5, min_capacity_waste: 1, same_room_across_weeks: 8, stability: 1, exam_gap: 10 };
 
 type KeyTest = { state: "untested" } | { state: "testing" } | { state: "ok"; model: string | null; which: "typed" | "stored" } | { state: "failed"; kind: ReturnType<typeof aiFailureKind>; which: "typed" | "stored" };
 
@@ -236,9 +239,12 @@ function SolverCard() {
 }
 
 function SolverForm({ initial }: { initial: Settings }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const update = useUpdateSettings();
-  const [form, setForm] = useState({ time: initial.solver_default_time_limit, workers: initial.solver_default_workers, seed: initial.solver_default_seed, weights: { ...initial.default_weights } });
+  const saved = initial.default_weights ?? {};
+  const [form, setForm] = useState({ time: initial.solver_default_time_limit, workers: initial.solver_default_workers, seed: initial.solver_default_seed, weights: { ...saved } });
+  // an unsaved weight shows the solver's default (and says so) instead of 0
+  const shown = (k: (typeof WEIGHT_KINDS)[number]) => form.weights[k] ?? SOLVER_DEFAULT_WEIGHTS[k];
   const save = async () => {
     await update.mutateAsync({ solver_default_time_limit: form.time, solver_default_workers: form.workers, solver_default_seed: form.seed, default_weights: form.weights });
     toast.success(t("settings.saved"));
@@ -254,13 +260,20 @@ function SolverForm({ initial }: { initial: Settings }) {
         </div>
         <div>
           <p className="mb-2 text-sm font-medium">{t("settings.weights")}</p>
-          <table className="w-full text-sm">
-            <thead className="text-xs text-muted-foreground"><tr><th scope="col" className="text-left font-medium">{t("runs.constraints")}</th><th scope="col" className="w-48 text-left font-medium">w</th></tr></thead>
+          {/* touch: the slider's hidden range input inherits 16 px and sits in a 44 px label row (M-02 / M-03) */}
+          <table className="w-full text-sm pointer-coarse:text-base" data-testid="solver-weights">
+            <thead className="text-xs text-muted-foreground"><tr><th scope="col" className="text-left font-medium">{t("runs.constraints")}</th><th scope="col" className="w-48 text-left font-medium">{locale === "tr" ? "Ağırlık" : "Weight"}</th></tr></thead>
             <tbody>
               {WEIGHT_KINDS.map((k) => (
                 <tr key={k}>
                   <th scope="row" className="py-1.5 text-left font-normal">{t(`generate.weight.${k}`)}</th>
-                  <td className="flex items-center gap-2 py-1.5"><Slider min={0} max={10} step={1} value={[form.weights[k] ?? 0]} onValueChange={(v) => setForm({ ...form, weights: { ...form.weights, [k]: Array.isArray(v) ? v[0] : v } })} aria-label={t(`generate.weight.${k}`)} className="w-32" /><span className="w-5 font-mono text-xs tabular-nums">{form.weights[k] ?? 0}</span></td>
+                  <td className="py-1.5">
+                    <label className="flex items-center gap-2 pointer-coarse:min-h-11">
+                      <Slider min={0} max={10} step={1} value={[shown(k)]} onValueChange={(v) => setForm({ ...form, weights: { ...form.weights, [k]: Array.isArray(v) ? v[0] : v } })} aria-label={t(`generate.weight.${k}`)} className="w-32" />
+                      <span className="w-5 font-mono text-xs tabular-nums" data-testid={`weight-${k}`}>{shown(k)}</span>
+                      {form.weights[k] === undefined ? <span className="type-caption text-label-3">{locale === "tr" ? "varsayılan" : "default"}</span> : null}
+                    </label>
+                  </td>
                 </tr>
               ))}
             </tbody>
