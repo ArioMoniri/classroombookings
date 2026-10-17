@@ -31,12 +31,49 @@ import { Switch } from "@/components/ui/switch";
 import { useBookingContext, useBookingDates, useBookingGrid, type Grid, type GridPeriod, type GridSlot } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import { HttpError } from "@/lib/api/client";
 import { nextWeekday } from "@/components/quick-reserve/quick-reserve-model";
 
 type Surface = "grid" | "list" | "quick";
 
 /** The next school day's periods of the default schedule (GET /bookings/grid, unfiltered: the form lists them all;
  *  a Saturday or Sunday has no periods, so the weekend looks ahead to Monday). */
+/** The control a `booking.slot_display.<name>` 422 names (its data-testid), for the focus after a refused save. */
+const FIELD_TESTID: Record<string, string> = {
+  unit: "sd-unit",
+  block_minutes: "sd-block",
+  label: "sd-label",
+  period_name: "sd-period-name",
+  time_format: "sd-time-format",
+  density: "sd-density",
+  first_period: "sd-first",
+  last_period: "sd-last",
+  hide_short: "sd-hide-short",
+  hide_weekend: "sd-hide-weekend",
+  default_view_desktop: "sd-view-desktop",
+  default_view_phone: "sd-view-phone",
+  min_length: "sd-min-length",
+  quick_span: "sd-quick-span",
+};
+
+/** `{field, message_tr, message_en}` of a PUT /settings 422 (SD-13), or null for any other error. */
+export function slotDisplayRefusal(e: unknown, lang: "tr" | "en"): { field: string | null; message: string } | null {
+  if (!(e instanceof HttpError) || e.status !== 422 || !e.detail || typeof e.detail !== "object") return null;
+  const outer = e.detail as Record<string, unknown>;
+  const d = (outer.detail && typeof outer.detail === "object" ? outer.detail : outer) as Record<string, unknown>;
+  const message = lang === "tr" ? d.message_tr : d.message_en;
+  if (typeof message !== "string" || !message) return null;
+  const field = typeof d.field === "string" && d.field.startsWith("booking.slot_display.") ? d.field.slice("booking.slot_display.".length) : null;
+  return { field, message };
+}
+
+function focusField(name: string | null): void {
+  const el = name && FIELD_TESTID[name] ? document.querySelector<HTMLElement>(`[data-testid="${FIELD_TESTID[name]}"]`) : null;
+  if (!el) return;
+  const target = el.matches("select, input, button, [tabindex]") ? el : (el.querySelector<HTMLElement>("[aria-checked=true], [aria-pressed=true], button, input, select") ?? el);
+  target.focus();
+}
+
 function useSchedulePeriods(): { periods: GridPeriod[]; date: string | null; loading: boolean } {
   const ctx = useBookingContext();
   const today = useBookingDates({}, ctx.isSuccess).data?.today;
@@ -46,7 +83,7 @@ function useSchedulePeriods(): { periods: GridPeriod[]; date: string | null; loa
 }
 
 export function SlotDisplaySettings({ onSaved, className }: { onSaved?: () => void; className?: string }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const saved = useSlotDisplay();
   const save = useSaveSlotDisplay();
@@ -82,7 +119,13 @@ export function SlotDisplaySettings({ onSaved, className }: { onSaved?: () => vo
         toast.success(t("slotDisplay.saved"));
         onSaved?.();
       },
-      onError: () => toast.error(t("slotDisplay.failed")),
+      onError: (e) => {
+        // SD-13: the server's own sentence and the field it names (focus never falls to <body>)
+        const refusal = slotDisplayRefusal(e, locale === "en" ? "en" : "tr");
+        if (!refusal) return void toast.error(t("slotDisplay.failed"));
+        toast.error(refusal.message);
+        focusField(refusal.field);
+      },
     });
   };
 
@@ -103,7 +146,7 @@ export function SlotDisplaySettings({ onSaved, className }: { onSaved?: () => vo
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <Group legend={t("slotDisplay.unit.legend")}>
-            <div role="radiogroup" aria-label={t("slotDisplay.unit.legend")} className="grid gap-2 sm:grid-cols-2">
+            <div role="radiogroup" aria-label={t("slotDisplay.unit.legend")} className="grid gap-2 sm:grid-cols-2" data-testid="sd-unit">
               {(["periods", "blocks"] as const).map((u) => (
                 <RadioCard key={u} checked={v.unit === u} onSelect={() => set("unit", u)} title={t(`slotDisplay.unit.${u}`)} help={t(`slotDisplay.unit.${u}Help`)} testId={`sd-unit-${u}`} glyph={<UnitGlyph unit={u} />} />
               ))}
@@ -135,7 +178,7 @@ export function SlotDisplaySettings({ onSaved, className }: { onSaved?: () => vo
             />
             {v.label !== "time" ? (
               <SegmentedControl<SlotDisplay["period_name"]>
-                aria-label={t("slotDisplay.periodName.legend")}
+                aria-label={t("slotDisplay.periodName.legend")} data-testid="sd-period-name"
                 semantics="radiogroup"
                 fill
                 size="sm"
@@ -149,7 +192,7 @@ export function SlotDisplaySettings({ onSaved, className }: { onSaved?: () => vo
             ) : null}
             {v.label !== "period" ? (
               <SegmentedControl<SlotDisplay["time_format"]>
-                aria-label={t("slotDisplay.timeFormat.legend")}
+                aria-label={t("slotDisplay.timeFormat.legend")} data-testid="sd-time-format"
                 semantics="radiogroup"
                 fill
                 size="sm"

@@ -18,7 +18,7 @@ from app.models import Assignment, CalendarClassRevision, ScheduleRun
 from app.services import run_copy
 from sqlalchemy import delete, select, update
 
-from tests.cal_support import IST, by_start, events, lint_ics, psy262
+from tests.cal_support import IST, events, lint_ics, psy262
 from tests.crbs_env import env  # noqa: F401
 from tests.integrations_support import calendar_consent, kvkk_sign_off
 
@@ -33,6 +33,16 @@ async def _token(env, department_id: int) -> str:  # noqa: F811
     _, teacher = await env.user("akademisyen.takvim@uni.edu.tr", department_id=department_id)
     await calendar_consent(env.client, teacher)
     return (await env.client.post("/api/v1/calendar/feeds/tokens", json={}, headers=teacher)).json()["token"]
+
+
+def by_start(evs, when):  # type: ignore[no-untyped-def]
+    """The live PSY 262 events starting at ``when`` (a department feed also has the other Psikoloji classes and,
+    once, the cancelled pre-0039 UIDs)."""
+    return [
+        e
+        for e in evs
+        if e.decoded("DTSTART") == when and "PSY 262" in str(e["SUMMARY"]) and str(e["STATUS"]) == "CONFIRMED"
+    ]
 
 
 async def _get(env, tok: str, path: str) -> str:  # noqa: F811
@@ -138,7 +148,7 @@ async def test_cal_01_old_uids_are_cancelled_once_in_room_feeds(env):  # noqa: F
     old_uid = f"class-{p.week5_assignment_id}-{p.room.id}-20260302@smartsched"
     old = [e for e in evs if str(e["UID"]) == old_uid]
     assert len(old) == 1 and str(old[0]["STATUS"]) == "CANCELLED" and int(old[0]["SEQUENCE"]) == 1
-    live = by_start([e for e in evs if str(e["STATUS"]) == "CONFIRMED"], datetime(2026, 3, 2, 13, 30, tzinfo=IST))
+    live = by_start(evs, datetime(2026, 3, 2, 13, 30, tzinfo=IST))
     assert len(live) == 1 and str(live[0]["UID"]) != old_uid
     async with dbmod.get_session_factory()() as s:
         legacy = (

@@ -2799,6 +2799,18 @@
       "ledger": "CAL-F: calendar export UI",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a188be943a3fea75a",
+      "description": "Security follow-ups from W3-SEC",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 22:17",
+      "scope": "",
+      "goal": "You are the SECURITY FOLLOW-UP lane for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md: NEVER commit or push, test-first, never `pkill -f`, `nice -n …",
+      "ledger": "Security follow-ups from W3-SEC",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
