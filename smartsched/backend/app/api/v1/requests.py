@@ -20,11 +20,25 @@ from app.schemas.requests import (
     MeetingRequestOut,
     MeetingRequestUpdate,
 )
+from app.services import catalog_admin as catalog_svc
 from app.services.conflicts import check_meeting_room
 from app.services.events import publish_event
 from app.services.planning_audit import changed_fields
 
 router = APIRouter(prefix="/requests", tags=["requests"])
+
+_UNSET: Any = object()
+
+
+def _enrolment(data: dict[str, Any]) -> Any:
+    """Pop ``enrolment`` from an update body and parse it like the catalogue does (``"80"``, ``"80 kişi"``; a time
+    or a value outside 0..2000 is a 422); ``_UNSET`` when the body did not carry it."""
+    if "enrolment" not in data:
+        return _UNSET
+    try:
+        return catalog_svc.parse_count(data.pop("enrolment"), "enrolment")
+    except catalog_svc.CatalogError as exc:
+        raise HTTPException(exc.status, exc.detail) from exc
 
 
 def _meeting_out(mr: MeetingRequest) -> MeetingRequestOut:
@@ -109,7 +123,11 @@ async def update_meeting(mr_id: int, body: MeetingRequestUpdate, db: DB, user: P
     data = body.model_dump(exclude_unset=True, exclude={"override_reason"})
     if body.days is not None and len(body.days) == 1:
         data["day"] = body.days[0]
+    enrolment = _enrolment(data)
     override = await _check_pinned_capacity(db, mr, data, user, body.override_reason)
+    if enrolment is not _UNSET and mr.section is not None and mr.section.enrolment != enrolment:
+        # RF-01: the class size lives on the section (one number for all of its meetings), audited there
+        await catalog_svc.update_section(db, user, mr.section.id, {"enrolment": enrolment})
     before, after = changed_fields(mr, data)
     for k, v in data.items():
         setattr(mr, k, v)
@@ -266,6 +284,9 @@ async def update_exam(ex_id: int, body: ExamRequestUpdate, db: DB, user: Planner
     if ex is None:
         raise HTTPException(404, "exam request not found")
     data = body.model_dump(exclude_unset=True)
+    enrolment = _enrolment(data)
+    if enrolment is not _UNSET:
+        data["enrolment"] = enrolment
     before, after = changed_fields(ex, data)
     for k, v in data.items():
         setattr(ex, k, v)

@@ -276,6 +276,15 @@ async def set_instructor(user_id: int, body: InstructorIn, db: DB, me: UsersAdmi
     return out
 
 
+@router.get("/admin/invite-mail")
+async def invite_mail(db: DB, _: UsersAdmin) -> dict[str, bool]:
+    """RF-03: whether the invite sheet can e-mail the link (SMTP set up in /admin/email); without it the sheet says
+    "E-posta ayarlanmadı" and the administrator copies the link."""
+    from app.services import mail
+
+    return {"configured": bool((await mail.status(db))["configured"])}
+
+
 @router.get("/admin/user-status")
 async def user_status(db: DB, _: UsersAdmin) -> dict[str, dict[str, Any]]:
     """``{user_id: {status, auth_methods, invite, binding_pending, self_signup_at, break_glass, instructor_id}}`` for

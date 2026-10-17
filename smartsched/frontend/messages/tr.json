@@ -6924,5 +6924,70 @@
         "of": " / {n}"
       }
     }
+  },
+  "charts": {
+    "menu": "Grafik seçenekleri",
+    "downloadImage": "Görseli indir",
+    "print": "Yazdır",
+    "showTable": "Tabloyu göster",
+    "showChart": "Grafiği göster",
+    "download": "Veriyi indir",
+    "downloaded": "İndirildi ✓",
+    "downloadedLive": "CSV indirildi",
+    "imageDownloadedLive": "Görsel indirildi",
+    "updated": "Güncellendi {time} · Europe/Istanbul",
+    "stale": "Son güncelleme {ago}",
+    "staleReason": "Son güncelleme {ago} · {reason}",
+    "loading": "Grafik yükleniyor",
+    "empty": {
+      "title": "Henüz gösterilecek veri yok",
+      "period": "Bu dönemde kayıt yok. Başka bir dönem seçebilirsiniz.",
+      "changePeriod": "Dönemi değiştir"
+    },
+    "error": {
+      "title": "Grafik yüklenemedi",
+      "retry": "Yeniden dene"
+    },
+    "tooFew": "Grafik için en az 3 nokta gerekir; şimdilik toplam gösteriliyor.",
+    "partialRow": "(eksik)",
+    "isoSuffix": "(ISO)",
+    "period": {
+      "label": "Dönem",
+      "7d": "7 gün",
+      "30d": "30 gün",
+      "term": "Dönem",
+      "1h": "1 sa",
+      "24h": "24 sa"
+    },
+    "periodPhrase": {
+      "7d": "Son 7 günde",
+      "30d": "Son 30 günde",
+      "term": "Bu dönemde",
+      "1h": "Son 1 saatte",
+      "24h": "Son 24 saatte"
+    },
+    "kind": {
+      "day": "gün",
+      "week": "hafta",
+      "hour": "saat",
+      "slot": "saat",
+      "run": "çalıştırma"
+    },
+    "summary": {
+      "total": "{period} {total} {unit}.",
+      "totalPeak": "{period} {total} {unit}; en yoğun {kind} {peak} ({peakValue}).",
+      "peak": "En yoğun {kind} {peak} ({peakValue}).",
+      "weekly": "Telefonda haftalık toplam gösteriliyor.",
+      "trendUp": "Önceki döneme göre %{pct} artış.",
+      "trendDown": "Önceki döneme göre %{pct} azalış.",
+      "trendFlat": "Önceki döneme göre değişiklik yok.",
+      "partial": {
+        "day": "Bugün henüz bitmedi.",
+        "week": "Bu hafta henüz bitmedi.",
+        "hour": "Bu saat henüz bitmedi.",
+        "slot": "Son dilim henüz bitmedi.",
+        "run": "Son çalıştırma henüz bitmedi."
+      }
+    }
   }
 }

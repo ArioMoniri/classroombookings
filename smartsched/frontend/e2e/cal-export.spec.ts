@@ -158,6 +158,7 @@ for (const [label, device] of [
       }
       // T2: three taps + the consent tick
       await page.getByTestId("cal-scope-my_classes").click(); // 1
+      await expect(page.getByTestId("cal-refresh-times")).toBeHidden(); // refresh times under "Gelişmiş"
       await page.getByTestId("cal-channel-link").click(); // 2
       await expect(page.getByTestId("cal-step-heading")).toHaveText("Takviminize şunlar gönderilecek");
       await expect(page.getByTestId("cal-fields")).toContainText("Ders kodu ve şube");
@@ -171,6 +172,9 @@ for (const [label, device] of [
       await expect(page.getByTestId("cal-link")).toBeVisible();
       for (const k of ["apple", "google", "outlook"]) await expect(page.getByTestId(`cal-link-${k}`)).toBeVisible();
       await expect(page.getByTestId("cal-link-note")).toContainText("Bağlantıyı açmayın, abone olun");
+      // the raw addresses sit behind "Gelişmiş" (simplicity principle): closed until asked for
+      await expect(page.getByTestId("cal-link-https-value")).toBeHidden();
+      await page.getByTestId("cal-link-advanced-toggle").click();
       if (phone) {
         const fs = await page.getByTestId("cal-link-https-value").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
         expect(fs).toBeGreaterThanOrEqual(16);

@@ -1,9 +1,17 @@
 # AI helper ("Yardımcı"): one "Ara veya sor" entry, "Nerede?" answers, generative action cards
 
 Owner: product designer + motion designer (helper-ux-2026-10-17) · Status: v3.0 spec (2026-10-17) · Builders: tickets
-**HX-01…HX-12** in `docs/ROADMAP.md` ("AI helper: search, \"where is it\", generative actions (owner request 2026-10-17)
-— UX"). Backend: **HB-xx**, written by the architect agent in `docs/research/2026-10-17-ai-helper-architecture.md`
-(align with it when it lands; what the UX needs is in research §7).
+**HX-01…HX-14** in `docs/ROADMAP.md` ("AI helper: search, \"where is it\", generative actions (owner request 2026-10-17)
+— UX"). Backend: **HB-01…HB-20** in `docs/ROADMAP.md` ("AI helper: backend, governance, local models"), designed in
+[`docs/research/2026-10-17-ai-helper-architecture.md`](../../research/2026-10-17-ai-helper-architecture.md) (the
+"architecture doc" below). **This spec is aligned with it:**
+- wire contract `helper.card.v1` (architecture doc §5.3);
+- turn endpoint `POST /helper/turn`;
+- search `GET /helper/search`;
+- index `app/helper/features.yaml`;
+- the confirm token flow (§5.2, HB-05);
+- memory (§5.4).
+Differences that are UX asks are listed in §17.
 Research, references, licences: [`docs/research/2026-10-17-helper-ux.md`](../../research/2026-10-17-helper-ux.md).
 Depends on: `welcome-guide.md` (spotlight ring, step card, `data-tour` anchors, Help group), `ai-admin.md` (§6
 banners, routing, limits), `docs/design/v2/motion.md` §3.1 (⌘K) and §3.6 (chat), `docs/design/tokens.md`,
@@ -32,17 +40,27 @@ OpenAI's new intelligent UI". Decide where it sits.
   synonyms) answers with a path ("Yönetim › Kullanıcılar › Davet et") and a **"Göster"** button. "Göster" navigates and
   rings the exact control, using the welcome tour's spotlight as a 1-step tour. Nothing the user cannot do is ever
   listed.
-- **Generative action cards:** the model can only **choose a card from a fixed catalogue and fill typed props**.
-  - The server resolves entities, checks permission and builds the preview.
-  - The client renders our own components and calls the **existing API** with the user's session.
-  - Writes need a click on the card: one tap for own and reversible writes, a summary of who is affected for writes
-    that touch others, and the real confirm dialog with a preview for institution-wide writes.
-  - Every done card shows the result and "Geri al" where an undo exists.
+- **Generative action cards:** the model only **chooses an action from the server's registry and fills typed
+  arguments**.
+  - The **server builds every card** (`helper.card.v1`: `answer`, `nav`, `list`, `facts`, `form`, `confirm`,
+    `result`, `limit` / `refusal` / `error`). It resolves names to ids, checks the person's own permission and
+    computes the preview through the same service the page uses.
+  - The client renders our components by card `type` + `action` (§4.3).
+  - Writes need a click on the card's button. That sends a signed, 10-minute confirm token to
+    `POST /helper/actions/confirm`, which re-checks access and the preview before it runs the page's own service.
+  - Own, reversible writes take one tap: the confirm card comes prefilled. Writes that touch others show who is
+    affected first. Institution-wide writes (publish, invite) are **hand-overs**: the card opens the page's own
+    dialog, prefilled, and never writes itself.
+  - Every result card shows what happened and "Geri al" where an undo exists.
 - **The run chat stays where it is** (`/runs/[id]`, timetable edits through the guarded apply path). The helper never
   edits a timetable. It hands over with an "Çalıştırma sohbetinde aç" card. The two share the stream client, the
   composer, the banner and the card frame.
-- **Memory:** structured items only (recent tasks, preferences the user agreed to keep), 90 days, all visible and
-  deletable in Profil › Yardımcı, covered by DSR export and erasure. The conversation stays in the browser session.
+- **Memory** (architecture doc §5.4):
+  - **notes** only when the user taps "Hatırla" (≤ 20, 180 days);
+  - **conversation history** for 30 days, so it continues on another device;
+  - "Son yaptıklarınız" comes from the user's own confirmed actions.
+  - All of it is visible and deletable in Profil › Yardımcı and covered by DSR export and erasure. It is off when
+    `ai_personal` consent is withdrawn.
 - **Limits and status:** a status chip says **Yerel model** / **Bulut · {sağlayıcı}** / **Yapay zekâ kapalı**. The
   existing `AiUsageBanner` sits above the composer. When AI is off or over the limit, search, "Nerede?" and the
   deterministic shortcut cards still work.
@@ -157,31 +175,26 @@ articles.
 
 ## 3. "Nerede?" answers
 
-### 3.1 Feature index (`components/helper/feature-index.ts`, HX-01)
+### 3.1 Feature index (server `app/helper/features.yaml`, HB-01; client link map, HX-01)
 
-One typed list, built at module load from `nav-config.ts` (pages), `ADMIN_SECTION_NAV_ITEMS` (setup sections), the
-settings and profile tabs, and a hand-written list of **controls** that reuses the welcome guide's `data-tour` anchors.
-
-```ts
-type FeatureEntry = {
-  id: string;                         // "admin.users.invite"
-  kind: "page" | "tab" | "setting" | "control";
-  title: MessageKey;                  // helper.index.admin.users.invite.title → "Kullanıcı davet et"
-  path: MessageKey[];                 // ["nav.admin", "nav.users"] → "Yönetim › Kullanıcılar"
-  href: string;                       // "/admin/users?invite=1"
-  anchor?: string;                    // data-tour="admin-users-invite"
-  permission?: string | string[];     // same semantics as NavItem.permission
-  synonyms: { tr: string[]; en: string[] };  // incl. CRBS words
-  steps?: MessageKey[];               // ≤ 3 plain steps for "Adımları göster"
-  card?: HelperCardKind;              // a shortcut card for this feature, if one exists
-};
-```
-
-- **Role filter:** `can(entry.permission)` with the same `usePermissions()` as the nav. If the user cannot open the
-  page, the entry does not exist for them. The server also never offers it to the model (HB). It is a double filter.
-- **Size:** about 140 entries at launch (40 pages / tabs, 60 settings, 40 controls). A unit test asserts that every
-  `href` resolves to a route and every `anchor` exists in the anchor list of `welcome-guide.md` §13 or in this
-  spec's §3.4.
+- **Index source:** the architecture doc's `features.yaml` (§5.5). It holds the id, route, TR/EN title, synonyms,
+  steps, the `data-tour` anchor, the permission (any-of), audiences, `actions[]` and `since`. It is searched with
+  Turkish-folded BM25 by `GET /helper/search` with **no AI**, permission-filtered **before** ranking, with p95 < 50 ms
+  (HB-02).
+- **The client never takes a URL from the server.** It maps `feature_id` → `href` + `anchor` through
+  `components/helper/feature-links.ts` (HX-01), generated from `nav-config.ts`, `ADMIN_SECTION_NAV_ITEMS`, the
+  settings and profile tabs, and §3.4.
+- **UX additions to the YAML** (asks to HB-01, which owns the file):
+  - a `kind` field: `page` | `tab` | `setting` | `control`. It decides between the "Sayfalar ve ayarlar" and
+    "Nerede?" groups;
+  - a `path` (crumb labels) for the grey path line;
+  - **the CRBS synonyms of §3.2**, all of them;
+  - ≤ 3 steps per entry (the architecture doc allows 5; the simplicity rule wants 3).
+- **Role filter:** done on the server. The client also hides any hit whose `feature_id` it cannot map, or whose
+  `can(permission)` is false with `usePermissions()` (double filter). A user never sees a page they cannot open.
+- **Size:** about 140 entries at launch (40 pages / tabs, 60 settings, 40 controls). Two tests guard it:
+  - HB-01's fixture: ≥ 120 persona queries, top-1 ≥ 85 %;
+  - HX-01's vitest: every `feature_id` → an existing route, and every anchor in `welcome-guide.md` §13 or §3.4 here.
 
 ### 3.2 CRBS vocabulary (synonyms, a must for ex-CRBS users)
 
@@ -202,7 +215,7 @@ type FeatureEntry = {
 
 - **In the palette** (no AI): a row with the title and path. Enter = navigate. **Shift+Enter or the "Göster" hint =
   navigate + spotlight.**
-- **In the helper** (with or without AI): the **`where` card** (`helper-where-1440.svg`):
+- **In the helper** (with or without AI): the **`where` card** = wire type **`nav`** (`helper-where-1440.svg`):
   - Title: "Kullanıcı davet et".
   - Path line: "Yönetim › Kullanıcılar › **Davet et**".
   - Optional ≤ 3 numbered steps ("Adımları göster", collapsed by default).
@@ -218,9 +231,11 @@ type FeatureEntry = {
   - Phone: the step card is docked, as in WG-05.
 - **Missing anchor** (a feature flag hid it, or the page is empty): navigate only, then "Bu düğme şu an bu sayfada
   görünmüyor." plus the steps.
-- **Not allowed:** the entry does not exist for this user. If the model is asked, the server answers with the canned
-  text "Bu işlem hesabınızda yok. Yapabildikleriniz: …" and the user's own nearest entries. It never says who holds
-  the permission, and it never links the page.
+- **Not allowed:** the entry does not exist for this user. If the model is asked, the server answers with a `refusal`
+  card: "Bu işlem hesabınızda yok. Yapabildikleriniz: …", plus the user's own nearest entries as `nav` cards. It never
+  says who holds the permission, and it never links the page.
+- **Hallucinated menus are impossible:** the architecture doc §5.6 (5) replaces any answer that names a page without a
+  `nav` card by the index answer. The UI shows paths only from `nav` cards, never from `answer` text.
 
 ### 3.4 New `data-tour` anchors (asks to each page's owner, one attribute each)
 

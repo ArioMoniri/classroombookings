@@ -3027,6 +3027,18 @@
       "ledger": "HB-A: helper index, registry, guardrails",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a1a46db0d72906fcb",
+      "description": "One-click deploy both branches",
+      "subagent_type": "devops-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 23:30",
+      "scope": "",
+      "goal": "You are lane `deploy-1click-2026-10-18` for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read /home/user/classroombookings/docs/agents/briefs/COMMON.md first. Hard rules: NEVER commit or push, never `pkill -f`, `nice -n 10`, test-first where testable, no secre…",
+      "ledger": "One-click deploy both branches",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

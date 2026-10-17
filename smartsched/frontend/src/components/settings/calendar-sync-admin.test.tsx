@@ -132,6 +132,11 @@ describe("CalendarSyncAdmin › calendar export (CAL-09)", () => {
     expect(screen.getByTestId("cal-admin-connections-google")).toHaveTextContent("4");
     expect(screen.getByTestId("cal-admin-failed")).toHaveTextContent("1");
     expect(screen.getByTestId("cal-admin-reconcile")).toHaveTextContent("Has not run yet");
+    // simplicity principle: the department rule, the time range and the counts sit behind a closed "Advanced"
+    const adv = screen.getByTestId("cal-admin-advanced");
+    expect(adv).not.toHaveAttribute("open");
+    for (const id of ["cal-admin-who", "cal-admin-horizon", "cal-admin-status"]) expect(adv).toContainElement(screen.getByTestId(id));
+    expect(screen.getByTestId("cal-admin-scopes")).not.toHaveTextContent("Who may export");
   });
 
   it("saves one switch with the whole map of its group", async () => {

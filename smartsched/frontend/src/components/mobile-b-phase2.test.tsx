@@ -20,7 +20,7 @@ const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
 const lineOf = (rel: string, testid: string) => read(rel).split("\n").find((l) => l.includes(`data-testid="${testid}"`)) ?? "";
 
 const run = (over: Record<string, unknown> = {}) =>
-  ScheduleRun.parse({ id: 12, term_id: 1, term_code: "2026-BAHAR", kind: "COURSE", horizon: "WEEK", horizon_params: { weeks: [3, 4] }, status: "FEASIBLE_PARTIAL", params: {}, stats: { placed: 660, events_total: 683 }, diagnosis: [], is_active: false, created_at: "2026-10-17T10:00:00Z", ...over });
+  ScheduleRun.parse({ id: 12, term_id: 1, term_code: "2026-BAHAR", kind: "COURSE", horizon: "WEEK", horizon_params: { weeks: [3, 4] }, status: "FEASIBLE_PARTIAL", params: {}, objective_value: null, soft_score: 80, hard_score: 100, stats: { placed: 660, events_total: 683 }, diagnosis: [], parent_run_id: null, prompt_text: null, created_at: "2026-10-15T10:00:00Z", finished_at: "2026-10-15T10:01:00Z", ...over });
 
 describe("fix 4 · the run report's publish action is a thumb-reach capsule on touch tablets too", () => {
   it("run-publish-row is fixed above the tab bar below lg on a coarse pointer, not only below sm", () => {

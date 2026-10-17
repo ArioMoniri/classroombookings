@@ -6925,5 +6925,70 @@
         "of": " / {n}"
       }
     }
+  },
+  "charts": {
+    "menu": "Chart options",
+    "downloadImage": "Download image",
+    "print": "Print",
+    "showTable": "Show table",
+    "showChart": "Show chart",
+    "download": "Download data",
+    "downloaded": "Downloaded ✓",
+    "downloadedLive": "CSV downloaded",
+    "imageDownloadedLive": "Image downloaded",
+    "updated": "Updated {time} · Europe/Istanbul",
+    "stale": "Last updated {ago}",
+    "staleReason": "Last updated {ago} · {reason}",
+    "loading": "Loading chart",
+    "empty": {
+      "title": "No data to show yet",
+      "period": "Nothing was recorded in this period. You can pick another period.",
+      "changePeriod": "Change period"
+    },
+    "error": {
+      "title": "The chart could not be loaded",
+      "retry": "Try again"
+    },
+    "tooFew": "A chart needs at least 3 points; showing the total for now.",
+    "partialRow": "(partial)",
+    "isoSuffix": "(ISO)",
+    "period": {
+      "label": "Period",
+      "7d": "7 days",
+      "30d": "30 days",
+      "term": "Term",
+      "1h": "1 h",
+      "24h": "24 h"
+    },
+    "periodPhrase": {
+      "7d": "In the last 7 days:",
+      "30d": "In the last 30 days:",
+      "term": "This term:",
+      "1h": "In the last hour:",
+      "24h": "In the last 24 hours:"
+    },
+    "kind": {
+      "day": "day",
+      "week": "week",
+      "hour": "hour",
+      "slot": "time",
+      "run": "run"
+    },
+    "summary": {
+      "total": "{period} {total} {unit}.",
+      "totalPeak": "{period} {total} {unit}; busiest {kind} {peak} ({peakValue}).",
+      "peak": "Busiest {kind}: {peak} ({peakValue}).",
+      "weekly": "Weekly totals are shown on phones.",
+      "trendUp": "Up {pct}% on the previous period.",
+      "trendDown": "Down {pct}% on the previous period.",
+      "trendFlat": "No change on the previous period.",
+      "partial": {
+        "day": "Today is not over yet.",
+        "week": "This week is not over yet.",
+        "hour": "This hour is not over yet.",
+        "slot": "The last slot is not over yet.",
+        "run": "The last run has not finished yet."
+      }
+    }
   }
 }

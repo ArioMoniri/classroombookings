@@ -368,8 +368,9 @@ export function RunView({ id }: { id: number }) {
                   // round-1 R1-S-06: ERROR / FAILED / INFEASIBLE runs have nothing to publish
                   // phones: the same button becomes a capsule above the tab bar (MOBILE.md M-05; round-1 R1-S-16: "Yayınla"
                   // sat outside the bottom 40 %); one element, one test id, on every viewport
-                  <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:pointer-events-none max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-sm:z-30 max-sm:mt-0 max-sm:justify-end max-sm:px-4" data-testid="run-publish-row">
-                    <div className="max-sm:pointer-events-auto max-sm:rounded-full max-sm:bg-(--mat-thick-solid) max-sm:p-1 max-sm:shadow-elev-3 max-sm:edge-hairline max-sm:[&_button]:min-h-11 max-sm:[&_button]:rounded-full max-sm:[&_button]:px-5">
+                  {/* mobile-b phase 2: touch tablets (768, coarse pointer) get the same capsule, not a 36 px button in the flow */}
+                  <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:pointer-events-none max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-sm:z-30 max-sm:mt-0 max-sm:justify-end max-sm:px-4 max-lg:pointer-coarse:pointer-events-none max-lg:pointer-coarse:fixed max-lg:pointer-coarse:inset-x-0 max-lg:pointer-coarse:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-lg:pointer-coarse:z-30 max-lg:pointer-coarse:mt-0 max-lg:pointer-coarse:justify-end max-lg:pointer-coarse:px-4" data-testid="run-publish-row">
+                    <div className="max-sm:pointer-events-auto max-sm:rounded-full max-sm:bg-(--mat-thick-solid) max-sm:p-1 max-sm:shadow-elev-3 max-sm:edge-hairline max-sm:[&_button]:min-h-11 max-sm:[&_button]:rounded-full max-sm:[&_button]:px-5 max-lg:pointer-coarse:pointer-events-auto max-lg:pointer-coarse:rounded-full max-lg:pointer-coarse:bg-(--mat-thick-solid) max-lg:pointer-coarse:p-1 max-lg:pointer-coarse:shadow-elev-3 max-lg:pointer-coarse:edge-hairline max-lg:pointer-coarse:[&_button]:min-h-11 max-lg:pointer-coarse:[&_button]:rounded-full max-lg:pointer-coarse:[&_button]:px-5">
                       <PublishRunButton run={r} published={publishedId} exceptions={truth ? [] : exceptions} truth={truth} />
                     </div>
                   </div>

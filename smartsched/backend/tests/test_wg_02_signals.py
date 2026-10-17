@@ -181,4 +181,4 @@ async def test_wg_02_get_welcome_costs_at_most_six_statements(env, clock):  # ty
         finally:
             event.remove(engine, "before_cursor_execute", count)
     assert body["checklist"]["items"]
-    assert len(statements) <= 6, statements
+    assert 3 <= len(statements) <= 6, statements  # settings, signals, progress rows (+ texts, + snapshot)

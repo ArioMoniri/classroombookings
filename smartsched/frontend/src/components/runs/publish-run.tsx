@@ -226,8 +226,9 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
               </ul>
             </div>
           ) : null}
-          {/* phones: the footer sticks to the sheet's bottom (ui/dialog, T-R1-03), so "Yayınla" stays in reach (M-05) */}
-          <DialogFooter>
+          {/* phones: the footer sticks to the sheet's bottom (ui/dialog, T-R1-03), so "Yayınla" stays in reach (M-05);
+              mobile-b phase 2: also in the centred dialog (landscape 844×390 put "Yayınla" at y 668 of 390) */}
+          <DialogFooter className="sticky bottom-0 z-10 bg-(--mat-thick-solid)">
             <Button variant="outline" onClick={() => setOpen(false)} disabled={publish.isPending}>{t("common.cancel")}</Button>
             <BusyButton
               busy={publish.isPending}
