@@ -18,7 +18,7 @@ import { LocaleToggle } from "@/components/shell/locale-toggle";
 import { Button, IconButton } from "@/components/ui/button";
 import { coarseHitArea } from "@/components/ui/hit-area";
 import { DateField } from "@/components/ui/date-field";
-import { addDays, currentItem, isRateLimited, publicWindow, type PublicItem } from "@/lib/api/public-schedule";
+import { addDays, currentItem, isRateLimited, publicWindow, type PublicItem, type PublicSlotLabels } from "@/lib/api/public-schedule";
 import { intlLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -178,9 +178,10 @@ export function ItemList({ items, live, hhmm, large, emptyText, slotDisplay }: {
             data-kind={it.kind}
             data-now={isNow ? "true" : undefined}
           >
-            <span className={cn("shrink-0 font-semibold text-label-1 tabular-nums", large ? "type-title-3" : "type-callout")} data-slot="kiosk-when" aria-label={`${it.start}–${it.end}, ${when(it)}`}>
+            <span className={cn("shrink-0 font-semibold text-label-1 tabular-nums", large ? "type-title-3" : "type-callout")} data-slot="kiosk-when">
               {when(it)}
             </span>
+            {slotDisplay?.label === "period" || slotDisplay?.time_format === "start" ? <span className="sr-only">{`${it.start}–${it.end}`}</span> : null}
             <span className={cn("min-w-0 flex-1 truncate font-medium text-label-1", large ? "type-title-2" : "type-headline")}>{locale === "tr" ? it.label.tr : it.label.en}</span>
             {isNow ? <span className="shrink-0 rounded-full bg-tint px-2 py-0.5 type-caption font-semibold text-tint-foreground">{t("publicSchedule.now")}</span> : <span className="shrink-0 type-footnote text-label-2">{t(`publicSchedule.kind.${it.kind}`)}</span>}
           </li>

@@ -4615,6 +4615,7 @@
     }
   },
   "publicSchedule": {
+    "periodSpan": "{from}.–{to}. ders",
     "brand": "SmartSched · Oda programı",
     "indexTitle": "Oda programı",
     "indexLead": "Gününü görmek için bir bina ya da oda seçin.",

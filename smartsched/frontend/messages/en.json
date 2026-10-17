@@ -4616,6 +4616,7 @@
     }
   },
   "publicSchedule": {
+    "periodSpan": "Periods {from}–{to}",
     "brand": "SmartSched · Room schedule",
     "indexTitle": "Room schedule",
     "indexLead": "Choose a building or a room to see its day.",

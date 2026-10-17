@@ -97,7 +97,7 @@ export function PublicRoomView({ code }: { code: string }) {
             </Card>
           ) : null}
           <section aria-label={t("publicSchedule.dayList")} className={live ? undefined : "lg:col-span-2"} data-testid="public-room-items">
-            <ItemList items={d.items} live={live} hhmm={clock.hhmm} large emptyText={t("publicSchedule.emptyRoom")} />
+            <ItemList items={d.items} live={live} hhmm={clock.hhmm} large emptyText={t("publicSchedule.emptyRoom")} slotDisplay={d.slot_display} />
           </section>
         </div>
       ) : null}
@@ -139,7 +139,7 @@ export function PublicBuildingView({ code }: { code: string }) {
                     {next ? <span className="block type-callout font-normal text-label-2">{t("publicSchedule.nextLine", { time: next.start, what: lbl(next) })}</span> : null}
                   </p>
                 ) : null}
-                <ItemList items={r.items} live={live} hhmm={clock.hhmm} emptyText={t("publicSchedule.emptyRoomShort")} />
+                <ItemList items={r.items} live={live} hhmm={clock.hhmm} emptyText={t("publicSchedule.emptyRoomShort")} slotDisplay={d.slot_display} />
               </Card>
             </li>
           );
