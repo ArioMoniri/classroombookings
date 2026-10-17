@@ -675,6 +675,25 @@ async def _role_of(scope: Scope) -> str | None:
         return None
 
 
+_relay_started = False
+
+
+def _start_relay() -> None:
+    """Start the Prometheus alert relay (app/services/ops_alerts.py) once per process, outside tests."""
+    global _relay_started
+    _relay_started = True
+    try:
+        from app.core.config import get_settings
+
+        if get_settings().environment == "test":
+            return
+        from app.services import ops_alerts
+
+        ops_alerts.start()
+    except Exception:  # noqa: BLE001
+        log.warning("alert relay not started", exc_info=True)
+
+
 class ObservabilityMiddleware:
     """Times every HTTP request, counts it by route template, and stores unhandled exceptions / 5xx answers."""
 
@@ -685,6 +704,8 @@ class ObservabilityMiddleware:
         if scope.get("type") != "http" or scope.get("path") == "/metrics":
             await self.app(scope, receive, send)
             return
+        if not _relay_started:
+            _start_relay()
         start = time.perf_counter()
         status = [500]
         request_id = [""]
