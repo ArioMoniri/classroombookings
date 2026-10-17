@@ -2698,7 +2698,8 @@
       "goal": "You are the **owner-decisions builder** of SmartSched (ledger `decisions-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md and WAVE3.md / WAVE3B.md (same folder) for the rules and who owns which files; many agents run in th…",
       "ledger": "Owner decisions: implement the four choices",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 21:28"
     },
     {
       "id": "ac10514d34f05dfa0",

@@ -49,6 +49,11 @@ test.beforeAll(async () => {
     const r = await admin.post(`${API}/users`, { data: u });
     expect(r.status(), await r.text()).toBe(201);
   }
+  // a clean slate for the guided Zapier setup (a previous run on the same stack leaves its webhook behind)
+  const hooks = (await (await admin.get(`${API}/webhooks`)).json()) as { id: number; url: string; description: string | null }[];
+  for (const h of hooks.filter((x) => /zapier/i.test(`${x.url} ${x.description ?? ""}`))) {
+    expect((await admin.delete(`${API}/webhooks/${h.id}`)).status()).toBe(204);
+  }
   await admin.dispose();
 });
 

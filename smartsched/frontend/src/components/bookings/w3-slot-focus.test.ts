@@ -44,11 +44,12 @@ describe("focus after a cancelled row", () => {
 
 describe("the watch selectors", () => {
   it("name the row in the cancelled row's place, the one before it, the last row, then the heading", () => {
-    list([10, 12]);
+    list([10, 12]); // 11 (index 1) was cancelled and has left the list
     const sels = rowSelectorsAfterRemoval(1);
-    expect(document.querySelector(sels[0]!)?.textContent).toBeUndefined();
-    expect(document.querySelector(sels[0]!)).toBeNull();
+    expect(document.querySelector(sels[0]!)?.textContent).toBe("12");
     expect(document.querySelector(sels[1]!)?.textContent).toBe("10");
+    expect(document.querySelector(rowSelectorsAfterRemoval(2)[0]!)).toBeNull();
+    expect(document.querySelector(rowSelectorsAfterRemoval(2)[2]!)?.textContent).toBe("12");
     expect(sels[sels.length - 1]).toBe("#mine-list");
   });
 });

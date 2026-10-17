@@ -24,6 +24,7 @@ from app.ai.client import AIClient, AIConfigError, AIRefusal, AIUpstreamError, g
 from app.ai.edits import apply_section_edits
 from app.ai.elicit import accept_proposals, elicit_constraints
 from app.ai.ingest import MAX_FILE_BYTES, SUPPORTED, IngestError, extract_preferences
+from app.ai.pipeline import AIGuardError
 from app.ai.policy import PolicyError, ai_allowed, get_policy, set_policy
 from app.api.deps import DB, Admin, Planner
 from app.core.db import get_session_factory
@@ -121,6 +122,8 @@ async def post_chat_stream(run_id: int, body: ChatIn, db: DB, user: Planner) -> 
                     s, run_id, body.message, body.lang, client=client, user_id=user_id, on_event=emit
                 )
             await queue.put(("done", out.model_dump(mode="json")))
+        except AIGuardError as exc:  # guardrail 422 / limit 429 / transfer basis 409, like the non-stream routes
+            await queue.put(("error", {"status": exc.status_code, "detail": exc.detail}))
         except (AIRefusal, AIUpstreamError) as exc:
             err = _ai_error(exc)
             await queue.put(("error", {"status": err.status_code, "detail": err.detail}))
