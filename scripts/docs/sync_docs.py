@@ -24,6 +24,8 @@ Blocks (sources in brackets):
     agents        agent counts per status and the running ledgers (docs/agents/registry.json; no prompts)
     languages     offered interface languages and the TR catalogue state (bookings_i18n.py, lib/i18n, messages/)
     formats       intake formats of the Ingestion Council (app/council/formats*.py registry entries)
+    recordings    the README recordings: featured GIF clips and every MP4 take with its poster
+                  (docs/images/recordings/clips.json + the files next to it; a missing file is an error)
     last-updated  HEAD's commit and date (git). Volatile: ``--check`` does not compare it, and without git (pod CI
                   exports the tree with git archive) the block keeps its text.
 
@@ -932,6 +934,78 @@ def gen_last_updated(ctx: Context) -> str | None:
 
 
 # --------------------------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------------------------
+# README recordings (docs/images/recordings/clips.json + the media files next to it)
+# --------------------------------------------------------------------------------------------------
+
+RECORDINGS_DIR = "docs/images/recordings"
+CLIPS = RECORDINGS_DIR + "/clips.json"
+
+
+def _media(ctx: Context, name: str) -> str:
+    """The href of a recording file, checked to exist: a renamed or missing file fails the sync."""
+    rel = f"{RECORDINGS_DIR}/{name}"
+    if not ctx.path(rel).is_file():
+        raise SyncError(f"{CLIPS}: {rel} does not exist")
+    return PurePosixPath(os.path.relpath(ctx.root / rel, ctx.target.parent).replace(os.sep, "/")).as_posix()
+
+
+def _esc(text: str) -> str:
+    return text.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def gen_recordings(ctx: Context) -> str:
+    try:
+        data = json.loads(ctx.read(CLIPS))
+    except json.JSONDecodeError as exc:
+        raise SyncError(f"{CLIPS}: {exc}") from exc
+    featured = data.get("featured") or []
+    takes = data.get("takes") or []
+    if not isinstance(featured, list) or not isinstance(takes, list):
+        raise SyncError(f"{CLIPS}: 'featured' and 'takes' must be lists")
+    out: list[str] = []
+    if data.get("note"):
+        out += [str(data["note"]) + " Each clip opens its full take (MP4).", ""]
+    out.append("<table>")
+    for i in range(0, len(featured), 2):
+        out.append("  <tr>")
+        for clip in featured[i:i + 2]:
+            gif = _media(ctx, f"{clip['id']}.gif")
+            mp4 = _media(ctx, f"{clip['take']}.mp4")
+            title, caption = _esc(str(clip["title"])), _esc(str(clip.get("caption", "")))
+            out += [
+                '    <td width="50%" valign="top">',
+                f'      <a href="{mp4}"><img alt="Screen recording: {title}. {caption}" src="{gif}" width="100%"></a>',
+                f"      <br><sub><b>{title}.</b> {caption}</sub>",
+                "    </td>",
+            ]
+        if len(featured[i:i + 2]) == 1:
+            out.append('    <td width="50%"></td>')
+        out.append("  </tr>")
+    out += ["</table>", ""]
+    if takes:
+        out += ["<details>", f"<summary><strong>Every recording</strong> ({len(takes)} full takes, MP4)</summary>", "",
+                "<table>"]
+        for i in range(0, len(takes), 4):
+            out.append("  <tr>")
+            for take in takes[i:i + 4]:
+                mp4 = _media(ctx, f"{take['id']}.mp4")
+                poster = _media(ctx, f"{take['id']}-poster.png")
+                title = _esc(str(take["title"]))
+                links = [f'<a href="{mp4}">{title}</a>']
+                for v in take.get("variants") or []:
+                    links.append(f'<a href="{_media(ctx, str(v["file"]))}">{_esc(str(v.get("label", v["file"])))}</a>')
+                out += [
+                    '    <td width="25%" valign="top">',
+                    f'      <a href="{mp4}"><img alt="Still from the recording: {title}" src="{poster}" width="100%"></a>',
+                    f"      <br><sub>{' · '.join(links)}</sub>",
+                    "    </td>",
+                ]
+            out.append("  </tr>")
+        out += ["</table>", "", "</details>"]
+    return "\n".join(out)
+
 # driver
 # --------------------------------------------------------------------------------------------------
 
@@ -945,6 +1019,7 @@ GENERATORS: dict[str, Callable[[Context], str | None]] = {
     "agents": gen_agents,
     "languages": gen_languages,
     "formats": gen_formats,
+    "recordings": gen_recordings,
     "last-updated": gen_last_updated,
 }
 VOLATILE = frozenset({"last-updated"})

@@ -383,5 +383,39 @@ class GeneratorTests(unittest.TestCase):
         self.assertIn(f"`{head[0]}`", sd.gen_last_updated(ctx()) or "")
 
 
+class RecordingsTests(unittest.TestCase):
+    """The README 'See it work' block comes from docs/images/recordings/clips.json and the files next to it."""
+
+    def test_real_clips_render_featured_grid_and_every_take(self) -> None:
+        text = sd.gen_recordings(ctx("README.md"))
+        data = json.loads((REPO / "docs/images/recordings/clips.json").read_text(encoding="utf-8"))
+        for clip in data["featured"]:
+            self.assertIn(f'src="docs/images/recordings/{clip["id"]}.gif"', text)
+            self.assertIn(f"<b>{clip['title']}.</b>", text)
+        for take in data["takes"]:
+            self.assertIn(f'href="docs/images/recordings/{take["id"]}.mp4"', text)
+            self.assertIn(f'src="docs/images/recordings/{take["id"]}-poster.png"', text)
+        self.assertIn(f"({len(data['takes'])} full takes, MP4)", text)
+        self.assertEqual(text, sd.gen_recordings(ctx("README.md")))  # deterministic
+
+    def test_missing_media_file_is_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rec = root / "docs/images/recordings"
+            rec.mkdir(parents=True)
+            (rec / "clips.json").write_text(json.dumps({
+                "featured": [{"id": "a", "take": "t", "title": "A", "caption": "c"}],
+                "takes": [{"id": "t", "title": "T"}],
+            }), encoding="utf-8")
+            (rec / "a.gif").write_bytes(b"x")
+            (rec / "t.mp4").write_bytes(b"x")
+            c = sd.Context(root=root, target=root / "README.md")
+            with self.assertRaises(sd.SyncError):
+                sd.gen_recordings(c)  # t-poster.png is missing
+            (rec / "t-poster.png").write_bytes(b"x")
+            out = sd.gen_recordings(c)
+            self.assertIn('<a href="docs/images/recordings/t.mp4"><img alt="Screen recording: A. c"', out)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1860,7 +1860,8 @@
       "goal": "You are the round-1 loop builder for **lane H (Studio, runs, timetable, comparison and program-wizard polish)** of SmartSched. Lane name for the ledger: `loop-r1-laneH-2026-10-16`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md first …",
       "ledger": "Lane H: studio/runs/timetable polish",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 00:25"
     },
     {
       "id": "ababe80c7393987ba",
@@ -1994,6 +1995,14 @@
       "status": "finished",
       "finished_at": "2026-10-17 00:15",
       "left_off": "status update on lane H and the backend tests"
+    },
+    {
+      "id": "af228133bdbb2aa11",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 00:21",
+      "left_off": "continue once lane H reports, then start round 2"
     }
   ]
 }

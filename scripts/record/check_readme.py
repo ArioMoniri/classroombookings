@@ -21,6 +21,7 @@ MD_LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 HTML_ATTR = re.compile(r"\b(?:src|srcset|href)=\"([^\"]+)\"")
 HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$", re.MULTILINE)
 MEDIA_DIRS = ["docs/images/screens", "docs/images/recordings", "docs/media"]
+MEDIA_SUFFIXES = {".gif", ".mp4", ".webm", ".png", ".webp", ".jpg", ".jpeg", ".svg"}
 GIF_MAX = 9_000_000
 
 
@@ -85,7 +86,7 @@ def main(argv: list[str]) -> int:
     unused = []
     for d in MEDIA_DIRS:
         for p in sorted((ROOT / d).glob("*")):
-            if p.is_file() and p not in used and p.name != "MANIFEST.md":
+            if p.is_file() and p not in used and p.suffix.lower() in MEDIA_SUFFIXES:  # manifests, clips.json: not media
                 unused.append(str(p.relative_to(ROOT)))
     if unused:
         print("not referenced by any README (orphans):\n  " + "\n  ".join(unused))

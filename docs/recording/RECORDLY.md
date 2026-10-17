@@ -100,6 +100,11 @@ Turkish texts in the same file), and a step's `clip` id puts it into a README GI
 form one short clip (6-12 s, one action). To record one by hand with Recordly, follow the same steps and pause about
 1 s after each, so auto-zoom has something to frame.
 
+The README section "See it work" is generated: `scripts/docs/sync_docs.py` (block `recordings`) reads
+`docs/images/recordings/clips.json` (featured clips with their captions, every full take with its title) and the files
+next to it, and fails `--check` when a referenced file is missing. Edit captions in `clips.json`; `refresh.sh` rebuilds
+the files under the same names, then `python3 -I scripts/docs/sync_docs.py` rewrites the README block.
+
 | Journey (`--journey`) | DB | What it shows | README GIF clip(s) | Full take |
 |---|---|---|---|---|
 | `reserve-panel` | seeded | A free period offers Reserve on hover; one more click books it; a drag across three periods; room details with other free rooms | `reserve-slot` (8.08 MB), `reserve-drag` (1.93 MB) | `reserve-panel.mp4`, `reserve-panel-tr.mp4` |
