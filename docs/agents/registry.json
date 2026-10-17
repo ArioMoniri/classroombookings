@@ -2510,7 +2510,8 @@
       "goal": "You are lane **W3-RES** (researcher, feature analyzer, enhancer) of SmartSched wave 3 (ledger `wave3-res-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3.md and COMMON.md rule 1 (never commit; write only your own files). Repo …",
       "ledger": "W3-RES: 2026 research + feature analysis",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 19:10"
     },
     {
       "id": "a3071e67f61360412",
@@ -2530,6 +2531,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-17 18:59",
+      "left_off": "start the pod now so I can log in"
+    },
+    {
+      "id": "a91c79f71b7bea5f7",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 19:03",
       "left_off": "start the pod now so I can log in"
     }
   ]

@@ -1,0 +1,120 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Quick reserve, desktop 1440'>
+<title>Quick reserve, desktop 1440</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='40' y='101' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Panel</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Takvim</text>
+<rect x='24' y='152' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='173' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Rezerve et</text>
+<text x='40' y='209' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezervasyonlarım</text>
+<text x='40' y='245' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Derslik bul</text>
+<text x='40' y='281' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Talepler</text>
+<text x='32' y='318' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>YÖNETİM</text>
+<text x='40' y='353' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Ayarlar</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Hızlı rezervasyon</text>
+<text x='276' y='84' font-size='14' font-weight='400' fill='#475569' text-anchor='start'>Ne zaman, nerede: üç adımda bir ders saati ayırın.</text>
+<rect x='276' y='108' width='280' height='760' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='140' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>1. Ne zaman?</text>
+<text x='296' y='168' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>Gün</text>
+<rect x='288' y='178' width='256' height='32' rx='8' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='300' y='199' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Bugün · Cum 17 Ekim</text>
+<text x='300' y='235' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Pzt 20 Ekim</text>
+<text x='300' y='271' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Sal 21 Ekim</text>
+<text x='300' y='307' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Çar 22 Ekim</text>
+<text x='300' y='343' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Per 23 Ekim</text>
+<text x='300' y='379' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Cum 24 Ekim</text>
+<text x='300' y='415' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Tarih seç…</text>
+<text x='296' y='446' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>Ders saati</text>
+<text x='300' y='477' font-size='13' font-weight='500' fill='#94A3B8' text-anchor='start'>2. ders</text>
+<text x='372' y='477' font-size='13' font-weight='400' fill='#94A3B8' text-anchor='start'>09:20–10:00</text>
+<text x='534' y='477' font-size='12' font-weight='500' fill='#94A3B8' text-anchor='end'>Dolu</text>
+<rect x='288' y='492' width='256' height='32' rx='8' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='300' y='513' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>3. ders</text>
+<text x='372' y='513' font-size='13' font-weight='400' fill='#2563EB' text-anchor='start'>10:10–10:50</text>
+<text x='300' y='549' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>4. ders</text>
+<text x='372' y='549' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>11:00–11:40</text>
+<text x='300' y='585' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>5. ders</text>
+<text x='372' y='585' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>11:50–12:30</text>
+<text x='300' y='621' font-size='13' font-weight='500' fill='#94A3B8' text-anchor='start'>6. ders</text>
+<text x='372' y='621' font-size='13' font-weight='400' fill='#94A3B8' text-anchor='start'>12:40–13:20</text>
+<text x='534' y='621' font-size='12' font-weight='500' fill='#94A3B8' text-anchor='end'>Dolu</text>
+<text x='300' y='657' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>7. ders</text>
+<text x='372' y='657' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>13:30–14:10</text>
+<text x='300' y='693' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>8. ders</text>
+<text x='372' y='693' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>14:20–15:00</text>
+<text x='300' y='729' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>9. ders</text>
+<text x='372' y='729' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>15:10–15:50</text>
+<text x='296' y='768' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>radiogroups, roving tabindex, ↑/↓;</text>
+<text x='296' y='784' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Dolu rows focusable + reason</text>
+<rect x='572' y='108' width='488' height='760' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='592' y='140' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>2. Nerede?</text>
+<text x='592' y='166' font-size='13' font-weight='500' fill='#475569' text-anchor='start'>12 boş derslik</text>
+<rect x='592' y='180' width='118' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='651.0' y='200.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Kişi: Hepsi ▾</text>
+<rect x='716' y='180' width='69' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='750.5' y='200.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Bina ▾</text>
+<rect x='791' y='180' width='90' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='836.0' y='200.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Özellik ▾</text>
+<line x1='572' y1='226' x2='1060' y2='226' stroke='#E2E8F0' stroke-width='1'/>
+<text x='624' y='248' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>Derslik</text>
+<text x='822' y='248' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>Bina</text>
+<text x='902' y='248' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>Kişi</text>
+<text x='952' y='248' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>Özellik</text>
+<text x='1040' y='248' font-size='11' font-weight='600' fill='#64748B' text-anchor='end'></text>
+<rect x='580' y='260' width='472' height='46' rx='8' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<circle cx='604' cy='283' r='9' fill='#2563EB'/>
+<text x='624' y='280' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>A 101 · Amfi</text>
+<text x='624' y='297' font-size='11' font-weight='400' fill='#64748B' text-anchor='start'>Son kullandığınız</text>
+<text x='822' y='288' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>A Blok</text>
+<text x='902' y='288' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>40</text>
+<text x='952' y='288' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>PC</text>
+<rect x='580' y='312' width='472' height='46' rx='8' fill='#FFFFFF' fill-opacity='1'/>
+<circle cx='604' cy='335' r='9' fill='#FFFFFF' stroke='#94A3B8' stroke-width='2'/>
+<text x='624' y='340' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>B 204 · Derslik</text>
+<text x='822' y='340' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>B Blok</text>
+<text x='902' y='340' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>36</text>
+<text x='952' y='340' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Projeksiyon</text>
+<rect x='580' y='364' width='472' height='46' rx='8' fill='#FFFFFF' fill-opacity='1'/>
+<circle cx='604' cy='387' r='9' fill='#FFFFFF' stroke='#94A3B8' stroke-width='2'/>
+<text x='624' y='384' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>C 112 · Seminer</text>
+<text x='822' y='392' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>C Blok</text>
+<text x='902' y='392' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>24</text>
+<text x='952' y='392' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>—</text>
+<rect x='624' y='389' width='62' height='20' rx='10' fill='#FEF3C7' fill-opacity='1'/>
+<text x='655.0' y='403' font-size='11' font-weight='600' fill='#B45309' text-anchor='middle'>⌛ Talep</text>
+<rect x='580' y='416' width='472' height='46' rx='8' fill='#FFFFFF' fill-opacity='1'/>
+<circle cx='604' cy='439' r='9' fill='#FFFFFF' stroke='#94A3B8' stroke-width='2'/>
+<text x='624' y='444' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>A 205 · Derslik</text>
+<text x='822' y='444' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>A Blok</text>
+<text x='902' y='444' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>48</text>
+<text x='952' y='444' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>—</text>
+<rect x='580' y='468' width='472' height='46' rx='8' fill='#FFFFFF' fill-opacity='1'/>
+<circle cx='604' cy='491' r='9' fill='#FFFFFF' stroke='#94A3B8' stroke-width='2'/>
+<text x='624' y='496' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>D 010 · Toplantı</text>
+<text x='822' y='496' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>D Blok</text>
+<text x='902' y='496' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>12</text>
+<text x='952' y='496' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>—</text>
+<rect x='580' y='520' width='472' height='46' rx='8' fill='#FFFFFF' fill-opacity='1'/>
+<circle cx='604' cy='543' r='9' fill='#FFFFFF' stroke='#94A3B8' stroke-width='2'/>
+<text x='624' y='548' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>B 107 · Derslik</text>
+<text x='822' y='548' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>B Blok</text>
+<text x='902' y='548' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>60</text>
+<text x='952' y='548' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Projeksiyon</text>
+<text x='592' y='600' font-size='13' font-weight='500' fill='#2563EB' text-anchor='start'>Neden bazı derslikler yok? ▸</text>
+<rect x='1076' y='108' width='340' height='420' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1096' y='140' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>3. Onayla</text>
+<text x='1096' y='176' font-size='20' font-weight='700' fill='#0F172A' text-anchor='start'>A 101 · Amfi</text>
+<text x='1096' y='200' font-size='14' font-weight='400' fill='#475569' text-anchor='start'>Bugün, 17 Ekim · 3. ders</text>
+<text x='1096' y='220' font-size='14' font-weight='400' fill='#475569' text-anchor='start'>10:10–10:50 · A Blok · 40 kişi</text>
+<text x='1096' y='256' font-size='12' font-weight='600' fill='#64748B' text-anchor='start'>Not (isteğe bağlı)</text>
+<rect x='1096' y='264' width='300' height='72' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#7A808C' stroke-width='1'/>
+<text x='1108' y='288' font-size='13' font-weight='400' fill='#94A3B8' text-anchor='start'>Örn. telafi dersi</text>
+<rect x='1096' y='356' width='300' height='44' rx='22.0' fill='#2563EB' fill-opacity='1'/>
+<text x='1246.0' y='383.4' font-size='15' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Rezerve et  ⌘↵</text>
+<text x='1246' y='420' font-size='12' font-weight='400' fill='#475569' text-anchor='middle'>Bu hafta 2 rezervasyon hakkınız kaldı</text>
+<text x='1246' y='452' font-size='13' font-weight='600' fill='#2563EB' text-anchor='middle'>Daha fazla seçenek →</text>
+<text x='1076' y='548' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>sticky; the Talep et variant adds an info Alert</text>
+<text x='1076' y='564' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>(approver, lead time), see the state board</text>
+</svg>

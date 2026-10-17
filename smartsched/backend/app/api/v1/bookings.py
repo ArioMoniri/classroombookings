@@ -294,8 +294,8 @@ _SLOT_CHOICES: dict[str, tuple[str, ...]] = {
     "unit": ("periods", "blocks"),
     "label": ("both", "name", "time"),
     "density": ("comfortable", "compact"),
-    "default_view": ("day", "room", "week"),
 }
+_SLOT_VIEWS = ("day", "room", "week")
 _BLOCK_MINUTES = (15, 30, 60)
 _MIN_LENGTH_MAX = 8
 
@@ -321,6 +321,8 @@ async def slot_display(db: DB) -> dict[str, Any]:
     for name, allowed in _SLOT_CHOICES.items():
         value = str(raw.get(name) or "").strip().lower()
         out[name] = value if value in allowed else runtime_settings.SPECS[SLOT_DISPLAY_PREFIX + name].default
+    view = str(raw.get("default_view") or "").strip().lower()
+    out["default_view"] = view if view in _SLOT_VIEWS else None  # None: the organisation's display type
     block = raw.get("block_minutes")
     out["block_minutes"] = block if block in _BLOCK_MINUTES else 30
     start, end = _clock(raw.get("day_start")), _clock(raw.get("day_end"))

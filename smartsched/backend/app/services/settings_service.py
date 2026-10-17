@@ -48,8 +48,9 @@ SPECS: dict[str, SettingSpec] = {
         SettingSpec("booking.slot_display.label", default="both"),
         # compact | comfortable
         SettingSpec("booking.slot_display.density", default="comfortable"),
-        # day (all rooms, one day) | room (one room, its week) | week (free slots of the week)
-        SettingSpec("booking.slot_display.default_view", default="day"),
+        # day (all rooms, one day) | room (one room, its week) | week (free slots of the week); empty = the
+        # organisation's CRBS display type (Kuruluş > displaytype) decides, as before wave 3
+        SettingSpec("booking.slot_display.default_view", default=""),
         # visible window "HH:MM" (empty = the whole day): periods outside it are hidden (evening classes)
         SettingSpec("booking.slot_display.day_start", default=""),
         SettingSpec("booking.slot_display.day_end", default=""),

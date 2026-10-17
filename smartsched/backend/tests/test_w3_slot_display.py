@@ -14,7 +14,7 @@ DEFAULTS = {
     "block_minutes": 30,
     "label": "both",
     "density": "comfortable",
-    "default_view": "day",
+    "default_view": None,  # the organisation's CRBS display type decides
     "day_start": None,
     "day_end": None,
     "hide_weekend": False,

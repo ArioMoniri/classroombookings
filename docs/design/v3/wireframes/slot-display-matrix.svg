@@ -1,0 +1,287 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Slot display matrix: period rows vs time blocks, label variants'>
+<title>Slot display matrix: period rows vs time blocks, label variants</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<text x='32' y='48' font-size='20' font-weight='700' fill='#0F172A' text-anchor='start'>Düzen × etiket: how the /bookings day grid renders each choice (desktop, standard density)</text>
+<rect x='32' y='72' width='336' height='740' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='48' y='100' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>Ders satırları · İkisi</text>
+<text x='193.0' y='130' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>A 101</text>
+<text x='299.0' y='130' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>B 204</text>
+<text x='48' y='162.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>1. ders</text>
+<text x='48' y='174.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>08:30</text>
+<rect x='142.0' y='140' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='193.0' y='164.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='248.0' y='140' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='299.0' y='164.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='48' y='206.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>2. ders</text>
+<text x='48' y='218.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>09:20</text>
+<rect x='142.0' y='184' width='102.0' height='40' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='193.0' y='208.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<rect x='248.0' y='184' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='299.0' y='208.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='48' y='250.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>3. ders</text>
+<text x='48' y='262.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>10:10</text>
+<rect x='142.0' y='228' width='102.0' height='40' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='193.0' y='252.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='248.0' y='228' width='102.0' height='40' rx='6' fill='#FEE2E2' fill-opacity='1' stroke='#FCA5A5' stroke-width='1'/>
+<text x='299.0' y='252.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Kapalı</text>
+<text x='48' y='294.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>4. ders</text>
+<text x='48' y='306.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>11:00</text>
+<rect x='142.0' y='272' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='193.0' y='296.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='248.0' y='272' width='102.0' height='40' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='299.0' y='296.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<text x='48' y='338.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>5. ders</text>
+<text x='48' y='350.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>11:50</text>
+<rect x='142.0' y='316' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='193.0' y='340.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='248.0' y='316' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='299.0' y='340.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='48' y='382.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>6. ders</text>
+<text x='48' y='394.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>12:40</text>
+<rect x='142.0' y='360' width='102.0' height='40' rx='6' fill='#FEE2E2' fill-opacity='1' stroke='#FCA5A5' stroke-width='1'/>
+<text x='193.0' y='384.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Kapalı</text>
+<rect x='248.0' y='360' width='102.0' height='40' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='299.0' y='384.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<text x='48' y='426.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>7. ders</text>
+<text x='48' y='438.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>13:30</text>
+<rect x='142.0' y='404' width='102.0' height='40' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='193.0' y='428.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<rect x='248.0' y='404' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='299.0' y='428.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='48' y='470.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>8. ders</text>
+<text x='48' y='482.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>14:20</text>
+<rect x='142.0' y='448' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='193.0' y='472.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='248.0' y='448' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='299.0' y='472.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='48' y='514.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>9. ders</text>
+<text x='48' y='526.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>15:10</text>
+<rect x='142.0' y='492' width='102.0' height='40' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='193.0' y='516.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='248.0' y='492' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='299.0' y='516.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='48' y='558.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>10. ders</text>
+<text x='48' y='570.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>16:00</text>
+<rect x='142.0' y='536' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='193.0' y='560.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='248.0' y='536' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='299.0' y='560.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='48' y='602.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>11. ders</text>
+<text x='48' y='614.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>16:50</text>
+<rect x='142.0' y='580' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='193.0' y='604.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='248.0' y='580' width='102.0' height='40' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='299.0' y='604.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<text x='48' y='646.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>12. ders</text>
+<text x='48' y='658.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>17:30</text>
+<rect x='142.0' y='624' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='193.0' y='648.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='248.0' y='624' width='102.0' height='40' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='299.0' y='648.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='384' y='72' width='336' height='740' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='400' y='100' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>Ders satırları · Saat</text>
+<text x='545.0' y='130' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>A 101</text>
+<text x='651.0' y='130' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>B 204</text>
+<text x='400' y='164.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>08:30–09:10</text>
+<rect x='494.0' y='140' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='545.0' y='164.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='600.0' y='140' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='651.0' y='164.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='400' y='208.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>09:20–10:00</text>
+<rect x='494.0' y='184' width='102.0' height='40' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='545.0' y='208.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<rect x='600.0' y='184' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='651.0' y='208.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='400' y='252.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>10:10–10:50</text>
+<rect x='494.0' y='228' width='102.0' height='40' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='545.0' y='252.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='600.0' y='228' width='102.0' height='40' rx='6' fill='#FEE2E2' fill-opacity='1' stroke='#FCA5A5' stroke-width='1'/>
+<text x='651.0' y='252.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Kapalı</text>
+<text x='400' y='296.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>11:00–11:40</text>
+<rect x='494.0' y='272' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='545.0' y='296.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='600.0' y='272' width='102.0' height='40' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='651.0' y='296.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<text x='400' y='340.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>11:50–12:30</text>
+<rect x='494.0' y='316' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='545.0' y='340.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='600.0' y='316' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='651.0' y='340.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='400' y='384.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>12:40–13:20</text>
+<rect x='494.0' y='360' width='102.0' height='40' rx='6' fill='#FEE2E2' fill-opacity='1' stroke='#FCA5A5' stroke-width='1'/>
+<text x='545.0' y='384.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Kapalı</text>
+<rect x='600.0' y='360' width='102.0' height='40' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='651.0' y='384.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<text x='400' y='428.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>13:30–14:10</text>
+<rect x='494.0' y='404' width='102.0' height='40' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='545.0' y='428.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<rect x='600.0' y='404' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='651.0' y='428.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='400' y='472.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>14:20–15:00</text>
+<rect x='494.0' y='448' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='545.0' y='472.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='600.0' y='448' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='651.0' y='472.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='400' y='516.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>15:10–15:50</text>
+<rect x='494.0' y='492' width='102.0' height='40' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='545.0' y='516.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='600.0' y='492' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='651.0' y='516.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='400' y='560.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>16:00–16:40</text>
+<rect x='494.0' y='536' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='545.0' y='560.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='600.0' y='536' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='651.0' y='560.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='400' y='604.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>16:50–17:30</text>
+<rect x='494.0' y='580' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='545.0' y='604.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='600.0' y='580' width='102.0' height='40' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='651.0' y='604.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<text x='400' y='648.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>17:30–18:00</text>
+<rect x='494.0' y='624' width='102.0' height='40' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='545.0' y='648.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='600.0' y='624' width='102.0' height='40' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='651.0' y='648.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='736' y='72' width='336' height='740' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='752' y='100' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>Zaman blokları · İkisi</text>
+<text x='897.0' y='130' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>A 101</text>
+<text x='1003.0' y='130' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>B 204</text>
+<text x='752' y='164.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>1. ders</text>
+<text x='752' y='176.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>08:30</text>
+<rect x='846.0' y='140.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='897.0' y='166.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='952.0' y='140.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1003.0' y='166.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='752' y='219.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>2. ders</text>
+<text x='752' y='231.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>09:20</text>
+<rect x='846.0' y='195.0' width='102.0' height='44.0' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='897.0' y='221.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<rect x='952.0' y='195.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1003.0' y='221.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='752' y='274.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>3. ders</text>
+<text x='752' y='286.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>10:10</text>
+<rect x='846.0' y='250.0' width='102.0' height='44.0' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='897.0' y='276.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='952.0' y='250.0' width='102.0' height='44.0' rx='6' fill='#FEE2E2' fill-opacity='1' stroke='#FCA5A5' stroke-width='1'/>
+<text x='1003.0' y='276.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Kapalı</text>
+<text x='752' y='329.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>4. ders</text>
+<text x='752' y='341.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>11:00</text>
+<rect x='846.0' y='305.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='897.0' y='331.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='952.0' y='305.0' width='102.0' height='44.0' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='1003.0' y='331.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<text x='752' y='384.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>5. ders</text>
+<text x='752' y='396.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>11:50</text>
+<rect x='846.0' y='360.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='897.0' y='386.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='952.0' y='360.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1003.0' y='386.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='752' y='439.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>6. ders</text>
+<text x='752' y='451.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>12:40</text>
+<rect x='846.0' y='415.0' width='102.0' height='44.0' rx='6' fill='#FEE2E2' fill-opacity='1' stroke='#FCA5A5' stroke-width='1'/>
+<text x='897.0' y='441.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Kapalı</text>
+<rect x='952.0' y='415.0' width='102.0' height='44.0' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='1003.0' y='441.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<text x='752' y='494.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>7. ders</text>
+<text x='752' y='506.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>13:30</text>
+<rect x='846.0' y='470.0' width='102.0' height='44.0' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='897.0' y='496.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<rect x='952.0' y='470.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1003.0' y='496.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='752' y='549.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>8. ders</text>
+<text x='752' y='561.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>14:20</text>
+<rect x='846.0' y='525.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='897.0' y='551.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='952.0' y='525.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1003.0' y='551.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='752' y='604.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>9. ders</text>
+<text x='752' y='616.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>15:10</text>
+<rect x='846.0' y='580.0' width='102.0' height='44.0' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='897.0' y='606.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='952.0' y='580.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1003.0' y='606.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='752' y='659.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>10. ders</text>
+<text x='752' y='671.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>16:00</text>
+<rect x='846.0' y='635.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='897.0' y='661.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='952.0' y='635.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1003.0' y='661.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='752' y='714.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>11. ders</text>
+<text x='752' y='726.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>16:50</text>
+<rect x='846.0' y='690.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='897.0' y='716.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='952.0' y='690.0' width='102.0' height='44.0' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='1003.0' y='716.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<text x='752' y='752.5' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>12. ders</text>
+<text x='752' y='764.5' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>17:30</text>
+<rect x='846.0' y='734.0' width='102.0' height='33.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='897.0' y='754.5' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='952.0' y='734.0' width='102.0' height='33.0' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='1003.0' y='754.5' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='1088' y='72' width='336' height='740' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1104' y='100' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>Zaman blokları · Ders</text>
+<text x='1249.0' y='130' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>A 101</text>
+<text x='1355.0' y='130' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>B 204</text>
+<text x='1104' y='166.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>1. ders</text>
+<rect x='1198.0' y='140.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1249.0' y='166.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1304.0' y='140.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1355.0' y='166.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='1104' y='221.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>2. ders</text>
+<rect x='1198.0' y='195.0' width='102.0' height='44.0' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='1249.0' y='221.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<rect x='1304.0' y='195.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1355.0' y='221.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='1104' y='276.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>3. ders</text>
+<rect x='1198.0' y='250.0' width='102.0' height='44.0' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='1249.0' y='276.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='1304.0' y='250.0' width='102.0' height='44.0' rx='6' fill='#FEE2E2' fill-opacity='1' stroke='#FCA5A5' stroke-width='1'/>
+<text x='1355.0' y='276.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Kapalı</text>
+<text x='1104' y='331.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>4. ders</text>
+<rect x='1198.0' y='305.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1249.0' y='331.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1304.0' y='305.0' width='102.0' height='44.0' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='1355.0' y='331.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<text x='1104' y='386.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>5. ders</text>
+<rect x='1198.0' y='360.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1249.0' y='386.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1304.0' y='360.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1355.0' y='386.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='1104' y='441.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>6. ders</text>
+<rect x='1198.0' y='415.0' width='102.0' height='44.0' rx='6' fill='#FEE2E2' fill-opacity='1' stroke='#FCA5A5' stroke-width='1'/>
+<text x='1249.0' y='441.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Kapalı</text>
+<rect x='1304.0' y='415.0' width='102.0' height='44.0' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='1355.0' y='441.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<text x='1104' y='496.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>7. ders</text>
+<rect x='1198.0' y='470.0' width='102.0' height='44.0' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='1249.0' y='496.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<rect x='1304.0' y='470.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1355.0' y='496.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='1104' y='551.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>8. ders</text>
+<rect x='1198.0' y='525.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1249.0' y='551.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1304.0' y='525.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1355.0' y='551.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='1104' y='606.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>9. ders</text>
+<rect x='1198.0' y='580.0' width='102.0' height='44.0' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='1249.0' y='606.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='1304.0' y='580.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1355.0' y='606.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='1104' y='661.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>10. ders</text>
+<rect x='1198.0' y='635.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1249.0' y='661.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1304.0' y='635.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1355.0' y='661.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='1104' y='716.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>11. ders</text>
+<rect x='1198.0' y='690.0' width='102.0' height='44.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1249.0' y='716.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1304.0' y='690.0' width='102.0' height='44.0' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='1355.0' y='716.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<text x='1104' y='754.5' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>12. ders</text>
+<rect x='1198.0' y='734.0' width='102.0' height='33.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1249.0' y='754.5' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1304.0' y='734.0' width='102.0' height='33.0' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='1355.0' y='754.5' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<text x='32' y='840' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Timeline: height = minutes × 1.1 px (standard), 10-min breaks become gaps, the 30-min 17:30 slot is visibly shorter. Lists and chips ignore Düzen; phones keep ≥ 44 px rows.</text>
+<text x='32' y='860' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Every cell and row keeps a full accessible name (‘3. ders, 10:10–10:50’) whatever the visible label.</text>
+</svg>

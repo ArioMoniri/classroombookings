@@ -23,6 +23,7 @@ import { crosshairCss, isSelectable, layoutGrid, moveFocus, slotKey, slotText, s
 import { EntityIcon } from "@/components/admin/icons";
 import type { DateFormatter } from "./date-format";
 import { clampSpan, departmentColor, type DepartmentLens } from "./reserve-model";
+import { blockCount, DEFAULT_SLOT_DISPLAY, periodLabel, type SlotDisplay } from "./slot-display";
 
 export const TONE_CLASS: Record<SlotTone, string> = {
   available: "bg-(--mat-thick-solid) text-label-3 hover:bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_9%)] hover:text-tint-text",
@@ -113,6 +114,8 @@ interface Props {
   department?: DepartmentLens;
   /** T-R1-10: approval-first is on for the viewer: every free cell says "Talep et · Onay gerekir", never "Rezerve et" */
   approvalFirst?: boolean;
+  /** W3-SLOT: the administrator's slot display (labels, density, blocks drawn onto the periods) */
+  slotDisplay?: SlotDisplay;
 }
 
 interface Hint {
@@ -129,7 +132,7 @@ const HOLD_MS = 450;
  * Memoised (motion audit T3): opening the book sheet, the room sheet or the bell re-renders the bookings page,
  * and re-rendering 300+ cells cost the 344-653 ms frame that delayed the sheet. With stable props it skips.
  */
-export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, onSpan, crosshair, highlightBookingId, roomIcons, onRoomInfo, department = "all", approvalFirst = false }: Props) {
+export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi, selected, onActivate, onSpan, crosshair, highlightBookingId, roomIcons, onRoomInfo, department = "all", approvalFirst = false, slotDisplay = DEFAULT_SLOT_DISPLAY }: Props) {
   const { t, locale } = useI18n();
   const layout = useMemo(() => layoutGrid(grid, columns), [grid, columns]);
   // the roving tab stop lives in a ref: moving focus swaps tabIndex on two cells instead of re-rendering the
@@ -174,11 +177,11 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
         const sub = [item.room.owner, item.room.capacity ? t("crbs.grid.seats", { n: item.room.capacity }) : null].filter(Boolean).join(" · ");
         return { title: item.room.name, sub: sub || null };
       }
-      if (item.kind === "period" && item.period) return { title: item.period.name, sub: `${fmt.time(item.period.time_start)}–${fmt.time(item.period.time_end)}` };
+      if (item.kind === "period" && item.period) return periodLabel(item.period, slotDisplay, fmt.time);
       if (item.kind === "date" && item.date) return { title: fmt.weekday(item.date.date), sub: item.date.holiday ?? null };
       return { title: "", sub: null };
     },
-    [fmt, t],
+    [fmt, t, slotDisplay],
   );
 
   /** why a cell cannot be booked, or the full text of a booking (hint overlay + accessible name) */
@@ -204,7 +207,8 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
     (row: AxisItem, col: AxisItem, slot: GridSlot | undefined, inSpan: boolean): string => {
       const parts = [header(row).title, header(col).title];
       const period = [row, col].find((x) => x.kind === "period")?.period;
-      if (period) parts.push(`${fmt.time(period.time_start)}–${fmt.time(period.time_end)}`);
+      // the time is always spoken; with "time" labels the header title already is the time
+      if (period && slotDisplay.label !== "time") parts.push(`${fmt.time(period.time_start)}–${fmt.time(period.time_end)}`);
       if (!slot) return [...parts, t("crbs.slot.reason.unavailable")].join(", ");
       const kind = multi ? pickKind(slot) : null;
       let state: string;
@@ -225,7 +229,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
       } else state = explain(slot) ?? "";
       return [...parts, state].join(", ");
     },
-    [approvalFirst, explain, fmt, header, multi, selected, span.length, t],
+    [approvalFirst, explain, fmt, header, multi, selected, span.length, t, slotDisplay.label],
   );
 
   const hideHint = useCallback(() => {
@@ -404,6 +408,10 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
   })();
 
   const corner = columns === "periods" ? (grid.display === "day" ? t("crbs.grid.room") : t("crbs.grid.day")) : t("crbs.grid.period");
+  const compact = slotDisplay.density === "compact";
+  const blocks = slotDisplay.unit === "blocks";
+  /** W3-SLOT: a period column is as wide as its blocks in "blocks" mode, narrower when compact */
+  const periodWidth = (p: NonNullable<AxisItem["period"]>) => (blocks ? Math.max(compact ? 56 : 64, blockCount(p, slotDisplay.block_minutes) * (compact ? 26 : 34)) : compact ? 64 : 78);
 
   return (
     <div ref={wrapRef} className="relative">
@@ -432,7 +440,7 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
           <colgroup>
             <col className="w-[96px]" />
             {layout.cols.map((col) => (
-              <col key={col.key} className={col.kind === "date" ? "w-[112px]" : "w-[78px]"} />
+              <col key={col.key} className={col.kind === "date" ? "w-[112px]" : col.kind === "period" && col.period ? undefined : "w-[78px]"} style={col.kind === "period" && col.period ? { width: periodWidth(col.period) } : undefined} />
             ))}
           </colgroup>
           <thead>
@@ -450,12 +458,13 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
                     className={cn("sticky top-0 z-20 bg-(--mat-thick-solid) px-1.5 py-1.5 text-left align-bottom font-semibold text-label-1 edge-hairline-b", closed && "text-label-3")}
                   >
                     <HeaderLabel item={col} title={h.title} sub={h.sub} icon={col.room ? roomIcons?.get(col.room.id) : undefined} onRoomInfo={onRoomInfo} />
+                    {blocks && col.period ? <BlockTicks n={blockCount(col.period, slotDisplay.block_minutes)} /> : null}
                   </th>
                 );
               })}
             </tr>
           </thead>
-          <tbody>
+          <tbody data-density={slotDisplay.density} data-unit={slotDisplay.unit}>
             {layout.rows.map((row, r) => {
               const h = header(row);
               return (
@@ -484,6 +493,8 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
                           muted={muted}
                           onFocus={onCellFocus}
                           onClick={onCellClick}
+                          compact={compact}
+                          blocks={blocks && col.period ? blockCount(col.period, slotDisplay.block_minutes) : 0}
                         />
                       </td>
                     );
@@ -514,6 +525,17 @@ export const BookingGrid = memo(function BookingGrid({ grid, columns, fmt, multi
     </div>
   );
 });
+
+/** W3-SLOT "blocks": the period's blocks as a tick strip under its header (decoration; the time is in the label). */
+function BlockTicks({ n }: { n: number }) {
+  return (
+    <span aria-hidden data-testid="block-ticks" className="mt-1 flex h-1 w-full gap-px print:hidden">
+      {Array.from({ length: n }, (_, i) => (
+        <span key={i} className="h-full flex-1 rounded-full bg-fill-2" />
+      ))}
+    </span>
+  );
+}
 
 function HeaderLabel({ item, title, sub, icon, onRoomInfo }: { item: AxisItem; title: string; sub: string | null; icon?: string | null; onRoomInfo?: (id: number) => void }) {
   const t = useT();
@@ -550,6 +572,8 @@ const Cell = memo(function Cell({
   muted,
   onFocus,
   onClick,
+  compact = false,
+  blocks = 0,
 }: {
   slot: GridSlot | undefined;
   index: string;
@@ -563,6 +587,10 @@ const Cell = memo(function Cell({
   muted: boolean;
   onFocus: (el: HTMLButtonElement) => void;
   onClick: (slot: GridSlot, e: MouseEvent<HTMLButtonElement>) => void;
+  /** W3-SLOT density: 32 px rows with a fine pointer (touch keeps 44 px) */
+  compact?: boolean;
+  /** W3-SLOT "blocks": hairlines at the block boundaries inside the period (decoration) */
+  blocks?: number;
 }) {
   const tone = slotTone(slot);
   const text = slotText(slot, labels);
@@ -586,7 +614,8 @@ const Cell = memo(function Cell({
       onClick={(e) => slot && onClick(slot, e)}
       style={style}
       className={cn(
-        "group/cell relative flex h-11 w-full touch-manipulation flex-col items-start justify-center gap-0.5 overflow-hidden rounded-none px-1.5 py-1 text-left font-normal focus-visible:z-10 focus-visible:-outline-offset-2 disabled:opacity-100",
+        "group/cell relative flex w-full touch-manipulation flex-col items-start justify-center gap-0.5 overflow-hidden rounded-none px-1.5 py-1 text-left font-normal focus-visible:z-10 focus-visible:-outline-offset-2 disabled:opacity-100",
+        compact ? "h-8 pointer-coarse:h-11" : "h-11",
         TONE_CLASS[tone],
         free && "cursor-pointer",
         free && slot?.past && "text-label-3 opacity-60", // started: still bookable for administrators, but dim
@@ -618,6 +647,7 @@ const Cell = memo(function Cell({
         <SlotGlyph slot={slot} selected={isSelected} className={cn("size-3.5 stroke-[1.75]", tone === "unavailable" && "opacity-60")} />
       )}
       {text.secondary ? <span className="w-full truncate text-label-2">{text.secondary}</span> : null}
+      {blocks > 1 ? <span aria-hidden data-blocks={blocks} className="pointer-events-none absolute inset-0 print:hidden" style={{ backgroundImage: `repeating-linear-gradient(to right, transparent 0 calc(100% / ${blocks} - 1px), var(--hairline) calc(100% / ${blocks} - 1px) calc(100% / ${blocks}))` }} /> : null}
       {/* P8: a policy turns a booking here into a request (the accessible name says so) */}
       {free && slot?.request_only ? <Stamp className="absolute top-1 right-1 size-3 text-tint-text" aria-hidden data-request-only="true" /> : null}
     </BareButton>

@@ -2505,3 +2505,32 @@ verdict, score and count now comes from one evaluation, the planner-level check 
 - [x] **R1-S-04** (part): a minimal re-solve puts a dropped class back in its published cell when that cell still keeps every hard rule; a remaining loss is marked `base_conflict` when its published cell itself breaks a rule now; the re-solve publish confirm lists every lost class with its cause and needs a tick. The 17 losses of the staff round were not reproduced on the fixtures (see the hand-off).
 - [ ] Follow-up: the pin guard checks `event_ids` pins at write time (an upper bound: all pinned rooms' seats together); pins by programme / match are caught by the pre-check and the run's static check, not refused at write time.
 - [ ] Follow-up: the Studio reopens on the term chosen in this browser (localStorage); a fresh browser profile still starts on the term of today's date (R1-M-12 part A).
+
+### Wave 3 enhancements (ranked, research 2026-10-17)
+Ledger `wave3-res-2026-10-17`. Source, evidence and scoring (value × fit × 4 ÷ effort): [docs/research/2026-10-17-state-of-the-art.md](research/2026-10-17-state-of-the-art.md) §6. Requirements for the lanes: R-AI-01…12 (§2.2), R-OPS-01…10 (§3.3).
+- [ ] W3E-01 · 18.0 · W3-AI · AI transparency notice on every AI surface (provider, region, TR/EN) + "Yapay zekâ kullanımım" on Profil
+- [ ] W3E-02 · 15.0 · W3-SLOT · One-tap quick reserve "Şimdi boş / sıradaki boş" with the admin slot-display preset and one confirm
+- [ ] W3E-03 · 15.0 · W3-DES → UI · WCAG 2.2 AA pass for Presidential Circular 2025/10 (universities, deadline passed June 2026): accessibility statement, single-pointer path for every drag, pre-filled repeat entries, audit export
+- [ ] W3E-04 · 15.0 · W3-AI + KVKK · Cross-border transfer register per AI provider and channel (region, ZDR, Art. 9 mechanism, standard-contract and 5-business-day notification dates); AI calls with personal data refused without it
+- [ ] W3E-05 · 14.4 · W3-SEC / W3-AI · AI dependency supply-chain hardening: hash-pinned SDKs, no in-process gateway library (LiteLLM PyPI compromise 2026-03), SBOM in pod CI, rotation runbook
+- [ ] W3E-06 · 12.0 · W3-OPS · Built-in error tracking (`error_events`: fingerprint, release, request-id link, client-error endpoint, status workflow)
+- [ ] W3E-07 · 12.0 · W3-OPS · Native "Operasyon" admin page (health, 5xx, p95, solver queue, backups, AI spend, open errors) + "Grafana'da aç"
+- [ ] W3E-08 · 10.0 · W3-AI · Admin provider registry (Anthropic / Bedrock / Vertex / OpenAI-compatible URL), per-purpose model + fallback, test button, audited
+- [ ] W3E-09 · 10.0 · W3-AI · Per-user / per-role / org token and cost budgets: soft 80 % alert, hard 429 block, reservation then reconcile, RPM and concurrency caps
+- [ ] W3E-10 · 10.0 · W3-AI · Scope guard + spotlighting + TR/EN prompt-injection red-team suite in CI (OWASP LLM01/02/05/06/07/10)
+- [ ] W3E-11 · 10.0 · W3-OPS · Observability profile ≤ 768 MiB: Prometheus or VictoriaMetrics + Grafana + Loki or VictoriaLogs + Alloy (no Promtail, EOL 2026-03-02), internal-only, digest-pinned
+- [ ] W3E-12 · 9.6 · W3-OPS · Alert rules into the existing channels (down, 5xx, p95, disk, DB, solver failures, new error, AI budget, backup age, TLS)
+- [ ] W3E-13 · 9.6 · analytics · Utilisation KPIs per term (booked vs used, seat fill, peak hours, empty-room hours) as a rectorate report
+- [ ] W3E-14 · 7.2 · W3-AI · Rule-extraction paraphrase / constraint-reorder invariance tests (SCHEDBench finding)
+- [ ] W3E-15 · 7.2 · bookings · "Genellikle kullandığınız" room suggestions from booking history
+- [ ] W3E-16 · 6.4 · W3-SLOT + W3-AI · Turkish natural-language booking box: deterministic parser, live preview card, optional guarded AI fallback (`booking_nl`)
+- [ ] W3E-17 · 6.4 · bookings · Recurring series as a date list with per-date conflicts, skip / replace and per-date approval (FLE-001, FLE-010)
+- [ ] W3E-18 · 6.4 · integrations · OBS / UBYS hand-off: registrations in, published plan out (file profiles first, API adapters later)
+- [ ] W3E-19 · 5.3 · bookings · Check-in (kiosk QR / link) with auto-release, organiser notice, series release after 3 misses, check-in analytics
+- [ ] W3E-20 · 4.8 · bookings · Managed rebooking: displaced bookings get ranked alternatives with one-tap accept
+- [ ] W3E-21 · 4.0 · solver · Student-level conflicts (sectioning-lite) for electives and exams from registrations
+- [ ] W3E-22 · 4.0 · exams · Exam seating plans: student-to-seat assignment, room striping, printable lists
+- [ ] W3E-23 · 4.0 · bookings · Waitlist with an automatic offer on cancel or release
+- [ ] W3E-24 · 4.0 · W3-OPS · Optional GlitchTip profile (all-in-one ≤ 512 MiB) for a Sentry-style UI; self-hosted Sentry ruled out (16 GB + 16 GB swap)
+- [ ] W3E-25 · 3.0 · solver · Research spike: room-wise decomposition + incremental repair for term-wide models; offline agentic model reformulation behind the planner gate
+- [ ] W3E-26 · 2.4 · integrations · Teams / Outlook bot or add-in for booking and check-in

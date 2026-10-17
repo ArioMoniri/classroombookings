@@ -1,0 +1,206 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Slot display settings with live preview, desktop 1440'>
+<title>Slot display settings with live preview, desktop 1440</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='40' y='101' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Panel</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Takvim</text>
+<text x='40' y='173' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezerve et</text>
+<text x='40' y='209' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezervasyonlarım</text>
+<text x='40' y='245' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Derslik bul</text>
+<text x='32' y='282' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>YÖNETİM</text>
+<rect x='24' y='296' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='317' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Ayarlar</text>
+<text x='40' y='353' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Kullanıcılar</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Ayarlar</text>
+<rect x='276' y='76' width='62' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='307.0' y='96.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Genel</text>
+<rect x='344' y='76' width='76' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='382.0' y='96.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Görünüm</text>
+<rect x='426' y='76' width='97' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='474.5' y='96.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Yapay zekâ</text>
+<rect x='529' y='76' width='69' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='563.5' y='96.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Çözücü</text>
+<rect x='604' y='76' width='174' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='691.0' y='96.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Rezervasyon kuralları</text>
+<rect x='784' y='76' width='118' height='32' rx='16.0' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='843.0' y='96.32' font-size='12' font-weight='600' fill='#2563EB' text-anchor='middle'>Ders saatleri</text>
+<rect x='908' y='76' width='125' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='970.5' y='96.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Entegrasyonlar</text>
+<rect x='276' y='124' width='560' height='720' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='156' font-size='18' font-weight='700' fill='#0F172A' text-anchor='start'>Ders saati görünümü</text>
+<text x='296' y='178' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Rezervasyon ekranlarında ders saatlerinin nasıl görüneceğini seçin.</text>
+<text x='296' y='212' font-size='13' font-weight='700' fill='#0F172A' text-anchor='start'>Düzen</text>
+<rect x='296' y='222' width='252' height='80' rx='12' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<rect x='308' y='232' width='36' height='12' rx='3' fill='#CBD5E1' fill-opacity='1'/>
+<rect x='308' y='247' width='36' height='12' rx='3' fill='#CBD5E1' fill-opacity='1'/>
+<rect x='308' y='262' width='36' height='12' rx='3' fill='#CBD5E1' fill-opacity='1'/>
+<rect x='308' y='277' width='36' height='12' rx='3' fill='#CBD5E1' fill-opacity='1'/>
+<text x='356' y='254' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Ders satırları</text>
+<text x='356' y='274' font-size='11' font-weight='400' fill='#475569' text-anchor='start'>Her ders saati eşit yükseklikte</text>
+<rect x='558' y='222' width='252' height='80' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<rect x='570' y='232' width='36' height='10' rx='3' fill='#CBD5E1' fill-opacity='1'/>
+<rect x='570' y='244' width='36' height='14' rx='3' fill='#CBD5E1' fill-opacity='1'/>
+<rect x='570' y='260' width='36' height='8' rx='3' fill='#CBD5E1' fill-opacity='1'/>
+<rect x='570' y='270' width='36' height='16' rx='3' fill='#CBD5E1' fill-opacity='1'/>
+<text x='618' y='254' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Zaman blokları</text>
+<text x='618' y='274' font-size='11' font-weight='400' fill='#475569' text-anchor='start'>Yükseklik süreyle orantılı</text>
+<text x='296' y='336' font-size='13' font-weight='700' fill='#0F172A' text-anchor='start'>Etiket</text>
+<rect x='426' y='316' width='390' height='32' rx='16' fill='#EEF2F6' fill-opacity='1'/>
+<text x='491.0' y='336' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>Ders</text>
+<text x='621.0' y='336' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>Saat</text>
+<rect x='689.0' y='319' width='124.0' height='26' rx='13' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='751.0' y='336' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>İkisi</text>
+<text x='296' y='376' font-size='13' font-weight='700' fill='#0F172A' text-anchor='start'>Ders adı</text>
+<rect x='426' y='356' width='390' height='32' rx='16' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='429.0' y='359' width='189.0' height='26' rx='13' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='523.5' y='376' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Sıra (3. ders)</text>
+<text x='718.5' y='376' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>Çizelgedeki ad</text>
+<text x='296' y='416' font-size='13' font-weight='700' fill='#0F172A' text-anchor='start'>Saat</text>
+<rect x='426' y='396' width='390' height='32' rx='16' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='429.0' y='399' width='189.0' height='26' rx='13' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='523.5' y='416' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Başlangıç (10:10)</text>
+<text x='718.5' y='416' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>Aralık (10:10–10:50)</text>
+<text x='296' y='468' font-size='13' font-weight='700' fill='#0F172A' text-anchor='start'>Yoğunluk</text>
+<rect x='426' y='448' width='390' height='32' rx='16' fill='#EEF2F6' fill-opacity='1'/>
+<text x='491.0' y='468' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>Sıkı</text>
+<rect x='559.0' y='451' width='124.0' height='26' rx='13' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='621.0' y='468' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Standart</text>
+<text x='751.0' y='468' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>Geniş</text>
+<text x='426' y='490' font-size='11' font-weight='400' fill='#475569' text-anchor='start'>Telefonda satırlar en az 44 px kalır.</text>
+<text x='296' y='530' font-size='13' font-weight='700' fill='#0F172A' text-anchor='start'>Görünen saatler</text>
+<rect x='426' y='512' width='180' height='32' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#7A808C' stroke-width='1'/>
+<text x='438' y='533' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>İlk: 1. ders · 08:30 ▾</text>
+<rect x='616' y='512' width='200' height='32' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#7A808C' stroke-width='1'/>
+<text x='628' y='533' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>Son: 11. ders · 16:50 ▾</text>
+<rect x='426' y='556' width='36' height='20' rx='10' fill='#2563EB' fill-opacity='1'/>
+<circle cx='452' cy='566' r='8' fill='#FFFFFF'/>
+<text x='472' y='571' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>Kısa geçiş saatlerini gizle (17:30–18:00)</text>
+<text x='426' y='598' font-size='12' font-weight='600' fill='#475569' text-anchor='start'>11 / 18 ders saati görünür</text>
+<text x='296' y='640' font-size='13' font-weight='700' fill='#0F172A' text-anchor='start'>Varsayılan görünüm</text>
+<rect x='426' y='622' width='180' height='32' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#7A808C' stroke-width='1'/>
+<text x='438' y='643' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>Masaüstü: Günlük tablo ▾</text>
+<rect x='616' y='622' width='200' height='32' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#7A808C' stroke-width='1'/>
+<text x='628' y='643' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>Telefon: Boş saatler ▾</text>
+<text x='296' y='704' font-size='13' font-weight='700' fill='#0F172A' text-anchor='start'>Hızlı rezervasyon</text>
+<rect x='426' y='684' width='390' height='32' rx='16' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='429.0' y='687' width='124.0' height='26' rx='13' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='491.0' y='704' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>En fazla 1</text>
+<text x='621.0' y='704' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>2</text>
+<text x='751.0' y='704' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>3 ders</text>
+<rect x='296' y='738' width='36' height='20' rx='10' fill='#2563EB' fill-opacity='1'/>
+<circle cx='322' cy='748' r='8' fill='#FFFFFF'/>
+<text x='342' y='753' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>Kullanıcılar yoğunluğu ve varsayılan görünümü kendileri değiştirebilir</text>
+<text x='296' y='800' font-size='12' font-weight='600' fill='#2563EB' text-anchor='start'>Ders saatlerini değiştirmek için: Zaman çizelgeleri →</text>
+<rect x='852' y='124' width='520' height='560' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='872' y='156' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>Önizleme</text>
+<text x='872' y='176' font-size='11' font-weight='400' fill='#475569' text-anchor='start'>Bugünün ders saatleri · örnek doluluk</text>
+<rect x='872' y='190' width='230' height='30' rx='15' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='875' y='193' width='74' height='24' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='910' y='210' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Tablo</text>
+<text x='987' y='210' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>Liste</text>
+<text x='1064' y='210' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>Hızlı</text>
+<rect x='1152' y='190' width='200' height='30' rx='15' fill='#EEF2F6' fill-opacity='1'/>
+<rect x='1155' y='193' width='94' height='24' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1202' y='210' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Masaüstü</text>
+<text x='1302' y='210' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>Telefon</text>
+<text x='1028.6666666666667' y='250' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>A 101</text>
+<text x='1158.0' y='250' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>B 204</text>
+<text x='1287.3333333333335' y='250' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>C 112</text>
+<text x='872' y='278.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>1. ders</text>
+<text x='872' y='290.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>08:30</text>
+<rect x='966.0' y='260' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1028.6666666666667' y='280.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1095.3333333333333' y='260' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1158.0' y='280.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1224.6666666666667' y='260' width='125.33333333333334' height='32' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='1287.3333333333335' y='280.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<text x='872' y='314.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>2. ders</text>
+<text x='872' y='326.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>09:20</text>
+<rect x='966.0' y='296' width='125.33333333333334' height='32' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='1028.6666666666667' y='316.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<rect x='1095.3333333333333' y='296' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1158.0' y='316.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1224.6666666666667' y='296' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1287.3333333333335' y='316.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='872' y='350.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>3. ders</text>
+<text x='872' y='362.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>10:10</text>
+<rect x='966.0' y='332' width='125.33333333333334' height='32' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='1028.6666666666667' y='352.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='1095.3333333333333' y='332' width='125.33333333333334' height='32' rx='6' fill='#FEE2E2' fill-opacity='1' stroke='#FCA5A5' stroke-width='1'/>
+<text x='1158.0' y='352.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Kapalı</text>
+<rect x='1224.6666666666667' y='332' width='125.33333333333334' height='32' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='1287.3333333333335' y='352.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<text x='872' y='386.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>4. ders</text>
+<text x='872' y='398.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>11:00</text>
+<rect x='966.0' y='368' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1028.6666666666667' y='388.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1095.3333333333333' y='368' width='125.33333333333334' height='32' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='1158.0' y='388.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<rect x='1224.6666666666667' y='368' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1287.3333333333335' y='388.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='872' y='422.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>5. ders</text>
+<text x='872' y='434.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>11:50</text>
+<rect x='966.0' y='404' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1028.6666666666667' y='424.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1095.3333333333333' y='404' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1158.0' y='424.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1224.6666666666667' y='404' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1287.3333333333335' y='424.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='872' y='458.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>6. ders</text>
+<text x='872' y='470.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>12:40</text>
+<rect x='966.0' y='440' width='125.33333333333334' height='32' rx='6' fill='#FEE2E2' fill-opacity='1' stroke='#FCA5A5' stroke-width='1'/>
+<text x='1028.6666666666667' y='460.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Kapalı</text>
+<rect x='1095.3333333333333' y='440' width='125.33333333333334' height='32' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='1158.0' y='460.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='1224.6666666666667' y='440' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1287.3333333333335' y='460.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='872' y='494.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>7. ders</text>
+<text x='872' y='506.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>13:30</text>
+<rect x='966.0' y='476' width='125.33333333333334' height='32' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='1028.6666666666667' y='496.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<rect x='1095.3333333333333' y='476' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1158.0' y='496.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1224.6666666666667' y='476' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1287.3333333333335' y='496.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='872' y='530.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>8. ders</text>
+<text x='872' y='542.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>14:20</text>
+<rect x='966.0' y='512' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1028.6666666666667' y='532.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1095.3333333333333' y='512' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1158.0' y='532.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1224.6666666666667' y='512' width='125.33333333333334' height='32' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='1287.3333333333335' y='532.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<text x='872' y='566.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>9. ders</text>
+<text x='872' y='578.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>15:10</text>
+<rect x='966.0' y='548' width='125.33333333333334' height='32' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='1028.6666666666667' y='568.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<rect x='1095.3333333333333' y='548' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1158.0' y='568.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1224.6666666666667' y='548' width='125.33333333333334' height='32' rx='6' fill='#F4F4F5' fill-opacity='1' stroke='#D4D4D8' stroke-width='1'/>
+<text x='1287.3333333333335' y='568.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Ders</text>
+<text x='872' y='602.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>10. ders</text>
+<text x='872' y='614.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>16:00</text>
+<rect x='966.0' y='584' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1028.6666666666667' y='604.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1095.3333333333333' y='584' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1158.0' y='604.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1224.6666666666667' y='584' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1287.3333333333335' y='604.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='872' y='638.0' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>11. ders</text>
+<text x='872' y='650.0' font-size='10' font-weight='400' fill='#475569' text-anchor='start'>16:50</text>
+<rect x='966.0' y='620' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1028.6666666666667' y='640.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<rect x='1095.3333333333333' y='620' width='125.33333333333334' height='32' rx='6' fill='#E0E7FF' fill-opacity='1' stroke='#A5B4FC' stroke-width='1'/>
+<text x='1158.0' y='640.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Rezerve</text>
+<rect x='1224.6666666666667' y='620' width='125.33333333333334' height='32' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1287.3333333333335' y='640.0' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Boş</text>
+<text x='872' y='670' font-size='11' font-weight='600' fill='#2563EB' text-anchor='start'>+1 gizli saat</text>
+<rect x='976' y='820' width='396' height='56' rx='28' fill='#FFFFFF' fill-opacity='0.95' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1000' y='853' font-size='12' font-weight='500' fill='#475569' text-anchor='start'>Kaydedilmemiş değişiklikler</text>
+<rect x='1166' y='830' width='90' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1211.0' y='852.32' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Varsayılan</text>
+<rect x='1264' y='830' width='96' height='36' rx='18.0' fill='#2563EB' fill-opacity='1'/>
+<text x='1312.0' y='852.68' font-size='13' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Kaydet</text>
+</svg>
