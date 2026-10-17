@@ -30,7 +30,8 @@ const TABS: Tab[] = [
 
 const PILL = "pointer-events-none absolute inset-0 -z-10 rounded-full bg-(--mat-thick) glass-edge";
 /** one equal column per tab; 48 px tall (≥ 44 px target) with the label always shown (review §3 "Mobile tab bar") */
-const ITEM = "relative isolate flex min-h-12 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-full px-1";
+/** mobile-a fix 14: below 360 px the items lose their side padding (and the search circle moves to the top bar) */
+const ITEM = "relative isolate flex min-h-12 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-full px-1 max-[359px]:px-0";
 /** T-R2-04 (R2-A-01, R2-S-07): the label never runs into its neighbour: it truncates inside its column (safety net) */
 const LABEL = "type-caption whitespace-nowrap min-w-0 max-w-full truncate";
 /**
@@ -120,7 +121,7 @@ export function TabBar() {
           </ul>
         </nav>
       </LayoutGroup>
-      <IconButton label={t("nav.search")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className="glass-chrome pointer-events-auto size-12 shrink-0 rounded-full text-label-1 hover:bg-transparent [&_svg]:size-5" data-testid="open-palette-mobile">
+      <IconButton label={t("nav.search")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className="glass-chrome pointer-events-auto size-12 shrink-0 rounded-full text-label-1 hover:bg-transparent max-[359px]:hidden [&_svg]:size-5" data-testid="open-palette-mobile">
         <Search aria-hidden />
       </IconButton>
     </div>

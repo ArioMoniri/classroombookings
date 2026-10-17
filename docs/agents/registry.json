@@ -2616,7 +2616,8 @@
       "goal": "You are **mobile optimiser B** (planning and admin routes) of SmartSched (ledger `mobile-b-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/MEDIA.md, COMMON.md and WAVE3.md (same folder), docs/testing/flows/MOBILE.md (M-01…M-14 and …",
       "ledger": "Mobile optimiser B: admin/planning routes audit",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:24"
     },
     {
       "id": "afba806f54debb37b",
