@@ -282,7 +282,7 @@ export function QuickReserveView() {
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[320px_minmax(0,1fr)_340px] lg:items-start">
         {/* 1 · Ne zaman? */}
-        <section aria-labelledby="qr-when" className="flex min-w-0 flex-col gap-3">
+        <section aria-labelledby="qr-when" data-tour="reserve-when" className="flex min-w-0 flex-col gap-3">
           <h2 id="qr-when" className="type-title-3 text-label-1">
             {step(1, "when")}
           </h2>

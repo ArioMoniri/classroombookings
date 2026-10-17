@@ -1,5 +1,6 @@
 "use client";
 /** /admin — the CRBS setup dashboard: a checklist of what bookings need, then the screens by group. */
+import { tourAnchorFor } from "@/components/welcome/tour/anchors";
 import { CheckCircle2, ChevronRight, Circle, Download } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
@@ -11,6 +12,8 @@ import { Loading, PageTitle, SectionTitle } from "./kit";
 import { RequirementsList } from "./requirements-list";
 import { wave1SectionsFor } from "./wave1-sections";
 
+/** WG-05: the admin tour's anchors on the setup groups */
+const TOUR_GROUP: Record<AdminSection["group"], string> = { people: "admin-group-users", rooms: "admin-group-resources", calendar: "admin-group-timetable", organisation: "admin-group-organisation" };
 const GROUPS: { id: AdminSection["group"]; key: MessageKey }[] = [
   { id: "people", key: "crbs.admin.group.people" },
   { id: "rooms", key: "crbs.admin.group.rooms" },
@@ -81,13 +84,13 @@ export function AdminOverview() {
         const items = sections.filter((s) => s.group === g.id);
         if (!items.length) return null;
         return (
-          <section key={g.id} aria-labelledby={`grp-${g.id}`}>
+          <section key={g.id} aria-labelledby={`grp-${g.id}`} data-tour={TOUR_GROUP[g.id]}>
             <SectionTitle id={`grp-${g.id}`}>{t(g.key)}</SectionTitle>
             <Card variant="plain" className="py-0">
               <ul>
                 {items.map((s) => (
                   <li key={s.href} className="not-last:edge-hairline-b">
-                    <Link href={s.href} className="flex items-center gap-3 px-4 py-3 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
+                    <Link href={s.href} data-tour={tourAnchorFor(s.href)} className="flex items-center gap-3 px-4 py-3 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
                       <span className="min-w-0 flex-1">
                         <span className="block type-headline text-label-1">{t(s.labelKey)}</span>
                         <span className="block type-footnote text-label-2">{t(s.descriptionKey)}</span>
