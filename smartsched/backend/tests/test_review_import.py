@@ -65,7 +65,8 @@ async def test_m4_unchanged_reimport_writes_nothing_and_legacy_keys_migrate(baha
     assert rep.extra["rekeyed_legacy"] == len(before)
     assert rep.created["meeting_requests"] == 0 and rep.updated["meeting_requests_archived"] == 0
     assert rep.updated["meeting_requests"] == 0, rep.updated
-    assert rep.extra["unchanged"]["meeting_requests"] == rep.rows_imported
+    merged = rep.extra["merged_class_years"]
+    assert rep.extra["unchanged"]["meeting_requests"] == rep.rows_imported - (merged["rows"] - merged["groups"])
     async with get_session_factory()() as s:
         after = {
             m.id: m.source_key
@@ -149,7 +150,8 @@ async def test_m4_reimport_keeps_identity_edits_and_remaps(bahar, tmp_path):
     rep = await _reimport(new)
     ex = rep.extra
     assert rep.created["meeting_requests"] == 1 and rep.updated["meeting_requests_archived"] == 1
-    assert ex["unchanged"]["meeting_requests"] >= rep.rows_imported - 4
+    merged = ex["merged_class_years"]  # rows taught once with another class year make no meeting of their own
+    assert ex["unchanged"]["meeting_requests"] >= rep.rows_imported - (merged["rows"] - merged["groups"]) - 4
     assert 2 <= rep.updated["meeting_requests"] <= 3, rep.updated
     # identity survives filling in the definitive room
     mx2 = await _mr(x)

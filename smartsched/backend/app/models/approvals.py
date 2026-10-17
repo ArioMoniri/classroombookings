@@ -8,6 +8,8 @@
 * ``approval_requests``: one per PENDING booking or series, with a snapshot of the rule it was created under.
 * ``approval_decisions``: every approve / reject (with an optional suggested alternative).
 * ``inapp_notifications``: the shell's notification list (requester and approvers), next to the e-mail outbox.
+* ``notification_deliveries``: one row per (occurrence, recipient, channel) the dispatcher
+  (``app.services.notify_dispatch``) delivered; the unique key makes every notification idempotent.
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, true
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, utcnow
@@ -80,7 +82,12 @@ class ApprovalRequest(Base):
     #: local time (Europe/Istanbul, like booking dates) at which the request expires
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    #: who closed the request: the deciding approver, the requester (withdrawn); None = expired by the clock
+    decided_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)  # the last decision's note, for the requester
+    #: a rejection's structured reason (room_unavailable | capacity | policy | other | slot_taken); the free text
+    #: is ``note``
+    reason_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
     #: a rejection's suggested alternative {room_id, date, start_period, end_period, ...}
     suggestion: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
@@ -94,6 +101,7 @@ class ApprovalDecision(Base):
     approver_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     decision: Mapped[str] = mapped_column(String(10))  # APPROVED | REJECTED
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reason_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
     alternative: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     decided_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
@@ -110,5 +118,30 @@ class InAppNotification(Base):
     link: Mapped[str | None] = mapped_column(String(255), nullable=True)
     booking_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     request_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: structured payload of the notification (room, dates, periods, decision, reason, decided_by, ...)
+    data: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     read_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class NotificationDelivery(Base):
+    """The dispatcher's ledger: an occurrence (``event_key``, e.g. ``approval_request:12:rejected``) reaches a
+    recipient on a channel at most once."""
+
+    __tablename__ = "notification_deliveries"
+    __table_args__ = (
+        UniqueConstraint("event_key", "user_id", "channel", name="uq_notification_deliveries_key"),
+        Index("ix_notification_deliveries_user_id", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event: Mapped[str] = mapped_column(String(40))  # approval.requested | approval.rejected | ...
+    event_key: Mapped[str] = mapped_column(String(160))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    channel: Mapped[str] = mapped_column(String(32))  # in_app | email | <adapter name>
+    #: sent (handed to the channel: in-app row written, e-mail queued in the outbox) | skipped | failed
+    status: Mapped[str] = mapped_column(String(16))
+    #: the channel's own row (inapp_notifications.id, notification_outbox.id, ...)
+    ref_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    detail: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

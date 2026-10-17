@@ -9,7 +9,7 @@ export default {
   title: "Generator Studio: add a rule, then fix what the pre-check finds",
   db: "seeded",
   role: "admin",
-  verified: "2026-10-08 against the Liquid Glass v2 UI and the real backend",
+  verified: "2026-10-15 on the real backend (snapshot 52f96d4)",
   async setup({ page }) {
     await page.goto("/generate");
     await page.getByTestId("generate").waitFor({ timeout: 30_000 });
@@ -24,13 +24,13 @@ export default {
       await gallery.waitFor();
       await rec.click(gallery.getByTestId("template-same_room_every_week"));
       await gallery.getByTestId("rule-builder").waitFor();
-    });
+    }, { clip: "studio-rule" });
     await rec.step(tr(ctx, "Fill in the blanks; the preview counts the classes it affects", "Boşlukları doldurun; önizleme etkilenen dersleri sayar"), async () => {
       await rec.frame(gallery.getByTestId("rule-builder"), { dwell: 1800 });
       await rec.click(gallery.getByTestId("builder-add"));
       await gallery.waitFor({ state: "hidden", timeout: 20_000 });
       await rec.frame(page.getByTestId("rule-group-must"), { dwell: 1200 });
-    });
+    }, { clip: "studio-rule" });
     await rec.step(tr(ctx, "The pre-check tests the plan against the data before solving", "Ön kontrol, çözmeden önce planı verilerle sınar"), async () => {
       await rec.click(page.getByTestId("rail-step-check"));
       await page.getByTestId("check-step").waitFor();
@@ -40,15 +40,15 @@ export default {
         await rec.click(page.getByTestId("recheck"));
         await rec.cut(() => done.waitFor({ timeout: 180_000 }));
       }
-      await rec.frame(page.getByTestId("check-step"), { dwell: 1400 });
-    }, { zoom: false });
+      await rec.frame(page.getByTestId("check-step"), { dwell: 900 });
+    }, { clip: "precheck-fix", zoom: false });
     await rec.step(tr(ctx, "Each problem names the classes involved and offers fixes", "Her sorun ilgili dersleri adlandırır ve düzeltme önerir"), async () => {
       const card = page.getByTestId("issue-card").filter({ has: page.getByTestId("fix-button") }).first();
       await card.scrollIntoViewIfNeeded();
-      await rec.frame(card, { dwell: 1500 });
+      await rec.frame(card, { dwell: 1000 });
       await rec.click(card.getByTestId("fix-button").first());
-      await page.locator("[data-sonner-toast]").first().waitFor({ timeout: 30_000 }).catch(() => undefined);
-      await rec.wait(1200);
-    }, { hold: 1500, poster: true });
+      await page.locator("[data-sonner-toast]").first().waitFor({ timeout: 8_000 }).catch(() => undefined);
+      await rec.wait(600);
+    }, { clip: "precheck-fix", hold: 900, poster: true });
   },
 };

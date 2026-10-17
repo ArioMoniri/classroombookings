@@ -12,12 +12,19 @@ const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) 
 
 export class Recorder {
   /** @param {import('playwright').Page} page */
-  constructor(page, { speed = 1, viewport, log = () => {} } = {}) {
+  constructor(page, { speed = 1, viewport, log = () => {}, touch = false, virtualPointer = false } = {}) {
     this.page = page;
+    // virtualPointer (record.mjs --engine frames): the renderer draws the cursor from the logged track, so a move is
+    // logged as an eased path on its planned schedule and the real mouse jumps once. Under load every
+    // page.mouse.move round trip can take 100+ ms, which stretched a 0.6 s move to several seconds of video.
+    this.virtualPointer = virtualPointer;
+    // touch: a phone take (hasTouch context); click() taps, the renderer shows a finger dot instead of a cursor
+    this.touch = touch;
+    this.keys = []; // {t, text} typed text and {t, key} key presses: the launch renderer's keystroke overlay
     this.speed = speed; // >1 = slower, more deliberate demo
     this.viewport = viewport;
     this.log = log;
-    this.t0 = performance.now();
+    this.t0 = performance.now(); // the launch renderer maps screencast frame times onto this clock
     this.pointer = [];
     this.steps = [];
     this.marks = {};
@@ -72,8 +79,9 @@ export class Recorder {
    * A captioned step. `focus` (optional) is a locator whose box the camera frames for the whole step;
    * actions inside the step (click/type/drag) add their own targets, which win while they happen.
    */
-  async step(caption, fn, { focus = null, zoom = true, hold = 900, poster = false } = {}) {
-    const step = { caption, startMs: this.now(), endMs: 0, targets: [], zoom, poster };
+  async step(caption, fn, { focus = null, zoom = true, hold = 900, poster = false, clip = null } = {}) {
+    // clip: id of the README GIF this step belongs to (consecutive steps with the same id form one clip)
+    const step = { caption, startMs: this.now(), endMs: 0, targets: [], zoom, poster, clip };
     this.steps.push(step);
     this.current = step;
     this.log(`step: ${caption}`);
@@ -91,8 +99,14 @@ export class Recorder {
     const loc = typeof target === "string" ? this.page.locator(target) : target;
     await loc.first().waitFor({ state: "visible", timeout: 30_000 });
     await loc.first().scrollIntoViewIfNeeded().catch(() => undefined);
-    const b = await loc.first().boundingBox();
+    let b = await loc.first().boundingBox();
     if (!b) throw new Error(`no bounding box for ${target}`);
+    // under the translucent top bar or at the bottom edge: bring it to the middle (a click there would hit the bar)
+    if (b.y < 72 || b.y + b.height > this.viewport.height - 16) {
+      await loc.first().evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" })).catch(() => undefined);
+      await sleep(250);
+      b = (await loc.first().boundingBox()) ?? b;
+    }
     return b;
   }
 
@@ -109,12 +123,14 @@ export class Recorder {
    */
   async cut(fn, { keepMs = 500 } = {}) {
     await this.wait(keepMs);
-    const a = await this.flash(300);
+    // long enough to be in at least one frame when the capture rate drops under load (screencast: frames on paint)
+    const markMs = process.env.REC_CAPTURE === "screencast" ? 1000 : 300;
+    const a = await this.flash(markMs);
     try {
       return await fn(this);
     } finally {
       await this.wait(150);
-      const b = await this.flash(300);
+      const b = await this.flash(markMs);
       this.cuts.push({ start: a.start, end: b.end, flashA: a, flashB: b });
     }
   }
@@ -130,9 +146,28 @@ export class Recorder {
   /** Eased pointer move, logged at ~60 Hz. */
   async moveTo(x, y, { duration = 650 } = {}) {
     const from = { ...this.pos };
+    if (this.touch) {
+      // a finger does not hover: no pointer travel, a short pause while it "reaches" the target
+      this.pos = { x, y };
+      this.pointer.push({ t: this.now(), x, y, type: "move" });
+      await sleep(Math.min(420, 200 + Math.hypot(x - from.x, y - from.y) * 0.4) * this.speed);
+      return;
+    }
     const dist = Math.hypot(x - from.x, y - from.y);
     const ms = Math.max(180, Math.min(duration * this.speed, 250 + dist * 0.9));
     const n = Math.max(6, Math.round(ms / 16));
+    if (this.virtualPointer) {
+      const t0 = this.now();
+      for (let i = 1; i <= n; i++) {
+        const u = easeInOut(i / n);
+        this.pointer.push({ t: t0 + (ms * i) / n, x: from.x + (x - from.x) * u, y: from.y + (y - from.y) * u, type: "move" });
+      }
+      await this.page.mouse.move(x, y);
+      const left = t0 + ms - this.now();
+      if (left > 0) await sleep(left);
+      this.pos = { x, y };
+      return;
+    }
     for (let i = 1; i <= n; i++) {
       const u = easeInOut(i / n);
       const px = from.x + (x - from.x) * u;
@@ -156,6 +191,13 @@ export class Recorder {
     const b = await this.moveOnto(target, { at });
     this.addTarget(b, kind);
     await this.wait(120);
+    if (this.touch) {
+      this.pointer.push({ t: this.now(), x: this.pos.x, y: this.pos.y, type: "down" });
+      await this.page.touchscreen.tap(this.pos.x, this.pos.y);
+      this.pointer.push({ t: this.now(), x: this.pos.x, y: this.pos.y, type: "click" });
+      await this.wait(after);
+      return b;
+    }
     await this.page.mouse.down();
     this.pointer.push({ t: this.now(), x: this.pos.x, y: this.pos.y, type: "down" });
     await sleep(70);
@@ -169,11 +211,13 @@ export class Recorder {
     await this.click(target, { after: 150 });
     const loc = typeof target === "string" ? this.page.locator(target) : target;
     if (clear) await loc.first().fill("");
+    this.keys.push({ t: this.now(), text, ms: Math.round(text.length * delay * this.speed) });
     await this.page.keyboard.type(text, { delay: delay * this.speed });
     await this.wait(after);
   }
 
   async press(key, { after = 400 } = {}) {
+    this.keys.push({ t: this.now(), key });
     await this.page.keyboard.press(key);
     await this.wait(after);
   }
@@ -220,6 +264,9 @@ export class Recorder {
     return {
       version: 1,
       viewport: this.viewport,
+      t0: this.t0,
+      touch: this.touch,
+      keys: this.keys,
       marks: this.marks,
       cuts: this.cuts,
       steps: this.steps,

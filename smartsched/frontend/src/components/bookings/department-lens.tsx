@@ -16,6 +16,8 @@ import { crbs, useCrbsMe, useDepartments, type Grid } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import { SelectField } from "@/components/admin/kit";
 import { departmentColor, departmentTally, deptStorageKey, parseDepartmentLens, type DepartmentLens } from "./reserve-model";
+import { BareButton } from "@/components/shell/bare-button";
+import { cn } from "@/lib/utils";
 
 const listeners = new Set<() => void>();
 
@@ -55,7 +57,11 @@ export function useDepartmentLens(): [DepartmentLens, (v: DepartmentLens) => voi
   return [value, set, mine];
 }
 
-export function DepartmentBar({ grid, value, onChange, mine, termId, onRoomInfo }: { grid: Grid | undefined; value: DepartmentLens; onChange: (v: DepartmentLens) => void; mine: number | null; termId?: number; onRoomInfo: (roomId: number) => void }) {
+/**
+ * `part`: "all" (desktop: picker + legend, then the top-rooms strip), "picker" (the compact toolbar's filter sheet:
+ * picker + legend, stacked) or "strip" (the compact page: only the strip, when a department is chosen).
+ */
+export function DepartmentBar({ grid, value, onChange, mine, termId, onRoomInfo, part = "all" }: { grid: Grid | undefined; value: DepartmentLens; onChange: (v: DepartmentLens) => void; mine: number | null; termId?: number; onRoomInfo: (roomId: number) => void; part?: "all" | "picker" | "strip" }) {
   const { t, locale } = useI18n();
   const departments = useDepartments();
   const collator = useMemo(() => new Intl.Collator(locale), [locale]);
@@ -73,12 +79,15 @@ export function DepartmentBar({ grid, value, onChange, mine, termId, onRoomInfo 
   const ordered = useMemo(() => [...list.filter((d) => d.id === mine), ...list.filter((d) => d.id !== mine)], [list, mine]);
 
   return (
-    <section aria-label={t("reserve.dept.label")} className="flex flex-col gap-2" data-print-hide data-testid="department-bar">
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-2 type-footnote font-medium text-label-2">
-          <Building2 className="size-4" aria-hidden />
-          {t("reserve.dept.label")}
-          <SelectField value={String(value)} onChange={(e) => onChange(e.target.value === "all" ? "all" : Number(e.target.value))} className="min-w-44" data-testid="department-select">
+    <section aria-label={t("reserve.dept.label")} className="flex flex-col gap-2" data-print-hide data-testid={part === "strip" ? "department-strip" : "department-bar"}>
+      {part !== "strip" ? (
+      <div className={cn("flex items-center gap-2", part === "picker" ? "flex-col items-stretch" : "flex-wrap")}>
+        <label className={cn("flex gap-2 type-footnote font-medium text-label-2", part === "picker" ? "flex-col" : "items-center")}>
+          <span className="flex items-center gap-2">
+            <Building2 className="size-4" aria-hidden />
+            {t("reserve.dept.label")}
+          </span>
+          <SelectField value={String(value)} onChange={(e) => onChange(e.target.value === "all" ? "all" : Number(e.target.value))} className={part === "picker" ? "w-full" : "w-auto min-w-48 max-w-72"} data-testid="department-select">
             <option value="all">{t("reserve.dept.all")}</option>
             {ordered.map((d) => (
               <option key={d.id} value={d.id}>
@@ -87,7 +96,7 @@ export function DepartmentBar({ grid, value, onChange, mine, termId, onRoomInfo 
             ))}
           </SelectField>
         </label>
-        <ul className="-mx-1 flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto px-1 py-0.5 scrollbar-thin" aria-label={t("reserve.dept.legend")} data-testid="department-legend">
+        <ul className={cn("-mx-1 flex min-w-0 flex-1 items-center gap-1.5 px-1 py-0.5", part === "picker" ? "flex-wrap" : "overflow-x-auto scrollbar-thin")} aria-label={t("reserve.dept.legend")} data-testid="department-legend">
           {tally.length === 0 ? <li className="type-footnote text-label-3">{t("reserve.dept.legendEmpty")}</li> : null}
           {tally.map((d) => (
             <li key={d.id}>
@@ -106,25 +115,25 @@ export function DepartmentBar({ grid, value, onChange, mine, termId, onRoomInfo 
           ))}
         </ul>
       </div>
-      {chosen !== null ? (
+      ) : null}
+      {chosen !== null && part !== "picker" ? (
         // one fixed-height strip (scrolls sideways): the top rooms arrive after the grid and must not push it down
-        <div className="-mx-1 flex h-12 items-center gap-2 overflow-x-auto px-1 type-footnote whitespace-nowrap text-label-2 scrollbar-thin sm:h-7" aria-live="polite">
+        <div className="-mx-1 flex h-12 items-center gap-2 overflow-x-auto px-1 type-footnote whitespace-nowrap text-label-2 scrollbar-thin pointer-fine:h-7" aria-live="polite">
           <span data-testid="department-filtering">{t("reserve.dept.filtering", { name: nameOf(chosen) })}</span>
           {top.data ? (
             top.data.rooms.length ? (
               <span className="flex items-center gap-1.5" data-testid="department-top-rooms">
                 <span className="text-label-3">{t("reserve.dept.topRooms", { name: nameOf(chosen) })}:</span>
                 {top.data.rooms.map((r) => (
-                  <button
+                  <BareButton
                     key={r.room_id}
-                    type="button"
                     onClick={() => onRoomInfo(r.room_id)}
                     title={t("reserve.dept.roomUse", { bookings: r.bookings, classes: r.classes })}
                     aria-label={`${t("crbs.roomInfo.open", { name: r.name })} · ${t("reserve.dept.roomUse", { bookings: r.bookings, classes: r.classes })}`}
-                    className="h-11 shrink-0 rounded-full bg-fill-2 px-2.5 font-medium text-label-1 outline-hidden hover:bg-fill-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) sm:h-6"
+                    className="h-(--control-h-xs) shrink-0 rounded-full bg-fill-2 px-2.5 font-medium text-label-1 hover:bg-fill-1"
                   >
                     {r.name}
-                  </button>
+                  </BareButton>
                 ))}
               </span>
             ) : (

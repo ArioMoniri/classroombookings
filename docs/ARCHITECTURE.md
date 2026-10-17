@@ -92,7 +92,55 @@ repo root
 | `import_jobs` | id, kind, filename, status, summary (JSON: rows, created, updated, warnings), created_at |
 | Booking enhancements wave 1 | `room_custom_fields` typed (BOOLEAN/NUMBER/SELECT/MULTISELECT/TEXT, filterable, solver_tag; alembic 0012), `audit_events` (append-only, triggers; 0014), `approver_scopes`, `approval_rules`, `approval_requests`, `approval_decisions`, `inapp_notifications` (0015) — docs/product/wave1-api.md |
 | Calendar sync (alembic 0011) | `calendar_feed_tokens` (SHA-256 of the token only), `calendar_connections` (Fernet-encrypted OAuth tokens), `calendar_event_links`, `calendar_event_revisions`, `calendar_sync_jobs` (outbox), `oauth_states`, `webhook_endpoints`, `webhook_deliveries` — docs/product/calendar-sync-api.md |
+| Invigilation (alembic 0031) | `invigilator_pool` (staff / assistants and per-person rules: unavailability, duty limits, load factor; `term_id` null = every term), `invigilation_plans` (one solve of an exam run; parent plan for a re-run; one published plan per exam run), `invigilation_duties` (person × post = room, date, periods; `is_locked`) |
 | `users.token_version` (alembic 0006) | raised to revoke every token of the user (see "Sessions and token revocation") |
+
+### Migrations (Alembic chain)
+
+Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.py` (do not edit the block).
+
+<!-- AUTO:migrations -->
+
+34 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0038_email_templates`**. A new migration goes on top of it (`alembic heads` must print one line).
+
+| # | Revision | Revises | Summary (first line of the docstring) |
+|---:|---|---|---|
+| 1 | `0001` | (base) | initial schema |
+| 2 | `0002_studio` | `0001` | generator studio: drafts, presets, imported snapshots, constraints.source_ref |
+| 3 | `0003_crbs_parity` | `0002_studio` | CRBS parity: roles/permissions, room groups/ACL/custom fields, booking calendar, bookings, outbox, translations… |
+| 4 | `0004_review_fixes` | `0003_crbs_parity` | Review 2026-10-08 fixes: chat-apply claims (M2), job heartbeats (M6), canonical cohort keys in stored constraint… |
+| 5 | `0005_crbs_legacy_ids` | `0004_review_fixes` | CRBS parity audit B4: ``legacy_crbs_id`` on the parity tables, so that importing a CRBS database twice updates the… |
+| 6 | `0006_token_version` | `0005_crbs_legacy_ids` | Parity B-AUTH-11: ``users.token_version`` |
+| 7 | `0011_integrations` | `0006_token_version` | Calendar sync and outgoing webhooks (docs/product/calendar-sync-api.md): hashed feed tokens, event revisions, Google /… |
+| 8 | `0012_room_features` | `0011_integrations` | Booking enhancements wave 1, P10 typed room features (docs/product/booking-enhancements.md §4.1)… |
+| 9 | `0013_find_room` | `0012_room_features` | Booking enhancements wave 1, T1 find a room (docs/product/booking-enhancements.md §4.2): bookings remember what they… |
+| 10 | `0014_audit_events` | `0013_find_room` | Booking enhancements wave 1, P7 audit log (docs/product/booking-enhancements.md §4.6): the append-only… |
+| 11 | `0015_approvals` | `0014_audit_events` | Booking enhancements wave 1, P1 approval workflows (docs/product/booking-enhancements.md §4.3, user decisions… |
+| 12 | `0016_course_code_keys` | `0015_approvals` | Course codes: one course per code key (planner comparison follow-up, importer item 1b) |
+| 13 | `0017_course_code_fold` | `0016_course_code_keys` | Course codes: Turkish letters folded in the code key (product-owner decision 2026-10-15) |
+| 14 | `0018_ai_proposal_decisions` | `0017_course_code_fold` | AI proposal decisions: every reviewed AI / upload / learned proposal and its outcome |
+| 15 | `0019_publish_guard_term_locks` | `0018_ai_proposal_decisions` | Publish guard + per-term write lock (review 2026-10-15 D4 / D8) |
+| 16 | `0020_council` | `0019_publish_guard_term_locks` | ingestion council: council_jobs, council_steps, council_artifacts |
+| 17 | `0021_outbox_queue` | `0020_council` | E-mail outbox on the integrations queue (ROADMAP Phase 11): ``notification_outbox`` gains ``next_attempt_at`` (when… |
+| 18 | `0022_kvkk_signoff_unseed` | `0021_outbox_queue` | KVKK sign-off is never seeded (admin persona 2026-10-15 M-18) |
+| 19 | `0023_learning` | `0022_kvkk_signoff_unseed` | Phase 19 learning lane (P19-L1) + catalogue batch (P19-C4) + priority columns (P19-M2) |
+| 20 | `0024_moderation_indexes` | `0023_learning` | Phase 19 moderation read models (P19-M1): indexes for a person's sections across terms and a term's sections of one… |
+| 21 | `0025_approval_first` | `0024_moderation_indexes` | Approval-first bookings (owner requirement 2026-10-15; docs/ROADMAP.md "Approval-first bookings") |
+| 22 | `0026_sso_entra` | `0025_approval_first` | Sign-in with Microsoft Entra ID (owner decisions 2026-10-15; app/services/sso.py, docs/deploy/sso-entra.md) |
+| 23 | `0027_notify_channels` | `0026_sso_entra` | Notification channels ("Bildirim kanalları"; owner decision 2026-10-15, docs/product/2026-10-15-integrations-options.md) |
+| 24 | `0028_p19_gaps` | `0027_notify_channels` | Phase 19 backend gaps: program wizard drafts (P19-W-01) and person / programme priority (P19-P-04) |
+| 25 | `0029_booking_policies` | `0028_p19_gaps` | Booking policies and exam-period mode (booking enhancements wave 2, P8; docs/product/booking-enhancements.md §P8) |
+| 26 | `0030_booking_conflicts` | `0029_booking_policies` | Conflict resolver after publishing (booking enhancements wave 2, P2; docs/product/booking-enhancements.md §4.4) |
+| 27 | `0031_invigilation` | `0030_booking_conflicts` | Invigilator assignment for exam runs (docs/features.yml "invigilator assignment"; app/services/invigilation.py) |
+| 28 | `0032_kvkk` | `0031_invigilation` | KVKK compliance (booking enhancements wave 2, A4; docs/product/booking-enhancements.md §4.7) |
+| 29 | `0033_invig_progress` | `0032_kvkk` | Invigilation plan progress and liveness (backend asks batch 2; app/services/invigilation.py) |
+| 30 | `0034_ai_usage` | `0033_invig_progress` | AI gateway usage metering (wave 3 W3-AI; app/models/ai_usage.py, app/services/ai_usage.py) |
+| 31 | `0035_rls_policies` | `0034_ai_usage` | PostgreSQL row-level security on the per-person tables (wave 3 W3-SEC; app/core/rls.py, docs/SECURITY.md §4) |
+| 32 | `0036_error_events` | `0035_rls_policies` | Grouped error events for the operations panel (W3-OPS; app/models/error_event.py, app/core/observability.py) |
+| 33 | `0037_identity_providers` | `0036_error_events` | Several identity providers set by administrators (wave 3b W3-IDP; app/services/identity/**, app/services/sso.py) |
+| 34 | `0038_email_templates` | `0037_identity_providers` | Themed e-mails (wave 3b W3-MAIL; app/emails, app/services/mail.py): the outbox remembers the button link and the… |
+
+<!-- /AUTO:migrations -->
 
 ## Solver contract (`app/solver/model.py`) — frozen for parallel work
 
@@ -189,6 +237,9 @@ Constraint kinds (v1): `capacity`, `no_room_overlap`, `no_cohort_overlap`, `no_i
 | `POST /runs/{id}/assignments/{aid}/move`, `/lock` | manual drag-drop edits with conflict check |
 | `GET /runs/{id}/export?format=xlsx|ics|csv|crbs` | exports (xlsx reproduces the weekly grid layout) |
 | `GET /runs/{id}/grid?week=` | room × period matrix for the UI |
+| `GET /analytics/compare?a=&b=[&format=csv&part=]` | scenario comparison of two runs of one term and kind: scores, per-class moves, instructor load / gaps, room deltas, rule-by-rule soft penalties (`services/scenario_compare.py`) |
+| `GET /analytics/heatmap/rooms`, `GET /analytics/heatmap/instructors` | utilisation heatmaps of a run or the live board (published runs + blocks + bookings) by building / room type / capacity band / room; instructor load (`services/utilisation.py`); JSON or CSV |
+| `/invigilation/pool*`, `/invigilation/plans*` | invigilator assignment for exam runs: staff pool, CP-SAT plans (run, view, lock, reassign, fill a short post by hand `POST …/duties`, re-run, publish), candidates (target post only, `check_post`, off the event loop), plan `progress {phase, pct}` stored by the queue job, startup sweep of plans of a dead process, roster / load CSV (`services/invigilation.py`, `solver/invigilation.py`) |
 | `GET /health`, `GET /metrics` | ops |
 | `POST /auth/logout` | revokes every token of the user (token version) |
 | `/bookings/*`, `/booking-admin/*`, `/room-admin/*`, `/org/*`, `/roles`, `/departments`, `/holidays` | CRBS parity (docs/CRBS_PARITY.md §4) |
@@ -215,7 +266,40 @@ The full route list is in smartsched/README.md ("API overview") and the live Ope
   KVKK acknowledgement (`app/ai/policy.py`; both off by default, every change audited). Otherwise the file
   is read on the server and its units are left for a person. Text the planner types is not governed by
   these switches.
+- **Per-person exclusion**: a person who withdrew the `ai_personal` consent is kept out of every later model
+  request (`app/ai/personal.py`, applied in `AIClient` for every prompt builder): their names and e-mail leave as
+  `[KİŞİ_n]` and the server maps the token back in the answer, so a rule about them still resolves.
 - Always load the `claude-api` skill before editing `app/ai/*`.
+
+## Intake formats (Ingestion Council)
+
+Uploads go through the council's format registry (`app/council/formats.py`): magic bytes decide the format, every
+format has its own caps, and a bomb is refused at upload (400 / 413) before a job exists. Structured formats are read
+on the server; the AI route only runs when an administrator has enabled AI intake, and every row it produces waits for
+a person's review. Generated from the registry entries by `scripts/docs/sync_docs.py`:
+
+<!-- AUTO:formats -->
+
+12 formats registered in [`app/council/formats*.py`](../smartsched/backend/app/council), detected by magic bytes first (the extension only breaks ties). Limits not listed are the `FormatLimits` defaults.
+
+| Format | Label | Extensions | Route | Limit | Registered in |
+|---|---|---|---|---|---|
+| `xlsx` | Excel workbook | .xlsx .xlsm | structured: read on the server, no AI | 25 MiB | `formats_builtin.py` |
+| `ics` | iCalendar | .ics .ical .ifb | structured: read on the server, no AI | 10 MiB | `formats_ics.py` |
+| `xls` | Excel 97-2003 workbook | .xls | structured: read on the server, no AI | 20 MiB | `formats_sheets.py` |
+| `ods` | OpenDocument spreadsheet | .ods | structured: read on the server, no AI | 20 MiB | `formats_sheets.py` |
+| `xml` | XML | .xml | structured: read on the server, no AI | 10 MiB | `formats_sheets.py` |
+| `csv` | CSV / TSV | .csv .tsv | structured: read on the server, no AI | 15 MiB | `formats_text.py` |
+| `json` | JSON | .json | structured: read on the server, no AI | 10 MiB | `formats_text.py` |
+| `docx` | Word document | .docx | AI-assisted: off by default; every row reviewed | 15 MiB | `formats_builtin.py` |
+| `pdf` | PDF | .pdf | AI-assisted: off by default; every row reviewed | 15 MiB | `formats_builtin.py` |
+| `image` | image | .png .jpg .jpeg .webp .gif | AI-assisted: off by default; every row reviewed | 10 MiB | `formats_builtin.py` |
+| `eml` | e-mail | .eml | AI-assisted: off by default; every row reviewed | 15 MiB | `formats_mail.py` |
+| `txt` | plain text | .txt .md .text | AI-assisted: off by default; every row reviewed | 2 MiB | `formats_text.py` |
+
+Recognised but refused, with a hint: `doc` (legacy .doc files are not read; save the file as .docx); `ppt` (legacy .ppt presentations are not read; export the slides as PDF); `pptx` (presentations are not read; export the slides as PDF); `odf-other` (OpenDocument text and presentations are not read; save the file as .docx or PDF); `zip` (zip archives are not unpacked; upload the files inside it); `ole2-other` (this Office file is not a workbook the council can read; save it as .xlsx).
+
+<!-- /AUTO:formats -->
 
 ## Event bus (booking side)
 
@@ -256,9 +340,10 @@ the inverse action needs (`services/bookings_undo.py`).
   RFC 5545 output with ETag / 304 and throttling. nginx does not log the feed paths. Links are built from
   `PUBLIC_URL` (or the admin setting `integrations.public_url`). The older `/ics/{token}/…` links use the
   same engine.
-- **KVKK switch**: `integrations.calendar_sync_enabled` (default on, with the institution's sign-off of
-  2026-10-08 stored as the default `calendar_sync_signoff`). Off turns every token feed into a 404;
-  switching it records a new sign-off and an audit event.
+- **KVKK switch**: `integrations.calendar_sync_enabled` (default **off**; `calendar_sync_signoff` is
+  `null` on a new install). Sync counts as on only with a real sign-off (an admin's user id and an ISO date),
+  recorded when an admin switches it on via `PUT /calendar/admin/settings`; migration `0022` un-seeds the
+  former default sign-off. Off turns every token feed into a 404; each change records an audit event.
 - **Push connectors** (`services/calendar_connectors.py`): Google Calendar and Microsoft 365. They are
   available only after an administrator stores the organisation's OAuth client under
   `PUT /calendar/admin/settings` (client secrets Fernet-encrypted; none ships with the product, so
@@ -280,6 +365,40 @@ a suggestion, approve in another room, approve a subset of a series; competing r
 slot are rejected when one is approved. Every transition is audited and notified (e-mail + in-app).
 Expiry and hold release run lazily on every approvals call and in `workers/approvals_sweeper.py` every
 60 s (not started when `ENVIRONMENT=test`). With no rule, booking behaves as in CRBS.
+
+### Approval-first mode and notification delivery
+
+`bookings.approval_mode` is `rules` (the CRBS behaviour above) or `all`. With `all`, every request for an empty slot goes to an admin first; the institution seed sets it once. A rejection needs a `reason_code` and a written reason, which the requester sees. `services/notify_dispatch.py` sends every notice (approval requested, decided or withdrawn; booking created or cancelled; room owner) to each recipient's enabled channels. Each recipient sets these at `/me/notification-preferences`. Duplicates are stopped by idempotency keys in `notification_deliveries`. An approver gets one message per submission (`group_id`), queued until the transaction commits.
+
+The channels are in-app, e-mail and `services/channels/**`:
+- browser push (pywebpush, VAPID)
+- Telegram
+- WhatsApp Cloud API, or an optional wuzapi bridge
+- SMS
+- Teams/Slack department posts, through Apprise
+
+`channels.register()` adds them at start-up. Their outbox drains in `workers/integrations.py`, retrying from 1 min to 6 h. Every channel stays off until an admin enters the institution's sender and records a KVKK sign-off; the sign-off is checked again at send time. Users only link their own address, and linking is their opt-in. Messages are link-only by default. Secrets and addresses are encrypted. Push endpoints and webhook hosts are allowlisted and DNS-checked. Setup: `docs/deploy/notification-channels.md`.
+
+## Sign-in with Microsoft Entra ID
+
+`services/sso.py` and `api/v1/sso.py` (`/api/v1/auth/sso/*`) implement direct OIDC against the institution's single tenant, using Authlib and joserfc. The flow uses PKCE, state and nonce, and the `id_token` is verified against the tenant's JWKS. Multi-tenant, consumer and guest accounts are refused.
+
+**Identity and accounts**
+- Identity is the Entra `oid`+`tid`, never the e-mail, and nothing is linked automatically by e-mail.
+- The callback redirects with a one-time 2-minute ticket, which `POST /exchange` swaps for the normal SmartSched JWT. The IdP tokens are dropped.
+- **Sign-up:** a first sign-in creates a Teacher account (the `sso_self_signup` setting, on by default). An admin invite binds on the first sign-in by the verified UPN, and invites expire after 30 days.
+- **Linking an existing account:** "bind on next login" does it, and admins can link a login to an instructor.
+- **Roles:** administrative roles are granted only by an admin, under the no-escalation rule. Optional role and group mapping can demote, which revokes sessions; it never demotes the last break-glass admin.
+- **Password sign-in:** "Microsoft only for non-admins" refuses password sign-in for everyone else with the same generic 401 as a bad password. Switching it on needs an active local break-glass admin.
+
+**Errors and audit**
+- Errors are codes on `/login?error=` that never reveal whether an account exists. `failed` carries an audit reference.
+- Every step is audited.
+
+**Configuration**
+- Admins enter the configuration in Settings › Microsoft ile giriş; the secret is write-only. It can also come from the `SSO_ENTRA_*` env variables (SSM).
+- The IT checklist is `docs/deploy/sso-entra.md`.
+- The sign-in UI follows `docs/design/v2/sign-in.md`.
 
 ## Sessions and token revocation
 

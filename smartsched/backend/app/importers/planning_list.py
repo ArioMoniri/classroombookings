@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import time, timedelta
 from pathlib import Path
 from typing import Any
@@ -343,7 +343,14 @@ async def import_planning_list(
         prog = await cat.program(r.program, await cat.faculty(r.faculty))
         sk = f"{r.course_code}|{prog.canonical_name if prog else ''}|{r.label or ''}"
         keyed.append((sk, tuple(r.day.days), time_sort_key(r.start_time, r.row)))
-    occ = occurrences(keyed)
+    merged_into, merged_units = _class_year_merges(parsed.rows, keyed)
+    # occurrence numbers count the rows that become meetings (a row merged into another class year's row is
+    # none), so a meeting's key is its index among the section's meetings - as the legacy re-key derives it
+    kept = [i for i in range(len(keyed)) if i not in merged_into]
+    occ: list[int] = [0] * len(keyed)
+    for i, o in zip(kept, occurrences([keyed[i] for i in kept]), strict=True):
+        occ[i] = o
+    merged_items: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
     unchanged = Counter[str]()
     created_now: list[MeetingRequest] = []
@@ -359,6 +366,32 @@ async def import_planning_list(
     for i_row, r in enumerate(parsed.rows):
         for w in r.warnings:
             report.warn(w, r.row)
+        if i_row in merged_into:  # taught once with an earlier row to another class year (owner decision)
+            report.rows_imported += 1
+            continue
+        merged_note: str | None = None
+        if i_row in merged_units:
+            unit = [parsed.rows[j] for j in merged_units[i_row]]
+            years = sorted({y for u in unit for y in u.class_years})
+            enrols = [u.enrolment for u in unit if u.enrolment is not None]
+            if len(set(enrols)) > 1:
+                report.warn(
+                    f"class years merged with rows {[u.row for u in unit[1:]]}: enrolment "
+                    f"{' / '.join(map(str, enrols))} differ; using {max(enrols)} (the class is taught once)",
+                    r.row,
+                )
+            shown = ", ".join(f"{u.row} ({'/'.join(f'{y}.' for y in u.class_years) or '?'} sınıf)" for u in unit)
+            merged_note = f"{MERGED_YEARS_NOTE}: satır {shown}"
+            merged_items.append(
+                {
+                    "course": r.course_code,
+                    "section": r.label,
+                    "rows": [u.row for u in unit],
+                    "class_years": years,
+                    "enrolments": enrols,
+                }
+            )
+            r = replace(r, class_years=years, enrolment=max(enrols) if enrols else r.enrolment)
         if r.definitive.venue:
             venue_rows += 1
             report.warn(n.venue_warning(r.definitive), r.row)
@@ -414,6 +447,11 @@ async def import_planning_list(
                     unchanged["sections"] += 1
                 if ssnap is not None:
                     ssnap.fingerprint = section_snapshot_fp(section.source_row, section_key)
+        if merged_note is not None and section_key in seen_section_keys:
+            # the section was written by an earlier row: it gains the merged years too
+            union = sorted({*(section.class_years or []), *r.class_years})
+            if union != sorted(section.class_years or []):
+                section.class_years = union
         seen_section_keys.add(section_key)
 
         # instructors; a cell that names no person ("Yüz yüze", "UZEM", a pasted note) is a data issue and
@@ -475,7 +513,7 @@ async def import_planning_list(
             definitive_room_ids=definitive_ids,
             status=status,
             parse_warnings=r.warnings,
-            notes=_join_notes(r),
+            notes=" | ".join(p for p in (_join_notes(r), merged_note) if p) or None,
             source_key=mkey,
             source_row_index=r.row,
             archived=False,
@@ -578,6 +616,11 @@ async def import_planning_list(
         report.extra["pc_labs"] = sorted({*report.extra["pc_labs"], *pc_from_text})
     await cat.finalize_rooms(lecture_side=True)
     report.extra["rows_with_day_time"] = with_day_time
+    report.extra["merged_class_years"] = {
+        "groups": len(merged_items),
+        "rows": sum(len(i["rows"]) for i in merged_items),
+        "items": merged_items[:500],
+    }
     report.extra["rows_with_periods"] = with_periods
     report.extra["period_coverage"] = round(with_periods / with_day_time, 4) if with_day_time else None
     await session.commit()
@@ -765,6 +808,49 @@ async def _unlink_non_person(session: AsyncSession, section_id: int, text: str) 
         link = await session.get(SectionInstructor, (section_id, ins_id))
         if link is not None:
             await session.delete(link)
+
+
+#: the meeting note that keeps the provenance of rows merged across class years (skipped as a wish)
+MERGED_YEARS_NOTE = "Sınıf yılları birleşik / class years merged"
+
+
+def _class_year_merges(
+    rows: list[PlanningRow], keyed: list[tuple[str, tuple[int, ...], Any]]
+) -> tuple[dict[int, int], dict[int, list[int]]]:
+    """Rows identical except for the class year (owner decision 2026-10-15): same section key (course,
+    programme, section label), instructors, days, start / end, weeks, definitive rooms and mode -> one section
+    taught once. Within such a group the k-th row of each class-year set forms one unit (exact repeats of
+    one year stay separate meetings, as before). Returns (row index -> lead index, lead index -> unit)."""
+    groups: dict[tuple[Any, ...], list[int]] = {}
+    for i, r in enumerate(rows):
+        ident = (
+            keyed[i][0],
+            tuple(r.day.days),
+            r.start_time,
+            r.end_time,
+            tuple(sorted(n.fold(x) for x in r.instructors + r.secondary_instructors)),
+            tuple(r.definitive.room_codes),
+            tuple(r.weeks.weeks),
+            r.weeks.all_weeks,
+            r.mode.mode,
+        )
+        groups.setdefault(ident, []).append(i)
+    into: dict[int, int] = {}
+    units: dict[int, list[int]] = {}
+    for idx in groups.values():
+        by_years: dict[tuple[int, ...], list[int]] = {}
+        for i in idx:
+            by_years.setdefault(tuple(rows[i].class_years), []).append(i)
+        if len(by_years) < 2:
+            continue
+        for k in range(max(len(v) for v in by_years.values())):
+            unit = sorted(v[k] for v in by_years.values() if k < len(v))
+            if len(unit) < 2:
+                continue
+            units[unit[0]] = unit
+            for j in unit[1:]:
+                into[j] = unit[0]
+    return into, units
 
 
 def _join_notes(r: PlanningRow) -> str | None:

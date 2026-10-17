@@ -234,6 +234,9 @@ export const BulkMoveOut = z.object({
   conflict_count: z.number(),
   assignments: z.array(IndexAssignment).default([]),
   undo: UndoToken.default({ snapshots: [], delete_ids: [] }),
+  /** owner decision 2026-10-17 (R1-S-37): a forced move on the published run was applied to this new draft run */
+  draft_run_id: z.number().nullable().optional(),
+  live_run_id: z.number().nullable().optional(),
 });
 export type BulkMoveOut = z.infer<typeof BulkMoveOut>;
 
@@ -278,7 +281,8 @@ export const calendarApi = {
     }),
   movePreview: (runId: number, aid: number, body: Omit<MoveItem, "aid">) =>
     request(`/runs/${runId}/assignments/${aid}/move-preview`, { method: "POST", body, schema: BulkMoveOut, ...silently }),
-  bulkMove: (runId: number, body: { moves: MoveItem[]; atomic?: boolean; dry_run?: boolean; force?: boolean }) =>
+  /** `force` + `reason` (admins only, ≥ 3 characters) when a move breaks a hard rule; 422 names the rules otherwise. */
+  bulkMove: (runId: number, body: { moves: MoveItem[]; atomic?: boolean; dry_run?: boolean; force?: boolean; reason?: string; lang?: "tr" | "en" }) =>
     request(`/runs/${runId}/assignments/bulk-move`, { method: "POST", body, schema: BulkMoveOut, ...silently }),
   restore: (runId: number, undo: UndoToken) =>
     request(`/runs/${runId}/assignments/restore`, { method: "POST", body: undo, schema: z.object({ restored: z.array(z.number()), deleted: z.array(z.number()) }), ...silently }),

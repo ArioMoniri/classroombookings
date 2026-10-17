@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ACTIVE_JOB, CouncilJob, councilApi } from "@/lib/api/council";
+import { useI18n } from "@/lib/i18n/provider";
 
 export const councilKey = (id: number) => ["council", id] as const;
 
@@ -10,13 +11,15 @@ export const councilKey = (id: number) => ["council", id] as const;
  * Live council job: server-sent `snapshot` events (GET /council/jobs/{id}/events) update the cache;
  * when EventSource is unavailable or the stream fails, the query polls every 1.5 s while the job runs.
  */
-export function useCouncilJob(id: number | null) {
+/** `follow`: bump it to subscribe again after the job went back to RUNNING (a review change queued a re-read). */
+export function useCouncilJob(id: number | null, follow = 0) {
   const qc = useQueryClient();
+  const { locale } = useI18n();
   const [streaming, setStreaming] = useState(false);
 
   const query = useQuery({
     queryKey: councilKey(id ?? 0),
-    queryFn: () => councilApi.get(id ?? 0),
+    queryFn: () => councilApi.get(id ?? 0, locale),
     enabled: id !== null,
     refetchInterval: (q) => {
       const data = q.state.data;
@@ -27,7 +30,7 @@ export function useCouncilJob(id: number | null) {
 
   useEffect(() => {
     if (id === null || typeof EventSource === "undefined") return;
-    const es = new EventSource(councilApi.eventsUrl(id));
+    const es = new EventSource(councilApi.eventsUrl(id, locale));
     es.onopen = () => setStreaming(true);
     es.addEventListener("snapshot", (e) => {
       try {
@@ -50,7 +53,7 @@ export function useCouncilJob(id: number | null) {
       es.close();
       setStreaming(false);
     };
-  }, [id, qc]);
+  }, [id, qc, follow, locale]);
 
   return query;
 }

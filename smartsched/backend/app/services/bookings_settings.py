@@ -81,6 +81,18 @@ SMTP_SPECS: dict[str, Spec] = {
         Spec("from_address", default=""),
         Spec("from_name", default="SmartSched"),
         Spec("timeout_s", "int", 15),
+        # wave 3b W3-MAIL (app/services/mail.py, docs/deploy/email.md): guided setup shared by every admin
+        Spec("provider", default=""),  # a preset id of app/services/mail_presets.py, "" = custom
+        Spec("auth_mode", default="password"),  # password | xoauth2 | none
+        Spec("oauth_provider", default=""),  # google | microsoft (XOAUTH2)
+        Spec("oauth_tenant", default=""),  # Microsoft Entra tenant id (client credentials)
+        Spec("oauth_client_id", default=""),
+        Spec("oauth_client_secret", default="", secret=True),
+        Spec("oauth_refresh_token", default="", secret=True),
+        Spec("reply_to", default=""),
+        Spec("dkim_selector", default=""),  # the selector the provider console shows (DNS check)
+        # KVKK md. 9 acknowledgement for a provider abroad: {"by", "by_user_id", "at", "provider"} (W3-MAIL)
+        Spec("abroad_ack", "json", None),
     )
 }
 BOOKINGS_SPECS: dict[str, Spec] = {
@@ -120,8 +132,15 @@ BOOKINGS_SPECS: dict[str, Spec] = {
         # P7 (beyond CRBS): a booking create / move / cancel can be undone within this many hours (or until the
         #     booking starts), as long as nothing changed it since (POST /audit/{id}/undo).
         Spec("audit_undo_hours", "int", 24),
+        # approval-first bookings (owner requirement 2026-10-15): "rules" = only rooms / room groups / room types
+        #     with an approval rule need approval (CRBS + P1, the default of empty and universal installs);
+        #     "all" = every booking request goes to the approvers first, except for users holding
+        #     approvals.decide, planning.admin or bookings.skip_approval (app/services/approvals.py need_for).
+        #     The institution install sets it once: PUT /api/v1/org/settings {"approval_mode": "all"}.
+        Spec("approval_mode", default="rules"),
     )
 }
+APPROVAL_MODES = ("rules", "all")
 #: KVKK sign-off (admin persona 2026-10-15 M-18): never shipped as a default. It exists only after a named
 #: administrator switched calendar sync on through ``PUT /calendar/admin/settings`` (who, user id, when);
 #: until then ``calendar_sync_enabled`` reads as off whatever is stored (:func:`kvkk_signed`). alembic
@@ -161,7 +180,34 @@ INTEGRATIONS_SPECS: dict[str, Spec] = {
         Spec("microsoft_tenant", default="organizations"),
     )
 }
+# P8 exam-period mode (docs/product/booking-enhancements.md §P8; app/services/booking_policies.py). Off by default:
+# an administrator switches it on for the institution (PUT /booking-policies/exam-period).
+#   exam_period_mode: "off" | "request" (bookings of exam rooms in exam weeks become approval requests) |
+#                     "closed" (refused)
+#   exam_period_rooms: {"from_exam_timetable": true, "room_ids": [...]}: the rooms the term's exam timetable uses
+#                      and / or a list chosen by the administrator
+POLICY_SPECS: dict[str, Spec] = {
+    s.key: s
+    for s in (
+        Spec("exam_period_mode", default="off"),
+        Spec("exam_period_rooms", "json", None),
+    )
+}
+# V2 public read-only day view (docs/product/booking-enhancements.md §V2; app/services/public_schedule.py). Off by
+# default; it counts as on only with a KVKK sign-off recorded when an administrator switches it on
+# (PUT /public-schedule/admin/settings), like calendar sync. The pages never show personal data.
+PUBLIC_SPECS: dict[str, Spec] = {
+    s.key: s
+    for s in (
+        Spec("schedule_enabled", "bool", False),
+        Spec("schedule_signoff", "json", None),
+        # bookings appear as "Rezerve / Reserved" blocks ("busy") or not at all ("hidden"); never with a name or note
+        Spec("show_bookings", default="busy"),
+    )
+}
 GROUPS = {
+    "policies": POLICY_SPECS,
+    "public": PUBLIC_SPECS,
     "org": ORG_SPECS,
     "ldap": LDAP_SPECS,
     "smtp": SMTP_SPECS,

@@ -71,6 +71,24 @@
     opacity   var(--dur-fast) var(--ease-in);
 }
 
+/* SmartSched mapping, phones (< 640 px): ui/dialog presents as a bottom sheet there (MOBILE.md M-04), so it
+   slides up 2.5 rem on the sheet spring like ui/sheet instead of scaling from the centre. */
+@media (width < 40rem) {
+  .t-modal[data-slot="dialog-content"] {
+    transform-origin: bottom center;
+  }
+  .t-modal[data-slot="dialog-content"][data-open] {
+    transform: none;
+    transition:
+      transform var(--spring-sheet-ms) var(--spring-sheet),
+      opacity   var(--dur-base) var(--ease-out);
+  }
+  .t-modal[data-slot="dialog-content"][data-starting-style],
+  .t-modal[data-slot="dialog-content"][data-ending-style] {
+    transform: translateY(2.5rem);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .t-modal { transition: none !important; }
 }

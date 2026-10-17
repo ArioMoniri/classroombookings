@@ -5,12 +5,18 @@
  * group/row list, sticky (tint over the opaque canvas, no nested blur) group headers with aggregates, one tab stop with a roving cell cursor,
  * inline edit (double-click / Enter / F2; Esc cancels; Enter saves and moves down; Tab saves and moves right).
  * Opaque rows (no glass on data, A8); hairline separators; no zebra; numbers right-aligned.
+ * Columns (design-system overhaul 2026-10-15): the ui column system replaced the fixed WIDTH map — widths are
+ * measured from the header + first 200 rows (canvas.measureText), clamped, the slack goes to Course and
+ * Program, every header has a keyboard-resizable handle (double-click auto-fits), widths persist per user
+ * (localStorage smartsched.table.classes.<user>), and header + virtual body share one grid-template-columns.
  */
 import { getCoreRowModel, getGroupedRowModel, getSortedRowModel, useReactTable, type ColumnDef, type Row, type SortingState } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { AlertTriangle, ArrowDown, ArrowUp, ChevronRight, Circle, CircleDashed, Contrast, Lock, LockOpen, Minus, Moon } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ColumnResizeHandle, useColumnLayout, type ColumnSpec } from "@/components/ui/data-table";
+import { useMe } from "@/lib/api/hooks";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import type { ClassRow } from "@/lib/api/classes";
 import { useI18n } from "@/lib/i18n/provider";
@@ -18,6 +24,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { dayName, formatDate, periodRangeLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { aggregate, groupKey, type Density } from "./classes-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 export const ROW_H: Record<Density, number> = { compact: 32, standard: 44, comfortable: 56 };
 const HEADER_H = 36;
@@ -55,7 +62,31 @@ export interface ClassTableProps {
 
 type Flat = { type: "group"; id: string; depth: number; label: ReactNode; field: string; leaves: ClassRow[] } | { type: "row"; id: string; depth: number; row: ClassRow };
 
-const WIDTH: Record<string, number> = { select: 40, status: 122, course: 190, faculty: 180, program: 200, year: 58, instructor: 180, students: 84, mode: 104, reqTime: 150, weeks: 88, reqRoom: 170, definitive: 130, placement: 196, fit: 116, issues: 210, lock: 56, changed: 70, reqStatus: 140, source: 140, notes: 210 };
+/** Column specs: fixed sizes only where the content is a glyph; everything else is measured (min / max clamp).
+ *  select + course stay sticky through `pinned()` below, in the order the page chose. */
+const SPEC: Record<string, Omit<ColumnSpec<ClassRow>, "id" | "header">> = {
+  select: { size: 40, minSize: 40, maxSize: 40, hideable: false },
+  status: { minSize: 104, maxSize: 160, extra: 20, text: (r) => r.placement_status.replace(/_/g, " ") },
+  course: { minSize: 120, maxSize: 340, grow: 2, font: "400 11px Inter, system-ui, sans-serif", text: (r) => r.course_name ?? `${r.course_code} §${r.section ?? ""}` },
+  faculty: { minSize: 120, maxSize: 260, text: (r) => r.faculty_name ?? "" },
+  program: { minSize: 120, maxSize: 300, grow: 1, text: (r) => r.program_name ?? "" },
+  year: { size: 58, minSize: 48, maxSize: 80, align: "end" },
+  instructor: { minSize: 120, maxSize: 240, text: (r) => r.instructors[0]?.name ?? "" },
+  students: { minSize: 72, maxSize: 110, align: "end", text: (r) => String(r.enrolment ?? "") },
+  mode: { minSize: 88, maxSize: 140, text: (r) => r.mode },
+  reqTime: { minSize: 120, maxSize: 200 },
+  weeks: { minSize: 72, maxSize: 140 },
+  reqRoom: { minSize: 110, maxSize: 240, extra: 12, text: (r) => r.req.room_text ?? "" },
+  definitive: { minSize: 96, maxSize: 220, text: (r) => r.definitive.room_codes.join(", ") },
+  placement: { minSize: 150, maxSize: 240 },
+  fit: { minSize: 88, maxSize: 140, align: "end" },
+  issues: { minSize: 140, maxSize: 300 },
+  lock: { size: 56, minSize: 48, maxSize: 72 },
+  changed: { size: 70, minSize: 56, maxSize: 96 },
+  reqStatus: { minSize: 110, maxSize: 180 },
+  source: { minSize: 110, maxSize: 200 },
+  notes: { minSize: 140, maxSize: 320, text: (r) => r.req.notes ?? "" },
+};
 const RIGHT = new Set(["year", "students", "fit"]);
 const HEAD_KEY: Record<string, MessageKey> = {
   select: "classes.col.select", status: "classes.col.status", course: "classes.col.course", faculty: "classes.col.faculty", program: "classes.col.program", year: "classes.col.year", instructor: "classes.col.instructor", students: "classes.col.students", mode: "classes.col.mode", reqTime: "classes.col.reqTime", weeks: "classes.col.weeks", reqRoom: "classes.col.reqRoom", definitive: "classes.col.definitive", placement: "classes.col.placement", fit: "classes.col.fit", issues: "classes.col.issues", lock: "classes.col.lock", changed: "classes.col.changed", reqStatus: "classes.col.reqStatus", source: "classes.col.source", notes: "classes.col.notes",
@@ -76,7 +107,7 @@ export function StatusCell({ r }: { r: ClassRow }) {
   const icon =
     s === "placed" ? <Circle className="size-2.5 fill-current" /> : s === "partial" ? <Contrast className="size-3" /> : s === "unplaced" ? <CircleDashed className="size-3" /> : s === "conflict" ? <AlertTriangle className="size-3" /> : <Minus className="size-3" />;
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-[12px] font-medium", s === "placed" && "text-status-feasible-fg", s === "partial" && "text-status-warning-fg", s === "unplaced" && "text-status-warning-fg", s === "conflict" && "text-status-infeasible-fg", (s === "no_room_needed" || s === "no_run") && "text-label-2")}>
+    <span className={cn("inline-flex items-center gap-1.5 type-footnote font-medium", s === "placed" && "text-status-feasible-fg", s === "partial" && "text-status-warning-fg", s === "unplaced" && "text-status-warning-fg", s === "conflict" && "text-status-infeasible-fg", (s === "no_room_needed" || s === "no_run") && "text-label-2")}>
       <span aria-hidden>{icon}</span>
       {t(`classes.status.${s}`)}
       {s === "partial" && r.placement ? <span className="tabular-nums"> {r.placement.weeks_placed.length}/{r.req.weeks.length}</span> : null}
@@ -206,9 +237,15 @@ function ClassTableImpl(p: ClassTableProps) {
 
   const firstVisible = v.range?.startIndex ?? 0;
   const activeSticky = [...stickyIndexes].reverse().find((i) => i <= firstVisible) ?? -1;
-  const cols = p.columns;
-  const totalW = cols.reduce((s, c) => s + (WIDTH[c] ?? 120), 0);
-  const leftOf = (i: number) => cols.slice(0, i).reduce((s, c) => s + (WIDTH[c] ?? 120), 0);
+  const specs = useMemo<ColumnSpec<ClassRow>[]>(() => p.columns.map((c) => ({ id: c, header: t(HEAD_KEY[c] ?? "classes.col.course"), ...(SPEC[c] ?? { minSize: 96, maxSize: 240 }) })), [p.columns, t]);
+  const me = useMe();
+  const colApi = useColumnLayout({ tableId: "classes", userId: me.data?.id, specs, rows: p.rows, containerRef: scroller, squeeze: false });
+  const { layout } = colApi;
+  // the page owns visibility and order (Görünüm menu); the layout keeps pinned columns first
+  const cols = layout.ids;
+  const W = (c: string) => layout.widths[c] ?? 120;
+  const totalW = layout.total;
+  const leftOf = (i: number) => cols.slice(0, i).reduce((s, c) => s + W(c), 0);
   const pinned = (c: string) => c === "select" || c === "course";
 
   // keep the cursor in range
@@ -249,9 +286,9 @@ function ClassTableImpl(p: ClassTableProps) {
     const el = scroller.current;
     if (el) {
       const x = leftOf(col);
-      const pinW = (WIDTH.select ?? 40) + (WIDTH.course ?? 190);
+      const pinW = cols.filter(pinned).reduce((sum, c) => sum + W(c), 0);
       if (x - el.scrollLeft < pinW && !pinned(cols[col])) el.scrollLeft = Math.max(0, x - pinW);
-      else if (x + (WIDTH[cols[col]] ?? 120) > el.scrollLeft + el.clientWidth) el.scrollLeft = x + (WIDTH[cols[col]] ?? 120) - el.clientWidth;
+      else if (x + W(cols[col]) > el.scrollLeft + el.clientWidth) el.scrollLeft = x + W(cols[col]) - el.clientWidth;
     }
   };
 
@@ -356,7 +393,7 @@ function ClassTableImpl(p: ClassTableProps) {
   }, [activeId, flat, v]);
 
   const header = (
-    <div role="row" className="cal-sticky sticky top-0 z-20 flex hairline-b" style={{ width: totalW, height: HEADER_H }}>
+    <div role="row" className="cal-sticky sticky top-0 z-20 grid grid-cols-(--cols) hairline-b" style={{ width: totalW, height: HEADER_H }}>
       {cols.map((c, i) => {
         const col = table.getColumn(c);
         const sorted = col?.getIsSorted();
@@ -366,19 +403,22 @@ function ClassTableImpl(p: ClassTableProps) {
             key={c}
             role="columnheader"
             aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : "none"}
-            className={cn("flex shrink-0 items-center px-2 text-[12px] font-semibold text-label-2", RIGHT.has(c) && "justify-end", pinned(c) && "cal-sticky sticky z-10")}
-            style={{ width: WIDTH[c] ?? 120, left: pinned(c) ? leftOf(i) : undefined }}
+            className={cn("relative flex min-w-0 items-center px-2 type-footnote font-semibold text-label-2", RIGHT.has(c) && "justify-end", pinned(c) && "cal-sticky sticky z-10")}
+            style={{ left: pinned(c) ? leftOf(i) : undefined }}
           >
             {c === "select" ? (
               <Checkbox aria-label={t("classes.col.select")} checked={allSel} onCheckedChange={(v2) => p.onSelection(v2 ? new Set(p.rows.map((r) => r.id)) : new Set())} />
             ) : col?.getCanSort() ? (
-              <button type="button" className="flex items-center gap-1 truncate hover:text-label-1" onClick={(e) => col.toggleSorting(undefined, e.shiftKey)}>
+              <BareButton className="flex items-center gap-1 truncate hover:text-label-1" onClick={(e) => col.toggleSorting(undefined, e.shiftKey)}>
                 {t(HEAD_KEY[c])}
                 {sorted === "asc" ? <ArrowUp className="size-3" aria-hidden /> : sorted === "desc" ? <ArrowDown className="size-3" aria-hidden /> : null}
-              </button>
+              </BareButton>
             ) : (
               <span className="truncate">{t(HEAD_KEY[c])}</span>
             )}
+            {c !== "select" ? (
+              <ColumnResizeHandle id={c} label={t(HEAD_KEY[c])} width={W(c)} min={SPEC[c]?.minSize} max={SPEC[c]?.maxSize} onResize={(px) => colApi.setWidth(c, px)} onAutoFit={() => colApi.autoFit(c)} />
+            ) : null}
           </div>
         );
       })}
@@ -391,7 +431,7 @@ function ClassTableImpl(p: ClassTableProps) {
       const common = {
         autoFocus: true,
         "aria-label": t(HEAD_KEY[c]),
-        className: "h-7 w-full rounded-md bg-(--mat-thick-solid) px-1.5 text-[13px] outline-2 outline-(--focus)",
+        className: "h-7 w-full rounded-md bg-(--mat-thick-solid) px-1.5 type-callout outline-2 outline-(--focus)",
         onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
           if (e.key === "Escape") {
             e.preventDefault();
@@ -422,7 +462,7 @@ function ClassTableImpl(p: ClassTableProps) {
       <span className="relative flex min-w-0 items-center gap-1">
         {content}
         {saving ? <span className="absolute -right-1 flex text-label-2" role="status"><BusyGlyph className="size-2.5" /><span className="sr-only">{t("studio.save.saving")}</span></span> : null}
-        {flash ? <span className="absolute right-0 text-[11px] text-status-feasible-fg" role="status">✓</span> : null}
+        {flash ? <span className="absolute right-0 type-caption text-status-feasible-fg" role="status">✓</span> : null}
       </span>
     );
   };
@@ -435,44 +475,44 @@ function ClassTableImpl(p: ClassTableProps) {
       case "course":
         return (
           <span className="flex min-w-0 flex-col">
-            <span className="truncate text-[13px]"><span className="font-semibold">{r.course_code}</span>{r.section ? <span className="text-label-2"> §{r.section}</span> : null}</span>
-            {p.density !== "compact" && r.course_name ? <span className="truncate text-[11px] text-label-2">{r.course_name}</span> : null}
+            <span className="truncate type-callout"><span className="font-semibold">{r.course_code}</span>{r.section ? <span className="text-label-2"> §{r.section}</span> : null}</span>
+            {p.density !== "compact" && r.course_name ? <span className="truncate type-caption text-label-2">{r.course_name}</span> : null}
           </span>
         );
       case "faculty":
-        return <span className="flex min-w-0 items-center gap-1.5 truncate text-[12px]"><span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--fac-${r.faculty_slot}-bar)` }} />{r.faculty_name ?? t("classes.group.noFaculty")}</span>;
+        return <span className="flex min-w-0 items-center gap-1.5 truncate type-footnote"><span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--fac-${r.faculty_slot}-bar)` }} />{r.faculty_name ?? t("classes.group.noFaculty")}</span>;
       case "program":
-        return <span className="flex min-w-0 items-center gap-1 truncate text-[12px]">{r.program_name ?? dash}{r.is_evening ? <span className="shrink-0 rounded-full bg-fill-2 px-1.5 text-[10px] font-semibold text-label-2"><Moon className="inline size-2.5" aria-hidden /> {t("classes.evening")}</span> : null}</span>;
+        return <span className="flex min-w-0 items-center gap-1 truncate type-footnote">{r.program_name ?? dash}{r.is_evening ? <span className="shrink-0 rounded-full bg-fill-2 px-1.5 text-2xs pointer-coarse:type-caption font-semibold text-label-2"><Moon className="inline size-2.5" aria-hidden /> {t("classes.evening")}</span> : null}</span>;
       case "year":
-        return <span className="text-[12px] tabular-nums">{r.class_years.length ? (r.class_years.length > 1 ? `${Math.min(...r.class_years)}–${Math.max(...r.class_years)}` : r.class_years[0]) : dash}</span>;
+        return <span className="type-footnote tabular-nums">{r.class_years.length ? (r.class_years.length > 1 ? `${Math.min(...r.class_years)}–${Math.max(...r.class_years)}` : r.class_years[0]) : dash}</span>;
       case "instructor":
-        return r.instructors.length ? <span className="truncate text-[12px]" title={r.instructors.map((i) => i.name).join(", ")}>{r.instructors[0].name}{r.instructors.length > 1 ? ` +${r.instructors.length - 1}` : ""}</span> : dash;
+        return r.instructors.length ? <span className="truncate type-footnote" title={r.instructors.map((i) => i.name).join(", ")}>{r.instructors[0].name}{r.instructors.length > 1 ? ` +${r.instructors.length - 1}` : ""}</span> : dash;
       case "students":
-        return <span className="text-[13px] tabular-nums">{r.enrolment ?? dash}</span>;
+        return <span className="type-callout tabular-nums">{r.enrolment ?? dash}</span>;
       case "mode":
-        return <span className="text-[12px]">{t(`classes.mode.${r.mode}` as MessageKey)}</span>;
+        return <span className="type-footnote">{t(`classes.mode.${r.mode}` as MessageKey)}</span>;
       case "reqTime":
-        return <span className="truncate text-[12px] tabular-nums">{when(r.req.day, r.req.start_period, r.req.end_period, r.req.date) ?? dash}</span>;
+        return <span className="truncate type-footnote tabular-nums">{when(r.req.day, r.req.start_period, r.req.end_period, r.req.date) ?? dash}</span>;
       case "weeks":
-        return <span className="text-[12px] tabular-nums" title={r.req.weeks.join(", ")}>{weeksLabel(r.req.weeks)}</span>;
+        return <span className="type-footnote tabular-nums" title={r.req.weeks.join(", ")}>{weeksLabel(r.req.weeks)}</span>;
       case "reqRoom": {
         const chips = [...r.req.room_codes, ...(r.req.building ? [`${r.req.building} blok`] : []), ...(r.req.capacity ? [`≥ ${r.req.capacity}`] : []), ...r.req.tags];
-        if (!chips.length) return r.req.room_text ? <span className="truncate text-[12px] text-label-2 italic" title={r.req.room_text}>“{r.req.room_text}”</span> : dash;
+        if (!chips.length) return r.req.room_text ? <span className="truncate type-footnote text-label-2 italic" title={r.req.room_text}>“{r.req.room_text}”</span> : dash;
         return (
           <span className="flex min-w-0 gap-1" title={r.req.room_text ?? undefined}>
-            {chips.slice(0, 2).map((x) => <span key={x} className="shrink-0 rounded-full bg-fill-2 px-1.5 text-[11px] font-medium">{x}</span>)}
-            {chips.length > 2 ? <span className="text-[11px] text-label-2">+{chips.length - 2}</span> : null}
+            {chips.slice(0, 2).map((x) => <span key={x} className="shrink-0 rounded-full bg-fill-2 px-1.5 type-caption font-medium">{x}</span>)}
+            {chips.length > 2 ? <span className="type-caption text-label-2">+{chips.length - 2}</span> : null}
           </span>
         );
       }
       case "definitive":
-        return r.definitive.room_codes.length || r.definitive.text ? <span className="truncate text-[12px] font-semibold" data-testid="definitive-room">{r.definitive.room_codes.join(" + ") || r.definitive.text}</span> : dash;
+        return r.definitive.room_codes.length || r.definitive.text ? <span className="truncate type-footnote font-semibold" data-testid="definitive-room">{r.definitive.room_codes.join(" + ") || r.definitive.text}</span> : dash;
       case "placement": {
         if (!r.placement) return dash;
         const pl = r.placement;
         const differs = (r.req.day && r.req.day !== pl.day) || (r.req.start_period && r.req.start_period !== pl.start_period) || (r.definitive.room_codes.length > 0 && r.definitive.room_codes.join() !== pl.room_codes.join());
         return (
-          <span className="flex min-w-0 items-center gap-1 truncate text-[12px] tabular-nums">
+          <span className="flex min-w-0 items-center gap-1 truncate type-footnote tabular-nums">
             <span className="truncate">{when(pl.day, pl.start_period, pl.end_period, r.kind === "exam" ? pl.date : null)} · <span className="font-semibold">{pl.room_codes.join(" + ")}</span></span>
             {differs ? <span aria-label={t("calendar.state.ghost", { run: "" })} className="shrink-0 text-label-3">↔</span> : null}
           </span>
@@ -482,13 +522,13 @@ function ClassTableImpl(p: ClassTableProps) {
         const cap = r.placement?.capacity;
         if (!cap || !r.enrolment) return dash;
         const pct = Math.round((r.enrolment / cap) * 100);
-        return <span className={cn("text-[12px] tabular-nums", (pct > 100 || pct < 30) && "font-medium text-status-warning-fg")}>{r.enrolment}/{cap} · %{pct}</span>;
+        return <span className={cn("type-footnote tabular-nums", (pct > 100 || pct < 30) && "font-medium text-status-warning-fg")}>{r.enrolment}/{cap} · %{pct}</span>;
       }
       case "issues": {
         if (!r.issues.length) return null;
         const hard = r.issues.some((i) => i.severity === "hard");
         return (
-          <span className={cn("flex min-w-0 items-center gap-1 text-[12px]", hard ? "text-status-infeasible-fg" : "text-status-warning-fg")} title={r.issues.map((i) => i.text[lang]).join("\n")}>
+          <span className={cn("flex min-w-0 items-center gap-1 type-footnote", hard ? "text-status-infeasible-fg" : "text-status-warning-fg")} title={r.issues.map((i) => i.text[lang]).join("\n")}>
             <span aria-hidden>{hard ? "▲" : "•"}</span>
             <span className="tabular-nums">{r.issues.length}</span>
             <span className="truncate">· {r.issues[0].text[lang]}</span>
@@ -497,18 +537,18 @@ function ClassTableImpl(p: ClassTableProps) {
       }
       case "lock":
         return r.placement ? (
-          <button type="button" className="rounded-md p-1 text-label-2 hover:bg-fill-2 hover:text-label-1 disabled:opacity-40" aria-label={r.placement.locked ? t("calendar.insp.unlock") : t("calendar.insp.lock")} aria-pressed={r.placement.locked} disabled={p.readOnly} onClick={(e) => { e.stopPropagation(); p.onToggleLock(r); }}>
+          <BareButton className="rounded-md p-1 text-label-2 hover:bg-fill-2 hover:text-label-1 disabled:opacity-40" aria-label={r.placement.locked ? t("calendar.insp.unlock") : t("calendar.insp.lock")} aria-pressed={r.placement.locked} disabled={p.readOnly} onClick={(e) => { e.stopPropagation(); p.onToggleLock(r); }}>
             {r.placement.locked ? <Lock className="size-3.5" /> : <LockOpen className="size-3.5 opacity-40" />}
-          </button>
+          </BareButton>
         ) : null;
       case "changed":
-        return r.changed.length ? <span className="flex items-center gap-1" title={r.changed.map((c2) => `${c2.field}: ${String(c2.from)} → ${String(c2.to)}`).join("\n")}><span aria-hidden className="size-1.5 rounded-full bg-[var(--status-warning-solid)]" /><span className="sr-only">{t("classes.col.changed")}</span><span className="truncate text-[11px] text-label-2">{r.changed.map((c2) => c2.field).join(", ")}</span></span> : null;
+        return r.changed.length ? <span className="flex items-center gap-1" title={r.changed.map((c2) => `${c2.field}: ${String(c2.from)} → ${String(c2.to)}`).join("\n")}><span aria-hidden className="size-1.5 rounded-full bg-[var(--status-warning-solid)]" /><span className="sr-only">{t("classes.col.changed")}</span><span className="truncate type-caption text-label-2">{r.changed.map((c2) => c2.field).join(", ")}</span></span> : null;
       case "reqStatus":
-        return <span className="text-[12px]">{t(`classes.req.${r.req.status}` as MessageKey)}</span>;
+        return <span className="type-footnote">{t(`classes.req.${r.req.status}` as MessageKey)}</span>;
       case "source":
-        return <span className="truncate text-[12px] text-label-2 tabular-nums">{r.provenance.file_name ? `${r.provenance.file_name.replace(/\.xlsx?$/i, "").slice(-14)} · ` : ""}{r.provenance.row ? `${lang === "tr" ? "satır" : "row"} ${r.provenance.row}` : "—"}</span>;
+        return <span className="truncate type-footnote text-label-2 tabular-nums">{r.provenance.file_name ? `${r.provenance.file_name.replace(/\.xlsx?$/i, "").slice(-14)} · ` : ""}{r.provenance.row ? `${lang === "tr" ? "satır" : "row"} ${r.provenance.row}` : "—"}</span>;
       case "notes":
-        return r.req.notes ? <span className="truncate text-[12px] text-label-2" title={r.req.notes}>{r.req.notes}</span> : dash;
+        return r.req.notes ? <span className="truncate type-footnote text-label-2" title={r.req.notes}>{r.req.notes}</span> : dash;
       default:
         return null;
     }
@@ -525,6 +565,7 @@ function ClassTableImpl(p: ClassTableProps) {
       tabIndex={0}
       onKeyDown={onKey}
       className="relative min-h-0 flex-1 overflow-auto outline-hidden focus-visible:outline-hidden"
+      style={colApi.style}
       data-testid="classes-table"
     >
       {header}
@@ -551,8 +592,7 @@ function ClassTableImpl(p: ClassTableProps) {
                 style={{ ...style, width: totalW, paddingLeft: 8 + f.depth * 16 }}
                 data-testid="classes-group"
               >
-                <button
-                  type="button"
+                <BareButton
                   aria-label={open ? t("classes.group.collapse", { name: typeof f.label === "string" ? f.label : f.field }) : t("classes.group.expand", { name: typeof f.label === "string" ? f.label : f.field })}
                   onClick={(e) => {
                     const next = new Set(p.collapsed);
@@ -567,12 +607,12 @@ function ClassTableImpl(p: ClassTableProps) {
                   className="rounded p-0.5 text-label-2 hover:text-label-1"
                 >
                   <ChevronRight className={cn("size-3.5 transition-transform duration-(--dur-fast)", open && "rotate-90")} />
-                </button>
-                <span className={cn("sticky left-10 flex min-w-0 items-center gap-2 truncate", f.depth === 0 ? "text-[13px] font-semibold" : "text-[12px] font-semibold text-label-1")}>{f.label}</span>
-                <span className="sticky right-3 ml-auto shrink-0 text-[12px] text-label-2 tabular-nums">
+                </BareButton>
+                <span className={cn("sticky left-10 flex min-w-0 items-center gap-2 truncate", f.depth === 0 ? "type-callout font-semibold" : "type-footnote font-semibold text-label-1")}>{f.label}</span>
+                <span className="sticky right-3 ml-auto shrink-0 type-footnote text-label-2 tabular-nums">
                   {t("classes.group.aggregate", { n: agg.n, s: agg.students.toLocaleString(locale), p: agg.placedPct, i: agg.issues })}
                 </span>
-                <button type="button" className="sr-only focus:not-sr-only focus:text-[12px]" onClick={() => p.onSelection(new Set([...p.selection, ...f.leaves.map((x) => x.id)]))}>{t("classes.group.select")}</button>
+                <BareButton className="sr-only focus:not-sr-only focus:type-footnote" onClick={() => p.onSelection(new Set([...p.selection, ...f.leaves.map((x) => x.id)]))}>{t("classes.group.select")}</BareButton>
               </div>
             );
           }
@@ -587,7 +627,7 @@ function ClassTableImpl(p: ClassTableProps) {
               aria-selected={selected}
               data-testid="classes-row"
               data-class-id={r.id}
-              className={cn("group/row left-0 flex hairline-b hover:bg-fill-3", selected && "bg-tint-soft", p.activeId === r.id && "bg-fill-2")}
+              className={cn("group/row left-0 grid grid-cols-(--cols) hairline-b hover:bg-fill-3", selected && "bg-tint-soft", p.activeId === r.id && "bg-fill-2")}
               style={{ ...style, width: totalW }}
               onClick={(e) => {
                 setCursor((cc) => ({ ...cc, row: vi.index }));
@@ -609,8 +649,8 @@ function ClassTableImpl(p: ClassTableProps) {
                     data-col={c}
                     aria-colindex={ci + 1}
                     aria-readonly={!EDITABLE.has(c) || p.readOnly}
-                    className={cn("flex shrink-0 items-center overflow-hidden px-2", RIGHT.has(c) && "justify-end", pinned(c) && "cal-canvas sticky z-[5] group-hover/row:bg-[color-mix(in_srgb,var(--cal-canvas),var(--label-1)_4%)]", pinned(c) && selected && "bg-[color-mix(in_srgb,var(--cal-canvas),var(--accent)_12%)]", focused && "outline-2 -outline-offset-2 outline-(--focus) [[role=grid]:not(:focus-within)_&]:outline-0 [[role=treegrid]:not(:focus-within)_&]:outline-0")}
-                    style={{ width: WIDTH[c] ?? 120, left: pinned(c) ? leftOf(ci) : undefined }}
+                    className={cn("flex min-w-0 items-center overflow-hidden px-2", RIGHT.has(c) && "justify-end", pinned(c) && "cal-canvas sticky z-[5] group-hover/row:bg-[color-mix(in_srgb,var(--cal-canvas),var(--label-1)_4%)]", pinned(c) && selected && "bg-[color-mix(in_srgb,var(--cal-canvas),var(--accent)_12%)]", focused && "outline-2 -outline-offset-2 outline-(--focus) [[role=grid]:not(:focus-within)_&]:outline-0 [[role=treegrid]:not(:focus-within)_&]:outline-0")}
+                    style={{ left: pinned(c) ? leftOf(ci) : undefined }}
                     onClick={(e) => {
                       if (e.altKey) {
                         e.stopPropagation();

@@ -1,0 +1,96 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='860' height='1120' viewBox='0 0 860 1120' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='E-posta: onaycıya yeni talep (telefon 390, açık ve koyu)'>
+<title>E-posta: onaycıya yeni talep (telefon 390, açık ve koyu)</title>
+<rect width='860' height='1120' fill='#FFFFFF'/>
+<text x='20' y='28' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>Açık tema · 390 px telefon</text>
+<rect x='20' y='40' width='390' height='1060' rx='16' fill='#EEF0F4' fill-opacity='1'/>
+<rect x='32' y='52' width='366' height='76' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#D9DCE3' stroke-width='1'/>
+<circle cx='60' cy='90' r='16' fill='#0A63D1'/>
+<text x='60' y='95' font-size='14' font-weight='700' fill='#FFFFFF' text-anchor='middle'>Ö</text>
+<text x='86' y='78' font-size='14' font-weight='700' fill='#1D1D1F' text-anchor='start'>Örnek Üniversitesi SmartSched</text>
+<text x='384' y='78' font-size='12' font-weight='500' fill='#5F5F66' text-anchor='end'>20:14</text>
+<text x='86' y='98' font-size='14' font-weight='600' fill='#1D1D1F' text-anchor='start'>Onay bekleyen oda talebi: B-204 · 21 E</text>
+<text x='86' y='116' font-size='13' font-weight='400' fill='#4B4B51' text-anchor='start'>Ayşe Yılmaz B-204 için onay istiyor · 8 h…</text>
+<text x='32' y='144' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>gelen kutusu: gönderen · konu · ön başlık (preheader)</text>
+<rect x='20' y='160' width='390' height='920' rx='0' fill='#FFFFFF'/>
+<image href='../../../images/brand/smartsched-tile-small.svg' x='40' y='180' width='28' height='28'/>
+<text x='78' y='200' font-size='16' font-weight='600' fill='#1D1D1F' text-anchor='start'>SmartSched</text>
+<text x='390' y='200' font-size='13' font-weight='500' fill='#5F5F66' text-anchor='end'>Örnek Üniversitesi</text>
+<line x1='20' y1='228' x2='410' y2='228' stroke='#D9DCE3' stroke-width='1'/>
+<rect x='40' y='252' width='125' height='26' rx='13' fill='#FFF2D9' fill-opacity='1'/>
+<text x='102.5' y='269.5' font-size='13' font-weight='600' fill='#7C4800' text-anchor='middle'>Onay bekliyor</text>
+<text x='40' y='320.0' font-size='22' font-weight='600' fill='#1D1D1F' text-anchor='start'>Onayınızı bekleyen bir talep</text>
+<text x='40' y='350.0' font-size='22' font-weight='600' fill='#1D1D1F' text-anchor='start'>var</text>
+<text x='40' y='378.0' font-size='16' font-weight='400' fill='#1D1D1F' text-anchor='start'>Ayşe Yılmaz aşağıdaki derslik için onay</text>
+<text x='40' y='402.0' font-size='16' font-weight='400' fill='#1D1D1F' text-anchor='start'>istiyor.</text>
+<rect x='40' y='428' width='350' height='346' rx='12' fill='#F5F7FA' stroke='#D9DCE3'/><rect x='40' y='428' width='4' height='346' rx='2' fill='#7C4800'/>
+<text x='56' y='455.5' font-size='13' font-weight='500' fill='#5F5F66' text-anchor='start'>Talep eden</text>
+<text x='56' y='477.0' font-size='16' font-weight='600' fill='#1D1D1F' text-anchor='start'>Ayşe Yılmaz · Bilgisayar Mühendisliği</text>
+<text x='56' y='501.5' font-size='13' font-weight='500' fill='#5F5F66' text-anchor='start'>Derslik</text>
+<text x='56' y='523.0' font-size='16' font-weight='600' fill='#1D1D1F' text-anchor='start'>B-204 · 40 kişi</text>
+<text x='56' y='547.5' font-size='13' font-weight='500' fill='#5F5F66' text-anchor='start'>Tarih</text>
+<text x='56' y='569.0' font-size='16' font-weight='600' fill='#1D1D1F' text-anchor='start'>21 Ekim 2026 Çarşamba</text>
+<text x='56' y='593.5' font-size='13' font-weight='500' fill='#5F5F66' text-anchor='start'>Ders saati</text>
+<text x='56' y='615.0' font-size='16' font-weight='600' fill='#1D1D1F' text-anchor='start'>3. ders · 10:30–11:20</text>
+<text x='56' y='639.5' font-size='13' font-weight='500' fill='#5F5F66' text-anchor='start'>Tekrar</text>
+<text x='56' y='661.0' font-size='16' font-weight='600' fill='#1D1D1F' text-anchor='start'>Her çarşamba · 8 hafta (seri #44)</text>
+<text x='56' y='685.5' font-size='13' font-weight='500' fill='#5F5F66' text-anchor='start'>Not</text>
+<text x='56' y='707.0' font-size='16' font-weight='600' fill='#1D1D1F' text-anchor='start'>Proje sunumları</text>
+<text x='56' y='731.5' font-size='13' font-weight='500' fill='#5F5F66' text-anchor='start'>Çakışma</text>
+<text x='56' y='753.0' font-size='16' font-weight='600' fill='#1D1D1F' text-anchor='start'>Yok</text>
+<rect x='40' y='798' width='350' height='48' rx='12' fill='#0A63D1' fill-opacity='1'/>
+<text x='215.0' y='828' font-size='16' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Talebi incele</text>
+<text x='40' y='871.5' font-size='15' font-weight='600' fill='#0957BB' text-anchor='start'>Onay kuyruğu: 3 talep bekliyor</text>
+<text x='40' y='901.5' font-size='14' font-weight='400' fill='#4B4B51' text-anchor='start'>Karar uygulamada verilir; bu e-postadaki</text>
+<text x='40' y='922.5' font-size='14' font-weight='400' fill='#4B4B51' text-anchor='start'>bağlantılar tek başına onaylamaz veya reddetmez.</text>
+<line x1='40' y1='960' x2='390' y2='960' stroke='#D9DCE3' stroke-width='1'/>
+<text x='40' y='982.5' font-size='13' font-weight='600' fill='#4B4B51' text-anchor='start'>Örnek Üniversitesi · SmartSched</text>
+<text x='40' y='1002.5' font-size='13' font-weight='400' fill='#5F5F66' text-anchor='start'>Bu e-postayı, B-204 için onaycı olduğunuz için</text>
+<text x='40' y='1022.5' font-size='13' font-weight='400' fill='#5F5F66' text-anchor='start'>aldınız.</text>
+<text x='40' y='1046.5' font-size='13' font-weight='600' fill='#0957BB' text-anchor='start'>Bildirim tercihleri · KVKK Aydınlatma Metni</text>
+<text x='450' y='28' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>Koyu tema (prefers-color-scheme: dark) · 390 px telefon</text>
+<rect x='450' y='40' width='390' height='1060' rx='16' fill='#0D0E12' fill-opacity='1'/>
+<rect x='462' y='52' width='366' height='76' rx='12' fill='#16171B' fill-opacity='1' stroke='#33343B' stroke-width='1'/>
+<circle cx='490' cy='90' r='16' fill='#4DA0FF'/>
+<text x='490' y='95' font-size='14' font-weight='700' fill='#06101F' text-anchor='middle'>Ö</text>
+<text x='516' y='78' font-size='14' font-weight='700' fill='#F5F5F7' text-anchor='start'>Örnek Üniversitesi SmartSched</text>
+<text x='814' y='78' font-size='12' font-weight='500' fill='#A9A9B1' text-anchor='end'>20:14</text>
+<text x='516' y='98' font-size='14' font-weight='600' fill='#F5F5F7' text-anchor='start'>Onay bekleyen oda talebi: B-204 · 21 E</text>
+<text x='516' y='116' font-size='13' font-weight='400' fill='#B6B6BD' text-anchor='start'>Ayşe Yılmaz B-204 için onay istiyor · 8 h…</text>
+<text x='462' y='144' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>gelen kutusu: gönderen · konu · ön başlık (preheader)</text>
+<rect x='450' y='160' width='390' height='920' rx='0' fill='#1B1C21'/>
+<image href='../../../images/brand/smartsched-tile-small.svg' x='470' y='180' width='28' height='28'/>
+<text x='508' y='200' font-size='16' font-weight='600' fill='#F5F5F7' text-anchor='start'>SmartSched</text>
+<text x='820' y='200' font-size='13' font-weight='500' fill='#A9A9B1' text-anchor='end'>Örnek Üniversitesi</text>
+<line x1='450' y1='228' x2='840' y2='228' stroke='#33343B' stroke-width='1'/>
+<rect x='470' y='252' width='125' height='26' rx='13' fill='#33270C' fill-opacity='1'/>
+<text x='532.5' y='269.5' font-size='13' font-weight='600' fill='#FFCC66' text-anchor='middle'>Onay bekliyor</text>
+<text x='470' y='320.0' font-size='22' font-weight='600' fill='#F5F5F7' text-anchor='start'>Onayınızı bekleyen bir talep</text>
+<text x='470' y='350.0' font-size='22' font-weight='600' fill='#F5F5F7' text-anchor='start'>var</text>
+<text x='470' y='378.0' font-size='16' font-weight='400' fill='#F5F5F7' text-anchor='start'>Ayşe Yılmaz aşağıdaki derslik için onay</text>
+<text x='470' y='402.0' font-size='16' font-weight='400' fill='#F5F5F7' text-anchor='start'>istiyor.</text>
+<rect x='470' y='428' width='350' height='346' rx='12' fill='#24252B' stroke='#33343B'/><rect x='470' y='428' width='4' height='346' rx='2' fill='#FFCC66'/>
+<text x='486' y='455.5' font-size='13' font-weight='500' fill='#A9A9B1' text-anchor='start'>Talep eden</text>
+<text x='486' y='477.0' font-size='16' font-weight='600' fill='#F5F5F7' text-anchor='start'>Ayşe Yılmaz · Bilgisayar Mühendisliği</text>
+<text x='486' y='501.5' font-size='13' font-weight='500' fill='#A9A9B1' text-anchor='start'>Derslik</text>
+<text x='486' y='523.0' font-size='16' font-weight='600' fill='#F5F5F7' text-anchor='start'>B-204 · 40 kişi</text>
+<text x='486' y='547.5' font-size='13' font-weight='500' fill='#A9A9B1' text-anchor='start'>Tarih</text>
+<text x='486' y='569.0' font-size='16' font-weight='600' fill='#F5F5F7' text-anchor='start'>21 Ekim 2026 Çarşamba</text>
+<text x='486' y='593.5' font-size='13' font-weight='500' fill='#A9A9B1' text-anchor='start'>Ders saati</text>
+<text x='486' y='615.0' font-size='16' font-weight='600' fill='#F5F5F7' text-anchor='start'>3. ders · 10:30–11:20</text>
+<text x='486' y='639.5' font-size='13' font-weight='500' fill='#A9A9B1' text-anchor='start'>Tekrar</text>
+<text x='486' y='661.0' font-size='16' font-weight='600' fill='#F5F5F7' text-anchor='start'>Her çarşamba · 8 hafta (seri #44)</text>
+<text x='486' y='685.5' font-size='13' font-weight='500' fill='#A9A9B1' text-anchor='start'>Not</text>
+<text x='486' y='707.0' font-size='16' font-weight='600' fill='#F5F5F7' text-anchor='start'>Proje sunumları</text>
+<text x='486' y='731.5' font-size='13' font-weight='500' fill='#A9A9B1' text-anchor='start'>Çakışma</text>
+<text x='486' y='753.0' font-size='16' font-weight='600' fill='#F5F5F7' text-anchor='start'>Yok</text>
+<rect x='470' y='798' width='350' height='48' rx='12' fill='#4DA0FF' fill-opacity='1'/>
+<text x='645.0' y='828' font-size='16' font-weight='600' fill='#06101F' text-anchor='middle'>Talebi incele</text>
+<text x='470' y='871.5' font-size='15' font-weight='600' fill='#6CB0FF' text-anchor='start'>Onay kuyruğu: 3 talep bekliyor</text>
+<text x='470' y='901.5' font-size='14' font-weight='400' fill='#B6B6BD' text-anchor='start'>Karar uygulamada verilir; bu e-postadaki</text>
+<text x='470' y='922.5' font-size='14' font-weight='400' fill='#B6B6BD' text-anchor='start'>bağlantılar tek başına onaylamaz veya reddetmez.</text>
+<line x1='470' y1='960' x2='820' y2='960' stroke='#33343B' stroke-width='1'/>
+<text x='470' y='982.5' font-size='13' font-weight='600' fill='#B6B6BD' text-anchor='start'>Örnek Üniversitesi · SmartSched</text>
+<text x='470' y='1002.5' font-size='13' font-weight='400' fill='#A9A9B1' text-anchor='start'>Bu e-postayı, B-204 için onaycı olduğunuz için</text>
+<text x='470' y='1022.5' font-size='13' font-weight='400' fill='#A9A9B1' text-anchor='start'>aldınız.</text>
+<text x='470' y='1046.5' font-size='13' font-weight='600' fill='#6CB0FF' text-anchor='start'>Bildirim tercihleri · KVKK Aydınlatma Metni</text>
+</svg>

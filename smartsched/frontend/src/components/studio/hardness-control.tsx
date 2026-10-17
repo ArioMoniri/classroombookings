@@ -5,7 +5,8 @@ import { useId, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useI18n } from "@/lib/i18n/provider";
 import { DEFAULT_SCALE, importanceOf, type WeightScale } from "./rule-sentence";
-import { Segmented } from "./segmented";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { IconButton } from "@/components/ui/button";
 
 const SEEN_KEY = "smartsched.studio.mustHelpSeen";
 
@@ -58,18 +59,19 @@ export function HardnessControl({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+    // touch: the sm segments and the help button take the 44 px height themselves (MOBILE.md M-02, round-1 R1-S-16)
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
       <div className="flex items-center gap-1">
         <span id={`${id}-hl`} className="sr-only">
           {t("studio.rule.mustOrTry")}
         </span>
-        <Segmented
+        <SegmentedControl semantics="radiogroup"
           size="sm"
-          labelledBy={`${id}-hl`}
-          describedBy={`${id}-help`}
+          aria-labelledby={`${id}-hl`}
+          aria-describedby={`${id}-help`}
           value={hardness}
-          onChange={change}
-          testId="rule-hardness"
+          onValueChange={change}
+          data-testid="rule-hardness"
           options={[
             { value: "hard", label: t("studio.rule.must"), disabled: !allowed.includes("hard"), title: !allowed.includes("hard") ? t("studio.rule.onlyTry") : undefined, testId: "hardness-hard" },
             { value: "soft", label: t("studio.rule.try"), disabled: !allowed.includes("soft"), title: !allowed.includes("soft") ? t("studio.rule.onlyMust") : undefined, testId: "hardness-soft" },
@@ -77,7 +79,7 @@ export function HardnessControl({
         />
         <Popover>
           <PopoverTrigger
-            render={<button type="button" className="inline-flex size-7 items-center justify-center rounded-md text-label-2 hover:bg-fill-2 hover:text-foreground pointer-coarse:size-11" aria-label={t("studio.rule.whatsThis")} />}
+            render={<IconButton size="sm" shape="rect" label={t("studio.rule.whatsThis")} title="" className="text-label-2 hover:text-label-1 pointer-coarse:size-11" />}
           >
             <HelpCircle className="size-3.5" aria-hidden />
           </PopoverTrigger>
@@ -105,13 +107,13 @@ export function HardnessControl({
           <span id={`${id}-il`} className="text-xs text-label-2">
             {t("studio.rule.importance")}
           </span>
-          <Segmented
+          <SegmentedControl semantics="radiogroup"
             size="sm"
-            labelledBy={`${id}-il`}
-            describedBy={`${id}-ih`}
+            aria-labelledby={`${id}-il`}
+            aria-describedby={`${id}-ih`}
             value={imp === "custom" ? null : imp}
-            onChange={(v) => onWeight(scale[v as "low" | "normal" | "high"])}
-            testId="rule-importance"
+            onValueChange={(v) => onWeight(scale[v as "low" | "normal" | "high"])}
+            data-testid="rule-importance"
             options={[
               { value: "low", label: t("studio.rule.low") },
               { value: "normal", label: t("studio.rule.normal") },

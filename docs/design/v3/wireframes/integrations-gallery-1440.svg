@@ -1,0 +1,154 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='1000' viewBox='0 0 1440 1000' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Entegrasyonlar galerisi, 1440'>
+<title>Entegrasyonlar galerisi, 1440</title>
+<rect width='1440' height='1000' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='976' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='976' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='40' y='101' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Panel</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Takvim</text>
+<text x='40' y='173' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezerve et</text>
+<text x='32' y='210' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>YÖNETİM</text>
+<text x='40' y='245' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Kullanıcılar</text>
+<rect x='24' y='260' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='281' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Entegrasyonlar</text>
+<text x='40' y='317' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Yapay zekâ</text>
+<text x='40' y='353' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Operasyon</text>
+<text x='40' y='389' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Ayarlar</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Entegrasyonlar</text>
+<text x='276' y='84' font-size='14' font-weight='400' fill='#475569' text-anchor='start'>Kurum genelindeki bağlantılar. Her yönetici aynı ayarları görür; değişiklikler denetim kaydına yazılır.</text>
+<rect x='276' y='104' width='360' height='40' rx='20' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='300' y='129' font-size='14' font-weight='400' fill='#64748B' text-anchor='start'>Entegrasyon ara</text>
+<rect x='652' y='106' width='58' height='36' rx='18.0' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='681.0' y='128.68' font-size='13' font-weight='600' fill='#2563EB' text-anchor='middle'>Tümü</text>
+<rect x='718' y='106' width='88' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='762.0' y='128.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Kimlik 4</text>
+<rect x='814' y='106' width='95' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='861.5' y='128.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>E-posta 1</text>
+<rect x='917' y='106' width='88' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='961.0' y='128.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Takvim 2</text>
+<rect x='1013' y='106' width='103' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1064.5' y='128.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Kanallar 5</text>
+<rect x='1124' y='106' width='193' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1220.5' y='128.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Webhook ve otomasyon 2</text>
+<rect x='1325' y='106' width='118' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1384.0' y='128.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Yapay zekâ 3</text>
+<text x='276' y='176' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>6 bağlı · 1 hata · 9 yapılandırılmadı</text>
+<rect x='276' y='192' width='1140' height='52' rx='12' fill='#FEE2E2' fill-opacity='1'/>
+<text x='296' y='224' font-size='14' font-weight='600' fill='#B91C1C' text-anchor='start'>Dikkat isteyen: E-posta (SMTP) · 535 kimlik doğrulama başarısız · 12 bildirim bekliyor</text>
+<rect x='1250' y='202' width='150' height='32' rx='16.0' fill='#2563EB' fill-opacity='1'/>
+<text x='1325.0' y='222.68' font-size='13' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Sorunu gider</text>
+<text x='276' y='280' font-size='18' font-weight='700' fill='#0F172A' text-anchor='start'>Kimlik</text>
+<text x='352' y='280' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>giriş ve davet yöntemleri</text>
+<rect x='276' y='300' width='272' height='196' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='292' y='316' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='312.0' y='341.0' font-size='13' font-weight='700' fill='#0F172A' text-anchor='middle'>MS</text>
+<text x='342' y='332' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Microsoft 365</text>
+<text x='342' y='350' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Entra ID · tek kiracı</text>
+<circle cx='297' cy='382' r='5' fill='#15803D'/>
+<text x='308' y='386' font-size='13' font-weight='600' fill='#15803D' text-anchor='start'>Bağlı</text>
+<text x='292' y='408' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Son kontrol: 4 dk önce · başarılı</text>
+<text x='292' y='426' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Son değişiklik: Mehmet Kaya, 17 Eki 19:40</text>
+<line x1='276' y1='444' x2='548' y2='444' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='292' y='454' width='96' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='340.0' y='474.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Yönet</text>
+<rect x='488' y='457' width='44' height='26' rx='13' fill='#2563EB' fill-opacity='1'/>
+<circle cx='519' cy='470' r='10' fill='#FFFFFF'/>
+<rect x='566' y='300' width='272' height='196' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='582' y='316' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='602.0' y='341.0' font-size='13' font-weight='700' fill='#0F172A' text-anchor='middle'>G</text>
+<text x='632' y='332' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Google Workspace</text>
+<text x='632' y='350' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>uni.edu.tr alanı</text>
+<circle cx='587' cy='382' r='5' fill='none' stroke='#475569' stroke-width='2'/>
+<text x='598' y='386' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>Yapılandırılmadı</text>
+<text x='582' y='408' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Henüz kurulmadı</text>
+<text x='582' y='426' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>—</text>
+<line x1='566' y1='444' x2='838' y2='444' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='582' y='454' width='120' height='32' rx='16.0' fill='#2563EB' fill-opacity='1'/>
+<text x='642.0' y='474.68' font-size='13' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Kur</text>
+<rect x='856' y='300' width='272' height='196' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='872' y='316' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='892.0' y='341.0' font-size='11' font-weight='700' fill='#0F172A' text-anchor='middle'>OIDC</text>
+<text x='922' y='332' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Okta</text>
+<text x='922' y='350' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>OpenID Connect · ön ayar</text>
+<circle cx='877' cy='382' r='5' fill='#475569'/>
+<text x='888' y='386' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>Kapalı</text>
+<text x='872' y='408' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Son kontrol: dün · başarılı</text>
+<text x='872' y='426' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Son değişiklik: Ayşe Yılmaz, 12 Eki</text>
+<line x1='856' y1='444' x2='1128' y2='444' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='872' y='454' width='96' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='920.0' y='474.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Yönet</text>
+<rect x='1068' y='457' width='44' height='26' rx='13' fill='#CBD5E1' fill-opacity='1'/>
+<circle cx='1081' cy='470' r='10' fill='#FFFFFF'/>
+<rect x='1146' y='300' width='272' height='196' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1162' y='316' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1182.0' y='341.0' font-size='11' font-weight='700' fill='#0F172A' text-anchor='middle'>SAML</text>
+<text x='1212' y='332' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Kurum girişi (SAML)</text>
+<text x='1212' y='350' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Shibboleth · YETKİM</text>
+<circle cx='1167' cy='382' r='5' fill='none' stroke='#475569' stroke-width='2'/>
+<text x='1178' y='386' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>Yapılandırılmadı</text>
+<text x='1162' y='408' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Henüz kurulmadı</text>
+<text x='1162' y='426' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>—</text>
+<line x1='1146' y1='444' x2='1418' y2='444' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1162' y='454' width='120' height='32' rx='16.0' fill='#2563EB' fill-opacity='1'/>
+<text x='1222.0' y='474.68' font-size='13' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Kur</text>
+<text x='276' y='540' font-size='18' font-weight='700' fill='#0F172A' text-anchor='start'>E-posta</text>
+<text x='362' y='540' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>bildirimlerin gönderildiği sunucu</text>
+<rect x='276' y='560' width='272' height='196' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#B91C1C' stroke-width='2'/>
+<rect x='292' y='576' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='312.0' y='601.0' font-size='11' font-weight='700' fill='#0F172A' text-anchor='middle'>SMTP</text>
+<text x='342' y='592' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>E-posta (SMTP)</text>
+<text x='342' y='610' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Microsoft 365 ön ayarı</text>
+<circle cx='297' cy='642' r='5' fill='#B91C1C'/>
+<text x='308' y='646' font-size='13' font-weight='600' fill='#B91C1C' text-anchor='start'>Hata</text>
+<text x='292' y='668' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Son kontrol: 2 dk önce · 535 5.7.3</text>
+<text x='292' y='686' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Son değişiklik: Mehmet Kaya, 17 Eki</text>
+<line x1='276' y1='704' x2='548' y2='704' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='292' y='714' width='96' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='340.0' y='734.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Yönet</text>
+<rect x='488' y='717' width='44' height='26' rx='13' fill='#2563EB' fill-opacity='1'/>
+<circle cx='519' cy='730' r='10' fill='#FFFFFF'/>
+<text x='566' y='540' font-size='18' font-weight='700' fill='#0F172A' text-anchor='start'>Takvim</text>
+<rect x='566' y='560' width='272' height='196' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='582' y='576' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='602.0' y='601.0' font-size='11' font-weight='700' fill='#0F172A' text-anchor='middle'>ICS</text>
+<text x='632' y='592' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Takvim akışları</text>
+<text x='632' y='610' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Kişisel abonelik adresleri</text>
+<circle cx='587' cy='642' r='5' fill='#15803D'/>
+<text x='598' y='646' font-size='13' font-weight='600' fill='#15803D' text-anchor='start'>Bağlı</text>
+<text x='582' y='668' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>KVKK onayı: 2 Eki</text>
+<text x='582' y='686' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Son değişiklik: Mehmet Kaya</text>
+<line x1='566' y1='704' x2='838' y2='704' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='582' y='714' width='96' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='630.0' y='734.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Yönet</text>
+<rect x='778' y='717' width='44' height='26' rx='13' fill='#2563EB' fill-opacity='1'/>
+<circle cx='809' cy='730' r='10' fill='#FFFFFF'/>
+<rect x='856' y='560' width='272' height='196' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='872' y='576' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='892.0' y='601.0' font-size='13' font-weight='700' fill='#0F172A' text-anchor='middle'>MS</text>
+<text x='922' y='592' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Microsoft 365 takvim</text>
+<text x='922' y='610' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Rezervasyon aktarımı</text>
+<circle cx='877' cy='642' r='5' fill='none' stroke='#475569' stroke-width='2'/>
+<text x='888' y='646' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>Yapılandırılmadı</text>
+<text x='872' y='668' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Henüz kurulmadı</text>
+<text x='872' y='686' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>—</text>
+<line x1='856' y1='704' x2='1128' y2='704' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='872' y='714' width='120' height='32' rx='16.0' fill='#2563EB' fill-opacity='1'/>
+<text x='932.0' y='734.68' font-size='13' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Kur</text>
+<rect x='1146' y='560' width='272' height='196' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1162' y='576' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1182.0' y='601.0' font-size='13' font-weight='700' fill='#0F172A' text-anchor='middle'>AI</text>
+<text x='1212' y='592' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Anthropic</text>
+<text x='1212' y='610' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Yapay zekâ sağlayıcısı</text>
+<circle cx='1167' cy='642' r='5' fill='#15803D'/>
+<text x='1178' y='646' font-size='13' font-weight='600' fill='#15803D' text-anchor='start'>Bağlı</text>
+<text x='1162' y='668' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Son kontrol: 1 sa önce</text>
+<text x='1162' y='686' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Yapay zekâ ekranında yönetilir ↗</text>
+<line x1='1146' y1='704' x2='1418' y2='704' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1162' y='714' width='96' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1210.0' y='734.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Yönet</text>
+<rect x='1358' y='717' width='44' height='26' rx='13' fill='#2563EB' fill-opacity='1'/>
+<circle cx='1389' cy='730' r='10' fill='#FFFFFF'/>
+<text x='276' y='800' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Kart: monogram (logo yok) · ad · tek satır özet · durum noktası + kelime · son kontrol · Son değişiklik: &lt;ad&gt;, &lt;zaman&gt; · Kur/Yönet + açma anahtarı.</text>
+<text x='276' y='820' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Hata kartı 2 px kırmızı kenar + kelime; 'Dikkat isteyen' satırı en üstte. Başka ekranın kartları (Yapay zekâ, Kanallar) oraya bağlanır (↗).</text>
+<text x='276' y='840' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Alan sekmeleri sayılarla; arama ad ve sağlayıcı adlarında çalışır. Sıra sabittir: durum değişince kartlar yer değiştirmez.</text>
+</svg>

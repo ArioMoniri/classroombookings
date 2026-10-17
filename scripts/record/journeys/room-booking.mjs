@@ -55,11 +55,11 @@ export default {
       await sheet.waitFor({ state: "hidden", timeout: 20_000 });
       await page.locator(`button[data-slot-key="${this.key}"][data-tone="booked-mine"]`).waitFor({ timeout: 20_000 });
       await rec.frame(page.locator(`button[data-slot-key="${this.key}"]`), { dwell: 1300 });
-    });
+    }, { clip: "room-booking" });
     await rec.step(tr(ctx, "It is listed under My bookings, with a calendar feed and CSV export", "Rezervasyonlarım altında listelenir; takvim aboneliği ve CSV dışa aktarma ile"), async () => {
       await rec.click(page.getByTestId("nav-my-bookings"));
       await page.getByTestId("booking-list").waitFor({ timeout: 20_000 });
       await rec.frame(page.getByTestId("booking-list"), { dwell: 1600 });
-    }, { hold: 1200, poster: true });
+    }, { clip: "room-booking", hold: 1200, poster: true });
   },
 };

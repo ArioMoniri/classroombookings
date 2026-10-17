@@ -2,7 +2,7 @@
  * Approval workflows (P1, docs/product/wave1-api.md §4): what a request says and how its timeline reads.
  * Pure functions (no React), unit-tested in approvals-model.test.ts.
  */
-import type { ApprovalRequest, Decision, RequestBooking, Rule, RuleSnapshot, Scope, Suggested } from "@/lib/api/wave1";
+import type { ApprovalRequest, Approver, Decision, RequestBooking, Rule, RuleSnapshot, Scope, Suggested } from "@/lib/api/wave1";
 
 export type RequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "WITHDRAWN";
 export type Tone = "pending" | "ok" | "bad" | "muted";
@@ -25,6 +25,27 @@ export function requestSlots(r: Pick<ApprovalRequest, "bookings">): { dates: str
   return { dates, first, periods };
 }
 
+/**
+ * T-R1-13 (A-12): one line for a submission of several adjacent periods ("P7–P8", 13:30–15:00) instead of its first
+ * period: the lowest start and the highest end over every request of the group, on the first date.
+ */
+export function groupSpan(reqs: readonly Pick<ApprovalRequest, "bookings">[]): { date: string; start: number; end: number; timeStart: string | null; timeEnd: string | null; periods: string } | null {
+  const all = reqs.flatMap((r) => r.bookings);
+  if (!all.length) return null;
+  const date = [...all.map((b) => b.date)].sort()[0]!;
+  const day = all.filter((b) => b.date === date).sort((a, b) => a.start_period - b.start_period);
+  const lo = day[0]!;
+  const hi = day.reduce((m, b) => (b.end_period > m.end_period ? b : m), lo);
+  const periods = lo.start_period === hi.end_period ? `P${lo.start_period}` : `P${lo.start_period}–P${hi.end_period}`;
+  return { date, start: lo.start_period, end: hi.end_period, timeStart: lo.time_start ?? null, timeEnd: hi.time_end ?? null, periods };
+}
+
+/** The status of a submission: the one status every period shares, else `null` (mixed: shown per period). */
+export function groupStatus(reqs: readonly Pick<ApprovalRequest, "status">[]): ApprovalRequest["status"] | null {
+  const set = new Set(reqs.map((r) => r.status));
+  return set.size === 1 ? reqs[0]!.status : null;
+}
+
 /** Bookings of the request that are still open (a series may have dates the approver can pick). */
 export function openDates(r: Pick<ApprovalRequest, "bookings">): string[] {
   return [...new Set(r.bookings.filter((b) => b.status === "PENDING").map((b) => b.date))].sort();
@@ -32,7 +53,7 @@ export function openDates(r: Pick<ApprovalRequest, "bookings">): string[] {
 
 export type TimelineEntry =
   | { kind: "requested"; at: string | null; by: string | null }
-  | { kind: "decision"; at: string | null; by: string | null; decision: "approve" | "reject"; note: string | null; step: number; alternative: Record<string, unknown> | null }
+  | { kind: "decision"; at: string | null; by: string | null; decision: "approve" | "reject"; note: string | null; reasonCode: string | null; step: number; alternative: Record<string, unknown> | null }
   | { kind: "waiting"; step: number; steps: number; approvers: string[]; expires: string | null }
   | { kind: "final"; at: string | null; status: Exclude<RequestStatus, "PENDING"> };
 
@@ -50,6 +71,7 @@ export function timeline(r: ApprovalRequest): TimelineEntry[] {
       by: d.approver_name ?? null,
       decision: d.decision === "APPROVED" || d.decision === "approve" ? "approve" : "reject",
       note: d.note ?? null,
+      reasonCode: d.reason_code ?? null,
       step: d.step,
       alternative: (d.alternative as Record<string, unknown> | null | undefined) ?? null,
     });
@@ -87,6 +109,34 @@ export function ruleTarget(r: Pick<Rule | RuleSnapshot, "entity_type" | "entity_
 export function stepApprovers(step: { approvers: { type: string; ids?: number[] } }, l: Pick<RuleLookups, "user">): { designated: boolean; names: string[] } {
   if (step.approvers.type !== "users") return { designated: true, names: [] };
   return { designated: false, names: (step.approvers.ids ?? []).map((id) => l.user(id) ?? `#${id}`) };
+}
+
+/**
+ * T-R2-18 (R2-M-19): does any approver who can decide cover the rooms this rule reaches? A scope "all" covers
+ * everything; a room scope covers that room's rule, its group's rule and a tag rule when the room carries the tag; a
+ * group scope covers the rooms in it; a tag scope covers the rooms carrying the tag. Without one, a "designated
+ * approvers" step would fall to every room approver, then the room owner, then the administrators (M-35 was the
+ * case of no scopes at all; this is the per-rule case).
+ */
+export function ruleCovered(
+  rule: Pick<Rule, "entity_type" | "entity_id" | "tag">,
+  approvers: readonly Pick<Approver, "can_decide" | "scopes">[],
+  rooms: readonly { id: number; tags: readonly string[]; groupId: number | null }[],
+): boolean {
+  const tagOf = (t: string | null | undefined) => (t ?? "").toUpperCase();
+  const reached = rooms.filter((r) =>
+    rule.entity_type === "room" ? r.id === rule.entity_id : rule.entity_type === "room_group" ? r.groupId === rule.entity_id : r.tags.some((t) => tagOf(t) === tagOf(rule.tag)),
+  );
+  return approvers.some(
+    (a) =>
+      a.can_decide &&
+      a.scopes.some((s) => {
+        if (s.type === "all") return true;
+        if (s.type === "room") return rule.entity_type === "room" ? s.id === rule.entity_id : reached.some((r) => r.id === s.id);
+        if (s.type === "room_group") return rule.entity_type === "room_group" ? s.id === rule.entity_id : reached.some((r) => r.groupId === s.id);
+        return rule.entity_type === "tag" ? tagOf(s.tag) === tagOf(rule.tag) : reached.some((r) => r.tags.some((t) => tagOf(t) === tagOf(s.tag)));
+      }),
+  );
 }
 
 /* -------------------------------------------------------------------------------------- scopes */
@@ -151,4 +201,92 @@ export function conflictAlternatives(data: Record<string, unknown>): DecideAlter
     });
   }
   return out;
+}
+
+/** A-12: one inbox entry per submission. Requests of one multi-period submission (`group_id`) are shown as one
+ *  row, in period order; a request without a group is its own entry. Order follows the first request. */
+export interface InboxEntry {
+  key: string;
+  groupId: number | null;
+  requests: ApprovalRequest[];
+}
+
+export function groupInbox(rows: readonly ApprovalRequest[]): InboxEntry[] {
+  const out: InboxEntry[] = [];
+  const byGroup = new Map<string, InboxEntry>();
+  for (const r of rows) {
+    const b = r.bookings[0];
+    const key = r.group_id ? `g${r.group_id}|${b?.date ?? ""}|${r.room_id}` : `r${r.id}`;
+    let entry = byGroup.get(key);
+    if (!entry) {
+      entry = { key, groupId: r.group_id ?? null, requests: [] };
+      byGroup.set(key, entry);
+      out.push(entry);
+    }
+    entry.requests.push(r);
+  }
+  for (const e of out) e.requests.sort((a, b) => (a.bookings[0]?.start_period ?? 0) - (b.bookings[0]?.start_period ?? 0) || a.id - b.id);
+  return out;
+}
+
+/* ----------------------------------------------------------------------------- rejection reasons */
+
+/** Blank as the backend reads it: spaces, NBSP and the zero-width characters a paste brings along. */
+export function isBlank(text: string | null | undefined): boolean {
+  return !text || text.replace(/[\s\u00a0\u200b\u200c\u200d\u2060\ufeff]+/g, "") === "";
+}
+
+export interface RejectDraft {
+  code: string | null;
+  text: string;
+}
+export interface RejectProblems {
+  code?: "required";
+  text?: "required" | "tooLong";
+}
+
+/**
+ * Approval-first (owner requirement): a rejection carries a reason code AND a written reason, so the requester
+ * always reads why. Stricter than the backend (which takes a code alone, except "other").
+ */
+export function rejectProblems(d: RejectDraft, max = 1000): RejectProblems {
+  const out: RejectProblems = {};
+  if (!d.code) out.code = "required";
+  if (isBlank(d.text)) out.text = "required";
+  else if (d.text.trim().length > max) out.text = "tooLong";
+  return out;
+}
+
+/**
+ * What the requester reads after "Gerekçe:": the code's label and the free text (mirrors the backend's
+ * `reason_text`): "Oda uygun değil: Bu saatte bölüm sınavı var." — "other" and a missing label give the text
+ * alone, a system reason (slot_taken) or a missing text the label alone.
+ */
+export function reasonLine(code: string | null | undefined, text: string | null | undefined, label: (code: string) => string | null): string | null {
+  const l = code ? label(code) : null;
+  const note = isBlank(text) ? null : text!.trim();
+  if (code === "slot_taken" || !note) return l ?? note;
+  return l && code !== "other" ? `${l}: ${note}` : note;
+}
+
+/** The request's own reason: the stored text and code, else the rejecting decision's (per period in a group). */
+export function requestReason(r: Pick<ApprovalRequest, "status" | "note" | "reason" | "reason_code" | "decisions">): { code: string | null; text: string | null } | null {
+  if (r.status !== "REJECTED") return null;
+  const d = [...(r.decisions as Decision[])].reverse().find((x) => x.decision === "REJECTED" || x.decision === "reject");
+  const code = r.reason_code ?? d?.reason_code ?? null;
+  // `reason` falls back to the code in both languages when there is no text: prefer the plain note
+  const text = r.note ?? d?.note ?? (code ? null : (r.reason ?? null));
+  return code || text ? { code, text } : null;
+}
+
+/**
+ * The request a deep link opens: `?group=` → the submission's first open period (else its first period, else the
+ * link's own request); `?request=` alone → that request.
+ */
+export function pickAsked(entries: readonly InboxEntry[], request: number | null, group: number | null): number | null {
+  if (group !== null) {
+    const entry = entries.find((e) => e.groupId === group) ?? entries.find((e) => request !== null && e.requests.some((r) => r.id === request));
+    if (entry) return (entry.requests.find(isOpen) ?? entry.requests[0])?.id ?? request;
+  }
+  return request;
 }

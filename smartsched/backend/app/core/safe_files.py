@@ -43,9 +43,13 @@ MiB = 1024 * 1024
 #: OOXML members that are rendered into Python objects (shared strings, sheets, document bodies)
 _TEXT_PARTS = re.compile(r"^(xl/(sharedStrings|worksheets/[^/]+|styles)|word/document)\.xml$", re.I)
 _SHEET_PART = re.compile(r"^xl/worksheets/[^/]+\.xml$", re.I)
-_ROW_RX = re.compile(rb"<(?:\w+:)?row\b([^>]*)>")
+#: the opening tag of a ``<row>`` or ``<c>`` element (``/`` in group 3 when it is self-closing, i.e. empty)
+_TAG_RX = re.compile(rb"<(?:\w+:)?(row|c)\b([^>]*?)(/?)>")
+_CELL_END_RX = re.compile(rb"</(?:\w+:)?c\s*>")
 _R_ATTR = re.compile(rb'\sr="(\d+)"')
-_CELL_RX = re.compile(rb'<(?:\w+:)?c\b(?:[^>]*?\sr="([A-Z]{1,3})\d+")?')
+_CELL_REF = re.compile(rb'\sr="([A-Z]{1,3})(\d*)"')
+#: a cell that holds something: a non-empty value / inline-string text (CDATA too) or a formula
+_VALUE_RX = re.compile(rb"<(?:\w+:)?(?:v|t)\b[^>/]*>(?:[^<]|<!\[CDATA\[)|<(?:\w+:)?f\b")
 _MERGE_RX = re.compile(rb'<(?:\w+:)?mergeCell\b[^>]*\sref="([A-Z]{1,3})(\d+)(?::([A-Z]{1,3})(\d+))?"')
 
 
@@ -98,10 +102,19 @@ def replace_limits(lim: Limits, **kw: Any) -> Limits:
 
 @dataclass
 class SheetExtent:
-    rows: int = 0  # highest row number (explicit ``r`` or implicit count)
-    cols: int = 0  # highest explicit column number
-    cells: int = 0
+    """The real extent of one worksheet part.
+
+    ``rows`` / ``cols`` are the last row / column holding a value (the used range). A styled-but-empty cell
+    (``<c r="XFD7" s="3"/>``, written by Excel for whole formatted rows) and the declared
+    ``<dimension ref>`` do not count: the real planning lists declare 16 375 formatted columns but use 26.
+    ``cells`` counts every ``<c>`` element, styled-empty ones too, because a full (non read-only) load
+    materialises each of them; with the per-part byte cap it bounds the work a styled-cell bomb can cause."""
+
+    rows: int = 0  # last row with a value (explicit ``r`` or implicit position)
+    cols: int = 0  # last column with a value (explicit ``r`` or implicit position)
+    cells: int = 0  # every <c> element
     merged_cells: int = 0
+    styled_cols: int = 0  # last column of any <c> element (informational: what Excel's max_column reports)
 
 
 @dataclass
@@ -125,18 +138,34 @@ def _mib(n: int) -> str:
 
 
 def _scan_sheet(data: bytes) -> SheetExtent:
+    """One linear pass over the (size-capped) worksheet XML; no cell objects are built."""
     ext = SheetExtent()
-    implicit = 0
-    for m in _ROW_RX.finditer(data):
-        implicit += 1
-        r = _R_ATTR.search(m.group(1))
-        row = int(r.group(1)) if r else implicit
-        implicit = row
-        ext.rows = max(ext.rows, row)
-    for m in _CELL_RX.finditer(data):
+    row = col = 0
+    pos = 0
+    while True:
+        m = _TAG_RX.search(data, pos)
+        if m is None:
+            break
+        pos = m.end()
+        if m.group(1) == b"row":
+            r = _R_ATTR.search(m.group(2))
+            row = int(r.group(1)) if r else row + 1  # a row without r follows the previous one
+            col = 0
+            continue
         ext.cells += 1
-        if m.group(1):
-            ext.cols = max(ext.cols, _col_index(m.group(1)))
+        ref = _CELL_REF.search(m.group(2))
+        col = _col_index(ref.group(1)) if ref else col + 1  # a cell without r follows the previous one
+        cell_row = int(ref.group(2)) if ref and ref.group(2) else max(row, 1)
+        ext.styled_cols = max(ext.styled_cols, col)
+        if m.group(3):  # <c .../>: style only, no value
+            continue
+        end = _CELL_END_RX.search(data, pos)
+        if end is None:  # truncated part: what was seen so far is the extent
+            break
+        if _VALUE_RX.search(data, pos, end.start()):
+            ext.rows = max(ext.rows, cell_row)
+            ext.cols = max(ext.cols, col)
+        pos = end.end()
     for m in _MERGE_RX.finditer(data):
         c1, r1, c2, r2 = m.groups()
         if c2 is None:
@@ -199,7 +228,9 @@ def inspect_zip(src: bytes | str | Path, *, limits: Limits | None = None, kind: 
 
 def check_full_load(rep: ZipReport, lim: Limits, kind: str = "workbook") -> None:
     """A full (non read-only) openpyxl load materialises every cell and every merged cell: refuse sheets
-    whose real extent exceeds the caps."""
+    whose used extent (rows / columns with values) or element counts (cells, merged area) exceed the caps.
+    Formatting does not count against the row / column caps (the real planning lists style 16 375 columns);
+    styled-empty cells count against ``max_cells``, so a style-only bomb is still bounded."""
     for name, ext in rep.sheets.items():
         sheet = Path(name).stem
         if ext.rows > lim.max_rows:
@@ -224,8 +255,10 @@ def open_workbook(
     max_cols: int | None = None,
 ) -> Any:
     """``openpyxl.load_workbook`` after :func:`inspect_zip`. Read-only sheets get their dimension clamped to
-    the real extent capped by ``max_rows`` / ``max_cols`` (rows beyond the cap are not read); full loads
-    are refused when a sheet exceeds the caps (see :func:`check_full_load`)."""
+    the used extent (last cell with a value, see :class:`SheetExtent`) capped by ``max_rows`` / ``max_cols``
+    (rows beyond the cap are not read); full loads are refused when a sheet exceeds the caps (see
+    :func:`check_full_load`) and lose the styled-but-empty cells past the used range (see :func:`_trim_styled`),
+    so ``ws.max_column`` / ``ws.max_row`` describe the data, not formatting out to XFD."""
     import openpyxl
 
     lim = limits or Limits.from_settings()
@@ -247,13 +280,33 @@ def open_workbook(
             path = getattr(ws, "_worksheet_path", None)
             ext = rep.sheets.get(str(path).lstrip("/")) if path else (extents[i] if i < len(extents) else None)
             real_rows = ext.rows if ext else rows_cap
-            real_cols = ext.cols if ext and ext.cols else cols_cap
+            real_cols = ext.cols if ext else cols_cap
             ws._max_row = max(1, min(real_rows or 1, rows_cap))
-            ws._max_column = max(1, min(real_cols, cols_cap))
+            ws._max_column = max(1, min(real_cols or 1, cols_cap))
             if ext and (ext.rows > rows_cap or ext.cols > cols_cap):
                 rep.clamped = True
-        wb._safe_report = rep  # noqa: SLF001 - callers may report truncation
+    else:
+        for ws in wb.worksheets:
+            _trim_styled(ws)
+    wb._safe_report = rep  # noqa: SLF001 - callers may report truncation
     return wb
+
+
+def _trim_styled(ws: Any) -> None:
+    """Drop a fully loaded sheet's empty cells past its used range (the last value or merged cell): Excel writes
+    style-only cells out to XFD for formatted rows, which makes ``max_column`` 16 384 and turns an
+    ``iter_rows()`` up to it into millions of new cells. The work is bounded by the ``max_cells`` check."""
+    cells = getattr(ws, "_cells", None)
+    if not cells:
+        return
+    rows = cols = 0
+    for (r, c), cell in cells.items():
+        if cell.value is not None:
+            rows, cols = max(rows, r), max(cols, c)
+    for rng in getattr(ws.merged_cells, "ranges", ()):
+        rows, cols = max(rows, rng.max_row), max(cols, rng.max_col)
+    for key in [k for k, cell in cells.items() if (k[0] > rows or k[1] > cols) and cell.value is None]:
+        del cells[key]
 
 
 # --------------------------------------------------------------------------- uploads

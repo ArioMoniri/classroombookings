@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# The REAL backend for the browser e2e stack: fresh SQLite, the real Bahar 2026 workbooks, the seeded
-# admin, one full-term CP-SAT run, then serve with the booking clock inside the term (e2e-backend-serve.py).
+# The REAL backend for the browser e2e stack: fresh SQLite, the real Bahar 2026 workbooks + the Güz 2026-27 workbooks
+# (board published, no solver run) + room master + the Final 2026 board and exam list, the seeded admin, the analytics
+# runs, one full-term CP-SAT run for Bahar, then serve with the booking clock inside Bahar (e2e-backend-serve.py).
 #
 # pod CI (e2e-real.sh): runs INSIDE the python CI container, cwd /w/src/smartsched/backend, gates at /ci.
 # Locally (no Docker), from smartsched/backend with the backend deps installed:
@@ -37,7 +38,23 @@ fi
 alembic upgrade head
 "$PY" -m app.cli import weekly-grid tests/fixtures/bahar_derslikler_takvimi_2026.xlsx --term 2026-BAHAR --year 2026
 "$PY" -m app.cli import planning-list tests/fixtures/bahar_derslik_planlama_listesi_v5.xlsx --term 2026-BAHAR
+# the Güz 2026-27 workbooks (grid + planning list) like the recording stack (scripts/record/stack.sh up): the round-1
+# lane specs read the Güz term with its imported board published (e2e-seed-analytics.py publishes it; no solver run
+# for Güz, the board is an import). Imported between Bahar and Final so Final keeps the newest term id
+# (GET /terms lists newest first) and the clock stays inside Bahar (e2e-gate-seed 2026-10-17)
+"$PY" -m app.cli import weekly-grid tests/fixtures/guz_derslikler_takvimi_2026_2027.xlsx --term 2026-GUZ --year 2026
+"$PY" -m app.cli import planning-list tests/fixtures/guz_derslik_planlama_2026_2027_v2.xlsx --term 2026-GUZ
+# the room master (capacities, exam capacities, buildings, features) like every real install: without it the grid's
+# rooms have no capacity, the full-term run is solved against none, and a spec applying room_master.csv
+# (shell-admin-sweep 2) changed the rooms under that run for every spec after it (e2e-stabilisation 2026-10-16)
+"$PY" -m app.cli import room-master tests/fixtures/room_master.csv
 "$PY" -m app.cli seed-admin
+# the planning-analytics specs (e2e/analytics.spec.ts): the 2026 Final board + exam list, the labelled week-3 runs
+# A / B (A's busiest Wednesday room closed), calendar.spec's editable week-3 run and the Final exam run; the board is
+# published (e2e-seed-analytics.py). Before the full-term solve: the screens open the term's LATEST usable run.
+"$PY" -m app.cli import weekly-grid tests/fixtures/final_derslikler_takvimi_2026_v2.xlsx --term 2026-FINAL --year 2026
+"$PY" -m app.cli import exam-list tests/fixtures/final_planlama_listesi_2026_v2.xlsx --term 2026-FINAL
+"$PY" "$HERE/e2e-seed-analytics.py"
 # a solver run for the whole term (the calendar and motion specs need one besides the imported boards)
 "$PY" -m app.cli solve --term 2026-BAHAR --kind COURSE --horizon TERM --solver cpsat \
   --time-limit "${E2E_SOLVE_TIME_LIMIT:-120}" --label "e2e: Bahar full term"

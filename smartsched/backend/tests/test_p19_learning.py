@@ -36,6 +36,7 @@ from app.models import (
     Course,
     Instructor,
     LearnedObservation,
+    LearnedPrior,
     LearningReset,
     MeetingRequest,
     Room,
@@ -401,7 +402,9 @@ async def test_accept_creates_one_soft_targeted_learned_rule(env: Env):
         assert row is not None and ins is not None
         assert ins.full_name in people[0]["claim"]["tr"]
         stored = f"{row.nl_text} {row.source_ref}"
-        assert ins.full_name not in stored and f"öğretim elemanı #{ins.id}" in stored
+        # KVKK: the stored text names the person by title + initials, never the full name nor a bare id (T-R1-41)
+        assert ins.full_name not in stored and learning.masked_person(ins.title, ins.full_name) in stored
+        assert f"#{ins.id}" not in stored
 
 
 async def _viewer(env: Env) -> dict[str, str]:
@@ -507,6 +510,70 @@ async def test_person_reset_hides_undo_restores_and_planner_gets_403(env: Env):
         await s.commit()
     r = await env.client.post(f"{API}/learning/resets/{rid}/undo", headers=env.admin)
     assert r.status_code == 409 and expired in r.text
+
+
+async def test_person_reset_deactivates_priors_at_once_and_keeps_the_accepted_card(env: Env):
+    """Round-2 T-R2-24 (R2-M-05): a person reset must not depend on the lazy recompute of the next read. The
+    person's priors are inactive the moment the reset commits (a stale read that was in flight cannot show them
+    as open), the accepted suggestion stays listed as accepted (its rule is a normal preference now), and the
+    undo brings the open ones back."""
+    term, _ = await _next_bahar(["SYS 19", "RAD 202"])
+    await env.client.post(f"{API}/learning/refresh", json={}, headers=env.planner)
+    people = sorted(
+        {int(i["subject"]["id"]) for i in await _suggestions(env, term) if i["subject"]["type"] == "instructor"}
+    )
+    assert len(people) >= 2, people
+    p_open, p_acc = people[0], people[1]
+
+    async def active_ids(pid: int) -> set[int]:
+        async with _session() as s:
+            q = select(LearnedPrior.id).where(
+                LearnedPrior.term_id == term,
+                LearnedPrior.active.is_(True),
+                learning._subject_clause(LearnedPrior, [("instructor", str(pid))]),
+            )
+            return {int(i) for i in (await s.execute(q)).scalars()}
+
+    # 1. open suggestions: inactive in the database the moment the reset returns (no GET /suggestions in between)
+    mine = {i["id"] for i in await _suggestions(env, term, person_id=p_open)}
+    assert mine and mine <= await active_ids(p_open)
+    r = await env.client.post(
+        f"{API}/learning/reset",
+        json={"scope": "person", "value": p_open, "reason": "görev değişikliği"},
+        headers=env.admin,
+    )
+    assert r.status_code == 201, r.text
+    rid = r.json()["id"]
+    assert r.json()["counts"]["suggestions"] == len(mine)
+    assert await active_ids(p_open) == set()
+    for state in ("all", "open", "snoozed", "dismissed"):
+        assert await _suggestions(env, term, person_id=p_open, state=state) == []
+    assert p_open not in {
+        int(i["subject"]["id"]) for i in await _suggestions(env, term) if i["subject"]["type"] == "instructor"
+    }
+    # undo: active again without waiting for a read; the listing agrees
+    r = await env.client.post(f"{API}/learning/resets/{rid}/undo", headers=env.admin)
+    assert r.status_code == 200, r.text
+    assert mine <= await active_ids(p_open)
+    assert {i["id"] for i in await _suggestions(env, term, person_id=p_open)} == mine
+
+    # 2. an accepted suggestion stays listed as accepted after the person's reset (its rule is a preference now)
+    acc = (await _suggestions(env, term, person_id=p_acc))[0]["id"]
+    r = await env.client.post(f"{API}/learning/suggestions/{acc}/accept", json={}, headers=env.planner)
+    assert r.status_code == 201, r.text
+    r = await env.client.post(
+        f"{API}/learning/reset",
+        json={"scope": "person", "value": p_acc, "reason": "görev değişikliği"},
+        headers=env.admin,
+    )
+    assert r.status_code == 201, r.text
+    assert await active_ids(p_acc) == set()
+    assert [(i["id"], i["state"]) for i in await _suggestions(env, term, person_id=p_acc, state="all")] == [
+        (acc, "accepted")
+    ]
+    assert await _suggestions(env, term, person_id=p_acc) == []
+    async with _session() as s:  # the LEARNED rule is untouched by the reset
+        assert (await s.execute(select(func.count()).where(ConstraintRow.source == "LEARNED"))).scalar_one() == 1
 
 
 async def test_purge_removes_expired_observations_and_they_stay_unlearned(env: Env):

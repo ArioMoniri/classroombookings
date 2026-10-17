@@ -8,18 +8,21 @@ Model (review 2026-10-15 §3b, decisions in docs/ROADMAP.md Phase 19):
   decided minimum evidence (2 rows over 2 terms, 3 repeats in one term) could never reach 0.6 (6/6 rows would be
   needed), so the one-sigma bound is used: 2/2 -> 0.67, 3/3 -> 0.75, 8/8 -> 0.89, 1/2 -> 0.21.
 * **suggested** only when score > 0, support >= 2 over >= 2 terms or >= 3 in one term, confidence >= 0.6 and the
-  attribute has a soft rule to propose. Room and time evidence counts only from terms of T's season (a Güz room
-  says nothing about Bahar, academician needs §3.2); building and feature evidence is kept across seasons and
-  labelled "farklı dönem verisi".
+  attribute has a soft rule to propose. Room, room-feature (its proposal names the tagged rooms) and time
+  evidence counts only from terms of T's season (a Güz room says nothing about Bahar, academician needs §3.2);
+  building evidence is kept across seasons and labelled "farklı dönem verisi" (L2: a building at most).
 * **suggest only**: nothing here is applied without a person. Accepting creates one soft, targeted
   ``ConstraintRow(source="LEARNED")`` of the allowlist {room_preference, building_preference,
   same_room_across_weeks, day_window}, weight 5 by default (Q7: learned 5 < explicit 10), checked by
   :mod:`app.services.constraint_guard` and the per-source policy of ``app.ai.catalog``.
 * explicit requests always win: classes of T that already request or hold rooms / a building (or a fixed time, for
-  a time band) are not targeted; a suggestion with no class left is hidden. A room below the classes' current
+  a time band) are not targeted; a suggestion with no class left is hidden (``room_already_set`` when every class
+  already holds its definitive room, else ``explicit_request_wins``). A term whose classes are all roomed (Güz
+  2026 as imported) therefore shows its people's building habits as hidden priors, not open cards: they become
+  cards for the classes of a term that still need a room. A room below the classes' current
   enrolment or no longer bookable is never suggested.
 * stored text names no person (KVKK): ``{subject}`` is filled when read, from the FK. The accepted rule's
-  ``source_ref.explanation`` uses ``öğretim elemanı #<id>``.
+  ``source_ref.explanation`` uses the person's title + initials (:func:`masked_person`), never a bare id.
 
 Memory reset (planning.admin, audited): person / term / all stamps ``reset_id`` on the matching observations and
 dismissals and leaves a watermark so they are not learned again; undo within 30 days restores them; a daily purge
@@ -40,7 +43,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.importers import normalize as n
@@ -79,7 +82,10 @@ MIN_TERMS, MIN_TERM_SUPPORT, MIN_ONE_TERM = 2, 2, 3
 WILSON_Z = 1.0
 UNDO_DAYS = 30
 SNOOZE_MODES = ("next_solve", "P7D", "next_term")
-SAME_SEASON_ATTRS = frozenset({"room", "day", "period", "day_period"})
+#: evidence that counts only from terms of the target term's season (L2: other-season data gives a building at most).
+#: ``tag`` is here because its proposal names the tagged rooms (room_preference with room_ids): a Bahar PC-lab
+#: habit must not become a Güz room suggestion (round-1 T-R1-40 b)
+SAME_SEASON_ATTRS = frozenset({"room", "tag", "day", "period", "day_period"})
 LEVELS = ((0.8, "high", "Yüksek"), (0.6, "medium", "Orta"), (0.5, "low", "Düşük"))
 _DAYS_TR = {1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi", 7: "Pazar"}
 _DAYS_EN = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
@@ -113,6 +119,17 @@ def locative(text: str) -> str:
     front = bool(vowels) and vowels[-1] in _FRONT
     hard = bool(word) and word[-1] in _HARD
     return f"{text.rstrip()}'{'t' if hard else 'd'}{'e' if front else 'a'}"
+
+
+def masked_person(title: str | None, full_name: str | None) -> str:
+    """A person as title + initials (``Öğr. Gör. A. Y. Y.``): what the stored rule text and the reset rows show
+    (KVKK: no full name is stored with learned data; round-1 T-R1-41 replaced the bare ``#98``)."""
+    letters = []
+    for w in (full_name or "").split():
+        head = w.lstrip("(\"'")[:1]
+        if head:
+            letters.append(f"{head.replace('i', 'İ').replace('ı', 'I').upper()}.")
+    return " ".join(x for x in ((title or "").strip(), " ".join(letters)) if x)
 
 
 def wilson_lower(pos: int, total: int, z: float = WILSON_Z) -> float:
@@ -376,7 +393,10 @@ async def ensure_priors(session: AsyncSession, term_id: int, *, force: bool = Fa
     if not force and has and _FRESH.get(key) == fp:
         return False
     await recompute_priors(session, term_id)
-    _FRESH[key] = fp
+    # a reset or an extraction that committed while this recompute ran must trigger the next one (T-R2-24):
+    # the term is marked fresh only when the evidence it read is still the evidence in the database
+    if await _fingerprint(session) == fp:
+        _FRESH[key] = fp
     return True
 
 
@@ -386,8 +406,13 @@ def _forget(term_id: int | None = None) -> None:
             _FRESH.pop(k, None)
 
 
-async def recompute_priors(session: AsyncSession, term_id: int) -> int:
-    """Upsert the priors of target term ``term_id`` from the visible observations (``reset_id IS NULL``)."""
+async def recompute_priors(
+    session: AsyncSession, term_id: int, *, subjects: list[tuple[str, str]] | None = None
+) -> int:
+    """Upsert the priors of target term ``term_id`` from the visible observations (``reset_id IS NULL``).
+
+    ``subjects`` (``[(subject_type, subject_key), ...]``) limits the work to those subjects' priors: a person reset
+    and its undo recompute the person at once (milliseconds) instead of leaving the whole term to the next read."""
     terms = {t.id: t for t in (await session.execute(select(Term))).scalars()}
     target = terms.get(term_id)
     if target is None:
@@ -411,7 +436,9 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
         LearnedObservation.source_table,
         LearnedObservation.source_id,
         LearnedObservation.detail,
-    ).where(LearnedObservation.reset_id.is_(None))
+    ).where(LearnedObservation.reset_id.is_(None), LearnedObservation.subject_type != "intake")
+    if subjects is not None:
+        q = q.where(_subject_clause(LearnedObservation, subjects))
     groups: dict[tuple[str, str, str], _Group] = defaultdict(_Group)
     cross: dict[tuple[str, str, str, str], bool] = defaultdict(bool)
     seasons = {tid: season_of(t) for tid, t in terms.items()}
@@ -523,6 +550,8 @@ async def recompute_priors(session: AsyncSession, term_id: int) -> int:
         LearnedPrior.suggestible,
         *cols,
     ).where(LearnedPrior.term_id == term_id)
+    if subjects is not None:
+        q_old = q_old.where(_subject_clause(LearnedPrior, subjects))
     existing: dict[tuple[str, str, str, str], tuple[int, bool, bool, dict[str, Any]]] = {}
     for row in (await session.execute(q_old)).all():
         existing[(row[1], row[2], row[3], row[4])] = (row[0], row[5], row[6], dict(zip(fields, row[7:], strict=True)))
@@ -644,10 +673,13 @@ async def _subject_labels(
     if wanted.get("instructor"):
         for i in (await session.execute(select(Instructor).where(Instructor.id.in_(wanted["instructor"])))).scalars():
             name = " ".join(x for x in (i.title, i.full_name) if x)
-            out[("instructor", str(i.id))] = {"label": name, "safe": f"öğretim elemanı #{i.id}"}
+            out[("instructor", str(i.id))] = {"label": name, "safe": masked_person(i.title, i.full_name) or "?"}
     if wanted.get("user"):
         for u in (await session.execute(select(User).where(User.id.in_(wanted["user"])))).scalars():
-            out[("user", str(u.id))] = {"label": u.full_name or f"#{u.id}", "safe": f"kullanıcı #{u.id}"}
+            out[("user", str(u.id))] = {
+                "label": u.full_name or u.email,
+                "safe": masked_person(None, u.full_name) or "?",
+            }
     return out
 
 
@@ -717,25 +749,37 @@ async def suggestions(
         q_sec = select(Section.id).where(Section.term_id == term_id, Section.course_id == course_id)
         wanted |= {("section", str(s)) for s in (await session.execute(q_sec)).scalars()}
     feedback = await _feedback_state(session, term_id)
-    q = select(LearnedPrior).where(LearnedPrior.term_id == term_id, LearnedPrior.active.is_(True))
+    # an acceptance outlives a memory reset of its subject (its LEARNED rule is a normal preference now, T-R2-24):
+    # the card stays listed as accepted although the prior is inactive
+    accepted_ids = [fb.prior_id for fb in feedback.values() if fb.action == "ACCEPT" and fb.prior_id is not None]
+    visible: Any = LearnedPrior.active.is_(True)
+    if accepted_ids:
+        visible = or_(visible, LearnedPrior.id.in_(accepted_ids))
+    q = select(LearnedPrior).where(LearnedPrior.term_id == term_id, visible)
     # suggested priors, plus decided ones (a dismissal lowers the score below the threshold: History still lists it)
     priors = [
         p
         for p in (await session.execute(q)).scalars()
-        if (p.suggestible or (p.subject_type, p.subject_key, p.attribute, p.value) in feedback)
+        if (p.active and p.suggestible or (p.subject_type, p.subject_key, p.attribute, p.value) in feedback)
+        and (p.active or feedback[(p.subject_type, p.subject_key, p.attribute, p.value)].action == "ACCEPT")
         and (wanted is None or (p.subject_type, p.subject_key) in wanted)
     ]
     targets = await _targets(session, term_id)
     rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
     labels = await _subject_labels(session, {(p.subject_type, p.subject_key) for p in priors})
     now = utcnow()
+    carried = await _persistent_accepts(session, term_id)
     out: list[dict[str, Any]] = []
-    for p in sorted(priors, key=lambda p: (-p.confidence, -p.score, p.id)):
+    order = sorted(priors, key=lambda p: (-p.confidence, -p.score, p.id))
+    order.sort(key=lambda p: (p.subject_type, p.subject_key, p.attribute, p.value) not in carried)
+    for p in order:
         item = _render(p, targets, rooms, labels)
+        item["persistent_accept"] = carried.get((p.subject_type, p.subject_key, p.attribute, p.value))
         fb = feedback.get((p.subject_type, p.subject_key, p.attribute, p.value))
         if fb is not None:
             if fb.action == "ACCEPT":
                 item["state"], item["constraint_id"] = "accepted", fb.constraint_id
+                item["scope"] = fb.scope or "term"
             elif fb.action == "REJECT":
                 item["state"] = "dismissed"
             elif fb.action == "SNOOZE" and await _snooze_active(session, fb, now):
@@ -748,6 +792,26 @@ async def suggestions(
         out.append(item)
         if len(out) >= limit:
             break
+    return out
+
+
+async def _persistent_accepts(session: AsyncSession, term_id: int) -> dict[tuple[str, str, str, str], dict[str, Any]]:
+    """Scopes accepted as ``persistent`` in another term (and not undone there): the later term's suggestion is
+    marked and listed first."""
+    rows = (
+        await session.execute(
+            select(SuggestionFeedback)
+            .where(SuggestionFeedback.term_id != term_id, SuggestionFeedback.reset_id.is_(None))
+            .order_by(SuggestionFeedback.id)
+        )
+    ).scalars()
+    latest: dict[tuple[int, str, str, str, str], SuggestionFeedback] = {}
+    for f in rows:
+        latest[(f.term_id, f.subject_type, f.subject_key, f.attribute, f.value)] = f
+    out: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    for (tid, *key), f in latest.items():
+        if f.action == "ACCEPT" and f.scope == "persistent":
+            out[(key[0], key[1], key[2], key[3])] = {"term_id": tid, "accepted_at": f.created_at, "by": f.actor_id}
     return out
 
 
@@ -765,7 +829,8 @@ def _render(
     if not reqs:
         state, why = "hidden", "no_classes_this_term"
     elif not free:
-        state, why = "hidden", "explicit_request_wins"
+        roomed = p.attribute in ("room", "building", "tag") and all(mr.definitive_room_ids for mr in reqs)
+        state, why = "hidden", "room_already_set" if roomed else "explicit_request_wins"
     elif p.attribute == "room" and p.value.isdigit():
         room = rooms.get(int(p.value))
         need = max((targets.enrolment.get(mr.id, 0) for mr in free), default=0)
@@ -810,6 +875,7 @@ def _render(
         "constraint_id": None,
         "decided_at": None,
         "decided_by": None,
+        "scope": None,
     }
 
 
@@ -924,9 +990,21 @@ def _scope_of(p: LearnedPrior) -> dict[str, Any]:
 
 
 async def accept(
-    session: AsyncSession, prior_id: int, actor: User, *, weight: int | None = None, kind: str | None = None
+    session: AsyncSession,
+    prior_id: int,
+    actor: User,
+    *,
+    weight: int | None = None,
+    kind: str | None = None,
+    scope: str = "term",
 ) -> dict[str, Any]:
-    """One soft, targeted LEARNED rule for the term's classes the suggestion names (never anything else)."""
+    """One soft, targeted LEARNED rule for the term's classes the suggestion names (never anything else).
+
+    ``scope`` (P19-S-02): ``term`` (default) or ``persistent`` (the API asks ``planning.admin``): the acceptance is
+    remembered as the person's preference and the same suggestion in a later term is marked ``persistent_accept``
+    (shown first, still accepted by a person: learned suggestions are never applied by themselves)."""
+    if scope not in ("term", "persistent"):
+        raise LearningError(422, "scope must be term or persistent")
     p = await _prior(session, prior_id)
     w = LEARNED_WEIGHT if weight is None else int(weight)
     item = await _render_one(session, p, w)
@@ -967,6 +1045,7 @@ async def accept(
             "support": {"rows": p.support, "total": p.total, "seen_terms": p.terms_count},
             "confidence": p.confidence,
             "request_ids": (p.evidence or {}).get("request_ids", [])[:20],
+            "scope": scope,
         },
         nl_text=_fill(str(expl.get("claim_tr", "")), safe),
         enabled=True,
@@ -974,7 +1053,9 @@ async def accept(
     )
     session.add(row)
     await session.flush()
-    fb = SuggestionFeedback(**_scope_of(p), prior_id=p.id, action="ACCEPT", constraint_id=row.id, actor_id=actor.id)
+    fb = SuggestionFeedback(
+        **_scope_of(p), prior_id=p.id, action="ACCEPT", constraint_id=row.id, actor_id=actor.id, scope=scope
+    )
     session.add(fb)
     await session.flush()
     await _decision_obs(session, p, fb, "suggestion_accepted", actor)
@@ -988,12 +1069,58 @@ async def accept(
             "kind": rule_kind,
             "weight": w,
             "event_ids": params["event_ids"],
+            "scope": scope,
             **_scope_of(p),
         },
         actor=actor,
         term_id=p.term_id,
     )
-    return {"constraint_id": row.id, "kind": rule_kind, "params": params, "weight": w, "hardness": "soft"}
+    return {
+        "constraint_id": row.id,
+        "kind": rule_kind,
+        "params": params,
+        "weight": w,
+        "hardness": "soft",
+        "scope": scope,
+    }
+
+
+async def restore(session: AsyncSession, prior_id: int, actor: User) -> dict[str, Any]:
+    """P19-S-03 undo: the suggestion goes back to open. A dismissal's -3 evidence and an acceptance's +2 are taken
+    back (their decision observations are deleted, so the next prior recompute sees the memory as before), an
+    acceptance's LEARNED rule is switched off, a snooze ends. Audited ``suggestion.restore``; 409 when there is
+    nothing to undo."""
+    p = await _prior(session, prior_id)
+    fb = (await _feedback_state(session, p.term_id)).get((p.subject_type, p.subject_key, p.attribute, p.value))
+    if fb is None or fb.action == "RESTORE":
+        raise LearningError(409, "the suggestion is open; there is no decision to undo")
+    undone = {"ACCEPT": "accepted", "REJECT": "dismissed", "SNOOZE": "snoozed"}[fb.action]
+    disabled: int | None = None
+    if fb.action == "ACCEPT" and fb.constraint_id is not None:
+        rule = await session.get(ConstraintRow, fb.constraint_id)
+        if rule is not None and rule.enabled:
+            rule.enabled = False
+            disabled = rule.id
+    await session.execute(
+        delete(LearnedObservation).where(
+            LearnedObservation.source_table == "suggestion_feedback", LearnedObservation.source_id == fb.id
+        )
+    )
+    back = SuggestionFeedback(**_scope_of(p), prior_id=p.id, action="RESTORE", actor_id=actor.id)
+    session.add(back)
+    await session.flush()
+    await publish_event(
+        session,
+        "suggestion.restore",
+        "suggestion",
+        p.id,
+        before={"state": undone, "feedback_id": fb.id, "constraint_id": fb.constraint_id},
+        after={**_scope_of(p), "state": "open", "disabled_constraint_id": disabled},
+        actor=actor,
+        term_id=p.term_id,
+    )
+    _forget(p.term_id)
+    return {"id": p.id, "state": "open", "undone": undone, "disabled_constraint_id": disabled}
 
 
 async def reject(session: AsyncSession, prior_id: int, actor: User, *, reason: str | None = None) -> dict[str, Any]:
@@ -1058,9 +1185,17 @@ async def _person_keys(session: AsyncSession, instructor_id: int) -> list[tuple[
 
 
 def _subject_clause(model: Any, keys: list[tuple[str, str]]) -> Any:
-    from sqlalchemy import and_, or_
+    from sqlalchemy import and_
 
     return or_(*(and_(model.subject_type == st, model.subject_key == sk) for st, sk in keys))
+
+
+async def _recompute_subjects(session: AsyncSession, keys: list[tuple[str, str]]) -> None:
+    """Recompute the priors of ``keys`` in every target term that holds one (a person reset and its undo, T-R2-24):
+    the person's suggestions close or reopen in the same transaction, not on the next read."""
+    q = select(LearnedPrior.term_id).where(_subject_clause(LearnedPrior, keys)).distinct()
+    for tid in (await session.execute(q)).scalars():
+        await recompute_priors(session, int(tid), subjects=keys)
 
 
 async def _scope(session: AsyncSession, scope: str, value: Any) -> tuple[str | None, Any, Any]:
@@ -1122,6 +1257,8 @@ async def reset(session: AsyncSession, actor: User, *, scope: str, value: Any, r
             .execution_options(synchronize_session=False),
         )
     rs.counts = {"observations": int(n_obs or 0), "feedback": int(n_fb or 0), "suggestions": before_open}
+    if scope == "person" and scope_value is not None:
+        await _recompute_subjects(session, await _person_keys(session, int(scope_value)))
     _forget()
     await publish_event(
         session,
@@ -1133,7 +1270,7 @@ async def reset(session: AsyncSession, actor: User, *, scope: str, value: Any, r
         reason=rs.reason,
         term_id=int(scope_value) if scope == "term" and scope_value else None,
     )
-    return reset_out(rs)
+    return await reset_view(session, rs)
 
 
 async def _open_count(session: AsyncSession, scope: str, scope_value: str | None) -> int:
@@ -1145,7 +1282,7 @@ async def _open_count(session: AsyncSession, scope: str, scope_value: str | None
     return int((await session.execute(q)).scalar_one())
 
 
-def reset_out(rs: LearningReset, now: datetime | None = None) -> dict[str, Any]:
+def reset_out(rs: LearningReset, now: datetime | None = None, subject_label: str | None = None) -> dict[str, Any]:
     now = now or utcnow()
     undoable = rs.kind == "RESET" and rs.undone_at is None and rs.purged_at is None and rs.expires_at > now
     return {
@@ -1163,13 +1300,29 @@ def reset_out(rs: LearningReset, now: datetime | None = None) -> dict[str, Any]:
         "undone_at": rs.undone_at,
         "purged_at": rs.purged_at,
         "counts": rs.counts or {},
+        "subject_label": subject_label,
     }
 
 
+async def _person_labels(session: AsyncSession, resets: Iterable[LearningReset]) -> dict[str, str]:
+    """Masked labels (title + initials) of the people that person resets / erasures name, by scope value."""
+    ids = {int(v) for r in resets if r.scope_type == "person" and (v := r.scope_value or "").isdigit()}
+    if not ids:
+        return {}
+    rows = (await session.execute(select(Instructor).where(Instructor.id.in_(ids)))).scalars()
+    return {str(i.id): masked_person(i.title, i.full_name) for i in rows}
+
+
+async def reset_view(session: AsyncSession, rs: LearningReset, now: datetime | None = None) -> dict[str, Any]:
+    labels = await _person_labels(session, [rs])
+    return reset_out(rs, now, labels.get(rs.scope_value or ""))
+
+
 async def list_resets(session: AsyncSession, limit: int = 100) -> list[dict[str, Any]]:
-    rows = (await session.execute(select(LearningReset).order_by(LearningReset.id.desc()).limit(limit))).scalars()
+    rows = list((await session.execute(select(LearningReset).order_by(LearningReset.id.desc()).limit(limit))).scalars())
     now = utcnow()
-    return [reset_out(r, now) for r in rows]
+    labels = await _person_labels(session, rows)
+    return [reset_out(r, now, labels.get(r.scope_value or "")) for r in rows]
 
 
 async def undo_reset(
@@ -1200,6 +1353,8 @@ async def undo_reset(
         .execution_options(synchronize_session=False),
     )
     rs.undone_at, rs.undone_by = now, actor.id
+    if rs.scope_type == "person" and rs.scope_value is not None and str(rs.scope_value).isdigit():
+        await _recompute_subjects(session, await _person_keys(session, int(rs.scope_value)))
     _forget()
     await publish_event(
         session,
@@ -1213,7 +1368,7 @@ async def undo_reset(
         },
         actor=actor,
     )
-    return reset_out(rs, now)
+    return await reset_view(session, rs, now)
 
 
 async def purge_expired(session: AsyncSession, *, now: datetime | None = None) -> dict[str, int]:
@@ -1287,7 +1442,7 @@ async def erase_person(session: AsyncSession, actor: User, *, instructor_id: int
         actor=actor,
         reason=rs.reason,
     )
-    return reset_out(rs, now)
+    return await reset_view(session, rs, now)
 
 
 async def memory_summary(session: AsyncSession, term_id: int | None = None) -> dict[str, Any]:

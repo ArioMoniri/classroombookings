@@ -10,6 +10,7 @@ import { memo, type CSSProperties, type KeyboardEvent, type PointerEvent } from 
 import { cn } from "@/lib/utils";
 import { spanText } from "./model/check";
 import type { CalEvent } from "./model/index-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface ChipRect {
   left: number;
@@ -58,8 +59,7 @@ function EventChipImpl(p: EventChipProps) {
     <Circle className="size-2 shrink-0 fill-[var(--status-warning-solid)] stroke-none" aria-hidden />
   ) : null;
   return (
-    <button
-      type="button"
+    <BareButton
       className="cal-chip"
       data-testid="calendar-event"
       data-assignment-id={a.id}
@@ -82,11 +82,12 @@ function EventChipImpl(p: EventChipProps) {
       onFocus={p.onFocus ? () => p.onFocus?.(ev) : undefined}
     >
       <span className="flex min-w-0 items-center gap-1">
-        <span className="cal-code truncate">{a.code ?? a.label.split(" §")[0]}</span>
-        {a.sec ? <span className="truncate text-[11px] opacity-80">§{a.sec}</span> : null}
+        {/* the code never truncates; the section and the name lines give way first (review 2026-10-15 §3) */}
+        <span className="cal-code shrink-0 whitespace-nowrap">{a.code ?? a.label.split(" §")[0]}</span>
+        {a.sec ? <span className="min-w-0 truncate type-caption">§{a.sec}</span> : null}
         {a.evening ? <Moon className="size-3 shrink-0" aria-hidden /> : null}
         {p.exam ? <PencilLine className="size-3 shrink-0" aria-hidden /> : null}
-        {p.compareMoved ? <span aria-hidden className="shrink-0 text-[10px]">↔</span> : null}
+        {p.compareMoved ? <span aria-hidden className="shrink-0 text-2xs pointer-coarse:type-caption">↔</span> : null}
         <span className="ml-auto flex shrink-0 items-center">{glyph}</span>
       </span>
       {lines >= 2 ? <span className="cal-line2 truncate">{p.line2}</span> : null}
@@ -98,7 +99,7 @@ function EventChipImpl(p: EventChipProps) {
           <span aria-hidden className="absolute inset-x-1 bottom-0 h-1.5 cursor-ns-resize" onPointerDown={(e) => p.onResizeStart?.(e, ev, "end")} />
         </>
       ) : null}
-    </button>
+    </BareButton>
   );
 }
 

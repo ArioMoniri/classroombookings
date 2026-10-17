@@ -97,6 +97,25 @@ def _open_xls(data: bytes) -> Any:
         raise RenderError(f"cannot read .xls workbook: {type(exc).__name__}") from exc
 
 
+#: xlrd cell types without content: XL_CELL_EMPTY (0) and XL_CELL_BLANK (6, a styled empty cell)
+_XLS_NO_VALUE = bytes((0, 6))
+
+
+def _xls_used(sh: Any) -> tuple[int, int]:
+    """``(rows, columns)`` up to the last cell with content. With ``formatting_info`` xlrd's ``nrows`` / ``ncols``
+    count styled blank cells (BLANK / MULBLANK records), so a sheet formatted down to row 30 000 with 40 rows of
+    data would otherwise be refused, and its empty rows rendered. A .xls sheet is at most 65 536 x 256 and xlrd
+    has already read it, so the scan is bounded."""
+    rows = cols = 0
+    for r in range(sh.nrows):
+        used = len(bytes(sh.row_types(r)).rstrip(_XLS_NO_VALUE))
+        if used:
+            rows, cols = r + 1, max(cols, used)
+    for _r1, r2, _c1, c2 in getattr(sh, "merged_cells", None) or []:  # merged areas belong to the layout
+        rows, cols = max(rows, r2), max(cols, c2)
+    return rows, cols
+
+
 def _render_xls(data: bytes, out: Rendered, lim: FormatLimits) -> None:
     book = _open_xls(data)
     try:
@@ -105,11 +124,11 @@ def _render_xls(data: bytes, out: Rendered, lim: FormatLimits) -> None:
             sh = book.sheet_by_index(idx)
             if getattr(sh, "visibility", 0):
                 out.warnings.append(f"sheet '{sh.name}' is hidden in the workbook; it was read anyway")
-            nrows, ncols = sh.nrows, sh.ncols
+            nrows, ncols = _xls_used(sh)
             if nrows > lim.max_rows:
                 raise _too_big(f".xls sheet {sh.name} has {nrows} rows (limit {lim.max_rows})")
             width = 0
-            for r in range(min(nrows, 80)):  # formatting inflates ncols: bound it by what the first rows use
+            for r in range(min(nrows, 80)):  # the grid width is what the first rows use
                 row = sh.row(r)
                 for c in range(min(len(row), lim.max_cols) - 1, -1, -1):
                     if _xls_value(row[c], book.datemode):
@@ -141,9 +160,10 @@ def _precheck_xls(data: bytes, lim: FormatLimits) -> None:
         total = 0
         for idx in range(book.nsheets):
             sh = book.sheet_by_index(idx)
-            if sh.nrows > lim.max_rows:
-                raise _too_big(f".xls sheet {sh.name} has {sh.nrows} rows (limit {lim.max_rows})")
-            total += sh.nrows * min(sh.ncols, lim.max_cols)
+            nrows, ncols = _xls_used(sh)
+            if nrows > lim.max_rows:
+                raise _too_big(f".xls sheet {sh.name} has {nrows} rows (limit {lim.max_rows})")
+            total += nrows * min(ncols, lim.max_cols)
             book.unload_sheet(idx)
         if total > lim.max_cells:
             raise _too_big(f"the .xls workbook has more than {lim.max_cells} cells")

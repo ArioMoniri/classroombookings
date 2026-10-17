@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -12,10 +13,15 @@ import { changePassword } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
 import { AuthCard } from "./auth-card";
 
-/** Forced password change after login (`password_change_required`, POST /auth/change-password). */
+/**
+ * Forced password change after login (`password_change_required`, POST /auth/change-password).
+ * T-R2-03 (R2-S-02): after the 200 the cached /me is marked settled (force_password_reset false) and refetched BEFORE
+ * the navigation, or the shell read the stale "true" and sent the user straight back here with empty fields.
+ */
 export function ChangePasswordForm() {
   const { t } = useI18n();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useSearchParams();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -30,6 +36,8 @@ export function ChangePasswordForm() {
     setError(null);
     try {
       await changePassword({ current_password: current || null, new_password: next });
+      queryClient.setQueryData<{ force_password_reset?: boolean } | undefined>(["me", "full"], (me) => (me ? { ...me, force_password_reset: false } : me));
+      void queryClient.invalidateQueries({ queryKey: ["me"] });
       toast.success(t("glass.auth.changed"));
       const target = params.get("next");
       router.replace(target && target.startsWith("/") && !target.startsWith("//") ? target : "/dashboard");
@@ -43,7 +51,7 @@ export function ChangePasswordForm() {
   return (
     <AuthCard title={t("glass.auth.changeTitle")} subtitle={t("glass.auth.changeHint")}>
       {error ? (
-        <div role="alert" className="mb-4 rounded-xl bg-status-infeasible px-3 py-2 text-[13px] text-status-infeasible-fg">
+        <div role="alert" className="mb-4 rounded-xl bg-status-infeasible px-3 py-2 type-callout text-status-infeasible-fg">
           {error}
         </div>
       ) : null}
@@ -57,19 +65,19 @@ export function ChangePasswordForm() {
         <div className="space-y-1.5">
           <Label htmlFor="cur">{t("glass.auth.current")}</Label>
           <Input id="cur" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
-          <p className="text-[12px] text-label-3">{t("glass.auth.currentHint")}</p>
+          <p className="type-footnote text-label-3">{t("glass.auth.currentHint")}</p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="new">{t("glass.auth.new")}</Label>
           <Input id="new" type="password" autoComplete="new-password" aria-invalid={tooShort} aria-describedby="new-hint" value={next} onChange={(e) => setNext(e.target.value)} />
-          <p id="new-hint" className={tooShort ? "text-[12px] text-status-infeasible-fg" : "text-[12px] text-label-3"}>
+          <p id="new-hint" className={tooShort ? "type-footnote text-status-infeasible-fg" : "type-footnote text-label-3"}>
             {t("glass.auth.newHint")}
           </p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="again">{t("glass.auth.again")}</Label>
           <Input id="again" type="password" autoComplete="new-password" aria-invalid={mismatch} value={again} onChange={(e) => setAgain(e.target.value)} />
-          {mismatch ? <p className="text-[12px] text-status-infeasible-fg">{t("glass.auth.mismatch")}</p> : null}
+          {mismatch ? <p className="type-footnote text-status-infeasible-fg">{t("glass.auth.mismatch")}</p> : null}
         </div>
         <Button type="submit" size="lg" className="w-full" disabled={busy || next.length < 8 || next !== again}>
           {busy ? <Loader2 className="animate-spin" /> : null} {t("glass.auth.changeSubmit")}

@@ -1,0 +1,599 @@
+{
+ "id": 8,
+ "term_id": 2,
+ "term_code": "2026-GUZ",
+ "kind": "COURSE",
+ "horizon": "TERM",
+ "horizon_params": {},
+ "status": "FEASIBLE_PARTIAL",
+ "params": {
+  "time_limit_s": 240.0,
+  "workers": 8
+ },
+ "objective_value": 1670.0,
+ "soft_score": 78,
+ "hard_score": 100,
+ "stats": {
+  "progress": 100,
+  "phase": "done",
+  "worker": {
+   "host": "vm",
+   "pid": 23322,
+   "boot": "649970093923413cae923317c9caef85"
+  },
+  "merged_joint_lectures": 71,
+  "joint_lectures_rejected": 0,
+  "split_large_classes": 20,
+  "prepare_s": 0.129,
+  "events": 546,
+  "rooms": 58,
+  "fixed_time_events": 541,
+  "candidate_options": 2355,
+  "static_check_s": 0.156,
+  "solver_status": "STATIC_INFEASIBLE",
+  "greedy_placed": 529,
+  "build_relax_s": 0.047,
+  "bools_relax": 2860,
+  "relax_hint_terms": 74,
+  "relax_status": "OPTIMAL",
+  "relax_s": 1.394,
+  "relax_optimal": true,
+  "unplaced": 13,
+  "diagnose_s": 1.715,
+  "partial_source": "relaxation",
+  "partial": true,
+  "placed": 517,
+  "events_total": 530,
+  "unplaced_ids": [
+   1528,
+   1919,
+   1858
+  ],
+  "phase2_status": "OPTIMAL",
+  "phase2_s": 238.366,
+  "phase2_prepare_s": 0.107,
+  "phase2_events": 533,
+  "phase2_rooms": 58,
+  "phase2_fixed_time_events": 530,
+  "phase2_candidate_options": 2163,
+  "phase2_static_check_s": 0.13,
+  "phase2_greedy_placed": 533,
+  "phase2_greedy_s": 0.0,
+  "phase2_hinted_events": 533,
+  "phase2_solver_status": "OPTIMAL",
+  "phase2_solve_s": 0.174,
+  "phase2_branches": 0,
+  "phase2_conflicts": 0,
+  "phase2_objective_value": 1670,
+  "phase2_objective_bound": 1670,
+  "phase2_evaluated_penalty": 1670,
+  "phase2_wall_s": 238.366,
+  "phase2_clock_s": 238.365695,
+  "phase2_deterministic": false,
+  "phase2_placed": 533,
+  "phase2_unplaced": 0,
+  "phase2_events_total": 533,
+  "evaluated_penalty": 1670,
+  "wall_s": 240.159,
+  "clock_s": 240.159367,
+  "deterministic": false,
+  "waived_rules": [
+   "room_tags"
+  ],
+  "waived_violations": {
+   "room_tags": 5
+  },
+  "week_split_rounds": 0,
+  "wall_s_total": 240.241,
+  "partially_placed": 1,
+  "missing_only_week": {
+   "1": 1
+  },
+  "solver": "app.solver.cpsat",
+  "assignments": 634,
+  "accepted_exceptions": {
+   "D1": 77,
+   "D2": 90,
+   "D3": 13,
+   "week_split": 16,
+   "outside_pool": 13,
+   "missing_enrolment": 26,
+   "waived": 1
+  },
+  "planner_check": {
+   "run_id": 8,
+   "rows": 634,
+   "requests_total": 632,
+   "requests_placed": 618,
+   "placed_pct": 97.8,
+   "hard_score": 100,
+   "strict_score": 58,
+   "violations": 0,
+   "violations_by_rule": {},
+   "exceptions_by_cause": {
+    "D1": 77,
+    "D2": 90,
+    "D3": 14,
+    "week_split": 15,
+    "outside_pool": 10,
+    "missing_enrolment": 26
+   }
+  },
+  "truth": {
+   "source": "planner_check",
+   "placed": 517,
+   "total": 530,
+   "unplaced": 13,
+   "requests": {
+    "placed": 618,
+    "total": 632
+   },
+   "hard_score": 100,
+   "edited": false,
+   "broken": [],
+   "broken_count": 0,
+   "exceptions": [
+    {
+     "cause": "D1",
+     "classes": 141,
+     "findings": 77,
+     "rule": true,
+     "label": {
+      "tr": "planlayıcının kilitlediği derslik sınıfa küçük ya da özelliği eksik (planlama listesindeki seçim korundu)",
+      "en": "the planner's locked room is too small or lacks a feature (kept as the planning list says)"
+     }
+    },
+    {
+     "cause": "D2",
+     "classes": 114,
+     "findings": 90,
+     "rule": true,
+     "label": {
+      "tr": "planlama listesinde aynı saate sabitlenmiş iki dersin çakışması (ikisi de saatini korur)",
+      "en": "two classes the planning list fixes at the same time clash (both keep their times)"
+     }
+    },
+    {
+     "cause": "week_split",
+     "classes": 15,
+     "findings": 15,
+     "rule": true,
+     "label": {
+      "tr": "kilitli ders, dersliğinin kapalı olduğu haftalarda başka derslikte",
+      "en": "a locked class uses another room in the weeks its room is blocked"
+     }
+    },
+    {
+     "cause": "outside_pool",
+     "classes": 13,
+     "findings": 10,
+     "rule": true,
+     "label": {
+      "tr": "derslik havuzu dışındaki dersliklerde çakışma (kapasitesi bilinmiyor)",
+      "en": "overlaps in rooms outside the room pool (capacity unknown)"
+     }
+    },
+    {
+     "cause": "missing_enrolment",
+     "classes": 26,
+     "findings": 26,
+     "rule": false,
+     "label": {
+      "tr": "öğrenci sayısı verilmemiş; tahmini sayı kullanıldı",
+      "en": "no enrolment given; a fallback size was used"
+     }
+    }
+   ],
+   "exceptions_total": 283,
+   "unplaced_list": [
+    {
+     "id": 1962,
+     "label": "ACU 105",
+     "request_ids": [
+      1962
+     ],
+     "weeks": [
+      1
+     ]
+    },
+    {
+     "id": 2045,
+     "label": "ACU 314",
+     "request_ids": [
+      2045
+     ],
+     "weeks": null
+    },
+    {
+     "id": 1858,
+     "label": "EHM 111 §A2 + EHM 111 §B1",
+     "request_ids": [
+      1858,
+      1859
+     ],
+     "weeks": null
+    },
+    {
+     "id": 1940,
+     "label": "ING 101",
+     "request_ids": [
+      1940
+     ],
+     "weeks": null
+    },
+    {
+     "id": 2135,
+     "label": "ING 101",
+     "request_ids": [
+      2135
+     ],
+     "weeks": null
+    },
+    {
+     "id": 2239,
+     "label": "ING 205 §125",
+     "request_ids": [
+      2239
+     ],
+     "weeks": null
+    },
+    {
+     "id": 1528,
+     "label": "ING 301",
+     "request_ids": [
+      1528
+     ],
+     "weeks": null
+    },
+    {
+     "id": 1919,
+     "label": "ING 301",
+     "request_ids": [
+      1919
+     ],
+     "weeks": null
+    },
+    {
+     "id": 2077,
+     "label": "ING 301",
+     "request_ids": [
+      2077
+     ],
+     "weeks": null
+    },
+    {
+     "id": 2494,
+     "label": "NUT 401",
+     "request_ids": [
+      2494
+     ],
+     "weeks": null
+    },
+    {
+     "id": 2497,
+     "label": "NUT 402",
+     "request_ids": [
+      2497
+     ],
+     "weeks": null
+    },
+    {
+     "id": 2495,
+     "label": "NUT 403",
+     "request_ids": [
+      2495
+     ],
+     "weeks": null
+    },
+    {
+     "id": 2290,
+     "label": "SYB 111",
+     "request_ids": [
+      2290
+     ],
+     "weeks": null
+    }
+   ],
+   "unplaced_count": 13,
+   "forced_overrides": 0,
+   "verdict": "exceptions",
+   "headline": {
+    "tr": "517/530 ders yerleşti · kesin kurallar korundu; 283 kabul edilmiş istisna listelendi",
+    "en": "517 of 530 classes placed · hard rules held; 283 accepted exception(s) listed"
+   }
+  }
+ },
+ "diagnosis": [
+  {
+   "event_ids": [
+    1528,
+    1919,
+    1858,
+    2077,
+    2239,
+    1940,
+    2135,
+    1962,
+    2045,
+    2290,
+    2494,
+    2495,
+    2497
+   ],
+   "constraint_kinds": [],
+   "message": "best effort: 517 of 530 events placed, 13 cannot be placed (reasons below); every placed event keeps every hard rule except 223 accepted exception(s) (listed): D1 planner's room kept although too small / missing a tag 77; D2 clashes of two classes fixed at the same time 90; week_split room changes in blocked weeks 16; outside_pool overlaps in rooms outside the pool 13; missing_enrolment fallback sizes for missing enrolments 26; waived built-in hard rules run as soft 1",
+   "suggestions": [
+    {
+     "id": "s0",
+     "index": 0,
+     "text": "fix the reported input problems and re-run to place the rest",
+     "action": "manual",
+     "applicable": false,
+     "params": {}
+    }
+   ],
+   "severity": "warning",
+   "code": "partial",
+   "params": {
+    "exceptions": {
+     "D1": 77,
+     "D2": 90,
+     "D3": 13,
+     "week_split": 16,
+     "outside_pool": 13,
+     "missing_enrolment": 26,
+     "waived": 1
+    },
+    "options": [
+     {
+      "index": 0,
+      "action": "manual"
+     }
+    ]
+   },
+   "text": {
+    "tr": "517/530 ders yerleşti, 13 ders yerleşemedi. Yerleşen dersler, listelenen 223 kabul edilmiş istisna dışında her kurala uyuyor (planlayıcının küçük / özelliği eksik dersliği korundu: 77; aynı saate sabitlenmiş derslerin çakışması: 90; kapalı haftalarda derslik değişikliği: 16; havuz dışı derslik çakışması: 13; öğrenci sayısı tahmini: 26; waived: 1); yerleşemeyenlerin nedeni aşağıda.",
+    "en": "517 of 530 classes placed, 13 could not be placed. The placed classes keep every rule except 223 accepted exceptions (listed: planner's room kept although too small / missing a tag: 77; clashes of classes fixed at the same time: 90; room changes in blocked weeks: 16; overlaps in rooms outside the pool: 13; estimated enrolments: 26; waived: 1); the reasons for the rest are below."
+   },
+   "event_labels": [
+    "ING 301",
+    "ING 301",
+    "EHM 111 §A2 + EHM 111 §B1",
+    "ING 301",
+    "ING 205 §125",
+    "ING 101",
+    "ING 101",
+    "ACU 105",
+    "ACU 314",
+    "SYB 111",
+    "NUT 401",
+    "NUT 403",
+    "NUT 402"
+   ],
+   "id": "0",
+   "index": 0
+  },
+  {
+   "event_ids": [
+    1528,
+    1919,
+    1858,
+    2077,
+    2239,
+    1940,
+    2135,
+    1962,
+    2045,
+    2290,
+    2494,
+    2497
+   ],
+   "constraint_kinds": [],
+   "message": "relaxation policy lock_first (locked rows first, then coordinator priority, then the most classes): 12 request(s) not placed: 2 lock clash, equal priority; 10 locked row kept",
+   "suggestions": [
+    {
+     "id": "s0",
+     "index": 0,
+     "text": "raise the coordinator priority of a request that must be placed, or unlock / move a locked row",
+     "action": "manual",
+     "applicable": false,
+     "params": {}
+    }
+   ],
+   "severity": "warning",
+   "code": "policy_losses",
+   "params": {
+    "policy": "lock_first",
+    "losses": [
+     {
+      "event_id": 1528,
+      "reason": "locked_row_kept",
+      "winners": [
+       1520,
+       1631,
+       1512,
+       1682,
+       1514
+      ],
+      "priority": 0
+     },
+     {
+      "event_id": 1919,
+      "reason": "locked_row_kept",
+      "winners": [
+       1897,
+       1971,
+       1914,
+       1901,
+       1930
+      ],
+      "priority": 0
+     },
+     {
+      "event_id": 1858,
+      "reason": "locked_row_kept",
+      "winners": [
+       1705,
+       1704,
+       1713,
+       1717,
+       1880
+      ],
+      "priority": 0
+     },
+     {
+      "event_id": 2077,
+      "reason": "locked_row_kept",
+      "winners": [
+       1897,
+       1971,
+       1914,
+       1901,
+       1930
+      ],
+      "priority": 0
+     },
+     {
+      "event_id": 2239,
+      "reason": "locked_row_kept",
+      "winners": [
+       2098,
+       2087,
+       2101,
+       2111,
+       2121
+      ],
+      "priority": 0
+     },
+     {
+      "event_id": 1940,
+      "reason": "locked_row_kept",
+      "winners": [
+       1971,
+       1914,
+       1901,
+       1903,
+       1908
+      ],
+      "priority": 0
+     },
+     {
+      "event_id": 2135,
+      "reason": "locked_row_kept",
+      "winners": [
+       2102,
+       2116,
+       2091,
+       2094,
+       2100
+      ],
+      "priority": 0
+     },
+     {
+      "event_id": 1962,
+      "reason": "locked_row_kept",
+      "winners": [
+       1745,
+       1899,
+       1900,
+       1905,
+       1915
+      ],
+      "priority": 0
+     },
+     {
+      "event_id": 2045,
+      "reason": "lock_clash_tie",
+      "winners": [
+       1960
+      ],
+      "priority": 0
+     },
+     {
+      "event_id": 2290,
+      "reason": "lock_clash_tie",
+      "winners": [
+       2183
+      ],
+      "priority": 0
+     },
+     {
+      "event_id": 2494,
+      "reason": "locked_row_kept",
+      "winners": [
+       1728,
+       1738,
+       1729,
+       1880,
+       1718
+      ],
+      "priority": 0
+     },
+     {
+      "event_id": 2497,
+      "reason": "locked_row_kept",
+      "winners": [
+       1971,
+       1914,
+       1899,
+       1938,
+       1905
+      ],
+      "priority": 0
+     }
+    ],
+    "by_reason": {
+     "lock_clash_tie": 2,
+     "locked_row_kept": 10
+    },
+    "options": [
+     {
+      "index": 0,
+      "action": "manual"
+     }
+    ]
+   },
+   "text": {
+    "tr": "Çakışma politikası (önce kilitli satırlar, sonra koordinatör önceliği, sonra en çok ders): 12 talep karşılanmadı (2 kilit çakışması, eşit öncelik; 10 kilitli satır korundu). ING 301: Kilitli satır korundu: MBG 129 §1 + MBG 109 §1, FIZ 111 + FIZ 111 §2, PSI 155 (+2) (kilitli satırlar taşınmaz). ING 301: Kilitli satır korundu: MKB 101 §1 + MKB 101, PHY 101 §1, HEM 419 §80 + NRS 401 (+2) (kilitli satırlar taşınmaz). EHM 111 §A2 + EHM 111 §B1: Kilitli satır korundu: ANA 111 §1 + ANA 111, SYS 19 + SYS 19 §2, SYS 19 + SYS 19 §2 + SYS 19 §1 (+2) (kilitli satırlar taşınmaz). ING 301: Kilitli satır korundu: MKB 101 §1 + MKB 101, PHY 101 §1, HEM 419 §80 + NRS 401 (+2) (kilitli satırlar taşınmaz). ING 205 §125: Kilitli satır korundu: HEM 333 §90 + NRS 303, HEM 113 §120, PSI 409 (+2) (kilitli satırlar taşınmaz). ING 101: Kilitli satır korundu: PHY 101 §1, HEM 419 §80 + NRS 401, PSI 217 (+2) (kilitli satırlar taşınmaz). ING 101: Kilitli satır korundu: MAT 111 §1 + MAT 101 §1, HEM 421 §80 + NRS 403, PSI 209 (+2) (kilitli satırlar taşınmaz). ACU 105: Kilitli satır korundu: MBG 016 §1, HEM 247 §125, PSI 213 (+2) (kilitli satırlar taşınmaz). ACU 314: Karşılanmadı: kilit çakışması; BP 127 §1 ile öncelik eşit, daha çok ders ve hafta, sonra daha kalabalık sınıf korundu. SYB 111: Karşılanmadı: kilit çakışması; NUT 121 ile öncelik eşit, daha çok ders ve hafta, sonra daha kalabalık sınıf korundu. NUT 401: Kilitli satır korundu: STR 101 §1, MBG 117 §1 + MBG 107 §1, STR 101 §2 + STR 101 §1 (+2) (kilitli satırlar taşınmaz). NUT 402: Kilitli satır korundu: PHY 101 §1, HEM 419 §80 + NRS 401, HEM 247 §125 (+2) (kilitli satırlar taşınmaz).",
+    "en": "Conflict policy (locked rows first, then coordinator priority, then the most classes): 12 request(s) not placed (2 lock clash, equal priority; 10 locked row kept). ING 301: Locked row kept: MBG 129 §1 + MBG 109 §1, FIZ 111 + FIZ 111 §2, PSI 155 (+2) (locked rows are never moved). ING 301: Locked row kept: MKB 101 §1 + MKB 101, PHY 101 §1, HEM 419 §80 + NRS 401 (+2) (locked rows are never moved). EHM 111 §A2 + EHM 111 §B1: Locked row kept: ANA 111 §1 + ANA 111, SYS 19 + SYS 19 §2, SYS 19 + SYS 19 §2 + SYS 19 §1 (+2) (locked rows are never moved). ING 301: Locked row kept: MKB 101 §1 + MKB 101, PHY 101 §1, HEM 419 §80 + NRS 401 (+2) (locked rows are never moved). ING 205 §125: Locked row kept: HEM 333 §90 + NRS 303, HEM 113 §120, PSI 409 (+2) (locked rows are never moved). ING 101: Locked row kept: PHY 101 §1, HEM 419 §80 + NRS 401, PSI 217 (+2) (locked rows are never moved). ING 101: Locked row kept: MAT 111 §1 + MAT 101 §1, HEM 421 §80 + NRS 403, PSI 209 (+2) (locked rows are never moved). ACU 105: Locked row kept: MBG 016 §1, HEM 247 §125, PSI 213 (+2) (locked rows are never moved). ACU 314: Not placed: lock clash with BP 127 §1 at equal priority; more classes and weeks, then the larger class are kept. SYB 111: Not placed: lock clash with NUT 121 at equal priority; more classes and weeks, then the larger class are kept. NUT 401: Locked row kept: STR 101 §1, MBG 117 §1 + MBG 107 §1, STR 101 §2 + STR 101 §1 (+2) (locked rows are never moved). NUT 402: Locked row kept: PHY 101 §1, HEM 419 §80 + NRS 401, HEM 247 §125 (+2) (locked rows are never moved)."
+   },
+   "id": "1",
+   "index": 1,
+   "event_labels": [
+    "#1528",
+    "#1919",
+    "#1858",
+    "#2077",
+    "#2239",
+    "#1940",
+    "#2135",
+    "#1962",
+    "#2045",
+    "#2290",
+    "#2494",
+    "#2497"
+   ]
+  }
+ ],
+ "parent_run_id": null,
+ "prompt_text": null,
+ "label": "Güz full term",
+ "is_active": true,
+ "error": null,
+ "created_at": "2026-10-17T05:22:22.707028",
+ "started_at": "2026-10-17T05:22:22.718975",
+ "finished_at": "2026-10-17T05:26:24.000023",
+ "objective_breakdown": {
+  "building_preference": 85,
+  "min_capacity_waste": 585,
+  "room_preference": 320,
+  "room_tags": 560,
+  "same_room_across_weeks": 120
+ },
+ "progress": 100,
+ "placed": 517,
+ "events_total": 530,
+ "partial": true,
+ "notified": null,
+ "notify": null
+}

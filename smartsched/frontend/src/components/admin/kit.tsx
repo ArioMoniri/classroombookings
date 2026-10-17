@@ -4,13 +4,23 @@
  * scene, settings rows (label + hint left, control right; references.md H21), filled native selects,
  * status alerts (glyph + word, G4) and a confirm dialog. Built on the Liquid Glass primitives only.
  */
-import { AlertTriangle, CheckCircle2, ChevronDown, Info, Loader2, XOctagon } from "lucide-react";
-import { useId, type ReactNode, type SelectHTMLAttributes } from "react";
+import { Loader2 } from "lucide-react";
+import { useId, type ComponentProps, type ReactNode, type SelectHTMLAttributes } from "react";
+import { Alert as UiAlert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { fieldSurface } from "@/components/ui/field-styles";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
+
+/** Classes of the PageTitle actions: a header row on desktop; below `lg` (the shell shows the tab bar) a capsule fixed
+ *  above the tab bar (MOBILE.md M-05: the primary action of /admin/users, /admin/roles, /admin/departments, /admin/audit
+ *  stays in thumb reach while the list scrolls), the same pattern as find-room's "Ara" and My bookings' bulk cancel.
+ *  globals.css pads the shell's <main> for it (`main:has([data-slot="page-actions"])`). Round 2 sweeper 3. */
+export const pageActionsCapsule =
+  "flex flex-wrap items-center gap-2 max-lg:fixed max-lg:inset-x-4 max-lg:bottom-[calc(var(--shell-bottom-h)+0.75rem)] max-lg:z-20 max-lg:justify-end max-lg:rounded-2xl max-lg:glass-chrome max-lg:p-1.5 max-lg:shadow-elev-2";
 
 export function PageTitle({ title, subtitle, actions, className }: { title: string; subtitle?: ReactNode; actions?: ReactNode; className?: string }) {
   return (
@@ -19,7 +29,11 @@ export function PageTitle({ title, subtitle, actions, className }: { title: stri
         <h1 className="type-title-1 text-label-1 lg:type-large-title">{title}</h1>
         {subtitle ? <p className="mt-1 type-callout text-label-2">{subtitle}</p> : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div data-slot="page-actions" className={pageActionsCapsule}>
+          {actions}
+        </div>
+      ) : null}
     </header>
   );
 }
@@ -45,7 +59,8 @@ export function FieldRow({ label, hint, htmlFor, children, className }: { label:
         </label>
         {hint ? <p className="type-footnote text-label-3">{hint}</p> : null}
       </div>
-      <div className="flex min-w-0 shrink-0 items-center gap-2 sm:justify-end">{children}</div>
+      {/* phones: the row's fields take the full width (no fixed w-56 / w-72 boxes floating short of the edge) */}
+      <div className="flex min-w-0 shrink-0 items-center gap-2 max-sm:w-full max-sm:flex-wrap max-sm:*:data-[slot=date-field]:w-full max-sm:*:data-[slot=input]:w-full max-sm:*:data-[slot=native-select]:w-full sm:justify-end">{children}</div>
     </div>
   );
 }
@@ -69,37 +84,20 @@ export function Field({ label, hint, error, children, htmlFor, className }: { la
   );
 }
 
+/** The design-system NativeSelect (field surface, --control-h, centred chevron); 16 px text on touch phones. */
 export function SelectField({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  const { size: _size, ...rest } = props;
+  void _size;
   return (
-    <span className={cn("relative inline-flex w-full", className)}>
-      <select {...props} className={cn(fieldSurface, "h-8 w-full min-w-0 appearance-none pr-8 pl-3 text-[13px]")}>
-        {children}
-      </select>
-      <ChevronDown className="pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2 text-label-3" aria-hidden />
-    </span>
+    <NativeSelect {...rest} className={className}>
+      {children}
+    </NativeSelect>
   );
 }
 
-type Tone = "info" | "warning" | "error" | "success";
-const TONE: Record<Tone, { icon: typeof Info; cls: string }> = {
-  info: { icon: Info, cls: "bg-tint-soft text-label-1" },
-  warning: { icon: AlertTriangle, cls: "bg-status-warning text-status-warning-fg" },
-  error: { icon: XOctagon, cls: "bg-status-infeasible text-status-infeasible-fg" },
-  success: { icon: CheckCircle2, cls: "bg-status-feasible text-status-feasible-fg" },
-};
-
-/** Status message: glyph + text on a translucent tint (never colour alone). */
-export function Alert({ tone = "info", title, children, className, live = tone === "error" ? "assertive" : "polite", testId }: { tone?: Tone; title?: ReactNode; children?: ReactNode; className?: string; live?: "polite" | "assertive" | "off"; testId?: string }) {
-  const { icon: Icon, cls } = TONE[tone];
-  return (
-    <div role={tone === "error" ? "alert" : "status"} aria-live={live} data-testid={testId} className={cn("flex items-start gap-2.5 rounded-xl px-3 py-2.5 type-callout", cls, className)}>
-      <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
-      <div className="min-w-0">
-        {title ? <p className="font-semibold">{title}</p> : null}
-        {children ? <div>{children}</div> : null}
-      </div>
-    </div>
-  );
+/** Status message (glyph + word, G4): the ui Alert, promoted from this file; `testId` kept for the CRBS callers. */
+export function Alert({ testId, ...props }: ComponentProps<typeof UiAlert> & { testId?: string }) {
+  return <UiAlert data-testid={testId} {...props} />;
 }
 
 export function Loading({ label, className }: { label?: string; className?: string }) {
@@ -136,7 +134,8 @@ export function ConfirmDialog({
   const t = useT();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      {/* T-R2-02: a confirmation is an alertdialog (modal, focus trapped by ui/dialog) */}
+      <DialogContent role="alertdialog" className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
@@ -146,9 +145,9 @@ export function ConfirmDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             {t("crbs.common.cancel")}
           </Button>
-          <Button variant={destructive ? "destructive" : "default"} onClick={onConfirm} disabled={busy}>
-            {busy ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {confirmLabel}
+          <Button variant={destructive ? "destructive" : "default"} onClick={onConfirm} disabled={busy} aria-busy={busy || undefined}>
+            <BusyLabel busy={!!busy} label={t("busy.working")}>
+            {confirmLabel}</BusyLabel>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -160,7 +159,7 @@ export function ConfirmDialog({
 export function LimitInput({ value, onChange, label, id, placeholder }: { value: number | null | undefined; onChange: (v: number | null) => void; label: string; id?: string; placeholder?: string }) {
   const auto = useId();
   return (
-    <input
+    <Input
       id={id ?? auto}
       aria-label={label}
       type="number"
@@ -169,7 +168,8 @@ export function LimitInput({ value, onChange, label, id, placeholder }: { value:
       placeholder={placeholder}
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value === "" ? null : Math.max(0, Number(e.target.value)))}
-      className={cn(fieldSurface, "h-8 w-24 px-3 text-[13px] tabular-nums")}
+      // 13ch: "Unlimited" / "Sınırsız" placeholders fit (UI/UX review: "Unlimitec")
+      className="w-[13ch] tnum"
     />
   );
 }

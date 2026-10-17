@@ -82,14 +82,16 @@ async def claim(session: AsyncSession, model: Any, row_id: int, now: datetime) -
 
 def _drainers() -> list[Drainer]:
     from app.services import bookings_notify, calendar_connectors, webhooks
+    from app.services.channels import outbox as channels_outbox
 
-    return [calendar_connectors.drain_due, webhooks.drain_due, bookings_notify.drain_due]
+    return [calendar_connectors.drain_due, webhooks.drain_due, bookings_notify.drain_due, channels_outbox.drain_due]
 
 
 def _next_due_fns() -> list[Callable[[], Awaitable[datetime | None]]]:
     from app.services import bookings_notify, calendar_connectors, webhooks
+    from app.services.channels import outbox as channels_outbox
 
-    return [calendar_connectors.next_due, webhooks.next_due, bookings_notify.next_due]
+    return [calendar_connectors.next_due, webhooks.next_due, bookings_notify.next_due, channels_outbox.next_due]
 
 
 async def drain(now: datetime | None = None, limit: int = 200) -> int:
@@ -163,7 +165,7 @@ def kick_after_commit(session: AsyncSession) -> None:
         s.info.pop(KEY, None)
         schedule_drain()
 
-    def _after_rollback(s: Any) -> None:
+    def _after_rollback(s: Any, _previous_transaction: Any = None) -> None:  # after_soft_rollback passes both
         s.info.pop(KEY, None)
 
     event.listen(sync, "after_commit", _after_commit, once=True)

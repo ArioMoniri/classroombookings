@@ -14,6 +14,7 @@
  */
 import { expect, request as pwRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, login, solverRun } from "./helpers";
+import { pinLanguage } from "./language";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 const STAMP = Date.now().toString(36);
@@ -24,6 +25,8 @@ const WEDNESDAY = "2026-02-18";
 
 test.describe.configure({ mode: "serial" });
 test.skip(!REAL, SKIP_REASON);
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 interface GridSlot {
   date: string;
@@ -132,18 +135,24 @@ test.beforeAll(async () => {
   ctx.teacherToken = await loginToken(TEACHER.username, TEACHER.password);
 });
 
+/** calendar sync as it was before step 7 switched it on (null = untouched) */
+let syncBefore: boolean | null = null;
+
 test.afterAll(async () => {
+  if (syncBefore === false) await api("PUT", "/calendar/admin/settings", { calendar_sync_enabled: false }).catch(() => undefined);
   await ctx.api?.dispose();
 });
 
 test("1. a free slot says Free, offers Reserve, and one click reserves it", async ({ page }) => {
+  // UI/UX review §3: the free cell is blank at rest; "free" is in its accessible name, "Reserve" on hover
   const g = await dayGrid(TUESDAY);
   const [slot] = run(g, 1);
   await login(page, TEACHER.username, TEACHER.password);
   await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}&lens=grid`);
   const c = cell(page, slot!);
   await expect(c).toHaveAttribute("data-tone", "available");
-  await expect(c).toContainText(/Boş|Free/);
+  await expect(c).toHaveAccessibleName(/boş|free/i);
+  await expect(c).not.toContainText(/Boş|Free/);
   await c.hover();
   await expect(c).toContainText(/Rezerve et|Reserve/);
   await expect(c).toHaveAccessibleName(/Rezerve et|Reserve/);
@@ -261,6 +270,16 @@ test("6. department view: the user's department by default, colour legend, muted
 });
 
 test("7. calendar sync: private links for me, a room and a department, copy, Google / Outlook, reset", async ({ page, context }) => {
+  // calendar sync ships off until an administrator gives the KVKK sign-off (M-40; approval-first 4 covers the
+  // screen): this spec's administrator signs off through the API and afterAll puts the setting back
+  const integrations = await api<{ calendar_sync_enabled: boolean }>("GET", "/calendar/admin/settings");
+  if (!integrations.calendar_sync_enabled) {
+    syncBefore ??= false;
+    await api("PUT", "/calendar/admin/settings", { calendar_sync_enabled: true });
+  }
+  // with the sign-off on, a person's feed links need their own calendar_sync consent (consent gates 2026-10-16;
+  // Profil › Gizlilik gives it): the teacher gives it through the same API
+  await api("POST", "/me/consents/calendar_sync", undefined, ctx.teacherToken);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await login(page, TEACHER.username, TEACHER.password);
   await openBookings(page, `date=${TUESDAY}&group=${ctx.groupA}`);

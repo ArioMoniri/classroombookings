@@ -1,0 +1,59 @@
+{
+  "_comment": "Source of the README 'See it work' block (scripts/docs/sync_docs.py, block `recordings`). Edit captions here, never in README.md. `featured` clips are GIFs shown inline; every take is an MP4 with a poster. scripts/record/refresh.sh rebuilds the files under the same names.",
+  "note": "Recorded on the real backend with the real 2026 workbooks. Instructor names are reduced to initials.",
+  "featured": [
+    {
+      "id": "reserve-slot",
+      "take": "reserve-panel",
+      "title": "Reserve a free period",
+      "caption": "Point at a free period, click, confirm. The cell then shows You."
+    },
+    {
+      "id": "reserve-drag",
+      "take": "reserve-panel",
+      "title": "Book several periods",
+      "caption": "Drag across free periods of one room. One sheet books them together."
+    },
+    {
+      "id": "find-room",
+      "take": "find-room",
+      "title": "Find a room",
+      "caption": "Head count and a feature. Rooms that fit come first, near fits after, each with its reason."
+    },
+    {
+      "id": "audit-undo",
+      "take": "audit-undo",
+      "title": "Undo from the audit log",
+      "caption": "A move shows the room before and after. Undo puts it back."
+    },
+    {
+      "id": "calendar-move",
+      "take": "calendar-move",
+      "title": "Move a class",
+      "caption": "Only free rooms that fit are offered. The server checks the move before it is saved."
+    },
+    {
+      "id": "precheck-fix",
+      "take": "studio-rule-fix",
+      "title": "Pre-check and fix",
+      "caption": "The Studio checks the plan against the term's data and applies one of its fixes."
+    },
+    {
+      "id": "onboarding",
+      "take": "onboarding-intake",
+      "title": "Start from an empty instance",
+      "caption": "Drop the exam workbook with AI off. It is read, a term is proposed, reviewed and saved."
+    }
+  ],
+  "takes": [
+    {"id": "reserve-panel", "title": "Reservation panel: a click, a drag, room details", "variants": [{"file": "reserve-panel-tr.mp4", "label": "Turkish"}]},
+    {"id": "find-room", "title": "Find a room"},
+    {"id": "audit-undo", "title": "Audit log with undo"},
+    {"id": "calendar-move", "title": "Move a class in the calendar, then undo"},
+    {"id": "studio-rule-fix", "title": "Studio: a rule from a template, the pre-check and a fix"},
+    {"id": "onboarding-intake", "title": "Onboarding an empty instance"},
+    {"id": "room-booking", "title": "Book a room with a note, My bookings"},
+    {"id": "admin-user", "title": "Create an account and pick its role"},
+    {"id": "run-report-fix", "title": "Run report: apply a suggested fix"}
+  ]
+}

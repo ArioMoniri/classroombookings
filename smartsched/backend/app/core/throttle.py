@@ -68,9 +68,14 @@ RESET_PER_ADDRESS = Throttle(window_s=900, limit=20)
 FEED_PER_TOKEN = Throttle(window_s=300, limit=60)
 FEED_PER_ADDRESS = Throttle(window_s=300, limit=600)
 
+#: public read-only day views (``/public/schedule/…``, V2): per client address; a kiosk refreshing every minute
+#: stays far below it, a scraper walking every room and date does not
+PUBLIC_PER_ADDRESS = Throttle(window_s=60, limit=60)
+
 
 def reset_all() -> None:
     RESET_PER_ACCOUNT.reset()
     RESET_PER_ADDRESS.reset()
     FEED_PER_TOKEN.reset()
     FEED_PER_ADDRESS.reset()
+    PUBLIC_PER_ADDRESS.reset()

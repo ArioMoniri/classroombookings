@@ -20,7 +20,7 @@ import icalendar
 import pytest
 
 from tests.crbs_env import env  # noqa: F401
-from tests.integrations_support import kvkk_sign_off
+from tests.integrations_support import calendar_consent, kvkk_sign_off
 
 
 @pytest.fixture(autouse=True)
@@ -60,6 +60,7 @@ async def _setup(env):  # type: ignore[no-untyped-def]  # noqa: F811
 
 
 async def _vevents(env, headers):  # type: ignore[no-untyped-def]  # noqa: F811
+    await calendar_consent(env.client, headers)
     tok = (await env.client.post("/api/v1/calendar/feeds/tokens", json={}, headers=headers)).json()["token"]
     r = await env.client.get(f"/api/v1/calendar/feeds/{tok}/mine.ics")
     assert r.status_code == 200, r.text
@@ -72,7 +73,8 @@ async def test_one_submission_is_one_group_one_inbox_entry_one_decision_one_even
     mine = (await c.get("/api/v1/bookings/mine", params={"status": "ALL"}, headers=ayse)).json()
     assert len(mine) == 3 and {b["group_id"] for b in mine} == {gid}
     totals = (await c.get("/api/v1/bookings/dashboard", headers=ayse)).json()["totals"]
-    assert totals["all"] == 1 and totals["all_periods"] == 3
+    # W3-SLOT (round-3 academician, orchestrator 2026-10-17): an open submission is shown apart, as one, not as a booking
+    assert totals["pending"] == 1 and totals["all"] == 0 and totals["all_periods"] == 0
 
     grouped = (await c.get("/api/v1/approvals/inbox", params={"grouped": 1}, headers=gozde)).json()
     (entry,) = grouped

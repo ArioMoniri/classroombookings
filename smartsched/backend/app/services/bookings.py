@@ -40,7 +40,7 @@ from app.models import (
 from app.models.base import utcnow
 from app.models.booking import BOOKED, CANCELLED, PENDING
 from app.models.catalog import Room
-from app.services import audit, settings_service
+from app.services import audit, booking_policies, settings_service
 from app.services.bookings_calendar import (
     CalendarError,
     DateInfo,
@@ -506,8 +506,8 @@ async def booking_out(session: AsyncSession, access: Access, b: Booking, *, deta
 # --------------------------------------------------------------------------------------------------
 
 
-async def active_booking_count(session: AsyncSession, user_id: int) -> int:
-    """``Users_model::get_scheduled_booking_count``: future single bookings the user made for themself."""
+async def active_bookings(session: AsyncSession, user_id: int) -> list[Booking]:
+    """``Users_model::get_scheduled_booking_count``'s rows: future single bookings the user made for themself."""
     now = await now_local(session)
     rows = (
         await session.execute(
@@ -522,7 +522,13 @@ async def active_booking_count(session: AsyncSession, user_id: int) -> int:
             )
         )
     ).all()
-    return sum(1 for b, p in rows if b.date > now.date() or p.time_start > now.time())
+    return [b for b, p in rows if b.date > now.date() or p.time_start > now.time()]
+
+
+async def active_booking_count(session: AsyncSession, user_id: int) -> int:
+    """``Users_model::get_scheduled_booking_count``: the number of rows (the ``max_active_bookings`` limit counts
+    periods, as CRBS does)."""
+    return len(await active_bookings(session, user_id))
 
 
 async def check_window(
@@ -538,10 +544,21 @@ async def check_window(
         return
     t = await today(session)
     min_date = t + timedelta(days=lo or 0)
+    # T-R2-17 (R2-S-13, R1-S-24): coded refusals with both languages; a date already gone is "past", not a window
+    if d < t:
+        raise _conflict(
+            "past",
+            f"{d:%d.%m.%Y} is in the past; bookings are made for today or later",
+            message_en=f"{d:%d.%m.%Y} is in the past; bookings are made for today or later",
+            message_tr=f"{d:%d.%m.%Y} geçmiş bir tarih; rezervasyon bugün ya da sonrası için yapılır",
+            min_date=min_date.isoformat(),
+        )
     if d < min_date:
         raise _conflict(
             "range_min",
             f"bookings must be made at least {lo or 0} day(s) ahead (from {min_date:%d.%m.%Y})",
+            message_en=f"bookings must be made at least {lo or 0} day(s) ahead (from {min_date:%d.%m.%Y})",
+            message_tr=f"rezervasyon en az {lo or 0} gün önceden yapılmalı ({min_date:%d.%m.%Y} tarihinden itibaren)",
             min_date=min_date.isoformat(),
         )
     max_date = t + timedelta(days=hi) if hi is not None else info.end
@@ -549,6 +566,8 @@ async def check_window(
         raise _conflict(
             "range_max",
             f"bookings can be made at most {hi} day(s) ahead (until {max_date:%d.%m.%Y})",
+            message_en=f"bookings can be made at most {hi} day(s) ahead (until {max_date:%d.%m.%Y})",
+            message_tr=f"rezervasyon en çok {hi} gün önceye kadar yapılabilir ({max_date:%d.%m.%Y} tarihine kadar)",
             max_date=max_date.isoformat(),
         )
 
@@ -806,6 +825,8 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
     if need is not None:
         await approvals.check_lead_time(session, need, info.term.id, body.date)
     user_id, dep_id = await _who_and_department(session, access, room, "book_single", body)
+    # P8 booking policies + exam-period mode: refuse with a reason, or turn the booking into a request
+    need = await booking_policies.enforce(session, access, room, info.term.id, body.date, period, user_id, need)
     await check_window(session, access, info, body.date, room)
     await check_not_started(session, access, body.date, period)
     # CRBS checks the limit in the grid (Slot) and in multi-booking, not in SingleAgent (deliberate
@@ -953,6 +974,8 @@ async def plan_recurring(session: AsyncSession, access: Access, body: RecurIn) -
         tocc = await timetable_occupancy(session, {room.id}, d0, d1)
     else:
         bocc, tocc = {}, {}
+    policies = await booking_policies.PolicyIndex.load(session)
+    counted = False
     for di in chosen:
         holders = [
             h
@@ -961,7 +984,31 @@ async def plan_recurring(session: AsyncSession, access: Access, body: RecurIn) -
         ]
         held = holders[0] if holders else None
         item: dict[str, Any] = {"date": di.date.isoformat(), "term_week": di.term_week, "status": "free"}
-        if held is None:
+        found = (
+            await booking_policies.violations(
+                session,
+                access,
+                room,
+                info.term.id,
+                di.date,
+                period,
+                body.user_id if body.user_given else access.user_id,
+                index=policies,
+                count_active=not counted,
+            )
+            if held is None
+            else []
+        )
+        refused = [v for v in found if v.effect == "refuse"]
+        if held is None and refused:
+            # P8: an instance a policy refuses is offered as "do not book", with the reason
+            item["status"] = "policy"
+            item["policy"] = refused[0].as_dict()
+            item["actions"] = ["do_not_book"]
+        elif held is None:
+            counted = True
+            if found and plan.need is None:
+                plan.need = booking_policies.request_need(found[0])
             item["actions"] = ["book", "do_not_book"]
             plan.bookable += 1
         else:
@@ -1044,7 +1091,18 @@ async def create_recurring(
         default = "book" if item["status"] == "free" else "do_not_book"
         action = wanted.get("action", default)
         if action not in item["actions"]:
-            skipped.append({"date": item["date"], "reason": f"action {action!r} not allowed", "status": item["status"]})
+            reason = f"policy_{item['policy']['rule']}" if item.get("policy") else f"action {action!r} not allowed"
+            skipped.append({"date": item["date"], "reason": reason, "status": item["status"]})
+            continue
+        if item.get("policy") and action == "do_not_book" and (body.instances or {}).get(d) is None:
+            skipped.append(
+                {
+                    "date": item["date"],
+                    "reason": f"policy_{item['policy']['rule']}",
+                    "status": "policy",
+                    "policy": item["policy"],
+                }
+            )
             continue
         if action == "do_not_book":
             skipped.append({"date": item["date"], "reason": "not selected", "status": item["status"]})
@@ -1094,7 +1152,7 @@ async def create_recurring(
         savepoint = await session.begin_nested()
         try:
             if old is not None:
-                ids = await _cancel_rows(session, access, [old], f"replaced by series #{series.id}")
+                ids = await _cancel_rows(session, access, [old], replace_reason(series.id))
             session.add(b)
             await session.flush()
             if b.status != PENDING or b.held_until is not None:
@@ -1122,10 +1180,10 @@ async def create_recurring(
             replaced[0],
             items=[(i, {"status": BOOKED}, {"status": CANCELLED}) for i in replaced],
             actor=access.user,
-            reason=f"replaced by series #{series.id}",
+            reason=replace_reason(series.id),
             term_id=series.term_id,
             notify="booking.cancelled",
-            payload={"booking_ids": replaced, "actor_id": access.user_id, "reason": f"replaced by series #{series.id}"},
+            payload={"booking_ids": replaced, "actor_id": access.user_id, "reason": replace_reason(series.id)},
         )
     if need is None:
         await publish_event(
@@ -1158,6 +1216,12 @@ async def create_recurring(
 # --------------------------------------------------------------------------------------------------
 # Cancel
 # --------------------------------------------------------------------------------------------------
+
+
+def replace_reason(series_id: int) -> str:
+    """The cancel reason a series writes on the booking it replaces: a *code* (``replaced_by_series:<id>``) the UI
+    renders in its language ("Seri #7 ile değiştirildi"), never an English sentence (T-R2-17, R2-M-18)."""
+    return f"replaced_by_series:{series_id}"
 
 
 async def _cancel_rows(session: AsyncSession, access: Access, rows: list[Booking], reason: str | None) -> list[int]:
@@ -1209,13 +1273,17 @@ async def cancel(
         if series is not None:
             series.status, series.cancelled_at, series.cancelled_by = CANCELLED, utcnow(), access.user_id
             series.cancel_reason = reason
+    # T-R2-17 (e): a series scope is one event on the series with one child per booking, so no booking (the anchor)
+    # gets two "Rezervasyon iptal edildi" rows; a single date stays one row on the booking itself
+    many = scope != "one" and b.series_id is not None
     await publish_event(
         session,
         "booking.cancel",
-        "booking",
-        b.id,
+        "booking_series" if many else "booking",
+        b.series_id if many else b.id,
         items=[(r.id, before[r.id], snap(r)) for r in rows if r.id in before],
-        parent_after={"scope": scope},
+        item_type="booking" if many else None,
+        parent_after={"scope": scope, "booking_id": b.id},
         actor=access.user,
         reason=reason,
         term_id=b.term_id,
@@ -1389,6 +1457,12 @@ async def update(
             await check_window(session, access, info, new_date, new_room)
         if "date" in data or "period_id" in data:
             await check_not_started(session, access, new_date, period)
+        # P8: a move must keep every policy; a move cannot become a request, so "request" rules refuse it here
+        moved = await booking_policies.violations(
+            session, access, new_room, b.term_id, new_date, period, b.user_id, exclude={b.id}
+        )
+        if moved:
+            raise booking_policies.refusal(moved[0])
         held = await find_conflict(
             session, new_room.id, new_date, period.start_period, period.end_period, exclude={b.id}
         )
@@ -1536,9 +1610,19 @@ async def selection_out(session: AsyncSession, access: Access, mb: MultiBooking)
 
 async def get_selection(session: AsyncSession, access: Access, mb_id: int) -> MultiBooking:
     mb = await session.get(MultiBooking, mb_id)
-    if mb is None or mb.user_id != access.user_id:
+    if mb is None or mb.user_id != access.user_id or not mb.slots:  # no slots left = consumed
         raise BookingError(404, "not_found", "multi-booking not found")
     return mb
+
+
+def _consume_selection(mb: MultiBooking) -> None:
+    """Mark a selection as turned into bookings: drop its slots but keep the ``multi_bookings`` row.
+
+    The row id is the submission's ``group_id`` on every booking it created (A-12 / T-R1-13). Deleting the
+    row let SQLite hand the same rowid to the next selection, so every submission of a person read as one
+    group ("P1–P12"); a kept row keeps ids unique. A slot-less selection answers 404 like a deleted one.
+    """
+    mb.slots.clear()
 
 
 async def create_from_selection(
@@ -1593,6 +1677,24 @@ async def create_from_selection(
                 problems.append(
                     {"mbs_id": s.id, "code": "conflict", "message": "slot is taken", "conflict": held.as_dict()}
                 )
+                continue
+            refused = [
+                v
+                for v in await booking_policies.violations(
+                    session, access, room, mb.term_id, s.date, period, access.user_id
+                )
+                if v.effect == "refuse"
+            ]
+            if refused:
+                problems.append(
+                    {
+                        "mbs_id": s.id,
+                        "code": f"policy_{refused[0].rule}",
+                        "message": refused[0].message_en,
+                        "message_tr": refused[0].message_tr,
+                        "policy": refused[0].as_dict(),
+                    }
+                )
         if problems or dry_run:
             if problems and not dry_run:
                 raise _conflict("slots_unavailable", f"{len(problems)} slot(s) cannot be booked", problems=problems)
@@ -1606,7 +1708,7 @@ async def create_from_selection(
             raise
         for b in created:
             b.multi_booking_id = mb.id
-        await session.delete(mb)
+        _consume_selection(mb)
         await session.commit()
         return {"created": [await booking_out(session, access, b) for b in created], "skipped": []}
     # recurring: one series per selected slot
@@ -1641,7 +1743,7 @@ async def create_from_selection(
     if dry_run:
         return {"dry_run": True, "slots": results}
     mb = await get_selection(session, access, mb_id)
-    await session.delete(mb)
+    _consume_selection(mb)
     await session.commit()
     return {"series": results}
 
@@ -1704,13 +1806,19 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
     )
     # A-12: totals count sessions -- the periods of one submission (multi-booking) on one day and room are one
     # session; ``*_periods`` keep CRBS's row counts
-    rows = (
+    # T-R2-13 (R2-S-10): one basis for the three numbers: live rows only (a cancelled booking is not a booking any
+    # more), counted as sessions like ``active``; ``cancelled`` and ``pending`` are apart
+    all_rows = (
         await session.execute(
-            select(Booking.id, Booking.multi_booking_id, Booking.date, Booking.room_id, Booking.term_id).where(
-                Booking.user_id == access.user_id
-            )
+            select(
+                Booking.id, Booking.multi_booking_id, Booking.date, Booking.room_id, Booking.term_id, Booking.status
+            ).where(Booking.user_id == access.user_id)
         )
     ).all()
+    # W3-SLOT (round-3 academician): only live bookings count; a rejected / withdrawn / expired request never was one,
+    # and an open request is shown apart (``pending``), so the line matches the bookings listed under it
+    rows = [r for r in all_rows if r.status == BOOKED]
+    pending_rows = [r for r in all_rows if r.status == PENDING]
     current = sorted(await current_term_ids(session, t))  # computed from the dates like CRBS (audit B3)
 
     def sessions(items: list[Any]) -> int:
@@ -1718,6 +1826,7 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
 
     in_session = [r for r in rows if current and r.term_id == current[0]]
     total_all, total_session = sessions(list(rows)), sessions(in_session)
+    active = await active_bookings(session, access.user_id)
     return {
         "user_bookings": mine,
         "room_bookings": in_my_rooms,
@@ -1727,7 +1836,11 @@ async def dashboard(session: AsyncSession, access: Access) -> dict[str, Any]:
             "session": int(total_session),
             "all_periods": len(rows),
             "session_periods": len(in_session),
-            "active": await active_booking_count(session, access.user_id),
+            "cancelled": sum(1 for r in all_rows if r.status == CANCELLED),
+            "pending": sessions(pending_rows),
+            # sessions, like ``all`` / ``session``; ``active_periods`` is the row count the booking limit uses
+            "active": sessions(active),
+            "active_periods": len(active),
         },
         "limits": await effective_limits(session, access.user),
     }
@@ -1845,6 +1958,7 @@ async def grid(
     max_date = t + timedelta(days=hi) if hi is not None else info.end
     now = await now_local(session)
     may_book_past = access.can(PAST_BOOKING_PERM)
+    policies = await booking_policies.PolicyIndex.load(session)
     booking_cache: dict[int, Booking] = {}
     slots = []
     for day in dates:
@@ -1888,6 +2002,18 @@ async def grid(
                         status, reason = "unavailable", "range_max"
                     elif past and not may_book_past:
                         status, reason = "unavailable", "past"  # U-04: the period already started
+                    else:
+                        # P8: a policy refuses the slot ("unavailable", reason "policy") or makes it request-only
+                        found = await policies.static_violations(
+                            session, access, r, info.term.id, day, p.time_start, p.time_end, t
+                        )
+                        refused = next((v for v in found if v.effect == "refuse"), None)
+                        if refused is not None:
+                            status, reason = "unavailable", "policy"
+                            slot["policy"] = refused.as_dict()
+                        elif found:
+                            slot["request_only"] = True
+                            slot["policy"] = found[0].as_dict()
                 slot.update(status=status, reason=reason, label=label)
                 slots.append(slot)
     prev_d, next_d = await _prev_next(session, info, target, display, period_days)

@@ -13,20 +13,24 @@
  * approval shows the rule ("Talep et" + who approves, lead time) and the submit button sends a request. The
  * backend answers 202 with `status: PENDING`; the toast says it went to the approvers.
  */
-import { CalendarCheck, DoorOpen, Loader2, Repeat, Stamp } from "lucide-react";
+import { CalendarCheck, DoorOpen, Repeat, Stamp } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useReducer, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Chip } from "@/components/ui/chip";
-import { Input, useShake } from "@/components/ui/input";
+import { useShake } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Textarea } from "@/components/ui/textarea";
 import { BOOKING_KEYS, crbs, crbsError, useBookingDates, useBookingUsers, useCrbsMe, useCrbsMutation, useDepartments, type Grid, type GridSlot, type MultiSlotChoice, type RecurringIn } from "@/lib/api/crbs";
 import { bookingCapabilities } from "@/lib/permissions";
 import { useRoomApprovalCheck } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { Alert, Field, SelectField } from "@/components/admin/kit";
+import { PolicyWhy } from "@/components/policies/policy-why";
+import { violationText } from "@/lib/api/booking-policies";
 import { bookingErrorMessage } from "./booking-errors";
 import type { DateFormatter } from "./date-format";
 import { isSelectable, slotKey, timetableMissing } from "./grid-model";
@@ -35,6 +39,7 @@ import { RecurringPreviewTable } from "./recurring-preview-table";
 import { freeRun, roomDay, toggleRange } from "./reserve-model";
 import { useIsPhone } from "./use-is-phone";
 import { cellSelector, focusAfter } from "./focus-after";
+import { DateField } from "@/components/ui/date-field";
 
 type Kind = "single" | "recurring";
 type StartMode = "date" | "session" | "custom";
@@ -98,6 +103,8 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
   const departments = useDepartments(canDept);
   const users = useBookingUsers(canUser);
   const [error, setError] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<number | null>(null);
+  const [policyRefused, setPolicyRefused] = useState(false);
   const { ref: shakeRef, shake } = useShake<HTMLDivElement>();
 
   const [startMode, setStartMode] = useState<StartMode>("date");
@@ -117,11 +124,18 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
 
   const roomName = (id: number) => grid.rooms.find((r) => r.id === id)?.name;
   const explain = (e: unknown) => {
-    setError(bookingErrorMessage(crbsError(e), t, { roomName, formatDate: fmt.short, locale }));
+    const err = crbsError(e);
+    // U-06: an identical open request exists; link to it instead of a second one
+    setDuplicate(err.code === "duplicate_request" ? (Number(err.data.request_id) || null) : null);
+    // P8: 409 policy_<rule> carries message_tr / message_en (bookingErrorMessage shows it); "Neden?" next to it
+    setPolicyRefused(!!err.code?.startsWith("policy_"));
+    setError(err.code === "duplicate_request" ? t("reserve.book.duplicate") : bookingErrorMessage(err, t, { roomName, formatDate: fmt.short, locale }));
     shake();
   };
 
   const extras = () => ({
+    // A-24: the second press after the "no published timetable" warning books with the backend's confirmation
+    ...(noTimetable && ackTimetable ? { confirm_unpublished: true } : {}),
     notes: notes.trim() || null,
     ...(canDept && dept !== "" ? { department_id: dept === "none" ? null : Number(dept) } : {}),
     ...(canUser && user !== "" ? { user_id: user === "none" ? null : Number(user) } : {}),
@@ -155,7 +169,7 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
         : {}),
     }));
     try {
-      return await crbs.bookings.multiCreate(sel.id, kind, choices);
+      return await crbs.bookings.multiCreate(sel.id, kind, choices, noTimetable && ackTimetable);
     } catch (e) {
       void crbs.bookings.dropSelection(sel.id).catch(() => undefined);
       throw e;
@@ -272,11 +286,12 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
                 );
               })}
             </div>
-            <p className="type-footnote text-label-3">{t("reserve.book.periodsHint")}</p>
+            {/* T-R2-16 (R2-A-07): the helper promises what the submit does: a request under approval-first */}
+            <p className="type-footnote text-label-3">{t(asks ? "reserve.book.periodsHintRequest" : "reserve.book.periodsHint")}</p>
           </fieldset>
         ) : null}
         {kinds.length > 1 ? (
-          <SegmentedGlass<Kind>
+          <SegmentedControl<Kind>
             aria-label={t("crbs.book.kind")}
             value={kind}
             onValueChange={(v) => {
@@ -336,14 +351,13 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
                   <option value="custom">{t("crbs.recur.custom")}</option>
                 </SelectField>
                 {startMode === "custom" ? (
-                  <Input
-                    type="date"
+                  <DateField
                     aria-label={t("crbs.recur.startDate")}
                     min={grid.term.start}
                     max={grid.term.end}
                     value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
+                    onChange={(v) => {
+                      setStartDate(v);
                       dispatch({ type: "reset" });
                     }}
                   />
@@ -362,14 +376,13 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
                   <option value="custom">{t("crbs.recur.custom")}</option>
                 </SelectField>
                 {endMode === "custom" ? (
-                  <Input
-                    type="date"
+                  <DateField
                     aria-label={t("crbs.recur.endDate")}
                     min={grid.term.start}
                     max={grid.term.end}
                     value={endDate}
-                    onChange={(e) => {
-                      setEndDate(e.target.value);
+                    onChange={(v) => {
+                      setEndDate(v);
                       dispatch({ type: "reset" });
                     }}
                   />
@@ -380,9 +393,9 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
               <p className="type-footnote text-label-2">{t("reserve.book.spanRecurring", { date: fmt.short(endMode === "custom" ? endDate : grid.term.end) })}</p>
             ) : (
               <>
-                <Button variant="outline" onClick={runPreview} disabled={previewM.isPending} className="self-start" data-testid="recur-preview-btn">
-                  {previewM.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-                  {preview.plan ? t("crbs.recur.refresh") : t("crbs.recur.preview")}
+                <Button variant="outline" onClick={runPreview} disabled={previewM.isPending} className="self-start" data-testid="recur-preview-btn" aria-busy={previewM.isPending || undefined}>
+                  <BusyLabel busy={previewM.isPending} label={t("busy.checking")}>
+                  {preview.plan ? t("crbs.recur.refresh") : t("crbs.recur.preview")}</BusyLabel>
                 </Button>
                 {preview.plan ? <RecurringPreviewTable summary={summary} dispatch={dispatch} fmt={fmt} /> : null}
               </>
@@ -399,9 +412,30 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
             {ruleSummary}
           </Alert>
         ) : null}
+        {/* P8: a booking policy turns this slot into a request; "Neden?" lists the rules */}
+        {!asks && first.request_only ? (
+          <Alert tone="info" title={t("policies.book.requestTitle")} testId="book-policy-request">
+            {first.policy ? violationText(first.policy, locale) : t("policies.book.request")}{" "}
+            <PolicyWhy query={{ room_id: first.room_id, date: first.date, period_id: first.period_id, term_id: grid.term.id }} violation={first.policy} />
+          </Alert>
+        ) : null}
         {error ? (
           <Alert tone="error" testId="book-error">
             {error}
+            {policyRefused ? (
+              <>
+                {" "}
+                <PolicyWhy query={{ room_id: first.room_id, date: first.date, period_id: first.period_id, term_id: grid.term.id }} />
+              </>
+            ) : null}
+            {duplicate ? (
+              <>
+                {" "}
+                <Link href={`/my-bookings?request=${duplicate}`} className="font-medium text-tint-text underline-offset-4 hover:underline" data-testid="book-duplicate-link">
+                  {t("reserve.book.duplicateOpen")}
+                </Link>
+              </>
+            ) : null}
           </Alert>
         ) : null}
       </div>
@@ -415,8 +449,9 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
         <Button variant="ghost" onClick={onDone}>
           {t("crbs.common.cancel")}
         </Button>
-        <Button className="pointer-coarse:h-11" onClick={submit} disabled={busy || !kinds.length || (kind === "recurring" && !isSpan && (!preview.plan || summary.willCreate === 0))} data-testid="book-submit">
-          {busy ? <Loader2 className="animate-spin" aria-hidden /> : asks ? <Stamp aria-hidden /> : null}
+        {/* T-R1-12 (R1-A-16): aria-busy at once, "Gönderiliyor…" / "Kaydediliyor…" while waiting, focus kept */}
+        <Button className="pointer-coarse:h-11" onClick={submit} {...busyProps(busy, !kinds.length || (kind === "recurring" && !isSpan && (!preview.plan || summary.willCreate === 0)))} data-testid="book-submit">
+          <BusyLabel busy={busy} label={t(asks ? "busy.sending" : "busy.saving")} icon={asks ? <Stamp aria-hidden /> : null}>
           {noTimetable && ackTimetable
             ? t("wave1.grid.bookAnyway")
             : asks
@@ -430,6 +465,7 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
               : kind === "single"
                 ? t("crbs.book.submit")
                 : t("crbs.recur.submit", { n: summary.willCreate })}
+          </BusyLabel>
         </Button>
       </SheetFooter>
     </>

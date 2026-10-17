@@ -331,3 +331,10 @@ async def create_exam(body: ExamCreateIn, db: DB, user: Editor) -> ExamRequestOu
 async def delete_exam(exam_id: int, db: DB, user: Editor, purge: bool = False) -> DeleteOut:
     action, audit_id = await _run(db, svc.archive_exam(db, user, exam_id, purge=purge))
     return DeleteOut(id=exam_id, action=action, audit_id=audit_id)
+
+
+# Program wizard drafts + wizard reads (P19-W-01..W-08, app/api/v1/program_drafts.py) are mounted through this router,
+# so the wizard's write path (drafts, one transactional commit) lives next to the per-row endpoints it replaces.
+from app.api.v1 import program_drafts as _program_drafts  # noqa: E402
+
+router.include_router(_program_drafts.router)

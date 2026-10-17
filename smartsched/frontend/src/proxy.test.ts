@@ -18,11 +18,11 @@ function target(path: string, token?: string): string | null {
 }
 
 describe("route guard (src/proxy.ts)", () => {
-  it.each(["/reset-password", "/setup"])("lets a signed-out visitor open %s", (path) => {
+  it.each(["/reset-password", "/setup", "/login/sso?ticket=abc"])("lets a signed-out visitor open %s", (path) => {
     expect(target(path)).toBeNull();
   });
 
-  it.each(["/reset-password", "/setup"])("lets a signed-in visitor open %s too", (path) => {
+  it.each(["/reset-password", "/setup", "/login/sso?ticket=abc"])("lets a signed-in visitor open %s too", (path) => {
     expect(target(path, "jwt")).toBeNull();
   });
 
@@ -36,12 +36,23 @@ describe("route guard (src/proxy.ts)", () => {
     expect(target("/login/change-password", "jwt")).toBeNull();
   });
 
+  it("keeps the first-login welcome page behind the session", () => {
+    expect(target("/welcome")).toBe(`/login?next=${encodeURIComponent("/welcome")}`);
+    expect(target("/welcome?invited=1", "jwt")).toBeNull();
+  });
+
   it("sends a signed-out visit to an app page to /login with the return path", () => {
     expect(target("/timetable?week=3")).toBe(`/login?next=${encodeURIComponent("/timetable?week=3")}`);
     expect(target("/timetable", "jwt")).toBeNull();
   });
 
+  it.each(["/public", "/public/rooms/A101?date=2026-02-18", "/public/buildings/A"])("lets anyone open the public day view %s", (path) => {
+    expect(target(path)).toBeNull();
+    expect(target(path, "jwt")).toBeNull();
+  });
+
   it("does not treat look-alike paths as public", () => {
+    expect(target("/publicity")).toBe(`/login?next=${encodeURIComponent("/publicity")}`);
     expect(target("/setup-admin")).toBe(`/login?next=${encodeURIComponent("/setup-admin")}`);
     expect(target("/reset-password/extra")).toBe(`/login?next=${encodeURIComponent("/reset-password/extra")}`);
   });

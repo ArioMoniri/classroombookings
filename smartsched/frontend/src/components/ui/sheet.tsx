@@ -2,12 +2,23 @@
 // Source: shadcn/ui sheet (style base-nova, https://ui.shadcn.com) — Licence: MIT
 // Modified: yes — Liquid Glass v2: chrome material floating inset from the viewport edge (iOS 26 sheet /
 // macOS inspector), springs.sheet CSS mirror (270 ms), exit 120 ms ease-in, side + bottom-sheet grabber. API unchanged.
+// Phones (< 640 px, 2026-10-16): the bottom sheet is full width and flush with the bottom edge (MOBILE.md M-04),
+// top corners only, and a transparent bottom border of env(safe-area-inset-bottom) keeps the content above the home
+// indicator while the material runs under it (a border, not padding, so callers' p-* classes keep working).
+// Larger screens keep the 8 px float, lifted above the safe area. The close button is a 36 px icon button on touch
+// with the shared 44 × 44 coarse hit area (ui/hit-area.ts via Button).
+// Keyboard (T-R1-02): the popup and its direct children (a caller's scrolling body) carry scroll-padding-bottom of
+// 6 rem, so a focused field scrolls clear of the sticky SheetFooter; ui/keyboard-clearance re-scrolls the focused
+// field when the on-screen keyboard resizes the viewport.
+// T-R2-02: the popup is modal — aria-modal="true" and its own Tab trap (ui/focus-trap), like ui/dialog.
 
 import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 import { cn } from "cn"
 
 import { Button } from "@/components/ui/button"
+import { KeyboardClearance } from "@/components/ui/keyboard-clearance"
+import { useFocusTrap } from "@/components/ui/focus-trap"
 import { XIcon } from "lucide-react"
 import { useT } from "@/lib/i18n/provider"
 
@@ -56,19 +67,25 @@ function SheetContent({
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
 }) {
+  const popupRef = React.useRef<HTMLDivElement>(null)
+  const trapTab = useFocusTrap(popupRef)
   return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Popup
         data-slot="sheet-content"
         data-side={side}
+        aria-modal="true"
+        ref={popupRef}
+        onKeyDown={trapTab}
         className={cn(
-          "glass-chrome fixed z-50 flex flex-col gap-4 overflow-hidden text-sm text-label-1 transition-[translate,opacity] duration-(--spring-sheet-ms) ease-(--spring-sheet) data-ending-style:opacity-0 data-ending-style:duration-(--dur-fast) data-ending-style:ease-(--ease-in) data-starting-style:opacity-0 data-[side=bottom]:inset-x-2 data-[side=bottom]:bottom-2 data-[side=bottom]:h-auto data-[side=bottom]:max-h-[calc(100dvh-3rem)] data-[side=bottom]:rounded-3xl data-[side=bottom]:pt-2 data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem] data-[side=left]:inset-y-2 data-[side=left]:left-2 data-[side=left]:h-[calc(100%-1rem)] data-[side=left]:w-3/4 data-[side=left]:rounded-2xl data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:inset-y-2 data-[side=right]:right-2 data-[side=right]:h-[calc(100%-1rem)] data-[side=right]:w-3/4 data-[side=right]:rounded-2xl data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:inset-x-2 data-[side=top]:top-2 data-[side=top]:h-auto data-[side=top]:rounded-3xl data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem] data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm before:mx-auto before:hidden before:h-1 before:w-9 before:shrink-0 before:rounded-full before:bg-fill-1 data-[side=bottom]:before:block",
+          "glass-chrome fixed z-50 flex flex-col gap-4 overflow-hidden text-sm text-label-1 scroll-pb-24 [&>*]:scroll-pb-24 transition-[translate,opacity] duration-(--spring-sheet-ms) ease-(--spring-sheet) data-ending-style:opacity-0 data-ending-style:duration-(--dur-fast) data-ending-style:ease-(--ease-in) data-starting-style:opacity-0 data-[side=bottom]:inset-x-2 data-[side=bottom]:bottom-[max(0.5rem,env(safe-area-inset-bottom))] data-[side=bottom]:h-auto max-sm:data-[side=bottom]:inset-x-0 max-sm:data-[side=bottom]:bottom-0 max-sm:data-[side=bottom]:rounded-b-none max-sm:data-[side=bottom]:border-b-[length:env(safe-area-inset-bottom)] max-sm:data-[side=bottom]:border-b-transparent data-[side=bottom]:max-h-[calc(100dvh-3rem)] data-[side=bottom]:rounded-3xl data-[side=bottom]:pt-2 data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem] data-[side=left]:inset-y-2 data-[side=left]:left-2 data-[side=left]:h-[calc(100%-1rem)] data-[side=left]:w-3/4 data-[side=left]:rounded-2xl data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:inset-y-2 data-[side=right]:right-2 data-[side=right]:h-[calc(100%-1rem)] data-[side=right]:w-3/4 data-[side=right]:rounded-2xl data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:inset-x-2 data-[side=top]:top-2 data-[side=top]:h-auto data-[side=top]:rounded-3xl data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem] data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm before:mx-auto before:hidden before:h-1 before:w-9 before:shrink-0 before:rounded-full before:bg-fill-1 data-[side=bottom]:before:block",
           className
         )}
         {...props}
       >
         {children}
+        <KeyboardClearance />
         {showCloseButton && (
           <SheetPrimitive.Close
             data-slot="sheet-close"
@@ -130,7 +147,7 @@ function SheetDescription({
   return (
     <SheetPrimitive.Description
       data-slot="sheet-description"
-      className={cn("text-[13px] leading-[18px] text-label-2", className)}
+      className={cn("type-callout leading-[18px] text-label-2", className)}
       {...props}
     />
   )

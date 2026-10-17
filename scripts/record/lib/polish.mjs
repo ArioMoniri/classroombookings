@@ -1,4 +1,5 @@
-// ffmpeg compositor: raw Playwright video + timeline → Recordly-style MP4, animated WebP (< 4 MB), optional GIF and poster.
+// ffmpeg compositor: raw Playwright video + timeline → a lossless master, then a Recordly-style MP4, the README GIF
+// clips (REC_GIF=1; one per `clip` id of the journey, lib/gif.mjs), a poster and, with REC_WEBP=1, an animated WebP.
 //   camera   (own ffmpeg pass) perspective filter in "source" mode = sub-pixel crop that follows a spring-smoothed
 //            camera track (no zoompan jitter), sampled per frame and compressed to piecewise-linear
 //            expressions
@@ -10,8 +11,8 @@ import { readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildAssets, layoutFor } from "./assets.mjs";
 import { cameraTrack, piecewiseExpr, pointerAt, shots } from "./camera.mjs";
-
-const FPS = 30;
+import { FPS } from "./fps.mjs";
+import { clipSpans, makeGif } from "./gif.mjs";
 
 function ff(args, label) {
   const r = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error", ...args], { stdio: ["ignore", "inherit", "pipe"] });
@@ -30,7 +31,7 @@ export function probeDuration(file) {
  * @param {string} p.name     base file name
  * @param {"light"|"dark"} p.theme
  */
-export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 4 * 1024 * 1024, captions = true, cameraOpts = {} }) {
+export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = Number(process.env.REC_GIF_MAX_BYTES ?? 9_000_000), captions = true, cameraOpts = {} }) {
   const viewport = tl.viewport;
   const { width: W, height: H } = viewport;
   const durMs = Math.floor(probeDuration(raw) * 1000);
@@ -41,7 +42,7 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 4 * 1024 * 
   const assets = buildAssets(join(outDir, `${name}.assets`), layout, theme, captions ? steps.map((s) => s.caption) : []);
 
   // ---- camera ----------------------------------------------------------------------------------
-  const cam = cameraTrack(shots(steps, viewport, cameraOpts), viewport, durMs, cameraOpts);
+  const cam = cameraTrack(shots(steps, viewport, cameraOpts), viewport, durMs, { fps: FPS, ...cameraOpts });
   const tvP = `(in/${FPS})`;
   const series = (fn) => cam.map((f) => ({ t: f.t / 1000, v: fn(f) }));
   const ex = (fn, eps = 0.15) => piecewiseExpr(series(fn), eps, tvP, 3);
@@ -76,8 +77,9 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 4 * 1024 * 
     ? `perspective=x0='${persp[0]}':y0='${persp[1]}':x1='${persp[2]}':y1='${persp[3]}':x2='${persp[4]}':y2='${persp[5]}':x3='${persp[6]}':y3='${persp[7]}':sense=source:interpolation=cubic:eval=frame,`
     : "";
   const camScript = join(outDir, `${name}.camera.filter.txt`);
-  writeFileSync(camScript, `[0:v]fps=${FPS},${cameraF}scale=${VW}:${VH}:flags=lanczos,format=yuv420p[cam]`);
-  ff(["-i", raw, "-filter_complex_script", camScript, "-map", "[cam]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "12", camFile], "camera");
+  const lossless = process.env.REC_LOSSLESS === "1";
+  writeFileSync(camScript, `[0:v]fps=${FPS},${cameraF}scale=${VW}:${VH}:flags=lanczos,format=${lossless ? "rgb24" : "yuv420p"}[cam]`);
+  ff(["-i", raw, "-filter_complex_script", camScript, "-map", "[cam]", ...(lossless ? ["-c:v", "libx264rgb", "-preset", "ultrafast", "-qp", "0"] : ["-c:v", "libx264", "-preset", "veryfast", "-crf", "12"]), camFile], "camera");
 
   // ---- inputs ----------------------------------------------------------------------------------
   const inputs = ["-i", camFile];
@@ -128,14 +130,18 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 4 * 1024 * 
     g.push(`[${last}][cp${n}]overlay=${x}:${y}:eof_action=pass[v${n}]`);
     last = `v${n++}`;
   }
-  g.push(`[${last}]format=yuv420p[out]`);
+  g.push(`[${last}]format=rgb24[out]`);
   const script = join(outDir, `${name}.filter.txt`);
   writeFileSync(script, g.join(";\n"));
 
+  // lossless RGB master: the GIF clips are cut from it, so a frame that did not change is bit-identical to the
+  // one before (mpdecimate drops it, diff_mode=rectangle redraws only what moved)
+  const master = join(outDir, `${name}.master.mkv`);
+  ff([...inputs, "-filter_complex_script", script, "-map", "[out]", "-t", durS, "-r", String(FPS), "-c:v", "libx264rgb",
+    "-preset", "ultrafast", "-qp", "0", "-an", master], "compose");
   const mp4 = join(outDir, `${name}.mp4`);
-  ff([...inputs, "-filter_complex_script", script, "-map", "[out]", "-t", durS, "-r", String(FPS), "-c:v", "libx264",
-    "-preset", process.env.REC_X264_PRESET ?? "medium", "-crf", process.env.REC_CRF ?? "18", "-pix_fmt", "yuv420p",
-    "-movflags", "+faststart", "-an", mp4], "compose");
+  ff(["-i", master, "-c:v", "libx264", "-preset", process.env.REC_X264_PRESET ?? "medium", "-crf", process.env.REC_CRF ?? "18",
+    "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", mp4], "mp4");
 
   // ---- poster: middle of the step marked poster, else 60 % in --------------------------------
   const ps = steps.find((s) => s.poster) ?? null;
@@ -147,7 +153,7 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 4 * 1024 * 
   const webp = join(outDir, `${name}.webp`);
   let webpInfo = null;
   const webpMax = Number(process.env.REC_WEBP_MAX_BYTES ?? 3_900_000);
-  for (const [w, fps, q] of [[1000, 15, 72], [1000, 12, 62], [920, 12, 55], [840, 10, 50], [760, 10, 45], [680, 8, 40]]) {
+  for (const [w, fps, q] of process.env.REC_WEBP === "1" ? [[1000, 15, 72], [1000, 12, 62], [920, 12, 55], [840, 10, 50], [760, 10, 45], [680, 8, 40]] : []) {
     ff(["-i", mp4, "-vf", `fps=${fps},scale=${w}:-2:flags=lanczos`, "-c:v", "libwebp_anim", "-lossless", "0",
       "-quality", String(q), "-compression_level", "6", "-preset", "picture", "-loop", "0", "-an", webp], "webp");
     const size = statSync(webp).size;
@@ -155,22 +161,23 @@ export function polish({ raw, tl, outDir, name, theme, gifMaxBytes = 4 * 1024 * 
     if (size <= webpMax) break;
   }
 
-  // ---- GIF (opt-in, REC_GIF=1) under the size budget: shrink width, then fps, until it fits ---
-  const gif = join(outDir, `${name}.gif`);
-  let gifInfo = null;
+  // ---- GIF clips (REC_GIF=1): one per `clip` id; a journey without clips gives one GIF of the whole take ----
+  const gifs = [];
   if (process.env.REC_GIF === "1") {
-    for (const [w, fps] of [[1000, 15], [900, 12], [800, 12], [720, 10], [640, 10], [560, 8]]) {
-      const pal = join(outDir, `${name}.palette.png`);
-      ff(["-i", mp4, "-vf", `fps=${fps},scale=${w}:-2:flags=lanczos,palettegen=max_colors=192:stats_mode=diff`, pal], "palette");
-      ff(["-i", mp4, "-i", pal, "-lavfi", `fps=${fps},scale=${w}:-2:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`,
-        "-loop", "0", gif], "gif");
-      const size = statSync(gif).size;
-      gifInfo = { width: w, fps, bytes: size };
-      if (size <= gifMaxBytes) break;
+    // REC_GIF_CLIPS (record-all.sh: the README set) limits the encoding to the clips that are published
+    const wanted = process.env.REC_GIF_CLIPS ? new Set(process.env.REC_GIF_CLIPS.split(/\s+/).filter(Boolean)) : null;
+    const spans = clipSpans(steps, durMs).filter((c) => !wanted || wanted.has(c.id));
+    if (!spans.length && !wanted) spans.push({ id: tl.journey?.id ?? name, startMs: 0, endMs: durMs });
+    const widths = (process.env.REC_GIF_WIDTHS ?? "1200,1120,1040").split(",").map(Number);
+    for (const c of spans) {
+      const out = join(outDir, `${name}.${c.id}.gif`);
+      const info = makeGif({ src: master, startMs: c.startMs, endMs: c.endMs, out, palette: join(outDir, `${name}.palette.png`), fps: FPS, maxBytes: gifMaxBytes, widths });
+      gifs.push({ id: c.id, file: out, startMs: c.startMs, endMs: c.endMs, ...info });
     }
   }
   rmSync(camFile, { force: true });
-  return { mp4, gif: gifInfo ? gif : null, webp, webpInfo, poster, gifInfo, durationMs: durMs, layout, filterScript: script, clicks: clicks.length, zoomed };
+  if (!process.env.REC_KEEP_MASTER) rmSync(master, { force: true });
+  return { mp4, gifs, webp: webpInfo ? webp : null, webpInfo, poster, durationMs: durMs, layout, filterScript: script, clicks: clicks.length, zoomed };
 }
 
 export function listOutputs(dir) {

@@ -22,6 +22,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
 import { dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { coarseHitArea } from "@/components/ui/hit-area";
 import { ChangedMark, DayTimeCell, ModeCell, PinCell, RoomsCell, StudentsCell } from "./class-cells";
 import { isPlacementPin } from "./studio-reducer";
 import { EMPTY_FILTERS, QUICK_FILTERS, activeFilterCount, filterClasses, filterOptions, quickCounts, type ClassFilters, type QuickFilter } from "./class-filters";
@@ -29,6 +30,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { plainRuleText } from "./rule-helpers";
 import { useStudio } from "./studio-context";
 import { useClassEdit } from "./use-class-edit";
+import { BareButton } from "@/components/shell/bare-button";
 
 const QUICK_KEY: Record<QuickFilter, MessageKey> = {
   needsRoom: "studio.classes.quick.needsRoom",
@@ -153,7 +155,11 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
         cell: ({ row }) => {
           const r = row.original;
           const on = !rowState.excluded.has(r.id);
-          return <Switch checked={on} onCheckedChange={() => toggleIn(r)} aria-label={t("studio.classes.inPlanLabel", { name: `${r.course_code} §${r.section_label ?? ""}` })} data-testid="in-plan" />;
+          return (
+            <label className="inline-flex items-center pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center">
+              <Switch checked={on} onCheckedChange={() => toggleIn(r)} aria-label={t("studio.classes.inPlanLabel", { name: `${r.course_code} §${r.section_label ?? ""}` })} data-testid="in-plan" />
+            </label>
+          );
         },
         size: 64,
       },
@@ -167,7 +173,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-xs font-semibold">{(r.course_code ?? "").toLocaleUpperCase(locale === "tr" ? "tr-TR" : "en-US")}</span>
                 {r.section_label ? <span className="text-xs text-label-2">§{r.section_label}</span> : null}
-                {rowState.excluded.has(r.id) ? <span className="rounded border px-1 text-[10px] text-label-2">{t("studio.classes.leftOutChip")}</span> : null}
+                {rowState.excluded.has(r.id) ? <span className="rounded border px-1 text-2xs pointer-coarse:type-caption text-label-2">{t("studio.classes.leftOutChip")}</span> : null}
               </div>
               <div className="truncate text-xs text-label-2" title={r.course_name ?? ""}>
                 {r.course_name}
@@ -184,7 +190,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           <div className="min-w-0 text-xs">
             <div className="truncate" title={`${row.original.faculty_name ?? ""} › ${row.original.program_name ?? ""}`}>
               {row.original.program_name}
-              {row.original.is_evening ? <span className="ml-1 rounded bg-fill-2 px-1 text-[10px]">İÖ</span> : null}
+              {row.original.is_evening ? <span className="ml-1 rounded bg-fill-2 px-1 text-2xs pointer-coarse:type-caption">İÖ</span> : null}
             </div>
             <div className="truncate text-label-2">{row.original.faculty_name}</div>
           </div>
@@ -375,7 +381,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           </option>
         ))}
       </NativeSelect>
-      <label className="flex items-center gap-1.5 text-sm">
+      <label className="flex items-center gap-1.5 text-sm pointer-coarse:min-h-11">
         <input type="checkbox" checked={filters.changed} onChange={(e) => set({ changed: e.target.checked })} data-testid="filter-changed" /> {t("studio.classes.changedOnly")}
       </label>
     </>
@@ -417,9 +423,9 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
 
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label={t("studio.classes.quickTitle")}>
         {QUICK_FILTERS.map((q) => (
-          <button key={q} type="button" aria-pressed={filters.quick === q} onClick={() => set({ quick: filters.quick === q ? null : q })} className={cn("shrink-0 rounded-full border px-2.5 py-1 text-xs pointer-coarse:min-h-11", filters.quick === q ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")} data-testid={`quick-${q}`}>
+          <BareButton key={q} aria-pressed={filters.quick === q} onClick={() => set({ quick: filters.quick === q ? null : q })} className={cn("shrink-0 rounded-full border px-2.5 py-1 text-xs pointer-coarse:min-h-11", filters.quick === q ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")} data-testid={`quick-${q}`}>
             {t(QUICK_KEY[q])} <span className="tabular-nums text-label-2">{n(counts[q])}</span>
-          </button>
+          </BareButton>
         ))}
       </div>
 
@@ -452,18 +458,18 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-2xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] p-6 text-center text-sm">
+        <div className="rounded-2xl bg-fill-3 edge-hairline p-6 text-center text-sm">
           <p>{t("studio.scope.nothingToPlan")}</p>
           <Button className="mt-3" render={<Link href={kind === "EXAM" ? "/import?source=exam" : "/import?source=planning"} />}>
             {t("studio.scope.importCta")}
           </Button>
         </div>
       ) : shown.length === 0 ? (
-        <div className="rounded-2xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] p-6 text-center text-sm text-label-2" data-testid="classes-empty">
+        <div className="rounded-2xl bg-fill-3 edge-hairline p-6 text-center text-sm text-label-2" data-testid="classes-empty">
           {t("studio.classes.empty")}{" "}
-          <button type="button" className="font-medium text-tint-text underline" onClick={() => setFilters(EMPTY_FILTERS)}>
+          <BareButton className="font-medium text-tint-text underline" onClick={() => setFilters(EMPTY_FILTERS)}>
             {t("studio.classes.clear")}
-          </button>
+          </BareButton>
         </div>
       ) : narrow ? (
         <div ref={scroller} className="relative h-[60dvh] overflow-y-auto overscroll-contain rounded-lg border" data-testid="class-cards">
@@ -472,12 +478,15 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
               const r = shown[v.index];
               const out = rowState.excluded.has(r.id);
               return (
-                <li key={r.id} data-index={v.index} ref={virt.measureElement} style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${v.start}px)` }} className={cn("border-b p-3", out && "opacity-60")} data-testid="class-row" data-class-id={r.id}>
+                <li key={r.id} data-index={v.index} ref={virt.measureElement} style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${v.start}px)` }} className={cn("border-b p-3", out && "bg-fill-3 text-label-3 [&_*]:text-label-3")} data-testid="class-row" data-class-id={r.id}>
                   <div className="flex items-start gap-3">
-                    <Checkbox checked={selected.has(r.id)} onClick={(e) => { e.preventDefault(); toggleSelect(r.id, false); }} aria-label={t("studio.classes.selectRow", { name: `${r.course_code} §${r.section_label ?? ""}` })} className="mt-1" />
+                    {/* phone cards: a 44 px cell around the 16 px checkbox, so its tap area never overlaps the row's switch (R1-S-16) */}
+                    <span className="flex shrink-0 items-start pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:-my-1 pointer-coarse:-ml-2">
+                      <Checkbox checked={selected.has(r.id)} onClick={(e) => { e.preventDefault(); toggleSelect(r.id, false); }} aria-label={t("studio.classes.selectRow", { name: `${r.course_code} §${r.section_label ?? ""}` })} className="mt-1 pointer-coarse:mt-0" />
+                    </span>
                     <div className="min-w-0 flex-1 text-sm">
                       <p className="font-mono text-xs font-semibold">
-                        {r.course_code} <span className="text-label-2">§{r.section_label}</span> {out ? <span className="ml-1 rounded border px-1 font-sans text-[10px] font-normal text-label-2">{t("studio.classes.leftOutChip")}</span> : null}
+                        {r.course_code} <span className="text-label-2">§{r.section_label}</span> {out ? <span className="ml-1 rounded border px-1 font-sans text-2xs pointer-coarse:type-caption font-normal text-label-2">{t("studio.classes.leftOutChip")}</span> : null}
                       </p>
                       <p className="truncate text-xs">{r.course_name}</p>
                       <p className="truncate text-xs text-label-2">{r.program_name}</p>
@@ -487,7 +496,10 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                         <PinCell row={r} pin={placedByEvent.get(r.id)} unlocked={unlockedIds.has(r.id)} roomCode={sentence.roomCode} rooms={rooms} onPin={pin} onUnpin={() => unpin(r.id)} />
                       </p>
                     </div>
-                    <Switch checked={!out} onCheckedChange={() => toggleIn(r)} aria-label={t("studio.classes.inPlanLabel", { name: `${r.course_code} §${r.section_label ?? ""}` })} data-testid="in-plan" className="mt-1" />
+                    {/* a <label>: the whole 44 px box toggles the switch and counts as its hit area (T-R2-28/29, M-02) */}
+                    <label className="flex shrink-0 items-start pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:-my-1 pointer-coarse:-mr-2">
+                      <Switch checked={!out} onCheckedChange={() => toggleIn(r)} aria-label={t("studio.classes.inPlanLabel", { name: `${r.course_code} §${r.section_label ?? ""}` })} data-testid="in-plan" className={cn("relative mt-1 pointer-coarse:mt-0", coarseHitArea)} />
+                    </label>
                   </div>
                 </li>
               );
@@ -534,7 +546,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
                     aria-rowindex={v.index + 1}
                     aria-selected={selected.has(r.id)}
                     onKeyDown={(e) => onRowKey(e, r, v.index)}
-                    className={cn("group/row outline-hidden focus-visible:bg-tint-soft", out && "opacity-60", selected.has(r.id) && "bg-tint-soft/60")}
+                    className={cn("group/row outline-hidden focus-visible:bg-tint-soft", out && "bg-fill-3 text-label-3 [&_*]:text-label-3", selected.has(r.id) && "bg-tint-soft/60")}
                     data-testid="class-row"
                     data-class-id={r.id}
                     data-included={!out}
@@ -573,7 +585,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
       {/* selection bar (audit T8): rises 8 px + fades in on the smooth spring, leaves faster; reduced: 100 ms fade */}
       <AnimatePresence>
       {selected.size > 0 ? (
-        <motion.div key="bulk-bar" initial={reduce ? { opacity: 0 } : { y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1, transition: reduce ? tween.reduced : springs.smooth }} exit={{ opacity: 0, transition: reduce ? tween.reduced : tween.fadeOut }} className="sticky bottom-20 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-popover p-2 text-sm shadow-[var(--shadow-2)] xl:bottom-3" role="toolbar" aria-label={t("studio.classes.bulk")} data-testid="bulk-bar">
+        <motion.div key="bulk-bar" initial={reduce ? { opacity: 0 } : { y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1, transition: reduce ? tween.reduced : springs.smooth }} exit={{ opacity: 0, transition: reduce ? tween.reduced : tween.fadeOut }} className="sticky bottom-20 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-popover p-2 text-sm shadow-elev-2 xl:bottom-3" role="toolbar" aria-label={t("studio.classes.bulk")} data-testid="bulk-bar">
           <span className="px-1 font-medium">{t("studio.classes.selected", { n: n(selected.size) })}</span>
           <Button size="sm" variant="outline" onClick={() => exclude([...selected], t("studio.history.leftOut"))} data-testid="bulk-leave-out">
             {t("studio.classes.leaveOut")}

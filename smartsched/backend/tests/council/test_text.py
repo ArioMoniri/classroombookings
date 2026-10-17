@@ -24,6 +24,10 @@ def test_clock_and_ranges_from_real_cells():
     assert tx.parse_clock("09.00") == time(9, 0)
     assert tx.parse_clock("1:30 PM") == time(13, 30)
     assert tx.parse_clock(time(11, 0)) == time(11, 0)
+    # a time cell exported without a format is its Excel day fraction (bahar_requests_en.csv, BES 242 / SYS018)
+    assert tx.parse_clock("0.5208333333333334") == time(12, 30)
+    assert tx.parse_clock("0.7291666666666666") == time(17, 30)
+    assert tx.parse_clock("0,9513888888888888") == time(22, 50)
     # grid axis labels exactly as typed in the Bahar board, including the "22-50" typo
     assert tx.parse_time_range("08:30-09:10") == (time(8, 30), time(9, 10))
     assert tx.parse_time_range("20.30-21.10") == (time(20, 30), time(21, 10))

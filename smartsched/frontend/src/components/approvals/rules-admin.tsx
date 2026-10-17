@@ -17,11 +17,11 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SectionTitle, SelectField } from "@/components/admin/kit";
-import { useCrbsMutation } from "@/lib/api/crbs";
+import { useCrbsMutation, useOrgSettings } from "@/lib/api/crbs";
 import { errorText, useApprovalRules, useApprovers, wave1, wave1Error, w1Keys, type Approver, type Rule, type RuleIn, type Scope, type StepIn } from "@/lib/api/wave1";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
-import { normaliseScopes, ruleTarget, stepApprovers } from "./approvals-model";
+import { normaliseScopes, ruleCovered, ruleTarget, stepApprovers } from "./approvals-model";
 import { ScopePicker, scopeLabel, useScopeLookups, type ScopeLookups } from "./scope-picker";
 
 const RULE_KEYS = [w1Keys.rules, ["w1", "approvals"]];
@@ -30,6 +30,7 @@ export function ApprovalRulesAdmin() {
   const { t, locale } = useI18n();
   const { can } = usePermissions();
   const rules = useApprovalRules();
+  const org = useOrgSettings(can("setup.settings"));
   const approvers = useApprovers(can(["setup.users", "approvals.decide", "setup.rooms_acl"]));
   const l = useScopeLookups();
   const [editing, setEditing] = useState<Rule | "new" | null>(null);
@@ -42,7 +43,7 @@ export function ApprovalRulesAdmin() {
     <div className="flex flex-col gap-6" data-testid="approval-rules">
       <PageTitle
         title={t("wave1.rules.title")}
-        subtitle={t("wave1.rules.lead")}
+        subtitle={t("wave1.rules.subtitle")}
         actions={
           <Button onClick={() => setEditing("new")} data-testid="rule-new">
             <Plus aria-hidden />
@@ -59,7 +60,8 @@ export function ApprovalRulesAdmin() {
           </Alert>
         ) : (rules.data ?? []).length === 0 ? (
           <p className="px-4 py-5 type-callout text-label-2" data-testid="rules-empty">
-            {t("wave1.rules.none")}
+            {/* T-R1-10 (R1-M-24): the empty state says what happens now, from Rezervasyon onayı */}
+            {t(org.data?.approval_mode === "all" ? "wave1.rules.noneAll" : "wave1.rules.none")}
           </p>
         ) : (
           <Table>
@@ -92,10 +94,18 @@ export function ApprovalRulesAdmin() {
                       {r.steps
                         .map((s, i) => {
                           const a = stepApprovers(s, { user: userName });
-                          const who = a.designated ? t("wave1.rules.designated") : a.names.join(", ");
+                          // admin persona M-35: a "designated approvers" step with nobody designated would never be decided;
+                          // T-R2-18 (R2-M-19): the same when no approver's scope reaches this rule's rooms
+                          const none = a.designated && approvers.isSuccess && !ruleCovered(r, approvers.data, l.rooms);
+                          const who = a.designated ? (none ? `${t("wave1.rules.designated")} (${t("wave1.rules.noneDesignated")})` : t("wave1.rules.designated")) : a.names.join(", ");
                           return r.steps.length > 1 ? `${i + 1}. ${who}` : who;
                         })
                         .join(" → ")}
+                      {r.steps.some((st) => stepApprovers(st, { user: userName }).designated) && approvers.isSuccess && !ruleCovered(r, approvers.data, l.rooms) ? (
+                        <span className="mt-1 block type-footnote text-status-warning-fg" data-testid="rule-approvers-empty" data-rule-id={r.id}>
+                          {t("wave1.rules.ruleUncovered")}
+                        </span>
+                      ) : null}
                     </TableCell>
                     <TableCell className="hidden text-label-2 lg:table-cell">{conditions(r, t).join(" · ") || "—"}</TableCell>
                     <TableCell>{r.active ? <Badge tone="feasible">{t("wave1.rules.active")}</Badge> : <Badge variant="outline">{t("wave1.rules.inactive")}</Badge>}</TableCell>
@@ -128,7 +138,7 @@ export function ApprovalRulesAdmin() {
           ) : (
             <ul data-testid="approvers-list">
               {(approvers.data ?? []).map((a) => (
-                <li key={a.user_id} className="flex items-center gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+                <li key={a.user_id} className="flex items-center gap-3 px-4 py-2.5 hairline-b last:shadow-none">
                   <Stamp className="size-4 shrink-0 text-label-3" aria-hidden />
                   <span className="min-w-0 flex-1">
                     <span className="block type-headline text-label-1">{a.name ?? a.email}</span>
@@ -233,7 +243,8 @@ function RuleForm({ rule, approvers, lookups: l, onClose }: { rule: Rule | null;
         <DialogTitle>{rule ? t("wave1.rules.editTitle") : t("wave1.rules.new")}</DialogTitle>
         <DialogDescription>{t("wave1.rules.formHint")}</DialogDescription>
       </DialogHeader>
-      <div className="flex max-h-[min(70dvh,640px)] flex-col gap-3 overflow-y-auto pr-1">
+      {/* phones: the dialog is a bottom sheet that scrolls itself, so no nested scroller clipping the switches' hit areas */}
+      <div className="flex max-h-[min(70dvh,640px)] flex-col gap-3 overflow-y-auto pr-1 max-sm:max-h-none max-sm:overflow-visible">
         <Field label={t("wave1.rules.name")} htmlFor="rule-name" hint={t("wave1.rules.nameHint")}>
           <Input id="rule-name" maxLength={100} value={f.name} onChange={(e) => set("name", e.target.value)} />
         </Field>

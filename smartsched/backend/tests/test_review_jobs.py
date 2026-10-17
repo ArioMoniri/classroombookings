@@ -189,6 +189,44 @@ async def test_m6_heartbeats_and_restart_recovery_by_boot_id(client, monkeypatch
         assert [(await s.get(ImportJob, j)).status for j in jobs] == ["FAILED", "RUNNING"]
 
 
+async def test_m6_heartbeat_ends_when_a_cancel_is_absorbed_inside_a_beat(client, monkeypatch):
+    """A cancel that lands while a beat closes its database connection can be absorbed by the driver (seen in a
+    shuffled full run: SQLAlchemy's aiosqlite graceful close; the task kept beating with ``cancelling() == 2`` and
+    the event loop's shutdown waited for it forever). The heartbeat of a room-master import must still end."""
+    from app.workers import queue as qmod
+
+    monkeypatch.setattr(get_settings(), "run_heartbeat_s", 0.05)
+    async with get_session_factory()() as s:
+        job = ImportJob(kind="room-master", status="RUNNING", filename="room_master.csv", summary={})
+        s.add(job)
+        await s.commit()
+        job_id = job.id
+    real_beat, inside, absorbed = qmod._beat, asyncio.Event(), []
+
+    async def absorbing_beat(key: str) -> None:
+        await real_beat(key)
+        inside.set()
+        try:
+            await asyncio.sleep(1)  # the connection close the cancel lands in
+        except asyncio.CancelledError:
+            if absorbed:
+                raise
+            absorbed.append(key)  # swallowed once, like the driver: the task goes on with cancelling() > 0
+
+    monkeypatch.setattr(qmod, "_beat", absorbing_beat)
+    hb = asyncio.create_task(qmod._heartbeat_loop(f"import:{job_id}"))
+    await inside.wait()
+    hb.cancel()
+    done, _ = await asyncio.wait({hb}, timeout=2)
+    if not done:
+        hb.cancel()  # the second cancel is not absorbed: never leave the loop running for the next test
+        await asyncio.wait({hb}, timeout=5)
+    assert absorbed == [f"import:{job_id}"]
+    assert hb in done and hb.cancelled()
+    async with get_session_factory()() as s:
+        assert (await s.get(ImportJob, job_id)).heartbeat_at is not None
+
+
 async def test_m7_writes_succeed_quickly_during_a_solve(client, monkeypatch):
     seen: dict = {}
     monkeypatch.setattr(solver_bridge, "_call_solver", sleeping_solver(4.0, seen))

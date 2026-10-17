@@ -8,7 +8,7 @@ export default {
   role: "admin",
   verified: false,
   async setup({ page, termCode }) {
-    const tid = await termId(page, termCode);
+    const tid = await termId(page, process.env.REC_CAL_TERM ?? "2026-GUZ");
     // a run with diagnoses: a solver run of week 3 (best-effort partial on the real data)
     let run = await findRun(page, tid, { statuses: ["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL", "INFEASIBLE"], withDiagnoses: true });
     if (!run) throw new Error("no run with diagnoses: create one first (README: POST /runs week 3) or record generator-studio");
@@ -22,13 +22,13 @@ export default {
       const tab = page.getByTestId("tab-report");
       if (await tab.isVisible().catch(() => false)) await rec.click(tab);
       await rec.frame(page.getByTestId("diagnosis-card").first(), { dwell: 1800 });
-    });
+    }, { clip: "run-report-fix" });
     await rec.step(tr(ctx, "Pick a suggestion and apply it", "Bir öneri seçip uygulayın"), async () => {
       const card = page.getByTestId("diagnosis-card").filter({ has: page.getByTestId("diagnosis-apply") }).first();
       const option = card.getByTestId("diagnosis-fix-option").first();
       if (await option.isVisible().catch(() => false)) await rec.click(option);
       await rec.click(card.getByTestId("diagnosis-apply"));
       await page.locator("[data-sonner-toast]").first().waitFor({ timeout: 30_000 }).catch(() => undefined);
-    }, { hold: 1600, poster: true });
+    }, { clip: "run-report-fix", hold: 1600, poster: true });
   },
 };

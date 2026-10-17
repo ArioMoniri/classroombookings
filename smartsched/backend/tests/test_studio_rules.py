@@ -458,3 +458,81 @@ async def test_mapping_reads_building_sets_and_negation(bahar):
     assert [p["kind"] for p in props] == ["building_preference", "building_preference"]
     assert props[0]["params"]["buildings"] == ["A", "C"] and props[0]["hardness"] == "soft"
     assert "B" not in props[1]["params"]["buildings"] and {"A", "C"} <= set(props[1]["params"]["buildings"])
+
+
+async def test_copy_and_presets_refuse_untargeted_soft_structural_rules(bahar):
+    """Review D1 (hard-rule guard) in the studio: copying a term's rules or applying a preset never creates an
+    untargeted soft capacity rule (it would switch the hard capacity rule off for every class); the rule is
+    reported as cannot-match / unresolved with the guard's reason, and nothing is written."""
+    c, h = bahar.client, bahar.planner
+    async with get_session_factory()() as s:
+        legacy = ConstraintRow(  # written before the guard existed
+            term_id=bahar.term_id, kind="capacity", params={}, hardness="soft", weight=5, source="ADMIN"
+        )
+        s.add(legacy)
+        nxt = Term(code="2026-YAZ2", name="Yaz 2026 b", week_count=8)
+        s.add(nxt)
+        await s.commit()
+        legacy_id, nxt_id = legacy.id, nxt.id
+    body = {"to_term_id": nxt_id, "from_term_id": bahar.term_id, "constraint_ids": [legacy_id], "dry_run": False}
+    r = await c.post("/api/v1/studio/constraints/copy", json=body, headers=h)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["created"] == [] and [x["source_id"] for x in out["cannot_match"]] == [legacy_id]
+    assert any("switches the structural hard rule off" in m for m in out["cannot_match"][0]["reasons"])
+
+    preset = {
+        "name": "Kapasite esnek",
+        "kind": "COURSE",
+        "rules": [{"kind": "capacity", "params": {}, "hardness": "soft", "weight": 5}],
+    }
+    pid = (await c.post("/api/v1/presets", json=preset, headers=h)).json()["id"]
+    for dry in (True, False):
+        r = await c.post(f"/api/v1/presets/{pid}/apply", json={"term_id": nxt_id, "dry_run": dry}, headers=h)
+        assert r.status_code == 200, r.text
+        res = r.json()
+        assert res["add"] == [] and res.get("created", []) == []
+        assert [u["kind"] for u in res["unresolved"]] == ["capacity"]
+        assert any("switches the structural hard rule off" in m for m in res["unresolved"][0]["problems"])
+    async with get_session_factory()() as s:
+        rows = (await s.execute(select(ConstraintRow).where(ConstraintRow.term_id == nxt_id))).scalars().all()
+        assert rows == []
+
+
+async def test_studio_and_preset_writes_are_audited(bahar):
+    """Review D5 / P19-02 for the studio: preset create / update / apply / delete, a draft update and a rule copy
+    each write an ``audit_events`` row (actor, term, what changed)."""
+    from app.models import AuditEvent
+
+    c, h = bahar.client, bahar.planner
+    r = await c.put(
+        f"/api/v1/terms/{bahar.term_id}/studio",
+        json={"version": 1, "horizon": "WEEK", "horizon_params": {"weeks": [2]}},
+        headers=h,
+    )
+    assert r.status_code == 200, r.text
+    pid = (
+        await c.post(
+            "/api/v1/presets",
+            json={
+                "name": "Denetim",
+                "kind": "COURSE",
+                "rules": [{"kind": "min_capacity_waste", "params": {"unit": 10}, "hardness": "soft", "weight": 2}],
+            },
+            headers=h,
+        )
+    ).json()["id"]
+    assert (await c.put(f"/api/v1/presets/{pid}", json={"name": "Denetim 2"}, headers=h)).status_code == 200
+    assert (
+        await c.post(f"/api/v1/presets/{pid}/apply", json={"term_id": bahar.term_id, "dry_run": True}, headers=h)
+    ).status_code == 200
+    assert (await c.post(f"/api/v1/presets/{pid}/apply", json={"term_id": bahar.term_id}, headers=h)).status_code == 200
+    assert (await c.delete(f"/api/v1/presets/{pid}", headers=bahar.admin)).status_code == 204
+    async with get_session_factory()() as s:
+        rows = (await s.execute(select(AuditEvent).order_by(AuditEvent.id))).scalars().all()
+        actions = [e.action for e in rows]
+    for action in ("studio.draft.update", "preset.create", "preset.update", "preset.apply", "preset.delete"):
+        assert action in actions, (action, actions)
+    assert actions.count("preset.apply") == 1  # a dry run changes nothing and is not audited
+    applied = next(e for e in rows if e.action == "preset.apply")
+    assert applied.term_id == bahar.term_id and applied.actor_id is not None

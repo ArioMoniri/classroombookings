@@ -215,6 +215,10 @@ export const ImportJob = z.object({
     updated: z.number(),
     skipped: z.number(),
     warnings: z.array(ParseWarning),
+    /** M-21: all warnings of the import; `warnings` lists the first `warnings_shown` (also sent to viewers) */
+    warnings_count: z.number().optional(),
+    warnings_shown: z.number().optional(),
+    warnings_truncated: z.boolean().optional(),
     /** the kind the file looks like when it is not the chosen one (backend WrongFileError, admin persona M-20) */
     detected_kind: z.string().nullable().optional(),
   }),
@@ -282,6 +286,12 @@ export const RunParams = z.object({
   workers: z.number().default(8),
   stability: z.boolean().default(true),
   weights: z.record(z.string(), z.number()).default({}),
+  /** the run's own relaxation policy (`params.relaxation_policy`; unset = the term setting, else lock_first) */
+  relaxation_policy: z.enum(["lock_first", "most_classes_first"]).optional(),
+  /** "COUNCIL_BASELINE": the term's schedule-map baseline run written by an intake commit (app/council/baseline.py) */
+  source: z.string().optional(),
+  /** the files a baseline run was read from, each once by sha256 */
+  sources: z.array(z.object({ sha256: z.string().nullish(), file: z.string().nullish(), job: z.number().nullish() })).optional(),
 });
 export type RunParams = z.infer<typeof RunParams>;
 
@@ -293,6 +303,8 @@ export const ScheduleRun = z.object({
   horizon: Horizon,
   horizon_params: z.object({ weeks: z.array(z.number()).default([]), dates: z.array(z.string()).default([]) }),
   status: RunStatus,
+  /** the planner's own name for the run ("Bahar 3. hafta (A)"); the pickers show it next to the id */
+  label: z.string().nullable().optional(),
   progress: z.number().min(0).max(100).default(0),
   params: RunParams,
   objective_value: z.number().nullable(),
@@ -309,6 +321,8 @@ export const ScheduleRun = z.object({
   prompt_text: z.string().nullable(),
   created_at: z.string(),
   finished_at: z.string().nullable(),
+  /** the solver's failure text, or "cancelled by <who>" for a CANCELLED run (R1-M-15); absent on older servers */
+  error: z.string().nullish(),
 });
 export type ScheduleRun = z.infer<typeof ScheduleRun>;
 
@@ -320,6 +334,8 @@ export const RunCreate = z.object({
   params: RunParams.partial().optional(),
   prompt: z.string().optional(),
   parent_run_id: z.number().nullable().optional(),
+  /** the planner's name for the run (`ScheduleRun.label`) */
+  label: z.string().max(255).nullable().optional(),
 });
 export type RunCreate = z.infer<typeof RunCreate>;
 
@@ -467,6 +483,8 @@ export const Settings = z.object({
   default_weights: z.record(z.string(), z.number()),
   /** KVKK opt-in: the Ingestion Council may send file content to Claude (backend `council_ai_enabled`) */
   council_ai_enabled: z.boolean().default(false),
+  /** review D16: hosts (and ports) a live CRBS MySQL DSN may name; empty = no live DSN (crbs_dsn.py) */
+  crbs_dsn_allowed_hosts: z.string().default(""),
 });
 export type Settings = z.infer<typeof Settings>;
 
@@ -478,6 +496,7 @@ export const SettingsUpdate = z.object({
   solver_default_seed: z.number().optional(),
   default_weights: z.record(z.string(), z.number()).optional(),
   council_ai_enabled: z.boolean().optional(),
+  crbs_dsn_allowed_hosts: z.string().optional(),
 });
 export type SettingsUpdate = z.infer<typeof SettingsUpdate>;
 

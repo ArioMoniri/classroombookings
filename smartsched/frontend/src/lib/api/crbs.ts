@@ -12,6 +12,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryKey 
 import { z } from "zod";
 import { HttpError, request, type Query } from "./client";
 import { changePassword as changePasswordKeepSession } from "./shell-extra";
+import { Violation } from "./booking-policies";
 
 /* ------------------------------------------------------------------------------------------ errors */
 
@@ -77,6 +78,8 @@ export const BookingOut = z.object({
   id: z.number(),
   type: z.enum(["single", "recurring"]),
   series_id: z.number().nullish(),
+  /** A-12: the submission (multi-booking) the booking was made in; the periods of one share it */
+  group_id: z.number().nullish(),
   term_id: z.number().nullish(),
   status: z.string(),
   date: z.string(),
@@ -202,6 +205,14 @@ export const GridSlot = z.object({
   allow_single: z.boolean().optional(),
   allow_recur: z.boolean().optional(),
   booking: BookingOut.optional(),
+  /** U-04: the period already started (bookable only for those who may book the past; dimmed) */
+  past: z.boolean().optional(),
+  /** U-06: the viewer's own pending request */
+  pending: z.boolean().optional(),
+  /** P8: a booking policy turns this free slot into a request (`policy` says which rule) */
+  request_only: z.boolean().optional(),
+  /** P8: the broken rule — `reason: "policy"` (refused) or `request_only` */
+  policy: Violation.nullish(),
 });
 export type GridSlot = z.infer<typeof GridSlot>;
 
@@ -256,6 +267,8 @@ export interface SingleBookingIn {
   user_id?: number | null;
   department_id?: number | null;
   term_id?: number | null;
+  /** A-24: book although the shown week has no published timetable (the grid's `timetable_state`) */
+  confirm_unpublished?: boolean;
 }
 
 export type InstanceAction = "book" | "do_not_book" | "replace";
@@ -267,6 +280,8 @@ export const RecurInstance = z.object({
   held: Held.optional(),
   booking: BookingOut.optional(),
   actions: z.array(z.enum(["book", "do_not_book", "replace"])),
+  /** P8: `status: "policy"` — the rule that refuses this date */
+  policy: Violation.nullish(),
 });
 export type RecurInstance = z.infer<typeof RecurInstance>;
 
@@ -294,6 +309,7 @@ export interface RecurringIn {
   department_id?: number | null;
   term_id?: number | null;
   instances?: { date: string; action: InstanceAction }[];
+  confirm_unpublished?: boolean;
 }
 
 export const RecurCreated = z.object({
@@ -354,7 +370,9 @@ export const Dashboard = z.object({
   user_bookings: z.array(BookingOut),
   room_bookings: z.array(BookingOut),
   owned_room_ids: z.array(z.number()),
-  totals: z.object({ all: z.number(), session: z.number(), active: z.number() }),
+  // T-R2-13: all / session / active count sessions (one submission on one day and room = one); `active_periods`
+  // is the row count the `max_active_bookings` limit uses; `cancelled` is apart
+  totals: z.object({ all: z.number(), session: z.number(), active: z.number(), active_periods: z.number().optional(), cancelled: z.number().optional() }),
   limits: Limits,
 });
 export type Dashboard = z.infer<typeof Dashboard>;
@@ -440,8 +458,14 @@ export const SyncConnector = z.object({
   calendar_name: z.string().nullish(),
   last_synced_at: z.string().nullish(),
   last_error: z.string().nullish(),
+  calendar_id: z.string().nullish(),
+  pending_jobs: z.number().nullish(),
+  failed_jobs: z.number().nullish(),
 });
 export type SyncConnector = z.infer<typeof SyncConnector>;
+/** `GET /calendar/connectors/{provider}/calendars`: the calendars the connected account may write to */
+export const ProviderCalendar = z.object({ id: z.string(), name: z.string().nullish(), primary: z.boolean().nullish() }).passthrough();
+export type ProviderCalendar = z.infer<typeof ProviderCalendar>;
 const FeedTemplates = z.object({ mine: z.string(), room: z.string(), department: z.string(), room_group: z.string().optional() });
 export const SyncStatus = z.object({
   enabled: z.boolean(),
@@ -450,6 +474,8 @@ export const SyncStatus = z.object({
     url_templates: FeedTemplates,
   }),
   connectors: z.array(SyncConnector).default([]),
+  /** consent gates (2026-10-16): with sync on, links and connections need the person's calendar_sync consent */
+  consent: z.object({ purpose: z.string(), required: z.boolean(), granted: z.boolean() }).optional(),
 });
 export type SyncStatus = z.infer<typeof SyncStatus>;
 export const FeedTokenCreated = z.object({ id: z.number(), label: z.string().nullish(), token: z.string(), hint: z.string(), urls: FeedTemplates });
@@ -556,9 +582,27 @@ export type Constraints = z.infer<typeof Constraints>;
 export const LIMIT_KEYS = ["max_active_bookings", "range_min", "range_max", "recur_max_instances"] as const;
 export type LimitKey = (typeof LIMIT_KEYS)[number];
 
+/** `POST /users/import` (services/bookings_users.py): row texts in the actor's language plus `_tr`/`_en`, and the
+ *  counts + one-line summary (T-R1-33). All additive, so an older backend still parses. */
 export const ImportResult = z.object({
   created: z.number(),
-  results: z.array(z.object({ line: z.number(), username: z.string().nullish(), status: z.string(), error: z.string().nullish() })),
+  results: z.array(
+    z.object({
+      line: z.number(),
+      username: z.string().nullish(),
+      status: z.string(),
+      error: z.string().nullish(),
+      error_tr: z.string().nullish(),
+      error_en: z.string().nullish(),
+      warning: z.string().nullish(),
+      warning_tr: z.string().nullish(),
+      warning_en: z.string().nullish(),
+    }),
+  ),
+  summary: z.record(z.string(), z.number()).nullish(),
+  summary_tr: z.string().nullish(),
+  summary_en: z.string().nullish(),
+  summary_text: z.string().nullish(),
 });
 export type ImportResult = z.infer<typeof ImportResult>;
 export interface ImportDefaults {
@@ -614,6 +658,9 @@ export const AdminRoom = z.object({
   photo_url: z.string().nullish(),
   pos: z.number(),
   fields: z.record(z.string(), z.unknown()).default({}),
+  /** "T 101" for the stored "T101" and the building it sits in (T-R1-34) */
+  code_label: z.string().nullish(),
+  building_code: z.string().nullish(),
 });
 export type AdminRoom = z.infer<typeof AdminRoom>;
 export interface AdminRoomIn {
@@ -803,6 +850,8 @@ export const OrgSettings = z.object({
   /** CRBS hides rooms without a room group from the grid; true shows them in an ungrouped tab */
   show_ungrouped_rooms: z.boolean().default(false),
   grid_highlight: z.boolean().optional(),
+  /** approval-first bookings: "rules" (only rooms with an approval rule) or "all" (every request is approved first) */
+  approval_mode: z.enum(["rules", "all"]).catch("rules").optional(),
 });
 export type OrgSettings = z.infer<typeof OrgSettings>;
 export type OrgSettingsIn = Partial<Omit<OrgSettings, "logo_url">> & { max_active_bookings_unlimited?: boolean };
@@ -919,10 +968,10 @@ export const crbs = {
       send("POST", "/bookings/multi", { slots, term_id: termId ?? null }, Selection),
     selection: (id: number) => json(`/bookings/multi/${id}`, Selection),
     dropSelection: (id: number) => send("DELETE", `/bookings/multi/${id}`),
-    multiDryRun: (id: number, type: "single" | "recurring", slots: MultiSlotChoice[]) =>
-      send("POST", `/bookings/multi/${id}/create`, { type, slots, dry_run: true }, z.record(z.string(), z.unknown())),
-    multiCreate: (id: number, type: "single" | "recurring", slots: MultiSlotChoice[]) =>
-      send("POST", `/bookings/multi/${id}/create`, { type, slots, dry_run: false }, z.record(z.string(), z.unknown())),
+    multiDryRun: (id: number, type: "single" | "recurring", slots: MultiSlotChoice[], confirmUnpublished = false) =>
+      send("POST", `/bookings/multi/${id}/create`, { type, slots, dry_run: true, ...(confirmUnpublished ? { confirm_unpublished: true } : {}) }, z.record(z.string(), z.unknown())),
+    multiCreate: (id: number, type: "single" | "recurring", slots: MultiSlotChoice[], confirmUnpublished = false) =>
+      send("POST", `/bookings/multi/${id}/create`, { type, slots, dry_run: false, ...(confirmUnpublished ? { confirm_unpublished: true } : {}) }, z.record(z.string(), z.unknown())),
     get: (id: number) => json(`/bookings/${id}`, BookingDetail),
     series: (id: number) => json(`/bookings/${id}/series`, z.array(BookingOut)),
     update: (id: number, scope: Scope, body: Partial<Pick<SingleBookingIn, "date" | "period_id" | "room_id" | "notes" | "user_id" | "department_id">>) =>
@@ -945,6 +994,10 @@ export const crbs = {
     reset: () => send("POST", "/calendar/feeds/reset", undefined, FeedTokenCreated),
     connect: (provider: string, returnPath: string) => send("POST", `/calendar/connectors/${provider}/connect`, { return_path: returnPath }, z.object({ authorize_url: z.string() })),
     disconnect: (provider: string) => send("DELETE", `/calendar/connectors/${provider}`),
+    calendars: (provider: string) => json(`/calendar/connectors/${provider}/calendars`, z.array(ProviderCalendar)),
+    chooseCalendar: (provider: string, calendarId: string, calendarName: string | null) =>
+      send("PUT", `/calendar/connectors/${provider}`, { calendar_id: calendarId, calendar_name: calendarName }, SyncConnector),
+    resync: (provider: string) => send("POST", `/calendar/connectors/${provider}/resync`, undefined, z.object({ queued: z.number() })),
   },
   rooms: {
     /** T1 find-a-room; 404/405 while the backend does not have it yet (callers fall back to the grid) */
@@ -959,7 +1012,8 @@ export const crbs = {
     remove: (id: number) => send("DELETE", `/roles/${id}`),
   },
   users: {
-    search: (q: { q?: string; role_id?: number; department_id?: number; enabled?: boolean; sort?: string; limit?: number; offset?: number }) =>
+    /** `identity` (comma = OR: invited | self_signup | sso | binding | local | ldap) and `self_signup_days` filter on the server */
+    search: (q: { q?: string; role_id?: number; department_id?: number; enabled?: boolean; sort?: string; limit?: number; offset?: number; identity?: string; self_signup_days?: number }) =>
       json("/users/search", UserPage, { ...q }),
     list: () => json("/users", z.array(AdminUser)),
     get: (id: number) => json(`/users/${id}`, AdminUser),
@@ -1230,6 +1284,10 @@ export function useCrbsMutation<TVars, TOut>(fn: (vars: TVars) => Promise<TOut>,
   return useMutation({
     mutationFn: fn,
     onSuccess: async () => {
+      // cancel first: a list still on its FIRST load (no data yet) would otherwise absorb the invalidation into that
+      // in-flight fetch, which began before this write and answers without it (a room created from ⌘K
+      // ?new=1 was missing from Admin › Rooms; e2e-stabilisation 2026-10-16)
+      await Promise.all(invalidate.map((key) => qc.cancelQueries({ queryKey: key })));
       await Promise.all(invalidate.map((key) => qc.invalidateQueries({ queryKey: key })));
     },
   });

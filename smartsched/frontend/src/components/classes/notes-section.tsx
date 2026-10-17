@@ -32,17 +32,17 @@ export function NotesSection({ requestId, notes, termId, runId }: { requestId: n
   const settled = (termId === null || !rules.isPending) && (runId === null || !issues.isPending);
   return (
     <section aria-labelledby={`notes-${requestId}`} className="flex flex-col gap-1.5 py-3 hairline-t" data-testid="inspector-notes">
-      <h3 id={`notes-${requestId}`} className="text-[11px] font-semibold text-label-3">{t("classes.insp.notes")}</h3>
-      <blockquote className="rounded-lg bg-fill-3 px-2.5 py-1.5 text-[12.5px] leading-[18px] whitespace-pre-line text-label-1" lang="tr">
+      <h3 id={`notes-${requestId}`} className="type-caption font-semibold text-label-3">{t("classes.insp.notes")}</h3>
+      <blockquote className="rounded-lg bg-fill-3 px-2.5 py-1.5 type-footnote leading-[18px] whitespace-pre-line text-label-1" lang="tr">
         {reading.notes}
       </blockquote>
       {!settled ? null : reading.unread ? (
-        <p className="flex flex-wrap items-center gap-1.5 text-[12px] text-label-2">
+        <p className="flex flex-wrap items-center gap-1.5 type-footnote text-label-2">
           <Badge variant="outline" tone="warning" data-testid="notes-unread">{t("classes.insp.notesUnread")}</Badge>
           {t("classes.insp.notesNoRule")}
         </p>
       ) : (
-        <ul className="flex flex-col gap-1 text-[12px]" aria-label={t("classes.insp.notesRead")}>
+        <ul className="flex flex-col gap-1 type-footnote" aria-label={t("classes.insp.notesRead")}>
           {reading.rules.map((r) => (
             <li key={r.id} className="flex flex-wrap items-baseline gap-1.5" data-testid="notes-rule">
               <span aria-hidden className="text-status-feasible-fg">✓</span>

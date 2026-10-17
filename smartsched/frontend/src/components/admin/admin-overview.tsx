@@ -48,14 +48,14 @@ export function AdminOverview() {
       <PageTitle title={t("crbs.admin.title")} subtitle={t("crbs.admin.lead")} />
       <section aria-labelledby="checklist">
         <SectionTitle id="checklist">{t("crbs.setup.checklist", { done, total: checks.length })}</SectionTitle>
-        <Card variant="glass" className="py-0">
+        <Card className="py-0">
           {status.isLoading ? (
             <Loading className="px-4" />
           ) : (
             <ul>
               {checks.map((x) => (
-                <li key={x.key} className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
-                  <Link href={x.href} className="flex items-center gap-3 px-4 py-2.5 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
+                <li key={x.key} className="not-last:edge-hairline-b">
+                  <Link href={x.href} className="flex min-h-11 items-center gap-3 px-4 py-2.5 outline-hidden pointer-fine:min-h-0 hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
                     {x.done ? <CheckCircle2 className="size-4 text-status-feasible-fg" aria-hidden /> : <Circle className="size-4 text-label-3" aria-hidden />}
                     <span className="flex-1 type-callout text-label-1">
                       {t(x.key)}
@@ -86,7 +86,7 @@ export function AdminOverview() {
             <Card variant="plain" className="py-0">
               <ul>
                 {items.map((s) => (
-                  <li key={s.href} className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+                  <li key={s.href} className="not-last:edge-hairline-b">
                     <Link href={s.href} className="flex items-center gap-3 px-4 py-3 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
                       <span className="min-w-0 flex-1">
                         <span className="block type-headline text-label-1">{t(s.labelKey)}</span>

@@ -120,12 +120,13 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
     const s = store.getState().studio;
     if (!s.server || s.dirty.length === 0 || s.status === "conflict" || (round > 0 && s.status !== "idle")) return;
     const sent = [...s.dirty];
+    const sentEdits = { ...s.edits };
     const { dispatch } = store.getState();
     dispatch({ type: "saving" });
     const run = (async () => {
       try {
         const d = await api.studio.saveDraft(termId, kind, s.server?.version ?? 0, patchFor(s.local, sent));
-        dispatch({ type: "saved", draft: d, sent });
+        dispatch({ type: "saved", draft: d, sent, sentEdits });
         qc.setQueryData(sk.draft(termId, kind), d);
       } catch (e) {
         if (e instanceof DraftConflictError) dispatch({ type: "conflict", current: e.current });
@@ -285,14 +286,15 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
         dirty: state.dirty.length > 0,
         server: state.server,
         sameContent: state.sameContent,
-        summary: summaryQ.data ?? null,
+        // a placeholder is the previous term's summary: not this term's counts (round-1 R1-S-21)
+        summary: summaryQ.isPlaceholderData ? null : (summaryQ.data ?? null),
         classes: classes.data?.items ?? null,
         rules: rules.data?.rules ?? null,
         termWeeks,
         precheck,
         checking,
       }),
-    [state.local, state.dirty.length, state.server, state.sameContent, summaryQ.data, classes.data, rules.data, termWeeks, precheck, checking],
+    [state.local, state.dirty.length, state.server, state.sameContent, summaryQ.data, summaryQ.isPlaceholderData, classes.data, rules.data, termWeeks, precheck, checking],
   );
 
   const refresh = useCallback(

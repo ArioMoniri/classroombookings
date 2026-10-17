@@ -16,6 +16,7 @@ from sqlalchemy import select
 from tests.ai.conftest import empty_params, empty_selector, enable_intake, proposal, store_key, tool
 from tests.api_fixtures import login
 from tests.council.conftest import BAHAR_LIST, EXAM_PDF, MEMO_DOCX, SCAN_PNG, gen
+from tests.council.test_ai_rows import accept_ai_rows
 
 
 async def _key(opt_in: bool = True) -> None:
@@ -31,7 +32,8 @@ async def test_stored_key_is_not_used_without_the_admin_opt_in(client, fake_sdk)
     await _key(opt_in=False)
     h = await login(client)
     job = await _job(client, h, MEMO_DOCX)
-    assert job["ai_mode"] == "heuristic" and "AI is off for the council" in job["summary"]["ai"]
+    # the job is Turkish (lang=tr), so the API localizes the summary (T-R1-23): the Turkish line of the catalogue
+    assert job["ai_mode"] == "heuristic" and "Yapay zekâ kapalı" in job["summary"]["ai"]
     assert fake_sdk.calls == []
     # the administrator opts in under Settings > AI (default off)
     assert (await client.get("/api/v1/settings", headers=h)).json()["council_ai_enabled"] is False
@@ -148,7 +150,7 @@ async def test_memo_council_votes_mines_rules_and_judges(client, fake_sdk):
     decisions = [
         {"id": disputed[0]["id"], "action": "accept"},
         # room_tags is a structural hard rule: an upload may re-weight it, never make it soft (gracious D1)
-        {"id": rule["id"], "action": "edit", "value": {"weight": 7}},
+        {"id": rule["id"], "action": "edit", "value": {"weight": 7, "hardness": "hard"}},  # a person sets hard
     ]
     decisions += [
         {"id": it["id"], "action": "accept"}
@@ -156,6 +158,8 @@ async def test_memo_council_votes_mines_rules_and_judges(client, fake_sdk):
         if it["blocking"] and it["id"] != disputed[0]["id"]
     ]
     r = await client.post(f"/api/v1/council/jobs/{job['id']}/review", headers=h, json={"decisions": decisions})
+    await accept_ai_rows(client, h, job["id"])  # a DOCX is an AI-route file: every row needs a person (P19-A2)
+    r = await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)
     assert r.json()["blocking"] == 0
     r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={"term_id": tid, "files": [0]})
     assert r.status_code == 200, r.text
@@ -262,6 +266,6 @@ async def test_token_budget_stops_model_calls(client, fake_sdk, small_budget):
     job = await _job(client, h, MEMO_DOCX)
     assert len(fake_sdk.calls) == 1
     rules = next(s for s in job["files"][0]["steps"] if s["agent"] == "rules")
-    assert "budget exhausted" in rules["message"]
+    assert "token bütçesi doldu" in rules["message"]  # localized for the Turkish job (T-R1-23)
     review = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
     assert any(it["kind"] == "rule_text" for it in review["items"])

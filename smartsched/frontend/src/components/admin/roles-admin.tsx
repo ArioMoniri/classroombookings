@@ -3,23 +3,31 @@
  * /admin/roles (CRBS `Roles`): the role list with member counts, and an editor with the four booking
  * limits and the permission matrix grouped like CRBS (`Permissions_model::get_scoped`): system and setup
  * permissions as lists, booking permissions as a table with single and recurring side by side.
+ * Phones (< 640 px; dense grids on phones 2026-10-16): one role at a time (a role picker instead of the list) and
+ * the booking permissions as two groups (single / recurring, the CRBS groups) of 44 px labelled checkbox rows
+ * instead of the 3-column table (MOBILE.md M-02).
  */
-import { ChevronRight, Loader2, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { ChevronRight, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { crbs, crbsError, usePermissionCatalogue, useCrbsMutation, useRoles, useUserSearch, type PermissionCatalogue, type Role, type RoleIn } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
+import { permissionLabel, permissionList, roleDescription, roleLabel } from "@/lib/i18n/roles";
 import { cn } from "@/lib/utils";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { roleEditCheck, usePermissions } from "@/lib/permissions";
-import { Alert, ConfirmDialog, Field, LimitInput, Loading, PageTitle } from "./kit";
+import { Alert, ConfirmDialog, Field, LimitInput, Loading, PageTitle, pageActionsCapsule } from "./kit";
 import { useErrorToast } from "./admin-gate";
+import { BareButton } from "@/components/shell/bare-button";
+import { NativeSelect } from "@/components/ui/native-select";
+import { useIsCompact, useIsPhone } from "@/components/bookings/use-is-phone";
 
 const GROUP_KEYS: Record<string, MessageKey> = {
   system: "crbs.perm.group.system",
@@ -28,15 +36,17 @@ const GROUP_KEYS: Record<string, MessageKey> = {
   room: "crbs.perm.group.room",
   book_single: "crbs.perm.group.book_single",
   book_recur: "crbs.perm.group.book_recur",
+  // wave 1 groups (admin persona M-36: shown as raw "rooms", "audit", "approvals")
+  rooms: "crbs.perm.group.rooms",
+  audit: "crbs.perm.group.audit",
+  approvals: "crbs.perm.group.approvals",
+  // approval-first bookings (bookings.skip_approval)
+  bookings: "approvals.perm.group_bookings",
 };
 const BOOK_ACTIONS = ["create", "edit_other_booking", "cancel_other_booking", "set_user", "set_department", "view_other_notes", "view_other_users"] as const;
 
-/** Translated label for a permission name; falls back to the backend description. */
-export function permLabel(t: (k: MessageKey) => string, name: string, description?: string | null): string {
-  const key = `crbs.perm.${name.replace(".", "_")}` as MessageKey;
-  const out = t(key);
-  return out === key ? (description ?? name) : out;
-}
+/** Translated label for a permission name; falls back to the backend description (lib/i18n/roles). */
+export const permLabel = permissionLabel;
 
 export function RolesAdmin() {
   const { t } = useI18n();
@@ -44,55 +54,72 @@ export function RolesAdmin() {
   const [selectedId, setSelectedId] = useState<number | "new" | null>(null);
   const current = selectedId === "new" ? null : (roles.data?.find((r) => r.id === selectedId) ?? roles.data?.[0] ?? null);
   const editing = selectedId === "new" ? "new" : current;
+  const phone = useIsPhone();
+  // MOBILE M-05 (R3-M-08, the known open item): below lg the editor's "Kaydet" was 3 000 px down the page. While an
+  // editor is open (always, once roles have loaded) the one capsule above the tab bar holds "Yeni rol" and "Kaydet".
+  const compact = useIsCompact() && !!editing;
+  const newRole = (
+    <Button variant={compact ? "outline" : "default"} onClick={() => setSelectedId("new")} data-testid="roles-new">
+      <Plus aria-hidden />
+      {t("crbs.roles.new")}
+    </Button>
+  );
   return (
     <div className="flex flex-col gap-5">
-      <PageTitle
-        title={t("crbs.admin.roles.title")}
-        subtitle={t("crbs.roles.lead")}
-        actions={
-          <Button onClick={() => setSelectedId("new")} data-testid="roles-new">
-            <Plus aria-hidden />
-            {t("crbs.roles.new")}
-          </Button>
-        }
-      />
+      <PageTitle title={t("crbs.admin.roles.title")} subtitle={t("crbs.roles.lead")} actions={compact ? undefined : newRole} />
       {roles.isLoading ? (
         <Loading />
       ) : (
         <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
+          {phone ? (
+            <NativeSelect
+              aria-label={t("crbs.admin.roles.title")}
+              data-testid="roles-picker"
+              value={editing === "new" ? "new" : editing ? String(editing.id) : ""}
+              onChange={(e) => setSelectedId(e.target.value === "new" ? "new" : Number(e.target.value))}
+            >
+              {editing === "new" ? <option value="new">{t("crbs.roles.new")}</option> : null}
+              {(roles.data ?? []).map((r) => (
+                <option key={r.id} value={r.id}>
+                  {`${roleLabel(t, r)} · ${t("crbs.roles.summary", { users: r.user_count, perms: r.permissions.length })}`}
+                </option>
+              ))}
+            </NativeSelect>
+          ) : (
           <nav aria-label={t("crbs.admin.roles.title")}>
-            <Card variant="glass" className="py-1">
+            <Card className="py-1">
               <ul>
                 {(roles.data ?? []).map((r) => {
                   const active = editing !== "new" && editing?.id === r.id;
                   return (
                     <li key={r.id}>
-                      <button
-                        type="button"
+                      <BareButton
                         aria-current={active ? "true" : undefined}
                         onClick={() => setSelectedId(r.id)}
-                        className={cn("flex w-full items-center justify-between gap-2 px-4 py-2 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", active ? "bg-tint-soft" : "hover:bg-fill-3")}
+                        className={cn("flex w-full items-center justify-between gap-2 px-4 py-2 text-left focus-visible:-outline-offset-2", active ? "bg-tint-soft" : "hover:bg-fill-3")}
                       >
                         <span className="min-w-0">
-                          <span className="block truncate type-headline text-label-1">{r.name}</span>
+                          <span className="block truncate type-headline text-label-1">{roleLabel(t, r)}</span>
                           <span className="block type-footnote text-label-3">{t("crbs.roles.summary", { users: r.user_count, perms: r.permissions.length })}</span>
                         </span>
                         {r.code === "ADMIN" ? <ShieldCheck className="size-4 shrink-0 text-label-2" aria-label={t("crbs.roles.locked")} /> : null}
-                      </button>
+                      </BareButton>
                     </li>
                   );
                 })}
               </ul>
             </Card>
           </nav>
-          {editing ? <RoleEditor key={editing === "new" ? "new" : editing.id} role={editing === "new" ? null : editing} onSaved={(r) => setSelectedId(r.id)} onDeleted={() => setSelectedId(null)} /> : null}
+          )}
+          {editing ? <RoleEditor key={editing === "new" ? "new" : editing.id} role={editing === "new" ? null : editing} onSaved={(r) => setSelectedId(r.id)} onDeleted={() => setSelectedId(null)} phoneActions={compact ? (editing === "new" ? null : newRole) : undefined} /> : null}
         </div>
       )}
     </div>
   );
 }
 
-function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: (r: Role) => void; onDeleted: () => void }) {
+/** `phoneActions`: below lg (set, possibly null) the save button joins these in the page-actions capsule; undefined on desktop. */
+function RoleEditor({ role, onSaved, onDeleted, phoneActions }: { role: Role | null; onSaved: (r: Role) => void; onDeleted: () => void; phoneActions?: ReactNode }) {
   const { t } = useI18n();
   const catalogue = usePermissionCatalogue();
   const { perms: mine } = usePermissions();
@@ -101,8 +128,12 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
   // no escalation (backend rule): a role with permissions the editor does not hold is read-only, not deletable
   const editCheck = roleEditCheck(mine, role);
   const readOnly = locked || !editCheck.allowed;
-  const [name, setName] = useState(role?.name ?? "");
-  const [description, setDescription] = useState(role?.description ?? "");
+  // a built-in role still named as shipped ("Teacher") is edited under its display name ("Öğretim elemanı"); the
+  // stored name is sent back unless the administrator renames it
+  const shownName = role ? roleLabel(t, role) : "";
+  const shownDescription = role ? roleDescription(t, role) : "";
+  const [name, setName] = useState(shownName);
+  const [description, setDescription] = useState(shownDescription);
   const [limits, setLimits] = useState({
     max_active_bookings: role?.max_active_bookings ?? null,
     range_min: role?.range_min ?? null,
@@ -113,7 +144,12 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const toastError = useErrorToast();
-  const body = (): RoleIn => ({ name: name.trim(), description: description.trim() || null, ...limits, permissions: [...perms].sort() });
+  const body = (): RoleIn => ({
+    name: role && name.trim() === shownName ? role.name : name.trim(),
+    description: role && description.trim() === shownDescription ? role.description : description.trim() || null,
+    ...limits,
+    permissions: [...perms].sort(),
+  });
   const save = useCrbsMutation(() => (role ? crbs.roles.update(role.id, body()) : crbs.roles.create(body())), [["crbs", "roles"]]);
   const del = useCrbsMutation(() => crbs.roles.remove(role?.id ?? 0), [["crbs", "roles"]]);
   const toggle = (p: string, on: boolean) =>
@@ -124,11 +160,33 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
       return next;
     });
 
+  const saveButton = (
+    <Button
+      disabled={save.isPending || !name.trim() || (readOnly && !locked)}
+      data-testid="role-save"
+      onClick={() => {
+        setError(null);
+        save.mutate(undefined, {
+          onSuccess: (r) => {
+            toast.success(t("crbs.common.saved"));
+            onSaved(r);
+          },
+          onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
+        });
+      }}
+      aria-busy={save.isPending || undefined}
+    >
+      <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+        {role ? t("crbs.common.save") : t("crbs.roles.create")}
+      </BusyLabel>
+    </Button>
+  );
+
   return (
-    <Card variant="glass" className="gap-5 px-5" data-testid="role-editor" data-readonly={readOnly ? "true" : undefined}>
+    <Card className="gap-5 px-5" data-testid="role-editor" data-readonly={readOnly ? "true" : undefined}>
       {!locked && !editCheck.allowed ? (
         <Alert tone="warning" testId="role-readonly">
-          {t("crbs.roles.readOnly", { list: editCheck.missing.join(", ") })}
+          {t("crbs.roles.readOnly", { list: permissionList(t, editCheck.missing, 6) })}
         </Alert>
       ) : null}
       <fieldset disabled={readOnly && !locked ? true : undefined} className="contents">
@@ -156,7 +214,7 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
         </div>
       </section>
       {locked ? <Alert tone="info">{t("crbs.roles.adminLocked")}</Alert> : null}
-      {catalogue.data ? <PermissionMatrix catalogue={catalogue.data} value={perms} onToggle={toggle} disabled={readOnly} held={held} /> : <Loading />}
+      {catalogue.data ? <PermissionMatrix catalogue={catalogue.data} value={perms} onToggle={toggle} disabled={readOnly} held={held} locked={locked} /> : <Loading />}
       </fieldset>
       {error ? <Alert tone="error">{error}</Alert> : null}
       <div className="flex flex-wrap justify-between gap-2">
@@ -168,28 +226,18 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
         ) : (
           <span />
         )}
-        <Button
-          disabled={save.isPending || !name.trim() || (readOnly && !locked)}
-          data-testid="role-save"
-          onClick={() => {
-            setError(null);
-            save.mutate(undefined, {
-              onSuccess: (r) => {
-                toast.success(t("crbs.common.saved"));
-                onSaved(r);
-              },
-              onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
-            });
-          }}
-        >
-          {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {role ? t("crbs.common.save") : t("crbs.roles.create")}
-        </Button>
+        {phoneActions === undefined ? saveButton : null}
       </div>
+      {phoneActions !== undefined ? (
+        <div data-slot="page-actions" className={pageActionsCapsule} data-testid="role-actions">
+          {phoneActions}
+          {saveButton}
+        </div>
+      ) : null}
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title={t("crbs.roles.deleteTitle", { name: role?.name ?? "" })}
+        title={t("crbs.roles.deleteTitle", { name: role ? roleLabel(t, role) : "" })}
         description={t("crbs.roles.deleteBody", { n: role?.user_count ?? 0 })}
         confirmLabel={t("crbs.common.delete")}
         destructive
@@ -224,7 +272,7 @@ function RoleUsers({ role }: { role: Role }) {
           {t("admingaps.roles.users", { n: total })}
         </h3>
         {allowed && total > 0 ? (
-          <Link href={`/admin/users?role=${role.id}`} className="inline-flex items-center gap-1 type-callout text-tint-text outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="role-users-all">
+          <Link href={`/admin/users?role=${role.id}`} className="inline-flex min-h-11 items-center gap-1 type-callout text-tint-text outline-hidden hover:underline pointer-fine:min-h-0 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="role-users-all">
             {t("admingaps.roles.openInUsers")}
             <ChevronRight className="size-4" aria-hidden />
           </Link>
@@ -251,6 +299,17 @@ function RoleUsers({ role }: { role: Role }) {
   );
 }
 
+/** T-R1-33 (R1-M-21, F-11 S04): the reason a permission cannot be granted, as text under its label, not only in a tooltip (M-11).
+ * T-R2-32: every disabled box has one: not held by the editor, a read-only role, or the locked Administrator role. */
+function DisabledHint({ why }: { why: string | undefined }) {
+  if (!why) return null;
+  return (
+    <span className="block type-caption text-label-3" data-testid="role-disabled-hint">
+      {why}
+    </span>
+  );
+}
+
 export function PermissionMatrix({
   catalogue,
   value,
@@ -258,6 +317,7 @@ export function PermissionMatrix({
   disabled,
   only,
   held,
+  locked,
 }: {
   catalogue: PermissionCatalogue;
   value: ReadonlySet<string>;
@@ -266,16 +326,21 @@ export function PermissionMatrix({
   only?: "bookings";
   /** the editor's own permissions: anything else is disabled (no escalation); omitted = no such limit */
   held?: ReadonlySet<string>;
+  /** the Administrator role: every permission is kept (the reason shown under its disabled boxes) */
+  locked?: boolean;
 }) {
   const { t } = useI18n();
+  const phone = useIsPhone();
   const off = (name: string) => !!disabled || (!!held && !held.has(name));
-  const why = (name: string) => (!disabled && held && !held.has(name) ? t("crbs.roles.notHeld") : undefined);
+  const notHeld = (name: string) => !!held && !held.has(name);
+  // the reason under a disabled box (T-R2-32): the editor lacks the permission (even in a read-only role: that is why
+  // it is read-only), else the role is read-only for them, else it is the locked Administrator role
+  const why = (name: string): string | undefined => {
+    if (notHeld(name)) return t("crbs.roles.notHeldHint");
+    if (!disabled) return undefined;
+    return t(locked ? "crbs.roles.lockedHint" : "crbs.roles.readOnlyHint");
+  };
   const book = catalogue.bookings;
-  const desc = useMemo(() => {
-    const m = new Map<string, string | null | undefined>();
-    for (const scope of [catalogue.system, catalogue.bookings]) for (const items of Object.values(scope)) for (const p of items) m.set(p.name, p.description);
-    return m;
-  }, [catalogue]);
   return (
     <div className="flex flex-col gap-5">
       {only !== "bookings"
@@ -284,11 +349,12 @@ export function PermissionMatrix({
               <legend className="mb-2 type-headline text-label-1">{GROUP_KEYS[group] ? t(GROUP_KEYS[group]!) : group}</legend>
               <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
                 {items.map((p) => (
-                  <label key={p.name} className={cn("flex items-start gap-2 type-callout text-label-1", off(p.name) && "text-label-3")} title={why(p.name)} data-not-held={why(p.name) ? "true" : undefined}>
-                    <Checkbox className="mt-0.5" checked={value.has(p.name)} disabled={off(p.name)} onCheckedChange={(v) => onToggle(p.name, v === true)} />
+                  <label key={p.name} className={cn("flex items-start gap-2 type-callout text-label-1 pointer-coarse:min-h-11 pointer-coarse:items-center", off(p.name) && "text-label-3")} title={why(p.name) ?? p.name} data-not-held={notHeld(p.name) ? "true" : undefined} data-permission={p.name}>
+                    <Checkbox className="mt-0.5 pointer-coarse:mt-0" checked={value.has(p.name)} disabled={off(p.name)} onCheckedChange={(v) => onToggle(p.name, v === true)} />
+                    {/* the API key is in the tooltip, not under every label (UI/UX review §3) */}
                     <span>
                       {permLabel(t, p.name, p.description)}
-                      <span className="block font-mono type-caption text-label-3">{p.name}</span>
+                      <DisabledHint why={why(p.name)} />
                     </span>
                   </label>
                 ))}
@@ -301,24 +367,48 @@ export function PermissionMatrix({
         {book.room ? (
           <div className="mb-2 flex flex-col gap-1.5">
             {book.room.map((p) => (
-              <label key={p.name} className={cn("flex items-center gap-2 type-callout text-label-1", off(p.name) && "text-label-3")} title={why(p.name)}>
+              <label key={p.name} className={cn("flex items-center gap-2 type-callout text-label-1 pointer-coarse:min-h-11", off(p.name) && "text-label-3")} title={why(p.name)}>
                 <Checkbox checked={value.has(p.name)} disabled={off(p.name)} onCheckedChange={(v) => onToggle(p.name, v === true)} />
-                {permLabel(t, p.name, p.description)}
+                <span>
+                  {permLabel(t, p.name, p.description)}
+                  <DisabledHint why={why(p.name)} />
+                </span>
               </label>
             ))}
           </div>
         ) : null}
-        <div className="overflow-x-auto rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)]">
+        {phone ? (
+          <div className="flex flex-col gap-4" data-testid="perm-book-groups">
+            {(["book_single", "book_recur"] as const).map((g) => (
+              <fieldset key={g} className="rounded-xl bg-(--mat-thick-solid) px-3 py-1 edge-hairline">
+                <legend className="px-1 type-callout font-semibold text-label-1">{t(GROUP_KEYS[g]!)}</legend>
+                {BOOK_ACTIONS.map((a) => {
+                  const name = `${g}.${a}`;
+                  return (
+                    <label key={a} className={cn("flex min-h-11 items-center gap-3 type-callout text-label-1 not-last:hairline-b", off(name) && "text-label-3")} title={why(name)} data-not-held={notHeld(name) ? "true" : undefined} data-permission={name}>
+                      <Checkbox checked={value.has(name)} disabled={off(name)} onCheckedChange={(v) => onToggle(name, v === true)} />
+                      <span>
+                        {t(`crbs.perm.action_${a}` as MessageKey)}
+                        <DisabledHint why={why(name)} />
+                      </span>
+                    </label>
+                  );
+                })}
+              </fieldset>
+            ))}
+          </div>
+        ) : (
+        <div className="overflow-x-auto rounded-xl bg-(--mat-thick-solid) edge-hairline">
           <table className="w-full border-separate border-spacing-0 type-callout">
             <thead>
               <tr>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-label-3 shadow-[inset_0_-1px_0_var(--hairline)]">
+                <th scope="col" className="px-3 py-2 text-left font-medium text-label-3 edge-hairline-b">
                   {t("crbs.perm.action")}
                 </th>
-                <th scope="col" className="w-28 px-3 py-2 text-center font-medium text-label-1 shadow-[inset_0_-1px_0_var(--hairline)]">
+                <th scope="col" className="w-28 px-3 py-2 text-center font-medium text-label-1 edge-hairline-b">
                   {t("crbs.perm.group.book_single")}
                 </th>
-                <th scope="col" className="w-28 px-3 py-2 text-center font-medium text-label-1 shadow-[inset_0_-1px_0_var(--hairline)]">
+                <th scope="col" className="w-28 px-3 py-2 text-center font-medium text-label-1 edge-hairline-b">
                   {t("crbs.perm.group.book_recur")}
                 </th>
               </tr>
@@ -326,15 +416,16 @@ export function PermissionMatrix({
             <tbody>
               {BOOK_ACTIONS.map((a) => (
                 <tr key={a}>
-                  <th scope="row" className="px-3 py-1.5 text-left font-normal text-label-1 shadow-[inset_0_-1px_0_var(--hairline)]">
+                  <th scope="row" className="px-3 py-1.5 text-left font-normal text-label-1 edge-hairline-b">
                     {t(`crbs.perm.action_${a}` as MessageKey)}
                   </th>
                   {(["book_single", "book_recur"] as const).map((g) => {
                     const name = `${g}.${a}`;
                     return (
-                      <td key={g} className="px-3 py-1.5 text-center shadow-[inset_0_-1px_0_var(--hairline)]">
-                        <span className="inline-flex" title={why(name)}>
-                          <Checkbox aria-label={`${t(GROUP_KEYS[g]!)}: ${desc.get(name) ?? name}`} checked={value.has(name)} disabled={off(name)} onCheckedChange={(v) => onToggle(name, v === true)} />
+                      <td key={g} className="px-3 py-1.5 text-center edge-hairline-b">
+                        <span className="inline-flex flex-col items-center gap-0.5" title={why(name)}>
+                          <Checkbox aria-label={`${t(GROUP_KEYS[g]!)}: ${t(`crbs.perm.action_${a}` as MessageKey)}`} checked={value.has(name)} disabled={off(name)} onCheckedChange={(v) => onToggle(name, v === true)} />
+                          <DisabledHint why={why(name)} />
                         </span>
                       </td>
                     );
@@ -344,6 +435,7 @@ export function PermissionMatrix({
             </tbody>
           </table>
         </div>
+        )}
       </fieldset>
     </div>
   );

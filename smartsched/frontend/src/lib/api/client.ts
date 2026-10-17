@@ -68,6 +68,8 @@ interface RequestOptions<T> {
   silent?: boolean;
 }
 
+const stripPrefix = (msg: string): string => msg.replace(/^(?:Value error|Assertion failed|Type error),\s*/i, "").trim();
+
 async function parseError(res: Response): Promise<HttpError> {
   let detail: unknown;
   let message = `${res.status} ${res.statusText}`;
@@ -76,9 +78,11 @@ async function parseError(res: Response): Promise<HttpError> {
     const json: unknown = await res.json();
     const parsed = ApiError.safeParse(json);
     if (parsed.success) {
-      detail = parsed.data.detail;
+      // the raw detail is kept (zod would strip a validator's `ctx` with its Turkish text, lib/api/error-text.ts)
+      detail = (json as { detail: unknown }).detail;
       errorId = parsed.data.error_id;
-      message = typeof parsed.data.detail === "string" ? parsed.data.detail : parsed.data.detail.map((d) => d.msg).join("; ");
+      // T-R1-31: pydantic's "Value error, " prefix is never part of what a person reads
+      message = typeof parsed.data.detail === "string" ? stripPrefix(parsed.data.detail) : parsed.data.detail.map((d) => stripPrefix(d.msg)).join("; ");
     } else {
       detail = json;
     }

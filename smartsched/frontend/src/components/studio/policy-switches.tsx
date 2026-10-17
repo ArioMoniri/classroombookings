@@ -78,7 +78,7 @@ export function PolicySwitches() {
   };
 
   return (
-    <fieldset className="rounded-2xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] p-3" data-testid="policy-switches">
+    <fieldset className="rounded-2xl bg-fill-3 edge-hairline p-3" data-testid="policy-switches">
       <legend className="px-1 text-sm font-medium">{t("studio.policy.title")}</legend>
       <ul className="grid gap-2 sm:grid-cols-2">
         {POLICIES.map((p) => {

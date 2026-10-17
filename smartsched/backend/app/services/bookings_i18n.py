@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from pathlib import Path
@@ -310,6 +311,8 @@ BASE_STRINGS: dict[str, dict[str, dict[str, str]]] = {
             "booking_cancelled.subject": "Rezervasyonunuz iptal edildi",
             "booking_cancelled.body": "{actor} {count} rezervasyonunuzu iptal etti:\n{items}{reason}\n",
             "booking_cancelled.reason": "\nGerekçe: {reason}",
+            "booking_cancelled.reason.replaced_by_series": "Seri #{id} ile değiştirildi",
+            "booking_cancelled.reason.undo_of": "Geri alma: #{id}",
         }
     },
     "en": {
@@ -322,9 +325,24 @@ BASE_STRINGS: dict[str, dict[str, dict[str, str]]] = {
             "booking_cancelled.subject": "Your booking was cancelled",
             "booking_cancelled.body": "{actor} cancelled {count} of your bookings:\n{items}{reason}\n",
             "booking_cancelled.reason": "\nReason: {reason}",
+            "booking_cancelled.reason.replaced_by_series": "Replaced by series #{id}",
+            "booking_cancelled.reason.undo_of": "Undo of #{id}",
         }
     },
 }
+
+
+# wave 3b W3-MAIL: the themed e-mails' copy (app/emails/strings.py) joins set "email", so GET /org/i18n, the
+# translations admin and the e-mail template screen edit one set of keys; the CRBS keys above keep their texts.
+def _merge_email_copy() -> None:
+    from app.emails.strings import SHIPPED
+
+    for lang, copy in SHIPPED.items():
+        own = BASE_STRINGS.setdefault(lang, {}).setdefault("email", {})
+        BASE_STRINGS[lang]["email"] = {**copy, **own}
+
+
+_merge_email_copy()
 
 
 async def overrides(session: AsyncSession, language: str) -> dict[str, dict[str, str]]:
@@ -352,6 +370,29 @@ async def bundle(session: AsyncSession, language: str) -> dict[str, dict[str, st
     for s, keys in (await overrides(session, language)).items():
         merged.setdefault(s, {}).update(keys)
     return merged
+
+
+# The cancel reasons the backend writes as *codes* (bookings.py `replaced_by_series:<id>`, bookings_undo.py
+# `undo_of:<audit id>`); the UI reads them through components/bookings/cancel-reason.ts, the e-mails through
+# cancel_reason() below (round 2 sweeper 3: "Gerekçe: replaced_by_series:8" went out raw).
+_REASON_CODE = re.compile(r"^(replaced_by_series|undo_of):(\d+)$")
+
+
+def cancel_reason_code(reason: str | None) -> tuple[str, int] | None:
+    """``("replaced_by_series", 8)`` for ``"replaced_by_series:8"``; ``None`` for a person's words or ``None``."""
+    m = _REASON_CODE.match(reason or "")
+    return (m.group(1), int(m.group(2))) if m else None
+
+
+async def cancel_reason(session: AsyncSession, language: str | None, reason: str | None) -> str | None:
+    """The cancel reason as the reader should see it: a code in the reader's language (admin override first, set
+    "email", keys ``booking_cancelled.reason.<code>``), a person's words as typed, ``None`` for an empty reason."""
+    if not reason:
+        return None
+    code = cancel_reason_code(reason)
+    if code is None:
+        return reason
+    return await text(session, _lang(language), f"booking_cancelled.reason.{code[0]}", id=code[1])
 
 
 class _Missing(dict[str, Any]):

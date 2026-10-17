@@ -35,18 +35,54 @@ SPECS: dict[str, SettingSpec] = {
         SettingSpec("timezone", default="Europe/Istanbul"),
         # review D16: hosts a live CRBS MySQL DSN may name (app/services/crbs_dsn.py); empty = none
         SettingSpec("crbs_dsn_allowed_hosts", default=""),
+        # KVKK ai_personal (consent gates 2026-10-16; app.services.kvkk.ai_personal_default): "excluded" (default,
+        # owner decision 2026-10-17 R1-M-07: silence is not consent) = not granted is excluded, "included" = only an
+        # explicit withdrawal keeps a person out of AI requests (an admin's choice in Admin > KVKK)
+        SettingSpec("kvkk.ai_personal_default", default="excluded"),
+        # wave 3 W3-SLOT (docs/design/v3/slot-display.md §3): how a slot is shown wherever bookings appear (grid,
+        # free slots, /reserve, find-room, kiosk). Written by ADMIN through PUT /settings ``extra``; read (sanitised)
+        # by every signed-in user: GET /bookings/context ``slot_display``, GET /bookings/slot-display (bookings.py).
+        # unit: periods (equal rows) | blocks (size follows minutes, 15/30/60-minute blocks drawn onto the periods)
+        SettingSpec("booking.slot_display.unit", default="periods"),
+        SettingSpec("booking.slot_display.block_minutes", default=30, kind="int"),
+        # both | period ("P3" / "3. ders") | time ("10:30-11:20")
+        SettingSpec("booking.slot_display.label", default="both"),
+        # schedule (the schedule's own period name, as before wave 3) | ordinal ("3. ders")
+        SettingSpec("booking.slot_display.period_name", default="schedule"),
+        # range ("10:30-11:20") | start ("10:30")
+        SettingSpec("booking.slot_display.time_format", default="range"),
+        # compact (32 px rows) | standard (44) | comfortable (56); phones always keep >= 44 px
+        SettingSpec("booking.slot_display.density", default="standard"),
+        # first / last visible period number (0 = the first / the last): evening periods are hidden this way
+        SettingSpec("booking.slot_display.first_period", default=0, kind="int"),
+        SettingSpec("booking.slot_display.last_period", default=0, kind="int"),
+        # hide periods shorter than 35 minutes (transition slots)
+        SettingSpec("booking.slot_display.hide_short", default=False, kind="bool"),
+        SettingSpec("booking.slot_display.hide_weekend", default=False, kind="bool"),
+        # what /bookings opens on: "" = the organisation's CRBS display type | grid_day | grid_room_week |
+        # free_slots | free_week | quick (desktop); free_slots | free_week | quick (phone)
+        SettingSpec("booking.slot_display.default_view_desktop", default=""),
+        SettingSpec("booking.slot_display.default_view_phone", default="free_slots"),
+        # quick reserve lengths, counted in the unit (periods or blocks): from min_length up to quick_span (1..8)
+        SettingSpec("booking.slot_display.min_length", default=1, kind="int"),
+        SettingSpec("booking.slot_display.quick_span", default=1, kind="int"),
     )
 }
 
 
 def _env_default(key: str) -> Any:
     s = get_settings()
-    return {
+    spec_default = SPECS[key].default if key in SPECS else None
+    value = {
         "anthropic_api_key": s.anthropic_api_key,
         "anthropic_model": s.anthropic_model,
         "solver_default_time_limit": s.solver_default_time_limit,
         "solver_workers": s.solver_workers,
-    }.get(key, SPECS[key].default if key in SPECS else None)
+    }.get(key, spec_default)
+    # an environment variable left empty (ANTHROPIC_MODEL= in a copied .env) is "not set", not a model named ""
+    if key != "anthropic_api_key" and isinstance(value, str) and not value.strip():
+        return spec_default
+    return value
 
 
 def _coerce(spec: SettingSpec | None, value: Any) -> Any:

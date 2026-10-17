@@ -49,11 +49,20 @@ function renderGrid(props: Partial<Parameters<typeof BookingGrid>[0]> = {}) {
 const cellOf = (p: number, room: number) => document.querySelector<HTMLButtonElement>(`button[data-slot-key="${D}|${p}|${room}"]`)!;
 
 describe("BookingGrid reservation affordances", () => {
-  it("free cells say Free at rest and Reserve in their accessible name", () => {
+  it("T-R1-10: under approval-first a free cell says Request · needs approval, never Reserve", () => {
+    renderGrid({ approvalFirst: true });
+    const c = cellOf(1, 1);
+    expect(c.getAttribute("aria-label")).toMatch(/free, Request · needs approval/);
+    expect(c.getAttribute("aria-label")).not.toMatch(/Reserve/);
+    expect(c.textContent).toContain("Request");
+    expect(c.textContent).not.toContain("Reserve");
+  });
+
+  it("free cells are blank at rest, show Reserve on hover/focus and say free in their accessible name", () => {
     renderGrid();
     const c = cellOf(1, 1);
-    expect(c.textContent).toContain("Free");
-    expect(c.textContent).toContain("Reserve");
+    expect(c.textContent).not.toContain("Free");
+    expect(c.textContent).toContain("Reserve"); // the hover / focus label (CSS-shown)
     expect(c.getAttribute("aria-label")).toMatch(/free, Reserve/);
   });
 
@@ -90,6 +99,33 @@ describe("BookingGrid reservation affordances", () => {
     expect(pickKind(free(1))).toBe("book");
     expect(pickKind(booking(1, 5, true))).toBe("cancel");
     expect(pickKind(booking(2, 7))).toBeNull();
+  });
+});
+
+describe("keyboard and screen readers (persona U-18, U-24)", () => {
+  it("one tab stop that follows focus without re-rendering, and arrow keys move it", () => {
+    renderGrid();
+    const stops = () => [...document.querySelectorAll('[data-cell][tabindex="0"]')].map((e) => e.getAttribute("data-cell"));
+    expect(stops()).toEqual(["0-0"]);
+    fireEvent.focus(cellOf(2, 1));
+    expect(stops()).toEqual([cellOf(2, 1).getAttribute("data-cell")]);
+    cellOf(2, 1).focus();
+    fireEvent.keyDown(cellOf(2, 1), { key: "ArrowRight" });
+    expect(stops()).toEqual([cellOf(3, 1).getAttribute("data-cell")]);
+    expect(document.activeElement).toBe(cellOf(3, 1));
+  });
+
+  it("announces the span in a polite live region while it is drawn", () => {
+    renderGrid();
+    const status = screen.getByTestId("grid-span-status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status.textContent).toBe("");
+    fireEvent.click(cellOf(1, 1));
+    fireEvent.click(cellOf(3, 1), { shiftKey: true });
+    // the fixture's P3 ends at "011:20" (zero-padded hour built from 8 + 3)
+    expect(status.textContent).toBe("3 periods selected, 08:30–011:20, A 101.");
+    fireEvent.keyDown(cellOf(3, 1), { key: "Escape" });
+    expect(status.textContent).toBe("");
   });
 });
 

@@ -4,23 +4,25 @@ import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, FileUp, PlayCir
 import Link from "next/link";
 import { useMemo } from "react";
 import { PageHeader } from "@/components/common/page-header";
-import { StatusBadge } from "@/components/common/status-badge";
 import { trPercent } from "@/components/common/tr-suffix";
-import { isImportBoard, partialCounts, runStatusBadge } from "@/components/runs/runs-list";
+import { isImportBoard, partialCounts, runDotTone } from "@/components/runs/runs-list";
 import { useActiveTerm, useTermKindLabel } from "@/components/shell/term-switcher";
 import { useRememberedTermWeek, weekOfTerm } from "@/components/shell/workspace";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
+import { StatusDot } from "@/components/ui/data-table";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassPanel } from "@/components/ui/glass-panel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { coarseHitArea } from "@/components/ui/hit-area";
+import { cn } from "@/lib/utils";
 import { useMeetings, useRuns, useWeeks } from "@/lib/api/hooks";
 import type { DashboardSummary, ScheduleRun } from "@/lib/api/schemas";
 import { useDashboardWeek } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
 import { dayName, formatDate, periodRangeLabel } from "@/lib/time";
 import { BuildingBars, PeriodArea } from "./dashboard-charts";
-import { KpiNumber } from "./kpi-number";
+import { latestPlan, shownWeek } from "./dashboard-model";
 import { UtilisationHeatmap } from "./utilisation-heatmap";
 
 function relative(iso: string, locale: string): string {
@@ -33,22 +35,28 @@ function relative(iso: string, locale: string): string {
   return rtf.format(-Math.round(hours / 24), "day");
 }
 
-const DONE = new Set<ScheduleRun["status"]>(["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL", "INFEASIBLE", "TIMEOUT"]);
-
-/** The plan the planner works on: the newest finished solver run of the term (imports are boards, not plans). */
-function latestPlan(runs: ScheduleRun[] | undefined): ScheduleRun | undefined {
-  return runs?.find((r) => DONE.has(r.status) && !isImportBoard(r) && r.kind === "COURSE") ?? runs?.find((r) => DONE.has(r.status) && !isImportBoard(r));
-}
-
 function HeroStatus({ plan }: { plan: ScheduleRun | undefined }) {
   const { t, n } = useI18n();
   if (!plan) {
     return (
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 type-title-3 text-label-2">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 type-title-3 text-label-2" data-testid="dashboard-plan">
         {t("glass.dashboard.noPlan")}
-        <Link href="/generate" className="text-[14px] font-medium text-tint-text hover:underline">
+        <Link href="/generate" className={cn("relative type-body font-medium text-tint-text hover:underline", coarseHitArea)}>
           {t("glass.dashboard.makePlan")}
         </Link>
+      </p>
+    );
+  }
+  if (isImportBoard(plan)) {
+    return (
+      <p className="flex items-start gap-2 type-title-3" data-testid="dashboard-plan">
+        <CheckCircle2 className="mt-0.5 size-5 shrink-0 stroke-[2] text-status-feasible-fg" aria-hidden />
+        <span className="min-w-0 text-label-1">
+          {t("glass.dashboard.publishedBoard", { id: plan.id })}{" "}
+          <Link href={`/runs/${plan.id}`} className={cn("relative type-body font-medium whitespace-nowrap text-tint-text hover:underline", coarseHitArea)}>
+            {t("glass.dashboard.openRun")}
+          </Link>
+        </span>
       </p>
     );
   }
@@ -59,11 +67,11 @@ function HeroStatus({ plan }: { plan: ScheduleRun | undefined }) {
   const tone = complete ? "text-status-feasible-fg" : partial ? "text-status-warning-fg" : "text-status-infeasible-fg";
   const text = complete ? t("glass.dashboard.allPlaced", { id: plan.id }) : partial ? t("glass.dashboard.needRoom", { n: n(unplaced), id: plan.id }) : t("glass.dashboard.noTimetable", { id: plan.id });
   return (
-    <p className="flex items-start gap-2 type-title-3">
+    <p className="flex items-start gap-2 type-title-3" data-testid="dashboard-plan">
       <Icon className={`mt-0.5 size-5 shrink-0 stroke-[2] ${tone}`} aria-hidden />
       <span className="min-w-0 text-label-1">
         {text}{" "}
-        <Link href={`/runs/${plan.id}`} className="text-[14px] font-medium whitespace-nowrap text-tint-text hover:underline">
+        <Link href={`/runs/${plan.id}`} className={cn("relative type-body font-medium whitespace-nowrap text-tint-text hover:underline", coarseHitArea)}>
           {partial || !complete ? t("glass.dashboard.openReport") : t("glass.dashboard.openRun")}
         </Link>
       </span>
@@ -81,15 +89,18 @@ function QuietNumbers({ d }: { d: DashboardSummary }) {
     { label: t("glass.dashboard.conflicts"), value: d.conflicts, href: "/timetable" },
   ];
   return (
-    <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 pt-5 hairline-t sm:grid-cols-4">
+    // container-relative: the KPI labels collided at 1024 with viewport breakpoints (review §3 Dashboard 1024)
+    <dl className="mt-6 grid gap-x-6 gap-y-4 pt-5 hairline-t [grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr))]">
       {items.map((i) => (
         <div key={i.label} className="min-w-0">
-          <dt className="text-[12px] text-label-3">{i.label}</dt>
+          <dt className="type-footnote text-label-2">{i.label}</dt>
           <dd>
-            <Link href={i.href} className="rounded-md text-[22px] leading-7 font-semibold tracking-[-0.017em] text-label-1 outline-none hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus)">
-              <KpiNumber value={i.value} format={fmt} />
+            <Link href={i.href} className="rounded-md type-kpi text-label-1 hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus)">
+              {/* round-2 T-R2-26 (R2-S-14): a plain number - the odometer's digit strips reached main.innerText
+                  ('0 1 2 3 4 5 6 7 8 9'), like the run report's before T-R1-48 */}
+              <span className="tabular-nums">{fmt(i.value)}</span>
             </Link>
-            {i.hint ? <span className="block text-[12px] text-label-3">{i.hint}</span> : null}
+            {i.hint ? <span className="block type-footnote text-label-2">{i.hint}</span> : null}
           </dd>
         </div>
       ))}
@@ -104,8 +115,10 @@ export function DashboardView() {
   const weeks = useWeeks(term?.id);
   const [remembered, rememberWeek] = useRememberedTermWeek(term?.id);
   const lastWeek = term?.week_count ?? 1;
-  const week = Math.min(lastWeek, Math.max(1, remembered ?? (term ? (weekOfTerm(term) ?? 1) : 1)));
-  const dash = useDashboardWeek(term?.id, term ? week : undefined);
+  // a week the person picked is asked for as is; otherwise the server measures today's week, or the closest week
+  // the published plan covers (an imported board of two sheets covers weeks 1-2: T-R1-39)
+  const dash = useDashboardWeek(term?.id, term && remembered !== undefined ? remembered : undefined);
+  const week = shownWeek(remembered, dash.data?.utilisation_week, term ? (weekOfTerm(term) ?? 1) : 1, lastWeek);
   const runs = useRuns(term ? { term_id: term.id } : undefined);
   const pending = useMeetings(term ? { status: "NEEDS_REVIEW", term_id: term.id, page_size: 6 } : { status: "NEEDS_REVIEW", page_size: 6 });
   const d = dash.data;
@@ -127,7 +140,7 @@ export function DashboardView() {
   }
 
   return (
-    <div data-testid="dashboard">
+    <div data-testid="dashboard" className="@container/dash">
       <PageHeader
         title={t("dashboard.title")}
         subtitle={term ? `${term.name} · ${kindLabel(term.kind)}` : undefined}
@@ -145,27 +158,28 @@ export function DashboardView() {
 
       {/* One hero insight (A2): this week's room use and what still needs a room. */}
       <GlassPanel material="regular" radius="2xl" className="p-5 sm:p-6" render={<section aria-labelledby="hero-title" data-testid="dashboard-hero" />}>
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,440px)]">
+        <div className="@container/hero grid gap-6 @min-[52rem]/dash:grid-cols-[minmax(0,1fr)_minmax(300px,440px)]">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[13px] text-label-2">
+              <p className="type-callout text-label-2">
                 {t("glass.dashboard.thisWeek", { week })}
                 {weekDates ? <span className="text-label-3"> · {t("glass.dashboard.weekFrom", { date: weekDates })}</span> : null}
               </p>
               <div className="ml-auto flex items-center gap-0.5 sm:ml-0" role="group" aria-label={t("glass.dashboard.weekPicker")}>
-                <Button variant="ghost" size="icon-sm" aria-label={t("glass.dashboard.prevWeek")} disabled={week <= 1} onClick={() => rememberWeek(week - 1)}>
-                  <ChevronLeft />
-                </Button>
-                <Button variant="ghost" size="icon-sm" aria-label={t("glass.dashboard.nextWeek")} disabled={week >= lastWeek} onClick={() => rememberWeek(week + 1)}>
-                  <ChevronRight />
-                </Button>
+                <IconButton size="sm" className="pointer-coarse:size-11" label={t("glass.dashboard.prevWeek")} disabled={week <= 1} onClick={() => rememberWeek(week - 1)}>
+                  <ChevronLeft aria-hidden />
+                </IconButton>
+                <IconButton size="sm" className="pointer-coarse:size-11" label={t("glass.dashboard.nextWeek")} disabled={week >= lastWeek} onClick={() => rememberWeek(week + 1)}>
+                  <ChevronRight aria-hidden />
+                </IconButton>
               </div>
             </div>
-            <h2 id="hero-title" className="mt-2 type-title-1 text-label-1 sm:type-large-title">
+            {/* baseline-aligned: label and number share one baseline (review §3 "26% ticker sits 10 px high") */}
+            <h2 id="hero-title" className="mt-2 flex flex-wrap items-baseline gap-x-2 type-large-title text-label-1">
               {d ? (
                 <>
-                  {t("glass.dashboard.roomUse")}{" "}
-                  <KpiNumber value={pct} prefix={pctParts.prefix} suffix={pctParts.suffix} className="align-baseline" />
+                  <span>{t("glass.dashboard.roomUse")}</span>
+                  <span className="tnum tabular-nums">{`${pctParts.prefix ?? ""}${new Intl.NumberFormat(locale).format(pct)}${pctParts.suffix ?? ""}`}</span>
                 </>
               ) : (
                 <Skeleton className="h-10 w-72" />
@@ -175,15 +189,15 @@ export function DashboardView() {
             {d ? <QuietNumbers d={d} /> : <Skeleton className="mt-6 h-16" />}
           </div>
           <div className="min-w-0">
-            <p className="text-[13px] font-medium text-label-1">{t("glass.dashboard.byPeriod")}</p>
-            <p className="text-[12px] text-label-3">{t("glass.dashboard.byPeriodHint")}</p>
+            <p className="type-callout font-medium text-label-1">{t("glass.dashboard.byPeriod")}</p>
+            <p className="type-footnote text-label-3">{t("glass.dashboard.byPeriodHint")}</p>
             {d ? <PeriodArea data={d} className="mt-2 h-[180px]" /> : <Skeleton className="mt-2 h-[180px]" />}
           </div>
         </div>
       </GlassPanel>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-3 lg:gap-5">
-        <Card className="lg:col-span-2">
+      <div className="mt-6 grid gap-4 @min-[60rem]/dash:grid-cols-3 @min-[60rem]/dash:gap-5">
+        <Card className="@min-[60rem]/dash:col-span-2">
           <CardHeader>
             <CardTitle>{t("dashboard.byBuilding")}</CardTitle>
             <CardDescription>{t("glass.dashboard.heatHint", { week })}</CardDescription>
@@ -198,28 +212,28 @@ export function DashboardView() {
           <CardContent>{d ? <BuildingBars data={d} className="h-[200px]" /> : <Skeleton className="h-[200px]" />}</CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="@min-[60rem]/dash:col-span-2">
           <CardHeader>
             <CardTitle>{t("dashboard.lastRuns")}</CardTitle>
             <CardAction>
-              <Link href="/runs" className="text-[13px] font-medium text-tint-text hover:underline">
+              <Link href="/runs" className={cn("relative type-callout font-medium text-tint-text hover:underline", coarseHitArea)}>
                 {t("dashboard.viewAll")}
               </Link>
             </CardAction>
           </CardHeader>
           <CardContent>
-            {runs.data && recent.length === 0 ? <p className="text-[13px] text-label-2">{t("glass.shell.noRuns")}</p> : null}
+            {runs.data && recent.length === 0 ? <p className="type-callout text-label-2">{t("glass.shell.noRuns")}</p> : null}
             <ul>
               {recent.map((r) => (
                 <li key={r.id} className="[&:not(:last-child)]:hairline-b">
-                  <Link href={`/runs/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 outline-none hover:bg-fill-3 focus-visible:bg-fill-3">
+                  <Link href={`/runs/${r.id}`} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium text-label-1">{isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : t("glass.shell.runTitle", { id: r.id, term: r.term_code })}</span>
-                      <span className="block truncate text-[12px] text-label-3">
+                      <span className="block truncate type-callout font-medium text-label-1">{isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : t("glass.shell.runTitle", { id: r.id, term: r.term_code })}</span>
+                      <span className="block truncate type-footnote text-label-3">
                         {t(r.kind === "COURSE" ? "glass.dashboard.kindCourse" : "glass.dashboard.kindExam")} · {r.horizon_params.weeks.length ? t("glass.dashboard.weeksN", { list: r.horizon_params.weeks.join(", ") }) : t("glass.dashboard.wholeTerm")} · {relative(r.created_at, locale)}
                       </span>
                     </span>
-                    <StatusBadge variant="plain" {...runStatusBadge(r, t)} />
+                    <StatusDot tone={runDotTone(r)}>{partialCounts(r) ? t("runs.status.FEASIBLE_PARTIAL") : t(`runs.status.${r.status}`)}</StatusDot>
                   </Link>
                 </li>
               ))}
@@ -232,22 +246,22 @@ export function DashboardView() {
               {t("glass.dashboard.toReview")} <span className="font-normal text-label-3 tabular-nums">{pending.data ? n(pending.data.total) : ""}</span>
             </CardTitle>
             <CardAction>
-              <Link href="/requests?status=NEEDS_REVIEW" className="text-[13px] font-medium text-tint-text hover:underline">
+              <Link href="/requests?status=NEEDS_REVIEW" className={cn("relative type-callout font-medium text-tint-text hover:underline", coarseHitArea)}>
                 {t("dashboard.viewAll")}
               </Link>
             </CardAction>
           </CardHeader>
           <CardContent>
-            {pending.data?.items.length === 0 ? <p className="text-[13px] text-label-2">{t("glass.dashboard.nothingToReview")}</p> : null}
+            {pending.data?.items.length === 0 ? <p className="type-callout text-label-2">{t("glass.dashboard.nothingToReview")}</p> : null}
             <ul>
               {pending.data?.items.map((m) => (
                 <li key={m.id} className="[&:not(:last-child)]:hairline-b">
-                  <Link href={`/requests?kind=meetings&id=${m.id}`} className="-mx-2 flex min-w-0 flex-col rounded-lg px-2 py-2 outline-none hover:bg-fill-3 focus-visible:bg-fill-3">
-                    <span className="text-[13px] font-medium text-label-1">
+                  <Link href={`/requests?kind=meetings&id=${m.id}`} className="-mx-2 flex min-w-0 flex-col rounded-lg px-2 py-2 hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
+                    <span className="type-callout font-medium text-label-1">
                       {m.course_code}
                       {m.day && m.start_period && m.end_period ? <span className="font-normal text-label-2"> · {dayName(m.day, locale, "short")} {periodRangeLabel(m.start_period, m.end_period)}</span> : null}
                     </span>
-                    <span className="truncate text-[12px] text-label-3">{m.program_name}</span>
+                    <span className="truncate type-footnote text-label-3">{m.program_name}</span>
                   </Link>
                 </li>
               )) ?? Array.from({ length: 5 }, (_, i) => <Skeleton key={i} className="my-1 h-9" />)}

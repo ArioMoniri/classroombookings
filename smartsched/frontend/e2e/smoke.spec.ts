@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { FINISHED, PLANNING_LIST, REAL, SKIP_REASON, api, boardRun, login, solverRun, type Run } from "./helpers";
+import { FINISHED, PLANNING_LIST, REAL, SKIP_REASON, api, boardRun, login, pickSegmentById, solverRun, type Run } from "./helpers";
+import { pinLanguage } from "./language";
 
 /**
  * Smoke flows on the REAL backend with the Bahar 2026 fixtures (E2E_REAL=1; no mock API, no AI key):
@@ -10,6 +11,7 @@ import { FINISHED, PLANNING_LIST, REAL, SKIP_REASON, api, boardRun, login, solve
 test.skip(!REAL, SKIP_REASON);
 
 test.describe("SmartSched smoke (real backend)", () => {
+  pinLanguage("tr");
   test("signed out: app routes go to /login; /reset-password and /setup stay public", async ({ page }) => {
     await page.context().clearCookies();
     await page.goto("/rooms");
@@ -82,7 +84,8 @@ test.describe("SmartSched smoke (real backend)", () => {
     await expect(page.getByTestId("run-verdict")).toBeVisible({ timeout: 30_000 });
     if (run.status !== "FEASIBLE" && run.status !== "OPTIMAL") {
       await expect(page.getByTestId("diagnosis-card").first()).toBeVisible({ timeout: 30_000 });
-      await expect(page.locator("[data-testid^=issue-group-]").first()).toBeVisible();
+      // the server-grouped data issues are a request of their own (GET /runs/{id}/data-issues, 5-6 s on a loaded pod)
+      await expect(page.locator("[data-testid^=issue-group-]").first()).toBeVisible({ timeout: 30_000 });
     }
     await expect(page.getByTestId("chat-panel")).toBeVisible();
 
@@ -148,8 +151,8 @@ test.describe("SmartSched smoke (real backend)", () => {
     // 5. Pre-check: a one-click fix on a hard-impossible class changes the draft (one more class left out)
     await page.getByTestId("rail-step-check").click();
     await expect(page.getByTestId("check-step")).toBeVisible();
-    await expect(page.getByTestId("check-tab-impossible")).toBeVisible({ timeout: 60_000 });
-    await page.getByTestId("check-tab-impossible").click();
+    // the category control is a segmented track, or its select when the column is narrower than the track
+    await pickSegmentById(page, "check-tab-impossible", "impossible", 60_000);
     const groups = page.getByTestId("issue-group").locator("> button[aria-expanded='false']");
     for (let i = await groups.count(); i > 0; i--) await groups.first().click(); // open every impossible group
     // the backend's one-click fix that leaves the class out of this plan ("… bu planın dışında kalsın")
@@ -241,11 +244,14 @@ async function openStudio(page: import("@playwright/test").Page, step: string): 
 }
 
 test.describe("studio + calendar polish (real backend)", () => {
+  // English first (the tests switch the cookie per step after sign-in; the profile language applies once per session)
+  pinLanguage("en");
+  // sign-in.md §6.1: the placeholder is an example ("ad.soyad"), never the label and never a person-like address
   test("login: the identifier hint is neutral in English and Turkish", async ({ page, baseURL }) => {
     await page.context().clearCookies();
-    for (const [lang, hint] of [["en", "E-mail or username"], ["tr", "E-posta veya kullanıcı adı"]] as const) {
+    for (const [lang, hint] of [["en", "name.surname"], ["tr", "ad.soyad"]] as const) {
       await setLang(page, baseURL, lang);
-      await page.goto("/login");
+      await page.goto("/login?method=local");
       const field = page.getByTestId("login-identifier");
       await expect(field).toHaveAttribute("placeholder", hint);
       expect(await field.getAttribute("placeholder")).not.toMatch(/@/);
@@ -348,8 +354,11 @@ test.describe("studio + calendar polish (real backend)", () => {
       // a builder rule stores its English sentence; a planning-file note is the planner's original text
       const built = await create({ source: "ADMIN", nl_text: `Keep ${cls.course_code} in building A` });
       const own = await create({ source: "FILE", nl_text: `Please keep ${cls.course_code} classes in building A` });
+      // the term may hold many rules by now (the list virtualises long groups): find ours like a planner would
+      const findOurs = () => page.getByRole("textbox", { name: /^(Kurallarda ara|Search rules)$/ }).fill(cls.course_code);
       await setLang(page, baseURL, "tr");
       await page.goto("/generate?step=rules");
+      await findOurs();
       const builtCard = page.locator(`#rule-${built}`);
       await expect(builtCard).toBeVisible({ timeout: 30_000 });
       await expect(builtCard).toContainText(/A blokta tut/);
@@ -362,6 +371,7 @@ test.describe("studio + calendar polish (real backend)", () => {
       // back in English the free-text rule needs no tag
       await setLang(page, baseURL, "en");
       await page.goto("/generate?step=rules");
+      await findOurs();
       await expect(page.locator(`#rule-${own}`)).toContainText(/Keep .* in building A/);
       await expect(page.locator(`#rule-${own}`).getByTestId("written-in")).toHaveCount(0);
     } finally {

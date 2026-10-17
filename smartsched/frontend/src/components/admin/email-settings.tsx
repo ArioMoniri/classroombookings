@@ -1,97 +1,58 @@
 "use client";
 /**
- * /admin/email: SMTP server, "send a test" and the notification outbox. Without SMTP every notification
- * stays in the outbox as UNSENT (nothing pretends to send); an administrator can retry after configuring.
+ * /admin/email: the guided SMTP setup (components/admin/email/smtp-wizard), the themed e-mail templates
+ * (components/admin/email/email-templates) and the notification outbox. Without SMTP every notification stays in the
+ * outbox as UNSENT (nothing pretends to send); an administrator can retry after configuring (wave 3b W3-MAIL).
  */
-import { Loader2, RotateCw, Send } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { RotateCw } from "lucide-react";
+import { useId, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { crbs, crbsError, useCrbsMutation, useOutbox, useSmtpSettings, type SmtpSettings } from "@/lib/api/crbs";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { crbs, useCrbsMutation, useOutbox } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
-import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { useBookingFormat } from "@/components/bookings/use-booking-format";
-import { Alert, Field, FieldRow, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
+import { EmailTemplates } from "./email/email-templates";
+import { SmtpWizard } from "./email/smtp-wizard";
+import { Loading, PageTitle, SectionTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
 
 export function EmailSettingsView() {
   const { t } = useI18n();
-  const q = useSmtpSettings();
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={t("crbs.admin.email.title")} subtitle={t("crbs.email.lead")} />
-      {q.isLoading ? <Loading /> : q.data ? <SmtpForm key={JSON.stringify(q.data)} data={q.data} /> : <Alert tone="error">{bookingErrorMessage(crbsError(q.error), t)}</Alert>}
-      <OutboxList />
+      <EmailSettingsPanel />
     </div>
   );
 }
 
-function SmtpForm({ data }: { data: SmtpSettings }) {
+type PanelTab = "setup" | "templates" | "outbox";
+
+/** The whole e-mail area (W3-MAIL): guided SMTP setup, themed templates, the outbox. Exported for the integrations
+ *  hub's E-posta sheet (W3-HUB, /admin/integrations); `initialTab` opens a section directly. */
+export function EmailSettingsPanel({ initialTab = "setup" }: { initialTab?: PanelTab }) {
   const { t } = useI18n();
-  const [d, setD] = useState<Partial<Omit<SmtpSettings, "configured">>>({});
-  const masked = data.password as unknown as { set?: boolean; masked?: string } | string | null | undefined;
-  const v = { ...data, ...d };
-  const set = <K extends keyof typeof d>(k: K, val: (typeof d)[K]) => setD((p) => ({ ...p, [k]: val }));
-  const [to, setTo] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const toastError = useErrorToast();
-  const save = useCrbsMutation(() => crbs.org.putSmtp(d), [["crbs", "smtp"], ["crbs", "setup-status"]]);
-  const test = useCrbsMutation(() => crbs.org.testSmtp(to), [["crbs", "outbox"]]);
-  const pwSet = typeof masked === "object" && masked ? masked.set : !!masked;
+  const [tab, setTab] = useState<PanelTab>(initialTab);
+  const base = useId();
   return (
-    <>
-      <Card variant="glass" className="gap-0 px-4 py-1">
-        <p className="py-2 type-callout text-label-2">{data.configured ? t("crbs.email.configured") : t("crbs.email.notConfigured")}</p>
-        <FieldRow label={t("crbs.email.host")} htmlFor="smtp-host" className="hairline-t">
-          <Input id="smtp-host" className="w-64" value={v.host ?? ""} onChange={(e) => set("host", e.target.value)} placeholder="smtp.uni.edu.tr" />
-          <Input aria-label={t("crbs.ldap.port")} type="number" className="w-20" value={v.port ?? ""} onChange={(e) => set("port", e.target.value ? Number(e.target.value) : null)} />
-        </FieldRow>
-        <FieldRow label={t("crbs.email.security")} htmlFor="smtp-sec" className="hairline-t">
-          <SelectField id="smtp-sec" className="w-40" value={v.security ?? "starttls"} onChange={(e) => set("security", e.target.value as "starttls" | "ssl" | "none")}>
-            <option value="starttls">STARTTLS</option>
-            <option value="ssl">SSL/TLS</option>
-            <option value="none">{t("crbs.common.none")}</option>
-          </SelectField>
-        </FieldRow>
-        <FieldRow label={t("crbs.users.username")} htmlFor="smtp-user" className="hairline-t">
-          <Input id="smtp-user" className="w-64" autoComplete="off" value={v.username ?? ""} onChange={(e) => set("username", e.target.value)} />
-        </FieldRow>
-        <FieldRow label={t("crbs.users.password")} hint={pwSet ? t("crbs.email.passwordKept") : undefined} htmlFor="smtp-pw" className="hairline-t">
-          <Input id="smtp-pw" type="password" className="w-64" autoComplete="new-password" placeholder={pwSet ? "••••••••" : ""} value={typeof d.password === "string" ? d.password : ""} onChange={(e) => set("password", e.target.value)} />
-        </FieldRow>
-        <FieldRow label={t("crbs.email.from")} htmlFor="smtp-from" className="hairline-t">
-          <Input id="smtp-from" type="email" className="w-64" value={v.from_address ?? ""} onChange={(e) => set("from_address", e.target.value)} />
-          <Input aria-label={t("crbs.email.fromName")} className="w-40" value={v.from_name ?? ""} onChange={(e) => set("from_name", e.target.value)} />
-        </FieldRow>
-      </Card>
-      {error ? <Alert tone="error">{error}</Alert> : null}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <form
-          className="flex items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            test.mutate(undefined, {
-              onSuccess: (r) => (r.status === "SENT" ? toast.success(t("crbs.email.testSent", { to })) : toast.warning(t("crbs.email.testUnsent", { status: r.status, error: r.error ?? "" }))),
-              onError: toastError,
-            });
-          }}
-        >
-          <Field label={t("crbs.email.testTo")} htmlFor="smtp-to">
-            <Input id="smtp-to" type="email" className="w-64" value={to} onChange={(e) => setTo(e.target.value)} />
-          </Field>
-          <Button type="submit" variant="outline" disabled={!to || test.isPending}>
-            {test.isPending ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
-            {t("crbs.email.sendTest")}
-          </Button>
-        </form>
-        <Button disabled={!Object.keys(d).length || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => (toast.success(t("crbs.common.saved")), setD({})), onError: (e) => setError(bookingErrorMessage(crbsError(e), t)) })}>
-          {t("crbs.common.save")}
-        </Button>
+    <div className="flex min-w-0 flex-col gap-4" data-testid="email-settings-panel">
+      <SegmentedControl
+        aria-label={t("email.panel.tabs")}
+        value={tab}
+        onValueChange={(v) => setTab(v)}
+        fill
+        options={[
+          { value: "setup", label: t("email.panel.setup"), controls: `${base}-setup` },
+          { value: "templates", label: t("email.panel.templates"), controls: `${base}-templates` },
+          { value: "outbox", label: t("email.panel.outbox"), controls: `${base}-outbox` },
+        ]}
+      />
+      <div id={`${base}-${tab}`} role="tabpanel" className="min-w-0">
+        {tab === "setup" ? <SmtpWizard /> : tab === "templates" ? <EmailTemplates /> : <OutboxList />}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -118,12 +79,12 @@ function OutboxList() {
       >
         {t("crbs.email.outbox")}
       </SectionTitle>
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {q.isLoading ? <Loading className="px-4" /> : null}
         {q.data && q.data.length === 0 ? <p className="px-4 py-4 type-callout text-label-2">{t("crbs.email.empty")}</p> : null}
         <ul>
           {(q.data ?? []).map((m) => (
-            <li key={m.id} className="flex items-start gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+            <li key={m.id} className="flex items-start gap-3 px-4 py-2.5 not-last:edge-hairline-b">
               <span className="min-w-0 flex-1">
                 <span className="block truncate type-headline text-label-1">{m.subject}</span>
                 <span className="block truncate type-footnote text-label-2">
@@ -136,7 +97,7 @@ function OutboxList() {
                 {m.status === "SENT" ? t("crbs.email.sent") : m.status === "FAILED" ? t("crbs.email.failed") : t("crbs.email.unsent")}
               </Badge>
               {m.status !== "SENT" && m.kind !== "password_reset" && m.to_email ? (
-                <Button variant="ghost" size="icon-sm" aria-label={t("crbs.email.retry")} disabled={retry.isPending} onClick={() => retry.mutate(m.id, { onError: toastError })}>
+                <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.email.retry")} disabled={retry.isPending} onClick={() => retry.mutate(m.id, { onError: toastError })}>
                   <RotateCw />
                 </Button>
               ) : null}

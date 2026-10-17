@@ -18,7 +18,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { NativeSelect } from "@/components/ui/native-select";
+import { LoadingValue } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { ClassInspector, SelectionSummary } from "./class-inspector";
@@ -33,12 +35,14 @@ import { cn } from "@/lib/utils";
 import { useCalendarActions } from "@/components/timetable/use-calendar-actions";
 import { useUndoStore } from "@/components/timetable/model/undo-store";
 import { defaultRun, usableRuns, useTermContext } from "@/components/timetable/use-calendar-data";
+import { runOptionLabel } from "@/components/timetable/model/run-label";
 import { BulkMoveDialog } from "./bulk-move-dialog";
 import { ClassCards } from "./class-cards";
 import { COLUMN_LABEL, ClassTable, type EditCommit } from "./class-table";
 import { ALL_COLUMNS, SYSTEM_VIEWS, applyFilters, defaultView, normalizeView, parsePastedColumn, parseTokens, sameView, systemPredicate, type SystemView, type ViewState } from "./classes-model";
 import { FilterChips, FilterMenu } from "./filter-bar";
 import { dayName, periodRangeLabel } from "@/lib/time";
+import { BareButton } from "@/components/shell/bare-button";
 
 const LOCAL_VIEWS = "smartsched.classes.views";
 const GROUPS = ["faculty", "program", "day", "room", "building", "instructor", "status", "year"] as const;
@@ -482,29 +486,33 @@ export function ClassesPage() {
         {/* title row (not glass); below 1600 px the inspector floats over the page's right edge, so the row keeps
             its controls (Classes / Exams) clear of it (400 px panel + 12 px inset) */}
         <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-2", active && !mobile && !wide && "pr-[412px]")} data-inspector-overlay={active && !mobile && !wide ? "" : undefined}>
-          <h1 className={mobile ? "type-title-1" : "type-title-2"}>{t("classes.title")}</h1>
-          <span className="text-[13px] text-label-2 tabular-nums">{term?.name}{runId ? ` · Run #${runId}` : ""}</span>
+          <h1 className="type-large-title">{t("classes.title")}</h1>
+          <span className="type-callout text-label-2 tabular-nums">{term?.name}{runId ? ` · #${runId}` : ""}</span>
           {runs.length > 1 ? (
-            <select aria-label={t("calendar.sidebar.run")} className="h-8 rounded-lg bg-fill-2 px-2 text-[13px]" value={runId ?? ""} onChange={(e) => setParam({ run: e.target.value })}>
-              {runs.map((r) => <option key={r.id} value={r.id}>Run #{r.id} · {t(`runs.status.${r.status}`)}</option>)}
-            </select>
+            <NativeSelect size="sm" className="w-auto min-w-40 pointer-coarse:[--control-h-sm:var(--control-h-md)]" aria-label={t("calendar.sidebar.run")} value={runId ?? ""} onChange={(e) => setParam({ run: e.target.value })}>
+              {runs.map((r) => { const l = runOptionLabel(r, t, new Set(runs.map((x) => x.kind)).size > 1); return <option key={r.id} value={r.id} title={l.full}>{l.short}</option>; })}
+            </NativeSelect>
           ) : null}
-          <div className="ml-auto">
-            <SegmentedGlass size="sm" aria-label={t("classes.kind.label")} options={[{ value: "meetings", label: t("classes.kind.meetings") }, { value: "exams", label: t("classes.kind.exams") }]} value={kind} onValueChange={(k) => setParam({ kind: k === "exams" ? "exams" : null, run: null, id: null })} />
+          {/* touch: the segments take the 44 px height themselves, so their hit areas no longer overlap the tab row below (lane A hand-on) */}
+          <div className="ml-auto pointer-coarse:[--control-h-sm:var(--control-h-md)]" data-testid="classes-kind">
+            <SegmentedControl size="sm" aria-label={t("classes.kind.label")} options={[{ value: "meetings", label: t("classes.kind.meetings") }, { value: "exams", label: t("classes.kind.exams") }]} value={kind} onValueChange={(k) => setParam({ kind: k === "exams" ? "exams" : null, run: null, id: null })} />
           </div>
         </div>
 
-        {/* saved views as tabs */}
+        {/* saved views as tabs; the scroller clips on both axes, so on touch it pads 6 px above and below (the
+            32 px tabs' 44 px hit area, ui/hit-area.ts) and gives the room back with a negative margin */}
         <LayoutGroup id="classes-views">
+          {/* touch (round-3 R2-S-08): the tabs are 44 px themselves; the scroller clips any ::after hit area */}
           <div role="tablist" aria-label={t("classes.view.tabs")} className="flex gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]" data-testid="view-tabs">
             {tabs.map((tab) => {
               const on = tab.id === viewParam;
               return (
-                <button key={tab.id} type="button" role="tab" aria-selected={on} onClick={() => setParam({ view: tab.id === "all" ? null : tab.id, id: null })} className={cn("relative flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium", on ? "text-label-1" : "text-label-2 hover:text-label-1")}>
-                  {on ? <motion.span layoutId="view-pill" transition={reduce ? { duration: 0 } : springs.glassMorph} aria-hidden className="absolute inset-0 -z-10 rounded-full bg-fill-2 shadow-[inset_0_0_0_1px_var(--hairline)]" style={{ borderRadius: 999 }} /> : null}
+                <BareButton key={tab.id} role="tab" aria-selected={on} onClick={() => setParam({ view: tab.id === "all" ? null : tab.id, id: null })} className={cn("relative flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 type-callout font-medium pointer-coarse:h-11 pointer-coarse:px-4", on ? "text-label-1" : "text-label-2 hover:text-label-1")}>
+                  {on ? <motion.span layoutId="view-pill" transition={reduce ? { duration: 0 } : springs.glassMorph} aria-hidden className="absolute inset-0 -z-10 rounded-full bg-fill-2 edge-hairline" style={{ borderRadius: 999 }} /> : null}
                   {tab.label}
-                  {tab.count !== undefined ? <span className="text-[12px] text-label-3 tabular-nums">{n(tab.count)}</span> : null}
-                </button>
+                  {/* no "Tümü 0" while the classes load: a glyph-sized skeleton (review §3 Classes loading) */}
+                  {tab.count !== undefined ? <LoadingValue className="type-footnote text-label-2" value={classes.isLoading ? undefined : tab.count} format={(v) => n(v)} chars={3} /> : null}
+                </BareButton>
               );
             })}
           </div>
@@ -514,7 +522,7 @@ export function ClassesPage() {
         <LayoutGroup id="classes-toolbar">
           {selection.size > 0 && !mobile ? (
             <motion.div layoutId="toolbar-capsule" transition={reduce ? { duration: 0 } : springs.glassMorph} className={toolbarCapsule} data-glass="chrome" role="toolbar" aria-label={t("classes.bulk.label")} data-testid="selection-bar">
-              <span className="px-2 text-[13px] font-semibold tabular-nums" aria-live="polite">{selection.size === rows.length && rows.length > 1 ? t("classes.bulk.all", { n: n(rows.length) }) : t("classes.bulk.selected", { n: n(selection.size) })}</span>
+              <span className="px-2 type-callout font-semibold tabular-nums" aria-live="polite">{selection.size === rows.length && rows.length > 1 ? t("classes.bulk.all", { n: n(rows.length) }) : t("classes.bulk.selected", { n: n(selection.size) })}</span>
               {!readOnly ? <Button size="sm" variant="ghost" onClick={() => lockSelection(true)}><Lock aria-hidden />{t("classes.bulk.lock")}</Button> : null}
               {!readOnly ? <Button size="sm" variant="ghost" onClick={() => lockSelection(false)}><LockOpen aria-hidden />{t("classes.bulk.unlock")}</Button> : null}
               {!readOnly ? <Button size="sm" variant="ghost" onClick={() => setMoveOpen(true)}><MoveRight aria-hidden />{t("classes.bulk.move")}</Button> : null}
@@ -534,7 +542,7 @@ export function ClassesPage() {
                   setSearch("");
                   setView({ filters: { ...view.filters, text: "" } });
                 } else if (e.key === "Enter") onSearch(`${search} `);
-              }} placeholder={t("classes.search")} aria-label={t("classes.searchLabel")} title={t("classes.tokens.hint")} className="h-8 min-w-0 flex-1 bg-transparent px-1 text-[13px] outline-hidden placeholder:text-label-3" data-testid="classes-search" />
+              }} placeholder={t("classes.search")} aria-label={t("classes.searchLabel")} title={t("classes.tokens.hint")} className="h-8 min-w-0 flex-1 bg-transparent px-1 type-callout outline-hidden placeholder:text-label-3 pointer-coarse:h-11 max-md:pointer-coarse:text-base" data-testid="classes-search" />
               <FilterMenu rows={systemRows} filters={view.filters} onChange={(f) => setView({ filters: f })} shownCount={rows.length} triggerRef={filterRef} />
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button variant="ghost" size="sm" data-testid="display-menu" />}><SlidersHorizontal aria-hidden />{!mobile ? t("classes.display") : null}</DropdownMenuTrigger>
@@ -577,7 +585,7 @@ export function ClassesPage() {
                 <DropdownMenuContent align="end" className="w-72">
                   {kind === "meetings" ? (
                     <DropdownMenuItem onClick={() => download("planning-list")} data-testid="export-planning-list">
-                      <span className="flex flex-col"><span>{t("classes.exp.planning")}</span><span className="text-[11px] text-label-3">{t("classes.exp.planningHint")}</span></span>
+                      <span className="flex flex-col"><span>{t("classes.exp.planning")}</span><span className="type-caption text-label-3">{t("classes.exp.planningHint")}</span></span>
                     </DropdownMenuItem>
                   ) : null}
                   <DropdownMenuItem onClick={exportView}>{t("classes.exp.view")}</DropdownMenuItem>
@@ -599,7 +607,7 @@ export function ClassesPage() {
 
         <FilterChips rows={systemRows} filters={view.filters} onChange={(f) => setView({ filters: f })} />
         {modified ? (
-          <div className="flex flex-wrap items-center gap-2 text-[12px]" role="status" data-testid="view-modified">
+          <div className="flex flex-wrap items-center gap-2 type-footnote" role="status" data-testid="view-modified">
             <span className="text-label-2">{t("classes.view.modified")}</span>
             {savedView?.mine ? <Button size="xs" variant="secondary" onClick={() => void saveCurrent()}>{t("classes.view.save")}</Button> : null}
             <Button size="xs" variant="secondary" onClick={() => setSaveAs({ name: "", shared: false })} data-testid="view-save-as">{t("classes.view.saveAs")}</Button>
@@ -607,7 +615,7 @@ export function ClassesPage() {
           </div>
         ) : null}
         {savedView && !modified ? (
-          <div className="flex items-center gap-2 text-[12px] text-label-2">
+          <div className="flex items-center gap-2 type-footnote text-label-2">
             {savedView.shared ? t("classes.view.shared") : t("classes.view.mine")}
             {savedView.mine ? <Button size="xs" variant="ghost" onClick={async () => {
               if (savedView.local) {
@@ -621,13 +629,13 @@ export function ClassesPage() {
           </div>
         ) : null}
         {noRun && !classes.isLoading ? (
-          <div className="flex items-center gap-2 rounded-xl bg-fill-3 px-3 py-2 text-[13px]" role="status">{t("classes.noRunBanner")}<Button size="xs" onClick={() => router.push("/generate")}>{t("classes.generate")}</Button></div>
+          <div className="flex items-center gap-2 rounded-xl bg-fill-3 px-3 py-2 type-callout" role="status">{t("classes.noRunBanner")}<Button size="xs" onClick={() => router.push("/generate")}>{t("classes.generate")}</Button></div>
         ) : null}
 
         {/* table / cards */}
         <div className="cal-canvas relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
           {classes.isError && !classes.data ? (
-            <div className="p-4"><p className="mb-2 text-[13px]">{t("classes.error")}</p><Button size="sm" variant="secondary" onClick={() => void classes.refetch()}>{t("classes.retry")}</Button></div>
+            <div className="p-4"><p className="mb-2 type-callout">{t("classes.error")}</p><Button size="sm" variant="secondary" onClick={() => void classes.refetch()}>{t("classes.retry")}</Button></div>
           ) : classes.isLoading ? (
             <div aria-busy className="flex flex-col">
               {Array.from({ length: 10 }, (_, i) => (
@@ -669,7 +677,7 @@ export function ClassesPage() {
             />
           )}
           {!mobile ? (
-            <footer className="flex h-8 shrink-0 items-center gap-2 px-3 text-[12px] text-label-2 tabular-nums hairline-t">
+            <footer className="flex h-8 shrink-0 items-center gap-2 px-3 type-footnote text-label-2 tabular-nums hairline-t">
               {classes.isLoading ? t("classes.loadingFooter") : t("classes.footer", { shown: n(rows.length), total: n(allRows.length), sel: n(selection.size), s: n(sumStudents) })}
             </footer>
           ) : null}
@@ -702,11 +710,11 @@ export function ClassesPage() {
       <Dialog open={saveAs !== null} onOpenChange={(o) => !o && setSaveAs(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>{t("classes.view.saveAs")}</DialogTitle></DialogHeader>
-          <label className="flex flex-col gap-1 text-[12px] font-semibold text-label-2">
+          <label className="flex flex-col gap-1 type-footnote font-semibold text-label-2">
             {t("classes.view.name")}
             <Input autoFocus value={saveAs?.name ?? ""} onChange={(e) => setSaveAs((s) => (s ? { ...s, name: e.target.value } : s))} onKeyDown={(e) => e.key === "Enter" && void doSaveAs()} data-testid="view-name" />
           </label>
-          {!readOnly ? <label className="flex items-center gap-2 text-[13px]"><Switch checked={saveAs?.shared ?? false} onCheckedChange={(v) => setSaveAs((s) => (s ? { ...s, shared: v } : s))} />{t("classes.view.share")}</label> : null}
+          {!readOnly ? <label className="flex items-center gap-2 type-callout"><Switch checked={saveAs?.shared ?? false} onCheckedChange={(v) => setSaveAs((s) => (s ? { ...s, shared: v } : s))} />{t("classes.view.share")}</label> : null}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setSaveAs(null)}>{t("calendar.insp.cancel")}</Button>
             <Button onClick={() => void doSaveAs()} disabled={!saveAs?.name.trim()} data-testid="view-save">{t("classes.view.save")}</Button>
@@ -717,7 +725,7 @@ export function ClassesPage() {
       <Dialog open={paste !== null} onOpenChange={(o) => !o && setPaste(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>{paste ? t("classes.edit.paste", { n: Math.min(paste.values.length, paste.rows.length), field: t("classes.col.students").toLocaleLowerCase(locale) }) : ""}</DialogTitle></DialogHeader>
-          <ul className="max-h-56 overflow-y-auto text-[12px] tabular-nums">
+          <ul className="max-h-56 overflow-y-auto type-footnote tabular-nums">
             {paste?.rows.slice(0, paste.values.length).map((r, i) => (
               <li key={r.id} className="flex gap-2 py-0.5"><span className="w-28 font-semibold">{r.course_code}{r.section ? ` §${r.section}` : ""}</span><span className="text-label-2">{r.enrolment ?? "—"}</span> → <span>{paste.values[i] ?? "—"}</span></li>
             ))}

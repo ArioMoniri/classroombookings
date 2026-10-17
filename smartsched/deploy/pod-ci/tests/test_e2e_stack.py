@@ -142,7 +142,8 @@ def test_e2e_real_starts_smtp_sink_and_empty_backend_for_playwright(tmp_path: Pa
     log = (tmp_path / "docker.log").read_text()  # the playwright script spans several lines of the log
     assert log.index("npx next build") < log.index("npx playwright test")
     for flag in ("-e E2E_REAL=1", "-e E2E_SMTP_HOST=smtp", "-e E2E_SMTP_PORT=1025",
-                 "-e E2E_SMTP_API=http://smtp:8025", "-e E2E_EMPTY_API_URL=http://backend-empty:8000"):
+                 "-e E2E_SMTP_API=http://smtp:8025", "-e E2E_EMPTY_API_URL=http://backend-empty:8000",
+                 "-e E2E_DB=/w/e2e.db"):
         assert flag in playwright
     assert "network rm podci-7-abc1234" in calls[-1] or any(c.startswith("network rm") for c in calls)
     for name in ("backend", "smtp", "backend-empty"):
@@ -182,6 +183,23 @@ def test_entry_seeded_mode_imports_seeds_and_solves(tmp_path: Path) -> None:
     assert "alembic upgrade head" in calls and "import weekly-grid" in calls and "seed-admin" in calls
     assert "solve --term 2026-BAHAR" in calls and "e2e-backend-serve.py" in calls
     assert "ADMIN_EMAIL=admin@smartsched.local ADMIN_PASSWORD=set" in calls
+    # the room master before every solve
+    order = [ln.split(" |")[0] for ln in calls.splitlines()]
+    at = lambda needle: next(i for i, ln in enumerate(order) if needle in ln)  # noqa: E731
+    assert at("import room-master") < at("solve --term 2026-BAHAR")
+    # the analytics runs before the full-term run: the screens open the term's latest usable run
+    assert at("import weekly-grid tests/fixtures/final_") < at("e2e-seed-analytics.py") < at("solve --term 2026-BAHAR")
+    # the Güz 2026-27 workbooks (grid + planning list) after Bahar and before Final (Final keeps the newest term id),
+    # before the analytics seed that publishes the Güz board; Güz gets no solver run (e2e-gate-seed 2026-10-17)
+    assert (
+        at("import weekly-grid tests/fixtures/bahar_")
+        < at("import weekly-grid tests/fixtures/guz_")
+        < at("import planning-list tests/fixtures/guz_")
+        < at("import weekly-grid tests/fixtures/final_")
+    )
+    assert at("import planning-list tests/fixtures/guz_") < at("e2e-seed-analytics.py")
+    assert "solve --term 2026-GUZ" not in calls
+    assert at("solve --term 2026-BAHAR") < at("e2e-backend-serve.py")
 
 
 def test_entry_empty_mode_migrates_only_and_seeds_no_admin(tmp_path: Path) -> None:

@@ -31,39 +31,40 @@ export function DiagnosisCard({ d, section, count = 1, onApply, applying, onChat
       <div className="flex items-start gap-2.5">
         <Icon className={cn("mt-0.5 size-4 shrink-0 stroke-[2]", TONE[section])} aria-hidden />
         <div className="min-w-0 flex-1">
-          <p id={`${id}-t`} className="text-[13.5px] leading-5 text-label-1">
+          <p id={`${id}-t`} className="type-callout leading-5 text-label-1">
             {plannerText(d, locale)}
-            {count > 1 ? <span className="ml-1.5 text-[12px] whitespace-nowrap text-label-3 tabular-nums">{t("glass.report.times", { n: count })}</span> : null}
+            {count > 1 ? <span className="ml-1.5 type-footnote whitespace-nowrap text-label-3 tabular-nums">{t("glass.report.times", { n: count })}</span> : null}
           </p>
           {options.length ? (
             <fieldset className="mt-2.5">
-              <legend className="mb-1 text-[12px] text-label-3">{t("glass.report.fixes")}</legend>
+              <legend className="mb-1 type-footnote text-label-3">{t("glass.report.fixes")}</legend>
               <div role="radiogroup" aria-label={t("glass.report.fixes")} className="flex flex-col gap-1">
                 {visible.map((o) => (
-                  <label key={o.s.id} data-testid="diagnosis-fix-option" className={cn("flex cursor-pointer items-start gap-2 rounded-[10px] px-2.5 py-1.5 text-[13px] text-label-1 transition-colors duration-(--dur-fast)", choice === o.s.id ? "bg-tint-soft" : "hover:bg-fill-3")}>
+                  <label key={o.s.id} data-testid="diagnosis-fix-option" className={cn("flex cursor-pointer items-start gap-2 rounded-[10px] px-2.5 py-1.5 type-callout text-label-1 transition-colors duration-(--dur-fast)", choice === o.s.id ? "bg-tint-soft" : "hover:bg-fill-3")}>
                     <input type="radio" name={`${id}-fix`} value={o.s.id} checked={choice === o.s.id} onChange={() => setChoice(o.s.id)} className="mt-[3px] accent-(--accent)" />
-                    <span className="flex-1">{o.text}</span>
+                    {/* phones: a long room list wraps inside the 390 px card instead of widening it (MOBILE M-01, T-R2-26 pass) */}
+                    <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{o.text}</span>
                   </label>
                 ))}
               </div>
               {options.length > visible.length ? (
-                <button type="button" onClick={() => setMore(true)} className="mt-1 px-2.5 text-[12.5px] font-medium text-tint-text hover:underline">
+                <Button variant="link" size="sm" onClick={() => setMore(true)} className="mt-1 ml-2.5 pointer-coarse:min-h-11">
                   {t("glass.report.moreFixes", { n: options.length - visible.length })}
-                </button>
+                </Button>
               ) : null}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {/* secondary: many cards share the region, so none of them is the page's single tint action (A6) */}
-                <Button size="sm" variant="secondary" onClick={() => onApply(choice)} {...busyProps(applying, !chosen)} aria-label={applying ? t("studio.check.applying") : `${t("glass.report.applyFix")}: ${chosen?.text ?? ""}`} data-testid="diagnosis-apply">
+                <Button size="sm" variant="secondary" className="pointer-coarse:min-h-11" onClick={() => onApply(choice)} {...busyProps(applying, !chosen)} aria-label={applying ? t("studio.check.applying") : `${t("glass.report.applyFix")}: ${chosen?.text ?? ""}`} data-testid="diagnosis-apply">
                   <BusyLabel busy={applying} label={t("studio.check.applying")}>{t("glass.report.applyFix")}</BusyLabel>
                 </Button>
-                <span className="text-[12px] text-label-3">{t("glass.report.applyHint")}</span>
+                <span className="type-footnote text-label-3">{t("glass.report.applyHint")}</span>
               </div>
             </fieldset>
           ) : onChat && section === "unplaced" ? (
-            <button type="button" onClick={onChat} className="mt-1.5 inline-flex items-center gap-1 text-[12.5px] font-medium text-tint-text hover:underline">
+            <Button variant="link" size="sm" onClick={onChat} className="mt-1.5 gap-1 pointer-coarse:min-h-11">
               <MessageSquare className="size-3.5" aria-hidden /> {t("glass.report.askChat")}
               <ChevronRight className="size-3.5" aria-hidden />
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>

@@ -12,6 +12,7 @@ from app.models import Assignment, AuditEvent, Course, MeetingRequest, Section
 from sqlalchemy import select
 
 from tests.crbs_env import env  # noqa: F401
+from tests.test_admin_persona_integrity import _unpublish
 
 
 async def _events(action: str) -> list[AuditEvent]:
@@ -76,6 +77,9 @@ async def test_meeting_request_edit_is_audited_with_before_and_after(env):  # no
 
 
 async def test_single_move_and_lock_are_audited(env):  # noqa: F811
+    # a forced move on the published run goes into a draft copy (owner decision 2026-10-17, R1-S-37;
+    # tests/test_decisions_forced_draft.py): the audit of the edit itself is checked on an unpublished run
+    await _unpublish(env)
     a, b = await _two_overlapping(env.run_id)
     url = f"/api/v1/runs/{env.run_id}/assignments/{a.id}"
     r = await env.client.post(
@@ -96,6 +100,9 @@ async def test_single_move_and_lock_are_audited(env):  # noqa: F811
 
 
 async def test_forced_bulk_move_restore_and_bulk_lock_are_audited(env):  # noqa: F811
+    # a forced move on the published run goes into a draft copy (owner decision 2026-10-17, R1-S-37;
+    # tests/test_decisions_forced_draft.py): the audit of the edit itself is checked on an unpublished run
+    await _unpublish(env)
     a, b = await _two_overlapping(env.run_id)
     base = f"/api/v1/runs/{env.run_id}/assignments"
     body = {"moves": [{"aid": a.id, "room_ids": list(b.room_ids)}], "force": True, "reason": "Bölüm başkanlığı onayı"}

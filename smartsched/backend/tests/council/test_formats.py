@@ -380,3 +380,27 @@ def test_ics_expansion_is_bounded():
     old = "UID:o\r\nDTSTART:14000101T080000\r\nRRULE:FREQ=DAILY\r\nSUMMARY:x\r\nLOCATION:A 101"
     found, warnings = instances(_ics(old), lim, window=(date(2026, 1, 1), date(2026, 2, 1)))
     assert "steps" in warnings[-1]  # 626 years of daily steps before the window: stopped, not hung
+
+
+def test_the_cp1254_export_transcodes_to_the_workbooks_own_values(tmp_path: Path) -> None:
+    """R3-S-04 (T-R2-19): Turkish Excel's ';' CSV writes numbers with a decimal comma ("0,5208333333333334" for an
+    unformatted 12:30, "0,4" for a weeks cell typed 0.4) and dates as "10.10.2025" / "11.01.1900" (an hour typed as a
+    serial); opened in Turkish Excel they are numbers and dates again. The transcoding for the importers types them
+    the same way, so the planning-list importer reads every row of the export exactly as it reads the workbook."""
+    from app.importers.planning_list import parse_planning_list
+
+    cp = tmp_path / "bahar_listesi_noktali_virgul.csv"
+    cp.write_bytes(exports.csv_bytes(BAHAR_LIST, delimiter=";", encoding="cp1254", decimal=",", dotted_times=True))
+    a = {r.row: r for r in parse_planning_list(BAHAR_LIST, max_week=14).rows}
+    b = {r.row: r for r in parse_planning_list(formats.workbook_for(cp, cp.name), max_week=14).rows}
+    assert a.keys() == b.keys()
+    differ = [
+        (row, f)
+        for row in a
+        for f in ("start_time", "end_time", "weeks", "label", "enrolment", "class_years")
+        if getattr(a[row], f) != getattr(b[row], f)
+    ]
+    assert differ == [], differ[:10]
+    # a comma decimal that is no number Excel would write back stays text (a "11,40" time, a "1,2,3" list)
+    assert formats.typed("11,40", decimal=",") == "11,40" and formats.typed("1,2,3", decimal=",") == "1,2,3"
+    assert formats.typed("0,5", decimal=",") == 0.5 and formats.typed("0,5") == "0,5"  # only in a comma-decimal file

@@ -1,0 +1,39 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='390' height='844' viewBox='0 0 390 844' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Giriş sayfası, birden çok sağlayıcı, 390'>
+<title>Giriş sayfası, birden çok sağlayıcı, 390</title>
+<rect width='390' height='844' fill='#F4F6F9'/>
+<text x='20' y='30' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>9:41</text>
+<rect x='16' y='70' width='40' height='40' rx='10' fill='#2563EB' fill-opacity='1'/>
+<text x='36' y='97' font-size='18' font-weight='700' fill='#FFFFFF' text-anchor='middle'>S</text>
+<text x='68' y='96' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<rect x='254' y='74' width='120' height='32' rx='8' fill='#F1F5F9' fill-opacity='1'/>
+<text x='314' y='95' font-size='11' font-weight='500' fill='#475569' text-anchor='middle'>Üniversite logosu</text>
+<text x='16' y='162' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Giriş yap</text>
+<text x='16' y='190' font-size='14' font-weight='400' fill='#475569' text-anchor='start'>Örnek Üniversitesi · ders programı ve rezervasyon</text>
+<rect x='16' y='218' width='150' height='24' rx='12' fill='#EFF6FF' fill-opacity='1'/>
+<text x='91' y='234' font-size='11' font-weight='600' fill='#2563EB' text-anchor='middle'>Son girişiniz bu yöntemle</text>
+<rect x='16' y='250' width='358' height='44' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#8C8C8C' stroke-width='1'/>
+<rect x='84.12499999999999' y='262.0' width='9' height='9' rx='0' fill='#F25022' fill-opacity='1'/>
+<rect x='94.12499999999999' y='262.0' width='9' height='9' rx='0' fill='#7FBA00' fill-opacity='1'/>
+<rect x='84.12499999999999' y='272.0' width='9' height='9' rx='0' fill='#00A4EF' fill-opacity='1'/>
+<rect x='94.12499999999999' y='272.0' width='9' height='9' rx='0' fill='#FFB900' fill-opacity='1'/>
+<text x='114.12499999999999' y='277.0' font-size='15' font-weight='600' fill='#5E5E5E' text-anchor='start'>Microsoft ile giriş yap</text>
+<rect x='16' y='306' width='358' height='44' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#747775' stroke-width='1'/>
+<circle cx='103.3' cy='328.0' r='9' fill='none' stroke='#4285F4' stroke-width='2'/>
+<text x='103.3' y='332.0' font-size='11' font-weight='700' fill='#4285F4' text-anchor='middle'>G</text>
+<text x='124.3' y='333.0' font-size='14' font-weight='500' fill='#1F1F1F' text-anchor='start'>Google ile oturum açın</text>
+<rect x='16' y='362' width='358' height='44' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<rect x='104.75' y='374.0' width='20' height='20' rx='5' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='114.75' y='388.0' font-size='9' font-weight='700' fill='#0F172A' text-anchor='middle'>OK</text>
+<text x='134.75' y='389.0' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Okta ile giriş yap</text>
+<text x='16' y='438' font-size='14' font-weight='600' fill='#2563EB' text-anchor='start'>Diğer giriş yolları (1)  ▾</text>
+<text x='16' y='472' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Kurum hesabınızla ilk girişte hesabınız standart kullanıcı</text>
+<text x='16' y='490' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>olarak açılır. Rolünüzü yalnızca bir yönetici değiştirebilir.</text>
+<line x1='16' y1='518' x2='374' y2='518' stroke='#E2E8F0' stroke-width='1'/>
+<text x='16' y='550' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Kullanıcı adı ve parolayla giriş yap  ▸</text>
+<text x='16' y='590' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Sağlayıcı düğmeleri aynı boy ve ağırlıkta</text>
+<text x='16' y='608' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>(Google: eşit belirginlik). Sıra yöneticinin;</text>
+<text x='16' y='626' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>en fazla 3 görünür, fazlası 'Diğer giriş yolları'.</text>
+<text x='16' y='644' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Microsoft ve Google kendi marka kurallarıyla,</text>
+<text x='16' y='662' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>diğerleri nötr. Davet bağlantısında yalnız</text>
+<text x='16' y='680' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>davetteki yöntem gösterilir.</text>
+</svg>

@@ -88,7 +88,12 @@ class AlternativeIn(BaseModel):
 
 class DecideIn(BaseModel):
     decision: Literal["approve", "reject"]
+    #: approve: a note for the requester; reject: the reason's free text when ``reason`` is not given
     note: str | None = Field(default=None, max_length=1000)
+    #: reject: why (free text; required when ``reason_code`` is missing or "other"); wins over ``note``
+    reason: str | None = Field(default=None, max_length=1000)
+    #: reject: room_unavailable | capacity | policy | other (validated by the service, 422 in Turkish and English)
+    reason_code: str | None = Field(default=None, max_length=32)
     #: approve: "approve in another room / time"; reject: the suggestion shown to the requester
     alternative: AlternativeIn | None = None
     #: recurring requests: approve only these dates (the others are declined)
@@ -113,6 +118,9 @@ class NotificationOut(BaseModel):
     link: str | None
     booking_id: int | None
     request_id: int | None
+    #: structured payload: room, dates, periods [{name, start, end, start_period, end_period}], decision,
+    #: reason, reason_code, decided_by {id, name}, requester {id, name}, request_ids, group_id, ...
+    data: dict[str, Any] | None = None
     read_at: str | None
     created_at: str | None
 
@@ -120,3 +128,35 @@ class NotificationOut(BaseModel):
 class ReadIn(BaseModel):
     ids: list[int] = Field(default_factory=list, max_length=500)
     all: bool = False
+
+
+class ChannelPrefOut(BaseModel):
+    name: str
+    label_tr: str
+    label_en: str
+    #: the user's master switch for the channel
+    enabled: bool
+    #: whether the channel can reach the user (e-mail: the account has an address)
+    available: bool
+    default_enabled: bool
+
+
+class EventPrefOut(BaseModel):
+    event: str
+    label_tr: str
+    label_en: str
+    #: channel name -> on (the master switch and the event's own switch together)
+    channels: dict[str, bool]
+
+
+class NotificationPrefsOut(BaseModel):
+    channels: list[ChannelPrefOut]
+    events: list[EventPrefOut]
+
+
+class NotificationPrefsIn(BaseModel):
+    """Partial update: only the named switches change. ``channels``: master switch per channel (off = off for every
+    event); ``events``: event -> channel -> on."""
+
+    channels: dict[str, bool] = Field(default_factory=dict, max_length=20)
+    events: dict[str, dict[str, bool]] = Field(default_factory=dict, max_length=50)

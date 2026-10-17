@@ -100,5 +100,56 @@
     "find": {
       "weeks": "viikot"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "päivää"
+    }
+  },
+  "programWizard": {
+    "col": {
+      "year": "vuosi"
+    },
+    "patterns": {
+      "weeks": "viikot"
+    }
+  },
+  "analytics": {
+    "week": "viikko"
+  },
+  "compare": {
+    "week": "viikko"
+  },
+  "invigilation": {
+    "people": {
+      "days": "päivät"
+    },
+    "pool": {
+      "hours": "tunnit"
+    }
+  },
+  "policies": {
+    "day": {
+      "1": "maan.",
+      "2": "tiist.",
+      "3": "desk.",
+      "4": "torst.",
+      "5": "perj.",
+      "6": "lauan.",
+      "7": "sunn."
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "päivää"
+  },
+  "quickReserve": {
+    "day": {
+      "label": "päivää"
+    }
+  },
+  "aiAdmin": {
+    "usage": {
+      "day": "päivää"
+    }
   }
 }

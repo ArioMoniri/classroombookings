@@ -61,6 +61,8 @@ systemctl daemon-reload
 if [[ $NO_START -eq 0 ]]; then
   systemctl enable --now smartsched-ci-web.service smartsched-ci-poll.timer smartsched-ci-worker.timer \
     smartsched-ci-worker.path smartsched-ci-update.path smartsched-upload-purge.timer
+  # boot: the last good app stack comes back (gates/stack-up.sh; compose restart policies cover the rest)
+  systemctl enable smartsched-stack.service
   if [[ $UPGRADE -eq 1 ]]; then systemctl restart smartsched-ci-web.service; fi
 fi
 echo "pod CI installed in $DEST (state $STATE, config $CONF)"

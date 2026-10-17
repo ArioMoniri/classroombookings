@@ -12,6 +12,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import { useState, type KeyboardEvent, type ReactNode } from "react";
 import { cssSpring, useReduce } from "@/lib/motion";
+import { IconButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
 
@@ -90,22 +91,22 @@ function Row({ item, children, onKeyMove }: { item: SortableItem; children: Reac
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition: transition ?? undefined }}
-      className={cn("relative flex items-center gap-2 bg-(--mat-thick-solid) px-2 py-2 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none", isDragging && "z-10 rounded-lg")}
+      className={cn("relative flex items-center gap-2 bg-(--mat-thick-solid) px-2 py-2 not-last:edge-hairline-b", isDragging && "z-10 rounded-lg")}
       data-sort-id={item.id}
     >
       {/* lift: a pre-rendered shadow layer fades in (no box-shadow animation, motion.md §8) */}
-      <span aria-hidden className={cn("pointer-events-none absolute inset-0 rounded-lg shadow-[0_8px_24px_-8px_rgba(0,0,0,0.25),0_0_0_1px_var(--hairline)] transition-opacity duration-(--dur-fast)", isDragging ? "opacity-100" : "opacity-0")} />
-      <button
-        type="button"
+      <span aria-hidden className={cn("pointer-events-none absolute inset-0 rounded-lg shadow-elev-2 transition-opacity duration-(--dur-fast)", isDragging ? "opacity-100" : "opacity-0")} />
+      <IconButton
         ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
         onKeyDown={onKeyDown}
-        aria-label={t("crbs.sort.handle", { name: item.label })}
-        className="relative flex size-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-label-3 outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) active:cursor-grabbing"
+        label={t("crbs.sort.handle", { name: item.label })}
+        shape="rect"
+        className="cursor-grab touch-none text-label-3 active:cursor-grabbing active:not-aria-[haspopup]:scale-100"
       >
-        <GripVertical className="size-4" aria-hidden />
-      </button>
+        <GripVertical aria-hidden />
+      </IconButton>
       <div className="relative min-w-0 flex-1">{children}</div>
     </li>
   );

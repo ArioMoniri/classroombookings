@@ -19,6 +19,8 @@ import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { groupConflicts, periodSpan, summariseConflicts, type ConflictHolder } from "./conflicts-model";
 import { Alert, Field, Loading, PageTitle, SelectField } from "./kit";
+import { BareButton } from "@/components/shell/bare-button";
+import { ConflictBanner } from "@/components/conflicts/conflict-banner";
 
 const KIND: Record<ConflictHolder["kind"], { key: MessageKey; tone: "locked" | "warning" | "tint" }> = {
   timetable: { key: "crbs.conflicts.kind.timetable", tone: "locked" },
@@ -50,12 +52,14 @@ export function ConflictsAdmin() {
         title={t("crbs.admin.conflicts.title")}
         subtitle={t("crbs.admin.conflicts.lead")}
         actions={
-          <Button variant="secondary" size="sm" onClick={() => q.refetch()} disabled={q.isFetching} data-testid="conflicts-refresh">
+          <Button className="pointer-coarse:h-11" variant="secondary" size="sm" onClick={() => q.refetch()} disabled={q.isFetching} data-testid="conflicts-refresh">
             <RefreshCw aria-hidden className={q.isFetching ? "motion-safe:animate-spin" : undefined} />
             {t("crbs.conflicts.refresh")}
           </Button>
         }
       />
+      {/* P2: the resolver of each published run with open clashes (planning.edit) */}
+      <ConflictBanner />
       <div className="max-w-xs">
         <Field label={t("crbs.export.session")} htmlFor="conflicts-term">
           <SelectField id="conflicts-term" value={pick} onChange={(e) => setPick(e.target.value)}>
@@ -78,7 +82,7 @@ export function ConflictsAdmin() {
         </Alert>
       ) : null}
 
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {q.isLoading || ctx.isLoading ? <Loading className="px-4" /> : null}
         {q.isSuccess && rows.length === 0 ? (
           <p className="px-4 py-5 type-callout text-label-2" data-testid="conflicts-empty">
@@ -88,12 +92,11 @@ export function ConflictsAdmin() {
         {rows.length > 0 ? (
           <ul data-testid="conflicts-list" aria-label={t("crbs.admin.conflicts.title")}>
             {rows.map((r) => (
-              <li key={r.bookingId} className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
-                <button
-                  type="button"
+              <li key={r.bookingId} className="not-last:edge-hairline-b">
+                <BareButton
                   onClick={() => setOpen(r.bookingId)}
                   aria-label={t("crbs.conflicts.open", { id: r.bookingId, room: roomName(r.roomId), date: fmt.long(r.date) })}
-                  className="flex w-full items-start gap-3 px-4 py-3 text-left outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)"
+                  className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)"
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block type-headline text-label-1">
@@ -110,7 +113,7 @@ export function ConflictsAdmin() {
                   </span>
                   <span className="shrink-0 type-footnote text-label-3 tabular-nums">#{r.bookingId}</span>
                   <ChevronRight className="mt-0.5 size-4 shrink-0 text-label-3" aria-hidden />
-                </button>
+                </BareButton>
               </li>
             ))}
           </ul>

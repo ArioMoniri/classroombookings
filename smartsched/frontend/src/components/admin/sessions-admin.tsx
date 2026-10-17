@@ -3,11 +3,15 @@
  * /admin/sessions (CRBS `Sessions`, `Room_schedules`, `Dates_model`): which terms are selectable for
  * booking, the default schedule and the schedule per room group, and the calendar that assigns a
  * timetable week to each date (paint with a week, or apply one week to the whole term).
+ * Phones (< 640 px; dense grids on phones 2026-10-16): the month calendars drop the week-number column so each day
+ * is a >= 44 px cell (MOBILE.md M-02), painting is by tap (the page still scrolls under a finger: no touch-none,
+ * no drag strokes) and a "Gün / Hafta / Aralık" mode replaces the week-number button and Shift+click.
  */
-import { Brush, Eraser, Loader2, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useReducer, useState, type PointerEvent } from "react";
+import { Brush, Eraser, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useReducer, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -29,6 +33,12 @@ import { Alert, ConfirmDialog, FieldRow, Loading, PageTitle, SectionTitle, Selec
 import { useErrorToast } from "./admin-gate";
 import { changeCount, changes, initialPainter, monthsBetween, painterReducer, type Brush as BrushValue } from "./date-painter";
 import { DeleteSessionDialog, SessionDialog } from "./session-forms";
+import { BareButton } from "@/components/shell/bare-button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { useIsPhone } from "@/components/bookings/use-is-phone";
+
+/** Phone tap modes: one date, its Monday–Sunday week, or the dates between two taps (Shift+click on desktop). */
+export type TapMode = "day" | "week" | "range";
 
 const KEYS = [["crbs", "sessions"], ["crbs", "session-dates"], ["crbs", "term-schedules"], ["crbs", "context"], ["crbs", "grid"], ["crbs", "dates"]];
 
@@ -56,15 +66,14 @@ export function SessionsAdmin() {
       {sessions.isLoading ? <Loading /> : null}
       {sessions.data && sessions.data.length === 0 ? <Alert tone="info">{t("crbs.sessions.none")}</Alert> : null}
       {sessions.data && sessions.data.length ? (
-        <Card variant="glass" className="py-0">
+        <Card className="py-0">
           <ul>
             {sessions.data.map((s) => (
-              <li key={s.term_id} className="shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
-                <button
-                  type="button"
+              <li key={s.term_id} className="not-last:edge-hairline-b">
+                <BareButton
                   aria-current={current?.term_id === s.term_id ? "true" : undefined}
                   onClick={() => setPick(s.term_id)}
-                  className={cn("flex w-full items-center gap-3 px-4 py-2.5 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", current?.term_id === s.term_id ? "bg-tint-soft" : "hover:bg-fill-3")}
+                  className={cn("flex w-full items-center gap-3 px-4 py-2.5 text-left focus-visible:-outline-offset-2", current?.term_id === s.term_id ? "bg-tint-soft" : "hover:bg-fill-3")}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block type-headline text-label-1">{s.name}</span>
@@ -76,7 +85,7 @@ export function SessionsAdmin() {
                   </span>
                   <span className="type-footnote text-label-2">{s.is_selectable ? t("crbs.sessions.selectable") : t("crbs.sessions.hidden")}</span>
                   {s.is_current ? <span className="type-footnote font-medium text-tint-text">{t("crbs.sessions.current")}</span> : null}
-                </button>
+                </BareButton>
               </li>
             ))}
           </ul>
@@ -110,11 +119,11 @@ function SessionDetail({ session, onEdit, onDelete }: { session: Session; onEdit
           id="sess-settings"
           actions={
             <div className="flex gap-1">
-              <Button variant="outline" size="sm" onClick={onEdit} data-testid="session-edit">
+              <Button className="pointer-coarse:h-11" variant="outline" size="sm" onClick={onEdit} data-testid="session-edit">
                 <Pencil aria-hidden />
                 {t("admingaps.sessions.edit")}
               </Button>
-              <Button variant="ghost" size="sm" className="text-status-infeasible-fg" onClick={onDelete} data-testid="session-delete">
+              <Button variant="ghost" size="sm" className="text-status-infeasible-fg pointer-coarse:h-11" onClick={onDelete} data-testid="session-delete">
                 <Trash2 aria-hidden />
                 {t("crbs.common.delete")}
               </Button>
@@ -123,7 +132,7 @@ function SessionDetail({ session, onEdit, onDelete }: { session: Session; onEdit
         >
           {t("crbs.sessions.settings", { name: session.name })}
         </SectionTitle>
-        <Card variant="glass" className="gap-0 px-4 py-1">
+        <Card className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.sessions.selectableLabel")} hint={t("crbs.sessions.selectableHint")} htmlFor="sess-sel">
             <Switch id="sess-sel" checked={session.is_selectable} onCheckedChange={(v) => update.mutate({ is_selectable: v }, { onError: toastError })} data-testid="session-selectable" />
           </FieldRow>
@@ -141,7 +150,7 @@ function SessionDetail({ session, onEdit, onDelete }: { session: Session; onEdit
       </section>
       <section aria-labelledby="sess-groups">
         <SectionTitle id="sess-groups">{t("crbs.sessions.groupSchedules")}</SectionTitle>
-        <Card variant="glass" className="gap-0 px-4 py-1">
+        <Card className="gap-0 px-4 py-1">
           {(termSchedules.data ?? []).length === 0 ? <p className="py-3 type-callout text-label-2">{t("crbs.sessions.noGroups")}</p> : null}
           {(termSchedules.data ?? []).map((g, i) => (
             <FieldRow key={g.room_group_id} label={g.room_group} htmlFor={`ts-${g.room_group_id}`} className={i ? "hairline-t" : undefined}>
@@ -162,8 +171,9 @@ function SessionDetail({ session, onEdit, onDelete }: { session: Session; onEdit
   );
 }
 
-function DatePainter({ session }: { session: Session }) {
+export function DatePainter({ session }: { session: Session }) {
   const { t, locale } = useI18n();
+  const fmt = useBookingFormat();
   const dates = useSessionDates(session.term_id);
   const weeks = useTimetableWeeks();
   const [state, dispatch] = useReducer(painterReducer, initialPainter(null));
@@ -189,6 +199,22 @@ function DatePainter({ session }: { session: Session }) {
   const applyAll = useCrbsMutation((id: number | null) => crbs.bookingAdmin.applyWeek(session.term_id, id), KEYS);
   const pending = changeCount(state);
   const weekdays = useMemo(() => Array.from({ length: 7 }, (_, i) => formatPattern(addDays("2026-02-16", i), "EEE", locale)), [locale]);
+  const phone = useIsPhone();
+  const [mode, setMode] = useState<TapMode>("day");
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const tap = (date: string, monday: string) => {
+    if (mode === "week") return dispatch({ type: "week", monday });
+    if (mode === "range" && anchor) {
+      // the reducer's Shift+click: from the last painted date (the anchor) to this one
+      dispatch({ type: "down", date, shift: true });
+      dispatch({ type: "up" });
+      return setAnchor(null);
+    }
+    dispatch({ type: "down", date });
+    dispatch({ type: "up" });
+    if (mode === "range") setAnchor(date);
+  };
+  const cols = phone ? "grid-cols-7" : "grid-cols-[28px_repeat(7,1fr)]";
 
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!state.stroke) return;
@@ -208,14 +234,14 @@ function DatePainter({ session }: { session: Session }) {
         actions={
           <div className="flex gap-2">
             {pending ? (
-              <Button variant="ghost" size="sm" onClick={() => dispatch({ type: "revert" })}>
+              <Button className="pointer-coarse:h-11" variant="ghost" size="sm" onClick={() => dispatch({ type: "revert" })}>
                 <RotateCcw aria-hidden />
                 {t("crbs.painter.revert")}
               </Button>
             ) : null}
-            <Button size="sm" disabled={!pending || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => toast.success(t("crbs.painter.saved", { n: pending })), onError: toastError })} data-testid="painter-save">
-              {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-              {t("crbs.painter.save", { n: pending })}
+            <Button size="sm" className="pointer-coarse:h-11" disabled={!pending || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => toast.success(t("crbs.painter.saved", { n: pending })), onError: toastError })} data-testid="painter-save" aria-busy={save.isPending || undefined}>
+              <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+              {t("crbs.painter.save", { n: pending })}</BusyLabel>
             </Button>
           </div>
         }
@@ -228,32 +254,51 @@ function DatePainter({ session }: { session: Session }) {
       ) : (
         <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label={t("crbs.painter.brush")}>
           {brushes.map((b) => (
-            <button
+            <BareButton
               key={b.value ?? "none"}
-              type="button"
               role="radio"
               aria-checked={state.brush === b.value}
               onClick={() => dispatch({ type: "brush", brush: b.value })}
-              className={cn("inline-flex h-8 items-center gap-1.5 rounded-full px-3 type-footnote font-medium outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus)", state.brush === b.value ? "shadow-[0_0_0_2px_var(--accent)]" : "shadow-[0_0_0_1px_var(--hairline)]", !b.week && "bg-fill-2 text-label-1")}
+              className={cn("inline-flex h-(--control-h-md) items-center gap-1.5 rounded-full px-3 type-footnote font-medium", state.brush === b.value ? "ring-2 ring-(--accent)" : "edge-hairline", !b.week && "bg-fill-2 text-label-1")}
               style={b.week ? { background: b.week.bgcol, color: b.week.fgcol } : undefined}
             >
               {b.week ? <Brush className="size-3.5" aria-hidden /> : <Eraser className="size-3.5" aria-hidden />}
               {b.week ? b.week.name : t("crbs.painter.eraser")}
-            </button>
+            </BareButton>
           ))}
-          <Button variant="ghost" size="sm" onClick={() => setApplyOpen(true)}>
+          <Button className="pointer-coarse:h-11" variant="ghost" size="sm" onClick={() => setApplyOpen(true)}>
             {t("crbs.painter.applyAll")}
           </Button>
         </div>
       )}
-      <p className="type-footnote text-label-3">{t("crbs.painter.howto")}</p>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" onPointerMove={onMove} data-testid="painter">
+      {phone && (weeks.data ?? []).length ? (
+        <SegmentedControl
+          fill
+          semantics="radiogroup"
+          aria-label={t("crbs.painter.mode")}
+          value={mode}
+          onValueChange={(v) => {
+            setMode(v);
+            setAnchor(null);
+          }}
+          options={[
+            { value: "day", label: t("common.day"), testId: "painter-mode-day" },
+            { value: "week", label: t("common.week"), testId: "painter-mode-week" },
+            { value: "range", label: t("crbs.painter.modeRange"), testId: "painter-mode-range" },
+          ]}
+          data-testid="painter-mode"
+        />
+      ) : null}
+      <p className="type-footnote text-label-3" aria-live="polite" data-testid="painter-howto">
+        {phone ? (anchor ? t("crbs.painter.rangeHint", { date: fmt.short(anchor) }) : t("crbs.painter.howtoPhone")) : t("crbs.painter.howto")}
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" onPointerMove={phone ? undefined : onMove} data-testid="painter">
         {months.map((m) => (
-          <Card key={m.key} variant="plain" className="gap-1 px-3 py-3">
+          <Card key={m.key} variant="plain" className="gap-1 px-3 py-3 max-sm:px-2">
             <p className="type-headline text-label-1">{formatPattern(`${m.key}-01`, "MMMM yyyy", locale)}</p>
             <div role="grid" aria-label={formatPattern(`${m.key}-01`, "MMMM yyyy", locale)}>
-              <div role="row" className="grid grid-cols-[28px_repeat(7,1fr)] gap-0.5">
-                <span role="columnheader" className="type-caption text-label-3" />
+              <div role="row" className={cn("grid gap-0.5", cols)}>
+                {phone ? null : <span role="columnheader" className="type-caption text-label-3" />}
                 {weekdays.map((w) => (
                   <span key={w} role="columnheader" className="text-center type-caption text-label-3">
                     {w}
@@ -261,41 +306,45 @@ function DatePainter({ session }: { session: Session }) {
                 ))}
               </div>
               {m.weeks.map((wk) => (
-                <div key={wk.monday} role="row" className="grid grid-cols-[28px_repeat(7,1fr)] gap-0.5">
-                  <span role="rowheader">
+                <div key={wk.monday} role="row" className={cn("grid gap-0.5", cols)}>
+                  {phone ? null : <span role="rowheader">
                     {wk.days.some((d) => d && d in state.pending) ? (
-                      <button type="button" aria-label={t("crbs.painter.paintWeek", { date: wk.monday })} onClick={() => dispatch({ type: "week", monday: wk.monday })} className="h-8 w-full rounded-md type-caption text-label-3 outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
+                      <BareButton aria-label={t("crbs.painter.paintWeek", { date: wk.monday })} onClick={() => dispatch({ type: "week", monday: wk.monday })} className="h-(--control-h-md) w-full rounded-md type-caption text-label-3 hover:bg-fill-2">
                         {info.get(wk.days.find((d) => d && info.get(d)) ?? "")?.term_week ?? ""}
-                      </button>
+                      </BareButton>
                     ) : null}
-                  </span>
+                  </span>}
                   {wk.days.map((d, i) => {
-                    if (!d || !(d in state.pending)) return <span key={i} role="gridcell" className="h-8" />;
+                    if (!d || !(d in state.pending)) return <span key={i} role="gridcell" className="h-(--control-h-md)" />;
                     const w = state.pending[d] != null ? weekById.get(state.pending[d] as number) : undefined;
                     const di = info.get(d);
                     const changed = state.pending[d] !== state.original[d];
                     return (
                       <span key={d} role="gridcell">
-                        <button
-                          type="button"
+                        <BareButton
                           data-paint-day={d}
+                          data-anchor={anchor === d ? "true" : undefined}
                           aria-label={[d, w ? w.name : t("crbs.painter.noWeek"), di?.holiday ? t("crbs.picker.holiday", { name: di.holiday }) : null, changed ? t("crbs.painter.changed") : null].filter(Boolean).join(", ")}
-                          onPointerDown={(e) => {
-                            e.preventDefault();
-                            dispatch({ type: "down", date: d, shift: e.shiftKey });
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              dispatch({ type: "down", date: d, shift: e.shiftKey });
-                              dispatch({ type: "up" });
-                            }
-                          }}
-                          className={cn("relative flex h-8 w-full touch-none items-center justify-center rounded-md type-caption tabular-nums outline-hidden select-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)", !w && "bg-fill-3 text-label-2", changed && "shadow-[inset_0_0_0_1.5px_var(--label-1)]", di?.holiday && "line-through")}
+                          {...(phone
+                            ? { onClick: () => tap(d, wk.monday) }
+                            : {
+                                onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
+                                  e.preventDefault();
+                                  dispatch({ type: "down", date: d, shift: e.shiftKey });
+                                },
+                                onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    dispatch({ type: "down", date: d, shift: e.shiftKey });
+                                    dispatch({ type: "up" });
+                                  }
+                                },
+                              })}
+                          className={cn("relative flex h-(--control-h-md) w-full items-center justify-center rounded-md type-caption tabular-nums select-none", !phone && "touch-none", !w && "bg-fill-3 text-label-2", changed && "inset-ring-[1.5px] inset-ring-(--label-1)", anchor === d && "outline-2 outline-offset-1 outline-(--accent)", di?.holiday && "line-through")}
                           style={w ? { background: w.bgcol, color: w.fgcol } : undefined}
                         >
                           {Number(d.slice(8))}
-                        </button>
+                        </BareButton>
                       </span>
                     );
                   })}

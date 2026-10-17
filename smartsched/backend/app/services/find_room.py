@@ -14,7 +14,11 @@ text, it answers every room the caller may view with a status and the reasons, f
   did not ask for (do not give the PC lab to a lecture) - 0.2 when the room is in the preferred building (given,
   or the building of most of the caller's bookings in the last 90 days); ties: room order, Turkish name;
 * fewer than 3 free rooms: alternatives (same rooms ±1/±2 periods, other weekdays of that week, near misses
-  with ≤ 10 % fewer seats or one feature missing), each with a reason.
+  with ≤ 10 % fewer seats or one feature missing), each with a reason;
+* every result and alternative names the booking periods of its slot (``period_ids`` in grid order, ``period_id``
+  = the first, ``[]`` / ``None`` when the room's schedule has no bookable period inside the slot that weekday), from
+  the room's applied schedule on its first free date, so "Neden?" can ask ``GET /booking-policies/effective`` with
+  ``period_id`` for the full verdict (backend asks batch 3 item 2).
 
 Text matching is Turkish-aware (``tr_casefold``: İ/ı, NBSP); times accept dots (``10.10``)."""
 
@@ -31,12 +35,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.importers import normalize as n
-from app.models import Booking, Building, Program, User
+from app.models import Booking, BookingPeriod, Building, Program, User
 from app.models.booking import BOOKED
 from app.models.catalog import Room
 from app.services import bookings as bsvc
 from app.services import rooms_features as feat
-from app.services.bookings_calendar import CalendarError, TermInfo, date_infos, resolve_term
+from app.services.bookings_calendar import CalendarError, TermInfo, applied_schedule, date_infos, resolve_term
 from app.services.bookings_collation import tr_sort_key
 from app.services.bookings_perms import Access
 from app.services.calendar import date_for
@@ -274,6 +278,32 @@ class _Cand:
     short_pct: float = 0.0
 
 
+async def _own_pending(
+    session: AsyncSession, access: Access, room_ids: set[int], d0: date, d1: date, bocc: Any
+) -> set[int]:
+    """T-R1-14: the caller's own PENDING requests in these rooms and dates hold their slots for the caller too (a
+    request without a live hold is not in ``booking_occupancy``): they are added to ``bocc``; returns their ids."""
+    if access.user_id is None or not room_ids:
+        return set()
+    from app.models.booking import PENDING
+
+    q = select(Booking).where(
+        Booking.status == PENDING,
+        Booking.user_id == access.user_id,
+        Booking.room_id.in_(room_ids),
+        Booking.date.between(d0, d1),
+    )
+    out: set[int] = set()
+    for b in (await session.execute(q)).scalars():
+        out.add(b.id)
+        held = bocc.setdefault((b.room_id, b.date), [])
+        if all(h.ref_id != b.id for h in held):
+            held.append(
+                bsvc.Held("booking", b.room_id, b.date, b.start_period, b.end_period, b.notes or "", b.id, pending=True)
+            )
+    return out
+
+
 def _free_on(occ: list[bsvc.Held], s: int, e: int) -> bsvc.Held | None:
     return next((h for h in occ if h.overlaps(s, e)), None)
 
@@ -294,6 +324,36 @@ async def _busy_label(session: AsyncSession, access: Access, held: bsvc.Held, ro
             if dep is not None:
                 parts.append(dep.name)
     return " · ".join(p for p in parts if p)
+
+
+class _SlotPeriods:
+    """Booking period ids of a slot in a room: the room's applied schedule (per room group, cached), its bookable
+    periods offered that weekday that lie inside ``start..end`` on the 18-period grid."""
+
+    def __init__(self, session: AsyncSession, info: TermInfo) -> None:
+        self.session, self.info = session, info
+        self._schedule: dict[int | None, int | None] = {}
+        self._periods: dict[int, list[BookingPeriod]] = {}
+
+    async def ids(self, room: Room, d: date, start: int, end: int) -> list[int]:
+        group = room.room_group_id
+        if group not in self._schedule:
+            sch = await applied_schedule(self.session, self.info, room)
+            self._schedule[group] = sch.id if sch is not None else None
+        sid = self._schedule[group]
+        if sid is None:
+            return []
+        if sid not in self._periods:
+            q = select(BookingPeriod).where(BookingPeriod.schedule_id == sid)
+            self._periods[sid] = sorted(
+                (await self.session.execute(q)).scalars(), key=lambda p: (p.start_period, p.end_period, p.id)
+            )
+        wd = d.isoweekday()
+        return [
+            p.id
+            for p in self._periods[sid]
+            if p.bookable and wd in (p.days or []) and start <= p.start_period and p.end_period <= end
+        ]
 
 
 async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dict[str, Any]:
@@ -349,6 +409,9 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
         raise FindError(exc.status, exc.code, exc.message, exc.message) from exc
     tags = _tags_from_words(q.tags)
     tags |= _tags_named_in(q.text)  # A-11: "PC" in the search text asks for PC rooms (no "not asked for" penalty)
+    # R3-A-01: a feature chip asks for its source tag too ("Bilgisayar laboratuvarı" = PC), so the labs it finds are
+    # not marked "PC özellikli oda; istenmedi" nor ranked lower
+    tags |= {str(c.field.solver_tag) for c in crit if c.field.solver_tag and c.op == "eq" and c.value is True}
     vals = await feat.room_values(session, rooms, fields)
     if q.text:
         words = [w for w in n.tr_casefold(q.text).split(" ") if w]
@@ -384,13 +447,22 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
             d0, d1 = d0 - timedelta(days=d0.isoweekday() - 1), d1 + timedelta(days=7 - d1.isoweekday())
         bocc = await bsvc.booking_occupancy(session, ids, d0, d1)
         tocc = await bsvc.timetable_occupancy(session, ids, d0, d1)
+        own_ids = await _own_pending(session, access, ids, d0, d1, bocc)
     else:
         bocc, tocc = {}, {}
+        own_ids = set()
+
+    def own_hold(h: bsvc.Held | None) -> bool:
+        return h is not None and h.kind == "booking" and h.ref_id in own_ids
 
     def holders(rid: int, d: date) -> list[bsvc.Held]:
         return [*bocc.get((rid, d), []), *tocc.get((rid, d), [])]
 
     rules = await approvals.RulesIndex.load(session)
+    from app.services.booking_policies import PolicyIndex
+
+    policies = await PolicyIndex.load(session)
+    today_ = await bsvc.today(session)
 
     def scan(c: _Cand, ds: list[date], first_s: int, last_s: int) -> tuple[int | None, dict[date, bsvc.Held | None]]:
         """Earliest start in [first_s, last_s] free on the most dates (all, ideally)."""
@@ -412,10 +484,27 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
         mode = await rules.mode_for(session, access, r, info.term.id)
         start, per = scan(c, open_dates, s0, s1) if open_dates else (s0, {})
         start = start or s0
+        # P8 booking policies + exam-period mode on the free dates: refused ("policy") or request-only
+        policy_hit = None
+        if not c.static and mode in ("book", "request"):
+            t0_, t1_ = n.PERIODS[start - 1].start, n.PERIODS[start + dur - 2].end
+            for d_ in [d_ for d_, h_ in per.items() if h_ is None]:
+                found = await policies.static_violations(session, access, r, info.term.id, d_, t0_, t1_, today_)
+                if found:
+                    policy_hit = next((v for v in found if v.effect == "refuse"), found[0])
+                    break
+            if policy_hit is not None and policy_hit.effect == "request":
+                mode = "request"
         busy_n = sum(1 for h in per.values() if h is not None)
         free_n = len(per) - busy_n
+        mine_n = sum(1 for h in per.values() if own_hold(h))
         if c.static:
             status = c.static
+        elif mine_n and mine_n == busy_n:
+            # T-R1-14 (R1-A-06): the caller's own open request holds the slot: "Talebiniz bekliyor", not "just taken"
+            status = "mine_pending"
+        elif policy_hit is not None and policy_hit.effect == "refuse":
+            status = "policy"
         elif not open_dates:
             status = "closed"
         elif busy_n == 0:
@@ -458,10 +547,22 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
             reasons.insert(0, _reason("Kapasite bilinmiyor", "Capacity unknown"))
         elif status == "feature_missing":
             reasons.insert(0, _reason("Eksik: " + ", ".join(c.missing), "Missing: " + ", ".join(c.missing)))
+        elif status == "policy" and policy_hit is not None:
+            reasons.insert(0, _reason(policy_hit.message_tr, policy_hit.message_en))
+        elif status == "requestable" and policy_hit is not None:
+            reasons.insert(0, _reason(policy_hit.message_tr, policy_hit.message_en))
         elif status == "requestable":
             reasons.insert(0, _reason("Onay gerekli: talep oluşturulur", "Needs approval: a request is created"))
         elif status == "partial":
             reasons.insert(0, _reason(f"{free_n}/{len(per)} tarih boş", f"free on {free_n} of {len(per)} dates"))
+        elif status == "mine_pending":
+            reasons.insert(
+                0,
+                _reason(
+                    "Talebiniz bekliyor: onaylayıcılar karar verene kadar bu saat sizin talebinizde",
+                    "Your request is waiting: the slot is yours until the approvers decide",
+                ),
+            )
         busy_with = None
         if status in ("busy", "partial"):
             first_held = next(h for h in per.values() if h is not None)
@@ -503,22 +604,39 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
     rank = {
         "free": 0,
         "requestable": 0,
+        "mine_pending": 1,
         "partial": 1,
         "busy": 2,
         "too_small": 3,
         "feature_missing": 4,
+        "policy": 4,
         "capacity_unknown": 5,
         "closed": 6,
     }
     results.sort(key=lambda x: (rank[x["status"]], x["fit"]["score"], x["pos"], tr_sort_key(x["name"]), x["room_id"]))
     if not q.include_busy:
-        results = [x for x in results if x["status"] in ("free", "requestable", "partial")]
+        results = [x for x in results if x["status"] in ("free", "requestable", "partial", "mine_pending")]
 
     alternatives: list[dict[str, Any]] = []
     if free_count < 3 and open_dates:
         alternatives = await _alternatives(session, access, q, cands, open_dates, s0, s1, dur, holders, rules, info)
     for x in results:
         x.pop("pos", None)
+    results = results[: max(1, q.limit)]
+    slot_periods = _SlotPeriods(session, info)
+    by_id = {c.room.id: c.room for c in cands}
+    for x in results:
+        free_on = [d for d in open_dates if not x.get("per_date")] or [
+            date.fromisoformat(p["date"]) for p in x["per_date"] if p["status"] == "free"
+        ]
+        d_ = (free_on or open_dates or dates)[0]
+        x["period_ids"] = await slot_periods.ids(by_id[x["room_id"]], d_, x["start_period"], x["end_period"])
+        x["period_id"] = x["period_ids"][0] if x["period_ids"] else None
+    for a in alternatives:
+        a["period_ids"] = await slot_periods.ids(
+            by_id[a["room_id"]], date.fromisoformat(a["dates"][0]), a["start_period"], a["end_period"]
+        )
+        a["period_id"] = a["period_ids"][0] if a["period_ids"] else None
     return {
         "query_echo": _echo(q),
         "term_id": info.term.id,
@@ -535,7 +653,7 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
             "text_tr": f"{free_count} boş oda · {len(open_dates)}/{len(dates)} tarih açık",
             "text_en": f"{free_count} free rooms · {len(open_dates)}/{len(dates)} dates open",
         },
-        "results": results[: max(1, q.limit)],
+        "results": results,
         "alternatives": alternatives,
         "timing_ms": round((_time.perf_counter() - t0) * 1000, 1),
     }
@@ -580,8 +698,8 @@ async def _alternatives(
                         "start_period": s,
                         "end_period": s + dur - 1,
                         "reason": _reason(
-                            f"{c.room.display_name} {p0.start:%H:%M}-{p1.end:%H:%M} boş ({shift:+d} ders saati)",
-                            f"{c.room.display_name} free {p0.start:%H:%M}-{p1.end:%H:%M} ({shift:+d} period)",
+                            f"{c.room.display_name} {p0.start:%H:%M}-{p1.end:%H:%M} boş ({shift_words(shift, 'tr')})",
+                            f"{c.room.display_name} free {p0.start:%H:%M}-{p1.end:%H:%M} ({shift_words(shift, 'en')})",
                         ),
                     }
                 )
@@ -611,8 +729,9 @@ async def _alternatives(
                             ),
                         }
                     )
-    # near misses: a little too small, or one feature missing
-    for c in cands:
+    # near misses: a little too small, then (T-R1-14, R1-A-07) the rooms lacking the one asked feature; the screen
+    # folds the latter away ("Özelliği eksik odalar (n)"); the English reason of those says "missing: <feature>"
+    for c in sorted(cands, key=lambda c: c.static != "too_small"):
         near = (c.static == "too_small" and c.short_pct <= 0.10) or (
             c.static == "feature_missing" and len(c.missing) == 1
         )
@@ -647,6 +766,14 @@ async def _alternatives(
             seen.add(key)
             unique.append(a)
     return unique[:20]
+
+
+def shift_words(shift: int, lang: str) -> str:
+    """``+1`` -> "1 ders saati geç başlar" / "starts 1 period later" (R1-A-07: "(-1 ders saati)" said nothing)."""
+    k = abs(shift)
+    if lang == "tr":
+        return f"{k} ders saati {'geç' if shift > 0 else 'erken'} başlar"
+    return f"starts {k} period{'s' if k != 1 else ''} {'later' if shift > 0 else 'earlier'}"
 
 
 def _echo(q: FindQuery) -> dict[str, Any]:

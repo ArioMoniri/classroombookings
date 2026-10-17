@@ -206,11 +206,21 @@ export const api = {
       const { messages } = await api.runs.chat(runId);
       return { ok: true, messages };
     },
-    activate: (runId: number) => request(`/runs/${runId}/activate`, { method: "POST", schema: RunOne }),
+    /** `confirmScopeReduction`: resend after a 409 `scope_reduction` (the run covers fewer weeks than the published one). */
+    activate: (runId: number, opts: { confirmScopeReduction?: boolean; confirmForcedBreaks?: boolean } = {}) =>
+      request(`/runs/${runId}/activate`, {
+        method: "POST",
+        body: { confirm_scope_reduction: Boolean(opts.confirmScopeReduction), confirm_forced_breaks: Boolean(opts.confirmForcedBreaks) },
+        schema: RunOne,
+        // the publish dialog explains every refusal itself (round-1 R1-M-02: no generic 409 toast)
+        silent: true,
+      }),
     /** `POST /runs/{id}/diagnoses/{idx}/apply {option_index}`; 422 = the suggestion has no structured fix. */
     applyFix: (runId: number, diagnosisIndex: number, optionIndex: number, reSolve = true) =>
       request(`/runs/${runId}/diagnoses/${diagnosisIndex}/apply`, { method: "POST", body: { option_index: optionIndex, re_solve: reSolve }, schema: DiagnosisApplyResult }),
-    exportUrl: (runId: number, format: "xlsx" | "ics" | "csv" | "crbs") => `/api/v1/runs/${runId}/export?format=${format}`,
+    /** `weeks` (term week numbers) limits the xlsx export to those weeks (admin persona M-32); the other formats export the whole run */
+    exportUrl: (runId: number, format: "xlsx" | "ics" | "csv" | "crbs", weeks?: readonly number[]) =>
+      `/api/v1/runs/${runId}/export?format=${format}${weeks?.length ? `&weeks=${weeks.join(",")}` : ""}`,
   },
   settings: {
     get: () => request("/settings", { schema: SettingsOut }),

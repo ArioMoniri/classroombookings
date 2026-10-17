@@ -5,10 +5,10 @@
  * `check_session_dates`); with the "confirm" setting the backend answers 409 first and the dialog asks.
  * Deleting a session deletes its bookings, as in CRBS: the confirm step names how many (`GET /terms/{id}/usage`).
  */
-import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import { crbs, crbsAdmin, crbsError, useCrbsMutation, useSchedules, useTermUsage
 import { useI18n } from "@/lib/i18n/provider";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, Field, Loading, SelectField } from "./kit";
+import { DateField } from "@/components/ui/date-field";
 
 export const SESSION_KEYS = [["crbs", "sessions"], ["crbs", "session-dates"], ["crbs", "term-schedules"], ["crbs", "context"], ["crbs", "grid"], ["crbs", "dates"], ["crbs", "holidays"], ["crbs", "term-usage"], ["crbs", "mine"], ["crbs", "dashboard"], ["terms"]];
 
@@ -91,10 +92,10 @@ function SessionForm({ session, onClose, onSaved }: { session: Session | null; o
       ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t("admingaps.sessions.start")} htmlFor="ses-start">
-          <Input id="ses-start" type="date" required value={start} onChange={(e) => (setStart(e.target.value), setOutside(null))} data-testid="session-start" />
+          <DateField id="ses-start" required value={start} onChange={(v) => (setStart(v), setOutside(null))} data-testid="session-start" />
         </Field>
         <Field label={t("admingaps.sessions.end")} htmlFor="ses-end" error={badDates ? t("admingaps.sessions.endBeforeStart") : null}>
-          <Input id="ses-end" type="date" required min={start || undefined} value={end} onChange={(e) => (setEnd(e.target.value), setOutside(null))} data-testid="session-end" />
+          <DateField id="ses-end" required min={start || undefined} value={end} onChange={(v) => (setEnd(v), setOutside(null))} data-testid="session-end" />
         </Field>
       </div>
       {!session ? (
@@ -131,14 +132,14 @@ function SessionForm({ session, onClose, onSaved }: { session: Session | null; o
           {t("crbs.common.cancel")}
         </Button>
         {outside !== null ? (
-          <Button type="button" variant="destructive" disabled={save.isPending} onClick={() => submit(true)} data-testid="session-confirm-dates">
-            {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("admingaps.sessions.outsideConfirm", { n: outside })}
+          <Button type="button" variant="destructive" disabled={save.isPending} onClick={() => submit(true)} data-testid="session-confirm-dates" aria-busy={save.isPending || undefined}>
+            <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+            {t("admingaps.sessions.outsideConfirm", { n: outside })}</BusyLabel>
           </Button>
         ) : (
-          <Button type="submit" disabled={save.isPending || !name.trim() || !start || !end || badDates} data-testid="session-save">
-            {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {session ? t("crbs.common.save") : t("crbs.common.create")}
+          <Button type="submit" disabled={save.isPending || !name.trim() || !start || !end || badDates} data-testid="session-save" aria-busy={save.isPending || undefined}>
+            <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+            {session ? t("crbs.common.save") : t("crbs.common.create")}</BusyLabel>
           </Button>
         )}
       </DialogFooter>
@@ -209,9 +210,9 @@ export function DeleteSessionDialog({ session, onClose, onDeleted }: { session: 
                 onError: (err) => setError(bookingErrorMessage(crbsError(err), t)),
               })
             }
-          >
-            {del.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("admingaps.sessions.deleteConfirm")}
+           aria-busy={del.isPending || undefined}>
+            <BusyLabel busy={del.isPending} label={t("busy.deleting")}>
+            {t("admingaps.sessions.deleteConfirm")}</BusyLabel>
           </Button>
         </DialogFooter>
       </DialogContent>

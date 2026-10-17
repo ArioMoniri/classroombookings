@@ -6,6 +6,9 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+#: how many warning texts a job summary lists (the count is always complete)
+WARNINGS_LISTED = 500
+
 
 @dataclass
 class SkippedRow:
@@ -56,8 +59,12 @@ class ImportReport:
         d["updated"] = dict(self.updated)
         d["rows_skipped_count"] = self.rows_skipped_count
         d["skip_reasons"] = self.skip_reasons()
+        # M-21: the summary lists the first WARNINGS_LISTED warnings and says how many there are in all, so the
+        # import report can say "507 uyarı, ilk 500 gösteriliyor"
         d["warnings_count"] = len(self.warnings)
-        d["warnings"] = self.warnings[:500]
+        d["warnings"] = self.warnings[:WARNINGS_LISTED]
+        d["warnings_shown"] = len(d["warnings"])
+        d["warnings_truncated"] = d["warnings_count"] > d["warnings_shown"]
         d["rows_skipped"] = d["rows_skipped"][:500]
         d["warning_summary"] = [{"text": t, "count": c} for t, c in self.warning_summary()]
         return d

@@ -100,5 +100,56 @@
     "find": {
       "weeks": "Semanas"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "Dia"
+    }
+  },
+  "programWizard": {
+    "col": {
+      "year": "Ano"
+    },
+    "patterns": {
+      "weeks": "Semanas"
+    }
+  },
+  "analytics": {
+    "week": "Semana"
+  },
+  "compare": {
+    "week": "Semana"
+  },
+  "invigilation": {
+    "people": {
+      "days": "Dias"
+    },
+    "pool": {
+      "hours": "Horas"
+    }
+  },
+  "policies": {
+    "day": {
+      "1": "Seg",
+      "2": "Ter",
+      "3": "Qua",
+      "4": "Qui",
+      "5": "Sex",
+      "6": "Sáb",
+      "7": "Dom"
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "Dia"
+  },
+  "quickReserve": {
+    "day": {
+      "label": "Dia"
+    }
+  },
+  "aiAdmin": {
+    "usage": {
+      "day": "Dia"
+    }
   }
 }

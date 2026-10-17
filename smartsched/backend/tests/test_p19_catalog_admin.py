@@ -375,14 +375,25 @@ async def test_meeting_and_exam_requests_by_hand(client: AsyncClient, parsed_bah
     assert (m["start_period"], m["end_period"]) == (imported.start_period, imported.end_period)
     assert m["requested_room_ids"] == [rooms["C504"]] and m["requested_room_text"] == "C 504"
     assert m["requested_building"] == "C" and m["requested_capacity"] == 80
-    # an unknown room, an off-grid time and a section of another term are refused
+    # an unknown room and a missing end are refused
     for bad in (
         {**body, "room_needs": {"preferred_room": "B 501"}},
-        {**body, "start": "09:00"},
         {**body, "end": None},
+        {**body, "start": "23:30"},  # after the last period
     ):
         r = await client.post(f"{API}/requests/meetings", json=bad, headers=h)
         assert r.status_code == 422, (bad, r.text)
+    # an off-grid time snaps like the planning list (owner decision 2026-10-15): 09:00-13:20 covers P1 (08:30-09:10)
+    # for 10 of 40 minutes -> P2-P6, with a warning; the written time is kept for the data-issues report
+    r = await client.post(f"{API}/requests/meetings", json={**body, "start": "09:00"}, headers=h)
+    assert r.status_code == 201, r.text
+    snapped = r.json()
+    assert (snapped["start_period"], snapped["end_period"]) == (2, 6)
+    async with get_session_factory()() as s:
+        row_s = await s.get(MeetingRequest, snapped["id"])
+        assert row_s is not None and f"{row_s.start_time:%H:%M}" == "09:00"
+        assert row_s.parse_warnings and "snapped to P2-P6" in row_s.parse_warnings[0]
+    await client.delete(f"{API}/requests/meetings/{snapped['id']}", params={"purge": "true"}, headers=h)
     # an online section's meeting needs no room
     r = await client.put(f"{API}/sections/{sec['id']}", json={"mode": "Çevrimiçi"}, headers=h)
     assert r.status_code == 200 and r.json()["mode"] == "ONLINE"

@@ -1,0 +1,35 @@
+# Prometheus 3 for the SmartSched pod (W3-OPS). Retention: 15 d / 1 GB (compose flags). Internal network only.
+# Node, Postgres and blackbox metrics arrive by remote write from Alloy (alloy/config.alloy).
+global:
+  scrape_interval: 30s
+  scrape_timeout: 10s
+  evaluation_interval: 30s
+  external_labels:
+    stack: smartsched
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  # every backend replica (docker compose --scale backend=N): compose DNS answers one A record per container;
+  # inside a replica the uvicorn workers share their counters (PROMETHEUS_MULTIPROC_DIR, app/core/observability.py)
+  - job_name: backend
+    metrics_path: /metrics
+    dns_sd_configs:
+      - names: ["backend"]
+        type: A
+        port: 8000
+        refresh_interval: 30s
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:3100"]
+  - job_name: grafana
+    metrics_path: /grafana/metrics
+    static_configs:
+      - targets: ["grafana:3000"]
+  - job_name: alloy
+    static_configs:
+      - targets: ["alloy:12345"]

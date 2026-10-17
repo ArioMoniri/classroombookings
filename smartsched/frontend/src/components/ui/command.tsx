@@ -1,6 +1,8 @@
 "use client"
 // Source: shadcn/ui command (style base-nova, https://ui.shadcn.com) on cmdk (MIT) — Licence: MIT
 // Modified: yes — Liquid Glass v2 Spotlight/Raycast-style palette: large borderless search, fill selection. API unchanged.
+// Phones (2026-10-16): CommandDialog is a full-height bottom sheet (ui/dialog phone layout, MOBILE.md M-04); on
+// touch the input fills its 44 px row and items are at least 44 px tall (M-02: 36 px rows overlapped hit areas).
 
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
@@ -58,6 +60,10 @@ function CommandDialog({
       <DialogContent
         className={cn(
           "top-[16%] translate-y-0 overflow-hidden rounded-3xl! p-0 sm:max-w-xl",
+          // phones: the dialog's bottom sheet at its full height (the input stays at the top, above the
+          // keyboard, and the sheet does not jump while results filter); the list takes the rest
+          // the dialog body is a column (T-R1-03): the Command fills it and the list takes the rest
+          "max-sm:h-[calc(100dvh-3rem)] max-sm:overflow-hidden max-sm:rounded-b-none! max-sm:**:data-[slot=command]:min-h-0 max-sm:**:data-[slot=command]:flex-1 max-sm:**:data-[slot=command-list]:max-h-none max-sm:**:data-[slot=command-list]:min-h-0 max-sm:**:data-[slot=command-list]:flex-1",
           className
         )}
         showCloseButton={showCloseButton}
@@ -78,7 +84,7 @@ function CommandInput({
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(
-            "w-full bg-transparent text-[16px] tracking-[-0.01em] text-label-1 outline-hidden placeholder:text-label-3 disabled:cursor-not-allowed disabled:opacity-50",
+            "w-full bg-transparent type-title-3 tracking-[-0.01em] text-label-1 outline-hidden pointer-coarse:h-11 placeholder:text-label-3 disabled:cursor-not-allowed disabled:opacity-50",
             className
           )}
           {...props}
@@ -99,7 +105,7 @@ function CommandList({
     <CommandPrimitive.List
       data-slot="command-list"
       className={cn(
-        "no-scrollbar max-h-80 scroll-py-1.5 overflow-x-hidden overflow-y-auto pt-1.5 outline-none",
+        "no-scrollbar max-h-80 scroll-py-1.5 overflow-x-hidden overflow-y-auto pt-1.5 outline-hidden",
         className
       )}
       {...props}
@@ -114,7 +120,7 @@ function CommandEmpty({
   return (
     <CommandPrimitive.Empty
       data-slot="command-empty"
-      className={cn("px-3 py-6 text-[13px] text-label-2", className)}
+      className={cn("px-3 py-6 type-callout text-label-2", className)}
       {...props}
     />
   )
@@ -128,7 +134,7 @@ function CommandGroup({
     <CommandPrimitive.Group
       data-slot="command-group"
       className={cn(
-        "overflow-hidden p-0.5 text-label-1 **:[[cmdk-group-heading]]:px-2.5 **:[[cmdk-group-heading]]:pt-2 **:[[cmdk-group-heading]]:pb-1 **:[[cmdk-group-heading]]:text-[11px] **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:tracking-[0.02em] **:[[cmdk-group-heading]]:text-label-3",
+        "overflow-hidden p-0.5 text-label-1 **:[[cmdk-group-heading]]:px-2.5 **:[[cmdk-group-heading]]:pt-2 **:[[cmdk-group-heading]]:pb-1 **:[[cmdk-group-heading]]:type-caption **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:tracking-[0.02em] **:[[cmdk-group-heading]]:text-label-3",
         className
       )}
       {...props}
@@ -158,7 +164,7 @@ function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex h-9 cursor-default items-center gap-2.5 rounded-[10px] px-2.5 text-[13px] text-label-1 outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-fill-1 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:text-label-2 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-label-1",
+        "group/command-item relative flex h-9 pointer-coarse:min-h-11 cursor-default items-center gap-2.5 rounded-[10px] px-2.5 type-callout text-label-1 outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-fill-1 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:text-label-2 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-label-1",
         className
       )}
       {...props}
@@ -177,7 +183,7 @@ function CommandShortcut({
     <span
       data-slot="command-shortcut"
       className={cn(
-        "ml-auto text-[11px] tracking-[0.08em] text-label-3 group-data-selected/command-item:text-label-2",
+        "ml-auto type-caption tracking-[0.08em] text-label-3 group-data-selected/command-item:text-label-2",
         className
       )}
       {...props}

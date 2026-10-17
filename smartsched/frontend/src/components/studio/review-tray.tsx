@@ -10,6 +10,7 @@ import type { StudioMeta } from "@/lib/api/studio-schemas";
 import { pairLang } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
+import { StudioLearnedSuggestions } from "@/components/learning/studio-learned";
 import { RuleCard, type Candidate } from "./rule-card";
 import { allowedHardness, detectTextLang, fallbackSentence, provenanceText, ruleTokens } from "./rule-helpers";
 import { writeField } from "./rule-sentence";
@@ -128,8 +129,21 @@ export function ProposalCard({ item, meta, onAccept, onReject, onChange, onKeyDo
   );
 }
 
-/** The review tray: "7 suggestions to review · Accept all ready (5)". needs_review can't be bulk-accepted. */
-export function ReviewTray({ items, meta, onAccept, onReject, onUpdate }: { items: TrayItem[]; meta: StudioMeta | undefined; onAccept: (items: TrayItem[]) => Promise<unknown> | void; onReject: (keys: string[]) => void; onUpdate: (key: string, p: ProposedConstraint) => void }) {
+type ProposalTrayProps = { items: TrayItem[]; meta: StudioMeta | undefined; onAccept: (items: TrayItem[]) => Promise<unknown> | void; onReject: (keys: string[]) => void; onUpdate: (key: string, p: ProposedConstraint) => void };
+
+/** The review tray: the learned suggestions of the term on top (Phase 19 F3: never preselected, hidden when
+ *  there are none), then the AI / upload proposals. */
+export function ReviewTray(props: ProposalTrayProps) {
+  return (
+    <>
+      <StudioLearnedSuggestions />
+      <ProposalTray {...props} />
+    </>
+  );
+}
+
+/** The proposals: "7 suggestions to review · Accept all ready (5)". needs_review can't be bulk-accepted. */
+function ProposalTray({ items, meta, onAccept, onReject, onUpdate }: { items: TrayItem[]; meta: StudioMeta | undefined; onAccept: (items: TrayItem[]) => Promise<unknown> | void; onReject: (keys: string[]) => void; onUpdate: (key: string, p: ProposedConstraint) => void }) {
   const { t } = useI18n();
   const reduce = useReduce();
   const heading = useRef<HTMLHeadingElement>(null);

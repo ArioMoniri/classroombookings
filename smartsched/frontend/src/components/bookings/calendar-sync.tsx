@@ -7,6 +7,11 @@ import { focusAfter } from "./focus-after";
  * push connectors appear only when an administrator configured them (`configured: true`); there is never a
  * disabled or fake "Connect" button.
  *
+ * Consent gates (2026-10-16): with the calendar-sync sign-off on, `GET /calendar/sync` `consent` says whether the
+ * person's `calendar_sync` consent is still missing; "Create link", "Reset" and "Connect" then open the inline consent
+ * step first (`privacy/calendar-consent.tsx`) and continue once it is given. A 409 `consent_required` that arrives
+ * anyway shows the backend's sentence with a link to `grant_path` (Profil › Gizlilik).
+ *
  * The server keeps only a hash of a link's token and shows it once, when the link is made. The panel keeps
  * that token for the browser tab (sessionStorage, per user), so /bookings and /my-bookings show the same
  * links; after the tab is closed the user makes a new link (or resets them all).
@@ -17,11 +22,13 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { crbs, crbsError, useCrbsMe, useCrbsMutation, type FeedTokenCreated } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import { Alert, ConfirmDialog, Loading, SelectField } from "@/components/admin/kit";
+import { CalendarConsentStep, ConsentRefusal, consentRefusal, needsCalendarConsent } from "@/components/privacy/calendar-consent";
 import { bookingErrorMessage } from "./booking-errors";
+import { useBookingFormat } from "./use-booking-format";
 import { googleSubscribeUrl, outlookSubscribeUrl, webcalUrl } from "./reserve-model";
 
 const SYNC_KEY = ["crbs", "calendar-sync"] as const;
@@ -72,7 +79,8 @@ function absolute(url: string): string {
 }
 
 export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | null; departmentId?: number | null }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const fmt = useBookingFormat();
   const qc = useQueryClient();
   const me = useCrbsMe();
   const uid = me.data?.id;
@@ -90,23 +98,47 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
   };
   const create = useCrbsMutation(() => crbs.calendar.createToken("SmartSched"));
   const reset = useCrbsMutation(() => crbs.calendar.reset());
-  const fail = (e: unknown) => toast.error(bookingErrorMessage(crbsError(e), t));
+  const [ask, setAsk] = useState<"create" | "reset" | null>(null);
+  const [refusal, setRefusal] = useState<{ text: string; href: string } | null>(null);
+  const fail = (e: unknown) => {
+    const r = consentRefusal(e, locale);
+    if (!r) return void toast.error(bookingErrorMessage(crbsError(e), t));
+    // the consent went missing meanwhile (withdrawn in another tab, the sign-off switched on): say so where the
+    // person is, and refresh the state so the next try asks for it first
+    setRefusal(r);
+    setConfirm(false);
+    void qc.invalidateQueries({ queryKey: SYNC_KEY });
+  };
 
   const s = status.data;
   const rooms = options.data?.rooms ?? [];
   const departments = options.data?.departments ?? [];
-  const roomPick = room ?? roomId ?? rooms[0]?.id ?? null;
-  const deptPick = dept ?? departmentId ?? me.data?.department_id ?? departments[0]?.id ?? null;
+  // T-R1-17 (R1-A-20, U-23): no invented default (the alphabetically first department, the first room): the caller's
+  // own department when the account has one, else "Bölüm seçin" / "Oda seçin" and no link until one is picked
+  const roomPick = room ?? roomId ?? null;
+  const deptPick = dept ?? departmentId ?? me.data?.department_id ?? null;
   const roomName = rooms.find((r) => r.id === roomPick)?.name ?? "";
   const deptName = departments.find((d) => d.id === deptPick)?.name ?? "";
   const configured = (s?.connectors ?? []).filter((c) => c.configured);
+  const needsConsent = needsCalendarConsent(s);
+  const doCreate = () => {
+    setRefusal(null);
+    create.mutate(undefined, { onSuccess: onLink, onError: fail });
+  };
+  const startCreate = () => (needsConsent ? setAsk("create") : doCreate());
+  const startReset = () => {
+    setRefusal(null);
+    if (needsConsent) setAsk("reset");
+    else setConfirm(true);
+  };
 
   return (
     <div className="flex flex-col gap-4" data-testid="calendar-sync">
       <p className="type-callout text-label-2">{t("reserve.sync.lead")}</p>
       {status.isLoading ? <Loading label={t("reserve.sync.loading")} /> : null}
       {status.isError ? <Alert tone="error">{bookingErrorMessage(crbsError(status.error), t)}</Alert> : null}
-      {s && !s.enabled ? <Alert tone="warning">{t("reserve.sync.disabled")}</Alert> : null}
+      {/* T-R2-15 (R2-S-11, R2-M-10): the disabled state is the card's quiet text, not a live region ("toast") */}
+      {s && !s.enabled ? <p className="type-callout text-label-2" data-testid="sync-off">{t("reserve.sync.disabled")}</p> : null}
       {s?.enabled ? (
         link ? (
           <>
@@ -118,7 +150,8 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
                 url={roomPick ? absolute(link.urls.room.replace("{id}", String(roomPick))) : ""}
                 name={roomName}
                 picker={
-                  <SelectField aria-label={t("reserve.sync.pickRoom")} value={String(roomPick ?? "")} onChange={(e) => setRoom(Number(e.target.value))} data-testid="sync-room-select">
+                  <SelectField aria-label={t("reserve.sync.pickRoom")} value={String(roomPick ?? "")} onChange={(e) => setRoom(e.target.value ? Number(e.target.value) : null)} data-testid="sync-room-select">
+                    {roomPick === null ? <option value="">{t("reserve.sync.choose")}</option> : null}
                     {rooms.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
@@ -135,7 +168,8 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
                 url={deptPick ? absolute(link.urls.department.replace("{id}", String(deptPick))) : ""}
                 name={deptName}
                 picker={
-                  <SelectField aria-label={t("reserve.sync.pickDepartment")} value={String(deptPick ?? "")} onChange={(e) => setDept(Number(e.target.value))} data-testid="sync-dept-select">
+                  <SelectField aria-label={t("reserve.sync.pickDepartment")} value={String(deptPick ?? "")} onChange={(e) => setDept(e.target.value ? Number(e.target.value) : null)} data-testid="sync-dept-select">
+                    {deptPick === null ? <option value="">{t("reserve.sync.chooseDepartment")}</option> : null}
                     {departments.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name}
@@ -149,7 +183,7 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
               {t("reserve.sync.private")} {t("reserve.sync.googleNote")}
             </p>
             <div>
-              <Button variant="ghost" onClick={() => setConfirm(true)} disabled={reset.isPending} data-testid="sync-reset">
+              <Button variant="ghost" onClick={startReset} disabled={reset.isPending || ask !== null} data-testid="sync-reset">
                 <RefreshCw aria-hidden />
                 {t("reserve.sync.reset")}
               </Button>
@@ -157,23 +191,45 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
           </>
         ) : (
           <div className="flex flex-col gap-2">
-            <p className="type-callout text-label-2">{s.feeds.tokens.length ? t("reserve.sync.existing", { n: s.feeds.tokens.length, hints: s.feeds.tokens.map((x) => x.hint).join(", ") }) : t("reserve.sync.none")}</p>
+            {/* T-R1-17 (R1-A-21): with a link in place (made on another device) the only action is a reset, which
+                revokes the old link; a second set is never added. Each link is described by its dates, not "154Y". */}
+            <p className="type-callout text-label-2" data-testid="sync-existing">
+              {s.feeds.tokens.length
+                ? t("reserve.sync.existingDated", {
+                    n: s.feeds.tokens.length,
+                    dates: s.feeds.tokens.map((x) => (x.created_at ? t("reserve.sync.madeOn", { date: fmt.short(x.created_at.slice(0, 10)) }) : x.hint)).join(", "),
+                  })
+                : t("reserve.sync.none")}
+            </p>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => create.mutate(undefined, { onSuccess: onLink, onError: fail })} disabled={create.isPending} data-testid="sync-create">
-                <Link2 aria-hidden />
-                {t("reserve.sync.create")}
-              </Button>
               {s.feeds.tokens.length ? (
-                <Button variant="ghost" onClick={() => setConfirm(true)} disabled={reset.isPending} data-testid="sync-reset">
+                <Button onClick={startReset} disabled={reset.isPending || ask !== null} aria-expanded={needsConsent ? ask === "reset" : undefined} data-testid="sync-reset">
                   <RefreshCw aria-hidden />
                   {t("reserve.sync.reset")}
                 </Button>
-              ) : null}
+              ) : (
+                <Button onClick={startCreate} disabled={create.isPending || ask !== null} aria-expanded={needsConsent ? ask === "create" : undefined} data-testid="sync-create">
+                  <Link2 aria-hidden />
+                  {t("reserve.sync.create")}
+                </Button>
+              )}
             </div>
           </div>
         )
       ) : null}
-      {s?.enabled && configured.length ? <Connectors connectors={configured} /> : null}
+      {s?.enabled && ask ? (
+        <CalendarConsentStep
+          onGranted={() => {
+            const next = ask;
+            setAsk(null);
+            if (next === "create") doCreate();
+            else setConfirm(true);
+          }}
+          onCancel={() => setAsk(null)}
+        />
+      ) : null}
+      {refusal ? <ConsentRefusal refusal={refusal} /> : null}
+      {s?.enabled && configured.length ? <Connectors connectors={configured} needsConsent={needsConsent} /> : null}
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}
@@ -200,7 +256,19 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
 
 function FeedRow({ id, title, url, name, picker }: { id: string; title: string; url: string; name: string; picker?: React.ReactNode }) {
   const { t } = useI18n();
-  const copy = (text: string) => void navigator.clipboard?.writeText(text).then(() => toast.success(t("reserve.sync.copied")));
+  const field = useRef<HTMLTextAreaElement>(null);
+  // T-R2-15 (R2-A-12): a refused clipboard (permission, insecure context) is told and the link is selected to copy by hand
+  const copy = async (text: string) => {
+    try {
+      if (!navigator.clipboard) throw new Error("no clipboard");
+      await navigator.clipboard.writeText(text);
+      toast.success(t("reserve.sync.copied"));
+    } catch {
+      field.current?.focus();
+      field.current?.select();
+      toast.error(t("reserve.sync.copyFailed"));
+    }
+  };
   const webcal = url ? webcalUrl(url) : "";
   const label = `SmartSched – ${name}`;
   return (
@@ -212,14 +280,19 @@ function FeedRow({ id, title, url, name, picker }: { id: string; title: string; 
         </h3>
         {picker ? <div className="min-w-40">{picker}</div> : null}
       </div>
-      <div className="flex gap-2">
-        <Input readOnly value={url} aria-label={`${title}: ${t("reserve.sync.https")}`} onFocus={(e) => e.currentTarget.select()} className="min-w-0 flex-1 font-mono text-[12px]" data-testid={`sync-url-${id}`} />
-        <Button variant="outline" size="icon" aria-label={t("reserve.sync.copy", { what: t("reserve.sync.https") })} onClick={() => copy(url)} disabled={!url} data-testid={`sync-copy-${id}`}>
-          <Copy />
-        </Button>
-        <Button variant="outline" size="icon" aria-label={t("reserve.sync.copy", { what: t("reserve.sync.webcal") })} onClick={() => copy(webcal)} disabled={!url} data-testid={`sync-copy-webcal-${id}`}>
-          <CalendarPlus />
-        </Button>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+        {/* the link wraps inside its box (break-all) instead of running past it (R2-S-21) */}
+        <Textarea ref={field} readOnly rows={2} value={url} aria-label={`${title}: ${t("reserve.sync.https")}`} onFocus={(e) => e.currentTarget.select()} className="min-h-0 min-w-0 flex-1 resize-none break-all font-mono type-footnote pointer-coarse:min-h-11" data-testid={`sync-url-${id}`} />
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button variant="outline" className="min-h-11 sm:min-h-0" aria-label={t("reserve.sync.copy", { what: t("reserve.sync.https") })} onClick={() => void copy(url)} disabled={!url} data-testid={`sync-copy-${id}`}>
+            <Copy aria-hidden />
+            {t("reserve.sync.copyShort")}
+          </Button>
+          <Button variant="outline" className="min-h-11 sm:min-h-0" aria-label={t("reserve.sync.copy", { what: t("reserve.sync.webcal") })} onClick={() => void copy(webcal)} disabled={!url} data-testid={`sync-copy-webcal-${id}`}>
+            <CalendarPlus aria-hidden />
+            {t("reserve.sync.copyWebcal")}
+          </Button>
+        </div>
       </div>
       {url ? (
         <div className="flex flex-wrap gap-1.5">
@@ -241,21 +314,29 @@ function FeedRow({ id, title, url, name, picker }: { id: string; title: string; 
   );
 }
 
-function Connectors({ connectors }: { connectors: { provider: string; label: string; connected: boolean; status?: string | null; account_email?: string | null }[] }) {
-  const { t } = useI18n();
+function Connectors({ connectors, needsConsent }: { connectors: { provider: string; label: string; connected: boolean; status?: string | null; account_email?: string | null }[]; needsConsent: boolean }) {
+  const { t, locale } = useI18n();
   const qc = useQueryClient();
   const path = usePathname();
   const [busy, setBusy] = useState<string | null>(null);
+  const [ask, setAsk] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<{ provider: string; text: string; href: string } | null>(null);
   const connect = async (provider: string) => {
     setBusy(provider);
+    setRefusal(null);
     try {
       const { authorize_url } = await crbs.calendar.connect(provider, path || "/my-bookings");
       window.location.assign(authorize_url);
     } catch (e) {
-      toast.error(t("reserve.sync.connectError", { message: bookingErrorMessage(crbsError(e), t) }));
+      const r = consentRefusal(e, locale);
+      if (r) {
+        setRefusal({ provider, ...r });
+        void qc.invalidateQueries({ queryKey: SYNC_KEY });
+      } else toast.error(t("reserve.sync.connectError", { message: bookingErrorMessage(crbsError(e), t) }));
       setBusy(null);
     }
   };
+  const startConnect = (provider: string) => (needsConsent ? setAsk(provider) : void connect(provider));
   const disconnect = async (provider: string) => {
     setBusy(provider);
     try {
@@ -273,18 +354,31 @@ function Connectors({ connectors }: { connectors: { provider: string; label: str
       {connectors.map((c) => {
         const label = c.provider === "google" ? t("reserve.sync.connectGoogle") : c.provider === "microsoft" ? t("reserve.sync.connectMicrosoft") : c.label;
         return (
-          <div key={c.provider} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-fill-2 px-3 py-2">
-            <span className="type-callout text-label-1">{c.connected ? t("reserve.sync.connected", { account: c.account_email ?? c.label }) : c.label}</span>
-            {c.connected && c.status !== "REAUTH" ? (
-              <Button variant="ghost" size="sm" onClick={() => void disconnect(c.provider)} disabled={busy === c.provider}>
-                <Unplug aria-hidden />
-                {t("reserve.sync.disconnect")}
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" onClick={() => void connect(c.provider)} disabled={busy === c.provider} data-testid={`sync-connect-${c.provider}`}>
-                {c.status === "REAUTH" ? t("reserve.sync.reconnect") : label}
-              </Button>
-            )}
+          <div key={c.provider} className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-fill-2 px-3 py-2">
+              <span className="type-callout text-label-1">{c.connected ? t("reserve.sync.connected", { account: c.account_email ?? c.label }) : c.label}</span>
+              {c.connected && c.status !== "REAUTH" ? (
+                <Button variant="ghost" size="sm" onClick={() => void disconnect(c.provider)} disabled={busy === c.provider}>
+                  <Unplug aria-hidden />
+                  {t("reserve.sync.disconnect")}
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => startConnect(c.provider)} disabled={busy === c.provider || ask === c.provider} data-testid={`sync-connect-${c.provider}`}>
+                  {c.status === "REAUTH" ? t("reserve.sync.reconnect") : label}
+                </Button>
+              )}
+            </div>
+            {ask === c.provider ? (
+              <CalendarConsentStep
+                testId={`sync-consent-${c.provider}`}
+                onGranted={() => {
+                  setAsk(null);
+                  void connect(c.provider);
+                }}
+                onCancel={() => setAsk(null)}
+              />
+            ) : null}
+            {refusal?.provider === c.provider ? <ConsentRefusal refusal={refusal} /> : null}
           </div>
         );
       })}

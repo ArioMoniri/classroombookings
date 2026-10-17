@@ -76,6 +76,12 @@ class Enrichment:
     week_set: list[int] = field(default_factory=list)
     is_conflict: bool = False
     conflict_reasons: list[str] = field(default_factory=list)
+    #: round-1 R1-S-17: the planner's own lock (a LOCKED planning-list row placed in its definitive rooms; the
+    #: row's ``origin`` stays SOLVER, ``is_locked`` is the manual lock); and the conflict reasons that are accepted
+    #: exceptions the run reports (``D1`` the planner's too-small room, ``D2`` two rows the planner fixed at the same
+    #: time, ``outside_pool``) - the run's verdict (``stats.truth``) counts them as exceptions, not as rule breaks
+    planner_lock: bool = False
+    exception_reasons: list[str] = field(default_factory=list)
 
     @property
     def instructor(self) -> str | None:
@@ -98,6 +104,8 @@ class Enrichment:
             "week_set": self.week_set,
             "is_conflict": self.is_conflict,
             "conflict_reasons": self.conflict_reasons,
+            "planner_lock": self.planner_lock,
+            "exception_reasons": self.exception_reasons,
         }
 
 
@@ -238,8 +246,35 @@ async def enrich_assignments(
         if bday is not None:
             blocks_by_room_day[(b.room_id, bday)].append(b)
 
+    # joint lectures: the solver seats several requests as one class (``stats.event_members``); their rows share a
+    # room on purpose and their students add up (the planner-level check's definition, round-1 R1-M-04)
+    head_of: dict[int, int] = {}
+    for h, ms in ((run.stats or {}).get("event_members") or {}).items():
+        for m in ms or []:
+            head_of[int(m)] = int(h)
+
+    def head(a: Assignment) -> tuple[str, int]:
+        if a.meeting_request_id:
+            return ("m", head_of.get(int(a.meeting_request_id), int(a.meeting_request_id)))
+        return ("a", int(a.id))
+
+    def planner_lock(a: Assignment) -> bool:
+        mr = meetings.get(a.meeting_request_id or 0)
+        if mr is None or mr.status != "LOCKED" or not mr.definitive_room_ids:
+            return False
+        return {int(r) for r in a.room_ids or []} == {int(r) for r in mr.definitive_room_ids}
+
     def clashes(a: Assignment, other: Assignment) -> bool:
         if other.id == a.id or not _overlap(a.start_period, a.end_period, other.start_period, other.end_period):
+            return False
+        if not exam and a.meeting_request_id and other.meeting_request_id and head(a) == head(other):
+            return False  # two requests of one joint lecture
+        if a.date and other.date and a.date != other.date:
+            return False
+        return _weeks_overlap(assignment_weeks(a), assignment_weeks(other))
+
+    def clashes_time(a: Assignment, other: Assignment) -> bool:
+        if not _overlap(a.start_period, a.end_period, other.start_period, other.end_period):
             return False
         if a.date and other.date and a.date != other.date:
             return False
@@ -274,9 +309,25 @@ async def enrich_assignments(
             e.course_code = str(a.course_codes[0])
         caps = [room_cap(r) for r in room_ids if r in rooms_by_id]
         e.capacity = sum(caps) if caps else None
+        e.planner_lock = planner_lock(a)
         reasons: list[str] = []
-        if e.capacity is not None and e.size and e.size > e.capacity:
-            reasons.append(f"capacity: {e.size} > {e.capacity}")
+        exceptions: list[str] = []
+        need = e.size
+        if not exam and a.meeting_request_id:
+            # the students of every request of the same joint lecture sitting in these rooms at this time
+            mates = {
+                o.meeting_request_id: o
+                for r in room_ids
+                for o in by_room_day[(r, a.day)]
+                if o.meeting_request_id and head(o) == head(a) and clashes_time(a, o)
+            }
+            need = sum(size_of(o) for o in mates.values()) or e.size
+        known = bool(caps) and all(c > 0 for c in caps) and len(caps) == len(room_ids)
+        if known and e.capacity is not None and need and need > e.capacity:
+            # a room without a known capacity (outside the pool, 0 seats) is never "over capacity"
+            reasons.append(f"capacity: {need} > {e.capacity}")
+            if e.planner_lock:
+                exceptions.append(reasons[-1])
         for r in room_ids:
             others = [o for o in by_room_day[(r, a.day)] if clashes(a, o)]
             if exam:
@@ -289,6 +340,10 @@ async def enrich_assignments(
                     reasons.append(f"seats: {room_code(r)} {load} > {room_cap(r)}")
             elif others:
                 reasons.append(f"room overlap: {room_code(r)} with #{others[0].id}")
+                if room_cap(r) <= 0 or not (rooms_by_id.get(r) and rooms_by_id[r].is_bookable):
+                    exceptions.append(reasons[-1])  # outside the pool: kept as the planner set it
+                elif e.planner_lock and all(planner_lock(o) for o in others):
+                    exceptions.append(reasons[-1])  # both fixed by the planner (D2, reported by the run)
             for b in blocks_by_room_day[(r, a.day)]:
                 if not _overlap(a.start_period, a.end_period, b.start_period, b.end_period):
                     continue
@@ -299,6 +354,7 @@ async def enrich_assignments(
                 reasons.append(f"block: {room_code(r)} {b.label}")
                 break
         e.conflict_reasons = reasons
+        e.exception_reasons = exceptions
         e.is_conflict = bool(reasons)
         out[a.id] = e
     return out

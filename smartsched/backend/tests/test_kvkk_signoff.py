@@ -54,6 +54,10 @@ async def test_fresh_stack_has_no_signoff_and_everything_stays_off(env):  # noqa
     assert sign["enabled"] is True and sign["by_user_id"] == me["id"] and sign["by"]
     assert sign["at"].startswith(date.today().isoformat()[:4]) and "T" in sign["at"]
     assert (await c.get("/api/v1/calendar/sync", headers=teacher)).json()["enabled"] is True
+    # signed off: a link needs the person's own calendar_sync consent first (consent gates 2026-10-16)
+    tok = await c.post("/api/v1/calendar/feeds/tokens", json={"label": "Google Takvim"}, headers=teacher)
+    assert tok.status_code == 409 and tok.json()["detail"]["code"] == "consent_required", tok.text
+    assert (await c.post("/api/v1/me/consents/calendar_sync", headers=teacher)).status_code == 200
     tok = await c.post("/api/v1/calendar/feeds/tokens", json={"label": "Google Takvim"}, headers=teacher)
     assert tok.status_code == 201, tok.text
     assert (await c.get(f"/api/v1/calendar/feeds/{tok.json()['token']}/mine.ics")).status_code == 200

@@ -1,80 +1,82 @@
 # README screenshots
 
-Captured 2026-10-08 by [`scripts/record/screens.mjs`](../../../scripts/record/screens.mjs) from the recording stack
-([`scripts/record/stack.sh`](../../../scripts/record/stack.sh)): the real FastAPI backend on SQLite with the real
-workbooks of Bahar 2026, Güz 2026-27 and Final 2026 plus the room master, and a production build of the frontend
-(`next build` + `next start`). No mock data. Solver runs were made through `POST /runs`
-(`stack.sh runs`): run #7 Güz week 3 (FEASIBLE_PARTIAL, 522/548 placed, hard 100) and run #8 Güz whole term
-(FEASIBLE_PARTIAL, 519/548, hard 100, published). The shots were taken after the four seeded recordings, so the
-booking, the template rule and the Planner account those recordings made are visible.
+Captured 2026-10-16 by [`scripts/record/screens.mjs`](../../../scripts/record/screens.mjs) on the recording stack
+([`scripts/record/stack.sh`](../../../scripts/record/stack.sh)) at commit `1210795` (the redesigned UI): the real
+FastAPI backend on SQLite with the real workbooks of Bahar 2026, Güz 2026-27 and Final 2026 plus the room master, and a
+production build of the frontend. No mock data. Solver runs through `POST /runs` (`stack.sh runs`): run #7 Güz week 3
+(FEASIBLE_PARTIAL, 524/530 placed, hard 100) and run #8 Güz whole term (FEASIBLE_PARTIAL, 517/530, hard 100,
+published). The shots were taken after the recordings, so the bookings and the account those recordings made are
+visible. The sign-in page and the approval screens are being rebuilt and are not shot this time.
 
+- **KVKK:** instructor names are title + initials (`scripts/record/kvkk_mask.py` on the throwaway database); the
+  accounts are roles (the seeded administrator, "Planlama Ofisi"); private calendar-feed links are blurred.
 - Desktop: 1440×900 CSS px at device scale 1. Phone: 390×844 at device scale 2 (780×1688).
-- Locale en-GB / tr-TR via the `NEXT_LOCALE` cookie, theme via next-themes' `theme` key, Europe/Istanbul.
-- WebP, quality 82 (ImageMagick `-define webp:method=6`). Files: 48, total 2.40 MB.
-- Re-take: `scripts/record/stack.sh up && scripts/record/stack.sh runs && node scripts/record/screens.mjs`.
+- Locale en-GB, theme via next-themes' `theme` key, Europe/Istanbul; each signed-in user's profile language is set to
+  English for the shot.
+- WebP, quality 82 (ImageMagick `-define webp:method=6`). Files: 62, total 3.35 MB.
+- Re-take: `scripts/record/refresh.sh` (recordings first, then these shots on the same stack).
 
 | File | Pixels | Size | Shows |
 |---|---|---|---|
-| `admin-roles-dark.webp` | 1440×900 | 51 KB | Setup → Roles: Administrator, Planner, Teacher, Viewer; limits and permissions. |
-| `admin-roles-light.webp` | 1440×900 | 54 KB | Setup → Roles: Administrator, Planner, Teacher, Viewer; limits and permissions. |
-| `admin-users-dark.webp` | 1440×900 | 27 KB | Setup → Users, incl. the Planner account created in the admin-user recording. |
-| `admin-users-light.webp` | 1440×900 | 28 KB | Setup → Users, incl. the Planner account created in the admin-user recording. |
-| `bookings-dark.webp` | 1440×900 | 38 KB | Booking grid by day (next teaching day), A building, with the published timetable and the booking made in the room-booking recording. |
-| `bookings-light.webp` | 1440×900 | 39 KB | Booking grid by day (next teaching day), A building, with the published timetable and the booking made in the room-booking recording. |
-| `calendar-board-dark.webp` | 1440×900 | 47 KB | Calendar Board lens, run #8, week 3: A building rooms × periods. |
-| `calendar-board-light.webp` | 1440×900 | 51 KB | Calendar Board lens, run #8, week 3: A building rooms × periods. |
-| `calendar-inspector-dark.webp` | 1440×900 | 66 KB | Week lens with the class inspector open (when and where, seats, instructor, why here, conflicts). |
-| `calendar-inspector-light.webp` | 1440×900 | 70 KB | Week lens with the class inspector open (when and where, seats, instructor, why here, conflicts). |
-| `calendar-term-dark.webp` | 1440×900 | 49 KB | Calendar Term lens on the planner's imported Bahar 2026 board: room use per day for every week. |
-| `calendar-term-light.webp` | 1440×900 | 48 KB | Calendar Term lens on the planner's imported Bahar 2026 board: room use per day for every week. |
-| `calendar-week-dark.webp` | 1440×900 | 43 KB | Calendar Week lens for the busiest room (A 204), week 3. |
-| `calendar-week-light.webp` | 1440×900 | 45 KB | Calendar Week lens for the busiest room (A 204), week 3. |
-| `classes-dark.webp` | 1440×900 | 61 KB | All classes of Güz 2026-27 with status, programme, instructor, students and room. |
-| `classes-light.webp` | 1440×900 | 60 KB | All classes of Güz 2026-27 with status, programme, instructor, students and room. |
-| `dashboard-dark.webp` | 1440×900 | 46 KB | Dashboard, Güz 2026-27 week 3, published run #8: room use, classes still needing a room, review queue, use through the day, building × day heat map. |
-| `dashboard-light.webp` | 1440×900 | 48 KB | Dashboard, Güz 2026-27 week 3, published run #8: room use, classes still needing a room, review queue, use through the day, building × day heat map. |
-| `dashboard-tr-light.webp` | 1440×900 | 49 KB | Dashboard in Turkish. |
-| `login-dark.webp` | 1440×900 | 9 KB | Sign-in page (e-mail or username, password, forgot password, TR/EN switch). |
-| `login-light.webp` | 1440×900 | 9 KB | Sign-in page (e-mail or username, password, forgot password, TR/EN switch). |
-| `mobile-calendar-dark.webp` | 780×1688 | 41 KB | Calendar Day lens on a phone: week strip and the day's classes as a list. |
-| `mobile-calendar-light.webp` | 780×1688 | 42 KB | Calendar Day lens on a phone: week strip and the day's classes as a list. |
-| `mobile-dashboard-dark.webp` | 780×1688 | 40 KB | Dashboard on a phone with the tab bar. |
-| `mobile-dashboard-light.webp` | 780×1688 | 43 KB | Dashboard on a phone with the tab bar. |
-| `my-bookings-dark.webp` | 1440×900 | 30 KB | My bookings: the admin's upcoming booking, calendar subscription, CSV export. |
-| `my-bookings-light.webp` | 1440×900 | 31 KB | My bookings: the admin's upcoming booking, calendar subscription, CSV export. |
-| `room-detail-dark.webp` | 1440×900 | 64 KB | Room A 204: weekly occupancy grid, free-slot finder, term occupancy, classes of the week. |
-| `room-detail-light.webp` | 1440×900 | 64 KB | Room A 204: weekly occupancy grid, free-slot finder, term occupancy, classes of the week. |
-| `rooms-dark.webp` | 1440×900 | 59 KB | Rooms: 87 rooms in 4 buildings as cards with seats, exam seats, tags and weekday occupancy. |
-| `rooms-light.webp` | 1440×900 | 61 KB | Rooms: 87 rooms in 4 buildings as cards with seats, exam seats, tags and weekday occupancy. |
-| `run-data-issues-dark.webp` | 1440×900 | 53 KB | Run #7, problems in the workbooks: instructor/cohort clashes, planned rooms too small, missing enrolments, lectures listed twice, Excel export. |
-| `run-data-issues-light.webp` | 1440×900 | 56 KB | Run #7, problems in the workbooks: instructor/cohort clashes, planned rooms too small, missing enrolments, lectures listed twice, Excel export. |
-| `run-diagnoses-dark.webp` | 1440×900 | 73 KB | Run #7, classes without a room: reason per class (rooms that fit and what holds them) and fix options. |
-| `run-diagnoses-light.webp` | 1440×900 | 75 KB | Run #7, classes without a room: reason per class (rooms that fit and what holds them) and fix options. |
-| `run-report-dark.webp` | 1440×900 | 53 KB | Run report of run #7 (Güz week 3, partial 522/548, hard rules kept, soft score, first unplaced class with fixes). |
-| `run-report-light.webp` | 1440×900 | 55 KB | Run report of run #7 (Güz week 3, partial 522/548, hard rules kept, soft score, first unplaced class with fixes). |
-| `settings-appearance-dark.webp` | 1440×900 | 30 KB | Settings → Appearance: theme, accent, density, reduce motion / transparency. |
-| `settings-appearance-light.webp` | 1440×900 | 31 KB | Settings → Appearance: theme, accent, density, reduce motion / transparency. |
-| `setup-requirements-dark.webp` | 1440×900 | 34 KB | Setup checklist and server requirements. |
-| `setup-requirements-light.webp` | 1440×900 | 35 KB | Setup checklist and server requirements. |
-| `studio-precheck-dark.webp` | 1440×900 | 66 KB | Studio pre-check: readiness Blocked, problems grouped by kind, a card naming two classes locked into one room with fixes. |
-| `studio-precheck-light.webp` | 1440×900 | 66 KB | Studio pre-check: readiness Blocked, problems grouped by kind, a card naming two classes locked into one room with fixes. |
-| `studio-rules-dark.webp` | 1440×900 | 58 KB | Studio rules step: one-click common rules and the term's rules as sentences (Must / Try to), incl. the template rule added by the studio-rule-fix recording. |
-| `studio-rules-light.webp` | 1440×900 | 58 KB | Studio rules step: one-click common rules and the term's rules as sentences (Must / Try to), incl. the template rule added by the studio-rule-fix recording. |
-| `studio-rules-tr-light.webp` | 1440×900 | 62 KB | Studio rules step in Turkish (rules as Turkish sentences). |
-| `studio-scope-dark.webp` | 1440×900 | 51 KB | Generator Studio, scope step: term, classes/exams, horizon, plain sentence of what will be planned. |
-| `studio-scope-light.webp` | 1440×900 | 51 KB | Generator Studio, scope step: term, classes/exams, horizon, plain sentence of what will be planned. |
-
-Recordings are in [`../recordings/`](../recordings/): `<journey>.mp4` (H.264, 1280×848, 30 fps, CRF 28),
-`<journey>.webp` (animated, under 2.6 MB, shown in the README; 680–1000 px wide, 8–12 fps) and
-`<journey>-poster.webp` (a frame from the step marked as the poster, for players and link previews). Total 20.2 MB.
-They are made by `scripts/record/record-all.sh` (Playwright video + ffmpeg polish, see
-`docs/recording/RECORDLY.md`) and converted with `scripts/record/publish.sh`, into a scratch folder first and
-then copied here once.
-
-| Recording | Length | MP4 | WebP | Shows |
-|---|---|---|---|---|
-| `import-generate` | 66 s | 2.9 MB | 2.0 MB | empty Bahar 2026 term → weekly grid + planning list imports with reports → Studio week 3 → pre-check warning → generate anyway → run report and first unplaced class (import and solver waits cut) |
-| `calendar-move` | 34 s | 1.9 MB | 2.2 MB | room A 204, week 3 of the published Güz run → inspector → move PSI 155 to A 203 (server dry run OK) → undo |
-| `studio-rule-fix` | 34 s | 1.8 MB | 2.4 MB | Studio: template "Same room every week" → pre-check (blocked) → apply "Unlock RTT 193 §1" |
-| `room-booking` | 28 s | 1.2 MB | 2.4 MB | booking grid, A building, next teaching day → A 203 P3 → note "ING 301 make-up lecture" → My bookings |
-| `admin-user` | 31 s | 1.0 MB | 2.3 MB | Setup → Users → new account `planlama` (Planlama Ofisi) with the Planner role |
+| `admin-roles-dark.webp` | 1440×900 | 52 KB | Setup, Roles: roles with booking limits and permissions |
+| `admin-roles-light.webp` | 1440×900 | 53 KB | Setup, Roles: roles with booking limits and permissions |
+| `admin-users-dark.webp` | 1440×900 | 34 KB | Setup, Users: accounts with role and last sign-in |
+| `admin-users-light.webp` | 1440×900 | 35 KB | Setup, Users: accounts with role and last sign-in |
+| `audit-dark.webp` | 1440×900 | 36 KB | Audit log filtered to bookings with one change expanded to its before and after values |
+| `audit-light.webp` | 1440×900 | 36 KB | Audit log filtered to bookings with one change expanded to its before and after values |
+| `bookings-day-dark.webp` | 1440×900 | 57 KB | Booking grid for A Blok on the next teaching day: rooms as rows, periods as columns, timetable classes holding their slots and free cells marked Free |
+| `bookings-day-light.webp` | 1440×900 | 58 KB | Booking grid for A Blok on the next teaching day: rooms as rows, periods as columns, timetable classes holding their slots and free cells marked Free |
+| `bookings-room-dark.webp` | 1440×900 | 48 KB | Booking grid for room A 101 across the week, with its timetable classes and free periods |
+| `bookings-room-light.webp` | 1440×900 | 48 KB | Booking grid for room A 101 across the week, with its timetable classes and free periods |
+| `calendar-board-dark.webp` | 1440×900 | 47 KB | Calendar Board view for week 3: rooms as columns, periods as rows, classes as blocks |
+| `calendar-board-light.webp` | 1440×900 | 50 KB | Calendar Board view for week 3: rooms as columns, periods as rows, classes as blocks |
+| `calendar-inspector-dark.webp` | 1440×900 | 74 KB | The class inspector next to the week: when and where, seats, instructor as initials, and why the class is in this room |
+| `calendar-inspector-light.webp` | 1440×900 | 79 KB | The class inspector next to the week: when and where, seats, instructor as initials, and why the class is in this room |
+| `calendar-sync-dark.webp` | 1440×900 | 51 KB | Sync to calendar, switched on by the administrator: private feed links for my bookings, a room and a department with copy, Google, Outlook and Apple buttons; the link addresses are blurred because they carry a private token |
+| `calendar-sync-light.webp` | 1440×900 | 58 KB | Sync to calendar, switched on by the administrator: private feed links for my bookings, a room and a department with copy, Google, Outlook and Apple buttons; the link addresses are blurred because they carry a private token |
+| `calendar-term-dark.webp` | 1440×900 | 52 KB | Calendar Term view of the Bahar 2026 board: room use for each day of the term |
+| `calendar-term-light.webp` | 1440×900 | 50 KB | Calendar Term view of the Bahar 2026 board: room use for each day of the term |
+| `calendar-week-dark.webp` | 1440×900 | 48 KB | Calendar Week view of the busiest room in week 3 of the published Güz timetable |
+| `calendar-week-light.webp` | 1440×900 | 50 KB | Calendar Week view of the busiest room in week 3 of the published Güz timetable |
+| `classes-dark.webp` | 1440×900 | 53 KB | All classes of the term grouped by faculty with status, programme, instructor initials, size and room |
+| `classes-inspector-dark.webp` | 1440×900 | 65 KB | All classes with one class open in the inspector |
+| `classes-inspector-light.webp` | 1440×900 | 59 KB | All classes with one class open in the inspector |
+| `classes-light.webp` | 1440×900 | 53 KB | All classes of the term grouped by faculty with status, programme, instructor initials, size and room |
+| `dashboard-dark.webp` | 1440×900 | 46 KB | Dashboard for Güz 2026-27: room use this week, classes that still need a room, requests waiting for review, use through the day and by building |
+| `dashboard-light.webp` | 1440×900 | 47 KB | Dashboard for Güz 2026-27: room use this week, classes that still need a room, requests waiting for review, use through the day and by building |
+| `find-room-dark.webp` | 1440×900 | 56 KB | Find a room: date, time, head count and the computer lab feature, with ranked free rooms and their reasons |
+| `find-room-light.webp` | 1440×900 | 58 KB | Find a room: date, time, head count and the computer lab feature, with ranked free rooms and their reasons |
+| `free-slots-dark.webp` | 1440×900 | 56 KB | Free slots view: the free periods of the day grouped by room, each a button that books it |
+| `free-slots-light.webp` | 1440×900 | 63 KB | Free slots view: the free periods of the day grouped by room, each a button that books it |
+| `import-dark.webp` | 1440×900 | 33 KB | Import page: the kinds of workbook it reads, a drop zone and the import history |
+| `import-light.webp` | 1440×900 | 34 KB | Import page: the kinds of workbook it reads, a drop zone and the import history |
+| `mobile-bookings-dark.webp` | 780×1688 | 36 KB | Bookings on a phone: the free slots list |
+| `mobile-bookings-light.webp` | 780×1688 | 38 KB | Bookings on a phone: the free slots list |
+| `mobile-timetable-dark.webp` | 780×1688 | 42 KB | Calendar Day view on a phone |
+| `mobile-timetable-light.webp` | 780×1688 | 43 KB | Calendar Day view on a phone |
+| `my-bookings-dark.webp` | 1440×900 | 40 KB | My bookings: upcoming bookings with totals, CSV export and the calendar feed |
+| `my-bookings-light.webp` | 1440×900 | 40 KB | My bookings: upcoming bookings with totals, CSV export and the calendar feed |
+| `onboarding-review-dark.webp` | 1440×900 | 45 KB | Onboarding review of the Final 2026 exam planning list: the proposed term and the items that need a decision |
+| `onboarding-review-light.webp` | 1440×900 | 47 KB | Onboarding review of the Final 2026 exam planning list: the proposed term and the items that need a decision |
+| `reserve-sheet-dark.webp` | 1440×900 | 44 KB | The booking sheet open on a free period: room, date, period, an optional note and the Reserve button |
+| `reserve-sheet-light.webp` | 1440×900 | 52 KB | The booking sheet open on a free period: room, date, period, an optional note and the Reserve button |
+| `room-details-dark.webp` | 1440×900 | 49 KB | Room details for A 101: seats, building and features, its day, the next free slot and other rooms free at the same time |
+| `room-details-light.webp` | 1440×900 | 56 KB | Room details for A 101: seats, building and features, its day, the next free slot and other rooms free at the same time |
+| `room-features-dark.webp` | 1440×900 | 44 KB | Setup, Rooms, Features: typed features adopted from the room master's tags, with the values per room |
+| `room-features-light.webp` | 1440×900 | 45 KB | Setup, Rooms, Features: typed features adopted from the room master's tags, with the values per room |
+| `rooms-dark.webp` | 1440×900 | 42 KB | Rooms as cards with seats, exam seats, features and use per weekday |
+| `rooms-light.webp` | 1440×900 | 43 KB | Rooms as cards with seats, exam seats, features and use per weekday |
+| `run-data-issues-dark.webp` | 1440×900 | 66 KB | Problems found in the workbooks themselves, grouped, with an Excel export |
+| `run-data-issues-light.webp` | 1440×900 | 69 KB | Problems found in the workbooks themselves, grouped, with an Excel export |
+| `run-diagnoses-dark.webp` | 1440×900 | 76 KB | Classes without a room, each with the reason, the rooms that would fit and what holds them, and fixes |
+| `run-diagnoses-light.webp` | 1440×900 | 77 KB | Classes without a room, each with the reason, the rooms that would fit and what holds them, and fixes |
+| `run-report-dark.webp` | 1440×900 | 66 KB | Run report for Güz week 3: classes placed with every hard rule kept, the soft score and what could not be placed |
+| `run-report-light.webp` | 1440×900 | 67 KB | Run report for Güz week 3: classes placed with every hard rule kept, the soft score and what could not be placed |
+| `settings-ai-dark.webp` | 1440×900 | 40 KB | Settings, AI: the AI intake and vision switches, off by default, with the KVKK notice |
+| `settings-ai-light.webp` | 1440×900 | 42 KB | Settings, AI: the AI intake and vision switches, off by default, with the KVKK notice |
+| `studio-precheck-dark.webp` | 1440×900 | 72 KB | Generator Studio pre-check: problems in the data grouped by kind, each with fixes |
+| `studio-precheck-light.webp` | 1440×900 | 73 KB | Generator Studio pre-check: problems in the data grouped by kind, each with fixes |
+| `studio-rules-dark.webp` | 1440×900 | 69 KB | Generator Studio rules step: rules as sentences grouped into Must and Try to |
+| `studio-rules-light.webp` | 1440×900 | 70 KB | Generator Studio rules step: rules as sentences grouped into Must and Try to |
+| `studio-scope-dark.webp` | 1440×900 | 54 KB | Generator Studio scope step: term, classes or exams, a week, a month or the whole term |
+| `studio-scope-light.webp` | 1440×900 | 54 KB | Generator Studio scope step: term, classes or exams, a week, a month or the whole term |

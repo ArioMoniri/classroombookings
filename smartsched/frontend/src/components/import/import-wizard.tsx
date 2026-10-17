@@ -21,9 +21,10 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { formatDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { ParseWarningsTable, countBySeverity } from "./parse-warnings-table";
+import { ParseWarningsTable, TruncatedWarnings, countBySeverity } from "./parse-warnings-table";
 import { CrbsUpgrade } from "./crbs-upgrade";
 import { RoomMasterImport, type FlowStep } from "./room-master-import";
+import { BareButton } from "@/components/shell/bare-button";
 
 const KINDS: { kind: ImportKind; icon: LucideIcon; label: MessageKey; desc: MessageKey }[] = [
   { kind: "planning-list", icon: FileSpreadsheet, label: "import.planning", desc: "import.planningDesc" },
@@ -41,7 +42,7 @@ const STEPS: MessageKey[] = ["import.stepKind", "import.stepUpload", "import.ste
 function Stepper({ step }: { step: number }) {
   const { t } = useI18n();
   return (
-    <ol className="mb-6 flex items-center gap-2 text-[12px]" aria-label={t("glass.import.steps")}>
+    <ol className="mb-6 flex items-center gap-2 type-footnote" aria-label={t("glass.import.steps")}>
       {STEPS.map((key, i) => (
         <li key={key} aria-current={i === step ? "step" : undefined} className="flex items-center gap-2">
           <span className={cn("flex size-6 items-center justify-center rounded-full font-semibold tabular-nums", i < step ? "bg-tint text-tint-foreground" : i === step ? "bg-tint-soft text-tint-text" : "bg-fill-2 text-label-3")}>
@@ -161,14 +162,14 @@ export function ImportWizard() {
             <ul>
               {KINDS.map((k) => (
                 <li key={k.kind} className="[&:not(:last-child)]:hairline-b">
-                  <button type="button" onClick={() => chooseKind(k.kind)} data-testid={`import-kind-${k.kind}`} className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
+                  <BareButton onClick={() => chooseKind(k.kind)} data-testid={`import-kind-${k.kind}`} className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left hover:bg-fill-3">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-fill-2 text-label-1"><k.icon className="size-[18px] stroke-[1.75]" aria-hidden /></span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[14px] font-medium text-label-1">{t(k.label)}</span>
-                      <span className="block text-[12.5px] text-label-2">{t(k.desc)}</span>
+                      <span className="block type-body font-medium text-label-1">{t(k.label)}</span>
+                      <span className="block type-callout text-label-2">{t(k.desc)}</span>
                     </span>
                     <ChevronRight className="size-4 text-label-3" aria-hidden />
-                  </button>
+                  </BareButton>
                 </li>
               ))}
             </ul>
@@ -215,7 +216,7 @@ export function ImportWizard() {
           <Card>
             <CardHeader>
               <CardTitle>{job.filename}</CardTitle>
-              <p className="text-[13px] text-label-2" aria-live="polite">
+              <p className="type-callout text-label-2" aria-live="polite">
                 {t("glass.import.summary", { rows: n(job.summary.rows), created: n(job.summary.created), skipped: n(job.summary.skipped) })}
               </p>
             </CardHeader>
@@ -225,20 +226,20 @@ export function ImportWizard() {
                   [t("import.rows"), job.summary.rows],
                   [t("import.created"), job.summary.created],
                   [t("import.skipped"), job.summary.skipped],
-                  [t("import.warnings"), job.summary.warnings.length],
+                  [t("import.warnings"), job.summary.warnings_count ?? job.summary.warnings.length],
                 ].map(([k, v]) => (
                   <div key={String(k)}>
-                    <dt className="text-[12px] text-label-3">{k}</dt>
-                    <dd className="text-[22px] leading-7 font-semibold tracking-[-0.017em] text-label-1 tabular-nums">{n(Number(v))}</dd>
+                    <dt className="type-footnote text-label-3">{k}</dt>
+                    <dd className="type-title-2 leading-7 font-semibold tracking-[-0.017em] text-label-1 tabular-nums">{n(Number(v))}</dd>
                   </div>
                 ))}
               </dl>
-              <p className="mt-3 text-[12.5px] text-label-2">{t("glass.import.bySeverity", { e: n(counts.error), w: n(counts.warning), i: n(counts.info) })}</p>
+              <p className="mt-3 type-callout text-label-2">{t("glass.import.bySeverity", { e: n(counts.error), w: n(counts.warning), i: n(counts.info) })}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle>{t("import.warningsTable")}</CardTitle></CardHeader>
-            <CardContent><ParseWarningsTable warnings={job.summary.warnings} /></CardContent>
+            <CardContent className="space-y-3"><TruncatedWarnings summary={job.summary} /><ParseWarningsTable warnings={job.summary.warnings} /></CardContent>
           </Card>
           <div className="flex flex-wrap items-center gap-2">
             <Button nativeButton={false} render={<Link href="/requests?status=NEEDS_REVIEW" />} onClick={() => setDone(true)}>{t("import.goRequests")}</Button>
@@ -251,11 +252,11 @@ export function ImportWizard() {
         <Card className="mt-6 max-w-3xl">
           <CardHeader><CardTitle>{t("import.recent")}</CardTitle></CardHeader>
           <CardContent>
-            <ul className="text-[13px]">
+            <ul className="type-callout">
               {imports.data.slice(0, 6).map((j) => (
                 <li key={j.id} className="flex items-center justify-between gap-3 py-2 [&:not(:last-child)]:hairline-b">
                   <span className="min-w-0 truncate text-label-1">{j.filename}</span>
-                  <span className="shrink-0 text-[12px] text-label-3">{t(KINDS.find((k) => k.kind === j.kind)?.label ?? "import.title")} · {n(j.summary.rows)} · {formatDate(j.created_at.slice(0, 10), locale)}</span>
+                  <span className="shrink-0 type-footnote text-label-3">{t(KINDS.find((k) => k.kind === j.kind)?.label ?? "import.title")} · {n(j.summary.rows)} · {formatDate(j.created_at.slice(0, 10), locale)}</span>
                 </li>
               ))}
             </ul>

@@ -1,15 +1,17 @@
 "use client";
 /** /admin/authentication (CRBS `settings/Authentication`): LDAP sign-in with a "test" that binds without saving. */
-import { Loader2, PlugZap } from "lucide-react";
+import { PlugZap } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { crbs, crbsError, useCrbsMutation, useDepartments, useLdapSettings, useRoles, type LdapSettings, type LdapTestOut } from "@/lib/api/crbs";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
+import { roleLabel } from "@/lib/i18n/roles";
 import type { MessageKey } from "@/lib/i18n";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, Field, FieldRow, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
@@ -50,7 +52,7 @@ function LdapForm({ data }: { data: LdapSettings }) {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={t("crbs.admin.ldap.title")} subtitle={t("crbs.ldap.lead")} />
-      <Card variant="glass" className="gap-0 px-4 py-1">
+      <Card className="gap-0 px-4 py-1">
         <FieldRow label={t("crbs.ldap.enabled")} hint={t("crbs.ldap.enabledHint")} htmlFor="ldap-on">
           <Switch id="ldap-on" checked={v.enabled} onCheckedChange={(x) => set("enabled", x)} />
         </FieldRow>
@@ -80,7 +82,7 @@ function LdapForm({ data }: { data: LdapSettings }) {
             <option value="">{t("crbs.users.noRole")}</option>
             {(roles.data ?? []).map((r) => (
               <option key={r.id} value={r.id}>
-                {r.name}
+                {roleLabel(t, r)}
               </option>
             ))}
           </SelectField>
@@ -98,9 +100,9 @@ function LdapForm({ data }: { data: LdapSettings }) {
       </Card>
       {error ? <Alert tone="error">{error}</Alert> : null}
       <div className="flex justify-end">
-        <Button disabled={!Object.keys(d).length || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => (toast.success(t("crbs.common.saved")), setD({})), onError: (e) => setError(bookingErrorMessage(crbsError(e), t)) })}>
-          {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("crbs.common.save")}
+        <Button disabled={!Object.keys(d).length || save.isPending} onClick={() => save.mutate(undefined, { onSuccess: () => (toast.success(t("crbs.common.saved")), setD({})), onError: (e) => setError(bookingErrorMessage(crbsError(e), t)) })} aria-busy={save.isPending || undefined}>
+          <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+          {t("crbs.common.save")}</BusyLabel>
         </Button>
       </div>
       <section aria-labelledby="ldap-test" className="flex flex-col gap-3">
@@ -120,9 +122,9 @@ function LdapForm({ data }: { data: LdapSettings }) {
           <Field label={t("crbs.users.password")} htmlFor="ldap-tp">
             <Input id="ldap-tp" type="password" autoComplete="off" value={pass} onChange={(e) => setPass(e.target.value)} />
           </Field>
-          <Button type="submit" variant="outline" disabled={!user || !pass || test.isPending}>
-            {test.isPending ? <Loader2 className="animate-spin" aria-hidden /> : <PlugZap aria-hidden />}
-            {t("crbs.ldap.runTest")}
+          <Button type="submit" variant="outline" disabled={!user || !pass || test.isPending} aria-busy={test.isPending || undefined}>
+            <BusyLabel busy={test.isPending} label={t("busy.checking")} icon={<PlugZap aria-hidden />}>
+            {t("crbs.ldap.runTest")}</BusyLabel>
           </Button>
         </form>
         {result ? (

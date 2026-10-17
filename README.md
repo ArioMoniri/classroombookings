@@ -1,721 +1,441 @@
-<h1 align="center">SmartSched</h1>
+<h1 align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/brand/readme-header-dark.svg"><img alt="SmartSched" src="docs/images/brand/readme-header-light.svg" width="640"></picture></h1>
+
+<p align="center"><b>Timetabling, exam planning and room booking for a university.</b></p>
 
 <p align="center">
-  Classroom and exam planning for a university, built on top of classroombookings.
-</p>
-
-<p align="center">
-  <a href="https://www.gnu.org/licenses/agpl-3.0.html"><img alt="License: AGPLv3" src="https://img.shields.io/static/v1?label=License&message=AGPLv3&color=3DA639&style=flat-square"></a>
+  <a href="LICENSE.txt"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/License-AGPL--3.0-3DA639?style=flat-square"></a>
   <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white">
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs&logoColor=white">
   <img alt="OR-Tools CP-SAT" src="https://img.shields.io/badge/OR--Tools-CP--SAT-4285F4?style=flat-square&logo=google&logoColor=white">
+  <img alt="PostgreSQL 16" src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white">
 </p>
 
-SmartSched is for the office that plans a faculty's rooms each term, and for the staff who book those
-rooms. Today that office works in Excel: a planning list of every section, a weekly room grid, a room
-list, and a lot of checking by hand. SmartSched reads those workbooks as they are, places every class
-it can into a room and a period without breaking a hard rule, and says plainly which classes it could
-not place and why.
+SmartSched reads the Excel workbooks a planning office already keeps, places every class it can with a
+CP-SAT solver, explains the ones it cannot place, and runs the
+[classroombookings](https://www.classroombookings.com/) booking grid on top of the result. It is a
+superset of classroombookings: every behaviour of the original is kept and checked by a parity gate.
 
-It is a superset of [classroombookings](https://www.classroombookings.com/) (CRBS): rooms, room
-groups, periods, sessions, holidays, single and recurring bookings, roles and permissions work the
-way they do in CRBS, checked row by row by a parity gate. The planning side (imports, the solver, the
-calendar, the run report) is new, and so are the reservation panel, calendar sync, approvals, the audit
-log with undo and 14 interface languages. The legacy PHP app is still in this repository and
-SmartSched can import its database.
+## See it work
 
-<p align="center">
-  <a href="docs/images/recordings/import-generate.mp4">
-    <img alt="Screen recording: the weekly room grid and the planning list of Bahar 2026 are imported into an empty term, each with an import report; week 3 is chosen in the Generator Studio, whose pre-check warns that some classes cannot be placed under the hard rules; the run is generated anyway and the run report shows how many classes were placed with every hard rule kept, then the first class that could not be placed, with its reason and suggested fixes." src="docs/images/recordings/import-generate.webp" width="680">
-  </a>
-  <br>
-  <sub>From two Excel files to a checked timetable: import the Bahar 2026 workbooks, generate week 3, read the report.
-  Waits for the import jobs and the solver are cut. <a href="docs/images/recordings/import-generate.mp4">MP4</a></sub>
-</p>
+<!-- AUTO:recordings -->
 
-Four more recordings, each under a minute, all made against the real backend with the real 2026 data
-(how: [Recordings and screenshots](#recordings-and-screenshots)).
+Recorded on the real backend with the real 2026 workbooks. Instructor names are reduced to initials. Each clip opens its full take (MP4).
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <a href="docs/images/recordings/calendar-move.mp4"><img alt="Screen recording: room A 204's week in the calendar; a class is opened in the inspector, moved to a free room that the server confirms fits, and the move is undone." src="docs/images/recordings/calendar-move.webp"></a>
-      <br><sub><b>Calendar.</b> Open a class, move it to a free room the server has checked, undo. <a href="docs/images/recordings/calendar-move.mp4">MP4</a></sub>
+      <a href="docs/images/recordings/reserve-panel.mp4"><img alt="Screen recording: Reserve a free period. Point at a free period, click, confirm. The cell then shows You." src="docs/images/recordings/reserve-slot.gif" width="100%"></a>
+      <br><sub><b>Reserve a free period.</b> Point at a free period, click, confirm. The cell then shows You.</sub>
     </td>
     <td width="50%" valign="top">
-      <a href="docs/images/recordings/studio-rule-fix.mp4"><img alt="Screen recording: in the Generator Studio a rule is added from a template, the pre-check reports problems in the term's data, and one suggested fix is applied." src="docs/images/recordings/studio-rule-fix.webp"></a>
-      <br><sub><b>Generator Studio.</b> Add a rule from a template, run the pre-check, apply one of its fixes. <a href="docs/images/recordings/studio-rule-fix.mp4">MP4</a></sub>
+      <a href="docs/images/recordings/reserve-panel.mp4"><img alt="Screen recording: Book several periods. Drag across free periods of one room. One sheet books them together." src="docs/images/recordings/reserve-drag.gif" width="100%"></a>
+      <br><sub><b>Book several periods.</b> Drag across free periods of one room. One sheet books them together.</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <a href="docs/images/recordings/room-booking.mp4"><img alt="Screen recording: the day booking grid for A building; a free period in room A 203 is picked, a note is added and the booking is saved; it then appears under My bookings." src="docs/images/recordings/room-booking.webp"></a>
-      <br><sub><b>Bookings.</b> Pick a free period, add a note, book it, find it under My bookings. <a href="docs/images/recordings/room-booking.mp4">MP4</a></sub>
+      <a href="docs/images/recordings/find-room.mp4"><img alt="Screen recording: Find a room. Head count and a feature. Rooms that fit come first, near fits after, each with its reason." src="docs/images/recordings/find-room.gif" width="100%"></a>
+      <br><sub><b>Find a room.</b> Head count and a feature. Rooms that fit come first, near fits after, each with its reason.</sub>
     </td>
     <td width="50%" valign="top">
-      <a href="docs/images/recordings/admin-user.mp4"><img alt="Screen recording: Setup, Users; a new account for the planning office is created and given the Planner role in the role picker." src="docs/images/recordings/admin-user.webp"></a>
-      <br><sub><b>Administration.</b> Create an account and pick its role; roles you could not grant are greyed out. <a href="docs/images/recordings/admin-user.mp4">MP4</a></sub>
+      <a href="docs/images/recordings/audit-undo.mp4"><img alt="Screen recording: Undo from the audit log. A move shows the room before and after. Undo puts it back." src="docs/images/recordings/audit-undo.gif" width="100%"></a>
+      <br><sub><b>Undo from the audit log.</b> A move shows the room before and after. Undo puts it back.</sub>
     </td>
   </tr>
-</table>
-
-## What is built
-
-Status on branch `claude/gracious-cerf-w1598m`, 2026-10-15. *Done* means code, tests and a screen.
-*Backend only* means the API and its tests exist and the screen does not yet.
-
-**Planning**
-
-| Feature | Status |
-|---|---|
-| Import of planning lists, exam lists, weekly room grids, a room master CSV and the CRBS database, each with an import report | Done |
-| Rules from settings, templates, the workbooks and, with an API key, sentences and (once an administrator enables AI intake) uploaded files; AI rules need a person's approval | Done |
-| Generator Studio: scope, classes, rules, pre-check with fixes, generate | Done |
-| CP-SAT solver for a week, a month, the whole term or the exam period; partial runs; every unplaced class explained | Done |
-| Planner-level validator: stored runs re-checked against the raw workbook rows (`tools/validate_planner.py`) | Done, runs in pod CI |
-| Calendar with six views and an inspector; move with a server check, then undo | Done |
-| Exports to Excel, CSV and iCal | Done |
-| Relaxation policy when not every class fits: `lock_first` (default: locks, then coordinator priority, then most classes) or `most_classes_first`, per run or per term | Backend (2026-10-15, Phase 19 decision); priorities are passed as run parameters, no screen yet |
-
-**Bookings (the classroombookings side)**
-
-| Feature | Status |
-|---|---|
-| Booking grid by day or by room, single, recurring and multi bookings, limits, holidays, timetable weeks; the published timetable blocks its slots | Done |
-| Reservation panel: click a free slot to reserve it, drag or Shift-click to book several periods, a reason on cells you cannot book, a *Free slots* list (the default on phones), a department view, room details with the next free slot and other rooms free at the same time | Done (`e2e/reserve.spec.ts`) |
-| Calendar sync: private ICS feed links (my bookings, a room, a department) with copy, webcal and Google / Outlook / Apple buttons, in the reservation panel and on My bookings; room-group feeds through the API | Done |
-| Organisation switch for calendar sync (KVKK): off turns every feed link into a 404; switching it is audited | Backend only (`PUT /calendar/admin/settings`, no settings screen yet); on by default |
-| Google Calendar and Microsoft 365 push, once an administrator enters the organisation's OAuth client | Backend only (client set through `PUT /calendar/admin/settings`, no settings screen yet); tested against mocked Google and Microsoft APIs, not yet against a live tenant. The reservation panel shows a *Connect* button only when a client is configured |
-| Signed outgoing webhooks (HMAC-SHA256), off by default | Backend only |
-| Typed room features (yes/no, number, option, text) and find-a-room (`POST /rooms/find`) | Backend done; the reservation panel's *other available rooms* uses find-a-room. A features tab in Setup → Rooms and a `/find-room` page are in the tree as work in progress |
-| Approvals by designated approvers: rules per room, room group or room type, requests wait as `PENDING`, a sweeper expires them | Backend done; `/approvals` (inbox) and `/admin/approval-rules` are in the tree as work in progress |
-| Append-only audit log with undo of booking create, series create, move and cancel | Backend done; `/admin/audit` is in the tree as work in progress |
-| In-app notifications (`GET /me/notifications`) next to the e-mail outbox | Backend done; the notification bell in the top bar is work in progress |
-| No privilege escalation: nobody grants a role, or edits a role, whose permissions they do not all hold | Done |
-| Sign-out, a password change, disabling an account and a role change revoke the user's tokens on every device | Done |
-| 14 interface languages (the 13 CRBS languages plus Turkish). Turkish and English are complete; the other 12 carry only the strings classroombookings itself translates (about 36 of 2,743) and fall back to English per key | Partial (owner decision: picker reduced to TR + EN) |
-
-*Work in progress* means the wave-1 frontend agent is still building these screens. They were
-committed in progress checkpoints on 2026-10-15 together with a real-backend Playwright spec
-(`e2e/wave1.spec.ts`), which this documentation pass did not run. This README does not describe them as
-finished.
-
-## Quick start
-
-### Docker, one command
-
-Docker Engine 24+ with the Compose v2 plugin is all the host needs.
-
-```bash
-cd smartsched/deploy
-./deploy.sh        # writes .env with random secrets, builds, starts, waits for /api/v1/health
-# SmartSched is up at http://localhost:8080; the admin login is ADMIN_EMAIL / ADMIN_PASSWORD in .env
-```
-
-This starts PostgreSQL, the FastAPI backend, the Next.js frontend and nginx. Useful flags:
-`--tls` adds a Caddy HTTPS edge, `--legacy` also runs the original classroombookings (PHP 8.3 and
-MySQL 8.4) for live imports, `--update` pulls, rebuilds and migrates, `--down` stops the stack and
-keeps the data. Set `PUBLIC_URL` to the address browsers use: calendar feed links and the OAuth
-redirect addresses are built from it. The full list, backups and sizing are in
-[smartsched/deploy/README.md](smartsched/deploy/README.md).
-
-### On AWS
-
-One EC2 instance (t4g.large, us-east-1 by default) runs the whole stack behind Caddy TLS, plus the
-project's CI. It is controlled by pushing a change to `infra/aws/POD_ACTION`; the first line is the
-command, and `.github/workflows/aws-bootstrap.yml` runs it with a GitHub OIDC role, so no AWS keys are
-stored in the repository.
-
-```bash
-echo "status $(date -u +%FT%TZ)" > infra/aws/POD_ACTION   # the timestamp makes every push a change
-git add infra/aws/POD_ACTION && git commit -m "pod: status" && git push
-```
-
-| First line | What it does |
-|---|---|
-| `up` | create or update everything (IAM role, security group, Elastic IP, instance, alarm, budget) and print the panel URL |
-| `status` | inventory, alarm and budget state, orphaned resources, estimated monthly cost |
-| `logs` | boot progress from the instance's serial console (no SSH or SSM session needed) |
-| `stop` / `start` | stop or start the instance; data is kept |
-| `cost` | month-to-date spend from Cost Explorer, the budget and the estimate |
-| `down destroy` | delete everything tagged `Project=smartsched`; the budget is kept (a plain `down` is refused) |
-
-Cost control: the budget `smartsched-monthly-100usd` e-mails at 50, 80 and 100 % of actual spend and
-at 100 % of forecast, and a budget action stops the instance at 100 % actual. The pod stops itself
-after 60 minutes with no CI job and CPU below 5 %, and the CloudWatch alarm `smartsched-pod-idle-stop`
-does the same as a backstop. Running all month costs about 57 USD in us-east-1; stopped, about 8 USD
-([docs/deploy/AWS.md](docs/deploy/AWS.md)).
-
-The pod generates its own secrets. The administrator's password is stored in the SSM SecureString
-parameter `/smartsched/admin_password` (the e-mail in `/smartsched/admin_email`); read it with
-`aws ssm get-parameter --name /smartsched/admin_password --with-decryption`. No workflow prints it.
-
-### Local development
-
-Python 3.12+ and Node 22+.
-
-```bash
-scripts/dev.sh --run     # venv + npm ci, SQLite, seeded admin, backend :8000, frontend :3000
-```
-
-The admin is your `git config user.email` (or `DEV_ADMIN_EMAIL`) with a random password printed once.
-The frontend always talks to the real backend; there is no mock or demo mode.
-
-### Load the real 2026 data
-
-The planning office's workbooks for Bahar 2026, Güz 2026-27 and the 2026 finals are in
-`smartsched/backend/tests/fixtures/`.
-
-```bash
-cd smartsched/backend && source .venv/bin/activate
-python -m app.cli import weekly-grid   tests/fixtures/bahar_derslikler_takvimi_2026.xlsx --term 2026-BAHAR --year 2026
-python -m app.cli import planning-list tests/fixtures/bahar_derslik_planlama_listesi_v5.xlsx --term 2026-BAHAR
-python -m app.cli import room-master   tests/fixtures/room_master.csv
-python -m app.cli solve --term 2026-BAHAR --kind COURSE --horizon TERM --time-limit 300
-```
-
-Importing a weekly grid also stores the planner's own published board as a run, so the calendar has
-something to show straight away. The same importers are on the Import page. The CRBS importer reads
-SQL dumps (`import crbs structure.sql data.sql`) or a live server (`import crbs --dsn mysql://…`).
-Requests and room grids are read today from the office's three workbook shapes (`.xlsx`), a room
-master CSV and the CRBS database. Reading requests and schedule maps from other formats is planned
-in Phase 19 ([Roadmap](#roadmap)).
-
-## How it works
-
-1. **Import.** Planning lists, exam lists and weekly room grids are read from the office's workbooks;
-   a room master CSV corrects capacities and tags. Turkish day names, dotted times, comma decimals,
-   room spellings such as `A 101`, `A101` and `B Blok Bilg. Lab.` and multi-value cells are normalised
-   ([docs/DATA_ANALYSIS.md](docs/DATA_ANALYSIS.md)). Every import ends with a report of what was read,
-   what was skipped and why.
-2. **Rules.** Settings, rule templates, the workbooks themselves and, with an Anthropic API key,
-   sentences in Turkish or English and uploaded preference files (`.xlsx`, `.csv`, `.docx`, `.pdf`,
-   `.txt`, `.md`) all become the same thing: a typed rule that is either *Must* (hard) or *Try to*
-   (soft, weighted), with a link to where it came from. Nothing written by the AI is used until a
-   person accepts it. The contents of an uploaded file go to the Claude API only after an
-   administrator turns on AI intake (`PUT /api/v1/ai/policy`, off by default, with a KVKK
-   acknowledgement); otherwise the file is read on the server and its rows are left for a person.
-3. **Pre-check.** Before solving, the Generator Studio checks the plan against the data and lists what
-   cannot work (a locked room that is too small, two classes locked into one room at once), each with
-   fixes.
-4. **Solve.** OR-Tools CP-SAT places classes into rooms and periods for a week, a month or the whole
-   term (14 weeks), or exams into exam slots.
-5. **Validate and explain.** Scores are computed again in plain Python from the finished timetable, so
-   the solver, manual moves and AI edits are judged by the same code. Anything not placed is explained
-   one class at a time. A second, independent check compares the stored timetable with the raw
-   workbook rows (`app/services/planner_check.py`); pod CI runs it on four real instances for every
-   commit.
-6. **Publish and book.** Activating a run publishes it: its classes hold their slots in the booking
-   grid, and staff book the free periods around them.
-
-<table>
   <tr>
-    <td align="center" width="50%">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/images/lottie/nl-to-rules-dark.gif">
-        <img alt="Animation: a Turkish sentence becomes a typed rule card that can be reviewed before it is used" src="docs/images/lottie/nl-to-rules-light.gif" width="360">
-      </picture>
-      <br><sub>With an API key, a sentence becomes a rule you review before it is used (illustration).</sub>
+    <td width="50%" valign="top">
+      <a href="docs/images/recordings/calendar-move.mp4"><img alt="Screen recording: Move a class. Only free rooms that fit are offered. The server checks the move before it is saved." src="docs/images/recordings/calendar-move.gif" width="100%"></a>
+      <br><sub><b>Move a class.</b> Only free rooms that fit are offered. The server checks the move before it is saved.</sub>
     </td>
-    <td align="center" width="50%">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/images/lottie/file-to-rules-dark.gif">
-        <img alt="Animation: rows of an uploaded preference file become rule cards, each linked to its source row" src="docs/images/lottie/file-to-rules-light.gif" width="360">
-      </picture>
-      <br><sub>Rules read from an uploaded file keep a link to their source row (illustration).</sub>
+    <td width="50%" valign="top">
+      <a href="docs/images/recordings/studio-rule-fix.mp4"><img alt="Screen recording: Pre-check and fix. The Studio checks the plan against the term's data and applies one of its fixes." src="docs/images/recordings/precheck-fix.gif" width="100%"></a>
+      <br><sub><b>Pre-check and fix.</b> The Studio checks the plan against the term's data and applies one of its fixes.</sub>
     </td>
   </tr>
-</table>
-
-### Hard rules, waived exceptions and partial runs
-
-The hard rules are: a room seats the class, a room holds one class at a time, a cohort and an
-instructor are in one place at a time, fixed times stay fixed, and a class that needs a lab gets one.
-SmartSched never relaxes one of them quietly.
-
-Real planning data breaks these rules in a few known ways, and the planner usually knows. A class is
-locked into a room with fewer seats than its enrolment estimate; two fixed classes of the same
-instructor overlap; two rows lock the same room at the same time. SmartSched does not overrule the
-planner here. It keeps the planner's decision, records each case as a *waived exception* with the
-class and the room named, and lists them under *Problems in your data* in the run report, grouped and
-exportable to Excel. Only the planner's own locks are trusted this way: a lock made by a fix button, a
-manual move or an AI edit (`lock_trusted=False`) must fit the room like any other placement. Three switches control this, all on by default and all per run:
-trust the planner's locked rooms, treat clashes between fixed classes as warnings, and keep the best
-partial timetable when not everything fits
-([solver README](smartsched/backend/app/solver/README.md#real-data-modes-d1d3)).
-
-When not every class can be placed, the run is **partial**, labelled for example
-*Partial · 522/548 placed*. A relaxation first places as many classes as it can, keeping the
-planner's locks where it can; the placed classes are then optimised for the soft rules. Every placed
-class keeps every hard rule, apart from the waived exceptions it lists (hard score 100, re-checked
-against the workbook rows). Each class
-left out is listed with the reason (for example: *every room that fits is taken at that time*, with
-the rooms and what holds them) and with fixes such as freeing a named room. Applying a fix creates a
-new run; the old one stays as it was.
-
-Claude is optional and is never the planner. It turns sentences and files into rule proposals,
-proposes edits from the chat panel, and writes explanations. Every proposal goes through the same
-validation as a manual move. Import, solving, the calendar, bookings and manual edits work without a
-key. Details: [solver README](smartsched/backend/app/solver/README.md),
-[AI README](smartsched/backend/app/ai/README.md), [research notes](docs/RESEARCH.md).
-
-### Bookings, calendar sync and approvals
-
-Every change to a booking, a series or an approval goes through one function,
-`app/services/events.publish_event`, inside the database transaction of the change. It writes the
-audit row, sends the e-mail notification when there is one, and calls its subscribers: the calendar
-push outbox and the outgoing webhooks. A failing subscriber is logged and never undoes the booking.
-
-- **Audit log.** `audit_events` is append-only; database triggers refuse updates and deletes on SQLite
-  and PostgreSQL. Secrets are redacted. A booking create, series create, move or cancel can be undone
-  while nothing later has changed it, within 24 hours or before it starts.
-- **Calendar sync.** A feed link carries a random token; only its SHA-256 hash is stored. A user can
-  hold several links, revoke one or reset all. The organisation switch `calendar_sync_enabled` (KVKK)
-  turns every feed into a 404. Google Calendar and Microsoft 365 push appears only after an
-  administrator enters the organisation's OAuth client; no client ships with the product.
-- **Webhooks.** Signed with HMAC-SHA256, retried with backoff, switched off after five failures in a
-  row. They send data outside the server, so `webhooks_enabled` is off by default; payloads carry no
-  notes and no e-mail addresses.
-- **Approvals.** A rule on a room, a room group or a room type sends requests to designated approvers.
-  The booking answers `202` and waits as `PENDING`; the approver approves, rejects or suggests another
-  room. A background sweep every 60 seconds expires overdue requests and releases tentative holds. With
-  no rule, booking works as in CRBS.
-- **Sessions.** Each token carries the user's token version. Sign-out, a password change or reset,
-  disabling the account, a role change and deleting the role raise the version, so every earlier
-  token stops working on every device.
-
-## Measured on the real data
-
-From [docs/testing/2026-10-08-real-data-feasibility.md](docs/testing/2026-10-08-real-data-feasibility.md),
-section "Review fixes": the planning office's 2026 workbooks, default run settings, 4 vCPU shared with
-other work, CP-SAT with 4 workers. A *request* is one row of the planning or exam list; *placed* means
-placed in every week of the run. "Planner-level hard" re-checks the stored timetable against the raw
-workbook rows, independently of the solver.
-
-| Instance | Requests placed | Solver events placed | Planner-level hard | Violations |
-|---|---|---|---|---|
-| Bahar 2026, whole term (300 s limit) | 838 / 883 (94.9 %) | 682 / 720 | 100 | 0 |
-| Bahar 2026, week 3 (120 s) | 845 / 882 (95.8 %) | 689 / 719 | 100 | 0 |
-| Güz 2026-27, week 3 (120 s) | 626 / 653 (95.9 %) | 522 / 548 | 100 | 0 |
-| Final 2026 exams (120 s) | 724 / 729 (99.3 %) | 624 / 629 | 100 | 0 |
-
-Every exception behind these numbers is the planner's own data and is reported per class (locked rooms
-smaller than the enrolment estimate, fixed-time clashes of one instructor or cohort, missing
-enrolments). The same report records an earlier mistake: before the review fixes the solver reported
-hard 100 while the planner-level check found 134, 68 and 56 violations on the Bahar, Güz and Final week
-runs (for example 136 students seated in a 72-seat room), because the bridge clipped merged groups to
-the room. The placement rates went down a little when that was fixed. Earlier still, the same Bahar
-data ended *infeasible within 0.05 s, with 356 diagnoses and no timetable*.
-
-When the planner's rooms are only hints instead of locks, the solver picks exactly the planner's room
-set for 89.5 % of the placed Bahar week 3 requests and 94.9 % of the Güz ones; for the Final exams it is
-74.1 % exact and 93.4 % sharing at least one room, every run with planner-level hard 100.
-
-These figures were measured on 2026-10-08. The importer changed after that (non-room venues such as
-CASE or ONLINE need no room, course codes with leading zeros are merged, a missing week sheet is
-reported), so the counts of the next run will differ. The pod CI gate `planner` now repeats this check
-on every commit (`python -m tools.validate_planner`, the four instances above at 120 s each) and fails
-the run on any planner-level violation.
-
-The recordings and screenshots on this page come from a fresh import of the same workbooks and two
-runs made through the API for Güz 2026-27: week 3 placed 522 of 548 solver events (the row above) and
-the whole term 519 of 548, both with hard score 100.
-
-## Screenshots
-
-All screenshots show the real 2026 data, taken at 1440 px wide, in light or dark mode following your
-GitHub theme. Most were taken on 2026-10-08; the booking screenshots were retaken on 2026-10-15 after the
-reservation panel landed. Screens of the wave-1 features (approvals, find-a-room page, audit viewer,
-room features admin) will be added when those screens are finished.
-
-**Dashboard.** Room use for the week, classes that still need a room, requests waiting for review,
-and use by building and day for the published run.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/dashboard-dark.webp">
-  <img alt="Dashboard for Güz 2026-27, week 3: room use 26 percent, 29 classes still needing a room in run 8, 141 requests waiting for review, a line chart of rooms in use through the day and a building by day heat map" src="docs/images/screens/dashboard-light.webp" width="960">
-</picture>
-
-**Generator Studio.** Scope, classes, rules, pre-check and generate, with a running summary of what
-will happen.
-
-<table>
   <tr>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-scope-dark.webp">
-      <img alt="Studio scope step: the term, classes or exams, one week, a month or the whole term, and a sentence saying how many classes will be planned in how many rooms" src="docs/images/screens/studio-scope-light.webp" width="480">
-    </picture></td>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-rules-dark.webp">
-      <img alt="Studio rules step: one-click common rules, and the term's rules listed as sentences grouped into Must and Try to" src="docs/images/screens/studio-rules-light.webp" width="480">
-    </picture></td>
-  </tr>
-  <tr>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-precheck-dark.webp">
-      <img alt="Studio pre-check: the plan is blocked, with problems grouped by kind, such as classes locked to a room that does not fit, and a card naming two classes locked into the same room with fix buttons" src="docs/images/screens/studio-precheck-light.webp" width="480">
-    </picture></td>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/run-report-dark.webp">
-      <img alt="Run report for a partial run: 522 of 548 placed with no rule broken, 26 unplaced, soft preference score 88, and the first class without a room with its fixes" src="docs/images/screens/run-report-light.webp" width="480">
-    </picture></td>
-  </tr>
-</table>
-
-**Run report.** Each class that could not be placed, with the reason and fixes; below it, the problems
-found in the workbooks themselves.
-
-<table>
-  <tr>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/run-diagnoses-dark.webp">
-      <img alt="Classes without a room: each card names the class, its size and time, the rooms that would fit and which classes hold them, with options to free one of those rooms" src="docs/images/screens/run-diagnoses-light.webp" width="480">
-    </picture></td>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/run-data-issues-dark.webp">
-      <img alt="Problems in your data: fixed-time instructor clashes, planned rooms too small, classes without an enrolment, fixed-time cohort clashes, lectures listed twice, with an Excel download" src="docs/images/screens/run-data-issues-light.webp" width="480">
-    </picture></td>
-  </tr>
-</table>
-
-**Calendar.** Six views of one run (Board, Week, Day, Month, Term, Agenda) and an inspector that shows
-when and where a class is, why it is there and what conflicts with it.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-board-dark.webp">
-  <img alt="Calendar Board view for week 3: the rooms of A building as columns, periods as rows, classes as coloured blocks with seats used and the instructor" src="docs/images/screens/calendar-board-light.webp" width="960">
-</picture>
-
-<table>
-  <tr>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-week-dark.webp">
-      <img alt="Calendar Week view of room A 204: Monday to Friday with the room's classes and markers where classes share the room" src="docs/images/screens/calendar-week-light.webp" width="480">
-    </picture></td>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-inspector-dark.webp">
-      <img alt="Class inspector next to the week: time and room, seats used, instructor and programme, and a checklist of why the class is in this room" src="docs/images/screens/calendar-inspector-light.webp" width="480">
-    </picture></td>
-  </tr>
-  <tr>
-    <td colspan="2"><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-term-dark.webp">
-      <img alt="Calendar Term view of the planner's Bahar 2026 board: a heat map of room use for each day of the 15 weeks" src="docs/images/screens/calendar-term-light.webp" width="960">
-    </picture></td>
-  </tr>
-</table>
-
-**All classes and rooms.** Every section of the term with its status, programme, instructor, size and
-room; every room with its seats, tags and use through the week.
-
-<table>
-  <tr>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/classes-dark.webp">
-      <img alt="All classes: 1,036 classes grouped by faculty with status, course, programme, year, instructor, students and room, and filters for unplaced, issues, changed and evening classes" src="docs/images/screens/classes-light.webp" width="480">
-    </picture></td>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/rooms-dark.webp">
-      <img alt="Rooms: 87 rooms in 4 buildings as cards with seats, exam seats, floor, tags and a bar per weekday for occupancy" src="docs/images/screens/rooms-light.webp" width="480">
-    </picture></td>
-  </tr>
-  <tr>
-    <td colspan="2"><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/room-detail-dark.webp">
-      <img alt="Room A 204: its week as a grid of periods, a free-slot finder, term occupancy and the list of classes in the week" src="docs/images/screens/room-detail-light.webp" width="960">
-    </picture></td>
-  </tr>
-</table>
-
-**Bookings and the reservation panel.** The classroombookings grid with the published Güz 2026-27
-timetable in place. Free cells say *Free* and offer *Reserve* on hover; drag or Shift-click books
-several periods. These shots are cropped to the page content because the sidebar is changing with the
-wave-1 screens; the feed links in the sync panel are blurred on purpose.
-
-<table>
-  <tr>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/media/reserve-grid-dark.png">
-      <img alt="Booking grid for A Blok on Friday 16 October 2026: rooms as rows, periods P1 to P10 as columns, classes of the published timetable such as NUT 343 and CSE 413-1 holding their slots, every other cell marked Free, and the cell under the pointer offering Reserve; the toolbar has Grid and Free slots, By day and By room, Calendar sync and Select several, with room group tabs and a department filter below" src="docs/media/reserve-grid-light.png" width="480">
-    </picture></td>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/media/reserve-free-slots-dark.png">
-      <img alt="Free slots view of the same day: 285 free periods in 20 rooms, each room of A Blok with its seats and one button per free period" src="docs/media/reserve-free-slots-light.png" width="480">
-    </picture></td>
-  </tr>
-  <tr>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/media/reserve-room-details-dark.png">
-      <img alt="Room details for A 103: seats, exam seats, building, floor, room group and the PC feature; its class that day (CSE 413-1, P3 to P5); the next free slot with a Reserve button; and other available rooms at P1 with at least 47 seats and a PC, ranked by the room finder, here A 105 with a Reserve button" src="docs/media/reserve-room-details-light.png" width="480">
-    </picture></td>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/media/calendar-sync-dark.png">
-      <img alt="Sync to calendar panel: private links for my bookings, room A 101 and a department, each with copy and calendar buttons and Add to Google Calendar, Add to Outlook and Apple Calendar, and Reset private link; the link addresses are blurred because they contain the private token" src="docs/media/calendar-sync-light.png" width="480">
-    </picture></td>
+    <td width="50%" valign="top">
+      <a href="docs/images/recordings/onboarding-intake.mp4"><img alt="Screen recording: Start from an empty instance. Drop the exam workbook with AI off. It is read, a term is proposed, reviewed and saved." src="docs/images/recordings/onboarding.gif" width="100%"></a>
+      <br><sub><b>Start from an empty instance.</b> Drop the exam workbook with AI off. It is read, a term is proposed, reviewed and saved.</sub>
+    </td>
+    <td width="50%"></td>
   </tr>
 </table>
 
 <details>
-<summary><strong>Administration, settings, sign-in, phone and Turkish</strong></summary>
-
-<br>
+<summary><strong>Every recording</strong> (9 full takes, MP4)</summary>
 
 <table>
   <tr>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/admin-users-dark.webp">
-      <img alt="Setup, Users: accounts with e-mail, role, department and last sign-in, with search and filters" src="docs/images/screens/admin-users-light.webp" width="480">
-    </picture></td>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/admin-roles-dark.webp">
-      <img alt="Setup, Roles: the Administrator, Planner, Teacher and Viewer roles, booking limits and permissions grouped like classroombookings" src="docs/images/screens/admin-roles-light.webp" width="480">
-    </picture></td>
+    <td width="25%" valign="top">
+      <a href="docs/images/recordings/reserve-panel.mp4"><img alt="Still from the recording: Reservation panel: a click, a drag, room details" src="docs/images/recordings/reserve-panel-poster.png" width="100%"></a>
+      <br><sub><a href="docs/images/recordings/reserve-panel.mp4">Reservation panel: a click, a drag, room details</a> · <a href="docs/images/recordings/reserve-panel-tr.mp4">Turkish</a></sub>
+    </td>
+    <td width="25%" valign="top">
+      <a href="docs/images/recordings/find-room.mp4"><img alt="Still from the recording: Find a room" src="docs/images/recordings/find-room-poster.png" width="100%"></a>
+      <br><sub><a href="docs/images/recordings/find-room.mp4">Find a room</a></sub>
+    </td>
+    <td width="25%" valign="top">
+      <a href="docs/images/recordings/audit-undo.mp4"><img alt="Still from the recording: Audit log with undo" src="docs/images/recordings/audit-undo-poster.png" width="100%"></a>
+      <br><sub><a href="docs/images/recordings/audit-undo.mp4">Audit log with undo</a></sub>
+    </td>
+    <td width="25%" valign="top">
+      <a href="docs/images/recordings/calendar-move.mp4"><img alt="Still from the recording: Move a class in the calendar, then undo" src="docs/images/recordings/calendar-move-poster.png" width="100%"></a>
+      <br><sub><a href="docs/images/recordings/calendar-move.mp4">Move a class in the calendar, then undo</a></sub>
+    </td>
   </tr>
   <tr>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/setup-requirements-dark.webp">
-      <img alt="Setup checklist: what bookings need, in order, and the server requirements with their status" src="docs/images/screens/setup-requirements-light.webp" width="480">
-    </picture></td>
-    <td><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/settings-appearance-dark.webp">
-      <img alt="Settings, Appearance: theme, accent colour, density, reduce motion and reduce transparency" src="docs/images/screens/settings-appearance-light.webp" width="480">
-    </picture></td>
+    <td width="25%" valign="top">
+      <a href="docs/images/recordings/studio-rule-fix.mp4"><img alt="Still from the recording: Studio: a rule from a template, the pre-check and a fix" src="docs/images/recordings/studio-rule-fix-poster.png" width="100%"></a>
+      <br><sub><a href="docs/images/recordings/studio-rule-fix.mp4">Studio: a rule from a template, the pre-check and a fix</a></sub>
+    </td>
+    <td width="25%" valign="top">
+      <a href="docs/images/recordings/onboarding-intake.mp4"><img alt="Still from the recording: Onboarding an empty instance" src="docs/images/recordings/onboarding-intake-poster.png" width="100%"></a>
+      <br><sub><a href="docs/images/recordings/onboarding-intake.mp4">Onboarding an empty instance</a></sub>
+    </td>
+    <td width="25%" valign="top">
+      <a href="docs/images/recordings/room-booking.mp4"><img alt="Still from the recording: Book a room with a note, My bookings" src="docs/images/recordings/room-booking-poster.png" width="100%"></a>
+      <br><sub><a href="docs/images/recordings/room-booking.mp4">Book a room with a note, My bookings</a></sub>
+    </td>
+    <td width="25%" valign="top">
+      <a href="docs/images/recordings/admin-user.mp4"><img alt="Still from the recording: Create an account and pick its role" src="docs/images/recordings/admin-user-poster.png" width="100%"></a>
+      <br><sub><a href="docs/images/recordings/admin-user.mp4">Create an account and pick its role</a></sub>
+    </td>
   </tr>
   <tr>
-    <td colspan="2"><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/login-dark.webp">
-      <img alt="Sign-in page with e-mail or username, password, a forgot password link and a Turkish and English switch" src="docs/images/screens/login-light.webp" width="960">
-    </picture></td>
-  </tr>
-</table>
-
-On a phone the sidebar becomes a tab bar, and the calendar's Day view becomes a list.
-
-<table>
-  <tr>
-    <td align="center"><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/mobile-dashboard-dark.webp">
-      <img alt="Dashboard on a phone with the tab bar at the bottom" src="docs/images/screens/mobile-dashboard-light.webp" width="260">
-    </picture></td>
-    <td align="center"><picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/mobile-calendar-dark.webp">
-      <img alt="Calendar Day view on a phone: the week strip and room A 204's classes for Monday as a list" src="docs/images/screens/mobile-calendar-light.webp" width="260">
-    </picture></td>
-  </tr>
-</table>
-
-The interface is in 14 languages (the 13 classroombookings languages plus Turkish); these two are in
-Turkish.
-
-<table>
-  <tr>
-    <td><img alt="The dashboard in Turkish" src="docs/images/screens/dashboard-tr-light.webp" width="480"></td>
-    <td><img alt="The Studio rules step in Turkish, with rules shown as Turkish sentences" src="docs/images/screens/studio-rules-tr-light.webp" width="480"></td>
+    <td width="25%" valign="top">
+      <a href="docs/images/recordings/run-report-fix.mp4"><img alt="Still from the recording: Run report: apply a suggested fix" src="docs/images/recordings/run-report-fix-poster.png" width="100%"></a>
+      <br><sub><a href="docs/images/recordings/run-report-fix.mp4">Run report: apply a suggested fix</a></sub>
+    </td>
   </tr>
 </table>
 
 </details>
 
-## Relation to classroombookings
+<!-- /AUTO:recordings -->
 
-This repository is a fork of classroombookings by Craig A Rodway. The original PHP app is unchanged at
-the root (`crbs-core/`, `index.php`, `assets/`), and `./deploy.sh --legacy` runs it next to
-SmartSched. SmartSched imports its database: users with their password hashes, roles, access lists and
-bookings. The import is tested on CRBS's own install SQL; an upgrade of a running CRBS server is still a
-declared gap.
+## What it does
 
-What stays the same: the booking grid by day or by room, single and recurring bookings, booking
-limits, holidays and timetable weeks, roles with the CRBS permissions, room access lists, LDAP
-sign-in, the CSV export columns, and the 13 CRBS interface languages. What is added: the planning side,
-a published timetable that bookings can never collide with, the reservation panel, calendar feeds and
-push, approvals, an audit log with undo, in-app notifications and an e-mail outbox. Where SmartSched
-behaves differently on purpose (mostly security, such as no privilege escalation in the role editor,
-sign-out ending every session, or keeping booking history when a user is deleted), the difference is
-listed with its setting, if there is one, in [docs/CRBS_PARITY.md](docs/CRBS_PARITY.md).
+**Import.** The planning list, the weekly room grid, the exam list and a room master are read as they are.
+Each import ends with a report of what was read and what was skipped. An empty instance starts from the
+onboarding page, which recognises the files and proposes the term.
 
-The CRBS superset gate (`python3 scripts/parity_check.py`) holds one row per CRBS behaviour, audit item
-or screen, each tied to API tests on the real Bahar data and, where there is a screen, to a Playwright
-test title. Run on 2026-10-15 at commit `a0a6b4c` on a clean checkout: **192 rows, 172 pass, 20
-declared gaps, 0 fail, 0 missing**; all 157 API tests passed. Each gap is declared in the inventory
-with a reason and a proposed fix: 11 rows have a screen that no Playwright step in the inventory drives
-yet (multi-booking, cancel many, the staff dashboard, SMTP, the installer's requirements step on an
-empty database, and others); 4 are wave-1 screens still in progress (room features, find-a-room,
-audit viewer, approvals); 2 are the Google/Microsoft push and the webhooks, which have no settings
-screen and no live tenant test; 3 are the legacy MySQL upgrade and a side-by-side comparison with a
-running CRBS (Phase 18 parts 3 and 4). The UI column
-of this run checks that the Playwright titles exist; the specs themselves run in the pod CI `e2e-real`
-gate. Details: [docs/CRBS_PARITY.md](docs/CRBS_PARITY.md) §9.
+**Plan.** A week, a month, the whole term or the exam period is solved with OR-Tools CP-SAT. Hard rules
+are never relaxed quietly: a room must seat its class, one class per room, one place per instructor and
+cohort, fixed times and labs. A class that cannot be placed is listed with the reason and the fixes that
+would place it.
 
-## Roadmap
+**Book.** The timetable is published into the booking grid. Staff reserve free periods, find a room by
+head count and feature, and send requests that approvers accept or reject with a reason. Calendar feeds,
+an audit log with undo and in-app notifications come with it.
 
-The full plan, with every backlog item, is [docs/ROADMAP.md](docs/ROADMAP.md). In short:
+**AI only on request.** With an Anthropic key, a sentence or an uploaded file becomes a rule that a
+person reviews before it is used. Everything else works without a key.
 
-| Phase | Where it stands on this branch |
-|---|---|
-| 1-6: backend and importers, solver, AI layer, frontend, deploy, CI and reviews | Built and in the pod CI gates; open backlog items are listed per phase in the roadmap |
-| 8 Generator Studio, 9 real-data feasibility, 10 Liquid Glass redesign | Built; polish and solver backlog items open |
-| 11 CRBS parity, 18 CRBS superset gate | Gate runs in CI; open: the declared gaps above, the legacy MySQL upgrade, the side-by-side check |
-| 13 AWS pod, 14 no placeholders, 15 schedule comparison, 16 recordings | Built |
-| 17 Booking enhancements wave 1 (room features, find-a-room, audit with undo, approvals, notifications) | Backend built; screens being built. Conflict resolver, booking policies, public view and KVKK retention not started |
-| 7 Live import from the university's panel | Not started (needs access details) |
-| 12 Universal edition: any-format intake through an "Ingestion Council" (branch `claude/smartsched-universal`) | On its own branch, being merged into this one; not part of this branch yet |
-| **19 Intake, learned suggestions, from-scratch programmes, moderation** | **Planned, in design** (requested 2026-10-15); conflict policy and AI intake switches in the backend |
+<!-- AUTO:parity -->
 
-### Phase 19 (planned, in design)
+**CRBS superset gate: PASS**: PASS 179 · GAP 13 · FAIL 0 · MISSING 0 of 192 rows, measured on commit `5d0e6c2` (2026-10-15 22:10 UTC) by `scripts/parity_check.py`. Full table: [`crbs-parity-report.md`](docs/testing/crbs-parity-report.md).
 
-Most of Phase 19 is not built. The UX specs are written ([docs/design/v2/](docs/design/v2/),
-`phase19-*.md`) together with an engineering gap analysis
-([docs/review/2026-10-15-phase19-engineering.md](docs/review/2026-10-15-phase19-engineering.md)) and the
-academicians' needs ([docs/testing/2026-10-15-academician-needs.md](docs/testing/2026-10-15-academician-needs.md)).
-On 2026-10-15 the first backend pieces landed: the conflict policy below (solver, run parameters and
-the planner-level check), the AI intake and vision switches (both off by default), and a weekly-pattern
-expander for the programme wizard (in progress). There are no Phase 19 screens yet. What the user asked
-for, and the decisions already taken:
+<!-- /AUTO:parity -->
 
-- **Multi-format intake** of new requests and schedule maps. Structured formats first, read without
-  AI: Excel (`.xlsx`, `.xls`), CSV and TSV (UTF-8 or Windows-1254, delimiter sniffed), ODS, JSON, XML
-  and ICS. Then AI-assisted formats: PDF, DOCX, TXT and EML, and images. Rows read from an
-  AI-assisted format always need a coordinator's review before they are saved; extraction uses the
-  organisation's own Claude API key and stays off until an administrator turns it on with a KVKK
-  acknowledgement (that switch, `ai.intake_enabled`, already exists).
-- **Learned suggestions** from earlier changes and requests. They are never applied automatically:
-  accepting one adds a soft preference, so the hard-rule guarantee (every hard rule kept, or each
-  failure explained) does not change. The memory can be reset per person, per term or entirely, by
-  an administrator only; a reset is audited and can be undone for 30 days.
-- **From-scratch programme creation**: a wizard for a term that has no workbook yet.
-- **A moderation tab** per class, person, academician, request, preference and matching, with the
-  person's request history, administrator edits and a minimal-change re-solve that shows the diff.
-- **Conflict policy**: locks first (a locked class is never moved), then the priority a coordinator
-  sets, then the largest number of classes placed. Configurable per term. Implemented in the backend
-  (`app/solver/policy.py`); the moderation tab is where coordinators will set priorities.
+## Quick start
 
-Order of work: analysis; merge of the universal branch; then structured intake, moderation and
-re-solve, learned suggestions, the programme wizard, and AI-assisted intake, with the remaining CRBS
-gaps alongside; then one commit with every pod gate green before deploying.
-
-## Development
-
-```
-smartsched/
-  backend/    FastAPI, SQLAlchemy 2, Alembic, OR-Tools CP-SAT, Anthropic SDK; tests/fixtures holds the real workbooks
-  frontend/   Next.js 16, TypeScript, Tailwind 4, TanStack Query, dnd-kit, motion; 14 message files in messages/
-  deploy/     docker compose, deploy.sh, nginx, Caddy, the legacy CRBS image, pod CI
-infra/aws/    the AWS pod (boto3 CLI, IAM, user data) and POD_ACTION
-scripts/      dev.sh, record/ (recordings and screenshots), parity_check.py, watchdog.py, agent_state.py
-docs/         architecture, roadmap, data analysis, product contracts, design specs, test reports
-```
-
-| Command | What it runs |
-|---|---|
-| `make -C smartsched check` | backend ruff, mypy and the fast pytest suite (including the real workbooks), frontend tsc, eslint and vitest |
-| `make -C smartsched check-all` | the above plus the solver and AI gates and `deploy/validate.sh` |
-| `cd smartsched/backend && make test-slow` | the heaviest real-workbook tests |
-| `cd smartsched/backend && python -m tools.validate_planner` | solve Bahar week 3, Güz week 3, the Final exams and the Bahar term and check each run at planner level |
-| `python3 scripts/parity_check.py` | the CRBS superset gate; writes `docs/testing/crbs-parity-report.md` (`--report PATH` to write elsewhere) |
-| `E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test` | every Playwright spec against a real backend started with `smartsched/deploy/pod-ci/gates/e2e-backend-entry.sh` |
-
-End-to-end tests run only against a real backend. There is no mock API: without `E2E_REAL=1` every
-spec skips with a pointer to the setup. The e2e backend imports the real Bahar 2026 workbooks, seeds
-an administrator, solves the term and pins the booking clock inside Bahar 2026.
-
-CI runs on the AWS pod, not on GitHub-hosted runners. A systemd timer polls the repository every two
-minutes, runs one job at a time in Docker, posts a commit status per gate and shows the results at
-`/ci/` on the panel ([smartsched/deploy/pod-ci/README.md](smartsched/deploy/pod-ci/README.md)):
-
-| Gate | What it checks |
-|---|---|
-| `prepare` | builds the Python CI image and pulls the Playwright image |
-| `validate` | `smartsched/deploy/validate.sh` (compose, env completeness, no secrets, pinned images, nginx) |
-| `backend` | ruff, mypy, pytest, the solver gate and `alembic upgrade head` |
-| `infra` | tests for `infra/aws` and the pod CI itself |
-| `frontend` | `npm run check` (tsc, eslint, vitest) |
-| `e2e-real` | every Playwright spec against the real backend with the Bahar fixtures, then a check that the build holds no mock code |
-| `parity` | the CRBS superset gate |
-| `planner` | `tools/validate_planner.py` on the four real instances; any planner-level violation fails |
-| `images` | `docker build` of the backend, frontend and legacy CRBS images |
-| `watchdog` | the agent ledger report (not blocking) |
-
-The pod redeploys the deploy branch only when every blocking gate is green and the commit is still
-the head of that branch. `.github/workflows/smartsched.yml` is manual-only (backend, frontend, Docker
-build and stack smoke jobs, without the e2e, parity and planner gates); `aws-bootstrap.yml` is the
-only workflow that runs on its own, and only when `infra/aws/POD_ACTION` changes.
-
-Configuration is through environment variables (`DATABASE_URL`, `APP_SECRET`, `JWT_SECRET`,
-`PUBLIC_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ANTHROPIC_API_KEY`, `SOLVER_WORKERS`, …), listed with
-comments in `smartsched/backend/.env.example` and `smartsched/deploy/.env.example` and described in
-[smartsched/README.md](smartsched/README.md). In production the backend refuses to start with a default,
-short or shared secret. The Anthropic key can also be stored, encrypted, under Settings → AI.
-
-More documentation:
-
-| Document | Contents |
-|---|---|
-| [smartsched/README.md](smartsched/README.md) | developer guide: modules, environment, make targets, CLI, API |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | design principles, domain model, solver contract, event bus, API surface |
-| [docs/DATA_ANALYSIS.md](docs/DATA_ANALYSIS.md) | the workbook shapes, column meanings and quirks |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | phases, decisions and backlog |
-| [docs/CRBS_PARITY.md](docs/CRBS_PARITY.md) | classroombookings behaviour and the deliberate differences |
-| [docs/product/](docs/product/) | API contracts: calendar sync, booking enhancements wave 1 |
-| [docs/design/](docs/design/) | UI specs, including the Liquid Glass system and the calendar |
-| [docs/universal/](docs/universal/) | universal onboarding: [Ingestion Council architecture](docs/universal/ARCHITECTURE.md), [2026 research](docs/universal/RESEARCH-2026.md), [Ruflo dev harness](docs/universal/RUFLO.md) |
-| [docs/testing/](docs/testing/) | test reports: real-data feasibility, real-backend end to end, CRBS parity, planner comparison |
-| [docs/deploy/AWS.md](docs/deploy/AWS.md), [docs/deploy/calendar-oauth.md](docs/deploy/calendar-oauth.md) | the AWS pod; setting up the Google and Microsoft OAuth clients |
-| [docs/AGENTS.md](docs/AGENTS.md), [docs/PROGRESS.md](docs/PROGRESS.md), [docs/AGENT_STATE.md](docs/AGENT_STATE.md) | SmartSched is built by parallel Claude Code agents: their protocol, ledger and resume guide |
-
-### Recordings and screenshots
-
-Everything above was captured by scripts in [`scripts/record/`](scripts/record/), against the real
-backend and a production build of the frontend, never against mock data:
+Docker Engine 24 or newer with Compose v2:
 
 ```bash
-scripts/record/stack.sh up && scripts/record/stack.sh runs   # import the three terms, make two solver runs
-node scripts/record/screens.mjs                                # screenshots, light and dark
-scripts/record/record-all.sh /tmp/recordings                   # the five recordings: MP4, animated WebP, poster
+cd smartsched/deploy
+ADMIN_EMAIL=you@uni.edu.tr ./deploy.sh
+# http://localhost:8080  (the admin password is ADMIN_PASSWORD in .env)
 ```
 
-The recordings are driven by Playwright, captured with Playwright's own video, and finished with
-ffmpeg in the style of [Recordly](https://github.com/webadderallorg/Recordly) (camera zoom on the
-action, an enlarged cursor, click ripples, captions). Each take also writes a `.recordly` project that
-opens in Recordly for hand editing. Recordly's own renderer does run headless in a Linux container but
-needs about 13 minutes per 17 seconds of video, so it was not used for these files. Details:
-[docs/recording/RECORDLY.md](docs/recording/RECORDLY.md).
+This starts PostgreSQL, the backend, the frontend and nginx. `--tls` adds HTTPS through Caddy,
+`--legacy` also runs the original classroombookings, `--update` rebuilds and migrates. The first boot
+loads the branch's seed profile from `smartsched/deploy/profile.env`: `institution` loads the 2026
+workbooks, `empty` starts with the setup wizard. More in
+[smartsched/deploy/README.md](smartsched/deploy/README.md).
 
----
+**AWS.** One EC2 instance runs the stack and the project's CI. It is controlled by the first line of
+`infra/aws/POD_ACTION` (`up`, `status`, `stop`, `start`, `cost`, `down destroy`) through a GitHub OIDC
+role, with a monthly budget that stops the instance. See [docs/deploy/AWS.md](docs/deploy/AWS.md).
 
-## Legacy classroombookings
+**Local development.** `scripts/dev.sh --run` creates the Python venv, installs the frontend, seeds an
+admin into SQLite and starts the backend on :8000 and the frontend on :3000. The frontend always talks to
+a real backend. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-### classroombookings - open source room booking system for schools.
+<details>
+<summary><strong>Screenshots</strong> by role. Real 2026 data; light or dark follows your GitHub theme.</summary>
 
-By Craig A Rodway.
+**Staff who book rooms**
 
-[![License: AGPLv3](https://img.shields.io/static/v1?label=License&message=AGPLv3&color=3DA639&style=flat-square)](https://www.gnu.org/licenses/agpl-3.0.html)
-[![Twitter Follow](https://img.shields.io/twitter/follow/crbsapp.svg?style=social)](https://twitter.com/crbsapp)
+<table>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/bookings-day-dark.webp">
+      <img alt="Booking grid for A Blok on the next teaching day: rooms as rows, periods as columns, timetable classes holding their slots and free cells marked Free" src="docs/images/screens/bookings-day-light.webp" width="480">
+    </picture><br><sub>Booking grid by day</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/bookings-room-dark.webp">
+      <img alt="Booking grid for room A 101 across the week, with its timetable classes and free periods" src="docs/images/screens/bookings-room-light.webp" width="480">
+    </picture><br><sub>Booking grid by room</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/reserve-sheet-dark.webp">
+      <img alt="The booking sheet open on a free period: room, date, period, an optional note and the Reserve button" src="docs/images/screens/reserve-sheet-light.webp" width="480">
+    </picture><br><sub>Reservation panel</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/free-slots-dark.webp">
+      <img alt="Free slots view: the free periods of the day grouped by room, each a button that books it" src="docs/images/screens/free-slots-light.webp" width="480">
+    </picture><br><sub>Free slots list</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/room-details-dark.webp">
+      <img alt="Room details for A 101: seats, building and features, its day, the next free slot and other rooms free at the same time" src="docs/images/screens/room-details-light.webp" width="480">
+    </picture><br><sub>Room details</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/find-room-dark.webp">
+      <img alt="Find a room: date, time, head count and the computer lab feature, with ranked free rooms and their reasons" src="docs/images/screens/find-room-light.webp" width="480">
+    </picture><br><sub>Find a room</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-sync-dark.webp">
+      <img alt="Sync to calendar, switched on by the administrator: private feed links for my bookings, a room and a department with copy, Google, Outlook and Apple buttons; the link addresses are blurred because they carry a private token" src="docs/images/screens/calendar-sync-light.webp" width="480">
+    </picture><br><sub>Calendar sync</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/my-bookings-dark.webp">
+      <img alt="My bookings: upcoming bookings with totals, CSV export and the calendar feed" src="docs/images/screens/my-bookings-light.webp" width="480">
+    </picture><br><sub>My bookings</sub></td>
+  </tr>
+</table>
 
-This is a web-based room booking system for schools and is designed to be as easy to use as possible. Set up your bookable rooms, day schedule and timetable for the year. Add user accounts, and allow them to make and manage bookings from anywhere.
+**Academic staff**
 
-It is available to [download and install yourself](https://www.classroombookings.com/self-host/) or there is a great value [hosted service](https://www.classroombookings.com/pricing/).
+<table>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-week-dark.webp">
+      <img alt="Calendar Week view of the busiest room in week 3 of the published Güz timetable" src="docs/images/screens/calendar-week-light.webp" width="480">
+    </picture><br><sub>A room's week</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-inspector-dark.webp">
+      <img alt="The class inspector next to the week: when and where, seats, instructor as initials, and why the class is in this room" src="docs/images/screens/calendar-inspector-light.webp" width="480">
+    </picture><br><sub>Class inspector</sub></td>
+  </tr>
+</table>
 
-It is web-based - PHP and MySQL - and currently uses the [CodeIgniter 3](https://codeigniter.com/) framework.
+**Coordinators and administrators**
 
-#### Documentation
-For installation instructions and configuration guide, please [read the documentation pages](https://www.classroombookings.com/docs/self-hosted/).
+<table>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/dashboard-dark.webp">
+      <img alt="Dashboard for Güz 2026-27: room use this week, classes that still need a room, requests waiting for review, use through the day and by building" src="docs/images/screens/dashboard-light.webp" width="480">
+    </picture><br><sub>Dashboard</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/onboarding-review-dark.webp">
+      <img alt="Onboarding review of the Final 2026 exam planning list: the proposed term and the items that need a decision" src="docs/images/screens/onboarding-review-light.webp" width="480">
+    </picture><br><sub>Onboarding review</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/import-dark.webp">
+      <img alt="Import page: the kinds of workbook it reads, a drop zone and the import history" src="docs/images/screens/import-light.webp" width="480">
+    </picture><br><sub>Imports</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-scope-dark.webp">
+      <img alt="Generator Studio scope step: term, classes or exams, a week, a month or the whole term" src="docs/images/screens/studio-scope-light.webp" width="480">
+    </picture><br><sub>Studio: scope</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-rules-dark.webp">
+      <img alt="Generator Studio rules step: rules as sentences grouped into Must and Try to" src="docs/images/screens/studio-rules-light.webp" width="480">
+    </picture><br><sub>Studio: rules</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-precheck-dark.webp">
+      <img alt="Generator Studio pre-check: problems in the data grouped by kind, each with fixes" src="docs/images/screens/studio-precheck-light.webp" width="480">
+    </picture><br><sub>Studio: pre-check</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/run-report-dark.webp">
+      <img alt="Run report for Güz week 3: classes placed with every hard rule kept, the soft score and what could not be placed" src="docs/images/screens/run-report-light.webp" width="480">
+    </picture><br><sub>Run report</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/run-diagnoses-dark.webp">
+      <img alt="Classes without a room, each with the reason, the rooms that would fit and what holds them, and fixes" src="docs/images/screens/run-diagnoses-light.webp" width="480">
+    </picture><br><sub>Unplaced classes</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/run-data-issues-dark.webp">
+      <img alt="Problems found in the workbooks themselves, grouped, with an Excel export" src="docs/images/screens/run-data-issues-light.webp" width="480">
+    </picture><br><sub>Problems in the data</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-board-dark.webp">
+      <img alt="Calendar Board view for week 3: rooms as columns, periods as rows, classes as blocks" src="docs/images/screens/calendar-board-light.webp" width="480">
+    </picture><br><sub>Calendar: board</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-term-dark.webp">
+      <img alt="Calendar Term view of the Bahar 2026 board: room use for each day of the term" src="docs/images/screens/calendar-term-light.webp" width="480">
+    </picture><br><sub>Calendar: term</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/classes-dark.webp">
+      <img alt="All classes of the term grouped by faculty with status, programme, instructor initials, size and room" src="docs/images/screens/classes-light.webp" width="480">
+    </picture><br><sub>All classes</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/classes-inspector-dark.webp">
+      <img alt="All classes with one class open in the inspector" src="docs/images/screens/classes-inspector-light.webp" width="480">
+    </picture><br><sub>All classes: inspector</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/rooms-dark.webp">
+      <img alt="Rooms as cards with seats, exam seats, features and use per weekday" src="docs/images/screens/rooms-light.webp" width="480">
+    </picture><br><sub>Rooms</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/audit-dark.webp">
+      <img alt="Audit log filtered to bookings with one change expanded to its before and after values" src="docs/images/screens/audit-light.webp" width="480">
+    </picture><br><sub>Audit log</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/room-features-dark.webp">
+      <img alt="Setup, Rooms, Features: typed features adopted from the room master's tags, with the values per room" src="docs/images/screens/room-features-light.webp" width="480">
+    </picture><br><sub>Room features</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/admin-users-dark.webp">
+      <img alt="Setup, Users: accounts with role and last sign-in" src="docs/images/screens/admin-users-light.webp" width="480">
+    </picture><br><sub>Users</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/admin-roles-dark.webp">
+      <img alt="Setup, Roles: roles with booking limits and permissions" src="docs/images/screens/admin-roles-light.webp" width="480">
+    </picture><br><sub>Roles</sub></td>
+  </tr>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/settings-ai-dark.webp">
+      <img alt="Settings, AI: the AI intake and vision switches, off by default, with the KVKK notice" src="docs/images/screens/settings-ai-light.webp" width="480">
+    </picture><br><sub>AI policy</sub></td>
+  </tr>
+</table>
 
-#### Bug Reports & Feature Requests
-Please check out [GitHub Issues](https://github.com/craigrodway/classroombookings/issues) to view existing issues or open a new bug report.
 
-#### Security
-To report any security issues, please email craig@classroombookings.com instead of using the issue tracker.
+**On a phone**
 
-#### Credits
+<table>
+  <tr>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/mobile-bookings-dark.webp">
+      <img alt="Bookings on a phone: the free slots list" src="docs/images/screens/mobile-bookings-light.webp" width="260">
+    </picture><br><sub>Bookings</sub></td>
+    <td valign="top"><picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/mobile-timetable-dark.webp">
+      <img alt="Calendar Day view on a phone" src="docs/images/screens/mobile-timetable-light.webp" width="260">
+    </picture><br><sub>Timetable</sub></td>
+  </tr>
+</table>
 
-This project makes use of several third parties, some of which are listed below.
+</details>
 
-- [CodeIgniter](https://codeigniter.com/) (MIT)
-- [Unpoly](https://unpoly.com/) (MIT)
-- [FamFamFam Silk Icons](http://www.famfamfam.com/lab/icons/silk/) ([CC BY 3.0](https://creativecommons.org/licenses/by/3.0/), Unmodified)
+## Features
+
+The table is generated from [`docs/features.yml`](docs/features.yml) on every sync. Items that are
+backend only so far are listed in [docs/STATUS.md](docs/STATUS.md).
+
+<!-- AUTO:status only=done -->
+
+Done 57 · Backend only 0 · In progress 2 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
+
+| Feature | Area | Evidence |
+|---|---|---|
+| Import of planning lists, exam lists, weekly room grids, a room master CSV and the CRBS database, each with an import report | Planning | [`importers`](smartsched/backend/app/importers) |
+| Rules from settings, templates, the workbooks and, with an API key, sentences; AI rules need a person's approval | Planning | [`ai`](smartsched/backend/app/ai) |
+| Generator Studio: scope, classes, rules, pre-check with fixes, generate | Planning | [`studio-calendar-sweep.spec.ts`](smartsched/frontend/e2e/studio-calendar-sweep.spec.ts) |
+| CP-SAT solver for a week, a month, the whole term or the exam period; partial runs; every unplaced class explained | Planning | [`solver`](smartsched/backend/app/solver) |
+| Planner-level validator: stored runs re-checked against the raw workbook rows | Planning | [`validate_planner.py`](smartsched/backend/tools/validate_planner.py) |
+| Calendar with six views and an inspector; move with a server check, then undo | Planning | [`calendar.spec.ts`](smartsched/frontend/e2e/calendar.spec.ts) |
+| Publish button with a scope confirmation; the publish guard refuses failed runs and keeps one active run per term | Planning | [`studio-calendar-sweep.spec.ts`](smartsched/frontend/e2e/studio-calendar-sweep.spec.ts) |
+| Exports to Excel, CSV and iCal | Planning | [`services`](smartsched/backend/app/services) |
+| Relaxation policy when not every class fits: lock_first (default) or most_classes_first, per run or per term | Planning | [`relaxation.test.tsx`](smartsched/frontend/src/components/runs/relaxation.test.tsx) |
+| Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff | Planning | [`followup.phase19.spec.ts`](smartsched/frontend/e2e/followup.phase19.spec.ts) |
+| Academicians add their own room, building or time wishes for their classes; coordinators accept or reject them with a reason, never applied by themselves | Planning | [`followups-ui.spec.ts`](smartsched/frontend/e2e/followups-ui.spec.ts) |
+| Learned suggestions from earlier terms, with a resettable memory (per person, per term or all) | Planning | [`followup.phase19.spec.ts`](smartsched/frontend/e2e/followup.phase19.spec.ts) |
+| Programmes from scratch: faculties, programmes, courses, sections and meetings, with the weekly-pattern expander | Planning | [`followup.phase19.spec.ts`](smartsched/frontend/e2e/followup.phase19.spec.ts) |
+| Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment | Planning | [`analytics.spec.ts`](smartsched/frontend/e2e/analytics.spec.ts) |
+| Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff | Intake | [`intake.spec.ts`](smartsched/frontend/e2e/intake.spec.ts) |
+| AI-assisted intake of pdf, docx, txt, eml and images; every extracted row needs a coordinator's review; off by default | Intake | [`rows-panel.tsx`](smartsched/frontend/src/components/onboarding/rows-panel.tsx) |
+| Schedule map to a baseline import run, so a re-solve keeps the published board | Intake | [`intake.spec.ts`](smartsched/frontend/e2e/intake.spec.ts) |
+| Intake memory: confirmed column mappings and lexicon additions remembered per file signature | Intake | [`intake.spec.ts`](smartsched/frontend/e2e/intake.spec.ts) |
+| Booking grid by day or by room; single, recurring and multi bookings, limits, holidays, timetable weeks; the published timetable blocks its slots | Bookings | [`bookings.spec.ts`](smartsched/frontend/e2e/bookings.spec.ts) |
+| Reservation panel: click a free slot, drag to book several periods, reasons on cells you cannot book, a Free slots list, a department view, room details with other free rooms | Bookings | [`reserve.spec.ts`](smartsched/frontend/e2e/reserve.spec.ts) |
+| Calendar sync: private ICS feed links (my bookings, a room, a department) with Google / Outlook / Apple buttons; room feeds carry the published classes | Bookings | [`test_a14_class_feeds.py`](smartsched/backend/tests/test_a14_class_feeds.py) |
+| Typed room features and find-a-room with ranked results and reasons | Bookings | [`wave1.spec.ts`](smartsched/frontend/e2e/wave1.spec.ts) |
+| Approvals by designated approvers: rules per room, room group or room type, PENDING requests, an inbox, a sweeper | Bookings | [`wave1.spec.ts`](smartsched/frontend/e2e/wave1.spec.ts) |
+| Append-only audit log with a viewer, CSV export and undo of booking create, series create, move and cancel | Bookings | [`wave1.spec.ts`](smartsched/frontend/e2e/wave1.spec.ts) |
+| In-app notifications (bell) next to the e-mail outbox | Bookings | [`wave1.spec.ts`](smartsched/frontend/e2e/wave1.spec.ts) |
+| Approval-first bookings: every request can go to an admin first; a rejection needs a reason; per-user notification preferences | Bookings | [`approval-first.spec.ts`](smartsched/frontend/e2e/approval-first.spec.ts) |
+| Organisation switch for calendar sync with a dated KVKK sign-off; off turns every feed link into a 404 | Bookings | [`approval-first.spec.ts`](smartsched/frontend/e2e/approval-first.spec.ts) |
+| Google Calendar and Microsoft 365 push, once an administrator enters the organisation's OAuth client | Bookings | [`calendar-push-admin.test.tsx`](smartsched/frontend/src/components/settings/calendar-push-admin.test.tsx) |
+| Signed outgoing webhooks (HMAC-SHA256) with an SSRF guard, off by default | Bookings | [`approval-first.spec.ts`](smartsched/frontend/e2e/approval-first.spec.ts) |
+| CRBS legacy upgrade: import a running classroombookings database with a dry-run report | Bookings | [`shell-admin-sweep.spec.ts`](smartsched/frontend/e2e/shell-admin-sweep.spec.ts) |
+| CRBS superset gate: every classroombookings behaviour and screen has an acceptance test | Bookings | [`parity_check.py`](scripts/parity_check.py) |
+| Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows | Bookings | [`wave2.spec.ts`](smartsched/frontend/e2e/wave2.spec.ts) |
+| No privilege escalation: nobody grants or edits a role whose permissions they do not all hold | Identity and notifications | [`test_crbs_fixes_org.py`](smartsched/backend/tests/test_crbs_fixes_org.py) |
+| Sign-out, a password change, disabling an account and a role change revoke the user's tokens on every device | Identity and notifications | [`0006_token_version.py`](smartsched/backend/alembic/versions/0006_token_version.py) |
+| Microsoft Entra ID sign-in pinned to the university tenant, with invites and a break-glass local admin | Identity and notifications | [`sign-in.spec.ts`](smartsched/frontend/e2e/sign-in.spec.ts) |
+| Notification channels through Apprise (push, Telegram, WhatsApp/SMS, Teams/Slack); users only link an address | Identity and notifications | [`channels.spec.ts`](smartsched/frontend/e2e/channels.spec.ts) |
+| Turkish and English interface; other stored language codes are kept and shown in English | Languages | [`languages.spec.ts`](smartsched/frontend/e2e/languages.spec.ts) |
+| One-command Docker deploy (PostgreSQL, FastAPI, Next.js, nginx; optional TLS edge and legacy CRBS) | Platform, CI and docs | [`deploy.sh`](smartsched/deploy/deploy.sh) |
+| Pod CI on a single AWS node: every gate in Docker for each new commit, then deploy; idle auto-stop and a budget cap | Platform, CI and docs | [`gates.py`](smartsched/deploy/pod-ci/podci/gates.py) |
+| Seed profiles (institution or empty) and per-branch AWS pods | Platform, CI and docs | [`seed`](smartsched/deploy/seed) |
+| Docs that update themselves: generated blocks from the sources of truth, checked in pod CI | Platform, CI and docs | [`sync_docs.py`](scripts/docs/sync_docs.py) |
+| Design-system overhaul from the UI/UX review (sizing, controls, columns, de-AI changes) | Platform, CI and docs | [`visual-quality.spec.ts`](smartsched/frontend/e2e/visual-quality.spec.ts) |
+| Mobile optimisation of every screen (390 and 768 px) | Platform, CI and docs |  |
+| PostgreSQL row-level security on per-person tables (notifications, consents, DSR, feed tokens, AI usage, teacher wishes, bookings, approvals) | Platform, CI and docs | [`test_w3_sec_rls_postgres.py`](smartsched/backend/tests/test_w3_sec_rls_postgres.py) |
+| Security hardening: rate limits (login, reset, SSO, password change, AI, uploads), body-size fence, CSP / HSTS / frame / permissions headers, CSRF fence, security.txt, CSV formula escaping | Platform, CI and docs | [`test_w3_sec_hardening.py`](smartsched/backend/tests/test_w3_sec_hardening.py) |
+| Operations panel /admin/ops: service status cards (API, DB, queues, mail, disk, errors, Grafana / Prometheus / Loki, pod CI, last deploy), firing alerts, request/latency mini chart, Grafana links + same-origin panels, Loki log tail | Platform, CI and docs | [`w3-ops.spec.ts`](smartsched/frontend/e2e/w3-ops.spec.ts) |
+| Grouped error tracking: backend exceptions / 5xx, ERROR log records with a traceback and browser errors (window.onerror, unhandled rejections, error boundaries) as PII-scrubbed groups with new / acknowledged / resolved / ignored, 90-day retention, optional Sentry | Platform, CI and docs | [`test_w3_ops_observability.py`](smartsched/backend/tests/test_w3_ops_observability.py) |
+| Prometheus metrics (/metrics, multiprocess-safe; routes by template, DB pool, queues, outbox, bookings, approvals, login failures, AI calls hook, guard refusals, TLS expiry) + observability compose profile (Prometheus, Loki, Alloy, Grafana with 6 Turkish-first dashboards, 15 alert rules) behind the admin session at /grafana/ | Platform, CI and docs | [`README.md`](smartsched/deploy/observability/README.md) |
+| AI provider gateway chosen by admins: Anthropic (default), OpenAI, Azure OpenAI, OpenRouter, any OpenAI-compatible base URL (Ollama / vLLM), Google Gemini, AWS Bedrock and Vertex AI (Claude); keys write-only and encrypted, models synced from each provider's API, a test call, one provider + model + effort + fallback per AI feature with a global default | Platform, CI and docs | [`test_w3_ai_providers.py`](smartsched/backend/tests/ai/test_w3_ai_providers.py) |
+| AI usage metering per user (feature, provider, model, input / output / cache tokens, estimated cost from a versioned price table, latency, outcome, reason, prompt hash + length, never the text) with org monthly budget, per-user daily / monthly limits (default, per role, per person), reservation before the call, 80 % alerts (bell + e-mail) and a user banner, hard limit refused in Turkish | Platform, CI and docs | [`test_w3_ai_gateway.py`](smartsched/backend/tests/ai/test_w3_ai_gateway.py) |
+| AI guardrails: deterministic scope classifier (code, translation, essays, general questions), prompt-injection detection in typed text and uploads (TR + EN: override, role-play, system-prompt / key exfiltration, tool-call smuggling, encoded payloads), spotlighting preamble, output check (offered tools, schema, no links / code), per-feature caps, per-user rate and concurrency limits, KVKK transfer basis per provider; refusals logged with a reason and visible to admins; red-team self-test | Platform, CI and docs | [`test_w3_ai_guardrails.py`](smartsched/backend/tests/ai/test_w3_ai_guardrails.py) |
+| Guided SMTP setup shared by every admin: 12 provider presets (Google app password / OAuth2 / relay, Microsoft 365 OAuth2 XOAUTH2, Amazon SES, SendGrid, Mailgun, Postmark, Brevo, Resend, Yandex 360, campus server) with console steps and copy values, write-only encrypted secrets, KVKK md. 9 acknowledgement for providers abroad, SPF / DKIM / DMARC check with Turkish guidance, test e-mail with an SMTP transcript excerpt and Turkish error hints, 'Son değişiklik', send the mail that waited | Platform, CI and docs | [`test_w3b_mail_smtp.py`](smartsched/backend/tests/test_w3b_mail_smtp.py) |
+| Themed HTML + plain-text e-mails for every message (25 kinds, TR + EN): one renderer app.emails.render(kind, locale, **ctx) -> (subject, html, text), table layout, 600 px, dark-mode safe, bulletproof VML button, preheader, CID logo, escaped values, variants per provider / reason / state; admin subject and intro overrides per kind and language with live desktop / phone preview and test send | Platform, CI and docs | [`test_w3b_mail_render.py`](smartsched/backend/tests/test_w3b_mail_render.py) |
+| Slot display set by administrators (Ayarlar › Ders saatleri, also /bookings › Görünüm): period rows or time blocks (15/30/60 min drawn onto the periods), label period / time / both (schedule name or ordinal, start or range), density compact / standard / comfortable, first / last visible period, hide short slots and the weekend, default view for desktop and phone, quick-reserve lengths; live preview with the real grid, list and chips; every booking surface reads one useSlotDisplay() | Bookings | [`w3-slot.spec.ts`](smartsched/frontend/e2e/w3-slot.spec.ts) |
+| Quick reservation /reserve (Hızlı rezervasyon): day chips, a slot in the admin's unit, an optional length, how many people and feature chips, a short ranked list of free rooms (own waiting request marked), one primary that says Rezerve et or Talep et, a receipt with the real undo (POST /audit/{id}/undo) or Talebi geri çek; 2 taps for the next free slot, keyboard and screen-reader complete, one thumb at 390 | Bookings | [`w3-slot.spec.ts`](smartsched/frontend/e2e/w3-slot.spec.ts) |
+| Integrations gallery (Yönetim › Entegrasyonlar, /admin/integrations): organisation-wide connector cards for identity, e-mail, calendar, channels, webhooks / automation and AI with status words, last check, last change (who, when), Kur / Yönet, a Kullanımda switch through each area's own endpoint, Dikkat isteyen row, search, deep links, phone rows and a setup sheet embedding each area's panel | Platform, CI and docs | [`w3-hub.spec.ts`](smartsched/frontend/e2e/w3-hub.spec.ts) |
+| Guided n8n / Activepieces / Pipedream / Zapier webhook setup: platform steps, paste the trigger URL, signing secret shown once with copy, headers and an HMAC-SHA256 check snippet per platform, test event with the delivery result | Platform, CI and docs | [`integrations-gallery.test.tsx`](smartsched/frontend/src/components/admin/integrations/integrations-gallery.test.tsx) |
+
+<!-- /AUTO:status -->
+
+## Documentation
+
+| | |
+|---|---|
+| [How it works](docs/HOW_IT_WORKS.md) | import, rules, pre-check, solve, validate, publish; hard rules and partial runs |
+| [Status](docs/STATUS.md) | every feature, the parity gate, the CI gates and the decisions (generated) |
+| [Measured on the real data](docs/RESULTS.md) | placement rates and planner-level checks on the 2026 workbooks |
+| [Relation to classroombookings](docs/CLASSROOMBOOKINGS.md) | what stays the same, what is added, the parity gate |
+| [Development](docs/DEVELOPMENT.md) | repository layout, checks, CI on the pod, configuration |
+| [Architecture](docs/ARCHITECTURE.md) · [Data analysis](docs/DATA_ANALYSIS.md) · [CRBS parity](docs/CRBS_PARITY.md) | design, the workbook shapes, behaviour differences |
+| [Recordings](docs/recording/RECORDLY.md) | how the clips and screenshots on this page are made and refreshed |
+
+The plan and the backlog are in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Licence
 
-This repository is licensed under the
-[GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html). See
-[LICENSE.txt](LICENSE.txt).
+A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rodway, licensed under the
+[GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html) ([LICENSE.txt](LICENSE.txt)).
+
+<!-- AUTO:last-updated -->
+
+Generated blocks last synced on top of commit `e14a47e` (committed 2026-10-17 21:54 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+
+<!-- /AUTO:last-updated -->

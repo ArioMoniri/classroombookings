@@ -13,7 +13,8 @@
  *     npx playwright test e2e/wave1.spec.ts
  */
 import { expect, request as pwRequest, test, type APIRequestContext, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, login } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, fillDate, login } from "./helpers";
+import { pinLanguage } from "./language";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 const STAMP = Date.now().toString(36);
@@ -28,6 +29,8 @@ const FRIDAY = "2026-02-20";
 
 test.describe.configure({ mode: "serial" });
 test.skip(!REAL, SKIP_REASON);
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 interface GridSlot {
   date: string;
@@ -218,7 +221,7 @@ test("wave1 2. find a room: ⌘K, Wednesday 10:10–12:30 for 90 ranked like the
   await page.waitForURL(/\/find-room/);
 
   const view = page.getByTestId("find-room");
-  await view.getByTestId("fr-date").fill(WEDNESDAY);
+  await fillDate(view.getByTestId("fr-date"), WEDNESDAY);
   await view.getByTestId("fr-start").fill("10.10");
   await view.getByTestId("fr-end").fill("12:30");
   await view.getByTestId("fr-headcount").fill("90");
@@ -274,7 +277,9 @@ test("wave1 3. audit log: filter a booking, the before/after diff, Undo, a refus
   await view.getByTestId("audit-apply").click();
   const event = view.locator('[data-action="booking.create"]').first();
   await expect(event).toBeVisible();
-  await event.getByRole("button", { name: /booking\.create/ }).click();
+  // the row reads as a domain sentence (UI/UX review §3); the raw action key moved into the opened details
+  await event.locator("button[aria-expanded]").first().click();
+  await expect(event.locator('[data-testid^="audit-action-"]')).toHaveText("booking.create");
   await expect(event.getByTestId("audit-diff")).toContainText("Denetim e2e");
   await event.getByRole("button", { name: /Geri al|Undo/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: /Geri al|Undo/ }).click();
@@ -371,6 +376,11 @@ test("wave1 4. approvals: approves-for in the user form, a rule, the request (20
   const others = drawer.getByTestId("approval-other-rooms");
   await expect(others.locator("li").first()).toBeVisible({ timeout: 20_000 });
   await others.locator("li").first().getByRole("button", { name: /Reddet, öner|Reject, suggest/ }).click();
+  // approval-first: a rejection needs a reason code and a written reason (the drawer's note is carried over)
+  const reject = approver.getByTestId("reject-dialog");
+  await expect(reject.getByTestId("reject-text")).toHaveValue("Bu saatte bakım var");
+  await reject.getByTestId("reject-code-room_unavailable").click();
+  await reject.getByTestId("reject-confirm").click();
   await expect.poll(async () => (await api<{ status: string }>("GET", `/approvals/${req2.id}`, undefined, ctx.approverToken)).status).toBe("REJECTED");
 
   // part of a series: a weekly request (the administrator: teachers have no recurring right in CRBS) for four Fridays, approve three

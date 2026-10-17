@@ -3,18 +3,20 @@
 ==============================================================  ===============  ======================================
 Route                                                           Permission       Notes
 ==============================================================  ===============  ======================================
-``POST /learning/refresh`` {term_id?}                           planning.edit    extractors (idempotent) + priors
+``POST /learning/refresh`` {term_id?}                           planning.edit    extract + priors (audited)
 ``GET /learning/suggestions?term_id=&person_id=&course_id=``    planning.view    ``state`` open (default) / accepted /
                                                                                  dismissed / snoozed / hidden / all
 ``GET /learning/priors?term_id=&subject_type=&subject_id=``     planning.view    every prior with its evidence
-``POST /learning/suggestions/{id}/accept`` {weight?, kind?}     planning.edit    one soft targeted LEARNED rule
+``POST /learning/suggestions/{id}/accept`` {weight?, kind?,     planning.edit    one soft targeted LEARNED rule;
+scope: term | persistent}                                                        persistent needs planning.admin
+``POST /learning/suggestions/{id}/restore``                     planning.edit    undo reject / snooze / accept
 ``POST /learning/suggestions/{id}/reject`` {reason?}            planning.edit    -3 and hidden for the scope + term
 ``POST /learning/suggestions/{id}/snooze`` {until}              planning.edit    next_solve / P7D / next_term
 ``GET /learning/memory/summary?term_id=``                       planning.view    counts for Ayarlar › Öğrenme
 ``POST /learning/reset`` {scope, value, reason}                 planning.admin   person / term / all; audited
 ``GET /learning/resets``                                        planning.admin   "Son sıfırlamalar"
 ``POST /learning/resets/{id}/undo``                             planning.admin   within 30 days
-``POST /learning/purge``                                        planning.admin   the daily purge, on demand
+``POST /learning/purge``                                        planning.admin   the daily purge, on demand; audited
 ``POST /learning/erase`` {instructor_id, reason}                planning.admin   KVKK erasure: immediate, no undo
 ==============================================================  ===============  ======================================
 
@@ -33,6 +35,8 @@ from app.api.deps import DB, require_permission
 from app.models import User
 from app.schemas.learning import AcceptIn, EraseIn, RefreshIn, RejectIn, ResetIn, SnoozeIn
 from app.services import learning as svc
+from app.services.audit import jsonable
+from app.services.events import publish_event
 
 router = APIRouter(prefix="/learning", tags=["learning"])
 
@@ -55,8 +59,16 @@ async def _run[T](db: DB, op: Awaitable[T], *, commit: bool = True) -> T:
 
 
 @router.post("/refresh")
-async def refresh(body: RefreshIn, db: DB, _user: Editor) -> dict[str, Any]:
-    return await _run(db, svc.refresh(db, body.term_id))
+async def refresh(body: RefreshIn, db: DB, user: Editor) -> dict[str, Any]:
+    async def op() -> dict[str, Any]:
+        out = await svc.refresh(db, body.term_id)
+        # who re-ran the extraction and what it produced (derived rows only: counts, no personal content)
+        await publish_event(
+            db, "learning.refresh", "learning", body.term_id, after=jsonable(out), actor=user, term_id=body.term_id
+        )
+        return out
+
+    return await _run(db, op())
 
 
 @router.get("/suggestions")
@@ -89,7 +101,18 @@ async def list_priors(
 
 @router.post("/suggestions/{prior_id}/accept", status_code=201)
 async def accept(prior_id: int, body: AcceptIn, db: DB, user: Editor) -> dict[str, Any]:
-    return await _run(db, svc.accept(db, prior_id, user, weight=body.weight, kind=body.kind))
+    if body.scope == "persistent":
+        from app.services.bookings_perms import load_access
+
+        if "planning.admin" not in (await load_access(db, user)).perms:
+            raise HTTPException(403, "a persistent (Kalıcı) acceptance requires permission planning.admin")
+    return await _run(db, svc.accept(db, prior_id, user, weight=body.weight, kind=body.kind, scope=body.scope))
+
+
+@router.post("/suggestions/{prior_id}/restore")
+async def restore(prior_id: int, db: DB, user: Editor) -> dict[str, Any]:
+    """Undo the last decision: a dismissal or snooze, or an acceptance (its LEARNED rule is switched off)."""
+    return await _run(db, svc.restore(db, prior_id, user))
 
 
 @router.post("/suggestions/{prior_id}/reject")
@@ -123,8 +146,13 @@ async def undo_reset(reset_id: int, db: DB, user: AdminUser) -> dict[str, Any]:
 
 
 @router.post("/purge")
-async def purge(db: DB, _user: AdminUser) -> dict[str, int]:
-    return await _run(db, svc.purge_expired(db))
+async def purge(db: DB, user: AdminUser) -> dict[str, int]:
+    async def op() -> dict[str, int]:
+        totals = await svc.purge_expired(db)  # one learning.purge row per purged reset (no actor: the daily job)
+        await publish_event(db, "learning.purge_run", "learning", None, after=dict(totals), actor=user)
+        return totals
+
+    return await _run(db, op())
 
 
 @router.post("/erase", status_code=201)

@@ -54,7 +54,8 @@ class ResetRequestIn(BaseModel):
 
 
 class ResetConfirmIn(BaseModel):
-    token: str = Field(min_length=8, max_length=128)
+    # the code length is checked in the handler (T-R2-06): a short code is the same coded 400 as a wrong one
+    token: str = Field(max_length=1024)
     password: str = Field(min_length=8, max_length=256)
 
 

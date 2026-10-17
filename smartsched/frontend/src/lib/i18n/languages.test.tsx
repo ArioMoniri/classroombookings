@@ -99,8 +99,9 @@ describe("language picker", () => {
     const options = within(group).getAllByRole("button");
     expect(options).toHaveLength(2);
     expect(options.map((o) => o.textContent)).toEqual(["tr", "en"]);
-    expect(screen.getByRole("button", { name: "en" })).toHaveAttribute("aria-pressed", "true");
-    await userEvent.click(screen.getByRole("button", { name: "tr" }));
+    // the buttons show the code but are named after the language (aria-label, T-R2-05 / R2-S-19)
+    expect(screen.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Türkçe" }));
     expect(screen.getByTestId("probe")).toHaveAttribute("data-locale", "tr");
     expect(screen.getByTestId("probe")).toHaveTextContent("Pazartesi");
     expect(document.cookie).toContain("NEXT_LOCALE=tr");

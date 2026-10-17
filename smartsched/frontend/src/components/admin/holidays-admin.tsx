@@ -1,9 +1,10 @@
 "use client";
 /** /admin/holidays (CRBS `Holidays`): named date ranges inside a session; no bookings, series skip them. */
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
+import { DateField } from "@/components/ui/date-field";
 
 /** CRBS `holiday.field.duration`: inclusive day count (`1 + diff(start, end)`). */
 export function holidayDays(h: Pick<Holiday, "date_start" | "date_end">): number {
@@ -54,7 +56,7 @@ export function HolidaysAdmin() {
           </SelectField>
         </Field>
       </div>
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {list.isLoading ? (
           <Loading className="px-4" />
         ) : (list.data ?? []).length === 0 ? (
@@ -62,7 +64,7 @@ export function HolidaysAdmin() {
         ) : (
           <ul data-testid="holiday-list">
             {(list.data ?? []).map((h) => (
-              <li key={h.id} className="flex items-center gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+              <li key={h.id} className="flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b">
                 <span className="min-w-0 flex-1">
                   <span className="block type-headline text-label-1">{h.name}</span>
                   <span className="block type-footnote text-label-2">{h.date_start === h.date_end ? fmt.long(h.date_start) : `${fmt.long(h.date_start)} – ${fmt.long(h.date_end)}`}</span>
@@ -71,10 +73,10 @@ export function HolidaysAdmin() {
                   {t("admingaps.holidays.days", { n: holidayDays(h) })}
                 </span>
                 <span className="flex shrink-0">
-                  <Button variant="ghost" size="icon-sm" aria-label={t("admingaps.holidays.editNamed", { name: h.name })} onClick={() => setEditing(h)} data-testid="holiday-edit">
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("admingaps.holidays.editNamed", { name: h.name })} onClick={() => setEditing(h)} data-testid="holiday-edit">
                     <Pencil />
                   </Button>
-                  <Button variant="ghost" size="icon-sm" aria-label={t("crbs.holidays.deleteNamed", { name: h.name })} onClick={() => setDeleting(h)}>
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.holidays.deleteNamed", { name: h.name })} onClick={() => setDeleting(h)}>
                     <Trash2 />
                   </Button>
                 </span>
@@ -105,10 +107,10 @@ export function HolidaysAdmin() {
             <Input id="hol-name" required maxLength={50} placeholder={t("crbs.holidays.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
           <Field label={t("crbs.holidays.start")} htmlFor="hol-start">
-            <Input id="hol-start" type="date" required min={term?.date_start ?? undefined} max={term?.date_end ?? undefined} value={start} onChange={(e) => setStart(e.target.value)} />
+            <DateField id="hol-start" required min={term?.date_start ?? undefined} max={term?.date_end ?? undefined} value={start} onChange={(v) => setStart(v)} />
           </Field>
           <Field label={t("crbs.holidays.end")} htmlFor="hol-end">
-            <Input id="hol-end" type="date" min={start || term?.date_start || undefined} max={term?.date_end ?? undefined} value={end} onChange={(e) => setEnd(e.target.value)} />
+            <DateField id="hol-end" min={start || term?.date_start || undefined} max={term?.date_end ?? undefined} value={end} onChange={(v) => setEnd(v)} />
           </Field>
           <Button type="submit" disabled={!termId || !name.trim() || !start || add.isPending}>
             <Plus aria-hidden />
@@ -161,10 +163,10 @@ function HolidayForm({ holiday, term, onClose }: { holiday: Holiday; term: Sessi
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t("crbs.holidays.start")} htmlFor="hol-edit-start">
-          <Input id="hol-edit-start" type="date" required min={term?.date_start ?? undefined} max={term?.date_end ?? undefined} value={start} onChange={(e) => setStart(e.target.value)} />
+          <DateField id="hol-edit-start" required min={term?.date_start ?? undefined} max={term?.date_end ?? undefined} value={start} onChange={(v) => setStart(v)} />
         </Field>
         <Field label={t("crbs.holidays.end")} htmlFor="hol-edit-end">
-          <Input id="hol-edit-end" type="date" min={start || term?.date_start || undefined} max={term?.date_end ?? undefined} value={end} onChange={(e) => setEnd(e.target.value)} data-testid="holiday-edit-end" />
+          <DateField id="hol-edit-end" min={start || term?.date_start || undefined} max={term?.date_end ?? undefined} value={end} onChange={(v) => setEnd(v)} data-testid="holiday-edit-end" />
         </Field>
       </div>
       <p className="type-footnote text-label-3">{t("admingaps.holidays.days", { n: holidayDays({ date_start: start, date_end: end || start }) })}</p>
@@ -173,9 +175,9 @@ function HolidayForm({ holiday, term, onClose }: { holiday: Holiday; term: Sessi
         <Button type="button" variant="ghost" onClick={onClose}>
           {t("crbs.common.cancel")}
         </Button>
-        <Button type="submit" disabled={!name.trim() || !start || save.isPending || (!!end && end < start)} data-testid="holiday-save">
-          {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("crbs.common.save")}
+        <Button type="submit" disabled={!name.trim() || !start || save.isPending || (!!end && end < start)} data-testid="holiday-save" aria-busy={save.isPending || undefined}>
+          <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+          {t("crbs.common.save")}</BusyLabel>
         </Button>
       </DialogFooter>
     </form>

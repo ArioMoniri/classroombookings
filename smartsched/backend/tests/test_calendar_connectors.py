@@ -19,7 +19,14 @@ from app.workers import integrations as worker
 from sqlalchemy import select
 
 from tests.crbs_env import env  # noqa: F401
-from tests.integrations_support import FakeGoogle, FakeGraph, client_factory, google_error, kvkk_sign_off
+from tests.integrations_support import (
+    FakeGoogle,
+    FakeGraph,
+    calendar_consent,
+    client_factory,
+    google_error,
+    kvkk_sign_off,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -52,6 +59,7 @@ async def configure(env, provider: str, **extra) -> None:  # noqa: F811
 
 
 async def connect(env, fake, headers, provider: str, code: str = "4/0AeanS0test-code") -> str:  # noqa: F811
+    await calendar_consent(env.client, headers)  # sign-off on: the person's calendar_sync consent first
     r = await env.client.post(
         f"/api/v1/calendar/connectors/{provider}/connect", json={"return_path": "/profile/calendar"}, headers=headers
     )
@@ -82,6 +90,7 @@ async def jobs() -> list[CalendarSyncJob]:
 
 async def test_connectors_report_not_configured_until_the_admin_enters_a_client(env):  # noqa: F811
     _, teacher = await env.user("baglanti.yok@uni.edu.tr")
+    await calendar_consent(env.client, teacher)
     out = (await env.client.get("/api/v1/calendar/connectors", headers=teacher)).json()
     assert [(c["provider"], c["configured"], c["connected"]) for c in out] == [
         ("google", False, False),
@@ -269,6 +278,7 @@ async def test_callback_errors_and_kvkk_switch(env, monkeypatch):  # noqa: F811
     monkeypatch.setattr(calendar_connectors, "http_client", client_factory(fake))
     await configure(env, "google")
     _, teacher = await env.user("izin.vermedi@uni.edu.tr")
+    await calendar_consent(env.client, teacher)
     url = (await env.client.post("/api/v1/calendar/connectors/google/connect", headers=teacher)).json()["authorize_url"]
     state = parse_qs(urlsplit(url).query)["state"][0]
     denied = await env.client.get(

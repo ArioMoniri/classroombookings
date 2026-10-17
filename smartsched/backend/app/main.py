@@ -111,19 +111,32 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await seed_admin(session)
     async with get_session_factory()() as session:
         await recover_interrupted(session)  # jobs of a dead process never finish: mark them FAILED
+    async with get_session_factory()() as session:
+        from app.services.invigilation import recover_interrupted_plans
+
+        await recover_interrupted_plans(session)  # invigilation plans of a dead process, likewise
     from app.workers import integrations
 
     await integrations.on_startup()  # calendar push / webhook outbox rows left by a previous process
+    from app.services import channels
+
+    channels.register()  # notification channels (push, Telegram, WhatsApp, SMS, Teams/Slack) into notify_dispatch
     from app.services import learning
     from app.workers import approvals_sweeper
 
     if settings.environment != "test":  # tests call the sweep directly; no timers inside the test loop
         approvals_sweeper.start()
         learning.start_purge_job()  # P19-L4: daily purge of memory resets past their 30-day undo window
+        from app.services import kvkk
+
+        kvkk.start_purge_job()  # A4: daily KVKK retention (enabled policies only; every policy ships disabled)
     log.info("SmartSched backend ready (%s, %s)", settings.environment, settings.database_url.split("@")[-1])
     yield
     await approvals_sweeper.stop()
     await learning.stop_purge_job()
+    from app.services import kvkk as kvkk_jobs
+
+    await kvkk_jobs.stop_purge_job()
     await integrations.shutdown()
     await get_queue().shutdown()
     await dispose_engine()
@@ -155,6 +168,11 @@ def create_app() -> FastAPI:
         redoc_url="/api/redoc" if docs else None,
         openapi_url="/api/openapi.json" if docs else None,
     )
+    # W3-SEC (docs/SECURITY.md §5): rate limits, body-size fence, API security headers; inside CORS so a 429 / 413
+    # still carries the CORS headers
+    from app.core.security_http import SecurityMiddleware
+
+    app.add_middleware(SecurityMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -163,6 +181,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     _install_error_handlers(app)
+    from app.core.observability import install as install_observability
+
+    install_observability(app)  # W3-OPS: /metrics, /healthz, /readyz, request metrics, error events, Sentry
     app.include_router(api_router, prefix="/api/v1")
     # Only room photos are public. Uploaded workbooks (uploads/imports: instructor names, enrolments)
     # are served through the authenticated ``GET /api/v1/imports/{id}/file``.

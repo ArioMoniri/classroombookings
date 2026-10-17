@@ -1,0 +1,114 @@
+# SmartSched alerts (W3-OPS, R-OPS-08). Firing alerts are listed on /admin/ops ("Aktif uyarılar") and in Grafana.
+# Annotations: summary_tr first, summary_en second (the panel shows the reader's language).
+groups:
+  - name: smartsched-availability
+    rules:
+      - alert: SmartSchedBackendDown
+        expr: up{job="backend"} == 0 or absent(up{job="backend"})
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary_tr: "API (backend) 2 dakikadır yanıt vermiyor."
+          summary_en: "The API (backend) has not answered for 2 minutes."
+      - alert: SmartSchedProbeFailed
+        expr: probe_success == 0
+        for: 3m
+        labels: {severity: critical}
+        annotations:
+          summary_tr: "{{ reReplaceAll \"integrations/blackbox/\" \"\" $labels.job }} denetimi başarısız (3 dk)."
+          summary_en: "{{ reReplaceAll \"integrations/blackbox/\" \"\" $labels.job }} probe failing (3 min)."
+      - alert: SmartSchedHigh5xx
+        expr: |
+          sum(rate(smartsched_http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(smartsched_http_requests_total[5m])), 0.001) > 0.02
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary_tr: "İsteklerin %2'sinden fazlası 5xx ile bitiyor (10 dk)."
+          summary_en: "More than 2 % of requests end in 5xx (10 min)."
+      - alert: SmartSchedSlowP95
+        expr: histogram_quantile(0.95, sum by (le) (rate(smartsched_http_request_duration_seconds_bucket{route!~".*/events"}[5m]))) > 2
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary_tr: "API p95 gecikmesi 2 sn'nin üstünde (10 dk)."
+          summary_en: "API p95 latency above 2 s (10 min)."
+  - name: smartsched-resources
+    rules:
+      - alert: SmartSchedDiskFull
+        expr: 1 - node_filesystem_avail_bytes{mountpoint="/",fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{mountpoint="/",fstype!~"tmpfs|overlay"} > 0.8
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary_tr: "Disk %80'in üzerinde dolu."
+          summary_en: "Disk more than 80 % full."
+      - alert: SmartSchedMemoryLow
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.1
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary_tr: "Sunucuda boş bellek %10'un altında."
+          summary_en: "Less than 10 % of the host memory is available."
+      - alert: SmartSchedDbConnections
+        expr: sum(pg_stat_database_numbackends) / max(pg_settings_max_connections) > 0.8
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary_tr: "Veritabanı bağlantılarının %80'i kullanımda."
+          summary_en: "80 % of the database connections are in use."
+      - alert: SmartSchedDbDown
+        expr: smartsched_db_up == 0 or pg_up == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary_tr: "Veritabanına ulaşılamıyor."
+          summary_en: "The database is unreachable."
+  - name: smartsched-jobs
+    rules:
+      - alert: SmartSchedSolverFailures
+        expr: (smartsched_solver_runs_finished_24h{status="FAILED"} - (smartsched_solver_runs_finished_24h{status="FAILED"} offset 1h)) >= 3
+        labels: {severity: warning}
+        annotations:
+          summary_tr: "Son bir saatte 3 veya daha fazla çözücü çalışması başarısız oldu."
+          summary_en: "3 or more solver runs failed in the last hour."
+      - alert: SmartSchedMailBacklog
+        expr: sum(smartsched_mail_outbox{status=~"PENDING|FAILED"}) > 50
+        for: 30m
+        labels: {severity: warning}
+        annotations:
+          summary_tr: "E-posta kuyruğunda 50'den fazla bekleyen/başarısız ileti var."
+          summary_en: "More than 50 pending/failed e-mails in the outbox."
+      - alert: SmartSchedNewErrorGroup
+        expr: sum(smartsched_error_groups{status="open"}) > (sum(smartsched_error_groups{status="open"} offset 10m) or vector(0))
+        labels: {severity: info}
+        annotations:
+          summary_tr: "Yeni bir hata grubu açıldı (Operasyon > Hatalar)."
+          summary_en: "A new error group was opened (Operations > Errors)."
+  - name: smartsched-ai
+    rules:
+      - alert: SmartSchedAiBudget80
+        expr: max by (scope) (smartsched_ai_budget_used_ratio) >= 0.8 < 1
+        labels: {severity: warning}
+        annotations:
+          summary_tr: "Yapay zekâ bütçesinin %80'i kullanıldı ({{ $labels.scope }})."
+          summary_en: "80 % of the AI budget is used ({{ $labels.scope }})."
+      - alert: SmartSchedAiBudget100
+        expr: max by (scope) (smartsched_ai_budget_used_ratio) >= 1
+        labels: {severity: critical}
+        annotations:
+          summary_tr: "Yapay zekâ bütçesi tükendi ({{ $labels.scope }})."
+          summary_en: "The AI budget is exhausted ({{ $labels.scope }})."
+  - name: smartsched-maintenance
+    rules:
+      - alert: SmartSchedBackupStale
+        expr: time() - smartsched_backup_last_success_timestamp_seconds > 26 * 3600
+        labels: {severity: warning}
+        annotations:
+          summary_tr: "Son başarılı yedek 26 saatten eski."
+          summary_en: "The last successful backup is older than 26 hours."
+      - alert: SmartSchedTlsExpiring
+        expr: smartsched_tls_cert_expiry_seconds < 14 * 86400
+        labels: {severity: warning}
+        annotations:
+          summary_tr: "TLS sertifikasının süresi 14 günden az kaldı."
+          summary_en: "The TLS certificate expires in less than 14 days."

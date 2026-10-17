@@ -1,0 +1,120 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Operations panel, status tab, desktop 1440'>
+<title>Operations panel, status tab, desktop 1440</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='40' y='101' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Panel</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Takvim</text>
+<text x='40' y='173' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezerve et</text>
+<text x='32' y='210' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>YÖNETİM</text>
+<text x='40' y='245' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Kullanıcılar</text>
+<text x='40' y='281' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Yapay zekâ</text>
+<rect x='24' y='296' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='317' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Operasyon</text>
+<text x='40' y='353' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Ayarlar</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Operasyon</text>
+<rect x='276' y='76' width='440' height='36' rx='18' fill='#E8ECF2' fill-opacity='1'/>
+<rect x='279.0' y='79' width='104.0' height='30' rx='15' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='331.0' y='99' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Durum</text>
+<text x='441.0' y='99' font-size='13' font-weight='400' fill='#0F172A' text-anchor='middle'>Hatalar</text>
+<text x='551.0' y='99' font-size='13' font-weight='400' fill='#0F172A' text-anchor='middle'>Günlükler</text>
+<text x='661.0' y='99' font-size='13' font-weight='400' fill='#0F172A' text-anchor='middle'>Panolar</text>
+<text x='1416' y='98' font-size='12' font-weight='400' fill='#475569' text-anchor='end'>Son yenileme 19:42:10 · Otomatik yenile ●</text>
+<circle cx='284' cy='146' r='6' fill='#F59E0B'/>
+<text x='300' y='152' font-size='22' font-weight='650' fill='#0F172A' text-anchor='start'>2 servis dikkat istiyor</text>
+<text x='276' y='178' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Sürüm 3.4.1 · a1b2c3d · 17 Eki 16:05'te yayına alındı · üretim</text>
+<rect x='276' y='194' width='1140' height='40' rx='12' fill='#FEF3C7' fill-opacity='1' stroke='#FCD34D' stroke-width='1'/>
+<text x='292' y='219' font-size='13' font-weight='600' fill='#B45309' text-anchor='start'>⚠ E-posta kuyruğu 30 dakikadan uzun süredir bekliyor · 19:05 itibarıyla</text>
+<text x='1400' y='219' font-size='13' font-weight='600' fill='#2563EB' text-anchor='end'>Grafana'da gör ↗</text>
+<rect x='276' y='248' width='372' height='104' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='274' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>E-posta</text>
+<circle cx='558' cy='269' r='4' fill='#F59E0B'/>
+<text x='568' y='273' font-size='12' font-weight='600' fill='#B45309' text-anchor='start'>Dikkat</text>
+<text x='292' y='302' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>42 bekliyor</text>
+<text x='292' y='324' font-size='12' font-weight='400' fill='#B45309' text-anchor='start'>En eski 37 dk · 0 başarısız</text>
+<text x='292' y='344' font-size='11' font-weight='600' fill='#2563EB' text-anchor='start'>Ayarlar › Kanallar</text>
+<rect x='660' y='248' width='372' height='104' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='676' y='274' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>İzleme</text>
+<circle cx='942' cy='269' r='4' fill='#F59E0B'/>
+<text x='952' y='273' font-size='12' font-weight='600' fill='#B45309' text-anchor='start'>Dikkat</text>
+<text x='676' y='302' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Grafana ✓ · Prometheus ✓ · Loki ✕</text>
+<text x='676' y='324' font-size='12' font-weight='400' fill='#B45309' text-anchor='start'>Loki çalışmıyor: günlükler gösterilemez</text>
+<text x='676' y='344' font-size='11' font-weight='600' fill='#2563EB' text-anchor='start'>Panolar</text>
+<rect x='1044' y='248' width='372' height='104' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1060' y='274' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>API</text>
+<circle cx='1326' cy='269' r='4' fill='#16A34A'/>
+<text x='1336' y='273' font-size='12' font-weight='600' fill='#15803D' text-anchor='start'>Çalışıyor</text>
+<text x='1060' y='302' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Çalışma süresi 3 g 4 sa</text>
+<text x='1060' y='324' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>2 işçi süreç</text>
+<text x='1060' y='344' font-size='11' font-weight='600' fill='#2563EB' text-anchor='start'>Panolar › API</text>
+<rect x='276' y='364' width='372' height='104' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='390' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>Veritabanı</text>
+<circle cx='558' cy='385' r='4' fill='#16A34A'/>
+<text x='568' y='389' font-size='12' font-weight='600' fill='#15803D' text-anchor='start'>Çalışıyor</text>
+<text x='292' y='418' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Gecikme 4 ms</text>
+<text x='292' y='440' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Şema güncel</text>
+<rect x='660' y='364' width='372' height='104' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='676' y='390' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>İş kuyrukları</text>
+<circle cx='942' cy='385' r='4' fill='#16A34A'/>
+<text x='952' y='389' font-size='12' font-weight='600' fill='#15803D' text-anchor='start'>Çalışıyor</text>
+<text x='676' y='418' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>0 sırada · 1 çalışıyor</text>
+<text x='676' y='440' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Son 24 sa 0 başarısız</text>
+<text x='676' y='460' font-size='11' font-weight='600' fill='#2563EB' text-anchor='start'>Çalıştırmalar</text>
+<rect x='1044' y='364' width='372' height='104' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1060' y='390' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>Teslimatlar</text>
+<circle cx='1326' cy='385' r='4' fill='#16A34A'/>
+<text x='1336' y='389' font-size='12' font-weight='600' fill='#15803D' text-anchor='start'>Çalışıyor</text>
+<text x='1060' y='418' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>0 başarısız</text>
+<text x='1060' y='440' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Bildirim 0 · Webhook 0 · Takvim 0</text>
+<rect x='276' y='480' width='372' height='104' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='506' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>Disk</text>
+<circle cx='558' cy='501' r='4' fill='#16A34A'/>
+<text x='568' y='505' font-size='12' font-weight='600' fill='#15803D' text-anchor='start'>Çalışıyor</text>
+<text x='292' y='534' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>%61 dolu · 38 GB boş</text>
+<text x='292' y='556' font-size='12' font-weight='400' fill='#475569' text-anchor='start'></text>
+<rect x='292' y='550' width='340' height='8' rx='4' fill='#DBEAFE' fill-opacity='1'/>
+<rect x='292' y='550' width='207.4' height='8' rx='4' fill='#2563EB' fill-opacity='1'/>
+<rect x='660' y='480' width='372' height='104' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='676' y='506' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>Hatalar</text>
+<circle cx='942' cy='501' r='4' fill='#16A34A'/>
+<text x='952' y='505' font-size='12' font-weight='600' fill='#15803D' text-anchor='start'>Çalışıyor</text>
+<text x='676' y='534' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>2 açık hata grubu</text>
+<text x='676' y='556' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Son 24 sa 9 olay</text>
+<text x='676' y='576' font-size='11' font-weight='600' fill='#2563EB' text-anchor='start'>Hatalar</text>
+<rect x='1044' y='480' width='372' height='104' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='1060' y='506' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>Pod CI</text>
+<circle cx='1326' cy='501' r='4' fill='#16A34A'/>
+<text x='1336' y='505' font-size='12' font-weight='600' fill='#15803D' text-anchor='start'>Çalışıyor</text>
+<text x='1060' y='534' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Son çalıştırma: Geçti</text>
+<text x='1060' y='556' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>main · a1b2c3d · 15:58</text>
+<rect x='276' y='600' width='1140' height='280' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='628' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>İstekler</text>
+<text x='292' y='648' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Son 1 saatte dakikada ortalama 42 istek; 19:21'de kısa bir 5xx artışı; p95 180 ms.</text>
+<rect x='1076' y='614' width='83' height='30' rx='15.0' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='1117.5' y='633.32' font-size='12' font-weight='600' fill='#2563EB' text-anchor='middle'>Son 1 sa</text>
+<rect x='1163' y='614' width='83' height='30' rx='15.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1204.5' y='633.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Son 6 sa</text>
+<rect x='1250' y='614' width='90' height='30' rx='15.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1295.0' y='633.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Son 24 sa</text>
+<text x='292' y='684' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>İstek/dk</text>
+<line x1='292' y1='830' x2='640' y2='830' stroke='#CBD5E1' stroke-width='1'/>
+<polyline points='292.0,765.3129196956108 297.89830508474574,752.7229589240567 303.79661016949154,752.7212729757781 309.6949152542373,742.2919937092247 315.59322033898303,737.6541601590286 321.49152542372883,748.506218001463 327.3898305084746,746.5884328523044 333.2881355932203,722.3779968592354 339.1864406779661,735.1875509568853 345.08474576271186,734.2191410663686 350.9830508474576,713.441384294634 356.8813559322034,726.7731553000818 362.77966101694915,717.5860031789217 368.6779661016949,727.9381452126299 374.5762711864407,725.3320619740172 380.47457627118644,740.2583920370428 386.37288135593224,730.4513445320562 392.271186440678,727.6718578428099 398.1694915254237,740.3547576020133 404.06779661016947,738.7587564415256 409.96610169491527,744.922846156174 415.864406779661,765.2487823441523 421.7627118644068,751.82710948678 427.66101694915255,760.7991656199448 433.5593220338983,772.8663561102647 439.45762711864404,784.2371481437752 445.35593220338984,766.607956674228 451.2542372881356,780.5295887985053 457.1525423728814,777.4066590717968 463.0508474576271,776.0208565402169 468.9491525423729,782.5189091162092 474.8474576271186,778.7512213065413 480.7457627118644,793.4086009315953 486.64406779661016,783.1763134934099 492.54237288135596,792.0999493052005 498.4406779661017,778.3397841622344 504.33898305084745,778.1845076523628 510.2372881355932,796.2694991256616 516.1355932203389,792.4801277311154 522.0338983050847,787.0862022209081 527.9322033898305,763.9054382611968 533.8305084745763,773.5910752393439 539.728813559322,764.2881481289282 545.6271186440678,768.2190308132334 551.5254237288136,758.2294907056795 557.4237288135594,756.7590563993896 563.3220338983051,753.1376041796883 569.2203389830509,742.7072727858308 575.1186440677966,738.6632638054457 581.0169491525423,726.6386894995971 586.9152542372881,729.1455409472275 592.8135593220338,719.9552864441137 598.7118644067797,719.6303258705394 604.6101694915254,714.5229997387491 610.5084745762712,721.8634904645414 616.406779661017,734.7595722202607 622.3050847457628,716.9692811237171 628.2033898305085,715.2661867088536 634.1016949152543,718.4600363567611 640.0,729.4222071468467' fill='none' stroke='#2563EB' stroke-width='2' stroke-linejoin='round'/>
+<text x='292' y='850' font-size='10' font-weight='400' fill='#64748B' text-anchor='start'>18:42</text>
+<text x='640' y='850' font-size='10' font-weight='400' fill='#64748B' text-anchor='end'>19:42</text>
+<text x='664' y='684' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>⨯ 5xx/dk</text>
+<line x1='664' y1='830' x2='1012' y2='830' stroke='#CBD5E1' stroke-width='1'/>
+<polyline points='664.0,830 669.8983050847457,830 675.7966101694915,830 681.6949152542372,830 687.5932203389831,830 693.4915254237288,830 699.3898305084746,830 705.2881355932203,830 711.1864406779661,830 717.0847457627119,830 722.9830508474577,830 728.8813559322034,830 734.7796610169491,830 740.6779661016949,830 746.5762711864406,830 752.4745762711864,830 758.3728813559322,830 764.271186440678,830 770.1694915254237,830 776.0677966101695,830 781.9661016949152,752.0 787.8644067796611,752.0 793.7627118644068,752.0 799.6610169491526,752.0 805.5593220338983,752.0 811.457627118644,830 817.3559322033898,830 823.2542372881355,830 829.1525423728814,830 835.0508474576271,830 840.9491525423729,830 846.8474576271186,830 852.7457627118645,830 858.6440677966102,830 864.542372881356,830 870.4406779661017,830 876.3389830508474,830 882.2372881355932,830 888.1355932203389,830 894.0338983050847,830 899.9322033898305,830 905.8305084745763,830 911.728813559322,830 917.6271186440678,830 923.5254237288136,830 929.4237288135594,830 935.3220338983051,830 941.2203389830509,830 947.1186440677966,830 953.0169491525423,830 958.9152542372881,830 964.8135593220338,830 970.7118644067797,830 976.6101694915254,830 982.5084745762712,830 988.406779661017,830 994.3050847457628,830 1000.2033898305085,830 1006.1016949152543,830 1012.0,830' fill='none' stroke='#B91C1C' stroke-width='2' stroke-linejoin='round'/>
+<text x='664' y='850' font-size='10' font-weight='400' fill='#64748B' text-anchor='start'>18:42</text>
+<text x='1012' y='850' font-size='10' font-weight='400' fill='#64748B' text-anchor='end'>19:42</text>
+<text x='1036' y='684' font-size='12' font-weight='600' fill='#0F172A' text-anchor='start'>p95 gecikme (ms)</text>
+<line x1='1036' y1='830' x2='1384' y2='830' stroke='#CBD5E1' stroke-width='1'/>
+<polyline points='1036.0,755.3045559328677 1041.8983050847457,747.5864570609725 1047.7966101694915,741.66507460132 1053.6949152542372,733.4902073345224 1059.593220338983,734.6855251225998 1065.4915254237287,726.2295184283973 1071.3898305084745,746.1766646973572 1077.2881355932204,732.0460039799126 1083.1864406779662,717.4034806874573 1089.084745762712,723.4384076720227 1094.9830508474577,715.9047372323898 1100.8813559322034,736.0566514146838 1106.7796610169491,727.1382056697196 1112.677966101695,733.9124349906971 1118.5762711864406,727.8100512880311 1124.4745762711864,729.2519481755237 1130.3728813559321,746.6167527181597 1136.2711864406779,744.6060610164756 1142.1694915254238,746.6909275556902 1148.0677966101696,734.2063250357421 1153.9661016949153,713.0 1159.864406779661,713.0 1165.7627118644068,713.0 1171.6610169491526,713.0 1177.5593220338983,713.0 1183.457627118644,781.7492736356817 1189.3559322033898,789.0655184184147 1195.2542372881355,770.1645417409761 1201.1525423728813,790.6502151526346 1207.0508474576272,793.2674789470163 1212.9491525423728,775.5433268606264 1218.8474576271187,780.0171847623652 1224.7457627118645,796.1557150741945 1230.6440677966102,779.0015138263236 1236.542372881356,789.6402865718793 1242.4406779661017,785.0414465180367 1248.3389830508474,795.7107734432733 1254.2372881355932,774.3379351503764 1260.135593220339,778.0586276275532 1266.0338983050847,767.5971905727226 1271.9322033898304,765.7706382555616 1277.8305084745762,777.1627724274565 1283.7288135593221,771.1900653886831 1289.6271186440679,771.7308544869231 1295.5254237288136,767.6295586371773 1301.4237288135594,765.0979465815894 1307.322033898305,754.4259402677069 1313.2203389830509,742.2383396457712 1319.1186440677966,753.7658493189376 1325.0169491525423,732.5216450533994 1330.915254237288,738.0917580974121 1336.8135593220338,736.0489658536327 1342.7118644067796,720.6152706560313 1348.6101694915255,727.7893556529573 1354.508474576271,731.1059818087593 1360.406779661017,726.48848434935 1366.3050847457628,721.0244594970765 1372.2033898305085,738.8646191709587 1378.1016949152543,716.6295433123291 1384.0,743.6244975926085' fill='none' stroke='#2563EB' stroke-width='2' stroke-linejoin='round'/>
+<text x='1036' y='850' font-size='10' font-weight='400' fill='#64748B' text-anchor='start'>18:42</text>
+<text x='1384' y='850' font-size='10' font-weight='400' fill='#64748B' text-anchor='end'>19:42</text>
+<line x1='409.96610169491527' y1='696' x2='409.96610169491527' y2='832' stroke='#0F172A' stroke-width='1' stroke-dasharray='3 3'/>
+<rect x='415.96610169491527' y='700' width='150' height='48' rx='8' fill='#0F172A' fill-opacity='1'/>
+<text x='423.96610169491527' y='720' font-size='11' font-weight='600' fill='#FFFFFF' text-anchor='start'>19:02 · 61 istek/dk</text>
+<text x='423.96610169491527' y='738' font-size='11' font-weight='400' fill='#E2E8F0' text-anchor='start'>5xx 4 · p95 410 ms</text>
+<text x='656' y='872' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>three small multiples, one axis each, shared crosshair; Kaynak: Prometheus; Tablo toggle</text>
+</svg>

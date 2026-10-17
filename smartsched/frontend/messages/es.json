@@ -100,5 +100,56 @@
     "find": {
       "weeks": "Semanas"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "Día"
+    }
+  },
+  "programWizard": {
+    "col": {
+      "year": "Año"
+    },
+    "patterns": {
+      "weeks": "Semanas"
+    }
+  },
+  "analytics": {
+    "week": "Semana"
+  },
+  "compare": {
+    "week": "Semana"
+  },
+  "invigilation": {
+    "people": {
+      "days": "Días"
+    },
+    "pool": {
+      "hours": "Horas"
+    }
+  },
+  "policies": {
+    "day": {
+      "1": "Lun",
+      "2": "Mar",
+      "3": "Mié",
+      "4": "Jue",
+      "5": "Vie",
+      "6": "Sáb",
+      "7": "Dom"
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "Día"
+  },
+  "quickReserve": {
+    "day": {
+      "label": "Día"
+    }
+  },
+  "aiAdmin": {
+    "usage": {
+      "day": "Día"
+    }
   }
 }

@@ -3,6 +3,7 @@ and the recognised formats it refuses with a "save as" hint. The renderers stay 
 
 from __future__ import annotations
 
+import io
 from pathlib import PurePath
 
 from app.core import safe_files
@@ -31,10 +32,10 @@ def _inspect(kind: str) -> object:
         sl = safe_files.Limits.from_settings()
         rep = safe_files.inspect_zip(data, limits=sl, kind=kind)
         if kind == "workbook":
-            # rows, cells and merges are capped as for a full load (the board importer loads the whole workbook);
-            # columns are not: the planning lists declare 16 375 formatted columns and are read read-only, which
-            # clamps them, and a full load (open_workbook(read_only=False)) checks its own caps again
-            safe_files.check_full_load(rep, safe_files.replace_limits(sl, max_cols=16_384), kind)
+            # capped as for a full load (the board importer loads the whole workbook). The caps measure the used
+            # range, so the planning lists' 16 375 formatted (empty) columns pass and real data past
+            # SHEET_MAX_COLS does not (safe_files.SheetExtent)
+            safe_files.check_full_load(rep, sl, kind)
 
     return check
 
@@ -55,8 +56,78 @@ def _render_docx(data: bytes, out: Rendered, lim: FormatLimits) -> None:
     rd._docx(data, out)
 
 
+MAX_PDF_PAGES = 200
+
+
+def _pdf_page_count(data: bytes) -> int:
+    from pypdf import PdfReader
+
+    try:
+        return len(PdfReader(io.BytesIO(data)).pages)
+    except Exception as exc:  # noqa: BLE001
+        raise rd.RenderError(f"cannot read PDF: {type(exc).__name__}") from exc
+
+
+def _precheck_pdf(data: bytes, lim: FormatLimits) -> None:
+    n = _pdf_page_count(data)
+    if n > MAX_PDF_PAGES:
+        raise safe_files.UnsafeFileError(413, f"the PDF has {n} pages (at most {MAX_PDF_PAGES})")
+
+
+def _plumber_tables(data: bytes) -> list[rd.Grid]:
+    """Ruled tables found by pdfplumber (lines strategy); a table continued on the next page with the same
+    header row becomes one grid. Empty when the PDF draws no table lines."""
+    import pdfplumber
+
+    from app.council import text as tx
+
+    grids: list[rd.Grid] = []
+    with pdfplumber.open(io.BytesIO(data)) as pdf:
+        for page_no, page in enumerate(pdf.pages[:MAX_PDF_PAGES], start=1):
+            for t_no, table in enumerate(page.extract_tables(), start=1):
+                rows = [[tx.cell_text(c) for c in row] for row in table if row and any(c for c in row)]
+                if len(rows) < 2 or max(len(r) for r in rows) < 2:
+                    continue
+                meta = [{"page": page_no, "table": t_no, "row": i + 1} for i in range(len(rows))]
+                prev = grids[-1] if grids else None
+                if prev is not None and prev.cells and prev.cells[0] == rows[0]:
+                    prev.cells.extend(rows[1:])
+                    prev.row_meta.extend(meta[1:])
+                    prev.row_numbers.extend(range(len(prev.row_numbers) + 1, len(prev.row_numbers) + len(rows)))
+                    prev.name = f"pages {prev.row_meta[0]['page']}-{page_no} table"
+                    continue
+                grids.append(
+                    rd.Grid(
+                        f"page {page_no} table {t_no}",
+                        "page",
+                        rows,
+                        [],
+                        {"page": page_no, "table": t_no, "reader": "pdfplumber"},
+                        list(range(1, len(rows) + 1)),
+                        meta,
+                    )
+                )
+    return grids
+
+
 def _render_pdf(data: bytes, out: Rendered, lim: FormatLimits) -> None:
-    rd._pdf(data, out)
+    _precheck_pdf(data, lim)
+    rd._pdf(data, out)  # text layer + layout tables (or "needs vision" for a scan)
+    try:
+        ruled = _plumber_tables(data)
+    except Exception as exc:  # noqa: BLE001 - pdfplumber is an improvement, never a reason to fail the file
+        out.warnings.append(f"ruled-table reader skipped: {type(exc).__name__}")
+        ruled = []
+    if ruled:  # drawn table lines are more reliable than column positions
+        out.grids = ruled
+        out.needs_vision = False
+        out.warnings.append(f"{len(ruled)} ruled table(s) read with pdfplumber")
+
+
+def _precheck_image(data: bytes, lim: FormatLimits) -> None:
+    from app.council.formats_media import check_image
+
+    check_image(data)  # Pillow verify + pixel cap (decompression bombs are 413)
 
 
 def _render_image(data: bytes, out: Rendered, lim: FormatLimits) -> None:
@@ -110,6 +181,7 @@ register(
         lambda p: 1.0 if p.family == "pdf" else 0.0,
         _render_pdf,
         FormatLimits(max_bytes=15 * MiB),
+        _precheck_pdf,
     )
 )
 register(
@@ -122,6 +194,7 @@ register(
         lambda p: 1.0 if p.family == "image" else 0.0,
         _render_image,
         FormatLimits(max_bytes=10 * MiB),
+        _precheck_image,
     )
 )
 

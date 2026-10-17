@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { REAL, SKIP_REASON, api, login, solverRun } from "./helpers";
+import { pinLanguage } from "./language";
 
 /**
  * Frontend sweep 2026-10-15 (ledger frontend-sweep-studio-calendar-2026-10-15) against the REAL backend:
@@ -10,6 +11,8 @@ import { REAL, SKIP_REASON, api, login, solverRun } from "./helpers";
  *   E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000 npx playwright test e2e/studio-calendar-sweep.spec.ts
  */
 test.skip(!REAL, SKIP_REASON);
+// the assertions read English: pin it (the organisation default is Turkish and the profile language wins)
+pinLanguage("en");
 test.use({ locale: "en-GB", timezoneId: "Europe/Istanbul", viewport: { width: 1440, height: 900 } });
 
 async function english(page: Page) {

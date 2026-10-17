@@ -1,24 +1,36 @@
 // Camera + cursor maths shared by the ffmpeg compositor and the Recordly project writer.
 // All times here are on the VIDEO clock (ms from the first kept frame).
 
+import { FPS } from "./fps.mjs";
+
 export const DEFAULTS = {
-  fps: 30,
-  maxZoom: 1.6, // between Recordly depth 2 and 3: text stays sharp on a 1440 px capture
+  fps: FPS,
+  maxZoom: Number(process.env.REC_CAMERA_MAX_ZOOM ?? 1.6), // between Recordly depth 2 and 3: text stays sharp on a 1440 px capture
   fill: 0.5, // a click target may fill this share of the frame (width or height)
-  minZoom: 1.18, // smaller zooms are not worth the motion: stay on the overview
+  minZoom: Number(process.env.REC_CAMERA_MIN_ZOOM ?? 1.18), // smaller zooms are not worth the motion: stay on the overview
   leadMs: 550, // the camera starts moving this long before the action
   tailMs: 900, // ... and stays this long after it
-  bridgeMs: 1400, // two shots closer than this are connected (pan) instead of zoom-out/zoom-in
-  stiffness: 70, // spring (per second²); critically damped → no overshoot
+  // two shots closer than this are connected (pan) instead of zoom-out/zoom-in: every camera move redraws the whole
+  // frame, which is what a GIF pays for, so fewer and quicker moves (REC_CAMERA_BRIDGE_MS / REC_CAMERA_STIFFNESS)
+  bridgeMs: Number(process.env.REC_CAMERA_BRIDGE_MS ?? 1400),
+  stiffness: Number(process.env.REC_CAMERA_STIFFNESS ?? 70), // spring (per second²); critically damped → no overshoot
 };
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
-/** Zoom shots: [{start, end, z, cx, cy}] from the steps' targets. */
+/** Zoom shots: [{start, end, z, cx, cy}] from the steps' targets. A target that is already inside the current shot's
+ * view keeps the camera where it is: every camera move redraws the whole frame (a GIF pays for each one), so the
+ * camera only moves when the action would otherwise be out of view. */
 export function shots(steps, viewport, opts = {}) {
   const o = { ...DEFAULTS, ...opts };
   const { width: W, height: H } = viewport;
   const out = [];
+  const inView = (sh, tg, m = 12) => {
+    const hw = W / (2 * sh.z);
+    const hh = H / (2 * sh.z);
+    const c = clampCenter(sh.z, sh.cx, sh.cy, W, H);
+    return tg.x >= c.cx - hw + m && tg.x + tg.w <= c.cx + hw - m && tg.y >= c.cy - hh + m && tg.y + tg.h <= c.cy + hh - m;
+  };
   for (const s of steps) {
     if (s.zoom === false) continue;
     const ts = s.targets ?? [];
@@ -27,9 +39,13 @@ export function shots(steps, viewport, opts = {}) {
       const z0 = Math.min((W * o.fill) / Math.max(tg.w, 1), (H * o.fill) / Math.max(tg.h, 1));
       const z = clamp(z0, 1, o.maxZoom);
       if (z < o.minZoom) return;
-      const start = tg.t - o.leadMs;
-      const end = next ? next.t - o.leadMs : s.endMs + o.tailMs;
-      out.push({ start, end: Math.max(end, tg.t + o.tailMs), z, cx: tg.x + tg.w / 2, cy: tg.y + tg.h / 2 });
+      const end = Math.max(next ? next.t - o.leadMs : s.endMs + o.tailMs, tg.t + o.tailMs);
+      const last = out[out.length - 1];
+      if (last && tg.t - o.leadMs <= last.end + o.bridgeMs && inView(last, tg)) {
+        last.end = Math.max(last.end, end);
+        return;
+      }
+      out.push({ start: tg.t - o.leadMs, end, z, cx: tg.x + tg.w / 2, cy: tg.y + tg.h / 2 });
     });
   }
   out.sort((a, b) => a.start - b.start);
@@ -65,10 +81,23 @@ export function cameraTrack(shotList, viewport, durationMs, opts = {}) {
     const target = sh
       ? { lz: Math.log(sh.z), ...clampCenter(sh.z, sh.cx, sh.cy, W, H) }
       : { lz: 0, cx: W / 2, cy: H / 2 };
-    for (const key of ["lz", "cx", "cy"]) {
-      const a = k * (target[key] - state[key]) - c * vel[key];
-      vel[key] += a * dt;
-      state[key] += vel[key] * dt;
+    // 2 ms substeps: one explicit step per frame is unstable once c*dt > 1 (a stiff spring at 20 fps jitters and
+    // never settles, so every frame differs)
+    const sub = Math.max(1, Math.ceil(dt / 0.002));
+    const hs = dt / sub;
+    for (let i = 0; i < sub; i++) {
+      for (const key of ["lz", "cx", "cy"]) {
+        const a = k * (target[key] - state[key]) - c * vel[key];
+        vel[key] += a * hs;
+        state[key] += vel[key] * hs;
+      }
+    }
+    // settled: snap onto the target. A spring only approaches it, and a crop that keeps drifting by a fraction of
+    // a pixel resamples every frame a little differently, so a still screen would never be still (GIF size).
+    const near = Math.abs(target.lz - state.lz) < 0.003 && Math.abs(target.cx - state.cx) < 0.5 && Math.abs(target.cy - state.cy) < 0.5;
+    if (near && Math.abs(vel.lz) < 0.02 && Math.abs(vel.cx) < 6 && Math.abs(vel.cy) < 6) {
+      state = { ...target };
+      vel = { lz: 0, cx: 0, cy: 0 };
     }
     const z = Math.max(1, Math.exp(state.lz));
     const { cx, cy } = clampCenter(z, state.cx, state.cy, W, H);

@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useAppearancePreferences } from "@/components/ui/appearance-preferences";
+import { KeyboardClearance } from "@/components/ui/keyboard-clearance";
 import { AlertTriangle } from "lucide-react";
 import { useOrgPublic } from "@/lib/api/crbs";
 import { NoAccess } from "@/components/admin/kit";
@@ -21,6 +22,8 @@ import { MobileTopBar, TopBar } from "./top-bar";
 import { planningRequirement } from "./nav-config";
 import { useGlobalShortcuts } from "./use-global-shortcuts";
 import { useWorkspaceStore, useWorkspaceUser } from "./workspace";
+import { useProfileLanguage } from "@/components/bookings/use-booking-format";
+import { PrivacyNoticeGate } from "@/components/privacy/notice-gate";
 
 function OfflineBanner() {
   const { t } = useI18n();
@@ -38,7 +41,7 @@ function OfflineBanner() {
   );
   if (!offline) return null;
   return (
-    <div role="status" className="mx-4 mt-2 rounded-full bg-status-warning px-4 py-1.5 text-center text-[13px] text-status-warning-fg sm:mx-6 lg:mx-8">
+    <div role="status" className="mx-4 mt-2 rounded-full bg-status-warning px-4 py-1.5 text-center type-callout text-status-warning-fg sm:mx-6 lg:mx-8">
       {t("common.offline")}
     </div>
   );
@@ -73,6 +76,14 @@ function Shortcuts() {
 }
 
 /**
+ * Whether the shell must send the user to /login/change-password: only a settled /me that says so (T-R2-03, R2-S-02:
+ * the cached "true" while the query refetches after a change bounced the user back to the empty form).
+ */
+export function mustChangePassword(me: { data?: { force_password_reset?: boolean } | undefined; isFetching: boolean }): boolean {
+  return !me.isFetching && (me.data?.force_password_reset ?? false);
+}
+
+/**
  * Per-user state: appearance preferences (motion, transparency, accent) and the workspace memory
  * (term, run, week). When the signed-in user changes, the session term switches to the one they used last;
  * every later term change is remembered for them.
@@ -85,7 +96,7 @@ function UserSync() {
   const setUserKey = useWorkspaceUser((s) => s.setUserKey);
   const router = useRouter();
   const pathname = usePathname();
-  const mustChange = me.data?.force_password_reset ?? false;
+  const mustChange = mustChangePassword(me);
   useEffect(() => {
     // a 401 anywhere = the session is gone (expired, revoked by a password change, signed out elsewhere):
     // clear the cookie and go to the login page once, with a notice, instead of rendering empty lists
@@ -144,12 +155,15 @@ function RouteGuard({ children }: { children: ReactNode }) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useI18n();
+  // the profile language applies on the first page of a session, whichever it is (was: bookings pages only)
+  useProfileLanguage();
   const density = useUiStore((s) => s.density);
   useEffect(() => {
     document.documentElement.dataset.density = density;
   }, [density]);
   return (
-    <div className="flex min-h-dvh">
+    // data-app-shell: html takes scroll-padding for the sticky top bar and the tab bar (globals.css)
+    <div className="flex min-h-dvh" data-app-shell="">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-tint focus:px-3 focus:py-1.5 focus:text-tint-foreground">
         {t("app.skip")}
       </a>
@@ -163,7 +177,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Suspense>
         <OfflineBanner />
         <MaintenanceBanner />
-        <main id="main" tabIndex={-1} className="flex-1 outline-hidden px-4 pt-3 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-4 lg:pb-8">
+        <main id="main" tabIndex={-1} className="flex-1 outline-hidden pt-3 pr-[max(1rem,env(safe-area-inset-right))] pb-[calc(6rem+env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] lg:px-8 lg:pt-4 lg:pb-8">
           <div className="mx-auto w-full max-w-[1600px]">
             <RouteGuard>{children}</RouteGuard>
           </div>
@@ -173,10 +187,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         <TabBar />
         <MobileDrawer />
       </Suspense>
+      {/* T-R2-01: page-level fields scroll clear of the sticky save / search bars and the tab bar when the keyboard opens */}
+      <KeyboardClearance scope="document" />
       <CommandPalette />
       <ShortcutsSheet />
       <Shortcuts />
       <UserSync />
+      {/* A4 KVKK: the current privacy notice until acknowledged (never over /admin/kvkk; admins may postpone) */}
+      <PrivacyNoticeGate />
     </div>
   );
 }

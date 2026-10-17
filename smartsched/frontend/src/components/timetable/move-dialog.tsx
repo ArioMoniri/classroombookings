@@ -11,6 +11,8 @@ import { Check, TriangleAlert } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
+import { Textarea } from "@/components/ui/textarea";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { calendarApi, useFreeRooms, type FreeRoom, type MoveScope } from "@/lib/api/calendar";
 import { useI18n } from "@/lib/i18n/provider";
@@ -20,6 +22,7 @@ import { FloatingPanel } from "./floating-panel";
 import { checkMove, whenText, type CheckIssue } from "./model/check";
 import { dateOf } from "./model/dates";
 import { maskOf, roomCap, weeksOfMask, type CalEvent, type CalendarModel } from "./model/index-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface ScopeValue {
   scope: MoveScope;
@@ -37,15 +40,16 @@ export function ScopeRadio({ model, ev, value, onChange, day }: { model: Calenda
   if (weeks.length <= 1) return null;
   const range = weeks.length > 1 ? `${weeks[0]}–${weeks[weeks.length - 1]}` : String(weeks[0]);
   const opt = (scope: MoveScope, text: string, extra?: React.ReactNode) => (
-    <label className="flex items-center gap-2 py-0.5">
+    // 44 px rows on touch (MOBILE.md M-02; round-1 R1-S-16: 22 px radios)
+    <label className="flex items-center gap-2 py-0.5 pointer-coarse:min-h-11" data-testid={`move-scope-${scope}`}>
       <input type="radio" name={name} checked={value.scope === scope} onChange={() => onChange({ ...value, scope })} className="accent-(--accent)" />
       <span className="flex-1">{text}</span>
       {extra}
     </label>
   );
   return (
-    <fieldset className="flex flex-col gap-0.5 text-[13px]">
-      <legend className="mb-1 text-[12px] font-semibold text-label-2">{t("calendar.move.scope")}</legend>
+    <fieldset className="flex flex-col gap-0.5 type-callout">
+      <legend className="mb-1 type-footnote font-semibold text-label-2">{t("calendar.move.scope")}</legend>
       {opt("all", t("calendar.move.scopeAll", { weeks: range }))}
       {opt("week", t("calendar.move.scopeWeek", { n: value.week, date: label(value.week) }))}
       {opt(
@@ -54,15 +58,17 @@ export function ScopeRadio({ model, ev, value, onChange, day }: { model: Calenda
         null,
       )}
       {value.scope !== "all" ? (
-        <label className="mt-1 flex items-center gap-2 text-[12px] text-label-2">
+        // "Başlangıç haftası": the week the "only" / "from" scope starts at, whatever week is on screen (round-1 R1-M-31);
+        // a design-system select: 16 px text and 44 px on phones (MOBILE.md M-02 / M-03)
+        <label className="mt-1 flex flex-col gap-1 type-footnote text-label-2">
           {t("calendar.move.fromWeek")}
-          <select className="h-7 rounded-lg bg-fill-2 px-2 text-[12px] text-label-1" value={value.week} onChange={(e) => onChange({ ...value, week: Number(e.target.value) })}>
+          <NativeSelect size="sm" className="pointer-coarse:[--control-h-sm:var(--control-h-md)]" selectClassName="type-footnote text-label-1" value={value.week} onChange={(e) => onChange({ ...value, week: Number(e.target.value) })} data-testid="move-from-week">
             {weeks.map((w) => (
               <option key={w} value={w}>
                 {t("calendar.nav.weekShort", { n: w })} · {label(w)}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
       ) : null}
     </fieldset>
@@ -75,10 +81,25 @@ function scopeMask(ev: CalEvent, s: ScopeValue): number {
   return maskOf(ws);
 }
 
+/** A target room the class does not fit is a hard issue of the move (round-2 T-R2-30, R2-M-12: the dry run said
+ * 'uygun' for a 'Sığmaz' room, the plain 'Taşı' stayed enabled and the server refused on commit). Not for exams
+ * (seat flow is checked per sitting) and never when the server already named capacity. */
+export function capacityIssue(size: number | null | undefined, room: FreeRoom | undefined, exam: boolean): CheckIssue | null {
+  if (exam || !room || !size || room.status !== "too_small" || size <= room.capacity) return null;
+  return {
+    code: "capacity",
+    severity: "hard",
+    text: {
+      tr: `${size} öğrenci ${room.capacity} kişilik ${room.code}'e sığmaz`.replace(`${room.code}'e`, `${room.code}${/[aıou]\s*$/i.test(room.code) ? "'a" : "'e"}`),
+      en: `${size} students do not fit ${room.code} (${room.capacity} seats)`,
+    },
+  };
+}
+
 function Issues({ hard, soft, lang }: { hard: CheckIssue[] | { text: { tr: string; en: string } }[]; soft: { text: { tr: string; en: string } }[]; lang: "tr" | "en" }) {
   if (!hard.length && !soft.length) return null;
   return (
-    <ul className="flex flex-col gap-1 text-[12px]" aria-live="polite">
+    <ul className="flex flex-col gap-1 type-footnote" aria-live="polite">
       {hard.map((h, i) => (
         <li key={`h${i}`} className="flex gap-1.5 text-status-infeasible-fg"><TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />{h.text[lang]}</li>
       ))}
@@ -97,10 +118,15 @@ export interface MoveDialogProps {
   week: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (target: { room: number; day: number; sp: number; ep: number }, scope: ScopeValue) => Promise<boolean>;
+  /** `forceReason`: an administrator moves despite the listed hard-rule breaks, with this written reason */
+  onConfirm: (target: { room: number; day: number; sp: number; ep: number }, scope: ScopeValue, forceReason?: string) => Promise<boolean>;
+  /** may force a move that breaks a hard rule (`planning.admin`), with a written reason (round-1 R1-M-06 / R1-S-09) */
+  canForce?: boolean;
+  /** open on this target (a refused drop) instead of the class's own cell */
+  initialTarget?: { room: number; day: number; sp: number } | null;
 }
 
-export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: MoveDialogProps) {
+export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm, canForce = false, initialTarget = null }: MoveDialogProps) {
   const { t, locale } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
   const [room, setRoom] = useState<number>(ev?.room ?? 0);
@@ -109,18 +135,23 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
   const [scope, setScope] = useState<ScopeValue>({ scope: "all", week });
   const [busy, setBusy] = useState(false);
   const [server, setServer] = useState<{ ok: boolean; hard: CheckIssue[]; soft: CheckIssue[] } | null>(null);
+  const [forceReason, setForceReason] = useState("");
+  const reasonId = useId();
   const evKey = ev?.key;
+  const tKey = initialTarget ? `${initialTarget.room}:${initialTarget.day}:${initialTarget.sp}` : "";
   useEffect(() => {
     if (!ev) return;
     // reset the form whenever another class is opened
     /* eslint-disable react-hooks/set-state-in-effect */
-    setRoom(ev.room);
-    setDay(ev.day);
-    setSp(ev.sp);
+    setRoom(initialTarget?.room ?? ev.room);
+    setDay(initialTarget?.day ?? ev.day);
+    setSp(initialTarget?.sp ?? ev.sp);
+    setForceReason("");
     setScope({ scope: "all", week: weeksOfMask(ev.mask).includes(week) ? week : weeksOfMask(ev.mask)[0] ?? week });
     setServer(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [evKey, ev, week]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tKey stands for initialTarget
+  }, [evKey, ev, week, tKey]);
   const span = ev ? ev.ep - ev.sp : 0;
   const ep = Math.min(PERIODS_PER_DAY, sp + span);
   const mask = ev ? scopeMask(ev, scope) : 0;
@@ -157,7 +188,10 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
     const g = r.status === "free" ? groups[0] : r.status === "too_small" ? groups[1] : r.status === "busy" ? groups[2] : groups[3];
     g.rooms.push(r);
   }
-  const shown = server ?? check;
+  const base = server ?? check;
+  const target = finder.data?.rooms.find((r) => r.room_id === room);
+  const tooSmall = capacityIssue(ev.a.size, target, model.exam);
+  const shown = base && tooSmall && !base.hard.some((h) => h.code === "capacity" || h.code === "seats") ? { ...base, ok: false, hard: [...base.hard, tooSmall] } : base;
   const ok = !!shown && shown.hard.length === 0;
   const changed = room !== ev.room || day !== ev.day || sp !== ev.sp;
   const fromRoom = model.roomById.get(ev.room)?.name ?? "";
@@ -173,33 +207,32 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-[1fr_220px]">
           <div className="flex min-w-0 flex-col gap-2">
-            <p className="text-[12px] font-semibold text-label-2">{t("calendar.move.finder")}</p>
+            <p className="type-footnote font-semibold text-label-2">{t("calendar.move.finder")}</p>
             <div className="max-h-[300px] overflow-y-auto rounded-xl bg-fill-3 p-1" role="listbox" aria-label={t("calendar.move.room")}>
               {finder.isLoading ? (
-                <p className="flex items-center gap-2 p-3 text-[12px] text-label-2"><BusyGlyph className="size-3.5" />{t("calendar.move.checking")}</p>
+                <p className="flex items-center gap-2 p-3 type-footnote text-label-2"><BusyGlyph className="size-3.5" />{t("calendar.move.checking")}</p>
               ) : (
                 groups.map((g) =>
                   g.rooms.length ? (
                     <div key={g.key} role="group" aria-label={g.label}>
-                      <p className="px-2 pt-2 pb-1 text-[11px] font-semibold text-label-2">{g.label} · {g.rooms.length}</p>
+                      <p className="px-2 pt-2 pb-1 type-caption font-semibold text-label-2">{g.label} · {g.rooms.length}</p>
                       {g.rooms.slice(0, g.key === "free" ? 40 : 12).map((r) => (
-                        <button
+                        <BareButton
                           key={r.room_id}
-                          type="button"
                           role="option"
                           aria-selected={room === r.room_id}
                           data-testid="free-room"
                           data-room-id={r.room_id}
                           data-status={r.status}
-                          disabled={g.key === "other"}
+                          disabled={g.key === "other" && !canForce}
                           onClick={() => setRoom(r.room_id)}
-                          className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-fill-2 disabled:opacity-50", room === r.room_id && "bg-tint-soft")}
+                          className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2 disabled:opacity-50 pointer-coarse:min-h-11", room === r.room_id && "bg-tint-soft")}
                         >
                           <span className="w-14 shrink-0 font-semibold">{r.code}</span>
-                          <span className="w-16 shrink-0 text-[12px] text-label-2 tabular-nums">{t(model.exam ? "calendar.move.examSeats" : "calendar.move.seats", { n: r.capacity })}</span>
-                          <span className="min-w-0 flex-1 truncate text-[12px] text-label-2">{r.room_id === ev.room ? t("calendar.move.current") : r.status === "free" && r.fit ? t("calendar.move.fit", { p: Math.round(r.fit * 100) }) : (r.reason?.[lang] ?? "")}</span>
+                          <span className="w-16 shrink-0 type-footnote text-label-2 tabular-nums">{t(model.exam ? "calendar.move.examSeats" : "calendar.move.seats", { n: r.capacity })}</span>
+                          <span className="min-w-0 flex-1 truncate type-footnote text-label-2">{r.room_id === ev.room ? t("calendar.move.current") : r.status === "free" && r.fit ? t("calendar.move.fit", { p: Math.round(r.fit * 100) }) : (r.reason?.[lang] ?? "")}</span>
                           {room === r.room_id ? <Check className="size-3.5 shrink-0 text-tint-text" aria-hidden /> : null}
-                        </button>
+                        </BareButton>
                       ))}
                     </div>
                   ) : null,
@@ -208,30 +241,58 @@ export function MoveDialog({ model, ev, week, open, onOpenChange, onConfirm }: M
             </div>
           </div>
           <div className="flex flex-col gap-3">
-            <label className="flex flex-col gap-1 text-[12px] font-semibold text-label-2">
+            {/* design-system selects: 16 px text and 44 px on phones (lane A hand-on: the raw selects read 13 px) */}
+            <label className="flex flex-col gap-1 type-footnote font-semibold text-label-2">
               {t("calendar.move.day")}
-              <select className="h-8 rounded-lg bg-fill-2 px-2 text-[13px] font-normal text-label-1" value={day} onChange={(e) => setDay(Number(e.target.value))}>
+              <NativeSelect size="sm" className="pointer-coarse:[--control-h-sm:var(--control-h-md)]" selectClassName="type-callout font-normal text-label-1" value={day} onChange={(e) => setDay(Number(e.target.value))} data-testid="move-day">
                 {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{dayName(d, locale)}</option>)}
-              </select>
+              </NativeSelect>
             </label>
-            <label className="flex flex-col gap-1 text-[12px] font-semibold text-label-2">
+            <label className="flex flex-col gap-1 type-footnote font-semibold text-label-2">
               {t("calendar.move.start")}
-              <select className="h-8 rounded-lg bg-fill-2 px-2 text-[13px] font-normal text-label-1" value={sp} onChange={(e) => setSp(Number(e.target.value))}>
+              <NativeSelect size="sm" className="pointer-coarse:[--control-h-sm:var(--control-h-md)]" selectClassName="type-callout font-normal text-label-1" value={sp} onChange={(e) => setSp(Number(e.target.value))} data-testid="move-start">
                 {PERIODS.filter((p) => p.index + span <= PERIODS_PER_DAY).map((p) => (
                   <option key={p.index} value={p.index}>P{p.index} · {p.start}–{PERIODS[p.index + span - 1].end}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             <ScopeRadio model={model} ev={ev} value={scope} onChange={setScope} day={day} />
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
           {shown ? <Issues hard={shown.hard} soft={shown.soft} lang={lang} /> : null}
-          {server && server.ok ? <p className="text-[12px] text-status-feasible-fg" data-testid="move-server-ok">✓ {t("calendar.move.serverOk")}</p> : null}
-          {scope.scope === "from" && ok ? <p className="text-[12px] text-label-2">{t("calendar.move.split", { room: fromRoom })}</p> : null}
+          {server && server.ok && ok ? <p className="type-footnote text-status-feasible-fg" data-testid="move-server-ok">✓ {t("calendar.move.serverOk")}</p> : null}
+          {scope.scope === "from" && ok ? <p className="type-footnote text-label-2">{t("calendar.move.split", { room: fromRoom })}</p> : null}
         </div>
+        {shown && shown.hard.length && changed ? (
+          canForce ? (
+            // an administrator may move despite the listed breaks, only with a written reason (listed in the run report)
+            <div className="grid gap-1.5 rounded-xl bg-status-warning px-3 py-2" data-testid="move-force-panel">
+              <p className="type-callout font-medium text-status-warning-fg">{t("calendar.move.forceTitle")}</p>
+              <label htmlFor={reasonId} className="type-footnote font-semibold text-label-1">{t("calendar.move.forceReason")}</label>
+              <Textarea id={reasonId} rows={2} value={forceReason} onChange={(e) => setForceReason(e.target.value)} placeholder={t("calendar.move.forcePlaceholder")} data-testid="move-force-reason" />
+            </div>
+          ) : (
+            <p className="type-footnote text-label-2" data-testid="move-force-admin-only">{t("calendar.move.forceAdmin")}</p>
+          )
+        ) : null}
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>{t("calendar.insp.cancel")}</Button>
+          {canForce && shown && shown.hard.length && changed ? (
+            <Button
+              variant="destructive"
+              data-testid="move-force"
+              disabled={busy || forceReason.trim().length < 3}
+              onClick={async () => {
+                setBusy(true);
+                const done = await onConfirm({ room, day, sp, ep }, scope, forceReason.trim());
+                setBusy(false);
+                if (done) onOpenChange(false);
+              }}
+            >
+              {busy ? t("calendar.move.moving") : t("calendar.move.force")}
+            </Button>
+          ) : null}
           <Button
             data-testid="move-confirm"
             disabled={!ok || busy || !changed}
@@ -291,10 +352,10 @@ export function MovePopover({ model, pending, week, onSave, onCancel }: { model:
           onSave(scope);
         }
       }}>
-        <p id={id} className="text-[13px] font-semibold">
+        <p id={id} className="type-callout font-semibold">
           {pending.extra.length ? t("calendar.drag.multi", { n: pending.extra.length + 1, ok: pending.extra.length + 1, bad: 0 }) : `${pending.ev.a.label} → ${to?.name ?? ""}`}
         </p>
-        <p className="text-[12px] text-label-2 tabular-nums">
+        <p className="type-footnote text-label-2 tabular-nums">
           <span className="line-through decoration-label-3">{from} {whenText(pending.ev.day, pending.ev.sp, pending.ev.ep)[lang]}</span>
           {" → "}
           <span className="text-label-1">{to?.name} {whenText(pending.target.day, pending.target.sp, pending.target.ep)[lang]} · {roomCap(model, to)} {lang === "tr" ? "koltuk" : "seats"}</span>
@@ -302,8 +363,8 @@ export function MovePopover({ model, pending, week, onSave, onCancel }: { model:
         <Issues hard={[]} soft={pending.soft} lang={lang} />
         {pending.extra.length === 0 ? <ScopeRadio model={model} ev={pending.ev} value={scope} onChange={(v) => { setTouched(true); setScope(v); }} day={pending.target.day} /> : null}
         <div className="flex justify-end gap-2 pt-1">
-          <Button variant="ghost" size="sm" onClick={onCancel}>{t("calendar.toast.undo")} <kbd className="ml-1 text-[11px] text-label-3">esc</kbd></Button>
-          <Button size="sm" data-testid="move-confirm" data-autofocus onClick={() => onSave(scope)}>{t("calendar.move.confirm")} <kbd className="ml-1 text-[11px] opacity-80">↵</kbd></Button>
+          <Button variant="ghost" size="sm" onClick={onCancel}>{t("calendar.toast.undo")} <kbd className="ml-1 type-caption text-label-3">esc</kbd></Button>
+          <Button size="sm" data-testid="move-confirm" data-autofocus onClick={() => onSave(scope)}>{t("calendar.move.confirm")} <kbd className="ml-1 type-caption opacity-80">↵</kbd></Button>
         </div>
       </div>
     </FloatingPanel>

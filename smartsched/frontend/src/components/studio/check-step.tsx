@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, Info, Loader2, OctagonX, Refr
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { BusyGlyph, BusyLabel, busyProps } from "@/components/ui/busy-label";
 import type { PrecheckCategory, PrecheckItem, Readiness } from "@/lib/api/studio-schemas";
 import type { MessageKey } from "@/lib/i18n";
@@ -14,6 +15,7 @@ import { estimateWords } from "./studio-reducer";
 import { useStudio } from "./studio-context";
 import { useApplyFix } from "./use-fixes";
 import { pairLang } from "@/lib/i18n";
+import { BareButton } from "@/components/shell/bare-button";
 
 const READY_KEY: Record<Readiness | "unknown" | "checking", MessageKey> = {
   ready: "studio.check.ready",
@@ -75,7 +77,8 @@ export function IssueCard({ item, onFixed }: { item: PrecheckItem; onFixed?: () 
       </h4>
       <p className="mt-1 pl-5.5 text-label-2">{item.message[pairLang(locale)] || item.message.en}</p>
       {item.fixes.length ? (
-        <div className="mt-2 flex flex-wrap gap-1.5 pl-5.5">
+        <div className="mt-2 flex flex-wrap gap-1.5 pl-5.5 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
+          {/* max-w-full: a long fix label wraps inside the card (it widened the page to 502 px at 390); 44 px on touch */}
           {item.fixes.map((f) => {
             const blocked = f.admin_only && !isAdmin;
             const running = busy === `${item.id}:${f.option}`;
@@ -90,7 +93,7 @@ export function IssueCard({ item, onFixed }: { item: PrecheckItem; onFixed?: () 
                 onClick={async () => {
                   if (await apply(item, f)) onFixed?.();
                 }}
-                className="h-auto min-h-7 py-1 text-left whitespace-normal sm:max-w-80"
+                className="h-auto min-h-(--control-h-sm) max-w-full py-1 text-left whitespace-normal sm:max-w-80"
                 data-testid="fix-button"
               >
                 <BusyLabel busy={running} label={t("studio.check.applying")}>
@@ -166,16 +169,17 @@ export function CheckStep() {
 
       {precheck ? (
         <>
-          <div role="tablist" aria-label={t("studio.check.categories")} className="flex flex-wrap gap-1.5">
-            {(["all", "impossible", "clash", "no_match", "info"] as const).map((c) => {
+          <SegmentedControl
+            size="sm"
+            aria-label={t("studio.check.categories")}
+            value={cat}
+            onValueChange={(c) => setCat(c)}
+            options={(["all", "impossible", "clash", "no_match", "info"] as const).map((c) => {
               const count = c === "all" ? precheck.items.length : (precheck.counts[c] ?? precheck.items.filter((i) => i.category === c).length);
-              return (
-                <button key={c} type="button" role="tab" aria-selected={cat === c} onClick={() => setCat(c)} className={cn("rounded-xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] px-2.5 py-1 text-xs pointer-coarse:min-h-11", cat === c ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")} data-testid={`check-tab-${c}`}>
-                  {c === "all" ? t("studio.check.cat.all") : t(CAT_KEY[c])} <span className="tabular-nums">{n(count)}</span>
-                </button>
-              );
+              const name = c === "all" ? t("studio.check.cat.all") : t(CAT_KEY[c]);
+              return { value: c, text: `${name} ${n(count)}`, testId: `check-tab-${c}`, label: <>{name} <span className="tnum text-label-2">{n(count)}</span></> };
             })}
-          </div>
+          />
           <div className={cn("space-y-4 transition-opacity", checking && "opacity-60")} role="tabpanel">
             {items.length === 0 ? (
               <p className="flex items-center gap-2 rounded-md border p-4 text-sm text-status-feasible-fg">
@@ -188,10 +192,10 @@ export function CheckStep() {
                 return (
                   <section key={g.group} aria-label={g.group} className="space-y-2" data-testid="issue-group">
                     {many || g.items.length > 3 ? (
-                      <button type="button" aria-expanded={shown > 0} onClick={() => setOpen((o) => ({ ...o, [g.group]: shown > 0 ? 0 : Math.min(PAGE, g.items.length) }))} className="flex w-full items-center gap-2 rounded-md border bg-fill-3 px-3 py-2 text-left text-sm hover:bg-fill-2 pointer-coarse:min-h-11">
+                      <BareButton aria-expanded={shown > 0} onClick={() => setOpen((o) => ({ ...o, [g.group]: shown > 0 ? 0 : Math.min(PAGE, g.items.length) }))} className="flex w-full items-center gap-2 rounded-md border bg-fill-3 px-3 py-2 text-left text-sm hover:bg-fill-2 pointer-coarse:min-h-11">
                         <ChevronDown className={cn("size-4 transition-transform", shown === 0 && "-rotate-90")} aria-hidden />
                         <span className="flex-1">{t("studio.check.group", { n: n(g.items.length), cause: groupLabel(g.group, t, head) })}</span>
-                      </button>
+                      </BareButton>
                     ) : null}
                     <ul className="space-y-2">
                       {/* fixed issues leave with a fade (transform / opacity only, siblings reflow by FLIP); > 40 shown: no motion */}

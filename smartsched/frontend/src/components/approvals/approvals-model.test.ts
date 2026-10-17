@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApprovalRequest } from "@/lib/api/wave1";
-import { conflictAlternatives, normaliseScopes, openDates, requestSlots, ruleTarget, statusTone, timeline, toggleScope } from "./approvals-model";
+import { conflictAlternatives, groupInbox, normaliseScopes, openDates, requestSlots, ruleCovered, ruleTarget, statusTone, timeline, toggleScope } from "./approvals-model";
 
 const booking = (date: string, status = "PENDING") => ({
   id: Number(date.replace(/-/g, "")),
@@ -58,5 +58,46 @@ describe("approval request helpers", () => {
   it("reads the T1 alternatives of a 409 on approve", () => {
     const alts = conflictAlternatives({ code: "conflict", alternatives: [{ kind: "time", room_id: 2, name: "A 102", dates: ["2026-02-18"], start_period: 6, end_period: 8, reason: { tr: "boş", en: "free" } }, { nope: 1 }] });
     expect(alts).toEqual([{ roomId: 2, name: "A 102", date: "2026-02-18", start: 6, end: 8, reason: { tr: "boş", en: "free" } }]);
+  });
+});
+
+describe("groupInbox (A-12: one row per submission)", () => {
+  const req = (id: number, group: number | null, start: number, room = 5) =>
+    ({ id, group_id: group, room_id: room, status: "PENDING", bookings: [{ date: "2026-02-18", start_period: start, end_period: start }] }) as unknown as ApprovalRequest;
+  it("puts the periods of one submission in one entry, in period order, and keeps single requests apart", () => {
+    const entries = groupInbox([req(3, 9, 5), req(1, 9, 3), req(2, null, 1), req(4, 9, 4)]);
+    expect(entries.map((e) => e.requests.map((r) => r.id))).toEqual([[1, 4, 3], [2]]);
+    expect(entries[0]!.groupId).toBe(9);
+  });
+  it("does not merge the same group id in another room", () => {
+    expect(groupInbox([req(1, 9, 3, 5), req(2, 9, 4, 6)])).toHaveLength(2);
+  });
+});
+
+describe("T-R2-18 per-rule approver coverage", () => {
+  const rooms = [
+    { id: 1, name: "A 101", tags: ["PC"], groupId: 10 },
+    { id: 2, name: "C 303", tags: [], groupId: 30 },
+    { id: 3, name: "C 404", tags: ["PC"], groupId: 30 },
+  ];
+  const approver = (scopes: { type: "all" | "room" | "room_group" | "tag"; id?: number | null; tag?: string | null }[], can_decide = true) => ({ user_id: 7, name: "Fatih", email: null, can_decide, scopes });
+  const roomRule = { entity_type: "room" as const, entity_id: 2, tag: null };
+  const groupRule = { entity_type: "room_group" as const, entity_id: 30, tag: null };
+  const tagRule = { entity_type: "tag" as const, entity_id: null, tag: "pc" };
+  it("an approver whose scope touches the rule's rooms covers it; one scoped to another room does not", () => {
+    expect(ruleCovered(roomRule, [approver([{ type: "room", id: 1 }])], rooms)).toBe(false);
+    expect(ruleCovered(roomRule, [approver([{ type: "room", id: 2 }])], rooms)).toBe(true);
+    expect(ruleCovered(roomRule, [approver([{ type: "room_group", id: 30 }])], rooms)).toBe(true);
+    expect(ruleCovered(roomRule, [approver([{ type: "all" }])], rooms)).toBe(true);
+    expect(ruleCovered(roomRule, [approver([{ type: "all" }], false)], rooms)).toBe(false);
+    expect(ruleCovered(roomRule, [approver([])], rooms)).toBe(false);
+  });
+  it("a group rule is covered by a room inside the group, a tag rule by a room carrying the tag", () => {
+    expect(ruleCovered(groupRule, [approver([{ type: "room", id: 3 }])], rooms)).toBe(true);
+    expect(ruleCovered(groupRule, [approver([{ type: "room", id: 1 }])], rooms)).toBe(false);
+    expect(ruleCovered(groupRule, [approver([{ type: "tag", tag: "PC" }])], rooms)).toBe(true);
+    expect(ruleCovered(tagRule, [approver([{ type: "tag", tag: "PC" }])], rooms)).toBe(true);
+    expect(ruleCovered(tagRule, [approver([{ type: "room", id: 2 }])], rooms)).toBe(false);
+    expect(ruleCovered(tagRule, [approver([{ type: "room_group", id: 10 }])], rooms)).toBe(true);
   });
 });

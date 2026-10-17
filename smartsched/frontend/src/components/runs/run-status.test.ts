@@ -25,7 +25,9 @@ describe("best-effort (partial) runs", () => {
     const bare = ScheduleRun.parse(adapt.run({ ...base, status: "FEASIBLE_PARTIAL", hard_score: 100, stats: {} }));
     expect(runStatusBadge(bare, (k, v) => translate("en", k, v))).toEqual({ kind: "warning", label: "Partial" });
     expect(translate("tr", "runs.status.FEASIBLE_PARTIAL")).toBe("Kısmi");
-    expect(translate("tr", "runs.partialRing", { placed: 658, total: 684 })).toBe("658/684 ders yerleşti · hiçbir kural bozulmadı");
+    // round-1 R1-M-04: the count alone; whether a rule is broken comes from the run's truth (stats.truth), never
+    // from this sentence
+    expect(translate("tr", "runs.partialRing", { placed: 658, total: 684 })).toBe("658/684 ders yerleşti");
   });
 
   it("keeps the planner text and code of a diagnosis", () => {

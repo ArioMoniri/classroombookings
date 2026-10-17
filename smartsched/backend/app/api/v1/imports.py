@@ -250,6 +250,8 @@ _COUNT_KEYS = frozenset(
         "rows_imported",
         "rows_skipped_count",
         "warnings_count",
+        "warnings_shown",
+        "warnings_truncated",
         "created",
         "updated",
         "progress",

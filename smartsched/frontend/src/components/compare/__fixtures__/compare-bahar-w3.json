@@ -1,0 +1,1015 @@
+{
+ "term_id": 1,
+ "term_code": "2026-BAHAR",
+ "kind": "COURSE",
+ "a": {
+  "id": 5,
+  "label": "Bahar 3. hafta (A)",
+  "kind": "COURSE",
+  "status": "FEASIBLE_PARTIAL",
+  "horizon": "WEEK",
+  "horizon_params": {
+   "week": 3,
+   "weeks": [
+    3
+   ]
+  },
+  "is_active": true,
+  "parent_run_id": null,
+  "created_at": "2026-10-16T04:45:31.764061",
+  "finished_at": "2026-10-16T04:45:53.351486",
+  "hard_score": 100,
+  "soft_score": 82
+ },
+ "b": {
+  "id": 6,
+  "label": "Bahar 3. hafta, en yoğun derslik çarşamba kapalı (B)",
+  "kind": "COURSE",
+  "status": "FEASIBLE_PARTIAL",
+  "horizon": "WEEK",
+  "horizon_params": {
+   "week": 3,
+   "weeks": [
+    3
+   ]
+  },
+  "is_active": false,
+  "parent_run_id": null,
+  "created_at": "2026-10-16T04:45:55.852204",
+  "finished_at": "2026-10-16T04:46:17.547918",
+  "hard_score": 100,
+  "soft_score": 82
+ },
+ "headline": {
+  "tr": "#6, #5 ile karşılaştırıldı: 10 ders taşındı, 4 yalnız B'de, 17 yalnız A'da yerleşti; sert 100→100, yumuşak 82→82 (+0)",
+  "en": "#6 against #5: 10 class(es) moved, 4 placed only in B, 17 only in A; hard 100→100, soft 82→82 (+0)"
+ },
+ "metrics": [
+  {
+   "key": "hard_score",
+   "label": {
+    "tr": "Sert puan",
+    "en": "Hard score"
+   },
+   "a": 100,
+   "b": 100,
+   "delta": 0.0,
+   "better": "same",
+   "direction": 1
+  },
+  {
+   "key": "soft_score",
+   "label": {
+    "tr": "Yumuşak puan",
+    "en": "Soft score"
+   },
+   "a": 82,
+   "b": 82,
+   "delta": 0.0,
+   "better": "same",
+   "direction": 1
+  },
+  {
+   "key": "placed",
+   "label": {
+    "tr": "Yerleşen",
+    "en": "Placed"
+   },
+   "a": 688,
+   "b": 683,
+   "delta": -5.0,
+   "better": "a",
+   "direction": 1
+  },
+  {
+   "key": "unplaced",
+   "label": {
+    "tr": "Yerleşmeyen",
+    "en": "Unplaced"
+   },
+   "a": 28,
+   "b": 33,
+   "delta": 5.0,
+   "better": "a",
+   "direction": -1
+  },
+  {
+   "key": "diagnoses_errors",
+   "label": {
+    "tr": "Hata tanıları",
+    "en": "Error diagnoses"
+   },
+   "a": 34,
+   "b": 48,
+   "delta": 14.0,
+   "better": "a",
+   "direction": -1
+  },
+  {
+   "key": "waived_rules",
+   "label": {
+    "tr": "Esnetilen kurallar",
+    "en": "Waived rules"
+   },
+   "a": 1,
+   "b": 1,
+   "delta": 0.0,
+   "better": "same",
+   "direction": -1
+  },
+  {
+   "key": "objective",
+   "label": {
+    "tr": "Toplam yumuşak ceza",
+    "en": "Total soft penalty"
+   },
+   "a": 1398,
+   "b": 1374,
+   "delta": -24.0,
+   "better": "b",
+   "direction": -1
+  },
+  {
+   "key": "utilisation_pct",
+   "label": {
+    "tr": "Oda doluluğu %",
+    "en": "Room utilisation %"
+   },
+   "a": 21.5,
+   "b": 21.3,
+   "delta": -0.2,
+   "better": null,
+   "direction": 0
+  },
+  {
+   "key": "gaps_per_week_total",
+   "label": {
+    "tr": "Eğitmen boşlukları (haftalık)",
+    "en": "Instructor gaps (per week)"
+   },
+   "a": 349.0,
+   "b": 325.0,
+   "delta": -24.0,
+   "better": "b",
+   "direction": -1
+  },
+  {
+   "key": "instructors_with_gaps",
+   "label": {
+    "tr": "Boşluğu olan eğitmen",
+    "en": "Instructors with gaps"
+   },
+   "a": 111,
+   "b": 109,
+   "delta": -2.0,
+   "better": "b",
+   "direction": -1
+  },
+  {
+   "key": "periods_per_week_max",
+   "label": {
+    "tr": "En yüksek haftalık yük",
+    "en": "Highest weekly load"
+   },
+   "a": 45.0,
+   "b": 45.0,
+   "delta": 0.0,
+   "better": "same",
+   "direction": -1
+  }
+ ],
+ "classes": {
+  "counts": {
+   "unchanged": 809,
+   "moved": 10,
+   "only_in_a": 17,
+   "only_in_b": 4,
+   "unplaced_in_both": 118,
+   "by_change": {
+    "room": 8,
+    "time": 2
+   }
+  },
+  "moved": [
+   {
+    "request_id": 238,
+    "label": "ING 302",
+    "instructor_ids": [],
+    "change": "room",
+    "change_text": {
+     "tr": "Derslik değişti",
+     "en": "Room changed"
+    },
+    "a": {
+     "day": 3,
+     "start_period": 2,
+     "end_period": 3,
+     "time": "09:20–10:50",
+     "when": {
+      "tr": "Çar 09:20–10:50",
+      "en": "Wed 09:20–10:50"
+     },
+     "room_ids": [
+      27,
+      28,
+      29
+     ],
+     "rooms": [
+      "B 207",
+      "B 406",
+      "B 407"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER",
+     "dates": [
+      "2026-02-18"
+     ]
+    },
+    "b": {
+     "day": 3,
+     "start_period": 2,
+     "end_period": 3,
+     "time": "09:20–10:50",
+     "when": {
+      "tr": "Çar 09:20–10:50",
+      "en": "Wed 09:20–10:50"
+     },
+     "room_ids": [
+      27,
+      28
+     ],
+     "rooms": [
+      "B 207",
+      "B 406"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER",
+     "dates": [
+      "2026-02-18"
+     ]
+    }
+   },
+   {
+    "request_id": 910,
+    "label": "EHM 312",
+    "instructor_ids": [
+     89,
+     215,
+     216,
+     217,
+     218,
+     219
+    ],
+    "change": "room",
+    "change_text": {
+     "tr": "Derslik değişti",
+     "en": "Room changed"
+    },
+    "a": {
+     "day": 4,
+     "start_period": 7,
+     "end_period": 10,
+     "time": "13:30–16:40",
+     "when": {
+      "tr": "Per 13:30–16:40",
+      "en": "Thu 13:30–16:40"
+     },
+     "room_ids": [
+      4
+     ],
+     "rooms": [
+      "A 104"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER",
+     "dates": [
+      "2026-02-19"
+     ]
+    },
+    "b": {
+     "day": 4,
+     "start_period": 7,
+     "end_period": 10,
+     "time": "13:30–16:40",
+     "when": {
+      "tr": "Per 13:30–16:40",
+      "en": "Thu 13:30–16:40"
+     },
+     "room_ids": [
+      3
+     ],
+     "rooms": [
+      "A 103"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER",
+     "dates": [
+      "2026-02-19"
+     ]
+    }
+   },
+   {
+    "request_id": 962,
+    "label": "MIK 599",
+    "instructor_ids": [
+     314,
+     356
+    ],
+    "change": "room",
+    "change_text": {
+     "tr": "Derslik değişti",
+     "en": "Room changed"
+    },
+    "a": {
+     "day": 4,
+     "start_period": 7,
+     "end_period": 9,
+     "time": "13:30–15:50",
+     "when": {
+      "tr": "Per 13:30–15:50",
+      "en": "Thu 13:30–15:50"
+     },
+     "room_ids": [
+      3
+     ],
+     "rooms": [
+      "A 103"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER",
+     "dates": [
+      "2026-02-19"
+     ]
+    },
+    "b": {
+     "day": 4,
+     "start_period": 7,
+     "end_period": 9,
+     "time": "13:30–15:50",
+     "when": {
+      "tr": "Per 13:30–15:50",
+      "en": "Thu 13:30–15:50"
+     },
+     "room_ids": [
+      4
+     ],
+     "rooms": [
+      "A 104"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER",
+     "dates": [
+      "2026-02-19"
+     ]
+    }
+   },
+   {
+    "request_id": 1203,
+    "label": "EHM 212 §B1+ INT A",
+    "instructor_ids": [
+     89,
+     215,
+     216,
+     217,
+     218,
+     219
+    ],
+    "change": "room",
+    "change_text": {
+     "tr": "Derslik değişti",
+     "en": "Room changed"
+    },
+    "a": {
+     "day": 2,
+     "start_period": 2,
+     "end_period": 5,
+     "time": "09:20–12:30",
+     "when": {
+      "tr": "Sal 09:20–12:30",
+      "en": "Tue 09:20–12:30"
+     },
+     "room_ids": [
+      29
+     ],
+     "rooms": [
+      "B 407"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER",
+     "dates": [
+      "2026-02-17"
+     ]
+    },
+    "b": {
+     "day": 2,
+     "start_period": 2,
+     "end_period": 5,
+     "time": "09:20–12:30",
+     "when": {
+      "tr": "Sal 09:20–12:30",
+      "en": "Tue 09:20–12:30"
+     },
+     "room_ids": [
+      28
+     ],
+     "rooms": [
+      "B 406"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER",
+     "dates": [
+      "2026-02-17"
+     ]
+    }
+   }
+  ],
+  "only_in_a": [
+   {
+    "request_id": 229,
+    "label": "PHY 102 §1",
+    "instructor_ids": [
+     39
+    ],
+    "a": {
+     "day": 3,
+     "start_period": 3,
+     "end_period": 5,
+     "time": "10:10–12:30",
+     "when": {
+      "tr": "Çar 10:10–12:30",
+      "en": "Wed 10:10–12:30"
+     },
+     "room_ids": [
+      13
+     ],
+     "rooms": [
+      "A 204"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER"
+    },
+    "b": null
+   },
+   {
+    "request_id": 230,
+    "label": "BME 218 §1",
+    "instructor_ids": [
+     150
+    ],
+    "a": {
+     "day": 3,
+     "start_period": 7,
+     "end_period": 8,
+     "time": "13:30–15:00",
+     "when": {
+      "tr": "Çar 13:30–15:00",
+      "en": "Wed 13:30–15:00"
+     },
+     "room_ids": [
+      13
+     ],
+     "rooms": [
+      "A 204"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER"
+    },
+    "b": null
+   },
+   {
+    "request_id": 245,
+    "label": "PHY 102 §1",
+    "instructor_ids": [
+     39
+    ],
+    "a": {
+     "day": 3,
+     "start_period": 3,
+     "end_period": 5,
+     "time": "10:10–12:30",
+     "when": {
+      "tr": "Çar 10:10–12:30",
+      "en": "Wed 10:10–12:30"
+     },
+     "room_ids": [
+      13
+     ],
+     "rooms": [
+      "A 204"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER"
+    },
+    "b": null
+   },
+   {
+    "request_id": 251,
+    "label": "RAD 202",
+    "instructor_ids": [
+     81,
+     366
+    ],
+    "a": {
+     "day": 3,
+     "start_period": 13,
+     "end_period": 14,
+     "time": "18:00–19:30",
+     "when": {
+      "tr": "Çar 18:00–19:30",
+      "en": "Wed 18:00–19:30"
+     },
+     "room_ids": [
+      13
+     ],
+     "rooms": [
+      "A 204"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER"
+    },
+    "b": null
+   }
+  ],
+  "only_in_b": [
+   {
+    "request_id": 999,
+    "label": "ING 202 §1",
+    "instructor_ids": [],
+    "a": null,
+    "b": {
+     "day": 4,
+     "start_period": 7,
+     "end_period": 8,
+     "time": "13:30–15:00",
+     "when": {
+      "tr": "Per 13:30–15:00",
+      "en": "Thu 13:30–15:00"
+     },
+     "room_ids": [
+      13
+     ],
+     "rooms": [
+      "A 204"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER"
+    }
+   },
+   {
+    "request_id": 1205,
+    "label": "EHM 402",
+    "instructor_ids": [
+     89,
+     215,
+     216,
+     217,
+     218,
+     219
+    ],
+    "a": null,
+    "b": {
+     "day": 2,
+     "start_period": 3,
+     "end_period": 5,
+     "time": "10:10–12:30",
+     "when": {
+      "tr": "Sal 10:10–12:30",
+      "en": "Tue 10:10–12:30"
+     },
+     "room_ids": [
+      29
+     ],
+     "rooms": [
+      "B 407"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER"
+    }
+   },
+   {
+    "request_id": 1500,
+    "label": "EHM 112",
+    "instructor_ids": [
+     89,
+     215,
+     216,
+     217,
+     218,
+     219
+    ],
+    "a": null,
+    "b": {
+     "day": 4,
+     "start_period": 2,
+     "end_period": 5,
+     "time": "09:20–12:30",
+     "when": {
+      "tr": "Per 09:20–12:30",
+      "en": "Thu 09:20–12:30"
+     },
+     "room_ids": [
+      27
+     ],
+     "rooms": [
+      "B 207"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER"
+    }
+   },
+   {
+    "request_id": 1503,
+    "label": "EHM 112",
+    "instructor_ids": [
+     89,
+     215,
+     216,
+     217,
+     218,
+     219
+    ],
+    "a": null,
+    "b": {
+     "day": 4,
+     "start_period": 2,
+     "end_period": 5,
+     "time": "09:20–12:30",
+     "when": {
+      "tr": "Per 09:20–12:30",
+      "en": "Thu 09:20–12:30"
+     },
+     "room_ids": [
+      27
+     ],
+     "rooms": [
+      "B 207"
+     ],
+     "weeks": [
+      3
+     ],
+     "locked": false,
+     "origin": "SOLVER"
+    }
+   }
+  ],
+  "truncated": false
+ },
+ "requests_in_scope": 958,
+ "instructors": {
+  "rows": [
+   {
+    "instructor_id": 173,
+    "name": "C. A.",
+    "a": {
+     "periods_per_week": 6.0,
+     "gaps_per_week": 10.0,
+     "days_per_week": 2.0,
+     "max_periods_day": 4,
+     "by_day": {
+      "2": 2.0,
+      "3": 4.0
+     }
+    },
+    "b": {
+     "periods_per_week": 4.0,
+     "gaps_per_week": 0.0,
+     "days_per_week": 2.0,
+     "max_periods_day": 2,
+     "by_day": {
+      "2": 2.0,
+      "3": 2.0
+     }
+    },
+    "delta": {
+     "periods_per_week": -2.0,
+     "gaps_per_week": -10.0,
+     "days_per_week": 0.0
+    }
+   },
+   {
+    "instructor_id": 85,
+    "name": "T. U.",
+    "a": {
+     "periods_per_week": 20.0,
+     "gaps_per_week": 9.0,
+     "days_per_week": 3.0,
+     "max_periods_day": 10,
+     "by_day": {
+      "2": 10.0,
+      "3": 8.0,
+      "4": 2.0
+     }
+    },
+    "b": {
+     "periods_per_week": 18.0,
+     "gaps_per_week": 4.0,
+     "days_per_week": 3.0,
+     "max_periods_day": 10,
+     "by_day": {
+      "2": 10.0,
+      "3": 6.0,
+      "4": 2.0
+     }
+    },
+    "delta": {
+     "periods_per_week": -2.0,
+     "gaps_per_week": -5.0,
+     "days_per_week": 0.0
+    }
+   },
+   {
+    "instructor_id": 65,
+    "name": "Eğit. Y. K. G.",
+    "a": {
+     "periods_per_week": 14.0,
+     "gaps_per_week": 7.0,
+     "days_per_week": 3.0,
+     "max_periods_day": 6,
+     "by_day": {
+      "2": 6.0,
+      "3": 4.0,
+      "5": 4.0
+     }
+    },
+    "b": {
+     "periods_per_week": 12.0,
+     "gaps_per_week": 4.0,
+     "days_per_week": 3.0,
+     "max_periods_day": 6,
+     "by_day": {
+      "2": 6.0,
+      "3": 2.0,
+      "5": 4.0
+     }
+    },
+    "delta": {
+     "periods_per_week": -2.0,
+     "gaps_per_week": -3.0,
+     "days_per_week": 0.0
+    }
+   }
+  ],
+  "a": {
+   "gaps_per_week_total": 349.0,
+   "instructors_with_gaps": 111,
+   "periods_per_week_max": 45.0,
+   "instructors": 340
+  },
+  "b": {
+   "gaps_per_week_total": 325.0,
+   "instructors_with_gaps": 109,
+   "periods_per_week_max": 45.0,
+   "instructors": 340
+  },
+  "changed": 11
+ },
+ "rooms": {
+  "weeks": [
+   3
+  ],
+  "a": {
+   "occupied": 1985,
+   "capacity": 9954,
+   "blocked": 710,
+   "pct": 21.5
+  },
+  "b": {
+   "occupied": 1973,
+   "capacity": 9954,
+   "blocked": 710,
+   "pct": 21.3
+  },
+  "by_building": [
+   {
+    "building": "A",
+    "a": {
+     "occupied": 840,
+     "capacity": 3906,
+     "blocked": 28,
+     "pct": 21.7
+    },
+    "b": {
+     "occupied": 829,
+     "capacity": 3906,
+     "blocked": 28,
+     "pct": 21.4
+    }
+   },
+   {
+    "building": "B",
+    "a": {
+     "occupied": 328,
+     "capacity": 1512,
+     "blocked": 1,
+     "pct": 21.7
+    },
+    "b": {
+     "occupied": 327,
+     "capacity": 1512,
+     "blocked": 1,
+     "pct": 21.6
+    }
+   },
+   {
+    "building": "C",
+    "a": {
+     "occupied": 721,
+     "capacity": 4032,
+     "blocked": 676,
+     "pct": 21.5
+    },
+    "b": {
+     "occupied": 721,
+     "capacity": 4032,
+     "blocked": 676,
+     "pct": 21.5
+    }
+   },
+   {
+    "building": "D",
+    "a": {
+     "occupied": 96,
+     "capacity": 504,
+     "blocked": 5,
+     "pct": 19.2
+    },
+    "b": {
+     "occupied": 96,
+     "capacity": 504,
+     "blocked": 5,
+     "pct": 19.2
+    }
+   }
+  ],
+  "changed": [
+   {
+    "room_id": 13,
+    "code": "A204",
+    "building": "A",
+    "a": {
+     "occupied": 46,
+     "pct": 41.1
+    },
+    "b": {
+     "occupied": 35,
+     "pct": 31.2
+    },
+    "delta": {
+     "occupied": -11,
+     "pct": -9.9
+    }
+   },
+   {
+    "room_id": 29,
+    "code": "B407",
+    "building": "B",
+    "a": {
+     "occupied": 31,
+     "pct": 24.6
+    },
+    "b": {
+     "occupied": 28,
+     "pct": 22.2
+    },
+    "delta": {
+     "occupied": -3,
+     "pct": -2.4
+    }
+   },
+   {
+    "room_id": 3,
+    "code": "A103",
+    "building": "A",
+    "a": {
+     "occupied": 32,
+     "pct": 25.4
+    },
+    "b": {
+     "occupied": 33,
+     "pct": 26.2
+    },
+    "delta": {
+     "occupied": 1,
+     "pct": 0.8
+    }
+   }
+  ]
+ },
+ "rules": [
+  {
+   "rule": "building_preference",
+   "label": {
+    "tr": "Bina tercihi",
+    "en": "Building preference"
+   },
+   "a": 150,
+   "b": 150,
+   "delta": 0,
+   "better": "same"
+  },
+  {
+   "rule": "min_capacity_waste",
+   "label": {
+    "tr": "Boş koltuk israfı",
+    "en": "Capacity waste"
+   },
+   "a": 1108,
+   "b": 1084,
+   "delta": -24,
+   "better": "b"
+  },
+  {
+   "rule": "room_preference",
+   "label": {
+    "tr": "Derslik tercihi",
+    "en": "Room preference"
+   },
+   "a": 140,
+   "b": 140,
+   "delta": 0,
+   "better": "same"
+  }
+ ],
+ "waived_rules": {
+  "a": [
+   "room_tags"
+  ],
+  "b": [
+   "room_tags"
+  ]
+ },
+ "diagnoses": {
+  "a": {
+   "locked_overlap": 5,
+   "unplaced": 28,
+   "unplaced_summary": 1
+  },
+  "b": {
+   "locked_ineligible": 5,
+   "locked_overlap": 5,
+   "no_room": 5,
+   "pigeonhole": 4,
+   "unplaced": 28,
+   "unplaced_summary": 1
+  }
+ },
+ "definitions": {
+  "delta": {
+   "tr": "Fark = B − A (A temel, B senaryo)",
+   "en": "Delta = B − A (A is the baseline, B the scenario)"
+  },
+  "moved": {
+   "tr": "Taşındı: iki çalıştırmada da yerleşti ama gün, saat, derslik ya da haftalar farklı",
+   "en": "Moved: placed in both runs, at a different day, time, room or weeks"
+  },
+  "rooms": {
+   "tr": "Doluluk aynı haftalar üzerinden hesaplanır (bkz. weeks)",
+   "en": "Utilisation is counted over the same weeks for both runs (see weeks)"
+  }
+ }
+}

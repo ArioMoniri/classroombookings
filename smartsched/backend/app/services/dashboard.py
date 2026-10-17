@@ -1,10 +1,13 @@
 """Dashboard aggregates for one term: request counts, last runs and room utilisation.
 
-Utilisation is measured on one week of one run: the term's *active* run (preferring COURSE) or, when
-none is published, the newest FEASIBLE/OPTIMAL run (else the newest FEASIBLE_PARTIAL one). A (room,
-day, period) cell counts as occupied when a non-archived assignment of that run or a term block covers
-it in that week. Only bookable rooms are counted. Building rows use the room's building code (``A``,
-``B`` ...), falling back to the first character of the canonical room code.
+Utilisation is measured on one week with the room heatmap's definition (``app/services/utilisation``,
+``GET /analytics/heatmap/rooms``), so the dashboard and the heatmap print the same number: when the term has a
+published run, the live board (its published runs, whatever their origin, an imported board included, plus the
+term's blocks and BOOKED bookings); when none is published, the newest FEASIBLE/OPTIMAL run (else the newest
+FEASIBLE_PARTIAL one). ``utilisation = occupied / (capacity - blocked)`` over the bookable rooms and every room
+something occupies, on the weekdays plus any day in use. The week is the requested one or, by default, the
+current week, else the closest week the run covers (an imported board of two sheets covers weeks 1-2). Building
+rows use the room's building code (``A``, ``B`` ...), falling back to the first character of the room code.
 """
 
 from __future__ import annotations
@@ -17,13 +20,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Assignment, Block, ExamRequest, MeetingRequest, Room, ScheduleRun, Section, Term, Week
+from app.models import Assignment, ExamRequest, MeetingRequest, Room, ScheduleRun, Section, Term, Week
+from app.services import utilisation as util
 from app.services.calendar import week_index_for_date
 from app.services.grid import assignment_weeks, enrich_assignments
 from app.services.solver_bridge import horizon_weeks
 
 PERIODS_PER_DAY = 18
-WORKDAYS = (1, 2, 3, 4, 5)
 ALL_DAYS = (1, 2, 3, 4, 5, 6, 7)
 GOOD = ("FEASIBLE", "OPTIMAL")  # complete timetables
 USABLE = (*GOOD, "FEASIBLE_PARTIAL")  # a best-effort partial timetable is still a timetable
@@ -146,82 +149,48 @@ async def build_dashboard(
         if candidates and util_week not in candidates:
             util_week = min(candidates, key=lambda w: (abs(w - current_week), w))
 
-    occupied: set[tuple[int, int, int]] = set()  # (room, day, period)
-    bookable_ids = {r.id for r in bookable}
     conflicts = 0
     if run is not None:
         rows = [a for a in run_rows if _covers(assignment_weeks(a), util_week)]
-        for a in rows:
-            for rid in a.room_ids or []:
-                if int(rid) in bookable_ids:
-                    for p in range(a.start_period, a.end_period + 1):
-                        occupied.add((int(rid), a.day, p))
         if rows:
             enrich = await enrich_assignments(session, run, rows)
             conflicts = sum(1 for e in enrich.values() if e.is_conflict)
-    blocks_week = 0
-    for b in (
-        await session.execute(select(Block).where(Block.term_id == term.id, Block.archived.is_(False)))
-    ).scalars():
-        if b.date is not None:
-            if week_index_for_date(term, b.date, weeks_rows) != util_week:
-                continue
-            day = b.date.isoweekday()
-        else:
-            if not _covers({int(w) for w in (b.weeks or [])}, util_week) or b.day is None:
-                continue
-            day = b.day
-        blocks_week += 1
-        if b.room_id in bookable_ids:
-            for p in range(b.start_period, b.end_period + 1):
-                occupied.add((b.room_id, day, p))
 
-    by_building: dict[str, list[Room]] = defaultdict(list)
-    for r in bookable:
-        by_building[building_of(r)].append(r)
-    buildings = sorted(by_building)
-    occ_bdp: dict[tuple[str, int, int], int] = defaultdict(int)
-    room_building = {r.id: building_of(r) for r in bookable}
-    for rid, day, p in occupied:
-        occ_bdp[(room_building[rid], day, p)] += 1
-
-    def occ(b: str, days: tuple[int, ...], periods: range) -> int:
-        return sum(occ_bdp.get((b, d, p), 0) for d in days for p in periods)
-
-    all_p = range(1, PERIODS_PER_DAY + 1)
-    util_by_building = [
-        {
-            "building": b,
-            "utilisation": _ratio(occ(b, WORKDAYS, all_p), len(by_building[b]) * len(WORKDAYS) * PERIODS_PER_DAY),
-            "rooms": len(by_building[b]),
-        }
-        for b in buildings
-    ]
-    building_day = [
-        {
-            "building": b,
-            "day": d,
-            "utilisation": _ratio(occ(b, (d,), all_p), len(by_building[b]) * PERIODS_PER_DAY),
-        }
-        for b in buildings
-        for d in ALL_DAYS
-    ]
-    building_period = [
-        {
-            "building": b,
-            "period": p,
-            "utilisation": _ratio(occ(b, WORKDAYS, range(p, p + 1)), len(by_building[b]) * len(WORKDAYS)),
-        }
-        for b in buildings
-        for p in all_p
-    ]
+    # Occupancy on the heatmap's definition (app/services/utilisation): the live board when the term has a
+    # published run (its published runs, blocks and BOOKED bookings, whatever the run's origin: an imported board
+    # counts like a solver run), else the chosen run; pct = occupied / (capacity - blocked).
     n_book = len(bookable)
+    building_rows: list[dict[str, Any]] = []
+    building_day: list[dict[str, Any]] = []
+    building_period: list[dict[str, Any]] = []
+    all_p = range(1, PERIODS_PER_DAY + 1)
+    board = active is not None or run is None
+    sc = await util.build_scope(
+        session, term_id=term.id if board else None, run_id=None if board or run is None else run.id, week=util_week
+    )
+    blocks_week = sc.counted["blocks"]
+    in_scope = util._rooms_in_scope(sc)
+    days = util._days_shown(sc)
+    by_building: dict[str, list[int]] = defaultdict(list)
+    for r in in_scope:
+        by_building[building_of(r)].append(r.id)
+
+    def share(ids: list[int], ds: list[int] | tuple[int, ...], ps: range) -> float:
+        c = util._count(sc, ids, sc.weeks, list(ds), ps)
+        return _ratio(int(c["occupied"]), int(c["capacity"]) - int(c["blocked"]))
+
+    overall = share([r.id for r in in_scope], days, all_p)
+    for b in sorted(by_building):
+        ids = by_building[b]
+        building_rows.append({"building": b, "utilisation": share(ids, days, all_p), "rooms": len(ids)})
+        building_day += [{"building": b, "day": d, "utilisation": share(ids, (d,), all_p)} for d in ALL_DAYS]
+        building_period += [
+            {"building": b, "period": p, "utilisation": share(ids, days, range(p, p + 1))} for p in all_p
+        ]
+    everyone = [r.id for r in in_scope]
     peak = [
-        {"day": d, "period": p, "occupancy": _ratio(sum(occ_bdp.get((b, d, p), 0) for b in buildings), n_book)}
-        for d in ALL_DAYS
-        for p in all_p
+        {"day": d, "period": p, "occupancy": share(everyone, (d,), range(p, p + 1))} for d in ALL_DAYS for p in all_p
     ]
-    total_occ = sum(1 for _, d, _p in occupied if d in WORKDAYS)
     return {
         "term": term,
         "current_week": current_week,
@@ -239,8 +208,8 @@ async def build_dashboard(
         "exams_by_status": exams_by_status,
         "active_run_id": active.id if active is not None else None,
         "utilisation_run_id": run.id if run is not None else None,
-        "utilisation": _ratio(total_occ, n_book * len(WORKDAYS) * PERIODS_PER_DAY),
-        "utilisation_by_building": util_by_building,
+        "utilisation": overall,
+        "utilisation_by_building": building_rows,
         "utilisation_building_day": building_day,
         "utilisation_building_period": building_period,
         "peak_hours": peak,

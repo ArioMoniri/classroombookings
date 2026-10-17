@@ -1,9 +1,11 @@
 "use client";
 
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { useSyncExternalStore } from "react";
 import { Logo } from "@/components/brand";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { IconButton } from "@/components/ui/button";
 import { KbdHint } from "@/components/ui/kbd-hint";
 import { SidebarGlass, SidebarGlassContent, SidebarGlassFooter, SidebarGlassHeader, SidebarGlassItem, SidebarGlassSection } from "@/components/ui/sidebar-glass";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -41,6 +43,8 @@ export function isActive(pathname: string, search: string, href: string): boolea
   const [path, query] = href.split("?");
   if (query) return pathname === path && search.includes(query);
   if (path === "/settings") return pathname.startsWith(path) && !search.includes("tab=users");
+  // Setup is not also active on the screens with their own sidebar entry (UI/UX review: two active items)
+  if (path === "/admin") return pathname === path || (pathname.startsWith(`${path}/`) && !pathname.startsWith("/admin/users"));
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
@@ -92,8 +96,22 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
 }
 
 /** Desktop sidebar: floating chrome glass inset 8 px from the window (liquid-glass.md §16.1). */
+const NARROW = "(max-width: 1279.98px)";
+function subscribeNarrow(onChange: () => void) {
+  if (typeof window === "undefined" || !window.matchMedia) return () => undefined;
+  const mql = window.matchMedia(NARROW);
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+}
+/** 1024-1279 px: the sidebar is an icon rail (UI/UX review §3: 264 px left too little room for the grids). */
+function useNarrowDesktop(): boolean {
+  return useSyncExternalStore(subscribeNarrow, () => window.matchMedia?.(NARROW).matches ?? false, () => false);
+}
+
 export function Sidebar() {
-  const collapsed = useUiStore((s) => s.sidebarCollapsed);
+  const narrow = useNarrowDesktop();
+  const stored = useUiStore((s) => s.sidebarCollapsed);
+  const collapsed = stored || narrow;
   const toggle = useUiStore((s) => s.toggleSidebar);
   const { t } = useI18n();
   const toggleLabel = collapsed ? t("nav.expand") : t("nav.collapse");
@@ -110,18 +128,21 @@ export function Sidebar() {
             <Logo variant="mark" size={28} decorative />
             {!collapsed ? <span className="type-headline truncate text-label-1">{t("app.name")}</span> : null}
           </Link>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button type="button" onClick={toggle} aria-label={toggleLabel} aria-expanded={!collapsed} className="inline-flex size-7 items-center justify-center rounded-full text-label-2 outline-hidden hover:bg-fill-2 hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="sidebar-toggle">
-                  {collapsed ? <PanelLeftOpen className="size-4 stroke-[1.75]" /> : <PanelLeftClose className="size-4 stroke-[1.75]" />}
-                </button>
-              }
-            />
-            <TooltipContent side="right">
-              {toggleLabel} <KbdHint keys={["mod", "B"]} className="ml-1" />
-            </TooltipContent>
-          </Tooltip>
+          {/* the rail cannot open below 1280 px, so the toggle only shows where it does something */}
+          {narrow ? null : (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <IconButton size="sm" label={toggleLabel} title="" onClick={toggle} aria-expanded={!collapsed} className="text-label-2 hover:text-label-1" data-testid="sidebar-toggle">
+                    {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+                  </IconButton>
+                }
+              />
+              <TooltipContent side="right">
+                {toggleLabel} <KbdHint keys={["mod", "B"]} className="ml-1" />
+              </TooltipContent>
+            </Tooltip>
+          )}
         </SidebarGlassHeader>
         <div className={cn("px-2 pb-2", collapsed && "px-1.5")}>
           <TermSwitcher collapsed={collapsed} />

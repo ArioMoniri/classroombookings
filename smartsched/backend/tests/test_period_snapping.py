@@ -51,10 +51,51 @@ def test_real_planning_rows(parsed_bahar_list) -> None:
         assert p.snapped and any("at least half" in w for w in p.warnings)
 
 
+# --------------------------------------------------------------------------- exams (owner decision 2026-10-15)
+# Exams are never moved: they occupy EVERY period their written time overlaps, keep the written start time and
+# never start in a period after one they overlap. Off-grid exams are listed as info ("covers P7 partly").
+
+
+@pytest.mark.parametrize(
+    "start,end,periods,partial",
+    [
+        ((14, 0), (16, 0), (7, 9), [7]),  # the owner's example: 14:00 occupies P7 (13:30-14:10) and later
+        ((13, 0), (15, 0), (6, 8), [6]),
+        ((16, 0), (17, 0), (10, 11), [11]),  # P11 16:50-17:30 is overlapped by 10 minutes: occupied
+        ((10, 0), (12, 0), (3, 5), [5]),  # 10:00 = end of P2: the first overlapped period is P3 (break before)
+        ((10, 10), (11, 40), (3, 4), []),  # on the grid
+    ],
+)
+def test_exam_any_overlap(start, end, periods, partial) -> None:
+    r = n.exam_periods(time(*start), time(*end))
+    assert (r.start_period, r.end_period) == periods
+    assert r.partial == partial and r.snapped is bool(partial)
+    if partial:
+        assert any(f"covers P{partial[0]} partly" in w for w in r.warnings)
+
+
 def test_real_exam_rows(parsed_exam_list) -> None:
     rows = {r.row: r for r in parsed_exam_list.rows}
-    assert (rows[10].periods.start_period, rows[10].periods.end_period) == (8, 9)
-    assert (rows[11].periods.start_period, rows[11].periods.end_period) == (10, 10)
+    assert (rows[10].periods.start_period, rows[10].periods.end_period) == (7, 9)  # BES 368 14:00-16:00
+    assert rows[10].start_time == time(14, 0)  # the written start is kept
+    assert (rows[11].periods.start_period, rows[11].periods.end_period) == (10, 11)  # ACY 148 16:00-17:00
+
+
+def test_no_exam_starts_later_than_written(parsed_exam_list) -> None:
+    """For every Final exam with a time: no period the written time overlaps is left out, and every minute
+    between the written start and the first occupied period is a break (no period there)."""
+    mins = lambda t: t.hour * 60 + t.minute  # noqa: E731
+    checked = 0
+    for r in parsed_exam_list.rows:
+        if not (r.start_time and r.end_time and r.periods.start_period):
+            continue
+        s, e = mins(r.start_time), mins(r.end_time)
+        overlapped = [p.index for p in n.PERIODS if min(e, mins(p.end)) > max(s, mins(p.start))]
+        assert (r.periods.start_period, r.periods.end_period) == (overlapped[0], overlapped[-1]), r.row
+        first = n.PERIODS[r.periods.start_period - 1]
+        assert not any(mins(p.start) < mins(first.start) and mins(p.end) > s for p in n.PERIODS), r.row
+        checked += 1
+    assert checked > 750  # 786 Final exams carry a time
 
 
 async def test_snapped_rows_are_listed_in_the_data_issues(session, tmp_path) -> None:
@@ -90,8 +131,11 @@ async def test_snapped_exam_rows_are_listed(session, tmp_path) -> None:
     await session.commit()
     items = (await time_snaps(session, run))["time_snapped"]
     assert [(it["params"]["row"], it["params"]["original"], it["params"]["periods"]) for it in items] == [
-        (2, "14:00-16:00", [8, 9])  # Final row 10 is row 2 of the subset
+        (2, "14:00-16:00", [7, 9])  # Final row 10 is row 2 of the subset; the exam is not moved
     ]
+    it = items[0]
+    assert it["severity"] == "info" and it["params"]["partial"] == [7]
+    assert "P7'yi kısmen kapsıyor" in it["message_tr"] and "covers P7 partly" in it["message"]
 
 
 def test_bes640_and_bes560_no_longer_share_p15(parsed_bahar_list) -> None:

@@ -3,7 +3,7 @@
 import { Check, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -11,23 +11,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { StatusBadge } from "@/components/common/status-badge";
 import { ACCENTS, useAccentPreference, type Accent } from "@/components/shell/appearance";
 import { AppearancePreferencesControl } from "@/components/ui/appearance-preferences";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { HttpError } from "@/lib/api/client";
 import { aiFailureKind, testAiKey, useMeFull, usePermissions } from "@/lib/api/shell-extra";
 import { useHydrated } from "@/lib/use-hydrated";
 import { Input } from "@/components/ui/input";
+import { coarseHitArea } from "@/components/ui/hit-area";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LocaleToggle } from "@/components/shell/locale-toggle";
 import { AiPolicyCard } from "./ai-policy";
+import { CalendarSyncAdmin } from "./calendar-sync-admin";
+import { CalendarPushAdmin } from "./calendar-push-admin";
+import { RelaxationTermCard } from "@/components/runs/relaxation-term-card";
+import { WebhooksAdmin } from "./webhooks-admin";
+import { PoliciesAdmin } from "@/components/policies/policies-admin";
+import { PublicScheduleAdmin } from "@/components/public-schedule/public-schedule-admin";
+import { LearningMemoryPanel } from "@/components/learning/learning-memory-panel";
+import { SsoSettings } from "@/components/identity/sso-settings";
+import { ChannelsAdmin } from "@/components/channels/channels-admin";
+import { SlotDisplaySettings } from "./slot-display";
 import { useSettings, useUpdateSettings } from "@/lib/api/hooks";
 import type { Settings } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS } from "@/lib/time";
 import { useUiStore } from "@/stores/ui";
+import { cn } from "@/lib/utils";
 
 const WEIGHT_KINDS = ["room_preference", "building_preference", "min_capacity_waste", "same_room_across_weeks", "stability", "exam_gap"] as const;
+/** The solver's own defaults (backend app/solver/weights.py DEFAULT_WEIGHTS): what a run uses when the organisation
+ *  saved nothing (round-2 T-R2-29, R2-M-14: every slider read 0 while the runs scored with these). */
+const SOLVER_DEFAULT_WEIGHTS: Record<(typeof WEIGHT_KINDS)[number], number> = { room_preference: 10, building_preference: 5, min_capacity_waste: 1, same_room_across_weeks: 8, stability: 1, exam_gap: 10 };
 
 type KeyTest = { state: "untested" } | { state: "testing" } | { state: "ok"; model: string | null; which: "typed" | "stored" } | { state: "failed"; kind: ReturnType<typeof aiFailureKind>; which: "typed" | "stored" };
 
@@ -118,8 +133,8 @@ function AiCard() {
               <div className="grid w-full flex-1 basis-full gap-1 sm:max-w-md sm:basis-auto">
                 <Label htmlFor="api-key">{t("settings.apiKey")}</Label>
                 <div className="relative">
-                  <Input id="api-key" ref={keyRef} type={show ? "text" : "password"} placeholder="sk-ant-…" autoComplete="off" spellCheck={false} className="pr-10 font-mono" onChange={() => test.state !== "untested" && setTest({ state: "untested" })} />
-                  <button type="button" aria-pressed={show} aria-label={show ? t("glass.auth.hidePassword") : t("glass.auth.showPassword")} onClick={() => setShow((v) => !v)} className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-label-3 hover:text-label-1">{show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
+                  <Input id="api-key" ref={keyRef} type={show ? "text" : "password"} placeholder="sk-ant-…" autoComplete="off" spellCheck={false} className="pr-11 font-mono" onChange={() => test.state !== "untested" && setTest({ state: "untested" })} />
+                  <button type="button" aria-pressed={show} aria-label={show ? t("glass.auth.hidePassword") : t("glass.auth.showPassword")} onClick={() => setShow((v) => !v)} className={cn("absolute inset-y-0 right-0 flex w-11 items-center justify-center text-label-3 hover:text-label-1", coarseHitArea)}>{show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
                 </div>
               </div>
               <Button size="sm" variant="outline" onClick={() => void runTest("typed")} disabled={test.state === "testing"} data-testid="test-key-typed">{t("glass.settings.testFirst")}</Button>
@@ -139,6 +154,11 @@ function AiCard() {
           <CardDescription>{t("glass.settings.modelHint")}</CardDescription>
         </CardHeader>
         <CardContent>
+          {/* UI/UX review §3: without a key the card held only a disabled Save */}
+          {!masked ? (
+            <p className="type-callout text-label-2" data-testid="model-needs-key">{t("settings.modelNeedsKey")}</p>
+          ) : (
+            <>
           <div role="radiogroup" aria-label={t("settings.model")}>
             {(s?.available_models ?? []).map((m) => (
               <label key={m} className="flex cursor-pointer items-center gap-3 py-2.5 text-[13px] [&:not(:last-child)]:hairline-b">
@@ -151,6 +171,8 @@ function AiCard() {
             ))}
           </div>
           <Button size="sm" className="mt-3" onClick={() => void saveModel()} disabled={!s || model === s.anthropic_model || update.isPending} data-testid="save-model">{t("common.save")}</Button>
+            </>
+          )}
         </CardContent>
       </Card>
       {/* the one AI-policy control: the council's council_ai_enabled setting is an alias of it (app/ai/policy.py) */}
@@ -179,19 +201,22 @@ function AppearanceCard() {
         </CardHeader>
         <CardContent>
           <SettingsRow label={t("settings.theme")} hint={t("glass.settings.themeHint")}>
-            <SegmentedGlass size="sm" aria-label={t("settings.theme")} value={mode} onValueChange={(v) => setTheme(v)} options={[{ value: "system", label: t("theme.system") }, { value: "light", label: t("theme.light") }, { value: "dark", label: t("theme.dark") }]} />
+            <SegmentedControl size="sm" aria-label={t("settings.theme")} value={mode} onValueChange={(v) => setTheme(v)} options={[{ value: "system", label: t("theme.system") }, { value: "light", label: t("theme.light") }, { value: "dark", label: t("theme.dark") }]} />
           </SettingsRow>
           <SettingsRow label={t("glass.settings.accent")} hint={t("glass.settings.accentHint")}>
             <div role="radiogroup" aria-label={t("glass.settings.accent")} className="flex items-center gap-2">
               {ACCENTS.map((a) => (
-                <button key={a} type="button" role="radio" aria-checked={accent === a} aria-label={t(`glass.settings.accents.${a}`)} title={t(`glass.settings.accents.${a}`)} onClick={() => set(a)} data-testid={`accent-${a}`} className="relative flex size-7 items-center justify-center rounded-full outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus)" style={{ background: ACCENT_SWATCH[a] }}>
-                  {accent === a ? <Check className="size-4 text-white" aria-hidden /> : null}
+                <button key={a} type="button" role="radio" aria-checked={accent === a} aria-label={t(`glass.settings.accents.${a}`)} title={t(`glass.settings.accents.${a}`)} onClick={() => set(a)} data-testid={`accent-${a}`} className="relative flex size-7 items-center justify-center rounded-full outline-hidden pointer-coarse:size-11 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus)">
+                  {/* MOBILE M-02: the swatch is 28 px, the button 44 px on touch */}
+                  <span className="flex size-7 items-center justify-center rounded-full" style={{ background: ACCENT_SWATCH[a] }}>
+                    {accent === a ? <Check className="size-4 text-white" aria-hidden /> : null}
+                  </span>
                 </button>
               ))}
             </div>
           </SettingsRow>
           <SettingsRow label={t("glass.settings.density")} hint={t("glass.settings.densityHint")}>
-            <SegmentedGlass size="sm" aria-label={t("glass.settings.density")} value={density} onValueChange={(v) => setDensity(v === "compact" ? "compact" : "comfortable")} options={[{ value: "comfortable", label: t("glass.settings.comfortable") }, { value: "compact", label: t("glass.settings.compact") }]} />
+            <SegmentedControl size="sm" aria-label={t("glass.settings.density")} value={density} onValueChange={(v) => setDensity(v === "compact" ? "compact" : "comfortable")} options={[{ value: "comfortable", label: t("glass.settings.comfortable") }, { value: "compact", label: t("glass.settings.compact") }]} />
           </SettingsRow>
         </CardContent>
       </Card>
@@ -215,9 +240,12 @@ function SolverCard() {
 }
 
 function SolverForm({ initial }: { initial: Settings }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const update = useUpdateSettings();
-  const [form, setForm] = useState({ time: initial.solver_default_time_limit, workers: initial.solver_default_workers, seed: initial.solver_default_seed, weights: { ...initial.default_weights } });
+  const saved = initial.default_weights ?? {};
+  const [form, setForm] = useState({ time: initial.solver_default_time_limit, workers: initial.solver_default_workers, seed: initial.solver_default_seed, weights: { ...saved } });
+  // an unsaved weight shows the solver's default (and says so) instead of 0
+  const shown = (k: (typeof WEIGHT_KINDS)[number]) => form.weights[k] ?? SOLVER_DEFAULT_WEIGHTS[k];
   const save = async () => {
     await update.mutateAsync({ solver_default_time_limit: form.time, solver_default_workers: form.workers, solver_default_seed: form.seed, default_weights: form.weights });
     toast.success(t("settings.saved"));
@@ -233,19 +261,74 @@ function SolverForm({ initial }: { initial: Settings }) {
         </div>
         <div>
           <p className="mb-2 text-sm font-medium">{t("settings.weights")}</p>
-          <table className="w-full text-sm">
-            <thead className="text-xs text-muted-foreground"><tr><th scope="col" className="text-left font-medium">{t("runs.constraints")}</th><th scope="col" className="w-48 text-left font-medium">w</th></tr></thead>
+          {/* touch: the slider's hidden range input inherits 16 px and sits in a 44 px label row (M-02 / M-03) */}
+          <table className="w-full text-sm pointer-coarse:text-base" data-testid="solver-weights">
+            <thead className="text-xs text-muted-foreground"><tr><th scope="col" className="text-left font-medium">{t("runs.constraints")}</th><th scope="col" className="w-48 text-left font-medium">{locale === "tr" ? "Ağırlık" : "Weight"}</th></tr></thead>
             <tbody>
               {WEIGHT_KINDS.map((k) => (
                 <tr key={k}>
                   <th scope="row" className="py-1.5 text-left font-normal">{t(`generate.weight.${k}`)}</th>
-                  <td className="flex items-center gap-2 py-1.5"><Slider min={0} max={10} step={1} value={[form.weights[k] ?? 0]} onValueChange={(v) => setForm({ ...form, weights: { ...form.weights, [k]: Array.isArray(v) ? v[0] : v } })} aria-label={t(`generate.weight.${k}`)} className="w-32" /><span className="w-5 font-mono text-xs tabular-nums">{form.weights[k] ?? 0}</span></td>
+                  <td className="py-1.5">
+                    <label className="flex items-center gap-2 pointer-coarse:min-h-11">
+                      <Slider min={0} max={10} step={1} value={[shown(k)]} onValueChange={(v) => setForm({ ...form, weights: { ...form.weights, [k]: Array.isArray(v) ? v[0] : v } })} aria-label={t(`generate.weight.${k}`)} className="w-32" />
+                      <span className="w-5 font-mono text-xs tabular-nums" data-testid={`weight-${k}`}>{shown(k)}</span>
+                      {form.weights[k] === undefined ? <span className="type-caption text-label-3">{locale === "tr" ? "varsayılan" : "default"}</span> : null}
+                    </label>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <Button size="sm" onClick={() => void save()} disabled={update.isPending} data-testid="save-solver">{t("common.save")}</Button>
+        {/* touch: 44 px save (size sm is 36 on coarse pointers); the three number fields are md = 44 px / 16 px there */}
+        {/* phones (round-3 R3-S-06, MOBILE M-05): the save is a capsule above the tab bar, in thumb reach at every scroll;
+            the card keeps room for it at the end */}
+        <div className="max-sm:pointer-events-none max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-sm:z-30 max-sm:flex max-sm:justify-end max-sm:px-4" data-testid="solver-save-row">
+          <div className="max-sm:pointer-events-auto max-sm:rounded-full max-sm:bg-(--mat-thick-solid) max-sm:p-1 max-sm:shadow-elev-3 max-sm:edge-hairline">
+            <Button size="sm" className="pointer-coarse:h-11 max-sm:rounded-full max-sm:px-6" onClick={() => void save()} disabled={update.isPending} data-testid="save-solver">{t("common.save")}</Button>
+          </div>
+        </div>
+        <div aria-hidden className="h-14 sm:hidden" />
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Review D16: the CRBS database servers a live-DSN upgrade may connect to (empty = SQL dumps only). */
+function ImportCard() {
+  const settings = useSettings();
+  if (!settings.data) return null;
+  return <ImportForm key={settings.dataUpdatedAt} initial={settings.data.crbs_dsn_allowed_hosts} />;
+}
+
+function ImportForm({ initial }: { initial: string }) {
+  const { t } = useI18n();
+  const update = useUpdateSettings();
+  const [hosts, setHosts] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    setError(null);
+    try {
+      await update.mutateAsync({ crbs_dsn_allowed_hosts: hosts.trim() });
+      toast.success(t("settings.saved"));
+    } catch (e) {
+      setError(e instanceof HttpError && e.status === 422 ? e.message : t("settings.importHosts.failed"));
+    }
+  };
+  return (
+    <Card data-testid="settings-import">
+      <CardHeader>
+        <CardTitle>{t("settings.importHosts.title")}</CardTitle>
+        <CardDescription>{t("settings.importHosts.lead")}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid gap-1 sm:max-w-md">
+          <Label htmlFor="crbs-hosts">{t("settings.importHosts.label")}</Label>
+          <Input id="crbs-hosts" value={hosts} onChange={(e) => setHosts(e.target.value)} placeholder="db.uni.edu.tr, 10.0.4.12:3306" autoComplete="off" spellCheck={false} className="font-mono" aria-describedby="crbs-hosts-hint" data-testid="crbs-hosts" />
+          <p id="crbs-hosts-hint" className="text-[12px] text-label-3">{hosts.trim() ? t("settings.importHosts.hint") : t("settings.importHosts.empty")}</p>
+        </div>
+        {error ? <p role="alert" className="text-[12.5px] text-status-infeasible-fg">{error}</p> : null}
+        <Button size="sm" className="pointer-coarse:h-11" onClick={() => void save()} disabled={update.isPending || hosts.trim() === initial.trim()} data-testid="save-crbs-hosts">{t("common.save")}</Button>
       </CardContent>
     </Card>
   );
@@ -294,23 +377,70 @@ export function SettingsView() {
     { value: "appearance", label: t("glass.settings.appearance"), show: true },
     { value: "ai", label: t("settings.ai"), show: admin },
     { value: "solver", label: t("settings.solver"), show: admin },
+    { value: "import", label: t("settings.importHosts.tab"), show: admin },
+    // calendar sync (KVKK sign-off, M-40) and outgoing webhooks: setup.settings, as the backend requires
+    { value: "integrations", label: t("notifications.admin.tab"), show: can("setup.settings") },
+    // P8 booking policies + exam-period mode (wave-2 UI; GET/PUT /booking-policies needs setup.settings)
+    { value: "booking-rules", label: t("policies.tab"), show: can("setup.settings") },
+    // W3-SLOT (docs/design/v3/slot-display.md §4): how slots are shown; PUT /settings needs planning.admin
+    { value: "slots", label: t("slotDisplay.tab"), show: can("planning.admin") },
+    // identity frontend: Microsoft sign-in (planning.admin, as GET/PUT /auth/sso/admin/entra) and the
+    // notification channels (setup.settings, as /channels/admin)
+    { value: "sso", label: t("sso.admin.tab"), show: can("planning.admin") },
+    { value: "channels", label: t("channels.admin.tab"), show: can("setup.settings") },
+    // Phase 19: the learned priors and suggestions (Öğrenme belleği), planning administrators only
+    { value: "learning", label: t("settings.learningTab"), show: can("planning.admin") },
     { value: "users", label: t("settings.users"), show: can("setup.users") },
   ].filter((x) => x.show);
   const requested = params.get("tab") ?? (admin ? "ai" : "appearance");
   const tab = tabs.some((x) => x.value === requested) ? requested : "appearance";
+  // a deep link (/settings?tab=integrations) on a phone: bring the chosen tab into the scroller's view
+  useEffect(() => {
+    document.querySelector(`[data-testid="tab-${tab}"]`)?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [tab]);
   return (
-    <div className="mx-auto max-w-[880px]" data-testid="settings">
+    <div className={tab === "slots" ? "max-w-[1120px]" : "max-w-[960px]"} data-testid="settings">
       <PageHeader title={t("settings.title")} subtitle={admin ? t("settings.subtitle") : t("glass.settings.subtitleUser")} />
       <Tabs value={tab} onValueChange={(v) => router.replace(`/settings?tab=${String(v)}`)}>
-        <TabsList className="mb-5 max-w-full overflow-x-auto">
-          {tabs.map((x) => (
-            <TabsTrigger key={x.value} value={x.value} data-testid={`tab-${x.value}`}>{x.label}</TabsTrigger>
-          ))}
-        </TabsList>
+        {/* the track is min-width:max-content, so the scroller is a wrapper (10 tabs no longer fit at 1440) */}
+        <div className="mb-5 max-w-full overflow-x-auto">
+          {/* touch: 44 px tabs (the track grows by its 3 px padding), not the 38 px a 44 px track leaves */}
+          <TabsList className="pointer-coarse:h-auto">
+            {tabs.map((x) => (
+              <TabsTrigger key={x.value} value={x.value} className="pointer-coarse:min-h-11" data-testid={`tab-${x.value}`}>{x.label}</TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
         <TabsContent value="general"><GeneralCard /></TabsContent>
         <TabsContent value="appearance"><AppearanceCard /></TabsContent>
         {admin ? <TabsContent value="ai"><AiCard /></TabsContent> : null}
-        {admin ? <TabsContent value="solver"><SolverCard /></TabsContent> : null}
+        {admin ? (
+          <TabsContent value="solver">
+            <div className="space-y-5">
+              <SolverCard />
+              {/* the active term's relaxation policy (term.<id>.relaxation_policy) */}
+              <RelaxationTermCard />
+            </div>
+          </TabsContent>
+        ) : null}
+        {admin ? <TabsContent value="import"><ImportCard /></TabsContent> : null}
+        {can("setup.settings") ? (
+          <TabsContent value="integrations">
+            <div className="space-y-5">
+              <CalendarSyncAdmin />
+              {/* the organisation's Google / Microsoft 365 OAuth clients (write-only secrets, redirect URIs) */}
+              <CalendarPushAdmin />
+              {/* V2 public day view: off by default, switching it on records a KVKK sign-off */}
+              <PublicScheduleAdmin />
+              <WebhooksAdmin />
+            </div>
+          </TabsContent>
+        ) : null}
+        {can("setup.settings") ? <TabsContent value="booking-rules"><PoliciesAdmin /></TabsContent> : null}
+        {can("planning.admin") ? <TabsContent value="slots"><SlotDisplaySettings /></TabsContent> : null}
+        {can("planning.admin") ? <TabsContent value="learning"><LearningMemoryPanel /></TabsContent> : null}
+        {can("planning.admin") ? <TabsContent value="sso"><SsoSettings /></TabsContent> : null}
+        {can("setup.settings") ? <TabsContent value="channels"><ChannelsAdmin /></TabsContent> : null}
       </Tabs>
     </div>
   );

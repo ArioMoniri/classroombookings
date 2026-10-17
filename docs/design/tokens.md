@@ -1,8 +1,161 @@
 # Design tokens — SmartSched admin panel
 
-Owner: design-pro · Status: v1 (2026-10-07) · Consumers: `smartsched/frontend/src/app/globals.css`, every component in `src/components/ui`.
+Owner: design-pro → frontend-engineer (design-system overhaul) · Status: **v3 (2026-10-15)** · Consumers: `smartsched/frontend/src/app/globals.css`, every component in `src/components/ui`.
 
-The admin panel is built on **Next.js 15 + Tailwind 4 + shadcn/ui (Radix) + motion + @dnd-kit** (see `docs/ARCHITECTURE.md` "Frontend"). Tokens are plain CSS custom properties on `:root`, mapped into Tailwind with `@theme inline`, so every component (ours, shadcn, beUI, evilcharts) reads the same variables. Nothing below is brand-specific to a vendor; it is the one system the four surfaces in `docs/design/*.md` share.
+**Read §A first.** §A is the sizing, focus and edge system shipped by the design-system overhaul of
+2026-10-15 (`docs/review/2026-10-15-uiux-visual-review.md`). It is authoritative wherever it disagrees with
+the v1 sections below (§0–§9 are kept as history) or with `v2/liquid-glass.md` §6–§7 (type sizes, radii).
+Material and colour stay in `v2/liquid-glass.md`; motion stays in `v2/motion.md`.
+
+## A. Design-system overhaul (2026-10-15)
+
+### A.1 Focus (P0)
+
+| Token / rule | Value | Use |
+|---|---|---|
+| unlayered `:focus-visible { --tw-outline-style: solid }` | last rule of globals.css, outside every `@layer` | makes any `focus-visible:outline-*` width paint, even after `outline-hidden` |
+| `--focus-ring-width` | 2px | every tab stop |
+| `--focus-ring-offset` | 2px | free-standing controls |
+| `--focus-ring-offset-inset` | -2px | rows, cells and items inside scroll containers / grids (`focus-visible:-outline-offset-2`, utility `focus-ring-inset`) |
+| fields | 2 px outline at offset 0 + 3 px soft halo | Input, Select, NativeSelect, DateField; InputGroup draws it on the group |
+
+`outline-none` is banned in `src/` (gate: `npm run check:design`). Popup containers that are not tab stops
+(menu, dialog, command list) and items with a highlight use `outline-hidden`.
+
+### A.2 Edges and the control border
+
+| Token | Light | Dark | Use |
+|---|---|---|---|
+| `--border-control` | `rgba(20,24,36,.48)` (3.15:1 worst on the card) | `rgba(255,255,255,.34)` (3.07:1 worst) | field / checkbox / switch-off boundary (WCAG 1.4.11) |
+| `--edge-control` / utility `edge-control` | `inset 0 0 0 1px var(--border-control)` | same | every field surface |
+| `--edge-hairline` / `edge-hairline` | `inset 0 0 0 1px var(--hairline)` | same | plain cards, separators around blocks |
+| `--edge-hairline-b`, `--edge-hairline-t` / `edge-hairline-b` | inset 1 px bottom / top | same | rows, headers |
+| `--edge-glass` | `= --glass-edge` (specular + hairline) | same | glass chrome only |
+
+`shadow-[…]` arbitrary strings are allowed only inside `components/ui/**`; screens use `edge-*`,
+`shadow-elev-*` or the glass utilities. `--hairline` is for separators only, never for a control boundary.
+
+### A.3 Radius (`--corner-k`)
+
+Base × `--corner-k`; k = **1** without squircles and **1.25** with `corner-shape: squircle` (Chromium 139+).
+
+| Tailwind | Base | Use |
+|---|---|---|
+| `rounded-xs` | 4 | grid events, keycaps |
+| `rounded-sm` | 6 | menu items, checkboxes |
+| `rounded-md` | 8 | wells, inner rows |
+| `rounded-lg` | 12 | inputs, tooltips, select triggers (rect controls) |
+| `rounded-xl` | 14 | **page cards** (Card default) |
+| `rounded-2xl` | 18 | sidebar, sheets |
+| `rounded-3xl` | 24 | dialogs, bottom sheets, palette |
+| `rounded-4xl` | 24 | deprecated alias of 3xl |
+| `rounded-full` | capsule | pill buttons, chips, segmented controls, switches |
+
+Nesting: inner radius = outer − padding. No card or glass panel exceeds 24 × k (e2e check).
+
+### A.4 Type
+
+Fluid titles (390 → 1440 px viewport) and fixed data sizes. Use the `type-*` utilities, never `text-[Npx]`
+(gate: 0 outside the allow-list). `cn` (tailwind-merge semantics) treats an unknown `text-x` as a colour,
+which is why the scale is `type-*`.
+
+| Utility | Size | Line | Weight |
+|---|---|---|---|
+| `type-large-title` | `clamp(1.75rem, 1.611rem + .571vw, 2.125rem)` (28 → 34) | 1.18 | 700 — every `PageHeader` |
+| `type-title-1` | `clamp(1.375rem, 1.236rem + .571vw, 1.75rem)` (22 → 28) | 1.21 | 700 |
+| `type-title-2` | `clamp(1.125rem, 1.032rem + .381vw, 1.375rem)` (18 → 22) | 1.27 | 650 |
+| `type-title-3` | `clamp(1rem, .954rem + .19vw, 1.125rem)` (16 → 18) | 1.33 | 600 |
+| `type-kpi` | 28 / 32, tabular | — | 650 — KPI numerals (fixed so they align) |
+| `type-headline` / `type-body` | 14 / 20 | — | 600 / 400 |
+| `type-callout` | 13 / 18 | — | 400 — dense UI, table cells |
+| `type-footnote` | 12 / 16 | — | 400 — metadata |
+| `type-caption` | 11 / 14 | — | 500 — axis labels, badges; the floor |
+| `text-2xs` | 10 / 12 | — | week zoom only |
+
+Explicit `font-*` / `leading-*` utilities override the weight / line of a `type-*` (they sort later).
+`tabular-nums` is no longer global (it widened hyphens: "Güz 2026 - 27"); it applies to `td`, `th`, `time`,
+`kbd`, `[data-numeric]`, `[role=gridcell]`, `type-kpi` and the `tnum` utility.
+
+### A.5 Control heights
+
+| Token | Fine pointer | `pointer: coarse` | Used by |
+|---|---|---|---|
+| `--control-h-xs` | 24 | 32 | Button xs, IconButton xs, Chip sm |
+| `--control-h-sm` | 28 | 36 | Button sm, Segmented sm, toolbar fields |
+| `--control-h-md` | 32 | 44 | Button md (default), Input, Select, NativeSelect, DateField, Segmented md |
+| `--control-h-lg` | 40 | 48 | Button lg, mobile primary actions |
+| `--control-h` | = md | = md | fields read this |
+
+Horizontal padding `calc(var(--control-h) * .4375)`; gap 6 (md/lg) / 4 (sm/xs); icon 16 (md/lg) / 14 (sm/xs).
+Nothing in one row mixes heights (Apple A15, Weather scrubber; Arcade H19).
+
+### A.6 Spacing, density, gutters
+
+- 4 px base; steps 2, 4, 6, 8, 12, 16, 20, 24, 32, 40, 48, 64.
+- `--pad-card` 16 / `--pad-card-sm` 12; `--pad-toolbar` 6; `--page-gutter: clamp(16px, 2.2vw, 32px)`.
+- Rows: `--row-h` 44 (standard), 32 under `data-density="compact"`, 56 under `data-density="comfortable"`;
+  cells `--cell-py`/`--cell-px` 8 × 12 (standard), 4 × 8 (compact).
+
+### A.7 Contrast additions (gated by `docs/design/v2/verify-contrast.mjs`)
+
+- `--border-control` against the card ≥ 3:1 in both themes (worst-case composite).
+- Timetable faculty ink (`--fac-1..8-ink`, components/timetable/calendar.css) ≥ 4.5:1 on its fill and under
+  the conflict tint; dark inks were lifted (e.g. aqua `#49b28e → #50b593`, 5.23:1) and chip line 2 lost its
+  0.8 opacity (which made it 3.78:1 at 11 px).
+- `text-label-4` only on `aria-hidden` / `disabled:` / `placeholder:` (source scan in the same script).
+
+### A.9 Primitives (`src/components/ui`)
+
+| Primitive | API | Notes |
+|---|---|---|
+| `Button` | `size xs \| sm \| md \| lg` (default md), `shape pill \| rect` (default pill), `variant` unchanged | heights from `--control-h-*`; `rect` (radius lg) for buttons that sit in a row with fields; xs/sm get a 44 × 44 hit area on coarse pointers. `size="default"` and `icon*` are deprecated aliases |
+| `IconButton` | `label` (required), `size`, `variant` (default ghost), `shape` | `label` → `aria-label` + `title` |
+| `Input` | `fieldSize sm \| md \| lg` | `fieldSurface` + `--edge-control`, 16 px text on touch phones |
+| `SelectTrigger` | `size sm \| md` | same surface and heights |
+| `NativeSelect` (`ui/native-select.tsx`; `common/native-select.tsx` re-exports) | `size`, `className` (wrapper), `selectClassName` | chevron centred (`inset-y-0 my-auto`) |
+| `SegmentedControl` | `options[{value,label,icon,controls,disabled,text,title,testId}]`, `value` (`null` = none), `onValueChange`, `size sm \| md \| lg`, `fill`, `semantics tablist \| radiogroup`, `collapse` | the only segmented control. nowrap equal columns, CSS thumb at rest (transform-only on `--spring-glass-morph`), falls back to a NativeSelect under `@container` when narrower than its natural width. `SegmentedGlass` is a deprecated alias; `beui/tabs` and `studio/segmented` were deleted; `ui/tabs` default variant shares the track and thumb |
+| `DateField` | `value` / `onChange` ISO, `min`, `max`, `size`, `required` | `Intl.DateTimeFormat(locale)` (tr `15.10.2026`), typed entry, Popover month grid (APG keys) |
+| `Card` | `variant plain (default) \| glass \| ghost \| inset`, `size` | plain = opaque surface + hairline, radius xl; glass only for floating chrome / one hero |
+| `Skeleton`, `LoadingValue` | `value` (`undefined` = loading), `format`, `chars`, `empty` | never 0 while loading; one loading signal per region |
+| `BusyButton` (`ui/busy-label.tsx`) | `busy`, `busyLabel` | 150 ms delay before the busy glyph |
+| `DataTable` (`ui/data-table/`) | see §A.10 | column system |
+| `Button variant="bare"` / `BareButton` (`ui/button.tsx`; `shell/bare-button` re-exports) | Button props; `size` / `shape` default to none (pass one to opt in); `BareButton` omits `variant` / `size` / `shape` and takes a string `className` | for controls that draw their own surface (grid cells, list rows, slot chips, cards, photo triggers): no fill, height, padding or pill, native button layout (inline-block, may shrink, wraps), no press scale, weight inherited unless the caller sets `font-*`. Keeps the focus ring, the disabled state, the svg defaults and the coarse hit area. `data-slot="bare-button"`, so the control-height checks skip it |
+| Hit areas (`ui/hit-area.ts`) | `coarseHitArea`, `coarsePhoneText` (class strings) | `coarseHitArea`: on `pointer: coarse` an invisible `::after` grows the target to ≥ 44 × 44 around the centre (an axis already ≥ 44 gets nothing); the element must be `relative`/`absolute`. Used by Button (all variants, so IconButton and BareButton too), Tabs triggers, Switch, Chip, SegmentedControl items, DateField. Callers: a scroller (`overflow-*` other than visible) clips the `::after`, so a row of small controls inside one pads by the extension on touch and gives the room back (`pointer-coarse:py-1.5 pointer-coarse:-my-1.5` for 32 px controls); neighbours closer than 44 px centre-to-centre overlap and the later one wins the tap, so stacked toggles sit in 44 px rows (`pointer-coarse:min-h-11`, the whole row the `<label>`); `truncate` (overflow hidden) on the element itself clips its own `::after`. `coarsePhoneText`: 16 px text on touch phones so focusing a field does not zoom (MOBILE.md M-03) |
+| `Dialog` / `Sheet` on phones (< 640 px) | unchanged | both present as a bottom sheet (MOBILE.md M-04): full width, flush with the bottom edge, top corners only, ≤ 100dvh − 3 rem, scrolling inside itself, a transparent `env(safe-area-inset-bottom)` bottom border (callers do **not** add their own safe-area padding inside a sheet or dialog). Dialog slides up on the sheet spring there; `CommandDialog` takes the full sheet height. ≥ 640 px: Dialog centred, Sheet floats 8 px in |
+| Shell scroll padding (`globals.css`) | `--shell-top-h`, `--shell-bottom-h` | `html` gets `scroll-padding-top/bottom` = bar height + 24 px while the app shell is mounted, so keyboard focus, `scrollIntoView` and anchors never land a control (or its hit area) under the sticky top bar or the floating tab bar |
+| Dense grids on phones (< 640 px, `useIsPhone`) | per screen | a grid whose cells cannot reach 44 px at 390 px is not squeezed: it shows **one column at a time**. A `SegmentedControl` (`fill`, segment padding `[&_[role=tab]]:px-1.5` so 6–7 short day names stay segmented down to 360 px) picks the day (today preselected) or period, and the rows are full-width ≥ 44 px (`min-h-11`). /rooms/[id] week → day view (`rooms/room-day-view.tsx`; held spans one row, free periods pick the slot) and the week's classes as link rows; dashboard heatmap → ranked `BarList` with values; /admin/roles booking matrix → single / recurring groups of 44 px labelled checkboxes, role picker instead of the list. A calendar that already fits (the /admin/sessions month grids: 7 × 46 px) keeps its grid but drops the extra column and swaps pointer strokes / Shift+click for tap modes (Gün / Hafta / Aralık), so the page still scrolls under a finger. Tablet and desktop keep the grid |
+| `BarList` rows as links | `items[].href`, `items[].linkLabel`, `linkAs` (e.g. next/link) | the whole row (label, bar, value) is one link spanning the subgrid, ≥ 44 px on coarse pointers |
+
+### A.10 Table column system (`src/components/ui/data-table/`)
+
+- `column-system.ts` (pure, unit-tested): `ColumnSpec {id, header, minSize, maxSize, size: number | "auto",
+  grow, align, pin: "left", hideable, priority 1–5, text(row), extra, font}`; `autoWidth` measures the header and
+  the first 200 rows with `canvas.measureText` in the cell font, clamps to [min, max] and adds the cell padding;
+  `layoutColumns` hides by priority (5 first; never priority 1 or pinned) while the minimums do not fit, gives the
+  slack to `grow` columns (never to user-sized ones), pins left columns first with sticky offsets, and returns ONE
+  `grid-template-columns` string.
+- `use-column-layout.ts`: per-user prefs `{order, sizing, visibility, pinning, density}` in
+  `localStorage["smartsched.table.<tableId>.<userId>"]` (useSyncExternalStore, so SSR and hydration agree),
+  container width from a ResizeObserver, `squeeze: false` for tables that should scroll instead (classes).
+- `parts.tsx`: `ColumnResizeHandle` (8 px hit area, 1 px `--border-control` line on hover/focus,
+  `role="separator" aria-orientation="vertical" aria-valuenow`, ←/→ 8 px, Shift 32 px, Home/Enter or
+  double-click = auto-fit, pointer drag 1:1), `ColumnsMenu` ("Görünüm › Sütunlar": toggles, dnd-kit reorder with
+  keyboard sensor, density, reset), `SqueezedChip` ("+3 sütun").
+- `data-table.tsx`: `DataTable` (TanStack sorting + Virtual above 80 rows; header and body rows are
+  `grid grid-cols-(--cols)`; pinned cells get an inset hairline edge once scrolled; rows on `--row-h`;
+  card-list mode under 600 px containers) and `StatusDot` (Vercel H6: 8 px dot + word).
+- Adopted by: `/runs` (dot + word status, plain "517 / 530" numerals, no ring gauge), `/rooms` (default view =
+  table), `/classes` (measured widths, resize handles, persisted sizing; the page keeps its own Görünüm menu
+  for order and visibility).
+
+### A.8 References (Mobbin, collected in `v2/references.md`; no Mobbin tool in this session)
+
+Linear H4 (32 px rows, view switcher) and H5 (focus ring, left-aligned empty states); Vercel H6 (status = 8 px
+dot + word), H7 (key-value grid), H8 (heterogeneous cards, one hero); Apple Weather A15 and Arcade H19 (small
+segmented with a lit thumb, one height per row); Apple Music A1/A2 (labelled tab bar, chrome material);
+Apple Notes A6/A7 (continuous corners, plain counts); Amie H9 and Notion H12/H13 (calendar chips, today
+marker, timeline row grammar); Things H1 (type does the hierarchy). Airtable grid and Height column menu are
+cited by the review (all-classes.md §5) for the column system.
 
 ## 0. Rules that every surface follows
 
@@ -148,7 +301,7 @@ Diverging (run-vs-run comparison, "better/worse"): `--feasible-solid` ↔ `--sur
 
 ## 3. Typography
 
-Font: **Inter** (variable, `next/font/google`, `display: swap`) for UI; **JetBrains Mono** for course codes, room codes, run ids, and timestamps in tables (`font-variant-numeric: tabular-nums` is set globally on `html` so period times and capacities align without mono).
+Font: **Inter** (variable, `next/font/google`, `display: swap`) for UI; **JetBrains Mono** for course codes, room codes, run ids, and timestamps in tables. (v3: `tabular-nums` is no longer global; see §A.4.)
 
 | Token | Size / line-height | Weight | Use |
 |---|---|---|---|

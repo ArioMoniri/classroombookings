@@ -1,0 +1,80 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='860' height='939' viewBox='0 0 860 939' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='E-posta: parola sıfırlama (telefon 390, açık ve koyu)'>
+<title>E-posta: parola sıfırlama (telefon 390, açık ve koyu)</title>
+<rect width='860' height='939' fill='#FFFFFF'/>
+<text x='20' y='28' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>Açık tema · 390 px telefon</text>
+<rect x='20' y='40' width='390' height='879' rx='16' fill='#EEF0F4' fill-opacity='1'/>
+<rect x='32' y='52' width='366' height='76' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#D9DCE3' stroke-width='1'/>
+<circle cx='60' cy='90' r='16' fill='#0A63D1'/>
+<text x='60' y='95' font-size='14' font-weight='700' fill='#FFFFFF' text-anchor='middle'>Ö</text>
+<text x='86' y='78' font-size='14' font-weight='700' fill='#1D1D1F' text-anchor='start'>Örnek Üniversitesi SmartSched</text>
+<text x='384' y='78' font-size='12' font-weight='500' fill='#5F5F66' text-anchor='end'>20:14</text>
+<text x='86' y='98' font-size='14' font-weight='600' fill='#1D1D1F' text-anchor='start'>Parola sıfırlama kodunuz</text>
+<text x='86' y='116' font-size='13' font-weight='400' fill='#4B4B51' text-anchor='start'>Kod 24 saat geçerli. Bu isteği siz yapmad…</text>
+<text x='32' y='144' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>gelen kutusu: gönderen · konu · ön başlık (preheader)</text>
+<rect x='20' y='160' width='390' height='739' rx='0' fill='#FFFFFF'/>
+<image href='../../../images/brand/smartsched-tile-small.svg' x='40' y='180' width='28' height='28'/>
+<text x='78' y='200' font-size='16' font-weight='600' fill='#1D1D1F' text-anchor='start'>SmartSched</text>
+<text x='390' y='200' font-size='13' font-weight='500' fill='#5F5F66' text-anchor='end'>Örnek Üniversitesi</text>
+<line x1='20' y1='228' x2='410' y2='228' stroke='#D9DCE3' stroke-width='1'/>
+<text x='40' y='270.0' font-size='22' font-weight='600' fill='#1D1D1F' text-anchor='start'>Parolanızı sıfırlayın</text>
+<text x='40' y='298.0' font-size='16' font-weight='400' fill='#1D1D1F' text-anchor='start'>Merhaba Ayşe Yılmaz,</text>
+<text x='40' y='322.0' font-size='16' font-weight='400' fill='#1D1D1F' text-anchor='start'>Örnek Üniversitesi SmartSched hesabınız</text>
+<text x='40' y='346.0' font-size='16' font-weight='400' fill='#1D1D1F' text-anchor='start'>(ayse.yilmaz) için parola sıfırlama</text>
+<text x='40' y='370.0' font-size='16' font-weight='400' fill='#1D1D1F' text-anchor='start'>istendi.</text>
+<text x='40' y='409.5' font-size='13' font-weight='600' fill='#5F5F66' text-anchor='start'>Sıfırlama kodu</text>
+<rect x='40' y='420' width='350' height='56' rx='12' fill='#F1F3F6' fill-opacity='1' stroke='#D9DCE3' stroke-width='1'/>
+<text x='215.0' y='457' font-size='26' font-weight='600' font-family='ui-monospace,SFMono-Regular,Menlo,Consolas,monospace' letter-spacing='3' fill='#1D1D1F' text-anchor='middle'>K7Q4-M2X9</text>
+<rect x='40' y='500' width='350' height='48' rx='12' fill='#0A63D1' fill-opacity='1'/>
+<text x='215.0' y='530' font-size='16' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Parolayı sıfırla</text>
+<text x='40' y='573.5' font-size='14' font-weight='400' fill='#4B4B51' text-anchor='start'>Kod 24 saat geçerlidir ve bir kez kullanılabilir.</text>
+<text x='40' y='594.5' font-size='14' font-weight='400' fill='#4B4B51' text-anchor='start'>Düğme açılmazsa giriş sayfasında Parolamı unuttum</text>
+<text x='40' y='615.5' font-size='14' font-weight='400' fill='#4B4B51' text-anchor='start'>adımına bu kodu yazın.</text>
+<rect x='40' y='639' width='350' height='108' rx='12' fill='#E8F1FC'/><rect x='40' y='639' width='4' height='108' rx='2' fill='#0957BB'/>
+<text x='56' y='664.0' font-size='14' font-weight='600' fill='#1D1D1F' text-anchor='start'>Bu isteği siz yapmadınız mı?</text>
+<text x='56' y='685.5' font-size='15' font-weight='400' fill='#1D1D1F' text-anchor='start'>Bir şey yapmanız gerekmez; parolanız</text>
+<text x='56' y='707.5' font-size='15' font-weight='400' fill='#1D1D1F' text-anchor='start'>değişmez. İstek: 17 Ekim 2026 20:14 ·</text>
+<text x='56' y='729.5' font-size='15' font-weight='400' fill='#1D1D1F' text-anchor='start'>Chrome, Windows.</text>
+<line x1='40' y1='779' x2='390' y2='779' stroke='#D9DCE3' stroke-width='1'/>
+<text x='40' y='801.5' font-size='13' font-weight='600' fill='#4B4B51' text-anchor='start'>Örnek Üniversitesi · SmartSched</text>
+<text x='40' y='821.5' font-size='13' font-weight='400' fill='#5F5F66' text-anchor='start'>Bu bir güvenlik e-postasıdır; bildirim tercihlerinden</text>
+<text x='40' y='841.5' font-size='13' font-weight='400' fill='#5F5F66' text-anchor='start'>kapatılamaz.</text>
+<text x='40' y='865.5' font-size='13' font-weight='600' fill='#0957BB' text-anchor='start'>Bildirim tercihleri · KVKK Aydınlatma Metni</text>
+<text x='450' y='28' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>Koyu tema (prefers-color-scheme: dark) · 390 px telefon</text>
+<rect x='450' y='40' width='390' height='879' rx='16' fill='#0D0E12' fill-opacity='1'/>
+<rect x='462' y='52' width='366' height='76' rx='12' fill='#16171B' fill-opacity='1' stroke='#33343B' stroke-width='1'/>
+<circle cx='490' cy='90' r='16' fill='#4DA0FF'/>
+<text x='490' y='95' font-size='14' font-weight='700' fill='#06101F' text-anchor='middle'>Ö</text>
+<text x='516' y='78' font-size='14' font-weight='700' fill='#F5F5F7' text-anchor='start'>Örnek Üniversitesi SmartSched</text>
+<text x='814' y='78' font-size='12' font-weight='500' fill='#A9A9B1' text-anchor='end'>20:14</text>
+<text x='516' y='98' font-size='14' font-weight='600' fill='#F5F5F7' text-anchor='start'>Parola sıfırlama kodunuz</text>
+<text x='516' y='116' font-size='13' font-weight='400' fill='#B6B6BD' text-anchor='start'>Kod 24 saat geçerli. Bu isteği siz yapmad…</text>
+<text x='462' y='144' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>gelen kutusu: gönderen · konu · ön başlık (preheader)</text>
+<rect x='450' y='160' width='390' height='739' rx='0' fill='#1B1C21'/>
+<image href='../../../images/brand/smartsched-tile-small.svg' x='470' y='180' width='28' height='28'/>
+<text x='508' y='200' font-size='16' font-weight='600' fill='#F5F5F7' text-anchor='start'>SmartSched</text>
+<text x='820' y='200' font-size='13' font-weight='500' fill='#A9A9B1' text-anchor='end'>Örnek Üniversitesi</text>
+<line x1='450' y1='228' x2='840' y2='228' stroke='#33343B' stroke-width='1'/>
+<text x='470' y='270.0' font-size='22' font-weight='600' fill='#F5F5F7' text-anchor='start'>Parolanızı sıfırlayın</text>
+<text x='470' y='298.0' font-size='16' font-weight='400' fill='#F5F5F7' text-anchor='start'>Merhaba Ayşe Yılmaz,</text>
+<text x='470' y='322.0' font-size='16' font-weight='400' fill='#F5F5F7' text-anchor='start'>Örnek Üniversitesi SmartSched hesabınız</text>
+<text x='470' y='346.0' font-size='16' font-weight='400' fill='#F5F5F7' text-anchor='start'>(ayse.yilmaz) için parola sıfırlama</text>
+<text x='470' y='370.0' font-size='16' font-weight='400' fill='#F5F5F7' text-anchor='start'>istendi.</text>
+<text x='470' y='409.5' font-size='13' font-weight='600' fill='#A9A9B1' text-anchor='start'>Sıfırlama kodu</text>
+<rect x='470' y='420' width='350' height='56' rx='12' fill='#24252B' fill-opacity='1' stroke='#33343B' stroke-width='1'/>
+<text x='645.0' y='457' font-size='26' font-weight='600' font-family='ui-monospace,SFMono-Regular,Menlo,Consolas,monospace' letter-spacing='3' fill='#F5F5F7' text-anchor='middle'>K7Q4-M2X9</text>
+<rect x='470' y='500' width='350' height='48' rx='12' fill='#4DA0FF' fill-opacity='1'/>
+<text x='645.0' y='530' font-size='16' font-weight='600' fill='#06101F' text-anchor='middle'>Parolayı sıfırla</text>
+<text x='470' y='573.5' font-size='14' font-weight='400' fill='#B6B6BD' text-anchor='start'>Kod 24 saat geçerlidir ve bir kez kullanılabilir.</text>
+<text x='470' y='594.5' font-size='14' font-weight='400' fill='#B6B6BD' text-anchor='start'>Düğme açılmazsa giriş sayfasında Parolamı unuttum</text>
+<text x='470' y='615.5' font-size='14' font-weight='400' fill='#B6B6BD' text-anchor='start'>adımına bu kodu yazın.</text>
+<rect x='470' y='639' width='350' height='108' rx='12' fill='#122238'/><rect x='470' y='639' width='4' height='108' rx='2' fill='#6CB0FF'/>
+<text x='486' y='664.0' font-size='14' font-weight='600' fill='#F5F5F7' text-anchor='start'>Bu isteği siz yapmadınız mı?</text>
+<text x='486' y='685.5' font-size='15' font-weight='400' fill='#F5F5F7' text-anchor='start'>Bir şey yapmanız gerekmez; parolanız</text>
+<text x='486' y='707.5' font-size='15' font-weight='400' fill='#F5F5F7' text-anchor='start'>değişmez. İstek: 17 Ekim 2026 20:14 ·</text>
+<text x='486' y='729.5' font-size='15' font-weight='400' fill='#F5F5F7' text-anchor='start'>Chrome, Windows.</text>
+<line x1='470' y1='779' x2='820' y2='779' stroke='#33343B' stroke-width='1'/>
+<text x='470' y='801.5' font-size='13' font-weight='600' fill='#B6B6BD' text-anchor='start'>Örnek Üniversitesi · SmartSched</text>
+<text x='470' y='821.5' font-size='13' font-weight='400' fill='#A9A9B1' text-anchor='start'>Bu bir güvenlik e-postasıdır; bildirim tercihlerinden</text>
+<text x='470' y='841.5' font-size='13' font-weight='400' fill='#A9A9B1' text-anchor='start'>kapatılamaz.</text>
+<text x='470' y='865.5' font-size='13' font-weight='600' fill='#6CB0FF' text-anchor='start'>Bildirim tercihleri · KVKK Aydınlatma Metni</text>
+</svg>

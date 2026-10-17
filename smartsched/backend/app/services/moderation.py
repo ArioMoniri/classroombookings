@@ -22,7 +22,7 @@ the carried locks, one CP-SAT worker, never activated; ``repair`` frees only the
 requests (``app.solver.repair.repair``), ``full`` re-solves everything with stability. :func:`resolve_diff`
 compares the child with its base: moved (from -> to, with the cause), unchanged, newly placed, unplaceable
 (with the reason), hard / soft score, waived rules. Academician needs Q9: in ``repair`` mode no published class
-outside the changed requests moves unless that places more (:func:`_minimal_change`).
+outside the changed requests moves unless a hard rule forces it (``app.solver.repair.minimal_change`` on week segments).
 
 Draft edits (M3): :func:`matching_action` writes a targeted pin / preference (``constraint_guard``) or an unlock
 on a draft child run, never on the published run.
@@ -35,7 +35,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,6 +62,9 @@ from app.services.bookings_perms import Access
 from app.services.calendar_views import clock, tr_fold, when
 from app.solver import model as sm
 
+if TYPE_CHECKING:
+    from app.solver.repair import SegmentView
+
 log = logging.getLogger(__name__)
 
 FLAGS = ("room", "building", "tags", "day", "period")
@@ -77,7 +80,6 @@ VERDICT_TEXT: dict[str, tuple[str, str]] = {
     "not_evaluated": ("Değerlendirilmedi", "Not evaluated"),
     "pending": ("Karar yok", "No decision yet"),
 }
-NO_ROOM_MODES = frozenset({"ONLINE", "UZEM", "ASYNC", "HOSPITAL"})
 #: run statuses whose timetable a re-solve may start from (a finished run with placements)
 BASE_STATUSES = frozenset({"OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL"})
 #: the "N dönemdir karşılanmadı" badge is shown from this many terms in a row (Q6)
@@ -96,7 +98,15 @@ POLICY_STEP: dict[str, tuple[int, str, str]] = {
     "lock_clash_priority": (2, "adım 2 · öncelik", "step 2 · priority"),
     "lower_priority": (2, "adım 2 · öncelik", "step 2 · priority"),
     "most_classes": (3, "adım 3 · en çok ders", "step 3 · most classes"),
+    "published_kept": (4, "adım 4 · yayımdaki plan", "step 4 · published timetable"),
 }
+#: a newcomer that lost to a class of the published timetable at equal priority (round-2 T-R2-34)
+PUBLISHED_KEPT_TEXT = (
+    "Yayımdaki planda yerleşmiş dersler korundu: {w} (öncelik eşit; yeniden çözüm yayımdaki bir dersi yeni bir ders "
+    "için yerinden etmez).",
+    "Classes of the published timetable are kept: {w} (equal priority; a re-solve never displaces a published class "
+    "for a new one).",
+)
 
 
 class ModerationError(Exception):
@@ -144,6 +154,55 @@ async def visibility(session: AsyncSession, access: Access) -> Scope:
             403, "requires permission planning.view, or an instructor record linked to your account (own requests)"
         )
     return Scope(False, linked, "own")
+
+
+async def current_term_brief(session: AsyncSession) -> dict[str, Any] | None:
+    """The current term (``terms.load_current_term``: active, else today's) in a form any signed-in user may read:
+    no planning data beyond the published course run's id."""
+    from app.services.terms import load_current_term
+
+    term = await load_current_term(session)
+    if term is None:
+        return None
+    pub = await published_run(session, term.id)
+    return {
+        "id": term.id,
+        "code": term.code,
+        "name": term.name,
+        "kind": term.kind,
+        "start_date": term.start_date.isoformat() if term.start_date else None,
+        "end_date": term.end_date.isoformat() if term.end_date else None,
+        "week_count": term.week_count,
+        "published_run_id": pub.id if pub else None,
+    }
+
+
+async def me(session: AsyncSession, access: Access) -> dict[str, Any]:
+    """``GET /moderation/me``: the caller's instructor link and visibility (Q11), plus the current term."""
+    linked = list(
+        (
+            await session.execute(
+                select(Instructor).where(Instructor.user_id == access.user.id).order_by(Instructor.id)
+            )
+        ).scalars()
+    )
+    sees_all = "planning.view" in access.perms
+    from app.services import teacher_preferences as tp
+
+    return {
+        "user_id": access.user.id,
+        "instructor_id": linked[0].id if linked else None,
+        "instructor_ids": [i.id for i in linked],
+        "instructor": (
+            {"id": linked[0].id, "full_name": linked[0].full_name, "title": linked[0].title} if linked else None
+        ),
+        "visibility": "all" if sees_all else ("own" if linked else "none"),
+        "can_edit": "planning.edit" in access.perms,
+        # P19-T2 "Tercih ekle": a linked academician may add wishes for their own classes
+        "can_add_preference": bool(linked),
+        "preferences": await tp.counts_for_user(session, access.user),
+        "current_term": await current_term_brief(session),
+    }
 
 
 # ------------------------------------------------------------------------------------------- matching core
@@ -296,6 +355,8 @@ class TermData:
     occupancy: dict[tuple[int, int], list[tuple[int, int, frozenset[int], int]]]  # (room, day) -> spans
     labels: dict[int, str]
     member_of: dict[int, int]  # request -> its solver event (joint lecture head)
+    #: person / programme priorities of the term (``priority_overrides``, P19-P-04)
+    priorities: Any = None
 
 
 def label_of(mr: MeetingRequest) -> str:
@@ -332,6 +393,80 @@ def _meeting_query() -> Any:
     )
 
 
+def _board_placements(meetings: list[MeetingRequest], rows: list[Assignment]) -> list[Assignment]:
+    """Round-1 T-R1-39 part 2: an imported board's rows carry no request link (``meeting_request_id`` is None; the
+    grid importer writes one row per period cell with the cell's course codes). For the match rate they are read
+    against the term's requests the way the importer links them: the same course code (``normalize.course_key``),
+    day and period (the row's period inside the request's range, its week among the request's weeks). Parallel
+    sections of one course at one time take the room the planner wrote for them; the rest take the board's rooms
+    in list order. Returns one transient row per request and room set (its period range and weeks merged; never
+    added to the session), so :func:`place_of` reads it like a solver row."""
+    by_course: dict[tuple[str, int], list[MeetingRequest]] = defaultdict(list)
+    for mr in meetings:
+        if mr.day is None or mr.start_period is None or mr.end_period is None or mr.section.course is None:
+            continue
+        by_course[(n.course_key(mr.section.course.code), mr.day)].append(mr)
+    for ms in by_course.values():
+        ms.sort(key=lambda m: (m.source_row_index if m.source_row_index is not None else 1 << 30, m.id))
+    # (course key, day, rooms) -> the board's one-period rows of that course in that room on that day
+    cells: dict[tuple[str, int, tuple[int, ...]], list[Assignment]] = defaultdict(list)
+    for a in rows:
+        rids = tuple(sorted(set(_ints(a.room_ids))))
+        if a.meeting_request_id is not None or a.day is None or not rids:
+            continue
+        for code in a.course_codes or []:
+            key = n.course_key(str(code))
+            if (key, a.day) in by_course:
+                cells[(key, a.day, rids)].append(a)
+    # claims: (request, cell) with the rows inside the request's period range and weeks
+    claims: list[tuple[int, int, MeetingRequest, tuple[str, int, tuple[int, ...]], list[Assignment]]] = []
+    for ck, cell_rows in cells.items():
+        key, day, rids = ck
+        for mr in by_course[(key, day)]:
+            lo, hi = int(mr.start_period or 0), int(mr.end_period or 0)
+            weeks = set(_ints(mr.weeks))
+            mine = [
+                a
+                for a in cell_rows
+                if lo <= a.start_period and a.end_period <= hi and (not weeks or a.week is None or int(a.week) in weeks)
+            ]
+            if not mine:
+                continue
+            own_rooms = set(_ints(mr.definitive_room_ids)) | set(_ints(mr.requested_room_ids))
+            # the planner's own room first, then the list order of the requests, then the room
+            claims.append((0 if own_rooms & set(rids) else 1, mr.source_row_index or 0, mr, ck, mine))
+    claims.sort(key=lambda c: (c[0], c[1], c[2].id, c[3][2]))
+    taken_rows: set[int] = set()
+    placed: set[int] = set()
+    out: list[Assignment] = []
+    for _rank, _row, mr, ck, mine in claims:
+        if mr.id in placed or any(a.id in taken_rows for a in mine):
+            continue
+        placed.add(mr.id)
+        taken_rows.update(a.id for a in mine)
+        merged_weeks = sorted({int(w) for a in mine for w in (_ints(a.weeks) or ([a.week] if a.week else []))})
+        out.append(
+            Assignment(
+                id=min(a.id for a in mine),
+                run_id=mine[0].run_id,
+                meeting_request_id=mr.id,
+                week=None,
+                weeks=merged_weeks,
+                day=ck[1],
+                start_period=min(a.start_period for a in mine),
+                end_period=max(a.end_period for a in mine),
+                room_ids=list(ck[2]),
+                label=mine[0].label,
+                course_codes=list(mine[0].course_codes or []),
+                tags=[],
+                is_locked=False,
+                origin="IMPORT",
+                archived=False,
+            )
+        )
+    return out
+
+
 async def load_term(
     session: AsyncSession,
     term: Term,
@@ -363,6 +498,9 @@ async def load_term(
                 )
             ).scalars()
         )
+        if rows and all(a.meeting_request_id is None for a in rows):
+            # an imported board (T-R1-39 part 2): its cells are read against the requests by course, day and period
+            rows = _board_placements(meetings, rows)
         for a in rows:
             if a.meeting_request_id is None:
                 continue
@@ -378,7 +516,10 @@ async def load_term(
             for eid in _ints(d.get("event_ids")):
                 for rid in members.get(eid, [eid]):
                     diag_by_request.setdefault(rid, d)
-    return TermData(term, run, rooms, meetings, rows_by_mr, diag_by_request, occupancy, labels, member_of)
+    from app.services.solver_bridge import priority_context
+
+    prios = await priority_context(session, term.id)
+    return TermData(term, run, rooms, meetings, rows_by_mr, diag_by_request, occupancy, labels, member_of, prios)
 
 
 def _in_horizon(mr: MeetingRequest, run: ScheduleRun) -> bool:
@@ -458,6 +599,16 @@ def reason_for(
         step = POLICY_STEP.get(str(pol.get("reason") or ""))
         text = d.get("text") if isinstance(d.get("text"), dict) else None
         culprits = [{"request_id": w, "label": td.labels.get(int(w), f"#{w}")} for w in _ints(pol.get("winners"))[:5]]
+        if pol.get("reason") == "published_kept" and culprits:
+            names = ", ".join(str(c["label"]) for c in culprits[:3])
+            base_tr = str((text or {}).get("tr") or "").rstrip()
+            base_en = str((text or {}).get("en") or "").rstrip()
+            text = _t(
+                (base_tr + " " if base_tr else f"{label_of(mr)} yerleşemedi. ")
+                + PUBLISHED_KEPT_TEXT[0].format(w=names),
+                (base_en + " " if base_en else f"{label_of(mr)} could not be placed. ")
+                + PUBLISHED_KEPT_TEXT[1].format(w=names),
+            )
         return {
             "code": str(d.get("code") or "unplaced"),
             "text": text or _t(str(d.get("message") or "Yerleşmedi"), str(d.get("message") or "Not placed")),
@@ -561,11 +712,21 @@ def _place_out(place: Place | None, rooms: Mapping[int, Room]) -> dict[str, Any]
     }
 
 
-def effective_priority(mr: MeetingRequest) -> dict[str, Any]:
-    if mr.priority is not None:
-        return {"value": int(mr.priority), "source": "request"}
-    sp = int(mr.section.priority or 0)
-    return {"value": sp, "source": "section" if sp else "default"}
+def effective_priority(mr: MeetingRequest, ctx: Any = None) -> dict[str, Any]:
+    """``{value, source}``: request > section > person > programme > default (``solver_bridge.resolve_priority``,
+    the bridge's own rule); ``ctx`` is the term's :class:`solver_bridge.PriorityContext` (none: request / section
+    only)."""
+    from app.services.solver_bridge import PriorityContext, resolve_priority
+
+    sec = mr.section
+    value, source = resolve_priority(
+        mr.priority,
+        sec.priority,
+        [si.instructor_id for si in sec.instructors] if ctx is not None and ctx.person else [],
+        sec.program_id,
+        ctx or PriorityContext(),
+    )
+    return {"value": value, "source": source}
 
 
 def match_one(td: TermData, mr: MeetingRequest) -> dict[str, Any]:
@@ -577,7 +738,9 @@ def match_one(td: TermData, mr: MeetingRequest) -> dict[str, Any]:
     place: Place | None
     verdict: str
     reason: dict[str, Any] | None = None
-    no_room = not mr.needs_room or (sec.mode or "F2F") in NO_ROOM_MODES
+    # the bridge's rule: a meeting needs a room unless its row says otherwise (a section's ``mode`` is the mode of
+    # one of its rows: PHAR 114 §2 has an online row and a classroom row)
+    no_room = not mr.needs_room
     no_time = not mr.day or mr.start_period is None or mr.end_period is None
     if no_room or (td.run is not None and (no_time or not _in_horizon(mr, td.run))):
         place = place_of(td.rows_by_mr.get(mr.id, [])) if td.run is not None else None
@@ -650,7 +813,7 @@ def match_one(td: TermData, mr: MeetingRequest) -> dict[str, Any]:
         "verdict": verdict,
         "verdict_text": _t(*VERDICT_TEXT[verdict]),
         "reason": reason,
-        "priority": effective_priority(mr),
+        "priority": effective_priority(mr, td.priorities),
         "source": source,
         "provenance": {"row": mr.source_row_index, "source_key": mr.source_key},
     }
@@ -1117,7 +1280,7 @@ def parse_priority(value: Any) -> int | None:
     if value is None:
         return None
     if isinstance(value, str):
-        key = tr_fold(value)
+        key = n.fold(value).strip()
         tiers = {**PRIORITY_TIERS, "yuksek": 1, "dusuk": -1}
         if key in tiers:
             return tiers[key]
@@ -1188,6 +1351,411 @@ async def set_request_priority(
     return {"request_id": mr.id, "priority": new, "previous": before, "effective": effective_priority(mr)}
 
 
+SUBJECTS = {"person": ("instructor", "person.priority"), "program": ("program", "program.priority")}
+
+
+def _override_out(o: Any) -> dict[str, Any]:
+    return {
+        "subject_type": o.subject_type,
+        "subject_id": o.subject_id,
+        "term_id": o.term_id,
+        "priority": int(o.priority),
+        "note": o.note,
+        "updated_by": o.updated_by,
+        "updated_at": o.updated_at.isoformat() if o.updated_at else None,
+    }
+
+
+async def set_subject_priority(
+    session: AsyncSession,
+    subject_type: str,
+    subject_id: int,
+    term_id: int,
+    value: Any,
+    actor: User,
+    note: str | None = None,
+) -> dict[str, Any]:
+    """P19-P-04: a person's (instructor) or a programme's default priority for one term; ``null`` / normal clears
+    it. Every request of the subject without a more specific value inherits it (request > section > person >
+    programme). Audited as ``person.priority`` / ``program.priority`` with the term, so it shows in
+    ``changes-since-publish``."""
+    from app.models import PriorityOverride
+    from app.services.events import publish_event
+
+    if subject_type not in SUBJECTS:
+        raise ModerationError(422, f"subject must be one of {sorted(SUBJECTS)}")
+    term = await session.get(Term, term_id)
+    if term is None:
+        raise ModerationError(404, "term not found")
+    model = Instructor if subject_type == "person" else Program
+    subject = await session.get(model, subject_id)
+    if subject is None:
+        raise ModerationError(404, f"{SUBJECTS[subject_type][0]} not found")
+    new = parse_priority(value)
+    if new == 0:
+        new = None  # Normal at person / programme level is "nothing set"
+    row = (
+        await session.execute(
+            select(PriorityOverride).where(
+                PriorityOverride.term_id == term_id,
+                PriorityOverride.subject_type == subject_type,
+                PriorityOverride.subject_id == subject_id,
+            )
+        )
+    ).scalar_one_or_none()
+    before = int(row.priority) if row is not None else None
+    text = (note or "").strip() or None
+    if new is None and row is not None:
+        await session.delete(row)
+    elif new is not None:
+        if row is None:
+            row = PriorityOverride(term_id=term_id, subject_type=subject_type, subject_id=subject_id, priority=new)
+            session.add(row)
+        row.priority, row.note, row.updated_by = new, text, actor.id
+    if new != before:
+        await publish_event(
+            session,
+            SUBJECTS[subject_type][1],
+            SUBJECTS[subject_type][0],
+            subject_id,
+            before={"priority": before, "term_id": term_id},
+            after={"priority": new, "term_id": term_id},
+            actor=actor,
+            reason=text,
+            term_id=term_id,
+        )
+    await session.commit()
+    affected = await subject_request_ids(session, subject_type, subject_id, term_id)
+    return {
+        "subject_type": subject_type,
+        "subject_id": subject_id,
+        "term_id": term_id,
+        "priority": new,
+        "previous": before,
+        "source": subject_type if new is not None else None,
+        "request_ids": affected,
+    }
+
+
+async def subject_request_ids(session: AsyncSession, subject_type: str, subject_id: int, term_id: int) -> list[int]:
+    """The term's live meeting requests of a person (their sections) or a programme."""
+    q = (
+        select(MeetingRequest.id)
+        .join(Section, Section.id == MeetingRequest.section_id)
+        .where(Section.term_id == term_id, MeetingRequest.archived.is_(False), Section.archived.is_(False))
+    )
+    if subject_type == "person":
+        q = q.join(SectionInstructor, SectionInstructor.section_id == Section.id).where(
+            SectionInstructor.instructor_id == subject_id
+        )
+    else:
+        q = q.where(Section.program_id == subject_id)
+    return sorted({int(i) for i in (await session.execute(q)).scalars()})
+
+
+async def list_overrides(session: AsyncSession, term_id: int, subject_type: str | None = None) -> list[dict[str, Any]]:
+    from app.models import PriorityOverride
+
+    q = select(PriorityOverride).where(PriorityOverride.term_id == term_id)
+    if subject_type:
+        q = q.where(PriorityOverride.subject_type == subject_type)
+    rows = list(
+        (await session.execute(q.order_by(PriorityOverride.subject_type, PriorityOverride.subject_id))).scalars()
+    )
+    names: dict[tuple[str, int], str] = {}
+    people = [r.subject_id for r in rows if r.subject_type == "person"]
+    progs = [r.subject_id for r in rows if r.subject_type == "program"]
+    if people:
+        for i in (await session.execute(select(Instructor).where(Instructor.id.in_(people)))).scalars():
+            names[("person", i.id)] = i.full_name
+    if progs:
+        for p in (await session.execute(select(Program).where(Program.id.in_(progs)))).scalars():
+            names[("program", p.id)] = p.name
+    return [{**_override_out(r), "name": names.get((r.subject_type, r.subject_id))} for r in rows]
+
+
+# ------------------------------------------------------------------------------------------- staged changes (P19-M-07)
+
+#: audit actions that change what the next solve sees, by kind (moderation spec §5.1 "N değişiklik yayında değil")
+SOLVING_ACTIONS: dict[str, str] = {
+    "meeting_request.priority": "priority",
+    "section.priority": "priority",
+    "person.priority": "priority",
+    "program.priority": "priority",
+    "moderation.pin": "pin",
+    "moderation.prefer": "prefer",
+    "moderation.unlock": "unlock",
+    "meeting_request.update": "request",
+    "meeting.create": "request",
+    "meeting.archive": "request",
+    "meeting.delete": "request",
+    "section.create": "request",
+    "section.update": "request",
+    "section.archive": "request",
+    "section.delete": "request",
+    "section.pattern": "request",
+    "constraint.create": "preference",
+    "constraint.update": "preference",
+    "constraint.delete": "preference",
+    "constraint.waive": "preference",
+    # P19-T2: an academician's wish acts once a coordinator accepts it
+    "preference.accept": "preference",
+}
+CHANGE_KINDS = ("priority", "pin", "prefer", "unlock", "request", "preference")
+
+
+async def published_since(session: AsyncSession, run: ScheduleRun | None) -> datetime | None:
+    """When ``run`` became the published timetable: its latest ``run.activate`` audit event, else its finish."""
+    if run is None:
+        return None
+    ts = (
+        await session.execute(
+            select(AuditEvent.ts)
+            .where(AuditEvent.action == "run.activate", AuditEvent.entity_id == str(run.id))
+            .order_by(AuditEvent.id.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return ts or run.finished_at or run.created_at
+
+
+def _int_or_none(v: Any) -> int | None:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+async def changes_since_publish(
+    session: AsyncSession, term: Term, *, kinds: Iterable[str] | None = None, limit: int = 500
+) -> dict[str, Any]:
+    """Draft edits not yet in the published plan (P19-M-07), from the audit log: priority changes (request,
+    section, person, programme), pins / prefers / unlocks on draft child runs, request edits (meetings, sections,
+    patterns) and rule changes of the term, recorded after the published run was activated. Every item names
+    the requests it touches, and ``changed_request_ids`` seeds the next re-solve, so the staged-changes popover
+    and the recreate sheet no longer keep them per browser. Without a published run everything since the term's
+    first edit is listed (``since`` null)."""
+    run = await published_run(session, term.id)
+    since = await published_since(session, run)
+    wanted = {k for k in (kinds or CHANGE_KINDS) if k in CHANGE_KINDS}
+    actions = [a for a, k in SOLVING_ACTIONS.items() if k in wanted]
+    q = select(AuditEvent).where(
+        AuditEvent.term_id == term.id, AuditEvent.action.in_(actions), AuditEvent.parent_id.is_(None)
+    )
+    if since is not None:
+        q = q.where(AuditEvent.ts >= since)
+    if run is not None:  # the activation itself is the cut: anything audited before its row is published
+        act_id = (
+            await session.execute(
+                select(AuditEvent.id)
+                .where(AuditEvent.action == "run.activate", AuditEvent.entity_id == str(run.id))
+                .order_by(AuditEvent.id.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if act_id is not None:
+            q = q.where(AuditEvent.id > act_id)
+    rows = list((await session.execute(q.order_by(AuditEvent.id))).scalars())
+    pattern_ids = [r.id for r in rows if r.action == "section.pattern"]
+    children: dict[int, list[int]] = defaultdict(list)
+    if pattern_ids:
+        for pid, child_eid in (
+            await session.execute(
+                select(AuditEvent.parent_id, AuditEvent.entity_id).where(AuditEvent.parent_id.in_(pattern_ids))
+            )
+        ).all():
+            if pid is not None and (v := _int_or_none(child_eid)) is not None:
+                children[int(pid)].append(v)
+    section_ids = {v for r in rows if r.entity_type == "section" and (v := _int_or_none(r.entity_id)) is not None}
+    by_section: dict[int, list[int]] = defaultdict(list)
+    if section_ids:
+        for mid, sid in (
+            await session.execute(
+                select(MeetingRequest.id, MeetingRequest.section_id).where(
+                    MeetingRequest.section_id.in_(sorted(section_ids))
+                )
+            )
+        ).all():
+            by_section[int(sid)].append(int(mid))
+    subject_cache: dict[tuple[str, int], list[int]] = {}
+    items: list[dict[str, Any]] = []
+    for r in rows:
+        kind = SOLVING_ACTIONS[r.action]
+        eid = _int_or_none(r.entity_id)
+        after = r.after if isinstance(r.after, dict) else {}
+        before = r.before if isinstance(r.before, dict) else {}
+        rids: list[int] = []
+        if r.entity_type in ("meeting_request", "meeting") and eid is not None:
+            rids = [eid]
+        elif r.entity_type == "section" and eid is not None:
+            rids = sorted(
+                {*by_section.get(eid, []), *children.get(r.id, []), *_ints(after.get("archived_meeting_ids"))}
+            )
+        elif r.action in ("person.priority", "program.priority") and eid is not None:
+            key = ("person" if r.action == "person.priority" else "program", eid)
+            if key not in subject_cache:
+                subject_cache[key] = await subject_request_ids(session, key[0], eid, term.id)
+            rids = subject_cache[key]
+        elif r.entity_type == "constraint":
+            params = (after.get("params") or before.get("params") or {}) if isinstance(after, dict) else {}
+            rids = _ints(params.get("event_ids")) if isinstance(params, dict) else []
+        items.append(
+            {
+                "audit_id": r.id,
+                "ts": r.ts.isoformat() if r.ts else None,
+                "action": r.action,
+                "kind": kind,
+                "entity_type": r.entity_type,
+                "entity_id": eid if eid is not None else r.entity_id,
+                "run_id": _int_or_none(after.get("run_id")),
+                "request_ids": rids,
+                "actor_id": r.actor_id,
+                "actor": r.actor_label,
+                "reason": r.reason,
+                "before": before or None,
+                "after": after or None,
+            }
+        )
+    every = sorted({i for it in items for i in it["request_ids"]})
+    labels: dict[int, str] = {}
+    if every:
+        for mr in (await session.execute(_meeting_query().where(MeetingRequest.id.in_(every[:5000])))).scalars():
+            labels[mr.id] = label_of(mr)
+    for it in items:
+        it["labels"] = [labels[i] for i in it["request_ids"][:20] if i in labels]
+    counts = {k: sum(1 for it in items if it["kind"] == k) for k in CHANGE_KINDS}
+    total = len(items)
+    return {
+        "term_id": term.id,
+        "published_run_id": run.id if run else None,
+        "since": since.isoformat() if since else None,
+        "total": total,
+        "counts": counts,
+        "changed_request_ids": [i for i in every if i in labels],
+        "items": items[-limit:][::-1],  # newest first
+    }
+
+
+# ------------------------------------------------------------------------------------------- publish digest (P19-M-09)
+
+_DAY_TR = ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
+_DAY_EN = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def _cell_text(place: Place | None, rooms: Mapping[int, Room], lang: str) -> str:
+    if place is None:
+        return "yerleşmedi" if lang == "tr" else "not placed"
+    days = _DAY_TR if lang == "tr" else _DAY_EN
+    start = n.PERIODS[place.start - 1].start if 1 <= place.start <= len(n.PERIODS) else None
+    end = n.PERIODS[place.end - 1].end if 1 <= place.end <= len(n.PERIODS) else None
+    clock_ = f"{start:%H:%M}-{end:%H:%M}" if start and end else f"P{place.start}-P{place.end}"
+    day = days[place.day - 1] if 1 <= place.day <= 7 else str(place.day)
+    return f"{day} {clock_} {' + '.join(_room_codes(place.room_ids, rooms))}".strip()
+
+
+async def publish_changes(
+    session: AsyncSession, run: ScheduleRun, previous: ScheduleRun | None
+) -> dict[int, list[dict[str, Any]]]:
+    """Per instructor: the classes whose cell differs between the previously published run and ``run`` (moved,
+    newly placed, no longer placed). Without a previous run every placed class is new."""
+    term = await session.get(Term, run.term_id)
+    assert term is not None
+    rooms = await all_rooms(session)
+    after = await load_term(session, term, run, rooms=rooms)
+    before = await load_term(session, term, previous, rooms=rooms) if previous is not None else None
+    out: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for mr in after.meetings:
+        new_rows = after.rows_by_mr.get(mr.id, [])
+        old_rows = before.rows_by_mr.get(mr.id, []) if before is not None else []
+        if before is not None and _cell_set(new_rows) == _cell_set(old_rows):
+            continue
+        np_, op = place_of(new_rows), place_of(old_rows)
+        if np_ is None and op is None:
+            continue
+        change = "moved" if np_ is not None and op is not None else "new" if np_ is not None else "unplaced"
+        item = {"request_id": mr.id, "label": label_of(mr), "change": change, "from": op, "to": np_}
+        for si in mr.section.instructors:
+            out[si.instructor_id].append(item)
+    return out
+
+
+async def publish_digest(session: AsyncSession, run: ScheduleRun, previous_id: int | None) -> dict[str, Any]:
+    """``POST /runs/{id}/activate {"notify_people": true}``: one ``timetable.published`` notice per affected
+    academician (``Instructor.user_id``), listing only their changed classes, through ``notify_dispatch`` (the
+    user's channel switches; in-app + e-mail by default, e-mail opt-out per user). Idempotent per run and person
+    (``timetable:<run>:published``): publishing the same run again sends nothing twice. Unlinked instructors are
+    counted, never contacted."""
+    from app.services import notify_dispatch as nd
+    from app.services.bookings_notify import _language
+
+    previous = await session.get(ScheduleRun, previous_id) if previous_id else None
+    changes = await publish_changes(session, run, previous)
+    term = await session.get(Term, run.term_id)
+    rooms = await all_rooms(session)
+    linked = {
+        i.id: i
+        for i in (
+            await session.execute(
+                select(Instructor).where(Instructor.id.in_(list(changes)), Instructor.user_id.is_not(None))
+            )
+        ).scalars()
+    }
+    per_user: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for iid, items in changes.items():
+        ins = linked.get(iid)
+        if ins is not None and ins.user_id is not None:
+            per_user[int(ins.user_id)].extend(items)
+    notified, deliveries = 0, 0
+    for uid, items in sorted(per_user.items()):
+        user = await session.get(User, uid)
+        if user is None or not user.is_active:
+            continue
+        uniq = list({it["request_id"]: it for it in items}.values())
+        lang = "tr" if (await _language(session, user)) == "tr" else "en"
+        code = term.code if term else str(run.term_id)
+        if lang == "tr":
+            title = f"{code} planı yayınlandı: {len(uniq)} dersinizde değişiklik"
+        else:
+            title = f"{code} timetable published: {len(uniq)} of your classes changed"
+        lines = []
+        for it in sorted(uniq, key=lambda x: x["label"]):
+            lines.append(f"{it['label']}: {_cell_text(it['from'], rooms, lang)} → {_cell_text(it['to'], rooms, lang)}")
+        notice = nd.Notice(
+            event="timetable.published",
+            key=f"timetable:{run.id}:published",
+            title=title,
+            body="\n".join(lines),
+            link="/moderation",
+            data={
+                "run_id": run.id,
+                "term_id": run.term_id,
+                "previous_run_id": previous_id,
+                "classes": [
+                    {
+                        "request_id": it["request_id"],
+                        "label": it["label"],
+                        "change": it["change"],
+                        "from": _place_out(it["from"], rooms),
+                        "to": _place_out(it["to"], rooms),
+                    }
+                    for it in uniq
+                ],
+            },
+        )
+        res = await nd.dispatch(session, user, notice)
+        sent = [d for d in res if d.status in ("sent", "skipped")]
+        if sent:
+            notified += 1
+            deliveries += len(sent)
+    return {
+        "notified": notified,
+        "deliveries": deliveries,
+        "affected_people": len(changes),
+        "unlinked_people": len([i for i in changes if i not in linked]),
+        "changed_classes": len({it["request_id"] for items in changes.values() for it in items}),
+    }
+
+
 # ------------------------------------------------------------------------------------------- re-solve (M3)
 
 
@@ -1205,8 +1773,13 @@ async def create_resolve(
     *,
     radius: int = DEFAULT_RADIUS,
     time_limit_s: float | None = None,
+    compare_to: int | None = None,
 ) -> ScheduleRun:
-    """A QUEUED child run of ``base`` for a moderation re-solve (the caller enqueues :func:`run_resolve`)."""
+    """A QUEUED child run of ``base`` for a moderation re-solve (the caller enqueues :func:`run_resolve`).
+
+    The preview's baseline is fixed here (``params.moderation.compare_to_run_id``): ``compare_to`` when given,
+    else the published run that started the chain (:func:`chain_baseline`), so a re-solve of a draft child
+    still shows every change against what is published, not only the last step."""
     from app.services import run_params as rp
     from app.services.events import publish_event
 
@@ -1249,6 +1822,11 @@ async def create_resolve(
         missing = sorted(set(ids) - found)
         if missing:
             raise ModerationError(422, f"requests not in term {term.code}: {missing[:20]}")
+    if compare_to is not None:
+        baseline = await comparable_run(session, term, base, compare_to)
+        basis = "explicit"
+    else:
+        baseline, basis = await chain_baseline(session, base, include_self=True)
     params = {k: v for k, v in dict(base.params or {}).items() if k not in ("moderation",)}
     weights = dict(params.get("weights") or {})
     weights["stability"] = max(int(weights.get("stability", 1) or 1), RESOLVE_STABILITY_WEIGHT)
@@ -1266,6 +1844,8 @@ async def create_resolve(
                 "changed_request_ids": ids,
                 "mode": mode,
                 "radius": max(0, min(int(radius), 3)),
+                "compare_to_run_id": baseline.id,
+                "compare_basis": basis,
             },
         }
     )
@@ -1293,6 +1873,7 @@ async def create_resolve(
             "mode": mode,
             "changed_request_ids": ids,
             "radius": params["moderation"]["radius"],
+            "compare_to_run_id": baseline.id,
         },
         actor=actor,
         term_id=term.id,
@@ -1300,6 +1881,92 @@ async def create_resolve(
     await session.commit()
     await session.refresh(child)
     return child
+
+
+#: how far :func:`run_chain` walks up ``parent_run_id`` (cycle-safe; a moderation chain is a few steps)
+MAX_CHAIN = 64
+
+
+async def run_chain(session: AsyncSession, run: ScheduleRun) -> list[ScheduleRun]:
+    """``run`` and its ancestors, nearest first (``parent_run_id``; stops at a cycle or :data:`MAX_CHAIN`)."""
+    out = [run]
+    seen = {run.id}
+    cur = run
+    while cur.parent_run_id is not None and len(out) < MAX_CHAIN:
+        nxt = await session.get(ScheduleRun, int(cur.parent_run_id))
+        if nxt is None or nxt.id in seen:
+            break
+        out.append(nxt)
+        seen.add(nxt.id)
+        cur = nxt
+    return out
+
+
+async def _ever_published(session: AsyncSession, run_ids: Iterable[int]) -> set[int]:
+    """Runs that were published at some point (``run.activate`` audit events), active now or not."""
+    ids = [str(i) for i in run_ids]
+    if not ids:
+        return set()
+    rows = await session.execute(
+        select(AuditEvent.entity_id).where(AuditEvent.action == "run.activate", AuditEvent.entity_id.in_(ids))
+    )
+    return {int(e) for e in rows.scalars() if e and str(e).isdigit()}
+
+
+async def chain_baseline(
+    session: AsyncSession, run: ScheduleRun, *, include_self: bool = False
+) -> tuple[ScheduleRun, str]:
+    """The published run that started ``run``'s chain of re-solves, and why it was chosen:
+
+    * ``published``: the nearest ancestor that is the term's published run now (``is_active``);
+    * ``was_published``: else the nearest ancestor that was published once (``run.activate`` in the audit);
+    * ``root``: else the run the chain started from (a chain that never had a published run).
+
+    ``include_self`` counts ``run`` itself (the base of a new re-solve); the diff of a stored child starts at its
+    parent."""
+    chain = await run_chain(session, run)
+    cands = chain if include_self else chain[1:]
+    if not cands:
+        return run, "base"
+    for r in cands:
+        if r.is_active:
+            return r, "published"
+    once = await _ever_published(session, (r.id for r in cands))
+    for r in cands:
+        if r.id in once:
+            return r, "was_published"
+    return cands[-1], "root"
+
+
+async def comparable_run(session: AsyncSession, term: Term, run: ScheduleRun, other_id: int) -> ScheduleRun:
+    """``compare_to``: a finished run of the same term and kind (404 / 422 / 409 otherwise)."""
+    other = await session.get(ScheduleRun, int(other_id))
+    if other is None:
+        raise ModerationError(404, f"run {other_id} (compare_to) not found")
+    if other.term_id != term.id or other.kind != run.kind:
+        raise ModerationError(422, f"run {other.id} is not a {run.kind} run of term {term.code}")
+    if other.status not in BASE_STATUSES:
+        raise ModerationError(409, f"run {other.id} is {other.status}; compare against a finished run")
+    return other
+
+
+async def chain_edits(session: AsyncSession, chain: list[ScheduleRun]) -> set[int]:
+    """The requests edited along a chain of draft runs: each step's ``changed_request_ids``, its unlocks and the
+    targets of its pin / prefer rules (:func:`matching_action`)."""
+    from app.services.solver_bridge import UNLOCK_PARAM
+
+    out: set[int] = set()
+    ids = [r.id for r in chain]
+    for r in chain:
+        p = r.params or {}
+        out |= set(_ints((p.get("moderation") or {}).get("changed_request_ids")))
+        out |= set(_ints(p.get(UNLOCK_PARAM)))
+    if ids:
+        for c in (await session.execute(select(ConstraintRow).where(ConstraintRow.run_id.in_(ids)))).scalars():
+            rid = _moderation_ref(c).get("request_id")
+            if isinstance(rid, int):
+                out.add(rid)
+    return out
 
 
 async def _input_for(session: AsyncSession, run: ScheduleRun) -> tuple[sm.SolverInput, dict[int, list[int]]]:
@@ -1333,14 +2000,15 @@ def _fits(e: sm.Event, r: sm.Room) -> bool:
     return cap >= e.size and e.required_tags <= r.tags and not (e.forbidden_tags & r.tags)
 
 
-def slot_blockers(inp: sm.SolverInput, current: Iterable[sm.Assignment], seeds: Iterable[int]) -> set[int]:
+def slot_blockers(inp: sm.SolverInput, current: Iterable[sm.Assignment], seeds: Iterable[int]) -> dict[int, int]:
     """Events placed in the requested cell of a changed event (a shared room it could use, its cohort or its
-    instructor at that time): the repair frees them too, so an edited or re-prioritised request that is not placed
-    (or asks for a new cell) gets its chance (``repair.neighbours`` only looks at current placements)."""
+    instructor at that time) -> that changed event: the repair frees them too, so an edited or re-prioritised request
+    that is not placed (or asks for a new cell) gets its chance (``repair.neighbours`` only looks at current
+    placements).  Works on a :class:`SegmentView` (``view.inp``, ``view.current``, segment ids) as on plain input."""
     events = {e.id: e for e in inp.events}
     cur = list(current)
-    out: set[int] = set()
-    for sid in seeds:
+    out: dict[int, int] = {}
+    for sid in sorted(seeds):
         e = events.get(sid)
         if e is None:
             continue
@@ -1356,64 +2024,85 @@ def slot_blockers(inp: sm.SolverInput, current: Iterable[sm.Assignment], seeds: 
             if other is None or a.event_id == sid or not _overlaps(slot, a):
                 continue
             if set(a.room_ids) & cand or e.cohort_keys & other.cohort_keys or e.instructor_keys & other.instructor_keys:
-                out.add(a.event_id)
+                out.setdefault(a.event_id, sid)
     return out
 
 
-def _rescore(inp: sm.SolverInput, assignments: list[sm.Assignment]) -> tuple[int, int, dict[str, int], int]:
-    """(hard, soft, breakdown, hard violations) of the placed events (a partial result's unplaced events are
-    reported apart, as in ``repair``)."""
-    from app.solver.repair import score, validate
+def base_assignments(inp: sm.SolverInput, base: ScheduleRun | None) -> list[sm.Assignment]:
+    """The base run's placements per solver event: the solver's own (``stats.solver_assignments``), else the
+    bridge's ``previous`` (rebuilt from the stored rows) cleaned of rooms outside the pool.  A class whose room
+    changes between weeks (``weeksplit``) has one row per room set: every row is kept (round-2 T-R2-34: reading only
+    the first row made the other weeks' placement a lock violation and the class was dropped)."""
+    from app.services.solver_bridge import solver_assignments_of
 
-    placed = {a.event_id for a in assignments}
-    sub = replace(inp, events=tuple(e for e in inp.events if e.id in placed), best_effort=False)
-    hard, soft, breakdown = score(sub, assignments)
-    return hard, soft, breakdown, sum(1 for v in validate(sub, assignments) if v.hard)
+    events = {e.id: e for e in inp.events}
+    stored = solver_assignments_of(base) if base is not None else None
+    if stored is not None:
+        out = []
+        for a in stored:
+            if a.event_id in events and a not in out:
+                out.append(a)
+        return out
+    pool = {r.id for r in inp.rooms}
+    out = []
+    for a in inp.previous:
+        e = events.get(a.event_id)
+        if e is None:
+            continue
+        rooms = tuple(r for r in a.room_ids if r in pool) if e.needs_room else ()
+        out.append(replace(a, room_ids=rooms, weeks=a.weeks or e.weeks))
+    return out
 
 
-def _minimal_change(
-    inp: sm.SolverInput, current: list[sm.Assignment], result: sm.SolverResult, scope: set[int]
-) -> list[int]:
-    """Academician needs Q9: a published class outside the changed requests keeps its cell unless moving it was
-    needed. Every moved event outside ``scope`` whose old cell is still free (reverting it keeps every hard rule)
-    is put back; deterministic (sorted order, repeated until nothing changes). Returns the reverted event ids and
-    rewrites ``result`` in place (assignments, scores, ``stats.repair.moved``)."""
-    from app.solver.repair import moved_diff
+def violating(view: SegmentView) -> set[int]:
+    """Segments of the base placements in a hard violation of the child's rules (a pin written on the draft, a
+    booking or block added since, a request edited): the repair frees them instead of locking them there.  Judged
+    on the week segments (``repair.violating_events``): a locked class whose blocked week sits in another room is
+    exactly what the term run decided, not a violation."""
+    from app.solver.repair import violating_events
 
-    before = {a.event_id: a for a in current}
-    after = {a.event_id: a for a in result.assignments}
-    _hard0, _s0, _b0, viol0 = _rescore(inp, list(after.values()))
-    reverted: list[int] = []
-    changed = True
-    while changed:
-        changed = False
-        for m in moved_diff(list(before.values()), list(after.values())):
-            eid = int(m["event_id"])
-            if eid in scope or m["from"] is None or m["to"] is None or eid in reverted:
-                continue
-            trial = dict(after)
-            trial[eid] = before[eid]
-            if _rescore(inp, list(trial.values()))[3] <= viol0:
-                after = trial
-                reverted.append(eid)
-                changed = True
-    if reverted:
-        final = [after[k] for k in sorted(after)]
-        hard, soft, breakdown, _v = _rescore(inp, final)
-        result.assignments = final
-        result.hard_score, result.soft_score = hard, soft
-        result.objective_breakdown = breakdown
-        rep = dict(result.stats.get("repair") or {})
-        moved = moved_diff(current, final)
-        rep.update(
-            {
-                "moved": moved,
-                "moved_count": sum(1 for x in moved if x["to"] is not None and x["from"] is not None),
-                "reverted": sorted(reverted),
-            }
-        )
-        result.stats["repair"] = rep
-    return sorted(reverted)
+    found: set[int] = violating_events(view)
+    return found
+
+
+def move_cause(
+    rep: Mapping[str, Any], request_id: int, head_of: Mapping[int, int], labels: Mapping[int, str]
+) -> dict[str, Any] | None:
+    """Why the repair freed (and so could move) a request outside the edited scope: it held the cell a changed request
+    asked for or was its conflict neighbour (``freed_neighbour``), or its published cell itself broke a hard rule
+    (``base_conflict``).  From ``stats.repair.freed_by`` (keys are solver events; a joint-lecture member is looked up
+    through its head).  ``None`` when the repair did not free it (then nothing explains the move)."""
+    freed_by = rep.get("freed_by") if isinstance(rep, Mapping) else None
+    if not isinstance(freed_by, Mapping):
+        return None
+    ev = head_of.get(request_id, request_id)
+    info = freed_by.get(str(ev), freed_by.get(ev))
+    if not isinstance(info, Mapping):
+        return None
+    me = labels.get(request_id, labels.get(ev, f"#{request_id}"))
+    if info.get("cause") == "base_conflict":
+        return {
+            "code": "base_conflict",
+            "text": _t(
+                f"{me} taşındı: yayımdaki hücresi artık kesin bir kuralı bozuyordu (sonradan eklenen rezervasyon / "
+                "blok ya da taslak kuralı)",
+                f"{me} moved: its published cell broke a hard rule now (a booking or block added since, or a draft "
+                "rule)",
+            ),
+        }
+    of = info.get("of")
+    if of is None:
+        return None
+    other = labels.get(int(of), f"#{of}")
+    return {
+        "code": "freed_neighbour",
+        "request_id": int(of),
+        "label": other,
+        "text": _t(
+            f"{other} için yeniden çözülen komşulukta: {me} onun istediği hücreyi tutuyordu ya da onunla çakışıyordu",
+            f"Re-solved in the neighbourhood of {other}: {me} held the cell it asked for or clashed with it",
+        ),
+    }
 
 
 async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -> dict[str, Any]:
@@ -1421,7 +2110,7 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
     the base's locks carried, stability on, one worker), then ``repair`` on the neighbourhood of the changed
     requests or a full solve. Infeasible stays INFEASIBLE with its diagnosis (nothing is relaxed silently)."""
     from app.services import solver_bridge
-    from app.solver.repair import repair
+    from app.solver.repair import keep_published, moved_diff, repair, segment_view
     from app.workers import run_jobs
 
     def report(phase: str, pct: int) -> None:
@@ -1439,6 +2128,7 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
         report("loading", 5)
         inp, members = await _input_for(session, run)
         mod = dict((run.params or {}).get("moderation") or {})
+        base = await session.get(ScheduleRun, int(mod.get("base_run_id") or run.parent_run_id or 0))
         if not inp.events:
             await solver_bridge._finish_empty_scope(session, run)  # noqa: SLF001
             return {"status": "FAILED", "assignments": 0}
@@ -1446,38 +2136,81 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
     head_of = {m: h for h, ms in members.items() for m in ms}
     ids = {e.id for e in inp.events}
     changed = {head_of.get(int(r), int(r)) for r in mod.get("changed_request_ids") or []} & ids
-    current = [a for a in inp.previous if a.event_id in ids]
+    current = base_assignments(inp, base)
     mode = str(mod.get("mode") or "repair")
     limit = float(inp.time_limit_s)
     report("solving", 20)
     seeds: set[int] = set()
+    broken: set[int] = set()
     reverted: list[int] = []
+    kept: dict[str, list[int]] = {"reverted": [], "restored": [], "evicted": []}
     try:
         if mode == "repair":
-            seeds = changed | slot_blockers(inp, current, changed)
+            # the base timetable as week segments (T-R2-34): a class whose blocked week sits in another room is
+            # two segments, each judged and locked on its own, not one class in a room it never had in every week
+            view = segment_view(
+                inp,
+                current,
+                unlocked_forbidden_tags=solver_bridge._unlocked_forbidden_tags(inp),  # noqa: SLF001 - the bridge's own TIP rule
+            )
+            changed_seg = view.expand(changed)
+            broken_seg = violating(view) - changed_seg
+            blockers = slot_blockers(view.inp, view.current, changed_seg)
+            free: dict[int, int | None] = dict.fromkeys(sorted(broken_seg))
+            for seg, for_seed in sorted(blockers.items()):
+                if seg not in changed_seg:
+                    free.setdefault(seg, for_seed)
+            broken = view.roots(broken_seg)
+            seeds = changed | broken | view.roots(blockers)
             result = await run_jobs.solve_off_loop(
                 run_id,
                 limit,
                 repair,
                 inp,
                 current,
-                sorted(seeds),
+                sorted(changed),
                 limit,
                 keep_changed=False,
                 radius=int(mod.get("radius", DEFAULT_RADIUS)),
+                scope=changed,
+                free=free,
+                view=view,
             )
-            if result.status in ("OPTIMAL", "FEASIBLE") and current:
-                reverted = _minimal_change(inp, current, result, changed)
+            reverted = list(_ints((result.stats.get("repair") or {}).get("reverted")))
         else:
+            # a full re-solve keeps the base's placements as its stability target row by row (a week segment's room
+            # included), so the only moves are the ones a hard rule or the edit forces (T-R2-34)
+            full_inp = replace(inp, previous=tuple(current)) if current else inp
             result = await run_jobs.solve_off_loop(
                 run_id,
                 limit,
                 solver_bridge._call_solver,  # noqa: SLF001 - the bridge's solve entry (week splitting included)
-                inp,
+                full_inp,
                 None,
                 str((run.params or {}).get("solver", "auto")),
                 split_weeks=solver_bridge.run_mode(dict(run.params or {}), "split_blocked_weeks"),
             )
+        if current and result.assignments and result.status != "ERROR":
+            # round-3 R3-M-01: a published class outside the edit is never given to an equal-priority newcomer and
+            # goes back to its published cell when that cell is free, in both modes and whatever the search proved
+            kept = keep_published(
+                inp,
+                current,
+                result,
+                changed,
+                unlocked_forbidden_tags=solver_bridge._unlocked_forbidden_tags(inp),  # noqa: SLF001 - the bridge's TIP rule
+            )
+            if mode == "repair" and any(kept.values()):
+                rep = dict(result.stats.get("repair") or {})
+                moved = moved_diff(current, result.assignments)
+                rep.update(
+                    moved=moved,
+                    moved_count=sum(1 for x in moved if x["to"] is not None and x["from"] is not None),
+                    dropped=[x["event_id"] for x in moved if x["to"] is None],
+                    reverted=sorted({*_ints(rep.get("reverted")), *kept["reverted"], *kept["restored"]}),
+                )
+                result.stats["repair"] = rep
+            reverted = sorted({*reverted, *kept["reverted"], *kept["restored"]})
     except run_jobs.RunCancelled:
         return await run_jobs.finish_cancelled(session_factory, run_id)
     report("persisting", 90)
@@ -1489,7 +2222,9 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
             **mod,
             "changed_events": sorted(changed),
             "seeds": sorted(seeds),
+            "base_violations": sorted(broken),
             "reverted": reverted,
+            "published_kept": kept,
             "workers": inp.workers,
         },
     }
@@ -1559,22 +2294,44 @@ def _touch(a: Place, b: Place, ma: MeetingRequest, mb: MeetingRequest) -> str | 
     return None
 
 
-async def resolve_diff(session: AsyncSession, child: ScheduleRun) -> dict[str, Any]:
-    """The re-solve against its base run, request by request (moderation spec §5.4 preview, needs §5.3):
+async def resolve_diff(session: AsyncSession, child: ScheduleRun, compare_to: int | None = None) -> dict[str, Any]:
+    """The re-solve against its baseline, request by request (moderation spec §5.4 preview, needs §5.3):
     moved (from -> to, with the cause), unchanged (count), newly placed, unplaceable (with the reason), the hard /
     soft score before and after and the waived rules. Pure read of the stored rows: re-running the same re-solve
-    gives the identical diff (one worker, deterministic time)."""
+    gives the identical diff (one worker, deterministic time).
+
+    Baseline (P19 gap 1): ``compare_to`` when given; else the one fixed when the re-solve was created
+    (``params.moderation.compare_to_run_id``: the published run that started the chain); else
+    :func:`chain_baseline`. A re-solve of a draft child therefore diffs against the published run, and the
+    edits of every draft step in between count as "changed" (``in_scope``)."""
     mod = (child.params or {}).get("moderation") or {}
     base_id = mod.get("base_run_id") or child.parent_run_id
-    base = await session.get(ScheduleRun, int(base_id)) if base_id else None
-    if base is None:
+    parent = await session.get(ScheduleRun, int(base_id)) if base_id else None
+    if parent is None:
         raise ModerationError(404, f"run {child.id} has no base run")
     term = await session.get(Term, child.term_id)
     assert term is not None
+    if compare_to is not None:
+        base = await comparable_run(session, term, child, compare_to)
+        basis = "explicit"
+    elif mod.get("compare_to_run_id"):
+        stored = await session.get(ScheduleRun, int(mod["compare_to_run_id"]))
+        base, basis = (stored, str(mod.get("compare_basis") or "published")) if stored else (parent, "base")
+    else:
+        base, basis = await chain_baseline(session, child)
+    chain = await run_chain(session, child)
+    between = []
+    for r in chain:  # child .. up to (not including) the baseline
+        if r.id == base.id:
+            break
+        between.append(r)
     status = child.status
     out: dict[str, Any] = {
         "run_id": child.id,
-        "base_run_id": base.id,
+        "base_run_id": parent.id,
+        "compare_to_run_id": base.id,
+        "compared_to": basis,
+        "chain": [r.id for r in between[1:]] + [base.id],  # ancestors up to the baseline (not the run itself)
         "status": status,
         "mode": mod.get("mode"),
         "changed_request_ids": _ints(mod.get("changed_request_ids")),
@@ -1587,6 +2344,9 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun) -> dict[str, A
     after = await load_term(session, term, child, rooms=rooms)
     by_mr = {mr.id: mr for mr in after.meetings}
     changed = set(_ints(mod.get("changed_request_ids")))
+    if len(between) > 1 or base.id != parent.id:  # several draft steps: every step's edits are in scope
+        changed |= await chain_edits(session, between)
+    out["changed_request_ids"] = sorted(changed)
     st = child.stats or {}
     bst = base.stats or {}
     in_scope = [mr for mr in after.meetings if mr.needs_room and _in_horizon(mr, child)]
@@ -1594,6 +2354,17 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun) -> dict[str, A
     newly: list[dict[str, Any]] = []
     unplaceable: list[dict[str, Any]] = []
     unchanged = 0
+    # requests whose published cell already broke a hard rule of the child (``run_resolve`` frees them)
+    cst = child.stats or {}
+    members_of = {int(k): [int(x) for x in v] for k, v in (cst.get("event_members") or {}).items()}
+    base_conflict = {
+        int(m)
+        for e in ((cst.get("moderation") or {}).get("base_violations") or [])
+        for m in members_of.get(int(e), [int(e)])
+    }
+    rep = st.get("repair") or {}
+    head_of = {m: h for h, ms in members_of.items() for m in ms}
+    labels_by_mr = {mr.id: label_of(mr) for mr in after.meetings}
     old_place: dict[int, Place | None] = {}
     new_place: dict[int, Place | None] = {}
     for mr in in_scope:
@@ -1617,12 +2388,27 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun) -> dict[str, A
             continue
         if np_ is None:
             d = after.diag_by_request.get(mr.id)
+            reason = _diag_reason(after, mr, d)
+            if mr.id in base_conflict:
+                # round-1 R1-S-04: the loss is a hard conflict of the published cell itself (a booking or a block
+                # added since, a rule written on the draft), never a price paid for a soft wish
+                reason = {
+                    **reason,
+                    "code": "base_conflict",
+                    "text": _t(
+                        "Yayımdaki hücresi artık kesin bir kuralı bozuyor (sonradan eklenen rezervasyon / blok ya da "
+                        "taslak kuralı); orada kalamaz. " + str((reason.get("text") or {}).get("tr") or ""),
+                        "Its published cell now breaks a hard rule (a booking or block added since, or a draft rule); "
+                        "it cannot stay there. " + str((reason.get("text") or {}).get("en") or ""),
+                    ),
+                }
             unplaceable.append(
                 {
                     **base_item,
                     "was_placed": True,
                     "from": _place_out(op, rooms),
-                    "reason": _diag_reason(after, mr, d),
+                    "reason": reason,
+                    "base_conflict": mr.id in base_conflict,
                 }
             )
             continue
@@ -1635,6 +2421,18 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun) -> dict[str, A
         causes: list[dict[str, Any]] = []
         if mr.id in changed:
             causes.append({"code": "changed", "text": _t("Değiştirilen talep", "Edited request")})
+        elif _cell_set(b_rows) < _cell_set(a_rows):
+            # every published cell is kept and weeks it had no room in are placed now (a partially placed class
+            # completed by the re-solve): not a move away from anything
+            causes.append(
+                {
+                    "code": "weeks_completed",
+                    "text": _t(
+                        "Yayımdaki hücreleri korundu; eksik haftaları da yerleşti",
+                        "Its published cells are kept; its missing weeks were placed too",
+                    ),
+                }
+            )
         else:
             for oid, other_new in new_place.items():
                 if oid == mr.id or other_new is None:
@@ -1663,7 +2461,12 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun) -> dict[str, A
                     )
             causes = causes[:5]
             if not causes:
-                # no class took its old cell: Q9 counts it (repair mode reverts such moves, _minimal_change)
+                # no class took its old cell: the repair's own record says why it was freed (it held the cell an
+                # edited request asked for, or its published cell broke a rule); without that, Q9 counts it
+                freed = move_cause(rep, mr.id, head_of, labels_by_mr)
+                if freed is not None:
+                    causes.append(freed)
+            if not causes:
                 causes.append(
                     {
                         "code": "unexplained",
@@ -1677,7 +2480,6 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun) -> dict[str, A
     outside = [m for m in moved if not m["in_scope"]]
     touched = [*moved, *newly, *(u for u in unplaceable if u["was_placed"])]
     affected = sorted({i for m in touched for i in m["instructor_ids"]})
-    rep = st.get("repair") or {}
     diags = [
         {"code": d.get("code"), "text": d.get("text"), "message": d.get("message"), "event_ids": d.get("event_ids")}
         for d in child.diagnosis or []
@@ -1694,6 +2496,7 @@ async def resolve_diff(session: AsyncSession, child: ScheduleRun) -> dict[str, A
             "newly_placed": len(newly),
             "unplaceable": len(unplaceable),
             "newly_unplaced": sum(1 for u in unplaceable if u["was_placed"]),
+            "newly_unplaced_base_conflict": sum(1 for u in unplaceable if u.get("base_conflict")),
             "affected_people": len(affected),
         },
         "moved": moved,
@@ -1837,12 +2640,17 @@ async def matching_action(
             size = int(mr.section.enrolment or 0)
             seats = sum(int(rooms[r].capacity or 0) for r in rids)
             if size and seats < size and not (may_override and len((reason or "").strip()) >= 3):
+                from app.services.pin_guard import capacity_message
+
                 names = " + ".join(rooms[r].display_name for r in rids)
+                msg = capacity_message(size, seats, names)
                 raise ModerationError(
                     422,
                     {
-                        "message": f"{size} öğrenci {seats} kişilik {names}'e sığmaz / {size} students do not fit "
-                        f"{names} ({seats} seats)",
+                        "code": "capacity",
+                        "message": f"{msg['tr']} / {msg['en']}",
+                        "message_tr": msg["tr"],
+                        "message_en": msg["en"],
                         "issues": ["capacity"],
                         "override": "planning.admin with a reason",
                     },
@@ -1905,6 +2713,7 @@ __all__ = [
     "FLAGS",
     "ModerationError",
     "Scope",
+    "chain_baseline",
     "create_resolve",
     "enqueue_resolve",
     "flags_for",
@@ -1916,6 +2725,7 @@ __all__ = [
     "run_resolve",
     "set_request_priority",
     "set_section_priority",
+    "set_subject_priority",
     "term_matchings",
     "verdict_of",
     "visibility",

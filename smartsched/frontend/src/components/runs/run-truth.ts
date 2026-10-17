@@ -54,3 +54,187 @@ export function verdictExceptions(p: { waiver: Waiver; counts: { conflicts: numb
   if (p.lockedTooSmall > 0) out.push({ key: "lockedTooSmall", n: p.lockedTooSmall });
   return out;
 }
+
+export interface ForcedOverride {
+  assignment_ids: number[];
+  rules: string[];
+  conflicts: string[];
+  reason: string;
+  by_name: string | null;
+  at: string | null;
+}
+
+/**
+ * Fields the run summary (`GET /runs/{id}/summary`) added on 2026-10-15: `data_issues.issues` (the planner's data
+ * issues, already folded into the headline) and `stats.forced_overrides` (admin moves that broke a hard rule,
+ * each with its reason). Parsed defensively: the summary schema passes unknown keys through.
+ */
+export function summaryExtras(summary: Record<string, unknown> | null | undefined): { dataIssues: number | null; forcedOverrides: ForcedOverride[] } {
+  const di = summary?.data_issues;
+  const dataIssues = di && typeof di === "object" ? num((di as Record<string, unknown>).issues) : null;
+  const raw = Array.isArray(summary?.forced_overrides) ? (summary.forced_overrides as unknown[]) : [];
+  const forcedOverrides = raw.flatMap((x): ForcedOverride[] => {
+    if (!x || typeof x !== "object") return [];
+    const o = x as Record<string, unknown>;
+    const arr = (v: unknown) => (Array.isArray(v) ? v : []);
+    return [
+      {
+        assignment_ids: arr(o.assignment_ids).map(Number).filter(Number.isFinite),
+        rules: arr(o.rules).map(String),
+        conflicts: arr(o.conflicts).map(String),
+        reason: typeof o.reason === "string" ? o.reason : "",
+        by_name: typeof o.by_name === "string" ? o.by_name : null,
+        at: typeof o.at === "string" ? o.at : null,
+      },
+    ];
+  });
+  return { dataIssues, forcedOverrides };
+}
+
+/* ------------------------------------------------------------------ the backend's one truth (round-1 R1-M-04) */
+
+export interface TruthBroken {
+  rule: string;
+  message: string;
+  /** the same sentence in Turkish (round-2 T-R2-30, R2-M-18: 'A102 · 3. hafta Pzt P1: …'); older stored truths: null */
+  message_tr: string | null;
+  request_ids: number[];
+  explained: boolean;
+  reason: string | null;
+  by_name: string | null;
+  at: string | null;
+}
+
+export interface TruthException {
+  cause: string;
+  classes: number;
+  findings: number;
+  rule: boolean;
+  label: { tr: string; en: string };
+}
+
+/** One unplaced class of the truth (round-2 T-R2-26): a joint lecture's members are one entry, like `unplaced`. */
+export interface TruthUnplaced {
+  /** the class's solver event id */
+  id: number;
+  label: string;
+  request_ids: number[];
+  /** the weeks it misses; null = never placed */
+  weeks: number[] | null;
+}
+
+/**
+ * `stats.truth` (worker / re-score) or `summary.truth`: the planner-level verdict every surface shows (the Studio
+ * card, the run report, the publish confirm, the timetable banner). `broken` = hard rules broken right now (a
+ * forced move with its reason included), `exceptions` = the accepted exceptions the run reports, `unplaced_list` =
+ * every unplaced class by name (`unplaced_count` = its length; null on a truth stored before round 2).
+ */
+export interface RunTruth {
+  verdict: "broken" | "exceptions" | "clean" | "none";
+  placed: number | null;
+  total: number | null;
+  unplaced: number | null;
+  hard_score: number | null;
+  broken: TruthBroken[];
+  broken_count: number;
+  exceptions: TruthException[];
+  exceptions_total: number;
+  unplaced_list: TruthUnplaced[];
+  unplaced_count: number | null;
+  headline: { tr: string; en: string };
+}
+
+const VERDICTS = new Set(["broken", "exceptions", "clean", "none"]);
+const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
+const text2 = (v: unknown): { tr: string; en: string } => {
+  const o = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  return { tr: str(o.tr) ?? "", en: str(o.en) ?? str(o.tr) ?? "" };
+};
+
+/** Parse a truth object defensively (unknown keys pass through the API schemas); null when absent. */
+export function truthOf(raw: unknown): RunTruth | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.verdict !== "string" || !VERDICTS.has(o.verdict)) return null;
+  const arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === "object") : []);
+  return {
+    verdict: o.verdict as RunTruth["verdict"],
+    placed: num(o.placed),
+    total: num(o.total),
+    unplaced: num(o.unplaced),
+    hard_score: num(o.hard_score),
+    broken: arr(o.broken).map((b) => ({
+      rule: str(b.rule) ?? "",
+      message: str(b.message) ?? "",
+      message_tr: str(b.message_tr),
+      request_ids: Array.isArray(b.request_ids) ? b.request_ids.map(Number).filter(Number.isFinite) : [],
+      explained: b.explained === true,
+      reason: str(b.reason),
+      by_name: str(b.by_name),
+      at: str(b.at),
+    })),
+    broken_count: num(o.broken_count) ?? arr(o.broken).length,
+    exceptions: arr(o.exceptions).map((x) => ({ cause: str(x.cause) ?? "", classes: num(x.classes) ?? 0, findings: num(x.findings) ?? 0, rule: x.rule === true, label: text2(x.label) })),
+    exceptions_total: num(o.exceptions_total) ?? 0,
+    unplaced_list: arr(o.unplaced_list).map((u) => ({
+      id: num(u.id) ?? 0,
+      label: str(u.label) ?? `#${num(u.id) ?? ""}`,
+      request_ids: Array.isArray(u.request_ids) ? u.request_ids.map(Number).filter(Number.isFinite) : [],
+      weeks: Array.isArray(u.weeks) ? u.weeks.map(Number).filter(Number.isFinite) : null,
+    })),
+    unplaced_count: num(o.unplaced_count) ?? (Array.isArray(o.unplaced_list) ? arr(o.unplaced_list).length : null),
+    headline: text2(o.headline),
+  };
+}
+
+/** The report's one problem count (round-2 T-R2-26, R2-M-04): the hard rules broken plus the accepted exceptions
+ * the headline names - never the data-issues route's count next to the headline's. */
+export function problemCount(truth: RunTruth): number {
+  return truth.broken_count + truth.exceptions_total;
+}
+
+/** A broken rule's sentence in the UI language (round-2 T-R2-30, R2-M-18): the Turkish one when the backend sent it. */
+export function brokenText(b: { message: string; message_tr?: string | null }, tr: boolean): string {
+  return tr ? (b.message_tr ?? b.message) : b.message;
+}
+
+/** The run's truth: the summary's (fresh) wins over the stored one. */
+export function runTruth(stats: Record<string, unknown> | null | undefined, summary?: Record<string, unknown> | null): RunTruth | null {
+  return truthOf(summary?.truth) ?? truthOf(stats?.truth);
+}
+
+/** Planner names of the planner-level rules (`planner_check`). */
+export const BROKEN_RULE_TR: Record<string, string> = {
+  room_double_booking: "derslik çakışması",
+  capacity: "kapasite",
+  tags: "derslik özelliği (PC / TIP)",
+  blocked: "dolu derslik",
+  cohort: "sınıf çakışması",
+  instructor: "öğretim elemanı çakışması",
+  weeks: "dersin haftaları",
+  time: "istenen gün / saat",
+  locked_room: "planlayıcının kilitli dersliği",
+  policy_lock_dropped: "kilitli dersin yerleşmesi",
+};
+
+/* ------------------------------------------------------------------ how a run ended (round-1 R1-M-15, T-R1-48) */
+
+export type RunOutcome =
+  | { kind: "active" }
+  /** stopped by a planner before it finished: no timetable, no scores, no problem list, nothing to publish */
+  | { kind: "cancelled"; by: string | null; at: string | null }
+  /** ERROR / FAILED / INFEASIBLE: no timetable, the diagnosis explains why */
+  | { kind: "failed" }
+  | { kind: "finished" };
+
+/** The backend writes `error = "cancelled by <email>"` and `finished_at` when a run is cancelled (api/v1/runs `_cancel`). */
+export function runOutcome(r: { status: string; error?: string | null; finished_at?: string | null }): RunOutcome {
+  if (r.status === "QUEUED" || r.status === "RUNNING") return { kind: "active" };
+  if (r.status === "CANCELLED") {
+    const m = /^cancelled by (.+)$/i.exec((r.error ?? "").trim());
+    const by = m?.[1]?.trim() ?? null;
+    return { kind: "cancelled", by: by && by !== "a planner" ? by : null, at: r.finished_at ?? null };
+  }
+  if (r.status === "ERROR" || r.status === "FAILED" || r.status === "INFEASIBLE") return { kind: "failed" };
+  return { kind: "finished" };
+}

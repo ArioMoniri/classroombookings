@@ -1,0 +1,23 @@
+{
+  "runs": [
+    {
+      "where": "local",
+      "branch": "claude/gracious-cerf-w1598m",
+      "commit": "5d0e6c2",
+      "date": "2026-10-15",
+      "source": "the devops agent's run of every pod gate (docs/ROADMAP.md, 'Devops agent finished')",
+      "gates": {
+        "prepare": {"result": "success"},
+        "validate": {"result": "success"},
+        "backend": {"result": "failure", "note": "a lint failure stopped it before pytest; formatted locally 1197 passed"},
+        "infra": {"result": "success"},
+        "frontend": {"result": "success", "note": "378 tests"},
+        "e2e-real": {"result": "failure", "note": "forced; 72 passed, 1 failed (studio mapping-step)"},
+        "parity": {"result": "success", "note": "forced; PASS 179 / GAP 13 / FAIL 0"},
+        "planner": {"result": "success", "note": "forced; 0 violations on all 4"},
+        "images": {"result": "error", "note": "did not finish: disk, needs 8 GB free"},
+        "deploy": {"result": "success", "note": "deploy smoke OK"}
+      }
+    }
+  ]
+}

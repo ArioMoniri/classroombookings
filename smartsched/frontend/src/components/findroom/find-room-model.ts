@@ -3,7 +3,8 @@
  * of a result. Pure functions (no React), unit-tested in find-room-model.test.ts.
  */
 import type { Grid, GridSlot } from "@/lib/api/crbs";
-import type { FeatureFilter, FindQuery, FindRow } from "@/lib/api/wave1";
+import type { EffectiveQuery } from "@/lib/api/booking-policies";
+import type { ApprovalRequest, FeatureFilter, FindAlternative, FindQuery, FindRow } from "@/lib/api/wave1";
 import { isSelectable } from "@/components/bookings/grid-model";
 
 export type WhenMode = "date" | "weekday" | "range";
@@ -38,7 +39,20 @@ export interface FindForm {
   otherDays: boolean;
 }
 
+/** "18.02.2026" / "18/2/2026" / "18-02-2026" (GG.AA.YYYY, as the backend now accepts too) or ISO → ISO; else null. */
+export function isoDate(text: string | null | undefined): string | null {
+  const v = (text ?? "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const m = /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/.exec(v);
+  if (!m) return null;
+  const [d, mo, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 export function emptyForm(today: string): FindForm {
+  today = isoDate(today) ?? today;
   return {
     when: "date",
     date: today,
@@ -106,8 +120,9 @@ export type FormError = "date" | "weeks" | "range" | "start" | "end" | "order" |
 export function buildQuery(f: FindForm, termId?: number, kinds: Readonly<Record<string, string>> = {}): { query: FindQuery } | { error: FormError } {
   const q: FindQuery = { start: "", term_id: termId };
   if (f.when === "date") {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) return { error: "date" };
-    q.date = f.date;
+    const date = isoDate(f.date);
+    if (!date) return { error: "date" };
+    q.date = date;
   } else if (f.when === "weekday") {
     const weeks = parseWeeks(f.weeks);
     if (weeks === null) return { error: "weeks" };
@@ -161,8 +176,9 @@ export function formFromRecent(body: Record<string, unknown>, base: FindForm): F
   const str = (k: string) => (typeof body[k] === "string" ? (body[k] as string) : undefined);
   const num = (k: string) => (typeof body[k] === "number" ? (body[k] as number) : undefined);
   const arr = (k: string) => (Array.isArray(body[k]) ? (body[k] as unknown[]) : []);
-  if (str("date")) Object.assign(f, { when: "date", date: str("date") });
-  else if (arr("dates").length) Object.assign(f, { when: "date", date: String(arr("dates")[0]) });
+  const day = (v: unknown) => isoDate(String(v)) ?? String(v);
+  if (str("date")) Object.assign(f, { when: "date", date: day(str("date")) });
+  else if (arr("dates").length) Object.assign(f, { when: "date", date: day(arr("dates")[0]) });
   else if (num("weekday")) Object.assign(f, { when: "weekday", weekday: num("weekday"), weeks: compactWeeks(arr("weeks").map(Number)) });
   else if (str("date_from")) Object.assign(f, { when: "range", dateFrom: str("date_from"), dateTo: str("date_to") ?? str("date_from"), weekdays: arr("weekdays").map(Number) });
   const start = body.start;
@@ -262,6 +278,26 @@ export function reserveSpan(slots: GridSlot[]): GridSlot[] | null {
   return run.length ? run : null;
 }
 
+/**
+ * T-R2-14 (R2-S-01): what "Rezerve et" on a result card opens. The card promised the whole window, so every period
+ * of it must still be reservable; a window that lost a period meanwhile (the admin booked P11 after the search) is
+ * refused as stale (`null`: the caller toasts "Bu derslik az önce doldu" and refreshes) instead of silently opening
+ * the sheet for the periods left.
+ */
+export function wholeSpan(slots: GridSlot[]): GridSlot[] | null {
+  return slots.length && slots.every(isSelectable) ? slots : null;
+}
+
+/**
+ * The building chip: a bare "A" and the setup's own "A Blok" both read "A Blok" in Turkish and "Block A" in English
+ * (T-R2-16, R2-A-08: the chips kept the Turkish word in the English UI; persona U-10: never "A Blok Blok"). A longer
+ * name ("Merkez Bina") is shown as it is.
+ */
+export function buildingLabel(b: string, t: (key: "wave1.find.building", values: { b: string }) => string): string {
+  const code = /^\s*([^\s]{1,3})\s+(blok|bloğu|block|building)\s*$/i.exec(b)?.[1] ?? (b.trim().length <= 3 ? b.trim() : null);
+  return code ? t("wave1.find.building", { b: code }) : b;
+}
+
 /** The first date a result is free on (multi-date searches report per date). */
 export function firstFreeDate(row: Pick<FindRow, "per_date">, slots: { date: string }[]): string | null {
   const free = row.per_date?.find((d) => d.status === "free" || d.status === "requestable");
@@ -269,5 +305,41 @@ export function firstFreeDate(row: Pick<FindRow, "per_date">, slots: { date: str
   return slots[0]?.date ?? null;
 }
 
+/**
+ * "Neden?" for a result: `GET /booking-policies/effective` on the date the backend named the result's booking periods
+ * for (its first free date in a multi-date search, else the first searched date) with `period_id`, so the popover
+ * shows the full verdict; without a `period_id` (no bookable period in the slot) it lists the rules only.
+ */
+export function whyQuery(row: Pick<FindRow, "room_id" | "per_date" | "period_id">, slots: { date: string }[], termId?: number): EffectiveQuery {
+  const date = row.per_date?.find((d) => d.status === "free")?.date ?? slots[0]?.date ?? null;
+  return { room_id: row.room_id, date, period_id: date ? (row.period_id ?? null) : null, term_id: termId };
+}
+
+/** The same for an alternative: its first date and its own `period_id`. */
+export function altWhyQuery(alt: Pick<FindAlternative, "room_id" | "dates" | "date" | "period_id">, termId?: number): EffectiveQuery {
+  const date = alt.dates[0] ?? alt.date ?? null;
+  return { room_id: alt.room_id, date, period_id: date ? (alt.period_id ?? null) : null, term_id: termId };
+}
+
 /** Statuses a person can act on (book directly or send a request). */
 export const ACTIONABLE = new Set(["free", "requestable", "partial"]);
+/** shown with the free rooms although not bookable: the caller's own open request (T-R1-14, "Talebiniz bekliyor") */
+export const SHOWN = new Set([...ACTIONABLE, "mine_pending"]);
+
+/**
+ * T-R1-14: the caller's own request behind a `mine_pending` row (or a grid slot): the request whose booking is in
+ * that room on one of the dates and overlaps the periods. `null` while /approvals/mine has not answered.
+ */
+export function ownRequestFor(room: number, dates: readonly string[], start: number, end: number, requests: readonly Pick<ApprovalRequest, "id" | "status" | "bookings">[]): number | null {
+  const want = new Set(dates);
+  const hit = requests.find((r) => r.status === "PENDING" && r.bookings.some((b) => b.room_id === room && want.has(b.date) && b.start_period <= end && start <= b.end_period));
+  return hit?.id ?? null;
+}
+
+/**
+ * T-R1-14 (R1-A-07): a near miss that lacks the one feature asked for (its English reason says "missing: …",
+ * find_room.py `_alternatives`); the page folds those away instead of listing twenty "nearly fits".
+ */
+export function isFeatureMiss(a: Pick<FindAlternative, "kind" | "reason">): boolean {
+  return a.kind === "near_miss" && /;\s*missing:/.test(a.reason?.en ?? "");
+}

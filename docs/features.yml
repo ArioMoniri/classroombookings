@@ -1,0 +1,353 @@
+# SmartSched feature registry: the source of the "What is built" tables (docs/STATUS.md, README.md).
+# scripts/docs/sync_docs.py renders it; edit this file, not the generated tables, then run
+#   python3 -I scripts/docs/sync_docs.py
+# When an agent finishes a feature it updates its row here (status + evidence); docs/ROADMAP.md stays the
+# detailed log. Seeded 2026-10-15 from the README "What is built" table and docs/ROADMAP.md.
+#
+# Format (a YAML subset the generator reads without PyYAML): one "- feature:" item per feature, each key on its
+# own line, values in double quotes when they contain ": " or start with a YAML symbol.
+#   feature   what a user gets, one sentence
+#   area      planning | intake | bookings | identity | languages | platform
+#   status    done (code, tests and a screen) | backend-only (API + tests, no screen yet) |
+#             in-progress (an agent is building it now) | planned
+#   phase     the roadmap phase or ticket
+#   evidence  a repo path that proves it (a test, an e2e spec, a module); must exist
+#   note      optional, one short clause
+
+- feature: "Import of planning lists, exam lists, weekly room grids, a room master CSV and the CRBS database, each with an import report"
+  area: planning
+  status: done
+  phase: "1"
+  evidence: smartsched/backend/app/importers
+- feature: "Rules from settings, templates, the workbooks and, with an API key, sentences; AI rules need a person's approval"
+  area: planning
+  status: done
+  phase: "3, 8"
+  evidence: smartsched/backend/app/ai
+- feature: "Generator Studio: scope, classes, rules, pre-check with fixes, generate"
+  area: planning
+  status: done
+  phase: "8"
+  evidence: smartsched/frontend/e2e/studio-calendar-sweep.spec.ts
+- feature: "CP-SAT solver for a week, a month, the whole term or the exam period; partial runs; every unplaced class explained"
+  area: planning
+  status: done
+  phase: "2, 9"
+  evidence: smartsched/backend/app/solver
+- feature: "Planner-level validator: stored runs re-checked against the raw workbook rows"
+  area: planning
+  status: done
+  phase: "9"
+  evidence: smartsched/backend/tools/validate_planner.py
+  note: "runs in pod CI (planner gate)"
+- feature: "Calendar with six views and an inspector; move with a server check, then undo"
+  area: planning
+  status: done
+  phase: "4, 10"
+  evidence: smartsched/frontend/e2e/calendar.spec.ts
+- feature: "Publish button with a scope confirmation; the publish guard refuses failed runs and keeps one active run per term"
+  area: planning
+  status: done
+  phase: "P19-01, M-03"
+  evidence: smartsched/frontend/e2e/studio-calendar-sweep.spec.ts
+- feature: "Exports to Excel, CSV and iCal"
+  area: planning
+  status: done
+  phase: "1"
+  evidence: smartsched/backend/app/services
+- feature: "Relaxation policy when not every class fits: lock_first (default) or most_classes_first, per run or per term"
+  area: planning
+  status: done
+  phase: "19"
+  evidence: smartsched/frontend/src/components/runs/relaxation.test.tsx
+  note: "per run in the run report's Re-solve dialog and the studio Generate form, per term in Ayarlar › Çözücü (GET/PUT /terms/{id}/relaxation-policy)"
+- feature: "Moderation tab: per class, person and request, with priority changes and a minimal-change re-solve with its diff"
+  area: planning
+  status: done
+  phase: "P19 M1-M3, F1"
+  evidence: smartsched/frontend/e2e/followup.phase19.spec.ts
+  note: "person and programme priority, server changes list, diff baseline + chain, publish notices"
+- feature: "Academicians add their own room, building or time wishes for their classes; coordinators accept or reject them with a reason, never applied by themselves"
+  area: planning
+  status: done
+  phase: "P19-T2"
+  evidence: smartsched/frontend/e2e/followups-ui.spec.ts
+  note: "Tercih ekle sheet + Tercihlerim on /moderation/me, Tercihler › Akademisyen tercihleri, badges on Kişiler / Eşleşmeler; soft rule ranked after the department's ask"
+- feature: "Learned suggestions from earlier terms, with a resettable memory (per person, per term or all)"
+  area: planning
+  status: done
+  phase: "P19 L1-L4, F2"
+  evidence: smartsched/frontend/e2e/followup.phase19.spec.ts
+  note: "accept for the term or persistent (admin, confirmed), undo of any decision; never auto-applied"
+- feature: "Programmes from scratch: faculties, programmes, courses, sections and meetings, with the weekly-pattern expander"
+  area: planning
+  status: done
+  phase: "P19 C1-C4, F3"
+  evidence: smartsched/frontend/e2e/followup.phase19.spec.ts
+  note: "server drafts with autosave, per-step validation, pre-check, one-transaction commit and a 30-day undo"
+- feature: "Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment"
+  area: planning
+  status: done
+  phase: "backlog"
+  evidence: smartsched/frontend/e2e/analytics.spec.ts
+  note: "/runs/compare (also from the runs list), /analytics/heatmap (rooms + instructor load, live board or one run), /exams/invigilation (pool, plans, lock / reassign, re-run, publish, roster CSV); backend tests/test_invigilation_api.py"
+
+- feature: "Structured intake through the Ingestion Council: xlsx, xls, ods, csv, tsv, json, xml and ics, read without AI, with a dry-run diff"
+  area: intake
+  status: done
+  phase: "P19 I1-I5"
+  evidence: smartsched/frontend/e2e/intake.spec.ts
+  note: "readers, limits, dry-run API, the onboarding stepper with Fark keep / take; e2e on the real Bahar planning list and board"
+- feature: "AI-assisted intake of pdf, docx, txt, eml and images; every extracted row needs a coordinator's review; off by default"
+  area: intake
+  status: done
+  phase: "P19 A1-A4"
+  evidence: smartsched/frontend/src/components/onboarding/rows-panel.tsx
+  note: "review screen: bulk accept at most 50 with confirm, low-confidence rows one at a time; needs an AI key (off by default), so the e2e AI path is skipped without one"
+- feature: "Schedule map to a baseline import run, so a re-solve keeps the published board"
+  area: intake
+  status: done
+  phase: "P19 I5"
+  evidence: smartsched/frontend/e2e/intake.spec.ts
+  note: "Fark reads the dry run's baseline_run (run and counts), Kaydet can skip the map or write it into another run, the run report lists its source files and re-solves keeping it"
+- feature: "Intake memory: confirmed column mappings and lexicon additions remembered per file signature"
+  area: intake
+  status: done
+  phase: "P19"
+  evidence: smartsched/frontend/e2e/intake.spec.ts
+  note: "remembered decisions show in İnceleme; Hatırlanan kararlar (onboarding, Ayarlar › Öğrenme) lists them by signature (GET /council/memory) and forgets one or a signature as an undoable reset (tests/council/test_intake_memory_api.py)"
+
+- feature: "Booking grid by day or by room; single, recurring and multi bookings, limits, holidays, timetable weeks; the published timetable blocks its slots"
+  area: bookings
+  status: done
+  phase: "11"
+  evidence: smartsched/frontend/e2e/bookings.spec.ts
+- feature: "Reservation panel: click a free slot, drag to book several periods, reasons on cells you cannot book, a Free slots list, a department view, room details with other free rooms"
+  area: bookings
+  status: done
+  phase: "11, 17"
+  evidence: smartsched/frontend/e2e/reserve.spec.ts
+- feature: "Calendar sync: private ICS feed links (my bookings, a room, a department) with Google / Outlook / Apple buttons; room feeds carry the published classes"
+  area: bookings
+  status: done
+  phase: "17"
+  evidence: smartsched/backend/tests/test_a14_class_feeds.py
+- feature: "Typed room features and find-a-room with ranked results and reasons"
+  area: bookings
+  status: done
+  phase: "17 (P10, T1)"
+  evidence: smartsched/frontend/e2e/wave1.spec.ts
+- feature: "Approvals by designated approvers: rules per room, room group or room type, PENDING requests, an inbox, a sweeper"
+  area: bookings
+  status: done
+  phase: "17 (P1)"
+  evidence: smartsched/frontend/e2e/wave1.spec.ts
+- feature: "Append-only audit log with a viewer, CSV export and undo of booking create, series create, move and cancel"
+  area: bookings
+  status: done
+  phase: "17 (P7)"
+  evidence: smartsched/frontend/e2e/wave1.spec.ts
+- feature: "In-app notifications (bell) next to the e-mail outbox"
+  area: bookings
+  status: done
+  phase: "17"
+  evidence: smartsched/frontend/e2e/wave1.spec.ts
+- feature: "Approval-first bookings: every request can go to an admin first; a rejection needs a reason; per-user notification preferences"
+  area: bookings
+  status: done
+  phase: "owner request 2026-10-15"
+  evidence: smartsched/frontend/e2e/approval-first.spec.ts
+  note: "UI 2026-10-16: approval mode, reject dialog (code + text), group decide, Taleplerim reasons + withdraw, Profile › Bildirimler; e2e 8/8 on a real backend incl. phone 390"
+- feature: "Organisation switch for calendar sync with a dated KVKK sign-off; off turns every feed link into a 404"
+  area: bookings
+  status: done
+  phase: "M-18"
+  evidence: smartsched/frontend/e2e/approval-first.spec.ts
+  note: "Ayarlar › Entegrasyonlar: acknowledgement first, the sign-off record (who, when, legal basis) stays visible (M-40)"
+- feature: "Google Calendar and Microsoft 365 push, once an administrator enters the organisation's OAuth client"
+  area: bookings
+  status: done
+  phase: "17"
+  evidence: smartsched/frontend/src/components/settings/calendar-push-admin.test.tsx
+  note: "Ayarlar › Entegrasyonlar OAuth client card (write-only secret, redirect URI) + Profil › Takvim aktarımı; mocked provider APIs, no live tenant yet"
+- feature: "Signed outgoing webhooks (HMAC-SHA256) with an SSRF guard, off by default"
+  area: bookings
+  status: done
+  phase: "17"
+  evidence: smartsched/frontend/e2e/approval-first.spec.ts
+  note: "Ayarlar › Entegrasyonlar › Giden webhook'lar: delivery switch, SSRF refusal next to the URL, secret shown once"
+- feature: "CRBS legacy upgrade: import a running classroombookings database with a dry-run report"
+  area: bookings
+  status: done
+  phase: "P18-LEGACY"
+  evidence: smartsched/frontend/e2e/shell-admin-sweep.spec.ts
+  note: "import-wizard dry run + fingerprint confirm; live MySQL run on the pod open"
+- feature: "CRBS superset gate: every classroombookings behaviour and screen has an acceptance test"
+  area: bookings
+  status: done
+  phase: "18"
+  evidence: scripts/parity_check.py
+  note: "runs in pod CI (parity gate)"
+- feature: "Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows"
+  area: bookings
+  status: done
+  phase: "17 (P2, P8, V2, A4)"
+  evidence: smartsched/frontend/e2e/wave2.spec.ts
+  note: "UI 2026-10-16: /bookings/conflicts/[run] resolver (banner, ranked options, scope, auto -> dry-run review -> apply, 409 problems in their row); Ayarlar › Rezervasyon kuralları + exam period, 'Neden?' in grid / book sheet / find-room; /public kiosk (rooms, buildings, 60 s refresh) with the KVKK sign-off card; Profil › Gizlilik + first-login notice sheet; Yönetim › KVKK (requests, notice, retention, inventory CSV); e2e 5/5 on a real backend incl. phone 390; backend tests/test_wave2_*.py"
+
+- feature: "No privilege escalation: nobody grants or edits a role whose permissions they do not all hold"
+  area: identity
+  status: done
+  phase: "11"
+  evidence: smartsched/backend/tests/test_crbs_fixes_org.py
+- feature: "Sign-out, a password change, disabling an account and a role change revoke the user's tokens on every device"
+  area: identity
+  status: done
+  phase: "18 (B-AUTH-11)"
+  evidence: smartsched/backend/alembic/versions/0006_token_version.py
+- feature: "Microsoft Entra ID sign-in pinned to the university tenant, with invites and a break-glass local admin"
+  area: identity
+  status: done
+  phase: "owner decision 2026-10-15"
+  evidence: smartsched/frontend/e2e/sign-in.spec.ts
+  note: "sign-in per docs/design/v2/sign-in.md, Users invites/bind, Settings › Microsoft ile giriş; the real-tenant round trip needs IT"
+- feature: "Notification channels through Apprise (push, Telegram, WhatsApp/SMS, Teams/Slack); users only link an address"
+  area: identity
+  status: done
+  phase: "owner decision 2026-10-15"
+  evidence: smartsched/frontend/e2e/channels.spec.ts
+  note: "Settings › Bildirim kanalları and Profile › Bağlı kanallar; each channel off until an admin signs off KVKK; real providers untested"
+
+- feature: "Turkish and English interface; other stored language codes are kept and shown in English"
+  area: languages
+  status: done
+  phase: "P18-LANG (owner decision 2026-10-15)"
+  evidence: smartsched/frontend/e2e/languages.spec.ts
+  note: "new writes accept only tr/en; deliberate difference recorded in CRBS_PARITY §6.13"
+
+- feature: "One-command Docker deploy (PostgreSQL, FastAPI, Next.js, nginx; optional TLS edge and legacy CRBS)"
+  area: platform
+  status: done
+  phase: "5"
+  evidence: smartsched/deploy/deploy.sh
+- feature: "Pod CI on a single AWS node: every gate in Docker for each new commit, then deploy; idle auto-stop and a budget cap"
+  area: platform
+  status: done
+  phase: "13"
+  evidence: smartsched/deploy/pod-ci/podci/gates.py
+- feature: "Seed profiles (institution or empty) and per-branch AWS pods"
+  area: platform
+  status: done
+  phase: "13"
+  evidence: smartsched/deploy/seed
+- feature: "Docs that update themselves: generated blocks from the sources of truth, checked in pod CI"
+  area: platform
+  status: done
+  phase: "owner request 2026-10-15"
+  evidence: scripts/docs/sync_docs.py
+- feature: "Design-system overhaul from the UI/UX review (sizing, controls, columns, de-AI changes)"
+  area: platform
+  status: done
+  phase: "owner feedback 2026-10-15"
+  evidence: smartsched/frontend/e2e/visual-quality.spec.ts
+  note: "tokens, primitives, DataTable columns and the check:design gate; migrating the older screens is in progress"
+- feature: "README recordings and a real screenshot gallery for the current UI"
+  area: platform
+  status: in-progress
+  phase: "16"
+  evidence: scripts/record
+- feature: "Mobile optimisation of every screen (390 and 768 px)"
+  area: platform
+  status: done
+  phase: "owner instruction 2026-10-15"
+  note: "390 px touch probe over 42 routes: 519 → 22 offenders; phone day views for dense grids; dialogs and sheets as bottom sheets"
+- feature: "PostgreSQL row-level security on per-person tables (notifications, consents, DSR, feed tokens, AI usage, teacher wishes, bookings, approvals)"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-SEC)"
+  evidence: smartsched/backend/tests/test_w3_sec_rls_postgres.py
+  note: "alembic 0035_rls_policies + app/core/rls.py; 44 existing API tests re-run green on PostgreSQL with RLS on (tests/test_w3_sec_rls_postgres_api.py)"
+- feature: "Security hardening: rate limits (login, reset, SSO, password change, AI, uploads), body-size fence, CSP / HSTS / frame / permissions headers, CSRF fence, security.txt, CSV formula escaping"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-SEC)"
+  evidence: smartsched/backend/tests/test_w3_sec_hardening.py
+  note: "docs/SECURITY.md; checked through nginx 1.24 with Playwright at 1440 and 390 px"
+- feature: "Operations panel /admin/ops: service status cards (API, DB, queues, mail, disk, errors, Grafana / Prometheus / Loki, pod CI, last deploy), firing alerts, request/latency mini chart, Grafana links + same-origin panels, Loki log tail"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-OPS)"
+  evidence: smartsched/frontend/e2e/w3-ops.spec.ts
+  note: "app/api/v1/ops.py, components/admin/ops/**; checked at 1440 and 390 touch (M-01/M-02/M-03) on a stack with the observability profile running"
+- feature: "Grouped error tracking: backend exceptions / 5xx, ERROR log records with a traceback and browser errors (window.onerror, unhandled rejections, error boundaries) as PII-scrubbed groups with new / acknowledged / resolved / ignored, 90-day retention, optional Sentry"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-OPS)"
+  evidence: smartsched/backend/tests/test_w3_ops_observability.py
+  note: "alembic 0036_error_events; POST /api/v1/ops/errors rate limited, <= 8 KB"
+- feature: "Prometheus metrics (/metrics, multiprocess-safe; routes by template, DB pool, queues, outbox, bookings, approvals, login failures, AI calls hook, guard refusals, TLS expiry) + observability compose profile (Prometheus, Loki, Alloy, Grafana with 6 Turkish-first dashboards, 15 alert rules) behind the admin session at /grafana/"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-OPS)"
+  evidence: smartsched/deploy/observability/README.md
+  note: "768 MiB of caps, ~0.37-0.49 GB measured; /grafana/ needs the nginx snippet pasted by W3-SEC (observability/nginx/grafana.locations); alerts reach admins as ops.alert through the dispatcher (app/services/ops_alerts.py); deploy/backup.sh feeds the backup-age alert"
+- feature: "AI provider gateway chosen by admins: Anthropic (default), OpenAI, Azure OpenAI, OpenRouter, any OpenAI-compatible base URL (Ollama / vLLM), Google Gemini, AWS Bedrock and Vertex AI (Claude); keys write-only and encrypted, models synced from each provider's API, a test call, one provider + model + effort + fallback per AI feature with a global default"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-AI)"
+  evidence: smartsched/backend/tests/ai/test_w3_ai_providers.py
+  note: "app/ai/providers/**, app/ai/gateway.py, app/ai/pipeline.py; /admin/ai Sağlayıcılar + Modeller; without any key nothing changes (Anthropic + anthropic_model)"
+- feature: "AI usage metering per user (feature, provider, model, input / output / cache tokens, estimated cost from a versioned price table, latency, outcome, reason, prompt hash + length, never the text) with org monthly budget, per-user daily / monthly limits (default, per role, per person), reservation before the call, 80 % alerts (bell + e-mail) and a user banner, hard limit refused in Turkish"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-AI)"
+  evidence: smartsched/backend/tests/ai/test_w3_ai_gateway.py
+  note: "alembic 0034_ai_usage, app/services/ai_usage.py; /admin/ai Kullanım + Limitler; Profil › Yapay zekâ kullanımım; audited top-ups"
+- feature: "AI guardrails: deterministic scope classifier (code, translation, essays, general questions), prompt-injection detection in typed text and uploads (TR + EN: override, role-play, system-prompt / key exfiltration, tool-call smuggling, encoded payloads), spotlighting preamble, output check (offered tools, schema, no links / code), per-feature caps, per-user rate and concurrency limits, KVKK transfer basis per provider; refusals logged with a reason and visible to admins; red-team self-test"
+  area: platform
+  status: done
+  phase: "wave 3 (W3-AI)"
+  evidence: smartsched/backend/tests/ai/test_w3_ai_guardrails.py
+  note: "app/ai/guardrails.py, app/ai/redteam_guard_cases.json (44 cases); /admin/ai Koruma with a dry-run test bench"
+- feature: "Guided SMTP setup shared by every admin: 12 provider presets (Google app password / OAuth2 / relay, Microsoft 365 OAuth2 XOAUTH2, Amazon SES, SendGrid, Mailgun, Postmark, Brevo, Resend, Yandex 360, campus server) with console steps and copy values, write-only encrypted secrets, KVKK md. 9 acknowledgement for providers abroad, SPF / DKIM / DMARC check with Turkish guidance, test e-mail with an SMTP transcript excerpt and Turkish error hints, 'Son değişiklik', send the mail that waited"
+  area: platform
+  status: done
+  phase: "wave 3b (W3-MAIL)"
+  evidence: smartsched/backend/tests/test_w3b_mail_smtp.py
+  note: "app/services/mail*.py, app/api/v1/mail_admin.py (/api/v1/mail/*), components/admin/email/smtp-wizard.tsx; DNS tests tests/test_w3b_mail_dns.py (fake resolver); docs/deploy/email.md"
+- feature: "Themed HTML + plain-text e-mails for every message (25 kinds, TR + EN): one renderer app.emails.render(kind, locale, **ctx) -> (subject, html, text), table layout, 600 px, dark-mode safe, bulletproof VML button, preheader, CID logo, escaped values, variants per provider / reason / state; admin subject and intro overrides per kind and language with live desktop / phone preview and test send"
+  area: platform
+  status: done
+  phase: "wave 3b (W3-MAIL)"
+  evidence: smartsched/backend/tests/test_w3b_mail_render.py
+  note: "design docs/design/v3/emails.md; wired paths keep recipients and plain text (tests/test_w3b_mail_wiring.py); alembic 0038_email_templates (outbox link + locale); components/admin/email/email-templates.tsx; EmailSettingsPanel for /admin/integrations"
+- feature: "Slot display set by administrators (Ayarlar › Ders saatleri, also /bookings › Görünüm): period rows or time blocks (15/30/60 min drawn onto the periods), label period / time / both (schedule name or ordinal, start or range), density compact / standard / comfortable, first / last visible period, hide short slots and the weekend, default view for desktop and phone, quick-reserve lengths; live preview with the real grid, list and chips; every booking surface reads one useSlotDisplay()"
+  area: bookings
+  status: done
+  phase: "wave 3 (W3-SLOT)"
+  evidence: smartsched/frontend/e2e/w3-slot.spec.ts
+  note: "booking.slot_display.* settings (key/value, admin write via PUT /settings, sanitised read in GET /bookings/context slot_display + GET /bookings/slot-display); tests test_w3_slot_display.py, slot-display.test.ts, w3-slot-grid.test.tsx, settings/slot-display.test.tsx; find-room and the public kiosk do not read it yet (asks)"
+- feature: "Quick reservation /reserve (Hızlı rezervasyon): day chips, a slot in the admin's unit, an optional length, how many people and feature chips, a short ranked list of free rooms (own waiting request marked), one primary that says Rezerve et or Talep et, a receipt with the real undo (POST /audit/{id}/undo) or Talebi geri çek; 2 taps for the next free slot, keyboard and screen-reader complete, one thumb at 390"
+  area: bookings
+  status: done
+  phase: "wave 3 (W3-SLOT)"
+  evidence: smartsched/frontend/e2e/w3-slot.spec.ts
+  note: "POST /bookings and multi create now return audit_event_id (test_w3_slot_undo.py); first sidebar entry and first action on /bookings; the phone tab bar entry is an ask (tab-bar.tsx / admin nav-items.ts)"
+- feature: "Integrations gallery (Yönetim › Entegrasyonlar, /admin/integrations): organisation-wide connector cards for identity, e-mail, calendar, channels, webhooks / automation and AI with status words, last check, last change (who, when), Kur / Yönet, a Kullanımda switch through each area's own endpoint, Dikkat isteyen row, search, deep links, phone rows and a setup sheet embedding each area's panel"
+  area: platform
+  status: done
+  phase: "wave 3b (W3-HUB)"
+  evidence: smartsched/frontend/e2e/w3-hub.spec.ts
+  note: "GET /api/v1/integrations/status (app/api/v1/integrations.py; contract integration_status(session) per area); vitest components/admin/integrations/*.test.ts*; tests/test_w3b_hub_integrations.py"
+- feature: "Guided n8n / Activepieces / Pipedream / Zapier webhook setup: platform steps, paste the trigger URL, signing secret shown once with copy, headers and an HMAC-SHA256 check snippet per platform, test event with the delivery result"
+  area: platform
+  status: done
+  phase: "wave 3b (W3-HUB)"
+  evidence: smartsched/frontend/src/components/admin/integrations/integrations-gallery.test.tsx
+  note: "uses the existing /webhooks API; e2e w3-hub test 1 on the real backend"
+- feature: "Integration bell events integration.error and integration.secret_expiring to administrators through the dispatcher (once per occurrence)"
+  area: platform
+  status: in-progress
+  phase: "wave 3b (W3-HUB)"
+  evidence: smartsched/backend/tests/test_w3b_hub_integrations.py
+  note: "relay in app/api/v1/integrations.py; waits for notify_dispatch.EVENTS entries and start_alert_relay() at startup (integrator)"

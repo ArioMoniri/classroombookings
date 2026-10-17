@@ -1,0 +1,71 @@
+# Loki single binary, filesystem storage, 7 days retention (W3-OPS; docs: ../README.md).
+# Sized for one 8 GB pod: small embedded caches, GOMEMLIMIT from compose, one tenant (auth disabled: Loki is only
+# reachable on the compose network; Grafana and the backend's log tail query it there).
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+
+schema_config:
+  configs:
+    - from: "2026-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  retention_period: 168h
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  ingestion_rate_mb: 4
+  ingestion_burst_size_mb: 8
+  max_query_series: 500
+  volume_enabled: true
+  allow_structured_metadata: true
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+  compaction_interval: 30m
+
+ingester:
+  chunk_idle_period: 30m
+  chunk_target_size: 1048576
+  max_chunk_age: 2h
+
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 16
+
+chunk_store_config:
+  chunk_cache_config:
+    embedded_cache:
+      enabled: true
+      max_size_mb: 16
+
+pattern_ingester:
+  enabled: false
+
+analytics:
+  reporting_enabled: false

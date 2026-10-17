@@ -5,10 +5,11 @@
  * highlight, max active bookings); date patterns with a live preview; login message; maintenance mode;
  * languages and translation overrides; what's new.
  */
-import { ImageUp, Loader2, Plus, Trash2 } from "lucide-react";
+import { ImageUp, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,9 @@ import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, FieldRow, Loading, PageTitle, SectionTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
 import { WhatsNewPanel } from "./whats-new";
+import { BookingApprovalFields } from "@/components/settings/booking-approval";
+import { useUnsavedGuard } from "./use-unsaved-guard";
+import { focusAfter } from "@/components/bookings/focus-after";
 
 const KEYS = [["crbs", "org-settings"], ["crbs", "org-public"], ["crbs", "context"], ["crbs", "grid"], ["crbs", "roles"]];
 const TIMEZONES = ["Europe/Istanbul", "Europe/London", "Europe/Berlin", "UTC", "Asia/Baku", "Asia/Dubai", "America/New_York"];
@@ -61,6 +65,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
     [v.pattern_long, v.pattern_weekday, v.pattern_time, locale, defaults],
   );
   const dirty = Object.keys(d).length > 0;
+  useUnsavedGuard(dirty, t("crbs.org.leaveUnsaved"));
   const columnsFor = v.displaytype === "day" ? (["periods", "rooms"] as const) : (["periods", "days"] as const);
   // P18-LANG: Turkish and English are offered; legacy stored codes are listed, shown English and kept until
   // the administrator changes the list (only the changed fields are sent)
@@ -72,9 +77,10 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
     <div className="flex flex-col gap-8 pb-20">
       <PageTitle title={t("crbs.admin.settings.title")} subtitle={t("crbs.admin.settings.lead")} />
 
-      <section aria-labelledby="org-org">
+      {/* T-R1-12 (lane B2 ask): the save capsule unmounts after a save, so focus is moved here first, never to <body> */}
+      <section aria-labelledby="org-org" id="org-form-top" tabIndex={-1} className="outline-hidden" data-focus-fallback>
         <SectionTitle id="org-org">{t("crbs.org.organisation")}</SectionTitle>
-        <Card variant="glass" className="gap-0 px-4 py-1">
+        <Card className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.org.name")} htmlFor="org-name">
             <Input id="org-name" className="w-72" maxLength={255} value={v.name ?? ""} onChange={(e) => set("name", e.target.value)} data-testid="org-name" />
           </FieldRow>
@@ -84,13 +90,13 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
           <FieldRow label={t("crbs.org.logo")} hint={t("crbs.org.logoHint")} className="hairline-t">
             {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
             {logo ? <img src={logo} alt={t("crbs.org.logo")} className="h-10 max-w-40 rounded-md object-contain" /> : null}
-            <Button variant="outline" size="sm" render={<label />} nativeButton={false}>
+            <Button className="pointer-coarse:h-11" variant="outline" size="sm" render={<label />} nativeButton={false}>
               <ImageUp aria-hidden />
               {t("crbs.org.uploadLogo")}
               <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="sr-only" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0], { onSuccess: (r) => setLogo(r.logo_url ? `${r.logo_url}?v=${Date.now()}` : null), onError: toastError })} />
             </Button>
             {logo ? (
-              <Button variant="ghost" size="icon-sm" aria-label={t("crbs.org.removeLogo")} onClick={() => dropLogo.mutate(undefined, { onSuccess: () => setLogo(null), onError: toastError })}>
+              <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.org.removeLogo")} onClick={() => dropLogo.mutate(undefined, { onSuccess: () => setLogo(null), onError: toastError })}>
                 <Trash2 />
               </Button>
             ) : null}
@@ -109,7 +115,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
 
       <section aria-labelledby="org-grid">
         <SectionTitle id="org-grid">{t("crbs.org.bookings")}</SectionTitle>
-        <Card variant="glass" className="gap-0 px-4 py-1">
+        <Card className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.org.displaytype")} hint={t("crbs.org.displaytypeHint")} htmlFor="org-dt">
             <SelectField id="org-dt" className="w-56" value={v.displaytype} onChange={(e) => setD((p) => ({ ...p, displaytype: e.target.value as "day" | "room", d_columns: "periods" }))}>
               <option value="day">{t("crbs.toolbar.byDay")}</option>
@@ -150,12 +156,14 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
               onChange={(e) => setD((p) => (e.target.value === "" ? { ...p, max_active_bookings: null, max_active_bookings_unlimited: true } : { ...p, max_active_bookings: Number(e.target.value), max_active_bookings_unlimited: false }))}
             />
           </FieldRow>
+          {/* approval-first bookings (owner requirement 2026-10-15; F-01 S01, F-11 S07) */}
+          <BookingApprovalFields className="hairline-t" value={v.approval_mode ?? "rules"} onChange={(m) => set("approval_mode", m)} />
         </Card>
       </section>
 
       <section aria-labelledby="org-dates">
         <SectionTitle id="org-dates">{t("crbs.org.dates")}</SectionTitle>
-        <Card variant="glass" className="gap-0 px-4 py-1">
+        <Card className="gap-0 px-4 py-1">
           {(["pattern_long", "pattern_weekday", "pattern_time"] as const).map((k, i) => (
             <FieldRow key={k} label={t(`crbs.org.${k}`)} hint={t("crbs.org.patternPreview", { value: k === "pattern_time" ? preview.time("08:30") : k === "pattern_long" ? preview.long("2026-04-23") : preview.weekday("2026-04-23") })} htmlFor={`org-${k}`} className={i ? "hairline-t" : undefined}>
               <SelectField id={`org-${k}`} className="w-72" value={v[k] ?? ""} onChange={(e) => set(k, e.target.value)} disabled={!options.data} data-testid={`org-${k}`}>
@@ -179,7 +187,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
 
       <section aria-labelledby="org-login">
         <SectionTitle id="org-login">{t("crbs.org.loginAndMaintenance")}</SectionTitle>
-        <Card variant="glass" className="gap-0 px-4 py-1">
+        <Card className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.org.loginMessage")} hint={t("crbs.org.loginMessageHint")} htmlFor="org-lm">
             <Switch id="org-lm" checked={v.login_message_enabled} onCheckedChange={(x) => set("login_message_enabled", x)} />
           </FieldRow>
@@ -193,11 +201,11 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
 
       <section aria-labelledby="org-lang">
         <SectionTitle id="org-lang">{t("crbs.org.languages")}</SectionTitle>
-        <Card variant="glass" className="gap-0 px-4 py-1">
+        <Card className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.org.enabledLanguages")} hint={t("crbs.org.enabledLanguagesHint")}>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5" data-testid="org-languages">
               {LANGS.map((l) => (
-                <label key={l.code} lang={l.code} className="flex min-h-8 items-center gap-1.5 type-callout text-label-1">
+                <label key={l.code} lang={l.code} className="flex min-h-8 items-center gap-1.5 type-callout text-label-1 pointer-coarse:min-h-11">
                   <Checkbox
                     checked={enabled.includes(l.code)}
                     onCheckedChange={(x) => {
@@ -241,23 +249,33 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
       </section>
 
       {error ? <Alert tone="error">{error}</Alert> : null}
+      {/* phones: the capsule sits above the tab bar (--shell-bottom-h = bar + safe area, globals.css), not behind "Diğer" */}
       {dirty ? (
-        <div className="glass-chrome fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-4" role="region" aria-label={t("crbs.org.unsaved")}>
+        <div className="glass-chrome fixed bottom-[calc(var(--shell-bottom-h,0px)+max(1rem,env(safe-area-inset-bottom)))] left-1/2 z-30 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-4" role="region" aria-label={t("crbs.org.unsaved")} data-testid="org-unsaved">
           <span className="type-callout text-label-1">{t("crbs.org.unsaved")}</span>
-          <Button variant="ghost" size="sm" onClick={() => setD({})}>
+          <Button variant="ghost" size="sm" className="pointer-coarse:h-11" onClick={() => setD({})}>
             {t("crbs.common.cancel")}
           </Button>
           <Button
             size="sm"
+            className="pointer-coarse:h-11"
             disabled={save.isPending}
             data-testid="org-save"
             onClick={() => {
               setError(null);
-              save.mutate(undefined, { onSuccess: () => toast.success(t("crbs.common.saved")), onError: (e) => setError(bookingErrorMessage(crbsError(e), t)) });
+              // mutateAsync, not mutate's callbacks: the refetch after the save re-keys this form, and a remounted
+              // observer drops per-call callbacks (the save toast never showed; F-01 S01)
+              save.mutateAsync(undefined).then(
+                () => {
+                  toast.success(t("crbs.common.saved"));
+                  focusAfter(["#org-form-top"], 0); // the capsule (and this button) is gone once the form re-keys
+                },
+                (e: unknown) => setError(bookingErrorMessage(crbsError(e), t)),
+              );
             }}
-          >
-            {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("crbs.common.save")}
+           aria-busy={save.isPending || undefined}>
+            <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+            {t("crbs.common.save")}</BusyLabel>
           </Button>
         </div>
       ) : null}
@@ -294,16 +312,16 @@ function TranslationsEditor({ languages }: { languages: readonly Locale[] }) {
         {t("crbs.org.translations")}
       </SectionTitle>
       <p className="type-callout text-label-2">{t("crbs.org.translationsHint")}</p>
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {(list.data ?? []).length === 0 ? <p className="px-4 py-4 type-callout text-label-2">{t("crbs.org.noTranslations")}</p> : null}
         <ul>
           {(list.data ?? []).map((tr) => (
-            <li key={tr.id} className="flex flex-col gap-1 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none sm:flex-row sm:items-center sm:gap-3">
+            <li key={tr.id} className="flex flex-col gap-1 px-4 py-2.5 not-last:edge-hairline-b sm:flex-row sm:items-center sm:gap-3">
               <span className="w-56 shrink-0 truncate font-mono type-footnote text-label-2">
                 {tr.set}.{tr.key}
               </span>
               <Input aria-label={`${tr.set}.${tr.key}`} defaultValue={tr.text} onBlur={(e) => e.target.value !== tr.text && upsert.mutate([{ language: tr.language, set: tr.set, key: tr.key, text: e.target.value }], { onSuccess: () => toast.success(t("crbs.common.saved")), onError: toastError })} />
-              <Button variant="ghost" size="icon-sm" aria-label={t("crbs.common.delete")} onClick={() => remove.mutate(tr.id, { onError: toastError })}>
+              <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.common.delete")} onClick={() => remove.mutate(tr.id, { onError: toastError })}>
                 <Trash2 />
               </Button>
             </li>

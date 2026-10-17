@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Any
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, field_validator
@@ -12,12 +13,47 @@ from app.api.deps import DB, require_permission
 from app.importers import normalize as n
 from app.models import User, WebhookDelivery, WebhookEndpoint
 from app.models.base import utcnow
+from app.schemas import messages
 from app.services import audit
 from app.services import webhooks as svc
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
 SettingsAdmin = Annotated[User, Depends(require_permission("setup.settings"))]
+
+
+#: Turkish text of the URL guard's English sentences (``app.services.webhooks.validate_url``; T-R1-31)
+URL_TR: dict[str, str] = {
+    "URL too long": "Adres çok uzun (en çok 2048 karakter).",
+    "webhook URL must start with https:// or http://": "Webhook adresi https:// ya da http:// ile başlamalı.",
+    "webhook URL needs a host": "Webhook adresinde sunucu adı eksik.",
+    "webhook URL must not contain user:password": "Webhook adresi kullanıcı adı ve parola içeremez.",
+    "invalid port": "Adresteki kapı (port) numarası geçersiz.",
+    svc.BLOCKED_MESSAGE: (
+        "Bu adres bu sunucunun kendisine, yerel ağa ya da bulut meta veri adresine gidiyor; "
+        "webhook yalnızca dış adreslere gönderilebilir."
+    ),
+}
+BLOCKED_TR = URL_TR[svc.BLOCKED_MESSAGE]
+EVENT_TR: dict[str, str] = {
+    "unknown event type": "Bilinmeyen olay türü; listedekilerden birini ya da “*” (hepsi) seçin.",
+    "choose at least one event type (or *)": "En az bir olay türü seçin (ya da “*” ile hepsini).",
+}
+
+
+def _url_code(exc: ValueError) -> str:
+    return "webhook_url_blocked" if str(exc) == svc.BLOCKED_MESSAGE else "webhook_url_invalid"
+
+
+def _clean_url(v: str) -> str:
+    try:
+        return svc.validate_url(v)
+    except ValueError as exc:
+        raise messages.coded(_url_code(exc), URL_TR.get(str(exc)), str(exc)) from exc
+
+
+def _clean_events(v: list[str]) -> list[str]:
+    return messages.validated(svc.validate_events, v, code="webhook_events_invalid", tr_by_text=EVENT_TR)
 
 
 class WebhookIn(BaseModel):
@@ -29,12 +65,12 @@ class WebhookIn(BaseModel):
     @field_validator("url")
     @classmethod
     def _url(cls, v: str) -> str:
-        return svc.validate_url(v)
+        return _clean_url(v)
 
     @field_validator("events")
     @classmethod
     def _events(cls, v: list[str]) -> list[str]:
-        return svc.validate_events(v)
+        return _clean_events(v)
 
     @field_validator("description")
     @classmethod
@@ -51,12 +87,12 @@ class WebhookPatch(BaseModel):
     @field_validator("url")
     @classmethod
     def _url(cls, v: str | None) -> str | None:
-        return svc.validate_url(v) if v is not None else None
+        return _clean_url(v) if v is not None else None
 
     @field_validator("events")
     @classmethod
     def _events(cls, v: list[str] | None) -> list[str] | None:
-        return svc.validate_events(v) if v is not None else None
+        return _clean_events(v) if v is not None else None
 
     @field_validator("description")
     @classmethod
@@ -73,7 +109,14 @@ async def _check_target(url: str) -> None:
     try:
         await svc.check_resolved(url)
     except ValueError as exc:
-        raise HTTPException(422, str(exc)) from exc
+        host = (urlsplit(url).hostname or "").lower()
+        raise messages.problem(
+            422,
+            "webhook_host_blocked",
+            f"{host} adresi engellenen bir ağ adresine çözümleniyor. {BLOCKED_TR}",
+            str(exc),
+            field="url",
+        ) from exc
 
 
 async def _endpoint(db: DB, webhook_id: int) -> WebhookEndpoint:

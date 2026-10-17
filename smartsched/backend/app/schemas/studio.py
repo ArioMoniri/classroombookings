@@ -386,7 +386,7 @@ class PresetApplyOut(BaseModel):
 
 class GenerateIn(BaseModel):
     label: str | None = None
-    params: dict[str, Any] = {}  # time_limit_s, seed, workers, weights, solver
+    params: dict[str, Any] = {}  # time_limit_s, seed, workers, weights, solver, relaxation_policy
     parent_run_id: int | None = None
     stability: bool | None = None  # keep changes small vs parent_run_id (default: on when a parent is given)
 

@@ -10,7 +10,8 @@
  * back in `finally`, so the spec can run repeatedly next to bookings.spec.ts on the same database.
  */
 import { expect, test, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, login } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, fillDate, login } from "./helpers";
+import { pinLanguage } from "./language";
 
 const STAMP = Date.now().toString(36);
 /** this spec's own administrator (English profile language), created through the real API by the seeded admin */
@@ -26,6 +27,8 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 
 test.describe.configure({ mode: "serial" });
 test.skip(!REAL, SKIP_REASON);
+// the assertions read English (this spec's own administrator has the English profile language): pin it
+pinLanguage("en");
 
 /** Same-origin call through the Next proxy (the httpOnly cookie carries the JWT). */
 async function call<T = unknown>(page: Page, method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
@@ -145,8 +148,8 @@ test("admin gaps 3. a session is created and edited in Admin → Sessions (#3)",
   const dialog = page.getByTestId("session-dialog");
   await dialog.getByTestId("session-name").fill(SESSION.name);
   await dialog.getByTestId("session-code").fill(SESSION.code);
-  await dialog.getByTestId("session-start").fill(SESSION.start);
-  await dialog.getByTestId("session-end").fill(SESSION.end);
+  await fillDate(dialog.getByTestId("session-start"), SESSION.start);
+  await fillDate(dialog.getByTestId("session-end"), SESSION.end);
   await shot(page, "03-session-create");
   await dialog.getByTestId("session-save").click();
   await expect(dialog).toBeHidden();
@@ -154,7 +157,7 @@ test("admin gaps 3. a session is created and edited in Admin → Sessions (#3)",
 
   await page.getByTestId("session-edit").click();
   await dialog.getByTestId("session-name").fill(`${SESSION.name} (düzenlendi)`);
-  await dialog.getByTestId("session-end").fill("2026-08-21");
+  await fillDate(dialog.getByTestId("session-end"), "2026-08-21");
   await dialog.getByTestId("session-save").click();
   await expect(dialog).toBeHidden();
   await expect(page.locator("#sess-settings")).toHaveText(`${SESSION.name} (düzenlendi)`);
@@ -168,14 +171,14 @@ test("admin gaps 4. a holiday is edited and shows its duration (#6, #23)", async
   await page.goto("/admin/holidays");
   await page.locator("#hol-term").selectOption({ label: `${SESSION.name} (düzenlendi)` });
   await page.locator("#hol-name").fill(`E2E Tatil ${STAMP}`);
-  await page.locator("#hol-start").fill("2026-07-15");
-  await page.locator("#hol-end").fill("2026-07-15");
+  await fillDate(page.locator("#hol-start"), "2026-07-15");
+  await fillDate(page.locator("#hol-end"), "2026-07-15");
   await page.getByRole("button", { name: "Add", exact: true }).click();
   const row = page.getByTestId("holiday-list").locator("li", { hasText: `E2E Tatil ${STAMP}` });
   await expect(row.getByTestId("holiday-duration")).toHaveText("1 day");
   await row.getByTestId("holiday-edit").click();
   const dialog = page.getByTestId("holiday-dialog");
-  await dialog.getByTestId("holiday-edit-end").fill("2026-07-17");
+  await fillDate(dialog.getByTestId("holiday-edit-end"), "2026-07-17");
   await expect(dialog.getByText("3 days")).toBeVisible();
   await dialog.getByTestId("holiday-save").click();
   await expect(dialog).toBeHidden();
@@ -451,13 +454,15 @@ test("admin gaps 15. the login page shows the organisation's logo, name and logi
 
     await openUserMenu(page);
     await page.getByTestId("logout").click();
-    await page.waitForURL("**/login");
-    await expect(page.getByTestId("login-brand")).toContainText(name);
+    // sign-in.md §6.2: signing out lands on /login?reason=signed_out ("Çıkış yaptınız.")
+    await page.waitForURL(/\/login(\?|$)/);
+    // §4.1: the university's logo leads the brand row; its name moves into the subtitle
+    await expect(page.getByTestId("signin-subtitle")).toContainText(name);
     // the e2e stack has no nginx in front, so /uploads/rooms/* (backend StaticFiles in production) is not served here
-    await expect(page.getByTestId("login-brand").locator("img")).toHaveAttribute("src", /\/uploads\/rooms\/org-logo\./);
+    await expect(page.getByTestId("signin-org-logo")).toHaveAttribute("src", /\/uploads\/rooms\/org-logo\./);
     await expect(page.getByTestId("login-message")).toContainText(`Personel hesabınızla girin (${STAMP}).`);
     await expect(page.getByTestId("forgot-password")).toHaveAttribute("href", "/reset-password");
-    await expect(page.getByTestId("app-version")).toHaveText(/^(Version|Sürüm) \d/);
+    await expect(page.getByTestId("app-version")).toHaveText(/^v\d/);
     await shot(page, "15-login-brand");
   } finally {
     await signIn(page);

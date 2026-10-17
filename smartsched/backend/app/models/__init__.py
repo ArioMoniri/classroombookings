@@ -7,6 +7,7 @@ from app.models.approvals import (
     ApprovalRule,
     ApproverScope,
     InAppNotification,
+    NotificationDelivery,
 )
 from app.models.audit import AuditEvent
 from app.models.base import Base
@@ -38,7 +39,16 @@ from app.models.booking import (
     UserConstraint,
 )
 from app.models.catalog import Building, Course, Faculty, Instructor, Program, Room, Term, Week
+from app.models.channels import (  # noqa: F401
+    ChannelDelivery,
+    ChannelDepartmentTarget,
+    ChannelLinkCode,
+    NotifyChannelConfig,
+    UserChannel,
+)
+from app.models.conflicts import BookingConflict  # noqa: F401
 from app.models.council import CouncilArtifact, CouncilJob, CouncilStep
+from app.models.error_event import ErrorEvent  # noqa: F401  (W3-OPS grouped error events, alembic 0036)
 from app.models.integrations import (
     CalendarConnection,
     CalendarEventLink,
@@ -49,8 +59,19 @@ from app.models.integrations import (
     WebhookDelivery,
     WebhookEndpoint,
 )
+from app.models.invigilation import InvigilationDuty, InvigilationPlan, InvigilatorPoolMember
+from app.models.kvkk import (  # noqa: F401
+    AuditPurgeWindow,
+    Consent,
+    DsrRequest,
+    NoticeAck,
+    PrivacyNotice,
+    RetentionPolicy,
+)
 from app.models.learning import LearnedObservation, LearnedPrior, LearningReset, SuggestionFeedback
 from app.models.locks import TermLock
+from app.models.planning_drafts import PriorityOverride, ProgramDraft
+from app.models.policies import BookingPolicy  # noqa: F401
 from app.models.runs import Assignment, ChatApplyClaim, ChatMessage, ScheduleRun
 from app.models.scheduling import (
     Block,
@@ -60,6 +81,7 @@ from app.models.scheduling import (
     Section,
     SectionInstructor,
 )
+from app.models.sso import SsoAuthState, SsoInvite, SsoProvider, SsoRoleMapping, UserIdentity  # noqa: F401
 from app.models.studio import ImportedSnapshot, StudioDraft, StudioPreset
 from app.models.system import ImportJob, Setting, User
 
@@ -100,6 +122,7 @@ __all__ = [
     "ImportJob",
     "ImportedSnapshot",
     "InAppNotification",
+    "NotificationDelivery",
     "LearnedObservation",
     "LearnedPrior",
     "LearningReset",
@@ -110,7 +133,12 @@ __all__ = [
     "NotificationOutbox",
     "PasswordResetToken",
     "Permission",
+    "InvigilationDuty",
+    "InvigilationPlan",
+    "InvigilatorPoolMember",
     "Program",
+    "ProgramDraft",
+    "PriorityOverride",
     "Role",
     "RolePermission",
     "Room",
@@ -138,3 +166,8 @@ __all__ = [
     "UserConstraint",
     "Week",
 ]
+
+# wave 3 W3-AI: AI gateway usage metering (alembic 0034_ai_usage)
+from app.models.ai_usage import AIUsage  # noqa: E402
+
+__all__ += ["AIUsage"]

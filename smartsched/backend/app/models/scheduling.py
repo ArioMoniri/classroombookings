@@ -186,7 +186,9 @@ class Block(TimestampMixin, Base):
 
 #: allowed ``constraints.source`` values (``BUILTIN`` rows are read-only switches of always-on rules)
 #: (``LEARNED`` rows come from an accepted learned suggestion: soft, targeted, ``app/services/learning.py``)
-CONSTRAINT_SOURCES = ("FILE", "ADMIN", "AI", "UPLOAD", "BUILTIN", "LEARNED")
+#: (``TEACHER`` rows are an academician's own wish, P19-T2: soft, targeted, off until a coordinator accepts it,
+#: ``app/services/teacher_preferences.py``)
+CONSTRAINT_SOURCES = ("FILE", "ADMIN", "AI", "UPLOAD", "BUILTIN", "LEARNED", "TEACHER")
 
 
 class ConstraintRow(TimestampMixin, Base):
@@ -201,7 +203,7 @@ class ConstraintRow(TimestampMixin, Base):
     params: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     hardness: Mapped[str] = mapped_column(String(8), default="soft")  # hard | soft
     weight: Mapped[int] = mapped_column(Integer, default=1)
-    source: Mapped[str] = mapped_column(String(8), default="ADMIN")  # FILE, ADMIN, AI, UPLOAD, BUILTIN, LEARNED
+    source: Mapped[str] = mapped_column(String(8), default="ADMIN")  # CONSTRAINT_SOURCES
     #: provenance: {"file", "sheet", "row"|"paragraph"|"page"|"line", "excerpt"} for UPLOAD rows,
     #: {"draft_id"} for BUILTIN rows (built-in rule switched off in one studio draft),
     #: {"copied_from": {...}} / {"preset_id"} for copied / preset rules

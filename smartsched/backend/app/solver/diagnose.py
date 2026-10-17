@@ -190,8 +190,15 @@ def static_check(prep: Prepared) -> list[Diagnosis]:
             )
             continue
         if e.needs_room and not dom.rooms:
-            out.append(_no_room_diagnosis(e, dom, inp.rooms, all_tags, room_ids))
+            out.append(_no_room_diagnosis(e, dom, inp.rooms, all_tags, room_ids, _rule_pins(prep, e)))
             continue
+        if e.needs_room and e.max_rooms > 1 and not trusted_lock(inp, e) and e.size > 0:
+            # a split class keeps a room domain, but its rooms (after a hard pin) may never add up to its size:
+            # the split capacity link (``ModelContext._link_split``) can then never hold (round-1 R1-M-03)
+            caps = sorted((effective_capacity(doms.rooms_by_id[r], e) for r in dom.rooms), reverse=True)
+            if sum(caps[: e.max_rooms]) < e.size:
+                out.append(_no_room_diagnosis(e, dom, inp.rooms, all_tags, room_ids, _rule_pins(prep, e)))
+                continue
         if e.needs_room and dom.option_count() == 0:
             reasons = Counter(dom.pair_reasons.values())
             out.append(
@@ -404,11 +411,39 @@ def _locked_seat_budget(prep: Prepared) -> list[Diagnosis]:
     return out
 
 
+def _rule_pins(prep: Prepared, e: Event) -> tuple[frozenset[int] | None, list[int]]:
+    """The rooms the event's hard targeted ``room_pin`` rules leave it (intersection; ``None`` = no rule pins it)
+    and those rules' ids."""
+    from app.solver.constraints._common import int_list, is_targeted, select_events
+
+    allowed: frozenset[int] | None = None
+    ids: list[int] = []
+    for c in prep.constraints:
+        if c.kind != "room_pin" or not c.hard or not is_targeted(c):
+            continue
+        rooms = frozenset(int_list(c.params, "room_ids"))
+        if not rooms or e.id not in {x.id for x in select_events(prep.inp, c.params)}:
+            continue
+        allowed = rooms if allowed is None else allowed & rooms
+        if c.id is not None:
+            ids.append(int(c.id))
+    return allowed, sorted(set(ids))
+
+
 def _no_room_diagnosis(
-    e: Event, dom: EventDomain, rooms: tuple[Room, ...], all_tags: set[str], room_ids: set[int]
+    e: Event,
+    dom: EventDomain,
+    rooms: tuple[Room, ...],
+    all_tags: set[str],
+    room_ids: set[int],
+    rule_pins: tuple[frozenset[int] | None, list[int]] = (None, []),
 ) -> Diagnosis:
     kinds: list[str] = []
     sugg: list[str] = []
+    rule_rooms, pin_rules = rule_pins
+    pin_set: frozenset[int] = e.required_room_ids
+    if rule_rooms is not None:
+        pin_set = (pin_set & rule_rooms) if pin_set else rule_rooms
     missing_pins = sorted(e.required_room_ids - room_ids)
     if missing_pins:
         kinds.append("room_pin")
@@ -420,7 +455,7 @@ def _no_room_diagnosis(
     eligible = [
         r
         for r in rooms
-        if (not e.required_room_ids or r.id in e.required_room_ids)
+        if (not pin_set or r.id in pin_set)
         and r.id not in e.forbidden_room_ids
         and e.required_tags <= r.tags
         and not (e.forbidden_tags & r.tags)
@@ -439,14 +474,26 @@ def _no_room_diagnosis(
     if "capacity" in kinds:
         params.update(largest_room=best.code, largest_capacity=effective_capacity(best, e))
     by_id = {r.id: r for r in rooms}
-    pinned = [by_id[r] for r in sorted(e.required_room_ids) if r in by_id]
+    pinned = [by_id[r] for r in sorted(pin_set) if r in by_id]
     locked_rooms = [by_id[r] for r in (e.locked.room_ids if e.locked is not None else ()) if r in by_id]
+    params["pin_constraint_ids"] = list(pin_rules)
     if pinned:
-        params["pinned_rooms"] = [{"room": r.code, "capacity": effective_capacity(r, e)} for r in pinned]
-        seats = sum(effective_capacity(r, e) for r in pinned[: max(1, e.max_rooms)])
-        if "capacity" not in kinds and seats < e.size:
-            kinds.insert(0, "capacity")
-            sugg.insert(0, f"the pinned room(s) seat {seats} < {e.size}; pin a bigger room or split the group")
+        params["pinned_rooms"] = [{"id": r.id, "room": r.code, "capacity": effective_capacity(r, e)} for r in pinned]
+        # the most seats the pinned rooms can give: the largest ``max_rooms`` of them together
+        top = sorted((effective_capacity(r, e) for r in pinned), reverse=True)
+        seats = sum(top[: max(1, e.max_rooms)])
+        if seats < e.size:
+            if "capacity" not in kinds:
+                kinds.insert(0, "capacity")
+            if "room_pin" not in kinds:
+                kinds.append("room_pin")
+            names = " + ".join(r.code for r in pinned)
+            rules = f" by rule(s) {', '.join(f'#{i}' for i in pin_rules)}" if pin_rules else ""
+            sugg.insert(
+                0,
+                f"pinned{rules} to {names}, which seat {seats} < {e.size}; pin a bigger room, drop the pin or split "
+                "the group",
+            )
             big = max(pinned, key=lambda r: effective_capacity(r, e))
             params.update(largest_room=big.code, largest_capacity=effective_capacity(big, e), pinned_seats=seats)
     if locked_rooms:
@@ -558,7 +605,9 @@ def _locked_conflicts(prep: Prepared) -> list[Diagnosis]:
                 )
     for e, a in locked:
         dom = prep.doms.domain(e.id)
-        if not e.needs_room:
+        if not e.needs_room or not dom.times:
+            # a hard rule removed the locked time itself (round-1 R1-S-02: "no classes after 17:30" on a class the
+            # planning list locks at 18:00): ``no_time`` above names it; there is no slot to check rooms at
             continue
         bad_rooms = [r for r in a.room_ids if r not in dom.rooms]
         if bad_rooms:
@@ -922,6 +971,8 @@ def policy_text(policy: dict[str, Any], winners: list[str]) -> str:
         return head + f"locked row kept: {names}"
     if reason == "lower_priority":
         return head + f"lower priority than {names}"
+    if reason == "published_kept":
+        return head + f"{names} of the previous timetable keeps the cell (equal priority)"
     if reason == "most_classes":
         return head + f"placing it would leave at least as many classes out ({names} kept)"
     return head + "no option survives the hard rules"

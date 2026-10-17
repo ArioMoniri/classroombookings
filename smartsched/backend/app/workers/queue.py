@@ -8,9 +8,9 @@ Celery/RQ worker) can read them. Progress events are also fanned out in-memory f
   another thread), so ``/health`` and every other request keep being served during a solve.
 * ``JobState.error`` is a short, path-free message safe to show to clients; the traceback is only
   logged server-side.
-* Jobs live in this process only. While a ``run:<id>`` / ``import:<id>`` / ``council:<id>`` job is queued or running the
-  queue writes ``heartbeat_at`` every ``RUN_HEARTBEAT_S`` (and picks up a ``CANCELLED`` status set by
-  another process). :func:`recover_interrupted` (called on startup) marks runs and import jobs FAILED
+* Jobs live in this process only. While a ``run:<id>`` / ``import:<id>`` / ``council:<id>`` / ``invig:<id>`` job is
+  queued or running the queue writes ``heartbeat_at`` every ``RUN_HEARTBEAT_S`` (and picks up a ``CANCELLED`` status
+  set by another process). :func:`recover_interrupted` (called on startup) marks runs and import jobs FAILED
   whose owner is a previous boot of this process (``worker.boot``) or whose heartbeat is older than
   ``RUN_STALE_AFTER_S`` - hostnames and PIDs are not trusted (Docker restarts change the hostname and
   reuse PID 1). Review M6.
@@ -183,16 +183,16 @@ def worker_id() -> dict[str, Any]:
 
 
 def _beats(key: str) -> bool:
-    return key.startswith(("run:", "import:", "council:"))
+    return key.startswith(("run:", "import:", "council:", "invig:"))
 
 
 async def _beat(key: str) -> None:
     """One heartbeat: ``heartbeat_at = now``; a run cancelled by another process is stopped here too."""
     from app.core.db import get_session_factory
-    from app.models import CouncilJob, ImportJob, ScheduleRun
+    from app.models import CouncilJob, ImportJob, InvigilationPlan, ScheduleRun
 
     kind, _, raw = key.partition(":")
-    model: Any = {"run": ScheduleRun, "council": CouncilJob}.get(kind, ImportJob)
+    model: Any = {"run": ScheduleRun, "council": CouncilJob, "invig": InvigilationPlan}.get(kind, ImportJob)
     try:
         row_id = int(raw)
     except ValueError:
@@ -213,6 +213,7 @@ async def _beat(key: str) -> None:
 async def _heartbeat_loop(key: str) -> None:
     from app.core.config import get_settings
 
+    task = asyncio.current_task()
     while True:
         try:
             await _beat(key)
@@ -220,6 +221,10 @@ async def _heartbeat_loop(key: str) -> None:
             raise
         except Exception:  # noqa: BLE001 - a missed beat must never fail the job
             log.debug("heartbeat failed for %s", key, exc_info=True)
+        if task is not None and task.cancelling():
+            # the job ended (or the loop is shutting down) while the beat closed its connection, and the driver
+            # absorbed the CancelledError (SQLAlchemy aiosqlite graceful close): stop instead of beating forever
+            raise asyncio.CancelledError
         await asyncio.sleep(float(get_settings().run_heartbeat_s))
 
 

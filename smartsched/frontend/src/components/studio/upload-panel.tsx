@@ -3,6 +3,8 @@
 import { AlertTriangle, CheckCircle2, FileUp, RotateCcw, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useRef, useState, type DragEvent } from "react";
+import { AiNotice } from "@/components/admin/ai/ai-kit";
+import { AiUsageBanner } from "@/components/admin/ai/my-ai-usage";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph, BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,6 +19,7 @@ import { useStudio } from "./studio-context";
 import type { TrayItem } from "./studio-store";
 import { pairLang } from "@/lib/i18n";
 import { refusedAsDecisions, splitRefused } from "./refused";
+import { aiRefusalText } from "./write-it";
 
 export const ACCEPT = [".xlsx", ".xlsm", ".csv", ".docx", ".pdf", ".txt", ".md"];
 export const MAX_FILES = 10;
@@ -88,8 +91,19 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
       patch(id, { stage: "uploading", percent: 0, message: undefined });
       try {
         const res = await api.studio.uploadPreferences(termId, file, pairLang(locale), (p) => patch(id, { stage: p.stage, percent: p.percent }));
+        // AI intake off (the default since P19-A1): the backend answers 200 with every row unparsed instead of
+        // 409. A spreadsheet with nothing read goes to the column mapping, like the old 409 path.
+        if (TABULAR.test(file.name) && res.proposals.length === 0 && res.section_edits.length === 0 && res.unparsed.length > 0) {
+          patch(id, { stage: "mapping", percent: 100 });
+          return;
+        }
         ingest(id, file, res);
       } catch (e) {
+        const refusal = aiRefusalText(e, pairLang(locale)); // guardrail 422 / limit 429 / transfer basis 409
+        if (refusal) {
+          patch(id, { stage: "error", message: refusal });
+          return;
+        }
         if (e instanceof HttpError && e.status === 409) {
           if (TABULAR.test(file.name)) patch(id, { stage: "mapping", percent: 100 });
           else patch(id, { stage: "error", message: t("studio.upload.needsAi") });
@@ -129,7 +143,7 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
       ingest(id, file, res);
       setPaste("");
     } catch (e) {
-      patch(id, { stage: "error", message: e instanceof HttpError && e.status === 409 ? t("studio.write.noKey") : e instanceof Error ? e.message : String(e) });
+      patch(id, { stage: "error", message: aiRefusalText(e, pairLang(locale)) ?? (e instanceof HttpError && e.status === 409 ? t("studio.write.noKey") : e instanceof Error ? e.message : String(e)) });
     } finally {
       setPasting(false);
     }
@@ -166,6 +180,7 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
           <TabsTrigger value="paste">{t("studio.upload.tabPaste")}</TabsTrigger>
         </TabsList>
       </Tabs>
+      <AiUsageBanner />
       {tab === "files" ? (
         <div
           onDragEnter={(e) => {
@@ -256,6 +271,7 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
           ))}
         </ul>
       ) : null}
+      <AiNotice />
     </section>
   );
 }

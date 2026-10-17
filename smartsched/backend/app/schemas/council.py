@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.common import ORMModel
 
@@ -34,6 +34,8 @@ class CouncilFileOut(BaseModel):
     format: str | None = None
     #: the registry's route for the format: structured (read on the server) | ai (needs the model)
     route_kind: str | None = None
+    #: the e-mail this file was attached to (its index in the job)
+    parent: int | None = None
     language: str | None = None
     route: str | None = None
     kinds: list[str] = Field(default_factory=list)
@@ -98,6 +100,18 @@ class ReviewOut(BaseModel):
     content: bool = True
 
 
+class RowDecisionIn(BaseModel):
+    row_id: str = Field(max_length=64)
+    action: Literal["accept", "reject", "edit"]
+    value: dict[str, Any] | None = None
+
+
+class RowDecisionsIn(BaseModel):
+    decisions: list[RowDecisionIn] = Field(min_length=1, max_length=500)
+    #: the one confirmation a bulk decision of several AI rows needs (at most 50 per call)
+    confirm: bool = False
+
+
 class TermSpec(BaseModel):
     code: str | None = Field(default=None, max_length=32)
     name: str | None = Field(default=None, max_length=128)
@@ -105,6 +119,24 @@ class TermSpec(BaseModel):
     week_count: int | None = Field(default=None, ge=1, le=60)
     start_date: dt.date | None = None
     year: int | None = Field(default=None, ge=1990, le=2100)
+
+
+class BaselineIn(BaseModel):
+    """Where a commit writes its schedule maps' course entries (app/council/baseline.py)."""
+
+    mode: Literal["auto", "skip", "run"] = Field(
+        default="auto",
+        description="auto: the term's baseline run (created when missing); skip: not written; run: run_id",
+    )
+    run_id: int | None = Field(default=None, ge=1, description="mode=run: a COURSE run of the same term")
+
+    @model_validator(mode="after")
+    def _run_needs_id(self) -> BaselineIn:
+        if self.mode == "run" and self.run_id is None:
+            raise ValueError("baseline.mode run needs baseline.run_id")
+        if self.mode != "run" and self.run_id is not None:
+            raise ValueError("baseline.run_id is only used with baseline.mode run")
+        return self
 
 
 class CommitIn(BaseModel):
@@ -120,6 +152,7 @@ class CommitIn(BaseModel):
     on_conflict: Literal["keep", "take"] = Field(
         default="keep", description="a planner's studio edit vs a changed file value: keep the edit or take the file"
     )
+    baseline: BaselineIn = Field(default_factory=BaselineIn, description="the schedule maps' target run")
 
 
 class RerunIn(BaseModel):

@@ -50,8 +50,9 @@ from app.models import (
     StudioPreset,
     User,
 )
-from app.services import solver_bridge
+from app.services import pin_guard, solver_bridge
 from app.services import studio as st
+from app.services.constraint_guard import guard_rule
 from app.solver import model as sm
 
 WEIGHT_SCALE = {"low": 2, "normal": 5, "high": 8}
@@ -565,8 +566,9 @@ async def copy_rules(session: AsyncSession, body: Any, user: User) -> dict[str, 
         wanted = set(body.constraint_ids)
         rows = [r for r in rows if r.id in wanted]
     else:
-        # wishes read from the source term's lists (FILE) belong to its rows; the target's own imports make its own
-        rows = [r for r in rows if r.enabled and r.source != "FILE"]
+        # wishes read from the source term's lists (FILE) belong to its rows; the target's own imports make its own.
+        # An academician's own wishes (TEACHER, P19-T2) were reviewed for that term: they add them again.
+        rows = [r for r in rows if r.enabled and r.source not in ("FILE", "TEACHER")]
     rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
     existing = {
         (r.kind, _norm(r.params), r.hardness) for r in await st.term_rules(session, target.id, enabled_only=False)
@@ -613,6 +615,17 @@ async def copy_rules(session: AsyncSession, body: Any, user: User) -> dict[str, 
         if (r.kind, _norm(params), r.hardness) in existing:
             reasons.append("an identical rule already exists in this term")
             fatal = True
+        # review D1: a copy never waives a structural hard rule (no waiver travels with a copied row)
+        guard = guard_rule(r.kind, params, r.hardness, source=r.source, may_waive=False, reason=None)
+        if guard:
+            reasons.extend(guard)
+            fatal = True
+        # round-1 R1-M-03: a copied pin that cannot seat its class in the target term is not created
+        if r.enabled:
+            short = await pin_guard.shortfalls(session, r.kind, params, r.hardness, term_id=target.id)
+            if short:
+                reasons.append(pin_guard.refusal(short, overridable=False)["message_tr"])
+                fatal = True
         item = {
             "source_id": r.id,
             "kind": r.kind,
@@ -642,6 +655,17 @@ async def copy_rules(session: AsyncSession, body: Any, user: User) -> dict[str, 
                         "constraint_id": r.id,
                     },
                     **({"original": _source_ref(r)} if _source_ref(r) else {}),
+                    # a coordinator copied an academician's wish on purpose: it is a reviewed (accepted) rule there
+                    **(
+                        {
+                            "review": "accepted",
+                            "instructor_id": (_source_ref(r) or {}).get("instructor_id"),
+                            "user_id": (_source_ref(r) or {}).get("user_id"),
+                            "request_ids": params.get("event_ids") or [],
+                        }
+                        if r.source == "TEACHER"
+                        else {}
+                    ),
                 },
                 nl_text=r.nl_text,
                 enabled=True,
@@ -1192,6 +1216,19 @@ async def apply_preset(
             and any(k in (rule.get("params") or {}) for k in ("courses", "room_codes", "room_code", "instructor_names"))
         ):
             unresolved.append({"index": i, "kind": rule["kind"], "problems": problems, "nl_text": rule.get("nl_text")})
+            continue
+        # review D1: a preset never waives a structural hard rule (neither as a new rule nor as an override)
+        guard = guard_rule(rule["kind"], params, rule["hardness"], source="ADMIN", may_waive=False, reason=None)
+        if guard and rule.get("enabled", True):
+            unresolved.append({"index": i, "kind": rule["kind"], "problems": guard, "nl_text": rule.get("nl_text")})
+            continue
+        # round-1 R1-M-03: a preset never pins a class into rooms that cannot seat it (no override through a preset)
+        short = await pin_guard.shortfalls(session, rule["kind"], params, rule["hardness"], term_id=term.id)
+        if short and rule.get("enabled", True):
+            refused = pin_guard.refusal(short, overridable=False)
+            unresolved.append(
+                {"index": i, "kind": rule["kind"], "problems": [refused["message_tr"]], "nl_text": rule.get("nl_text")}
+            )
             continue
         match = by_key.get((rule["kind"], _norm(params)))
         entry = {

@@ -3,6 +3,7 @@
 import { Check, CircleDot, Pencil, ShieldAlert, ShieldCheck, Undo2, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { ProposedConstraint } from "@/lib/api/schemas";
@@ -15,6 +16,7 @@ import { confidenceLevel, provenanceText, ruleTokens } from "./rule-helpers";
 import { plainSentence } from "./rule-sentence";
 import { useStudioData } from "./studio-data";
 import type { TrayItem } from "./studio-store";
+import { BareButton } from "@/components/shell/bare-button";
 
 export type ReviewTab = "all" | "ready" | "look" | "unread";
 
@@ -111,13 +113,13 @@ export function UploadReview({
         <p className="text-label-2">{t("studio.review.summary", { files, n: pending.length, ready: counts.ready, look: counts.look, unread: counts.unread })}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <div role="tablist" aria-label={t("studio.review.title")} className="flex flex-wrap gap-1">
-          {(["all", "ready", "look", "unread"] as const).map((k) => (
-            <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={cn("rounded-xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] px-2 py-1 text-xs pointer-coarse:min-h-11", tab === k ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")} data-testid={`review-tab-${k}`}>
-              {t(TAB_KEY[k])} <span className="tabular-nums">{k === "all" ? counts.all : counts[k]}</span>
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          size="sm"
+          aria-label={t("studio.review.title")}
+          value={tab}
+          onValueChange={setTab}
+          options={(["all", "ready", "look", "unread"] as const).map((k) => ({ value: k, testId: `review-tab-${k}`, text: `${t(TAB_KEY[k])} ${k === "all" ? counts.all : counts[k]}`, label: <>{t(TAB_KEY[k])} <span className="tnum text-label-2">{k === "all" ? counts.all : counts[k]}</span></> }))}
+        />
         <div className="ml-auto flex flex-wrap gap-2">
           <Button size="sm" variant="outline" disabled={busy || selected.size === 0} onClick={() => {
             onReject([...selected]);
@@ -159,9 +161,9 @@ export function UploadReview({
                       <span className="inline-flex items-center gap-1.5">
                         <Check className="size-3.5" aria-hidden /> {t("studio.review.added")} · {provenanceText(ref, t) ?? it.file}
                         {onUndo ? (
-                          <button type="button" className="ml-2 inline-flex items-center gap-1 underline" onClick={onUndo}>
+                          <BareButton className="ml-2 inline-flex items-center gap-1 underline" onClick={onUndo}>
                             <Undo2 className="size-3" aria-hidden /> {t("common.undo")}
-                          </button>
+                          </BareButton>
                         ) : null}
                       </span>
                     </td>
@@ -179,9 +181,9 @@ export function UploadReview({
                     })} aria-label={t("studio.review.selectRow", { row: String(ref?.row ?? ref?.line ?? ref?.page ?? "") })} />
                   </td>
                   <td className="max-w-40 py-2 pr-2">
-                    <button type="button" className="text-left text-xs break-words text-tint-text underline-offset-2 hover:underline" onClick={() => setSource(it)} data-testid="review-from">
+                    <BareButton className="text-left text-xs break-words text-tint-text underline-offset-2 hover:underline" onClick={() => setSource(it)} data-testid="review-from">
                       {provenanceText(ref, t) ?? it.file}
-                    </button>
+                    </BareButton>
                     <q lang="tr" className="mt-1 line-clamp-2 text-xs break-words text-label-2 2xl:hidden">
                       {quoteOf(it)}
                     </q>
@@ -192,9 +194,9 @@ export function UploadReview({
                   <td className="py-2 pr-2">
                     <span className="block">{proposed(it)}</span>
                     {it.type === "rule" ? (
-                      <span className={cn("mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium", it.proposal.hardness === "hard" ? "bg-foreground text-background" : "border border-border-strong")}>{it.proposal.hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
+                      <span className={cn("mt-1 inline-block rounded-full px-2 py-0.5 type-caption font-medium", it.proposal.hardness === "hard" ? "bg-foreground text-background" : "border border-border-strong")}>{it.proposal.hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
                     ) : null}
-                    {it.type === "unparsed" && it.unparsed.decision ? <span className="mt-1 inline-block rounded-full bg-status-warning px-2 py-0.5 text-[11px] font-medium text-status-warning-fg" data-testid="decision-needed">{t("studio.review.decisionNeeded")}</span> : null}
+                    {it.type === "unparsed" && it.unparsed.decision ? <span className="mt-1 inline-block rounded-full bg-status-warning px-2 py-0.5 type-caption font-medium text-status-warning-fg" data-testid="decision-needed">{t("studio.review.decisionNeeded")}</span> : null}
                     {issues.filter(Boolean).length ? <span className="mt-1 block text-xs text-status-warning-fg">{issues.filter(Boolean).join("; ")}</span> : null}
                   </td>
                   <td className="hidden py-2 pr-2 text-xs lg:table-cell">

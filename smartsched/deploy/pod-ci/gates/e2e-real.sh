@@ -10,18 +10,20 @@
 #   smtp           SMTP sink (smtp-sink.py): SMTP 1025, JSON API 8025; nothing is delivered (S-23, X-02)
 #   backend-empty  second backend on an EMPTY database (no users): the first-run installer (B-SETUP-02);
 #                  started once `backend` is healthy because it reuses its venv (/w/venv)
-# Playwright gets E2E_SMTP_HOST/E2E_SMTP_PORT/E2E_SMTP_API and E2E_EMPTY_API_URL for the specs that use them.
+# Playwright gets E2E_SMTP_HOST/E2E_SMTP_PORT/E2E_SMTP_API and E2E_EMPTY_API_URL for the specs that use them, and
+# E2E_DB (the seeded backend's SQLite file on the shared /w mount: consent.spec.ts 4 seeds an unreadable grant there
+# with python3 -I + sqlite3).
 # Before the specs, contract-record.py records the contract-test payloads from the seeded backend and reports
 # their schema drift against src/lib/api/__fixtures__/real (/w/contract/contract-drift.json; never fails).
 # The booking clock is checked before any spec runs: a clock outside Bahar 2026 fails the gate (the booking
 # specs would otherwise skip and the gate would look green).
-#   E2E_HEALTH_TRIES / E2E_HEALTH_SLEEP   backend health wait (default 300 x 2 s)
+#   E2E_HEALTH_TRIES / E2E_HEALTH_SLEEP   backend health wait (default 450 x 2 s: imports, full-term solve, analytics seed)
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 net="podci-${RUN_TAG}"
 backend="podci-${RUN_TAG}-backend"
 smtp="podci-${RUN_TAG}-smtp"
 empty="podci-${RUN_TAG}-backend-empty"
-tries="${E2E_HEALTH_TRIES:-300}"
+tries="${E2E_HEALTH_TRIES:-450}"
 pause="${E2E_HEALTH_SLEEP:-2}"
 clock="2026-02-16T08:00"
 cleanup() {
@@ -46,7 +48,7 @@ docker run -d "${docker_common[@]}" --name "$backend" --network "$net" --network
   -e E2E_BOOKING_CLOCK="$clock" \
   -w /w/src/smartsched/backend "$PY_IMAGE" bash /ci/e2e-backend-entry.sh >/dev/null
 section "smtp sink"
-docker run -d "${docker_common[@]}" --name "$smtp" --network "$net" --network-alias smtp \
+docker run -d "${docker_common[@]}" --memory 256m --memory-swap 256m --name "$smtp" --network "$net" --network-alias smtp \
   "$PY_IMAGE" python /ci/smtp-sink.py --host 0.0.0.0 --smtp-port 1025 --api-port 8025 >/dev/null
 section "wait for the seeded backend (imports + full-term solve)"
 ok=0
@@ -59,7 +61,9 @@ section "contract fixtures: record + shape diff (report only; copy /w/contract/*
 docker exec "$backend" python /ci/contract-record.py --api http://127.0.0.1:8000 --out /w/contract \
   --compare /w/src/smartsched/frontend/src/lib/api/__fixtures__/real || echo "contract recording failed (report only)"
 section "empty backend (installer)"
-docker run -d "${docker_common[@]}" --name "$empty" --network "$net" --network-alias backend-empty \
+# migrations only, no imports or solves: 1 GB is plenty and keeps the stack inside the 8 GB pod next to the app
+docker run -d "${docker_common[@]}" --memory 1g --memory-swap 1g --name "$empty" --network "$net" \
+  --network-alias backend-empty \
   -e E2E_EMPTY=1 -e E2E_VENV=/w/venv -e E2E_WORKDIR=/w/e2e-empty -e E2E_BOOKING_CLOCK="$clock" \
   -w /w/src/smartsched/backend "$PY_IMAGE" bash /ci/e2e-backend-entry.sh >/dev/null
 section "playwright (E2E_REAL=1, all specs)"
@@ -67,6 +71,7 @@ section "playwright (E2E_REAL=1, all specs)"
 in_playwright --network "$net" -e E2E_REAL=1 -e NEXT_PUBLIC_API_URL=http://backend:8000 \
   -e E2E_SMTP_HOST=smtp -e E2E_SMTP_PORT=1025 -e E2E_SMTP_API=http://smtp:8025 \
   -e E2E_EMPTY_API_URL=http://backend-empty:8000 \
+  -e E2E_DB=/w/e2e.db \
   -e PLAYWRIGHT_JSON_OUTPUT_NAME=/w/playwright-report.json -- '
 up() { node -e "fetch(process.argv[1]).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" "$1"; }
 for url in http://backend:8000/api/v1/health http://backend-empty:8000/api/v1/health http://smtp:8025/health; do
@@ -93,7 +98,8 @@ const api = \"http://backend:8000/api/v1\";
 echo "==== next build (warms .next/cache: the playwright webServer builds again and must start within 300 s)"
 start=$(date +%s); npx next build >/w/next-build.log 2>&1 || { tail -n 60 /w/next-build.log; exit 1; }
 echo "next build: $(( $(date +%s) - start )) s"
-npx playwright test --reporter=list,json
+# one worker (also playwright.config.ts): the specs share one seeded backend and the pod has 2 vCPUs
+npx playwright test --workers=1 --reporter=list,json
 echo "==== no mock/demo code in the production build"
 bash ../deploy/validate.sh --no-mock-build .next/standalone
 '

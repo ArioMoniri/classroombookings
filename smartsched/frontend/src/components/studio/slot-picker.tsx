@@ -9,31 +9,53 @@ import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { fold } from "./class-filters";
-import type { AppliesTo, Slot } from "./rule-sentence";
+import { programDisplay, type AppliesTo, type Slot } from "./rule-sentence";
 import { useStudioData } from "./studio-data";
 import { AdaptiveContent, AdaptivePopover, AdaptiveTrigger } from "./adaptive-popover";
+import { BareButton } from "@/components/shell/bare-button";
+import { IconButton } from "@/components/ui/button";
 
 const TAGS = ["TIP", "PC", "LAB", "AMPHI"] as const;
 
 function ToggleChip({ on, onClick, children, label }: { on: boolean; onClick: () => void; children: React.ReactNode; label?: string }) {
   return (
-    <button
-      type="button"
+    <BareButton
       aria-pressed={on}
       aria-label={label}
       onClick={onClick}
-      className={cn("min-h-8 rounded-xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] px-2 text-xs pointer-coarse:min-h-11", on ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")}
+      className={cn("min-h-8 rounded-xl bg-fill-3 edge-hairline px-2 text-xs pointer-coarse:min-h-11", on ? "border-primary bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")}
     >
       {children}
-    </button>
+    </BareButton>
   );
 }
 
 const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
+/** 'sığmaz (100 > 30)' when `size` students do not fit `capacity` seats; null when they do or the size is unknown
+ * (round-2 T-R2-30, R2-M-12: the pin template listed 'B 201 · 30 koltuk' for the 100-student ING 302 with no mark). */
+export function fitMark(size: number | null | undefined, capacity: number, lang: "tr" | "en"): string | null {
+  if (!size || size <= capacity) return null;
+  return lang === "tr" ? `sığmaz (${size} > ${capacity})` : `too small (${size} > ${capacity})`;
+}
+
+/** The largest enrolment among the classes a rule's `courses` field names (the size a room must seat). */
+export function classSize(classes: readonly { id: number; enrolment: number | null }[] | undefined, ids: readonly number[] | undefined): number | null {
+  if (!classes || !ids?.length) return null;
+  const sizes = classes.filter((c) => ids.includes(c.id)).map((c) => c.enrolment ?? 0);
+  const max = Math.max(0, ...sizes);
+  return max > 0 ? max : null;
+}
+
+/** What a slot editor knows about the rest of its template (the rooms field marks the rooms the chosen classes do not fit). */
+export interface SlotContext {
+  classIds?: number[];
+}
+
 /** The editor for one slot type (room combobox, programme picker, day chips, period range, stepper…). */
-export function SlotEditor({ field, value, onChange }: { field: TemplateField; value: unknown; onChange: (v: unknown) => void }) {
+export function SlotEditor({ field, value, onChange, context }: { field: TemplateField; value: unknown; onChange: (v: unknown) => void; context?: SlotContext }) {
   const { t, locale } = useI18n();
+  const lang = locale === "tr" ? "tr" : "en";
   const { rooms, classes, sentence, termWeeks } = useStudioData();
   const [q, setQ] = useState("");
   const qf = fold(q).trim();
@@ -44,8 +66,10 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
   switch (field.type) {
     case "applies_to": {
       const v = (value as AppliesTo | null) ?? { mode: "all" };
-      const prog = v.mode === "programs" ? (v.programs[0] ?? "") : "";
+      // stored keys are canonical (lower-cased); tick the programme the term names (round-1 R1-S-08)
+      const chosen = v.mode === "programs" ? v.programs.map((p) => programDisplay(p, sentence)) : [];
       const year = v.mode === "programs" ? v.year : null;
+      const progList = sentence.programs.filter((p) => !qf || fold(p).includes(qf));
       return (
         <div className="grid gap-2" role="group" aria-label={t("studio.slot.appliesTo")}>
           <label className="flex items-center gap-2 text-sm">
@@ -53,19 +77,24 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
             {t("studio.rule.allClasses")}
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input type="radio" name="applies" checked={v.mode === "programs"} onChange={() => onChange({ mode: "programs", programs: [sentence.programs[0] ?? ""], year: null })} />
-            {t("studio.slot.programme")}
+            <input type="radio" name="applies" checked={v.mode === "programs"} onChange={() => onChange({ mode: "programs", programs: chosen.length ? chosen : [sentence.programs[0] ?? ""], year })} />
+            {t("studio.slot.programmes")}
           </label>
           {v.mode === "programs" ? (
-            <div className="grid grid-cols-[1fr_6rem] gap-2 pl-6">
-              <NativeSelect aria-label={t("studio.slot.programme")} value={prog} onChange={(e) => onChange({ mode: "programs", programs: [e.target.value], year })}>
-                {sentence.programs.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
+            // several programmes in one rule ("Hemşirelik" and "Hemşirelik (İngilizce)"): a searchable checklist
+            <div className="grid gap-2 pl-6" data-testid="applies-programmes">
+              <SearchBox value={q} onChange={setQ} label={t("studio.slot.programmes")} />
+              <div className="max-h-48 space-y-0.5 overflow-y-auto" role="group" aria-label={t("studio.slot.programmes")}>
+                {progList.map((p) => (
+                  <label key={p} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-fill-2">
+                    <input type="checkbox" checked={chosen.includes(p)} onChange={() => onChange({ mode: "programs", programs: toggle(chosen, p), year })} />
+                    <span className="min-w-0 flex-1 truncate">{p}</span>
+                  </label>
                 ))}
-              </NativeSelect>
-              <NativeSelect aria-label={t("studio.classes.year")} value={year ?? ""} onChange={(e) => onChange({ mode: "programs", programs: [prog], year: e.target.value ? Number(e.target.value) : null })}>
+                {progList.length === 0 ? <p className="px-1 text-xs text-label-2">{t("studio.slot.noProgramme")}</p> : null}
+              </div>
+              <p className="text-xs text-label-2" data-testid="applies-programmes-count">{t("studio.slot.programmesChosen", { n: chosen.length })}</p>
+              <NativeSelect aria-label={t("studio.classes.year")} value={year ?? ""} onChange={(e) => onChange({ mode: "programs", programs: chosen, year: e.target.value ? Number(e.target.value) : null })} data-testid="applies-year">
                 <option value="">{t("studio.slot.allYears")}</option>
                 {[1, 2, 3, 4, 5, 6].map((y) => (
                   <option key={y} value={y}>
@@ -178,24 +207,30 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
       const single = field.type === "room";
       const list = rooms.filter((r) => r.is_bookable && (!qf || fold(`${r.display_name} ${r.code} ${r.capacity} ${r.tags.join(" ")}`).includes(qf))).slice(0, 80);
       const chosen = single ? (value === null || value === undefined ? [] : [Number(value)]) : nums;
+      // the size the room must seat: the largest class the template's courses field names (R2-M-12)
+      const size = classSize(classes, context?.classIds);
       return (
         <div className="grid gap-2">
           <SearchBox value={q} onChange={setQ} label={t("common.room")} />
           <div className="max-h-56 space-y-0.5 overflow-y-auto" role="group" aria-label={t("common.rooms")}>
-            {list.map((r) => (
-              <label key={r.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-fill-2">
-                <input
-                  type={single ? "radio" : "checkbox"}
-                  name={single ? "room-pick" : undefined}
-                  checked={chosen.includes(r.id)}
-                  onChange={() => onChange(single ? r.id : toggle(nums, r.id))}
-                />
-                <span className="font-mono">{r.display_name}</span>
-                <span className="ml-auto text-xs text-label-2">
-                  {r.capacity} {t("common.seats")}
-                </span>
-              </label>
-            ))}
+            {list.map((r) => {
+              const mark = fitMark(size, r.capacity, lang);
+              return (
+                <label key={r.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-fill-2" data-testid={`room-option-${r.id}`} data-fits={mark ? "0" : "1"}>
+                  <input
+                    type={single ? "radio" : "checkbox"}
+                    name={single ? "room-pick" : undefined}
+                    checked={chosen.includes(r.id)}
+                    onChange={() => onChange(single ? r.id : toggle(nums, r.id))}
+                  />
+                  <span className="font-mono">{r.display_name}</span>
+                  <span className={cn("ml-auto text-xs", mark ? "text-status-warning-fg" : "text-label-2")}>
+                    {r.capacity} {t("common.seats")}
+                    {mark ? ` · ${mark}` : ""}
+                  </span>
+                </label>
+              );
+            })}
           </div>
           {!single && chosen.length > 1 && field.ordered ? <p className="text-xs text-label-2">{t("studio.slot.ordered", { list: chosen.map(sentence.roomCode).join(" › ") })}</p> : null}
         </div>
@@ -207,15 +242,20 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
         <div className="grid gap-2">
           <SearchBox value={q} onChange={setQ} label={t("requests.course")} />
           <div className="max-h-56 space-y-0.5 overflow-y-auto" role="group" aria-label={t("requests.course")}>
-            {list.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-fill-2">
-                <input type="checkbox" checked={nums.includes(c.id)} onChange={() => onChange(toggle(nums, c.id))} />
-                <span className="font-mono text-xs">
-                  {c.course_code} §{c.section_label}
-                </span>
-                <span className="truncate text-xs text-label-2">{c.program_name}</span>
-              </label>
-            ))}
+            {list.map((c) => {
+              // each meeting with its day and time (R2-M-12: ING 302 was listed twice with nothing to tell them apart)
+              const when = c.time_label ?? (c.day && c.start_period && c.end_period ? `${sentence.dayName(c.day)} P${c.start_period}–P${c.end_period}` : null);
+              return (
+                <label key={c.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-fill-2" data-testid={`course-option-${c.id}`}>
+                  <input type="checkbox" checked={nums.includes(c.id)} onChange={() => onChange(toggle(nums, c.id))} />
+                  <span className="font-mono text-xs">
+                    {c.course_code} §{c.section_label}
+                  </span>
+                  {when ? <span className="shrink-0 text-xs text-label-1 tabular-nums">{when}</span> : null}
+                  <span className="truncate text-xs text-label-2">{c.program_name}</span>
+                </label>
+              );
+            })}
           </div>
         </div>
       );
@@ -247,13 +287,13 @@ export function SlotEditor({ field, value, onChange }: { field: TemplateField; v
       const set = (x: number) => onChange(Math.max(min, Math.min(max, x)));
       return (
         <div className="flex items-center gap-1">
-          <button type="button" className="inline-flex size-8 items-center justify-center rounded-md border hover:bg-fill-2 pointer-coarse:size-11" aria-label={t("studio.slot.less")} onClick={() => set(n - 1)}>
+          <IconButton variant="outline" shape="rect" label={t("studio.slot.less")} onClick={() => set(n - 1)}>
             <Minus className="size-3.5" aria-hidden />
-          </button>
+          </IconButton>
           <Input type="number" className="w-16 text-center" min={min} max={max} value={n} aria-label={field.name} onChange={(e) => set(Number(e.target.value))} />
-          <button type="button" className="inline-flex size-8 items-center justify-center rounded-md border hover:bg-fill-2 pointer-coarse:size-11" aria-label={t("studio.slot.more")} onClick={() => set(n + 1)}>
+          <IconButton variant="outline" shape="rect" label={t("studio.slot.more")} onClick={() => set(n + 1)}>
             <Plus className="size-3.5" aria-hidden />
-          </button>
+          </IconButton>
         </div>
       );
     }
@@ -277,7 +317,7 @@ export function SlotChip({ slot, onChange, readOnly, uncertain }: { slot: Slot; 
   const { t } = useI18n();
   const [draft, setDraft] = useState<unknown>(slot.value);
   const cls = cn(
-    "mx-0.5 inline-flex max-w-full items-center rounded-[var(--radius-xs)] border px-1.5 py-0.5 align-baseline text-[0.95em] font-medium leading-snug",
+    "mx-0.5 inline-flex max-w-full items-center rounded-[var(--radius-xs)] border px-1.5 py-0.5 align-baseline font-medium leading-snug",
     slot.empty ? "border-dashed border-status-warning-border text-status-warning-fg" : "border-border-strong/60 bg-fill-2/60 text-foreground",
     uncertain && "underline decoration-dotted underline-offset-4",
   );
@@ -305,7 +345,7 @@ export function SlotChip({ slot, onChange, readOnly, uncertain }: { slot: Slot; 
         if (open) setDraft(slot.value);
       }}
     >
-      <AdaptiveTrigger render={<button type="button" className={cn(cls, "hover:border-primary hover:text-primary pointer-coarse:min-h-11")} aria-label={label} data-testid={`slot-${slot.name}`} />}>
+      <AdaptiveTrigger render={<BareButton className={cn(cls, "hover:border-primary hover:text-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center")} aria-label={label} data-testid={`slot-${slot.name}`} />}>
         <span className="truncate">{slot.display}</span>
       </AdaptiveTrigger>
       <AdaptiveContent className="w-80" title={t(slotNameKey(slot.field.type))}>

@@ -1,6 +1,6 @@
 "use client";
 /**
- * Phone list (all-classes.md §13): opaque inset-grouped cells (12 px radius), sticky glass group headers,
+ * Phone list (all-classes.md §13): opaque inset-grouped cells (12 px radius), sticky full-width hairline group rows (review §3),
  * swipe right → Kilitle, swipe left → Açıkla · Takvimde (motion `drag="x"`, snaps with springs.snappy);
  * every swipe action is also in the card's ⋯ menu (keyboard and screen readers).
  */
@@ -17,6 +17,7 @@ import { springs, useReduce } from "@/lib/motion";
 import { dayName, periodRangeLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { groupKey } from "./classes-model";
+import { BareButton } from "@/components/shell/bare-button";
 
 const REVEAL = 120;
 
@@ -38,13 +39,13 @@ const Card = memo(function Card({ r, runId, selected, selectMode, onOpen, onTogg
   return (
     <div className="relative overflow-hidden rounded-xl" data-testid="classes-row" data-class-id={r.id}>
       <motion.div aria-hidden style={{ opacity: underlay }} className="absolute inset-0 flex items-stretch justify-between">
-        <button type="button" tabIndex={-1} onClick={() => { onLock(); snap(0); }} className="flex w-[120px] items-center justify-center gap-1.5 bg-[var(--status-locked-solid,#5856d6)] text-[13px] font-semibold text-white">
+        <BareButton tabIndex={-1} onClick={() => { onLock(); snap(0); }} className="flex w-[120px] items-center justify-center gap-1.5 bg-[var(--status-locked-solid,#5856d6)] type-callout font-semibold text-white">
           {p?.locked ? <LockOpen className="size-4" /> : <Lock className="size-4" />}
           {p?.locked ? t("calendar.insp.unlock") : t("classes.mobile.lock")}
-        </button>
+        </BareButton>
         <span className="flex">
-          <button type="button" tabIndex={-1} onClick={() => { onExplain(); snap(0); }} className="flex w-[60px] flex-col items-center justify-center gap-0.5 bg-fill-1 text-[11px] font-semibold"><MessageSquareText className="size-4" />{t("classes.mobile.explain")}</button>
-          <Link tabIndex={-1} href={calendarHref(r, runId)} className="flex w-[60px] flex-col items-center justify-center gap-0.5 bg-tint text-[11px] font-semibold text-tint-foreground"><CalendarDays className="size-4" />{t("classes.mobile.calendar")}</Link>
+          <BareButton tabIndex={-1} onClick={() => { onExplain(); snap(0); }} className="flex w-[60px] flex-col items-center justify-center gap-0.5 bg-fill-1 type-caption font-semibold"><MessageSquareText className="size-4" />{t("classes.mobile.explain")}</BareButton>
+          <Link tabIndex={-1} href={calendarHref(r, runId)} className="flex w-[60px] flex-col items-center justify-center gap-0.5 bg-tint type-caption font-semibold text-tint-foreground"><CalendarDays className="size-4" />{t("classes.mobile.calendar")}</Link>
         </span>
       </motion.div>
       <motion.div
@@ -60,23 +61,23 @@ const Card = memo(function Card({ r, runId, selected, selectMode, onOpen, onTogg
           <motion.input initial={reduce ? false : { x: -24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={springs.smooth} type="checkbox" checked={selected} onChange={onToggle} aria-label={`${r.course_code} ${t("classes.col.select")}`} className="mt-1 size-5 accent-(--accent)" />
         ) : null}
         <span aria-hidden className="w-[3px] shrink-0 rounded-full" style={{ background: `var(--fac-${r.faculty_slot}-bar)` }} />
-        <button type="button" onClick={selectMode ? onToggle : onOpen} className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+        <BareButton onClick={selectMode ? onToggle : onOpen} className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
           <span className="flex items-center justify-between gap-2">
-            <span className="text-[15px] font-semibold">{r.course_code}{r.section ? ` §${r.section}` : ""}</span>
-            {r.issues.length ? <span className={cn("text-[12px] font-medium tabular-nums", hard ? "text-status-infeasible-fg" : "text-status-warning-fg")}>{hard ? "▲" : "•"} {r.issues.length}</span> : null}
+            <span className="type-headline font-semibold">{r.course_code}{r.section ? ` §${r.section}` : ""}</span>
+            {r.issues.length ? <span className={cn("type-footnote font-medium tabular-nums", hard ? "text-status-infeasible-fg" : "text-status-warning-fg")}>{hard ? "▲" : "•"} {r.issues.length}</span> : null}
           </span>
-          <span className="truncate text-[13px] text-label-2">{[r.program_name, r.class_years[0] ? (lang === "tr" ? `${r.class_years[0]}. sınıf` : `year ${r.class_years[0]}`) : null].filter(Boolean).join(" · ")}</span>
+          <span className="truncate type-callout text-label-2">{[r.program_name, r.class_years[0] ? (lang === "tr" ? `${r.class_years[0]}. sınıf` : `year ${r.class_years[0]}`) : null].filter(Boolean).join(" · ")}</span>
           {p ? (
-            <span className="truncate text-[13px] tabular-nums">{dayName(p.day, locale, "short")} {periodRangeLabel(p.start_period, p.end_period)} · <span className="font-semibold">{p.room_codes.join(" + ")}</span> · {r.enrolment ?? "—"}/{p.capacity ?? "—"}</span>
+            <span className="truncate type-callout tabular-nums">{dayName(p.day, locale, "short")} {periodRangeLabel(p.start_period, p.end_period)} · <span className="font-semibold">{p.room_codes.join(" + ")}</span> · {r.enrolment ?? "—"}/{p.capacity ?? "—"}</span>
           ) : r.placement_status === "unplaced" ? (
-            <span className="truncate text-[13px] text-status-warning-fg">{t("classes.status.unplaced")}{r.definitive.room_codes.length || r.req.room_text ? ` · ${t("calendar.insp.requested")}: ${r.definitive.room_codes.join(" + ") || r.req.room_text}` : ""}</span>
+            <span className="truncate type-callout text-status-warning-fg">{t("classes.status.unplaced")}{r.definitive.room_codes.length || r.req.room_text ? ` · ${t("calendar.insp.requested")}: ${r.definitive.room_codes.join(" + ") || r.req.room_text}` : ""}</span>
           ) : (
-            <span className="text-[13px] text-label-2">{t(`classes.status.${r.placement_status}`)}</span>
+            <span className="type-callout text-label-2">{t(`classes.status.${r.placement_status}`)}</span>
           )}
-          {p?.locked || r.changed.length ? <span className="text-[12px] text-label-2">{[p?.locked ? t("calendar.state.locked") : null, r.changed.length ? t("classes.col.changed") : null].filter(Boolean).join(" · ")}</span> : null}
-        </button>
+          {p?.locked || r.changed.length ? <span className="type-footnote text-label-2">{[p?.locked ? t("calendar.state.locked") : null, r.changed.length ? t("classes.col.changed") : null].filter(Boolean).join(" · ")}</span> : null}
+        </BareButton>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("classes.mobile.actions", { code: r.course_code })} />}><Ellipsis /></DropdownMenuTrigger>
+          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("classes.mobile.actions", { code: r.course_code })} />}><Ellipsis /></DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {!readOnly && p ? <DropdownMenuItem onClick={onLock}>{p.locked ? t("calendar.insp.unlock") : t("classes.mobile.lock")}</DropdownMenuItem> : null}
             <DropdownMenuItem onClick={onExplain}>{t("calendar.insp.explain")}</DropdownMenuItem>
@@ -132,9 +133,9 @@ export function ClassCards({ rows, group, runId, selection, selectMode, onToggle
           const it = items[vi.index];
           const sticky = it.type === "h" && vi.index === activeHead;
           return (
-            <div key={vi.key} ref={v.measureElement} data-index={vi.index} className={cn("inset-x-0", sticky ? "sticky top-0 z-10" : "absolute")} style={sticky ? { height: vi.size } : { transform: `translateY(${vi.start}px)` }}>
+            <div key={vi.key} ref={v.measureElement} data-index={vi.index} className={cn("inset-x-0", sticky ? "sticky top-0 z-10" : "absolute top-0")} style={sticky ? { height: vi.size } : { transform: `translateY(${vi.start}px)` }}>
               {it.type === "h" ? (
-                <p className="glass-thick rounded-lg px-3 py-2 text-[13px] font-semibold">{it.label === "—" ? t(group === "faculty" ? "classes.group.noFaculty" : "classes.group.none") : it.label} · {it.n.toLocaleString(locale)}</p>
+                <p className="-mx-3 bg-(--mat-regular-solid) px-4 py-2 type-callout font-semibold text-label-1 edge-hairline-b">{it.label === "—" ? t(group === "faculty" ? "classes.group.noFaculty" : "classes.group.none") : it.label} · {it.n.toLocaleString(locale)}</p>
               ) : (
                 <div className="py-1">
                   <Card r={it.r} runId={runId} selected={selection.has(it.r.id)} selectMode={selectMode} onOpen={() => onOpen(it.r)} onToggle={() => onToggle(it.r.id)} onLock={() => onLock(it.r)} onExplain={() => onExplain(it.r)} readOnly={readOnly} />

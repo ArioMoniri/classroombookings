@@ -10,9 +10,10 @@ import { Switch } from "@/components/ui/switch";
 import type { MessageKey } from "@/lib/i18n";
 import { useSettingsPeek } from "@/lib/api/studio-hooks";
 import { useI18n } from "@/lib/i18n/provider";
+import { PolicyPicker } from "@/components/runs/relaxation";
 import { useEstimateText } from "./check-step";
 import { RunCard, RunHistory } from "./run-cards";
-import { compactRange } from "./rule-sentence";
+import { weekList } from "@/lib/i18n/turkish";
 import { useStudio, useStudioStore } from "./studio-context";
 import { useGenerate } from "./use-generate";
 
@@ -20,15 +21,16 @@ const WEIGHT_KINDS = ["room_preference", "building_preference", "min_capacity_wa
 
 /** The plain-language "What will happen" paragraph (TR/EN), built from the live summary. */
 export function useHumanSummary(): string {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { summary } = useStudio();
   const est = useEstimateText();
+  if (!summary.ready || summary.rooms === null) return "";
   const parts = [
     summary.weeks.length === 1
       ? t("glass.studio.placeOneWeek", { n: summary.classesIn, rooms: summary.rooms, w: summary.weeks[0] ?? 0 })
       : summary.weeks.length === 0
         ? t("glass.studio.placeTerm", { n: summary.classesIn, rooms: summary.rooms })
-        : t("studio.summary.h.place", { n: summary.classesIn, rooms: summary.rooms, weeks: compactRange(summary.weeks) }),
+        : t("studio.summary.h.place", { n: summary.classesIn, rooms: summary.rooms, weeks: weekList(summary.weeks, locale === "tr" ? "tr" : "en") }),
     t("studio.summary.h.rules", { must: summary.must, try: summary.tryTo }),
     summary.pinned ? t("studio.summary.h.pinned", { n: summary.pinned }) : "",
     summary.unlocked ? t("studio.summary.h.unlocked", { n: summary.unlocked }) : "",
@@ -85,6 +87,10 @@ export function GenerateStep() {
           {human}
         </p>
         <KeepSmallToggle />
+        {/* who gives way when not every class fits: the term setting, locked rows first or the most classes first */}
+        <div className="max-w-xl" data-testid="studio-relaxation">
+          <PolicyPicker id="studio-relax" value={local.params.relaxation_policy ?? "term"} onChange={(v) => dispatch({ type: "setParams", params: { relaxation_policy: v === "term" ? null : v } })} />
+        </div>
         <div className="grid max-w-md gap-1.5">
           <Label htmlFor="run-label">{t("studio.run.label")}</Label>
           <Input id="run-label" value={(local.params.label as string | undefined) ?? ""} onChange={(e) => dispatch({ type: "setParams", params: { label: e.target.value } })} placeholder={t("studio.run.labelPlaceholder")} />

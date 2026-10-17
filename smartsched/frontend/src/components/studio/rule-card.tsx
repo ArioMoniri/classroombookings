@@ -6,12 +6,14 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { useI18n } from "@/lib/i18n/provider";
+import { pct as pctText } from "@/lib/i18n/turkish";
 import { pick, springs, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { HardnessControl } from "./hardness-control";
 import { plainSentence, type Token, type WeightScale } from "./rule-sentence";
 import { SlotChip } from "./slot-picker";
 import { SourceChip, type SourceKind } from "./source-chip";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface AffectedInfo {
   count: number | null;
@@ -92,7 +94,7 @@ export function RuleCard(p: RuleCardProps) {
       onMouseEnter={p.onHover ? () => p.onHover?.(true) : undefined}
       onMouseLeave={p.onHover ? () => p.onHover?.(false) : undefined}
       className={cn(
-        "outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) group/rule rounded-[var(--radius-md)] border bg-card p-3 text-sm shadow-[var(--shadow-1)] sm:p-4",
+        "outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) group/rule rounded-[var(--radius-md)] border bg-card p-3 text-sm shadow-elev-1 sm:p-4",
         p.proposal && "border-dashed border-primary/50 bg-tint-soft/40",
         p.enabled === false && "opacity-60",
         p.clash && "border-status-infeasible-border",
@@ -103,7 +105,7 @@ export function RuleCard(p: RuleCardProps) {
         <span id={sentenceId} className="sr-only">
           {p.tokens ? plainSentence(p.tokens) : p.fallback}
         </span>
-        <p className="min-w-0 flex-1 text-[0.95rem] leading-relaxed">
+        <p className="min-w-0 flex-1 type-body leading-relaxed">
           {p.tokens
             ? p.tokens.map((tok, i) =>
                 tok.kind === "text" ? (
@@ -176,7 +178,7 @@ export function RuleCard(p: RuleCardProps) {
             <>
               <q lang={p.writtenIn ?? (/[çğıöşüİ]/i.test(p.nlText) ? "tr" : locale)}>{p.nlText}</q>
               {p.writtenIn ? (
-                <span className="ml-1.5 inline-block rounded-sm px-1 py-px align-[1px] text-[10px] font-medium text-label-2 shadow-[inset_0_0_0_1px_var(--hairline)]" data-testid="written-in">
+                <span className="ml-1.5 inline-block rounded-sm px-1 py-px align-[1px] text-2xs pointer-coarse:type-caption font-medium text-label-2 edge-hairline" data-testid="written-in">
                   {t("studio.rule.writtenIn", { lang: p.writtenIn.toUpperCase() })}
                 </span>
               ) : null}
@@ -209,7 +211,7 @@ export function RuleCard(p: RuleCardProps) {
           <summary className="cursor-pointer select-none">
             <span className="font-mono">{p.kind}</span> · {t("studio.rule.rawParams")}
           </summary>
-          <pre className="mt-1 max-h-40 overflow-auto rounded bg-fill-2 p-2 font-mono text-[11px]">{JSON.stringify(p.params ?? {}, null, 2)}</pre>
+          <pre className="mt-1 max-h-40 overflow-auto rounded bg-fill-2 p-2 font-mono type-caption">{JSON.stringify(p.params ?? {}, null, 2)}</pre>
         </details>
       ) : null}
 
@@ -219,12 +221,13 @@ export function RuleCard(p: RuleCardProps) {
 }
 
 export function AffectedBadge({ affected, onClick }: { affected?: AffectedInfo; onClick?: () => void }) {
-  const { t, n } = useI18n();
+  const { t, locale } = useI18n();
   if (!affected) return null;
   if (affected.loading && affected.count === null) return <span className="inline-block h-5 w-28 rounded-full bg-fill-2" role="status" aria-label={t("common.loading")} />;
   if (affected.count === null) return null;
   const label = t("studio.rule.appliesTo", { n: affected.count });
-  const pct = affected.percent !== null && affected.percent !== undefined ? ` (${n(affected.percent, { maximumFractionDigits: 1 })} %)` : "";
+  // "%100", never "100 %" (round-1 R1-S-23; shared helper of T-R1-38)
+  const pct = affected.percent !== null && affected.percent !== undefined ? ` (${pctText(affected.percent, { locale })})` : "";
   const cls = cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs", affected.count === 0 && affected.targeted !== false ? "border-status-warning-border bg-status-warning text-status-warning-fg" : "bg-background");
   const body = (
     <>
@@ -234,10 +237,10 @@ export function AffectedBadge({ affected, onClick }: { affected?: AffectedInfo; 
     </>
   );
   return onClick ? (
-    <button type="button" onClick={onClick} className={cn(cls, "hover:border-primary hover:text-primary pointer-coarse:min-h-11")}>
+    <BareButton onClick={onClick} className={cn(cls, "hover:border-primary hover:text-primary pointer-coarse:min-h-11")}>
       {body}
       <ChevronRight className="size-3" aria-hidden />
-    </button>
+    </BareButton>
   ) : (
     <span className={cls}>
       {body}

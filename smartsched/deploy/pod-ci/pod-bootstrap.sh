@@ -36,12 +36,16 @@ as_ci python3 -m podci basic-auth /var/lib/smartsched-ci/basic_auth
 as_ci python3 -m podci render-nginx "$DEPLOY/nginx/default.conf"
 
 echo "[pod-bootstrap] first deploy (images build on the pod; ~10-20 min on t4g.large)"
-if ! as_ci bash -c "cd '$DEPLOY' && ./deploy.sh --tls"; then
-  echo "[pod-bootstrap] first deploy failed; pod CI retries on the next commit. Manual retry:"
+if as_ci bash -c "cd '$DEPLOY' && ./deploy.sh --tls"; then
+  # the rollback target of pod CI deploys and what smartsched-stack.service starts at boot
+  as_ci bash -c "git -C '$SRC' rev-parse HEAD > /var/lib/smartsched-ci/deployed-sha"
+else
+  echo "[pod-bootstrap] first deploy failed; pod CI deploys the next green commit. Manual retry:"
   echo "  sudo runuser -u smartsched-ci -- bash -c 'cd $DEPLOY && ./deploy.sh --tls'"
 fi
 
 systemctl enable --now smartsched-ci-web.service smartsched-ci-poll.timer smartsched-ci-worker.timer \
   smartsched-ci-worker.path smartsched-ci-update.path
+systemctl enable smartsched-stack.service
 echo "[pod-bootstrap] panel https://${DOMAIN}  CI https://${DOMAIN}/ci/"
 echo "[pod-bootstrap] admin ${SMARTSCHED_ADMIN_EMAIL}; password in SSM ${SMARTSCHED_SSM_PREFIX:-/smartsched}/admin_password"

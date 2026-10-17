@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useTerms } from "@/lib/api/hooks";
 import { usePermissions } from "@/lib/api/shell-extra";
@@ -38,7 +39,7 @@ export function useTermKindLabel() {
 export function TermSwitcher({ collapsed }: { collapsed: boolean }) {
   const { can } = usePermissions();
   // never on the server or the first client render: /auth/me can arrive while the sidebar's Suspense boundary
-  // hydrates, and a <button> the server did not render is React error #418 (/classes, /timetable)
+  // hydrates, and a button the server did not render is React error #418 (/classes, /timetable)
   const hydrated = useHydrated();
   if (!hydrated || !can("planning.view")) return null;
   return <TermSwitcherInner collapsed={collapsed} />;
@@ -67,12 +68,12 @@ function TermSwitcherInner({ collapsed }: { collapsed: boolean }) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             aria-label={`${t("nav.term")}: ${term?.name ?? "…"}. ${t("nav.switchTerm")}`}
             data-testid="term-switcher"
             className={cn(
-              "flex w-full items-center gap-2 rounded-xl bg-fill-3 px-2.5 py-1.5 text-left outline-hidden shadow-[inset_0_0_0_1px_var(--hairline)] transition-colors duration-(--dur-fast) hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)",
+              "h-auto w-full justify-start gap-2 rounded-xl bg-fill-3 px-2.5 py-1.5 text-left font-normal whitespace-normal edge-hairline hover:bg-fill-2 active:not-aria-[haspopup]:scale-100",
               collapsed && "justify-center px-0",
             )}
           >
@@ -87,33 +88,33 @@ function TermSwitcherInner({ collapsed }: { collapsed: boolean }) {
                 <ChevronsUpDown className="size-3.5 shrink-0 text-label-3" aria-hidden />
               </>
             )}
-          </button>
+          </Button>
         }
       />
       <PopoverContent align="start" side={collapsed ? "right" : "bottom"} className="w-72 p-1.5">
-        <p className="px-2.5 pt-1 pb-1.5 text-[11px] font-semibold text-label-3">{t("nav.switchTerm")}</p>
+        <p className="px-2.5 pt-1 pb-1.5 type-caption font-semibold text-label-3">{t("nav.switchTerm")}</p>
         {years.map((year) => (
           <div key={year} role="group" aria-label={year} className="pb-1">
-            <p className="px-2.5 pt-1 text-[11px] font-semibold text-label-3">{year}</p>
+            <p className="px-2.5 pt-1 type-caption font-semibold text-label-3">{year}</p>
             <ul>
               {terms
                 .filter((x) => x.start_date.startsWith(year))
                 .map((x) => (
                   <li key={x.id}>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
                       aria-current={x.id === term?.id ? "true" : undefined}
-                      className="flex w-full items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-left outline-hidden hover:bg-fill-2 focus-visible:bg-fill-2"
+                      className="h-auto w-full justify-start gap-2 rounded-lg px-2.5 py-1.5 text-left font-normal whitespace-normal focus-visible:-outline-offset-2"
                       onClick={() => choose(x)}
                     >
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[13px] font-medium text-label-1">{x.name}</span>
-                        <span className="block text-[12px] text-label-3">
+                        <span className="block type-callout font-medium text-label-1">{x.name}</span>
+                        <span className="block type-footnote text-label-3">
                           {kindLabel(x.kind)} · {formatDate(x.start_date, locale)} · {t("glass.term.weeks", { n: x.week_count })}
                         </span>
                       </span>
                       {x.id === term?.id ? <Check className="size-4 text-tint-text" aria-hidden /> : <span className="size-4" />}
-                    </button>
+                    </Button>
                   </li>
                 ))}
             </ul>

@@ -1,0 +1,653 @@
+{
+ "id": 2,
+ "term_id": 2,
+ "exam_run_id": 7,
+ "parent_plan_id": null,
+ "status": "INFEASIBLE",
+ "label": "probe2",
+ "hard_score": 3,
+ "soft_score": 100,
+ "is_active": false,
+ "params": {
+  "students_per_invigilator": 40,
+  "min_per_room": 1,
+  "max_per_room": null,
+  "own_exam": "prefer",
+  "instructor_pool": "none",
+  "max_per_day": 3,
+  "min_rest": 0,
+  "time_limit_s": 3.0,
+  "seed": 0,
+  "weights": {}
+ },
+ "error": null,
+ "created_at": "2026-10-16T04:48:52.232479",
+ "finished_at": "2026-10-16T04:49:28.811673",
+ "counts": {
+  "posts": 846,
+  "required": 1091,
+  "filled": 36,
+  "missing": 1055,
+  "people": 1,
+  "eligible_people": 1
+ },
+ "headline": {
+  "tr": "36/1091 görev atandı · 1055 gözetmen eksik, 800 neden açıklandı; hiçbir kural esnetilmedi",
+  "en": "36/1091 duties assigned · 1055 invigilator(s) missing, 800 cause(s) explained; no rule relaxed"
+ },
+ "posts": [
+  {
+   "key": "2026-05-13|30|6-8",
+   "date": "2026-05-13",
+   "start_period": 6,
+   "end_period": 8,
+   "room_id": 30,
+   "room": "C 201",
+   "building": "C",
+   "exam_ids": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "seated": 93,
+   "required": 3,
+   "time": "12:40–15:00",
+   "exams": [
+    {
+     "id": 1,
+     "label": "BME419 · Biyomedikal Mühendisliği (İngilizce) · 4. sınıf",
+     "instructor_text": "Prof. Dr. A. A."
+    },
+    {
+     "id": 2,
+     "label": "BME419 · Bilgisayar Mühendisliği (İngilizce) · 2. sınıf",
+     "instructor_text": "Prof. Dr. A. A."
+    },
+    {
+     "id": 3,
+     "label": "BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 4. sınıf",
+     "instructor_text": "Prof. Dr. A. A."
+    },
+    {
+     "id": 4,
+     "label": "BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 2. sınıf",
+     "instructor_text": "Prof. Dr. A. A."
+    },
+    {
+     "id": 5,
+     "label": "BME419 · Biyomedikal Mühendisliği (İngilizce) · 3. sınıf",
+     "instructor_text": "Prof. Dr. A. A."
+    }
+   ],
+   "assigned": [
+    {
+     "id": 1092,
+     "post_key": "2026-05-13|30|6-8",
+     "date": "2026-05-13",
+     "start_period": 6,
+     "end_period": 8,
+     "time": "12:40–15:00",
+     "room_id": 30,
+     "exam_request_ids": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "person_key": "STAFF:1",
+     "person_name": "Probe Kişi",
+     "instructor_id": null,
+     "staff_id": 1,
+     "is_locked": false,
+     "origin": "SOLVER"
+    }
+   ],
+   "missing": 2
+  },
+  {
+   "key": "2026-06-01|1|8-9",
+   "date": "2026-06-01",
+   "start_period": 8,
+   "end_period": 9,
+   "room_id": 1,
+   "room": "A 101",
+   "building": "A",
+   "exam_ids": [
+    12
+   ],
+   "seated": 26,
+   "required": 1,
+   "time": "14:20–15:50",
+   "exams": [
+    {
+     "id": 12,
+     "label": "FZT306 · Fizyoterapi ve Rehabilitasyon · 3. sınıf",
+     "instructor_text": "Doç. Dr. N. A. Doç. Dr. Ö. F."
+    }
+   ],
+   "assigned": [],
+   "missing": 1
+  },
+  {
+   "key": "2026-06-01|2|8-9",
+   "date": "2026-06-01",
+   "start_period": 8,
+   "end_period": 9,
+   "room_id": 2,
+   "room": "A 102",
+   "building": "A",
+   "exam_ids": [
+    12
+   ],
+   "seated": 42,
+   "required": 2,
+   "time": "14:20–15:50",
+   "exams": [
+    {
+     "id": 12,
+     "label": "FZT306 · Fizyoterapi ve Rehabilitasyon · 3. sınıf",
+     "instructor_text": "Doç. Dr. N. A. Doç. Dr. Ö. F."
+    }
+   ],
+   "assigned": [],
+   "missing": 2
+  },
+  {
+   "key": "2026-06-01|6|1-2",
+   "date": "2026-06-01",
+   "start_period": 1,
+   "end_period": 2,
+   "room_id": 6,
+   "room": "A 106",
+   "building": "A",
+   "exam_ids": [
+    14
+   ],
+   "seated": 29,
+   "required": 1,
+   "time": "08:30–10:00",
+   "exams": [
+    {
+     "id": 14,
+     "label": "FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf",
+     "instructor_text": "Öğr. Gör. S. Ö. Öğr. Gör. D. Ç. A."
+    }
+   ],
+   "assigned": [],
+   "missing": 1
+  },
+  {
+   "key": "2026-06-01|6|7-9",
+   "date": "2026-06-01",
+   "start_period": 7,
+   "end_period": 9,
+   "room_id": 6,
+   "room": "A 106",
+   "building": "A",
+   "exam_ids": [
+    13
+   ],
+   "seated": 30,
+   "required": 1,
+   "time": "13:30–15:50",
+   "exams": [
+    {
+     "id": 13,
+     "label": "NUT368 · Beslenme ve Diyetetik (İngilizce) · 3. sınıf",
+     "instructor_text": "Dr. Öğr. Üyesi C. G."
+    }
+   ],
+   "assigned": [],
+   "missing": 1
+  },
+  {
+   "key": "2026-06-01|7|1-2",
+   "date": "2026-06-01",
+   "start_period": 1,
+   "end_period": 2,
+   "room_id": 7,
+   "room": "A 107",
+   "building": "A",
+   "exam_ids": [
+    14
+   ],
+   "seated": 29,
+   "required": 1,
+   "time": "08:30–10:00",
+   "exams": [
+    {
+     "id": 14,
+     "label": "FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf",
+     "instructor_text": "Öğr. Gör. S. Ö. Öğr. Gör. D. Ç. A."
+    }
+   ],
+   "assigned": [],
+   "missing": 1
+  }
+ ],
+ "people": [
+  {
+   "person_key": "STAFF:1",
+   "name": "Probe Kişi",
+   "duties": 36,
+   "periods": 42,
+   "own_exam": 0,
+   "days": 13
+  }
+ ],
+ "diagnosis": [
+  {
+   "code": "teaching_unchecked",
+   "severity": "warning",
+   "dates": [
+    "2026-05-13"
+   ],
+   "why": [
+    "2026-BAHAR: week_15_outside_run_5"
+   ],
+   "text": {
+    "tr": "1 sınav gününde ders saatleri denetlenemedi (o haftayı kapsayan yayımlanmış ders programı ya da dönem takvimi yok); bu günlerde ders çakışması kontrol edilmedi",
+    "en": "Teaching could not be checked on 1 exam date(s) (no published course run or term calendar covers that week); clashes with classes on those dates were not checked"
+   }
+  },
+  {
+   "code": "no_candidates",
+   "severity": "error",
+   "message": "C 201 2026-05-13 P6-P8 (BME419 · Biyomedikal Mühendisliği (İngilizce) · 4. sınıf, BME419 · Bilgisayar Mühendisliği (İngilizce) · 2. sınıf, BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 4. sınıf, BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 2. sınıf, BME419 · Biyomedikal Mühendisliği (İngilizce) · 3. sınıf) needs 3 invigilator(s) but only 1 of 1 people may invigilate it (nobody in the pool)",
+   "text": {
+    "tr": "C 201 13.05.2026 12:40–15:00 (BME419 · Biyomedikal Mühendisliği (İngilizce) · 4. sınıf, BME419 · Bilgisayar Mühendisliği (İngilizce) · 2. sınıf, BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 4. sınıf, BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 2. sınıf, BME419 · Biyomedikal Mühendisliği (İngilizce) · 3. sınıf): 3 gözetmen gerekiyor, yalnızca 1 kişi uygun (havuzda kimse yok)",
+    "en": "C 201 13.05.2026 12:40–15:00 (BME419 · Biyomedikal Mühendisliği (İngilizce) · 4. sınıf, BME419 · Bilgisayar Mühendisliği (İngilizce) · 2. sınıf, BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 4. sınıf, BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 2. sınıf, BME419 · Biyomedikal Mühendisliği (İngilizce) · 3. sınıf) needs 3 invigilator(s); only 1 may take it (nobody in the pool)"
+   },
+   "post_keys": [
+    "2026-05-13|30|6-8"
+   ],
+   "exam_ids": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "exams": [
+    "BME419 · Biyomedikal Mühendisliği (İngilizce) · 4. sınıf",
+    "BME419 · Bilgisayar Mühendisliği (İngilizce) · 2. sınıf",
+    "BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 4. sınıf",
+    "BME419 · Moleküler Biyoloji ve Genetik (İngilizce) · 2. sınıf",
+    "BME419 · Biyomedikal Mühendisliği (İngilizce) · 3. sınıf"
+   ],
+   "person_keys": [],
+   "params": {
+    "date": "2026-05-13",
+    "start": 6,
+    "end": 8,
+    "room_id": 30,
+    "room_code": "C 201",
+    "required": 3,
+    "assigned": 1,
+    "missing": 2,
+    "seated": 93,
+    "excluded": {},
+    "candidates": 1,
+    "add_people": 2
+   },
+   "suggestions": [
+    {
+     "code": "add_staff",
+     "count": 2,
+     "text": {
+      "tr": "Bu saatte boş 2 kişiyi havuza ekleyin",
+      "en": "Add 2 person(s) free at that time to the pool"
+     }
+    }
+   ]
+  },
+  {
+   "code": "no_candidates",
+   "severity": "error",
+   "message": "A 106 2026-06-01 P1-P2 (FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf) needs 1 invigilator(s) but only 0 of 1 people may invigilate it (1 unavailable)",
+   "text": {
+    "tr": "A 106 01.06.2026 08:30–10:00 (FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf): 1 gözetmen gerekiyor, yalnızca 0 kişi uygun (1 uygun değil)",
+    "en": "A 106 01.06.2026 08:30–10:00 (FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf) needs 1 invigilator(s); only 0 may take it (1 unavailable)"
+   },
+   "post_keys": [
+    "2026-06-01|6|1-2"
+   ],
+   "exam_ids": [
+    14
+   ],
+   "exams": [
+    "FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf"
+   ],
+   "person_keys": [],
+   "params": {
+    "date": "2026-06-01",
+    "start": 1,
+    "end": 2,
+    "room_id": 6,
+    "room_code": "A 106",
+    "required": 1,
+    "assigned": 0,
+    "missing": 1,
+    "seated": 29,
+    "excluded": {
+     "unavailable": 1
+    },
+    "candidates": 0,
+    "add_people": 1
+   },
+   "suggestions": [
+    {
+     "code": "add_staff",
+     "count": 1,
+     "text": {
+      "tr": "Bu saatte boş 1 kişiyi havuza ekleyin",
+      "en": "Add 1 person(s) free at that time to the pool"
+     }
+    }
+   ]
+  },
+  {
+   "code": "no_candidates",
+   "severity": "error",
+   "message": "A 107 2026-06-01 P1-P2 (FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf) needs 1 invigilator(s) but only 0 of 1 people may invigilate it (1 unavailable)",
+   "text": {
+    "tr": "A 107 01.06.2026 08:30–10:00 (FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf): 1 gözetmen gerekiyor, yalnızca 0 kişi uygun (1 uygun değil)",
+    "en": "A 107 01.06.2026 08:30–10:00 (FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf) needs 1 invigilator(s); only 0 may take it (1 unavailable)"
+   },
+   "post_keys": [
+    "2026-06-01|7|1-2"
+   ],
+   "exam_ids": [
+    14
+   ],
+   "exams": [
+    "FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf"
+   ],
+   "person_keys": [],
+   "params": {
+    "date": "2026-06-01",
+    "start": 1,
+    "end": 2,
+    "room_id": 7,
+    "room_code": "A 107",
+    "required": 1,
+    "assigned": 0,
+    "missing": 1,
+    "seated": 29,
+    "excluded": {
+     "unavailable": 1
+    },
+    "candidates": 0,
+    "add_people": 1
+   },
+   "suggestions": [
+    {
+     "code": "add_staff",
+     "count": 1,
+     "text": {
+      "tr": "Bu saatte boş 1 kişiyi havuza ekleyin",
+      "en": "Add 1 person(s) free at that time to the pool"
+     }
+    }
+   ]
+  },
+  {
+   "code": "slot_shortage",
+   "severity": "error",
+   "message": "On 2026-06-01 around P6-P7, 2 room(s) (C 102, A 805) need 3 invigilators together but only 1 people are free for them",
+   "text": {
+    "tr": "01.06.2026 12:40–14:10 civarında 2 salon (C 102, A 805) birlikte 3 gözetmen istiyor, bunlar için yalnızca 1 kişi boş",
+    "en": "Around 01.06.2026 12:40–14:10, 2 room(s) (C 102, A 805) need 3 invigilators together but only 1 people are free for them"
+   },
+   "post_keys": [
+    "2026-06-01|60|2-11",
+    "2026-06-01|66|6-7"
+   ],
+   "exam_ids": [
+    15,
+    60
+   ],
+   "exams": [
+    "FZT264 · Fizyoterapi ve Rehabilitasyon · 2. sınıf",
+    "MIK502 · Tıbbi Mikrobiyoloji Tezli Yüksek Lisans"
+   ],
+   "person_keys": [],
+   "params": {
+    "date": "2026-06-01",
+    "start": 6,
+    "end": 7,
+    "room_id": 66,
+    "room_code": "A 805",
+    "required": 1,
+    "assigned": 0,
+    "missing": 1,
+    "seated": 2,
+    "excluded": {},
+    "posts": 2,
+    "required_total": 3,
+    "people_free": 1,
+    "add_people": 2,
+    "rooms": [
+     "C 102",
+     "A 805"
+    ]
+   },
+   "suggestions": [
+    {
+     "code": "add_staff",
+     "count": 2,
+     "text": {
+      "tr": "Bu saatte boş 2 kişiyi havuza ekleyin",
+      "en": "Add 2 person(s) free at that time to the pool"
+     }
+    },
+    {
+     "code": "raise_ratio",
+     "students_per_invigilator": 50,
+     "text": {
+      "tr": "Gözetmen başına öğrenciyi 40 yerine 50 yapın",
+      "en": "Raise students per invigilator from 40 to 50"
+     }
+    },
+    {
+     "code": "move_exam",
+     "exam_ids": [
+      15,
+      60
+     ],
+     "text": {
+      "tr": "Bu sınavlardan birini başka bir saate taşıyın",
+      "en": "Move one of these exams to another slot"
+     }
+    }
+   ]
+  },
+  {
+   "code": "slot_shortage",
+   "severity": "error",
+   "message": "On 2026-06-01 around P7-P11, 2 room(s) (A 204, A 305) need 3 invigilators together but only 1 people are free for them",
+   "text": {
+    "tr": "01.06.2026 13:30–17:30 civarında 2 salon (A 204, A 305) birlikte 3 gözetmen istiyor, bunlar için yalnızca 1 kişi boş",
+    "en": "Around 01.06.2026 13:30–17:30, 2 room(s) (A 204, A 305) need 3 invigilators together but only 1 people are free for them"
+   },
+   "post_keys": [
+    "2026-06-01|13|7-9",
+    "2026-06-01|17|7-11"
+   ],
+   "exam_ids": [
+    8,
+    29
+   ],
+   "exams": [
+    "BES368 · Beslenme ve Diyetetik Türkçe · 3. sınıf",
+    "SOS246 · Sosyoloji · 2. sınıf"
+   ],
+   "person_keys": [],
+   "params": {
+    "date": "2026-06-01",
+    "start": 7,
+    "end": 11,
+    "room_id": 17,
+    "room_code": "A 305",
+    "required": 1,
+    "assigned": 0,
+    "missing": 1,
+    "seated": 30,
+    "excluded": {},
+    "posts": 2,
+    "required_total": 3,
+    "people_free": 1,
+    "add_people": 2,
+    "rooms": [
+     "A 204",
+     "A 305"
+    ]
+   },
+   "suggestions": [
+    {
+     "code": "add_staff",
+     "count": 2,
+     "text": {
+      "tr": "Bu saatte boş 2 kişiyi havuza ekleyin",
+      "en": "Add 2 person(s) free at that time to the pool"
+     }
+    },
+    {
+     "code": "raise_ratio",
+     "students_per_invigilator": 50,
+     "text": {
+      "tr": "Gözetmen başına öğrenciyi 40 yerine 50 yapın",
+      "en": "Raise students per invigilator from 40 to 50"
+     }
+    },
+    {
+     "code": "move_exam",
+     "exam_ids": [
+      8,
+      29
+     ],
+     "text": {
+      "tr": "Bu sınavlardan birini başka bir saate taşıyın",
+      "en": "Move one of these exams to another slot"
+     }
+    }
+   ]
+  },
+  {
+   "code": "slot_shortage",
+   "severity": "error",
+   "message": "On 2026-06-01 around P7-P8, 2 room(s) (A 204, A 308) need 3 invigilators together but only 1 people are free for them",
+   "text": {
+    "tr": "01.06.2026 13:30–15:00 civarında 2 salon (A 204, A 308) birlikte 3 gözetmen istiyor, bunlar için yalnızca 1 kişi boş",
+    "en": "Around 01.06.2026 13:30–15:00, 2 room(s) (A 204, A 308) need 3 invigilators together but only 1 people are free for them"
+   },
+   "post_keys": [
+    "2026-06-01|13|7-9",
+    "2026-06-01|20|7-8"
+   ],
+   "exam_ids": [
+    8,
+    41
+   ],
+   "exams": [
+    "BES368 · Beslenme ve Diyetetik Türkçe · 3. sınıf",
+    "ENT274 · Elektronörofizyoloji · 2. sınıf"
+   ],
+   "person_keys": [],
+   "params": {
+    "date": "2026-06-01",
+    "start": 7,
+    "end": 8,
+    "room_id": 20,
+    "room_code": "A 308",
+    "required": 1,
+    "assigned": 0,
+    "missing": 1,
+    "seated": 22,
+    "excluded": {},
+    "posts": 2,
+    "required_total": 3,
+    "people_free": 1,
+    "add_people": 2,
+    "rooms": [
+     "A 204",
+     "A 308"
+    ]
+   },
+   "suggestions": [
+    {
+     "code": "add_staff",
+     "count": 2,
+     "text": {
+      "tr": "Bu saatte boş 2 kişiyi havuza ekleyin",
+      "en": "Add 2 person(s) free at that time to the pool"
+     }
+    },
+    {
+     "code": "raise_ratio",
+     "students_per_invigilator": 50,
+     "text": {
+      "tr": "Gözetmen başına öğrenciyi 40 yerine 50 yapın",
+      "en": "Raise students per invigilator from 40 to 50"
+     }
+    },
+    {
+     "code": "move_exam",
+     "exam_ids": [
+      8,
+      41
+     ],
+     "text": {
+      "tr": "Bu sınavlardan birini başka bir saate taşıyın",
+      "en": "Move one of these exams to another slot"
+     }
+    }
+   ]
+  }
+ ],
+ "objective_breakdown": {
+  "max_load": 420,
+  "spread": 0,
+  "same_day": 69,
+  "own_exam": 0,
+  "stability": 0
+ },
+ "stats": {
+  "engine": "cpsat",
+  "posts": 846,
+  "people": 1,
+  "eligible_people": 1,
+  "required": 1091,
+  "filled": 36,
+  "missing": 1055,
+  "locks": 0,
+  "lock_conflicts": 0,
+  "max_periods": 42.0,
+  "fair_share_periods": 42.0,
+  "wall_s": 0.676,
+  "workers": 1,
+  "seed": 0,
+  "variables": 838,
+  "greedy_shortfall": 1058,
+  "phase1": "OPTIMAL",
+  "phase1_shortfall": 1055,
+  "phase2": "OPTIMAL",
+  "deterministic_time": 0.053,
+  "objective_breakdown": {
+   "max_load": 420,
+   "spread": 0,
+   "same_day": 69,
+   "own_exam": 0,
+   "stability": 0
+  },
+  "teaching_runs": [],
+  "headline": {
+   "tr": "36/1091 görev atandı · 1055 gözetmen eksik, 800 neden açıklandı; hiçbir kural esnetilmedi",
+   "en": "36/1091 duties assigned · 1055 invigilator(s) missing, 800 cause(s) explained; no rule relaxed"
+  },
+  "progress": 100
+ }
+}

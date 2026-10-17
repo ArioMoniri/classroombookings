@@ -10,12 +10,17 @@ POST /council/jobs/{id}/commit      write into a term (planner group, existing t
 POST /council/jobs/{id}/rerun       run the council again on the stored files (new attempt)
 GET  /council/jobs/{id}/records     extracted records of one file (paged), with source references
 GET  /council/jobs/{id}/artifacts   audit trail: artifact metadata (kind, file, step, time, size)
+GET  /council/memory                intake memory: remembered decisions, grouped by signature (TR / EN text)
+DELETE /council/memory/{id}         forget one remembered decision (a learning reset of scope intake, undoable)
+DELETE /council/memory?signature=   forget every remembered decision of one signature
 
 Guards (app/api/deps.py, role permissions + token revocation): reading a job, its events and its review needs
 ``planning.view``; uploading, deciding, committing, re-running and reading the extracted records or artifact
 payloads (file content) needs ``planning.edit`` - the same split as ``/imports`` (its file download is
-``planning.edit`` too). Uploads follow ``app/core/safe_files.py`` (byte caps, OOXML inspection); a commit is
-one ``council.commit`` audit event (``app/services/events.py``).
+``planning.edit`` too). The intake memory list needs ``planning.view`` (headers, merge names and rule texts for
+``planning.edit`` only); forgetting needs ``planning.edit`` (the review's permission). Uploads follow
+``app/core/safe_files.py`` (byte caps, OOXML inspection); a commit is one ``council.commit`` audit event
+(``app/services/events.py``).
 """
 
 from __future__ import annotations
@@ -35,7 +40,8 @@ from app.api.v1.imports import locked_409
 from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
-from app.council import formats, storage
+from app.council import airows, formats, formats_mail, i18n, memory_admin, storage
+from app.council import text as tx
 from app.council.commit import CommitError, commit
 from app.council.dryrun import dry_run
 from app.council.orchestrator import enqueue
@@ -51,6 +57,7 @@ from app.schemas.council import (
     RerunIn,
     ReviewIn,
     ReviewOut,
+    RowDecisionsIn,
 )
 from app.services import term_lock
 from app.workers.queue import get_queue, worker_id
@@ -67,12 +74,20 @@ async def _job(db: DB, job_id: int) -> CouncilJob:
     return job
 
 
-async def job_out(db: DB, job: CouncilJob) -> CouncilJobOut:
+def _lang(job: CouncilJob, lang: str | None) -> str:
+    """The reader's language: ``?lang=`` or the language the job was started in (T-R1-23)."""
+    return (lang or job.lang or "en")[:8]
+
+
+async def job_out(db: DB, job: CouncilJob, lang: str | None = None) -> CouncilJobOut:
+    """The job for a reader of ``lang`` (default: the job's): the council's messages in Turkish for ``tr``."""
+    lg = _lang(job, lang)
     steps = await storage.steps(db, job.id)
     by_file: dict[int, list[CouncilStepOut]] = {}
     cross: list[CouncilStepOut] = []
     for s in steps:
         out = CouncilStepOut.model_validate(s)
+        out.message = i18n.localize(out.message, lg)
         if s.file_index is None:
             cross.append(out)
         else:
@@ -81,10 +96,15 @@ async def job_out(db: DB, job: CouncilJob) -> CouncilJobOut:
     progress = 100 if job.status in TERMINAL else (st.progress if st else 0)
     files = [
         CouncilFileOut(
-            **{k: v for k, v in f.items() if k in CouncilFileOut.model_fields}, steps=by_file.get(f["index"], [])
+            **{k: v for k, v in f.items() if k in CouncilFileOut.model_fields and k != "message"},
+            message=i18n.localize(f.get("message"), lg),
+            steps=by_file.get(f["index"], []),
         )
         for f in job.files
     ]
+    summary = dict(job.summary or {})
+    if isinstance(summary.get("ai"), str):
+        summary["ai"] = i18n.localize(summary["ai"], lg)
     return CouncilJobOut(
         id=job.id,
         status=job.status,
@@ -93,11 +113,11 @@ async def job_out(db: DB, job: CouncilJob) -> CouncilJobOut:
         lang=job.lang,
         year_hint=job.year_hint,
         progress=progress,
-        phase=st.phase if st and job.status not in TERMINAL else None,
+        phase=i18n.localize(st.phase, lg) if st and job.status not in TERMINAL else None,
         files=files,
         cross_steps=cross,
         plan=job.plan,
-        summary=job.summary or {},
+        summary=summary,
         usage=job.usage or {},
         commits=job.commits or [],
         error=job.error,
@@ -144,10 +164,43 @@ async def create_job(
     await db.flush()
     entries: list[dict[str, Any]] = []
     total = 0
+
+    async def admit(name: str, stored: str, size: int, data: bytes, parent: int | None = None) -> str:
+        """Precheck one stored file and add it to the job (attachments too); returns its format."""
+        nonlocal total
+        total += size
+        if total > job_limit:
+            raise HTTPException(413, f"the files of one job may total at most {st.council_max_job_mb} MiB")
+        if len(entries) >= st.council_max_files:
+            raise HTTPException(413, f"at most {st.council_max_files} files per job (attachments included)")
+        try:
+            # magic-byte detection + the format's caps (zip bombs, ODS repeat bombs, XML entities, JSON
+            # depth, ICS expansion, image pixels) in the rlimit child, before a job exists (app/council/formats.py)
+            fmt = await safe_files.run_isolated(formats.precheck, name, data)
+        except RenderError as exc:  # in the uploader's language (T-R1-26: a renamed photo is refused by name)
+            raise HTTPException(400, f"{name}: {i18n.localize(str(exc), lang)}") from exc
+        except safe_files.UnsafeFileError as exc:
+            raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
+        entries.append(
+            {
+                "index": len(entries),
+                "filename": name,
+                "stored": stored,
+                "size": size,
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "format": fmt,
+                "route_kind": formats.route_of(fmt),
+                "status": "QUEUED",
+                **({"parent": parent} if parent is not None else {}),
+            }
+        )
+        return fmt
+
     try:
         for i, f in enumerate(files):
             name = f.filename or f"upload-{i}"
-            stored = storage.stored_name(i, name)
+            index = len(entries)
+            stored = storage.stored_name(index, name)
             target = storage.job_dir(job.id) / stored
             try:
                 size = await safe_files.save_upload(f, target, limit)
@@ -155,30 +208,18 @@ async def create_job(
                 raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
             if not size:
                 raise HTTPException(400, f"{name}: empty file")
-            total += size
-            if total > job_limit:
-                raise HTTPException(413, f"the files of one job may total at most {st.council_max_job_mb} MiB")
             data = target.read_bytes()  # at most `limit` bytes
-            try:
-                # magic-byte detection + the format's caps (zip bombs, ODS repeat bombs, XML entities, JSON
-                # depth, ICS expansion) in the rlimit child, before a job exists (app/council/formats.py)
-                fmt = await safe_files.run_isolated(formats.precheck, name, data)
-            except RenderError as exc:
-                raise HTTPException(400, f"{name}: {exc}") from exc
-            except safe_files.UnsafeFileError as exc:
-                raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
-            entries.append(
-                {
-                    "index": i,
-                    "filename": name,
-                    "stored": stored,
-                    "size": size,
-                    "sha256": hashlib.sha256(data).hexdigest(),
-                    "format": fmt,
-                    "route_kind": formats.route_of(fmt),
-                    "status": "QUEUED",
-                }
-            )
+            fmt = await admit(name, stored, size, data)
+            if fmt != "eml":
+                continue
+            # e-mail attachments re-enter the registry as files of this job (depth 1, at most 10; P19-A3)
+            for att_name, att in await safe_files.run_isolated(formats_mail.attachments, data):
+                if len(att) > limit:
+                    raise HTTPException(413, f"{name}: attachment {att_name} is larger than the per-file limit")
+                child = f"{name} - {att_name}"
+                child_stored = storage.stored_name(len(entries), child)
+                (storage.job_dir(job.id) / child_stored).write_bytes(att)
+                await admit(child, child_stored, len(att), att, parent=index)
     except BaseException:
         await db.rollback()  # the job row was only flushed: a refused upload leaves no job and no file
         shutil.rmtree(storage.job_dir(job.id), ignore_errors=True)
@@ -207,12 +248,12 @@ async def list_jobs(db: DB, _: Viewer, limit: int = 30) -> list[CouncilJobBrief]
 
 
 @router.get("/jobs/{job_id}", response_model=CouncilJobOut)
-async def get_job(job_id: int, db: DB, _: Viewer) -> CouncilJobOut:
-    return await job_out(db, await _job(db, job_id))
+async def get_job(job_id: int, db: DB, _: Viewer, lang: str | None = None) -> CouncilJobOut:
+    return await job_out(db, await _job(db, job_id), lang)
 
 
 @router.get("/jobs/{job_id}/events")
-async def job_events(job_id: int, db: DB, _: Viewer) -> StreamingResponse:
+async def job_events(job_id: int, db: DB, _: Viewer, lang: str | None = None) -> StreamingResponse:
     """SSE: ``event: snapshot`` with the full job (as ``GET /council/jobs/{id}``) whenever a step or file
     changes, ``: keep-alive`` comments in between, and ``event: done`` when the job stops running."""
     await _job(db, job_id)
@@ -226,7 +267,7 @@ async def job_events(job_id: int, db: DB, _: Viewer) -> StreamingResponse:
                 job = await s.get(CouncilJob, job_id)
                 if job is None:
                     break
-                out = (await job_out(s, job)).model_dump(mode="json")
+                out = (await job_out(s, job, lang)).model_dump(mode="json")
             body = json.dumps(out, ensure_ascii=False)
             digest = hashlib.sha1(body.encode()).hexdigest()
             if digest != last:
@@ -255,6 +296,13 @@ def _redact(item: dict[str, Any]) -> dict[str, Any]:
     if item.get("kind") == "merge":  # the two spellings are names of people or rooms
         out["current"] = {k: v for k, v in (item.get("current") or {}).items() if k in ("kind", "score")}
         out["title"] = f"Same {(item.get('current') or {}).get('kind', 'entity')}?"
+    if item.get("kind") == "person_merge":  # the two names are people's: the question only, no names, no courses
+        out = {
+            k: v
+            for k, v in out.items()
+            if k in ("id", "kind", "blocking", "decision", "file_index", "reason", "distance", "default", "existing_id")
+        }
+        out["title"] = "Same person?"
     if item.get("kind") in ("issue", "rule", "rule_text", "file"):
         out["title"] = {"issue": "Finding", "rule": "Rule proposal", "rule_text": "Rule-like texts", "file": "File"}[
             item["kind"]
@@ -266,7 +314,9 @@ def _redact(item: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-async def _review_out(db: DB, job: CouncilJob, *, content: bool = True, **extra: Any) -> ReviewOut:
+async def _review_out(
+    db: DB, job: CouncilJob, *, content: bool = True, lang: str | None = None, **extra: Any
+) -> ReviewOut:
     items = await build_items(db, job)
     plan = effective_plan(job.plan or {}, await decisions(db, job.id)) if job.plan else None
     blocking = sum(1 for it in items if it["blocking"] and it["decision"] is None)
@@ -274,6 +324,8 @@ async def _review_out(db: DB, job: CouncilJob, *, content: bool = True, **extra:
         items = [_redact(it) for it in items]
         if plan:
             plan = {**plan, "groups": [{**g, "evidence": []} for g in plan.get("groups", [])]}
+    lg = _lang(job, lang)
+    items = [i18n.localize_item(it, lg) for it in items]
     return ReviewOut(
         job_id=job.id,
         status=job.status,
@@ -287,15 +339,15 @@ async def _review_out(db: DB, job: CouncilJob, *, content: bool = True, **extra:
 
 
 @router.get("/jobs/{job_id}/review", response_model=ReviewOut)
-async def get_review(job_id: int, db: DB, _: Viewer, access: CurrentAccess) -> ReviewOut:
+async def get_review(job_id: int, db: DB, _: Viewer, access: CurrentAccess, lang: str | None = None) -> ReviewOut:
     """Review items. Sample cell values, rule texts, sources and the names of merge pairs are file content
     (names, notes): they are returned to planning.edit only, like ``/records``; viewers see the items' kinds,
     confidences and decisions."""
-    return await _review_out(db, await _job(db, job_id), content=access.can("planning.edit"))
+    return await _review_out(db, await _job(db, job_id), content=access.can("planning.edit"), lang=lang)
 
 
 @router.post("/jobs/{job_id}/review", response_model=ReviewOut)
-async def post_review(job_id: int, body: ReviewIn, db: DB, user: Planner) -> ReviewOut:
+async def post_review(job_id: int, body: ReviewIn, db: DB, user: Planner, lang: str | None = None) -> ReviewOut:
     """Decide items (one ``council.review`` audit event). A mapping or classification change queues the
     deterministic re-read of its files (``rerun_queued``); the job is ``RUNNING`` until it has finished (watch
     ``GET /council/jobs/{id}/events``)."""
@@ -307,6 +359,7 @@ async def post_review(job_id: int, body: ReviewIn, db: DB, user: Planner) -> Rev
     return await _review_out(
         db,
         job,
+        lang=lang,
         saved=res["saved"],
         errors=res["errors"],
         rerun_files=res["rerun_files"],
@@ -346,6 +399,7 @@ async def post_commit(job_id: int, body: CommitIn, db: DB, user: Planner) -> dic
         allow_pending=body.allow_pending,
         user_id=user.id,
         on_conflict=body.on_conflict,
+        baseline=body.baseline.model_dump(),
     )
     try:
         if body.dry_run:
@@ -359,7 +413,7 @@ async def post_commit(job_id: int, body: CommitIn, db: DB, user: Planner) -> dic
     except term_lock.TermLocked as exc:
         raise locked_409(exc) from exc  # the imports' 409: holder and since when, TR + EN
     except CommitError as exc:
-        raise HTTPException(409, str(exc)) from exc
+        raise HTTPException(409, exc.detail or str(exc)) from exc  # coded refusals carry message_tr (T-R2-21)
 
 
 @router.post("/jobs/{job_id}/rerun", response_model=CouncilJobOut, status_code=202)
@@ -377,6 +431,57 @@ async def rerun(job_id: int, db: DB, _: Planner, body: RerunIn | None = None) ->
     enqueue(job.id)
     await db.refresh(job)
     return await job_out(db, job)
+
+
+@router.get("/jobs/{job_id}/rows")
+async def get_rows(
+    job_id: int,
+    db: DB,
+    _: Planner,
+    state: str | None = None,
+    method: str | None = None,
+    file: int | None = None,
+    q: str | None = None,
+    offset: int = 0,
+    limit: int = 100,
+) -> dict[str, Any]:
+    """Cross-file review rows (P19-I-01 / P19-A2): state pending | ready | accepted | edited | rejected, method
+    direct | ai, confidence, provenance and values. File content: planners only, like ``/records``."""
+    job = await _job(db, job_id)
+    all_rows = await airows.rows(db, job)
+    sel = [
+        r
+        for r in all_rows
+        if (state is None or r["state"] == state)
+        and (method is None or r["method"] == method)
+        and (file is None or r["file_index"] == file)
+        and (not q or tx.fold(q) in tx.fold(json.dumps(r["values"], ensure_ascii=False)))
+    ]
+    limit = max(1, min(limit, 500))
+    return {
+        "total": len(sel),
+        "offset": offset,
+        "limit": limit,
+        "items": sel[offset : offset + limit],
+        "counts": airows.counts(all_rows),
+        "bulk_max": airows.BULK_MAX,
+    }
+
+
+@router.post("/jobs/{job_id}/rows/decisions")
+async def post_row_decisions(job_id: int, body: RowDecisionsIn, db: DB, user: Planner) -> dict[str, Any]:
+    """Accept / edit / reject rows. Rows read by the AI model: at most 50 in one call and only with
+    ``confirm=true``; a low-confidence AI row is decided on its own (owner decision 2026-10-15)."""
+    job = await _job(db, job_id)
+    if job.status not in ("REVIEW", "READY", "COMMITTED"):
+        raise HTTPException(409, f"job is {job.status}; rows can be decided when the council has finished")
+    try:
+        res = await airows.decide(db, job, [d.model_dump() for d in body.decisions], user, confirm=body.confirm)
+    except airows.RowDecisionError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    await db.refresh(job)
+    all_rows = await airows.rows(db, job)
+    return {**res, "status": job.status, "counts": airows.counts(all_rows)}
 
 
 @router.get("/jobs/{job_id}/records")
@@ -415,3 +520,55 @@ async def get_artifacts(job_id: int, db: DB, _: Planner, kind: str | None = None
         }
         for a in rows
     ]
+
+
+# --------------------------------------------------------------------------- intake memory
+
+
+def _memory_error(exc: memory_admin.IntakeMemoryError) -> HTTPException:
+    return HTTPException(exc.status, exc.detail)
+
+
+@router.get("/memory")
+async def list_memory(
+    db: DB,
+    _: Viewer,
+    access: CurrentAccess,
+    signature: str | None = None,
+    kind: str | None = None,
+    job_id: int | None = None,
+) -> dict[str, Any]:
+    """What the intake remembers (app/council/memory_admin.py): rows with a TR / EN description and the groups,
+    one per signature; ``effective`` marks the row the next matching upload is offered."""
+    from app.council import memory
+
+    if await memory.scrub_legacy(db):  # merge rows written before T-R1-22 held the two names in their item id
+        await db.commit()
+    try:
+        return await memory_admin.listing(
+            db, signature=signature, kind=kind, job_id=job_id, content=access.can("planning.edit")
+        )
+    except memory_admin.IntakeMemoryError as exc:
+        raise _memory_error(exc) from exc
+
+
+@router.delete("/memory/{row_id}")
+async def forget_memory_row(row_id: int, db: DB, user: Planner, reason: str | None = None) -> dict[str, Any]:
+    """Forget one remembered decision: a learning reset of scope ``intake`` (undo for 30 days, audited)."""
+    try:
+        out = await memory_admin.forget_one(db, user, row_id, reason)
+    except memory_admin.IntakeMemoryError as exc:
+        raise _memory_error(exc) from exc
+    await db.commit()
+    return out
+
+
+@router.delete("/memory")
+async def forget_memory_signature(db: DB, user: Planner, signature: str, reason: str | None = None) -> dict[str, Any]:
+    """Forget every remembered decision of one signature (one reset, one audit event)."""
+    try:
+        out = await memory_admin.forget_signature(db, user, signature, reason)
+    except memory_admin.IntakeMemoryError as exc:
+        raise _memory_error(exc) from exc
+    await db.commit()
+    return out

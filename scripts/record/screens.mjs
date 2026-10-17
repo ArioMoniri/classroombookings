@@ -4,7 +4,9 @@
 //   node scripts/record/screens.mjs [--out docs/images/screens] [--themes light,dark] [--only a,b] [--png]
 //
 // Every shot is taken at 1440×900 (CSS px, device scale 1) unless it says otherwise; phone shots are
-// 390×844 at device scale 2. Files: <name>-<theme>.webp (quality 82); Turkish shots end in -tr.
+// 390×844 at device scale 2. Files: <name>-<theme>.webp (quality 82; --png keeps PNG). Shots marked
+// `as: "staff"` sign in as the academic staff account the approval-flow recording creates (record-all.sh runs
+// first and keeps the stack up). Private calendar-feed links are blurred; instructor names are initials (KVKK).
 // Env: REC_BASE_URL (default http://127.0.0.1:3610), REC_EMAIL / REC_PASSWORD, REC_TERM_CODE (2026-GUZ).
 import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync, statSync } from "node:fs";
@@ -12,7 +14,8 @@ import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { api } from "./journeys/_shared.mjs";
+import { FIXTURES, api, dayGrid, profileLanguage, freeRun, maskBeforeShowing, nextTeachingDay, slotKey } from "./journeys/_shared.mjs";
+import { STAFF } from "./journeys/approval-flow.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../..");
@@ -67,24 +70,139 @@ async function context(page) {
   for (const a of idx.assignments) for (const r of a.rooms ?? []) count.set(r, (count.get(r) ?? 0) + 1);
   const busiest = [...count.entries()].sort((a, b) => b[1] - a[1])[0][0];
   const rooms = (await api(page, "/room-admin/rooms")).data ?? [];
-  const groupA = rooms.find((r) => r.code === "A203")?.room_group_id ?? rooms.find((r) => r.room_group_id)?.room_group_id;
-  const mine = (await api(page, "/bookings/mine")).data ?? [];
-  const d = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Istanbul" }));
-  do d.setDate(d.getDate() + 1);
-  while (d.getDay() === 0 || d.getDay() === 6);
-  const nextDay = mine[0]?.date ?? d.toISOString().slice(0, 10);
+  const a101 = rooms.find((r) => r.code === "A101");
+  const groupA = a101?.room_group_id ?? rooms.find((r) => r.room_group_id)?.room_group_id;
+  const nextDay = await nextTeachingDay(page);
+  const grid = await dayGrid(page, nextDay, groupA);
+  const free = freeRun(grid, 1, { maxPeriod: 5 })[0];
+  const features = (await api(page, "/room-admin/features")).data ?? [];
+  const pc = features.find((f) => f.solver_tag === "PC");
   // the Term lens needs a term with all its calendar weeks: the Güz grid workbook holds two weeks only,
   // so that shot uses the planner's imported Bahar 2026 board (15 weeks)
   const bahar = terms.find((t) => t.code === "2026-BAHAR");
   const baharRuns = bahar ? (await api(page, `/runs?term_id=${bahar.id}`)).data : [];
   const baharBoard = baharRuns.find((r) => r.kind === "COURSE" && r.params?.source === "GRID_IMPORT")?.id ?? termRun.id;
-  return { termRun: termRun.id, weekRun: weekRun.id, busiest, groupA, nextDay, baharBoard };
+  return { termRun: termRun.id, weekRun: weekRun.id, busiest, groupA, a101: a101?.id, nextDay, free, pc, baharBoard };
 }
 
-// name → async (page, ctx) that leaves the page ready for the screenshot
+/** The approvals inbox needs an open request: the academic staff account asks for the approval room (no note). */
+async function pendingRequest(page) {
+  const rules = (await api(page, "/approval-rules")).data ?? [];
+  const roomId = rules.find((r) => r.entity_type === "room")?.entity_id;
+  if (!roomId) return null;
+  const inbox = (await api(page, "/approvals/inbox")).data;
+  const items = Array.isArray(inbox) ? inbox : (inbox?.items ?? inbox?.requests ?? []);
+  if (items.some((r) => r.status === "PENDING")) return null;
+  const rooms = (await api(page, "/room-admin/rooms")).data ?? [];
+  const room = rooms.find((r) => r.id === roomId);
+  const date = await nextTeachingDay(page);
+  const grid = await dayGrid(page, date, room.room_group_id);
+  const slot = freeRun(grid, 1, { exclude: grid.rooms.filter((r) => r.id !== roomId).map((r) => r.id), maxPeriod: 10, from: 4 })[0];
+  const terms = (await api(page, "/terms")).data;
+  return { slot, termId: terms.find((t) => t.code === TERM).id };
+}
+
+const blurFeeds = (page) =>
+  page.addStyleTag({ content: "[data-testid^=sync-url]{filter:blur(5px)!important}" });
+
+// name → async (page, ctx) that leaves the page ready for the screenshot. `as: "staff"` signs in as the academic
+// staff account the approval-flow recording uses (a role, not a person); the rest is the seeded administrator.
 const SHOTS = {
   login: { auth: false, go: async (page) => { await page.goto("/login"); await visible(page, "login-submit"); await settle(page, 1500); } },
   dashboard: { go: async (page) => { await page.goto("/dashboard"); await visible(page, "dashboard-hero"); await settle(page, 2500); } },
+  // bookings (staff)
+  "bookings-day": { go: async (page, c) => { await page.goto(`/bookings?date=${c.nextDay}&group=${c.groupA}&lens=grid`); await visible(page, "booking-grid"); await settle(page, 2000); } },
+  "bookings-room": { go: async (page, c) => { await page.goto(`/bookings?display=room&room=${c.a101}&date=${c.nextDay}&lens=grid`); await visible(page, "booking-grid"); await settle(page, 2000); } },
+  "reserve-sheet": {
+    go: async (page, c) => {
+      await page.goto(`/bookings?date=${c.nextDay}&group=${c.groupA}&lens=grid`);
+      await visible(page, "booking-grid");
+      await page.locator(`button[data-slot-key="${slotKey(c.free)}"]`).click();
+      await visible(page, "book-sheet");
+      await settle(page, 1200);
+    },
+  },
+  "free-slots": { go: async (page, c) => { await page.goto(`/bookings?date=${c.nextDay}&group=${c.groupA}&lens=free`); await visible(page, "free-slots"); await settle(page, 2000); } },
+  "room-details": {
+    go: async (page, c) => {
+      await page.goto(`/bookings?date=${c.nextDay}&group=${c.groupA}&lens=grid`);
+      await visible(page, "booking-grid");
+      await page.getByTestId("room-info-A101").click();
+      await visible(page, "room-info");
+      await page.getByTestId("room-alternatives").locator('[data-testid^="alt-reserve-"]').first().waitFor({ timeout: 20_000 }).catch(() => undefined);
+      await settle(page, 1200);
+    },
+  },
+  "calendar-sync": {
+    go: async (page, c) => {
+      await page.goto(`/bookings?date=${c.nextDay}&group=${c.groupA}&lens=grid`);
+      await visible(page, "booking-grid");
+      await page.getByTestId("sync-open").click();
+      await visible(page, "sync-sheet");
+      const create = page.getByTestId("sync-create");
+      if (await create.isVisible().catch(() => false)) await create.click();
+      await page.getByTestId("sync-url-mine").waitFor({ timeout: 20_000 }).catch(() => undefined);
+      await blurFeeds(page);
+      await settle(page, 1200);
+    },
+  },
+  "my-bookings": { go: async (page) => { await page.goto("/my-bookings"); await visible(page, "mine-totals"); await blurFeeds(page); await settle(page, 2000); } },
+  "find-room": {
+    go: async (page, c) => {
+      await page.goto("/find-room");
+      const view = page.getByTestId("find-room");
+      await view.waitFor({ timeout: 30_000 });
+      await view.getByTestId("fr-date").fill(c.nextDay);
+      await view.getByTestId("fr-start").fill("10:10");
+      await view.getByTestId("fr-end").fill("12:30");
+      await view.getByTestId("fr-headcount").fill("40");
+      if (c.pc) await view.getByTestId(`fr-feature-${c.pc.id}`).click();
+      await view.getByTestId("fr-search").click();
+      await view.getByTestId("fr-summary").waitFor({ timeout: 30_000 });
+      await settle(page, 1500);
+    },
+  },
+  notifications: {
+    as: "staff",
+    go: async (page) => {
+      await page.goto("/my-bookings");
+      await visible(page, "mine-totals");
+      await page.locator('[data-testid="notification-bell"]:visible').click();
+      await visible(page, "notification-panel");
+      await settle(page, 1200);
+    },
+  },
+  "my-requests": { as: "staff", go: async (page) => { await page.goto("/my-bookings"); await visible(page, "my-requests"); await scrollTo(page, page.getByTestId("my-requests"), 120); await blurFeeds(page); await settle(page, 1500); } },
+  // approvals and administration
+  approvals: {
+    go: async (page) => {
+      const pending = await pendingRequest(page);
+      if (pending) await staffRequest(pending);
+      await page.goto("/approvals");
+      await visible(page, "approvals-list");
+      const first = page.getByTestId("approvals-list").locator('[data-testid^="approval-"]').first();
+      await first.click();
+      await visible(page, "approval-drawer");
+      await page.getByTestId("approval-room-day").waitFor({ timeout: 20_000 }).catch(() => undefined);
+      await settle(page, 1500);
+    },
+  },
+  "approval-rules": { go: async (page) => { await page.goto("/admin/approval-rules"); await visible(page, "approval-rules"); await settle(page, 1500); } },
+  audit: {
+    go: async (page) => {
+      await page.goto("/admin/audit");
+      await visible(page, "audit-list");
+      const ev = page.locator('[data-action="booking.update"], [data-action="booking.create"]').first();
+      await ev.locator("button[aria-expanded]").first().click();
+      await ev.getByTestId("audit-diff").waitFor({ timeout: 20_000 }).catch(() => undefined);
+      await settle(page, 1200);
+    },
+  },
+  "room-features": { go: async (page) => { await page.goto("/admin/rooms?tab=features"); await visible(page, "features-tab"); await settle(page, 1800); } },
+  "admin-users": { go: async (page) => { await page.goto("/admin/users"); await visible(page, "users-table"); await settle(page, 1500); } },
+  "admin-roles": { go: async (page) => { await page.goto("/admin/roles"); await visible(page, "role-editor"); await settle(page, 1500); } },
+  "settings-ai": { go: async (page) => { await page.goto("/settings"); await page.getByTestId("tab-ai").click(); await visible(page, "ai-policy"); await settle(page, 1500); } },
+  // planning (coordinator)
   "studio-scope": { go: async (page) => studio(page, "scope") },
   "studio-rules": {
     go: async (page) => {
@@ -122,6 +240,22 @@ const SHOTS = {
       await settle(page, 800);
     },
   },
+  import: { go: async (page) => { await page.goto("/import"); await visible(page, "import"); await settle(page, 1500); } },
+  "onboarding-review": {
+    go: async (page) => {
+      await maskBeforeShowing(page, "**/api/v1/council/jobs/*/review", () => true);
+      await page.goto("/onboarding");
+      await visible(page, "onboarding-drop");
+      await page.getByTestId("onboarding-input").setInputFiles(`${FIXTURES}/final_planlama_listesi_2026_v2.xlsx`);
+      const ai = page.getByTestId("onboarding-drop").locator('input[type="checkbox"]').first();
+      // a styled checkbox: the label takes the click
+      if (await ai.isChecked()) await page.getByTestId("onboarding-drop").getByText(/Use the AI model|yapay zek/i).first().click();
+      await page.getByTestId("onboarding-start").click();
+      await visible(page, "onboarding-review", 300_000);
+      await scrollTo(page, page.getByTestId("onboarding-review"), 120);
+      await settle(page, 1500);
+    },
+  },
   "calendar-board": { go: async (page, c) => { await page.goto(`/timetable?run=${c.termRun}&week=${WEEK}&lens=board`); await visible(page, "calendar-event"); await settle(page, 2000); } },
   "calendar-week": { go: async (page, c) => { await page.goto(`/timetable?run=${c.termRun}&week=${WEEK}&lens=week&subject=room:${c.busiest}`); await visible(page, "calendar-event"); await settle(page, 2000); } },
   "calendar-term": { go: async (page, c) => { await page.goto(`/timetable?run=${c.baharBoard}&week=${WEEK}&lens=term`); await visible(page, "term-heat"); await settle(page, 2500); } },
@@ -135,27 +269,30 @@ const SHOTS = {
     },
   },
   classes: { go: async (page) => { await page.goto("/classes"); await visible(page, "classes-row"); await settle(page, 2000); } },
-  rooms: { go: async (page) => { await page.goto("/rooms"); await visible(page, "room-card"); await settle(page, 2000); } },
-  "room-detail": { go: async (page, c) => { await page.goto(`/rooms/${c.busiest}`); await visible(page, "room-week-grid"); await settle(page, 2000); } },
-  bookings: { go: async (page, c) => { await page.goto(`/bookings?date=${c.nextDay}&group=${c.groupA}`); await visible(page, "booking-grid"); await settle(page, 2000); } },
-  "my-bookings": { go: async (page) => { await page.goto("/my-bookings"); await visible(page, "mine-totals"); await settle(page, 2000); } },
-  "admin-users": { go: async (page) => { await page.goto("/admin/users"); await visible(page, "users-table"); await settle(page, 1500); } },
-  "admin-roles": { go: async (page) => { await page.goto("/admin/roles"); await visible(page, "role-editor"); await settle(page, 1500); } },
-  "setup-requirements": {
+  "classes-inspector": {
     go: async (page) => {
-      await page.goto("/admin");
-      await visible(page, "setup-requirements");
+      await page.goto("/classes");
+      await visible(page, "classes-row");
+      await page.getByTestId("classes-row").nth(1).click();
+      await visible(page, "class-inspector");
       await settle(page, 1500);
     },
   },
-  "settings-appearance": { go: async (page) => { await page.goto("/settings"); await page.getByTestId("tab-appearance").click(); await settle(page, 1500); } },
+  rooms: { go: async (page) => { await page.goto("/rooms"); await page.getByTestId("rooms-table").or(page.getByTestId("room-card")).first().waitFor({ timeout: 30_000 }); await settle(page, 2000); } },
   // phone
-  "mobile-dashboard": { viewport: PHONE, go: async (page) => { await page.goto("/dashboard"); await visible(page, "dashboard-hero"); await settle(page, 2500); } },
-  "mobile-calendar": { viewport: PHONE, go: async (page, c) => { await page.goto(`/timetable?run=${c.termRun}&week=${WEEK}&lens=day&subject=room:${c.busiest}`); await visible(page, "calendar"); await settle(page, 2500); } },
-  // Turkish (light only)
-  "dashboard-tr": { lang: "tr", themes: ["light"], go: async (page) => SHOTS.dashboard.go(page) },
-  "studio-rules-tr": { lang: "tr", themes: ["light"], go: async (page, c) => SHOTS["studio-rules"].go(page, c) },
+  "mobile-bookings": { viewport: PHONE, go: async (page, c) => { await page.goto(`/bookings?date=${c.nextDay}&group=${c.groupA}`); await visible(page, "free-slots"); await settle(page, 2500); } },
+  "mobile-timetable": { viewport: PHONE, go: async (page, c) => { await page.goto(`/timetable?run=${c.termRun}&week=${WEEK}&lens=day&subject=room:${c.busiest}`); await visible(page, "calendar"); await settle(page, 2500); } },
 };
+
+/** An open approval request for the inbox shot: the staff account books the approval room (202, PENDING). */
+async function staffRequest({ slot, termId }) {
+  const ctx = await newContext(browser, { theme: "light", lang: "en", viewport: DESKTOP });
+  const page = await ctx.newPage();
+  await login(page, STAFF);
+  const res = await api(page, "/bookings", { method: "POST", body: { room_id: slot.room_id, date: slot.date, period_id: slot.period_id, term_id: termId } });
+  if (res.status !== 202) console.log(`note: the staff request answered ${res.status}`);
+  await ctx.close();
+}
 
 async function studio(page, step) {
   if (!page.url().includes("/generate")) {
@@ -197,10 +334,10 @@ async function newContext(browser, { theme, lang, viewport }) {
   return ctx;
 }
 
-async function login(page) {
+async function login(page, creds) {
   await page.goto("/login");
-  await page.getByTestId("login-identifier").fill(CREDS.email);
-  await page.getByTestId("login-password").fill(CREDS.password);
+  await page.getByTestId("login-identifier").fill(creds.email);
+  await page.getByTestId("login-password").fill(creds.password);
   await page.getByTestId("login-submit").click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
 }
@@ -220,8 +357,19 @@ for (const theme of themes) {
     const ctx = await newContext(browser, { theme, lang, viewport });
     const page = await ctx.newPage();
     try {
-      if (shot.auth !== false) await login(page);
-      if (!c && shot.auth !== false) c = await context(page);
+      if (shot.auth !== false) {
+        if (!c) {
+          await login(page, CREDS);
+          c = await context(page);
+          if (shot.as === "staff") {
+            await page.context().clearCookies();
+            await page.context().addCookies([{ name: "NEXT_LOCALE", value: lang, url: BASE }]);
+          }
+        }
+        if (shot.as === "staff") await login(page, STAFF);
+        else if (page.url() === "about:blank") await login(page, CREDS);
+        await profileLanguage(page, lang); // the app follows the signed-in user's profile language
+      }
       await shot.go(page, c);
       const base = join(out, `${name}-${theme}`);
       await page.screenshot({ path: `${base}.png` });

@@ -11,9 +11,10 @@ import { useI18n } from "@/lib/i18n/provider";
 import { formatDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
-import { Segmented } from "./segmented";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useStudio } from "./studio-context";
 import type { Horizon } from "./studio-reducer";
+import { BareButton } from "@/components/shell/bare-button";
 
 function relDays(iso: string | null | undefined, locale: string): string {
   if (!iso) return "";
@@ -71,8 +72,10 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
 
   return (
     <div className="space-y-5" data-testid="scope-step">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="grid gap-1.5">
+      {/* fields at their natural widths that wrap as whole fields: three equal columns squeezed the horizon control
+          into its select fallback at 1440 (each control keeps one row and one height, review §3 Generate) */}
+      <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
+        <div className="grid min-w-48 gap-1.5">
           <Label htmlFor="scope-term">{t("studio.scope.term")}</Label>
           <NativeSelect
             id="scope-term"
@@ -94,20 +97,20 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
           <span id="scope-kind" className="text-sm font-medium">
             {t("studio.scope.kind")}
           </span>
-          <Segmented labelledBy="scope-kind" value={kind} onChange={onKind} testId="scope-kind" options={[{ value: "COURSE", label: t("studio.kind.COURSE"), testId: "kind-COURSE" }, { value: "EXAM", label: t("studio.kind.EXAM"), testId: "kind-EXAM" }]} />
+          <SegmentedControl semantics="radiogroup" aria-labelledby="scope-kind" value={kind} onValueChange={onKind} data-testid="scope-kind" options={[{ value: "COURSE", label: t("studio.kind.COURSE"), testId: "kind-COURSE" }, { value: "EXAM", label: t("studio.kind.EXAM"), testId: "kind-EXAM" }]} />
         </div>
         <div className="grid gap-1.5">
           <span id="scope-horizon" className="text-sm font-medium">
             {t("studio.scope.horizon")}
           </span>
           {kind === "EXAM" ? (
-            <Segmented labelledBy="scope-horizon" value={local.horizon === "TERM" ? "TERM" : "WEEK"} onChange={(h) => setScope(h as Horizon, h === "WEEK" ? (chosen.length ? chosen : selectable.slice(0, 1).map((w) => w.index)) : undefined)} options={[{ value: "WEEK", label: t("studio.horizon.EXAM_WEEKS") }, { value: "TERM", label: t("studio.horizon.EXAM") }]} />
+            <SegmentedControl semantics="radiogroup" aria-labelledby="scope-horizon" value={local.horizon === "TERM" ? "TERM" : "WEEK"} onValueChange={(h) => setScope(h as Horizon, h === "WEEK" ? (chosen.length ? chosen : selectable.slice(0, 1).map((w) => w.index)) : undefined)} options={[{ value: "WEEK", label: t("studio.horizon.EXAM_WEEKS") }, { value: "TERM", label: t("studio.horizon.EXAM") }]} />
           ) : (
-            <Segmented
-              labelledBy="scope-horizon"
+            <SegmentedControl semantics="radiogroup"
+              aria-labelledby="scope-horizon"
               value={local.horizon}
-              onChange={(h) => setScope(h, h === "WEEK" ? (chosen.length ? chosen : selectable.slice(0, 1).map((w) => w.index)) : undefined)}
-              testId="scope-horizon"
+              onValueChange={(h) => setScope(h, h === "WEEK" ? (chosen.length ? chosen : selectable.slice(0, 1).map((w) => w.index)) : undefined)}
+              data-testid="scope-horizon"
               options={[
                 { value: "WEEK", label: t("studio.horizon.WEEK"), testId: "horizon-WEEK" },
                 { value: "MONTH", label: t("studio.horizon.MONTH"), testId: "horizon-MONTH" },
@@ -139,46 +142,55 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
                   const holiday = w.kind === "HOLIDAY";
                   const on = summary.weeks.includes(w.index);
                   return (
-                    <button
+                    <BareButton
                       key={w.id}
-                      type="button"
                       aria-pressed={on}
                       disabled={holiday}
                       title={holiday ? t("studio.scope.holiday", { label: w.label }) : w.label}
                       aria-label={`${t("glass.studio.weekN", { n: w.index })} ${formatDate(w.start_date, locale)}${holiday ? `, ${t("studio.scope.holiday", { label: w.label })}` : ""}`}
                       onClick={(e) => pickWeek(w.index, e.metaKey || e.ctrlKey || e.shiftKey)}
                       className={cn(
-                        "flex min-w-14 flex-col items-center rounded-xl px-2.5 py-1.5 text-[12px] outline-hidden transition-[background-color,color,transform] duration-(--dur-fast) ease-(--spring-snappy) active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus) pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
-                        on ? "bg-tint-soft text-tint-text shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_35%,transparent)]" : "bg-fill-3 text-label-1 shadow-[inset_0_0_0_1px_var(--hairline)] hover:bg-fill-2",
+                        "flex min-w-14 flex-col items-center rounded-xl px-2.5 py-1.5 type-footnote transition-[background-color,color,transform] duration-(--dur-fast) ease-(--spring-snappy) active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-(--focus) pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
+                        on ? "bg-tint-soft text-tint-text edge-tint" : "bg-fill-3 text-label-1 edge-hairline hover:bg-fill-2",
                         holiday && "hatch-preoccupied",
                       )}
                       data-testid={`week-${w.index}`}
                     >
                       <span className="font-semibold tabular-nums">{t("glass.studio.weekShort", { n: w.index })}</span>
-                      <span className={cn("text-[11px]", on ? "text-tint-text" : "text-label-3")}>{formatDate(w.start_date, locale, { day: "numeric", month: "short" })}</span>
-                    </button>
+                      <span className={cn("type-caption", on ? "text-tint-text" : "text-label-3")}>{formatDate(w.start_date, locale, { day: "numeric", month: "short" })}</span>
+                    </BareButton>
                   );
                 })}
             </div>
           )}
-          {local.horizon === "WEEK" ? <p className="text-[12px] text-label-3">{t("glass.studio.weekHint")}</p> : null}
+          {local.horizon === "WEEK" ? <p className="type-footnote text-label-3">{t("glass.studio.weekHint")}</p> : null}
           {local.horizon === "WEEK" && chosen.length === 0 ? <p className="text-xs text-status-warning-fg">{t("studio.scope.pickWeeks")}</p> : null}
         </div>
       ) : null}
 
       {nothing ? (
-        <div className="rounded-2xl bg-fill-3 p-4 text-sm shadow-[inset_0_0_0_1px_var(--hairline)]" data-testid="scope-empty">
+        <div className="rounded-xl bg-fill-3 p-4 type-callout edge-hairline" data-testid="scope-empty">
           <p>{t("studio.scope.nothingToPlan")}</p>
           <Button className="mt-3" render={<Link href={kind === "EXAM" ? "/import?source=exam" : "/import?source=planning"} />}>
             {t("studio.scope.importCta")}
           </Button>
         </div>
       ) : (
-        <div className="rounded-2xl bg-fill-3 p-4 shadow-[inset_0_0_0_1px_var(--hairline)]">
-          <p className="text-base" aria-live="polite" data-testid="scope-sentence">
-            {classesLoading && !classes ? t("studio.scope.counting") : t("studio.scope.sentence", { n: summary.classesIn, rooms: summary.rooms, weeks: summary.weeks.length })}
+        <div className="rounded-xl bg-fill-3 p-4 edge-hairline">
+          {/* one loading signal, no zero counts while counting (review 2026-10-15 §2 "Loading states") */}
+          <p className="type-body text-label-1" aria-live="polite" data-testid="scope-sentence">
+            {/* the selected term's summary is not in yet (a term switch): count, never "0 derslikte" (round-1 R1-S-21) */}
+            {(classesLoading && !classes) || summary.rooms === null ? t("studio.scope.counting") : t("studio.scope.sentence", { n: summary.classesIn, rooms: summary.rooms, weeks: summary.weekCount })}
           </p>
-          <p className="mt-1 text-sm text-label-2">{t("studio.scope.line2", { out: n(summary.classesOut), pinned: n(summary.pinned), holidays })}</p>
+          {(classesLoading && !classes) || summary.rooms === null ? (
+            <Skeleton className="mt-1.5 h-3.5 w-2/3 rounded-sm" />
+          ) : (
+            <p className="mt-1 type-callout text-label-2">{t("studio.scope.line2", { out: n(summary.classesOut), pinned: n(summary.pinned), holidays })}</p>
+          )}
+          {summary.rooms !== null && local.horizon === "TERM" && summary.datedWeeks < summary.weekCount ? (
+            // Güz has 14 weeks but only 2 dated week rows: say so instead of "2 hafta" (round-1 R1-S-22)
+            <p className="mt-1 type-footnote text-label-2" data-testid="scope-term-weeks">{t("studio.scope.termWeeks", { total: n(summary.weekCount), dated: n(summary.datedWeeks) })}</p>
+          ) : null}
           {summaryData?.last_good_run ? (
             <p className="mt-2 text-sm">
               <Link href={`/runs/${summaryData.last_good_run.id}`} className="text-tint-text underline-offset-2 hover:underline">

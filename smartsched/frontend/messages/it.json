@@ -100,5 +100,56 @@
     "find": {
       "weeks": "Settimane"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "Giorno"
+    }
+  },
+  "programWizard": {
+    "col": {
+      "year": "Anno"
+    },
+    "patterns": {
+      "weeks": "Settimane"
+    }
+  },
+  "analytics": {
+    "week": "Settimana"
+  },
+  "compare": {
+    "week": "Settimana"
+  },
+  "invigilation": {
+    "people": {
+      "days": "Giorni"
+    },
+    "pool": {
+      "hours": "Ore"
+    }
+  },
+  "policies": {
+    "day": {
+      "1": "Lun",
+      "2": "Mar",
+      "3": "Mer",
+      "4": "Gio",
+      "5": "Ven",
+      "6": "Sab",
+      "7": "Dom"
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "Giorno"
+  },
+  "quickReserve": {
+    "day": {
+      "label": "Giorno"
+    }
+  },
+  "aiAdmin": {
+    "usage": {
+      "day": "Giorno"
+    }
   }
 }

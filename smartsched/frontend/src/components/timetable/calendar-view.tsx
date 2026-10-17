@@ -8,15 +8,18 @@ import { CalendarArrowDown } from "lucide-react";
 import { motion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { EmptyState } from "@/components/ui/empty-state";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ClassInspector, SelectionSummary } from "@/components/classes/class-inspector";
 import { useCalendarIndex } from "@/lib/api/calendar";
 import { api } from "@/lib/api/endpoints";
 import { useMe } from "@/lib/api/hooks";
+import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
 import { dayName } from "@/lib/time";
@@ -30,13 +33,15 @@ import { MonthHeat, TermHeat } from "./heat-lenses";
 import { MobileCalendar } from "./mobile-calendar";
 import { TimetableNoAccess } from "./no-access";
 import { MoveDialog, MovePopover, type PendingMove, type ScopeValue } from "./move-dialog";
+import { BrokenRulesBanner } from "@/components/runs/broken-banner";
 import { QuickCreate, type CreateRequest } from "./quick-create";
 import { ShortcutsSheet } from "./shortcuts-sheet";
+import { ForceReasonHost } from "./force-reason";
 import { TimeGrid, type CreateIntent, type GridColumn, type MoveIntent, type TimeGridHandle } from "./time-grid";
 import { checkMove, spanText } from "./model/check";
 import { compareRuns } from "./model/compare";
 import { dateOf, minutesNow, rangeTitle, todayIso, weekDayOf, weekTypeKey } from "./model/dates";
-import { EMPTY_FILTERS, activeFilterCount, eventPasses, queryMatchesRoom, roomPasses, type CalendarFilters } from "./model/filters";
+import { EMPTY_FILTERS, activeFilterCount, eventFilter, eventPasses, queryMatchesRoom, roomPasses, type CalendarFilters } from "./model/filters";
 import { BAND_H, MINUTE_PX_STEPS, ROOM_COL, ROOM_HEADER_H, STRIP_SLOT_STEPS, clampZoom, periodAtMinute, rowHeightFor, type Density } from "./model/geometry";
 import { computeHeat, weeklyMean, type HeatMetric } from "./model/heat";
 import { blocksOf, bookingsOf, eventsOf, roomCap, termLongBlocks, type CalEvent, type CalendarModel } from "./model/index-model";
@@ -49,6 +54,7 @@ import { useCalendarActions } from "./use-calendar-actions";
 import { useCalendarData } from "./use-calendar-data";
 import { StaleVeil, useDeferredView } from "./stale-veil";
 import { WeekScrubber } from "./week-scrubber";
+import { BareButton } from "@/components/shell/bare-button";
 
 const ALLDAY_H = 22;
 
@@ -111,7 +117,9 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const reduce = useReduce();
   const router = useRouter();
   const me = useMe();
-  const isAdmin = me.data?.role === "ADMIN";
+  const perms = usePermissions();
+  // forcing a hard-rule break is the backend's `planning.admin` right (custom roles hold it too)
+  const isAdmin = me.data?.role === "ADMIN" || perms.can("planning.admin");
   const readOnly = me.data?.role === "VIEWER";
   const mobile = useMedia("(max-width: 767px)");
   const wide = useMedia("(min-width: 1600px)");
@@ -153,6 +161,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const setSidebarOpen = useCallback((v: boolean | ((o: boolean) => boolean)) => setSidebarPref((p) => (typeof v === "function" ? v(p ?? wide) : v)), [wide]);
   const [pending, setPending] = useState<PendingMove | null>(null);
   const [moveFor, setMoveFor] = useState<CalEvent | null>(null);
+  const [moveTarget, setMoveTarget] = useState<{ room: number; day: number; sp: number } | null>(null);
   const [createReq, setCreateReq] = useState<CreateRequest | null>(null);
   const [shortcuts, setShortcuts] = useState(false);
   const [ghosts, setGhosts] = useState(true);
@@ -164,6 +173,22 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const [zoomBadge, setZoomBadge] = useState<number | null>(null);
   const gridRef = useRef<TimeGridHandle>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  // a slot right after the shell's skip link for the calendar's own (T-R2-28)
+  const [skipSlot, setSkipSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (embedded) return;
+    const shellSkip = document.querySelector<HTMLElement>('[data-app-shell] > a[href="#main"]');
+    if (!shellSkip) return;
+    const el = document.createElement("div");
+    el.dataset.calendarSkip = "";
+    shellSkip.insertAdjacentElement("afterend", el);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the slot exists only once the shell is mounted
+    setSkipSlot(el);
+    return () => {
+      el.remove();
+      setSkipSlot(null);
+    };
+  }, [embedded]);
   const opts = useMemo(() => ({ isAdmin, announce: setAnnounce }), [isAdmin]);
   const actions = useCalendarActions(runId, opts);
 
@@ -211,6 +236,8 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const roomQuery = useMemo(() => !!model && filters.query.trim() !== "" && model.rooms.some((r) => queryMatchesRoom(filters.query, r)), [model, filters.query]);
   const keep = useCallback((e: CalEvent) => eventPasses(roomQuery ? { ...filters, query: "" } : filters, e), [filters, roomQuery]);
   const weekEvents = useMemo(() => (model ? eventsOf(model, week, undefined, (e) => keep(e)) : []), [model, week, keep]);
+  // the phone agenda has no room columns: one predicate applies the room and the event filters (round-3 R1-S-26)
+  const phoneKeep = useMemo(() => (model ? eventFilter(model, filters) : () => true), [model, filters]);
   const heat = useMemo(
     () => (model ? computeHeat(model, { rooms: roomSet.size !== model.rooms.length ? roomSet : undefined, keep: activeFilterCount(filters) ? keep : undefined, changed: compare ? (e, w) => compare.movedWeeks.get(e.a.id)?.has(w) ?? false : undefined }) : new Map()),
     [model, roomSet, keep, filters, compare],
@@ -275,13 +302,24 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
 
   // ------------------------------------------------------------------ move / resize / create flows
   const commit = useCallback(
-    async (ev: CalEvent, target: { room: number; day: number; sp: number; ep: number }, scope: ScopeValue, extra: PendingMove["extra"] = []) => {
+    async (ev: CalEvent, target: { room: number; day: number; sp: number; ep: number }, scope: ScopeValue, extra: PendingMove["extra"] = [], forceReason?: string) => {
       const roomName = model?.roomById.get(target.room)?.name ?? "";
       const items = [
         { aid: ev.a.id, day: target.day, start_period: target.sp, end_period: target.ep, room_ids: ev.a.rooms.length > 1 && target.room === ev.room ? ev.a.rooms : [target.room], scope: scope.scope, week: scope.scope === "all" ? null : scope.week },
         ...extra.map((x) => ({ aid: x.ev.a.id, day: x.target.day, start_period: x.target.sp, end_period: x.target.ep, room_ids: [x.target.room], scope: "all" as const })),
       ];
-      const res = await actions.move(items, ev.a.label, roomName);
+      const res = forceReason ? await actions.move(items, ev.a.label, roomName, true, forceReason) : await actions.move(items, ev.a.label, roomName);
+      if (res.applied) {
+        // focus stays on the moved class, not on the inspector (round-1 R1-M-31): a date-scoped move splits the row,
+        // so the new row ids from the server come first, the old id second, the label last
+        const ids = [...(res.result?.assignments ?? []).map((a) => a.id), ev.a.id];
+        const label = ev.a.label;
+        window.setTimeout(() => {
+          const chips = [...document.querySelectorAll<HTMLElement>('[data-testid="calendar-event"]')];
+          const chip = ids.map((id) => chips.find((c) => Number(c.dataset.assignmentId) === id)).find(Boolean) ?? chips.find((c) => (c.textContent ?? "").includes(label));
+          if (chip && !document.querySelector('[role="dialog"]')) chip.focus();
+        }, 80);
+      }
       return res.applied;
     },
     [model, actions],
@@ -293,13 +331,14 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       if (!m.check.ok) {
         const reason = m.check.hard[0]?.text[lang] ?? "";
         setAnnounce(t("calendar.move.cannot", { reason }));
-        toast.error(t("calendar.move.cannot", { reason }), {
-          description: isAdmin ? undefined : t("calendar.move.forceAdmin"),
-          action: isAdmin ? { label: t("calendar.move.force"), onClick: () => void (async () => {
-            const roomName = model.roomById.get(m.target.room)?.name ?? "";
-            await actions.move([{ aid: m.ev.a.id, day: m.target.day, start_period: m.target.sp, end_period: m.target.ep, room_ids: [m.target.room], scope: "all" }], m.ev.a.label, roomName, true);
-          })() } : undefined,
-        });
+        if (isAdmin) {
+          // round-1 R1-M-06 / R1-S-09: an administrator gets the move dialog on the refused cell, with what breaks,
+          // "Yine de taşı" and a required reason (drag and keyboard drops alike)
+          setMoveTarget({ room: m.target.room, day: m.target.day, sp: m.target.sp });
+          setMoveFor(m.ev);
+          return;
+        }
+        toast.error(t("calendar.move.cannot", { reason }), { description: t("calendar.move.forceAdmin") });
         return;
       }
       const bad = m.extra.filter((x) => !checkMove(model, x.ev, { ...x.target, mask: x.ev.mask }, new Set([m.ev.a.id, ...m.extra.map((y) => y.ev.a.id)])).ok);
@@ -309,7 +348,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       }
       setPending({ ev: m.ev, target: m.target, extra: m.extra, anchor: m.anchor, soft: m.check.soft });
     },
-    [model, lang, t, isAdmin, actions, commit, week],
+    [model, lang, t, isAdmin, commit, week],
   );
 
   const onResize = useCallback(
@@ -390,6 +429,35 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     return () => clearTimeout(h);
   }, [zoomBadge]);
 
+  // ------------------------------------------------------------------ overlay sidebar (desktop below 1600 px)
+  // round-3 R1-S-26: the overlay covered its own toggle and ignored Esc. It now starts under the toolbar (the toggle
+  // stays visible and closes it) and Esc closes it, focus back on the toggle
+  const [overlayTop, setOverlayTop] = useState(0);
+  const overlayOpen = sidebarOpen && !wide && !mobile && !embedded;
+  useLayoutEffect(() => {
+    if (!overlayOpen) return;
+    const measure = () => {
+      const bar = rootRef.current?.querySelector<HTMLElement>('[data-testid="calendar-toolbar"]');
+      const root = rootRef.current?.getBoundingClientRect();
+      if (bar && root) setOverlayTop(Math.max(0, Math.round(bar.getBoundingClientRect().bottom - root.top + 8)));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [overlayOpen]);
+  useEffect(() => {
+    if (!overlayOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || document.querySelector("[role=dialog][data-open], [data-slot=dialog-content], [data-slot=sheet-content]")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setSidebarOpen(false);
+      requestAnimationFrame(() => rootRef.current?.querySelector<HTMLElement>('[data-testid="calendar-sidebar-toggle"]')?.focus());
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [overlayOpen, setSidebarOpen]);
+
   // ------------------------------------------------------------------ keyboard map (calendar.md §12)
   useEffect(() => {
     if (embedded) return;
@@ -422,7 +490,9 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       }
       if (meta || e.altKey) return;
       if (e.key === "Escape") {
-        if (selection.size) setSelection(new Set());
+        // the overlay sidebar (narrow windows) closes first: it covers its own toggle (round-1 R1-S-26)
+        if (sidebarOpen && !wide && !embedded) setSidebarOpen(false);
+        else if (selection.size) setSelection(new Set());
         else setInspectorOpen(false);
         return;
       }
@@ -482,7 +552,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [embedded, setSidebarOpen, actions, vs.lens, vs.board, weekEvents, day, roomSet, selection.size, t, setWeek, liveWeek, step, update, setLens, goToday, zoomBy, selectedEvents, readOnly]);
+  }, [embedded, setSidebarOpen, sidebarOpen, wide, actions, vs.lens, vs.board, weekEvents, day, roomSet, selection.size, t, setWeek, liveWeek, step, update, setLens, goToday, zoomBy, selectedEvents, readOnly]);
 
   // ------------------------------------------------------------------ lens content
   const chipLine2 = useCallback(
@@ -543,11 +613,11 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     return (
       <>
         {bands.map((band) => (
-          <div key={`${band.b}${band.start}`} className="absolute top-0 flex h-6 items-center px-2 text-[11px] font-semibold text-label-2" style={{ left: 56 + band.start * colW, width: band.count * colW, boxShadow: "inset 1px 0 0 var(--cal-line-strong)" }}>
+          <div key={`${band.b}${band.start}`} className="absolute top-0 flex h-6 items-center px-2 type-caption font-semibold text-label-2" style={{ left: 56 + band.start * colW, width: band.count * colW, boxShadow: "inset 1px 0 0 var(--cal-line-strong)" }}>
             <span className="sticky left-16 truncate">{t("calendar.buildingBand", { b: band.b, n: band.count })}</span>
           </div>
         ))}
-        <div className="absolute flex items-center gap-3 overflow-hidden px-2 text-[11px] text-label-2" style={{ top: BAND_H, left: 56, height: ALLDAY_H, right: 0 }}>
+        <div className="absolute flex items-center gap-3 overflow-hidden px-2 type-caption text-label-2" style={{ top: BAND_H, left: 56, height: ALLDAY_H, right: 0 }}>
           <span className="sticky left-14 shrink-0 font-semibold">{t("calendar.allDay")}</span>
           {[...summary.values()].slice(0, 3).map((s) => (
             <span key={`${s.label}${s.sp}`} className="truncate">
@@ -719,8 +789,86 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       </div>
     );
   }
+  // the filters sidebar: docked (wide), an overlay (desktop below 1600) or a sheet (phone, round-2 T-R2-28)
+  const sidebar = (className: string, compact = false, style?: React.CSSProperties) =>
+    model && runId !== null && !embedded ? (
+      <CalendarSidebar
+        ref={searchRef}
+        className={className}
+        style={style}
+        compact={compact}
+        model={model}
+        term={data.term}
+        run={data.run}
+        onClose={!wide ? () => setSidebarOpen(false) : undefined}
+        onSearchEnter={() => {
+          if (compact) {
+            // phone (round-3 R1-S-26): close the sheet and land on the first matching chip of the day list, or say why
+            // the list is empty
+            const n = eventsOf(model, liveWeek, liveDay).filter(phoneKeep).length;
+            setSidebarOpen(false);
+            if (n === 0) setAnnounce(t("calendar.empty.filtered"));
+            else setTimeout(() => document.querySelector<HTMLElement>('[data-testid="calendar-mobile"] [data-testid="calendar-event"]')?.focus(), 360);
+            return;
+          }
+          // Enter in the search focuses the first match on the board (round-1 R1-S-26)
+          const chip = document.querySelector<HTMLElement>('[data-testid="calendar-event"]');
+          if (chip) chip.focus();
+          else setAnnounce(t("calendar.empty.filtered"));
+        }}
+        runs={data.runs}
+        runId={runId}
+        onRun={(id) => {
+          update({ run: id, sel: null });
+          setSelection(new Set());
+        }}
+        week={liveWeek}
+        day={liveDay}
+        onPickDate={(w, d) => update({ week: w, day: d, ...(vs.lens === "month" || vs.lens === "term" ? { lens: "board" as Lens, board: "day" as const } : {}) })}
+        heat={heat}
+        todayIso={now.iso}
+        filters={filters}
+        onFilters={setFilters}
+        counts={counts}
+        compare={vs.compare}
+        onCompare={(id) => update({ compare: id })}
+        ghosts={ghosts}
+        onGhosts={setGhosts}
+      />
+    ) : null;
+  // keyboard: the shell's top bar and sub-navigation put ~30 Tab stops before the calendar (R1-M-32 / T-R2-28); the
+  // link is portalled right after the shell's "İçeriğe atla", so it is the second Tab stop from the page start
+  const skipLink = (
+    <BareButton
+      className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-tint focus:px-3 focus:py-2 focus:type-callout focus:font-medium focus:text-tint-foreground focus:shadow-elev-3"
+      data-testid="skip-to-grid"
+      onClick={() => {
+        const target = document.querySelector<HTMLElement>('[data-testid="time-grid"],[data-testid="day-timeline"],[data-testid="calendar-mobile"],[data-testid="agenda"]') ?? document.querySelector<HTMLElement>('[data-testid="calendar-event"]') ?? document.getElementById("calendar-title");
+        target?.focus();
+      }}
+    >
+      {t("calendar.skipToGrid")}
+    </BareButton>
+  );
   if (mobile && !embedded && model) {
-    return <MobileCalendar model={model} week={liveWeek} day={liveDay} dates={liveDates} onDay={(d) => update({ day: d })} onWeek={setWeek} heat={heat} now={now} selection={selection} onSelect={onSelect} subject={vs.subject} onSubject={(s) => update({ subject: s })} runId={runId} termId={data.term?.id ?? null} actions={actions} readOnly={readOnly} lens={vs.lens} onLens={setLens} />;
+    return (
+      <>
+        <MobileCalendar model={model} week={liveWeek} day={liveDay} dates={liveDates} onDay={(d) => update({ day: d })} onWeek={setWeek} heat={heat} now={now} selection={selection} onSelect={onSelect} subject={vs.subject} onSubject={(s) => update({ subject: s })} runId={runId} termId={data.term?.id ?? null} actions={actions} readOnly={readOnly} canForce={isAdmin} lens={vs.lens} onLens={setLens} onOpenFilters={runId !== null ? () => setSidebarOpen(true) : undefined} keep={phoneKeep} filterCount={activeFilterCount(filters)} />
+        {/* round-3 R3-M-05: the filters as a full-width bottom sheet with 44 px rows, a 16 px search and a sticky
+            "show" action (MOBILE M-04 / M-02 / M-03 / M-05), not the desktop sidebar in a 293 px side panel */}
+        <Sheet open={sidebarOpen} onOpenChange={(o) => setSidebarOpen(o)}>
+          <SheetContent side="bottom" className="flex max-h-[88dvh] flex-col p-0" showCloseButton={false} data-testid="filters-sheet">
+            <SheetTitle className="sr-only">{t("calendar.sidebar.label")}</SheetTitle>
+            {sidebar("min-h-0 w-full flex-1", true)}
+            <div className="shrink-0 bg-(--mat-thick-solid) px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] hairline-t">
+              <Button className="min-h-11 w-full" onClick={() => setSidebarOpen(false)} data-testid="filters-apply">
+                {locale === "tr" ? `${eventsOf(model, liveWeek, liveDay).filter(phoneKeep).length} dersi göster` : `Show ${eventsOf(model, liveWeek, liveDay).filter(phoneKeep).length} classes`}
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </>
+    );
   }
 
   const showScrubber = model && vs.lens !== "month" && vs.lens !== "term";
@@ -742,32 +890,8 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
 
   return (
     <div ref={rootRef} className={cn("relative flex min-h-0 gap-2", className)} style={{ height: embedded ? undefined : fill }} data-testid="calendar">
-      {sidebarOpen && model && runId !== null && !embedded ? (
-        <CalendarSidebar
-          ref={searchRef}
-          className={cn("w-[272px] shrink-0", !wide && "absolute inset-y-0 left-0 z-40 shadow-[var(--ambient-3)]")}
-          model={model}
-          term={data.term}
-          runs={data.runs}
-          runId={runId}
-          onRun={(id) => {
-            update({ run: id, sel: null });
-            setSelection(new Set());
-          }}
-          week={liveWeek}
-          day={liveDay}
-          onPickDate={(w, d) => update({ week: w, day: d, ...(vs.lens === "month" || vs.lens === "term" ? { lens: "board" as Lens, board: "day" as const } : {}) })}
-          heat={heat}
-          todayIso={now.iso}
-          filters={filters}
-          onFilters={setFilters}
-          counts={counts}
-          compare={vs.compare}
-          onCompare={(id) => update({ compare: id })}
-          ghosts={ghosts}
-          onGhosts={setGhosts}
-        />
-      ) : null}
+      {!embedded && model ? (skipSlot ? createPortal(skipLink, skipSlot) : skipLink) : null}
+      {sidebarOpen ? sidebar(cn("w-[272px] shrink-0", !wide && "absolute bottom-0 left-0 z-40 shadow-elev-3"), false, !wide ? { top: overlayTop } : undefined) : null}
 
       <section className="cal-canvas relative flex min-w-0 flex-1 flex-col overflow-hidden" aria-label={t("calendar.lens.label")} onScrollCapture={(e) => {
         const top = (e.target as HTMLElement).scrollTop ?? 0;
@@ -775,6 +899,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
         if (next !== condensed) setCondensed(next);
       }}>
         <div className="px-3 pt-3">
+          <BrokenRulesBanner runId={runId} />
           {model ? (
             <CapsuleToolbar
               model={model}
@@ -790,6 +915,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               onNext={() => step(1)}
               onToday={goToday}
               onToggleSidebar={() => setSidebarOpen((v) => !v)}
+              sidebarOpen={sidebarOpen}
               subject={vs.subject}
               onSubject={(s) => update({ subject: s, ...(s && vs.lens !== "agenda" ? { lens: "week" as Lens } : {}) })}
               conflicts={counts.conflicts}
@@ -804,7 +930,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               runs={data.runs}
               compare={vs.compare}
               onCompare={(id) => update({ compare: id })}
-              onExport={() => runId !== null && window.open(api.runs.exportUrl(runId, "xlsx"), "_blank")}
+              onExport={(scope) => runId !== null && window.open(api.runs.exportUrl(runId, "xlsx", scope === "week" ? [liveWeek] : undefined), "_blank")}
               onShortcuts={() => setShortcuts(true)}
               onSearch={() => {
                 setSidebarOpen(true);
@@ -818,7 +944,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
         <div className="flex flex-wrap items-end gap-x-3 gap-y-1 px-4 pt-2 pb-2">
           <h1 id="calendar-title" tabIndex={-1} className="type-title-2 capitalize outline-hidden" data-testid="calendar-title">{title}</h1>
           {vs.lens !== "month" && vs.lens !== "term" ? (
-            <p className="pb-0.5 text-[13px] text-label-2">
+            <p className="pb-0.5 type-callout text-label-2">
               {t("calendar.nav.weekTitle", { n: liveWeek, type: weekType })}
               {vs.lens === "week" && subjectTitle ? ` · ${subjectTitle}` : ""}
             </p>
@@ -829,31 +955,31 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
             </Button>
           ) : null}
           {compare && vs.compare ? (
-            <p className="pb-0.5 text-[12px] text-label-2" role="status">
+            <p className="pb-0.5 type-footnote text-label-2" role="status">
               {t("calendar.compare.summary", { run: vs.compare, m: n(compare.moved), a: n(compare.onlyA), r: n(compare.onlyB) })}
               <Button size="xs" variant="ghost" onClick={() => update({ compare: null })}>{t("calendar.compare.close")}</Button>
             </p>
           ) : null}
           {dayLens && model ? (
             <div className="ml-auto">
-              <SegmentedGlass size="sm" aria-label={t("calendar.lens.day")} options={[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: String(d), label: `${dayName(d, locale, "short")} ${liveDates[d - 1]?.slice(8) ?? ""}` }))} value={String(liveDay)} onValueChange={(v) => update({ day: Number(v) })} />
+              <SegmentedControl size="sm" aria-label={t("calendar.lens.day")} options={[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: String(d), label: `${dayName(d, locale, "short")} ${liveDates[d - 1]?.slice(8) ?? ""}` }))} value={String(liveDay)} onValueChange={(v) => update({ day: Number(v) })} />
             </div>
           ) : null}
           {vs.lens === "day" ? (
-            <label className="flex items-center gap-1.5 pb-0.5 text-[12px]"><input type="checkbox" checked={filters.freeNow} onChange={(e) => setFilters((f) => ({ ...f, freeNow: e.target.checked }))} className="accent-(--accent)" />{t("calendar.freeNow")}</label>
+            <label className="flex items-center gap-1.5 pb-0.5 type-footnote"><input type="checkbox" checked={filters.freeNow} onChange={(e) => setFilters((f) => ({ ...f, freeNow: e.target.checked }))} className="accent-(--accent)" />{t("calendar.freeNow")}</label>
           ) : null}
         </div>
         {outside && model ? (
-          <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-fill-3 px-3 py-2 text-[13px]" role="status">
+          <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-fill-3 px-3 py-2 type-callout" role="status">
             {t("calendar.empty.outsideRun", { weeks: runWeeks.join(", ") })}
             <Button size="xs" variant="secondary" onClick={() => setWeek(runWeeks[0])}>{t("calendar.empty.goToRunWeek", { n: runWeeks[0] })}</Button>
           </div>
         ) : null}
         <div className="relative min-h-0 flex-1" aria-busy={stale || undefined} data-stale={stale ? "" : undefined} data-testid="calendar-canvas">
           {data.loading && !model ? (
-            <p className="flex h-full items-start gap-2 px-6 py-6 text-[13px] text-label-2" role="status"><BusyGlyph className="size-3.5 text-label-2" />{t("calendar.loading")}</p>
+            <p className="flex h-full items-start gap-2 px-6 py-6 type-callout text-label-2" role="status"><BusyGlyph className="size-3.5 text-label-2" />{t("calendar.loading")}</p>
           ) : data.error && !model ? (
-            <div className="px-6 py-6"><p className="mb-2 text-[13px]">{t("calendar.error")}</p><Button size="sm" variant="secondary" onClick={data.refetch}>{t("calendar.retry")}</Button></div>
+            <div className="px-6 py-6"><p className="mb-2 type-callout">{t("calendar.error")}</p><Button size="sm" variant="secondary" onClick={data.refetch}>{t("calendar.retry")}</Button></div>
           ) : model ? (
             <motion.div
               key={`${vs.lens}-${vs.board}`}
@@ -872,7 +998,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               <StaleVeil stale={stale} />
             </motion.div>
           ) : null}
-          {zoomBadge !== null ? <span role="status" className="glass-thick absolute top-3 right-3 z-40 rounded-full px-3 py-1 text-[12px] font-medium">{t("calendar.zoom", { n: zoomBadge })}</span> : null}
+          {zoomBadge !== null ? <span role="status" className="glass-thick absolute top-3 right-3 z-40 rounded-full px-3 py-1 type-footnote font-medium">{t("calendar.zoom", { n: zoomBadge })}</span> : null}
         </div>
         {showScrubber && model ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center">
@@ -937,7 +1063,21 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               if (p) void commit(p.ev, p.target, scope, p.extra);
             }}
           />
-          <MoveDialog model={model} ev={moveFor} week={week} open={moveFor !== null} onOpenChange={(o) => !o && setMoveFor(null)} onConfirm={(target, scope) => (moveFor ? commit(moveFor, target, scope) : Promise.resolve(false))} />
+          <MoveDialog
+            model={model}
+            ev={moveFor}
+            week={week}
+            open={moveFor !== null}
+            canForce={isAdmin}
+            initialTarget={moveTarget}
+            onOpenChange={(o) => {
+              if (!o) {
+                setMoveFor(null);
+                setMoveTarget(null);
+              }
+            }}
+            onConfirm={(target, scope, forceReason) => (moveFor ? commit(moveFor, target, scope, [], forceReason) : Promise.resolve(false))}
+          />
           <QuickCreate model={model} req={createReq} week={week} onClose={() => setCreateReq(null)} onMoveHere={async (aid, target) => {
             const ev = model.eventByAid.get(aid)?.[0];
             if (!ev) return false;
@@ -951,6 +1091,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
         </>
       ) : null}
       <ShortcutsSheet open={shortcuts} onOpenChange={setShortcuts} />
+      <ForceReasonHost />
       <p className="sr-only" aria-live="polite" data-testid="calendar-live">{announce}</p>
     </div>
   );

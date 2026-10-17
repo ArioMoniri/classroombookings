@@ -40,7 +40,8 @@ SUBJECT_TYPES = ("instructor", "course", "section", "program", "user")
 #: what the observation says about the subject
 ATTRIBUTES = ("room", "building", "day", "period", "day_period", "tag")
 RESET_SCOPES = ("person", "term", "all")
-FEEDBACK_ACTIONS = ("ACCEPT", "REJECT", "SNOOZE")
+FEEDBACK_ACTIONS = ("ACCEPT", "REJECT", "SNOOZE", "RESTORE")
+ACCEPT_SCOPES = ("term", "persistent")
 
 
 class LearningReset(Base):
@@ -153,7 +154,9 @@ class SuggestionFeedback(Base):
     subject_key: Mapped[str] = mapped_column(String(64))
     attribute: Mapped[str] = mapped_column(String(16))
     value: Mapped[str] = mapped_column(String(64))
-    action: Mapped[str] = mapped_column(String(8))  # ACCEPT | REJECT | SNOOZE
+    action: Mapped[str] = mapped_column(String(8))  # ACCEPT | REJECT | SNOOZE | RESTORE (undo of the previous one)
+    #: ACCEPT: term (this term's classes) | persistent (a person preference shown again in later terms)
+    scope: Mapped[str | None] = mapped_column(String(16), nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     #: SNOOZE: next_solve | P7D | next_term
     snooze_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)

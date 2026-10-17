@@ -117,6 +117,9 @@ export const FindRow = FindResult.extend({
   free_dates: z.number().default(0),
   open_dates: z.number().default(0),
   per_date: z.array(z.object({ date: z.string(), status: z.string(), reason: z.string().nullish() })).nullish(),
+  /** the booking periods of the slot (grid order) on the result's first free date; `period_id` = the first, null when none */
+  period_ids: z.array(z.number()).default([]),
+  period_id: z.number().nullish(),
 });
 export type FindRow = z.infer<typeof FindRow>;
 
@@ -130,6 +133,9 @@ export const FindAlternative = z.object({
   start_period: z.number(),
   end_period: z.number(),
   reason: Bilingual.nullish(),
+  /** the booking periods of the alternative's slot on `dates[0]`; `period_id` = the first, null when none */
+  period_ids: z.array(z.number()).default([]),
+  period_id: z.number().nullish(),
 });
 export type FindAlternative = z.infer<typeof FindAlternative>;
 
@@ -191,6 +197,8 @@ export const Decision = z.object({
   approver_name: z.string().nullish(),
   decision: z.string(),
   note: z.string().nullish(),
+  /** reject: room_unavailable | capacity | policy | other (system: slot_taken) */
+  reason_code: z.string().nullish(),
   alternative: z.record(z.string(), z.unknown()).nullish(),
   decided_at: z.string().nullish(),
 });
@@ -244,9 +252,16 @@ export const ApprovalRequest = z.object({
   requested_at: z.string().nullish(),
   expires_at: z.string().nullish(),
   decided_at: z.string().nullish(),
+  /** who closed it (the requester may see the deciding approver); null while open or when it expired */
+  decided_by: z.object({ id: z.number(), name: z.string().nullish() }).nullish(),
   note: z.string().nullish(),
+  /** a rejection's reason: the free text, else the code in Turkish / English (null unless REJECTED) */
+  reason: z.string().nullish(),
+  reason_code: z.string().nullish(),
   /** reject: the approver's alternative, or `{alternatives: [...]}` the service suggested */
   suggestion: z.union([z.object({ alternatives: z.array(Suggested) }), Suggested]).nullish(),
+  /** A-12: the submission (multi-period request) this request belongs to; null for a request of its own */
+  group_id: z.number().nullish(),
   bookings: z.array(RequestBooking).default([]),
   decisions: z.array(Decision).default([]),
   approvers: z.array(z.object({ id: z.number(), name: z.string().nullish() })).default([]),
@@ -314,6 +329,9 @@ export type Approver = z.infer<typeof Approver>;
 export interface DecideIn {
   decision: "approve" | "reject";
   note?: string | null;
+  /** reject: why (free text); with `reason_code` (approval-first: both required in the UI) */
+  reason?: string | null;
+  reason_code?: string | null;
   alternative?: { room_id?: number; date?: string; period_id?: number; start_period?: number; end_period?: number } | null;
   instances?: string[] | null;
 }
@@ -328,6 +346,8 @@ export const Notification = z.object({
   link: z.string().nullish(),
   booking_id: z.number().nullish(),
   request_id: z.number().nullish(),
+  /** structured payload: room, dates, decision, reason, reason_code, request_ids, group_id, … */
+  data: z.record(z.string(), z.unknown()).nullish(),
   read_at: z.string().nullish(),
   created_at: z.string().nullish(),
 });
@@ -350,6 +370,8 @@ export const AuditEvent = z.object({
   diff: z.record(z.string(), z.unknown()).nullish(),
   reason: z.string().nullish(),
   reversible: z.boolean().default(false),
+  /** which undo `POST /audit/{id}/undo` runs: the bookings undo, or the drafts undo of a wizard programme */
+  undo_via: z.string().nullish(),
   undo_of: z.number().nullish(),
   parent_id: z.number().nullish(),
   undone: z.boolean().default(false),
@@ -360,7 +382,15 @@ export const AuditEvent = z.object({
 export type AuditEvent = z.infer<typeof AuditEvent>;
 export const AuditPage = z.object({ items: z.array(AuditEvent), next_cursor: z.number().nullish() });
 export type AuditPage = z.infer<typeof AuditPage>;
-export const UndoOut = z.object({ undone: z.number(), action: z.string(), booking_ids: z.array(z.number()).default([]) });
+export const UndoOut = z.object({
+  undone: z.number(),
+  action: z.string(),
+  booking_ids: z.array(z.number()).default([]),
+  /** a wizard programme (undo_via "program_draft"): the draft, the programme and the ids archived per kind */
+  draft_id: z.number().nullish(),
+  program_id: z.number().nullish(),
+  archived: z.record(z.string(), z.array(z.number())).nullish(),
+});
 export type UndoOut = z.infer<typeof UndoOut>;
 
 export interface AuditFilters {
@@ -407,6 +437,8 @@ export const wave1 = {
     get: (id: number) => get(`/approvals/${id}`, ApprovalRequest),
     decide: (id: number, body: DecideIn) => send("POST", `/approvals/${id}/decide`, body, ApprovalRequest),
     withdraw: (id: number) => send("POST", `/approvals/${id}/withdraw`, undefined, ApprovalRequest),
+    /** A-12: approve or reject every open request of one submission (per-period decisions stay possible) */
+    decideGroup: (groupId: number, body: { decision: "approve" | "reject"; note?: string | null; reason?: string | null; reason_code?: string | null }) => send("POST", `/approvals/groups/${groupId}/decide`, body, z.record(z.string(), z.unknown())),
     approvers: () => get("/approvals/approvers", z.array(Approver)),
     setApprover: (userId: number, scopes: Scope[]) => send("PUT", `/approvals/approvers/${userId}`, { scopes }, Approver),
     rules: () => get("/approval-rules", z.array(Rule)),

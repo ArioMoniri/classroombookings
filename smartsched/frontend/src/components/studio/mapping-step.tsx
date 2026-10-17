@@ -9,7 +9,7 @@ import type { MappingColumns, MappingProposals, MappingRole, MappingSpec, RoomRu
 import { MAPPING_ROLES } from "@/lib/api/studio-schemas";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
-import { Segmented } from "./segmented";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { pairLang } from "@/lib/i18n";
 
 const ROLE_KEY: Record<MappingRole, MessageKey> = {
@@ -170,11 +170,11 @@ export function MappingStep({
                 <span id="map-room-rule" className="text-xs font-medium">
                   {t("studio.mapping.roomRule")}
                 </span>
-                <Segmented
+                <SegmentedControl semantics="radiogroup"
                   size="sm"
-                  labelledBy="map-room-rule"
+                  aria-labelledby="map-room-rule"
                   value={roomRule}
-                  onChange={(v) => {
+                  onValueChange={(v) => {
                     setRoomRule(v);
                     setHardness(v === "prefer" ? "soft" : "hard");
                   }}
@@ -189,11 +189,11 @@ export function MappingStep({
                 <span id="map-hard" className="text-xs font-medium">
                   {t("studio.rule.mustOrTry")}
                 </span>
-                <Segmented
+                <SegmentedControl semantics="radiogroup"
                   size="sm"
-                  labelledBy="map-hard"
+                  aria-labelledby="map-hard"
                   value={hardness}
-                  onChange={setHardness}
+                  onValueChange={setHardness}
                   options={[
                     { value: "hard", label: t("studio.rule.must") },
                     { value: "soft", label: t("studio.rule.try") },

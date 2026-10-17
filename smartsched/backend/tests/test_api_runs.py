@@ -78,6 +78,8 @@ async def test_run_lifecycle_with_stub_solver(client, stub_solver):
     # exports
     r = await client.get(f"/api/v1/runs/{run_id}/export", params={"format": "xlsx"}, headers=h)
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/vnd.openxmlformats")
+    # a week run's file is named after its week (R1-M-38); the ics keeps the plain name
+    assert r.headers["content-disposition"] == f'attachment; filename="smartsched-run{run_id}-hafta3.xlsx"'
     wb = load_workbook(io.BytesIO(r.content))
     ws = wb["Hafta 3"]
     assert (
@@ -90,8 +92,10 @@ async def test_run_lifecycle_with_stub_solver(client, stub_solver):
     assert len(merged) == 7
     r = await client.get(f"/api/v1/runs/{run_id}/export", params={"format": "csv"}, headers=h)
     assert r.status_code == 200 and "PSI 155" in r.text
+    assert r.headers["content-disposition"] == f'attachment; filename="smartsched-run{run_id}-hafta3.csv"'
     r = await client.get(f"/api/v1/runs/{run_id}/export", params={"format": "ics"}, headers=h)
     assert r.status_code == 200 and "BEGIN:VEVENT" in r.text and "DTSTART:" in r.text
+    assert r.headers["content-disposition"] == f'attachment; filename="smartsched-run{run_id}.ics"'
     # SSE on a finished run returns the status event immediately
     r = await client.get(f"/api/v1/runs/{run_id}/events", headers=h)
     assert (
@@ -119,6 +123,9 @@ async def test_run_lifecycle_with_stub_solver(client, stub_solver):
         headers=h,
     )
     assert r.json()["ok"] is True and r.json()["assignment"]["origin"] == "MANUAL"
+    # owner decision 2026-10-17 (R1-S-37): the forced move on the published run went into a new draft copy
+    draft_id = r.json()["draft_run_id"]
+    assert draft_id and draft_id != run_id and r.json()["live_run_id"] == run_id
     r = await client.post(f"/api/v1/runs/{run_id}/assignments/{target['id']}/lock", headers=h)
     assert r.json()["is_locked"] is True
     # check-room against the active run from the inbox
@@ -126,7 +133,9 @@ async def test_run_lifecycle_with_stub_solver(client, stub_solver):
     r = await client.post(
         f"/api/v1/requests/meetings/{mr_id}/check-room", json={"room_ids": [a204["room_id"]]}, headers=h
     )
-    assert r.status_code == 200 and r.json()["ok"] is False  # the forced move now occupies A 204 too
+    assert (
+        r.status_code == 200 and r.json()["ok"] is True
+    )  # the live plan is unchanged: the forced move is in the draft
     meetings = (
         await client.get("/api/v1/requests/meetings", params={"term_id": term_id, "search": "PSI 155"}, headers=h)
     ).json()

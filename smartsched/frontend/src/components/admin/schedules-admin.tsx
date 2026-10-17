@@ -4,10 +4,11 @@
  * mapped onto the university's 18-period grid (08:30–22:50), so bookings, the published timetable and the
  * solver share one clock; "Create the 18 university periods" fills an empty schedule in one step.
  */
-import { Grid3x3, Loader2, Plus, Trash2 } from "lucide-react";
+import { Grid3x3, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -19,6 +20,7 @@ import { addDays, formatPattern } from "@/components/bookings/date-format";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SectionTitle } from "./kit";
 import { useErrorToast } from "./admin-gate";
+import { BareButton } from "@/components/shell/bare-button";
 
 const KEYS = [["crbs", "schedules"], ["crbs", "grid"], ["crbs", "sessions"]];
 
@@ -29,20 +31,20 @@ function useWeekdays() {
 
 function DaysPicker({ value, onChange, label }: { value: number[]; onChange: (v: number[]) => void; label: string }) {
   const days = useWeekdays();
+  // MOBILE M-02: 44 px toggles with 8 px between them on touch (36 px in 2 px gaps overlapped), wrapping on a phone
   return (
-    <div role="group" aria-label={label} className="flex gap-0.5">
+    <div role="group" aria-label={label} className="flex flex-wrap gap-0.5 pointer-coarse:gap-2">
       {days.map((d) => {
         const on = value.includes(d.day);
         return (
-          <button
+          <BareButton
             key={d.day}
-            type="button"
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((x) => x !== d.day) : [...value, d.day].sort())}
-            className={cn("h-7 min-w-9 rounded-md px-1.5 type-caption outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)", on ? "bg-tint-soft font-semibold text-tint-text" : "bg-fill-2 text-label-3")}
+            className={cn("h-(--control-h-sm) min-w-9 rounded-md px-1.5 type-caption pointer-coarse:h-11 pointer-coarse:min-w-11", on ? "bg-tint-soft font-semibold text-tint-text" : "bg-fill-2 text-label-3")}
           >
             {d.label}
-          </button>
+          </BareButton>
         );
       })}
     </div>
@@ -62,20 +64,19 @@ export function SchedulesAdmin() {
       <PageTitle title={t("crbs.admin.schedules.title")} subtitle={t("crbs.admin.schedules.lead")} />
       <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
         <div className="flex flex-col gap-3">
-          <Card variant="glass" className="py-1">
+          <Card className="py-1">
             {schedules.isLoading ? <Loading className="px-4" /> : null}
             <ul>
               {(schedules.data ?? []).map((s) => (
                 <li key={s.id}>
-                  <button
-                    type="button"
+                  <BareButton
                     aria-current={current?.id === s.id ? "true" : undefined}
                     onClick={() => setPick(s.id)}
-                    className={cn("w-full px-4 py-2 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)", current?.id === s.id ? "bg-tint-soft" : "hover:bg-fill-3")}
+                    className={cn("w-full px-4 py-2 text-left focus-visible:-outline-offset-2", current?.id === s.id ? "bg-tint-soft" : "hover:bg-fill-3")}
                   >
                     <span className="block type-headline text-label-1">{s.name}</span>
                     <span className="block truncate type-footnote text-label-3">{[t("crbs.schedules.periodCount", { n: s.periods.length }), s.description].filter(Boolean).join(" · ")}</span>
-                  </button>
+                  </BareButton>
                 </li>
               ))}
             </ul>
@@ -113,7 +114,7 @@ function ScheduleEditor({ schedule, onDeleted }: { schedule: Schedule; onDeleted
   const remove = useCrbsMutation(() => crbs.bookingAdmin.deleteSchedule(schedule.id), KEYS);
   const fmtDays = (ds: number[]) => (ds.length === 7 ? t("crbs.schedules.everyDay") : ds.map((d) => formatPattern(addDays("2026-02-16", d - 1), "EEE", locale)).join(" "));
   return (
-    <Card variant="glass" className="gap-5 px-5">
+    <Card className="gap-5 px-5">
       <div className="flex flex-wrap items-end gap-2">
         <Field label={t("crbs.common.name")} htmlFor="sch-name" className="min-w-56 flex-1">
           <Input id="sch-name" maxLength={32} value={name} onChange={(e) => setName(e.target.value)} />
@@ -137,21 +138,21 @@ function ScheduleEditor({ schedule, onDeleted }: { schedule: Schedule; onDeleted
           <p className="type-callout text-label-2">{t("crbs.schedules.fromGridLead")}</p>
           <DaysPicker value={days} onChange={setDays} label={t("crbs.schedules.days")} />
           <div>
-            <Button disabled={!days.length || fromGrid.isPending} onClick={() => fromGrid.mutate(undefined, { onSuccess: () => toast.success(t("crbs.schedules.fromGridDone")), onError: toastError })} data-testid="periods-from-grid">
-              {fromGrid.isPending ? <Loader2 className="animate-spin" aria-hidden /> : <Grid3x3 aria-hidden />}
-              {t("crbs.schedules.fromGrid")}
+            <Button disabled={!days.length || fromGrid.isPending} onClick={() => fromGrid.mutate(undefined, { onSuccess: () => toast.success(t("crbs.schedules.fromGridDone")), onError: toastError })} data-testid="periods-from-grid" aria-busy={fromGrid.isPending || undefined}>
+              <BusyLabel busy={fromGrid.isPending} label={t("busy.working")} icon={<Grid3x3 aria-hidden />}>
+              {t("crbs.schedules.fromGrid")}</BusyLabel>
             </Button>
           </div>
         </section>
       ) : (
-        <div className="overflow-x-auto rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)]">
+        <div className="overflow-x-auto rounded-xl bg-(--mat-thick-solid) edge-hairline">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-3">{t("crbs.common.name")}</TableHead>
                 <TableHead>{t("crbs.schedules.time")}</TableHead>
                 <TableHead className="hidden sm:table-cell">{t("crbs.schedules.grid")}</TableHead>
-                <TableHead>{t("crbs.schedules.days")}</TableHead>
+                <TableHead className="hidden sm:table-cell">{t("crbs.schedules.days")}</TableHead>
                 <TableHead>{t("crbs.schedules.bookable")}</TableHead>
                 <TableHead className="w-10 pr-3">
                   <span className="sr-only">{t("crbs.common.actions")}</span>
@@ -193,12 +194,13 @@ function PeriodRow({ period: p, fmtDays }: { period: Period; fmtDays: (d: number
         {p.time_start}–{p.time_end}
       </TableCell>
       <TableCell className="hidden text-label-2 sm:table-cell">{p.start_period === p.end_period ? `P${p.start_period}` : `P${p.start_period}–P${p.end_period}`}</TableCell>
-      <TableCell className="text-label-2">{fmtDays(p.days)}</TableCell>
+      {/* phones: the days column is left out so the row fits and the bookable switch's 44 px hit area is not clipped (M-02) */}
+      <TableCell className="hidden text-label-2 sm:table-cell">{fmtDays(p.days)}</TableCell>
       <TableCell>
         <Switch size="sm" checked={p.bookable} aria-label={t("crbs.schedules.bookableNamed", { name: p.name })} onCheckedChange={(v) => update.mutate({ bookable: v }, { onError: toastError })} />
       </TableCell>
       <TableCell className="pr-3">
-        <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.deleteNamed", { name: p.name })} onClick={() => remove.mutate(undefined, { onError: toastError })}>
+        <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.deleteNamed", { name: p.name })} onClick={() => remove.mutate(undefined, { onError: toastError })}>
           <Trash2 />
         </Button>
       </TableCell>

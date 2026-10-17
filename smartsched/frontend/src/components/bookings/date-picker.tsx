@@ -15,6 +15,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { monthsBetween } from "@/components/admin/date-painter";
 import { EntityIcon } from "@/components/admin/icons";
 import { addDays, formatPattern, type DateFormatter } from "./date-format";
+import { BareButton } from "@/components/shell/bare-button";
 
 interface Props {
   value: string;
@@ -25,9 +26,14 @@ interface Props {
   termEnd: string;
   today?: string;
   fmt: DateFormatter;
+  /** the short weekday pattern on the trigger (compact toolbar, phones) */
+  compact?: boolean;
+  /** a "Today" button in the popover (compact toolbar: the toolbar has no room for it) */
+  onToday?: () => void;
+  className?: string;
 }
 
-export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, today, fmt }: Props) {
+export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, today, fmt, compact, onToday, className }: Props) {
   const { t, locale } = useI18n();
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(value.slice(0, 7));
@@ -71,9 +77,9 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
         }
       }}
     >
-      <PopoverTrigger render={<Button variant="outline" className="min-w-0 justify-start" data-testid="date-picker-trigger" />}>
+      <PopoverTrigger render={<Button variant="outline" className={cn("min-w-0 justify-start", className)} data-testid="date-picker-trigger" />}>
         <CalendarDays aria-hidden />
-        <span className="truncate">{fmt.long(value)}</span>
+        <span className="truncate">{compact ? fmt.weekday(value) : fmt.long(value)}</span>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[19.5rem] p-3">
         <div className="mb-2 flex items-center justify-between">
@@ -108,8 +114,7 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
                   .join(", ");
                 return (
                   <span role="gridcell" key={day} aria-selected={selected}>
-                    <button
-                      type="button"
+                    <BareButton
                       data-day={day}
                       tabIndex={day === cursor ? 0 : -1}
                       disabled={!inTerm}
@@ -118,16 +123,16 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
                       onClick={() => pick(day)}
                       onFocus={() => setCursor(day)}
                       className={cn(
-                        "relative flex h-9 w-full flex-col items-center justify-center rounded-md type-callout tabular-nums outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) disabled:opacity-30",
+                        "relative flex h-9 w-full flex-col items-center justify-center rounded-md type-callout tabular-nums disabled:opacity-30",
                         selected ? "bg-tint text-tint-foreground" : "text-label-1 hover:bg-fill-2",
                         !selected && d && !d.open && "text-label-3",
                         d?.holiday && "line-through decoration-1",
-                        day === today && !selected && "shadow-[inset_0_0_0_1.5px_var(--accent)]",
+                        day === today && !selected && "edge-tint",
                       )}
                     >
                       {Number(day.slice(8))}
                       {week ? <span aria-hidden className="absolute inset-x-2 bottom-1 h-[3px] rounded-full" style={{ background: week.bgcol }} /> : null}
-                    </button>
+                    </BareButton>
                   </span>
                 );
               })}
@@ -145,6 +150,20 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
             ))}
             {dates.some((d) => d.holiday) ? <li className="line-through">{t("crbs.picker.holidayLegend")}</li> : null}
           </ul>
+        ) : null}
+        {onToday ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 w-full"
+            onClick={() => {
+              onToday();
+              setOpen(false);
+            }}
+            data-testid="date-picker-today"
+          >
+            {t("crbs.toolbar.today")}
+          </Button>
         ) : null}
       </PopoverContent>
     </Popover>

@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 
 from tests.api_fixtures import login
 from tests.council.conftest import EN_CSV, EXAM_LIST, FINAL_GRID, MEMO_DOCX, ROOM_MASTER, SCAN_PNG
+from tests.council.test_ai_rows import accept_ai_rows
 from tests.test_safe_files import far_row_bomb, merge_bomb, shared_string_bomb
 
 
@@ -62,6 +63,8 @@ async def test_heuristic_job_reviews_and_commits_general_files(client):
     assert {"rule_text", "plan"} <= kinds
     plan_item = next(it for it in review["items"] if it["kind"] == "plan")
     assert plan_item["current"]["code"] == "BAHAR" and plan_item["files"] == [1]
+    assert await accept_ai_rows(client, h, job["id"]) == 0  # the memo (DOCX) table is read directly (T-R1-21)
+    review = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
     pending = [it for it in review["items"] if it["blocking"] and it["decision"] is None]
     if pending:
         r = await client.post(
@@ -95,12 +98,12 @@ async def test_heuristic_job_reviews_and_commits_general_files(client):
         term = (await s.execute(select(Term).where(Term.code == "2026-BAHAR-EN"))).scalar_one()
     assert a101.capacity == 58 and a101.exam_capacity == 30  # room master, not overwritten
     assert term.periods_json and term.periods_json[0]["start"] == "08:30"
-    # rows are keyed on the term + their natural key (D14), so the same file in a new job updates instead of
-    # duplicating
-    keys = f"CC:{term.id}:M:%"
+    # rows are keyed on the term + their natural key (D14; T-R2-19: the planning-list importer's identity, so
+    # both paths share one key), so the same file in a new job updates instead of duplicating
+    keys = f"PL:{term.code}:id:%"
     n = await _count(MeetingRequest, MeetingRequest.source_key.like(keys))
     assert n == out["general"]["meeting_requests"]
-    locked = await _count(MeetingRequest, MeetingRequest.status == "LOCKED", MeetingRequest.source_key.like("CC:%"))
+    locked = await _count(MeetingRequest, MeetingRequest.status == "LOCKED", MeetingRequest.source_key.like("PL:%"))
     assert locked > 0.5 * n  # assigned rooms of the export are the planner's definitive rooms
 
     # committing again updates, never duplicates
@@ -121,7 +124,12 @@ async def test_low_confidence_mapping_blocks_until_reviewed(client):
     job = await _run(client, h, EN_CSV, review_threshold=0.99)
     assert job["status"] == "REVIEW" and job["summary"]["blocking_items"] > 0
     r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={"group": 0})
-    assert r.status_code == 409 and "must be decided" in r.json()["detail"]
+    assert r.status_code == 409, r.text
+    detail = r.json()["detail"]  # T-R2-21: coded, Turkish, counts only (no item titles, no person names)
+    assert detail["code"] == "review_pending" and detail["count"] == job["summary"]["blocking_items"]
+    assert detail["message"] == f"{detail['count']} review item(s) must be decided first"
+    assert detail["message_tr"] == f"Önce {detail['count']} inceleme kararı verilmeli."
+    assert "e.g." not in r.text and "'" not in detail["message"]
     review = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
     remarks = next(it for it in review["items"] if it["kind"] == "mapping" and "Remarks" in it["title"])
     assert remarks["current"]["field"] == "notes" and remarks["samples"]
@@ -133,6 +141,12 @@ async def test_low_confidence_mapping_blocks_until_reviewed(client):
     )
     body = r.json()
     assert body["saved"] == 1 and body["rerun_files"] == [0] and "unknown review item nope" in body["errors"]
+    assert body["rerun_queued"] is True and body["status"] == "RUNNING"  # the re-read runs on the job queue
+    r = await client.post(f"/api/v1/council/jobs/{job['id']}/commit", headers=h, json={"group": 0})
+    assert r.status_code == 409 and "RUNNING" in r.json()["detail"]
+    await qmod.get_queue().wait_idle(600)
+    body = (await client.get(f"/api/v1/council/jobs/{job['id']}/review", headers=h)).json()
+    assert body["status"] == "REVIEW"
     recs = (
         await client.get(f"/api/v1/council/jobs/{job['id']}/records", headers=h, params={"file": 0, "limit": 500})
     ).json()["items"]

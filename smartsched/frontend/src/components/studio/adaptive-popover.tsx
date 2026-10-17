@@ -4,6 +4,8 @@
  * Studio backlog: slot pickers and class edits are popovers on a fine pointer and bottom sheets on a touch
  * screen (thumb reach, 44 px targets, a titled dialog). Drop-in for Popover / PopoverTrigger / PopoverContent.
  * The coarse query is false on the server and in tests, so the popover is the default.
+ * The sheet pads 16 px at the bottom: ui/sheet already keeps it above the home indicator (a safe-area border on
+ * phones, lifted by the inset on larger screens), so an env() padding here doubled it on iOS.
  */
 import { createContext, useContext, useSyncExternalStore, type ReactElement, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -60,7 +62,7 @@ export function AdaptiveContent({ title, className, align = "start", children }:
     );
   }
   return (
-    <SheetContent side="bottom" className={cn("px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [&_button]:min-h-11 [&_input]:min-h-11")} showCloseButton={false}>
+    <SheetContent side="bottom" className={cn("px-4 pb-4 [&_button]:min-h-11 [&_input]:min-h-11")} showCloseButton={false}>
       <SheetHeader className="p-0">
         <SheetTitle>{title}</SheetTitle>
       </SheetHeader>

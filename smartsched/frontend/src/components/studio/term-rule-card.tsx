@@ -133,7 +133,7 @@ export function TermRuleCard({ eff, clash, compact }: { eff: EffectiveRule; clas
         writtenIn={shown.writtenIn}
         provenance={sub ? null : provenanceText(rule.source_ref, t)}
         subLabel={sub}
-        source={asSource(rule.source)}
+        source={asSource(rule.source, rule.source_ref)}
         hardness={eff.hardness}
         weight={eff.weight}
         allowed={allowedHardness(meta, rule.kind)}

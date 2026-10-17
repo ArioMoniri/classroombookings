@@ -1,0 +1,70 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='390' height='844' viewBox='0 0 390 844' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Entegrasyonlar galerisi, 390'>
+<title>Entegrasyonlar galerisi, 390</title>
+<rect width='390' height='844' fill='#F4F6F9'/>
+<text x='20' y='30' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>9:41</text>
+<text x='370' y='30' font-size='12' font-weight='500' fill='#0F172A' text-anchor='end'>100%</text>
+<text x='20' y='92' font-size='30' font-weight='700' fill='#0F172A' text-anchor='start'>Entegrasyonlar</text>
+<rect x='0' y='761' width='390' height='83' rx='0' fill='#FFFFFF' fill-opacity='0.94'/>
+<line x1='0' y1='761' x2='390' y2='761' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='28.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='39.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Panel</text>
+<rect x='106.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='117.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Takvim</text>
+<rect x='184.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='195.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Rezerve et</text>
+<rect x='262.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='273.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Talepler</text>
+<rect x='340.0' y='771' width='22' height='22' rx='6' fill='#2563EB' fill-opacity='1' stroke='#2563EB' stroke-width='1.5'/>
+<text x='351.0' y='809' font-size='10' font-weight='600' fill='#2563EB' text-anchor='middle'>Daha</text>
+<rect x='128.0' y='835' width='134' height='5' rx='3' fill='#0F172A' fill-opacity='1'/>
+<rect x='16' y='112' width='358' height='44' rx='22' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='40' y='140' font-size='15' font-weight='400' fill='#64748B' text-anchor='start'>Entegrasyon ara</text>
+<rect x='16' y='168' width='58' height='36' rx='18.0' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='45.0' y='190.68' font-size='13' font-weight='600' fill='#2563EB' text-anchor='middle'>Tümü</text>
+<rect x='82' y='168' width='73' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='118.5' y='190.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Kimlik</text>
+<rect x='163' y='168' width='80' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='203.0' y='190.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>E-posta</text>
+<rect x='251' y='168' width='73' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='287.5' y='190.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Takvim</text>
+<rect x='16' y='216' width='358' height='64' rx='12' fill='#FEE2E2' fill-opacity='1'/>
+<text x='32' y='242' font-size='14' font-weight='700' fill='#B91C1C' text-anchor='start'>E-posta (SMTP): Hata</text>
+<text x='32' y='264' font-size='13' font-weight='500' fill='#B91C1C' text-anchor='start'>535 kimlik doğrulama · Sorunu gider ›</text>
+<text x='16' y='312' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>Kimlik</text>
+<rect x='16' y='324' width='358' height='64' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='28' y='336' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='48.0' y='361.0' font-size='13' font-weight='700' fill='#0F172A' text-anchor='middle'>MS</text>
+<text x='80' y='352' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Microsoft 365</text>
+<circle cx='85' cy='370' r='5' fill='#15803D'/>
+<text x='96' y='374' font-size='13' font-weight='600' fill='#15803D' text-anchor='start'>Bağlı</text>
+<text x='354' y='362' font-size='22' font-weight='400' fill='#64748B' text-anchor='end'>›</text>
+<rect x='16' y='396' width='358' height='64' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='28' y='408' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='48.0' y='433.0' font-size='13' font-weight='700' fill='#0F172A' text-anchor='middle'>G</text>
+<text x='80' y='424' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Google Workspace</text>
+<circle cx='85' cy='442' r='5' fill='none' stroke='#475569' stroke-width='2'/>
+<text x='96' y='446' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>Yapılandırılmadı</text>
+<text x='354' y='434' font-size='22' font-weight='400' fill='#64748B' text-anchor='end'>›</text>
+<rect x='16' y='468' width='358' height='64' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='28' y='480' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='48.0' y='505.0' font-size='11' font-weight='700' fill='#0F172A' text-anchor='middle'>OIDC</text>
+<text x='80' y='496' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Okta</text>
+<circle cx='85' cy='514' r='5' fill='#475569'/>
+<text x='96' y='518' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>Kapalı</text>
+<text x='354' y='506' font-size='22' font-weight='400' fill='#64748B' text-anchor='end'>›</text>
+<rect x='16' y='540' width='358' height='64' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='28' y='552' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='48.0' y='577.0' font-size='11' font-weight='700' fill='#0F172A' text-anchor='middle'>SAML</text>
+<text x='80' y='568' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Kurum girişi (SAML)</text>
+<circle cx='85' cy='586' r='5' fill='none' stroke='#475569' stroke-width='2'/>
+<text x='96' y='590' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>Yapılandırılmadı</text>
+<text x='354' y='578' font-size='22' font-weight='400' fill='#64748B' text-anchor='end'>›</text>
+<text x='16' y='636' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>E-posta</text>
+<rect x='16' y='648' width='358' height='64' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#B91C1C' stroke-width='2'/>
+<rect x='28' y='660' width='40' height='40' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='48.0' y='685.0' font-size='11' font-weight='700' fill='#0F172A' text-anchor='middle'>SMTP</text>
+<text x='80' y='676' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>E-posta (SMTP)</text>
+<circle cx='85' cy='694' r='5' fill='#B91C1C'/>
+<text x='96' y='698' font-size='13' font-weight='600' fill='#B91C1C' text-anchor='start'>Hata</text>
+<text x='16' y='744' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Telefonda kart = 64 px satır; açma anahtarı kurulum sayfasında.</text>
+</svg>

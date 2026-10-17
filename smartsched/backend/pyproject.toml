@@ -33,6 +33,15 @@ dependencies = [
   "pdfplumber>=0.11",  # PDF tables (text PDFs)
   "pypdfium2>=4.30",  # scanned PDF pages rendered for the vision transcription
   "icalendar>=6.0",  # .ics intake (and the calendar-feed tests)
+  # notification channels (docs/product/2026-10-15-integrations-options.md): delivery through the institution's
+  # senders; pinned because the URL schemes and the RFC 8291 encoding are the contract
+  "apprise==2.0.1",  # BSD-2-Clause: Telegram, WhatsApp Cloud, Twilio / Vonage SMS, Teams Workflows, Slack
+  "pywebpush==2.5.0",  # MPL-2.0 (used unmodified as a library): Web Push payload encryption + VAPID
+  # Microsoft Entra ID sign-in (app/services/sso.py; owner decision 2026-10-15); exact versions in requirements.lock
+  "authlib>=1.9.1,<2",  # OIDC client, PKCE (BSD-3-Clause)
+  "joserfc>=1.6.8,<2",  # ID token / JWKS verification, Authlib's JOSE library (BSD-3-Clause)
+  # W3-OPS observability (app/core/observability.py): /metrics for Prometheus, multiprocess-safe (Apache-2.0)
+  "prometheus-client>=0.26,<1",
 ]
 
 [project.optional-dependencies]

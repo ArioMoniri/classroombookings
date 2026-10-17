@@ -47,7 +47,7 @@ export function RequirementsList({ query, highlight = [], compact }: { query: Re
                 key={r.key}
                 data-requirement={r.key}
                 data-status={r.status}
-                className={cn("flex items-start gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none", highlight.includes(r.key) && "bg-status-infeasible")}
+                className={cn("flex items-start gap-3 px-4 py-2.5 not-last:edge-hairline-b", highlight.includes(r.key) && "bg-status-infeasible")}
               >
                 <Icon className={cn("mt-0.5 size-4 shrink-0", cls)} aria-hidden />
                 <span className="min-w-0 flex-1">
@@ -61,7 +61,7 @@ export function RequirementsList({ query, highlight = [], compact }: { query: Re
         </ul>
       </Card>
       <div>
-        <Button variant="secondary" size="sm" onClick={() => query.refetch()} disabled={query.isFetching} data-testid="requirements-recheck">
+        <Button className="pointer-coarse:h-11" variant="secondary" size="sm" onClick={() => query.refetch()} disabled={query.isFetching} data-testid="requirements-recheck">
           <RefreshCw aria-hidden className={query.isFetching ? "motion-safe:animate-spin" : undefined} />
           {t("crbs.setup.req.recheck")}
         </Button>

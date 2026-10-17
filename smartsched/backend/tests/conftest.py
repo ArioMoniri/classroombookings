@@ -107,6 +107,52 @@ def _fresh_login_limiter():
     ratelimit.reset()
 
 
+@pytest.fixture(autouse=True)
+def _fresh_channel_registry():
+    """``app.services.notify_dispatch`` keeps its channels in a process-wide list. ``app.main.lifespan`` (the start-up
+    hook, run by tests/test_api_ops_fixes.py) registers the Apprise/web-push adapters there for the life of the
+    process, so every later test would dispatch to eight channels instead of the two built-ins. Each test gets the
+    registry it started with back."""
+    from app.services import notify_dispatch as nd
+
+    before = list(nd._CHANNELS)
+    yield
+    nd._CHANNELS[:] = before
+
+
+@pytest.fixture(autouse=True)
+def _fresh_worker_state():
+    """The in-process workers keep module-level state that, in production, lives as long as the one event loop of
+    the process. Every test runs on its own loop (pytest-asyncio), and the API fixtures never run
+    ``app.main.lifespan``'s shutdown, so after a test:
+
+    * a drain of ``app.workers.integrations`` that was still running when the test's loop closed stays ``RUNNING``
+      in the module queue: the next test's ``schedule_drain`` sees "already running", only sets ``_again`` and never
+      sends (tests/test_kvkk_signoff.py, then the queued e-mail of tests/test_mail_queue.py stayed ``PENDING``);
+    * the integrations and channels-outbox retry timers belong to the closed loop;
+    * ``app.workers.cancel`` keeps the tokens of runs whose job never released them, keyed by run id, which the
+      next test's fresh database hands out again (a cancelled token would cancel that test's run);
+    * the main job queue keeps ``run:<id>`` states ``QUEUED`` whose task died with the loop
+      (tests/test_run_partial_status.py), again keyed by ids the next database reuses.
+
+    Each test starts with what a fresh process has (timers cancelled, no queues, no tokens), as
+    ``integrations.shutdown()`` leaves it in production."""
+    yield
+    from app.services.channels import outbox
+    from app.workers import cancel, integrations
+    from app.workers import queue as qmod
+
+    for mod in (integrations, outbox):
+        if mod._timer is not None:
+            mod._timer.cancel()
+            mod._timer = None
+    integrations._queue = None
+    integrations._again = False
+    qmod.reset_queue()
+    with cancel._lock:
+        cancel._tokens.clear()
+
+
 #: the heaviest tests (each >~15 s on the real workbooks, ~4.5 min together). ``make check`` runs
 #: ``-m "not slow"``; ``make test-slow`` (a separate CI step) runs exactly these, so CI keeps full coverage.
 SLOW_TESTS = frozenset(
@@ -135,3 +181,14 @@ def pytest_collection_modifyitems(config, items):  # noqa: ARG001
     for item in items:
         if item.nodeid in SLOW_TESTS:
             item.add_marker(pytest.mark.slow)
+    # order-independence check (no pytest-randomly in the image): SMARTSCHED_TEST_ORDER=reverse runs the collected
+    # tests back to front, =shuffle:<seed> in a seeded random order; unset (CI, make test) keeps collection order
+    order = os.environ.get("SMARTSCHED_TEST_ORDER", "")
+    if order == "reverse":
+        items.reverse()
+    elif order.startswith("shuffle:"):
+        import random
+
+        random.Random(order.removeprefix("shuffle:")).shuffle(items)
+    elif order:
+        raise pytest.UsageError(f"SMARTSCHED_TEST_ORDER={order!r}: use 'reverse' or 'shuffle:<seed>'")

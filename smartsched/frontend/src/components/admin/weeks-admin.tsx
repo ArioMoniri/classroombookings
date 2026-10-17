@@ -25,7 +25,7 @@ export function WeeksAdmin() {
   return (
     <div className="flex flex-col gap-5">
       <PageTitle title={t("crbs.admin.weeks.title")} subtitle={t("crbs.weeks.lead")} />
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {weeks.isLoading ? (
           <Loading className="px-4" />
         ) : (weeks.data ?? []).length === 0 ? (
@@ -34,20 +34,20 @@ export function WeeksAdmin() {
           <ul>
             {(weeks.data ?? []).map((w) =>
               editing?.id === w.id ? (
-                <li key={w.id} className="px-4 py-3 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+                <li key={w.id} className="px-4 py-3 not-last:edge-hairline-b">
                   <WeekForm week={w} onDone={() => setEditing(null)} />
                 </li>
               ) : (
-                <li key={w.id} className="flex items-center gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+                <li key={w.id} className="flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b">
                   <span className="inline-flex h-6 min-w-16 items-center justify-center gap-1 rounded-md px-2 type-footnote font-semibold" style={{ background: w.bgcol, color: w.fgcol }}>
                     <EntityIcon name={w.icon} className="text-current" />
                     {w.name}
                   </span>
                   <span className="flex-1 font-mono type-footnote text-label-3">{w.bgcol}</span>
-                  <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.editNamed", { name: w.name })} onClick={() => setEditing(w)}>
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.editNamed", { name: w.name })} onClick={() => setEditing(w)}>
                     <Pencil />
                   </Button>
-                  <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.deleteNamed", { name: w.name })} onClick={() => setDeleting(w)}>
+                  <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.deleteNamed", { name: w.name })} onClick={() => setDeleting(w)}>
                     <Trash2 />
                   </Button>
                 </li>
@@ -101,7 +101,7 @@ function WeekForm({ week, onDone }: { week: TimetableWeek | null; onDone: () => 
         <Input id={`wk-name-${week?.id ?? "new"}`} required maxLength={20} placeholder={t("crbs.weeks.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
       </Field>
       <Field label={t("crbs.weeks.colour")} htmlFor={`wk-col-${week?.id ?? "new"}`}>
-        <input id={`wk-col-${week?.id ?? "new"}`} type="color" value={col} onChange={(e) => setCol(e.target.value.toUpperCase())} className="h-8 w-16 cursor-pointer rounded-lg bg-fill-2 p-1 shadow-[inset_0_0_0_1px_var(--hairline)]" />
+        <input id={`wk-col-${week?.id ?? "new"}`} type="color" value={col} onChange={(e) => setCol(e.target.value.toUpperCase())} className="h-8 w-16 cursor-pointer rounded-lg bg-fill-2 p-1 edge-hairline pointer-coarse:h-11 max-md:pointer-coarse:text-base" />
       </Field>
       <div className="flex gap-2">
         {week ? (

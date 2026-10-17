@@ -1,11 +1,13 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Sparkles, Undo2 } from "lucide-react";
+import { MessageSquareText, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { AiNotice } from "@/components/admin/ai/ai-kit";
+import { AiUsageBanner } from "@/components/admin/ai/my-ai-usage";
 import { roomLabel } from "@/components/runs/diagnosis-format";
 import { DiffTable, type DiffTableRow } from "@/components/ui/beautifului/diff-table";
 import { PromptComposer } from "@/components/ui/beautifului/prompt-composer";
@@ -14,6 +16,7 @@ import { useChat, useSendChat, useSettings, useUndoProposal } from "@/lib/api/ho
 import type { ChatMessage, ChatProposal } from "@/lib/api/schemas";
 import { usePermissions } from "@/lib/api/shell-extra";
 import { qk } from "@/lib/api/hooks";
+import { aiKeys } from "@/lib/api/ai-admin";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { INITIAL_STREAM, streamChat, streamReducer, type StreamState } from "./chat-stream";
 import { applyEdited, type Scope } from "./diff-edits";
@@ -83,7 +86,7 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
       {rows.length ? (
         <DiffTable
           // inside the glass chat panel: a well, not a second glass (G2 / A8)
-          className="![background:var(--fill-3)] ![backdrop-filter:none] ![-webkit-backdrop-filter:none] !shadow-[inset_0_0_0_1px_var(--hairline)]"
+          className="![background:var(--fill-3)] ![backdrop-filter:none] ![-webkit-backdrop-filter:none] !edge-hairline"
           title={proposal.summary || t("chat.proposal")}
           columns={[
             { key: "class", label: t("glass.chat.colClass"), width: "28%" },
@@ -102,7 +105,7 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
         />
       ) : null}
       {!proposal.applied && (proposal.moves.length || proposal.section_edits.length) ? (
-        <fieldset className="space-y-1.5 rounded-xl bg-fill-3 px-3 py-2 text-[12.5px] shadow-[inset_0_0_0_1px_var(--hairline)]" disabled={busy} data-testid="diff-edits">
+        <fieldset className="space-y-1.5 rounded-xl bg-fill-3 px-3 py-2 type-footnote edge-hairline" disabled={busy} data-testid="diff-edits">
           <legend className="sr-only">{t("glass.chat.editsTitle")}</legend>
           {proposal.moves.map((m) => (
             <label key={m.assignment_id} className="flex items-start gap-2 pointer-coarse:min-h-11">
@@ -137,7 +140,7 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
         </fieldset>
       ) : null}
       {proposal.constraints.length ? (
-        <ul className="rounded-xl bg-fill-3 px-3 py-2 text-[12.5px] shadow-[inset_0_0_0_1px_var(--hairline)]">
+        <ul className="rounded-xl bg-fill-3 px-3 py-2 type-footnote edge-hairline">
           {proposal.constraints.map((c, i) => (
             <li key={i} className="py-0.5 text-label-1">
               {c.nl_text} <span className="text-label-3">· {c.hardness === "hard" ? t("glass.report.must") : t("glass.report.try")}</span>
@@ -146,7 +149,7 @@ export function ProposalDiff({ runId, proposal }: { runId: number; proposal: Cha
         </ul>
       ) : null}
       {proposal.notes.length ? (
-        <ul className="space-y-0.5 px-1 text-[12px] text-label-3">
+        <ul className="space-y-0.5 px-1 type-footnote text-label-3">
           {proposal.notes.map((note, i) => (
             <li key={i}>{note}</li>
           ))}
@@ -169,7 +172,7 @@ function Message({ m, runId }: { m: ChatMessage; runId: number }) {
   const mine = m.role === "user";
   return (
     <div className={cn("flex flex-col gap-1", mine ? "items-end" : "items-start")}>
-      <div className={cn("max-w-[92%] text-[13.5px] leading-5 whitespace-pre-wrap", mine ? "rounded-2xl rounded-br-md bg-fill-1 px-3 py-2 text-label-1" : m.role === "system" ? "text-label-3 italic" : "text-label-1")}>{m.content}</div>
+      <div className={cn("max-w-[92%] type-callout leading-5 whitespace-pre-wrap", mine ? "rounded-2xl rounded-br-md bg-fill-1 px-3 py-2 text-label-1" : m.role === "system" ? "text-label-3 italic" : "text-label-1")}>{m.content}</div>
       {m.proposal ? <ProposalDiff runId={runId} proposal={m.proposal} /> : null}
     </div>
   );
@@ -182,11 +185,11 @@ function LiveTurn({ user, s }: { user: string; s: StreamState }) {
   return (
     <>
       <div className="flex flex-col items-end gap-1">
-        <div className="max-w-[92%] rounded-2xl rounded-br-md bg-fill-1 px-3 py-2 text-[13.5px] leading-5 whitespace-pre-wrap text-label-1">{user}</div>
+        <div className="max-w-[92%] rounded-2xl rounded-br-md bg-fill-1 px-3 py-2 type-callout leading-5 whitespace-pre-wrap text-label-1">{user}</div>
       </div>
       <div className="flex flex-col items-start gap-1" data-testid="chat-live">
         {s.tools.length ? (
-          <ul className="space-y-0.5 text-[12px] text-label-2" data-testid="chat-tools">
+          <ul className="space-y-0.5 type-footnote text-label-2" data-testid="chat-tools">
             {s.tools.map((tool, i) => (
               <li key={`${tool.name}-${i}`} className="flex items-center gap-1.5" data-state={tool.state}>
                 {tool.state === "pending" ? <BusyGlyph className="size-3" /> : <span aria-hidden>{tool.state === "ok" ? "✓" : "✕"}</span>}
@@ -195,7 +198,7 @@ function LiveTurn({ user, s }: { user: string; s: StreamState }) {
             ))}
           </ul>
         ) : null}
-        {s.text ? <div className="max-w-[92%] text-[13.5px] leading-5 whitespace-pre-wrap text-label-1">{s.text}</div> : null}
+        {s.text ? <div className="max-w-[92%] type-callout leading-5 whitespace-pre-wrap text-label-1">{s.text}</div> : null}
       </div>
     </>
   );
@@ -211,7 +214,7 @@ function Thinking() {
     return () => clearInterval(id);
   }, []);
   return (
-    <p role="status" className={cn("text-[13px] text-label-2", !reduce && "animate-pulse")}>
+    <p role="status" className={cn("type-callout text-label-2", !reduce && "animate-pulse")}>
       {t("chat.thinking")}
       {secs >= 5 ? <span className="ml-1 text-label-3 tabular-nums">{t("glass.chat.elapsed", { s: secs })}</span> : null}
     </p>
@@ -254,8 +257,12 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
         const s = last;
         setLive((l) => (l ? { ...l, s } : l));
       });
-      if (last.error) toast.error(t("glass.chat.sendFailed"), { description: last.error.detail });
+      if (last.error) {
+        const e = last.error;
+        toast.error(t("glass.chat.sendFailed"), { description: (lang === "tr" ? e.messageTr : e.messageEn) ?? e.detail });
+      }
       await qc.invalidateQueries({ queryKey: qk.chat(runId) });
+      void qc.invalidateQueries({ queryKey: aiKeys.me }); // the near / at-limit banner follows this turn's tokens
     } catch {
       if (!started) {
         // the stream could not start (proxy without streaming, older backend): the non-streaming call
@@ -276,13 +283,13 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
   return (
     <section className={cn("glass-regular flex min-h-0 flex-col overflow-hidden rounded-2xl", className)} data-glass="regular" data-testid="chat-panel" aria-label={t("chat.title")}>
       <div className="flex items-center gap-2 px-4 py-3 hairline-b">
-        <Sparkles className="size-4 text-label-2" aria-hidden />
+        <MessageSquareText className="size-4 text-label-2" aria-hidden />
         <h2 className="type-headline text-label-1">{t("chat.title")}</h2>
-        {!noKey && settings.data ? <span className="ml-auto truncate text-[11px] text-label-3">{settings.data.anthropic_model}</span> : null}
+        {!noKey && settings.data ? <span className="ml-auto truncate type-caption text-label-3">{settings.data.anthropic_model}</span> : null}
       </div>
       {/* aria-busy while a reply streams: the polite region announces the finished reply, not every token */}
       <div ref={listRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3" aria-live="polite" aria-busy={send.isPending || streaming}>
-        {messages.length === 0 ? <p className="text-[13px] text-label-2">{t("chat.empty")}</p> : null}
+        {messages.length === 0 ? <p className="type-callout text-label-2">{t("chat.empty")}</p> : null}
         {messages.map((m) => (
           <Message key={m.id} m={m} runId={runId} />
         ))}
@@ -290,8 +297,9 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
         {send.isPending || (live && !live.s.text && !live.s.tools.length) ? <Thinking /> : null}
       </div>
       <div ref={composerRef} className="p-3 hairline-t">
+        <AiUsageBanner />
         {noKey ? (
-          <p className="mb-2 text-[12.5px] text-status-warning-fg">
+          <p className="mb-2 type-footnote text-status-warning-fg">
             {t("glass.chat.noKey")}{" "}
             {can(["planning.admin", "setup.settings"]) ? (
               <Link href="/settings?tab=ai" className="font-medium text-tint-text hover:underline">
@@ -311,6 +319,7 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
           sendLabel={t("chat.send")}
           suggestions={messages.length === 0 && !noKey ? STARTERS[pairLang(locale)] : undefined}
         />
+        <AiNotice className="mt-2" />
       </div>
     </section>
   );

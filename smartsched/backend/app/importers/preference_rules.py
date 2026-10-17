@@ -300,7 +300,9 @@ async def request_cells(session: AsyncSession, term_id: int, exam: bool) -> list
         key, row = mr.source_key or str(mr.id), mr.source_row_index or 0
         for part in (mr.notes or "").split(" | "):
             part = part.strip()
-            if part and not part.startswith(("Derslik dışı mekân (", "Alternatif derslikler /")):  # importer notes
+            if part and not part.startswith(
+                ("Derslik dışı mekân (", "Alternatif derslikler /", "Sınıf yılları birleşik")
+            ):
                 cells.append(TextCell(mr.id, key, row, NOTES_COLUMN, part, True))
         if mr.requested_room_text:
             v = n.parse_venue_request(mr.requested_room_text)

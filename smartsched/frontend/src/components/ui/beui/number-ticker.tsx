@@ -163,7 +163,9 @@ function Digit({
   return (
     <span
       className={cn("relative inline-block overflow-hidden", className)}
-      style={{ height: `${DIGIT_HEIGHT_EM}em`, width: "1ch" }}
+      // an overflow-hidden inline-block takes its bottom edge as the baseline, which lifted the digits ~0.27em
+      // above the surrounding text ("Room use 26%", review 2026-10-15 §3); this puts the glyph baseline back
+      style={{ height: `${DIGIT_HEIGHT_EM}em`, width: "1ch", verticalAlign: "-0.27em" }}
     >
       <motion.span
         ref={columnRef}

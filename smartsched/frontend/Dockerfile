@@ -16,9 +16,13 @@ RUN npm ci --no-audit --no-fund
 FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 ARG NEXT_PUBLIC_API_URL=http://backend:8000
+# V8 heap for `next build` (MB). The default heap is sized from the machine and ran out on the 8 GB arm64 pod
+# ("Ineffective mark-compacts near heap limit"); 3072 fits next to the running app stack. Build stage only.
+ARG NODE_BUILD_HEAP_MB=3072
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_TELEMETRY_DISABLED=1 \
-    NODE_ENV=production
+    NODE_ENV=production \
+    NODE_OPTIONS=--max-old-space-size=${NODE_BUILD_HEAP_MB}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # public/ may be empty (git does not track empty dirs) but the runtime stage copies it

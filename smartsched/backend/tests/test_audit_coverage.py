@@ -43,6 +43,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/approval-rules/{rule_id}": (E, "app.api.v1.approvals"),
     "DELETE /api/v1/approval-rules/{rule_id}": (E, "app.api.v1.approvals"),
     "POST /api/v1/me/notifications/read": (N, "the user's own in-app notifications"),
+    "PUT /api/v1/me/notification-preferences": (T, "Setting (user.<id>.notification_prefs)"),
     # audit (P7)
     "POST /api/v1/audit/{event_id}/undo": (E, "app.services.bookings_undo"),
     # auth
@@ -52,6 +53,35 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/auth/change-password": (T, "User (password hash redacted)"),
     "POST /api/v1/auth/password-reset/request": (N, "a one-time code row + outbox; no account data changes"),
     "POST /api/v1/auth/password-reset/confirm": (T, "User (password hash redacted)"),
+    # Microsoft Entra ID sign-in (app/services/sso.py; the callback is a GET and audits auth.login / auth.login_refused)
+    "POST /api/v1/auth/sso/exchange": (N, "redeems the one-time ticket; the sign-in is audited at the callback"),
+    "POST /api/v1/auth/sso/entra/link": (N, "single-use state row; the link is audited at the callback"),
+    "DELETE /api/v1/auth/sso/entra/link": (E, "app.services.sso"),
+    "PUT /api/v1/auth/sso/admin/entra": (E, "app.services.sso"),
+    "POST /api/v1/auth/sso/admin/entra/mappings": (E, "app.services.sso"),
+    "DELETE /api/v1/auth/sso/admin/entra/mappings/{mapping_id}": (E, "app.services.sso"),
+    "POST /api/v1/auth/sso/admin/invites": (E, "app.services.sso"),
+    "POST /api/v1/auth/sso/admin/invites/{invite_id}/renew": (E, "app.services.sso"),
+    "DELETE /api/v1/auth/sso/admin/invites/{invite_id}": (E, "app.services.sso"),
+    "POST /api/v1/auth/sso/admin/users/{user_id}/bind": (E, "app.services.sso"),
+    "DELETE /api/v1/auth/sso/admin/users/{user_id}/identity": (E, "app.services.sso"),
+    "PUT /api/v1/auth/sso/admin/users/{user_id}/instructor": (E, "app.services.sso"),
+    # wave 3b W3-IDP: several identity providers (app/services/identity/**)
+    "POST /api/v1/auth/sso/admin/providers": (E, "app.services.identity.providers"),
+    "PUT /api/v1/auth/sso/admin/providers/order": (E, "app.services.identity.providers"),
+    "PUT /api/v1/auth/sso/admin/providers/{provider_id}": (E, "app.services.identity.providers"),
+    "DELETE /api/v1/auth/sso/admin/providers/{provider_id}": (E, "app.services.identity.providers"),
+    "POST /api/v1/auth/sso/admin/providers/{provider_id}/discover": (E, "app.services.identity.providers"),
+    "POST /api/v1/auth/sso/admin/providers/{provider_id}/test": (
+        N,
+        "single-use state rows; the test login's outcome is audited (sso.test_login) at the callback",
+    ),
+    "POST /api/v1/auth/sso/admin/providers/{provider_id}/mappings": (E, "app.services.sso"),
+    "DELETE /api/v1/auth/sso/admin/providers/{provider_id}/mappings/{mapping_id}": (E, "app.services.sso"),
+    "POST /api/v1/auth/sso/admin/invites/bulk": (E, "app.services.identity.invites"),
+    "POST /api/v1/auth/sso/admin/invites/{invite_id}/resend": (E, "app.services.identity.invites"),
+    "POST /api/v1/auth/sso/invites/{token}/password": (E, "app.services.identity.invites"),
+    "POST /api/v1/auth/sso/{slug}/acs": (E, "app.services.sso"),
     # booking administration (CRBS setup)
     "PUT /api/v1/booking-admin/sessions/{term_id}": (T, "TermBookingSettings"),
     "PUT /api/v1/booking-admin/sessions/{term_id}/schedules": (T, "TermSchedule"),
@@ -80,6 +110,22 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/bookings/{booking_id}/cancel": (E, "app.services.bookings"),
     "POST /api/v1/bookings/cancel-multi": (E, "app.services.bookings"),
     "POST /api/v1/buildings": (T, "Building"),
+    # notification channels (app/api/v1/channels.py): admin sender config, KVKK sign-off, user link / unlink
+    "PUT /api/v1/channels/admin/{kind}": (E, "app.services.channels.config"),
+    "POST /api/v1/channels/admin/webpush/vapid": (E, "app.services.channels.config"),
+    "POST /api/v1/channels/admin/telegram/setup": (E, "app.api.v1.channels"),
+    "PUT /api/v1/channels/admin/{kind}/departments/{department_id}": (E, "app.services.channels.targets"),
+    "DELETE /api/v1/channels/admin/{kind}/departments/{department_id}": (E, "app.services.channels.targets"),
+    "POST /api/v1/channels/admin/whatsapp_web/connect": (E, "app.services.channels.bridge"),
+    "POST /api/v1/channels/admin/whatsapp_web/logout": (E, "app.services.channels.bridge"),
+    "POST /api/v1/channels/telegram/webhook": (E, "app.services.channels.links"),
+    "POST /api/v1/me/channels/telegram/link": (N, "a one-time nonce (stored as an HMAC); nothing is linked yet"),
+    "POST /api/v1/me/channels/telegram/check": (E, "app.services.channels.links"),
+    "POST /api/v1/me/channels/webpush": (E, "app.services.channels.links"),
+    "POST /api/v1/me/channels/{kind}/link": (N, "a one-time code row + its outbox message; nothing is linked yet"),
+    "POST /api/v1/me/channels/{kind}/verify": (E, "app.services.channels.links"),
+    "POST /api/v1/me/channels/{channel_id}/test": (N, "queues a test message to the caller's own address"),
+    "DELETE /api/v1/me/channels/{channel_id}": (E, "app.services.channels.links"),
     # calendar sync
     "POST /api/v1/calendar/feeds/tokens": (N, "the caller's own calendar link (stored hashed)"),
     "POST /api/v1/calendar/feeds/reset": (N, "the caller's own calendar links"),
@@ -98,6 +144,9 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/council/jobs/{job_id}/review": (J, "council job tables"),
     "POST /api/v1/council/jobs/{job_id}/commit": (E, "app.council.commit"),
     "POST /api/v1/council/jobs/{job_id}/rerun": (J, "council job tables"),
+    "POST /api/v1/council/jobs/{job_id}/rows/decisions": (E, "app.council.airows"),  # council.review
+    "DELETE /api/v1/council/memory/{row_id}": (E, "app.council.memory_admin"),  # council.memory.forget
+    "DELETE /api/v1/council/memory": (E, "app.council.memory_admin"),  # council.memory.forget
     # catalogue (P19-C1/C2)
     **{
         f"{m} /api/v1/{res}{suffix}": (E, "app.services.catalog_admin")
@@ -128,6 +177,37 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/imports/weekly-grid": (J, "import_jobs"),
     "POST /api/v1/imports/room-master": (J, "import_jobs"),
     "POST /api/v1/imports/crbs": (J, "import_jobs"),
+    # learned suggestions (P19-L2..L4)
+    "POST /api/v1/learning/refresh": (E, "app.api.v1.learning"),  # learning.refresh (actor, term, counts)
+    "POST /api/v1/learning/suggestions/{prior_id}/accept": (E, "app.services.learning"),
+    "POST /api/v1/learning/suggestions/{prior_id}/reject": (E, "app.services.learning"),
+    "POST /api/v1/learning/suggestions/{prior_id}/snooze": (E, "app.services.learning"),
+    "POST /api/v1/learning/suggestions/{prior_id}/restore": (E, "app.services.learning"),
+    "POST /api/v1/learning/reset": (E, "app.services.learning"),
+    "POST /api/v1/learning/resets/{reset_id}/undo": (E, "app.services.learning"),
+    "POST /api/v1/learning/purge": (E, "app.api.v1.learning"),  # learning.purge_run + one learning.purge per reset
+    "POST /api/v1/learning/erase": (E, "app.services.learning"),
+    # moderation (P19-M1..M3)
+    "PUT /api/v1/moderation/sections/{section_id}/priority": (E, "app.services.moderation"),
+    "PUT /api/v1/moderation/requests/{request_id}/priority": (E, "app.services.moderation"),
+    "POST /api/v1/terms/{term_id}/moderation/resolve": (E, "app.services.moderation"),
+    "PUT /api/v1/moderation/matchings/{request_id}": (E, "app.services.moderation"),
+    # P19 backend gaps: person / programme priority (person.priority, program.priority with the term)
+    "PUT /api/v1/moderation/people/{instructor_id}/priority": (E, "app.services.moderation"),
+    "PUT /api/v1/moderation/programs/{program_id}/priority": (E, "app.services.moderation"),
+    # P19-T2 "Tercih ekle": an academician's own wish, the coordinator's decision (preference.* audit actions)
+    "POST /api/v1/moderation/me/preferences": (E, "app.services.teacher_preferences"),
+    "DELETE /api/v1/moderation/me/preferences/{constraint_id}": (E, "app.services.teacher_preferences"),
+    "POST /api/v1/moderation/preferences/{constraint_id}/decide": (E, "app.services.teacher_preferences"),
+    # program wizard drafts (P19-W): the draft is wizard state, nothing live changes until the commit
+    "POST /api/v1/program-drafts": (N, "a wizard draft; nothing in the term changes until commit"),
+    "PATCH /api/v1/program-drafts/{draft_id}": (N, "autosave of a wizard draft (versioned on the draft row)"),
+    "DELETE /api/v1/program-drafts/{draft_id}": (N, "an uncommitted wizard draft; committed drafts are kept"),
+    "POST /api/v1/program-drafts/{draft_id}/validate": (N, "validation only"),
+    "POST /api/v1/program-drafts/{draft_id}/precheck": (N, "pre-check in a rolled-back session"),
+    "POST /api/v1/program-drafts/{draft_id}/paste": (N, "TSV preview, nothing stored"),
+    "POST /api/v1/program-drafts/{draft_id}/commit": (E, "app.services.program_drafts"),
+    "POST /api/v1/program-drafts/{draft_id}/undo": (E, "app.services.program_drafts"),
     # organisation
     "POST /api/v1/org/setup": (T, "User / Setting"),
     "PUT /api/v1/org/settings": (T, "Setting / Role"),
@@ -141,10 +221,10 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "DELETE /api/v1/org/translations/{tid}": (T, "Translation"),
     "POST /api/v1/org/changelog/seen": (N, "the caller's own preference"),
     # presets, requests
-    "POST /api/v1/presets": (G, "studio presets (importer agent, app/services/studio_rules.py)"),
-    "PUT /api/v1/presets/{preset_id}": (G, "studio presets (importer agent)"),
-    "DELETE /api/v1/presets/{preset_id}": (G, "studio presets (importer agent)"),
-    "POST /api/v1/presets/{preset_id}/apply": (G, "studio presets: creates term rules (importer agent)"),
+    "POST /api/v1/presets": (E, "app.api.v1.presets"),
+    "PUT /api/v1/presets/{preset_id}": (E, "app.api.v1.presets"),
+    "DELETE /api/v1/presets/{preset_id}": (E, "app.api.v1.presets"),
+    "POST /api/v1/presets/{preset_id}/apply": (E, "app.api.v1.presets"),
     "PUT /api/v1/requests/meetings/{mr_id}": (E, "app.api.v1.requests"),
     "POST /api/v1/requests/meetings/{mr_id}/check-room": (N, "read-only check"),
     "PUT /api/v1/requests/exams/{ex_id}": (E, "app.api.v1.requests"),
@@ -210,24 +290,28 @@ DECISIONS: dict[str, tuple[str, str]] = {
     # settings, studio (importer agent), terms
     "PUT /api/v1/settings": (T, "Setting (secrets redacted)"),
     "POST /api/v1/settings/test-ai": (N, "probe"),
-    "PUT /api/v1/studio/meetings/bulk": (G, "studio class edits (importer agent, app/services/studio*.py)"),
-    "POST /api/v1/studio/meetings/{mr_id}/revert": (G, "studio class edits (importer agent)"),
-    "POST /api/v1/studio/meetings/revert": (G, "studio class edits (importer agent)"),
+    "PUT /api/v1/studio/meetings/bulk": (E, "app.api.v1.studio"),
+    "POST /api/v1/studio/meetings/{mr_id}/revert": (E, "app.api.v1.studio"),
+    "POST /api/v1/studio/meetings/revert": (E, "app.api.v1.studio"),
     "POST /api/v1/studio/constraints/preview": (N, "dry run"),
-    "POST /api/v1/studio/constraints/copy": (G, "studio copy-from-term creates term rules (importer agent)"),
+    "POST /api/v1/studio/constraints/copy": (E, "app.api.v1.studio"),
     "POST /api/v1/terms": (T, "Term"),
     "PUT /api/v1/terms/{term_id}": (T, "Term"),
     "DELETE /api/v1/terms/{term_id}": (T, "Term"),
     "PUT /api/v1/terms/{term_id}/weeks": (T, "Week"),
+    "PUT /api/v1/terms/{term_id}/relaxation-policy": (E, "app.api.v1.terms"),  # term.relaxation_policy
     "POST /api/v1/terms/{term_id}/elicit": (N, "AI proposals, nothing written"),
     "POST /api/v1/terms/{term_id}/elicit/accept": (J, "ai_proposal_decisions + constraints.source_ref (AI agent)"),
     "POST /api/v1/terms/{term_id}/preferences/upload": (N, "AI proposals, nothing written"),
     "PUT /api/v1/ai/policy": (E, "app.ai.policy"),
-    "PUT /api/v1/terms/{term_id}/studio": (G, "studio draft (importer agent)"),
+    "PUT /api/v1/terms/{term_id}/studio": (E, "app.api.v1.studio"),
     "POST /api/v1/terms/{term_id}/studio/precheck": (N, "computes the pre-check"),
-    "POST /api/v1/terms/{term_id}/studio/precheck/fix": (G, "studio fix buttons (importer agent)"),
-    "POST /api/v1/terms/{term_id}/studio/proposals/accept": (G, "studio rule tray (importer agent)"),
-    "POST /api/v1/terms/{term_id}/studio/preferences/mapping": (G, "studio preference mapping (importer agent)"),
+    "POST /api/v1/terms/{term_id}/studio/precheck/fix": (E, "app.api.v1.studio"),
+    "POST /api/v1/terms/{term_id}/studio/proposals/accept": (E, "app.api.v1.studio"),
+    "POST /api/v1/terms/{term_id}/studio/preferences/mapping": (
+        N,
+        "returns proposals only; they are written (and audited) by proposals/accept",
+    ),
     "POST /api/v1/terms/{term_id}/studio/generate": (J, "schedule_runs"),
     # users
     "POST /api/v1/users": (T, "User"),
@@ -247,10 +331,67 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/webhooks/{webhook_id}/secret": (E, "app.api.v1.webhooks"),
     "POST /api/v1/webhooks/{webhook_id}/test": (N, "ping (webhook_deliveries is the record)"),
     "POST /api/v1/webhooks/deliveries/{delivery_id}/redeliver": (E, "app.api.v1.webhooks"),
+    # booking enhancements wave 2: P8 booking policies + exam-period mode (booking_policy.* audit actions)
+    "POST /api/v1/booking-policies": (E, "app.api.v1.booking_policies"),
+    "PUT /api/v1/booking-policies/{policy_id}": (E, "app.api.v1.booking_policies"),
+    "DELETE /api/v1/booking-policies/{policy_id}": (E, "app.api.v1.booking_policies"),
+    "PUT /api/v1/booking-policies/exam-period": (E, "app.api.v1.booking_policies"),
+    # P2 conflict resolver after publishing (booking.move / booking.cancel / approval.reject + booking_conflict.*)
+    "POST /api/v1/bookings/conflicts/{run_id}/apply": (E, "app.services.booking_conflicts"),
+    "POST /api/v1/bookings/conflicts/{run_id}/auto": (N, "a dry-run suggestion; nothing changes"),
+    "POST /api/v1/bookings/conflicts/{run_id}/detect": (E, "app.services.booking_conflicts"),
+    # V2 public day view: the switch records the KVKK sign-off (public_schedule.settings)
+    "PUT /api/v1/public-schedule/admin/settings": (E, "app.services.public_schedule"),
+    # A4 KVKK: notices, consents, data-subject requests, retention (kvkk.* audit actions)
+    "POST /api/v1/me/privacy/ack": (E, "app.services.kvkk"),
+    "POST /api/v1/me/consents/{purpose}": (E, "app.services.kvkk"),
+    "DELETE /api/v1/me/consents/{purpose}": (E, "app.services.kvkk"),
+    "POST /api/v1/me/data-requests": (E, "app.services.kvkk"),
+    "POST /api/v1/admin/dsr/{request_id}/complete": (E, "app.services.kvkk"),
+    "POST /api/v1/admin/dsr/{request_id}/refuse": (E, "app.services.kvkk"),
+    "PUT /api/v1/admin/retention/{data_class}": (E, "app.services.kvkk"),
+    "POST /api/v1/admin/retention/run": (E, "app.services.kvkk"),
+    "POST /api/v1/admin/privacy-notices": (E, "app.api.v1.kvkk"),
+    "PUT /api/v1/admin/privacy-notices/{notice_id}": (E, "app.api.v1.kvkk"),
+    "POST /api/v1/admin/privacy-notices/{notice_id}/publish": (E, "app.api.v1.kvkk"),
+    "DELETE /api/v1/admin/privacy-notices/{notice_id}": (E, "app.api.v1.kvkk"),
+    # invigilator assignment (invigilator.* / invigilation.* audit actions; app/services/invigilation.py)
+    "POST /api/v1/invigilation/pool": (E, "app.services.invigilation"),
+    "PUT /api/v1/invigilation/pool/{member_id}": (E, "app.services.invigilation"),
+    "DELETE /api/v1/invigilation/pool/{member_id}": (E, "app.services.invigilation"),
+    "POST /api/v1/invigilation/plans": (E, "app.services.invigilation"),
+    "POST /api/v1/invigilation/plans/{plan_id}/rerun": (E, "app.services.invigilation"),
+    "POST /api/v1/invigilation/plans/{plan_id}/activate": (E, "app.services.invigilation"),
+    "DELETE /api/v1/invigilation/plans/{plan_id}": (E, "app.services.invigilation"),
+    "POST /api/v1/invigilation/plans/{plan_id}/duties/{duty_id}/lock": (E, "app.services.invigilation"),
+    "PUT /api/v1/invigilation/plans/{plan_id}/duties/{duty_id}": (E, "app.services.invigilation"),
+    "POST /api/v1/invigilation/plans/{plan_id}/duties": (E, "app.services.invigilation"),
+    # W3-AI provider gateway, limits, guardrails (ai.* audit actions; secrets never reach the log)
+    "PUT /api/v1/ai/admin/providers/{provider}": (E, "app.api.v1.ai_admin"),
+    "POST /api/v1/ai/admin/providers/{provider}/sync": (E, "app.api.v1.ai_admin"),
+    "POST /api/v1/ai/admin/providers/{provider}/test": (T, "ai_usage + setting ai.provider.<p>.test"),
+    "PUT /api/v1/ai/admin/routes": (E, "app.api.v1.ai_admin"),
+    "PUT /api/v1/ai/admin/limits": (E, "app.api.v1.ai_admin"),
+    "POST /api/v1/ai/admin/limits/topup": (E, "app.api.v1.ai_admin"),
+    "PUT /api/v1/ai/admin/guardrails": (E, "app.api.v1.ai_admin"),
+    "POST /api/v1/ai/admin/guardrails/check": (N, "dry run: the deterministic guard's verdict, no model call"),
+    "POST /api/v1/ai/admin/redteam": (N, "dry run: the shipped guard corpus, no model call"),
+    # W3-OPS error tracking: reports are rows of their own table; the triage is an audit event
+    "POST /api/v1/ops/errors": (J, "error_events (grouped, scrubbed client report)"),
+    "POST /api/v1/ops/client-errors": (J, "error_events (alias of POST /ops/errors)"),
+    "POST /api/v1/ops/errors/{error_id}/status": (E, "app.api.v1.ops"),
+    # W3-MAIL SMTP setup + themed e-mails
+    "PUT /api/v1/mail/settings": (T, "settings group smtp (bookings_settings.set_group)"),
+    "POST /api/v1/mail/outbox/requeue": (E, "app.services.mail"),
+    "POST /api/v1/mail/test": (E, "app.services.mail"),
+    "POST /api/v1/mail/dns-check": (N, "DNS lookup of SPF / DKIM / DMARC"),
+    "POST /api/v1/mail/templates/{kind}/preview": (N, "render only"),
+    "PUT /api/v1/mail/templates/{kind}": (T, "translations set email"),
+    "POST /api/v1/mail/templates/{kind}/test": (E, "app.services.mail"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)
-GAP_CEILING = 13
+GAP_CEILING = 0  # studio / presets closed 2026-10-15 (studio_audit)
 
 
 def mutating_routes() -> set[str]:

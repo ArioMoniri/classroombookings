@@ -9,7 +9,9 @@ the response) and the hashed client network, and attaches them to the request's 
   id), limit. ``audit.view`` sees everything; anyone else only events they made or that touched their own
   bookings, without request ids and network hashes.
 * ``GET /audit/{id}`` -- one event with its children (bulk operations).
-* ``POST /audit/{id}/undo`` -- reverse a booking create, move or cancel (see ``app.services.bookings_undo``).
+* ``POST /audit/{id}/undo`` -- reverse a booking create, move or cancel (see ``app.services.bookings_undo``), or a
+  programme the wizard created (``program.create`` / ``program.restore`` of a draft commit: the drafts undo,
+  ``app.services.program_drafts.undo_from_audit``). ``undo_via`` on each event says which one applies.
 * ``GET /audit/export.csv`` -- ``audit.view``.
 
 There is no route that edits or deletes an audit event; the table refuses UPDATE and DELETE itself."""
@@ -34,6 +36,7 @@ from app.schemas.audit import AuditEventOut, AuditPage, UndoOut
 from app.services import audit as audit_svc
 from app.services import bookings as bsvc
 from app.services import bookings_undo
+from app.services import program_drafts as drafts_svc
 from app.services.bookings_perms import Access
 
 router = APIRouter(prefix="/audit", tags=["audit"])
@@ -91,6 +94,20 @@ def _out(ev: AuditEvent, full: bool) -> dict[str, Any]:
     return d
 
 
+async def _undo_via(db: DB, rows: list[AuditEvent]) -> dict[int, str]:
+    """event id -> ``bookings`` | ``program_draft`` for the events ``POST /audit/{id}/undo`` can reverse."""
+    out = {r.id: "bookings" for r in rows if r.reversible and r.action in bookings_undo.UNDOABLE}
+    programs = [r.id for r in rows if r.action in drafts_svc.AUDIT_UNDO_ACTIONS]
+    for eid in await drafts_svc.drafts_by_audit(db, programs):
+        out[eid] = "program_draft"
+    return out
+
+
+def _with_undo(d: dict[str, Any], via: str | None) -> dict[str, Any]:
+    # a wizard programme is reversible through the drafts undo although its audit row (append-only) says False
+    return {**d, "undo_via": via, "reversible": bool(d.get("reversible")) or via == "program_draft"}
+
+
 async def _own_scope(db: DB, access: Access) -> Any:
     """Events a user without ``audit.view`` may read: their own actions and events of their own bookings."""
     own = [str(i) for i in (await db.execute(select(Booking.id).where(Booking.user_id == access.user_id))).scalars()]
@@ -139,7 +156,8 @@ async def list_events(
         undone = set(
             (await db.execute(select(AuditEvent.undo_of).where(AuditEvent.undo_of.in_([r.id for r in rows])))).scalars()
         )
-    items = [{**_out(r, full), "undone": r.id in undone} for r in rows]
+    via = await _undo_via(db, rows)
+    items = [_with_undo({**_out(r, full), "undone": r.id in undone}, via.get(r.id)) for r in rows]
     return {"items": items, "next_cursor": rows[-1].id if more and rows else None}
 
 
@@ -202,7 +220,10 @@ async def get_event(event_id: int, db: DB, access: CurrentAccess) -> dict[str, A
         await db.execute(select(AuditEvent).where(AuditEvent.parent_id == ev.id).order_by(AuditEvent.id))
     ).scalars()
     undone = (await db.execute(select(AuditEvent.id).where(AuditEvent.undo_of == ev.id))).first()
-    return {**_out(ev, full), "undone": undone is not None, "children": [_out(c, full) for c in children]}
+    via = (await _undo_via(db, [ev])).get(ev.id)
+    return _with_undo(
+        {**_out(ev, full), "undone": undone is not None, "children": [_out(c, full) for c in children]}, via
+    )
 
 
 @router.post("/{event_id}/undo", response_model=UndoOut)
@@ -213,6 +234,13 @@ async def undo(event_id: int, db: DB, access: CurrentAccess) -> dict[str, Any]:
         q = q.where(await _own_scope(db, access))
     if (await db.execute(q)).first() is None:
         raise HTTPException(404, "audit event not found")
+    ev = await db.get(AuditEvent, event_id)
+    if ev is not None and ev.action in drafts_svc.AUDIT_UNDO_ACTIONS:
+        try:
+            return await drafts_svc.undo_from_audit(db, access, ev)
+        except drafts_svc.DraftError as exc:
+            await db.rollback()
+            raise HTTPException(exc.status, exc.detail) from exc
     try:
         return await bookings_undo.undo(db, access, event_id)
     except bsvc.BookingError as exc:

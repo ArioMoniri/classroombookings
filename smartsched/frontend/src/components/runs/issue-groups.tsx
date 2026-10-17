@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { CollapsedDiagnosis } from "./diagnosis-format";
 import { plannerText } from "./diagnosis-format";
+import { BareButton } from "@/components/shell/bare-button";
 
 /** Rule clashes come before data problems; the unplaced group is rendered as fix cards above. */
 const RULE_GROUPS = ["locked_room_overlap", "locked_room_blocked", "shared_room_overflow"];
@@ -31,13 +32,13 @@ function Disclosure({ title, count, hint, children, defaultOpen = false, testId 
   const { n } = useI18n();
   return (
     <section className="[&:not(:last-child)]:hairline-b" data-testid={testId}>
-      <button type="button" aria-expanded={open} aria-controls={`${id}-body`} onClick={() => setOpen((v) => !v)} className="flex w-full items-start gap-2 py-3 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
+      <BareButton aria-expanded={open} aria-controls={`${id}-body`} onClick={() => setOpen((v) => !v)} className="flex w-full items-start gap-2 py-3 text-left">
         <ChevronRight className={cn("mt-0.5 size-4 shrink-0 text-label-3 transition-transform duration-(--dur-fast)", open && "rotate-90")} aria-hidden />
         <span className="min-w-0 flex-1">
-          <span className="text-[13.5px] font-semibold text-label-1">{title}</span> <span className="text-[13px] text-label-3 tabular-nums">{n(count)}</span>
-          {hint ? <span className="mt-0.5 block text-[12.5px] text-label-2">{hint}</span> : null}
+          <span className="type-callout font-semibold text-label-1">{title}</span> <span className="type-callout text-label-3 tabular-nums">{n(count)}</span>
+          {hint ? <span className="mt-0.5 block type-footnote text-label-2">{hint}</span> : null}
         </span>
-      </button>
+      </BareButton>
       {open ? (
         <div id={`${id}-body`} className="pb-3 pl-6">
           {children}
@@ -73,7 +74,7 @@ export function IssueGroups({ runId, groups }: { runId: number; groups: DataIssu
           <Download /> {t("glass.report.downloadIssues")}
         </Button>
       </div>
-      <p className="text-[12.5px] text-label-2">{t("glass.report.dataHint")}</p>
+      <p className="type-footnote text-label-2">{t("glass.report.dataHint")}</p>
       <div className="mt-1">
         {ordered.map((g) => {
           const rows = collapse(g.items, text);
@@ -84,10 +85,10 @@ export function IssueGroups({ runId, groups }: { runId: number; groups: DataIssu
                 {rows.slice(0, shown).map(({ item, count }, i) => {
                   const rowsOf = item.classes.map((c) => c.source_row).filter((r): r is number => typeof r === "number");
                   return (
-                    <li key={i} className="py-1.5 text-[13px] text-label-1 [&:not(:last-child)]:hairline-b">
+                    <li key={i} className="py-1.5 type-callout text-label-1 [&:not(:last-child)]:hairline-b">
                       {text(item)}
-                      {count > 1 ? <span className="ml-1.5 text-[12px] text-label-3 tabular-nums">{t("glass.report.times", { n: count })}</span> : null}
-                      {rowsOf.length ? <span className="mt-0.5 block text-[12px] text-label-3">{t("glass.report.excelRows", { rows: [...new Set(rowsOf)].slice(0, 6).join(", ") })}</span> : null}
+                      {count > 1 ? <span className="ml-1.5 type-footnote text-label-3 tabular-nums">{t("glass.report.times", { n: count })}</span> : null}
+                      {rowsOf.length ? <span className="mt-0.5 block type-footnote text-label-3">{t("glass.report.excelRows", { rows: [...new Set(rowsOf)].slice(0, 6).join(", ") })}</span> : null}
                     </li>
                   );
                 })}
@@ -116,18 +117,20 @@ const CODE_TITLES: Record<string, MessageKey> = {
 /** Fallback when the backend has no data-issues route: client groups by code (same order and collapsing). */
 export function LocalIssueGroups({ sections }: { sections: { section: string; codes: Map<string, CollapsedDiagnosis[]> }[] }) {
   const { t, locale } = useI18n();
+  // a code without a planner title keeps its name next to "Other notes": seven groups all called "Diğer notlar" told
+  // the planner nothing (round-1 R1-S-28)
   const blocks = sections.filter((s) => s.section !== "unplaced").flatMap((s) => [...s.codes.entries()]);
   if (!blocks.length) return null;
   return (
     <div>
       <h3 className="type-headline pb-1 text-label-1">{t("glass.report.dataTitle")}</h3>
       {blocks.map(([code, rows]) => (
-        <Disclosure key={code} title={t(CODE_TITLES[code] ?? "glass.report.code.other")} count={rows.reduce((s, r) => s + r.count, 0)}>
+        <Disclosure key={code} title={CODE_TITLES[code] ? t(CODE_TITLES[code]) : `${t("glass.report.code.other")} · ${code.replace(/_/g, " ")}`} count={rows.reduce((s, r) => s + r.count, 0)} testId={`local-group-${code}`}>
           <ul>
             {rows.map((r) => (
-              <li key={r.d.id} className="py-1.5 text-[13px] text-label-1 [&:not(:last-child)]:hairline-b" data-testid="diagnosis-card" data-code={r.d.code ?? ""}>
+              <li key={r.d.id} className="py-1.5 type-callout text-label-1 [&:not(:last-child)]:hairline-b" data-testid="diagnosis-card" data-code={r.d.code ?? ""}>
                 {plannerText(r.d, locale)}
-                {r.count > 1 ? <span className="ml-1.5 text-[12px] text-label-3">{t("glass.report.times", { n: r.count })}</span> : null}
+                {r.count > 1 ? <span className="ml-1.5 type-footnote text-label-3">{t("glass.report.times", { n: r.count })}</span> : null}
               </li>
             ))}
           </ul>

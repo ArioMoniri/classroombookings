@@ -1,0 +1,538 @@
+"use client";
+/**
+ * Phase 19 moderation API (backend app/api/v1/moderation.py + app/services/moderation.py; specs
+ * docs/design/v2/phase19-moderation.md, phase19-priority-policy.md). The responses are documented dicts, not
+ * OpenAPI models, so the zod schemas here mirror `services/moderation.py` (`match_one`, `people`, `history`,
+ * `resolve_diff`, `matching_action`). Publishing stays `POST /runs/{id}/activate` with its guard (409 reasons).
+ */
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
+import { HttpError, request } from "./client";
+import { isResponseShapeError, responseShapeText } from "./error-text";
+
+/* ------------------------------------------------------------------ shapes */
+
+export const Pair = z.object({ tr: z.string().default(""), en: z.string().default("") });
+export type Pair = z.infer<typeof Pair>;
+
+export const VERDICTS = ["satisfied", "partial", "not_as_requested", "unplaced", "not_evaluated", "pending"] as const;
+export const Verdict = z.enum(VERDICTS).catch("not_evaluated");
+export type Verdict = (typeof VERDICTS)[number];
+
+export const Place = z.object({
+  day: z.number(),
+  start_period: z.number(),
+  end_period: z.number(),
+  time: z.string().nullable().default(null),
+  when: Pair.nullable().default(null),
+  room_ids: z.array(z.number()).default([]),
+  rooms: z.array(z.string()).default([]),
+  weeks: z.array(z.number()).default([]),
+  locked: z.boolean().default(false),
+  origin: z.string().nullable().default(null),
+});
+export type Place = z.infer<typeof Place>;
+
+export const Culprit = z.object({ request_id: z.number().nullable().optional(), label: z.string().default(""), room: z.string().nullable().optional() });
+export const Reason = z.object({
+  code: z.string().default("unplaced"),
+  text: Pair,
+  culprits: z.array(Culprit).default([]),
+  policy_step: z.object({ step: z.number(), text: Pair }).nullable().default(null),
+  policy_reason: z.string().nullable().optional(),
+});
+export type Reason = z.infer<typeof Reason>;
+
+/** where the effective priority comes from, most specific first: request > section > person > programme > default */
+export const PRIORITY_SOURCES = ["request", "section", "person", "program", "default"] as const;
+export const Priority = z.object({ value: z.number().default(0), source: z.enum(PRIORITY_SOURCES).catch("default") });
+export type Priority = z.infer<typeof Priority>;
+
+/** P19-T2: an academician's own wish on a class, as the read models attach it (`teacher_preferences.by_request`) */
+export const PREF_STATUSES = ["pending", "accepted", "rejected"] as const;
+export const PrefStatus = z.enum(PREF_STATUSES).catch("pending");
+export type PrefStatus = (typeof PREF_STATUSES)[number];
+export const TeacherPrefBrief = z.object({
+  id: z.number(),
+  status: PrefStatus,
+  kind: z.string().default(""),
+  text: Pair.default({ tr: "", en: "" }),
+  submitted_at: z.string().nullable().default(null),
+  reason: z.string().nullable().default(null),
+  instructor_id: z.number().nullable().default(null),
+});
+export type TeacherPrefBrief = z.infer<typeof TeacherPrefBrief>;
+
+const Flag = z.boolean().nullable();
+export const Matching = z.object({
+  request_id: z.number(),
+  section_id: z.number(),
+  term_id: z.number(),
+  course_code: z.string().nullable().default(null),
+  course_name: z.string().nullable().default(null),
+  section: z.string().nullable().default(null),
+  label: z.string(),
+  program: z.string().nullable().default(null),
+  faculty: z.string().nullable().default(null),
+  enrolment: z.number().nullable().default(null),
+  instructors: z.array(z.object({ id: z.number(), name: z.string(), role: z.string().nullable().default(null) })).default([]),
+  requested: z.object({
+    day: z.number().nullable().default(null),
+    days: z.array(z.number()).default([]),
+    start_period: z.number().nullable().default(null),
+    end_period: z.number().nullable().default(null),
+    time: z.string().nullable().default(null),
+    weeks: z.array(z.number()).default([]),
+    room_text: z.string().nullable().default(null),
+    rooms: z.array(z.string()).default([]),
+    building: z.string().nullable().default(null),
+    tags: z.array(z.string()).default([]),
+    capacity: z.number().nullable().default(null),
+    status: z.string().nullable().default(null),
+  }),
+  definitive: z.object({ text: z.string().nullable().default(null), room_ids: z.array(z.number()).default([]), rooms: z.array(z.string()).default([]) }),
+  assigned: Place.nullable().default(null),
+  satisfied: z.object({ room: Flag.default(null), building: Flag.default(null), tags: Flag.default(null), day: Flag.default(null), period: Flag.default(null) }).partial().default({}),
+  verdict: Verdict,
+  verdict_text: Pair,
+  reason: Reason.nullable().default(null),
+  priority: Priority,
+  source: z.enum(["run", "planner"]).catch("run"),
+  provenance: z.object({ row: z.number().nullable().default(null), source_key: z.string().nullable().default(null) }).default({ row: null, source_key: null }),
+  placement_status: z.string().nullable().optional(),
+  issues: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+  findings: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+  teacher_preferences: z.array(TeacherPrefBrief).default([]),
+});
+export type Matching = z.infer<typeof Matching>;
+
+const Counts = z.record(z.string(), z.number());
+
+export const MatchingsOut = z.object({
+  term_id: z.number(),
+  run_id: z.number().nullable(),
+  source: z.enum(["run", "planner"]).catch("run"),
+  visibility: z.enum(["all", "own"]).catch("all"),
+  counts: Counts,
+  match_rate: z.number().nullable(),
+  planner_check: z.record(z.string(), z.unknown()).nullable().optional(),
+  total: z.number(),
+  offset: z.number(),
+  items: z.array(Matching),
+});
+export type MatchingsOut = z.infer<typeof MatchingsOut>;
+
+export const MatchingDetail = Matching.extend({ detail: z.record(z.string(), z.unknown()).optional() });
+export type MatchingDetail = z.infer<typeof MatchingDetail>;
+
+export const PersonRow = z.object({
+  id: z.number(),
+  name: z.string(),
+  title: z.string().nullable().default(null),
+  unit: z.string().nullable().default(null),
+  roles: z.array(z.string()).default([]),
+  sections: z.number().default(0),
+  requests: z.number().default(0),
+  counts: Counts.default({}),
+  match_rate: z.number().nullable().default(null),
+  active_preferences: z.number().default(0),
+  learned_priors: z.number().nullable().default(null),
+  priority_max: z.number().default(0),
+  accessibility: z.enum(["yes", "no"]).catch("no"),
+  unsatisfied_streak: z.number().default(0),
+  badge: Pair.nullable().default(null),
+  linked_user: z.boolean().default(false),
+  /** P19-T2: the person's academician wishes waiting for review this term */
+  pending_preferences: z.number().default(0),
+  /** T-R1-20: the course codes the person teaches this term ("PSY 277"), so Kişiler finds a person by course */
+  courses: z.array(z.string()).default([]),
+});
+export type PersonRow = z.infer<typeof PersonRow>;
+
+export const PeopleOut = z.object({
+  term_id: z.number(),
+  term_code: z.string(),
+  run_id: z.number().nullable(),
+  source: z.enum(["run", "planner"]).catch("run"),
+  visibility: z.enum(["all", "own"]).catch("all"),
+  learning_available: z.boolean().default(false),
+  total: z.number(),
+  items: z.array(PersonRow),
+});
+export type PeopleOut = z.infer<typeof PeopleOut>;
+
+export const PlannerEdit = z.object({
+  kind: z.string(),
+  entity: z.string().optional(),
+  at: z.string().nullable().optional(),
+  changes: z.record(z.string(), z.object({ imported: z.unknown(), current: z.unknown() })).optional(),
+  action: z.string().optional(),
+  actor: z.string().nullable().optional(),
+  reason: z.string().nullable().optional(),
+});
+export type PlannerEdit = z.infer<typeof PlannerEdit>;
+
+export const HistoryItem = Matching.extend({
+  role: z.string().nullable().default(null),
+  raw: z.object({ room_text: z.string().nullable().default(null), notes: z.string().nullable().default(null), row: z.number().nullable().default(null), source_row: z.record(z.string(), z.unknown()).nullable().default(null) }).default({ room_text: null, notes: null, row: null, source_row: null }),
+  parsed: z.object({
+    day: z.number().nullable().default(null),
+    days: z.array(z.number()).default([]),
+    start_period: z.number().nullable().default(null),
+    end_period: z.number().nullable().default(null),
+    start_time: z.string().nullable().default(null),
+    end_time: z.string().nullable().default(null),
+    weeks: z.array(z.number()).default([]),
+    rooms: z.array(z.string()).default([]),
+    building: z.string().nullable().default(null),
+    tags: z.array(z.string()).default([]),
+    capacity: z.number().nullable().default(null),
+    status: z.string().nullable().default(null),
+    warnings: z.array(z.string()).default([]),
+  }).partial().default({}),
+  planner_edits: z.array(PlannerEdit).default([]),
+});
+export type HistoryItem = z.infer<typeof HistoryItem>;
+
+/** one learned prior as `learning.priors_for` renders it (the profile's "learned habits") */
+export const LearnedPrior = z.object({
+  id: z.number(),
+  attribute: z.string().default(""),
+  value: z.string().default(""),
+  value_label: Pair.nullable().optional(),
+  score: z.number().default(0),
+  support: z.number().default(0),
+  total: z.number().default(0),
+  terms_count: z.number().default(0),
+  confidence: z.number().default(0),
+  suggestible: z.boolean().default(false),
+  explanation: Pair.default({ tr: "", en: "" }),
+});
+export type LearnedPrior = z.infer<typeof LearnedPrior>;
+
+export const HistoryTerm = z.object({
+  term_id: z.number(),
+  term_code: z.string(),
+  term_name: z.string().nullable().default(null),
+  run: z.object({ id: z.number(), label: z.string().nullable().default(null), status: z.string(), published: z.boolean() }).nullable().default(null),
+  source: z.enum(["run", "planner"]).catch("planner"),
+  counts: Counts.default({}),
+  match_rate: z.number().nullable().default(null),
+  items: z.array(HistoryItem),
+  bookings: z.array(z.record(z.string(), z.unknown())).default([]),
+  learned: z.array(LearnedPrior).nullable().default([]),
+});
+export type HistoryTerm = z.infer<typeof HistoryTerm>;
+
+export const HistoryOut = z.object({
+  instructor: z.object({ id: z.number(), name: z.string(), title: z.string().nullable().default(null), linked_user: z.boolean().default(false) }),
+  accessibility: z.enum(["yes", "no"]).catch("no"),
+  terms: z.array(HistoryTerm),
+});
+export type HistoryOut = z.infer<typeof HistoryOut>;
+
+const DiffBase = z.object({ request_id: z.number(), label: z.string(), in_scope: z.boolean().default(false), instructor_ids: z.array(z.number()).default([]) });
+export const DiffMoved = DiffBase.extend({ from: Place, to: Place, causes: z.array(z.object({ code: z.string(), text: Pair, request_id: z.number().optional(), label: z.string().optional() })).default([]) });
+export type DiffMoved = z.infer<typeof DiffMoved>;
+export const DiffNew = DiffBase.extend({ to: Place });
+export type DiffNew = z.infer<typeof DiffNew>;
+export const DiffUnplaceable = DiffBase.extend({ was_placed: z.boolean().default(false), from: Place.nullable().optional(), reason: Reason, base_conflict: z.boolean().optional() });
+export type DiffUnplaceable = z.infer<typeof DiffUnplaceable>;
+
+const Score = z.object({ before: z.number().nullable().optional(), after: z.number().nullable().optional() });
+/** what the preview is compared with: the published run that started the chain, a run that was published, the chain root, or a run picked by hand */
+export const ComparedTo = z.enum(["published", "was_published", "root", "explicit", "base"]).catch("base");
+export type ComparedTo = z.infer<typeof ComparedTo>;
+export const DiffOut = z.object({
+  run_id: z.number(),
+  base_run_id: z.number(),
+  compare_to_run_id: z.number().nullable().default(null),
+  compared_to: ComparedTo.default("base"),
+  /** the ancestors from the run's parent up to the baseline (not the run itself) */
+  chain: z.array(z.number()).default([]),
+  status: z.string(),
+  mode: z.string().nullable().optional(),
+  changed_request_ids: z.array(z.number()).default([]),
+  is_active: z.boolean().default(false),
+  ready: z.boolean(),
+  counts: z
+    .object({
+      moved: z.number().default(0),
+      moved_outside_scope: z.number().default(0),
+      moved_unexplained: z.number().default(0),
+      unchanged: z.number().default(0),
+      newly_placed: z.number().default(0),
+      unplaceable: z.number().default(0),
+      newly_unplaced: z.number().default(0),
+      affected_people: z.number().default(0),
+    })
+    .optional(),
+  moved: z.array(DiffMoved).default([]),
+  newly_placed: z.array(DiffNew).default([]),
+  unplaceable: z.array(DiffUnplaceable).default([]),
+  affected_instructor_ids: z.array(z.number()).default([]),
+  scores: z.object({ hard: Score, soft: Score, placed: Score.extend({ total: z.number().nullable().optional() }) }).partial().optional(),
+  waived_rules: z.array(z.unknown()).default([]),
+  diagnosis: z.array(z.object({ code: z.string().nullable().optional(), text: Pair.nullable().optional(), message: z.string().nullable().optional() })).default([]),
+});
+export type DiffOut = z.infer<typeof DiffOut>;
+
+export const PriorityOut = z.object({ priority: z.number().nullable(), previous: z.number().nullable() }).passthrough();
+
+export type Subject = "person" | "program";
+export const SubjectPriorityOut = z.object({
+  subject_type: z.enum(["person", "program"]),
+  subject_id: z.number(),
+  term_id: z.number(),
+  priority: z.number().nullable(),
+  previous: z.number().nullable(),
+  source: z.string().nullable().default(null),
+  request_ids: z.array(z.number()).default([]),
+});
+export type SubjectPriorityOut = z.infer<typeof SubjectPriorityOut>;
+export const Override = z.object({
+  subject_type: z.enum(["person", "program"]),
+  subject_id: z.number(),
+  term_id: z.number(),
+  priority: z.number(),
+  note: z.string().nullable().default(null),
+  updated_by: z.number().nullable().default(null),
+  updated_at: z.string().nullable().default(null),
+  name: z.string().nullable().default(null),
+});
+export type Override = z.infer<typeof Override>;
+
+/** P19-M-07: edits since the published run was activated that change the next solve (server-side, every browser) */
+export const CHANGE_KINDS = ["priority", "pin", "prefer", "unlock", "request", "preference"] as const;
+export type ChangeKind = (typeof CHANGE_KINDS)[number];
+export const Change = z.object({
+  audit_id: z.number(),
+  ts: z.string().nullable().default(null),
+  action: z.string(),
+  kind: z.enum(CHANGE_KINDS).catch("request"),
+  entity_type: z.string().nullable().default(null),
+  entity_id: z.union([z.number(), z.string()]).nullable().default(null),
+  run_id: z.number().nullable().default(null),
+  request_ids: z.array(z.number()).default([]),
+  labels: z.array(z.string()).default([]),
+  actor_id: z.number().nullable().default(null),
+  actor: z.string().nullable().default(null),
+  reason: z.string().nullable().default(null),
+  before: z.record(z.string(), z.unknown()).nullable().default(null),
+  after: z.record(z.string(), z.unknown()).nullable().default(null),
+});
+export type Change = z.infer<typeof Change>;
+export const ChangesOut = z.object({
+  term_id: z.number(),
+  published_run_id: z.number().nullable().default(null),
+  since: z.string().nullable().default(null),
+  total: z.number().default(0),
+  counts: z.record(z.string(), z.number()).default({}),
+  changed_request_ids: z.array(z.number()).default([]),
+  items: z.array(Change).default([]),
+});
+export type ChangesOut = z.infer<typeof ChangesOut>;
+
+export const TermBrief = z.object({
+  id: z.number(),
+  code: z.string(),
+  name: z.string().nullable().default(null),
+  kind: z.string().nullable().default(null),
+  start_date: z.string().nullable().default(null),
+  end_date: z.string().nullable().default(null),
+  week_count: z.number().nullable().default(null),
+  published_run_id: z.number().nullable().default(null),
+});
+export type TermBrief = z.infer<typeof TermBrief>;
+/** GET /moderation/me: who the caller is for moderation (replaces the old 403 probe) */
+export const MeOut = z.object({
+  user_id: z.number(),
+  instructor_id: z.number().nullable().default(null),
+  instructor_ids: z.array(z.number()).default([]),
+  instructor: z.object({ id: z.number(), full_name: z.string(), title: z.string().nullable().default(null) }).nullable().default(null),
+  visibility: z.enum(["all", "own", "none"]).catch("none"),
+  can_edit: z.boolean().default(false),
+  /** P19-T2 "Tercih ekle": a linked academician may add wishes for their own classes */
+  can_add_preference: z.boolean().default(false),
+  preferences: z.object({ pending: z.number().default(0), accepted: z.number().default(0), rejected: z.number().default(0) }).default({ pending: 0, accepted: 0, rejected: 0 }),
+  current_term: TermBrief.nullable().default(null),
+});
+export type MeOut = z.infer<typeof MeOut>;
+
+/**
+ * `POST /runs/{id}/activate`: the run plus the notification summary. Loose on purpose (T-R2-23 / R2-M-02): the
+ * server's run body grows (nested `stats`, truth, forced moves …) and a publish that succeeded must never be shown
+ * as a failure because of a field the preview does not read. Only the id is required; everything else passes
+ * through for whoever wants it.
+ */
+export const ActivateOut = z.looseObject({
+  id: z.number(),
+  is_active: z.boolean().optional(),
+  status: z.string().optional(),
+  term_id: z.number().optional(),
+  notified: z.number().nullable().optional(),
+  notify: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+export type ActivateOut = z.infer<typeof ActivateOut>;
+export const ResolveQueued = z.object({ run_id: z.number(), status: z.string(), base_run_id: z.number() });
+export const MatchingActionOut = z.object({
+  request_id: z.number(),
+  run_id: z.number(),
+  action: z.enum(["pin", "prefer", "unlock"]),
+  constraint_ids: z.array(z.number()).default([]),
+  disabled_constraint_ids: z.array(z.number()).default([]),
+  effective: Pair.optional(),
+});
+export type MatchingActionOut = z.infer<typeof MatchingActionOut>;
+
+/** a soft preference of the term (Tercihler): the constraint rows that are not built-in switches */
+export const Preference = z.object({
+  id: z.number(),
+  term_id: z.number().nullable(),
+  run_id: z.number().nullable(),
+  kind: z.string(),
+  params: z.record(z.string(), z.unknown()).default({}),
+  hardness: z.string(),
+  weight: z.number(),
+  source: z.string(),
+  nl_text: z.string().nullable(),
+  enabled: z.boolean(),
+  source_ref: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+export type Preference = z.infer<typeof Preference>;
+
+/* ------------------------------------------------------------------ endpoints */
+
+export type TierCode = "high" | "normal" | "low";
+
+export const moderationApi = {
+  people: (termId: number, q?: string) => request(`/terms/${termId}/moderation/people`, { query: { q }, schema: PeopleOut, silent: true }),
+  history: (instructorId: number, terms?: string) => request(`/moderation/people/${instructorId}/history`, { query: { terms }, schema: HistoryOut, silent: true }),
+  /** Taleplerim (T-R1-11): only the caller's own requests, without the term-wide class issues and planner check */
+  myMatchings: (termId: number) => request("/moderation/me/matchings", { query: { term_id: termId }, schema: MatchingsOut, silent: true }),
+  matchings: (termId: number, q: { run_id?: number | null; verdict?: string; q?: string; check?: boolean; limit?: number } = {}) =>
+    request(`/terms/${termId}/moderation/matchings`, { query: { run_id: q.run_id ?? undefined, verdict: q.verdict, q: q.q, check: q.check ?? false, limit: q.limit ?? 5000 }, schema: MatchingsOut, silent: true }),
+  matching: (termId: number, requestId: number, runId?: number | null) => request(`/terms/${termId}/moderation/matchings/${requestId}`, { query: { run_id: runId ?? undefined }, schema: MatchingDetail, silent: true }),
+  setSectionPriority: (sectionId: number, priority: TierCode | null, note?: string) => request(`/moderation/sections/${sectionId}/priority`, { method: "PUT", body: { priority, note: note || null }, schema: PriorityOut }),
+  setRequestPriority: (requestId: number, priority: TierCode | null, note?: string) => request(`/moderation/requests/${requestId}/priority`, { method: "PUT", body: { priority, note: note || null }, schema: PriorityOut }),
+  setSubjectPriority: (subject: Subject, id: number, termId: number, priority: TierCode | null, note?: string) =>
+    request(`/moderation/${subject === "person" ? "people" : "programs"}/${id}/priority`, { method: "PUT", body: { term_id: termId, priority, note: note || null }, schema: SubjectPriorityOut, silent: true }),
+  priorities: (termId: number, subject?: Subject) => request(`/terms/${termId}/moderation/priorities`, { query: { subject }, schema: z.object({ term_id: z.number(), items: z.array(Override) }), silent: true }),
+  changes: (termId: number, kinds?: readonly ChangeKind[]) => request(`/terms/${termId}/changes-since-publish`, { query: { kinds: kinds?.length ? kinds.join(",") : undefined }, schema: ChangesOut, silent: true }),
+  me: () => request(`/moderation/me`, { schema: MeOut, silent: true }),
+  currentTerm: () => request(`/moderation/current-term`, { schema: TermBrief, silent: true }),
+  resolve: (termId: number, body: { base_run_id: number; changed_request_ids: number[]; mode: "repair" | "full"; time_limit_s?: number; compare_to?: number }) =>
+    request(`/terms/${termId}/moderation/resolve`, { method: "POST", body, schema: ResolveQueued, silent: true }),
+  diff: (runId: number, compareTo?: number | null) => request(`/moderation/runs/${runId}/diff`, { query: { compare_to: compareTo ?? undefined }, schema: DiffOut, silent: true }),
+  matchingAction: (requestId: number, body: { run_id: number; action: "pin" | "prefer" | "unlock"; room_ids?: number[]; day?: number; start_period?: number; reason?: string }) =>
+    request(`/moderation/matchings/${requestId}`, { method: "PUT", body, schema: MatchingActionOut, silent: true }),
+  /** the publish guard (P19-01 / M-02 / M-04): 409 `{message, issues[]}` or a `scope_reduction` 409 */
+  activate: (runId: number, confirmScopeReduction = false, notifyPeople = false) =>
+    request(`/runs/${runId}/activate`, { method: "POST", body: { confirm_scope_reduction: confirmScopeReduction, notify_people: notifyPeople }, schema: ActivateOut, silent: true }),
+  preferences: (termId: number) => request(`/constraints`, { query: { term_id: termId }, schema: z.array(Preference), silent: true }),
+  runRules: (runId: number) => request(`/constraints`, { query: { run_id: runId, enabled: true }, schema: z.array(Preference), silent: true }),
+};
+
+/* ------------------------------------------------------------------ hooks */
+
+export const mk = {
+  people: (termId: number | null, q?: string) => ["moderation", "people", termId, q ?? ""] as const,
+  history: (id: number) => ["moderation", "history", id] as const,
+  matchings: (termId: number | null, runId: number | null | undefined) => ["moderation", "matchings", termId, runId ?? null] as const,
+  myMatchings: (termId: number | null) => ["moderation", "matchings", "me", termId] as const,
+  matching: (termId: number, requestId: number, runId?: number | null) => ["moderation", "matching", termId, requestId, runId ?? null] as const,
+  diff: (runId: number, compareTo?: number | null) => ["moderation", "diff", runId, compareTo ?? null] as const,
+  priorities: (termId: number | null, subject?: Subject) => ["moderation", "priorities", termId, subject ?? "all"] as const,
+  changes: (termId: number | null) => ["moderation", "changes", termId] as const,
+  me: ["moderation", "me"] as const,
+  preferences: (termId: number | null) => ["moderation", "preferences", termId] as const,
+  runRules: (runId: number) => ["moderation", "run-rules", runId] as const,
+};
+
+/** 403 / 404 are states of the screen ("no linked instructor", "not found"), not errors to retry */
+const noRetry = (n: number, e: unknown) => !(e instanceof HttpError && [401, 403, 404, 422].includes(e.status)) && n < 2;
+
+export function usePeople(termId: number | null, q?: string, enabled = true) {
+  return useQuery({ queryKey: mk.people(termId, q), queryFn: () => moderationApi.people(termId ?? 0, q), enabled: enabled && termId !== null, retry: noRetry, placeholderData: keepPreviousData, staleTime: 30_000 });
+}
+export function useHistory(instructorId: number | null) {
+  return useQuery({ queryKey: mk.history(instructorId ?? 0), queryFn: () => moderationApi.history(instructorId ?? 0), enabled: instructorId !== null, retry: noRetry, staleTime: 30_000 });
+}
+export function useMatchings(termId: number | null, runId?: number | null, enabled = true) {
+  return useQuery({ queryKey: mk.matchings(termId, runId), queryFn: () => moderationApi.matchings(termId ?? 0, { run_id: runId }), enabled: enabled && termId !== null, retry: noRetry, staleTime: 30_000 });
+}
+/** Taleplerim: the caller's own requests in the term (`GET /moderation/me/matchings`, a few rows, fast) */
+export function useMyMatchings(termId: number | null) {
+  return useQuery({ queryKey: mk.myMatchings(termId), queryFn: () => moderationApi.myMatchings(termId ?? 0), enabled: termId !== null, retry: noRetry, staleTime: 30_000 });
+}
+export function useMatching(termId: number | null, requestId: number | null, runId?: number | null) {
+  return useQuery({ queryKey: mk.matching(termId ?? 0, requestId ?? 0, runId), queryFn: () => moderationApi.matching(termId ?? 0, requestId ?? 0, runId), enabled: termId !== null && requestId !== null, retry: noRetry });
+}
+export function usePreferences(termId: number | null, enabled = true) {
+  return useQuery({ queryKey: mk.preferences(termId), queryFn: () => moderationApi.preferences(termId ?? 0), enabled: enabled && termId !== null, retry: noRetry, staleTime: 30_000 });
+}
+export function useRunRules(runId: number | null) {
+  return useQuery({ queryKey: mk.runRules(runId ?? 0), queryFn: () => moderationApi.runRules(runId ?? 0), enabled: runId !== null, retry: noRetry });
+}
+
+/** the preview polls until the child run finished (`ready`), then stops */
+export function useDiff(runId: number | null, compareTo?: number | null) {
+  return useQuery({
+    queryKey: mk.diff(runId ?? 0, compareTo),
+    queryFn: () => moderationApi.diff(runId ?? 0, compareTo),
+    placeholderData: keepPreviousData,
+    enabled: runId !== null,
+    retry: noRetry,
+    refetchInterval: (q) => (q.state.data && !q.state.data.ready ? 1500 : false),
+  });
+}
+
+export function usePriorities(termId: number | null, subject?: Subject, enabled = true) {
+  return useQuery({ queryKey: mk.priorities(termId, subject), queryFn: () => moderationApi.priorities(termId ?? 0, subject), enabled: enabled && termId !== null, retry: noRetry, staleTime: 30_000 });
+}
+/** "N değişiklik yayında değil": the server's list, the same in every browser (replaces the per-browser store) */
+export function useChanges(termId: number | null, enabled = true) {
+  return useQuery({ queryKey: mk.changes(termId), queryFn: () => moderationApi.changes(termId ?? 0), enabled: enabled && termId !== null, retry: noRetry, staleTime: 10_000 });
+}
+export function useModerationMe(enabled = true) {
+  return useQuery({ queryKey: mk.me, queryFn: moderationApi.me, enabled, retry: noRetry, staleTime: 5 * 60_000 });
+}
+
+export function useSetSubjectPriority() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { subject: Subject; id: number; termId: number; tier: TierCode | null; note?: string }) => moderationApi.setSubjectPriority(v.subject, v.id, v.termId, v.tier, v.note),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["moderation"] }),
+  });
+}
+
+export function useSetPriority() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { kind: "request" | "section"; id: number; tier: TierCode | null; note?: string }) =>
+      v.kind === "request" ? moderationApi.setRequestPriority(v.id, v.tier, v.note) : moderationApi.setSectionPriority(v.id, v.tier, v.note),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["moderation"] }),
+  });
+}
+
+/* ------------------------------------------------------------------ errors */
+
+/**
+ * The text of a backend refusal, verbatim: `detail` as a string, `{message, issues[]}` (publish guard, pin
+ * capacity, rule guard), `{message_tr, message}` (scope reduction), or FastAPI validation entries.
+ */
+export function refusal(e: unknown, lang: "tr" | "en"): { message: string; issues: string[]; scopeReduction: boolean } {
+  if (!(e instanceof HttpError)) return { message: e instanceof Error ? e.message : String(e), issues: [], scopeReduction: false };
+  // a 2xx whose body failed the client's schema is not a refusal: the person reads what happened, not zod's text
+  if (isResponseShapeError(e)) return { message: responseShapeText(lang), issues: [], scopeReduction: false };
+  const raw = e.detail as unknown;
+  const body = raw && typeof raw === "object" && "detail" in (raw as Record<string, unknown>) ? (raw as Record<string, unknown>).detail : raw;
+  if (typeof body === "string") return { message: body, issues: [], scopeReduction: false };
+  if (body && typeof body === "object" && !Array.isArray(body)) {
+    const b = body as Record<string, unknown>;
+    const issues = Array.isArray(b.issues) ? b.issues.map((i) => (typeof i === "string" ? i : JSON.stringify(i))) : [];
+    const msg = (lang === "tr" && typeof b.message_tr === "string" ? b.message_tr : null) ?? (typeof b.message === "string" ? b.message : e.message);
+    return { message: msg, issues, scopeReduction: b.code === "scope_reduction" || "active" in b && "new" in b };
+  }
+  return { message: e.message, issues: [], scopeReduction: false };
+}

@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
+import { localizedTitle } from "@/lib/i18n/server";
 import { Suspense } from "react";
 import { ClassesPage } from "@/components/classes/classes-page";
 
-export const metadata: Metadata = { title: "Classes" };
+export const generateMetadata = localizedTitle("titles.classes");
 
 export default function Page() {
   return (

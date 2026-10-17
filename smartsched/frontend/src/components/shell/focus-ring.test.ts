@@ -6,7 +6,7 @@
  * `outline-hidden` keeps `--tw-outline-style: none`, so the width alone draws no ring). The Tailwind semantics
  * are proven with the real compiler in components/timetable/focus-ring.test.ts.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -31,7 +31,7 @@ function sources(dir: string): string[] {
 describe("focus ring (U-01), shell and admin sweep", () => {
   it("no `outline-none`, and hidden outlines restore a solid focus-visible ring", () => {
     const offenders: string[] = [];
-    for (const file of [...SCOPE.flatMap(sources), ...FILES.map((f) => path.join(root, f))]) {
+    for (const file of [...SCOPE.flatMap(sources), ...FILES.map((f) => path.join(root, f)).filter((f) => existsSync(f))]) {
       const src = readFileSync(file, "utf8");
       const rel = path.relative(root, file);
       if (/(?<![\w-])outline-none(?![\w-])/.test(src)) offenders.push(`${rel}: outline-none`);

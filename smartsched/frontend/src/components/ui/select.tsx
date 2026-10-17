@@ -1,6 +1,7 @@
 "use client"
 // Source: shadcn/ui select (style base-nova, https://ui.shadcn.com) — Licence: MIT
 // Modified: yes — Liquid Glass v2: thick glass popup, transitions.dev "Panel reveal" (.t-panel-slide), tint highlight.
+// Touch (T-R1-01): options are at least 44 px tall on coarse pointers; a small trigger is 44 px tall there too (MOBILE.md M-02).
 
 import * as React from "react"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
@@ -37,14 +38,14 @@ function SelectTrigger({
   children,
   ...props
 }: SelectPrimitive.Trigger.Props & {
-  size?: "sm" | "default"
+  size?: "sm" | "md" | "default"
 }) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        fieldSurface, "flex w-fit items-center justify-between gap-1.5 py-2 pr-2 pl-3 text-[13px] whitespace-nowrap select-none data-placeholder:text-label-3 data-[size=default]:h-8 data-[size=sm]:h-7 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        fieldSurface, "flex w-fit items-center justify-between gap-1.5 pr-2 pl-3 whitespace-nowrap select-none data-placeholder:text-label-3 data-[size=default]:h-(--control-h-md) data-[size=default]:type-callout data-[size=md]:h-(--control-h-md) data-[size=md]:type-callout data-[size=sm]:h-(--control-h-sm) data-[size=sm]:pointer-coarse:h-(--control-h-md) data-[size=sm]:type-footnote data-[size=sm]:pl-2.5 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -105,7 +106,7 @@ function SelectLabel({
   return (
     <SelectPrimitive.GroupLabel
       data-slot="select-label"
-      className={cn("px-1.5 py-1 text-[11px] font-medium text-label-3", className)}
+      className={cn("px-1.5 py-1 type-caption font-medium text-label-3", className)}
       {...props}
     />
   )
@@ -120,7 +121,7 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-1.5 rounded-[7px] py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-tint focus:text-tint-foreground not-data-[variant=destructive]:focus:**:text-tint-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "relative flex w-full cursor-default items-center gap-1.5 rounded-[7px] py-1 pr-8 pl-1.5 text-sm pointer-coarse:min-h-11 outline-hidden select-none focus:bg-tint focus:text-tint-foreground not-data-[variant=destructive]:focus:**:text-tint-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className
       )}
       {...props}

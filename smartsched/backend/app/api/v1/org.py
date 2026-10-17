@@ -31,6 +31,7 @@ from app.models import (
     User,
 )
 from app.models.catalog import Room
+from app.schemas import messages
 from app.schemas.auth import ChangePasswordIn, ProfileIn, ProfileOut, ResetConfirmIn, ResetRequestIn
 from app.schemas.crbs import (
     LdapSettingsIn,
@@ -43,7 +44,7 @@ from app.schemas.crbs import (
     TranslationOut,
 )
 from app.services import bookings_events as events
-from app.services import bookings_i18n, bookings_ldap, bookings_setup, settings_service
+from app.services import bookings_i18n, bookings_ldap, bookings_setup, settings_service, sso
 from app.services.bookings_notify import notify
 from app.services.bookings_perms import (
     ensure_permissions_and_roles,
@@ -90,6 +91,7 @@ async def public_info(db: DB) -> dict[str, Any]:
         # as shown (P18-LANG): Turkish / English; a stored legacy code reads as English
         "default_language": bookings_i18n.display_language(org["default_language"]),
         "languages": bookings_i18n.effective_languages(org["languages"]),
+        "auth": await sso.public_auth(db),  # sign-in methods for the login page (sign-in.md §14)
     }
 
 
@@ -277,7 +279,8 @@ async def upload_logo(db: DB, _: SettingsAdmin, file: UploadFile = File(...)) ->
     try:
         data, ext = sanitize_image(raw, max_bytes=LOGO_MAX_BYTES)
     except ImageError as exc:
-        raise HTTPException(exc.status, exc.message) from exc
+        # lane F ask (T-R2-33): the coded refusal with its Turkish sentence, never the English tail
+        raise messages.problem(exc.status, exc.code, exc.message_tr, exc.message) from exc
     target = Path(get_settings().upload_dir) / "rooms"  # the only public upload directory
     target.mkdir(parents=True, exist_ok=True)
     for old in target.glob("org-logo.*"):
@@ -648,10 +651,23 @@ async def reset_request(body: ResetRequestIn, db: DB, request: Request) -> dict[
     return {"detail": "if the account exists, instructions were sent or an administrator was notified"}
 
 
+_INVALID_CODE = {
+    "code": "invalid_code",
+    "message": "invalid or expired code",
+    "message_en": "The code is wrong or has expired. Request a new one.",
+    "message_tr": "Kod hatalı ya da süresi dolmuş. Yenisini isteyin.",
+}
+
+
 @auth_router.post("/password-reset/confirm")
 async def reset_confirm(body: ResetConfirmIn, db: DB) -> dict[str, Any]:
-    user = await consume_reset_token(db, body.token, body.password)
+    """Public. A code that is too short or too long is refused exactly like a wrong one (T-R2-06, R2-M-22: the
+    schema's min_length answered a raw English 422)."""
+    token = body.token.strip()
+    if not 8 <= len(token) <= 128:
+        raise HTTPException(400, _INVALID_CODE)
+    user = await consume_reset_token(db, token, body.password)
     if user is None:
-        raise HTTPException(400, "invalid or expired code")
+        raise HTTPException(400, _INVALID_CODE)
     await db.commit()
     return {"ok": True, "user_id": user.id}

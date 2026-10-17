@@ -3,20 +3,29 @@
  * /admin/users (CRBS `Users`): search and filters, add/edit with role, department, names and the
  * force-password-change flag, per-user booking limits (R = role value, U = own value, X = unlimited),
  * one-time reset codes (shown once), delete, and the CSV import with a per-row result table.
+ *
+ * Microsoft sign-in (docs/design/v2/sign-in.md §13; parts in ./users-admin-identity): invite sheet, status
+ * "dot + word" and sign-in method columns, "Kendi kaydı" filter, "Sonraki Microsoft girişinde bağla", the
+ * break-glass warning, the edit dialog's identities section and the instructor link.
  */
-import { Copy, KeyRound, Loader2, MoreHorizontal, Pencil, ShieldQuestion, Trash2, Upload, UserPlus } from "lucide-react";
+import { Copy, KeyRound, Mail, MoreHorizontal, Pencil, ShieldQuestion, Trash2, Upload, UserPlus } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Chip } from "@/components/ui/chip";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { SlidersHorizontal } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   crbs,
@@ -34,9 +43,13 @@ import {
   type ResetToken,
   type UserIn,
 } from "@/lib/api/crbs";
-import { canManageAccount, roleGrantCheck, usePermissions } from "@/lib/permissions";
+import { canManageAccount, isPrivilegedRole, roleGrantCheck, usePermissions } from "@/lib/permissions";
+import { useAuthProviders, useInvites, useUserIdentityStatus, type Invite, type UserIdentityStatus } from "@/lib/api/identity";
+import { BindDialog, BreakGlassWarning, IdentitiesSection, IdentityMenuItems, IdentityStatusCell, IdentityTags, InviteSheet, MethodCell, RevokeDialog } from "./users-admin-identity";
+import { breakGlassMissing, identityQuery, invitesByUser, methodView, statusView, type IdentityFilter, type MethodFilter } from "./users-admin-identity-model";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
+import { permissionList, roleLabel } from "@/lib/i18n/roles";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SelectField } from "./kit";
@@ -53,20 +66,67 @@ const SEEDED = [
   { code: "TEACHER", key: "crbs.users.roleTeacher" },
 ] as const;
 
+/** filter chips: 36 px on touch plus a 4 px hit extension above and below, so the target is 44 px */
+const TOUCH_CHIP = "pointer-coarse:h-9 relative after:absolute after:inset-x-0 after:-inset-y-1";
+
 export function UsersAdmin() {
   const { t } = useI18n();
   const { can, perms, userId } = usePermissions();
   // ?role=<id> (the role editor's "all users" link), ?department=<id> and ?q= preset the filters
   const params = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
   const [q, setQ] = useState(() => params.get("q") ?? "");
   const [role, setRole] = useState(() => (params.get("role") ?? "").replace(/\D/g, ""));
   const [dept, setDept] = useState(() => (params.get("department") ?? "").replace(/\D/g, ""));
-  const [enabled, setEnabled] = useState("");
+  const [enabled, setEnabled] = useState(() => (params.get("enabled") === "1" || params.get("enabled") === "0" ? params.get("enabled")! : ""));
   const [sort, setSort] = useState("username");
   const [page, setPage] = useState(0);
-  const query = { q: q || undefined, role_id: role ? Number(role) : undefined, department_id: dept ? Number(dept) : undefined, enabled: enabled === "" ? undefined : enabled === "1", sort, limit: PAGE, offset: page * PAGE };
+  const [idFilter, setIdFilter] = useState<IdentityFilter>(() => (params.get("identity") === "invited" ? "invited" : params.get("identity") === "self" ? "self" : "all"));
+  const [method, setMethod] = useState<MethodFilter>(() => (["microsoft", "local", "ldap", "binding"].includes(params.get("method") ?? "") ? (params.get("method") as MethodFilter) : ""));
+  // T-R1-33: the filters live in the address (?role=&q=&department=&enabled=&identity=&method=), so a reload or a
+  // shared link keeps them; only the keys this screen owns are rewritten
+  useEffect(() => {
+    const next = new URLSearchParams(params.toString());
+    const own: Record<string, string> = { q, role, department: dept, enabled, identity: idFilter === "all" ? "" : idFilter, method };
+    let changed = false;
+    for (const [k, v] of Object.entries(own)) {
+      if ((next.get(k) ?? "") === v) continue;
+      changed = true;
+      if (v) next.set(k, v);
+      else next.delete(k);
+    }
+    if (changed) router.replace(next.size ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
+  }, [q, role, dept, enabled, idFilter, method, params, pathname, router]);
+  const phone = useIsPhone();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilters = [role, dept, enabled, idFilter === "all" ? "" : idFilter, method].filter(Boolean).length;
+  const usersAdmin = can("setup.users");
+  // the identity chips and the method select filter on the server (`identity=`, `self_signup_days=7`), with
+  // server paging and the server's total; only setup.users sees the identity columns, so only they filter by it
+  const base = { q: q || undefined, role_id: role ? Number(role) : undefined, department_id: dept ? Number(dept) : undefined, enabled: enabled === "" ? undefined : enabled === "1" };
+  const query = { ...base, ...(usersAdmin ? identityQuery(idFilter, method) : {}), sort, limit: PAGE, offset: page * PAGE };
   const users = useUserSearch(query);
+  // the chip counts: the server's totals for the same filters (limit 1)
+  const invitedCount = useUserSearch({ ...base, ...identityQuery("invited", ""), limit: 1 }, usersAdmin);
+  const selfCount = useUserSearch({ ...base, ...identityQuery("self", ""), limit: 1 }, usersAdmin);
+  const providers = useAuthProviders();
+  const auth = providers.data?.auth;
+  const msEnabled = Boolean(auth?.microsoft.enabled);
+  const idStatus = useUserIdentityStatus(usersAdmin);
+  const invites = useInvites(usersAdmin);
+  const inviteOf = invitesByUser(invites.data);
+  const statusOf = (u: AdminUser): UserIdentityStatus | undefined => idStatus.data?.[String(u.id)];
+  const counts = { invited: invitedCount.data?.total ?? 0, selfRecent: selfCount.data?.total ?? 0 };
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [binding, setBinding] = useState<AdminUser | null>(null);
+  const [revoking, setRevoking] = useState<{ invite: Invite; kind: "invite" | "bind" } | null>(null);
+  const nameOf = (id: number | null | undefined) => {
+    const hit = id ? users.data?.items.find((x) => x.id === id) : undefined;
+    return hit ? hit.displayname || hit.full_name || hit.username || hit.email || null : null;
+  };
+  const visible = users.data?.items ?? [];
+  const privileged = (u: AdminUser) => u.role === "ADMIN" || isPrivilegedRole(roles.data?.find((r) => r.id === u.role_id)) || (u.approves_for?.length ?? 0) > 0;
   const roles = useRoles(can("setup.roles"));
   const departments = useDepartments();
   const [editing, setEditing] = useState<AdminUser | "new" | null>(null);
@@ -83,76 +143,215 @@ export function UsersAdmin() {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* phones (T-R1-33, R1-M-30): the three actions sit as icon buttons beside the title, so the first user card
+          starts above 300 px; their names are the accessible labels */}
       <PageTitle
+        className={phone ? "max-sm:mb-2 max-sm:flex-row max-sm:items-start max-sm:justify-between" : undefined}
         title={t("crbs.admin.users.title")}
-        subtitle={users.data ? t("crbs.users.count", { n: total }) : t("crbs.admin.users.lead")}
+        subtitle={
+          users.data
+            ? [t("crbs.users.count", { n: users.data.total }), idStatus.data && counts.invited ? t("sso.users.countInvited", { n: counts.invited }) : null, idStatus.data && counts.selfRecent ? t("sso.users.countSelf", { n: counts.selfRecent }) : null].filter(Boolean).join(" · ")
+            : t("crbs.admin.users.lead")
+        }
         actions={
           <>
-            <Button variant="outline" onClick={() => setImportOpen(true)} data-testid="users-import">
+            <Button variant="outline" size={phone ? "icon" : "default"} onClick={() => setImportOpen(true)} data-testid="users-import" aria-label={phone ? t("crbs.users.import") : undefined} title={phone ? t("crbs.users.import") : undefined}>
               <Upload aria-hidden />
-              {t("crbs.users.import")}
+              {phone ? null : t("crbs.users.import")}
             </Button>
-            <Button onClick={() => setEditing("new")} data-testid="users-new">
+            {/* local accounts are the exception once Microsoft is on (break-glass, service accounts) */}
+            <Button variant={msEnabled && usersAdmin ? "outline" : "default"} size={phone ? "icon" : "default"} onClick={() => setEditing("new")} data-testid="users-new" aria-label={phone ? (msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")) : undefined} title={phone ? (msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")) : undefined}>
               <UserPlus aria-hidden />
-              {t("crbs.users.new")}
+              {phone ? null : msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")}
             </Button>
+            {msEnabled && usersAdmin ? (
+              <Button size={phone ? "icon" : "default"} onClick={() => setInviteOpen(true)} data-testid="users-invite" aria-label={phone ? t("sso.users.inviteAction") : undefined} title={phone ? t("sso.users.inviteAction") : undefined}>
+                <Mail aria-hidden />
+                {phone ? null : t("sso.users.inviteAction")}
+              </Button>
+            ) : null}
           </>
         }
       />
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
-        <Input
-          type="search"
-          aria-label={t("crbs.users.search")}
-          placeholder={t("crbs.users.searchHint")}
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(0);
-          }}
-          data-testid="users-search"
-        />
-        <SelectField aria-label={t("crbs.users.role")} data-testid="users-role-filter" value={role} onChange={(e) => (setRole(e.target.value), setPage(0))}>
-          <option value="">{t("crbs.users.allRoles")}</option>
-          {(roles.data ?? []).map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField aria-label={t("crbs.users.department")} value={dept} onChange={(e) => (setDept(e.target.value), setPage(0))}>
-          <option value="">{t("crbs.users.allDepartments")}</option>
-          {(departments.data ?? []).map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField aria-label={t("crbs.users.status")} value={enabled} onChange={(e) => (setEnabled(e.target.value), setPage(0))}>
-          <option value="">{t("crbs.users.anyStatus")}</option>
-          <option value="1">{t("crbs.users.enabled")}</option>
-          <option value="0">{t("crbs.users.disabled")}</option>
-        </SelectField>
-        <SelectField aria-label={t("crbs.users.sort")} data-testid="users-sort" value={sort} onChange={(e) => setSort(e.target.value)}>
-          <option value="username">{t("crbs.users.sortUsername")}</option>
-          <option value="displayname">{t("crbs.users.sortName")}</option>
-          <option value="-lastlogin">{t("crbs.users.sortLogin")}</option>
-          <option value="role">{t("crbs.users.sortRole")}</option>
-          {/* CRBS users_index sortable columns: enabled and department too (backend sort_map; UI gap audit #22) */}
-          <option value="-enabled,username">{t("admingaps.users.sortEnabled")}</option>
-          <option value="department,username">{t("admingaps.users.sortDepartment")}</option>
-        </SelectField>
-      </div>
+      {breakGlassMissing(auth, idStatus.data) ? <BreakGlassWarning onCreateLocal={() => setEditing("new")} /> : null}
+      {/* T-R1-33 (R1-M-30): on a phone the five filter controls sit in a bottom sheet behind one "Filtreler · n"
+          trigger (MOBILE.md M-04), so the first user card starts above 300 px; the search box stays on the page */}
+      {phone ? (
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <Input
+              type="search"
+              aria-label={t("crbs.users.search")}
+              placeholder={t("crbs.users.searchHint")}
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(0);
+              }}
+              data-testid="users-search"
+            />
+          </div>
+          <Button variant="outline" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" data-testid="users-filters-open">
+            <SlidersHorizontal aria-hidden />
+            {activeFilters ? t("crbs.users.filterOpenCount", { n: activeFilters }) : t("crbs.users.filterOpen")}
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
+            <Input
+              type="search"
+              aria-label={t("crbs.users.search")}
+              placeholder={t("crbs.users.searchHint")}
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(0);
+              }}
+              data-testid="users-search"
+            />
+            <SelectField aria-label={t("crbs.users.role")} data-testid="users-role-filter" value={role} onChange={(e) => (setRole(e.target.value), setPage(0))}>
+              <option value="">{t("crbs.users.allRoles")}</option>
+              {(roles.data ?? []).map((r) => (
+                <option key={r.id} value={r.id}>
+                  {roleLabel(t, r)}
+                </option>
+              ))}
+            </SelectField>
+            <SelectField aria-label={t("crbs.users.department")} value={dept} onChange={(e) => (setDept(e.target.value), setPage(0))}>
+              <option value="">{t("crbs.users.allDepartments")}</option>
+              {(departments.data ?? []).map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </SelectField>
+            <SelectField aria-label={t("crbs.users.status")} value={enabled} onChange={(e) => (setEnabled(e.target.value), setPage(0))}>
+              <option value="">{t("crbs.users.anyStatus")}</option>
+              <option value="1">{t("crbs.users.enabled")}</option>
+              <option value="0">{t("crbs.users.disabled")}</option>
+            </SelectField>
+            <SelectField aria-label={t("crbs.users.sort")} data-testid="users-sort" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="username">{t("crbs.users.sortUsername")}</option>
+              <option value="displayname">{t("crbs.users.sortName")}</option>
+              <option value="-lastlogin">{t("crbs.users.sortLogin")}</option>
+              <option value="role">{t("crbs.users.sortRole")}</option>
+              {/* CRBS users_index sortable columns: enabled and department too (backend sort_map; UI gap audit #22) */}
+              <option value="-enabled,username">{t("admingaps.users.sortEnabled")}</option>
+              <option value="department,username">{t("admingaps.users.sortDepartment")}</option>
+            </SelectField>
+          </div>
+          {usersAdmin && idStatus.data ? (
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("sso.users.filters")} data-testid="identity-filters">
+              <Chip className={TOUCH_CHIP} selected={idFilter === "all" && enabled !== "0"} onSelectedChange={() => (setIdFilter("all"), setMethod(""), setEnabled(""), setPage(0))}>
+                {t("sso.users.filterAll")}
+              </Chip>
+              <Chip className={TOUCH_CHIP} selected={idFilter === "invited"} onSelectedChange={(on) => (setIdFilter(on ? "invited" : "all"), on && setMethod(""), setPage(0))} data-testid="filter-invited">
+                {t("sso.users.filterInvited", { n: counts.invited })}
+              </Chip>
+              <Chip className={TOUCH_CHIP} selected={idFilter === "self"} onSelectedChange={(on) => (setIdFilter(on ? "self" : "all"), on && setMethod(""), setPage(0))} data-testid="filter-self">
+                {t("sso.users.filterSelf", { n: counts.selfRecent })}
+              </Chip>
+              <Chip className={TOUCH_CHIP} selected={enabled === "0"} onSelectedChange={(on) => (setEnabled(on ? "0" : ""), setPage(0))}>
+                {t("sso.users.status.disabled")}
+              </Chip>
+              <SelectField aria-label={t("sso.users.methodFilter")} className="w-auto min-w-44" value={method} onChange={(e) => (setMethod(e.target.value as MethodFilter), e.target.value && setIdFilter("all"), setPage(0))} data-testid="filter-method">
+                <option value="">{t("sso.users.methodFilter")}</option>
+                <option value="microsoft">{t("sso.users.method.microsoft")}</option>
+                <option value="local">{t("sso.users.method.local")}</option>
+                <option value="ldap">{t("sso.users.method.ldap")}</option>
+                <option value="binding">{t("sso.users.status.binding")}</option>
+              </SelectField>
+            </div>
+          ) : null}
+        </>
+      )}
+      <Sheet open={phone && filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent side="bottom" className="gap-0 data-[side=bottom]:max-h-[92dvh]" data-testid="users-filters-sheet">
+          <SheetHeader className="px-5 pt-5">
+            <SheetTitle className="type-title-3">{t("crbs.users.filtersTitle")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("crbs.admin.users.lead")}</SheetDescription>
+          </SheetHeader>
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-5 pt-4 pb-2">
+            <div className="grid gap-2">
+              <SelectField aria-label={t("crbs.users.role")} data-testid="users-role-filter" value={role} onChange={(e) => (setRole(e.target.value), setPage(0))}>
+                <option value="">{t("crbs.users.allRoles")}</option>
+                {(roles.data ?? []).map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {roleLabel(t, r)}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField aria-label={t("crbs.users.department")} value={dept} onChange={(e) => (setDept(e.target.value), setPage(0))}>
+                <option value="">{t("crbs.users.allDepartments")}</option>
+                {(departments.data ?? []).map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField aria-label={t("crbs.users.status")} value={enabled} onChange={(e) => (setEnabled(e.target.value), setPage(0))}>
+                <option value="">{t("crbs.users.anyStatus")}</option>
+                <option value="1">{t("crbs.users.enabled")}</option>
+                <option value="0">{t("crbs.users.disabled")}</option>
+              </SelectField>
+              <SelectField aria-label={t("crbs.users.sort")} data-testid="users-sort" value={sort} onChange={(e) => setSort(e.target.value)}>
+                <option value="username">{t("crbs.users.sortUsername")}</option>
+                <option value="displayname">{t("crbs.users.sortName")}</option>
+                <option value="-lastlogin">{t("crbs.users.sortLogin")}</option>
+                <option value="role">{t("crbs.users.sortRole")}</option>
+                {/* CRBS users_index sortable columns: enabled and department too (backend sort_map; UI gap audit #22) */}
+                <option value="-enabled,username">{t("admingaps.users.sortEnabled")}</option>
+                <option value="department,username">{t("admingaps.users.sortDepartment")}</option>
+              </SelectField>
+            </div>
+            {usersAdmin && idStatus.data ? (
+              <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("sso.users.filters")} data-testid="identity-filters">
+                <Chip className={TOUCH_CHIP} selected={idFilter === "all" && enabled !== "0"} onSelectedChange={() => (setIdFilter("all"), setMethod(""), setEnabled(""), setPage(0))}>
+                  {t("sso.users.filterAll")}
+                </Chip>
+                <Chip className={TOUCH_CHIP} selected={idFilter === "invited"} onSelectedChange={(on) => (setIdFilter(on ? "invited" : "all"), on && setMethod(""), setPage(0))} data-testid="filter-invited">
+                  {t("sso.users.filterInvited", { n: counts.invited })}
+                </Chip>
+                <Chip className={TOUCH_CHIP} selected={idFilter === "self"} onSelectedChange={(on) => (setIdFilter(on ? "self" : "all"), on && setMethod(""), setPage(0))} data-testid="filter-self">
+                  {t("sso.users.filterSelf", { n: counts.selfRecent })}
+                </Chip>
+                <Chip className={TOUCH_CHIP} selected={enabled === "0"} onSelectedChange={(on) => (setEnabled(on ? "0" : ""), setPage(0))}>
+                  {t("sso.users.status.disabled")}
+                </Chip>
+                <SelectField aria-label={t("sso.users.methodFilter")} className="w-auto min-w-44" value={method} onChange={(e) => (setMethod(e.target.value as MethodFilter), e.target.value && setIdFilter("all"), setPage(0))} data-testid="filter-method">
+                  <option value="">{t("sso.users.methodFilter")}</option>
+                  <option value="microsoft">{t("sso.users.method.microsoft")}</option>
+                  <option value="local">{t("sso.users.method.local")}</option>
+                  <option value="ldap">{t("sso.users.method.ldap")}</option>
+                  <option value="binding">{t("sso.users.status.binding")}</option>
+                </SelectField>
+              </div>
+            ) : null}
+          </div>
+          <SheetFooter className="hairline-t flex-row justify-end gap-2 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <Button variant="ghost" onClick={() => (setRole(""), setDept(""), setEnabled(""), setIdFilter("all"), setMethod(""), setPage(0))}>
+              {t("wave1.audit.reset")}
+            </Button>
+            <Button onClick={() => setFiltersOpen(false)} data-testid="users-filters-apply">
+              {t("crbs.users.apply")}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
       <Card variant="glass" className="py-0">
         {users.isLoading ? (
           <Loading className="px-4" />
         ) : (
           <Table data-testid="users-table">
-            <TableHeader>
+            <TableHeader className={phone ? "sr-only" : undefined}>
               <TableRow>
                 <TableHead className="pl-4">{t("crbs.users.name")}</TableHead>
                 <TableHead className="hidden md:table-cell">{t("crbs.users.email")}</TableHead>
-                <TableHead>{t("crbs.users.role")}</TableHead>
-                <TableHead className="hidden lg:table-cell">{t("crbs.users.department")}</TableHead>
+                <TableHead className="hidden sm:table-cell">{t("crbs.users.role")}</TableHead>
+                {usersAdmin && idStatus.data ? <TableHead className="hidden lg:table-cell">{t("sso.users.methodColumn")}</TableHead> : null}
+                {usersAdmin && idStatus.data ? <TableHead className="hidden sm:table-cell">{t("sso.users.statusColumn")}</TableHead> : null}
+                <TableHead className="hidden xl:table-cell">{t("crbs.users.department")}</TableHead>
                 <TableHead className="hidden lg:table-cell">{t("crbs.users.lastLogin")}</TableHead>
                 <TableHead className="w-10 pr-4">
                   <span className="sr-only">{t("crbs.common.actions")}</span>
@@ -160,18 +359,33 @@ export function UsersAdmin() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(users.data?.items ?? []).map((u) => (
+              {visible.map((u) => (
                 <TableRow key={u.id} data-username={u.username ?? u.email ?? ""}>
-                  <TableCell className="pl-4">
-                    <span className="block font-medium text-label-1">{u.displayname || u.full_name || u.username || u.email}</span>
+                  <TableCell className="pl-4 whitespace-normal [overflow-wrap:anywhere]">
+                    <span className="block font-medium text-label-1">
+                      {u.displayname || u.full_name || u.username || u.email}
+                      <IdentityTags s={statusOf(u)} />
+                    </span>
                     <span className="block type-footnote text-label-3">
-                      {u.username ?? u.email}
+                      {/* the e-mail has its own column from md up: show it here only on phones (UI/UX review: e-mail twice) */}
+                      {u.username ?? <span className="md:hidden">{u.email}</span>}
                       {u.auth_source === "ldap" ? " · LDAP" : ""}
                     </span>
+                    {/* phones: the role column is hidden, so the role (and the privileged mark) reads under the name */}
+                    <span className="block type-footnote text-label-2 sm:hidden" data-testid="user-role-inline">
+                      {u.role_name ? roleLabel(t, { code: u.role, name: u.role_name }) : t("crbs.users.noRole")}
+                      {!manageable(u) ? ` · ${t("crbs.users.privileged")}` : ""}
+                    </span>
+                    {/* phones: the status column is hidden, so a pending / expired / disabled state shows here */}
+                    {usersAdmin && idStatus.data && statusView(statusOf(u), u.is_active).word !== "active" ? (
+                      <span className="mt-1 block sm:hidden">
+                        <IdentityStatusCell view={statusView(statusOf(u), u.is_active)} />
+                      </span>
+                    ) : null}
                   </TableCell>
                   <TableCell className="hidden text-label-2 md:table-cell">{u.email ?? "—"}</TableCell>
-                  <TableCell>
-                    <span className="text-label-1">{u.role_name ?? t("crbs.users.noRole")}</span>
+                  <TableCell className="hidden sm:table-cell">
+                    <span className="text-label-1">{u.role_name ? roleLabel(t, { code: u.role, name: u.role_name }) : t("crbs.users.noRole")}</span>
                     {!u.is_active ? (
                       <Badge tone="preoccupied" variant="secondary" className="ml-2">
                         {t("crbs.users.disabled")}
@@ -187,11 +401,21 @@ export function UsersAdmin() {
                       </Badge>
                     ) : null}
                   </TableCell>
-                  <TableCell className="hidden text-label-2 lg:table-cell">{u.department_name ?? "—"}</TableCell>
+                  {usersAdmin && idStatus.data ? (
+                    <TableCell className="hidden lg:table-cell">
+                      <MethodCell m={methodView(statusOf(u), u.auth_source)} />
+                    </TableCell>
+                  ) : null}
+                  {usersAdmin && idStatus.data ? (
+                    <TableCell className="hidden sm:table-cell">
+                      <IdentityStatusCell view={statusView(statusOf(u), u.is_active)} inviterName={nameOf(statusOf(u)?.invite?.invited_by)} />
+                    </TableCell>
+                  ) : null}
+                  <TableCell className="hidden text-label-2 xl:table-cell">{u.department_name ?? "—"}</TableCell>
                   <TableCell className="hidden text-label-2 tabular-nums lg:table-cell">{dt(u.last_login_at)}</TableCell>
                   <TableCell className="pr-4 text-right">
                     <DropdownMenu>
-                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("crbs.users.actionsFor", { name: u.username ?? u.email ?? "" })} />}>
+                      <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="pointer-coarse:size-(--control-h-md)" aria-label={t("crbs.users.actionsFor", { name: u.username ?? u.email ?? "" })} />}>
                         <MoreHorizontal />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -217,6 +441,7 @@ export function UsersAdmin() {
                           <ShieldQuestion aria-hidden />
                           {t("admingaps.access.check")}
                         </DropdownMenuItem>
+                        {usersAdmin ? <IdentityMenuItems user={u} s={statusOf(u)} invite={inviteOf.get(u.id)} canManage={manageable(u)} msEnabled={msEnabled} onBind={setBinding} onRevoke={(invite, kind) => setRevoking({ invite, kind })} /> : null}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" disabled={!manageable(u)} onClick={() => setDeleting(u)}>
                           <Trash2 aria-hidden />
@@ -227,9 +452,9 @@ export function UsersAdmin() {
                   </TableCell>
                 </TableRow>
               ))}
-              {users.data && users.data.items.length === 0 ? (
+              {users.data && visible.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="px-4 py-6 text-label-2">
+                  <TableCell colSpan={8} className="px-4 py-6 text-label-2">
                     {t("crbs.users.none")}
                   </TableCell>
                 </TableRow>
@@ -242,17 +467,25 @@ export function UsersAdmin() {
         <div className="flex items-center justify-between type-callout text-label-2">
           <span>{t("crbs.users.page", { from: page * PAGE + 1, to: Math.min(total, (page + 1) * PAGE), total })}</span>
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+            <Button className="pointer-coarse:h-11" variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
               {t("crbs.users.prev")}
             </Button>
-            <Button variant="ghost" size="sm" disabled={(page + 1) * PAGE >= total} onClick={() => setPage((p) => p + 1)}>
+            <Button className="pointer-coarse:h-11" variant="ghost" size="sm" disabled={(page + 1) * PAGE >= total} onClick={() => setPage((p) => p + 1)}>
               {t("crbs.users.next")}
             </Button>
           </div>
         </div>
       ) : null}
 
-      <UserDialog user={editing} onClose={() => setEditing(null)} canListRoles={can("setup.roles")} />
+      <UserDialog
+        user={editing}
+        onClose={() => setEditing(null)}
+        canListRoles={can("setup.roles")}
+        identityFor={(u) => (usersAdmin ? { s: statusOf(u), invite: inviteOf.get(u.id), msEnabled, onBind: () => (setEditing(null), setBinding(u)) } : null)}
+      />
+      <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} auth={auth} canListRoles={can("setup.roles")} />
+      <BindDialog key={binding?.id ?? "none"} user={binding} privileged={!!binding && privileged(binding)} onClose={() => setBinding(null)} />
+      <RevokeDialog value={revoking} onClose={() => setRevoking(null)} />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} canListRoles={can("setup.roles")} />
       <TokenDialog value={token} onClose={() => setToken(null)} />
       <ConfirmDialog
@@ -278,35 +511,38 @@ export function UsersAdmin() {
   );
 }
 
-/** "a, b, c +2": the missing permissions, short enough for an <option>. */
-function shortList(names: readonly string[], max = 3): string {
-  return names.length > max ? `${names.slice(0, max).join(", ")} +${names.length - max}` : names.join(", ");
-}
-
 /**
  * Role picker for user create/edit and the CSV default role. No escalation (backend rule): a role whose
  * permissions are not all held by the current user is disabled, with what is missing. Without setup.roles
  * the role list is not readable, so only the seeded codes are offered and only Administrator is known to be
  * out of reach; the backend's 403 explains anything else.
  */
-function RoleSelect({ value, onChange, canListRoles, id }: { value: string; onChange: (v: string) => void; canListRoles: boolean; id?: string }) {
+function RoleSelect({ value, onChange, canListRoles, id, error }: { value: string; onChange: (v: string) => void; canListRoles: boolean; id?: string; error?: string | null }) {
   const { t } = useI18n();
   const { perms } = usePermissions();
   const roles = useRoles(canListRoles);
   const options = roles.data
-    ? roles.data.map((r) => ({ value: `id:${r.id}`, label: r.name, check: roleGrantCheck(perms, r) }))
+    ? roles.data.map((r) => ({ value: `id:${r.id}`, label: roleLabel(t, r), check: roleGrantCheck(perms, r) }))
     : SEEDED.map((r) => ({ value: `code:${r.code}`, label: t(r.key as MessageKey), check: roleGrantCheck(perms, { code: r.code }) }));
   const anyDisabled = options.some((o) => !o.check.allowed);
+  // T-R2-32 (R2-M-20, F-11 S01): a missing role is said next to the field, read with it (aria-describedby), not only
+  // in the form's alert
+  const describedBy = [error && id ? `${id}-error` : null, anyDisabled && id ? `${id}-hint` : null].filter(Boolean).join(" ") || undefined;
   return (
     <>
-      <SelectField id={id} value={value} onChange={(e) => onChange(e.target.value)} aria-describedby={anyDisabled && id ? `${id}-hint` : undefined}>
+      <SelectField id={id} value={value} onChange={(e) => onChange(e.target.value)} aria-describedby={describedBy} aria-invalid={error ? true : undefined}>
         <option value="">{t("crbs.users.pickRole")}</option>
         {options.map((o) => (
           <option key={o.value} value={o.value} disabled={!o.check.allowed && o.value !== value}>
-            {o.check.allowed ? o.label : t("crbs.users.roleMissing", { role: o.label, list: shortList(o.check.missing) })}
+            {o.check.allowed ? o.label : t("crbs.users.roleMissing", { role: o.label, list: permissionList(t, o.check.missing) })}
           </option>
         ))}
       </SelectField>
+      {error ? (
+        <p id={id ? `${id}-error` : undefined} className="type-footnote text-status-infeasible-fg" role="alert" data-testid="role-error">
+          {error}
+        </p>
+      ) : null}
       {anyDisabled ? (
         <p id={id ? `${id}-hint` : undefined} className="type-footnote text-label-3" data-testid="role-disabled-hint">
           {t("crbs.users.roleDisabledHint")}
@@ -322,17 +558,19 @@ function roleBody(v: string): Pick<UserIn, "role_id"> & { role?: string } {
   return {};
 }
 
-function UserDialog({ user, onClose, canListRoles }: { user: AdminUser | "new" | null; onClose: () => void; canListRoles: boolean }) {
+type IdentityProps = { s: UserIdentityStatus | undefined; invite: Invite | undefined; msEnabled: boolean; onBind: () => void } | null;
+
+function UserDialog({ user, onClose, canListRoles, identityFor }: { user: AdminUser | "new" | null; onClose: () => void; canListRoles: boolean; identityFor: (u: AdminUser) => IdentityProps }) {
   return (
     <Dialog open={user !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl" data-testid="user-dialog">
-        {user !== null ? <UserForm key={user === "new" ? "new" : user.id} user={user === "new" ? null : user} onClose={onClose} canListRoles={canListRoles} /> : null}
+        {user !== null ? <UserForm key={user === "new" ? "new" : user.id} user={user === "new" ? null : user} onClose={onClose} canListRoles={canListRoles} identity={user === "new" ? null : identityFor(user)} /> : null}
       </DialogContent>
     </Dialog>
   );
 }
 
-function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onClose: () => void; canListRoles: boolean }) {
+function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser | null; onClose: () => void; canListRoles: boolean; identity: IdentityProps }) {
   const { t } = useI18n();
   const departments = useDepartments();
   // P1 "approves for" (wave 1): only an approver who may manage users designates others
@@ -357,6 +595,7 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
     password2: "",
   });
   const [error, setError] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((prev) => ({ ...prev, [k]: v }));
   const body = (): UserIn & { role?: string } => ({
     username: f.username.trim() || null,
@@ -385,7 +624,11 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
           e.preventDefault();
           setError(null);
           if (!f.username.trim() && !f.email.trim()) return setError(t("crbs.users.needIdentity"));
-          if (!f.role) return setError(t("crbs.users.needRole"));
+          if (!f.role) {
+            setRoleError(t("crbs.users.needRole"));
+            document.getElementById("u-role")?.focus();
+            return;
+          }
           if (f.password !== f.password2) return setError(t("admingaps.users.passwordMismatch"));
           save.mutate(undefined, {
             onSuccess: (u) => {
@@ -416,7 +659,16 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
             <Input id="u-ext" value={f.ext} onChange={(e) => set("ext", e.target.value)} />
           </Field>
           <Field label={t("crbs.users.role")} htmlFor="u-role">
-            <RoleSelect id="u-role" value={f.role} onChange={(v) => set("role", v)} canListRoles={canListRoles} />
+            <RoleSelect
+              id="u-role"
+              value={f.role}
+              onChange={(v) => {
+                set("role", v);
+                if (v) setRoleError(null);
+              }}
+              canListRoles={canListRoles}
+              error={roleError}
+            />
           </Field>
           <Field label={t("crbs.users.department")} htmlFor="u-dept">
             <SelectField id="u-dept" value={f.department} onChange={(e) => set("department", e.target.value)}>
@@ -448,7 +700,7 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
         </label>
         {canDesignate ? (
           <details className="group rounded-xl bg-fill-3 px-3 py-2" open={approves.length > 0 || undefined} data-testid="user-approves-for">
-            <summary className="cursor-pointer list-none type-callout font-medium text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
+            <summary className="cursor-pointer list-none type-callout font-medium text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:flex-col pointer-coarse:justify-center">
               {t("wave1.scope.title")}
               <span className="block type-footnote font-normal text-label-3">{approves.length ? approves.map((x) => scopeLabel(x, lookups, t)).join(", ") : t("wave1.scope.hint")}</span>
             </summary>
@@ -465,6 +717,7 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
             </div>
           </details>
         ) : null}
+        {user && identity ? <IdentitiesSection user={user} s={identity.s} invite={identity.invite} msEnabled={identity.msEnabled} onBind={identity.onBind} /> : null}
         {user ? <ConstraintsEditor userId={user.id} /> : null}
         {user ? (
           <Link href={`/admin/access?user=${user.id}`} className="inline-flex items-center gap-1.5 self-start type-callout text-tint-text outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="user-form-check-access">
@@ -477,9 +730,9 @@ function UserForm({ user, onClose, canListRoles }: { user: AdminUser | null; onC
           <Button type="button" variant="ghost" onClick={onClose}>
             {t("crbs.common.cancel")}
           </Button>
-          <Button type="submit" disabled={save.isPending} data-testid="user-save">
-            {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {user ? t("crbs.common.save") : t("crbs.common.create")}
+          <Button type="submit" disabled={save.isPending} data-testid="user-save" aria-busy={save.isPending || undefined}>
+            <BusyLabel busy={save.isPending} label={t(user ? "busy.saving" : "busy.creating")}>
+            {user ? t("crbs.common.save") : t("crbs.common.create")}</BusyLabel>
           </Button>
         </DialogFooter>
       </form>
@@ -504,7 +757,7 @@ function ConstraintsEditor({ userId }: { userId: number }) {
   const save = useCrbsMutation((body: Constraints) => crbs.users.putConstraints(userId, body), [["crbs", "constraints", userId]]);
   if (!value) return q.isLoading ? <Loading /> : null;
   return (
-    <fieldset className="flex flex-col gap-2 rounded-xl bg-fill-3 p-3 shadow-[inset_0_0_0_1px_var(--hairline)]">
+    <fieldset className="flex flex-col gap-2 rounded-xl bg-fill-3 p-3 edge-hairline">
       <legend className="sr-only">{t("crbs.users.limits")}</legend>
       <p className="type-headline text-label-1">{t("crbs.users.limits")}</p>
       <p className="type-footnote text-label-3">{t("crbs.users.limitsHint")}</p>
@@ -528,7 +781,7 @@ function ConstraintsEditor({ userId }: { userId: number }) {
       })}
       {draft ? (
         <div className="flex justify-end">
-          <Button
+          <Button className="pointer-coarse:h-11"
             type="button"
             size="sm"
             variant="outline"
@@ -588,7 +841,28 @@ const STATUS_KEYS: Record<string, MessageKey> = {
   password_empty: "crbs.import.status.password_empty",
   invalid: "crbs.import.status.invalid",
   forbidden: "crbs.import.status.forbidden",
+  email_exists: "crbs.import.status.email_exists",
 };
+const STATUS_WORDS: Record<string, MessageKey> = {
+  success: "crbs.import.word.success",
+  username_exists: "crbs.import.word.username_exists",
+  username_empty: "crbs.import.word.username_empty",
+  password_empty: "crbs.import.word.password_empty",
+  email_exists: "crbs.import.word.email_exists",
+  invalid: "crbs.import.word.invalid",
+  forbidden: "crbs.import.word.forbidden",
+};
+
+/** "3 satır: 1 oluşturuldu, 1 parola yok, 1 e-posta var" (T-R1-33): one line of counts per status, in the UI language. */
+export function importSummaryLine(result: Pick<ImportResult, "results">, t: (key: MessageKey, vars?: Record<string, string | number>) => string): string {
+  const counts = new Map<string, number>();
+  for (const r of result.results) counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
+  const parts = Object.keys(STATUS_WORDS)
+    .filter((k) => counts.get(k))
+    .map((k) => `${counts.get(k)} ${t(STATUS_WORDS[k]!)}`);
+  for (const [k, n] of counts) if (!STATUS_WORDS[k]) parts.push(`${n} ${k}`);
+  return t("crbs.import.summaryLine", { total: result.results.length, parts: parts.join(", ") });
+}
 
 function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onOpenChange: (o: boolean) => void; canListRoles: boolean }) {
   const { t } = useI18n();
@@ -622,7 +896,7 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
         </DialogHeader>
         {!result ? (
           <div className="flex flex-col gap-3">
-            <Field label={t("crbs.import.file")} htmlFor="imp-file" hint={t("crbs.import.columns")}>
+            <Field label={t("crbs.import.file")} htmlFor="imp-file" hint={`${t("crbs.import.columns")} ${t("crbs.import.headerHint")}`}>
               <Input id="imp-file" type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             </Field>
             <p className="type-headline text-label-1">{t("crbs.import.defaults")}</p>
@@ -656,13 +930,18 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <Alert tone={result.created ? "success" : "warning"}>{t("crbs.import.summary", { created: result.created, total: result.results.length })}</Alert>
+            <Alert tone={result.created ? "success" : "warning"} testId="import-summary">
+              {t("crbs.import.summary", { created: result.created, total: result.results.length })}
+              <span className="mt-1 block type-footnote" data-testid="import-summary-line">
+                {result.summary_text ?? importSummaryLine(result, t)}
+              </span>
+            </Alert>
             {result.results.some((r) => r.status === "forbidden") ? (
               <Alert tone="warning" testId="import-forbidden">
                 {t("crbs.import.forbiddenHint", { n: result.results.filter((r) => r.status === "forbidden").length })}
               </Alert>
             ) : null}
-            <div className="max-h-[50vh] overflow-auto rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)]">
+            <div className="max-h-[50vh] overflow-auto rounded-xl bg-(--mat-thick-solid) edge-hairline">
               <Table data-testid="import-results">
                 <TableHeader>
                   <TableRow>
@@ -682,6 +961,9 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
                         </Badge>
                         {r.error ? (
                           <span className="ml-2 type-footnote text-label-2">{r.error}</span>
+                        ) : null}
+                        {r.warning ? (
+                          <span className="ml-2 type-footnote text-label-2" data-testid="import-row-warning">{r.warning}</span>
                         ) : null}
                       </TableCell>
                     </TableRow>
@@ -705,9 +987,9 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
                 })
               }
               data-testid="import-run"
-            >
-              {m.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-              {t("crbs.import.run")}
+             aria-busy={m.isPending || undefined}>
+              <BusyLabel busy={m.isPending} label={t("busy.working")}>
+              {t("crbs.import.run")}</BusyLabel>
             </Button>
           ) : null}
         </DialogFooter>

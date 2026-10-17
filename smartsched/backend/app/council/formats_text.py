@@ -162,7 +162,8 @@ def delimited(text: str, name: str, out: Rendered, lim: FormatLimits, *, encodin
             out.units.append(Unit({"line": i + 1}, t))
     numbers = list(range(comment + 1, comment + len(rows) + 1))
     rows, numbers = _trim(rows, numbers)
-    out.grids.append(Grid(name, "csv", rows, [], {}, numbers))
+    # Turkish (and every other comma-decimal) Excel separates its CSV with ';' because ',' is its decimal mark
+    out.grids.append(Grid(name, "csv", rows, [], {}, numbers, decimal="," if delimiter == ";" else "."))
     out.warnings.append(
         f"read as {encoding or 'text'}, {_DELIM_NAMES.get(delimiter, repr(delimiter))}-separated ({how})"
     )

@@ -158,6 +158,9 @@ export function importJob(v: unknown): unknown {
         ...skippedRows.map((r) => ({ row: num(r.row, 0), field: "", value: str(r.detail), message: str(r.reason) ?? "", severity: "error" })),
         ...arr(summary.warnings).map(warning),
       ],
+      ...(num(summary.warnings_count) !== null ? { warnings_count: num(summary.warnings_count) } : {}),
+      ...(num(summary.warnings_shown) !== null ? { warnings_shown: num(summary.warnings_shown) } : {}),
+      ...(typeof summary.warnings_truncated === "boolean" ? { warnings_truncated: summary.warnings_truncated } : {}),
       ...(str(summary.detected_kind) ? { detected_kind: str(summary.detected_kind) } : {}),
     },
     error: str(v.error) ?? null,
@@ -218,7 +221,16 @@ export function run(v: unknown): unknown {
     ...v,
     horizon_params: { weeks: nums(hp.weeks), dates: strs(hp.dates) },
     progress: num(v.progress, num(stats.progress, ACTIVE.has(status) ? 0 : 100)),
-    params: { time_limit_s: num(params.time_limit_s, 60), seed: num(params.seed, 0), workers: num(params.workers, 8), stability: params.stability !== false, weights: isRec(params.weights) ? params.weights : {} },
+    params: {
+      time_limit_s: num(params.time_limit_s, 60),
+      seed: num(params.seed, 0),
+      workers: num(params.workers, 8),
+      stability: params.stability !== false,
+      weights: isRec(params.weights) ? params.weights : {},
+      ...(params.relaxation_policy === "lock_first" || params.relaxation_policy === "most_classes_first" ? { relaxation_policy: params.relaxation_policy } : {}),
+      ...(typeof params.source === "string" ? { source: params.source } : {}),
+      ...(Array.isArray(params.sources) ? { sources: params.sources.filter(isRec).map((x) => ({ sha256: str(x.sha256), file: str(x.file), job: num(x.job) })) } : {}),
+    },
     objective_value: num(v.objective_value),
     soft_score: num(v.soft_score),
     hard_score: num(v.hard_score),
@@ -351,6 +363,7 @@ export function settings(v: unknown): unknown {
     solver_default_seed: num(v.solver_default_seed, 0),
     default_weights: Object.keys(parseWeights(v.default_weights)).length ? parseWeights(v.default_weights) : parseWeights(v.solver_weights),
     council_ai_enabled: v.council_ai_enabled === true,
+    crbs_dsn_allowed_hosts: str(v.crbs_dsn_allowed_hosts) ?? "",
   };
 }
 
@@ -361,6 +374,7 @@ export function settingsUpdateBody(body: Rec): Rec {
   if (body.anthropic_api_key !== undefined) out.anthropic_api_key = body.anthropic_api_key;
   if (body.anthropic_model !== undefined) out.anthropic_model = body.anthropic_model;
   if (body.council_ai_enabled !== undefined) out.council_ai_enabled = body.council_ai_enabled;
+  if (body.crbs_dsn_allowed_hosts !== undefined) out.crbs_dsn_allowed_hosts = body.crbs_dsn_allowed_hosts;
   if (body.solver_default_time_limit !== undefined) out.solver_default_time_limit = body.solver_default_time_limit;
   if (body.solver_default_workers !== undefined) out.solver_workers = body.solver_default_workers;
   if (body.default_weights !== undefined) out.solver_weights = body.default_weights;

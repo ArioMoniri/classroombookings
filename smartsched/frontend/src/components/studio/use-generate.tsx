@@ -37,7 +37,14 @@ export function GenerateProvider({ children }: { children: ReactNode }) {
       const stability = parent !== null && local.params.stability !== false;
       const res = await api.studio.generate(termId, kind, {
         label: (local.params.label as string | undefined) || null,
-        params: { time_limit_s: local.params.time_limit_s, seed: local.params.seed, workers: local.params.workers, weights: local.params.weights },
+        params: {
+          time_limit_s: local.params.time_limit_s,
+          seed: local.params.seed,
+          workers: local.params.workers,
+          weights: local.params.weights,
+          // "Dönem ayarı" sends nothing: the term's relaxation policy (or the default) decides
+          ...(local.params.relaxation_policy ? { relaxation_policy: local.params.relaxation_policy } : {}),
+        },
         parent_run_id: stability ? parent : null,
         stability,
       });

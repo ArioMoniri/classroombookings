@@ -4,6 +4,10 @@
 #   ./deploy.sh            build + start the stack, wait for health, print URL + credentials location
 #   ./deploy.sh --legacy   also start the legacy CRBS app (profile "legacy") for live imports
 #   ./deploy.sh --tls      add the Caddy HTTPS edge (docker-compose.caddy.yml; TLS_DOMAIN + ACME_EMAIL in .env)
+#   ./deploy.sh --observability     also start Prometheus, Loki, Alloy and Grafana (profile "observability", /grafana/
+#                          for admins, ~0.5 GB RSS, capped at 768 MiB; observability/README.md). OBSERVABILITY=1|0 in .env
+#                          makes it the default (written on the first run: 1 when the host has >= 7 GiB of memory);
+#                          --no-observability skips it for one run
 #   ./deploy.sh --update   git pull (if a checkout), rebuild images, restart, migrations run on start
 #   ./deploy.sh --logs     follow logs
 #   ./deploy.sh --down     stop the stack (volumes are kept; add --volumes to delete data)
@@ -33,6 +37,7 @@ PROFILE_FILE="${PROFILE_FILE:-$HERE/profile.env}"
 SEED_FILES_DIR="${SEED_FILES_DIR:-$REPO_ROOT/smartsched/backend/tests/fixtures}"
 
 PROFILE_ARGS=()
+OBS_FLAG=""
 FILE_ARGS=(-f "$COMPOSE_FILE")
 ACTION="up"
 REMOVE_VOLUMES=0
@@ -47,7 +52,9 @@ usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' 
 
 for arg in "$@"; do
   case "$arg" in
-    --legacy)   PROFILE_ARGS=(--profile legacy) ;;
+    --legacy)   PROFILE_ARGS+=(--profile legacy) ;;
+    --observability)    OBS_FLAG=1 ;;
+    --no-observability) OBS_FLAG=0 ;;
     --tls)      FILE_ARGS+=(-f "$HERE/docker-compose.caddy.yml") ;;
     --down)     ACTION="down" ;;
     --logs)     ACTION="logs" ;;
@@ -76,6 +83,7 @@ case "${COMPOSE_VERSION#v}" in
   1.*|2.[0-9].*|2.1[0-6].*) warn "docker compose $COMPOSE_VERSION is old; >= 2.17 is recommended" ;;
 esac
 # ${arr[@]+...} keeps `set -u` happy with an empty array on bash 3.2 (macOS).
+COMPOSE_BASE=("${COMPOSE[@]}")
 COMPOSE+=(--env-file "$ENV_FILE" "${FILE_ARGS[@]}" ${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"})
 
 # ---- .env with generated secrets ------------------------------------------------------------
@@ -109,7 +117,7 @@ ensure_env() {
   # One pass over KEY=__GENERATE__ lines only (comments may mention the placeholder too).
   for key in $(grep -oE '^[A-Z][A-Z0-9_]*=__GENERATE__[[:space:]]*$' "$ENV_FILE" | cut -d= -f1); do
     case "$key" in
-      ADMIN_PASSWORD|*_DB_PASSWORD|POSTGRES_PASSWORD|CRBS_DB_ROOT_PASSWORD) value="$(random_password)" ;;
+      ADMIN_PASSWORD|*_DB_PASSWORD|POSTGRES_PASSWORD|CRBS_DB_ROOT_PASSWORD|GRAFANA_ADMIN_PASSWORD) value="$(random_password)" ;;
       *) value="$(random_secret)" ;;
     esac
     [[ -n "$value" ]] || die "could not generate a value for $key"
@@ -120,6 +128,26 @@ ensure_env() {
     die "unreplaced __GENERATE__ placeholder in $ENV_FILE: $(grep -E '^[A-Z][A-Z0-9_]*=.*__GENERATE__' "$ENV_FILE" | cut -d= -f1 | tr '\n' ' ')"
   fi
   if [[ $created -eq 1 ]]; then log "generated secrets written to $ENV_FILE (keep it safe; it is git-ignored)"; fi
+  # keys added after this .env was created (observability profile, W3-OPS)
+  if ! grep -Eq '^GRAFANA_ADMIN_PASSWORD=' "$ENV_FILE"; then
+    printf 'GRAFANA_ADMIN_PASSWORD=%s\n' "$(random_password)" >> "$ENV_FILE"
+    log "GRAFANA_ADMIN_PASSWORD generated in $ENV_FILE"
+  fi
+  if ! grep -Eq '^OBSERVABILITY=' "$ENV_FILE"; then
+    local mem_kb=0
+    [[ -r /proc/meminfo ]] && mem_kb="$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)"
+    local obs_default=0
+    (( mem_kb >= 7 * 1024 * 1024 )) && obs_default=1
+    printf '# observability profile by default (deploy.sh --observability / --no-observability override one run)\nOBSERVABILITY=%s\n' "$obs_default" >> "$ENV_FILE"
+    log "OBSERVABILITY=$obs_default written to $ENV_FILE (host memory $((mem_kb / 1024)) MiB)"
+    # with the profile on, the stock backend cap (4g) gives way to the profile's 768 MiB: limits stay <= 7.75 GB on
+    # an 8 GB host (observability/README.md "Memory budget"). Only the stock value is changed, once; edit it back
+    # in .env to override.
+    if [[ $obs_default == 1 && "$(env_get BACKEND_MEMORY)" == 4g ]]; then
+      sed -i.bak "s|^BACKEND_MEMORY=4g[[:space:]]*$|BACKEND_MEMORY=3500m|" "$ENV_FILE" && rm -f "$ENV_FILE.bak"
+      log "BACKEND_MEMORY=3500m written to $ENV_FILE (observability profile on; set it back to 4g to override)"
+    fi
+  fi
   # ADMIN_EMAIL has no default (no-placeholder audit m1): take it from the environment on the first run.
   if [[ -z "$(env_get ADMIN_EMAIL)" && -n "${ADMIN_EMAIL:-}" ]]; then
     [[ "$ADMIN_EMAIL" =~ ^[^[:space:]\|\\\&]+@[^[:space:]\|\\\&]+$ ]] || die "ADMIN_EMAIL='$ADMIN_EMAIL' is not an e-mail address"
@@ -142,6 +170,26 @@ ensure_env() {
   if [[ "$(printf '%s' "$email" | tr '[:upper:]' '[:lower:]')" == *example.* ]]; then
     die "ADMIN_EMAIL=$email is an example address; set the real administrator address in $ENV_FILE"
   fi
+}
+
+# profile "observability": --observability / --no-observability, else OBSERVABILITY in .env
+apply_observability() {
+  local want="${OBS_FLAG:-$(env_get OBSERVABILITY)}"
+  if [[ "$want" == 1 ]]; then
+    COMPOSE=("${COMPOSE_BASE[@]}" --env-file "$ENV_FILE" "${FILE_ARGS[@]}" ${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"} --profile observability)
+    OBS_ON=1
+    log "observability profile on (Prometheus, Loki, Alloy, Grafana at /grafana/)"
+  fi
+  # the deployed commit for the operations panel (/admin/ops) and the error events' release
+  if [[ -z "${RELEASE_SHA:-}" ]] && command -v git >/dev/null 2>&1 && git -C "$REPO_ROOT" rev-parse HEAD >/dev/null 2>&1; then
+    RELEASE_SHA="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+  fi
+  export RELEASE_SHA="${RELEASE_SHA:-}"
+  DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  export DEPLOYED_AT
+  # Alloy mounts the backup textfile directory (observability/README.md "Backups"); create it when we can
+  [[ ${OBS_ON:-0} == 1 ]] && { mkdir -p /var/lib/smartsched/textfile 2>/dev/null || true; }
+  return 0
 }
 
 env_get() { grep -E "^$1=" "$ENV_FILE" | head -1 | cut -d= -f2- | sed 's/[[:space:]]*#.*$//; s/^[[:space:]]*//; s/[[:space:]]*$//'; }
@@ -211,6 +259,9 @@ print_summary() {
     log "CRBS import DSN:   mysql://$(env_get CRBS_DB_USER):<CRBS_DB_PASSWORD>@crbs-db:3306/$(env_get CRBS_DB_NAME)  (needs BACKEND_EXTRA_PIP=pymysql)"
   fi
   log "Seed profile:      $(seed_profile)  ($PROFILE_FILE)"
+  if [[ ${OBS_ON:-0} == 1 ]]; then
+    log "Observability:     ${url%/}/grafana/ (admins only)  ·  panel: ${url%/}/admin/ops"
+  fi
   log "Logs: ./deploy.sh --logs   Stop: ./deploy.sh --down   Update: ./deploy.sh --update"
 }
 
@@ -224,9 +275,9 @@ case "$ACTION" in
         read -r -p "type 'delete' to confirm (or run with FORCE=1): " answer
         [[ "$answer" == "delete" ]] || die "aborted"
       fi
-      "${COMPOSE[@]}" --profile legacy down --volumes --remove-orphans
+      "${COMPOSE[@]}" --profile legacy --profile observability down --volumes --remove-orphans
     else
-      "${COMPOSE[@]}" --profile legacy down --remove-orphans
+      "${COMPOSE[@]}" --profile legacy --profile observability down --remove-orphans
     fi
     ;;
   logs)
@@ -237,6 +288,7 @@ case "$ACTION" in
     ;;
   update)
     ensure_env
+    apply_observability
     if [[ -d "$REPO_ROOT/.git" ]] && command -v git >/dev/null 2>&1 && [[ $NO_PULL -eq 0 ]]; then
       log "git pull --ff-only"
       git -C "$REPO_ROOT" pull --ff-only || warn "git pull failed; continuing with the current checkout"
@@ -254,6 +306,7 @@ case "$ACTION" in
     ;;
   up)
     ensure_env
+    apply_observability
     if [[ ${#FILE_ARGS[@]} -gt 2 ]]; then
       [[ -n "$(env_get TLS_DOMAIN)" && -n "$(env_get ACME_EMAIL)" ]] || die "--tls needs TLS_DOMAIN and ACME_EMAIL in $ENV_FILE"
     fi

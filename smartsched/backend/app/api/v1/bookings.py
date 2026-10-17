@@ -16,6 +16,7 @@ from app.api.deps import DB, CurrentAccess, require_permission
 from app.importers import normalize as n
 from app.models import (
     Assignment,
+    AuditEvent,
     Booking,
     Building,
     Course,
@@ -34,6 +35,7 @@ from app.services import bookings_calendar as cal
 from app.services import bookings_export as export
 from app.services import bookings_notify  # noqa: F401  (registers the notification event handlers)
 from app.services import rooms_features as features
+from app.services import settings_service as runtime_settings
 from app.services.bookings_calendar import date_infos, fgcol, term_info
 from app.services.bookings_collation import tr_sort_key
 from app.services.bookings_perms import Access, effective_limits
@@ -65,6 +67,23 @@ async def list_gate(access: CurrentAccess, db: DB) -> Access:
 
 
 ListAcc = Annotated[Access, Depends(list_gate)]
+
+
+async def _create_events(db: DB, booking_ids: list[int]) -> dict[int, int]:
+    """booking id -> the id of its ``booking.create`` audit event (``POST /audit/{id}/undo`` reverses it). A request
+    that went to the approvers (PENDING) has none: it is withdrawn, not undone."""
+    if not booking_ids:
+        return {}
+    rows = await db.execute(
+        select(AuditEvent.entity_id, func.max(AuditEvent.id))
+        .where(
+            AuditEvent.action == "booking.create",
+            AuditEvent.entity_type == "booking",
+            AuditEvent.entity_id.in_([str(i) for i in booking_ids]),
+        )
+        .group_by(AuditEvent.entity_id)
+    )
+    return {int(entity): int(ev) for entity, ev in rows.all() if entity is not None and str(entity).isdigit()}
 
 
 def _err(exc: svc.BookingError) -> HTTPException:
@@ -282,7 +301,63 @@ async def context(db: DB, access: Acc) -> dict[str, Any]:
         "limits": await effective_limits(db, access.user),
         "active_bookings": await svc.active_booking_count(db, access.user_id),
         "remaining_bookings": await svc.remaining_bookings(db, access),
+        "slot_display": await slot_display(db),
     }
+
+
+# --- slot display (wave 3 W3-SLOT) ------------------------------------------------------------------------------
+
+SLOT_DISPLAY_PREFIX = "booking.slot_display."
+_SLOT_CHOICES: dict[str, tuple[str, ...]] = {
+    "unit": ("periods", "blocks"),
+    "label": ("both", "period", "time"),
+    "period_name": ("schedule", "ordinal"),
+    "time_format": ("range", "start"),
+    "density": ("standard", "compact", "comfortable"),
+    "default_view_phone": ("free_slots", "free_week", "quick"),
+}
+_DESKTOP_VIEWS = ("grid_day", "grid_room_week", "free_slots", "free_week", "quick")
+_BLOCK_MINUTES = (15, 30, 60)
+_LENGTH_MAX = 8
+_PERIOD_MAX = 30
+
+
+def _int_in(value: Any, lo: int, hi: int, default: int) -> int:
+    return max(lo, min(hi, value)) if isinstance(value, int) and not isinstance(value, bool) else default
+
+
+async def slot_display(db: DB) -> dict[str, Any]:
+    """The administrator's slot display (docs/design/v3/slot-display.md §3), sanitised: PUT /settings stores ``extra``
+    as given, so a value a surface cannot draw falls back to its default here (one read path for every surface)."""
+    raw = {
+        key[len(SLOT_DISPLAY_PREFIX) :]: await runtime_settings.get_value(db, key)
+        for key in runtime_settings.SPECS
+        if key.startswith(SLOT_DISPLAY_PREFIX)
+    }
+    out: dict[str, Any] = {}
+    for name, allowed in _SLOT_CHOICES.items():
+        value = str(raw.get(name) or "").strip().lower()
+        out[name] = value if value in allowed else runtime_settings.SPECS[SLOT_DISPLAY_PREFIX + name].default
+    block = raw.get("block_minutes")
+    out["block_minutes"] = block if block in _BLOCK_MINUTES else 30
+    first = _int_in(raw.get("first_period"), 0, _PERIOD_MAX, 0)
+    last = _int_in(raw.get("last_period"), 0, _PERIOD_MAX, 0)
+    if first and last and first > last:  # an impossible window shows every period rather than none
+        first = last = 0
+    out["first_period"], out["last_period"] = first, last
+    out["hide_short"] = bool(raw.get("hide_short"))
+    out["hide_weekend"] = bool(raw.get("hide_weekend"))
+    view = str(raw.get("default_view_desktop") or "").strip().lower()
+    out["default_view_desktop"] = view if view in _DESKTOP_VIEWS else None  # None: the organisation's display type
+    out["min_length"] = _int_in(raw.get("min_length"), 1, _LENGTH_MAX, 1)
+    out["quick_span"] = max(out["min_length"], _int_in(raw.get("quick_span"), 1, _LENGTH_MAX, 1))
+    return out
+
+
+@router.get("/slot-display")
+async def get_slot_display(db: DB, _: CurrentAccess) -> dict[str, Any]:
+    """Read-only for every signed-in user (no maintenance gate: it is display configuration)."""
+    return await slot_display(db)
 
 
 def _person(u: User) -> str:
@@ -479,7 +554,9 @@ async def create_booking(body: BookingIn, db: DB, access: Acc, response: Respons
         raise _err(exc) from exc
     if b.status == "PENDING":
         response.status_code = 202
-    return await svc.booking_out(db, access, b, detail=True)
+    out = await svc.booking_out(db, access, b, detail=True)
+    out["audit_event_id"] = (await _create_events(db, [b.id])).get(b.id)
+    return out
 
 
 @router.post("/recurring/preview")
@@ -530,7 +607,7 @@ async def multi_delete(mb_id: int, db: DB, access: Acc) -> None:
 
 
 @router.post("/multi/{mb_id}/create")
-async def multi_create(mb_id: int, body: MultiCreateIn, db: DB, access: Acc) -> dict[str, Any]:
+async def multi_create(mb_id: int, body: MultiCreateIn, db: DB, access: Acc, response: Response) -> dict[str, Any]:
     choices: dict[int, dict[str, Any]] = {}
     for c in body.slots:
         d = c.model_dump(exclude_unset=True)
@@ -546,11 +623,21 @@ async def multi_create(mb_id: int, body: MultiCreateIn, db: DB, access: Acc) -> 
             d.pop("instances", None)
         choices[c.mbs_id] = d
     try:
-        return await svc.create_from_selection(
+        out = await svc.create_from_selection(
             db, access, mb_id, body.type, choices, body.dry_run, confirm_unpublished=body.confirm_unpublished
         )
     except svc.BookingError as exc:
         raise _err(exc) from exc
+    # W3-SLOT: each created booking names its booking.create audit event, so "Geri al" is the real P7 undo
+    created = [b for b in out.get("created", []) if isinstance(b, dict) and isinstance(b.get("id"), int)]
+    if created:
+        events = await _create_events(db, [b["id"] for b in created])
+        for b in created:
+            b["audit_event_id"] = events.get(b["id"])
+    # T-R2-17 (c): like POST /bookings, a submission that became a request (approval-first, P1) answers 202
+    if not body.dry_run and any(b.get("status") == "PENDING" for b in out.get("created", []) if isinstance(b, dict)):
+        response.status_code = 202
+    return out
 
 
 # --- lists ----------------------------------------------------------------------------------------
@@ -727,9 +814,13 @@ async def room_feed(room_id: int, db: DB, access: ListAcc) -> Response:
 async def rotate_feed_token(db: DB, access: Acc) -> dict[str, Any]:
     """New secret for calendar subscriptions; every older link of the user stops working (= ``POST
     /calendar/feeds/reset``, docs/product/calendar-sync-api.md). Only the token's SHA-256 is stored."""
-    from app.services import calendar_feeds
+    from app.api.v1.calendar_sync import consent_refused
+    from app.services import calendar_feeds, kvkk
 
-    row, tok = await calendar_feeds.reset_tokens(db, access.user)
+    try:
+        row, tok = await calendar_feeds.reset_tokens(db, access.user)
+    except kvkk.KvkkError as exc:  # consent gates: calendar_sync consent while sync is on
+        raise consent_refused(exc) from exc
     await db.commit()
     urls = await calendar_feeds.url_templates(db, tok)
     return {

@@ -10,11 +10,12 @@
  * 409 `solver_tag_impact`; the admin sees "removes PC from 5 rooms; 37 requests need PC" and confirms.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { FileDown, FileUp, Loader2, Pencil, Plus, Sparkles, Tags, Trash2 } from "lucide-react";
+import { FileDown, FileUp, ListPlus, Pencil, Plus, Tags, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -27,7 +28,7 @@ import { errorText, FEATURE_CATEGORIES, FEATURE_KINDS, FEATURE_KEYS, Impact, use
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import { Alert, ConfirmDialog, Field, Loading, SelectField } from "./kit";
+import { Alert, ConfirmDialog, Field, Loading, SelectField, pageActionsCapsule } from "./kit";
 import { EntityIcon, IconPicker } from "./icons";
 import { changedCells, parseOptions, readValue, templateCsv, valueLabel, type FeatureValue } from "./features-model";
 
@@ -80,26 +81,29 @@ export function FeaturesTab() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <p className="max-w-prose type-callout text-label-2">{t("wave1.features.lead")}</p>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => void starter("adopt")} disabled={!!busy} data-testid="features-adopt">
-            {busy === "adopt" ? <Loader2 className="animate-spin" aria-hidden /> : <Tags aria-hidden />}
-            {t("wave1.features.adopt")}
+          <Button variant="outline" onClick={() => void starter("adopt")} disabled={!!busy} data-testid="features-adopt" aria-busy={busy === "adopt" || undefined}>
+            <BusyLabel busy={busy === "adopt"} label={t("busy.working")} icon={<Tags aria-hidden />}>
+            {t("wave1.features.adopt")}</BusyLabel>
           </Button>
-          <Button variant="outline" onClick={() => void starter("template")} disabled={!!busy} data-testid="features-starter">
-            {busy === "template" ? <Loader2 className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />}
-            {t("wave1.features.starter")}
+          <Button variant="outline" onClick={() => void starter("template")} disabled={!!busy} data-testid="features-starter" aria-busy={busy === "template" || undefined}>
+            <BusyLabel busy={busy === "template"} label={t("busy.working")} icon={<ListPlus aria-hidden />}>
+            {t("wave1.features.starter")}</BusyLabel>
           </Button>
           <Button variant="outline" onClick={() => setBulk(true)} data-testid="features-bulk">
             <FileUp aria-hidden />
             {t("wave1.features.bulk")}
           </Button>
-          <Button onClick={() => setEditing("new")} data-testid="feature-new">
-            <Plus aria-hidden />
-            {t("wave1.features.new")}
-          </Button>
+          {/* MOBILE M-05 (R3-M-08): below lg the primary action sits in the capsule above the tab bar, like "Yeni derslik" */}
+          <div data-slot="page-actions" className={pageActionsCapsule}>
+            <Button onClick={() => setEditing("new")} data-testid="feature-new">
+              <Plus aria-hidden />
+              {t("wave1.features.new")}
+            </Button>
+          </div>
         </div>
       </div>
 
-      <Card variant="glass" className="py-0">
+      <Card className="py-0">
         {features.isLoading ? (
           <Loading className="px-4" />
         ) : features.isError ? (
@@ -135,15 +139,15 @@ export function FeaturesTab() {
                     {t(KIND_KEY[f.kind])}
                     {f.unit ? ` (${f.unit})` : ""}
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">{f.solver_tag ? <Badge tone="locked">{f.solver_tag}</Badge> : <span className="text-label-4">—</span>}</TableCell>
+                  <TableCell className="hidden md:table-cell">{f.solver_tag ? <Badge tone="locked">{f.solver_tag}</Badge> : <span className="text-label-3">—</span>}</TableCell>
                   <TableCell className="hidden type-footnote text-label-2 lg:table-cell">
                     {[f.filterable ? t("wave1.features.filterable") : null, f.public ? t("wave1.features.public") : t("wave1.features.private"), f.category && CATEGORY_KEY[f.category] ? t(CATEGORY_KEY[f.category]!) : null].filter(Boolean).join(" · ")}
                   </TableCell>
                   <TableCell className="pr-4 text-right whitespace-nowrap">
-                    <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.editNamed", { name: f.name })} onClick={() => setEditing(f)}>
+                    <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.editNamed", { name: f.name })} onClick={() => setEditing(f)}>
                       <Pencil />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" aria-label={t("crbs.rooms.deleteNamed", { name: f.name })} onClick={() => setDeleting(f)}>
+                    <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("crbs.rooms.deleteNamed", { name: f.name })} onClick={() => setDeleting(f)}>
                       <Trash2 />
                     </Button>
                   </TableCell>
@@ -322,9 +326,9 @@ function FeatureForm({ feature, onClose }: { feature: Feature | null; onClose: (
         <Button type="button" variant="ghost" onClick={onClose}>
           {t("crbs.common.cancel")}
         </Button>
-        <Button type="submit" disabled={saving} variant={impact ? "destructive" : "default"} data-testid="feature-save">
-          {saving ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {impact ? t("wave1.features.saveAnyway") : t("crbs.common.save")}
+        <Button type="submit" disabled={saving} variant={impact ? "destructive" : "default"} data-testid="feature-save" aria-busy={saving || undefined}>
+          <BusyLabel busy={saving} label={t("busy.saving")}>
+          {impact ? t("wave1.features.saveAnyway") : t("crbs.common.save")}</BusyLabel>
         </Button>
       </DialogFooter>
     </form>
@@ -437,22 +441,22 @@ function ValuesGrid({ features, rooms }: { features: Feature[]; rooms: AdminRoom
         </div>
         <div className="flex items-center gap-2">
           <Input type="search" aria-label={t("wave1.features.filterRooms")} placeholder={t("wave1.features.filterRooms")} value={q} onChange={(e) => setQ(e.target.value)} className="w-48" />
-          <Button onClick={() => void saveAll()} disabled={!changed.length || saving} data-testid="feature-values-save">
-            {saving ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("wave1.features.saveRooms", { n: changed.length })}
+          <Button onClick={() => void saveAll()} disabled={!changed.length || saving} data-testid="feature-values-save" aria-busy={saving || undefined}>
+            <BusyLabel busy={saving} label={t("busy.saving")}>
+            {t("wave1.features.saveRooms", { n: changed.length })}</BusyLabel>
           </Button>
         </div>
       </div>
       <Card variant="plain" className="overflow-hidden py-0">
         <div className="max-h-[min(70dvh,720px)] overflow-auto">
-          <table className="w-max min-w-full border-separate border-spacing-0 text-[13px]">
+          <table className="w-max min-w-full border-separate border-spacing-0 type-callout">
             <thead className="sticky top-0 z-10 bg-(--mat-thick-solid)">
               <tr>
-                <th scope="col" className="sticky left-0 z-20 bg-(--mat-thick-solid) px-3 py-2 text-left font-semibold text-label-2 shadow-[inset_0_-1px_0_var(--hairline),inset_-1px_0_0_var(--hairline)]">
+                <th scope="col" className="sticky left-0 z-20 bg-(--mat-thick-solid) px-3 py-2 text-left font-semibold text-label-2 border-r border-b border-hairline">
                   {t("wave1.features.room")}
                 </th>
                 {features.map((f) => (
-                  <th key={f.id} scope="col" className="max-w-40 px-3 py-2 text-left font-semibold whitespace-nowrap text-label-2 shadow-[inset_0_-1px_0_var(--hairline)]">
+                  <th key={f.id} scope="col" className="max-w-40 px-3 py-2 text-left font-semibold whitespace-nowrap text-label-2 edge-hairline-b">
                     {f.name}
                     {f.unit ? <span className="ml-1 font-normal text-label-3">({f.unit})</span> : null}
                   </th>
@@ -464,13 +468,13 @@ function ValuesGrid({ features, rooms }: { features: Feature[]; rooms: AdminRoom
                 const dirty = changed.some((c) => c.room.id === r.id);
                 return (
                   <tr key={r.id} data-testid={`values-row-${r.code}`} data-dirty={dirty || undefined} className={cn(dirty && "bg-tint-soft/50")}>
-                    <th scope="row" className="sticky left-0 bg-(--mat-thick-solid) px-3 py-1.5 text-left font-medium whitespace-nowrap text-label-1 shadow-[inset_0_-1px_0_var(--hairline),inset_-1px_0_0_var(--hairline)]">
+                    <th scope="row" className="sticky left-0 bg-(--mat-thick-solid) px-3 py-1.5 text-left font-medium whitespace-nowrap text-label-1 border-r border-b border-hairline">
                       {r.display_name}
                       <span className="ml-1.5 font-normal text-label-3">{r.code}</span>
                       {errors[r.id] ? <span className="block max-w-56 truncate type-caption text-status-infeasible-fg" title={errors[r.id]}>{errors[r.id]}</span> : null}
                     </th>
                     {features.map((f) => (
-                      <td key={f.id} className="px-2 py-1 shadow-[inset_0_-1px_0_var(--hairline)]">
+                      <td key={f.id} className="px-2 py-1 edge-hairline-b">
                         <CellInput feature={f} value={value(r, f)} onChange={(v) => setCell(r, f, v)} label={`${r.display_name}, ${f.name}`} />
                       </td>
                     ))}
@@ -487,7 +491,13 @@ function ValuesGrid({ features, rooms }: { features: Feature[]; rooms: AdminRoom
 
 function CellInput({ feature: f, value, onChange, label }: { feature: Feature; value: FeatureValue; onChange: (v: FeatureValue) => void; label: string }) {
   const { t } = useI18n();
-  if (f.kind === "BOOLEAN") return <Checkbox checked={value === true} onCheckedChange={(v) => onChange(v === true)} aria-label={label} />;
+  // touch (T-R2-32, M-02): every cell is a 44 px row, so the 16 px box's hit area is not covered by the next row
+  if (f.kind === "BOOLEAN")
+    return (
+      <span className="inline-flex items-center justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+        <Checkbox checked={value === true} onCheckedChange={(v) => onChange(v === true)} aria-label={label} />
+      </span>
+    );
   if (f.kind === "NUMBER")
     return (
       <Input
@@ -496,14 +506,14 @@ function CellInput({ feature: f, value, onChange, label }: { feature: Feature; v
         step="any"
         inputMode="decimal"
         aria-label={label}
-        className="h-7 w-20"
+        className="h-7 w-20 pointer-coarse:h-11 pointer-coarse:w-24"
         value={typeof value === "number" ? value : ""}
         onChange={(e) => onChange(e.target.value === "" ? null : Math.max(0, Number(e.target.value)))}
       />
     );
   if (f.kind === "SELECT")
     return (
-      <SelectField aria-label={label} className="h-7 min-w-28" value={typeof value === "number" ? String(value) : ""} onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}>
+      <SelectField aria-label={label} className="h-7 min-w-28 pointer-coarse:h-11" value={typeof value === "number" ? String(value) : ""} onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}>
         <option value="">—</option>
         {f.options.map((o) => (
           <option key={o.id} value={o.id}>
@@ -516,12 +526,12 @@ function CellInput({ feature: f, value, onChange, label }: { feature: Feature; v
     const ids = Array.isArray(value) ? value : [];
     return (
       <details className="relative">
-        <summary className="max-w-40 cursor-pointer list-none truncate rounded-md px-1.5 py-1 text-label-1 outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" aria-label={label}>
+        <summary className="flex max-w-40 cursor-pointer list-none items-center truncate rounded-md px-1.5 py-1 text-label-1 outline-hidden pointer-coarse:min-h-11 hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" aria-label={label}>
           {valueLabel(f, ids, { yes: "", no: "" }) || <span className="text-label-3">{t("wave1.features.pick")}</span>}
         </summary>
         <div className="absolute z-30 mt-1 flex min-w-40 flex-col gap-1 rounded-xl bg-(--mat-thick-solid) p-2 shadow-lg">
           {f.options.map((o) => (
-            <label key={o.id} className="flex items-center gap-2 whitespace-nowrap">
+            <label key={o.id} className="flex items-center gap-2 whitespace-nowrap pointer-coarse:min-h-11">
               <Checkbox checked={ids.includes(o.id)} onCheckedChange={(v) => onChange(v === true ? [...ids, o.id].sort((a, b) => a - b) : ids.filter((x) => x !== o.id))} />
               {o.value}
             </label>
@@ -530,7 +540,7 @@ function CellInput({ feature: f, value, onChange, label }: { feature: Feature; v
       </details>
     );
   }
-  return <Input aria-label={label} maxLength={255} className="h-7 w-36" value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />;
+  return <Input aria-label={label} maxLength={255} className="h-7 w-36 pointer-coarse:h-11" value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />;
 }
 
 /* ------------------------------------------------------------------------------------ bulk CSV */
@@ -585,7 +595,7 @@ function BulkDialog({ features, rooms, onClose }: { features: Feature[]; rooms: 
       <ol className="flex list-decimal flex-col gap-3 pl-5 type-callout text-label-1">
         <li>
           <span className="block">{t("wave1.features.bulkStep1")}</span>
-          <Button variant="outline" size="sm" className="mt-1.5" onClick={download} data-testid="features-template">
+          <Button variant="outline" size="sm" className="mt-1.5 pointer-coarse:h-11" onClick={download} data-testid="features-template">
             <FileDown aria-hidden />
             {t("wave1.features.template")}
           </Button>
@@ -637,7 +647,7 @@ function BulkDialog({ features, rooms, onClose }: { features: Feature[]; rooms: 
             </div>
           ) : null}
           {report.errors ? (
-            <label className="flex items-center gap-2 type-callout text-label-1">
+            <label className="flex items-center gap-2 type-callout text-label-1 pointer-coarse:min-h-11">
               <Checkbox checked={skip} onCheckedChange={(v) => setSkip(v === true)} />
               {t("wave1.features.skipErrors")}
             </label>
@@ -649,13 +659,13 @@ function BulkDialog({ features, rooms, onClose }: { features: Feature[]; rooms: 
         <Button variant="ghost" onClick={onClose}>
           {t("crbs.common.cancel")}
         </Button>
-        <Button variant="outline" disabled={!file || !!busy} onClick={() => void run(true)} data-testid="features-check">
-          {busy === "check" ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("wave1.features.check")}
+        <Button variant="outline" disabled={!file || !!busy} onClick={() => void run(true)} data-testid="features-check" aria-busy={busy === "check" || undefined}>
+          <BusyLabel busy={busy === "check"} label={t("busy.checking")}>
+          {t("wave1.features.check")}</BusyLabel>
         </Button>
-        <Button disabled={!file || !report || !!busy || (report.errors > 0 && !skip)} onClick={() => void run(false)} data-testid="features-apply">
-          {busy === "apply" ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("wave1.features.apply")}
+        <Button disabled={!file || !report || !!busy || (report.errors > 0 && !skip)} onClick={() => void run(false)} data-testid="features-apply" aria-busy={busy === "apply" || undefined}>
+          <BusyLabel busy={busy === "apply"} label={t("busy.working")}>
+          {t("wave1.features.apply")}</BusyLabel>
         </Button>
       </DialogFooter>
     </div>

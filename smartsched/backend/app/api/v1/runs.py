@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -38,6 +39,15 @@ from app.services.solver_bridge import PARTIAL_STATUS, run_schedule
 from app.workers.queue import JobState, get_queue, worker_id
 
 router = APIRouter(prefix="/runs", tags=["runs"])
+
+#: the forced-move refusal for a planner (round-1 T-R1-29 / round-2 T-R2-30: TR and EN, like ``deps.forbidden``)
+FORCE_ADMIN_ONLY: dict[str, Any] = {
+    "code": "forbidden",
+    "permission": "planning.admin",
+    "message": "moving despite a conflict is admin-only",
+    "message_en": "moving despite a conflict is admin-only",
+    "message_tr": "Çakışmaya rağmen taşıma yalnız yöneticilere açık; çakışmasız bir derslik ya da saat seçin",
+}
 
 TERMINAL = set(TERMINAL_STATUSES)  # includes FEASIBLE_PARTIAL (best-effort partial timetable)
 
@@ -209,10 +219,37 @@ async def cancel_run(run_id: int, db: DB, user: Planner) -> RunOut:
     (``StopSearch``) and its partial result discarded. 409 for a run that already finished."""
     run = await _run(db, run_id)
     if run.status not in {"QUEUED", "RUNNING"}:
-        raise HTTPException(409, f"run {run_id} is {run.status}; only QUEUED or RUNNING runs can be cancelled")
+        raise HTTPException(
+            409,
+            {
+                "code": "run_not_active",
+                "status": run.status,
+                "message": f"run {run_id} is {run.status}; only QUEUED or RUNNING runs can be cancelled",
+                "message_tr": f"#{run_id} çalıştırması {run.status} durumunda; yalnız sırada bekleyen ya da çözülen "
+                "bir çalıştırma iptal edilebilir",
+            },
+        )
     if not await _cancel(db, run, user):
-        raise HTTPException(409, f"run {run_id} is {run.status}; it finished before the cancel")
+        raise HTTPException(
+            409,
+            {
+                "code": "run_finished_first",
+                "status": run.status,
+                "message": f"run {run_id} is {run.status}; it finished before the cancel",
+                "message_tr": f"#{run_id} çalıştırması iptalden önce bitti ({run.status})",
+            },
+        )
     return (await runs_out(db, [run]))[0]
+
+
+def _cancelled_by(user: Any) -> str:
+    """Who stopped a run, as the rest of the UI names people (round-2 R2-M-17: the report read
+    'admin@smartsched.local tarafından'): the display name, else the username, else the e-mail."""
+    for attr in ("full_name", "username", "email"):
+        v = getattr(user, attr, None) if user is not None else None
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    return "a planner"
 
 
 async def _cancel(db: AsyncSession, run: ScheduleRun, user: Any) -> bool:
@@ -227,7 +264,7 @@ async def _cancel(db: AsyncSession, run: ScheduleRun, user: Any) -> bool:
         .where(ScheduleRun.id == run.id, ScheduleRun.status.in_(("QUEUED", "RUNNING")))
         .values(
             status="CANCELLED",
-            error=f"cancelled by {getattr(user, 'email', None) or 'a planner'}",
+            error=f"cancelled by {_cancelled_by(user)}",
             finished_at=datetime.now(UTC).replace(tzinfo=None),
             stats={**(run.stats or {}), "phase": "cancelled"},
         )
@@ -277,13 +314,38 @@ async def publish_blockers(db: AsyncSession, run: ScheduleRun) -> list[str]:
     return out
 
 
+async def forced_breaks(db: AsyncSession, run: ScheduleRun) -> list[dict[str, Any]]:
+    """The hard rules a run breaks on purpose: forced moves with a recorded reason (round-1 R1-S-01 / R1-M-05).
+    Publishing such a run needs ``confirm_forced_breaks`` after the planner has seen this list."""
+    from app.services import publish_guard
+    from app.services.planner_check import check_run
+
+    if not publish_guard.overrides(run):
+        return []
+    integ = publish_guard.integrity(await check_run(db, run), run)
+    return [b for b in publish_guard.broken_rules(integ, run) if b.get("explained")]
+
+
 class ActivateIn(BaseModel):
     #: admin persona M-04: publish a run that covers fewer weeks than the published one
     confirm_scope_reduction: bool = False
+    #: round-1 R1-S-01: publish a run whose only hard-rule breaks are forced moves with a recorded reason (409
+    #: ``forced_breaks`` lists them first)
+    confirm_forced_breaks: bool = False
+    #: P19-M-09: one digest per affected academician (their changed classes) through notify_dispatch
+    notify_people: bool = False
 
 
-@router.post("/{run_id}/activate", response_model=RunOut)
-async def activate_run(run_id: int, db: DB, user: Planner, body: Annotated[ActivateIn | None, Body()] = None) -> RunOut:
+class ActivateOut(RunOut):
+    #: academicians that got the publish digest (``notify_people``; null when not asked)
+    notified: int | None = None
+    notify: dict[str, Any] | None = None
+
+
+@router.post("/{run_id}/activate", response_model=ActivateOut)
+async def activate_run(
+    run_id: int, db: DB, user: Planner, body: Annotated[ActivateIn | None, Body()] = None
+) -> ActivateOut:
     """Publish this run as the timetable of its term + kind (it drives the booking grid; also the undo of AI child
     runs). 409 unless the run finished with every hard rule held or explained (review D4, persona M-02), and 409
     ``scope_reduction`` when it covers fewer weeks than the published run unless ``confirm_scope_reduction``
@@ -300,7 +362,7 @@ async def activate_run(run_id: int, db: DB, user: Planner, body: Annotated[Activ
     if blockers:
         raise HTTPException(409, {"message": "run cannot be published", "issues": blockers})
     if run.is_active:
-        return (await runs_out(db, [run]))[0]
+        return ActivateOut(**(await runs_out(db, [run]))[0].model_dump())
     scope = (ScheduleRun.term_id == run.term_id, ScheduleRun.kind == run.kind)
     active = (
         (await db.execute(select(ScheduleRun).where(*scope, ScheduleRun.is_active.is_(True)).order_by(ScheduleRun.id)))
@@ -312,6 +374,24 @@ async def activate_run(run_id: int, db: DB, user: Planner, body: Annotated[Activ
         reduction = await publish_guard.scope_reduction(db, run, active)
         if reduction is not None:
             raise HTTPException(409, reduction)
+    if not (body and body.confirm_forced_breaks):
+        forced = await forced_breaks(db, run)
+        if forced:
+            raise HTTPException(
+                409,
+                {
+                    "code": "forced_breaks",
+                    "message": f"run {run.id} breaks {len(forced)} hard rule(s) on purpose (forced moves with a "
+                    "reason); send confirm_forced_breaks: true to publish it anyway",
+                    "message_tr": f"#{run.id} {len(forced)} kesin kuralı gerekçeli zorunlu taşımayla bozuyor; "
+                    "yayımlamak için bunları onaylayın",
+                    "message_en": f"Run #{run.id} breaks {len(forced)} hard rule(s) through forced moves with a "
+                    "reason; confirm them to publish",
+                    "breaks": forced[:50],
+                    "hard_score": run.hard_score,
+                    "confirm_field": "confirm_forced_breaks",
+                },
+            )
     try:
         await db.execute(
             update(ScheduleRun)
@@ -343,7 +423,15 @@ async def activate_run(run_id: int, db: DB, user: Planner, body: Annotated[Activ
         await db.rollback()
         raise HTTPException(409, "another run of this term was published at the same time; reload") from exc
     await db.refresh(run)
-    return (await runs_out(db, [run]))[0]
+    notify = None
+    if body is not None and body.notify_people and run.kind == "COURSE":
+        from app.services.moderation import publish_digest
+
+        notify = await publish_digest(db, run, previous)  # after the publish committed: a failed mail never undoes it
+        await db.commit()
+        await db.refresh(run)
+    out = (await runs_out(db, [run]))[0]
+    return ActivateOut(**out.model_dump(), notified=notify["notified"] if notify else None, notify=notify)
 
 
 @router.get("/{run_id}/events")
@@ -452,15 +540,20 @@ async def export_run(
     format: str = Query("xlsx", pattern="^(xlsx|csv|ics|crbs)$"),
     weeks: str | None = None,
 ) -> Response:
+    """``xlsx`` (the weekly board; ``weeks`` = "3" / "4,6-8" picks the sheets), ``csv``, ``ics`` and ``crbs``
+    (CRBS's booking export columns). Only xlsx honours ``weeks``; the other formats export the whole run."""
     run = await _run(db, run_id)
     name = f"smartsched-run{run.id}"
+    # a week run's board / csv is named after its week(s) (R1-M-38: "smartsched-run7-hafta4.xlsx"); term runs,
+    # ics and crbs keep the plain name
+    wk = await _export_weeks(db, run, weeks) if weeks else None
+    week_name = name + _week_suffix(run, wk)
     if format == "xlsx":
-        wk = [int(w) for w in weeks.split(",")] if weeks else None
         data = await export_xlsx(db, run, wk)
         return Response(
             data,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f'attachment; filename="{name}.xlsx"'},
+            headers={"Content-Disposition": f'attachment; filename="{week_name}.xlsx"'},
         )
     if format == "ics":
         return Response(
@@ -475,7 +568,57 @@ async def export_run(
             headers={"Content-Disposition": f'attachment; filename="{name}-crbs.csv"'},
         )
     text = await export_csv(db, run)
-    return Response(text, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}.csv"'})
+    return Response(
+        text, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{week_name}.csv"'}
+    )
+
+
+def _week_suffix(run: ScheduleRun, exported: list[int] | None = None) -> str:
+    """``"-hafta4"`` for a WEEK run (``"-hafta4-6"`` when it spans several weeks) or for any run exported with
+    ``?weeks=`` (round-2 T-R2-29, R1-M-38: a term run's week-4 board was 'smartsched-run8.xlsx'); ``""`` otherwise."""
+    if exported:
+        weeks = sorted({int(w) for w in exported})
+    elif run.horizon != "WEEK":
+        return ""
+    else:
+        raw = (run.horizon_params or {}).get("weeks") or [(run.horizon_params or {}).get("week")]
+        weeks = sorted({int(w) for w in raw if isinstance(w, int | str) and str(w).isdigit()})
+    if not weeks:
+        return ""
+    return f"-hafta{weeks[0]}" if len(weeks) == 1 else f"-hafta{weeks[0]}-{weeks[-1]}"
+
+
+_WEEKS_RX = re.compile(r"^\s*\d+\s*(-\s*\d+\s*)?$")
+
+
+async def _export_weeks(db: AsyncSession, run: ScheduleRun, raw: str) -> list[int]:
+    """``"4"``, ``"4,6-8"`` -> sorted week numbers inside the run's term; 422 (TR/EN) otherwise."""
+    from app.services import publish_guard
+
+    def bad(en: str, tr: str) -> HTTPException:
+        return HTTPException(422, {"code": "weeks", "message": en, "message_en": en, "message_tr": tr})
+
+    out: set[int] = set()
+    for part in raw.split(","):
+        if not _WEEKS_RX.match(part):
+            raise bad(
+                f"weeks must be numbers or ranges like 4,6-8 (got {raw!r})",
+                f"haftalar 4,6-8 gibi sayı veya aralık olmalı (gelen: {raw!r})",
+            )
+        lo, _, hi = part.partition("-")
+        a, b = int(lo), int(hi or lo)
+        if a > b:
+            raise bad(f"week range {a}-{b} runs backwards", f"{a}-{b} hafta aralığı ters")
+        out.update(range(a, b + 1))
+    term_weeks = set(await publish_guard.run_weeks(db, ScheduleRun(term_id=run.term_id, horizon="TERM")))
+    outside = sorted(out - term_weeks) if term_weeks else sorted(w for w in out if w < 1)
+    if outside:
+        last = max(term_weeks) if term_weeks else 0
+        raise bad(
+            f"week(s) {outside} are outside the term (weeks 1-{last})",
+            f"{', '.join(map(str, outside))}. hafta dönemin dışında (1-{last}. haftalar)",
+        )
+    return sorted(out)
 
 
 async def _assignment(db: AsyncSession, run_id: int, aid: int) -> Assignment:
@@ -564,10 +707,33 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, user: Pla
     else:
         conflicts += await _capacity_conflict(db, run, a, room_ids)
     conflicts = await _conflict_messages(db, conflicts)
+    # round-1 R1-M-05: the run's own hard-rule evaluation (planner level) on the moved row, e.g. a LOCKED class
+    # leaving its definitive room; a check that passes here keeps the hard score
+    from app.services import move_guard
+
+    covered = {"room_overlap" if c.get("kind") == "assignment" else str(c.get("kind") or "") for c in conflicts}
+    verdict = await move_guard.planner_issues(
+        db,
+        run,
+        [move_guard.TrialMove(a.id, ((a.id, tuple(weeks)),), day, sp, ep, tuple(room_ids))],
+        covered={a.id: covered},
+    )
+    conflicts += [
+        {"kind": i.code, "message": i.text.tr, "message_tr": i.text.tr, "message_en": i.text.en}
+        for i in verdict.for_base(a.id)
+    ]
     if conflicts and not body.force:
         return MoveOut(ok=False, assignment=(await _assignment_out(db, run, [a]))[0], conflicts=conflicts)
     if conflicts:  # forcing a hard-rule break: administrators only, with a written reason (persona M-02 / M-09)
         await _check_force(db, user, body.reason, conflicts)
+        if run.is_active:
+            # owner decision 2026-10-17 (R1-S-37): a forced move never edits the published plan; it goes into a new
+            # draft copy of the active run, published later through the normal guard (confirm_forced_breaks)
+            from app.services import run_copy
+
+            draft, id_map = await run_copy.clone_as_draft(db, run, actor=user, reason=body.reason)
+            out = await move_assignment(draft.id, id_map[a.id], body, db, user)
+            return out.model_copy(update={"draft_run_id": draft.id, "live_run_id": run_id})
     original_id, before = a.id, assignment_snapshot(a)
     row_weeks = [int(w) for w in (a.weeks or ([a.week] if a.week else []))]
     if body.week and len(row_weeks) > 1:
@@ -625,6 +791,8 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, user: Pla
             reason=body.reason or "",
             actor=user,
             audit_id=ev.id if ev is not None else None,
+            findings=verdict.findings.get(original_id, []),
+            rows=[a],
         )
     check = await _rescore(db, run)  # after the override is recorded: it counts against the hard score
     await db.commit()
@@ -664,7 +832,7 @@ async def _check_force(db: AsyncSession, user: Any, reason: str | None, conflict
 
     rules = sorted({str(c.get("kind") or "conflict") for c in conflicts})
     if "planning.admin" not in (await load_access(db, user)).perms:
-        raise HTTPException(403, {"message": "moving despite a conflict is admin-only", "rules": rules})
+        raise HTTPException(403, {**FORCE_ADMIN_ONLY, "rules": rules})
     if not publish_guard.valid_reason(reason):
         raise HTTPException(
             422,
@@ -697,7 +865,9 @@ async def _rescore(db: AsyncSession, run: ScheduleRun) -> Any:
     check = await check_run(db, run)
     from app.services import publish_guard
 
+    await publish_guard.refresh_overrides(db, run)  # a forced placement that was undone no longer counts
     integ = publish_guard.integrity(check, run)
+    before_hard = run.hard_score
     # manual hard-rule breaks count, explained (forced with a reason) or not (persona M-02)
     run.hard_score = integ["hard_score"]
     if run.status == "OPTIMAL":
@@ -709,9 +879,32 @@ async def _rescore(db: AsyncSession, run: ScheduleRun) -> Any:
         **(run.stats or {}),
         "planner_check": check.summary(),
         "integrity": {k: integ[k] for k in ("hard_score", "overrides")}
-        | {"blocking": len(integ["blocking"]), "explained": len(integ["explained"])},
+        | {
+            "blocking": len(integ["blocking"]),
+            "explained": len(integ["explained"]),
+            # round-1 R1-M-05: the broken hard rules themselves, never only a lower number
+            "broken": publish_guard.broken_rules(integ, run),
+        },
         "manual_edits": int((run.stats or {}).get("manual_edits") or 0) + 1,
     }
+    from app.services import run_truth
+
+    run.stats = {**run.stats, "truth": run_truth.build(run, check)}
+    if before_hard != run.hard_score:
+        # the score change is an audited fact with its cause (published or not)
+        await audit.record(
+            db,
+            "run.hard_score",
+            "schedule_run",
+            run.id,
+            before={"hard_score": before_hard},
+            after={
+                "hard_score": run.hard_score,
+                "is_active": bool(run.is_active),
+                "broken": run.stats["integrity"]["broken"][:20],
+            },
+            term_id=run.term_id,
+        )
     return check
 
 
@@ -849,18 +1042,19 @@ async def run_summary(run_id: int, db: DB, _: Viewer) -> dict[str, Any]:
             ).all()
         )
     placed, total, partial = placement(run)
-    if partial:
-        headline = {
-            "tr": f"{placed}/{total} ders yerleşti · hiçbir kural bozulmadı",
-            "en": f"{placed}/{total} placed · no rule broken",
-        }
-    elif run.status in ("OPTIMAL", "FEASIBLE"):
-        headline = {
-            "tr": f"Tüm dersler yerleşti ({total or len(rows)})",
-            "en": f"Everything placed ({total or len(rows)})",
-        }
-    else:
+    # round-1 R1-M-04: the verdict comes from the planner-level check of the stored rows (``run_truth``), the same
+    # object the run card and GET /runs/{id} (``stats.truth``) show
+    from app.services import run_truth
+
+    truth = await run_truth.run_truth(db, run)
+    if truth["verdict"] == "none":
         headline = {"tr": f"Durum: {run.status}", "en": f"Status: {run.status}"}
+    else:
+        headline = dict(truth["headline"])
+        stored = (run.stats or {}).get("truth")
+        if not isinstance(stored, dict) or stored.get("verdict") != truth["verdict"]:
+            run.stats = {**(run.stats or {}), "truth": truth}
+            await db.commit()
     # persona M-07: the summary counts the planner's data issues (an imported board said "Sorunlar 0" while the
     # data-issues report listed its too-small locked rooms)
     from app.services.data_issues import build_data_issues
@@ -879,6 +1073,7 @@ async def run_summary(run_id: int, db: DB, _: Viewer) -> dict[str, Any]:
             "en": f"{headline['en']} · {len(overrides)} forced move(s) with a reason",
         }
     return {
+        "truth": truth,
         "data_issues": {"issues": n_issues, "by_group": issues.get("by_group") or {}},
         "forced_overrides": overrides,
         "run_id": run.id,

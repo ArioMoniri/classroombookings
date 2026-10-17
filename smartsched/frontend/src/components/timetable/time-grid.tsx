@@ -36,10 +36,12 @@ import { cn } from "@/lib/utils";
 import { EventChip, chipVars } from "./event-chip";
 import { checkMove, slotFree, spanText, whenText, type CheckResult } from "./model/check";
 import type { GhostPlacement } from "./model/compare";
-import { GUTTER_W, layoutLanes, nowOffset, periodAt, rowTable, spanHeight, visibleRange, type RowTable } from "./model/geometry";
+import { GUTTER_W, MIN_CHIP_W, layoutLanes, nowOffset, periodAt, rowTable, spanHeight, visibleRange, type RowTable } from "./model/geometry";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { CalBlock, CalBooking, CalEvent, CalendarModel, WeekMask } from "./model/index-model";
 import { roomCap } from "./model/index-model";
 import { nearestValidStart, snapGhost } from "./model/magnet";
+import { BareButton } from "@/components/shell/bare-button";
 
 export interface GridColumn {
   key: string;
@@ -230,26 +232,38 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
       list.push(e);
       byCol.set(c, list);
     }
-    // at most two side-by-side lanes (calendar.md §7.3 double booking); deeper clashes fold into one "+N" stack
+    // at most two side-by-side lanes (calendar.md §7.3 double booking), and only while each lane keeps the 72 px
+    // minimum chip width; deeper (or too narrow) clashes fold into one "+N çakışma" chip with a list popover
+    const maxLanes = colW - 4 >= 2 * MIN_CHIP_W ? 2 : 1;
     const out = new Map<string, { lane: number; lanes: number; col: number }>();
-    const stacks: { key: string; col: number; sp: number; ep: number; aids: number[] }[] = [];
+    const stacks: { key: string; col: number; sp: number; ep: number; aids: number[]; items: { aid: number; code: string }[]; corner: boolean }[] = [];
     for (const [c, list] of byCol) {
       const l = layoutLanes(list.map((e) => ({ id: e.key, sp: e.sp, ep: e.ep })));
       const overflow = new Map<number, CalEvent[]>();
       for (const e of list) {
         const x = l.get(e.key) ?? { lane: 0, lanes: 1, cluster: -1 };
-        if (x.lanes > 2 && x.lane >= 1) {
+        const fold = maxLanes === 1 ? x.lanes > 1 && x.lane >= 1 : x.lanes > 2 && x.lane >= 1;
+        if (fold) {
           overflow.set(x.cluster, [...(overflow.get(x.cluster) ?? []), e]);
           continue;
         }
-        out.set(e.key, { lane: x.lane, lanes: Math.min(2, x.lanes), col: c });
+        out.set(e.key, { lane: x.lane, lanes: Math.min(maxLanes, x.lanes), col: c });
       }
       for (const [cl, evs] of overflow) {
-        stacks.push({ key: `stack-${c}-${cl}`, col: c, sp: Math.min(...evs.map((e) => e.sp)), ep: Math.max(...evs.map((e) => e.ep)), aids: evs.map((e) => e.a.id) });
+        stacks.push({
+          key: `stack-${c}-${cl}`,
+          col: c,
+          sp: Math.min(...evs.map((e) => e.sp)),
+          ep: Math.max(...evs.map((e) => e.ep)),
+          aids: evs.map((e) => e.a.id),
+          items: evs.map((e) => ({ aid: e.a.id, code: e.a.code ?? e.a.label })),
+          // one lane: the chip sits on the top-right corner of the cluster instead of a squeezed second lane
+          corner: maxLanes === 1,
+        });
       }
     }
     return { lanes: out, stacks };
-  }, [events, colOf]);
+  }, [events, colOf, colW]);
   const lanes = laneLayout.lanes;
 
   const rectFor = useCallback(
@@ -797,10 +811,10 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
                 style={{ left: GUTTER_W + col * colW, width: colW }}
               >
                 <span className="flex items-baseline justify-between gap-1">
-                  <span className="truncate text-[13px] leading-4 font-semibold">{c.label}</span>
-                  {c.tag ? <span className="text-[10px] font-semibold text-status-tip-fg">{c.tag}</span> : null}
+                  <span className="truncate type-callout leading-4 font-semibold">{c.label}</span>
+                  {c.tag ? <span className="text-2xs pointer-coarse:type-caption font-semibold text-status-tip-fg">{c.tag}</span> : null}
                 </span>
-                {c.sub ? <span className="truncate text-[11px] leading-[14px] text-label-2 tabular-nums">{c.sub}</span> : null}
+                {c.sub ? <span className="truncate type-caption leading-[14px] text-label-2 tabular-nums">{c.sub}</span> : null}
               </div>
             );
           })}
@@ -809,7 +823,7 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
         {/* sticky time gutter */}
         <div className="cal-canvas sticky left-0 z-10" style={{ width: GUTTER_W, height: rows.total, marginTop: 0 }} aria-hidden>
           {PERIODS.map((p, i) => (
-            <div key={p.index} className={cn("absolute right-2 -translate-y-1.5 text-[11px] leading-[14px] tabular-nums", cursor.p === p.index ? "text-tint-text" : "text-label-3")} style={{ top: rows.tops[i] + (i === 0 ? 6 : 0) }} title={`P${p.index} · ${p.start}–${p.end}${p.index === 12 ? ` · ${t("calendar.transition")}` : ""}`}>
+            <div key={p.index} className={cn("absolute right-2 -translate-y-1.5 type-caption leading-[14px] tabular-nums", cursor.p === p.index ? "text-tint-text" : "text-label-3")} style={{ top: rows.tops[i] + (i === 0 ? 6 : 0) }} title={`P${p.index} · ${p.start}–${p.end}${p.index === 12 ? ` · ${t("calendar.transition")}` : ""}`}>
               {p.start}
             </div>
           ))}
@@ -925,20 +939,48 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
 
         {laneLayout.stacks.map((st) => {
           if (st.col < c0 || st.col > c1) return null;
-          const r = rectFor(st.col, st.sp, st.ep, 1, 2);
+          const lane = rectFor(st.col, st.sp, st.ep, 1, 2);
+          const full = rectFor(st.col, st.sp, st.ep);
+          // "+3 çakışma": says what the stack is (the bare red "+3" box meant nothing, review §3 Timetable)
+          const label = locale === "tr" ? `+${st.aids.length} çakışma` : `+${st.aids.length} ${st.aids.length === 1 ? "conflict" : "conflicts"}`;
+          const style = st.corner
+            ? // bottom-right corner: the top line holds the course code, which must stay readable
+              { left: full.left + full.width - Math.min(full.width - 8, 88) - 2, top: full.top + Math.max(2, full.height - 22), width: Math.min(full.width - 8, 88), height: 20, zIndex: 4 }
+            : { left: lane.left, top: lane.top, width: lane.width, height: lane.height, zIndex: 2 };
           return (
-            <button
-              key={st.key}
-              type="button"
-              className="cal-chip items-center justify-center"
-              data-conflict="true"
-              style={{ ...chipVars(8), left: r.left, top: r.top, width: r.width, height: r.height, zIndex: 2 }}
-              aria-label={t("calendar.issues.conflicts", { n: st.aids.length + 1 })}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => props.onSelectMany(st.aids, false)}
-            >
-              <span className="cal-code">+{st.aids.length}</span>
-            </button>
+            <Popover key={st.key}>
+              <PopoverTrigger
+                render={
+                  <BareButton
+                    className={cn("cal-chip items-center justify-center", st.corner && "!flex-row !p-0 !px-1.5 shadow-elev-1")}
+                    data-conflict="true"
+                    data-testid="conflict-stack"
+                    style={{ ...chipVars(8), ...style }}
+                    aria-label={t("calendar.issues.conflicts", { n: st.aids.length + 1 })}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  />
+                }
+              >
+                <span className="cal-code truncate">{label}</span>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64 gap-1 p-1.5">
+                <p className="px-1.5 pt-1 type-caption text-label-2">{t("calendar.issues.conflicts", { n: st.aids.length + 1 })}</p>
+                <ul className="grid">
+                  {st.items.map((it) => (
+                    <li key={it.aid}>
+                      <BareButton className="flex h-8 w-full items-center rounded-md px-1.5 text-left type-callout hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)" onClick={() => props.onSelectMany([it.aid], false)}>
+                        {it.code}
+                      </BareButton>
+                    </li>
+                  ))}
+                  <li>
+                    <BareButton className="flex h-8 w-full items-center rounded-md px-1.5 text-left type-footnote font-medium text-tint-text hover:bg-fill-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)" onClick={() => props.onSelectMany(st.aids, false)}>
+                      {locale === "tr" ? "Hepsini seç" : "Select all"}
+                    </BareButton>
+                  </li>
+                </ul>
+              </PopoverContent>
+            </Popover>
           );
         })}
 
@@ -984,20 +1026,20 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
         ) : null}
         {hintSlot ? (
           <div className="cal-slot" data-state="hint" style={{ left: hintSlot.left, top: hintSlot.top, width: hintSlot.width, height: hintSlot.height }}>
-            <span className="glass-thick absolute -top-6 left-0 rounded-full px-2 py-0.5 text-[11px] whitespace-nowrap text-label-1">{t("calendar.drag.free", { range: spanText(hint ?? 1, (hint ?? 1) + (drag?.span ?? 1) - 1) })}</span>
+            <span className="glass-thick absolute -top-6 left-0 rounded-full px-2 py-0.5 type-caption whitespace-nowrap text-label-1">{t("calendar.drag.free", { range: spanText(hint ?? 1, (hint ?? 1) + (drag?.span ?? 1) - 1) })}</span>
           </div>
         ) : null}
         {kbSlot ? <div className="cal-slot" data-state={slotState(check)} style={{ left: kbSlot.left, top: kbSlot.top, width: kbSlot.width, height: kbSlot.height }} /> : null}
         {resizeSlot && resize ? (
           <div className="cal-slot" data-state={slotState(check)} style={{ left: resizeSlot.left, top: resizeSlot.top, width: resizeSlot.width, height: resizeSlot.height }}>
-            <span className="glass-thick absolute -bottom-7 left-0 rounded-full px-2 py-0.5 text-[11px] whitespace-nowrap text-label-1">
+            <span className="glass-thick absolute -bottom-7 left-0 rounded-full px-2 py-0.5 type-caption whitespace-nowrap text-label-1">
               {t("calendar.drag.resize", { range: `P${resize.sp}–P${resize.ep} · ${spanText(resize.sp, resize.ep)}`, delta: `${resize.ep - resize.sp - (resize.ev.ep - resize.ev.sp) >= 0 ? "+" : ""}${resize.ep - resize.sp - (resize.ev.ep - resize.ev.sp)}` })}
             </span>
           </div>
         ) : null}
         {createSlot && create ? (
           <div className="cal-slot" data-state="create" style={{ left: createSlot.left, top: createSlot.top, width: createSlot.width, height: createSlot.height }}>
-            <span className="absolute top-1 left-2 text-[11px] font-medium text-tint-text tabular-nums">
+            <span className="absolute top-1 left-2 type-caption font-medium text-tint-text tabular-nums">
               {t("calendar.create.slot", { room: columns[create.col]?.label ?? "", when: whenText(columns[create.col]?.day ?? 1, Math.min(create.p0, create.p1), Math.max(create.p0, create.p1))[lang], n: Math.abs(create.p1 - create.p0) + 1 })}
             </span>
           </div>
@@ -1010,13 +1052,13 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
         {drag ? (
           <motion.div ref={ghostRef} className="pointer-events-none absolute top-0 left-0 z-30" style={{ x: ghostX, y: ghostY, width: colW - 4 }}>
             <motion.div initial={{ scale: 1 }} animate={{ scale: reduce ? 1 : 1.03 }} transition={springs.snappy} className="relative">
-              <motion.div aria-hidden className="pointer-events-none absolute inset-0 -z-10 rounded-[6px] shadow-[0_12px_32px_-8px_rgb(0_0_0/0.35)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: dur.fast }} />
+              <motion.div aria-hidden className="pointer-events-none absolute inset-0 -z-10 rounded-[6px] shadow-elev-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: dur.fast }} />
               <div className="cal-chip" style={{ ...chipVars(drag.ev.a.slot), position: "relative", height: spanHeight(rows, drag.ev.sp, drag.ev.ep) }}>
                 <span className="cal-code truncate">{drag.ev.a.code ?? drag.ev.a.label}{multi ? ` +${drag.aids.length - 1}` : ""}</span>
                 <span className="cal-line2 truncate">{props.line2(drag.ev)}</span>
               </div>
             </motion.div>
-            <div className="glass-thick mt-1.5 w-max max-w-[340px] rounded-full px-2.5 py-1 text-[11px] leading-[14px] font-medium text-label-1" role="status">
+            <div className="glass-thick mt-1.5 w-max max-w-[340px] rounded-full px-2.5 py-1 type-caption leading-[14px] font-medium text-label-1" role="status">
               {reason(check, dragTarget)}
             </div>
           </motion.div>

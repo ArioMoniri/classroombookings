@@ -2,12 +2,14 @@
 /**
  * /reset-password: request a one-time code (never reveals whether the account exists; without SMTP the
  * administrators are notified) and set a new password with the code (`?token=` pre-fills it).
+ * T-R2-06 (R2-A-06, R2-S-12): the page has its own password hint (crbs.reset.passwordHint, no LDAP sentence) and names
+ * the 24-hour code lifetime; a short code gets the same coded refusal as a wrong one (backend org.py).
  */
-import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Input, useShake } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMutation } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
@@ -42,9 +44,9 @@ function RequestForm({ onHaveCode }: { onHaveCode: () => void }) {
           <Field label={t("crbs.reset.identifier")} htmlFor="rs-email">
             <Input id="rs-email" autoComplete="username" autoCapitalize="none" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <Button type="submit" size="lg" disabled={!email.trim() || m.isPending}>
-            {m.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("crbs.reset.send")}
+          <Button type="submit" size="lg" disabled={!email.trim() || m.isPending} aria-busy={m.isPending || undefined}>
+            <BusyLabel busy={m.isPending} label={t("busy.working")}>
+            {t("crbs.reset.send")}</BusyLabel>
           </Button>
         </form>
       )}
@@ -52,7 +54,7 @@ function RequestForm({ onHaveCode }: { onHaveCode: () => void }) {
         <Button variant="link" className="px-0" onClick={onHaveCode}>
           {t("crbs.reset.haveCode")}
         </Button>
-        <Link href="/login" className="text-tint-text underline-offset-4 hover:underline">
+        <Link href="/login" className="inline-flex items-center text-tint-text underline-offset-4 hover:underline pointer-coarse:min-h-11">
           {t("crbs.reset.backToLogin")}
         </Link>
       </div>
@@ -96,7 +98,7 @@ function ConfirmForm({ initialToken, onBack }: { initialToken: string; onBack: (
             <Field label={t("crbs.reset.code")} htmlFor="rs-token">
               <Input id="rs-token" className="font-mono" autoComplete="one-time-code" required value={token} onChange={(e) => setToken(e.target.value)} />
             </Field>
-            <Field label={t("crbs.users.newPassword")} htmlFor="rs-pw" hint={t("crbs.users.passwordHint")}>
+            <Field label={t("crbs.users.newPassword")} htmlFor="rs-pw" hint={t("crbs.reset.passwordHint")}>
               <Input id="rs-pw" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
             </Field>
             <Field label={t("crbs.reset.again")} htmlFor="rs-pw2">
@@ -104,9 +106,9 @@ function ConfirmForm({ initialToken, onBack }: { initialToken: string; onBack: (
             </Field>
           </div>
           {error ? <Alert tone="error">{error}</Alert> : null}
-          <Button type="submit" size="lg" disabled={!token.trim() || !pw || m.isPending}>
-            {m.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("crbs.reset.setPassword")}
+          <Button type="submit" size="lg" disabled={!token.trim() || !pw || m.isPending} aria-busy={m.isPending || undefined}>
+            <BusyLabel busy={m.isPending} label={t("busy.working")}>
+            {t("crbs.reset.setPassword")}</BusyLabel>
           </Button>
           <Button type="button" variant="link" className="self-start px-0" onClick={onBack}>
             {t("crbs.reset.needCode")}

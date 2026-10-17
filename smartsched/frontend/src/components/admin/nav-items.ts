@@ -2,7 +2,32 @@
 // agent created the stub; the CRBS frontend agent owns this file. The sidebar, tab bar and ⌘K import it and
 // gate every entry on `permission` (any of, from GET /auth/me permissions[]); no permission = every signed-in user
 // (CRBS shows Bookings to everyone; room-level rights come from ACLs the role list cannot see).
-import { BookMarked, CalendarRange, CalendarSearch, Settings2, Stamp, UserRound, type LucideIcon } from "lucide-react";
+import {
+  Activity,
+  BookMarked,
+  ClipboardList,
+  Building2,
+  CalendarDays,
+  CalendarOff,
+  CalendarRange,
+  CalendarSearch,
+  CalendarX2,
+  Clock,
+  Cpu,
+  DoorOpen,
+  History,
+  KeyRound,
+  Lock,
+  Mail,
+  Settings2,
+  ShieldCheck,
+  SlidersHorizontal,
+  Stamp,
+  UserCheck,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import type { MessageKey } from "@/lib/i18n";
 import { ADMIN_SECTIONS, SETUP_PERMISSIONS } from "@/lib/permissions";
 import { WAVE1_SECTIONS } from "./wave1-sections";
@@ -17,6 +42,10 @@ export interface AdminNavItem {
   key?: string;
   /** a live count next to the entry (the shell resolves it; wave 1: open approval requests) */
   badge?: "approvals";
+  /** hidden for users who hold this permission (they have a fuller entry for the same page) */
+  hideWith?: string;
+  /** listed with the bookings entries (sidebar group, tab bar) */
+  bookings?: boolean;
 }
 
 /** Primary destinations: put these in the sidebar / tab bar. */
@@ -28,12 +57,37 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // permission here; the approver inbox needs approvals.decide (GET /approvals/inbox answers [] without it)
   { href: "/find-room", labelKey: "wave1.nav.findRoom", icon: CalendarSearch },
   { href: "/approvals", labelKey: "wave1.nav.approvals", icon: Stamp, permission: "approvals.decide", badge: "approvals" },
+  // Phase 19: an academician (can book, no planning.view) sees their own planning requests on /moderation;
+  // planners keep the "Moderasyon" entry of the planning group
+  { href: "/moderation/me", labelKey: "crbs.nav.myRequests", icon: ClipboardList, permission: ["book_single.create", "book_recur.create"], hideWith: "planning.view", bookings: true },
   { href: "/admin", labelKey: "crbs.nav.admin", icon: Settings2, permission: [...SETUP_PERMISSIONS] },
 ];
+
+/** One icon per setup section (UI/UX review §3: every section had the same gear). */
+export const SECTION_ICONS: Record<string, LucideIcon> = {
+  "/admin/users": Users,
+  "/admin/roles": ShieldCheck,
+  "/admin/departments": Building2,
+  "/admin/rooms": DoorOpen,
+  "/admin/access": UserCheck,
+  "/admin/sessions": CalendarDays,
+  "/admin/holidays": CalendarOff,
+  "/admin/schedules": Clock,
+  "/admin/weeks": CalendarRange,
+  "/admin/conflicts": CalendarX2,
+  "/admin/settings": SlidersHorizontal,
+  "/admin/authentication": KeyRound,
+  "/admin/email": Mail,
+  "/admin/approval-rules": Stamp,
+  "/admin/audit": History,
+  "/admin/kvkk": Lock,
+  "/admin/ai": Cpu,
+  "/admin/ops": Activity,
+};
 
 /** Secondary destinations: the profile (user menu) and every setup screen (⌘K, or a collapsible "Setup" group). */
 export const ADMIN_SECTION_NAV_ITEMS: AdminNavItem[] = [
   { href: "/profile", labelKey: "crbs.nav.profile", icon: UserRound },
-  ...ADMIN_SECTIONS.map((s) => ({ href: s.href, labelKey: s.labelKey, icon: Settings2, permission: [...s.permission] })),
-  ...WAVE1_SECTIONS.map((s) => ({ href: s.href, labelKey: s.labelKey, icon: Settings2, permission: [...s.permission] })),
+  ...ADMIN_SECTIONS.map((s) => ({ href: s.href, labelKey: s.labelKey, icon: SECTION_ICONS[s.href] ?? Settings2, permission: [...s.permission] })),
+  ...WAVE1_SECTIONS.map((s) => ({ href: s.href, labelKey: s.labelKey, icon: SECTION_ICONS[s.href] ?? Settings2, permission: [...s.permission] })),
 ];

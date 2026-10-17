@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
+import { BareButton } from "@/components/shell/bare-button";
 
 export const ICONS: Record<string, LucideIcon> = {
   presentation: Presentation,
@@ -63,28 +64,26 @@ export function IconPicker({ value, onChange, id }: { value: string | null | und
   const t = useT();
   return (
     <div id={id} role="radiogroup" aria-label={t("crbs.icons.label")} className="flex flex-wrap gap-1">
-      <button
-        type="button"
+      <BareButton
         role="radio"
         aria-checked={!value}
         onClick={() => onChange(null)}
-        className={cn("h-8 rounded-md px-2 type-footnote outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)", !value ? "bg-tint-soft text-tint-text" : "bg-fill-2 text-label-2 hover:bg-fill-1")}
+        className={cn("h-(--control-h-md) rounded-md px-2 type-footnote", !value ? "bg-tint-soft text-tint-text" : "bg-fill-2 text-label-2 hover:bg-fill-1")}
       >
         {t("crbs.common.none")}
-      </button>
+      </BareButton>
       {Object.entries(ICONS).map(([name, Icon]) => (
-        <button
+        <BareButton
           key={name}
-          type="button"
           role="radio"
           aria-checked={value === name}
           aria-label={name}
           title={name}
           onClick={() => onChange(name)}
-          className={cn("flex size-8 items-center justify-center rounded-md outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)", value === name ? "bg-tint-soft text-tint-text" : "bg-fill-2 text-label-2 hover:bg-fill-1")}
+          className={cn("flex size-(--control-h-md) items-center justify-center rounded-md", value === name ? "bg-tint-soft text-tint-text" : "bg-fill-2 text-label-2 hover:bg-fill-1")}
         >
           <Icon className="size-4 stroke-[1.75]" aria-hidden />
-        </button>
+        </BareButton>
       ))}
     </div>
   );

@@ -9,7 +9,7 @@ import datetime as dt
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import delete, func, select, update
 
 from app.api.deps import DB, UsersAdmin
@@ -117,9 +117,89 @@ async def _check_unique(db: DB, user_id: int | None, email: str | None, username
             raise HTTPException(409, f"a user with username {username} already exists")
 
 
+#: ``identity`` filter values of the user lists (backend follow-ups 2026-10-16 item 5; sign-in.md §13 chips)
+IDENTITY_FILTERS = ("invited", "self_signup", "sso", "binding", "local", "ldap")
+
+
+def identity_method(st: dict[str, Any] | None, auth_source: str | None) -> str:
+    """The sign-in method the Users screen shows (``methodView`` in users-admin-identity-model.ts):
+    ``microsoft`` | ``microsoft_invite`` | ``binding`` | ``ldap`` | ``local`` | ``none``."""
+    if st is None:
+        return "ldap" if auth_source == "ldap" else "local"
+    status = st.get("status")
+    if status in ("invited", "invite_expired"):
+        return "binding" if (st.get("invite") or {}).get("kind") == "bind" else "microsoft_invite"
+    if status == "binding" or st.get("binding_pending"):
+        return "binding"
+    methods = st.get("auth_methods") or []
+    if "microsoft" in methods:
+        return "microsoft"
+    if "ldap" in methods or auth_source == "ldap":
+        return "ldap"
+    return "local" if "local" in methods else "none"
+
+
+def _identity_values(identity: str | None) -> set[str]:
+    wanted = {v.strip().lower() for v in (identity or "").split(",") if v.strip()}
+    bad = sorted(wanted - set(IDENTITY_FILTERS))
+    if bad:
+        raise HTTPException(
+            422,
+            {
+                "code": "unknown_identity",
+                "message": f"unknown identity filter {', '.join(bad)}; use {', '.join(IDENTITY_FILTERS)}",
+                "message_tr": f"Bilinmeyen kimlik süzgeci: {', '.join(bad)}; geçerli değerler: "
+                + ", ".join(IDENTITY_FILTERS),
+            },
+        )
+    return wanted
+
+
+async def identity_ids(db: DB, identity: str | None, self_signup_days: int | None = None) -> set[int] | None:
+    """The user ids matching ``identity`` (OR of the values), or ``None`` for no filter. ``invited``: an open or
+    expired Microsoft invite ("Davet bekliyor"); ``self_signup``: created by a first Microsoft sign-in, within
+    ``self_signup_days`` when given ("Kendi kaydı"); the method values follow :func:`identity_method`
+    (``sso`` = Microsoft or a Microsoft invite)."""
+    wanted = _identity_values(identity)
+    if not wanted:
+        return None
+    from app.services import sso as sso_svc
+
+    status = await sso_svc.user_status(db)
+    since = (
+        dt.datetime.now(dt.UTC).replace(tzinfo=None) - dt.timedelta(days=self_signup_days) if self_signup_days else None
+    )
+    out: set[int] = set()
+    for uid, src in (await db.execute(select(User.id, User.auth_source))).all():
+        st = status.get(str(uid))
+        method = identity_method(st, src)
+        at = (st or {}).get("self_signup_at")
+        checks = {
+            "invited": (st or {}).get("status") in ("invited", "invite_expired")
+            and ((st or {}).get("invite") or {}).get("kind") != "bind",
+            "self_signup": at is not None and (since is None or at.replace(tzinfo=None) >= since),
+            "sso": method in ("microsoft", "microsoft_invite"),
+            "binding": method == "binding",
+            "local": method == "local",
+            "ldap": method == "ldap",
+        }
+        if any(checks[w] for w in wanted):
+            out.add(int(uid))
+    return out
+
+
 @router.get("", response_model=list[UserAdminOut])
-async def list_users(db: DB, _: UsersAdmin) -> list[UserAdminOut]:
-    return [await user_out(db, u) for u in (await db.execute(select(User).order_by(User.id))).scalars()]
+async def list_users(
+    db: DB,
+    _: UsersAdmin,
+    identity: str | None = Query(default=None, description="comma separated: " + ", ".join(IDENTITY_FILTERS)),
+    self_signup_days: int | None = Query(default=None, ge=1, le=3650),
+) -> list[UserAdminOut]:
+    q = select(User).order_by(User.id)
+    ids = await identity_ids(db, identity, self_signup_days)
+    if ids is not None:
+        q = q.where(User.id.in_(sorted(ids) or [-1]))
+    return [await user_out(db, u) for u in (await db.execute(q)).scalars()]
 
 
 @router.get("/search")
@@ -133,10 +213,17 @@ async def search_users(
     sort: str = "username",
     limit: int = 25,
     offset: int = 0,
+    identity: str | None = Query(default=None, description="comma separated: " + ", ".join(IDENTITY_FILTERS)),
+    self_signup_days: int | None = Query(default=None, ge=1, le=3650),
 ) -> dict[str, Any]:
     """CRBS ``Users::index`` filters: search over username/names/e-mail (Turkish-insensitive), role,
-    department; sort by username, displayname, lastlogin, enabled, role or department."""
+    department; sort by username, displayname, lastlogin, enabled, role or department. ``identity`` (and
+    ``self_signup_days``) filters by invite / sign-in method on the server (:func:`identity_ids`); ``total`` counts
+    the filtered set and ``limit`` / ``offset`` page it."""
     query = select(User)
+    ids = await identity_ids(db, identity, self_signup_days)
+    if ids is not None:
+        query = query.where(User.id.in_(sorted(ids) or [-1]))
     if role_id is not None:
         query = query.where(User.role_id == role_id)
     if department_id is not None:

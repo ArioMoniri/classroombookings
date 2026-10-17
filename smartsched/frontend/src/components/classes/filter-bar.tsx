@@ -8,8 +8,8 @@ import { ChevronLeft, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { AdaptiveContent, AdaptivePopover, AdaptiveTrigger } from "@/components/studio/adaptive-popover";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Slider } from "@/components/ui/slider";
 import type { ClassRow } from "@/lib/api/classes";
 import { useI18n } from "@/lib/i18n/provider";
@@ -18,6 +18,8 @@ import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { fold } from "@/components/timetable/model/filters";
 import { FILTER_FIELDS, activeFields, clearField, facetCounts, type ClassFilters, type FilterField } from "./classes-model";
+import { BareButton } from "@/components/shell/bare-button";
+import { Input } from "@/components/ui/input";
 
 const FIELD_KEY: Record<FilterField, MessageKey> = {
   faculty: "classes.f.faculty", program: "classes.f.program", year: "classes.f.year", instructor: "classes.f.instructor", building: "classes.f.building", room: "classes.f.room", day: "classes.f.day", time: "classes.f.time", mode: "classes.f.mode", status: "classes.f.status", issue: "classes.f.issue", changed: "classes.f.changed", locked: "classes.f.locked",
@@ -134,12 +136,12 @@ function TimeWindow({ f, onChange }: { f: ClassFilters; onChange: (f: ClassFilte
   const w = f.time ?? { from: 1, to: PERIODS.length, mode: "overlap" as const };
   return (
     <div className="flex flex-col gap-3 p-1">
-      <p className="text-[13px] font-medium tabular-nums">{PERIODS[w.from - 1].start}–{PERIODS[w.to - 1].end}</p>
+      <p className="type-callout font-medium tabular-nums">{PERIODS[w.from - 1].start}–{PERIODS[w.to - 1].end}</p>
       <Slider min={1} max={PERIODS.length} step={1} value={[w.from, w.to]} onValueChange={(v) => {
         const [a, b] = Array.isArray(v) ? v : [v, v];
         onChange({ ...f, time: { from: Math.min(a, b), to: Math.max(a, b), mode: w.mode } });
       }} />
-      <SegmentedGlass size="sm" aria-label={t("classes.f.time")} options={[{ value: "overlap", label: t("classes.f.overlap") }, { value: "within", label: t("classes.f.within") }]} value={w.mode} onValueChange={(m) => onChange({ ...f, time: { ...w, mode: m } })} />
+      <SegmentedControl size="sm" aria-label={t("classes.f.time")} options={[{ value: "overlap", label: t("classes.f.overlap") }, { value: "within", label: t("classes.f.within") }]} value={w.mode} onValueChange={(m) => onChange({ ...f, time: { ...w, mode: m } })} />
       <div className="flex gap-1.5">
         <Chip size="sm" onClick={() => onChange({ ...f, time: { from: 12, to: PERIODS.length, mode: "within" } })}>{t("classes.f.after1730")}</Chip>
         {f.time ? <Button size="xs" variant="ghost" onClick={() => onChange({ ...f, time: null })}>{t("classes.clear")}</Button> : null}
@@ -165,22 +167,23 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
   const fields = FILTER_FIELDS.filter((x) => !q || field || fold(t(FIELD_KEY[x])).includes(fold(q)));
   const whereField = field === "building" || field === "room" || field === "day" || field === "time";
 
+  // a popover on a fine pointer, a bottom sheet with 44 px rows on touch (MOBILE.md M-02 / M-04)
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setField(null); setQ(""); } }}>
-      <PopoverTrigger ref={triggerRef} render={<Button variant="ghost" size="sm" data-testid="filter-menu" />}>
+    <AdaptivePopover open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setField(null); setQ(""); } }}>
+      <AdaptiveTrigger render={<Button ref={triggerRef} variant="ghost" size="sm" data-testid="filter-menu" />}>
         {t("classes.filter")} <Plus aria-hidden />
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-1.5">
+      </AdaptiveTrigger>
+      <AdaptiveContent title={field ? t(FIELD_KEY[field]) : t("classes.filter")} align="start" className="w-80 p-1.5">
         <div className="flex items-center gap-1">
           {field ? <Button variant="ghost" size="icon-xs" aria-label={t("calendar.nav.prev")} onClick={() => { setField(null); setQ(""); }}><ChevronLeft /></Button> : null}
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={field ? t("classes.f.searchValues") : t("classes.filter")} aria-label={field ? t("classes.f.searchValues") : t("classes.filter")} className="h-8 flex-1 rounded-lg bg-fill-2 px-2.5 text-[13px] outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" />
+          <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={field ? t("classes.f.searchValues") : t("classes.filter")} aria-label={field ? t("classes.f.searchValues") : t("classes.filter")} className="flex-1" />
         </div>
         {field ? (
           <div className="mt-1 flex flex-col gap-1">
-            <p className="px-2 pt-1 text-[11px] font-semibold text-label-3">{t(FIELD_KEY[field])}</p>
+            <p className="px-2 pt-1 type-caption font-semibold text-label-3">{t(FIELD_KEY[field])}</p>
             {whereField ? (
               <div className="px-1">
-                <SegmentedGlass size="sm" fill aria-label={t(FIELD_KEY[field])} options={[{ value: "placed", label: t("classes.f.placed") }, { value: "requested", label: t("classes.f.requested") }]} value={field === "day" || field === "time" ? filters.dayWhere : filters.buildingWhere} onValueChange={(v) => onChange(field === "day" || field === "time" ? { ...filters, dayWhere: v } : { ...filters, buildingWhere: v })} />
+                <SegmentedControl size="sm" fill aria-label={t(FIELD_KEY[field])} options={[{ value: "placed", label: t("classes.f.placed") }, { value: "requested", label: t("classes.f.requested") }]} value={field === "day" || field === "time" ? filters.dayWhere : filters.buildingWhere} onValueChange={(v) => onChange(field === "day" || field === "time" ? { ...filters, dayWhere: v } : { ...filters, buildingWhere: v })} />
               </div>
             ) : null}
             {field === "time" ? (
@@ -191,12 +194,12 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
                   const on = isOn(filters, field, v.k);
                   return (
                     <li key={v.k}>
-                      <button type="button" role="option" aria-selected={on} onClick={() => onChange(toggleValue(filters, field, v.k))} className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-fill-2", on && "bg-tint-soft")}>
-                        <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-[5px] text-[10px]", on ? "bg-tint text-tint-foreground" : "shadow-[inset_0_0_0_1px_var(--hairline-strong)]")} aria-hidden>{on ? "✓" : ""}</span>
+                      <BareButton role="option" aria-selected={on} onClick={() => onChange(toggleValue(filters, field, v.k))} className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2", on && "bg-tint-soft")}>
+                        <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-[5px] text-2xs pointer-coarse:type-caption", on ? "bg-tint text-tint-foreground" : "edge-hairline-strong")} aria-hidden>{on ? "✓" : ""}</span>
                         {field === "faculty" ? <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--fac-${rows.find((r) => String(r.faculty_id) === v.k)?.faculty_slot ?? 8}-bar)` }} /> : null}
                         <span className="min-w-0 flex-1 truncate">{v.l}</span>
-                        <span className="text-[11px] text-label-3 tabular-nums">{n(v.c)}</span>
-                      </button>
+                        <span className="type-caption text-label-3 tabular-nums">{n(v.c)}</span>
+                      </BareButton>
                     </li>
                   );
                 })}
@@ -211,16 +214,16 @@ export function FilterMenu({ rows, filters, onChange, shownCount, triggerRef }: 
           <ul className="mt-1" role="menu">
             {fields.map((x) => (
               <li key={x}>
-                <button type="button" role="menuitem" onClick={() => { setField(x); setQ(""); }} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-fill-2">
+                <BareButton role="menuitem" onClick={() => { setField(x); setQ(""); }} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left type-callout hover:bg-fill-2">
                   {t(FIELD_KEY[x])}
                   {activeFields(filters).includes(x) ? <span aria-hidden className="size-1.5 rounded-full bg-tint" /> : null}
-                </button>
+                </BareButton>
               </li>
             ))}
           </ul>
         )}
-      </PopoverContent>
-    </Popover>
+      </AdaptiveContent>
+    </AdaptivePopover>
   );
 }
 

@@ -1,7 +1,16 @@
 // Raw-video helpers: constant-frame-rate transcode, sync-flash detection, trim + clock mapping.
 import { spawnSync } from "node:child_process";
+import { FPS } from "./fps.mjs";
 
-const FPS = 30;
+/** Intermediate codec: near-lossless yuv420p H.264, or bit-exact RGB with REC_LOSSLESS=1 (screencast capture). */
+export const intermediate = () =>
+  process.env.REC_LOSSLESS === "1"
+    ? ["-vf-extra", "format=rgb24", "-c:v", "libx264rgb", "-preset", "ultrafast", "-qp", "0"]
+    : ["-vf-extra", "", "-c:v", "libx264", "-preset", "veryfast", "-crf", "10", "-pix_fmt", "yuv420p"];
+function codec(vf) {
+  const [, extra, ...rest] = intermediate();
+  return ["-vf", [vf, extra].filter(Boolean).join(","), ...rest];
+}
 
 function ff(args, label) {
   const r = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error", ...args], {
@@ -12,9 +21,9 @@ function ff(args, label) {
   return r.stdout;
 }
 
-/** Playwright's VP8 webm (variable frame timing) → 30 fps H.264 near-lossless intermediate. */
+/** Playwright's VP8 webm (variable frame timing) → constant-rate (REC_FPS) H.264 near-lossless intermediate. */
 export function toCfr(webm, out) {
-  ff(["-i", webm, "-vf", `fps=${FPS}`, "-c:v", "libx264", "-preset", "veryfast", "-crf", "10", "-pix_fmt", "yuv420p", out], "cfr");
+  ff(["-i", webm, ...codec(`fps=${FPS}`), out], "cfr");
   return out;
 }
 
@@ -93,8 +102,7 @@ export function trimAndMap(cfr, tl, out) {
   const select = cuts.length
     ? `,select='not(${cuts.map((c) => `between(t,${sec(c.start)},${sec(c.end)})`).join("+")})',setpts=N/${FPS}/TB`
     : "";
-  ff(["-ss", sec(begin), "-i", cfr, "-t", sec(end - begin), "-vf", `setpts=PTS-STARTPTS${select}`, "-r", String(FPS),
-    "-c:v", "libx264", "-preset", "veryfast", "-crf", "10", "-pix_fmt", "yuv420p", out], "trim");
+  ff(["-ss", sec(begin), "-i", cfr, "-t", sec(end - begin), ...codec(`setpts=PTS-STARTPTS${select}`), "-r", String(FPS), out], "trim");
   const removedBefore = (t) => {
     let removed = 0;
     for (const c of cuts) {

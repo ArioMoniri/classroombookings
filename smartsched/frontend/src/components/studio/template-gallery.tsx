@@ -13,11 +13,15 @@ import { cn } from "@/lib/utils";
 import { HardnessControl } from "./hardness-control";
 import { AffectedBadge } from "./rule-card";
 import { FIELD_KEY, issueMessages } from "./rule-helpers";
-import { defaultParams, plainSentence, readField, templateIssues, tokens, writeField, type Params } from "./rule-sentence";
-import { SlotChip, SlotEditor } from "./slot-picker";
+import { defaultParams, plainSentence, programDisplay, readAppliesTo, readField, templateIssues, tokens, writeAppliesTo, writeField, type AppliesTo, type Params } from "./rule-sentence";
+import { relatedPrograms } from "./chip-prefill";
+import { SlotChip, SlotEditor, classSize, fitMark } from "./slot-picker";
+import { Textarea } from "@/components/ui/textarea";
 import { useStudio } from "./studio-context";
+import { useStudioData } from "./studio-data";
 import { useRuleActions } from "./use-rule-actions";
 import { pairLang } from "@/lib/i18n";
+import { BareButton } from "@/components/shell/bare-button";
 
 const TOPICS = ["rooms", "times", "buildings", "programmes", "exams"] as const;
 type Topic = (typeof TOPICS)[number];
@@ -28,6 +32,9 @@ const TOPIC_KEY: Record<Topic, MessageKey> = { rooms: "studio.topic.rooms", time
 export interface BuilderPrefill {
   templateId?: string;
   eventIds?: number[];
+  /** field values an example chip stands for (round-1 T-R1-46); merged over the template defaults */
+  params?: Params;
+  hardness?: "hard" | "soft";
 }
 
 /** (b) Pick a template: gallery (topic tabs + cards), then the builder (live sentence on top, fields below). */
@@ -55,16 +62,16 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
           <DialogDescription>{chosen ? t("studio.builder.help") : t("studio.gallery.help")}</DialogDescription>
         </DialogHeader>
         {chosen ? (
-          <Builder template={chosen} eventIds={prefill?.eventIds} onBack={() => setChosen(null)} onDone={onDone} />
+          <Builder template={chosen} eventIds={prefill?.eventIds} prefill={prefill?.templateId === chosen.id ? prefill : null} onBack={() => setChosen(null)} onDone={onDone} />
         ) : (
           <div className="grid gap-4 md:grid-cols-[10rem_1fr]">
             <div role="tablist" aria-orientation="vertical" aria-label={t("studio.gallery.topics")} className="flex gap-1 overflow-x-auto md:flex-col">
               {TOPICS.filter((x) => kind === "EXAM" || x !== "exams").map((x) => {
                 const Icon = TOPIC_ICON[x];
                 return (
-                  <button key={x} type="button" role="tab" aria-selected={topic === x} onClick={() => setTopic(x)} className={cn("flex shrink-0 items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm pointer-coarse:min-h-11", topic === x ? "bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")}>
+                  <BareButton key={x} role="tab" aria-selected={topic === x} onClick={() => setTopic(x)} className={cn("flex shrink-0 items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm pointer-coarse:min-h-11", topic === x ? "bg-tint-soft font-medium text-tint-text" : "hover:bg-fill-2")}>
                     <Icon className="size-4" aria-hidden /> {t(TOPIC_KEY[x])}
-                  </button>
+                  </BareButton>
                 );
               })}
             </div>
@@ -73,13 +80,13 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
                 const Icon = TOPIC_ICON[(tpl.topic as Topic) ?? "rooms"] ?? DoorOpen;
                 return (
                   <li key={tpl.id}>
-                    <button type="button" onClick={() => setChosen(tpl)} className="flex h-full w-full flex-col items-start gap-1.5 rounded-lg border bg-card p-3 text-left hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50" data-testid={`template-${tpl.id}`}>
+                    <BareButton onClick={() => setChosen(tpl)} className="flex h-full w-full flex-col items-start gap-1.5 rounded-lg border bg-card p-3 text-left hover:border-primary focus-visible:ring-3 focus-visible:ring-ring/50" data-testid={`template-${tpl.id}`}>
                       <span className="flex items-center gap-2 font-medium">
                         <Icon className="size-4 text-tint-text" aria-hidden /> {tpl.title[pairLang(locale)]}
                       </span>
                       <span className="text-xs text-label-2">{tpl.sentence[pairLang(locale)].replace(/[[\]]/g, "").replace(/\{(\w+)\}/g, "…")}</span>
-                      <span className="text-[11px] text-label-2">{tpl.default_hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
-                    </button>
+                      <span className="type-caption text-label-2">{tpl.default_hardness === "hard" ? t("studio.rule.must") : t("studio.rule.try")}</span>
+                    </BareButton>
                   </li>
                 );
               })}
@@ -91,17 +98,19 @@ function GalleryBody({ prefill, onDone }: { prefill?: BuilderPrefill | null; onD
   );
 }
 
-function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplate; eventIds?: number[]; onBack: () => void; onDone: () => void }) {
+function Builder({ template, eventIds, prefill, onBack, onDone }: { template: RuleTemplate; eventIds?: number[]; prefill?: BuilderPrefill | null; onBack: () => void; onDone: () => void }) {
   const { t, n, locale } = useI18n();
-  const { sentence, meta, termId, kind, advanced } = useStudio();
+  const { sentence, meta, termId, kind, advanced, isAdmin } = useStudio();
+  const { classes, rooms } = useStudioData();
   const actions = useRuleActions();
+  const [reason, setReason] = useState("");
   const [params, setParams] = useState<Params>(() => {
-    const base = defaultParams(template);
+    const base = { ...defaultParams(template), ...(prefill?.params ?? {}) };
     const applies = template.fields.find((f) => f.type === "applies_to" || f.type === "courses");
     if (eventIds?.length && applies) return writeField(applies, base, applies.type === "courses" ? eventIds : { mode: "classes", event_ids: eventIds }, sentence);
     return base;
   });
-  const [hardness, setHardness] = useState<"hard" | "soft">(template.default_hardness);
+  const [hardness, setHardness] = useState<"hard" | "soft">(prefill?.hardness && template.allowed_hardness.includes(prefill.hardness) ? prefill.hardness : template.default_hardness);
   const [weight, setWeight] = useState(template.default_weight);
   const [previewed, setPreviewed] = useState<{ key: string; data: Preview | null } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -132,12 +141,31 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
     const f = template.fields.find((x) => x.name === name);
     if (f) setParams((p) => writeField(f, p, v, sentence));
   };
+  const appliesField = template.fields.find((f) => f.type === "applies_to");
+  const who: AppliesTo = appliesField ? readAppliesTo(params) : { mode: "all" };
+  // capacity of a hard room pin (round-2 T-R2-30, R2-M-12): the classes the template names and the rooms it pins
+  const coursesField = template.fields.find((f) => f.type === "courses");
+  const roomsField = template.fields.find((f) => f.type === "rooms" || f.type === "room");
+  const classIds = coursesField ? (readField(coursesField, params, sentence) as unknown[] | null | undefined ?? []).map(Number).filter(Number.isFinite) : eventIds ?? [];
+  const pinSize = classSize(classes, classIds);
+  const pinnedRoomIds = roomsField ? [readField(roomsField, params, sentence)].flat().map(Number).filter(Number.isFinite) : [];
+  const tooSmall = hardness === "hard" && template.kind === "room_pin" ? pinnedRoomIds.map((id) => rooms.find((r) => r.id === id)).filter((r): r is NonNullable<typeof r> => !!r && fitMark(pinSize, r.capacity, "tr") !== null) : [];
+  const needsReason = tooSmall.length > 0 && isAdmin && reason.trim().length < 3;
+  // programmes with classes in this term when the class list is in (the 146-programme catalogue otherwise)
+  const inTerm = useMemo(() => (classes?.length ? sentence.programs.filter((p) => classes.some((c) => c.program_name === p)) : sentence.programs), [classes, sentence.programs]);
+  const related = who.mode === "programs" ? relatedPrograms(who.programs.map((p) => programDisplay(p, sentence)), inTerm) : [];
+  const addProgram = (p: string) => {
+    if (who.mode !== "programs") return;
+    setParams((prev) => writeAppliesTo(prev, { ...who, programs: [...who.programs.map((x) => programDisplay(x, sentence)), p] }));
+  };
 
   const add = async () => {
     if (issues.length) return;
     setSaving(true);
     try {
-      await actions.create({ kind: template.kind, params, hardness, weight, nl_text: plainSentence(tokens(template, params, sentence)), source: "ADMIN" });
+      // the rule came from a template, so the list says "Şablon", not "Yönetici" (round-1 R1-S-08): `_source_ref` is
+      // the metadata param the backend keeps out of the solver and returns as the rule's `source_ref`
+      await actions.create({ kind: template.kind, params: { ...params, _source_ref: { via: "template", template: template.id } }, hardness, weight, nl_text: plainSentence(tokens(template, params, sentence)), source: "ADMIN", reason: tooSmall.length && isAdmin ? reason.trim() : undefined });
       actions.undoToast(t("studio.builder.added"));
       onDone();
     } finally {
@@ -155,6 +183,25 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
         <div className="mt-2">
           <AffectedBadge affected={{ count: preview?.affected_count ?? null, loading, percent: preview?.percent ?? null, targeted: preview?.targeted }} />
           {preview && preview.targeted && preview.affected_count === 0 ? <p className="mt-1 text-xs text-status-warning-fg">{t("studio.rule.matchesNone")}</p> : null}
+          {who.mode === "programs" && who.programs.length ? (
+            // the reach line names every programme the rule reaches (round-1 R1-S-08: "lists both programmes")
+            <p className="mt-1 text-xs text-label-2" data-testid="builder-programmes">
+              {t("studio.builder.reaches", { list: who.programs.map((p) => programDisplay(p, sentence)).join(", "), year: who.year ? ` · ${sentence.words.year(who.year)}` : "" })}
+            </p>
+          ) : null}
+          {related.length ? (
+            // programmes with a similar name (the nursing master's programmes): the planner decides whether the rule reaches them too
+            <div className="mt-2 flex flex-col gap-1.5" data-testid="related-programmes">
+              <p className="text-xs text-label-2">{t("studio.builder.related", { n: related.length })}</p>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("studio.builder.relatedLabel")}>
+                {related.map((p) => (
+                  <BareButton key={p} onClick={() => addProgram(p)} className="rounded-full border bg-background px-2.5 py-1 text-xs hover:bg-fill-2 pointer-coarse:min-h-11">
+                    + {p}
+                  </BareButton>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -165,10 +212,27 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
               <span className="text-sm font-medium">
                 {t(FIELD_KEY[f.name] ?? "studio.slot.value")} {f.required || f.type === "applies_to_others" ? <span className="text-xs font-normal text-label-2">{t("studio.builder.required")}</span> : <span className="text-xs font-normal text-label-2">{t("studio.builder.optional")}</span>}
               </span>
-              <SlotEditor field={f} value={readField(f, params, sentence)} onChange={(v) => set(f.name, v)} />
+              <SlotEditor field={f} value={readField(f, params, sentence)} onChange={(v) => set(f.name, v)} context={{ classIds }} />
             </div>
           ))}
       </div>
+      {tooSmall.length ? (
+        // the pin guard refuses a hard pin the class does not fit; an administrator keeps it with a written reason
+        // (`capacity_override`, listed on the run), a planner picks another room (round-2 T-R2-30, R2-M-12)
+        <div id="builder-too-small" className="grid gap-1.5 rounded-xl bg-status-warning px-3 py-2" data-testid="builder-too-small">
+          <p className="type-callout font-medium text-status-warning-fg">
+            {locale === "tr"
+              ? `${tooSmall.map((r) => `${r.display_name} (${r.capacity})`).join(", ")} ${n(pinSize ?? 0)} öğrenciye sığmaz.${isAdmin ? " Yönetici olarak gerekçeyle yine de sabitleyebilirsiniz; gerekçe çalıştırma raporunda listelenir." : " Yalnız bir yönetici gerekçeyle sabitleyebilir; başka bir derslik seçin."}`
+              : `${tooSmall.map((r) => `${r.display_name} (${r.capacity})`).join(", ")} cannot seat ${n(pinSize ?? 0)} students.${isAdmin ? " As an administrator you may pin anyway with a reason; it is listed in the run report." : " Only an administrator may pin with a reason; pick another room."}`}
+          </p>
+          {isAdmin ? (
+            <>
+              <label htmlFor="builder-reason" className="type-footnote font-semibold text-label-1">{locale === "tr" ? "Gerekçe (zorunlu)" : "Reason (required)"}</label>
+              <Textarea id="builder-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("calendar.move.forcePlaceholder")} data-testid="builder-reason" />
+            </>
+          ) : null}
+        </div>
+      ) : null}
       {template.note ? <p className="rounded-md bg-fill-2/60 px-2.5 py-1.5 text-xs text-label-2">{template.note[pairLang(locale)]}</p> : null}
       <HardnessControl hardness={hardness} weight={weight} allowed={template.allowed_hardness} onHardness={setHardness} onWeight={setWeight} scale={meta?.weight_scale} advanced={advanced} idPrefix="builder" />
       {problems.length ? (
@@ -182,7 +246,7 @@ function Builder({ template, eventIds, onBack, onDone }: { template: RuleTemplat
         <Button variant="ghost" onClick={onBack}>
           <ArrowLeft aria-hidden /> {t("studio.builder.back")}
         </Button>
-        <Button onClick={() => void add()} {...busyProps(saving, issues.length > 0)} aria-describedby={problems.length ? "builder-issues" : undefined} data-testid="builder-add">
+        <Button onClick={() => void add()} {...busyProps(saving, issues.length > 0 || needsReason || (tooSmall.length > 0 && !isAdmin))} aria-describedby={problems.length ? "builder-issues" : tooSmall.length ? "builder-too-small" : undefined} data-testid="builder-add">
           <BusyLabel busy={saving} label={t("studio.tray.accepting")} icon={<Plus aria-hidden />}>{" "}{t("studio.builder.add")}</BusyLabel>
         </Button>
       </div>

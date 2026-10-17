@@ -145,10 +145,10 @@ export function AppearancePreferencesControl({ userId, labels }: { userId?: stri
       {rows.map((row) => (
         <div key={row.id} className="flex items-center justify-between gap-6 py-3 [&:not(:last-child)]:hairline-b">
           <div className="flex min-w-0 flex-col gap-0.5">
-            <label htmlFor={row.id} className="text-[13px] font-medium text-label-1">
+            <label htmlFor={row.id} className="type-callout font-medium text-label-1">
               {row.label}
             </label>
-            <p id={`${row.id}-hint`} className="text-[12px] leading-4 text-label-2">
+            <p id={`${row.id}-hint`} className="type-footnote leading-4 text-label-2">
               {row.hint}
             </p>
           </div>

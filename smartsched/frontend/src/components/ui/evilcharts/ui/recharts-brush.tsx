@@ -465,7 +465,7 @@ function BrushHandle({
       {label && (
         <div
           className={cn(
-            "bg-foreground text-background pointer-events-none absolute -bottom-3 -translate-y-1/2 rounded-[3px] px-1 py-px text-[8px] leading-tight font-medium whitespace-nowrap opacity-0 group-hover:opacity-100",
+            "bg-foreground text-background pointer-events-none absolute -bottom-3 -translate-y-1/2 rounded-[3px] px-1 py-px text-2xs leading-tight font-medium whitespace-nowrap opacity-0 group-hover:opacity-100",
             isLeft ? "left-1.5" : "right-1.5",
           )}
         >

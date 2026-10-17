@@ -30,6 +30,8 @@ from podci.state import (
 )
 
 Execute = Callable[[list[str], Path, dict[str, str], Path | None, int], int]
+# state_dir file: the last commit whose deploy passed its health check (rollback target, boot stack)
+DEPLOYED_SHA = "deployed-sha"
 Log = Callable[[str], None]
 
 
@@ -245,36 +247,83 @@ class Worker:
             self.status(run, "success", f"non-blocking, exit {code} ({took})", g.name)
         return state
 
+    @property
+    def deployed_sha_path(self) -> Path:
+        """The last commit whose deploy passed its health check (written here and by pod-bootstrap.sh)."""
+        return self.cfg.state_dir / DEPLOYED_SHA
+
+    def last_good_sha(self) -> str | None:
+        try:
+            sha = self.deployed_sha_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        return sha or None
+
+    def _checkout_deploy(self, sha: str, branch: str, log_path: Path) -> None:
+        cfg = self.cfg
+        token = self.token()
+        gitops.git(["-C", str(cfg.deploy_dir), "fetch", "--quiet", "origin", branch], token, run=self.run_cmd)
+        gitops.git(["-C", str(cfg.deploy_dir), "checkout", "--quiet", "--force", "--detach", sha], token,
+                   run=self.run_cmd)
+        nginx.apply(cfg.deploy_dir / "smartsched/deploy/nginx/default.conf", f"{cfg.web_bind}:{cfg.web_port}")
+        with open(log_path, "a", encoding="utf-8") as fh:
+            fh.write(f"checked out {sha} in {cfg.deploy_dir}; /ci/ location rendered into nginx\n")
+
+    def _deploy_env(self) -> dict[str, str]:
+        cfg = self.cfg
+        return {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(cfg.state_dir),
+                "DEPLOY_DIR": str(cfg.deploy_dir), "DEPLOY_FLAGS": " ".join(cfg.deploy_flags)}
+
     def _deploy(self, run: Run, logs: Path) -> str:
+        """deploy.sh --update never stops the running stack first (build, then `up -d`), so a failed build
+        leaves the live stack as it was. A failed deploy (build, migrations or health) is rolled back to the
+        last good commit (DEPLOYED_SHA) so the pod checkout, the images and a reboot all come back to it."""
         cfg = self.cfg
         log_path = logs / "deploy.log"
         self.store.step_transition(run.id, DEPLOY.name, STEP_RUNNING, log_path=str(log_path))
         self.status(run, "pending", "deploying", DEPLOY.name)
+        previous = self.last_good_sha()
         try:
-            token = self.token()
-            gitops.git(["-C", str(cfg.deploy_dir), "fetch", "--quiet", "origin", run.branch], token, run=self.run_cmd)
-            gitops.git(["-C", str(cfg.deploy_dir), "checkout", "--quiet", "--force", "--detach", run.sha], token,
-                       run=self.run_cmd)
-            nginx.apply(cfg.deploy_dir / "smartsched/deploy/nginx/default.conf", f"{cfg.web_bind}:{cfg.web_port}")
-            with open(log_path, "a", encoding="utf-8") as fh:
-                fh.write(f"checked out {run.sha} in {cfg.deploy_dir}; /ci/ location rendered into nginx\n")
+            self._checkout_deploy(run.sha, run.branch, log_path)
         except Exception as exc:  # noqa: BLE001
             with open(log_path, "a", encoding="utf-8") as fh:
                 fh.write(f"checkout failed: {exc}\n")
             self.store.step_transition(run.id, DEPLOY.name, FAILURE, exit_code=1)
             self.status(run, "failure", "checkout failed", DEPLOY.name)
+            if previous and previous != run.sha:
+                self._rollback(previous, run.branch, log_path)
             return FAILURE
-        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(cfg.state_dir),
-               "DEPLOY_DIR": str(cfg.deploy_dir), "DEPLOY_FLAGS": " ".join(cfg.deploy_flags)}
-        code = self.execute(["bash", str(cfg.gates_dir / DEPLOY.script)], log_path, env, None, DEPLOY.timeout)
+        code = self.execute(["bash", str(cfg.gates_dir / DEPLOY.script)], log_path, self._deploy_env(), None,
+                            DEPLOY.timeout)
         state = SUCCESS if code == 0 else FAILURE
         self.store.step_transition(run.id, DEPLOY.name, state, exit_code=code)
-        self.status(run, "success" if state == SUCCESS else "failure",
-                    "deployed" if state == SUCCESS else f"deploy.sh exit {code}", DEPLOY.name)
+        description = "deployed" if state == SUCCESS else f"deploy.sh exit {code}"
         if state == SUCCESS:
+            self.deployed_sha_path.write_text(run.sha + "\n", encoding="utf-8")
             # smartsched-ci-update.path (root) re-installs pod CI from the deployed checkout.
             (cfg.state_dir / "update-request").write_text(run.sha + "\n", encoding="utf-8")
+        elif previous and previous != run.sha:
+            back = self._rollback(previous, run.branch, log_path)
+            description += f"; rolled back to {previous[:7]}" if back else f"; rollback to {previous[:7]} failed"
+        else:
+            description += "; no earlier good deploy to roll back to"
+        self.status(run, "success" if state == SUCCESS else "failure", description, DEPLOY.name)
         return state
+
+    def _rollback(self, sha: str, branch: str, log_path: Path) -> bool:
+        with open(log_path, "a", encoding="utf-8") as fh:
+            fh.write(f"\n==== rollback to the last good deploy {sha}\n")
+        try:
+            self._checkout_deploy(sha, branch, log_path)
+        except Exception as exc:  # noqa: BLE001
+            with open(log_path, "a", encoding="utf-8") as fh:
+                fh.write(f"rollback checkout failed: {exc}\n")
+            self.log(f"rollback to {sha[:7]} failed: {exc}")
+            return False
+        code = self.execute(["bash", str(self.cfg.gates_dir / DEPLOY.script)], log_path, self._deploy_env(), None,
+                            DEPLOY.timeout)
+        self.log(f"rollback to {sha[:7]}: {'ok' if code == 0 else f'deploy.sh exit {code}'}")
+        return code == 0
 
 
 def cpu_times(stat: str | None = None) -> tuple[float, float]:

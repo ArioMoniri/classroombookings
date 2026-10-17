@@ -234,7 +234,7 @@ function DayTimelineImpl(p: DayTimelineProps) {
         <div className="cal-sticky sticky top-0 z-20 hairline-b" style={{ width, height: HEAD_H }} role="row">
           <div className="cal-sticky sticky left-0 z-10 h-full" style={{ width: LABEL_W }} />
           {PERIODS.map((per) => (
-            <span key={per.index} role="columnheader" className="absolute top-2 text-[11px] text-label-3 tabular-nums" style={{ left: LABEL_W + minuteX(periodStartMin(per.index), p.pxPerMin) + 3 }} title={`P${per.index}`}>
+            <span key={per.index} role="columnheader" className="absolute top-2 type-caption text-label-3 tabular-nums" style={{ left: LABEL_W + minuteX(periodStartMin(per.index), p.pxPerMin) + 3 }} title={`P${per.index}`}>
               {per.start}
             </span>
           ))}
@@ -253,8 +253,8 @@ function DayTimelineImpl(p: DayTimelineProps) {
           return (
             <div key={room.id} role="row" aria-rowindex={row + 2} className="absolute left-0" style={{ top, width, height: ROW_H, boxShadow: "inset 0 -1px 0 var(--cal-line)" }}>
               <div role="rowheader" className="cal-canvas sticky left-0 z-10 flex h-full items-center justify-between px-2" style={{ width: LABEL_W, boxShadow: "inset -1px 0 0 var(--cal-line-strong)" }} aria-label={t("calendar.roomAria", { room: room.name, cap: room.capacity })}>
-                <span className="text-[12px] font-semibold">{room.name}</span>
-                <span className="text-[11px] text-label-3 tabular-nums">{p.model.exam ? room.exam_capacity : room.capacity}{room.tags.includes("PC") ? " · PC" : ""}</span>
+                <span className="type-footnote font-semibold">{room.name}</span>
+                <span className="type-caption text-label-3 tabular-nums">{p.model.exam ? room.exam_capacity : room.capacity}{room.tags.includes("PC") ? " · PC" : ""}</span>
               </div>
               {PERIODS.map((per) => {
                 const free = slotFree(p.model, room.id, p.day, per.index, per.index, p.mask);
@@ -300,17 +300,17 @@ function DayTimelineImpl(p: DayTimelineProps) {
         {nowX !== null ? <div className="cal-now" aria-hidden style={{ left: nowX - 1, width: 2, top: HEAD_H, height: p.rooms.length * ROW_H }} /> : null}
         {create ? (
           <div className="cal-slot" data-state="create" style={{ left: xOf(Math.min(create.p0, create.p1)), width: wOf(Math.min(create.p0, create.p1), Math.max(create.p0, create.p1)), top: HEAD_H + create.row * ROW_H + 3, height: ROW_H - 6 }}>
-            <span className="absolute -top-5 left-0 text-[11px] font-medium whitespace-nowrap text-tint-text tabular-nums">{spanText(Math.min(create.p0, create.p1), Math.max(create.p0, create.p1))}</span>
+            <span className="absolute -top-5 left-0 type-caption font-medium whitespace-nowrap text-tint-text tabular-nums">{spanText(Math.min(create.p0, create.p1), Math.max(create.p0, create.p1))}</span>
           </div>
         ) : null}
         {drag ? (
           <>
             <motion.div className="cal-slot" layoutId={reduce ? undefined : "drop-slot"} transition={reduce ? { duration: 0 } : springs.snappy} data-state={!drag.check ? "ok" : !drag.check.ok ? "hard" : drag.check.soft.some((s) => s.code === "capacity") ? "soft" : "ok"} style={{ left: xOf(drag.sp), width: wOf(drag.sp, drag.sp + drag.ev.ep - drag.ev.sp), top: HEAD_H + drag.row * ROW_H + 4, height: ROW_H - 8 }} />
             <motion.div className="pointer-events-none absolute top-0 left-0 z-30" style={{ x: gx, y: gy }}>
-              <motion.div initial={{ scale: 1 }} animate={{ scale: reduce ? 1 : 1.03 }} transition={springs.snappy} className="cal-chip shadow-[0_12px_32px_-8px_rgb(0_0_0/0.35)]" style={{ ...chipVars(drag.ev.a.slot), position: "relative", width: wOf(drag.ev.sp, drag.ev.ep), height: ROW_H - 8, justifyContent: "center" }}>
+              <motion.div initial={{ scale: 1 }} animate={{ scale: reduce ? 1 : 1.03 }} transition={springs.snappy} className="cal-chip shadow-elev-3" style={{ ...chipVars(drag.ev.a.slot), position: "relative", width: wOf(drag.ev.sp, drag.ev.ep), height: ROW_H - 8, justifyContent: "center" }}>
                 <span className="cal-code truncate">{drag.ev.a.code ?? drag.ev.a.label}</span>
               </motion.div>
-              <div className="glass-thick mt-1 w-max max-w-[320px] rounded-full px-2.5 py-1 text-[11px] font-medium" role="status">
+              <div className="glass-thick mt-1 w-max max-w-[320px] rounded-full px-2.5 py-1 type-caption font-medium" role="status">
                 {drag.check ? (drag.check.ok ? `${p.rooms[drag.row]?.name ?? ""} · ${spanText(drag.sp, drag.sp + drag.ev.ep - drag.ev.sp)} ✓` : `✕ ${drag.check.hard[0]?.text[lang] ?? ""}`) : ""}
               </div>
             </motion.div>

@@ -15,4 +15,10 @@ describe("run picker label (UI polish: the /timetable run selector truncated '�
     expect(runOptionLabel(run, t, true).short).toBe("#12 · Classes · FEASIBLE · W1–7");
     expect(runOptionLabel({ ...run, horizon: "TERM", horizon_params: { weeks: [] } }, t, false).short).toBe("#12 · FEASIBLE");
   });
+  it("a named run leads with its label (ScheduleRun.label); kind only when mixed; the tooltip has everything", () => {
+    const run = { id: 4, kind: "COURSE", status: "FEASIBLE", horizon: "WEEK", horizon_params: { weeks: [3] }, label: "Bahar 3. hafta (A)" } as const;
+    expect(runOptionLabel(run, t, false)).toEqual({ short: "#4 · Bahar 3. hafta (A)", full: "#4 · Bahar 3. hafta (A) · Classes · FEASIBLE · W3" });
+    expect(runOptionLabel(run, t, true).short).toBe("#4 · Bahar 3. hafta (A) · Classes");
+    expect(runOptionLabel({ ...run, label: "  " }, t, false).short).toBe("#4 · FEASIBLE · W3");
+  });
 });

@@ -31,6 +31,7 @@ import { StudioProvider, useStudio, useStudioStore } from "./studio-context";
 import { SummaryPanel } from "./summary-panel";
 import type { BuilderPrefill } from "./template-gallery";
 import { GenerateProvider, useGenerate } from "./use-generate";
+import { BareButton } from "@/components/shell/bare-button";
 
 const STEP_KEY: Record<StudioStep, MessageKey> = { scope: "studio.step.scope", classes: "studio.step.classes", rules: "studio.step.rules", check: "studio.step.check", run: "studio.step.run" };
 
@@ -68,7 +69,8 @@ function useStepStatus(): Record<StudioStep, string> {
   const active = useStudioStore((s) => s.activeRun);
   const weeks = summary.weeks;
   return {
-    scope: local.horizon === "TERM" ? t("studio.stepStatus.term", { n: weeks.length }) : weeks.length ? t("studio.stepStatus.weeks", { from: weeks[0], to: weeks[weeks.length - 1], n: weeks.length }) : t("studio.stepStatus.noWeeks"),
+    // a whole-term plan counts the term's weeks, not the dated week rows (Güz: 2 of 14; round-2 T-R2-27, R1-S-22)
+    scope: local.horizon === "TERM" ? t("studio.stepStatus.term", { n: summary.weekCount }) : weeks.length ? t("studio.stepStatus.weeks", { from: weeks[0], to: weeks[weeks.length - 1], n: weeks.length }) : t("studio.stepStatus.noWeeks"),
     classes: t("studio.stepStatus.classes", { in: n(summary.classesIn), out: n(summary.classesOut) }),
     rules: `${t("studio.stepStatus.rules", { must: n(summary.must), try: n(summary.tryTo) })}${summary.problems ? ` · ⚠${summary.problems}` : ""}`,
     check: t(summary.readiness === "ready" ? "studio.check.ready" : summary.readiness === "needs_look" ? "studio.check.needsLook" : summary.readiness === "blocked" ? "studio.check.blocked" : summary.readiness === "checking" ? "studio.check.checking" : "studio.check.unknown"),
@@ -90,9 +92,9 @@ function SaveStatus() {
     return (
       <span className="inline-flex items-center gap-1 text-xs text-status-infeasible-fg" role="status" data-testid="save-status" data-state="error">
         <CloudOff className="size-3" aria-hidden /> {t("studio.save.error")}
-        <button type="button" className="underline" onClick={() => void flush()}>
+        <BareButton className="underline" onClick={() => void flush()}>
           {t("common.retry")}
-        </button>
+        </BareButton>
       </span>
     );
   if (s === "saved")
@@ -145,7 +147,7 @@ function UndoRedo({ className }: { className?: string }) {
     if (label) toast(t(key, { label }));
   };
   return (
-    <div className={cn("flex items-center gap-1", className)}>
+    <div className={cn("flex items-center gap-1 pointer-coarse:[--control-h-sm:var(--control-h-md)]", className)}>
       <Button size="sm" variant="ghost" onClick={() => void run(undo, "studio.undone")} disabled={!canUndo} aria-keyshortcuts="Meta+Z Control+Z" data-testid="studio-undo">
         <Undo2 aria-hidden /> {t("common.undo")}
       </Button>
@@ -208,6 +210,28 @@ function ConflictBanner() {
   return null;
 }
 
+/**
+ * < lg the step bar and the tab bar float over the page (fixed): while the studio is open the document's
+ * scroll-padding keeps a focused or scrolled-to control above them (WCAG 2.4.11 focus not obscured). The bottom
+ * inset is the step bar's offset (5.25rem) + its height (3.5rem) + a 0.5rem gap.
+ */
+function useBarScrollPadding() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const mq = window.matchMedia("(max-width: 1023.98px)");
+    const before = root.style.scrollPaddingBottom;
+    const apply = () => {
+      root.style.scrollPaddingBottom = mq.matches ? "calc(9.25rem + env(safe-area-inset-bottom))" : before;
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => {
+      mq.removeEventListener("change", apply);
+      root.style.scrollPaddingBottom = before;
+    };
+  }, []);
+}
+
 function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
   const { t } = useI18n();
   const reduce = useReduce();
@@ -226,6 +250,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
   }
   // the class table needs the width: the summary collapses to a 48 px rail below 1800 px
   const collapse = step === "classes";
+  useBarScrollPadding();
 
   // keyboard: Alt+1…5, [ / ], ⌘↵ generate, ⌘Z / ⌘⇧Z, ⌘⇧A advanced
   useEffect(() => {
@@ -309,12 +334,12 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
         <ol className="flex gap-1">
           {STUDIO_STEPS.map((s, i) => (
             <li key={s} className="shrink-0">
-              <button type="button" onClick={() => goStep(s)} aria-current={s === step ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex flex-col rounded-xl bg-fill-3 shadow-[inset_0_0_0_1px_var(--hairline)] px-3 py-1.5 text-left text-sm", s === step ? "bg-tint-soft text-tint-text" : "hover:bg-fill-2")} data-testid={`tab-step-${s}`}>
+              <BareButton onClick={() => goStep(s)} aria-current={s === step ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex flex-col rounded-xl bg-fill-3 edge-hairline px-3 py-1.5 text-left text-sm", s === step ? "bg-tint-soft text-tint-text" : "hover:bg-fill-2")} data-testid={`tab-step-${s}`}>
                 <span className="font-medium">
                   {i + 1} {t(STEP_KEY[s])}
                 </span>
-                <span className="max-w-48 truncate text-[11px] text-label-2">{status[s]}</span>
-              </button>
+                <span className="max-w-48 truncate type-caption text-label-2">{status[s]}</span>
+              </BareButton>
             </li>
           ))}
         </ol>
@@ -336,15 +361,15 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
                   const current = s === step;
                   return (
                     <li key={s}>
-                      <button type="button" onClick={() => goStep(s)} aria-current={current ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex min-h-14 w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)", current ? "bg-fill-1 text-label-1" : "hover:bg-fill-3")} data-testid={`rail-step-${s}`}>
-                        <span className={cn("mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums", current ? "bg-tint text-tint-foreground" : "bg-fill-2 text-label-2")}>{i + 1}</span>
+                      <BareButton onClick={() => goStep(s)} aria-current={current ? "step" : undefined} aria-label={`${t(STEP_KEY[s])}, ${status[s]}`} className={cn("flex min-h-14 w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left", current ? "bg-fill-1 text-label-1" : "hover:bg-fill-3")} data-testid={`rail-step-${s}`}>
+                        <span className={cn("mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full type-caption font-semibold tabular-nums", current ? "bg-tint text-tint-foreground" : "bg-fill-2 text-label-2")}>{i + 1}</span>
                         <span className="min-w-0">
                           <span className="block text-sm font-medium">{t(STEP_KEY[s])}</span>
                           <span className="block truncate text-xs text-label-2" aria-hidden>
                             {status[s]}
                           </span>
                         </span>
-                      </button>
+                      </BareButton>
                     </li>
                   );
                 })}
@@ -389,10 +414,10 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
 
         <div className="hidden xl:block">
           {collapse ? (
-            <button type="button" onClick={() => setSummaryOpen(true)} className="sticky top-4 flex w-full flex-col items-center gap-2 rounded-lg border py-3 text-xs hover:bg-fill-2 min-[1800px]:hidden" aria-label={t("studio.summary.title")} data-testid="summary-collapsed">
+            <BareButton onClick={() => setSummaryOpen(true)} className="sticky top-4 flex w-full flex-col items-center gap-2 rounded-lg border py-3 text-xs hover:bg-fill-2 min-[1800px]:hidden" aria-label={t("studio.summary.title")} data-testid="summary-collapsed">
               <ChevronLeft className="size-4" aria-hidden />
               <span className="[writing-mode:vertical-rl]">{t("studio.summary.title")}</span>
-            </button>
+            </BareButton>
           ) : null}
           <div className={cn("sticky top-4", collapse && "hidden min-[1800px]:block")}>
             <SummaryPanel />
@@ -400,19 +425,26 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
         </div>
       </div>
 
-      {/* < xl: sticky bottom bar — Back · summary pill · Next / Generate */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 px-3 lg:bottom-3 xl:hidden" data-testid="studio-bottom-bar">
-        <div data-glass="chrome" className="glass-chrome pointer-events-auto mx-auto flex max-w-3xl items-center gap-2 rounded-full p-1.5">
-          <Button variant="ghost" size="sm" disabled={index === 0} onClick={() => goStep(STUDIO_STEPS[index - 1])} className="pointer-coarse:min-h-11">
+      {/* < xl: bottom bar — Back · summary pill · Next / Generate.
+          < lg (no sidebar; the tab bar is shown): FIXED just above the tab bar, in the same layer, so it floats over
+          the content like the tab bar does instead of sitting in the flow: a sticky bar is page content, and whatever
+          step the draft was left on, the target that happened to rest under it was covered (axe target-size
+          "partially obscured" on /generate at 390, e2e-stabilisation 2026-10-16). The root's pb-24 and main's bottom
+          padding let the last row scroll above both bars; scroll-padding (below) keeps keyboard focus above them.
+          lg–xl: sticky INSIDE main, not fixed to the viewport: the fixed bar covered the sidebar footer at 1024
+          (review 2026-10-15 §3 Generate 1024). */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] lg:sticky lg:inset-x-auto lg:bottom-3 lg:mt-4 lg:px-0 xl:hidden" data-testid="studio-bottom-bar">
+        <div data-glass="chrome" className="glass-chrome pointer-events-auto mx-auto flex max-w-3xl items-center gap-2 rounded-full p-1.5 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
+          <Button variant="ghost" size="sm" disabled={index === 0} onClick={() => goStep(STUDIO_STEPS[index - 1])}>
             <ChevronLeft aria-hidden /> {t("common.back")}
           </Button>
-          <button type="button" onClick={() => setSummaryOpen(true)} className="min-w-0 flex-1 truncate rounded-full bg-fill-3 px-3 py-1.5 text-left text-xs pointer-coarse:min-h-11" data-testid="summary-pill">
+          <BareButton onClick={() => setSummaryOpen(true)} className="min-h-(--control-h-sm) min-w-0 flex-1 truncate rounded-full bg-fill-3 px-3 text-left type-footnote focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="summary-pill">
             <SummaryPill />
-          </button>
+          </BareButton>
           {step === "run" ? (
             <GenerateButton size="sm" testId="bar-generate" />
           ) : (
-            <Button size="sm" onClick={() => goStep(STUDIO_STEPS[index + 1])} className="pointer-coarse:min-h-11" data-testid="step-next">
+            <Button size="sm" onClick={() => goStep(STUDIO_STEPS[index + 1])} data-testid="step-next">
               {t("common.next")} <ChevronRight aria-hidden />
             </Button>
           )}

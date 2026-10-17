@@ -808,15 +808,22 @@ def check_candidate(
                     text=_t(f"{code} kullanıma kapalı", f"{code} is not bookable"),
                 )
             )
-        if "TIP" in (room.tags or []) and rid not in c.current_rooms and not (c.meeting and "TIP" in c.meeting.tags):
-            soft.append(
+        if (
+            "TIP" in (room.tags or [])
+            and rid not in c.current_rooms
+            and not (c.meeting and ("TIP" in c.meeting.tags or rid in c.meeting.definitive_ids))
+            and not c.exam_id
+        ):
+            # round-1 R1-S-01: the solver bans courses from medicine (TIP) rooms (a hard room-tag rule) unless the
+            # class asks for one or the planner seats it there; the move check is the same hard rule
+            hard.append(
                 Issue(
                     code="tip",
-                    severity="soft",
+                    severity="hard",
                     room_code=code,
                     text=_t(
-                        f"{code} TIP dersliği (tıp eğitimine ayrılmış)",
-                        f"{code} is a TIP room (reserved for medical teaching)",
+                        f"{code} TIP dersliği (tıp eğitimine ayrılmış); bu ders oraya konamaz (kesin kural)",
+                        f"{code} is a TIP room (reserved for medical teaching); this class may not use it (hard rule)",
                     ),
                 )
             )
@@ -1053,8 +1060,8 @@ def free_rooms(
         elif any(i.code in ("room_overlap", "seats", "booking") for i in hard):
             hit = next(i for i in hard if i.code in ("room_overlap", "seats", "booking"))
             status, reason, with_label = "busy", hit.text, hit.with_label
-        elif any(i.code == "pc" for i in hard):
-            status, reason = "tag_mismatch", next(i.text for i in hard if i.code == "pc")
+        elif any(i.code in ("pc", "tip") for i in hard):
+            status, reason = "tag_mismatch", next(i.text for i in hard if i.code in ("pc", "tip"))
         elif size and cap < size:
             status = "too_small"
             reason = next((i.text for i in [*hard, *soft] if i.code == "capacity"), None)
@@ -2202,7 +2209,7 @@ async def export_planning_list(session: AsyncSession, term: Term, data: ClassesO
     ws.freeze_panes = "A2"
     legend = wb.create_sheet("SmartSched")
     legend.append(["Sütun", "Açıklama"])
-    legend.append([SMARTSCHED_COLUMN, f"Run #{data.run_id} yerleşimi; '{KESINLESEN}' sütununa dokunulmadı."])
+    legend.append([SMARTSCHED_COLUMN, f"Çalıştırma #{data.run_id} yerleşimi; '{KESINLESEN}' sütununa dokunulmadı."])
     legend.append(["Yerleşmedi", "Bu çalıştırmada derslik bulunamadı."])
     legend.append(["Oda gerekmez", "Online / uzaktan ders."])
     buf = io.BytesIO()

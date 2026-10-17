@@ -430,6 +430,33 @@ UTF-8 with a BOM; ICS text is RFC 5545-escaped and folded on UTF-8 byte boundari
 The user's requirement: SmartSched has every classroombookings function and more, not less in any way.
 `python3 scripts/parity_check.py` proves it row by row and writes `docs/testing/crbs-parity-report.md`.
 
+**Latest measured result** (generated from the committed `docs/testing/crbs-parity-report.md` by
+`scripts/docs/sync_docs.py`; the dated measurements further down are the history):
+
+<!-- AUTO:parity gaps=yes -->
+
+**CRBS superset gate: PASS**: PASS 179 · GAP 13 · FAIL 0 · MISSING 0 of 192 rows, measured on commit `5d0e6c2` (2026-10-15 22:10 UTC) by `scripts/parity_check.py`. Full table: [`crbs-parity-report.md`](testing/crbs-parity-report.md).
+
+Rows not passing (13):
+
+| Row | Behaviour / screen | API | UI | Result |
+|---|---|---|---|---|
+| B-SETUP-02 | Installer requirements step (runtime, image library, LDAP module, writable uploads, database); an error… | PASS (1) | GAP | GAP |
+| B-BOOK-15 | Multi-booking: select slots, per-slot single details, atomic create, dry run | PASS (1) | GAP | GAP |
+| B-BOOK-26 | Cancel many selected bookings (only those the user may cancel) | PASS (1) | GAP | GAP |
+| B-BOOK-29 | Dashboard: my next 14 days, others' bookings in rooms I own, totals, my limits | PASS (2) | GAP | GAP |
+| X-02 | E-mail notifications through SMTP with an outbox (UNSENT without SMTP, FAILED with the error) | PASS (2) | GAP | GAP |
+| X-CAL-05 | Google Calendar and Microsoft 365 push connectors: admin-entered OAuth client (configured: false otherwise)… | PASS (6) | GAP | GAP |
+| X-HOOK-01 | Outgoing webhooks for booking.* and approval.*: HMAC-SHA256 signature, retries with backoff, delivery log… | PASS (5) | GAP | GAP |
+| MISS-1 | The CRBS frontend (grid, sheets, admin screens, login extras) | GAP (0) | PASS | GAP |
+| P18-DIFF | Side-by-side: legacy CRBS and SmartSched on the same data agree on grid states | GAP (0) | - | GAP |
+| S-06 | Multi-booking wizard | PASS (1) | GAP | GAP |
+| S-09 | Cancel dialog (one / future / all, reason) and cancel many | PASS (1) | PASS | GAP |
+| S-10 | Staff dashboard (my upcoming, rooms I own, totals, limits) | PASS (1) | GAP | GAP |
+| S-23 | E-mail (SMTP) settings, test message and outbox | PASS (1) | PASS | GAP |
+
+<!-- /AUTO:parity -->
+
 * **Inventory** — `smartsched/backend/tests/parity/inventory.py`, 192 rows since the wave-1 and calendar-sync
   rows were added (182 at the first measurement below): 109 CRBS behaviours (§2 features
   split per behaviour: B-SETUP, B-AUTH, B-USERS, B-ROLES, B-ROOMS, B-SESS, B-BOOK), 7 "more than CRBS" rows (X-*),

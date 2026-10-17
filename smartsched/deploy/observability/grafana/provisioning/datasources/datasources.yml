@@ -1,0 +1,21 @@
+# Provisioned datasources (W3-OPS). Internal URLs on the compose network; nothing is editable in the UI.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: smartsched-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 30s
+      httpMethod: POST
+  - name: Loki
+    uid: smartsched-loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000

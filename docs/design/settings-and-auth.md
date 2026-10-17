@@ -44,13 +44,7 @@ VIEWER: no /settings link; PLANNER: General (read), Solver (edit), Terms (edit),
 ## 3. Interaction spec
 
 ### 3.1 Login
-- Layout (Tana #1): centred card 400 px, 24 px padding, logo + product name, `h1` "Giriş yap". Fields: Email (`type=email`, `autocomplete=username`, `inputmode=email`), Password (`autocomplete=current-password`, eye toggle button `aria-pressed`, `aria-label="Show password"`), checkbox "Bu cihazda oturumum açık kalsın" with sub-text (Expedia #4) → refresh token 30 d vs session.
-- Submit: button shows spinner + "Giriş yapılıyor…", disabled; `Enter` submits. On 401: red alert at top (Tana #1) "E-posta veya şifre hatalı", focus moves to the alert (`role="alert"`), password cleared, email kept. On 423/429: "Çok fazla deneme · 5 dk sonra tekrar deneyin" with countdown. On network error: "Sunucuya ulaşılamıyor" + retry.
-- Field-level validation only on blur/submit (OpenAI #3): invalid email format, empty password.
-- Success: redirect to `?next=` or `/dashboard`; toast "Hoş geldiniz, Fatih Bey" (first name from `/auth/me`).
-- Footer: TR | EN segmented, theme toggle, version, "Forgot password?" → if no email service configured, shows "Ask an administrator to reset it" (open question §7.1).
-- Future SSO slot (Cursor #2): a secondary button "Üniversite hesabıyla giriş" above the fields, hidden until LDAP is configured.
-- Motion: card fade+rise 200 ms on mount; error shake 300 ms (transitions.dev "Error state shake", free) — disabled under reduced motion (alert still appears).
+Superseded (2026-10-15) by [`v2/sign-in.md`](v2/sign-in.md): §3 pattern, §4 anatomy and routes, §5 layout per breakpoint, §6 states and copy (TR/EN, "Parola"), §7 the Microsoft button, §11 accessibility, §15 acceptance checks.
 
 ### 3.2 Settings shell
 - Secondary nav left (200 px; on < 1024 becomes a top `Tabs` scroller). Each page = stack of **section cards** (Vercel #10): title (h2), description (muted), control(s), footer row: helper link left, **Save** right (disabled until dirty; `⌘S` saves the focused card). Cards save independently (`PUT /settings` with only the changed keys).
@@ -97,7 +91,7 @@ VIEWER: no /settings link; PLANNER: General (read), Solver (edit), Terms (edit),
 `⌘S` save focused card · `Esc` close panel (asks if dirty) · Tab order follows visual order; eye toggle after the input. Touch: side panels become full-screen Sheets; sliders have ±buttons beside them for precision.
 
 ### 3.9 Motion
-Card save check morph 250 ms; panel slide 200 ms; error shake 300 ms (login only); badge colour fade 150 ms. Reduced motion: none of the above except opacity.
+Sign-in motion: [`v2/sign-in.md`](v2/sign-in.md) §10, mirrored in [`v2/motion.md`](v2/motion.md) §3.12. Settings motion follows motion.md (card save = success check, pattern 10; panels = sheet, pattern 4); the old 250/200/300 ms values here are superseded.
 
 ## 4. Component list
 
@@ -118,12 +112,14 @@ Card save check morph 250 ms; panel slide 200 ms; error shake 300 ms (login only
 
 ## 5. Responsive behaviour
 
-| Width | Login | Settings |
-|---|---|---|
-| 360 | card full-width with 16 px gutters, no outer card border (flat), footer controls stacked | secondary nav → top horizontal `Tabs` scroller; cards full-width; Save buttons full-width; side panels = full-screen Sheets; weights table → list rows with slider under label |
-| 768 | 400 px centred card | nav as tabs; cards 720 px |
-| 1280 | 400 px card; optional right-side illustration/quote column (Unify-style split) | left nav 200 px + 760 px content |
-| 1920 | same (do not scale the card) | content max 880 px; usage charts can sit in a second column |
+Login: see [`v2/sign-in.md`](v2/sign-in.md) §5 (layout per breakpoint), which supersedes the login column this table had.
+
+| Width | Settings |
+|---|---|
+| 360 | secondary nav → top horizontal `Tabs` scroller; cards full-width; Save buttons full-width; side panels = full-screen Sheets; weights table → list rows with slider under label |
+| 768 | nav as tabs; cards 720 px |
+| 1280 | left nav 200 px + 760 px content |
+| 1920 | content max 880 px; usage charts can sit in a second column |
 
 ## 6. Accessibility
 - Login: `<form>` with `aria-describedby` to the alert; alert `role="alert"` receives focus on error; password toggle is a button with `aria-pressed` and `aria-controls`; "keep me signed in" has visible helper text linked via `aria-describedby`.

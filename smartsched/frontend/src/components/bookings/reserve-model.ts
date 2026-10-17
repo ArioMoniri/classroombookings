@@ -107,6 +107,11 @@ export interface FreeRoom {
   count: number;
 }
 
+/** the viewer's own request waiting for the approvers (the grid lists it as a pending booking, U-06) */
+export function isOwnPending(s: GridSlot): boolean {
+  return s.status === "booked" && s.reason === "pending" && !!s.booking?.is_owner;
+}
+
 /**
  * The "Free slots" lens: every reservable slot of the given grids (one day grid, or a week of day grids),
  * grouped by room, then date, merged into runs of consecutive periods; periods already over are left out.
@@ -126,7 +131,8 @@ export function freeSlotsByRoom(grids: Grid[], opts: { now?: Now; firstRooms?: R
         const runs: GridSlot[][] = [];
         let cur: GridSlot[] = [];
         for (const s of day) {
-          if (isSelectable(s) && !over(s, periods.get(s.period_id), opts.now)) cur.push(s);
+          // T-R1-14 (R1-A-06): the viewer's own open request stays in the list as "Talebiniz bekliyor"
+          if ((isSelectable(s) || isOwnPending(s)) && !over(s, periods.get(s.period_id), opts.now)) cur.push(s);
           else if (cur.length) {
             runs.push(cur);
             cur = [];
@@ -140,7 +146,7 @@ export function freeSlotsByRoom(grids: Grid[], opts: { now?: Now; firstRooms?: R
           order.push(room.id);
         }
         entry.days.push({ date, runs });
-        entry.count += runs.reduce((n, r) => n + r.length, 0);
+        entry.count += runs.reduce((n, r) => n + r.filter((x) => !isOwnPending(x)).length, 0);
       }
     }
   }

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ADMIN_EMAIL, FINISHED, REAL, SKIP_REASON, TERM_CODE, api, boardRun, login, numberText, type Run, type Term } from "./helpers";
+import { pinLanguage } from "./language";
 
 /**
  * Real-backend data truth (E2E_REAL=1): FastAPI on SQLite with the real Bahar 2026 workbooks imported through
@@ -11,6 +12,8 @@ import { ADMIN_EMAIL, FINISHED, REAL, SKIP_REASON, TERM_CODE, api, boardRun, log
  * → run report → the imported board's week has classes on the calendar → settings: users list has the admin.
  */
 test.skip(!REAL, SKIP_REASON);
+// the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
+pinLanguage("tr");
 
 test("real backend: login → dashboard → classes → rooms → studio run → report → calendar → settings", async ({ page }) => {
   test.setTimeout(300_000);
@@ -38,7 +41,7 @@ test("real backend: login → dashboard → classes → rooms → studio run →
   await expect(rows.first()).toContainText(/[A-ZÇĞİÖŞÜ]{2,5}\s?\d{3}/);
 
   // ---- rooms: the room master from the weekly grid
-  await page.goto("/rooms");
+  await page.goto("/rooms?layout=cards"); // the table is the default layout; the cards show the seats as a fact
   await expect(page.getByTestId("rooms")).toBeVisible();
   const a204 = page.getByTestId("room-card").filter({ hasText: "A 204" }).first();
   await expect(a204).toBeVisible({ timeout: 30_000 });
@@ -84,5 +87,6 @@ test("real backend: login → dashboard → classes → rooms → studio run →
   await page.goto("/settings");
   await expect(page.getByTestId("settings")).toBeVisible();
   await page.getByTestId("tab-users").click();
-  await expect(page.getByText(ADMIN_EMAIL).first()).toBeVisible({ timeout: 20_000 });
+  // the users table renders the address twice (a column, and under the name on phones): the one shown
+  await expect(page.getByText(ADMIN_EMAIL).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 });
 });

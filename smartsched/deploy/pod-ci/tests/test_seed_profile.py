@@ -21,7 +21,9 @@ sys.modules["deploy_seed"] = seed
 _spec.loader.exec_module(seed)
 
 ALL = [s.name for s in seed.INSTITUTION]
-IMPORTS = [s.name for s in seed.INSTITUTION if not s.optional_cli]
+IMPORTS = [s.name for s in seed.INSTITUTION if not s.optional_cli]  # the required steps (approval-mode + imports)
+CLI = {"import", "set-setting"}  # the app.cli commands the required steps use
+BACKEND = REPO / "smartsched/backend"
 
 
 @pytest.mark.parametrize(
@@ -111,17 +113,18 @@ class FakeCli:
 
 
 def test_institution_seed_runs_once_and_resumes_only_missing_steps() -> None:
-    store, cli = FakeStore(), FakeCli({"import"})
+    store, cli = FakeStore(), FakeCli(CLI)
     out = seed.run("institution", store, cli, "/seed/files", log=lambda _m: None)
     assert out.ran == IMPORTS and out.skipped == ["learning"]
     assert len(cli.imports()) == 7 and cli.imports()[0][2] == "/seed/files/bahar_derslikler_takvimi_2026.xlsx"
     assert store.marker and set(store.marker["steps"]) == set(IMPORTS) and store.marker["profile"] == "institution"
     # a second deploy: nothing is imported again
-    cli2 = FakeCli({"import"})
+    cli2 = FakeCli(CLI)
     out2 = seed.run("institution", store, cli2, "/seed/files", log=lambda _m: None)
     assert out2.ran == [] and out2.already == IMPORTS and cli2.imports() == []
+    assert not [c for c in cli2.calls if c[0] == "set-setting"]
     # the learning CLI lands later: only that step runs
-    cli3 = FakeCli({"import", "learning-refresh"})
+    cli3 = FakeCli(CLI | {"learning-refresh"})
     out3 = seed.run("institution", store, cli3, "/seed/files", log=lambda _m: None)
     assert out3.ran == ["learning"] and cli3.imports() == [] and set(store.marker["steps"]) == set(ALL)
 
@@ -129,27 +132,86 @@ def test_institution_seed_runs_once_and_resumes_only_missing_steps() -> None:
 def test_failed_step_keeps_finished_steps_for_the_next_deploy() -> None:
     store = FakeStore()
     with pytest.raises(RuntimeError, match="guz-planning failed"):
-        seed.run("institution", store, FakeCli({"import"}, fail="guz_derslik_planlama"), "/f", log=lambda _m: None)
-    assert store.marker and list(store.marker["steps"]) == ["bahar-grid", "bahar-planning", "guz-grid"]
-    cli = FakeCli({"import"})
+        seed.run("institution", store, FakeCli(CLI, fail="guz_derslik_planlama"), "/f", log=lambda _m: None)
+    assert store.marker and list(store.marker["steps"]) == ["approval-mode", "bahar-grid", "bahar-planning", "guz-grid"]
+    cli = FakeCli(CLI)
     out = seed.run("institution", store, cli, "/f", log=lambda _m: None)
     assert out.ran[0] == "guz-planning" and len(cli.imports()) == 4
 
 
 def test_hand_loaded_data_and_other_profiles_are_left_alone() -> None:
-    cli = FakeCli({"import"})
+    cli = FakeCli(CLI)
     out = seed.run("institution", FakeStore(terms=True), cli, "/f", log=lambda _m: None)
     assert cli.calls == [] and "loaded by hand" in out.note
-    assert seed.run("institution", FakeStore(terms=True), FakeCli({"import"}), "/f", force=True,
+    assert seed.run("institution", FakeStore(terms=True), FakeCli(CLI), "/f", force=True,
                     log=lambda _m: None).ran == IMPORTS
     other = FakeStore({"profile": "empty", "version": 1, "steps": {}})
     assert "not changing" in seed.run("institution", other, cli, "/f", log=lambda _m: None).note and cli.calls == []
 
 
 def test_empty_profile_touches_nothing() -> None:
-    store, cli = FakeStore(), FakeCli({"import"})
+    store, cli = FakeStore(), FakeCli(CLI)
     out = seed.run("empty", store, cli, "/f", log=lambda _m: None)
     assert out.ran == [] and cli.calls == [] and store.puts == 0 and store.marker is None
+
+
+# ---- approval mode (owner 2026-10-15: institution = every request goes to the administrators first) -------------
+def test_institution_sets_approval_mode_all_first_and_once() -> None:
+    store, cli = FakeStore(), FakeCli(CLI)
+    seed.run("institution", store, cli, "/seed/files", log=lambda _m: None)
+    assert cli.calls[0] == ["set-setting", "bookings.approval_mode", "all"]
+    assert [c for c in cli.calls if c[0] == "set-setting"] == [["set-setting", "bookings.approval_mode", "all"]]
+    assert store.marker and "approval-mode" in store.marker["steps"]
+    # a database seeded before this step existed gets only the new step on the next deploy
+    old = FakeStore({"profile": "institution", "version": 1, "steps": dict.fromkeys(ALL[1:], "2026-10-15T20:00:00Z")})
+    cli2 = FakeCli(CLI)
+    out = seed.run("institution", old, cli2, "/seed/files", log=lambda _m: None)
+    assert out.ran == ["approval-mode"] and cli2.calls == [["set-setting", "bookings.approval_mode", "all"]]
+    # an administrator who switched back to "rules" afterwards is not overridden by later deploys
+    cli3 = FakeCli(CLI)
+    assert seed.run("institution", old, cli3, "/seed/files", log=lambda _m: None).ran == [] and cli3.calls == []
+
+
+def test_empty_profile_keeps_rules() -> None:
+    cli = FakeCli(CLI)
+    seed.run("empty", FakeStore(), cli, "/f", log=lambda _m: None)
+    assert not any(c[0] == "set-setting" for c in cli.calls)
+    assert all(s.name != "approval-mode" for s in seed.steps_for("empty"))
+
+
+def _backend_python() -> bool:
+    probe = "import aiosqlite, fastapi, sqlalchemy"
+    return subprocess.run([sys.executable, "-c", probe], capture_output=True).returncode == 0
+
+
+@pytest.mark.skipif(not _backend_python(), reason="backend dependencies not installed (the backend gate covers it)")
+def test_approval_mode_step_through_the_real_cli(tmp_path: Path) -> None:
+    """The seed's approval-mode step runs the real ``app.cli set-setting`` (imports faked: they are slow and covered
+    elsewhere); the institution database stores ``all``, an empty-profile database keeps the default ``rules``."""
+    import sqlite3
+
+    def real(db: Path) -> seed.Runner:
+        def runner(argv: Sequence[str]) -> int:
+            if argv[0] != "set-setting":
+                return 0
+            url = f"sqlite+aiosqlite:///{db}"
+            return subprocess.run([sys.executable, "-m", "app.cli", "--database-url", url, *argv], cwd=BACKEND,
+                                  capture_output=True, text=True, timeout=180).returncode
+        return runner
+
+    inst = tmp_path / "institution.db"
+    out = seed.run("institution", FakeStore(), real(inst), "/f", log=lambda _m: None)
+    assert "approval-mode" in out.ran
+    with sqlite3.connect(inst) as c:
+        assert c.execute("SELECT value FROM settings WHERE key = 'bookings.approval_mode'").fetchall() == [("all",)]
+    empty = tmp_path / "empty.db"
+    assert seed.run("empty", FakeStore(), real(empty), "/f", log=lambda _m: None).ran == []
+    assert not empty.exists()  # nothing ran, so nothing was written: the backend default applies
+    default = subprocess.run(
+        [sys.executable, "-c", "from app.services.bookings_settings import BOOKINGS_SPECS as S; "
+                               "print(S['approval_mode'].default)"],
+        cwd=BACKEND, capture_output=True, text=True, check=True).stdout.strip()
+    assert default == "rules"
 
 
 # ---- repository wiring ------------------------------------------------------------------------------------------

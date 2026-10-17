@@ -410,8 +410,11 @@ class PeriodRange:
     start_period: int | None
     end_period: int | None
     warnings: list[str] = field(default_factory=list)
-    #: the list's time was off the grid and moved to whole periods (:func:`snap_to_periods`)
+    #: the list's time was off the grid and moved to whole periods (:func:`snap_to_periods`), or - for an exam -
+    #: occupies some periods only partly (:func:`exam_periods`)
     snapped: bool = False
+    #: periods an exam's written time covers only partly (:func:`exam_periods`)
+    partial: list[int] = field(default_factory=list)
 
     @property
     def duration(self) -> int:
@@ -443,8 +446,9 @@ def _on_grid(start: time, end: time) -> bool:
 
 
 def snap_to_periods(start: time | None, end: time | None) -> PeriodRange:
-    """Periods of a planning / exam list time (product-owner decision 2026-10-15): every period the class covers
-    for at least half of its length. ``10:20-11:40`` -> P3-P4 (30 of P3's 40 minutes); ``10:35-11:40`` -> P4.
+    """Periods of a CLASS time - planning list and hand-made meetings (product-owner decision 2026-10-15): every
+    period the class covers for at least half of its length; exams are never moved (:func:`exam_periods`).
+    ``10:20-11:40`` -> P3-P4 (30 of P3's 40 minutes); ``10:35-11:40`` -> P4.
     A class that covers no period for half of it gets the period it covers most. An off-grid time is
     ``snapped`` and says so in a warning; the data-issues report lists it (``time_snapped``).
 
@@ -470,6 +474,29 @@ def snap_to_periods(start: time | None, end: time | None) -> PeriodRange:
     a, b = PERIODS[first - 1], PERIODS[last - 1]
     msg = f"time {start:%H:%M}-{end:%H:%M} snapped to P{first}-P{last} ({a.start:%H:%M}-{b.end:%H:%M}): {how}"
     return PeriodRange(first, last, [msg], snapped=True)
+
+
+def exam_periods(start: time | None, end: time | None) -> PeriodRange:
+    """Periods of an exam (owner decision 2026-10-15): exams are never moved. An exam occupies EVERY period its
+    written time overlaps (``14:00-16:00`` -> P7-P9: P7 13:30-14:10 is overlapped by 10 minutes) and keeps its
+    written start time; only break minutes (``10:00`` = end of P2, P3 from 10:10) fall outside every period.
+    Partly covered periods are listed (``partial``) and said in a warning ("covers P7 partly"); the
+    data-issues report shows them as info. Classes use :func:`snap_to_periods`."""
+    if start is None or end is None:
+        return PeriodRange(None, None, ["missing start or end time"])
+    s, e = _minutes(start), _minutes(end)
+    if e <= s:
+        return PeriodRange(None, None, [f"end time {end:%H:%M} is not after start {start:%H:%M}"])
+    over = [p for p in PERIODS if min(e, _minutes(p.end)) > max(s, _minutes(p.start))]
+    if not over:
+        return PeriodRange(None, None, [f"time {start:%H:%M}-{end:%H:%M} is outside the period grid"])
+    partial = [p.index for p in over if s > _minutes(p.start) or e < _minutes(p.end)]
+    first, last = over[0].index, over[-1].index
+    if not partial:
+        return PeriodRange(first, last)
+    parts = ", ".join(f"P{i}" for i in partial)
+    msg = f"time {start:%H:%M}-{end:%H:%M} covers {parts} partly; the exam occupies P{first}-P{last} (not moved)"
+    return PeriodRange(first, last, [msg], snapped=True, partial=partial)
 
 
 _SLOT_RX = re.compile(r"(\d{1,2})[.:](\d{2})\s*-\s*(\d{1,2})[.:\-](\d{2})")

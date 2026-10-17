@@ -100,5 +100,56 @@
     "find": {
       "weeks": "Uger"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "Dag"
+    }
+  },
+  "programWizard": {
+    "col": {
+      "year": "År"
+    },
+    "patterns": {
+      "weeks": "Uger"
+    }
+  },
+  "analytics": {
+    "week": "Uge"
+  },
+  "compare": {
+    "week": "Uge"
+  },
+  "invigilation": {
+    "people": {
+      "days": "Dage"
+    },
+    "pool": {
+      "hours": "Timer"
+    }
+  },
+  "policies": {
+    "day": {
+      "1": "Man",
+      "2": "Tir",
+      "3": "Ons",
+      "4": "Tor",
+      "5": "Fre",
+      "6": "Lør",
+      "7": "Søn"
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "Dag"
+  },
+  "quickReserve": {
+    "day": {
+      "label": "Dag"
+    }
+  },
+  "aiAdmin": {
+    "usage": {
+      "day": "Dag"
+    }
   }
 }

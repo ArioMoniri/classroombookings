@@ -9,11 +9,12 @@ worker sends them after the commit (retries with backoff); see :func:`notify`.""
 from __future__ import annotations
 
 import asyncio
-import smtplib
-import ssl
+import hashlib
+import logging
+import smtplib  # noqa: F401  (tests replace bookings_notify.smtplib.SMTP; app.services.mail sends)
+import weakref
 from datetime import datetime
 from email.message import EmailMessage
-from email.utils import formataddr
 from typing import Any
 
 from sqlalchemy import func, select
@@ -26,35 +27,49 @@ from app.services import bookings_events as events
 from app.services import bookings_i18n
 from app.services.bookings_settings import get_group, get_value
 
+log = logging.getLogger(__name__)
+
 NOT_CONFIGURED = "SMTP is not configured"
 QUEUED = "PENDING"  # the integrations worker's queue status (app.models.integrations.PENDING)
 T = bookings_i18n.text  # e-mail texts: admin overrides (translations, set "email") over the shipped ones
 
 
 def _send(smtp: dict[str, Any], msg: EmailMessage) -> None:
-    timeout = int(smtp.get("timeout_s") or 15)
-    host, port = str(smtp["host"]), int(smtp.get("port") or 587)
-    security = str(smtp.get("security") or "starttls").lower()
-    server: smtplib.SMTP
-    if security == "ssl":
-        server = smtplib.SMTP_SSL(host, port, timeout=timeout, context=ssl.create_default_context())
-    else:
-        server = smtplib.SMTP(host, port, timeout=timeout)
+    """Hand ``msg`` to the SMTP server (password, XOAUTH2 or no sign-in; app.services.mail.transmit)."""
+    from app.services import mail
+
+    mail.transmit(smtp, msg)
+
+
+#: template context of a message sent at once (password reset: the code box); never stored, gone with the row object
+_RENDER_CTX: weakref.WeakKeyDictionary[NotificationOutbox, dict[str, Any]] = weakref.WeakKeyDictionary()
+
+
+async def _rendered(session: AsyncSession, row: NotificationOutbox) -> Any:
+    """The themed HTML + plain text of ``row`` (wave 3b W3-MAIL): the stored subject and body themed by the renderer
+    of the row's kind, in the reader's language. A rendering failure never stops the e-mail: it goes as plain text."""
+    from app.services import mail
+
     try:
-        if security == "starttls":
-            server.starttls(context=ssl.create_default_context())
-        if smtp.get("username"):
-            server.login(str(smtp["username"]), str(smtp.get("password") or ""))
-        server.send_message(msg)
-    finally:
-        try:
-            server.quit()
-        except smtplib.SMTPException:
-            server.close()
+        user = await session.get(User, row.user_id) if row.user_id else None
+        locale = await mail.resolve_locale(session, row.locale, user)
+        ctx = _RENDER_CTX.get(row)
+        if ctx is not None:
+            return await mail.render_for(session, row.kind, locale, **ctx)
+        name = mail.display_name(user)
+        what = row.subject.split(": ", 1)[1] if ": " in row.subject else ""
+        return await mail.render_for(
+            session, row.kind, locale, subject=row.subject, body=row.body, link=row.link, name=name, what=what
+        )
+    except Exception:  # noqa: BLE001 - the plain-text e-mail still goes out
+        log.exception("e-mail rendering failed for outbox row %s (%s)", row.id, row.kind)
+        return None
 
 
 async def deliver(session: AsyncSession, row: NotificationOutbox) -> NotificationOutbox:
     """Try to send ``row`` now (also used by the outbox "retry")."""
+    from app.services import mail
+
     smtp = await get_group(session, "smtp", reveal=True)
     if not row.to_email:
         row.status, row.error = "UNSENT", "recipient has no e-mail address"
@@ -62,15 +77,15 @@ async def deliver(session: AsyncSession, row: NotificationOutbox) -> Notificatio
     if not (smtp["host"] and smtp["from_address"]):
         row.status, row.error = "UNSENT", NOT_CONFIGURED
         return row
-    msg = EmailMessage()
-    msg["Subject"] = row.subject
-    msg["From"] = formataddr((str(smtp.get("from_name") or ""), str(smtp["from_address"])))
-    msg["To"] = row.to_email
-    msg.set_content(row.body)
+    rendered = await _rendered(session, row)
+    # an admin override of the subject (translation set "email") reaches the e-mail; otherwise it is the stored one
+    subject = rendered.subject if rendered is not None else row.subject
+    text = rendered.text if rendered is not None else row.body
+    msg = mail.build_message(smtp, to=row.to_email, rendered=rendered, subject=subject, text=text, link=row.link)
     row.attempts = (row.attempts or 0) + 1
     try:
         await asyncio.to_thread(_send, smtp, msg)
-    except (OSError, smtplib.SMTPException) as exc:
+    except Exception as exc:  # noqa: BLE001 - SMTP / network / OAuth2 token errors: recorded, retried with backoff
         row.status, row.error = "FAILED", f"{type(exc).__name__}: {exc}"[:500]
         return row
     row.status, row.error, row.sent_at = "SENT", None, utcnow()
@@ -87,15 +102,31 @@ async def notify(
     user_id: int | None = None,
     booking_id: int | None = None,
     deliver_now: bool = False,
+    link: str | None = None,
+    locale: str | None = None,
+    ctx: dict[str, Any] | None = None,
 ) -> NotificationOutbox:
     """Record an e-mail in the outbox. Without an address or SMTP it is ``UNSENT`` at once. ``deliver_now`` (password
     reset codes, the SMTP test: the caller needs the result) sends inside the request as before; everything else is
-    ``PENDING`` and sent by the integrations worker after the commit, with retries and backoff (ROADMAP Phase 11)."""
+    ``PENDING`` and sent by the integrations worker after the commit, with retries and backoff (ROADMAP Phase 11).
+
+    Wave 3b W3-MAIL: the e-mail goes as ``multipart/alternative`` -- this plain-text ``body`` first, the themed HTML of
+    ``kind`` (app.emails) second. ``link`` is the button's panel path, ``locale`` the reader's language (both stored);
+    ``ctx`` is the template context of a message sent at once (``deliver_now``; never stored)."""
     row = NotificationOutbox(
-        kind=kind, to_email=to_email, subject=subject[:255], body=body, user_id=user_id, booking_id=booking_id
+        kind=kind,
+        to_email=to_email,
+        subject=subject[:255],
+        body=body,
+        user_id=user_id,
+        booking_id=booking_id,
+        link=(link or None) and link[:500],
+        locale=locale,
     )
     session.add(row)
     await session.flush()
+    if ctx is not None:
+        _RENDER_CTX[row] = dict(ctx)
     smtp = await get_group(session, "smtp", reveal=True)
     if deliver_now or not row.to_email or not (smtp["host"] and smtp["from_address"]):
         await deliver(session, row)  # UNSENT without an address / SMTP, else sent now
@@ -149,7 +180,10 @@ async def next_due() -> datetime | None:
 
 
 # --------------------------------------------------------------------------------------------------
-# Booking notifications (event handlers)
+# Booking notifications (event handlers). Since 2026-10-15 they go through app.services.notify_dispatch: the
+# recipients' channel preferences apply (events booking.created / booking.cancelled / room_owner.booking), the
+# e-mail keeps its template and outbox kind, the in-app bell gets the same text, and the delivery ledger makes a
+# repeated hook a no-op.
 # --------------------------------------------------------------------------------------------------
 
 
@@ -177,6 +211,38 @@ async def _language(session: AsyncSession, user: User | None) -> str:
     return org_default
 
 
+async def _dispatch(
+    session: AsyncSession,
+    user: User,
+    *,
+    event: str,
+    key: str,
+    subject: str,
+    body: str,
+    link: str,
+    rows: list[Booking],
+    data: dict[str, Any],
+) -> None:
+    """Hand one booking notice to :mod:`app.services.notify_dispatch`: the user's channel preferences apply, the
+    e-mail keeps its outbox kind (``booking.created`` -> ``booking_created``) and its template text, the in-app copy
+    carries the same title and body, and the ledger key makes a re-run of the hook a no-op."""
+    from app.services import notify_dispatch as nd  # notify_dispatch imports this module
+
+    await nd.dispatch(
+        session,
+        user,
+        nd.Notice(
+            event=event,
+            key=key,
+            title=subject,
+            body=body,
+            link=link,
+            booking_id=rows[0].id,
+            data={"booking_ids": [b.id for b in rows], "room_id": rows[0].room_id, **data},
+        ),
+    )
+
+
 async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
     ids = payload.get("booking_ids") or [payload["booking_id"]]
     actor = await session.get(User, payload.get("actor_id")) if payload.get("actor_id") else None
@@ -185,6 +251,7 @@ async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
         return
     rows = [b for b in [await session.get(Booking, i) for i in ids] if b is not None]
     series = payload.get("series_id")
+    who = {"actor": {"id": actor.id, "name": _who(actor)} if actor else None, "series_id": series}
 
     async def items(lang: str) -> str:
         fmt = await bookings_i18n.formatter(session, lang)
@@ -195,14 +262,16 @@ async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
         if target is not None:
             lang = await _language(session, target)
             what = await items(lang)
-            await notify(
+            await _dispatch(
                 session,
-                kind="booking_created",
-                to_email=target.email,
+                target,
+                event="booking.created",
+                key=f"booking:{first.id}:created",
                 subject=await T(session, lang, "booking_created.subject", actor=_who(actor), count=len(rows)),
                 body=await T(session, lang, "booking_created.body", actor=_who(actor), count=len(rows), items=what),
-                user_id=target.id,
-                booking_id=first.id,
+                link="/bookings/mine",
+                rows=rows,
+                data=who,
             )
     room = await session.get(Room, first.room_id)
     if (
@@ -218,14 +287,16 @@ async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
         if owner is not None:
             lang = await _language(session, owner)
             tag = await T(session, lang, "room_owner.series", series_id=series) if series else ""
-            await notify(
+            await _dispatch(
                 session,
-                kind="room_owner_booking",
-                to_email=owner.email,
+                owner,
+                event="room_owner.booking",
+                key=f"booking:{first.id}:room_owner",
                 subject=await T(session, lang, "room_owner.subject", room=room.display_name),
                 body=await T(session, lang, "room_owner.body", actor=_who(actor), series=tag, items=await items(lang)),
-                user_id=owner.id,
-                booking_id=first.id,
+                link="/bookings",
+                rows=rows,
+                data={**who, "room": room.display_name},
             )
 
 
@@ -245,11 +316,19 @@ async def _on_cancelled(session: AsyncSession, payload: dict[str, Any]) -> None:
         lang = await _language(session, target)
         fmt = await bookings_i18n.formatter(session, lang)
         what = "\n".join([f"- {await _describe(session, b, fmt)}" for b in bookings])
-        why = await T(session, lang, "booking_cancelled.reason", reason=reason) if reason else ""
-        await notify(
+        # a code (replaced_by_series:<id>, undo_of:<id>) reads in the reader's language; typed words stay as they are
+        reason_text = await bookings_i18n.cancel_reason(session, lang, reason)
+        why = await T(session, lang, "booking_cancelled.reason", reason=reason_text) if reason_text else ""
+        # one occurrence = these bookings cancelled at this moment (a booking restored by an undo and cancelled
+        # again is a new occurrence and is announced again)
+        when = max((b.cancelled_at for b in bookings if b.cancelled_at is not None), default=None)
+        stamp = when.isoformat(timespec="seconds") if when is not None else "-"
+        digest = hashlib.sha1(",".join(str(b.id) for b in sorted(bookings, key=lambda x: x.id)).encode()).hexdigest()
+        await _dispatch(
             session,
-            kind="booking_cancelled",
-            to_email=target.email,
+            target,
+            event="booking.cancelled",
+            key=f"booking_cancel:{digest[:16]}:{stamp}",
             subject=await T(session, lang, "booking_cancelled.subject", actor=_who(actor), count=len(bookings)),
             body=await T(
                 session,
@@ -260,8 +339,9 @@ async def _on_cancelled(session: AsyncSession, payload: dict[str, Any]) -> None:
                 items=what,
                 reason=why,
             ),
-            user_id=uid,
-            booking_id=bookings[0].id,
+            link="/bookings/mine",
+            rows=bookings,
+            data={"actor": {"id": actor.id, "name": _who(actor)} if actor else None, "reason": reason},
         )
 
 

@@ -48,6 +48,7 @@ from app.models import (
 )
 from app.services import settings_service as ss
 from app.services import solver_bridge
+from app.services.tr_grammar import week_list
 from app.solver import model as sm
 from app.workers.queue import JobState, get_queue, worker_id
 
@@ -76,15 +77,29 @@ BUILTIN_TEXT: dict[str, dict[str, str]] = {
 }
 #: a cohort / instructor key no event carries: the overlap kinds then check nothing
 NO_KEY = "__studio_disabled__"
-DRAFT_PARAM_KEYS = ("time_limit_s", "seed", "workers", "weights", "solver", "merge_joint_lectures", "parent_run_id")
+DRAFT_PARAM_KEYS = (
+    "time_limit_s",
+    "seed",
+    "workers",
+    "weights",
+    "solver",
+    "merge_joint_lectures",
+    "parent_run_id",
+    # which classes give way when not everything fits; absent = the term setting (run_params, P19-M2)
+    "relaxation_policy",
+)
 _SELECTOR_KEYS = ("event_ids", "cohort", "cohorts", "program", "programs", "match", "instructor", "instructors")
 
 
 def _check_solver(params: dict[str, Any]) -> None:
-    from app.services.run_params import SOLVERS
+    from app.services.run_params import RELAXATION_POLICIES, SOLVERS
 
     if "solver" in params and params["solver"] not in SOLVERS:
         raise StudioError(422, f"params.solver must be one of {SOLVERS}")
+    if params.get("relaxation_policy") is None:
+        params.pop("relaxation_policy", None)  # null = the term setting
+    elif params["relaxation_policy"] not in RELAXATION_POLICIES:
+        raise StudioError(422, f"params.relaxation_policy must be one of {RELAXATION_POLICIES}")
 
 
 class StudioError(Exception):
@@ -129,35 +144,36 @@ async def get_draft(
 
 async def _create_draft(session: AsyncSession, term_id: int, user_id: int, kind: str) -> StudioDraft:
     """Idempotent get-or-create: two first visits racing on the unique (term, user, kind) key both get the
-    one draft (the loser's INSERT fails, it re-reads the winner's row) instead of a 500 (usability U2)."""
+    one draft (usability U2). The INSERT runs in a SAVEPOINT, so the loser rolls back only that INSERT and
+    re-reads the winner's row; a full session rollback expired the request's other rows (the ``User`` of
+    PUT /terms/{id}/studio -> MissingGreenlet -> 500, pod CI e2e 2026-10-17)."""
     from sqlalchemy.exc import IntegrityError
 
+    draft = StudioDraft(
+        term_id=term_id,
+        user_id=user_id,
+        kind=kind,
+        version=1,
+        horizon="TERM",
+        horizon_params={},
+        excluded_event_ids=[],
+        pins=[],
+        disabled_rule_ids=[],
+        rule_overrides={},
+        params={},
+    )
     try:
-        draft = StudioDraft(
-            term_id=term_id,
-            user_id=user_id,
-            kind=kind,
-            version=1,
-            horizon="TERM",
-            horizon_params={},
-            excluded_event_ids=[],
-            pins=[],
-            disabled_rule_ids=[],
-            rule_overrides={},
-            params={},
-        )
-        session.add(draft)
-        await session.commit()
+        async with session.begin_nested():
+            session.add(draft)
     except IntegrityError:
-        await session.rollback()
-        draft = (
+        return (
             await session.execute(
                 select(StudioDraft).where(
                     StudioDraft.term_id == term_id, StudioDraft.user_id == user_id, StudioDraft.kind == kind
                 )
             )
         ).scalar_one()
-        return draft
+    await session.commit()
     await session.refresh(draft)
     return draft
 
@@ -658,13 +674,47 @@ async def build_draft_input(
     return await _build_for(session, run, snap)
 
 
+def pin_lock_overrides(inp: sm.SolverInput, members: dict[int, list[int]], snap: dict[str, Any]) -> dict[int, str]:
+    """Request ids whose planning-list lock a draft pin moves (another room, day or start): the planner's own,
+    newer decision. Recorded in ``stats.carried_locks`` as ``STUDIO_PIN`` so the planner check lists the
+    placement as an accepted exception with cause ``manual`` (named in the run truth) instead of a broken
+    ``locked_room`` rule, which would end the run at hard 99 for a move the planner asked for."""
+    head_of = {rid: ev for ev, ids in members.items() for rid in ids}
+    by_id = {e.id: e for e in inp.events}
+    out: dict[int, str] = {}
+    for pin in snap.get("pins") or []:
+        ev = by_id.get(head_of.get(int(pin["event_id"]), -1))
+        if ev is None or ev.locked is None:
+            continue
+        rooms = {int(r) for r in pin.get("room_ids") or []}
+        day = int(pin["day"]) if pin.get("day") is not None else None
+        start = int(pin["start_period"]) if pin.get("start_period") is not None else None
+        lk = ev.locked
+        moved = (
+            (rooms and rooms != set(lk.room_ids))
+            or (day is not None and day != lk.day)
+            or (start is not None and start != lk.start)
+            or bool(pin.get("unlock"))
+        )
+        if moved:
+            for rid in members.get(ev.id, [ev.id]):
+                out[rid] = "STUDIO_PIN"
+    return out
+
+
 async def _build_for(session: AsyncSession, run: ScheduleRun, snap: dict[str, Any]) -> DraftInput:
     inp, members = await solver_bridge.build_solver_input(session, run)
     excluded = [int(i) for i in snap.get("excluded_event_ids") or []]
     touched = {m for ids in members.values() if len(ids) > 1 and set(ids) & set(excluded) for m in ids}
     sizes = await _request_sizes(session, run.kind, touched, (run.stats or {}).get("enrolment_fallbacks"))
     inp2, members2, dropped = apply_draft(inp, members, snap, sizes)
-    return DraftInput(inp2, members2, excluded, dropped, dict(run.stats or {}))
+    stats = dict(run.stats or {})
+    overridden = pin_lock_overrides(inp, members, snap)
+    if overridden:
+        carried = {str(k): str(v) for k, v in (stats.get("carried_locks") or {}).items()}
+        carried.update({str(k): v for k, v in sorted(overridden.items())})
+        stats["carried_locks"] = carried
+    return DraftInput(inp2, members2, excluded, dropped, stats)
 
 
 async def build_solver_input_for_draft(session: AsyncSession, draft: StudioDraft) -> sm.SolverInput:
@@ -683,6 +733,8 @@ async def build_solver_input_for_run(
         return await solver_bridge.build_solver_input(session, run)
     out = await _build_for(session, run, snap)
     run.stats = {**(run.stats or {}), "studio_dropped_events": len(out.dropped_event_ids)}
+    if out.stats.get("carried_locks"):
+        run.stats = {**run.stats, "carried_locks": out.stats["carried_locks"]}
     return out.inp, out.members
 
 
@@ -736,6 +788,16 @@ def _n(n: int, lang: str) -> str:
 def _en(n: int, one: str, many: str) -> str:
     """English count with the right noun form ("1 week", "14 weeks"); Turkish keeps the singular after a number."""
     return f"{_n(n, 'en')} {one if n == 1 else many}"
+
+
+def _exam_weeks_tr(weeks: list[int]) -> str:
+    """``3. sınav haftasında`` / ``1.–2. sınav haftalarında`` (round-1 R1-S-23: one week is singular)."""
+    phrase = week_list(weeks, "tr")
+    if not phrase:
+        return "sınav haftalarında"
+    if phrase.endswith(" haftalar"):
+        return f"{phrase.removesuffix(' haftalar')} sınav haftalarında"
+    return f"{phrase.removesuffix(' hafta')} sınav haftasında"
 
 
 def week_span(weeks: list[int]) -> str:
@@ -934,8 +996,8 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
                 "code": "holidays",
                 "count": len(hol),
                 "message": {
-                    "tr": f"{len(hol)} hafta tatil: {week_span(hol)}.",
-                    "en": f"{len(hol)} of the weeks are holidays: {week_span(hol)}.",
+                    "tr": f"{len(hol)} hafta tatil: {week_list(hol, 'tr')}.",
+                    "en": f"{len(hol)} of the weeks are holidays: {week_list(hol, 'en')}.",
                 },
             }
         )
@@ -983,14 +1045,14 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
         }
     human = {
         "tr": (
-            f"SmartSched {week_span(weeks)}. haftalar için {_n(ne, 'tr')} dersi {_n(nr, 'tr')} dersliğe "
+            f"SmartSched {week_list(weeks, 'tr') or '-'} için {_n(ne, 'tr')} dersi {_n(nr, 'tr')} dersliğe "
             f"yerleştirecek. {must} kesin kurala uyacak, {try_} tercihi mümkün olduğunca gözetecek. "
             f"{pinned_n} ders sabitlendi. {_n(out_n, 'tr')} ders plan dışında. "
             f"Tahmini süre: {est['words']['tr']}."
         ),
         "en": (
             f"SmartSched will place {_en(ne, 'class', 'classes')} into {_en(nr, 'room', 'rooms')} for "
-            f"{'week' if len(weeks) == 1 else 'weeks'} {week_span(weeks)}. It must follow {_en(must, 'rule', 'rules')} "
+            f"{week_list(weeks, 'en') or 'no weeks'}. It must follow {_en(must, 'rule', 'rules')} "
             f"and will try to follow {_en(try_, 'preference', 'preferences')}. "
             f"{_en(pinned_n, 'class is', 'classes are')} pinned. "
             f"{_n(out_n, 'en')} {'is' if out_n == 1 else 'are'} left out. "
@@ -1001,7 +1063,7 @@ async def summary(session: AsyncSession, draft: StudioDraft) -> dict[str, Any]:
         nx = len(din.inp.events)
         human = {
             "tr": (
-                f"SmartSched {week_span(weeks)}. sınav haftalarında {_n(nx, 'tr')} sınavı ({_n(ne, 'tr')} talep) "
+                f"SmartSched {_exam_weeks_tr(weeks)} {_n(nx, 'tr')} sınavı ({_n(ne, 'tr')} talep) "
                 f"{_n(nr, 'tr')} salona yerleştirecek. {must} kesin kurala uyacak, {try_} tercihi mümkün olduğunca "
                 f"gözetecek. {_n(out_n, 'tr')} talep plan dışında. Tahmini süre: {est['words']['tr']}."
             ),

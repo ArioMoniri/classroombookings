@@ -122,6 +122,10 @@ class AssignmentOut(ORMModel):
     week_set: list[int] = []
     is_conflict: bool = False
     conflict_reasons: list[str] = []
+    #: round-1 R1-S-17: a LOCKED planning-list row in its definitive rooms (the planner's lock), and the conflict
+    #: reasons that are accepted exceptions the run reports (``stats.truth``)
+    planner_lock: bool = False
+    exception_reasons: list[str] = []
 
 
 class MoveIn(BaseModel):
@@ -144,6 +148,10 @@ class MoveOut(BaseModel):
     hard_score: int | None = None
     status: str | None = None
     violations: list[dict[str, Any]] = []
+    #: owner decision 2026-10-17 (R1-S-37): a forced move on the published run went into this new draft run
+    #: (``assignment``, ``hard_score``, ``status`` are the draft's); the live run ``live_run_id`` is unchanged
+    draft_run_id: int | None = None
+    live_run_id: int | None = None
 
 
 class DiagnosisApplyIn(BaseModel):

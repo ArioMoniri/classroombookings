@@ -91,16 +91,19 @@
   --color-status-pclab-border: var(--status-pclab-border);
   --color-status-pclab-solid: var(--status-pclab-solid);
 
-  /* Continuous-curvature radii (§6 of liquid-glass.md). --corner-k widens them when
-     corner-shape: squircle is unsupported, so the curve still reads as "continuous". */
-  --radius-xs: calc(5px * var(--corner-k));
-  --radius-sm: calc(7px * var(--corner-k));
-  --radius-md: calc(9px * var(--corner-k));
+  /* Radius scale (design-system overhaul 2026-10-15, tokens.md §4): base × --corner-k, which is 1 without
+     squircles and 1.25 with corner-shape:squircle (the squircle reads smaller). xs 4 (events, keycaps),
+     sm 6 (menu items, checkboxes), md 8 (wells, inputs inside cards), lg 12 (inputs, tooltips),
+     xl 14 (page cards), 2xl 18 (sidebar, sheets), 3xl 24 (dialogs), full (pills, chips, segmented).
+     Nothing on a page exceeds 24 × k; 4xl is a deprecated alias of 3xl. Inner radius = outer − padding. */
+  --radius-xs: calc(4px * var(--corner-k));
+  --radius-sm: calc(6px * var(--corner-k));
+  --radius-md: calc(8px * var(--corner-k));
   --radius-lg: calc(12px * var(--corner-k));
-  --radius-xl: calc(16px * var(--corner-k));
-  --radius-2xl: calc(20px * var(--corner-k));
-  --radius-3xl: calc(26px * var(--corner-k));
-  --radius-4xl: calc(32px * var(--corner-k));
+  --radius-xl: calc(14px * var(--corner-k));
+  --radius-2xl: calc(18px * var(--corner-k));
+  --radius-3xl: calc(24px * var(--corner-k));
+  --radius-4xl: calc(24px * var(--corner-k));
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
@@ -114,12 +117,17 @@
 
   --text-2xs: 10px;
   --text-2xs--line-height: 12px;
+
+  /* Edge and focus tokens as Tailwind values: shadow-(--edge-control) etc. also work. */
+  --shadow-edge-hairline: var(--edge-hairline);
+  --shadow-edge-control: var(--edge-control);
+  --color-border-control: var(--border-control);
 }
 
 /* @tokens light */
 :root {
   color-scheme: light;
-  --corner-k: 1.15;
+  --corner-k: 1;
 
   /* Scene: the layer glass refracts. Calm mesh, one tint, never busy. */
   --scene: #eef0f4;
@@ -152,6 +160,8 @@
   --specular-low: rgba(255, 255, 255, 0.3);
   --hairline: rgba(20, 24, 36, 0.1);
   --hairline-strong: rgba(20, 24, 36, 0.18);
+  /* Field / control boundary: WCAG 1.4.11 3:1 against the card (3.16:1 on #fafbfc). Hairline stays for separators. */
+  --border-control: rgba(20, 24, 36, 0.48);
   --ambient-1: 0 1px 2px rgba(20, 24, 36, 0.05), 0 6px 16px -10px rgba(20, 24, 36, 0.14);
   --ambient-2: 0 2px 6px rgba(20, 24, 36, 0.05), 0 14px 34px -14px rgba(20, 24, 36, 0.2);
   --ambient-3: 0 4px 12px rgba(20, 24, 36, 0.06), 0 28px 60px -18px rgba(20, 24, 36, 0.28);
@@ -230,7 +240,38 @@
   --studio-summary-collapsed-w: 48px;
   --rule-card-min-h: 72px;
 
-  --radius: calc(9px * var(--corner-k));
+  --radius: calc(8px * var(--corner-k));
+
+  /* ---- sizing system (design-system overhaul 2026-10-15; tokens.md §4) ---- */
+  /* Control heights: one scale for Button, IconButton, Input, Select, SegmentedControl, Chip.
+     Fine pointers 24/28/32/40; coarse pointers 32/36/44/48 (media block below). */
+  --control-h-xs: 24px;
+  --control-h-sm: 28px;
+  --control-h-md: 32px;
+  --control-h-lg: 40px;
+  --control-h: var(--control-h-md);
+  /* Rows: compact 32 / standard 44 / comfortable 56, switched with data-density on any ancestor. */
+  --row-h: 44px;
+  --cell-py: 8px;
+  --cell-px: 12px;
+  /* Paddings: cards 16 (12 small), toolbars 6. Gutter scales with the viewport. */
+  --pad-card: 16px;
+  --pad-card-sm: 12px;
+  --pad-toolbar: 6px;
+  --page-gutter: clamp(16px, 2.2vw, 32px);
+  /* Fluid titles, 390 → 1440 px viewport; data sizes are fixed (§6 of liquid-glass.md). */
+  --text-large-title: clamp(1.75rem, 1.611rem + 0.571vw, 2.125rem);
+  --text-large-title-lh: 1.18;
+  --text-title-1: clamp(1.375rem, 1.236rem + 0.571vw, 1.75rem);
+  --text-title-1-lh: 1.21;
+  --text-title-2: clamp(1.125rem, 1.032rem + 0.381vw, 1.375rem);
+  --text-title-2-lh: 1.27;
+  --text-title-3: clamp(1rem, 0.954rem + 0.19vw, 1.125rem);
+  --text-title-3-lh: 1.33;
+  /* Focus: 2 px solid --focus, 2 px out; -2 px inside scroll containers and grid cells. */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-offset-inset: -2px;
 }
 /* @end */
 
@@ -260,6 +301,7 @@
   --specular-low: rgba(255, 255, 255, 0.04);
   --hairline: rgba(255, 255, 255, 0.1);
   --hairline-strong: rgba(255, 255, 255, 0.17);
+  --border-control: rgba(255, 255, 255, 0.34);
   --ambient-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 20px -12px rgba(0, 0, 0, 0.5);
   --ambient-2: 0 2px 6px rgba(0, 0, 0, 0.3), 0 16px 36px -14px rgba(0, 0, 0, 0.6);
   --ambient-3: 0 4px 12px rgba(0, 0, 0, 0.35), 0 30px 64px -18px rgba(0, 0, 0, 0.7);
@@ -310,6 +352,18 @@
 .dark[data-accent="orange"] { --accent: #ff9f5a; --accent-hover: #ffb683; --accent-fg: #221004; --accent-text: #ffa86a; --accent-soft: rgba(255, 159, 90, 0.18); --focus: #ffa86a; }
 /* @end */
 
+/* Coarse pointers (touch): every control height steps up; 44 px is the md floor (Apple HIG, review §2). */
+@media (pointer: coarse) {
+  :root {
+    --control-h-xs: 32px;
+    --control-h-sm: 36px;
+    --control-h-md: 44px;
+    --control-h-lg: 48px;
+  }
+}
+[data-density="compact"] { --row-h: 32px; --cell-py: 4px; --cell-px: 8px; }
+[data-density="comfortable"] { --row-h: 56px; --cell-py: 12px; --cell-px: 12px; }
+
 /* shadcn aliases (kept so generated components need no edits) */
 :root,
 .dark {
@@ -341,6 +395,12 @@
   --shadow-1: var(--glass-edge), var(--ambient-1);
   --shadow-2: var(--glass-edge), var(--ambient-2);
   --shadow-3: var(--glass-edge), var(--ambient-3);
+  /* Edges: one way to draw each boundary (review §2 "Borders / shadows"). */
+  --edge-hairline: inset 0 0 0 1px var(--hairline);
+  --edge-hairline-b: inset 0 -1px 0 0 var(--hairline);
+  --edge-hairline-t: inset 0 1px 0 0 var(--hairline);
+  --edge-control: inset 0 0 0 1px var(--border-control);
+  --edge-glass: var(--glass-edge);
   --scene-mesh:
     radial-gradient(1100px 760px at 4% -8%, color-mix(in oklab, var(--accent) var(--scene-tint-mix), transparent), transparent 62%),
     radial-gradient(900px 640px at 100% 0%, var(--scene-warm), transparent 60%),
@@ -362,7 +422,7 @@
 /* corner-shape: squircle where supported (Chromium 139+): the true continuous curve, so the
    radii no longer need widening. */
 @supports (corner-shape: squircle) {
-  :root { --corner-k: 1.6; }
+  :root { --corner-k: 1.25; }
   .squircle,
   [data-glass] { corner-shape: squircle; }
 }
@@ -480,6 +540,30 @@
 @utility hairline-t {
   box-shadow: inset 0 1px 0 0 var(--hairline);
 }
+@utility edge-hairline {
+  box-shadow: var(--edge-hairline);
+}
+@utility edge-hairline-b {
+  box-shadow: var(--edge-hairline-b);
+}
+@utility edge-control {
+  box-shadow: var(--edge-control);
+}
+@utility edge-hairline-strong {
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+/* selection / pick ring drawn inside the element (cells, slots) */
+@utility edge-tint {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+/* tabular numerals where numbers line up (cells, KPIs, times); never global (it widens hyphens) */
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+@utility focus-ring-inset {
+  outline: var(--focus-ring-width) solid var(--focus);
+  outline-offset: var(--focus-ring-offset-inset);
+}
 @utility focus-ring {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
@@ -487,16 +571,20 @@
 
 /* Typography (Apple text styles, tuned for a dense web admin). Tight tracking from 20px up. */
 @utility type-large-title {
-  font-size: 34px; line-height: 40px; font-weight: 700; letter-spacing: -0.024em;
+  font-size: var(--text-large-title); line-height: var(--text-large-title-lh); font-weight: 700; letter-spacing: -0.024em;
 }
 @utility type-title-1 {
-  font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: -0.021em;
+  font-size: var(--text-title-1); line-height: var(--text-title-1-lh); font-weight: 700; letter-spacing: -0.021em;
 }
 @utility type-title-2 {
-  font-size: 22px; line-height: 28px; font-weight: 650; letter-spacing: -0.017em;
+  font-size: var(--text-title-2); line-height: var(--text-title-2-lh); font-weight: 650; letter-spacing: -0.017em;
 }
 @utility type-title-3 {
-  font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.012em;
+  font-size: var(--text-title-3); line-height: var(--text-title-3-lh); font-weight: 600; letter-spacing: -0.012em;
+}
+/* KPI numerals: fixed, tabular, never fluid (they must line up across cards). */
+@utility type-kpi {
+  font-size: 28px; line-height: 32px; font-weight: 650; letter-spacing: -0.021em; font-variant-numeric: tabular-nums;
 }
 @utility type-headline {
   font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: -0.006em;
@@ -519,16 +607,50 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   html {
     @apply font-sans;
-    font-variant-numeric: tabular-nums;
     font-optical-sizing: auto;
     -webkit-text-size-adjust: 100%;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+  }
+  /* App shell bars (components/shell/top-bar.tsx, tab-bar.tsx): the document scrolls under a sticky top bar and
+     a floating tab bar, so scroll-padding keeps keyboard focus, scrollIntoView and #anchors clear of both
+     (MOBILE.md M-02 occlusion). Below lg: top bar 48 px + the top inset; tab bar a 56 px capsule floating
+     max(12 px, bottom inset) above the edge. lg and up: the 52 px top bar, no tab bar. Plus 24 px of air: a
+     small control's touch hit area reaches up to 22 px past its box (ui/hit-area.ts), and that must clear too. */
+  :root {
+    --shell-top-h: calc(3rem + env(safe-area-inset-top));
+    --shell-bottom-h: calc(3.5rem + max(0.75rem, env(safe-area-inset-bottom)));
+  }
+  @media (width >= 64rem) {
+    :root { --shell-top-h: 3.25rem; --shell-bottom-h: 0px; }
+  }
+  /* Touch: a <label> row that wraps a Switch or a Checkbox is the tap target (the whole row toggles) and at least
+     44 px tall, so stacked toggles never sit closer than their 44 px hit areas (MOBILE.md M-02: the later
+     neighbour won the tap). Inline labels ignore min-height; utilities still override. */
+  @media (pointer: coarse) {
+    label:has(> [data-slot="switch"], > [data-slot="checkbox"], > input[type="checkbox"], > input[type="radio"]) { min-height: 2.75rem; }
+    /* Native checkboxes and radios (tables, sheets and forms that do not use ui/checkbox): the same invisible
+       44 × 44 ::after as ui/hit-area.ts coarseHitArea (Chromium and WebKit draw and hit-test pseudo-elements on
+       these inputs). Base layer, so `sr-only` / `absolute` utilities still win over `position: relative`. T-R1-01. */
+    input:is([type="checkbox"], [type="radio"]) { position: relative; }
+    input:is([type="checkbox"], [type="radio"])::after {
+      content: "";
+      position: absolute;
+      inset: min(0px, calc(50% - 22px));
+    }
+    /* T-R2-05 (R2-S-04, R2-M-23): a native checkbox or radio that is not in a label row (table cells, card lists, rule
+       cards) takes its 44 px hit area as vertical margin, so the row grows with it and an overflow:auto / table-cell
+       ancestor no longer clips the ::after; the label rows above are already 44 px. */
+    input:is([type="checkbox"], [type="radio"]):not(label *) { margin-block: 14px; }
+  }
+  html:has([data-app-shell]) {
+    scroll-padding-top: calc(var(--shell-top-h) + 1.5rem);
+    scroll-padding-bottom: calc(var(--shell-bottom-h) + 1.5rem);
   }
   body {
     @apply text-foreground;
@@ -546,6 +668,10 @@
   }
   [data-density="compact"] {
     --period-row-h: 28px;
+  }
+  /* tabular numerals only where numbers align (review §2 "Global tabular-nums"); html stays proportional */
+  td, th, time, kbd, [data-numeric], [role="gridcell"] {
+    font-variant-numeric: tabular-nums;
   }
   ::selection {
     background: color-mix(in oklab, var(--accent) 24%, transparent);
@@ -588,6 +714,26 @@
     scroll-behavior: auto !important;
   }
 }
+/* T-R2-07 @media (prefers-reduced-motion: reduce) (R2-S-15): the Sheet / Dialog popups and overlays neither slide nor
+   fade in or out — no transition and no starting / ending offset, so two frames after the open the sheet is at its
+   resting place (motion_designer: nothing moves). The dialog keeps its centring `translate`; only the transform
+   (scale / phone slide) is cleared. Same rules under the in-app switch below. */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="sheet-content"], [data-slot="dialog-content"], [data-slot="sheet-overlay"], [data-slot="dialog-overlay"] {
+    transition: none !important;
+  }
+  [data-slot="sheet-content"]:is([data-starting-style], [data-ending-style]) {
+    translate: none !important;
+    opacity: 1 !important;
+  }
+  [data-slot="dialog-content"]:is([data-starting-style], [data-ending-style]) {
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  :is([data-slot="sheet-overlay"], [data-slot="dialog-overlay"]):is([data-starting-style], [data-ending-style]) {
+    opacity: 1 !important;
+  }
+}
 /* In-app "Reduce motion" (Settings → Appearance) mirrors the OS preference for CSS. */
 :root[data-motion="reduced"] {
   --spring-snappy-ms: 0ms; --spring-smooth-ms: 0ms; --spring-bouncy-subtle-ms: 0ms;
@@ -600,6 +746,21 @@
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
+}
+/* T-R2-07 :root[data-motion="reduced"]: the same popup rules as under prefers-reduced-motion above. */
+:root[data-motion="reduced"] :is([data-slot="sheet-content"], [data-slot="dialog-content"], [data-slot="sheet-overlay"], [data-slot="dialog-overlay"]) {
+  transition: none !important;
+}
+:root[data-motion="reduced"] [data-slot="sheet-content"]:is([data-starting-style], [data-ending-style]) {
+  translate: none !important;
+  opacity: 1 !important;
+}
+:root[data-motion="reduced"] [data-slot="dialog-content"]:is([data-starting-style], [data-ending-style]) {
+  transform: none !important;
+  opacity: 1 !important;
+}
+:root[data-motion="reduced"] :is([data-slot="sheet-overlay"], [data-slot="dialog-overlay"]):is([data-starting-style], [data-ending-style]) {
+  opacity: 1 !important;
 }
 
 /* Sonner's built-in toast motion is 400 ms; retime to the smooth spring (motion.md §3.1, pattern §5). */
@@ -619,3 +780,26 @@
 }
 .studio-pulse { animation: studio-pulse 1.2s var(--ease-in-out) infinite; }
 .studio-flash { outline: 2px solid var(--status-infeasible-border); outline-offset: 2px; transition: outline-color var(--dur-fast) var(--ease-out); }
+
+/* ---------- P0 focus (docs/review/2026-10-15-uiux-visual-review.md §2, row 1) ----------
+   Tailwind 4: the outline "none" / `outline-hidden` utilities set --tw-outline-style:none and `focus-visible:outline-2`
+   reads outline-style:var(--tw-outline-style), so the pair drew nothing. This rule is deliberately
+   UNLAYERED: unlayered declarations beat every @layer (utilities included), so any focus-visible width
+   now paints a solid ring. It only sets the variable; elements that opt out with a literal
+   `outline-style:none` and no focus-visible width (menu items with a highlight, fields inside an
+   InputGroup that draws the ring) keep their own indicator. Do not move this into a layer. */
+:focus-visible {
+  --tw-outline-style: solid;
+}
+
+/* ---------- Page-action capsule (components/admin/kit.tsx PageTitle, MOBILE.md M-05) ----------
+   Below lg the PageTitle actions are a capsule fixed above the tab bar (bottom = --shell-bottom-h + 0.75rem, 44 px
+   buttons in 0.375rem padding = 56 px). The shell's <main> then pads for the tab bar AND the capsule, so the last
+   card of /admin/users, /admin/roles, /admin/departments and /admin/audit scrolls clear of it. UNLAYERED on purpose:
+   <main> sets its padding with a utility, and only an unlayered declaration (or a higher one in the same layer)
+   wins over it. Round 2 sweeper 3. */
+@media (width < 64rem) {
+  main:has([data-slot="page-actions"]) {
+    padding-bottom: calc(var(--shell-bottom-h) + 0.75rem + 3.5rem + 1.5rem);
+  }
+}

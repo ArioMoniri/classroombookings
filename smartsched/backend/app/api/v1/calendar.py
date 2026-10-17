@@ -11,7 +11,7 @@ Saved views: ``GET/POST /views``, ``PUT/DELETE /views/{id}``.
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from sqlalchemy import select
@@ -38,7 +38,7 @@ from app.schemas.calendar import (
     SavedViewUpdate,
 )
 from app.services import calendar_views as cv
-from app.services import publish_guard
+from app.services import move_guard, publish_guard, run_copy
 from app.services.bookings_perms import load_access
 from app.services.events import Item
 from app.services.planning_audit import assignment_snapshot, record_assignments, snapshot_from_undo
@@ -46,6 +46,15 @@ from app.services.planning_audit import assignment_snapshot, record_assignments,
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["calendar"])
+
+#: the forced-move refusal for a planner (round-2 T-R2-30, R1-S-24: the 403 had no Turkish sentence)
+FORCE_ADMIN_ONLY: dict[str, Any] = {
+    "code": "forbidden",
+    "permission": "planning.admin",
+    "message": "moving despite a conflict is admin-only",
+    "message_en": "moving despite a conflict is admin-only",
+    "message_tr": "Çakışmaya rağmen taşıma yalnız yöneticilere açık; çakışmasız bir derslik ya da saat seçin",
+}
 
 
 async def _run(db: DB, run_id: int) -> ScheduleRun:
@@ -221,13 +230,33 @@ async def _bulk(db: DB, user: object, run: ScheduleRun, body: BulkMoveIn) -> Bul
     if body.force:
         access = await load_access(db, user)  # type: ignore[arg-type]
         if "planning.admin" not in access.perms:
-            # orchestrator decision 4: forcing a move despite a conflict is admin-only
-            raise HTTPException(403, "moving despite a conflict is admin-only")
+            # orchestrator decision 4: forcing a move despite a conflict is admin-only (TR + EN, round-2 T-R2-30)
+            raise HTTPException(403, dict(FORCE_ADMIN_ONLY))
     ctx = await cv.load_run_context(db, run)
     try:
         plans = cv.plan_moves(ctx, body.moves)
     except cv.CalendarError as exc:
         raise _http(exc) from exc
+    # round-1 R1-M-05: the same hard-rule evaluation as the run's score (planner level) - a move that breaks a hard
+    # rule there (e.g. a LOCKED class leaving its definitive room) is never "uygun"
+    verdict = await move_guard.planner_issues(
+        db,
+        run,
+        [
+            move_guard.TrialMove(
+                p.base.id,
+                tuple((m.id, tuple(ws)) for m, ws in p.parts),
+                p.target_day,
+                p.target_sp,
+                p.target_ep,
+                tuple(p.target_rooms),
+            )
+            for p in plans
+        ],
+        covered={p.base.id: {i.code for i in p.hard} for p in plans},
+    )
+    for p in plans:
+        p.hard = [*p.hard, *verdict.for_base(p.base.id)]
     bad = [p for p in plans if p.hard]
     if body.force and bad and not body.dry_run and not publish_guard.valid_reason(body.reason):
         rules = sorted({i.code for p in bad for i in p.hard})
@@ -239,6 +268,16 @@ async def _bulk(db: DB, user: object, run: ScheduleRun, body: BulkMoveIn) -> Bul
                 "items": [ctx.label_of(p.base) for p in bad[:20]],
             },
         )
+    if body.force and bad and not body.dry_run and run.is_active:
+        # owner decision 2026-10-17 (R1-S-37): a forced move never edits the published plan. The active run is cloned
+        # into a new draft, the forced edit (and its override) goes there; the live plan stays as published until the
+        # draft is published through the normal guard (confirm_forced_breaks)
+        draft, id_map = await run_copy.clone_as_draft(
+            db, run, actor=user if isinstance(user, User) else None, reason=body.reason
+        )
+        moves = [m.model_copy(update={"aid": id_map[m.aid]}) for m in body.moves]
+        out = await _bulk(db, user, draft, body.model_copy(update={"moves": moves}))
+        return out.model_copy(update={"draft_run_id": draft.id, "live_run_id": run.id})
     can_apply = not body.dry_run and (body.force or not bad or not body.atomic)
     to_apply = plans if body.force else [p for p in plans if not p.hard]
     if not can_apply or not to_apply:
@@ -282,11 +321,13 @@ async def _bulk(db: DB, user: object, run: ScheduleRun, body: BulkMoveIn) -> Bul
             request_ids=[
                 r for r in (p.base.meeting_request_id or (meeting.id if meeting else None), p.base.exam_request_id) if r
             ],
-            rules=[i.code for i in p.hard],
+            rules=[i.code for i in p.hard] or [str(f["rule"]) for f in verdict.findings.get(p.base.id, [])],
             conflicts=[i.text.tr for i in p.hard],
             reason=body.reason or "",
             actor=actor,
             audit_id=ev.id if ev is not None else None,
+            findings=verdict.findings.get(p.base.id, []),
+            rows=[r for r in rows if r.id in {*moved, *split}],
         )
     await _rescore(db, run)
     await db.commit()

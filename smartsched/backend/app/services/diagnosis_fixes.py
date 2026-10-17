@@ -167,6 +167,13 @@ def structure_diagnosis(raw: Any, index: int, run_kind: str | None = None) -> di
         raw = {"event_ids": [], "constraint_kinds": [], "message": str(raw), "suggestions": [], "severity": "error"}
     labels = {int(m["id"]): m["label"].strip() for m in _LABEL.finditer(str(raw.get("message") or ""))}
     event_ids = [int(e) for e in raw.get("event_ids") or []]
+    stored = raw.get("event_labels")
+    if isinstance(stored, list) and len(stored) == len(event_ids):
+        # the labels the worker stored from the run's own text context win over the ones parsed from the message
+        labels = {
+            **labels,
+            **{e: str(x) for e, x in zip(event_ids, stored, strict=True) if x and not str(x).startswith("#")},
+        }
     options = [
         parse_option(j, s, raw, run_kind).as_dict() if isinstance(s, str) else s
         for j, s in enumerate(raw.get("suggestions") or [])

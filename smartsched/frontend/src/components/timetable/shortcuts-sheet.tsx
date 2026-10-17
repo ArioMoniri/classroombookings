@@ -23,12 +23,12 @@ export function ShortcutsSheet({ open, onOpenChange }: { open: boolean; onOpenCh
         <div className="flex flex-col gap-5 overflow-y-auto px-4 pb-6">
           {GROUPS.map((g) => (
             <section key={g.title}>
-              <h3 className="mb-1.5 text-[11px] font-semibold text-label-3">{t(g.title)}</h3>
+              <h3 className="mb-1.5 type-caption font-semibold text-label-3">{t(g.title)}</h3>
               <dl className="flex flex-col gap-1.5">
                 {g.rows.map(([k, label]) => (
-                  <div key={label} className="flex items-center justify-between gap-4 text-[13px]">
+                  <div key={label} className="flex items-center justify-between gap-4 type-callout">
                     <dt>{t(label)}</dt>
-                    <dd><kbd className="rounded-md bg-fill-2 px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-label-1">{k}</kbd></dd>
+                    <dd><kbd className="rounded-md bg-fill-2 px-1.5 py-0.5 type-caption font-medium whitespace-nowrap text-label-1">{k}</kbd></dd>
                   </div>
                 ))}
               </dl>

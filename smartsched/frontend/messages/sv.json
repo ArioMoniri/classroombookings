@@ -100,5 +100,56 @@
     "find": {
       "weeks": "Veckor"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "Dag"
+    }
+  },
+  "programWizard": {
+    "col": {
+      "year": "År"
+    },
+    "patterns": {
+      "weeks": "Veckor"
+    }
+  },
+  "analytics": {
+    "week": "Vecka"
+  },
+  "compare": {
+    "week": "Vecka"
+  },
+  "invigilation": {
+    "people": {
+      "days": "Dagar"
+    },
+    "pool": {
+      "hours": "Timmar"
+    }
+  },
+  "policies": {
+    "day": {
+      "1": "mån",
+      "2": "tis",
+      "3": "ons",
+      "4": "tor",
+      "5": "fre",
+      "6": "lör",
+      "7": "sön"
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "Dag"
+  },
+  "quickReserve": {
+    "day": {
+      "label": "Dag"
+    }
+  },
+  "aiAdmin": {
+    "usage": {
+      "day": "Dag"
+    }
   }
 }

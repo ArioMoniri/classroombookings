@@ -8,31 +8,45 @@
  *
  * Motion: none on search results (a frequent action; motion_designer §2.1). The booking sheet brings its own.
  */
-import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Loader2, PackageX, Search, Stamp, Users, type LucideIcon } from "lucide-react";
+import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Hourglass, Loader2, PackageX, Search, ShieldAlert, SlidersHorizontal, Stamp, Users, type LucideIcon } from "lucide-react";
+import Link from "next/link";
+import { PolicyWhy } from "@/components/policies/policy-why";
+import { useApprovalFirst, type EffectiveQuery } from "@/lib/api/booking-policies";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
+import { DateField } from "@/components/ui/date-field";
 import { Input } from "@/components/ui/input";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Switch } from "@/components/ui/switch";
 import { Alert, Field, Loading, PageTitle, SelectField } from "@/components/admin/kit";
 import { useHydrated } from "@/lib/use-hydrated";
 import { BookSheet, type BookTarget } from "@/components/bookings/book-sheet";
+import { focusAfter } from "@/components/bookings/focus-after";
 import { useBookingFormat, useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { crbs, crbsKeys, useBookingContext, useBookingDates, type GridQuery } from "@/lib/api/crbs";
-import { errorText, pickLang, useFacets, useRecentSearches, w1Keys, wave1, wave1Error, type Feature, type FindAlternative, type FindResponse, type FindRow } from "@/lib/api/wave1";
+import { errorText, pickLang, useFacets, useMyRequests, useRecentSearches, w1Keys, wave1, wave1Error, type Feature, type FindAlternative, type FindResponse, type FindRow } from "@/lib/api/wave1";
 import { intlLocale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { ACTIONABLE, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, recentParts, reserveSpan, slotsFor, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, buildingLabel, recentParts, SHOWN, slotsFor, whyQuery, wholeSpan, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
+import { BareButton } from "@/components/shell/bare-button";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useIsCompact, useIsPhone } from "@/components/bookings/use-is-phone";
 
 const STATUS: Record<string, { icon: LucideIcon; cls: string; key: MessageKey }> = {
   free: { icon: CheckCircle2, cls: "bg-status-feasible text-status-feasible-fg", key: "wave1.find.status.free" },
+  // P8: a booking policy refuses this room for the search (the rule's words are the row's reason)
+  policy: { icon: ShieldAlert, cls: "bg-status-infeasible text-status-infeasible-fg", key: "policies.find.status" },
   requestable: { icon: Stamp, cls: "bg-tint-soft text-tint-text", key: "wave1.find.status.requestable" },
+  // T-R1-14: the caller's own open request holds the slot
+  mine_pending: { icon: Hourglass, cls: "bg-tint-soft text-tint-text", key: "wave1.find.status.mine_pending" },
   partial: { icon: CircleDashed, cls: "bg-status-warning text-status-warning-fg", key: "wave1.find.status.partial" },
   busy: { icon: Ban, cls: "bg-status-preoccupied text-status-preoccupied-fg", key: "wave1.find.status.busy" },
   too_small: { icon: Users, cls: "bg-status-warning text-status-warning-fg", key: "wave1.find.status.too_small" },
@@ -65,7 +79,7 @@ function useWeekdayNames(): { long: string[]; short: string[] } {
 }
 
 export function FindRoomView() {
-  const { t, locale, n } = useI18n();
+  const { t, locale } = useI18n();
   useProfileLanguage();
   const fmt = useBookingFormat();
   const qc = useQueryClient();
@@ -79,14 +93,19 @@ export function FindRoomView() {
   const rooms = useQuery({ queryKey: ["crbs", "booking-rooms"], queryFn: () => crbs.bookings.rooms(), retry: false, staleTime: 60_000 });
   const buildings = useMemo(() => [...new Set((rooms.data ?? []).map((r) => r.building).filter((b): b is string => !!b))].sort((a, b) => a.localeCompare(b, "tr")), [rooms.data]);
   const kinds = useMemo(() => Object.fromEntries((facets.data ?? []).map((f) => [String(f.id), f.kind])), [facets.data]);
+  // T-R1-10: approval-first on for the caller -> alternatives say "Talep et", like the results' `action: request`
+  const approvalFirst = useApprovalFirst(rooms.data?.[0]?.id, termId);
 
   const [form, setForm] = useState<FindForm | null>(null);
-  // the form starts on the booking clock's "today" (the backend's, so the e2e clock and the term agree)
-  if (form === null && today) {
+  const [dated, setDated] = useState(false);
+  // the form starts on the booking clock's "today" (the backend's, so the e2e clock and the term agree) or the link's
+  // ?date= (ISO or GG.AA.YYYY); a switch flipped before the clock answered keeps its value but gets the real date
+  if (!dated && today) {
+    setDated(true);
     const init = emptyForm(params.get("date") ?? today);
     const text = params.get("text");
     const head = params.get("headcount");
-    setForm({ ...init, text: text ?? "", headcount: head ?? "" });
+    setForm((p) => (p ? { ...p, date: init.date, weekday: init.weekday, dateFrom: init.dateFrom, dateTo: init.dateTo } : { ...init, text: text ?? "", headcount: head ?? "" }));
   }
   const f = form ?? emptyForm(today || "2026-01-01");
   const set = <K extends keyof FindForm>(k: K, v: FindForm[K]) => setForm((p) => ({ ...(p ?? f), [k]: v }));
@@ -98,7 +117,7 @@ export function FindRoomView() {
   const lastQuery = useRef<ReturnType<typeof buildQuery> | null>(null);
   const resultsRef = useRef<HTMLElement>(null);
 
-  const run = async (next: FindForm = f, scroll = true) => {
+  const run = async (next: FindForm = f, scroll = true, focus = scroll) => {
     const built = buildQuery(next, termId, kinds);
     if ("error" in built) {
       setFormError(built.error);
@@ -113,6 +132,9 @@ export function FindRoomView() {
       setResult(res);
       void qc.invalidateQueries({ queryKey: w1Keys.recent });
       if (scroll && window.matchMedia("(max-width: 1023px)").matches) resultsRef.current?.scrollIntoView({ block: "start" });
+      // T-R1-12 (R1-A-15): the result summary takes the focus (its role=status announces the count); a quiet
+      // refresh after closing the sheet leaves the focus where the sheet put it
+      if (focus) focusAfter(['[data-testid="fr-summary"]'], 0);
     } catch (e) {
       const err = wave1Error(e);
       if (err.status === 429) setSearchError(t("wave1.find.rateLimited"));
@@ -132,10 +154,12 @@ export function FindRoomView() {
       const q: GridQuery = { display: "day", date, term_id: termId, room_group_id: info.room_group_id ?? undefined };
       const fetched = await qc.fetchQuery({ queryKey: crbsKeys.grid(q), queryFn: () => crbs.bookings.grid(q), staleTime: 0 });
       const grid = request ? asRequestable(fetched, roomId, date, start, end) : fetched;
-      const span = reserveSpan(slotsFor(grid, roomId, date, start, end));
+      // T-R2-14: the whole promised window or nothing (a stale card never opens a trimmed sheet)
+      const span = wholeSpan(slotsFor(grid, roomId, date, start, end));
       if (!span) {
         toast.error(t("wave1.find.notFree"));
-        void run(f, false);
+        // R3-S-02: the pressed card leaves with the refreshed list, so the refreshed summary takes the focus (not <body>)
+        void run(f, false, true);
         return;
       }
       setTarget({ slot: span[0]!, grid, span });
@@ -147,21 +171,69 @@ export function FindRoomView() {
   };
 
   const days = useWeekdayNames();
+  const compact = useIsCompact();
+  const phone = useIsPhone();
+  const [moreOpen, setMoreOpen] = useState(false);
   const results = result?.results ?? [];
-  const free = results.filter((r) => ACTIONABLE.has(r.status));
-  const others = results.filter((r) => !ACTIONABLE.has(r.status));
+  const free = results.filter((r) => SHOWN.has(r.status));
+  const others = results.filter((r) => !SHOWN.has(r.status));
+  // T-R1-14: the own open requests behind "Talebiniz bekliyor" rows (a link to the request)
+  const mine = useMyRequests(results.some((r) => r.status === "mine_pending"));
+  const ownRequest = (r: FindRow) => ownRequestFor(r.room_id, result?.slots.map((x) => x.date) ?? [], r.start_period, r.end_period, mine.data ?? []);
+  const alts = result?.alternatives ?? [];
+  const nearAlts = alts.filter((a) => !isFeatureMiss(a));
+  const featureMiss = alts.filter(isFeatureMiss);
   const multi = (result?.slots.length ?? 0) > 1;
   // the form starts from the backend's booking clock and the user's facets: client-only (no #418 mismatch)
   const hydrated = useHydrated();
   if (!hydrated) return <Loading />;
 
+  // features, buildings, free text and the two switches: inline on desktop, a "Filters" sheet below 1024 px
+  const advanced = (
+    <>
+      {facets.data?.length ? <FeaturePicker facets={facets.data} value={f.features} onChange={(v) => set("features", v)} /> : null}
+
+      {buildings.length ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="type-footnote font-medium text-label-2">{t("wave1.find.buildings")}</span>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("wave1.find.buildings")}>
+            {buildings.map((b) => (
+              <Chip key={b} size="sm" icon={<Building2 aria-hidden />} selected={f.buildings.includes(b)} onSelectedChange={(on) => set("buildings", on ? [...f.buildings, b] : f.buildings.filter((x) => x !== b))}>
+                {buildingLabel(b, t)}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <Field label={t("wave1.find.text")} htmlFor="fr-text" hint={t("wave1.find.textHint")}>
+        <Input id="fr-text" type="search" value={f.text} placeholder={t("wave1.find.textPlaceholder")} onChange={(e) => set("text", e.target.value)} data-testid="fr-text" />
+      </Field>
+
+      {/* touch: each row is a 44 px label (the whole row toggles), so the switches' hit areas never overlap (M-02) */}
+      <div className="flex flex-col gap-2 pointer-coarse:gap-0">
+        <label className="flex items-center justify-between gap-3 type-callout text-label-1 pointer-coarse:min-h-11">
+          {t("wave1.find.showBusy")}
+          <Switch checked={f.showBusy} onCheckedChange={(v) => set("showBusy", v)} aria-label={t("wave1.find.showBusy")} />
+        </label>
+        {f.when === "date" ? (
+          <label className="flex items-center justify-between gap-3 type-callout text-label-1 pointer-coarse:min-h-11">
+            {t("wave1.find.otherDays")}
+            <Switch checked={f.otherDays} onCheckedChange={(v) => set("otherDays", v)} aria-label={t("wave1.find.otherDays")} />
+          </label>
+        ) : null}
+      </div>
+    </>
+  );
+  const moreCount = Object.keys(f.features).length + f.buildings.length + (f.text.trim() ? 1 : 0) + (f.showBusy ? 1 : 0) + (f.when === "date" && f.otherDays ? 1 : 0);
+
   return (
-    <div className="flex flex-col gap-5" data-testid="find-room">
+    <div className={cn("flex flex-col gap-5", compact && "pb-20")} data-testid="find-room">
       <PageTitle title={t("wave1.find.title")} subtitle={t("wave1.find.lead")} />
-      <div className="grid gap-5 lg:grid-cols-[minmax(320px,400px)_1fr] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[minmax(20rem,22.5rem)_minmax(0,1fr)] lg:items-start">
         <div className="flex flex-col gap-4 lg:sticky lg:top-16">
-          <Card variant="glass" className="gap-0 px-4 py-4">
+          <Card className="gap-0 overflow-visible px-4 py-4">
             <form
+              id="fr-form"
               className="flex flex-col gap-4"
               aria-label={t("wave1.find.title")}
               onSubmit={(e) => {
@@ -171,7 +243,7 @@ export function FindRoomView() {
             >
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-2 type-headline text-label-1">{t("wave1.find.when")}</legend>
-                <SegmentedGlass<WhenMode>
+                <SegmentedControl<WhenMode>
                   aria-label={t("wave1.find.when")}
                   size="sm"
                   fill
@@ -185,7 +257,7 @@ export function FindRoomView() {
                 />
                 {f.when === "date" ? (
                   <Field label={t("wave1.find.date")} htmlFor="fr-date" error={formError === "date" ? t(ERROR_KEY.date) : null}>
-                    <Input id="fr-date" type="date" value={f.date} onChange={(e) => set("date", e.target.value)} data-testid="fr-date" />
+                    <DateField id="fr-date" value={f.date} onChange={(v) => set("date", v)} data-testid="fr-date" />
                   </Field>
                 ) : f.when === "weekday" ? (
                   <div className="grid grid-cols-2 gap-2">
@@ -206,10 +278,10 @@ export function FindRoomView() {
                   <div className="flex flex-col gap-2">
                     <div className="grid grid-cols-2 gap-2">
                       <Field label={t("wave1.find.from")} htmlFor="fr-from" error={formError === "range" ? t(ERROR_KEY.range) : null}>
-                        <Input id="fr-from" type="date" value={f.dateFrom} onChange={(e) => set("dateFrom", e.target.value)} />
+                        <DateField id="fr-from" value={f.dateFrom} onChange={(v) => set("dateFrom", v)} />
                       </Field>
                       <Field label={t("wave1.find.to")} htmlFor="fr-to">
-                        <Input id="fr-to" type="date" value={f.dateTo} min={f.dateFrom} onChange={(e) => set("dateTo", e.target.value)} />
+                        <DateField id="fr-to" value={f.dateTo} min={f.dateFrom || undefined} onChange={(v) => set("dateTo", v)} />
                       </Field>
                     </div>
                     <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("wave1.find.onDays")}>
@@ -225,7 +297,7 @@ export function FindRoomView() {
 
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-2 type-headline text-label-1">{t("wave1.find.time")}</legend>
-                <SegmentedGlass<TimeMode>
+                <SegmentedControl<TimeMode>
                   aria-label={t("wave1.find.time")}
                   size="sm"
                   fill
@@ -288,52 +360,30 @@ export function FindRoomView() {
                 )}
               </fieldset>
 
-              <div className="grid grid-cols-[1fr_auto] items-end gap-2">
-                <Field label={t("wave1.find.headcount")} htmlFor="fr-head" hint={t("wave1.find.headcountHint")}>
-                  <Input id="fr-head" type="number" min={0} max={5000} inputMode="numeric" placeholder="0" value={f.headcount} onChange={(e) => set("headcount", e.target.value)} data-testid="fr-headcount" />
-                </Field>
-                <label className="flex h-8 items-center gap-2 type-footnote text-label-2">
-                  <Switch checked={f.purpose === "exam"} onCheckedChange={(v) => set("purpose", v ? "exam" : "teaching")} aria-label={t("wave1.find.exam")} />
-                  {t("wave1.find.exam")}
-                </label>
-              </div>
-
-              {facets.data?.length ? <FeaturePicker facets={facets.data} value={f.features} onChange={(v) => set("features", v)} /> : null}
-
-              {buildings.length ? (
-                <div className="flex flex-col gap-1.5">
-                  <span className="type-footnote font-medium text-label-2">{t("wave1.find.buildings")}</span>
-                  <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("wave1.find.buildings")}>
-                    {buildings.map((b) => (
-                      <Chip key={b} size="sm" icon={<Building2 aria-hidden />} selected={f.buildings.includes(b)} onSelectedChange={(on) => set("buildings", on ? [...f.buildings, b] : f.buildings.filter((x) => x !== b))}>
-                        {buildingLabel(b, t)}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              <Field label={t("wave1.find.text")} htmlFor="fr-text" hint={t("wave1.find.textHint")}>
-                <Input id="fr-text" type="search" value={f.text} placeholder={t("wave1.find.textPlaceholder")} onChange={(e) => set("text", e.target.value)} data-testid="fr-text" />
+              <Field label={t("wave1.find.headcount")} htmlFor="fr-head" hint={t("wave1.find.headcountHint")}>
+                <Input id="fr-head" type="number" min={0} max={5000} inputMode="numeric" placeholder="0" value={f.headcount} onChange={(e) => set("headcount", e.target.value)} data-testid="fr-headcount" />
               </Field>
+              <label className="-mt-1 flex min-h-11 items-center justify-between gap-3 type-callout text-label-1 pointer-fine:min-h-8">
+                {t("wave1.find.exam")}
+                <Switch checked={f.purpose === "exam"} onCheckedChange={(v) => set("purpose", v ? "exam" : "teaching")} aria-label={t("wave1.find.exam")} />
+              </label>
 
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center justify-between gap-3 type-callout text-label-1">
-                  {t("wave1.find.showBusy")}
-                  <Switch checked={f.showBusy} onCheckedChange={(v) => set("showBusy", v)} aria-label={t("wave1.find.showBusy")} />
-                </label>
-                {f.when === "date" ? (
-                  <label className="flex items-center justify-between gap-3 type-callout text-label-1">
-                    {t("wave1.find.otherDays")}
-                    <Switch checked={f.otherDays} onCheckedChange={(v) => set("otherDays", v)} aria-label={t("wave1.find.otherDays")} />
-                  </label>
-                ) : null}
-              </div>
+              {compact ? (
+                <Button variant="outline" onClick={() => setMoreOpen(true)} aria-haspopup="dialog" className="self-start" data-testid="fr-filters-open">
+                  <SlidersHorizontal aria-hidden />
+                  {moreCount ? t("reserve.filters.openCount", { n: moreCount }) : t("reserve.filters.open")}
+                </Button>
+              ) : (
+                advanced
+              )}
 
-              <Button type="submit" disabled={busy || !form} aria-busy={busy || undefined} data-testid="fr-search">
-                {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Search aria-hidden />}
-                {busy ? t("wave1.find.searching") : t("wave1.find.search")}
-              </Button>
+              {/* desktop: the search button closes the form; phones / tablets get the page-level capsule below (T-R2-10) */}
+              {!compact ? (
+                <Button type="submit" {...busyProps(busy, !dated)} className="w-full" data-testid="fr-search">
+                  <BusyLabel busy={busy} label={t("busy.searching")} icon={<Search aria-hidden />}>
+                  {busy ? t("wave1.find.searching") : t("wave1.find.search")}</BusyLabel>
+                </Button>
+              ) : null}
             </form>
           </Card>
           <RecentSearches
@@ -351,17 +401,25 @@ export function FindRoomView() {
             {t("wave1.find.results")}
           </h2>
           {searchError ? <Alert tone="error">{searchError}</Alert> : null}
-          {!result && !searchError ? <p className="py-6 type-callout text-label-2">{t("wave1.find.empty")}</p> : null}
+          {!result && !searchError && !busy ? <p className="py-6 type-callout text-label-2">{t("wave1.find.empty")}</p> : null}
+          {!result && busy ? (
+            <div className="flex flex-col gap-2" aria-hidden data-testid="fr-results-loading">
+              <Skeleton className="h-7 w-2/3 rounded-md" />
+              {Array.from({ length: 4 }, (_, i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : null}
           {result ? (
             <>
               <div className="flex flex-wrap items-baseline justify-between gap-2" role="status" aria-live="polite">
                 <p className="type-title-3 text-label-1 outline-hidden" data-testid="fr-summary" tabIndex={-1} data-focus-fallback>
                   {result.summary ? (locale === "tr" ? result.summary.text_tr : result.summary.text_en) : t("wave1.find.count", { n: results.length })}
                 </p>
+                {/* the search window only: the server timing is no end-user fact (R1-A-08) */}
                 {result.time ? (
                   <p className="type-footnote text-label-3 tabular-nums">
                     {fmt.time(result.time.start)}–{fmt.time(result.time.end)}
-                    {result.timing_ms != null ? ` · ${t("wave1.find.ms", { ms: n(Math.round(result.timing_ms)) })}` : null}
                   </p>
                 ) : null}
               </div>
@@ -374,10 +432,10 @@ export function FindRoomView() {
                 </Alert>
               ) : null}
               {free.length ? (
-                <Card variant="glass" className="gap-0 overflow-hidden py-0">
+                <Card className="gap-0 overflow-hidden py-0">
                   <ul data-testid="fr-results">
                     {free.map((r, i) => (
-                      <ResultRow key={r.room_id} row={r} rank={i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={opening === `r${r.room_id}`} onReserve={() => {
+                      <ResultRow key={r.room_id} row={r} rank={i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={opening === `r${r.room_id}`} why={whyQuery(r, result.slots, termId)} ownRequest={r.status === "mine_pending" ? ownRequest(r) : null} onReserve={() => {
                         const date = firstFreeDate(r, result.slots);
                         if (date) void reserve(`r${r.room_id}`, r.room_id, date, r.start_period, r.end_period, r.action === "request");
                       }} />
@@ -394,7 +452,7 @@ export function FindRoomView() {
                       onClick={() => {
                         const next = { ...f, text: "" };
                         setForm(next);
-                        void run(next, false);
+                        void run(next, false, true);
                       }}
                       data-testid="fr-clear-text"
                     >
@@ -403,7 +461,7 @@ export function FindRoomView() {
                   ) : null}
                 </div>
               )}
-              {result.alternatives.length ? (
+              {alts.length ? (
                 <section aria-labelledby="fr-alts" className="flex flex-col gap-2">
                   <h3 id="fr-alts" className="type-headline text-label-1">
                     {t("wave1.find.alternatives")}
@@ -411,14 +469,30 @@ export function FindRoomView() {
                   <p className="type-footnote text-label-2">{t("wave1.find.alternativesLead")}</p>
                   <Card variant="plain" className="gap-0 overflow-hidden py-0">
                     <ul data-testid="fr-alternatives">
-                      {result.alternatives.map((a, i) => (
-                        <AlternativeRow key={`${a.kind}-${a.room_id}-${i}`} alt={a} opening={opening === `a${i}`} onReserve={() => {
+                      {nearAlts.map((a, i) => (
+                        <AlternativeRow key={`${a.kind}-${a.room_id}-${i}`} alt={a} termId={termId} request={approvalFirst} opening={opening === `a${i}`} onReserve={() => {
                           const date = a.dates[0] ?? a.date ?? result.slots[0]?.date;
                           if (date) void reserve(`a${i}`, a.room_id, date, a.start_period, a.end_period);
                         }} />
                       ))}
                     </ul>
                   </Card>
+                  {/* T-R1-14 (R1-A-07): rooms lacking the one asked feature are not near fits: folded away */}
+                  {featureMiss.length ? (
+                    <details className="group rounded-xl" data-testid="fr-feature-missing">
+                      <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg py-1 type-callout text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:min-h-11">
+                        <ChevronDown className="size-4 transition-transform duration-(--dur-fast) group-open:rotate-180" aria-hidden />
+                        {t("wave1.find.featureMissingN", { n: featureMiss.length })}
+                      </summary>
+                      <Card variant="plain" className="mt-2 gap-0 overflow-hidden py-0">
+                        <ul>
+                          {featureMiss.map((a, i) => (
+                            <AlternativeRow key={`fm-${a.room_id}-${i}`} alt={a} termId={termId} request={approvalFirst} opening={false} onReserve={() => undefined} />
+                          ))}
+                        </ul>
+                      </Card>
+                    </details>
+                  ) : null}
                 </section>
               ) : null}
               {others.length ? (
@@ -430,7 +504,7 @@ export function FindRoomView() {
                   <Card variant="plain" className="mt-2 gap-0 overflow-hidden py-0">
                     <ul>
                       {others.map((r, i) => (
-                        <ResultRow key={r.room_id} row={r} rank={free.length + i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={false} />
+                        <ResultRow key={r.room_id} row={r} rank={free.length + i + 1} multi={multi} headcount={Number(f.headcount) || 0} opening={false} why={whyQuery(r, result.slots, termId)} />
                       ))}
                     </ul>
                   </Card>
@@ -440,6 +514,44 @@ export function FindRoomView() {
           ) : null}
         </section>
       </div>
+      <Sheet open={compact && moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent side={phone ? "bottom" : "right"} className="gap-0 data-[side=bottom]:max-h-[92dvh] data-[side=right]:sm:max-w-md" data-testid="fr-filters-sheet">
+          <SheetHeader className="px-5 pt-5">
+            <SheetTitle className="type-title-3">{t("reserve.filters.open")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("wave1.find.lead")}</SheetDescription>
+          </SheetHeader>
+          <div className="flex min-h-0 flex-1 scroll-py-4 flex-col gap-4 overflow-y-auto overscroll-contain px-5 pt-4 pb-5">{advanced}</div>
+          <div className="flex items-center gap-2 border-t border-hairline px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] max-sm:pb-4">
+            {moreCount ? (
+              <Button variant="ghost" onClick={() => setForm((p) => ({ ...(p ?? f), features: {}, buildings: [], text: "", showBusy: false, otherDays: false }))} data-testid="fr-filters-reset">
+                {t("reserve.filters.reset")}
+              </Button>
+            ) : null}
+            <Button
+              className="ml-auto min-w-32"
+              disabled={busy || !dated}
+              onClick={() => {
+                setMoreOpen(false);
+                void run();
+              }}
+              data-testid="fr-filters-search"
+            >
+              <Search aria-hidden />
+              {t("wave1.find.search")}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+      {/* T-R2-10 (R2-A-04, MOBILE M-05): on phones and tablets "Ara" is a capsule fixed above the tab bar, so it stays in
+          thumb reach while the form and the results scroll (the sticky wrapper inside the form card left with the card) */}
+      {compact ? (
+        <div className="fixed inset-x-4 bottom-[calc(var(--shell-bottom-h)+0.75rem)] z-20 rounded-2xl glass-chrome p-1.5 shadow-elev-2" data-testid="fr-search-capsule">
+          <Button type="submit" form="fr-form" {...busyProps(busy, !dated)} className="w-full" data-testid="fr-search">
+            <BusyLabel busy={busy} label={t("busy.searching")} icon={<Search aria-hidden />}>
+            {busy ? t("wave1.find.searching") : t("wave1.find.search")}</BusyLabel>
+          </Button>
+        </div>
+      ) : null}
       <BookSheet
         target={target}
         fmt={fmt}
@@ -454,10 +566,6 @@ export function FindRoomView() {
   );
 }
 
-/** "A Blok" stays "A Blok"; a bare "A" becomes "A Blok" / "A block" (persona U-10: no "A Blok Blok"). */
-function buildingLabel(b: string, t: ReturnType<typeof useI18n>["t"]): string {
-  return /\b(blok|bloğu|block|bina|building)\b/i.test(b) || b.length > 3 ? b : t("wave1.find.building", { b });
-}
 
 /* ------------------------------------------------------------------------------------- features */
 
@@ -499,7 +607,7 @@ function FeaturePicker({ facets, value, onChange }: { facets: Feature[]; value: 
                 type="number"
                 min={0}
                 inputMode="decimal"
-                className="h-7 w-20"
+                className="h-7 w-20 pointer-coarse:h-11 pointer-coarse:w-24"
                 aria-label={t("wave1.find.atLeast", { name: x.name })}
                 value={typeof v === "number" ? v : ""}
                 onChange={(e) => setOne(x.id, e.target.value === "" ? null : Math.max(0, Number(e.target.value)))}
@@ -559,14 +667,14 @@ function FitBar({ capacity, headcount }: { capacity: number; headcount: number }
   );
 }
 
-function ResultRow({ row: r, rank, multi, headcount, opening, onReserve }: { row: FindRow; rank: number; multi: boolean; headcount: number; opening: boolean; onReserve?: () => void }) {
+function ResultRow({ row: r, rank, multi, headcount, opening, onReserve, why, ownRequest = null }: { row: FindRow; rank: number; multi: boolean; headcount: number; opening: boolean; onReserve?: () => void; why?: EffectiveQuery; ownRequest?: number | null }) {
   const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const reason = pickLang(r.reason, locale);
   const extra = r.reasons.map((x) => pickLang(x, locale)).filter((x) => x && x !== reason);
   const request = r.action === "request";
   return (
-    <li className="flex flex-col gap-2 px-4 py-3 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none sm:flex-row sm:items-start sm:gap-4" data-testid={`fr-room-${r.code}`} data-status={r.status} data-action={r.action}>
+    <li className="flex flex-col gap-2 px-4 py-3 not-last:edge-hairline-b sm:flex-row sm:items-start sm:gap-4" data-testid={`fr-room-${r.code}`} data-status={r.status} data-action={r.action}>
       <span className="hidden w-5 pt-0.5 text-right type-footnote text-label-3 tabular-nums sm:block" aria-hidden>
         {rank}
       </span>
@@ -584,6 +692,8 @@ function ResultRow({ row: r, rank, multi, headcount, opening, onReserve }: { row
         {extra.length ? <p className="type-footnote text-label-3">{extra.join(" · ")}</p> : null}
         {r.busy_with ? <p className="type-footnote text-label-2">{t("wave1.find.busyWith", { what: r.busy_with })}</p> : null}
         {request ? <p className="mt-1 type-footnote text-tint-text">{t("wave1.find.needsApproval")}</p> : null}
+        {/* P8 "Neden?": the booking policies that refuse this room or turn it into a request (full verdict with the slot's period_id) */}
+        {why && (r.status === "policy" || r.status === "requestable") ? <PolicyWhy className="mt-1" query={why} violation={r.status === "policy" ? { effect: "refuse", message_tr: r.reason?.tr ?? "", message_en: r.reason?.en ?? "" } : null} /> : null}
         {multi && r.per_date?.length ? (
           <details className="mt-1">
             <summary className="cursor-pointer type-footnote text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">{t("wave1.find.perDate")}</summary>
@@ -598,7 +708,12 @@ function ResultRow({ row: r, rank, multi, headcount, opening, onReserve }: { row
           </details>
         ) : null}
       </div>
-      {onReserve && r.action !== "none" ? (
+      {r.status === "mine_pending" ? (
+        <Button size="sm" variant="outline" className="min-h-11 self-start sm:min-h-0" render={<Link href={ownRequest ? `/my-bookings?request=${ownRequest}` : "/my-bookings"} />} nativeButton={false} data-testid={`fr-mine-${r.code}`}>
+          <Hourglass aria-hidden />
+          {t("wave1.find.openRequest")}
+        </Button>
+      ) : onReserve && r.action !== "none" ? (
         <Button size="sm" variant="outline" className="min-h-11 self-start sm:min-h-0" onClick={onReserve} disabled={opening} aria-label={t(request ? "wave1.find.requestRoom" : "wave1.find.reserveRoom", { room: r.name })} data-testid={`fr-reserve-${r.code}`}>
           {opening ? <Loader2 className="animate-spin" aria-hidden /> : request ? <Stamp aria-hidden /> : <CalendarClock aria-hidden />}
           {t(request ? "wave1.find.request" : "wave1.find.reserve")}
@@ -610,12 +725,12 @@ function ResultRow({ row: r, rank, multi, headcount, opening, onReserve }: { row
 
 const ALT_KIND: Record<string, MessageKey> = { time: "wave1.find.alt.time", day: "wave1.find.alt.day", near_miss: "wave1.find.alt.near_miss" };
 
-function AlternativeRow({ alt: a, opening, onReserve }: { alt: FindAlternative; opening: boolean; onReserve: () => void }) {
+function AlternativeRow({ alt: a, termId, request, opening, onReserve }: { alt: FindAlternative; termId?: number; request: boolean; opening: boolean; onReserve: () => void }) {
   const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const date = a.dates[0] ?? a.date;
   return (
-    <li className="flex items-center gap-3 px-4 py-2.5 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none" data-testid={`fr-alt-${a.code}`}>
+    <li className="flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b" data-testid={`fr-alt-${a.code}`}>
       <div className="min-w-0 flex-1">
         <p className="type-callout font-medium text-label-1">
           {a.name}
@@ -625,11 +740,13 @@ function AlternativeRow({ alt: a, opening, onReserve }: { alt: FindAlternative; 
           </span>
         </p>
         <p className="type-footnote text-label-2">{pickLang(a.reason, locale)}</p>
+        {/* alternatives are found without the booking policies: the verdict for that slot before reserving */}
+        {a.period_id != null && a.kind !== "near_miss" ? <PolicyWhy query={altWhyQuery(a, termId)} label={t("wave1.find.altWhy")} /> : null}
       </div>
       {a.kind !== "near_miss" ? (
-        <Button size="sm" variant="outline" className="min-h-11 sm:min-h-0" onClick={onReserve} disabled={opening} aria-label={t("wave1.find.reserveRoom", { room: a.name })}>
-          {opening ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("wave1.find.reserve")}
+        <Button size="sm" variant="outline" className="min-h-11 sm:min-h-0" onClick={onReserve} disabled={opening} aria-label={t(request ? "wave1.find.requestRoom" : "wave1.find.reserveRoom", { room: a.name })} aria-busy={opening || undefined} data-action={request ? "request" : "book"}>
+          <BusyLabel busy={opening} label={t("busy.opening")}>
+          {t(request ? "wave1.find.request" : "wave1.find.reserve")}</BusyLabel>
         </Button>
       ) : null}
     </li>
@@ -657,9 +774,9 @@ function RecentSearches({ items, onPick }: { items: Record<string, unknown>[]; o
       <ul className="flex flex-col gap-1" data-testid="fr-recent">
         {items.slice(0, 6).map((body, i) => (
           <li key={i}>
-            <button type="button" onClick={() => onPick(body)} className="w-full truncate rounded-lg px-2 py-1.5 text-left type-callout text-label-1 outline-hidden hover:bg-fill-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
+            <BareButton onClick={() => onPick(body)} className="min-h-11 w-full truncate rounded-lg px-2 py-1.5 text-left type-callout text-label-1 hover:bg-fill-2 pointer-fine:min-h-0">
               {label(body)}
-            </button>
+            </BareButton>
           </li>
         ))}
       </ul>

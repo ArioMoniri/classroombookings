@@ -4,7 +4,8 @@
   suggested alternative / approve in another room), withdraw, the expiry sweep, the rule check of a room, and
   the designated approvers ("approves for", set when administrator accounts are created).
 * ``/approval-rules``: rooms, room groups or room types that require approval (``setup.rooms_acl``).
-* ``/me/notifications``: the in-app notification list (bell in the shell).
+* ``/me/notifications``: the in-app notification list (bell in the shell); ``/me/notification-preferences``: which
+  events reach the caller on which channel (``app.services.notify_dispatch``).
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ from app.schemas.approvals import (
     ApproverOut,
     DecideIn,
     NotificationOut,
+    NotificationPrefsIn,
+    NotificationPrefsOut,
     ReadIn,
     RuleCheckOut,
     RuleIn,
@@ -31,6 +34,7 @@ from app.schemas.approvals import (
 from app.services import approvals as svc
 from app.services import audit
 from app.services import bookings as bsvc
+from app.services import notify_dispatch as nd
 from app.services.bookings_perms import load_access, may_manage_user
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
@@ -62,11 +66,13 @@ async def inbox(db: DB, access: CurrentAccess, status: str = "open", grouped: bo
 @router.post("/groups/{group_id}/decide")
 async def decide_group(group_id: int, body: DecideIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
     """A-12: approve or reject every open request of one submission at once (alternatives and series instances are
-    decided per request)."""
+    decided per request). A rejection needs a reason (``reason_code`` and / or ``reason``), 422 otherwise."""
     if body.alternative is not None or body.instances:
         raise HTTPException(422, "alternatives and instances are decided per request (POST /approvals/{id}/decide)")
     try:
-        return await svc.decide_group(db, access, group_id, body.decision, body.note)
+        return await svc.decide_group(
+            db, access, group_id, body.decision, body.reason or body.note, reason_code=body.reason_code
+        )
     except bsvc.BookingError as exc:
         await db.rollback()
         raise _err(exc) from exc
@@ -94,8 +100,13 @@ async def check_room(room_id: int, db: DB, access: CurrentAccess, term_id: int |
     action = await rules.mode_for(db, access, room, term_id)
     rule = rules.rule_for(room, term_id)
     snap = svc.rule_snapshot(rule) if (rule is not None or action == "request") else None
+    if snap is not None and rule is None and rules.mode == svc.MODE_ALL:
+        snap = svc.mode_snapshot()
     approvers = await svc.step_approvers(db, room, snap, 1) if snap else []
-    if action == "request" and snap:
+    if action == "request" and snap and rule is None and rules.mode == svc.MODE_ALL:
+        tr = "Tüm oda talepleri önce yönetici onayına gider"
+        en = "Every room request is approved by an administrator first"
+    elif action == "request" and snap:
         lead = snap.get("lead_time_workdays") or 0
         tr = f"{len(snap['steps'])} adımlı onay: atanmış yönetici onaylar" + (
             f" · en az {lead} iş günü önce" if lead else ""
@@ -190,7 +201,16 @@ async def decide(request_id: int, body: DecideIn, db: DB, access: CurrentAccess)
         a = body.alternative
         alt = svc.Alternative(a.room_id, a.date, a.period_id, a.start_period, a.end_period)
     try:
-        return await svc.decide(db, access, request_id, body.decision, body.note, alt, body.instances)
+        return await svc.decide(
+            db,
+            access,
+            request_id,
+            body.decision,
+            (body.reason or body.note) if body.decision == "reject" else body.note,
+            alt,
+            body.instances,
+            reason_code=body.reason_code,
+        )
     except bsvc.BookingError as exc:
         await db.rollback()
         raise _err(exc) from exc
@@ -279,6 +299,7 @@ def _note_out(x: InAppNotification) -> dict[str, Any]:
         "link": x.link,
         "booking_id": x.booking_id,
         "request_id": x.request_id,
+        "data": x.data,
         "read_at": x.read_at.isoformat() if x.read_at else None,
         "created_at": x.created_at.isoformat() if x.created_at else None,
     }
@@ -305,3 +326,22 @@ async def mark_read(body: ReadIn, db: DB, access: CurrentAccess) -> dict[str, in
     res = await db.execute(q.values(read_at=utcnow()))
     await db.commit()
     return {"read": int(res.rowcount or 0)}  # type: ignore[attr-defined]
+
+
+@me_router.get("/notification-preferences", response_model=NotificationPrefsOut)
+async def notification_preferences(db: DB, access: CurrentAccess) -> dict[str, Any]:
+    """The caller's channels (in-app, e-mail; master switch + whether it reaches them) and the event x channel
+    matrix. Default: every channel on for every event."""
+    return await nd.preferences_out(db, access.user)
+
+
+@me_router.put("/notification-preferences", response_model=NotificationPrefsOut)
+async def put_notification_preferences(body: NotificationPrefsIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
+    """Partial update (only the named switches change); unknown channels or events answer 422 (TR/EN)."""
+    try:
+        await nd.update_preferences(db, access.user_id, body.channels, body.events)
+    except nd.DispatchError as exc:
+        await db.rollback()
+        raise HTTPException(exc.status, exc.as_detail()) from exc
+    await db.commit()
+    return await nd.preferences_out(db, access.user)

@@ -3,7 +3,7 @@
 import { Lock, LockOpen, RotateCcw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { NativeSelect } from "@/components/common/native-select";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AdaptiveContent, AdaptivePopover, AdaptiveTrigger } from "./adaptive-popover";
 import type { ClassMode, ClassRow, MeetingPatch, Pin } from "@/lib/api/studio-schemas";
@@ -14,6 +14,7 @@ import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { SlotEditor } from "./slot-picker";
 import { changedIn, type FieldGroup } from "./use-class-edit";
+import { BareButton } from "@/components/shell/bare-button";
 
 export const MODE_KEY: Record<ClassMode, MessageKey> = {
   F2F: "studio.mode.F2F",
@@ -47,9 +48,9 @@ export function ChangedMark({ row, group, onRevert, children }: { row: ClassRow;
         {children}
         <span className="sr-only">, {t("studio.classes.changedFrom", { value: imported })}</span>
       </span>
-      <button type="button" onClick={() => onRevert(changed.map((c) => c.field))} className="inline-flex size-6 shrink-0 items-center justify-center rounded text-status-warning-fg hover:bg-status-warning pointer-coarse:size-11" aria-label={t("studio.classes.revertField", { field: t(`studio.classes.col.${group}`) })} data-testid="revert-field">
+      <IconButton size="xs" shape="rect" onClick={() => onRevert(changed.map((c) => c.field))} className="text-status-warning-fg hover:bg-status-warning" label={t("studio.classes.revertField", { field: t(`studio.classes.col.${group}`) })} data-testid="revert-field">
         <RotateCcw className="size-3" aria-hidden />
-      </button>
+      </IconButton>
     </span>
   );
 }
@@ -87,8 +88,7 @@ export function StudentsCell({ row, onSave, warning }: { row: ClassRow; onSave: 
     );
   return (
     <span className="inline-flex flex-col">
-      <button
-        type="button"
+      <BareButton
         className="rounded px-1 text-right tabular-nums hover:bg-fill-2"
         onClick={() => {
           setValue(String(row.enrolment ?? ""));
@@ -98,8 +98,8 @@ export function StudentsCell({ row, onSave, warning }: { row: ClassRow; onSave: 
         data-edit="students"
       >
         {row.enrolment !== null ? n(row.enrolment) : "—"}
-      </button>
-      {warning ? <span className="text-[11px] text-status-warning-fg">{warning}</span> : null}
+      </BareButton>
+      {warning ? <span className="type-caption text-status-warning-fg">{warning}</span> : null}
     </span>
   );
 }
@@ -116,7 +116,7 @@ export function ModeCell({ row, onSave }: { row: ClassRow; onSave: (patch: Meeti
           </option>
         ))}
       </NativeSelect>
-      {ROOMLESS.has(mode) ? <span className="text-[11px] text-label-2">{t("studio.classes.noRoomNeeded")}</span> : null}
+      {ROOMLESS.has(mode) ? <span className="type-caption text-label-2">{t("studio.classes.noRoomNeeded")}</span> : null}
     </span>
   );
 }
@@ -142,7 +142,7 @@ export function DayTimeCell({ row, onSave }: { row: ClassRow; onSave: (patch: Me
         }
       }}
     >
-      <AdaptiveTrigger render={<button type="button" className={cn("rounded px-1 text-left whitespace-nowrap hover:bg-fill-2", row.start_period === null && "text-status-warning-fg")} aria-label={t("studio.classes.editValue", { field: t("studio.classes.col.dayTime"), value: label })} data-edit="dayTime" />}>
+      <AdaptiveTrigger render={<BareButton className={cn("rounded px-1 text-left whitespace-nowrap hover:bg-fill-2 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center", row.start_period === null && "text-status-warning-fg")} aria-label={t("studio.classes.editValue", { field: t("studio.classes.col.dayTime"), value: label })} data-edit="dayTime" />}>
         {label}
       </AdaptiveTrigger>
       <AdaptiveContent title={t("studio.classes.col.dayTime")} className="w-80" align="start">
@@ -209,14 +209,14 @@ export function RoomsCell({ row, onSave }: { row: ClassRow; onSave: (patch: Meet
         else if (JSON.stringify(ids) !== JSON.stringify(row.requested_room_ids)) onSave({ requested_room_ids: ids });
       }}
     >
-      <AdaptiveTrigger render={<button type="button" className="flex max-w-56 flex-wrap gap-1 rounded px-1 text-left hover:bg-fill-2" aria-label={t("studio.classes.editValue", { field: t("studio.classes.col.rooms"), value: chips.join(", ") || "—" })} data-edit="rooms" />}>
-        {chips.length ? chips.slice(0, 3).map((c) => <span key={c} className="rounded border px-1 font-mono text-[11px]">{c}</span>) : <span className="text-label-2">—</span>}
-        {chips.length > 3 ? <span className="text-[11px] text-label-2">+{chips.length - 3}</span> : null}
+      <AdaptiveTrigger render={<BareButton className="flex max-w-56 flex-wrap gap-1 rounded px-1 text-left hover:bg-fill-2" aria-label={t("studio.classes.editValue", { field: t("studio.classes.col.rooms"), value: chips.join(", ") || "—" })} data-edit="rooms" />}>
+        {chips.length ? chips.slice(0, 3).map((c) => <span key={c} className="rounded border px-1 font-mono type-caption">{c}</span>) : <span className="text-label-2">—</span>}
+        {chips.length > 3 ? <span className="type-caption text-label-2">+{chips.length - 3}</span> : null}
       </AdaptiveTrigger>
       <AdaptiveContent title={t("studio.classes.col.rooms")} className="w-80" align="start">
         <p className="text-xs font-medium text-label-2">{t("studio.classes.col.rooms")}</p>
         <SlotEditor field={{ name: "rooms", type: "rooms", param: "requested_room_ids", required: false, ordered: true }} value={ids} onChange={(v) => setIds(Array.isArray(v) ? v.map(Number) : [])} />
-        <p className="text-[11px] text-label-2">{t("studio.classes.roomsHint", { n: row.enrolment ?? 0 })}</p>
+        <p className="type-caption text-label-2">{t("studio.classes.roomsHint", { n: row.enrolment ?? 0 })}</p>
       </AdaptiveContent>
     </AdaptivePopover>
   );
@@ -230,7 +230,7 @@ export function PinCell({ row, pin, unlocked, roomCode, rooms, onPin, onUnpin, o
   const label = pin ? (pin.room_ids.length ? pin.room_ids.map(roomCode).join(", ") : pin.day ? `${dayName(pin.day, locale, "short")} P${pin.start_period ?? ""}` : t("studio.pin.pinned")) : null;
   return (
     <AdaptivePopover open={open} onOpenChange={onOpenChange}>
-      <AdaptiveTrigger render={<button type="button" className={cn("inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs pointer-coarse:min-h-11", pin ? "bg-status-locked text-status-locked-fg" : "text-label-2 hover:bg-fill-2")} aria-label={pin ? t("studio.pin.pinnedTo", { where: label ?? "" }) : unlocked ? t("studio.pin.unlockedHint") : t("studio.pin.title")} data-testid="pin-button" data-unlocked={!pin && unlocked ? "true" : undefined} />}>
+      <AdaptiveTrigger render={<BareButton className={cn("inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center", pin ? "bg-status-locked text-status-locked-fg" : "text-label-2 hover:bg-fill-2")} aria-label={pin ? t("studio.pin.pinnedTo", { where: label ?? "" }) : unlocked ? t("studio.pin.unlockedHint") : t("studio.pin.title")} data-testid="pin-button" data-unlocked={!pin && unlocked ? "true" : undefined} />}>
         {pin ? <Lock className="size-3.5" aria-hidden /> : <LockOpen className="size-3.5" aria-hidden />}
         {label ? <span className="max-w-24 truncate">{label}</span> : unlocked ? <span className="max-w-24 truncate">{t("studio.pin.unlocked")}</span> : null}
       </AdaptiveTrigger>

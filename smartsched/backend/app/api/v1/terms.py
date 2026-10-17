@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.deps import DB, Planner, Viewer, require_permission
+from app.api.deps import DB, Admin, Planner, Viewer, require_permission
 from app.models import Term, User, Week
 from app.schemas.catalog import TermIn, TermOut, TermUpdate, WeekIn, WeekOut
 
@@ -192,3 +192,70 @@ async def replace_weeks(term_id: int, body: list[WeekIn], db: DB, _: Planner) ->
         )
     await db.commit()
     return list((await db.execute(select(Week).where(Week.term_id == term_id).order_by(Week.index))).scalars())
+
+
+# --------------------------------------------------------------------------- relaxation policy
+
+
+class RelaxationPolicyOut(BaseModel):
+    """The term's relaxation policy: the setting ``term.<id>.relaxation_policy`` (``source: term``) or the
+    default (``source: default``; ``stored_invalid`` when the stored value is not a policy name)."""
+
+    term_id: int
+    policy: str
+    source: str
+    default: str
+    options: list[str]
+    stored_invalid: bool = False
+
+
+class RelaxationPolicyIn(BaseModel):
+    #: ``null`` clears the term setting (runs then use the default)
+    policy: str | None
+
+
+async def _policy_out(db: DB, term_id: int) -> RelaxationPolicyOut:
+    from app.services import run_params as rp
+
+    policy, source = await rp.term_relaxation_policy(db, term_id)
+    return RelaxationPolicyOut(
+        term_id=term_id,
+        policy=policy,
+        source="term" if source == "term" else "default",
+        default=rp.DEFAULT_RELAXATION_POLICY,
+        options=list(rp.RELAXATION_POLICIES),
+        stored_invalid=source == "invalid_setting",
+    )
+
+
+@router.get("/{term_id}/relaxation-policy", response_model=RelaxationPolicyOut)
+async def get_relaxation_policy(term_id: int, db: DB, _: Viewer) -> RelaxationPolicyOut:
+    """Which classes give way when not everything fits (P19-M2): ``lock_first`` or ``most_classes_first``."""
+    await _get(db, term_id)
+    return await _policy_out(db, term_id)
+
+
+@router.put("/{term_id}/relaxation-policy", response_model=RelaxationPolicyOut)
+async def put_relaxation_policy(term_id: int, body: RelaxationPolicyIn, db: DB, user: Admin) -> RelaxationPolicyOut:
+    """Store (or with ``null`` clear) the term's policy; administrators, like ``PUT /settings`` that writes the
+    same key. One ``term.relaxation_policy`` audit event with the old and new value."""
+    from app.services import run_params as rp
+    from app.services.events import publish_event
+
+    term = await _get(db, term_id)
+    before = await _policy_out(db, term_id)
+    policy = (body.policy or "").strip() or None
+    if policy is not None and policy not in rp.RELAXATION_POLICIES:
+        raise HTTPException(422, f"policy must be one of {list(rp.RELAXATION_POLICIES)} or null")
+    await publish_event(
+        db,
+        "term.relaxation_policy",
+        "term",
+        term.id,
+        before={"policy": before.policy, "source": before.source},
+        after={"policy": policy or rp.DEFAULT_RELAXATION_POLICY, "source": "term" if policy else "default"},
+        actor=user,
+        term_id=term.id,
+    )
+    await rp.set_term_relaxation_policy(db, term_id, policy)  # commits (settings_service.set_value)
+    return await _policy_out(db, term_id)

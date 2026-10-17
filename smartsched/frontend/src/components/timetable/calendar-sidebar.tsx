@@ -4,10 +4,10 @@
  * selected week row, one heat dot per day), filters as quiet sections with counts and reset (Wix #25),
  * the unplaced tray, compare, and a legend drawn with real chips. Chrome material (rule G1).
  */
-import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw, X } from "lucide-react";
 import Link from "next/link";
 import { forwardRef, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +22,8 @@ import type { HeatValue } from "./model/heat";
 import type { CalendarModel } from "./model/index-model";
 import { harmonised } from "./model/harmonise";
 import { runOptionLabel } from "./model/run-label";
+import { BareButton } from "@/components/shell/bare-button";
+import { Input } from "@/components/ui/input";
 
 export interface CalendarSidebarProps {
   model: CalendarModel;
@@ -42,18 +44,28 @@ export interface CalendarSidebarProps {
   ghosts: boolean;
   onGhosts: (v: boolean) => void;
   className?: string;
+  /** the run shown: its API count of unplaced classes is the one the sidebar titles with (round-1 R1-S-16) */
+  run?: ScheduleRun;
+  /** Enter in the search: focus the first matching chip (round-1 R1-S-26) */
+  onSearchEnter?: () => void;
+  /** set when the sidebar floats over the board (narrow windows): a close button, and Esc closes it */
+  onClose?: () => void;
+  /** the phone sheet (round-3 R3-M-05): no mini month (the day strip and the week swipe do that), 44 px rows and
+   *  chips, a 16 px search, no glass card of its own */
+  compact?: boolean;
+  style?: React.CSSProperties;
 }
 
-function Section({ title, onReset, children, count }: { title: string; onReset?: () => void; children: React.ReactNode; count?: number }) {
+function Section({ title, onReset, children, count, compact }: { title: string; onReset?: () => void; children: React.ReactNode; count?: number; compact?: boolean }) {
   const { t } = useI18n();
   return (
     <section className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between px-1">
-        <h3 className="text-[11px] font-semibold text-label-3">{title}{count ? ` · ${count}` : ""}</h3>
+        <h3 className="type-caption font-semibold text-label-3">{title}{count ? ` · ${count}` : ""}</h3>
         {onReset ? (
-          <button type="button" onClick={onReset} className="flex items-center gap-1 rounded-full px-1.5 text-[11px] text-label-2 hover:text-label-1" aria-label={`${t("calendar.sidebar.reset")} ${title}`}>
+          <BareButton onClick={onReset} className={cn("flex items-center gap-1 rounded-full px-1.5 type-caption text-label-2 hover:text-label-1", compact && "min-h-11 px-3")} aria-label={`${t("calendar.sidebar.reset")} ${title}`}>
             <RotateCcw className="size-3" aria-hidden />
-          </button>
+          </BareButton>
         ) : null}
       </div>
       {children}
@@ -77,13 +89,13 @@ function MiniMonth({ model, week, day, heat, todayIso, onPick }: { model: Calend
   return (
     <div className="px-1">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-[13px] font-semibold capitalize">{title}</span>
+        <span className="type-callout font-semibold capitalize">{title}</span>
         <span className="flex">
           <Button variant="ghost" size="icon-xs" aria-label={t("calendar.nav.prev")} onClick={() => shift(-1)}><ChevronLeft /></Button>
           <Button variant="ghost" size="icon-xs" aria-label={t("calendar.nav.next")} onClick={() => shift(1)}><ChevronRight /></Button>
         </span>
       </div>
-      <table className="w-full table-fixed text-center text-[11px] tabular-nums" role="grid" aria-label={t("calendar.sidebar.miniMonth")}>
+      <table className="w-full table-fixed text-center type-caption tabular-nums" role="grid" aria-label={t("calendar.sidebar.miniMonth")}>
         <thead>
           <tr className="text-label-3">
             <th className="w-6 font-medium" aria-label={t("calendar.scrubber")}>{locale === "tr" ? "H" : "W"}</th>
@@ -97,7 +109,7 @@ function MiniMonth({ model, week, day, heat, todayIso, onPick }: { model: Calend
             const exam = model.index.weeks.find((w) => w.index === wk)?.kind === "EXAM";
             return (
               <tr key={r[0]} className={cn(selected && "bg-tint-soft")}>
-                <td className="text-[10px] text-label-3">{wk ?? ""}{exam ? <span className="block text-[8px] leading-none">S</span> : null}</td>
+                <td className="text-2xs pointer-coarse:type-caption text-label-3">{wk ?? ""}{exam ? <span className="block text-2xs pointer-coarse:type-caption leading-none">S</span> : null}</td>
                 {r.map((iso) => {
                   const pos = weekDayOf(model.index.weeks, iso);
                   const inTerm = !!pos && model.weeks.includes(pos.week);
@@ -108,19 +120,18 @@ function MiniMonth({ model, week, day, heat, todayIso, onPick }: { model: Calend
                   const isSel = pos && pos.week === week && pos.day === day;
                   return (
                     <td key={iso} className="p-0">
-                      <button
-                        type="button"
+                      <BareButton
                         disabled={!inTerm}
                         onClick={() => pos && onPick(pos.week, pos.day)}
                         aria-current={isToday ? "date" : undefined}
                         aria-pressed={!!isSel}
                         aria-label={`${iso}${inTerm ? `, ${t("calendar.sidebar.heatDot", { p: Math.round(occ * 100), c: h?.conflicts ?? 0 })}` : ""}`}
-                        className={cn("relative mx-auto flex size-7 flex-col items-center justify-center rounded-full", Number(iso.slice(5, 7)) !== m && "text-label-4", !inTerm && "text-label-4", isToday && "bg-tint font-semibold text-tint-foreground", isSel && !isToday && "shadow-[inset_0_0_0_1.5px_var(--accent)]")}
+                        className={cn("relative mx-auto flex size-7 flex-col items-center justify-center rounded-full", Number(iso.slice(5, 7)) !== m && "text-label-3", !inTerm && "text-label-3", isToday && "bg-tint font-semibold text-tint-foreground", isSel && !isToday && "edge-tint")}
                         title={inTerm ? t("calendar.sidebar.heatDot", { p: Math.round(occ * 100), c: h?.conflicts ?? 0 }) : undefined}
                       >
                         {Number(iso.slice(8))}
                         {dot ? <span aria-hidden className={cn("absolute bottom-0.5 rounded-full", isToday ? "bg-tint-foreground" : "bg-label-3")} style={{ width: dot + 1, height: dot + 1 }} /> : null}
-                      </button>
+                      </BareButton>
                     </td>
                   );
                 })}
@@ -131,6 +142,21 @@ function MiniMonth({ model, week, day, heat, todayIso, onPick }: { model: Calend
       </table>
     </div>
   );
+}
+
+/** The run's own unplaced count: the backend's truth first, then `stats.unplaced`, then total − placed. */
+export function unplacedCount(run: ScheduleRun | undefined): number | null {
+  if (!run) return null;
+  const stats = (run.stats_detail ?? run.stats) as Record<string, unknown>;
+  const truth = stats.truth && typeof stats.truth === "object" ? (stats.truth as Record<string, unknown>) : null;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const fromTruth = num(truth?.unplaced);
+  if (fromTruth !== null) return fromTruth;
+  const direct = num(run.stats.unplaced);
+  if (direct !== null) return direct;
+  const placed = num(run.stats.placed);
+  const total = num(run.stats.events_total);
+  return placed !== null && total !== null ? Math.max(0, total - placed) : null;
 }
 
 export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps>(function CalendarSidebar(p, searchRef) {
@@ -148,15 +174,32 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
   ];
   const capIdx = Math.max(0, CAPACITY_BUCKETS.findIndex((c) => c === f.minCap));
   const mixedKinds = new Set(p.runs.map((r) => r.kind)).size > 1;
+  // one unplaced count, the API's (`stats.unplaced`, the run report's number); the list may hold more rows (R1-S-16)
+  const apiUnplaced = unplacedCount(p.run);
   const runLabels = new Map(p.runs.map((r) => [r.id, runOptionLabel(r, t, mixedKinds)]));
+  const c = p.compact === true;
   return (
-    <aside aria-label={t("calendar.sidebar.label")} className={cn("glass-chrome flex min-h-0 flex-col gap-4 overflow-y-auto rounded-2xl p-3 text-label-1", p.className)} data-glass="chrome" data-testid="calendar-sidebar">
+    <aside
+      aria-label={t("calendar.sidebar.label")}
+      className={cn(c ? "flex min-h-0 flex-col gap-5 overflow-y-auto px-4 pt-2 pb-4 text-label-1 [&_[data-slot=chip]>button]:min-h-11 [&_[data-slot=chip]>button]:px-3.5 [&_[data-slot=chip]>button]:type-callout" : "glass-chrome flex min-h-0 flex-col gap-4 overflow-y-auto rounded-2xl p-3 text-label-1", p.className)}
+      data-glass={c ? undefined : "chrome"}
+      data-compact={c ? "true" : undefined}
+      style={p.style}
+      data-testid="calendar-sidebar"
+    >
       <div className="flex flex-col gap-1.5 px-1">
-        <p className="type-headline">{p.term?.name ?? ""}</p>
-        <label className="flex flex-col gap-0.5 text-[11px] font-semibold text-label-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="type-headline" data-testid="sidebar-term">{p.term?.name ?? ""}</p>
+          {p.onClose ? (
+            <IconButton size={c ? "lg" : "sm"} variant="ghost" label={t("calendar.sidebar.close")} onClick={p.onClose} data-testid="sidebar-close">
+              <X aria-hidden />
+            </IconButton>
+          ) : null}
+        </div>
+        <label className="flex flex-col gap-0.5 type-caption font-semibold text-label-3">
           {t("calendar.sidebar.run")}
           {/* short option text (weeks as ranges, kind only when both kinds are listed); the full text is the tooltip */}
-          <select className="h-8 w-full min-w-0 truncate rounded-lg bg-fill-2 px-2 text-[13px] font-medium text-label-1" value={p.runId} title={runLabels.get(p.runId)?.full} onChange={(e) => p.onRun(Number(e.target.value))} data-testid="run-picker">
+          <select className="h-8 w-full min-w-0 truncate rounded-lg bg-fill-2 px-2 type-callout font-medium text-label-1 pointer-coarse:h-11 max-md:pointer-coarse:text-base" value={p.runId} title={runLabels.get(p.runId)?.full} onChange={(e) => p.onRun(Number(e.target.value))} data-testid="run-picker">
             {p.runs.map((r) => (
               <option key={r.id} value={r.id} title={runLabels.get(r.id)?.full}>
                 {runLabels.get(r.id)?.short}
@@ -165,17 +208,24 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
           </select>
         </label>
       </div>
-      <MiniMonth model={p.model} week={p.week} day={p.day} heat={p.heat} todayIso={p.todayIso} onPick={p.onPickDate} />
-      <input
+      {c ? null : <MiniMonth model={p.model} week={p.week} day={p.day} heat={p.heat} todayIso={p.todayIso} onPick={p.onPickDate} />}
+      <Input
         ref={searchRef}
         value={f.query}
         onChange={(e) => set({ query: e.target.value })}
         placeholder={t("calendar.sidebar.search")}
         aria-label={t("calendar.sidebar.search")}
-        className="h-8 rounded-lg bg-fill-2 px-2.5 text-[13px] outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && f.query.trim()) {
+            e.preventDefault();
+            p.onSearchEnter?.();
+          }
+        }}
         data-testid="calendar-search"
+        className={c ? "min-h-11 text-base" : undefined}
+        enterKeyHint={c ? "search" : undefined}
       />
-      <Section title={t("calendar.sidebar.buildings")} onReset={f.buildings.length ? () => set({ buildings: [] }) : undefined}>
+      <Section compact={c} title={t("calendar.sidebar.buildings")} onReset={f.buildings.length ? () => set({ buildings: [] }) : undefined}>
         <div className="flex flex-wrap gap-1 px-1">
           {p.model.buildings.map((b) => (
             <Chip key={b} size="sm" selected={f.buildings.includes(b)} onSelectedChange={() => set({ buildings: toggle(f.buildings, b) })}>
@@ -184,36 +234,35 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
           ))}
         </div>
       </Section>
-      <Section title={t("calendar.sidebar.faculties")} onReset={f.slots.length ? () => set({ slots: [] }) : undefined}>
+      <Section compact={c} title={t("calendar.sidebar.faculties")} onReset={f.slots.length ? () => set({ slots: [] }) : undefined}>
         <ul className="flex flex-col" title={t("calendar.sidebar.isolateHint")}>
           {slots.map((slot) => {
             const names = faculties.filter((x) => x.slot === slot).map((x) => x.name);
             const on = f.slots.length === 0 || f.slots.includes(slot);
             return (
               <li key={slot}>
-                <button
-                  type="button"
+                <BareButton
                   aria-pressed={f.slots.includes(slot)}
                   onClick={(e) => set({ slots: e.altKey ? (f.slots.length === 1 && f.slots[0] === slot ? [] : [slot]) : toggle(f.slots, slot) })}
-                  className={cn("flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-[12px] hover:bg-fill-2", !on && "opacity-50")}
+                  className={cn("flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left type-footnote hover:bg-fill-2", c && "min-h-11 type-callout", !on && "opacity-50")}
                 >
                   <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: `var(--fac-${slot}-bar)` }} />
                   <span className="min-w-0 flex-1 truncate" title={names.join(", ")}>{names[0]}{names.length > 1 ? ` +${names.length - 1}` : ""}</span>
-                  <span className="text-[11px] text-label-3 tabular-nums">{p.counts.slots.get(slot) ?? 0}</span>
-                </button>
+                  <span className="type-caption text-label-3 tabular-nums">{p.counts.slots.get(slot) ?? 0}</span>
+                </BareButton>
               </li>
             );
           })}
         </ul>
       </Section>
       {tags.length ? (
-        <Section title={t("calendar.sidebar.tags")} onReset={f.tags.length ? () => set({ tags: [] }) : undefined}>
+        <Section compact={c} title={t("calendar.sidebar.tags")} onReset={f.tags.length ? () => set({ tags: [] }) : undefined}>
           <div className="flex flex-wrap gap-1 px-1">
             {tags.map((tg) => <Chip key={tg} size="sm" selected={f.tags.includes(tg)} onSelectedChange={() => set({ tags: toggle(f.tags, tg) })}>{tg}</Chip>)}
           </div>
         </Section>
       ) : null}
-      <Section title={t("calendar.sidebar.status")} onReset={f.status.length ? () => set({ status: [] }) : undefined}>
+      <Section compact={c} title={t("calendar.sidebar.status")} onReset={f.status.length ? () => set({ status: [] }) : undefined}>
         <div className="flex flex-wrap gap-1 px-1">
           {statusOpts.filter((s) => s.n > 0 || f.status.includes(s.v)).map((s) => (
             <Chip key={s.v} size="sm" selected={f.status.includes(s.v)} onSelectedChange={() => set({ status: toggle(f.status, s.v) })}>
@@ -222,41 +271,46 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
           ))}
         </div>
       </Section>
-      <Section title={`${t("calendar.sidebar.capacity")} ${f.minCap || ""}`} onReset={f.minCap ? () => set({ minCap: 0 }) : undefined}>
-        <div className="px-2">
+      <Section compact={c} title={`${t("calendar.sidebar.capacity")} ${f.minCap || ""}`} onReset={f.minCap ? () => set({ minCap: 0 }) : undefined}>
+        {/* a <label>: on the phone sheet the row is the slider's 44 px target (M-02 measures the label box) */}
+        <label className={cn("block px-2", c && "flex min-h-11 items-center")}>
           <Slider min={0} max={CAPACITY_BUCKETS.length} step={1} value={[f.minCap ? capIdx + 1 : 0]} onValueChange={(v) => {
             const i = Array.isArray(v) ? v[0] : v;
             set({ minCap: i ? CAPACITY_BUCKETS[i - 1] : 0 });
-          }} aria-label={t("calendar.sidebar.capacity")} />
-        </div>
+          }} aria-label={t("calendar.sidebar.capacity")} className={c ? "w-full" : undefined} />
+        </label>
       </Section>
-      {p.model.unplaced.length ? (
-        <Section title={t("calendar.sidebar.unplaced", { n: p.model.unplaced.length })}>
+      {p.model.unplaced.length || apiUnplaced ? (
+        <Section compact={c} title={t("calendar.sidebar.unplaced", { n: apiUnplaced ?? p.model.unplaced.length })}>
+          {apiUnplaced !== null && p.model.unplaced.length > apiUnplaced ? (
+            // the index also lists requests the solver never saw (left out, no time): say so instead of a second count
+            <p className="px-1 type-caption text-label-3" data-testid="unplaced-extra">{t("calendar.sidebar.unplacedExtra", { n: p.model.unplaced.length - apiUnplaced })}</p>
+          ) : null}
           <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto px-1">
             {p.model.unplaced.slice(0, 60).map((u) => (
               <li key={u.mr}>
-                <Link href={`/classes?view=unplaced&id=${u.mr}`} className="cal-unplaced flex flex-col px-2 py-1 text-[12px] hover:bg-fill-2" style={{ ...chipVars(u.slot), color: "var(--chip-ink)" }}>
+                <Link href={`/classes?view=unplaced&id=${u.mr}`} className={cn("cal-unplaced flex flex-col px-2 py-1 type-footnote hover:bg-fill-2", c && "min-h-11 justify-center")} style={{ ...chipVars(u.slot), color: "var(--chip-ink)" }}>
                   <span className="font-semibold">{u.label}</span>
-                  <span className="truncate text-[11px] opacity-80">{u.size} · {u.room_text ?? ""}</span>
+                  <span className="truncate type-caption opacity-80">{u.size} · {u.room_text ?? ""}</span>
                 </Link>
               </li>
             ))}
           </ul>
         </Section>
       ) : null}
-      <Section title={t("calendar.sidebar.compare")}>
+      <Section compact={c} title={t("calendar.sidebar.compare")}>
         <div className="flex flex-col gap-2 px-1">
-          <select className="h-8 rounded-lg bg-fill-2 px-2 text-[13px]" value={p.compare ?? ""} onChange={(e) => p.onCompare(e.target.value ? Number(e.target.value) : null)} aria-label={t("calendar.compare.pick")}>
+          <select className="h-8 rounded-lg bg-fill-2 px-2 type-callout pointer-coarse:h-11 max-md:pointer-coarse:text-base" value={p.compare ?? ""} onChange={(e) => p.onCompare(e.target.value ? Number(e.target.value) : null)} aria-label={t("calendar.compare.pick")}>
             <option value="">{t("calendar.sidebar.compareNone")}</option>
-            {p.runs.filter((r) => r.id !== p.runId && r.kind === p.model.index.run.kind).map((r) => <option key={r.id} value={r.id}>Run #{r.id}</option>)}
+            {p.runs.filter((r) => r.id !== p.runId && r.kind === p.model.index.run.kind).map((r) => <option key={r.id} value={r.id}>{t("glass.shell.runShort", { id: r.id })}</option>)}
           </select>
           {p.compare !== null ? (
-            <label className="flex items-center gap-2 text-[12px]"><Switch checked={p.ghosts} onCheckedChange={p.onGhosts} />{t("calendar.sidebar.ghosts")}</label>
+            <label className={cn("flex items-center gap-2 type-footnote", c && "min-h-11 type-callout")}><Switch checked={p.ghosts} onCheckedChange={p.onGhosts} />{t("calendar.sidebar.ghosts")}</label>
           ) : null}
         </div>
       </Section>
-      <Section title={t("calendar.sidebar.legend")}>
-        <ul className="flex flex-col gap-1.5 px-1 text-[12px]">
+      <Section compact={c} title={t("calendar.sidebar.legend")}>
+        <ul className="flex flex-col gap-1.5 px-1 type-footnote">
           {[
             { label: t("calendar.state.placed"), attrs: {} },
             { label: t("calendar.state.locked"), attrs: { "data-locked": "true" } },
@@ -274,7 +328,7 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
         </ul>
       </Section>
       {activeFilterCount(f) ? (
-        <Button variant="ghost" size="sm" onClick={() => p.onFilters(EMPTY_FILTERS)}>{t("calendar.empty.clearFilters")}</Button>
+        <Button variant="ghost" size="sm" className={c ? "min-h-11" : undefined} onClick={() => p.onFilters(EMPTY_FILTERS)}>{t("calendar.empty.clearFilters")}</Button>
       ) : null}
     </aside>
   );

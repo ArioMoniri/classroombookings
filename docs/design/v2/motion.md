@@ -370,6 +370,45 @@ Steps: Program → Dersler → Şubeler → Öğretim elemanları → Kohortlar 
 | Mobile compact stepper "6/8 · Odalar ve düzen ▬▬▬▬▬▬▭▭" | segment bar `scaleX` to the new fraction. Tapping opens the step list as a bottom sheet (§4) | `smooth`, `sheet` | jump, snaps | opaque |
 | Offline ("Çevrimdışı · değişiklikler bu cihazda tutuluyor") | banner appears / disappears without motion | — | — | solid |
 
+### 3.12 Sign-in and accounts (`/login`, `/welcome`, admin users; `sign-in.md` §10)
+
+Copied from [`sign-in.md`](sign-in.md) §10 (2026-10-15); that spec owns the screens, this table owns the motion.
+
+Purpose sentences first; nothing animates on page load (the old "card fade + rise 200 ms" was decorative, A9).
+
+| Moment | Purpose | Animation | Token | Reduced motion | Reduced transparency |
+|---|---|---|---|---|---|
+| Door 2 opens / closes | "The password form appears under the row you pressed, and the column makes room" | The column is a `motion.div layout`; the form mounts in `AnimatePresence` with opacity 0 → 1 (60 ms after the layout starts), exit opacity → 0; chevron rotates 180° (transform). No `height` animation | layout `springs.smooth`; content `dur.fast` 120 ms `ease.out`, exit 80 ms `ease.in`; chevron `springs.snappy` | No layout animation; content opacity `tween.reduced` (100 ms); chevron flips instantly | Same (the sheet is opaque; motion unchanged) |
+| Microsoft button pressed | "Your press registered and we are leaving for Microsoft" | Press scale .97; busy label after 150 ms | `--spring-snappy` (CSS) | No scale; label swap only | Same |
+| Local sign-in failed | "It did not work; the problem is in these two fields" | Alert enters (opacity + y −4 → 0); the field group shakes once (pattern 9) | Alert `springs.snappy`; shake 280 ms (`--shake-dur-a` 80 × 2 + `--shake-dur-b` 60 × 2) | No shake, no travel; alert opacity 100 ms. The alert text, `aria-invalid` and focus carry the state | Same |
+| SSO error / notice on arrival | (none: it is the page's initial state) | None | — | — | — |
+| Welcome check | "The account now exists" | Check path `pathLength` 0 → 1 and the 28 px disc scale .8 → 1, once on mount (pattern 10) | `springs.bouncySubtle` (≤ 32 px, overshoot allowed) | Static check | Same |
+| Language switch | "This option is now selected" | Segmented thumb (pattern 2); text changes without animation | `springs.glassMorph` | Thumb jumps | Same |
+| After success | — | Standard route enter of `app/(app)/template.tsx` (pattern 13); no extra | — | per pattern 13 | — |
+| Admin: invite sheet | "The form comes from the button's side and returns there" | `Sheet` (pattern 4) | `springs.sheet`, exit 120 ms | Opacity 100 ms | Opaque sheet |
+| Admin: invite created | "It worked; here is the next step" | Toast (pattern 5) with "Bağlantıyı kopyala". **No row insert animation** (the users list has > 40 rows) | `springs.smooth` | Toast opacity only | Opaque toast |
+
+Choreography and budget: one focal motion at a time; inside the glass sheet only children animate (never the sheet's
+opacity or filter, G6); transform and opacity only; the layout animation touches ≤ 12 elements. Checklist §8 of the
+skill: purpose sentences above; tokens from `@/lib/motion` / CSS vars; every one-shot ≤ 280 ms; re-clicking the
+disclosure mid-flight re-targets (layout springs are interruptible) and input is never blocked; keyboard path = the
+disclosure is a button (Enter/Space); non-motion signals = `aria-expanded`, alert text, focus.
+
+Audit hook: add `sign-in` to `e2e/motion-audit.spec.ts` (open and close door 2 three times quickly at 4× CPU: ≤ 3
+dropped frames, no `Layout` events per frame after the first, nothing > 300 ms in `document.getAnimations()`, and under
+`reducedMotion: "reduce"` the form is fully visible on the next frame).
+
+### 3.13 Design-system primitives (design-system overhaul 2026-10-15)
+
+| Moment | Animation | Token | Reduced motion | Reduced transparency |
+|---|---|---|---|---|
+| SegmentedControl value change ("the thumb travels to the view that is now on") | ONE thumb, resting place pure CSS (`translateX(index × 100%)` in equal columns); only `transform` transitions; re-targets mid-flight. Replaces the layoutId thumb, which rested ~16 px above its track in dark mode | `--spring-glass-morph` / `--spring-glass-morph-ms` (CSS mirror of `springs.glassMorph`) | duration 0 (global rule): the thumb jumps; label colour + `aria-selected`/`aria-checked` carry the state | solid `--mat-thick-solid` thumb (unchanged motion) |
+| Tabs (ui/tabs default variant) | Base UI `Tabs.Indicator` positioned by `--active-tab-left/width`; `transform` transitions, width snaps | same | jumps | same |
+| Column resize (DataTable, /classes) | none: direct manipulation follows the pointer 1:1 (frequent action, skill §2.1); keyboard steps 8 / 32 px | — | — | — |
+| "+N çakışma" chip → popover list | popover panel reveal (pattern 1) | Popover primitive (`glass-morph`) | opacity only | thick solid |
+| Forced-move reason dialog | Dialog open (pattern 1 / modal) | Dialog primitive | opacity 100 ms | opaque |
+| BarList values, KPI numerals, heatmap | none on load (A9); a KPI that changes while open rolls (pattern 11) | `ticker` | final value | — |
+
 ## 4. Key flows end to end
 
 **Generate (Studio → island → report)**

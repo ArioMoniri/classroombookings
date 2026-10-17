@@ -36,4 +36,9 @@ describe("chat streaming (POST /runs/{id}/chat/stream)", () => {
     const s = streamReducer(INITIAL_STREAM, { event: "error", data: { status: 502, detail: "the AI service failed; try again later" } });
     expect(s).toMatchObject({ done: true, error: { status: 502, detail: "the AI service failed; try again later" } });
   });
+  it("a gateway refusal (guardrail 422 / limit 429) keeps its code and both languages", () => {
+    const detail = { code: "ai_limit_reached", message: "Limit reached", message_en: "Limit reached", message_tr: "Sınıra ulaşıldı" };
+    const s = streamReducer(INITIAL_STREAM, { event: "error", data: { status: 429, detail } });
+    expect(s.error).toEqual({ status: 429, detail: "Limit reached", code: "ai_limit_reached", messageTr: "Sınıra ulaşıldı", messageEn: "Limit reached" });
+  });
 });

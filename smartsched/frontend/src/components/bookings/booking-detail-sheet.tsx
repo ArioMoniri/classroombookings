@@ -4,13 +4,16 @@
  * as the viewer may see them, the series, and the edit / cancel actions the backend allows. Edit fields
  * follow `edit_features[scope]`; future/all scopes only change notes, department and user (CRBS rule).
  */
-import { CalendarClock, Info, Loader2, Pencil, Repeat, Trash2, User } from "lucide-react";
+import { CalendarClock, Info, Pencil, Repeat, Trash2, User } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
+import { cancelToastText } from "./cancel-toast";
+import { cancelReasonText } from "./cancel-reason";
 import { Button } from "@/components/ui/button";
-import { Input, useShake } from "@/components/ui/input";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { BusyLabel } from "@/components/ui/busy-label";
+import { useShake } from "@/components/ui/input";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -36,19 +39,20 @@ import { bookingErrorMessage } from "./booking-errors";
 import type { DateFormatter } from "./date-format";
 import { useIsPhone } from "./use-is-phone";
 import { cellSelector, focusAfter } from "./focus-after";
+import { DateField } from "@/components/ui/date-field";
 
-export function BookingDetailSheet({ bookingId, onOpenChange, fmt, onRoomInfo }: { bookingId: number | null; onOpenChange: (open: boolean) => void; fmt: DateFormatter; onRoomInfo?: (roomId: number, date: string) => void }) {
+export function BookingDetailSheet({ bookingId, onOpenChange, fmt, onRoomInfo, onCancelled }: { bookingId: number | null; onOpenChange: (open: boolean) => void; fmt: DateFormatter; onRoomInfo?: (roomId: number, date: string) => void; /** R3-S-05: the caller places focus after a cancel (else the freed cell / next row) */ onCancelled?: (bookingId: number) => void }) {
   const phone = useIsPhone();
   return (
     <Sheet open={bookingId !== null} onOpenChange={onOpenChange}>
       <SheetContent side={phone ? "bottom" : "right"} className="gap-0 sm:max-w-lg data-[side=right]:sm:max-w-lg" data-testid="booking-sheet">
-        {bookingId !== null ? <Detail key={bookingId} id={bookingId} fmt={fmt} onClose={() => onOpenChange(false)} onRoomInfo={onRoomInfo} /> : null}
+        {bookingId !== null ? <Detail key={bookingId} id={bookingId} fmt={fmt} onClose={() => onOpenChange(false)} onRoomInfo={onRoomInfo} onCancelledFocus={onCancelled} /> : null}
       </SheetContent>
     </Sheet>
   );
 }
 
-function Detail({ id, fmt, onClose, onRoomInfo }: { id: number; fmt: DateFormatter; onClose: () => void; onRoomInfo?: (roomId: number, date: string) => void }) {
+function Detail({ id, fmt, onClose, onRoomInfo, onCancelledFocus }: { id: number; fmt: DateFormatter; onClose: () => void; onRoomInfo?: (roomId: number, date: string) => void; onCancelledFocus?: (bookingId: number) => void }) {
   const { t } = useI18n();
   const q = useBooking(id);
   // CRBS bookings/view.php: the timetable week of the date and "Occurs: Week A, every Monday"
@@ -98,11 +102,11 @@ function Detail({ id, fmt, onClose, onRoomInfo }: { id: number; fmt: DateFormatt
           </Alert>
         ) : b.status === "REJECTED" || b.status === "EXPIRED" || b.status === "WITHDRAWN" ? (
           <Alert tone="warning" title={t(STATUS_KEY[b.status]!)}>
-            {b.cancel_reason ? t("crbs.detail.reason", { reason: b.cancel_reason }) : null}
+            {b.cancel_reason ? t("crbs.detail.reason", { reason: cancelReasonText(b.cancel_reason, t)! }) : null}
           </Alert>
         ) : cancelled ? (
           <Alert tone="warning" title={t("crbs.detail.cancelled")}>
-            {b.cancel_reason ? t("crbs.detail.reason", { reason: b.cancel_reason }) : null}
+            {b.cancel_reason ? t("crbs.detail.reason", { reason: cancelReasonText(b.cancel_reason, t)! }) : null}
           </Alert>
         ) : null}
         {mode === "view" ? (
@@ -148,10 +152,10 @@ function Detail({ id, fmt, onClose, onRoomInfo }: { id: number; fmt: DateFormatt
                 <dd className="flex flex-col items-start gap-1 text-label-1">
                   <span>{[b.room.group, b.room.location, b.room.capacity ? t("crbs.grid.seats", { n: b.room.capacity }) : null, b.room.owner ? t("crbs.detail.owner", { name: b.room.owner }) : null].filter(Boolean).join(" · ")}</span>
                   {onRoomInfo ? (
-                    <button type="button" onClick={() => onRoomInfo(b.room_id, b.date)} className="inline-flex min-h-11 items-center gap-1 rounded-sm font-medium text-tint-text outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) sm:min-h-0" data-testid="detail-room-info">
+                    <Button variant="link" size="sm" onClick={() => onRoomInfo(b.room_id, b.date)} className="gap-1" data-testid="detail-room-info">
                       <Info className="size-3.5" aria-hidden />
                       {t("reserve.slotInfo.room")}
-                    </button>
+                    </Button>
                   ) : null}
                 </dd>
                 {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
@@ -189,9 +193,9 @@ function Detail({ id, fmt, onClose, onRoomInfo }: { id: number; fmt: DateFormatt
               series.isLoading ? (
                 <Loading />
               ) : (
-                <ol className="mt-2 flex flex-col rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)]">
+                <ol className="mt-2 flex flex-col rounded-xl bg-(--mat-thick-solid) edge-hairline">
                   {(series.data ?? []).map((x) => (
-                    <li key={x.id} className="flex items-center justify-between px-3 py-1.5 type-callout shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none">
+                    <li key={x.id} className="flex items-center justify-between px-3 py-1.5 type-callout not-last:edge-hairline-b">
                       <span className={x.status !== "BOOKED" ? "text-label-3 line-through" : x.id === b.id ? "font-semibold text-label-1" : "text-label-1"}>{fmt.weekday(x.date)}</span>
                       <span className="type-footnote text-label-3">{x.status === "BOOKED" ? t("crbs.status.booked") : t("crbs.status.cancelled")}</span>
                     </li>
@@ -223,7 +227,7 @@ function Detail({ id, fmt, onClose, onRoomInfo }: { id: number; fmt: DateFormatt
           ) : null}
         </SheetFooter>
       ) : null}
-      <CancelDialog booking={b} open={cancelOpen} onOpenChange={setCancelOpen} onCancelled={onClose} fmt={fmt} />
+      <CancelDialog booking={b} open={cancelOpen} onOpenChange={setCancelOpen} onCancelled={onClose} fmt={fmt} onFocus={onCancelledFocus} />
     </>
   );
 }
@@ -233,7 +237,7 @@ function ScopePicker({ value, onChange, booking }: { value: Scope; onChange: (s:
   if (!booking.series_id) return null;
   return (
     <Field label={t("crbs.scope.label")}>
-      <SegmentedGlass<Scope>
+      <SegmentedControl<Scope>
         aria-label={t("crbs.scope.label")}
         value={value}
         onValueChange={onChange}
@@ -307,7 +311,7 @@ function EditForm({ booking: b, fmt, onDone }: { booking: BookingDetail; fmt: Da
       <ScopePicker value={scope} onChange={setScope} booking={b} />
       {f.date ? (
         <Field label={t("crbs.edit.date")} htmlFor="edit-date">
-          <Input id="edit-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <DateField id="edit-date" value={date} onChange={(v) => setDate(v)} />
         </Field>
       ) : null}
       {f.period ? (
@@ -373,16 +377,16 @@ function EditForm({ booking: b, fmt, onDone }: { booking: BookingDetail; fmt: Da
         <Button variant="ghost" onClick={onDone}>
           {t("crbs.common.cancel")}
         </Button>
-        <Button onClick={submit} disabled={save.isPending} data-testid="edit-save">
-          {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-          {t("crbs.common.save")}
+        <Button onClick={submit} disabled={save.isPending} data-testid="edit-save" aria-busy={save.isPending || undefined}>
+          <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+          {t("crbs.common.save")}</BusyLabel>
         </Button>
       </div>
     </div>
   );
 }
 
-function CancelDialog({ booking: b, open, onOpenChange, onCancelled, fmt }: { booking: BookingDetail; open: boolean; onOpenChange: (o: boolean) => void; onCancelled: () => void; fmt: DateFormatter }) {
+function CancelDialog({ booking: b, open, onOpenChange, onCancelled, fmt, onFocus }: { booking: BookingDetail; open: boolean; onOpenChange: (o: boolean) => void; onCancelled: () => void; fmt: DateFormatter; onFocus?: (bookingId: number) => void }) {
   const { t } = useI18n();
   const [scope, setScope] = useState<Scope>("one");
   const [reason, setReason] = useState("");
@@ -401,11 +405,12 @@ function CancelDialog({ booking: b, open, onOpenChange, onCancelled, fmt }: { bo
         setError(null);
         cancel.mutate(undefined, {
           onSuccess: (res) => {
-            toast.success(t("crbs.cancel.done", { n: res.cancelled.length }));
+            toast.success(cancelToastText(t, res.cancelled.length, { reason }));
             onOpenChange(false);
             onCancelled();
-            // the freed cell in the grid, else the next row of My bookings
-            focusAfter([cellSelector(b), `[data-booking-id="${b.id}"] ~ li button`, '[data-booking-id] button']);
+            // the freed cell in the grid, else the next row of My bookings (R3-S-05: My bookings places it itself)
+            if (onFocus) onFocus(b.id);
+            else focusAfter([cellSelector(b), `[data-booking-id="${b.id}"] ~ li button`, '[data-booking-id] button']);
           },
           onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
         });

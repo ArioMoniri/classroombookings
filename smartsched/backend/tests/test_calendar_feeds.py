@@ -16,7 +16,7 @@ from app.models.base import utcnow
 from sqlalchemy import select
 
 from tests.crbs_env import env  # noqa: F401
-from tests.integrations_support import kvkk_sign_off
+from tests.integrations_support import calendar_consent, kvkk_sign_off
 
 
 @pytest.fixture(autouse=True)
@@ -36,6 +36,7 @@ def events(text: str) -> dict[str, icalendar.Event]:
 
 
 async def new_token(env, headers, label: str | None = None) -> dict:  # noqa: F811
+    await calendar_consent(env.client, headers)  # sign-off on: the person's calendar_sync consent first
     r = await env.client.post("/api/v1/calendar/feeds/tokens", json={"label": label} if label else {}, headers=headers)
     assert r.status_code == 201, r.text
     return r.json()

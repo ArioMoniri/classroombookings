@@ -10,14 +10,15 @@ import { focusAfter } from "./focus-after";
  * recurring bookings the start / end of the series plus a per-date book / skip / replace choice from the
  * dry-run preview.
  */
-import { ArrowDownToLine, CalendarCheck, Loader2, Repeat } from "lucide-react";
+import { ArrowDownToLine, CalendarCheck, Repeat } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BusyLabel } from "@/components/ui/busy-label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { SegmentedGlass } from "@/components/ui/segmented-glass";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Textarea } from "@/components/ui/textarea";
 import { BOOKING_KEYS, crbs, crbsError, useBookingUsers, useCrbsMe, useCrbsMutation, useDepartments, type InstanceAction, type MultiSlotChoice, type RecurInstance, type Selection } from "@/lib/api/crbs";
 import { bookingCapabilities } from "@/lib/permissions";
@@ -27,6 +28,7 @@ import { Alert, Field, Loading, SelectField } from "@/components/admin/kit";
 import { bookingErrorMessage } from "./booking-errors";
 import type { DateFormatter } from "./date-format";
 import { parseSlotKey } from "./grid-model";
+import { DateField } from "@/components/ui/date-field";
 
 type Kind = "single" | "recurring";
 interface Problem {
@@ -216,7 +218,7 @@ function MultiBody({ slotKeys, termId, termEnd, fmt, onClose, onBooked }: { slot
       {selection ? (
         <div className="flex max-h-[60dvh] flex-col gap-3 overflow-y-auto pr-1">
           {selection.can_book_single && selection.can_book_recur ? (
-            <SegmentedGlass<Kind>
+            <SegmentedControl<Kind>
               aria-label={t("crbs.book.kind")}
               value={kind}
               onValueChange={(v) => {
@@ -233,14 +235,14 @@ function MultiBody({ slotKeys, termId, termEnd, fmt, onClose, onBooked }: { slot
             <Checkbox checked={perRow} onCheckedChange={(v) => setPerRow(v === true)} data-testid="multi-per-row" />
             {t("reserve.multi.perRow")}
           </label>
-          <ul className="flex flex-col rounded-xl bg-(--mat-thick-solid) shadow-[0_0_0_1px_var(--hairline)]" data-testid="multi-rows">
+          <ul className="flex flex-col rounded-xl bg-(--mat-thick-solid) edge-hairline" data-testid="multi-rows">
             {slots.map((s, i) => {
               const r = row(s.mbs_id);
               const problem = problems?.find((p) => p.mbs_id === s.mbs_id);
               const label = slotLabel(s.mbs_id);
               const prev = previews.find((p) => p.mbs_id === s.mbs_id);
               return (
-                <li key={s.mbs_id} className="flex flex-col gap-2 px-3 py-2 shadow-[inset_0_-1px_0_var(--hairline)] last:shadow-none" data-mbs-id={s.mbs_id}>
+                <li key={s.mbs_id} className="flex flex-col gap-2 px-3 py-2 not-last:edge-hairline-b" data-mbs-id={s.mbs_id}>
                   <div className="flex items-center justify-between gap-2 type-callout">
                     <label className="flex min-h-11 items-center gap-2 text-label-1 sm:min-h-0">
                       <Checkbox checked={r.include} onCheckedChange={(v) => patch(s.mbs_id, { include: v === true })} aria-label={t("reserve.multi.include", { slot: label })} data-testid={`multi-include-${s.mbs_id}`} />
@@ -321,14 +323,14 @@ function MultiBody({ slotKeys, termId, termEnd, fmt, onClose, onBooked }: { slot
                   <option value="session">{t("crbs.recur.startSession")}</option>
                   <option value="custom">{t("crbs.recur.custom")}</option>
                 </SelectField>
-                {start.mode === "custom" ? <Input type="date" aria-label={t("crbs.recur.startDate")} value={start.date} onChange={(e) => (setStart((c) => ({ ...c, date: e.target.value })), resetCheck())} /> : null}
+                {start.mode === "custom" ? <DateField aria-label={t("crbs.recur.startDate")} value={start.date} onChange={(v) => (setStart((c) => ({ ...c, date: v })), resetCheck())} /> : null}
               </Field>
               <Field label={t("crbs.recur.end")} htmlFor="multi-end">
                 <SelectField id="multi-end" value={end.mode} onChange={(e) => (setEnd((c) => ({ ...c, mode: e.target.value as "session" | "custom" })), resetCheck())}>
                   <option value="session">{t("crbs.recur.endSession", { date: termEnd ? fmt.short(termEnd) : "" })}</option>
                   <option value="custom">{t("crbs.recur.custom")}</option>
                 </SelectField>
-                {end.mode === "custom" ? <Input type="date" aria-label={t("crbs.recur.endDate")} value={end.date} onChange={(e) => (setEnd((c) => ({ ...c, date: e.target.value })), resetCheck())} /> : null}
+                {end.mode === "custom" ? <DateField aria-label={t("crbs.recur.endDate")} value={end.date} onChange={(v) => (setEnd((c) => ({ ...c, date: v })), resetCheck())} /> : null}
               </Field>
             </div>
           ) : null}
@@ -356,14 +358,14 @@ function MultiBody({ slotKeys, termId, termEnd, fmt, onClose, onBooked }: { slot
           {t("crbs.common.cancel")}
         </Button>
         {problems === null || problems.length ? (
-          <Button variant="outline" onClick={check} disabled={!selection || dry.isPending || !included.length} data-testid="multi-check">
-            {dry.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {kind === "recurring" ? t("reserve.multi.previewDates") : t("crbs.multi.check")}
+          <Button variant="outline" onClick={check} disabled={!selection || dry.isPending || !included.length} data-testid="multi-check" aria-busy={dry.isPending || undefined}>
+            <BusyLabel busy={dry.isPending} label={t("busy.checking")}>
+            {kind === "recurring" ? t("reserve.multi.previewDates") : t("crbs.multi.check")}</BusyLabel>
           </Button>
         ) : (
-          <Button onClick={confirm} disabled={create.isPending || !included.length} data-testid="multi-confirm">
-            {create.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {t("crbs.multi.confirm", { n: wouldCreate ?? included.length })}
+          <Button onClick={confirm} disabled={create.isPending || !included.length} data-testid="multi-confirm" aria-busy={create.isPending || undefined}>
+            <BusyLabel busy={create.isPending} label={t("busy.saving")}>
+            {t("crbs.multi.confirm", { n: wouldCreate ?? included.length })}</BusyLabel>
           </Button>
         )}
       </DialogFooter>

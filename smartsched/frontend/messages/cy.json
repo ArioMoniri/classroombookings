@@ -100,5 +100,56 @@
     "find": {
       "weeks": "Wythnosau"
     }
+  },
+  "moderation": {
+    "flag": {
+      "day": "Dydd"
+    }
+  },
+  "programWizard": {
+    "col": {
+      "year": "Blwyddyn"
+    },
+    "patterns": {
+      "weeks": "Wythnosau"
+    }
+  },
+  "analytics": {
+    "week": "Wythnos"
+  },
+  "compare": {
+    "week": "Wythnos"
+  },
+  "invigilation": {
+    "people": {
+      "days": "Dyddiau"
+    },
+    "pool": {
+      "hours": "Oriau"
+    }
+  },
+  "policies": {
+    "day": {
+      "1": "Llun",
+      "2": "Maw",
+      "3": "Mer",
+      "4": "Iau",
+      "5": "Gwen",
+      "6": "Sad",
+      "7": "Haul"
+    }
+  },
+  "publicSchedule": {
+    "dateNav": "Dydd"
+  },
+  "quickReserve": {
+    "day": {
+      "label": "Dydd"
+    }
+  },
+  "aiAdmin": {
+    "usage": {
+      "day": "Dydd"
+    }
   }
 }

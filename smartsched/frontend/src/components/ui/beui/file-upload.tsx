@@ -546,9 +546,9 @@ export function FileUpload({
           addFiles(Array.from(event.dataTransfer.files));
         }}
         className={cn(
-          "group relative flex w-full overflow-hidden rounded-3xl border border-dashed border-border bg-background outline-none",
+          "group relative flex w-full overflow-hidden rounded-3xl border border-dashed border-border bg-background",
           "transition-[border-color,transform] duration-200 active:scale-[0.99]",
-          "hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "hover:border-foreground/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)",
           "data-[dragging=true]:border-foreground",
           "disabled:pointer-events-none disabled:opacity-55",
           centered

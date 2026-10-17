@@ -37,9 +37,14 @@ LABEL = "Baseline: imported schedule"
 SOURCE = "COUNCIL_BASELINE"
 
 
-def natural_key(term_id: int, room_id: int, week: int, day: int, start: int, codes: list[str]) -> str:
+def natural_key(
+    term_id: int, room_id: int, week: int, day: int, start: int, codes: list[str], run_id: int | None = None
+) -> str:
+    """The assignment's ``source_key`` (unique over all runs): ``CB:<term>:...`` in the term's baseline run,
+    ``CR:<run>:...`` in a target run chosen at commit (``baseline.mode = run``), so both can hold the same map."""
     raw = f"{room_id}|{week}|{day}|{start}|{','.join(sorted(codes))}"
-    return f"CB:{term_id}:{hashlib.sha256(raw.encode()).hexdigest()[:32]}"
+    digest = hashlib.sha256(raw.encode()).hexdigest()[:32]
+    return f"CR:{run_id}:{digest}" if run_id is not None else f"CB:{term_id}:{digest}"
 
 
 async def _term_monday(session: AsyncSession, term: Term) -> date | None:
@@ -152,18 +157,42 @@ def _spans(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+async def target_run(session: AsyncSession, term: Term, run_id: int) -> ScheduleRun:
+    """The run a commit with ``baseline.mode = "run"`` writes its schedule map into: a COURSE run of the same
+    term that is not being solved and not the term's active (published) schedule. Raises ``ValueError``."""
+    run = await session.get(ScheduleRun, run_id)
+    if run is None or run.term_id != term.id:
+        raise ValueError(f"run {run_id} is not a run of term {term.code}")
+    if run.kind != "COURSE":
+        raise ValueError(f"run {run_id} is an {run.kind} run; a schedule map goes into a COURSE run")
+    if run.status in ("QUEUED", "RUNNING"):
+        raise ValueError(f"run {run_id} is {run.status}; wait until it has finished")
+    if run.is_active:
+        raise ValueError(f"run {run_id} is the term's active schedule; choose another run or the baseline run")
+    return run
+
+
 async def as_baseline_run(
     session: AsyncSession,
     term: Term,
     entries: list[tuple[dict[str, Any], dict[str, Any]]],
     periods: list[dict[str, Any]],
+    *,
+    run: ScheduleRun | None = None,
 ) -> dict[str, Any] | None:
     """``entries``: ``(booking record, {"sha256", "file", "job"})`` of the commit's schedule maps. Writes the
-    baseline run (flush only; the caller commits) and returns its counts, or None when no entry is a course."""
+    baseline run (or ``run``, a target chosen with :func:`target_run`; flush only, the caller commits) and returns
+    its counts, or None when no entry is a course."""
     course = [(r, src) for r, src in entries if r.get("course_codes")]
     if not course:
         return None
-    run, created = await _baseline_run(session, term)
+    key_run: int | None = None
+    if run is not None:
+        created = False
+        is_baseline = (run.params or {}).get("source") == SOURCE or run.label == LABEL
+        key_run = None if is_baseline else run.id
+    else:
+        run, created = await _baseline_run(session, term)
     counts: Counter[str] = Counter()
     monday = await _term_monday(session, term)
     last = monday + timedelta(weeks=int(term.week_count or 14), days=-1) if monday else None
@@ -210,7 +239,7 @@ async def as_baseline_run(
         )
     seen: set[str] = set()
     for x in _spans(cells):
-        key = natural_key(term.id, x["room_id"], x["week"], x["day"], x["sp"], x["codes"])
+        key = natural_key(term.id, x["room_id"], x["week"], x["day"], x["sp"], x["codes"], key_run)
         if key in seen:
             counts["duplicates_in_commit"] += 1
             continue
@@ -258,11 +287,20 @@ async def as_baseline_run(
         if src.get("sha256") and src["sha256"] not in known:
             known.add(src["sha256"])
             sources.append(src)
-    run.params = {**(run.params or {}), "source": SOURCE, "sources": sources}
+    is_baseline = (run.params or {}).get("source") == SOURCE or run.label == LABEL
+    # a target run keeps its own source (a solver run stays one); it lists the imported files all the same
+    run.params = {**(run.params or {}), **({"source": SOURCE} if is_baseline else {}), "sources": sources}
     run.stats = {**(run.stats or {}), "baseline": dict(counts)}
     await session.flush()
     zero = dict.fromkeys(("created", "updated", "unchanged", "linked", "unlinked"), 0)
-    return {"run_id": run.id, "run_created": created, **zero, **dict(counts)}
+    return {
+        "run_id": run.id,
+        "run_created": created,
+        "mode": "auto" if is_baseline else "run",
+        "entries": len(course),
+        **zero,
+        **dict(counts),
+    }
 
 
-__all__ = ["LABEL", "SOURCE", "as_baseline_run", "natural_key"]
+__all__ = ["LABEL", "SOURCE", "as_baseline_run", "natural_key", "target_run"]

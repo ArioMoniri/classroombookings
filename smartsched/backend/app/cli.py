@@ -7,6 +7,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 from app.core.config import get_settings
 from app.core.db import configure_engine, create_all, get_session_factory
@@ -126,6 +127,113 @@ async def _crbs_upgrade(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _learning_refresh(args: argparse.Namespace) -> int:
+    """P19-L2/L3: extract learning evidence (idempotent) and recompute priors for every term (or ``--term``)."""
+    from sqlalchemy import select
+
+    from app.models import Term
+    from app.services import learning
+
+    configure_engine(args.database_url or get_settings().database_url)
+    await create_all()
+    async with get_session_factory()() as session:
+        q = select(Term.id, Term.code).order_by(Term.id)
+        if args.term:
+            q = q.where(Term.code == args.term)
+        terms = (await session.execute(q)).all()
+        if args.term and not terms:
+            print(f"unknown term {args.term}", file=sys.stderr)
+            return 2
+        extract = (await learning.refresh(session))["extract"]
+        priors = {code: (await learning.refresh(session, term_id)).get("priors") for term_id, code in terms}
+        await session.commit()
+    print(json.dumps({"extract": extract, "terms": priors}, indent=2, ensure_ascii=False, default=str))
+    return 0
+
+
+class SettingError(Exception):
+    """A ``set-setting`` key or value that ``PUT /org/settings`` would refuse (the message never holds the value)."""
+
+
+#: groups whose keys ``set-setting`` accepts with their prefix (``bookings.approval_mode``, ``org.name``)
+_SETTING_GROUPS = ("org", "bookings")
+
+
+def _setting_field(key: str) -> tuple[str, str]:
+    """``(field of OrgSettingsIn, stored key)`` for a ``set-setting`` key; :class:`SettingError` when the key is not
+    one ``PUT /org/settings`` writes (the whitelist: its body fields that map to one stored setting)."""
+    from app.importers import normalize as n
+    from app.schemas.crbs import OrgSettingsIn
+    from app.services.bookings_settings import BOOKINGS_SPECS, ORG_SPECS
+
+    # ASCII keys: NBSP / spaces from a pasted runbook go, the case is folded (no Turkish letters in keys)
+    text = (n.clean_text(key) or "").replace(" ", "").lower()
+    group, _, name = text.rpartition(".")
+    stored = {
+        **{k: f"org.{k}" for k in ORG_SPECS},
+        **{k: f"bookings.{k}" for k in BOOKINGS_SPECS},
+        "timezone": "timezone",
+    }
+    ok = name in OrgSettingsIn.model_fields and name in stored and (not group or stored[name].startswith(f"{group}."))
+    if not ok or (group and group not in _SETTING_GROUPS):
+        allowed = sorted(stored[f] for f in OrgSettingsIn.model_fields if f in stored)
+        raise SettingError(f"unknown setting {text or key!r}; set-setting accepts: {', '.join(allowed)}")
+    return name, stored[name]
+
+
+async def apply_setting(session: Any, key: str, value: str) -> dict[str, Any]:
+    """Write one organisation / bookings setting exactly as ``PUT /org/settings`` does (its body model and handler:
+    the same whitelist, coercion, Turkish text clean-up and cross-field checks) and commit. Returns
+    ``{"key", "value", "changed"}``; :class:`SettingError` for an unknown key or a refused value."""
+    from fastapi import HTTPException
+    from pydantic import ValidationError
+
+    from app.api.v1.org import _settings_out, put_org_settings
+    from app.importers import normalize as n
+    from app.schemas.crbs import OrgSettingsIn
+
+    field, stored = _setting_field(key)
+    raw = n.clean_text(value) or ""
+    body = None
+    errors: list[str] = []
+    candidates: list[Any] = [raw]
+    try:
+        candidates.append(json.loads(raw))  # true / 12 / ["tr", "en"] for non-text fields
+    except ValueError:
+        pass
+    for cand in candidates:
+        try:
+            body = OrgSettingsIn.model_validate({field: cand})
+            break
+        except ValidationError as exc:
+            errors.extend(str(e.get("msg")) for e in exc.errors(include_input=False))
+    if body is None or getattr(body, field) is None:
+        why = errors[0] if errors else "a value is required"
+        raise SettingError(f"{stored}: {why}")
+    before = (await _settings_out(session)).get(field)
+    try:
+        out = await put_org_settings(body, session, None)  # type: ignore[arg-type]  # CLI: no request user
+    except HTTPException as exc:
+        await session.rollback()
+        raise SettingError(f"{stored}: {exc.detail}") from exc
+    after = out.get(field)
+    return {"key": stored, "value": after, "changed": after != before}
+
+
+async def _set_setting(args: argparse.Namespace) -> int:
+    """``set-setting <key> <value>``: one whitelisted setting through the ``PUT /org/settings`` validation."""
+    configure_engine(args.database_url or get_settings().database_url)
+    await create_all()
+    async with get_session_factory()() as session:
+        try:
+            out = await apply_setting(session, args.key, args.value)
+        except SettingError as exc:
+            print(f"set-setting: {exc}", file=sys.stderr)
+            return 2
+    print(json.dumps(out, ensure_ascii=False, sort_keys=True))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="smartsched", description="SmartSched backend CLI")
     p.add_argument("--database-url", default=None)
@@ -164,7 +272,19 @@ def main(argv: list[str] | None = None) -> int:
     upg.add_argument("--dsn", default=None, help="mysql://user:pass@host/db (opened read-only)")
     upg.add_argument("--commit", action="store_true", help="import for real (needs --fingerprint)")
     upg.add_argument("--fingerprint", default=None, help="the fingerprint printed by the dry run")
+    lr = sub.add_parser("learning-refresh", help="extract learning evidence and recompute suggestions (all terms)")
+    lr.add_argument("--term", default=None, help="only this term code, e.g. 2026-BAHAR")
+    ss = sub.add_parser(
+        "set-setting",
+        help="write one organisation setting through the PUT /org/settings validation, e.g. bookings.approval_mode all",
+    )
+    ss.add_argument("key", help="e.g. bookings.approval_mode, org.name, timezone")
+    ss.add_argument("value", help="text, true/false, a number or JSON (languages)")
     args = p.parse_args(argv)
+    if args.cmd == "set-setting":
+        return asyncio.run(_set_setting(args))
+    if args.cmd == "learning-refresh":
+        return asyncio.run(_learning_refresh(args))
     if args.cmd == "import":
         return asyncio.run(_run_import(args))
     if args.cmd == "solve":

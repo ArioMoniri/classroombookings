@@ -35,6 +35,7 @@ DOCKERFILES = {  # compose service -> Dockerfile
     "backend": Path("smartsched/backend/Dockerfile"),
     "frontend": Path("smartsched/frontend/Dockerfile"),
     "crbs": DEPLOY / "legacy/Dockerfile",
+    "loki": DEPLOY / "observability/loki/Dockerfile",  # observability profile (W3-OPS)
 }
 POD_CONFIG = DEPLOY / "pod-ci/podci/config.py"
 POD_DOCKERFILE = DEPLOY / "pod-ci/gates/python-ci.Dockerfile"

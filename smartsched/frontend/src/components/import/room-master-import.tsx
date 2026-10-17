@@ -21,7 +21,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { MagneticDrop, type UploadState } from "./magnetic-drop";
-import { ParseWarningsTable } from "./parse-warnings-table";
+import { ParseWarningsTable, TruncatedWarnings } from "./parse-warnings-table";
 import { diffCounts, diffRoomMaster, parseRoomMaster, type DiffRow, type DiffStatus, type MasterParse } from "./room-master-model";
 
 const FIELD: Record<string, MessageKey> = {
@@ -120,12 +120,13 @@ export function RoomMasterImport({ term, onStep, onBack }: { term: Pick<Term, "i
               {t("importFlows.roomMaster.applied")}
             </h2>
           </CardTitle>
-          <p role="status" className="text-[13px] text-label-2">
+          <p role="status" className="type-callout text-label-2">
             {t("importFlows.roomMaster.appliedSummary", { rows: n(job.summary.rows), updated: n(job.summary.updated), created: n(job.summary.created) })}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {job.summary.warnings.length ? <ParseWarningsTable warnings={job.summary.warnings} /> : <p className="text-[13px] text-label-2">{t("import.noWarnings")}</p>}
+          <TruncatedWarnings summary={job.summary} />
+          {job.summary.warnings.length ? <ParseWarningsTable warnings={job.summary.warnings} /> : <p className="type-callout text-label-2">{t("import.noWarnings")}</p>}
           <Button variant="outline" onClick={onBack}>{t("import.again")}</Button>
         </CardContent>
       </Card>
@@ -137,21 +138,21 @@ export function RoomMasterImport({ term, onStep, onBack }: { term: Pick<Term, "i
     <Card className="max-w-4xl" data-testid="room-master-import">
       <CardHeader>
         <CardTitle>{t("importFlows.roomMaster.title")}</CardTitle>
-        <p className="text-[13px] text-label-2">{t("importFlows.roomMaster.lead")}</p>
+        <p className="type-callout text-label-2">{t("importFlows.roomMaster.lead")}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <MagneticDrop files={file ? [file] : []} onFiles={(f) => void choose(f)} upload={upload} disabled={busy} accept=".csv,.txt,.xlsx,.xlsm" title={t("importFlows.roomMaster.drop")} hint={t("importFlows.roomMaster.dropHint")} />
-        {readError ? <p role="alert" className="text-[12.5px] text-status-infeasible-fg">{readError}</p> : null}
+        {readError ? <p role="alert" className="type-callout text-status-infeasible-fg">{readError}</p> : null}
 
         {step === "preview" && parsed ? (
           <section aria-labelledby="rm-diff" className="space-y-3" data-testid="room-master-diff">
-            <h3 id="rm-diff" className="text-[14px] font-semibold text-label-1">{t("importFlows.roomMaster.diffTitle")}</h3>
-            {rooms.isLoading ? <p className="text-[13px] text-label-2">{t("importFlows.roomMaster.loadingRooms")}</p> : null}
-            <p className="text-[13px] text-label-2" role="status" data-testid="room-master-counts">
+            <h3 id="rm-diff" className="type-body font-semibold text-label-1">{t("importFlows.roomMaster.diffTitle")}</h3>
+            {rooms.isLoading ? <p className="type-callout text-label-2">{t("importFlows.roomMaster.loadingRooms")}</p> : null}
+            <p className="type-callout text-label-2" role="status" data-testid="room-master-counts">
               {t("importFlows.roomMaster.counts", { changed: n(counts.changed), same: n(counts.same), unmatched: n(counts.unmatched), errors: n(parsed.errors.length) })}
             </p>
             {parsed.errors.length ? (
-              <ul className="space-y-1 rounded-xl bg-status-warning/40 p-3 text-[12.5px] text-label-1" data-testid="room-master-errors">
+              <ul className="space-y-1 rounded-xl bg-status-warning/40 p-3 type-callout text-label-1" data-testid="room-master-errors">
                 {parsed.errors.slice(0, 50).map((e, i) => (
                   <li key={i}>
                     {e.line ? `${t("importFlows.roomMaster.line", { line: e.line })}: ` : null}
@@ -161,10 +162,10 @@ export function RoomMasterImport({ term, onStep, onBack }: { term: Pick<Term, "i
                 ))}
               </ul>
             ) : null}
-            <div className="overflow-x-auto rounded-xl shadow-[inset_0_0_0_1px_var(--hairline)]">
-              <table className="w-full min-w-[560px] text-left text-[13px]">
+            <div className="overflow-x-auto rounded-xl edge-hairline">
+              <table className="w-full min-w-[560px] text-left type-callout">
                 <caption className="sr-only">{t("importFlows.roomMaster.diffTitle")}</caption>
-                <thead className="text-[12px] text-label-3">
+                <thead className="type-footnote text-label-3">
                   <tr className="hairline-b">
                     <th scope="col" className="px-3 py-2 font-medium">{t("importFlows.roomMaster.colLine")}</th>
                     <th scope="col" className="px-3 py-2 font-medium">{t("importFlows.roomMaster.colRoom")}</th>
@@ -178,7 +179,7 @@ export function RoomMasterImport({ term, onStep, onBack }: { term: Pick<Term, "i
                       <td className="px-3 py-2 text-label-3 tabular-nums">{d.line}</td>
                       <td className="px-3 py-2 font-medium text-label-1">{d.room?.display_name ?? d.code}</td>
                       <td className="px-3 py-2">
-                        <span className={cn("inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium", d.status === "changed" ? "bg-tint-soft text-tint-text" : d.status === "unmatched" ? "bg-status-warning text-status-warning-fg" : "bg-fill-2 text-label-2")}>{t(STATUS[d.status])}</span>
+                        <span className={cn("inline-flex h-5 items-center rounded-full px-2 type-caption font-medium", d.status === "changed" ? "bg-tint-soft text-tint-text" : d.status === "unmatched" ? "bg-status-warning text-status-warning-fg" : "bg-fill-2 text-label-2")}>{t(STATUS[d.status])}</span>
                       </td>
                       <td className="px-3 py-2 text-label-2">
                         {d.changes.length ? (
@@ -209,7 +210,7 @@ export function RoomMasterImport({ term, onStep, onBack }: { term: Pick<Term, "i
             ) : null}
           </section>
         ) : null}
-        {step === "preview" && xlsx ? <p className="text-[13px] text-label-2" data-testid="room-master-xlsx">{t("importFlows.roomMaster.xlsxNoPreview")}</p> : null}
+        {step === "preview" && xlsx ? <p className="type-callout text-label-2" data-testid="room-master-xlsx">{t("importFlows.roomMaster.xlsxNoPreview")}</p> : null}
 
         <div className="flex items-center justify-between gap-2">
           <Button variant="ghost" onClick={onBack} disabled={busy}>{t("common.back")}</Button>

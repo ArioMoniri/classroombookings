@@ -3,11 +3,12 @@
 import { AlertTriangle, ArrowLeft, CheckCircle2, Download, XOctagon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { PageHeader } from "@/components/common/page-header";
-import { KpiNumber } from "@/components/dashboard/kpi-number";
 import { useRememberRunOnView } from "@/components/shell/workspace";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
@@ -19,8 +20,9 @@ import { Progress, ProgressIndicator, ProgressTrack } from "@/components/ui/prog
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { optionIndex } from "@/lib/api/adapters";
+import { request } from "@/lib/api/client";
 import { api } from "@/lib/api/endpoints";
-import { useApplyFix, useConstraints, useRun, useRuns } from "@/lib/api/hooks";
+import { qk, useApplyFix, useRun, useRuns } from "@/lib/api/hooks";
 import type { ScheduleRun } from "@/lib/api/schemas";
 import { useRunDataIssues, useRunSummary } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
@@ -28,21 +30,128 @@ import { DiagnosisCard } from "./diagnosis-card";
 import { groupDiagnoses } from "./diagnosis-format";
 import { IssueGroups, LocalIssueGroups } from "./issue-groups";
 import { isImportBoard, partialCounts, runStatusBadge, useDuration } from "./runs-list";
-import { ScoreRing } from "./score-ring";
 import { SoftBreakdown } from "./soft-breakdown";
 import { usePermissions } from "@/lib/permissions";
 import { CancelRunButton } from "./cancel-run";
 import { MissingWeeks } from "./missing-weeks";
+import { BaselineRunCard } from "./baseline-card";
+import { RunPolicyLine } from "./relaxation";
+import { ResolveRunButton } from "./resolve-run";
+import { isBaselineRun } from "@/lib/api/council";
 import { PublishRunButton } from "./publish-run";
-import { runIssueCounts, verdictExceptions, waiverOf, type VerdictException } from "./run-truth";
+import { BROKEN_RULE_TR, brokenText, problemCount, runIssueCounts, runOutcome, runTruth, summaryExtras, verdictExceptions, waiverOf, type RunOutcome, type RunTruth, type VerdictException } from "./run-truth";
 import { useCalendarIndex } from "@/lib/api/calendar";
 
 /** Built-in rule names as the planner says them (the solver's codes are English). */
 const RULE_TR: Record<string, string> = { capacity: "kapasite", room_tags: "derslik özelliği", tags: "derslik özelliği", pins: "sabitlenen derslik", fixed_times: "sabit saat", forbids: "yasak derslik", locks: "kilitli derslik" };
 
+/** Statuses whose stored timetable may be published (backend `PUBLISHABLE`); ERROR / FAILED / INFEASIBLE never. */
+export const PUBLISHABLE = new Set(["OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL"]);
+/** Statuses with a stored timetable (placement numbers mean something). */
+export const WITH_TIMETABLE = new Set(["OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL", "TIMEOUT"]);
+
+/** The broken hard rules, each with the forced move's reason when one explains it (round-1 R1-M-05). */
+export function BrokenRules({ truth, className }: { truth: RunTruth; className?: string }) {
+  const { locale } = useI18n();
+  const tr = locale === "tr";
+  return (
+    <ul className={className ?? "mt-1 list-disc pl-5 type-callout text-label-1"} data-testid="verdict-broken">
+      {truth.broken.slice(0, 12).map((b, i) => (
+        <li key={`${b.rule}-${i}`} data-rule={b.rule} data-explained={b.explained ? "1" : "0"}>
+          <span className="font-medium">{tr ? (BROKEN_RULE_TR[b.rule] ?? b.rule) : b.rule.replace(/_/g, " ")}</span>: {brokenText(b, tr)}
+          {b.explained && b.reason ? (
+            <span className="text-label-2"> · {tr ? "gerekçeli zorunlu taşıma" : "forced with a reason"}: “{b.reason}”{b.by_name ? ` (${b.by_name})` : ""}</span>
+          ) : (
+            <span className="text-label-2"> · {tr ? "açıklanmamış" : "not explained"}</span>
+          )}
+        </li>
+      ))}
+      {truth.broken.length > 12 ? <li className="text-label-2">{tr ? `ve ${truth.broken.length - 12} tane daha` : `and ${truth.broken.length - 12} more`}</li> : null}
+    </ul>
+  );
+}
+
+/** Every unplaced class the truth names (round-2 T-R2-26, R1-M-14: the report listed 19 of 28). Plain rows with
+ * `content-visibility: auto`, so a long list costs nothing off screen; the count is the list's own length. */
+export function UnplacedList({ truth, className }: { truth: RunTruth; className?: string }) {
+  const { n, locale } = useI18n();
+  const tr = locale === "tr";
+  const weeksText = (weeks: number[]) => (tr ? (weeks.length === 1 ? `${weeks[0]}. hafta` : `${weeks.slice(0, -1).map((w) => `${w}.`).join(", ")} ve ${weeks[weeks.length - 1]}. haftalar`) : `week${weeks.length === 1 ? "" : "s"} ${weeks.join(", ")}`);
+  return (
+    <div className={className}>
+      <p className="type-footnote text-label-2">
+        {tr ? "Yerleşmeyen dersler" : "Unplaced classes"} <span className="tabular-nums" data-testid="unplaced-list-count">{n(truth.unplaced_count ?? truth.unplaced_list.length)}</span>
+      </p>
+      <ul className="mt-1 max-h-72 overflow-y-auto rounded-lg bg-fill-3 px-3 py-1.5 type-footnote text-label-1 [scrollbar-width:thin]" data-testid="unplaced-list">
+        {truth.unplaced_list.map((u) => (
+          <li key={u.id} className="flex flex-wrap items-baseline gap-x-2 py-0.5 [content-visibility:auto] [contain-intrinsic-size:auto_1.5rem]" data-event-id={u.id}>
+            <span className="font-medium">{u.label}</span>
+            {u.weeks ? <span className="text-label-2">{tr ? `${weeksText(u.weeks)}da yerleşmedi` : `not placed in ${weeksText(u.weeks)}`}</span> : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** The verdict from the backend's one truth (planner-level check): the same sentence as the Studio card and the API. */
+function TruthVerdict({ truth }: { truth: RunTruth }) {
+  const { n, locale } = useI18n();
+  const head = locale === "tr" ? truth.headline.tr : truth.headline.en || truth.headline.tr;
+  if (truth.verdict === "broken")
+    return (
+      <div className="flex items-start gap-2 text-status-infeasible-fg" data-testid="run-verdict" data-state="broken">
+        <XOctagon className="mt-1 size-5 shrink-0 stroke-[2]" aria-hidden />
+        <div>
+          <p className="type-title-3">{head}</p>
+          <BrokenRules truth={truth} />
+        </div>
+      </div>
+    );
+  if (truth.verdict === "exceptions")
+    return (
+      <div className="flex items-start gap-2 text-status-warning-fg" data-testid="run-verdict" data-state="exceptions">
+        <AlertTriangle className="mt-1 size-5 shrink-0 stroke-[2]" aria-hidden />
+        <div>
+          <p className="type-title-3">{head}</p>
+          <ul className="mt-1 list-disc pl-5 type-callout text-label-1" data-testid="verdict-exceptions">
+            {truth.exceptions.map((e) => (
+              <li key={e.cause} data-key={e.cause}>
+                {locale === "tr" ? e.label.tr : e.label.en} · {n(e.classes)} {locale === "tr" ? "ders" : e.classes === 1 ? "class" : "classes"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  if (truth.verdict === "clean")
+    return (
+      <p className="flex items-start gap-2 type-title-3 text-status-feasible-fg" data-testid="run-verdict" data-state="complete">
+        <CheckCircle2 className="mt-0.5 size-5 shrink-0 stroke-[2]" aria-hidden />
+        <span>{head}</span>
+      </p>
+    );
+  return null;
+}
+
 /** The status headline: honest for partial runs (amber "660/683 placed · no rule broken", never green 100/100). */
-function Verdict({ r, headline, exceptions = [] }: { r: ScheduleRun; headline?: string; exceptions?: VerdictException[] }) {
+function Verdict({ r, headline, exceptions = [], truth = null, outcome }: { r: ScheduleRun; headline?: string; exceptions?: VerdictException[]; truth?: RunTruth | null; outcome: RunOutcome }) {
   const { t, n, locale } = useI18n();
+  if (outcome.kind === "cancelled") {
+    // round-1 R1-M-15: a cancelled run is "İptal edildi", by whom and when; it claims nothing about rules or preferences
+    const when = outcome.at ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(outcome.at)) : "";
+    return (
+      <div className="flex items-start gap-2 text-label-1" data-testid="run-verdict" data-state="cancelled">
+        <XOctagon className="mt-1 size-5 shrink-0 stroke-[2] text-label-2" aria-hidden />
+        <div>
+          <p className="type-title-3">{t("glass.report.cancelled")}</p>
+          {outcome.by || when ? <p className="type-callout text-label-2" data-testid="run-cancelled-by">{outcome.by ? t("glass.report.cancelledBy", { who: outcome.by, when }) : t("glass.report.cancelledAt", { when })}</p> : null}
+          <p className="mt-1 type-footnote text-label-2">{t("glass.report.cancelledHint")}</p>
+        </div>
+      </div>
+    );
+  }
+  if (truth && truth.verdict !== "none" && WITH_TIMETABLE.has(r.status)) return <TruthVerdict truth={truth} />;
   const partial = partialCounts(r);
   const complete = !partial && (r.status === "FEASIBLE" || r.status === "OPTIMAL");
   if ((partial || complete) && exceptions.length) {
@@ -53,7 +162,7 @@ function Verdict({ r, headline, exceptions = [] }: { r: ScheduleRun; headline?: 
         <AlertTriangle className="mt-1 size-5 shrink-0 stroke-[2]" aria-hidden />
         <div>
           <p className="type-title-3">{partial ? t("glass.report.partialHeld", { placed: n(partial.placed), total: n(partial.total) }) : t("glass.report.heldWithExceptions")}</p>
-          <ul className="mt-1 list-disc pl-5 text-[13px] text-label-1" data-testid="verdict-exceptions">
+          <ul className="mt-1 list-disc pl-5 type-callout text-label-1" data-testid="verdict-exceptions">
             {exceptions.map((e) => (
               <li key={e.key} data-key={e.key}>{t(`glass.report.exc.${e.key}`, { n: n(e.n), rules: (e.rules ?? []).map(ruleName).join(", ") })}</li>
             ))}
@@ -112,7 +221,7 @@ function SolveProgress({ r }: { r: ScheduleRun }) {
       variant="list"
       rows={rows}
       labels={{ completed: t("glass.report.taskDone"), failed: t("glass.report.taskFailed"), retry: t("common.retry"), running: t("glass.report.taskRunning"), pending: t("glass.report.taskPending") }}
-      className="mt-4 ![background:var(--fill-3)] ![backdrop-filter:none] ![-webkit-backdrop-filter:none] !shadow-[inset_0_0_0_1px_var(--hairline)]"
+      className="mt-4 ![background:var(--fill-3)] ![backdrop-filter:none] ![-webkit-backdrop-filter:none] !edge-hairline"
     />
   );
 }
@@ -124,26 +233,36 @@ export function RunView({ id }: { id: number }) {
   const tab = params.get("tab") ?? "report";
   const run = useRun(id);
   const canPlan = usePermissions().can("planning.edit");
-  const constraints = useConstraints({ run_id: id });
   const applyFix = useApplyFix(id);
   const duration = useDuration();
   const r = run.data;
-  const active = r ? r.status === "QUEUED" || r.status === "RUNNING" : false;
+  // a cancelled run's "cancelled by <who>" is the run's `error` (R1-M-15: by whom and when). The shared schema
+  // carries it now; the light re-read stays as the fallback for a server that does not send the field
+  const cancelInfo = useQuery({
+    queryKey: ["run-cancel-info", id],
+    queryFn: () => request(`/runs/${id}`, { schema: z.object({ error: z.string().nullable().optional(), finished_at: z.string().nullable().optional() }), silent: true }),
+    enabled: r?.status === "CANCELLED" && r.error === undefined,
+    staleTime: Infinity,
+  });
+  const outcome: RunOutcome = r ? runOutcome({ status: r.status, error: r.error ?? cancelInfo.data?.error ?? null, finished_at: r.finished_at ?? cancelInfo.data?.finished_at ?? null }) : { kind: "active" };
+  const active = outcome.kind === "active";
   const finished = Boolean(r) && !active;
+  // a cancelled run has no timetable, scores or problems: the report fetches nothing heavy for it (R1-M-15 / R1-S-28)
+  const reportable = finished && outcome.kind !== "cancelled";
+  // the rules tab lists the run's constraints only once it is opened (lazy, R1-S-28)
+  const constraints = useQuery({ queryKey: qk.constraints({ run_id: id }), queryFn: () => api.constraints.list({ run_id: id }), enabled: tab === "constraints" && reportable });
   // every finished run: an imported board has no solver diagnoses but the data checks still find issues (M-08)
-  const issues = useRunDataIssues(id, finished);
-  // the grid's own conflict / capacity flags, so the report and the grid header count the same things (M-07)
-  const index = useCalendarIndex(finished ? id : null);
+  const issues = useRunDataIssues(id, reportable);
   // the term's published run of this kind (the one a publish replaces)
-  const termRuns = useRuns(r ? { term_id: r.term_id } : undefined, { enabled: Boolean(r) && finished });
+  const termRuns = useRuns(r ? { term_id: r.term_id } : undefined, { enabled: Boolean(r) && reportable });
   const publishedId = termRuns.data?.find((x) => x.is_active && x.kind === r?.kind && x.id !== r?.id)?.id ?? null;
-  const summary = useRunSummary(id, finished);
+  const summary = useRunSummary(id, reportable);
+  const truth = r ? runTruth(r.stats_detail ?? r.stats, summary.data as Record<string, unknown> | undefined) : null;
+  // the grid's own conflict / capacity flags (M-07) are only needed when the backend has no truth for this run:
+  // the index is the heaviest fetch of the page (1–3 MB), and the counts it gave changed with the viewport (R1-S-27)
+  const index = useCalendarIndex(reportable && summary.isFetched && !truth ? id : null);
   useRememberRunOnView(r?.term_id, r?.id);
-  // the ring draws and numbers tick only if the run finishes while this page is open (motion.md §3.5)
-  const [sawActive, setSawActive] = useState(false);
   const [allUnplaced, setAllUnplaced] = useState(false);
-  if (active && !sawActive) setSawActive(true);
-  const live = sawActive && finished;
   const sections = useMemo(() => (r ? groupDiagnoses(r.diagnosis, locale) : []), [r, locale]);
   const setTab = (next: string) => {
     const sp = new URLSearchParams(params.toString());
@@ -154,16 +273,25 @@ export function RunView({ id }: { id: number }) {
   if (!r) return <Skeleton className="h-64 rounded-2xl" />;
 
   const partial = partialCounts(r);
-  const placed = partial?.placed ?? Number(r.stats.placed ?? r.stats.events ?? 0);
-  const total = partial?.total ?? Number(r.stats.events_total ?? r.stats.events ?? 0);
-  const unplaced = partial ? partial.total - partial.placed : Number(r.stats.unplaced ?? 0);
+  // round-1 R1-S-02: a run without a timetable (ERROR, FAILED, INFEASIBLE, CANCELLED) shows no placement totals
+  const hasTimetable = WITH_TIMETABLE.has(r.status) || Boolean(partial);
+  const placed = truth?.placed ?? partial?.placed ?? Number(r.stats.placed ?? r.stats.events ?? 0);
+  const total = truth?.total ?? partial?.total ?? Number(r.stats.events_total ?? r.stats.events ?? 0);
+  const unplaced = truth?.unplaced ?? (partial ? partial.total - partial.placed : Number(r.stats.unplaced ?? 0));
   const headline = summary.data?.headline ? (locale === "tr" ? summary.data.headline.tr : summary.data.headline.en) : undefined;
   const unplacedCards = sections.find((s) => s.section === "unplaced");
   const ruleCards = sections.find((s) => s.section === "rules");
   const cardCount = (s: typeof unplacedCards) => (s ? [...s.codes.values()].reduce((a, rows) => a + rows.reduce((b, x) => b + x.count, 0), 0) : 0);
   const solverProblems = r.diagnosis.filter((d) => d.code !== "partial" && d.code !== "unplaced_summary").length;
   const dataProblems = issues.data ? issues.data.groups.reduce((a, g) => a + g.items.filter((i) => i.severity !== "info").length, 0) : 0;
-  const problems = Math.max(solverProblems, dataProblems);
+  const extras = summaryExtras(summary.data as Record<string, unknown> | undefined);
+  // the planner's data notes: one server-side count per run (R1-S-27): the summary's data-issue count, else the
+  // data-issues route's own count, else the solver's diagnoses; never what happens to be rendered
+  const dataNotes = extras.dataIssues ?? (issues.data ? dataProblems : solverProblems);
+  // round-2 T-R2-26 (R2-M-04): "Sorun" is the headline's number - the hard rules broken plus the accepted exceptions
+  // the truth lists ('398 kabul edilmiş istisna' -> Sorun 398); the data notes are a labelled second line. Without a
+  // truth (an imported board, an old run) the data notes stay the count
+  const problems = truth ? problemCount(truth) : dataNotes;
   const exceptions = verdictExceptions({
     waiver: waiverOf(r.stats_detail ?? r.stats, r.diagnosis),
     counts: index.data ? runIssueCounts(index.data.assignments) : { conflicts: 0, overCapacity: 0 },
@@ -184,8 +312,8 @@ export function RunView({ id }: { id: number }) {
   const scope = r.horizon_params.weeks.length ? t("glass.dashboard.weeksN", { list: r.horizon_params.weeks.join(", ") }) : t("glass.dashboard.wholeTerm");
 
   return (
-    <div data-testid="run-view">
-      <Link href="/runs" className="mb-2 inline-flex items-center gap-1 text-[13px] text-label-2 hover:text-label-1">
+    <div data-testid="run-view" className={canPlan && finished && PUBLISHABLE.has(r.status) ? "max-sm:pb-16" : undefined}>
+      <Link href="/runs" className="mb-2 inline-flex min-h-11 items-center gap-1 type-callout text-label-2 hover:text-label-1 pointer-fine:min-h-0">
         <ArrowLeft className="size-4" aria-hidden /> {t("runs.title")}
       </Link>
       <PageHeader
@@ -196,6 +324,8 @@ export function RunView({ id }: { id: number }) {
             <Button variant="outline" nativeButton={false} render={<a href={api.runs.exportUrl(r.id, "xlsx")} download />}>
               <Download /> {t("runs.export")}
             </Button>
+            {/* a new solve with this run as its parent (stability on) and its relaxation policy */}
+            {canPlan && finished && r.status !== "CANCELLED" ? <ResolveRunButton run={r} autoOpen={params.get("resolve") === "1"} /> : null}
             <Button nativeButton={false} render={<Link href="/generate" />}>
               {t("glass.report.editAndSolve")}
             </Button>
@@ -215,80 +345,133 @@ export function RunView({ id }: { id: number }) {
             </ProgressTrack>
           </Progress>
           <SolveProgress r={r} />
-          <p className="mt-3 text-[12px] text-label-3">{t("glass.report.solverInfo", { s: r.params.time_limit_s })}</p>
+          <p className="mt-3 type-footnote text-label-3">{t("glass.report.solverInfo", { s: r.params.time_limit_s })}</p>
           {canPlan ? <CancelRunButton runId={r.id} className="mt-3" /> : null}
         </GlassPanel>
       ) : (
         <>
-          <GlassPanel material="regular" radius="2xl" className="p-5 sm:p-6" render={<section aria-label={t("runs.report")} data-testid="run-hero" />}>
-            <div className="grid gap-6 md:grid-cols-[auto_minmax(0,1fr)] xl:grid-cols-[auto_minmax(0,1fr)_minmax(280px,380px)]">
-              <ScoreRing live={live} value={r.hard_score} partial={partial} label={partial ? t("glass.report.placedShort") : r.hard_score === 100 ? t("runs.status.FEASIBLE") : t("runs.status.INFEASIBLE")} />
+          {/* One plain card: the headline sentence, then one KPI row (Vercel H7). The 517/530 ring gauge is gone — it
+              repeated the KPI and the headline (review 2026-10-15 §3 Run report). */}
+          <Card className="gap-0 p-5 sm:p-6" role="region" data-testid="run-hero" aria-label={t("runs.report")}>
+            <div className="grid gap-6 @container/hero xl:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
               <div className="min-w-0">
-                <Verdict r={r} headline={headline} exceptions={exceptions} />
-                <p className="mt-1 text-[13px] text-label-2">{partial ? t("glass.report.partialHint", { n: n(unplaced) }) : null}</p>
+                <Verdict r={r} headline={headline} exceptions={exceptions} truth={truth} outcome={outcome} />
+                {partial ? (
+                  <p className="mt-1 type-callout text-label-2" data-testid="partial-hint">
+                    {/* "every placed class keeps every rule" only when the truth says so (round-1 R1-M-04) */}
+                    {(truth ? truth.verdict === "clean" : !exceptions.length) ? t("glass.report.partialHint", { n: n(unplaced) }) : t("glass.report.partialHintUnplaced", { n: n(unplaced) })}
+                  </p>
+                ) : null}
                 <MissingWeeks runId={r.id} stats={r.stats_detail ?? r.stats} />
-                {canPlan && finished && r.status !== "CANCELLED" ? (
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <PublishRunButton run={r} published={publishedId} exceptions={exceptions} />
+                <RunPolicyLine r={r} />
+                {canPlan && finished && PUBLISHABLE.has(r.status) ? (
+                  // round-1 R1-S-06: ERROR / FAILED / INFEASIBLE runs have nothing to publish
+                  // phones: the same button becomes a capsule above the tab bar (MOBILE.md M-05; round-1 R1-S-16: "Yayınla"
+                  // sat outside the bottom 40 %); one element, one test id, on every viewport
+                  <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:pointer-events-none max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-sm:z-30 max-sm:mt-0 max-sm:justify-end max-sm:px-4" data-testid="run-publish-row">
+                    <div className="max-sm:pointer-events-auto max-sm:rounded-full max-sm:bg-(--mat-thick-solid) max-sm:p-1 max-sm:shadow-elev-3 max-sm:edge-hairline max-sm:[&_button]:min-h-11 max-sm:[&_button]:rounded-full max-sm:[&_button]:px-5">
+                      <PublishRunButton run={r} published={publishedId} exceptions={truth ? [] : exceptions} truth={truth} />
+                    </div>
                   </div>
                 ) : null}
-                <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 pt-4 hairline-t sm:grid-cols-4">
+                <dl className="mt-5 grid gap-x-6 gap-y-4 pt-4 hairline-t [grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr))]">
                   {[
                     { k: t("glass.report.placed"), v: placed, suffix: total ? ` / ${n(total)}` : "" },
                     { k: t("runs.unplaced"), v: unplaced },
                     { k: t("glass.report.problems"), v: problems },
                   ].map((x) => (
-                    <div key={x.k}>
-                      <dt className="text-[12px] text-label-3">{x.k}</dt>
-                      <dd className="text-[22px] leading-7 font-semibold tracking-[-0.017em] text-label-1">
-                        <KpiNumber value={x.v} format={(v) => new Intl.NumberFormat(locale).format(v)} />
-                        {x.suffix ? <span className="text-[13px] font-normal text-label-3">{x.suffix}</span> : null}
+                    <div key={x.k} className="min-w-0">
+                      <dt className="type-footnote text-label-2">{x.k}</dt>
+                      <dd className="flex items-baseline type-kpi text-label-1" data-testid={`kpi-${x.k}`}>
+                        {/* a static report: plain numbers (the rolling digits exposed "0 1 2 … 9" to assistive tech, R1-M-27) */}
+                        {hasTimetable || (x.k === t("glass.report.problems") && outcome.kind !== "cancelled") ? (
+                          <>
+                            <span className="tabular-nums">{n(x.v)}</span>
+                            {x.suffix ? <span className="type-callout font-normal text-label-2">{x.suffix}</span> : null}
+                          </>
+                        ) : (
+                          <span aria-label={locale === "tr" ? "çizelge yok" : "no timetable"}>—</span>
+                        )}
                       </dd>
+                      {x.k === t("glass.report.problems") && truth && outcome.kind !== "cancelled" ? (
+                        <p className="type-footnote text-label-2" data-testid="kpi-data-notes">
+                          {locale === "tr" ? `Veri notları ${n(dataNotes)}` : `Data notes ${n(dataNotes)}`}
+                        </p>
+                      ) : null}
                     </div>
                   ))}
-                  <div>
-                    <dt className="text-[12px] text-label-3">{t("runs.solveTime")}</dt>
-                    <dd className="text-[22px] leading-7 font-semibold tracking-[-0.017em] text-label-1">{duration(r)}</dd>
+                  <div className="min-w-0">
+                    <dt className="type-footnote text-label-2">{t("runs.solveTime")}</dt>
+                    <dd className="type-kpi text-label-1">{duration(r)}</dd>
                   </div>
                 </dl>
+                {isBaselineRun(r) ? <BaselineRunCard r={r} /> : null}
+                {extras.forcedOverrides.length ? (
+                  <section className="mt-4 grid gap-1.5 rounded-lg bg-status-warning px-3 py-2" data-testid="forced-overrides" aria-labelledby="forced-title">
+                    <h3 id="forced-title" className="flex items-center gap-1.5 type-callout font-semibold text-status-warning-fg">
+                      <AlertTriangle aria-hidden className="size-4" />
+                      {locale === "tr" ? `${n(extras.forcedOverrides.length)} gerekçeli zorunlu taşıma` : `${n(extras.forcedOverrides.length)} forced move(s) with a reason`}
+                    </h3>
+                    <ul className="grid gap-1 type-footnote text-label-1">
+                      {extras.forcedOverrides.map((o, i) => (
+                        <li key={i}>
+                          <span className="font-medium">{o.reason}</span>
+                          {o.conflicts.length ? <span className="text-label-2"> · {o.conflicts.slice(0, 3).join("; ")}</span> : null}
+                          {o.by_name ? <span className="text-label-2"> · {o.by_name}</span> : null}
+                          {o.at ? <time dateTime={o.at} className="text-label-2"> · {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(o.at))}</time> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
               </div>
-              <SoftBreakdown className="md:col-span-2 xl:col-span-1" score={r.soft_score} breakdown={r.objective_breakdown} weights={r.params.weights} />
+              {hasTimetable ? <SoftBreakdown score={r.soft_score} breakdown={r.objective_breakdown} weights={r.params.weights} /> : null}
             </div>
-          </GlassPanel>
+          </Card>
 
           <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
             <Tabs value={tab} onValueChange={(v) => setTab(String(v))} className="min-w-0">
+              {/* phones: the four tabs are wider than 390 px; they scroll in their own row (MOBILE.md M-01), padded so the
+                  triggers' touch hit areas are not clipped by the scroller (tokens.md A.9 hit areas) */}
+              <div className="max-w-full overflow-x-auto [scrollbar-width:none] pointer-coarse:-my-1.5 pointer-coarse:py-1.5" data-testid="run-tabs-scroller">
               <TabsList>
                 <TabsTrigger value="report" data-testid="tab-report">
                   {t("glass.report.problemsTab")} <span className="text-label-3 tabular-nums">{n(problems)}</span>
                 </TabsTrigger>
                 <TabsTrigger value="grid" data-testid="tab-grid">{t("runs.grid")}</TabsTrigger>
                 <TabsTrigger value="constraints">
-                  {t("glass.report.rulesTab")} <span className="text-label-3 tabular-nums">{constraints.data?.length ?? 0}</span>
+                  {t("glass.report.rulesTab")} {constraints.data ? <span className="text-label-3 tabular-nums">{constraints.data.length}</span> : null}
                 </TabsTrigger>
                 <TabsTrigger value="chat" className="xl:hidden">{t("runs.chat")}</TabsTrigger>
               </TabsList>
+              </div>
               <TabsContent value="report" keepMounted className="space-y-5 pt-4 data-[hidden]:hidden">
-                {problems === 0 ? (
+                {problems === 0 && !reportable ? (
+                  // a cancelled run: no "İhlal yok" (there is nothing to have violations), just why the list is empty
                   <Card>
-                    <CardContent className="flex items-center gap-2 text-[13px] text-status-feasible-fg">
+                    <CardContent className="type-callout text-label-2" data-testid="no-problems-no-timetable">{t("glass.report.noProblemsNoTimetable")}</CardContent>
+                  </Card>
+                ) : problems === 0 && dataNotes === 0 && (hasTimetable || isImportBoard(r)) ? (
+                  <Card>
+                    <CardContent className="flex items-center gap-2 type-callout text-status-feasible-fg">
                       <CheckCircle2 className="size-4" aria-hidden /> {t("runs.noDiagnosis")}
                     </CardContent>
                   </Card>
                 ) : null}
-                {unplacedCards ? (
+                {unplacedCards || truth?.unplaced_list.length ? (
                   <Card data-testid="unplaced-section">
                     <CardContent>
                       <h3 className="type-headline text-label-1">
-                        {t("glass.report.unplacedTitle")} <span className="font-normal text-label-3 tabular-nums">{n(cardCount(unplacedCards))}</span>
+                        {t("glass.report.unplacedTitle")} <span className="font-normal text-label-3 tabular-nums">{n(truth?.unplaced_list.length ? (truth.unplaced_count ?? truth.unplaced_list.length) : cardCount(unplacedCards))}</span>
                       </h3>
-                      <p className="text-[12.5px] text-label-2">{t("glass.report.unplacedHint")}</p>
+                      <p className="type-footnote text-label-2">{t("glass.report.unplacedHint")}</p>
+                      {truth?.unplaced_list.length ? <UnplacedList truth={truth} className="mt-2" /> : null}
                       <div className="mt-1">
-                        {[...unplacedCards.codes.values()].flat().slice(0, allUnplaced ? undefined : 8).map((row) => (
+                        {[...(unplacedCards?.codes.values() ?? [])].flat().slice(0, allUnplaced ? undefined : 8).map((row) => (
                           <DiagnosisCard key={row.d.id} d={row.d} section="unplaced" count={row.count} applying={applyFix.isPending} onApply={(sid) => void onApply(row.d.index ?? Number(row.d.id), sid)} onChat={() => setTab("chat")} />
                         ))}
                       </div>
-                      {!allUnplaced && [...unplacedCards.codes.values()].flat().length > 8 ? (
+                      {!allUnplaced && unplacedCards && [...unplacedCards.codes.values()].flat().length > 8 ? (
                         <Button size="sm" variant="secondary" onClick={() => setAllUnplaced(true)}>
                           {t("glass.report.showAll", { n: [...unplacedCards.codes.values()].flat().length })}
                         </Button>
@@ -302,7 +485,7 @@ export function RunView({ id }: { id: number }) {
                       <h3 className="type-headline text-label-1">
                         {t("glass.report.rulesTitle")} <span className="font-normal text-label-3 tabular-nums">{n(cardCount(ruleCards))}</span>
                       </h3>
-                      <p className="text-[12.5px] text-label-2">{t("glass.report.rulesHint")}</p>
+                      <p className="type-footnote text-label-2">{t("glass.report.rulesHint")}</p>
                       <div className="mt-1">
                         {[...ruleCards.codes.values()].flat().map((row) => (
                           <DiagnosisCard key={row.d.id} d={row.d} section="rules" count={row.count} applying={applyFix.isPending} onApply={(sid) => void onApply(row.d.index ?? Number(row.d.id), sid)} />
@@ -311,9 +494,12 @@ export function RunView({ id }: { id: number }) {
                     </CardContent>
                   </Card>
                 ) : null}
-                {problems > 0 ? (
-                  <Card>
-                    <CardContent>{issues.data ? <IssueGroups runId={r.id} groups={issues.data.groups} /> : issues.isLoading ? <Skeleton className="h-24" /> : <LocalIssueGroups sections={sections} />}</CardContent>
+                {dataNotes > 0 ? (
+                  <Card data-testid="data-notes-section">
+                    <CardContent>
+                      {truth ? <h3 className="mb-2 type-headline text-label-1">{locale === "tr" ? "Veri notları" : "Data notes"} <span className="font-normal text-label-3 tabular-nums">{n(dataNotes)}</span></h3> : null}
+                      {issues.data ? <IssueGroups runId={r.id} groups={issues.data.groups} /> : issues.isLoading ? <Skeleton className="h-24" /> : <LocalIssueGroups sections={sections} />}
+                    </CardContent>
                   </Card>
                 ) : null}
               </TabsContent>
@@ -321,7 +507,7 @@ export function RunView({ id }: { id: number }) {
                 {/* the calendar lives on its own page (owned by the calendar view); deep-link run + week */}
                 <Card>
                   <CardContent className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-[13px] text-label-2">{t("glass.report.gridHint", { week: r.horizon_params.weeks[0] ?? 1 })}</p>
+                    <p className="type-callout text-label-2">{t("glass.report.gridHint", { week: r.horizon_params.weeks[0] ?? 1 })}</p>
                     <Button nativeButton={false} render={<Link href={`/timetable?run=${r.id}&week=${r.horizon_params.weeks[0] ?? 1}`} />} data-testid="open-grid">
                       {t("glass.report.openGrid")}
                     </Button>
@@ -331,12 +517,12 @@ export function RunView({ id }: { id: number }) {
               <TabsContent value="constraints" className="pt-4">
                 <Card>
                   <CardContent>
-                    {(constraints.data ?? []).length === 0 ? <p className="text-[13px] text-label-2">{t("glass.report.noRules")}</p> : null}
+                    {constraints.isPending ? <Skeleton className="h-16" /> : (constraints.data ?? []).length === 0 ? <p className="type-callout text-label-2">{t("glass.report.noRules")}</p> : null}
                     <ul>
                       {(constraints.data ?? []).map((c) => (
-                        <li key={c.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 py-2 text-[13px] [&:not(:last-child)]:hairline-b">
+                        <li key={c.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 py-2 type-callout [&:not(:last-child)]:hairline-b">
                           <span className="min-w-0 flex-1 text-label-1">{c.nl_text ?? t("glass.report.ruleOf", { kind: c.kind.replace(/_/g, " ") })}</span>
-                          <span className="text-[12px] text-label-3">
+                          <span className="type-footnote text-label-3">
                             {c.hardness === "hard" ? t("glass.report.must") : t("glass.report.try")}
                             {!c.enabled ? ` · ${t("glass.report.off")}` : ""}
                           </span>

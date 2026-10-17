@@ -52,6 +52,9 @@ class Grid:
     row_numbers: list[int] = field(default_factory=list)
     #: per-row reference overrides (PDF tables continued over pages: ``{"page": 3, "line": 12}``)
     row_meta: list[dict[str, Any]] = field(default_factory=list)
+    #: the decimal mark of a delimited text file's numbers: "," for a ';'-separated (Turkish / European Excel)
+    #: export, where "0,4" is the number 0.4 (app.council.formats.typed, R3-S-04)
+    decimal: str = "."
 
     @property
     def n_rows(self) -> int:

@@ -119,3 +119,66 @@ api_router.include_router(learning.router)
 from app.api.v1 import moderation  # noqa: E402
 
 api_router.include_router(moderation.router)
+
+from app.api.v1 import sso  # noqa: E402  (Entra ID sign-in, /auth/sso; app/services/sso.py)
+
+api_router.include_router(sso.router)
+
+# notification channels (Apprise + pywebpush; docs/product/2026-10-15-integrations-options.md)
+from app.api.v1 import channels as notify_channels  # noqa: E402
+
+api_router.include_router(notify_channels.router)
+
+# planning analytics: scenario comparison and utilisation heatmaps (read-only; app/services/scenario_compare.py,
+# app/services/utilisation.py)
+from app.api.v1 import analytics  # noqa: E402
+
+api_router.include_router(analytics.router)
+
+# booking enhancements wave 2 (ROADMAP Phase 17): P8 booking policies + exam-period mode
+from app.api.v1 import booking_policies as booking_policies_api  # noqa: E402
+
+api_router.include_router(booking_policies_api.router)
+
+# booking enhancements wave 2: P2 conflict resolver after publishing (/bookings/conflicts/{run_id}/...)
+from app.api.v1 import booking_conflicts as booking_conflicts_api  # noqa: E402
+
+api_router.include_router(booking_conflicts_api.router)
+
+# booking enhancements wave 2: V2 public read-only day view (no sign-in; off until an admin signs off KVKK)
+from app.api.v1 import public_schedule as public_schedule_api  # noqa: E402
+
+api_router.include_router(public_schedule_api.router)
+api_router.include_router(public_schedule_api.admin_router)
+
+# invigilator assignment for exam runs (pool, plans, duties; app/services/invigilation.py, app/solver/invigilation.py)
+from app.api.v1 import invigilation as invigilation_api  # noqa: E402
+
+api_router.include_router(invigilation_api.router)
+
+# booking enhancements wave 2: A4 KVKK (retention + daily purge, notices, consents, export / erase requests)
+from app.api.v1 import kvkk as kvkk_api  # noqa: E402
+
+api_router.include_router(kvkk_api.me_router)
+api_router.include_router(kvkk_api.public_router)
+api_router.include_router(kvkk_api.admin_router)
+
+# wave 3 W3-OPS: operations panel (service status, error groups, log tail, Grafana forward-auth; app/api/v1/ops.py)
+from app.api.v1 import ops as ops_api  # noqa: E402
+
+api_router.include_router(ops_api.router)
+
+# wave 3 W3-AI: AI gateway administration (providers, models, usage, limits, guardrails) and GET /ai/me/usage
+from app.api.v1 import ai_admin  # noqa: E402
+
+api_router.include_router(ai_admin.router)
+
+# wave 3b W3-HUB: integrations gallery status (read-only aggregator over the areas' own status; /admin/integrations)
+from app.api.v1 import integrations as integrations_api  # noqa: E402
+
+api_router.include_router(integrations_api.router)
+
+# wave 3b W3-MAIL: SMTP setup (presets, test with transcript, SPF/DKIM/DMARC), themed e-mail templates (/admin/email)
+from app.api.v1 import mail_admin  # noqa: E402
+
+api_router.include_router(mail_admin.router)

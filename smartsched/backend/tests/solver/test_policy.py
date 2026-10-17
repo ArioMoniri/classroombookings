@@ -249,3 +249,46 @@ def test_a_lock_never_overrides_an_accessibility_need() -> None:
     pc = replace(need, required_tags=frozenset({"PC"}))
     warn = static_check(prepare(replace(inp, events=(pc,))))
     assert any(x.code == "trusted_lock_tags" for x in warn) and not any(x.severity == "error" for x in warn)
+
+
+# ------------------------------------------------------------------ round-2 T-R2-34: the published timetable wins ties
+
+
+def _tie_input(previous: tuple[Assignment, ...]) -> SolverInput:
+    """One room, two equal-priority classes at the same fixed time: only one can be placed."""
+    rooms = (room(1, "A101", 60),)
+    a = event(1, size=40, weeks=W1, day=1, start=1, label="BP 127 §1")
+    b = event(2, size=50, weeks=W1, day=1, start=1, label="ACU 314")
+    return make_input(rooms, (a, b), weeks=W1, best_effort=True, workers=1, time_limit_s=5.0, previous=previous)
+
+
+def test_a_previously_placed_class_keeps_its_cell_against_a_newcomer_at_equal_priority() -> None:
+    """R2-M-03: BP 127 §1 (placed in the published run) lost its room to ACU 314 (never placed) at equal priority
+    because the tie went to the larger class.  A re-solve keeps the published class; the newcomer's loss says so."""
+    inp = _tie_input((_lock(1, (1,)),))
+    res = solve(inp)
+    assert [a.event_id for a in res.assignments] == [1] and res.hard_score == 100
+    reason = _reason(res, 2)
+    assert reason["reason"] == "published_kept" and reason["winners"] == [1]
+    # and the other way round: the previous placement, not the size or the id, decides
+    flipped = solve(_tie_input((_lock(2, (1,)),)))
+    assert [a.event_id for a in flipped.assignments] == [2]
+    assert _reason(flipped, 1)["reason"] == "published_kept"
+    # the tier sits after the locks and the counts, before the event-weeks
+    tiers = policy.describe(inp)["tiers"]
+    assert tiers.index("requests") < tiers.index("previous") < tiers.index("weeks")
+
+
+def test_previous_tier_never_beats_a_lock_a_priority_or_the_count() -> None:
+    inp = _tie_input((_lock(1, (1,)),))
+    # a higher coordinator priority on the newcomer still wins
+    prio = replace(inp, events=(inp.events[0], replace(inp.events[1], priority=5)))
+    assert [a.event_id for a in solve(prio).assignments] == [2]
+    # a trusted planner lock on the newcomer still wins
+    locked = replace(inp, events=(inp.events[0], replace(inp.events[1], locked=_lock(2, (1,)))))
+    assert [a.event_id for a in solve(locked).assignments] == [2]
+    # the policy cost ranks a placement keeping the published class ahead of one that does not
+    assert policy.cost(inp, [1]) < policy.cost(inp, [2])
+    assert "previous" in policy.describe(inp)["tiers"]
+    # without a previous timetable the tier is absent and nothing changes
+    assert "previous" not in policy.describe(_tie_input(()))["tiers"]

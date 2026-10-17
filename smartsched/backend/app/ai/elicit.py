@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import catalog
 from app.ai.client import AIClient, text_of, tool_uses
+from app.ai.context import ai_scope
 from app.ai.resolve import TermContext, load_term_context, resolve_proposal, resolve_section_edit
 from app.ai.sanitize import strip_controls
 from app.models import AIProposalDecision, ConstraintRow, ExamRequest, MeetingRequest, Room, Section
@@ -174,7 +175,8 @@ async def elicit_constraints(
         f"Planner's preferences ({'Turkish' if lang == 'tr' else 'English'}):\n\n{text}\n\n"
         "Call propose_constraints once with every rule and section edit you can map."
     )
-    proposals, edits, unparsed, note = await propose(client, ctx, content, lang)
+    with ai_scope("rules", user_text=text):  # metered as "rules"; the gateway checks the typed text once
+        proposals, edits, unparsed, note = await propose(client, ctx, content, lang)
     if not proposals and not edits and not note:
         note = "Kural çıkarılamadı." if lang == "tr" else "No rules could be extracted."
     log.info(
@@ -287,6 +289,14 @@ async def accept_proposals(
         issues = check_proposal(p, effective)
         if not issues:
             issues = await verify_ids(session, term_id, p.params)
+        if not issues:
+            # round-1 R1-M-03: an approved AI / upload / import pin never seats a class in a room that cannot hold it
+            # (no override on this path: an administrator writes such a pin by hand, with a reason)
+            from app.services import pin_guard
+
+            short = await pin_guard.shortfalls(session, p.kind, p.params, p.hardness, term_id=term_id)
+            if short:
+                issues = [pin_guard.refusal(short, overridable=False)["message_tr"]]
         if issues:
             rejected.append({"index": i, "kind": p.kind, "issues": issues})
             decide(p, "rejected", issues, effective)

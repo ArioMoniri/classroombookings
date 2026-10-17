@@ -1,0 +1,41 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Giriş sayfası, birden çok sağlayıcı, 1440'>
+<title>Giriş sayfası, birden çok sağlayıcı, 1440</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<rect x='12' y='12' width='480' height='876' rx='22' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='504' y='12' width='924' height='876' rx='22' fill='#E8EEF6' fill-opacity='1'/>
+<text x='540' y='60' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Sağ taraf: kurum sahnesi (değişmedi, sign-in.md §5.1)</text>
+<rect x='52' y='80' width='40' height='40' rx='10' fill='#2563EB' fill-opacity='1'/>
+<text x='72' y='107' font-size='18' font-weight='700' fill='#FFFFFF' text-anchor='middle'>S</text>
+<text x='104' y='106' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<rect x='332' y='84' width='120' height='32' rx='8' fill='#F1F5F9' fill-opacity='1'/>
+<text x='392' y='105' font-size='11' font-weight='500' fill='#475569' text-anchor='middle'>Üniversite logosu</text>
+<text x='52' y='172' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Giriş yap</text>
+<text x='52' y='200' font-size='14' font-weight='400' fill='#475569' text-anchor='start'>Örnek Üniversitesi · ders programı ve rezervasyon</text>
+<rect x='52' y='228' width='150' height='24' rx='12' fill='#EFF6FF' fill-opacity='1'/>
+<text x='127' y='244' font-size='11' font-weight='600' fill='#2563EB' text-anchor='middle'>Son girişiniz bu yöntemle</text>
+<rect x='52' y='260' width='400' height='44' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#8C8C8C' stroke-width='1'/>
+<rect x='141.125' y='272.0' width='9' height='9' rx='0' fill='#F25022' fill-opacity='1'/>
+<rect x='151.125' y='272.0' width='9' height='9' rx='0' fill='#7FBA00' fill-opacity='1'/>
+<rect x='141.125' y='282.0' width='9' height='9' rx='0' fill='#00A4EF' fill-opacity='1'/>
+<rect x='151.125' y='282.0' width='9' height='9' rx='0' fill='#FFB900' fill-opacity='1'/>
+<text x='171.125' y='287.0' font-size='15' font-weight='600' fill='#5E5E5E' text-anchor='start'>Microsoft ile giriş yap</text>
+<rect x='52' y='316' width='400' height='44' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#747775' stroke-width='1'/>
+<circle cx='160.3' cy='338.0' r='9' fill='none' stroke='#4285F4' stroke-width='2'/>
+<text x='160.3' y='342.0' font-size='11' font-weight='700' fill='#4285F4' text-anchor='middle'>G</text>
+<text x='181.3' y='343.0' font-size='14' font-weight='500' fill='#1F1F1F' text-anchor='start'>Google ile oturum açın</text>
+<rect x='52' y='372' width='400' height='44' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<rect x='161.75' y='384.0' width='20' height='20' rx='5' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='171.75' y='398.0' font-size='9' font-weight='700' fill='#0F172A' text-anchor='middle'>OK</text>
+<text x='191.75' y='399.0' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Okta ile giriş yap</text>
+<text x='52' y='448' font-size='14' font-weight='600' fill='#2563EB' text-anchor='start'>Diğer giriş yolları (1)  ▾</text>
+<text x='52' y='482' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Kurum hesabınızla ilk girişte hesabınız standart kullanıcı</text>
+<text x='52' y='500' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>olarak açılır. Rolünüzü yalnızca bir yönetici değiştirebilir.</text>
+<line x1='52' y1='528' x2='452' y2='528' stroke='#E2E8F0' stroke-width='1'/>
+<text x='52' y='560' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Kullanıcı adı ve parolayla giriş yap  ▸</text>
+<text x='52' y='600' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Sağlayıcı düğmeleri aynı boy ve ağırlıkta</text>
+<text x='52' y='618' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>(Google: eşit belirginlik). Sıra yöneticinin;</text>
+<text x='52' y='636' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>en fazla 3 görünür, fazlası 'Diğer giriş yolları'.</text>
+<text x='52' y='654' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Microsoft ve Google kendi marka kurallarıyla,</text>
+<text x='52' y='672' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>diğerleri nötr. Davet bağlantısında yalnız</text>
+<text x='52' y='690' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>davetteki yöntem gösterilir.</text>
+</svg>
