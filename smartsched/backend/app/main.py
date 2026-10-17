@@ -188,6 +188,10 @@ def create_app() -> FastAPI:
 
     install_observability(app)  # W3-OPS: /metrics, /healthz, /readyz, request metrics, error events, Sentry
     app.include_router(api_router, prefix="/api/v1")
+    # RFC 9116 /.well-known/security.txt + /security.txt from the admin's settings (nginx proxies both here)
+    from app.api.v1.security_contact import public_router as security_txt_router
+
+    app.include_router(security_txt_router)
     # Only room photos are public. Uploaded workbooks (uploads/imports: instructor names, enrolments)
     # are served through the authenticated ``GET /api/v1/imports/{id}/file``.
     photos = Path(settings.upload_dir) / "rooms"

@@ -66,6 +66,13 @@ SPECS: dict[str, SettingSpec] = {
         # quick reserve lengths, counted in the unit (periods or blocks): from min_length up to quick_span (1..8)
         SettingSpec("booking.slot_display.min_length", default=1, kind="int"),
         SettingSpec("booking.slot_display.quick_span", default=1, kind="int"),
+        # RFC 9116 security.txt of the institution (app/services/security_txt.py; admin card Güvenlik iletişimi).
+        # Written by ADMIN through PUT /admin/security-contact (validated, audited security.contact); unset = the
+        # file names security@<host> and the card warns.
+        SettingSpec("security.contact_email"),
+        SettingSpec("security.contact_url"),
+        SettingSpec("security.policy_url"),
+        SettingSpec("security.preferred_languages", default="tr, en"),
     )
 }
 

@@ -16,7 +16,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # ---------------------------------------------------------------------------
 # Stage 1: install dependencies into a virtualenv. All deps ship manylinux wheels (ortools, psycopg[binary],
-# argon2-cffi, cryptography, uvloop), so no compiler is needed and the runtime image stays slim.
+# argon2-cffi, cryptography, uvloop, lxml), so no compiler is needed and the runtime image stays slim. SAML 2.0
+# (signxml, pure Python) is a normal dependency: lxml's cp312 wheels for x86_64 and aarch64 (t4g) link libxml2 /
+# libxslt statically (NEEDED: libc, libm, libpthread, librt only), so no apt packages are added for it.
 # ---------------------------------------------------------------------------
 FROM base AS builder
 WORKDIR /build
