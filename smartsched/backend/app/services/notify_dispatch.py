@@ -99,8 +99,6 @@ EVENTS: dict[str, tuple[str, str]] = {
     ),
     # P19-T2 "Tercih ekle": the coordinator's decision on an academician's own preference
     # (app.services.teacher_preferences.decide; a rejection carries the coordinator's reason)
-    # W3-OPS alerts to the operations administrators (app/services/ops_alerts.py); e-mail kind ops_alert (app.emails)
-    "ops.alert": ("Sistem uyarıları (yöneticiler)", "System alerts (administrators)"),
     "preference.accepted": ("Ders tercihim kabul edildi", "My class preference was accepted"),
     "preference.rejected": (
         "Ders tercihim kabul edilmedi (gerekçesiyle)",

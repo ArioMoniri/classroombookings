@@ -1,7 +1,7 @@
 /** R3-S-05 (W3-SLOT): after cancelling from a My bookings row, focus goes to the next row (or the previous one, or the
  *  list heading), never to <body>, once the cancelled row has left the list. */
 import { afterEach, describe, expect, it } from "vitest";
-import { focusRowAfterRemoval, rowIndexOf } from "./my-bookings-model";
+import { focusRowAfterRemoval, rowIndexOf, rowSelectorsAfterRemoval } from "./my-bookings-model";
 
 function list(ids: number[]) {
   document.body.innerHTML = `<h2 id="mine-list" tabindex="-1">Liste</h2><ul data-testid="booking-list">${ids
@@ -39,5 +39,16 @@ describe("focus after a cancelled row", () => {
     focusRowAfterRemoval(0);
     expect(document.activeElement?.id).toBe("mine-list");
     expect(document.activeElement).not.toBe(document.body);
+  });
+});
+
+describe("the watch selectors", () => {
+  it("name the row in the cancelled row's place, the one before it, the last row, then the heading", () => {
+    list([10, 12]);
+    const sels = rowSelectorsAfterRemoval(1);
+    expect(document.querySelector(sels[0]!)?.textContent).toBeUndefined();
+    expect(document.querySelector(sels[0]!)).toBeNull();
+    expect(document.querySelector(sels[1]!)?.textContent).toBe("10");
+    expect(sels[sels.length - 1]).toBe("#mine-list");
   });
 });

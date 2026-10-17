@@ -63,3 +63,9 @@ export function focusRowAfterRemoval(index: number): HTMLElement | null {
   target?.focus();
   return target;
 }
+
+/** R3-S-05: the same targets as selectors, for focusAfter's watch (a closing sheet hands focus back to a row that is gone). */
+export function rowSelectorsAfterRemoval(index: number): string[] {
+  const row = (n: number) => `${LIST} > li:nth-child(${n}) [data-row-open]`;
+  return [row(Math.max(0, index) + 1), ...(index > 0 ? [row(index)] : []), `${LIST} > li:last-child [data-row-open]`, "#mine-list"];
+}

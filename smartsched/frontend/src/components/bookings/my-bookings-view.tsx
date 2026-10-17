@@ -36,7 +36,8 @@ import { CalendarSyncPanel } from "./calendar-sync";
 import { CancelManyDialog } from "./cancel-many-dialog";
 import { RoomInfoSheet } from "./room-info-sheet";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
-import { focusRowAfterRemoval, groupBookings, openRequestCount, rowIndexOf } from "./my-bookings-model";
+import { focusRowAfterRemoval, groupBookings, openRequestCount, rowIndexOf, rowSelectorsAfterRemoval } from "./my-bookings-model";
+import { focusAfter } from "./focus-after";
 import { cancelReasonText } from "./cancel-reason";
 import { BareButton } from "@/components/shell/bare-button";
 
@@ -84,7 +85,8 @@ export function MyBookingsView() {
     if (list.data.some((b) => p.ids.includes(b.id) && b.status !== "CANCELLED")) return; // not refetched yet
     pendingFocus.current = null;
     // after the sheet / dialog has closed (their exit returns focus to a trigger that is gone)
-    window.setTimeout(() => focusRowAfterRemoval(p.index), 0);
+    focusRowAfterRemoval(p.index);
+    focusAfter(rowSelectorsAfterRemoval(p.index), 50);
   }, [list.data, list.isFetching]);
   const rows = useMemo(() => {
     const items = [...(list.data ?? [])];
