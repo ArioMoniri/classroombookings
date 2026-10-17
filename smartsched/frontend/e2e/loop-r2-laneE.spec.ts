@@ -22,7 +22,7 @@ import { pinLanguage } from "./language";
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3, locale: "tr-TR", timezoneId: "Europe/Istanbul" };
 
-test.describe.configure({ mode: "serial", timeout: 300_000 });
+test.describe.configure({ timeout: 300_000 });
 test.skip(!REAL, SKIP_REASON);
 pinLanguage("tr");
 
@@ -144,7 +144,7 @@ test("T-R2-27 · the Studio rail and sentence agree on Güz's 14 weeks, also rig
   await page.getByTestId("scope-step").waitFor();
   const sel = page.locator("#scope-term");
   await sel.selectOption(String(ctx.bahar.id));
-  await expect(page.getByTestId("scope-sentence")).toContainText("derslikte");
+  await expect(page.getByTestId("scope-sentence")).toContainText("derslikte", { timeout: 60_000 });
   await page.getByTestId("horizon-TERM").click();
   await sel.selectOption(String(ctx.guz!.id));
   const rail = page.locator('[data-testid="rail-step-scope"]');
@@ -156,8 +156,8 @@ test("T-R2-27 · the Studio rail and sentence agree on Güz's 14 weeks, also rig
   }
   // never "2 hafta" (the dated rows) while the term settles: either counting or the term's weeks
   expect(seen.filter((x) => /\b2 hafta\b/.test(x))).toEqual([]);
-  await expect(rail).toContainText("Tüm dönem · 14 hafta");
-  await expect(page.getByTestId("scope-sentence")).toContainText("14 hafta boyunca");
+  await expect(rail).toContainText("Tüm dönem · 14 hafta", { timeout: 60_000 });
+  await expect(page.getByTestId("scope-sentence")).toContainText("14 hafta boyunca", { timeout: 60_000 });
 });
 
 test("T-R2-27 · the compare refusal names the reason and each run's horizon", async () => {

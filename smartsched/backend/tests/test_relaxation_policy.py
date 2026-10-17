@@ -168,6 +168,20 @@ def test_policy_report_texts_cover_every_reason():
     assert policy_report([{"code": "unplaced", "event_ids": [1], "params": {}}], {}, "lock_first") is None
 
 
+def test_published_kept_loss_names_the_kept_class_in_both_languages():
+    """T-R2-34 / lane D hand-off: the minimal-change re-solve's new loss reason has its own sentence, so the run
+    report never falls back to the generic 'uygun oda/saat kalmadı' for it."""
+    diags = [
+        {"code": "unplaced", "event_ids": [7], "params": {"policy": {"reason": "published_kept", "winners": [3]}}},
+    ]
+    rep = policy_report(diags, {7: "ING 302", 3: "MAT 112 §1"}, "lock_first")
+    assert rep is not None and rep["params"]["by_reason"] == {"published_kept": 1}
+    assert "ING 302: Yayımdaki planda yerleşmiş dersler korundu: MAT 112 §1" in rep["text"]["tr"]
+    assert "ING 302: Classes of the published timetable are kept: MAT 112 §1" in rep["text"]["en"]
+    assert "1 yayındaki plan korundu" in rep["text"]["tr"] and "1 published timetable kept" in rep["text"]["en"]
+    assert "uygun oda/saat kalmadı" not in rep["text"]["tr"]
+
+
 def test_new_solver_codes_have_tr_and_en_texts():
     from app.services.solver_bridge import solver_code_text
 

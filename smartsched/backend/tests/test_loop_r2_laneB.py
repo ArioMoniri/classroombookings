@@ -219,8 +219,9 @@ async def test_t_r2_17_a_series_cancel_writes_one_audit_row_per_booking(env):  #
     )
     assert r.status_code in (201, 202), r.text
     made = r.json()
-    ids = sorted(b["id"] for b in (made.get("created") or made.get("bookings") or []))
-    assert len(ids) == 2, made
+    all_ids = sorted(b["id"] for b in made["created"])
+    assert len(all_ids) >= 3, made
+    ids = all_ids[-2:]  # "Bu ve sonrakiler" from the second-to-last date: exactly two bookings go
     r = await c.post(
         f"/api/v1/bookings/{ids[0]}/cancel", json={"scope": "future", "reason": "Dönem sonu"}, headers=env.admin
     )

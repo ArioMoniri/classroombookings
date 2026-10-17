@@ -1434,7 +1434,9 @@
       "smartsched/backend/app/services/bookings_undo.py:123,237"
      ],
      "dedup": "motion T4 (focus after audit Undo, open); R1-M-17 part; the duplicate audit row is T-R2-17 (e)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "coded undo reason undo_of:<id> rendered 'Geri alma: #id'; focusAfter the row; 44 px Geri al on phones; e2e 1a/1b green on the stack"
     },
     {
      "id": "T-R2-32",
@@ -1466,7 +1468,9 @@
      "dedup": "rest of R1-M-08 (T-R1-01); reopens T-R1-33 part (R1-M-21) and T-R1-34 part (R1-M-20)",
      "depends_on": [
       "T-R2-05"
-     ]
+     ],
+     "status": "done",
+     "resolution": "reasons on every disabled permission, 44 px rows (roles, features grid, languages), departments cards on phones, inline role error, sso no-op already clean (test); room codes stay canonical with 'T 101' shown (decision noted); M-02 clean on the phone routes except lane A's Switch 38×44; e2e 3a-3d green"
     },
     {
      "id": "T-R2-33",
@@ -1488,7 +1492,9 @@
       "docs/features.yml"
      ],
      "dedup": "reopens T-R1-31 part (R1-M-17); the bookings strings are T-R2-17, the move texts T-R2-30, the council 409 T-R2-21",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "FeatureError/ImageError/CellError carry message_tr and codes; photo route answers them; What's new English list behind a closed Turkish <details lang=en>; features.yml not rendered anywhere, unchanged; e2e 2a-2c green"
     }
    ],
    "done_when": "every ticket's check passes; MOBILE M-02/M-07 at 390 on the lane's phone_routes; vitest admin/audit; pytest rooms_features / bookings_undo; e2e loop-r1-laneE still green"

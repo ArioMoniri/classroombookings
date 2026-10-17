@@ -1935,6 +1935,11 @@ POLICY_LOSS_TEXT: dict[str, tuple[str, str]] = {
         "Yerleştirilseydi en az bu kadar başka ders dışarıda kalacaktı ({w} yerleştirildi).",
         "Placing it would leave at least as many other classes out ({w} kept).",
     ),
+    # T-R2-34 (lane S): a class of the published timetable holds the cell at equal priority (minimal-change re-solve)
+    "published_kept": (
+        "Yayımdaki planda yerleşmiş dersler korundu: {w} (eşit öncelikte yayındaki yer kalır).",
+        "Classes of the published timetable are kept: {w} (at equal priority the published cell stays).",
+    ),
 }
 POLICY_TEXT: dict[str, tuple[str, str]] = {
     "lock_first": (
@@ -1953,6 +1958,7 @@ POLICY_REASON_SHORT: dict[str, tuple[str, str]] = {
     "lock_clash_more_locks": ("kilit çakışması, daha çok kilit", "lock clash, more locks"),
     "lower_priority": ("daha düşük öncelik", "lower priority"),
     "most_classes": ("en çok ders", "most classes"),
+    "published_kept": ("yayındaki plan korundu", "published timetable kept"),
     "no_option": ("uygun seçenek yok", "no option"),
 }
 

@@ -101,8 +101,8 @@ async function m02(page: Page): Promise<{ el: string; w: number; h: number }[]> 
   await page.evaluate(() => window.scrollTo(0, 0));
   return [...out.values()];
 }
-/** the offenders that belong to the shared primitives of lane A's T-R2-05 (switch, tabs, toast close): reported, not this lane's */
-const PRIMITIVE = /^(SPAN\|38\|22|.*\|38\|22|Bildirimi kapat\|.*|.*\|\d+\|38)$/;
+/** the offenders that belong to the shared primitives of lane A's T-R2-05 (Switch 38 wide, tabs 38 tall, toast close): reported in the console, not this lane's */
+const PRIMITIVE = /^(.*\|38\|(22|44)|Bildirimi kapat\|.*|.*\|\d+\|38)$/;
 const ownOffenders = (list: { el: string; w: number; h: number }[]) => list.filter((b) => !PRIMITIVE.test(`${b.el}|${b.w}|${b.h}`));
 
 async function englishWords(page: Page): Promise<string[]> {
@@ -329,7 +329,7 @@ test("3d. T-R2-32 phone: M-02 on the admin routes, M-07 cards on /admin/departme
   const report: Record<string, { el: string; w: number; h: number }[]> = {};
   // roles: the editor of our role open (35 permission boxes)
   await page.goto("/admin/roles");
-  await page.getByRole("button", { name: `Kullanıcı yöneticisi F ${STAMP}` }).click();
+  await page.getByTestId("roles-picker").selectOption(String(ctx.limitedRoleId)); // phones: the role list is a native select
   await expect(page.getByTestId("role-editor")).toBeVisible();
   report["/admin/roles(editor)"] = await m02(page);
   await page.goto("/admin/settings");

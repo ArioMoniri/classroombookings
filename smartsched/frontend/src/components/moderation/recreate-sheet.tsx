@@ -70,6 +70,8 @@ export function RecreateSheet({ open, onOpenChange, termId, baseRunId, staged, s
                 <span>
                   <span className="font-semibold">{t(`moderation.recreate.${m}`)}</span>
                   <span className="block type-footnote text-label-2">{t(`moderation.recreate.${m}Hint`)}</span>
+                  {/* lane S hand-off: without changed requests "En az değişiklik" cannot run; say so instead of silently solving from scratch */}
+                  {m === "repair" && !staged.length ? <span className="block type-footnote text-status-warning-fg" data-testid="recreate-repair-unavailable">{t("moderation.recreate.repairUnavailable")}</span> : null}
                 </span>
               </label>
             ))}

@@ -29,7 +29,7 @@ USABLE = ("OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL")
 
 
 async def publish_board(factory: Any, code: str, *, required: bool = True) -> int | None:
-    """Make the term's grid-import board run the active (published) COURSE run; None when the term or board is absent."""
+    """Make the term's grid-import board the active (published) COURSE run; None when the term or board is absent."""
     from app.models import ScheduleRun, Term
     from sqlalchemy import select
 

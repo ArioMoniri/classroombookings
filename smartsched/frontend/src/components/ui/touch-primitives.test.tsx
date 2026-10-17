@@ -39,7 +39,7 @@ describe("coarse hit areas", () => {
   it("Switch grows to at least 44 px tall on touch and keeps the 8 px desktop extension", () => {
     render(<Switch aria-label="Bildirimler" />);
     const sw = screen.getByRole("switch", { name: "Bildirimler" });
-    expect(sw).toHaveClass("after:-inset-y-2", "after:-inset-x-3", "pointer-coarse:min-h-11", "pointer-coarse:after:inset-y-0"); // T-R2-05: a real 44 px box on touch
+    expect(sw).toHaveClass("after:-inset-y-2", "after:-inset-x-3", "pointer-coarse:min-h-11", "pointer-coarse:min-w-11", "pointer-coarse:after:inset-0"); // T-R2-05: a real 44 px box on touch
   });
 
   it("Chip and its remove button both get the hit area", () => {

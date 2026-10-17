@@ -28,7 +28,7 @@ describe("T-R2-05: real 44 px boxes on coarse pointers", () => {
   it("Switch is 44 px tall on touch, the capsule is drawn by ::before, the hit area no longer leaks past the box", () => {
     render(<Switch aria-label="Bildirimler" />);
     const sw = screen.getByRole("switch", { name: "Bildirimler" });
-    expect(sw).toHaveClass("isolate", "pointer-coarse:min-h-11", "pointer-coarse:after:inset-y-0", "before:absolute", "before:rounded-full", "before:-z-10", "data-checked:before:bg-tint", "data-unchecked:before:bg-fill-1");
+    expect(sw).toHaveClass("isolate", "pointer-coarse:min-h-11", "pointer-coarse:min-w-11", "pointer-coarse:after:inset-0", "before:absolute", "before:rounded-full", "before:-z-10", "data-checked:before:bg-tint", "data-unchecked:before:bg-fill-1");
     expect(sw.className).not.toMatch(/(^|\s)data-checked:bg-tint(\s|$)/);
   });
 
