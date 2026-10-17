@@ -103,9 +103,11 @@ DASHBOARDS: list[dict[str, Any]] = [
     dashboard("smartsched-health", "Servis sağlığı / Service health", [
         stat(1, "Servisler ayakta / Services up", 'up', 0, 0, w=12, h=5, legend="{{job}}", thresholds=RED_GREEN,
              mappings=UP),
-        stat(2, "HTTP denetimleri / HTTP probes", "probe_success", 12, 0, w=6, h=5, legend="{{job}}",
+        stat(2, "HTTP denetimleri / HTTP probes", 'label_replace(probe_success, "target", "$1", "job", ".*/(.*)")', 12, 0,
+             w=6, h=5, legend="{{target}}",
              thresholds=RED_GREEN, mappings=UP),
-        stat(3, "Veritabanı / Database", "smartsched_db_up", 18, 0, w=6, h=5, thresholds=RED_GREEN, mappings=UP),
+        stat(3, "Veritabanı / Database", "smartsched_db_up", 18, 0, w=6, h=5, legend="db", thresholds=RED_GREEN,
+             mappings=UP),
         ts(4, "Bellek (servisler) / Memory (services)", [
             ('process_resident_memory_bytes{job!="backend"}', "{{job}}"),
             ("max(smartsched_process_resident_memory_bytes)", "backend"),
@@ -113,7 +115,6 @@ DASHBOARDS: list[dict[str, Any]] = [
         ], 0, 5, unit="bytes"),
         ts(5, "CPU (sunucu) / CPU (host)", [
             ('1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))', "kullanım / used"),
-            ("node_load1", "load 1m"),
         ], 12, 5, unit="percentunit"),
         ts(6, "Disk doluluğu / Disk used", [
             ('1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}',

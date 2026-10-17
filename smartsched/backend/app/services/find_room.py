@@ -409,6 +409,9 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
         raise FindError(exc.status, exc.code, exc.message, exc.message) from exc
     tags = _tags_from_words(q.tags)
     tags |= _tags_named_in(q.text)  # A-11: "PC" in the search text asks for PC rooms (no "not asked for" penalty)
+    # R3-A-01: a feature chip asks for its source tag too ("Bilgisayar laboratuvarı" = PC), so the labs it finds are
+    # not marked "PC özellikli oda; istenmedi" nor ranked lower
+    tags |= {str(c.field.solver_tag) for c in crit if c.field.solver_tag and c.op == "eq" and c.value is True}
     vals = await feat.room_values(session, rooms, fields)
     if q.text:
         words = [w for w in n.tr_casefold(q.text).split(" ") if w]

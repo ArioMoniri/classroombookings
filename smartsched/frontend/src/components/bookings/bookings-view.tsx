@@ -11,7 +11,7 @@
 import { CalendarSync, ChevronLeft, ChevronRight, CircleSlash, DoorOpen, Eye, Info, LayoutGrid, Layers, List, ListChecks, Printer, Search, SlidersHorizontal, Trash2, Wrench, X, Zap } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useReducer, useState, type ReactNode } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useBusyDelay } from "@/components/ui/busy-label";
@@ -75,7 +75,7 @@ export function BookingsView() {
   const onPhone = useIsPhone();
   const opening = openingView(slotDisplay, onPhone, ctx.data?.display.type);
   // "+N gizli saat": the hidden periods for this session (a display filter, never a permission)
-  const [revealHidden, setRevealHidden] = useState(false);
+  const [revealHidden, toggleHidden] = useReducer((v: boolean) => !v, false);
   const display = (params.get("display") as Display | null) ?? opening.display;
   const num = (k: string) => (params.get(k) ? Number(params.get(k)) : undefined);
   const query: GridQuery = { display, date: params.get("date") ?? undefined, term_id: num("term"), room_group_id: num("group"), room_id: num("room") };
@@ -597,13 +597,7 @@ export function BookingsView() {
       ) : null}
       {grid.isError ? <Alert tone="error">{bookingErrorMessage(crbsError(grid.error), t, { formatDate: fmt.short })}</Alert> : null}
 
-      {hiddenCount > 0 ? (
-        <div className="flex print:hidden" data-print-hide>
-          <Chip size="sm" selected={revealHidden} onSelectedChange={setRevealHidden} data-testid="hidden-periods-chip">
-            {revealHidden ? t("slotDisplay.hiddenHide") : t("slotDisplay.hiddenChip", { n: hiddenCount })}
-          </Chip>
-        </div>
-      ) : null}
+      <HiddenPeriodsChip count={hiddenCount} revealed={revealHidden} onToggle={toggleHidden} />
       <div aria-busy={grid.isFetching} data-stale={stale ? "true" : undefined} className="relative transition-opacity duration-(--dur-fast) data-[stale=true]:opacity-60" data-testid="booking-grid-wrap">
         {g && lens === "free" ? (
           <FreeSlotsList
@@ -713,6 +707,19 @@ export function BookingsView() {
           void qc.invalidateQueries({ queryKey: ["crbs", "grid"] });
         }}
       />
+    </div>
+  );
+}
+
+/** W3-SLOT "+N gizli saat": reveal the periods the administrator hid, for this session (slot-display.md §3). */
+function HiddenPeriodsChip({ count, revealed, onToggle }: { count: number; revealed: boolean; onToggle: () => void }) {
+  const { t } = useI18n();
+  if (count <= 0) return null;
+  return (
+    <div className="flex print:hidden" data-print-hide>
+      <Chip size="sm" selected={revealed} onSelectedChange={onToggle} data-testid="hidden-periods-chip">
+        {revealed ? t("slotDisplay.hiddenHide") : t("slotDisplay.hiddenChip", { n: count })}
+      </Chip>
     </div>
   );
 }

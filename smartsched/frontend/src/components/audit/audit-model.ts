@@ -52,6 +52,15 @@ export const ENTITY_TYPES = [
   "invigilation_plan",
   "invigilation_duty",
   "invigilator_pool",
+  // R3-S-03 / R3-M-07 (loop-r3-laneF): series, intake jobs, learning and suggestions are filterable by their Turkish name
+  "booking_series",
+  "council_job",
+  "exam_request",
+  "assignment",
+  "learning",
+  "learning_reset",
+  "program_draft",
+  "suggestion",
 ] as const;
 
 /** A row's label is the same for the two spellings the backend uses for one record kind. */

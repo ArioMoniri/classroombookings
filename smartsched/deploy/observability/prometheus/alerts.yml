@@ -15,8 +15,8 @@ groups:
         for: 3m
         labels: {severity: critical}
         annotations:
-          summary_tr: "{{ $labels.job }} denetimi başarısız (3 dk)."
-          summary_en: "{{ $labels.job }} probe failing (3 min)."
+          summary_tr: "{{ reReplaceAll \"integrations/blackbox/\" \"\" $labels.job }} denetimi başarısız (3 dk)."
+          summary_en: "{{ reReplaceAll \"integrations/blackbox/\" \"\" $labels.job }} probe failing (3 min)."
       - alert: SmartSchedHigh5xx
         expr: |
           sum(rate(smartsched_http_requests_total{status=~"5.."}[5m]))

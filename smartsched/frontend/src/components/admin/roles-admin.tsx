@@ -9,7 +9,7 @@
  */
 import { ChevronRight, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
@@ -23,11 +23,11 @@ import { permissionLabel, permissionList, roleDescription, roleLabel } from "@/l
 import { cn } from "@/lib/utils";
 import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { roleEditCheck, usePermissions } from "@/lib/permissions";
-import { Alert, ConfirmDialog, Field, LimitInput, Loading, PageTitle } from "./kit";
+import { Alert, ConfirmDialog, Field, LimitInput, Loading, PageTitle, pageActionsCapsule } from "./kit";
 import { useErrorToast } from "./admin-gate";
 import { BareButton } from "@/components/shell/bare-button";
 import { NativeSelect } from "@/components/ui/native-select";
-import { useIsPhone } from "@/components/bookings/use-is-phone";
+import { useIsCompact, useIsPhone } from "@/components/bookings/use-is-phone";
 
 const GROUP_KEYS: Record<string, MessageKey> = {
   system: "crbs.perm.group.system",
@@ -55,18 +55,18 @@ export function RolesAdmin() {
   const current = selectedId === "new" ? null : (roles.data?.find((r) => r.id === selectedId) ?? roles.data?.[0] ?? null);
   const editing = selectedId === "new" ? "new" : current;
   const phone = useIsPhone();
+  // MOBILE M-05 (R3-M-08, the known open item): below lg the editor's "Kaydet" was 3 000 px down the page. While an
+  // editor is open (always, once roles have loaded) the one capsule above the tab bar holds "Yeni rol" and "Kaydet".
+  const compact = useIsCompact() && !!editing;
+  const newRole = (
+    <Button variant={compact ? "outline" : "default"} onClick={() => setSelectedId("new")} data-testid="roles-new">
+      <Plus aria-hidden />
+      {t("crbs.roles.new")}
+    </Button>
+  );
   return (
     <div className="flex flex-col gap-5">
-      <PageTitle
-        title={t("crbs.admin.roles.title")}
-        subtitle={t("crbs.roles.lead")}
-        actions={
-          <Button onClick={() => setSelectedId("new")} data-testid="roles-new">
-            <Plus aria-hidden />
-            {t("crbs.roles.new")}
-          </Button>
-        }
-      />
+      <PageTitle title={t("crbs.admin.roles.title")} subtitle={t("crbs.roles.lead")} actions={compact ? undefined : newRole} />
       {roles.isLoading ? (
         <Loading />
       ) : (
@@ -111,14 +111,15 @@ export function RolesAdmin() {
             </Card>
           </nav>
           )}
-          {editing ? <RoleEditor key={editing === "new" ? "new" : editing.id} role={editing === "new" ? null : editing} onSaved={(r) => setSelectedId(r.id)} onDeleted={() => setSelectedId(null)} /> : null}
+          {editing ? <RoleEditor key={editing === "new" ? "new" : editing.id} role={editing === "new" ? null : editing} onSaved={(r) => setSelectedId(r.id)} onDeleted={() => setSelectedId(null)} phoneActions={compact ? (editing === "new" ? null : newRole) : undefined} /> : null}
         </div>
       )}
     </div>
   );
 }
 
-function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: (r: Role) => void; onDeleted: () => void }) {
+/** `phoneActions`: below lg (set, possibly null) the save button joins these in the page-actions capsule; undefined on desktop. */
+function RoleEditor({ role, onSaved, onDeleted, phoneActions }: { role: Role | null; onSaved: (r: Role) => void; onDeleted: () => void; phoneActions?: ReactNode }) {
   const { t } = useI18n();
   const catalogue = usePermissionCatalogue();
   const { perms: mine } = usePermissions();
@@ -158,6 +159,28 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
       else next.delete(p);
       return next;
     });
+
+  const saveButton = (
+    <Button
+      disabled={save.isPending || !name.trim() || (readOnly && !locked)}
+      data-testid="role-save"
+      onClick={() => {
+        setError(null);
+        save.mutate(undefined, {
+          onSuccess: (r) => {
+            toast.success(t("crbs.common.saved"));
+            onSaved(r);
+          },
+          onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
+        });
+      }}
+      aria-busy={save.isPending || undefined}
+    >
+      <BusyLabel busy={save.isPending} label={t("busy.saving")}>
+        {role ? t("crbs.common.save") : t("crbs.roles.create")}
+      </BusyLabel>
+    </Button>
+  );
 
   return (
     <Card className="gap-5 px-5" data-testid="role-editor" data-readonly={readOnly ? "true" : undefined}>
@@ -203,24 +226,14 @@ function RoleEditor({ role, onSaved, onDeleted }: { role: Role | null; onSaved: 
         ) : (
           <span />
         )}
-        <Button
-          disabled={save.isPending || !name.trim() || (readOnly && !locked)}
-          data-testid="role-save"
-          onClick={() => {
-            setError(null);
-            save.mutate(undefined, {
-              onSuccess: (r) => {
-                toast.success(t("crbs.common.saved"));
-                onSaved(r);
-              },
-              onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
-            });
-          }}
-         aria-busy={save.isPending || undefined}>
-          <BusyLabel busy={save.isPending} label={t("busy.saving")}>
-          {role ? t("crbs.common.save") : t("crbs.roles.create")}</BusyLabel>
-        </Button>
+        {phoneActions === undefined ? saveButton : null}
       </div>
+      {phoneActions !== undefined ? (
+        <div data-slot="page-actions" className={pageActionsCapsule} data-testid="role-actions">
+          {phoneActions}
+          {saveButton}
+        </div>
+      ) : null}
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}

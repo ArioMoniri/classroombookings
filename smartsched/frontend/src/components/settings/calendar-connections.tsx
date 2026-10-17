@@ -148,12 +148,12 @@ function Connection({ c, needsConsent }: { c: SyncConnector; needsConsent: boole
         </div>
         {c.configured ? (
           c.connected && !reauth ? (
-            <Button variant="ghost" size="sm" onClick={() => setConfirm(true)} disabled={busy !== null} data-testid={`calendar-disconnect-${c.provider}`}>
+            <Button className="pointer-coarse:h-11" variant="ghost" size="sm" onClick={() => setConfirm(true)} disabled={busy !== null} data-testid={`calendar-disconnect-${c.provider}`}>
               <Unplug aria-hidden />
               {t("calendarPush.me.disconnect")}
             </Button>
           ) : (
-            <Button variant="outline" size="sm" onClick={() => (needsConsent ? setAsk(true) : void connect())} disabled={busy !== null || ask} aria-busy={busy === "connect" || undefined} data-testid={`calendar-connect-${c.provider}`}>
+            <Button className="pointer-coarse:h-11" variant="outline" size="sm" onClick={() => (needsConsent ? setAsk(true) : void connect())} disabled={busy !== null || ask} aria-busy={busy === "connect" || undefined} data-testid={`calendar-connect-${c.provider}`}>
               <BusyLabel busy={busy === "connect"} label={t("calendarPush.me.redirecting")}>
                 {reauth ? t("calendarPush.me.reconnect") : t("calendarPush.me.connect", { provider: name })}
               </BusyLabel>
@@ -189,7 +189,7 @@ function Connection({ c, needsConsent }: { c: SyncConnector; needsConsent: boole
           </p>
           {c.last_error ? <p className="type-footnote text-status-warning-fg">{c.last_error}</p> : null}
           <div>
-            <Button variant="ghost" size="sm" onClick={() => void resync()} disabled={busy !== null} aria-busy={busy === "resync" || undefined}>
+            <Button className="pointer-coarse:h-11" variant="ghost" size="sm" onClick={() => void resync()} disabled={busy !== null} aria-busy={busy === "resync" || undefined}>
               <RefreshCw aria-hidden />
               <BusyLabel busy={busy === "resync"} label={t("busy.saving")}>{t("calendarPush.me.resync")}</BusyLabel>
             </Button>

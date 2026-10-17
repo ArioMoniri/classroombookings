@@ -234,3 +234,102 @@ async def test_t_r2_17_a_series_cancel_writes_one_audit_row_per_booking(env):  #
     ]
     parents = [e for e in page["items"] if e["entity_type"] == "booking_series"]
     assert len(parents) == 1 and parents[0]["reason"] == "Dönem sonu", parents
+
+
+# --------------------------------------------------------------------------------------------------
+# Round 3 follow-ups (loop-r3-laneB-2026-10-17)
+# --------------------------------------------------------------------------------------------------
+
+
+async def test_r3_a01_a_chip_selected_feature_is_asked_for(env):  # noqa: F811
+    """R3-A-01: with the "Bilgisayar laboratuvarı" chip (a typed feature adopted from the PC tag) the PC labs are what
+    was asked for: no "PC özellikli oda; istenmedi, sona alındı" and no surplus penalty, as with the text "PC"."""
+    from app.api.v1 import find_room as find_api
+
+    find_api.FIND_LIMIT.reset()
+    _, teacher = await env.user("akademisyen.cip@uni.edu.tr")
+    facets = (await env.client.get("/api/v1/rooms/facets", headers=teacher)).json()
+    pc = next(f for f in facets if f["solver_tag"] == "PC")
+    body = {"date": date(2026, 2, 18).isoformat(), "start": "16:50", "end": "18:40", "headcount": 40}
+    out = (
+        await env.client.post(
+            "/api/v1/rooms/find", json={**body, "features": [{"field": pc["id"], "value": True}]}, headers=teacher
+        )
+    ).json()
+    offered = [x for x in out["results"] if x["status"] in ("free", "partial")]
+    assert offered, out
+    for x in offered:
+        assert not any("istenmedi" in rsn["tr"] for rsn in x["reasons"]), x
+        assert not any("not asked for" in rsn["en"] for rsn in x["reasons"]), x
+
+
+async def test_r2_a11_an_approved_request_carries_its_note_into_mine_ics(env):  # noqa: F811
+    """R2-A-11 (round 3): the note typed in the book sheet reaches DESCRIPTION also when the booking went request →
+    approval (approval-first), not only when it was booked directly."""
+    import icalendar
+    from tests.integrations_support import calendar_consent, kvkk_sign_off
+
+    c = env.client
+    await kvkk_sign_off(env)
+    _, gozde, _, ayse = await _people(env)
+    await _mode(env, "all")
+    r = await env.book(ayse, "A102", THU, "P1", notes="Telafi dersi: 2. şube")
+    assert r.status_code == 202, r.text
+    bid = r.json()["id"]
+    req = next(x for x in (await c.get("/api/v1/approvals/mine", headers=ayse)).json() if x["status"] == "PENDING")
+    r = await c.post(
+        f"/api/v1/approvals/{req['id']}/decide", json={"decision": "approve", "note": "İyi dersler"}, headers=gozde
+    )
+    assert r.status_code == 200, r.text
+    assert (await c.get(f"/api/v1/bookings/{bid}", headers=ayse)).json()["status"] == "BOOKED"
+    await calendar_consent(c, ayse)
+    r = await c.post("/api/v1/calendar/feeds/tokens", json={}, headers=ayse)
+    assert r.status_code == 201, r.text
+    r = await c.get(f"/api/v1/calendar/feeds/{r.json()['token']}/mine.ics")
+    assert r.status_code == 200, r.text
+    ev = next(
+        e for e in icalendar.Calendar.from_ical(r.text).walk("VEVENT") if str(e["UID"]) == f"booking-{bid}@smartsched"
+    )
+    assert "Telafi dersi: 2. şube" in str(ev.get("DESCRIPTION", "")), dict(ev)
+
+
+async def test_r2_a11_an_approved_two_period_request_carries_its_note_into_mine_ics(env):  # noqa: F811
+    """R2-A-11 as the academician ran it: P-P+1 sent as one submission (multi) with the sheet's note, approved as a
+    whole by the approver: the one merged VEVENT carries the note."""
+    import icalendar
+    from tests.integrations_support import calendar_consent, kvkk_sign_off
+
+    c = env.client
+    await kvkk_sign_off(env)
+    _, gozde, _, ayse = await _people(env)
+    await _mode(env, "all")
+    slots = [{"date": THU.isoformat(), "period_id": env.periods[q], "room_id": env.rooms["A102"]} for q in ("P1", "P2")]
+    mb = (await c.post("/api/v1/bookings/multi", json={"slots": slots}, headers=ayse)).json()
+    r = await c.post(
+        f"/api/v1/bookings/multi/{mb['id']}/create",
+        json={"type": "single", "slots": [{"mbs_id": x["mbs_id"], "notes": "Telafi dersi"} for x in mb["slots"]]},
+        headers=ayse,
+    )
+    assert r.status_code == 202, r.text
+    ids = sorted(b["id"] for b in r.json()["created"])
+    reqs = [x for x in (await c.get("/api/v1/approvals/mine", headers=ayse)).json() if x["status"] == "PENDING"]
+    gid = reqs[0]["group_id"]
+    assert gid, reqs
+    r = await c.post(
+        f"/api/v1/approvals/groups/{gid}/decide", json={"decision": "approve", "note": "İyi dersler"}, headers=gozde
+    )
+    assert r.status_code == 200, r.text
+    for bid in ids:
+        b = (await c.get(f"/api/v1/bookings/{bid}", headers=ayse)).json()
+        assert b["status"] == "BOOKED" and b["notes"] == "Telafi dersi", b
+    await calendar_consent(c, ayse)
+    tok = (await c.post("/api/v1/calendar/feeds/tokens", json={}, headers=ayse)).json()["token"]
+    r = await c.get(f"/api/v1/calendar/feeds/{tok}/mine.ics")
+    assert r.status_code == 200, r.text
+    evs = [
+        e
+        for e in icalendar.Calendar.from_ical(r.text).walk("VEVENT")
+        if str(e["UID"]) in {f"booking-{i}@smartsched" for i in ids}
+    ]
+    assert len(evs) == 1, [str(e["UID"]) for e in evs]
+    assert "Telafi dersi" in str(evs[0].get("DESCRIPTION", "")), dict(evs[0])

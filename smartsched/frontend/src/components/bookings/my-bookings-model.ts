@@ -44,3 +44,20 @@ export function groupBookings(rows: readonly BookingOut[]): BookingRow[] {
 export function openRequestCount(requests: readonly { id: number; status: string; group_id?: number | null }[] | undefined): number {
   return new Set((requests ?? []).filter((r) => r.status === "PENDING").map((r) => (r.group_id != null ? `g${r.group_id}` : `r${r.id}`))).size;
 }
+
+const LIST = '[data-testid="booking-list"]';
+
+/** R3-S-05: the index of the row that shows `bookingId` (rows carry every period's id in `data-booking-ids`), or -1. */
+export function rowIndexOf(bookingId: number): number {
+  const rows = [...document.querySelectorAll<HTMLElement>(`${LIST} > li`)];
+  return rows.findIndex((li) => (li.dataset.bookingIds ?? "").split(",").includes(String(bookingId)));
+}
+
+/**
+ * R3-S-05: where focus goes after the row at `index` is cancelled (for focusAfter, which re-focuses while the list
+ * refetches): the row that takes its place, else the one before it, else the list heading. Never <body>.
+ */
+export function rowFocusAfterRemoval(index: number): string[] {
+  const row = (n: number) => `${LIST} > li:nth-child(${n}) [data-row-open]`;
+  return [...(index >= 0 ? [row(index + 1), ...(index > 0 ? [row(index)] : [])] : []), "#mine-list"];
+}

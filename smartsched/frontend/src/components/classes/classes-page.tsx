@@ -19,7 +19,6 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { coarseHitArea } from "@/components/ui/hit-area";
 import { NativeSelect } from "@/components/ui/native-select";
 import { LoadingValue } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -503,11 +502,12 @@ export function ClassesPage() {
         {/* saved views as tabs; the scroller clips on both axes, so on touch it pads 6 px above and below (the
             32 px tabs' 44 px hit area, ui/hit-area.ts) and gives the room back with a negative margin */}
         <LayoutGroup id="classes-views">
-          <div role="tablist" aria-label={t("classes.view.tabs")} className="flex gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none] pointer-coarse:-my-1.5 pointer-coarse:py-1.5" data-testid="view-tabs">
+          {/* touch (round-3 R2-S-08): the tabs are 44 px themselves; the scroller clips any ::after hit area */}
+          <div role="tablist" aria-label={t("classes.view.tabs")} className="flex gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]" data-testid="view-tabs">
             {tabs.map((tab) => {
               const on = tab.id === viewParam;
               return (
-                <BareButton key={tab.id} role="tab" aria-selected={on} onClick={() => setParam({ view: tab.id === "all" ? null : tab.id, id: null })} className={cn("relative flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 type-callout font-medium", coarseHitArea, on ? "text-label-1" : "text-label-2 hover:text-label-1")}>
+                <BareButton key={tab.id} role="tab" aria-selected={on} onClick={() => setParam({ view: tab.id === "all" ? null : tab.id, id: null })} className={cn("relative flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 type-callout font-medium pointer-coarse:h-11 pointer-coarse:px-4", on ? "text-label-1" : "text-label-2 hover:text-label-1")}>
                   {on ? <motion.span layoutId="view-pill" transition={reduce ? { duration: 0 } : springs.glassMorph} aria-hidden className="absolute inset-0 -z-10 rounded-full bg-fill-2 edge-hairline" style={{ borderRadius: 999 }} /> : null}
                   {tab.label}
                   {/* no "Tümü 0" while the classes load: a glyph-sized skeleton (review §3 Classes loading) */}

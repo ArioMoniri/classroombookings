@@ -52,7 +52,7 @@ export function ConflictsAdmin() {
         title={t("crbs.admin.conflicts.title")}
         subtitle={t("crbs.admin.conflicts.lead")}
         actions={
-          <Button variant="secondary" size="sm" onClick={() => q.refetch()} disabled={q.isFetching} data-testid="conflicts-refresh">
+          <Button className="pointer-coarse:h-11" variant="secondary" size="sm" onClick={() => q.refetch()} disabled={q.isFetching} data-testid="conflicts-refresh">
             <RefreshCw aria-hidden className={q.isFetching ? "motion-safe:animate-spin" : undefined} />
             {t("crbs.conflicts.refresh")}
           </Button>

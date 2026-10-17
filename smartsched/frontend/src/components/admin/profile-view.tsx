@@ -26,6 +26,7 @@ import { MicrosoftAccountSection, ProfileSsoNotice } from "@/components/identity
 import { NotificationPreferencesPanel } from "@/components/notifications/preferences-panel";
 import { PrivacySection } from "@/components/privacy/privacy-section";
 import { CalendarConnectionsSection } from "@/components/settings/calendar-connections";
+import { MyAiUsage } from "@/components/admin/ai/my-ai-usage";
 
 /** language names in themselves (Turkish, English); a legacy stored code (`de`) reads as English */
 const langLabel = (code: string | null | undefined) => {
@@ -53,6 +54,10 @@ export function ProfileView() {
       </section>
       {/* Google Calendar / Microsoft 365 push: connect, choose the calendar, disconnect */}
       <CalendarConnectionsSection />
+      {/* wave 3 W3-AI: my AI usage against my limit (hidden for people who never used AI and have no limit) */}
+      <section id="ai-usage" className="scroll-mt-20">
+        <MyAiUsage />
+      </section>
       {/* the approval UI's panel: which event reaches you on which channel */}
       <section id="notifications" className="scroll-mt-20">
         <NotificationPreferencesPanel />

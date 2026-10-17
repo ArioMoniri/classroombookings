@@ -50,4 +50,12 @@ describe("solver settings on touch", () => {
     const row = solverForm.split("\n").find((l) => l.includes("<label") && l.includes("pointer-coarse:min-h-11"));
     expect(row).toBeDefined();
   });
+
+  // round-3 R3-S-06 (MOBILE M-05): on phones the save is a fixed capsule above the tab bar
+  it("the solver save is a phone capsule above the tab bar", () => {
+    const row = solverForm.split("\n").find((l) => l.includes('data-testid="solver-save-row"'));
+    expect(row).toContain("max-sm:fixed");
+    expect(row).toContain("max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))]");
+    expect(solverForm.indexOf('data-testid="solver-save-row"')).toBeLessThan(solverForm.indexOf('data-testid="save-solver"'));
+  });
 });

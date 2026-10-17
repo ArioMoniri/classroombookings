@@ -61,7 +61,7 @@ export function RequirementsList({ query, highlight = [], compact }: { query: Re
         </ul>
       </Card>
       <div>
-        <Button variant="secondary" size="sm" onClick={() => query.refetch()} disabled={query.isFetching} data-testid="requirements-recheck">
+        <Button className="pointer-coarse:h-11" variant="secondary" size="sm" onClick={() => query.refetch()} disabled={query.isFetching} data-testid="requirements-recheck">
           <RefreshCw aria-hidden className={query.isFetching ? "motion-safe:animate-spin" : undefined} />
           {t("crbs.setup.req.recheck")}
         </Button>

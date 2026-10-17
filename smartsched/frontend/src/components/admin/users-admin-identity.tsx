@@ -104,7 +104,7 @@ export function BreakGlassWarning({ onCreateLocal }: { onCreateLocal: () => void
       title={t("sso.users.breakGlassTitle")}
       data-testid="break-glass-warning"
       action={
-        <Button size="sm" variant="secondary" onClick={onCreateLocal}>
+        <Button className="pointer-coarse:h-11" size="sm" variant="secondary" onClick={onCreateLocal}>
           {t("sso.users.createLocal")}
         </Button>
       }
@@ -400,7 +400,7 @@ function InviteForm({ onDone, domainHint, canListRoles }: { onDone: () => void; 
             tone="error"
             action={
               error.code === "invite_pending" ? (
-                <Button
+                <Button className="pointer-coarse:h-11"
                   size="sm"
                   variant="secondary"
                   type="button"
@@ -460,7 +460,7 @@ export function IdentitiesSection({ user, s, invite, msEnabled, onBind }: { user
             <span className="block type-callout font-medium text-label-1">{t("sso.users.msAccount")}</span>
             <span className="block type-footnote text-label-2">{user.email ?? "—"}</span>
           </span>
-          <Button type="button" size="sm" variant="destructive" onClick={() => setUnlinking(true)} data-testid="identity-unlink">
+          <Button className="pointer-coarse:h-11" type="button" size="sm" variant="destructive" onClick={() => setUnlinking(true)} data-testid="identity-unlink">
             <Unlink aria-hidden />
             {t("sso.users.unlink")}
           </Button>
@@ -469,7 +469,7 @@ export function IdentitiesSection({ user, s, invite, msEnabled, onBind }: { user
         <div className="flex flex-wrap items-center gap-3">
           <Link2 className="size-4 text-label-2" aria-hidden />
           <span className="min-w-0 flex-1 type-callout text-label-1">{t("sso.users.bindingSub")}</span>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setRevoke({ invite, kind: "bind" })}>
+          <Button className="pointer-coarse:h-11" type="button" size="sm" variant="ghost" onClick={() => setRevoke({ invite, kind: "bind" })}>
             {t("sso.users.cancelBind")}
           </Button>
         </div>
@@ -477,7 +477,7 @@ export function IdentitiesSection({ user, s, invite, msEnabled, onBind }: { user
         <div className="flex flex-wrap items-center gap-3">
           <span className="min-w-0 flex-1 type-callout text-label-2">{t(`sso.users.method.${m}`)}</span>
           {msEnabled && user.is_active && s?.status === "none" ? (
-            <Button type="button" size="sm" variant="outline" onClick={onBind} data-testid="identity-bind">
+            <Button className="pointer-coarse:h-11" type="button" size="sm" variant="outline" onClick={onBind} data-testid="identity-bind">
               <Link2 aria-hidden />
               {t("sso.users.bindNext")}
             </Button>
@@ -540,12 +540,12 @@ function InstructorLink({ user, s }: { user: AdminUser; s: UserIdentityStatus | 
           <span className="block type-footnote text-label-2">{linkedName ?? t("sso.users.instructorNone")}</span>
         </span>
         {!editing && canSearch ? (
-          <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)} data-testid="instructor-edit">
+          <Button className="pointer-coarse:h-11" type="button" size="sm" variant="outline" onClick={() => setEditing(true)} data-testid="instructor-edit">
             {linkedId ? t("sso.users.instructorChange") : t("sso.users.instructorLink")}
           </Button>
         ) : null}
         {linkedId && !editing ? (
-          <Button type="button" size="sm" variant="ghost" onClick={() => apply(null)} aria-label={t("sso.users.instructorClear")}>
+          <Button className="pointer-coarse:h-11" type="button" size="sm" variant="ghost" onClick={() => apply(null)} aria-label={t("sso.users.instructorClear")}>
             <Trash2 aria-hidden />
           </Button>
         ) : null}
@@ -563,7 +563,7 @@ function InstructorLink({ user, s }: { user: AdminUser; s: UserIdentityStatus | 
             ))}
             {results.data && !results.data.items.length ? <li className="px-3 py-2 type-footnote text-label-3">{t("sso.users.instructorNoHits")}</li> : null}
           </ul>
-          <Button type="button" size="sm" variant="ghost" className="self-start" onClick={() => setEditing(false)}>
+          <Button type="button" size="sm" variant="ghost" className="self-start pointer-coarse:h-11" onClick={() => setEditing(false)}>
             {t("crbs.common.cancel")}
           </Button>
         </div>

@@ -15,7 +15,7 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { CalendarCheck, Check, Hourglass, Loader2, RotateCcw, Stamp, Undo2, Zap } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Alert, PageTitle } from "@/components/admin/kit";
@@ -123,14 +123,9 @@ export function QuickReserveView() {
   const request_ = action === "request";
   const quotaNone = ctx.data?.remaining_bookings === 0;
 
-  // a new slot / filter keeps the chosen room only if it is still in the list (quick-reserve.md §5 "Re-loading")
-  useEffect(() => {
-    if (!find.isPlaceholderData && roomId != null && !rooms.some((r) => r.room_id === roomId)) setRoomId(null);
-  }, [rooms, roomId, find.isPlaceholderData]);
-  // the count is announced when results arrive, not while loading
-  useEffect(() => {
-    if (find.data && !find.isFetching && query) setLive(t("quickReserve.rooms.count", { n: rooms.length }));
-  }, [find.data, find.isFetching, query, rooms.length, t]);
+  // a new slot / filter keeps the chosen room only while it is in the list (`room` above; quick-reserve.md §5).
+  // The count is announced when results arrive, not while loading; receipts and undo take the region over.
+  const liveText = live || (find.data && !find.isFetching && query ? t("quickReserve.rooms.count", { n: rooms.length }) : "");
 
   const labelFormat = useMemo(() => ({ time: fmt.time, ordinal: (n: number) => t("slotDisplay.ordinal", { n }) }), [fmt, t]);
   const dayWord = useCallback((iso: string) => (iso === today ? t("quickReserve.day.today") : today && iso === addDay(today, 1) ? t("quickReserve.day.tomorrow") : formatPattern(iso, "EEE d MMM", locale)), [today, t, locale]);
@@ -148,6 +143,7 @@ export function QuickReserveView() {
 
   const resetAfterChange = () => {
     setError(null);
+    setLive("");
     setShowAll(false);
   };
 
@@ -261,7 +257,7 @@ export function QuickReserveView() {
     <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5 pb-[calc(15rem+env(safe-area-inset-bottom))] lg:pb-10" onKeyDown={onPageKeyDown} data-testid="quick-reserve">
       <PageTitle title={t("quickReserve.title")} subtitle={t("quickReserve.lead")} className="mb-0" />
       <p className="sr-only" role="status" aria-live="polite" data-testid="qr-live">
-        {live}
+        {liveText}
       </p>
       {ctx.isSuccess && termId == null ? <Alert tone="warning">{t("quickReserve.noTerm")}</Alert> : null}
       {timetableMissing(g) ? <Alert tone="warning" testId="qr-unpublished">{t("quickReserve.unpublished")}</Alert> : null}

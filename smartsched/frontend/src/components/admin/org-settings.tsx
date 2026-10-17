@@ -90,7 +90,7 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
           <FieldRow label={t("crbs.org.logo")} hint={t("crbs.org.logoHint")} className="hairline-t">
             {/* eslint-disable-next-line @next/next/no-img-element -- uploaded by an administrator, served by the backend */}
             {logo ? <img src={logo} alt={t("crbs.org.logo")} className="h-10 max-w-40 rounded-md object-contain" /> : null}
-            <Button variant="outline" size="sm" render={<label />} nativeButton={false}>
+            <Button className="pointer-coarse:h-11" variant="outline" size="sm" render={<label />} nativeButton={false}>
               <ImageUp aria-hidden />
               {t("crbs.org.uploadLogo")}
               <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="sr-only" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0], { onSuccess: (r) => setLogo(r.logo_url ? `${r.logo_url}?v=${Date.now()}` : null), onError: toastError })} />

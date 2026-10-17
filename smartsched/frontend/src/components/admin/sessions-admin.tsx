@@ -119,11 +119,11 @@ function SessionDetail({ session, onEdit, onDelete }: { session: Session; onEdit
           id="sess-settings"
           actions={
             <div className="flex gap-1">
-              <Button variant="outline" size="sm" onClick={onEdit} data-testid="session-edit">
+              <Button className="pointer-coarse:h-11" variant="outline" size="sm" onClick={onEdit} data-testid="session-edit">
                 <Pencil aria-hidden />
                 {t("admingaps.sessions.edit")}
               </Button>
-              <Button variant="ghost" size="sm" className="text-status-infeasible-fg" onClick={onDelete} data-testid="session-delete">
+              <Button variant="ghost" size="sm" className="text-status-infeasible-fg pointer-coarse:h-11" onClick={onDelete} data-testid="session-delete">
                 <Trash2 aria-hidden />
                 {t("crbs.common.delete")}
               </Button>
@@ -234,7 +234,7 @@ export function DatePainter({ session }: { session: Session }) {
         actions={
           <div className="flex gap-2">
             {pending ? (
-              <Button variant="ghost" size="sm" onClick={() => dispatch({ type: "revert" })}>
+              <Button className="pointer-coarse:h-11" variant="ghost" size="sm" onClick={() => dispatch({ type: "revert" })}>
                 <RotateCcw aria-hidden />
                 {t("crbs.painter.revert")}
               </Button>
@@ -266,7 +266,7 @@ export function DatePainter({ session }: { session: Session }) {
               {b.week ? b.week.name : t("crbs.painter.eraser")}
             </BareButton>
           ))}
-          <Button variant="ghost" size="sm" onClick={() => setApplyOpen(true)}>
+          <Button className="pointer-coarse:h-11" variant="ghost" size="sm" onClick={() => setApplyOpen(true)}>
             {t("crbs.painter.applyAll")}
           </Button>
         </div>

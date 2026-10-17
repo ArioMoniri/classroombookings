@@ -5,6 +5,7 @@
  * winners, the priority editor, and links to the people. Opens from any moderation table (Enter, click).
  */
 import { Check, Minus, UserRound, X } from "lucide-react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -15,7 +16,7 @@ import { useMatching, usePriorities, type Matching } from "@/lib/api/moderation"
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { pairText, placeText, reasonText, requestedText } from "./moderation-model";
-import { PriorityForm, SubjectPriorityForm } from "./priority-editor";
+import { PriorityForm, SubjectPriorityForm, rowElement } from "./priority-editor";
 import { TierLabel, VerdictBadge } from "./verdict-badge";
 import { WishStatusBadge } from "./my-wishes";
 import { DecideControls, softRuleKey } from "./teacher-wishes-review";
@@ -118,9 +119,15 @@ export function MatchingInspector({ termId, requestId, runId, canEdit, onClose, 
   const lang = locale === "tr" ? "tr" : "en";
   const q = useMatching(termId, requestId, runId);
   const m = q.data;
+  const lastId = useRef<number | null>(null);
+  useEffect(() => {
+    if (requestId !== null) lastId.current = requestId;
+  }, [requestId]);
   return (
     <Sheet open={requestId !== null} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side={side} className="gap-0 overflow-y-auto p-5 sm:max-w-md" data-testid="matching-inspector">
+      {/* R3-M-06: on close (Esc, ✕ or after a priority save) focus goes back to the class row as the document has
+          it then: a refetch may have re-rendered the row, and the element focused at open time is gone */}
+      <SheetContent side={side} className="gap-0 overflow-y-auto p-5 sm:max-w-md" finalFocus={() => (lastId.current !== null ? rowElement(lastId.current) : null) ?? true} data-testid="matching-inspector">
         <SheetHeader className="p-0 pb-3">
           <SheetTitle>{m?.label ?? t("moderation.inspector.title")}</SheetTitle>
           <SheetDescription>{m ? [m.course_name, m.program, m.enrolment !== null ? t("moderation.students", { n: m.enrolment }) : null].filter(Boolean).join(" · ") : t("busy.loading")}</SheetDescription>

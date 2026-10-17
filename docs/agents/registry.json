@@ -2567,6 +2567,50 @@
       "status": "finished",
       "finished_at": "2026-10-17 19:31",
       "left_off": "start the pod and give me the working link"
+    },
+    {
+      "id": "a2a8826a46be3b2a2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 19:47",
+      "left_off": "start the pod and give me the working site link"
+    },
+    {
+      "id": "a830f5489271ff168",
+      "description": "Launch video producer (Recordly + Lottie)",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 19:56",
+      "scope": "",
+      "goal": "You are the **launch video producer** of SmartSched (ledger `media-launch-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/MEDIA.md and COMMON.md (same folder) and follow them. You own: `scripts/record/**`, `docs/lottie/**`, `docs/i…",
+      "ledger": "Launch video producer (Recordly + Lottie)",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ad073418ff56391f3",
+      "description": "Mobile optimiser A: user routes audit",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 19:56",
+      "scope": "",
+      "goal": "You are **mobile optimiser A** (staff/teacher/public routes) of SmartSched (ledger `mobile-a-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/MEDIA.md, COMMON.md and WAVE3.md (same folder), docs/testing/flows/MOBILE.md (M-01…M-14 an…",
+      "ledger": "Mobile optimiser A: user routes audit",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a4199b8bf88f2d00b",
+      "description": "Mobile optimiser B: admin/planning routes audit",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 19:56",
+      "scope": "",
+      "goal": "You are **mobile optimiser B** (planning and admin routes) of SmartSched (ledger `mobile-b-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/MEDIA.md, COMMON.md and WAVE3.md (same folder), docs/testing/flows/MOBILE.md (M-01…M-14 and …",
+      "ledger": "Mobile optimiser B: admin/planning routes audit",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

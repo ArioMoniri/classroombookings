@@ -174,10 +174,63 @@ async def test_the_cp1254_export_after_the_workbook_rewrites_no_weeks(client, te
         for row in dry["rows"]
         if row["entity"] == "meeting_requests" and any(f["field"] == "weeks" for f in row.get("fields") or [])
     ]
-    import json as _j  # DBG
-
-    print("DBG_W", _j.dumps([r for r in dry["rows"] if r["entity"] == "meeting_requests"], ensure_ascii=False)[:4000])
     assert weeks_rewritten == [], (len(weeks_rewritten), mr)
     assert _n(dry["counts"], "meeting_requests", "create") == 0, mr
     assert _share_unchanged(dry["counts"], "meeting_requests") >= 0.99, mr
     assert _share_unchanged(dry["counts"], "sections") >= 0.99, dry["counts"]["sections"]
+
+
+def _cp1254() -> tuple[str, bytes]:
+    return (
+        "bahar_listesi_noktali_virgul.csv",
+        exports.csv_bytes(BAHAR_LIST, delimiter=";", encoding="cp1254", decimal=",", dotted_times=True),
+    )
+
+
+def _xlsx() -> tuple[str, bytes]:
+    return (BAHAR_LIST.name, BAHAR_LIST.read_bytes())
+
+
+def _en_csv() -> tuple[str, bytes]:
+    return (EN_CSV.name, EN_CSV.read_bytes())
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [(_xlsx, _xlsx), (_xlsx, _cp1254), (_en_csv, _xlsx), (_cp1254, _xlsx)],
+    ids=["xlsx-then-xlsx", "xlsx-then-cp1254", "en-csv-then-xlsx", "cp1254-then-xlsx"],
+)
+async def test_an_unchanged_list_in_any_export_rewrites_no_weeks_in_a_19_week_term(client, first, second):
+    """R3-M-02 / R3-S-04: the admin tester's fresh stack. 2026-BAHAR exists with 19 weeks; the first file is committed
+    the way the UI sends it (the planner group's own guess of the length), the second is dry-run the way the tester
+    called the API (``term_id`` only). The same unchanged list in either format, in either order, writes one week
+    list per request (the term's weeks), so the second upload creates nothing, rewrites no weeks and is >= 99 %
+    unchanged (the English CSV first: the general reader's rows, read again by the importer)."""
+    h = await login(client)
+    r = await client.post(
+        "/api/v1/terms",
+        headers=h,
+        json={"code": "2026-BAHAR", "name": "2026 Bahar", "is_active": True, "week_count": 19},
+    )
+    assert r.status_code == 201, r.text
+    term_id = r.json()["id"]
+    job1 = await upload(client, h, first(), ai="false")
+    r = await client.post(f"/api/v1/council/jobs/{job1['id']}/commit", headers=h, json=_ui_body(job1))
+    assert r.status_code == 200, r.text
+    job2 = await upload(client, h, second(), ai="false")
+    r = await client.post(
+        f"/api/v1/council/jobs/{job2['id']}/commit",
+        headers=h,
+        json={"group": 0, "term_id": term_id, "allow_pending": True, "dry_run": True},
+    )
+    assert r.status_code == 200, r.text
+    dry = r.json()
+    mr = dry["counts"]["meeting_requests"]
+    weeks_rewritten = [
+        row["id"]
+        for row in dry["rows"]
+        if row["entity"] == "meeting_requests" and any(f["field"] == "weeks" for f in row.get("fields") or [])
+    ]
+    assert weeks_rewritten == [], (len(weeks_rewritten), mr)
+    assert _n(dry["counts"], "meeting_requests", "create") <= 2, mr  # the CSV-first order: the importer's 2 extra rows
+    assert _share_unchanged(dry["counts"], "meeting_requests") >= 0.99, mr

@@ -28,6 +28,7 @@ function provider(over: Partial<Provider> = {}): Provider {
     label_en: "OpenAI-compatible",
     secrets: ["api_key"],
     config: { enabled: true },
+    config_fields: ["base_url"],
     keyless: true,
     default_base_url: null,
     keys: {},

@@ -27,6 +27,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
 import { usePermissions } from "@/lib/permissions";
 import { CompareCalendar } from "./compare-calendar";
+import { focusWhenSettled } from "./priority-editor";
 import { RECREATE_STARTED_TOAST } from "./recreate-sheet";
 import { ResponsiveDialog } from "./responsive-dialog";
 import { usePhone } from "./use-media";
@@ -58,6 +59,15 @@ export function RecreatePreview({ runId }: { runId: number }) {
   // the calendar compare is a tablet / desktop view; phones get the grouped list (owner requirement 2026-10-15)
   const mode = phone ? "table" : chosenMode;
   const [confirm, setConfirm] = useState(false);
+  // R3-M-06: after "Yayınla" the publish button (the dialog's trigger) is gone, so focus goes to the "✓ Yayında" status
+  const justPublished = useRef(false);
+  const stateRef = useRef<HTMLSpanElement>(null);
+  const isActive = diffQ.data?.is_active === true;
+  useEffect(() => {
+    if (!justPublished.current || !isActive || confirm) return;
+    justPublished.current = false;
+    focusWhenSettled(() => stateRef.current);
+  }, [isActive, confirm]);
   const [rerunning, setRerunning] = useState(false);
   const [edited, setEdited] = useState<number[]>([]);
   const [busyRow, setBusyRow] = useState<number | null>(null);
@@ -188,7 +198,7 @@ export function RecreatePreview({ runId }: { runId: number }) {
           <p className="type-callout text-label-2">
             {t("moderation.preview.compared", { basis: t(`moderation.preview.basis.${d.compared_to}`), id: d.compare_to_run_id ?? d.base_run_id })}
             {" · "}
-            <span data-testid="preview-state">{d.is_active ? `✓ ${t("moderation.preview.published")}` : t("moderation.preview.notPublished")}</span>
+            <span ref={stateRef} tabIndex={-1} className="rounded-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="preview-state">{d.is_active ? `✓ ${t("moderation.preview.published")}` : t("moderation.preview.notPublished")}</span>
           </p>
         </div>
         {!phone ? <SegmentedControl<"table" | "calendar">
@@ -285,7 +295,7 @@ export function RecreatePreview({ runId }: { runId: number }) {
         {d.is_active ? <span className="inline-flex items-center gap-1 type-callout text-status-feasible-fg"><CheckCircle2 className="size-4" aria-hidden />{t("moderation.preview.published")}</span> : null}
       </div>
       {!canEdit ? <p className="type-footnote text-label-3">{t("moderation.publishNeedsEdit")}</p> : null}
-      <PublishDialog open={confirm} onOpenChange={setConfirm} diff={d} termId={runQ.data?.term_id ?? null} onPublished={() => void qc.invalidateQueries()} />
+      <PublishDialog open={confirm} onOpenChange={setConfirm} diff={d} termId={runQ.data?.term_id ?? null} onPublished={() => { justPublished.current = true; void qc.invalidateQueries(); }} />
     </div>
   );
 }

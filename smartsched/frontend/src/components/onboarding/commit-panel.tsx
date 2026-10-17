@@ -9,13 +9,16 @@
  * dönemine 1.527 yeni talep yazılacak", per record type in Turkish) and says the commit cannot be undone; the
  * result is a Turkish summary (no raw keys) whose rule count is every constraint the commit wrote.
  */
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { BusyButton, BusyGlyph } from "@/components/ui/busy-label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { request } from "@/lib/api/client";
 import { councilApi, type BaselineTarget, type CommitDryRun, type CommitIn, type CommitOut, type CouncilJob } from "@/lib/api/council";
 import { problemText } from "@/lib/api/error-text";
 import { useI18n } from "@/lib/i18n/provider";
@@ -29,7 +32,15 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
   const groups = job.plan?.groups ?? [];
   const [group, setGroup] = useState(0);
   const g = groups[group];
-  const [term, setTerm] = useState(() => ({ code: g?.code ?? "", name: g?.name ?? "", weekCount: g?.week_count ?? 14 }));
+  // R3-M-04: the planner's group names a season ("BAHAR"); the term the files belong to may exist already
+  // ("2026-BAHAR", an empty term made for them): it is offered first, with its own length, and the commit writes
+  // into it instead of creating a second Bahar term. Typed fields win.
+  const terms = useQuery({ queryKey: ["onboarding-terms"], queryFn: () => request("/terms", { schema: TermsBrief, silent: true }), staleTime: 60_000 });
+  const matched = g ? matchTerm(terms.data ?? [], g.code, g.year ?? job.year_hint ?? null) : null;
+  const [termEdit, setTermEdit] = useState<TermFields | null>(null);
+  const term: TermFields = termEdit ?? (matched ? { code: matched.code, name: matched.name, weekCount: matched.week_count } : { code: g?.code ?? "", name: g?.name ?? "", weekCount: g?.week_count ?? 14 });
+  const setTerm = (v: TermFields) => setTermEdit(v);
+  const existing = (terms.data ?? []).find((x) => x.code.trim().toLocaleUpperCase("tr") === term.code.trim().toLocaleUpperCase("tr"));
   const [includeRules, setIncludeRules] = useState(true);
   const [onConflict, setOnConflict] = useState<"keep" | "take">("keep");
   const [baseline, setBaseline] = useState<BaselineTarget>({ mode: "auto" });
@@ -44,8 +55,7 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
     setGroup(i);
     setDiff(null);
     if (baseline.mode === "run") setBaseline({ mode: "auto" }); // a run of another term
-    const ng = groups[i];
-    if (ng) setTerm({ code: ng.code, name: ng.name, weekCount: ng.week_count });
+    setTermEdit(null); // the new group's own (or matched existing) term
   };
   const body = (): CommitIn => ({
     ...(groups.length ? { group } : { files: job.files.map((f) => f.index) }),
@@ -73,7 +83,8 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
   const askWrite = async () => {
     if (diff || (await runDiff())) setConfirming(true);
   };
-  const label = (entity: string) => c.entity[entity] ?? entity.replace(/_/g, " ");
+  // R3-M-07: an entity the copy does not name yet reads "Diğer kayıtlar", never its table name
+  const label = (entity: string) => c.entity[entity] ?? c.entityOther;
   const changed = (counts: Record<string, { create: number; update: number }> | null | undefined) =>
     Object.entries(counts ?? {}).filter(([, v]) => v.create || v.update);
   const disabled = busy || blocking > 0 || !term.code.trim() || !targetReady(baseline);
@@ -102,6 +113,11 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
         ) : (
           <p className="type-footnote text-label-2">{t("onboarding.noGroups")}</p>
         )}
+        {term.code.trim() && terms.data ? (
+          <p className="type-footnote text-label-2" data-testid="onboarding-term-match" data-existing={existing ? existing.id : undefined}>
+            {existing ? c.existingTerm(existing.code, existing.week_count) : c.newTerm(term.code.trim())}
+          </p>
+        ) : null}
         <PlanTermFields value={term} onChange={(v) => { if (v.code !== term.code && baseline.mode === "run") setBaseline({ mode: "auto" }); setTerm(v); setDiff(null); }} />
         <label className="flex items-center gap-2 text-label-1">
           <Checkbox checked={includeRules} onCheckedChange={(v) => { setIncludeRules(Boolean(v)); setDiff(null); }} />
@@ -219,6 +235,16 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
             <p className="type-footnote text-label-2" data-testid="onboarding-result-rules">{t("onboarding.rulesCreated", { count: result.constraints_total ?? result.constraints_created.length })}</p>
           </div>
         ) : null}
+        {/* R3-M-03 / MOBILE M-05: on a phone the page is long (review, rows, diff); "Yaz" floats above the tab bar
+            with the number of decisions still open, and opens the same confirm as the button in the card */}
+        {!result ? (
+          <div className="fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-20 flex items-center justify-between gap-3 rounded-full p-1.5 pl-4 glass-chrome lg:hidden" data-testid="onboarding-commit-capsule">
+            <span className="min-w-0 truncate type-callout text-label-1" aria-live="polite">{blocking ? c.capsulePending(blocking) : c.capsuleReady}</span>
+            <BusyButton busy={busy || diffBusy} busyLabel={diffBusy ? c.commitPreparing : t("onboarding.commitButton")} className="min-h-11" data-testid="onboarding-commit-capsule-button" disabled={disabled || diffBusy} onClick={() => void askWrite()}>
+              {t("onboarding.commitButton")}
+            </BusyButton>
+          </div>
+        ) : null}
         <Dialog open={confirming} onOpenChange={(o) => !busy && setConfirming(o)}>
           <DialogContent className="sm:max-w-md" data-testid="onboarding-commit-confirm">
             <DialogHeader>
@@ -254,4 +280,22 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
       </CardContent>
     </Card>
   );
+}
+
+type TermFields = { code: string; name: string; weekCount: number };
+const TermsBrief = z.array(z.object({ id: z.number(), code: z.string(), name: z.string(), week_count: z.number() }).passthrough());
+type TermBrief = z.infer<typeof TermsBrief>[number];
+
+/** The existing term a planner group means (R3-M-04): the same code, else the one term whose code carries the
+ * group's season word ("BAHAR" in "2026-BAHAR") and, when the files name one, the year. */
+export function matchTerm(terms: TermBrief[], code: string, year: number | null): TermBrief | null {
+  const up = (v: string) => v.trim().toLocaleUpperCase("tr");
+  const want = up(code);
+  if (!want) return null;
+  const same = terms.find((x) => up(x.code) === want);
+  if (same) return same;
+  const season = want.replace(/\d{4}[-–/]?\d{0,4}/g, "").replace(/[-–_ ]+/g, " ").trim();
+  if (!season) return null;
+  const hits = terms.filter((x) => up(x.code).split(/[-–_ ]+/).includes(season) && (year == null || up(x.code).includes(String(year))));
+  return hits.length === 1 ? hits[0] : null;
 }

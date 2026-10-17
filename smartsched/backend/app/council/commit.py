@@ -55,7 +55,7 @@ from app.council.reconcile import rid, room_key
 from app.council.review import build_items, decisions, effective_plan
 from app.importers.catalog import Catalog
 from app.importers.identity import meeting_identity, occurrences, plain, time_sort_key
-from app.importers.normalize import PERIODS, non_person_reason, parse_section_label
+from app.importers.normalize import PERIODS, non_person_reason, parse_section_label, parse_weeks
 from app.importers.planning_list import _META, _merge
 from app.importers.report import ImportReport
 from app.models import (
@@ -339,6 +339,20 @@ class Writer:
                 return mr, False
         return (hits[0], True) if hits else (None, False)
 
+    def weeks_of(self, r: dict[str, Any]) -> list[int]:
+        """A meeting record's weeks in THIS term, the way the planning-list importer reads the same cell: the
+        weeks text parsed against the term's own length ("Tüm dönem" and a blank cell = every week of the term), so
+        both readers write one week list for one request (R3-S-04 / R3-M-02: the general reader parsed at extraction
+        time with 16 weeks and wrote 1-16 into a 14- or 19-week term). A record with a list and no text (intake.v1,
+        an edited row) keeps its list."""
+        max_week = int(self.term.week_count or 14)
+        text = r.get("weeks_text")
+        if text not in (None, ""):
+            return list(parse_weeks(text, max_week=max_week).weeks)
+        if r.get("weeks"):
+            return [int(w) for w in r["weeks"]]
+        return list(parse_weeks(None, max_week=max_week).weeks)
+
     async def section_key(self, r: dict[str, Any]) -> str:
         """``course|programme canonical|label``: the planning-list importer's section key, so both paths share
         the term's sections (and, through :func:`meeting_identity`, its meeting requests)."""
@@ -376,7 +390,7 @@ class Writer:
                 r.get("end"),
                 tuple(sorted(tx.fold(x) for x in (r.get("instructors") or []))),
                 tuple(r.get("rooms") or []),
-                tuple(r.get("weeks") or []),
+                tuple(self.weeks_of(r)),
                 r.get("mode"),
             )
             groups.setdefault(ident, []).append(idx)
@@ -539,7 +553,7 @@ class Writer:
             end_period=ep,
             start_time=_t(r.get("start")),
             end_time=_t(r.get("end")),
-            weeks=r.get("weeks") or [],
+            weeks=self.weeks_of(r),
             requested_room_text=r.get("room_request"),
             requested_room_ids=await self.room_ids(tx.room_tokens(r.get("room_request"))),
             requested_capacity=enrolment,

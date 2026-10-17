@@ -467,10 +467,10 @@ export function UsersAdmin() {
         <div className="flex items-center justify-between type-callout text-label-2">
           <span>{t("crbs.users.page", { from: page * PAGE + 1, to: Math.min(total, (page + 1) * PAGE), total })}</span>
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+            <Button className="pointer-coarse:h-11" variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
               {t("crbs.users.prev")}
             </Button>
-            <Button variant="ghost" size="sm" disabled={(page + 1) * PAGE >= total} onClick={() => setPage((p) => p + 1)}>
+            <Button className="pointer-coarse:h-11" variant="ghost" size="sm" disabled={(page + 1) * PAGE >= total} onClick={() => setPage((p) => p + 1)}>
               {t("crbs.users.next")}
             </Button>
           </div>
@@ -781,7 +781,7 @@ function ConstraintsEditor({ userId }: { userId: number }) {
       })}
       {draft ? (
         <div className="flex justify-end">
-          <Button
+          <Button className="pointer-coarse:h-11"
             type="button"
             size="sm"
             variant="outline"

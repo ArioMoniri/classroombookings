@@ -618,7 +618,7 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
             </BareButton>
           ) : null}
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" render={<label />} nativeButton={false}>
+            <Button className="pointer-coarse:h-11" variant="outline" size="sm" render={<label />} nativeButton={false}>
               <ImageUp aria-hidden />
               {photo.isPending ? t("crbs.common.loading") : t("crbs.rooms.uploadPhoto")}
               <input
@@ -641,7 +641,7 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
               />
             </Button>
             {photoUrl ? (
-              <Button variant="ghost" size="sm" onClick={() => dropPhoto.mutate(undefined, { onSuccess: () => setPhotoUrl(null), onError: toastError })}>
+              <Button className="pointer-coarse:h-11" variant="ghost" size="sm" onClick={() => dropPhoto.mutate(undefined, { onSuccess: () => setPhotoUrl(null), onError: toastError })}>
                 <Trash2 aria-hidden />
                 {t("crbs.rooms.removePhoto")}
               </Button>

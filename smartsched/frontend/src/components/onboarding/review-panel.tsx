@@ -73,7 +73,7 @@ function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: Dec
               <span>{c.remembered(memory.at, memory.job)}</span>
               {!done ? <span className="text-label-1">{c.stillDecide}</span> : null}
               {!done && memory.suggestion ? (
-                <Button size="xs" variant="secondary" disabled={busy} onClick={() => onDecide(memory.suggestion as DecisionIn)}>
+                <Button size="xs" variant="secondary" className="pointer-coarse:min-h-11" disabled={busy} onClick={() => onDecide(memory.suggestion as DecisionIn)}>
                   {c.applySuggestion}
                 </Button>
               ) : null}
@@ -106,6 +106,7 @@ function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: Dec
           <Button
             size="sm"
             variant="outline"
+            className="pointer-coarse:min-h-11"
             disabled={busy}
             onClick={() => {
               const changed = item.kind === "mapping" ? field !== String(item.current?.field ?? "") : item.kind === "classification" ? kind !== item.current?.kind : false;
@@ -117,7 +118,7 @@ function ItemRow({ item, onDecide, busy }: { item: ReviewItem; onDecide: (d: Dec
             {t("onboarding.accept")}
           </Button>
           {rejectable ? (
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDecide({ id: item.id, action: "reject" })}>
+            <Button size="sm" variant="ghost" className="pointer-coarse:min-h-11" disabled={busy} onClick={() => onDecide({ id: item.id, action: "reject" })}>
               <X aria-hidden />
               {t("onboarding.reject")}
             </Button>
@@ -155,7 +156,7 @@ export function ReviewPanel({ review, busy, onDecide }: { review: ReviewOut; bus
               {t("onboarding.blocking", { count: open.length })}
             </Badge>
             {acceptable.length ? (
-              <Button size="sm" disabled={busy} onClick={() => onDecide(acceptable.map((it) => ({ id: it.id, action: "accept" })))}>
+              <Button size="sm" className="pointer-coarse:min-h-11" disabled={busy} onClick={() => onDecide(acceptable.map((it) => ({ id: it.id, action: "accept" })))}>
                 {t("onboarding.acceptAll")}
               </Button>
             ) : null}

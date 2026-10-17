@@ -72,6 +72,10 @@ describe("OnboardingFlow", () => {
     expect(within(reviewCard).getByTestId("blocking-count").textContent).toMatch(/[1-9]\d* blocking/);
     const commitButton = screen.getByTestId("onboarding-commit-button");
     expect(commitButton).toBeDisabled();
+    // R3-M-03: the phone's floating capsule says how many decisions are open and is disabled with them
+    const capsule = screen.getByTestId("onboarding-commit-capsule");
+    expect(capsule).toHaveTextContent(/decisions? pending/);
+    expect(within(capsule).getByTestId("onboarding-commit-capsule-button")).toBeDisabled();
 
     await user.click(within(reviewCard).getByRole("button", { name: "Accept all blocking" }));
     await waitFor(() => expect(screen.getByTestId("blocking-count").textContent).toBe("0 blocking"));
@@ -93,6 +97,7 @@ describe("OnboardingFlow", () => {
     expect(result).toHaveTextContent("Written into 2026-BAHAR-EN");
     expect(result).toHaveTextContent("Requests: 1,348");
     expect(result.textContent).not.toMatch(/[a-z]+_[a-z]+/); // no raw keys
+    expect(result.textContent).not.toMatch(/\bfaculties\b/); // R3-M-07
   }, 30_000); // the whole flow (upload, polling, review, commit): the 5 s default is too tight on a loaded runner
 });
 

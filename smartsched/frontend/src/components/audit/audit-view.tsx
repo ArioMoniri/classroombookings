@@ -148,7 +148,7 @@ export function AuditView() {
       {phone ? (
         activeFilters ? (
           <div className="flex items-center gap-2">
-            <Button
+            <Button className="pointer-coarse:h-11"
               variant="ghost"
               size="sm"
               onClick={() => {
@@ -254,6 +254,15 @@ const ENTITY_KEYS: Record<string, MessageKey> = {
   invigilation_plan: "wave1.audit.e.invigilation_plan",
   invigilation_duty: "wave1.audit.e.invigilation_duty",
   invigilator_pool: "wave1.audit.e.invigilator_pool",
+  // R3-S-03 / R3-M-07: series, intake jobs, learning and the run/plan records read "Booking series", "Council job"…
+  booking_series: "wave1.audit.e.booking_series",
+  council_job: "wave1.audit.e.council_job",
+  exam_request: "wave1.audit.e.exam_request",
+  assignment: "wave1.audit.e.assignment",
+  learning: "wave1.audit.e.learning",
+  learning_reset: "wave1.audit.e.learning_reset",
+  program_draft: "wave1.audit.e.program_draft",
+  suggestion: "wave1.audit.e.suggestion",
 };
 
 const VERBS = ["create", "update", "delete", "cancel", "move", "approve", "reject", "decide", "undo", "activate", "withdraw", "import", "policy", "login", "logout", "lock", "unlock", "restore", "archive", "features", "expire", "request", "requested", "approved", "rejected", "withdrawn", "expired", "step", "detect", "resolve", "commit", "deleted", "disabled", "secret"] as const;

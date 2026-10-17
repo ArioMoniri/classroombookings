@@ -49,6 +49,10 @@ export interface MobileCalendarProps {
   onLens: (l: Lens) => void;
   /** opens the calendar filters (the desktop sidebar in a sheet; round-2 T-R2-28) */
   onOpenFilters?: () => void;
+  /** the calendar filters as one predicate (round-3 R1-S-26: the filters sheet did not filter the day list) */
+  keep?: (e: CalEvent) => boolean;
+  /** how many filters are on (the trigger says so; an empty day says the filters hide everything) */
+  filterCount?: number;
 }
 
 export function MobileCalendar(p: MobileCalendarProps) {
@@ -66,7 +70,7 @@ export function MobileCalendar(p: MobileCalendarProps) {
     if (s.kind === "cohort") return e.cohort === s.id;
     return String(e.a.mr) === s.id;
   };
-  const dayEvents = useMemo(() => eventsOf(p.model, p.week, p.day).filter(subjectKeep), [p.model, p.week, p.day, p.subject]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dayEvents = useMemo(() => eventsOf(p.model, p.week, p.day).filter((e) => subjectKeep(e) && (p.keep ? p.keep(e) : true)), [p.model, p.week, p.day, p.subject, p.keep]); // eslint-disable-line react-hooks/exhaustive-deps
   const date = p.dates[p.day - 1];
   const big = date ? dayName(p.day, locale) : "";
   const sub = date ? `${formatDate(date, locale, { day: "numeric", month: "long" })} · ${t("calendar.nav.weekShort", { n: p.week })}` : "";
@@ -134,19 +138,20 @@ export function MobileCalendar(p: MobileCalendarProps) {
             <SegmentedControl fill size="md" aria-label={t("calendar.mobile.list")} options={[{ value: "list", label: t("calendar.mobile.list") }, { value: "timeline", label: t("calendar.mobile.timeline") }]} value={mode} onValueChange={setMode} />
           </div>
           <div className="flex gap-2 overflow-x-auto px-4 py-3 [scrollbar-width:none]">
-            <Button size="sm" variant={p.subject ? "secondary" : "default"} onClick={() => p.onSubject(null)}>{t("calendar.subject.all")}</Button>
-            {p.subject ? <Button size="sm">{p.subject.kind === "room" ? (p.model.roomById.get(Number(p.subject.id))?.name ?? "") : p.subject.id}</Button> : null}
-            <Button size="sm" variant="secondary" onClick={() => (document.querySelector("[data-testid=subject-picker]") as HTMLElement | null)?.click()}><Search aria-hidden />{t("calendar.subject.label")}</Button>
+            <Button size="sm" className="pointer-coarse:min-h-11" variant={p.subject ? "secondary" : "default"} onClick={() => p.onSubject(null)}>{t("calendar.subject.all")}</Button>
+            {p.subject ? <Button size="sm" className="pointer-coarse:min-h-11">{p.subject.kind === "room" ? (p.model.roomById.get(Number(p.subject.id))?.name ?? "") : p.subject.id}</Button> : null}
+            <Button size="sm" className="pointer-coarse:min-h-11" variant="secondary" onClick={() => (document.querySelector("[data-testid=subject-picker]") as HTMLElement | null)?.click()}><Search aria-hidden />{t("calendar.subject.label")}</Button>
             {p.onOpenFilters ? (
-              <Button size="sm" variant="secondary" onClick={p.onOpenFilters} data-testid="open-filters" aria-label={t("calendar.sidebar.label")}>
+              <Button size="sm" variant="secondary" onClick={p.onOpenFilters} className="pointer-coarse:min-h-11" data-testid="open-filters">
                 <SlidersHorizontal aria-hidden />
                 {locale === "tr" ? "Filtreler" : "Filters"}
+                {p.filterCount ? <span className="tabular-nums" data-testid="filters-count">· {p.filterCount}</span> : null}
               </Button>
             ) : null}
           </div>
           <div className="relative min-h-[60dvh] flex-1">
             {mode === "list" ? (
-              <AgendaLens model={p.model} events={dayEvents} days={[p.day]} dates={p.dates} todayIso={p.now.iso} nowMin={p.now.minutes} selection={p.selection} onSelect={p.onSelect} onOpen={(ev) => setOpen(ev)} compact emptyLabel={t("calendar.agenda.empty")} />
+              <AgendaLens model={p.model} events={dayEvents} days={[p.day]} dates={p.dates} todayIso={p.now.iso} nowMin={p.now.minutes} selection={p.selection} onSelect={p.onSelect} onOpen={(ev) => setOpen(ev)} compact emptyLabel={p.filterCount ? t("calendar.empty.filtered") : t("calendar.agenda.empty")} />
             ) : p.subject ? (
               <div className="absolute inset-0">
                 <TimeGrid model={p.model} mask={1 << (p.week - 1)} columns={columns} colW={Math.max(240, typeof window !== "undefined" ? window.innerWidth - 72 : 300)} rowH={rowHeightFor(3)} events={dayEvents} colOf={() => 0} blocks={room !== null ? blocksOf(p.model, p.week, p.day).filter((b) => b.room === room) : []} blockCol={() => 0} bookings={[]} bookingCol={() => 0} selection={p.selection} onSelect={p.onSelect} onSelectMany={() => undefined} onOpen={(ev) => setOpen(ev)} onMove={() => undefined} onCreate={() => undefined} onResize={() => undefined} onAnnounce={() => undefined} readOnly nowMin={p.dates[p.day - 1] === p.now.iso ? p.now.minutes : null} nowCols={p.dates[p.day - 1] === p.now.iso ? [0] : []} gridLabel={t("calendar.timelineLabel", { day: dayName(p.day, locale) })} headerH={48} line2={(e) => `${p.model.roomById.get(e.room)?.name ?? ""} · ${e.a.size}/${roomCap(p.model, p.model.roomById.get(e.room))}`} ariaFor={(e) => e.a.label} />

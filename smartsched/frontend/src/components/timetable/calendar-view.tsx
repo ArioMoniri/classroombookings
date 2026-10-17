@@ -41,7 +41,7 @@ import { TimeGrid, type CreateIntent, type GridColumn, type MoveIntent, type Tim
 import { checkMove, spanText } from "./model/check";
 import { compareRuns } from "./model/compare";
 import { dateOf, minutesNow, rangeTitle, todayIso, weekDayOf, weekTypeKey } from "./model/dates";
-import { EMPTY_FILTERS, activeFilterCount, eventPasses, queryMatchesRoom, roomPasses, type CalendarFilters } from "./model/filters";
+import { EMPTY_FILTERS, activeFilterCount, eventFilter, eventPasses, queryMatchesRoom, roomPasses, type CalendarFilters } from "./model/filters";
 import { BAND_H, MINUTE_PX_STEPS, ROOM_COL, ROOM_HEADER_H, STRIP_SLOT_STEPS, clampZoom, periodAtMinute, rowHeightFor, type Density } from "./model/geometry";
 import { computeHeat, weeklyMean, type HeatMetric } from "./model/heat";
 import { blocksOf, bookingsOf, eventsOf, roomCap, termLongBlocks, type CalEvent, type CalendarModel } from "./model/index-model";
@@ -236,6 +236,8 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const roomQuery = useMemo(() => !!model && filters.query.trim() !== "" && model.rooms.some((r) => queryMatchesRoom(filters.query, r)), [model, filters.query]);
   const keep = useCallback((e: CalEvent) => eventPasses(roomQuery ? { ...filters, query: "" } : filters, e), [filters, roomQuery]);
   const weekEvents = useMemo(() => (model ? eventsOf(model, week, undefined, (e) => keep(e)) : []), [model, week, keep]);
+  // the phone agenda has no room columns: one predicate applies the room and the event filters (round-3 R1-S-26)
+  const phoneKeep = useMemo(() => (model ? eventFilter(model, filters) : () => true), [model, filters]);
   const heat = useMemo(
     () => (model ? computeHeat(model, { rooms: roomSet.size !== model.rooms.length ? roomSet : undefined, keep: activeFilterCount(filters) ? keep : undefined, changed: compare ? (e, w) => compare.movedWeeks.get(e.a.id)?.has(w) ?? false : undefined }) : new Map()),
     [model, roomSet, keep, filters, compare],
@@ -426,6 +428,35 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     const h = setTimeout(() => setZoomBadge(null), 1000);
     return () => clearTimeout(h);
   }, [zoomBadge]);
+
+  // ------------------------------------------------------------------ overlay sidebar (desktop below 1600 px)
+  // round-3 R1-S-26: the overlay covered its own toggle and ignored Esc. It now starts under the toolbar (the toggle
+  // stays visible and closes it) and Esc closes it, focus back on the toggle
+  const [overlayTop, setOverlayTop] = useState(0);
+  const overlayOpen = sidebarOpen && !wide && !mobile && !embedded;
+  useLayoutEffect(() => {
+    if (!overlayOpen) return;
+    const measure = () => {
+      const bar = rootRef.current?.querySelector<HTMLElement>('[data-testid="calendar-toolbar"]');
+      const root = rootRef.current?.getBoundingClientRect();
+      if (bar && root) setOverlayTop(Math.max(0, Math.round(bar.getBoundingClientRect().bottom - root.top + 8)));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [overlayOpen]);
+  useEffect(() => {
+    if (!overlayOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || document.querySelector("[role=dialog][data-open], [data-slot=dialog-content], [data-slot=sheet-content]")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setSidebarOpen(false);
+      requestAnimationFrame(() => rootRef.current?.querySelector<HTMLElement>('[data-testid="sidebar-toggle"]')?.focus());
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [overlayOpen, setSidebarOpen]);
 
   // ------------------------------------------------------------------ keyboard map (calendar.md §12)
   useEffect(() => {
@@ -759,16 +790,27 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     );
   }
   // the filters sidebar: docked (wide), an overlay (desktop below 1600) or a sheet (phone, round-2 T-R2-28)
-  const sidebar = (className: string) =>
+  const sidebar = (className: string, compact = false, style?: React.CSSProperties) =>
     model && runId !== null && !embedded ? (
       <CalendarSidebar
         ref={searchRef}
         className={className}
+        style={style}
+        compact={compact}
         model={model}
         term={data.term}
         run={data.run}
         onClose={!wide ? () => setSidebarOpen(false) : undefined}
         onSearchEnter={() => {
+          if (compact) {
+            // phone (round-3 R1-S-26): close the sheet and land on the first matching chip of the day list, or say why
+            // the list is empty
+            const n = eventsOf(model, liveWeek, liveDay).filter(phoneKeep).length;
+            setSidebarOpen(false);
+            if (n === 0) setAnnounce(t("calendar.empty.filtered"));
+            else setTimeout(() => document.querySelector<HTMLElement>('[data-testid="calendar-mobile"] [data-testid="calendar-event"]')?.focus(), 360);
+            return;
+          }
           // Enter in the search focuses the first match on the board (round-1 R1-S-26)
           const chip = document.querySelector<HTMLElement>('[data-testid="calendar-event"]');
           if (chip) chip.focus();
@@ -811,12 +853,18 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   if (mobile && !embedded && model) {
     return (
       <>
-        <MobileCalendar model={model} week={liveWeek} day={liveDay} dates={liveDates} onDay={(d) => update({ day: d })} onWeek={setWeek} heat={heat} now={now} selection={selection} onSelect={onSelect} subject={vs.subject} onSubject={(s) => update({ subject: s })} runId={runId} termId={data.term?.id ?? null} actions={actions} readOnly={readOnly} canForce={isAdmin} lens={vs.lens} onLens={setLens} onOpenFilters={runId !== null ? () => setSidebarOpen(true) : undefined} />
-        {/* the desktop filters in a sheet (R2-M-15: the agenda view had no filters) */}
+        <MobileCalendar model={model} week={liveWeek} day={liveDay} dates={liveDates} onDay={(d) => update({ day: d })} onWeek={setWeek} heat={heat} now={now} selection={selection} onSelect={onSelect} subject={vs.subject} onSubject={(s) => update({ subject: s })} runId={runId} termId={data.term?.id ?? null} actions={actions} readOnly={readOnly} canForce={isAdmin} lens={vs.lens} onLens={setLens} onOpenFilters={runId !== null ? () => setSidebarOpen(true) : undefined} keep={phoneKeep} filterCount={activeFilterCount(filters)} />
+        {/* round-3 R3-M-05: the filters as a full-width bottom sheet with 44 px rows, a 16 px search and a sticky
+            "show" action (MOBILE M-04 / M-02 / M-03 / M-05), not the desktop sidebar in a 293 px side panel */}
         <Sheet open={sidebarOpen} onOpenChange={(o) => setSidebarOpen(o)}>
-          <SheetContent side="left" className="w-[min(320px,92vw)] p-0" showCloseButton={false} data-testid="filters-sheet">
+          <SheetContent side="bottom" className="flex max-h-[88dvh] flex-col p-0" showCloseButton={false} data-testid="filters-sheet">
             <SheetTitle className="sr-only">{t("calendar.sidebar.label")}</SheetTitle>
-            {sidebar("h-full w-full")}
+            {sidebar("min-h-0 w-full flex-1", true)}
+            <div className="shrink-0 bg-(--mat-thick-solid) px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] hairline-t">
+              <Button className="min-h-11 w-full" onClick={() => setSidebarOpen(false)} data-testid="filters-apply">
+                {locale === "tr" ? `${eventsOf(model, liveWeek, liveDay).filter(phoneKeep).length} dersi göster` : `Show ${eventsOf(model, liveWeek, liveDay).filter(phoneKeep).length} classes`}
+              </Button>
+            </div>
           </SheetContent>
         </Sheet>
       </>
@@ -843,7 +891,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   return (
     <div ref={rootRef} className={cn("relative flex min-h-0 gap-2", className)} style={{ height: embedded ? undefined : fill }} data-testid="calendar">
       {!embedded && model ? (skipSlot ? createPortal(skipLink, skipSlot) : skipLink) : null}
-      {sidebarOpen ? sidebar(cn("w-[272px] shrink-0", !wide && "absolute inset-y-0 left-0 z-40 shadow-elev-3")) : null}
+      {sidebarOpen ? sidebar(cn("w-[272px] shrink-0", !wide && "absolute bottom-0 left-0 z-40 shadow-elev-3"), false, !wide ? { top: overlayTop } : undefined) : null}
 
       <section className="cal-canvas relative flex min-w-0 flex-1 flex-col overflow-hidden" aria-label={t("calendar.lens.label")} onScrollCapture={(e) => {
         const top = (e.target as HTMLElement).scrollTop ?? 0;
@@ -867,6 +915,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               onNext={() => step(1)}
               onToday={goToday}
               onToggleSidebar={() => setSidebarOpen((v) => !v)}
+              sidebarOpen={sidebarOpen}
               subject={vs.subject}
               onSubject={(s) => update({ subject: s, ...(s && vs.lens !== "agenda" ? { lens: "week" as Lens } : {}) })}
               conflicts={counts.conflicts}

@@ -253,8 +253,8 @@ services:
   # ---- optional observability (profile "observability"; observability/README.md) ---------------------------
   # Internal network only: no ports. Grafana is reached through the proxy at /grafana/ after the SmartSched admin
   # check (forward-auth to /api/v1/ops/grafana-auth); Grafana trusts the proxy's X-WEBAUTH-USER header.
-  # Memory caps total 768 MiB (Prometheus 192 + Loki 160 + Grafana 320 + Alloy 96; Grafana 13 needs ~240 MiB at start,
-  # 192 MiB was OOM-killed in the measurement run); GOMEMLIMIT keeps each Go runtime under its cap.
+  # Memory caps total 768 MiB (Prometheus 160 + Loki 128 + Grafana 384 + Alloy 96). Measured 2026-10-17 after dashboards
+  # were opened: Grafana 296, Loki 71, Prometheus 67, Alloy 58 MiB (Grafana 13 at 192 MiB was OOM-killed at start); GOMEMLIMIT keeps each Go runtime under its cap.
   prometheus:
     profiles: ["observability"]
     image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
@@ -266,7 +266,7 @@ services:
       - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-1GB}
       - --web.enable-remote-write-receiver
     environment:
-      GOMEMLIMIT: 160MiB
+      GOMEMLIMIT: 130MiB
     volumes:
       - ./observability/prometheus:/etc/prometheus:ro
       - prometheus-data:/prometheus
@@ -285,7 +285,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: ${PROMETHEUS_MEMORY:-192m}
+          memory: ${PROMETHEUS_MEMORY:-160m}
     logging: *default-logging
 
   loki:
@@ -299,7 +299,7 @@ services:
     image: smartsched-loki:${SMARTSCHED_TAG:-0.1.0}
     restart: unless-stopped
     environment:
-      GOMEMLIMIT: 130MiB
+      GOMEMLIMIT: 100MiB
     volumes:
       - loki-data:/loki
     expose:
@@ -319,7 +319,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: ${LOKI_MEMORY:-160m}
+          memory: ${LOKI_MEMORY:-128m}
     logging: *default-logging
 
   alloy:
@@ -382,7 +382,7 @@ services:
       prometheus:
         condition: service_healthy
     environment:
-      GOMEMLIMIT: 250MiB
+      GOMEMLIMIT: 300MiB
       GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
       GF_SERVER_ENFORCE_DOMAIN: "false"
@@ -428,7 +428,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: ${GRAFANA_MEMORY:-320m}
+          memory: ${GRAFANA_MEMORY:-384m}
     logging: *default-logging
 
 volumes:

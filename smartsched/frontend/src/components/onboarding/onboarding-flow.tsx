@@ -124,7 +124,7 @@ export function OnboardingFlow({ initialJobId = null }: { initialJobId?: number 
   const rerunning = review.data?.rerun_queued && job.data && ACTIVE_JOB.has(job.data.status);
 
   return (
-    <div data-testid="onboarding" className="space-y-4">
+    <div data-testid="onboarding" className={cn("space-y-4", job.data && !ACTIVE_JOB.has(job.data.status) && review.data && !result ? "max-lg:pb-20" : undefined)}>
       <PageHeader
         title={t("onboarding.title")}
         subtitle={t("onboarding.subtitle")}

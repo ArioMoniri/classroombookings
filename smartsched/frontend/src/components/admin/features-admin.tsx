@@ -28,7 +28,7 @@ import { errorText, FEATURE_CATEGORIES, FEATURE_KINDS, FEATURE_KEYS, Impact, use
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import { Alert, ConfirmDialog, Field, Loading, SelectField } from "./kit";
+import { Alert, ConfirmDialog, Field, Loading, SelectField, pageActionsCapsule } from "./kit";
 import { EntityIcon, IconPicker } from "./icons";
 import { changedCells, parseOptions, readValue, templateCsv, valueLabel, type FeatureValue } from "./features-model";
 
@@ -93,10 +93,13 @@ export function FeaturesTab() {
             <FileUp aria-hidden />
             {t("wave1.features.bulk")}
           </Button>
-          <Button onClick={() => setEditing("new")} data-testid="feature-new">
-            <Plus aria-hidden />
-            {t("wave1.features.new")}
-          </Button>
+          {/* MOBILE M-05 (R3-M-08): below lg the primary action sits in the capsule above the tab bar, like "Yeni derslik" */}
+          <div data-slot="page-actions" className={pageActionsCapsule}>
+            <Button onClick={() => setEditing("new")} data-testid="feature-new">
+              <Plus aria-hidden />
+              {t("wave1.features.new")}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -592,7 +595,7 @@ function BulkDialog({ features, rooms, onClose }: { features: Feature[]; rooms: 
       <ol className="flex list-decimal flex-col gap-3 pl-5 type-callout text-label-1">
         <li>
           <span className="block">{t("wave1.features.bulkStep1")}</span>
-          <Button variant="outline" size="sm" className="mt-1.5" onClick={download} data-testid="features-template">
+          <Button variant="outline" size="sm" className="mt-1.5 pointer-coarse:h-11" onClick={download} data-testid="features-template">
             <FileDown aria-hidden />
             {t("wave1.features.template")}
           </Button>

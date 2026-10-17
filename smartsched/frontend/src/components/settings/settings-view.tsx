@@ -281,7 +281,14 @@ function SolverForm({ initial }: { initial: Settings }) {
           </table>
         </div>
         {/* touch: 44 px save (size sm is 36 on coarse pointers); the three number fields are md = 44 px / 16 px there */}
-        <Button size="sm" className="pointer-coarse:h-11" onClick={() => void save()} disabled={update.isPending} data-testid="save-solver">{t("common.save")}</Button>
+        {/* phones (round-3 R3-S-06, MOBILE M-05): the save is a capsule above the tab bar, in thumb reach at every scroll;
+            the card keeps room for it at the end */}
+        <div className="max-sm:pointer-events-none max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-sm:z-30 max-sm:flex max-sm:justify-end max-sm:px-4" data-testid="solver-save-row">
+          <div className="max-sm:pointer-events-auto max-sm:rounded-full max-sm:bg-(--mat-thick-solid) max-sm:p-1 max-sm:shadow-elev-3 max-sm:edge-hairline">
+            <Button size="sm" className="pointer-coarse:h-11 max-sm:rounded-full max-sm:px-6" onClick={() => void save()} disabled={update.isPending} data-testid="save-solver">{t("common.save")}</Button>
+          </div>
+        </div>
+        <div aria-hidden className="h-14 sm:hidden" />
       </CardContent>
     </Card>
   );

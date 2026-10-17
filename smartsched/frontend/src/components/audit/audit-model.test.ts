@@ -103,4 +103,25 @@ describe("programme undo (undo_via program_draft)", () => {
     expect(auditReason(null, tr)).toBeNull();
     expect(auditReason("undo_of:164", tr)).not.toMatch(/undo of/i);
   });
+  // R3-S-03 / R3-M-07 (loop-r3-laneF): "Booking series iptal edildi #1", "Council job işlendi" in the Turkish UI.
+  // Every entity type the backend audits (an AST scan of app/**: audit.record / publish_event, 2026-10-17) has a
+  // Turkish label of its own, never the capitalised raw key the fallback prints.
+  const AUDITED = ["approval_request", "approval_rule", "assignment", "booking", "booking_policy", "booking_series", "channel_department_target", "consent", "constraint", "council_job", "course", "dsr_request", "exam", "exam_request", "faculty", "instructor", "invigilation_duty", "invigilation_plan", "invigilator_pool", "learning", "learning_reset", "meeting", "meeting_request", "notify_channel", "preset", "privacy_notice", "program", "program_draft", "retention_policy", "room", "room_feature", "run", "schedule_run", "section", "setting", "sso_provider", "sso_role_mapping", "studio_draft", "suggestion", "term", "user", "user_channel", "webhook"];
+  it("labels every audited record kind in Turkish, never with its raw key", () => {
+    const tr = (k: MessageKey, v?: Record<string, string | number>) => translate("tr", k, v);
+    const raw = (type: string) => type.replace(/[._]+/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+    // "Webhook" and "Program" are the Turkish words too
+    const missing = AUDITED.filter((type) => entityLabel(type, tr) === raw(type) && !["webhook", "program"].includes(type));
+    expect(missing).toEqual([]);
+    expect(auditSentence("booking.cancel", "booking_series", tr)).toBe("Tekrarlayan rezervasyon iptal edildi");
+    expect(auditSentence("series.create", "booking_series", tr)).toBe("Tekrarlayan rezervasyon eklendi");
+    expect(auditSentence("council.commit", "council_job", tr)).toBe("İçe aktarma işi işlendi");
+    expect(auditSentence("council.review", "council_job", tr)).toBe("İçe aktarma işi değiştirildi");
+    for (const type of AUDITED) expect(entityLabel(type, tr), type).not.toMatch(/\b(booking|series|council|job|learning|reset|draft|suggestion|assignment|request)\b/i);
+  });
+  it("keeps the English labels English", () => {
+    const en = (k: MessageKey, v?: Record<string, string | number>) => translate("en", k, v);
+    expect(auditSentence("booking.cancel", "booking_series", en)).toMatch(/^Recurring booking/);
+    expect(entityLabel("council_job", en)).toBe("Import job");
+  });
 });

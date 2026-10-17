@@ -69,7 +69,7 @@ export function WebhooksAdmin() {
             <WebhookIcon className="size-4 text-label-3" aria-hidden />
             {t("notifications.admin.webhooks.title")}
           </CardTitle>
-          <Button size="sm" onClick={() => setCreating(true)} data-testid="webhook-new">
+          <Button className="pointer-coarse:h-11" size="sm" onClick={() => setCreating(true)} data-testid="webhook-new">
             <Plus aria-hidden />
             {t("notifications.admin.webhooks.new")}
           </Button>
@@ -189,23 +189,23 @@ function WebhookRow({ w, busy, onTest, onToggle, onRotate, onDelete }: { w: Webh
         </span>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" onClick={onTest} {...busyProps(busy === `test-${w.id}`, !!busy)} data-testid={`webhook-test-${w.id}`}>
+        <Button className="pointer-coarse:h-11" size="sm" variant="outline" onClick={onTest} {...busyProps(busy === `test-${w.id}`, !!busy)} data-testid={`webhook-test-${w.id}`}>
           <Send aria-hidden />
           <BusyLabel busy={busy === `test-${w.id}`} label={t("busy.sending")}>
             {t("notifications.admin.webhooks.test")}
           </BusyLabel>
         </Button>
-        <Button size="sm" variant="outline" onClick={onToggle} {...busyProps(busy === `toggle-${w.id}`, !!busy)} data-testid={`webhook-toggle-${w.id}`}>
+        <Button className="pointer-coarse:h-11" size="sm" variant="outline" onClick={onToggle} {...busyProps(busy === `toggle-${w.id}`, !!busy)} data-testid={`webhook-toggle-${w.id}`}>
           {w.active ? t("notifications.admin.webhooks.pause") : t("notifications.admin.webhooks.resume")}
         </Button>
-        <Button size="sm" variant="ghost" onClick={onRotate} {...busyProps(busy === `rotate-${w.id}`, !!busy)} data-testid={`webhook-rotate-${w.id}`}>
+        <Button className="pointer-coarse:h-11" size="sm" variant="ghost" onClick={onRotate} {...busyProps(busy === `rotate-${w.id}`, !!busy)} data-testid={`webhook-rotate-${w.id}`}>
           <RotateCcw aria-hidden />
           {t("notifications.admin.webhooks.rotate")}
         </Button>
-        <Button size="sm" variant="ghost" aria-expanded={showDeliveries} onClick={() => setShowDeliveries((x) => !x)} data-testid={`webhook-deliveries-${w.id}`}>
+        <Button className="pointer-coarse:h-11" size="sm" variant="ghost" aria-expanded={showDeliveries} onClick={() => setShowDeliveries((x) => !x)} data-testid={`webhook-deliveries-${w.id}`}>
           {t("notifications.admin.webhooks.deliveries")}
         </Button>
-        <Button size="sm" variant="ghost" className="text-status-infeasible-fg sm:ml-auto" onClick={onDelete} disabled={!!busy} data-testid={`webhook-delete-${w.id}`}>
+        <Button size="sm" variant="ghost" className="text-status-infeasible-fg sm:ml-auto pointer-coarse:h-11" onClick={onDelete} disabled={!!busy} data-testid={`webhook-delete-${w.id}`}>
           <Trash2 aria-hidden />
           {t("crbs.common.delete")}
         </Button>
@@ -244,7 +244,7 @@ function SecretOnce({ url, secret, onDone }: { url: string; secret: string; onDo
       <p className="type-callout text-label-1">{t("notifications.admin.webhooks.secretOnce", { url })}</p>
       <code className="break-all rounded-lg bg-(--mat-thick-solid) px-2 py-1.5 font-mono type-footnote text-label-1">{secret}</code>
       <div className="flex flex-wrap gap-2">
-        <Button
+        <Button className="pointer-coarse:h-11"
           size="sm"
           variant="outline"
           onClick={() => {
@@ -254,7 +254,7 @@ function SecretOnce({ url, secret, onDone }: { url: string; secret: string; onDo
           <Copy aria-hidden />
           {t("notifications.admin.webhooks.copy")}
         </Button>
-        <Button size="sm" variant="ghost" onClick={onDone}>
+        <Button className="pointer-coarse:h-11" size="sm" variant="ghost" onClick={onDone}>
           {t("notifications.admin.webhooks.secretDone")}
         </Button>
       </div>

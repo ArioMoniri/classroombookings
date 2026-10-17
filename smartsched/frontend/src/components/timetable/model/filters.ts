@@ -3,7 +3,7 @@
  * Turkish-aware search fold shared with /classes (İ/ı, diacritics, spaces: "phar240" finds "PHAR 240").
  */
 import type { IndexRoom } from "@/lib/api/calendar";
-import type { CalEvent } from "./index-model";
+import type { CalEvent, CalendarModel } from "./index-model";
 
 export type StatusFilter = "conflict" | "warning" | "locked" | "partial" | "preoccupied" | "booking";
 
@@ -72,4 +72,17 @@ export function eventPasses(f: CalendarFilters, e: CalEvent): boolean {
 export function queryMatchesRoom(query: string, r: IndexRoom): boolean {
   const q = fold(query);
   return q.length > 0 && (fold(r.name) === q || fold(r.code) === q);
+}
+
+/**
+ * One predicate for "does this chip show under these filters" (round-3 R1-S-26: the phone agenda ignored the filters,
+ * the board applied them through its room columns): the room filters (building, tag, capacity, a room-code query) and
+ * the event filters (faculty, status, a course / instructor query).
+ */
+export function eventFilter(model: Pick<CalendarModel, "rooms">, f: CalendarFilters): (e: CalEvent) => boolean {
+  const roomQuery = f.query.trim() !== "" && model.rooms.some((r) => queryMatchesRoom(f.query, r));
+  const roomFiltered = roomQuery || f.buildings.length > 0 || f.tags.length > 0 || f.minCap > 0;
+  const rooms = roomFiltered ? new Set((roomQuery ? model.rooms.filter((r) => queryMatchesRoom(f.query, r)) : model.rooms).filter((r) => roomPasses(f, r)).map((r) => r.id)) : null;
+  const ef = roomQuery ? { ...f, query: "" } : f;
+  return (e) => (rooms === null || rooms.has(e.room)) && eventPasses(ef, e);
 }

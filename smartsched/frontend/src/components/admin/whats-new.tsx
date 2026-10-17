@@ -51,6 +51,8 @@ export function WhatsNewPanel() {
   // T-R2-33 (R2-M-18): CHANGELOG.md is written in English. Outside the English UI the list sits in a closed
   // <details lang="en"> behind a Turkish line, so no English sentence is on the Turkish screen until asked for.
   const english = locale === "en";
+  // round 3: the EN scan read the closed <details>' text: the English list is not in the DOM until it is opened
+  const [shown, setShown] = useState(false);
   return (
     <Card className="gap-3 px-4">
       {q.isLoading ? (
@@ -59,7 +61,7 @@ export function WhatsNewPanel() {
         english ? (
           <Entries data={q.data} />
         ) : (
-          <details className="group/news" data-testid="news-english">
+          <details className="group/news" data-testid="news-english" onToggle={(e) => setShown(e.currentTarget.open)}>
             <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg type-callout text-label-1 focus-visible:outline-2 focus-visible:outline-(--focus)">
               <ChevronDown className="size-4 shrink-0 text-label-3 transition-transform duration-(--dur-fast) group-open/news:rotate-180" aria-hidden />
               <span className="min-w-0">
@@ -67,15 +69,17 @@ export function WhatsNewPanel() {
                 <span className="block type-footnote text-label-3">{t("crbs.news.englishOnly")}</span>
               </span>
             </summary>
-            <div lang="en" className="pt-2">
-              <Entries data={q.data} />
-            </div>
+            {shown ? (
+              <div lang="en" className="pt-2">
+                <Entries data={q.data} />
+              </div>
+            ) : null}
           </details>
         )
       ) : null}
       {q.data?.unread ? (
         <div>
-          <Button variant="outline" size="sm" onClick={() => seen.mutate(undefined)}>
+          <Button className="pointer-coarse:h-11" variant="outline" size="sm" onClick={() => seen.mutate(undefined)}>
             {t("crbs.news.markSeen")}
           </Button>
         </div>

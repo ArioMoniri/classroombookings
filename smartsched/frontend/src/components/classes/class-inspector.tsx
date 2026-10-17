@@ -307,20 +307,20 @@ export function ClassInspector(p: InspectorProps) {
           {aid !== null && exactAssignment !== false && p.runId !== null ? (
             <div className="flex flex-col gap-2">
               {explain.state === "idle" ? (
-                <Button ref={whyRef} size="sm" variant="secondary" className="w-fit" onClick={() => void runExplain()} data-testid="explain-placement">
+                <Button ref={whyRef} size="sm" variant="secondary" className="w-fit pointer-coarse:min-h-11" onClick={() => void runExplain()} data-testid="explain-placement">
                   <MessageSquareText aria-hidden />{t("calendar.insp.explain")}
                 </Button>
               ) : null}
               {explain.state === "loading" ? (
                 <div className="flex items-center gap-2 type-footnote" role="status">
                   <span className={cn("font-medium", !reduce && "cal-thinking")}>{t("calendar.insp.explaining")}</span>
-                  <Button size="xs" variant="ghost" onClick={() => abort.current?.abort()}>{t("calendar.insp.cancel")}</Button>
+                  <Button size="xs" variant="ghost" className="pointer-coarse:min-h-11" onClick={() => abort.current?.abort()}>{t("calendar.insp.cancel")}</Button>
                 </div>
               ) : null}
               {explain.state === "error" ? (
                 <p className="flex items-center gap-2 type-footnote text-status-infeasible-fg" role="alert">
                   {t("calendar.insp.explainError")}
-                  <Button size="xs" variant="ghost" onClick={() => void runExplain()}>{t("calendar.retry")}</Button>
+                  <Button size="xs" variant="ghost" className="pointer-coarse:min-h-11" onClick={() => void runExplain()}>{t("calendar.retry")}</Button>
                 </p>
               ) : null}
               {explain.state === "done" && explain.out ? (
@@ -333,10 +333,11 @@ export function ClassInspector(p: InspectorProps) {
                   ))}
                   <div className="flex items-center gap-2 pt-1 type-caption text-label-3">
                     <span>{explain.out.source === "model" ? t("calendar.insp.sourceModel") : t("calendar.insp.sourceTemplate")}</span>
-                    <Button size="xs" variant="ghost" onClick={() => void runExplain()}>{t("calendar.insp.regenerate")}</Button>
+                    <Button size="xs" variant="ghost" className="pointer-coarse:min-h-11" onClick={() => void runExplain()}>{t("calendar.insp.regenerate")}</Button>
                     <Button
                       size="xs"
                       variant="ghost"
+                      className="pointer-coarse:min-h-11"
                       onClick={() => {
                         void navigator.clipboard?.writeText(explain.out?.text ?? "").then(() => {
                           setCopied(true);
@@ -365,8 +366,8 @@ export function ClassInspector(p: InspectorProps) {
               <p className="type-footnote text-label-3">{t("calendar.loading")}</p>
             ) : null}
             <div className="flex flex-wrap gap-1.5">
-              {raw ? <Button size="xs" variant="ghost" onClick={() => setShowRaw((v) => !v)} aria-expanded={showRaw}>{showRaw ? t("calendar.insp.hideRow") : t("calendar.insp.showRow")}</Button> : null}
-              {prov?.import_job_id ? <Button size="xs" variant="ghost" render={<a href={classesApi.importFileUrl(prov.import_job_id)} />}>{t("calendar.insp.download")}</Button> : null}
+              {raw ? <Button size="xs" variant="ghost" className="pointer-coarse:min-h-11" onClick={() => setShowRaw((v) => !v)} aria-expanded={showRaw}>{showRaw ? t("calendar.insp.hideRow") : t("calendar.insp.showRow")}</Button> : null}
+              {prov?.import_job_id ? <Button size="xs" variant="ghost" className="pointer-coarse:min-h-11" render={<a href={classesApi.importFileUrl(prov.import_job_id)} />}>{t("calendar.insp.download")}</Button> : null}
             </div>
             {showRaw && raw ? (
               <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-xl bg-fill-3 p-2.5 type-footnote" data-testid="raw-row">

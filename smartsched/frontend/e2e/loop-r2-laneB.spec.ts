@@ -5,7 +5,8 @@
  * - T-R2-09 "Yeniden denetle" keeps the per-date book / skip / replace choices; the POST /bookings/recurring body carries them.
  * - T-R2-12 /approvals: j / k move between rows, Enter opens the drawer with the focus on its title, "a" approves.
  * - T-R2-13 a two-period submission is one row in Yaklaşan ("P1–P2 (08:30–10:00)").
- * - T-R2-14 a stale find-room card (a period taken meanwhile) is refused with the stale toast; no sheet, no booking.
+ * - T-R2-14 a stale find-room card (a period taken meanwhile) is refused with the stale toast; no sheet, no booking;
+ *   the focus lands on the refreshed result summary (R3-S-02, round 3).
  * - T-R2-16 the cancel toast reads "N rezervasyon iptal edildi · Gerekçe: …" from the My bookings row sheet.
  * - T-R2-17 the multi create answers 202 for a request; a past date is a 409 `past` with message_tr.
  *
@@ -196,6 +197,8 @@ test("T-R2-14 a stale find-room card is refused with the stale toast; T-R2-16 th
   await card.click();
   await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Bu derslik az önce doldu. Liste yenilendi." })).toBeVisible();
   await expect(page.getByTestId("book-sheet")).toBeHidden();
+  // R3-S-02: the pressed card left with the refreshed list; the focus goes to the refreshed result summary, never <body>
+  await expect(page.getByTestId("fr-summary")).toBeFocused();
   expect((await api<unknown[]>("GET", "/bookings/mine", undefined, ctx.teacher)).length).toBe(before);
   await expect(page.locator('[data-testid="fr-results"] li', { hasText: room.name })).toHaveCount(0);
   // T-R2-16: the one-date cancel from the My bookings row sheet

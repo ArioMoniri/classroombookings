@@ -161,8 +161,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "probe_success",
-          "legendFormat": "{{job}}",
+          "expr": "label_replace(probe_success, \"target\", \"$1\", \"job\", \".*/(.*)\")",
+          "legendFormat": "{{target}}",
           "datasource": {
             "type": "prometheus",
             "uid": "smartsched-prometheus"
@@ -232,7 +232,7 @@
         {
           "refId": "A",
           "expr": "smartsched_db_up",
-          "legendFormat": "",
+          "legendFormat": "db",
           "datasource": {
             "type": "prometheus",
             "uid": "smartsched-prometheus"
@@ -347,15 +347,6 @@
           "refId": "A",
           "expr": "1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
           "legendFormat": "kullanım / used",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "smartsched-prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "node_load1",
-          "legendFormat": "load 1m",
           "datasource": {
             "type": "prometheus",
             "uid": "smartsched-prometheus"
