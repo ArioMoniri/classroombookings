@@ -1847,7 +1847,8 @@
       "goal": "You are the round-1 loop builder for **lane E2 (Turkish/English consistency and admin screens)** of SmartSched. Lane name for the ledger: `loop-r1-laneE2-2026-10-16`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md first and follow eve…",
       "ledger": "Lane E2: i18n/admin tickets",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 00:02"
     },
     {
       "id": "a0944d84abe67585b",
