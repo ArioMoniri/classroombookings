@@ -387,7 +387,7 @@ async def revoke_subscription(sub_id: int, db: DB, access: CurrentAccess) -> Res
 
 @router.post("/subscriptions/{sub_id}/rotate", status_code=201)
 async def rotate_subscription(sub_id: int, db: DB, access: CurrentAccess) -> dict[str, Any]:
-    """"Bağlantıyı yenile": a new link for the same scope; the old one stops at once."""
+    """ "Bağlantıyı yenile": a new link for the same scope; the old one stops at once."""
     row = await _own_subscription(db, access.user, sub_id)
     kind, scope_id, uid = row.scope_kind, row.scope_id, access.user_id
     try:
@@ -480,6 +480,9 @@ def _provider(provider: str) -> conn_svc.Provider:
 
 class ConnectIn(BaseModel):
     return_path: str | None = Field(default=None, max_length=255)
+    #: CAL-06: what to push (``my_classes``, ``my_bookings``, ``department_classes:<id>``); given = a new connection
+    #: into a calendar SmartSched creates, asked with the least scopes; omitted = the legacy bookings-only connect
+    scopes: list[str] | None = Field(default=None, max_length=12)
 
     @field_validator("return_path")
     @classmethod
@@ -502,8 +505,9 @@ async def connect(provider: str, db: DB, access: CurrentAccess, body: ConnectIn 
     p = _provider(provider)
     if not await feeds.sync_enabled(db):
         raise HTTPException(403, "calendar sync is turned off")
+    scopes = await _checked_scopes(db, access, body.scopes) if body and body.scopes is not None else None
     try:
-        url = await conn_svc.start_authorization(db, access.user, p, body.return_path if body else None)
+        url = await conn_svc.start_authorization(db, access.user, p, body.return_path if body else None, scopes)
     except conn_svc.NotConfigured as exc:
         raise HTTPException(409, f"{p.label} is not configured by the administrator") from exc
     except kvkk.KvkkError as exc:
@@ -574,9 +578,89 @@ async def resync(provider: str, db: DB, access: CurrentAccess) -> dict[str, int]
 @router.delete("/connectors/{provider}", status_code=204)
 async def disconnect(provider: str, db: DB, access: CurrentAccess) -> Response:
     row = await _connection(db, access.user, provider)
-    await conn_svc.disconnect(db, row)
+    before = {"provider": row.provider, "export_scopes": list(row.export_scopes or ["my_bookings"])}
+    conn_id = row.id
+    out = await conn_svc.disconnect(db, row)
+    await audit.record(
+        db,
+        "calendar.push_disconnect",
+        "calendar_connection",
+        conn_id,
+        before=before,
+        after={"revoke": out["revoke"], "calendar_deleted": out.get("calendar_deleted")},
+        actor=access.user,
+    )
     await db.commit()
     return Response(status_code=204)
+
+
+async def _checked_scopes(db: DB, access: Any, raw: list[str]) -> list[str]:
+    """Push scopes after the switch / link / department checks (each refusal as the subscription API gives it)."""
+    try:
+        parsed = conn_svc.check_export_scopes(raw)
+    except ValueError as exc:
+        raise HTTPException(
+            422,
+            {
+                "code": "unknown_scope",
+                "message": str(exc),
+                "message_en": str(exc),
+                "message_tr": "Bilinmeyen takvim kapsamı",
+            },  # fmt: skip
+        ) from exc
+    for kind, scope_id in parsed:
+        try:
+            await feeds.check_scope(db, access, kind, scope_id)
+        except cc.ScopeError as exc:
+            raise await _deny(db, access.user_id, kind, scope_id, exc) from exc
+    return conn_svc.scope_strings(parsed)
+
+
+class ScopesIn(BaseModel):
+    scopes: list[str] = Field(max_length=12)
+
+
+@router.put("/connectors/{provider}/scopes")
+async def put_push_scopes(provider: str, body: ScopesIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
+    """Tap 3 for push on an existing connection: replace what is pushed and reconcile. An empty list disconnects
+    (the owned calendar is deleted, the grant revoked). A legacy connection (into a calendar SmartSched did not
+    create) cannot take classes: 409 ``reconnect_required`` ("Daha az izinle yeniden bağlan")."""
+    row = await _connection(db, access.user, provider)
+    if not await feeds.sync_enabled(db):
+        raise HTTPException(403, {"code": "calendar_sync_off", "message_en": "Calendar sync is turned off.",
+                                  "message_tr": "Takvim eşitleme kurumunuz tarafından kapalı."})  # fmt: skip
+    try:
+        await feeds.require_sync_consent(db, access.user)
+    except kvkk.KvkkError as exc:
+        raise consent_refused(exc) from exc
+    if not body.scopes:
+        await disconnect(provider, db, access)
+        return {"provider": provider, "connected": False, "export_scopes": []}
+    scopes = await _checked_scopes(db, access, body.scopes)
+    if not row.owned_calendar and conn_svc.class_scopes(scopes):
+        raise HTTPException(
+            409,
+            {
+                "code": "reconnect_required",
+                "message_en": "Reconnect with fewer permissions to add your classes: SmartSched then creates its own "
+                "calendar.",
+                "message_tr": "Derslerinizi eklemek için daha az izinle yeniden bağlanın; SmartSched kendi takvimini "
+                "oluşturur.",
+            },
+        )
+    before = await conn_svc.set_export_scopes(db, row, scopes)
+    await audit.record(
+        db,
+        "calendar.push_scopes",
+        "calendar_connection",
+        row.id,
+        before={"export_scopes": before},
+        after={"export_scopes": scopes, "consent_id": await feeds.active_consent_id(db, access.user_id)},
+        actor=access.user,
+    )
+    await db.commit()
+    conn_svc.schedule_drain()
+    return next(x for x in await conn_svc.push_out(db, access.user) if x["provider"] == provider)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -688,6 +772,112 @@ async def put_integration_settings(body: IntegrationSettingsIn, db: DB, admin: S
     if data.get("calendar_sync_enabled") is True:
         conn_svc.schedule_drain()
     return await settings_out(db)
+
+
+class ExportSettingsIn(BaseModel):
+    """CAL-09 admin panel (Ayarlar › Takvim): scopes, event fields, push verification and the client source."""
+
+    export_my_classes: bool | None = None
+    export_department_classes: bool | None = None
+    export_my_bookings: bool | None = None
+    export_field_course_title: bool | None = None
+    export_field_department: bool | None = None
+    export_field_co_instructors: bool | None = None
+    export_field_link: bool | None = None
+    push_verified_only: bool | None = None
+    push_allowed_domains: list[str] | None = Field(default=None, max_length=50)
+    calendar_client_source: Literal["own", "identity"] | None = None
+
+    @field_validator("push_allowed_domains")
+    @classmethod
+    def _domains(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return None
+        cleaned = conn_svc.clean_domains(v)
+        bad = [d for d in cleaned if d in conn_svc.CONSUMER_DOMAINS]
+        if bad:
+            raise ValueError(f"personal mailbox domains cannot be trusted: {', '.join(bad)}")
+        return cleaned
+
+
+EXPORT_KEYS = tuple(ExportSettingsIn.model_fields)
+
+
+async def export_settings_out(db: DB) -> dict[str, Any]:
+    from app.models import CalendarFeedToken
+    from app.models.sso import SsoProvider
+
+    g = await get_group(db, "integrations")
+    links = dict(
+        (
+            await db.execute(
+                select(CalendarFeedToken.scope_kind, func.count(CalendarFeedToken.id)).group_by(
+                    CalendarFeedToken.scope_kind
+                )
+            )
+        ).all()
+    )
+    conns = list((await db.execute(select(CalendarConnection))).scalars())
+    by_scope: dict[str, int] = {}
+    for c in conns:
+        for sc in c.export_scopes or ["my_bookings"]:
+            key = str(sc).split(":", 1)[0]
+            by_scope[key] = by_scope.get(key, 0) + 1
+    failed = (
+        await db.execute(select(func.count(CalendarSyncJob.id)).where(CalendarSyncJob.status == "FAILED"))
+    ).scalar_one()
+    idps = {
+        str(kind)
+        for kind, cid in (
+            await db.execute(select(SsoProvider.kind, SsoProvider.client_id).where(SsoProvider.enabled.is_(True)))
+        )  # fmt: skip
+        if cid
+    }
+    return {
+        **{k: g.get(k) for k in EXPORT_KEYS},
+        "push_allowed_domains": conn_svc.clean_domains(g.get("push_allowed_domains")),
+        "fields_always": ["course_code", "section", "room", "time"],
+        "identity_clients": {name: kind in idps for name, kind in conn_svc.IDP_KIND.items()},
+        "status": {
+            "links": {("legacy" if k is None else str(k)): int(v) for k, v in links.items()},
+            "connections": {
+                p: sum(1 for c in conns if c.provider == p and c.status == "ACTIVE") for p in conn_svc.PROVIDERS
+            },
+            "connections_by_scope": by_scope,
+            "needs_attention": sum(1 for c in conns if c.status != "ACTIVE"),
+            "least_privilege_flagged": sum(1 for c in conns if not conn_svc.least_privilege(c)),
+            "failed_jobs": int(failed),
+            "nightly_reconcile": g.get("nightly_reconcile_at"),
+        },
+    }
+
+
+@router.get("/admin/export-settings")
+async def get_export_settings(db: DB, _: SettingsAdmin) -> dict[str, Any]:
+    return await export_settings_out(db)
+
+
+@router.put("/admin/export-settings")
+async def put_export_settings(body: ExportSettingsIn, db: DB, admin: SettingsAdmin) -> dict[str, Any]:
+    data = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    before = await get_group(db, "integrations")
+    changed = {k: v for k, v in data.items() if before.get(k) != v}
+    if changed:
+        await set_group(db, "integrations", changed)
+        await audit.record(
+            db,
+            "integrations.calendar_export",
+            "setting",
+            "integrations.calendar_export",
+            before={k: before.get(k) for k in changed},
+            after=changed,
+            actor=admin,
+        )
+        await db.commit()
+        if any(k.startswith("export_") for k in changed):
+            await conn_svc.queue_classes(db)  # new fields or scopes: the pushed events follow
+            await db.commit()
+    return await export_settings_out(db)
 
 
 @router.get("/admin/jobs")

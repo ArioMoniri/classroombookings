@@ -71,8 +71,8 @@ async function token(identifier: string, password: string): Promise<string> {
 type Sub = { id: number | string; scope_kind: string; channel: string };
 async function revokeAll(identifier: string, password: string): Promise<void> {
   const tk = await token(identifier, password);
-  const subs = await call<Sub[] | { items: Sub[] }>("GET", "/calendar/subscriptions", undefined, tk);
-  const list = Array.isArray(subs.body) ? subs.body : (subs.body?.items ?? []);
+  const subs = await call<Sub[] | { links?: Sub[]; items?: Sub[] }>("GET", "/calendar/subscriptions", undefined, tk);
+  const list = Array.isArray(subs.body) ? subs.body : (subs.body?.links ?? subs.body?.items ?? []);
   for (const s of list) await call("DELETE", `/calendar/subscriptions/${s.id}`, undefined, tk);
 }
 
@@ -211,11 +211,11 @@ for (const [label, device] of [
       // not linked: Derslerim is closed with its reason
       await expect(page.getByTestId("cal-scope-my_classes")).toHaveAttribute("aria-disabled", "true");
       await expect(page.getByTestId("cal-scope-reason-my_classes")).toContainText("öğretim elemanı kaydına bağlı değil");
-      const card = page.getByTestId(`cal-scope-department_classes:${ctx.departmentId}`);
-      if (await card.count()) {
-        await expect(card).toHaveAttribute("aria-disabled", "true");
-        await expect(card).toContainText("Bu bölümün derslerini dışa aktarma yetkiniz yok.");
-      }
+      // no department he may export: the department card is closed with the reason (no department list)
+      const card = page.getByTestId("cal-scope-department_classes");
+      await expect(card).toHaveAttribute("aria-disabled", "true");
+      await expect(card).toContainText("Bu bölümün derslerini dışa aktarma yetkiniz yok.");
+      await expect(page.getByTestId(`cal-scope-department_classes:${ctx.departmentId}`)).toHaveCount(0);
       const forged = await call<{ detail?: { code?: string } }>("POST", "/calendar/subscriptions", { scope_kind: "department_classes", scope_id: ctx.departmentId, channel: "link" }, await token(MEHMET.username, MEHMET.password));
       expect(forged.status).toBe(403);
       expect(forged.body.detail?.code).toBe("department_not_allowed");

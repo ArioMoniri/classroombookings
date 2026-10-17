@@ -2863,7 +2863,8 @@
       "goal": "You are the ADAPTIVE-SCHEDULING researcher and architect for SmartSched (repo /home/user/classroombookings; FastAPI backend smartsched/backend; OR-Tools CP-SAT solver in app/solver; learning code: grep learning/habit/pattern; exams and invigilation modules; bookings/CRBS module). Read /tmp/claude-0/…",
       "ledger": "Adaptive scheduler research + design",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:00"
     },
     {
       "id": "ac75a987690e8b533",
