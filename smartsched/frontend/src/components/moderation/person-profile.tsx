@@ -34,7 +34,7 @@ function PersonPriority({ termId, termCode, instructorId, label }: { termId: num
     <section aria-labelledby="person-priority-title" className="flex flex-col gap-1 border-t border-hairline pt-3">
       <h2 id="person-priority-title" className="type-headline">{t("moderation.subjectPriority.profileTitle", { term: termCode })}</h2>
       {o?.updated_at ? <p className="type-caption text-label-3">{t("moderation.subjectPriority.current", { tier: t(`moderation.tier.${tierOf(o.priority)}`) })}</p> : null}
-      {q.data ? <SubjectPriorityForm key={`${o?.priority ?? 0}`} subject="person" id={instructorId} termId={termId} label={label} current={o?.priority ?? null} note={o?.note} /> : null}
+      {q.data ? <SubjectPriorityForm subject="person" id={instructorId} termId={termId} label={label} current={o?.priority ?? null} note={o?.note} /> : null}
     </section>
   );
 }

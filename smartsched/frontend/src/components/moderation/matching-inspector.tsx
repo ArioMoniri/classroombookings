@@ -70,13 +70,13 @@ function SubjectPriorities({ termId, m }: { termId: number; m: Matching }) {
         const o = of("person", i.id);
         return (
           <Section key={`p${i.id}`} title={t("moderation.subjectPriority.personTitle", { label: i.name })}>
-            <SubjectPriorityForm key={`${i.id}-${o?.priority ?? 0}`} subject="person" id={i.id} termId={termId} label={i.name} current={o?.priority ?? null} note={o?.note} compact />
+            <SubjectPriorityForm key={`p${i.id}`} subject="person" id={i.id} termId={termId} label={i.name} current={o?.priority ?? null} note={o?.note} compact />
           </Section>
         );
       })}
       {programId !== null && m.program ? (
         <Section title={t("moderation.subjectPriority.programTitle", { label: m.program })}>
-          <SubjectPriorityForm key={`prog-${programId}-${of("program", programId)?.priority ?? 0}`} subject="program" id={programId} termId={termId} label={m.program} current={of("program", programId)?.priority ?? null} note={of("program", programId)?.note} compact />
+          <SubjectPriorityForm key={`prog-${programId}`} subject="program" id={programId} termId={termId} label={m.program} current={of("program", programId)?.priority ?? null} note={of("program", programId)?.note} compact />
         </Section>
       ) : null}
     </>
@@ -162,7 +162,7 @@ export function MatchingInspector({ termId, requestId, runId, canEdit, onClose, 
             {m.teacher_preferences.length ? <InspectorWishes termId={termId} m={m} canEdit={canEdit} /> : null}
             <Section title={t("moderation.priority.label")}>
               {canEdit ? (
-                <PriorityForm key={m.request_id} target={{ termId, requestId: m.request_id, sectionId: m.section_id, label: m.label, priority: m.priority }} autoFocus={focusPriority} />
+                <PriorityForm key={m.request_id} target={{ termId, requestId: m.request_id, sectionId: m.section_id, label: m.label, priority: m.priority }} autoFocus={focusPriority} onDone={onClose} />
               ) : (
                 <p className="type-callout"><TierLabel value={m.priority.value} source={m.priority.source} /></p>
               )}

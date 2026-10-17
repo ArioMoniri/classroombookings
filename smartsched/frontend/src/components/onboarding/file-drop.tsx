@@ -10,10 +10,13 @@
  * the switch is unticked and disabled ("Yönetici kapattı"), PDF / DOCX / TXT rows read "YZ kapalı" (only their
  * tables are read on the server) and the button says "Başlat · N dosya". A policy that cannot be read leaves the
  * switch as it was: the server applies the policy either way.
+ *
+ * T-R2-20 / R2-M-25: the drop zone is one `<button>` (Enter / Space open the picker, no nested control) and the
+ * file input names the formats the lead lists (`accept`), so a phone's picker offers only those.
  */
 import { FolderInput, X } from "lucide-react";
 import { useId, useRef, useState } from "react";
-import { Button, IconButton } from "@/components/ui/button";
+import { Button, IconButton, buttonVariants } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,6 +30,10 @@ export interface DropOptions {
   forceGeneral: boolean;
   useAi: boolean;
 }
+
+/** The formats the council reads (copy.dropHint, app/council/formats.py), as the file input's `accept` list. */
+export const ACCEPTED_FORMATS = [".xlsx", ".xlsm", ".xls", ".csv", ".tsv", ".ods", ".json", ".xml", ".ics", ".docx", ".pdf", ".txt", ".eml", "image/*"] as const;
+export const ACCEPT = ACCEPTED_FORMATS.join(",");
 
 function ext(name: string): string {
   const m = /\.([a-z0-9]+)$/i.exec(name);
@@ -45,6 +52,8 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
   const useAi = wantAi && !aiOff;
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
+  const titleId = useId();
+  const hintId = useId();
   const aiNoteId = useId();
 
   const add = (list: FileList | null) => {
@@ -68,21 +77,26 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
           add(e.dataTransfer.files);
         }}
         data-dragging={dragging || undefined}
-        className={cn("flex flex-wrap items-center gap-x-4 gap-y-3 p-4 transition-colors duration-(--dur-fast)", dragging && "bg-tint-soft")}
+        className={cn("p-2 transition-colors duration-(--dur-fast)", dragging && "bg-tint-soft")}
       >
-        <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fill-2 text-label-2">
-          <FolderInput className="size-5 stroke-[1.75]" />
-        </span>
-        <div className="min-w-0 flex-1 basis-64">
-          <label htmlFor={inputId} className="type-headline text-label-1">
-            {c.dropTitle}
-          </label>
-          <p className="type-footnote text-label-2">{c.dropHint}</p>
-        </div>
-        <input ref={inputRef} id={inputId} type="file" multiple className="sr-only" data-testid="onboarding-input" onChange={(e) => add(e.target.files)} />
-        <Button variant="outline" onClick={() => inputRef.current?.click()}>
-          {c.choose}
-        </Button>
+        <button
+          type="button"
+          data-testid="onboarding-dropzone"
+          aria-labelledby={titleId}
+          aria-describedby={hintId}
+          onClick={() => inputRef.current?.click()}
+          className="flex min-h-11 w-full flex-wrap items-center gap-x-4 gap-y-3 rounded-lg p-2 text-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)"
+        >
+          <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-fill-2 text-label-2">
+            <FolderInput className="size-5 stroke-[1.75]" />
+          </span>
+          <span className="min-w-0 flex-1 basis-64">
+            <span id={titleId} className="block type-headline text-label-1">{c.dropTitle}</span>
+            <span id={hintId} className="block type-footnote text-label-2">{c.dropHint}</span>
+          </span>
+          <span aria-hidden className={cn(buttonVariants({ variant: "outline" }), "pointer-events-none")}>{c.choose}</span>
+        </button>
+        <input ref={inputRef} id={inputId} type="file" multiple accept={ACCEPT} tabIndex={-1} aria-labelledby={titleId} className="sr-only" data-testid="onboarding-input" onChange={(e) => add(e.target.files)} />
       </div>
 
       {files.length ? (

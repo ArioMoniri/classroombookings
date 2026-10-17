@@ -169,6 +169,16 @@ export function filterMatchings(items: readonly Matching[], chip: MatchChip, q: 
   return items.filter((m) => chipAllows(chip, m.verdict) && matchesQuery(m, q));
 }
 
+/**
+ * Round-2 T-R2-25 (R2-M-16): how many rows the search finds that the selected quick filter hides, so an empty table
+ * under "Karşılanmayan" can say "Tümü'nde 2 sonuç" instead of staying silent. 0 when the chip is "Tümü" or the
+ * search is empty (a plain empty filter).
+ */
+export function hiddenByChip(items: readonly Matching[], chip: MatchChip, q: string): number {
+  if (chip === "all" || !q.trim()) return 0;
+  return items.filter((m) => matchesQuery(m, q) && !chipAllows(chip, m.verdict)).length;
+}
+
 /** Eşleşmeler order: not satisfied first (unplaced, not as requested, partial), then the rest, by label */
 export function sortMatchings(items: readonly Matching[]): Matching[] {
   const rank: Record<string, number> = { unplaced: 0, not_as_requested: 1, partial: 2, satisfied: 3, pending: 4, not_evaluated: 5 };

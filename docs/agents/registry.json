@@ -2321,8 +2321,8 @@
       "ledger": "R2 lane S: minimal-change re-solve",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 05:35",
-      "left_off": "The three re-solve replays (full mode #11, pin #12, wizard #13) and the moderation pytest suite are still running in the background (each solve has a 120 s limit and the host is shared). I will wait for their completion notifications before filling in the hand-off numbers."
+      "finished_at": "2026-10-17 05:36",
+      "left_off": "The moderation suites pass (20 passed: test_p19_moderation, _bridge, _resolve, test_r1_minimal_resolve) alongside the solver gate (168 passed, 3 pre-existing skips). The offline replay of the tester's runs is still on the full-mode re-solve; I will continue when it completes."
     },
     {
       "id": "a0d0d5d9bf11862e6",

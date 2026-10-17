@@ -542,13 +542,25 @@ export function InstructorsStep({ p, update, v, termId }: StepProps) {
   const ids = p.courses.flatMap((c) => c.sections.flatMap((s) => s.instructors.map((i) => i.id).filter((x): x is number => typeof x === "number")));
   const loads = useInstructorLoads(termId, ids);
   const byId = new Map((loads.data?.items ?? []).map((i) => [i.instructor_id, i]));
+  // R2-M-07 / T-R2-22: the same person picked twice on one section ("Yeni kişi" pressed twice, a double tap) is
+  // refused where it happens: the slot keeps its state and says why; the server's pre-check says the same
+  const [refused, setRefused] = useState<{ path: string; name: string } | null>(null);
   if (!p.courses.length) return <p className="type-callout text-label-2">{t("programWizard.sections.noCourses")}</p>;
-  const setSlot = (c: CourseP, s: SectionP, slot: 0 | 1, ref: InstructorRef | null) =>
+  const setSlot = (c: CourseP, s: SectionP, slot: 0 | 1, ref: InstructorRef | null) => {
+    const path = `courses.${c.key}.sections.${s.key}.instructors.${slot}`;
+    if (ref && s.instructors.some((other, i) => i !== slot && samePerson(other, ref))) {
+      const name = [ref.title, ref.name].filter(Boolean).join(" ") || `#${ref.id}`;
+      setRefused({ path, name });
+      toast.error(t("programWizard.instructors.alreadyHere", { name }));
+      return;
+    }
+    setRefused((r) => (r?.path === path ? null : r));
     patchSection(update, c.key, s.key, (x) => {
       const next: (InstructorRef | null)[] = [x.instructors[0] ?? null, x.instructors[1] ?? null];
       next[slot] = ref;
       return { ...x, instructors: next.filter((r): r is InstructorRef => r !== null) };
     });
+  };
   return (
     <div className="flex flex-col gap-4">
       {loads.data ? <p className="type-footnote text-label-2">{t("programWizard.instructors.limit", { n: loads.data.limit })}</p> : null}
@@ -571,6 +583,9 @@ export function InstructorsStep({ p, update, v, termId }: StepProps) {
                         <span className="type-caption text-label-2">{label}</span>
                         <InstructorPicker termId={termId} value={ref} label={label} testId={slot === 0 ? "section-instructor" : "section-instructor-2"} onChange={(r) => setSlot(c, s, slot, r)} />
                         {load ? <span className={cn("type-caption", load.over_limit ? "text-status-warning-fg" : "text-label-2")} data-testid="instructor-load">{load.over_limit ? "⚠ " : ""}{t("programWizard.instructors.load", { n: load.periods_per_week })}</span> : null}
+                        {refused?.path === `${sp}.instructors.${slot}` ? (
+                          <p role="alert" className="type-caption text-status-infeasible-fg" data-testid="instructor-refused">{t("programWizard.instructors.alreadyHere", { name: refused.name })}</p>
+                        ) : null}
                         <IssueLines issues={issuesAt(v, `${sp}.instructors.${slot}`)} />
                         {issuesAt(v, `${sp}.instructors.${slot}`).map(namesakeRecord).filter((r) => r !== null).slice(0, 1).map((r) => (
                           <Button

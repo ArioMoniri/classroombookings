@@ -98,11 +98,20 @@ async def test_general_then_fast_path_share_one_key_and_the_dry_run_predicts_the
     from app.models import MeetingRequest as _MR, Section as _S, Course as _Co
     from sqlalchemy import select as _sel
     async with _gsf()() as _s:
-        arch = (await _s.execute(_sel(_MR, _Co.code, _S.label).join(_S, _MR.section_id == _S.id).join(_Co, _S.course_id == _Co.id).where(_MR.archived.is_(True)))).all()
-        print("DBG_ARCHIVED", len(arch))
-        for mr, code, label in arch[:12]:
-            sib = (await _s.execute(_sel(_MR).where(_MR.section_id == mr.section_id, _MR.archived.is_(False)))).scalars().all()
-            print("DBG_A", code, label, mr.days, str(mr.start_time), str(mr.end_time), mr.source_key, mr.source_row_index, "| active:", [(x.days, str(x.start_time), x.source_key[-6:], x.source_row_index) for x in sib])
+        rows = (await _s.execute(_sel(_MR, _Co.code, _S.label, _S.id).join(_S, _MR.section_id == _S.id).join(_Co, _S.course_id == _Co.id).where(_MR.archived.is_(False)))).all()
+        print("DBG_NB", n_b, "total", len(rows))
+        by = {}
+        for mr, code, label, sid in rows:
+            by.setdefault(sid, []).append((mr, code, label))
+        shown = 0
+        for sid, items in by.items():
+            if len(items) < 2: continue
+            for i, (a, code, label) in enumerate(items):
+                for b, _c, _l in items[i+1:]:
+                    if sorted(a.days or []) == sorted(b.days or []) and (a.start_time is None or b.start_time is None or a.start_time == b.start_time):
+                        print("DBG_PAIR", code, label, a.days, str(a.start_time), str(a.end_time), a.source_key, a.source_row_index, "|", str(b.start_time), str(b.end_time), b.source_key, b.source_row_index, "| notes:", (a.notes or "")[:60], "/", (b.notes or "")[:60])
+                        shown += 1
+            if shown > 12: break
     assert 1511 <= total <= 1512, total
     assert _n(dry_a["counts"], "meeting_requests", "create") <= total - n_b + 1, dry_a["counts"]["meeting_requests"]
 

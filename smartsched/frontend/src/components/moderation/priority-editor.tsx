@@ -6,7 +6,7 @@
  * is the `SubjectPriorityForm` (`PUT /moderation/people|programs/{id}/priority`). Every save is audited and
  * appears in the server's "Yayından beri değişenler" list for the next re-solve. "Kaynağa dön" clears an override.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,18 @@ import { TIERS, tierOf } from "./moderation-model";
 import { ResponsiveDialog } from "./responsive-dialog";
 import { usePhone } from "./use-media";
 import { TierGlyph, TierLabel } from "./verdict-badge";
+
+/**
+ * Round-2 T-R2-25 (R2-M-11 / R2-M-26): after a save, focus goes to the edited row (`data-row-id`, the ModTable grid
+ * row the editor was opened from) and never falls to <body>; without a row in the document, to `fallback`.
+ */
+export function focusAfterSave(rowId: number | string | null, fallback: HTMLElement | null): void {
+  window.requestAnimationFrame(() => {
+    const row = rowId !== null ? document.querySelector<HTMLElement>(`[data-row-id="${String(rowId)}"]`) : null;
+    const target = row ?? fallback;
+    if (target && document.contains(target)) target.focus();
+  });
+}
 
 export interface PriorityTarget {
   termId: number;
@@ -35,6 +47,7 @@ export function PriorityForm({ target, onDone, autoFocus = false }: { target: Pr
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const save = useSetPriority();
+  const saveBtn = useRef<HTMLButtonElement>(null);
 
   const submit = async (clear = false) => {
     setError(null);
@@ -42,6 +55,7 @@ export function PriorityForm({ target, onDone, autoFocus = false }: { target: Pr
       await save.mutateAsync({ kind: level, id: level === "request" ? target.requestId : target.sectionId, tier: clear ? null : tier, note });
       toast.success(t("moderation.priority.saved", { label: target.label }));
       onDone?.();
+      focusAfterSave(target.requestId, saveBtn.current);
     } catch (e) {
       setError(refusal(e, lang).message);
     }
@@ -100,7 +114,7 @@ export function PriorityForm({ target, onDone, autoFocus = false }: { target: Pr
             {t("moderation.priority.clear")}
           </Button>
         ) : null}
-        <Button type="submit" size="sm" disabled={save.isPending} data-testid="priority-save">
+        <Button ref={saveBtn} type="submit" size="sm" disabled={save.isPending} data-testid="priority-save">
           {save.isPending ? t("busy.saving") : t("common.save")}
         </Button>
       </div>
@@ -152,12 +166,19 @@ export function SubjectPriorityForm({ subject, id, termId, label, current, note:
   const [note, setNote] = useState(initialNote ?? "");
   const [error, setError] = useState<string | null>(null);
   const save = useSetSubjectPriority();
+  const saveBtn = useRef<HTMLButtonElement>(null);
+  // the parent passes the refetched value down after a save (no remount, so the focus stays on the form; T-R2-25)
+  useEffect(() => {
+    setTier(tierOf(current ?? 0));
+    setNote(initialNote ?? "");
+  }, [current, initialNote]);
   const submit = async () => {
     setError(null);
     try {
       const out = await save.mutateAsync({ subject, id, termId, tier: tier === "normal" ? null : tier, note });
       toast.success(t("moderation.subjectPriority.saved", { label, n: n(out.request_ids.length) }));
       onDone?.();
+      focusAfterSave(null, saveBtn.current);
     } catch (e) {
       setError(refusal(e, lang).message);
     }
@@ -187,7 +208,7 @@ export function SubjectPriorityForm({ subject, id, termId, label, current, note:
       </label>
       {error ? <p role="alert" className="type-footnote text-status-infeasible-fg">{error}</p> : null}
       <div className="flex justify-end">
-        <Button type="submit" size="sm" className="max-md:h-11" disabled={save.isPending} data-testid={`${subject}-priority-save`}>
+        <Button ref={saveBtn} type="submit" size="sm" className="max-md:h-11" disabled={save.isPending} data-testid={`${subject}-priority-save`}>
           {save.isPending ? t("busy.saving") : t("common.save")}
         </Button>
       </div>

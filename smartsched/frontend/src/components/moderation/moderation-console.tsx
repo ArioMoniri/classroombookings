@@ -36,6 +36,7 @@ import {
   TABS,
   chipCount,
   filterMatchings,
+  hiddenByChip,
   filterPeople,
   matchingSentence,
   pairText,
@@ -378,6 +379,19 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   } else {
     const isMatch = tab === "matchings";
     const rows = isMatch ? sortMatchings(filterMatchings(items, chip, query)) : sortRequests(filterMatchings(items, "all", query));
+    // T-R2-25 (R2-M-16): a search under "Karşılanmayan" that only matches satisfied rows names them and offers "Tümü"
+    const hidden = isMatch ? hiddenByChip(items, chip, query) : 0;
+    const emptyMatch = hidden > 0 ? (
+      <EmptyState
+        size="sm"
+        title={t("moderation.empty.matchingsHidden", { chip: t(`moderation.chip.${chip}`), n: n(hidden) })}
+        description={t("moderation.empty.filterHint")}
+        actions={<Button size="sm" variant="outline" onClick={() => setChip("all")} data-testid="matchings-show-all">{t("moderation.empty.showAll")}</Button>}
+        data-testid="matchings-hidden"
+      />
+    ) : (
+      <EmptyState size="sm" title={t(isMatch ? "moderation.empty.matchings" : "moderation.empty.requests")} description={t("moderation.empty.filterHint")} />
+    );
     body = matchings.isError ? errorBanner(matchings.error, () => void matchings.refetch()) : !matchings.data ? loadingRows : (
       <>
         <div className="flex flex-wrap items-center gap-2 pointer-coarse:gap-y-4">
@@ -412,7 +426,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
           mobile={mobile}
           card={matchCard}
           testId={isMatch ? "matchings-table" : "requests-table"}
-          empty={<EmptyState size="sm" title={t(isMatch ? "moderation.empty.matchings" : "moderation.empty.requests")} description={t("moderation.empty.filterHint")} />}
+          empty={emptyMatch}
         />
       </>
     );
@@ -481,7 +495,12 @@ export function MyRequests() {
     return (
       <span className="flex flex-col">
         <span>{m.label}</span>
-        {s ? <span className="type-caption text-label-2" data-testid="mine-session">{s}</span> : null}
+        {s ? (
+          <span className="type-caption text-label-2" data-testid="mine-session">
+            <span className="sr-only"> · </span>
+            {s}
+          </span>
+        ) : null}
       </span>
     );
   };
@@ -553,7 +572,7 @@ export function MyRequests() {
             mobile={mobile}
             card={(m) => (
               <div className="flex flex-col gap-0.5 rounded-xl border border-hairline bg-card p-3">
-                <div className="flex items-center justify-between gap-2"><span className="type-headline">{m.label}{sessionText(m) ? <span className="ml-1.5 type-caption font-normal text-label-2">{sessionText(m)}</span> : null}</span><VerdictBadge verdict={m.verdict} text={m.verdict_text} /></div>
+                <div className="flex items-center justify-between gap-2"><span className="type-headline">{m.label}{sessionText(m) ? <span className="ml-1 type-caption font-normal text-label-2" data-testid="mine-session"> · {sessionText(m)}</span> : null}</span><VerdictBadge verdict={m.verdict} text={m.verdict_text} /></div>
                 <span className="type-footnote text-label-2">{requestedText(m, lang)} → {m.assigned ? placeText(m.assigned, lang) : "—"}</span>
                 {m.reason ? <span className="type-footnote text-label-2">{t("moderation.inspector.reason")}: {reasonText(m.reason, lang)}</span> : null}
                 {canWish ? (

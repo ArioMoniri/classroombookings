@@ -35,6 +35,21 @@ export interface InstructorRef {
   title?: string | null;
 }
 
+/** The two refs name one person: the same id, or (a new person) the same name once case, dots, titles and
+ * whitespace are set aside, Turkish letters folded (R2-M-07: "Yeni kişi" pressed twice for the same name). */
+export function samePerson(a: InstructorRef, b: InstructorRef): boolean {
+  if (a.id != null || b.id != null) return a.id != null && b.id != null && a.id === b.id;
+  const key = (r: InstructorRef) =>
+    (r.name ?? "")
+      .replace(/\b(prof|doç|doc|dr|öğr|ogr|üyesi|uyesi|arş|ars|gör|gor|uzm|okt)\b\.?/gi, " ")
+      .replace(/[.\u00a0]/g, " ")
+      .toLocaleLowerCase("tr")
+      .replace(/\s+/g, " ")
+      .trim();
+  const ka = key(a);
+  return ka.length > 0 && ka === key(b);
+}
+
 export interface SectionP {
   key: string;
   label: string;

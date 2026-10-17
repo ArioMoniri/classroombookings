@@ -21,17 +21,21 @@ import { councilKey, useCouncilJob } from "./use-council-job";
  * Universal onboarding: drop any files -> the Ingestion Council reads them one by one (live progress per
  * file and agent) -> review the low-confidence items -> commit into a term.
  */
-export function OnboardingFlow() {
+export function OnboardingFlow({ initialJobId = null }: { initialJobId?: number | null } = {}) {
   const { t, n, locale } = useI18n();
   const qc = useQueryClient();
-  const [jobId, setJobIdState] = useState<number | null>(null);
-  // the job lives in the address (?job=<id>): a reload or a shared link reopens it (T-R1-26). window.history, not
-  // the router: the page needs no Suspense boundary and the URL change re-renders nothing else
+  const [jobId, setJobIdState] = useState<number | null>(initialJobId);
+  // the job lives in the address: /onboarding/<id> (its own route, T-R2-20) or ?job=<id> (T-R1-26): a reload or a
+  // shared link reopens it. window.history, not the router: the page needs no Suspense boundary and the URL
+  // change re-renders nothing else
   const setJobId = (id: number | null) => {
     setJobIdState(id);
     try {
       const url = new URL(window.location.href);
-      if (id === null) url.searchParams.delete("job");
+      if (/\/onboarding\/\d+\/?$/.test(url.pathname)) {
+        url.pathname = id === null ? url.pathname.replace(/\/\d+\/?$/, "") : url.pathname.replace(/\d+\/?$/, String(id));
+        url.searchParams.delete("job");
+      } else if (id === null) url.searchParams.delete("job");
       else url.searchParams.set("job", String(id));
       window.history.replaceState(window.history.state, "", url);
     } catch {
@@ -41,11 +45,12 @@ export function OnboardingFlow() {
   useEffect(() => {
     // The job id comes from the address after hydration (the server does not know it): a deferred
     // update, so the first client render matches the server's and the effect sets no state synchronously.
+    if (initialJobId !== null) return;
     const id = Number(new URLSearchParams(window.location.search).get("job"));
     if (!Number.isInteger(id) || id <= 0) return;
     const timer = window.setTimeout(() => setJobIdState(id), 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [initialJobId]);
   const recent = useQuery({ queryKey: ["council-jobs"], queryFn: () => councilApi.list(5), enabled: jobId === null });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +65,10 @@ export function OnboardingFlow() {
     queryFn: () => councilApi.review(jobId ?? 0, locale),
     enabled: jobId !== null && reviewable,
     placeholderData: (prev) => prev,
+    // T-R2-20 / R2-M-25: the commit bar follows the review state. While blockers remain they may be decided
+    // elsewhere (another tab, the API): poll, and refetch when the tab comes back, so "N engel" does not go stale
+    refetchInterval: (q) => ((q.state.data?.blocking ?? 0) > 0 ? 5000 : false),
+    refetchOnWindowFocus: true,
   });
 
   const start = async (files: File[], opts: DropOptions) => {
