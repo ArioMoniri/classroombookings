@@ -57,7 +57,7 @@ export function scopeChoices(options: ExportOptions | undefined, locale: string)
           ...reasonOf(available, d.reason ?? sc.reason, { tr: sc.reason_tr, en: sc.reason_en }, locale),
           upcoming: d.upcoming ?? null,
           hours: null,
-          sample: d.sample ?? sc.sample ?? null,
+          sample: d.sample === undefined ? (sc.sample ?? null) : d.sample,
           fields: sc.fields ?? null,
         });
       }
