@@ -112,7 +112,7 @@ function buildClip({ format, take, steps, title }) {
     lotties: [],
     scenes: [{ ...takeScene({ id: "clip", layout: phone ? "phone" : "desktop", chapter: title ? { n: "▶", label: title } : null, views: [{ take, steps, leadMs: 500, tailMs: 300 }] }, format), overlapNext: false }],
     camera: {
-      desktop: { maxZoom: 1.6, minZoom: 1.12, stiffness: 90, bridgeMs: 1600, leadMs: 600, tailMs: 900 },
+      desktop: { maxZoom: 1.5, minZoom: 1.12, stiffness: 90, bridgeMs: 1600, leadMs: 600, tailMs: 900, fill: 0.7 },
       phone: { zoom: false },
     },
   };
@@ -197,8 +197,22 @@ export function buildStory({ format = "landscape", story = "launch", take, steps
     lotties: ["hero-solver", "file-to-rules", "precheck-fix"],
     camera: {
       // desktop: Screen Studio-like zoom on the action, never past 1.7x (2x capture keeps text sharp up to 2x)
-      desktop: { maxZoom: format === "vertical" ? 2.0 : 1.7, minZoom: 1.12, stiffness: 90, bridgeMs: 1600, leadMs: 600, tailMs: 900, fill: format === "vertical" ? 0.62 : 0.5 },
+      desktop: { maxZoom: format === "vertical" ? 1.6 : 1.5, minZoom: 1.12, stiffness: 90, bridgeMs: 1600, leadMs: 600, tailMs: 900, fill: format === "vertical" ? 0.8 : 0.7 },
       phone: { zoom: false },
     },
   };
 }
+
+/** README feature clips (docs/images/recordings, the names clips.json uses): launch.sh clips records each journey once
+ * (frames engine, 1440x810 @2x or the phone at @3x), renders the full take (<take>.mp4) and one clip per id. */
+export const CLIPS = [
+  { id: "reserve-slot", journey: "reserve-panel", clip: "reserve-slot", device: "desktop" },
+  { id: "reserve-drag", journey: "reserve-panel", clip: "reserve-drag", device: "desktop" },
+  { id: "find-room", journey: "find-room", clip: "find-room", device: "desktop" },
+  { id: "audit-undo", journey: "audit-undo", clip: "audit-undo", device: "desktop" },
+  { id: "calendar-move", journey: "calendar-move", clip: "calendar-move", device: "desktop" },
+  { id: "precheck-fix", journey: "studio-rule-fix", clip: "precheck-fix", device: "desktop" },
+  { id: "reserve-phone", journey: "launch-reserve", clip: null, device: "phone" },
+  { id: "approval-request", journey: "approval-flow", clip: "approval-request", device: "desktop" },
+  { id: "approval-approve", journey: "approval-flow", clip: "approval-approve", device: "desktop" },
+];

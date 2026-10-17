@@ -41,6 +41,7 @@ const { values: args } = parseArgs({
     take: { type: "string" }, // clip: the take name (e.g. find-room-light)
     steps: { type: "string" }, // clip: "first-last" step indexes (default: all)
     title: { type: "string" }, // clip: chapter chip label
+    clip: { type: "string" }, // clip: the steps whose `clip` id is this (instead of --steps)
   },
 });
 const FPS = Number(args.fps);
@@ -145,6 +146,12 @@ function camera(take, seg, opts) {
 }
 
 // ---- story → scenes on the output clock ----------------------------------------------------------------------
+if (args.clip && !args.steps) {
+  const t = loadTake(args.takes, args.take);
+  const idx = t.timeline.steps.map((s, i) => (s.clip === args.clip ? i : -1)).filter((i) => i >= 0);
+  if (!idx.length) throw new Error(`take ${args.take} has no steps with clip "${args.clip}"`);
+  args.steps = `${idx[0]}-${idx[idx.length - 1]}`;
+}
 const story = buildStory({ format: FMT, theme: args.theme, story: args.story, take: args.take, steps: args.steps?.split("-").map(Number), title: args.title });
 const [W, H] = story.size;
 const XF = story.crossfadeMs ?? 500;

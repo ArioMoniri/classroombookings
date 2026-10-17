@@ -113,9 +113,7 @@ def test_two_candidates_are_ambiguous_and_never_a_merge_question(known):
 def test_a_staff_number_or_e_mail_in_the_file_is_the_key_first(known):
     sahin = _id(known, "Hülya Dündar Şahin")
     keyed = [
-        KnownPerson(p.id, p.name, p.courses, email="hulya.sahin@uni.edu.tr", staff_no="00123")
-        if p.id == sahin
-        else p
+        KnownPerson(p.id, p.name, p.courses, email="hulya.sahin@uni.edu.tr", staff_no="00123") if p.id == sahin else p
         for p in known
     ]
     # an e-mail in other capitals, NBSP around it: the same person, whatever the name now says
@@ -136,6 +134,9 @@ def test_surname_distance_is_turkish_folded_and_guards_short_surnames():
     assert surname_distance("Kırımlı", "Kirimli") == 0
     assert surname_distance("Şahin", "Şahan") == 1
     assert surname_distance("Ak", "Er") == 2
-    assert match_person(
-        IncomingPerson("Ali Er", frozenset({"MAT 112"})), [KnownPerson(1, "Ali Ak", frozenset({"MAT 112"}))]
-    ).kind == "new"  # two edits on a two-letter surname is another person
+    assert (
+        match_person(
+            IncomingPerson("Ali Er", frozenset({"MAT 112"})), [KnownPerson(1, "Ali Ak", frozenset({"MAT 112"}))]
+        ).kind
+        == "new"
+    )  # two edits on a two-letter surname is another person

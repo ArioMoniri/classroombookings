@@ -104,7 +104,8 @@ def safe_url(url: Any, base_url: str = "") -> str | None:
 
 def _tidy(text: str) -> str:
     # an empty name leaves "Merhaba , ..." / "Hello , ..."
-    return re.sub(r"[ \t]+([,.;:])", r"\1", text)
+    text = re.sub(r"[ \t]+([,.;:])", r"\1", text)
+    return text.replace("SmartSched SmartSched", "SmartSched")  # no organisation name configured
 
 
 def _fill(template: str | None, values: Mapping[str, Any]) -> str | None:
@@ -283,6 +284,11 @@ def render(
                 return filled
         return None
 
+    def varies(part: str) -> bool:
+        """Whether ``part`` has variants (a composed context cannot tell which applies: use the caller's subject)."""
+        prefixes = tuple(f"{k.kind}.{f}." for f in k.enums)
+        return bool(prefixes) and any(key.startswith(prefixes) and key.endswith(f".{part}") for key in base_strings)
+
     def override(part: str) -> str | None:
         key = keys[part]
         if key in overrides and not (composed and k.caller_applies_overrides):
@@ -292,13 +298,13 @@ def render(
     # --- parts ---
     if composed:
         subject = one_line(override("subject") or ctx.get("subject") or (k.label_tr if lang == "tr" else k.label_en))
-        heading_src = ctx.get("heading") or (None if k.enums else shipped_part("heading"))
+        heading_src = ctx.get("heading") or (None if varies("heading") else shipped_part("heading"))
         heading = one_line(heading_src or subject)
         body = clean(ctx["body"]).strip("\n")
         lead = override("intro")
         if lead:
             body = f"{clean(lead).strip()}\n\n{body}"
-        status = "" if k.enums else one_line(shipped_part("status") or "")
+        status = "" if varies("status") else one_line(shipped_part("status") or "")
     else:
         subject = one_line(shipped_part("subject") or (k.label_tr if lang == "tr" else k.label_en))
         heading = one_line(ctx.get("heading") or shipped_part("heading") or subject)

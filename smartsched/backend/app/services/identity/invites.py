@@ -145,8 +145,11 @@ async def send_invite_email(db: AsyncSession, actor: User, inv: SsoInvite, local
             "name": name,
             "org": org,
             "inviter": inviter,
-            "provider": provider_name,
-            "provider_kind": prov.kind if prov is not None else sso.LOCAL,
+            # the renderer's ``provider`` enum (app/emails/kinds.py) and the button label
+            "provider": {"entra": "microsoft", "google_workspace": "google"}.get(prov.kind, prov.kind)
+            if prov is not None
+            else "local",
+            "provider_name": provider_name,
             "expires": expires,
             "cta_url": link,
         },

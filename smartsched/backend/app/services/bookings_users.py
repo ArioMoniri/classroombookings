@@ -381,7 +381,7 @@ async def issue_reset_token(
         ctx = {
             "code": token,
             "valid_hours": int(RESET_TTL.total_seconds() // 3600),
-            "name": user.full_name or user.username or "",
+            "name": mail.display_name(user),
             "link": "/reset-password",
         }
         rendered = await mail.render_for(session, "password_reset", lang, **ctx)

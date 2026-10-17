@@ -452,7 +452,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       e.preventDefault();
       e.stopPropagation();
       setSidebarOpen(false);
-      requestAnimationFrame(() => rootRef.current?.querySelector<HTMLElement>('[data-testid="sidebar-toggle"]')?.focus());
+      requestAnimationFrame(() => rootRef.current?.querySelector<HTMLElement>('[data-testid="calendar-sidebar-toggle"]')?.focus());
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);

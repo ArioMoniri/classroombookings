@@ -141,8 +141,9 @@ function ProfileForm({ data, phone }: { data: Profile; phone: boolean }) {
               <Input id="pf-ext" value={f.ext} onChange={(e) => set("ext", e.target.value)} />
             </Field>
             <Field label={t("crbs.profile.language")} htmlFor="pf-lang" hint={legacyLanguage && f.language === initialLanguage ? t("crbs.profile.languageLegacy", { code: legacyLanguage }) : t("crbs.profile.languageHint")}>
-              <SelectField id="pf-lang" value={f.language} onChange={(e) => set("language", e.target.value)} data-testid="profile-language">
-                <option value="">{t("crbs.profile.orgDefault", { lang: langLabel(org.data?.default_language ?? "tr") })}</option>
+              {/* R2-A-19 (owner decision 2026-10-15, decided 2026-10-17): Türkçe and English only; a stored institution
+                  default (no language) reads as the institution's language until the user picks one */}
+              <SelectField id="pf-lang" value={f.language || (displayLocale(org.data?.default_language) ?? "tr")} onChange={(e) => set("language", e.target.value)} data-testid="profile-language">
                 {languages.map((l) => (
                   <option key={l} value={l} lang={l}>
                     {langLabel(l)}

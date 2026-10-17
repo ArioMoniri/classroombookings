@@ -182,10 +182,12 @@ def match_person(incoming: IncomingPerson, known: Iterable[KnownPerson]) -> Pers
     in_email, in_staff = email_key(incoming.email), staff_key(incoming.staff_no)
 
     # 1. a key in the file decides first
-    for reason, key, of in (("staff_no", in_staff, lambda p: staff_key(p.staff_no)), ("email", in_email, lambda p: email_key(p.email))):
+    for reason, key in (("staff_no", in_staff), ("email", in_email)):
         if key is None:
             continue
-        hits = tuple(p.id for p in people if of(p) == key)
+        hits = tuple(
+            p.id for p in people if (staff_key(p.staff_no) if reason == "staff_no" else email_key(p.email)) == key
+        )
         if len(hits) == 1:
             return PersonMatch("key", hits[0], hits, reason)
         if len(hits) > 1:

@@ -272,12 +272,13 @@ export const CalendarSidebar = forwardRef<HTMLInputElement, CalendarSidebarProps
         </div>
       </Section>
       <Section compact={c} title={`${t("calendar.sidebar.capacity")} ${f.minCap || ""}`} onReset={f.minCap ? () => set({ minCap: 0 }) : undefined}>
-        <div className="px-2">
+        {/* a <label>: on the phone sheet the row is the slider's 44 px target (M-02 measures the label box) */}
+        <label className={cn("block px-2", c && "flex min-h-11 items-center")}>
           <Slider min={0} max={CAPACITY_BUCKETS.length} step={1} value={[f.minCap ? capIdx + 1 : 0]} onValueChange={(v) => {
             const i = Array.isArray(v) ? v[0] : v;
             set({ minCap: i ? CAPACITY_BUCKETS[i - 1] : 0 });
-          }} aria-label={t("calendar.sidebar.capacity")} />
-        </div>
+          }} aria-label={t("calendar.sidebar.capacity")} className={c ? "w-full" : undefined} />
+        </label>
       </Section>
       {p.model.unplaced.length || apiUnplaced ? (
         <Section compact={c} title={t("calendar.sidebar.unplaced", { n: apiUnplaced ?? p.model.unplaced.length })}>

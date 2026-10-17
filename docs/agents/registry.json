@@ -2330,7 +2330,7 @@
       "ledger": "R2 lane S: minimal-change re-solve",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 20:32",
+      "finished_at": "2026-10-17 20:36",
       "left_off": "The ROADMAP line is in. The PROGRESS row and the report wait on the background suite run (moderation + studio)."
     },
     {
@@ -2489,7 +2489,7 @@
       "ledger": "W3-OPS: observability + error tracking",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 20:31"
+      "finished_at": "2026-10-17 20:40"
     },
     {
       "id": "acba49a0cfa818b0d",
@@ -2721,6 +2721,14 @@
       "status": "finished",
       "finished_at": "2026-10-17 20:25",
       "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a69a05cc73305dbf3",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 20:38",
+      "left_off": "<analysis> This session is an orchestrator continuing SmartSched work after a prior session (gracious-cerf) hit a weekly limit. The work is on branch claude/focused-wright-ktt0ss, a fast-forward continuation of claude/gracious-cerf-w1598m (tip 455f9703). Many subagents ran across round-1 builders, round-2 testers/suggester/builders, round-3 re-test, wave 3 features, wave 3b identity/mail, media/mo…"
     }
   ]
 }

@@ -290,7 +290,7 @@
   status: done
   phase: "wave 3 (W3-OPS)"
   evidence: smartsched/deploy/observability/README.md
-  note: "768 MiB of caps, ~0.37-0.49 GB measured; /grafana/ needs the nginx snippet pasted by W3-SEC (observability/nginx/grafana.locations); alert delivery to notification channels not wired"
+  note: "768 MiB of caps, ~0.37-0.49 GB measured; /grafana/ needs the nginx snippet pasted by W3-SEC (observability/nginx/grafana.locations); alerts reach admins as ops.alert through the dispatcher (app/services/ops_alerts.py); deploy/backup.sh feeds the backup-age alert"
 - feature: "AI provider gateway chosen by admins: Anthropic (default), OpenAI, Azure OpenAI, OpenRouter, any OpenAI-compatible base URL (Ollama / vLLM), Google Gemini, AWS Bedrock and Vertex AI (Claude); keys write-only and encrypted, models synced from each provider's API, a test call, one provider + model + effort + fallback per AI feature with a global default"
   area: platform
   status: done

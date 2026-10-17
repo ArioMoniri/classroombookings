@@ -6,7 +6,10 @@
 #   scripts/record/launch.sh render  OUT   render landscape (1920x1080) + vertical (1080x1920) masters at 60 fps
 #   scripts/record/launch.sh encode  OUT   MP4 (H.264 High, faststart), AV1 WebM, attach MP4, README loop, posters, VTT
 #   scripts/record/launch.sh publish OUT   copy the deliverables into docs/launch/media and docs/images/recordings
-#   scripts/record/launch.sh all     OUT   all four
+#   scripts/record/launch.sh clips   OUT   README feature clips (story.mjs CLIPS): record, render 1600x960 (phone 720x1280)
+#                                          60 fps, encode <id>.webp (1280 px / 30 fps, <= 4 MB), <id>.gif (fallback, <= 9 MB),
+#                                          <take>.mp4 (H.264) + <take>-poster.png into OUT/clips; `publish` copies them
+#   scripts/record/launch.sh all     OUT   record, render, encode, clips, publish
 #
 # Needs a stack (scripts/record/stack.sh up, then `stack.sh runs` for the published-run scenes) at REC_BASE_URL.
 # Env: REC_BASE_URL, LAUNCH_UI_LANG (en|tr, default en; captions are always English), LAUNCH_WORKERS (render pages,
@@ -30,8 +33,8 @@ do_record() {
   list="$(node --input-type=module -e "import { TAKES } from '$HERE/launch/story.mjs'; for (const t of TAKES) console.log(t.journey + ' ' + t.device)")"
   while read -r journey device; do
     [[ -n "${LAUNCH_ONLY:-}" && " $LAUNCH_ONLY " != *" $journey "* ]] && continue
-    local dsf=2 vp=1440x810
-    [[ "$device" == phone ]] && dsf=3 vp=390x844
+    local dsf=${LAUNCH_DSF:-1.5} vp=1440x810
+    [[ "$device" == phone ]] && dsf=${LAUNCH_PHONE_DSF:-2} vp=390x844
     log "take $journey ($device, ${vp} @${dsf}x, UI $UI_LANG, captions en)"
     REC_DEVICE="$device" REC_DSF="$dsf" REC_VIEWPORT="$vp" REC_CAPTION_LANG=en \
       $N node "$HERE/record.mjs" --journey "$journey" --lang "$UI_LANG" --engine frames --out "$TAKES"
@@ -105,12 +108,68 @@ PY
   done | tee "$DIST/REPORT.txt"
 }
 
+do_clips() {
+  local CL="$OUT/clips" CT="$OUT/clip-takes" list
+  mkdir -p "$CL" "$CT"
+  list="$(node --input-type=module -e "import { CLIPS } from '$HERE/launch/story.mjs'; for (const c of CLIPS) console.log([c.id, c.journey, c.clip ?? '-', c.device].join(' '))")"
+  # 1. one take per journey
+  while read -r id journey clip device; do
+    local name="$journey-light"; [[ "$UI_LANG" != en ]] && name="$name-$UI_LANG"; [[ "$device" == phone ]] && name="$name-phone"
+    [[ -n "${LAUNCH_ONLY:-}" && " $LAUNCH_ONLY " != *" $journey "* ]] && continue
+    if [[ ! -f "$CT/$name.take.json" ]]; then
+      local dsf=${LAUNCH_DSF:-1.5} vp=1440x810; [[ "$device" == phone ]] && dsf=${LAUNCH_PHONE_DSF:-2} vp=390x844
+      log "clip take $journey ($device)"
+      REC_DEVICE="$device" REC_DSF="$dsf" REC_VIEWPORT="$vp" REC_CAPTION_LANG=en \
+        $N node "$HERE/record.mjs" --journey "$journey" --lang "$UI_LANG" --engine frames --out "$CT" || { log "take $journey failed"; continue; }
+    fi
+  done <<<"$list"
+  # 2. renders + encodes
+  while read -r id journey clip device; do
+    local name="$journey-light"; [[ "$UI_LANG" != en ]] && name="$name-$UI_LANG"; [[ "$device" == phone ]] && name="$name-phone"
+    [[ -f "$CT/$name.take.json" ]] || continue
+    local fmt=clip take="$journey"; [[ "$device" == phone ]] && fmt=phone-clip take="$journey-phone"
+    if [[ ! -f "$CL/$take.mp4" ]]; then
+      $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --out "$CT/$take.full.mkv"
+      local vf="scale=1600:960:flags=lanczos"; [[ "$device" == phone ]] && vf="scale=720:1280:flags=lanczos"
+      h264 "$CT/$take.full.mkv" "$CL/$take.mp4" 12000000 "$vf" 60
+      $N ffmpeg -hide_banner -loglevel error -y -sseof -2.5 -i "$CT/$take.full.mkv" -frames:v 1 -vf "scale=1200:-2:flags=lanczos" "$CL/$take-poster.png"
+    fi
+    local src="$CT/$take.full.mkv"
+    if [[ "$clip" != - ]]; then
+      src="$CT/$id.clip.mkv"
+      $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --clip "$clip" --out "$src"
+    fi
+    local w=1280 q fps=30; [[ "$device" == phone ]] && w=540
+    for q in 82 74 66 58 50; do
+      $N ffmpeg -hide_banner -loglevel error -y -i "$src" -vf "fps=$fps,scale=$w:-2:flags=lanczos" -c:v libwebp_anim -lossless 0 -quality "$q" \
+        -compression_level 6 -preset picture -loop 0 -an "$CL/$id.webp"
+      [[ $(size "$CL/$id.webp") -le 4000000 ]] && break
+    done
+    # GIF fallback: 25 fps (an exact 4/100 s delay), diff palette, a width ladder until <= 9 MB
+    local gw; for gw in 1120 1040 960 880 800; do
+      [[ "$device" == phone ]] && gw=$((gw * 45 / 100))
+      $N ffmpeg -hide_banner -loglevel error -y -i "$src" -vf "fps=25,scale=$gw:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=256:stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle" \
+        -loop 0 "$CL/$id.gif"
+      [[ $(size "$CL/$id.gif") -le 9000000 ]] && break
+    done
+    log "clip $id: webp ${w}px/${fps}fps q$q $(mb "$CL/$id.webp"), gif ${gw}px/25fps $(mb "$CL/$id.gif"), take $(mb "$CL/$take.mp4")"
+  done <<<"$list"
+}
+
 do_publish() {
   local media="$ROOT/docs/launch/media"
   mkdir -p "$media"
   cp "$DIST"/smartsched-launch.mp4 "$DIST"/smartsched-launch-av1.webm "$DIST"/smartsched-launch-vertical.mp4 "$DIST"/smartsched-launch.en.vtt \
      "$DIST"/smartsched-launch-poster.png "$DIST"/smartsched-launch-vertical-poster.png "$DIST"/smartsched-loop.webp "$DIST"/smartsched-loop-poster.png "$media/"
   log "published to docs/launch/media (attach copy and AVIF stay in $DIST)"
+  if [[ -d "$OUT/clips" ]]; then
+    mkdir -p "$media/clips"
+    # GIF + MP4 + poster under the names clips.json uses; the WebP clips next to the launch media until the README
+    # generator shows WebP (check_readme.py fails on a file in docs/images/recordings that no README references)
+    find "$OUT/clips" -maxdepth 1 -type f ! -name '*.webp' -exec cp {} "$ROOT/docs/images/recordings/" \;
+    find "$OUT/clips" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$media/clips/" \;
+    log "README clips copied: $(find "$OUT/clips" -maxdepth 1 -type f ! -name '*.webp' | wc -l) files to docs/images/recordings, $(find "$OUT/clips" -maxdepth 1 -name '*.webp' | wc -l) WebP to docs/launch/media/clips"
+  fi
 }
 
 case "$CMD" in
@@ -118,6 +177,7 @@ case "$CMD" in
   render) do_render ;;
   encode) do_encode ;;
   publish) do_publish ;;
-  all) do_record; do_render; do_encode; do_publish ;;
+  clips) do_clips ;;
+  all) do_record; do_render; do_encode; do_clips; do_publish ;;
   *) sed -n '2,16p' "$0"; exit 1 ;;
 esac

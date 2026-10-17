@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
   profile: { id: 7, email: "ogretmen@uni.edu.tr", username: "ogretmen", firstname: "Ayşe", lastname: "Yılmaz", displayname: null, ext: null, language: "de" as string | null, department_id: null, role: "TEACHER", role_name: "Öğretim elemanı" },
   put: vi.fn(),
   success: vi.fn(),
+  orgLanguage: "tr",
 }));
 vi.mock("sonner", () => ({ toast: { success: state.success, error: vi.fn(), message: vi.fn() } }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/profile", useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
@@ -21,7 +22,7 @@ vi.mock("@/lib/api/crbs", async (orig) => {
     ...real,
     useProfile: () => ({ data: state.profile, isLoading: false }),
     useCrbsMe: () => ({ data: { id: 7, force_password_reset: false } }),
-    useOrgPublic: () => ({ data: { default_language: "tr", languages: ["tr", "en"] } }),
+    useOrgPublic: () => ({ data: { default_language: state.orgLanguage, languages: ["tr", "en"] } }),
     useOrgI18n: () => ({ data: { default_language: "tr", languages: ["tr", "en"] } }),
     crbs: { ...real.crbs, auth: { ...real.crbs.auth, putProfile: (body: unknown) => state.put(body) } },
   };
@@ -50,16 +51,33 @@ function renderProfile() {
 describe("profile language: Turkish and English only", () => {
   beforeEach(() => {
     state.profile.language = "de";
+    state.orgLanguage = "tr";
     state.put.mockReset();
     state.success.mockReset();
     state.put.mockImplementation(async (body: Record<string, unknown>) => ({ ...state.profile, ...body }));
     sessionStorage.clear();
   });
 
-  it("offers the institution default, Turkish and English", () => {
+  // R2-A-19 (owner decision 2026-10-15, decided 2026-10-17): no third "Kurum varsayılanı (Türkçe)" entry
+  it("offers Turkish and English only", () => {
     renderProfile();
     const select = screen.getByTestId("profile-language");
-    expect(within(select).getAllByRole("option").map((o) => (o as HTMLOptionElement).value)).toEqual(["", "tr", "en"]);
+    expect(within(select).getAllByRole("option").map((o) => (o as HTMLOptionElement).value)).toEqual(["tr", "en"]);
+    expect(select).not.toHaveTextContent("Kurum varsayılanı");
+  });
+
+  it("reads a stored institution-default preference as the institution's language", async () => {
+    state.profile.language = null;
+    state.orgLanguage = "en";
+    renderProfile();
+    expect(screen.getByTestId("profile-language")).toHaveValue("en");
+    await userEvent.click(screen.getByTestId("profile-save"));
+    await waitFor(() => expect(state.put).toHaveBeenCalledTimes(1));
+    expect(state.put.mock.calls[0]![0]).not.toHaveProperty("language"); // nothing changes until the user picks one
+    await userEvent.selectOptions(screen.getByTestId("profile-language"), "tr");
+    await userEvent.click(screen.getByTestId("profile-save"));
+    await waitFor(() => expect(state.put).toHaveBeenCalledTimes(2));
+    expect(state.put.mock.calls[1]![0]).toMatchObject({ language: "tr" });
   });
 
   it("renders a user stored as de in English and keeps the stored code on save", async () => {

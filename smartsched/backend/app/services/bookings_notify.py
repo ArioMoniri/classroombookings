@@ -56,7 +56,7 @@ async def _rendered(session: AsyncSession, row: NotificationOutbox) -> Any:
         ctx = _RENDER_CTX.get(row)
         if ctx is not None:
             return await mail.render_for(session, row.kind, locale, **ctx)
-        name = (user.full_name or user.username or "") if user is not None else ""
+        name = mail.display_name(user)
         what = row.subject.split(": ", 1)[1] if ": " in row.subject else ""
         return await mail.render_for(
             session, row.kind, locale, subject=row.subject, body=row.body, link=row.link, name=name, what=what

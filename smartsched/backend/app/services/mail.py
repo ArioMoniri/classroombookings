@@ -100,6 +100,13 @@ async def render_for(session: AsyncSession, kind: str, locale: str | None = None
     return emails.render(kind, lang, strings=await overrides(session, lang), brand=await brand(session), **ctx)
 
 
+def display_name(user: User | None) -> str:
+    """The name an e-mail greets with ("Merhaba Ayşe Yılmaz,"): full name, else first + last name, else nothing."""
+    if user is None:
+        return ""
+    return user.full_name or " ".join(x for x in (user.firstname, user.lastname) if x) or ""
+
+
 async def resolve_locale(session: AsyncSession, locale: str | None = None, user: User | None = None) -> str:
     from app.services import bookings_i18n
 

@@ -25,11 +25,13 @@ export function RecreateSheet({ open, onOpenChange, termId, baseRunId, staged, s
   const router = useRouter();
   const qc = useQueryClient();
   const changes = useChanges(termId);
-  const [mode, setMode] = useState<"repair" | "full">(staged.length ? "repair" : "full");
+  // null until the person picks: the default follows the staged edits, also when one is staged after the sheet
+  // mounted (R3-M-01 follow-up: a mount-time default sent `full` for "En az değişiklik")
+  const [mode, setMode] = useState<"repair" | "full" | null>(null);
   const [limit, setLimit] = useState<(typeof LIMITS)[number]>("120");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const effective = staged.length ? mode : "full";
+  const effective = staged.length ? (mode ?? "repair") : "full";
 
   const start = async () => {
     setBusy(true);

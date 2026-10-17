@@ -555,7 +555,7 @@ test("R1-S-26 · at 1440 and 1024 the overlay sidebar leaves its toggle uncovere
     await login(page);
     await page.goto(`/timetable?run=${ctx.termRun!.id}&week=3`);
     await page.getByTestId("calendar-toolbar").waitFor({ timeout: 60_000 });
-    const toggle = page.getByTestId("sidebar-toggle");
+    const toggle = page.getByTestId("calendar-sidebar-toggle");
     if (await page.getByTestId("calendar-sidebar").isVisible()) await toggle.click();
     await expect(page.getByTestId("calendar-sidebar")).toBeHidden();
     await toggle.click();
@@ -571,7 +571,7 @@ test("R1-S-26 · at 1440 and 1024 the overlay sidebar leaves its toggle uncovere
     await page.getByTestId("calendar-search").focus();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("calendar-sidebar")).toBeHidden();
-    await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("data-testid"))).toBe("sidebar-toggle");
+    await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("data-testid"))).toBe("calendar-sidebar-toggle");
     await c.close();
   }
 });

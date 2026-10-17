@@ -171,7 +171,7 @@ export function CapsuleToolbar(p: CapsuleToolbarProps) {
         className={cn("glass-chrome flex w-full min-w-0 flex-nowrap items-center gap-0.5 rounded-full px-1", condensed ? "h-(--control-h-lg)" : "h-[calc(var(--control-h-lg)+4px)]")}
       >
         <div role="group" aria-label={t("calendar.nav.pickWeek")} className="flex shrink-0 items-center gap-0.5">
-          <IconButton size="sm" label={t("calendar.nav.toggleSidebar")} onClick={p.onToggleSidebar} aria-expanded={p.sidebarOpen} data-testid="sidebar-toggle"><PanelLeft aria-hidden /></IconButton>
+          <IconButton size="sm" label={t("calendar.nav.toggleSidebar")} onClick={p.onToggleSidebar} aria-expanded={p.sidebarOpen} data-testid="calendar-sidebar-toggle"><PanelLeft aria-hidden /></IconButton>
           <IconButton size="sm" label={t("calendar.nav.prev")} onClick={p.onPrev} data-testid="week-prev"><ChevronLeft aria-hidden /></IconButton>
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="min-w-[72px] font-semibold tnum" aria-label={t("calendar.nav.pickWeek")} data-testid="week-label" />}>{p.weekLabel}</DropdownMenuTrigger>

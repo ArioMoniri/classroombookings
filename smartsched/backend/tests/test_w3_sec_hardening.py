@@ -286,3 +286,20 @@ def test_no_third_party_llm_gateway_in_the_dependencies() -> None:
         assert name not in lock and name not in pyproject and f'"{name}' not in package, name
     pins = [ln for ln in lock.splitlines() if ln and not ln.startswith("#")]
     assert pins and all("==" in ln for ln in pins)  # every backend dependency pinned to one version
+
+
+def test_nginx_grafana_behind_admin_forward_auth_and_metrics_never_routed() -> None:
+    """W3-OPS asks: /grafana/ only through the SmartSched admin forward-auth (the client's X-WEBAUTH-USER is always
+    overwritten), framed same-origin only; the backend's /metrics (private addresses answer) is never proxied."""
+    grafana = NGINX.index("location /grafana/ {")
+    assert grafana < NGINX.index("    location / {")
+    block = NGINX[grafana : NGINX.index("}", grafana)]
+    assert "auth_request /_ops/grafana-auth;" in block
+    assert "proxy_set_header X-WEBAUTH-USER    smartsched-admin;" in block
+    assert 'proxy_set_header Authorization     "";' in block
+    assert "location = /_ops/grafana-auth {\n        internal;" in NGINX
+    assert "location = /metrics { return 404; }" in NGINX
+    for line in NGINX.splitlines():
+        if line.strip().startswith("location") and "metrics" in line:
+            assert "return 404" in line, line
+    assert not re.search(r"proxy_pass\s+\S*/metrics", NGINX)
