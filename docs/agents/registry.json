@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 21:01",
-      "left_off": "Waiting on the retried build and the week-order pytest run."
+      "finished_at": "2026-10-17 21:11",
+      "left_off": "Both runs are in the background (the stack + spec chain waits for other lanes' in-progress identity files to type-check; the suites run independently). I'll pick up when they report."
     },
     {
       "id": "afe38e299d6f66d51",

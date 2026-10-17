@@ -35,7 +35,7 @@ export type ProviderButton = z.infer<typeof ProviderButton>;
 /** The login page's `auth` block (`GET /org/public` → `auth`, also `GET /auth/sso/providers` → `auth`). */
 export const PublicAuth = z.object({
   microsoft: MicrosoftAuth,
-  providers: z.array(ProviderButton).default([]),
+  providers: z.array(ProviderButton).optional(),
   local_enabled: z.boolean().default(true),
   ldap_enabled: z.boolean().default(false),
   self_signup_role_name: z.string().nullish(),

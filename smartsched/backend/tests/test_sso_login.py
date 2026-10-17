@@ -258,7 +258,13 @@ async def test_start_refuses_open_redirects_and_unconfigured_provider(sso):  # n
     assert "ref" not in query_of(r.headers["location"])
     body = (await sso.client.get("/api/v1/auth/sso/providers")).json()
     assert body["providers"] == [
-        {"name": "entra", "label": "Microsoft 365", "enabled": False, "start_url": "/api/v1/auth/sso/entra/start"}
+        {
+            "name": "entra",
+            "label": "Microsoft 365",
+            "enabled": False,
+            "start_url": "/api/v1/auth/sso/entra/start",
+            "kind": "entra",  # wave 3b: several providers
+        }
     ]
     assert body["auth"]["microsoft"]["enabled"] is False and body["auth"]["local_enabled"] is True
 
@@ -317,6 +323,21 @@ async def test_public_auth_block_for_the_login_page(sso):  # noqa: F811
             "domain_hint": "uni.edu.tr",
             "self_signup": True,
         },
+        # wave 3b W3-IDP: the /login buttons of every enabled provider, in the administrators' order
+        "providers": [
+            {
+                "name": "entra",
+                "kind": "entra",
+                "label": "Microsoft 365",
+                "label_en": "Microsoft 365",
+                "badge": "MS",
+                "start_url": "/api/v1/auth/sso/entra/start",
+                "enabled": True,
+                "domain_hint": "uni.edu.tr",
+                "self_signup": True,
+                "order": 0,
+            }
+        ],
         "local_enabled": False,  # password door only through /login?method=local (break-glass)
         "ldap_enabled": False,
         "self_signup_role_name": "Teacher",

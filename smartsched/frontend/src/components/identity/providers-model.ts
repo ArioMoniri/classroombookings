@@ -103,7 +103,7 @@ export function parseDomains(text: string): string[] {
 }
 
 /** "Tümünü kopyala": every console value as `Label: value` lines (never a secret: the console values hold none). */
-export function copyAllText(values: { label_tr: string; label_en: string; value?: string | null }[], locale: "tr" | "en"): string {
+export function copyAllText(values: { key?: string; label_tr: string; label_en: string; value?: string | null }[], locale: "tr" | "en"): string {
   return values
     .filter((v) => v.value)
     .map((v) => `${locale === "tr" ? v.label_tr : v.label_en}: ${v.value}`)

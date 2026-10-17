@@ -67,7 +67,9 @@ function GalleryBody({ canEdit }: { canEdit: boolean }) {
   const areas = status.data?.areas ?? [];
   const all = areas.flatMap((a) => a.cards);
   const byKey = new Map(all.map((c) => [c.key, c] as const));
-  const openCard = setupKey ? (byKey.get(setupKey) ?? null) : null;
+  // `setup` is a card key; an area may also link with its own short name (`?area=identity&setup=entra`)
+  const openCard = setupKey ? (byKey.get(setupKey) ?? (tab !== "all" ? byKey.get(`${tab}.${setupKey}`) : undefined) ?? all.find((c) => c.key.endsWith(`.${setupKey}`)) ?? null) : null;
+  const sheetKey = openCard?.key ?? setupKey;
   const attention = attentionCards(all);
   const shown = (tab === "all" ? areas : areas.filter((a) => a.key === tab)).map((a) => ({ ...a, cards: a.cards.filter((c) => matches(c, q)) })).filter((a) => a.cards.length > 0);
   const focusCard = (key: string | null | undefined) =>
@@ -83,7 +85,7 @@ function GalleryBody({ canEdit }: { canEdit: boolean }) {
       return;
     }
     lastKey.current = card.key;
-    go(tab === "all" ? "all" : target.tab, target.setup ?? card.key);
+    go(tab === "all" ? "all" : target.tab, card.key);
   };
 
   const flip = (card: ConnectorCard, on: boolean) => {
@@ -110,7 +112,7 @@ function GalleryBody({ canEdit }: { canEdit: boolean }) {
   };
 
   const closeSetup = () => {
-    const key = setupKey ?? lastKey.current;
+    const key = sheetKey ?? lastKey.current;
     go(tab, null);
     void qc.invalidateQueries({ queryKey: ["integrations"] });
     focusCard(key); // back to the card that opened the sheet, never <body>
@@ -179,7 +181,7 @@ function GalleryBody({ canEdit }: { canEdit: boolean }) {
           </TabsContent>
         ))}
       </Tabs>
-      <SetupSheet open={setupKey !== null} cardKey={setupKey} card={openCard} tab={tab} loading={status.isLoading} canEdit={canEdit} busy={toggle.isPending} onSwitch={onSwitch} onClose={closeSetup} />
+      <SetupSheet open={setupKey !== null} cardKey={sheetKey} card={openCard} tab={tab} loading={status.isLoading} canEdit={canEdit} busy={toggle.isPending} onSwitch={onSwitch} onClose={closeSetup} />
       <ConfirmDialog
         open={confirmOff !== null}
         onOpenChange={(o) => {

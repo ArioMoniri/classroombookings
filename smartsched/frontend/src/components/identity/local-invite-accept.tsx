@@ -62,9 +62,11 @@ export function LocalInviteAccept({ token }: { token: string }) {
         <Input id={ids.again} type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} className="text-base sm:text-sm" data-testid="local-invite-again" />
       </div>
       {error ? (
-        <Alert tone="error" id={ids.err} data-testid="local-invite-error">
-          {error}
-        </Alert>
+        <div id={ids.err}>
+          <Alert tone="error" data-testid="local-invite-error">
+            {error}
+          </Alert>
+        </div>
       ) : null}
       <BusyButton type="submit" busy={busy} busyLabel={t("busy.saving")} className="min-h-11" data-testid="local-invite-submit">
         {t("identity.localInvite.submit")}

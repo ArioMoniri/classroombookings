@@ -197,7 +197,9 @@ test("QR: the same with one thumb at 390 × 844, and MOBILE M-01/02/03/05 on /re
   expect(box!.y).toBeGreaterThan(844 * 0.6);
   expect(box!.y + box!.height).toBeLessThanOrEqual(844);
   await mobileChecks(page, "/reserve");
+  await page.getByTestId("qr-rooms").locator('[role=radio][data-action="book"]').first().tap();
   await page.getByTestId("qr-note-add").tap();
+  await expect(page.getByTestId("qr-note")).toBeFocused();
   await mobileChecks(page, "/reserve (note open)");
   await page.goto("/bookings");
   await expect(page.getByTestId("free-slots").or(page.getByTestId("booking-grid"))).toBeVisible({ timeout: 20_000 });

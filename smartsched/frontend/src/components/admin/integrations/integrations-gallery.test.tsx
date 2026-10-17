@@ -254,6 +254,13 @@ describe("IntegrationsGallery", () => {
     expect(within(sheet).getByText(/yeni kurulum ekranı hazırlanıyor/)).toBeInTheDocument();
   });
 
+  it("accepts an area's short setup name and opens its provider in the identity panel", async () => {
+    renderIt("area=identity&setup=providers");
+    const sheet = await screen.findByTestId("setup-sheet");
+    await waitFor(() => expect(within(sheet).getByTestId("setup-title")).toHaveTextContent("Kimlik sağlayıcıları"));
+    expect(await within(sheet).findByTestId("embed-idp")).toBeInTheDocument();
+  });
+
   it("opens the e-mail card's SMTP panel", async () => {
     renderIt("area=email&setup=email.smtp");
     const sheet = await screen.findByTestId("setup-sheet");

@@ -66,6 +66,22 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/auth/sso/admin/users/{user_id}/bind": (E, "app.services.sso"),
     "DELETE /api/v1/auth/sso/admin/users/{user_id}/identity": (E, "app.services.sso"),
     "PUT /api/v1/auth/sso/admin/users/{user_id}/instructor": (E, "app.services.sso"),
+    # wave 3b W3-IDP: several identity providers (app/services/identity/**)
+    "POST /api/v1/auth/sso/admin/providers": (E, "app.services.identity.providers"),
+    "PUT /api/v1/auth/sso/admin/providers/order": (E, "app.services.identity.providers"),
+    "PUT /api/v1/auth/sso/admin/providers/{provider_id}": (E, "app.services.identity.providers"),
+    "DELETE /api/v1/auth/sso/admin/providers/{provider_id}": (E, "app.services.identity.providers"),
+    "POST /api/v1/auth/sso/admin/providers/{provider_id}/discover": (E, "app.services.identity.providers"),
+    "POST /api/v1/auth/sso/admin/providers/{provider_id}/test": (
+        N,
+        "single-use state rows; the test login's outcome is audited (sso.test_login) at the callback",
+    ),
+    "POST /api/v1/auth/sso/admin/providers/{provider_id}/mappings": (E, "app.services.sso"),
+    "DELETE /api/v1/auth/sso/admin/providers/{provider_id}/mappings/{mapping_id}": (E, "app.services.sso"),
+    "POST /api/v1/auth/sso/admin/invites/bulk": (E, "app.services.identity.invites"),
+    "POST /api/v1/auth/sso/admin/invites/{invite_id}/resend": (E, "app.services.identity.invites"),
+    "POST /api/v1/auth/sso/invites/{token}/password": (E, "app.services.identity.invites"),
+    "POST /api/v1/auth/sso/{slug}/acs": (E, "app.services.sso"),
     # booking administration (CRBS setup)
     "PUT /api/v1/booking-admin/sessions/{term_id}": (T, "TermBookingSettings"),
     "PUT /api/v1/booking-admin/sessions/{term_id}/schedules": (T, "TermSchedule"),

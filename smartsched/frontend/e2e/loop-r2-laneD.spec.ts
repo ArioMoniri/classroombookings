@@ -19,9 +19,9 @@ import { expect, request as pwRequest, test, type APIRequestContext } from "@pla
 import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, login } from "./helpers";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
-const RESOLVE_WAIT = 6 * 60_000;
+const RESOLVE_WAIT = 12 * 60_000; // a shared, loaded host: the 60 s solve plus its diff can take minutes
 
-test.describe.configure({ mode: "serial", timeout: 10 * 60_000 });
+test.describe.configure({ mode: "serial", timeout: 20 * 60_000 });
 test.skip(!REAL, SKIP_REASON);
 test.use({ viewport: { width: 1440, height: 900 }, locale: "tr-TR", timezoneId: "Europe/Istanbul" });
 

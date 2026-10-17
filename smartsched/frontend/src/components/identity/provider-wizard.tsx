@@ -365,7 +365,7 @@ function ValuesStep({ p, setup, onNext }: { p: Provider; setup: Setup; onNext: (
   return (
     <StepFrame
       title={t("identity.step.values")}
-      lead={missing.length ? t("identity.values.missing", { fields: missing.map((m) => t(`identity.field.${m}`)).join(", ") }) : t("identity.values.complete")}
+      lead={missing.length ? t("identity.values.missing", { fields: missing.map((m) => t(`identity.field.${m}` as "identity.field.issuer")).join(", ") }) : t("identity.values.complete")}
       footer={
         <>
           <BusyButton busy={pending} busyLabel={t("busy.saving")} disabled={!Object.keys(body).length} className="min-h-11" onClick={() => save(body, t("identity.saved"))} data-testid="idp-values-save">

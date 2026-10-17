@@ -81,7 +81,7 @@ test.beforeAll(async () => {
     [PLANNER, "PLANNER"],
     [TEACHER, "TEACHER"],
   ] as const) {
-    const r = await admin.post(`${API}/users`, { data: { email: u.email, role, password: u.password, full_name: role === "PLANNER" ? "Yz Planlamacı" : "Yz Öğretmen" } });
+    const r = await admin.post(`${API}/users`, { data: { email: u.email, role, password: u.password, full_name: role === "PLANNER" ? `Yz Planlamacı ${STAMP}` : `Yz Öğretmen ${STAMP}` } });
     expect(r.status(), await r.text()).toBe(201);
     if (role === "PLANNER") plannerId = ((await r.json()) as { id: number }).id;
   }
@@ -212,7 +212,7 @@ test("2. limits: per-person limit set in Limitler, next call refused in Turkish,
   const admin = await ctxFor(ADMIN_EMAIL, ADMIN_PASSWORD);
   const notes = (await (await admin.get(`${API}/me/notifications`)).json()) as { items?: { kind: string; title: string }[] } | { kind: string; title: string }[];
   const list = Array.isArray(notes) ? notes : (notes.items ?? []);
-  expect(list.filter((x) => x.kind === "ai.usage_alert" && x.title.includes("Yz Planlamacı")).length).toBe(1);
+  expect(list.filter((x) => x.kind === "ai.usage_alert" && x.title.includes(`Yz Planlamacı ${STAMP}`)).length).toBe(1);
   await admin.dispose();
 
   const ctx = await browser.newContext({ locale: "tr-TR", timezoneId: "Europe/Istanbul", viewport: { width: 1440, height: 900 } });

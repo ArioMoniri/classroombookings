@@ -12,7 +12,7 @@
  * Motion: none on chips and lists (frequent actions); the receipt replaces the card in place.
  */
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Hourglass, Loader2, RotateCcw, Stamp, Undo2, Zap } from "lucide-react";
+import { CalendarDays, Check, Hourglass, Loader2, RotateCcw, Stamp, Undo2, Zap } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
@@ -97,6 +97,7 @@ export function QuickReserveView() {
   const options = useMemo(() => (g ? slotOptions(g, sd, now, allRooms) : []), [g, sd, now, allRooms]);
   const visible = useMemo(() => (g ? g.periods.filter((p) => periodVisible(p, sd)) : []), [g, sd]);
   const [pickedSlot, setPickedSlot] = useState<string | null>(null);
+  const [dateOpen, setDateOpen] = useState(false);
   const slot: SlotOption | null = options.find((o) => o.key === pickedSlot) ?? defaultSlot(options);
   const lengths = useMemo(() => (slot ? lengthChoices(visible, slot, sd) : []), [visible, slot, sd]);
   const [pickedLength, setPickedLength] = useState<number | null>(null);
@@ -266,7 +267,7 @@ export function QuickReserveView() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5 pb-[calc(15rem+env(safe-area-inset-bottom))] lg:pb-10" onKeyDown={onPageKeyDown} data-testid="quick-reserve">
-      <PageTitle title={t("quickReserve.title")} subtitle={t("quickReserve.lead")} className="mb-0" />
+      <PageTitle title={t("quickReserve.title")} subtitle={<span className="max-sm:sr-only">{t("quickReserve.lead")}</span>} className="mb-0" />
       <p className="sr-only" role="status" aria-live="polite" data-testid="qr-live">
         {liveText}
       </p>
@@ -303,7 +304,13 @@ export function QuickReserveView() {
               {t("quickReserve.day.movedToNext", { from: dayWord(movedFrom), to: dayWord(day) })}
             </p>
           ) : null}
-          {today && dates.data ? (
+          {today && dates.data && !dateOpen ? (
+            <Button variant="ghost" size="sm" className="self-start" onClick={() => setDateOpen(true)} aria-expanded={false} data-testid="qr-date-open">
+              <CalendarDays aria-hidden />
+              {t("quickReserve.day.pick")}
+            </Button>
+          ) : null}
+          {today && dates.data && dateOpen ? (
             <label className="flex flex-col gap-1">
               <span className="type-footnote font-medium text-label-2">{t("quickReserve.day.pickLabel")}</span>
               <DateField
@@ -457,7 +464,7 @@ export function QuickReserveView() {
 
         {/* 3 · Onayla: the sticky action bar on phones and tablets, a card in the third column on desktop */}
         <section aria-labelledby="qr-confirm" className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(4.75rem+max(0.75rem,env(safe-area-inset-bottom)))] max-lg:z-30 max-lg:px-3 lg:sticky lg:top-20" data-testid="qr-confirm">
-          <div className="mx-auto flex max-h-[45dvh] w-full max-w-xl flex-col gap-3 overflow-y-auto rounded-3xl bg-(--mat-thick-solid) p-4 shadow-elev-3 edge-hairline lg:max-h-none lg:rounded-xl lg:shadow-none">
+          <div className="mx-auto flex max-h-[45dvh] w-full max-w-xl flex-col gap-2 overflow-y-auto rounded-3xl bg-(--mat-thick-solid) p-3 shadow-elev-3 edge-hairline lg:max-h-none lg:gap-3 lg:rounded-xl lg:p-4 lg:shadow-none">
             {receipt ? (
               <ReceiptCard receipt={receipt} headingRef={receiptRef} undoing={undoing} onUndo={() => void undo(receipt)} onAgain={newBooking} line={t("quickReserve.summary.line", { room: receipt.room.name, day: dayWord(receipt.date), slot: spanText(receipt.span) })} />
             ) : (
@@ -477,7 +484,7 @@ export function QuickReserveView() {
                 ) : null}
                 {request_ ? <p className="flex items-start gap-1.5 type-footnote text-tint-text" data-testid="qr-approval"><Stamp className="mt-0.5 size-3.5 shrink-0" aria-hidden />{t("quickReserve.approval.body")}</p> : null}
                 {quotaNone ? <p className="type-footnote text-status-warning-fg">{t("quickReserve.quota.none")}</p> : null}
-                {noteOpen ? (
+                {!room ? null : noteOpen ? (
                   <label className="flex flex-col gap-1">
                     <span className="type-footnote font-medium text-label-2">{t("quickReserve.note.label")}</span>
                     <Textarea rows={1} maxLength={255} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("quickReserve.note.placeholder")} className="min-h-11 pointer-coarse:text-base" data-testid="qr-note" autoFocus />
@@ -519,6 +526,7 @@ export function QuickReserveView() {
 function RoomRow({ row, selected, tabStop, recent, taken, onSelect, onCommit }: { row: FindRow; selected: boolean; tabStop: boolean; recent: boolean; taken: boolean; onSelect: () => void; onCommit: () => void }) {
   const { t } = useI18n();
   const act = roomAction(row);
+  const title = row.code.replace(/\s/g, "") === row.name.replace(/\s/g, "") ? row.name : `${row.code} · ${row.name}`;
   const details = [row.building, row.capacity ? t("quickReserve.rooms.capacity", { n: row.capacity }) : null, ...row.tags.slice(0, 3)].filter(Boolean).join(" · ");
   const badge = act === "request" ? t("quickReserve.rooms.needsApproval") : act === "mine" ? t("quickReserve.rooms.mine") : taken ? t("quickReserve.conflict.taken") : null;
   const move = (el: HTMLElement, dir: 1 | -1 | "home" | "end") => {
@@ -533,7 +541,7 @@ function RoomRow({ row, selected, tabStop, recent, taken, onSelect, onCommit }: 
       role="radio"
       aria-checked={selected}
       aria-disabled={taken || undefined}
-      aria-label={[`${row.code === row.name ? row.name : `${row.code} ${row.name}`}`, details, badge, recent ? t("quickReserve.rooms.recent") : null].filter(Boolean).join(", ")}
+      aria-label={[title, details, badge, recent ? t("quickReserve.rooms.recent") : null].filter(Boolean).join(", ")}
       tabIndex={tabStop ? 0 : -1}
       data-room-row={row.room_id}
       data-testid={`qr-room-${row.code}`}
@@ -561,7 +569,7 @@ function RoomRow({ row, selected, tabStop, recent, taken, onSelect, onCommit }: 
         {selected ? <Check className="size-3.5 stroke-[3]" /> : null}
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate type-headline text-label-1">{row.code === row.name ? row.name : `${row.code} · ${row.name}`}</span>
+        <span className="truncate type-headline text-label-1">{title}</span>
         {details ? <span className="truncate type-footnote text-label-2">{details}</span> : null}
         {recent ? <span className="type-caption text-label-3">{t("quickReserve.rooms.recent")}</span> : null}
       </span>
