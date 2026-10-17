@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 21:47",
-      "left_off": "Both remaining verifications (backend suites, fresh-stack spec) are running in the background; the hand-off waits on their results."
+      "finished_at": "2026-10-17 22:28",
+      "left_off": "Only the full backend suite remains outstanding; the docs hand-off waits on its counts."
     },
     {
       "id": "afe38e299d6f66d51",

@@ -624,3 +624,383 @@ def etag_matches(header: str | None, etag: str) -> bool:
         return True
     tags = [t.strip().removeprefix("W/") for t in header.split(",")]
     return etag in tags
+
+
+# --------------------------------------------------------------------------------------------------
+# CAL-03: scope-bound links ("subscriptions"), the department rule, per-scope approval
+# --------------------------------------------------------------------------------------------------
+
+#: the feed path each scope serves (a scope-bound link serves only this one)
+SCOPE_FEED_KIND = {
+    "my_classes": "my_classes",
+    "department_classes": "department_classes",
+    "my_bookings": "mine",
+    "room": "room",
+    "room_group": "room_group",
+}
+#: what a legacy (scope-less) link may open: its pre-CAL-03 paths
+LEGACY_FEED_KINDS = frozenset({"mine", "room", "department", "room_group"})
+#: the admin's on / off switch per scope (integrations.export_*); room feeds have none
+SCOPE_SWITCH = {
+    "my_classes": "export_my_classes",
+    "department_classes": "export_department_classes",
+    "my_bookings": "export_my_bookings",
+}
+_SHORT_DAYS = ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
+_SHORT_DAYS_EN = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def token_serves(row: CalendarFeedToken, kind: str, scope_id: int | None) -> bool:
+    """A scope-bound link opens only its own feed; a legacy link its old paths."""
+    if row.scope_kind is None:
+        return kind in LEGACY_FEED_KINDS
+    if SCOPE_FEED_KIND.get(row.scope_kind) != kind:
+        return False
+    if row.scope_kind in ("room", "room_group", "department_classes"):
+        return scope_id is not None and row.scope_id == scope_id
+    return True
+
+
+def scoped_path(row: CalendarFeedToken) -> str | None:
+    kind = row.scope_kind
+    if kind == "my_classes":
+        return "classes.ics"
+    if kind == "department_classes":
+        return f"department-classes/{row.scope_id}.ics"
+    if kind == "my_bookings":
+        return "mine.ics"
+    if kind == "room":
+        return f"room/{row.scope_id}.ics"
+    if kind == "room_group":
+        return f"room-group/{row.scope_id}.ics"
+    return None
+
+
+async def resolve_token_row(session: AsyncSession, token: str) -> tuple[CalendarFeedToken, User]:
+    """The link row and its active owner; :class:`FeedNotFound` otherwise. Updates ``last_used_at`` (hourly)."""
+    if not token or len(token) < 20 or len(token) > 128:
+        raise FeedNotFound
+    q = (
+        select(CalendarFeedToken, User)
+        .join(User, User.id == CalendarFeedToken.user_id)
+        .where(CalendarFeedToken.token_hash == hash_token(token))
+    )
+    found = (await session.execute(q)).first()
+    if found is None:
+        raise FeedNotFound
+    row, user = found
+    if not user.is_active:
+        raise FeedNotFound
+    now = utcnow()
+    if row.last_used_at is None or now - row.last_used_at > LAST_USED_RESOLUTION:
+        row.last_used_at = now
+        await session.commit()
+    return row, user
+
+
+def _istanbul(at: datetime | None) -> datetime | None:
+    if at is None:
+        return None
+    from datetime import UTC
+    from zoneinfo import ZoneInfo
+
+    return at.replace(tzinfo=UTC).astimezone(ZoneInfo("Europe/Istanbul"))
+
+
+def fetched_text(at: datetime | None) -> tuple[str | None, str | None]:
+    """CAL-05 "Takviminiz en son … çekti" (Istanbul time); ``(None, None)`` before the first fetch."""
+    local = _istanbul(at)
+    if local is None:
+        return None, None
+    stamp = f"{local:%d.%m.%Y %H:%M}"
+    return f"Takviminiz en son çekti: {stamp}", f"Your calendar last fetched: {stamp}"
+
+
+async def scope_label(session: AsyncSession, kind: str | None, scope_id: int | None) -> tuple[str, str]:
+    from app.services import calendar_classes as cc
+
+    if kind is None:
+        return "Tüm takvim bağlantıları (eski bağlantı)", "Every calendar feed (legacy link)"
+    tr, en = cc.SCOPE_LABELS.get(kind, (kind, kind))
+    if kind == "department_classes" and scope_id is not None:
+        dep = await session.get(Program, scope_id)
+        if dep is not None:
+            return f"{dep.name} bölümünün dersleri", f"{dep.name} classes"
+    if kind == "room" and scope_id is not None:
+        room = await session.get(Room, scope_id)
+        if room is not None:
+            return f"{room.display_name} takvimi", f"{room.display_name} calendar"
+    if kind == "room_group" and scope_id is not None:
+        rg = await session.get(RoomGroup, scope_id)
+        if rg is not None:
+            return f"{rg.name} takvimi", f"{rg.name} calendar"
+    return tr, en
+
+
+async def subscription_out(session: AsyncSession, row: CalendarFeedToken) -> dict[str, Any]:
+    base, _ = await public_base(session)
+    tr, en = await scope_label(session, row.scope_kind, row.scope_id)
+    fetched_tr, fetched_en = fetched_text(row.last_used_at)
+    return {
+        **token_out(row),
+        "channel": "link",
+        "scope_kind": row.scope_kind,
+        "scope_id": row.scope_id,
+        "scope_label": tr,
+        "scope_label_en": en,
+        "path": scoped_path(row),
+        "consent_id": row.consent_id,
+        "fields": row.fields,
+        "last_fetched_tr": fetched_tr,
+        "last_fetched_en": fetched_en,
+        "url_known": bool(base),
+    }
+
+
+async def scope_switches(session: AsyncSession) -> dict[str, bool]:
+    g = await get_group(session, "integrations")
+    return {kind: bool(g.get(key, True)) for kind, key in SCOPE_SWITCH.items()}
+
+
+def _scope_error(status: int, code: str, en: str, tr: str, **extra: Any) -> Exception:
+    from app.services import calendar_classes as cc
+
+    return cc.ScopeError(status, code, en, tr, **extra)
+
+
+async def check_scope(session: AsyncSession, access: Access, kind: str, scope_id: int | None) -> None:
+    """Raise :class:`app.services.calendar_classes.ScopeError` unless ``access`` may export ``kind`` /
+    ``scope_id``: the admin's switch (403 ``scope_disabled``), a linked instructor (409 ``not_linked``), the
+    department rule (403 ``department_not_allowed``), an existing department / visible room or group (404)."""
+    from app.services import calendar_classes as cc
+
+    if kind not in cc.SCOPE_KINDS:
+        raise _scope_error(422, "unknown_scope", f"unknown scope {kind!r}", "Bilinmeyen takvim kapsamı")
+    if kind in cc.SCOPES_WITH_ID and scope_id is None:
+        raise _scope_error(422, "scope_id_required", f"{kind} needs scope_id", "Bu kapsam için bir seçim gerekli")
+    if not (await scope_switches(session)).get(kind, True):
+        raise _scope_error(
+            403,
+            "scope_disabled",
+            "The administrator has turned this calendar off.",
+            "Bu takvim seçeneği yönetici tarafından kapatıldı.",
+        )
+    if kind == "my_classes":
+        if not await cc.linked_instructor_ids(session, access.user_id):
+            raise cc.not_linked_error()
+    elif kind == "department_classes":
+        assert scope_id is not None
+        dep = await session.get(Program, scope_id)
+        if dep is None:
+            raise _scope_error(404, "department_not_found", "department not found", "Bölüm bulunamadı")
+        if not await cc.department_allowed(session, access, dep.id):
+            raise cc.department_not_allowed_error(dep.id, dep.name)
+    elif kind == "room":
+        room = await session.get(Room, scope_id)
+        if room is None or not access.can_view_room(room):
+            raise _scope_error(404, "room_not_found", "room not found", "Derslik bulunamadı")
+    elif kind == "room_group":
+        rg = await session.get(RoomGroup, scope_id)
+        members = (
+            list((await session.execute(select(Room.id).where(Room.room_group_id == rg.id))).scalars())
+            if rg is not None
+            else []
+        )
+        if not await _visible_rooms_of(session, access, members):
+            raise _scope_error(404, "room_group_not_found", "room group not found", "Derslik grubu bulunamadı")
+
+
+async def active_consent_id(session: AsyncSession, user_id: int) -> int | None:
+    from app.models import Consent
+
+    q = (
+        select(Consent.id)
+        .where(Consent.user_id == user_id, Consent.purpose == "calendar_sync", Consent.withdrawn_at.is_(None))
+        .order_by(Consent.id.desc())
+    )
+    return (await session.execute(q.limit(1))).scalar_one_or_none()
+
+
+async def create_subscription(
+    session: AsyncSession, access: Access, kind: str, scope_id: int | None, label: str | None = None
+) -> tuple[CalendarFeedToken, str]:
+    """A link bound to one scope after the switch, consent and permission checks (CAL-03). Raises
+    :class:`~app.services.calendar_classes.ScopeError`, the ``consent_required``
+    :class:`~app.services.kvkk.KvkkError` or ``OverflowError`` (too many links). Flushes; the caller audits and
+    commits."""
+    from app.services import calendar_classes as cc
+
+    if not await sync_enabled(session):
+        raise cc.ScopeError(
+            403,
+            "calendar_sync_off",
+            "Calendar sync is turned off by the institution.",
+            "Takvim eşitleme kurumunuz tarafından kapalı.",
+        )
+    if kind not in cc.SCOPES_WITH_ID:
+        scope_id = None
+    await check_scope(session, access, kind, scope_id)
+    row, token = await create_token(session, access.user, label)
+    row.scope_kind, row.scope_id = kind, scope_id
+    row.consent_id = await active_consent_id(session, access.user_id)
+    row.fields = (await cc.fields_setting(session)).as_dict()
+    await session.flush()
+    return row, token
+
+
+async def rotate_subscription(session: AsyncSession, access: Access, row: CalendarFeedToken) -> tuple[Any, str]:
+    """"Bağlantıyı yenile": a new link of the same scope (re-checked), the old one revoked."""
+    kind, scope_id, label = row.scope_kind, row.scope_id, row.label
+    if kind is None:
+        await session.delete(row)
+        await session.flush()
+        return await create_token(session, access.user, label)
+    await session.delete(row)
+    await session.flush()
+    return await create_subscription(session, access, kind, scope_id, label)
+
+
+def sample_text(start: datetime, end: datetime, summary: str, location: str) -> tuple[str, str]:
+    """``PSY 262 · Şube 1 — A 308 — Pzt 13:30–15:50`` (research §3.7 tap 3) and its English twin."""
+    day = start.isoweekday() - 1
+    when = f"{start:%H:%M}–{end:%H:%M}"
+    return (
+        f"{summary} — {location} — {_SHORT_DAYS[day]} {when}",
+        f"{summary} — {location} — {_SHORT_DAYS_EN[day]} {when}",
+    )
+
+
+async def _class_filter(session: AsyncSession, access: Access, kind: str, scope_id: int | None) -> Any:
+    from app.services import calendar_classes as cc
+
+    if kind == "my_classes":
+        return cc.ScopeFilter(instructor_ids=frozenset(await cc.linked_instructor_ids(session, access.user_id)))
+    if kind == "department_classes":
+        return cc.ScopeFilter(program_id=scope_id)
+    if kind == "room" and scope_id is not None:
+        return cc.ScopeFilter(room_ids=frozenset({scope_id}))
+    if kind == "room_group" and scope_id is not None:
+        members = list((await session.execute(select(Room.id).where(Room.room_group_id == scope_id))).scalars())
+        return cc.ScopeFilter(room_ids=frozenset(await _visible_rooms_of(session, access, members)))
+    return None
+
+
+async def preview(session: AsyncSession, access: Access, kind: str, scope_id: int | None) -> dict[str, Any]:
+    """Tap 3 "Takviminize şunlar gönderilecek": the fields that leave SmartSched, the number of upcoming events
+    and a sample event card from the real first upcoming one (``sample`` is null when there is none)."""
+    from app.services import calendar_classes as cc
+
+    today: date = await booking_svc.today(session)
+    fields = (await cc.fields_setting(session)).as_dict()
+    sample: dict[str, Any] | None = None
+    count = 0
+    if kind == "my_bookings":
+        q = (
+            select(Booking)
+            .where(Booking.user_id == access.user_id, Booking.status.in_((BOOKED, PENDING)), Booking.date >= today)
+            .order_by(Booking.date, Booking.start_period, Booking.id)
+        )
+        rows = list((await session.execute(q)).scalars())
+        count = len(rows)
+        if rows:
+            view = await event_view(_Cache(session), None, rows[0])
+            if view is not None:
+                tr, en = sample_text(view.start, view.end, view.summary, view.location)
+                sample = {"summary": view.summary, "location": view.location, "start": view.start.isoformat(),
+                          "end": view.end.isoformat(), "text_tr": tr, "text_en": en}  # fmt: skip
+    else:
+        flt = await _class_filter(session, access, kind, scope_id)
+        if flt is not None:
+            horizon = await cc.horizon_end(session, today)
+            sel = await cc.select_classes(session, flt, today, horizon, grace_days=0)
+            live = sorted((o for o, _ in sel.live), key=lambda o: (o.start, o.uid))
+            count = len(live)
+            if live:
+                o = live[0]
+                tr, en = sample_text(o.start, o.end, o.summary(), o.location)
+                sample = {"summary": o.summary(), "location": o.location, "start": o.start.isoformat(),
+                          "end": o.end.isoformat(), "text_tr": tr, "text_en": en}  # fmt: skip
+    sent = [k for k, on in fields.items() if on and (kind != "my_bookings" or k in ("room", "time", "department"))]
+    return {
+        "scope_kind": kind,
+        "scope_id": scope_id,
+        "upcoming_count": count,
+        "sample": sample,
+        "fields": [{"key": k, "label_tr": cc.FIELD_LABELS[k][0], "label_en": cc.FIELD_LABELS[k][1]} for k in sent],
+        "never_tr": "Öğrenci bilgisi, not ve diğer öğretim elemanlarının adları gönderilmez."
+        if not fields["co_instructors"]
+        else "Öğrenci bilgisi ve notlar gönderilmez.",
+        "never_en": "No student data, notes or other instructors' names are sent."
+        if not fields["co_instructors"]
+        else "No student data or notes are sent.",
+    }
+
+
+#: research §2.2: how soon each channel shows a change (the client decides when it polls a link)
+FRESHNESS = {
+    "push": (
+        "Değişiklikler birkaç dakika içinde takviminize yansır. Ayrı bir 'SmartSched – Derslerim' takvimi oluşturulur.",
+        "Changes reach your calendar within minutes. A separate 'SmartSched – Derslerim' calendar is created.",
+    ),
+    "link": (
+        "Apple Takvim, Google veya Outlook bu bağlantıya abone olur. Güncellemeler uygulamaya göre birkaç dakika ile "
+        "12 saat arasında gelir.",
+        "Apple Calendar, Google or Outlook subscribe to this link. Updates arrive within minutes to 12 hours, "
+        "depending on the app.",
+    ),
+    "file": (
+        "Tek seferlik kopya. Sonraki değişiklikler kendiliğinden gelmez.",
+        "A one-off copy. Later changes do not arrive by themselves.",
+    ),
+}
+
+
+async def export_options(session: AsyncSession, access: Access) -> dict[str, Any]:
+    """``GET /calendar/export/options``: per scope whether it is available (with the reason when not), the upcoming
+    count and a sample, the departments the person may export, the configured channels and the consent state."""
+    from app.services import calendar_classes as cc
+    from app.services import calendar_connectors as conn_svc
+
+    enabled = await sync_enabled(session)
+    linked = await cc.linked_instructor_ids(session, access.user_id)
+    everything, allowed = await cc.department_rule(session, access)
+    deps = list((await session.execute(select(Program).where(Program.archived.is_(False)))).scalars())
+    deps = [d for d in deps if everything or d.id in allowed]
+    deps.sort(key=lambda d: (tr_sort_key(d.name), d.id))
+    own = access.user.department_id if access.user.department_id in {d.id for d in deps} else None
+    taught = sorted(await cc.taught_program_ids(session, linked) & {d.id for d in deps})
+    default_dep = own or (taught[0] if taught else (deps[0].id if deps and not everything else None))
+    switches = await scope_switches(session)
+    scopes: list[dict[str, Any]] = []
+    for kind in ("my_classes", "department_classes", "my_bookings"):
+        tr, en = cc.SCOPE_LABELS[kind]
+        item: dict[str, Any] = {"kind": kind, "label_tr": tr, "label_en": en, "available": True, "reason": None}
+        scope_id = default_dep if kind == "department_classes" else None
+        if kind == "department_classes":
+            item["departments"] = [{"id": d.id, "name": d.name} for d in deps]
+            item["default_department_id"] = default_dep
+        try:
+            if kind == "department_classes" and scope_id is None:
+                raise cc.department_not_allowed_error(0)
+            await check_scope(session, access, kind, scope_id)
+        except cc.ScopeError as exc:
+            item["available"] = False
+            item["reason"] = {"code": exc.code, "message_tr": exc.tr, "message_en": exc.en}
+        if item["available"]:
+            item["preview"] = await preview(session, access, kind, scope_id)
+        scopes.append(item)
+    providers = {
+        p.name: {"label": p.label, "configured": await conn_svc.client_config(session, p) is not None}
+        for p in conn_svc.PROVIDERS.values()
+    }
+    return {
+        "enabled": enabled,
+        "consent": await consent_state(session, access.user),
+        "linked": bool(linked),
+        "scopes": scopes,
+        "channels": {
+            "push": {**providers, "freshness_tr": FRESHNESS["push"][0], "freshness_en": FRESHNESS["push"][1]},
+            "link": {"available": enabled, "freshness_tr": FRESHNESS["link"][0], "freshness_en": FRESHNESS["link"][1]},
+            "file": {"available": True, "freshness_tr": FRESHNESS["file"][0], "freshness_en": FRESHNESS["file"][1]},
+        },
+    }
