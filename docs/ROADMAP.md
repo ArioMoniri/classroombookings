@@ -2802,3 +2802,189 @@ Lanes: **AS-S** (solver), **AS-B** (backend), **AS-F** (frontend), **AS-T** (tes
   accept: a report `docs/testing/2026-10-xx-persona-adaptive.md` with pass/fail per step, screenshots per viewport, the backtest table, and tickets for failures.
   files: that report only; scratch otherwise.
 Order: AS-01 → AS-02 → AS-03 (migration) → AS-04 / AS-05 / AS-06 → AS-07 / AS-09 / AS-11 → AS-08 / AS-10 / AS-12 / AS-13 / AS-14 → AS-18 → frontend AS-15 / AS-16 / AS-17 → AS-20; AS-19 later.
+
+### Voice for AI features (owner request 2026-10-17)
+
+Ledger `voice-ai-res-2026-10-17`. Research, design, error copy, collisions and owner questions: [docs/research/2026-10-17-voice-ai.md](research/2026-10-17-voice-ai.md). Owner: "Add voice support, with native Claude or whichever models are possible, for transcription, or for the whole process if supported; API and model managed in the admin panel, synced for all admins; voice everywhere AI is used."
+
+Answer: the Claude API has **no audio input, STT or TTS** (Messages API content blocks have no audio type; checked 2026-10-17), so voice is a speech-to-text step in front of the existing text pipeline. Speech-to-text is a new gateway feature `voice_stt` (and optional `voice_tts` later). Admins route it in /admin/ai with the same keys, sync, test, fallback and KVKK transfer record. The transcript is editable and goes through the same guardrails, injection check, redaction, limits and metering on send. Recommended default for Turkish under KVKK: local Whisper large-v3-turbo (speaches container, `openai_compatible` + `allow_local`), with an EU cloud route (Azure or Vertex EU, standard contract notified) as the quality fallback.
+
+Gate: the voice backend tickets (VO-01, VO-02, VO-04) **start only after the security follow-up lane has closed and its diff is checkpointed.** That lane touches `app/ai/providers/**` (SSRF guard) and `app/services/ai_usage.py` (`system_scope`). Lanes:
+- **ai-engineer:** `app/ai/**`, `app/api/v1/{voice,ai_admin}.py`
+- **frontend:** new `components/voice/**` plus the mount lines
+- **devops:** headers and the optional whisper container
+- **tester**
+
+Collisions are marked per ticket.
+
+- [ ] VO-01 · ai-engineer · no migration · Speech core in the gateway.
+  - `voice_stt` and `voice_tts` go into `FEATURES` / `FEATURE_LABELS` ("Sesle yazma", "Sesli okuma") and `PERSONAL_FEATURES`.
+  - `DEFAULT_CAPS["voice_stt"] = {timeout_s: 60, max_audio_s: 120, max_bytes: 5_000_000}`.
+  - `ProviderSpec.capabilities` (`text`/`stt`/`tts`/`audio_native`); `ModelInfo.modalities` filled at sync (OpenAI-style ids `*transcribe*|whisper*|*tts*`, Gemini audio-capable models, speaches `/v1/models`).
+  - `validate_route` refuses an STT route to a non-speech model (`model_not_speech`, TR/EN). `voice_stt` never falls back to the text default (source `none`).
+  - `SpeechAdapter` ABC + `Transcript`. `openai_audio.py` covers openai / azure_openai / openai_compatible: `POST {base}/audio/transcriptions`, `language`/`languages`, vocabulary `prompt`, base URL through `url_guard.check_base_url`.
+  - `fake.py` is test-only, injected like `pipeline.TEST_TRANSPORT` and never registered.
+  accept: pytest `tests/ai/test_vo_01_*.py`:
+  - capabilities per provider;
+  - sync tags `gpt-transcribe`/`gpt-4o-mini-transcribe`/`whisper-1` as `stt` and `gpt-*` chat models as `text`;
+  - a route `voice_stt → anthropic` gives 422 `model_not_speech`;
+  - unset route gives status `none`;
+  - openai_compatible adapter against an httpx MockTransport sends multipart with `language=tr`;
+  - a private base URL without `allow_local` is refused;
+  - existing `tests/ai` stays green; ruff + mypy clean.
+  files: `backend/app/ai/context.py`, `backend/app/ai/gateway.py`, `backend/app/ai/providers/__init__.py`, `backend/app/ai/providers/base.py`, new `backend/app/ai/voice/{__init__,speech,openai_audio,fake}.py`, `backend/tests/ai/test_vo_01_*.py`; read-only `providers/url_guard.py`.
+  collisions: security follow-up (gate above).
+- [ ] VO-02 · ai-engineer · **migration (next head at merge time; CAL-B, WG-01 `0040_welcome_guide` and AS-03 also plan one, so never two heads)** · Metering and limits.
+  - Schema: `ai_usage.audio_ms` (Integer, default 0) and `ai_usage.modality` (String(12), `text|audio_in|audio_out`, default `text`).
+  - Cost: `STT_PRICE_TABLE` beside `PRICE_TABLE_VERSION` (gpt-transcribe 0.0045, gpt-4o-transcribe 0.006, gpt-4o-mini-transcribe 0.003, whisper 0.006 USD/min, local 0; Gemini audio tokens = 32/s × model audio-in price); the cost counts toward the org USD budget.
+  - Limits in `ai.limits` (no schema change): `user_daily_audio_s` (600), `user_monthly_audio_s` (6000), `org_monthly_audio_s` (0), `roles{}`/`users{}` `audio_daily`/`audio_monthly`.
+  - Reserve `max_seconds` and settle with the real duration; 429 `ai_voice_limit_reached` TR/EN.
+  - Reports: `report`/`_report_days`/`user_state` return `audio_minutes`; `GET /ai/me/usage` includes audio.
+  accept: pytest `tests/ai/test_vo_02_*.py`:
+  - one row per transcription with `feature=voice_stt`, `modality=audio_in`, `audio_ms`, cost and `detail=target=chat`;
+  - limit refusal at 601 s/day;
+  - role override wins;
+  - org report minutes per day;
+  - RLS: per-user totals stay scoped, org aggregates in `system_scope` (re-run `tests/test_w3_sec2_ai_usage_rls.py` on PostgreSQL);
+  - `alembic upgrade head` + downgrade on SQLite and PostgreSQL, one head.
+  files: `backend/app/models/ai_usage.py`, `backend/app/services/ai_usage.py`, `backend/app/ai/client.py` (price table only), new `backend/alembic/versions/00NN_ai_usage_audio.py`, `backend/tests/ai/test_vo_02_*.py`.
+  collisions: security follow-up (`ai_usage.py`), migration head (CAL-B, WG-01, AS-03).
+- [ ] VO-03 · ai-engineer · no migration · Transcribe endpoint, consent and voice settings.
+  - `POST /api/v1/ai/voice/transcribe`: multipart `audio`, `feature` ∈ {chat, rules, booking_nl, guard}, `lang`. Checks in order:
+    - consent `voice` active (403 `voice_consent_required`);
+    - `ai.voice.enabled`;
+    - mime allowlist + magic bytes;
+    - ≤ `max_bytes`;
+    - duration ≤ `max_seconds` / `max_seconds_by_target` (booking_nl 45 s);
+    - `local_only`;
+    - transfer basis (409);
+    - rate, concurrency and reservation.
+  - Then: one fallback; `strip_controls` + NFC + length cap; meter; return `{text, duration_s, language, provider_local, warnings}`. Audio is read into memory with a hard cap and never written to disk or logs.
+  - `GET /api/v1/ai/voice/status` → `{available, reason, consent, provider_local, provider_label, region, max_seconds, live_captions}`.
+  - Settings `ai.voice`: `enabled=false, consent_required=true, max_seconds=120, max_seconds_by_target, retention_days=0 (fixed in v1), local_only=false, vocabulary=catalog|off, live_captions=on_device|off, send_directly=false, tts_enabled=false, native_mode=false`.
+  - Vocabulary prompt: room codes, buildings and course codes only; people's names only for `ai_personal` grantees.
+  - KVKK: new purpose `voice` ("Sesimin yazıya dökülmesi (sesli giriş)" / "Transcribing my voice (voice input)"); DSR export lists the consent rows (no audio exists).
+  accept: pytest `tests/ai/test_vo_03_*.py`:
+  - no consent gives 403;
+  - a 121 s clip gives 413 `too_long`;
+  - `audio/webm` with a PNG body gives 415;
+  - a cloud provider without a transfer record gives 409;
+  - `local_only` blocks cloud;
+  - fallback is used on provider 5xx;
+  - the tmp dir is empty after the request;
+  - caplog has no transcript;
+  - the vocabulary prompt has no instructor names for a non-grantee;
+  - the spoken-injection fixture transcript, posted to `/chat/stream`, gives 422 `prompt_injection` (the guard runs on send).
+  files: new `backend/app/api/v1/voice.py`, new `backend/app/ai/voice/{run,policy,vocabulary}.py`, `backend/app/ai/gateway.py` (`ai.voice` getters), `backend/tests/ai/test_vo_03_*.py`; asks: one `include_router` line in `backend/app/api/v1/router.py` (router owner), one `PURPOSES` row in `backend/app/services/kvkk.py:90` (KVKK owner).
+- [ ] VO-04 · ai-engineer · no migration · Admin API for voice.
+  - `POST /ai/admin/providers/{p}/sync` stores modalities. `…/test` for an STT-capable provider transcribes the bundled 4 s Turkish clip and stores `{ok, detail, model, transcript_preview≤60}`.
+  - `GET/PUT /ai/admin/voice` (settings above; audited `ai.voice_update`).
+  - `PUT /ai/admin/routes` accepts `voice_stt` / `voice_tts`.
+  - `GET /ai/admin/usage` gains `audio_minutes` by user, feature and day.
+  - The transfer record form gets `processes_voice` + `audio_retention`.
+  accept: pytest `tests/ai/test_vo_04_*.py`:
+  - a teacher gets 403;
+  - sync then route then test against the stub;
+  - PUT voice writes an audit row;
+  - a second admin's GET sees the same settings (shared `settings` table);
+  - usage minutes add up.
+  files: `backend/app/api/v1/ai_admin.py`, `backend/app/schemas/ai_admin.py` (if separate), `backend/tests/fixtures/voice/tr-test-4s.opus` (+ `SOURCES.md`), `backend/tests/ai/test_vo_04_*.py`.
+  collisions: security follow-up.
+- [ ] VO-05 · devops · no migration · Browser permission + edge + optional local Whisper.
+  - `Permissions-Policy` `microphone=()` → `microphone=(self)` in `deploy/nginx/default.conf:108` and `deploy/caddy/Caddyfile:24`, with an assertion in `backend/tests/test_w3_sec_hardening.py` (W3-SEC owner informed).
+  - nginx `location = /api/v1/ai/voice/transcribe` with `client_max_body_size 6m` and no request-body logging.
+  - Compose profile `voice-local`:
+    - `speaches` CPU image pinned by digest (`deploy/pins.py`, `pin-digests.sh`);
+    - model `deepdml/faster-whisper-large-v3-turbo-ct2` int8, pre-fetched into a volume, no egress at runtime;
+    - internal network only;
+    - `cpus: 2`, memory limit 2.5g / reservation 1.8g;
+    - one concurrent job;
+    - healthcheck.
+  - README "Voice" section: sizing on the 8 GB host (today's limits already sum to about 9.5 GB; turn off the legacy CRBS pair or `BACKEND_MEMORY=3g` first; `small` as the low-memory fallback); admin steps (enable OpenAI-compatible, `http://whisper:8000/v1`, allow local, sync, route `voice_stt`).
+  accept:
+  - `deploy/validate.sh` passes with and without the profile;
+  - measured RSS and the latency of a 10 s Turkish clip on 2 threads are recorded in the README (target ≤ 6 s; if missed, document `small`);
+  - `getUserMedia` works on the stack behind nginx and Caddy;
+  - the security header test passes.
+  files: `deploy/nginx/default.conf`, `deploy/caddy/Caddyfile`, `deploy/docker-compose.yml` (new service + profile), `deploy/pins.py`, `deploy/README.md`, `backend/tests/test_w3_sec_hardening.py` (one assertion).
+  collisions: W3-SEC header owners (ask), integrator for compose.
+- [ ] VO-06 · frontend · no migration · `components/voice/**` core.
+  - `use-voice-recorder.ts`:
+    - MediaRecorder with `isTypeSupported` (webm/opus, then mp4);
+    - AnalyserNode level meter;
+    - auto-stop at `max_seconds` or after 2 s of silence;
+    - Esc cancels.
+  - `mic-button.tsx`:
+    - desktop click-to-toggle with ⌘/Ctrl+Shift+M;
+    - phone press-and-hold, slide-up lock, slide-left cancel;
+    - `aria-pressed`, 44 px.
+  - `voice-captions.tsx`: on-device `SpeechRecognition` interim captions only when `processLocally` tr-TR is `available`; never cloud Web Speech; `aria-live=polite`.
+  - `voice-consent-sheet.tsx`: names the provider and region and states that no audio is kept; then the browser prompt.
+  - `voice-errors.ts`: the TR/EN copy table in the research §3.7.
+  - `lib/api/voice.ts` (zod schemas, `useVoiceStatus`, `transcribe`); `messages/{tr,en}.json` `voice.*` only.
+  - Insertion at the caret with the text selected; focus stays in the box; the "Sesle girildi" chip.
+  accept:
+  - vitest `components/voice/*.test.tsx`: recorder state machine with a mocked MediaRecorder and getUserMedia, hold/lock/cancel pointer logic, each error code renders its copy, consent sheet focus and return, no cloud SpeechRecognition when `processLocally` is unavailable;
+  - tsc, eslint, `check-design.mjs` clean;
+  - reduced motion gives a static level bar.
+  files: new `frontend/src/components/voice/{mic-button,use-voice-recorder,voice-captions,voice-consent-sheet,voice-errors,index}.ts(x)` + tests, new `frontend/src/lib/api/voice.ts`, `frontend/messages/{tr,en}.json` (`voice.*`).
+  collisions: CAL-F and WG-04 also append to `messages/*.json` (namespaces only).
+- [ ] VO-07 · frontend · no migration · /admin/ai voice UI.
+  - Models tab: rows for `voice_stt` / `voice_tts` that offer only speech-capable synced models, and a "no model → mic hidden" note.
+  - Providers tab: capability chips "Metin · Ses→yazı · Sesli okuma", an STT test button showing the transcript preview, and the "processes voice" field on the transfer record.
+  - Limits tab: audio minutes per user, role and person.
+  - Usage tab: an audio-minutes series.
+  - New "Ses" card in Koruma: enabled, consent required, max seconds, local only, vocabulary, live captions, send directly (off).
+  - Profil › Yapay zekâ kullanımım: minutes used.
+  - `AI_FEATURES` in `lib/api/ai-admin.ts:28` gets the two voice features.
+  accept:
+  - vitest `components/admin/ai/*.test.tsx` extended (routes body, issues, capability filter);
+  - Playwright `e2e/vo-admin.spec.ts` at 1440 and 390 touch: sync the stub, route `voice_stt`, test shows the Turkish preview, a second admin sees the same route, MOBILE M-01/02/03/05 on `/admin/ai`.
+  files: `frontend/src/components/admin/ai/{ai-model.ts,models-tab,providers-tab,limits-tab,usage-tab,guard-tab,my-ai-usage}.tsx` + tests, `frontend/src/lib/api/ai-admin.ts`, `frontend/e2e/vo-admin.spec.ts`.
+  collisions: charts design (`usage-tab`, `CHART_SERIES`), WG-07 (`<HintSlot>` line in `ai-admin.tsx`).
+- [ ] VO-08 · frontend · no migration · Mounts on every AI text surface.
+  - Chat composer (`components/chat/chat-panel.tsx:313`, plus an actions slot in `components/ui/beautifului/prompt-composer.tsx`), `target=chat`.
+  - Studio write-it (`components/studio/write-it.tsx:100`), `rules`.
+  - Upload panel paste tab (`components/studio/upload-panel.tsx:219`), `rules`.
+  - Admin guard bench (`components/admin/ai/guard-tab.tsx`), `guard`.
+  - Quick reserve (`components/quick-reserve/quick-reserve-view.tsx`), `booking_nl`, **only when booking_nl ships** (owner question 6).
+  - The mic is hidden when `status.available` is false for config reasons.
+  accept: Playwright `e2e/vo-mounts.spec.ts` with Chromium `--use-fake-ui-for-media-stream --use-fake-device-for-media-stream --use-file-for-fake-audio-capture=e2e/fixtures/voice/tr-oda.wav` and `grantPermissions(['microphone'])`, at 1440 mouse and 390×844 touch (tr-TR, Europe/Istanbul):
+  - chat: hold, release, transcript in the box, edit, send, streamed answer;
+  - write-it: speak a rule, then the review tray;
+  - first run shows consent;
+  - a context without the grant shows `permission_denied` copy;
+  - limit reached shows the 429 copy;
+  - the spoken injection is refused on send;
+  - focus never on `<body>`;
+  - MOBILE M-01/02/03/05 on `/runs/{id}` chat and `/studio`.
+  files: the mount lines in the files above, `frontend/e2e/vo-mounts.spec.ts`, `frontend/e2e/fixtures/voice/*.wav`; asks: playwright `testMatch` append `vo-[a-z-]+` in `frontend/playwright.config.ts`.
+  collisions: mobile optimisers (chat-panel, prompt-composer, write-it, quick-reserve; mount after they close), intake lane C (`upload-panel.tsx`; mount after it closes).
+- [ ] VO-09 · tester · no migration · Fixtures, bench and persona runs.
+  - Fixtures: 8 Turkish clips (Common Voice tr CC0 + 3 consented team recordings, `SOURCES.md` with licence and consent). Contents: ğ/ş/ı/İ, "B-204 numaralı salonda", "MAT 101", "saat on dört otuzda", one name (redaction path), one spoken injection. Stored as Opus for pytest and WAV for Playwright.
+  - Opt-in `-m voice_live` bench: WER and latency on local turbo, `small`, and each configured cloud route. The result table goes to `docs/testing/2026-10-xx-voice-bench.md` and decides owner question 2.
+  - Persona runs on own stack, desktop 1440 and phone 390: planner dictates in chat and studio; admin configures, tests, limits and checks usage; teacher withdraws consent and the mic asks again; keyboard-only and screen-reader pass.
+  accept: bench report + persona report `docs/testing/2026-10-xx-persona-voice.md` with pass/fail per step, screenshots per viewport, and tickets for failures.
+  files: `backend/tests/fixtures/voice/**`, `frontend/e2e/fixtures/voice/**`, the two reports; scratch otherwise.
+- [ ] VO-10 · ai-engineer · no migration · Cloud speech adapters (after VO-09 picks one).
+  - `gemini_audio.py`: inline audio + fixed "transcribe verbatim" instruction + JSON schema; Gemini API paid tier, or Vertex EU.
+  - Speech-only providers with `capabilities={stt}` and the encrypted-key pattern: `azure_speech` (fast transcription REST, region config, `tr-TR`), `google_stt` (Chirp 3 / Gemini transcribe, `eu` location), `deepgram` (`api.eu.deepgram.com`).
+  - Each adapter: model list (static where the provider has no list endpoint), a test call, error translation to `ProviderError`, and price per minute.
+  accept: pytest `tests/ai/test_vo_10_*.py` per adapter against MockTransport (request shape, region host, error mapping, metering); a test call on the stack for the chosen one.
+  files: new `backend/app/ai/voice/{gemini_audio,azure_speech,google_stt,deepgram}.py`, `backend/app/ai/providers/__init__.py` (specs), tests.
+- [ ] VO-11 · later · Live captions over a server-relayed stream.
+  - WebSocket `/api/v1/ai/voice/stream`: the browser sends Opus chunks; the backend relays to the provider's streaming API (Deepgram EU, Azure, OpenAI `gpt-live-transcribe`, speaches realtime).
+  - Partial transcripts flow back. Keys stay on the server and CSP `connect-src 'self'` is unchanged.
+  - Metered per second.
+  - Only if users ask after v1.
+- [ ] VO-12 · later · "Whole process" native audio mode (`ai.voice.native_mode=false` by default). Gemini Live / OpenAI Realtime, chat only. Conditions:
+  - the transcript is requested first and `check_user_input` runs on it before any tool call;
+  - read-only tools only;
+  - only for `ai_personal` grantees;
+  - a transfer record is required.
+  The research §3.5 explains why this is not the default.
+- [ ] VO-13 · later · Read-aloud (`voice_tts`).
+  - Browser `speechSynthesis` first, with no upload (note: some Chrome voices are network voices; prefer local voices via `voice.localService`).
+  - Provider TTS (Azure neural tr-TR, OpenAI `gpt-4o-mini-tts`, speaches Piper) behind `tts_enabled`.
+  - Mount on explain (`components/classes/class-inspector.tsx`) and chat replies.
+Order: (security follow-up closed) → VO-01 → VO-02 (migration) / VO-05 (headers first) → VO-03 → VO-04 → VO-06 → VO-07 / VO-08 → VO-09 → VO-10; VO-11…13 later.

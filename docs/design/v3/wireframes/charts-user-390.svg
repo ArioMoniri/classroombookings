@@ -1,0 +1,55 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='390' height='844' viewBox='0 0 390 844' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='User and academician stats on a phone 390'>
+<title>User and academician stats on a phone 390</title>
+<rect width='390' height='844' fill='#F4F6F9'/>
+<text x='20' y='30' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>9:41</text>
+<text x='370' y='30' font-size='12' font-weight='500' fill='#0F172A' text-anchor='end'>100%</text>
+<text x='20' y='92' font-size='30' font-weight='700' fill='#0F172A' text-anchor='start'>Profilim</text>
+<rect x='0' y='761' width='390' height='83' rx='0' fill='#FFFFFF' fill-opacity='0.94'/>
+<line x1='0' y1='761' x2='390' y2='761' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='28.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='39.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Panel</text>
+<rect x='106.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='117.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Takvim</text>
+<rect x='184.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='195.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Rezerve et</text>
+<rect x='262.0' y='771' width='22' height='22' rx='6' fill='none' fill-opacity='1' stroke='#64748B' stroke-width='1.5'/>
+<text x='273.0' y='809' font-size='10' font-weight='500' fill='#64748B' text-anchor='middle'>Talepler</text>
+<rect x='340.0' y='771' width='22' height='22' rx='6' fill='#2563EB' fill-opacity='1' stroke='#2563EB' stroke-width='1.5'/>
+<text x='351.0' y='809' font-size='10' font-weight='600' fill='#2563EB' text-anchor='middle'>Daha</text>
+<rect x='128.0' y='835' width='134' height='5' rx='3' fill='#0F172A' fill-opacity='1'/>
+<text x='20' y='136' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>Rezervasyonlarım</text>
+<rect x='20' y='150' width='110' height='84' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='34' y='192' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>3</text>
+<text x='34' y='218' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>aktif</text>
+<rect x='140' y='150' width='110' height='84' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='154' y='192' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>11</text>
+<text x='154' y='218' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>bu dönem</text>
+<rect x='260' y='150' width='110' height='84' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='274' y='192' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>2</text>
+<text x='274' y='218' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>açık talep</text>
+<text x='20' y='256' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>3 / 5 aktif rezervasyon hakkı kullanıldı.</text>
+<text x='20' y='286' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>Haftalık ders yüküm (akademisyen)</text>
+<rect x='20' y='300' width='350' height='296' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='36' y='328' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Bu hafta 14 saat; en yoğun gün Salı (5 saat).</text>
+<text x='36' y='362' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Pzt</text>
+<rect x='80' y='350' width='132.0' height='16' rx='3' fill='#2563EB' fill-opacity='1'/>
+<text x='354' y='363' font-size='13' font-weight='600' fill='#0F172A' text-anchor='end'>3 sa</text>
+<text x='36' y='406' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Sal</text>
+<rect x='80' y='394' width='220.0' height='16' rx='3' fill='#2563EB' fill-opacity='1'/>
+<text x='354' y='407' font-size='13' font-weight='600' fill='#0F172A' text-anchor='end'>5 sa</text>
+<text x='36' y='450' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Çar</text>
+<rect x='80' y='438' width='88.0' height='16' rx='3' fill='#2563EB' fill-opacity='1'/>
+<text x='354' y='451' font-size='13' font-weight='600' fill='#0F172A' text-anchor='end'>2 sa</text>
+<text x='36' y='494' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Per</text>
+<rect x='80' y='482' width='176.0' height='16' rx='3' fill='#2563EB' fill-opacity='1'/>
+<text x='354' y='495' font-size='13' font-weight='600' fill='#0F172A' text-anchor='end'>4 sa</text>
+<text x='36' y='538' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Cum</text>
+<text x='354' y='539' font-size='13' font-weight='400' fill='#475569' text-anchor='end'>ders yok</text>
+<text x='36' y='586' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>BarList (grafik kütüphanesi yok), satır 44 px → Takvim'de o gün</text>
+<text x='20' y='622' font-size='17' font-weight='700' fill='#0F172A' text-anchor='start'>Yapay zekâ kullanımım</text>
+<rect x='20' y='636' width='350' height='100' rx='14' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='36' y='664' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Bu ay %38 · 38 bin / 100 bin token</text>
+<rect x='36' y='678' width='318' height='10' rx='5' fill='#E2E8F0' fill-opacity='1'/>
+<rect x='36' y='678' width='121' height='10' rx='5' fill='#2563EB' fill-opacity='1'/>
+<text x='36' y='712' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>1 Kasım'da sıfırlanır</text>
+</svg>

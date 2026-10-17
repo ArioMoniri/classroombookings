@@ -1,0 +1,250 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='980' viewBox='0 0 1440 980' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Chart shell anatomy, desktop 1440'>
+<title>Chart shell anatomy, desktop 1440</title>
+<rect width='1440' height='980' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='956' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='956' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='40' y='101' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Panel</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Takvim</text>
+<text x='40' y='173' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezerve et</text>
+<text x='32' y='210' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>YÖNETİM</text>
+<text x='40' y='245' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Kullanıcılar</text>
+<rect x='24' y='260' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='281' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Yapay zekâ</text>
+<text x='40' y='317' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Operasyon</text>
+<text x='40' y='353' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>İstatistikler</text>
+<text x='40' y='389' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Ayarlar</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Yapay zekâ · Kullanım</text>
+<rect x='276' y='96' width='820' height='420' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='128' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>Günlük token kullanımı</text>
+<text x='296' y='152' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Son 30 günde 1,2 milyon token; en yoğun gün 14 Ekim (82 bin). Bugün henüz bitmedi.</text>
+<rect x='814' y='112' width='210' height='36' rx='18.0' fill='#E8ECF2' fill-opacity='1'/>
+<text x='849.0' y='134.5' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>7 gün</text>
+<rect x='887.0' y='115' width='64.0' height='30' rx='15.0' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='919.0' y='134.5' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>30 gün</text>
+<text x='989.0' y='134.5' font-size='12' font-weight='400' fill='#0F172A' text-anchor='middle'>Dönem</text>
+<rect x='1032' y='112' width='44' height='36' rx='18' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1054' y='135' font-size='16' font-weight='700' fill='#0F172A' text-anchor='middle'>⋯</text>
+<rect x='296' y='174' width='12' height='12' rx='3' fill='#2a78d6' fill-opacity='1'/>
+<text x='314' y='185' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>Sohbet</text>
+<rect x='378' y='174' width='12' height='12' rx='3' fill='#eb6834' fill-opacity='1'/>
+<text x='396' y='185' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>Kurallar</text>
+<rect x='474' y='174' width='12' height='12' rx='3' fill='#1baf7a' fill-opacity='1'/>
+<text x='492' y='185' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>İçe aktarma</text>
+<rect x='591' y='174' width='12' height='12' rx='3' fill='#eda100' fill-opacity='1'/>
+<text x='609' y='185' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>Açıklama</text>
+<text x='1076' y='185' font-size='11' font-weight='400' fill='#64748B' text-anchor='end'>Biçim: yığılmış sütun · tek eksen</text>
+<line x1='340' y1='436.0' x2='1064' y2='436.0' stroke='#CBD5E1' stroke-width='1'/>
+<text x='334' y='440.0' font-size='10' font-weight='400' fill='#64748B' text-anchor='end'>0 B</text>
+<line x1='340' y1='359.3333333333333' x2='1064' y2='359.3333333333333' stroke='#EEF2F6' stroke-width='1'/>
+<text x='334' y='363.3333333333333' font-size='10' font-weight='400' fill='#64748B' text-anchor='end'>30 B</text>
+<line x1='340' y1='282.66666666666663' x2='1064' y2='282.66666666666663' stroke='#EEF2F6' stroke-width='1'/>
+<text x='334' y='286.66666666666663' font-size='10' font-weight='400' fill='#64748B' text-anchor='end'>60 B</text>
+<line x1='340' y1='206.0' x2='1064' y2='206.0' stroke='#EEF2F6' stroke-width='1'/>
+<text x='334' y='210.0' font-size='10' font-weight='400' fill='#64748B' text-anchor='end'>90 B</text>
+<rect x='344.0' y='390.0149853038606' width='20.0' height='43.98501469613939' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='344.0' y='364.4677549171165' width='20.0' height='23.5472303867441' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='344.0' y='346.07374903866076' width='20.0' height='16.39400587845575' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='344.0' y='333.8110784530236' width='20.0' height='10.262670585637169' rx='2' fill='#eda100' fill-opacity='1'/>
+<text x='354.0' y='452' font-size='10' font-weight='400' fill='#64748B' text-anchor='middle'>18 Eyl</text>
+<rect x='368.0' y='400.7572662992884' width='20.0' height='33.24273370071157' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='368.0' y='381.17796979889306' width='20.0' height='17.57929650039532' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='368.0' y='367.08087631860843' width='20.0' height='12.097093480284627' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='368.0' y='357.6828139984187' width='20.0' height='7.398062320189753' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='392.0' y='369.7019692242251' width='20.0' height='64.29803077577492' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='392.0' y='332.86972990435015' width='20.0' height='34.83223931987495' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='392.0' y='306.3505175940402' width='20.0' height='24.51921231030996' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='392.0' y='288.6710427205002' width='20.0' height='15.679474873539977' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='416.0' y='405.6267065979456' width='20.0' height='28.373293402054404' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='416.0' y='388.7526547079154' width='20.0' height='14.874051890030223' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='416.0' y='376.6033373470936' width='20.0' height='10.149317360821762' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='416.0' y='368.5037924398791' width='20.0' height='6.099544907214506' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='440.0' y='376.8467275325546' width='20.0' height='57.1532724674454' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='440.0' y='343.98379838397386' width='20.0' height='30.862929148580776' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='440.0' y='320.3224893969957' width='20.0' height='21.661308986978156' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='440.0' y='304.54828340567695' width='20.0' height='13.774205991318771' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='464.0' y='387.41571825972846' width='20.0' height='46.584281740271564' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='464.0' y='360.42445062624427' width='20.0' height='24.9912676334842' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='464.0' y='340.99073793013565' width='20.0' height='17.433712696108625' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='464.0' y='328.03492946606326' width='20.0' height='10.955808464072415' rx='2' fill='#eda100' fill-opacity='1'/>
+<text x='474.0' y='452' font-size='10' font-weight='400' fill='#64748B' text-anchor='middle'>23 Eyl</text>
+<rect x='488.0' y='406.5232667714907' width='20.0' height='27.476733228509293' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='488.0' y='390.1473038667633' width='20.0' height='14.375962904727388' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='488.0' y='378.3566105753596' width='20.0' height='9.790693291403718' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='488.0' y='370.49614838109045' width='20.0' height='5.860462194269145' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='512.0' y='378.613240968937' width='20.0' height='55.386759031063' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='512.0' y='346.731708173902' width='20.0' height='29.881532795035' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='512.0' y='323.7770045614768' width='20.0' height='20.9547036124252' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='512.0' y='308.47386881986' width='20.0' height='13.303135741616797' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='536.0' y='407.79651961075274' width='20.0' height='26.20348038924726' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='536.0' y='392.12791939450426' width='20.0' height='13.668600216248478' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='536.0' y='380.8465272388054' width='20.0' height='9.281392155698905' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='536.0' y='373.3255991350061' width='20.0' height='5.52092810379927' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='560.0' y='383.1956030445658' width='20.0' height='50.804396955434164' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='560.0' y='353.8598269582135' width='20.0' height='27.33577608635231' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='560.0' y='332.7380681760398' width='20.0' height='19.121758782173664' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='560.0' y='318.6568956545907' width='20.0' height='12.081172521449108' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='584.0' y='405.78697819601615' width='20.0' height='28.21302180398384' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='584.0' y='389.0019660826918' width='20.0' height='14.785012113324353' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='584.0' y='376.9167573610983' width='20.0' height='10.085208721593535' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='584.0' y='368.8599515467026' width='20.0' height='6.056805814395689' rx='2' fill='#eda100' fill-opacity='1'/>
+<text x='594.0' y='452' font-size='10' font-weight='400' fill='#64748B' text-anchor='middle'>28 Eyl</text>
+<rect x='608.0' y='404.491721871346' width='20.0' height='29.50827812865402' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='608.0' y='386.98712291098263' width='20.0' height='15.504598960363342' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='608.0' y='374.38381165952103' width='20.0' height='10.603311251461607' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='608.0' y='365.98160415854665' width='20.0' height='6.402207500974406' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='632.0' y='383.7623583542499' width='20.0' height='50.23764164575012' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='632.0' y='354.74144632883315' width='20.0' height='27.02091202541673' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='632.0' y='333.8463896705331' width='20.0' height='18.895056658300046' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='632.0' y='319.91635189833306' width='20.0' height='11.93003777220003' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='656.0' y='358.77748305786645' width='20.0' height='75.22251694213357' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='656.0' y='315.87608475668117' width='20.0' height='40.90139830118531' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='656.0' y='284.98707797982775' width='20.0' height='28.889006776853424' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='656.0' y='264.3944067952588' width='20.0' height='18.59267118456895' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='680.0' y='402.436898212607' width='20.0' height='31.563101787392988' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='680.0' y='383.79073055294424' width='20.0' height='16.646167659662773' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='680.0' y='370.36548983798707' width='20.0' height='11.425240714957196' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='680.0' y='361.41532936134894' width='20.0' height='6.95016047663813' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='704.0' y='396.2618602979044' width='20.0' height='37.7381397020956' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='704.0' y='374.1851160189624' width='20.0' height='20.076744278942' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='704.0' y='358.28986013812414' width='20.0' height='13.895255880838238' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='704.0' y='347.693022884232' width='20.0' height='8.59683725389216' rx='2' fill='#eda100' fill-opacity='1'/>
+<text x='714.0' y='452' font-size='10' font-weight='400' fill='#64748B' text-anchor='middle'>3 Eki</text>
+<rect x='728.0' y='371.1613968886129' width='20.0' height='62.8386031113871' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='728.0' y='335.13995071562005' width='20.0' height='34.02144617299283' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='728.0' y='309.2045094710652' width='20.0' height='23.935441244554838' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='728.0' y='291.91421530802864' width='20.0' height='15.29029416303656' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='752.0' y='351.27227467341993' width='20.0' height='82.72772532658004' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='752.0' y='304.20131615865324' width='20.0' height='45.070958514766694' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='752.0' y='270.31022602802125' width='20.0' height='31.891090130632016' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='752.0' y='247.71616594093322' width='20.0' height='20.594060087088014' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='776.0' y='374.28690689085334' width='20.0' height='59.713093109146676' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='776.0' y='340.00185516354964' width='20.0' height='32.2850517273037' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='776.0' y='315.316617919891' width='20.0' height='22.68523724365867' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='776.0' y='298.8597930907852' width='20.0' height='14.456824829105777' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='800.0' y='385.49114252418656' width='20.0' height='48.50885747581345' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='800.0' y='357.43066614873464' width='20.0' height='26.060476375451916' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='800.0' y='337.22712315840926' width='20.0' height='18.203542990325378' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='800.0' y='323.75809449819235' width='20.0' height='11.46902866021692' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='824.0' y='349.49955794267964' width='20.0' height='84.50044205732034' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='824.0' y='301.44375679972393' width='20.0' height='46.055801142955744' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='824.0' y='266.8435799767958' width='20.0' height='32.600176822928134' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='824.0' y='243.77679542817705' width='20.0' height='21.066784548618756' rx='2' fill='#eda100' fill-opacity='1'/>
+<text x='834.0' y='452' font-size='10' font-weight='400' fill='#64748B' text-anchor='middle'>8 Eki</text>
+<rect x='848.0' y='407.2322155336373' width='20.0' height='26.767784466362667' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='848.0' y='391.2501130523247' width='20.0' height='13.982102481312591' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='848.0' y='379.74299926577964' width='20.0' height='9.507113786545064' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='848.0' y='372.0715900747496' width='20.0' height='5.671409191030044' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='872.0' y='356.814108693077' width='20.0' height='77.185891306923' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='872.0' y='312.8219468558976' width='20.0' height='41.99216183717944' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='872.0' y='281.1475903331284' width='20.0' height='29.674356522769198' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='872.0' y='260.03135265128225' width='20.0' height='19.11623768184613' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='896.0' y='392.1402633188029' width='20.0' height='41.8597366811971' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='896.0' y='367.7737429403601' width='20.0' height='22.366520378442832' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='896.0' y='350.22984826788127' width='20.0' height='15.543894672478839' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='896.0' y='338.5339184862287' width='20.0' height='9.69592978165256' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='920.0' y='401.16675932350313' width='20.0' height='32.83324067649687' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='920.0' y='381.8149589476715' width='20.0' height='17.351800375831594' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='920.0' y='367.88166267707277' width='20.0' height='11.933296270598747' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='920.0' y='358.5927984966736' width='20.0' height='7.288864180399164' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='944.0' y='402.8101020153333' width='20.0' height='31.18989798466668' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='944.0' y='384.3712698016296' width='20.0' height='16.43883221370371' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='944.0' y='371.0953106077629' width='20.0' height='11.27595919386667' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='944.0' y='362.2446711451851' width='20.0' height='6.850639462577782' rx='2' fill='#eda100' fill-opacity='1'/>
+<text x='954.0' y='452' font-size='10' font-weight='400' fill='#64748B' text-anchor='middle'>13 Eki</text>
+<rect x='968.0' y='390.96827872326986' width='20.0' height='43.031721276730124' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='968.0' y='365.95065579175315' width='20.0' height='23.017622931516737' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='968.0' y='347.9379672810611' width='20.0' height='16.012688510692048' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='968.0' y='335.9295082739331' width='20.0' height='10.008459007128033' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='992.0' y='359.443553098646' width='20.0' height='74.55644690135397' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='992.0' y='316.91219370900495' width='20.0' height='40.53135938964108' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='992.0' y='286.2896149484634' width='20.0' height='28.622578760541582' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='992.0' y='265.87456244143567' width='20.0' height='18.41505250702772' rx='2' fill='#eda100' fill-opacity='1'/>
+<rect x='1016.0' y='398.9018918067235' width='20.0' height='35.098108193276516' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<rect x='1016.0' y='378.29183169934765' width='20.0' height='18.61006010737584' rx='2' fill='#eb6834' fill-opacity='1'/>
+<rect x='1016.0' y='363.452588422037' width='20.0' height='12.839243277310606' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<rect x='1016.0' y='353.5597595704966' width='20.0' height='7.892828851540402' rx='2' fill='#eda100' fill-opacity='1'/>
+<defs><pattern id='h70' width='6' height='6' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'><rect width='6' height='6' fill='#2a78d6' fill-opacity='.25'/><line x1='0' y1='0' x2='0' y2='6' stroke='#2a78d6' stroke-width='2.5'/></pattern></defs>
+<rect x='1040.0' y='374.00762983656085' width='20.0' height='59.992370163439155' rx='3' fill='url(#h70)'/>
+<defs><pattern id='h71' width='6' height='6' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'><rect width='6' height='6' fill='#eb6834' fill-opacity='.25'/><line x1='0' y1='0' x2='0' y2='6' stroke='#eb6834' stroke-width='2.5'/></pattern></defs>
+<rect x='1040.0' y='339.56742419020577' width='20.0' height='32.44020564635509' rx='3' fill='url(#h71)'/>
+<defs><pattern id='h72' width='6' height='6' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'><rect width='6' height='6' fill='#1baf7a' fill-opacity='.25'/><line x1='0' y1='0' x2='0' y2='6' stroke='#1baf7a' stroke-width='2.5'/></pattern></defs>
+<rect x='1040.0' y='314.7704761248301' width='20.0' height='22.79694806537566' rx='3' fill='url(#h72)'/>
+<defs><pattern id='h73' width='6' height='6' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'><rect width='6' height='6' fill='#eda100' fill-opacity='.25'/><line x1='0' y1='0' x2='0' y2='6' stroke='#eda100' stroke-width='2.5'/></pattern></defs>
+<rect x='1040.0' y='298.2391774145797' width='20.0' height='14.531298710250443' rx='3' fill='url(#h73)'/>
+<text x='1050.0' y='452' font-size='10' font-weight='400' fill='#64748B' text-anchor='middle'>17 Eki</text>
+<line x1='796' y1='206' x2='796' y2='436' stroke='#94A3B8' stroke-width='1' stroke-dasharray='3 3'/>
+<rect x='810' y='236' width='190' height='112' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='822' y='258' font-size='12' font-weight='700' fill='#0F172A' text-anchor='start'>14 Ekim Çarşamba</text>
+<rect x='822' y='270' width='8' height='8' rx='2' fill='#2a78d6' fill-opacity='1'/>
+<text x='836' y='278' font-size='11' font-weight='400' fill='#0F172A' text-anchor='start'>Sohbet</text>
+<text x='988' y='278' font-size='11' font-weight='600' fill='#0F172A' text-anchor='end'>37.120</text>
+<rect x='822' y='288' width='8' height='8' rx='2' fill='#eb6834' fill-opacity='1'/>
+<text x='836' y='296' font-size='11' font-weight='400' fill='#0F172A' text-anchor='start'>Kurallar</text>
+<text x='988' y='296' font-size='11' font-weight='600' fill='#0F172A' text-anchor='end'>20.400</text>
+<rect x='822' y='306' width='8' height='8' rx='2' fill='#1baf7a' fill-opacity='1'/>
+<text x='836' y='314' font-size='11' font-weight='400' fill='#0F172A' text-anchor='start'>İçe aktarma</text>
+<text x='988' y='314' font-size='11' font-weight='600' fill='#0F172A' text-anchor='end'>14.950</text>
+<rect x='822' y='324' width='8' height='8' rx='2' fill='#eda100' fill-opacity='1'/>
+<text x='836' y='332' font-size='11' font-weight='400' fill='#0F172A' text-anchor='start'>Açıklama</text>
+<text x='988' y='332' font-size='11' font-weight='600' fill='#0F172A' text-anchor='end'>9.830</text>
+<line x1='296' y1='468' x2='1076' y2='468' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='496' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Tabloyu göster</text>
+<text x='1076' y='496' font-size='12' font-weight='400' fill='#64748B' text-anchor='end'>Güncellendi 19:42 · Europe/Istanbul</text>
+<text x='1124' y='128' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>① Başlık: ne ölçülüyor (isim, birim yok)</text>
+<text x='1124' y='152' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>② Özet cümle = aria-describedby; Intl tr-TR sayılar</text>
+<text x='1124' y='236' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>③ Dönem: SegmentedControl, URL ?period=30d</text>
+<text x='1124' y='256' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>   (tabs-sliding free recipe, 250→180 ms)</text>
+<text x='1124' y='292' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>④ ⋯ menü: Veriyi indir (CSV), PNG/SVG,</text>
+<text x='1124' y='310' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>   Tabloyu göster, Yazdır</text>
+<text x='1124' y='356' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>⑤ Lejant ≥ 2 seri; sıra sabit cat-1…cat-4</text>
+<text x='1124' y='396' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>⑥ Bugün = taralı (decal), 'henüz bitmedi'</text>
+<text x='1124' y='436' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>⑦ İpucu: tooltip free recipe 150/50 ms;</text>
+<text x='1124' y='454' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>   klavye: ←/→ gün gün, Esc kapatır</text>
+<text x='1124' y='496' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>⑧ Tablo ikizi: aynı veri, sr + görünür</text>
+<rect x='276' y='540' width='820' height='300' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='570' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Günlük token kullanımı · tablo</text>
+<text x='1076' y='570' font-size='13' font-weight='600' fill='#2563EB' text-anchor='end'>Grafiği göster</text>
+<text x='296' y='606' font-size='12' font-weight='600' fill='#475569' text-anchor='start'>Gün</text>
+<text x='528' y='606' font-size='12' font-weight='600' fill='#475569' text-anchor='end'>Sohbet</text>
+<text x='660' y='606' font-size='12' font-weight='600' fill='#475569' text-anchor='end'>Kurallar</text>
+<text x='792' y='606' font-size='12' font-weight='600' fill='#475569' text-anchor='end'>İçe aktarma</text>
+<text x='924' y='606' font-size='12' font-weight='600' fill='#475569' text-anchor='end'>Açıklama</text>
+<text x='1056' y='606' font-size='12' font-weight='600' fill='#475569' text-anchor='end'>Toplam</text>
+<line x1='296' y1='614' x2='1076' y2='614' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='636' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>17 Eki Cmt (bugün, eksik)</text>
+<text x='528' y='636' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>4.210</text>
+<text x='660' y='636' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>1.020</text>
+<text x='792' y='636' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>0</text>
+<text x='924' y='636' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>312</text>
+<text x='1056' y='636' font-size='12' font-weight='600' fill='#0F172A' text-anchor='end'>5.542</text>
+<line x1='296' y1='648' x2='1076' y2='648' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='670' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>16 Eki Cum</text>
+<text x='528' y='670' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>21.004</text>
+<text x='660' y='670' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>6.300</text>
+<text x='792' y='670' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>2.100</text>
+<text x='924' y='670' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>1.880</text>
+<text x='1056' y='670' font-size='12' font-weight='600' fill='#0F172A' text-anchor='end'>31.284</text>
+<line x1='296' y1='682' x2='1076' y2='682' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='704' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>15 Eki Per</text>
+<text x='528' y='704' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>32.330</text>
+<text x='660' y='704' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>9.410</text>
+<text x='792' y='704' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>7.000</text>
+<text x='924' y='704' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>3.120</text>
+<text x='1056' y='704' font-size='12' font-weight='600' fill='#0F172A' text-anchor='end'>51.860</text>
+<line x1='296' y1='716' x2='1076' y2='716' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='738' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>14 Eki Çar</text>
+<text x='528' y='738' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>37.120</text>
+<text x='660' y='738' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>20.400</text>
+<text x='792' y='738' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>14.950</text>
+<text x='924' y='738' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'>9.830</text>
+<text x='1056' y='738' font-size='12' font-weight='600' fill='#0F172A' text-anchor='end'>82.300</text>
+<line x1='296' y1='750' x2='1076' y2='750' stroke='#E2E8F0' stroke-width='1'/>
+<text x='296' y='772' font-size='12' font-weight='400' fill='#0F172A' text-anchor='start'>…</text>
+<text x='528' y='772' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'></text>
+<text x='660' y='772' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'></text>
+<text x='792' y='772' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'></text>
+<text x='924' y='772' font-size='12' font-weight='400' fill='#0F172A' text-anchor='end'></text>
+<text x='1056' y='772' font-size='12' font-weight='600' fill='#0F172A' text-anchor='end'></text>
+<text x='296' y='826' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>&lt;table&gt; with &lt;caption&gt;, &lt;th scope&gt;; the same rows the CSV writes (UTF-8 BOM, ';' separator for Excel tr-TR)</text>
+</svg>

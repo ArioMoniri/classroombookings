@@ -61,9 +61,16 @@ def test_cal_01_sqlite_round_trip_backfills_item_keys(tmp_path) -> None:
     )
     assert "item_key" in _cols(path, "calendar_event_links") and "item_key" in _cols(path, "calendar_sync_jobs")
     assert "export_scopes" in _cols(path, "oauth_states")
-    assert {"uid", "term_id", "fingerprint", "sequence", "last_modified", "ended_at", "instructor_ids", "starts_at"} <= (
-        _cols(path, "calendar_class_revisions")
-    )
+    assert {
+        "uid",
+        "term_id",
+        "fingerprint",
+        "sequence",
+        "last_modified",
+        "ended_at",
+        "instructor_ids",
+        "starts_at",
+    } <= (_cols(path, "calendar_class_revisions"))
     con = sqlite3.connect(path)
     assert con.execute("select item_key, booking_id from calendar_event_links").fetchall() == [("booking:42", 42)]
     # a class link has no booking id; the key is unique per connection

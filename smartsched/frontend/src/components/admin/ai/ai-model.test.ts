@@ -37,6 +37,8 @@ function provider(over: Partial<Provider> = {}): Provider {
     models: [{ id: "llama3.1" }, { id: "qwen3" }],
     fetched_at: "2026-10-17T18:40:00",
     sync_error: null,
+    allow_local: false,
+    warnings: [],
     last_test: {},
     transfer: {},
     transfer_ok: true,

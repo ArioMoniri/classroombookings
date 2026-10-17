@@ -34,6 +34,7 @@ from app.models import (
     Term,
     Week,
 )
+from app.services import seasons
 from app.services.calendar import date_for, week_index_for_date
 from app.solver import model as sm
 from app.workers.queue import worker_id
@@ -197,7 +198,7 @@ def _bridge_diag(
     return asdict(sm.Diagnosis(event_ids, kinds or [], message, suggestions, severity, code, dict(params or {})))
 
 
-def horizon_weeks(run: ScheduleRun, term: Term) -> list[int]:
+def _raw_horizon(run: ScheduleRun, term: Term) -> list[int]:
     hp = run.horizon_params or {}
     if run.horizon == "WEEK":
         w = hp.get("week") or (hp.get("weeks") or [1])[0]
@@ -210,6 +211,29 @@ def horizon_weeks(run: ScheduleRun, term: Term) -> list[int]:
     if hp.get("weeks"):
         return [int(w) for w in hp["weeks"]]
     return list(range(1, (term.week_count or 14) + 1))
+
+
+#: ``run.stats`` key of the weeks the bridge planned (AS-02): the horizon after the week-kind filter
+HORIZON_STATS_KEY = "horizon_weeks"
+
+
+def horizon_weeks(run: ScheduleRun, term: Term, kinds: Mapping[int, str] | None = None) -> list[int]:
+    """The weeks a run plans. COURSE runs skip HOLIDAY / EXAM / MAKEUP weeks (and SUMMER weeks of a term that is
+    not a summer term; ``seasons.course_weeks``, AS-02) when ``kinds`` (week index -> kind) is given; a one-week
+    run keeps the week it names. Without ``kinds`` a run the bridge built answers the horizon it planned
+    (``stats.horizon_weeks``), so the planner check, utilisation and the fix button see the same weeks."""
+    raw = _raw_horizon(run, term)
+    if kinds is None:
+        stored = (run.stats or {}).get(HORIZON_STATS_KEY)
+        if isinstance(stored, list) and stored and all(isinstance(w, int) for w in stored):
+            return [int(w) for w in stored]
+        return raw
+    if (run.kind or "COURSE") == "EXAM" or run.horizon == "WEEK":
+        return raw
+    from app.services.seasons import course_weeks
+
+    kept, _dropped = course_weeks(raw, kinds, term)
+    return kept
 
 
 #: leading zeros of a course number: the importers' :data:`normalize.LEADING_ZEROS_RX` (one definition)
@@ -581,10 +605,20 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     term = await session.get(Term, run.term_id)
     assert term is not None
     weeks_rows = (await session.execute(select(Week).where(Week.term_id == term.id))).scalars().all()
-    weeks = horizon_weeks(run, term)
+    kinds = seasons.week_kinds(weeks_rows)
+    weeks = horizon_weeks(run, term, kinds=kinds)
     week_set = set(weeks)
     params = run.params or {}
     exam = run.kind == "EXAM"
+    skipped = sorted(set(_raw_horizon(run, term)) - week_set) if not exam else []
+    # AS-01: DEFAULT_WEIGHTS < settings solver_weights < active season profile < run params (server side)
+    eff = await seasons.effective_weights(session, run, term=term, weeks=weeks, weeks_rows=list(weeks_rows))
+    run.stats = {
+        **{k: v for k, v in (run.stats or {}).items() if k not in ("horizon_skipped_weeks", "weights_warnings")},
+        **eff.stats(),
+        HORIZON_STATS_KEY: list(weeks),
+        **({"horizon_skipped_weeks": skipped} if skipped else {}),
+    }
 
     rooms_db = (
         (await session.execute(select(Room).where(Room.is_bookable.is_(True)).order_by(Room.code))).scalars().all()
@@ -1241,7 +1275,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         time_limit_s=float(params.get("time_limit_s", 60.0)),
         seed=int(params.get("seed", 0)),
         workers=solver_workers(params),
-        weights=dict(params.get("weights", {})),
+        weights=dict(eff.overrides),
         trust_locked_rooms=run_mode(params, "trust_locked_rooms"),
         fixed_conflicts_as_warnings=run_mode(params, "fixed_conflicts_as_warnings"),
         best_effort=run_mode(params, "best_effort"),

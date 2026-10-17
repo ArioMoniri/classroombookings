@@ -2888,7 +2888,8 @@
       "goal": "You are the VOICE-AI researcher and architect for SmartSched (repo /home/user/classroombookings). The backend is smartsched/backend, with the AI gateway in app/ai built by W3-AI: 8 providers, per-feature routes, synced models, metering in ai_usage, guardrails, /admin/ai. The frontend is smartsched/f…",
       "ledger": "Voice AI research + design",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:10"
     },
     {
       "id": "ab46870bd43d06768",

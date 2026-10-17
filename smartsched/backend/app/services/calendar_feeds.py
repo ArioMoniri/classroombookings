@@ -868,7 +868,7 @@ async def create_subscription(
 
 
 async def rotate_subscription(session: AsyncSession, access: Access, row: CalendarFeedToken) -> tuple[Any, str]:
-    """"Bağlantıyı yenile": a new link of the same scope (re-checked), the old one revoked."""
+    """Rotate ("Bağlantıyı yenile"): a new link of the same scope (re-checked), the old one revoked."""
     kind, scope_id, label = row.scope_kind, row.scope_id, row.label
     if kind is None:
         await session.delete(row)
