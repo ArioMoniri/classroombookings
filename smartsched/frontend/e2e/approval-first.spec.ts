@@ -376,7 +376,9 @@ test("approval-first 7. Profile › Bildirimler saves an event × channel switch
   await page.goto("/profile#notifications");
   const panel = page.getByTestId("notification-prefs");
   await expect(panel.getByTestId("prefs-matrix-approvals")).toBeVisible({ timeout: 30_000 });
-  for (const label of ["Onaylar", "Rezervasyonlar", "Onayımı bekleyen yeni oda talepleri", "Talebim onaylandı", "Talebim reddedildi (gerekçesiyle)", "Talebimin süresi doldu", "Uygulama içi", "E-posta"]) await expect(panel).toContainText(label);
+  // T-R1-05: approver-only events ("Onayımı bekleyen yeni oda talepleri") are hidden from a teacher without approvals.decide
+  for (const label of ["Onaylar", "Rezervasyonlar", "Talebim onaylandı", "Talebim reddedildi (gerekçesiyle)", "Talebimin süresi doldu", "Uygulama içi", "E-posta"]) await expect(panel).toContainText(label);
+  await expect(panel).not.toContainText("Onayımı bekleyen yeni oda talepleri");
   const cell = panel.getByTestId("pref-approval.approved-email");
   await expect(cell).toHaveAttribute("aria-checked", "true");
   await cell.click();
@@ -388,13 +390,15 @@ test("approval-first 7. Profile › Bildirimler saves an event × channel switch
 
   const p = await phonePage(browser, { id: TEACHER.username, password: TEACHER.password });
   await p.goto("/profile#notifications");
-  // in-app + e-mail fit a matrix on a phone: the approvals group is open, the others are collapsed
+  // T-R1-05: below md the groups are one card per event (no table); the approvals group is open, the others are collapsed
   const prefs = p.getByTestId("notification-prefs");
-  const matrix = prefs.getByTestId("prefs-matrix-approvals");
-  await expect(matrix).toBeVisible({ timeout: 30_000 });
-  await expect(matrix.getByTestId("pref-approval.approved-email")).toHaveAttribute("aria-checked", "false");
-  for (const row of await matrix.locator("tbody tr").all()) expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  await expect(prefs.getByTestId("prefs-matrix-bookings")).toBeHidden();
+  const cards = prefs.getByTestId("prefs-cards-approvals");
+  await expect(cards).toBeVisible({ timeout: 30_000 });
+  expect(await prefs.locator("table").count()).toBe(0);
+  await expect(cards.getByTestId("pref-approval.approved-email")).toHaveAttribute("aria-checked", "false");
+  for (const row of await cards.locator("li li").all()) expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expect(prefs.getByTestId("prefs-group-bookings")).not.toHaveAttribute("open");
+  await expect(prefs.getByTestId("prefs-cards-bookings")).toBeHidden();
   expect((await prefs.boundingBox())!.height).toBeLessThan(1600);
   expect(await noSidewaysScroll(p)).toBe(true);
   // the settings tabs are 44 px on touch

@@ -2,7 +2,7 @@
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `59efca1` (committed 2026-10-17 02:09 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `9310933` (committed 2026-10-17 02:17 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -343,3 +343,4 @@ Generated blocks last synced on top of commit `59efca1` (committed 2026-10-17 02
 | 2026-10-17 00:48 | persona tester (flow-r2-staff-2026-10-17) | round 2 staff: F-01..F-04, F-12, F-13 at 1440 + 390 touch, MOBILE M-01..M-14, re-verify R1-S-01..39 | START: snapshot deb38315 worktree, stack :19210/:19211 up, runs started, seed, sink :2526; report docs/testing/flows/rounds/round-2-staff.md/.jsonl |
 - [2026-10-17 00:49 UTC] [persona tester (flow-r2-academician-2026-10-17)] [round 2] START: snapshot deb38315 worktree + own stack :19220/:19221 up, seed applied (user 4 ↔ instructor 157, KVKK left 0), SMTP sink :2527, solver runs started; flows F-01/03/04/05/12/13 at 1440 + 390 touch, re-verify R1-A-01…40. next: F-12 while the runs finish, then snapshot and the booking flows.
 - [2026-10-17 02:05 UTC] [persona tester (flow-r2-academician-2026-10-17)] [round 2] DONE: F-01/03/04/05/12/13 (+F-06 L1 check) at 1440 + 390 touch (+768 keyboard for C06), MOBILE M-01…M-14 on every route, 318 step rows; R1-A-01…40 re-run: 37 verified, 3 reopened (R1-A-17 part, R1-A-35, R1-A-36 suggestions); 19 new (0 blocker, 4 major: page-level keyboard cover R2-A-02, confirm dialogs do not trap focus R2-A-03, find-room Ara not sticky R2-A-04, small controls on /find-room R2-A-05; 10 minor incl. the 4-tab bar label overlap R2-A-01; 2 trivial; 3 suggestions). Report docs/testing/flows/rounds/round-2-academician.md + .jsonl; evidence /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/r2acad/ev. Stack :19220/19221 down, worktree removed. next: suggester.
+- [2026-10-17 02:25 UTC] [frontend-engineer (e2e-gate-2026-10-17)] [e2e gate] START: pod e2e-real gate reproduced without Docker on head 59efca13: backend :19260 (fresh SQLite, Bahar + room master + Final + analytics seed + full-term run per e2e-backend-entry.sh, clock 2026-02-16), empty backend :19262, smtp sink :19263/:19264, frontend copy built outside the repo on :19261 (turbopack root / for the node_modules symlink); 278 tests, chromium + mobile + integrity + intake projects, --retries 1 --trace off, output under the session scratchpad. next: classify every failure (regression / test drift / flake), fix test drift only, DONE row.

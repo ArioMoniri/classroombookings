@@ -405,11 +405,17 @@ test("14. no escalation: a role manager without planning rights cannot grant, ed
   expect(await refused.text()).toContain(plannerMissing[0]!);
 
   await uiLogin(page, mgr.username, mgr.password);
-  // role editor: Planner is read-only (names what is missing), cannot be deleted
+  // role editor: Planner is read-only (names what is missing), cannot be deleted. The built-in role reads as
+  // "Planlamacı" (roleLabel, T-R1-30 / T-R1-06) and the missing permissions as their Turkish labels (T-R1-33)
+  const tr = JSON.parse(fs.readFileSync("messages/tr.json", "utf-8")) as { crbs: { perm: Record<string, string> }; approvals?: { perm?: Record<string, string> } };
+  const permLabel = (name: string) => tr.crbs.perm[name.replace(".", "_")] ?? tr.approvals?.perm?.[name.replace(".", "_")] ?? name;
   await page.goto("/admin/roles");
-  await page.getByRole("button", { name: /^Planner/ }).click();
+  await page.getByRole("button", { name: /^Planlamacı/ }).click();
   const editor = page.getByTestId("role-editor");
-  await expect(editor.getByTestId("role-readonly")).toContainText(plannerMissing[0]!);
+  await expect(editor.getByTestId("role-readonly")).toContainText("Salt okunur");
+  const readonlyText = (await editor.getByTestId("role-readonly").innerText()).trim();
+  expect(plannerMissing.some((p) => readonlyText.includes(permLabel(p)))).toBe(true);
+  expect(readonlyText).not.toContain(plannerMissing[0]!);
   await expect(editor.getByRole("button", { name: /Rolü sil|Delete role/ })).toHaveCount(0);
   await expect(editor.getByTestId("role-save")).toBeDisabled();
   // a new role cannot get a permission the editor does not hold
@@ -425,7 +431,7 @@ test("14. no escalation: a role manager without planning rights cannot grant, ed
   await expect(page.locator('[data-username="admin@smartsched.local"]').getByTestId("user-privileged")).toBeVisible();
   await page.getByTestId("users-new").click();
   const dialog = page.getByTestId("user-dialog");
-  const plannerOption = dialog.locator("#u-role option", { hasText: /^Planner/ });
+  const plannerOption = dialog.locator("#u-role option", { hasText: /^Planlamacı/ }); // roleLabel (T-R1-30)
   await expect(plannerOption).toBeDisabled();
   await expect(plannerOption).toContainText("eksik:");
   await expect(dialog.locator("#u-role option", { hasText: roleName })).toBeEnabled();
