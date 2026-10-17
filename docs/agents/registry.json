@@ -2071,7 +2071,8 @@
       "goal": "You are the **academician persona tester** (senior academician, instructor of PSY 278 Bahar / PSY 277 Güz; README §2 account `akademisyen.test@smartsched.local`, linked to that instructor) for flow loop **round 2** of SmartSched. Ledger name `flow-r2-academician-2026-10-17`. Read /tmp/claude-0/-home…",
       "ledger": "Round-2 persona tester: academician",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 02:08"
     },
     {
       "id": "a97773b4e46629dd4",
@@ -2100,6 +2101,14 @@
       "status": "finished",
       "finished_at": "2026-10-17 01:15",
       "left_off": "keep going and report when round 2 testers finish"
+    },
+    {
+      "id": "a2be5f4576814b04b",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 01:46",
+      "left_off": "how is round 2 going"
     }
   ]
 }
