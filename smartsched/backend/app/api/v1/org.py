@@ -16,6 +16,7 @@ from app.api.deps import DB, CurrentAccess, CurrentUser, bearer, get_current_use
 from app.core.config import get_settings
 from app.core.identity import clean_email, fold_username
 from app.core.images import ImageError, sanitize_image
+from app.schemas import messages
 from app.core.security import hash_password, revoke_tokens, verify_password
 from app.importers import normalize as n
 from app.models import (
@@ -278,7 +279,8 @@ async def upload_logo(db: DB, _: SettingsAdmin, file: UploadFile = File(...)) ->
     try:
         data, ext = sanitize_image(raw, max_bytes=LOGO_MAX_BYTES)
     except ImageError as exc:
-        raise HTTPException(exc.status, exc.message) from exc
+        # lane F ask (T-R2-33): the coded refusal with its Turkish sentence, never the English tail
+        raise messages.problem(exc.status, exc.code, exc.message_tr, exc.message) from exc
     target = Path(get_settings().upload_dir) / "rooms"  # the only public upload directory
     target.mkdir(parents=True, exist_ok=True)
     for old in target.glob("org-logo.*"):

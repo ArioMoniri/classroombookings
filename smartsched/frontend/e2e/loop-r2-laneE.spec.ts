@@ -189,19 +189,19 @@ test("T-R2-30 · the pin template marks 'sığmaz' for B 201 with ING 302 and of
   await page.locator("#scope-term").selectOption(String(ctx.bahar.id));
   await page.getByTestId("rail-step-rules").click();
   await page.getByTestId("rules-step").waitFor();
-  await page.getByTestId("add-rule").click().catch(async () => page.getByRole("button", { name: /Kural ekle|Şablon/ }).first().click());
+  await page.getByTestId("add-template").click();
   const tpl = page.getByTestId("template-always_in_room");
   await tpl.waitFor({ timeout: 15_000 });
   await tpl.click();
   await page.getByTestId("rule-builder").waitFor();
   // the course: ING 302 (100 students); the course picker shows each meeting's day and time
-  const courseBox = page.locator('[data-testid="rule-builder"] input[aria-label^="Ara: Ders"], [data-testid="rule-builder"] input[aria-label*="Ders"]').first();
+  const courseBox = page.locator('[data-testid="rule-builder"] input[aria-label="Ara: Ders"]');
   await courseBox.fill("ING 302");
   const course = page.locator('[data-testid^="course-option-"]').first();
   await expect(course).toContainText(/P\d|\d\d:\d\d/);
   await course.locator("input").check();
   // the room: B 201 (30 seats) → sığmaz
-  const roomBox = page.locator('[data-testid="rule-builder"] input[aria-label*="Derslik"], [data-testid="rule-builder"] input[aria-label*="Oda"]').first();
+  const roomBox = page.locator('[data-testid="rule-builder"] input[aria-label="Ara: Derslik"]');
   await roomBox.fill("B 201");
   const room = page.locator('[data-testid^="room-option-"]').filter({ hasText: "B 201" }).first();
   await expect(room).toContainText(/sığmaz \(\d+ > 30\)/);
@@ -214,17 +214,18 @@ test("T-R2-30 · the pin template marks 'sığmaz' for B 201 with ING 302 and of
 
 test("T-R2-30 · the move dialog disables Taşı on a Sığmaz room and explains in the force panel", async ({ page }) => {
   test.skip(!ctx.termRun, "no finished Bahar term run");
+  // the biggest class of week 3 (MAT 112 §1, 180 students on the real Bahar list): most rooms are too small for it
+  const asg = await api<{ id: number; size: number | null }[]>("GET", `/runs/${ctx.termRun!.id}/assignments?week=3`);
+  const big = [...asg].sort((a, b) => (b.size ?? 0) - (a.size ?? 0))[0];
   await login(page);
-  await page.goto(`/timetable?run=${ctx.termRun!.id}&week=3`);
+  await page.goto(`/timetable?run=${ctx.termRun!.id}&week=3&sel=${big.id}`);
   await page.getByTestId("time-grid").waitFor();
-  // a big class: the first chip whose size exceeds the smallest free-room list entry
-  await page.getByTestId("calendar-event").first().click();
-  await expect(page.getByTestId("class-inspector")).toBeVisible();
+  await expect(page.getByTestId("class-inspector")).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("inspector-move").click();
   const dialog = page.getByTestId("move-dialog");
   await expect(dialog).toBeVisible();
   const small = dialog.locator('[data-testid="free-room"][data-status="too_small"]').first();
-  test.skip((await small.count()) === 0, "no too-small room for this class at this slot");
+  await expect(small).toBeVisible({ timeout: 30_000 });
   await small.click();
   await expect(dialog.getByTestId("move-confirm")).toBeDisabled();
   await expect(dialog.getByTestId("move-force-panel")).toBeVisible();
@@ -246,16 +247,16 @@ test("T-R2-30 · cancel right after POST /runs → CANCELLED by the display name
   expect(again.body.detail.message_tr).toContain("çalıştırması");
   // a planner may not force a move: 403 with a Turkish sentence
   const email = "planner.lane-e@smartsched.local";
-  const users = await api<{ id: number; email: string }[] | { items: { id: number; email: string }[] }>("GET", "/admin/users?q=planner.lane-e");
+  const users = await api<{ id: number; email: string }[] | { items: { id: number; email: string }[] }>("GET", "/users?q=planner.lane-e");
   const list = Array.isArray(users) ? users : users.items;
-  if (!list.some((u) => u.email === email)) await api("POST", "/admin/users", { email, full_name: "P. L.", role: "PLANNER", password: "Flow-2026!pw" });
+  if (!list.some((u) => u.email === email)) await api("POST", "/users", { email, full_name: "P. L.", role: "PLANNER", password: "Flow-2026!pw" });
   const login = await ctx.api.post(`${API}/auth/login`, { data: { email, password: "Flow-2026!pw" } });
   expect(login.status()).toBe(200);
   const planner = ((await login.json()) as { access_token: string }).access_token;
   test.skip(!ctx.termRun, "no finished Bahar term run");
   const asg = await api<{ id: number; day: number; start_period: number; end_period: number; room_ids: number[] }[]>("GET", `/runs/${ctx.termRun!.id}/assignments?week=3&day=1`);
   const a = asg[0];
-  const forced = await call<{ detail: { message?: string; message_tr?: string } }>("POST", `/runs/${ctx.termRun!.id}/moves`, { force: true, reason: "lane E test", moves: [{ assignment_id: a.id, day: a.day, start_period: a.start_period, end_period: a.end_period, room_ids: a.room_ids, scope: "all" }] }, planner);
+  const forced = await call<{ detail: { message?: string; message_tr?: string } }>("POST", `/runs/${ctx.termRun!.id}/assignments/bulk-move`, { force: true, reason: "lane E test", moves: [{ aid: a.id, day: a.day, start_period: a.start_period, end_period: a.end_period, room_ids: a.room_ids, scope: "all" }] }, planner);
   expect(forced.status).toBe(403);
   expect(forced.body.detail.message_tr).toContain("yöneticilere açık");
 });

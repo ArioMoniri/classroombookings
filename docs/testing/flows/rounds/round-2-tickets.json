@@ -1202,7 +1202,9 @@
       "smartsched/frontend/src/lib/api/error-text.ts"
      ],
      "dedup": "related to T-R1-48's ScheduleRun.error zod work (sweeper 2, ff85f52c)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "loose ActivateOut + publish fallback on a 2xx shape failure (TR text); started-toast dismissed on preview render (e2e gate); vitest 7, e2e loop-r2-laneD green on stack; lane S items folded in (repairUnavailable hint, published_kept texts + unit test)"
     },
     {
      "id": "T-R2-24",
@@ -1221,7 +1223,9 @@
       "smartsched/backend/app/api/v1/learning.py"
      ],
      "dedup": "new; P19 learning acceptance L9",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "reset()/undo recompute the person's priors synchronously (scoped recompute), ensure_priors fingerprint re-check, accepted cards stay listed; pytest 16 passed; UI reset on stack → only accepted left, Geri al restores"
     },
     {
      "id": "T-R2-25",
@@ -1245,7 +1249,9 @@
       "smartsched/backend/app/api/v1/moderation.py:295-300"
      ],
      "dedup": "T-R1-20 follow-up (verified); the run-report focus part of R2-M-26 is T-R2-30",
-     "depends_on": []
+     "depends_on": [],
+     "status": "partly",
+     "resolution": "empty state with hidden count + 'Tümü'nü göster', ' · ' separator, focus after save (row / save button) verified on stack desktop+phone; planner person-priority 403 left for the owner (no coordinator permission; r1 lane D test expects 200)"
     }
    ],
    "done_when": "every ticket's check passes; pytest learning; vitest moderation; MOBILE M-02 at 390 on /moderation/me and /moderation/people/<id>"

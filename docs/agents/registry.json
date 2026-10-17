@@ -2236,7 +2236,9 @@
       "goal": "You are the round-2 loop builder for **lane C (intake, council, onboarding, programme wizard)** of SmartSched, ledger `loop-r2-laneC-2026-10-17`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md then .../briefs/ROUND2-BUILD.md and follo…",
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 08:21",
+      "left_off": "Everything left depends on the two running checks (pytest `test_reupload.py` final run → green4.txt; Playwright lane C spec → pw2.txt, monitored). I'll apply the ROADMAP / JSON / PROGRESS hand-off once they report."
     },
     {
       "id": "afe38e299d6f66d51",
@@ -2272,7 +2274,8 @@
       "goal": "You are the round-2 loop builder for **lane D (moderation console, learning, re-solve preview UI)** of SmartSched, ledger `loop-r2-laneD-2026-10-17`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md then .../briefs/ROUND2-BUILD.md and f…",
       "ledger": "R2 lane D: moderation/learning UI",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 08:21"
     },
     {
       "id": "a9e52711559d8cd53",
@@ -2385,6 +2388,14 @@
       "status": "finished",
       "finished_at": "2026-10-17 08:12",
       "left_off": "keep going and send me the BLUF when round 2 lanes finish"
+    },
+    {
+      "id": "a94f35fefde7c5108",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 08:18",
+      "left_off": "keep going and ping me when round 2 is clean"
     }
   ]
 }

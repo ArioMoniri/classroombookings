@@ -20,3 +20,16 @@ async def test_short_reset_code_is_a_coded_400(env):  # noqa: F811
         "/api/v1/auth/password-reset/confirm", json={"token": "nope-nope-nope", "password": "Flow-2026!pw"}
     )
     assert r.status_code == 400 and r.json()["detail"]["code"] == "invalid_code"
+
+
+async def test_refused_logo_is_a_coded_problem_with_turkish(env):  # noqa: F811
+    """Lane F ask (T-R2-33): an SVG / polyglot logo is refused with code + message_tr, not the bare English text."""
+    c = env.client
+    r = await c.post(
+        "/api/v1/org/logo",
+        files={"file": ("logo.svg", b"<svg xmlns='http://www.w3.org/2000/svg'/>", "image/svg+xml")},
+        headers=env.admin,
+    )
+    assert r.status_code in (400, 415, 422), r.text
+    detail = r.json()["detail"]
+    assert detail["code"] and detail["message_tr"] and "image" not in detail["message_tr"].lower()
