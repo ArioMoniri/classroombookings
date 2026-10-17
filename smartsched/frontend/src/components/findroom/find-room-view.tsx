@@ -34,7 +34,7 @@ import { errorText, pickLang, useFacets, useMyRequests, useRecentSearches, w1Key
 import { intlLocale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { altWhyQuery, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, recentParts, reserveSpan, SHOWN, slotsFor, whyQuery, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, recentParts, SHOWN, slotsFor, whyQuery, wholeSpan, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -154,7 +154,8 @@ export function FindRoomView() {
       const q: GridQuery = { display: "day", date, term_id: termId, room_group_id: info.room_group_id ?? undefined };
       const fetched = await qc.fetchQuery({ queryKey: crbsKeys.grid(q), queryFn: () => crbs.bookings.grid(q), staleTime: 0 });
       const grid = request ? asRequestable(fetched, roomId, date, start, end) : fetched;
-      const span = reserveSpan(slotsFor(grid, roomId, date, start, end));
+      // T-R2-14: the whole promised window or nothing (a stale card never opens a trimmed sheet)
+      const span = wholeSpan(slotsFor(grid, roomId, date, start, end));
       if (!span) {
         toast.error(t("wave1.find.notFree"));
         void run(f, false);

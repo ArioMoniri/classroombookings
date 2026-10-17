@@ -971,6 +971,8 @@ def policy_text(policy: dict[str, Any], winners: list[str]) -> str:
         return head + f"locked row kept: {names}"
     if reason == "lower_priority":
         return head + f"lower priority than {names}"
+    if reason == "published_kept":
+        return head + f"{names} of the previous timetable keeps the cell (equal priority)"
     if reason == "most_classes":
         return head + f"placing it would leave at least as many classes out ({names} kept)"
     return head + "no option survives the hard rules"

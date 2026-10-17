@@ -16,10 +16,17 @@ rule the university path has. General-path files are written here:
   come from the request lists;
 * weeks from the planner; staff as instructors.
 
-Every written row carries ``source_key = CC:<term>:<file sha256[:16]>:<record>`` so a re-commit, or the same
-file uploaded again in a new job and committed into the same term, updates instead of duplicating (the
-deterministic paths list a file's records in a stable order). TODO(P19-I5): key on the record's natural key
-(course, section, day, time / date, room) as well, so an edited re-export of a file matches its old rows.
+Every written meeting request carries the planning-list importer's natural key (T-R2-19, D14 / I5:
+``PL:<term>:id:<digest>#<occurrence>`` = section key + days + occurrence among that section's rows on those days,
+:func:`app.importers.identity.meeting_identity`), computed over all the general-path records of a commit before
+anything is written (:meth:`Writer.plan_meetings`, with the importer's class-year merge). So the same request read
+from any format by either path - the workbook through the importer, its CSV export through this writer - maps to
+one row: the importer finds this writer's rows, this writer finds the importer's, a re-upload changes nothing,
+and the dry run (the same code on the same data) predicts the commit. Rows written before natural keys (the
+round-1 ``CC:<term>:M:<hash>`` key, the older ``CC:<term>:<file sha256[:16]>:<record>`` key) are re-keyed when
+found. For a request the term already has, the file contributes only what it says and the row lacks or says
+differently after normalisation (:meth:`Writer.fields_for_existing`): text equal up to case, whitespace and
+Turkish letters is unchanged.
 
 Rule proposals the reviewer accepted are resolved against the new term (:func:`app.ai.resolve.resolve_proposal`)
 and saved with :func:`app.ai.elicit.accept_proposals` (source ``UPLOAD``, file reference in ``source_ref``).
@@ -29,7 +36,9 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from collections import Counter
+from dataclasses import dataclass, field
 from datetime import date, time
 from typing import Any
 
@@ -45,7 +54,7 @@ from app.council.memory import legacy_merge_item_id, merge_item_id
 from app.council.reconcile import rid, room_key
 from app.council.review import build_items, decisions, effective_plan
 from app.importers.catalog import Catalog
-from app.importers.identity import plain
+from app.importers.identity import meeting_identity, occurrences, plain, time_sort_key
 from app.importers.normalize import PERIODS, non_person_reason, parse_section_label
 from app.importers.planning_list import _META, _merge
 from app.importers.report import ImportReport
@@ -84,6 +93,33 @@ def _section(v: Any) -> str:
     if re.fullmatch(r"\d+\.\d+", text):
         return parse_section_label(float(text)) or ""
     return parse_section_label(text) or ""
+
+
+def _norm_text(v: Any) -> str:
+    """The comparison form of a text field (T-R2-19): NFC, trimmed, whitespace collapsed, Turkish-safe casefold
+    (:func:`app.importers.normalize.fold`), so ``"Derslik "``, ``"derslik"`` and a cp1254 export's spelling of
+    the same cell are one value. Never stored: the row keeps the spelling it has."""
+    return tx.fold(unicodedata.normalize("NFC", str(v))) if v not in (None, "") else ""
+
+
+@dataclass
+class PlannedMeeting:
+    """What :meth:`Writer.plan_meetings` decided for one general-path meeting record."""
+
+    key: str  #: the natural key (the importer's ``PL:<term>:id:<digest>#<n>``)
+    skey: str  #: the section key ``course|programme|label``
+    legacy: str  #: the round-1 ``CC:<term>:M:<hash>`` key the row may still carry
+    class_years: list[int] = field(default_factory=list)
+    enrolment: int | None = None
+    merged_rows: list[Any] = field(default_factory=list)  #: file rows merged into this one (class years)
+
+
+#: meeting fields a re-export changes: written when the file has them (planner edits kept by ``_merge``)
+_CORE = frozenset({"start_period", "end_period", "start_time", "end_time", "definitive_room_ids"})
+#: fields another reader derives from the same cells differently: filled in only when the row has none
+_GAP_ONLY = frozenset({"requested_room_ids", "requested_capacity", "weeks"})
+#: text fields compared after normalisation
+_TEXT = frozenset({"requested_room_text", "definitive_room_text", "notes"})
 
 
 async def _term(session: AsyncSession, spec: dict[str, Any]) -> tuple[Term, bool]:
@@ -156,11 +192,13 @@ class Writer:
         digest = hashlib.sha256(f"{raw}|{occ}".encode()).hexdigest()[:32]
         return f"CC:{self.term.id}:{kind}:{digest}"
 
-    async def find(self, model: Any, natural: str, legacy: str) -> Any:
-        """The row of ``natural``, else a row still under its ``legacy`` key (re-keyed to ``natural``)."""
+    async def find(self, model: Any, natural: str, *legacy: str) -> Any:
+        """The row of ``natural``, else a row still under one of its ``legacy`` keys (re-keyed to ``natural``)."""
         row = (await self.s.execute(select(model).where(model.source_key == natural))).scalar_one_or_none()
-        if row is None:
-            row = (await self.s.execute(select(model).where(model.source_key == legacy))).scalar_one_or_none()
+        for old in legacy:
+            if row is not None:
+                break
+            row = (await self.s.execute(select(model).where(model.source_key == old))).scalar_one_or_none()
             if row is not None:
                 row.source_key = natural
                 self.counts["rekeyed_to_natural_keys"] += 1
@@ -294,13 +332,131 @@ class Writer:
                 return mr, False
         return (hits[0], True) if hits else (None, False)
 
-    async def meeting(self, fi: int, i: int, r: dict[str, Any]) -> None:
+    async def section_key(self, r: dict[str, Any]) -> str:
+        """``course|programme canonical|label``: the planning-list importer's section key, so both paths share
+        the term's sections (and, through :func:`meeting_identity`, its meeting requests)."""
         faculty = await self.cat.faculty(r.get("faculty"))
         program = await self.cat.program(r.get("program"), faculty)
+        label = _section(r.get("section")) or None
+        return f"{r['course_code']}|{program.canonical_name if program else ''}|{label or ''}"
+
+    async def plan_meetings(
+        self, records: list[tuple[int, int, dict[str, Any]]]
+    ) -> dict[tuple[int, int], PlannedMeeting | None]:
+        """One natural key per meeting across formats and paths (T-R2-19): the planning-list importer's identity
+        (section key + days + occurrence among that section's records on those days, ordered by start time then
+        file row; :mod:`app.importers.identity`), computed over every general-path meeting record of the commit
+        before anything is written, with the importer's class-year merge (records identical but for the class year
+        are one meeting taught once, owner decision 2026-10-15). The value is ``None`` for a record merged into
+        another: it is not written on its own."""
+        recs: list[tuple[int, int, dict[str, Any], str]] = []
+        keyed: list[tuple[str, tuple[int, ...], tuple[Any, ...]]] = []
+        legacy: list[str] = []
+        for fi, i, r in records:
+            sk = await self.section_key(r)
+            days = tuple(int(d) for d in (r.get("days") or []))
+            row = (r.get("source") or {}).get("row")
+            keyed.append((sk, days, time_sort_key(r.get("start"), int(row) if isinstance(row, int) else len(recs))))
+            # the round-1 key (natural("M", ...) numbered every record in order): looked up to re-key old rows
+            legacy.append(self.natural("M", sk, ",".join(map(str, days)), r.get("start")))
+            recs.append((fi, i, r, sk))
+        groups: dict[tuple[Any, ...], list[int]] = {}
+        for idx, (_fi, _i, r, sk) in enumerate(recs):
+            ident = (
+                sk,
+                keyed[idx][1],
+                r.get("start"),
+                r.get("end"),
+                tuple(sorted(tx.fold(x) for x in (r.get("instructors") or []))),
+                tuple(r.get("rooms") or []),
+                tuple(r.get("weeks") or []),
+                r.get("mode"),
+            )
+            groups.setdefault(ident, []).append(idx)
+        into: dict[int, int] = {}
+        units: dict[int, list[int]] = {}
+        for idxs in groups.values():
+            by_years: dict[tuple[int, ...], list[int]] = {}
+            for idx in idxs:
+                by_years.setdefault(tuple(recs[idx][2].get("class_years") or []), []).append(idx)
+            if len(by_years) < 2:
+                continue
+            for k in range(max(len(v) for v in by_years.values())):
+                unit = sorted(v[k] for v in by_years.values() if k < len(v))
+                if len(unit) < 2:
+                    continue
+                units[unit[0]] = unit
+                for j in unit[1:]:
+                    into[j] = unit[0]
+        kept = [idx for idx in range(len(recs)) if idx not in into]
+        occ = [0] * len(recs)
+        for idx, o in zip(kept, occurrences([keyed[idx] for idx in kept]), strict=True):
+            occ[idx] = o
+        out: dict[tuple[int, int], PlannedMeeting | None] = {}
+        for idx, (fi, i, _r, sk) in enumerate(recs):
+            if idx in into:
+                out[(fi, i)] = None
+                self.counts["class_year_rows_merged"] += 1
+                continue
+            unit = units.get(idx, [idx])
+            years = sorted({int(y) for j in unit for y in (recs[j][2].get("class_years") or [])})
+            enrols = [int(e) for e in (recs[j][2].get("enrolment") for j in unit) if e is not None]
+            out[(fi, i)] = PlannedMeeting(
+                key=meeting_identity(self.term.code, sk, keyed[idx][1], occ[idx]),
+                skey=sk,
+                legacy=legacy[idx],
+                class_years=years,
+                enrolment=max(enrols) if enrols else None,
+                merged_rows=[(recs[j][2].get("source") or {}).get("row") for j in unit[1:]],
+            )
+        return out
+
+    def fields_for_existing(self, mr: MeetingRequest, fields: dict[str, Any]) -> dict[str, Any]:
+        """What a file says about a request the term already has (found by its key, or by content through
+        :meth:`same_meeting`): the time and the definitive rooms when the file has them (a re-export's edits;
+        planner edits are kept by ``_merge``), texts that differ after normalisation, a planner lock never
+        downgraded, and the gaps the row lacks. Values another reader derives from the same cells differently
+        (requested rooms and capacity, weeks, flags, the status its warnings give) never overwrite what is there
+        (T-R1-25: a re-uploaded export must not rewrite the term; T-R2-19: equal after normalisation is
+        unchanged)."""
+        out: dict[str, Any] = {}
+        for k, v in fields.items():
+            if k in ("source_key", "section_id", "parse_warnings"):
+                continue
+            cur = getattr(mr, k)
+            if k in ("source_row_index", "archived"):  # bookkeeping; an archived row the file lists comes back
+                out[k] = v
+            elif k in ("day", "days"):
+                if fields.get("days"):
+                    out[k] = v
+            elif k == "status":
+                if v == "LOCKED" and cur != "LOCKED":
+                    out[k] = v
+            elif isinstance(v, bool):
+                continue
+            elif v in (None, "", []):
+                continue
+            elif k in _TEXT:
+                a, b = _norm_text(v), _norm_text(cur)
+                if a != b and not (k == "notes" and b and a in b):
+                    out[k] = v
+            elif cur in (None, "", []):
+                out[k] = v
+            elif k in _CORE:
+                out[k] = v
+            elif k in _GAP_ONLY:
+                continue
+            else:
+                out[k] = v
+        return out
+
+    async def meeting(self, fi: int, i: int, r: dict[str, Any], planned: PlannedMeeting) -> None:
         course = await self.cat.course(r["course_code"], name=r.get("course_name"))
         label = _section(r.get("section")) or None
-        skey = f"{r['course_code']}|{program.canonical_name if program else ''}|{label or ''}"
-        raw_key = f"{r['course_code']}|{program.canonical_name if program else ''}|{r.get('section') or ''}"
+        skey = planned.skey
+        program_part = skey.split("|")[1] if skey.count("|") >= 2 else ""
+        raw_key = f"{r['course_code']}|{program_part}|{r.get('section') or ''}"
+        program = await self.cat.program(r.get("program"), await self.cat.faculty(r.get("faculty")))
         section = None
         for key in dict.fromkeys((skey, raw_key)):  # the raw label: sections committed before the label rule
             section = (
@@ -309,7 +465,8 @@ class Writer:
             if section is not None:
                 break
         mode = r.get("mode") if r.get("mode") in SECTION_MODES else "F2F"
-        years = r.get("class_years") or []
+        years = planned.class_years or list(r.get("class_years") or [])
+        enrolment = planned.enrolment if planned.enrolment is not None else r.get("enrolment")
         if section is None:
             section = Section(
                 term_id=self.term.id,
@@ -318,7 +475,7 @@ class Writer:
                 label=label,
                 class_year=years[0] if years else None,
                 class_years=years,
-                enrolment=r.get("enrolment"),
+                enrolment=enrolment,
                 mode=mode,
                 notes=r.get("notes"),
                 source_row=r["source"],
@@ -327,6 +484,10 @@ class Writer:
             self.s.add(section)
             await self.s.flush()
             self.counts["sections"] += 1
+        elif planned.merged_rows:  # the section gains the merged class years too (as the importer's does)
+            union = sorted({*(int(y) for y in (section.class_years or [])), *years})
+            if union != sorted(int(y) for y in (section.class_years or [])):
+                section.class_years = union
         for idx, raw_name in enumerate(r.get("instructors") or []):
             name = self.person_alias.get(tx.person_key(raw_name), raw_name)
             # a cell that names no person ("Yüz yüze", "UZEM", a pasted note) is never an instructor: the same
@@ -364,7 +525,7 @@ class Writer:
             weeks=r.get("weeks") or [],
             requested_room_text=r.get("room_request"),
             requested_room_ids=await self.room_ids(tx.room_tokens(r.get("room_request"))),
-            requested_capacity=r.get("enrolment"),
+            requested_capacity=enrolment,
             flexible_day=bool(r.get("flexible_day")),
             needs_room=bool(r.get("needs_room", True)),
             definitive_room_text=r.get("room_text"),
@@ -372,27 +533,18 @@ class Writer:
             status=status,
             parse_warnings=warnings,
             notes=r.get("notes"),
-            source_key=self.natural("M", skey, ",".join(map(str, days)), r.get("start")),
+            source_key=planned.key,
             source_row_index=r["source"].get("row"),
             archived=False,
         )
-        mr = await self.find(MeetingRequest, fields["source_key"], self.key(fi, i))
+        # the row under its natural key (either path's), else under a key this writer used before (re-keyed)
+        mr = await self.find(MeetingRequest, planned.key, planned.legacy, self.key(fi, i))
         if mr is None:
+            # a row keyed by neither (hand-made, another scheme): the same section, days and time (T-R1-25)
             mr, repeated = await self.same_meeting(section.id, days, fields["start_time"], fields["end_time"])
             if repeated:
                 self.counts["duplicates_skipped"] += 1
                 return
-            if mr is not None:
-                # the row another reader committed (the planning-list importer, another file's format): the same
-                # request read differently (weeks, flags, notes); it keeps its key and its values, and the file only
-                # fills what the row lacks (T-R1-25: a re-uploaded export must not rewrite the term)
-                fields = {
-                    k: v
-                    for k, v in fields.items()
-                    if k not in ("source_key", "status", "section_id")
-                    and v not in (None, "", [], False)
-                    and getattr(mr, k) in (None, "", [])
-                }
         if mr is None:
             new = MeetingRequest(**fields)
             self.s.add(new)
@@ -401,8 +553,7 @@ class Writer:
             self.counts["meeting_requests"] += 1
         else:
             self.claimed.add(mr.id)
-            if mr.status == "LOCKED" and fields.get("status", "LOCKED") != "LOCKED":
-                fields.pop("status")  # never downgrade a planner lock
+            fields = self.fields_for_existing(mr, fields)
             snap = await self.snapshot("meeting", mr.id)
             ctx = {"entity": "meeting", "id": mr.id, "row": r["source"].get("row"), "course": r["course_code"]}
             if _merge(mr, fields, snap, self.take, self.conflicts, ctx):
@@ -719,9 +870,10 @@ async def commit(
         for room in dataset.get("rooms", []):
             if room["key"] in file_rooms:
                 await writer.room({**room, **room_edits.get(room["key"], {})})
+        todo: list[tuple[int, int, dict[str, Any]]] = []
         for i in general:
             for n, r in enumerate(records.get(i, [])):
-                if rid(i, n) in duplicates:
+                if rid(i, n) in duplicates:  # the reconciler's cross-file duplicate (the same key in two files)
                     writer.counts["duplicates_skipped"] += 1
                     continue
                 row_decision = decided.get(airows.row_id(i, n))
@@ -731,19 +883,25 @@ async def commit(
                 if row_decision and row_decision.get("action") == "edit":
                     r = {**r, **{k: v for k, v in (row_decision.get("value") or {}).items() if k not in airows.FROZEN}}
                     writer.counts["rows_edited"] += 1
-                if r["type"] == "meeting":
-                    await writer.meeting(i, n, r)
-                elif r["type"] == "exam":
-                    await writer.exam(i, n, r)
-                elif r["type"] == "booking":
-                    await writer.booking(i, n, r, week_of)
-                elif r["type"] == "staff":
-                    ins = await writer.cat.instructor(r["name"])
-                    if ins is not None and r.get("email") and not ins.email:
-                        ins.email = r["email"]
-                    writer.counts["instructors"] += 1 if ins is not None else 0
-                elif r["type"] == "calendar":
-                    writer.counts["calendar_entries_reported"] += 1
+                todo.append((i, n, r))
+        # the natural keys of every meeting record first (T-R2-19): one key per meeting across the files
+        planned = await writer.plan_meetings([(i, n, r) for i, n, r in todo if r["type"] == "meeting"])
+        for i, n, r in todo:
+            if r["type"] == "meeting":
+                pm = planned.get((i, n))
+                if pm is not None:  # None: merged into another record (class years)
+                    await writer.meeting(i, n, r, pm)
+            elif r["type"] == "exam":
+                await writer.exam(i, n, r)
+            elif r["type"] == "booking":
+                await writer.booking(i, n, r, week_of)
+            elif r["type"] == "staff":
+                ins = await writer.cat.instructor(r["name"])
+                if ins is not None and r.get("email") and not ins.email:
+                    ins.email = r["email"]
+                writer.counts["instructors"] += 1 if ins is not None else 0
+            elif r["type"] == "calendar":
+                writer.counts["calendar_entries_reported"] += 1
         await writer.cat.finalize_rooms(lecture_side=True)
         await session.commit()
 

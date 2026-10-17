@@ -32,6 +32,12 @@ def _err(status: int, code: str, message: str, message_tr: str, **data: Any) -> 
     return bsvc.BookingError(status, code, message, message_tr=message_tr, **data)
 
 
+def undo_reason(event_id: int) -> str:
+    """The cancel reason an undo writes on the booking and its audit row: a *code* (``undo_of:<audit id>``) that
+    the UI renders in its language ("Geri alma: #164"), never an English sentence (T-R2-31, R2-M-11)."""
+    return f"undo_of:{event_id}"
+
+
 async def _group(session: AsyncSession, ev: AuditEvent) -> list[AuditEvent]:
     children = list(
         (
@@ -120,7 +126,7 @@ async def _undo_create(session: AsyncSession, access: Access, ev: AuditEvent, ro
         if not await bsvc.can_cancel(session, access, b, room):
             raise _err(403, "not_cancelable", "you may not cancel this booking", "bu rezervasyonu iptal edemezsiniz")
     before = {b.id: bsvc.snap(b) for b in targets}
-    reason = f"undo of #{ev.id}"
+    reason = undo_reason(ev.id)
     ids = await bsvc._cancel_rows(session, access, targets, reason)
     if ev.action == "series.create" and ev.entity_id:
         series = await session.get(BookingSeries, int(ev.entity_id))
@@ -234,7 +240,7 @@ async def _undo_cancel(session: AsyncSession, access: Access, ev: AuditEvent, ro
         targets[0].id,
         items=[(b.id, before[b.id], bsvc.snap(b)) for b in targets],
         actor=access.user,
-        reason=f"undo of #{ev.id}",
+        reason=undo_reason(ev.id),
         undo_of=ev.id,
         notify="booking.created",
         payload={"booking_id": targets[0].id, "booking_ids": [b.id for b in targets], "actor_id": access.user_id},

@@ -1092,6 +1092,8 @@
       "overLimit": "Only the first {max} dates will be booked; {cut} chosen date(s) are over the limit.",
       "termWeek": "week {n}",
       "cut": "over the limit",
+      "resetFree": "This date is free again; your choice was reset.",
+      "resetTaken": "This date is now taken; your choice was reset.",
       "actionFor": "Action for {date}",
       "action": {
         "book": "Book",

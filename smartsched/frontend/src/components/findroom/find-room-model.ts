@@ -278,6 +278,16 @@ export function reserveSpan(slots: GridSlot[]): GridSlot[] | null {
   return run.length ? run : null;
 }
 
+/**
+ * T-R2-14 (R2-S-01): what "Rezerve et" on a result card opens. The card promised the whole window, so every period
+ * of it must still be reservable; a window that lost a period meanwhile (the admin booked P11 after the search) is
+ * refused as stale (`null`: the caller toasts "Bu derslik az önce doldu" and refreshes) instead of silently opening
+ * the sheet for the periods left.
+ */
+export function wholeSpan(slots: GridSlot[]): GridSlot[] | null {
+  return slots.length && slots.every(isSelectable) ? slots : null;
+}
+
 /** The first date a result is free on (multi-date searches report per date). */
 export function firstFreeDate(row: Pick<FindRow, "per_date">, slots: { date: string }[]): string | null {
   const free = row.per_date?.find((d) => d.status === "free" || d.status === "requestable");

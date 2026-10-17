@@ -49,8 +49,8 @@ IGNORED = frozenset(
         "calendar_sync_jobs",
     }
 )
-#: columns that change on every import without changing the content
-META = frozenset({"source_row_index", "parse_warnings", "source_row", "updated_at", "created_at"})
+#: columns that change on every import without changing the content (a re-keyed row is not an update)
+META = frozenset({"source_key", "source_row_index", "parse_warnings", "source_row", "updated_at", "created_at"})
 _KEYS = ("source_key", "code", "canonical_name", "label", "full_name", "name", "key")
 
 

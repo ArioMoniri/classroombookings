@@ -96,6 +96,8 @@ export function summaryExtras(summary: Record<string, unknown> | null | undefine
 export interface TruthBroken {
   rule: string;
   message: string;
+  /** the same sentence in Turkish (round-2 T-R2-30, R2-M-18: 'A102 · 3. hafta Pzt P1: …'); older stored truths: null */
+  message_tr: string | null;
   request_ids: number[];
   explained: boolean;
   reason: string | null;
@@ -111,10 +113,21 @@ export interface TruthException {
   label: { tr: string; en: string };
 }
 
+/** One unplaced class of the truth (round-2 T-R2-26): a joint lecture's members are one entry, like `unplaced`. */
+export interface TruthUnplaced {
+  /** the class's solver event id */
+  id: number;
+  label: string;
+  request_ids: number[];
+  /** the weeks it misses; null = never placed */
+  weeks: number[] | null;
+}
+
 /**
  * `stats.truth` (worker / re-score) or `summary.truth`: the planner-level verdict every surface shows (the Studio
  * card, the run report, the publish confirm, the timetable banner). `broken` = hard rules broken right now (a
- * forced move with its reason included), `exceptions` = the accepted exceptions the run reports.
+ * forced move with its reason included), `exceptions` = the accepted exceptions the run reports, `unplaced_list` =
+ * every unplaced class by name (`unplaced_count` = its length; null on a truth stored before round 2).
  */
 export interface RunTruth {
   verdict: "broken" | "exceptions" | "clean" | "none";
@@ -126,6 +139,8 @@ export interface RunTruth {
   broken_count: number;
   exceptions: TruthException[];
   exceptions_total: number;
+  unplaced_list: TruthUnplaced[];
+  unplaced_count: number | null;
   headline: { tr: string; en: string };
 }
 
@@ -151,6 +166,7 @@ export function truthOf(raw: unknown): RunTruth | null {
     broken: arr(o.broken).map((b) => ({
       rule: str(b.rule) ?? "",
       message: str(b.message) ?? "",
+      message_tr: str(b.message_tr),
       request_ids: Array.isArray(b.request_ids) ? b.request_ids.map(Number).filter(Number.isFinite) : [],
       explained: b.explained === true,
       reason: str(b.reason),
@@ -160,8 +176,26 @@ export function truthOf(raw: unknown): RunTruth | null {
     broken_count: num(o.broken_count) ?? arr(o.broken).length,
     exceptions: arr(o.exceptions).map((x) => ({ cause: str(x.cause) ?? "", classes: num(x.classes) ?? 0, findings: num(x.findings) ?? 0, rule: x.rule === true, label: text2(x.label) })),
     exceptions_total: num(o.exceptions_total) ?? 0,
+    unplaced_list: arr(o.unplaced_list).map((u) => ({
+      id: num(u.id) ?? 0,
+      label: str(u.label) ?? `#${num(u.id) ?? ""}`,
+      request_ids: Array.isArray(u.request_ids) ? u.request_ids.map(Number).filter(Number.isFinite) : [],
+      weeks: Array.isArray(u.weeks) ? u.weeks.map(Number).filter(Number.isFinite) : null,
+    })),
+    unplaced_count: num(o.unplaced_count) ?? (Array.isArray(o.unplaced_list) ? arr(o.unplaced_list).length : null),
     headline: text2(o.headline),
   };
+}
+
+/** The report's one problem count (round-2 T-R2-26, R2-M-04): the hard rules broken plus the accepted exceptions
+ * the headline names - never the data-issues route's count next to the headline's. */
+export function problemCount(truth: RunTruth): number {
+  return truth.broken_count + truth.exceptions_total;
+}
+
+/** A broken rule's sentence in the UI language (round-2 T-R2-30, R2-M-18): the Turkish one when the backend sent it. */
+export function brokenText(b: { message: string; message_tr?: string | null }, tr: boolean): string {
+  return tr ? (b.message_tr ?? b.message) : b.message;
 }
 
 /** The run's truth: the summary's (fresh) wins over the stored one. */

@@ -11,6 +11,8 @@
 #           master, like docs/testing/2026-10-08-real-data-feasibility.md "Setup" (REC_DATA=bahar: Bahar only).
 #
 #   scripts/record/stack.sh snapshot       save the database + uploads; `REC_SNAPSHOT=1 stack.sh up` restores them
+#                                           (REC_SNAPSHOT_NAME names the file, default rec.snapshot: e.g. REC_SNAPSHOT_NAME=rec.board
+#                                           keeps the board-only state before `runs` for F-05 S15, flows README §4.2)
 #   scripts/record/stack.sh mask           KVKK: instructor names -> title + initials in the running stack's
 #                                           database (kvkk_mask.py; `up` already does it after its imports and keeps
 #                                           the name list in $REC_WORKDIR for the fresh-database journeys), then the
@@ -33,6 +35,7 @@
 #      REC_SKIP_BUILD=1 (reuse the previous frontend build), REC_DATA (all|bahar), REC_RUNS (see runs).
 #      REC_CAL_SIGNOFF=0 (leave calendar sync off with no KVKK sign-off record; default 1 signs it off for the
 #      recordings; the flow tests use 0, docs/testing/flows/README.md §4.2).
+#      REC_SNAPSHOT_NAME (rec.snapshot): the snapshot file `snapshot` writes and `REC_SNAPSHOT=1 up` restores.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -44,6 +47,9 @@ WEB_PORT="${REC_WEB_PORT:-3610}"
 EMAIL="${REC_EMAIL:-admin@smartsched.local}"
 PASSWORD="${REC_PASSWORD:-Admin-2026!}"
 TERM_CODE="${REC_TERM_CODE:-2026-BAHAR}"
+SNAP_NAME="${REC_SNAPSHOT_NAME:-rec.snapshot}"
+# the default keeps its historical folder name (uploads.snapshot), so snapshots taken before this option still restore
+UPL_SNAP="uploads.snapshot"; [[ "$SNAP_NAME" != rec.snapshot ]] && UPL_SNAP="uploads.$SNAP_NAME"
 PYTHON="${PYTHON:-python3}"
 [[ -x "$BACKEND/.venv/bin/python" && "$PYTHON" == python3 ]] && PYTHON="$BACKEND/.venv/bin/python"
 
@@ -128,9 +134,9 @@ cmd_up() {
   # the WAL and shared-memory files belong to the old database: a restored snapshot must not inherit them
   rm -f "$WORK/rec.db" "$WORK/rec.db-wal" "$WORK/rec.db-shm"
   local restored=0
-  if [[ $fresh -eq 0 && "${REC_SNAPSHOT:-0}" == 1 && -f "$WORK/rec.snapshot.db" ]]; then
-    cp "$WORK/rec.snapshot.db" "$WORK/rec.db" && restored=1 && log "restored the snapshot (imports, booking setup, solver runs)"
-    rm -rf "$WORK/uploads" && cp -r "$WORK/uploads.snapshot" "$WORK/uploads" 2>/dev/null || mkdir -p "$WORK/uploads"
+  if [[ $fresh -eq 0 && "${REC_SNAPSHOT:-0}" == 1 && -f "$WORK/$SNAP_NAME.db" ]]; then
+    cp "$WORK/$SNAP_NAME.db" "$WORK/rec.db" && restored=1 && log "restored the snapshot $SNAP_NAME.db (imports, booking setup, solver runs)"
+    rm -rf "$WORK/uploads" && cp -r "$WORK/$UPL_SNAP" "$WORK/uploads" 2>/dev/null || mkdir -p "$WORK/uploads"
   fi
   if [[ $fresh -eq 0 && $restored -eq 0 ]]; then
     log "importing Bahar weekly grid + planning list (≈30 s)"
@@ -207,11 +213,11 @@ cmd_runs() {
 # restores it instead of importing again, so every take starts from the same data in seconds.
 cmd_snapshot() {
   # a single-file copy (journal_mode=delete): `up` restores it with cp, which would miss a WAL file
-  rm -f "$WORK/rec.snapshot.db" "$WORK/rec.snapshot.db-wal" "$WORK/rec.snapshot.db-shm"
+  rm -f "$WORK/$SNAP_NAME.db" "$WORK/$SNAP_NAME.db-wal" "$WORK/$SNAP_NAME.db-shm"
   "$PYTHON" -c 'import sqlite3,sys; s=sqlite3.connect(sys.argv[1]); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.execute("pragma journal_mode=delete"); d.close()' \
-    "$WORK/rec.db" "$WORK/rec.snapshot.db" || die "snapshot failed"
-  rm -rf "$WORK/uploads.snapshot" && cp -r "$WORK/uploads" "$WORK/uploads.snapshot"
-  log "snapshot saved: $WORK/rec.snapshot.db"
+    "$WORK/rec.db" "$WORK/$SNAP_NAME.db" || die "snapshot failed"
+  rm -rf "$WORK/$UPL_SNAP" && cp -r "$WORK/uploads" "$WORK/$UPL_SNAP"
+  log "snapshot saved: $WORK/$SNAP_NAME.db"
 }
 
 # KVKK mask on the running stack's database (after the fresh-database journeys imported their workbooks)

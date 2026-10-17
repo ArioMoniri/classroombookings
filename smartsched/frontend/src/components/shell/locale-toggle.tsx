@@ -10,7 +10,8 @@ import { useI18n } from "@/lib/i18n/provider";
  * Language picker (shell, login card, settings): a segmented toggle of the languages the organisation enabled
  * (CRBS setup/Language; `GET /org/i18n` `languages`). Only Turkish and English are offered (product-owner
  * decision 2026-10-15, ROADMAP P18-LANG): they are the two fully translated languages. Each option shows its
- * code (the tooltip names the language in itself) and has a 44 px hit area on touch screens.
+ * code; its accessible name is the language in itself (aria-label, T-R2-05 / R2-S-19: a title alone is hover-only, MOBILE.md
+ * M-11) and it has a 44 px hit area on touch screens.
  */
 export function LocaleToggle({ className }: { className?: string }) {
   const { locale, setLocale, languages, t } = useI18n();
@@ -31,6 +32,7 @@ export function LocaleToggle({ className }: { className?: string }) {
           aria-pressed={locale === l}
           onClick={() => change(l)}
           lang={l}
+          aria-label={LOCALE_INFO[l].name}
           title={LOCALE_INFO[l].name}
           data-testid={`locale-option-${l}`}
           className={cn(

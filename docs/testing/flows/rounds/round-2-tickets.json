@@ -1568,7 +1568,9 @@
       "docs/testing/flows/README.md"
      ],
      "dedup": "T-R1-43 family (verified)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "docs only (loop-r2-laneG-2026-10-17): F-02/03/04/05/06/08/10/12/13 corrected to the deb38315 texts and locators, the three round-1 probes (R1-S-09 busy-room group, R1-S-15 board-only snapshot, R1-S-26 search focus) written as steps, the round-2 not-run lists folded in as SKIP/BLOCKED rules, MOBILE.md matrix rows added (/analytics/heatmap, /runs/compare, /settings tabs, /onboarding?job=), README §1/§4.2 refreshed, stack.sh REC_SNAPSHOT_NAME; sync_docs --check green, 14 MOBILE snippets node --check clean"
     }
    ],
    "done_when": "the six flow files, MOBILE.md and README §4.2 updated; sync_docs --check green"

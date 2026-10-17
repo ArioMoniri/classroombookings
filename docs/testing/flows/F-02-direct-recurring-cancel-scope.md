@@ -6,6 +6,7 @@ Owner rules:
 - CRBS parity: a recurring booking shows its dates first and lets the user book, skip or replace each one; cancel and edit ask for a scope (CRBS "this / this and future / all").
 
 Testable on `b75047b`: yes, every step.
+Revised against `deb38315` (T-R2-35): the kind / scope / time-mode **SegmentedControls are `role="tablist"` / `role="tab"`** (with a hidden `<select>` fallback), not radios: locate them with `getByRole('tab', { name: 'Her hafta' })`. "Başlangıç" / "Bitiş" (`#recur-start`, `#recur-end`) and the per-date action ("{date} için işlem") are native selects (`selectOption`). Dates print in the organisation's format (`dd.mm.yyyy`). The **planner has no recurring-booking right by default** (S06 precondition 5).
 
 ## Preconditions
 
@@ -13,6 +14,7 @@ Testable on `b75047b`: yes, every step.
 2. Dates from README §4.3: `D1` (Thursday), `D2` (the Monday after), `D3 = D1 + 14 days`, `D4 = D1 + 21 days`, `D5 = D1 + 28 days`, `D6 = D1 + 35 days` (all Thursdays). On the 2026-10-15 run: D1 = 22 Oct, D3 = 5 Nov, D4 = 12 Nov, D5 = 19 Nov, D6 = 26 Nov. The holiday Thu **29 Oct** then falls inside the series.
 3. Choose the series room `RS`: an **A-block** room with ≥ 40 seats whose **P5** is `available` on every Thursday from D1 to D6 (`GET /bookings/grid?date=<each>&room_group_id=<A>`). Prefer A 202. Record it. If no room is free on all six Thursdays, take the one with the fewest busy dates and note which.
 4. The admin's profile language is `tr`.
+5. **S06 only:** the seeded PLANNER role holds `book_single.*` and `book_recur.*` except `book_recur.request` and no `bookings.skip_approval`, but on a stack.sh stack `planner.test` may hold a role without `book_recur.create` (round 2: `can_book_recur: false`, the sheet still offered "Her hafta"). Before S06 check `GET /auth/me` (permissions) for the planner; if `book_recur.create` or `book_recur.request` is missing, grant **"Tekrarlayan: oluşturma"** (`book_recur.create`) or **"Yinelenen rezervasyon talep etme"** (`book_recur.request`) to the planner's role in `/admin/roles` (`role-save`) and note it. Without the grant S06 is `SKIP (permission precondition)`, not a finding. A sheet that offers "Her hafta" to a role that cannot use it is a note for the suggester, not a FAIL of this flow.
 
 ## Steps
 
@@ -24,7 +26,7 @@ Testable on `b75047b`: yes, every step.
 
 **S02 · admin · open the weekly series form**
 - Do: `/bookings?date=$D1`, click `RS · P5`. Choose **"Her hafta"**.
-- See: **"Tekrar"** with **"Başlangıç"** = **"Bu tarihten (<D1>)"** (other options "Dönem başından", "Tarih seçin…") and **"Bitiş"** = **"Dönem sonuna kadar (27 Ara 2026)"** or "Tarih seçin…". Choose "Tarih seçin…" for the end and set `D6`.
+- See: **"Tekrar"** with **"Başlangıç"** (`#recur-start`) = **"Bu tarihten (<D1 as dd.mm.yyyy>)"** (other options "Dönem başından", "Tarih seçin…") and **"Bitiş"** (`#recur-end`) = **"Dönem sonuna kadar (27.12.2026)"** (the term end in the organisation's date format) or "Tarih seçin…". Choose "Tarih seçin…" (`selectOption('custom')`) for the end: a date field **"Bitiş tarihi"** (`getByLabel('Bitiş tarihi')`, min/max = the term) appears under the select; set `D6`. This is the custom range that round 2 did not reach (F-02 S06 NOT RUN): it is exercised here, S06 reuses it.
 - Do: **"Tarihleri göster"** (`recur-preview-btn`).
 
 **S03 · admin · the per-date preview**
@@ -37,25 +39,26 @@ Testable on `b75047b`: yes, every step.
 - API: `POST /bookings/recurring/preview` returns the same per-date statuses (save the response).
 
 **S04 · admin · book / skip / replace per date**
-- Do: on `D3` set the action to **"Atla"** ("**{date} için işlem**" control). On `D4` set **"Yerine geç"**. Leave the rest.
-- See: the summary updates at once (no reload) to 3 to book + 1 replace, 1 skipped by choice, 1 holiday. The counts and the submit label agree. Try **"Hiçbiri"** (everything set to skip; submit disabled or "0 tarihi rezerve et" disabled), then **"Boşların hepsi"**, then re-apply the D3/D4 choices. **"Yeniden denetle"** re-runs the check without losing the choices.
+- Do: on `D3` set the action to **"Atla"** (the select labelled "**{date} için işlem**", e.g. `getByLabel('05.11.2026 için işlem').selectOption('skip')`; the per-date control is a select, not a radio group). On `D4` set **"Yerine geç"**. Leave the rest.
+- See: the summary updates at once (no reload) to 3 to book + 1 replace, 1 skipped by choice, 1 holiday. The counts and the submit label agree. Try **"Hiçbiri"** (everything set to skip; submit disabled or "0 tarihi rezerve et" disabled), then **"Boşların hepsi"**, then re-apply the D3/D4 choices. **"Yeniden denetle"** re-runs the check without losing the choices (on `deb38315` it reset every per-date choice: R2-M-01 → T-R2-09, lane B; re-test it here).
 - Do: press **"{n} tarihi rezerve et"** (the button text carries the number).
 - See: toast **"{created} tarih rezerve edildi, {skipped} tarih atlandı"** with the real numbers (2026-10-15 dates: "4 tarih rezerve edildi, 2 tarih atlandı", where the replaced date counts as created).
 - API: `POST /bookings/recurring` → **201** (not 202: the admin bypasses), one series. The bookings exist on D1, D4 (replace), D5 and D6. D3 and 29 Oct have none. Staff's S01 booking is now `CANCELLED`, with a reason that names the replacement.
 
 **S05 · staff · learns the booking was replaced**
+- Precondition: S04 was submitted with **"Yerine geç"** on D4. If the series was booked without a replacement, this step is `SKIP (no replacement in S04)`, not NOT RUN; round 2 left it unexercised.
 - Do: log in as staff. `/my-bookings` → **"İptal edilen"**.
 - See: the D4 booking with status **"İptal edildi"** and the reason (who replaced it, why). Bell +1, or an e-mail in the sink. At least one of the two must exist; report which.
 - If neither exists: FAIL (major). Silently losing a booking is the worst booking outcome.
 
-**S06 · planner · the same series becomes a request under approval_mode=all**
-- Do: log in as planner.test. Open a different free room at P6 on D1. "Her hafta", 3 dates, "Tarihleri göster", submit.
+**S06 · planner · the same series becomes a request under approval_mode=all** (precondition 5 first)
+- Do: log in as planner.test. Open a different free room at P6 on D1. "Her hafta" (`getByRole('tab', { name: 'Her hafta' })`), end = "Tarih seçin…" → "Bitiş tarihi" = D3 (3 dates), "Tarihleri göster", submit.
 - See: the notice **"Bu derslik onay gerektirir"**, button **"{n} tarih için talep et"**, toast **"… için talebiniz gönderildi (3 tarih). Onaycı karar verince size bildirilecek."**
 - API: `POST /bookings/recurring` → **202**, `status: PENDING`.
 - Admin: `/approvals` shows one request with **"Onaylanacak tarihler"** and **"{of} tarihten {n} seçili; diğerleri reddedilir."** Uncheck one date and approve **"2 tarihi onayla"**. The planner sees 2 booked, 1 declined. The declined date carries the reason "only selected dates approved" or the reason the admin gave; an empty reason is a FAIL against the F-01 reason rule.
 
 **S07 · admin · edit with a scope**
-- Do: open the D1 booking of the series (`booking-sheet`). Press **"Düzenle"** (`booking-edit`). Change the note to `Bölüm toplantısı (haftalık)`. **"Uygulanacak"** = **"Bu ve sonrakiler"**. Save (`edit-save`).
+- Do: open the D1 booking of the series (`booking-sheet`). Press **"Düzenle"** (`booking-edit`). Change the note to `Bölüm toplantısı (haftalık)`. **"Uygulanacak"** (a select: "Bu tarih" / "Bu ve sonrakiler" / "Tüm seri") = **"Bu ve sonrakiler"**. Save (`edit-save`).
 - See: the toast names the number of bookings updated. D1 and later dates show the new note.
 - API: the edit returns the updated ids. Re-read two of them.
 
@@ -68,6 +71,7 @@ Testable on `b75047b`: yes, every step.
 
 **S09 · admin · cancel this and future**
 - Do: on D4 → "İptal et" → **"Bu ve sonrakiler"**, reason `Program değişti`.
+- Phone: open the D4 booking either from `/bookings?date=$D4` (the slot list: tap the booked `RS · P5` slot → the detail sheet) or from `/my-bookings` › Yaklaşan (the admin sees the series under the owner's section: tap the card → `booking-sheet`). Round 2 reported the phone step NOT RUN because the harness looked for a desktop row; both paths above exist at 390.
 - See: toast **"{n} rezervasyon iptal edildi"**, n = the series dates still booked from D4 on (D4 and D6 = 2, because D5 was cancelled in S08). D1 stays booked.
 - API: `scope: future` → those ids are `CANCELLED`, and the earlier ones are not.
 
@@ -80,16 +84,16 @@ Testable on `b75047b`: yes, every step.
 - See: every remaining date of the series is cancelled. The staff booking replaced in S04 is **not** restored by this; that is correct.
 
 **S12 · staff · a period that already started is not bookable** (U-04 regression)
-- Do: as staff, during teaching hours, open `/bookings` for **today**.
+- Do: as staff, during teaching hours, open `/bookings` for **today**. If TODAY is a Saturday or Sunday (no periods; round 2 ran on a Saturday), the UI half is `SKIP (weekend)` and the API half uses the last weekday.
 - See: periods whose start time has passed (Europe/Istanbul) are not offered ("Geçmiş" or "Rezerve edilemez"), in both the grid and the phone free-slot list.
-- API: `POST /bookings` for today's P1 after 09:00 local → **409** `past`. (If you run this after 17:30, use P11.)
+- API: `POST /bookings` for today's P1 after 09:00 local → **409** with the code `past` and a `message_tr` (R2-S-13: on `deb38315` the refusal was English only → T-R2-17, lane B). (If you run this after 17:30, use P11.)
 
 ## Mobile-specific expectations (phone 390×844; tablet 768×1024)
 
 - The book sheet is a bottom sheet. **"Tek seferlik / Her hafta"** is one segmented control that does not wrap (UI review: one segmented control). Each segment is ≥ 44 px tall.
 - **Recurring preview on phone:** one card per date (date + week on line 1, status word + icon on line 2). The per-date action is a ≥ 44 px segmented control or select, never a hover menu. The summary line and the submit button sit in a sticky footer inside the sheet (MOBILE.md M-05). Scrolling 6+ dates never scrolls the page sideways.
 - The date fields use the Turkish format (gg.aa.yyyy) or a localised picker, never `mm/dd/yyyy` (UI review "Selects / dates").
-- **Cancel dialog on phone:** a bottom sheet. Each scope option is a full-width ≥ 44 px radio row. The "Gerekçe" field stays above the on-screen keyboard (M-12). The destructive button is distinct in colour and text ("İptal et"), and "Vazgeç" is easy to reach.
+- **Cancel dialog on phone:** a bottom sheet. The scope control ("Uygulanacak") is a ≥ 44 px select or full-width radio rows (the build uses a select). The "Gerekçe" field stays above the on-screen keyboard (M-12). The destructive button is distinct in colour and text ("İptal et"), and "Vazgeç" is easy to reach.
 - **"Kimin adına"** user picker on phone: a searchable list in a sheet, rows ≥ 44 px, initials only.
 - **Audit log on phone** (S10): a card list. "Geri al" is a ≥ 44 px button inside the card.
 

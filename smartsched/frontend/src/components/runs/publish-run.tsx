@@ -30,7 +30,7 @@ import { weekList } from "@/lib/i18n/turkish";
 import { partialCounts } from "./runs-list";
 import { sectionOf } from "./diagnosis-format";
 import { isStaleConflict, refusalBody, serverMessage } from "@/lib/api/error-text";
-import { BROKEN_RULE_TR, type RunTruth, type VerdictException } from "./run-truth";
+import { BROKEN_RULE_TR, brokenText, type RunTruth, type VerdictException } from "./run-truth";
 
 const rec = (v: unknown): Record<string, unknown> | null => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
 
@@ -119,10 +119,12 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
   }
   const partial = partialCounts(run);
   const weeks = run.horizon === "WEEK" && run.horizon_params.weeks.length ? run.horizon_params.weeks : [];
-  const unplaced = partial ? [...new Set(run.diagnosis.filter((d) => sectionOf(d) === "unplaced").flatMap((d) => d.event_labels))] : [];
+  // round-2 T-R2-26 (R1-M-14): every unplaced class from the truth's list; the diagnoses' labels only for a truth
+  // stored before the list existed
+  const unplaced = partial ? (truth?.unplaced_list.length ? truth.unplaced_list.map((u) => u.label) : [...new Set(run.diagnosis.filter((d) => sectionOf(d) === "unplaced").flatMap((d) => d.event_labels))]) : [];
   // a week run replacing a published run: the weeks outside it leave the published timetable - an explicit tick
   const needsScope = (weeks.length > 0 && published !== null) || reduction !== null;
-  const forcedList = forcedRefusal?.breaks ?? (truth?.broken ?? []).filter((b) => b.explained).map((b) => ({ rule: b.rule, message: b.message, reason: b.reason }));
+  const forcedList = forcedRefusal?.breaks ?? (truth?.broken ?? []).filter((b) => b.explained).map((b) => ({ rule: b.rule, message: brokenText(b, tr), reason: b.reason }));
   const needsForced = forcedList.length > 0;
   const blocked = (Boolean(partial) && !partialOk) || (needsScope && !scopeOk) || (needsForced && !forcedOk);
   return (
@@ -168,9 +170,8 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
                 {tr ? `Yerleşmeyen ${n(partial.total - partial.placed)} ders yayımlanan programda olmayacak:` : `${n(partial.total - partial.placed)} unplaced classes will not be in the published timetable:`}
               </p>
               {unplaced.length ? (
-                <ul className="max-h-32 overflow-y-auto pl-4 type-footnote text-label-1 [list-style:disc]">
-                  {unplaced.slice(0, 30).map((u) => <li key={u}>{u}</li>)}
-                  {unplaced.length > 30 ? <li className="text-label-2">{tr ? `ve ${unplaced.length - 30} ders daha` : `and ${unplaced.length - 30} more`}</li> : null}
+                <ul className="max-h-32 overflow-y-auto pl-4 type-footnote text-label-1 [list-style:disc]" data-testid="publish-partial-list">
+                  {unplaced.map((u, i) => <li key={`${u}-${i}`} className="[content-visibility:auto]">{u}</li>)}
                 </ul>
               ) : null}
               <label className="flex min-h-11 items-center gap-2 type-callout text-label-1 pointer-fine:min-h-0">

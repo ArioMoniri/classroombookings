@@ -15,6 +15,8 @@ export interface PreviewState {
   plan: RecurPlan | null;
   choices: Record<string, InstanceAction>;
   holidays: HolidayDay[];
+  /** dates whose availability changed on the last re-check, so the user's choice fell back to the default (T-R2-09) */
+  reset: string[];
 }
 
 export type PreviewAction =
@@ -23,7 +25,7 @@ export type PreviewAction =
   | { type: "setAll"; action: "book" | "do_not_book" }
   | { type: "reset" };
 
-export const initialPreview: PreviewState = { plan: null, choices: {}, holidays: [] };
+export const initialPreview: PreviewState = { plan: null, choices: {}, holidays: [], reset: [] };
 
 /** The backend default: book what is free, leave the rest. */
 export function defaultAction(inst: RecurInstance): InstanceAction {
@@ -33,9 +35,22 @@ export function defaultAction(inst: RecurInstance): InstanceAction {
 export function previewReducer(state: PreviewState, action: PreviewAction): PreviewState {
   switch (action.type) {
     case "load": {
+      // A re-check ("Yeniden denetle") keeps the user's book / skip / replace choice for every date still in the
+      // plan; only a date whose availability changed (the kept action is no longer offered) falls back to the
+      // default and is listed in `reset` so the table can say so. R2-M-01: the old load rebuilt every choice from
+      // the defaults and the submit body silently carried them.
       const choices: Record<string, InstanceAction> = {};
-      for (const inst of action.plan.instances) choices[inst.date] = defaultAction(inst);
-      return { plan: action.plan, choices, holidays: action.holidays ?? [] };
+      const reset: string[] = [];
+      for (const inst of action.plan.instances) {
+        const kept = state.plan ? state.choices[inst.date] : undefined;
+        if (kept && inst.actions.includes(kept)) {
+          choices[inst.date] = kept;
+          continue;
+        }
+        choices[inst.date] = defaultAction(inst);
+        if (kept && kept !== choices[inst.date]) reset.push(inst.date);
+      }
+      return { plan: action.plan, choices, holidays: action.holidays ?? [], reset };
     }
     case "set": {
       const inst = state.plan?.instances.find((i) => i.date === action.date);
@@ -71,6 +86,8 @@ export interface PreviewRow {
   heldLabel: string | null;
   /** chosen to book/replace but beyond `recur_max_instances`: the backend will skip it */
   cut: boolean;
+  /** the last re-check found this date changed and dropped the user's choice (T-R2-09) */
+  reset: boolean;
   instance: RecurInstance | null;
 }
 
@@ -91,6 +108,7 @@ export function summarise(state: PreviewState): PreviewSummary {
   const plan = state.plan;
   const max = plan?.max_instances ?? null;
   const rows: PreviewRow[] = [];
+  const resetDates = new Set(state.reset);
   let taken = 0;
   for (const inst of plan?.instances ?? []) {
     const action = state.choices[inst.date] ?? defaultAction(inst);
@@ -106,13 +124,14 @@ export function summarise(state: PreviewState): PreviewSummary {
       actions: inst.actions,
       heldLabel: inst.held?.label ?? inst.booking?.user_name ?? null,
       cut,
+      reset: resetDates.has(inst.date),
       instance: inst,
     });
   }
   const instanceDates = new Set(rows.map((r) => r.date));
   for (const h of state.holidays) {
     if (instanceDates.has(h.date)) continue;
-    rows.push({ kind: "holiday", date: h.date, termWeek: null, status: "holiday", action: null, actions: [], heldLabel: h.name, cut: false, instance: null });
+    rows.push({ kind: "holiday", date: h.date, termWeek: null, status: "holiday", action: null, actions: [], heldLabel: h.name, cut: false, reset: false, instance: null });
   }
   rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const inst = rows.filter((r) => r.kind === "instance");

@@ -6,8 +6,11 @@ placement that is lexicographically best under ``SolverInput.relaxation_policy``
 * ``lock_first`` (default): (1) the planner's trusted locks (``Event.locked`` with ``lock_trusted``) are kept
   — a lock is never moved, it is either placed where the planner put it or reported unplaced; (2) then the
   coordinator-set ``Event.priority`` (higher first: one more request of a higher priority beats any number of
-  lower ones); (3) then the most requests placed, (4) the most event-weeks, (5) tool-made locks.
-* ``most_classes_first``: (1) the most requests placed, (2) the most event-weeks, (3) priority, (4) locks.
+  lower ones); (3) then the most requests placed, (4) then the requests placed in the *previous* timetable
+  (``SolverInput.previous``: a re-solve never trades a published class for a newcomer of equal priority — round-2
+  T-R2-34), (5) the most event-weeks, (6) tool-made locks.
+* ``most_classes_first``: (1) the most requests placed, (2) the previous timetable's requests, (3) the most
+  event-weeks, (4) priority, (5) locks.
 
 A *request* is one event, or every week segment of one request (``weeksplit``: placed only when all its
 segments are).  Ties left after every tier are broken by class size and a fixed id rank (never by the input
@@ -55,6 +58,14 @@ def clamp_priority(value: Any) -> int:
 def trusted_locked(e: Event) -> bool:
     """The planner's own lock (a LOCKED planning-list row): never moved, kept first under ``lock_first``."""
     return e.locked is not None and e.lock_trusted
+
+
+def previously_placed(inp: SolverInput) -> frozenset[int]:
+    """Events placed in the previous timetable (``SolverInput.previous``; rooms given when the event needs one)."""
+    by_id = {e.id: e for e in inp.events}
+    return frozenset(
+        a.event_id for a in inp.previous if a.event_id in by_id and (a.room_ids or not by_id[a.event_id].needs_room)
+    )
 
 
 def segment_groups(inp: SolverInput) -> list[list[int]]:
@@ -127,15 +138,20 @@ def tiers(inp: SolverInput, unit_list: list[Unit] | None = None) -> list[Tier]:
     ]
     event_weeks = Tier("weeks", tuple((weeks[e.id], ("event", e.id)) for e in inp.events))
     locks = Tier("locks", tuple((1, ("event", i)) for i in trusted))
+    # the requests of the previous timetable (a published run under a moderation re-solve): kept ahead of a
+    # newcomer at equal priority and count, so a soft change never costs a placed class (round-2 T-R2-34)
+    had = previously_placed(inp)
+    previous = Tier("previous", tuple((1, ("unit", i)) for i, u in enumerate(us) if any(x in had for x in u.ids)))
     policy = policy_name(inp.relaxation_policy)
     out: list[Tier]
     if policy == "lock_first":
         # with several priority levels the level counts add up to the request count: no separate request tier
         prio = by_level if len(levels) > 1 else [requests]
-        out = [locks, *prio, event_weeks, Tier("tool_locks", tuple((1, ("event", i)) for i in tool))]
+        out = [locks, *prio, previous, event_weeks, Tier("tool_locks", tuple((1, ("event", i)) for i in tool))]
     else:
         out = [
             requests,
+            previous,
             event_weeks,
             *(by_level if len(levels) > 1 else []),
             Tier("locks", tuple((1, ("event", i)) for i in trusted + tool)),
@@ -200,6 +216,7 @@ LOSS_REASONS = (
     "lock_clash_more_locks",  # keeping this lock would drop more locked rows (they have a lower priority)
     "locked_row_kept",  # a trusted locked row holds what this request needs (locks are never moved)
     "lower_priority",  # a request of higher coordinator priority holds it
+    "published_kept",  # a class of the previous (published) timetable holds it at equal priority (T-R2-34)
     "most_classes",  # placing it would leave at least as many other requests out
     "no_option",  # nothing placed blocks it: no room / time survives the hard rules
 )
@@ -233,7 +250,10 @@ def loss_reason(inp: SolverInput, e: Event, competitors: Iterable[int], by_id: M
             return {**out, "reason": "locked_row_kept", "winners": ids(locks)}
         if higher:
             return {**out, "reason": "lower_priority", "winners": ids(higher)}
-        return {**out, "reason": "most_classes", "winners": ids(events)}
+    had = previously_placed(inp)
+    kept = [x for x in events if x.id in had]
+    if kept and e.id not in had:
+        return {**out, "reason": "published_kept", "winners": ids(kept)}
     return {**out, "reason": "most_classes", "winners": ids(events)}
 
 
@@ -253,6 +273,7 @@ __all__ = [
     "loss_reason",
     "objective_groups",
     "policy_name",
+    "previously_placed",
     "segment_groups",
     "tiers",
     "trusted_locked",

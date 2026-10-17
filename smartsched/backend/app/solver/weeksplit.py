@@ -49,6 +49,7 @@ REASON_LOCK_CLASH = "locked_clash"  # another planner lock holds the room in tho
 REASON_NO_COMMON_ROOM = "no_common_room"  # no eligible room is free in every week
 REASON_ROOM_CHANGES = "room_availability_changes"  # the free rooms differ between weeks (blocks, locks)
 REASON_RESIDUAL = "no_room_all_weeks"  # unplaced by the solve: no room free in all weeks given the rest
+REASON_PREVIOUS_ROWS = "previous_room_changes"  # the previous timetable already changes its room between weeks
 
 #: an unlocked event is split by week "profile" (the set of unavailable eligible rooms) up to this many
 #: segments; beyond, the greedy cover gives the fewest segments that each keep one free room
@@ -428,6 +429,65 @@ def _apply(base: WeekSplit, replaced: dict[int, list[Event]], diags: list[Diagno
     )
 
 
+def split_by_rows(split: WeekSplit, rows_by_event: Mapping[int, Iterable[Assignment]]) -> WeekSplit:
+    """Split unlocked fixed-time events along the week partition of their *previous* placement (round-2 T-R2-34).
+
+    A term run's stored rows keep one row per room set of a class whose room changes between weeks (a residual
+    week-split round of ``solve_segmented``).  A minimal-change repair that starts from those rows must see the
+    same segments, else the class is read as "one room for every week" (a cell that may not exist any more) and
+    gets freed or dropped.  Events already split, locked events (their lock covers every week), room-less, sharing
+    and single-week events are left alone.  The largest row keeps the event id; weeks no row covers join it."""
+    inp = split.inp
+    by_id = {e.id: e for e in inp.events}
+    replaced: dict[int, list[Event]] = {}
+    diags: list[Diagnosis] = []
+    next_id = min([0, *(e.id for e in inp.events)]) - 1
+    for root in sorted(rows_by_event):
+        e = by_id.get(root)
+        if e is None or e.locked is not None or not e.needs_room or shares_room(e) or len(e.weeks) < 2:
+            continue
+        if len(split.segments.get(root, [root])) > 1 or e.fixed_day is None or e.fixed_start is None:
+            continue
+        rows = sorted(rows_by_event[root], key=lambda a: (-len(a.weeks & e.weeks), min(a.weeks) if a.weeks else 0))
+        groups: list[set[int]] = []
+        taken: set[int] = set()
+        for a in rows:
+            g = set(a.weeks & e.weeks) - taken
+            if g:
+                groups.append(g)
+                taken |= g
+        if len(groups) < 2:
+            continue
+        groups[0] |= set(e.weeks) - taken
+        main = replace(e, weeks=frozenset(groups[0]))
+        segs = []
+        for g in groups[1:]:
+            segs.append(replace(e, id=next_id, weeks=frozenset(g), label=seg_label(e.label, g)))
+            next_id -= 1
+        replaced[root] = [main, *segs]
+        diags.append(
+            Diagnosis(
+                [root],
+                ["same_room_across_weeks"],
+                f"{e.label}: the previous timetable changes its room between weeks, so it is scheduled in week "
+                "segments " + "; ".join(f"w{weeks_text(g)}" for g in groups) + " at the same time, preferably in one room",
+                ["accept the room change", "release a block in the affected weeks to keep one room all term"],
+                "warning",
+                "week_split",
+                {
+                    "reason": REASON_PREVIOUS_ROWS,
+                    "kept_weeks": sorted(groups[0]),
+                    "moved_weeks": sorted(set().union(*groups[1:])),
+                    "uncovered_weeks": [],
+                    "segments": [x.id for x in segs],
+                },
+            )
+        )
+    if not replaced:
+        return split
+    return _apply(split, replaced, diags)
+
+
 def residual_split(split: WeekSplit, assignments: Iterable[Assignment]) -> tuple[WeekSplit, list[Assignment]] | None:
     """Second chance for fixed-time events a (partial) solve left unplaced: with everything else where
     the solve put it, cover the event's weeks by rooms that are free *in those weeks* (greedy maximum
@@ -691,7 +751,11 @@ def to_original(split: WeekSplit, result: SolverResult) -> SolverResult:
         root = d.event_ids[0] if d.event_ids else None
         if root is None:
             continue
-        if d.params.get("reason") in (REASON_ROOM_CHANGES,) and rows_per_root.get(root, 0) <= 1 and root in full:
+        if (
+            d.params.get("reason") in (REASON_ROOM_CHANGES, REASON_PREVIOUS_ROWS)
+            and rows_per_root.get(root, 0) <= 1
+            and root in full
+        ):
             continue  # split for freedom only, and every week ended up in one room: nothing to report
         kept_notes.append(d)
     stats = dict(result.stats)
@@ -816,6 +880,7 @@ def solve_segmented(
 __all__ = [
     "missing_weeks",
     "REASON_BLOCKED",
+    "REASON_PREVIOUS_ROWS",
     "REASON_RESIDUAL",
     "REASON_ROOM_CHANGES",
     "fully_placed",
@@ -823,6 +888,7 @@ __all__ = [
     "residual_split",
     "seg_label",
     "solve_segmented",
+    "split_by_rows",
     "to_original",
     "REASON_LOCK_CLASH",
     "REASON_NO_COMMON_ROOM",

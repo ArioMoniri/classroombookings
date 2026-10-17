@@ -3,8 +3,10 @@
 // References: Apple Mail & Photos iOS 26 filter capsules, Linear filter chips, Kinetics "Choice Chips"
 // (feel reference only, no code). Selected = tint-soft fill + a check that pops in (transform/opacity only,
 // springs.bouncySubtle CSS mirror, motion.md §3.2). No width animation: the check slot appears instantly.
-// Touch: 24 / 28 px tall, but the chip and its remove button get a 44 × 44 hit area on coarse pointers (ui/hit-area.ts);
-// the remove button is 30 px wide there so its hit area stays inside the chip's own end padding.
+// Touch: 28 px tall on coarse pointers (sm takes the md height, T-R2-05 / R2-S-03) and the chip and its remove button get a
+// 44 × 44 hit area (ui/hit-area.ts); the wrapper pads 8 px top and bottom there, so the ::after ends inside the wrapper's
+// own box and a scrolling chip row (overflow:auto) never clips it (MOBILE.md M-02). The remove button is 30 px wide so its
+// hit area stays inside the chip's own end padding.
 import * as React from "react"
 import { CheckIcon, XIcon } from "lucide-react"
 import { cn } from "cn"
@@ -24,9 +26,9 @@ type ChipProps = Omit<React.ComponentProps<"button">, "onChange"> & {
 
 function Chip({ className, selected, onSelectedChange, icon, removeLabel, onRemove, size = "md", children, onClick, ...props }: ChipProps) {
   const toggle = typeof selected === "boolean"
-  const height = size === "sm" ? "h-6 type-footnote px-2.5" : "h-7 type-callout px-3"
+  const height = size === "sm" ? "h-6 pointer-coarse:h-7 type-footnote px-2.5" : "h-7 type-callout px-3"
   return (
-    <span data-slot="chip" className="inline-flex shrink-0 items-center">
+    <span data-slot="chip" className="inline-flex shrink-0 items-center pointer-coarse:py-2">
       <button
         type="button"
         aria-pressed={toggle ? selected : undefined}
@@ -67,7 +69,7 @@ function Chip({ className, selected, onSelectedChange, icon, removeLabel, onRemo
           className={cn(
             "relative inline-flex items-center justify-center rounded-r-full pr-2 pl-1 text-label-3 transition-colors hover:text-label-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus) pointer-coarse:pr-2.5 pointer-coarse:pl-2 [&_svg]:size-3",
             coarseHitArea,
-            size === "sm" ? "h-6" : "h-7",
+            size === "sm" ? "h-6 pointer-coarse:h-7" : "h-7",
             selected ? "bg-tint-soft" : "bg-fill-2 shadow-[inset_0_1px_0_0_var(--hairline),inset_0_-1px_0_0_var(--hairline),inset_-1px_0_0_0_var(--hairline)] hover:bg-fill-1"
           )}
         >

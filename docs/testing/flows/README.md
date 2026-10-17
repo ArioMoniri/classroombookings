@@ -28,15 +28,15 @@ Snapshot read for this plan: `origin/claude/gracious-cerf-w1598m` at `b75047b` (
 | F-01 | Request an empty slot → approve / reject with reason → notified → withdraw | staff, academician, admin | **Partly.** Backend complete (approval_mode, reason codes, notify_dispatch, preferences API). UI: request, approve, withdraw, bell work | frontend builder not started: approval-mode setting, reject dialog with required reason code + text, reason in My bookings, Profile › Bildirimler. External channels (Apprise + pywebpush, decided 22:45) have no API or UI yet |
 | F-02 | Direct booking (admin/approver bypass), recurring with book/skip/replace, cancel with scope | admin, staff | **Yes** | – |
 | F-03 | Find a room with capacity + feature → reserve from the results | staff, academician | **Yes** (features need the starter catalogue, see preconditions) | – |
-| F-04 | My bookings + ICS feed subscribe + regenerate | staff, academician | **Yes**, after the admin KVKK sign-off for calendar sync (API only: no admin screen, M-40) | admin KVKK screen |
+| F-04 | My bookings + ICS feed subscribe + regenerate | staff, academician | **Yes** (round 2: the sign-off screen, the inline panel and the user consent step are built) | S12 two-way sync: no OAuth client on this host (SKIP) |
 | F-05 | Academician "Taleplerim" self-view, then the coordinator's moderation of that person | academician, admin | **Mostly** (P19 UI follow-up 2026-10-16: Taleplerim nav, person/programme priority, baseline + chain, "Akademisyenlere bildir" publish notices). The login ↔ instructor link has an API (`PUT /auth/sso/admin/users/{id}/instructor`) | "Tercih ekle" (P19-T2, backend) |
 | F-06 | Learned suggestions accept / reject / snooze + memory reset / undo | admin, planner | **Yes** | – |
 | F-07 | Program from scratch → pre-check → generate → publish | admin | **Yes** (server drafts, P19 UI follow-up 2026-10-16) | – |
-| F-08 | File intake: Bahar xlsx + CSV export + scanned PDF (AI off) → review → dry-run diff → commit → remembered mappings | admin | **Partly.** Council API complete (rows, decisions, dry-run, memory). The Phase 19 intake UI (stepper, Fark step, remembered chips) is assigned to the design-system agent and not built | intake UI (I7, onboarding frontend hand-off) |
+| F-08 | File intake: Bahar xlsx + CSV export + scanned PDF (AI off) → review → dry-run diff → commit → remembered mappings | admin | **Mostly** (round 2: upload, progress, review, dry run and commit run in the UI at `/onboarding?job=<id>`) | job URL / drop zone / live bar (T-R2-20), dry run ≠ commit (T-R2-19); S15 needs an AI key (SKIP) |
 | F-09 | Generator Studio → run → honest run report → publish / partial-publish confirm | admin, planner | **Yes** | – |
-| F-10 | Timetable: open a class, keyboard move, forced move with a reason (admin), undo | admin, planner | **Partly.** Forced move with a written reason has backend support (M-02/M-09) but no UI field yet | forced-move reason UI (design-system agent hand-off) |
-| F-11 | Admin setup: users/roles (no escalation), rooms + features, approval rules / mode, KVKK sign-offs | admin, limited admin | **Partly.** Approval-mode setting and the calendar-sync KVKK screen have no UI; the AI-policy screen exists | approval-mode UI, KVKK screen (M-40) |
-| F-12 | Login, logout, password change, session expiry; Microsoft Entra ID sign-in | all | **Yes** for local login. **SSO partly:** the provider is decided (Entra ID, 22:45/22:50) and the backend (`/auth/sso/*`) exists, so config guards, the start redirect, callback refusals, invites and break-glass are testable via API | sign-in page (docs/design/v2/sign-in.md) not built; a real round trip needs tenant credentials from IT; spec/backend path mismatch (`/auth/oidc/microsoft` vs `/auth/sso/entra`) |
+| F-10 | Timetable: open a class, keyboard move, forced move with a reason (admin), undo | admin, planner | **Yes** (round 2: the forced-move reason field is built and verified) | phone filters sheet (T-R2-28) |
+| F-11 | Admin setup: users/roles (no escalation), rooms + features, approval rules / mode, KVKK sign-offs | admin, limited admin | **Yes** (approval-mode control and the calendar-sync KVKK card are in Ayarlar) | KVKK AI default waits for the owner (R1-M-07) |
+| F-12 | Login, logout, password change, session expiry; Microsoft Entra ID sign-in | all | **Yes** for local login and the built sign-in page (`signin.*` strings). **SSO partly:** config guards, the start redirect, callback refusals, invites and break-glass are testable via API | S08 needs the TTL stack (§4.2); S11 SSO provider admin form not built (API instead); S18 real round trip needs tenant credentials from IT (BLOCKED) |
 | F-13 | TR/EN, reduced motion, keyboard-only pass over F-01..F-04 | all | **Yes** (inherits F-01's UI gaps) | – |
 
 Live AI is never needed. Every flow runs with **no Anthropic key** and AI intake switched off. Steps that would need a key are marked `NEEDS-AI` and are skipped (report `SKIP`, reason "no AI key").
@@ -133,6 +133,9 @@ Port plan (pick your row; never reuse another tester's ports):
 | admin | 19130 | 19131 |
 | admin, fresh stack (F-07 empty term, F-08) | 19132 | 19133 |
 | re-test runs | +100 on the row above | +100 |
+| TTL stack (F-12 S08, `JWT_EXPIRE_MINUTES=2`, own `REC_WORKDIR`) | +200 on the row above | +200 |
+
+Round 3 runs F-12 S08 on the TTL stack (rounds 1 and 2 skipped it) and F-05 S15 on the board-only snapshot below.
 
 ```bash
 export REC_WORKDIR="$SCR/flow-stack-<persona>" REC_API_PORT=191x0 REC_WEB_PORT=191x1
@@ -143,8 +146,11 @@ REC_RUNS="2026-BAHAR:WEEK:3:120 2026-BAHAR:TERM:-:240 2026-GUZ:WEEK:3:120 2026-G
 export SMTP_PORT=2526 SINK="$SCR/flow-mail-<persona>"   # one port per tester: 2526 staff, 2527 academician, 2528 admin
 python3 -I "$SCR/smtp_sink.py" "$SMTP_PORT" "$SINK" &      # §4.5; keep it running for the whole round (or start it as a background task)
 bash "$SCR/flow-seed.sh"                        # §4.4: accounts, link, masking, SMTP settings, approver
+REC_SNAPSHOT_NAME=rec.board bash "$SNAP/scripts/record/stack.sh" snapshot   # board-only state (no solver run; the imported Güz board is the published plan): F-05 S15
 bash "$SNAP/scripts/record/stack.sh" snapshot    # every flow then starts from this state in seconds
 ```
+
+The `runs` line may run before the board snapshot only if you take that snapshot first: `REC_SNAPSHOT_NAME=rec.board … snapshot` must come **before** `stack.sh runs`. Restore it with `REC_SNAPSHOT=1 REC_SNAPSHOT_NAME=rec.board REC_SKIP_BUILD=1 … up`, and the default snapshot again afterwards (`REC_SNAPSHOT=1 REC_SKIP_BUILD=1 … up`).
 
 Before **each flow**: `REC_SNAPSHOT=1 REC_SKIP_BUILD=1 bash "$SNAP/scripts/record/stack.sh" up` (restores the database and uploads, keeps the build), then apply the flow's own preconditions. Flows mutate data. Never run two flows on one stack at the same time.
 

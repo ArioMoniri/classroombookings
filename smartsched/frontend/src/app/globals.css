@@ -643,6 +643,10 @@
       position: absolute;
       inset: min(0px, calc(50% - 22px));
     }
+    /* T-R2-05 (R2-S-04, R2-M-23): a native checkbox or radio that is not in a label row (table cells, card lists, rule
+       cards) takes its 44 px hit area as vertical margin, so the row grows with it and an overflow:auto / table-cell
+       ancestor no longer clips the ::after; the label rows above are already 44 px. */
+    input:is([type="checkbox"], [type="radio"]):not(label *) { margin-block: 14px; }
   }
   html:has([data-app-shell]) {
     scroll-padding-top: calc(var(--shell-top-h) + 1.5rem);

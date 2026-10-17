@@ -19,7 +19,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, DoorOpen, Inbox, Users, XCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
@@ -132,7 +132,7 @@ export function ApprovalsView() {
             {box === "open" ? t("wave1.approvals.emptyOpen") : t("wave1.approvals.emptyDecided")}
           </p>
         ) : (
-          <ul data-testid="approvals-list">
+          <ul data-testid="approvals-list" onKeyDown={moveInList}>
             {entries.map(({ key, requests }) => {
               const r = requests[0]!;
               return (
@@ -150,6 +150,7 @@ export function ApprovalsView() {
                     setOpenId(r.id);
                   }}
                   data-testid={`approval-${r.id}`}
+                  data-approval-row
                   aria-label={t("wave1.approvals.openRequest", { room: r.room_name ?? "", name: r.requester_name ?? "" })}
                 >
                   <span className="min-w-0 flex-1">
@@ -205,6 +206,24 @@ export function ApprovalsView() {
   );
 }
 
+/**
+ * T-R2-12 (R2-S-17): roving focus on the inbox list. j / ArrowDown and k / ArrowUp move between the submission rows,
+ * Home / End jump to the first and last one (F-13 C02: "j → next row"). Enter / Space on a row open it (its button).
+ */
+function moveInList(e: KeyboardEvent<HTMLUListElement>) {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key;
+  const step = k === "j" || k === "ArrowDown" ? 1 : k === "k" || k === "ArrowUp" ? -1 : k === "Home" ? -Infinity : k === "End" ? Infinity : 0;
+  if (!step) return;
+  const rows = Array.from(e.currentTarget.querySelectorAll<HTMLElement>("[data-approval-row]"));
+  if (!rows.length) return;
+  const active = document.activeElement;
+  const i = rows.findIndex((el) => el === active || el.contains(active));
+  const next = step === -Infinity ? 0 : step === Infinity ? rows.length - 1 : Math.min(rows.length - 1, Math.max(0, (i < 0 ? (step > 0 ? -1 : rows.length) : i) + step));
+  e.preventDefault();
+  rows[next]?.focus();
+}
+
 /** After the drawer's exit, focus the next submission's row (rows are one per submission, A-12), else the heading. */
 function nextRowSelector(entries: { requests: ApprovalRequest[] }[], id: number): string {
   const i = entries.findIndex((e) => e.requests.some((r) => r.id === id));
@@ -218,10 +237,16 @@ function RequestDrawer({ id, onClose, onSwitch, onDone, group, pendingKey }: { i
   const phone = useIsPhone();
   // the app's reduced-motion switch or the OS setting: the drawer appears and leaves at once (no slide)
   const reduce = useReduce();
+  const popupRef = useRef<HTMLDivElement>(null);
   return (
     <Sheet open={id !== null} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
+        ref={popupRef}
         side={phone ? "bottom" : "right"}
+        // T-R2-12 (R2-M-09): the drawer opens with focus on its title, never on the first field (the note textarea
+        // swallowed the A / D / R keys). While the request is still loading the popup itself takes the focus and
+        // RequestDetail moves it to the title once rendered.
+        initialFocus={() => popupRef.current?.querySelector<HTMLElement>("[data-approval-title]") ?? popupRef.current ?? true}
         // phone: a 92 % bottom sheet, full width and flush with the bottom (F-01 mobile, MOBILE.md M-04)
         className={cn("gap-0 data-[side=right]:sm:max-w-lg", phone && "inset-x-0! bottom-0! h-[92dvh] max-h-[92dvh]! rounded-b-none!", reduce && "transition-none! data-starting-style:translate-x-0! data-starting-style:translate-y-0! data-ending-style:translate-x-0! data-ending-style:translate-y-0!")}
         data-testid="approval-drawer"
@@ -237,6 +262,7 @@ function RequestDetail({ id, onSwitch, onDone, group, pendingKey }: { id: number
   const { t, locale } = useI18n();
   const fmt = useBookingFormat();
   const qc = useQueryClient();
+  const phone = useIsPhone();
   const req = useApprovalRequest(id);
   const r = req.data;
   const [note, setNote] = useState("");
@@ -334,11 +360,32 @@ function RequestDetail({ id, onSwitch, onDone, group, pendingKey }: { id: number
     document.addEventListener("keydown", h);
     return () => document.removeEventListener("keydown", h);
   }, []);
+  // T-R2-12 (R2-M-09): once the request is rendered, focus the title if the popup opened before it existed (the
+  // focus then sits on the sheet container or fell to <body>), so A / D / R act at once after Enter on a row.
+  const loaded = !!r;
+  useEffect(() => {
+    if (!loaded) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active.getAttribute("data-slot") !== "sheet-content") return;
+    document.querySelector<HTMLElement>("[data-approval-title]")?.focus();
+  }, [loaded]);
 
   if (req.isLoading) return <Loading className="px-5 pt-5" />;
   if (!r) return <Alert tone="error" className="m-5">{req.error ? errorText(wave1Error(req.error), locale) : t("crbs.errors.not_found")}</Alert>;
   const { dates, first } = requestSlots(r);
   const head = first?.headcount;
+  // the whole-submission actions: in the group bar on desktop, in the sticky footer on phones (T-R2-12, R2-S-05:
+  // the primary "N saatin hepsini onayla" sat at y 318 inside the scrolling body, outside MOBILE.md M-05's bottom 40 %)
+  const groupActions = (
+    <div className={cn("flex flex-wrap gap-2", phone && "w-full [&>button]:flex-1")}>
+      <Button size={phone ? "md" : "sm"} variant="outline" className="text-status-infeasible-fg" onClick={() => askReject("group")} {...busyProps(groupBusy === "reject", groupBusy !== null || busy !== null)} data-testid="approval-group-reject">
+        <BusyLabel busy={groupBusy === "reject"} label={t("busy.rejecting")}>{t("wave1.approvals.rejectAll", { n: openSiblings.length })}</BusyLabel>
+      </Button>
+      <Button size={phone ? "md" : "sm"} onClick={() => void decideAll("approve")} {...busyProps(groupBusy === "approve", groupBusy !== null || busy !== null)} data-testid="approval-group-approve">
+        <BusyLabel busy={groupBusy === "approve"} label={t("busy.approving")}>{t("wave1.approvals.approveAll", { n: openSiblings.length })}</BusyLabel>
+      </Button>
+    </div>
+  );
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="px-5 pt-5 pb-3">
@@ -367,16 +414,7 @@ function RequestDetail({ id, onSwitch, onDone, group, pendingKey }: { id: number
                 );
               })}
             </div>
-            {openSiblings.length > 1 ? (
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" className="text-status-infeasible-fg" onClick={() => askReject("group")} {...busyProps(groupBusy === "reject", groupBusy !== null || busy !== null)} data-testid="approval-group-reject">
-                  <BusyLabel busy={groupBusy === "reject"} label={t("busy.rejecting")}>{t("wave1.approvals.rejectAll", { n: openSiblings.length })}</BusyLabel>
-                </Button>
-                <Button size="sm" onClick={() => void decideAll("approve")} {...busyProps(groupBusy === "approve", groupBusy !== null || busy !== null)} data-testid="approval-group-approve">
-                  <BusyLabel busy={groupBusy === "approve"} label={t("busy.approving")}>{t("wave1.approvals.approveAll", { n: openSiblings.length })}</BusyLabel>
-                </Button>
-              </div>
-            ) : null}
+            {openSiblings.length > 1 && !phone ? groupActions : null}
           </section>
         ) : null}
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 type-callout">
@@ -501,7 +539,8 @@ function RequestDetail({ id, onSwitch, onDone, group, pendingKey }: { id: number
         ) : null}
       </div>
       {open ? (
-        <SheetFooter className="hairline-t flex-row flex-wrap items-center justify-end gap-2 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <SheetFooter className="hairline-t flex-row flex-wrap items-center justify-end gap-2 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-testid="approval-footer">
+          {openSiblings.length > 1 && phone ? groupActions : null}
           <Button variant="ghost" className="mr-auto" onClick={() => setPicking((p) => !p)} aria-pressed={picking} aria-keyshortcuts="R" data-testid="approval-other-room">
             <DoorOpen aria-hidden />
             {t("wave1.approvals.otherRoom")}

@@ -6,7 +6,8 @@ Rules:
 - regenerating the link invalidates the old one;
 - the organisation's KVKK switch `integrations.calendar_sync_enabled` stays off until an administrator records a dated sign-off. While it is off, every token feed answers 404 (alembic 0022, CHANGELOG 0.4.1, M-18).
 
-Testable: yes. The sign-off screen (M-40) is in Ayarlar › Entegrasyonlar since 2026-10-16; S02 runs it in the UI and checks the API. Two-way Google / Microsoft sync needs OAuth client credentials, which the stack does not have: S12 is `SKIP (no OAuth client)`.
+Testable: yes. The sign-off screen (M-40) is in Ayarlar › Entegrasyonlar since 2026-10-16; S02 runs it in the UI and checks the API. Two-way Google / Microsoft sync needs OAuth client credentials, which the stack does not have: S12 is `SKIP (no OAuth client)` (rounds 1 and 2; stays so on this host).
+Revised against `deb38315` (T-R2-35): on `/my-bookings` the calendar panel is **inline** (section "Takvime eşitle", `calendar-sync`), there is no `sync-open` button there (that testid belongs to the `/bookings` toolbar, which opens the same panel in a sheet, `sync-sheet`); creating or resetting the links first asks for the user's KVKK consent (S04).
 
 ## Preconditions
 
@@ -22,8 +23,8 @@ Testable: yes. The sign-off screen (M-40) is in Ayarlar › Entegrasyonlar since
 ## Steps
 
 **S01 · staff · feeds are off before the KVKK sign-off**
-- Do: `/my-bookings` → **"Takvime eşitle"** (`sync-open`).
-- See: the sheet (`sync-sheet`) titled **"Takvime eşitle"** says **"Takvim eşitleme yönetici tarafından kapatıldı."** There is no "Özel bağlantılarımı oluştur" button (or it is disabled with that reason).
+- Do: `/my-bookings` → scroll to the inline section **"Takvime eşitle"** (`calendar-sync`, under the booking lists; at 1440 it shares a row with the export card). Alternative entry: `/bookings` toolbar → **"Takvim eşitleme"** (`sync-open`) opens the same panel in a sheet (`sync-sheet`).
+- See: the panel says **"Takvim eşitleme yönetici tarafından kapatıldı."** There is no "Özel bağlantılarımı oluştur" button (or it is disabled with that reason).
 - API: `POST /calendar/feeds/tokens` as staff → refused (403/409 with a Turkish message), or a token whose feed answers **404**. Save the exchange.
 
 **S02 · admin · KVKK sign-off for calendar sync** (M-40)
@@ -44,13 +45,15 @@ Testable: yes. The sign-off screen (M-40) is in Ayarlar › Entegrasyonlar since
 - Each row has a room-info button (`mine-room-<id>`) that opens the room sheet. "Bu rezervasyonu seç" checkboxes (accessible name **"{date} {room} rezervasyonunu seç"**) are present.
 
 **S04 · staff · create the private links**
-- Do: "Takvime eşitle" → **"Özel bağlantılarımı oluştur"** (`sync-create`).
+- Do: in the inline "Takvime eşitle" panel → **"Özel bağlantılarımı oluştur"** (`sync-create`).
+- See first (user consent, KVKK; new since round 1): the step **"Takvim eşitleme için rızanız gerekiyor"** with the body **"Özel takvim bağlantısı ya da Google / Microsoft bağlantısı, rezervasyonlarınızı (başlık, derslik, tarih ve saat) seçtiğiniz takvim uygulamasıyla paylaşır. Bunun hukuki dayanağı açık rızanızdır (KVKK)."**, the withdrawal sentence, the link **"Gizlilik bölümüne git"** and the buttons **"Rıza ver ve devam et"** / **"Şimdi değil"**. "Şimdi değil" closes it and creates nothing. Press **"Rıza ver ve devam et"**: the links are created; the audit log gains **"Rıza verildi"** (`kvkk_consent_grant`). A later create or reset does not ask again (the consent is stored; `/profile` › Gizlilik can withdraw it, which makes the links stop at once).
 - See: the lead **"Bir kez abone olun, takvim uygulamanız kendini güncel tutar: Google Takvim, Outlook, Apple Takvim ve diğerleri."** A feed block **"Rezervasyonlarım"** (`sync-feed-mine`) with **"Web bağlantısı"** (`sync-url-mine`, https) and **"Takvim uygulaması bağlantısı"** (webcal). Buttons **"Google Takvim'e ekle"**, **"Outlook'a ekle"**, **"Apple Takvim"**. The warning **"Bu bağlantılara sahip herkes içindeki rezervasyonları görebilir. Kimseyle paylaşmayın."** and the note **"Google abone olunan takvimleri anında değil, birkaç saatte bir yeniler."**
 - The URL field shows the full URL without overflowing the sheet (wraps or scrolls inside the field).
 
 **S05 · staff · copy**
 - Do: **"Web bağlantısı kopyala"** (`sync-copy-mine`), then the webcal copy (`sync-copy-webcal-mine`).
 - See: toast **"Bağlantı kopyalandı"** each time. `navigator.clipboard.readText()` returns `https://…/calendar/feeds/<token>/mine.ics`, then `webcal://…/mine.ics`.
+- Phone (390 touch): the touch context has no clipboard permission, so the toast cannot be read there (round 2 PASS*): on the phone read the URL from `sync-url-mine` and check the Google / Outlook / Apple hrefs; the copy toast is a desktop-only assertion. A refused clipboard write must still produce a toast or a message, never an unhandled page error (R2-A-12 → T-R2-15).
 - Google link (`sync-google-mine`): href opens Google Calendar's add-by-URL with the webcal/https URL encoded. Outlook (`sync-outlook-mine`): Outlook's add-calendar URL. Apple (`sync-apple-mine`): `webcal://`. Do not follow them. Check the hrefs only.
 
 **S06 · staff · fetch and parse the feed**
@@ -88,7 +91,7 @@ Testable: yes. The sign-off screen (M-40) is in Ayarlar › Entegrasyonlar since
 - Do: `PUT /calendar/admin/settings {"calendar_sync_enabled":false}`.
 - Expect: the new staff URL → **404** at once. The staff sync sheet shows "Takvim eşitleme yönetici tarafından kapatıldı." Switch it back on and the same token works again (the token is not deleted by the switch). Report what you observe for the last point.
 
-**S12 · staff · two-way sync** — `SKIP (no OAuth client)`
+**S12 · staff · two-way sync** — `SKIP (no OAuth client)` on this host, every round
 - On this stack "Google Takvim'i bağla" / "Microsoft 365'i bağla" must be hidden, or explain that the institution has not set it up. A button that leads to an error page: FAIL (minor).
 
 ## Mobile-specific expectations (phone 390×844; tablet 768×1024)

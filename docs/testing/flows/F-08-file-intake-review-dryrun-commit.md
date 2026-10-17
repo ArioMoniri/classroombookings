@@ -11,6 +11,7 @@ Owner decisions and spec (ROADMAP Phase 19; `docs/design/v2/phase19-intake.md`):
 Testable on `b75047b`: **partly**.
 - The council **API** is complete: rows, decisions, dry-run, term lock and memory.
 - The Phase 19 **intake UI** is not built yet: the `/onboarding/[jobId]` workspace, the stepper Dosyalar → Eşleme → İnceleme → Fark → Kaydet, the draft pill, the source preview and the remembered chips. It sits with the design-system agent ("Onboarding frontend for rows/decisions, dry-run diff, rerun_queued, remembered items").
+- **Job URL on `deb38315` (T-R2-35):** the running job lives at **`/onboarding?job=<id>`**; `/onboarding/<id>` is a 404 until lane C's T-R2-20 lands (R2-M-25, R1-S-31). Open the job and run the phone battery (MOBILE.md) on `?job=<id>`; once T-R2-20 is ticked, `/onboarding/<id>` must open the same job and the battery runs on both. Also from T-R2-20: the job list after a reload, the drop zone as a button, the `accept` list and the live commit bar (S01, S08).
 - So every step below has a **UI target** and an **API check**. Run both. Report the UI as `FAIL` when an older screen does something different, and as `BLOCKED: intake UI not built` when there is no screen at all. Report the API result separately on the same step.
 
 ## Preconditions
@@ -45,7 +46,7 @@ Testable on `b75047b`: **partly**.
 - Do: sidebar **"Dosyalardan kur"** (folder icon) → `/onboarding`.
 - UI target: the title "İçe al" and the lead "Dosyaları bırakın; okuyup size gösteririz. Siz onaylamadan hiçbir şey kaydedilmez." A drop zone that is a real button (`Enter` / `Space` opens the picker) reading "Dosyaları buraya bırakın veya seçin", with the format list and "en fazla 50 MB". "Son işler" is empty: "Henüz içe aktarma yok".
 - Today the HEAD texts are "Kurulum" and "Dosyaları buraya bırakın veya seçmek için tıklayın". That counts as a PASS with a note if the function is the same; the spec wording is the suggester's call.
-- Accessibility: the file input has a label (UI review: an unlabelled `input[multiple]`). The zone is not a nested interactive.
+- Accessibility: the file input has a label (UI review: an unlabelled `input[multiple]`). The zone is not a nested interactive. On `deb38315` the zone is a `div` with a nested button, the input has no `accept`, and the job list is empty after a reload: all three are T-R2-20 (lane C); report them as `FAIL (T-R2-20)` until it is ticked, then re-test.
 
 **S02 · admin · drop the three files (Job A)**
 - Do: `page.setInputFiles('input[type=file]', [xlsx, csv, pdf])` (on touch viewports use the system picker path: the same call).
@@ -57,6 +58,7 @@ Testable on `b75047b`: **partly**.
 **S03 · admin · start and watch the progress**
 - Do: start.
 - API: `POST /council/jobs` (multipart, `mode=auto`, `lang=tr`, `year_hint=2026`) → 201 with the job id `JA`. `GET /council/jobs/JA/events` is an SSE stream.
+- The browser is now on the job page: `/onboarding?job=JA` (T-R2-20 target: `/onboarding/JA`). Run the MOBILE.md battery on this URL at 390 and 768.
 - UI target: one row per file with a phase line ("okuma ✓ · yapı ✓ · çıkarım %62 · kurallar –") and a 4 px bar driven by the SSE events. A polite live region announces "Okuma bitti. {n} satır inceleme bekliyor." when done. The header pill reads "Okunuyor · %{n}", then "Taslak · veritabanına henüz hiçbir şey yazılmadı".
 - The xlsx row's result reads like "Ders planlama listesi · 1.524 talep · … şube". The CSV row reads "Talep listesi · {n} toplantı".
 
@@ -93,6 +95,7 @@ Testable on `b75047b`: **partly**.
 **S08 · admin · commit (Kaydet)**
 - UI target: the sticky commit bar reads "Hazır · {n} talep … · 2026-BAHAR dönemine kaydet". Kaydet opens the confirm: "2026-BAHAR dönemine {n} yeni talep, {n} değişiklik ve {n} oda yazılacak. {n} satır reddedildi, … Bu işlem tek bir kayıt olarak geçmişe yazılır ve 30 gün içinde geri alınabilir." After the confirm, the pill reads "Kaydedildi · 2026-BAHAR · {date time}" and the bar says "Kaydedildi. Talepleri gör →".
 - HEAD today: "Döneme yaz" → "Dönem grubu", term code / name / weeks, "Onaylanan kural önerilerini kısıt olarak yaz", "Yaz" → **"2026-BAHAR dönemine yazıldı"**.
+- Known on `deb38315`: the commit bar stayed "3 engelle" with a disabled button after the API had cleared the blockers (T-R2-20), and the dry run ("create 1511") disagreed with the commit ("duplicates_skipped 1332, updated 6"): R2-M-06 → T-R2-19 (lane C, blocker). Re-test both here.
 - API: `POST /council/jobs/JA/commit {"term_id": TERM_ID}` (what the UI sends) → 200. The counts equal the dry-run's (I4: "counts == the real commit's"). The 2 rejected rows were not written. There is one `council.commit` audit event. While the commit holds the term write lock, a parallel `POST /imports/planning-list` for the same term → **409** with a Turkish message (P19-03).
 
 **S10 · admin · re-upload: remembered mappings (Job B)**
@@ -122,10 +125,11 @@ Testable on `b75047b`: **partly**.
 - Expect: the PNG is refused at upload with a specific message (not "server error"). The grid workbook is recognised as a weekly room grid ("Haftalık derslik takvimi") and routed to its importer (M-20: a specific reason, not "Doğru Excel şablonu mu?").
 
 **S14 · admin · undo the commit** (adopted default: 30 days, P19-I-09)
+- Round 2 saw the `council.commit` audit row but did not press its "Geri al" (NOT RUN). Run it in round 3 on the fresh stack **after S10–S11 and the masking step S09**, as the last write of the flow.
 - Do: `/admin/audit` → the `council.commit` event → Geri al.
 - Target: one step reverts Job A's writes. Without P19-I-09 the confirm text in S08 must say "Geri alınamaz; önceki değerler geçmişte görünür" instead. Report which one the product says and does. A confirm that promises an undo that does not work: FAIL (major).
 
-**S15 · admin · AI route with the switch on** — `SKIP (NEEDS-AI: no key)`
+**S15 · admin · AI route with the switch on** — `SKIP (NEEDS-AI: no key)` (every round on this host)
 - Kept for the round that has a key: the KVKK notice text (phase19-intake.md §12) before start, "YZ ile oku ve başlat", every AI row "Bekliyor" and blocking, bulk accept ≤ 50 with a confirm naming the count, low-confidence rows one by one.
 
 ## Mobile-specific expectations (phone 390×844; tablet 768×1024)

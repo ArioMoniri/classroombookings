@@ -79,7 +79,10 @@ def _text(f: dict[str, Any], labels: dict[int, str]) -> Text2:
         tr = f"{who} planlama listesinde bu gün ve saate sabit; başka saate taşımak kesin kuralı bozar"
         en = f"{who} is fixed at this day and time in the planning list; another time breaks a hard rule"
     else:
-        tr = f"Kesin kural bozulur ({RULE_TR.get(rule, rule)}): {msg}"
+        # R2-M-18: the planner-level sentence in Turkish ('A 102 · 3. hafta Pzt P1: ...'), never 'week 3 day 1'
+        from app.services.run_truth import message_tr
+
+        tr = f"Kesin kural bozulur ({RULE_TR.get(rule, rule)}): {message_tr(msg)}"
         en = f"Breaks a hard rule ({rule.replace('_', ' ')}): {msg}"
     return Text2(tr=tr, en=en)
 

@@ -7,7 +7,9 @@ Owner decisions (ROADMAP "Owner decisions 2026-10-15 ~22:45: channels + login" a
 - **Credentials.** Everything is built and tested **without real university credentials** (fake OIDC / mock transports in the backend tests). The owner enters the real values later, never in chat.
 - **Design.** `docs/design/v2/sign-in.md` ("Microsoft first, one quiet second door"; 30 Playwright checks in its §15).
 
-State on `d2ed4a8` (HEAD while this file was revised):
+Revised against `deb38315` (round 2, T-R2-35): the sign-in page of `docs/design/v2/sign-in.md` **is built** (`components/auth/*`, `signin.*` strings). S01/S02/S05/S08 quote the built texts; the older `auth.*` / `glass.auth.*` wording ("Şifre", "Parolanızı mı unuttunuz?", "E-posta, kullanıcı adı veya şifre yanlış.", "Oturumunuz sona erdi…") is gone from the page. Where an admin screen still quotes the old label (S07), that is noted, not a finding.
+
+State on `d2ed4a8` (an earlier revision of this file; kept for the SSO history):
 - Backend `app/api/v1/sso.py` + `app/services/sso.py` exist: providers, start, callback, exchange, admin config, invites, bind, mappings.
 - The sign-in page of the spec is **not built** (dedicated SSO/channels frontend agent, after the shell sweep).
 - No test stack has a tenant. So S11–S17 test everything **up to the redirect to Microsoft**, plus the guards, the invites and the break-glass rules. S18, a full round trip, is `BLOCKED: no tenant credentials (owner gets them from IT)`.
@@ -30,19 +32,20 @@ Local login (S01–S10) is testable now.
 
 **S01 · anyone · the login page**
 - Do: `/login`.
-- See: **"Giriş yap"**, the subtitle **"Derslik rezervasyonu ve planlama"** (not "Planlama ofisi erişimi", U-20). Fields **"E-posta veya kullanıcı adı"** (`login-identifier`) and **"Şifre"** (`login-password`). A show/hide toggle **"Şifreyi göster"** / **"Şifreyi gizle"** with `aria-pressed`. **"Parolanızı mı unuttunuz?"** (`forgot-password`). The TR/EN toggle (`locale-toggle`) and the theme toggle. The version (`app-version`). No "LDAP" text (U-21).
+- See: **"Giriş yap"** (`signin.title`), the subtitle (`signin-subtitle`) **"Ders programı, sınavlar ve derslik rezervasyonu"** (with an organisation name: **"{org} · ders programı, sınavlar ve derslik rezervasyonu"**; never "Planlama ofisi erişimi", U-20). Fields **"Kullanıcı adı veya e-posta"** (`login-identifier`, placeholder `ad.soyad`) and **"Parola"** (`login-password`). A show/hide toggle **"Parolayı göster"** / **"Parolayı gizle"** with `aria-pressed`. **"Parolamı unuttum"** (`forgot-password`). The TR/EN toggle (`locale-toggle`) and the theme toggle. The version (`app-version`). No "LDAP" text in the open form (U-21; the sentence "Yerel ve LDAP hesapları içindir…" belongs to the SSO disclosure of S12 and is shown only while SSO is enabled).
+- With SSO enabled (S11) the local form sits behind the disclosure **"Kullanıcı adı ve parolayla giriş yap"** (`login-disclosure`): open it first. With SSO off (the stack default) the form is open.
 - The placeholder does not repeat the label (UI review). The field borders reach ≥ 3:1 contrast (`--border-control`).
 
 **S02 · anyone · wrong input**
 - Do: submit empty.
-- See: a text message per field ("E-posta veya kullanıcı adı gerekli" or equivalent), linked by `aria-describedby`, not only red outlines (U-20).
+- See: a text message per field, **"Kullanıcı adı veya e-posta gerekli"** (`login-identifier-required`) and **"Parola gerekli"** (`login-password-required`), linked by `aria-describedby`, not only red outlines (U-20).
 - Do: right e-mail, wrong password.
-- See: the alert **"E-posta, kullanıcı adı veya şifre yanlış."**, focus moves to the alert, the password field is cleared, and a short shake runs (no shake under reduced motion).
+- See: the alert **"Kullanıcı adı, e-posta veya parola yanlış."** (`login-error`), focus moves to the alert, the password field is cleared, and a short shake runs (no shake under reduced motion).
 - Do: type the password with Caps Lock on (`page.keyboard.down("CapsLock")`).
-- See (target, U-20): "Caps Lock açık" near the field.
+- See (U-20): **"Caps Lock açık"** (`caps-lock`) near the field.
 - Do: log in as a disabled user (F-11 S01).
 - See: the **same** message and the same status as a wrong password (M-42).
-- Rate limit (`app/core/ratelimit.py`: 10 failures per identifier, 50 per address, per window): the 11th wrong attempt for one identifier answers **429**. The UI shows a Turkish "too many attempts" message with the wait time, not the wrong-password text. After the window the correct password works again. Use a throwaway identifier (`ds.test@…`), so the persona accounts are not locked for other flows.
+- Rate limit (`app/core/ratelimit.py`: 10 failures per identifier, 50 per address, per window): the 11th wrong attempt for one identifier answers **429**. The UI shows **"Çok fazla deneme. {n} dakika sonra tekrar deneyin."** with the wait time, not the wrong-password text. After the window the correct password works again. Use a throwaway identifier (`ds.test@…`), so the persona accounts are not locked for other flows.
 
 **S03 · each persona · successful login and landing**
 - Do: correct credentials, Enter submits.
@@ -69,7 +72,7 @@ Local login (S01–S10) is testable now.
   - Correct → submit.
 - See: the session ends **visibly**. Either a redirect to `/login` with the notice (`login-session-notice`) **"Parolanız değiştirildi. Yeni parolanızla yeniden giriş yapın."**, or the session stays valid. Never an app shell with false empty lists, "…" as the avatar, or "missing bearer token" (U-05).
 - Do: log in with the old password → refused. With the new one → OK.
-- Other sessions: a second context logged in as staff before the change → its next action leads to `/login` with **"Oturumunuz sona erdi. Kaldığınız yerden devam etmek için yeniden giriş yapın."**
+- Other sessions: a second context logged in as staff before the change → its next action leads to `/login` with the notice (`login-session-notice`) **"Oturumunuzun süresi doldu. Yeniden giriş yaptığınızda kaldığınız sayfaya dönersiniz."**
 - Restore the seed password at the end (`Flow-2026!pw`), so other flows still work.
 
 **S06 · staff · forced password change**
@@ -80,17 +83,18 @@ Local login (S01–S10) is testable now.
 - Do: `/reset-password` → request with the staff e-mail.
 - See: a neutral answer (the same for an unknown e-mail). The sink receives the code mail at once (`deliver_now`; README §4.5). The expiry time is stated in the mail or on the page (U-21: not "bir süre sonra").
 - Do: "Kodum var" → a wrong code → refused in Turkish. The right code + a new password → success → log in with it. The hint reads "En az 8 karakter.", with no LDAP text (U-21).
-- Admin path: the admin issues a reset code from the user row menu (`reset-token`, dialog `token-dialog`). The code is shown once.
+- Admin path: the admin issues a reset code from the user row menu (`reset-token`, dialog `token-dialog`). The code is shown once. The dialog's hint still quotes the old login label ("Kullanıcı kodu oturum açma sayfasında “Parolanızı mı unuttunuz?” altında girer.", `crbs.users.resetWhere`) while the page reads "Parolamı unuttum": known wording drift of the T-R2-06 family (lane A); note it, no new finding.
+- Page copy on `deb38315`: the hint reuses the LDAP sentence, the requested text says "bir süre sonra" and a short code is refused in English → T-R2-06 (lane A). Until it is ticked, report those three as `FAIL (T-R2-06)` and nothing else on this step.
 
-**S08 · staff · session expiry** (TTL stack of precondition 2)
+**S08 · staff · session expiry** (TTL stack of precondition 2; without that second stack the step is `SKIP (no TTL stack)`, as both round-1 and round-2 reported. Round 3 starts the TTL stack: README §4.2 reserves the +200 ports for it)
 - Do: log in. Open `/my-bookings`. Wait **130 s** without input. Then click "Geçmiş", and open the bell.
-- See: a redirect to `/login?next=/my-bookings` (or a modal re-login) with **"Oturumunuz sona erdi. Kaldığınız yerden devam etmek için yeniden giriş yapın."** No false empty state ("Yaklaşan rezervasyonunuz yok"), no raw English error, no stack of toasts. After logging in again you are back on `/my-bookings`.
+- See: a redirect to `/login?next=/my-bookings` (or a modal re-login) with the notice (`login-session-notice`) **"Oturumunuzun süresi doldu. Yeniden giriş yaptığınızda kaldığınız sayfaya dönersiniz."** No false empty state ("Yaklaşan rezervasyonunuz yok"), no raw English error, no stack of toasts. After logging in again you are back on `/my-bookings`.
 - A half-filled form (the book sheet with a note typed) survives the re-login, or the user is warned before losing it. Report which.
 - API: requests with the expired token → 401, and the client handles each 401 once (one redirect, not a loop).
 
 **S09 · admin · LDAP path stays safe**
-- Do: Yönetim › Kimlik doğrulama (`/admin/authentication`): enter a directory at `ldap://127.0.0.1:1` → "Bağlantıyı dene".
-- See: **"Dizine ulaşılamıyor"** (as the persona run found). Local login keeps working. No password field value is echoed back after save.
+- Do: Yönetim › Kimlik doğrulama (`/admin/authentication`): enter a directory at `ldap://127.0.0.1:1`. In the **"Bağlantıyı dene"** section fill the test account fields (any user name and password: the button is **disabled until both are typed**, `ldap-settings.tsx`; the hint says nothing is saved and no account is created), then press **"Bağlantıyı dene"** (`getByRole('button', { name: 'Bağlantıyı dene' })`; while busy it reads "Denetleniyor…" with `aria-busy`).
+- See: **"Dizine ulaşılamıyor"** (as the persona run found). Round 2 reported this step NOT RUN because the button was disabled: the two test fields were empty. Local login keeps working. No password field value is echoed back after save.
 
 **S10 · all · 390 px login**
 - See MOBILE.md. In particular: the e-mail field has `type="email"` or `inputmode="email"`, plus `autocomplete="username"`. The password field has `autocomplete="current-password"`, and `new-password` on the change forms. The keyboard does not cover the submit button (M-12). The show/hide toggle is ≥ 44 px.
@@ -103,7 +107,7 @@ Preconditions for S11–S18:
 - **Never follow the redirect to login.microsoftonline.com.** Read the `Location` header only.
 
 **S11 · admin · configure the provider, and the guards on the configuration**
-- UI target: Yönetim › Kimlik doğrulama shows a Microsoft Entra section (tenant, client id, secret, "Kendi kaydı" on/off with the default role, invite days, role mapping off, "yalnız Microsoft" for non-admins). Today: `BLOCKED: SSO admin UI not built` if absent.
+- UI target: Yönetim › Kimlik doğrulama shows a Microsoft Entra section (tenant, client id, secret, "Kendi kaydı" on/off with the default role, invite days, role mapping off, "yalnız Microsoft" for non-admins). On `deb38315` only the SSO settings card of lane E (T-R1-35: `sso-default-role` picker, invites) exists, not the provider form: report the UI part as `BLOCKED: SSO admin UI not built` and run the API part (round 2 did so).
 - API:
   - `PUT /auth/sso/admin/entra {"enabled":true,"tenant_id":"1111…","client_id":"aaaa…","client_secret":"test-secret-not-real"}` → 200. The response **never contains the secret** (masked or `has_secret: true`). `GET` after it: the same.
   - `tenant_id` = `common`, `organizations`, `consumers`, or the consumer tenant `9188040d-6c67-4c5b-b112-36a304b66dad` → **422** each.
@@ -153,7 +157,7 @@ Preconditions for S11–S18:
 - Disable the seeded admin's local password (or make it SSO-only) while it is the only break-glass admin → **422**. The last break-glass admin can never be locked out.
 - Switch `oidc_only_non_admins` back off for the other flows.
 
-**S18 · a real Entra round trip** — `BLOCKED: no tenant credentials`
+**S18 · a real Entra round trip** — `BLOCKED: no tenant credentials` (every round so far; stays BLOCKED until IT's registration is in `docs/deploy/sso-entra.md`)
 - Kept for the round with IT's registration (`docs/deploy/sso-entra.md`):
   - the first sign-in creates a TEACHER (door a) and shows `/welcome` "Hesabınız oluşturuldu";
   - an invited address binds once;

@@ -18,11 +18,14 @@ planner-level check (``planner_check``, the independent validator of the stored 
   the pool ...). They are not "no rule broken": the verdict names them;
 * ``verdict``: ``broken`` (a hard rule is broken), ``exceptions`` (every hard rule held except the listed accepted
   exceptions), ``clean`` (nothing to list), ``none`` (no timetable);
-* ``headline``: the one TR / EN sentence every surface shows.
+* ``headline``: the one TR / EN sentence every surface shows;
+* ``unplaced_list`` / ``unplaced_count`` (round-2 T-R2-26): every unplaced class by name, so the report's list is
+  never shorter than its count; each ``broken`` entry carries ``message_tr`` (round-2 T-R2-30, R2-M-18).
 """
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,6 +69,124 @@ RULE_EXCEPTIONS: tuple[str, ...] = ("D1", "D2", "week_split", "outside_pool", "m
 def _n(v: int, lang: str) -> str:
     s = f"{v:,}"
     return s.replace(",", ".") if lang == "tr" else s
+
+
+DAY_TR_SHORT = {1: "Pzt", 2: "Sal", 3: "Çar", 4: "Per", 5: "Cum", 6: "Cmt", 7: "Paz"}
+
+
+def _weeks_tr(nums: list[int]) -> str:
+    if len(nums) == 1:
+        return f"{nums[0]}. hafta"
+    return ", ".join(f"{n}." for n in nums[:-1]) + f" ve {nums[-1]}. haftalar"
+
+
+def _day_tr(m: re.Match[str]) -> str:
+    return DAY_TR_SHORT.get(int(m.group(1)), m.group(1))
+
+
+#: English phrases of the planner-level check (``planner_check``) -> Turkish, longest first (R2-M-18)
+_PHRASES: tuple[tuple[str, str], ...] = (
+    (" (room outside the pool)", " (havuz dışı derslik)"),
+    (
+        ": locked row left out for unlocked classes under lock_first",
+        ": kilitli satır, lock_first altında kilitsiz derslere yer verdi",
+    ),
+    (": assignment row without weeks", ": haftası olmayan atama satırı"),
+    (": no enrolment in the data", ": veride öğrenci sayısı yok"),
+    ("placed in the medicine (TIP) room", "TIP dersliğine yerleşti:"),
+    ("needs a PC room, placed in", "PC derslik ister; yerleştiği derslik"),
+    ("students in the planner's", "öğrenci, planlayıcının seçtiği"),
+    ("students in", "öğrenci,"),
+    ("outside its weeks", "dersin haftaları dışında"),
+    ("vs block", "· dolu derslik:"),
+    ("requested", "istenen"),
+    ("placed in", "yerleştiği derslik"),
+    ("locked to", "kilitli derslik"),
+    ("placed", "yerleşen"),
+    ("seats)", "koltuk)"),
+    ("seats", "koltuk"),
+    ("cohort '", "sınıf '"),
+    ("instructor '", "öğretim elemanı '"),
+    (" vs ", " ↔ "),
+)
+
+
+def message_tr(message: str) -> str:
+    """The Turkish reading of a planner-level finding's English sentence (R2-M-18: 'A102 week 3 day 1 P1: PHAR 240
+    §1, PHAR 474 §1' reached the Turkish banner and report). Word-level: the sentences are built from a handful of
+    patterns in ``planner_check``; whatever is not a known phrase (codes, labels, periods) is kept."""
+    s = message
+    cell = re.match(r"^(?P<code>.+?) week (?P<w>\d+) day (?P<d>\d) (?P<rest>P\d+.*)$", s)
+    if cell and ": " in cell.group("rest"):
+        d = DAY_TR_SHORT.get(int(cell.group("d")), cell.group("d"))
+        s = f"{cell.group('code')} · {cell.group('w')}. hafta {d} {cell.group('rest')}"
+    s = re.sub(
+        r": not placed in week\(s\) \[([\d, ]+)\]",
+        lambda m: f": {_weeks_tr([int(x) for x in m.group(1).split(',')])}da yerleşmedi",
+        s,
+    )
+    s = s.replace(": not placed", ": yerleşmedi")
+    s = re.sub(
+        r" in (?P<code>[^,:]+?) week\(s\) \[([\d, ]+)\] day (\d) ",
+        lambda m: (
+            f", {m.group('code')} · {_weeks_tr([int(x) for x in m.group(2).split(',')])} "
+            f"{DAY_TR_SHORT.get(int(m.group(3)), m.group(3))} "
+        ),
+        s,
+    )
+    s = re.sub(r"\bweek\(s\) \[([\d, ]+)\]", lambda m: _weeks_tr([int(x) for x in m.group(1).split(",")]), s)
+    s = re.sub(r"\bweek\(s\) (\d+)\b", lambda m: f"{m.group(1)}. hafta", s)
+    s = re.sub(r"\bweek (\d+)\b", lambda m: f"{m.group(1)}. hafta", s)
+    s = re.sub(r"\bday (\d)\b", _day_tr, s)
+    # "requested 1 P1-P2, placed 2 P3-P4" (time): the day numbers stand alone
+    s = re.sub(
+        r"\b(requested|placed) (\d) (P\d+)",
+        lambda m: f"{m.group(1)} {DAY_TR_SHORT.get(int(m.group(2)), m.group(2))} {m.group(3)}",
+        s,
+    )
+    for en, tr in _PHRASES:
+        s = s.replace(en, tr)
+    return s
+
+
+def _unplaced_list(check: Any, stats: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every unplaced class of the run (R1-M-14 / R2-M-04: the report listed the first diagnoses only): the
+    planner-level ``unplaced`` findings grouped by class (``stats.event_members``: a joint lecture is one class).
+    Each entry: ``id`` (the class's solver event id), ``label`` (its members joined with ' + '), ``request_ids``
+    and ``weeks`` (the weeks it misses; ``None`` = never placed)."""
+    members = {int(k): [int(x) for x in v] for k, v in (stats.get("event_members") or {}).items()}
+    head_of = {m: h for h, ms in members.items() for m in ms}
+    by_head: dict[int, dict[str, Any]] = {}
+    for f in getattr(check, "findings", []) or []:
+        if f.rule != "unplaced":
+            continue
+        for rid in f.request_ids:
+            msg = str(f.message)
+            label = msg.split(": not placed", 1)[0] if ": not placed" in msg else f"#{rid}"
+            m = re.search(r"not placed in week\(s\) \[([\d, ]+)\]", msg)
+            weeks = sorted(int(x) for x in m.group(1).split(",")) if m else None
+            h = head_of.get(int(rid), int(rid))
+            e = by_head.setdefault(h, {"id": h, "labels": {}, "request_ids": [], "weeks": None, "partial": True})
+            e["labels"][int(rid)] = label
+            e["request_ids"].append(int(rid))
+            if weeks is None:
+                e["partial"] = False
+            elif e["weeks"] is None:
+                e["weeks"] = set(weeks)
+            else:
+                e["weeks"] |= set(weeks)
+    out = []
+    for e in by_head.values():
+        rids = sorted(set(e["request_ids"]))
+        out.append(
+            {
+                "id": e["id"],
+                "label": " + ".join(e["labels"][r] for r in rids),
+                "request_ids": rids,
+                "weeks": sorted(e["weeks"]) if e["partial"] and e["weeks"] else None,
+            }
+        )
+    return sorted(out, key=lambda x: (str(x["label"]), x["id"]))
 
 
 def headline(truth: dict[str, Any]) -> dict[str, str]:
@@ -135,6 +256,8 @@ def build(run: ScheduleRun, check: Any, *, status: str | None = None) -> dict[st
             "broken_count": 0,
             "exceptions": [],
             "exceptions_total": 0,
+            "unplaced_list": [],
+            "unplaced_count": 0,
         }
         out["headline"] = headline(out)
         return out
@@ -172,6 +295,9 @@ def build(run: ScheduleRun, check: Any, *, status: str | None = None) -> dict[st
     if placed_i is None:
         placed_i = check.requests_placed
         total_i = check.requests_total
+    # R2-M-18: every broken-rule sentence in Turkish too (the English one stays for the API / audit)
+    broken = [{**b, "message_tr": message_tr(str(b.get("message") or ""))} for b in broken]
+    unplaced_list = _unplaced_list(check, stats)
     out = {
         "source": "planner_check",
         "placed": placed_i,
@@ -184,6 +310,8 @@ def build(run: ScheduleRun, check: Any, *, status: str | None = None) -> dict[st
         "broken_count": len(broken),
         "exceptions": exceptions,
         "exceptions_total": rule_exc,
+        "unplaced_list": unplaced_list,
+        "unplaced_count": len(unplaced_list),
         "forced_overrides": len(publish_guard.overrides(run)),
         "verdict": "broken" if broken else ("exceptions" if rule_exc else "clean"),
     }
@@ -204,4 +332,4 @@ async def run_truth(
     return build(run, check, status=status)
 
 
-__all__ = ["CAUSE_LABELS", "WITH_TIMETABLE", "build", "edited", "headline", "run_truth"]
+__all__ = ["CAUSE_LABELS", "WITH_TIMETABLE", "build", "edited", "headline", "message_tr", "run_truth"]

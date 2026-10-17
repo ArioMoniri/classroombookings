@@ -39,7 +39,7 @@ import { RunPolicyLine } from "./relaxation";
 import { ResolveRunButton } from "./resolve-run";
 import { isBaselineRun } from "@/lib/api/council";
 import { PublishRunButton } from "./publish-run";
-import { BROKEN_RULE_TR, runIssueCounts, runOutcome, runTruth, summaryExtras, verdictExceptions, waiverOf, type RunOutcome, type RunTruth, type VerdictException } from "./run-truth";
+import { BROKEN_RULE_TR, brokenText, problemCount, runIssueCounts, runOutcome, runTruth, summaryExtras, verdictExceptions, waiverOf, type RunOutcome, type RunTruth, type VerdictException } from "./run-truth";
 import { useCalendarIndex } from "@/lib/api/calendar";
 
 /** Built-in rule names as the planner says them (the solver's codes are English). */
@@ -58,7 +58,7 @@ export function BrokenRules({ truth, className }: { truth: RunTruth; className?:
     <ul className={className ?? "mt-1 list-disc pl-5 type-callout text-label-1"} data-testid="verdict-broken">
       {truth.broken.slice(0, 12).map((b, i) => (
         <li key={`${b.rule}-${i}`} data-rule={b.rule} data-explained={b.explained ? "1" : "0"}>
-          <span className="font-medium">{tr ? (BROKEN_RULE_TR[b.rule] ?? b.rule) : b.rule.replace(/_/g, " ")}</span>: {b.message}
+          <span className="font-medium">{tr ? (BROKEN_RULE_TR[b.rule] ?? b.rule) : b.rule.replace(/_/g, " ")}</span>: {brokenText(b, tr)}
           {b.explained && b.reason ? (
             <span className="text-label-2"> · {tr ? "gerekçeli zorunlu taşıma" : "forced with a reason"}: “{b.reason}”{b.by_name ? ` (${b.by_name})` : ""}</span>
           ) : (
@@ -68,6 +68,29 @@ export function BrokenRules({ truth, className }: { truth: RunTruth; className?:
       ))}
       {truth.broken.length > 12 ? <li className="text-label-2">{tr ? `ve ${truth.broken.length - 12} tane daha` : `and ${truth.broken.length - 12} more`}</li> : null}
     </ul>
+  );
+}
+
+/** Every unplaced class the truth names (round-2 T-R2-26, R1-M-14: the report listed 19 of 28). Plain rows with
+ * `content-visibility: auto`, so a long list costs nothing off screen; the count is the list's own length. */
+export function UnplacedList({ truth, className }: { truth: RunTruth; className?: string }) {
+  const { n, locale } = useI18n();
+  const tr = locale === "tr";
+  const weeksText = (weeks: number[]) => (tr ? (weeks.length === 1 ? `${weeks[0]}. hafta` : `${weeks.slice(0, -1).map((w) => `${w}.`).join(", ")} ve ${weeks[weeks.length - 1]}. haftalar`) : `week${weeks.length === 1 ? "" : "s"} ${weeks.join(", ")}`);
+  return (
+    <div className={className}>
+      <p className="type-footnote text-label-2">
+        {tr ? "Yerleşmeyen dersler" : "Unplaced classes"} <span className="tabular-nums" data-testid="unplaced-list-count">{n(truth.unplaced_count ?? truth.unplaced_list.length)}</span>
+      </p>
+      <ul className="mt-1 max-h-72 overflow-y-auto rounded-lg bg-fill-3 px-3 py-1.5 type-footnote text-label-1 [scrollbar-width:thin]" data-testid="unplaced-list">
+        {truth.unplaced_list.map((u) => (
+          <li key={u.id} className="flex flex-wrap items-baseline gap-x-2 py-0.5 [content-visibility:auto] [contain-intrinsic-size:auto_1.5rem]" data-event-id={u.id}>
+            <span className="font-medium">{u.label}</span>
+            {u.weeks ? <span className="text-label-2">{tr ? `${weeksText(u.weeks)}da yerleşmedi` : `not placed in ${weeksText(u.weeks)}`}</span> : null}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -262,9 +285,13 @@ export function RunView({ id }: { id: number }) {
   const solverProblems = r.diagnosis.filter((d) => d.code !== "partial" && d.code !== "unplaced_summary").length;
   const dataProblems = issues.data ? issues.data.groups.reduce((a, g) => a + g.items.filter((i) => i.severity !== "info").length, 0) : 0;
   const extras = summaryExtras(summary.data as Record<string, unknown> | undefined);
-  // one server-side count per run (R1-S-27): the summary's data-issue count (the headline's definition), else the
+  // the planner's data notes: one server-side count per run (R1-S-27): the summary's data-issue count, else the
   // data-issues route's own count, else the solver's diagnoses; never what happens to be rendered
-  const problems = extras.dataIssues ?? (issues.data ? dataProblems : solverProblems);
+  const dataNotes = extras.dataIssues ?? (issues.data ? dataProblems : solverProblems);
+  // round-2 T-R2-26 (R2-M-04): "Sorun" is the headline's number - the hard rules broken plus the accepted exceptions
+  // the truth lists ('398 kabul edilmiş istisna' -> Sorun 398); the data notes are a labelled second line. Without a
+  // truth (an imported board, an old run) the data notes stay the count
+  const problems = truth ? problemCount(truth) : dataNotes;
   const exceptions = verdictExceptions({
     waiver: waiverOf(r.stats_detail ?? r.stats, r.diagnosis),
     counts: index.data ? runIssueCounts(index.data.assignments) : { conflicts: 0, overCapacity: 0 },
@@ -366,6 +393,11 @@ export function RunView({ id }: { id: number }) {
                           <span aria-label={locale === "tr" ? "çizelge yok" : "no timetable"}>—</span>
                         )}
                       </dd>
+                      {x.k === t("glass.report.problems") && truth && outcome.kind !== "cancelled" ? (
+                        <p className="type-footnote text-label-2" data-testid="kpi-data-notes">
+                          {locale === "tr" ? `Veri notları ${n(dataNotes)}` : `Data notes ${n(dataNotes)}`}
+                        </p>
+                      ) : null}
                     </div>
                   ))}
                   <div className="min-w-0">
@@ -419,26 +451,27 @@ export function RunView({ id }: { id: number }) {
                   <Card>
                     <CardContent className="type-callout text-label-2" data-testid="no-problems-no-timetable">{t("glass.report.noProblemsNoTimetable")}</CardContent>
                   </Card>
-                ) : problems === 0 && (hasTimetable || isImportBoard(r)) ? (
+                ) : problems === 0 && dataNotes === 0 && (hasTimetable || isImportBoard(r)) ? (
                   <Card>
                     <CardContent className="flex items-center gap-2 type-callout text-status-feasible-fg">
                       <CheckCircle2 className="size-4" aria-hidden /> {t("runs.noDiagnosis")}
                     </CardContent>
                   </Card>
                 ) : null}
-                {unplacedCards ? (
+                {unplacedCards || truth?.unplaced_list.length ? (
                   <Card data-testid="unplaced-section">
                     <CardContent>
                       <h3 className="type-headline text-label-1">
-                        {t("glass.report.unplacedTitle")} <span className="font-normal text-label-3 tabular-nums">{n(cardCount(unplacedCards))}</span>
+                        {t("glass.report.unplacedTitle")} <span className="font-normal text-label-3 tabular-nums">{n(truth?.unplaced_list.length ? (truth.unplaced_count ?? truth.unplaced_list.length) : cardCount(unplacedCards))}</span>
                       </h3>
                       <p className="type-footnote text-label-2">{t("glass.report.unplacedHint")}</p>
+                      {truth?.unplaced_list.length ? <UnplacedList truth={truth} className="mt-2" /> : null}
                       <div className="mt-1">
-                        {[...unplacedCards.codes.values()].flat().slice(0, allUnplaced ? undefined : 8).map((row) => (
+                        {[...(unplacedCards?.codes.values() ?? [])].flat().slice(0, allUnplaced ? undefined : 8).map((row) => (
                           <DiagnosisCard key={row.d.id} d={row.d} section="unplaced" count={row.count} applying={applyFix.isPending} onApply={(sid) => void onApply(row.d.index ?? Number(row.d.id), sid)} onChat={() => setTab("chat")} />
                         ))}
                       </div>
-                      {!allUnplaced && [...unplacedCards.codes.values()].flat().length > 8 ? (
+                      {!allUnplaced && unplacedCards && [...unplacedCards.codes.values()].flat().length > 8 ? (
                         <Button size="sm" variant="secondary" onClick={() => setAllUnplaced(true)}>
                           {t("glass.report.showAll", { n: [...unplacedCards.codes.values()].flat().length })}
                         </Button>
@@ -461,9 +494,12 @@ export function RunView({ id }: { id: number }) {
                     </CardContent>
                   </Card>
                 ) : null}
-                {problems > 0 ? (
-                  <Card>
-                    <CardContent>{issues.data ? <IssueGroups runId={r.id} groups={issues.data.groups} /> : issues.isLoading ? <Skeleton className="h-24" /> : <LocalIssueGroups sections={sections} />}</CardContent>
+                {dataNotes > 0 ? (
+                  <Card data-testid="data-notes-section">
+                    <CardContent>
+                      {truth ? <h3 className="mb-2 type-headline text-label-1">{locale === "tr" ? "Veri notları" : "Data notes"} <span className="font-normal text-label-3 tabular-nums">{n(dataNotes)}</span></h3> : null}
+                      {issues.data ? <IssueGroups runId={r.id} groups={issues.data.groups} /> : issues.isLoading ? <Skeleton className="h-24" /> : <LocalIssueGroups sections={sections} />}
+                    </CardContent>
                   </Card>
                 ) : null}
               </TabsContent>

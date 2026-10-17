@@ -46,7 +46,7 @@ Testable: yes. F-01's former UI gaps (the reject dialog and the reason display) 
 - Do: `/profile` → **"Dil"** (`profile-language`) → English → save (`profile-save`).
 - See: the picker offers **only** Türkçe and English. The save toast is **in English** ("Saved"; U-09: it was in Turkish). The whole shell switches at once, with no reload needed, or after one reload with no flash of Turkish.
 - Do: run F-01 S02–S05, F-03 S01–S02 and S06, and F-04 S03–S05 in English.
-- Check: no Turkish UI text is left (allow data such as room codes, course names and notes). No `RAW_KEY`. ICU plurals are right ("1 booking", "3 bookings"). Titles read "Bookings · SmartSched" and so on. Building chips read "A block" or "Building A" without doubling (U-10: "A Blok block").
+- Check: no Turkish UI text is left (allow data such as room codes, course names and notes). No `RAW_KEY`. ICU plurals are right ("1 booking", "3 bookings"): judge them on a page that prints a count sentence (the bulk bar "Cancel 1 booking" after selecting one row on My bookings, the recurring preview's "4 dates will be booked · 1 skipped"); the totals line alone ("0 active · 1 this session · 1 in total") carries no plural, so with nothing else on screen the plural check is `SKIP (no plural on screen)`, as round 2's academician found. Titles read "Bookings · SmartSched" and so on. Building chips read "A block" or "Building A" without doubling (U-10: "A Blok block").
 - Switch back to Turkish at the end.
 
 **A03 · academician · notifications follow the recipient's language**
@@ -109,7 +109,8 @@ No mouse, no `click()`, no `tap()`: only `page.keyboard`. After **every** Tab or
 - Every form control is reachable in visual order. The feature chips toggle with Space. Enter in any field runs the search. The result count is announced. Tab reaches each result's "Rezerve et" in order of rank.
 
 **C05 · F-04 by keyboard (staff)**
-- The tabs (Yaklaşan / Geçmiş / İptal edilen) switch with the arrow keys (`role="tablist"`). Each row checkbox toggles with Space. "Takvime eşitle" opens with Enter. The copy buttons work with Enter, and the toast is announced. "Özel bağlantıyı sıfırla" → the confirm → focus lands on the new URL field (U-22).
+- Precondition: the private links exist (F-04 S04 ran, consent given), otherwise there is no `sync-copy-mine` to reach (round 2's NOT RUN).
+- The tabs (Yaklaşan / Geçmiş / İptal edilen) switch with the arrow keys (`role="tablist"`). Each row checkbox toggles with Space. The "Takvime eşitle" panel is **inline** on `/my-bookings` (no opener: Tab reaches its buttons directly). The copy buttons (`sync-copy-mine`, `sync-copy-webcal-mine`) work with Enter, and the toast is announced. "Özel bağlantıyı sıfırla" → the confirm (Tab stays inside it, R2-A-03 → T-R2-02) → focus lands on the new URL field (U-22).
 
 **C06 · tablet with a keyboard**
 - Repeat C02 on 768 × 1024 with `hasTouch: true`. The same focus rings are visible (`:focus-visible` must not depend on a fine pointer).

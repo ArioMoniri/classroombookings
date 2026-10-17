@@ -1091,6 +1091,8 @@
       "overLimit": "Yalnızca ilk {max} tarih rezerve edilecek; seçilen {cut} tarih sınırı aşıyor.",
       "termWeek": "{n}. hafta",
       "cut": "sınırın üstünde",
+      "resetFree": "Bu tarih artık boş; seçiminiz sıfırlandı.",
+      "resetTaken": "Bu tarih artık dolu; seçiminiz sıfırlandı.",
       "actionFor": "{date} için işlem",
       "action": {
         "book": "Rezerve et",

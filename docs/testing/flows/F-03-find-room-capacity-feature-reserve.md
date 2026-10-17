@@ -4,6 +4,7 @@ Personas: **staff** (direct booking, `approval_mode = rules`), **academician** (
 Story (academician needs, persona-academician §5 row 18): "I need a computer lab for 42 students on Thursday afternoon for a make-up session; show me what fits and let me book it from the list."
 
 Testable on `b75047b`: yes. A-11 (no feature facets, "PC" text contradicted by "PC özellikli oda; istenmedi") is reported fixed by the backend agent and is re-verified here.
+Revised against `deb38315` (T-R2-35): the texts of S02 and S11 are the built ones (`wave1.find.*` and the server's reason sentences from `app/services/find_room.py`). On the phone the whole form, including **"Arama metni"** (`fr-text`), stays on the page; only "Özellikler" / "Binalar" move into the filters sheet (`fr-filters-sheet`).
 
 ## Preconditions
 
@@ -35,12 +36,12 @@ Testable on `b75047b`: yes. A-11 (no feature facets, "PC" text contradicted by "
 **S02 · staff · search with capacity and a feature**
 - Do: "Tarih" = D1 (`fr-date`). Switch time to **"Ders saati"**: "İlk ders saati" = 7, "Son ders saati" = 8. "Kaç kişi" = 42 (`fr-headcount`). In "Özellikler" (`fr-features`) select `PC_FEATURE` (`fr-feature-<id>`). Press **"Ara"** (`fr-search`).
 - See while waiting: the button reads **"Aranıyor…"** and has `aria-busy="true"` (U-19, motion T1).
-- See after: the summary (`fr-summary`, `role="status"`, announced) reads **"{n} derslik"** plus the open dates, e.g. "1/1 tarih boş". Results (`fr-results`) list the oracle's rooms in the oracle's order. Each card (`fr-room-<code>`) shows the code, the building, a status word **"Boş"**, a fit bar with the accessible name **"{cap} koltukta 42 kişi"**, and the matched feature.
-- The non-matching rooms sit in a collapsed **"Uymayan {n} derslik"** group with a reason word each: **"Küçük"**, **"Özellik eksik"**, **"Dolu"** ("Dolu: {what}" names what holds it; course code only, no person name).
+- See after: the summary (`fr-summary`, `role="status"`, announced) reads **"{n} derslik"** plus the open dates, e.g. "1/1 tarih boş". Results (`fr-results`) list the oracle's rooms in the oracle's order. Each card (`fr-room-<code>`) shows the code, the building, a status word **"Boş"**, the fit sentence **"Kapasite {cap}: 42 kişi için %{spare} boş koltuk"** (e.g. "Kapasite 60: 42 kişi için %30 boş koltuk"; the fit bar carries the same numbers) and the matched feature.
+- The rooms without the feature sit in a collapsed **"Özelliği eksik odalar ({n})"** group; too-small rooms read **"Küçük"**; busy rooms are hidden until **"Dolu derslikleri de göster"** and then read **"Dolu: {what}"** (what holds the room: a course code or "rezervasyon", never a person name).
 - Fail if any room with fewer than 42 seats, or without the feature, is in the main list (that was A-11's contradiction).
 
 **S03 · staff · typed text finds features**
-- Do: clear the feature chip. In **"Arama metni"** (`fr-text`) type `PC` → Ara.
+- Do: clear the feature chip. In **"Arama metni"** (`fr-text`; on the phone it is further down the same form, not in the filters sheet: scroll to it, `getByTestId('fr-text').scrollIntoViewIfNeeded()`; round 2 reported S03/S04 NOT RUN on the phone for want of this) type `PC` → Ara.
 - See: the same rooms as S02 (the text matches the room's features, not just its notes). No result says "PC özellikli oda; istenmedi".
 
 **S04 · staff · text that matches nothing**
@@ -49,7 +50,7 @@ Testable on `b75047b`: yes. A-11 (no feature facets, "PC" text contradicted by "
 
 **S05 · staff · capacity edge**
 - Do: back to S02's search, headcount **61**.
-- See: A 105 (60 seats) moves to "Uymayan" with **"Küçük"**. With headcount **60** it is in the main list, and its fit bar shows a full room.
+- See: A 105 (60 seats) leaves the main list with **"Küçük"**. With headcount **60** it is in the main list, and its fit bar shows a full room.
 
 **S06 · staff · reserve from the results**
 - Do: S02 search again. On the first result press **"Rezerve et"** (`fr-reserve-<code>`; accessible name **"<code> rezerve et"**).
@@ -76,20 +77,20 @@ Testable on `b75047b`: yes. A-11 (no feature facets, "PC" text contradicted by "
 
 **S11 · academician · the same search, now requests**
 - Do: set `approval_mode=all`. Log in as academician. Repeat S02 for `D3`.
-- See: every result's status reads **"Onay gerekir"**, and the card says **"Bu dersliği bir onaycı onaylar: rezervasyonunuz talep olur."** The button reads **"Talep et"** (accessible name **"<code> için talep et"**).
+- See: every result's status reads **"Onay gerekir"**; the card's first reason line is the server's **"Onay gerekli: talep oluşturulur"** and the helper text reads **"Bu dersliği bir onaycı onaylar: rezervasyonunuz talep olur."** The button reads **"Talep et"** (accessible name **"<code> için talep et"**).
 - Do: "Talep et" → the sheet (note `Telafi: PSY 277`) → **"2 ders saati için talep et"**.
-- See: toast **"<code> için talebiniz gönderildi. Onaycı karar verince size bildirilecek."**
+- See: toast **"<code> için talebiniz gönderildi. Onaycı karar verince size bildirilecek."** (on the phone wait for the toast with `getByRole('status')` before reading it; round 2 missed it by sampling too early).
 - API: 202. The admin's bell and the sink receive "Onay bekleyen oda talebi: …" (F-01 S03).
 
 **S12 · academician · make-up shortcut** (enhancement check, persona-academician Enh. #2)
-- Target: from the academician's own class (after P19-T1 "Derslerim"), "Bu ders için boş oda bul" prefills the headcount, the features (PC lab for the PSY 277 lab) and the A-block preference. Today: `BLOCKED: P19-T1 not built`.
+- Target: from the academician's own class (after P19-T1 "Derslerim"), "Bu ders için boş oda bul" prefills the headcount, the features (PC lab for the PSY 277 lab) and the A-block preference. Today: `BLOCKED: P19-T1 not built` (rounds 1 and 2; FLE-001 family).
 
 ## Mobile-specific expectations (phone 390×844; tablet 768×1024)
 
 - **Form in one column** (MOBILE.md M-10). The date field opens a localised picker. The time window uses two selects or a stepper, each ≥ 44 px.
 - **"Özellikler"** and **"Binalar"** open in a bottom sheet titled "Filtreler" (or each as its own sheet) with ≥ 44 px chips. The selected count shows on the trigger ("Özellikler · 1").
 - **"Ara"** is a sticky primary action at the bottom of the form, inside the thumb zone (M-05). It does not scroll away when the form is taller than the screen.
-- **Results** are a card list (M-07). "Rezerve et" / "Talep et" is a full-width or right-aligned ≥ 44 px button in each card. The fit bar has a text equivalent ("60 koltukta 42 kişi") visible on phone, not only in a tooltip (M-11).
+- **Results** are a card list (M-07). "Rezerve et" / "Talep et" is a full-width or right-aligned ≥ 44 px button in each card. The fit bar has a text equivalent ("Kapasite 60: 42 kişi için %30 boş koltuk") visible on phone, not only in a tooltip (M-11).
 - After a search on phone, focus or scroll moves to the summary line, so the user sees that results arrived (and the live region announces it).
 - **Tablet 768:** form and results may sit side by side. The results column is ≥ 360 px. Otherwise as on phone.
 

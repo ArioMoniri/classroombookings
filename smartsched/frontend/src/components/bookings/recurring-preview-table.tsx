@@ -42,10 +42,10 @@ export function RecurringPreviewTable({ summary, dispatch, fmt }: { summary: Pre
           {t("crbs.recur.summary", { create: summary.willCreate, skip: summary.skip + summary.cut, holidays: summary.holidays })}
         </p>
         <div className="flex gap-1">
-          <Button variant="ghost" size="xs" onClick={() => dispatch({ type: "setAll", action: "book" })}>
+          <Button variant="ghost" size="xs" className="pointer-coarse:min-h-11" onClick={() => dispatch({ type: "setAll", action: "book" })}>
             {t("crbs.recur.bookAll")}
           </Button>
-          <Button variant="ghost" size="xs" onClick={() => dispatch({ type: "setAll", action: "do_not_book" })}>
+          <Button variant="ghost" size="xs" className="pointer-coarse:min-h-11" onClick={() => dispatch({ type: "setAll", action: "do_not_book" })}>
             {t("crbs.recur.skipAll")}
           </Button>
         </div>
@@ -71,6 +71,11 @@ export function RecurringPreviewTable({ summary, dispatch, fmt }: { summary: Pre
                   {row.instance?.policy ? <span className="min-w-0">· {violationText(row.instance.policy, locale)}</span> : null}
                   {row.cut ? <span className="font-medium text-status-warning-fg">· {t("crbs.recur.cut")}</span> : null}
                 </p>
+                {row.reset ? (
+                  <p className="type-footnote font-medium text-status-warning-fg" data-testid="recur-reset-note">
+                    {t(row.status === "free" ? "crbs.recur.resetFree" : "crbs.recur.resetTaken")}
+                  </p>
+                ) : null}
               </div>
               {row.kind === "instance" && row.actions.length > 1 ? (
                 <SegmentedControl

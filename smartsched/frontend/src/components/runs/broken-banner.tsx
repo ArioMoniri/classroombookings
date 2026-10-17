@@ -8,7 +8,7 @@ import { XOctagon } from "lucide-react";
 import Link from "next/link";
 import { useRun } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
-import { BROKEN_RULE_TR, truthOf } from "./run-truth";
+import { BROKEN_RULE_TR, brokenText, truthOf } from "./run-truth";
 
 export function BrokenRulesBanner({ runId, className }: { runId: number | null; className?: string }) {
   const { n, locale } = useI18n();
@@ -29,7 +29,7 @@ export function BrokenRulesBanner({ runId, className }: { runId: number | null; 
       <ul className="list-disc pl-5 type-footnote text-label-1">
         {truth.broken.slice(0, 3).map((b, i) => (
           <li key={`${b.rule}-${i}`}>
-            {(tr ? BROKEN_RULE_TR[b.rule] : null) ?? b.rule.replace(/_/g, " ")}: {b.message}
+            {(tr ? BROKEN_RULE_TR[b.rule] : null) ?? b.rule.replace(/_/g, " ")}: {brokenText(b, tr)}
             {b.explained && b.reason ? ` · ${tr ? "gerekçe" : "reason"}: “${b.reason}”${b.by_name ? ` (${b.by_name})` : ""}` : tr ? " · açıklanmamış" : " · not explained"}
           </li>
         ))}

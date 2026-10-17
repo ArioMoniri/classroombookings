@@ -52,6 +52,7 @@ Testable on `b75047b` + the P19 UI follow-up (2026-10-16): **mostly**. `smartsch
 - No edit control anywhere: priority, inline edit, recreate and publish are absent (hidden, not disabled).
 - Part 2 (P19-T2, Q12): **"Tercih ekle"** creates a lower-ranked soft preference that waits for coordinator review.
   - Do: on `/moderation/me` press **"Tercih ekle"** (`wish-open`) or tap the PSY 277 §1 row. See the sheet (`wish-sheet`; a bottom sheet on the phone) with that class ticked, **"Tercih türü"**: Oda / Bina / Zaman aralığı.
+  - Data note: `already_requested` cannot fire for PSY 277's **Bina** wish on a stack.sh stack, because the department form asks for a room type ("Derslik" / "Bilgisayar Laboratuvarı (JASP)"), not a building; that sub-check is `SKIP (data)` (round 2), not a finding.
   - Do: **Zaman aralığı**, "En geç bitiş" P6, **"Onaya gönder"**. A class whose day and time the department form fixed shows **"… gün ve saatini bölüm formu sabitliyor …"** before sending, and after it the error **"Bölüm formu bu dersin gün ve saatini sabitliyor; saat tercihi bunu değiştiremez."** (`wish-error`, code `fixed_by_department`).
   - Do: **Oda**, pick or type a room the department did not ask for (e.g. `C 301`, Enter). See **"Koordinatörün göreceği özet"**: "PSY 277 §1: oda tercihi C 301", "Yumuşak tercih · bölüm talebinden sonra gelir". Send. See **"Tercihiniz koordinatöre gönderildi"** with the server's text "Koordinatör onaylarsa bir sonraki çözümde bölüm talebinden sonra gelen bir tercih olarak uygulanır".
   - Do: **Bina** with the department's own block. See **"Bölüm formu bu dersler için bunu zaten istiyor"** (`already_requested`).
@@ -119,7 +120,7 @@ Testable on `b75047b` + the P19 UI follow-up (2026-10-16): **mostly**. `smartsch
   - the counts equal the UI;
   - **every lock placed in G0 is placed in the same room in N** (M7). Compare the locked assignments of both runs and list any difference: each one is a blocker;
   - every class that lost its place carries a reason code.
-- Determinism (owner): repeat S09 with nothing changed. The second preview's diff equals the first one (same moved set).
+- Determinism (owner): repeat S09 with nothing changed. The second preview's diff equals the first one (same moved set). Through the API a repair preview needs the same body as the first one, **including `changed_request_ids`** (`POST /moderation/resolve` refuses a repair without it: round 2's admin hit that and reported the step NOT RUN): copy the first request's body from the network log (or re-press the UI's "Önizle") and post it again.
 - **"Takvimde göster"** (`compare-calendar`) shows Önce / Sonra on the calendar ("Takvimde yalnızca ilk {n} taşınan ders hareket eder; diğerleri yerinde değişir.").
 
 **S11 · admin · pin and re-run** (only if something moved; otherwise `SKIP: nothing moved`)
@@ -143,6 +144,13 @@ Testable on `b75047b` + the P19 UI follow-up (2026-10-16): **mostly**. `smartsch
 
 **S14 · academician · after publish**
 - See: `/moderation` "Taleplerim" now reflects N (assigned rooms of any moved class). The published label shows #N.
+
+**S15 · admin · the published board alone: dashboard and moderation header** (R1-S-15 / T-R1-39 re-test; round 2 was inconclusive because the board and run #10 were both active)
+- Precondition, a **board-only database**: the state right after `stack.sh up` (the §4.4 seed included) and **before** `stack.sh runs`, when the Güz run list holds only the imported boards and `setup_api.py bookings` has published the Güz grid board (`kind COURSE`, `params.source GRID_IMPORT`). Keep it with a named snapshot (README §4.2): `REC_SNAPSHOT_NAME=rec.board bash "$SNAP/scripts/record/stack.sh" snapshot` right after the seed, then the usual `stack.sh runs` + `stack.sh snapshot`. For this step restore it: `REC_SNAPSHOT=1 REC_SNAPSHOT_NAME=rec.board REC_SKIP_BUILD=1 bash "$SNAP/scripts/record/stack.sh" up` (and the default snapshot again afterwards). Do **not** emulate it by `POST /runs/<board>/activate` on the full stack: on `deb38315` that left run #10 active too (two `is_active` runs for one term: report that as its own finding if you see it).
+- Check first: `GET /runs?term_id=$GUZ_ID` → exactly one `is_active` run, the board `#B` (`GRID_IMPORT`); no solver run exists.
+- Do: as admin open `/dashboard`, then `/analytics/heatmap`, then `/moderation` (Güz).
+- See: the dashboard hero names the board (**"Yayında: içe aktarılan pano #B."**), never "Bu dönem için henüz çizelge oluşturulmadı"; **"Derslik doluluğu %n"** equals the heatmap's **"Genel doluluk %n"** within 0.5 points on the same week (the board covers Güz weeks 1–2: both pages must pick a week the board covers, not today's week); the buildings are not all 0 %. `/moderation` header: **"Yayında: #B · taleplerin %n'i karşılandı"** with n > 0, or the explicit board sentence ("Panodan içe aktarılan program …"); no person reads "0 karşılandı · 42 karşılanmadı" for every row.
+- Then restore the full snapshot (`REC_SNAPSHOT=1 REC_SKIP_BUILD=1 … up`) before any other flow.
 
 ## Keyboard path (desktop; spec phase19-moderation.md §7)
 

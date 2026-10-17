@@ -88,10 +88,10 @@ describe("Tabs triggers on touch (M-02)", () => {
 });
 
 describe("Checkbox and command rows on touch (M-02)", () => {
-  it("Checkbox grows its ::after 14 px on every side on coarse pointers (16 → 44) and keeps the desktop extension", () => {
+  it("Checkbox is a 44 × 44 box on coarse pointers (16 → 44, T-R2-05) and keeps the desktop ::after extension", () => {
     render(<Checkbox aria-label="Türkçe" />);
     const box = screen.getByRole("checkbox", { name: "Türkçe" });
-    expect(box).toHaveClass("relative", "after:-inset-x-3", "after:-inset-y-2", "pointer-coarse:after:-inset-3.5");
+    expect(box).toHaveClass("relative", "after:-inset-x-3", "after:-inset-y-2", "pointer-coarse:size-11", "pointer-coarse:after:inset-0"); // T-R2-05: a real 44 px box on touch
   });
 
   it("command items are at least 44 px tall and the input fills its 44 px row on touch", () => {

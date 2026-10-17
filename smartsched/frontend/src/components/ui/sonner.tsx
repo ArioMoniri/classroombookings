@@ -6,6 +6,8 @@
 // T-R1-06 / T-R1-07 (R1-S-33, R1-M-16): on phones the toasts stack above the tab bar (--shell-bottom-h, globals.css)
 // instead of covering it, the close button is named in the user's language ("Bildirimi kapat"), and a toast lasts
 // 4 s by default (a welcome toast passes 3 s itself).
+// T-R2-05 (R2-A-13, R2-M-13): on coarse pointers the close button is a real 44 × 44 box at the toast's end (sonner's own
+// 20 px circle hung off the top-left corner, where no hit area can grow); the toast pads its end for it.
 
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
@@ -14,6 +16,18 @@ import { useT } from "@/lib/i18n/provider"
 
 /** Sonner's phone breakpoint is 600 px: below it the stack sits above the tab bar; above it, the normal inset. */
 export const TOASTER_MOBILE_OFFSET = { bottom: "calc(var(--shell-bottom-h, 0px) + 0.5rem)", left: "1rem", right: "1rem" }
+
+/** Toast part classes (sonner `toastOptions.classNames`); exported for the touch contract test. */
+export const TOAST_CLASSNAMES = {
+  toast:
+    "cn-toast !shadow-(--shadow-3) backdrop-blur-[32px] backdrop-saturate-[1.8] !type-callout !gap-2.5 !px-4 !py-3 pointer-coarse:!pr-12",
+  title: "!font-semibold !text-label-1",
+  description: "!text-label-2",
+  actionButton: "!rounded-full !bg-tint !text-tint-foreground !font-medium",
+  cancelButton: "!rounded-full !bg-fill-2 !text-label-1",
+  closeButton:
+    "pointer-coarse:!size-11 pointer-coarse:!left-auto pointer-coarse:!right-1 pointer-coarse:!top-1/2 pointer-coarse:!-translate-y-1/2 pointer-coarse:!transform-none pointer-coarse:!rounded-full pointer-coarse:!border-0 pointer-coarse:!bg-transparent pointer-coarse:!shadow-none pointer-coarse:[&_svg]:!size-4",
+} as const
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
@@ -42,14 +56,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         duration: 4000,
         closeButtonAriaLabel: t("common.closeToast"),
-        classNames: {
-          toast:
-            "cn-toast !shadow-(--shadow-3) backdrop-blur-[32px] backdrop-saturate-[1.8] !type-callout !gap-2.5 !px-4 !py-3",
-          title: "!font-semibold !text-label-1",
-          description: "!text-label-2",
-          actionButton: "!rounded-full !bg-tint !text-tint-foreground !font-medium",
-          cancelButton: "!rounded-full !bg-fill-2 !text-label-1",
-        },
+        classNames: TOAST_CLASSNAMES,
       }}
       visibleToasts={3}
       {...props}

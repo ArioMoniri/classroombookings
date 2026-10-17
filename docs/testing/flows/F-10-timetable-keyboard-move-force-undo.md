@@ -8,6 +8,7 @@ Owner rules:
 - **Capacity is hard for manual moves** (M-09).
 
 Testable on `b75047b`: **partly**. Keyboard move, scopes, undo and export exist. The **forced move with a written reason** has backend support but no reason field in the move dialog yet (hand-off "forced-move reason + rules list → design-system agent"). S06 runs its API check and reports the UI as `BLOCKED: reason field not built` or `FAIL`.
+Revised against `deb38315` (T-R2-35): the reason field **is built** (`move-dialog.tsx`: `move-force-panel`, `move-force-reason`, `move-force`, `move-force-admin-only`; the admin round verified R1-S-09 as "Yine de taşı" with a required reason). The staff round could not reach S05/S06 and S01's search because its script never opened an occupied room and never opened the sidebar (R1-S-09 / R1-S-26 inconclusive): S01, S05 and S06 now spell out those steps.
 
 ## Preconditions
 
@@ -19,7 +20,8 @@ Testable on `b75047b`: **partly**. Keyboard move, scopes, undo and export exist.
 ## Steps
 
 **S01 · admin · open the class from the keyboard** (M-16)
-- Do: `/timetable?run=B0&week=3` (week zoom). Press `Tab` until the grid (`time-grid`, `role="grid"`) has focus (one tab stop, roving). Use the arrow keys to reach the PHAR 240 chip (`calendar-event`). You may first use the search (`calendar-search`, "PHAR 240"), which highlights the chip and moves focus to it. Press **Enter**.
+- Do: `/timetable?run=B0&week=3` (week zoom). Press `Tab` until the grid (`time-grid`, `role="grid"`) has focus (one tab stop, roving; the skip link **"Izgaraya geç"** (`skip-to-grid`) gets there in one Enter). Use the arrow keys to reach the PHAR 240 chip (`calendar-event`). Press **Enter**.
+- Search probe (R1-S-26, round-3 re-test): the search box lives in the **sidebar** (`calendar-sidebar`), which is closed at 1440 until the toggle **"Kenar çubuğunu göster/gizle"** opens it (so `getByTestId('calendar-search')` is absent before that: open the sidebar first, that is not drift). Type `PHAR 240` into `calendar-search` and press **Enter**: the board filters to the match and **focus moves to the first chip** (`document.activeElement` is a `[data-testid="calendar-event"]`, `calendar-view.tsx onSearchEnter`); with no match the live region says **"Bu filtrelerle gösterilecek ders yok."** and focus stays in the box. Then Enter on the chip opens the inspector as below. Record `activeElement`'s testid and `data-assignment-id` after the search Enter. Sidebar overlay: when the sidebar covers the grid (narrow window), its own toggle must stay reachable and **Esc** closes it; report what happens at 1440 and at 1024.
 - See: the inspector **"Ders denetçisi"** opens with:
   - **"Ne zaman, nerede"** (Monday P1–P3, the room, **"80 öğrenci · {cap} koltuk (%{fit})"**);
   - **"Kim"** (initials only);
@@ -57,13 +59,14 @@ Testable on `b75047b`: **partly**. Keyboard move, scopes, undo and export exist.
 - Re-apply S02 (it is the scenario's end state). Then check the API again.
 
 **S05 · planner · a conflicting move is refused, and force is admin-only**
-- Do: as planner.test, drag or keyboard-move a class onto an occupied cell (same room and time as another class in the same weeks).
-- See: the dialog shows the clash ("{n} ders · {ok} uygun · {bad} çakışma" or "Taşınamadı: {reason}" naming the other class). "Taşı" is disabled. **"Çakışmaya rağmen taşımayı yalnızca yönetici yapabilir"**.
+- Do: as planner.test, open the move dialog of PHAR 240 (inspector → "Taşı…", or Space on the chip → Space on a cell). In **"Bu saat için boş derslikler"** the rooms sit in one 300 px scroller (`[role=listbox]`) in the groups **"Boş ve sığar · n"**, **"Sığmaz · n"**, **"Dolu · n"**, **"Uygun değil · n"** (each capped at 12 rows, the free group at 40); the "Dolu" group is **below the fold of that scroller**, not collapsed: `page.locator('[data-testid="free-room"][data-status="busy"]').first().scrollIntoViewIfNeeded()` then click it (round 2's script stopped at "the 'Dolu · 38' group stayed collapsed": R1-S-09 inconclusive). Alternatively drag or keyboard-move the chip onto an occupied cell (same room and time as another class in the same weeks).
+- See: the dialog shows the clash ("{n} ders · {ok} uygun · {bad} çakışma" or "Taşınamadı: {reason}" naming the other class). "Taşı" is disabled. The footnote (`move-force-admin-only`) reads **"Çakışmaya rağmen taşımayı yalnızca yönetici yapabilir"** and there is no "Yine de taşı" button.
 - API: the move with `force:true` as planner → **403**.
 
-**S06 · admin · forced move with a reason** [UI pending: reason field]
-- Do: as admin, the same clash. **"Yine de taşı"**.
-- UI target: before confirming, the dialog lists what will break (the rule and the other class) and asks for a **required reason** ("Gerekçe"). Confirm stays disabled while it is empty.
+**S06 · admin · forced move with a reason** (built on `deb38315`; verified by the admin round)
+- Do: as admin, the same clash (pick the busy room as in S05).
+- See: the dialog lists what will break (the rule and the other class) and shows the panel (`move-force-panel`) **"Bu taşıma kesin bir kuralı bozuyor. Yönetici olarak yine de taşıyabilirsiniz; gerekçe çalıştırma raporunda ve denetim kaydında listelenir."** with the field **"Gerekçe (zorunlu)"** (`move-force-reason`). The destructive button **"Yine de taşı"** (`move-force`) stays disabled while the reason is shorter than 3 characters. Type `Bölüm başkanı onayı, tek seferlik` and press it ("Taşınıyor…" while busy).
+- See: the toast names the move, the published run drops to hard 99 with a banner that names the rule and the reason (R2 admin: verified; the banner's English text is R1-S-24 → lane E).
 - API check (whatever the UI does):
   - `POST /runs/B0/assignments/<aid>/move` (or `bulk-move`) with `force:true` and no reason → **422**;
   - with `"reason":"Bölüm başkanı onayı, tek seferlik"` → 200.
@@ -98,7 +101,7 @@ Testable on `b75047b`: **partly**. Keyboard move, scopes, undo and export exist.
 - **Chips never truncate the course code.** The name truncates first (UI review blocker: "Fl…", "C..").
 - **Inspector:** a tap on a class opens it as a bottom sheet (45 % / 92 %). "Taşı…" and "Kilitle" are ≥ 44 px buttons in the sheet footer.
 - **Move on touch:** no drag is needed. "Taşı…" opens the move dialog as a full-height bottom sheet. The scope options are full-width ≥ 44 px radios. The "Boş ve sığar" list is a card list. "Taşı" is sticky at the sheet bottom. A long-press drag is optional and never the only way (M-11).
-- **Filters** (`open-filters` → `filters-sheet`) open as a bottom sheet.
+- **Filters** (`open-filters` → `filters-sheet`) open as a bottom sheet. On `deb38315` the phone timetable has no `open-filters` trigger (R2-M-15 → T-R2-28, lane E): report `FAIL (T-R2-28)` until it is ticked, not NOT RUN.
 - **Undo toast on phone:** sits above the tab bar and the safe-area inset. "Geri al" is ≥ 44 px and stays at least 6 s.
 - **Tablet 768:** a 3-day or a single-building week view is allowed if chips stay ≥ 72 px wide. Otherwise the day view.
 

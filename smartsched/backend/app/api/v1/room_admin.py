@@ -358,8 +358,8 @@ async def upload_photo(room_id: int, db: DB, _: RoomsAdmin, file: UploadFile = F
         raise _photo_problem(problem)
     try:  # audit B2: decoded and re-encoded (≤ 1600 px), so only real pixels are ever served
         data, ext = sanitize_image(data)
-    except ImageError as exc:
-        raise messages.problem(exc.status, "image_invalid", f"Görsel işlenemedi: {exc.message}", exc.message) from exc
+    except ImageError as exc:  # T-R2-33: the decoder's refusal in Turkish, coded; the English sentence for `message`
+        raise messages.problem(exc.status, exc.code, exc.message_tr, exc.message) from exc
     target = Path(get_settings().upload_dir) / "rooms"
     target.mkdir(parents=True, exist_ok=True)
     for old in target.glob(f"{r.id}.*"):
@@ -495,7 +495,7 @@ async def put_room_fields(room_id: int, body: dict[str, Any], db: DB, me: RoomsA
         await features.set_values(db, room, body, me)
     except features.FeatureError as exc:
         await db.rollback()
-        raise HTTPException(exc.status, exc.message) from exc
+        raise HTTPException(exc.status, exc.as_detail()) from exc  # code + message + message_tr (T-R2-33)
     await db.commit()
     return await _field_values(db, room_id)
 

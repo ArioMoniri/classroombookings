@@ -70,12 +70,21 @@ TEMPLATE: tuple[dict[str, Any], ...] = (
 
 
 class FeatureError(Exception):
-    def __init__(self, status: int, code: str, message: str, **data: Any) -> None:
+    """A coded refusal. ``message`` is English; ``message_tr`` the Turkish the admin UI shows first (T-R2-33,
+    R2-M-18: "a feature named 'Projeksiyon' exists" reached the Turkish screen). ``as_detail`` is the 4xx body
+    (``code``, ``message``, ``message_tr`` and the extra data), what ``wave1Error`` / ``errorText`` read."""
+
+    def __init__(self, status: int, code: str, message: str, message_tr: str | None = None, **data: Any) -> None:
         super().__init__(message)
         self.status, self.code, self.message, self.data = status, code, message, data
+        self.message_tr = message_tr
 
     def as_detail(self) -> dict[str, Any]:
-        return {"code": self.code, "message": self.message, **self.data}
+        out: dict[str, Any] = {"code": self.code, "message": self.message}
+        if self.message_tr:
+            out["message_tr"] = self.message_tr
+        out.update(self.data)
+        return out
 
 
 def norm_type(t: str) -> str:
@@ -168,9 +177,18 @@ class Stored:
     value_json: list[Any] | None = None
 
 
+class CellError(ValueError):
+    """A cell value refused by :func:`coerce`: English ``message`` and Turkish ``message_tr`` for the per-cell
+    report and the coded 422 (T-R2-33)."""
+
+    def __init__(self, message: str, message_tr: str) -> None:
+        super().__init__(message)
+        self.message, self.message_tr = message, message_tr
+
+
 def coerce(f: RoomCustomField, raw: Any) -> Stored:
     """A user value -> storage, with Turkish input rules (``evet``/``var``/``x``, ``4,5``, NBSP, option text).
-    Raises ``ValueError`` with a message for the per-cell report."""
+    Raises :class:`CellError` (a ``ValueError``) with a message for the per-cell report."""
     kind = norm_type(f.type)
     if raw is None or (isinstance(raw, str) and n.clean_text(raw) is None and kind != "BOOLEAN"):
         return Stored()
@@ -179,25 +197,25 @@ def coerce(f: RoomCustomField, raw: Any) -> Stored:
             return Stored("0")
         b = raw if isinstance(raw, bool) else n.parse_bool_loose(raw)
         if b is None:
-            raise ValueError(f"{f.name}: {raw!r} is not yes/no (evet/hayır)")
+            raise CellError(f"{f.name}: {raw!r} is not yes/no (evet/hayır)", f"{f.name}: {raw!r} evet/hayır değil")
         return Stored("1" if b else "0")
     if kind == "NUMBER":
         if isinstance(raw, bool):
-            raise ValueError(f"{f.name}: a number is expected")
+            raise CellError(f"{f.name}: a number is expected", f"{f.name}: bir sayı gerekir")
         text = n.clean_text(raw) if not isinstance(raw, int | float) else None
         if text is not None and text.lstrip().startswith("-"):
-            raise ValueError(f"{f.name}: cannot be negative")
+            raise CellError(f"{f.name}: cannot be negative", f"{f.name}: eksi olamaz")
         num = float(raw) if isinstance(raw, int | float) else n.parse_float_loose(text)
         if num is None:
-            raise ValueError(f"{f.name}: {raw!r} is not a number")
+            raise CellError(f"{f.name}: {raw!r} is not a number", f"{f.name}: {raw!r} bir sayı değil")
         if num < 0:
-            raise ValueError(f"{f.name}: cannot be negative")
+            raise CellError(f"{f.name}: cannot be negative", f"{f.name}: eksi olamaz")
         shown = str(int(num)) if float(num).is_integer() else str(num)
         return Stored(shown, float(num))
     if kind == "SELECT":
         opt = find_option(f, raw)
         if opt is None:
-            raise ValueError(f"{f.name}: {raw!r} is not one of {', '.join(o.value for o in f.options)}")
+            raise CellError(f"{f.name}: {raw!r} is not one of {', '.join(o.value for o in f.options)}", f"{f.name}: {raw!r} şu seçeneklerden biri değil: {', '.join(o.value for o in f.options)}")
         return Stored(str(opt.id))
     if kind == "MULTISELECT":
         items = raw if isinstance(raw, list | tuple) else [p for p in str(raw).replace(",", ";").split(";")]
@@ -207,13 +225,13 @@ def coerce(f: RoomCustomField, raw: Any) -> Stored:
                 continue
             opt = find_option(f, item)
             if opt is None:
-                raise ValueError(f"{f.name}: {item!r} is not one of {', '.join(o.value for o in f.options)}")
+                raise CellError(f"{f.name}: {item!r} is not one of {', '.join(o.value for o in f.options)}", f"{f.name}: {item!r} şu seçeneklerden biri değil: {', '.join(o.value for o in f.options)}")
             if opt.id not in ids:
                 ids.append(opt.id)
         return Stored(None, None, sorted(ids)) if ids else Stored()
     text = n.clean_text(raw)
     if text and len(text) > 255:
-        raise ValueError(f"{f.name}: at most 255 characters")
+        raise CellError(f"{f.name}: at most 255 characters", f"{f.name}: en çok 255 karakter")
     return Stored(text)
 
 
@@ -340,17 +358,19 @@ async def set_values(
     rows = (await value_rows(session, [room.id])).get(room.id, {})
     before_vals = {f.id: decode(f, rows.get(f.id), room) for f in fields}
     errors: list[str] = []
+    errors_tr: list[str] = []
     plan: list[tuple[RoomCustomField, Stored]] = []
     for key, raw in values.items():
         f = find_field(fields, key)
         if f is None:
-            raise FeatureError(404, "field_not_found", f"feature {key!r} not found")
+            raise FeatureError(404, "field_not_found", f"feature {key!r} not found", f"Özellik bulunamadı: {key}")
         try:
             plan.append((by_id[f.id], coerce(f, raw)))
         except ValueError as exc:
             errors.append(str(exc))
+            errors_tr.append(exc.message_tr if isinstance(exc, CellError) else str(exc))
     if errors:
-        raise FeatureError(422, "invalid_values", "; ".join(errors), errors=errors)
+        raise FeatureError(422, "invalid_values", "; ".join(errors), "; ".join(errors_tr), errors=errors, errors_tr=errors_tr)
     before_tags = list(room.tags or [])
     for f, st in plan:
         row = rows.get(f.id)
@@ -430,20 +450,20 @@ class FieldSpec:
 def _validate(spec: FieldSpec) -> FieldSpec:
     spec.name = n.clean_text(spec.name) or ""
     if not spec.name:
-        raise FeatureError(422, "name", "a feature needs a name")
+        raise FeatureError(422, "name", "a feature needs a name", "Özelliğe bir ad verin.")
     spec.type = n.tr_upper(n.clean_text(spec.type) or "")
     if spec.type not in TYPES:
-        raise FeatureError(422, "type", f"type must be one of {', '.join(TYPES)}")
+        raise FeatureError(422, "type", f"type must be one of {', '.join(TYPES)}", f"Tür şunlardan biri olmalı: {', '.join(TYPES)}")
     spec.options = [o[:64] for o in (n.clean_text(x) for x in spec.options) if o]
     if norm_type(spec.type) in ("SELECT", "MULTISELECT") and not spec.options:
-        raise FeatureError(422, "options", f"a {spec.type} feature needs options")
+        raise FeatureError(422, "options", f"a {spec.type} feature needs options", "Bu tür için seçenekler gerekir.")
     folded = [n.tr_casefold(o) for o in spec.options]
     if len(set(folded)) != len(folded):
-        raise FeatureError(422, "options", "options must differ (Turkish case-insensitive)")
+        raise FeatureError(422, "options", "options must differ (Turkish case-insensitive)", "Seçenekler birbirinden farklı olmalı (büyük/küçük harf sayılmaz).")
     if spec.unit and norm_type(spec.type) != "NUMBER":
         spec.unit = None
     if spec.category and spec.category not in CATEGORIES:
-        raise FeatureError(422, "category", f"category must be one of {', '.join(CATEGORIES)}")
+        raise FeatureError(422, "category", f"category must be one of {', '.join(CATEGORIES)}", f"Kategori şunlardan biri olmalı: {', '.join(CATEGORIES)}")
     spec.solver_tag = norm_tag(spec.solver_tag)
     return spec
 
@@ -456,7 +476,7 @@ async def _name_taken(session: AsyncSession, name: str, exclude: int | None = No
 async def create_field(session: AsyncSession, spec: FieldSpec, actor: User | None = None) -> RoomCustomField:
     spec = _validate(spec)
     if await _name_taken(session, spec.name):
-        raise FeatureError(409, "name_taken", f"a feature named {spec.name!r} exists")
+        raise FeatureError(409, "name_taken", f"a feature named {spec.name!r} exists", f"Bu adda bir özellik zaten var: {spec.name}")
     pos = (await session.execute(select(func.max(RoomCustomField.pos)))).scalar() or 0
     f = RoomCustomField(
         name=spec.name[:64],
@@ -483,17 +503,17 @@ async def update_field(
     solver tag off (or changing it) that rooms rely on needs ``confirm`` (409 with the impact otherwise)."""
     spec = _validate(spec)
     if await _name_taken(session, spec.name, exclude=f.id):
-        raise FeatureError(409, "name_taken", f"a feature named {spec.name!r} exists")
+        raise FeatureError(409, "name_taken", f"a feature named {spec.name!r} exists", f"Bu adda bir özellik zaten var: {spec.name}")
     before = field_out(f)
     old_tag, old_kind = f.solver_tag, norm_type(f.type)
     new_kind = norm_type(spec.type)
     if old_kind == "BOOLEAN" and new_kind != "BOOLEAN" and old_tag:
-        raise FeatureError(422, "type", "turn the solver tag off before changing the type of a yes/no feature")
+        raise FeatureError(422, "type", "turn the solver tag off before changing the type of a yes/no feature", "Evet/hayır özelliğinin türünü değiştirmeden önce çözücü etiketini kapatın.")
     tag_rooms: list[Room] = []
     if old_tag and old_tag != spec.solver_tag:
         imp = await impact(session, old_tag, exclude_field_id=f.id)
         if imp["room_count"] and not confirm:
-            raise FeatureError(409, "solver_tag_impact", imp["message"], impact=imp)
+            raise FeatureError(409, "solver_tag_impact", imp["message"], imp["message_tr"], impact=imp)
         tag_rooms = [r for r in (await session.execute(select(Room))).scalars() if old_tag in (r.tags or [])]
         # materialise the tag-derived values before the link changes
         if old_kind == "BOOLEAN":
@@ -574,7 +594,7 @@ async def delete_field(
     if tag and not other_same_tag:
         imp = await impact(session, tag, exclude_field_id=f.id)
         if imp["room_count"] and not confirm:
-            raise FeatureError(409, "solver_tag_impact", imp["message"], impact=imp)
+            raise FeatureError(409, "solver_tag_impact", imp["message"], imp["message_tr"], impact=imp)
     room_ids = set(
         (
             await session.execute(select(RoomCustomFieldValue.room_id).where(RoomCustomFieldValue.field_id == f.id))
@@ -692,17 +712,17 @@ class Criterion:
 def criterion(fields: list[RoomCustomField], ref: Any, op: str | None, value: Any) -> Criterion:
     f = find_field(fields, ref)
     if f is None:
-        raise FeatureError(422, "feature_not_found", f"feature {ref!r} not found")
+        raise FeatureError(422, "feature_not_found", f"feature {ref!r} not found", f"Özellik bulunamadı: {ref}")
     kind = norm_type(f.type)
     if kind == "BOOLEAN":
         b = True if value is None else (value if isinstance(value, bool) else n.parse_bool_loose(value))
         if b is None:
-            raise FeatureError(422, "feature_value", f"{f.name}: {value!r} is not yes/no")
+            raise FeatureError(422, "feature_value", f"{f.name}: {value!r} is not yes/no", f"{f.name}: {value!r} evet/hayır değil")
         return Criterion(f, "eq", b)
     if kind == "NUMBER":
         num = value if isinstance(value, int | float) and not isinstance(value, bool) else n.parse_float_loose(value)
         if num is None:
-            raise FeatureError(422, "feature_value", f"{f.name}: {value!r} is not a number")
+            raise FeatureError(422, "feature_value", f"{f.name}: {value!r} is not a number", f"{f.name}: {value!r} bir sayı değil")
         return Criterion(f, op if op in ("gte", "lte", "eq") else "gte", float(num))
     if kind in ("SELECT", "MULTISELECT"):
         wanted = value if isinstance(value, list) else [value]
@@ -710,12 +730,12 @@ def criterion(fields: list[RoomCustomField], ref: Any, op: str | None, value: An
         for w in wanted:
             opt = find_option(f, w)
             if opt is None:
-                raise FeatureError(422, "feature_value", f"{f.name}: {w!r} is not an option")
+                raise FeatureError(422, "feature_value", f"{f.name}: {w!r} is not an option", f"{f.name}: {w!r} seçeneklerden biri değil")
             ids.append(opt.id)
         return Criterion(f, "in" if kind == "SELECT" else "has", ids)
     text = n.clean_text(value)
     if not text:
-        raise FeatureError(422, "feature_value", f"{f.name}: a text is needed")
+        raise FeatureError(422, "feature_value", f"{f.name}: a text is needed", f"{f.name}: bir metin gerekir")
     return Criterion(f, "contains", n.tr_casefold(text))
 
 
@@ -764,10 +784,10 @@ async def bulk_values(
     Empty cells change nothing; ``-`` clears a value (a yes/no feature becomes "no")."""
     rows = _rows(_decode(data))
     if not rows:
-        raise FeatureError(422, "empty", "the file is empty")
+        raise FeatureError(422, "empty", "the file is empty", "Dosya boş.")
     header = [n.clean_text(h) or "" for h in rows[0]]
     if not header or n.tr_casefold(header[0]) not in ROOM_HEADERS:
-        raise FeatureError(422, "header", "the first column must be the room code (kod / oda / derslik / code)")
+        raise FeatureError(422, "header", "the first column must be the room code (kod / oda / derslik / code)", "İlk sütun derslik kodu olmalı (kod / oda / derslik / code).")
     fields = await catalogue(session)
     columns: list[RoomCustomField | None] = []
     unknown = []
@@ -804,7 +824,7 @@ async def bulk_values(
                 values[f.id] = raw if raw is not None else ("" if norm_type(f.type) == "BOOLEAN" else None)
                 cell_rep["status"] = "ok"
             except ValueError as exc:
-                cell_rep.update(status="error", message=str(exc))
+                cell_rep.update(status="error", message=str(exc), message_tr=exc.message_tr if isinstance(exc, CellError) else str(exc))
                 errors += 1
             report.append(cell_rep)
         if values:
@@ -812,7 +832,7 @@ async def bulk_values(
     applied = 0
     if not dry_run:
         if errors and not skip_errors:
-            raise FeatureError(422, "bulk_errors", f"{errors} cell(s) have errors; nothing was applied", report=report)
+            raise FeatureError(422, "bulk_errors", f"{errors} cell(s) have errors; nothing was applied", f"{errors} hücrede hata var; hiçbir şey uygulanmadı.", report=report)
         for room, values in plan:  # cells with errors never entered ``values``
             await set_values(session, room, values, actor)
             applied += len(values)

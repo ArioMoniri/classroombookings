@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Grid } from "@/lib/api/crbs";
-import { altWhyQuery, asRequestable, buildQuery, compactWeeks, emptyForm, formFromRecent, isFeatureMiss, isoDate, normaliseClock, ownRequestFor, parseWeeks, reserveSpan, slotsFor, whyQuery } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildQuery, compactWeeks, emptyForm, formFromRecent, isFeatureMiss, isoDate, normaliseClock, ownRequestFor, parseWeeks, reserveSpan, slotsFor, whyQuery, wholeSpan } from "./find-room-model";
 
 describe("T-R1-14 find-room results", () => {
   it("folds the near misses that lack the asked feature (find_room.py's 'free; missing:' reason)", () => {
@@ -56,6 +56,13 @@ const grid = {
 } as unknown as Grid;
 
 describe("reserve target", () => {
+  it("T-R2-14: a stale result whose window is no longer free in full is refused, not trimmed", () => {
+    const g = asRequestable(grid, 5, "2026-02-18", 1, 2);
+    expect(wholeSpan(slotsFor(g, 5, "2026-02-18", 1, 2))?.map((s) => s.period_id)).toEqual([1, 2]);
+    // period 1 is not reservable any more (taken meanwhile): no partial P2-only sheet
+    expect(wholeSpan(slotsFor(grid, 5, "2026-02-18", 1, 2))).toBeNull();
+    expect(wholeSpan([])).toBeNull();
+  });
   it("opens request-only periods for the sheet", () => {
     const g = asRequestable(grid, 5, "2026-02-18", 1, 2);
     expect(reserveSpan(slotsFor(g, 5, "2026-02-18", 1, 2))?.map((s) => s.period_id)).toEqual([1, 2]);

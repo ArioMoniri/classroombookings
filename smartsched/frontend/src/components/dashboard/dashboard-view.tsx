@@ -23,7 +23,6 @@ import { useI18n } from "@/lib/i18n/provider";
 import { dayName, formatDate, periodRangeLabel } from "@/lib/time";
 import { BuildingBars, PeriodArea } from "./dashboard-charts";
 import { latestPlan, shownWeek } from "./dashboard-model";
-import { KpiNumber } from "./kpi-number";
 import { UtilisationHeatmap } from "./utilisation-heatmap";
 
 function relative(iso: string, locale: string): string {
@@ -97,7 +96,9 @@ function QuietNumbers({ d }: { d: DashboardSummary }) {
           <dt className="type-footnote text-label-2">{i.label}</dt>
           <dd>
             <Link href={i.href} className="rounded-md type-kpi text-label-1 hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus)">
-              <KpiNumber value={i.value} format={fmt} />
+              {/* round-2 T-R2-26 (R2-S-14): a plain number - the odometer's digit strips reached main.innerText
+                  ('0 1 2 3 4 5 6 7 8 9'), like the run report's before T-R1-48 */}
+              <span className="tabular-nums">{fmt(i.value)}</span>
             </Link>
             {i.hint ? <span className="block type-footnote text-label-2">{i.hint}</span> : null}
           </dd>
@@ -178,7 +179,7 @@ export function DashboardView() {
               {d ? (
                 <>
                   <span>{t("glass.dashboard.roomUse")}</span>
-                  <KpiNumber value={pct} prefix={pctParts.prefix} suffix={pctParts.suffix} className="tnum" />
+                  <span className="tnum tabular-nums">{`${pctParts.prefix ?? ""}${new Intl.NumberFormat(locale).format(pct)}${pctParts.suffix ?? ""}`}</span>
                 </>
               ) : (
                 <Skeleton className="h-10 w-72" />

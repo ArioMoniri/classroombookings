@@ -15,7 +15,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { plannerText } from "@/components/runs/diagnosis-format";
-import { BROKEN_RULE_TR, placedOf, truthOf, type RunTruth } from "@/components/runs/run-truth";
+import { BROKEN_RULE_TR, brokenText, placedOf, truthOf, type RunTruth } from "@/components/runs/run-truth";
 import { CopyDialog } from "./copy-dialog";
 import { useStudio, useStudioStore } from "./studio-context";
 
@@ -80,7 +80,7 @@ function TruthLine({ truth }: { truth: RunTruth }) {
         <ul className="mt-1 list-disc pl-5 text-xs text-label-1" data-testid="run-result-broken">
           {truth.broken.slice(0, 4).map((b, i) => (
             <li key={`${b.rule}-${i}`}>
-              {(tr ? BROKEN_RULE_TR[b.rule] : null) ?? b.rule}: {b.message}
+              {(tr ? BROKEN_RULE_TR[b.rule] : null) ?? b.rule}: {brokenText(b, tr)}
               {b.explained && b.reason ? ` · “${b.reason}”` : ""}
             </li>
           ))}

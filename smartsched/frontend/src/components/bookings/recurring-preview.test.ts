@@ -72,6 +72,31 @@ describe("recurring preview reducer", () => {
     ]);
     expect(previewReducer(load(), { type: "reset" })).toEqual(initialPreview);
   });
+  it("re-checking keeps every per-date choice and only resets a date whose availability changed (T-R2-09)", () => {
+    let s = load();
+    s = previewReducer(s, { type: "set", date: "2026-05-07", action: "do_not_book" });
+    s = previewReducer(s, { type: "set", date: "2026-04-30", action: "replace" });
+    // same plan again: nothing moves, no row note
+    const again = previewReducer(s, { type: "load", plan: plan(), holidays });
+    expect(again.choices).toEqual(s.choices);
+    expect(again.reset).toEqual([]);
+    expect(instancesPayload(again).find((i) => i.date === "2026-05-07")).toEqual({ date: "2026-05-07", action: "do_not_book" });
+    expect(instancesPayload(again).find((i) => i.date === "2026-04-30")).toEqual({ date: "2026-04-30", action: "replace" });
+    // 2026-05-14 got taken by a timetable row and 2026-04-30 was freed: those two fall back to the default and are flagged
+    const changed = plan();
+    changed.instances[4] = { date: "2026-05-14", term_week: 15, status: "timetable", held: { kind: "timetable", room_id: 2, date: "2026-05-14", start_period: 3, end_period: 3, label: "PSI 216", id: 8 }, actions: ["do_not_book"] };
+    changed.instances[2] = { date: "2026-04-30", term_week: 13, status: "free", actions: ["book", "do_not_book"] };
+    const next = previewReducer(s, { type: "load", plan: changed, holidays });
+    expect(next.choices).toEqual({ "2026-04-09": "book", "2026-04-16": "do_not_book", "2026-04-30": "book", "2026-05-07": "do_not_book", "2026-05-14": "do_not_book" });
+    expect(next.reset).toEqual(["2026-04-30", "2026-05-14"]);
+    const rows = summarise(next).rows;
+    expect(rows.filter((r) => r.reset).map((r) => r.date)).toEqual(["2026-04-30", "2026-05-14"]);
+    expect(rows.find((r) => r.date === "2026-05-07")?.reset).toBe(false);
+    // a date that drops out of the plan (shorter range) loses its choice
+    const shorter = plan();
+    shorter.instances = shorter.instances.slice(0, 3);
+    expect(Object.keys(previewReducer(s, { type: "load", plan: shorter, holidays }).choices)).toEqual(["2026-04-09", "2026-04-16", "2026-04-30"]);
+  });
   it("finds holidays on the series weekday within the range", () => {
     const dates = [
       { date: "2026-04-22", weekday: 3, holiday: null },

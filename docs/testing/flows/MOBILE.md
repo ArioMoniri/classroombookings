@@ -323,22 +323,24 @@ const m14 = await page.evaluate(probeStop);
 
 | Route | Persona | Primary action (`PRIMARY`) | Tables → expected at 390 | Flows |
 |---|---|---|---|---|
-| `/login` | all | `getByTestId("login-submit")` | – | F-12 |
+| `/login` | all | `getByTestId("login-submit")`; with SSO on, open `login-disclosure` first. The card is shorter than the screen and the submit sits right under the password (y ≈ 355–403 at 390): M-05 passes when it is visible with the keyboard open (M-12); the bottom-40 % rule does not apply to this centred form (round 2 R2-S-20) | – | F-12 |
 | `/login/change-password` | all | button "Kaydet ve devam et" | – | F-12 |
 | `/reset-password` | all | the submit of the visible form | – | F-12 |
 | `/bookings` | staff, academician, admin | in the open sheet: `getByTestId("book-submit")`; page: none (slot list) | grid → slot list (M-08) | F-01, F-02, F-13 |
-| `/my-bookings` | staff, academician | selection mode: `getByTestId("cancel-selected")`; sync sheet: `sync-create` | rows → cards | F-01, F-04 |
+| `/my-bookings` | staff, academician | selection mode: `getByTestId("cancel-selected")`; inline "Takvime eşitle" card (`calendar-sync`, no opener here): `sync-create`, then the consent step's "Rıza ver ve devam et" | rows → cards | F-01, F-04 |
 | `/find-room` | staff, academician | `getByTestId("fr-search")`; results: `fr-reserve-<code>` | results → cards | F-03 |
 | `/approvals` | admin | drawer: `approval-approve` / `approval-group-approve` | list → cards | F-01 |
 | `/profile` | all | `getByTestId("profile-save")` | – | F-12, F-13 |
-| `/settings` | all; admin for the AI policy | the AI policy confirm `ai-policy-confirm` (admin) | – | F-11, F-13 |
-| `/dashboard` | admin | none (read) | KPI rows wrap; charts readable | F-12 |
+| `/settings` (`?tab=<name>`: `tab-<name>`) | all; admin for the AI policy and the solver tab | per tab, inside the open panel: integrations `calendar-confirm` / the AI policy confirm `ai-policy-confirm` (admin); `?tab=solver` (admin, T-R2-29): `save-solver`; appearance / profile tabs: the tab's save. Open the tab before probing: the save lives inside the panel, not on the page (round 2's `M-05@/admin/settings` NOT RUN) | solver weights table → one column, inputs ≥ 16 px | F-11, F-13, F-04 S02 |
+| `/dashboard` | admin | none (read) | KPI rows wrap; charts readable; odometer digits not in the accessible text (R2-S-14) | F-12, F-05 S15 |
+| `/analytics/heatmap` | admin, planner | none (read); the controls (`heat-controls`: run / week / grouping selects) ≥ 44 px | heat grid scrolls inside itself (`rooms-heat`, `instructors-heat`), the page never scrolls sideways; legend readable | F-05 S15, T-R1-01 |
+| `/runs/compare?a=&b=` | admin, planner | `getByTestId("compare-apply")` in the run pair picker (`compare-pick-a` / `compare-pick-b`); with a pair chosen: none (read) | metric tables → cards or a pinned first column; the changed-rooms list → cards | F-09 (scenario comparison, R1-M-?? family) |
 | `/timetable` | admin, planner | inspector: "Taşı…"; move sheet: `move-confirm` | week grid → day / agenda (M-08) | F-10 |
 | `/classes`, `/requests` | admin | bulk bar action when selected | table → cards or pinned "Ders" column | F-09 |
 | `/rooms`, `/rooms/[id]` | admin | none (read) | cards or table with pinned code | F-11 |
 | `/runs`, `/runs/[id]` | admin | `getByTestId("run-publish")` | runs list → cards | F-09 |
 | `/generate` | admin, planner | `studio-bottom-bar` primary ("Devam" / "Oluştur") | class table → cards | F-09, F-06 |
-| `/onboarding` (+ job steps) | admin | drop zone button; job: the commit capsule "Kaydet" | files and review → cards | F-08 |
+| `/onboarding` (+ job steps: `/onboarding?job=<id>` on `deb38315`; `/onboarding/<id>` once T-R2-20 lands, then both) | admin | drop zone button; job: the commit capsule "Kaydet" | files and review → cards | F-08 |
 | `/moderation` | academician (Taleplerim), admin | coordinator: `recreate-open`; academician: none | tabs' tables → cards | F-05 |
 | `/moderation/people/[id]` | academician, admin | none; Öneriler: `suggestion-accept` | timeline → grouped list | F-05, F-06 |
 | `/moderation/recreate/[id]` | admin | `getByTestId("preview-publish")` | diff → grouped list | F-05, F-07 |
@@ -349,7 +351,7 @@ const m14 = await page.evaluate(probeStop);
 | `/admin/rooms` (+ Özellikler) | admin | `room-new`; dialog: `room-create` / `room-save`; features: `feature-save` | rooms, features → cards | F-11, F-03 |
 | `/admin/approval-rules` | admin | `rule-new`; form: `rule-save` | rules → cards | F-01, F-11 |
 | `/admin/audit` | admin | row "Geri al" | events → cards | F-02, F-11 |
-| `/admin/settings`, `/admin/email`, `/admin/authentication` | admin | `org-save` / the form's save | – | F-01, F-11, F-12 |
+| `/admin/settings`, `/admin/email`, `/admin/authentication` | admin | `org-save` (in the sticky capsule) / the form's save; `/admin/authentication`: "Bağlantıyı dene" is disabled until the test user and password are typed | – | F-01, F-11, F-12 |
 | `/admin/holidays`, `/admin/sessions`, `/admin/weeks`, `/admin/schedules`, `/admin/departments`, `/admin/access`, `/admin/conflicts` | admin | the screen's "Yeni …" / save | lists → cards | sanity pass once per round |
 | `/exams/invigilation` | planner, admin | `getByTestId("invig-new")` ("Yeni plan"); empty plan: `invig-pool-all` ("Tüm eğitmenlerle yeniden çalıştır") | posts → cards | R1-S-14 (T-R1-42) |
 | `/setup` (fresh stack) | first admin | `setup-requirements-next` / the step's submit | – | F-12 (installer copy) |

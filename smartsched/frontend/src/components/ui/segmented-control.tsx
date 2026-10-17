@@ -17,8 +17,10 @@
 // transitions `transform` only, on the --spring-glass-morph linear() curve (CSS mirror of springs.glassMorph,
 // ≤ 300 ms); a new target mid-flight re-targets from the current position (interruptible). Reduced motion:
 // the global rule zeroes the duration (the thumb jumps; the label weight/colour change carries the state).
-// Touch: segments are 30 / 38 px tall on coarse pointers (track − 6 px); each gets a 44 × 44 hit area through ::after
-// (ui/hit-area.ts, MOBILE.md M-02). The select fallback is a NativeSelect, so it has 16 px text on phones.
+// Touch (T-R2-05, R2-S-03 / R2-M-23): on coarse pointers the track is at least 44 px tall with no vertical padding, so every
+// segment is a REAL 44 px box (the thumb keeps its 3 px inset); the ::after hit area (ui/hit-area.ts) only widens narrow
+// segments. Round 1 relied on the ::after alone, which the recurring date table and card lists clipped (MOBILE.md M-02).
+// The select fallback is a NativeSelect, so it has 16 px text on phones.
 // Purpose sentence: "When the user picks a segment, the thumb travels to it so they see which view is now on."
 import * as React from "react"
 import { cn } from "cn"
@@ -69,7 +71,7 @@ const heights = {
 
 /** Shared track and thumb look (ui/tabs' default variant uses the same classes). */
 export const segmentedTrack =
-  "relative isolate inline-grid min-w-max grid-flow-col auto-cols-fr items-stretch rounded-full bg-fill-2 p-[3px] whitespace-nowrap shadow-[inset_0_0_0_1px_var(--hairline)]"
+  "relative isolate inline-grid min-w-max grid-flow-col auto-cols-fr items-stretch rounded-full bg-fill-2 p-[3px] pointer-coarse:min-h-11 pointer-coarse:py-0 whitespace-nowrap shadow-[inset_0_0_0_1px_var(--hairline)]"
 export const segmentedThumb =
   "pointer-events-none absolute inset-y-[3px] left-[3px] -z-10 rounded-full bg-(--mat-thick-solid) shadow-[inset_0_1px_0_0_var(--specular),0_0_0_1px_var(--hairline),0_1px_3px_0_rgba(0,0,0,0.12)] transition-transform duration-(--spring-glass-morph-ms) ease-(--spring-glass-morph)"
 export const segmentedItem =

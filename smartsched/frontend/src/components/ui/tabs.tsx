@@ -6,8 +6,9 @@
 // pure CSS, so it cannot sit outside the track (the dark "thumb 16 px above the track" bug was a layoutId
 // projection at rest). Only `transform` transitions, on --spring-glass-morph (motion pattern 2); the width
 // snaps. Reduced motion: the global rule zeroes the duration. API unchanged.
-// Touch (2026-10-16 mobile polish): triggers carry the shared 44 × 44 coarse hit area (ui/hit-area.ts) like the
-// SegmentedControl items, so a tap on the track's 3 px rim still selects the tab (MOBILE.md M-02).
+// Touch (2026-10-16 mobile polish; T-R2-05): triggers are at least 44 px tall on coarse pointers (the shared track drops its
+// vertical padding there, segmented-control.tsx) and carry the 44 × 44 coarse hit area (ui/hit-area.ts) for narrow ones,
+// so a tap on the track's rim still selects the tab even inside a clipping list (MOBILE.md M-02).
 
 import * as React from "react"
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
@@ -38,7 +39,7 @@ function Tabs({
 }
 
 const tabsListVariants = cva(
-  "group/tabs-list relative isolate w-fit text-label-2 group-data-horizontal/tabs:h-(--control-h-md) group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col",
+  "group/tabs-list relative isolate w-fit text-label-2 group-data-horizontal/tabs:h-(--control-h-md) group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col group-data-vertical/tabs:pointer-coarse:py-[3px]",
   {
     variants: {
       variant: {
@@ -88,7 +89,7 @@ function TabsTrigger({ className, children, ...props }: TabsPrimitive.Tab.Props)
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        "relative inline-flex h-full flex-1 items-center justify-center gap-1.5 rounded-full px-3 type-callout font-medium whitespace-nowrap text-label-2 transition-colors duration-(--dur-fast) group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-1 focus-visible:outline-(--focus) disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 data-active:text-label-1 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative inline-flex h-full flex-1 items-center justify-center gap-1.5 rounded-full px-3 pointer-coarse:min-h-11 type-callout font-medium whitespace-nowrap text-label-2 transition-colors duration-(--dur-fast) group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-label-1 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-1 focus-visible:outline-(--focus) disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 data-active:text-label-1 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         "group-data-[variant=line]/tabs-list:px-0.5 group-data-[variant=line]/tabs-list:data-active:text-label-1",
         coarseHitArea,
         className
