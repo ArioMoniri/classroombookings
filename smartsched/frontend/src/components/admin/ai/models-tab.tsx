@@ -14,11 +14,11 @@ import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { AI_FEATURES, EFFORTS, type AiFeature, type Provider, type Route, type Routes, useAiProviders, useAiRoutes, useSaveRoutes } from "@/lib/api/ai-admin";
+import { AI_FEATURES, EFFORTS, type Provider, type Route, type RouteFeature, type Routes, useAiProviders, useAiRoutes, useSaveRoutes } from "@/lib/api/ai-admin";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useAiLabels } from "./ai-kit";
-import { errorDetail, errorMessage, providerLabel, routableProviders, routeIssues, routesBody, syncedIds, type RouteIssue } from "./ai-model";
+import { errorDetail, errorMessage, providerLabel, routableProviders, routeIssues, routesBody, speechProviders, syncedIds, type RouteIssue } from "./ai-model";
 
 type Draft = Partial<Route> | null;
 
@@ -37,11 +37,14 @@ function RoutesEditor({ providers, routes, canEdit }: { providers: Provider[]; r
   const labels = useAiLabels();
   const save = useSaveRoutes();
   const [def, setDef] = useState<Draft>(routes.default ?? null);
-  const [features, setFeatures] = useState<Partial<Record<AiFeature, Draft>>>(() => ({ ...(routes.features as Partial<Record<AiFeature, Draft>>) }));
+  const [features, setFeatures] = useState<Partial<Record<RouteFeature, Draft>>>(() => ({ ...(routes.features as Partial<Record<RouteFeature, Draft>>) }));
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
   const routable = useMemo(() => routableProviders(providers), [providers]);
+  // voice: only speech-capable providers, each with only its speech-to-text models
+  const speech = useMemo(() => speechProviders(providers), [providers]);
+  const speechRoutable = useMemo(() => routableProviders(speech), [speech]);
   const issueText = (i: RouteIssue) => t(`aiAdmin.models.issue.${i}` as MessageKey);
-  const anyIssue = [routeIssues(def, providers), ...AI_FEATURES.map((f) => routeIssues(features[f], providers, f))].some((x) => x.filter((i) => i !== "transferMissing").length);
+  const anyIssue = [routeIssues(def, providers), ...AI_FEATURES.map((f) => routeIssues(features[f], providers, f)), routeIssues(features.voice_stt, speech, "voice_stt")].some((x) => x.filter((i) => i !== "transferMissing").length);
 
   const submit = () => {
     setServerErrors({});
@@ -95,6 +98,27 @@ function RoutesEditor({ providers, routes, canEdit }: { providers: Provider[]; r
           />
         );
       })}
+      <RouteRow
+        id="voice_stt"
+        title={t("voice.admin.feature")}
+        hint={t("voice.admin.need")}
+        draft={features.voice_stt ?? null}
+        onChange={(d) => setFeatures((x) => ({ ...x, voice_stt: d }))}
+        providers={speech}
+        routable={speechRoutable}
+        canEdit={canEdit}
+        allowFollow
+        followLabel={t("voice.admin.unset")}
+        noEffort
+        issues={routeIssues(features.voice_stt, speech, "voice_stt").map(issueText)}
+        serverError={serverErrors.voice_stt}
+        effective={(() => {
+          const eff = routes.effective.voice_stt;
+          if (!eff || eff.source === "none" || !eff.provider) return null;
+          return t(`aiAdmin.models.source.${eff.source}` as MessageKey, { provider: providerLabel(providers.find((p) => p.id === eff.provider) ?? { label_tr: eff.provider, label_en: eff.provider }, locale), model: eff.model });
+        })()}
+        note={!speechRoutable.length ? t("voice.admin.noSpeechModels") : !features.voice_stt?.provider ? t("voice.admin.noModel") : null}
+      />
       {canEdit ? (
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={submit} {...busyProps(save.isPending, anyIssue)} data-testid="ai-routes-save">
@@ -122,6 +146,9 @@ function RouteRow({
   issues,
   serverError,
   effective,
+  followLabel,
+  noEffort,
+  note,
 }: {
   id: string;
   title: string;
@@ -135,6 +162,12 @@ function RouteRow({
   issues: string[];
   serverError?: string;
   effective: string | null;
+  /** the empty choice's label when it does not follow the default (voice: "not chosen, mic hidden") */
+  followLabel?: string;
+  /** no effort select (speech-to-text has no reasoning effort) */
+  noEffort?: boolean;
+  /** one plain line under the hint (voice: no model → mic hidden) */
+  note?: string | null;
 }) {
   const { t, locale } = useI18n();
   const uid = useId();
@@ -157,6 +190,11 @@ function RouteRow({
             {effective}
           </p>
         ) : null}
+        {note ? (
+          <p className="type-footnote text-label-2" data-testid={`ai-route-note-${id}`}>
+            {note}
+          </p>
+        ) : null}
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-1.5">
@@ -164,7 +202,7 @@ function RouteRow({
             {t("aiAdmin.models.provider")}
           </Label>
           <NativeSelect id={`${uid}-p`} value={draft?.provider ?? ""} disabled={!canEdit} onChange={(e) => (e.target.value ? onChange({ ...(draft ?? {}), provider: e.target.value, model: syncedIds(providers, e.target.value)[0] ?? "" }) : onChange(null))} data-testid={`ai-route-provider-${id}`}>
-            <option value="">{allowFollow ? t("aiAdmin.models.followDefault") : t("aiAdmin.models.legacy")}</option>
+            <option value="">{followLabel ?? (allowFollow ? t("aiAdmin.models.followDefault") : t("aiAdmin.models.legacy"))}</option>
             {providerOptions(draft?.provider).map((p) => (
               <option key={p.id} value={p.id}>
                 {providerLabel(p, locale)}
@@ -185,7 +223,7 @@ function RouteRow({
             ))}
           </NativeSelect>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className={noEffort ? "hidden" : "flex flex-col gap-1.5"}>
           <Label htmlFor={`${uid}-e`} className="type-footnote font-medium text-label-2">
             {t("aiAdmin.models.effort")}
           </Label>

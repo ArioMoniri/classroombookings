@@ -4,8 +4,8 @@
  * No React here (vitest: ai-model.test.ts).
  */
 import { HttpError } from "@/lib/api/client";
-import type { AiErrorDetail, AiFeature, Provider, Route, RoutesIn, UsageRow } from "@/lib/api/ai-admin";
-import { AI_FEATURES } from "@/lib/api/ai-admin";
+import type { AiErrorDetail, Provider, Route, RouteFeature, RoutesIn, SyncedModel, UsageRow } from "@/lib/api/ai-admin";
+import { ROUTE_FEATURES } from "@/lib/api/ai-admin";
 
 const TAG: Record<string, string> = { tr: "tr-TR", en: "en-GB" };
 const tag = (locale: string) => TAG[locale] ?? "en-GB";
@@ -102,9 +102,9 @@ function cleanRoute(r: Partial<Route> | null | undefined): Partial<Route> | null
 }
 
 /** Draft (default + per feature, `null` = follow the default) → the `PUT /ai/admin/routes` body. */
-export function routesBody(def: Partial<Route> | null, features: Partial<Record<AiFeature, Partial<Route> | null>>): RoutesIn {
+export function routesBody(def: Partial<Route> | null, features: Partial<Record<RouteFeature, Partial<Route> | null>>): RoutesIn {
   const out: RoutesIn = { default: cleanRoute(def), features: {} };
-  for (const f of AI_FEATURES) {
+  for (const f of ROUTE_FEATURES) {
     const r = cleanRoute(features[f]);
     if (r) out.features[f] = r;
   }
@@ -230,4 +230,53 @@ export function parseLimit(raw: string): number | null {
   if (!t) return 0;
   const n = Number(t);
   return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+}
+
+/* ------------------------------------------------------------------ voice (VO-07) */
+
+export type SpeechKind = "stt" | "tts";
+
+/** A synced model that can do `kind`: its synced modalities when the backend sent them, else its id
+ *  (`*transcribe*`, `whisper*` for speech-to-text; `*tts*` for read-aloud). */
+export function isSpeechModel(m: Pick<SyncedModel, "id" | "modalities">, kind: SpeechKind = "stt"): boolean {
+  if (m.modalities?.length) return m.modalities.includes(kind);
+  return kind === "stt" ? /transcribe|whisper/i.test(m.id) : /(^|[-_])tts([-_]|$)/i.test(m.id);
+}
+
+/** Whether a provider says it can do `kind` (providers from a backend without capabilities: judged by models). */
+export function providerCan(p: Pick<Provider, "capabilities" | "models">, kind: SpeechKind = "stt"): boolean {
+  if (p.capabilities?.length) return p.capabilities.includes(kind);
+  return p.models.some((m) => isSpeechModel(m, kind));
+}
+
+/** The providers a speech route may use, each with only its speech-capable models. */
+export function speechProviders(providers: readonly Provider[], kind: SpeechKind = "stt"): Provider[] {
+  return providers.filter((p) => providerCan(p, kind)).map((p) => ({ ...p, models: p.models.filter((m) => isSpeechModel(m, kind)) }));
+}
+
+/** The first speech-capable synced model of a provider (what its voice test transcribes with). */
+export function firstSpeechModel(p: Provider, kind: SpeechKind = "stt"): string | null {
+  if (!providerCan(p, kind)) return null;
+  return p.models.find((m) => isSpeechModel(m, kind))?.id ?? null;
+}
+
+/** Seconds (the backend's unit) ⇄ whole minutes (what the screen shows); empty → undefined. */
+export function minutesOf(seconds: number | undefined): string {
+  return seconds === undefined ? "" : String(Math.round(seconds / 60));
+}
+export function secondsOf(minutes: string): number | null | undefined {
+  if (!minutes.trim()) return undefined;
+  const n = parseLimit(minutes);
+  return n === null ? null : n * 60;
+}
+
+/** Audio minutes per day from `GET /ai/admin/usage?group=day` rows (rows without audio are left out). */
+export function audioDays(rows: readonly UsageRow[], locale: string): { day: string; label: string; minutes: number }[] {
+  const fmt = new Intl.DateTimeFormat(tag(locale), { day: "numeric", month: "short", timeZone: "UTC" });
+  return rows
+    .filter((r) => (r.audio_minutes ?? 0) > 0)
+    .map((r) => {
+      const day = String(r.key ?? "");
+      return { day, label: day ? fmt.format(new Date(`${day}T00:00:00Z`)) : "", minutes: Math.round((r.audio_minutes ?? 0) * 10) / 10 };
+    });
 }

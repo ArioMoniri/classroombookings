@@ -15,7 +15,7 @@ function Input({ className, type, fieldSize: size = "md", ...props }: React.Comp
       className={cn(
         fieldSurface,
         fieldSize[size],
-        "w-full min-w-0 py-1 file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-label-1 max-md:pointer-coarse:text-base",
+        "w-full min-w-0 py-1 file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-label-1 pointer-coarse:text-base",
         className
       )}
       {...props}

@@ -90,7 +90,7 @@ articles.
 | A. A floating chat bubble (bottom right) | **No** | G1 (only chrome floats). It hides content on phones, it is a second "search", and ex-CRBS users ignore it (Intercom-style bubbles read as marketing) |
 | B. A separate search bar **and** a bot button | **No** | Two places to ask the same thing. The owner's rule: one primary action, no extra decision |
 | C. **One field "Ara veya sor"** (palette) **+ a helper sheet opened from it** | **Yes** | Notion, ClickUp and Raycast pattern (research §1.3, M1, M2). Search answers 80 % of "where is it" with no AI. The sheet opens only when the user asks |
-| D. Merge the run chat into the helper | **Not now** | The run chat edits timetables through `chat/apply`, `publish_guard` and `move_guard`. Merging would put integrity-guarded edits behind a generic assistant. They share components instead (§2.6). Revisit after HX-11 |
+| D. Merge the run chat into the helper | **Not now** | The run chat edits timetables through `chat/apply`, `publish_guard` and `move_guard`. Merging would put integrity-guarded edits behind a generic assistant. They share components instead (§2.6). Revisit after HX-13 |
 
 ### 2.2 Entry points
 
@@ -106,8 +106,8 @@ articles.
 
 - The placeholder reads **"Sayfa, ayar, salon, kişi ya da ders arayın… veya bir soru sorun"**.
 - With an **empty query**, the palette shows three groups:
-  1. **Son yaptıklarınız**: up to 3 recent tasks from memory ("A 204 rezerve edildi · dün"), each re-opening its
-     card.
+  1. **Son yaptıklarınız**: up to 3 of the user's own confirmed helper actions ("A 204 rezerve edildi · dün"), each
+     opening the object.
   2. **Şunları sorabilirsiniz**: 3 starters for the user's role (§6.2).
   3. **Git**: today's list.
 - With a **query**, groups appear in this fixed order, and groups without hits are hidden:
@@ -248,150 +248,175 @@ welcome-guide anchors (§13 there) are reused as they are.
 
 ### 4.1 Rules (all cards)
 
-1. **Catalogue only.** The model emits `{"kind", "props"}` through one tool, `show_card`. The server validates the
-   props against the card's schema, **resolves names to ids** (as `app/ai/resolve.py` does), drops anything the user
-   cannot do, computes the preview, and sends a `card` SSE event. Unknown kinds, invalid props or a missing permission
-   lead to a plain-text answer and **no card**. The model never supplies HTML, JS, CSS, URLs, API paths or ids.
-2. **Typed schema per kind** (zod on the client, pydantic on the server, the same JSON Schema). The props are
-   **data**. Labels come from message keys. Free text from the model is allowed only in `note` (≤ 140 characters,
-   rendered as plain text, guardrail output check applied).
-3. **Existing APIs only.** Each kind maps to a fixed client-side `endpoint` (method + path template) in
-   `components/helper/cards/registry.ts`. The call uses the user's own session, so permissions, `publish_guard`,
-   `move_guard`, booking policies, rate limits and audit all apply exactly as on the page. There is no new write path.
+1. **Server-built cards only** (architecture doc §5.3).
+   - The model chooses an **action** from the person's tool list (≤ 10 tools; only actions the person holds and the
+     admin enabled) and fills typed `args`.
+   - The server validates them (`extra="forbid"`), **resolves names to ids**, runs the read or the preview through
+     the **same service as the page's REST route**, and emits a `card` SSE event built by `cards.py`.
+   - The model's own words only ever appear in an `answer` card (plain text, ≤ 1200 characters, no links, no
+     Markdown).
+   - **The model never supplies HTML, JS, CSS, URLs, API paths, ids or button labels.**
+2. **Typed contract** `helper.card.v1` (pydantic on the server, published at `GET /helper/schema`; zod generated from
+   it on the client, with snapshot tests on both sides).
+   - The client chooses the **presentation** from `type` + `action` (§4.3), so `confirm` for `create_booking`
+     renders the room / day / period layout.
+   - An unknown `type` or `action` renders as an `answer` with a `nav` fallback. Nothing is ever rendered from
+     untyped data.
+3. **The site's own features only.**
+   - Writes go through `POST /helper/actions/confirm` with the card's token. The server re-checks access, re-runs the
+     preview and compares its hash, then calls the page's service with the person's `Access`.
+   - `booking_policies`, the approval mode, rate limits and audit (`helper.action.<name>`, `via="helper"`) all apply.
+     The registry's drift test (HB-03) proves each action matches its REST route.
+   - **Hand-overs** (`publish`, `invite`, calendar) open the page's own dialog, prefilled from the card. The helper
+     itself never calls those endpoints in v1.
 4. **Confirm by risk class:**
-   - **R0 (read / navigate):** no confirm. The card shows data and links.
-   - **R1 (own, reversible write):** the card *is* the confirmation. One primary button names the effect ("Rezerve
-     et: A 204 · yarın 10:00–10:50"). There is no second dialog.
-   - **R2 (affects other people):** the button is disabled until the card shows **who is affected** ("Ayşe K.'ye
-     e-posta gider"). Reject needs a reason, as on the page. One click then executes.
-   - **R3 (institution-wide):** the card shows a **server-computed preview of the effects**. Its button opens **the
-     page's own confirm dialog** (the same component, in place), so there are always two deliberate steps. The helper
-     never publishes in one click.
-   - **Only a pointer or keyboard activation of the card's button confirms.** Typed "evet" / "yes" in the composer is
-     never a confirmation: it is answered with "Onaylamak için karttaki düğmeye basın." Events are checked with
-     `isTrusted`.
-5. **Freshness:** a card expires after 10 minutes, or when its data changes (a 409 from the API). An expired card
-   shows "Bu öneri eskidi" and "Yenile" (re-runs the preview).
-6. **Result and undo:** after success, the card turns into its **done state**: a check, one result line, a link to the
-   object, and **"Geri al"** where an undo exists (§4.4), plus a sonner toast with "Geri al" for 8 s (as in the run
-   chat). Errors show the server's `message_tr` / `message_en` inside the card, and the inputs stay filled.
-7. **One card in focus.** A new card collapses older *pending* cards to a single line ("Rezervasyon önerisi ·
-   bekliyor"). At most one pending R2/R3 card exists per thread.
-8. **Admin switch per kind** (`helper.cards.<kind>.enabled`, HB) and **"Yalnızca metin"** per user: with cards off,
-   the helper answers with "Nerede?" text and links only.
+   - **R0 (read / navigate):** `nav`, `list`, `facts`. No confirm.
+   - **R1 (own, reversible write):** `create_booking` (own), `cancel_my_booking`, `withdraw_my_request`.
+     - When every required argument resolves, the server sends the **`confirm` card directly** (no `form` step).
+     - The card *is* the confirmation: one primary button names the effect ("Rezerve et: A 204 · yarın
+       10:00–10:50").
+     - "Değiştir" turns it into the `form`. Changing a field re-runs the preview (debounced 300 ms) and gets a new
+       token.
+   - **R2 (affects other people):** `decide_approval`, and cancelling someone else's booking with
+     `cancel_other_booking`.
+     - The preview always names who is affected ("P. T.'ye bildirim gider").
+     - Reject needs a reason, as on the page. One click, then it executes.
+   - **R3 (institution-wide):** publish, invite, settings. **Hand-over only:** a `facts` card with the server preview
+     and a button that opens the page's own dialog (two deliberate steps). The helper never publishes or invites by
+     itself.
+   - **Only an `isTrusted` pointer or keyboard activation of the card's button confirms.** Typed "evet" / "yes" in the
+     composer is answered with "Onaylamak için karttaki düğmeye basın." and confirms nothing.
+5. **Freshness:** the token expires after 10 minutes. On confirm, a changed preview answers 409 with a new preview.
+   The card then shows "Bu öneri eskidi" or the new preview with "Tekrar onayla". A taken slot gives alternatives
+   ("Başka saat öner").
+6. **Result and undo:** a `result` card follows: a check, one line, "Aç" (via `feature_id`), and **"Geri al"** when it
+   carries an `undo_token` (24 h or until the booking starts, `POST /helper/actions/undo`). A sonner toast with "Geri
+   al" shows for 8 s, as in the run chat. Errors show the server's `message_tr` / `message_en` inside the card, and
+   the inputs stay filled.
+7. **One card in focus.** A new card collapses older *pending* `form` / `confirm` cards to a single line
+   ("Rezervasyon önerisi · bekliyor"). At most one pending R2 card exists per thread.
+8. **Switches:** the admin enables actions per audience (`ai.helper.actions`, HB-15). Users can choose **"Yalnızca
+   metin"**, which turns `list` / `facts` into short text plus `nav` cards. `confirm` cards stay, because they are the
+   only way to act.
+9. **Taint:** when a turn has read other people's free text (booking notes, request comments), the server drops write
+   tools for that turn (architecture doc §2.4). The UI then offers `nav` to the page instead of a `confirm` card,
+   with the line "Bu işlemi sayfadan yapın."
 
-### 4.2 Card schema (shared)
+### 4.2 Wire types → presentations
 
-```ts
-type HelperCard = {
-  id: string;                 // server id, used for refresh and audit correlation
-  kind: HelperCardKind;       // catalogue key
-  v: 1;                       // schema version
-  risk: "R0" | "R1" | "R2" | "R3";
-  props: unknown;             // validated by CARD_SCHEMAS[kind] (zod), else rejected
-  preview?: { lines: { label: MessageKey; value: string }[]; affected?: number; warnings?: MessageKey[] };
-  expires_at: string;         // ISO
-  status: "proposed" | "editing" | "confirming" | "done" | "error" | "expired" | "undone";
-  result?: { href?: string; undo?: { kind: UndoKind; ref: string } };
-};
-```
-
-Card states map to AI SDK tool-part states (research §1.2): `proposed` ≈ input-available, `done` ≈ output-available,
-`error` ≈ output-error.
-
-### 4.3 Catalogue (v1)
-
-| Kind | Example request (TR / EN) | Risk | Who (permission) | UI (`helper-cards.svg`) | Existing API | Undo |
-|---|---|---|---|---|---|---|
-| `where` | "Tatil nerede eklenir?" / "Where do I add a holiday?" | R0 | anyone; the entry is role-filtered | Path + steps + Göster / Sayfayı aç (§3.3) | none (client index) | — |
-| `ask_choice` | (clarifying) "Hangi salon?" | R0 | anyone | 2–5 options as 44 px rows, "1 / 2" counter (Shopify Sidekick pattern), "Vazgeç" | none | — |
-| `find_room` | "Perşembe 14:00'te 12 kişilik projeksiyonlu salon" | R0 | `room.view` | Filters as chips (editable), up to 5 free rooms (name, building, seats, features), "Tümünü Derslik bul'da aç" | `POST /find-room` | — |
-| `book_room` | "Bu odayı yarın 10:00 için rezerve et" / "Book this room tomorrow at 10:00" | **R1** (own); **R2** with "kimin adına" | `book_single.create` (+ on-behalf permission for R2) | Room · date · period (editable selects), purpose field (optional, 16 px), policy line ("Onay gerekir" → the button reads **"Talep et"**), primary "Rezerve et: A 204 · yarın 10:00" | `POST /bookings` (as `/reserve`) | `POST /bookings/{id}/cancel` |
-| `cancel_booking` | "Perşembe rezervasyonumu iptal et" | R1 (own) / R2 (someone else's) | owner or booking admin | The booking summary, an optional reason, "İptal et" (danger style) | `POST /bookings/{id}/cancel` | re-book the same slot, if it is still free ("Geri al" re-posts; it is offered only when the slot is still free) |
-| `my_bookings` | "Bu haftaki rezervasyonlarım" | R0 | signed in | Up to 7 rows with an "İptal et" row action (opens `cancel_booking`) | `GET /bookings?mine` | — |
-| `add_to_calendar` | "Takvimime ekle" / "Add to my calendar" | **R1** | signed in (with a booking or instructor link) | Choice: Google / Outlook / Apple / "Bağlantıyı kopyala"; scope: "Derslerim" / "Rezervasyonlarım"; consent line ("Takviminize yalnızca ders adı, salon ve saat gider") | `POST /calendar/feeds/tokens` or `POST /calendar/subscriptions` (CAL-xx) | `DELETE /calendar/feeds/tokens/{id}` |
-| `approvals_list` | "Bekleyen taleplerim" | R0 list; row actions **R2** | `approvals.decide` | Up to 5 requests; per row "Onayla" / "Reddet…" (reason select, as on `/approvals`) | `GET /approvals…`, the decide endpoints of `/approvals` | the existing approval undo, if any; otherwise a "Kararı değiştir" link to the request |
-| `invite_user` | "Ayşe Kaya'yı öğretim elemanı olarak davet et" / "Invite a user" | **R2** | `setup.users` | **Mini form:** e-mail (required), name, role (select of roles the admin may grant; never more than they hold), department; preview "Ayşe Kaya'ya davet e-postası gider"; "Davet gönder" | `POST /admin/invites` | `POST /admin/invites/{id}/…` revoke, or the audit undo (`POST /audit/{event_id}/undo`) when supported |
-| `download_report` | "Raporu indir" / "Geçen haftanın rezervasyonları (CSV)" | R0 (download; audited by the API) | `system.export_bookings` (bookings CSV) / `planning.view` (run export) | Report type + range (editable), format (CSV / XLSX / PDF where the API offers it), size estimate, "İndir" | `GET /bookings/export.csv`, `GET /runs/{id}/export`, `GET /terms/{id}/classes/export` | — |
-| `publish_run` | "Planı yayınla" / "Publish the plan" | **R3** | `planning.admin` (as the runs page) | Preview from the server: run #, score, "Yayındaki plana göre 23 ders değişti, 4 salon değişti, 2 öğretim elemanı etkilenir", blockers (if any, the button is disabled with the reason); button **"Yayınlama penceresini aç"** → the runs page's own publish dialog | preview: `publish_blockers` + `GET /terms/{id}/changes-since-publish`; action: `POST /runs/{id}/activate` (via the existing dialog) | "Önceki planı geri yükle" = activate the previous run (the same dialog) |
-| `open_run_chat` | "MAT 112'yi salıya taşı" | R0 (hand-over) | `planning.edit` | "Ders programı değişiklikleri çalıştırma sohbetinde yapılır." + "Çalıştırma #12 sohbetinde aç" | navigation + pre-fill | — |
-| `set_preference` | "Hep B blokta öner" | R1 | signed in | "Bunu hatırlayayım mı? Tercih edilen bina: B blok" · "Hatırla" / "Hayır" | `PUT /helper/memory/…` (HB) | "Unut" |
-
-**Not in v1 (asks for later):** room creation, role edits, settings changes, bulk cancels, and anything in
-`publish_guard` / `pin_guard` / `move_guard` territory except through the existing dialogs. The design is ready for
-these, but each needs an owner decision on its risk class.
-
-### 4.4 Undo kinds
-
-| UndoKind | How | Window |
+| Wire `type` (architecture doc §5.3) | UX name | Presentation rules |
 |---|---|---|
-| `booking_cancel` | `POST /bookings/{id}/cancel` | until the booking starts |
-| `rebook` | re-post the cancelled booking if the slot is free; otherwise the button is hidden and the card says why | until the slot starts |
-| `feed_revoke` | `DELETE /calendar/feeds/tokens/{id}` | always |
-| `invite_revoke` | the invite revoke / audit undo | until accepted |
-| `activate_previous` | the runs page's dialog with the previous active run preselected | always (R3, two steps) |
-| `memory_forget` | `DELETE /helper/memory/{id}` | always |
+| `answer` | text | Plain paragraph(s) in the log, no bubble; `source: index` shows a small "Dizinden" caption |
+| `nav` | **where** | Path line from the client's link map, ≤ 3 steps (collapsed), "Göster" (when an `anchor` exists) / "Sayfayı aç" / "Burada yap" (when the entry has an action) |
+| `list` | e.g. find_room, my_bookings, approvals_list | ≤ 5 rows visible (the wire allows 20) + "Tümünü {sayfa}'da aç"; row actions are 44 px text buttons; columns collapse to two lines on phones |
+| `facts` | e.g. run_status, publish preview, my_ai_usage | Label / value rows, each with a unit and a sentence (simplicity rule 5); never a bare number |
+| `form` | mini form | ≤ 5 visible fields (the rest behind "Gelişmiş"); native inputs, 16 px; options fetched from existing endpoints (`options_source`); primary "Önizle" only when the action is R2. For R1, the button reads with the effect and goes straight to confirm |
+| `confirm` | action card | Server preview rows; R2 "Etkilenenler" line; primary button = effect + object; "Değiştir" / "Vazgeç" |
+| `result` | done card | Check + one line + "Aç" + "Geri al" (with `undo_token`) + ≤ 2 follow-up chips |
+| `limit` / `refusal` / `error` | status | `Alert` inside the log with the TR/EN message + `fallback` index hits as `nav` rows + "Menüde ara" (opens the palette with the query) |
+| **`choice`** (UX ask, §17) | ask_choice | 2–5 options as 44 px rows, a "1 / 2" counter (Shopify Sidekick pattern), "Vazgeç". It is used when an argument is ambiguous ("Hangi A 204? B blok / C blok") |
+
+### 4.3 Catalogue (v1, aligned with the registry of architecture doc §5.2)
+
+| UX card | Example request (TR / EN) | Risk | Who | Wire | Action / hand-over | Undo |
+|---|---|---|---|---|---|---|
+| **where** | "Tatil nerede eklenir?" / "Where do I add a holiday?" | R0 | entry permission | `nav` | `open_feature` / index | — |
+| **ask_choice** | (clarifying) "Hangi salon?" | R0 | anyone | `choice` (ask) | — | — |
+| **find_room** | "Perşembe 14:00'te 12 kişilik projeksiyonlu salon" | R0 | `room.view` | `list` + row action "Ayır" | `find_free_rooms` (`POST /rooms/find`) | — |
+| **room_day** | "A 204 yarın dolu mu?" | R0 | `room.view` | `list` | `room_day_schedule` | — |
+| **book_room** | "Bu odayı yarın 10:00 için rezerve et" / "Book this room tomorrow at 10:00" | **R1** | `book_single.create`, or `book_single.request` (the button then reads **"Talep et"**) | `confirm` (or `form` when something is missing) → `result` | `create_booking` (`POST /bookings`, `booking_policies.enforce`) | `undo_token` → cancel (24 h / until start) |
+| **my_bookings** | "Bu haftaki rezervasyonlarım" | R0 | booker | `list` + row action "İptal et" | `my_bookings` | — |
+| **cancel_booking** | "Perşembe rezervasyonumu iptal et" | R1 (own) | owner | `confirm` → `result` | `cancel_my_booking` | `undo_token` → rebook if the slot is still free |
+| **my_requests** | "Taleplerim ne durumda?" | R0 | requester | `list` + row action "Geri çek" | `my_requests_status` / `withdraw_my_request` (R1) | — |
+| **approvals_list** | "Bekleyen taleplerim" | R0 list; row actions **R2** | `approvals.decide` + designated approver | `list` → `confirm` per row | `approvals_inbox` / `decide_approval` (reason select as on `/approvals`) | — (a link "Kararı değiştir" to the request) |
+| **add_to_calendar** | "Takvimime ekle" / "Add to my calendar" | hand-over | signed in | `nav` with the button **"Takvimime ekle"** | opens the CAL-08 sheet (architecture doc §5.2: a `nav`, not an action) | — (in the sheet) |
+| **download_report** | "Geçen haftanın rezervasyonları (CSV)" | R0 hand-over | `system.export_bookings` / `planning.view` | `nav` + "İndir" | the page's existing export button, resolved by `feature_id` (`bookings-export`, `runs-export`); the server sends no URL | — |
+| **invite_user** | "A. K.'yi öğretim elemanı olarak davet et" / "Invite a user" | **R3 hand-over** (user management is excluded from v1 writes) | `setup.users` | `form` (client-only presentation) → "Davet penceresini aç" | opens `/admin/users` with its invite dialog **prefilled** (e-mail, name, role, department). The dialog's own "Davet gönder" writes and audits | the page's own revoke |
+| **publish_run** | "Planı yayınla" / "Publish the plan" | **R3 hand-over** | `planning.admin` | `facts` preview: run #, score, "Yayındaki plana göre 23 ders değişti, 4 salon, 2 öğretim elemanı", blockers (from `run_status` / `changes-since-publish`) | "Yayınlama penceresini aç" opens the runs page's own publish dialog (`publish_guard` path). Blockers disable the button with the reason | the dialog's "Önceki planı geri yükle" |
+| **run_status / review** | "Son çalıştırma ne durumda?" / "Kaç talep bekliyor?" | R0 | `planning.view` | `facts` + `nav` | `run_status`, `requests_needing_review` | — |
+| **my_ai_usage** | "Ne kadar yapay zekâ hakkım kaldı?" | R0 | anyone | `facts` | `my_ai_usage` | — |
+| **open_run_chat** | "MAT 112'yi salıya taşı" | R0 hand-over | `planning.edit` | `nav` | navigates to the run and pre-fills the run chat composer (`?chat=` param; ask the chat owner) | — |
+| **remember** | "Hep B blokta öner" | user note | signed in | `result` with "Hatırla" / "Hayır" | `POST /helper/notes` (`source=user_button`) | "Unut" |
+| **undo_last** | "Son yaptığımı geri al" | R1 | the original permission | `confirm` → `result` | `undo_last_helper_action` | — |
+
+**Not in v1** (architecture doc §5.2 exclusions; each needs an owner decision on its risk class): recurring and
+on-behalf bookings, run activation from the helper itself, any `setup.*` change, user management writes, and e-mail.
+The hand-overs above cover the owner's examples ("Planı yayınla", "Kullanıcı davet et") without a new write path.
+
+### 4.4 Undo
+
+| Card | How | Window |
+|---|---|---|
+| book_room | `undo_token` → `POST /helper/actions/undo` → the booking is cancelled (`services/bookings_undo.py`) | 24 h, and only before the booking starts |
+| cancel_booking | `undo_token` → rebook if the slot is still free; otherwise "Geri al" is hidden and the card says "Bu saat artık dolu." | until the slot starts |
+| my_requests → withdraw | none in v1 (send a new request) | — |
+| remember | "Unut" → `DELETE /helper/notes/{id}` | always |
+| hand-overs | the page's own undo (publish: "Önceki planı geri yükle"; invite: revoke) | the page's rules |
 
 ### 4.5 Deterministic shortcuts (work with AI off)
 
-A small intent matcher (`components/helper/intents.ts`) maps common phrasings to card kinds with **prefilled props
-from the text**:
+A small client parser (`components/helper/intents.ts`) reads common phrasings:
 - dates: bugün, yarın, perşembe, 12 Kasım;
-- times: 10:00, "öğleden sonra";
-- rooms by code: A 204;
+- periods and times: 3. saat, 10:00, "öğleden sonra";
+- room codes: A 204;
 - headcounts: "12 kişilik".
 
-Examples: "yarın 10 A 204" → `book_room`; "takvim" → `add_to_calendar`; "davet" → `invite_user`; "rapor" →
-`download_report`. These appear in the palette group **Kısayollar**. Selecting one opens the helper with the card and
-**no model call**. The same card components and confirm rules apply. This makes the CRBS two-tap path (week → free
-slot → book) reachable from the keyboard too, without AI.
+It maps them to an action with **partial arguments**: "yarın 10 a 204" → `create_booking`; "boş salon 12 kişi" →
+`find_free_rooms`; "takvim" → the calendar `nav`; "davet" → the invite hand-over.
+- They show in the palette group **Kısayollar**.
+- Selecting one asks the server for the card **without a model call** (`POST /helper/actions/{name}/card` with the
+  partial `args`, which returns `confirm`, `form` or `list`; a UX ask to HB-05 / HB-07, §17).
+- The same confirm rules apply.
+- This also gives keyboard users the CRBS path (week → free slot → book) in one line, with AI off or at the limit.
 
 ### 4.6 Flow of one card (desktop)
 
 ```
-user   "Yarın 10:00 için A 204'ü ayır"                      (palette → Yardımcıya sor, or the helper composer)
-helper  text: "A 204 yarın 10:00–10:50 boş."                (stream)
-        card book_room {room: A 204, date: yarın, period: 3}  status proposed, risk R1
-user   (optional) changes the period select → 11:00
-        → client re-validates locally; server preview refresh (debounced 300 ms)
-user   clicks "Rezerve et: A 204 · yarın 11:00"             (isTrusted)
-card    status confirming → POST /bookings → 201
-card    status done: "✓ A 204 yarın 11:00–11:50 için rezerve edildi" · "Rezervasyonu aç" · "Geri al"
-toast   "Rezerve edildi · Geri al (8 sn)"; live region announces the result line
-memory  recent task {kind: book_room, label: "A 204 · 18 Eki 11:00"} (if memory is on)
+user   "Yarın 10:00 için A 204'ü ayır"                         (palette → Yardımcıya sor, or the composer)
+SSE    run_started → text "A 204 yarın 10:00–10:50 boş." → tool_start find/preview → tool ok
+SSE    card {type: confirm, action: create_booking, token, preview rows, undoable: true}      (R1, no form step)
+user   (optional) "Değiştir" → form → period 11:00 → preview refresh (300 ms debounce) → new confirm card
+user   clicks "Rezerve et: A 204 · yarın 11:00–11:50"           (isTrusted)
+POST   /helper/actions/confirm {token}  → re-check access + preview hash → service → audit helper.action.create_booking
+SSE/   card {type: result, ok, message, entity, undo_token}
+resp   "✓ A 204 yarın 11:00–11:50 için rezerve edildi" · "Aç" · "Geri al"
+toast  "Rezerve edildi · Geri al (8 sn)"; a polite live region repeats the result line; focus → result line
 ```
 
 ## 5. Memory, limits and status
 
-### 5.1 Memory (KVKK-consistent)
+### 5.1 Memory (KVKK-consistent; data model from architecture doc §5.4)
 
 | Item | Example | Kept | Default |
 |---|---|---|---|
-| Recent tasks | "A 204 rezerve edildi · 18 Eki" (kind, label, object id, time) | 90 days, max 20 | **on** (needed for "Son yaptıklarınız"; legitimate interest, disclosed) |
-| Preferences | preferred building, default duration, "Yalnızca metin", language of answers | until deleted | **only after the user taps "Hatırla"** on a `set_preference` card |
-| Starters dismissed | ids | 90 days | on |
-| Conversation text | — | **not stored on the server**; `sessionStorage`, cleared on sign-out and by "Yeni konuşma" | — |
+| **Notes** (`helper_notes`) | "Tercih edilen bina: B blok", "Varsayılan süre: 2 ders saati" | ≤ 20 notes, ≤ 200 characters each, 180 days since last use | **only when the user taps "Hatırla"** on a `remember` result (or adds one in Profil); a note naming a person is refused |
+| **Conversation history** (`helper_threads` / `helper_messages`) | the last threads, so a phone continues a desktop conversation | 30 days (`ai.helper.history_days`); the model sees the last 6 turns | on; "Yeni konuşma" starts a thread, "Geçmişi sil" deletes all |
+| **"Son yaptıklarınız"** | "A 204 rezerve edildi · dün" | derived from the user's own confirmed actions (`helper_action_invocations`, done), last 30 days, max 3 shown | on (no extra data: the record exists for audit and undo) |
+| Starters dismissed, "Yalnızca metin" | — | `localStorage` (device only) | — |
 
-- **Profil › Yardımcı** (`helper-states.svg` C):
-  - the switch "Yardımcı yaptıklarımı hatırlasın";
-  - a list of items, each with "Sil";
-  - "Tümünü sil" (asks for confirmation);
-  - a plain notice: "Yardımcı yalnızca bu listeyi hatırlar. Konuşmalarınız kaydedilmez. Bu bilgiler hesabınız
-    silinince silinir."
-- **Visible at the point of use:** the empty helper says "Son yaptıklarınızı hatırlıyorum · Yönet" when memory is on.
-- **What the model sees:** at most the 5 latest task labels and the preferences, as structured context. Names are
-  redacted by `personal.py` when consent is withdrawn.
-- **DSR:** export lists the items, and erasure deletes them (an HB ask to the `services/kvkk.py` owner, as WG-03).
-- **Admin:** "Yardımcı belleği" on / off for the institution (default on). Admins never see a user's memory.
+- **Profil › Yardımcı** (`helper-states.svg` C) shows:
+  - the switch **"Yardımcı notlarımı kullansın"** (memory on / off for this user);
+  - **Notlar:** a list with "Sil" per note and "Not ekle" (a 200-character field);
+  - **Konuşma geçmişi:** "Son 30 günün konuşmaları saklanır" + **"Geçmişi sil"** (asks for confirmation);
+  - a plain notice: "Yardımcı yalnızca buradaki notları ve son 30 günün konuşmalarını hatırlar. Hepsini silebilirsiniz.
+    Hesabınız silinince bunlar da silinir."
+- **Visible at the point of use:** the empty helper shows "2 notunuzu kullanıyorum · Yönet" when notes exist. A note
+  that changed an answer is named under it ("Notunuza göre B blok önerildi").
+- **What the model sees:** the notes as one spotlighted `<untrusted source="user_notes">` block and the last 6 turns.
+  Names are redacted by `personal.py`.
+- **Consent:** withdrawing `ai_personal` deletes the notes and turns memory off; the helper still works in index mode
+  (architecture doc §5.5).
+- **DSR:** export lists notes and threads, and erasure deletes them (HB-09; a `DATA_CLASSES` row in `kvkk.py`).
+- **Admin:** memory on / off and the retention values (HB-15). Admins never see a user's notes or threads.
 
 ### 5.2 Status chip (header of the sheet and the right edge of the "Yardımcıya sor" row)
 
 | State | Chip (TR / EN) | Dot | Popover text (TR) |
 |---|---|---|---|
-| Local model routed for `helper` | **Yerel model** / Local model | green | "Yanıtlar kurumunuzun sunucusunda üretilir; veriler dışarı çıkmaz." |
+| `helper` routed to a model whose address resolves private (HB-13 `url_guard.Verdict.local`) | **Yerel model** / Local model | green | "Yanıtlar kurumunuzun sunucusunda üretilir; veriler dışarı çıkmaz." |
 | Cloud provider | **Bulut · {Anthropic / OpenAI / Gemini}** / Cloud · … | blue | "Yanıtlar {sağlayıcı} üzerinden üretilir ({bölge}). Kişi adları gönderilmeden önce gizlenebilir. Ayrıntı: Profil › Yapay zekâ kullanımım." |
 | Fallback in use | **Bulut · yedek** / Cloud · fallback | amber | "Asıl model şu an yanıt vermiyor; yedek model kullanılıyor." |
-| AI off (institution, user suspended or no provider) | **Yapay zekâ kapalı** / AI off | grey | "Arama, 'Nerede?' ve kısayollar çalışmaya devam eder." |
+| `ai.helper.mode = index` (the default until an admin routes `helper`), AI off, user suspended, or `ai_personal` withdrawn | **Yapay zekâ kapalı** / AI off | grey | "Arama, 'Nerede?' ve kısayollar çalışmaya devam eder." |
 | Over limit | **Sınıra ulaşıldı** / Limit reached | red | the `aiAdmin.banner.at` text |
 
 Never colour alone: the chip always carries the word. The provider name comes from the routing config, never from the
@@ -404,10 +429,11 @@ model.
 | Normal | All groups + "Yardımcıya sor" | Full |
 | ≥ 80 % of the limit | Same | `AiUsageBanner` warning above the composer (existing copy) |
 | 100 % (block) | The "Yardımcıya sor" row reads "Yardımcı bu ay sınırda — arama ve kısayollar çalışıyor" and is disabled | Danger banner; composer disabled with that reason; **Kısayollar** chips and "Nerede?" search stay active inside the sheet ("Ne arıyorsunuz?" field) |
-| AI off (institution) | No ask row; Kısayollar and Nerede? stay | The sheet opens in **"Rehber modu"**: a search field over the feature index plus shortcut cards. No composer |
-| Cards switched off (admin) | Kısayollar group hidden | Text + `where` cards only |
+| AI off / `mode: index` (the default on a fresh install, architecture doc §8 Q2) | No ask row; Kısayollar and Nerede? stay | The sheet opens in **"Rehber modu"**: a search field over the feature index plus shortcut cards. No composer |
+| An action switched off for this audience (HB-15) | Its shortcut is hidden | The action is not in the tool list; asking for it gives a `nav` card to the page |
+| Faculty / department quota reached (HB-10) | as 100 % | Danger banner with the scope message: "Fakültenizin bu ayki yapay zekâ payı doldu. Yöneticinizden ek pay isteyebilirsiniz." |
 | Provider error | Unchanged | "Yanıt alınamadı. Arama ve kısayollar çalışıyor." + "Tekrar dene" |
-| Guardrail (scope) | — | The assistant's own text (`ai-admin.md` §6): "Bu asistan yalnızca ders programı ve rezervasyon konularında yardımcı olabilir." + 3 role starters |
+| Guardrail (scope) | — | A `refusal` card that costs 0 tokens (architecture doc §5.6): "Ben yalnızca SmartSched'i kullanmanıza yardım edebilirim: ders, sınav, derslik ve rezervasyon işleri." + the top 3 index hits as `nav` rows |
 
 ## 6. Copy (keys `helper.*`; Turkish first)
 
@@ -447,10 +473,14 @@ model.
 | `helper.guide.mode` | Rehber modu: yapay zekâ kapalıyken de sayfaları ve kısayolları bulabilirsiniz. | Guide mode: find pages and shortcuts even with AI off. |
 | `helper.error.provider` | Yanıt alınamadı. Arama ve kısayollar çalışıyor. | No answer right now. Search and shortcuts still work. |
 | `helper.memory.title` | Yardımcı neleri hatırlıyor? | What the helper remembers |
-| `helper.memory.switch` | Yardımcı yaptıklarımı hatırlasın | Let the helper remember my tasks |
-| `helper.memory.notice` | Yardımcı yalnızca bu listeyi hatırlar. Konuşmalarınız kaydedilmez. Bu bilgiler hesabınız silinince silinir. | The helper only remembers this list. Your conversations aren't saved. This is deleted with your account. |
-| `helper.memory.deleteAll` | Tümünü sil | Delete all |
+| `helper.memory.switch` | Yardımcı notlarımı kullansın | Let the helper use my notes |
+| `helper.memory.notes` | Notlar | Notes |
+| `helper.memory.addNote` | Not ekle | Add a note |
+| `helper.memory.history` | Son 30 günün konuşmaları saklanır. | Conversations from the last 30 days are kept. |
+| `helper.memory.deleteHistory` | Geçmişi sil | Delete history |
+| `helper.memory.notice` | Yardımcı yalnızca buradaki notları ve son 30 günün konuşmalarını hatırlar. Hepsini silebilirsiniz. Hesabınız silinince bunlar da silinir. | The helper only remembers the notes here and the last 30 days of conversations. You can delete all of it. It is deleted with your account. |
 | `helper.memory.ask` | Bunu hatırlayayım mı? | Shall I remember this? |
+| `helper.memory.used` | Notunuza göre: {not} | Based on your note: {note} |
 | `helper.textOnly` | Yalnızca metin | Text only |
 
 ### 6.2 Role starters (3 each, shown in the empty sheet and the empty palette)
@@ -468,9 +498,9 @@ model.
 |---|---|---|
 | `book_room` | Rezerve et: {salon} · {gün} {saat} / Book: {room} · {day} {time} — or Talep et / Request when approval is needed | {salon} {gün} {saat} için rezerve edildi. / {room} booked for {day} {time}. — Talebiniz {onaylayan}'a gönderildi. / Your request was sent for approval. |
 | `cancel_booking` | İptal et: {salon} · {gün} / Cancel: {room} · {day} | Rezervasyon iptal edildi. / Booking cancelled. |
-| `add_to_calendar` | {Google} takvimine ekle / Add to {Google} Calendar | Takviminize eklendi. İlk eşitleme birkaç dakika sürebilir. / Added. The first sync can take a few minutes. |
-| `invite_user` | Davet gönder / Send invite | {e-posta} adresine davet gönderildi. / Invite sent to {email}. |
-| `download_report` | İndir ({biçim}) / Download ({format}) | İndirildi: {dosya} / Downloaded: {file} |
+| `add_to_calendar` (hand-over) | Takvimime ekle / Add to my calendar | (shown by the CAL-08 sheet) |
+| `invite_user` (hand-over) | Davet penceresini aç / Open the invite dialog | (shown by the dialog) {e-posta} adresine davet gönderildi. / Invite sent to {email}. |
+| `download_report` (hand-over) | İndir ({biçim}) / Download ({format}) | (the browser's download) |
 | `publish_run` | Yayınlama penceresini aç / Open publish dialog | (shown by the dialog) Plan #{n} yayınlandı. / Plan #{n} published. |
 | `approvals_list` row | Onayla / Approve · Reddet… / Reject… | Onaylandı. / Approved. · Reddedildi; kişiye gerekçe gönderildi. / Rejected; the reason was sent. |
 
@@ -605,21 +635,23 @@ Use this list on every screen review. A "no" is a **major** finding with a scree
 
 | Component | File (ticket) | Built from | Source / licence |
 |---|---|---|---|
-| Feature index + synonyms + role filter | `components/helper/feature-index.ts`, `index-entries.ts` (HX-01) | `nav-config.ts`, `admin/nav-items.ts`, message keys | ours |
-| Intent matcher (dates, periods, rooms, headcount; TR + EN) | `components/helper/intents.ts` (HX-01) | `lib/time.ts` PERIODS, the palette's `fold()` | ours |
-| Palette groups (Nerede?, Kısayollar, Son yaptıklarınız, Yardımcıya sor) | `components/helper/palette-groups.tsx` (HX-02) + **ask: mount in `components/shell/command-palette.tsx`** | cmdk 1.1 `CommandGroup` / `CommandItem` | MIT |
+| API client: zod types generated from `GET /helper/schema`, hooks for search, turn (SSE), confirm, undo, notes, threads | `lib/api/helper.ts`, `components/helper/schema.gen.ts` (HX-01) | React Query, zod 4 | MIT |
+| Feature link map (`feature_id` → href, anchor, kind, path) + the nav-index vitest | `components/helper/feature-links.ts` (HX-01) | `nav-config.ts`, `admin/nav-items.ts`, message keys | ours |
+| Intent parser (dates, periods, rooms, headcount; TR + EN) | `components/helper/intents.ts` (HX-01) | `lib/time.ts` PERIODS, the palette's `fold()` | ours |
+| Palette groups (Nerede?, Kısayollar, Son yaptıklarınız, Yardımcıya sor) | `components/helper/palette-groups.tsx` (HX-02) + **ask: mount in `components/shell/command-palette.tsx`** | cmdk 1.1 `CommandGroup` / `CommandItem`, `GET /helper/search` | MIT |
 | Top-bar trigger | `components/helper/helper-trigger.tsx` (HX-02) + **ask: replace the "Ara" button in `top-bar.tsx`; aria label in `tab-bar.tsx`** | `button.tsx`, `kbd-hint.tsx` | MIT (shadcn on Base UI) |
-| `HelperProvider` (open state, thread in sessionStorage, ⌘J) | `components/helper/helper-provider.tsx` (HX-03) + **ask: one mount in `app-shell.tsx`, ⌘J in `use-global-shortcuts.ts`** | zustand store pattern of `stores/ui` | ours |
-| `HelperSheet` (desktop side sheet / phone full screen) | `components/helper/helper-sheet.tsx` (HX-03) | `sheet.tsx`, `glass-panel.tsx`, `PromptComposer`, `AiUsageBanner`, `AiNotice` | MIT / ours |
-| Stream client (shared) | `components/helper/stream.ts` (HX-03; the run chat re-exports, an ask to the chat owner) | `chat-stream.ts` parser | ours |
-| `StatusChip` | `components/helper/status-chip.tsx` (HX-03) | `badge.tsx`, `popover.tsx`, `useMyAiUsage` | MIT |
-| `HelperCardFrame` + registry + zod schemas | `components/helper/cards/{frame,registry,schemas}.ts(x)` (HX-04) | `card.tsx`, `button.tsx`, sonner | MIT |
-| Cards R0/R1: `where`, `ask_choice`, `find_room`, `book_room`, `cancel_booking`, `my_bookings`, `add_to_calendar`, `download_report`, `set_preference`, `open_run_chat` | `components/helper/cards/*.tsx` (HX-04, HX-05) | `select.tsx`, `native-select.tsx`, `date-field.tsx`, `input.tsx` | MIT |
-| Cards R2/R3: `invite_user`, `approvals_list`, `publish_run` | `components/helper/cards/*.tsx` (HX-06) | the existing approvals reason select and the runs publish dialog (**ask: export the dialog component from its owner's file**) | ours |
+| `HelperProvider` (open state, current thread id, ⌘J) | `components/helper/helper-provider.tsx` (HX-03) + **ask: one mount in `app-shell.tsx`, ⌘J in `use-global-shortcuts.ts`** | the zustand pattern of `stores/ui` | ours |
+| `HelperSheet` (desktop side sheet / phone full screen, Rehber modu) | `components/helper/helper-sheet.tsx` (HX-03) | `sheet.tsx`, `glass-panel.tsx`, `PromptComposer`, `AiUsageBanner`, `AiNotice` | MIT / ours |
+| Stream client for `POST /helper/turn` (shared parser) | `components/helper/stream.ts` (HX-03; the run chat may re-export the parser later, an ask to the chat owner) | `chat-stream.ts` `createSseParser` | ours |
+| `StatusChip` | `components/helper/status-chip.tsx` (HX-03) | `badge.tsx`, `popover.tsx`, `useMyAiUsage` + the helper mode / provider kind (HB-15 / HB-13) | MIT |
+| Card renderer: `HelperCardFrame` + one component per wire type (`answer`, `nav`, `list`, `facts`, `form`, `confirm`, `result`, `limit` / `refusal` / `error`, `choice`) + confirm / undo plumbing | `components/helper/cards/{frame,render,answer,nav,list,facts,form,confirm,result,status,choice}.tsx` (HX-04) | `card.tsx`, `button.tsx`, `alert.tsx`, sonner | MIT |
+| Action presentations R0/R1 (book_room, find_room, room_day, my_bookings, cancel_booking, my_requests, run_status, my_ai_usage, remember, undo_last) | `components/helper/cards/actions/*.tsx` (HX-05) | `select.tsx`, `native-select.tsx`, `date-field.tsx`, `input.tsx` | MIT |
+| R2 and hand-overs (approvals_list, invite_user, publish_run, add_to_calendar, download_report, open_run_chat) | `components/helper/cards/actions/*.tsx` (HX-06) | the approvals reason select; **asks:** the runs publish dialog, the users invite dialog and the CAL-08 sheet accept prefill props / URL params from their owners | ours |
 | `ShowMe` (1-step spotlight) | `components/helper/show-me.tsx` (HX-07) | WG-05 `SpotlightRing` + `TourCard` (react-joyride 3.2, MIT) | MIT |
-| Memory page section | `components/helper/memory/memory-section.tsx` (HX-08) + **ask: one mount in `components/admin/profile-view.tsx`** | `switch.tsx`, `table.tsx`, `dialog.tsx` | MIT |
-| Admin switches (helper on/off, memory on/off, cards per kind) | `components/helper/admin/helper-admin.tsx` (HX-09) + **ask: a section in `/admin/ai` (W3-AI owner)** | `switch.tsx` | MIT |
-| Motion CSS (free recipes, retimed) | `components/helper/helper.css` (HX-10) | transitions.dev free recipes | transitions.dev free licence; `components/ui/SOURCES.md` row (ask) |
+| Profil › Yardımcı (notes, history) | `components/helper/memory/memory-section.tsx` (HX-08) + **ask: one mount in `components/admin/profile-view.tsx`** | `switch.tsx`, `table.tsx`, `dialog.tsx`, `textarea.tsx` | MIT |
+| `/admin/ai` › "Yardımcı" tab (HB-15 settings + HB-14 summary as 4 sentence tiles) | `components/helper/admin/{helper-admin,helper-summary}.tsx` (HX-09) + **ask: one tab entry in `components/admin/ai/ai-admin.tsx` (W3-AI owner)** | `switch.tsx`, `tabs.tsx`, `ai-kit.tsx` `StatTile` | MIT |
+| `/admin/ai` › Sınırlar › "Fakülteler" + the faculty manager's view (HB-10 / HB-11) | `components/helper/admin/{faculty-limits,faculty-usage}.tsx` (HX-10) + **ask: a sub-tab slot in `limits-tab.tsx` (W3-AI owner)** | `table.tsx`, `ai-kit.tsx` `Meter` | MIT |
+| Motion CSS (free recipes, retimed) | `components/helper/helper.css` (HX-11) | transitions.dev free recipes | transitions.dev free licence; `components/ui/SOURCES.md` row (ask) |
 
 ## 14. Test ids
 
@@ -628,34 +660,53 @@ Use this list on every screen review. A "no" is a **major** finding with a scree
 | Top-bar trigger / phone button | `helper-trigger`, `open-palette-mobile` (kept) |
 | Palette groups / ask row / where row / shortcut row | `palette-group-where`, `palette-group-shortcuts`, `palette-group-recent`, `palette-ask`, `palette-where-<id>`, `palette-shortcut-<kind>` |
 | Sheet / close / chip / composer / log / context chip | `helper-sheet`, `helper-close`, `helper-status`, `helper-input`, `helper-send`, `helper-log`, `helper-context` |
-| Card root / primary / secondary / done line / undo / error | `helper-card-<kind>`, `helper-card-confirm`, `helper-card-secondary`, `helper-card-result`, `helper-card-undo`, `helper-card-error` |
+| Card root (by wire type and action) / primary / secondary / done line / undo / error | `helper-card-<type>-<action>`, `helper-card-confirm`, `helper-card-secondary`, `helper-card-result`, `helper-card-undo`, `helper-card-error` |
 | Göster / step card / back | `helper-show`, `helper-step`, `helper-step-back` |
-| Memory | `helper-memory`, `helper-memory-switch`, `helper-memory-item-<id>`, `helper-memory-delete-all` |
+| Memory | `helper-memory`, `helper-memory-switch`, `helper-note-<id>`, `helper-note-delete-<id>`, `helper-note-add`, `helper-history-delete` |
+| Admin | `helper-admin`, `helper-admin-mode`, `helper-admin-action-<name>`, `helper-summary-tile-<n>`, `faculty-limits`, `faculty-row-<id>` |
 
 ## 15. Acceptance checks (summary; per ticket in the ROADMAP)
 
-1. With AI **off**, an admin types "periods" in ⌘K and gets "Ders saatleri · Yönetim › Dönem ve saatler". Shift+Enter
-   navigates and rings the control. No network call to `/helper/*`.
-2. An academician types "kullanıcı davet" and gets **no** admin hit and no ask answer that links an admin page.
-3. "Yarın 10:00 için A 204'ü ayır" in the helper → `book_room` card → one click → 201 → done line + "Geri al" →
-   undo cancels the booking. It works at 1440 (mouse) and 390 (touch), tr-TR.
-4. Typing "evet" after a card never confirms it.
-5. A planner asks "Planı yayınla": the card shows the server preview. Its button opens the runs page's publish dialog,
-   and nothing is published without that dialog's confirm. A user without `planning.admin` never gets the card.
-6. At 100 % of the limit, the composer is disabled with the reason, while Kısayollar and "Nerede?" still work.
-7. Memory: "Tümünü sil" empties the list. DSR export lists the items before deletion. No conversation text exists in
-   the database (grep in the test DB).
+1. With `mode: index` (no model), an admin types "periods" in ⌘K and gets "Ders saatleri · Yönetim › Dönem ve
+   saatler". Shift+Enter navigates and rings the control. No `ai_usage` row is written.
+2. An academician types "kullanıcı davet" and gets **no** admin hit, and no answer that names an admin page.
+3. "Yarın 10:00 için A 204'ü ayır" in the helper → a `confirm` card (no form step) → one click → `result` + "Geri al"
+   → undo cancels the booking. It works at 1440 (mouse) and 390 (touch), tr-TR, Europe/Istanbul.
+4. Typing "evet" after a card never confirms it, and a replayed token answers 409 (HB-05).
+5. A planner asks "Planı yayınla": a `facts` preview, and its button opens the runs page's own publish dialog.
+   Nothing is published without that dialog. A user without `planning.admin` never gets the card.
+6. At 100 % of the limit (user, department or faculty), the composer is disabled with the scope message, while
+   Kısayollar and "Nerede?" still work.
+7. Memory: a note exists only after "Hatırla". "Geçmişi sil" removes the threads. DSR export lists notes and threads
+   before deletion.
 8. Keyboard-only and screen-reader pass (aria snapshots); reduced motion = end states; MOBILE M-01/02/03/05.
 
 ## 16. Open questions for the owner (with recommended defaults)
 
-1. **Name:** "Yardımcı" (plain) or a product name ("SmartSched Asistan")? *Default: "Yardımcı"*. A plain word fits the
-   simplicity rule.
-2. **Should the helper be on by default for every institution?** *Default: on for search, "Nerede?" and shortcuts; the
-   AI part follows the institution's AI setting (off until a provider is set up).*
-3. **R1 one-tap writes (own booking, calendar):** acceptable without a second dialog? *Default: yes.* The card is the
-   confirmation, and undo is there.
-4. **Recent-task memory on by default?** *Default: on, disclosed, 90 days, deletable.* Preferences only after "Hatırla".
-5. **Merge the run chat into the helper later?** *Default: no for v1.* Revisit after HX-11 persona runs.
-6. **Expose cards to ChatGPT / Claude as an MCP App (HX-12)?** *Default: later, after v1 is stable and the KVKK review
-   of external hosts is done.*
+1. **Name:** "Yardımcı" (plain) or a product name ("SmartSched Asistan")? *Default: "Yardımcı"*, because a plain word
+   fits the simplicity rule.
+2. **Default mode on a fresh install:** *Default: search, "Nerede?" and shortcuts on for everyone, with `mode: index`
+   (no model calls, nothing leaves the server) until an admin routes `helper` to a model.* Same as architecture doc
+   §8 Q2.
+3. **One-tap own writes (R1):** may an own booking or cancel be done from a prefilled `confirm` card with one click and
+   an undo, without a second dialog? *Default: yes.*
+4. **"Planı yayınla" and "Kullanıcı davet et" from the helper:** *Default: hand-overs in v1.* The card prepares the
+   preview or the form and opens the page's own dialog. A real helper write for these needs a later owner decision.
+5. **Memory:** *Default: notes only on "Hatırla" (20, 180 days), history 30 days, all deletable* (architecture doc §8
+   Q3).
+6. **Merge the run chat into the helper later?** *Default: no for v1.* Revisit after the HX-13 / HB-18 persona runs.
+7. **Expose the cards to ChatGPT / Claude as an MCP App (HB-19, HX-14)?** *Default: later*, after v1 is stable and the
+   KVKK review of external hosts is done.
+
+## 17. Differences from the architecture doc (UX asks to the HB owners)
+
+| # | Ask | To | Why |
+|---|---|---|---|
+| A1 | When every required argument of an R1 write resolves, return `confirm` directly (skip `form`). Keep `form` for missing or ambiguous arguments and for "Değiştir" | HB-05 / HB-07 | Two taps → one; the owner's simplicity rule. Safety is unchanged: the token, the preview hash and the undo |
+| A2 | A `choice` card type (2–5 options, an argument name, option ids) for ambiguous entities ("Hangi A 204?") | HB-07 | Without it, the model asks in prose and the user types again |
+| A3 | `features.yaml`: add `kind` (page / tab / setting / control), `path` (crumb keys), the §3.2 CRBS synonyms, ≤ 3 steps per entry | HB-01 | "Nerede?" vs "Sayfalar" grouping; ex-CRBS vocabulary |
+| A4 | `POST /helper/actions/{name}/card` with partial `args` → `confirm` / `form` / `list`, with **no model call** (for Kısayollar) | HB-05 / HB-07 | Shortcuts work in index mode and at the limit |
+| A5 | The palette group is named **"Nerede?"** (the architecture doc says "Nasıl yapılır"). Steps appear inside the `nav` card | HB-02 (label only) | The owner asked "where is it and where to click" |
+| A6 | The status chip needs `GET /ai/me/usage` (or `/helper/status`) to return `{mode: "ai" \| "index", provider_kind: "local" \| "cloud", provider_label, fallback_active}` | HB-06 / HB-13 / HB-15 | Yerel / Bulut / Kapalı chip; never inferred on the client |
+| A7 | `result` cards carry ≤ 2 `follow_ups` (action names with partial args), e.g. after `create_booking` → the calendar `nav`, "Başka saat" | HB-07 | The ClickUp / Manus follow-up pattern (research M11); fewer typed requests |
+| A8 | `list` rows ≤ 5 by default in the helper (the full list stays on the page via `more`) | HB-07 | Simplicity rule 4 |

@@ -3707,7 +3707,12 @@
         "audited": "Written to the audit log.",
         "department": "Department · optional",
         "sendMail": "Send invitation e-mail",
-        "sendMailOff": "Not available yet: copy the link and send it yourself.",
+        "sendMailOff": "E-mail is not set up: copy the link and send it yourself.",
+        "sendMailOn": "The link goes to this address by e-mail. You can also copy it.",
+        "sendMailSkip": "No e-mail goes out: copy the link and send it yourself.",
+        "mailSetup": "Set up e-mail",
+        "mailed": "Invitation e-mail sent · {email}",
+        "mailFailed": "The invitation was created but the e-mail could not be sent. Copy the link and send it.",
         "bindNote": "The account links to {email} on the first Microsoft sign-in.",
         "bindNotePlain": "The account links on the first Microsoft sign-in with this address.",
         "submit": "Invite",
@@ -6132,7 +6137,8 @@
       "refreshPush": "Connected account: within about a minute.",
       "refreshApple": "Apple Calendar: on a Mac from every 5 minutes to weekly; on an iPhone it follows Settings › Fetch New Data.",
       "refreshGoogle": "Google Calendar: usually up to 12 hours, sometimes 24.",
-      "refreshOutlook": "Outlook: several hours; desktop Outlook also refreshes when it starts."
+      "refreshOutlook": "Outlook: several hours; desktop Outlook also refreshes when it starts.",
+      "pushDomain": "Connect with your {domain} institutional account."
     },
     "approve": {
       "title": "This will be sent to your calendar",
@@ -6181,7 +6187,8 @@
       "fileNote": "To stay up to date, use the link or the account option.",
       "fileAgain": "Download again",
       "finish": "Done",
-      "another": "Add something else"
+      "another": "Add something else",
+      "noPublicUrl": "Your administrator has not entered the panel address; the link may not work in a calendar app. Let them know."
     },
     "manage": {
       "title": "Added to my calendar",
@@ -6214,7 +6221,11 @@
       "disconnectBody": "The \"SmartSched – Derslerim\" calendar and its events are deleted, and your permission is revoked.",
       "disconnected": "{provider} disconnected",
       "notVerified": "This account is not a verified account of your organisation. Connect with your {domain} account.",
-      "notVerifiedPlain": "This account is not a verified account of your organisation. Connect with your organisation account."
+      "notVerifiedPlain": "This account is not a verified account of your organisation. Connect with your organisation account.",
+      "calDeleted": "The calendar was deleted. Connect again and SmartSched creates it again.",
+      "error": "Syncing ran into a problem; it is retried shortly.",
+      "renewConnection": "Renew the connection",
+      "notVerifiedCorporate": "This is not your institution's verified account. Connect with your institutional account."
     },
     "admin": {
       "title": "Calendar export",
@@ -6236,7 +6247,7 @@
         "taught": "The departments they teach in",
         "permission": "People with \"Export the department class calendar\" (every department)"
       },
-      "rulePermissionHint": "The permission is granted in Administration › Roles.",
+      "rulePermissionHint": "Grant it in Administration › Roles and permissions.",
       "fields": "Details sent",
       "fieldsHint": "Course code, section, room, day and time are always sent. Student data and notes are never sent.",
       "field": {
@@ -6248,10 +6259,8 @@
       },
       "horizon": "Time range",
       "past": "Past (days)",
-      "future": "Ahead (days, at most to term end and 200)",
       "grace": "Keep cancelled events visible (days)",
       "saveHorizon": "Save the range",
-      "range": "{label}: enter a whole number from {min} to {max}.",
       "push": "Account push rules",
       "verifiedOnly": "Verified organisation accounts only",
       "verifiedOnlyHint": "Accounts that match the sign-in identity, the Google Workspace domain, the Entra tenant or one of the domains below may connect.",
@@ -6262,10 +6271,6 @@
       "source": "OAuth client",
       "sourceIdentity": "Use the sign-in provider's client",
       "sourceOwn": "A separate calendar client (below)",
-      "googleScope": "Google permission scope",
-      "googleAppCreated": "Only the calendar SmartSched creates (recommended)",
-      "googleEvents": "Events in every calendar (legacy)",
-      "googleEventsHint": "Old connections keep working with this scope; users are offered \"Reconnect with fewer permissions\".",
       "status": "Status",
       "links": "Active links",
       "connections": "{provider} connections",
@@ -6273,7 +6278,16 @@
       "reconcile": "Last nightly reconcile",
       "reconcileNever": "Has not run yet",
       "byScope": "{scope}: {n}",
-      "advancedHint": "The defaults suit most organisations."
+      "advancedHint": "The defaults suit most organisations.",
+      "whoLead": "The rule is fixed:",
+      "horizonHint": "Ahead runs to the end of the term (at most 200 days).",
+      "attention": "Connections that need attention",
+      "broadGrant": "Old connections with broad permissions",
+      "sourceIdentityMissing": "No sign-in provider is enabled; add one under Identity first.",
+      "sourceIdentityHint": "Add the redirect address {url} to that app registration.",
+      "legacyLinks": "Legacy links (every calendar)",
+      "reconcileAt": "{when} · {n} calendars queued",
+      "range": "{label}: enter a whole number from {min} to {max}."
     },
     "advanced": "Advanced"
   },
@@ -6738,6 +6752,7 @@
         "open": "Preview",
         "audience": "Audience"
       },
+      "advanced": "Advanced",
       "saved": "Saved.",
       "saveFailed": "Could not save. Try again.",
       "texts": {
@@ -6750,6 +6765,7 @@
         },
         "cardTitle": "{card}: title",
         "cardBody": "{card}: text",
+        "cards": "Card texts",
         "reset": "Reset to default",
         "resetLabel": "{field} ({locale}): reset to default",
         "preview": "Preview",
@@ -6951,7 +6967,6 @@
     },
     "tooFew": "A chart needs at least 3 points; showing the total for now.",
     "partialRow": "(partial)",
-    "isoSuffix": "(ISO)",
     "period": {
       "label": "Period",
       "7d": "7 days",

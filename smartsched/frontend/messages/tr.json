@@ -3706,7 +3706,12 @@
         "audited": "Denetim kaydına yazılır.",
         "department": "Bölüm · isteğe bağlı",
         "sendMail": "Davet e-postası gönder",
-        "sendMailOff": "Henüz yok: bağlantıyı kopyalayıp kendiniz iletin.",
+        "sendMailOff": "E-posta ayarlanmadı: bağlantıyı kopyalayıp kendiniz iletin.",
+        "sendMailOn": "Bağlantı bu adrese e-postayla gider. Ayrıca kopyalayabilirsiniz.",
+        "sendMailSkip": "E-posta gitmez: bağlantıyı kopyalayıp kendiniz iletin.",
+        "mailSetup": "E-postayı ayarla",
+        "mailed": "Davet e-postası gönderildi · {email}",
+        "mailFailed": "Davet oluşturuldu ama e-posta gönderilemedi. Bağlantıyı kopyalayıp iletin.",
         "bindNote": "{email} ile ilk Microsoft girişinde hesap ona bağlanır.",
         "bindNotePlain": "Bu adresle ilk Microsoft girişinde hesap bağlanır.",
         "submit": "Davet et",
@@ -6131,7 +6136,8 @@
       "refreshPush": "Hesap bağlantısı: yaklaşık bir dakika içinde.",
       "refreshApple": "Apple Takvim: Mac'te 5 dakika ile haftada bir arasında seçilebilir; iPhone'da Ayarlar › Yeni Verileri Al'a uyar.",
       "refreshGoogle": "Google Takvim: genellikle 12 saate kadar, bazen 24 saat.",
-      "refreshOutlook": "Outlook: birkaç saat; masaüstü Outlook açılışta da yeniler."
+      "refreshOutlook": "Outlook: birkaç saat; masaüstü Outlook açılışta da yeniler.",
+      "pushDomain": "{domain} uzantılı kurum hesabınızla bağlanın."
     },
     "approve": {
       "title": "Takviminize şunlar gönderilecek",
@@ -6180,7 +6186,8 @@
       "fileNote": "Güncel kalmasını istiyorsanız bağlantı ya da hesap seçeneğini kullanın.",
       "fileAgain": "Yeniden indir",
       "finish": "Bitti",
-      "another": "Başka bir şey ekle"
+      "another": "Başka bir şey ekle",
+      "noPublicUrl": "Yöneticiniz panel adresini girmedi; bağlantı takvim uygulamasında çalışmayabilir. Yöneticinize haber verin."
     },
     "manage": {
       "title": "Takvime eklediklerim",
@@ -6213,7 +6220,11 @@
       "disconnectBody": "\"SmartSched – Derslerim\" takvimi ve eklenen etkinlikler silinir, verdiğiniz izin geri alınır.",
       "disconnected": "{provider} bağlantısı kesildi",
       "notVerified": "Bu hesap kurumunuzun doğrulanmış hesabı değil. {domain} uzantılı hesabınızla bağlanın.",
-      "notVerifiedPlain": "Bu hesap kurumunuzun doğrulanmış hesabı değil. Kurum hesabınızla bağlanın."
+      "notVerifiedPlain": "Bu hesap kurumunuzun doğrulanmış hesabı değil. Kurum hesabınızla bağlanın.",
+      "calDeleted": "Takvim silinmiş. Yeniden bağlanırsanız SmartSched takvimi yeniden oluşturur.",
+      "error": "Eşitlemede sorun var; birazdan yeniden denenecek.",
+      "renewConnection": "Bağlantıyı yenile",
+      "notVerifiedCorporate": "Bu hesap kurumunuzun doğrulanmış hesabı değil. Kurumsal hesabınızla bağlanın."
     },
     "admin": {
       "title": "Takvim dışa aktarma",
@@ -6229,13 +6240,13 @@
         "my_bookings": "Rezervasyonlarım",
         "my_bookingsHint": "Derslik rezervasyonları ve talepler."
       },
-      "who": "Bölüm derslerini kim dışa aktarabilir?",
+      "who": "Bölüm derslerini kimler dışa aktarabilir?",
       "rule": {
         "own": "Kendi bölümünün derslerini",
         "taught": "Ders verdiği bölümlerin derslerini",
         "permission": "\"Bölüm ders takvimini dışa aktarma\" yetkisi olanlar (her bölüm)"
       },
-      "rulePermissionHint": "Yetki Yönetim › Roller'den verilir.",
+      "rulePermissionHint": "Bu yetki Yönetim › Roller ve izinler'den verilir.",
       "fields": "Gönderilen bilgiler",
       "fieldsHint": "Ders kodu, şube, derslik, gün ve saat her zaman gönderilir. Öğrenci bilgisi ve notlar hiçbir zaman gönderilmez.",
       "field": {
@@ -6247,10 +6258,8 @@
       },
       "horizon": "Zaman aralığı",
       "past": "Geçmiş (gün)",
-      "future": "İleri (gün, en çok dönem sonu ve 200)",
       "grace": "İptal edilenler görünür kalsın (gün)",
       "saveHorizon": "Aralığı kaydet",
-      "range": "{label}: {min} ile {max} arasında bir tam sayı girin.",
       "push": "Hesap aktarımı kuralları",
       "verifiedOnly": "Yalnızca doğrulanmış kurum hesapları",
       "verifiedOnlyHint": "Oturum açılan kimlik, Google Workspace alanı, Entra kiracısı ya da aşağıdaki alan adlarından biriyle eşleşen hesaplar bağlanabilir.",
@@ -6261,10 +6270,6 @@
       "source": "OAuth istemcisi",
       "sourceIdentity": "Oturum açma sağlayıcısının istemcisini kullan",
       "sourceOwn": "Ayrı takvim istemcisi (aşağıda)",
-      "googleScope": "Google izin kapsamı",
-      "googleAppCreated": "Yalnızca SmartSched'in oluşturduğu takvim (önerilen)",
-      "googleEvents": "Tüm takvimlerdeki etkinlikler (eski)",
-      "googleEventsHint": "Eski bağlantılar bu kapsamla çalışmayı sürdürür; kullanıcılara \"Daha az izinle yeniden bağlan\" önerilir.",
       "status": "Durum",
       "links": "Etkin bağlantı",
       "connections": "{provider} bağlantısı",
@@ -6272,7 +6277,16 @@
       "reconcile": "Son gece eşitlemesi",
       "reconcileNever": "Henüz çalışmadı",
       "byScope": "{scope}: {n}",
-      "advancedHint": "Varsayılanlar çoğu kurum için uygundur."
+      "advancedHint": "Varsayılanlar çoğu kurum için uygundur.",
+      "whoLead": "Kural sabittir:",
+      "horizonHint": "İleri tarih dönem sonuna kadar (en çok 200 gün) gider.",
+      "attention": "İlgilenilmesi gereken bağlantı",
+      "broadGrant": "Geniş izinli eski bağlantı",
+      "sourceIdentityMissing": "Etkin bir oturum açma sağlayıcısı yok; önce Kimlik bölümünden ekleyin.",
+      "sourceIdentityHint": "Bu uygulama kaydına {url} yönlendirme adresini ekleyin.",
+      "legacyLinks": "Eski bağlantı (tüm takvim)",
+      "reconcileAt": "{when} · {n} takvim sıraya alındı",
+      "range": "{label}: {min} ile {max} arasında bir tam sayı girin."
     },
     "advanced": "Gelişmiş"
   },
@@ -6737,6 +6751,7 @@
         "open": "Önizle",
         "audience": "Kitle"
       },
+      "advanced": "Gelişmiş",
       "saved": "Kaydedildi.",
       "saveFailed": "Kaydedilemedi. Yeniden deneyin.",
       "texts": {
@@ -6749,6 +6764,7 @@
         },
         "cardTitle": "{card}: başlık",
         "cardBody": "{card}: metin",
+        "cards": "Kart metinleri",
         "reset": "Varsayılana dön",
         "resetLabel": "{field} ({locale}): varsayılana dön",
         "preview": "Önizle",
@@ -6950,7 +6966,6 @@
     },
     "tooFew": "Grafik için en az 3 nokta gerekir; şimdilik toplam gösteriliyor.",
     "partialRow": "(eksik)",
-    "isoSuffix": "(ISO)",
     "period": {
       "label": "Dönem",
       "7d": "7 gün",

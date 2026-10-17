@@ -18,11 +18,13 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { MicButton } from "@/components/voice";
 import { AI_FEATURES, GUARD_SWITCHES, useAiGuardrails, useAiRefusals, useGuardCheck, useRedTeam, useSaveGuardrails } from "@/lib/api/ai-admin";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { StatusWord, useAiLabels } from "./ai-kit";
 import { errorMessage } from "./ai-model";
+import { VoiceCard } from "./voice-card";
 
 const FIXED = ["noAuto", "ids", "files", "kvkk"] as const;
 const EXAMPLES = ["aiAdmin.guard.ex1", "aiAdmin.guard.ex2", "aiAdmin.guard.ex3"] as const;
@@ -44,6 +46,7 @@ export function GuardTab({ canEdit }: { canEdit: boolean }) {
         </ul>
       </Card>
       <Switches canEdit={canEdit} />
+      <VoiceCard canEdit={canEdit} />
       <Bench />
       <RedTeamCard />
       <Refusals />
@@ -116,11 +119,12 @@ function Bench() {
           </Button>
         ))}
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5" data-voice-scope>
         <Label htmlFor={`${uid}-text`} className="type-footnote font-medium text-label-2">
           {t("aiAdmin.guard.benchText")}
         </Label>
         <Textarea id={`${uid}-text`} value={text} onChange={(e) => setText(e.target.value)} rows={3} data-testid="ai-bench-text" />
+        <MicButton target="guard" className="self-start" />
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <SegmentedControl<"user" | "upload">

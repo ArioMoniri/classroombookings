@@ -12,7 +12,9 @@ the only ``User`` in the session's identity map, else ``None`` (a background job
 
 Features (research R-AI-01): ``rules`` (rules from text), ``chat`` (chat edits), ``intake`` (uploads / the
 Ingestion Council), ``vision`` (scans and images), ``explain`` (explanations), ``booking_nl`` (booking requests in
-plain language), plus ``guard`` (the optional model-based scope check) and ``test`` (the admin's test call).
+plain language), ``voice_stt`` (speech to text before any of them: the transcript returns to the person for
+review and is sent through the feature it was spoken for; VO-01), plus ``guard`` (the optional model-based scope
+check) and ``test`` (the admin's test call).
 """
 
 from __future__ import annotations
@@ -24,7 +26,9 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
 
-FEATURES = ("rules", "chat", "intake", "vision", "explain", "booking_nl")
+FEATURES = ("rules", "chat", "intake", "vision", "explain", "booking_nl", "voice_stt")
+#: features served by a speech model (never routed to a text model, never following the text default)
+VOICE_FEATURES = ("voice_stt",)
 INTERNAL_FEATURES = ("guard", "test", "other")
 FEATURE_LABELS: dict[str, tuple[str, str]] = {
     "rules": ("Metinden kural", "Rules from text"),
@@ -33,6 +37,7 @@ FEATURE_LABELS: dict[str, tuple[str, str]] = {
     "vision": ("Taranmış belge / görüntü", "Scans and images"),
     "explain": ("Açıklamalar", "Explanations"),
     "booking_nl": ("Doğal dille rezervasyon", "Bookings in plain language"),
+    "voice_stt": ("Sesle yazma", "Voice input"),
     "guard": ("Kapsam denetimi", "Scope check"),
     "test": ("Bağlantı testi", "Connection test"),
     "other": ("Diğer", "Other"),
@@ -145,6 +150,7 @@ __all__ = [
     "FEATURES",
     "FEATURE_LABELS",
     "INTERNAL_FEATURES",
+    "VOICE_FEATURES",
     "Interaction",
     "actor_from_session",
     "ai_scope",

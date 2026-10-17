@@ -23,7 +23,9 @@ API = "/api/v1"
 
 
 async def _term(client: AsyncClient, h: dict[str, str]) -> int:
-    r = await client.post(f"{API}/terms", json={"code": "2026-BAHAR", "name": "2026 Bahar", "week_count": 14}, headers=h)
+    r = await client.post(
+        f"{API}/terms", json={"code": "2026-BAHAR", "name": "2026 Bahar", "week_count": 14}, headers=h
+    )
     assert r.status_code == 201, r.text
     return int(r.json()["id"])
 
@@ -148,9 +150,7 @@ async def test_catalog_usage_reports_uses_and_last_change(client: AsyncClient) -
     body = (await client.get(f"{API}/catalog/usage/instructor/{ins['id']}", headers=h)).json()
     assert body["last_change"]["action"] == "instructor.update"
 
-    assert (await client.get(f"{API}/catalog/usage/course/{course['id']}", headers=h)).json()["uses"] == {
-        "sections": 1
-    }
+    assert (await client.get(f"{API}/catalog/usage/course/{course['id']}", headers=h)).json()["uses"] == {"sections": 1}
     assert (await client.get(f"{API}/catalog/usage/faculty/{fac['id']}", headers=h)).json()["uses"] == {"programs": 1}
     prog_use = (await client.get(f"{API}/catalog/usage/program/{prog['id']}", headers=h)).json()
     assert prog_use["uses"] == {"sections": 1} and prog_use["blocked"] is True

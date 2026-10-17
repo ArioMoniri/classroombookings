@@ -85,7 +85,6 @@ KINDS: dict[str, KindSpec] = {
             enums=("provider",),
             placeholders=("name", "org", "inviter", "provider", "expires"),
             path="/login",
-            sender="template",
             owner="W3-IDP",
         ),
         _K(
@@ -97,7 +96,6 @@ KINDS: dict[str, KindSpec] = {
             tone="success",
             placeholders=("name", "org", "username"),
             path="/login",
-            sender="template",
             owner="W3-IDP",
         ),
         _K(
@@ -109,7 +107,6 @@ KINDS: dict[str, KindSpec] = {
             tone="warning",
             placeholders=("name", "org", "when", "device"),
             path="/profile#security",
-            sender="template",
             owner="W3-SEC",
         ),
         _K(
@@ -144,7 +141,6 @@ KINDS: dict[str, KindSpec] = {
             "The requester",
             placeholders=("name", "org", "what"),
             path="/bookings/mine",
-            sender="template",
         ),
         _K(
             "approval_requested",
@@ -216,7 +212,6 @@ KINDS: dict[str, KindSpec] = {
             "The booking's owner",
             placeholders=("name", "when", "what"),
             path="/bookings/mine",
-            sender="template",
         ),
         _K(
             "series_created",
@@ -227,7 +222,6 @@ KINDS: dict[str, KindSpec] = {
             tone="success",
             placeholders=("who", "room", "pattern", "count", "series_id", "items"),
             path="/bookings/mine",
-            sender="template",
         ),
         _K(
             "series_changed",
@@ -238,7 +232,6 @@ KINDS: dict[str, KindSpec] = {
             tone="warning",
             placeholders=("who", "room", "series_id", "change", "items"),
             path="/bookings/mine",
-            sender="template",
         ),
         _K(
             "calendar_consent",
@@ -250,7 +243,6 @@ KINDS: dict[str, KindSpec] = {
             enums=("state", "provider"),
             placeholders=("name", "provider", "state"),
             path="/profile#privacy",
-            sender="template",
         ),
         _K(
             "kvkk_request",
@@ -284,7 +276,6 @@ KINDS: dict[str, KindSpec] = {
             enums=("severity",),
             placeholders=("service", "title", "severity", "detail", "first_seen", "count"),
             path="/admin/ops",
-            sender="template",
             owner="W3-OPS",
         ),
         _K(
@@ -352,14 +343,18 @@ _DESIGN: dict[str, dict[str, object]] = {
         "enums": ("method",),
         "placeholders": ("name", "org", "actor", "username", "role", "provider", "valid_hours"),
     },
-    "new_device_sign_in": {"footer": "security", "placeholders": ("name", "org", "when", "device")},
+    # RF-11: event ``new_device.sign_in`` (switchable per person, and per organisation: org.new_device_sign_in_mail)
+    "new_device_sign_in": {"placeholders": ("name", "org", "when", "device")},
     "approval_submitted": {"enums": ("hold",), "placeholders": ("name", "org", "what", "held_until")},
     "approval_withdrawn": {"enums": ("to",)},
     "booking_cancelled": {"enums": ("cause",)},
     "booking_reminder": {"enums": ("when",), "placeholders": ("name", "room", "date", "period", "start")},
-    "series_created": {"placeholders": ("who", "room", "pattern", "count", "series_id", "items")},
+    # RF-11: ``by=self`` when the owner made the series; ``to=approver`` for the approver who approved it
+    "series_created": {"enums": ("by",), "placeholders": ("who", "room", "pattern", "count", "series_id", "items")},
+    "series_changed": {"enums": ("to",), "placeholders": ("who", "room", "series_id", "change", "items")},
+    # RF-11: sent through notify_dispatch (event ``calendar.consent``), so the person's preferences apply and the
+    # footer says why and links them; ``scope=consent_on`` / ``consent_off`` is the KVKK consent itself
     "calendar_consent": {
-        "footer": "legal",
         "enums": ("state", "provider", "scope"),
         "placeholders": ("name", "provider", "actor", "when"),
     },

@@ -137,6 +137,7 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
   useEffect(() => {
     if (!fieldEl) return;
     const untrack = trackCaret(fieldEl);
+    const el: HTMLElement = fieldEl;
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "M" || e.key === "m")) {
         e.preventDefault();
@@ -146,12 +147,12 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
     const onInput = (e: Event) => {
       if (!(e as unknown as Record<string, boolean>)[VOICE_INPUT_FLAG]) setFromVoice(false);
     };
-    fieldEl.addEventListener("keydown", onKey);
-    fieldEl.addEventListener("input", onInput);
+    el.addEventListener("keydown", onKey);
+    el.addEventListener("input", onInput);
     return () => {
       untrack();
-      fieldEl.removeEventListener("keydown", onKey);
-      fieldEl.removeEventListener("input", onInput);
+      el.removeEventListener("keydown", onKey);
+      el.removeEventListener("input", onInput);
     };
   }, [fieldEl]);
   // the box was sent or cleared by its owner (no input event): drop the chip

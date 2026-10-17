@@ -13,6 +13,8 @@ Everything lives in the ``settings`` table, so every call path reads one table:
 ``ai.routes``                                   ``{"default": Route, "features": {feature: Route}}``
 ``ai.limits``                                   org budget, per-user / per-role / per-user-override limits
 ``ai.guardrails``                               guard switches
+``ai.voice``                                    voice input settings (VO-03: on/off, language, clip length,
+                                                vocabulary, live captions, per-minute prices)
 ==============================================  ============================================================
 
 With nothing configured the gateway behaves as before the gateway: provider ``anthropic``, the model from
@@ -31,7 +33,7 @@ from urllib.parse import urlparse
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.context import FEATURES
+from app.ai.context import FEATURES, VOICE_FEATURES
 from app.ai.providers import PROVIDERS, has_credentials
 from app.core.security import decrypt_secret, encrypt_secret, mask_secret
 from app.models import Setting
@@ -41,11 +43,13 @@ DEFAULT_PROVIDER = "anthropic"
 ROUTES_KEY = "ai.routes"
 LIMITS_KEY = "ai.limits"
 GUARD_KEY = "ai.guardrails"
+VOICE_KEY = "ai.voice"
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 
 #: features whose requests can carry personal data (names in files, chat about people): a provider abroad needs a
 #: KVKK transfer record for them (R-AI-03); the Anthropic intake path keeps its own sign-off (``app/ai/policy.py``)
-PERSONAL_FEATURES = frozenset({"intake", "vision", "chat", "rules", "booking_nl"})
+#: a voice recording is personal data (KVKK; research 2026-10-17-voice-ai.md §2.5), so ``voice_stt`` is one of them
+PERSONAL_FEATURES = frozenset({"intake", "vision", "chat", "rules", "booking_nl", "voice_stt"})
 KVKK_MECHANISMS = ("adequacy", "standard_contract", "binding_rules", "explicit_consent", "incidental", "domestic")
 
 #: per-feature caps (OWASP LLM10 unbounded consumption): applied when the route does not set its own
@@ -56,6 +60,8 @@ DEFAULT_CAPS: dict[str, dict[str, Any]] = {
     "vision": {"max_tokens": 64000, "max_tool_rounds": 20, "timeout_s": 300},
     "explain": {"max_tokens": 16000, "max_tool_rounds": 4, "timeout_s": 120},
     "booking_nl": {"max_tokens": 8000, "max_tool_rounds": 4, "timeout_s": 60},
+    #: one clip: at most 120 s and 5 MB, answered within 60 s
+    "voice_stt": {"timeout_s": 60, "max_audio_s": 120, "max_bytes": 5_000_000},
 }
 
 DEFAULT_GUARDRAILS: dict[str, Any] = {
@@ -84,6 +90,27 @@ DEFAULT_LIMITS: dict[str, Any] = {
     "max_concurrent": 2,
     #: audited one-off additions to this month's org budget: [{"month", "tokens", "cost_usd", "by", "at", "reason"}]
     "topups": [],
+    #: voice input (VO-02), in seconds of audio: 10 min a day and 100 min a month per person by default; a role or a
+    #: person can be raised with ``audio_daily`` / ``audio_monthly`` in ``roles`` / ``users``; 0 = no limit
+    "user_daily_audio_s": 600,
+    "user_monthly_audio_s": 6000,
+    "org_monthly_audio_s": 0,
+}
+
+#: hard ceiling of one clip (owner 2026-10-18); the admin may only lower it
+VOICE_MAX_SECONDS = 120
+VOICE_LANGUAGES = ("tr", "en")
+DEFAULT_VOICE: dict[str, Any] = {
+    "enabled": False,
+    #: the default spoken language (the UI sends its locale; Turkish first)
+    "language": "tr",
+    "max_seconds": VOICE_MAX_SECONDS,
+    #: ``catalog``: room, building and course codes bias the recogniser; never people's names. ``off``: nothing
+    "vocabulary": "catalog",
+    #: ``on_device``: the browser may show interim captions only from its on-device recogniser; ``off``: none
+    "live_captions": "on_device",
+    #: USD per audio minute by ``provider:model`` (overrides ``app.ai.client.STT_PRICE_TABLE``)
+    "prices_per_min": {},
 }
 
 
@@ -277,6 +304,10 @@ async def resolve_route(session: AsyncSession, feature: str) -> ResolvedRoute:
     data = await get_routes(session)
     caps = dict(DEFAULT_CAPS.get(feature, DEFAULT_CAPS["chat"]))
     feat = Route.from_dict(data["features"].get(feature)) if feature in FEATURES else None
+    if feature in VOICE_FEATURES:  # a speech route of its own; the (Claude) text default cannot transcribe
+        if feat is not None and feat.model:
+            return ResolvedRoute(feature, feat, "feature", caps)
+        return ResolvedRoute(feature, Route(provider="", model=""), "none", caps)
     if feature == "vision" and feat is None:
         feat = Route.from_dict(data["features"].get("intake"))  # scans follow intake unless set
     if feat is not None and feat.model:
@@ -288,20 +319,30 @@ async def resolve_route(session: AsyncSession, feature: str) -> ResolvedRoute:
 
 
 async def all_routes(session: AsyncSession) -> dict[str, ResolvedRoute]:
-    return {f: await resolve_route(session, f) for f in (*FEATURES, "other", "guard")}
+    """The text routes the chat / tools client binds (voice routes are resolved by :mod:`app.ai.voice.run`)."""
+    text_features = [f for f in FEATURES if f not in VOICE_FEATURES]
+    return {f: await resolve_route(session, f) for f in (*text_features, "other", "guard")}
 
 
 async def provider_usable(session: AsyncSession, provider: str) -> bool:
     cfg = await provider_config(session, provider)
     if provider != DEFAULT_PROVIDER and not cfg.get("enabled", True):
         return False
-    if provider == "vertex" and not cfg.get("project_id"):
+    if provider in ("vertex", "google_stt") and not cfg.get("project_id"):
         return False
     return has_credentials(provider, await provider_secrets(session, provider))
 
 
-def validate_route(route: dict[str, Any], synced: dict[str, set[str]]) -> list[dict[str, str]]:
-    """Errors of a route change: unknown provider, a model that was not synced, an invalid effort / cap."""
+def validate_route(
+    route: dict[str, Any],
+    synced: dict[str, set[str]],
+    *,
+    feature: str | None = None,
+    speech: dict[str, set[str]] | None = None,
+) -> list[dict[str, str]]:
+    """Errors of a route change: unknown provider, a model that was not synced, an invalid effort / cap. With
+    ``feature`` and ``speech`` (synced model ids whose modalities include ``stt``, per provider): a voice feature
+    accepts only speech models (``model_not_speech``), a text feature no speech model (``model_not_text``)."""
     errors: list[dict[str, str]] = []
 
     def err(fld: str, code: str, tr: str, en: str) -> None:
@@ -324,6 +365,24 @@ def validate_route(route: dict[str, Any], synced: dict[str, set[str]]) -> list[d
                 "Bu model sağlayıcıdan eşitlenmedi; önce Sağlayıcılar sekmesinde Eşitle'ye basın.",
                 "This model was not synced from the provider; press Sync on the Providers tab first.",
             )
+        elif feature is not None and speech is not None:
+            is_speech = model in speech.get(str(prov), set())
+            if feature in VOICE_FEATURES and not is_speech:
+                err(
+                    model_field,
+                    "model_not_speech",
+                    "Bu model sesi yazıya dökemez; ses için konuşmayı yazıya döken bir model seçin "
+                    "(ör. gpt-transcribe, Chirp 3, Nova-3).",
+                    "This model cannot transcribe speech; choose a speech-to-text model (e.g. gpt-transcribe, "
+                    "Chirp 3, Nova-3).",
+                )
+            elif feature not in VOICE_FEATURES and (is_speech or "text" not in PROVIDERS[str(prov)].capabilities):
+                err(
+                    model_field,
+                    "model_not_text",
+                    "Bu bir konuşmayı yazıya dökme modeli; bu özellik için bir metin modeli seçin.",
+                    "This is a speech-to-text model; choose a text model for this feature.",
+                )
     if route.get("effort") not in (None, "", *EFFORTS):
         err("effort", "invalid_effort", "Geçersiz çaba düzeyi.", "Invalid effort level.")
     temp = route.get("temperature")
@@ -349,6 +408,22 @@ async def get_limits(session: AsyncSession) -> dict[str, Any]:
     return {**json.loads(json.dumps(DEFAULT_LIMITS)), **data}
 
 
+async def get_voice(session: AsyncSession) -> dict[str, Any]:
+    """The voice settings (``ai.voice``) over the defaults; ``max_seconds`` never above the 120 s ceiling."""
+    data = await get_json(session, VOICE_KEY, {})
+    out = {**json.loads(json.dumps(DEFAULT_VOICE)), **{k: v for k, v in data.items() if k in DEFAULT_VOICE}}
+    try:
+        out["max_seconds"] = max(5, min(int(out["max_seconds"]), VOICE_MAX_SECONDS))
+    except (TypeError, ValueError):
+        out["max_seconds"] = VOICE_MAX_SECONDS
+    if out["language"] not in VOICE_LANGUAGES:
+        out["language"] = DEFAULT_VOICE["language"]
+    if not isinstance(out["prices_per_min"], dict):
+        out["prices_per_min"] = {}
+    out["enabled"] = bool(out["enabled"])
+    return out
+
+
 async def get_guardrails(session: AsyncSession) -> dict[str, Any]:
     data = await get_json(session, GUARD_KEY, {})
     return {**DEFAULT_GUARDRAILS, **{k: bool(v) for k, v in data.items() if k in DEFAULT_GUARDRAILS}}
@@ -360,6 +435,7 @@ def masked(value: str | None) -> dict[str, Any]:
 
 __all__ = [
     "DEFAULT_CAPS",
+    "DEFAULT_VOICE",
     "DEFAULT_GUARDRAILS",
     "DEFAULT_LIMITS",
     "DEFAULT_PROVIDER",
@@ -369,12 +445,16 @@ __all__ = [
     "LIMITS_KEY",
     "PERSONAL_FEATURES",
     "ROUTES_KEY",
+    "VOICE_KEY",
+    "VOICE_LANGUAGES",
+    "VOICE_MAX_SECONDS",
     "ResolvedRoute",
     "Route",
     "all_routes",
     "get_guardrails",
     "get_json",
     "get_limits",
+    "get_voice",
     "get_routes",
     "is_local_url",
     "legacy_model",

@@ -15,7 +15,7 @@ import { compactTokens, fullNumber, meterFill, outcomeOf, pctText, reasonOf, typ
 export function useAiLabels() {
   const { t } = useI18n();
   return {
-    feature: (f: string) => t((["rules", "chat", "intake", "vision", "explain", "booking_nl", "guard", "test"].includes(f) ? `aiAdmin.feature.${f}` : "aiAdmin.feature.other") as MessageKey),
+    feature: (f: string) => (f === "voice_stt" ? t("voice.admin.feature") : f === "voice_tts" ? t("voice.admin.featureTts") : t((["rules", "chat", "intake", "vision", "explain", "booking_nl", "guard", "test"].includes(f) ? `aiAdmin.feature.${f}` : "aiAdmin.feature.other") as MessageKey)),
     reason: (code: string | null | undefined) => t(`aiAdmin.reason.${reasonOf(code)}` as MessageKey),
     outcome: (o: string) => t(`aiAdmin.outcome.${outcomeOf(o)}` as MessageKey),
     state: (s: MeterState) => t(`aiAdmin.state.${s}` as MessageKey),

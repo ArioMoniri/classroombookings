@@ -27,6 +27,15 @@ const s = { silent: true } as const;
 
 export const AI_FEATURES = ["rules", "chat", "intake", "vision", "explain", "booking_nl"] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];
+/** Voice (VO-04): speech-to-text has its own route and never follows the text default (source `none` until set).
+ *  `voice_tts` (read aloud) joins when VO-13 ships. */
+export const VOICE_FEATURES = ["voice_stt"] as const;
+export type VoiceFeature = (typeof VOICE_FEATURES)[number];
+/** Every feature with a route on Modeller: the text features, then voice. */
+export const ROUTE_FEATURES = [...AI_FEATURES, ...VOICE_FEATURES] as const;
+export type RouteFeature = (typeof ROUTE_FEATURES)[number];
+/** What a provider can do (VO-01 `ProviderSpec.capabilities`) and what a synced model takes (`ModelInfo.modalities`). */
+export const CAPABILITIES = ["text", "stt", "tts", "audio_native"] as const;
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 
 const KeyState = z.object({ set: z.boolean(), masked: z.string().nullish() });
@@ -38,6 +47,7 @@ export const SyncedModel = z.object({
   price_in: z.number().nullish(),
   price_out: z.number().nullish(),
   created_at: z.string().nullish(),
+  modalities: z.array(z.string()).default([]),
 });
 export type SyncedModel = z.infer<typeof SyncedModel>;
 export const Transfer = z.object({
@@ -48,9 +58,11 @@ export const Transfer = z.object({
   notification_date: z.string().nullish(),
   note: z.string().nullish(),
   recorded_at: z.string().nullish(),
+  processes_voice: z.boolean().nullish(),
+  audio_retention: z.string().nullish(),
 });
 export type Transfer = z.infer<typeof Transfer>;
-export const TestResult = z.object({ ok: z.boolean(), detail: z.string().default(""), model: z.string().nullish(), at: z.string().nullish() });
+export const TestResult = z.object({ ok: z.boolean(), detail: z.string().default(""), model: z.string().nullish(), at: z.string().nullish(), transcript_preview: z.string().nullish() });
 export type TestResult = z.infer<typeof TestResult>;
 export const Provider = z.object({
   id: z.string(),
@@ -74,6 +86,7 @@ export const Provider = z.object({
   // SSRF guard (docs/SECURITY.md R12): the OpenAI-compatible provider's opt-in for a local server, and its warning
   allow_local: z.boolean().default(false),
   warnings: z.array(z.object({ code: z.string(), message_tr: z.string(), message_en: z.string() })).default([]),
+  capabilities: z.array(z.string()).default([]),
 });
 export type Provider = z.infer<typeof Provider>;
 const ProviderList = z.object({ providers: z.array(Provider), kvkk_mechanisms: z.array(z.string()) });
@@ -104,7 +117,7 @@ export const Routes = z.object({
 export type Routes = z.infer<typeof Routes>;
 export interface RoutesIn {
   default?: Partial<Route> | null;
-  features: Partial<Record<AiFeature, Partial<Route> | null>>;
+  features: Partial<Record<RouteFeature, Partial<Route> | null>>;
 }
 
 export const UsageRow = z.object({
@@ -122,6 +135,8 @@ export const UsageRow = z.object({
   role: z.string().nullish(),
   limits: z.object({ daily: z.number(), monthly: z.number() }).nullish(),
   features: z.record(z.string(), z.number()).optional(),
+  /** seconds of audio transcribed (VO-02 `audio_ms` / 1000), reported as minutes */
+  audio_minutes: z.number().optional(),
 });
 export type UsageRow = z.infer<typeof UsageRow>;
 export const USAGE_GROUPS = ["day", "user", "feature", "model", "provider", "outcome"] as const;
@@ -158,7 +173,7 @@ export const Refusal = z.object({
 });
 export type Refusal = z.infer<typeof Refusal>;
 
-const LimitPair = z.object({ daily: z.number().optional(), monthly: z.number().optional() });
+const LimitPair = z.object({ daily: z.number().optional(), monthly: z.number().optional(), audio_daily: z.number().optional(), audio_monthly: z.number().optional() });
 export const Limits = z.object({
   org_monthly_tokens: z.number(),
   org_monthly_cost_usd: z.number(),
@@ -170,6 +185,10 @@ export const Limits = z.object({
   alert_recipients: z.array(z.number()).default([]),
   requests_per_minute: z.number(),
   max_concurrent: z.number(),
+  /** voice (VO-02), seconds; 0 = no limit; absent on a backend without voice */
+  user_daily_audio_s: z.number().optional(),
+  user_monthly_audio_s: z.number().optional(),
+  org_monthly_audio_s: z.number().optional(),
   topups: z.array(z.object({ month: z.string(), tokens: z.number().default(0), cost_usd: z.number().default(0), reason: z.string().nullish(), at: z.string().nullish() })).default([]),
   org: OrgState,
 });
@@ -220,6 +239,11 @@ export const MyUsage = z.object({
   soft_pct: z.number(),
   org_state: z.string(),
   by_feature: z.array(UsageRow).default([]),
+  /** voice (VO-02): minutes today / this month and the person's limits in minutes (0 = none) */
+  audio_minutes_day: z.number().optional(),
+  audio_minutes_month: z.number().optional(),
+  audio_daily_limit_min: z.number().optional(),
+  audio_monthly_limit_min: z.number().optional(),
 });
 export type MyUsage = z.infer<typeof MyUsage>;
 

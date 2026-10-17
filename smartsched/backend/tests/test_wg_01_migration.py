@@ -105,8 +105,16 @@ def test_wg_01_postgres_round_trip(pg_server) -> None:  # noqa: F811
         with eng.connect() as c:
             on = c.execute(text("select relrowsecurity from pg_class where relname = 'welcome_progress'")).scalar()
             assert on is True
-            pols = c.execute(text("select polname from pg_policy p join pg_class t on t.oid = p.polrelid "
-                                  "where t.relname = 'welcome_progress'")).scalars().all()
+            pols = (
+                c.execute(
+                    text(
+                        "select polname from pg_policy p join pg_class t on t.oid = p.polrelid "
+                        "where t.relname = 'welcome_progress'"
+                    )
+                )
+                .scalars()
+                .all()
+            )
             assert pols == ["rls_owner"]
         eng.dispose()
         _run(url, command.downgrade, PREV)
@@ -149,8 +157,9 @@ async def test_wg_01_postgres_rls_owner_only(pg):  # type: ignore[no-untyped-def
         got = (await s.execute(text("select user_id from welcome_progress"))).scalars().all()
         assert got == [ids["a"]]
         # another person's row cannot be written either
-        res = await s.execute(text("update welcome_progress set state = 'dismissed' where user_id = :u"),
-                              {"u": ids["b"]})
+        res = await s.execute(
+            text("update welcome_progress set state = 'dismissed' where user_id = :u"), {"u": ids["b"]}
+        )
         assert res.rowcount == 0  # type: ignore[attr-defined]
         await s.rollback()
     finally:

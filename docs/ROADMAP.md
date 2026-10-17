@@ -3363,3 +3363,218 @@ Sequence:
 - After VO-04: HB-14 (admin route), then HB-15.
 - After VO-05: HB-16.
 - HB-17 runs from HB-12 onward, and HB-18 last.
+
+### AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX
+Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to classroombookings must find SmartSched easy and never overwhelming; a search tool or AI guide that says where each feature is and where to click; in-chat generated buttons and small forms that call the site's own features ("similar to OpenAI's new intelligent UI", i.e. ChatGPT Intelligent UI, 2026-10-07). Research (OpenAI Intelligent UI / ChatKit widgets / Apps SDK, AI SDK, CopilotKit, assistant-ui, MCP Apps, A2UI, Thesys C1, M365 Admin agent, Stripe, Intercom Fin, Rovo, Linear, Notion, Raycast, Mobbin M1–M15, licences): [docs/research/2026-10-17-helper-ux.md](research/2026-10-17-helper-ux.md). Design (placement, "Nerede?", the card catalogue and risk classes, memory, limits / status chip, TR/EN copy, motion, a11y, **simplicity checklist §9**, phone layouts, test ids): [docs/design/v3/helper.md](design/v3/helper.md), wireframes `docs/design/v3/wireframes/helper-{search-1440,sheet-1440,where-1440,390,cards,states}.svg` (generator `helper-gen.py`).
+
+**Placement decision:**
+- One entry point: the ⌘K palette becomes **"Ara veya sor"**. Desktop gets a field-like top-bar trigger; phones use the existing round search button. There is no floating bot and no new tab.
+- Results order: navigation hits → **Nerede?** (controls inside pages, with "Göster") → Kısayollar → **Yardımcıya sor**.
+- The helper opens as a **non-modal 400 px side sheet** on desktop and **full screen** on phones (⌘J).
+- The run chat stays separate (timetable edits through the guarded apply path) and shares the stream, composer, banner and card frame.
+
+**Backend:** HB-01…HB-20 above ("AI helper: backend, governance, local models"). This UX is aligned with its `helper.card.v1` contract, `POST /helper/turn`, `GET /helper/search`, the confirm-token flow and the memory model. UX asks A1–A8 are in `helper.md` §17.
+
+**Lanes:** **HX-F** frontend (HX-01…10), **HX-M** motion (HX-11), **HX-D** design (HX-12), **HX-T** tester (HX-13). Every file is new under `smartsched/frontend/src/components/helper/**` (+ `lib/api/helper.ts`), except the one-line mounts listed as asks. Nothing here touches the integrity guards, W3-*, CAL-*, WG-* files or the round-3 lanes.
+
+**Testers:** academician (`akademisyen.test@`), staff (`personel.test@`, later granted `approvals.decide`), planner, admin (`admin@`). Viewports: 1440 mouse and 390×844 touch, tr-TR, Europe/Istanbul.
+- [ ] HX-01 · frontend · no migration · **can start with HB-01/HB-02/HB-07 contracts** · API client and the client-side helpers.
+  - `lib/api/helper.ts`: zod types generated from `GET /helper/schema` (snapshot test), React Query hooks for `GET /helper/search`, `POST /helper/turn` (SSE), `POST /helper/actions/confirm`, `POST /helper/actions/undo`, notes and threads.
+  - `components/helper/feature-links.ts`: `feature_id` → href, anchor, kind, path. It is generated from `nav-config.ts`, `ADMIN_SECTION_NAV_ITEMS`, the settings / profile tabs and `helper.md` §3.4. The server never sends a URL.
+  - `components/helper/intents.ts`: TR/EN dates, periods, times, room codes and headcounts → action + partial args.
+  - Hand the CRBS synonyms table (`helper.md` §3.2) and the `kind` / `path` fields to HB-01 (ask A3).
+  accept: vitest
+  - `feature-links.test.ts`: every `feature_id` maps to an existing route; every anchor exists in welcome-guide §13 or helper §3.4;
+  - the nav-index test HB-01 asks for fails when a `nav-config.ts` / `admin/nav-items.ts` href has no index entry;
+  - `intents.test.ts`: ≥ 60 TR/EN phrasings incl. "yarın 10 a 204", "perşembe öğleden sonra 12 kişilik", "3. saat", Turkish İ/ı;
+  - the schema snapshot matches the server's;
+  - tsc, eslint and `check-design.mjs` clean.
+  files: new `frontend/src/lib/api/helper.ts`, `frontend/src/components/helper/{feature-links,intents,schema.gen}.ts` + tests.
+  testers: — (unit level).
+- [ ] HX-02 · frontend · no migration · **"Ara veya sor"**: the extended palette and its trigger (`helper.md` §2.2, §2.3; `helper-search-1440.svg`, `helper-390.svg` A).
+  - Groups in this order: Sayfalar ve ayarlar, **Nerede?**, the existing data groups, **Kısayollar**, **Yardımcıya sor**. Empty query: Son yaptıklarınız (≤ 3) + role starters + Git.
+  - The ask row is last, or first and preselected when the query reads as a question.
+  - Shift+Enter = Göster.
+  - Status chip on the ask row.
+  - No hits: the ask row is still offered. With AI off: no ask row, while Nerede? and Kısayollar remain.
+  - Max 6 rows per group and 24 in total.
+  - Placeholder and trigger copy from `helper.*` keys (TR first).
+  accept: vitest `palette-groups.test.tsx` (group order, role filter, question detection, Shift+Enter, ask row hidden in index mode); Playwright `e2e/hx-palette.spec.ts` at 1440 and 390 touch:
+  - an admin finds "periods" → Ders saatleri and "Tatil ekle" (Göster) with `mode: index` and **0 `ai_usage` rows**;
+  - an academician gets no admin hit for "kullanıcı davet";
+  - the trigger's accessible name is "Ara veya sor (Ctrl+K)" / "(⌘K)";
+  - MOBILE M-01/02/03/05 with the palette open.
+  files: new `frontend/src/components/helper/{palette-groups,helper-trigger}.tsx` + tests, `frontend/messages/{tr,en}.json` (`helper.*` only), `frontend/e2e/hx-palette.spec.ts`.
+  asks (shell owner):
+  - mount `<HelperPaletteGroups/>` and the new placeholder in `components/shell/command-palette.tsx`;
+  - replace the "Ara" button with `<HelperTrigger/>` in `top-bar.tsx`;
+  - the label "Ara veya sor" on `open-palette-mobile` in `tab-bar.tsx`;
+  - playwright `testMatch` append `hx-[a-z-]+`.
+  testers: academician (phone), admin (desktop).
+- [ ] HX-03 · frontend · no migration · **after HB-06 (turn) or against its SSE fixture** · Helper sheet and conversation (`helper.md` §2.4, §2.5, §5.2, §5.3; `helper-sheet-1440.svg`, `helper-390.svg` B, `helper-states.svg` A/B).
+  - `HelperProvider`: open state, current thread, ⌘J; on `/runs/[id]`, ⌘J keeps focusing the run chat.
+  - `HelperSheet`: desktop non-modal `role="complementary"` 400 / 360 px, no scrim, F6; phone full-screen dialog with a focus trap.
+  - Message log (`role="log"`), streaming text, "Düşünüyor…", the page-context chip, `PromptComposer` (16 px), `AiUsageBanner`, `AiNotice`, role starters.
+  - `StatusChip` (Yerel model / Bulut · {sağlayıcı} / yedek / Yapay zekâ kapalı / Sınıra ulaşıldı; ask A6).
+  - **Rehber modu** when `mode: index` or AI is unavailable: a search field over `GET /helper/search` plus shortcuts, and no composer.
+  - Limit states: user / department / faculty scope messages from the server.
+  - Esc closes and focus returns to the opener.
+  accept: vitest `helper-sheet.test.tsx` (non-modal on desktop, modal on phone, focus in / out, Esc, F6, chip states, Rehber modu, limit disables the composer with the reason); Playwright `e2e/hx-sheet.spec.ts` at 1440 and 390:
+  - open from the palette and from ⌘J, ask a question, a streamed answer arrives, close and focus returns;
+  - in index mode the sheet works with no model;
+  - at 100 % the composer is disabled and Kısayollar work;
+  - MOBILE M-01/02/03/05 with the sheet open on `/reserve`;
+  - blur budget: ≤ 3 backdrop-filter surfaces while the sheet animates.
+  files: new `frontend/src/components/helper/{helper-provider,helper-sheet,stream,status-chip,thread,starters}.tsx` + tests, `frontend/e2e/hx-sheet.spec.ts`.
+  asks (shell owner):
+  - one `<HelperProvider/>` mount in `components/shell/app-shell.tsx`;
+  - ⌘J in `use-global-shortcuts.ts`;
+  - "Yardımcıya sor" in the user menu › Yardım group (next to WG-06's items) and the "Daha" › Yardım group.
+  testers: academician (phone), admin (desktop), planner (⌘J on a run page).
+- [ ] HX-04 · frontend · no migration · **with HB-05/HB-07** · Card renderer and the confirm / undo plumbing (`helper.md` §4.1, §4.2, §4.6).
+  - `HelperCardFrame` + one component per wire type: `answer`, `nav`, `list`, `facts`, `form`, `confirm`, `result`, `limit` / `refusal` / `error`, `choice` (ask A2).
+  - Unknown type or action → `answer` + `nav` fallback.
+  - Confirm only on an `isTrusted` click or key on the card's button; "evet" in the composer answers `helper.card.typedYes`.
+  - Token expiry → "Bu öneri eskidi" + Yenile; a 409 shows the new preview.
+  - Result: focus → the result line, a polite live message, "Geri al" (undo token) and an 8 s toast.
+  - The older pending card collapses; at most one pending R2 card.
+  - "Yalnızca metin" preference.
+  accept:
+  - vitest `cards/*.test.tsx`: every wire type renders from the schema fixtures; an unknown action falls back; a non-trusted click does not confirm; typed "evet" does not confirm; an expired token shows Yenile; focus after confirm and after undo is never `<body>`; no element renders a server-provided URL or HTML (render test with hostile strings);
+  - axe: no violations in the card fixtures.
+  files: new `frontend/src/components/helper/cards/{frame,render,answer,nav,list,facts,form,confirm,result,status,choice}.tsx` + tests.
+  testers: academician, approver.
+- [ ] HX-05 · frontend · no migration · **after HX-04 and HB-05** · Action presentations R0/R1 (`helper.md` §4.3; `helper-cards.svg`): `book_room` (create_booking, "Talep et" in request mode), `find_room`, `room_day`, `my_bookings`, `cancel_booking`, `my_requests` (+ withdraw), `run_status` / review, `my_ai_usage`, `remember` (notes), `undo_last`.
+  - Prefilled `confirm` with "Değiştir" → `form` (ask A1).
+  - Option lists from the existing endpoints (`options_source`).
+  - ≤ 5 visible fields; the rest behind "Gelişmiş".
+  - Follow-up chips (ask A7).
+  accept: Playwright `e2e/hx-actions.spec.ts` at 1440 and 390 on the own stack:
+  - academician: "Yarın 10:00 için A 204'ü ayır" → one click → booking exists → "Geri al" cancels it;
+  - a taken slot shows "Bu saat az önce doldu." + "Başka saat öner";
+  - a request-mode room shows "Talep et" and creates a request;
+  - cancel own booking + undo while the slot is free;
+  - audit rows `helper.action.*` exist, and no write happens without the click (audit count before / after an unconfirmed card);
+  - MOBILE M-01/02/03/05 with a card open.
+  files: new `frontend/src/components/helper/cards/actions/*.tsx` + tests, `frontend/e2e/hx-actions.spec.ts`.
+  testers: academician, staff.
+- [ ] HX-06 · frontend · no migration · **after HX-04** · R2 and hand-overs:
+  - `approvals_list` (row confirm, reject reason as on `/approvals`);
+  - `invite_user` (client form → opens the users page's invite dialog prefilled);
+  - `publish_run` (a `facts` preview → opens the runs page's own publish dialog; blockers disable it with the reason);
+  - `add_to_calendar` (opens the CAL-08 sheet);
+  - `download_report` (the page's export button via `feature_id`; Göster when it is off-screen);
+  - `open_run_chat` (navigate + prefill the run chat).
+  accept: Playwright `e2e/hx-handover.spec.ts`:
+  - an approver approves and rejects with a reason from the helper;
+  - a planner's "Planı yayınla" never publishes without the dialog (run state unchanged until the dialog's confirm);
+  - an academician never gets publish or invite cards;
+  - an admin's invite opens the dialog with the e-mail, name and role filled;
+  - 1440 + 390.
+  files: new `frontend/src/components/helper/cards/actions/{approvals,invite,publish,calendar,report,run-chat}.tsx` + tests, `frontend/e2e/hx-handover.spec.ts`.
+  asks:
+  - the runs owner: export the publish dialog or accept `?publish=<run_id>`;
+  - the admin-users owner: accept `?invite=1&email=&name=&role=&department=` prefill;
+  - CAL-F: open the CAL-08 sheet from `?calendar=1`;
+  - the chat owner: `?chat=<text>` prefill on `/runs/[id]`.
+  testers: approver, planner, admin.
+- [ ] HX-07 · frontend · no migration · **after WG-05** · "Göster" (`helper.md` §3.3; `helper-where-1440.svg`, `helper-390.svg` D).
+  - `ShowMe` = a 1-step tour on WG-05's `SpotlightRing` + `TourCard`: navigate, wait ≤ 3 s for `[data-tour]`, scroll to centre, ring, step card "Anladım" / "Yardımcıya dön".
+  - The target stays interactive. The scrim is at 25 % on desktop with the sheet visible. On phones the sheet closes and the step card is docked.
+  - A missing anchor → the steps + "Bu düğme şu an bu sayfada görünmüyor."
+  accept: vitest `show-me.test.tsx`; Playwright `e2e/hx-showme.spec.ts`:
+  - admin "Tatil ekle" and "Davet et" are ringed at 1440 and 390;
+  - Esc ends with focus on the target;
+  - "Yardımcıya dön" restores the thread;
+  - reduced motion: the ring jumps.
+  files: new `frontend/src/components/helper/show-me.tsx` + test, `frontend/e2e/hx-showme.spec.ts`.
+  asks: the `data-tour` anchors of `helper.md` §3.4, one attribute each, from their page owners (admin setup, profile, reserve, find-room, my-bookings, runs, bookings).
+  testers: admin, academician.
+- [ ] HX-08 · frontend · no migration · **after HB-09** · Profil › Yardımcı (`helper.md` §5.1; `helper-states.svg` C):
+  - the memory switch;
+  - notes (list, Sil, Not ekle ≤ 200 characters, the server refuses a person's name);
+  - history ("Son 30 günün konuşmaları saklanır", Geçmişi sil with confirm);
+  - the plain notice;
+  - "2 notunuzu kullanıyorum · Yönet" in the empty sheet;
+  - "Notunuza göre: …" under answers that used a note.
+  accept: vitest; Playwright `e2e/hx-memory.spec.ts`:
+  - no note exists until "Hatırla";
+  - delete one, delete all history;
+  - DSR export (existing KVKK page) lists notes and threads;
+  - `ai_personal` withdrawal empties the notes and the sheet runs in index mode;
+  - 1440 + 390.
+  files: new `frontend/src/components/helper/memory/memory-section.tsx` + test, `frontend/e2e/hx-memory.spec.ts`.
+  asks: one mount in `components/admin/profile-view.tsx` (profile owner).
+  testers: academician.
+- [ ] HX-09 · frontend · no migration · **after HB-14/HB-15** · `/admin/ai` › **Yardımcı** tab:
+  - on / off and mode (Yapay zekâ / Yalnızca dizin);
+  - audiences;
+  - actions per audience with plain risk words ("Kendi rezervasyonu", "Başkalarını etkiler");
+  - memory and retention behind "Gelişmiş";
+  - the summary as **4 tiles with sentences** ("Bu hafta 312 soru; %71'i doğrudan sayfaya yönlendirildi"), not a KPI wall;
+  - unanswered queries with k ≥ 5.
+  accept: vitest; Playwright `e2e/hx-admin.spec.ts`:
+  - switching `create_booking` off for academicians removes it (the academician gets a `nav` card instead);
+  - mode "Yalnızca dizin" → 0 `ai_usage` rows on the next turns;
+  - a staff user gets the no-access page;
+  - 1440 + 390.
+  files: new `frontend/src/components/helper/admin/{helper-admin,helper-summary}.tsx` + tests, `frontend/e2e/hx-admin.spec.ts`.
+  asks (W3-AI owner): one tab entry in `components/admin/ai/ai-admin.tsx`.
+  testers: admin.
+- [ ] HX-10 · frontend · no migration · **after HB-10/HB-11** · Faculty quotas:
+  - `/admin/ai` › Sınırlar › **Fakülteler**: one row per faculty (allocation, used meter with words, managers), expandable departments; strict mode and per-feature caps under "Gelişmiş".
+  - The faculty manager's own view (`ai.usage_faculty`): totals, departments and trend in sentences, people only with `show_people`, and "Bölümlere paylaştır" with the sum checked against the faculty allocation (422 message shown inline).
+  accept: vitest; Playwright `e2e/hx-faculty.spec.ts`:
+  - a manager sees only their faculty;
+  - a department sum over the allocation shows the TR message;
+  - a non-manager has no entry;
+  - 1440 + 390.
+  files: new `frontend/src/components/helper/admin/{faculty-limits,faculty-usage}.tsx` + tests, `frontend/e2e/hx-faculty.spec.ts`.
+  asks: a sub-tab slot in `components/admin/ai/limits-tab.tsx` (W3-AI owner); a nav entry for `ai.usage_faculty` holders in `nav-config.ts` (shell owner).
+  testers: admin + a faculty manager account.
+- [ ] HX-11 · motion · no migration · Helper motion (`helper.md` §7).
+  - Sheet open (desktop: `sheet` spring, x 24 → 0, no blur; phone: pattern 4), thinking (pattern 17), streaming chunk fade (pattern 16), card enter, confirm → success check, toast, pending-card collapse, Göster ring, status-chip word swap.
+  - Free transitions.dev recipes only (panel-reveal, thinking-states / shimmer-text, streaming-text, skeleton-reveal, success-check, text-states-swap, toast, tooltip), re-implemented on our tokens, ≤ 300 ms.
+  - Reduced motion = end states / ≤ 100 ms fades; reduced transparency = opaque.
+  - **No hosted Motion Agent fix spent.**
+  accept:
+  - the motion audit (`e2e/motion-audit.spec.ts` helper block): ≤ 3 dropped frames per interaction, nothing > 300 ms except the thinking loop, reduced motion = end state;
+  - `check_snippets.py` PASS if the skill changes;
+  - rows ready for `docs/design/v2/motion.md` §3.19 (handed to its owner).
+  files: new `frontend/src/components/helper/helper.css`.
+  asks: a `components/ui/SOURCES.md` row (its owner), the helper block in `e2e/motion-audit.spec.ts` (its owner), motion.md §3.19.
+  testers: academician (phone, reduced motion on).
+- [ ] HX-12 · design · no migration · Simplicity audit with the `helper.md` §9 checklist.
+  - Scope: the 12 most used screens (`/reserve`, `/bookings`, `/my-bookings`, `/find-room`, `/approvals`, `/moderation/me`, `/admin`, `/admin/users`, `/settings`, `/timetable`, `/runs/[id]`, `/profile`) at 1440 and 390.
+  - Every "no" is a major finding with a screenshot and an owner.
+  - Plus a copy review of all `helper.*` keys (TR first, ≤ 20 words, no internal terms).
+  accept: a report `docs/testing/2026-10-xx-simplicity-audit.md` with pass/fail per rule per screen, screenshots, and tickets for each failure.
+  files: that report only.
+  testers: — (designer run; academician and admin personas).
+- [ ] HX-13 · tester · no migration · Persona runs of `helper.md` §15 together with HB-18 (one run, both reports).
+  - Academician (phone): "Ara veya sor" → Nerede → Göster → book with one click → undo.
+  - Approver: decide from the helper.
+  - Planner: publish hand-over never publishes alone.
+  - Admin: "periods" with AI off, an invite hand-over, a Yardımcı tab switch.
+  - In AI-cloud, AI-local and index-only modes.
+  - Keyboard-only and screen-reader passes (aria snapshots); reduced motion and transparency; MOBILE M-01/02/03/05.
+  - "Overwhelming" or "where do I click?" is a **major** finding.
+  accept: a report `docs/testing/2026-10-xx-persona-helper.md` with pass/fail per step, screenshots per viewport, 0 writes without a confirm in the audit log, and tickets for failures.
+  files: that report; specs live in HX-02…HX-10.
+  testers: academician, staff (+ approver grant), planner, admin.
+- [ ] HX-14 · later · no migration
+  - Re-evaluate merging the run chat into the helper after HX-13.
+  - The composer mic when VO lands (the transcript fills the box; voice doc).
+  - An A2UI v1.0 adapter for `helper.card.v1` and the MCP Apps `ui://` card templates with HB-19/HB-20 (external assistants; KVKK review first).
+  - Optional per-institution "Yardım bağlantısı" in the Rehber modu footer.
+
+**Sequence:**
+1. HX-01 starts with HB-01/02/07, then HX-02.
+2. HX-03 runs against HB-06's SSE fixture, then HX-04.
+3. HX-05 runs after HB-05, together with HX-06.
+4. HX-07 runs after WG-05.
+5. HX-08 runs after HB-09.
+6. HX-09 runs after HB-15, and HX-10 after HB-11.
+7. HX-11 starts after HX-03/HX-04.
+8. HX-12 can start now.
+9. HX-13 runs last, with HB-18.

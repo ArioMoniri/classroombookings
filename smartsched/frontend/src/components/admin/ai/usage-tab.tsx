@@ -16,7 +16,7 @@ import { useAiSummary, useAiUsage, type UsageRow } from "@/lib/api/ai-admin";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { Meter, StatTile, Tokens, useAiLabels } from "./ai-kit";
-import { activeSeries, compactTokens, dayChartData, errorMessage, meterState, pctText, resetDate, SERIES_COLOR, sortUsers, usd, userPct, type ChartSeries } from "./ai-model";
+import { activeSeries, audioDays, compactTokens, dayChartData, errorMessage, meterState, pctText, resetDate, SERIES_COLOR, sortUsers, usd, userPct, type ChartSeries } from "./ai-model";
 
 type Period = "7d" | "30d" | "month";
 
@@ -80,6 +80,7 @@ export function UsageTab() {
       </Card>
       <DailyChart rows={days.data?.rows ?? []} loading={days.isLoading} lastDays={period === "7d" ? 7 : undefined} />
       <ByFeature rows={features.data?.rows ?? []} />
+      <AudioUsage rows={days.data?.rows ?? []} />
       <UsersTable start={start} />
     </div>
   );
@@ -182,6 +183,22 @@ function ByFeature({ rows }: { rows: UsageRow[] }) {
     <Card className="gap-3 px-4 py-4" data-testid="ai-by-feature">
       <h3 className="type-headline text-label-1">{t("aiAdmin.usage.byFeature")}</h3>
       <BarList aria-label={t("aiAdmin.usage.byFeature")} items={rows.map((r) => ({ key: String(r.key), label: labels.feature(String(r.key)), value: r.tokens, display: compactTokens(r.tokens, locale) }))} />
+    </Card>
+  );
+}
+
+/** Voice (VO-07): minutes of audio transcribed per day; nothing at all while nobody has used voice. */
+function AudioUsage({ rows }: { rows: UsageRow[] }) {
+  const { t, locale } = useI18n();
+  const days = useMemo(() => audioDays(rows, locale), [rows, locale]);
+  const total = days.reduce((a, d) => a + d.minutes, 0);
+  if (!total) return null;
+  const n = (v: number) => new Intl.NumberFormat(locale === "tr" ? "tr-TR" : "en-GB", { maximumFractionDigits: 1 }).format(v);
+  return (
+    <Card className="gap-3 px-4 py-4" data-testid="ai-audio-usage">
+      <h3 className="type-headline text-label-1">{t("voice.admin.usage.title")}</h3>
+      <p className="type-footnote text-label-2">{t("voice.admin.usage.total", { min: n(total) })}</p>
+      <BarList aria-label={t("voice.admin.usage.byDay")} items={days.map((d) => ({ key: d.day, label: d.label, value: d.minutes, display: t("voice.admin.usage.minutes", { n: n(d.minutes) }) }))} />
     </Card>
   );
 }

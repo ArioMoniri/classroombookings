@@ -101,7 +101,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-36 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0040_welcome_guide`**. A new migration goes on top of it (`alembic heads` must print one line).
+37 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0041_adaptive`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -141,6 +141,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 34 | `0038_email_templates` | `0037_identity_providers` | Themed e-mails (wave 3b W3-MAIL; app/emails, app/services/mail.py): the outbox remembers the button link and the… |
 | 35 | `0039_calendar_classes` | `0038_email_templates` | Calendar export for academicians (CAL-01, docs/research/2026-10-17-calendar-export.md §3.2) |
 | 36 | `0040_welcome_guide` | `0039_calendar_classes` | Welcome guide per role (WG-01; docs/design/v3/welcome-guide.md §6.3, app/models/welcome.py) |
+| 37 | `0041_adaptive` | `0040_welcome_guide` | Adaptive scheduling (AS-03, AS-05, AS-13; docs/research/2026-10-17-adaptive-scheduling.md) |
 
 <!-- /AUTO:migrations -->
 

@@ -10,14 +10,15 @@
  * - `GET /calendar/export/classes.ics`, `/department/{id}.ics`, `/bookings.ics`: one-off files (JWT through the
  *   panel's proxy cookie, `Content-Disposition: attachment`).
  * - `PUT /calendar/connectors/{provider}/scopes`: the push scopes of a connected account (queues a reconcile).
- * - Admin: the new fields of `GET/PUT /calendar/admin/settings` and `GET /calendar/admin/status`.
+ * - Admin: `GET/PUT /calendar/admin/export-settings` (flat switches, push rules, status counts).
+ * The contract is lane CAL-B's API.md (scratch cal/API.md, 2026-10-17); the adapters below read its shapes.
  *
  * Every schema is lenient (`.catch`, `.nullish`, defaults): an older backend answers without the new fields, and the
  * screens then show only what exists (no fake buttons).
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { IntegrationSettings, afKeys, approvalFirst } from "./approval-first";
+import { IntegrationSettings, afKeys } from "./approval-first";
 import { HttpError, buildUrl, request } from "./client";
 
 const s = { silent: true } as const;
@@ -281,6 +282,184 @@ export const ExportOptionsIn = z.preprocess(adaptOptions, ExportOptions);
 
 /* ------------------------------------------------------------------------------------------- admin */
 
+export const ADMIN_SCOPE_KEYS = { my_classes: "export_my_classes", department_classes: "export_department_classes", my_bookings: "export_my_bookings" } as const;
+export const ADMIN_FIELD_KEYS = { title: "export_field_course_title", department: "export_field_department", co_instructors: "export_field_co_instructors", link: "export_field_link" } as const;
+export type AdminField = keyof typeof ADMIN_FIELD_KEYS;
+export const ADMIN_FIELDS = Object.keys(ADMIN_FIELD_KEYS) as AdminField[];
+
+const flag = z.boolean().nullish();
+export const ExportAdminStatus = z
+  .object({
+    links: z.record(z.string(), z.number()).default({}),
+    connections: z.record(z.string(), z.number()).default({}),
+    connections_by_scope: z.record(z.string(), z.number()).default({}),
+    needs_attention: z.number().default(0),
+    least_privilege_flagged: z.number().default(0),
+    failed_jobs: z.number().default(0),
+    nightly_reconcile: z.object({ at: z.string().nullish(), queued: z.number().nullish() }).nullish(),
+  })
+  .passthrough();
+export type ExportAdminStatus = z.infer<typeof ExportAdminStatus>;
+
+/** `GET /calendar/admin/export-settings` (CAL-B API.md, `setup.settings`): flat switches, the push rules, the status. */
+export const ExportAdminSettings = z
+  .object({
+    export_my_classes: flag,
+    export_department_classes: flag,
+    export_my_bookings: flag,
+    export_field_course_title: flag,
+    export_field_department: flag,
+    export_field_co_instructors: flag,
+    export_field_link: flag,
+    push_verified_only: flag,
+    push_allowed_domains: z.array(z.string()).nullish(),
+    calendar_client_source: z.enum(["identity", "own"]).nullish().catch(null),
+    fields_always: z.array(z.string()).default([]),
+    identity_clients: z.record(z.string(), z.boolean()).default({}),
+    status: ExportAdminStatus.nullish(),
+  })
+  .passthrough();
+export type ExportAdminSettings = z.infer<typeof ExportAdminSettings>;
+export type ExportAdminSettingsIn = Partial<{
+  export_my_classes: boolean;
+  export_department_classes: boolean;
+  export_my_bookings: boolean;
+  export_field_course_title: boolean;
+  export_field_department: boolean;
+  export_field_co_instructors: boolean;
+  export_field_link: boolean;
+  push_verified_only: boolean;
+  push_allowed_domains: string[];
+  calendar_client_source: "identity" | "own";
+}>;
+
+/* ------------------------------------------------------------------------------------------- adapters */
+
+type Raw = Record<string, unknown>;
+const isObj = (v: unknown): v is Raw => !!v && typeof v === "object" && !Array.isArray(v);
+const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
+
+/** backend field keys (calendar_classes.FIELD_KEYS) → the sheet's bullets; code + section are one bullet */
+const FIELD_ALIASES: Record<string, FieldKey> = { course_code: "code", section: "code", course_title: "title", code: "code", title: "title", room: "room", time: "time", department: "department", co_instructors: "co_instructors", link: "link", booking_title: "booking_title" };
+
+function adaptSample(v: unknown): unknown {
+  if (!isObj(v)) return v ?? null;
+  return { ...v, starts_at: v.starts_at ?? v.start, ends_at: v.ends_at ?? v.end };
+}
+
+function adaptFields(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: string[] = [];
+  for (const f of v) {
+    const key = FIELD_ALIASES[typeof f === "string" ? f : isObj(f) ? String(f.key) : ""];
+    if (key && !out.includes(key)) out.push(key);
+  }
+  return out;
+}
+
+/** CAL-B `export_options` (reason `{code, message_tr, message_en}`, `preview {upcoming_count, sample, fields}`, the
+ * department list of what the person may export with `default_department_id`) → the sheet's shape. */
+function adaptScope(v: unknown): unknown {
+  if (!isObj(v)) return v;
+  const out: Raw = { ...v };
+  if (isObj(v.reason)) {
+    out.reason = str(v.reason.code);
+    out.reason_tr = str(v.reason.message_tr);
+    out.reason_en = str(v.reason.message_en) ?? str(v.reason.message);
+  }
+  const pv = isObj(v.preview) ? v.preview : null;
+  if (pv) {
+    out.upcoming = typeof pv.upcoming_count === "number" ? pv.upcoming_count : out.upcoming;
+    out.sample = adaptSample(pv.sample);
+    out.fields = adaptFields(pv.fields);
+  } else if (v.sample !== undefined) out.sample = adaptSample(v.sample);
+  if (Array.isArray(v.fields)) out.fields = adaptFields(v.fields);
+  if (Array.isArray(v.departments)) {
+    const dflt = typeof v.default_department_id === "number" ? v.default_department_id : null;
+    out.departments = v.departments.map((d) => {
+      if (!isObj(d)) return d;
+      const own = d.id === dflt && pv;
+      return { ...d, reason: isObj(d.reason) ? str(d.reason.code) : d.reason, sample: own ? out.sample : adaptSample(d.sample), upcoming: own ? out.upcoming : d.upcoming };
+    });
+  }
+  return out;
+}
+
+export function adaptOptions(raw: unknown): unknown {
+  if (!isObj(raw)) return raw;
+  const out: Raw = { ...raw };
+  if (Array.isArray(raw.scopes)) out.scopes = raw.scopes.map(adaptScope);
+  const ch = raw.channels;
+  if (isObj(ch) && ch.push !== undefined && !Array.isArray(ch.push)) {
+    const push = isObj(ch.push)
+      ? Object.entries(ch.push)
+          .filter(([, p]) => isObj(p) && "configured" in p)
+          .map(([provider, p]) => ({ provider, configured: !!(p as Raw).configured, connected: !!(p as Raw).connected }))
+      : [];
+    const avail = (c: unknown) => (typeof c === "boolean" ? c : isObj(c) ? c.available !== false : true);
+    out.channels = { link: avail(ch.link), file: avail(ch.file), push };
+  }
+  return out;
+}
+
+/** A push scope as the connection stores it: "my_classes", "department_classes:7" or `{kind, id}`. */
+export function parseScope(v: unknown): { kind: string; id: number | null } | null {
+  if (typeof v === "string") {
+    const [kind, id] = v.split(":");
+    return kind ? { kind, id: id && /^\d+$/.test(id) ? Number(id) : null } : null;
+  }
+  if (isObj(v) && typeof (v.kind ?? v.scope_kind) === "string") {
+    const id = v.id ?? v.scope_id;
+    return { kind: String(v.kind ?? v.scope_kind), id: typeof id === "number" ? id : null };
+  }
+  return null;
+}
+
+/** CAL-B `GET /calendar/subscriptions` = `{links: [...], push: [{provider, export_scopes, ...}]}` → one manage row
+ * per link and per push scope (`id` = `push:{provider}:{scope}`), plus the push connections. A plain array (older
+ * contract) is the rows. */
+export function adaptSubscriptions(raw: unknown): { rows: unknown[]; connections: unknown[] } {
+  if (Array.isArray(raw)) return { rows: raw, connections: [] };
+  if (!isObj(raw)) return { rows: [], connections: [] };
+  if (Array.isArray(raw.items)) return { rows: raw.items, connections: [] };
+  const links = (Array.isArray(raw.links) ? raw.links : []).map((l) => (isObj(l) ? { ...l, channel: "link" } : l));
+  const rows: unknown[] = [...links];
+  const connections: unknown[] = [];
+  for (const c of Array.isArray(raw.push) ? raw.push : []) {
+    if (!isObj(c)) continue;
+    const provider = String(c.provider ?? "");
+    const scopes = Array.isArray(c.export_scopes) ? c.export_scopes : Array.isArray(c.scopes) ? c.scopes : [];
+    const legacy = c.least_privilege === false;
+    connections.push({ provider, configured: true, connected: c.status !== "REVOKED", account_email: c.account_email, account_verified: c.account_verified, status: c.status, legacy_scope: legacy, scopes: scopes.map((x) => (typeof x === "string" ? x : JSON.stringify(x))) });
+    for (const x of scopes) {
+      const sc = parseScope(x);
+      if (!sc) continue;
+      rows.push({
+        id: `push:${provider}:${sc.kind}${sc.id !== null ? `:${sc.id}` : ""}`,
+        scope_kind: sc.kind,
+        scope_id: sc.id,
+        channel: "push",
+        provider,
+        last_synced_at: c.last_synced_at,
+        status: c.status,
+        account_email: c.account_email,
+        account_verified: c.account_verified,
+        legacy_scope: legacy,
+        pending_jobs: c.pending_jobs,
+        failed_jobs: c.failed_jobs,
+        last_error: c.last_error,
+      });
+    }
+  }
+  return { rows, connections };
+}
+
+export const SubscriptionsOut = z.preprocess(adaptSubscriptions, z.object({ rows: z.array(Subscription), connections: z.array(PushChannel) }));
+export type SubscriptionsOut = z.infer<typeof SubscriptionsOut>;
+export const ExportOptionsIn = z.preprocess(adaptOptions, ExportOptions);
+
+/* ------------------------------------------------------------------------------------------- admin */
+
 export const DEPARTMENT_RULES = ["own", "taught", "permission"] as const;
 export type DepartmentRule = (typeof DEPARTMENT_RULES)[number];
 export const ADMIN_FIELDS = ["title", "department", "co_instructors", "link"] as const;
@@ -406,10 +585,8 @@ export const calendarExportApi = {
   resync: (provider: string) => request(`/calendar/connectors/${provider}/resync`, { ...s, method: "POST", schema: z.object({ queued: z.number() }).passthrough() }),
   disconnect: (provider: string) => request(`/calendar/connectors/${provider}`, { ...s, method: "DELETE" }),
   admin: {
-    /** the same call (and cache entry) as the KVKK / push panels: the answer is parsed as theirs, the CAL-09 part is read with `select` */
-    get: () => approvalFirst.integrations.get(),
-    put: (body: ExportAdminSettingsIn) => request("/calendar/admin/settings", { ...s, method: "PUT", body, schema: IntegrationSettings }),
-    status: () => request("/calendar/admin/status", { ...s, schema: ExportAdminStatus }),
+    get: () => request("/calendar/admin/export-settings", { ...s, schema: ExportAdminSettings }),
+    put: (body: ExportAdminSettingsIn) => request("/calendar/admin/export-settings", { ...s, method: "PUT", body, schema: ExportAdminSettings }),
   },
 };
 
@@ -419,7 +596,7 @@ export const calendarExportApi = {
 export const calendarExportKeys = {
   options: ["calendar-export", "options"] as const,
   subscriptions: ["calendar-export", "subscriptions"] as const,
-  adminStatus: ["calendar-export", "admin-status"] as const,
+  admin: ["calendar-export", "admin-settings"] as const,
 };
 
 export function useExportOptions(enabled = true) {
@@ -443,22 +620,21 @@ export function useRefreshCalendar() {
   return () => qc.invalidateQueries({ predicate: (q) => q.queryKey.some((k) => typeof k === "string" && /calendar/i.test(k)) });
 }
 
-/** The CAL-09 settings share the cache entry of the KVKK / push panels (same endpoint). */
+/** CAL-09 settings; a backend without the endpoint answers 404 and the panels show nothing extra. */
 export function useExportAdminSettings(enabled = true) {
-  return useQuery({ queryKey: afKeys.integrations, queryFn: calendarExportApi.admin.get, enabled, retry: false, select: (d) => ExportAdminSettings.parse(d) });
+  return useQuery({ queryKey: calendarExportKeys.admin, queryFn: calendarExportApi.admin.get, enabled, retry: false });
+}
+
+/** Past days and the cancelled grace days: `PUT /calendar/admin/settings` (the KVKK card's endpoint and cache). */
+export function useSaveFeedHorizon() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { feed_past_days: number; feed_cancelled_grace_days: number }) => request("/calendar/admin/settings", { ...s, method: "PUT", body, schema: IntegrationSettings }),
+    onSuccess: (data) => qc.setQueryData(afKeys.integrations, data),
+  });
 }
 
 export function useSaveExportAdminSettings() {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: calendarExportApi.admin.put,
-    onSuccess: (data) => {
-      qc.setQueryData(afKeys.integrations, data);
-      void qc.invalidateQueries({ queryKey: calendarExportKeys.adminStatus });
-    },
-  });
-}
-
-export function useExportAdminStatus(enabled = true) {
-  return useQuery({ queryKey: calendarExportKeys.adminStatus, queryFn: calendarExportApi.admin.status, enabled, retry: false, staleTime: 30_000 });
+  return useMutation({ mutationFn: calendarExportApi.admin.put, onSuccess: (data) => qc.setQueryData(calendarExportKeys.admin, data) });
 }

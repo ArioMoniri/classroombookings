@@ -1192,7 +1192,7 @@ async def _count(session: AsyncSession, q: Any) -> int:
 
 
 async def last_change(session: AsyncSession, entity_types: Sequence[str], obj_id: int) -> dict[str, Any] | None:
-    """"Son değişiklik": the newest audit row of the record (who, when, what), ``None`` for an untouched import."""
+    """The "Son değişiklik" line: the newest audit row of the record (who, when, what); ``None`` when untouched."""
     ev = (
         (
             await session.execute(
@@ -1217,14 +1217,13 @@ async def usage(session: AsyncSession, entity: str, obj_id: int) -> dict[str, An
     if entity not in USAGE_ENTITIES:
         raise Invalid(f"unknown catalogue entity {entity!r} (one of {', '.join(USAGE_ENTITIES)})")
     model, audit_types = USAGE_ENTITIES[entity]
-    obj = await _get(session, model, obj_id, entity)
+    obj: Any = await _get(session, model, obj_id, entity)
     uses: dict[str, int] = {}
     blocked = False
     action = "delete"
     if isinstance(obj, Instructor):
-        uses["sections"] = await _count(
-            session, select(func.count()).select_from(SectionInstructor).where(SectionInstructor.instructor_id == obj.id)
-        )
+        links = select(func.count()).select_from(SectionInstructor)
+        uses["sections"] = await _count(session, links.where(SectionInstructor.instructor_id == obj.id))
         blocked = bool(uses["sections"])
     elif isinstance(obj, Course):
         uses["sections"] = await _count(session, select(func.count(Section.id)).where(Section.course_id == obj.id))

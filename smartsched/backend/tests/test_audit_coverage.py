@@ -395,6 +395,12 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/mail/templates/{kind}/preview": (N, "render only"),
     "PUT /api/v1/mail/templates/{kind}": (T, "translations set email"),
     "POST /api/v1/mail/templates/{kind}/test": (E, "app.services.mail"),
+    # welcome guide per role WG-01..03: the person's own guide state; the admin switches / texts / reshow are audited
+    "POST /api/v1/welcome/events": (N, "the caller's own welcome_progress (shown / snoozed / step / item_done)"),
+    "POST /api/v1/welcome/restart": (N, "the caller's own welcome_progress (Help › Turu yeniden başlat)"),
+    "PUT /api/v1/welcome/settings": (E, "app.services.welcome"),
+    "PUT /api/v1/welcome/content/{audience}": (E, "app.services.welcome"),
+    "POST /api/v1/welcome/content/{audience}/reshow": (E, "app.services.welcome"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)

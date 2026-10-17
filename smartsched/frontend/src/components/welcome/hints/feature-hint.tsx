@@ -34,7 +34,7 @@ export function FeatureHintPopover() {
   const titleId = useId();
 
   useEffect(() => {
-    if (!hint || !desktop || busy) return setAnchor(null);
+    if (!hint || !desktop || busy) return;
     let tries = 0;
     const id = window.setInterval(() => {
       const el = findAnchor(hint.def.nav!);

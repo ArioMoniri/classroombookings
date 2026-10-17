@@ -13,7 +13,7 @@
  */
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useMeFull } from "@/lib/api/shell-extra";
 import { useWelcome, useWelcomeEvent } from "@/lib/api/welcome";
 import { useHydrated } from "@/lib/use-hydrated";
@@ -108,20 +108,22 @@ function WelcomeHost() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, !!checklist]);
 
-  const preview = sheetReq?.mode === "preview";
-  const model = sheetReq
-    ? sheetReq.mode === "preview"
-      ? buildSheet(data, { previewAudience: sheetReq.audience, previewOverrides: sheetReq.overrides })
-      : buildSheet(data, { kind: sheetReq.kind, deltaAudiences: sheetReq.deltaAudiences })
+  // the last request stays rendered while the dialog plays its exit
+  const [lastReq, setLastReq] = useState(sheetReq);
+  if (sheetReq && sheetReq !== lastReq) setLastReq(sheetReq);
+  const req = sheetReq ?? lastReq;
+  const preview = req?.mode === "preview";
+  const model = req
+    ? req.mode === "preview"
+      ? buildSheet(data, { previewAudience: req.audience, previewOverrides: req.overrides })
+      : buildSheet(data, { kind: req.kind, deltaAudiences: req.deltaAudiences })
     : null;
-  const lastModel = useRef(model);
-  if (model) lastModel.current = model;
 
   const onAction = (a: SheetAction) => {
     const post = (e: "snoozed" | "dismissed" | "completed") => {
       if (!preview) event.mutate({ guide_key: "sheet", event: e });
     };
-    const req = sheetReq;
+    const current = sheetReq;
     closeSheet();
     switch (a.type) {
       case "later":
@@ -132,7 +134,7 @@ function WelcomeHost() {
         return;
       case "start": {
         post("completed");
-        const steps = req?.mode === "preview" ? buildSteps(undefined, { previewAudience: req.audience }) : buildSteps(data);
+        const steps = current?.mode === "preview" ? buildSteps(undefined, { previewAudience: current.audience }) : buildSteps(data);
         // after the sheet's exit (150 ms), so the tour's first card takes focus from a settled page
         if (steps.length) window.setTimeout(() => startTour({ steps, preview }), 200);
         return;
@@ -150,13 +152,12 @@ function WelcomeHost() {
     }
   };
 
-  const shown = sheetReq ? model : lastModel.current;
   return (
     <>
-      {shown ? (
+      {model ? (
         <WelcomeSheet
-          open={!!sheetReq && !!model}
-          model={shown}
+          open={!!sheetReq}
+          model={model}
           state={data}
           tourEnabled={preview ? true : !!data?.enabled.tour}
           checklistEnabled={preview ? false : !!data?.enabled.checklist}

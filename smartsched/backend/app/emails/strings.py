@@ -370,6 +370,39 @@ TR: dict[str, str] = {
         "ulaşır."
     ),
     "smtp_test.why": "Bu e-postayı, bir yönetici e-posta ayarlarını denediği için aldınız.",
+    # --- RF-11 (2026-10-18): variants of the senders wired in app.services.mail_senders --------------------
+    # a reminder more than a day ahead (the lead time is the admin's org setting bookings.reminder_lead_hours)
+    "booking_reminder.when.later.subject": "{date}: {room} · {period}",
+    "booking_reminder.when.later.heading": "Hatırlatma: {date} için derslik ayırdınız",
+    "booking_reminder.when.hour_before.preheader": "{room} · {period}",
+    "series_created.by.self.intro": "{room} dersliğinde {pattern} yinelenen rezervasyonunuz oluşturuldu.\n{items}",
+    "series_created.by.self.heading": "Yinelenen rezervasyonunuz hazır",
+    "series_changed.to.approver.heading": "Onayladığınız yinelenen rezervasyon değişti",
+    "series_changed.to.approver.intro": (
+        "{who}, onayladığınız seri #{series_id} üzerinde değişiklik yaptı: {change}.\n{items}"
+    ),
+    "series_changed.to.approver.why": "Bu e-postayı, bu seriyi siz onayladığınız için aldınız.",
+    # the KVKK calendar_sync consent itself (Profil › Gizlilik), not a provider connection
+    "calendar_consent.scope.consent_on.subject": "Takvim eşitleme izniniz kaydedildi",
+    "calendar_consent.scope.consent_on.heading": "Takvim eşitleme izniniz kaydedildi",
+    "calendar_consent.scope.consent_on.preheader": "İzninizi istediğiniz an geri çekebilirsiniz.",
+    "calendar_consent.scope.consent_on.intro": (
+        "Merhaba {name}, rezervasyonlarınızın tarih, saat, derslik ve not bilgilerinin bağladığınız Google ya da "
+        "Microsoft takvimine aktarılmasına izin verdiniz. Bu hizmetlerin sunucuları yurt dışındadır."
+    ),
+    "calendar_consent.scope.consent_on.cta": "Gizlilik ayarlarını aç",
+    "calendar_consent.scope.consent_on.note": "İzninizi Profil › Gizlilik bölümünden istediğiniz an geri çekebilirsiniz.",
+    "calendar_consent.scope.consent_off.subject": "Takvim eşitleme izninizi geri çektiniz",
+    "calendar_consent.scope.consent_off.heading": "Takvim eşitleme izninizi geri çektiniz",
+    "calendar_consent.scope.consent_off.preheader": "Aktarım durdu.",
+    "calendar_consent.scope.consent_off.intro": (
+        "Merhaba {name}, rezervasyonlarınız artık Google ya da Microsoft takviminize aktarılmıyor. Takvim abonelik "
+        "bağlantılarınız iptal edildi ve bağlı takvimleriniz kaldırıldı."
+    ),
+    "calendar_consent.scope.consent_off.cta": "Gizlilik ayarlarını aç",
+    "calendar_consent.why": 'Bu e-postayı, "Takvim eşitleme iznim değişti" bildirimi açık olduğu için aldınız.',
+    "new_device_sign_in.why": 'Bu e-postayı, "Hesabıma yeni bir cihazdan giriş yapıldı" bildirimi açık olduğu için '
+    "aldınız.",
 }
 
 EN: dict[str, str] = {
@@ -697,6 +730,35 @@ EN: dict[str, str] = {
     "smtp_test.intro": "This is a test message. Sent through {host}. If you can read this, notifications will reach "
     "your users.",
     "smtp_test.why": "You received this because an administrator tested the e-mail settings.",
+    # --- RF-11 (2026-10-18) -----------------------------------------------------------------------------
+    "booking_reminder.when.later.subject": "{date}: {room} · {period}",
+    "booking_reminder.when.later.heading": "Reminder: you have a room on {date}",
+    "booking_reminder.when.hour_before.preheader": "{room} · {period}",
+    "series_created.by.self.intro": "Your recurring booking in {room}, {pattern}, was created.\n{items}",
+    "series_created.by.self.heading": "Your recurring booking is ready",
+    "series_changed.to.approver.heading": "A recurring booking you approved changed",
+    "series_changed.to.approver.intro": "{who} changed series #{series_id}, which you approved: {change}.\n{items}",
+    "series_changed.to.approver.why": "You received this because you approved this series.",
+    "calendar_consent.scope.consent_on.subject": "Your calendar sync consent was recorded",
+    "calendar_consent.scope.consent_on.heading": "Your calendar sync consent was recorded",
+    "calendar_consent.scope.consent_on.preheader": "You can withdraw it at any time.",
+    "calendar_consent.scope.consent_on.intro": (
+        "Hello {name}, you allowed the date, time, room and note of your bookings to be copied to the Google or "
+        "Microsoft calendar you connect. These services' servers are outside Türkiye."
+    ),
+    "calendar_consent.scope.consent_on.cta": "Open privacy settings",
+    "calendar_consent.scope.consent_on.note": "You can withdraw it at any time under Profile › Privacy.",
+    "calendar_consent.scope.consent_off.subject": "You withdrew your calendar sync consent",
+    "calendar_consent.scope.consent_off.heading": "You withdrew your calendar sync consent",
+    "calendar_consent.scope.consent_off.preheader": "Copying stopped.",
+    "calendar_consent.scope.consent_off.intro": (
+        "Hello {name}, your bookings are no longer copied to your Google or Microsoft calendar. Your calendar "
+        "subscription links were revoked and your connected calendars removed."
+    ),
+    "calendar_consent.scope.consent_off.cta": "Open privacy settings",
+    "calendar_consent.why": 'You received this because "My calendar sync consent changed" notifications are on.',
+    "new_device_sign_in.why": 'You received this because "My account was signed in on a new device" notifications '
+    "are on.",
 }
 
 SHIPPED: dict[str, dict[str, str]] = {"tr": TR, "en": EN}

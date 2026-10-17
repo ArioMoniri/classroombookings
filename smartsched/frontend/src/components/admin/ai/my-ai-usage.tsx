@@ -48,6 +48,16 @@ export function MyAiUsage() {
         />
       </div>
       <p className="type-footnote text-label-2">{d.daily_limit || d.monthly_limit ? t("aiAdmin.me.resets", { day: resetDate("day", locale), month: resetDate("month", locale) }) : t("aiAdmin.me.none")}</p>
+      {d.audio_minutes_month ? (
+        <p className="type-footnote text-label-2" data-testid="my-ai-audio">
+          {t("voice.admin.me.line", {
+            day: Math.round(d.audio_minutes_day ?? 0),
+            dayLimit: d.audio_daily_limit_min ? t("voice.admin.me.of", { n: d.audio_daily_limit_min }) : "",
+            month: Math.round(d.audio_minutes_month),
+            monthLimit: d.audio_monthly_limit_min ? t("voice.admin.me.of", { n: d.audio_monthly_limit_min }) : "",
+          })}
+        </p>
+      ) : null}
       {d.by_feature.length ? (
         <p className="type-footnote text-label-2">
           {d.by_feature.map((r) => `${labels.feature(String(r.key))}: ${compactTokens(r.tokens, locale)}`).join(" · ")}

@@ -47,6 +47,10 @@ const TAB_LABELS: Readonly<Record<string, MessageKey>> = {
   "/reserve": "nav.tab.reserve",
 };
 
+/** routes whose screen carries its own bottom bar (studio-bottom-bar, the wizard's step capsule) */
+const OWN_BOTTOM_BAR = ["/generate", "/programs/new"] as const;
+export const hasOwnBottomBar = (pathname: string | null) => !!pathname && OWN_BOTTOM_BAR.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
 export function TabBar() {
   const { t } = useI18n();
   const pathname = usePathname();
@@ -111,11 +115,14 @@ export function TabBar() {
 
   // tabs depend on permissions and counts from queries: render after hydration only (no #418 mismatch)
   if (!hydrated) return null;
+  // mobile audit B (2026-10-17): the Studio and the programme wizard have their own bottom step bar; with the tab bar
+  // too, the two bars took about 200 px of a phone. The top bar carries the menu (drawer) and search there.
+  if (hasOwnBottomBar(pathname)) return null;
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-end justify-center gap-2 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] lg:hidden">
       <LayoutGroup id="tab-bar">
         <nav aria-label={t("glass.shell.tabs")} data-glass="chrome" className="glass-chrome pointer-events-auto min-w-0 flex-1 rounded-full p-1 sm:max-w-md sm:flex-none">
-          <ul className="grid grid-flow-col auto-cols-fr items-center gap-0.5">
+          <ul className="grid grid-flow-col auto-cols-[minmax(0,1fr)] items-center gap-0.5">
             {tabs.map((tab) => item(tab.href, t(tab.labelKey), <tab.icon />, tab.href === activeHref, { href: tab.href, count: tab.badge ? badges[tab.badge] : undefined, testId: `tab-${navTestId(tab.href)}` }))}
             {item("more", t("glass.shell.more"), <MoreHorizontal />, moreActive, { onClick: () => setDrawerOpen(true), testId: "open-drawer" })}
           </ul>

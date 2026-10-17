@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { MoreHorizontal, Search } from "lucide-react";
 import { motion, useMotionValueEvent, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 import { useTintOnlyChrome } from "./blur-budget";
 import { breadcrumbs, type Crumb } from "./breadcrumbs";
+import { hasOwnBottomBar } from "./tab-bar";
 import { UserMenu } from "./user-menu";
 
 export function useBreadcrumbs(): Crumb[] {
@@ -187,6 +188,8 @@ export function TopBar() {
 export function MobileTopBar() {
   const { t } = useI18n();
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
+  const setDrawerOpen = useUiStore((s) => s.setDrawerOpen);
+  const ownBottomBar = hasOwnBottomBar(usePathname()); // Studio / wizard: no tab bar, so menu + search live here
   const crumbs = useBreadcrumbs();
   const { solid, tint, titleOpacity, reduce, scrolled } = useThickening();
   const title = crumbs.at(-1)?.label ?? "";
@@ -198,9 +201,14 @@ export function MobileTopBar() {
       <motion.p className="type-headline min-w-0 flex-1 truncate text-label-1" style={{ opacity: reduce ? (scrolled ? 1 : 0) : titleOpacity }} aria-hidden>
         {title}
       </motion.p>
-      <Button variant="ghost" size="icon" onClick={() => setPaletteOpen(true)} aria-label={t("nav.search")} className="hidden max-[359px]:inline-flex" data-testid="open-palette-narrow">
+      <Button variant="ghost" size="icon" onClick={() => setPaletteOpen(true)} aria-label={t("nav.search")} className={ownBottomBar ? "inline-flex" : "hidden max-[359px]:inline-flex"} data-testid="open-palette-narrow">
         <Search aria-hidden />
       </Button>
+      {ownBottomBar ? (
+        <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(true)} aria-label={t("glass.shell.more")} data-testid="open-drawer-top">
+          <MoreHorizontal aria-hidden />
+        </Button>
+      ) : null}
       <WhatsNewIndicator />
       <NotificationBell />
       <UserMenu compact />

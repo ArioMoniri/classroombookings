@@ -25,7 +25,7 @@ function measure(el: HTMLElement): Box {
 export function SpotlightRing({ target, reduceMotion }: { target: HTMLElement | null; reduceMotion: boolean }) {
   const [box, setBox] = useState<Box | null>(null);
   useEffect(() => {
-    if (!target) return setBox(null);
+    if (!target) return;
     let raf = 0;
     const update = () => {
       cancelAnimationFrame(raf);
@@ -43,7 +43,7 @@ export function SpotlightRing({ target, reduceMotion }: { target: HTMLElement | 
       window.removeEventListener("resize", update);
     };
   }, [target]);
-  if (!box) return null;
+  if (!box || !target) return null;
   return (
     <motion.div
       aria-hidden

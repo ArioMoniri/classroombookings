@@ -2954,7 +2954,8 @@
       "goal": "You are the AI-HELPER UX designer for SmartSched (repo /home/user/classroombookings; Next.js frontend smartsched/frontend; design docs in docs/design/v2 and v3). Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md, especially the …",
       "ledger": "Helper UX design (generative UI)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:35"
     },
     {
       "id": "a4d25076e12c6f1df",

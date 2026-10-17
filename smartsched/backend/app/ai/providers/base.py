@@ -75,6 +75,9 @@ class ModelInfo:
     #: USD per 1M tokens when the provider publishes it (OpenRouter) or the admin entered it
     price_in: float | None = None
     price_out: float | None = None
+    #: what the model does (VO-01): ``text`` | ``stt`` (speech to text) | ``tts``; filled at sync
+    #: (:func:`app.ai.voice.registry.model_modalities`)
+    modalities: list[str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in self.__dict__.items() if v not in (None, "")} | {"id": self.id}

@@ -51,5 +51,17 @@ describe("fix 8 · publish dialog: the footer stays in view and focus returns to
     await userEvent.keyboard("{Escape}");
     await new Promise((r) => setTimeout(r, 50));
     expect(document.activeElement).toBe(trigger);
+  }, 20000);
+});
+
+describe("fix 5 + 7 · Studio classes step on touch: cards, and the filters as a bottom sheet with an apply action", () => {
+  const src = read("studio/classes-step.tsx");
+  it("the card layout (and the filter trigger) covers touch tablets below 1024, not only < 768", () => {
+    expect(src).toContain('window.matchMedia("(max-width: 767px), (pointer: coarse) and (max-width: 1023px)")');
+  });
+  it("the filters sheet opens from the bottom and ends in one 'N dersi göster' action", () => {
+    expect(lineOf("studio/classes-step.tsx", "filters-sheet")).toContain('side="bottom"');
+    expect(src).toContain('data-testid="filters-apply"');
+    expect(src).toMatch(/t\("classes\.showN", \{ n: shown\.length \}\)/);
   });
 });

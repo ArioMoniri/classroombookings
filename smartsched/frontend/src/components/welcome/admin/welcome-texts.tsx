@@ -7,7 +7,7 @@
  * guide again with "Güncellendi". A stale save answers 409 "Bu metni siz düzenlerken {ad} değiştirdi…".
  */
 import { ChevronDown, RotateCcw } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog, Loading } from "@/components/admin/kit";
 import { Button, IconButton } from "@/components/ui/button";
@@ -196,9 +196,6 @@ export function WelcomeTexts() {
   const { t } = useI18n();
   const [audience, setAudience] = useState<Audience>("academician");
   const q = useWelcomeContent(audience);
-  const [key, setKey] = useState(0);
-  // a fresh editor per audience and per loaded version
-  useEffect(() => setKey((k) => k + 1), [audience, q.data?.version]);
   const empty: WelcomeContent = { audience, version: 0, texts: { tr: {}, en: {} }, updatedBy: null, updatedAt: null, contentVersion: null };
   return (
     <div className="flex flex-col gap-4">
@@ -218,7 +215,7 @@ export function WelcomeTexts() {
           </Button>
         ))}
       </div>
-      {q.isLoading ? <Loading /> : <Editor key={`${audience}-${key}`} audience={audience} content={q.data ?? empty} />}
+      {q.isLoading ? <Loading /> : <Editor key={`${audience}-${q.data?.version ?? 0}-${q.dataUpdatedAt}`} audience={audience} content={q.data ?? empty} />}
     </div>
   );
 }

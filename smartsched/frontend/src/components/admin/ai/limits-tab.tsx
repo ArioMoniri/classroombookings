@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { type Limits, type LimitsIn, useAiLimits, useSaveLimits, useTopup } from "@/lib/api/ai-admin";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
-import { compactTokens, errorMessage, parseLimit, pctText, usd } from "./ai-model";
+import { compactTokens, errorMessage, minutesOf, parseLimit, pctText, secondsOf, usd } from "./ai-model";
 
 const ROLES = ["ADMIN", "PLANNER", "VIEWER", "TEACHER"] as const;
 
@@ -55,6 +55,15 @@ function LimitsForm({ data, canEdit }: { data: Limits; canEdit: boolean }) {
   });
   const [roles, setRoles] = useState<Record<string, Pair>>(() => Object.fromEntries(ROLES.map((r) => [r, pairOf(data.roles[r])])));
   const [users, setUsers] = useState<{ id: string; daily: string; monthly: string }[]>(() => Object.entries(data.users).map(([id, p]) => ({ id, ...pairOf(p) })));
+  // voice time (VO-02), shown in minutes, stored in seconds; only when the backend reports it
+  const hasAudio = data.user_daily_audio_s !== undefined;
+  const [audio, setAudio] = useState({ org: minutesOf(data.org_monthly_audio_s), daily: minutesOf(data.user_daily_audio_s), monthly: minutesOf(data.user_monthly_audio_s) });
+  const [audioRoles, setAudioRoles] = useState<Record<string, Pair>>(() => Object.fromEntries(ROLES.map((r) => [r, { daily: minutesOf(data.roles[r]?.audio_daily), monthly: minutesOf(data.roles[r]?.audio_monthly) }])));
+  const [audioUsers, setAudioUsers] = useState<{ id: string; daily: string; monthly: string }[]>(() =>
+    Object.entries(data.users)
+      .filter(([, p]) => p.audio_daily !== undefined || p.audio_monthly !== undefined)
+      .map(([id, p]) => ({ id, daily: minutesOf(p.audio_daily), monthly: minutesOf(p.audio_monthly) })),
+  );
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }));
   const soft = Number(f.soft_pct) || 80;
@@ -70,20 +79,38 @@ function LimitsForm({ data, canEdit }: { data: Limits; canEdit: boolean }) {
       const m = parseLimit(p.monthly);
       return d === null || m === null ? null : { ...(p.daily.trim() ? { daily: d } : {}), ...(p.monthly.trim() ? { monthly: m } : {}) };
     };
-    const roleBody: Record<string, { daily?: number; monthly?: number }> = {};
+    type Lim = { daily?: number; monthly?: number; audio_daily?: number; audio_monthly?: number };
+    const audioPair = (p: Pair): Lim | null => {
+      const d = secondsOf(p.daily);
+      const m = secondsOf(p.monthly);
+      return d === null || m === null ? null : { ...(d !== undefined ? { audio_daily: d } : {}), ...(m !== undefined ? { audio_monthly: m } : {}) };
+    };
+    const roleBody: Record<string, Lim> = {};
     for (const r of ROLES) {
       const v = pairs(roles[r]!);
-      if (v === null) return setError(t("aiAdmin.limits.invalid"));
-      if (Object.keys(v).length) roleBody[r] = v;
+      const a = hasAudio ? audioPair(audioRoles[r]!) : {};
+      if (v === null || a === null) return setError(t("aiAdmin.limits.invalid"));
+      if (Object.keys(v).length || Object.keys(a).length) roleBody[r] = { ...v, ...a };
     }
-    const userBody: Record<string, { daily?: number; monthly?: number }> = {};
+    const userBody: Record<string, Lim> = {};
     for (const u of users) {
       const v = pairs(u);
       if (v === null || !/^\d+$/.test(u.id.trim())) return setError(t("aiAdmin.limits.invalid"));
       if (Object.keys(v).length) userBody[u.id.trim()] = v;
     }
+    for (const u of hasAudio ? audioUsers : []) {
+      const a = audioPair(u);
+      if (a === null || !/^\d+$/.test(u.id.trim())) return setError(t("aiAdmin.limits.invalid"));
+      if (Object.keys(a).length) userBody[u.id.trim()] = { ...userBody[u.id.trim()], ...a };
+    }
+    const audioBody: Partial<LimitsIn> = {};
+    if (hasAudio) {
+      const vals = { org_monthly_audio_s: secondsOf(audio.org), user_daily_audio_s: secondsOf(audio.daily), user_monthly_audio_s: secondsOf(audio.monthly) };
+      if (Object.values(vals).some((v) => v === null)) return setError(t("aiAdmin.limits.invalid"));
+      for (const [k, v] of Object.entries(vals)) (audioBody as Record<string, number>)[k] = v ?? 0;
+    }
     if (nums.some(([, v]) => v === null) || !Number.isFinite(cost) || cost < 0 || !(pct >= 1 && pct <= 99) || recipients.some((n) => !Number.isInteger(n) || n <= 0)) return setError(t("aiAdmin.limits.invalid"));
-    const body: LimitsIn = { ...(Object.fromEntries(nums) as Record<string, number>), org_monthly_cost_usd: cost, soft_pct: pct, alert_recipients: recipients, roles: roleBody, users: userBody };
+    const body: LimitsIn = { ...(Object.fromEntries(nums) as Record<string, number>), org_monthly_cost_usd: cost, soft_pct: pct, alert_recipients: recipients, roles: roleBody, users: userBody, ...audioBody };
     save.mutate(body, { onSuccess: () => toast.success(t("aiAdmin.limits.saved")), onError: (e) => setError(errorMessage(e, locale, t("aiAdmin.error.save"))) });
   };
 
@@ -155,6 +182,59 @@ function LimitsForm({ data, canEdit }: { data: Limits; canEdit: boolean }) {
           ) : null}
         </div>
       </Card>
+      {hasAudio ? (
+        <Card className="gap-3 px-4 py-4" data-testid="ai-limits-audio">
+          <h3 className="type-headline text-label-1">{t("voice.admin.limits.title")}</h3>
+          <p className="type-footnote text-label-2">{t("voice.admin.limits.lead")}</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {(["org", "daily", "monthly"] as const).map((k) => (
+              <Field key={k} label={t(k === "org" ? "voice.admin.limits.orgMonthly" : k === "daily" ? "voice.admin.limits.userDaily" : "voice.admin.limits.userMonthly")} htmlFor={`${uid}-audio-${k}`}>
+                <Input id={`${uid}-audio-${k}`} inputMode="numeric" value={audio[k]} disabled={!canEdit} onChange={(e) => setAudio((x) => ({ ...x, [k]: e.target.value }))} data-testid={`ai-limit-audio-${k}`} />
+              </Field>
+            ))}
+          </div>
+          <details className="rounded-lg bg-fill-3 px-3 py-2" data-testid="ai-limits-audio-advanced">
+            <summary className="cursor-pointer py-1 type-callout font-medium text-label-1 pointer-coarse:min-h-11 pointer-coarse:py-3">{t("voice.admin.limits.advanced")}</summary>
+            <p className="mt-1 type-footnote text-label-2">{t("voice.admin.limits.rolesHint")}</p>
+            <div className="mt-2 flex flex-col gap-2">
+              {ROLES.map((r) => (
+                <div key={r} className="grid items-end gap-2 sm:grid-cols-[10rem_1fr_1fr]" data-testid={`ai-audio-role-${r}`}>
+                  <p className="type-callout text-label-1 sm:pb-2">{t(`aiAdmin.role.${r}` as MessageKey)}</p>
+                  {(["daily", "monthly"] as const).map((k) => (
+                    <Field key={k} label={t(`voice.admin.limits.${k}` as MessageKey)} htmlFor={`${uid}-ar-${r}-${k}`}>
+                      <Input id={`${uid}-ar-${r}-${k}`} inputMode="numeric" value={audioRoles[r]![k]} disabled={!canEdit} onChange={(e) => setAudioRoles((x) => ({ ...x, [r]: { ...x[r]!, [k]: e.target.value } }))} />
+                    </Field>
+                  ))}
+                </div>
+              ))}
+              {audioUsers.map((u, i) => (
+                <div key={i} className="grid items-end gap-2 sm:grid-cols-[10rem_1fr_1fr_auto]" data-testid={`ai-audio-user-${i}`}>
+                  <Field label={t("voice.admin.limits.userId")} htmlFor={`${uid}-au${i}`}>
+                    <Input id={`${uid}-au${i}`} inputMode="numeric" value={u.id} disabled={!canEdit} onChange={(e) => setAudioUsers((x) => x.map((y, j) => (j === i ? { ...y, id: e.target.value } : y)))} />
+                  </Field>
+                  {(["daily", "monthly"] as const).map((k) => (
+                    <Field key={k} label={t(`voice.admin.limits.${k}` as MessageKey)} htmlFor={`${uid}-au${i}-${k}`}>
+                      <Input id={`${uid}-au${i}-${k}`} inputMode="numeric" value={u[k]} disabled={!canEdit} onChange={(e) => setAudioUsers((x) => x.map((y, j) => (j === i ? { ...y, [k]: e.target.value } : y)))} />
+                    </Field>
+                  ))}
+                  {canEdit ? (
+                    <Button variant="ghost" onClick={() => setAudioUsers((x) => x.filter((_, j) => j !== i))} aria-label={t("voice.admin.limits.remove")}>
+                      <Trash2 aria-hidden />
+                      <span className="sm:sr-only">{t("voice.admin.limits.remove")}</span>
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+              {canEdit ? (
+                <Button variant="outline" className="self-start" onClick={() => setAudioUsers((x) => [...x, { id: "", daily: "", monthly: "" }])} data-testid="ai-audio-user-add">
+                  <Plus aria-hidden />
+                  {t("voice.admin.limits.addUser")}
+                </Button>
+              ) : null}
+            </div>
+          </details>
+        </Card>
+      ) : null}
       <Card className="gap-3 px-4 py-4">
         <h3 className="type-headline text-label-1">{t("aiAdmin.limits.alerts")}</h3>
         <p className="type-callout text-label-1">{t("aiAdmin.limits.ruleWarn", { pct: pctText(soft, locale) })}</p>

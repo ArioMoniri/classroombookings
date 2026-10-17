@@ -88,7 +88,6 @@ export function TourRunner({ request }: { request: TourRequest }) {
       return;
     }
     const ctrl = new AbortController();
-    setActive(null);
     void (async () => {
       if (step.route && !samePath(window.location.pathname, step.route)) router.push(step.route);
       let target = await waitForAnchor(step.anchor, 3000, ctrl.signal);

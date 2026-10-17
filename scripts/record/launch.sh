@@ -64,8 +64,8 @@ do_encode() {
   # 1. the launch video: 1920x1080 60 fps H.264 High (plays everywhere), <= 25 MB
   h264 "$L" "$DIST/smartsched-launch.mp4" 25000000 "scale=1920:1080:flags=lanczos" 60
   # 2. AV1 in WebM (SVT-AV1, 10-bit): the same picture at a fraction of the bytes, for browsers that play AV1
-  $N ffmpeg -nostdin -hide_banner -loglevel error -y -i "$L" -vf "format=yuv420p10le" -c:v libsvtav1 -preset 5 -crf 34 -g 240 \
-    -svtav1-params "tune=0" -an "$DIST/smartsched-launch-av1.webm"
+  $N ffmpeg -nostdin -hide_banner -loglevel error -y -i "$L" -vf "format=yuv420p10le" -c:v libsvtav1 -preset 6 -crf 34 -g 240 \
+    -svtav1-params "tune=0:lp=2" -an "$DIST/smartsched-launch-av1.webm"
   log "smartsched-launch-av1.webm: $(mb "$DIST/smartsched-launch-av1.webm")"
   # 3. a copy for a GitHub user-attachments upload on a free plan (10 MB limit): 1920x1080 at 30 fps
   h264 "$L" "$DIST/smartsched-launch-attach.mp4" 9800000 "scale=1920:1080:flags=lanczos" 30

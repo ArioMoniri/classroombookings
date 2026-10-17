@@ -186,7 +186,7 @@ DATA_CLASSES: dict[str, dict[str, Any]] = {
     },
     # welcome guide per role (WG-03, app/services/welcome.py): show / hide the guide; no content, clicks or timings
     "welcome": {
-        "tr": "Karşılama rehberi durumu: rehberin gösterilip gösterilmediği, ertelendiği, turun adımı, tamamlanan maddeler",
+        "tr": "Karşılama rehberi durumu: gösterildi mi, ertelendi mi, turun adımı, tamamlanan maddeler",
         "en": "Welcome guide state: whether the guide was shown, snoozed or finished, the tour step, items done",
         "tables": ["welcome_progress"],
         "legal_basis": "KVKK m.5/2(f) meşru menfaat (rehberi doğru kişiye bir kez göstermek)",

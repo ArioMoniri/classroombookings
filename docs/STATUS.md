@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `220124b` (committed 2026-10-17 23:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `34b2193` (committed 2026-10-17 23:30 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -165,21 +165,23 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-267 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 238 · stopped 11 · superseded 7.
+273 agents in [`docs/agents/registry.json`](agents/registry.json): running 13 · finished 242 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
 | `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
-| `Mobile optimiser B` | frontend-engineer | 2026-10-17 19:56 |
 | `CAL-B` | backend-engineer | 2026-10-17 21:54 |
 | `Security follow-ups from W3-SEC` | general-purpose | 2026-10-17 22:17 |
-| `Audit` | strict-reviewer | 2026-10-17 22:45 |
 | `WG-B` | backend-engineer | 2026-10-17 22:58 |
 | `WG-F` | frontend-engineer | 2026-10-17 22:58 |
 | `AS-B` | backend-engineer | 2026-10-17 23:01 |
 | `Charts phase 2` | design-pro | 2026-10-17 23:12 |
-| `Helper UX design (generative UI)` | design-pro | 2026-10-17 23:12 |
-| `Helper architecture + AI governance` | general-purpose | 2026-10-17 23:12 |
+| `VO-B` | ai-engineer | 2026-10-17 23:16 |
+| `VO-F` | frontend-engineer | 2026-10-17 23:16 |
+| `RF-1` | general-purpose | 2026-10-17 23:22 |
+| `RF-2` | backend-engineer | 2026-10-17 23:22 |
+| `HB-A` | ai-engineer | 2026-10-17 23:28 |
+| `One-click deploy both branches` | devops-engineer | 2026-10-17 23:30 |
 
 <!-- /AUTO:agents -->
 
@@ -246,7 +248,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **339 ticked · 430 open** checkboxes in 95 sections (91 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **339 ticked · 476 open** checkboxes in 98 sections (94 with open items).
 
 <details><summary>Per section</summary>
 
@@ -347,6 +349,9 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 0 | 20 |
 | Voice for AI features (owner request 2026-10-17) | 0 | 13 |
 | Charts & telemetry views (owner request 2026-10-17) | 0 | 12 |
+| Real-not-fake & admin editability (owner request 2026-10-17; audit… | 0 | 12 |
+| AI helper: backend, governance, local models (owner request 2026-10-17) | 0 | 20 |
+| AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 0 | 14 |
 
 </details>
 
