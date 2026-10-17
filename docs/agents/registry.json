@@ -2989,6 +2989,30 @@
       "ledger": "VO-B: voice backend (cloud STT)",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "ad5cab851edb7febf",
+      "description": "RF-2: wire the unsent e-mails",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 23:22",
+      "scope": "",
+      "goal": "You are lane RF-2 for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pkill -f`, `nice …",
+      "ledger": "RF-2: wire the unsent e-mails",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a81129ececcc4ad90",
+      "description": "RF-1: catalog admin screens + blockers",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 23:22",
+      "scope": "",
+      "goal": "You are lane RF-1 for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pkill -f`, `nice …",
+      "ledger": "RF-1: catalog admin screens + blockers",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
