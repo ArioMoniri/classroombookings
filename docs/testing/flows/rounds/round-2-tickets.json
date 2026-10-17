@@ -1341,7 +1341,9 @@
       "smartsched/backend/app/services/run_truth.py"
      ],
      "dedup": "reopens the R1-M-04 part of T-R1-48 (counts) and its R1-M-14 part (unplaced list); R1-S-28 / T-R1-48 residue (dashboard digits)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "truth.unplaced_list/unplaced_count + message_tr (run_truth.py); run report Sorun = broken + exceptions, 'Veri notları N' second line, full UnplacedList; dashboard KPIs plain numbers; e2e T-R2-26 ×2 green on the stack"
     },
     {
      "id": "T-R2-27",
@@ -1361,7 +1363,9 @@
       "smartsched/backend/app/api/v1/analytics.py (compare message)"
      ],
      "dedup": "reopens T-R1-47 part (R1-S-22); R1-M-10 (verified) message residue",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "rail reads summary.weekCount; analytics.compare_refusal names term/kind/horizon; e2e ×2 green"
     },
     {
      "id": "T-R2-28",
@@ -1387,7 +1391,9 @@
      "dedup": "reopens T-R1-49 part (R1-S-16, R1-M-32) and the R1-S-16 part of T-R1-01",
      "depends_on": [
       "T-R2-05"
-     ]
+     ],
+     "status": "done",
+     "resolution": "inspector actions in a 44 px sticky sheet footer, Filtreler trigger + filters sheet, skip link portalled after the shell's; title flip not reproduced; built on the primitives as they are (T-R2-05 not landed); e2e ×2 green; lane H's T-R1-49 e2e needs Tab instead of Enter"
     },
     {
      "id": "T-R2-29",
@@ -1413,7 +1419,9 @@
      "dedup": "rest of R1-M-29 (T-R1-01 / T-R1-04 verified in part); FLE-008 part (R1-M-38); sweeper 2 ff85f52c",
      "depends_on": [
       "T-R2-05"
-     ]
+     ],
+     "status": "done",
+     "resolution": "solver defaults + Ağırlık + 16 px slider rows; -haftaN for any ?weeks= export; 38 px / 14 px readings were probe drift (re-measured with assertTouch); e2e ×2 green"
     },
     {
      "id": "T-R2-30",
@@ -1442,7 +1450,9 @@
       "smartsched/backend/app/services/run_truth.py"
      ],
      "dedup": "R1-M-03 follow-up (integrity, verified); R1-S-24 / T-R1-29 residue (move-force 403); R1-M-17 part of T-R1-31 (this lane's texts)",
-     "depends_on": []
+     "depends_on": [],
+     "status": "done",
+     "resolution": "sığmaz mark + admin reason in the pin template, day/time in the course picker, too-small room = hard move issue, cancelled-by display name + TR 409/403 texts, publish focus, message_tr for broken rules; e2e ×5 green"
     }
    ],
    "done_when": "every ticket's check passes on a stack with runs; MOBILE M-02/M-05 at 390 on the lane's phone_routes; vitest runs/studio/timetable; pytest runs/analytics; e2e loop-r1-laneH still green"

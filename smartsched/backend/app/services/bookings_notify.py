@@ -286,7 +286,9 @@ async def _on_cancelled(session: AsyncSession, payload: dict[str, Any]) -> None:
         lang = await _language(session, target)
         fmt = await bookings_i18n.formatter(session, lang)
         what = "\n".join([f"- {await _describe(session, b, fmt)}" for b in bookings])
-        why = await T(session, lang, "booking_cancelled.reason", reason=reason) if reason else ""
+        # a code (replaced_by_series:<id>, undo_of:<id>) reads in the reader's language; typed words stay as they are
+        reason_text = await bookings_i18n.cancel_reason(session, lang, reason)
+        why = await T(session, lang, "booking_cancelled.reason", reason=reason_text) if reason_text else ""
         # one occurrence = these bookings cancelled at this moment (a booking restored by an undo and cancelled
         # again is a new occurrence and is announced again)
         when = max((b.cancelled_at for b in bookings if b.cancelled_at is not None), default=None)

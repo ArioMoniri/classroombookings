@@ -8,6 +8,9 @@
 // Original work; references: Apple Calendar / Linear date popovers (compact month grid, today ring).
 // Touch (2026-10-16): 16 px input text on phones (no iOS zoom), a 44 × 44 hit area on the calendar trigger
 // (ui/hit-area.ts), month arrows / Today / Clear on the ui Button, and 44 px day cells in a wider grid on coarse pointers.
+// Round 2 sweeper 3 (MOBILE M-02 on /find-room and the recurring sheet): the trigger is a REAL 44 × 44 box on coarse
+// pointers, flush with the field's edge inside the 44 px field (the ::after hit area alone is clipped by an
+// overflow:auto ancestor such as the recurring date table and measured 32 × 32); fine pointers keep the 28 px button.
 import * as React from "react"
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "cn"
@@ -223,7 +226,7 @@ export function DateField({
             openPicker(true)
           }
         }}
-        className={cn(fieldSurface, fieldSize[size], "w-full min-w-0 pr-9 tnum", coarsePhoneText)}
+        className={cn(fieldSurface, fieldSize[size], "w-full min-w-0 pr-9 tnum pointer-coarse:pr-11", coarsePhoneText)}
       />
       {invalid ? <span className="sr-only" role="status">{copy.invalid}</span> : null}
       <Popover open={open} onOpenChange={openPicker}>
@@ -231,7 +234,7 @@ export function DateField({
           disabled={disabled}
           aria-label={copy.open}
           title={copy.open}
-          className={cn("absolute inset-y-0 right-1 my-auto inline-flex size-(--control-h-xs) items-center justify-center rounded-md text-label-2 hover:bg-fill-2 hover:text-label-1 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-(--focus)", coarseHitArea)}
+          className={cn("absolute inset-y-0 right-1 my-auto inline-flex size-(--control-h-xs) items-center justify-center rounded-md pointer-coarse:right-0 pointer-coarse:size-11 text-label-2 hover:bg-fill-2 hover:text-label-1 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-(--focus)", coarseHitArea)}
         >
           <CalendarDays aria-hidden className="size-4 stroke-[1.75]" />
         </PopoverTrigger>

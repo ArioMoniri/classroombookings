@@ -791,3 +791,15 @@
 :focus-visible {
   --tw-outline-style: solid;
 }
+
+/* ---------- Page-action capsule (components/admin/kit.tsx PageTitle, MOBILE.md M-05) ----------
+   Below lg the PageTitle actions are a capsule fixed above the tab bar (bottom = --shell-bottom-h + 0.75rem, 44 px
+   buttons in 0.375rem padding = 56 px). The shell's <main> then pads for the tab bar AND the capsule, so the last
+   card of /admin/users, /admin/roles, /admin/departments and /admin/audit scrolls clear of it. UNLAYERED on purpose:
+   <main> sets its padding with a utility, and only an unlayered declaration (or a higher one in the same layer)
+   wins over it. Round 2 sweeper 3. */
+@media (width < 64rem) {
+  main:has([data-slot="page-actions"]) {
+    padding-bottom: calc(var(--shell-bottom-h) + 0.75rem + 3.5rem + 1.5rem);
+  }
+}

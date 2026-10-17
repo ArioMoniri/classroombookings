@@ -2290,7 +2290,8 @@
       "goal": "You are the round-2 loop builder for **lane E (Studio, runs, timetable, compare)** of SmartSched, ledger `loop-r2-laneE-2026-10-17`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md then .../briefs/ROUND2-BUILD.md and follow them. Ticke…",
       "ledger": "R2 lane E: studio/runs/timetable",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 08:59"
     },
     {
       "id": "a1570733c326204c5",

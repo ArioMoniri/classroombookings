@@ -246,7 +246,13 @@ export function CalendarConnectionsSection() {
         <p className="type-callout text-label-2">{t("calendarPush.me.lead")}</p>
         {status.isLoading ? <Loading /> : null}
         {status.isError ? <Alert tone="error">{errorText(wave1Error(status.error), locale)}</Alert> : null}
-        {s && !s.enabled ? <Alert tone="warning" testId="calendar-connections-off">{t("calendarPush.me.off")}</Alert> : null}
+        {/* round 2 sweeper 3: a quiet note, not a role=status live region: screen readers heard the Alert announced like a
+            toast on every /profile visit (the state is the organisation's, nothing on this page changed it) */}
+        {s && !s.enabled ? (
+          <p data-testid="calendar-connections-off" className="type-callout text-label-2">
+            {t("calendarPush.me.off")}
+          </p>
+        ) : null}
         {s?.enabled && needsConsent ? (
           <Alert tone="info" testId="calendar-connections-consent">
             {t("calendarPush.me.needsConsent")}{" "}

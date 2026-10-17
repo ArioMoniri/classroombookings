@@ -15,6 +15,13 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n/provider";
 
+/** Classes of the PageTitle actions: a header row on desktop; below `lg` (the shell shows the tab bar) a capsule fixed
+ *  above the tab bar (MOBILE.md M-05: the primary action of /admin/users, /admin/roles, /admin/departments, /admin/audit
+ *  stays in thumb reach while the list scrolls), the same pattern as find-room's "Ara" and My bookings' bulk cancel.
+ *  globals.css pads the shell's <main> for it (`main:has([data-slot="page-actions"])`). Round 2 sweeper 3. */
+export const pageActionsCapsule =
+  "flex flex-wrap items-center gap-2 max-lg:fixed max-lg:inset-x-4 max-lg:bottom-[calc(var(--shell-bottom-h)+0.75rem)] max-lg:z-20 max-lg:justify-end max-lg:rounded-2xl max-lg:glass-chrome max-lg:p-1.5 max-lg:shadow-elev-2";
+
 export function PageTitle({ title, subtitle, actions, className }: { title: string; subtitle?: ReactNode; actions?: ReactNode; className?: string }) {
   return (
     <header className={cn("mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between", className)}>
@@ -22,7 +29,11 @@ export function PageTitle({ title, subtitle, actions, className }: { title: stri
         <h1 className="type-title-1 text-label-1 lg:type-large-title">{title}</h1>
         {subtitle ? <p className="mt-1 type-callout text-label-2">{subtitle}</p> : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div data-slot="page-actions" className={pageActionsCapsule}>
+          {actions}
+        </div>
+      ) : null}
     </header>
   );
 }

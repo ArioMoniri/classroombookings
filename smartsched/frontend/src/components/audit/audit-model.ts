@@ -155,10 +155,15 @@ export function undoReasonId(reason: string | null | undefined): number | null {
 }
 
 /** The reason line of a row: a coded reason in the UI language ("Geri alma: #164"), free text as typed, else null. */
+/** The cancel reason as the reader should see it: the backend's *codes* (`undo_of:<audit id>`, `replaced_by_series:<id>`,
+ *  round 2 sweeper 3) in the UI language with the wording of components/bookings/cancel-reason.ts; typed words as they are. */
 export function auditReason(reason: string | null | undefined, t: (key: MessageKey, vars?: Record<string, string | number>) => string): string | null {
   if (!reason) return null;
   const id = undoReasonId(reason);
-  return id === null ? reason : t("wave1.audit.reasonUndoOf", { id });
+  if (id !== null) return t("wave1.audit.reasonUndoOf", { id });
+  const series = /^replaced_by_series:(\d+)$/.exec(reason);
+  if (series) return t("crbs.cancel.replacedBySeries", { id: Number(series[1]) });
+  return reason;
 }
 
 export function auditTail(e: Pick<AuditEvent, "after" | "before" | "entity_id" | "entity_type">): string {

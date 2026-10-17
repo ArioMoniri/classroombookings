@@ -150,9 +150,10 @@ test("T-R2-26 · Sorun = broken + accepted exceptions at 1440 and 390; Veri notl
   // first and settles once the fresh summary is in
   await expect(page.getByTestId("kpi-data-notes")).toHaveText(`Veri notları ${new Intl.NumberFormat("tr-TR").format(summary.data_issues.issues)}`, { timeout: 45_000 });
   await expect(page.getByTestId("tab-report")).toContainText(String(want));
-  // the headline and the KPI are one number
+  // the headline and the KPI are one number: the exceptions it lists (plus the broken rules, when a forced move left one)
   const hero = await page.getByTestId("run-hero").innerText();
-  expect(hero).toContain(`${want} kabul edilmiş istisna`);
+  if (summary.truth.broken_count) expect(hero).toContain(`${summary.truth.broken_count} kesin kural bozuk`);
+  else expect(hero).toContain(`${want} kabul edilmiş istisna`);
   const list = page.getByTestId("unplaced-list");
   await expect(list).toBeVisible({ timeout: 45_000 });
   expect(await list.locator("li").count()).toBe(summary.truth.unplaced_count);
@@ -450,9 +451,11 @@ test("T-R2-29 · a weeks-filtered export of a term run is named -haftaN", async 
 /* ------------------------------------------------------------------ T-R2-30 (F-10 S06) */
 
 test("T-R2-30 · a forced capacity break reads Turkish on the timetable banner and in the truth (no 'week' / 'day'); the move is undone", async ({ page }) => {
-  test.skip(!ctx.termRun, "no finished Bahar term run");
-  const run = ctx.termRun!.id;
-  const asg = await api<{ id: number; day: number; start_period: number; end_period: number; room_ids: number[]; size: number | null; capacity: number | null }[]>("GET", `/runs/${run}/assignments?week=3`);
+  // on the unpublished week run: its one week makes the undo exact, and the published run's truth stays as it was
+  test.skip(!ctx.weekRun, "no finished Bahar week run");
+  const run = ctx.weekRun!.id;
+  const week = ctx.weekRun!.horizon_params.weeks[0] ?? 3;
+  const asg = await api<{ id: number; day: number; start_period: number; end_period: number; room_ids: number[]; size: number | null; capacity: number | null }[]>("GET", `/runs/${run}/assignments?week=${week}`);
   const big = [...asg].filter((a) => a.size).sort((a, b) => (b.size ?? 0) - (a.size ?? 0))[0];
   const rooms = await api<{ id: number; capacity: number; is_bookable: boolean }[]>("GET", "/rooms");
   const small = rooms.filter((r) => r.is_bookable && r.capacity > 0 && r.capacity < (big.size ?? 0) / 2).sort((a, b) => a.capacity - b.capacity)[0];
@@ -474,7 +477,7 @@ test("T-R2-30 · a forced capacity break reads Turkish on the timetable banner a
       expect(b.message_tr!).not.toMatch(/\b(week|day)\b/);
     }
     await login(page);
-    await page.goto(`/timetable?run=${run}&week=3`);
+    await page.goto(`/timetable?run=${run}&week=${week}`);
     const banner = page.getByTestId("run-broken-banner");
     await expect(banner).toBeVisible({ timeout: 60_000 });
     const text = await banner.innerText();
