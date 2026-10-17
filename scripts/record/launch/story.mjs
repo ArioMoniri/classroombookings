@@ -43,8 +43,15 @@ const GEO = {
     split: null,
     lottie: { x: 40, y: 760, w: 1000, h: 562 }, chapterText: { x: 60, y: 330, w: 960 },
   },
+  // README feature clips: one take, the card fills the frame, the caption under it
+  clip: { size: [1600, 960], card: { x: 80, y: 32, w: 1440, h: 810 }, capY: 868, capFont: 30, chipX: 100, chipY: 52, chipFont: 22 },
+  // phone clips: the phone in its frame, the caption under it
+  "phone-clip": { size: [720, 1280], phone: { x: 120, y: 92, w: 480, h: 844 * (480 / 390) }, phoneCapY: 1188, capFont: 24, capWrap: true, capW: 660, chipX: 24, chipY: 20, chipFont: 18 },
 };
+GEO.landscape.size = [1920, 1080];
+GEO.vertical.size = [1080, 1920];
 
+const FEATURES = ["CP-SAT timetables", "Exam planning", "Run reports", "Room booking", "Approvals", "Calendar sync", "AI with guardrails", "Turkish + English"];
 const layer = (L, tf, alpha) => ({ ...L, transform: tf, opacity: alpha });
 const html = (cls, h, style) => ({ kind: "html", cls, html: h, style });
 
@@ -86,7 +93,7 @@ function takeScene(def, fmt) {
           }
         } else if (cap) {
           c.caps.push(cap);
-          out.push(c.captionLayer(cap, c.alpha, { ...g, capY: g.phoneCapY }));
+          out.push(c.captionLayer(cap, c.alpha, { ...g, capY: g.phoneCapY, capWrap: true, capW: g.capW ?? 940 }));
         }
       }
       const chip = c.chipLayer(this, c.alpha, g);
@@ -96,7 +103,23 @@ function takeScene(def, fmt) {
   };
 }
 
-export function buildStory({ format = "landscape" } = {}) {
+/** A README clip: one take (or a step range of it), no intro; `format` clip (desktop) or phone-clip. */
+function buildClip({ format, take, steps, title }) {
+  const phone = format === "phone-clip";
+  return {
+    size: GEO[format].size,
+    crossfadeMs: 0,
+    lotties: [],
+    scenes: [{ ...takeScene({ id: "clip", layout: phone ? "phone" : "desktop", chapter: title ? { n: "▶", label: title } : null, views: [{ take, steps, leadMs: 500, tailMs: 300 }] }, format), overlapNext: false }],
+    camera: {
+      desktop: { maxZoom: 1.6, minZoom: 1.12, stiffness: 90, bridgeMs: 1600, leadMs: 600, tailMs: 900 },
+      phone: { zoom: false },
+    },
+  };
+}
+
+export function buildStory({ format = "landscape", story = "launch", take, steps, title } = {}) {
+  if (story === "clip") return buildClip({ format, take, steps, title });
   const g = GEO[format];
   const T = Object.fromEntries(TAKES.map((t) => [t.journey, takeName(t)]));
   const lottieFrames = { "hero-solver": 180, "file-to-rules": 150, "nl-to-rules": 150, "precheck-fix": 120 };
@@ -157,14 +180,19 @@ export function buildStory({ format = "landscape" } = {}) {
           html("logo", `<img src="${BRAND.lockup}" style="width:100%">`, { left: `${(c.W - lw) / 2}px`, top: `${V ? 640 : 300}px`, width: `${lw}px`, opacity: String(s(0)) }),
           html("title", `University timetabling, exams and room booking.`, { left: "50%", transform: "translateX(-50%)", textAlign: "center", top: `${V ? 900 : 500}px`, width: `${V ? 960 : 1500}px`,
             fontSize: `${V ? 46 : 44}px`, fontWeight: "600", opacity: String(s(0.35)) }),
-          html("chip", `<b style="width:34px;height:34px;font-size:18px">★</b>Open source · AGPL-3.0 · ${BRAND.repo}`, { left: "50%", transform: "translateX(-50%)", top: `${V ? 1060 : 610}px`,
-            fontSize: `${V ? 28 : 28}px`, padding: "10px 24px 10px 12px", whiteSpace: "nowrap", opacity: String(s(0.7)) }),
+          ...(V
+            ? [html("chip", `<b style="width:34px;height:34px;font-size:18px">★</b>Open source · AGPL-3.0`, { left: "50%", transform: "translateX(-50%)", top: "1060px", fontSize: "30px", padding: "10px 24px 10px 12px", whiteSpace: "nowrap", opacity: String(s(0.7)) }),
+               html("title", BRAND.repo, { left: "50%", transform: "translateX(-50%)", textAlign: "center", top: "1150px", width: "1000px", fontSize: "32px", fontWeight: "600", color: "#1E3A8A", opacity: String(s(0.9)) })]
+            : [html("chip", `<b style="width:34px;height:34px;font-size:18px">★</b>Open source · AGPL-3.0 · ${BRAND.repo}`, { left: "50%", transform: "translateX(-50%)", top: "610px", fontSize: "28px", padding: "10px 24px 10px 12px", whiteSpace: "nowrap", opacity: String(s(0.7)) })]),
+          html("title", FEATURES.map((f) => `<span style="display:inline-block;margin:6px 8px;padding:8px 18px;border-radius:999px;background:rgba(255,255,255,.7);border:1px solid rgba(15,23,42,.08)">${f}</span>`).join(""),
+            { left: "50%", transform: "translateX(-50%)", textAlign: "center", top: `${V ? 1260 : 720}px`, width: `${V ? 980 : 1500}px`, fontSize: `${V ? 26 : 24}px`, fontWeight: "500", color: "#334155", opacity: String(s(1.0)) }),
         ];
       },
     },
   ];
   return {
-    scenes: scenes.map((s) => (s.render ? s : s)),
+    size: g.size,
+    scenes,
     crossfadeMs: 500,
     lotties: ["hero-solver", "file-to-rules", "precheck-fix"],
     camera: {

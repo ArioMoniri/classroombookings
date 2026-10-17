@@ -89,7 +89,7 @@ from app.services.calendar_connectors import STATE_TTL, pkce_pair
 from app.services.calendar_feeds import public_base
 from app.services.identity import kinds as idp_kinds
 from app.services.identity import saml as idp_saml
-from app.services.identity.oidc import OidcClient, namespace, plain
+from app.services.identity.oidc import OidcClient
 
 try:  # Authlib >= 1.9 talks httpx2 when it is installed (it is: anthropic depends on it); keep one module for both
     import httpx2 as http
@@ -478,7 +478,9 @@ async def active_client(db: AsyncSession, slug: str = PROVIDER) -> tuple[SsoProv
 
 
 def provider_label(row: SsoProvider, locale: str = "tr") -> str:
-    return (row.display_name or "").strip() or (LABEL if row.kind == idp_kinds.ENTRA else idp_kinds.default_label(row.kind, locale))
+    return (row.display_name or "").strip() or (
+        LABEL if row.kind == idp_kinds.ENTRA else idp_kinds.default_label(row.kind, locale)
+    )
 
 
 async def enabled_providers(db: AsyncSession) -> list[dict[str, Any]]:
@@ -1409,7 +1411,9 @@ async def finish_saml(db: AsyncSession, *, slug: str, saml_response: str | None,
         return await refuse(db, SsoError("not_configured"), purpose, slug=slug)
     if not saml_response:
         err = SsoError("denied", "no SAMLResponse")
-        return await (_finish_test(db, slug, data, None, err) if purpose == "test" else refuse(db, err, purpose, slug=slug))
+        return await (
+            _finish_test(db, slug, data, None, err) if purpose == "test" else refuse(db, err, purpose, slug=slug)
+        )
     claims: dict[str, Any] | None = None
     try:
         try:
@@ -1469,7 +1473,9 @@ async def _finish_test(
     db: AsyncSession, slug: str, data: dict[str, Any], claims: dict[str, Any] | None, err: SsoError | None
 ) -> str:
     test_id = str(data.get("test_id") or "")
-    q = select(SsoAuthState).where(SsoAuthState.state_hash == _hash("test:" + test_id), SsoAuthState.purpose == "result")
+    q = select(SsoAuthState).where(
+        SsoAuthState.state_hash == _hash("test:" + test_id), SsoAuthState.purpose == "result"
+    )
     res = (await db.execute(q)).scalar_one_or_none()
     prov = await get_provider(db, slug=slug)
     report: dict[str, Any] = {"status": "done", "ok": err is None, "at": utcnow().isoformat(timespec="seconds")}
@@ -1612,7 +1618,13 @@ async def _bind(
     kind, email, invite_id = inv.kind, inv.email, inv.id
     await db.delete(inv)  # one time
     await db.flush()
-    facts = {"kind": kind, "email": email, "invite_id": invite_id, "provider": cfg.slug, **_identity_facts(ident, claims)}
+    facts = {
+        "kind": kind,
+        "email": email,
+        "invite_id": invite_id,
+        "provider": cfg.slug,
+        **_identity_facts(ident, claims),
+    }
     if kind == "invite":
         await audit.record(db, "user.invite_accepted", "user", target.id, after=facts, actor=target)
     await audit.record(db, "auth.identity_bound", "user", target.id, after=facts, actor=target)
@@ -1649,7 +1661,9 @@ async def _first_login(
             return await _bind(db, inv, cfg, claims)
         clash = (await db.execute(select(User.id).where(User.email.in_(verified)))).scalars().first()
         if clash is not None:  # never linked by e-mail: an admin's invite or a confirmed link only
-            raise SsoError("account_exists", "verified address equals an existing account without an invite", user_id=clash)
+            raise SsoError(
+                "account_exists", "verified address equals an existing account without an invite", user_id=clash
+            )
     if not prov.self_signup or prov.invite_only:
         raise SsoError("signup_closed", "no account and self sign-up off (invite only)")
     role = await _default_role(db, prov)
@@ -1701,7 +1715,12 @@ async def _finish_link(db: AsyncSession, user_id: int | None, cfg: Any, claims: 
         "auth.identity_bound",
         "user",
         user.id,
-        after={"kind": "link", "provider": cfg.slug, **_identity_facts(ident, claims), "email_at_login": ident.email_at_login},
+        after={
+            "kind": "link",
+            "provider": cfg.slug,
+            **_identity_facts(ident, claims),
+            "email_at_login": ident.email_at_login,
+        },
         actor=user,
     )
     await db.commit()
@@ -1869,7 +1888,9 @@ async def invite_provider(db: AsyncSession, slug: str | None) -> tuple[str, SsoP
         return LOCAL, prov
     prov = await get_provider(db, create=name == PROVIDER, slug=name)
     if prov is None:
-        raise SsoAdminError(422, "unknown_provider", f"unknown identity provider {name!r}", "Bilinmeyen kimlik sağlayıcısı")
+        raise SsoAdminError(
+            422, "unknown_provider", f"unknown identity provider {name!r}", "Bilinmeyen kimlik sağlayıcısı"
+        )
     return name, prov
 
 
@@ -1884,8 +1905,8 @@ async def _place_invite(
     provider: str = PROVIDER,
 ) -> SsoInvite:
     other = (
-        await db.execute(select(SsoInvite).where(SsoInvite.email == email).order_by(SsoInvite.id))
-    ).scalars().first()
+        (await db.execute(select(SsoInvite).where(SsoInvite.email == email).order_by(SsoInvite.id))).scalars().first()
+    )
     if other is not None and other.user_id != user.id:
         if other.expires_at >= utcnow():
             raise SsoAdminError(
@@ -2015,7 +2036,9 @@ async def mark_bind(
 ) -> dict[str, Any]:
     slug, prov = await invite_provider(db, provider)
     if slug == LOCAL:
-        raise SsoAdminError(422, "unknown_provider", "binding needs an identity provider", "Bağlama bir kimlik sağlayıcısı gerektirir")
+        raise SsoAdminError(
+            422, "unknown_provider", "binding needs an identity provider", "Bağlama bir kimlik sağlayıcısı gerektirir"
+        )
     target = await db.get(User, user_id)
     if target is None:
         raise SsoAdminError(404, "not_found", "user not found", "Kullanıcı bulunamadı")
@@ -2178,9 +2201,7 @@ async def user_status(db: AsyncSession) -> dict[str, dict[str, Any]]:
     for i in (await db.execute(select(UserIdentity).order_by(UserIdentity.id))).scalars():
         all_idents.setdefault(i.user_id, []).append(i)
     # the Entra identity first (the Microsoft column of the Users screen), then the others
-    idents = {
-        uid: next((i for i in rows if i.provider == PROVIDER), rows[0]) for uid, rows in all_idents.items()
-    }
+    idents = {uid: next((i for i in rows if i.provider == PROVIDER), rows[0]) for uid, rows in all_idents.items()}
     glass = set((await db.execute(select(User.id).where(*_break_glass_filter()))).scalars())
     linked = await db.execute(select(Instructor.id, Instructor.user_id).where(Instructor.user_id.is_not(None)))
     instructors = {uid: iid for iid, uid in linked}

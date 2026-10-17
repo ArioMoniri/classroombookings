@@ -2,9 +2,9 @@
 /**
  * Yönetim › KVKK › Yapay zekâ ve kişisel veri (consent gates 2026-10-16): what a never-given `ai_personal` consent
  * means for the whole institution, `kvkk.ai_personal_default`:
- * - `included` (the default, how SmartSched always worked): only a person who withdrew the consent is replaced with
- *   a placeholder in AI requests;
- * - `excluded`: "not granted = excluded", only a person who gave the consent appears by name.
+ * - `excluded` (the default, owner decision 2026-10-17 R1-M-07): "not granted = excluded", only a person who gave the
+ *   consent appears by name;
+ * - `included` (an admin's choice): only a person who withdrew the consent is replaced with a placeholder.
  * Read from `GET /settings`, saved with `PUT /settings {extra: {"kvkk.ai_personal_default": …}}` (role ADMIN; the
  * backend audits it as a tracked setting). A 422 `message_tr` / `message_en` is shown next to the field. Saving
  * refreshes everyone's Gizlilik text (`GET /me/privacy` `ai_personal_default`, `ai_excluded`).

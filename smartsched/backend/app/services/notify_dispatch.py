@@ -204,6 +204,9 @@ class EmailChannel(ChannelAdapter):
             body=notice.body,
             user_id=user.id,
             booking_id=notice.booking_id,
+            # wave 3b W3-MAIL: the themed HTML's button and language (the plain text stays the bell's body)
+            link=notice.link,
+            locale=await mail._language(session, user),
         )
         # the outbox row is the e-mail's own record (PENDING -> SENT / FAILED, or UNSENT without SMTP / address)
         return Delivery(self.name, "sent", ref_id=row.id, detail=row.status)

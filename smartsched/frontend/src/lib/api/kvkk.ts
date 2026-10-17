@@ -109,7 +109,7 @@ export const MyPrivacy = z.object({
   requests: z.array(Dsr).default([]),
   due_days: z.number().default(30),
   /** what a never-given `ai_personal` consent means here (consent gates 2026-10-16; `kvkk.ai_personal_default`) */
-  ai_personal_default: z.enum(["included", "excluded"]).catch("included").default("included"),
+  ai_personal_default: z.enum(["included", "excluded"]).catch("excluded").default("excluded"),
   /** this person's name and e-mail are replaced by a placeholder in AI requests right now */
   ai_excluded: z.boolean().default(false),
 });
@@ -169,16 +169,17 @@ export const kvkkKeys = {
   aiDefault: ["kvkk", "ai-personal-default"] as const,
 };
 
-/** `kvkk.ai_personal_default` (consent gates 2026-10-16): `included` = only an explicit withdrawal keeps a person out
- * of AI requests; `excluded` = a consent that was never given counts as no (only a grant lets a person in). */
+/** `kvkk.ai_personal_default` (consent gates 2026-10-16): `excluded` (default, owner decision 2026-10-17) = a consent
+ * that was never given counts as no (only a grant lets a person in); `included` = only an explicit withdrawal keeps a
+ * person out of AI requests (an admin's choice). */
 export const AI_DEFAULTS = ["included", "excluded"] as const;
 export type AiDefault = (typeof AI_DEFAULTS)[number];
 export const AI_DEFAULT_KEY = "kvkk.ai_personal_default";
 
-/** The stored value from a `GET/PUT /settings` answer (`included` when missing or unreadable, as the backend reads it). */
+/** The stored value from a `GET/PUT /settings` answer (`excluded` when missing or unreadable, as the backend reads it). */
 export function aiDefaultOf(settings: unknown): AiDefault {
   const v = settings && typeof settings === "object" ? (settings as Record<string, unknown>)[AI_DEFAULT_KEY] : null;
-  return v === "excluded" ? "excluded" : "included";
+  return v === "included" ? "included" : "excluded";
 }
 
 export const kvkkApi = {

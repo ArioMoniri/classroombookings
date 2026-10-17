@@ -308,4 +308,4 @@
   status: done
   phase: "wave 3 (W3-AI)"
   evidence: smartsched/backend/tests/ai/test_w3_ai_guardrails.py
-  note: "app/ai/guardrails.py, app/ai/redteam_guard_cases.json (45 cases); /admin/ai Koruma with a dry-run test bench"
+  note: "app/ai/guardrails.py, app/ai/redteam_guard_cases.json (44 cases); /admin/ai Koruma with a dry-run test bench"

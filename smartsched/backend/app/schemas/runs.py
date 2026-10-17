@@ -148,6 +148,10 @@ class MoveOut(BaseModel):
     hard_score: int | None = None
     status: str | None = None
     violations: list[dict[str, Any]] = []
+    #: owner decision 2026-10-17 (R1-S-37): a forced move on the published run went into this new draft run
+    #: (``assignment``, ``hard_score``, ``status`` are the draft's); the live run ``live_run_id`` is unchanged
+    draft_run_id: int | None = None
+    live_run_id: int | None = None
 
 
 class DiagnosisApplyIn(BaseModel):

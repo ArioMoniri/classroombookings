@@ -4784,8 +4784,8 @@
       "lead": "When the AI assistant sends text to Claude, a person kept out of AI requests appears only as a placeholder ([KİŞİ_1]). Choose what an AI consent that was never given means.",
       "legend": "A consent that was never given",
       "included": "Counts as yes: included unless withdrawn",
-      "includedHint": "Everyone's name and e-mail may go into AI requests; only a person who withdraws the AI consent under Profile › Privacy is replaced with a placeholder. This is how SmartSched worked so far.",
-      "excluded": "Counts as no: excluded unless given",
+      "includedHint": "Everyone's name and e-mail may go into AI requests; only a person who withdraws the AI consent under Profile › Privacy is replaced with a placeholder.",
+      "excluded": "Counts as no: excluded unless given (default)",
       "excludedHint": "A person is kept out until they give the AI consent under Profile › Privacy; everyone else is replaced with a placeholder, so AI answers name fewer people.",
       "current": "Saved setting",
       "save": "Save",
@@ -5681,6 +5681,137 @@
       "provider_refusal": "Refused by the provider",
       "provider_unsupported": "Provider does not support this input",
       "other": "Other"
+    }
+  },
+  "integrations": {
+    "nav": "Integrations",
+    "title": "Integrations",
+    "lead": "Identity, e-mail, calendar, notification channel, webhook and AI connections in one place.",
+    "shared": "These settings apply to the whole organisation: when one administrator changes them, every administrator sees the same.",
+    "noAccess": "This page needs the \"Organisation settings\" or \"Planning administration\" permission.",
+    "loadError": "The connection statuses could not be loaded. Try again shortly.",
+    "retry": "Try again",
+    "refresh": "Refresh status",
+    "summary": "{connected} connected · {attention} need attention · {total} in total",
+    "tab": {
+      "identity": "Identity",
+      "email": "E-mail",
+      "calendar": "Calendar",
+      "channels": "Channels",
+      "automation": "Webhooks and automation",
+      "ai": "AI"
+    },
+    "tabLead": {
+      "identity": "Identity providers for sign-in and invitations (Microsoft, Google, OIDC, SAML, LDAP).",
+      "email": "The SMTP server that sends password-reset, invitation and booking e-mails.",
+      "calendar": "Connections that push bookings to users' Google and Microsoft 365 calendars.",
+      "channels": "Channels that deliver notifications through Telegram, WhatsApp, SMS, Teams and Slack.",
+      "automation": "Send booking and approval events as signed webhooks to n8n, Activepieces, Pipedream or Zapier.",
+      "ai": "The AI providers, models and limits the planning assistant uses."
+    },
+    "status": {
+      "connected": "Connected",
+      "not_configured": "Not configured",
+      "error": "Error",
+      "disabled": "Off",
+      "unknown": "Unknown"
+    },
+    "card": {
+      "setup": "Set up",
+      "edit": "Edit",
+      "open": "Open",
+      "setupFor": "Set up {name}",
+      "editFor": "Edit {name}",
+      "openFor": "Open {name}",
+      "lastCheck": "Last check: {when}, {result}",
+      "lastCheckOk": "succeeded",
+      "lastCheckFail": "failed",
+      "neverChecked": "Not tested yet",
+      "lastChange": "Last change: {who}, {when}",
+      "lastChangeWhen": "Last change: {when}",
+      "noChange": "No changes yet",
+      "switchLabel": "{name} on",
+      "on": "On",
+      "off": "Off",
+      "list": "{area} connections"
+    },
+    "switch": {
+      "notConfigured": "Set it up first to switch it on.",
+      "noSwitch": "This connection is managed on its own page.",
+      "enableInSetup": "Finish the setup to switch it on (the KVKK sign-off is recorded there)."
+    },
+    "confirmOff": {
+      "title": "Switch off {name}?",
+      "body": "This setting applies to the whole organisation; once off it works for no user. You can switch it on again at any time.",
+      "confirm": "Switch off",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "on": "{name} switched on",
+      "off": "{name} switched off",
+      "failed": "Could not change it: {reason}",
+      "refreshed": "Status refreshed"
+    },
+    "sheet": {
+      "done": "Done",
+      "close": "Close",
+      "lead": "Saved changes apply to every administrator.",
+      "notFound": "This connection was not found; the list may have changed.",
+      "pending": "The new setup screen of this area is on its way; the current settings are below for now."
+    },
+    "ai": {
+      "lead": "Providers, models, usage and limits are managed on the AI page.",
+      "open": "Open the AI settings"
+    },
+    "guided": {
+      "title": "Connect an automation platform",
+      "lead": "Let your workflow receive SmartSched events as signed webhooks: create the trigger, paste its address, add the signing secret to the platform and send a test event.",
+      "platform": "Platform",
+      "step1": "1. Create the trigger on the platform",
+      "step2": "2. Paste its address here",
+      "step3": "3. Add the signing secret to the platform",
+      "step4": "4. Send a test event",
+      "how": {
+        "n8n": "Add a Webhook node to a new workflow, set the HTTP method to POST, switch “Raw Body” on and copy the Production URL.",
+        "activepieces": "In a new flow choose Webhook › Catch Webhook as the trigger and copy the Live URL it shows.",
+        "pipedream": "In a new workflow choose the HTTP / Webhook trigger (“Raw body” on) and copy the endpoint address.",
+        "zapier": "In a new Zap choose Webhooks by Zapier › Catch Raw Hook as the trigger and copy the custom webhook address."
+      },
+      "docs": "{name} documentation (opens in a new tab)",
+      "url": "Webhook address",
+      "urlHint": "The https address the platform gives. Local-network addresses and the server's own are refused.",
+      "urlLooksOff": "This does not look like a {name} address; save it anyway if it is right.",
+      "urlInvalid": "Enter a valid https address.",
+      "events": "Events to send",
+      "eventsAll": "All",
+      "eventsBookings": "Bookings",
+      "eventsApprovals": "Approvals",
+      "save": "Save and get the signing secret",
+      "saving": "Saving…",
+      "saved": "{name} webhook address saved",
+      "existing": "Saved address",
+      "secret": "Signing secret",
+      "secretOnce": "This secret is shown only now. Store it on the platform as a secret variable (SMARTSCHED_SECRET).",
+      "secretHint": "The saved secret ends in {hint}. It is never shown again; create a new one if needed.",
+      "rotate": "Create a new secret",
+      "rotated": "New secret created; replace it on the platform too.",
+      "copy": "Copy",
+      "copyWhat": "Copy {what}",
+      "copied": "Copied",
+      "copyFailed": "Could not copy; select the text and copy it by hand.",
+      "headers": "Request headers",
+      "snippet": "Signature check",
+      "snippetLead": "Paste it into the platform's code step: HMAC-SHA256 over the timestamp and the raw body, 5-minute tolerance.",
+      "test": "Send a test event",
+      "testing": "Sending…",
+      "testPending": "The test event is queued; waiting for the result…",
+      "testSent": "The test event arrived (HTTP {http}).",
+      "testFailed": "The test event did not arrive: {reason}",
+      "testUnknownReason": "the platform did not answer",
+      "globalOff": "Webhook delivery is off: the test event is sent, booking events are not.",
+      "enableGlobal": "Switch webhook delivery on",
+      "manageAll": "All webhook addresses",
+      "saveFirst": "Save the address first."
     }
   }
 }

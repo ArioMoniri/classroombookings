@@ -59,8 +59,8 @@
 <text x='856' y='629' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>openid · profile · email · User.Read</text>
 <rect x='1300' y='608' width='96' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
 <text x='1348.0' y='628.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Kopyala</text>
-<rect x='1300' y='452' width='96' height='32' rx='16' fill='#DCFCE7' fill-opacity='1'/>
-<text x='1348' y='473' font-size='13' font-weight='600' fill='#15803D' text-anchor='middle'>✓ Kopyalandı</text>
+<rect x='1300' y='460' width='96' height='32' rx='16' fill='#DCFCE7' fill-opacity='1' stroke='#15803D' stroke-width='1'/>
+<text x='1348' y='481' font-size='12' font-weight='600' fill='#15803D' text-anchor='middle'>✓ Kopyalandı</text>
 <text x='844' y='670' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>'Kopyala' → aynı yerde '✓ Kopyalandı' (1,5 sn), aria-live: 'Yönlendirme adresi kopyalandı'.</text>
 <rect x='844' y='686' width='560' height='72' rx='12' fill='#EFF6FF' fill-opacity='1'/>
 <text x='860' y='712' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Değerler kurumunuzun genel adresinden üretilir:</text>

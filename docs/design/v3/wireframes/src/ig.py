@@ -141,7 +141,7 @@ def setup_1440():
     copyfield(s, X + 24, Y + 156, 560, "Yeniden yönlendirme URI'si (Web)", "https://plan.uni.edu.tr/api/v1/auth/sso/entra/callback")
     copyfield(s, X + 24, Y + 230, 560, "Ön kanal oturum kapatma URL'si", "https://plan.uni.edu.tr/api/v1/auth/sso/entra/logout")
     copyfield(s, X + 24, Y + 304, 560, "API izinleri (Microsoft Graph, temsilci)", "openid · profile · email · User.Read")
-    s.r(X + 24 + 456, Y + 162, 96, 32, OKBG, 16).t(X + 24 + 504, Y + 183, "✓ Kopyalandı", 13, 600, OK, "middle")
+    s.r(X + 24 + 456, Y + 170, 96, 32, OKBG, 16, OK).t(X + 24 + 504, Y + 191, "✓ Kopyalandı", 12, 600, OK, "middle")
     s.note(X + 24, Y + 380, "'Kopyala' → aynı yerde '✓ Kopyalandı' (1,5 sn), aria-live: 'Yönlendirme adresi kopyalandı'.")
     s.r(X + 24, Y + 396, 560, 72, TINT, 12).t(X + 40, Y + 422, "Değerler kurumunuzun genel adresinden üretilir:", 13, 600, PRI)
     s.t(X + 40, Y + 446, "https://plan.uni.edu.tr · Ayarlar › Genel'de değiştirilir", 13, 400, PRI)
@@ -244,10 +244,10 @@ def signin(phone):
     s.t(x, by + 240, "olarak açılır. Rolünüzü yalnızca bir yönetici değiştirebilir.", 13, 400, MUTED)
     s.line(x, by + 268, x + w, by + 268)
     s.t(x, by + 300, "Kullanıcı adı ve parolayla giriş yap  ▸", 14, 600, FG)
-    s.note(x, by + 340, "Tüm sağlayıcı düğmeleri aynı boy ve ağırlık (Google: eşit belirginlik).")
-    s.note(x, by + 358, "Sıra yöneticinin seçtiği sıradır; en fazla 3 görünür, fazlası 'Diğer giriş yolları'.")
-    s.note(x, by + 376, "Microsoft ve Google düğmeleri kendi marka kurallarıyla; diğerleri nötr.")
-    s.note(x, by + 394, "Davet bağlantısında yalnız davetteki yöntem gösterilir.")
+    for i, n in enumerate(["Sağlayıcı düğmeleri aynı boy ve ağırlıkta", "(Google: eşit belirginlik). Sıra yöneticinin;",
+                           "en fazla 3 görünür, fazlası 'Diğer giriş yolları'.", "Microsoft ve Google kendi marka kurallarıyla,",
+                           "diğerleri nötr. Davet bağlantısında yalnız", "davetteki yöntem gösterilir."]):
+        s.note(x, by + 340 + i * 18, n)
     s.save(f"{OUT}/signin-providers-{'390' if phone else '1440'}.svg")
 
 
@@ -309,7 +309,7 @@ def smtp_1440():
     s.t(312, 528, "6. Etkinleştir", 14, 700)
     s.t(312, 552, "Gönderilmeyi bekleyen 37 bildirim var.", 13, 400)
     s.chip(312, 566, "Yalnız yenileri", sel=True, h=32, size=12)
-    s.chip(440, 566, "Bekleyenleri de gönder", h=32, size=12)
+    s.chip(452, 566, "Bekleyenleri de gönder", h=32, size=12)
     s.save(f"{OUT}/smtp-wizard-1440.svg")
 
 

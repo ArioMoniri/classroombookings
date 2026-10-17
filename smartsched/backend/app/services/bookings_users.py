@@ -374,17 +374,28 @@ async def issue_reset_token(
     )
     emailed = False
     if user.email and await smtp_configured(session):
+        # wave 3b W3-MAIL: the themed password-reset e-mail (code box) in the person's language
+        from app.services import mail
+
+        lang = await mail.resolve_locale(session, None, user)
+        ctx = {
+            "code": token,
+            "valid_hours": int(RESET_TTL.total_seconds() // 3600),
+            "name": user.full_name or user.username or "",
+            "link": "/reset-password",
+        }
+        rendered = await mail.render_for(session, "password_reset", lang, **ctx)
         row = await notify(
             session,
             kind="password_reset",
             to_email=user.email,
-            subject="SmartSched parola sıfırlama / password reset",
-            body=(
-                "Parolanızı sıfırlamak için bu tek kullanımlık kodu kullanın (24 saat geçerli):\n"
-                f"{token}\n\nUse this one-time code to reset your password (valid for 24 hours):\n{token}\n"
-            ),
+            subject=rendered.subject,
+            body=rendered.text,
             user_id=user.id,
             deliver_now=True,  # the caller shows the code when the e-mail could not be sent
+            locale=lang,
+            link="/reset-password",
+            ctx=ctx,
         )
         emailed = row.status == "SENT"
         # the outbox keeps a record of the e-mail, never the live token

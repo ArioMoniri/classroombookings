@@ -37,11 +37,14 @@ const { values: args } = parseArgs({
     plan: { type: "boolean", default: false },
     theme: { type: "string", default: "light" },
     scenes: { type: "string" }, // comma-separated scene ids: render only these (previews)
+    story: { type: "string", default: "launch" }, // launch | clip (one take, for the README feature clips)
+    take: { type: "string" }, // clip: the take name (e.g. find-room-light)
+    steps: { type: "string" }, // clip: "first-last" step indexes (default: all)
+    title: { type: "string" }, // clip: chapter chip label
   },
 });
 const FPS = Number(args.fps);
 const FMT = args.format;
-const [W, H] = FMT === "vertical" ? [1080, 1920] : [1920, 1080];
 const log = (...m) => console.log(`[launch ${FMT}]`, ...m);
 if (!env.PLAYWRIGHT_BROWSERS_PATH && existsSync("/opt/pw-browsers")) env.PLAYWRIGHT_BROWSERS_PATH = "/opt/pw-browsers";
 const require = createRequire(join(REPO, "smartsched/frontend/package.json"));
@@ -129,7 +132,8 @@ function camera(take, seg, opts) {
 }
 
 // ---- story → scenes on the output clock ----------------------------------------------------------------------
-const story = buildStory({ format: FMT, theme: args.theme });
+const story = buildStory({ format: FMT, theme: args.theme, story: args.story, take: args.take, steps: args.steps?.split("-").map(Number), title: args.title });
+const [W, H] = story.size;
 const XF = story.crossfadeMs ?? 500;
 let tCursor = 0;
 const scenes = [];

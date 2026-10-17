@@ -149,7 +149,8 @@ OIDC_PRESETS: dict[str, dict[str, Any]] = {
         "steps": {
             "tr": [
                 "AD FS Yönetimi › Application Groups › Server application accessing a web API.",
-                "Redirect URI alanına aşağıdaki yönlendirme adresini yapıştırın; bir paylaşılan gizli anahtar oluşturun.",
+                "Redirect URI alanına aşağıdaki yönlendirme adresini yapıştırın; paylaşılan bir gizli anahtar "
+                "oluşturun.",
                 "Issuance Transform Rules: e-posta (email) ve gruplar (group) talepleri.",
                 "ADFS e-posta doğrulaması göndermez: 'E-postaya güven' seçeneğini yalnızca kurum dizini için açın.",
             ],
@@ -157,7 +158,8 @@ OIDC_PRESETS: dict[str, dict[str, Any]] = {
                 "AD FS Management › Application Groups › Server application accessing a web API.",
                 "Paste the redirect URI below into Redirect URI; generate a shared secret.",
                 "Issuance Transform Rules: the email and group claims.",
-                "ADFS sends no e-mail verification flag: turn on 'Trust the e-mail' for the institution directory only.",
+                "ADFS sends no e-mail verification flag: turn on 'Trust the e-mail' for the institution directory "
+                "only.",
             ],
         },
     },
@@ -259,7 +261,8 @@ STEPS: dict[str, dict[str, list[str]]] = {
             "Dizin (tenant) kimliği, Uygulama (istemci) kimliği ve gizli anahtarı buraya yapıştırın.",
         ],
         "en": [
-            "Microsoft Entra admin center › App registrations › New registration: 'This organisational directory only'.",
+            "Microsoft Entra admin center › App registrations › New registration: 'This organisational directory "
+            "only'.",
             "Paste the address below as the Redirect URI (Web).",
             "Certificates & secrets › New client secret; copy the value at once.",
             "Paste the directory (tenant) id, the application (client) id and the secret here.",
@@ -319,10 +322,7 @@ def catalog(*, saml_available: bool) -> list[dict[str, Any]]:
     """The "add provider" gallery: one card per kind (LDAP last, managed in its own settings)."""
     out: list[dict[str, Any]] = []
     for kind in (*KINDS, LDAP):
-        presets = [
-            {"key": key, "label": p["label"]}
-            for key, p in presets_for(kind).items()
-        ]
+        presets = [{"key": key, "label": p["label"]} for key, p in presets_for(kind).items()]
         out.append(
             {
                 "kind": kind,

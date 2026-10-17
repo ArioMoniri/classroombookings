@@ -11,6 +11,12 @@ import { I18nProvider } from "@/lib/i18n/provider";
 import { PriorityForm, SubjectPriorityForm } from "./priority-editor";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+// the signed-in account's permissions (an administrator unless a test says otherwise)
+const me = vi.hoisted(() => ({ perms: ["planning.view", "planning.edit", "planning.admin"] as string[] }));
+vi.mock("@/lib/permissions", async (orig) => {
+  const real = await orig<typeof import("@/lib/permissions")>();
+  return { ...real, usePermissions: () => ({ loading: false, perms: me.perms, can: (need: string | string[]) => real.hasPermission(me.perms, need), canAll: (need: string[]) => real.hasAllPermissions(me.perms, need), userId: 1, departmentId: null }) };
+});
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const wrap = (ui: React.ReactNode) =>
@@ -20,7 +26,29 @@ const wrap = (ui: React.ReactNode) =>
     </QueryClientProvider>,
   );
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  me.perms = ["planning.view", "planning.edit", "planning.admin"];
+});
+
+describe("who sets a person's priority (owner decision 2026-10-17, R2-M-08)", () => {
+  it("hides the person priority form from a planner; a programme's form stays", () => {
+    me.perms = ["planning.view", "planning.edit"];
+    wrap(
+      <>
+        <SubjectPriorityForm subject="person" id={98} termId={2} label="Dr. Öğr. Üyesi S. E." current={null} />
+        <SubjectPriorityForm subject="program" id={5} termId={2} label="Psikoloji" current={null} />
+      </>,
+    );
+    expect(screen.queryByTestId("person-priority")).toBeNull();
+    expect(screen.queryByTestId("person-priority-save")).toBeNull();
+    expect(screen.getByTestId("program-priority-save")).toBeInTheDocument();
+  });
+  it("shows it to a coordinator / administrator (planning.admin)", () => {
+    wrap(<SubjectPriorityForm subject="person" id={98} termId={2} label="Dr. Öğr. Üyesi S. E." current={null} />);
+    expect(screen.getByTestId("person-priority-save")).toBeInTheDocument();
+  });
+});
 
 describe("priority editor focus (T-R2-25)", () => {
   it("returns focus to the edited row after a request priority is saved", async () => {

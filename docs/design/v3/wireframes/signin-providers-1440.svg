@@ -32,8 +32,10 @@
 <text x='52' y='500' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>olarak açılır. Rolünüzü yalnızca bir yönetici değiştirebilir.</text>
 <line x1='52' y1='528' x2='452' y2='528' stroke='#E2E8F0' stroke-width='1'/>
 <text x='52' y='560' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Kullanıcı adı ve parolayla giriş yap  ▸</text>
-<text x='52' y='600' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Tüm sağlayıcı düğmeleri aynı boy ve ağırlık (Google: eşit belirginlik).</text>
-<text x='52' y='618' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Sıra yöneticinin seçtiği sıradır; en fazla 3 görünür, fazlası 'Diğer giriş yolları'.</text>
-<text x='52' y='636' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Microsoft ve Google düğmeleri kendi marka kurallarıyla; diğerleri nötr.</text>
-<text x='52' y='654' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Davet bağlantısında yalnız davetteki yöntem gösterilir.</text>
+<text x='52' y='600' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Sağlayıcı düğmeleri aynı boy ve ağırlıkta</text>
+<text x='52' y='618' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>(Google: eşit belirginlik). Sıra yöneticinin;</text>
+<text x='52' y='636' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>en fazla 3 görünür, fazlası 'Diğer giriş yolları'.</text>
+<text x='52' y='654' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Microsoft ve Google kendi marka kurallarıyla,</text>
+<text x='52' y='672' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>diğerleri nötr. Davet bağlantısında yalnız</text>
+<text x='52' y='690' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>davetteki yöntem gösterilir.</text>
 </svg>

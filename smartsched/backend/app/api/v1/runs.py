@@ -726,6 +726,14 @@ async def move_assignment(run_id: int, aid: int, body: MoveIn, db: DB, user: Pla
         return MoveOut(ok=False, assignment=(await _assignment_out(db, run, [a]))[0], conflicts=conflicts)
     if conflicts:  # forcing a hard-rule break: administrators only, with a written reason (persona M-02 / M-09)
         await _check_force(db, user, body.reason, conflicts)
+        if run.is_active:
+            # owner decision 2026-10-17 (R1-S-37): a forced move never edits the published plan; it goes into a new
+            # draft copy of the active run, published later through the normal guard (confirm_forced_breaks)
+            from app.services import run_copy
+
+            draft, id_map = await run_copy.clone_as_draft(db, run, actor=user, reason=body.reason)
+            out = await move_assignment(draft.id, id_map[a.id], body, db, user)
+            return out.model_copy(update={"draft_run_id": draft.id, "live_run_id": run_id})
     original_id, before = a.id, assignment_snapshot(a)
     row_weeks = [int(w) for w in (a.weeks or ([a.week] if a.week else []))]
     if body.week and len(row_weeks) > 1:

@@ -129,6 +129,6 @@
 <text x='312' y='552' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Gönderilmeyi bekleyen 37 bildirim var.</text>
 <rect x='312' y='566' width='132' height='32' rx='16.0' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
 <text x='378.0' y='586.32' font-size='12' font-weight='600' fill='#2563EB' text-anchor='middle'>Yalnız yenileri</text>
-<rect x='440' y='566' width='181' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
-<text x='530.5' y='586.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Bekleyenleri de gönder</text>
+<rect x='452' y='566' width='181' height='32' rx='16.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='542.5' y='586.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Bekleyenleri de gönder</text>
 </svg>

@@ -17,6 +17,7 @@ async def test_dbg(client):
     await client.post(f"/api/v1/council/jobs/{j1['id']}/commit", headers=h, json=_ui_body(j1))
     j2 = await upload(client, h, (BAHAR_LIST.name, BAHAR_LIST.read_bytes()), ai="false")
     dry = (await client.post(f"/api/v1/council/jobs/{j2['id']}/commit", headers=h, json={"group": 0, "term_id": tid, "allow_pending": True, "dry_run": True})).json()
+    print("DBG_COUNTS", json.dumps(dry["counts"]), dry["rows_total"], Counter((x["entity"], x["change"]) for x in dry["rows"]))
     ups = [x for x in dry["rows"] if x["entity"] == "meeting_requests" and x["change"] == "update"]
     print("DBG_FIELDS", Counter(f["field"] for x in ups for f in x["fields"]))
     print("DBG_SAMPLE", json.dumps(ups[:5], ensure_ascii=False, default=str)[:2500])

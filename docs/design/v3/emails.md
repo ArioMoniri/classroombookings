@@ -674,10 +674,12 @@ Rectification, Bilgi / Information, Veri indirme / Data export. A completed eras
 
 | `level` | S TR | P TR | H / I TR | B TR | EN (S · I · B) |
 |---|---|---|---|---|---|
-| `near` (user, ≥ threshold, once per period) | Yapay zekâ kullanım hakkınızın %{percent}'ini kullandınız | {reset_date} tarihinde yenilenir. | Kullanım hakkınız azalıyor · Bu ayki yapay zekâ kullanım hakkınızın %{percent}'ini kullandınız. {reset_date} tarihinde yenilenir. | Kullanımımı gör | You have used {percent}% of your AI allowance · It resets on {reset_date}. · View my usage |
+| `near` (user, ≥ threshold, once per period) | Yapay zekâ kullanım hakkınız: %{percent} kullanıldı | {reset_date} tarihinde yenilenir. | Kullanım hakkınız azalıyor · Bu ayki yapay zekâ kullanım hakkınızın yüzde {percent} kadarı kullanıldı. {reset_date} tarihinde yenilenir. | Kullanımımı gör | You have used {percent}% of your AI allowance · It resets on {reset_date}. · View my usage |
 | `limit` (user, 100 %) | Yapay zekâ kullanım sınırınıza ulaştınız | Ek kullanım için yöneticinize başvurun. | Kullanım sınırına ulaşıldı · Bu ayki sınırınıza ulaştınız; yapay zekâ özellikleri {reset_date} tarihine kadar kapalı. Planlama ve rezervasyon çalışmaya devam eder. | Yöneticiye bildir | You have reached your AI limit · AI features are paused until {reset_date}; planning and booking keep working. · Notify an administrator |
-| `org_near` (admins, ≥ 90 %) | Kurum yapay zekâ bütçesinin %{percent}'i kullanıldı | {used} / {limit} token · {reset_date} yenilenir | Kurum bütçesi azalıyor · details: Kullanılan · Sınır · En çok kullanan 3 kişi | Limitleri aç | {percent}% of the organisation's AI budget is used · Open limits |
+| `org_near` (admins, ≥ 90 %) | Kurum yapay zekâ bütçesi: %{percent} kullanıldı | {used} / {limit} token · {reset_date} yenilenir | Kurum bütçesi azalıyor · details: Kullanılan · Sınır · En çok kullanan 3 kişi | Limitleri aç | {percent}% of the organisation's AI budget is used · Open limits |
 | `org_limit` (admins) | Kurum yapay zekâ bütçesi doldu | Yapay zekâ istekleri durdu. | Bütçe doldu · Yeni istekler {reset_date} tarihine kadar engelleniyor. | Limitleri aç | The organisation's AI budget is used up · Open limits |
+
+Suffix note: `ai-admin.md` key `aiAdmin.banner.near` reads "…hakkınızın %{pct}'ini kullandınız", which is wrong for most numbers (84 → "%84'ünü", 90 → "%90'ını"). Use the suffix-free form above ("Yapay zekâ kullanım hakkınız: %{percent} kullanıldı") in the banner, bell and e-mail alike; `tr_grammar.py` has only `dative()`, no accusative/possessive helper.
 
 `{percent}`: "%84" in TR (the `%` before the number), "84%" in EN. `limit` for the user's `downgraded` action: I = "Sınırınıza
 ulaştınız; bu ay daha hızlı ve sınırlı bir modelle devam ediliyor." (ai-admin `aiAdmin.banner.downgraded`).

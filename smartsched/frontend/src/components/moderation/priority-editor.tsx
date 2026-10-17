@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { refusal, useSetPriority, useSetSubjectPriority, type Priority, type Subject, type TierCode } from "@/lib/api/moderation";
 import { useI18n } from "@/lib/i18n/provider";
+import { usePermissions } from "@/lib/permissions";
 import { TIERS, tierOf } from "./moderation-model";
 import { ResponsiveDialog } from "./responsive-dialog";
 import { usePhone } from "./use-media";
@@ -183,7 +184,18 @@ export function PriorityPopover({ target, disabled = false, open, onOpenChange }
  * request of the subject without a more specific value inherits it (request > section > person > programme);
  * Normal clears it. Coordinators and administrators only (`planning.edit`).
  */
-export function SubjectPriorityForm({ subject, id, termId, label, current, note: initialNote, onDone, compact = false }: { subject: Subject; id: number; termId: number; label: string; current: number | null; note?: string | null; onDone?: () => void; compact?: boolean }) {
+type SubjectPriorityProps = { subject: Subject; id: number; termId: number; label: string; current: number | null; note?: string | null; onDone?: () => void; compact?: boolean };
+
+/** Owner decision 2026-10-17 (R2-M-08): only coordinators / administrators (`planning.admin`) set a person's priority
+ * (`PUT /moderation/people/{id}/priority` answers 403 `person_priority_admin` otherwise); a programme's stays
+ * `planning.edit`. */
+export function SubjectPriorityForm(props: SubjectPriorityProps) {
+  const { can } = usePermissions();
+  if (props.subject === "person" && !can("planning.admin")) return null;
+  return <SubjectPriorityFields {...props} />;
+}
+
+function SubjectPriorityFields({ subject, id, termId, label, current, note: initialNote, onDone, compact = false }: SubjectPriorityProps) {
   const { t, locale, n } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
   const [tier, setTier] = useState<TierCode>(tierOf(current ?? 0));

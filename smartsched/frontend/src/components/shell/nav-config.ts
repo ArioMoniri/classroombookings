@@ -3,6 +3,7 @@ import { ClipboardCheck, FolderPlus } from "lucide-react";
 import { GitCompareArrows, Grid3x3, UserCheck, Zap } from "lucide-react";
 import { Activity } from "lucide-react";
 import { Cpu } from "lucide-react";
+import { Plug } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
 import type { MessageKey } from "@/lib/i18n";
 
@@ -66,6 +67,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/ops", labelKey: "ops.nav", icon: Activity, permission: ["setup.settings", "planning.admin"] },
       // wave 3 W3-AI: AI providers, models per feature, usage, limits, guardrails
       { href: "/admin/ai", labelKey: "aiAdmin.nav", icon: Cpu, permission: ["setup.settings", "planning.admin"] },
+      // wave 3b W3-HUB: integrations gallery (identity, e-mail, calendar, channels, webhooks / automation, AI)
+      { href: "/admin/integrations", labelKey: "integrations.nav", icon: Plug, permission: ["setup.settings", "planning.admin"] },
     ],
   },
 ];

@@ -177,3 +177,8 @@ api_router.include_router(ai_admin.router)
 from app.api.v1 import integrations as integrations_api  # noqa: E402
 
 api_router.include_router(integrations_api.router)
+
+# wave 3b W3-MAIL: SMTP setup (presets, test with transcript, SPF/DKIM/DMARC), themed e-mail templates (/admin/email)
+from app.api.v1 import mail_admin  # noqa: E402
+
+api_router.include_router(mail_admin.router)

@@ -94,8 +94,9 @@ async def test_export_holds_every_record_about_the_person_and_no_one_else(real: 
     c, h, tid = real["client"], real["admin"], real["term_id"]
     rid, sid, iid = await _row(tid, ROW)
     uid, teacher = await make_user(c, h, "ptl.hoca@uni.edu.tr", role="TEACHER", full_name="Pelin Tuna")
+    # the coordinator is an ADMIN (owner decision 2026-10-17, R2-M-08: only planning.admin sets a person's priority)
     _pid, planner = await make_user(
-        c, h, "selin.koordinator@uni.edu.tr", role="PLANNER", full_name="Selin Kordinatörova"
+        c, h, "selin.koordinator@uni.edu.tr", role="ADMIN", full_name="Selin Kordinatörova"
     )
     async with dbmod.get_session_factory()() as s:
         ins = await s.get(Instructor, iid)

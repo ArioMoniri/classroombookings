@@ -121,8 +121,10 @@ const CONSEQUENCE: Record<Purpose, MessageKey> = {
 
 /** The ai_personal row: is the person kept out of AI requests now (the server's `ai_excluded`), and why. */
 export function aiConsentText(c: Pick<Consent, "granted" | "withdrawn_at"> | undefined, aiDefault: "included" | "excluded", aiExcluded: boolean): { out: boolean; key: MessageKey } {
-  if (aiExcluded) return { out: true, key: !c?.granted && c?.withdrawn_at ? "privacy.ai.excludedWithdrawn" : aiDefault === "excluded" ? "privacy.ai.excludedDefault" : "privacy.ai.excludedWithdrawn" };
-  return { out: false, key: aiDefault === "excluded" ? "privacy.ai.includedConsent" : "privacy.ai.includedDefault" };
+  // anything but an explicit "included" is the default "excluded" (owner decision 2026-10-17, R1-M-07 / R1-A-24)
+  const included = aiDefault === "included";
+  if (aiExcluded) return { out: true, key: !c?.granted && c?.withdrawn_at ? "privacy.ai.excludedWithdrawn" : !included ? "privacy.ai.excludedDefault" : "privacy.ai.excludedWithdrawn" };
+  return { out: false, key: !included ? "privacy.ai.includedConsent" : "privacy.ai.includedDefault" };
 }
 
 /** Withdrawals that delete something at once are confirmed first; `ai_personal` only changes what is sent from now on. */

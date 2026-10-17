@@ -4783,8 +4783,8 @@
       "lead": "Yapay zekâ asistanı Claude'a metin gönderdiğinde, yapay zekâ isteklerinin dışında tutulan kişi yalnızca bir yer tutucuyla ([KİŞİ_1]) görünür. Hiç verilmemiş bir yapay zekâ rızasının ne anlama geldiğini seçin.",
       "legend": "Hiç verilmemiş rıza",
       "included": "Evet sayılır: geri alınmadıkça dahil",
-      "includedHint": "Herkesin adı ve e-postası yapay zekâ isteklerine girebilir; yalnızca Profil › Gizlilik bölümünde yapay zekâ rızasını geri alan kişi yer tutucuyla değiştirilir. SmartSched şimdiye kadar böyle çalıştı.",
-      "excluded": "Hayır sayılır: verilmedikçe hariç",
+      "includedHint": "Herkesin adı ve e-postası yapay zekâ isteklerine girebilir; yalnızca Profil › Gizlilik bölümünde yapay zekâ rızasını geri alan kişi yer tutucuyla değiştirilir.",
+      "excluded": "Hayır sayılır: verilmedikçe hariç (varsayılan)",
       "excludedHint": "Kişi, Profil › Gizlilik bölümünde yapay zekâ rızasını verene kadar dışarıda tutulur; diğer herkes yer tutucuyla değiştirilir, yapay zekâ yanıtları daha az kişinin adını anar.",
       "current": "Kayıtlı ayar",
       "save": "Kaydet",
@@ -5680,6 +5680,137 @@
       "provider_refusal": "Sağlayıcı reddetti",
       "provider_unsupported": "Sağlayıcı bu girdiyi desteklemiyor",
       "other": "Diğer"
+    }
+  },
+  "integrations": {
+    "nav": "Entegrasyonlar",
+    "title": "Entegrasyonlar",
+    "lead": "Kimlik, e-posta, takvim, bildirim kanalları, webhook ve yapay zekâ bağlantıları tek yerde.",
+    "shared": "Bu ayarlar kurumun tamamı için geçerlidir: bir yönetici değiştirdiğinde bütün yöneticiler aynısını görür.",
+    "noAccess": "Bu sayfa için \"Kurum ayarları\" ya da \"Planlama yönetimi\" izni gerekiyor.",
+    "loadError": "Bağlantı durumları alınamadı. Biraz sonra yeniden deneyin.",
+    "retry": "Yeniden dene",
+    "refresh": "Durumu yenile",
+    "summary": "{connected} bağlı · {attention} dikkat bekliyor · toplam {total}",
+    "tab": {
+      "identity": "Kimlik",
+      "email": "E-posta",
+      "calendar": "Takvim",
+      "channels": "Kanallar",
+      "automation": "Webhook ve otomasyon",
+      "ai": "Yapay zekâ"
+    },
+    "tabLead": {
+      "identity": "Oturum açma ve davetler için kimlik sağlayıcıları (Microsoft, Google, OIDC, SAML, LDAP).",
+      "email": "Parola sıfırlama, davet ve rezervasyon e-postalarını gönderen SMTP sunucusu.",
+      "calendar": "Rezervasyonları kullanıcıların Google ve Microsoft 365 takvimlerine gönderen bağlantılar.",
+      "channels": "Bildirimleri Telegram, WhatsApp, SMS, Teams ve Slack üzerinden ileten kanallar.",
+      "automation": "Rezervasyon ve onay olaylarını imzalı webhook olarak n8n, Activepieces, Pipedream ya da Zapier’e gönderin.",
+      "ai": "Planlama yardımcısının kullandığı yapay zekâ sağlayıcıları, modeller ve sınırlar."
+    },
+    "status": {
+      "connected": "Bağlı",
+      "not_configured": "Yapılandırılmadı",
+      "error": "Hata",
+      "disabled": "Kapalı",
+      "unknown": "Bilinmiyor"
+    },
+    "card": {
+      "setup": "Kur",
+      "edit": "Düzenle",
+      "open": "Aç",
+      "setupFor": "{name}: kur",
+      "editFor": "{name}: düzenle",
+      "openFor": "{name}: aç",
+      "lastCheck": "Son kontrol: {when}, {result}",
+      "lastCheckOk": "başarılı",
+      "lastCheckFail": "başarısız",
+      "neverChecked": "Henüz denenmedi",
+      "lastChange": "Son değişiklik: {who}, {when}",
+      "lastChangeWhen": "Son değişiklik: {when}",
+      "noChange": "Henüz değişiklik yok",
+      "switchLabel": "{name} açık",
+      "on": "Açık",
+      "off": "Kapalı",
+      "list": "{area} bağlantıları"
+    },
+    "switch": {
+      "notConfigured": "Açmak için önce kurun.",
+      "noSwitch": "Bu bağlantı kendi sayfasından yönetilir.",
+      "enableInSetup": "Açmak için kurulumu tamamlayın (KVKK onayı kurulumda kaydedilir)."
+    },
+    "confirmOff": {
+      "title": "{name} kapatılsın mı?",
+      "body": "Bu ayar kurumun tamamı için geçerli; kapatınca hiçbir kullanıcı için çalışmaz. İstediğiniz zaman yeniden açabilirsiniz.",
+      "confirm": "Kapat",
+      "cancel": "Vazgeç"
+    },
+    "toast": {
+      "on": "{name} açıldı",
+      "off": "{name} kapatıldı",
+      "failed": "Değiştirilemedi: {reason}",
+      "refreshed": "Durum yenilendi"
+    },
+    "sheet": {
+      "done": "Bitti",
+      "close": "Kapat",
+      "lead": "Değişiklikler kaydedildiğinde bütün yöneticiler için geçerli olur.",
+      "notFound": "Bu bağlantı bulunamadı; liste yenilenmiş olabilir.",
+      "pending": "Bu alanın yeni kurulum ekranı hazırlanıyor; şimdilik mevcut ayarlar aşağıda."
+    },
+    "ai": {
+      "lead": "Sağlayıcılar, modeller, kullanım ve sınırlar Yapay zekâ sayfasında yönetilir.",
+      "open": "Yapay zekâ ayarlarını aç"
+    },
+    "guided": {
+      "title": "Otomasyon platformu bağla",
+      "lead": "Akışınız SmartSched olaylarını imzalı webhook olarak alsın: tetikleyiciyi oluşturun, adresi yapıştırın, imza anahtarını platforma ekleyin ve bir test olayı gönderin.",
+      "platform": "Platform",
+      "step1": "1. Platformda tetikleyiciyi oluşturun",
+      "step2": "2. Adresi buraya yapıştırın",
+      "step3": "3. İmza anahtarını platforma ekleyin",
+      "step4": "4. Test olayı gönderin",
+      "how": {
+        "n8n": "Yeni bir iş akışına Webhook düğümü ekleyin, HTTP yöntemini POST yapın, “Raw Body” seçeneğini açın ve Production URL’yi kopyalayın.",
+        "activepieces": "Yeni bir akışta tetikleyici olarak Webhook › Catch Webhook seçin ve gösterilen Live URL’yi kopyalayın.",
+        "pipedream": "Yeni bir iş akışında HTTP / Webhook tetikleyicisini seçin (“Raw body” açık) ve uç nokta adresini kopyalayın.",
+        "zapier": "Yeni bir Zap’te tetikleyici olarak Webhooks by Zapier › Catch Raw Hook seçin ve özel webhook adresini kopyalayın."
+      },
+      "docs": "{name} belgeleri (yeni sekmede açılır)",
+      "url": "Webhook adresi",
+      "urlHint": "Platformun verdiği https adresi. Yerel ağ ve sunucunun kendi adresleri reddedilir.",
+      "urlLooksOff": "Bu adres bir {name} adresine benzemiyor; doğruysa yine de kaydedebilirsiniz.",
+      "urlInvalid": "Geçerli bir https adresi girin.",
+      "events": "Gönderilecek olaylar",
+      "eventsAll": "Tümü",
+      "eventsBookings": "Rezervasyonlar",
+      "eventsApprovals": "Onaylar",
+      "save": "Kaydet ve imza anahtarını al",
+      "saving": "Kaydediliyor…",
+      "saved": "{name} webhook adresi kaydedildi",
+      "existing": "Kayıtlı adres",
+      "secret": "İmza anahtarı",
+      "secretOnce": "Bu anahtar yalnızca şimdi gösterilir. Platformda gizli değişken olarak saklayın (SMARTSCHED_SECRET).",
+      "secretHint": "Kayıtlı anahtarın sonu: {hint}. Anahtarın kendisi bir daha gösterilmez; gerekirse yenisini üretin.",
+      "rotate": "Yeni anahtar üret",
+      "rotated": "Yeni anahtar üretildi; platformdaki anahtarı da değiştirin.",
+      "copy": "Kopyala",
+      "copyWhat": "{what}: kopyala",
+      "copied": "Kopyalandı",
+      "copyFailed": "Kopyalanamadı; metni seçip elle kopyalayın.",
+      "headers": "İstek başlıkları",
+      "snippet": "İmza doğrulama kodu",
+      "snippetLead": "Platformun kod adımına yapıştırın: zaman damgası ve ham gövde üzerinden HMAC-SHA256, 5 dakika tolerans.",
+      "test": "Test olayı gönder",
+      "testing": "Gönderiliyor…",
+      "testPending": "Test olayı sırada; sonuç bekleniyor…",
+      "testSent": "Test olayı ulaştı (HTTP {http}).",
+      "testFailed": "Test olayı ulaşmadı: {reason}",
+      "testUnknownReason": "platform yanıt vermedi",
+      "globalOff": "Webhook gönderimi kapalı: test olayı gider, rezervasyon olayları gönderilmez.",
+      "enableGlobal": "Webhook gönderimini aç",
+      "manageAll": "Tüm webhook adresleri",
+      "saveFirst": "Önce adresi kaydedin."
     }
   }
 }

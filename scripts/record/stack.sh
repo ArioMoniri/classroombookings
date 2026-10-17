@@ -36,6 +36,8 @@
 #      REC_CAL_SIGNOFF=0 (leave calendar sync off with no KVKK sign-off record; default 1 signs it off for the
 #      recordings; the flow tests use 0, docs/testing/flows/README.md §4.2).
 #      REC_SNAPSHOT_NAME (rec.snapshot): the snapshot file `snapshot` writes and `REC_SNAPSHOT=1 up` restores.
+#      REC_IGNORE_TS=1: build the copy with `typescript.ignoreBuildErrors` (a checkpoint commit whose in-flight lanes do
+#      not type-check yet still runs; only the copy's next.config is patched).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -188,6 +190,9 @@ cmd_up() {
     # copy (only the copy's next.config is patched, never the repository's).
     local cfg; cfg="$(ls "$web"/next.config.* | head -1)"
     grep -q 'rec-stack' "$cfg" || sed -i 's|^export default nextConfig;|// rec-stack: shared node_modules symlink\nnextConfig.turbopack = { ...(nextConfig.turbopack ?? {}), root: "/" };\nnextConfig.outputFileTracingRoot = "/";\nexport default nextConfig;|' "$cfg"
+    if [[ "${REC_IGNORE_TS:-0}" == 1 ]] && ! grep -q 'REC_IGNORE_TS' "$cfg"; then
+      sed -i 's|^export default nextConfig;|nextConfig.typescript = { ...(nextConfig.typescript ?? {}), ignoreBuildErrors: true }; // rec-stack: REC_IGNORE_TS\nexport default nextConfig;|' "$cfg"
+    fi
     log "building frontend copy (real mode) in $web"
     (cd "$web" && NEXT_PUBLIC_API_URL="http://127.0.0.1:$API_PORT" \
         NEXT_TELEMETRY_DISABLED=1 npx next build >"$WORK/build.log" 2>&1) \

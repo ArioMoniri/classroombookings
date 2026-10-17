@@ -169,7 +169,7 @@ export function PersonProfile({ instructorId }: { instructorId: number }) {
           <dt className="text-label-2">{t("moderation.profile.account")}</dt>
           <dd>{ins.linked_user ? t("moderation.profile.linked") : t("moderation.profile.unlinked")}</dd>
         </dl>
-        {canEdit && current ? <PersonPriority termId={current.term_id} termCode={current.term_code} instructorId={ins.id} label={[ins.title, ins.name].filter(Boolean).join(" ")} /> : null}
+        {isAdmin && current ? <PersonPriority termId={current.term_id} termCode={current.term_code} instructorId={ins.id} label={[ins.title, ins.name].filter(Boolean).join(" ")} /> : null}
       </aside>
       {reset ? <ResetDialog open onOpenChange={(o) => !o && setReset(null)} scope={reset === "erase" ? "erase" : "person"} subject={{ id: ins.id, label: [ins.title, ins.name].filter(Boolean).join(" ") }} /> : null}
     </div>

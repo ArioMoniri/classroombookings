@@ -157,39 +157,38 @@ class Transcript:
         if len(self.lines) < TRANSCRIPT_MAX:
             self.lines.append(line[:300])
 
+    @staticmethod
+    def _plain(raw: Any) -> str:
+        text = raw.decode("utf-8", "replace") if isinstance(raw, bytes | bytearray) else str(raw)
+        if text[:2] in ("b'", 'b"') and text[-1:] in ("'", '"'):
+            text = text[2:-1]  # smtplib logs repr(bytes)
+        elif text[:1] in ("'", '"') and text[-1:] == text[:1]:
+            text = text[1:-1]
+        return text.replace("\\r\\n", "\n").replace("\\n", "\n").strip()
+
     def hook(self, *args: Any) -> None:
         if not args:
             return
-        head = str(args[0])
-        rest = args[1:]
-        if head.startswith("send:") and rest:
-            raw = rest[0]
-            text = raw.decode("utf-8", "replace") if isinstance(raw, bytes | bytearray) else str(raw)
-            text = text.strip().strip("'\"").replace("\\r\\n", "").strip()
-            upper = text.upper()
-            if upper.startswith("AUTH"):
+        head, rest = str(args[0]), args[1:]
+        if head == "send:" and rest:
+            text = self._plain(rest[0])
+            if text.upper().startswith("AUTH"):
                 self._in_auth = True
-                mech = text.split()[1] if len(text.split()) > 1 else ""
-                self.add(f"C: AUTH {mech} ********")
+                words = text.split()
+                self.add(f"C: AUTH {words[1] if len(words) > 1 else ''} ********".replace("  ", " "))
             elif self._in_auth:
                 self.add("C: ********")
-            elif len(text) > 200 or "\\n" in text:
+            elif len(text) > 200 or "\n" in text:
                 self.add(f"C: <ileti / message, {len(text)} B>")
             else:
                 self.add(f"C: {text}")
-        elif head.startswith("reply:") and rest and not str(rest[0]).startswith("retcode"):
-            raw = rest[0]
-            text = raw.decode("utf-8", "replace") if isinstance(raw, bytes | bytearray) else str(raw)
-            text = text.strip().strip("'\"").replace("\\r\\n", "").strip()
-            if text[:3] in ("235", "535", "534", "501", "504") or text[:1] in ("2", "5", "4") and self._in_auth:
-                if text[:3] != "334":
-                    self._in_auth = False
+        elif head == "reply:" and rest:
+            text = self._plain(rest[0])
             if text[:3] == "334":
                 self.add("S: 334 ********")
-            else:
-                self.add(f"S: {text}")
-        elif head.startswith("connect:"):
-            self.add("* " + " ".join(str(a) for a in args))
+                return
+            self._in_auth = False  # any other answer ends an AUTH exchange
+            self.add(f"S: {text}")
 
 
 def _open(smtp: Mapping[str, Any], transcript: Transcript | None) -> smtplib.SMTP:

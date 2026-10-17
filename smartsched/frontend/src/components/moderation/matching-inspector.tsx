@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { catalogApi } from "@/lib/api/catalog-admin";
 import { useMatching, usePriorities, type Matching } from "@/lib/api/moderation";
 import { useI18n } from "@/lib/i18n/provider";
+import { usePermissions } from "@/lib/permissions";
 import type { MessageKey } from "@/lib/i18n";
 import { pairText, placeText, reasonText, requestedText } from "./moderation-model";
 import { PriorityForm, SubjectPriorityForm, rowElement } from "./priority-editor";
@@ -60,6 +61,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  */
 function SubjectPriorities({ termId, m }: { termId: number; m: Matching }) {
   const { t } = useI18n();
+  const { can } = usePermissions();
   const overrides = usePriorities(termId);
   const programs = useQuery({ queryKey: ["moderation", "program-ids"], queryFn: () => catalogApi.programs({}), staleTime: 10 * 60_000, enabled: !!m.program });
   const programId = programs.data?.items.find((p) => p.name === m.program)?.id ?? null;
@@ -67,7 +69,8 @@ function SubjectPriorities({ termId, m }: { termId: number; m: Matching }) {
   if (!overrides.data) return null;
   return (
     <>
-      {m.instructors.map((i) => {
+      {/* a person's priority: planning.admin only (owner decision 2026-10-17, R2-M-08) */}
+      {(can("planning.admin") ? m.instructors : []).map((i) => {
         const o = of("person", i.id);
         return (
           <Section key={`p${i.id}`} title={t("moderation.subjectPriority.personTitle", { label: i.name })}>

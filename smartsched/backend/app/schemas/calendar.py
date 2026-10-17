@@ -281,6 +281,10 @@ class BulkMoveOut(BaseModel):
     conflict_count: int
     assignments: list[IndexAssignment] = []
     undo: UndoToken = UndoToken()
+    #: owner decision 2026-10-17 (R1-S-37): a forced move on the published run was applied to this new draft run
+    #: (``assignments`` / ``undo`` are the draft's rows); the live run ``live_run_id`` is unchanged
+    draft_run_id: int | None = None
+    live_run_id: int | None = None
 
 
 class RestoreIn(BaseModel):

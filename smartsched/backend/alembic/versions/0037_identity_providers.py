@@ -48,7 +48,9 @@ def upgrade() -> None:
                 "provider", existing_type=sa.String(length=16), type_=sa.String(length=40), existing_nullable=False
             )
     with op.batch_alter_table("user_identities") as b:
-        b.alter_column("subject", existing_type=sa.String(length=64), type_=sa.String(length=255), existing_nullable=False)
+        b.alter_column(
+            "subject", existing_type=sa.String(length=64), type_=sa.String(length=255), existing_nullable=False
+        )
 
 
 def downgrade() -> None:
@@ -61,7 +63,9 @@ def downgrade() -> None:
         bind.execute(sa.text("delete from sso_providers where name = :p"), {"p": slug})
     bind.execute(sa.text("delete from user_identities where length(subject) > 64"))
     with op.batch_alter_table("user_identities") as b:
-        b.alter_column("subject", existing_type=sa.String(length=255), type_=sa.String(length=64), existing_nullable=False)
+        b.alter_column(
+            "subject", existing_type=sa.String(length=255), type_=sa.String(length=64), existing_nullable=False
+        )
     for table in _SLUG_TABLES:
         with op.batch_alter_table(table) as b:
             b.alter_column(

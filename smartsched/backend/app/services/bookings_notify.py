@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import smtplib
-import ssl
+import logging
+import smtplib  # noqa: F401  (tests replace bookings_notify.smtplib.SMTP; app.services.mail sends)
+import weakref
 from datetime import datetime
 from email.message import EmailMessage
-from email.utils import formataddr
 from typing import Any
 
 from sqlalchemy import func, select
@@ -27,35 +27,49 @@ from app.services import bookings_events as events
 from app.services import bookings_i18n
 from app.services.bookings_settings import get_group, get_value
 
+log = logging.getLogger(__name__)
+
 NOT_CONFIGURED = "SMTP is not configured"
 QUEUED = "PENDING"  # the integrations worker's queue status (app.models.integrations.PENDING)
 T = bookings_i18n.text  # e-mail texts: admin overrides (translations, set "email") over the shipped ones
 
 
 def _send(smtp: dict[str, Any], msg: EmailMessage) -> None:
-    timeout = int(smtp.get("timeout_s") or 15)
-    host, port = str(smtp["host"]), int(smtp.get("port") or 587)
-    security = str(smtp.get("security") or "starttls").lower()
-    server: smtplib.SMTP
-    if security == "ssl":
-        server = smtplib.SMTP_SSL(host, port, timeout=timeout, context=ssl.create_default_context())
-    else:
-        server = smtplib.SMTP(host, port, timeout=timeout)
+    """Hand ``msg`` to the SMTP server (password, XOAUTH2 or no sign-in; app.services.mail.transmit)."""
+    from app.services import mail
+
+    mail.transmit(smtp, msg)
+
+
+#: template context of a message sent at once (password reset: the code box); never stored, gone with the row object
+_RENDER_CTX: weakref.WeakKeyDictionary[NotificationOutbox, dict[str, Any]] = weakref.WeakKeyDictionary()
+
+
+async def _rendered(session: AsyncSession, row: NotificationOutbox) -> Any:
+    """The themed HTML + plain text of ``row`` (wave 3b W3-MAIL): the stored subject and body themed by the renderer
+    of the row's kind, in the reader's language. A rendering failure never stops the e-mail: it goes as plain text."""
+    from app.services import mail
+
     try:
-        if security == "starttls":
-            server.starttls(context=ssl.create_default_context())
-        if smtp.get("username"):
-            server.login(str(smtp["username"]), str(smtp.get("password") or ""))
-        server.send_message(msg)
-    finally:
-        try:
-            server.quit()
-        except smtplib.SMTPException:
-            server.close()
+        user = await session.get(User, row.user_id) if row.user_id else None
+        locale = await mail.resolve_locale(session, row.locale, user)
+        ctx = _RENDER_CTX.get(row)
+        if ctx is not None:
+            return await mail.render_for(session, row.kind, locale, **ctx)
+        name = (user.full_name or user.username or "") if user is not None else ""
+        what = row.subject.split(": ", 1)[1] if ": " in row.subject else ""
+        return await mail.render_for(
+            session, row.kind, locale, subject=row.subject, body=row.body, link=row.link, name=name, what=what
+        )
+    except Exception:  # noqa: BLE001 - the plain-text e-mail still goes out
+        log.exception("e-mail rendering failed for outbox row %s (%s)", row.id, row.kind)
+        return None
 
 
 async def deliver(session: AsyncSession, row: NotificationOutbox) -> NotificationOutbox:
     """Try to send ``row`` now (also used by the outbox "retry")."""
+    from app.services import mail
+
     smtp = await get_group(session, "smtp", reveal=True)
     if not row.to_email:
         row.status, row.error = "UNSENT", "recipient has no e-mail address"
@@ -63,15 +77,15 @@ async def deliver(session: AsyncSession, row: NotificationOutbox) -> Notificatio
     if not (smtp["host"] and smtp["from_address"]):
         row.status, row.error = "UNSENT", NOT_CONFIGURED
         return row
-    msg = EmailMessage()
-    msg["Subject"] = row.subject
-    msg["From"] = formataddr((str(smtp.get("from_name") or ""), str(smtp["from_address"])))
-    msg["To"] = row.to_email
-    msg.set_content(row.body)
+    rendered = await _rendered(session, row)
+    # an admin override of the subject (translation set "email") reaches the e-mail; otherwise it is the stored one
+    subject = rendered.subject if rendered is not None else row.subject
+    text = rendered.text if rendered is not None else row.body
+    msg = mail.build_message(smtp, to=row.to_email, rendered=rendered, subject=subject, text=text)
     row.attempts = (row.attempts or 0) + 1
     try:
         await asyncio.to_thread(_send, smtp, msg)
-    except (OSError, smtplib.SMTPException) as exc:
+    except Exception as exc:  # noqa: BLE001 - SMTP / network / OAuth2 token errors: recorded, retried with backoff
         row.status, row.error = "FAILED", f"{type(exc).__name__}: {exc}"[:500]
         return row
     row.status, row.error, row.sent_at = "SENT", None, utcnow()
@@ -88,15 +102,31 @@ async def notify(
     user_id: int | None = None,
     booking_id: int | None = None,
     deliver_now: bool = False,
+    link: str | None = None,
+    locale: str | None = None,
+    ctx: dict[str, Any] | None = None,
 ) -> NotificationOutbox:
     """Record an e-mail in the outbox. Without an address or SMTP it is ``UNSENT`` at once. ``deliver_now`` (password
     reset codes, the SMTP test: the caller needs the result) sends inside the request as before; everything else is
-    ``PENDING`` and sent by the integrations worker after the commit, with retries and backoff (ROADMAP Phase 11)."""
+    ``PENDING`` and sent by the integrations worker after the commit, with retries and backoff (ROADMAP Phase 11).
+
+    Wave 3b W3-MAIL: the e-mail goes as ``multipart/alternative`` -- this plain-text ``body`` first, the themed HTML of
+    ``kind`` (app.emails) second. ``link`` is the button's panel path, ``locale`` the reader's language (both stored);
+    ``ctx`` is the template context of a message sent at once (``deliver_now``; never stored)."""
     row = NotificationOutbox(
-        kind=kind, to_email=to_email, subject=subject[:255], body=body, user_id=user_id, booking_id=booking_id
+        kind=kind,
+        to_email=to_email,
+        subject=subject[:255],
+        body=body,
+        user_id=user_id,
+        booking_id=booking_id,
+        link=(link or None) and link[:500],
+        locale=locale,
     )
     session.add(row)
     await session.flush()
+    if ctx is not None:
+        _RENDER_CTX[row] = dict(ctx)
     smtp = await get_group(session, "smtp", reveal=True)
     if deliver_now or not row.to_email or not (smtp["host"] and smtp["from_address"]):
         await deliver(session, row)  # UNSENT without an address / SMTP, else sent now

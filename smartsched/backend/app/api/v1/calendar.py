@@ -38,7 +38,7 @@ from app.schemas.calendar import (
     SavedViewUpdate,
 )
 from app.services import calendar_views as cv
-from app.services import move_guard, publish_guard
+from app.services import move_guard, publish_guard, run_copy
 from app.services.bookings_perms import load_access
 from app.services.events import Item
 from app.services.planning_audit import assignment_snapshot, record_assignments, snapshot_from_undo
@@ -268,6 +268,16 @@ async def _bulk(db: DB, user: object, run: ScheduleRun, body: BulkMoveIn) -> Bul
                 "items": [ctx.label_of(p.base) for p in bad[:20]],
             },
         )
+    if body.force and bad and not body.dry_run and run.is_active:
+        # owner decision 2026-10-17 (R1-S-37): a forced move never edits the published plan. The active run is cloned
+        # into a new draft, the forced edit (and its override) goes there; the live plan stays as published until the
+        # draft is published through the normal guard (confirm_forced_breaks)
+        draft, id_map = await run_copy.clone_as_draft(
+            db, run, actor=user if isinstance(user, User) else None, reason=body.reason
+        )
+        moves = [m.model_copy(update={"aid": id_map[m.aid]}) for m in body.moves]
+        out = await _bulk(db, user, draft, body.model_copy(update={"moves": moves}))
+        return out.model_copy(update={"draft_run_id": draft.id, "live_run_id": run.id})
     can_apply = not body.dry_run and (body.force or not bad or not body.atomic)
     to_apply = plans if body.force else [p for p in plans if not p.hard]
     if not can_apply or not to_apply:
