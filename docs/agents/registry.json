@@ -2653,7 +2653,8 @@
       "goal": "You are lane **W3-IDP** of SmartSched wave 3b (ledger `wave3b-idp-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3B.md, WAVE3.md and COMMON.md (same folder) and follow them. Read the current identity code first: services/sso.p…",
       "ledger": "W3-IDP: admin-set identity providers",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 22:27"
     },
     {
       "id": "a242ea0825d52e066",
