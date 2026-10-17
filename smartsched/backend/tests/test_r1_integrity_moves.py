@@ -5,9 +5,9 @@
   exceptions never says "hiçbir kural bozulmadı".
 * R1-M-05 / R1-S-01: a move is checked with the run's own hard-rule evaluation. PHAR 240 §1 into a free TIP room
   (the cause of the silent 100 -> 99) is a hard conflict; a planner cannot apply it, an administrator forces it only
-  with a written reason; the published run then names the broken rule with the reason (stats.integrity.broken,
-  truth, summary headline, audit), publishing it needs ``confirm_forced_breaks``; undoing the move brings hard 100
-  back. Moving the planner's own LOCKED class to a free fitting room is "uygun" and keeps hard 100 (a listed
+  with a written reason; on the published run that edit goes into a new draft (owner decision 2026-10-17, R1-S-37:
+  the live run keeps hard 100) which names the broken rule with the reason (stats.integrity.broken, truth, summary
+  headline, audit), publishing it needs ``confirm_forced_breaks``; undoing the move brings hard 100 back. Moving the planner's own LOCKED class to a free fitting room is "uygun" and keeps hard 100 (a listed
   manual edit).
 """
 
@@ -119,22 +119,27 @@ async def test_verdict_and_moves_use_the_runs_own_hard_rules(bahar):
         f"/api/v1/runs/{rid}/assignments/bulk-move", json={**move, "force": True, "reason": reason}, headers=admin
     )
     assert r.status_code == 200 and r.json()["applied"] is True, r.text
+    # owner decision 2026-10-17 (R1-S-37): the forced edit went into a new draft; the published run is unchanged
+    did = r.json()["draft_run_id"]
+    assert did and did != rid and r.json()["live_run_id"] == rid
     undo = r.json()["undo"]
-    # ---- surfaced: the published run names the broken rule, its reason and the score
-    after = (await c.get(f"/api/v1/runs/{rid}", headers=planner)).json()
-    assert after["is_active"] and after["hard_score"] < 100
+    live = (await c.get(f"/api/v1/runs/{rid}", headers=planner)).json()
+    assert live["is_active"] and live["hard_score"] == 100 and not live["stats"].get("forced_overrides")
+    # ---- surfaced: the draft names the broken rule, its reason and the score
+    after = (await c.get(f"/api/v1/runs/{did}", headers=planner)).json()
+    assert not after["is_active"] and after["hard_score"] < 100
     broken = after["stats"]["integrity"]["broken"]
     assert [b["rule"] for b in broken] == ["tags"], broken
     assert broken[0]["explained"] and broken[0]["reason"] == reason and "TIP" in broken[0]["message"]
     t2 = after["stats"]["truth"]
     assert t2["verdict"] == "broken" and t2["broken_count"] == 1 and t2["hard_score"] == after["hard_score"]
-    s2 = (await c.get(f"/api/v1/runs/{rid}/summary", headers=planner)).json()
+    s2 = (await c.get(f"/api/v1/runs/{did}/summary", headers=planner)).json()
     assert "1 kesin kural bozuk" in s2["headline"]["tr"] and "hiçbir kural bozulmadı" not in s2["headline"]["tr"]
     async with dbmod.get_session_factory()() as s:
         ev = (
             (
                 await s.execute(
-                    select(AuditEvent).where(AuditEvent.action == "run.hard_score", AuditEvent.entity_id == str(rid))
+                    select(AuditEvent).where(AuditEvent.action == "run.hard_score", AuditEvent.entity_id == str(did))
                 )
             )
             .scalars()
@@ -142,9 +147,9 @@ async def test_verdict_and_moves_use_the_runs_own_hard_rules(bahar):
         )
     assert ev is not None and ev.after["hard_score"] < 100 and ev.after["broken"][0]["rule"] == "tags"
     # ---- undo: the break is gone, the score comes back (the override no longer counts)
-    r = await c.post(f"/api/v1/runs/{rid}/assignments/restore", json=undo, headers=admin)
+    r = await c.post(f"/api/v1/runs/{did}/assignments/restore", json=undo, headers=admin)
     assert r.status_code == 200, r.text
-    back = (await c.get(f"/api/v1/runs/{rid}", headers=planner)).json()
+    back = (await c.get(f"/api/v1/runs/{did}", headers=planner)).json()
     assert back["hard_score"] == 100 and back["stats"]["integrity"]["broken"] == []
     assert back["stats"]["forced_overrides"][0]["undone_at"]
     # ---- a planner moving its own LOCKED class to a free, fitting room re-decides the lock: "uygun", hard 100,
