@@ -3040,6 +3040,30 @@
       "ledger": "One-click deploy both branches",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a5e52b3b009c22145",
+      "description": "Auth screens design (login, 2FA, passkeys)",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-17 23:36",
+      "scope": "",
+      "goal": "You are the AUTH SCREENS designer and motion designer for SmartSched (repo /home/user/classroombookings, Next.js frontend smartsched/frontend). Read these first: - /home/user/classroombookings/docs/agents/briefs/COMMON.md (with the Simplicity principle) and MEDIA.md. Hard rules: NEVER commit, never …",
+      "ledger": "Auth screens design (login, 2FA, passkeys)",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a14c604526c495b1a",
+      "description": "AU-B: 2FA, passkeys, admin resets",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 23:36",
+      "scope": "",
+      "goal": "You are lane AU-B (authentication backend: 2FA, passkeys, admin resets) for SmartSched (repo /home/user/classroombookings, FastAPI backend smartsched/backend, branch claude/focused-wright-ktt0ss). Read first: - /home/user/classroombookings/docs/agents/briefs/COMMON.md: NEVER commit or push, test-fir…",
+      "ledger": "AU-B: 2FA, passkeys, admin resets",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

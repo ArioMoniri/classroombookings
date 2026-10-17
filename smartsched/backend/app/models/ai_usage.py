@@ -1,4 +1,4 @@
-"""AI gateway metering (wave 3 W3-AI, alembic 0034_ai_usage).
+"""AI gateway metering (wave 3 W3-AI, alembic 0034_ai_usage; voice columns 0042_ai_usage_audio).
 
 ``ai_usage``: one row per model call that went through the gateway (``app/ai/client.py`` :class:`AIClient`) and
 one row per call the gateway refused before it left the server. The row never holds prompt or answer text, only
@@ -29,6 +29,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base, utcnow
 
 OUTCOMES = ("ok", "refused_by_guardrail", "provider_error", "limit_reached")
+MODALITIES = ("text", "audio_in", "audio_out")
 
 
 class AIUsage(Base):
@@ -41,7 +42,7 @@ class AIUsage(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    #: rules | chat | intake | explain | guard | test | other
+    #: rules | chat | intake | explain | booking_nl | voice_stt | guard | test | other
     feature: Mapped[str] = mapped_column(String(16))
     provider: Mapped[str] = mapped_column(String(24))
     model: Mapped[str] = mapped_column(String(128))
@@ -65,6 +66,11 @@ class AIUsage(Base):
     guard_verdict: Mapped[str | None] = mapped_column(String(16), nullable=True)
     #: where the provider says inference ran (Anthropic ``usage.inference_geo``; Bedrock / Vertex: the region)
     inference_geo: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    #: voice (VO-02): milliseconds of audio a speech-to-text call processed (``prompt_sha256`` is then the SHA-256
+    #: of the clip and ``prompt_chars`` its byte length; the audio itself is never stored)
+    audio_ms: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    #: ``text`` | ``audio_in`` (speech to text) | ``audio_out`` (read-aloud, later)
+    modality: Mapped[str] = mapped_column(String(12), default="text", server_default="text")
 
     @property
     def total_tokens(self) -> int:
@@ -76,4 +82,4 @@ class AIUsage(Base):
         )
 
 
-__all__ = ["OUTCOMES", "AIUsage"]
+__all__ = ["MODALITIES", "OUTCOMES", "AIUsage"]

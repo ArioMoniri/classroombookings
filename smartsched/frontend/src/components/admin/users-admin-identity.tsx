@@ -12,7 +12,6 @@
  * opacity); "invite created" is a toast with "Bağlantıyı kopyala" — no row insert animation (the list has > 40 rows).
  */
 import { Copy, Link2, Lock, Mail, RefreshCcw, Trash2, Unlink, UserCheck, XCircle } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useId, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -304,12 +303,6 @@ function InviteForm({ onDone, domainHint, canListRoles }: { onDone: () => void; 
   const [role, setRole] = useState("");
   const [dept, setDept] = useState("");
   const [error, setError] = useState<{ text: string; code: string | null } | null>(null);
-  // RF-03: the invitation e-mail is on by default when SMTP is set up (/admin/email); without SMTP the switch
-  // stays off and says so, with a link to set it up
-  const mail = useQuery({ queryKey: identityKeys.inviteMail, queryFn: identity.inviteMail, retry: false, staleTime: 60_000 });
-  const mailReady = mail.data?.configured === true;
-  const [sendChoice, setSendChoice] = useState<boolean | null>(null);
-  const sendMail = mailReady && (sendChoice ?? true);
   const create = useIdentityMutation((body: InviteIn) => identity.createInvite(body), IDENTITY_KEYS);
   const renewPending = useIdentityMutation((id: number) => identity.renewInvite(id), IDENTITY_KEYS);
   const cleaned = cleanInviteEmail(email, domainHint);
@@ -328,13 +321,10 @@ function InviteForm({ onDone, domainHint, canListRoles }: { onDone: () => void; 
     setError(null);
     if (!cleaned.valid) return setError({ text: t("sso.users.invite.badEmail"), code: null });
     if (!role) return setError({ text: t("sso.users.invite.needRole"), code: null });
-    const body: InviteIn = { email: cleaned.email, full_name: name.trim() || null, department_id: dept ? Number(dept) : null, ...(role.startsWith("id:") ? { role_id: Number(role.slice(3)) } : { role: role.slice(5) }), send_email: sendMail, locale: locale === "en" ? "en" : "tr" };
+    const body: InviteIn = { email: cleaned.email, full_name: name.trim() || null, department_id: dept ? Number(dept) : null, ...(role.startsWith("id:") ? { role_id: Number(role.slice(3)) } : { role: role.slice(5) }) };
     create.mutate(body, {
       onSuccess: (inv) => {
-        const copy = inv.link ? { action: { label: t("sso.users.copyLink"), onClick: () => copyText(inv.link ?? "", t("sso.users.linkCopied"), t("sso.users.copyFailed")) } } : undefined;
-        if (sendMail && inv.email_status === "SENT") toast.success(t("sso.users.invite.mailed", { email: inv.email }), copy);
-        else if (sendMail) toast.warning(t("sso.users.invite.mailFailed"), copy);
-        else toast.success(t("sso.users.invite.sent", { email: inv.email }), copy);
+        toast.success(t("sso.users.invite.sent", { email: inv.email }), inv.link ? { action: { label: t("sso.users.copyLink"), onClick: () => copyText(inv.link ?? "", t("sso.users.linkCopied"), t("sso.users.copyFailed")) } } : undefined);
         onDone();
       },
       onError: (e) => {
@@ -400,16 +390,9 @@ function InviteForm({ onDone, domainHint, canListRoles }: { onDone: () => void; 
         <div className="flex items-start justify-between gap-3">
           <span className="min-w-0">
             <span className="block type-callout font-semibold text-label-1">{t("sso.users.invite.sendMail")}</span>
-            <span className="block type-footnote text-label-2" id={`${groupName}-mail`} data-testid="invite-mail-hint">
-              {mailReady ? (sendMail ? t("sso.users.invite.sendMailOn") : t("sso.users.invite.sendMailSkip")) : t("sso.users.invite.sendMailOff")}
-            </span>
-            {mail.isSuccess && !mailReady ? (
-              <Link href="/admin/email" className="mt-1 inline-flex min-h-11 items-center type-footnote font-medium text-tint-text underline-offset-2 hover:underline sm:min-h-0" data-testid="invite-mail-setup">
-                {t("sso.users.invite.mailSetup")}
-              </Link>
-            ) : null}
+            <span className="block type-footnote text-label-2">{t("sso.users.invite.sendMailOff")}</span>
           </span>
-          <Switch checked={sendMail} disabled={!mailReady} onCheckedChange={(v) => setSendChoice(!!v)} aria-label={t("sso.users.invite.sendMail")} aria-describedby={`${groupName}-mail`} data-testid="invite-send-mail" />
+          <Switch checked={false} disabled aria-label={t("sso.users.invite.sendMail")} />
         </div>
         <Alert tone="info">{cleaned.valid ? t("sso.users.invite.bindNote", { email: cleaned.email }) : t("sso.users.invite.bindNotePlain")}</Alert>
         {error ? (

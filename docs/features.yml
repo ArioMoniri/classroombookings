@@ -381,3 +381,9 @@
   phase: "calendar export (CAL-B, CAL-01..07)"
   evidence: smartsched/backend/tests/test_cal_06_push.py
   note: "alembic 0039_calendar_classes; app/services/calendar_classes.py + calendar_feeds.py + calendar_connectors.py + api/v1/calendar_sync.py + workers/integrations.py; tests test_cal_01..07_*; frontend sheet = CAL-08/09 (CAL-F)"
+- feature: "Welcome guide per role (backend): audiences from permissions + the instructor link (academician, staff, approver, dept_admin, viewer, planner, admin; never role codes), one server-decided automatic surface per call (first sign-in sheet, 'Sonra' back after 3 days at most twice, role-change delta with only the new audiences, admin 'show again', else one wave-3 feature hint for accounts created before its release, 60 days), self-ticking 'Başlarken' checklist from real rows and audit events (booking, decision, channel, calendar link, intake commit, run, publish, org/mail/rooms/users), deep-link / kiosk / embed / maintenance suppression; admin switches, TR/EN text overrides with version conflict (409 stale naming the editor), completion stats with groups under 5 hidden; RLS owner-only progress rows; KVKK export + erasure"
+  area: platform
+  status: done
+  phase: "welcome guide (WG-B, WG-01..03)"
+  evidence: smartsched/backend/tests/test_wg_01_welcome.py
+  note: "alembic 0040_welcome_guide (welcome_progress + welcome_content, PG policy rls_owner); app/services/welcome.py + welcome_hints.py + api/v1/welcome.py; kvkk.py export file welcome_guide + erase count; tests test_wg_01_*, test_wg_02_signals, test_wg_03_admin; frontend = WG-04..08 (WG-F)"

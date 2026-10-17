@@ -58,6 +58,7 @@ beforeEach(() => {
   localStorage.clear();
 });
 afterEach(() => {
+  delete document.documentElement.dataset.motion;
   vi.restoreAllMocks();
   vi.useRealTimers();
 });
@@ -145,7 +146,7 @@ describe("ChartCard states", () => {
     const { unmount } = render(card({ state: "loading" }));
     expect(screen.getByTestId("chart-skeleton")).toHaveAttribute("data-pulse", "true");
     unmount();
-    mockMedia((q) => q.includes("prefers-reduced-motion"));
+    document.documentElement.dataset.motion = "reduced";
     render(card({ state: "loading" }));
     expect(screen.getByTestId("chart-skeleton")).toHaveAttribute("data-pulse", "false");
   });
@@ -228,15 +229,21 @@ describe("ChartCard plot context", () => {
     const { unmount } = render(card());
     expect(plot.mock.calls.at(-1)![0].engineOptions.stateAnimation.duration).toBe(120);
     unmount();
-    mockMedia((q) => q.includes("prefers-reduced-motion"));
+    document.documentElement.dataset.motion = "reduced";
     render(card());
     expect(plot.mock.calls.at(-1)![0].engineOptions.stateAnimation.duration).toBe(0);
   });
 
   it("swaps the summary text with the free text-states-swap recipe, but not under reduced motion", () => {
-    const { rerender } = render(card());
+    const { rerender, unmount } = render(card());
+    expect(screen.getByText(/Son 30 günde/)).toHaveAttribute("data-swap", "false");
     rerender(card({ summary: "Son 7 günde 20 bin token." }));
     expect(screen.getByText("Son 7 günde 20 bin token.")).toHaveAttribute("data-swap", "true");
+    unmount();
+    document.documentElement.dataset.motion = "reduced";
+    const again = render(card());
+    again.rerender(card({ summary: "Son 7 günde 20 bin token." }));
+    expect(screen.getByText("Son 7 günde 20 bin token.")).toHaveAttribute("data-swap", "false");
   });
 
   it("renders the period control when given and reports changes", () => {

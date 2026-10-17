@@ -36,6 +36,8 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | HB-A | `hb-a-2026-10-18` | Helper backend HB-01..05, 08, 09 (feature index, search without AI, action registry, guardrails, memory) | docs/research/2026-10-17-ai-helper-architecture.md | — | helper UX for the card contract |
 | RF-1 | `rf-1-2026-10-18` | Enrolment edit, invite e-mail switch, admin catalogue screens (instructors, courses, faculties, sections) | docs/testing/audits/2026-10-17-no-mock-and-editability.md | 19800/19801 | — |
 | RF-2 | `rf-2-2026-10-18` | Senders for reminder, series, approval receipt, calendar consent, new-device e-mails | same | — | — |
+| Auth UX | `auth-ux-2026-10-18` | Sign-in, 2FA challenge, Profil › Güvenlik, admin resets, input system, motion; AUX tickets | ROADMAP "Sign-in, 2FA and passkeys — UX", docs/design/v3/auth.md | — | — |
+| AU-B | `au-b-2026-10-18` | TOTP, recovery codes, passkeys (WebAuthn), trusted devices, MFA policy, admin MFA reset + reset link (local accounts only) | docs/research/2026-10-18-auth-backend.md, ROADMAP "— backend" | — | — |
 | Deploy one-click | `deploy-1click-2026-10-18` | Both branches one-click deployable; every setting reachable from the CLI or the first admin's setup | this file, docs/deploy | — | — |
 
 ## Queued (start when the named lane hands off)
@@ -55,6 +57,7 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | RF-06, RF-08, RF-09 (re-import keeps admin edits, seed imports in history, editable period grid) | round-3 lane C, CAL-B | |
 | RF-12 (SAML metadata signature) | — | SAML library done |
 | Round-4 persona testers (staff, academician, admin) | the fix lanes above | re-seed: old snapshots lack migrations ≥ 0037 |
+| Auth frontend AUX | auth UX + AU-B | |
 | README/docs media pass, final merges into gracious + universal | launch video + round 4 | merge rules below |
 
 ## Branches and the pod

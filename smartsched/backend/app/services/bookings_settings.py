@@ -203,6 +203,8 @@ POLICY_SPECS: dict[str, Spec] = {
     for s in (
         Spec("exam_period_mode", default="off"),
         Spec("exam_period_rooms", "json", None),
+        # AS-04 ``slots`` mode: {"buffer_periods": 0..4, "effect": request | refuse}
+        Spec("exam_period_slots", "json", None),
     )
 }
 # V2 public read-only day view (docs/product/booking-enhancements.md §V2; app/services/public_schedule.py). Off by
