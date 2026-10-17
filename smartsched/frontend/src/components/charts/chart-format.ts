@@ -50,8 +50,10 @@ export function makeChartFormat(locale: Locale): ChartFormat {
   const tz = CHART_TIME_ZONE;
   const num = new Intl.NumberFormat(tag, { maximumFractionDigits: 1 });
   const pct = new Intl.NumberFormat(tag, { style: "percent", maximumFractionDigits: 0 });
-  const compact = new Intl.NumberFormat(tag, { notation: "compact", maximumFractionDigits: 1 });
-  const compactLong = new Intl.NumberFormat(tag, { notation: "compact", compactDisplay: "long", maximumFractionDigits: 1 });
+  // compact keeps Intl's default rounding (2 significant digits: 82 B, 1,2 Mn); its no-break space stays, so an
+  // axis label never wraps
+  const compact = new Intl.NumberFormat(tag, { notation: "compact" });
+  const compactLong = new Intl.NumberFormat(tag, { notation: "compact", compactDisplay: "long" });
   const day = new Intl.DateTimeFormat(tag, { day: "numeric", month: "short", timeZone: tz });
   const dayLong = new Intl.DateTimeFormat(tag, { day: "numeric", month: "long", weekday: "long", timeZone: tz });
   const weekday = new Intl.DateTimeFormat(tag, { weekday: "short", timeZone: tz });

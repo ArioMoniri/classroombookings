@@ -4,6 +4,7 @@ import { GitCompareArrows, Grid3x3, UserCheck, Zap } from "lucide-react";
 import { Activity } from "lucide-react";
 import { Cpu } from "lucide-react";
 import { Plug } from "lucide-react";
+import { Library } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
 import type { MessageKey } from "@/lib/i18n";
 
@@ -69,6 +70,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/ai", labelKey: "aiAdmin.nav", icon: Cpu, permission: ["setup.settings", "planning.admin"] },
       // wave 3b W3-HUB: integrations gallery (identity, e-mail, calendar, channels, webhooks / automation, AI)
       { href: "/admin/integrations", labelKey: "integrations.nav", icon: Plug, permission: ["setup.settings", "planning.admin"] },
+      // RF-05: Yönetim › Katalog — the imported instructors, courses, programmes, faculties and sections, editable
+      { href: "/admin/catalog", labelKey: "catalog.nav", icon: Library, permission: "planning.view" },
     ],
   },
 ];

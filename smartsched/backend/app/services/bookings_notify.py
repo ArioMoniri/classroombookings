@@ -243,7 +243,7 @@ async def _dispatch(
     )
 
 
-async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
+async def _on_created(session: AsyncSession, payload: dict[str, Any], *, to_owner: bool = True) -> None:
     ids = payload.get("booking_ids") or [payload["booking_id"]]
     actor = await session.get(User, payload.get("actor_id")) if payload.get("actor_id") else None
     first = await session.get(Booking, ids[0])
@@ -257,7 +257,7 @@ async def _on_created(session: AsyncSession, payload: dict[str, Any]) -> None:
         fmt = await bookings_i18n.formatter(session, lang)
         return "\n".join([f"- {await _describe(session, b, fmt)}" for b in rows])
 
-    if first.user_id and first.user_id != (actor.id if actor else None):
+    if to_owner and first.user_id and first.user_id != (actor.id if actor else None):
         target = await session.get(User, first.user_id)
         if target is not None:
             lang = await _language(session, target)
@@ -346,10 +346,18 @@ async def _on_cancelled(session: AsyncSession, payload: dict[str, Any]) -> None:
 
 
 async def _on_series(session: AsyncSession, payload: dict[str, Any]) -> None:
+    """RF-11: the series' owner gets ``series_created`` (one message for the whole series, also when they made it
+    themselves); the room owner keeps ``room_owner.booking``."""
     if payload.get("booking_ids"):
-        await _on_created(session, payload)
+        from app.services import mail_senders
+
+        await _on_created(session, payload, to_owner=False)
+        await mail_senders.series_created(session, payload)
 
 
 events.on("booking.created", _on_created)
 events.on("series.created", _on_series)
 events.on("booking.cancelled", _on_cancelled)
+
+# RF-11: the reminder, series-changed, approval-submitted, consent and new-device senders register their hooks
+from app.services import mail_senders as _mail_senders  # noqa: E402,F401

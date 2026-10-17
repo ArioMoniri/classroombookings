@@ -65,3 +65,13 @@ describe("fix 5 + 7 · Studio classes step on touch: cards, and the filters as a
     expect(src).toMatch(/t\("classes\.showN", \{ n: shown\.length \}\)/);
   });
 });
+
+describe("fix 5 · /classes on a touch tablet uses the cards, and its search does not zoom", () => {
+  const src = read("classes/classes-page.tsx");
+  it("the phone layout (cards, select mode, bulk bar) covers touch tablets below 1024", () => {
+    expect(src).toContain('useMedia("(max-width: 767px), (pointer: coarse) and (max-width: 1023px)")');
+  });
+  it("the inline search is 16 px on a coarse pointer", () => {
+    expect(src.split("\n").find((l) => l.includes('aria-label={t("classes.searchLabel")}'))).toContain("pointer-coarse:text-base");
+  });
+});

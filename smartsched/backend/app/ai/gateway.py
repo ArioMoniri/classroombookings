@@ -333,6 +333,13 @@ async def provider_usable(session: AsyncSession, provider: str) -> bool:
     return has_credentials(provider, await provider_secrets(session, provider))
 
 
+_NOT_SPEECH = (
+    "Bu model sesi yazıya dökemez; ses için konuşmayı yazıya döken bir model seçin (ör. gpt-transcribe, Chirp 3, "
+    "Nova-3).",
+    "This model cannot transcribe speech; choose a speech-to-text model (e.g. gpt-transcribe, Chirp 3, Nova-3).",
+)
+
+
 def validate_route(
     route: dict[str, Any],
     synced: dict[str, set[str]],
@@ -356,8 +363,11 @@ def validate_route(
         if prov not in PROVIDERS:
             err(prov_field, "unknown_provider", "Bilinmeyen sağlayıcı.", "Unknown provider.")
             continue
+        voice = feature in VOICE_FEATURES
         if not model:
             err(model_field, "model_required", "Model seçin.", "Choose a model.")
+        elif speech is not None and voice and "stt" not in PROVIDERS[str(prov)].capabilities:
+            err(model_field, "model_not_speech", *_NOT_SPEECH)
         elif model not in synced.get(str(prov), set()):
             err(
                 model_field,
@@ -367,16 +377,9 @@ def validate_route(
             )
         elif feature is not None and speech is not None:
             is_speech = model in speech.get(str(prov), set())
-            if feature in VOICE_FEATURES and not is_speech:
-                err(
-                    model_field,
-                    "model_not_speech",
-                    "Bu model sesi yazıya dökemez; ses için konuşmayı yazıya döken bir model seçin "
-                    "(ör. gpt-transcribe, Chirp 3, Nova-3).",
-                    "This model cannot transcribe speech; choose a speech-to-text model (e.g. gpt-transcribe, "
-                    "Chirp 3, Nova-3).",
-                )
-            elif feature not in VOICE_FEATURES and (is_speech or "text" not in PROVIDERS[str(prov)].capabilities):
+            if voice and not is_speech:
+                err(model_field, "model_not_speech", *_NOT_SPEECH)
+            elif not voice and (is_speech or "text" not in PROVIDERS[str(prov)].capabilities):
                 err(
                     model_field,
                     "model_not_text",

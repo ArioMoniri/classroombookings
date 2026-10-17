@@ -46,9 +46,13 @@ describe("vendored EvilCharts ECharts, as the shell drives it", () => {
     const { container, unmount } = render(bar(onReady));
     const inst = findInstance(container);
     expect(inst).toBeDefined();
-    const opt = inst!.getOption() as Record<string, unknown> & { tooltip: { className?: string; formatter: (p: unknown) => string }[]; aria: { decal: { show: boolean } }[] };
+    const opt = inst!.getOption() as Record<string, unknown> & { tooltip: { className?: string; formatter: (p: unknown) => string }[]; aria: unknown };
     expect(opt.animation).toBe(false);
-    expect(opt.aria[0]!.decal.show).toBe(true);
+    // `aria` is a global option (an object), not a component list
+    const aria = (Array.isArray(opt.aria) ? opt.aria[0] : opt.aria) as { decal: { show: boolean }; label: { enabled: boolean } };
+    expect(aria.decal.show).toBe(true);
+    expect(aria.label.enabled).toBe(false);
+    expect(container.querySelector("[aria-label]")).toBeNull(); // no generated English description
     expect(opt.tooltip[0]!.className).toBe("ch-tt");
     const html = opt.tooltip[0]!.formatter([{ axisValue: "2026-10-13", seriesId: "chat", value: 82300 }]);
     expect(html).toContain("13 Ekim Salı");
@@ -60,7 +64,7 @@ describe("vendored EvilCharts ECharts, as the shell drives it", () => {
     unmount();
     expect(inst!.isDisposed()).toBe(true);
     expect(echarts.getInstanceByDom(container)).toBeUndefined();
-  });
+  }, 30_000); // the real engine in jsdom, on a shared 4-core host
 
   it("escapes every text part of the tooltip HTML", () => {
     expect(escapeHtml(`<img src=x onerror="a()">&'`)).toBe("&lt;img src=x onerror=&quot;a()&quot;&gt;&amp;&#39;");

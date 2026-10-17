@@ -257,7 +257,22 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
           {room?.capacity ? ` · ${t("crbs.grid.seats", { n: room.capacity })}` : ""}
         </SheetDescription>
       </SheetHeader>
-      <div ref={shakeRef} className="t-input flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pb-4">
+      <div ref={shakeRef} className="t-input flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-5 pb-4">
+        {/* mobile-a fix 7: "Tek seferlik / Her hafta" comes first (it sat below 18 period chips, at y 685 on a phone) */}
+        {kinds.length > 1 ? (
+          <SegmentedControl<Kind>
+            aria-label={t("crbs.book.kind")}
+            value={kind}
+            onValueChange={(v) => {
+              setKind(v);
+              setError(null);
+            }}
+            options={[
+              { value: "single", label: t("crbs.book.single"), icon: <CalendarCheck aria-hidden /> },
+              { value: "recurring", label: t("crbs.book.recurring"), icon: <Repeat aria-hidden /> },
+            ]}
+          />
+        ) : null}
         {dayChoices.length > 1 ? (
           <Field label={t("reserve.book.period")} htmlFor="book-period">
             <SelectField id="book-period" value={String(first.period_id)} onChange={(e) => pickPeriod(Number(e.target.value))} data-testid="book-period">
@@ -289,20 +304,6 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
             {/* T-R2-16 (R2-A-07): the helper promises what the submit does: a request under approval-first */}
             <p className="type-footnote text-label-3">{t(asks ? "reserve.book.periodsHintRequest" : "reserve.book.periodsHint")}</p>
           </fieldset>
-        ) : null}
-        {kinds.length > 1 ? (
-          <SegmentedControl<Kind>
-            aria-label={t("crbs.book.kind")}
-            value={kind}
-            onValueChange={(v) => {
-              setKind(v);
-              setError(null);
-            }}
-            options={[
-              { value: "single", label: t("crbs.book.single"), icon: <CalendarCheck aria-hidden /> },
-              { value: "recurring", label: t("crbs.book.recurring"), icon: <Repeat aria-hidden /> },
-            ]}
-          />
         ) : null}
         <Field label={t("crbs.book.notes")} htmlFor="book-notes" hint={t("crbs.book.notesHint", { n: 255 - notes.length })}>
           <Textarea id="book-notes" maxLength={255} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("crbs.book.notesPlaceholder")} />
@@ -393,10 +394,13 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
               <p className="type-footnote text-label-2">{t("reserve.book.spanRecurring", { date: fmt.short(endMode === "custom" ? endDate : grid.term.end) })}</p>
             ) : (
               <>
-                <Button variant="outline" onClick={runPreview} disabled={previewM.isPending} className="self-start" data-testid="recur-preview-btn" aria-busy={previewM.isPending || undefined}>
-                  <BusyLabel busy={previewM.isPending} label={t("busy.checking")}>
-                  {preview.plan ? t("crbs.recur.refresh") : t("crbs.recur.preview")}</BusyLabel>
-                </Button>
+                {/* mobile-a fix 7: the first preview is the footer's primary action; here only "refresh" once a plan exists */}
+                {preview.plan ? (
+                  <Button variant="outline" onClick={runPreview} disabled={previewM.isPending} className="self-start" data-testid="recur-preview-btn" aria-busy={previewM.isPending || undefined}>
+                    <BusyLabel busy={previewM.isPending} label={t("busy.checking")}>
+                    {t("crbs.recur.refresh")}</BusyLabel>
+                  </Button>
+                ) : null}
                 {preview.plan ? <RecurringPreviewTable summary={summary} dispatch={dispatch} fmt={fmt} /> : null}
               </>
             )}
@@ -449,7 +453,14 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
         <Button variant="ghost" onClick={onDone}>
           {t("crbs.common.cancel")}
         </Button>
-        {/* T-R1-12 (R1-A-16): aria-busy at once, "Gönderiliyor…" / "Kaydediliyor…" while waiting, focus kept */}
+        {/* mobile-a fix 7: until a weekly series has its preview, the footer's one primary action is "Önizle" */}
+        {kind === "recurring" && !isSpan && !preview.plan ? (
+          <Button className="pointer-coarse:h-11" onClick={runPreview} disabled={previewM.isPending} data-testid="recur-preview-btn" aria-busy={previewM.isPending || undefined}>
+            <BusyLabel busy={previewM.isPending} label={t("busy.checking")}>
+            {t("crbs.recur.preview")}</BusyLabel>
+          </Button>
+        ) : (
+        /* T-R1-12 (R1-A-16): aria-busy at once, "Gönderiliyor…" / "Kaydediliyor…" while waiting, focus kept */
         <Button className="pointer-coarse:h-11" onClick={submit} {...busyProps(busy, !kinds.length || (kind === "recurring" && !isSpan && (!preview.plan || summary.willCreate === 0)))} data-testid="book-submit">
           <BusyLabel busy={busy} label={t(asks ? "busy.sending" : "busy.saving")} icon={asks ? <Stamp aria-hidden /> : null}>
           {noTimetable && ackTimetable
@@ -467,6 +478,7 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
                 : t("crbs.recur.submit", { n: summary.willCreate })}
           </BusyLabel>
         </Button>
+        )}
       </SheetFooter>
     </>
   );

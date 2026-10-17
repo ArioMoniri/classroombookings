@@ -64,18 +64,20 @@ async def test_as_04_slots_hold_only_exam_room_periods(env, parsed_exam_list):  
     r = await env.client.put(f"{POL}/exam-period", json={"mode": "slots", "buffer_periods": 1}, headers=env.admin)
     assert r.status_code == 200, r.text
     assert r.json()["mode"] == "slots" and r.json()["buffer_periods"] == 1 and r.json()["slots_effect"] == "request"
-    # in the exam slot: a request (owner default: holds are requests)
+    # the exam itself holds its slot through the published timetable
     r = await env.book(ayse, "A105", JUNE4, "P10")
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "conflict", r.text
+    # the buffer period after the exam: a request (owner default: holds are requests)
+    r = await env.book(ayse, "A105", JUNE4, "P11")
     assert r.status_code == 202 and r.json()["status"] == "PENDING", r.text
-    # the buffer period after the exam is held too
     r = await env.client.get(
         f"{POL}/effective",
-        params={"room_id": env.rooms["A105"], "date": JUNE4.isoformat(), "period_id": env.periods["P11"]},
+        params={"room_id": env.rooms["A105"], "date": JUNE4.isoformat(), "period_id": env.periods["P5"]},
         headers=ayse,
     )
-    assert r.json()["verdict"] == "request"
+    assert r.json()["verdict"] == "request", r.json()
     v = next(x for x in r.json()["violations"] if x["rule"] == "exam_period")
-    assert "sınav" in v["message_tr"] and v["exam_slot"] == {"start": 9, "end": 10, "buffer": 1}
+    assert "sınav" in v["message_tr"] and v["exam_slot"] == {"start": 6, "end": 8, "buffer": 1}
     # two periods after the exam: bookable under slots
     r = await env.book(ayse, "A105", JUNE4, "P12")
     assert r.status_code == 201, r.text
@@ -87,7 +89,7 @@ async def test_as_04_slots_hold_only_exam_room_periods(env, parsed_exam_list):  
     # slots with effect refuse
     r = await env.client.put(f"{POL}/exam-period", json={"mode": "slots", "slots_effect": "refuse"}, headers=env.admin)
     assert r.status_code == 200
-    r = await env.book(ayse, "A105", JUNE4, "P9")
+    r = await env.book(ayse, "A105", JUNE4, "P5")  # the buffer before BP 116 (P6-P8)
     assert r.status_code == 409 and r.json()["detail"]["code"] == "policy_exam_period"
     r = await env.client.put(f"{POL}/exam-period", json={"mode": "slots", "buffer_periods": 9}, headers=env.admin)
     assert r.status_code == 422 and r.json()["detail"]["message_tr"]

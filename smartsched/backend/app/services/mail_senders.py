@@ -43,13 +43,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.models import ApprovalDecision, ApprovalRequest, Booking, BookingPeriod, BookingSeries, NotificationDelivery
-from app.models import User
+from app.models import (
+    ApprovalDecision,
+    ApprovalRequest,
+    Booking,
+    BookingPeriod,
+    BookingSeries,
+    NotificationDelivery,
+    User,
+)
 from app.models.booking import BOOKED
 from app.models.catalog import Room
-from app.services import audit
+from app.services import audit, bookings_i18n
 from app.services import bookings_events as legacy
-from app.services import bookings_i18n
 from app.services import events as domain
 from app.services.bookings_settings import get_user_value, get_value, set_user_value
 

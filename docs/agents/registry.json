@@ -2815,7 +2815,8 @@
       "goal": "You are the SECURITY FOLLOW-UP lane for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md: NEVER commit or push, test-first, never `pkill -f`, `nice -n …",
       "ledger": "Security follow-ups from W3-SEC",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:45"
     },
     {
       "id": "aec6575a6b9f762e8",

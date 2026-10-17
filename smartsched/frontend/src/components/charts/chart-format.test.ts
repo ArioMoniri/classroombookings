@@ -9,8 +9,8 @@ describe("chart-format (tr-TR Intl, Europe/Istanbul)", () => {
     expect(tr.num(82300)).toBe("82.300");
     expect(tr.num(82.25)).toBe("82,3");
     expect(tr.pct(0.86)).toBe("%86");
-    expect(tr.compact(82300)).toBe("82 B");
-    expect(tr.compact(1_200_000)).toBe("1,2 Mn");
+    expect(tr.compact(82300)).toBe("82\u00a0B");
+    expect(tr.compact(1_200_000)).toBe("1,2\u00a0Mn");
     expect(tr.compactLong(1_200_000)).toBe("1,2 milyon");
     expect(tr.compactLong(82300)).toBe("82 bin");
   });

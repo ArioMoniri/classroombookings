@@ -22,8 +22,8 @@
     tr: [rezervasyon, booking, rezervasyon yap, salon ayır, oda ayır, derslik ayır, haftalık rezervasyon tablosu, boş saat, rezervasyon takvimi, ayırma, sınıf ayır, amfi ayır, lab ayır, tablo]
     en: [bookings, book a room, booking grid, reserve a room, weekly booking table, free slot, crbs bookings, room schedule]
   steps:
-    tr: [Sol menüden Rezervasyonlar'ı açın., Haftayı ve salonu seçin., Boş bir saate tıklayıp rezerve edin.]
-    en: [Open Bookings in the side menu., Pick the week and the room., Click a free slot and book it.]
+    tr: ["Sol menüden Rezervasyonlar'ı açın.", "Haftayı ve salonu seçin.", "Boş bir saate tıklayıp rezerve edin."]
+    en: ["Open Bookings in the side menu.", "Pick the week and the room.", "Click a free slot and book it."]
   anchor: nav-bookings
   permission: []
   actions: [room_day_schedule, create_booking]
@@ -38,8 +38,8 @@
     tr: [hızlı ayır, hemen rezerve et, çabuk rezervasyon, tek tıkla rezervasyon, şimdi salon lazım, yarın için salon ayır]
     en: [quick booking, book now, fast reserve, one click booking, i need a room now]
   steps:
-    tr: [Rezervasyonlar › Hızlı rezervasyon'u açın., Zamanı seçin., Listeden bir salon seçip rezerve edin.]
-    en: [Open Bookings › Quick reserve., Choose the time., Pick a room from the list and book it.]
+    tr: ["Rezervasyonlar › Hızlı rezervasyon'u açın.", "Zamanı seçin.", "Listeden bir salon seçip rezerve edin."]
+    en: ["Open Bookings › Quick reserve.", "Choose the time.", "Pick a room from the list and book it."]
   anchor: nav-reserve
   permission: [book_single.create]
   actions: [find_free_rooms, create_booking]
@@ -54,8 +54,8 @@
     tr: [uygun salonlar listesi, boş salonlar, müsait salonlar]
     en: [available rooms list, rooms free now]
   steps:
-    tr: [Hızlı rezervasyon'da zamanı seçin., Uygun salonlar listede görünür.]
-    en: [Choose the time in Quick reserve., The available rooms appear in the list.]
+    tr: ["Hızlı rezervasyon'da zamanı seçin.", "Uygun salonlar listede görünür."]
+    en: ["Choose the time in Quick reserve.", "The available rooms appear in the list."]
   anchor: reserve-room-list
   permission: [book_single.create]
   actions: [find_free_rooms]
@@ -70,8 +70,8 @@
     tr: [benim rezervasyonlarım, kendi rezervasyonlarım, yaptığım rezervasyonlar, ayırdığım salonlar, rezervasyon geçmişi, gelecek rezervasyonlarım]
     en: [my reservations, bookings i made, my booked rooms, upcoming bookings]
   steps:
-    tr: [Rezervasyonlar › Rezervasyonlarım'ı açın., Yaklaşan rezervasyonlarınız listelenir.]
-    en: [Open Bookings › My bookings., Your upcoming bookings are listed.]
+    tr: ["Rezervasyonlar › Rezervasyonlarım'ı açın.", "Yaklaşan rezervasyonlarınız listelenir."]
+    en: ["Open Bookings › My bookings.", "Your upcoming bookings are listed."]
   anchor: nav-my-bookings
   permission: []
   actions: [my_bookings, cancel_my_booking]
@@ -86,8 +86,8 @@
     tr: [rezervasyonu iptal et, rezervasyon sil, ayırmayı kaldır, salonu bırak, vazgeç rezervasyon, iptal]
     en: [cancel booking, delete booking, remove reservation, release a room, cancel my reservation]
   steps:
-    tr: [Rezervasyonlar › Rezervasyonlarım'ı açın., Rezervasyonun yanındaki İptal et'e basın., Onaylayın.]
-    en: [Open Bookings › My bookings., Press Cancel next to the booking., Confirm.]
+    tr: ["Rezervasyonlar › Rezervasyonlarım'ı açın.", "Rezervasyonun yanındaki İptal et'e basın.", "Onaylayın."]
+    en: ["Open Bookings › My bookings.", "Press Cancel next to the booking.", "Confirm."]
   anchor: my-bookings-cancel
   permission: []
   actions: [my_bookings, cancel_my_booking]
@@ -102,8 +102,8 @@
     tr: [csv indir, rezervasyon raporu, excel indir, rezervasyon listesi indir, dışa aktarım]
     en: [download csv, bookings report, export to excel, download bookings]
   steps:
-    tr: [Rezervasyonlar › Rezervasyonlarım'ı açın., Dışa aktar bölümünde tarih aralığını seçin., CSV'yi indirin.]
-    en: [Open Bookings › My bookings., Choose the date range under Export., Download the CSV.]
+    tr: ["Rezervasyonlar › Rezervasyonlarım'ı açın.", "Dışa aktar bölümünde tarih aralığını seçin.", "CSV'yi indirin."]
+    en: ["Open Bookings › My bookings.", "Choose the date range under Export.", "Download the CSV."]
   anchor: bookings-export
   permission: [system.export_bookings]
   actions: []
@@ -118,8 +118,8 @@
     tr: [derslik bul, salon bul, boş salon, boş sınıf, uygun oda, müsait derslik, kapasiteye göre salon, projeksiyonlu salon, kaç kişilik salon, oda ara]
     en: [find room, free room, empty classroom, available room, room search, room with projector, room by capacity]
   steps:
-    tr: [Rezervasyonlar › Boş derslik bul'u açın., Tarih, saat ve kişi sayısını girin., Sonuçlardan birini seçip rezerve edin.]
-    en: [Open Bookings › Find a room., Enter the date, time and headcount., Pick a result and book it.]
+    tr: ["Rezervasyonlar › Boş derslik bul'u açın.", "Tarih, saat ve kişi sayısını girin.", "Sonuçlardan birini seçip rezerve edin."]
+    en: ["Open Bookings › Find a room.", "Enter the date, time and headcount.", "Pick a result and book it."]
   anchor: nav-find-room
   permission: []
   actions: [find_free_rooms, create_booking]
@@ -134,8 +134,8 @@
     tr: [bina filtresi, özellik filtresi, kapasite filtresi, bilgisayar laboratuvarı, projeksiyon]
     en: [building filter, feature filter, capacity filter, computer lab]
   steps:
-    tr: [Boş derslik bul'da filtreleri açın., Bina, kapasite ve özellikleri seçin.]
-    en: [Open the filters in Find a room., Choose building, capacity and features.]
+    tr: ["Boş derslik bul'da filtreleri açın.", "Bina, kapasite ve özellikleri seçin."]
+    en: ["Open the filters in Find a room.", "Choose building, capacity and features."]
   anchor: find-room-filters
   permission: []
   actions: [find_free_rooms]
@@ -150,8 +150,8 @@
     tr: [bekleyen talepler, onay bekleyen rezervasyonlar, talep onayla, talep reddet, onay kutusu, gelen talepler, onaylanacaklar]
     en: [pending requests, approve request, reject request, approval inbox, requests to approve]
   steps:
-    tr: [Rezervasyonlar › Onaylar'ı açın., Bir talebin yanındaki Onayla ya da Reddet'e basın., Reddederken gerekçe seçin.]
-    en: [Open Bookings › Approvals., Press Approve or Reject next to a request., Choose a reason when you reject.]
+    tr: ["Rezervasyonlar › Onaylar'ı açın.", "Bir talebin yanındaki Onayla ya da Reddet'e basın.", "Reddederken gerekçe seçin."]
+    en: ["Open Bookings › Approvals.", "Press Approve or Reject next to a request.", "Choose a reason when you reject."]
   anchor: nav-approvals
   permission: [approvals.decide]
   actions: [approvals_inbox, decide_approval]
@@ -166,8 +166,8 @@
     tr: [talebi reddet, talebi onayla, red gerekçesi, onay ver]
     en: [reject a request, approve a request, rejection reason]
   steps:
-    tr: [Onaylar'da talebi bulun., Onayla'ya ya da Reddet'e basın.]
-    en: [Find the request in Approvals., Press Approve or Reject.]
+    tr: ["Onaylar'da talebi bulun.", "Onayla'ya ya da Reddet'e basın."]
+    en: ["Find the request in Approvals.", "Press Approve or Reject."]
   anchor: approvals-row-actions
   permission: [approvals.decide]
   actions: [approvals_inbox, decide_approval]
@@ -182,8 +182,8 @@
     tr: [talebim ne durumda, talep durumu, onay bekleyen talebim, gönderdiğim talepler, talebimi geri çek, ders talebim]
     en: [my request status, my pending requests, requests i sent, withdraw my request]
   steps:
-    tr: [Rezervasyonlar › Taleplerim'i açın., Her talebin durumu ve kararı görünür.]
-    en: [Open Bookings › My requests., Each request shows its status and decision.]
+    tr: ["Rezervasyonlar › Taleplerim'i açın.", "Her talebin durumu ve kararı görünür."]
+    en: ["Open Bookings › My requests.", "Each request shows its status and decision."]
   anchor: nav-my-requests
   permission: [book_single.create, book_recur.create]
   hide_with: planning.view
@@ -199,8 +199,8 @@
     tr: [hesabım, profilim, adımı değiştir, e-posta adresim, kişisel bilgiler, dil seçimi]
     en: [my account, my profile, change my name, my email, personal details, language]
   steps:
-    tr: [Sağ üstteki kullanıcı menüsünü açın., Profil'i seçin.]
-    en: [Open the user menu at the top right., Choose Profile.]
+    tr: ["Sağ üstteki kullanıcı menüsünü açın.", "Profil'i seçin."]
+    en: ["Open the user menu at the top right.", "Choose Profile."]
   anchor: user-menu
   permission: []
   actions: []
@@ -215,8 +215,8 @@
     tr: [şifre değiştir, şifremi değiştir, parola değiştir, yeni şifre, şifre yenile]
     en: [change password, new password, reset my password, password]
   steps:
-    tr: [Kullanıcı menüsünden Profil'i açın., Parola bölümünde eski ve yeni parolayı girin., Parolayı değiştir'e basın.]
-    en: [Open Profile from the user menu., Enter the old and the new password under Password., Press Change password.]
+    tr: ["Kullanıcı menüsünden Profil'i açın.", "Parola bölümünde eski ve yeni parolayı girin.", "Parolayı değiştir'e basın."]
+    en: ["Open Profile from the user menu.", "Enter the old and the new password under Password.", "Press Change password."]
   permission: []
   actions: []
   since: "2026.10"
@@ -230,8 +230,8 @@
     tr: [derslerimi takvimime ekle, google takvim, outlook takvim, apple takvim, takvim bağlantısı, ics, takvim aboneliği, derslerim telefonda]
     en: [add my classes to my calendar, google calendar, outlook calendar, calendar feed, ics, calendar subscription]
   steps:
-    tr: [Profil'i açın., Takvim bölümünde takviminizi seçin., Bağlantıyı ekleyin.]
-    en: [Open Profile., Choose your calendar under Calendar., Add the link.]
+    tr: ["Profil'i açın.", "Takvim bölümünde takviminizi seçin.", "Bağlantıyı ekleyin."]
+    en: ["Open Profile.", "Choose your calendar under Calendar.", "Add the link."]
   anchor: profile-calendar
   permission: []
   actions: []
@@ -246,8 +246,8 @@
     tr: [bildirimleri kapat, e-posta bildirimleri, bildirim ayarları, e-posta gelmesin, onay bildirimleri, uyarılar]
     en: [turn off notifications, email notifications, notification settings, stop emails, approval notices]
   steps:
-    tr: [Profil'i açın., Bildirimler bölümünde kanalları seçin.]
-    en: [Open Profile., Choose the channels under Notifications.]
+    tr: ["Profil'i açın.", "Bildirimler bölümünde kanalları seçin."]
+    en: ["Open Profile.", "Choose the channels under Notifications."]
   anchor: profile-notifications
   permission: []
   actions: []
@@ -262,8 +262,8 @@
     tr: [sms bağla, whatsapp bağla, telegram bağla, telefon numaram, mesaj kanalı]
     en: [link sms, link whatsapp, link telegram, my phone number]
   steps:
-    tr: [Profil'i açın., Bağlı kanallar bölümünden bir kanal ekleyin.]
-    en: [Open Profile., Add a channel under Linked channels.]
+    tr: ["Profil'i açın.", "Bağlı kanallar bölümünden bir kanal ekleyin."]
+    en: ["Open Profile.", "Add a channel under Linked channels."]
   permission: []
   actions: []
   since: "2026.10"
@@ -277,8 +277,8 @@
     tr: [yapay zeka kotam, kalan hakkım, token kullanımım, yapay zeka sınırım]
     en: [my ai quota, my token usage, ai limit, how much ai left]
   steps:
-    tr: [Profil'i açın., Yapay zekâ kullanımım bölümüne bakın.]
-    en: [Open Profile., Look at My AI usage.]
+    tr: ["Profil'i açın.", "Yapay zekâ kullanımım bölümüne bakın."]
+    en: ["Open Profile.", "Look at My AI usage."]
   anchor: profile-ai-usage
   permission: []
   actions: [my_ai_usage]
@@ -293,8 +293,8 @@
     tr: [yardımcı belleği, hatırladıkların, notlarımı sil, hafızayı temizle, unut]
     en: [helper memory, what you remember, delete my notes, forget]
   steps:
-    tr: [Profil'i açın., Yardımcı bölümünde notları görün ya da silin.]
-    en: [Open Profile., See or delete the notes under Helper.]
+    tr: ["Profil'i açın.", "Yardımcı bölümünde notları görün ya da silin."]
+    en: ["Open Profile.", "See or delete the notes under Helper."]
   anchor: profile-helper-memory
   permission: []
   actions: []
@@ -309,8 +309,8 @@
     tr: [verilerimi indir, verilerimi sil, açık rıza, kvkk başvurusu, hesabımı sil, aydınlatma metni]
     en: [download my data, delete my data, consent, data request, delete my account, privacy notice]
   steps:
-    tr: [Profil'i açın., Gizlilik bölümünden başvurunuzu oluşturun.]
-    en: [Open Profile., Create your request under Privacy.]
+    tr: ["Profil'i açın.", "Gizlilik bölümünden başvurunuzu oluşturun."]
+    en: ["Open Profile.", "Create your request under Privacy."]
   permission: []
   actions: []
   since: "2026.10"
@@ -324,8 +324,8 @@
     tr: [ana sayfa, genel durum, planlama özeti, gösterge paneli]
     en: [home, overview, planning summary]
   steps:
-    tr: [Sol menüden Planlama › Özet'i açın.]
-    en: [Open Plan › Dashboard in the side menu.]
+    tr: ["Sol menüden Planlama › Özet'i açın."]
+    en: ["Open Plan › Dashboard in the side menu."]
   anchor: nav-dashboard
   permission: [planning.view]
   actions: [run_status, requests_needing_review]
@@ -340,8 +340,8 @@
     tr: [excel yükle, dosya yükle, kurulum sihirbazı, pdf yükle, ders programı dosyası, eski programı aktar]
     en: [upload excel, upload files, setup wizard, upload pdf, onboarding]
   steps:
-    tr: [Planlama › Dosyalardan kur'u açın., Dosyalarınızı bırakın., Önerileri inceleyip onaylayın.]
-    en: [Open Plan › Set up from files., Drop your files., Review and accept the proposals.]
+    tr: ["Planlama › Dosyalardan kur'u açın.", "Dosyalarınızı bırakın.", "Önerileri inceleyip onaylayın."]
+    en: ["Open Plan › Set up from files.", "Drop your files.", "Review and accept the proposals."]
   anchor: nav-onboarding
   permission: [planning.edit]
   actions: []
@@ -356,8 +356,8 @@
     tr: [planlama listesi yükle, derslik takvimi yükle, xlsx içe aktar, veri aktar]
     en: [import planning list, import workbook, import xlsx, data import]
   steps:
-    tr: [Planlama › İçe aktar'ı açın., Excel dosyasını seçin., Önizlemeyi kontrol edip içe aktarın.]
-    en: [Open Plan › Import., Choose the Excel file., Check the preview and import.]
+    tr: ["Planlama › İçe aktar'ı açın.", "Excel dosyasını seçin.", "Önizlemeyi kontrol edip içe aktarın."]
+    en: ["Open Plan › Import.", "Choose the Excel file.", "Check the preview and import."]
   permission: [planning.edit]
   actions: []
   since: "2026.10"
@@ -371,8 +371,8 @@
     tr: [ders talepleri, incelenecek talepler, gözden geçirilecekler, sınav talepleri, talep listesi]
     en: [meeting requests, requests to review, needs review, exam requests]
   steps:
-    tr: [Planlama › Talepler'i açın., İncelenecekler filtresini seçin.]
-    en: [Open Plan › Requests., Choose the needs-review filter.]
+    tr: ["Planlama › Talepler'i açın.", "İncelenecekler filtresini seçin."]
+    en: ["Open Plan › Requests.", "Choose the needs-review filter."]
   anchor: nav-requests
   permission: [planning.view]
   actions: [requests_needing_review]
@@ -387,8 +387,8 @@
     tr: [ders programı oluştur, program üret, çizelge oluştur, çözücüyü çalıştır, yeni çalıştırma, sınav programı oluştur]
     en: [generate timetable, run the solver, new run, create schedule, exam schedule]
   steps:
-    tr: [Planlama › Oluştur'u açın., Dönemi ve ayarları seçin., Oluştur'a basın.]
-    en: [Open Plan › Generate., Choose the term and settings., Press Generate.]
+    tr: ["Planlama › Oluştur'u açın.", "Dönemi ve ayarları seçin.", "Oluştur'a basın."]
+    en: ["Open Plan › Generate.", "Choose the term and settings.", "Press Generate."]
   anchor: nav-generate
   permission: [planning.edit]
   actions: []
@@ -403,8 +403,8 @@
     tr: [kişi eşleştirme, öncelikler, öğretim elemanı tercihleri, eşleşmeler]
     en: [people matching, priorities, instructor preferences, matchings]
   steps:
-    tr: [Planlama › Moderasyon'u açın.]
-    en: [Open Plan › Moderation.]
+    tr: ["Planlama › Moderasyon'u açın."]
+    en: ["Open Plan › Moderation."]
   anchor: nav-moderation
   permission: [planning.view]
   actions: []
@@ -419,8 +419,8 @@
     tr: [sıfırdan program, yeni bölüm programı, program sihirbazı, müfredat oluştur]
     en: [programme from scratch, new curriculum, programme wizard]
   steps:
-    tr: [Planlama › Yeni program'ı açın., Adımları izleyin.]
-    en: [Open Plan › New programme., Follow the steps.]
+    tr: ["Planlama › Yeni program'ı açın.", "Adımları izleyin."]
+    en: ["Open Plan › New programme.", "Follow the steps."]
   permission: [planning.edit]
   actions: []
   since: "2026.10"
@@ -434,8 +434,8 @@
     tr: [ders programı, haftalık program, ders çizelgesi, programı gör, takvim görünümü]
     en: [timetable view, weekly timetable, class schedule, see the schedule]
   steps:
-    tr: [Sonuçlar › Çizelge'yi açın., Haftayı ve görünümü seçin.]
-    en: [Open Results › Timetable., Choose the week and the view.]
+    tr: ["Sonuçlar › Çizelge'yi açın.", "Haftayı ve görünümü seçin."]
+    en: ["Open Results › Timetable.", "Choose the week and the view."]
   anchor: nav-timetable
   permission: [planning.view]
   actions: []
@@ -450,8 +450,8 @@
     tr: [çalıştırma durumu, son çalıştırma, çözüm sonuçları, yayındaki plan, plan durumu]
     en: [run status, latest run, solver results, published plan, plan status]
   steps:
-    tr: [Sonuçlar › Çalıştırmalar'ı açın., Bir çalıştırmayı seçip özetine bakın.]
-    en: [Open Results › Runs., Choose a run and look at its summary.]
+    tr: ["Sonuçlar › Çalıştırmalar'ı açın.", "Bir çalıştırmayı seçip özetine bakın."]
+    en: ["Open Results › Runs.", "Choose a run and look at its summary."]
   anchor: nav-runs
   permission: [planning.view]
   actions: [run_status]
@@ -466,8 +466,8 @@
     tr: [yayınla, yayımla, programı yayınla, planı etkinleştir, aktif et]
     en: [publish, activate run, make the plan live]
   steps:
-    tr: [Sonuçlar › Çalıştırmalar'ı açın., Çalıştırmayı açın., Yayınla'ya basın ve pencereden onaylayın.]
-    en: [Open Results › Runs., Open the run., Press Publish and confirm in the dialog.]
+    tr: ["Sonuçlar › Çalıştırmalar'ı açın.", "Çalıştırmayı açın.", "Yayınla'ya basın ve pencereden onaylayın."]
+    en: ["Open Results › Runs.", "Open the run.", "Press Publish and confirm in the dialog."]
   anchor: runs-publish
   permission: [planning.edit]
   actions: [run_status]
@@ -482,8 +482,8 @@
     tr: [programı indir, çalıştırma raporu, excel olarak indir, son çalıştırmanın raporu]
     en: [download timetable, run report, export to excel, latest run report]
   steps:
-    tr: [Sonuçlar › Çalıştırmalar'da çalıştırmayı açın., Dışa aktar'a basın.]
-    en: [Open the run in Results › Runs., Press Export.]
+    tr: ["Sonuçlar › Çalıştırmalar'da çalıştırmayı açın.", "Dışa aktar'a basın."]
+    en: ["Open the run in Results › Runs.", "Press Export."]
   anchor: runs-export
   permission: [planning.view]
   actions: []
@@ -498,8 +498,8 @@
     tr: [iki çalıştırmayı karşılaştır, fark göster, senaryolar]
     en: [compare two runs, show differences, scenarios]
   steps:
-    tr: [Sonuçlar › Senaryo karşılaştırma'yı açın., İki çalıştırma seçin.]
-    en: [Open Results › Scenario comparison., Choose two runs.]
+    tr: ["Sonuçlar › Senaryo karşılaştırma'yı açın.", "İki çalıştırma seçin."]
+    en: ["Open Results › Scenario comparison.", "Choose two runs."]
   permission: [planning.view]
   actions: []
   since: "2026.10"
@@ -513,8 +513,8 @@
     tr: [salon doluluğu, kullanım oranı, doluluk raporu, hangi saatler dolu]
     en: [room utilisation, usage rate, occupancy report, busy hours]
   steps:
-    tr: [Sonuçlar › Doluluk ısı haritası'nı açın.]
-    en: [Open Results › Utilisation heatmap.]
+    tr: ["Sonuçlar › Doluluk ısı haritası'nı açın."]
+    en: ["Open Results › Utilisation heatmap."]
   anchor: nav-heatmap
   permission: [planning.view]
   actions: []
@@ -529,8 +529,8 @@
     tr: [gözetmen, sınav gözetmeni, gözetmen görevleri, gözetmen havuzu]
     en: [invigilators, exam proctor, invigilation duties, proctor pool]
   steps:
-    tr: [Sonuçlar › Gözetmen ataması'nı açın.]
-    en: [Open Results › Invigilator assignment.]
+    tr: ["Sonuçlar › Gözetmen ataması'nı açın."]
+    en: ["Open Results › Invigilator assignment."]
   permission: [planning.view]
   actions: []
   since: "2026.10"
@@ -544,8 +544,8 @@
     tr: [derslik listesi, salon listesi, salon kapasiteleri, salon özellikleri]
     en: [room list, room capacities, room features]
   steps:
-    tr: [Ana veriler › Derslikler'i açın.]
-    en: [Open Master data › Rooms.]
+    tr: ["Ana veriler › Derslikler'i açın."]
+    en: ["Open Master data › Rooms."]
   permission: [planning.view, setup.rooms]
   actions: []
   since: "2026.10"
@@ -559,8 +559,8 @@
     tr: [planlama ayarları, çözücü ayarları, kurallar, yerleşik kurallar]
     en: [planning settings, solver settings, built-in rules]
   steps:
-    tr: [Yönetim › Ayarlar'ı açın.]
-    en: [Open Admin › Settings.]
+    tr: ["Yönetim › Ayarlar'ı açın."]
+    en: ["Open Admin › Settings."]
   permission: [planning.admin, setup.settings]
   actions: []
   since: "2026.10"
@@ -574,8 +574,8 @@
     tr: [sistem durumu, hata kayıtları, günlükler, sunucu durumu, grafana]
     en: [system status, error log, logs, server health]
   steps:
-    tr: [Yönetim › Operasyon'u açın.]
-    en: [Open Admin › Operations.]
+    tr: ["Yönetim › Operasyon'u açın."]
+    en: ["Open Admin › Operations."]
   permission: [setup.settings, planning.admin]
   actions: []
   since: "2026.10"
@@ -589,8 +589,8 @@
     tr: [yapay zeka ayarları, model seçimi, api anahtarı, sağlayıcı, yerel model, yapay zeka sınırları, kota, yardımcıyı aç]
     en: [ai settings, model routing, api key, provider, local model, ai limits, quota, helper settings]
   steps:
-    tr: [Yönetim › Yapay zekâ'yı açın., Sağlayıcıyı ve modelleri seçin.]
-    en: [Open Admin › AI., Choose the provider and models.]
+    tr: ["Yönetim › Yapay zekâ'yı açın.", "Sağlayıcıyı ve modelleri seçin."]
+    en: ["Open Admin › AI.", "Choose the provider and models."]
   permission: [setup.settings, planning.admin]
   actions: []
   since: "2026.10"
@@ -604,8 +604,8 @@
     tr: [bağlantılar, webhook, otomasyon, google entegrasyonu, microsoft entegrasyonu]
     en: [connections, webhooks, automation, google integration, microsoft integration]
   steps:
-    tr: [Yönetim › Entegrasyonlar'ı açın.]
-    en: [Open Admin › Integrations.]
+    tr: ["Yönetim › Entegrasyonlar'ı açın."]
+    en: ["Open Admin › Integrations."]
   anchor: nav-integrations
   permission: [setup.settings, planning.admin]
   actions: []
@@ -620,8 +620,8 @@
     tr: [yönetim paneli, kurulum menüsü, crbs ayarları]
     en: [admin panel, setup menu, crbs setup]
   steps:
-    tr: [Yönetim › Kurulum'u açın.]
-    en: [Open Admin › Setup.]
+    tr: ["Yönetim › Kurulum'u açın."]
+    en: ["Open Admin › Setup."]
   anchor: nav-admin
   permission: [setup.authentication, setup.departments, setup.roles, setup.rooms, setup.rooms_acl, setup.schedules, setup.sessions, setup.settings, setup.timetable_weeks, setup.users]
   actions: []
@@ -636,8 +636,8 @@
     tr: [davet, hesap, kullanıcı, user, kullanıcı ekle, hesap aç, kullanıcı listesi, kullanıcıyı devre dışı bırak, rol ata, kullanıcı içe aktar]
     en: [users, add user, create account, user list, disable a user, assign role, import users]
   steps:
-    tr: [Kurulum › Kullanıcılar'ı açın.]
-    en: [Open Setup › Users.]
+    tr: ["Kurulum › Kullanıcılar'ı açın."]
+    en: ["Open Setup › Users."]
   anchor: admin-group-users
   permission: [setup.users]
   actions: []
@@ -652,8 +652,8 @@
     tr: [davet gönder, öğretim elemanı davet et, yeni kişi davet, e-posta ile davet]
     en: [send invite, invite a teacher, invite by email, invite someone]
   steps:
-    tr: [Kurulum › Kullanıcılar'ı açın., Davet et'e basın., E-posta ve rolü girip gönderin.]
-    en: [Open Setup › Users., Press Invite., Enter the e-mail and role and send.]
+    tr: ["Kurulum › Kullanıcılar'ı açın.", "Davet et'e basın.", "E-posta ve rolü girip gönderin."]
+    en: ["Open Setup › Users.", "Press Invite.", "Enter the e-mail and role and send."]
   anchor: admin-users-invite
   permission: [setup.users]
   actions: []
@@ -668,8 +668,8 @@
     tr: [roller ve izinler, yetkiler, izin ver, rol oluştur, yetki tanımla]
     en: [roles and permissions, permissions, grant permission, create role]
   steps:
-    tr: [Kurulum › Roller'i açın., Bir rol seçip izinlerini düzenleyin.]
-    en: [Open Setup › Roles., Choose a role and edit its permissions.]
+    tr: ["Kurulum › Roller'i açın.", "Bir rol seçip izinlerini düzenleyin."]
+    en: ["Open Setup › Roles.", "Choose a role and edit its permissions."]
   permission: [setup.roles]
   actions: []
   since: "2026.10"
@@ -683,8 +683,8 @@
     tr: [bölüm, department, bölüm ekle, birimler, birim, fakülte bölümleri]
     en: [departments, department, add department, units]
   steps:
-    tr: [Kurulum › Bölümler'i açın.]
-    en: [Open Setup › Departments.]
+    tr: ["Kurulum › Bölümler'i açın."]
+    en: ["Open Setup › Departments."]
   permission: [setup.departments]
   actions: []
   since: "2026.10"
@@ -698,8 +698,8 @@
     tr: [lab, salon, derslik, oda, room, salon ekle, derslik ekle, oda ekle, salon grupları, amfi, laboratuvar, salon özellikleri düzenle, salonu rezervasyona kapat]
     en: [rooms, add room, room groups, lecture hall, lab, room fields, close a room for bookings]
   steps:
-    tr: [Kurulum › Salonlar'ı açın., Salon ekle'ye basın.]
-    en: [Open Setup › Rooms., Press Add room.]
+    tr: ["Kurulum › Salonlar'ı açın.", "Salon ekle'ye basın."]
+    en: ["Open Setup › Rooms.", "Press Add room."]
   anchor: admin-group-resources
   permission: [setup.rooms, setup.rooms_acl]
   actions: []
@@ -714,8 +714,8 @@
     tr: [izin, erişim, access, kim ayırabilir, salon erişimi, erişim kuralları, salon izinleri, kim rezerve edebilir]
     en: [who can book, room access, access rules, room permissions, access control]
   steps:
-    tr: [Kurulum › Erişim denetimi'ni açın., Salonu ve kişiyi seçin.]
-    en: [Open Setup › Access checker., Choose the room and the person.]
+    tr: ["Kurulum › Erişim denetimi'ni açın.", "Salonu ve kişiyi seçin."]
+    en: ["Open Setup › Access checker.", "Choose the room and the person."]
   anchor: admin-access-rules
   permission: [setup.rooms_acl, setup.users]
   actions: []
@@ -730,8 +730,8 @@
     tr: [onay gerektiren salonlar, onaylayıcı ata, onay akışı, onay modu, tüm talepler onaya gitsin]
     en: [rooms that need approval, assign approver, approval workflow, approval mode]
   steps:
-    tr: [Kurulum › Onay kuralları'nı açın., Kural ekleyin.]
-    en: [Open Setup › Approval rules., Add a rule.]
+    tr: ["Kurulum › Onay kuralları'nı açın.", "Kural ekleyin."]
+    en: ["Open Setup › Approval rules.", "Add a rule."]
   anchor: admin-approval-rules
   permission: [setup.rooms_acl]
   actions: []
@@ -746,8 +746,8 @@
     tr: [term, dönem, session, dönem ekle, yarıyıl, akademik takvim, dönem değiştir, güz dönemi, bahar dönemi]
     en: [add term, semester, academic calendar, change term, sessions, terms]
   steps:
-    tr: [Kurulum › Dönemler'i açın., Dönem ekle'ye basın.]
-    en: [Open Setup › Sessions., Press Add session.]
+    tr: ["Kurulum › Dönemler'i açın.", "Dönem ekle'ye basın."]
+    en: ["Open Setup › Sessions.", "Press Add session."]
   anchor: admin-group-timetable
   permission: [setup.sessions]
   actions: []
@@ -762,8 +762,8 @@
     tr: [tatil, holiday, tatil ekle, resmi tatil, bayram, kapalı günler, tatil günü]
     en: [holidays, add holiday, public holiday, closed days, holiday]
   steps:
-    tr: [Kurulum › Tatiller'i açın., Tatil ekle'ye basın., Tarihleri girip kaydedin.]
-    en: [Open Setup › Holidays., Press Add holiday., Enter the dates and save.]
+    tr: ["Kurulum › Tatiller'i açın.", "Tatil ekle'ye basın.", "Tarihleri girip kaydedin."]
+    en: ["Open Setup › Holidays.", "Press Add holiday.", "Enter the dates and save."]
   anchor: admin-holidays-add
   permission: [setup.sessions]
   actions: []
@@ -778,8 +778,8 @@
     tr: [saat dilimi, period, ders saati, saat dilimleri, periyotlar, zaman çizelgesi, teneffüs, ders süresi]
     en: [timetable, periods, time slots, crbs periods, lesson times, timetable periods]
   steps:
-    tr: [Kurulum › Ders saatleri'ni açın., Saatleri düzenleyin.]
-    en: [Open Setup › Schedules., Edit the periods.]
+    tr: ["Kurulum › Ders saatleri'ni açın.", "Saatleri düzenleyin."]
+    en: ["Open Setup › Schedules.", "Edit the periods."]
   anchor: admin-periods
   permission: [setup.schedules]
   actions: []
@@ -794,8 +794,8 @@
     tr: [a/b haftası, week, hafta, a haftası, b haftası, haftalar, sezon takvimi, sınav haftası]
     en: [weeks, a/b weeks, crbs weeks, season calendar, exam week]
   steps:
-    tr: [Kurulum › Ders haftaları'nı açın.]
-    en: [Open Setup › Timetable weeks.]
+    tr: ["Kurulum › Ders haftaları'nı açın."]
+    en: ["Open Setup › Timetable weeks."]
   anchor: admin-weeks
   permission: [setup.timetable_weeks]
   actions: []
@@ -810,8 +810,8 @@
     tr: [çakışan rezervasyonlar, programla çakışan, çakışma çöz]
     en: [clashing bookings, conflicts with the timetable, resolve conflicts]
   steps:
-    tr: [Kurulum › Rezervasyon çakışmaları'nı açın.]
-    en: [Open Setup › Booking conflicts.]
+    tr: ["Kurulum › Rezervasyon çakışmaları'nı açın."]
+    en: ["Open Setup › Booking conflicts."]
   permission: [planning.view]
   actions: []
   since: "2026.10"
@@ -825,8 +825,8 @@
     tr: [ayarlar, settings, kurum adı, logo, bakım modu, saat dilimi, genel ayarlar, rezervasyon ayarları]
     en: [crbs settings, settings, organisation name, logo, maintenance mode, time zone, general settings, booking settings]
   steps:
-    tr: [Kurulum › Kurum ayarları'nı açın.]
-    en: [Open Setup › Organisation.]
+    tr: ["Kurulum › Kurum ayarları'nı açın."]
+    en: ["Open Setup › Organisation."]
   permission: [setup.settings]
   actions: []
   since: "2026.10"
@@ -840,8 +840,8 @@
     tr: [giriş, ldap, sso, tek oturum açma, entra, active directory, giriş yöntemleri, saml]
     en: [authentication, ldap, sso, single sign-on, entra id, active directory, sign-in methods, saml]
   steps:
-    tr: [Kurulum › Oturum açma'yı açın.]
-    en: [Open Setup › Sign-in.]
+    tr: ["Kurulum › Oturum açma'yı açın."]
+    en: ["Open Setup › Sign-in."]
   anchor: admin-sso
   permission: [setup.authentication]
   actions: []
@@ -856,8 +856,8 @@
     tr: [smtp, e-posta sunucusu, e-posta şablonları, mail ayarları, test e-postası]
     en: [smtp, mail server, email templates, mail settings, test email]
   steps:
-    tr: [Kurulum › E-posta'yı açın.]
-    en: [Open Setup › E-mail.]
+    tr: ["Kurulum › E-posta'yı açın."]
+    en: ["Open Setup › E-mail."]
   anchor: admin-mail
   permission: [setup.settings]
   actions: []
@@ -872,8 +872,8 @@
     tr: [kim değiştirdi, değişiklik geçmişi, işlem kayıtları, geri al kaydı]
     en: [who changed what, change history, activity log, undo history]
   steps:
-    tr: [Kurulum › Denetim kaydı'nı açın.]
-    en: [Open Setup › Audit log.]
+    tr: ["Kurulum › Denetim kaydı'nı açın."]
+    en: ["Open Setup › Audit log."]
   permission: [audit.view]
   actions: []
   since: "2026.10"
@@ -887,8 +887,8 @@
     tr: [kişisel veri başvuruları, saklama süreleri, aydınlatma metni düzenle, veri envanteri]
     en: [data subject requests, retention, privacy notice, data inventory, gdpr]
   steps:
-    tr: [Kurulum › KVKK'yı açın.]
-    en: [Open Setup › KVKK.]
+    tr: ["Kurulum › KVKK'yı açın."]
+    en: ["Open Setup › KVKK."]
   permission: [setup.users, setup.settings]
   actions: []
   since: "2026.10"

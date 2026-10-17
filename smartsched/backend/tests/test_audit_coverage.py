@@ -383,6 +383,9 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/ai/admin/guardrails": (E, "app.api.v1.ai_admin"),
     "POST /api/v1/ai/admin/guardrails/check": (N, "dry run: the deterministic guard's verdict, no model call"),
     "POST /api/v1/ai/admin/redteam": (N, "dry run: the shipped guard corpus, no model call"),
+    # voice VO-03 / VO-04: the transcription writes only its metering row (audio and transcript are never stored)
+    "POST /api/v1/ai/voice/transcribe": (J, "ai_usage row (voice_stt, audio_in); no audio, no transcript"),
+    "PUT /api/v1/ai/admin/voice": (E, "app.api.v1.ai_admin"),
     # W3-OPS error tracking: reports are rows of their own table; the triage is an audit event
     "POST /api/v1/ops/errors": (J, "error_events (grouped, scrubbed client report)"),
     "POST /api/v1/ops/client-errors": (J, "error_events (alias of POST /ops/errors)"),

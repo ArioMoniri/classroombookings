@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import httpx
+
 from app.ai.providers import DEEPGRAM_EU
 from app.ai.providers.base import ModelInfo, ProviderError
 from app.ai.voice.speech import HttpSpeechAdapter, Transcript, clean_terms

@@ -8,9 +8,10 @@ stays in the transcript and is handled on send like typed text.
 
 from __future__ import annotations
 
-from app.models import Building, Course, Room
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Building, Course, Room
 
 LIMIT = 80
 

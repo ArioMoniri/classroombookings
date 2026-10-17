@@ -212,7 +212,9 @@ export function orderAudiences(list: readonly string[] | null | undefined): Audi
 /** The primary audience: the server's when it is known, else the first by precedence. */
 export function primaryOf(primary: string | null | undefined, audiences: readonly string[]): Audience | null {
   if (isAudience(primary) && (audiences.length === 0 || audiences.includes(primary))) return primary;
-  return orderAudiences(audiences)[0] ?? null;
+  const ordered = orderAudiences(audiences);
+  // the approver "adds to the primary" (spec §5.3): it leads only when it is the person's only audience
+  return ordered.find((a) => a !== "approver") ?? ordered[0] ?? null;
 }
 
 export function cardDef(audience: string, key: string): CardDef | undefined {

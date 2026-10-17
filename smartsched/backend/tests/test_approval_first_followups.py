@@ -308,9 +308,12 @@ async def test_own_booking_sends_nothing_and_series_mail_keeps_its_template(env)
     }
     r = await c.post("/api/v1/bookings/recurring", json=body, headers=env.planner)
     assert r.status_code == 201, r.text
-    (mail,) = await _outbox(tid, "booking_created")
-    assert mail.subject == "Sizin adınıza rezervasyon yapıldı" and mail.body.count("A 102") == 3
-    assert len(await _inapp(tid, "booking.created")) == 1
+    # RF-11 (audit 2026-10-17 A6): a series is announced with its own template (series_created), not as single
+    # bookings; one message listing the three dates
+    assert await _outbox(tid, "booking_created") == []
+    (mail,) = await _outbox(tid, "series_created")
+    assert mail.subject == "Yinelenen rezervasyon: A 102 · her Perşembe P1" and mail.body.count("A 102, ") == 3
+    assert len(await _inapp(tid, "series.created")) == 1
 
 
 # --------------------------------------------------------------------------------------------------

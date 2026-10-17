@@ -557,7 +557,7 @@ function HeaderLabel({ item, title, sub, icon, onRoomInfo }: { item: AxisItem; t
   if (item.kind === "room" && item.room && onRoomInfo) {
     const id = item.room.id;
     return (
-      <BareButton onClick={() => onRoomInfo(id)} aria-label={t("crbs.roomInfo.open", { name: title })} title={sub ?? undefined} className="block w-full rounded-sm text-left hover:text-tint-text" data-testid={`room-info-${item.room.code}`}>
+      <BareButton onClick={() => onRoomInfo(id)} aria-label={t("crbs.roomInfo.open", { name: title })} title={sub ?? undefined} className="block w-full rounded-sm text-left hover:text-tint-text pointer-coarse:min-h-11" data-testid={`room-info-${item.room.code}`}>
         {inner}
       </BareButton>
     );
@@ -648,6 +648,8 @@ const Cell = memo(function Cell({
             <Plus className="size-3 shrink-0 stroke-[2]" aria-hidden />
             {multi ? labels.free : labels.reserve}
           </span>
+          {/* mobile-a fix 15: touch has no hover, so a faint "+" says the empty cell is tappable */}
+          <Plus className="hidden size-3.5 shrink-0 stroke-[2] text-label-3 pointer-coarse:block print:hidden" aria-hidden data-slot="free-mark" />
         </>
       ) : (
         <SlotGlyph slot={slot} selected={isSelected} className={cn("size-3.5 stroke-[1.75]", tone === "unavailable" && "opacity-60")} />

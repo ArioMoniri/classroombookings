@@ -197,3 +197,8 @@ api_router.include_router(welcome_api.router)
 from app.api.v1 import seasons as seasons_api  # noqa: E402
 
 api_router.include_router(seasons_api.router)
+
+# voice VO-03: speech to text for the AI fields (POST /ai/voice/transcribe, GET /ai/voice/status; app/ai/voice/**)
+from app.api.v1 import voice as voice_api  # noqa: E402
+
+api_router.include_router(voice_api.router)

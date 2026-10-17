@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
+
 from app.ai.providers.base import ModelInfo, ProviderError
 from app.ai.providers.openai_compat import _status_error
 from app.ai.providers.url_guard import ensure_safe

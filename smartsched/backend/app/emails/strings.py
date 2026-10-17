@@ -391,7 +391,9 @@ TR: dict[str, str] = {
         "Microsoft takvimine aktarılmasına izin verdiniz. Bu hizmetlerin sunucuları yurt dışındadır."
     ),
     "calendar_consent.scope.consent_on.cta": "Gizlilik ayarlarını aç",
-    "calendar_consent.scope.consent_on.note": "İzninizi Profil › Gizlilik bölümünden istediğiniz an geri çekebilirsiniz.",
+    "calendar_consent.scope.consent_on.note": (
+        "İzninizi Profil › Gizlilik bölümünden istediğiniz an geri çekebilirsiniz."
+    ),
     "calendar_consent.scope.consent_off.subject": "Takvim eşitleme izninizi geri çektiniz",
     "calendar_consent.scope.consent_off.heading": "Takvim eşitleme izninizi geri çektiniz",
     "calendar_consent.scope.consent_off.preheader": "Aktarım durdu.",

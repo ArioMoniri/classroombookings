@@ -166,3 +166,55 @@ async def instructor_heatmap(
         src = f"run-{data['run_id']}"
         return _csv(util.instructor_heatmap_csv(data), f"egitmen-yuku-{src}.csv")
     return data
+
+
+# ------------------------------------------------------------------------------------------- adaptive (AS-05..)
+# aggregate demand ledger (AS-05), peak hours (AS-06), forecasts (AS-07, AS-10, AS-11); app/services/{demand,peaks,
+# forecast,exam_load}.py. Every view answers on an empty install with ``confidence: "none"`` and a ``needs`` text.
+
+
+@router.get("/demand", response_model=None)
+async def demand_view(
+    db: DB,
+    _: Viewer,
+    term_id: int | None = None,
+    group_by: Literal[
+        "weekday_period", "period", "weekday", "headcount_band", "feature", "building", "period_kind"
+    ] = "weekday_period",
+) -> dict[str, Any]:
+    """Find-room / booking demand cells; counts under 5 come back as ``"<5"`` (KVKK)."""
+    from app.services import demand
+
+    return await demand.demand(db, term_id=term_id, group_by=group_by)
+
+
+@router.get("/peaks", response_model=None)
+async def peaks_view(
+    db: DB,
+    _: Viewer,
+    term_id: int | None = None,
+    group_by: Literal["campus", "building", "room_type", "capacity_band"] = "building",
+    period_kind: Literal["LECTURE", "EXAM", "MAKEUP", "SUMMER", "ADD_DROP", "MIDTERM"] = "LECTURE",
+    threshold: float | None = Query(None, ge=50, le=100),
+    format: Fmt = "json",  # noqa: A002
+) -> dict[str, Any] | Response:
+    """Peak cells (weekday x period x group) with 80 % ranges; ``confidence: none`` + ``needs`` without data."""
+    from app.services import peaks
+
+    data = await peaks.peaks(db, term_id=term_id, group_by=group_by, period_kind=period_kind, threshold=threshold)
+    if format == "csv":
+        import csv
+        import io
+
+        from app.core.export_safety import safe_writer
+
+        buf = io.StringIO()
+        w = safe_writer(csv.writer(buf))
+        w.writerow(["group_by", "group", "day", "period", "value", "lo80", "hi80", "n_weeks", "seat_fill", "peak"])
+        for c in data["cells"]:
+            w.writerow(
+                [group_by, c["group"], c["day"], c["period"], c["value"], c["lo80"], c["hi80"], c["n_weeks"],
+                 c["seat_fill"] if c["seat_fill"] is not None else "", int(c["peak"])]
+            )
+        return _csv(buf.getvalue(), f"yogun-saatler-{data['term_id'] or 'yok'}-{group_by}.csv")
+    return data

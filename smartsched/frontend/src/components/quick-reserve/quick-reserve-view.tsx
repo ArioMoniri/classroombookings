@@ -470,7 +470,9 @@ export function QuickReserveView() {
 
         {/* 3 · Onayla: the sticky action bar on phones and tablets, a card in the third column on desktop */}
         <section aria-labelledby="qr-confirm" className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(4.75rem+max(0.75rem,env(safe-area-inset-bottom)))] max-lg:z-30 max-lg:px-3 lg:sticky lg:top-20" data-testid="qr-confirm">
-          <div className="mx-auto flex max-h-[45dvh] w-full max-w-xl flex-col gap-2 overflow-y-auto rounded-3xl bg-(--mat-thick-solid) p-3 shadow-elev-3 edge-hairline lg:max-h-none lg:gap-3 lg:rounded-xl lg:p-4 lg:shadow-none">
+          {/* mobile-a fix 3: on a short landscape phone (≤ 500 px tall) the bar is one row, summary beside the button (the
+              column took 160 of 390 px and left the list 32 % of the screen) */}
+          <div className="mx-auto flex max-h-[45dvh] w-full max-w-xl flex-col gap-2 overflow-y-auto rounded-3xl bg-(--mat-thick-solid) p-3 shadow-elev-3 edge-hairline lg:max-h-none lg:gap-3 lg:rounded-xl lg:p-4 lg:shadow-none [@media(max-height:500px)]:max-w-3xl [@media(max-height:500px)]:flex-row [@media(max-height:500px)]:items-center [@media(max-height:500px)]:gap-3 [@media(max-height:500px)]:py-2">
             {receipt ? (
               <ReceiptCard receipt={receipt} headingRef={receiptRef} undoing={undoing} onUndo={() => void undo(receipt)} onAgain={newBooking} line={t("quickReserve.summary.line", { room: receipt.room.name, day: dayWord(receipt.date), slot: spanText(receipt.span) })} />
             ) : (
@@ -478,7 +480,7 @@ export function QuickReserveView() {
                 <h2 id="qr-confirm" className="sr-only">
                   {step(3, "confirm")}
                 </h2>
-                <p className={cn("type-headline", room ? "text-label-1" : "text-label-2")} data-testid="qr-summary">
+                <p className={cn("type-headline [@media(max-height:500px)]:min-w-0 [@media(max-height:500px)]:flex-1", room ? "text-label-1" : "text-label-2")} data-testid="qr-summary">
                   {summary}
                 </p>
                 {error ? (
@@ -503,7 +505,7 @@ export function QuickReserveView() {
                 <BusyButton
                   ref={primaryRef}
                   size="lg"
-                  className="w-full"
+                  className="w-full [@media(max-height:500px)]:w-auto"
                   busy={busy}
                   busyLabel={t(request_ ? "quickReserve.submit.busyRequest" : "quickReserve.submit.busyBook")}
                   disabled={!room || quotaNone || action === "mine"}

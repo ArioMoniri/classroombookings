@@ -1,6 +1,11 @@
 """AI gateway administration (wave 3 W3-AI): providers and keys, synced models, per-feature routes, usage, limits,
 guardrails, recent refusals, the red-team self-test; plus every user's own usage (``GET /ai/me/usage``).
 
+Voice (VO-04): the sync tags every model with its modalities (``text`` / ``stt`` / ``tts``) and lists the
+speech-only providers' fixed models; the test call of a speech model transcribes the bundled 5 s Turkish clip
+(``app/ai/voice/assets``); routes accept only speech models for ``voice_stt`` and only text models elsewhere;
+``GET / PUT /ai/admin/voice`` hold the voice settings (audited ``ai.voice``); limits take audio seconds.
+
 Who: administrators with ``planning.admin`` or ``setup.settings`` manage everything under ``/ai/admin``; any
 signed-in user reads only their own usage. Keys are write-only: answers carry ``{"set", "masked"}`` and never the
 value; every change writes an audit event (values of secrets never reach the audit log either).
@@ -8,6 +13,7 @@ value; every change writes an audit event (values of secrets never reach the aud
 
 from __future__ import annotations
 
+import re
 import time
 from datetime import UTC, datetime
 from typing import Annotated, Any
@@ -20,6 +26,7 @@ from app.ai.context import FEATURE_LABELS, FEATURES
 from app.ai.providers import PROVIDERS, UnsafeBaseURL, check_base_url, has_credentials, make_adapter
 from app.ai.providers.base import ProviderError
 from app.ai.redteam import GUARD_CASES_PATH, load_cases, score_guard_cases, summarize_guard
+from app.ai.voice import registry as speech
 from app.api.deps import DB, CurrentUser, require_permission
 from app.core.security import redact_keys, validate_api_key
 from app.models import User
@@ -50,6 +57,9 @@ class TransferIn(BaseModel):
     contract_date: str | None = Field(default=None, max_length=20)
     notification_date: str | None = Field(default=None, max_length=20)
     note: str | None = Field(default=None, max_length=500)
+    #: voice (VO-04): this provider receives recordings, and what it does with them (from the agreement)
+    processes_voice: bool | None = None
+    audio_retention: str | None = Field(default=None, max_length=200)
 
 
 class ProviderIn(BaseModel):
@@ -87,6 +97,20 @@ class LimitsIn(BaseModel):
     alert_recipients: list[int] | None = None
     requests_per_minute: int | None = Field(default=None, ge=0, le=600)
     max_concurrent: int | None = Field(default=None, ge=0, le=20)
+    #: voice, in seconds of audio (0 = no limit)
+    user_daily_audio_s: int | None = Field(default=None, ge=0, le=86400)
+    user_monthly_audio_s: int | None = Field(default=None, ge=0, le=2678400)
+    org_monthly_audio_s: int | None = Field(default=None, ge=0, le=100_000_000)
+
+
+class VoiceIn(BaseModel):
+    enabled: bool | None = None
+    language: str | None = None
+    max_seconds: int | None = Field(default=None, ge=5, le=gw.VOICE_MAX_SECONDS)
+    vocabulary: str | None = None
+    live_captions: str | None = None
+    #: USD per audio minute by ``provider:model``
+    prices_per_min: dict[str, float] | None = None
 
 
 class TopupIn(BaseModel):
@@ -208,6 +232,14 @@ async def put_provider(provider: str, body: ProviderIn, db: DB, user: AIAdmin) -
                 "The URL must start with http:// or https://.",
                 field=fld,
             )
+        if fld == "region" and p == "google_stt" and value and not re.match(r"^[a-z0-9][a-z0-9-]{0,30}$", value):
+            raise _err(
+                422,
+                "invalid_region",
+                "Konum bir bölge adı olmalı (ör. eu, us).",
+                "The location must be a region name (e.g. eu, us).",
+                field=fld,
+            )
         cfg[fld] = value or None
         changed.append(fld)
     if ("base_url" in changed or "allow_local" in changed) and cfg.get("base_url"):
@@ -288,13 +320,16 @@ async def _adapter_for(db: DB, p: str, model: str = "") -> Any:
 async def sync_provider(provider: str, db: DB, user: AIAdmin) -> dict[str, Any]:
     """List the provider's models through its API and store them with ``fetched_at`` (the UI offers only these)."""
     p = _provider(provider)
-    adapter = await _adapter_for(db, p)
+    text_capable = "text" in PROVIDERS[p].capabilities
+    adapter = await _adapter_for(db, p) if text_capable else await _speech_adapter_for(db, p)
     error: str | None = None
     models: list[dict[str, Any]] = []
     try:
-        models = [m.to_dict() for m in await adapter.list_models()]
+        for m in await adapter.list_models():
+            m.modalities = speech.model_modalities(p, m.id)
+            models.append(m.to_dict())
     except Exception as exc:  # noqa: BLE001 - surfaced as a short text, never with the key or the upstream body
-        mapped = adapter.translate_error(exc, "")
+        mapped = adapter.translate_error(exc, "") if text_capable else exc
         error = redact_keys(
             str(mapped) if isinstance(mapped, ProviderError) else f"sync failed ({type(exc).__name__})"
         )[:300]
@@ -315,12 +350,15 @@ async def sync_provider(provider: str, db: DB, user: AIAdmin) -> dict[str, Any]:
 async def test_provider(provider: str, body: TestIn, db: DB, user: AIAdmin) -> dict[str, Any]:
     """A tiny real call (a few output tokens, no tools) with the stored credentials; metered as ``test``."""
     p = _provider(provider)
-    synced = [m.get("id") for m in (await gw.synced_models(db, p)).get("models") or []]
+    stored = (await gw.synced_models(db, p)).get("models") or []
+    synced = [m.get("id") for m in stored]
     model = (body.model or "").strip() or (synced[0] if synced else "")
     if p == "anthropic" and not model:
         model = await gw.legacy_model(db)
     if not model:
         raise _err(409, "sync_first", "Önce modelleri eşitleyin.", "Sync the models first.")
+    if model in speech.speech_model_ids(stored) or "text" not in PROVIDERS[p].capabilities:
+        return await _test_speech(db, p, model, user)
     adapter = await _adapter_for(db, p, model)
     started = time.monotonic()
     ok, detail, usage = False, "", None
@@ -358,7 +396,81 @@ async def test_provider(provider: str, body: TestIn, db: DB, user: AIAdmin) -> d
         detail=None if ok else detail,
         guard_verdict="skipped",
     )
-    result = {"at": datetime.now(UTC).isoformat(timespec="seconds"), "ok": ok, "detail": detail, "model": model}
+    result = {
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "ok": ok,
+        "detail": detail,
+        "model": model,
+        "kind": "text",
+    }
+    await gw.put_json(db, f"ai.provider.{p}.test", result)
+    await db.commit()
+    return result
+
+
+async def _speech_adapter_for(db: DB, p: str) -> Any:
+    secrets = await gw.provider_secrets(db, p)
+    if not has_credentials(p, secrets):
+        raise _err(
+            409, "no_credentials", "Bu sağlayıcı için anahtar girilmedi.", "No credentials are set for this provider."
+        )
+    from app.ai.pipeline import TEST_TRANSPORT
+
+    try:
+        return speech.make_speech_adapter(
+            p, secrets=secrets, config=await gw.provider_config(db, p), timeout_s=30.0, transport=TEST_TRANSPORT[0]
+        )
+    except ProviderError as exc:
+        raise _err(409, "provider_config", "Sağlayıcı ayarları eksik.", str(exc)) from exc
+
+
+async def _test_speech(db: DB, p: str, model: str, user: User) -> dict[str, Any]:
+    """The speech test call: the bundled 5 s Turkish clip, metered as ``test`` with its audio length; the result
+    keeps the first 60 characters of the transcript so the admin can judge the Turkish."""
+    from app.ai.client import estimate_stt_cost
+    from app.ai.voice.assets import CLIP_MIME, test_clip
+
+    adapter = await _speech_adapter_for(db, p)
+    started = time.monotonic()
+    ok, detail, preview, seconds, tokens = False, "", "", 0.0, (0, 0)
+    try:
+        out = await adapter.transcribe(test_clip(), CLIP_MIME, model=model, language="tr")
+        ok, preview = True, " ".join(out.text.split())[:60]
+        seconds = out.duration_s if out.duration_s is not None else 5.15
+        tokens = (out.input_tokens, out.output_tokens)
+        detail = f"ok ({model}, {seconds:.1f} s)"
+    except ProviderError as exc:
+        detail = str(exc)
+    except Exception as exc:  # noqa: BLE001
+        detail = f"could not complete the test call ({type(exc).__name__})"
+    detail = redact_keys(detail)[:300]
+    prices = (await gw.get_voice(db)).get("prices_per_min") or {}
+    cost, version = estimate_stt_cost(p, model, seconds, prices=prices)
+    await meter.record(
+        user_id=user.id,
+        feature="test",
+        provider=p,
+        model=model,
+        modality="audio_in",
+        audio_ms=int(round(seconds * 1000)),
+        input_tokens=tokens[0],
+        output_tokens=tokens[1],
+        cost_usd=cost,
+        price_version=version,
+        latency_ms=int((time.monotonic() - started) * 1000),
+        outcome="ok" if ok else "provider_error",
+        reason_code=None if ok else "provider_error",
+        detail=None if ok else detail,
+        guard_verdict="skipped",
+    )
+    result = {
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "ok": ok,
+        "detail": detail,
+        "model": model,
+        "kind": "stt",
+        "transcript_preview": preview,
+    }
     await gw.put_json(db, f"ai.provider.{p}.test", result)
     await db.commit()
     return result
@@ -392,7 +504,9 @@ async def get_routes(db: DB, _: AIAdmin) -> dict[str, Any]:
 @router.put("/ai/admin/routes")
 async def put_routes(body: RoutesIn, db: DB, user: AIAdmin) -> dict[str, Any]:
     """Global default + one route per feature (``null`` = follow the default). Only synced models are accepted."""
-    synced = {p: {str(m.get("id")) for m in (await gw.synced_models(db, p)).get("models") or []} for p in PROVIDERS}
+    stored = {p: (await gw.synced_models(db, p)).get("models") or [] for p in PROVIDERS}
+    synced = {p: {str(m.get("id")) for m in models} for p, models in stored.items()}
+    speech_ids = {p: speech.speech_model_ids(models) for p, models in stored.items()}
     errors: list[dict[str, str]] = []
     clean: dict[str, Any] = {"default": None, "features": {}}
 
@@ -400,7 +514,8 @@ async def put_routes(body: RoutesIn, db: DB, user: AIAdmin) -> dict[str, Any]:
         r = {k: v for k, v in raw.items() if v not in (None, "")}
         if not r:
             return None
-        for e in gw.validate_route(r, synced):
+        feature = where if where in FEATURES else "default"
+        for e in gw.validate_route(r, synced, feature=feature, speech=speech_ids):
             errors.append({**e, "route": where})
         route = gw.Route.from_dict(r)
         return route.to_dict() if route else None
@@ -494,12 +609,13 @@ async def put_limits(body: LimitsIn, db: DB, user: AIAdmin) -> dict[str, Any]:
     changes = body.model_dump(exclude_none=True)
     for key in ("roles", "users"):
         for k, v in (changes.get(key) or {}).items():
-            if not isinstance(v, dict) or any(x not in {"daily", "monthly"} or int(n) < 0 for x, n in v.items()):
+            allowed = {"daily", "monthly", "audio_daily", "audio_monthly"}
+            if not isinstance(v, dict) or any(x not in allowed or int(n) < 0 for x, n in v.items()):
                 raise _err(
                     422,
                     "invalid_limit",
-                    "Sınırlar günlük / aylık ve 0 ya da daha büyük olmalı.",
-                    "Limits are daily / monthly and >= 0.",
+                    "Sınırlar günlük / aylık (jeton ya da ses saniyesi) ve 0 ya da daha büyük olmalı.",
+                    "Limits are daily / monthly (tokens or audio seconds) and >= 0.",
                     field=f"{key}.{k}",
                 )
     stored = await gw.get_json(db, gw.LIMITS_KEY, {})
@@ -538,6 +654,79 @@ async def topup(body: TopupIn, db: DB, user: AIAdmin) -> dict[str, Any]:
     await audit.record(db, "ai.limits.topup", "setting", gw.LIMITS_KEY, after=entry, actor=user, reason=body.reason)
     await db.commit()
     return {**await gw.get_limits(db), "org": await meter.org_state(db)}
+
+
+# ---------------------------------------------------------------------------------------------- voice
+
+
+#: what admins cannot change in v1 (owner 2026-10-18): no stored audio, the transcript is always reviewed
+VOICE_FIXED = {
+    "retention_days": 0,
+    "review_before_send": True,
+    "max_seconds_cap": gw.VOICE_MAX_SECONDS,
+    "consent": "voice",
+}
+
+
+async def _voice_out(db: DB) -> dict[str, Any]:
+    from app.ai.voice.run import load_setup
+
+    rr = await gw.resolve_route(db, "voice_stt")
+    setup = await load_setup(db)
+    spec = PROVIDERS.get(rr.route.provider)
+    return {
+        "settings": await gw.get_voice(db),
+        "fixed": VOICE_FIXED,
+        "route": {
+            **rr.route.to_dict(),
+            "source": rr.source,
+            "label_tr": spec.label_tr if spec else None,
+            "label_en": spec.label_en if spec else None,
+            "usable": setup.primary is not None,
+            "transfer_ok": bool(setup.primary and setup.primary.transfer_ok),
+        },
+        "providers": [p for p, sp in PROVIDERS.items() if "stt" in sp.capabilities],
+        "languages": list(gw.VOICE_LANGUAGES),
+        "vocabulary_options": ["catalog", "off"],
+        "live_captions_options": ["on_device", "off"],
+    }
+
+
+@router.get("/ai/admin/voice")
+async def get_voice(db: DB, _: AIAdmin) -> dict[str, Any]:
+    return await _voice_out(db)
+
+
+@router.put("/ai/admin/voice")
+async def put_voice(body: VoiceIn, db: DB, user: AIAdmin) -> dict[str, Any]:
+    """Voice settings, shared by every admin (one ``settings`` row ``ai.voice``); audited ``ai.voice``."""
+    changes = body.model_dump(exclude_none=True)
+    checks = (
+        ("language", gw.VOICE_LANGUAGES, "Dil tr ya da en olmalı.", "The language is tr or en."),
+        ("vocabulary", ("catalog", "off"), "Sözlük catalog ya da off olmalı.", "Vocabulary is catalog or off."),
+        ("live_captions", ("on_device", "off"), "Canlı altyazı on_device ya da off olmalı.", "on_device or off."),
+    )
+    for fld, allowed, tr, en in checks:
+        if fld in changes and changes[fld] not in allowed:
+            raise _err(422, f"invalid_{fld}", tr, en, field=fld)
+    for key, price in (changes.get("prices_per_min") or {}).items():
+        prov = key.split(":", 1)[0]
+        if ":" not in key or prov not in PROVIDERS or "stt" not in PROVIDERS[prov].capabilities or not 0 <= price <= 10:
+            raise _err(
+                422,
+                "invalid_price",
+                "Fiyat 'sağlayıcı:model' için dakika başına 0–10 USD olmalı.",
+                "A price is 0–10 USD per minute for 'provider:model'.",
+                field=f"prices_per_min.{key}",
+            )
+    before = await gw.get_voice(db)
+    stored = await gw.get_json(db, gw.VOICE_KEY, {})
+    stored.update(changes)
+    await gw.put_json(db, gw.VOICE_KEY, stored)
+    after = await gw.get_voice(db)
+    await audit.record(db, "ai.voice", "setting", gw.VOICE_KEY, before=before, after=after, actor=user)
+    await db.commit()
+    return await _voice_out(db)
 
 
 # ---------------------------------------------------------------------------------------------- guardrails

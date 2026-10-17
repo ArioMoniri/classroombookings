@@ -53,6 +53,7 @@ function card(over: Partial<ChartCardProps<Row>> = {}) {
   );
 }
 
+// a shared 4-core host: the first render warms up Base UI + jsdom; the repo CI budget is 30 s per test
 beforeEach(() => {
   plot.mockClear();
   localStorage.clear();
@@ -63,7 +64,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("ChartCard a11y", () => {
+describe("ChartCard a11y", { timeout: 20_000 }, () => {
   it("is a figure named by the title and described by the summary; reading order title → summary → table", () => {
     render(card());
     const fig = screen.getByRole("figure", { name: "Günlük token kullanımı" });
@@ -100,7 +101,7 @@ describe("ChartCard a11y", () => {
   });
 });
 
-describe("ChartCard CSV", () => {
+describe("ChartCard CSV", { timeout: 20_000 }, () => {
   it("downloads a BOM CSV, swaps the label for 2 s and announces it", async () => {
     vi.useFakeTimers();
     const blobs: Blob[] = [];
@@ -113,8 +114,9 @@ describe("ChartCard CSV", () => {
     render(card({ range: { from: "2026-10-12", to: "2026-10-14" } }));
     fireEvent.click(screen.getByRole("button", { name: "Veriyi indir" }));
     expect(click).toHaveBeenCalledTimes(1);
+    const bytes = new Uint8Array(await blobs[0]!.arrayBuffer());
+    expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]); // UTF-8 BOM (Blob.text() would strip it)
     const text = await blobs[0]!.text();
-    expect(text.charCodeAt(0)).toBe(0xfeff);
     expect(text).toContain("Gün;Gün (ISO);Sohbet;Kurallar");
     expect(text.split("\r\n")).toHaveLength(4);
     expect(screen.getByRole("button", { name: "İndirildi ✓" })).toBeInTheDocument();
@@ -126,7 +128,7 @@ describe("ChartCard CSV", () => {
   });
 });
 
-describe("ChartCard states", () => {
+describe("ChartCard states", { timeout: 20_000 }, () => {
   const states: ChartState[] = ["loading", "empty", "error", "ready"];
 
   it.each(states)("%s keeps the same body height", (state) => {
@@ -194,7 +196,7 @@ describe("ChartCard states", () => {
   });
 });
 
-describe("ChartCard plot context", () => {
+describe("ChartCard plot context", { timeout: 20_000 }, () => {
   it("passes SVG for ≤ 300 marks, canvas above, animation off, tr-TR formatters", () => {
     render(card());
     const ctx = plot.mock.calls.at(-1)![0];
@@ -202,8 +204,8 @@ describe("ChartCard plot context", () => {
     expect(ctx.engineOptions.animation).toBe(false);
     expect(ctx.valueFormatter(82300)).toBe("82.300");
     expect(ctx.labelFormatter("2026-10-14")).toBe("14 Ekim Çarşamba");
-    expect(ctx.tickFormatter(1_200_000)).toBe("1,2 Mn");
-    const big = Array.from({ length: 151 }, (_, i) => ({ day: `2026-01-${i}`, chat: i, rules: i }));
+    expect(ctx.tickFormatter(1_200_000)).toBe("1,2\u00a0Mn");
+    const big = Array.from({ length: 151 }, (_, i) => ({ day: new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10), chat: i, rules: i }));
     render(card({ rows: big }));
     expect(plot.mock.calls.at(-1)![0].renderer).toBe("canvas");
   });

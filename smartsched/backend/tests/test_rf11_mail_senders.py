@@ -136,15 +136,21 @@ async def test_reminder_lead_time_and_opt_out(env, monkeypatch):  # noqa: F811
     assert r.status_code == 200 and r.json()["reminder_lead_hours"] == 2, r.text
     tid, teacher = await env.user("hatice.ozturk@uni.edu.tr", firstname="Hatice", lastname="Öztürk")
     oid, other = await env.user("ozge.ince@uni.edu.tr", firstname="Özge", lastname="İnce")
-    a = (await env.book(teacher, "A102", THU, "P1")).json()["id"]
-    b = (await env.book(other, "A101", THU, "P1")).json()["id"]
+    r = await env.book(teacher, "A102", THU, "P1")
+    assert r.status_code == 201, r.text
+    a = r.json()["id"]
+    r = await env.book(other, "A201", date(2026, 2, 18), "P3")  # Wednesday 10:10
+    assert r.status_code == 201, r.text
+    b = r.json()["id"]
     await _opt_out(env, other, "booking.reminder")
     for bid in (a, b):
         await _age(bid, datetime(2026, 2, 16, 6, 0))
-    env.set_now(datetime(2026, 2, 18, 9, 0))
-    assert await reminders.sweep_once() == 0  # two hours before, not a day
+    env.set_now(datetime(2026, 2, 18, 8, 0))
+    assert await reminders.sweep_once() == 0  # 2 h 10 min before 10:10; Thursday is a day away
+    env.set_now(datetime(2026, 2, 18, 8, 30))
+    assert await reminders.sweep_once() == 1  # her bell; her e-mail is off
     env.set_now(datetime(2026, 2, 19, 7, 0))
-    await reminders.sweep_once()
+    assert await reminders.sweep_once() == 1
     await worker.wait_idle()
     (row,) = await _rows("booking_reminder")  # the opted-out owner gets no e-mail
     assert row.user_id == tid and row.subject == "08:30 başlıyor: A 102"
@@ -252,7 +258,10 @@ async def test_series_changed_reaches_the_approver_who_approved_it(env, monkeypa
     c = env.client
     assert (await c.put("/api/v1/org/settings", json={"approval_mode": "all"}, headers=env.admin)).status_code == 200
     gid, gozde = await env.user(
-        "gozde.ayrancigil@uni.edu.tr", role="ADMIN", firstname="Gözde", lastname="Ayrancıgil",
+        "gozde.ayrancigil@uni.edu.tr",
+        role="ADMIN",
+        firstname="Gözde",
+        lastname="Ayrancıgil",
         approves_for=[{"type": "all"}],
     )
     aid, ayse = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")
@@ -275,7 +284,7 @@ async def test_series_changed_reaches_the_approver_who_approved_it(env, monkeypa
     to_gozde = next(x for x in rows if x.user_id == gid)
     assert to_gozde.link and to_gozde.link.startswith("/bookings?series=")
     (msg,) = _sent("gozde.ayrancigil@uni.edu.tr", "değişti")
-    assert "Onayladığınız yinelenen rezervasyon değişti" in msg.get_body(preferencelist=("html",)).get_content()
+    assert "onayladığınız seri #" in _plain(msg) and "Laboratuvar" in _plain(msg)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -288,7 +297,10 @@ async def test_approval_submitted_receipt_once_and_opt_out(env, monkeypatch):  #
     c = env.client
     assert (await c.put("/api/v1/org/settings", json={"approval_mode": "all"}, headers=env.admin)).status_code == 200
     await env.user(
-        "gozde.ayrancigil@uni.edu.tr", role="ADMIN", firstname="Gözde", lastname="Ayrancıgil",
+        "gozde.ayrancigil@uni.edu.tr",
+        role="ADMIN",
+        firstname="Gözde",
+        lastname="Ayrancıgil",
         approves_for=[{"type": "all"}],
     )
     aid, ayse = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")

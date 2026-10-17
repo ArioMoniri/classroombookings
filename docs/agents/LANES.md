@@ -23,7 +23,6 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | Round-3 lane C (intake) | `loop-r3-laneC` | R3-S-04, R3-M-02/03/04/07 (re-upload deltas, phone onboarding), the person_match merge review in the council, AI notices on the onboarding upload | ROUND3.md, ROADMAP round-2/3 blocks | 19320/19321 | — |
 | CAL-B | `cal-b-2026-10-17` | Calendar export backend CAL-01..07 (stable UIDs, scoped links, .ics, push to a dedicated calendar); migration 0039 | ROADMAP "Calendar export & sync" | — | — |
 | CAL-F | `cal-f-2026-10-17` | "Takvimime ekle" 3-tap sheet + admin settings CAL-08/09 | same | 19750/19751 | CAL-B API |
-| Security follow-up | `wave3-sec2-2026-10-17` | Forwarded-for, nonce CSP, audit report gate (done); AI aggregates under system_scope, SSRF guard, Grafana embedding, per-institution security.txt contact | docs/SECURITY.md | 19760/19761 | — |
 | Launch video | `media-launch` | Recordly + Lottie + Remotion launch/explainer/README videos, phone variants | MEDIA.md | own | final UI |
 | Mobile A, phase 2 | `mobile-a` | Fixes 1–15 of docs/testing/mobile/2026-10-17-mobile-a.md plus the shared primitives from mobile B (inputs, small buttons, tab/top bar) | that report | 19620/19621 | — |
 | Mobile B, phase 2 | `mobile-b` | Route-level fixes of docs/testing/mobile/2026-10-17-mobile-b.md (runs, studio, classes, timetable, moderation, admin, dashboard, analytics, invigilation, policies) | that report | 19630/19631 | — |

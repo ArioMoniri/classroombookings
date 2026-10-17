@@ -92,6 +92,8 @@ PURPOSES: dict[str, tuple[str, str]] = {
     "photo": ("Profil fotoğrafı", "Profile photo"),
     "calendar_sync": ("Takvimimle eşitleme (Google / Microsoft)", "Sync with my calendar (Google / Microsoft)"),
     "ai_personal": ("Kişisel verimin yapay zekâ ile işlenmesi", "Processing of my data by the AI assistant"),
+    #: VO-03: speech to text through the admins' cloud speech provider; the audio is never stored
+    "voice": ("Sesimin yazıya dökülmesi (sesli giriş)", "Transcribing my voice (voice input)"),
 }
 #: the phone-based channels a withdrawn SMS consent removes
 PHONE_CHANNELS = ("sms", "whatsapp")
@@ -704,9 +706,14 @@ async def grant(session: AsyncSession, user: User, purpose: str) -> None:
     if active is not None:
         return
     n = await current_notice(session, user.language)
-    session.add(Consent(user_id=user.id, purpose=purpose, granted_at=utcnow(), notice_id=n.id if n else None))
+    row = Consent(user_id=user.id, purpose=purpose, granted_at=utcnow(), notice_id=n.id if n else None)
+    session.add(row)
     await session.flush()
     await audit.record(session, "kvkk.consent_grant", "consent", purpose, after={"user_id": user.id}, actor=user)
+    if purpose == "calendar_sync":  # RF-11: the person's own record of the consent (e-mail + bell, preferences apply)
+        from app.services import mail_senders
+
+        await mail_senders.calendar_consent(session, user, granted=True, consent_id=row.id)
 
 
 #: what a never-given ``ai_personal`` consent means (ROADMAP batch 3; owner decision 2026-10-17, R1-M-07 / R1-A-24):
@@ -847,8 +854,10 @@ async def withdraw(session: AsyncSession, user: User, purpose: str) -> dict[str,
         )
     ).scalars()
     was_granted = False
+    withdrawn_ids: list[int] = []
     for r in rows:
         r.withdrawn_at, was_granted = now, True
+        withdrawn_ids.append(r.id)
     if not was_granted and purpose == "ai_personal":
         # the per-person switch is the latest consent row: record the withdrawal even without an earlier grant
         session.add(Consent(user_id=user.id, purpose=purpose, granted_at=now, withdrawn_at=now))
@@ -877,6 +886,10 @@ async def withdraw(session: AsyncSession, user: User, purpose: str) -> dict[str,
         )
     elif purpose == "calendar_sync":
         feeds, conns = await _withdraw_calendar_sync(session, user)
+        if withdrawn_ids:  # RF-11: only a consent that was in force is announced (withdrawing twice sends nothing)
+            from app.services import mail_senders
+
+            await mail_senders.calendar_consent(session, user, granted=False, consent_id=max(withdrawn_ids))
         counts["revoked_feeds"], counts["disconnected_calendars"] = feeds, conns
         if feeds:
             effects.append(
