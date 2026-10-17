@@ -6122,10 +6122,10 @@
       "pushLead": "Changes reach your calendar within a few minutes. A separate \"SmartSched – Derslerim\" calendar is created.",
       "pushConnected": "Connected account: {account}",
       "pushNotConnected": "After you approve, you sign in to your {provider} account.",
-      "link": "Calendar link",
+      "link": "Subscription link",
       "linkLead": "Apple Calendar, Google or Outlook subscribe to this link. Updates arrive within a few minutes to 12 hours, depending on the app.",
-      "file": "Download an .ics file",
-      "fileLead": "A one-off copy. Later changes do not arrive by themselves.",
+      "file": "Download as a file",
+      "fileLead": "A one-off copy (.ics). Later changes do not arrive by themselves.",
       "fileBadge": "Does not update",
       "none": "Your organisation has not opened any export channel yet.",
       "refreshTitle": "How often do the apps refresh?",
@@ -6172,8 +6172,8 @@
       "copy": "Copy link",
       "copyWebcal": "Copy the webcal link",
       "copied": "Copied",
-      "https": "https link",
-      "webcal": "webcal link",
+      "https": "Link (https)",
+      "webcal": "Link for Apple (webcal)",
       "linkNote": "Do not open the link, subscribe to it; opening it makes a copy that never updates.",
       "linkOnce": "This link is shown only now. Keep it private: anyone who has it can see this calendar.",
       "fileTitle": "File downloaded",
@@ -6272,8 +6272,10 @@
       "failedJobs": "Failed jobs",
       "reconcile": "Last nightly reconcile",
       "reconcileNever": "Has not run yet",
-      "byScope": "{scope}: {n}"
-    }
+      "byScope": "{scope}: {n}",
+      "advancedHint": "The defaults suit most organisations."
+    },
+    "advanced": "Advanced"
   },
   "welcome": {
     "audience": {

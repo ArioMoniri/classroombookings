@@ -135,6 +135,12 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "DELETE /api/v1/calendar/connectors/{provider}": (N, "the caller's own OAuth grant"),
     "POST /api/v1/calendar/connectors/{provider}/resync": (N, "re-queues the caller's own push jobs"),
     "PUT /api/v1/calendar/admin/settings": (E, "app.api.v1.calendar_sync"),
+    # calendar export for academicians (CAL-03 / CAL-06 / CAL-07; cal-b-2026-10-17)
+    "POST /api/v1/calendar/subscriptions": (E, "app.api.v1.calendar_sync"),
+    "DELETE /api/v1/calendar/subscriptions/{sub_id}": (E, "app.api.v1.calendar_sync"),
+    "POST /api/v1/calendar/subscriptions/{sub_id}/rotate": (E, "app.api.v1.calendar_sync"),
+    "PUT /api/v1/calendar/connectors/{provider}/scopes": (E, "app.api.v1.calendar_sync"),
+    "PUT /api/v1/calendar/admin/export-settings": (E, "app.api.v1.calendar_sync"),
     # constraints (D1)
     "POST /api/v1/constraints": (E, "app.api.v1.constraints"),
     "PUT /api/v1/constraints/{cid}": (E, "app.api.v1.constraints"),

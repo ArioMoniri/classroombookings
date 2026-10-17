@@ -178,3 +178,8 @@ __all__ += ["AIUsage"]
 from app.models.seasons import DemandEvent, SeasonProfile, SeasonSegment  # noqa: E402
 
 __all__ += ["DemandEvent", "SeasonProfile", "SeasonSegment"]
+
+# welcome guide per role WG-01: per-user progress + admin text overrides (alembic 0040_welcome_guide)
+from app.models.welcome import WelcomeContent, WelcomeProgress  # noqa: E402
+
+__all__ += ["WelcomeContent", "WelcomeProgress"]

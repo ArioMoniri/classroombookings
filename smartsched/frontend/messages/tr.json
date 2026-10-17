@@ -6121,10 +6121,10 @@
       "pushLead": "Değişiklikler birkaç dakika içinde takviminize yansır. Ayrı bir \"SmartSched – Derslerim\" takvimi oluşturulur.",
       "pushConnected": "Bağlı hesap: {account}",
       "pushNotConnected": "Onayladıktan sonra {provider} hesabınıza giriş yaparsınız.",
-      "link": "Takvim bağlantısı",
+      "link": "Abonelik bağlantısı",
       "linkLead": "Apple Takvim, Google veya Outlook bu bağlantıya abone olur. Güncellemeler uygulamaya göre birkaç dakika ile 12 saat arasında gelir.",
-      "file": ".ics dosyası indir",
-      "fileLead": "Tek seferlik kopya. Sonraki değişiklikler kendiliğinden gelmez.",
+      "file": "Dosya olarak indir",
+      "fileLead": "Tek seferlik kopya (.ics). Sonraki değişiklikler kendiliğinden gelmez.",
       "fileBadge": "Güncellenmez",
       "none": "Kurumunuz henüz bir aktarım yolu açmadı.",
       "refreshTitle": "Uygulamalar ne sıklıkla yeniler?",
@@ -6171,8 +6171,8 @@
       "copy": "Bağlantıyı kopyala",
       "copyWebcal": "webcal bağlantısını kopyala",
       "copied": "Kopyalandı",
-      "https": "https bağlantısı",
-      "webcal": "webcal bağlantısı",
+      "https": "Bağlantı (https)",
+      "webcal": "Apple için bağlantı (webcal)",
       "linkNote": "Bağlantıyı açmayın, abone olun; açarsanız güncellenmeyen bir kopya oluşur.",
       "linkOnce": "Bu bağlantı yalnızca şimdi gösterilir. Gizli tutun: bağlantıyı bilen herkes bu takvimi görebilir.",
       "fileTitle": "Dosya indirildi",
@@ -6271,8 +6271,10 @@
       "failedJobs": "Başarısız iş",
       "reconcile": "Son gece eşitlemesi",
       "reconcileNever": "Henüz çalışmadı",
-      "byScope": "{scope}: {n}"
-    }
+      "byScope": "{scope}: {n}",
+      "advancedHint": "Varsayılanlar çoğu kurum için uygundur."
+    },
+    "advanced": "Gelişmiş"
   },
   "welcome": {
     "audience": {
