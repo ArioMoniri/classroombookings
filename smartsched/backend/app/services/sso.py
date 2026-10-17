@@ -1346,7 +1346,8 @@ async def _exchange_and_validate(cfg: OidcClient, code: str, verifier: str, nonc
     except http.HTTPError as exc:
         raise SsoError("unavailable", f"token endpoint {type(exc).__name__}") from exc
     except Exception as exc:  # noqa: BLE001 - OAuthError (invalid_grant ...), bad JSON
-        raise SsoError("exchange", f"token: {getattr(exc, 'error', type(exc).__name__)}") from exc
+        desc = str(getattr(exc, "description", "") or "")[:120]
+        raise SsoError("exchange", f"token: {getattr(exc, 'error', type(exc).__name__)} {desc}".strip()) from exc
     id_token = token.get("id_token") if isinstance(token, dict) else None
     # the access and refresh tokens are not needed: nothing of them is stored or logged
     del token
@@ -1481,7 +1482,10 @@ async def _finish_test(
     report: dict[str, Any] = {"status": "done", "ok": err is None, "at": utcnow().isoformat(timespec="seconds")}
     if err is not None:
         public = PUBLIC_CODES.get(err.code, "failed")
+        from app.services.identity import errors as idp_errors
+
         report.update(code=public, reason=err.code, detail=err.detail)
+        report["hint"] = idp_errors.translate(f"{err.detail} {err.code}")
     if claims:
         shown = {k: v for k, v in claims.items() if not k.startswith("_") and k not in _TEST_HIDDEN}
         report["claims"] = {k: (v if isinstance(v, (str, int, bool, list)) else str(v)) for k, v in shown.items()}

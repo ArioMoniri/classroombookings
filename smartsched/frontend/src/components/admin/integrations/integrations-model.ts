@@ -4,25 +4,59 @@
  */
 import { AREA_KEYS, type AreaKey, type CardStatus, type ConnectorCard } from "@/lib/api/integrations";
 
-export const TABS: readonly AreaKey[] = AREA_KEYS;
+/** "all" (Tümü) plus the six areas; the URL carries `?area=` (spec §3) or the older `?tab=`. */
+export type HubTab = "all" | AreaKey;
+export const TABS: readonly HubTab[] = ["all", ...AREA_KEYS];
 export const INTEGRATIONS_PATH = "/admin/integrations";
 
-export function tabOf(value: string | null | undefined): AreaKey {
-  return (TABS as readonly string[]).includes(value ?? "") ? (value as AreaKey) : "identity";
+export function tabOf(value: string | null | undefined): HubTab {
+  return (TABS as readonly string[]).includes(value ?? "") ? (value as HubTab) : "all";
 }
 
 export const TONE: Record<CardStatus, string> = {
   connected: "bg-status-feasible text-status-feasible-fg",
   error: "bg-status-infeasible text-status-infeasible-fg",
-  not_configured: "bg-status-warning text-status-warning-fg",
+  not_configured: "bg-fill-2 text-label-2",
   disabled: "bg-fill-2 text-label-2",
   unknown: "bg-fill-2 text-label-2",
 };
 
-/** Cards needing attention first (error, then not configured), the rest in the backend's order. */
-const RANK: Record<CardStatus, number> = { error: 0, not_configured: 1, unknown: 2, disabled: 3, connected: 4 };
-export function sortCards(cards: readonly ConnectorCard[]): ConnectorCard[] {
-  return cards.map((c, i) => [c, i] as const).sort((a, b) => RANK[a[0].status] - RANK[b[0].status] || a[1] - b[1]).map(([c]) => c);
+/** Cards in error, in gallery order (the "Dikkat isteyen" row). The gallery itself never reorders (spec §3). */
+export function attentionCards(cards: readonly ConnectorCard[]): ConnectorCard[] {
+  return cards.filter((c) => c.status === "error");
+}
+
+/** Case- and Turkish-dotless-i-insensitive search over name, summary and detail in both languages. */
+export function fold(text: string): string {
+  return text.replace(/İ/g, "i").replace(/I/g, "ı").toLocaleLowerCase("tr").replace(/ı/g, "i").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+export function matches(card: ConnectorCard, q: string): boolean {
+  const needle = fold(q.trim());
+  if (!needle) return true;
+  return fold([card.name_tr, card.name_en, card.summary_tr, card.summary_en, card.detail_tr ?? "", card.detail_en ?? ""].join(" ")).includes(needle);
+}
+
+/** Text monogram (no third-party logos in the admin; spec §2, W3-IDP BADGES). */
+const MONO: Record<string, string> = { entra: "MS", microsoft: "MS", google: "G", oidc: "OIDC", saml: "SAML", ldap: "LDAP", smtp: "SMTP", webhooks: "WH", n8n: "n8n", activepieces: "AP", pipedream: "PD", zapier: "Z", providers: "AI", webpush: "WP", telegram: "TG", whatsapp: "WA", whatsapp_web: "WA", sms: "SMS", teams: "T", slack: "S", push: "ICS", all: "•" };
+export function monogram(card: Pick<ConnectorCard, "key" | "name_en">): string {
+  const tail = card.key.split(".").pop() ?? "";
+  const hit = MONO[tail] ?? Object.entries(MONO).find(([k]) => tail.startsWith(k))?.[1];
+  if (hit) return hit;
+  return (card.name_en.match(/[A-Za-z0-9]/g) ?? ["?"]).slice(0, 2).join("").toUpperCase();
+}
+
+/** "4 dk önce" (Intl.RelativeTimeFormat); the absolute time goes in the tooltip. */
+export function relativeTime(iso: string, locale: string, now: number = Date.now()): string {
+  const d = new Date(iso.endsWith("Z") || /[+-]\d\d:\d\d$/.test(iso) ? iso : `${iso}Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  const s = Math.round((d.getTime() - now) / 1000);
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const a = Math.abs(s);
+  if (a < 60) return rtf.format(s, "second");
+  if (a < 3600) return rtf.format(Math.round(s / 60), "minute");
+  if (a < 86400) return rtf.format(Math.round(s / 3600), "hour");
+  if (a < 86400 * 30) return rtf.format(Math.round(s / 86400), "day");
+  return d.toLocaleDateString(locale, { dateStyle: "medium" });
 }
 
 /** "Kur" for a connector that is not set up (or whose state is unknown), "Düzenle" otherwise. */
@@ -50,19 +84,24 @@ export function switchIntent(card: Pick<ConnectorCard, "toggle">, next: boolean)
 }
 
 /** A setup link inside the gallery opens the sheet in place; anything else (e.g. `/admin/ai`) is navigated to. */
-export function parseSetupHref(href: string): { tab: AreaKey; setup: string | null } | null {
+export function parseSetupHref(href: string): { tab: HubTab; setup: string | null } | null {
   if (!href.startsWith(`${INTEGRATIONS_PATH}?`) && href !== INTEGRATIONS_PATH) return null;
   const q = new URLSearchParams(href.split("?")[1] ?? "");
-  return { tab: tabOf(q.get("tab")), setup: q.get("setup") };
+  return { tab: tabOf(q.get("area") ?? q.get("tab")), setup: q.get("setup") };
 }
 
-export function galleryHref(tab: AreaKey, setup?: string | null): string {
-  return `${INTEGRATIONS_PATH}?tab=${tab}${setup ? `&setup=${encodeURIComponent(setup)}` : ""}`;
+export function galleryHref(tab: HubTab, setup?: string | null): string {
+  const params = new URLSearchParams();
+  if (tab !== "all") params.set("area", tab);
+  if (setup) params.set("setup", setup);
+  const q = params.toString();
+  return q ? `${INTEGRATIONS_PATH}?${q}` : INTEGRATIONS_PATH;
 }
 
-export function countsLine(counts: Record<string, number>): { connected: number; attention: number; total: number } {
+/** The summary line's numbers (spec §8 `integrations.summary`). */
+export function countsLine(counts: Record<string, number>): { connected: number; error: number; notConfigured: number } {
   const n = (k: string) => counts[k] ?? 0;
-  return { connected: n("connected"), attention: n("error") + n("not_configured"), total: Object.values(counts).reduce((a, b) => a + b, 0) };
+  return { connected: n("connected"), error: n("error"), notConfigured: n("not_configured") };
 }
 
 /* ------------------------------------------------------------------------------- automation platforms */

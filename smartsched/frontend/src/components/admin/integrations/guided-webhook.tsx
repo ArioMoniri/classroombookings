@@ -7,7 +7,7 @@
  * and see whether it arrived. Uses the existing webhooks API (lib/api/approval-first.ts); nothing new is stored.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { Copy, ExternalLink, RotateCcw, Send } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, RotateCcw, Send } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import { Alert } from "@/components/admin/kit";
 import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { Input } from "@/components/ui/input";
+import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { Label } from "@/components/ui/label";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { afKeys, approvalFirst, useIntegrationSettings, useSaveIntegrationSettings, useWebhookDeliveries, useWebhooks, type Webhook } from "@/lib/api/approval-first";
@@ -22,6 +23,7 @@ import { problemText } from "@/lib/api/error-text";
 import { integrationsKeys } from "@/lib/api/integrations";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import { CopyField } from "./copy-field";
 import { PLATFORMS, PRESETS, SIGNATURE_HEADERS, checkUrl, galleryHref, testResult, verifySnippet, type Platform } from "./integrations-model";
 
 const EVENT_SETS = {
@@ -30,37 +32,6 @@ const EVENT_SETS = {
   approvals: ["approval.requested", "approval.step", "approval.approved", "approval.rejected", "approval.expired", "approval.withdrawn"],
 } as const;
 type EventSet = keyof typeof EVENT_SETS;
-
-export function CopyField({ label, value, mono = true, multiline = false, testId }: { label: string; value: string; mono?: boolean; multiline?: boolean; testId?: string }) {
-  const { t } = useI18n();
-  const id = useId();
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success(t("integrations.guided.copied"));
-    } catch {
-      toast.error(t("integrations.guided.copyFailed"));
-    }
-  };
-  return (
-    <div className="grid gap-1.5" data-testid={testId}>
-      <div className="flex items-center justify-between gap-2">
-        <Label htmlFor={id}>{label}</Label>
-        <Button size="sm" variant="outline" onClick={copy} aria-label={t("integrations.guided.copyWhat", { what: label })} className="pointer-coarse:min-h-11">
-          <Copy aria-hidden />
-          {t("integrations.guided.copy")}
-        </Button>
-      </div>
-      {multiline ? (
-        <pre id={id} tabIndex={0} className={cn("max-h-56 overflow-auto rounded-xl bg-fill-2 p-3 type-caption text-label-1 whitespace-pre", mono && "font-mono")} aria-label={label}>
-          {value}
-        </pre>
-      ) : (
-        <Input id={id} readOnly value={value} className={cn("pointer-coarse:text-base", mono && "font-mono")} onFocus={(e) => e.currentTarget.select()} />
-      )}
-    </div>
-  );
-}
 
 export function GuidedWebhook({ initialPlatform, webhookId }: { initialPlatform: Platform | null; webhookId: number | null }) {
   const { t, locale } = useI18n();
@@ -86,6 +57,15 @@ export function GuidedWebhook({ initialPlatform, webhookId }: { initialPlatform:
   const result = testResult(deliveries.data ?? [], deliveryId);
   const preset = PRESETS[platform];
   const urlState = checkUrl(url, platform);
+  // phones (spec §11): one step per screen, "Adım n / 4" + bar, Geri · İleri in the sticky footer
+  const phone = useIsPhone();
+  const [step, setStep] = useState(1);
+  const stepRef = useRef<HTMLDivElement>(null);
+  const show = (n: number) => !phone || step === n;
+  const goStep = (n: number) => {
+    setStep(n);
+    requestAnimationFrame(() => stepRef.current?.querySelector<HTMLElement>("h3")?.focus());
+  };
 
   // poll the delivery log until the test event is SENT or FAILED (the worker sends it within seconds)
   useEffect(() => {
@@ -115,6 +95,7 @@ export function GuidedWebhook({ initialPlatform, webhookId }: { initialPlatform:
       const created = await approvalFirst.webhooks.create({ url: url.trim(), events: [...EVENT_SETS[events]], description: `${platform} akışı` });
       setCreatedId(created.id);
       setSecret(created.secret);
+      if (phone) goStep(3);
       toast.success(t("integrations.guided.saved", { name: preset.name }));
       await refresh();
     } catch (e) {
@@ -150,27 +131,44 @@ export function GuidedWebhook({ initialPlatform, webhookId }: { initialPlatform:
     }
   };
 
-  const primary =
-    endpointId === null ? (
-      <Button size="lg" onClick={save} disabled={saving} aria-busy={saving || undefined} className="w-full sm:w-auto" data-testid="guided-save">
-        <BusyLabel busy={saving} label={t("integrations.guided.saving")}>
-          {t("integrations.guided.save")}
-        </BusyLabel>
-      </Button>
-    ) : (
-      <Button size="lg" onClick={sendTest} disabled={testing || result?.state === "pending"} aria-busy={testing || undefined} className="w-full sm:w-auto" data-testid="guided-test">
-        <Send aria-hidden />
-        <BusyLabel busy={testing} label={t("integrations.guided.testing")}>
-          {t("integrations.guided.test")}
-        </BusyLabel>
-      </Button>
-    );
+  const saveButton = (
+    <Button size="lg" onClick={save} disabled={saving} aria-busy={saving || undefined} className="flex-1 sm:flex-none" data-testid="guided-save">
+      <BusyLabel busy={saving} label={t("integrations.guided.saving")}>
+        {t("integrations.guided.save")}
+      </BusyLabel>
+    </Button>
+  );
+  const testButton = (
+    <Button size="lg" onClick={sendTest} disabled={testing || result?.state === "pending"} aria-busy={testing || undefined} className="flex-1 sm:flex-none" data-testid="guided-test">
+      <Send aria-hidden />
+      <BusyLabel busy={testing} label={t("integrations.guided.testing")}>
+        {t("integrations.guided.test")}
+      </BusyLabel>
+    </Button>
+  );
+  const nextButton = (
+    <Button size="lg" onClick={() => goStep(step + 1)} className="flex-1" data-testid="guided-next">
+      {t("integrations.guided.next")}
+      <ArrowRight aria-hidden />
+    </Button>
+  );
+  const primary = !phone ? (endpointId === null ? saveButton : testButton) : step === 4 ? (endpointId === null ? saveButton : testButton) : step === 2 && endpointId === null ? saveButton : step === 3 && endpointId === null ? null : nextButton;
   const globalOff = settings.data ? !settings.data.webhooks_enabled : false;
 
   return (
-    <div className="grid gap-6" data-testid="guided-webhook">
-      <p className="type-callout text-label-2">{t("integrations.guided.lead")}</p>
-      {initialPlatform === null && endpointId === null ? (
+    <div ref={stepRef} className="grid gap-6" data-testid="guided-webhook" data-step={phone ? step : undefined}>
+      {phone ? (
+        <div className="grid gap-1.5">
+          <p className="type-footnote font-medium text-label-2" data-testid="guided-step">
+            {t("integrations.guided.step", { n: step, total: 4 })}
+          </p>
+          <div className="h-1 overflow-hidden rounded-full bg-fill-2" aria-hidden>
+            <div className="h-full rounded-full bg-tint transition-[width] duration-(--dur-base) motion-reduce:transition-none" style={{ width: `${(step / 4) * 100}%` }} />
+          </div>
+        </div>
+      ) : null}
+      {show(1) ? <p className="type-callout text-label-2">{t("integrations.guided.lead")}</p> : null}
+      {show(1) && initialPlatform === null && endpointId === null ? (
         <div className="grid gap-1.5">
           <span id={`${urlId}-p`} className="type-footnote font-medium text-label-1">
             {t("integrations.guided.platform")}
@@ -179,8 +177,9 @@ export function GuidedWebhook({ initialPlatform, webhookId }: { initialPlatform:
         </div>
       ) : null}
 
+      {show(1) ? (
       <section className="grid gap-2" aria-labelledby={`${urlId}-s1`}>
-        <h3 id={`${urlId}-s1`} className="type-headline text-label-1">
+        <h3 id={`${urlId}-s1`} tabIndex={-1} className="type-headline text-label-1 focus-visible:outline-2 focus-visible:outline-(--focus)">
           {t("integrations.guided.step1")}
         </h3>
         <p className="type-callout text-label-1">{t(`integrations.guided.how.${platform}`)}</p>
@@ -189,9 +188,11 @@ export function GuidedWebhook({ initialPlatform, webhookId }: { initialPlatform:
           {t("integrations.guided.docs", { name: preset.name })}
         </a>
       </section>
+      ) : null}
 
+      {show(2) ? (
       <section className="grid gap-2" aria-labelledby={`${urlId}-s2`}>
-        <h3 id={`${urlId}-s2`} className="type-headline text-label-1">
+        <h3 id={`${urlId}-s2`} tabIndex={-1} className="type-headline text-label-1 focus-visible:outline-2 focus-visible:outline-(--focus)">
           {t("integrations.guided.step2")}
         </h3>
         {endpoint || endpointId !== null ? (
@@ -238,9 +239,11 @@ export function GuidedWebhook({ initialPlatform, webhookId }: { initialPlatform:
           </>
         )}
       </section>
+      ) : null}
 
+      {show(3) ? (
       <section className="grid gap-3" aria-labelledby={`${urlId}-s3`}>
-        <h3 id={`${urlId}-s3`} className="type-headline text-label-1">
+        <h3 id={`${urlId}-s3`} tabIndex={-1} className="type-headline text-label-1 focus-visible:outline-2 focus-visible:outline-(--focus)">
           {t("integrations.guided.step3")}
         </h3>
         {secret ? (
@@ -263,9 +266,11 @@ export function GuidedWebhook({ initialPlatform, webhookId }: { initialPlatform:
         <p className="type-footnote text-label-2">{t("integrations.guided.snippetLead")}</p>
         <CopyField label={t("integrations.guided.snippet")} value={verifySnippet(platform)} multiline testId="guided-snippet" />
       </section>
+      ) : null}
 
+      {show(4) ? (
       <section className="grid gap-2" aria-labelledby={`${urlId}-s4`}>
-        <h3 id={`${urlId}-s4`} className="type-headline text-label-1">
+        <h3 id={`${urlId}-s4`} tabIndex={-1} className="type-headline text-label-1 focus-visible:outline-2 focus-visible:outline-(--focus)">
           {t("integrations.guided.step4")}
         </h3>
         {globalOff ? (
@@ -298,8 +303,15 @@ export function GuidedWebhook({ initialPlatform, webhookId }: { initialPlatform:
           {t("integrations.guided.manageAll")}
         </Link>
       </section>
+      ) : null}
       {/* MOBILE M-05: the step's primary action stays in thumb reach at every scroll of the setup sheet */}
-      <div className="sticky bottom-0 z-10 -mx-5 flex justify-end bg-(--mat-thick) px-5 py-3 hairline-t" data-testid="guided-footer">
+      <div className="sticky bottom-0 z-10 -mx-5 flex justify-end gap-2 bg-(--mat-thick) px-5 py-3 hairline-t" data-testid="guided-footer">
+        {phone && step > 1 ? (
+          <Button size="lg" variant="outline" onClick={() => goStep(step - 1)} className="w-[110px]" data-testid="guided-prev">
+            <ArrowLeft aria-hidden />
+            {t("integrations.sheet.back")}
+          </Button>
+        ) : null}
         {primary}
       </div>
     </div>

@@ -138,7 +138,7 @@ if (args.repolish) {
     });
   }, args.theme);
   const page = await context.newPage();
-  const rec = new Recorder(page, { speed: Number(args.speed), viewport, log, touch: phone });
+  const rec = new Recorder(page, { speed: Number(args.speed), viewport, log, touch: phone, virtualPointer: args.engine === "frames" });
   const ctx = { page, baseURL, creds, lang: args.lang, captionLang: env.REC_CAPTION_LANG ?? args.lang, theme: args.theme, device: phone ? "phone" : "desktop", termCode: env.REC_TERM_CODE ?? "2026-BAHAR" };
 
   let failure = null;

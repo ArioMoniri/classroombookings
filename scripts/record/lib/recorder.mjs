@@ -12,8 +12,12 @@ const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) 
 
 export class Recorder {
   /** @param {import('playwright').Page} page */
-  constructor(page, { speed = 1, viewport, log = () => {}, touch = false } = {}) {
+  constructor(page, { speed = 1, viewport, log = () => {}, touch = false, virtualPointer = false } = {}) {
     this.page = page;
+    // virtualPointer (record.mjs --engine frames): the renderer draws the cursor from the logged track, so a move is
+    // logged as an eased path on its planned schedule and the real mouse jumps once. Under load every
+    // page.mouse.move round trip can take 100+ ms, which stretched a 0.6 s move to several seconds of video.
+    this.virtualPointer = virtualPointer;
     // touch: a phone take (hasTouch context); click() taps, the renderer shows a finger dot instead of a cursor
     this.touch = touch;
     this.keys = []; // {t, text} typed text and {t, key} key presses: the launch renderer's keystroke overlay
@@ -152,6 +156,18 @@ export class Recorder {
     const dist = Math.hypot(x - from.x, y - from.y);
     const ms = Math.max(180, Math.min(duration * this.speed, 250 + dist * 0.9));
     const n = Math.max(6, Math.round(ms / 16));
+    if (this.virtualPointer) {
+      const t0 = this.now();
+      for (let i = 1; i <= n; i++) {
+        const u = easeInOut(i / n);
+        this.pointer.push({ t: t0 + (ms * i) / n, x: from.x + (x - from.x) * u, y: from.y + (y - from.y) * u, type: "move" });
+      }
+      await this.page.mouse.move(x, y);
+      const left = t0 + ms - this.now();
+      if (left > 0) await sleep(left);
+      this.pos = { x, y };
+      return;
+    }
     for (let i = 1; i <= n; i++) {
       const u = easeInOut(i / n);
       const px = from.x + (x - from.x) * u;

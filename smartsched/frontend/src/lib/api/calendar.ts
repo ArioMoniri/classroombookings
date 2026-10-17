@@ -234,6 +234,9 @@ export const BulkMoveOut = z.object({
   conflict_count: z.number(),
   assignments: z.array(IndexAssignment).default([]),
   undo: UndoToken.default({ snapshots: [], delete_ids: [] }),
+  /** owner decision 2026-10-17 (R1-S-37): a forced move on the published run was applied to this new draft run */
+  draft_run_id: z.number().nullable().optional(),
+  live_run_id: z.number().nullable().optional(),
 });
 export type BulkMoveOut = z.infer<typeof BulkMoveOut>;
 

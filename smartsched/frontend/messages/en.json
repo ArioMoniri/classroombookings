@@ -2218,7 +2218,7 @@
     "state": {"placed": "Placed", "conflict": "Conflict", "warning": "Warning", "locked": "Locked", "partial": "Partial", "unplaced": "Unplaced", "preoccupied": "Pre-occupied", "booking": "Booking", "selected": "selected", "ghost": "In run #{run}", "onlyHere": "only in this run", "evening": "Evening", "saving": "saving"},
     "issues": {"conflictsWeek": "{n} conflicts this week", "warningsWeek": "{n} warnings this week", "conflicts": "{n} conflicts", "warnings": "{n} warnings", "unplaced": "{n} unplaced"},
     "drag": {"ok": "{room} · {when} · {cap} seats", "free": "Free: {range}", "multi": "{n} classes · {ok} fit · {bad} clash", "pickedUp": "{label} picked up. Arrow keys move it, Space drops, Escape cancels.", "over": "{label} over {room}, {when}: {state}.", "fits": "fits", "cancelled": "Move cancelled.", "resize": "{range} · {delta} periods"},
-    "move": {"title": "Move {label}", "room": "Room", "day": "Day", "start": "Start", "end": "End", "scope": "Which weeks", "scopeAll": "All weeks ({weeks})", "scopeWeek": "Week {n} only ({date})", "scopeFrom": "From {date} on (week {n})", "fromWeek": "Starting week", "finder": "Free rooms for this slot", "groupFree": "Free and fits", "groupSmall": "Too small", "groupBusy": "Taken", "groupOther": "Not usable", "confirm": "Move", "moving": "Moving…", "checking": "Checking…", "cannot": "Couldn't move: {reason}", "force": "Move anyway", "forceAdmin": "Only an admin can move despite a conflict", "seats": "{n} seats", "examSeats": "{n} exam seats", "serverOk": "Server check: fits", "split": "Earlier weeks stay in {room}", "nothing": "Nothing changes", "useRoom": "Use {room}", "current": "Current room", "fit": "{p}% full", "dialogHint": "Reasons come from the same checks as dragging.", "forceTitle": "This move breaks a hard rule. As an administrator you may move it anyway; the reason is listed in the run report and the audit log.", "forceReason": "Reason (required)", "forcePlaceholder": "e.g. approved by the head of department, one time only"},
+    "move": {"title": "Move {label}", "room": "Room", "day": "Day", "start": "Start", "end": "End", "scope": "Which weeks", "scopeAll": "All weeks ({weeks})", "scopeWeek": "Week {n} only ({date})", "scopeFrom": "From {date} on (week {n})", "fromWeek": "Starting week", "finder": "Free rooms for this slot", "groupFree": "Free and fits", "groupSmall": "Too small", "groupBusy": "Taken", "groupOther": "Not usable", "confirm": "Move", "moving": "Moving…", "checking": "Checking…", "cannot": "Couldn't move: {reason}", "force": "Move anyway", "forceAdmin": "Only an admin can move despite a conflict", "seats": "{n} seats", "examSeats": "{n} exam seats", "serverOk": "Server check: fits", "split": "Earlier weeks stay in {room}", "nothing": "Nothing changes", "useRoom": "Use {room}", "current": "Current room", "fit": "{p}% full", "dialogHint": "Reasons come from the same checks as dragging.", "forceTitle": "This move breaks a hard rule. As an administrator you may move it anyway; the reason is listed in the run report and the audit log.", "draftCreated": "The published plan did not change: draft #{id} was created", "draftOpen": "Open draft #{id}", "forceReason": "Reason (required)", "forcePlaceholder": "e.g. approved by the head of department, one time only"},
     "toast": {"moved": "{code} → {room} moved", "movedMany": "{n} classes moved", "undo": "Undo", "redo": "Redo", "undone": "Undone: {label}", "redone": "Redone: {label}", "undoFailed": "Couldn't undo: {reason}", "locked": "{code} locked", "unlocked": "{code} unlocked", "lockedMany": "{n} locked", "lockFailed": "Couldn't change the lock: {reason}", "skipped": "{a} moved, {b} skipped ({reason})"},
     "insp": {"label": "Class inspector", "whenWhere": "When & where", "who": "Who", "why": "Why here", "source": "Source", "history": "History", "explain": "Explain placement", "explaining": "Looking at this placement…", "explainError": "Couldn't get an explanation", "regenerate": "Regenerate", "cancel": "Cancel", "copy": "Copy", "copied": "Copied", "sourceModel": "Source: model", "sourceTemplate": "Source: template", "openClasses": "Show in all classes", "openCalendar": "Open in calendar", "lock": "Lock", "unlock": "Unlock", "move": "Move…", "close": "Close", "students": "{size} / {cap}", "studentsLine": "{size} students · {cap} seats ({fit}%)", "weeks": "Weeks {weeks}", "sourceLine": "{file} · {sheet} · row {row}", "planningList": "Planning list", "examList": "Exam list", "board": "Published board (weekly grid)", "download": "Download file", "showRow": "Show row", "hideRow": "Hide row", "requested": "Requested", "definitive": "Definitive room", "placement": "Placement", "noHistory": "No other runs place this class", "instructors": "Instructors", "selection": "{n} classes selected · {students} students · {buildings} buildings", "clearSelection": "Clear selection", "origin": {"SOLVER": "Solver", "MANUAL": "By hand", "IMPORT": "Import", "AI_EDIT": "Chat"}, "booking": "Booking", "blockLabel": "Pre-occupied: {label}", "matchedBoard": "Matched to the request by course code and time", "more": "More actions", "copyLink": "Copy link", "linkCopied": "Link copied", "openChat": "Open in chat", "saving": "Saving…", "saved": "Saved", "saveFailed": "Not saved", "originLine": "Placed by: {origin}"},
     "create": {"booking": "Booking", "request": "Class request", "title": "Title", "repeat": "Repeat", "thisWeek": "This week only", "wholeTerm": "Every week of the term", "note": "Note", "book": "Book", "place": "Place", "later": "Place in the next run", "search": "Search classes…", "unplacedFirst": "Unplaced ({n})", "allClasses": "All classes", "noPeriods": "No booking periods are set for this room. An admin sets them under Settings › Bookings.", "free": "{cap} seats · free", "busy": "Part of this range is taken", "booked": "{room} booked {when}", "bookFailed": "Couldn't book: {reason}", "pinRoom": "Pin to this room", "pinTime": "Pin to this time", "pinned": "{code} will be placed in {room} {when} in the next run", "placed": "{code} placed in {room} {when}", "slot": "{room} · {when} ({n} periods)", "label": "New on {room}", "moveHere": "Move the unplaced class here", "noMatch": "No class matches"},
@@ -5179,7 +5179,7 @@
     "forgotten": "{n} decisions forgotten",
     "restored": "The forgotten decisions are back"
   },
-  "quickReserve": {"title": "Quick reserve", "nav": "Quick", "lead": "Pick a day and a time, choose a free room and reserve it with one tap.", "step": {"when": "When?", "where": "Where?", "confirm": "Confirm", "n": "{n}. {title}"}, "day": {"label": "Day", "today": "Today", "tomorrow": "Tomorrow", "pick": "Pick a date…", "pickLabel": "Another date", "holiday": "Holiday: {name}", "closed": "Closed for bookings", "weekend": "Weekend", "full": "No free slots on this day.", "closedName": "{day}, {reason}"}, "slot": {"label": "Time", "full": "Full", "none": "No slots left to show on this day.", "fullName": "{slot}, full"}, "length": {"label": "Length", "periods": "{n, plural, one {# period} other {# periods}}", "minutes": "{n} min", "mapped": "Rounded to whole periods: {range}", "none": "The shortest booking ({n}) does not fit after this time."}, "people": {"label": "How many people?", "any": "Any", "n": "{n}+ people"}, "features": {"label": "Features (optional)"}, "rooms": {"label": "Room", "count": "{n, plural, =0 {No free rooms} one {# free room} other {# free rooms}}", "searching": "Searching…", "showAll": "Show all ({n})", "capacity": "{n} seats", "recent": "Recently used", "needsApproval": "Request", "mine": "Your request is waiting", "chooseFirst": "Pick a time first.", "rowName": "{room}, {details}"}, "summary": {"none": "Choose a room", "line": "{room} · {day} {slot}"}, "note": {"add": "Add a note", "label": "Note (optional)", "placeholder": "E.g. make-up lesson"}, "submit": {"book": "Reserve", "bookFor": "Reserve {room}", "request": "Request", "requestFor": "Request {room}", "busyBook": "Reserving…", "busyRequest": "Sending request…"}, "approval": {"body": "This room needs approval. Your booking is confirmed once the request is approved."}, "quota": {"left": "{n, plural, one {# booking left} other {# bookings left}}", "none": "You have used all your bookings."}, "empty": {"title": "No free rooms at this time", "nearest": "Nearest free times", "otherDay": "Pick another day.", "advanced": "Advanced search"}, "receipt": {"booked": "Reserved", "requested": "Request sent", "requestedBody": "You will be notified when the approver decides.", "undo": "Undo", "undoFor": "Undo the {room} booking", "withdraw": "Withdraw request", "mine": "My bookings", "again": "New booking", "live": "{room} reserved. Use Undo to take it back.", "liveRequested": "Your request for {room} was sent."}, "toast": {"booked": "{room} reserved", "requested": "Request sent for {room}", "undone": "Booking undone", "withdrawn": "Request withdrawn"}, "conflict": {"title": "This slot was just taken.", "body": "Pick another room at the same time.", "refresh": "Refresh the list", "taken": "Just taken"}, "error": {"network": "Connection problem. Try again.", "retry": "Try again"}, "noPermission": {"title": "You cannot make bookings", "body": "Ask your administrator for access."}, "noTerm": "There is no session open for bookings.", "unpublished": "No published timetable for this week; the room may clash with a class.", "more": "More options", "pendingApart": "{n, plural, one {# request waiting for approval} other {# requests waiting for approval}}"},
+  "quickReserve": {"title": "Quick reserve", "nav": "Quick", "lead": "Pick a day and a time, choose a free room and reserve it with one tap.", "step": {"when": "When?", "where": "Where?", "confirm": "Confirm", "n": "{n}. {title}"}, "day": {"label": "Day", "today": "Today", "tomorrow": "Tomorrow", "pick": "Pick a date…", "pickLabel": "Another date", "holiday": "Holiday: {name}", "closed": "Closed for bookings", "weekend": "Weekend", "full": "No free slots on this day.", "movedToNext": "No slots left {from}; picked {to}.", "closedName": "{day}, {reason}"}, "slot": {"label": "Time", "full": "Full", "none": "No slots left to show on this day.", "fullName": "{slot}, full"}, "length": {"label": "Length", "periods": "{n, plural, one {# period} other {# periods}}", "minutes": "{n} min", "mapped": "Rounded to whole periods: {range}", "none": "The shortest booking ({n}) does not fit after this time."}, "people": {"label": "How many people?", "any": "Any", "n": "{n}+ people"}, "features": {"label": "Features (optional)"}, "rooms": {"label": "Room", "count": "{n, plural, =0 {No free rooms} one {# free room} other {# free rooms}}", "searching": "Searching…", "showAll": "Show all ({n})", "capacity": "{n} seats", "recent": "Recently used", "needsApproval": "Request", "mine": "Your request is waiting", "chooseFirst": "Pick a time first.", "rowName": "{room}, {details}"}, "summary": {"none": "Choose a room", "line": "{room} · {day} {slot}"}, "note": {"add": "Add a note", "label": "Note (optional)", "placeholder": "E.g. make-up lesson"}, "submit": {"book": "Reserve", "bookFor": "Reserve {room}", "request": "Request", "requestFor": "Request {room}", "busyBook": "Reserving…", "busyRequest": "Sending request…"}, "approval": {"body": "This room needs approval. Your booking is confirmed once the request is approved."}, "quota": {"left": "{n, plural, one {# booking left} other {# bookings left}}", "none": "You have used all your bookings."}, "empty": {"title": "No free rooms at this time", "nearest": "Nearest free times", "otherDay": "Pick another day.", "advanced": "Advanced search"}, "receipt": {"booked": "Reserved", "requested": "Request sent", "requestedBody": "You will be notified when the approver decides.", "undo": "Undo", "undoFor": "Undo the {room} booking", "withdraw": "Withdraw request", "mine": "My bookings", "again": "New booking", "live": "{room} reserved. Use Undo to take it back.", "liveRequested": "Your request for {room} was sent."}, "toast": {"booked": "{room} reserved", "requested": "Request sent for {room}", "undone": "Booking undone", "withdrawn": "Request withdrawn"}, "conflict": {"title": "This slot was just taken.", "body": "Pick another room at the same time.", "refresh": "Refresh the list", "taken": "Just taken"}, "error": {"network": "Connection problem. Try again.", "retry": "Try again"}, "noPermission": {"title": "You cannot make bookings", "body": "Ask your administrator for access."}, "noTerm": "There is no session open for bookings.", "unpublished": "No published timetable for this week; the room may clash with a class.", "more": "More options", "pendingApart": "{n, plural, one {# request waiting for approval} other {# requests waiting for approval}}"},
   "slotDisplay": {"open": "Display", "tab": "Slots", "title": "Slot display", "description": "Choose how slots appear on the booking screens. The periods themselves are changed under Schedules.", "schedulesLink": "Schedules", "unit": {"legend": "Layout", "periods": "Period rows", "periodsHelp": "Every period has the same size.", "blocks": "Time blocks", "blocksHelp": "Size follows duration; time blocks are drawn onto the periods.", "blockMinutes": "Block length", "minutes": "{n} min"}, "label": {"legend": "Label", "period": "Period", "time": "Time", "both": "Both"}, "periodName": {"legend": "Period name", "schedule": "From the schedule ({example})", "ordinal": "Number ({example})"}, "timeFormat": {"legend": "Time format", "start": "Start ({example})", "range": "Range ({example})"}, "ordinal": "Period {n}", "density": {"legend": "Density", "compact": "Compact", "standard": "Standard", "comfortable": "Comfortable", "phoneNote": "On phones rows stay at least 44 px tall."}, "visible": {"legend": "Visible periods", "first": "First", "last": "Last", "all": "No limit", "hideShort": "Hide short transition slots ({list})", "hideShortNone": "Hide short transition slots (under 35 minutes)", "hideWeekend": "Hide the weekend", "summary": "{n} of {total} periods visible", "errorOrder": "The first period cannot be after the last.", "note": "Hidden periods only leave the view; bookings in them still show in My bookings."}, "hiddenChip": "+{n} hidden periods", "hiddenHide": "Hide them again", "defaultView": {"legend": "Default view", "desktop": "Desktop", "phone": "Phone", "org": "Organisation setting"}, "view": {"grid_day": "Day grid", "grid_room_week": "Room week", "free_slots": "Free slots", "free_week": "Free slots this week", "quick": "Quick reserve"}, "length": {"legend": "Quick reserve length", "min": "Shortest", "max": "Longest", "periods": "{n, plural, one {# period} other {# periods}}", "blocks": "{n, plural, one {# block} other {# blocks}} ({min} min)", "hint": "Users are offered lengths in this range; a booking still covers whole periods."}, "preview": {"title": "Preview", "note": "Today's periods · sample occupancy", "grid": "Grid", "list": "List", "quick": "Quick", "surface": "Preview surface", "room": "Sample {n}", "live": "Example: {example} · {n} of {total} periods visible"}, "reset": "Reset to default", "save": "Save", "saving": "Saving…", "saved": "Display saved. Users see it after a reload.", "failed": "The display could not be saved.", "unsaved": "Unsaved changes", "empty": "No periods are defined yet."},
   "ops": {
     "nav": "Operations",
@@ -5686,20 +5686,19 @@
   "integrations": {
     "nav": "Integrations",
     "title": "Integrations",
-    "lead": "Identity, e-mail, calendar, notification channel, webhook and AI connections in one place.",
+    "lead": "Organisation-wide connections. Every administrator sees the same settings; changes are audited.",
     "shared": "These settings apply to the whole organisation: when one administrator changes them, every administrator sees the same.",
     "noAccess": "This page needs the \"Organisation settings\" or \"Planning administration\" permission.",
-    "loadError": "The connection statuses could not be loaded. Try again shortly.",
-    "retry": "Try again",
-    "refresh": "Refresh status",
-    "summary": "{connected} connected · {attention} need attention · {total} in total",
+    "loadError": "Couldn't load status. Showing the last known state.",
+    "summary": "{connected} connected · {error} with errors · {notConfigured} not set up",
     "tab": {
       "identity": "Identity",
       "email": "E-mail",
       "calendar": "Calendar",
       "channels": "Channels",
       "automation": "Webhooks and automation",
-      "ai": "AI"
+      "ai": "AI",
+      "all": "All"
     },
     "tabLead": {
       "identity": "Identity providers for sign-in and invitations (Microsoft, Google, OIDC, SAML, LDAP).",
@@ -5711,28 +5710,31 @@
     },
     "status": {
       "connected": "Connected",
-      "not_configured": "Not configured",
+      "not_configured": "Not set up",
       "error": "Error",
       "disabled": "Off",
       "unknown": "Unknown"
     },
     "card": {
       "setup": "Set up",
-      "edit": "Edit",
-      "open": "Open",
+      "edit": "Manage",
+      "open": "Manage ↗",
       "setupFor": "Set up {name}",
-      "editFor": "Edit {name}",
-      "openFor": "Open {name}",
-      "lastCheck": "Last check: {when}, {result}",
+      "editFor": "Manage {name}",
+      "openFor": "Manage {name} on the {screen} screen",
+      "lastCheck": "Last check: {when} · {result}",
       "lastCheckOk": "succeeded",
       "lastCheckFail": "failed",
-      "neverChecked": "Not tested yet",
-      "lastChange": "Last change: {who}, {when}",
-      "lastChangeWhen": "Last change: {when}",
+      "neverChecked": "Not set up yet",
+      "lastChange": "Last changed: {who}, {when}",
+      "lastChangeWhen": "Last changed: {when}",
       "noChange": "No changes yet",
-      "switchLabel": "{name} on",
+      "switchLabel": "{name}: In use",
       "on": "On",
       "off": "Off",
+      "notTested": "Not tested yet",
+      "inUse": "In use",
+      "rowName": "{name}, {status}",
       "list": "{area} connections"
     },
     "switch": {
@@ -5757,7 +5759,8 @@
       "close": "Close",
       "lead": "Saved changes apply to every administrator.",
       "notFound": "This connection was not found; the list may have changed.",
-      "pending": "The new setup screen of this area is on its way; the current settings are below for now."
+      "pending": "The new setup screen of this area is on its way; the current settings are below for now.",
+      "back": "Back"
     },
     "ai": {
       "lead": "Providers, models, usage and limits are managed on the AI page.",
@@ -5798,7 +5801,7 @@
       "copy": "Copy",
       "copyWhat": "Copy {what}",
       "copied": "Copied",
-      "copyFailed": "Could not copy; select the text and copy it by hand.",
+      "copyFailed": "Couldn't copy; the value is selected, press Ctrl+C.",
       "headers": "Request headers",
       "snippet": "Signature check",
       "snippetLead": "Paste it into the platform's code step: HMAC-SHA256 over the timestamp and the raw body, 5-minute tolerance.",
@@ -5811,7 +5814,24 @@
       "globalOff": "Webhook delivery is off: the test event is sent, booking events are not.",
       "enableGlobal": "Switch webhook delivery on",
       "manageAll": "All webhook addresses",
-      "saveFirst": "Save the address first."
-    }
+      "saveFirst": "Save the address first.",
+      "copiedLive": "{label} copied",
+      "step": "Step {n} of {total}",
+      "next": "Next"
+    },
+    "search": "Search integrations",
+    "emptySearch": "No integration matches \"{q}\".",
+    "attention": "Needs attention",
+    "fix": "Fix it",
+    "fixFor": "Fix {name}",
+    "readOnly": "View only",
+    "external": "Managed on the {screen} screen",
+    "tabCount": "{label} {n}",
+    "tabCountName": "{label}, {n} integrations",
+    "screen": {
+      "ai": "AI"
+    },
+    "retry": "Try again",
+    "refresh": "Refresh status"
   }
 }

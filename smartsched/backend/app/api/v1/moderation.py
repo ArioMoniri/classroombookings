@@ -292,10 +292,24 @@ async def put_request_priority(request_id: int, body: PriorityIn, db: DB, user: 
         raise _raise(exc) from exc
 
 
+#: the planner's refusal on a person's priority (owner decision 2026-10-17, R2-M-08)
+PERSON_PRIORITY_ADMIN: dict[str, Any] = {
+    "code": "person_priority_admin",
+    "permission": "planning.admin",
+    "message": "only coordinators and administrators can change a person's priority",
+    "message_en": "Only coordinators and administrators can change a person's priority.",
+    "message_tr": "Kişi önceliğini yalnızca koordinatörler ve yöneticiler değiştirebilir.",
+}
+
+
 @router.put("/moderation/people/{instructor_id}/priority")
 async def put_person_priority(instructor_id: int, body: SubjectPriorityIn, db: DB, user: Planner) -> dict[str, Any]:
     """A person's default priority for one term (inherited by their requests: request > section > person >
-    programme; audited ``person.priority``). Coordinators and admins only (``planning.edit``)."""
+    programme; audited ``person.priority``). Coordinators and admins only (``planning.admin``; owner decision
+    2026-10-17, R2-M-08): a planner gets 403 ``person_priority_admin``. Section / request priorities stay
+    ``planning.edit``."""
+    if "planning.admin" not in (await load_access(db, user)).perms:
+        raise HTTPException(403, dict(PERSON_PRIORITY_ADMIN))
     try:
         return await mod.set_subject_priority(db, "person", instructor_id, body.term_id, body.priority, user, body.note)
     except mod.ModerationError as exc:

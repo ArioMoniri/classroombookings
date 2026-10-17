@@ -105,8 +105,8 @@ async def test_forced_move_on_the_published_plan_creates_a_draft_and_keeps_the_l
     (ov,) = draft["stats"]["forced_overrides"]
     assert ov["reason"] == REASON and "room_overlap" in ov["rules"]
     _, drows = await _state(draft_id)
-    moved = [r for r in drows.values() if r[0] == a.meeting_request_id and r[8] == tuple(b.room_ids)]
-    assert moved and moved[0][3] == (3,)
+    moved = [drows[x["id"]] for x in out["assignments"] if x["id"] in drows]  # the answer's rows are the draft's
+    assert moved and any(r[8] == tuple(b.room_ids) and r[3] == (3,) for r in moved), moved
 
     # publishing the draft goes through the normal guard: the forced-break tick is required
     r = await env.client.post(f"/api/v1/runs/{draft_id}/activate", headers=env.admin)

@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 20:09",
-      "left_off": "Backend run still going (8 cases × ~2–3 min each); the stack check and hand-off depend on it, so I'll wait for the completion notice."
+      "finished_at": "2026-10-17 20:32",
+      "left_off": "Both the week-order tests and the stack build are running; the Playwright run needs the stack and the hand-off needs both, so I'll wait for their notices."
     },
     {
       "id": "afe38e299d6f66d51",
@@ -2330,8 +2330,8 @@
       "ledger": "R2 lane S: minimal-change re-solve",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 20:16",
-      "left_off": "The round-2 chain is still 0/0/0. The full- and repair-mode replays of the section-only edit are the remaining check, running in the background."
+      "finished_at": "2026-10-17 20:32",
+      "left_off": "The ROADMAP line is in. The PROGRESS row and the report wait on the background suite run (moderation + studio)."
     },
     {
       "id": "a0d0d5d9bf11862e6",
@@ -2488,7 +2488,8 @@
       "goal": "You are lane **W3-OPS** of SmartSched wave 3 (ledger `wave3-ops-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/WAVE3.md and COMMON.md (same folder) and follow them. The owner asked: \"admin panel having operational details like Gra…",
       "ledger": "W3-OPS: observability + error tracking",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 20:31"
     },
     {
       "id": "acba49a0cfa818b0d",
@@ -2711,6 +2712,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-17 20:17",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a1a15d4792ed0b2a7",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-17 20:25",
       "left_off": "is the pod up yet"
     }
   ]

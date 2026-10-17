@@ -2217,7 +2217,7 @@
     "state": {"placed": "Yerleşti", "conflict": "Çakışma", "warning": "Uyarı", "locked": "Kilitli", "partial": "Kısmi", "unplaced": "Yerleşmedi", "preoccupied": "Önceden dolu", "booking": "Rezervasyon", "selected": "seçili", "ghost": "Run #{run}'de", "onlyHere": "yalnız bu çalıştırmada", "evening": "Akşam", "saving": "kaydediliyor"},
     "issues": {"conflictsWeek": "Bu hafta {n} çakışma", "warningsWeek": "Bu hafta {n} uyarı", "conflicts": "{n} çakışma", "warnings": "{n} uyarı", "unplaced": "{n} yerleşmedi"},
     "drag": {"ok": "{room} · {when} · {cap} koltuk", "free": "Boş: {range}", "multi": "{n} ders · {ok} uygun · {bad} çakışma", "pickedUp": "{label} alındı. Ok tuşları taşır, Boşluk bırakır, Esc iptal eder.", "over": "{label} {room}, {when} üzerinde: {state}.", "fits": "uygun", "cancelled": "Taşıma iptal edildi.", "resize": "{range} · {delta} ders saati"},
-    "move": {"title": "{label} taşı", "room": "Derslik", "day": "Gün", "start": "Başlangıç", "end": "Bitiş", "scope": "Hangi haftalar", "scopeAll": "Tüm haftalar ({weeks})", "scopeWeek": "Sadece {n}. hafta ({date})", "scopeFrom": "{date} tarihinden itibaren ({n}. hafta)", "fromWeek": "Başlangıç haftası", "finder": "Bu saat için boş derslikler", "groupFree": "Boş ve sığar", "groupSmall": "Sığmaz", "groupBusy": "Dolu", "groupOther": "Uygun değil", "confirm": "Taşı", "moving": "Taşınıyor…", "checking": "Kontrol ediliyor…", "cannot": "Taşınamadı: {reason}", "force": "Yine de taşı", "forceAdmin": "Çakışmaya rağmen taşımayı yalnızca yönetici yapabilir", "seats": "{n} koltuk", "examSeats": "{n} sınav koltuğu", "serverOk": "Sunucu kontrolü: uygun", "split": "Önceki haftalar {room} dersliğinde kalır", "nothing": "Değişiklik yok", "useRoom": "{room} seç", "current": "Şu anki oda", "fit": "%{p} dolu", "dialogHint": "Gerekçeler sürüklerken yapılan kontrollerle aynıdır.", "forceTitle": "Bu taşıma kesin bir kuralı bozuyor. Yönetici olarak yine de taşıyabilirsiniz; gerekçe çalıştırma raporunda ve denetim kaydında listelenir.", "forceReason": "Gerekçe (zorunlu)", "forcePlaceholder": "Ör. bölüm başkanı onayladı, tek seferlik"},
+    "move": {"title": "{label} taşı", "room": "Derslik", "day": "Gün", "start": "Başlangıç", "end": "Bitiş", "scope": "Hangi haftalar", "scopeAll": "Tüm haftalar ({weeks})", "scopeWeek": "Sadece {n}. hafta ({date})", "scopeFrom": "{date} tarihinden itibaren ({n}. hafta)", "fromWeek": "Başlangıç haftası", "finder": "Bu saat için boş derslikler", "groupFree": "Boş ve sığar", "groupSmall": "Sığmaz", "groupBusy": "Dolu", "groupOther": "Uygun değil", "confirm": "Taşı", "moving": "Taşınıyor…", "checking": "Kontrol ediliyor…", "cannot": "Taşınamadı: {reason}", "force": "Yine de taşı", "forceAdmin": "Çakışmaya rağmen taşımayı yalnızca yönetici yapabilir", "seats": "{n} koltuk", "examSeats": "{n} sınav koltuğu", "serverOk": "Sunucu kontrolü: uygun", "split": "Önceki haftalar {room} dersliğinde kalır", "nothing": "Değişiklik yok", "useRoom": "{room} seç", "current": "Şu anki oda", "fit": "%{p} dolu", "dialogHint": "Gerekçeler sürüklerken yapılan kontrollerle aynıdır.", "forceTitle": "Bu taşıma kesin bir kuralı bozuyor. Yönetici olarak yine de taşıyabilirsiniz; gerekçe çalıştırma raporunda ve denetim kaydında listelenir.", "draftCreated": "Yayındaki plan değişmedi: taslak #{id} oluşturuldu", "draftOpen": "Taslak #{id} aç", "forceReason": "Gerekçe (zorunlu)", "forcePlaceholder": "Ör. bölüm başkanı onayladı, tek seferlik"},
     "toast": {"moved": "{code} → {room} taşındı", "movedMany": "{n} ders taşındı", "undo": "Geri al", "redo": "Yinele", "undone": "Geri alındı: {label}", "redone": "Yinelendi: {label}", "undoFailed": "Geri alınamadı: {reason}", "locked": "{code} kilitlendi", "unlocked": "{code} kilidi açıldı", "lockedMany": "{n} ders kilitlendi", "lockFailed": "Kilit değiştirilemedi: {reason}", "skipped": "{a} taşındı, {b} atlandı ({reason})"},
     "insp": {"label": "Ders denetçisi", "whenWhere": "Ne zaman, nerede", "who": "Kim", "why": "Neden burada", "source": "Kaynak", "history": "Geçmiş", "explain": "Yerleşimi açıkla", "explaining": "Yerleşim inceleniyor…", "explainError": "Açıklama alınamadı", "regenerate": "Yeniden oluştur", "cancel": "İptal", "copy": "Kopyala", "copied": "Kopyalandı", "sourceModel": "Kaynak: model", "sourceTemplate": "Kaynak: şablon", "openClasses": "Tüm derslerde göster", "openCalendar": "Takvimde aç", "lock": "Kilitle", "unlock": "Kilidi aç", "move": "Taşı…", "close": "Kapat", "students": "{size} / {cap}", "studentsLine": "{size} öğrenci · {cap} koltuk (%{fit})", "weeks": "Haftalar {weeks}", "sourceLine": "{file} · {sheet} · satır {row}", "planningList": "Planlama listesi", "examList": "Sınav listesi", "board": "Yayımlanan pano (haftalık çizelge)", "download": "Dosyayı indir", "showRow": "Satırı göster", "hideRow": "Satırı gizle", "requested": "İstenen", "definitive": "Kesinleşen derslik", "placement": "Yerleşim", "noHistory": "Diğer çalıştırmalarda bu ders yok", "instructors": "Öğretim elemanları", "selection": "{n} ders seçili · {students} öğrenci · {buildings} bina", "clearSelection": "Seçimi temizle", "origin": {"SOLVER": "Çözücü", "MANUAL": "Elle", "IMPORT": "İçe aktarım", "AI_EDIT": "Sohbet"}, "booking": "Rezervasyon", "blockLabel": "Önceden dolu: {label}", "matchedBoard": "Talebe ders kodu ve saatle eşleştirildi", "more": "Diğer işlemler", "copyLink": "Bağlantıyı kopyala", "linkCopied": "Bağlantı kopyalandı", "openChat": "Sohbette aç", "saving": "Kaydediliyor…", "saved": "Kaydedildi", "saveFailed": "Kaydedilemedi", "originLine": "Yerleştiren: {origin}"},
     "create": {"booking": "Rezervasyon", "request": "Ders talebi", "title": "Başlık", "repeat": "Tekrar", "thisWeek": "Yalnız bu hafta", "wholeTerm": "Dönemin her haftası", "note": "Not", "book": "Rezerve et", "place": "Yerleştir", "later": "Sonraki çalıştırmada yerleştir", "search": "Ders ara…", "unplacedFirst": "Yerleşmeyenler ({n})", "allClasses": "Tüm dersler", "noPeriods": "Bu derslik için rezervasyon saatleri tanımlı değil. Yönetici Ayarlar › Rezervasyon bölümünden tanımlar.", "free": "{cap} koltuk · boş", "busy": "Bu aralığın bir kısmı dolu", "booked": "{room} {when} için rezerve edildi", "bookFailed": "Rezerve edilemedi: {reason}", "pinRoom": "Bu odaya sabitle", "pinTime": "Bu saate sabitle", "pinned": "{code} sonraki çalıştırmada {room} {when} yerleşecek", "placed": "{code} {room} {when} yerleştirildi", "slot": "{room} · {when} ({n} ders saati)", "label": "{room} için yeni", "moveHere": "Yerleşmeyen dersi buraya taşı", "noMatch": "Eşleşen ders yok"},
@@ -5178,7 +5178,7 @@
     "forgotten": "{n} karar unutuldu",
     "restored": "Unutulan kararlar geri geldi"
   },
-  "quickReserve": {"title": "Hızlı rezervasyon", "nav": "Hızlı rez.", "lead": "Günü ve saati seçin, boş bir derslik seçip tek dokunuşla rezerve edin.", "step": {"when": "Ne zaman?", "where": "Nerede?", "confirm": "Onayla", "n": "{n}. {title}"}, "day": {"label": "Gün", "today": "Bugün", "tomorrow": "Yarın", "pick": "Tarih seç…", "pickLabel": "Başka bir tarih", "holiday": "Tatil: {name}", "closed": "Rezervasyona kapalı", "weekend": "Hafta sonu", "full": "Bu gün için boş saat yok.", "closedName": "{day}, {reason}"}, "slot": {"label": "Saat", "full": "Dolu", "none": "Bu gün için gösterilecek saat kalmadı.", "fullName": "{slot}, dolu"}, "length": {"label": "Süre", "periods": "{n} ders", "minutes": "{n} dk", "mapped": "Ders saatlerine yuvarlanır: {range}", "none": "Bu saatten sonra en kısa rezervasyon ({n}) sığmıyor."}, "people": {"label": "Kaç kişi?", "any": "Fark etmez", "n": "{n}+ kişi"}, "features": {"label": "Özellikler (isteğe bağlı)"}, "rooms": {"label": "Derslik", "count": "{n, plural, =0 {Boş derslik yok} other {# boş derslik}}", "searching": "Aranıyor…", "showAll": "Tümünü göster ({n})", "capacity": "{n} kişi", "recent": "Son kullandığınız", "needsApproval": "Talep", "mine": "Talebiniz bekliyor", "chooseFirst": "Önce bir saat seçin.", "rowName": "{room}, {details}"}, "summary": {"none": "Bir derslik seçin", "line": "{room} · {day} {slot}"}, "note": {"add": "Not ekle", "label": "Not (isteğe bağlı)", "placeholder": "Örn. telafi dersi"}, "submit": {"book": "Rezerve et", "bookFor": "Rezerve et: {room}", "request": "Talep et", "requestFor": "Talep et: {room}", "busyBook": "Rezerve ediliyor…", "busyRequest": "Talep gönderiliyor…"}, "approval": {"body": "Bu derslik onay gerektirir. Talebiniz onaylanınca rezervasyon kesinleşir."}, "quota": {"left": "{n, plural, other {# rezervasyon hakkınız kaldı}}", "none": "Rezervasyon hakkınız doldu."}, "empty": {"title": "Bu saatte boş derslik yok", "nearest": "En yakın boş saatler", "otherDay": "Başka gün seçin.", "advanced": "Gelişmiş arama"}, "receipt": {"booked": "Rezerve edildi", "requested": "Talebiniz gönderildi", "requestedBody": "Onaycı karar verince size bildirilecek.", "undo": "Geri al", "undoFor": "Geri al: {room} rezervasyonu", "withdraw": "Talebi geri çek", "mine": "Rezervasyonlarım", "again": "Yeni rezervasyon", "live": "{room} rezerve edildi. Geri almak için Geri al.", "liveRequested": "{room} için talebiniz gönderildi."}, "toast": {"booked": "{room} rezerve edildi", "requested": "{room} için talebiniz gönderildi", "undone": "Rezervasyon geri alındı", "withdrawn": "Talep geri çekildi"}, "conflict": {"title": "Bu saat az önce doldu.", "body": "Aynı saatte başka bir derslik seçin.", "refresh": "Listeyi yenile", "taken": "Az önce doldu"}, "error": {"network": "Bağlantı sorunu. Tekrar deneyin.", "retry": "Tekrar dene"}, "noPermission": {"title": "Rezervasyon yetkiniz yok", "body": "Yetki için yöneticinize başvurun."}, "noTerm": "Rezervasyon yapılabilecek bir dönem yok.", "unpublished": "Bu hafta için yayımlanmış ders programı yok; derslik dersle çakışabilir.", "more": "Daha fazla seçenek", "pendingApart": "{n, plural, other {# talep onay bekliyor}}"},
+  "quickReserve": {"title": "Hızlı rezervasyon", "nav": "Hızlı rez.", "lead": "Günü ve saati seçin, boş bir derslik seçip tek dokunuşla rezerve edin.", "step": {"when": "Ne zaman?", "where": "Nerede?", "confirm": "Onayla", "n": "{n}. {title}"}, "day": {"label": "Gün", "today": "Bugün", "tomorrow": "Yarın", "pick": "Tarih seç…", "pickLabel": "Başka bir tarih", "holiday": "Tatil: {name}", "closed": "Rezervasyona kapalı", "weekend": "Hafta sonu", "full": "Bu gün için boş saat yok.", "movedToNext": "{from} için saat kalmadı; {to} seçildi.", "closedName": "{day}, {reason}"}, "slot": {"label": "Saat", "full": "Dolu", "none": "Bu gün için gösterilecek saat kalmadı.", "fullName": "{slot}, dolu"}, "length": {"label": "Süre", "periods": "{n} ders", "minutes": "{n} dk", "mapped": "Ders saatlerine yuvarlanır: {range}", "none": "Bu saatten sonra en kısa rezervasyon ({n}) sığmıyor."}, "people": {"label": "Kaç kişi?", "any": "Fark etmez", "n": "{n}+ kişi"}, "features": {"label": "Özellikler (isteğe bağlı)"}, "rooms": {"label": "Derslik", "count": "{n, plural, =0 {Boş derslik yok} other {# boş derslik}}", "searching": "Aranıyor…", "showAll": "Tümünü göster ({n})", "capacity": "{n} kişi", "recent": "Son kullandığınız", "needsApproval": "Talep", "mine": "Talebiniz bekliyor", "chooseFirst": "Önce bir saat seçin.", "rowName": "{room}, {details}"}, "summary": {"none": "Bir derslik seçin", "line": "{room} · {day} {slot}"}, "note": {"add": "Not ekle", "label": "Not (isteğe bağlı)", "placeholder": "Örn. telafi dersi"}, "submit": {"book": "Rezerve et", "bookFor": "Rezerve et: {room}", "request": "Talep et", "requestFor": "Talep et: {room}", "busyBook": "Rezerve ediliyor…", "busyRequest": "Talep gönderiliyor…"}, "approval": {"body": "Bu derslik onay gerektirir. Talebiniz onaylanınca rezervasyon kesinleşir."}, "quota": {"left": "{n, plural, other {# rezervasyon hakkınız kaldı}}", "none": "Rezervasyon hakkınız doldu."}, "empty": {"title": "Bu saatte boş derslik yok", "nearest": "En yakın boş saatler", "otherDay": "Başka gün seçin.", "advanced": "Gelişmiş arama"}, "receipt": {"booked": "Rezerve edildi", "requested": "Talebiniz gönderildi", "requestedBody": "Onaycı karar verince size bildirilecek.", "undo": "Geri al", "undoFor": "Geri al: {room} rezervasyonu", "withdraw": "Talebi geri çek", "mine": "Rezervasyonlarım", "again": "Yeni rezervasyon", "live": "{room} rezerve edildi. Geri almak için Geri al.", "liveRequested": "{room} için talebiniz gönderildi."}, "toast": {"booked": "{room} rezerve edildi", "requested": "{room} için talebiniz gönderildi", "undone": "Rezervasyon geri alındı", "withdrawn": "Talep geri çekildi"}, "conflict": {"title": "Bu saat az önce doldu.", "body": "Aynı saatte başka bir derslik seçin.", "refresh": "Listeyi yenile", "taken": "Az önce doldu"}, "error": {"network": "Bağlantı sorunu. Tekrar deneyin.", "retry": "Tekrar dene"}, "noPermission": {"title": "Rezervasyon yetkiniz yok", "body": "Yetki için yöneticinize başvurun."}, "noTerm": "Rezervasyon yapılabilecek bir dönem yok.", "unpublished": "Bu hafta için yayımlanmış ders programı yok; derslik dersle çakışabilir.", "more": "Daha fazla seçenek", "pendingApart": "{n, plural, other {# talep onay bekliyor}}"},
   "slotDisplay": {"open": "Görünüm", "tab": "Ders saatleri", "title": "Ders saati görünümü", "description": "Rezervasyon ekranlarında ders saatlerinin nasıl görüneceğini seçin. Ders saatlerinin kendisi Zaman çizelgelerinde değişir.", "schedulesLink": "Zaman çizelgeleri", "unit": {"legend": "Düzen", "periods": "Ders satırları", "periodsHelp": "Her ders saati eşit boyda.", "blocks": "Zaman blokları", "blocksHelp": "Boy süreyle orantılı; saat blokları ders saatlerinin üzerine çizilir.", "blockMinutes": "Blok uzunluğu", "minutes": "{n} dk"}, "label": {"legend": "Etiket", "period": "Ders", "time": "Saat", "both": "İkisi"}, "periodName": {"legend": "Ders adı", "schedule": "Çizelgedeki ad ({example})", "ordinal": "Sıra ({example})"}, "timeFormat": {"legend": "Saat biçimi", "start": "Başlangıç ({example})", "range": "Aralık ({example})"}, "ordinal": "{n}. ders", "density": {"legend": "Yoğunluk", "compact": "Sıkı", "standard": "Standart", "comfortable": "Geniş", "phoneNote": "Telefonda satırlar en az 44 px kalır."}, "visible": {"legend": "Görünen saatler", "first": "İlk", "last": "Son", "all": "Kısıt yok", "hideShort": "Kısa geçiş saatlerini gizle ({list})", "hideShortNone": "Kısa geçiş saatlerini gizle (35 dakikadan kısa)", "hideWeekend": "Hafta sonunu gizle", "summary": "{n} / {total} ders saati görünür", "errorOrder": "İlk saat son saatten sonra olamaz.", "note": "Gizli saatler yalnızca görünümden kalkar; o saatlerdeki rezervasyonlar Rezervasyonlarım'da görünmeye devam eder."}, "hiddenChip": "+{n} gizli saat", "hiddenHide": "Gizli saatleri kapat", "defaultView": {"legend": "Varsayılan görünüm", "desktop": "Masaüstü", "phone": "Telefon", "org": "Kuruluş ayarı"}, "view": {"grid_day": "Günlük tablo", "grid_room_week": "Derslik haftası", "free_slots": "Boş saatler", "free_week": "Haftanın boş saatleri", "quick": "Hızlı rezervasyon"}, "length": {"legend": "Hızlı rezervasyon süresi", "min": "En kısa", "max": "En uzun", "periods": "{n} ders", "blocks": "{n} blok ({min} dk)", "hint": "Kullanıcılara bu aralıktaki süreler sunulur; rezervasyon yine tam ders saatlerini kapsar."}, "preview": {"title": "Önizleme", "note": "Bugünün ders saatleri · örnek doluluk", "grid": "Tablo", "list": "Liste", "quick": "Hızlı", "surface": "Önizleme yüzeyi", "room": "Örnek {n}", "live": "Örnek: {example} · {n} / {total} ders saati görünür"}, "reset": "Varsayılana dön", "save": "Kaydet", "saving": "Kaydediliyor…", "saved": "Görünüm kaydedildi. Kullanıcılar sayfayı yenileyince görür.", "failed": "Görünüm kaydedilemedi.", "unsaved": "Kaydedilmemiş değişiklikler", "empty": "Henüz ders saati tanımlı değil."},
   "ops": {
     "nav": "Operasyon",
@@ -5685,20 +5685,19 @@
   "integrations": {
     "nav": "Entegrasyonlar",
     "title": "Entegrasyonlar",
-    "lead": "Kimlik, e-posta, takvim, bildirim kanalları, webhook ve yapay zekâ bağlantıları tek yerde.",
+    "lead": "Kurum genelindeki bağlantılar. Her yönetici aynı ayarları görür; değişiklikler denetim kaydına yazılır.",
     "shared": "Bu ayarlar kurumun tamamı için geçerlidir: bir yönetici değiştirdiğinde bütün yöneticiler aynısını görür.",
     "noAccess": "Bu sayfa için \"Kurum ayarları\" ya da \"Planlama yönetimi\" izni gerekiyor.",
-    "loadError": "Bağlantı durumları alınamadı. Biraz sonra yeniden deneyin.",
-    "retry": "Yeniden dene",
-    "refresh": "Durumu yenile",
-    "summary": "{connected} bağlı · {attention} dikkat bekliyor · toplam {total}",
+    "loadError": "Durum alınamadı. Kartlar son bilinen hâliyle gösteriliyor.",
+    "summary": "{connected} bağlı · {error} hata · {notConfigured} yapılandırılmadı",
     "tab": {
       "identity": "Kimlik",
       "email": "E-posta",
       "calendar": "Takvim",
       "channels": "Kanallar",
       "automation": "Webhook ve otomasyon",
-      "ai": "Yapay zekâ"
+      "ai": "Yapay zekâ",
+      "all": "Tümü"
     },
     "tabLead": {
       "identity": "Oturum açma ve davetler için kimlik sağlayıcıları (Microsoft, Google, OIDC, SAML, LDAP).",
@@ -5717,21 +5716,24 @@
     },
     "card": {
       "setup": "Kur",
-      "edit": "Düzenle",
-      "open": "Aç",
+      "edit": "Yönet",
+      "open": "Yönet ↗",
       "setupFor": "{name}: kur",
-      "editFor": "{name}: düzenle",
-      "openFor": "{name}: aç",
-      "lastCheck": "Son kontrol: {when}, {result}",
+      "editFor": "{name}: yönet",
+      "openFor": "{name}: {screen} ekranında yönet",
+      "lastCheck": "Son kontrol: {when} · {result}",
       "lastCheckOk": "başarılı",
       "lastCheckFail": "başarısız",
-      "neverChecked": "Henüz denenmedi",
+      "neverChecked": "Henüz kurulmadı",
       "lastChange": "Son değişiklik: {who}, {when}",
       "lastChangeWhen": "Son değişiklik: {when}",
       "noChange": "Henüz değişiklik yok",
-      "switchLabel": "{name} açık",
+      "switchLabel": "{name}: Kullanımda",
       "on": "Açık",
       "off": "Kapalı",
+      "notTested": "Henüz denenmedi",
+      "inUse": "Kullanımda",
+      "rowName": "{name}, {status}",
       "list": "{area} bağlantıları"
     },
     "switch": {
@@ -5756,7 +5758,8 @@
       "close": "Kapat",
       "lead": "Değişiklikler kaydedildiğinde bütün yöneticiler için geçerli olur.",
       "notFound": "Bu bağlantı bulunamadı; liste yenilenmiş olabilir.",
-      "pending": "Bu alanın yeni kurulum ekranı hazırlanıyor; şimdilik mevcut ayarlar aşağıda."
+      "pending": "Bu alanın yeni kurulum ekranı hazırlanıyor; şimdilik mevcut ayarlar aşağıda.",
+      "back": "Geri"
     },
     "ai": {
       "lead": "Sağlayıcılar, modeller, kullanım ve sınırlar Yapay zekâ sayfasında yönetilir.",
@@ -5795,9 +5798,9 @@
       "rotate": "Yeni anahtar üret",
       "rotated": "Yeni anahtar üretildi; platformdaki anahtarı da değiştirin.",
       "copy": "Kopyala",
-      "copyWhat": "{what}: kopyala",
+      "copyWhat": "{what} kopyala",
       "copied": "Kopyalandı",
-      "copyFailed": "Kopyalanamadı; metni seçip elle kopyalayın.",
+      "copyFailed": "Kopyalanamadı; değer seçildi, Ctrl+C ile kopyalayın.",
       "headers": "İstek başlıkları",
       "snippet": "İmza doğrulama kodu",
       "snippetLead": "Platformun kod adımına yapıştırın: zaman damgası ve ham gövde üzerinden HMAC-SHA256, 5 dakika tolerans.",
@@ -5810,7 +5813,24 @@
       "globalOff": "Webhook gönderimi kapalı: test olayı gider, rezervasyon olayları gönderilmez.",
       "enableGlobal": "Webhook gönderimini aç",
       "manageAll": "Tüm webhook adresleri",
-      "saveFirst": "Önce adresi kaydedin."
-    }
+      "saveFirst": "Önce adresi kaydedin.",
+      "copiedLive": "{label} kopyalandı",
+      "step": "Adım {n} / {total}",
+      "next": "İleri"
+    },
+    "search": "Entegrasyon ara",
+    "emptySearch": "\"{q}\" ile eşleşen entegrasyon yok.",
+    "attention": "Dikkat isteyen",
+    "fix": "Sorunu gider",
+    "fixFor": "{name}: sorunu gider",
+    "readOnly": "Yalnız görüntüleme",
+    "external": "{screen} ekranında yönetilir",
+    "tabCount": "{label} {n}",
+    "tabCountName": "{label}, {n} entegrasyon",
+    "screen": {
+      "ai": "Yapay zekâ"
+    },
+    "retry": "Yeniden dene",
+    "refresh": "Durumu yenile"
   }
 }

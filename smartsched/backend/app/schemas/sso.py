@@ -117,12 +117,18 @@ class InviteIn(BaseModel):
     #: optional link to an instructor record (flow F-05; ``instructors.user_id``)
     instructor_id: int | None = None
     days: int | None = Field(default=None, ge=1, le=365)
+    #: wave 3b: the provider slug the invite is for (``entra`` by default) or ``local`` (set a password from the link)
+    provider: str | None = Field(default=None, max_length=40)
+    #: e-mail the invite at once (themed ``invitation`` e-mail); the answer says whether it went out
+    send_email: bool = False
+    locale: Literal["tr", "en"] | None = None
 
 
 class BindIn(BaseModel):
     #: the UPN / e-mail the user signs in with at Microsoft; default: the account's e-mail
     email: str | None = Field(default=None, max_length=255)
     days: int | None = Field(default=None, ge=1, le=365)
+    provider: str | None = Field(default=None, max_length=40)
 
 
 class InviteOut(BaseModel):
@@ -130,6 +136,11 @@ class InviteOut(BaseModel):
     user_id: int
     email: str
     kind: str
+    provider: str = svc.PROVIDER
+    provider_kind: str | None = None
+    provider_label: str | None = None
+    #: the outcome of ``send_email`` (``SENT`` / ``UNSENT`` / ``FAILED``); ``None`` when not asked
+    email_status: str | None = None
     status: Literal["invited", "invite_expired"]
     created_at: datetime
     expires_at: datetime
@@ -140,6 +151,12 @@ class InviteOut(BaseModel):
 
 class PublicInviteOut(BaseModel):
     kind: str
+    provider: str = svc.PROVIDER
+    provider_kind: str | None = None
+    provider_label: str | None = None
+    provider_label_en: str | None = None
+    #: the invited provider's start URL (``None`` for a local-password invite)
+    start_url: str | None = None
     inviter_name: str | None
     role_name: str | None
     invited_masked: str | None
@@ -208,6 +225,22 @@ class ProviderOut(BaseModel):
     label: str
     enabled: bool
     start_url: str
+    kind: str = svc.PROVIDER
+
+
+class ProviderButtonOut(BaseModel):
+    """One sign-in button of /login (wave 3b; in the administrators' order)."""
+
+    name: str
+    kind: str
+    label: str
+    label_en: str
+    badge: str
+    start_url: str
+    enabled: bool = True
+    domain_hint: str | None = None
+    self_signup: bool = False
+    order: int = 0
 
 
 class MicrosoftAuthOut(BaseModel):
@@ -222,6 +255,7 @@ class PublicAuthOut(BaseModel):
     """The ``auth`` block of the login page (sign-in.md §14)."""
 
     microsoft: MicrosoftAuthOut
+    providers: list[ProviderButtonOut] = []
     local_enabled: bool
     ldap_enabled: bool
     self_signup_role_name: str | None

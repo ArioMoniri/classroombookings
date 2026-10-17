@@ -9,6 +9,7 @@ import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { HttpError } from "@/lib/api/client";
 import { askForceReason, forceRefusal } from "./force-reason";
+import { toastForcedDraft } from "./forced-draft";
 import { calendarApi, calKeys, patchIndex, type BulkMoveOut, type CalendarIndex, type IndexAssignment, type MoveItem, type UndoToken } from "@/lib/api/calendar";
 import { qk } from "@/lib/api/hooks";
 import { useI18n } from "@/lib/i18n/provider";
@@ -19,6 +20,8 @@ export interface MoveOutcome {
   applied: boolean;
   reason?: string;
   result?: BulkMoveOut;
+  /** a forced move on the published plan went into this new draft run; the live run did not change (R1-S-37) */
+  draftRunId?: number;
 }
 
 function restoreLocally(index: CalendarIndex, undo: UndoToken): CalendarIndex {
@@ -100,6 +103,12 @@ export function useCalendarActions(runId: number | null, opts: { isAdmin?: boole
         });
         opts.announce?.(t("calendar.move.cannot", { reason }));
         return { ok: false, applied: false, reason, result: res };
+      }
+      if (res.draft_run_id) {
+        // owner decision 2026-10-17 (R1-S-37): the live plan is unchanged, the forced edit is in a new draft
+        const said = toastForcedDraft(t, res.draft_run_id);
+        opts.announce?.(said);
+        return { ok: res.ok, applied: true, result: res, draftRunId: res.draft_run_id };
       }
       setIndex((old) => patchIndex(old, res.assignments));
       refreshSoon();

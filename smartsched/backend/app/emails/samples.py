@@ -22,12 +22,17 @@ _BY_KIND: dict[str, dict[str, dict[str, Any] | Any]] = {
         "*": {
             "inviter": "Fatih Demir",
             "provider": "microsoft",
+            "provider_name": "Kampüs girişi",
             "cta_url": f"{BASE}/login?invite=ornek",
         },
-        "tr": {"expires": "16 Kasım 2026"},
-        "en": {"expires": "16 November 2026"},
+        "tr": {"expires": "16 Kasım 2026", "role": "Öğretim elemanı"},
+        "en": {"expires": "16 November 2026", "role": "Teacher"},
     },
-    "account_created": {"*": {"username": "ayse.yilmaz", "cta_url": f"{BASE}/login"}},
+    "account_created": {
+        "*": {"username": "ayse.yilmaz", "actor": "Fatih Demir", "method": "local", "cta_url": f"{BASE}/login"},
+        "tr": {"role": "Öğretim elemanı"},
+        "en": {"role": "Teacher"},
+    },
     "new_device_sign_in": {
         "*": {"cta_url": f"{BASE}/profile#security"},
         "tr": {"when": "17 Ekim 2026 20:41", "device": "Safari, iPhone (İstanbul)"},
@@ -58,9 +63,9 @@ _BY_KIND: dict[str, dict[str, dict[str, Any] | Any]] = {
         "items": True,
     },
     "booking_reminder": {
-        "*": {"what": "A 201 P3 10:10-11:00", "cta_url": f"{BASE}/bookings/mine"},
-        "tr": {"when": "18 Şubat 2026 Çarşamba"},
-        "en": {"when": "Wednesday, 18 February 2026"},
+        "*": {"room": "A 201", "period": "P3 10:10-11:00", "when": "day_before", "cta_url": f"{BASE}/bookings/mine"},
+        "tr": {"date": "18 Şubat 2026 Çarşamba"},
+        "en": {"date": "Wednesday, 18 February 2026"},
     },
     "series_created": {
         "*": {"who": "Fatih Demir", "room": "A 201", "count": 14, "series_id": 8, "cta_url": f"{BASE}/bookings/mine"},
@@ -74,7 +79,7 @@ _BY_KIND: dict[str, dict[str, dict[str, Any] | Any]] = {
         "en": {"change": "time P4 (11:00-11:50) instead of P3"},
         "items": True,
     },
-    "calendar_consent": {"*": {"state": "granted", "provider": "google", "cta_url": f"{BASE}/profile#privacy"}},
+    "calendar_consent": {"*": {"state": "on", "provider": "google", "cta_url": f"{BASE}/profile#privacy"}},
     "kvkk_request": {
         "*": {"request_kind": "info", "status": "done", "cta_url": f"{BASE}/profile#privacy"},
         "tr": {"detail": "Verilerinizin kopyası Profil > Gizlilik bölümünde 7 gün indirilebilir."},
@@ -82,15 +87,19 @@ _BY_KIND: dict[str, dict[str, dict[str, Any] | Any]] = {
     },
     "ai_usage_alert": {
         "*": {"who": "Fatih Demir", "percent": 80, "used": "400.000", "limit": "500.000", "cta_url": f"{BASE}/admin/ai"},
+        "tr": {"reset_date": "1 Kasım 2026"},
+        "en": {"reset_date": "1 November 2026"},
     },
     "ops_alert": {
-        "*": {"service": "solver", "severity": "critical", "count": 12, "cta_url": f"{BASE}/admin/ops"},
+        "*": {"severity": "critical", "count": 12, "cta_url": f"{BASE}/admin/ops"},
         "tr": {
+            "service": "Çözücü",
             "title": "çözücü işleri zaman aşımına uğruyor",
             "detail": "Son 15 dakikada 12 iş 900 sn sınırını aştı.",
             "first_seen": "17 Ekim 2026 20:05",
         },
         "en": {
+            "service": "Solver",
             "title": "solver jobs time out",
             "detail": "12 jobs passed the 900 s limit in the last 15 minutes.",
             "first_seen": "17 October 2026 20:05",
@@ -102,7 +111,7 @@ _BY_KIND: dict[str, dict[str, dict[str, Any] | Any]] = {
         "en": {"items": ["MAT 112 (section 1): Thursday P5 A 101 instead of Tuesday P3 A 204"]},
     },
     "booking_conflict_resolved": {
-        "*": {"cta_url": f"{BASE}/bookings/mine"},
+        "*": {"term": "2026-BAHAR", "cta_url": f"{BASE}/bookings/mine"},
         "tr": {"items": ["A 201, 18 Şubat 2026 P3: A 106 dersliğine taşındı"]},
         "en": {"items": ["A 201, 18 February 2026 P3: moved to A 106"]},
     },

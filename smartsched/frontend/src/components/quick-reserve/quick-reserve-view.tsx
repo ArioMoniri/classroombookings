@@ -79,10 +79,17 @@ export function QuickReserveView() {
   // ---- step 1: when
   const [pickedDay, setPickedDay] = useState<string | null>(params.get("date"));
   const chips = useMemo(() => (today ? dayChips(dates.data?.dates ?? [], today, 7) : []), [dates.data?.dates, today]);
-  const day = pickedDay ?? chips.find((c) => !c.closed)?.date ?? today ?? null;
+  const allRooms = !ctx.data?.display.use_room_groups || (ctx.data?.room_groups.length ?? 0) <= 1;
+  // smart default (quick-reserve.md §3): today, or the next open day once today's last slot has started
+  const firstOpen = chips.find((c) => !c.closed)?.date ?? null;
+  const firstGrid = useBookingGrid({ display: "day", date: firstOpen ?? undefined, term_id: termId }, !!firstOpen && termId != null && !pickedDay);
+  const firstDone = !!firstGrid.data && firstGrid.data.date === firstOpen && slotOptions(firstGrid.data, sd, now, allRooms).length === 0;
+  const nextOpen = firstOpen ? (chips.find((c) => !c.closed && c.date > firstOpen)?.date ?? null) : null;
+  const autoDay = firstDone && nextOpen ? nextOpen : firstOpen;
+  const day = pickedDay ?? autoDay ?? today ?? null;
+  const movedFrom = !pickedDay && firstDone && nextOpen ? firstOpen : null;
   const grid = useBookingGrid({ display: "day", date: day ?? undefined, term_id: termId }, !!day && termId != null);
   const g = grid.data && grid.data.date === day ? grid.data : undefined;
-  const allRooms = !ctx.data?.display.use_room_groups || (ctx.data?.room_groups.length ?? 0) <= 1;
   const options = useMemo(() => (g ? slotOptions(g, sd, now, allRooms) : []), [g, sd, now, allRooms]);
   const visible = useMemo(() => (g ? g.periods.filter((p) => periodVisible(p, sd)) : []), [g, sd]);
   const [pickedSlot, setPickedSlot] = useState<string | null>(null);
@@ -287,6 +294,11 @@ export function QuickReserveView() {
           ) : (
             <Skeleton className="h-11 w-full rounded-full" />
           )}
+          {movedFrom && day ? (
+            <p className="type-footnote text-label-2" data-testid="qr-moved">
+              {t("quickReserve.day.movedToNext", { from: dayWord(movedFrom), to: dayWord(day) })}
+            </p>
+          ) : null}
           {today && dates.data ? (
             <label className="flex flex-col gap-1">
               <span className="type-footnote font-medium text-label-2">{t("quickReserve.day.pickLabel")}</span>

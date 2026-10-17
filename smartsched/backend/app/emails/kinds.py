@@ -8,7 +8,7 @@ renders it), ``template`` (the template ships; the lane named in ``owner`` wires
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass(frozen=True)
@@ -34,12 +34,28 @@ class KindSpec:
     #: the subject / intro of a wired send already passed through the translations (``bookings_i18n.text``), so the
     #: renderer must not apply the override twice
     caller_applies_overrides: bool = False
+    #: footer (emails.md §5.9): ``switchable`` (why + preferences link), ``security`` / ``legal`` (cannot be turned
+    #: off, no preferences link), ``plain`` (the kind's own why, no preferences link)
+    footer: str = "switchable"
+    #: (field, value) -> tone, e.g. a resolved ops alert is green
+    tone_variants: tuple[tuple[str, str, str], ...] = ()
+    #: the fallback URL under the button (reset and invitation only, §5.8)
+    fallback_url: bool = False
+
+    def tone_for(self, raw: dict[str, str]) -> str:
+        for f, v, tone in self.tone_variants:
+            if raw.get(f) == v:
+                return tone
+        return self.tone
 
     @property
     def keys(self) -> dict[str, str]:
         return {
             "subject": self.subject_key or f"{self.kind}.subject",
             "heading": f"{self.kind}.heading",
+            "status": f"{self.kind}.status",
+            "after": f"{self.kind}.after",
+            "why": f"{self.kind}.why",
             "intro": self.intro_key or f"{self.kind}.intro",
             "cta": f"{self.kind}.cta",
             "preheader": f"{self.kind}.preheader",
@@ -321,6 +337,45 @@ KINDS: dict[str, KindSpec] = {
         ),
     )
 }
+
+#: emails.md §8: variants, footers and placeholders per kind
+_DESIGN: dict[str, dict[str, object]] = {
+    "password_reset": {"footer": "security", "fallback_url": True, "placeholders": ("name", "org", "valid_hours")},
+    "invitation": {
+        "footer": "plain",
+        "fallback_url": True,
+        "enums": ("provider",),
+        "placeholders": ("name", "org", "inviter", "provider", "provider_name", "expires", "role"),
+    },
+    "account_created": {
+        "footer": "plain",
+        "enums": ("method",),
+        "placeholders": ("name", "org", "actor", "username", "role", "provider", "valid_hours"),
+    },
+    "new_device_sign_in": {"footer": "security", "placeholders": ("name", "org", "when", "device")},
+    "approval_submitted": {"enums": ("hold",), "placeholders": ("name", "org", "what", "held_until")},
+    "approval_withdrawn": {"enums": ("to",)},
+    "booking_cancelled": {"enums": ("cause",)},
+    "booking_reminder": {"enums": ("when",), "placeholders": ("name", "room", "date", "period", "start")},
+    "series_created": {"placeholders": ("who", "room", "pattern", "count", "series_id", "items")},
+    "calendar_consent": {
+        "footer": "legal",
+        "enums": ("state", "provider", "scope"),
+        "placeholders": ("name", "provider", "actor", "when"),
+    },
+    "kvkk_request": {"footer": "legal", "enums": ("status", "request_kind")},
+    "ai_usage_alert": {"enums": ("level",), "placeholders": ("who", "percent", "used", "limit", "reset_date")},
+    "ops_alert": {
+        "enums": ("severity", "state"),
+        "tone_variants": (("state", "resolved", "success"), ("severity", "warning", "warning")),
+        "placeholders": ("service", "title", "severity", "detail", "first_seen", "count", "duration"),
+    },
+    "timetable_published": {"placeholders": ("term", "items")},
+    "booking_conflict_resolved": {"placeholders": ("term", "items")},
+    "smtp_test": {"footer": "plain"},
+}
+for _kind, _upd in _DESIGN.items():
+    KINDS[_kind] = replace(KINDS[_kind], **_upd)  # type: ignore[arg-type]
 
 #: an outbox kind without an entry (a future sender) still gets the themed layout with its own subject and body
 GENERIC = KindSpec("generic", "Bildirim", "Notification", "-", "-", tone="info", placeholders=())

@@ -100,6 +100,19 @@ function segment(take, sel) {
     const cutFrom = st.startMs + tr.keepMs;
     if (cutFrom < st.endMs) spans = spans.flatMap(([s, e]) => (st.endMs <= s || cutFrom >= e ? [[s, e]] : [[s, cutFrom], [st.endMs, e]].filter(([x, y]) => y - x > 30)));
   }
+  // still stretches (no new frame, no pointer event, no step start) longer than maxIdleMs are shortened to it: waits
+  // for the server and slow page operations on a loaded host otherwise read as dead air
+  const maxIdle = sel.maxIdleMs ?? Number(env.LAUNCH_MAX_IDLE_MS ?? 2000);
+  if (maxIdle > 0) {
+    const ev = [...take.frames.map((f) => f.t), ...tl.pointer.map((q) => q.t), ...steps.map((x) => x.startMs), ...steps.flatMap((x) => (x.targets ?? []).map((g) => g.t)), ...(tl.keys ?? []).map((k) => k.t), ...(tl.keys ?? []).map((k) => k.t + (k.ms ?? 0))]
+      .filter((x) => x >= start && x <= end).sort((x, y) => x - y);
+    ev.unshift(start);
+    ev.push(end);
+    for (let i = 0; i < ev.length - 1; i++) {
+      const [ga, gb] = [ev[i] + maxIdle, ev[i + 1] - 120];
+      if (gb - ga > 200) spans = spans.flatMap(([s, e]) => (gb <= s || ga >= e ? [[s, e]] : [[s, ga], [gb, e]].filter(([x, y]) => y - x > 30)));
+    }
+  }
   const offs = [];
   let acc = 0;
   for (const [s, e] of spans) {

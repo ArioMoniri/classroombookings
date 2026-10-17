@@ -195,17 +195,28 @@ def _en_csv() -> tuple[str, bytes]:
     return (EN_CSV.name, EN_CSV.read_bytes())
 
 
+async def _weeks_by_id() -> dict[int, list[int]]:
+    from app.core.db import get_session_factory
+    from app.models import MeetingRequest
+    from sqlalchemy import select
+
+    async with get_session_factory()() as s:
+        rows = (await s.execute(select(MeetingRequest).where(MeetingRequest.archived.is_(False)))).scalars().all()
+        return {m.id: list(m.weeks or []) for m in rows}
+
+
 @pytest.mark.parametrize(
-    ("first", "second"),
-    [(_xlsx, _xlsx), (_xlsx, _cp1254), (_en_csv, _xlsx), (_cp1254, _xlsx)],
-    ids=["xlsx-then-xlsx", "xlsx-then-cp1254", "en-csv-then-xlsx", "cp1254-then-xlsx"],
+    ("first", "second", "same_list"),
+    [(_xlsx, _xlsx, True), (_xlsx, _cp1254, True), (_cp1254, _xlsx, True), (_en_csv, _xlsx, False)],
+    ids=["xlsx-then-xlsx", "xlsx-then-cp1254", "cp1254-then-xlsx", "en-csv-then-xlsx"],
 )
-async def test_an_unchanged_list_in_any_export_rewrites_no_weeks_in_a_19_week_term(client, first, second):
+async def test_an_unchanged_list_in_any_export_rewrites_no_weeks_in_a_19_week_term(client, first, second, same_list):
     """R3-M-02 / R3-S-04: the admin tester's fresh stack. 2026-BAHAR exists with 19 weeks; the first file is committed
-    the way the UI sends it (the planner group's own guess of the length), the second is dry-run the way the tester
-    called the API (``term_id`` only). The same unchanged list in either format, in either order, writes one week
-    list per request (the term's weeks), so the second upload creates nothing, rewrites no weeks and is >= 99 %
-    unchanged (the English CSV first: the general reader's rows, read again by the importer)."""
+    the way the UI sends it (the planner group's own guess of the length), the second is dry-run and then committed
+    the way the tester called the API (``term_id`` only). Every request keeps the week list it had (the term's
+    weeks, whatever reader or guess), checked row by row in the database. The same list in another format is also
+    >= 99 % unchanged with nothing created; the English CSV is a shorter export (1,348 of the workbook's 1,524 rows),
+    so after it the workbook adds its own rows and refines the rest, but rewrites no weeks."""
     h = await login(client)
     r = await client.post(
         "/api/v1/terms",
@@ -217,20 +228,19 @@ async def test_an_unchanged_list_in_any_export_rewrites_no_weeks_in_a_19_week_te
     job1 = await upload(client, h, first(), ai="false")
     r = await client.post(f"/api/v1/council/jobs/{job1['id']}/commit", headers=h, json=_ui_body(job1))
     assert r.status_code == 200, r.text
+    before = await _weeks_by_id()
+    assert before and max(max(w, default=0) for w in before.values()) <= 19  # never past the term's own length
     job2 = await upload(client, h, second(), ai="false")
-    r = await client.post(
-        f"/api/v1/council/jobs/{job2['id']}/commit",
-        headers=h,
-        json={"group": 0, "term_id": term_id, "allow_pending": True, "dry_run": True},
-    )
+    body = {"group": 0, "term_id": term_id, "allow_pending": True}
+    r = await client.post(f"/api/v1/council/jobs/{job2['id']}/commit", headers=h, json={**body, "dry_run": True})
     assert r.status_code == 200, r.text
     dry = r.json()
     mr = dry["counts"]["meeting_requests"]
-    weeks_rewritten = [
-        row["id"]
-        for row in dry["rows"]
-        if row["entity"] == "meeting_requests" and any(f["field"] == "weeks" for f in row.get("fields") or [])
-    ]
-    assert weeks_rewritten == [], (len(weeks_rewritten), mr)
-    assert _n(dry["counts"], "meeting_requests", "create") <= 2, mr  # the CSV-first order: the importer's 2 extra rows
-    assert _share_unchanged(dry["counts"], "meeting_requests") >= 0.99, mr
+    if same_list:
+        assert _n(dry["counts"], "meeting_requests", "create") == 0, mr
+        assert _share_unchanged(dry["counts"], "meeting_requests") >= 0.99, mr
+    r = await client.post(f"/api/v1/council/jobs/{job2['id']}/commit", headers=h, json=body)
+    assert r.status_code == 200, r.text
+    after = await _weeks_by_id()
+    rewritten = [i for i, w in before.items() if i in after and after[i] != w]
+    assert rewritten == [], (len(rewritten), mr)
