@@ -2048,6 +2048,42 @@
       "status": "finished",
       "finished_at": "2026-10-17 00:36",
       "left_off": "start round 2 testers once backend passes"
+    },
+    {
+      "id": "a5b29570abe8881ad",
+      "description": "Round-2 persona tester: staff",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-17 00:43",
+      "scope": "",
+      "goal": "You are the **staff persona tester** (department staff member who books rooms; README §2 account `personel.test@smartsched.local`) for flow loop **round 2** of SmartSched. Ledger name `flow-r2-staff-2026-10-17`. Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scr…",
+      "ledger": "Round-2 persona tester: staff",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a951cad36630c1db7",
+      "description": "Round-2 persona tester: academician",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-17 00:43",
+      "scope": "",
+      "goal": "You are the **academician persona tester** (senior academician, instructor of PSY 278 Bahar / PSY 277 Güz; README §2 account `akademisyen.test@smartsched.local`, linked to that instructor) for flow loop **round 2** of SmartSched. Ledger name `flow-r2-academician-2026-10-17`. Read /tmp/claude-0/-home…",
+      "ledger": "Round-2 persona tester: academician",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a97773b4e46629dd4",
+      "description": "Round-2 persona tester: admin",
+      "subagent_type": "user-tester",
+      "isolation": null,
+      "started_at": "2026-10-17 00:43",
+      "scope": "",
+      "goal": "You are the **admin / coordinator persona tester** (Fatih Bey, classroom planning officer and system administrator, approver for every room; README §2 account `admin@smartsched.local`, plus the limited admin helper for F-11) for flow loop **round 2** of SmartSched. Ledger name `flow-r2-admin-2026-10…",
+      "ledger": "Round-2 persona tester: admin",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
