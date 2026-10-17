@@ -588,7 +588,8 @@ async def update(db: AsyncSession, actor: User, row: SsoProvider, values: dict[s
                 "last_admin_path",
                 "refused: this is the last way in for an administrator. Create a local (break-glass) administrator "
                 "first.",
-                "Bu, yöneticilerin kullandığı son giriş yöntemi. Önce bir yerel yönetici hesabı (acil durum) oluşturun.",
+                "Bu, yöneticilerin kullandığı son giriş yöntemi. Önce bir yerel yönetici hesabı (acil durum) "
+                "oluşturun.",
                 409,
             )
         row.enabled = want

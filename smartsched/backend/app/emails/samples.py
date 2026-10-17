@@ -29,7 +29,7 @@ _BY_KIND: dict[str, dict[str, dict[str, Any] | Any]] = {
         "en": {"expires": "16 November 2026", "role": "Teacher"},
     },
     "account_created": {
-        "*": {"username": "ayse.yilmaz", "actor": "Fatih Demir", "method": "local", "cta_url": f"{BASE}/login"},
+        "*": {"username": "ayse.yilmaz", "actor": "Fatih Demir", "method": "local", "valid_hours": 24, "cta_url": f"{BASE}/login"},
         "tr": {"role": "Öğretim elemanı"},
         "en": {"role": "Teacher"},
     },

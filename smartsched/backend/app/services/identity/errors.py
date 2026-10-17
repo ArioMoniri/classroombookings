@@ -54,7 +54,8 @@ TRANSLATIONS: tuple[tuple[re.Pattern[str], str, str, int | None], ...] = tuple(
     for p, tr, en, step in (
         (
             r"AADSTS50011|redirect_uri_mismatch",
-            "Yönlendirme adresi sağlayıcıdaki kayıtla eşleşmiyor. 2. adımdaki adresi yönlendirme adresi olarak ekleyin.",
+            "Yönlendirme adresi sağlayıcıdaki kayıtla eşleşmiyor. 2. adımdaki adresi yönlendirme adresi "
+            "olarak ekleyin.",
             "The redirect URI does not match the provider's registration. Add the address from step 2.",
             2,
         ),

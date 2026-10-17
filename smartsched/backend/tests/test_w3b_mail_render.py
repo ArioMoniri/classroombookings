@@ -86,14 +86,24 @@ def test_every_kind_renders_valid_themed_html_and_text(kind: str, locale: str) -
     assert 'width="600"' in html and "max-width:600px" in html.replace(" ", "")
     assert 'name="color-scheme"' in html and "prefers-color-scheme" in html  # dark-mode safe
     assert 'data-role="preheader"' in html
-    assert any(img.get("src", "").startswith(("cid:", "https://")) and img.get("alt") for img in c.imgs)
-    for blob in (subject, html, text):
+    # EM-19: the tile is decorative (alt="") because the live text "SmartSched" follows; role="article" + label
+    assert any(img.get("src", "").startswith(("cid:", "https://")) and img.get("alt") == "" for img in c.imgs)
+    assert ">SmartSched</td>" in html and 'role="article"' in html and "aria-label=" in html
+    for blob in (subject, html, text):  # EM-01
         assert not PLACEHOLDER.search(blob), (kind, locale, PLACEHOLDER.findall(blob))
         assert "\xa0" not in blob.replace("&nbsp;", "")
+        assert "replaced_by_series:" not in blob and "PENDING" not in blob
+    assert len(html.encode()) < 90_000  # EM-02 (Gmail clips at 102 KB)
+    assert c.tags.get("h1") == 1 and html.count('class="em-btn-a"') <= 1  # EM-03
+    assert out.preheader and out.preheader != subject and len(out.preheader) <= 140  # EM-05
     assert text.strip() and "<" not in text.replace("<https", "").replace("<http", "")
-    # the button (if any) works in Outlook too: a VML roundrect inside a conditional comment
+    # the button (if any) works in Outlook too: a VML roundrect inside a conditional comment (EM-09)
     if out.cta_url:
-        assert "v:roundrect" in html and out.cta_url in text
+        assert "v:roundrect" in html and out.cta_url in text and html.count(f'href="{out.cta_url}"') >= 2
+    # EM-14: security and legal kinds cannot be switched off and carry no preferences link
+    spec = KINDS[kind]
+    if spec.footer in ("security", "legal"):
+        assert "profile?tab=notifications" not in html and ("kapatılamaz" in text or "cannot be turned off" in text)
 
 
 @pytest.mark.parametrize("kind", sorted(KINDS))
@@ -102,8 +112,10 @@ def test_turkish_and_english_differ_and_turkish_is_turkish(kind: str) -> None:
     en = render(kind, "en", **sample_context(kind, "en"))
     assert tr.subject != en.subject
     assert tr.html != en.html
-    # the Turkish footer explains why the person got the message, in Turkish
-    assert "Bu e-postayı" in tr.text and "You received this" in en.text
+    # the footer explains why the person got the message, in the reader's language (§5.9)
+    assert "Örnek Üniversitesi · SmartSched" in tr.text
+    assert any(w in tr.text for w in ("Bu e-postayı", "kapatılamaz"))
+    assert any(w in en.text for w in ("You received this", "cannot be turned off"))
 
 
 def test_user_values_are_escaped_everywhere() -> None:
@@ -229,6 +241,38 @@ def test_invitation_names_the_identity_provider() -> None:
     ms = render("invitation", "tr", **{**sample_context("invitation", "tr"), "provider": "microsoft"})
     local = render("invitation", "tr", **{**sample_context("invitation", "tr"), "provider": "local"})
     assert "Microsoft" in ms.text and "Microsoft" not in local.text
+
+
+def test_approver_mail_has_no_decision_links() -> None:
+    """EM-15: decisions are made in the app (link scanners pre-fetch GET links)."""
+    for locale in LOCALES:
+        out = render("approval_requested", locale, **sample_context("approval_requested", locale))
+        assert "/decide" not in out.html and "approve=" not in out.html and "reject" not in out.html.lower()
+
+
+def test_variants_pick_their_sentences() -> None:
+    ms = render("invitation", "en", **sample_context("invitation", "en"))
+    assert "Sign in with Microsoft" in ms.text and ms.preheader.startswith("Join with your Microsoft")
+    oidc = render("invitation", "tr", **{**sample_context("invitation", "tr"), "provider": "oidc"})
+    assert "Kampüs girişi ile giriş yap" in oidc.text and "Kampüs girişi (kurumsal giriş)" not in oidc.subject
+    resolved = render("ops_alert", "tr", **{**sample_context("ops_alert", "tr"), "state": "resolved", "duration": "12 dk"})
+    assert resolved.subject.startswith("Çözüldü:") and 'data-block="status"' in resolved.html and "Çözüldü" in resolved.html
+    assert "#63E08B" in resolved.html  # success tone in dark mode
+    held = render("approval_submitted", "tr", **{**sample_context("approval_submitted", "tr"), "hold": "held", "held_until": "19 Şubat 2026 12:00"})
+    assert "tutulur" in held.text
+    plain = render("approval_submitted", "tr", **sample_context("approval_submitted", "tr"))
+    assert "tutulur" not in plain.text and "onaylanan talep dersliği alır" in plain.text
+    undo = render("booking_cancelled", "en", **{**sample_context("booking_cancelled", "en"), "reason": "undo_of:41"})
+    assert "Undo (#41)" in undo.text and undo.preheader == "An action was undone."
+    words = render("booking_cancelled", "tr", **{**sample_context("booking_cancelled", "tr"), "reason": "Bölüm toplantısı"})
+    assert "Gerekçe: Bölüm toplantısı" in words.text and words.preheader == "Fatih Demir iptal etti."
+
+
+def test_composed_mode_never_shows_an_unfillable_shipped_part() -> None:
+    out = render("booking_created", "tr", subject="Sizin adınıza rezervasyon yapıldı", body="Fatih Bey sizin adınıza 1 rezervasyon yaptı:\n- A 101")
+    assert not PLACEHOLDER.search(out.html + out.text) and "<h1" in out.html
+    kv = render("kvkk_request", "tr", subject="Kişisel veri (silme) talebiniz reddedildi", body="Yasal saklama süresi dolmadı.")
+    assert "Kişisel veri (silme) talebiniz reddedildi</h1>" in kv.html  # variant-dependent heading: the subject
 
 
 def test_logo_is_shipped_for_cid() -> None:
