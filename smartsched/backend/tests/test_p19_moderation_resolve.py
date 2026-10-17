@@ -102,7 +102,7 @@ def _r3_input(syb_priority: int = 0) -> sm.SolverInput:
     """The Güz pair of R3-M-01: NUT 121 (planner-locked to C501, Fri 11:50-13:20, published) and SYB 111 (planner-locked
     to C501, Fri 10:10-12:30, never placed) hold one room at overlapping times; NUT 404 (published, Fri all day) and
     NUT 402 (newcomer) share the 4th-year cohort; PSY 277 is the one edited section (its priority raised)."""
-    c501, d106, a308 = room(44, "C501", 72), room(60, "D106", 60), room(20, "A308", 42)
+    c501, d106, a308, b206 = room(44, "C501", 72), room(60, "D106", 60), room(20, "A308", 42), room(61, "B206", 60)
     nut121 = event(2183, size=40, weeks=W, day=5, start=5, label="NUT 121", locked=_fri(2183, 5, 2, (44,)))
     syb111 = event(2290, size=57, duration=3, weeks=W, day=5, start=3, label="SYB 111", locked=_fri(2290, 3, 3, (44,)))
     syb111 = sm.Event(**{**syb111.__dict__, "priority": syb_priority})
@@ -110,7 +110,7 @@ def _r3_input(syb_priority: int = 0) -> sm.SolverInput:
     nut402 = event(2497, size=55, duration=11, weeks=W, day=5, start=1, label="NUT 402", cohort_keys=("PROG:NUT:4",))
     psy = event(1602, size=42, duration=3, weeks=W, day=1, start=3, label="PSY 277", priority=1)
     return make_input(
-        (c501, d106, a308),
+        (c501, d106, a308, b206),
         (nut121, syb111, nut404, nut402, psy),
         weeks=W,
         workers=1,
@@ -121,7 +121,7 @@ def _r3_input(syb_priority: int = 0) -> sm.SolverInput:
 
 
 def _r3_rows() -> tuple[list[Assignment], list[Assignment]]:
-    published = [_fri(2183, 5, 2, (44,)), _fri(2498, 1, 11, (60,)), Assignment(1602, 1, 3, 5, (20,), frozenset(W))]
+    published = [_fri(2183, 5, 2, (44,)), _fri(2498, 1, 11, (61,)), Assignment(1602, 1, 3, 5, (20,), frozenset(W))]
     # what the re-solve returned: the newcomers took the published classes' cells (equal priority)
     child = [_fri(2290, 3, 3, (44,)), _fri(2497, 1, 11, (60,)), Assignment(1602, 1, 3, 5, (20,), frozenset(W))]
     return published, child
@@ -151,8 +151,14 @@ def test_section_priority_resolve_never_gives_a_published_class_to_an_equal_prio
     assert res.stats["placed"] == 3 and sorted(res.stats["unplaced_ids"]) == [2290, 2497]
     lost = {d.event_ids[0]: d for d in res.diagnoses if d.code == "unplaced" and d.severity == "error"}
     assert set(lost) == {2290, 2497}
-    assert lost[2290].params["policy"]["reason"] == "published_kept" and lost[2290].params["policy"]["winners"] == [2183]
+    assert lost[2290].params["policy"]["reason"] == "published_kept" and lost[2290].params["policy"]["winners"] == [
+        2183
+    ]
     assert lost[2497].params["policy"]["winners"] == [2498]
+    # the run report's text names the room the published class holds / the shared cohort
+    assert lost[2290].params["problem"] == "rooms_busy" and lost[2290].params["busy"][0]["room"] == "C501"
+    assert lost[2290].params["busy"][0]["holders"] == [2183]
+    assert lost[2497].params["problem"] == "clash" and lost[2497].params["clashes"][0]["holders"] == [2498]
     # nothing else moved: the edited class keeps its cell
     assert next(a for a in res.assignments if a.event_id == 1602) == published[2]
 

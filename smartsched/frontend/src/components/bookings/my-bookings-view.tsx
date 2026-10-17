@@ -7,7 +7,7 @@
  */
 import { CalendarSync, Download, Repeat, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,7 +36,7 @@ import { CalendarSyncPanel } from "./calendar-sync";
 import { CancelManyDialog } from "./cancel-many-dialog";
 import { RoomInfoSheet } from "./room-info-sheet";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
-import { groupBookings, openRequestCount } from "./my-bookings-model";
+import { focusRowAfterRemoval, groupBookings, openRequestCount, rowIndexOf } from "./my-bookings-model";
 import { cancelReasonText } from "./cancel-reason";
 import { BareButton } from "@/components/shell/bare-button";
 
@@ -72,6 +72,20 @@ export function MyBookingsView() {
     (bookingId: number) => requests.data?.find((r) => r.status === "APPROVED" && r.note && r.bookings.some((x) => x.id === bookingId))?.note ?? null,
     [requests.data],
   );
+  // R3-S-05: after a cancel, focus the row that takes the cancelled row's place (or the heading), never <body>
+  const pendingFocus = useRef<{ index: number; ids: number[] } | null>(null);
+  const rememberRow = (ids: number[]) => {
+    const index = ids.map(rowIndexOf).filter((i) => i >= 0).sort((a, b) => a - b)[0] ?? 0;
+    pendingFocus.current = { index, ids };
+  };
+  useEffect(() => {
+    const p = pendingFocus.current;
+    if (!p || !list.data || list.isFetching) return;
+    if (list.data.some((b) => p.ids.includes(b.id) && b.status !== "CANCELLED")) return; // not refetched yet
+    pendingFocus.current = null;
+    // after the sheet / dialog has closed (their exit returns focus to a trigger that is gone)
+    window.setTimeout(() => focusRowAfterRemoval(p.index), 0);
+  }, [list.data, list.isFetching]);
   const rows = useMemo(() => {
     const items = [...(list.data ?? [])];
     if (tab === "past") items.reverse();
@@ -194,16 +208,18 @@ export function MyBookingsView() {
           </Button>
         </div>
       ) : null}
-      <BookingDetailSheet bookingId={detail} onOpenChange={(o) => !o && setDetail(null)} fmt={fmt} />
+      <BookingDetailSheet bookingId={detail} onOpenChange={(o) => !o && setDetail(null)} fmt={fmt} onCancelled={(id) => rememberRow([id])} />
       <RoomInfoSheet roomId={roomInfo?.id ?? null} context={roomInfo ? { date: roomInfo.date } : undefined} fmt={fmt} onOpenChange={(o) => !o && setRoomInfo(null)} />
       <CancelManyDialog
         ids={[...selected]}
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         onDone={() => {
+          rememberRow([...selected]);
           setSelected(new Set());
           setCancelOpen(false);
         }}
+        placeFocus={false}
         ownOnly
       />
     </div>
@@ -259,7 +275,7 @@ function BookingList({
                 <span> · {g.periodLabel}</span>
                 {time ? <span className="ml-1.5 font-normal text-label-3 tabular-nums">{g.bookings.length > 1 ? `(${time})` : time}</span> : null}
               </span>
-              <BareButton onClick={() => onOpen(b.id)} className={cn("flex w-full items-center gap-1 truncate rounded-sm text-left type-footnote text-label-2 hover:text-label-1", BOOKING_ROW_CONTROL_CLASS)}>
+              <BareButton onClick={() => onOpen(b.id)} data-row-open className={cn("flex w-full items-center gap-1 truncate rounded-sm text-left type-footnote text-label-2 hover:text-label-1", BOOKING_ROW_CONTROL_CLASS)}>
                 {b.type === "recurring" ? <Repeat className="size-3 shrink-0" aria-label={t("crbs.legend.recurring")} /> : null}
                 {fmt.long(b.date)}
                 {showUser && b.user_name ? ` · ${b.user_name}` : ""}

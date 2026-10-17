@@ -601,9 +601,13 @@ def reason_for(
         culprits = [{"request_id": w, "label": td.labels.get(int(w), f"#{w}")} for w in _ints(pol.get("winners"))[:5]]
         if pol.get("reason") == "published_kept" and culprits:
             names = ", ".join(str(c["label"]) for c in culprits[:3])
+            base_tr = str((text or {}).get("tr") or "").rstrip()
+            base_en = str((text or {}).get("en") or "").rstrip()
             text = _t(
-                str((text or {}).get("tr") or "") + " " + PUBLISHED_KEPT_TEXT[0].format(w=names),
-                str((text or {}).get("en") or "") + " " + PUBLISHED_KEPT_TEXT[1].format(w=names),
+                (base_tr + " " if base_tr else f"{label_of(mr)} yerleşemedi. ")
+                + PUBLISHED_KEPT_TEXT[0].format(w=names),
+                (base_en + " " if base_en else f"{label_of(mr)} could not be placed. ")
+                + PUBLISHED_KEPT_TEXT[1].format(w=names),
             )
         return {
             "code": str(d.get("code") or "unplaced"),
@@ -2106,7 +2110,7 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
     the base's locks carried, stability on, one worker), then ``repair`` on the neighbourhood of the changed
     requests or a full solve. Infeasible stays INFEASIBLE with its diagnosis (nothing is relaxed silently)."""
     from app.services import solver_bridge
-    from app.solver.repair import repair, segment_view
+    from app.solver.repair import keep_published, moved_diff, repair, segment_view
     from app.workers import run_jobs
 
     def report(phase: str, pct: int) -> None:
@@ -2139,6 +2143,7 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
     seeds: set[int] = set()
     broken: set[int] = set()
     reverted: list[int] = []
+    kept: dict[str, list[int]] = {"reverted": [], "restored": [], "evicted": []}
     try:
         if mode == "repair":
             # the base timetable as week segments (T-R2-34): a class whose blocked week sits in another room is
@@ -2185,6 +2190,27 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
                 str((run.params or {}).get("solver", "auto")),
                 split_weeks=solver_bridge.run_mode(dict(run.params or {}), "split_blocked_weeks"),
             )
+        if current and result.assignments and result.status != "ERROR":
+            # round-3 R3-M-01: a published class outside the edit is never given to an equal-priority newcomer and
+            # goes back to its published cell when that cell is free, in both modes and whatever the search proved
+            kept = keep_published(
+                inp,
+                current,
+                result,
+                changed,
+                unlocked_forbidden_tags=solver_bridge._unlocked_forbidden_tags(inp),  # noqa: SLF001 - the bridge's TIP rule
+            )
+            if mode == "repair" and any(kept.values()):
+                rep = dict(result.stats.get("repair") or {})
+                moved = moved_diff(current, result.assignments)
+                rep.update(
+                    moved=moved,
+                    moved_count=sum(1 for x in moved if x["to"] is not None and x["from"] is not None),
+                    dropped=[x["event_id"] for x in moved if x["to"] is None],
+                    reverted=sorted({*_ints(rep.get("reverted")), *kept["reverted"], *kept["restored"]}),
+                )
+                result.stats["repair"] = rep
+            reverted = sorted({*reverted, *kept["reverted"], *kept["restored"]})
     except run_jobs.RunCancelled:
         return await run_jobs.finish_cancelled(session_factory, run_id)
     report("persisting", 90)
@@ -2198,6 +2224,7 @@ async def run_resolve(session_factory: Any, run_id: int, progress: Any = None) -
             "seeds": sorted(seeds),
             "base_violations": sorted(broken),
             "reverted": reverted,
+            "published_kept": kept,
             "workers": inp.workers,
         },
     }

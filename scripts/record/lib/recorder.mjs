@@ -12,12 +12,15 @@ const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) 
 
 export class Recorder {
   /** @param {import('playwright').Page} page */
-  constructor(page, { speed = 1, viewport, log = () => {} } = {}) {
+  constructor(page, { speed = 1, viewport, log = () => {}, touch = false } = {}) {
     this.page = page;
+    // touch: a phone take (hasTouch context); click() taps, the renderer shows a finger dot instead of a cursor
+    this.touch = touch;
+    this.keys = []; // {t, text} typed text and {t, key} key presses: the launch renderer's keystroke overlay
     this.speed = speed; // >1 = slower, more deliberate demo
     this.viewport = viewport;
     this.log = log;
-    this.t0 = performance.now();
+    this.t0 = performance.now(); // the launch renderer maps screencast frame times onto this clock
     this.pointer = [];
     this.steps = [];
     this.marks = {};
@@ -139,6 +142,13 @@ export class Recorder {
   /** Eased pointer move, logged at ~60 Hz. */
   async moveTo(x, y, { duration = 650 } = {}) {
     const from = { ...this.pos };
+    if (this.touch) {
+      // a finger does not hover: no pointer travel, a short pause while it "reaches" the target
+      this.pos = { x, y };
+      this.pointer.push({ t: this.now(), x, y, type: "move" });
+      await sleep(Math.min(420, 200 + Math.hypot(x - from.x, y - from.y) * 0.4) * this.speed);
+      return;
+    }
     const dist = Math.hypot(x - from.x, y - from.y);
     const ms = Math.max(180, Math.min(duration * this.speed, 250 + dist * 0.9));
     const n = Math.max(6, Math.round(ms / 16));
@@ -165,6 +175,13 @@ export class Recorder {
     const b = await this.moveOnto(target, { at });
     this.addTarget(b, kind);
     await this.wait(120);
+    if (this.touch) {
+      this.pointer.push({ t: this.now(), x: this.pos.x, y: this.pos.y, type: "down" });
+      await this.page.touchscreen.tap(this.pos.x, this.pos.y);
+      this.pointer.push({ t: this.now(), x: this.pos.x, y: this.pos.y, type: "click" });
+      await this.wait(after);
+      return b;
+    }
     await this.page.mouse.down();
     this.pointer.push({ t: this.now(), x: this.pos.x, y: this.pos.y, type: "down" });
     await sleep(70);
@@ -178,11 +195,13 @@ export class Recorder {
     await this.click(target, { after: 150 });
     const loc = typeof target === "string" ? this.page.locator(target) : target;
     if (clear) await loc.first().fill("");
+    this.keys.push({ t: this.now(), text, ms: Math.round(text.length * delay * this.speed) });
     await this.page.keyboard.type(text, { delay: delay * this.speed });
     await this.wait(after);
   }
 
   async press(key, { after = 400 } = {}) {
+    this.keys.push({ t: this.now(), key });
     await this.page.keyboard.press(key);
     await this.wait(after);
   }
@@ -229,6 +248,9 @@ export class Recorder {
     return {
       version: 1,
       viewport: this.viewport,
+      t0: this.t0,
+      touch: this.touch,
+      keys: this.keys,
       marks: this.marks,
       cuts: this.cuts,
       steps: this.steps,

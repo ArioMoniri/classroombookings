@@ -41,18 +41,18 @@ import { useIsPhone } from "./use-is-phone";
 import { cellSelector, focusAfter } from "./focus-after";
 import { DateField } from "@/components/ui/date-field";
 
-export function BookingDetailSheet({ bookingId, onOpenChange, fmt, onRoomInfo }: { bookingId: number | null; onOpenChange: (open: boolean) => void; fmt: DateFormatter; onRoomInfo?: (roomId: number, date: string) => void }) {
+export function BookingDetailSheet({ bookingId, onOpenChange, fmt, onRoomInfo, onCancelled }: { bookingId: number | null; onOpenChange: (open: boolean) => void; fmt: DateFormatter; onRoomInfo?: (roomId: number, date: string) => void; /** R3-S-05: the caller places focus after a cancel (else the freed cell / next row) */ onCancelled?: (bookingId: number) => void }) {
   const phone = useIsPhone();
   return (
     <Sheet open={bookingId !== null} onOpenChange={onOpenChange}>
       <SheetContent side={phone ? "bottom" : "right"} className="gap-0 sm:max-w-lg data-[side=right]:sm:max-w-lg" data-testid="booking-sheet">
-        {bookingId !== null ? <Detail key={bookingId} id={bookingId} fmt={fmt} onClose={() => onOpenChange(false)} onRoomInfo={onRoomInfo} /> : null}
+        {bookingId !== null ? <Detail key={bookingId} id={bookingId} fmt={fmt} onClose={() => onOpenChange(false)} onRoomInfo={onRoomInfo} onCancelledFocus={onCancelled} /> : null}
       </SheetContent>
     </Sheet>
   );
 }
 
-function Detail({ id, fmt, onClose, onRoomInfo }: { id: number; fmt: DateFormatter; onClose: () => void; onRoomInfo?: (roomId: number, date: string) => void }) {
+function Detail({ id, fmt, onClose, onRoomInfo, onCancelledFocus }: { id: number; fmt: DateFormatter; onClose: () => void; onRoomInfo?: (roomId: number, date: string) => void; onCancelledFocus?: (bookingId: number) => void }) {
   const { t } = useI18n();
   const q = useBooking(id);
   // CRBS bookings/view.php: the timetable week of the date and "Occurs: Week A, every Monday"
@@ -227,7 +227,7 @@ function Detail({ id, fmt, onClose, onRoomInfo }: { id: number; fmt: DateFormatt
           ) : null}
         </SheetFooter>
       ) : null}
-      <CancelDialog booking={b} open={cancelOpen} onOpenChange={setCancelOpen} onCancelled={onClose} fmt={fmt} />
+      <CancelDialog booking={b} open={cancelOpen} onOpenChange={setCancelOpen} onCancelled={onClose} fmt={fmt} onFocus={onCancelledFocus} />
     </>
   );
 }
@@ -386,7 +386,7 @@ function EditForm({ booking: b, fmt, onDone }: { booking: BookingDetail; fmt: Da
   );
 }
 
-function CancelDialog({ booking: b, open, onOpenChange, onCancelled, fmt }: { booking: BookingDetail; open: boolean; onOpenChange: (o: boolean) => void; onCancelled: () => void; fmt: DateFormatter }) {
+function CancelDialog({ booking: b, open, onOpenChange, onCancelled, fmt, onFocus }: { booking: BookingDetail; open: boolean; onOpenChange: (o: boolean) => void; onCancelled: () => void; fmt: DateFormatter; onFocus?: (bookingId: number) => void }) {
   const { t } = useI18n();
   const [scope, setScope] = useState<Scope>("one");
   const [reason, setReason] = useState("");
@@ -408,8 +408,9 @@ function CancelDialog({ booking: b, open, onOpenChange, onCancelled, fmt }: { bo
             toast.success(cancelToastText(t, res.cancelled.length, { reason }));
             onOpenChange(false);
             onCancelled();
-            // the freed cell in the grid, else the next row of My bookings
-            focusAfter([cellSelector(b), `[data-booking-id="${b.id}"] ~ li button`, '[data-booking-id] button']);
+            // the freed cell in the grid, else the next row of My bookings (R3-S-05: My bookings places it itself)
+            if (onFocus) onFocus(b.id);
+            else focusAfter([cellSelector(b), `[data-booking-id="${b.id}"] ~ li button`, '[data-booking-id] button']);
           },
           onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
         });

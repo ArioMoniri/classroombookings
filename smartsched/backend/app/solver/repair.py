@@ -458,11 +458,10 @@ def keep_published(
     def clashing(rows: dict[int, list[Assignment]], eid: int, mine: list[Assignment]) -> list[int]:
         e = events[eid]
         return [
-            y
-            for y in sorted(rows)
-            if y != eid and any(_rows_clash(a, e, b, events[y]) for a in mine for b in rows[y])
+            y for y in sorted(rows) if y != eid and any(_rows_clash(a, e, b, events[y]) for a in mine for b in rows[y])
         ]
 
+    after_before = dict(after)  # the solve's own rows (an evicted newcomer's cell, for its diagnosis)
     v_now = violations(after)
     cost_now = pol.cost(cost_inp, after)
     reverted: list[int] = []
@@ -484,7 +483,10 @@ def keep_published(
                 reverted.append(eid)
                 changed = True
         # 2) a published class that was dropped: put back, evicting newcomers of no higher rank
-        lost = sorted((x for x in base if x not in after and x not in scope_ids), key=lambda x: (*(-r for r in _rank(events[x])), x))
+        lost = sorted(
+            (x for x in base if x not in after and x not in scope_ids),
+            key=lambda x: (*(-r for r in _rank(events[x])), x),
+        )
         for eid in lost:
             trial = {**after, eid: base[eid]}
             out_now: list[int] = []
@@ -553,13 +555,44 @@ def keep_published(
     rooms = {r.id: r for r in inp.rooms}
     for y in sorted(gone):
         e, winners = events[y], sorted(set(evicted[y]))
-        rows = result_rows = [a for a in result_rows_of(result, y)] if False else []
-        del rows, result_rows
-        mine = [a for a in _rows_by_event(inp, current).get(y, [])] or [
-            a for a in index_rows(result_before) if a.event_id == y
-        ] if False else []
-        del mine
         names = ", ".join(labels.get(w, f"#{w}") for w in winners)
+        mine = after_before[y]
+        busy: dict[int, dict[str, Any]] = {}
+        clashes: list[dict[str, Any]] = []
+        for w in winners:
+            for a in mine:
+                for b in base[w]:
+                    if not _rows_clash(a, e, b, events[w]):
+                        continue
+                    for r in sorted(set(a.room_ids) & set(b.room_ids)):
+                        if r in rooms:
+                            held = busy.setdefault(
+                                r,
+                                {
+                                    "room": rooms[r].code,
+                                    "capacity": rooms[r].capacity,
+                                    "day": b.day,
+                                    "start": b.start,
+                                    "end": b.end,
+                                    "holders": [],
+                                },
+                            )
+                            if w not in held["holders"]:
+                                held["holders"].append(w)
+                    for k in sorted(
+                        (e.cohort_keys & events[w].cohort_keys) | (e.instructor_keys & events[w].instructor_keys)
+                    ):
+                        clashes.append(
+                            {
+                                "kind": "cohort" if k in e.cohort_keys & events[w].cohort_keys else "instructor",
+                                "key": k,
+                                "day": b.day,
+                                "start": b.start,
+                                "end": b.end,
+                                "holders": [w],
+                            }
+                        )
+        when = mine[0] if mine else None
         diags.append(
             Diagnosis(
                 [y],
@@ -570,11 +603,13 @@ def keep_published(
                 "error",
                 "unplaced",
                 {
-                    "day": e.fixed_day,
-                    "start": e.fixed_start,
-                    "end": None if e.fixed_start is None else e.fixed_start + e.duration - 1,
-                    "problem": "published_kept",
-                    "room_codes": sorted({rooms[r].code for w in winners for a in base[w] for r in a.room_ids if r in rooms}),
+                    "day": when.day if when else e.fixed_day,
+                    "start": when.start if when else e.fixed_start,
+                    "end": when.end if when else None,
+                    # the run report's text: the rooms (or the cohort / instructor) the published class holds
+                    "problem": "rooms_busy" if busy else "clash" if clashes else "published_kept",
+                    "busy": list(busy.values()),
+                    "clashes": clashes[:3],
                     "policy": {
                         "policy": pol.policy_name(inp.relaxation_policy),
                         "priority": pol.clamp_priority(e.priority),

@@ -12,7 +12,7 @@
  * Motion: none on chips and lists (frequent actions); the receipt replaces the card in place.
  */
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarCheck, Check, Hourglass, Loader2, RotateCcw, Stamp, Undo2, Zap } from "lucide-react";
+import { Check, Hourglass, Loader2, RotateCcw, Stamp, Undo2, Zap } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
@@ -559,14 +559,39 @@ function RoomRow({ row, selected, tabStop, recent, taken, onSelect, onCommit }: 
   );
 }
 
+/**
+ * The receipt's check (quick-reserve.md §8 "✓ draws", pattern 10): adapted from the transitions.dev free recipe
+ * "success-check" (fade + rotate + Y-bob + stroke draw) to motion.md limits: 240 ms one-shot (≤ 300 ms), a 6 px bob
+ * on the bouncySubtle curve, no blur filter (the card may sit on chrome; backdrop-root rule), static under
+ * prefers-reduced-motion. The path length (≈ 20.6) is measured once, rounded up.
+ */
+const SUCCESS_CHECK_CSS = `.qr-success-check{display:inline-flex;transform-origin:center;opacity:0}
+.qr-success-check svg path{stroke-dasharray:21;stroke-dashoffset:21}
+.qr-success-check[data-state="in"]{animation:qr-check-fade 240ms var(--ease-out,cubic-bezier(.22,1,.36,1)) forwards,qr-check-rotate 240ms cubic-bezier(.22,1,.36,1) forwards,qr-check-bob 240ms var(--spring-bouncy-subtle,cubic-bezier(.34,1.35,.64,1)) forwards}
+.qr-success-check[data-state="in"] svg path{animation:qr-check-draw 220ms cubic-bezier(.22,1,.36,1) 40ms forwards}
+@keyframes qr-check-fade{from{opacity:0}to{opacity:1}}
+@keyframes qr-check-rotate{from{transform:rotate(40deg)}to{transform:rotate(0)}}
+@keyframes qr-check-bob{from{translate:0 6px}to{translate:0 0}}
+@keyframes qr-check-draw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion: reduce){.qr-success-check{animation:none!important;opacity:1}.qr-success-check svg path{animation:none!important;stroke-dashoffset:0!important}}`;
+
 function ReceiptCard({ receipt, headingRef, undoing, onUndo, onAgain, line }: { receipt: Receipt; headingRef: React.RefObject<HTMLHeadingElement | null>; undoing: boolean; onUndo: () => void; onAgain: () => void; line: string }) {
   const { t } = useI18n();
   const pending = receipt.pending;
   return (
     <div className="flex flex-col gap-3" data-testid="qr-receipt" data-state={pending ? "requested" : "booked"}>
+      <style>{SUCCESS_CHECK_CSS}</style>
       <div className="flex items-center gap-2">
         <span aria-hidden className={cn("flex size-8 shrink-0 items-center justify-center rounded-full", pending ? "bg-tint-soft text-tint-text" : "bg-status-feasible text-status-feasible-fg")}>
-          {pending ? <Hourglass className="size-4" /> : <CalendarCheck className="size-4" />}
+          {pending ? (
+            <Hourglass className="size-4" />
+          ) : (
+            <span className="qr-success-check" data-state="in">
+              <svg viewBox="0 0 24 24" fill="none" className="size-4" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12.5l4.5 4.5L19 7.5" />
+              </svg>
+            </span>
+          )}
         </span>
         <h2 ref={headingRef} tabIndex={-1} className="type-title-3 text-label-1 outline-hidden" data-testid="qr-receipt-title">
           {t(pending ? "quickReserve.receipt.requested" : "quickReserve.receipt.booked")}
