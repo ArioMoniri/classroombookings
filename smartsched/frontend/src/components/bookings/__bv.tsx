@@ -46,6 +46,9 @@ import { freeSlotsByRoom } from "./reserve-model";
 import { EntityIcon } from "@/components/admin/icons";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
 import { useIsCompact, useIsPhone } from "./use-is-phone";
+import { applySlotDisplay, hiddenPeriodCount, openingView } from "./slot-display";
+import { useShownGrid, useSlotDisplay } from "./use-slot-display";
+import { SlotDisplaySheet } from "@/components/settings/slot-display";
 
 type Display = "day" | "room";
 type Lens = "grid" | "free";
@@ -64,12 +67,25 @@ export function BookingsView() {
   const me = useCrbsMe();
   const org = useOrgPublic();
   const caps = bookingCapabilities(me.data?.permissions);
+  // PUT /settings needs planning.admin (app/api/deps.py Admin): only they get the slot display sheet
+  const isAdmin = hasPermission(me.data?.permissions, "planning.admin");
 
-  const display = (params.get("display") as Display | null) ?? ctx.data?.display.type ?? "day";
+  // W3-SLOT: the administrator's slot display (labels, density, hidden periods, default view) shapes every surface here
+  const { display: slotDisplay, ready: slotReady } = useSlotDisplay();
+  const onPhone = useIsPhone();
+  const opening = openingView(slotDisplay, onPhone, ctx.data?.display.type);
+  // "+N gizli saat": the hidden periods for this session (a display filter, never a permission)
+  const [revealHidden, setRevealHidden] = useState(false);
+  const display = (params.get("display") as Display | null) ?? opening.display;
   const num = (k: string) => (params.get(k) ? Number(params.get(k)) : undefined);
   const query: GridQuery = { display, date: params.get("date") ?? undefined, term_id: num("term"), room_group_id: num("group"), room_id: num("room") };
   const grid = useBookingGrid(query, ctx.isSuccess);
-  const g = grid.data;
+  const g = useShownGrid(grid.data, slotDisplay, revealHidden);
+  const hiddenCount = grid.data ? hiddenPeriodCount(grid.data.periods, slotDisplay) : 0;
+  // the administrator made quick reserve the landing view: a bare /bookings opens it (links with parameters stay here)
+  useEffect(() => {
+    if (slotReady && opening.quick && params.toString() === "") router.replace("/reserve");
+  }, [slotReady, opening.quick, params, router]);
   // T-R1-10: approval-first on for this viewer -> every free slot says "Talep et · Onay gerekir"
   const approvalFirst = useApprovalFirst(g?.rooms[0]?.id, g?.term.id);
   // T-R1-14: the own open requests of the free-slot list link to the request (booking id -> request id)
