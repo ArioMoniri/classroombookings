@@ -226,12 +226,13 @@ export function FindRoomView() {
   const moreCount = Object.keys(f.features).length + f.buildings.length + (f.text.trim() ? 1 : 0) + (f.showBusy ? 1 : 0) + (f.when === "date" && f.otherDays ? 1 : 0);
 
   return (
-    <div className="flex flex-col gap-5" data-testid="find-room">
+    <div className={cn("flex flex-col gap-5", compact && "pb-20")} data-testid="find-room">
       <PageTitle title={t("wave1.find.title")} subtitle={t("wave1.find.lead")} />
       <div className="grid gap-5 lg:grid-cols-[minmax(20rem,22.5rem)_minmax(0,1fr)] lg:items-start">
         <div className="flex flex-col gap-4 lg:sticky lg:top-16">
           <Card className="gap-0 overflow-visible px-4 py-4">
             <form
+              id="fr-form"
               className="flex flex-col gap-4"
               aria-label={t("wave1.find.title")}
               onSubmit={(e) => {
@@ -375,13 +376,13 @@ export function FindRoomView() {
                 advanced
               )}
 
-              {/* phones / tablets: the search stays in thumb reach above the tab bar while the form scrolls (M-05) */}
-              <div className="max-lg:sticky max-lg:bottom-[calc(5rem+env(safe-area-inset-bottom))] max-lg:z-10">
-                <Button type="submit" {...busyProps(busy, !dated)} className="w-full max-lg:shadow-elev-2" data-testid="fr-search">
+              {/* desktop: the search button closes the form; phones / tablets get the page-level capsule below (T-R2-10) */}
+              {!compact ? (
+                <Button type="submit" {...busyProps(busy, !dated)} className="w-full" data-testid="fr-search">
                   <BusyLabel busy={busy} label={t("busy.searching")} icon={<Search aria-hidden />}>
                   {busy ? t("wave1.find.searching") : t("wave1.find.search")}</BusyLabel>
                 </Button>
-              </div>
+              ) : null}
             </form>
           </Card>
           <RecentSearches
@@ -540,6 +541,16 @@ export function FindRoomView() {
           </div>
         </SheetContent>
       </Sheet>
+      {/* T-R2-10 (R2-A-04, MOBILE M-05): on phones and tablets "Ara" is a capsule fixed above the tab bar, so it stays in
+          thumb reach while the form and the results scroll (the sticky wrapper inside the form card left with the card) */}
+      {compact ? (
+        <div className="fixed inset-x-4 bottom-[calc(var(--shell-bottom-h)+0.75rem)] z-20 rounded-2xl glass-chrome p-1.5 shadow-elev-2" data-testid="fr-search-capsule">
+          <Button type="submit" form="fr-form" {...busyProps(busy, !dated)} className="w-full" data-testid="fr-search">
+            <BusyLabel busy={busy} label={t("busy.searching")} icon={<Search aria-hidden />}>
+            {busy ? t("wave1.find.searching") : t("wave1.find.search")}</BusyLabel>
+          </Button>
+        </div>
+      ) : null}
       <BookSheet
         target={target}
         fmt={fmt}
@@ -595,7 +606,7 @@ function FeaturePicker({ facets, value, onChange }: { facets: Feature[]; value: 
                 type="number"
                 min={0}
                 inputMode="decimal"
-                className="h-7 w-20"
+                className="h-7 w-20 pointer-coarse:h-11 pointer-coarse:w-24"
                 aria-label={t("wave1.find.atLeast", { name: x.name })}
                 value={typeof v === "number" ? v : ""}
                 onChange={(e) => setOne(x.id, e.target.value === "" ? null : Math.max(0, Number(e.target.value)))}

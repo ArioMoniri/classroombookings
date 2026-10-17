@@ -87,7 +87,7 @@ export function MyBookingsView() {
     });
 
   return (
-    <div className="flex flex-col gap-8 pb-16">
+    <div className={cn("flex flex-col gap-8 pb-16", phone && selected.size > 0 && "pb-36")}>
       <PageTitle
         title={t("crbs.mine.title")}
         actions={
@@ -131,7 +131,7 @@ export function MyBookingsView() {
               { value: "cancelled", label: t("crbs.mine.cancelled") },
             ]}
           />
-          {tab === "upcoming" && selected.size > 0 ? (
+          {tab === "upcoming" && selected.size > 0 && !phone ? (
             <Button variant="outline" className="text-status-infeasible-fg" onClick={() => setCancelOpen(true)} data-testid="cancel-selected">
               <Trash2 aria-hidden />
               {t("crbs.mine.cancelSelected", { n: selected.size })}
@@ -181,6 +181,17 @@ export function MyBookingsView() {
         {caps.exportBookings ? <ExportCard /> : null}
       </div>
 
+      {/* T-R2-11 (R2-S-04, MOBILE M-05): on a phone the bulk action is a capsule fixed above the tab bar, not a button at
+          the top of the page that scrolls away */}
+      {tab === "upcoming" && selected.size > 0 && phone ? (
+        <div className="fixed inset-x-4 bottom-[calc(var(--shell-bottom-h)+0.75rem)] z-20 flex items-center justify-between gap-3 rounded-2xl glass-chrome px-4 py-2 shadow-elev-2" data-testid="cancel-selected-capsule">
+          <span className="type-callout text-label-1">{t("crbs.mine.selectedN", { n: selected.size })}</span>
+          <Button variant="outline" className="text-status-infeasible-fg" onClick={() => setCancelOpen(true)} data-testid="cancel-selected">
+            <Trash2 aria-hidden />
+            {t("crbs.mine.cancelSelected", { n: selected.size })}
+          </Button>
+        </div>
+      ) : null}
       <BookingDetailSheet bookingId={detail} onOpenChange={(o) => !o && setDetail(null)} fmt={fmt} />
       <RoomInfoSheet roomId={roomInfo?.id ?? null} context={roomInfo ? { date: roomInfo.date } : undefined} fmt={fmt} onOpenChange={(o) => !o && setRoomInfo(null)} />
       <CancelManyDialog
@@ -230,7 +241,12 @@ function BookingList({
         const allSelected = g.ids.every((id) => selected?.has(id));
         return (
         <li key={g.id} className={BOOKING_ROW_CLASS} data-booking-id={g.id} data-booking-ids={g.ids.join(",")} data-periods={g.bookings.length}>
-          {selectable ? <Checkbox checked={allSelected} onCheckedChange={(v) => g.ids.forEach((id) => onToggle?.(id, v === true))} aria-label={t("crbs.mine.select", { room: `${b.room_name} ${g.periodLabel}`, date: fmt.short(b.date) })} /> : null}
+          {selectable ? (
+            /* T-R2-11: the row's left column is a 44 px label for the checkbox, so the tap never lands on the neighbouring chip */
+            <label className="flex min-h-11 min-w-11 shrink-0 items-center justify-center self-stretch">
+              <Checkbox checked={allSelected} onCheckedChange={(v) => g.ids.forEach((id) => onToggle?.(id, v === true))} aria-label={t("crbs.mine.select", { room: `${b.room_name} ${g.periodLabel}`, date: fmt.short(b.date) })} />
+            </label>
+          ) : null}
           <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
             <span className="min-w-0">
               <span className="block type-headline text-label-1">

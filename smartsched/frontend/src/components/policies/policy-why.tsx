@@ -25,7 +25,7 @@ export function PolicyWhy({ query, violation, className, label }: { query: Effec
   const verdict = e?.verdict ?? (violation ? (violation.effect === "request" ? "request" : "refuse") : null);
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button variant="link" size="sm" className={cn("h-auto min-h-0 gap-1 px-0", className)} data-testid="policy-why" />}>
+      <PopoverTrigger render={<Button variant="link" size="sm" className={cn("h-auto min-h-0 gap-1 px-0 pointer-coarse:min-h-11", className)} data-testid="policy-why" />}>
         <HelpCircle className="size-3.5" aria-hidden />
         {label ?? t("policies.why.open")}
       </PopoverTrigger>

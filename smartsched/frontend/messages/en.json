@@ -1200,7 +1200,8 @@
       "cancelManyDone": "{n} cancelled, {skipped} left as they were",
       "cancelReason": "Reason: {reason}",
       "approverNote": "Approver's note: {note}",
-      "openPeriod": "Open {period}"
+      "openPeriod": "Open {period}",
+      "selectedN": "{n} bookings selected"
     },
     "feed": {
       "title": "Calendar subscription",

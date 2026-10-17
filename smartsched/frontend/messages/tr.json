@@ -1199,7 +1199,8 @@
       "cancelManyDone": "{n} iptal edildi, {skipped} olduğu gibi kaldı",
       "cancelReason": "Gerekçe: {reason}",
       "approverNote": "Onaylayanın notu: {note}",
-      "openPeriod": "{period} saatini aç"
+      "openPeriod": "{period} saatini aç",
+      "selectedN": "{n} rezervasyon seçildi"
     },
     "feed": {
       "title": "Takvim aboneliği",
