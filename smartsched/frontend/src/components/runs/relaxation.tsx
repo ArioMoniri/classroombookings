@@ -47,7 +47,8 @@ export function PolicyPicker({ id, value, onChange, withTerm = true, disabled }:
     { value: "most_classes_first" as const, label: t("relax.choice.most_classes_first") },
   ].map((o) => ({ ...o, disabled, testId: `relax-${o.value}` }));
   return (
-    <div className="grid gap-1.5">
+    // touch: the sm segments take the 44 px height themselves (MOBILE.md M-02; lane E2's /settings?tab=solver pass)
+    <div className="grid gap-1.5 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
       <span id={`${id}-label`} className="type-footnote font-semibold text-label-2">
         {t("relax.label")}
       </span>

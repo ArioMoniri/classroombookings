@@ -82,11 +82,11 @@ function TermPolicy({ termId, termCode }: { termId: number; termCode: string }) 
         ) : null}
         {admin ? (
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => shown && void write(shown)} disabled={!shown || !!busy || !dirty} aria-busy={busy === "save" || undefined} data-testid="relax-term-save">
+            <Button size="sm" className="pointer-coarse:min-h-11" onClick={() => shown && void write(shown)} disabled={!shown || !!busy || !dirty} aria-busy={busy === "save" || undefined} data-testid="relax-term-save">
               <BusyLabel busy={busy === "save"} label={t("busy.saving")}>{t("relax.term.save")}</BusyLabel>
             </Button>
             {current?.source === "term" ? (
-              <Button size="sm" variant="outline" onClick={() => void write(null)} disabled={!!busy} aria-busy={busy === "clear" || undefined} data-testid="relax-term-clear">
+              <Button size="sm" variant="outline" className="pointer-coarse:min-h-11" onClick={() => void write(null)} disabled={!!busy} aria-busy={busy === "clear" || undefined} data-testid="relax-term-clear">
                 <BusyLabel busy={busy === "clear"} label={t("busy.saving")}>{t("relax.term.clear")}</BusyLabel>
               </Button>
             ) : null}

@@ -25,6 +25,7 @@ import { useErrorToast } from "./admin-gate";
 import { WhatsNewPanel } from "./whats-new";
 import { BookingApprovalFields } from "@/components/settings/booking-approval";
 import { useUnsavedGuard } from "./use-unsaved-guard";
+import { focusAfter } from "@/components/bookings/focus-after";
 
 const KEYS = [["crbs", "org-settings"], ["crbs", "org-public"], ["crbs", "context"], ["crbs", "grid"], ["crbs", "roles"]];
 const TIMEZONES = ["Europe/Istanbul", "Europe/London", "Europe/Berlin", "UTC", "Asia/Baku", "Asia/Dubai", "America/New_York"];
@@ -76,7 +77,8 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
     <div className="flex flex-col gap-8 pb-20">
       <PageTitle title={t("crbs.admin.settings.title")} subtitle={t("crbs.admin.settings.lead")} />
 
-      <section aria-labelledby="org-org">
+      {/* T-R1-12 (lane B2 ask): the save capsule unmounts after a save, so focus is moved here first, never to <body> */}
+      <section aria-labelledby="org-org" id="org-form-top" tabIndex={-1} className="outline-hidden" data-focus-fallback>
         <SectionTitle id="org-org">{t("crbs.org.organisation")}</SectionTitle>
         <Card className="gap-0 px-4 py-1">
           <FieldRow label={t("crbs.org.name")} htmlFor="org-name">
@@ -247,14 +249,16 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
       </section>
 
       {error ? <Alert tone="error">{error}</Alert> : null}
+      {/* phones: the capsule sits above the tab bar (--shell-bottom-h = bar + safe area, globals.css), not behind "Diğer" */}
       {dirty ? (
-        <div className="glass-chrome fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-4" role="region" aria-label={t("crbs.org.unsaved")}>
+        <div className="glass-chrome fixed bottom-[calc(var(--shell-bottom-h,0px)+max(1rem,env(safe-area-inset-bottom)))] left-1/2 z-30 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-4" role="region" aria-label={t("crbs.org.unsaved")} data-testid="org-unsaved">
           <span className="type-callout text-label-1">{t("crbs.org.unsaved")}</span>
-          <Button variant="ghost" size="sm" onClick={() => setD({})}>
+          <Button variant="ghost" size="sm" className="pointer-coarse:h-11" onClick={() => setD({})}>
             {t("crbs.common.cancel")}
           </Button>
           <Button
             size="sm"
+            className="pointer-coarse:h-11"
             disabled={save.isPending}
             data-testid="org-save"
             onClick={() => {
@@ -262,7 +266,10 @@ function OrgForm({ data }: { data: OrgSettings & { grid_highlight?: boolean } })
               // mutateAsync, not mutate's callbacks: the refetch after the save re-keys this form, and a remounted
               // observer drops per-call callbacks (the save toast never showed; F-01 S01)
               save.mutateAsync(undefined).then(
-                () => toast.success(t("crbs.common.saved")),
+                () => {
+                  toast.success(t("crbs.common.saved"));
+                  focusAfter(["#org-form-top"], 0); // the capsule (and this button) is gone once the form re-keys
+                },
                 (e: unknown) => setError(bookingErrorMessage(crbsError(e), t)),
               );
             }}

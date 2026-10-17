@@ -189,6 +189,33 @@ test("T-R1-32: audit rows are domain sentences and the actor filter lists nobody
   expect(types.filter((x) => RAW_KEY.test(x))).toEqual([]);
 });
 
+test("org settings (lane B2 ask): focus survives the save capsule's unmount, the capsule clears the phone tab bar", async ({ page, browser }) => {
+  await login(page);
+  await page.goto("/admin/settings");
+  const name = page.getByTestId("org-name");
+  const before = await name.inputValue();
+  await name.fill(`${before.replace(/ ·.*$/, "")} · ${STAMP}`);
+  await page.getByTestId("org-save").click();
+  await expect(page.getByTestId("org-unsaved")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
+  expect(await page.evaluate(() => document.activeElement?.id)).toBe("org-form-top");
+  await name.fill(before);
+  await page.getByTestId("org-save").click();
+  await expect(page.getByTestId("org-unsaved")).toHaveCount(0);
+
+  const context = await browser.newContext(PHONE);
+  const p2 = await context.newPage();
+  await login(p2);
+  await p2.goto("/admin/settings");
+  await p2.getByTestId("org-name").fill(`${before} x`);
+  const capsule = await p2.getByTestId("org-unsaved").boundingBox();
+  const bar = await p2.locator('nav[aria-label="Sekmeler"]').boundingBox();
+  expect(capsule && bar && capsule.y + capsule.height <= bar.y, `capsule ${JSON.stringify(capsule)} vs tab bar ${JSON.stringify(bar)}`).toBe(true);
+  const free = await p2.getByTestId("org-save").evaluate((el) => { const r = el.getBoundingClientRect(); const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return t === el || el.contains(t); });
+  expect(free).toBe(true);
+  await context.close();
+});
+
 test("phone: users and audit start their lists high, no sideways scroll; weekday toggles do not overlap", async ({ browser }) => {
   const context = await browser.newContext(PHONE);
   const page = await context.newPage();

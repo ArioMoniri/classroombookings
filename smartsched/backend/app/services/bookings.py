@@ -1581,9 +1581,19 @@ async def selection_out(session: AsyncSession, access: Access, mb: MultiBooking)
 
 async def get_selection(session: AsyncSession, access: Access, mb_id: int) -> MultiBooking:
     mb = await session.get(MultiBooking, mb_id)
-    if mb is None or mb.user_id != access.user_id:
+    if mb is None or mb.user_id != access.user_id or not mb.slots:  # no slots left = consumed
         raise BookingError(404, "not_found", "multi-booking not found")
     return mb
+
+
+def _consume_selection(mb: MultiBooking) -> None:
+    """Mark a selection as turned into bookings: drop its slots but keep the ``multi_bookings`` row.
+
+    The row id is the submission's ``group_id`` on every booking it created (A-12 / T-R1-13). Deleting the
+    row let SQLite hand the same rowid to the next selection, so every submission of a person read as one
+    group ("P1–P12"); a kept row keeps ids unique. A slot-less selection answers 404 like a deleted one.
+    """
+    mb.slots.clear()
 
 
 async def create_from_selection(
@@ -1669,7 +1679,7 @@ async def create_from_selection(
             raise
         for b in created:
             b.multi_booking_id = mb.id
-        await session.delete(mb)
+        _consume_selection(mb)
         await session.commit()
         return {"created": [await booking_out(session, access, b) for b in created], "skipped": []}
     # recurring: one series per selected slot
@@ -1704,7 +1714,7 @@ async def create_from_selection(
     if dry_run:
         return {"dry_run": True, "slots": results}
     mb = await get_selection(session, access, mb_id)
-    await session.delete(mb)
+    _consume_selection(mb)
     await session.commit()
     return {"series": results}
 
