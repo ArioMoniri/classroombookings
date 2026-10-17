@@ -101,7 +101,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-29 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0033_invig_progress`**. A new migration goes on top of it (`alembic heads` must print one line).
+32 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0036_error_events`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -134,6 +134,9 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 27 | `0031_invigilation` | `0030_booking_conflicts` | Invigilator assignment for exam runs (docs/features.yml "invigilator assignment"; app/services/invigilation.py) |
 | 28 | `0032_kvkk` | `0031_invigilation` | KVKK compliance (booking enhancements wave 2, A4; docs/product/booking-enhancements.md §4.7) |
 | 29 | `0033_invig_progress` | `0032_kvkk` | Invigilation plan progress and liveness (backend asks batch 2; app/services/invigilation.py) |
+| 30 | `0034_ai_usage` | `0033_invig_progress` | AI gateway usage metering (wave 3 W3-AI; app/models/ai_usage.py, app/services/ai_usage.py) |
+| 31 | `0035_rls_policies` | `0034_ai_usage` | PostgreSQL row-level security on the per-person tables (wave 3 W3-SEC; app/core/rls.py, docs/SECURITY.md §4) |
+| 32 | `0036_error_events` | `0035_rls_policies` | Grouped error events for the operations panel (W3-OPS; app/models/error_event.py, app/core/observability.py) |
 
 <!-- /AUTO:migrations -->
 

@@ -2,6 +2,8 @@
 #   docker compose --env-file .env up -d --build
 # Services: db (Postgres), backend (FastAPI + in-process solver queue), frontend (Next.js),
 # proxy (nginx). Profile "legacy": crbs (php-apache) + crbs-db (MySQL) for the old CRBS app.
+# Profile "observability" (./deploy.sh --observability): prometheus, loki, alloy, grafana (observability/README.md;
+# measured ~0.5 GB RSS, capped at 768 MiB together; Grafana at /grafana/ behind the SmartSched admin session).
 #
 # There is no separate "worker" service: app/cli.py has no worker command and solver/import jobs run
 # in the backend's in-process asyncio queue (app/workers/queue.py, status persisted in the DB rows).
@@ -17,6 +19,9 @@ x-logging: &default-logging
   options:
     max-size: "20m"
     max-file: "5"
+    # the compose service/project names go into every json-file line ("attrs"): Alloy labels the logs it ships to
+    # Loki with them without the Docker socket (observability/alloy/config.alloy)
+    labels: "com.docker.compose.service,com.docker.compose.project"
 
 x-hardening: &hardening
   security_opt:
@@ -90,6 +95,16 @@ services:
       COUNCIL_SELF_CONSISTENCY: ${COUNCIL_SELF_CONSISTENCY:-1}
       COUNCIL_JUDGE_SAMPLE: ${COUNCIL_JUDGE_SAMPLE:-12}
       UPLOAD_DIR: /data/uploads
+      # operations panel (/admin/ops, app/api/v1/ops.py): internal URLs of the observability profile, pod CI page,
+      # the deployed commit (deploy.sh exports RELEASE_SHA / DEPLOYED_AT) and an optional Sentry DSN
+      OPS_GRAFANA_URL: ${OPS_GRAFANA_URL:-http://grafana:3000/grafana}
+      OPS_PROMETHEUS_URL: ${OPS_PROMETHEUS_URL:-http://prometheus:9090}
+      OPS_LOKI_URL: ${OPS_LOKI_URL:-http://loki:3100}
+      OPS_PODCI_URL: ${OPS_PODCI_URL:-}
+      RELEASE_SHA: ${RELEASE_SHA:-}
+      DEPLOYED_AT: ${DEPLOYED_AT:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
     volumes:
       - uploads:/data/uploads
     expose:
@@ -235,9 +250,193 @@ services:
           memory: 512m
     logging: *default-logging
 
+  # ---- optional observability (profile "observability"; observability/README.md) ---------------------------
+  # Internal network only: no ports. Grafana is reached through the proxy at /grafana/ after the SmartSched admin
+  # check (forward-auth to /api/v1/ops/grafana-auth); Grafana trusts the proxy's X-WEBAUTH-USER header.
+  # Memory caps total 768 MiB (Prometheus 256 + Loki 192 + Grafana 192 + Alloy 128); GOMEMLIMIT keeps each Go
+  # runtime under its cap.
+  prometheus:
+    profiles: ["observability"]
+    image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+      - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-1GB}
+      - --web.enable-remote-write-receiver
+    environment:
+      GOMEMLIMIT: 210MiB
+    volumes:
+      - ./observability/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    expose:
+      - "9090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9090/-/ready || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    read_only: true
+    cap_drop: [ALL]
+    <<: *hardening
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: ${PROMETHEUS_MEMORY:-256m}
+    logging: *default-logging
+
+  loki:
+    profiles: ["observability"]
+    build:
+      context: ./observability/loki
+      dockerfile: Dockerfile
+      args:
+        LOKI_IMAGE: grafana/loki:3.7.8@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193
+        BUSYBOX_IMAGE: busybox:1.37.0-musl@sha256:5cec3fc171c87218698e85a52af7087de727372aae264a787b8112901a5b0092
+    image: smartsched-loki:${SMARTSCHED_TAG:-0.1.0}
+    restart: unless-stopped
+    environment:
+      GOMEMLIMIT: 160MiB
+    volumes:
+      - loki-data:/loki
+    expose:
+      - "3100"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3100/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    <<: *hardening
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: ${LOKI_MEMORY:-192m}
+    logging: *default-logging
+
+  alloy:
+    profiles: ["observability"]
+    image: grafana/alloy:v1.20.1@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
+    restart: unless-stopped
+    depends_on:
+      loki:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --disable-reporting
+    environment:
+      GOMEMLIMIT: 105MiB
+      COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-smartsched}
+      PG_DSN: postgresql://${POSTGRES_USER:-smartsched}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-smartsched}?sslmode=disable
+    # root inside the container only to read the json-file logs (/var/lib/docker/containers is 0700 root):
+    # every capability dropped except DAC_READ_SEARCH (read any file, write none), read-only root filesystem
+    user: "0:0"
+    cap_drop: [ALL]
+    cap_add: [DAC_READ_SEARCH]
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+      - /var/lib/smartsched/textfile:/host/textfile:ro
+    expose:
+      - "12345"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/12345 && printf 'GET /-/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    <<: *hardening
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: ${ALLOY_MEMORY:-128m}
+    logging: *default-logging
+
+  grafana:
+    profiles: ["observability"]
+    image: grafana/grafana:13.2.4@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    environment:
+      GOMEMLIMIT: 160MiB
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SERVER_ENFORCE_DOMAIN: "false"
+      # no Grafana login: the edge lets only SmartSched admins through and names them in X-WEBAUTH-USER
+      GF_AUTH_PROXY_ENABLED: "true"
+      GF_AUTH_PROXY_HEADER_NAME: X-WEBAUTH-USER
+      GF_AUTH_PROXY_HEADER_PROPERTY: username
+      GF_AUTH_PROXY_AUTO_SIGN_UP: "true"
+      GF_AUTH_PROXY_ENABLE_LOGIN_TOKEN: "false"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_DISABLE_SIGNOUT_MENU: "true"
+      GF_AUTH_BASIC_ENABLED: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_AUTO_ASSIGN_ORG_ROLE: Editor
+      GF_USERS_DEFAULT_LANGUAGE: tr-TR
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+      GF_SECURITY_COOKIE_SAMESITE: lax
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_LOG_MODE: console
+      GF_LOG_LEVEL: warn
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana-dashboards:ro
+      - grafana-data:/var/lib/grafana
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/grafana/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    cap_drop: [ALL]
+    <<: *hardening
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: ${GRAFANA_MEMORY:-192m}
+    logging: *default-logging
+
 volumes:
   pgdata:
   uploads:
   crbs-mysql:
   crbs-local:
   crbs-uploads:
+  prometheus-data:
+  loki-data:
+  alloy-data:
+  grafana-data:

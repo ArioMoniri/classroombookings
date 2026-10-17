@@ -47,6 +47,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.export_safety import safe_writer
 from app.core.security import hash_password, revoke_tokens
 from app.importers import normalize as tr_norm
 from app.models import (
@@ -988,7 +989,7 @@ def _csv(rows: list[dict[str, Any]]) -> str:
     if not rows:
         return ""
     keys = list(dict.fromkeys(k for r in rows for k in r))
-    w = csv.DictWriter(buf, fieldnames=keys)
+    w = safe_writer(csv.DictWriter(buf, fieldnames=keys))  # formula injection (W3-SEC)
     w.writeheader()
     for r in rows:
         w.writerow(

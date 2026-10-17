@@ -45,7 +45,7 @@ describe("BookingGrid × slot display", () => {
   it("default: name and time in the header, 44 px rows", () => {
     renderWith({});
     expect(headers()).toEqual(["P108:30–09:20", "P209:30–10:20", "P1721:10–22:00"]);
-    expect(cell(1)!.className).toContain("h-11");
+    expect(cell(1)!.style.getPropertyValue("--cell-h")).toBe("44px");
   });
 
   it("time labels: the header is the time, and the time is spoken once", () => {
@@ -56,28 +56,40 @@ describe("BookingGrid × slot display", () => {
   });
 
   it("name labels still speak the time", () => {
-    renderWith({ label: "name" });
+    renderWith({ label: "period" });
     expect(headers()[0]).toBe("P1");
     expect(cell(1)!.getAttribute("aria-label")).toContain("08:30–09:20");
   });
 
   it("hidden evening period is gone from header and cells", () => {
-    renderWith({ day_end: "18:00" });
+    renderWith({ last_period: 11 });
     expect(headers()).toHaveLength(2);
     expect(cell(17)).toBeNull();
   });
 
-  it("compact density: 32 px rows with a fine pointer, 44 px on touch", () => {
+  it("compact density: 32 px rows with a fine pointer, never below 44 px on touch", () => {
     renderWith({ density: "compact" });
-    expect(cell(1)!.className).toMatch(/\bh-8\b/);
-    expect(cell(1)!.className).toContain("pointer-coarse:h-11");
+    expect(cell(1)!.style.getPropertyValue("--cell-h")).toBe("32px");
+    expect(cell(1)!.className).toContain("pointer-coarse:h-[max(44px,var(--cell-h))]");
+    expect(document.querySelector("tbody")!.dataset.density).toBe("compact");
   });
 
-  it("blocks: tick strip per period and hairlines inside the cell, column as wide as its blocks", () => {
+  it("comfortable density: 56 px rows", () => {
+    renderWith({ density: "comfortable" });
+    expect(cell(1)!.style.getPropertyValue("--cell-h")).toBe("56px");
+  });
+
+  it("ordinal period names in headers; the accessible name keeps period and range", () => {
+    renderWith({ period_name: "ordinal", label: "period" });
+    expect(headers()[0]).toBe("1. ders");
+    expect(cell(1)!.getAttribute("aria-label")).toContain("1. ders, 08:30–09:20");
+  });
+
+  it("blocks: a tick strip per period, hairlines inside the cell, the column as wide as its minutes", () => {
     renderWith({ unit: "blocks", block_minutes: 15 });
     expect(document.querySelectorAll('[data-testid="block-ticks"]')[0]!.children).toHaveLength(4);
     expect(cell(1)!.querySelector("[data-blocks]")?.getAttribute("data-blocks")).toBe("4");
     const col = document.querySelectorAll("colgroup col")[1] as HTMLElement;
-    expect(col.style.width).toBe("136px");
+    expect(col.style.width).toBe("70px"); // 50 min × 1.4 px
   });
 });

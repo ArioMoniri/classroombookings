@@ -108,6 +108,15 @@ AI_LATENCY = Histogram(
 )
 AI_COST = Counter("smartsched_ai_cost_usd", "estimated AI cost (USD) as reported by the gateway", ["provider", "model"])
 
+AI_BUDGET = Gauge(
+    "smartsched_ai_budget_used_ratio",
+    "share of an AI budget used (W3-AI sets it; alerts at 0.8 and 1.0)",
+    ["scope"],
+    multiprocess_mode="mostrecent",
+)
+PROCESS_RSS = Gauge(
+    "smartsched_process_resident_memory_bytes", "resident memory of the backend workers", multiprocess_mode="livesum"
+)
 GUARD_REFUSALS = Counter(
     "smartsched_guard_refusals", "integrity / AI guard refusals (publish, pin, move, AI scope)", ["guard"]
 )
@@ -160,6 +169,15 @@ def record_ai_call(
             AI_COST.labels(p, m).inc(max(0.0, float(cost_usd)))
     except Exception:  # noqa: BLE001 - metrics must never break a call
         log.debug("record_ai_call failed", exc_info=True)
+
+
+def set_ai_budget_ratio(scope: str, ratio: float) -> None:
+    """Publish how much of an AI budget is used (``scope``: ``global``, ``provider:<name>``, ``role:<code>``; never a
+    user id or e-mail, R-OPS-04). 0.8 and 1.0 fire the ``SmartSchedAiBudget*`` alerts. Never raises."""
+    try:
+        AI_BUDGET.labels(_label(scope, 48)).set(max(0.0, float(ratio)))
+    except Exception:  # noqa: BLE001
+        log.debug("set_ai_budget_ratio failed", exc_info=True)
 
 
 def record_guard_refusal(guard: str) -> None:
@@ -620,6 +638,8 @@ def _sample_pool() -> None:
         DB_POOL.labels("checked_out").set(checked_out)
         DB_POOL.labels("idle").set(idle)
         DB_POOL.labels("overflow").set(overflow)
+        with open("/proc/self/statm", encoding="ascii") as fh:
+            PROCESS_RSS.set(int(fh.read().split()[1]) * os.sysconf("SC_PAGE_SIZE"))
     except Exception:  # noqa: BLE001
         pass
 

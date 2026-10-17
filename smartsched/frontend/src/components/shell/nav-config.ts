@@ -1,6 +1,7 @@
 import { CalendarDays, FileUp, FolderInput, Inbox, LayoutDashboard, ListChecks, type LucideIcon, PlayCircle, Settings, Users, Warehouse } from "lucide-react";
 import { ClipboardCheck, FolderPlus } from "lucide-react";
 import { GitCompareArrows, Grid3x3, UserCheck } from "lucide-react";
+import { Activity } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
 import type { MessageKey } from "@/lib/i18n";
 
@@ -60,6 +61,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/settings", labelKey: "nav.settings", icon: Settings, key: "s", permission: ["planning.admin", "setup.settings"] },
       // the full CRBS user screen (username, role, department, limits, import); the old 4-field tab redirects here
       { href: "/admin/users", labelKey: "nav.users", icon: Users, permission: "setup.users" },
+      // wave 3 W3-OPS: service status, error groups, Grafana, log tail
+      { href: "/admin/ops", labelKey: "ops.nav", icon: Activity, permission: ["setup.settings", "planning.admin"] },
     ],
   },
 ];

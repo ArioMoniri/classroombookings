@@ -16,6 +16,7 @@ from app.api.deps import DB, CurrentAccess, require_permission
 from app.importers import normalize as n
 from app.models import (
     Assignment,
+    AuditEvent,
     Booking,
     Building,
     Course,
@@ -66,6 +67,23 @@ async def list_gate(access: CurrentAccess, db: DB) -> Access:
 
 
 ListAcc = Annotated[Access, Depends(list_gate)]
+
+
+async def _create_events(db: DB, booking_ids: list[int]) -> dict[int, int]:
+    """booking id -> the id of its ``booking.create`` audit event (``POST /audit/{id}/undo`` reverses it). A request
+    that went to the approvers (PENDING) has none: it is withdrawn, not undone."""
+    if not booking_ids:
+        return {}
+    rows = await db.execute(
+        select(AuditEvent.entity_id, func.max(AuditEvent.id))
+        .where(
+            AuditEvent.action == "booking.create",
+            AuditEvent.entity_type == "booking",
+            AuditEvent.entity_id.in_([str(i) for i in booking_ids]),
+        )
+        .group_by(AuditEvent.entity_id)
+    )
+    return {int(entity): int(ev) for entity, ev in rows.all() if entity is not None and str(entity).isdigit()}
 
 
 def _err(exc: svc.BookingError) -> HTTPException:
@@ -536,7 +554,9 @@ async def create_booking(body: BookingIn, db: DB, access: Acc, response: Respons
         raise _err(exc) from exc
     if b.status == "PENDING":
         response.status_code = 202
-    return await svc.booking_out(db, access, b, detail=True)
+    out = await svc.booking_out(db, access, b, detail=True)
+    out["audit_event_id"] = (await _create_events(db, [b.id])).get(b.id)
+    return out
 
 
 @router.post("/recurring/preview")
@@ -608,6 +628,12 @@ async def multi_create(mb_id: int, body: MultiCreateIn, db: DB, access: Acc, res
         )
     except svc.BookingError as exc:
         raise _err(exc) from exc
+    # W3-SLOT: each created booking names its booking.create audit event, so "Geri al" is the real P7 undo
+    created = [b for b in out.get("created", []) if isinstance(b, dict) and isinstance(b.get("id"), int)]
+    if created:
+        events = await _create_events(db, [b["id"] for b in created])
+        for b in created:
+            b["audit_event_id"] = events.get(b["id"])
     # T-R2-17 (c): like POST /bookings, a submission that became a request (approval-first, P1) answers 202
     if not body.dry_run and any(b.get("status") == "PENDING" for b in out.get("created", []) if isinstance(b, dict)):
         response.status_code = 202

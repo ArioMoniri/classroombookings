@@ -1,0 +1,324 @@
+{
+  "uid": "smartsched-errors",
+  "title": "Hatalar ve günlükler / Errors & logs",
+  "tags": [
+    "smartsched",
+    "errors",
+    "logs"
+  ],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Servis / Service",
+        "type": "custom",
+        "multi": true,
+        "includeAll": true,
+        "query": "backend,frontend,proxy,db,caddy,grafana,prometheus,loki,alloy",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "allValue": ".+",
+        "options": []
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "Operasyon / Operations",
+      "type": "link",
+      "url": "/admin/ops",
+      "targetBlank": false
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "5xx oranı / 5xx rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartsched-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(smartsched_http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(smartsched_http_requests_total[5m])), 0.001)",
+          "legendFormat": "5xx / all",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "smartsched-prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Hata olayları / Error events",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartsched-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (source, kind) (increase(smartsched_errors_total[15m]))",
+          "legendFormat": "{{source}} {{kind}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "smartsched-prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Açık hata grupları / Open error groups",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartsched-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "orange"
+              },
+              {
+                "value": 10,
+                "color": "red"
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(smartsched_error_groups{status=\"open\"})",
+          "legendFormat": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "smartsched-prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Uyarılar / Alerts firing",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartsched-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 8,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)",
+          "legendFormat": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "smartsched-prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "logs",
+      "title": "Hata satırları / Error lines",
+      "datasource": {
+        "type": "loki",
+        "uid": "smartsched-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 24,
+        "h": 12
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=~\"$service\"} |~ \"(?i)(error|exception|traceback|failed)\"",
+          "datasource": {
+            "type": "loki",
+            "uid": "smartsched-loki"
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "logs",
+      "title": "Tüm günlükler / All logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "smartsched-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 12
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=~\"$service\"}",
+          "datasource": {
+            "type": "loki",
+            "uid": "smartsched-loki"
+          }
+        }
+      ]
+    }
+  ]
+}

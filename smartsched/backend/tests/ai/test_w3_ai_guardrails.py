@@ -94,7 +94,9 @@ def test_upload_keeps_legit_sentence_on_a_mixed_line():
 
 def test_output_unexpected_tool_and_invalid_json():
     tools = [{"name": "propose_constraints", "input_schema": {"type": "object"}}]
-    msg = GMessage(content=[GBlock(type="tool_use", id="t", name="delete_everything", input={})], stop_reason="tool_use")
+    msg = GMessage(
+        content=[GBlock(type="tool_use", id="t", name="delete_everything", input={})], stop_reason="tool_use"
+    )
     issues = g.check_output(msg, tools=tools, schema=None, feature="rules")
     assert issues == ["output_unexpected_tool"]
     schema = {
@@ -114,7 +116,9 @@ def test_output_unexpected_tool_and_invalid_json():
 def test_output_links_and_code_are_removed_from_free_text():
     msg = GMessage(
         content=[
-            GBlock(type="text", text="Bkz. https://evil.example/x?k=1 ve www.foo.com\n```python\nimport os\n```\nTamam.")
+            GBlock(
+                type="text", text="Bkz. https://evil.example/x?k=1 ve www.foo.com\n```python\nimport os\n```\nTamam."
+            )
         ]
     )
     flags = g.sanitize_output_text(msg, feature="chat")

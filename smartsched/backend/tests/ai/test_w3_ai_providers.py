@@ -118,8 +118,20 @@ def test_openai_compatible_uses_max_tokens_and_temperature():
     a = OpenAICompatAdapter("openai_compatible", api_key=None, temperature=0.2)
     p = a.build_payload({**CONVERSATION, "model": "llama3.1"})
     assert p["max_tokens"] == 900 and p["temperature"] == 0.2 and "reasoning_effort" not in p
-    schema = {"type": "object", "properties": {"a": {"type": "string"}}, "required": ["a"], "additionalProperties": False}
-    p2 = a.build_payload({"model": "m", "max_tokens": 10, "messages": [], "output_config": {"format": {"type": "json_schema", "schema": schema}}})
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "string"}},
+        "required": ["a"],
+        "additionalProperties": False,
+    }
+    p2 = a.build_payload(
+        {
+            "model": "m",
+            "max_tokens": 10,
+            "messages": [],
+            "output_config": {"format": {"type": "json_schema", "schema": schema}},
+        }
+    )
     assert p2["response_format"]["json_schema"]["schema"] == schema
 
 
@@ -145,12 +157,20 @@ async def test_openai_create_parses_tool_calls_usage_and_auth_header():
                         "message": {
                             "content": None,
                             "tool_calls": [
-                                {"id": "call_9", "type": "function", "function": {"name": "propose_constraints", "arguments": '{"kind":"capacity"}'}}
+                                {
+                                    "id": "call_9",
+                                    "type": "function",
+                                    "function": {"name": "propose_constraints", "arguments": '{"kind":"capacity"}'},
+                                }
                             ],
                         },
                     }
                 ],
-                "usage": {"prompt_tokens": 100, "completion_tokens": 20, "prompt_tokens_details": {"cached_tokens": 30}},
+                "usage": {
+                    "prompt_tokens": 100,
+                    "completion_tokens": 20,
+                    "prompt_tokens_details": {"cached_tokens": 30},
+                },
             },
         )
 
@@ -159,7 +179,12 @@ async def test_openai_create_parses_tool_calls_usage_and_auth_header():
     msg = await a.create(CONVERSATION)
     assert msg.stop_reason == "tool_use"
     assert msg.content[0].type == "tool_use" and msg.content[0].input == {"kind": "capacity"}
-    assert msg.content[0].model_dump() == {"type": "tool_use", "id": "call_9", "name": "propose_constraints", "input": {"kind": "capacity"}}
+    assert msg.content[0].model_dump() == {
+        "type": "tool_use",
+        "id": "call_9",
+        "name": "propose_constraints",
+        "input": {"kind": "capacity"},
+    }
     assert (msg.usage.input_tokens, msg.usage.output_tokens, msg.usage.cache_read_input_tokens) == (70, 20, 30)
     assert msg._request_id == "chatcmpl-1" and len(calls) == 1
 
@@ -175,7 +200,14 @@ async def test_openai_content_filter_is_a_refusal_and_bad_json_is_an_error():
     def bad(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
-            json={"choices": [{"finish_reason": "tool_calls", "message": {"tool_calls": [{"id": "c", "function": {"name": "x", "arguments": "{oops"}}]}}]},
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "tool_calls",
+                        "message": {"tool_calls": [{"id": "c", "function": {"name": "x", "arguments": "{oops"}}]},
+                    }
+                ]
+            },
         )
 
     transport, _ = _mock(bad)
@@ -183,7 +215,9 @@ async def test_openai_content_filter_is_a_refusal_and_bad_json_is_an_error():
         await OpenAICompatAdapter("openrouter", api_key="k", transport=transport).create(CONVERSATION)
 
 
-@pytest.mark.parametrize(("status", "needle"), [(401, "authentication"), (404, "not found"), (429, "rate limited"), (500, "500")])
+@pytest.mark.parametrize(
+    ("status", "needle"), [(401, "authentication"), (404, "not found"), (429, "rate limited"), (500, "500")]
+)
 async def test_openai_status_errors_never_echo_the_body(status, needle):
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(status, json={"error": {"message": "secret prompt echoed sk-abcdef123456"}})
@@ -201,7 +235,12 @@ async def test_openai_list_models_and_openrouter_pricing_and_azure_header():
             200,
             json={
                 "data": [
-                    {"id": "anthropic/claude-sonnet-5-5", "name": "Claude Sonnet 5.5", "context_length": 1000000, "pricing": {"prompt": "0.000002", "completion": "0.00001"}},
+                    {
+                        "id": "anthropic/claude-sonnet-5-5",
+                        "name": "Claude Sonnet 5.5",
+                        "context_length": 1000000,
+                        "pricing": {"prompt": "0.000002", "completion": "0.00001"},
+                    },
                     {"id": "gpt-5-mini", "created": 1700000000},
                     {"object": "junk"},
                 ]
@@ -214,7 +253,9 @@ async def test_openai_list_models_and_openrouter_pricing_and_azure_header():
     assert models[0].price_in == 2.0 and models[0].price_out == 10.0 and models[0].context_window == 1000000
 
     transport, calls = _mock(handler)
-    azure = OpenAICompatAdapter("azure_openai", api_key="az-key", base_url="https://r.openai.azure.com/openai/v1/", transport=transport)
+    azure = OpenAICompatAdapter(
+        "azure_openai", api_key="az-key", base_url="https://r.openai.azure.com/openai/v1/", transport=transport
+    )
     await azure.list_models()
     assert calls[0].headers["api-key"] == "az-key" and "authorization" not in calls[0].headers
     assert str(calls[0].url) == "https://r.openai.azure.com/openai/v1/models"
@@ -234,7 +275,9 @@ async def test_openai_connection_error_maps():
 
 async def test_default_stream_replays_events():
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"choices": [{"finish_reason": "stop", "message": {"content": "Merhaba"}}], "usage": {}})
+        return httpx.Response(
+            200, json={"choices": [{"finish_reason": "stop", "message": {"content": "Merhaba"}}], "usage": {}}
+        )
 
     transport, _ = _mock(handler)
     events: list[dict[str, Any]] = []
@@ -258,7 +301,11 @@ def test_gemini_payload_translation():
     roles = [c["role"] for c in p["contents"]]
     assert roles == ["user", "model", "user", "user"]
     model_parts = p["contents"][1]["parts"]
-    assert model_parts[1]["functionCall"] == {"id": "toolu_1", "name": "propose_constraints", "args": {"kind": "room_pin"}}
+    assert model_parts[1]["functionCall"] == {
+        "id": "toolu_1",
+        "name": "propose_constraints",
+        "args": {"kind": "room_pin"},
+    }
     fr = p["contents"][2]["parts"][0]["functionResponse"]
     assert fr["name"] == "propose_constraints" and fr["response"] == {"result": '{"ok": true}'}
     assert p["contents"][3]["parts"][0] == {"inlineData": {"mimeType": "application/pdf", "data": "AAA"}}
@@ -276,7 +323,12 @@ async def test_gemini_create_and_list_models():
                 200,
                 json={
                     "models": [
-                        {"name": "models/gemini-3-pro", "displayName": "Gemini 3 Pro", "inputTokenLimit": 1048576, "supportedGenerationMethods": ["generateContent"]},
+                        {
+                            "name": "models/gemini-3-pro",
+                            "displayName": "Gemini 3 Pro",
+                            "inputTokenLimit": 1048576,
+                            "supportedGenerationMethods": ["generateContent"],
+                        },
                         {"name": "models/embedding-001", "supportedGenerationMethods": ["embedContent"]},
                     ]
                 },
@@ -394,7 +446,11 @@ async def test_bedrock_lists_through_boto3_when_mantle_cannot():
             assert byProvider == "Anthropic"
             return {
                 "modelSummaries": [
-                    {"modelId": "anthropic.claude-opus-5-5", "modelName": "Claude Opus 5.5", "outputModalities": ["TEXT"]},
+                    {
+                        "modelId": "anthropic.claude-opus-5-5",
+                        "modelName": "Claude Opus 5.5",
+                        "outputModalities": ["TEXT"],
+                    },
                     {"modelId": "anthropic.embed", "modelName": "x", "outputModalities": ["EMBEDDING"]},
                 ]
             }

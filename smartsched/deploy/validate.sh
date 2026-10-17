@@ -54,7 +54,9 @@ SHELL_SCRIPTS=("$HERE"/*.sh "$ROOT"/scripts/*.sh)
 POSIX_SCRIPTS=("$ROOT/smartsched/backend/docker-entrypoint.sh")
 
 echo "== YAML syntax"
-for f in "$HERE/docker-compose.yml" "$HERE/docker-compose.caddy.yml" "$ROOT/.github/workflows/smartsched.yml"; do
+for f in "$HERE/docker-compose.yml" "$HERE/docker-compose.caddy.yml" "$ROOT/.github/workflows/smartsched.yml" \
+         "$HERE"/observability/prometheus/*.yml "$HERE"/observability/loki/loki.yaml \
+         "$HERE"/observability/grafana/provisioning/*/*.yml; do
   [[ -f "$f" ]] || { fail "missing $f"; continue; }
   # compose's !override / !reset tags are accepted (constructed as plain values)
   if "$PY" -c "
@@ -83,7 +85,8 @@ for v in sorted(declared - used):
     print(f"  note ${v} declared in .env.example but unused by compose (read by deploy.sh)")
 print(f"  ok   {len(used)} variables used, {len(declared)} declared, {len(missing)} missing")
 secret_keys = ("APP_SECRET", "JWT_SECRET", "POSTGRES_PASSWORD", "ADMIN_PASSWORD",
-               "CRBS_DB_PASSWORD", "CRBS_DB_ROOT_PASSWORD", "ANTHROPIC_API_KEY")
+               "CRBS_DB_PASSWORD", "CRBS_DB_ROOT_PASSWORD", "ANTHROPIC_API_KEY", "GRAFANA_ADMIN_PASSWORD",
+               "SENTRY_DSN", "METRICS_TOKEN")
 leaked = [k for k, v in re.findall(r"^([A-Z_]+)=(\S*)", env_text, re.M) if k in secret_keys and v not in ("", "__GENERATE__")]
 if leaked:
     print(f"  FAIL .env.example contains concrete secret values for {leaked}"); rc = 1
@@ -107,7 +110,7 @@ here = Path(sys.argv[1])
 root = here.parent.parent
 doc = yaml.safe_load((here / "docker-compose.yml").read_text())
 rc = 0
-PIN = re.compile(r"^[\w./-]+:\d+\.\d+(\.\d+)?[\w.-]*(@sha256:[0-9a-f]{64})?$")
+PIN = re.compile(r"^[\w./-]+:v?\d+\.\d+(\.\d+)?[\w.-]*(@sha256:[0-9a-f]{64})?$")
 def check(p: Path, what: str) -> None:
     global rc
     if p.exists():
@@ -134,8 +137,10 @@ for name, svc in doc["services"].items():
         print(f"  FAIL {name}: no healthcheck"); rc = 1
     for vol in svc.get("volumes", []):
         src = vol.split(":")[0] if isinstance(vol, str) else vol.get("source", "")
-        if src.startswith(("./", "../", "/")):
+        if src.startswith(("./", "../")):
             check((here / src).resolve(), f"{name} bind mount")
+        elif src.startswith("/"):
+            print(f"  ok   {name}: host path {src} (read on the deploy host)")
         elif src not in (doc.get("volumes") or {}):
             print(f"  FAIL {name}: named volume {src} not declared"); rc = 1
 print(f"  ok   named volumes: {', '.join(doc.get('volumes') or {})}")
@@ -154,8 +159,9 @@ targets = [
     (root / "smartsched/backend/Dockerfile", root / "smartsched/backend"),
     (root / "smartsched/frontend/Dockerfile", root / "smartsched/frontend"),
     (root / "smartsched/deploy/legacy/Dockerfile", root),
+    (root / "smartsched/deploy/observability/loki/Dockerfile", root / "smartsched/deploy/observability/loki"),
 ]
-PIN = re.compile(r"^[\w./-]+:\d+\.\d+(\.\d+)?[\w.-]*(@sha256:[0-9a-f]{64})?$")
+PIN = re.compile(r"^[\w./-]+:v?\d+\.\d+(\.\d+)?[\w.-]*(@sha256:[0-9a-f]{64})?$")
 rc = 0
 for df, ctx in targets:
     rel = df.relative_to(root)
@@ -266,6 +272,46 @@ else
   note "no frontend build at smartsched/frontend/.next/standalone; build check skipped (pod CI e2e-real runs it)"
 fi
 
+echo "== observability profile (dashboards as code, profile wiring)"
+if python3 "$HERE/observability/grafana/build_dashboards.py" --check; then
+  ok "grafana dashboards match build_dashboards.py"
+else
+  fail "grafana dashboards are stale: python3 smartsched/deploy/observability/grafana/build_dashboards.py"
+fi
+"$PY" - "$HERE" <<'PY' || FAIL=1
+import json, re, sys, yaml
+from pathlib import Path
+here = Path(sys.argv[1])
+doc = yaml.safe_load((here / "docker-compose.yml").read_text())
+rc = 0
+obs = {n: s for n, s in doc["services"].items() if "observability" in (s.get("profiles") or [])}
+want = {"prometheus", "loki", "alloy", "grafana"}
+if set(obs) != want:
+    print(f"  FAIL observability profile services {sorted(obs)} != {sorted(want)}"); rc = 1
+total = 0
+for name, svc in obs.items():
+    if svc.get("ports"):
+        print(f"  FAIL {name}: observability services publish no ports (internal network only)"); rc = 1
+    mem = str(svc.get("deploy", {}).get("resources", {}).get("limits", {}).get("memory", ""))
+    m = re.search(r"(\d+)m\}?$", mem)
+    if not m:
+        print(f"  FAIL {name}: no memory limit in MiB ({mem!r})"); rc = 1
+        continue
+    total += int(m.group(1))
+if total > 768:
+    print(f"  FAIL observability memory caps {total} MiB > 768 MiB"); rc = 1
+else:
+    print(f"  ok   observability profile: {len(obs)} services, no ports, memory caps {total} MiB <= 768 MiB")
+genv = obs.get("grafana", {}).get("environment", {})
+for k, v in (("GF_AUTH_ANONYMOUS_ENABLED", "false"), ("GF_AUTH_DISABLE_LOGIN_FORM", "true"),
+             ("GF_AUTH_PROXY_ENABLED", "true"), ("GF_AUTH_BASIC_ENABLED", "false")):
+    if str(genv.get(k, "")).lower() != v:
+        print(f"  FAIL grafana {k} must be {v}"); rc = 1
+uids = [json.loads(p.read_text())["uid"] for p in sorted((here / "observability/grafana/dashboards").glob("*.json"))]
+print(f"  ok   {len(uids)} dashboards: {', '.join(uids)}")
+sys.exit(rc)
+PY
+
 echo "== seed profile (profile.env + seed/seed.py, both branch profiles)"
 SEED_PY="$HERE/seed/seed.py"; FIXTURES="$HERE/../backend/tests/fixtures"
 if prof="$(python3 "$SEED_PY" profile --profile-file "$HERE/profile.env" 2>"$TMP/seed.err")"; then
@@ -303,6 +349,12 @@ if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; 
     ok "docker compose config with the Caddy TLS override"
   else
     fail "docker compose config (caddy override): $(cat "$TMP/compose.err")"
+  fi
+  if ADMIN_EMAIL=ops@smartsched.invalid docker compose --env-file "$HERE/.env.example" --profile observability \
+       -f "$HERE/docker-compose.yml" config -q 2>"$TMP/compose.err"; then
+    ok "docker compose config --profile observability"
+  else
+    fail "docker compose config --profile observability: $(cat "$TMP/compose.err")"
   fi
 else
   note "docker compose plugin not installed; skipped"

@@ -219,7 +219,9 @@ async def synced_models(session: AsyncSession, provider: str) -> dict[str, Any]:
     return await get_json(session, f"ai.provider.{provider}.models", {"fetched_at": None, "models": []})
 
 
-async def store_synced_models(session: AsyncSession, provider: str, models: list[dict[str, Any]], error: str | None) -> dict[str, Any]:
+async def store_synced_models(
+    session: AsyncSession, provider: str, models: list[dict[str, Any]], error: str | None
+) -> dict[str, Any]:
     previous = await synced_models(session, provider)
     record = {
         "fetched_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -324,7 +326,12 @@ def validate_route(route: dict[str, Any], synced: dict[str, set[str]]) -> list[d
         err("effort", "invalid_effort", "Geçersiz çaba düzeyi.", "Invalid effort level.")
     temp = route.get("temperature")
     if temp not in (None, "") and not (isinstance(temp, int | float) and 0 <= float(temp) <= 2):
-        err("temperature", "invalid_temperature", "Sıcaklık 0 ile 2 arasında olmalı.", "Temperature must be between 0 and 2.")
+        err(
+            "temperature",
+            "invalid_temperature",
+            "Sıcaklık 0 ile 2 arasında olmalı.",
+            "Temperature must be between 0 and 2.",
+        )
     for cap, hi in (("max_tokens", 128000), ("timeout_s", 900), ("max_tool_rounds", 100)):
         v = route.get(cap)
         if v not in (None, "") and not (isinstance(v, int | float) and 0 < float(v) <= hi):

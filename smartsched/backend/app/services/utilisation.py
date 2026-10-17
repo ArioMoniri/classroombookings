@@ -33,6 +33,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.export_safety import safe_writer
 from app.models import (
     Assignment,
     Block,
@@ -611,7 +612,7 @@ async def room_heatmap(
 def room_heatmap_csv(data: Mapping[str, Any]) -> str:
     """One line per (group, column, period) cell; ``;``-free plain CSV with a header (Excel opens it)."""
     buf = io.StringIO()
-    w = csv.writer(buf)
+    w = safe_writer(csv.writer(buf))  # formula injection (W3-SEC)
     w.writerow(
         [
             "group_by",
@@ -874,7 +875,7 @@ async def instructor_heatmap(
 
 def instructor_heatmap_csv(data: Mapping[str, Any]) -> str:
     buf = io.StringIO()
-    w = csv.writer(buf)
+    w = safe_writer(csv.writer(buf))  # formula injection (W3-SEC)
     w.writerow(
         [
             "instructor_id",

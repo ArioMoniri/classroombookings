@@ -30,7 +30,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import event, text
+from sqlalchemy import event
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, SessionTransaction

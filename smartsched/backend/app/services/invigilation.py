@@ -38,6 +38,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.export_safety import safe_writer
 from app.importers import normalize as n
 from app.models import (
     Assignment,
@@ -1893,7 +1894,7 @@ async def delete_plan(session: AsyncSession, plan_id: int, actor: User) -> None:
 async def roster_csv(session: AsyncSession, plan_id: int) -> str:
     data = await plan_detail(session, plan_id)
     buf = io.StringIO()
-    w = csv.writer(buf)
+    w = safe_writer(csv.writer(buf))  # formula injection (W3-SEC)
     w.writerow(
         ["date", "start", "end", "room", "building", "exams", "required", "missing", "person", "person_key", "locked"]
     )
@@ -1958,7 +1959,7 @@ async def load_heatmap(session: AsyncSession, plan_id: int) -> dict[str, Any]:
 
 def load_heatmap_csv(data: Mapping[str, Any]) -> str:
     buf = io.StringIO()
-    w = csv.writer(buf)
+    w = safe_writer(csv.writer(buf))  # formula injection (W3-SEC)
     w.writerow(["person_key", "name", "date", "duties", "periods", "total_duties", "total_periods"])
     for r in data["rows"]:
         for c in r["cells"]:

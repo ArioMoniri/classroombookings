@@ -26,6 +26,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.export_safety import safe_writer
 from app.importers import normalize as n
 from app.models import Assignment, ExamRequest, Instructor, Room, ScheduleRun, Term
 from app.services import moderation as mod
@@ -647,7 +648,7 @@ def compare_csv(data: Mapping[str, Any], part: str = "classes") -> str:
     """CSV of one part of a comparison: ``classes`` (moved / only in A / only in B), ``instructors``, ``rooms``,
     ``rules`` or ``metrics``."""
     buf = io.StringIO()
-    w = csv.writer(buf)
+    w = safe_writer(csv.writer(buf))  # formula injection (W3-SEC)
     if part == "classes":
         w.writerow(
             ["status", "request_id", "label", "change", "a_when", "a_rooms", "a_weeks", "b_when", "b_rooms", "b_weeks"]

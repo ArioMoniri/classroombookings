@@ -16,7 +16,7 @@ import { slotKey } from "./grid-model";
 import { isOwnPending, type FreeRoom } from "./reserve-model";
 import Link from "next/link";
 import { BareButton } from "@/components/shell/bare-button";
-import { DEFAULT_SLOT_DISPLAY, type SlotDisplay } from "./slot-display";
+import { DEFAULT_SLOT_DISPLAY, slotLabel, type SlotDisplay } from "./slot-display";
 
 export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve, onRoomInfo, approvalFirst = false, requestFor, slotDisplay = DEFAULT_SLOT_DISPLAY }: { rooms: FreeRoom[]; loading: boolean; week: boolean; fmt: DateFormatter; deptFirst: boolean; onReserve: (target: BookTarget) => void; onRoomInfo: (roomId: number, date: string) => void; approvalFirst?: boolean; requestFor?: (bookingId: number) => number | null; slotDisplay?: SlotDisplay }) {
   const { t } = useI18n();
@@ -76,17 +76,19 @@ function SlotButton({ slot, room, fmt, onReserve, request, sd }: { slot: GridSlo
   const { t } = useI18n();
   const p = room.grid.periods.find((x) => x.id === slot.period_id);
   const time = p ? `${fmt.time(p.time_start)}–${fmt.time(p.time_end)}` : "";
+  // the list shows the start time under the period (its rows are narrow); "time" labels keep the chosen format
+  const label = p ? slotLabel(p, sd.label === "both" ? { ...sd, time_format: "start" } : sd, { time: fmt.time, ordinal: (n) => t("slotDisplay.ordinal", { n }) }) : null;
   return (
     <BareButton
       onClick={() => onReserve({ slot, grid: room.grid })}
-      aria-label={t(request ? "reserve.free.requestAt" : "reserve.free.reserveAt", { room: room.room.name, date: fmt.weekday(slot.date), time: `${p?.name ?? ""} ${time}` })}
+      aria-label={t(request ? "reserve.free.requestAt" : "reserve.free.reserveAt", { room: room.room.name, date: fmt.weekday(slot.date), time: label ? (sd.label === "time" ? label.a11y : label.a11y.replace(", ", " ")) : time })}
       data-slot-key={slotKey(slot)}
       data-testid="free-slot"
       className="flex min-h-11 min-w-16 flex-col items-start justify-center rounded-md bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_7%)] px-2.5 py-1 text-left inset-ring inset-ring-[color-mix(in_oklab,var(--accent)_22%,transparent)] hover:bg-[color-mix(in_oklab,var(--mat-thick-solid),var(--accent)_13%)]"
     >
-      {/* W3-SLOT: "P3", "10:30–11:20" or both, as the administrator chose */}
-      {sd.label !== "time" ? <span className="type-caption font-semibold text-tint-text">{p?.name}</span> : null}
-      {sd.label !== "name" ? <span className={sd.label === "time" ? "type-caption font-semibold text-tint-text tabular-nums" : "type-caption text-label-2 tabular-nums"}>{p ? (sd.label === "time" ? time : fmt.time(p.time_start)) : ""}</span> : null}
+      {/* W3-SLOT: one label rule (slot-display.md §5): primary over secondary, the accessible name stays complete */}
+      <span className="type-caption font-semibold text-tint-text tabular-nums">{label?.primary}</span>
+      {label?.secondary ? <span className="type-caption text-label-2 tabular-nums">{label.secondary}</span> : null}
     </BareButton>
   );
 }

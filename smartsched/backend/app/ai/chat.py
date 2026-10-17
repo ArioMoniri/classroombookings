@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import catalog
 from app.ai.client import AIClient, AIStreamJSONError, EventSink, text_of, tool_uses
+from app.ai.context import ai_scope
 from app.ai.edits import apply_section_edits
 from app.ai.elicit import accept_proposals, build_system, enforce_source_policy
 from app.ai.resolve import (
@@ -605,6 +606,22 @@ async def _history(session: AsyncSession, run_id: int) -> list[dict[str, Any]]:
 
 
 async def handle_chat(
+    session: AsyncSession,
+    run_id: int,
+    message: str,
+    lang: str = "tr",
+    *,
+    client: AIClient,
+    user_id: int | None = None,
+    on_event: EventSink | None = None,
+) -> ChatOut:
+    """See :func:`_handle_chat`. Every model call of this message is metered as ``chat`` for ``user_id``; the
+    gateway checks the typed message once (scope, prompt injection) before the first call (W3-AI)."""
+    with ai_scope("chat", user_id=user_id, user_text=strip_controls(message)):
+        return await _handle_chat(session, run_id, message, lang, client=client, user_id=user_id, on_event=on_event)
+
+
+async def _handle_chat(
     session: AsyncSession,
     run_id: int,
     message: str,
@@ -1715,13 +1732,14 @@ async def explain_run(
     if client is None:
         return ExplainOut(text=text, sections=sections, source="template")
     data = json.dumps(facts, ensure_ascii=False, sort_keys=True, default=str)
-    message = await client.complete(
-        system=_EXPLAIN_RULES.format(lang="Turkish" if lang == "tr" else "English"),
-        messages=[{"role": "user", "content": f"<run_data>\n{data}\n</run_data>"}],
-        max_tokens=4000,
-        output_format=EXPLAIN_FORMAT,
-        effort="low",
-    )
+    with ai_scope("explain"):
+        message = await client.complete(
+            system=_EXPLAIN_RULES.format(lang="Turkish" if lang == "tr" else "English"),
+            messages=[{"role": "user", "content": f"<run_data>\n{data}\n</run_data>"}],
+            max_tokens=4000,
+            output_format=EXPLAIN_FORMAT,
+            effort="low",
+        )
     usage = UsageOut(**client.usage.to_out())
     try:
         parsed = _ModelExplanation.model_validate_json(text_of(message))

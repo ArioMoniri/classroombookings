@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import catalog
 from app.ai.client import AIClient, text_of, tool_uses
+from app.ai.context import ai_scope
 from app.ai.resolve import TermContext, load_term_context, resolve_proposal, resolve_section_edit
 from app.ai.sanitize import strip_controls
 from app.models import AIProposalDecision, ConstraintRow, ExamRequest, MeetingRequest, Room, Section
@@ -174,7 +175,8 @@ async def elicit_constraints(
         f"Planner's preferences ({'Turkish' if lang == 'tr' else 'English'}):\n\n{text}\n\n"
         "Call propose_constraints once with every rule and section edit you can map."
     )
-    proposals, edits, unparsed, note = await propose(client, ctx, content, lang)
+    with ai_scope("rules", user_text=text):  # metered as "rules"; the gateway checks the typed text once
+        proposals, edits, unparsed, note = await propose(client, ctx, content, lang)
     if not proposals and not edits and not note:
         note = "Kural çıkarılamadı." if lang == "tr" else "No rules could be extracted."
     log.info(

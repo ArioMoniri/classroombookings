@@ -166,3 +166,8 @@ __all__ = [
     "UserConstraint",
     "Week",
 ]
+
+# wave 3 W3-AI: AI gateway usage metering (alembic 0034_ai_usage)
+from app.models.ai_usage import AIUsage  # noqa: E402
+
+__all__ += ["AIUsage"]

@@ -31,6 +31,7 @@ import { PublicScheduleAdmin } from "@/components/public-schedule/public-schedul
 import { LearningMemoryPanel } from "@/components/learning/learning-memory-panel";
 import { SsoSettings } from "@/components/identity/sso-settings";
 import { ChannelsAdmin } from "@/components/channels/channels-admin";
+import { SlotDisplaySettings } from "./slot-display";
 import { useSettings, useUpdateSettings } from "@/lib/api/hooks";
 import type { Settings } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
@@ -374,6 +375,8 @@ export function SettingsView() {
     { value: "integrations", label: t("notifications.admin.tab"), show: can("setup.settings") },
     // P8 booking policies + exam-period mode (wave-2 UI; GET/PUT /booking-policies needs setup.settings)
     { value: "booking-rules", label: t("policies.tab"), show: can("setup.settings") },
+    // W3-SLOT (docs/design/v3/slot-display.md §4): how slots are shown; PUT /settings needs planning.admin
+    { value: "slots", label: t("slotDisplay.tab"), show: can("planning.admin") },
     // identity frontend: Microsoft sign-in (planning.admin, as GET/PUT /auth/sso/admin/entra) and the
     // notification channels (setup.settings, as /channels/admin)
     { value: "sso", label: t("sso.admin.tab"), show: can("planning.admin") },
@@ -389,7 +392,7 @@ export function SettingsView() {
     document.querySelector(`[data-testid="tab-${tab}"]`)?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [tab]);
   return (
-    <div className="max-w-[960px]" data-testid="settings">
+    <div className={tab === "slots" ? "max-w-[1120px]" : "max-w-[960px]"} data-testid="settings">
       <PageHeader title={t("settings.title")} subtitle={admin ? t("settings.subtitle") : t("glass.settings.subtitleUser")} />
       <Tabs value={tab} onValueChange={(v) => router.replace(`/settings?tab=${String(v)}`)}>
         {/* the track is min-width:max-content, so the scroller is a wrapper (10 tabs no longer fit at 1440) */}
@@ -427,6 +430,7 @@ export function SettingsView() {
           </TabsContent>
         ) : null}
         {can("setup.settings") ? <TabsContent value="booking-rules"><PoliciesAdmin /></TabsContent> : null}
+        {can("planning.admin") ? <TabsContent value="slots"><SlotDisplaySettings /></TabsContent> : null}
         {can("planning.admin") ? <TabsContent value="learning"><LearningMemoryPanel /></TabsContent> : null}
         {can("planning.admin") ? <TabsContent value="sso"><SsoSettings /></TabsContent> : null}
         {can("setup.settings") ? <TabsContent value="channels"><ChannelsAdmin /></TabsContent> : null}

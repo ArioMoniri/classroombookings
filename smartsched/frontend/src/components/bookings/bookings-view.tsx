@@ -46,7 +46,7 @@ import { freeSlotsByRoom } from "./reserve-model";
 import { EntityIcon } from "@/components/admin/icons";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
 import { useIsCompact, useIsPhone } from "./use-is-phone";
-import { applySlotDisplay, defaultDisplay, defaultLens, defaultScope } from "./slot-display";
+import { applySlotDisplay, hiddenPeriodCount, openingView } from "./slot-display";
 import { useSlotDisplay } from "./use-slot-display";
 import { SlotDisplaySheet } from "@/components/settings/slot-display";
 
@@ -71,12 +71,21 @@ export function BookingsView() {
   const isAdmin = hasPermission(me.data?.permissions, "planning.admin");
 
   // W3-SLOT: the administrator's slot display (labels, density, hidden periods, default view) shapes every surface here
-  const { display: slotDisplay } = useSlotDisplay();
-  const display = (params.get("display") as Display | null) ?? defaultDisplay(slotDisplay, ctx.data?.display.type);
+  const { display: slotDisplay, ready: slotReady } = useSlotDisplay();
+  const onPhone = useIsPhone();
+  const opening = openingView(slotDisplay, onPhone, ctx.data?.display.type);
+  // "+N gizli saat": the hidden periods for this session (a display filter, never a permission)
+  const [revealHidden, setRevealHidden] = useState(false);
+  const display = (params.get("display") as Display | null) ?? opening.display;
   const num = (k: string) => (params.get(k) ? Number(params.get(k)) : undefined);
   const query: GridQuery = { display, date: params.get("date") ?? undefined, term_id: num("term"), room_group_id: num("group"), room_id: num("room") };
   const grid = useBookingGrid(query, ctx.isSuccess);
-  const g = useMemo(() => (grid.data ? applySlotDisplay(grid.data, slotDisplay) : undefined), [grid.data, slotDisplay]);
+  const g = useMemo(() => (grid.data ? applySlotDisplay(grid.data, slotDisplay, revealHidden) : undefined), [grid.data, slotDisplay, revealHidden]);
+  const hiddenCount = grid.data ? hiddenPeriodCount(grid.data.periods, slotDisplay) : 0;
+  // the administrator made quick reserve the landing view: a bare /bookings opens it (links with parameters stay here)
+  useEffect(() => {
+    if (slotReady && opening.quick && params.toString() === "") router.replace("/reserve");
+  }, [slotReady, opening.quick, params, router]);
   // T-R1-10: approval-first on for this viewer -> every free slot says "Talep et · Onay gerekir"
   const approvalFirst = useApprovalFirst(g?.rooms[0]?.id, g?.term.id);
   // T-R1-14: the own open requests of the free-slot list link to the request (booking id -> request id)
@@ -94,8 +103,8 @@ export function BookingsView() {
   const phone = useIsPhone();
   const compact = useIsCompact();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const lens: Lens = (params.get("lens") as Lens | null) ?? defaultLens(slotDisplay, phone);
-  const baseScope: Scope = defaultScope(slotDisplay);
+  const lens: Lens = (params.get("lens") as Lens | null) ?? opening.lens;
+  const baseScope: Scope = opening.scope;
   const scope: Scope = params.get("scope") === "week" ? "week" : params.get("scope") === "day" ? "day" : baseScope;
   const [displayOpen, setDisplayOpen] = useState(false);
   const [department, setDepartment, myDepartment] = useDepartmentLens();
@@ -191,12 +200,12 @@ export function BookingsView() {
   const firstRooms = useMemo(() => new Set((deptRooms.data?.rooms ?? []).map((r) => r.room_id)), [deptRooms.data]);
   const freeRooms = useMemo(
     () => {
-      const grids = scope === "week" && g?.display === "day" ? weekData.filter((x): x is Grid => !!x).filter((x) => !(slotDisplay.hide_weekend && [0, 6].includes(new Date(`${x.date}T12:00:00`).getDay()))).map((x) => applySlotDisplay(x, slotDisplay)) : g ? [g] : [];
+      const grids = scope === "week" && g?.display === "day" ? weekData.filter((x): x is Grid => !!x).filter((x) => revealHidden || !(slotDisplay.hide_weekend && [0, 6].includes(new Date(`${x.date}T12:00:00`).getDay()))).map((x) => applySlotDisplay(x, slotDisplay, revealHidden)) : g ? [g] : [];
       return freeSlotsByRoom(grids, { now, firstRooms });
     },
     // weekKey stands for the week grids (a new array every render)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scope, g, weekKey, now, firstRooms, slotDisplay],
+    [scope, g, weekKey, now, firstRooms, slotDisplay, revealHidden],
   );
 
   // T-R1-19 (R1-A-32): the page hydrates after the shell, whose queries (me, the booking context) may already have
@@ -588,6 +597,13 @@ export function BookingsView() {
       ) : null}
       {grid.isError ? <Alert tone="error">{bookingErrorMessage(crbsError(grid.error), t, { formatDate: fmt.short })}</Alert> : null}
 
+      {hiddenCount > 0 ? (
+        <div className="flex print:hidden" data-print-hide>
+          <Chip size="sm" selected={revealHidden} onSelectedChange={setRevealHidden} data-testid="hidden-periods-chip">
+            {revealHidden ? t("slotDisplay.hiddenHide") : t("slotDisplay.hiddenChip", { n: hiddenCount })}
+          </Chip>
+        </div>
+      ) : null}
       <div aria-busy={grid.isFetching} data-stale={stale ? "true" : undefined} className="relative transition-opacity duration-(--dur-fast) data-[stale=true]:opacity-60" data-testid="booking-grid-wrap">
         {g && lens === "free" ? (
           <FreeSlotsList
@@ -649,7 +665,7 @@ export function BookingsView() {
         </Toolbar>
       ) : null}
 
-      {isAdmin ? <SlotDisplaySheet open={displayOpen} onOpenChange={setDisplayOpen} periods={grid.data?.periods ?? []} /> : null}
+      {isAdmin ? <SlotDisplaySheet open={displayOpen} onOpenChange={setDisplayOpen} /> : null}
       <BookSheet target={book} onOpenChange={(o) => !o && setBook(null)} fmt={fmt} onOtherRooms={otherRooms} />
       <BookingDetailSheet bookingId={detail} onOpenChange={(o) => !o && setDetail(null)} fmt={fmt} onRoomInfo={(id, date) => (setDetail(null), openRoom(id, { date }))} />
       <SlotInfoSheet

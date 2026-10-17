@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `d8a3ad9` (committed 2026-10-17 09:49 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `cdf0f0d` (committed 2026-10-17 19:20 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -145,13 +145,15 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-222 agents in [`docs/agents/registry.json`](agents/registry.json): running 3 · finished 201 · stopped 11 · superseded 7.
+232 agents in [`docs/agents/registry.json`](agents/registry.json): running 5 · finished 209 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
 | `Round-3 re-test` | user-tester | 2026-10-17 09:09 |
-| `Round-3 re-test` | user-tester | 2026-10-17 09:09 |
-| `Round-3 re-test` | user-tester | 2026-10-17 09:09 |
+| `W3-AI` | ai-engineer | 2026-10-17 18:58 |
+| `W3-OPS` | devops-engineer | 2026-10-17 18:58 |
+| `W3-SEC` | backend-engineer | 2026-10-17 18:58 |
+| `W3-SLOT` | frontend-engineer | 2026-10-17 18:58 |
 
 <!-- /AUTO:agents -->
 
@@ -218,7 +220,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **296 ticked · 318 open** checkboxes in 81 sections (77 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **296 ticked · 344 open** checkboxes in 82 sections (78 with open items).
 
 <details><summary>Per section</summary>
 
@@ -305,6 +307,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Batch 4 finished (2026-10-16) | 5 | 2 |
 | Flow loop round 1: academician and admin reports in (2026-10-16) | 0 | 4 |
 | Round 1 integrity fixes (2026-10-16) | 10 | 2 |
+| Wave 3 enhancements (ranked, research 2026-10-17) | 0 | 26 |
 
 </details>
 

@@ -1,0 +1,340 @@
+{
+  "uid": "smartsched-jobs",
+  "title": "Çözücü ve işler / Solver & jobs",
+  "tags": [
+    "smartsched",
+    "jobs"
+  ],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "Operasyon / Operations",
+      "type": "link",
+      "url": "/admin/ops",
+      "targetBlank": false
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Kuyruk / Queue",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartsched-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(smartsched_solver_runs{status=~\"QUEUED|RUNNING\"}) by (status)",
+          "legendFormat": "çözücü / solver {{status}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "smartsched-prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum(smartsched_council_jobs{status=~\"QUEUED|RUNNING\"}) by (status)",
+          "legendFormat": "konsey / council {{status}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "smartsched-prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "sum(smartsched_invigilation_plans{status=~\"QUEUED|RUNNING\"}) by (status)",
+          "legendFormat": "gözetmen / invigilation {{status}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "smartsched-prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Son 24 saatte biten çalışmalar / Runs finished (24 h)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartsched-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "smartsched_solver_runs_finished_24h",
+          "legendFormat": "{{status}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "smartsched-prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Çözüm süresi (24 sa) / Solve time (24 h)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartsched-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "smartsched_solver_run_duration_seconds_24h",
+          "legendFormat": "q{{quantile}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "smartsched-prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "E-posta kuyruğu / Mail outbox",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartsched-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "smartsched_mail_outbox",
+          "legendFormat": "{{status}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "smartsched-prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Teslim kuyrukları / Delivery queues",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartsched-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "smartsched_delivery_queue{status=~\"PENDING|RUNNING|FAILED\"}",
+          "legendFormat": "{{queue}} {{status}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "smartsched-prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "İstenen işler / Jobs requested",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartsched-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (event) (increase(smartsched_domain_events_total{event=~\"solver_run_requested|council_job_requested\"}[1h]))",
+          "legendFormat": "{{event}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "smartsched-prometheus"
+          }
+        }
+      ]
+    }
+  ]
+}

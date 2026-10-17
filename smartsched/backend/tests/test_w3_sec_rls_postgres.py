@@ -25,8 +25,8 @@ from app.core import rls  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.models import ConstraintRow, InAppNotification, User  # noqa: E402
-from app.models.kvkk import Consent, DsrRequest  # noqa: E402
 from app.models.integrations import CalendarFeedToken  # noqa: E402
+from app.models.kvkk import Consent, DsrRequest  # noqa: E402
 from app.services.bookings_perms import load_access  # noqa: E402
 from app.services.seed import seed_admin  # noqa: E402
 from app.workers import queue as qmod  # noqa: E402
@@ -49,7 +49,10 @@ async def _seed_people() -> dict[str, int]:
 
         teacher = (await s.execute(select(Role).where(Role.code == "TEACHER"))).scalar_one()
         ids: dict[str, int] = {}
-        for key, email, name in (("a", "ayse.yilmaz@uni.edu.tr", "Ayşe Yılmaz"), ("b", "ismail.oz@uni.edu.tr", "İsmail Öz")):
+        for key, email, name in (
+            ("a", "ayse.yilmaz@uni.edu.tr", "Ayşe Yılmaz"),
+            ("b", "ismail.oz@uni.edu.tr", "İsmail Öz"),
+        ):
             u = User(email=email, full_name=name, password_hash=hash_password("parola-1234"), role="TEACHER")
             u.role_id = teacher.id
             s.add(u)
@@ -117,7 +120,9 @@ async def test_a_users_direct_sql_sees_only_their_rows(pg):  # type: ignore[no-u
         r = await s.execute(text("delete from calendar_feed_tokens where user_id = :b"), {"b": b})
         assert r.rowcount == 0
         with pytest.raises(DBAPIError, match="row-level security"):
-            await s.execute(text("insert into consents (user_id, purpose, granted_at) values (:b, 'sms', now())"), {"b": b})
+            await s.execute(
+                text("insert into consents (user_id, purpose, granted_at) values (:b, 'sms', now())"), {"b": b}
+            )
         await s.rollback()
         # the context survives commit / rollback: the next transaction is scoped again
         got = {r[0] for r in (await s.execute(text("select user_id from dsr_requests"))).all()}
@@ -241,7 +246,9 @@ async def test_api_paths_work_and_run_as_the_user(pg_client, monkeypatch):  # ty
     async with dbmod.get_session_factory()() as s:
         unread = (
             await s.execute(
-                select(InAppNotification).where(InAppNotification.user_id == ids["a"], InAppNotification.read_at.is_(None))
+                select(InAppNotification).where(
+                    InAppNotification.user_id == ids["a"], InAppNotification.read_at.is_(None)
+                )
             )
         ).scalars()
         assert len(list(unread)) == 1

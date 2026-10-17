@@ -168,6 +168,11 @@ def create_app() -> FastAPI:
         redoc_url="/api/redoc" if docs else None,
         openapi_url="/api/openapi.json" if docs else None,
     )
+    # W3-SEC (docs/SECURITY.md §5): rate limits, body-size fence, API security headers; inside CORS so a 429 / 413
+    # still carries the CORS headers
+    from app.core.security_http import SecurityMiddleware
+
+    app.add_middleware(SecurityMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

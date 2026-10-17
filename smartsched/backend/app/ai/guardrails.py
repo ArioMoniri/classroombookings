@@ -1,3 +1,4 @@
+# ruff: noqa: E501  (regex rules and TR/EN refusal texts read better unwrapped)
 """Guardrails of the AI gateway (wave 3 W3-AI; OWASP Top 10 for LLM applications 2025: LLM01 prompt injection,
 LLM02 sensitive information disclosure, LLM05 improper output handling, LLM06 excessive agency, LLM07 system prompt
 leakage, LLM10 unbounded consumption).
@@ -549,7 +550,7 @@ def spotlight(text: str, source: str) -> str:
     return f'<untrusted source="{re.sub(r"[^a-z_]", "", source.lower())}">\n{inner}\n</untrusted>'
 
 
-#: appended (as the last system block) to every request the gateway sends; static, so prompt caching still works
+#: put first in the system prompt of every request the gateway sends; static, so prompt caching still works
 GUARD_PREAMBLE: dict[str, Any] = {
     "type": "text",
     "text": (

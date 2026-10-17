@@ -25,6 +25,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.client import AIClient
+from app.ai.context import ai_scope, current_scope
 from app.ai.elicit import propose
 from app.ai.policy import ai_allowed
 from app.ai.resolve import load_term_context
@@ -331,6 +332,20 @@ async def extract_preferences(
     *,
     client: AIClient | None,
 ) -> IngestOut:
+    """See :func:`_extract_preferences`; every model call inside is metered as ``intake`` (W3-AI gateway)."""
+    with ai_scope("intake"):
+        return await _extract_preferences(session, term_id, file_bytes, filename, lang, client=client)
+
+
+async def _extract_preferences(
+    session: AsyncSession,
+    term_id: int,
+    file_bytes: bytes,
+    filename: str,
+    lang: str = "tr",
+    *,
+    client: AIClient | None,
+) -> IngestOut:
     """Uploaded file -> reviewed-later proposals with source references (nothing is applied).
 
     Nothing is sent to Anthropic unless the admin switch ``ai.intake_enabled`` is on with its KVKK sign-off
@@ -359,6 +374,9 @@ async def extract_preferences(
         unit.text, st = clean_for_model(unit.text)
         redactions["emails"] += st["emails"]
         redactions["phones"] += st["phones"]
+        scope = current_scope()
+        if st.get("injections") and scope is not None:  # the usage row says the upload was neutralised
+            scope.flags.append("upload_injection")
     ctx = await load_term_context(session, term_id)
     chunks = chunk_units(ex.units)
     if len(chunks) > MAX_CHUNKS:

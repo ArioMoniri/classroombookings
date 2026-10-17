@@ -583,7 +583,7 @@ DASHBOARDS: tuple[dict[str, Any], ...] = (
         "title_en": "Service health",
         "panels": [
             {"id": 1, "title_tr": "Servisler ayakta", "title_en": "Services up"},
-            {"id": 4, "title_tr": "Bellek (konteyner)", "title_en": "Memory (containers)"},
+            {"id": 4, "title_tr": "Bellek (servisler)", "title_en": "Memory (services)"},
         ],
     },
     {

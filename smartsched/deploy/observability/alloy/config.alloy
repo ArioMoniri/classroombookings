@@ -1,0 +1,160 @@
+// Grafana Alloy for the SmartSched pod (W3-OPS). One agent instead of Promtail (end of life 2026-03-02),
+// node-exporter and postgres-exporter:
+//   * container logs: the json-file logs of this compose project (/var/lib/docker/containers, read-only, no Docker
+//     socket), labelled by compose service, personal data and credentials redacted BEFORE they are shipped to Loki;
+//   * host metrics (embedded node exporter: cpu, memory, disk, network, pressure, the backup textfile);
+//   * PostgreSQL metrics (embedded postgres exporter) and HTTP probes of frontend / proxy / backend (blackbox);
+//   all remote-written to Prometheus. Alloy's own UI/metrics on :12345 (compose network only).
+
+// ---------------------------------------------------------------------------------------------------------- logs
+local.file_match "containers" {
+  path_targets = [{"__path__" = "/var/lib/docker/containers/*/*-json.log"}]
+  sync_period  = "15s"
+}
+
+loki.source.file "containers" {
+  targets       = local.file_match.containers.targets
+  forward_to    = [loki.process.containers.receiver]
+  tail_from_end = true
+}
+
+loki.process "containers" {
+  // json-file line: {"log": "...", "stream": "stdout", "time": "...", "attrs": {"com.docker.compose.service": "backend", ...}}
+  stage.json {
+    expressions = {
+      output  = "log",
+      stream  = "stream",
+      ts      = "time",
+      service = "attrs.\"com.docker.compose.service\"",
+      project = "attrs.\"com.docker.compose.project\"",
+    }
+  }
+  // only containers of this compose project (pod CI gate containers and others are dropped)
+  stage.match {
+    selector            = "{service=\"\"}"
+    action              = "drop"
+    drop_counter_reason = "not_compose"
+  }
+  stage.template {
+    source   = "keep"
+    template = "{{ if eq .project \"" + coalesce(sys.env("COMPOSE_PROJECT"), "smartsched") + "\" }}1{{ else }}0{{ end }}"
+  }
+  stage.labels {
+    values = {service = "", stream = "", keep = ""}
+  }
+  stage.match {
+    selector            = "{keep=\"0\"}"
+    action              = "drop"
+    drop_counter_reason = "other_project"
+  }
+  stage.label_drop {
+    values = ["keep", "filename"]
+  }
+  stage.timestamp {
+    source = "ts"
+    format = "RFC3339Nano"
+  }
+  stage.output {
+    source = "output"
+  }
+  // redaction (R-OPS-10): credentials, e-mail addresses, Turkish mobile numbers, 11-digit ids, query strings
+  stage.replace {
+    expression = "(?i)(?:authorization|cookie|set-cookie|x-webauth-user)[\"']?\\s*[:=]\\s*([^\\s,;\"']+(?:\\s+[^\\s,;\"']+)?)"
+    replace    = "[redacted]"
+  }
+  stage.replace {
+    expression = "(?i)(?:bearer|basic)\\s+([A-Za-z0-9._~+/=-]{8,})"
+    replace    = "[token]"
+  }
+  stage.replace {
+    expression = "(eyJ[\\w-]{6,}\\.[\\w-]{6,}\\.[\\w-]{6,})"
+    replace    = "[token]"
+  }
+  stage.replace {
+    expression = "(?i)(?:password|parola|secret|token|api[_-]?key)[\"']?\\s*[:=]\\s*[\"']?([^\\s,;&\"'}]+)"
+    replace    = "[redacted]"
+  }
+  stage.replace {
+    expression = "([\\w.+-]+@[\\w-]+(?:\\.[\\w-]+)+)"
+    replace    = "[email]"
+  }
+  stage.replace {
+    expression = "(?:^|[^\\w.])((?:\\+?90[\\s-]?)?0?5\\d{2}[\\s-]?\\d{3}[\\s-]?\\d{2}[\\s-]?\\d{2})(?:$|[^\\w])"
+    replace    = "[phone]"
+  }
+  stage.replace {
+    expression = "\\b(\\d{11})\\b"
+    replace    = "[number]"
+  }
+  stage.replace {
+    expression = "(?:GET|POST|PUT|PATCH|DELETE|HEAD) [^\\s?]+\\?([^\\s\"]+)"
+    replace    = "[query]"
+  }
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// ------------------------------------------------------------------------------------------------------- metrics
+prometheus.exporter.unix "host" {
+  procfs_path = "/host/proc"
+  sysfs_path  = "/host/sys"
+  rootfs_path = "/host/root"
+  set_collectors = ["cpu", "meminfo", "loadavg", "filesystem", "diskstats", "netdev", "pressure", "uname", "textfile", "time"]
+
+  filesystem {
+    mount_points_exclude = "^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+)($|/)"
+    fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|tmpfs)$"
+  }
+  textfile {
+    // the nightly backup writes smartsched_backup_last_success_timestamp_seconds here (../README.md "Backups")
+    directory = "/host/textfile"
+  }
+}
+
+prometheus.exporter.postgres "db" {
+  data_source_names = [sys.env("PG_DSN")]
+  disable_default_metrics = false
+  autodiscovery {
+    enabled = false
+  }
+}
+
+prometheus.exporter.blackbox "http" {
+  config = "{ modules: { http_2xx: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4 } } } }"
+  target {
+    name    = "frontend"
+    address = "http://frontend:3000/login"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "proxy"
+    address = "http://proxy:8080/healthz"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "backend_ready"
+    address = "http://backend:8000/readyz"
+    module  = "http_2xx"
+  }
+}
+
+prometheus.scrape "exporters" {
+  targets = array.concat(
+    prometheus.exporter.unix.host.targets,
+    prometheus.exporter.postgres.db.targets,
+    prometheus.exporter.blackbox.http.targets,
+  )
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.local.receiver]
+}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
