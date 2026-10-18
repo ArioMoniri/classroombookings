@@ -270,7 +270,7 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
         </div>
       ) : null}
       {starterPicker.input}
-      <SheetDropZone onFiles={attach}>
+      <SheetDropZone onFiles={attach} className="min-h-[min(20rem,55dvh)]">
         <Log busy={turn.busy} desktop={desktop} />
       </SheetDropZone>
       <footer className="flex shrink-0 flex-col gap-2 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] edge-hairline-t">
@@ -417,7 +417,9 @@ export function HelperSheet() {
           style={desktop ? undefined : { y: drag.y }}
           transition={helperSheetEnter({ reduce, desktop })}
           className={cn(
-            "helper-sheet fixed z-40 flex flex-col overflow-hidden text-label-1 outline-hidden",
+            // HB-23d DS-22: at large text the header and footer grow; the sheet itself then scrolls (the log keeps
+            // its minimum height below) instead of reading a card through a one-line slot
+            "helper-sheet fixed z-40 flex flex-col overflow-x-hidden overflow-y-auto overscroll-contain text-label-1 outline-hidden",
             desktop
               ? "top-16 right-2 bottom-2 w-[360px] rounded-(--radius-lg) glass-regular shadow-elev-2 xl:w-[400px]"
               : "inset-0 z-50 h-dvh bg-(--mat-thick-solid) pt-[env(safe-area-inset-top)]",

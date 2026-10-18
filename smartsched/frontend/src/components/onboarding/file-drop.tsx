@@ -15,7 +15,7 @@
  * file input names the formats the lead lists (`accept`), so a phone's picker offers only those.
  */
 import { FolderInput, X } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { BareButton, Button, IconButton, buttonVariants } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
@@ -54,6 +54,13 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
   const staged = handed.expired ? [] : (handed.handoff?.items.filter((i) => i.token) ?? []);
   const [files, setFiles] = useState<File[]>(() => (handed.handoff?.items ?? []).filter((i) => !i.token).flatMap((i) => handedFile(i) ?? []));
   const [fromHelper] = useState<ReadonlySet<File>>(() => new Set(files));
+  // HB-23d DS-04: files from the helper are here: the page's own primary ("Başlat") takes the focus (§10)
+  const handedHere = staged.length > 0 || fromHelper.size > 0;
+  useEffect(() => {
+    if (!handedHere) return;
+    const id = requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-testid="onboarding-start"]:not([disabled])')?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [handedHere]);
   const [dragging, setDragging] = useState(false);
   const [forceGeneral, setForceGeneral] = useState(false);
   const [wantAi, setUseAi] = useState(true);
@@ -77,7 +84,7 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
   // through İçe aktar (a quiet line, no button: the council's fast path reads it the same way)
   const handedKind = handed.handoff?.kind && KIND_KEYS[handed.handoff.kind] ? handed.handoff.kind : null;
   const importable = handedKind && IMPORT_SCREEN_KINDS.has(handedKind) ? staged.filter((f) => /\.(xlsx|xlsm)$/i.test(f.name)).length : 0;
-  const chip = <span className="ml-2 inline-flex h-6 items-center rounded-full bg-fill-2 px-2 align-middle type-caption text-label-1">{t("helper.file.handed")}</span>;
+  const chip = <span className="mt-0.5 inline-flex h-6 items-center rounded-full bg-fill-2 px-2 align-middle type-caption text-label-1">{t("helper.file.handed")}</span>;
 
   return (
     <Card className="gap-0 p-0" data-testid="onboarding-drop">
@@ -135,8 +142,8 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
               <tbody>
                 {staged.map((f) => (
                   <tr key={`staged:${f.name}:${f.size}`} className="bg-tint-soft edge-hairline-b" data-testid="onboarding-handed-file">
-                    <td className="px-4 py-1.5 text-label-1 break-all sm:max-w-0 sm:truncate sm:break-normal">
-                      {f.name}
+                    <td className="px-4 py-1.5 text-label-1 sm:max-w-0">
+                      <span className="block break-all sm:truncate sm:break-normal" title={f.name}>{f.name}</span>
                       {chip}
                     </td>
                     <td className="max-sm:hidden px-2 py-1.5 text-label-2">{handedKind ? `${t(KIND_KEYS[handedKind]!)} · ${ext(f.name)}` : ext(f.name)}</td>
@@ -151,8 +158,8 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
                 ))}
                 {files.map((f) => (
                   <tr key={`${f.name}:${f.size}`} className="edge-hairline-b" data-testid={fromHelper.has(f) ? "onboarding-handed-file" : undefined}>
-                    <td className="px-4 py-1.5 text-label-1 break-all sm:max-w-0 sm:truncate sm:break-normal">
-                      {f.name}
+                    <td className="px-4 py-1.5 text-label-1 sm:max-w-0">
+                      <span className="block break-all sm:truncate sm:break-normal" title={f.name}>{f.name}</span>
                       {fromHelper.has(f) ? chip : null}
                     </td>
                     <td className="max-sm:hidden px-2 py-1.5 text-label-2">{ext(f.name)}</td>

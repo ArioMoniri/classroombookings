@@ -178,6 +178,12 @@ describe("/import with a file from the helper", () => {
 });
 
 describe("setup wizard file list with a file from the helper", () => {
+  it("HB-23d DS-04: files from the helper put the focus on 'Başlat'", async () => {
+    useFileHandoffStore.getState().set(handoff({ featureId: "onboarding", kind: "timetable_other", params: {} }));
+    wrap(<FileDrop busy={false} onStart={vi.fn()} />);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("onboarding-start")));
+  });
+
   it("lists the staged file as row 1 with the chip and starts with its token", () => {
     useFileHandoffStore.getState().set(handoff({ featureId: "onboarding", kind: "timetable_other", params: {} }));
     const onStart = vi.fn();
