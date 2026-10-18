@@ -182,3 +182,7 @@ On pass: tick VO-06/07/08 and VO-05.
 ## Added 2026-10-18 11:50 UTC
 
 - **HB-E:** helper `search_site` "takvim" lists Profil › Takvim (1440 and 390, tr-TR); "B 406 perşembe 13:30" reaches a confirm card with the resolved P7; /admin/ai providers tab shows the `context_unverified` warning text in TR and EN on desktop and phone.
+
+## Added 2026-10-18 12:00 UTC
+
+- **RF-16b** (1440 and 390, tr-TR): first visit with empty localStorage and `/api/v1/period-grid` delayed ~3 s, /timetable, /classes, /find-room show content at once, then times read 08:00 without reload, focus and scroll kept, localStorage holds the grid; reload shows 08:00 on first paint with no 08:30 flash; a 500 with a cached grid keeps the cached times, no toast; /find-room untouched start/end/window move to the new grid, typed values stay; day timeline and agenda update in place; /settings CLS 0 when the grid arrives; M-01/02/03/05 on the three screens.

@@ -3993,7 +3993,8 @@
       "goal": "Ledger name `rf-16b-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorke…",
       "ledger": "RF-16b: non-blocking period grid",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 11:57"
     },
     {
       "id": "a0724f960a52c30b3",
@@ -4001,6 +4002,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-18 11:46",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a1df35d0e74f41539",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:57",
       "left_off": "is the pod up yet"
     }
   ]
