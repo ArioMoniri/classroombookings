@@ -62,19 +62,19 @@ export function useChartKeyboard({ count, api, describe, announce }: { count: nu
       e.preventDefault();
       if (timer.current) clearTimeout(timer.current);
       if (move === "hide") {
-        api?.dispatchAction({ type: "hideTip" });
+        api?.hideTip();
         setIndex(null);
         return;
       }
       setIndex(move);
-      api?.dispatchAction({ type: "showTip", seriesIndex: 0, dataIndex: move });
+      api?.showTip(move);
       timer.current = setTimeout(() => announce(describe(move)), LIVE_DEBOUNCE_MS);
     },
     [index, count, api, describe, announce],
   );
   const onBlur = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
-    if (index != null) api?.dispatchAction({ type: "hideTip" });
+    if (index != null) api?.hideTip();
     setIndex(null);
   }, [index, api]);
   return { index, onKeyDown, onBlur };

@@ -18,9 +18,20 @@ export function findInstance(root: HTMLElement | null): ReturnType<typeof echart
 export function useChartApi(ref: RefObject<HTMLElement | null>, onReady?: (api: ChartApi) => void): void {
   useEffect(() => {
     if (!onReady) return;
+    type Action = Parameters<ReturnType<typeof echarts.init>["dispatchAction"]>[0];
     onReady({
       getDataURL: (opts) => findInstance(ref.current)?.getDataURL(opts) ?? null,
-      dispatchAction: (action) => findInstance(ref.current)?.dispatchAction(action as Parameters<ReturnType<typeof echarts.init>["dispatchAction"]>[0]),
+      dispatchAction: (action) => findInstance(ref.current)?.dispatchAction(action as Action),
+      // by pixel, like a hover: `showTip` by dataIndex shows an empty tooltip when the axis pointer is "none"
+      // (EvilCharts bars). The bucket's x comes from the category axis; y is the plot's middle.
+      showTip: (index) => {
+        const inst = findInstance(ref.current);
+        if (!inst) return;
+        const x = inst.convertToPixel({ xAxisIndex: 0 }, index) as unknown as number;
+        if (!Number.isFinite(x)) return;
+        inst.dispatchAction({ type: "showTip", x, y: inst.getHeight() / 2 } as Action);
+      },
+      hideTip: () => findInstance(ref.current)?.dispatchAction({ type: "hideTip" } as Action),
     });
   }, [ref, onReady]);
 }

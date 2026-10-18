@@ -270,8 +270,9 @@ describe("ChartCard plot context", { timeout: 20_000 }, () => {
 
 describe("ChartCard keyboard (CH-03)", { timeout: 20_000 }, () => {
   function keyed() {
-    const dispatchAction = vi.fn();
-    const api = { getDataURL: () => null, dispatchAction };
+    const showTip = vi.fn();
+    const hideTip = vi.fn();
+    const api = { getDataURL: () => null, dispatchAction: vi.fn(), showTip, hideTip };
     function Plot({ onReady }: { onReady: (a: typeof api) => void }) {
       useEffect(() => onReady(api), [onReady]);
       return <div data-testid="plot" />;
@@ -281,7 +282,7 @@ describe("ChartCard keyboard (CH-03)", { timeout: 20_000 }, () => {
         {(ctx) => <Plot onReady={ctx.onReady} />}
       </ChartCard>,
     );
-    return dispatchAction;
+    return { showTip, hideTip };
   }
 
   it("the plot is one tab stop: a named group that is not hidden; only the drawing inside is aria-hidden", () => {
@@ -294,10 +295,10 @@ describe("ChartCard keyboard (CH-03)", { timeout: 20_000 }, () => {
 
   it("→ shows the first bucket's tooltip and reads it after 250 ms; End jumps; Esc hides", () => {
     vi.useFakeTimers();
-    const dispatchAction = keyed();
+    const { showTip, hideTip } = keyed();
     const group = screen.getByRole("group", { name: "Grafik, ok tuşlarıyla gezinin" });
     fireEvent.keyDown(group, { key: "ArrowRight" });
-    expect(dispatchAction).toHaveBeenLastCalledWith({ type: "showTip", seriesIndex: 0, dataIndex: 0 });
+    expect(showTip).toHaveBeenLastCalledWith(0);
     const live = screen.getByTestId("chart-live-kb");
     expect(live).toHaveTextContent("");
     act(() => {
@@ -305,8 +306,8 @@ describe("ChartCard keyboard (CH-03)", { timeout: 20_000 }, () => {
     });
     expect(live).toHaveTextContent("12 Ekim Pazartesi: toplam 38.120 token; Sohbet 37.120, Kurallar 1.000");
     fireEvent.keyDown(group, { key: "End" });
-    expect(dispatchAction).toHaveBeenLastCalledWith({ type: "showTip", seriesIndex: 0, dataIndex: 2 });
+    expect(showTip).toHaveBeenLastCalledWith(2);
     fireEvent.keyDown(group, { key: "Escape" });
-    expect(dispatchAction).toHaveBeenLastCalledWith({ type: "hideTip" });
+    expect(hideTip).toHaveBeenCalled();
   });
 });

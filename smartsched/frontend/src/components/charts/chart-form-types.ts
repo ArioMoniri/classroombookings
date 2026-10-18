@@ -8,6 +8,9 @@ import type { ChartConfig } from "./evil/ui/echarts-chart";
 export interface ChartApi {
   getDataURL: (opts: { type: "svg" | "png"; pixelRatio?: number; backgroundColor?: string }) => string | null;
   dispatchAction: (action: Record<string, unknown>) => void;
+  /** shows the tooltip at bucket `index` (keyboard scrub, CH-03) */
+  showTip: (index: number) => void;
+  hideTip: () => void;
 }
 
 /** what `ChartCard` hands its plot (spread it into a Lazy*Chart) */
