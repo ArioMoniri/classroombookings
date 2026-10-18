@@ -10,6 +10,8 @@ import { BELOW_MD, useMediaQuery } from "@/components/ui/use-media-query";
 export interface PeriodOption<V extends string = string> {
   value: V;
   label: string;
+  /** overrides the default `chart-period-<id>-<value>` test id (kept ids of a migrated surface) */
+  testId?: string;
 }
 
 export interface PeriodPickerProps<V extends string> {
@@ -24,7 +26,7 @@ export function PeriodPicker<V extends string>({ value, options, onChange, label
   const phone = useMediaQuery(BELOW_MD);
   return (
     <SegmentedControl<V>
-      options={options.map((o) => ({ value: o.value, label: o.label, text: o.label, testId: id ? `chart-period-${id}-${o.value}` : undefined }))}
+      options={options.map((o) => ({ value: o.value, label: o.label, text: o.label, testId: o.testId ?? (id ? `chart-period-${id}-${o.value}` : undefined) }))}
       value={value}
       onValueChange={onChange}
       semantics="tablist"

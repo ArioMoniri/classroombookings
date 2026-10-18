@@ -41,7 +41,7 @@ from app.core.config import get_settings
 from app.core.security import decrypt_secret, encrypt_secret, revoke_tokens, user_token, verify_password
 from app.models import Setting, User
 from app.models.base import utcnow
-from app.models.mfa import AuthChallenge, MfaRecoveryCode, TrustedDevice, UserMfa, WebAuthnCredential
+from app.models.mfa import AuthChallenge, MfaRecoveryCode, TrustedDevice, UserMfa, UserSession, WebAuthnCredential
 from app.schemas import messages
 from app.services import audit, passkeys
 
@@ -1236,8 +1236,10 @@ async def admin_reset(
         await db.execute(
             delete(AuthChallenge).where(AuthChallenge.user_id == target.id, AuthChallenge.used_at.is_(None))
         )
-        revoke_tokens(target)
         await db.flush()
+    from app.services import sessions as user_sessions  # AU-15: every session of the person ends (implies revoke_tokens)
+
+    await user_sessions.revoke_all(db, target, actor=actor, reason="mfa_reset")
     removed = {"totp": had_totp, "recovery_code_count": int(codes), "passkeys": n_keys, "trusted_devices": n_devices}
     await audit.record(
         db,
@@ -1501,6 +1503,19 @@ async def dsr_rows(db: AsyncSession, user_id: int) -> list[dict[str, Any]]:
                 "detail": None,
             }
         )
+    from app.services import sessions as user_sessions
+
+    for sess in await user_sessions.dsr_rows(db, user_id):
+        out.append(
+            {
+                "item": "session",
+                "name": sess["device"],
+                "enabled": sess["revoked_at"] is None,
+                "created_at": sess["created_at"],
+                "last_used_at": sess["last_seen_at"],
+                "detail": sess["network"],
+            }
+        )
     for d in devices:
         out.append(
             {
@@ -1519,7 +1534,7 @@ async def erase(db: AsyncSession, user_id: int) -> int:
     """Delete every sign-in security row of the person (KVKK erasure); the number of rows deleted."""
     total = 0
     async with rls.system_scope(db):
-        for model in (MfaRecoveryCode, WebAuthnCredential, TrustedDevice, AuthChallenge, UserMfa):
+        for model in (MfaRecoveryCode, WebAuthnCredential, TrustedDevice, AuthChallenge, UserSession, UserMfa):
             res = await db.execute(
                 delete(model).where(model.user_id == user_id).execution_options(synchronize_session=False)
             )

@@ -175,6 +175,10 @@ describe("OpsPanel", () => {
     renderIt();
     await waitFor(() => expect(screen.getByTestId("ops-chart-summary")).toHaveTextContent("40 istek · 1 hata (%2,5) · en yüksek p95 120 ms"));
     expect(screen.getByTestId("ops-chart")).toHaveTextContent("Kaynak: bu API işlemi");
+    // CH-06: the shared ChartCard (title, one summary, the table twin with the three measures)
+    const fig = screen.getByRole("figure", { name: "İstekler ve gecikme" });
+    expect(fig).toHaveAccessibleDescription(/Dakikada ort\. 20 istek; en çok 5xx \d\d:\d\d \(1\)\./);
+    expect(within(within(fig).getByRole("table")).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Saat", "İstek", "5xx", "p95 (ms)"]);
     await userEvent.click(screen.getByTestId("ops-range-180"));
     await waitFor(() => expect(state.calls.some((c) => c.path === "/ops/requests" && c.query?.minutes === 180)).toBe(true));
   });

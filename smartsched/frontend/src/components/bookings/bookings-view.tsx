@@ -31,6 +31,7 @@ import { useApprovalFirst, violationText } from "@/lib/api/booking-policies";
 import { useMyRequests } from "@/lib/api/wave1";
 import { useHydrated } from "@/lib/use-hydrated";
 import { BookingDetailSheet } from "./booking-detail-sheet";
+import { useDeepLinkedBooking } from "./deep-link";
 import { BookingGrid, pickKind, reasonKey, TONE_CLASS, TONE_ICON } from "./booking-grid";
 import { bookingErrorMessage } from "./booking-errors";
 import { DatePicker } from "./date-picker";
@@ -117,6 +118,7 @@ export function BookingsView() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [book, setBook] = useState<BookTarget | null>(null);
   const [detail, setDetail] = useState<number | null>(null);
+  useDeepLinkedBooking(setDetail); // RF-11: an e-mail's ?booking=<id> (and ?series=<id>) opens its detail sheet
   const [info, setInfo] = useState<{ slot: GridSlot; grid: Grid } | null>(null);
   const [multiOpen, setMultiOpen] = useState(false);
 

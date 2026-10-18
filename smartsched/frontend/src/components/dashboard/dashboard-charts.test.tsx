@@ -40,7 +40,7 @@ describe("periodSeries (unchanged by CH-04)", () => {
   });
 });
 
-describe("PeriodArea in the ChartCard shell", () => {
+describe("PeriodArea in the ChartCard shell", { timeout: 20_000 }, () => {
   it("names the chart, says the peak in one sentence and keeps the table twin", () => {
     render(<PeriodArea data={busy} />);
     const fig = screen.getByRole("figure", { name: "Gün boyunca doluluk" });

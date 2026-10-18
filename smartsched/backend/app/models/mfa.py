@@ -115,4 +115,29 @@ class AuthChallenge(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
-__all__ = ["AuthChallenge", "MfaRecoveryCode", "TrustedDevice", "UserMfa", "WebAuthnCredential"]
+
+
+class UserSession(Base):
+    """AU-15: one row per signed-in token (its ``jti``, only as SHA-256), recorded on the token's first request; a
+    revoked row makes the token answer 401 at once (``app/services/sessions.py``). ``tv`` is the token version the
+    token carries: a sign-out everywhere (version bump) ends every older row without touching it."""
+
+    __tablename__ = "user_sessions"
+    __table_args__ = (UniqueConstraint("jti_hash", name="uq_user_sessions_jti_hash"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    jti_hash: Mapped[str] = mapped_column(String(64))
+    tv: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: browser + OS family ("Safari, iPhone"), no version
+    device: Mapped[str] = mapped_column(String(120), default="")
+    #: the client network: IPv4 /24 or IPv6 /48 (never the full address)
+    network: Mapped[str] = mapped_column(String(64), default="")
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+__all__ = ["AuthChallenge", "MfaRecoveryCode", "TrustedDevice", "UserMfa", "UserSession", "WebAuthnCredential"]

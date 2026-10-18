@@ -166,12 +166,17 @@ async def confirm(session: AsyncSession, access: Access, token: str) -> dict[str
     if spec.action.name != action or not spec.action.allowed(access):
         await _reject(session, access, "not_allowed", action)
         raise ActionRefused(403, "not_allowed", "Bu işlem hesabınızda yok.", "This isn't available on your account.")
+    nonce = str(p["n"])
+    seen = await session.execute(select(HelperActionInvocation.id).where(HelperActionInvocation.nonce == nonce))
+    if seen.first() is not None:
+        await _reject(session, access, "already_done", action)
+        raise ActionRefused(409, "already_done", "Bu işlem zaten yapıldı.", "This was already done.")
     inv = HelperActionInvocation(
         user_id=access.user_id,
         action=action,
         args_hash=str(p["ah"]),
         preview_hash=str(p["ph"]),
-        nonce=str(p["n"]),
+        nonce=nonce,
         status="confirmed",
         created_at=now,
         expires_at=_ts(p["exp"]),
@@ -179,19 +184,21 @@ async def confirm(session: AsyncSession, access: Access, token: str) -> dict[str
     session.add(inv)
     try:
         await session.commit()  # the once-only claim: a second confirm of the same token hits the unique nonce
-    except IntegrityError as exc:
+    except IntegrityError as exc:  # a concurrent confirm of the same token won the race
         await session.rollback()
+        await session.refresh(access.user)
         await _reject(session, access, "already_done", action)
         raise ActionRefused(409, "already_done", "Bu işlem zaten yapıldı.", "This was already done.") from exc
+    inv_id = inv.id
     ctx = Ctx(session, access)
     args = spec.action.args.model_validate(p["args"])
     try:
         fresh = await spec.preview(ctx, args)
     except ActionRefused as exc:
-        await _fail(session, inv, exc.code)
+        await _fail(session, inv_id, exc.code)
         raise
     if not isinstance(fresh, writes.Preview) or fresh.hash != inv.preview_hash:
-        await _fail(session, inv, "changed")
+        await _fail(session, inv_id, "changed")
         card = await spec.action.run(ctx, args)  # the new card (a fresh preview with a new token, or a form)
         raise ActionRefused(
             409,
@@ -204,22 +211,23 @@ async def confirm(session: AsyncSession, access: Access, token: str) -> dict[str
         done = await spec.execute(ctx, args, fresh)
     except ActionRefused as exc:
         await session.rollback()
-        await _fail(session, inv, exc.code)
+        await session.refresh(access.user)
+        await _fail(session, inv_id, exc.code)
         raise
     ev = await audit.record(
         session,
         f"helper.action.{action}",
         "helper_action",
-        inv.id,
+        inv_id,
         after={
             "via": "helper",
-            "invocation_id": inv.id,
+            "invocation_id": inv_id,
             "entity": done.entity.model_dump() if done.entity else None,
             "args": p["args"],
         },
         actor=access.user,
     )
-    inv = await session.get(HelperActionInvocation, inv.id) or inv
+    inv = await session.get(HelperActionInvocation, inv_id) or inv
     inv.status, inv.done_at, inv.audit_id = "done", utcnow(), ev.id
     inv.entity_type = done.entity.kind if done.entity else None
     inv.entity_id = done.entity.id if done.entity else None
@@ -245,10 +253,10 @@ async def confirm(session: AsyncSession, access: Access, token: str) -> dict[str
     )
 
 
-async def _fail(session: AsyncSession, inv: HelperActionInvocation, code: str) -> None:
+async def _fail(session: AsyncSession, inv_id: int, code: str) -> None:
     await session.execute(
         update(HelperActionInvocation)
-        .where(HelperActionInvocation.id == inv.id)
+        .where(HelperActionInvocation.id == inv_id)
         .values(status="failed", error_code=code[:48], done_at=utcnow())
     )
     await session.commit()

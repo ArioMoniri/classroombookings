@@ -202,7 +202,14 @@ DATA_CLASSES: dict[str, dict[str, Any]] = {
         "anahtar), güvenilir cihazlar (özet), giriş adımları",
         "en": "Sign-in security: authenticator app (encrypted), recovery codes (hashed), passkeys (public keys), "
         "trusted devices (hashed), sign-in steps",
-        "tables": ["user_mfa", "mfa_recovery_codes", "webauthn_credentials", "trusted_devices", "auth_challenges"],
+        "tables": [
+            "user_mfa",
+            "mfa_recovery_codes",
+            "webauthn_credentials",
+            "trusted_devices",
+            "auth_challenges",
+            "user_sessions",
+        ],
         "legal_basis": "KVKK m.12 veri güvenliği tedbiri; m.5/2(c) sözleşmenin ifası (hesaba güvenli giriş)",
         "retention": None,
         "kept": "hesapla birlikte; silme talebinde silinir",

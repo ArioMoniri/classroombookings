@@ -13,10 +13,11 @@
  */
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
-import { classifyToken, decodePending, encodePending, endsChallenge, MFA_COOKIE, PASSKEY_COOKIE, TRUSTED_COOKIE, type MfaPending, type TokenAnswer } from "@/components/auth/mfa-model";
+import { decodePending, endsChallenge, MFA_COOKIE, PASSKEY_COOKIE, TRUSTED_COOKIE, type TokenAnswer } from "@/components/auth/mfa-model";
 import { safeNext } from "@/components/auth/signin-model";
 import { maskIdentifier } from "@/lib/api/auth-security";
-import { AUTH_COOKIE, COOKIE_MAX_AGE, backendBaseUrl } from "@/lib/server/config";
+import { backendBaseUrl } from "@/lib/server/config";
+import { clearCookies as clear, settle } from "@/lib/server/mfa-session";
 
 export const dynamic = "force-dynamic";
 
@@ -50,62 +51,6 @@ const code = (json: unknown): string | null => {
   const d = (json as { detail?: unknown } | null)?.detail;
   return d && typeof d === "object" && typeof (d as Json).code === "string" ? String((d as Json).code) : null;
 };
-
-async function me(token: string): Promise<unknown> {
-  try {
-    const r = await fetch(`${backendBaseUrl()}/api/v1/auth/me`, { headers: { authorization: `Bearer ${token}`, accept: "application/json" }, cache: "no-store" });
-    return r.ok ? await r.json() : null;
-  } catch {
-    return null;
-  }
-}
-
-function setSession(res: NextResponse, token: string, expiresIn: number) {
-  res.cookies.set({ name: AUTH_COOKIE, value: token, httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: expiresIn > 0 ? expiresIn : COOKIE_MAX_AGE });
-}
-
-function setPending(res: NextResponse, p: MfaPending, maxAge: number) {
-  res.cookies.set({ name: MFA_COOKIE, value: encodePending(p), httpOnly: true, sameSite: "lax", secure, path: "/", maxAge });
-}
-
-function clear(res: NextResponse, ...names: string[]) {
-  for (const name of names) res.cookies.set({ name, value: "", httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 0 });
-}
-
-/** A TokenOut-shaped answer → the page's answer + cookies (session, second step or enrolment). */
-async function settle(answer: TokenAnswer, ctx: { masked: string | null; next: string | null }, extra: Json = {}): Promise<NextResponse> {
-  const out = classifyToken(answer);
-  if (out.kind === "session") {
-    const res = NextResponse.json({
-      status: "signed_in",
-      user: await me(out.token),
-      password_change_required: out.mustChangePassword,
-      setup_due: out.setupDue || undefined,
-      grace_until: out.graceUntil,
-      setup_methods: out.setupMethods,
-      recovery_codes_remaining: answer.recovery_codes_remaining ?? undefined,
-      ...extra,
-    });
-    setSession(res, out.token, out.expiresIn);
-    clear(res, MFA_COOKIE, PASSKEY_COOKIE);
-    if (answer.trusted_device_token) {
-      const days = typeof answer.trusted_device_days === "number" && answer.trusted_device_days > 0 ? answer.trusted_device_days : 30;
-      res.cookies.set({ name: TRUSTED_COOKIE, value: answer.trusted_device_token, httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: days * 86_400 });
-    }
-    return res;
-  }
-  if (out.kind === "mfa") {
-    const res = NextResponse.json({ status: "mfa", methods: out.methods, masked: ctx.masked, ...extra });
-    setPending(res, { k: "mfa", t: out.challenge, m: out.methods, a: ctx.masked, n: ctx.next }, out.expiresIn);
-    return res;
-  }
-  if (out.kind === "setup") {
-    const res = NextResponse.json({ status: "setup", setup_methods: out.methods, grace_until: out.graceUntil, masked: ctx.masked, ...extra });
-    setPending(res, { k: "setup", t: out.challenge, m: out.methods, a: ctx.masked, g: out.graceUntil, n: ctx.next }, out.expiresIn);
-    return res;
-  }
-  return NextResponse.json({ detail: "Login response missing token" }, { status: 502 });
-}
 
 async function readBody(req: NextRequest): Promise<Json> {
   try {

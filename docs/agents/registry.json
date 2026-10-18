@@ -2803,8 +2803,8 @@
       "ledger": "CAL-F: calendar export UI",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-18 00:36",
-      "left_off": "The `?calendar=1` hand-over works (section tests 8/8). Waiting for the rebuilt stack."
+      "finished_at": "2026-10-18 08:04",
+      "left_off": "Lane tests pass (75/75). The fresh stack is starting; I'll wait for it."
     },
     {
       "id": "a188be943a3fea75a",
@@ -3137,6 +3137,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-18 07:58",
+      "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a273961c59a2b129f",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:02",
       "left_off": "is the pod deployed yet"
     }
   ]

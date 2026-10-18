@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { myBookingsHref } from "@/components/bookings/deep-link";
+import { myBookingsHref } from "@/components/bookings/deep-link-model";
 
 /**
  * RF-11: the backend's e-mails and notices link "My bookings" as `/bookings/mine?…` (request, series, booking);

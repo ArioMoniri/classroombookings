@@ -258,6 +258,38 @@ async def devices_revoke_all(db: DB, user: CurrentUser) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------------------------------
+# sessions (AU-15)
+# --------------------------------------------------------------------------------------------------
+
+
+@router.get("/sessions")
+async def sessions_list(db: DB, user: CurrentUser, request: Request) -> list[dict[str, Any]]:
+    """The caller's open sessions, newest first; ``current`` marks this one."""
+    from app.services import sessions as user_sessions
+
+    return await user_sessions.list_own(db, user, user_sessions.current_id(request))
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def sessions_revoke(session_id: int, db: DB, user: CurrentUser) -> Response:
+    from app.services import sessions as user_sessions
+
+    await user_sessions.revoke_one(db, user, session_id)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/sessions/revoke-others")
+async def sessions_revoke_others(db: DB, user: CurrentUser, request: Request) -> dict[str, Any]:
+    """"Diğer cihazlardan çıkış yap": every session but this one."""
+    from app.services import sessions as user_sessions
+
+    n = await user_sessions.revoke_others(db, user, user_sessions.current_id(request))
+    await db.commit()
+    return {"revoked": n}
+
+
+# --------------------------------------------------------------------------------------------------
 # administrators
 # --------------------------------------------------------------------------------------------------
 
@@ -305,6 +337,17 @@ async def admin_mfa_reset(user_id: int, body: AdminResetIn, db: DB, me: UsersAdm
             keep_passkeys=body.keep_passkeys,
         ),
     )
+
+
+@admin_router.post("/users/{user_id}/sessions/revoke")
+async def admin_sessions_revoke(user_id: int, db: DB, me: UsersAdmin) -> dict[str, Any]:
+    """Sign the person out everywhere (every session row and the token version); audited."""
+    from app.services import sessions as user_sessions
+
+    target = await _target(db, me, user_id)
+    n = await user_sessions.revoke_all(db, target, actor=me, reason="admin")
+    await db.commit()
+    return {"user_id": target.id, "revoked": n, "signed_out": True}
 
 
 @admin_router.post("/users/{user_id}/password-reset-link")

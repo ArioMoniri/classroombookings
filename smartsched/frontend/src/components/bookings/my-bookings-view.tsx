@@ -32,6 +32,7 @@ import { useMyRequests } from "@/lib/api/wave1";
 import { StatusPill } from "@/components/approvals/request-parts";
 import { addDays } from "./date-format";
 import { BookingDetailSheet } from "./booking-detail-sheet";
+import { useDeepLinkedBooking } from "./deep-link";
 import { CalendarSyncPanel } from "./calendar-sync";
 import { CancelManyDialog } from "./cancel-many-dialog";
 import { RoomInfoSheet } from "./room-info-sheet";
@@ -63,6 +64,7 @@ export function MyBookingsView() {
   const dash = useBookingDashboard();
   const owned = useOwnedRooms();
   const [detail, setDetail] = useState<number | null>(null);
+  useDeepLinkedBooking(setDetail); // RF-11: an e-mail's ?booking=<id> (and ?series=<id>) opens its detail sheet
   const [roomInfo, setRoomInfo] = useState<{ id: number; date: string } | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [cancelOpen, setCancelOpen] = useState(false);

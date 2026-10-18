@@ -66,8 +66,12 @@ export interface ChartCardProps<R> {
   empty?: { reason?: string; action?: { label: string; onClick: () => void } };
   /** CSV file name range (ISO days) */
   range?: { from: string; to: string };
-  /** plot height in px (phones: 200) */
+  /** plot height in px on desktop (default 240) */
   height?: number;
+  /** plot height on phones (default 200, charts.md §7); small multiples need more */
+  phoneHeight?: number;
+  /** test id of the summary sentence (kept ids of a migrated surface) */
+  summaryTestId?: string;
   /** fewer rows than this → the number instead of a chart (default 3) */
   minPoints?: number;
   /** the signed-in user, for the per-user "Grafiklerde desen" preference */
@@ -123,7 +127,7 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
   const summaryId = `${uid}-summary`;
   const hintId = `${uid}-hint`;
   // phones always get the 200 px plot (charts.md §7); `height` is the desktop plot
-  const height = phone ? PHONE_HEIGHT : (props.height ?? 240);
+  const height = phone ? (props.phoneHeight ?? PHONE_HEIGHT) : (props.height ?? 240);
 
   const numberColumns = columns.filter((c) => c.kind === "number" || c.kind === "percent");
   const marks = rows.length * (props.series ?? Math.max(1, numberColumns.length));
@@ -234,7 +238,7 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
               {hint}
             </p>
           ) : null}
-          <p id={summaryId} className="mt-1 type-subheadline text-label-2">
+          <p id={summaryId} className="mt-1 type-subheadline text-label-2" data-testid={props.summaryTestId}>
             {state === "loading" ? <Skeleton className="inline-block h-[1lh] w-3/4 align-middle" /> : <SwapText text={summary} reduce={reduce} />}
           </p>
         </div>

@@ -2,7 +2,7 @@
  *  booking's detail sheet on /my-bookings and /bookings; the backend's `/bookings/mine` links land on /my-bookings. */
 import { describe, expect, it } from "vitest";
 import { notificationHref } from "@/components/notifications/notification-model";
-import { deepLinkedBookingId, myBookingsHref, withoutDeepLink } from "./deep-link";
+import { deepLinkedBookingId, myBookingsHref, withoutDeepLink } from "./deep-link-model";
 
 describe("deep links from the e-mails", () => {
   it("reads a positive booking id and ignores anything else", () => {

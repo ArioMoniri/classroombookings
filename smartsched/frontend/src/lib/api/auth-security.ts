@@ -121,6 +121,8 @@ export const MfaStatus = z.object({
   passkeys: z.array(PasskeyRow).default([]),
   trusted_devices: z.array(TrustedDevice).default([]),
   locked_until: ts,
+  /** owner default: 12 characters, or 8 with 2FA (AU-B API.md §10) */
+  password_min_length: z.number().optional(),
 });
 export type MfaStatus = z.infer<typeof MfaStatus>;
 
@@ -156,6 +158,10 @@ export const AdminMfa = z.object({
   can_send_reset_link: z.boolean(),
 });
 export type AdminMfa = z.infer<typeof AdminMfa>;
+
+export const SignInEvent = z.object({ at: z.string(), action: z.string(), method: z.string().nullish(), by_admin: z.boolean().default(false) });
+export type SignInEvent = z.infer<typeof SignInEvent>;
+export const SignInHistory = z.object({ events: z.array(SignInEvent).default([]), known_devices: z.number().default(0), last_login_at: ts });
 
 export const IDENTITY_CHECKS = ["in_person", "video_call", "phone_callback", "other"] as const;
 export type IdentityCheck = (typeof IDENTITY_CHECKS)[number];
@@ -204,6 +210,7 @@ export const AUTH_SECURITY_PATHS: ReadonlyArray<readonly ["GET" | "POST" | "PUT"
   ["POST", "/auth/passkeys/{passkey_id}/remove"],
   ["POST", "/auth/passkey/options"],
   ["POST", "/auth/passkey/verify"],
+  ["GET", "/auth/sign-ins"],
   ["GET", "/auth/trusted-devices"],
   ["DELETE", "/auth/trusted-devices/{device_id}"],
   ["DELETE", "/auth/trusted-devices"],
@@ -271,6 +278,7 @@ export const authSecurity = {
     request("/auth/passkeys/register/verify", { method: "POST", body: { challenge_token, credential, name: name ?? null }, schema: RegisterOut, silent: true }),
   renamePasskey: (id: number, name: string) => request(`/auth/passkeys/${id}`, { method: "PATCH", body: { name }, schema: PasskeyRow, silent: true }),
   removePasskey: (id: number, password?: string) => request<void>(`/auth/passkeys/${id}/remove`, { method: "POST", body: { password: password ?? "" }, silent: true }),
+  history: () => request("/auth/sign-ins", { schema: SignInHistory, silent: true }),
   devices: () => request("/auth/trusted-devices", { schema: z.array(TrustedDevice), silent: true }),
   forgetDevice: (id: number) => request<void>(`/auth/trusted-devices/${id}`, { method: "DELETE", silent: true }),
   forgetAllDevices: () => request("/auth/trusted-devices", { method: "DELETE", schema: z.object({ revoked: z.number() }), silent: true }),

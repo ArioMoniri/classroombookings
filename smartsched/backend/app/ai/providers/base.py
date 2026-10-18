@@ -78,6 +78,9 @@ class ModelInfo:
     #: what the model does (VO-01): ``text`` | ``stt`` (speech to text) | ``tts``; filled at sync
     #: (:func:`app.ai.voice.registry.model_modalities`)
     modalities: list[str] | None = None
+    #: what the model can do (HB-12, :mod:`app.ai.capabilities`): ``{tools, tool_choice, strict_tools, json_schema,
+    #: vision, pdf, context_window, parallel_tools, source, checked_at}``; ``None`` per field = unknown
+    capabilities: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in self.__dict__.items() if v not in (None, "")} | {"id": self.id}
@@ -97,6 +100,9 @@ class ProviderAdapter(ABC):
     #: provider id (``anthropic`` | ``openai`` | ``azure_openai`` | ``openrouter`` | ``openai_compatible`` |
     #: ``gemini`` | ``bedrock``)
     name: str = ""
+    #: the route model's capability record (HB-12/13), set by the gateway before a call; ``None`` = unknown. The
+    #: OpenAI-compatible adapter uses it to pick named tool choice / JSON-schema emulation / PDF rasterising.
+    capabilities: dict[str, Any] | None = None
 
     @abstractmethod
     async def create(self, kwargs: dict[str, Any]) -> Any: ...
@@ -115,6 +121,11 @@ class ProviderAdapter(ABC):
 
     @abstractmethod
     async def list_models(self) -> list[ModelInfo]: ...
+
+    async def sniff(self, models: list[ModelInfo]) -> str | None:
+        """Add server-specific capability facts to ``models`` (HB-12). Returns the detected server kind; the
+        default knows nothing more than the model list."""
+        return None
 
     def translate_error(self, exc: Exception, model: str) -> Exception:
         """Map a transport / SDK error to a short :class:`ProviderError`; unknown exceptions come back unchanged."""
@@ -165,6 +176,19 @@ def output_schema(kwargs: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
+#: key of the tool input a provider sent as broken JSON (HB-13): the strict schema check of the caller refuses it,
+#: so chat answers the model with an ``INVALID_JSON`` tool result instead of failing the whole call
+INVALID_INPUT_KEY = "_invalid"
+
+
+def tool_input(raw: Any) -> dict[str, Any]:
+    """Tool-call arguments as an object; unreadable arguments become ``{"_invalid": <first 500 chars>}``."""
+    try:
+        return parse_json_object(raw)
+    except ProviderError:
+        return {INVALID_INPUT_KEY: str(raw if raw is not None else "")[:500]}
+
+
 def parse_json_object(raw: Any) -> dict[str, Any]:
     if isinstance(raw, dict):
         return raw
@@ -178,6 +202,7 @@ def parse_json_object(raw: Any) -> dict[str, Any]:
 
 
 __all__ = [
+    "INVALID_INPUT_KEY",
     "EventSink",
     "GBlock",
     "GMessage",
@@ -192,5 +217,6 @@ __all__ = [
     "output_schema",
     "parse_json_object",
     "system_text",
+    "tool_input",
     "tool_result_text",
 ]

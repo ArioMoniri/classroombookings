@@ -200,3 +200,8 @@ from app.models.helper import (  # noqa: E402
 )
 
 __all__ += ["HelperActionInvocation", "HelperEvent", "HelperMessage", "HelperNote", "HelperThread"]
+
+# AU-15 server-side session list (alembic 0045_user_sessions)
+from app.models.mfa import UserSession  # noqa: E402
+
+__all__ += ["UserSession"]

@@ -56,26 +56,12 @@ export function overall(s: OpsStatus): CardStatus {
   return "ok";
 }
 
-export interface ChartGeometry {
-  bars: { x: number; h: number; err: number; t: number }[];
-  line: string;
-  maxRequests: number;
-  maxP95: number;
-}
-
-/** Bars for requests (errors stacked in red) and a polyline for p95, in a `width × height` viewBox. */
-export function chartGeometry(points: RequestPoint[], width: number, height: number): ChartGeometry {
-  const n = Math.max(1, points.length);
-  const step = width / n;
-  const maxRequests = Math.max(1, ...points.map((p) => p.requests));
-  const p95s = points.map((p) => p.p95_ms ?? 0);
-  const maxP95 = Math.max(1, ...p95s);
-  const bars = points.map((p, i) => ({ x: i * step, h: (p.requests / maxRequests) * height, err: (p.errors / maxRequests) * height, t: p.t }));
-  const line = points
-    .map((p, i) => (p.p95_ms == null ? null : `${(i * step + step / 2).toFixed(1)},${(height - (p.p95_ms / maxP95) * height).toFixed(1)}`))
-    .filter(Boolean)
-    .join(" ");
-  return { bars, line, maxRequests, maxP95 };
+/** CH-06 summary facts: requests per minute over the window, and the minute with the most 5xx (null when none). */
+export function requestsDigest(points: RequestPoint[]): { perMinute: number; spike: { t: number; errors: number } | null } {
+  const requests = points.reduce((a, p) => a + p.requests, 0);
+  let spike: { t: number; errors: number } | null = null;
+  for (const p of points) if (p.errors > 0 && (!spike || p.errors > spike.errors)) spike = { t: p.t, errors: p.errors };
+  return { perMinute: points.length ? Math.round(requests / points.length) : 0, spike };
 }
 
 export function totals(points: RequestPoint[]): { requests: number; errors: number; errorPct: number; p95: number | null } {
