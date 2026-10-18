@@ -10,7 +10,9 @@ indexed read; ``last_seen_at`` is written at most every :data:`SEEN_EVERY`. Writ
 read-only route never commits. A revocation clears this process's cache entry and moves ``users.sessions_epoch`` on;
 a cache entry is trusted only while the epoch it saw is the user's current one, so another worker (the user row is read
 on every request anyway) re-checks at once and the revoked token fails on its very next request, at no extra query.
-Tokens without a ``jti`` (issued before AU-15) still pass on the token-version check only.
+Tokens without a ``jti`` (issued before AU-15) still pass on the token-version check only. A token carries the epoch
+at issue (claim ``se``); one first seen after a later revocation is refused, so "Diğer cihazlardan çıkış yap" also ends
+tokens that were issued but had not made a request yet (FIX-A F-AUB-1).
 """
 
 from __future__ import annotations
@@ -111,6 +113,9 @@ async def check(request: Request, payload: dict[str, Any], user: User) -> int | 
     async with get_session_factory()() as s:
         row = (await s.execute(select(UserSession).where(UserSession.jti_hash == h))).scalar_one_or_none()
         if row is None:
+            if _issued_before(payload, epoch):
+                _remember(h, True, 0, now, epoch)
+                raise _revoked()
             row = await _record(s, request, payload, user, h, now)
         elif row.user_id != user.id:  # a jti reused across accounts cannot happen with random ids: refuse
             raise _revoked()
@@ -124,6 +129,18 @@ async def check(request: Request, payload: dict[str, Any], user: User) -> int | 
     _remember(h, False, sid, seen, epoch)
     request.state.__setattr__(STATE_KEY, sid)
     return sid
+
+
+def _issued_before(payload: dict[str, Any], epoch: int) -> bool:
+    """FIX-A F-AUB-1: a token never seen before, issued before the user's latest revocation (its ``se`` claim is behind
+    the user's sessions epoch), has no row the revocation could mark; it is refused on its first request instead.
+    A ``jti`` token without the claim (issued before FIX-A) counts as epoch 0."""
+    from app.core.security import SESSIONS_EPOCH_CLAIM
+
+    claim = payload.get(SESSIONS_EPOCH_CLAIM, 0)
+    if isinstance(claim, bool) or not isinstance(claim, int):
+        return True
+    return claim < epoch
 
 
 async def _record(
@@ -217,6 +234,8 @@ async def revoke_one(db: AsyncSession, user: User, session_id: int) -> None:
 async def revoke_others(db: AsyncSession, user: User, current: int | None) -> int:
     rows = [r for r in await _open(db, user) if r.id != current]
     n = await _mark(db, user, rows, "others")
+    if not rows:  # FIX-A F-AUB-1: tokens issued but not used yet have no row; the epoch still moves on
+        _bump(user)
     await audit.record(db, "auth.session_revoked", "user", user.id, after={"others": True, "count": n})
     return n
 
