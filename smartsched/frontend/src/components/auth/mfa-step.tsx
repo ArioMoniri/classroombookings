@@ -22,6 +22,8 @@ import { mfaErrorCode, retryAfterSeconds, signInStep, type SignInStepOut } from 
 import { HttpError } from "@/lib/api/client";
 import { useI18n } from "@/lib/i18n/provider";
 import { useReduce } from "@/lib/motion";
+import { useHydrated } from "@/lib/use-hydrated";
+import { CREDENTIAL_FORM } from "./credential-form";
 import { firstMethod } from "./mfa-model";
 import { OtherMethods, type MfaView } from "./other-methods";
 import { OtpInput, type OtpState } from "./otp-input";
@@ -49,6 +51,7 @@ export function MfaStep({ methods, masked, next, rememberDays, contact }: { meth
   const [fails, setFails] = useState(0);
   const [errorKey, setErrorKey] = useState(0);
   const otpRef = useRef<HTMLInputElement>(null);
+  const hydrated = useHydrated(); // HB18-F02: no native submit before hydration
   const rcRef = useRef<HTMLInputElement>(null);
   const leadId = useId();
   const rememberId = useId();
@@ -162,7 +165,7 @@ export function MfaStep({ methods, masked, next, rememberDays, contact }: { meth
   const label = done ? t("auth.mfa.verified") : t("auth.mfa.verify");
 
   return (
-    <form onSubmit={onSubmit} noValidate className="auth-step-in flex flex-col" data-testid="mfa-step">
+    <form {...CREDENTIAL_FORM} onSubmit={onSubmit} noValidate className="auth-step-in flex flex-col" data-testid="mfa-step">
       <h1 id="signin-title" className="type-large-title text-label-1">
         {t("auth.mfa.title")}
       </h1>
@@ -212,7 +215,7 @@ export function MfaStep({ methods, masked, next, rememberDays, contact }: { meth
         </div>
       ) : null}
 
-      <BusyButton type="submit" size="lg" shape="rect" className="mt-5 w-full" busy={busy && !done} busyLabel={t("auth.mfa.verifying")} icon={done ? <Check aria-hidden className="auth-check size-4" /> : view === "passkey" ? <KeyRound aria-hidden /> : undefined} data-testid="mfa-submit">
+      <BusyButton type="submit" size="lg" shape="rect" className="mt-5 w-full" busy={busy && !done} busyLabel={t("auth.mfa.verifying")} disabled={!hydrated} icon={done ? <Check aria-hidden className="auth-check size-4" /> : view === "passkey" ? <KeyRound aria-hidden /> : undefined} data-testid="mfa-submit">
         <span key={label} className="auth-text-swap">
           {view === "passkey" && !done ? t("auth.mfa.usePasskey") : label}
         </span>

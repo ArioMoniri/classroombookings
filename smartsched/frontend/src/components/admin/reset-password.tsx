@@ -12,7 +12,9 @@ import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { Input, useShake } from "@/components/ui/input";
 import { crbs, crbsError, useCrbsMutation } from "@/lib/api/crbs";
+import { CREDENTIAL_FORM } from "@/components/auth/credential-form";
 import { useI18n } from "@/lib/i18n/provider";
+import { useHydrated } from "@/lib/use-hydrated";
 import { Alert, Field } from "./kit";
 import { PublicCard } from "./public-card";
 
@@ -27,6 +29,7 @@ function RequestForm({ onHaveCode }: { onHaveCode: () => void }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const m = useCrbsMutation(() => crbs.auth.requestReset(email.trim()));
+  const hydrated = useHydrated(); // HB18-F02: no native submit before hydration
   return (
     <PublicCard title={t("crbs.reset.title")} lead={t("crbs.reset.lead")}>
       {sent ? (
@@ -35,6 +38,7 @@ function RequestForm({ onHaveCode }: { onHaveCode: () => void }) {
         </Alert>
       ) : (
         <form
+          {...CREDENTIAL_FORM}
           className="flex flex-col gap-3"
           onSubmit={(e) => {
             e.preventDefault();
@@ -44,7 +48,7 @@ function RequestForm({ onHaveCode }: { onHaveCode: () => void }) {
           <Field label={t("crbs.reset.identifier")} htmlFor="rs-email">
             <Input id="rs-email" autoComplete="username" autoCapitalize="none" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <Button type="submit" size="lg" disabled={!email.trim() || m.isPending} aria-busy={m.isPending || undefined}>
+          <Button type="submit" size="lg" disabled={!hydrated || !email.trim() || m.isPending} aria-busy={m.isPending || undefined}>
             <BusyLabel busy={m.isPending} label={t("busy.working")}>
             {t("crbs.reset.send")}</BusyLabel>
           </Button>
@@ -71,6 +75,7 @@ function ConfirmForm({ initialToken, onBack }: { initialToken: string; onBack: (
   const [done, setDone] = useState(false);
   const { ref, shake } = useShake<HTMLDivElement>();
   const m = useCrbsMutation(() => crbs.auth.confirmReset(token.trim(), pw));
+  const hydrated = useHydrated(); // HB18-F02: no native submit before hydration
   const fail = (msg: string) => (setError(msg), shake());
   return (
     <PublicCard title={t("crbs.reset.newTitle")} lead={t("crbs.reset.newLead")}>
@@ -85,6 +90,7 @@ function ConfirmForm({ initialToken, onBack }: { initialToken: string; onBack: (
         </div>
       ) : (
         <form
+          {...CREDENTIAL_FORM}
           className="flex flex-col gap-3"
           onSubmit={(e) => {
             e.preventDefault();
@@ -106,7 +112,7 @@ function ConfirmForm({ initialToken, onBack }: { initialToken: string; onBack: (
             </Field>
           </div>
           {error ? <Alert tone="error">{error}</Alert> : null}
-          <Button type="submit" size="lg" disabled={!token.trim() || !pw || m.isPending} aria-busy={m.isPending || undefined}>
+          <Button type="submit" size="lg" disabled={!hydrated || !token.trim() || !pw || m.isPending} aria-busy={m.isPending || undefined}>
             <BusyLabel busy={m.isPending} label={t("busy.working")}>
             {t("crbs.reset.setPassword")}</BusyLabel>
           </Button>

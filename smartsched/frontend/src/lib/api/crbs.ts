@@ -189,7 +189,7 @@ export type DateInfo = z.infer<typeof DateInfo>;
 export const TimetableWeek = z.object({ id: z.number(), name: z.string(), bgcol: z.string(), fgcol: z.string(), icon: z.string().nullish() });
 export type TimetableWeek = z.infer<typeof TimetableWeek>;
 
-export const DatesOut = z.object({ term_id: z.number(), today: z.string(), weeks: z.array(TimetableWeek), dates: z.array(DateInfo) });
+export const DatesOut = z.object({ term_id: z.number(), today: z.string(), next_open: z.string().nullable().optional(), weeks: z.array(TimetableWeek), dates: z.array(DateInfo) });
 export type DatesOut = z.infer<typeof DatesOut>;
 
 export const SlotStatus = z.enum(["available", "booked", "timetable", "unavailable"]);

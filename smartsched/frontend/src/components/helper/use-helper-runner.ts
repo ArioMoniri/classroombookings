@@ -16,6 +16,7 @@ import { crbs } from "@/lib/api/crbs";
 import { helperApi, helperRefusal, invalidateAfterHelperWrite, trackHelper, type ActionArgs, type TurnContext } from "@/lib/api/helper";
 import { translate, type Locale, type MessageKey } from "@/lib/i18n";
 import { useI18n, useMessagesFor } from "@/lib/i18n/provider";
+import { parseServerTime } from "@/lib/server-time";
 import { useHelperStore, type CardEntry } from "./helper-store";
 import type { IntentHints } from "./intents";
 import type { FormCard, HelperCard } from "./schema.gen";
@@ -238,7 +239,7 @@ export function useHelperRunner(): Runner {
       if (entry.card.type !== "confirm" || entry.phase === "busy") return;
       if (!activation.trusted(event)) return;
       const st = useHelperStore.getState();
-      if (Date.parse(entry.card.expires_at) <= Date.now()) {
+      if (parseServerTime(entry.card.expires_at) <= Date.now()) {
         st.updateCard(entry.key, { phase: "expired" });
         return;
       }

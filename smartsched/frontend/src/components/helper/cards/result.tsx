@@ -10,6 +10,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { useI18n } from "@/lib/i18n/provider";
+import { parseServerTime } from "@/lib/server-time";
 import { cn } from "@/lib/utils";
 import { featureHref } from "../feature-links";
 import type { CardEntry } from "../helper-store";
@@ -23,7 +24,7 @@ export function ResultView({ card, entry }: { card: ResultCard; entry: CardEntry
   const open = card.entity?.feature_id ? featureHref(card.entity.feature_id) : null;
   // the window is read when the card appears; the server refuses a late undo with its own message anyway
   const [shownAt] = useState(() => Date.now());
-  const undoOpen = !!card.undo_token && !entry.undone && (!card.undo_expires_at || Date.parse(card.undo_expires_at) > shownAt);
+  const undoOpen = !!card.undo_token && !entry.undone && (!card.undo_expires_at || parseServerTime(card.undo_expires_at) > shownAt);
   const busy = entry.phase === "busy";
   return (
     <HelperCardFrame

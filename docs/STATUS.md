@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `96fd9a9` (committed 2026-10-18 14:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `c9a741e` (committed 2026-10-18 14:18 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -177,7 +177,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-398 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 371 · stopped 11 · superseded 7.
+399 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 371 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -190,6 +190,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `HB-B` | ai-engineer | 2026-10-18 07:56 |
 | `FIX-D` | general-purpose | 2026-10-18 14:10 |
 | `FIX-E` | general-purpose | 2026-10-18 14:10 |
+| `FIX-F` | general-purpose | 2026-10-18 14:15 |
 
 <!-- /AUTO:agents -->
 
@@ -245,7 +246,7 @@ Owner and user decisions recorded in [`docs/ROADMAP.md`](ROADMAP.md), newest fir
 
 | Language | Backend offers | Frontend offers | Message catalogue |
 |---|---|---|---|
-| Turkish (`tr`) | yes | yes | complete (a value for every English key) |
+| Turkish (`tr`) | yes | yes | 1 keys missing |
 | English (`en`) | yes | yes | source catalogue |
 
 Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de es fi fr it nl pt pt-br sv. Their catalogues stay in [`messages/`](../smartsched/frontend/messages); a stored code is kept and shown in English.

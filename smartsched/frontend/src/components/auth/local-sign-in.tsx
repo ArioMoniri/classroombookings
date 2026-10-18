@@ -34,7 +34,9 @@ import { Input, useShake } from "@/components/ui/input";
 import type { SignInStepOut } from "@/lib/api/auth-security";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
+import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
+import { CREDENTIAL_FORM } from "./credential-form";
 import { PasskeyDoor, tryConditionalCreate, usePasskeySignIn } from "./passkey-door";
 import { LAST_METHOD_COOKIE, retryMinutes } from "./signin-model";
 import { useFinishSignIn } from "./use-finish-sign-in";
@@ -84,6 +86,8 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
   const passwordRef = useRef<HTMLInputElement>(null);
   const idRef = useRef<HTMLInputElement>(null);
   const { ref: shakeRef, shake } = useShake<HTMLDivElement>();
+  // HB18-F02: no native submit before hydration (the button and Enter alike)
+  const hydrated = useHydrated();
 
   useEffect(() => {
     if (autoFocus) idRef.current?.focus();
@@ -162,7 +166,7 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
   const describedBy = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ") || undefined;
 
   return (
-    <form onSubmit={onSubmit} noValidate aria-describedby={message ? ids.error : undefined} className="flex flex-col" data-testid="login-form">
+    <form {...CREDENTIAL_FORM} onSubmit={onSubmit} noValidate aria-describedby={message ? ids.error : undefined} className="flex flex-col" data-testid="login-form">
       {message ? (
         <motion.div
           key={error?.kind}
@@ -278,7 +282,7 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
         variant={primary ? "default" : "secondary"}
         busy={busy}
         busyLabel={t("signin.local.busy")}
-        disabled={Boolean(rate)}
+        disabled={Boolean(rate) || !hydrated}
         className={cn("mt-5 w-full")}
         data-testid="login-submit"
         data-primary={primary || undefined}

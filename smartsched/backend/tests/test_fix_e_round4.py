@@ -62,3 +62,14 @@ async def test_per_f10_past_days_read_past_not_too_soon(env):  # noqa: F811
     ).json()
     reasons = {s["reason"] for s in grid["slots"] if s["status"] == "unavailable"}
     assert "range_min" not in reasons and "past" in reasons
+
+
+async def test_hx12b_f02_dates_name_the_next_open_teaching_day(env):  # noqa: F811
+    await _weekdays_only(env)
+    env.set_now(datetime(2026, 3, 1, 10, 0))  # Sunday
+    _, teacher = await env.user("bos-oda@uni.edu.tr")
+    out = (await env.client.get("/api/v1/bookings/dates", headers=teacher)).json()
+    assert out["today"] == "2026-03-01" and out["next_open"] == "2026-03-02"
+    env.set_now(datetime(2026, 3, 2, 10, 0))  # Monday: today itself
+    out = (await env.client.get("/api/v1/bookings/dates", headers=teacher)).json()
+    assert out["next_open"] == "2026-03-02"

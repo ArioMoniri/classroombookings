@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/provider";
+import { parseServerTime } from "@/lib/server-time";
 import { useHelperStore, type CardEntry } from "../helper-store";
 import type { ConfirmCard } from "../schema.gen";
 import { focusEntry } from "../use-helper-runner";
@@ -20,7 +21,7 @@ import { formFromConfirm } from "./form";
 import { CancelledLine, CardLine, HelperCardFrame } from "./frame";
 
 function useExpired(expiresAt: string): boolean {
-  const at = Date.parse(expiresAt);
+  const at = parseServerTime(expiresAt);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!Number.isFinite(at) || at <= now) return;

@@ -20,6 +20,7 @@ import { helperApi, helperRefusal, invalidateAfterHelperWrite, RECENT_LIMIT, use
 import { usePermissions } from "@/lib/api/shell-extra";
 import { intlLocale, translate, type Locale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { parseServerTime } from "@/lib/server-time";
 import { useUiStore } from "@/stores/ui";
 import { pickText } from "./cards/context";
 import { canOpenFeature, featureById, featureHref } from "./feature-links";
@@ -29,10 +30,9 @@ import { activation } from "./use-helper-runner";
 /** At most 3 rows in the palette (helper.md §2.3); the sheet shows all {@link RECENT_LIMIT}. */
 export const PALETTE_RECENT = 3;
 
-/** "az önce" / "5 dakika önce" / "dün" / "12 Şubat". The server's times are naive UTC. */
+/** "az önce" / "5 dakika önce" / "dün" / "12 Şubat". Server times are UTC (`parseServerTime`). */
 export function whenLabel(at: string, locale: Locale, now: number = Date.now()): string {
-  const iso = /(?:[zZ]|[+-]\d\d:?\d\d)$/.test(at) ? at : `${at}Z`;
-  const time = Date.parse(iso);
+  const time = parseServerTime(at);
   if (!Number.isFinite(time)) return "";
   const sec = Math.round((time - now) / 1000);
   if (Math.abs(sec) < 45) return translate(locale, "helper.recent.now");

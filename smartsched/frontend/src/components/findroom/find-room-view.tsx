@@ -101,12 +101,14 @@ export function FindRoomView() {
   const approvalFirst = useApprovalFirst(rooms.data?.[0]?.id, termId);
 
   const [form, setForm] = useState<FindForm | null>(null);
+  const [advOpen, setAdvOpen] = useState(false);
   const [dated, setDated] = useState(false);
   // the form starts on the booking clock's "today" (the backend's, so the e2e clock and the term agree) or the link's
   // ?date= (ISO or GG.AA.YYYY); a switch flipped before the clock answered keeps its value but gets the real date
   if (!dated && today) {
     setDated(true);
-    const init = emptyForm(params.get("date") ?? today);
+    // HX12B-F02 / PER-F08: on a closed day (a Sunday) the form starts on the next teaching day, so "Ara" finds rooms
+    const init = emptyForm(params.get("date") ?? dates.data?.next_open ?? today);
     const text = params.get("text");
     const head = params.get("headcount");
     setForm((p) => (p ? { ...p, date: init.date, weekday: init.weekday, dateFrom: init.dateFrom, dateTo: init.dateTo } : { ...init, text: text ?? "", headcount: head ?? "" }));
@@ -209,8 +211,15 @@ export function FindRoomView() {
   if (!hydrated) return <Loading />;
 
   // features, buildings, free text and the two switches: inline on desktop, a "Filters" sheet below 1024 px
+  const examSwitch = (
+    <label className="flex min-h-11 items-center justify-between gap-3 type-callout text-label-1 pointer-fine:min-h-8">
+      {t("wave1.find.exam")}
+      <Switch checked={f.purpose === "exam"} onCheckedChange={(v) => set("purpose", v ? "exam" : "teaching")} aria-label={t("wave1.find.exam")} />
+    </label>
+  );
   const advanced = (
     <>
+      {examSwitch}
       {facets.data?.length ? <FeaturePicker facets={facets.data} value={f.features} onChange={(v) => set("features", v)} /> : null}
 
       {buildings.length ? (
@@ -244,7 +253,7 @@ export function FindRoomView() {
       </div>
     </>
   );
-  const moreCount = Object.keys(f.features).length + f.buildings.length + (f.text.trim() ? 1 : 0) + (f.showBusy ? 1 : 0) + (f.when === "date" && f.otherDays ? 1 : 0);
+  const moreCount = (f.purpose === "exam" ? 1 : 0) + Object.keys(f.features).length + f.buildings.length + (f.text.trim() ? 1 : 0) + (f.showBusy ? 1 : 0) + (f.when === "date" && f.otherDays ? 1 : 0);
 
   return (
     <div className={cn("flex flex-col gap-5", compact && "pb-20")} data-testid="find-room">
@@ -385,10 +394,6 @@ export function FindRoomView() {
               <Field label={t("wave1.find.headcount")} htmlFor="fr-head" hint={t("wave1.find.headcountHint")}>
                 <Input id="fr-head" type="number" min={0} max={5000} inputMode="numeric" placeholder="0" value={f.headcount} onChange={(e) => set("headcount", e.target.value)} data-testid="fr-headcount" />
               </Field>
-              <label className="-mt-1 flex min-h-11 items-center justify-between gap-3 type-callout text-label-1 pointer-fine:min-h-8">
-                {t("wave1.find.exam")}
-                <Switch checked={f.purpose === "exam"} onCheckedChange={(v) => set("purpose", v ? "exam" : "teaching")} aria-label={t("wave1.find.exam")} />
-              </label>
 
               {compact ? (
                 <Button variant="outline" onClick={() => setMoreOpen(true)} aria-haspopup="dialog" className="self-start" data-testid="fr-filters-open" data-tour="find-room-filters">
@@ -396,7 +401,14 @@ export function FindRoomView() {
                   {moreCount ? t("reserve.filters.openCount", { n: moreCount }) : t("reserve.filters.open")}
                 </Button>
               ) : (
-                advanced
+                // HX12B-F02 / PER-F08: date, time and head count stay; the rest waits behind "Gelişmiş" (open when set)
+                <details className="group rounded-xl" open={advOpen || moreCount > 0} onToggle={(e) => setAdvOpen(e.currentTarget.open)} data-testid="fr-advanced">
+                  <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg py-1 type-callout text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:min-h-11">
+                    <ChevronDown className="size-4 transition-transform duration-(--dur-fast) group-open:rotate-180" aria-hidden />
+                    {moreCount ? t("wave1.find.advancedN", { n: moreCount }) : t("wave1.find.advanced")}
+                  </summary>
+                  <div className="mt-3 flex flex-col gap-4">{advanced}</div>
+                </details>
               )}
 
               {/* desktop: the search button closes the form; phones / tablets get the page-level capsule below (T-R2-10) */}
