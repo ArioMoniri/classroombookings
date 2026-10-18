@@ -15,11 +15,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GRANT_PATH } from "@/components/privacy/calendar-consent";
 import type { FieldKey } from "@/lib/api/calendar-export";
+import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { channelKey, sampleParts, subscribeLinks, type Channel, type ScopeChoice } from "./model";
 
 type T = ReturnType<typeof useI18n>["t"];
+
+/** The backend's own sentence (API.md: `message_tr` first in Turkish, `message_en` otherwise, never the code). */
+export function backendText(e: unknown, locale: string): string {
+  const w = wave1Error(e);
+  if (locale === "tr" && w.messageTr) return w.messageTr;
+  return typeof w.data.message_en === "string" ? w.data.message_en : errorText(w, locale);
+}
 
 export function providerName(p: string, t: T): string {
   return p === "google" || p === "microsoft" ? t(`calendarPush.provider.${p}`) : p;

@@ -23,10 +23,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useIntegrationSettings } from "@/lib/api/approval-first";
 import { ADMIN_FIELDS, ADMIN_FIELD_KEYS, ADMIN_SCOPE_KEYS, SCOPE_KINDS, useExportAdminSettings, useSaveExportAdminSettings, useSaveFeedHorizon, type ExportAdminSettings, type ExportAdminSettingsIn } from "@/lib/api/calendar-export";
-import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { relativeWhen } from "./model";
-import { Advanced, providerName, scopeName } from "./steps";
+import { Advanced, backendText, providerName, scopeName } from "./steps";
 
 /** defaults of the research doc §3.8 while a key is absent */
 const DEFAULTS: Record<string, boolean> = {
@@ -109,7 +108,7 @@ function useSaver() {
         after?.();
       },
       // the backend's own sentence (e.g. a personal mailbox domain is refused with a 422)
-      onError: (e) => setError(t("calendarExport.admin.failed", { message: errorText(wave1Error(e), locale) })),
+      onError: (e) => setError(t("calendarExport.admin.failed", { message: backendText(e, locale) })),
     });
   };
   return { put, pending: save.isPending, error };
@@ -210,7 +209,7 @@ function HorizonForm({ past, grace }: { past: number; grace: number }) {
     if (k) return;
     save.mutate(
       { feed_past_days: Number(v.feed_past_days), feed_cancelled_grace_days: Number(v.feed_cancelled_grace_days) },
-      { onSuccess: () => toast.success(t("calendarExport.admin.saved")), onError: (er) => setError(t("calendarExport.admin.failed", { message: errorText(wave1Error(er), locale) })) },
+      { onSuccess: () => toast.success(t("calendarExport.admin.saved")), onError: (er) => setError(t("calendarExport.admin.failed", { message: backendText(er, locale) })) },
     );
   };
   return (

@@ -19,7 +19,7 @@ import { calendarExportApi, calendarExportKeys, useExportOptions, useRefreshCale
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { RETURN_PATH, legacyProviders, manageRows, nextFocus, pushAccounts, pushScope, relativeWhen } from "./model";
-import { Advanced, LinkResult, providerName, scopeName } from "./steps";
+import { Advanced, LinkResult, backendText, providerName, scopeName } from "./steps";
 
 type T = ReturnType<typeof useI18n>["t"];
 
@@ -76,7 +76,7 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
     try {
       await fn();
     } catch (e) {
-      setError(t("calendarExport.failed", { message: errorText(wave1Error(e), locale) }));
+      setError(t("calendarExport.failed", { message: backendText(e, locale) }));
     } finally {
       setBusy(null);
     }
@@ -218,7 +218,7 @@ function Account({ p, legacy, busy, onReconnect, onDisconnected }: { p: PushChan
       toast.success(t("calendarExport.manage.disconnected", { provider: name }));
       onDisconnected();
     } catch (e) {
-      setError(t("calendarExport.failed", { message: errorText(wave1Error(e), locale) }));
+      setError(t("calendarExport.failed", { message: backendText(e, locale) }));
     } finally {
       setWorking(false);
     }
