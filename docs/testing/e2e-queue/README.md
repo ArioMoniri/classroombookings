@@ -21,3 +21,11 @@ On pass: tick WG-04..08 `[x]` in docs/ROADMAP.md.
 ## Sweeper (ops backup card)
 1. /admin/ops shows the "Yedek" card with "Son yedek: …" (desktop + phone).
 2. After writing a 30-hour-old timestamp into /var/lib/smartsched/textfile/backup.prom, the card turns to a warning.
+
+## CAL-F (calendar export) — e2e/cal-export.spec.ts, E2E_REAL=1, API 19750 / web 19751
+1. T1+T2: 3 taps to a link. T14: Kaldır → the link 404s and focus moves to the next row. T13: another department's
+   card is closed with its reason; a forged request gets 403 `department_not_allowed`.
+2. CAL-07: /profile?calendar=error&provider=google&reason=account_not_verified&domain=uni.edu.tr shows the Turkish
+   sentence (no raw code) and the old panel is closed. CAL-09: the admin export block, co-instructor names off by default.
+3. MOBILE M-01/02/03/05 on /profile; the W3-HUB e2e test 4 (setup-sheet embeds).
+On pass: tick CAL-08/09.

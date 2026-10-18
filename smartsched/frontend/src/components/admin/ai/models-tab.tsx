@@ -14,7 +14,7 @@ import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { AI_FEATURES, EFFORTS, type Provider, type Route, type RouteFeature, type Routes, useAiProviders, useAiRoutes, useSaveRoutes } from "@/lib/api/ai-admin";
+import { AI_FEATURES, EFFORTS, isVoiceFeature, type Provider, type Route, type RouteFeature, type Routes, useAiProviders, useAiRoutes, useSaveRoutes } from "@/lib/api/ai-admin";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useAiLabels } from "./ai-kit";
@@ -45,7 +45,8 @@ function RoutesEditor({ all, routes, canEdit }: { all: Provider[]; routes: Route
   const speech = useMemo(() => speechProviders(all), [all]);
   const speechRoutable = useMemo(() => routableProviders(speech), [speech]);
   const issueText = (i: RouteIssue) => t(`aiAdmin.models.issue.${i}` as MessageKey);
-  const anyIssue = [routeIssues(def, providers), ...AI_FEATURES.map((f) => routeIssues(features[f], providers, f)), routeIssues(features.voice_stt, speech, "voice_stt")].some((x) => x.filter((i) => i !== "transferMissing").length);
+  const rowProviders = (f: RouteFeature) => (isVoiceFeature(f) ? speech : providers);
+  const anyIssue = [routeIssues(def, providers), ...AI_FEATURES.map((f) => routeIssues(features[f], rowProviders(f), f))].some((x) => x.filter((i) => i !== "transferMissing").length);
 
   const submit = () => {
     setServerErrors({});
@@ -81,6 +82,29 @@ function RoutesEditor({ all, routes, canEdit }: { all: Provider[]; routes: Route
       />
       {AI_FEATURES.map((f) => {
         const eff = routes.effective[f];
+        const effective = eff && eff.source !== "none" && eff.provider ? t(`aiAdmin.models.source.${eff.source}` as MessageKey, { provider: providerLabel(all.find((p) => p.id === eff.provider) ?? { label_tr: eff.provider, label_en: eff.provider }, locale), model: eff.model }) : null;
+        if (isVoiceFeature(f))
+          // speech-to-text: only models whose modalities include "stt"; no default to follow (no route → mic hidden)
+          return (
+            <RouteRow
+              key={f}
+              id={f}
+              title={t("voice.admin.feature")}
+              hint={t("voice.admin.need")}
+              draft={features[f] ?? null}
+              onChange={(d) => setFeatures((x) => ({ ...x, [f]: d }))}
+              providers={speech}
+              routable={speechRoutable}
+              canEdit={canEdit}
+              allowFollow
+              followLabel={t("voice.admin.unset")}
+              noEffort
+              issues={routeIssues(features[f], speech, f).map(issueText)}
+              serverError={serverErrors[f]}
+              effective={effective}
+              note={!speechRoutable.length ? t("voice.admin.noSpeechModels") : !features[f]?.provider ? t("voice.admin.noModel") : null}
+            />
+          );
         return (
           <RouteRow
             key={f}
@@ -95,31 +119,10 @@ function RoutesEditor({ all, routes, canEdit }: { all: Provider[]; routes: Route
             allowFollow
             issues={routeIssues(features[f], providers, f).map(issueText)}
             serverError={serverErrors[f]}
-            effective={eff ? t(`aiAdmin.models.source.${eff.source}` as MessageKey, { provider: providerLabel(providers.find((p) => p.id === eff.provider) ?? { label_tr: eff.provider, label_en: eff.provider }, locale), model: eff.model }) : null}
+            effective={effective}
           />
         );
       })}
-      <RouteRow
-        id="voice_stt"
-        title={t("voice.admin.feature")}
-        hint={t("voice.admin.need")}
-        draft={features.voice_stt ?? null}
-        onChange={(d) => setFeatures((x) => ({ ...x, voice_stt: d }))}
-        providers={speech}
-        routable={speechRoutable}
-        canEdit={canEdit}
-        allowFollow
-        followLabel={t("voice.admin.unset")}
-        noEffort
-        issues={routeIssues(features.voice_stt, speech, "voice_stt").map(issueText)}
-        serverError={serverErrors.voice_stt}
-        effective={(() => {
-          const eff = routes.effective.voice_stt;
-          if (!eff || eff.source === "none" || !eff.provider) return null;
-          return t(`aiAdmin.models.source.${eff.source}` as MessageKey, { provider: providerLabel(all.find((p) => p.id === eff.provider) ?? { label_tr: eff.provider, label_en: eff.provider }, locale), model: eff.model });
-        })()}
-        note={!speechRoutable.length ? t("voice.admin.noSpeechModels") : !features.voice_stt?.provider ? t("voice.admin.noModel") : null}
-      />
       {canEdit ? (
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={submit} {...busyProps(save.isPending, anyIssue)} data-testid="ai-routes-save">

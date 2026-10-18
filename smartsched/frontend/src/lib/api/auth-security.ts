@@ -163,6 +163,10 @@ export const SignInEvent = z.object({ at: z.string(), action: z.string(), method
 export type SignInEvent = z.infer<typeof SignInEvent>;
 export const SignInHistory = z.object({ events: z.array(SignInEvent).default([]), known_devices: z.number().default(0), last_login_at: ts });
 
+/** AU-15 `GET /auth/sessions`: open sessions, newest first. `network` (a /24 or /48) is never shown (KVKK, §6.5). */
+export const SessionRow = z.object({ id: z.number(), created_at: z.string(), last_seen_at: ts, expires_at: ts, device: z.string().nullish(), network: z.string().nullish(), current: z.boolean().default(false) });
+export type SessionRow = z.infer<typeof SessionRow>;
+
 export const IDENTITY_CHECKS = ["in_person", "video_call", "phone_callback", "other"] as const;
 export type IdentityCheck = (typeof IDENTITY_CHECKS)[number];
 export const AdminResetOut = z.object({ user_id: z.number(), removed: z.record(z.string(), z.unknown()).optional(), signed_out: z.boolean().optional() });
@@ -212,6 +216,10 @@ export const AUTH_SECURITY_PATHS: ReadonlyArray<readonly ["GET" | "POST" | "PUT"
   ["POST", "/auth/passkey/verify"],
   ["GET", "/auth/sign-ins"],
   ["GET", "/auth/trusted-devices"],
+  ["GET", "/auth/sessions"],
+  ["DELETE", "/auth/sessions/{session_id}"],
+  ["POST", "/auth/sessions/revoke-others"],
+  ["POST", "/admin/users/{user_id}/sessions/revoke"],
   ["DELETE", "/auth/trusted-devices/{device_id}"],
   ["DELETE", "/auth/trusted-devices"],
   ["GET", "/admin/auth/mfa-policy"],
@@ -264,6 +272,7 @@ export async function signInStep<T = SignInStepOut>(step: SignInStep, body?: unk
 
 export const authSecurityKeys = {
   status: ["auth-security", "status"] as const,
+  sessions: ["auth-security", "sessions"] as const,
   policy: ["auth-security", "policy"] as const,
   admin: (userId: number) => ["auth-security", "admin", userId] as const,
 };
@@ -284,6 +293,9 @@ export const authSecurity = {
   devices: () => request("/auth/trusted-devices", { schema: z.array(TrustedDevice), silent: true }),
   forgetDevice: (id: number) => request<void>(`/auth/trusted-devices/${id}`, { method: "DELETE", silent: true }),
   forgetAllDevices: () => request("/auth/trusted-devices", { method: "DELETE", schema: z.object({ revoked: z.number() }), silent: true }),
+  sessions: () => request("/auth/sessions", { schema: z.array(SessionRow), silent: true }),
+  endSession: (id: number) => request<void>(`/auth/sessions/${id}`, { method: "DELETE", silent: true }),
+  endOtherSessions: () => request("/auth/sessions/revoke-others", { method: "POST", body: {}, schema: z.object({ revoked: z.number() }), silent: true }),
   policy: () => request("/admin/auth/mfa-policy", { schema: MfaPolicy, silent: true }),
   savePolicy: (body: Partial<MfaPolicy>) => request("/admin/auth/mfa-policy", { method: "PUT", body, schema: MfaPolicy, silent: true }),
   adminSummary: (userId: number) => request(`/admin/users/${userId}/mfa`, { schema: AdminMfa, silent: true }),
@@ -294,6 +306,18 @@ export const authSecurity = {
 
 export function useMfaStatus(enabled = true) {
   return useQuery({ queryKey: authSecurityKeys.status, queryFn: authSecurity.status, enabled, staleTime: 30_000, retry: false });
+}
+
+/** The client-side rule for a new password (owner Q2): 12 characters, or 8 with 2FA, from `GET /auth/mfa`
+ *  `password_min_length`; 12 until it answers (the backend has the last word with 422 `password_too_short`). */
+export const DEFAULT_PASSWORD_MIN = 12;
+export function usePasswordMinLength(enabled = true): number {
+  const q = useMfaStatus(enabled);
+  return q.data?.password_min_length ?? DEFAULT_PASSWORD_MIN;
+}
+
+export function useSessions(enabled = true) {
+  return useQuery({ queryKey: authSecurityKeys.sessions, queryFn: authSecurity.sessions, enabled, staleTime: 30_000, retry: false });
 }
 
 export function useMfaPolicy(enabled = true) {

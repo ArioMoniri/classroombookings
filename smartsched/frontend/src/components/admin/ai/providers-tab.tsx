@@ -107,7 +107,11 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
               {CAPABILITIES.filter((c) => caps.includes(c))
                 .map((c) => t(`voice.admin.cap.${c}` as MessageKey))
                 .join(" · ")}
-              {p.regions?.length ? ` · ${t("voice.admin.regions", { regions: p.regions.map((r) => r.toUpperCase()).join(", ") })}` : ""}
+            </p>
+          ) : null}
+          {p.regions?.length ? (
+            <p className="type-footnote text-label-2" data-testid={`ai-provider-regions-${p.id}`}>
+              {t("voice.admin.regions", { regions: p.regions.map((r) => r.toUpperCase()).join(", ") })}
             </p>
           ) : null}
           {(locale === "tr" ? p.retention_tr : p.retention_en) ? (
