@@ -137,6 +137,14 @@ def _value_label(p: LearnedPrior) -> Any:
     return {k: _fill(v, "", band) if isinstance(v, str) else v for k, v in label.items()}
 
 
+def _evidence(p: LearnedPrior) -> dict[str, Any]:
+    """The evidence as returned: its ``value_label`` with the current grid's times, like ``value_label`` (E2EA2-F05)."""
+    ev = dict(p.evidence or {})
+    if "value_label" in ev:
+        ev["value_label"] = _value_label(p)
+    return ev
+
+
 def locative(text: str) -> str:
     """``text`` + the locative suffix: ``A 204'te``, ``C 201'de``, ``A Blok'ta``, ``A 106'da``."""
     word = _spoken_tail(text)
@@ -903,7 +911,7 @@ def _render(
         "confidence": p.confidence,
         "level": lvl,
         "cross_season": bool((p.evidence or {}).get("cross_season")),
-        "evidence": p.evidence or {},
+        "evidence": _evidence(p),
         "impact": {
             "request_ids": [mr.id for mr in free],
             "covered_request_ids": [mr.id for mr in reqs if mr not in free],
@@ -954,7 +962,7 @@ async def priors_for(
                     "tr": _fill(str(expl.get("tr", "")), subj, _band_of_prior(p)),
                     "en": _fill(str(expl.get("en", "")), subj, _band_of_prior(p)),
                 },
-                "evidence": p.evidence or {},
+                "evidence": _evidence(p),
             }
         )
     return out

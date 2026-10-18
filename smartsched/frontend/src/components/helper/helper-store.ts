@@ -7,6 +7,7 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { FileAnswerCard, Stage } from "@/lib/api/helper-files";
 import type { HelperCard } from "./schema.gen";
 import type { IntentHints } from "./intents";
 
@@ -60,7 +61,38 @@ export interface NoteEntry {
   text: { tr: string; en: string };
 }
 
-export type LogEntry = CardEntry | UserEntry | FallbackEntry | NoteEntry;
+/**
+ * HB-23c (helper-file-router.md §7.3): a dropped / attached / pasted file and the router's answer, **ephemeral** (never
+ * sent to `/helper/turn` or kept in the history; gone after "Yeni konuşma"). The browser's File objects stay in
+ * memory in file-router.ts, never here.
+ */
+export type FileView =
+  /** `file` card (detected / unknown / needs_planner), `choice` (ambiguous), `refusal` / `error` / `limit` */
+  | { kind: "card"; card: FileAnswerCard }
+  /** "Başka bir tür seç": the client's list of kinds this person may import (no server call) */
+  | { kind: "pick"; card: FileAnswerCard }
+  /** several files: one card that opens the setup wizard with all of them */
+  | { kind: "many"; n: number }
+  /** the client's own refusal before any request (size over 15 MB) or a network / read failure */
+  | { kind: "local"; code: "file_too_large" | "file_empty" | "file_read_failed"; size?: number };
+
+export interface FileEntry {
+  kind: "file";
+  key: string;
+  files: { name: string; size: number }[];
+  /** reading → shown; `collapsed`: a newer file took over (one live file card per thread); `handed`: the primary ran */
+  phase: "reading" | "shown" | "collapsed" | "handed" | "cancelled";
+  view: FileView | null;
+  stage: Stage | null;
+  /** the token's 10 minutes passed (or the server said 410): "Dosyayı yeniden oku" */
+  expired?: boolean;
+  /** a localised line under the card (the button's error) */
+  notice?: { tr: string; en: string } | null;
+  /** bumps when a new card arrives, so the view moves the focus to its title once */
+  seq: number;
+}
+
+export type LogEntry = CardEntry | UserEntry | FallbackEntry | NoteEntry | FileEntry;
 
 export interface TurnState {
   busy: boolean;
@@ -101,6 +133,9 @@ interface HelperState {
   pushCard: (card: HelperCard, extra?: Partial<CardEntry>) => string;
   pushFallback: () => void;
   pushNote: (text: { tr: string; en: string }) => void;
+  /** HB-23c: a new file entry; the older live one collapses to a line (§7.3 thread rule) */
+  pushFile: (files: { name: string; size: number }[]) => string;
+  updateFile: (key: string, patch: Partial<FileEntry> | ((e: FileEntry) => Partial<FileEntry>)) => void;
   updateCard: (key: string, patch: Partial<CardEntry>) => void;
   setTurn: (patch: Partial<TurnState> | ((t: TurnState) => Partial<TurnState>)) => void;
   newThread: () => void;
@@ -159,6 +194,18 @@ export const useHelperStore = create<HelperState>()(
       },
       pushFallback: () => set((s) => ({ entries: [...s.entries, { kind: "fallback", key: nextKey("f") }] })),
       pushNote: (text) => set((s) => ({ entries: [...s.entries, { kind: "note", key: nextKey("n"), text }] })),
+      pushFile: (files) => {
+        const key = nextKey("file");
+        set((s) => ({
+          entries: [
+            ...s.entries.map((e) => (e.kind === "file" && (e.phase === "shown" || e.phase === "reading") ? { ...e, phase: "collapsed" as const } : e)),
+            { kind: "file", key, files, phase: "reading", view: null, stage: null, seq: 0 },
+          ],
+        }));
+        return key;
+      },
+      updateFile: (key, patch) =>
+        set((s) => ({ entries: s.entries.map((e) => (e.kind === "file" && e.key === key ? { ...e, ...(typeof patch === "function" ? patch(e) : patch) } : e)) })),
       updateCard: (key, patch) => set((s) => ({ entries: s.entries.map((e) => (e.kind === "card" && e.key === key ? { ...e, ...patch } : e)) })),
       setTurn: (patch) => set((s) => ({ turn: { ...s.turn, ...(typeof patch === "function" ? patch(s.turn) : patch) } })),
       newThread: () => set({ entries: [], turn: IDLE }),

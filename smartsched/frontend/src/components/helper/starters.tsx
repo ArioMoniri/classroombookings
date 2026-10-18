@@ -28,13 +28,28 @@ export function useStarters(role: StarterRole): string[] {
   return KEYS[role].map((k) => t(k));
 }
 
-export function Starters({ role, onPick }: { role: StarterRole; onPick: (text: string) => void }) {
+/** A starter that is not a question (HB-23c: "Elimde bir dosya var, ne yapayım?" opens the file picker). */
+export interface StarterAction {
+  label: string;
+  onPick: () => void;
+}
+
+export function Starters({ role, onPick, first, only }: { role: StarterRole; onPick: (text: string) => void; first?: StarterAction; only?: StarterAction }) {
   const { t } = useI18n();
-  const items = useStarters(role);
+  const questions = useStarters(role);
+  const items = only ? [] : questions;
+  const lead = only ?? first;
   return (
     <div className="flex flex-col gap-2" data-testid="helper-starters">
       <p className="type-footnote text-label-2">{t("helper.palette.groups.starters")}</p>
       <ul className="flex flex-wrap gap-2">
+        {lead ? (
+          <li>
+            <Chip onClick={lead.onPick} className="min-h-11 whitespace-normal text-left" data-testid="helper-starter-file">
+              {lead.label}
+            </Chip>
+          </li>
+        ) : null}
         {items.map((s) => (
           <li key={s}>
             <Chip onClick={() => onPick(s)} className="min-h-11 whitespace-normal text-left">

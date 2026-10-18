@@ -78,14 +78,14 @@ async def create_constraint(body: ConstraintIn, db: DB, user: Planner) -> Constr
     return row
 
 
-#: the keys that narrow a rule to some events (a FILE row's exam, "only exams"); dropping one widens it to the term
-SCOPE_KEYS = ("event_ids", "kinds")
-
-
-def _keep_scope(before: dict[str, Any], after: dict[str, Any]) -> None:
+def _keep_scope(source: str | None, before: dict[str, Any], after: dict[str, Any]) -> None:
     """E2EA-F07: ``params`` replace the whole object, so a client that sends only the field it changed would turn a
-    one-exam rule into a term-wide one. A scoped rule must keep its scope keys; widening is a new rule."""
-    lost = [k for k in SCOPE_KEYS if before.get(k) and not after.get(k)]
+    one-exam rule into a term-wide one. ``kinds`` ("only exams") is never dropped by a replace, and a FILE row's
+    rule (one row of the exam / planning list) keeps its ``event_ids``; the Studio's "Kime uygulanır" may still widen
+    a planner's own rule on purpose (it rewrites the selectors)."""
+    lost = [k for k in ("kinds",) if before.get(k) and not after.get(k)]
+    if source == "FILE" and before.get("event_ids") and not after.get("event_ids"):
+        lost.append("event_ids")
     if lost:
         raise HTTPException(
             422,
@@ -109,7 +109,7 @@ async def update_constraint(cid: int, body: ConstraintUpdate, db: DB, user: Plan
     params: dict[str, Any] = data["params"] if data.get("params") is not None else dict(row.params or {})
     hardness = data.get("hardness") or row.hardness
     if data.get("params") is not None:
-        _keep_scope(row.params or {}, params)
+        _keep_scope(row.source, row.params or {}, params)
     _validate(row.kind, params, hardness)
     enabled = data["enabled"] if data.get("enabled") is not None else row.enabled
     if row.source == "TEACHER" and enabled and not row.enabled and (row.source_ref or {}).get("review") != "accepted":

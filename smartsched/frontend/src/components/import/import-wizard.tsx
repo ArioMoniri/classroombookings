@@ -254,14 +254,16 @@ export function ImportWizard() {
                 <h2 ref={reportRef} tabIndex={-1} className="outline-hidden">{job.filename}</h2>
               </CardTitle>
               <p className="type-callout text-label-2" aria-live="polite">
-                {t("glass.import.summary", { rows: n(job.summary.rows), created: n(job.summary.created), skipped: n(job.summary.skipped) })}
+                {/* E2EA-F08: the updated count too (an unchanged grid re-import rewrites rows without creating any) */}
+                {t("glass.import.summary", { rows: n(job.summary.rows), created: n(job.summary.created), updated: n(job.summary.updated), skipped: n(job.summary.skipped) })}
               </p>
             </CardHeader>
             <CardContent>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-5">
                 {[
                   [t("import.rows"), job.summary.rows],
                   [t("import.created"), job.summary.created],
+                  [t("import.updated"), job.summary.updated],
                   [t("import.skipped"), job.summary.skipped],
                   [t("import.warnings"), job.summary.warnings_count ?? job.summary.warnings.length],
                 ].map(([k, v]) => (

@@ -34,6 +34,10 @@ through the sanctioned path of app/services/kvkk.py: an `anonymise` window in `a
 opened and deleted in the same transaction as the update, so `stack.sh mask` repairs a live database too.
 Each masked instructor also gets a `catalog_aliases` row (entity instructor, alias = the masked canonical name) when
 its initials are unique, so a re-import of the masked workbooks matches the existing rows instead of adding new ones.
+People whose initials collide (FIX-K, E2EA-F08: 72 of the Bahar instructors) get a person key instead: the fewest
+leading letters, word by word, that tell them apart ("Ad. K." / "Ay. K."), derived from the names alone, so the
+database pass and the workbook copies (same saved name list) agree and each of them gets its alias too. A database
+masked before FIX-K keeps its duplicate initials; a fresh `stack.sh up` applies the keys.
 
     python3 scripts/record/kvkk_mask.py --workbooks SRC_DIR DST_DIR --names FILE   masked copies of the workbooks
     python3 scripts/record/kvkk_mask.py --files DIR --names FILE                     mask stored uploads in place
@@ -74,7 +78,8 @@ HOCA = re.compile(r"(?<!\w)[^\W\d_]{2,}(?=\s+hoca(?:sı|nın|ya|yla)?(?!\w))")
 TEXT_TYPES = ("CHAR", "TEXT", "JSON", "CLOB")
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 # an initial as initials() writes it: "K.", or one per part of a hyphenated name: "Y.-K."
-INITIAL = re.compile(r"[^\W\d_]\.(?:-[^\W\d_]\.)*")
+# FIX-K (E2EA-F08): a person key of colliding initials extends a word to its first few letters ("Ad. K.")
+INITIAL = re.compile(r"[^\W\d_][^\W\d_]{0,4}\.(?:-[^\W\d_]\.)*")
 # accounts that stack.sh / the backend create with a role word, not a person's name
 PLACEHOLDER_NAMES = {"Administrator", "Yönetici", "Akademik Personel"}
 
@@ -113,6 +118,70 @@ def initials(name: str) -> str:
 
 def name_words(full: str) -> list[str]:
     return [w for w in full.split() if not is_title(w) and any(ch.isalpha() for ch in w)]
+
+
+def person_norm(full: str) -> str:
+    """The person a name means, whatever its casing: 'AYAZ Kamer' and 'Ayaz KAMER' are one person."""
+    return lower_tr(" ".join(name_words(full)))
+
+
+def _prefix(w: str, n: int) -> str:
+    """The masked form of one word: its initial ('K.'), or its first ``n`` letters ('Ka.') for a person key."""
+    if n <= 1:
+        return initial(w)
+    letters = [ch for ch in w if ch.isalpha()]
+    return upper_tr(letters[0]) + lower_tr("".join(letters[1:n])) + "."
+
+
+def person_keys(full_names: list[str]) -> dict[str, str]:
+    """FIX-K (E2EA-F08): person -> masked name. Unique initials stay initials ("D. Ö."); people whose initials
+    collide get the fewest leading letters, word by word, that tell them apart ("Ad. K." / "Ay. K."; "A. Ku." /
+    "A. Ka."). Derived from the names alone, so the database pass and the workbook copies (same saved name list)
+    agree, and each masked person keeps one alias a re-import matches. Two spellings of one person are one key."""
+    people: dict[str, list[str]] = {}
+    for full in full_names:
+        ws = name_words(full)
+        if ws:
+            people.setdefault(person_norm(full), ws)
+    groups: dict[str, list[str]] = {}
+    for key, ws in people.items():
+        groups.setdefault(lower_tr(initials(" ".join(ws))), []).append(key)
+    out: dict[str, str] = {}
+    for members in groups.values():
+        words = [people[m] for m in members]
+        lengths = [1] * max(len(w) for w in words)
+
+        def masked(ws: list[str], lens: list[int] = lengths) -> str:
+            return " ".join(_prefix(w, lens[i]) for i, w in enumerate(ws))
+
+        def count(group: list[list[str]] = words) -> int:
+            return len({lower_tr(masked(w)) for w in group})
+
+        for pos in range(len(lengths)):
+            before = count()
+            longest = max(sum(ch.isalpha() for ch in w[pos]) for w in words if pos < len(w))
+            while count() < len(words) and lengths[pos] < longest:
+                lengths[pos] += 1
+            if count() == before:  # this word does not tell them apart ("Aday" twice): keep its initial
+                lengths[pos] = 1
+            if count() == len(words):
+                break
+        for m, w in zip(members, words, strict=True):
+            out[m] = masked(w)
+    return out
+
+
+def mask_person(full: str, keys: dict[str, str]) -> str:
+    """A name (leading title tokens kept) as its person key, or its initials when the person is not known."""
+    key = keys.get(person_norm(full))
+    if key is None:
+        return initials(full)
+    lead = []
+    for w in full.split():
+        if not is_title(w):
+            break
+        lead.append(w)
+    return " ".join([*lead, key])
 
 
 def names_in_text(text: str) -> list[str]:
@@ -172,6 +241,7 @@ class Masker:
         pair = {x for x in surnames if x not in vocabulary and len(x) >= 4}
         self.pair = re.compile(r"(?<!\w)[^\W\d_]{2,}\s+(?:" + trie_pattern(pair) + r")(?!\w)") if pair else None
         self.hits: Counter[str] = Counter()
+        self.keys = person_keys(full_names)
 
     def _sub(self, rx: re.Pattern[str] | None, s: str, capital: bool = False) -> str:
         if rx is None:
@@ -184,7 +254,7 @@ class Masker:
             if capital and not s[m.start()].isupper():
                 continue
             out.append(s[last : m.start()])
-            out.append(initials(s[m.start() : m.end()]))
+            out.append(mask_person(s[m.start() : m.end()], self.keys))
             last = m.end()
             self.hits["names"] += 1
         out.append(s[last:])
@@ -466,6 +536,7 @@ def main(argv: list[str]) -> int:
         with open(save, "w", encoding="utf-8") as fh:
             json.dump(sorted(set(known)), fh, ensure_ascii=False)
     masker = Masker(known, vocabulary)
+    todo = [(iid, full, mask_person(full, masker.keys)) for iid, full, _ in todo]
     print(f"  + {len(extra)} names from free-text instructor columns")
     print(f"{len(rows)} instructors, {len(todo)} with a full name")
     changed = 0
