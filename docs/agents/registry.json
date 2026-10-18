@@ -4381,7 +4381,8 @@
       "goal": "You are lane FIX-J (ledger name `fix-j-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md first and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; light resource use: only t…",
       "ledger": "FIX-J: KVKK import blocker and import majors",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 16:18"
     }
   ]
 }
