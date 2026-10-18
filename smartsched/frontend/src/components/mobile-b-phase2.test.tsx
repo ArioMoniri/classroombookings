@@ -187,3 +187,13 @@ describe("fix 12 · /admin/rooms Gruplar: 'Yeni grup' in the capsule like 'Yeni 
     expect(src.slice(Math.max(0, at - 300), at)).toContain('data-slot="page-actions" className={pageActionsCapsule}');
   });
 });
+
+describe("fix 13 · /admin/users new-user form: columns of at least 280 px (768 had two of 262)", () => {
+  const src = read("admin/users-admin.tsx");
+  it("the field grid fits as many ≥ 17.5rem columns as there is room for", () => {
+    expect(src).toContain('<div className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(17.5rem,1fr))]">');
+  });
+  it("the dialog grows on desktop so two columns still fit there", () => {
+    expect(lineOf("admin/users-admin.tsx", "user-dialog")).toContain("lg:max-w-2xl");
+  });
+});

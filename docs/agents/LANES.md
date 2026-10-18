@@ -32,6 +32,9 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | RF-1 | `rf-1-2026-10-18` | Enrolment edit, invite e-mail switch, admin catalogue screens (instructors, courses, faculties, sections) | docs/testing/audits/2026-10-17-no-mock-and-editability.md | 19800/19801 | — |
 | RF-2 | `rf-2-2026-10-18` | Senders for reminder, series, approval receipt, calendar consent, new-device e-mails | same | — | — |
 | AU-B | `au-b-2026-10-18` | TOTP, recovery codes, passkeys (WebAuthn), trusted devices, MFA policy, admin MFA reset + reset link (local accounts only) | docs/research/2026-10-18-auth-backend.md, ROADMAP "— backend" | — | — |
+| AS-S | `as-s-2026-10-18` | Adaptive solver AS-08 (peak smoothing, off by default), AS-12 (exam date advisor), AS-14 (weights learned from edits as drafts) | adaptive research doc | — | AS-B status file |
+| HB-B | `hb-b-2026-10-18` | Helper capability detection HB-12, local-model fixes HB-13, helper turn loop HB-06, quota chain org→faculty→department→role→user in PostgreSQL HB-10, faculty quota managers HB-11 | helper architecture doc | — | HB-A registry (read-only) |
+| Sweeper | `sweep-2026-10-18` | KVKK inventory under system_scope, last backup on /admin/ops, aws-bootstrap.yml secrets → up flags, audit row fix, ruff format for finished lanes | LANES queue | — | — |
 
 ## Queued (start when the named lane hands off)
 
@@ -39,20 +42,15 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 |---|---|---|
 | CAL-10 academician tester | CAL-B + CAL-F | test plan T1–T19 in the calendar research doc |
 | WG-09 motion (one hosted transitions.dev fix) + WG-10 role testers | WG-B + WG-F | |
-| AS solver lane AS-08, AS-12, AS-14 | AS-B AS-02 (see `scratchpad/as/AS-B-STATUS.md`, or AS-B's report) | |
 | AS frontend AS-15..17, AS tester AS-20 | AS-B | |
 | VO-05 real-stack check of getUserMedia behind nginx and Caddy | VO-F e2e | headers done by VO-B |
 | CAL-13 exam/invigilation duties scope | a published invigilation plan in the fixtures | |
-| HB-06/12/13 (helper turn loop, capability detection, local-model fixes) | VO-01 | same gateway files |
-| HB-10/11 (quota chain org → faculty → department → role → user, limits in PostgreSQL: fixes the 2-worker doubling) | VO-02 | |
 | Helper frontend HX-01..13 | HB-A + WG-F + mobile A (shell mounts) | docs/design/v3/helper.md; helper UX design done 2026-10-18 |
 | CH-04..12 chart migrations | charts phase 2 | |
 | RF-04, RF-10 (phone month arrows, density) | mobile A/B | |
 | RF-06, RF-08, RF-09 (re-import keeps admin edits, seed imports in history, editable period grid) | CAL-B (lane C done 2026-10-18) | |
 | RF-12 (SAML metadata signature) | — | SAML library done |
 | Round-4 persona testers (staff, academician, admin) | the fix lanes above | re-seed: old snapshots lack migrations ≥ 0037 |
-| KVKK inventory counts under rls.system_scope (+ welcome_progress in the processing inventory) | — | small backend fix, unowned |
-| Last backup time on /admin/ops; aws-bootstrap.yml maps AI_API_KEY/SMTP_PASSWORD secrets + POD_ACTION keys to `up` flags | — | small, unowned |
 | Auth frontend AUX | auth UX + AU-B | |
 | README/docs media pass, final merges into gracious + universal | launch video + round 4 | merge rules below |
 

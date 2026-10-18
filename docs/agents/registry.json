@@ -3072,8 +3072,8 @@
       "ledger": "AU-B: 2FA, passkeys, admin resets",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-18 00:27",
-      "left_off": "Ruff is clean on all 28 touched files. Waiting for the suite."
+      "finished_at": "2026-10-18 07:56",
+      "left_off": "Waiting for the rerun."
     },
     {
       "id": "aa8b9be94ac997055",
@@ -3084,6 +3084,42 @@
       "scope": "",
       "goal": "You are lane AUX-F (sign-in, 2FA and passkeys frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: /home/user/classroombookings/docs/agents/briefs/COMMON.md (Simplicity principle) and MEDIA.md (hard rules: NEVER commit or push, test-first, nev…",
       "ledger": "AUX-F: auth frontend (AUX-01/02 now)",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a539ec6281abcad6c",
+      "description": "AS-S: adaptive solver lane",
+      "subagent_type": "solver-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 07:56",
+      "scope": "",
+      "goal": "You are lane AS-S (adaptive scheduling, solver part) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /home/user/classroombookings/docs/agents/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pkill -f`, `nice -n 10`, Turkish …",
+      "ledger": "AS-S: adaptive solver lane",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ab67ef430f74c8c50",
+      "description": "HB-B: helper loop, local models, quotas",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 07:56",
+      "scope": "",
+      "goal": "You are lane HB-B (AI helper second slice and AI governance) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /home/user/classroombookings/docs/agents/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pkill -f`, `nice -n 10`, …",
+      "ledger": "HB-B: helper loop, local models, quotas",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ad8353049ba43c8f0",
+      "description": "Sweeper: small queued fixes",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 07:56",
+      "scope": "",
+      "goal": "You are the SWEEPER lane for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read /home/user/classroombookings/docs/agents/briefs/COMMON.md: NEVER commit or push, test-first, never `pkill -f`, `nice -n 10`, Turkish first, no demo/mock code in production. Many lan…",
+      "ledger": "Sweeper: small queued fixes",
       "resumed": false,
       "status": "running"
     }
