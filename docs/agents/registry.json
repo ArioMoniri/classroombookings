@@ -3264,6 +3264,18 @@
       "status": "finished",
       "finished_at": "2026-10-18 08:24",
       "left_off": "keep all agents running and tell me when pod is live"
+    },
+    {
+      "id": "aa312506611611c8d",
+      "description": "VO-F resume: voice UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:27",
+      "scope": "",
+      "goal": "You are lane VO-F (voice frontend), re-created after a container restart. Your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `components/voice/**`, `lib/api/voice.ts`, the voice parts of `components/admin/ai/**`, and the mic mounts. Read first: - do…",
+      "ledger": "VO-F resume: voice UI",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
