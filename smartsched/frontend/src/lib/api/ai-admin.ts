@@ -47,7 +47,8 @@ export const SyncedModel = z.object({
   price_in: z.number().nullish(),
   price_out: z.number().nullish(),
   created_at: z.string().nullish(),
-  modalities: z.array(z.string()).default([]),
+  /** VO-01: `["text"]`, `["stt"]`, `["text","stt"]` or `["tts"]`; absent on a backend without voice */
+  modalities: z.array(z.string()).optional(),
 });
 export type SyncedModel = z.infer<typeof SyncedModel>;
 export const Transfer = z.object({
@@ -86,8 +87,9 @@ export const Provider = z.object({
   // SSRF guard (docs/SECURITY.md R12): the OpenAI-compatible provider's opt-in for a local server, and its warning
   allow_local: z.boolean().default(false),
   warnings: z.array(z.object({ code: z.string(), message_tr: z.string(), message_en: z.string() })).default([]),
-  capabilities: z.array(z.string()).default([]),
-  regions: z.array(z.string()).default([]),
+  /** VO-01: `["text"]`, `["stt","text"]` or `["stt"]`; absent on a backend without voice */
+  capabilities: z.array(z.string()).optional(),
+  regions: z.array(z.string()).optional(),
   /** one line on how long the provider keeps data (the KVKK record form's hint) */
   retention_tr: z.string().nullish(),
   retention_en: z.string().nullish(),

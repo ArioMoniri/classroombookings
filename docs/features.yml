@@ -405,3 +405,27 @@
   phase: "VO-04, VO-05"
   evidence: smartsched/backend/tests/ai/test_vo_04_admin.py
   note: "GET/PUT /ai/admin/voice; /admin/ai voice UI is VO-07 (frontend lane); Permissions-Policy microphone=(self) in nginx + Caddy"
+- feature: "Adaptive scheduling (backend): server-side effective solver weights and seed on every run path (DEFAULT_WEIGHTS < Ayarlar solver_weights / solver_default_seed < the active season profile < run params; every run records weights_effective, weights_source, profile and seed); COURSE runs skip HOLIDAY / EXAM / MAKEUP (and non-summer SUMMER) weeks; holidays and HOLIDAY weeks out of the heatmap's numerator and denominator; dated period segments per term (weeks, holidays, admin add/drop and midterm segments, draft proposals after an import)"
+  area: planning
+  status: backend-only
+  phase: "adaptive scheduling (AS-B, AS-01, AS-02, AS-18; audit RF-02)"
+  evidence: smartsched/backend/tests/test_as_01_paths.py
+  note: "app/services/seasons.py (effective_weights, effective_seed, periods, closed_days, course_weeks, after_import), solver_bridge.horizon_weeks(kinds=) + stats.horizon_weeks, utilisation Occupancy.closed; tests test_as_01_*, test_as_02_*, test_as_18_*; UI = AS-15..17 (AS-F)"
+- feature: "Season profiles: versioned per-season solver weights, booking overlays (e.g. PC labs at most 2 active bookings per person in exam weeks) and peak threshold; draft -> activate (approved by an admin) -> retired, edit = new draft version, 'Geri al' re-activates the parent; built-in standard and exam_week; ADMIN only, audited season_profile.*; slot-level exam holds (mode slots: only the exam timetable's room-periods ± a buffer, as requests by default)"
+  area: bookings
+  status: backend-only
+  phase: "adaptive scheduling (AS-B, AS-03, AS-04)"
+  evidence: smartsched/backend/tests/test_as_04_overlays.py
+  note: "alembic 0041_adaptive (season_profiles, season_segments, demand_events, learning_versions, learned_prior_snapshots); app/api/v1/seasons.py; booking_policies overlays + exam_slot_index + slot_hold_summary; GET /booking-policies/effective lists season_overlays"
+- feature: "Demand, peaks and forecasts with honest confidence: aggregate find-room / booking demand ledger (no user id, no text, cells under 5 hidden, 400-day KVKK retention), peak-hour model (shrunk weekly means, 80 % ranges, P4 / P8 peaks Mon-Thu on Bahar), request-driven demand per building / weekday / period / feature / capacity band from the first import, seasonal-naive forecast from a published term of the same season, capacity shortfall (Hall check) and what-if (+x % enrolment, faculty / programme scope, closed rooms, extra sections, optional draft run 'Senaryo: ...'), exam-period load (peak day, seats per slot, invigilators vs the pool), planner warnings peak_pressure / exam_load; backtests B1-B7 via python -m app.cli backtest adaptive"
+  area: planning
+  status: backend-only
+  phase: "adaptive scheduling (AS-B, AS-05, AS-06, AS-07, AS-09, AS-10, AS-11)"
+  evidence: smartsched/backend/tests/test_as_06_backtest.py
+  note: "app/services/{demand,peaks,forecast,exam_load,backtest}.py; GET /analytics/{demand,peaks,forecast/demand,forecast/shortfall,forecast/exams}, POST /analytics/forecast/what-if; data_issues groups peak_pressure + exam_load"
+- feature: "Learning versions and per-habit control: every refresh (manual, nightly 03:15 Istanbul for the active term, revert) is a version with counts, checksum and diff; 'Bu sürüme dön' restores a prior set byte for byte and holds until the next refresh; per-habit disable / correct / tune (RF-07); calibration drafts from accept / reject (Beta posterior) applied only by an admin; the planning audit's moves are learned once"
+  area: planning
+  status: backend-only
+  phase: "adaptive scheduling (AS-B, AS-13; audit RF-07)"
+  evidence: smartsched/backend/tests/test_as_13_learning.py
+  note: "app/services/learning_versions.py, learning_extract._planning_audit, learning.recompute_priors honours habit overrides + min confidence; /learning/{versions,calibration,habits,settings}, PUT /learning/priors/{id}/habit"

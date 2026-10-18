@@ -29,6 +29,7 @@ import { PrivacySection } from "@/components/privacy/privacy-section";
 import { CalendarConnectionsSection } from "@/components/settings/calendar-connections";
 import { CalendarExportSection } from "@/components/calendar-export/calendar-export-section";
 import { MyAiUsage } from "@/components/admin/ai/my-ai-usage";
+import { ChartPatternsToggle } from "@/components/charts/chart-patterns-toggle";
 
 /** language names in themselves (Turkish, English); a legacy stored code (`de`) reads as English */
 const langLabel = (code: string | null | undefined) => {
@@ -66,6 +67,8 @@ export function ProfileView() {
       <section id="notifications" className="scroll-mt-20">
         <NotificationPreferencesPanel />
       </section>
+      {/* CH-03: Grafiklerde desen (hatch patterns in charts, per user, default off) */}
+      <ChartPatternsToggle userId={me.data?.id} />
       <PasswordForm forced={!!me.data?.force_password_reset} />
       {/* A4 KVKK: the privacy notice, consents and data requests (wave-2 UI) */}
       <PrivacySection />

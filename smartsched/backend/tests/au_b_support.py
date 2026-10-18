@@ -6,7 +6,6 @@ import time
 from typing import Any
 
 import pytest
-
 from app.core import db as dbmod
 from app.core import totp
 from app.models import AuditEvent, NotificationOutbox, User

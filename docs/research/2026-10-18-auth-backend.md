@@ -63,7 +63,7 @@ wheels for CPython 3.10–3.14 (and a pure-Python fallback); `cryptography` 50 i
 
 **Registration ceremony (S6 §7.1).** Server: random 32-byte challenge, `rp = {id, name}`, `user = {id: random
 32-byte handle (not the e-mail or the database id), name: e-mail/username, displayName}`, `pubKeyCredParams` ES256
-(−7) and RS256 (−257) (Windows Hello still uses RS256), `excludeCredentials` = the person's existing credentials (so
+(−7), EdDSA (−8) and RS256 (−257) (Windows Hello still uses RS256), `excludeCredentials` = the person's existing credentials (so
 the same authenticator is not registered twice), `authenticatorSelection = {residentKey: "preferred",
 userVerification: "preferred"}`, `attestation: "none"`, timeout 5 min. Browser: `navigator.credentials.create()`.
 Server verifies challenge, origin, RP ID hash, the UP flag, the algorithm, and stores credential id, public key (COSE),
@@ -197,11 +197,12 @@ enrolment, and finishing enrolment signs them in. Changing the policy is audited
 | Topic | Decision |
 |---|---|
 | TOTP | stdlib RFC 6238, SHA-1/6/30 s, ±1 step, replay memory, 160-bit secret Fernet-encrypted |
-| WebAuthn | `webauthn==3.0.1` (BSD-3), attestation none, ES256 + RS256, resident key preferred, UV preferred (2nd factor) / required (1st factor), RP ID = public host (full host on sslip.io) |
+| WebAuthn | `webauthn==3.0.1` (BSD-3), attestation none, ES256 + EdDSA + RS256, resident key preferred, UV preferred (2nd factor) / required (1st factor), RP ID = public host (full host on sslip.io) |
 | Recovery | 10 × 80-bit codes, argon2id, single use, shown once |
 | Trusted device | 30 days, SHA-256 stored, httpOnly cookie via the route handler, revocable |
 | Challenge token | JWT with its own key (cannot be used as a bearer token), 5 min, single use, row `auth_challenges`, 5 tries |
 | Lockout | 5 failures → 15 min, doubling, cap 24 h; per address limits in `security_http` |
 | SSO | no local 2FA, admin reset and reset link refused (`sso_account`) |
 | Admin | reason + identity check, audit, e-mail, never secrets |
-| E-mail | 5 new kinds in `app/emails/kinds.py`, security footer, TR first |
+| E-mail | 9 new kinds in `app/emails/kinds.py` (incl. `passkey_removed`, `recovery_codes_regenerated`, `mfa_required` asked by the UX spec), security footer, TR first |
+| UX asks (auth.md §17) | 10-minute re-auth window from the token's `iat`; password 12 characters (8 with 2FA) on self-service routes; session after a reset link or invite through the same gate; `trusted_device_days` 0/7/30; passkey flags in `/org/public`; passwordless passkey sign-in seeded on for fresh installs |

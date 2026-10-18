@@ -45,6 +45,7 @@ from app.schemas.crbs import (
 )
 from app.services import bookings_events as events
 from app.services import bookings_i18n, bookings_ldap, bookings_setup, settings_service, sso
+from app.services import mfa as _mfa
 from app.services.bookings_notify import notify
 from app.services.bookings_perms import (
     ensure_permissions_and_roles,
@@ -60,7 +61,6 @@ from app.services.bookings_settings import (
     set_user_value,
     smtp_configured,
 )
-from app.services import mfa as _mfa
 from app.services.bookings_users import consume_reset_token, find_login_user, issue_reset_token
 
 router = APIRouter(prefix="/org", tags=["org"])
@@ -613,6 +613,10 @@ async def change_password(body: ChangePasswordIn, db: DB, user: CurrentUser) -> 
             raise HTTPException(403, "current password is wrong")
     if user.password_hash and verify_password(body.new_password, user.password_hash):
         raise HTTPException(422, "the new password must differ from the current one")
+    try:  # AU-B owner default: 12 characters, or 8 with 2FA
+        await _mfa.check_password_length(db, user, body.new_password)
+    except _mfa.MfaError as exc:
+        raise exc.http() from exc
     user.password_hash = hash_password(body.new_password)
     user.force_password_reset = False
     revoke_tokens(user)  # B-AUTH-11: every session, this one included, signs in again with the new password
@@ -670,6 +674,12 @@ async def reset_confirm(body: ResetConfirmIn, db: DB) -> dict[str, Any]:
     token = body.token.strip()
     if not 8 <= len(token) <= 128:
         raise HTTPException(400, _INVALID_CODE)
+    owner = await _mfa.user_for_reset_code(db, token)
+    if owner is not None:
+        try:  # AU-B owner default: 12 characters, or 8 with 2FA
+            await _mfa.check_password_length(db, owner, body.password)
+        except _mfa.MfaError as exc:
+            raise exc.http() from exc
     user = await consume_reset_token(db, token, body.password)
     if user is None:
         raise HTTPException(400, _INVALID_CODE)

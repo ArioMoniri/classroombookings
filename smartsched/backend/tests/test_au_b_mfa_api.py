@@ -359,7 +359,9 @@ async def test_required_after_grace_allows_only_enrolment_then_signs_in(setup) -
     r = await c.post(f"{API}/auth/mfa/setup/totp/start", json={"challenge_token": step["challenge_token"]})
     assert r.status_code == 401
     # required by policy: the person cannot turn it off
-    r = await c.post(f"{API}/auth/mfa/disable", json={"password": PASSWORD, "code": code_now(secret, 1)}, headers=headers)
+    r = await c.post(
+        f"{API}/auth/mfa/disable", json={"password": PASSWORD, "code": code_now(secret, 1)}, headers=headers
+    )
     assert r.status_code == 409 and r.json()["detail"]["code"] == "mfa_required_by_policy"
 
 

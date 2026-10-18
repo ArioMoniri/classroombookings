@@ -46,7 +46,12 @@ async def _smtp(c, admin, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     FakeSMTP.sent, FakeSMTP.fail = [], False
     r = await c.put(
         f"{API}/mail/settings",
-        json={"host": "smtp.uni.edu.tr", "username": "bildirim", "password": "smtp-gizli", "from_address": "bildirim@uni.edu.tr"},
+        json={
+            "host": "smtp.uni.edu.tr",
+            "username": "bildirim",
+            "password": "smtp-gizli",
+            "from_address": "bildirim@uni.edu.tr",
+        },
         headers=admin,
     )
     assert r.status_code == 200, r.text
@@ -79,7 +84,12 @@ async def test_admin_sees_the_state_but_never_a_secret(setup) -> None:  # type: 
 async def test_reset_needs_reason_and_identity_check(setup) -> None:  # type: ignore[no-untyped-def]
     c, admin, uid, headers = setup
     await enrol_totp(c, headers)
-    for body in ({}, {"reason": "kısa", "identity_check": "in_person"}, {"reason": REASON}, _reset_body(identity_check="sezgi")):
+    for body in (
+        {},
+        {"reason": "kısa", "identity_check": "in_person"},
+        {"reason": REASON},
+        _reset_body(identity_check="sezgi"),
+    ):
         r = await c.post(f"{API}/admin/users/{uid}/mfa/reset", json=body, headers=admin)
         assert r.status_code == 422, (body, r.text)
     # a teacher cannot reset anyone
@@ -96,14 +106,23 @@ async def test_reset_removes_factors_signs_out_audits_and_mails(setup) -> None: 
     opts = r.json()
     r = await c.post(
         f"{API}/auth/passkeys/register/verify",
-        json={"challenge_token": opts["challenge_token"], "credential": auth.register(opts["options"]), "name": "Telefon"},
+        json={
+            "challenge_token": opts["challenge_token"],
+            "credential": auth.register(opts["options"]),
+            "name": "Telefon",
+        },
         headers=headers,
     )
     assert r.status_code == 201, r.text
     step = await password_step(c, EMAIL)
     r = await c.post(
         f"{API}/auth/mfa/verify",
-        json={"challenge_token": step["challenge_token"], "method": "totp", "code": next_code(secret), "trust_device": True},
+        json={
+            "challenge_token": step["challenge_token"],
+            "method": "totp",
+            "code": next_code(secret),
+            "trust_device": True,
+        },
     )
     device = r.json()["trusted_device_token"]
 
@@ -133,7 +152,11 @@ async def test_reset_can_keep_passkeys(setup) -> None:  # type: ignore[no-untype
     opts = (await c.post(f"{API}/auth/passkeys/register/options", json={"password": PASSWORD}, headers=headers)).json()
     await c.post(
         f"{API}/auth/passkeys/register/verify",
-        json={"challenge_token": opts["challenge_token"], "credential": auth.register(opts["options"]), "name": "Anahtar"},
+        json={
+            "challenge_token": opts["challenge_token"],
+            "credential": auth.register(opts["options"]),
+            "name": "Anahtar",
+        },
         headers=headers,
     )
     r = await c.post(f"{API}/admin/users/{uid}/mfa/reset", json=_reset_body(keep_passkeys=True), headers=admin)
@@ -191,7 +214,9 @@ async def test_reset_link_does_not_bypass_2fa(setup, monkeypatch) -> None:  # ty
     await c.post(f"{API}/admin/users/{uid}/password-reset-link", json={}, headers=admin)
     plain = [m for m in FakeSMTP.sent if m["To"] == EMAIL][-1].get_body(preferencelist=("plain",)).get_content()
     token = re.search(r"token=([A-Za-z0-9_\-]+)", plain).group(1)  # type: ignore[union-attr]
-    assert (await c.post(f"{API}/auth/password-reset/confirm", json={"token": token, "password": "yeni-parola-2026"})).status_code == 200
+    assert (
+        await c.post(f"{API}/auth/password-reset/confirm", json={"token": token, "password": "yeni-parola-2026"})
+    ).status_code == 200
     assert (await password_step(c, EMAIL, "yeni-parola-2026"))["mfa_required"] is True
 
 
@@ -221,7 +246,15 @@ async def test_break_glass_admin_with_identity_and_password_is_local(setup) -> N
 
     c, admin, uid, _headers = setup
     async with dbmod.get_session_factory()() as s:
-        s.add(UserIdentity(user_id=uid, provider="entra", issuer="https://login.microsoftonline.com/t/v2.0", tenant_id="t", subject="o-1"))
+        s.add(
+            UserIdentity(
+                user_id=uid,
+                provider="entra",
+                issuer="https://login.microsoftonline.com/t/v2.0",
+                tenant_id="t",
+                subject="o-1",
+            )
+        )
         await s.commit()
     body = (await c.get(f"{API}/admin/users/{uid}/mfa", headers=admin)).json()
     assert body["account_type"] == "mixed" and body["can_reset_mfa"] is True

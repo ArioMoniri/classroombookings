@@ -75,7 +75,7 @@ function OpsPanelBody() {
   return (
     <div className="flex max-w-6xl flex-col gap-6" data-testid="ops-panel">
       <PageTitle title={t("ops.title")} subtitle={t("ops.lead")} actions={status.data ? <StatusPill status={overall(status.data)} /> : null} />
-      {status.isLoading ? <Loading /> : null}
+      {status.isLoading ? <StatusCardsLoading /> : null}
       {status.isError && !forbidden ? <Alert tone="error">{t("ops.loadError")}</Alert> : null}
       {status.data ? <StatusCards s={status.data} /> : null}
       {status.data?.alerts.length ? <Alerts s={status.data} /> : null}
@@ -88,6 +88,18 @@ function OpsPanelBody() {
 }
 
 /* ------------------------------------------------------------------------------------------------ status cards */
+
+/** mobile-b phase 2 (CLS 0.51 at 390): one placeholder per card in the cards' grid while /ops/status loads */
+function StatusCardsLoading() {
+  const { t } = useI18n();
+  return (
+    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5" aria-busy="true" aria-label={t("crbs.common.loading")} data-testid="ops-cards-loading">
+      {CARD_ORDER.map((k) => (
+        <li key={k} className="h-24 animate-pulse rounded-2xl bg-fill-3 motion-reduce:animate-none" />
+      ))}
+    </ul>
+  );
+}
 
 function StatusCards({ s }: { s: OpsStatus }) {
   const { t, locale } = useI18n();

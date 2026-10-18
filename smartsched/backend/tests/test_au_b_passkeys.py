@@ -162,7 +162,10 @@ async def test_signature_counter_must_grow_for_hardware_keys(setup) -> None:  # 
         ).json()
         r = await c.post(
             f"{API}/auth/mfa/passkey/verify",
-            json={"challenge_token": step["challenge_token"], "credential": auth.assert_(opts["options"], counter=counter)},
+            json={
+                "challenge_token": step["challenge_token"],
+                "credential": auth.assert_(opts["options"], counter=counter),
+            },
         )
         return r.status_code
 
@@ -226,7 +229,8 @@ async def test_passkey_only_sign_in_with_user_verification(setup) -> None:  # ty
     pk = opts["options"]["publicKey"]
     assert pk["allowCredentials"] == [] and pk["userVerification"] == "required"  # discoverable, names no account
     r = await c.post(
-        f"{API}/auth/passkey/verify", json={"challenge_token": opts["challenge_token"], "credential": auth.assert_(opts["options"])}
+        f"{API}/auth/passkey/verify",
+        json={"challenge_token": opts["challenge_token"], "credential": auth.assert_(opts["options"])},
     )
     assert r.status_code == 200, r.text
     me = await c.get(f"{API}/auth/me", headers=bearer(r.json()["access_token"]))
@@ -241,7 +245,8 @@ async def test_passkey_only_sign_in_refuses_without_user_verification(setup) -> 
     await _register(c, headers, auth)
     opts = (await c.post(f"{API}/auth/passkey/options", json={})).json()
     r = await c.post(
-        f"{API}/auth/passkey/verify", json={"challenge_token": opts["challenge_token"], "credential": auth.assert_(opts["options"])}
+        f"{API}/auth/passkey/verify",
+        json={"challenge_token": opts["challenge_token"], "credential": auth.assert_(opts["options"])},
     )
     assert r.status_code == 401
 
@@ -256,7 +261,8 @@ async def test_passkey_only_sign_in_refuses_a_disabled_account(setup) -> None:  
     await set_user(uid, is_active=False)
     opts = (await c.post(f"{API}/auth/passkey/options", json={})).json()
     r = await c.post(
-        f"{API}/auth/passkey/verify", json={"challenge_token": opts["challenge_token"], "credential": auth.assert_(opts["options"])}
+        f"{API}/auth/passkey/verify",
+        json={"challenge_token": opts["challenge_token"], "credential": auth.assert_(opts["options"])},
     )
     assert r.status_code == 401
 
@@ -303,7 +309,11 @@ async def test_someone_elses_passkey_id_is_not_found(setup) -> None:  # type: ig
     ("base", "rp_id", "origin"),
     [
         ("https://plan.uni.edu.tr", "plan.uni.edu.tr", "https://plan.uni.edu.tr"),
-        ("https://smartsched.10-0-0-5.sslip.io", "smartsched.10-0-0-5.sslip.io", "https://smartsched.10-0-0-5.sslip.io"),
+        (
+            "https://smartsched.10-0-0-5.sslip.io",
+            "smartsched.10-0-0-5.sslip.io",
+            "https://smartsched.10-0-0-5.sslip.io",
+        ),
         ("https://plan.uni.edu.tr:8443/", "plan.uni.edu.tr", "https://plan.uni.edu.tr:8443"),
         ("http://localhost:3000", "localhost", "http://localhost:3000"),
     ],

@@ -62,7 +62,9 @@ class SoftAuthenticator:
             separators=(",", ":"),
         ).encode()
 
-    def register(self, options: dict[str, Any], *, origin: str | None = None, rp_id: str | None = None) -> dict[str, Any]:
+    def register(
+        self, options: dict[str, Any], *, origin: str | None = None, rp_id: str | None = None
+    ) -> dict[str, Any]:
         public = options.get("publicKey", options)
         self.user_handle = unb64u(public["user"]["id"])
         rp_hash = hashlib.sha256((rp_id or self.rp_id).encode()).digest()

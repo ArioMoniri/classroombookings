@@ -121,3 +121,10 @@ describe("fix 10 · 200 % text: action rows wrap instead of pushing the page sid
     expect(src.slice(group, group + 40)).toContain("flex-wrap");
   });
 });
+
+describe("fix 1 · CLS: async cards reserve their visible height while loading", () => {
+  it("calendar push admin: a viewport-tall placeholder until the settings arrive (the card grew 142 → 379 px, CLS 0.44)", () => {
+    const src = read("settings/calendar-push-admin.tsx");
+    expect(src).toMatch(/q\.isLoading \? <div className="[^"]*min-h-\[70dvh\][^"]*" aria-busy="true" data-testid="calendar-push-loading"/);
+  });
+});

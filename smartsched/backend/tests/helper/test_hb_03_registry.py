@@ -69,10 +69,20 @@ ARGS: dict[str, dict[str, Any]] = {
 # ------------------------------------------------------------------------------------------------ drift
 
 
+def _walk(routes: Any, prefix: str = "") -> Any:
+    """Every route with its full path (FastAPI ≥ 0.120 keeps included routers lazy; tests/test_audit_coverage.py)."""
+    for r in routes:
+        ctx = getattr(r, "include_context", None)
+        if ctx is not None and hasattr(r, "original_router"):
+            yield from _walk(r.original_router.routes, prefix + (ctx.prefix or ""))
+        elif isinstance(r, APIRoute):
+            yield prefix + r.path, r
+
+
 def _route(spec: str) -> APIRoute:
     method, path = spec.split(" ", 1)
-    for r in app.routes:
-        if isinstance(r, APIRoute) and r.path == f"/api/v1{path}" and method in r.methods:
+    for full, r in _walk(app.routes):
+        if full == f"/api/v1{path}" and method in r.methods:
             return r
     raise AssertionError(f"no route {spec}")
 

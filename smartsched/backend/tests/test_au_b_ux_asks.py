@@ -119,7 +119,13 @@ async def test_reset_link_answer_signs_in_through_the_gate(setup) -> None:  # ty
     token = r.json()["token"]
     r = await c.post(f"{API}/auth/password-reset/confirm", json={"token": token, "password": "yeni-parola-2026"})
     assert r.status_code == 200 and r.json()["session"]["access_token"]
-    await enrol_totp(c, bearer(r.json()["session"]["access_token"]))
+    fresh = bearer(r.json()["session"]["access_token"])
+    secret = (await c.post(f"{API}/auth/mfa/totp/start", json={}, headers=fresh)).json()["secret"]
+    from tests.au_b_support import code_now
+
+    assert (
+        await c.post(f"{API}/auth/mfa/totp/confirm", json={"code": code_now(secret)}, headers=fresh)
+    ).status_code == 200
     token = (await c.post(f"{API}/users/{uid}/reset-token", headers=admin)).json()["token"]
     r = await c.post(f"{API}/auth/password-reset/confirm", json={"token": token, "password": "baska-parola-2026"})
     session = r.json()["session"]
@@ -167,3 +173,17 @@ async def test_required_policy_announces_itself_to_people_without_a_factor(setup
     assert await outbox("mfa_required", bid) == []
     await set_policy(c, admin, mfa_grace_days=30)  # no new role: nobody is told twice
     assert len(await outbox("mfa_required", uid)) == 1
+
+
+async def test_new_passwords_need_12_characters_or_8_with_2fa(setup) -> None:  # type: ignore[no-untyped-def]
+    c, _admin, _uid, headers = setup
+    r = await c.post(
+        f"{API}/auth/change-password", json={"current_password": PASSWORD, "new_password": "kisa-1234"}, headers=headers
+    )
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "password_too_short"
+    assert r.json()["detail"]["min_length"] == 12 and "12" in r.json()["detail"]["message_tr"]
+    await enrol_totp(c, headers)
+    r = await c.post(
+        f"{API}/auth/change-password", json={"current_password": PASSWORD, "new_password": "kisa-1234"}, headers=headers
+    )
+    assert r.status_code == 200, r.text

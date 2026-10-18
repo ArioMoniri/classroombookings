@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 23:47",
-      "left_off": "Waiting for the monitor's suite result."
+      "finished_at": "2026-10-18 00:17",
+      "left_off": "The final backend suite run had still not finished at hand-off, and it still has no result. The command has now been going for more than an hour, against about 46 minutes for the last full run. When it ends, its result will be in `/tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/r2laneC/r3-suite3.txt`. I left it running and changed nothing else after the r…"
     },
     {
       "id": "afe38e299d6f66d51",
@@ -2802,8 +2802,8 @@
       "ledger": "CAL-F: calendar export UI",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 23:02",
-      "left_off": "The client is reconciled with CAL-B's in-code contract and 54 vitest tests pass. The watcher is waiting on API.md before the final e2e run."
+      "finished_at": "2026-10-18 00:17",
+      "left_off": "The checks moved to the background because the host is overloaded. I'll wait for that run to finish."
     },
     {
       "id": "a188be943a3fea75a",

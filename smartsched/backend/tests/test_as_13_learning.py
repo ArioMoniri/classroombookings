@@ -106,21 +106,27 @@ async def test_as_13_planning_audit_move_is_learned_once(env):  # noqa: F811
     from app.services import learning_extract
 
     async with _session() as s:
-        mr = (
+        cands = (
             await s.execute(
-                select(MeetingRequest)
+                select(MeetingRequest, Section)
                 .join(Section, Section.id == MeetingRequest.section_id)
                 .where(
                     Section.term_id == env.bahar,
+                    Section.mode == "F2F",
                     MeetingRequest.status == "LOCKED",
+                    MeetingRequest.needs_room.is_(True),
                     MeetingRequest.start_period.is_not(None),
                 )
                 .order_by(MeetingRequest.id)
-                .limit(1)
             )
-        ).scalar_one()
-        rooms = list((await s.execute(select(Room).where(Room.capacity >= 200).order_by(Room.code))).scalars())
-        target = rooms[0] if rooms else (await s.execute(select(Room).order_by(Room.capacity.desc()))).scalars().first()
+        ).all()
+        mr, sec = next((m, sc) for m, sc in cands if len(m.weeks or []) != 1 and m.definitive_room_ids)
+        all_rooms = list((await s.execute(select(Room).order_by(Room.code))).scalars())
+        target = next(
+            r
+            for r in all_rooms
+            if r.id not in set(mr.definitive_room_ids) and (not r.capacity or r.capacity >= int(sec.enrolment or 0))
+        )
         parent = ScheduleRun(term_id=env.bahar, kind="COURSE", horizon="TERM", status="FEASIBLE")
         s.add(parent)
         await s.flush()

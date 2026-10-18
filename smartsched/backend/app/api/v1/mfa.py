@@ -1,6 +1,6 @@
 """Two-step sign-in, passkeys, trusted devices and administrator resets (AU-B, owner request 2026-10-18).
 
-The contract for the UX and frontend lanes is in the AU-B API.md (scratchpad) and docs/research/2026-10-18-auth-backend.md.
+Contract for the UX and frontend lanes: the AU-B API.md (scratchpad); design: docs/research/2026-10-18-auth-backend.md.
 Logic lives in :mod:`app.services.mfa`; every refusal is ``{code, message, message_en, message_tr}``. A failed second
 factor is committed (counted for the lockout) before the refusal is answered.
 """
@@ -8,7 +8,7 @@ factor is committed (counted for the lockout) before the refusal is answered.
 from __future__ import annotations
 
 from collections.abc import Awaitable
-from typing import Annotated, Any, TypeVar
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
@@ -34,10 +34,7 @@ router = APIRouter(prefix="/auth", tags=["auth-mfa"])
 admin_router = APIRouter(prefix="/admin", tags=["auth-mfa"])
 AuthAdmin = Annotated[User, Depends(require_permission("setup.authentication"))]
 
-T = TypeVar("T")
-
-
-async def _run(db: DB, work: Awaitable[T]) -> T:
+async def _run[T](db: DB, work: Awaitable[T]) -> T:
     """Commit the work, or commit what a refusal recorded (failure counts, audit) and answer the refusal."""
     try:
         out = await work

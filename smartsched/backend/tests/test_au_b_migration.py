@@ -135,8 +135,7 @@ def test_au_b_postgres_round_trip(pg_server) -> None:  # noqa: F811
                 pols = (
                     c.execute(
                         text(
-                            "select polname from pg_policy p join pg_class t on t.oid = p.polrelid "
-                            "where t.relname = :t"
+                            "select polname from pg_policy p join pg_class t on t.oid = p.polrelid where t.relname = :t"
                         ),
                         {"t": t},
                     )

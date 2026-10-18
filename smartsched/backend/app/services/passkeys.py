@@ -1,4 +1,4 @@
-"""WebAuthn ceremonies (passkeys) on py_webauthn 3.0.1 (Duo Labs, BSD-3-Clause; docs/research/2026-10-18-auth-backend.md §3).
+"""WebAuthn ceremonies (passkeys) on py_webauthn 3.0.1 (Duo Labs, BSD-3; docs/research/2026-10-18-auth-backend.md §3).
 
 Thin wrappers that fix SmartSched's choices: the relying party is the panel's public host (the full host on sslip.io,
 never a public suffix), attestation ``none``, ES256 + RS256, resident key ``preferred``, user verification

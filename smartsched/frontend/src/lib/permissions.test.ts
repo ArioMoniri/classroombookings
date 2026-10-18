@@ -69,9 +69,12 @@ describe("role-level capabilities, without assuming three roles", () => {
     const all = ADMIN_SECTIONS.flatMap((s) => s.permission);
     expect(adminSectionsFor(all)).toHaveLength(ADMIN_SECTIONS.length);
   });
-  it("a planner without setup rights reaches only the booking conflicts screen", () => {
+  it("a planner without setup rights reaches only the booking conflicts screen and the catalogue", () => {
     const PLANNER = ["room.view", "book_single.create", "planning.view", "planning.edit"];
-    expect(adminSectionsFor(PLANNER).map((s) => s.id)).toEqual(["conflicts"]);
+    // RF-05: Katalog (imported instructors, courses, programmes, sections) is planning data: planning.view
+    expect(adminSectionsFor(PLANNER).map((s) => s.id)).toEqual(["conflicts", "catalog"]);
+    expect(canAccessRoute(PLANNER, "/admin/catalog/instructors")).toBe(true);
+    expect(canAccessRoute(TEACHER, "/admin/catalog")).toBe(false);
     expect(canAccessRoute(PLANNER, "/admin/conflicts")).toBe(true);
     expect(canAccessRoute(PLANNER, "/admin")).toBe(false);
     expect(canAccessRoute(TEACHER, "/admin/conflicts")).toBe(false);
@@ -87,7 +90,7 @@ describe("role-level capabilities, without assuming three roles", () => {
       expect(canAccessRoute(SECRETARY, href)).toBe(false);
       expect(canAccessRoute(TEACHER, href)).toBe(false);
     }
-    expect(adminSectionsFor(AI_ADMIN).map((s) => s.id)).toEqual(["conflicts", "ai", "ops"]);
+    expect(adminSectionsFor(AI_ADMIN).map((s) => s.id)).toEqual(["conflicts", "ai", "ops", "catalog", "welcome"]);
     expect(adminSectionsFor(["setup.settings"]).map((s) => s.id)).toEqual(["settings", "email", "ai", "ops"]);
   });
   it("unknown admin sub-routes still need some setup permission", () => {

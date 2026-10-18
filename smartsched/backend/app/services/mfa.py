@@ -1167,6 +1167,7 @@ async def status(db: AsyncSession, user: User) -> dict[str, Any]:
         "passkeys": await list_passkeys(db, user),
         "trusted_devices": await list_devices(db, user),
         "locked_until": row.locked_until if row and row.locked_until and row.locked_until > clock() else None,
+        "password_min_length": await password_min_length(db, user),
     }
 
 
@@ -1342,6 +1343,42 @@ async def public_flags(db: AsyncSession) -> dict[str, Any]:
         "sign_in": on and policy.passkey_first_factor,
         "trusted_device_days": policy.trusted_device_days if policy.mfa_policy != "off" else 0,
     }
+
+
+PASSWORD_MIN = 12
+PASSWORD_MIN_WITH_MFA = 8
+
+
+async def password_min_length(db: AsyncSession, user: User | None) -> int:
+    """Owner default 2026-10-18: a new password has at least 12 characters, or 8 when 2FA is on."""
+    if user is not None and await methods(db, user):
+        return PASSWORD_MIN_WITH_MFA
+    return PASSWORD_MIN
+
+
+async def check_password_length(db: AsyncSession, user: User | None, password: str) -> None:
+    need = await password_min_length(db, user)
+    if len(password or "") < need:
+        raise MfaError(
+            422,
+            "password_too_short",
+            f"Parola en az {need} karakter olmalı.",
+            f"The password must have at least {need} characters.",
+            min_length=need,
+        )
+
+
+async def user_for_reset_code(db: AsyncSession, code: str) -> User | None:
+    """The account an unused, unexpired reset code belongs to (nothing is consumed)."""
+    from app.models.booking import PasswordResetToken
+    from app.services.bookings_users import _hash
+
+    row = (
+        await db.execute(select(PasswordResetToken).where(PasswordResetToken.token_hash == _hash(code.strip())))
+    ).scalar_one_or_none()
+    if row is None or row.used_at is not None or row.expires_at < utcnow():
+        return None
+    return await db.get(User, row.user_id)
 
 
 async def on_password_changed(db: AsyncSession, user: User) -> int:

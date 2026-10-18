@@ -447,6 +447,12 @@ async def test_done(ok: str = Query(default="0", max_length=1)) -> HTMLResponse:
 async def accept_local_invite(token: str, body: LocalPasswordIn, db: DB) -> dict[str, Any]:
     """A local-password invite: the invited person sets the password, then signs in with the form. 404 for an
     unknown / used / expired / non-local invite (one answer: no enumeration)."""
+    from app.services import mfa as _mfa
+
+    try:  # AU-B owner default: a new account's password has at least 12 characters
+        await _mfa.check_password_length(db, None, body.password)
+    except _mfa.MfaError as exc:
+        raise exc.http() from exc
     user = await idp_invites.accept_local(db, token[:256], body.password)
     if user is None:
         raise HTTPException(

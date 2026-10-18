@@ -3856,3 +3856,44 @@ Order:
 7. AUX-09 runs alongside AUX-03…08.
 8. AUX-10 runs after AUX-03.
 9. AUX-12 runs last.
+
+### Sign-in, 2FA and passkeys (owner request 2026-10-18) — backend
+
+Lane AU-B (`au-b-2026-10-18`). Research: docs/research/2026-10-18-auth-backend.md. API contract for AUX / the frontend:
+scratchpad `auth/API.md` (summarised in the research §9). Alembic `0043_mfa`; dependency `webauthn==3.0.1` (BSD-3).
+
+- [x] AU-01 Model: `user_mfa`, `mfa_recovery_codes`, `webauthn_credentials`, `trusted_devices`, `auth_challenges`
+  (cascade, owner-only RLS on PostgreSQL), policy settings `auth.*` with code defaults; stdlib RFC 6238 TOTP.
+  done (alembic 0043_mfa on 0042, one head, SQLite + PG round trip and RLS; fresh installs seed
+  `auth.passkey_first_factor = 1`; app/models/mfa.py, app/core/totp.py; tests test_au_b_migration, test_au_b_totp)
+- [x] AU-02 Authenticator-app enrolment (start → otpauth URI + secret → confirm → 10 recovery codes once), disable with
+  re-authentication + a code, recovery-code regeneration. done (app/services/mfa.py, app/api/v1/mfa.py; test_au_b_mfa_api)
+- [x] AU-03 Sign-in challenge step: `POST /auth/login` → `mfa_required` + signed single-use challenge (own key, never a
+  bearer token) → TOTP (±1 step, replay refused) / recovery code (single use) / passkey → session. done (auth.py gate)
+- [x] AU-04 Lockout (5 failures → 15 min doubling, cap 24 h; 5 tries per challenge) and per-address limits in
+  `security_http` (`mfa_verify`, `passkey_sign_in`, `mfa_setup`, per-user `mfa_reauth`). done
+- [x] AU-05 Trusted devices: 30 days (policy 0/7/30), SHA-256 stored, `X-Trusted-Device` header, revocable, ended by
+  disable / admin reset / password change or reset. done
+- [x] AU-06 Policy `auth.mfa_policy` off | optional | required_for_roles (default roles ADMIN), grace days, setup token
+  after the grace period, `mfa_required` e-mail to newly covered people; `GET/PUT /admin/auth/mfa-policy`. done
+- [x] AU-07 Passkeys (py_webauthn 3.0.1): registration (attestation none, ES256/EdDSA/RS256, resident key preferred,
+  excludeCredentials), up to 10 per person, rename, remove with re-auth; RP ID = public host (full host on sslip.io).
+  done (app/services/passkeys.py; software authenticator tests/webauthn_soft.py; test_au_b_passkeys)
+- [x] AU-08 Passkey as the second factor; signature counter (cloned key audited `auth.passkey_counter_error`). done
+- [x] AU-09 Passkey-only sign-in (UV required) when the institution enables it; flags in `/org/public`. done
+- [x] AU-10 `POST /admin/users/{id}/mfa/reset`: reason + identity check, audited, refused for SSO-only and own account,
+  signs out, e-mails; `GET /admin/users/{id}/mfa` without secrets. done (test_au_b_admin)
+- [x] AU-11 `POST /admin/users/{id}/password-reset-link`: local accounts only (`sso_account`, `directory_account`),
+  existing reset token e-mailed as a link, never in the answer or the outbox; audited. done (test_au_b_admin)
+- [x] AU-12 Security e-mails via `mail.send_kind` (9 kinds, TR/EN, security footer): mfa_enabled, mfa_disabled,
+  mfa_reset_by_admin, passkey_added, passkey_removed, mfa_recovery_code_used, recovery_codes_regenerated, mfa_required,
+  password_reset_link_by_admin. done (app/emails/kinds.py, strings.py, samples.py; test_w3b_mail_render)
+- [x] AU-13 UX asks (auth.md §17): 10-minute re-auth window, sign-in history `GET /auth/sign-ins`, session after reset
+  link / invite acceptance (same gate), passkey flags in `/org/public`, password minimum 12 (8 with 2FA) on
+  change-password / reset / invite. done (test_au_b_ux_asks)
+- [x] AU-14 KVKK: export file `sign_in_security` (no secrets), erasure of the five tables; audit DECISIONS rows. done
+- [ ] AU-15 A sessions list (needs a server-side session table; today sessions are stateless JWTs, "sign out
+  everywhere" = `POST /auth/logout`). open: owner decision.
+- [ ] AU-16 Check the identity provider's `amr` / `acr` claims for MFA (ASVS 6.8.4). open.
+- [ ] AU-17 Frontend: route handler passes `mfa_required` through, stores `ss_td` cookie, forwards `X-Trusted-Device`
+  (AUX / frontend lane). open.

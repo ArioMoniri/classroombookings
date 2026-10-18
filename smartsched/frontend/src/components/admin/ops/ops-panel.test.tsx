@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
   grafanaUp: false,
   lokiUp: true,
   errors: [] as Record<string, unknown>[],
+  statusPending: false,
 }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
@@ -25,7 +26,7 @@ vi.mock("@/lib/api/client", async (orig) => {
     request: async (path: string, opts: { method?: string; body?: unknown; query?: Record<string, unknown> } = {}) => {
       const method = opts.method ?? "GET";
       state.calls.push({ path, method, query: opts.query, body: opts.body });
-      if (path === "/ops/status") return status();
+      if (path === "/ops/status") return state.statusPending ? new Promise(() => {}) : status();
       if (path === "/ops/requests") return { source: "process", points: [{ t: 60, requests: 10, errors: 1, p95_ms: 120 }, { t: 120, requests: 30, errors: 0, p95_ms: 80 }] };
       if (path === "/ops/errors" && method === "GET") {
         const st = String(opts.query?.status ?? "");
@@ -176,5 +177,22 @@ describe("OpsPanel", () => {
     expect(screen.getByTestId("ops-chart")).toHaveTextContent("Kaynak: bu API işlemi");
     await userEvent.click(screen.getByTestId("ops-range-180"));
     await waitFor(() => expect(state.calls.some((c) => c.path === "/ops/requests" && c.query?.minutes === 180)).toBe(true));
+  });
+});
+
+describe("mobile-b phase 2 · CLS: the status cards keep their place while /ops/status loads", () => {
+  it("renders one placeholder per card in the cards' grid, not a one-line spinner that ~1,000 px of cards replace", async () => {
+    state.statusPending = true;
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <I18nProvider initialLocale="tr">
+          <OpsPanel />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    const grid = await screen.findByTestId("ops-cards-loading");
+    expect(grid.className).toContain("grid-cols-1");
+    expect(grid.querySelectorAll("li")).toHaveLength(10);
+    state.statusPending = false;
   });
 });
