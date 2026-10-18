@@ -587,7 +587,8 @@ async def import_planning_list(
     report.extra["preferences"] = prefs
     if prefs["pending_review"]:
         report.warn(
-            f"{prefs['pending_review']} wish(es) read from the notes column wait for review (soft, active while they wait); "
+            f"{prefs['pending_review']} wish(es) read from the notes column wait for review "
+            "(soft, active while they wait); "
             f"{prefs['unparsed']} could not be read as a rule"
         )
     remapped = _successors(archived_now, created_now)

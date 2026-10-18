@@ -113,7 +113,9 @@ class Catalog:
                 # the room master or an admin set this room's tags: a workbook neither adds nor restores one (RF-06)
                 extra = [t for t in tags if t not in (room.tags or [])]
                 if extra:
-                    self.report.warn(f"room {code}: {source or 'import'} says tags {extra}, kept {list(room.tags or [])}")
+                    self.report.warn(
+                        f"room {code}: {source or 'import'} says tags {extra}, kept {list(room.tags or [])}"
+                    )
             elif tags:
                 merged = list(dict.fromkeys([*room.tags, *tags]))
                 if merged != room.tags:
@@ -171,7 +173,9 @@ class Catalog:
             )
             self.report.extra["rooms_without_capacity"] = no_capacity
 
-    async def _aliased[M: (Faculty, Program, Instructor)](self, entity: str, model: type[M], canonical: str) -> M | None:
+    async def _aliased[M: (Faculty, Program, Instructor)](
+        self, entity: str, model: type[M], canonical: str
+    ) -> M | None:
         """The row an admin renamed away from ``canonical`` (RF-06, :func:`remember_alias`), if any."""
         target = (
             await self.s.execute(

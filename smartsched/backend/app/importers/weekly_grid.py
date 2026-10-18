@@ -478,7 +478,9 @@ async def import_weekly_grid(
             w.kind = s.kind if s.kind != "SUMMER" else "LECTURE"
             report.updated["weeks"] += 1
     if report.extra.get("weeks_kept"):
-        report.warn(f"weeks {report.extra['weeks_kept']} were edited by an admin; kept as they are (not from the board)")
+        report.warn(
+            f"weeks {report.extra['weeks_kept']} were edited by an admin; kept as they are (not from the board)"
+        )
 
     # rooms: a dedicated exam workbook (all sheets Final/BÜT) carries exam seating in its headers;
     # a term workbook reuses the lecture headers even on its Final sheets.

@@ -92,6 +92,7 @@ async def _import(session: Any, args: argparse.Namespace, files: list[Path]) -> 
         return await import_crbs(session, args.dsn if args.dsn else files)
     return None
 
+
 async def _run_solve(args: argparse.Namespace) -> int:
     from sqlalchemy import select
 

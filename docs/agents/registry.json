@@ -3659,6 +3659,14 @@
       "ledger": "IDP lane: SAML hardening, linking",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a3cf4c45ec0d39e6b",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:06",
+      "left_off": "i added it as environment variable check again"
     }
   ]
 }

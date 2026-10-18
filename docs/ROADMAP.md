@@ -3131,12 +3131,14 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - Playwright at 1440 + 390 on the real stack.
   files: `smartsched/backend/app/api/v1/bookings.py` (append one route) + `app/services/booking_stats.py` (new) (owner: W3-SLOT; ask before editing); `smartsched/frontend/src/components/admin/admin-overview.tsx` (admin lane) + `src/lib/api/crbs.ts` (append).
   tester: admin persona tester.
-- [ ] CH-08 · frontend · no migration · Soft score across this term's runs on `/runs`: `echarts-line-chart` + dots, the active run labelled, shown only with ≥ 3 finished runs (else nothing); a tap on a dot opens that run.
+  part done (frontend: `components/admin/booking-weekly.tsx` + `booking-weekly-model.ts` on /admin "Bu dönem" (bookings per week, one series, current week hatched, exam weeks direct-labelled "Sınav haftası" + table column; request outcomes stacked approved/rejected/pending with legend), client `lib/api/stats.ts`; gate `system.export_bookings` (no `bookings.admin` permission exists); `GET /requests/stats` not reused (meeting/exam requests by status, not booking requests per week); vitest booking-weekly-model 5 + booking-weekly 6. Open: backend `GET /bookings/stats/weekly` does not exist (spec in charts.md "CH-07 … CH-11 notes", ask W3-SLOT) → until then one honest "veri yok" card; pytest `test_ch_07_*`; Playwright 1440 + 390: E2E lane; ch-m-2026-10-18)
+- [x] CH-08 · frontend · no migration · Soft score across this term's runs on `/runs`: `echarts-line-chart` + dots, the active run labelled, shown only with ≥ 3 finished runs (else nothing); a tap on a dot opens that run.
   accept:
   - vitest for the model (order by `finished_at`, cancelled runs excluded);
   - Playwright planner flow at 1440 + 390; keyboard ←/→ moves between runs and Enter opens one.
   files: `smartsched/frontend/src/components/runs/runs-list.tsx` (+ new `runs/score-history.tsx`) (current owner: runs lane; AS-17 also touches `components/runs/**`: coordinate).
   tester: planner persona tester.
+  done (`components/runs/score-history.tsx` + `score-history-model.ts` above the /runs table: line + dots (`LineFormProps.dots`), finished COURSE runs with a score by `finished_at`, cancelled/failed/running/exam/import boards excluded, active run labelled "#n etkin", nothing below 3 runs; tap/click a dot or ←/→ + Enter opens /runs/{id} (new ChartCard `onSelect` + `selectHint`, Enter/Space in chart-keyboard.ts, `ChartApi.indexAt`); loaded with next/dynamic because the shell imports runs-list.tsx; `isImportBoard` → runs/run-kinds.ts; vitest score-history-model 5 + score-history 3 + charts/chart-select 6; eslint clean; check:design passed; tsc 0 outside HX's in-progress helper files. Open: Playwright planner flow at 1440 + 390 incl. keyboard ←/→/Enter: E2E lane; ch-m-2026-10-18)
 - [x] CH-09 · frontend · no migration · Remove Recharts after CH-04/05 have landed.
   - Delete `src/components/ui/evilcharts/**` (Recharts files, incl. the unused radial/brush/background/dot); drop `recharts` from package.json.
   - Update SOURCES.md (keep the EvilCharts MIT LICENSE file: the ECharts files still need it).
@@ -3151,6 +3153,7 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   accept: vitest + Playwright at 1440 + 390; the table filter is keyboard reachable.
   files: `smartsched/frontend/src/components/audit/audit-view.tsx` (admin lane).
   tester: admin persona tester.
+  part done (frontend: `components/audit/audit-daily.tsx` + `audit-daily-model.ts` above the audit list (audit.view): 30 columns, today hatched; tap/click a column or ←/→ + Enter sets from = to = that day in the filter form (keyboard reachable, "Sıfırla" undoes) + live "Liste … gününe süzüldü."; phones: behind one 44 px "Günlük olayları göster" button; vitest audit-daily-model 3 + audit-daily 4. Open: backend `GET /audit/stats/daily` missing (spec in charts.md notes) → honest "veri yok" card meanwhile; Playwright 1440 + 390: E2E lane; ch-m-2026-10-18)
 - [ ] CH-11 · frontend (+ small backend) · no migration · User and academician statistics without a chart library (charts.md §4 rows 17–19, `charts-user-390.svg`).
   - `/my-bookings` + `/profile`: three `StatTile`s (aktif / bu dönem / açık talep) + "3 / 5 aktif rezervasyon hakkı kullanıldı".
   - `/profile` for academicians: "Haftalık ders yüküm" `BarList` by weekday ("ders yok" for 0), each row a 44 px link to that day in `/timetable`.
@@ -3162,6 +3165,7 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - the ECharts chunk is **not** requested on `/profile` or `/my-bookings` (network assertion).
   files: `smartsched/frontend/src/components/bookings/my-bookings-view.tsx` (W3-SLOT), `src/components/admin/profile-view.tsx` + new `src/components/profile/my-load.tsx` (profile owner), backend `GET /me/load` only if §13.2 decides so.
   tester: academician + user persona tester.
+  part done (`components/profile/my-stats.tsx` + `my-stats-model.ts`: tiles etkin / bu dönem / açık talep + "3 / 5 aktif rezervasyon hakkı kullanıldı" on /my-bookings (replaces the subtitle sentence; `mine-can-create` kept) and /profile ("Özetim"); `components/profile/my-load.tsx` "Haftalık ders yüküm" BarList for people linked to an instructor, "ders yok" for 0, 44 px row links to /timetable?lens=day&day=N&subject=instructor:ID; AI meter unchanged; no chart module on either route (the test fails if chart-lazy is imported); vitest my-stats-model 4 + my-stats 6. §13.2 decided as `GET /me/load` (spec in charts.md notes). Open: that backend route (until then "Ders yükü verisi sunucuda henüz hazır değil."); `e2e/loop-r2-laneB.spec.ts:140` asserts the removed `mine-totals` sentence (update to the tiles); Playwright academician + user flows + the network assertion: E2E lane; ch-m-2026-10-18)
 - [ ] CH-12 · tester · no migration · Persona pass over every chart surface after CH-04…CH-06 + CH-11.
   - Personas: admin (`/admin/ai`, `/admin/ops`), planner (`/dashboard`, `/runs`), user and academician (`/profile`, `/my-bookings`), kiosk (confirm no chart and no motion).
   - Viewports: 1440 mouse + 390×844 touch, tr-TR, light + dark + reduced motion + forced colours.

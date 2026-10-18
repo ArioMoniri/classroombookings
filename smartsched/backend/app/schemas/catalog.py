@@ -82,7 +82,7 @@ _WEEK_KIND_WORDS = {
 
 
 def parse_week_kind(value: Any) -> str:
-    """``"Tatil"`` / ``"TATİL"`` / ``"holiday"`` -> ``HOLIDAY`` (Turkish case folding, NBSP); :class:`Refusal` otherwise."""
+    """``"Tatil"`` / ``"TATİL"`` / ``"holiday"`` -> ``HOLIDAY`` (Turkish case folding, NBSP); else :class:`Refusal`."""
     from app.importers import normalize as n
     from app.schemas.messages import Refusal
 

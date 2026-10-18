@@ -137,7 +137,5 @@ async def test_week_calendar_edits_validate_turkish_kinds_and_mark_weeks(client)
     async with dbmod.get_session_factory()() as s:
         w2 = (await s.execute(select(Week).where(Week.term_id == term["id"], Week.index == 2))).scalar_one()
         assert w2.edited is True
-        events = list(
-            (await s.execute(select(AuditEvent).where(AuditEvent.entity_type == "term_week"))).scalars()
-        )
+        events = list((await s.execute(select(AuditEvent).where(AuditEvent.entity_type == "term_week"))).scalars())
     assert any(e.action == "term_week.update" and e.actor_type == "user" for e in events)

@@ -74,7 +74,9 @@ async def audit_run(session: AsyncSession, job: ImportJob) -> None:
         return
     actor = await session.get(User, job.created_by_id) if job.created_by_id else None
     if actor is None and audit.context(session) is None:
-        audit.set_context(session, audit.AuditContext(actor_type="system", actor_label=str(summary.get("source") or "cli")))
+        audit.set_context(
+            session, audit.AuditContext(actor_type="system", actor_label=str(summary.get("source") or "cli"))
+        )
     await audit.record(
         session,
         "import.run",
@@ -97,9 +99,7 @@ async def audit_run(session: AsyncSession, job: ImportJob) -> None:
     )
 
 
-async def run_preview(
-    session: AsyncSession, run: Callable[[AsyncSession], Awaitable[ImportReport]]
-) -> dict[str, Any]:
+async def run_preview(session: AsyncSession, run: Callable[[AsyncSession], Awaitable[ImportReport]]) -> dict[str, Any]:
     """The import in a transaction that is rolled back: its report plus ``diff`` (``dryrun.summarize``)."""
     from app.council.dryrun import ChangeRecorder, summarize
 

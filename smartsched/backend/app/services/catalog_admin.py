@@ -561,7 +561,9 @@ async def update_instructor(session: AsyncSession, actor: User, instructor_id: i
             raise Conflict(f"instructor {clash.full_name} already exists", existing=instructor_out(clash))
         old_canonical = i.canonical_name
         i.full_name, i.canonical_name = parsed.full_name, parsed.canonical
-        await remember_alias(session, "instructor", old_canonical, i.id)  # RF-06: the next import maps the old name here
+        await remember_alias(
+            session, "instructor", old_canonical, i.id
+        )  # RF-06: the next import maps the old name here
         if parsed.title and "title" not in data:
             i.title = parsed.title
     if "title" in data:

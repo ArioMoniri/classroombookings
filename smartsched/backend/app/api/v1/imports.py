@@ -22,6 +22,7 @@ from app.workers.queue import JobState, get_queue, worker_id
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 
+
 def _job_files(job_id: int) -> list[Path]:
     return import_jobs.job_files(job_id)
 
@@ -233,10 +234,10 @@ async def import_planning(
     dry_run: bool = Form(False),
 ) -> ImportJob:
     """Re-imports keep planner edits of fields the file also changed (``on_conflict=keep``, reported in
-    ``summary.extra.conflicts``) or apply the file (``take``). ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``."""
+    ``summary.extra.conflicts``) or apply the file (``take``).
+    ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``."""
     params = {"week_count": week_count, "on_conflict": on_conflict}
     return await _upload_job(db, user, "planning-list", file, term_code, params, dry_run=dry_run)
-
 
 
 @router.post("/exam-list", response_model=ImportJobOut, status_code=202)
@@ -249,9 +250,9 @@ async def import_exams(
     dry_run: bool = Form(False),
 ) -> ImportJob:
     """Re-imports keep admin edits and archived rows (RF-06); a field the file changed too is a conflict, kept
-    (``on_conflict=keep``) or taken (``take``) and listed in ``summary.extra.conflicts``. ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``."""
+    (``on_conflict=keep``) or taken (``take``) and listed in ``summary.extra.conflicts``.
+    ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``."""
     return await _upload_job(db, user, "exam-list", file, term_code, {"on_conflict": on_conflict}, dry_run=dry_run)
-
 
 
 @router.post("/weekly-grid", response_model=ImportJobOut, status_code=202)
@@ -264,7 +265,8 @@ async def import_grid(
     term_kind: str | None = Form(None),
     dry_run: bool = Form(False),
 ) -> ImportJob:
-    """A term's room board; weeks an admin edited keep their kind and label (RF-06). ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``."""
+    """A term's room board; weeks an admin edited keep their kind and label (RF-06).
+    ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``."""
     params = {"year": year, "term_kind": term_kind}
     return await _upload_job(db, user, "weekly-grid", file, term_code, params, dry_run=dry_run, full_load=True)
 
@@ -279,11 +281,11 @@ async def import_room_master_endpoint(
 ) -> ImportJob:
     """The room master (``code, capacity, exam_capacity, tags, building, floor, bookable[, notes]``) as CSV
     (UTF-8 or Windows-1254, ``;`` or ``,``) or ``.xlsx`` (first sheet).  Values it sets are never overwritten
-    by a later workbook import.  Needs ``planning.edit`` or ``setup.rooms``. ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``."""
+    by a later workbook import.  Needs ``planning.edit`` or ``setup.rooms``.
+    ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``."""
     if not (file.filename or "").lower().endswith(_ROOM_MASTER_TYPES):
         raise HTTPException(400, "the room master must be a .csv or .xlsx file")
     return await _upload_job(db, user, "room-master", file, None, {}, dry_run=dry_run)
-
 
 
 class ApplyIn(BaseModel):
@@ -316,8 +318,12 @@ async def apply_preview(job_id: int, body: ApplyIn, db: DB, access: CurrentAcces
         raise problem(409, "preview_not_ready", "Önizleme henüz hazır değil.", "the preview has not finished")
     files = _job_files(preview.id)
     if not files:
-        raise problem(410, "preview_file_gone", "Önizlemenin dosyası artık yok; dosyayı yeniden yükleyin.",
-                      "the previewed file is no longer stored; upload it again")
+        raise problem(
+            410,
+            "preview_file_gone",
+            "Önizlemenin dosyası artık yok; dosyayı yeniden yükleyin.",
+            "the previewed file is no longer stored; upload it again",
+        )
     params = dict(summary.get("params") or {})
     if body.on_conflict is not None:
         params["on_conflict"] = body.on_conflict

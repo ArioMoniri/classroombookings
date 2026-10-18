@@ -43,8 +43,9 @@ async def _upload(c, h, kind: str, path: Path, **data: Any) -> dict[str, Any]:  
     return dict(job)
 
 
-def _edited_exam_list(tmp: Path, *, enrolment_row2: int | None = None, drop_row: int | None = None,
-                      blank_venue_row: int | None = None) -> Path:
+def _edited_exam_list(
+    tmp: Path, *, enrolment_row2: int | None = None, drop_row: int | None = None, blank_venue_row: int | None = None
+) -> Path:
     """A copy of the Final list with the planning office's next changes (one cell, one row, one wish)."""
     out = tmp / "final_planlama_listesi_2026_v3.xlsx"
     shutil.copyfile(EXAM_LIST, out)
@@ -166,7 +167,9 @@ async def test_unedited_file_rule_still_follows_the_file(client, tmp_path) -> No
     job = await _upload(client, h, "exam-list", _edited_exam_list(tmp_path, blank_venue_row=431), term_code=FINAL)
     assert job["summary"]["extra"]["preferences"]["removed"] == 1
     async with dbmod.get_session_factory()() as s:
-        assert (await s.execute(select(func.count(ConstraintRow.id)).where(ConstraintRow.source == "FILE"))).scalar() == 0
+        assert (
+            await s.execute(select(func.count(ConstraintRow.id)).where(ConstraintRow.source == "FILE"))
+        ).scalar() == 0
 
 
 # --------------------------------------------------------------------------------------------------

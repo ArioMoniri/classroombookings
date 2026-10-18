@@ -110,8 +110,13 @@ def out(source: str, **extra: Any) -> dict[str, Any]:
     return {
         "source": source,
         "count": len(n.PERIODS),
-        "periods": [{"index": p.index, "start": f"{p.start:%H:%M}", "end": f"{p.end:%H:%M}", "label": p.label} for p in n.PERIODS],
-        "default": [{"index": p.index, "start": f"{p.start:%H:%M}", "end": f"{p.end:%H:%M}"} for p in n.DEFAULT_PERIODS],
+        "periods": [
+            {"index": p.index, "start": f"{p.start:%H:%M}", "end": f"{p.end:%H:%M}", "label": p.label}
+            for p in n.PERIODS
+        ],
+        "default": [
+            {"index": p.index, "start": f"{p.start:%H:%M}", "end": f"{p.end:%H:%M}"} for p in n.DEFAULT_PERIODS
+        ],
         **extra,
     }
 
