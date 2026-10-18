@@ -16,7 +16,6 @@ import { useIsPhone } from "./use-is-phone";
 import {
   exportCsvUrl,
   useBookingContext,
-  useBookingDashboard,
   useBookingDates,
   useCrbsMe,
   useMyBookings,
@@ -28,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/provider";
 import { Field, Loading, PageTitle, SectionTitle, SelectField } from "@/components/admin/kit";
 import { MyRequests } from "@/components/approvals/my-requests";
+import { MyStats } from "@/components/profile/my-stats";
 import { useMyRequests } from "@/lib/api/wave1";
 import { StatusPill } from "@/components/approvals/request-parts";
 import { addDays } from "./date-format";
@@ -37,7 +37,7 @@ import { CalendarSyncPanel } from "./calendar-sync";
 import { CancelManyDialog } from "./cancel-many-dialog";
 import { RoomInfoSheet } from "./room-info-sheet";
 import { useBookingFormat, useProfileLanguage } from "./use-booking-format";
-import { focusRowAfterRemoval, groupBookings, openRequestCount, rowIndexOf, rowSelectorsAfterRemoval } from "./my-bookings-model";
+import { focusRowAfterRemoval, groupBookings, rowIndexOf, rowSelectorsAfterRemoval } from "./my-bookings-model";
 import { focusAfter } from "./focus-after";
 import { cancelReasonText } from "./cancel-reason";
 import { BareButton } from "@/components/shell/bare-button";
@@ -62,7 +62,6 @@ export function MyBookingsView() {
   const [tab, setTab] = useState<Tab>("upcoming");
   const q = tab === "upcoming" ? { from: today, status: "BOOKED" as const } : tab === "past" ? { to: today ? addDays(today, -1) : undefined, status: "ALL" as const } : { status: "CANCELLED" as const };
   const list = useMyBookings(q);
-  const dash = useBookingDashboard();
   const owned = useOwnedRooms();
   const [detail, setDetail] = useState<number | null>(null);
   useDeepLinkedBooking(setDetail, list.data); // RF-11: an e-mail's ?booking=<id> or ?series=<id> opens its detail sheet
@@ -127,20 +126,9 @@ export function MyBookingsView() {
             {t("wave1.find.title")}
           </Button>
         }
-        subtitle={
-          dash.data ? (
-            <span data-testid="mine-totals">
-              {t("crbs.mine.totals", { active: dash.data.totals.active, session: dash.data.totals.session, all: dash.data.totals.all })}
-              {/* W3-SLOT: the totals are live bookings; open requests are named apart */}
-              {openRequestCount(requests.data) ? <span data-testid="mine-pending">{` · ${t("quickReserve.pendingApart", { n: openRequestCount(requests.data) })}`}</span> : null}
-              {dash.data.limits.max_active_bookings != null ? ` · ${t("crbs.mine.limit", { n: dash.data.limits.max_active_bookings })}` : ""}
-              {dash.data.limits.max_active_bookings != null ? (
-                <span data-testid="mine-can-create">{` · ${t("reserve.mine.canCreate", { n: Math.max(0, dash.data.limits.max_active_bookings - (dash.data.totals.active_periods ?? dash.data.totals.active)) })}`}</span>
-              ) : null}
-            </span>
-          ) : null
-        }
       />
+      {/* CH-11: etkin / bu dönem / açık talep tiles + "3 / 5 aktif rezervasyon hakkı kullanıldı" (no chart library) */}
+      <MyStats />
 
       <MyRequests fmt={fmt} />
 

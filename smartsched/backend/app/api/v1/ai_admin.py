@@ -6,6 +6,9 @@ speech-only providers' fixed models; the test call of a speech model transcribes
 (``app/ai/voice/assets``); routes accept only speech models for ``voice_stt`` and only text models elsewhere;
 ``GET / PUT /ai/admin/voice`` hold the voice settings (audited ``ai.voice``); limits take audio seconds.
 
+Helper (HB-14 / HB-15): ``GET / PUT /ai/admin/helper`` hold the institution's ``ai.helper`` controls (audited
+``ai.helper``, :mod:`app.ai.helper.settings`); ``GET /ai/admin/helper/summary`` is its telemetry as aggregates.
+
 Who: administrators with ``planning.admin`` or ``setup.settings`` manage everything under ``/ai/admin``; any
 signed-in user reads only their own usage. Keys are write-only: answers carry ``{"set", "masked"}`` and never the
 value; every change writes an audit event (values of secrets never reach the audit log either).
@@ -17,7 +20,7 @@ import asyncio
 import re
 import time
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -928,6 +931,102 @@ async def redteam(_: AIAdmin) -> dict[str, Any]:
     """Run the shipped red-team guard corpus (TR + EN) through the deterministic guardrails (no model call)."""
     cases = load_cases(GUARD_CASES_PATH)
     return summarize_guard(score_guard_cases(cases))
+
+
+# ---------------------------------------------------------------------------------------------- helper (HB-14/15)
+
+
+class HelperActionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool | None = None
+    #: ``None`` = every audience
+    audiences: list[str] | None = Field(default=None, max_length=16)
+
+
+class HelperMemoryIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool | None = None
+    retention_days: int | None = Field(default=None, ge=1, le=365)
+
+
+class HelperGuardIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scope: Literal["strict", "normal", "loose"] | None = None
+
+
+class HelperSettingsIn(BaseModel):
+    """A partial patch of ``ai.helper``; ``version`` (from GET) refuses the save when another admin saved first."""
+
+    model_config = ConfigDict(extra="forbid")
+    version: str | None = Field(default=None, pattern=r"^[a-f0-9]{16}$")
+    enabled: bool | None = None
+    mode: Literal["ai", "index"] | None = None
+    audiences: dict[str, bool] | None = None
+    actions: dict[str, HelperActionIn] | None = None
+    memory: HelperMemoryIn | None = None
+    history_days: int | None = Field(default=None, ge=1, le=365)
+    feedback_notes: bool | None = None
+    guard: HelperGuardIn | None = None
+
+
+async def _helper_out(db: DB) -> dict[str, Any]:
+    from app.ai.helper import settings as hs
+    from app.ai.helper import status as hst
+
+    current = await hs.load(db)
+    if not current["enabled"]:
+        reason: str | None = "disabled"
+    elif current["mode"] == "index":
+        reason = "index_mode"
+    else:
+        reason = await hst.routing_reason(db)
+    tr, en = hst.REASONS[reason] if reason else hst.ON
+    limits = await gw.get_limits(db)
+    return {
+        "settings": current,
+        "version": hs.version(current),
+        "effective": {"mode": "index" if reason else "ai", "reason": reason, "message": {"tr": tr, "en": en}},
+        "catalog": hs.catalog(),
+        "limits": {
+            "feature": (limits.get("features") or {}).get("helper"),
+            "caps": dict(gw.DEFAULT_CAPS["helper"]),
+            "faculties": len(limits.get("faculties") or {}),
+        },
+    }
+
+
+@router.get("/ai/admin/helper")
+async def helper_settings(db: DB, _: AIAdmin) -> dict[str, Any]:
+    """The institution's helper controls (one ``ai.helper`` row for every admin), what people get now, the action
+    and audience catalogue, and the helper's quotas from the HB-10 chain (read-only here)."""
+    return await _helper_out(db)
+
+
+@router.put("/ai/admin/helper")
+async def helper_settings_put(body: HelperSettingsIn, db: DB, user: AIAdmin) -> dict[str, Any]:
+    """Patch ``ai.helper`` (audited ``ai.helper``). 409 ``stale_settings`` when ``version`` is not the current one;
+    422 ``unknown_action`` / ``unknown_audience``."""
+    from app.ai.helper import settings as hs
+
+    before = await hs.load(db)
+    patch = body.model_dump(exclude_unset=True, exclude={"version"})
+    try:
+        after = await hs.save(db, patch, expected_version=body.version)
+    except hs.SettingsError as exc:
+        await db.rollback()
+        raise _err(exc.status, exc.code, exc.tr, exc.en, **exc.data) from exc
+    await audit.record(db, "ai.helper", "setting", "ai.helper", before=before, after=after, actor=user)
+    await db.commit()
+    return await _helper_out(db)
+
+
+@router.get("/ai/admin/helper/summary")
+async def helper_summary(db: DB, _: AIAdmin, days: int = Query(7, ge=1, le=90)) -> dict[str, Any]:
+    """Helper telemetry as aggregates (HB-14): turns by mode and outcome, fallback share, deflection, the action
+    funnel, thumbs, p50 / p95, cost per feature, unanswered queries typed by ≥ 5 people, four sentence tiles."""
+    from app.ai.helper import telemetry
+
+    return await telemetry.summary(db, days=days)
 
 
 # ---------------------------------------------------------------------------------------------- my usage

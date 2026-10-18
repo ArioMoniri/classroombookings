@@ -30,6 +30,8 @@ import { PrivacySection } from "@/components/privacy/privacy-section";
 import { CalendarConnectionsSection } from "@/components/settings/calendar-connections";
 import { CalendarExportSection } from "@/components/calendar-export/calendar-export-section";
 import { MyAiUsage } from "@/components/admin/ai/my-ai-usage";
+import { MyStats } from "@/components/profile/my-stats";
+import { MyLoad } from "@/components/profile/my-load";
 import { ChartPatternsToggle } from "@/components/charts/chart-patterns-toggle";
 import { mfaErrorCode, usePasswordMinLength } from "@/lib/api/auth-security";
 import { refusalBody } from "@/lib/api/error-text";
@@ -64,6 +66,9 @@ export function ProfileView() {
       <CalendarExportSection />
       {/* Google Calendar / Microsoft 365 push: connect, choose the calendar, disconnect */}
       <CalendarConnectionsSection />
+      {/* CH-11: my booking numbers, and an academician's weekly teaching load (tiles + BarList, no chart library) */}
+      <MyStats showTitle />
+      <MyLoad />
       {/* wave 3 W3-AI: my AI usage against my limit (hidden for people who never used AI and have no limit) */}
       <section id="ai-usage" className="scroll-mt-20">
         <MyAiUsage />

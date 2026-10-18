@@ -163,7 +163,8 @@ export function useHelperRunner(): Runner {
           }
         });
       } catch (err) {
-        if (!pushRefusal(err)) useHelperStore.getState().setTurn({ error: both("helper.error.provider") });
+        // could not start (429 limit, 403, the network): the server's card or its message, in the log
+        pushRefusal(err);
         answered = true;
       } finally {
         const s = useHelperStore.getState();
@@ -172,6 +173,26 @@ export function useHelperRunner(): Runner {
       }
     },
     [locale, pushRefusal],
+  );
+
+  const undoImpl = useCallback(
+    async (entry: CardEntry) => {
+      if (entry.card.type !== "result" || !entry.card.undo_token || entry.undone) return;
+      const st = useHelperStore.getState();
+      st.updateCard(entry.key, { phase: "busy", notice: null });
+      try {
+        const out = await helperApi.undo(entry.card.undo_token);
+        useHelperStore.getState().updateCard(entry.key, { phase: "done", undone: true });
+        const key = pushServerCard(out, { undone: true });
+        focusEntry(key);
+        toast(translate(locale as Locale, "helper.card.undone"));
+      } catch (err) {
+        const r = helperRefusal(err);
+        useHelperStore.getState().updateCard(entry.key, { phase: "done", undone: r.code === "already_undone", notice: r.tr || r.en ? { tr: r.tr ?? "", en: r.en ?? "" } : both("helper.error.provider") });
+        focusEntry(entry.key);
+      }
+    },
+    [locale, pushServerCard],
   );
 
   const confirm = useCallback<Runner["confirm"]>(
@@ -192,7 +213,7 @@ export function useHelperRunner(): Runner {
         if (result.type === "result" && result.ok) {
           const message = result.message[locale as Locale] ?? result.message.tr;
           const fresh = useHelperStore.getState().entries.find((e) => e.key === key) as CardEntry | undefined;
-          if (result.undo_token && fresh) toast(message, { duration: 8000, action: { label: translate(locale as Locale, "helper.card.undo"), onClick: () => void undoRef(fresh) } });
+          if (result.undo_token && fresh) toast(message, { duration: 8000, action: { label: translate(locale as Locale, "helper.card.undo"), onClick: () => void undoImpl(fresh) } });
           else toast(message, { duration: 8000 });
         }
       } catch (err) {
@@ -217,35 +238,15 @@ export function useHelperRunner(): Runner {
         focusEntry(entry.key);
       }
     },
-    // undoRef is defined below (hoisted function)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [locale, pushServerCard],
+    [locale, pushServerCard, undoImpl],
   );
-
-  async function undoRef(entry: CardEntry) {
-    if (entry.card.type !== "result" || !entry.card.undo_token || entry.undone) return;
-    const st = useHelperStore.getState();
-    st.updateCard(entry.key, { phase: "busy", notice: null });
-    try {
-      const out = await helperApi.undo(entry.card.undo_token);
-      useHelperStore.getState().updateCard(entry.key, { phase: "done", undone: true });
-      const key = pushServerCard(out, { undone: true });
-      focusEntry(key);
-      toast(translate(locale as Locale, "helper.card.undone"));
-    } catch (err) {
-      const r = helperRefusal(err);
-      useHelperStore.getState().updateCard(entry.key, { phase: "done", undone: r.code === "already_undone", notice: r.tr || r.en ? { tr: r.tr ?? "", en: r.en ?? "" } : both("helper.error.provider") });
-      focusEntry(entry.key);
-    }
-  }
 
   const undo = useCallback<Runner["undo"]>(
     async (entry, event) => {
       if (event && !activation.trusted(event)) return;
-      await undoRef(entry);
+      await undoImpl(entry);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [locale, pushServerCard],
+    [undoImpl],
   );
 
   const refresh = useCallback<Runner["refresh"]>(

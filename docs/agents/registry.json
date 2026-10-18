@@ -3609,6 +3609,14 @@
       "status": "finished",
       "finished_at": "2026-10-18 09:55",
       "left_off": "added the license env var, run the hosted fixes"
+    },
+    {
+      "id": "a5f207afb1a714275",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:58",
+      "left_off": "raise idle to 240 min while testers run"
     }
   ]
 }

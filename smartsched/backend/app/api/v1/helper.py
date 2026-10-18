@@ -8,12 +8,19 @@
   runs; a write is previewed and answers ``confirm`` (all args resolved, A1), ``form`` or ``choice`` (HB-05)
 * ``POST /helper/actions/confirm`` / ``/undo``                                                     (HB-05)
 * ``GET / POST / DELETE /helper/notes``, ``PUT /helper/memory``                                    (HB-09)
+* ``POST /helper/feedback``, ``POST /helper/events``; ``GET /helper/search?final=true`` records one query (HB-14)
+
+The admin's ``ai.helper`` switches (HB-15, :mod:`app.ai.helper.settings`) filter the actions everywhere here; the
+write steps and submitted searches are counted (:mod:`app.ai.helper.telemetry`, aggregates only).
 
 Everything runs as the signed-in person (``CurrentAccess``), through the same services as the pages.
 """
 
 from __future__ import annotations
 
+import logging
+import time
+from collections.abc import Awaitable
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -27,6 +34,7 @@ from app.api.deps import DB, CurrentAccess, CurrentUser, require_permission
 from app.models import User
 
 router = APIRouter(prefix="/helper", tags=["helper"])
+log = logging.getLogger(__name__)
 
 
 def refused(status: int, code: str, tr: str, en: str, **data: Any) -> HTTPException:
@@ -52,6 +60,23 @@ def _action_out(a: reg.Action) -> dict[str, Any]:
     }
 
 
+async def _enabled(db: DB, access: CurrentAccess) -> list[str]:
+    """The action names the admin switched on for this person's audiences (HB-15)."""
+    from app.ai.helper import settings as hs
+
+    return (await hs.policy(db, access)).actions
+
+
+async def _track(db: DB, step: Awaitable[None]) -> None:
+    """Write one telemetry step and commit; a failure is logged and never reaches the person."""
+    try:
+        await step
+        await db.commit()
+    except Exception:  # noqa: BLE001 - telemetry must never break a route
+        await db.rollback()
+        log.warning("helper telemetry failed", exc_info=True)
+
+
 @router.get("/search")
 async def search(
     db: DB,
@@ -59,8 +84,31 @@ async def search(
     q: str = Query("", max_length=200),
     limit: int = Query(6, ge=1, le=6),
     term_id: int | None = None,
+    final: bool = False,
 ) -> dict[str, Any]:
-    return await run_search(db, access, q, limit=limit, term_id=term_id, allowed_actions=reg.permitted_names(access))
+    """``final=true`` when the person submits the search (Enter, "Nerede?"), never per keystroke: one ``query``
+    event (HB-14); an index miss keeps only the folded words."""
+    from app.ai.helper import telemetry
+    from app.ai.helper.index import get_index
+
+    t0 = time.perf_counter()
+    allowed = reg.permitted_names(access, await _enabled(db, access))
+    out = await run_search(db, access, q, limit=limit, term_id=term_id, allowed_actions=allowed)
+    if final and q.strip():
+        top = get_index().search(q, access.perms, limit=1)
+        await _track(
+            db,
+            telemetry.record_query(
+                db,
+                access.user_id,
+                text=q,
+                mode="index",
+                outcome="index",
+                top_feature=top[0].entry.id if top else None,
+                latency_s=time.perf_counter() - t0,
+            ),
+        )
+    return out
 
 
 @router.get("/schema")
@@ -81,8 +129,8 @@ async def status(request: Request, db: DB, access: CurrentAccess) -> dict[str, A
 
 
 @router.get("/actions")
-async def actions(access: CurrentAccess) -> list[dict[str, Any]]:
-    return [_action_out(a) for a in reg.permitted(access)]
+async def actions(db: DB, access: CurrentAccess) -> list[dict[str, Any]]:
+    return [_action_out(a) for a in reg.permitted(access, await _enabled(db, access))]
 
 
 class CardIn(BaseModel):
@@ -109,7 +157,12 @@ async def build_card(name: str, args: dict[str, Any], db: DB, access: CurrentAcc
         ) from exc
     except reg.ActionRefused as exc:
         raise refused(exc.status, exc.code, exc.tr, exc.en, **exc.data) from exc
-    return cards.dump(card)
+    out = cards.dump(card)
+    if out.get("type") == "confirm":
+        from app.ai.helper import telemetry
+
+        await _track(db, telemetry.record_action(db, access.user_id, a.name, "preview"))
+    return out
 
 
 @router.post("/actions/{name}/card")
@@ -130,9 +183,11 @@ async def confirm(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any
     """The card's button: verify the token, claim it once, re-run the preview, then write through the service.
     403 bad / other user's token, 410 expired, 409 already done or changed (with the new card)."""
     from app.ai.helper import confirm as cf
-    from app.ai.helper import tooluse
+    from app.ai.helper import settings as hs
+    from app.ai.helper import telemetry, tooluse
     from app.ai.helper.actions import writes
 
+    name: str | None = None
     try:
         try:
             p = cf.verify(body.token)
@@ -140,23 +195,45 @@ async def confirm(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any
             p = {}  # cf.confirm refuses it again and writes the audit row
         spec = writes.WRITES.get(str(p.get("a")))
         if spec is not None:
+            name = spec.action.name
+            if name not in await _enabled(db, access):  # switched off since the preview (HB-15)
+                raise reg.ActionRefused(403, "action_off", *hs.ACTION_OFF)
             if reg.RATE.hit(access.user_id, spec.action):
                 raise reg.ActionRefused(429, "rate_limited", tooluse.RATE_TR, tooluse.RATE_EN)
             await tooluse.gate(spec.action, reg.Ctx(db, access))
-        return await cf.confirm(db, access, body.token)
+        out = await cf.confirm(db, access, body.token)
     except reg.ActionRefused as exc:
+        if name is not None:
+            await _track(db, telemetry.record_action(db, access.user_id, name, "confirm", exc.code))
         raise refused(exc.status, exc.code, exc.tr, exc.en, **exc.data) from exc
+    if name is not None:
+        await _track(db, telemetry.record_action(db, access.user_id, name, "confirm"))
+    return out
 
 
 @router.post("/actions/undo")
 async def undo(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
     """ "Geri al" on a result card (24 h, and only before the booking starts; ``bookings_undo`` decides)."""
     from app.ai.helper import confirm as cf
+    from app.ai.helper import telemetry
+    from app.models.helper import HelperActionInvocation
 
+    name: str | None = None
     try:
-        return await cf.undo(db, access, body.token)
+        p = cf.verify(body.token)
+        inv = await db.get(HelperActionInvocation, int(p.get("i") or 0)) if p.get("u") == access.user_id else None
+        name = inv.action if inv is not None else None
+    except (reg.ActionRefused, ValueError, TypeError):
+        pass  # cf.undo refuses it with the right code
+    try:
+        out = await cf.undo(db, access, body.token)
     except reg.ActionRefused as exc:
+        if name is not None:
+            await _track(db, telemetry.record_action(db, access.user_id, name, "undo", exc.code))
         raise refused(exc.status, exc.code, exc.tr, exc.en, **exc.data) from exc
+    if name is not None:
+        await _track(db, telemetry.record_action(db, access.user_id, name, "undo"))
+    return out
 
 
 # ------------------------------------------------------------------------------------------- memory (HB-09)
@@ -263,3 +340,62 @@ async def admin_settings_put(body: AdminSettingsIn, db: DB, user: HelperAdmin) -
     await audit.record(db, "ai.helper", "setting", "ai.helper", before=before, after=after, actor=user)
     await db.commit()
     return after
+
+
+# --------------------------------------------------------------------------------------------- telemetry (HB-14)
+
+TurnId = Annotated[str, Field(pattern=r"^[a-f0-9]{16}$")]
+FeedbackReason = Literal["wrong_page", "wrong_answer", "not_helpful", "too_slow", "other"]
+
+
+class FeedbackIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    #: ``run_started.turn_id`` of the answer
+    turn_id: TurnId
+    thumb: Literal["up", "down"]
+    #: a thumbs-down's reason (ignored with a thumbs-up)
+    reason: FeedbackReason | None = None
+    #: the person's own words (≤ 300), kept only with a thumbs-down and when the institution allows notes
+    note: str | None = Field(default=None, max_length=300)
+
+
+class EventIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["nav_click", "form_open", "cancel"]
+    turn_id: TurnId | None = None
+    feature_id: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_.\-]{0,63}$")
+    action: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{0,63}$")
+
+
+def _telemetry_refusal(exc: Any) -> HTTPException:
+    return HTTPException(
+        exc.status, {"code": exc.code, "message": exc.en, "message_en": exc.en, "message_tr": exc.tr, **exc.data}
+    )
+
+
+@router.post("/feedback")
+async def feedback(body: FeedbackIn, db: DB, access: CurrentAccess) -> dict[str, bool]:
+    """Thumbs up / down on an answer (one per person and turn; a second answer replaces it). Aggregates only."""
+    from app.ai.helper import telemetry
+
+    try:
+        out = await telemetry.feedback(db, access.user_id, body.turn_id, body.thumb, body.reason, body.note)
+    except telemetry.TelemetryError as exc:
+        raise _telemetry_refusal(exc) from exc
+    await db.commit()
+    return out
+
+
+@router.post("/events", status_code=204)
+async def events(body: EventIn, db: DB, access: CurrentAccess) -> None:
+    """The client's steps the server cannot see: "Sayfayı aç" on a nav card (deflection), a form opened, a confirm
+    card dismissed with "Vazgeç"."""
+    from app.ai.helper import telemetry
+
+    try:
+        await telemetry.client_event(
+            db, access.user_id, body.kind, turn_id=body.turn_id, feature_id=body.feature_id, action=body.action
+        )
+    except telemetry.TelemetryError as exc:
+        raise _telemetry_refusal(exc) from exc
+    await db.commit()

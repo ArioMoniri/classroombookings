@@ -119,7 +119,12 @@ async def test_hb_15_action_off_disappears_everywhere(client) -> None:  # noqa: 
     # Ayşe has no instructor record: the welcome guide's audience is "staff"
     r = await client.put(
         A,
-        json={"actions": {"create_booking": {"audiences": ["academician"]}, "cancel_my_booking": {"enabled": False}}},
+        json={
+            "actions": {
+                "create_booking": {"audiences": ["academician", "admin"]},
+                "cancel_my_booking": {"enabled": False},
+            }
+        },
         headers=admin,
     )
     assert r.status_code == 200, r.text
@@ -128,7 +133,7 @@ async def test_hb_15_action_off_disappears_everywhere(client) -> None:  # noqa: 
     r = await client.post(f"{H}/actions/create_booking/card", json={"args": {}}, headers=teacher)
     assert r.status_code == 403 and r.json()["detail"]["code"] == "action_off", r.text
     assert r.json()["detail"]["card"]["type"] == "refusal"
-    # the admin still has it (audience "admin" is not restricted for create_booking)
+    # the admin keeps create_booking (audience "admin" is listed); cancel_my_booking is off for everyone
     names = {a["name"] for a in (await client.get(f"{H}/actions", headers=admin)).json()}
     assert "create_booking" in names and "cancel_my_booking" not in names
 
