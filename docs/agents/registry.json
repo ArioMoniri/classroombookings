@@ -3886,6 +3886,18 @@
       "ledger": "CI lane: make every pod gate green",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "afecc131aef7f8f01",
+      "description": "HX-18: helper design-audit fixes",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 11:03",
+      "scope": "",
+      "goal": "Ledger name `hx-18-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorker…",
+      "ledger": "HX-18: helper design-audit fixes",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

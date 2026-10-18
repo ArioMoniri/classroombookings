@@ -187,6 +187,10 @@ export const Refusal = z.object({
 });
 export type Refusal = z.infer<typeof Refusal>;
 
+const UnitCap = z.object({ monthly_tokens: z.number().catch(0).default(0), monthly_cost_usd: z.number().catch(0).default(0) });
+const FacultyCap = UnitCap.extend({ managers: z.array(z.number()).catch([]).default([]), show_people: z.boolean().catch(false).default(false) });
+export type UnitCap = z.infer<typeof UnitCap>;
+export type FacultyCap = z.infer<typeof FacultyCap>;
 const LimitPair = z.object({ daily: z.number().optional(), monthly: z.number().optional(), audio_daily: z.number().optional(), audio_monthly: z.number().optional() });
 export const Limits = z.object({
   org_monthly_tokens: z.number(),
@@ -204,10 +208,17 @@ export const Limits = z.object({
   user_monthly_audio_s: z.number().optional(),
   org_monthly_audio_s: z.number().optional(),
   topups: z.array(z.object({ month: z.string(), tokens: z.number().default(0), cost_usd: z.number().default(0), reason: z.string().nullish(), at: z.string().nullish() })).default([]),
+  /** the quota chain (HB-10 / HB-11): faculty id → allowance + quota managers, programme id → allowance; strict = the
+   * faculties may not allocate more than the org budget (otherwise a warning) */
+  faculties: z.record(z.string(), FacultyCap).default({}),
+  departments: z.record(z.string(), UnitCap).default({}),
+  strict: z.boolean().default(false),
+  /** a PUT's non-blocking notes (`faculty_sum_exceeds_org` when not strict) */
+  warnings: z.array(z.object({ code: z.string(), message_tr: z.string().nullish(), message_en: z.string().nullish(), field: z.string().nullish() })).default([]),
   org: OrgState,
 });
 export type Limits = z.infer<typeof Limits>;
-export type LimitsIn = Partial<Omit<Limits, "org" | "topups">>;
+export type LimitsIn = Partial<Omit<Limits, "org" | "topups" | "warnings">>;
 
 export const Guardrails = z.object({
   scope_check: z.boolean(),

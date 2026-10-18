@@ -4,6 +4,7 @@
 * ``GET  /helper/schema``                  ``helper.card.v1`` JSON Schema + the action argument schemas (HB-07)
 * ``GET  /helper/status``                  what the status chip shows (helper.md A6)
 * ``GET  /helper/actions``                 the actions the caller may run (shortcuts, "Burada yap")
+* ``GET  /helper/actions/recent``          the caller's own last confirmed helper actions with "Geri al" (HB-D)
 * ``POST /helper/actions/{name}/card``     a card for an action with partial args, **no model call** (A4): a read
   runs; a write is previewed and answers ``confirm`` (all args resolved, A1), ``form`` or ``choice`` (HB-05)
 * ``POST /helper/actions/confirm`` / ``/undo``                                                     (HB-05)
@@ -133,6 +134,17 @@ async def actions(db: DB, access: CurrentAccess) -> list[dict[str, Any]]:
     return [_action_out(a) for a in reg.permitted(access, await _enabled(db, access))]
 
 
+@router.get("/actions/recent")
+async def recent_actions(
+    db: DB, access: CurrentAccess, limit: int = Query(5, ge=1, le=20)
+) -> list[dict[str, Any]]:
+    """The person's own last confirmed helper actions (HB-D): ``[{id, action, kind, entity_id, feature_id,
+    label {tr,en}, at, status: done | undone, undoable, undo_token?, undo_expires_at?}]``, newest first."""
+    from app.ai.helper import recent
+
+    return await recent.recent(db, access, limit)
+
+
 class CardIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     args: dict[str, Any] = Field(default_factory=dict)
@@ -183,8 +195,8 @@ async def confirm(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any
     """The card's button: verify the token, claim it once, re-run the preview, then write through the service.
     403 bad / other user's token, 410 expired, 409 already done or changed (with the new card)."""
     from app.ai.helper import confirm as cf
+    from app.ai.helper import remember, telemetry, tooluse
     from app.ai.helper import settings as hs
-    from app.ai.helper import telemetry, tooluse
     from app.ai.helper.actions import writes
 
     name: str | None = None
@@ -201,6 +213,10 @@ async def confirm(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any
             if reg.RATE.hit(access.user_id, spec.action):
                 raise reg.ActionRefused(429, "rate_limited", tooluse.RATE_TR, tooluse.RATE_EN)
             await tooluse.gate(spec.action, reg.Ctx(db, access))
+        elif str(p.get("a")) == remember.ACTION:  # "Bunu hatırla" (HB-D): memory rules, not an admin action switch
+            name = remember.ACTION
+            if reg.RATE.hit(access.user_id, remember.SPEC):
+                raise reg.ActionRefused(429, "rate_limited", tooluse.RATE_TR, tooluse.RATE_EN)
         out = await cf.confirm(db, access, body.token)
     except reg.ActionRefused as exc:
         if name is not None:

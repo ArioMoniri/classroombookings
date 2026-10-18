@@ -284,7 +284,9 @@ async def client_event(
     _limited(user_id)
     if feature_id is not None and feature_id not in {e.id for e in get_index().entries}:
         raise TelemetryError(422, "unknown_feature", "Böyle bir sayfa yok.", "There is no such page.")
-    if action is not None and reg.get(action) is None:
+    from app.ai.helper import remember
+
+    if action is not None and reg.get(action) is None and action != remember.ACTION:
         raise TelemetryError(422, "unknown_action", "Böyle bir işlem yok.", "There is no such action.")
     await _write(
         session,
