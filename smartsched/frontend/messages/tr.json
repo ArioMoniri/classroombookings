@@ -5396,6 +5396,7 @@
         "timeout": "İşlem zaman aşımına uğradı.",
         "connection": "Bir servise bağlanılamadı."
       },
+      "plainOther": "Beklenmeyen bir hata. Teknik metin Ayrıntı içinde.",
       "hide": "Ayrıntıyı gizle",
       "details": "Ayrıntı",
       "action": {

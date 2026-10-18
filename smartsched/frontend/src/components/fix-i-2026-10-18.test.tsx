@@ -31,7 +31,7 @@ describe("e2e fixtures on a recording stack (FIX-J KVKK upload guard)", async ()
     expect(resolveFixturesDir({ REC_WORKDIR: "/w" }, raw, (p) => p === "/w/fixtures")).toBe("/w/fixtures");
   });
   it("a recording stack without masked copies fails with a clear message instead of using the raw workbooks", () => {
-    expect(() => resolveFixturesDir({ REC_WORKDIR: "/w" }, raw, none)).toThrow(/E2E_FIXTURES_DIR.*stack\.sh fixtures/s);
+    expect(() => resolveFixturesDir({ REC_WORKDIR: "/w" }, raw, none)).toThrow(/E2E_FIXTURES_DIR[^]*stack\.sh fixtures/);
     expect(() => resolveFixturesDir({ KVKK_UPLOAD_GUARD: "1" }, raw, none)).toThrow(/KVKK/);
     expect(() => resolveFixturesDir({ E2E_RECORDING_STACK: "1" }, raw, none)).toThrow(/E2E_FIXTURES_DIR/);
   });

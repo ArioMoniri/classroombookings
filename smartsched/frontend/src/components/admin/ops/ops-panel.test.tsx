@@ -185,6 +185,16 @@ describe("OpsPanel", () => {
     expect(await within(row).findByTestId("ops-error-stack-3")).toHaveTextContent("OperationalError: (sqlite3.OperationalError) database is locked");
   });
 
+  it("E2EA-F09 (FIX-K): an unknown error class shows one Turkish line; its raw message waits behind Ayrıntı", async () => {
+    state.errors = [group(4, "open", { source: "backend", kind: "KeyError", message: "no_autoflush last_login_at" })];
+    renderIt();
+    const row = await screen.findByTestId("ops-error-4");
+    expect(row).toHaveTextContent("Beklenmeyen bir hata. Teknik metin Ayrıntı içinde.");
+    expect(row).not.toHaveTextContent("no_autoflush");
+    await userEvent.click(within(row).getByTestId("ops-error-toggle-4"));
+    expect(await within(row).findByTestId("ops-error-stack-4")).toHaveTextContent("KeyError: no_autoflush last_login_at");
+  });
+
   it("log tail without Loki says why, in the reader's language", async () => {
     state.lokiUp = false;
     renderIt("en");

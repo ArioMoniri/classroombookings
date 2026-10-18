@@ -254,8 +254,9 @@ function ErrorRow({ e, expanded, onToggle, onAct, busy, onFindInLogs }: { e: Err
           {t("ops.errors.count", { n: e.count })}
         </span>
       </div>
-      {/* CH12-F04: a known class reads as one plain line; its raw class, message and SQL wait behind "Ayrıntı" */}
-      {plain ? null : <p className="break-words type-callout text-label-1">{e.message}</p>}
+      {/* CH12-F04 / E2EA-F09: a known class reads as one plain line, an unknown one as a generic line; the raw class,
+          message and SQL always wait behind "Ayrıntı" */}
+      {plain ? null : <p className="break-words type-callout text-label-2">{t("ops.errors.plainOther")}</p>}
       <p className="break-words type-footnote text-label-2">
         {[e.method, e.route].filter(Boolean).join(" ") || "–"}
         {e.status_code ? ` · ${e.status_code}` : ""}
@@ -268,7 +269,7 @@ function ErrorRow({ e, expanded, onToggle, onAct, busy, onFindInLogs }: { e: Err
       </p>
       {expanded ? (
         <pre className="max-h-72 overflow-auto rounded-md bg-fill-3 p-2 font-mono type-caption whitespace-pre-wrap break-words text-label-1" data-testid={`ops-error-stack-${e.id}`}>
-          {plain ? `${e.kind}: ${e.message}\n\n` : ""}
+          {`${e.kind}: ${e.message}\n\n`}
           {detail.isLoading ? t("crbs.common.loading") : detail.data?.sample_stack || t("ops.errors.noStack")}
         </pre>
       ) : null}
