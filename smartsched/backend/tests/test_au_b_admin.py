@@ -219,8 +219,11 @@ async def test_reset_link_does_not_bypass_2fa(setup, monkeypatch) -> None:  # ty
     await _smtp(c, admin, monkeypatch)
     await enrol_totp(c, headers)
     await c.post(f"{API}/admin/users/{uid}/password-reset-link", json={}, headers=admin)
-    plain = [m for m in FakeSMTP.sent if m["To"] == EMAIL][-1].get_body(preferencelist=("plain",)).get_content()
-    token = re.search(r"token=([A-Za-z0-9_\-]+)", plain).group(1)  # type: ignore[union-attr]
+    # the reset-link mail by its content: the "2FA turned on" mail of the enrolment may arrive after it
+    bodies = [m.get_body(preferencelist=("plain",)).get_content() for m in FakeSMTP.sent if m["To"] == EMAIL]
+    found = [t for t in (re.search(r"token=([A-Za-z0-9_\-]+)", b) for b in bodies) if t]
+    assert len(found) == 1, bodies
+    token = found[0].group(1)
     assert (
         await c.post(f"{API}/auth/password-reset/confirm", json={"token": token, "password": "yeni-parola-2026"})
     ).status_code == 200

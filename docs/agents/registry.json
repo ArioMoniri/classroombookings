@@ -3122,7 +3122,8 @@
       "goal": "You are the SWEEPER lane for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read /home/user/classroombookings/docs/agents/briefs/COMMON.md: NEVER commit or push, test-first, never `pkill -f`, `nice -n 10`, Turkish first, no demo/mock code in production. Many lan…",
       "ledger": "Sweeper: small queued fixes",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 08:27"
     },
     {
       "id": "a4d4cfb2b530c6b14",
