@@ -29,23 +29,29 @@ fi
 install -d -o "$CI_USER" -g "$CI_USER" -m 750 "$STATE" "$STATE/logs" "$STATE/work" "$STATE/cache" "$STATE/backups"
 # backup.sh's success metric, read by Alloy in the observability profile (SmartSchedBackupStale)
 install -d -o "$CI_USER" -g "$CI_USER" -m 755 /var/lib/smartsched /var/lib/smartsched/textfile
-touch "$STATE/queue-signal" "$STATE/update-request"
-chown "$CI_USER:$CI_USER" "$STATE/queue-signal" "$STATE/update-request"
+# One install at a time: smartsched-ci-update.service runs this script too.
+exec 9>/run/smartsched-ci-install.lock
+flock 9
+# Create the signal files only when missing: touching update-request fires smartsched-ci-update.path, which
+# started a second install that deleted this one's staging directory mid-copy (owner refresh 2026-10-18).
+for f in queue-signal update-request; do
+  [[ -e "$STATE/$f" ]] || install -o "$CI_USER" -g "$CI_USER" -m 644 /dev/null "$STATE/$f"
+done
 
 # Code: atomic directory swap so a running worker never sees a half-copied tree.
-rm -rf "$DEST.new"
-install -d -m 755 "$DEST.new"
-cp -r "$HERE/podci" "$HERE/gates" "$DEST.new/"
-find "$DEST.new" -name '__pycache__' -prune -exec rm -rf {} +
-chmod 755 "$DEST.new"/gates/*.sh
+STAGE="$(mktemp -d "$DEST.new.XXXXXX")"
+trap 'rm -rf "$STAGE"' EXIT
+chmod 755 "$STAGE"
+cp -r "$HERE/podci" "$HERE/gates" "$STAGE/"
+find "$STAGE" -name '__pycache__' -prune -exec rm -rf {} +
+chmod 755 "$STAGE"/gates/*.sh
 # Replace the contents in place, keeping the directory itself: a worker started from $DEST (WorkingDirectory)
 # would otherwise lose its cwd mid-run ("Unable to read current working directory", pod runs #60/#61).
 if [[ -d "$DEST" ]]; then
   find "$DEST" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-  cp -a "$DEST.new"/. "$DEST"/
-  rm -rf "$DEST.new"
+  cp -a "$STAGE"/. "$DEST"/
 else
-  mv "$DEST.new" "$DEST"
+  mv "$STAGE" "$DEST"
 fi
 
 # Config: written once; later edits on the pod are kept.
