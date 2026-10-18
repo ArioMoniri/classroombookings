@@ -11,7 +11,7 @@
  * - `GET /analytics/forecast/exams`: exam seats per day / slot, invigilators, holds.
  *
  * Every answer has `confidence: high | medium | low | none` and a `needs {tr, en}` sentence when it is thin. A range is
- * shown only when it is calibrated (`showRange`); otherwise the value carries "düşük güven".
+ * calibrated (AS-21) and shown with "düşük güven" beside it while confidence is `low`; `requests` counts get no range.
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -246,16 +246,17 @@ export function useWhatIf() {
 /* ------------------------------------------------------------------ pure helpers (tested) */
 
 /**
- * A forecast range is shown only when it is calibrated: the backend says `medium` / `high` and the range is a
- * range. `requests` cells are computed counts (lo == hi, no range). A `low` cell shows the value with "düşük güven".
+ * AS-21 (API.md): `lo80` / `hi80` are calibrated (split conformal), so a range is shown whenever it is a range; it is
+ * never shown for `requests` cells (computed counts, lo == hi) or an empty answer (`none`).
  */
 export function showRange(c: { lo80: number | null; hi80: number | null; confidence: Confidence; method?: string }): boolean {
   if (c.lo80 === null || c.hi80 === null || c.lo80 === c.hi80) return false;
-  if (c.method === "requests") return false;
-  return c.confidence === "high" || c.confidence === "medium";
+  if (c.method === "requests" || c.confidence === "none") return false;
+  return true;
 }
 
-/** "düşük güven" goes next to a value whose range is not calibrated (never on computed counts or empty answers) */
+/** "düşük güven" goes beside the range whenever the backend says `low` (one published term of the season); never on
+ *  computed `requests` counts. `medium` appears only once two published terms of a season exist. */
 export function lowConfidence(c: { confidence: Confidence; method?: string }): boolean {
   return c.confidence === "low" && c.method !== "requests";
 }
