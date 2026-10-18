@@ -5,7 +5,7 @@
  * Order with a query: **Sayfalar ve ayarlar** → **Nerede?** → the palette's own data groups → **Kısayollar** →
  * **Yardımcıya sor** (first and preselected when the text reads as a question: the server's `question` flag).
  * `<HelperPaletteTop/>` renders the first two (and a question's ask row), `<HelperPaletteBottom/>` the rest; with an
- * empty query the bottom shows the role starters. Pages and "Nerede?" come from `GET /helper/search` (no AI),
+ * empty query the top shows "Son işlemler" (HX-15, recent.tsx) and the bottom the role starters. Pages and "Nerede?" come from `GET /helper/search` (no AI),
  * permission-filtered by the server and again by the client's link map. Enter on a page opens it, Enter on a
  * "Nerede?" row (or Shift+Enter on a page) opens it **and** rings the control ("Göster"). With AI off there is no
  * ask row (Nerede? and Kısayollar stay); at a hard limit the ask row is disabled with the reason.
@@ -23,6 +23,7 @@ import { useUiStore } from "@/stores/ui";
 import { canOpenFeature, featureById, featureHref, pathLine } from "./feature-links";
 import { useHelperStore } from "./helper-store";
 import { parseIntent } from "./intents";
+import { RecentPaletteGroup } from "./recent";
 import type { NavCard } from "./schema.gen";
 import { useIntentAllowed, useShortcutLabel } from "./shortcut-label";
 import { starterRole, useStarters } from "./starters";
@@ -149,7 +150,14 @@ function AskRow({ q }: { q: string }) {
   );
 }
 
-/** Groups 1 and 2 (and a question's ask row on top). */
+/** HX-15: "Son işlemler" first in the empty palette, while the helper is on for this person. */
+function RecentRows() {
+  const mode = useHelperMode();
+  if (!mode.status?.enabled) return null;
+  return <RecentPaletteGroup />;
+}
+
+/** Groups 1 and 2 (and a question's ask row on top); "Son işlemler" for an empty query. */
 export function HelperPaletteTop({ query }: { query: string }) {
   const { t } = useI18n();
   const { text, pages, where, question } = useHelperPaletteSearch(query);
@@ -162,6 +170,7 @@ export function HelperPaletteTop({ query }: { query: string }) {
     act.open(n, true, text);
     return true;
   });
+  if (!query.trim()) return <RecentRows />;
   if (!text || text.startsWith(">")) return null;
   return (
     <>

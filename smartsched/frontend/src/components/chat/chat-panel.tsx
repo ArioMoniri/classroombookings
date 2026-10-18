@@ -11,6 +11,7 @@ import { AiUsageBanner } from "@/components/admin/ai/my-ai-usage";
 import { roomLabel } from "@/components/runs/diagnosis-format";
 import { DiffTable, type DiffTableRow } from "@/components/ui/beautifului/diff-table";
 import { PromptComposer } from "@/components/ui/beautifului/prompt-composer";
+import { focusAfter } from "@/components/bookings/focus-after";
 import { MicButton } from "@/components/voice";
 import { Button } from "@/components/ui/button";
 import { useChat, useSendChat, useSettings, useUndoProposal } from "@/lib/api/hooks";
@@ -252,13 +253,19 @@ export function ChatPanel({ runId, className, prefill = null }: { runId: number;
   useEffect(() => {
     if (busyTurn || !refocus.current) return;
     refocus.current = false;
+    const box = composerRef.current?.querySelector("textarea");
     const a = document.activeElement;
-    if (!a || a === document.body) composerRef.current?.querySelector("textarea")?.focus();
-  }, [busyTurn]);
+    if (box && (!a || a === document.body || !a.isConnected || a === listRef.current)) box.focus();
+    // the list re-renders as the finished turn replaces the live one: watch a moment longer (any key / tap ends it)
+    const id = box?.id || (box ? (box.id = `chat-box-${runId}`) : "");
+    if (id) focusAfter([`#${CSS.escape(id)}`], 0, 1500);
+  }, [busyTurn, runId]);
   const lang = locale === "en" ? "en" : "tr";
   const qc = useQueryClient();
   const submit = async (msg: string) => {
     refocus.current = true;
+    // the composer is about to be disabled: hold focus on the conversation (tabIndex -1) while the reply streams
+    if (composerRef.current?.contains(document.activeElement)) listRef.current?.focus({ preventScroll: true });
     let last = INITIAL_STREAM;
     let started = false;
     setLive({ user: msg, s: INITIAL_STREAM });
@@ -300,7 +307,7 @@ export function ChatPanel({ runId, className, prefill = null }: { runId: number;
         {!noKey && settings.data ? <span className="ml-auto truncate type-caption text-label-3">{settings.data.anthropic_model}</span> : null}
       </div>
       {/* aria-busy while a reply streams: the polite region announces the finished reply, not every token */}
-      <div ref={listRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3" aria-live="polite" aria-busy={send.isPending || streaming}>
+      <div ref={listRef} tabIndex={-1} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 outline-hidden" aria-live="polite" aria-busy={send.isPending || streaming}>
         {messages.length === 0 ? <p className="type-callout text-label-2">{t("chat.empty")}</p> : null}
         {messages.map((m) => (
           <Message key={m.id} m={m} runId={runId} />

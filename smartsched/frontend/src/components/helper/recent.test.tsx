@@ -15,6 +15,7 @@ import { HelperPaletteBottom, HelperPaletteTop } from "./palette-groups";
 import { RecentActions, whenLabel } from "./recent";
 import { HelperCard } from "./schema.gen";
 import { renderHelper, resetHelperStore } from "./test-helpers";
+import { activation } from "./use-helper-runner";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), usePathname: () => "/reserve" }));
@@ -57,6 +58,7 @@ beforeEach(() => {
   vi.spyOn(helperApi, "recent").mockImplementation(async () => rows);
   vi.spyOn(helperApi, "status").mockResolvedValue(status());
   vi.spyOn(helperApi, "actions").mockResolvedValue([]);
+  vi.spyOn(activation, "trusted").mockReturnValue(true);
 });
 
 describe("whenLabel", () => {
@@ -106,12 +108,21 @@ describe("Son işlemler in the sheet", () => {
     expect(inval).toHaveBeenCalledWith({ queryKey: helperKeys.memory });
   });
 
+  it("a script's click is not a Geri al (only a trusted click or key)", async () => {
+    vi.spyOn(activation, "trusted").mockReturnValue(false);
+    const undo = vi.spyOn(helperApi, "undo").mockResolvedValue(undoneCard);
+    renderHelper(<RecentActions />);
+    fireEvent.click(await screen.findByTestId("helper-recent-undo-41"));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(undo).not.toHaveBeenCalled();
+  });
+
   it("a 409 shows the server's text under the row", async () => {
     vi.spyOn(helperApi, "undo").mockRejectedValue(new HttpError(409, "too_old", { code: "too_old", message_tr: "Bu işlem artık geri alınamaz: ders başladı.", message_en: "This can no longer be undone: the class has started." }));
     renderHelper(<RecentActions />);
     fireEvent.click(await screen.findByTestId("helper-recent-undo-40"));
     expect(await screen.findByTestId("helper-recent-error-40")).toHaveTextContent("Bu işlem artık geri alınamaz: ders başladı.");
-    expect(document.activeElement).not.toBe(document.body);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("helper-recent-undo-40")));
   });
 
   it("is hidden while the list is empty", async () => {

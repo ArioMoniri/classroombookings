@@ -37,6 +37,19 @@ describe("helper turn stream", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/helper/turn", expect.objectContaining({ method: "POST", body: JSON.stringify({ text: "tatil nerede", lang: "tr" }) }));
   });
 
+  it("HX-16: sends the page context only when it is given and valid", async () => {
+    const ok = () => new Response(new ReadableStream({ start(c) { c.close(); } }), { headers: { "content-type": "text/event-stream" } });
+    const fetchMock = vi.fn(async () => ok());
+    vi.stubGlobal("fetch", fetchMock);
+    await streamTurn("bu oda", "tr", () => undefined, { context: { route: "/rooms/12", entity_kind: "room", entity_id: 12 } });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/helper/turn", expect.objectContaining({ body: JSON.stringify({ text: "bu oda", lang: "tr", context: { route: "/rooms/12", entity_kind: "room", entity_id: 12 } }) }));
+    await streamTurn("bu oda", "tr", () => undefined, { context: null });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/helper/turn", expect.objectContaining({ body: JSON.stringify({ text: "bu oda", lang: "tr" }) }));
+    // a shape the server would refuse with a 422 is dropped, never sent
+    await streamTurn("bu oda", "tr", () => undefined, { context: { route: "/rooms/12", entity_kind: "room", entity_id: 0 } });
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/helper/turn", expect.objectContaining({ body: JSON.stringify({ text: "bu oda", lang: "tr" }) }));
+  });
+
   it("a refused start keeps the server's detail (limit card)", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ detail: { code: "rate_limited", message_tr: "Çok hızlı.", card: fixtures.limit } }), { status: 429, headers: { "content-type": "application/json" } })));
     await expect(streamTurn("x", "tr", () => undefined)).rejects.toMatchObject({ status: 429, detail: { code: "rate_limited" } });

@@ -15,8 +15,7 @@ from __future__ import annotations
 import logging
 from datetime import date
 
-from app.ai.helper import cards, guard, schema
-from app.ai.helper import telemetry
+from app.ai.helper import cards, guard, schema, telemetry
 from app.ai.helper.actions import registry as reg
 from app.core import db as dbmod
 from app.core import rls
@@ -40,12 +39,13 @@ def test_row_id_allows_a_dotted_feature_id() -> None:
 
 async def test_search_site_with_dotted_feature_ids_is_200(env) -> None:  # noqa: F811
     t = (await personas(env))["teacher"]
-    for q in ("takvim", "şifre"):
+    # both answered 500 before: every Profil page id is dotted (takvim → profile.calendar, şifre → profile.password)
+    for q, feature in (("takvim", "profile.calendar"), ("şifre", "profile.password")):
         r = await card(env, t, "search_site", q=q)
         assert r.status_code == 200, (q, r.text)
         c = schema.validate_card(r.json())
         ids = [row.id for row in c.rows]  # type: ignore[attr-defined]
-        assert "feature:profile.calendar" in ids, (q, ids)
+        assert f"feature:{feature}" in ids, (q, ids)
     r = await env.client.get(f"{H}/schema", headers=t.headers)
     assert r.status_code == 200
     row_def = r.json()["card"]["$defs"]["Row"]["properties"]["id"]
@@ -63,7 +63,9 @@ async def test_create_booking_by_clock_time_resolves_the_period(env) -> None:  #
     assert by_time["type"] == "confirm", by_time
     assert by_time["args"]["period_id"] == env.periods["P1"]
     assert by_time["args"]["start"] == ""  # the resolved period is what the button books
-    by_id = (await card(env, t, "create_booking", room="A 102", date=THU.isoformat(), period_id=env.periods["P1"])).json()
+    by_id = (
+        await card(env, t, "create_booking", room="A 102", date=THU.isoformat(), period_id=env.periods["P1"])
+    ).json()
     assert by_id["type"] == "confirm" and by_id["args"]["period_id"] == env.periods["P1"]
     when = lambda c: next(x["value"]["tr"] for x in c["preview"] if x["label"]["en"] == "When")  # noqa: E731
     assert when(by_time) == when(by_id) and "19.02.2026" in when(by_time)
@@ -82,7 +84,7 @@ async def test_create_booking_clock_time_outside_the_day_is_refused_and_missing_
     r = await card(env, t, "create_booking", room="A 102", date=THU.isoformat(), start="23:30")
     assert r.status_code == 422, r.text
     d = r.json()["detail"]
-    assert d["code"] == "time_outside_grid" and d["message_tr"] and d["card"]["type"] == "refusal"
+    assert d["code"] == "time_outside_grid" and "23:30" in d["message_tr"] and d["card"]["type"] == "error"
     form = (await card(env, t, "create_booking", room="A 102", date=THU.isoformat())).json()
     assert form["type"] == "form" and "start" in form["missing"]
     assert [f["name"] for f in form["fields"]][:3] == ["room", "date", "start"]
@@ -106,17 +108,22 @@ def test_create_booking_strict_schema_takes_start_and_refuses_ranges() -> None:
 
 # ------------------------------------------------------------------------------------------------ P2
 
-CJK_DRIFT = "Boş derslikler için Oda bul sayfasını kullanabilirsiniz. 然后您可以在列表中选择一个房间并点击预订按钮完成预订。"
+CJK_DRIFT = (
+    "Boş derslikler için Oda bul sayfasını kullanabilirsiniz. 然后您可以在列表中选择一个房间并点击预订按钮完成预订。"
+)
 
 
 def test_answer_drifting_out_of_latin_and_turkish_is_not_grounded() -> None:
     assert guard.script_share(CJK_DRIFT) > 0.05
     assert guard.ground_answer(CJK_DRIFT, ["find_room"]) is False
-    turkish = "Yapay zekâ kullanımınızı Profil › Yapay zekâ bölümünde görürsünüz; şifre, ğ, ı, İ, ç, ö, ü, ş, î, û."
+    turkish = "Kâğıt, şifre, ılık, İzmir, çiçek, öğüt, ünlü, şaşkın, îmâ, ûlâ: hepsi Türkçe harfler."
     assert guard.script_share(turkish) == 0.0
-    assert guard.ground_answer(turkish, ["profile.ai_usage"]) is True
+    plain = "Bunu kendi hesabınızdan kolayca yapabilir, sonra da sonucu kontrol edebilirsiniz."
+    assert guard.ground_answer(plain, []) is True
     # one stray letter in a long Turkish answer is not a drift
-    assert guard.ground_answer("Rezervasyonlarım sayfasında tüm kayıtlarınızı görürsünüz ve iptal edebilirsiniz 好", [])
+    assert guard.ground_answer(plain + " 好", []) is True
+    # Vietnamese-style drift (Latin letters with marks Turkish does not use) counts too
+    assert guard.script_share("Bạn có thể đặt phòng ở trang này được không ạ") > 0.05
 
 
 def test_markdown_images_are_stripped_from_answers() -> None:

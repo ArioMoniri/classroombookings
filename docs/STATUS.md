@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `716e9f8` (committed 2026-10-18 11:07 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `1d67945` (committed 2026-10-18 11:37 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -177,7 +177,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-357 agents in [`docs/agents/registry.json`](agents/registry.json): running 13 · finished 326 · stopped 11 · superseded 7.
+365 agents in [`docs/agents/registry.json`](agents/registry.json): running 13 · finished 334 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -190,10 +190,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `AS-S` | solver-engineer | 2026-10-18 07:56 |
 | `HB-B` | ai-engineer | 2026-10-18 07:56 |
 | `E2E lane` | general-purpose | 2026-10-18 08:59 |
-| `HB-D` | ai-engineer | 2026-10-18 10:55 |
-| `Shell integration` | frontend-engineer | 2026-10-18 10:55 |
 | `CI lane` | devops-engineer | 2026-10-18 11:02 |
-| `HX-18` | frontend-engineer | 2026-10-18 11:03 |
+| `HX-15/16/17 helper frontend + consent` | frontend-engineer | 2026-10-18 11:26 |
+| `HB-E` | ai-engineer | 2026-10-18 11:30 |
+| `RF-16b` | frontend-engineer | 2026-10-18 11:46 |
 
 <!-- /AUTO:agents -->
 
@@ -260,7 +260,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **428 ticked · 433 open** checkboxes in 100 sections (96 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **432 ticked · 430 open** checkboxes in 100 sections (96 with open items).
 
 <details><summary>Per section</summary>
 
@@ -361,9 +361,9 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 14 | 7 |
 | Voice for AI features (owner request 2026-10-17) | 5 | 8 |
 | Charts & telemetry views (owner request 2026-10-17) | 8 | 4 |
-| Real-not-fake & admin editability (owner request 2026-10-17; audit… | 14 | 5 |
+| Real-not-fake & admin editability (owner request 2026-10-17; audit… | 15 | 4 |
 | AI helper: backend, governance, local models (owner request 2026-10-17) | 14 | 6 |
-| AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 1 | 20 |
+| AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 4 | 18 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — UX | 0 | 12 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — backend | 17 | 1 |
 

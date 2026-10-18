@@ -22,6 +22,8 @@
      to the model **spotlighted** (``<untrusted source="tool_result">``) in one user message;
    * **taint**: once a result carried other people's free text, the next rounds get read tools only;
    * a ``confirm`` card ends the turn (only the person's button writes);
+   * the first message starts with today's date and time in the institution's time zone (``bookings.now_local``,
+     weekday in Turkish and English; HB-17 bug 3: without it a local model invented the year of "perşembe");
    * the person's helper notes (HB-09 ``memory.prompt_notes``; none while memory is off) go into the first message
      as one spotlighted ``user_notes`` block;
    * the page the person has open (HB-D ``context``, :mod:`app.ai.helper.page_context`: an index route they may
@@ -117,7 +119,8 @@ class TurnResult:
     model_calls: int = 0
     #: why an AI turn ended in index mode (``rate_limited``, ``ai_limit_reached``, ``provider_error`` ...)
     fallback: str | None = None
-    #: ``answered`` | ``confirm`` | ``refused`` | ``index`` | ``fallback`` | ``rounds_exhausted``
+    #: ``answered`` | ``confirm`` | ``refused`` | ``index`` | ``fallback`` | ``rounds_exhausted`` | ``error`` (an
+    #: unexpected failure; set by ``POST /helper/turn`` on the partial result, HB-17 bug 5)
     outcome: str = "answered"
     tainted: bool = False
     tools_offered: list[list[str]] = field(default_factory=list)
@@ -149,6 +152,16 @@ def _index_context(hits: list[Any]) -> str:
     return "Index entries that match the question:\n" + "\n".join(lines)
 
 
+async def _today_line(session: AsyncSession) -> str:
+    """``Today is 2026-02-16 (Pazartesi / Monday), 08:00.`` from the institution's clock (trusted server data)."""
+    from app.ai.helper.actions.common import WEEKDAYS_EN, WEEKDAYS_TR
+    from app.services import bookings as bsvc
+
+    now = await bsvc.now_local(session)
+    wd = now.weekday()
+    return f"Today is {now:%Y-%m-%d} ({WEEKDAYS_TR[wd]} / {WEEKDAYS_EN[wd]}), {now:%H:%M}."
+
+
 def _spotlit(message: dict[str, Any]) -> dict[str, Any]:
     from app.ai import guardrails as g
 
@@ -173,7 +186,28 @@ async def run_turn(
     """One helper turn for ``access``'s person. ``client`` is for tests (else :func:`app.ai.client.get_client` with
     feature ``helper``). ``context`` is the browser's ``{route, entity_kind?, entity_id?}`` (checked by
     :func:`app.ai.helper.page_context.resolve`, never trusted). Never raises for a model / gateway failure: those
-    end in index mode."""
+    end in index mode. Anything else is re-raised with the partial :class:`TurnResult` as ``exc.turn_result``, so
+    the route can count it in telemetry (``outcome: error``)."""
+    started: list[TurnResult] = []
+    try:
+        return await _run_turn(session, access, text, lang, emit=emit, client=client, context=context, started=started)
+    except Exception as exc:
+        if started:
+            exc.turn_result = started[0]  # type: ignore[attr-defined]
+        raise
+
+
+async def _run_turn(
+    session: AsyncSession,
+    access: Access,
+    text: str,
+    lang: str,
+    *,
+    emit: EventSink | None,
+    client: Any | None,
+    context: dict[str, Any] | None,
+    started: list[TurnResult],
+) -> TurnResult:
     from app.ai.helper import cards, guard
     from app.ai.helper import schema as cs
     from app.ai.helper import status as st
@@ -181,6 +215,7 @@ async def run_turn(
 
     lang = "en" if lang == "en" else "tr"
     result = TurnResult(turn_id=cards.new_id(), mode="index")
+    started.append(result)
 
     async def send(kind: str, **data: Any) -> None:
         if emit is not None:
@@ -321,6 +356,7 @@ async def _ai_turn(
     if notes:
         listed = "\n".join(f"- {n}" for n in notes)
         question = f"Notes the person asked you to remember:\n{g.spotlight(listed, 'user_notes')}\n\n{question}"
+    question = f"{await _today_line(session)}\n\n{question}"
     messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
     allow_writes = True
     invalid_rounds = 0

@@ -22,10 +22,14 @@ import { NavView } from "./nav";
 import { ResultView } from "./result";
 import { StatusView } from "./status";
 
-/** The server registry (`GET /helper/schema` → actions); a write card for any other name is not rendered. */
+/**
+ * The server registry (`GET /helper/schema` → actions), plus HB-D's `remember_note` ("Bunu hatırla", HX-17: not a
+ * registry action, its card comes only from a typed "bunu hatırla: …"); a write card for any other name is not rendered.
+ */
 export const KNOWN_ACTIONS: ReadonlySet<string> = new Set([
   "open_feature", "search_site", "find_free_rooms", "room_day_schedule", "my_bookings", "my_requests_status", "approvals_inbox", "run_status",
   "requests_needing_review", "my_ai_usage", "create_booking", "cancel_my_booking", "withdraw_my_request", "decide_approval", "undo_last_helper_action",
+  "remember_note",
 ]);
 
 export function FallbackView() {

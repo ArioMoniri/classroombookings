@@ -51,6 +51,25 @@ describe("Profil › Yardımcı", () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it("HX-17: without the ai_personal consent Not ekle shows the server's text and a link to Profil › Gizlilik", async () => {
+    vi.spyOn(helperApi, "addNote").mockRejectedValue(new HttpError(409, "consent_missing", { code: "consent_missing", message_tr: "Notlar için Profil › Gizlilik'te yapay zekâ rızanız gerekir.", message_en: "Notes need your AI consent under Profile › Privacy." }));
+    renderHelper(<HelperMemorySection />);
+    fireEvent.change(await screen.findByTestId("helper-note-input"), { target: { value: "Tercih: B blok" } });
+    fireEvent.click(screen.getByTestId("helper-note-add"));
+    expect(await screen.findByTestId("helper-note-error")).toHaveTextContent("Notlar için Profil › Gizlilik'te yapay zekâ rızanız gerekir.");
+    const link = screen.getByRole("link", { name: "Profil › Gizlilik'i aç" });
+    expect(link).toHaveAttribute("href", "/profile#privacy");
+  });
+
+  it("HX-17: other refusals have no privacy link", async () => {
+    vi.spyOn(helperApi, "addNote").mockRejectedValue(new HttpError(422, "too_long", { code: "too_long", message_tr: "Not en fazla 200 karakter olabilir.", message_en: "A note can be at most 200 characters." }));
+    renderHelper(<HelperMemorySection />);
+    fireEvent.change(await screen.findByTestId("helper-note-input"), { target: { value: "x" } });
+    fireEvent.click(screen.getByTestId("helper-note-add"));
+    expect(await screen.findByTestId("helper-note-error")).toHaveTextContent("Not en fazla 200 karakter olabilir.");
+    expect(screen.queryByRole("link", { name: "Profil › Gizlilik'i aç" })).toBeNull();
+  });
+
   it("shows the server's refusal when a note names a person", async () => {
     vi.spyOn(helperApi, "addNote").mockRejectedValue(new HttpError(422, "names_a_person", { code: "names_a_person", message_tr: "Notlarda başka bir kişinin adı olamaz.", message_en: "A note cannot name another person." }));
     renderHelper(<HelperMemorySection />);

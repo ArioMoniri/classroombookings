@@ -7,6 +7,7 @@ HTML" rule of :mod:`app.ai.helper.schema`. Nothing here takes text from the mode
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import Iterable, Sequence
 from typing import Literal
@@ -62,9 +63,19 @@ def status(
     return s.ErrorCard(id=new_id(), code=code, message=txt(tr, en), fallback=list(fallback)[:3], action=action)
 
 
+#: markdown images, inline ``![alt](src)`` and reference ``![alt][ref]`` (HB-17 P2: local models emit them)
+_MD_IMAGE = re.compile(r"!\[[^\]\n]{0,300}\](?:\([^)\n]{0,2000}\)|\[[^\]\n]{0,100}\])")
+
+
+def strip_markdown_images(text: str) -> str:
+    """``text`` without markdown image syntax (alt text and source both go; the card never shows images)."""
+    return re.sub(r"[ \t]{2,}", " ", _MD_IMAGE.sub("", text or ""))
+
+
 def answer(text: str, lang: str, *, source: Literal["ai", "index"] = "ai") -> s.AnswerCard:
-    """The model's words: the gateway's output cleaning (links, code, active HTML removed), then :func:`clean`."""
-    cleaned = sanitize_output_text_str(text)
+    """The model's words: markdown images removed, the gateway's output cleaning (links, code, active HTML
+    removed), then :func:`clean`."""
+    cleaned = sanitize_output_text_str(strip_markdown_images(text))
     return s.AnswerCard(id=new_id(), text=clean(cleaned, 1200), lang="en" if lang == "en" else "tr", source=source)
 
 
@@ -90,4 +101,15 @@ def dump(card: s.CardBase) -> dict[str, object]:
     return card.model_dump(mode="json", exclude_none=True)
 
 
-__all__ = ["LIST_ROWS", "answer", "clean", "dump", "nav", "nav_hits", "new_id", "status", "txt"]
+__all__ = [
+    "LIST_ROWS",
+    "answer",
+    "clean",
+    "dump",
+    "nav",
+    "nav_hits",
+    "new_id",
+    "status",
+    "strip_markdown_images",
+    "txt",
+]

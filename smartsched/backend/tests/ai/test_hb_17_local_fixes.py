@@ -67,7 +67,9 @@ def _completion(content: str = "", calls: list[dict[str, Any]] | None = None) ->
 
 
 def _colour_call() -> list[dict[str, Any]]:
-    return [{"id": "c1", "function": {"name": "report_colour", "arguments": json.dumps({"colour": "blue", "count": 2})}}]
+    return [
+        {"id": "c1", "function": {"name": "report_colour", "arguments": json.dumps({"colour": "blue", "count": 2})}}
+    ]
 
 
 class Ollama:
@@ -99,7 +101,9 @@ class Ollama:
         if path == "/api/ps":
             models = []
             if self.served is not None:
-                models.append({"name": MODEL, "model": MODEL, "size_vram": 12_050_000_000, "context_length": self.served})
+                models.append(
+                    {"name": MODEL, "model": MODEL, "size_vram": 12_050_000_000, "context_length": self.served}
+                )
             return httpx.Response(200, json={"models": models})
         if path.endswith("/chat/completions"):
             if self.down:
@@ -193,7 +197,9 @@ async def test_sync_stores_the_served_window_and_a_20k_helper_call_is_context_to
         long_prompt = "Salon B 406 perşembe 13:30 için uygun mu, rezervasyon kuralları nelerdir? " * 800  # ~20k tokens
         assert 18_000 < len(long_prompt) // 3 < 22_000
         with ai_scope("helper"), pytest.raises(AIGuardError) as exc:
-            await helper.complete(system="Yardımcı.", messages=[{"role": "user", "content": long_prompt}], max_tokens=4000)
+            await helper.complete(
+                system="Yardımcı.", messages=[{"role": "user", "content": long_prompt}], max_tokens=4000
+            )
     assert exc.value.code == "context_too_small" and exc.value.status_code == 422
     assert server.chat == []  # refused before anything was sent (the 32768 maximum would have let it through)
 
@@ -211,6 +217,9 @@ async def test_route_warns_until_the_probe_reads_the_served_window(client):
     )
     assert r.status_code == 200, r.text
     assert [w["code"] for w in r.json()["warnings"] if w["code"] == "context_unverified"] == ["context_unverified"]
+    card = await _provider_card(client, h)
+    [w] = [w for w in card["warnings"] if w["code"] == "context_unverified"]
+    assert MODEL in w["message_tr"] and "32768" in w["message_tr"] and w["message_en"]
     r = await client.post(
         "/api/v1/ai/admin/providers/openai_compatible/test?probe=true", json={"model": MODEL}, headers=h
     )
@@ -224,6 +233,13 @@ async def test_route_warns_until_the_probe_reads_the_served_window(client):
         headers=h,
     )
     assert not [w for w in r.json()["warnings"] if w["code"] == "context_unverified"]
+    assert not [w for w in (await _provider_card(client, h))["warnings"] if w["code"] == "context_unverified"]
+
+
+async def _provider_card(client, h) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    r = await client.get("/api/v1/ai/admin/providers", headers=h)
+    assert r.status_code == 200, r.text
+    return next(p for p in r.json()["providers"] if p["id"] == "openai_compatible")
 
 
 # ------------------------------------------------------------------ bug 4: probe facts
@@ -291,3 +307,24 @@ async def test_the_first_helper_message_says_what_day_it_is(session, fake_sdk, m
     assert first["role"] == "user"
     body = first["content"] if isinstance(first["content"], str) else json.dumps(first["content"], ensure_ascii=False)
     assert "Today is 2026-02-16 (Pazartesi" in body and "Monday" in body and "08:00" in body
+
+
+# ------------------------------------------------------------------ P2: an answer that drifts into another script
+
+
+async def test_a_cjk_drift_answer_is_replaced_by_the_index_answer(session, fake_sdk):
+    u = User(email="ayse2@uni.edu.tr", password_hash=hash_password("parola-1234"), role="TEACHER", full_name="Ayşe")
+    session.add(u)
+    await session.commit()
+    await kvkk.grant(session, u, "ai_personal")
+    await ss.set_value(session, "anthropic_api_key", "sk-ant-test-0000")
+    await gw.put_json(
+        session, gw.ROUTES_KEY, {"features": {"helper": {"provider": "anthropic", "model": "claude-opus-5-5"}}}
+    )
+    await session.commit()
+    drift = "Şifrenizi değiştirmek için 您可以在个人资料页面中找到密码设置并进行修改，然后保存即可完成。"
+    fake_sdk.script = [text(drift)]
+    result = await ht.run_turn(session, await load_access(session, u), "şifremi nasıl değiştiririm?", "tr")
+    answer = next(c for c in result.cards if c["type"] == "answer")
+    assert answer["source"] == "index" and "您" not in answer["text"]
+    assert any(c["type"] == "nav" for c in result.cards)

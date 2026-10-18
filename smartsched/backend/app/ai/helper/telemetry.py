@@ -47,7 +47,8 @@ log = logging.getLogger("smartsched.helper")
 
 CLIENT_KINDS = ("nav_click", "form_open", "cancel")
 THUMBS = ("thumb_up", "thumb_down")
-OUTCOMES = ("answered", "confirm", "refused", "index", "fallback", "rounds_exhausted")
+#: ``error``: the turn failed unexpectedly (``POST /helper/turn`` records the partial turn; HB-17 bug 5)
+OUTCOMES = ("answered", "confirm", "refused", "index", "fallback", "rounds_exhausted", "error")
 FEEDBACK_REASONS: dict[str, tuple[str, str]] = {
     "wrong_page": ("Yanlış sayfa", "Wrong page"),
     "wrong_answer": ("Yanlış bilgi", "Wrong information"),

@@ -9,7 +9,8 @@
    them, and "hava nasıl" is not. The refusal carries the top 3 index hits the person may open.
 
 :func:`ground_answer` is the output rule: a model answer that names a page without a ``nav`` card for it is replaced
-by the index answer (hallucinated menus are impossible).
+by the index answer (hallucinated menus are impossible), and so is one whose letters drift out of Latin + Turkish
+(more than :data:`MAX_FOREIGN_SHARE`; HB-17 P2: a local 14B model slid into Chinese halfway through 5 of 54 answers).
 """
 
 from __future__ import annotations
@@ -26,6 +27,10 @@ MAX_INPUT_CHARS = 1000
 #: the share of a text's meaningful words the index must know for an in-scope verdict without a scheduling word
 MIN_COVERAGE = 0.34
 OUT_OF_SCOPE = "out_of_scope_helper"
+#: letters an answer may use: ASCII and the Turkish alphabet, with the circumflex vowels (``zekâ``, ``millî``)
+ANSWER_LETTERS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZçğıöşüÇĞİÖŞÜâîûÂÎÛ")
+#: an answer with a larger share of other letters (CJK, Cyrillic, Vietnamese marks …) is replaced by the index answer
+MAX_FOREIGN_SHARE = 0.05
 REFUSAL_TR = "Ben yalnızca SmartSched'i kullanmanıza yardım edebilirim: ders, sınav, derslik ve rezervasyon işleri."
 REFUSAL_EN = "I can only help you use SmartSched: classes, exams, rooms and bookings."
 _WORD = re.compile(r"[a-z0-9]+")
@@ -97,10 +102,21 @@ def check_note(text: str) -> Verdict:
     return Verdict(True)
 
 
+def script_share(text: str) -> float:
+    """The share of ``text``'s letters outside Latin + Turkish (:data:`ANSWER_LETTERS`); ``0.0`` without letters."""
+    letters = [ch for ch in text or "" if ch.isalpha()]
+    if not letters:
+        return 0.0
+    return sum(ch not in ANSWER_LETTERS for ch in letters) / len(letters)
+
+
 def ground_answer(answer: str, emitted_feature_ids: Iterable[str]) -> bool:
-    """``True`` when the model's answer may stand: it names no index page title for which no ``nav`` card was sent
-    this turn, and shows no crumb path ("A › B") without any ``nav`` card. ``False`` = replace the text with the
-    index answer (the person then sees only paths the server built, for pages they may open)."""
+    """``True`` when the model's answer may stand: its letters stay in Latin + Turkish (at most
+    :data:`MAX_FOREIGN_SHARE` others), it names no index page title for which no ``nav`` card was sent this turn,
+    and shows no crumb path ("A › B") without any ``nav`` card. ``False`` = replace the text with the index answer
+    (the person then sees only paths the server built, for pages they may open)."""
+    if script_share(answer) > MAX_FOREIGN_SHARE:
+        return False
     emitted = set(emitted_feature_ids)
     if "›" in (answer or "") and not emitted:
         return False
@@ -116,6 +132,8 @@ def ground_answer(answer: str, emitted_feature_ids: Iterable[str]) -> bool:
 
 
 __all__ = [
+    "ANSWER_LETTERS",
+    "MAX_FOREIGN_SHARE",
     "MAX_INPUT_CHARS",
     "OUT_OF_SCOPE",
     "REFUSAL_EN",
@@ -124,4 +142,5 @@ __all__ = [
     "check",
     "check_note",
     "ground_answer",
+    "script_share",
 ]

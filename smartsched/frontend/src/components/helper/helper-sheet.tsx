@@ -11,11 +11,14 @@
  *   with the reason and keeps the shortcuts and "Nerede?" search (Rehber modu under it).
  * - Index mode (`mode: index`, the default): **Rehber modu**, a search field and shortcuts, no composer.
  * - On close, focus returns to the opener, or to the page's h1 / main when the opener is gone (never <body>).
+ * - HX-15: the empty thread shows "Son işlemler" (recent.tsx). HX-16: the footer's "Bu sayfa: …" chip (AI mode, above
+ *   the composer); while it is on every question carries the page `context`; ✕ removes it for this page, the focus
+ *   goes to the composer (page-context.tsx).
  */
 import { MoreHorizontal, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useId, useMemo, useRef } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { AiNotice } from "@/components/admin/ai/ai-kit";
 import { AiUsageBanner } from "@/components/admin/ai/my-ai-usage";
 import { Alert } from "@/components/ui/alert";
@@ -33,6 +36,9 @@ import { useUiStore } from "@/stores/ui";
 import { CardHostContext, pickText, type CardHost } from "./cards/context";
 import { EntryView } from "./cards/render";
 import { GuideMode } from "./guide";
+import { PageContextChip, toTurnContext, usePageContext } from "./page-context";
+import { RecentActions } from "./recent";
+import { clientActionLabel } from "./remember";
 import { useHelperStore } from "./helper-store";
 import { Starters, starterRole } from "./starters";
 import { StatusChip, useHelperMode } from "./status-chip";
@@ -63,7 +69,7 @@ function useCardHostValue(desktop: boolean): CardHost {
       actions: list ? new Set(list.map((a) => a.name)) : null,
       actionVerb: (name) => {
         const a = list?.find((x) => x.name === name);
-        return a?.summary ? pickText(a.summary, locale) : null;
+        return a?.summary ? pickText(a.summary, locale) : clientActionLabel(locale)(name);
       },
       go: (href) => {
         if (!desktop) useHelperStore.getState().closeSheet();
@@ -142,15 +148,32 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
   const pendingAction = useHelperStore((s) => s.pendingAction);
   const { runner } = host;
 
+  // HX-16: "Bu sayfa: …" — on for the current page until its ✕ is tapped (a new page brings it back)
+  const page = usePageContext();
+  const [contextOff, setContextOff] = useState<string | null>(null);
+  const [contextLive, setContextLive] = useState("");
+  const chipOn = !!page && mode.ai && !mode.blocked && contextOff !== page.route;
+  const wire = chipOn && page ? toTurnContext(page) : null;
+  const wireKey = wire ? JSON.stringify(wire) : "";
+  const context = useMemo(() => (wireKey ? (JSON.parse(wireKey) as NonNullable<typeof wire>) : null), [wireKey]);
+  const askHere = useCallback((text: string) => runner.ask(text, { context }), [runner, context]);
+  const removeContext = () => {
+    if (!page) return;
+    setContextOff(page.route);
+    setContextLive(t("helper.context.removed"));
+    // the ✕ goes away with the chip: the composer takes the focus (never <body>)
+    requestAnimationFrame(() => composerRef.current?.querySelector<HTMLTextAreaElement>("textarea:not([disabled])")?.focus());
+  };
+
   // the palette's "Yardımcıya sor" text and the Kısayollar action run once the mode is known (also while open)
   useEffect(() => {
     if (mode.loading || (!pendingAsk && !pendingAction)) return;
     const st = useHelperStore.getState();
     const { ask, action } = st.takePending();
     if (action) void runner.runAction(action.action, action.args, { hints: action.hints });
-    else if (ask && mode.ai && !mode.blocked) void runner.ask(ask);
+    else if (ask && mode.ai && !mode.blocked) void askHere(ask);
     else if (ask) st.setGuideSeed(ask);
-  }, [pendingAsk, pendingAction, mode.loading, mode.ai, mode.blocked, runner]);
+  }, [pendingAsk, pendingAction, mode.loading, mode.ai, mode.blocked, runner, askHere]);
 
   // focus on open: the composer (AI) or the guide field (index), on the first frame
   useEffect(() => {
@@ -196,7 +219,8 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
       {empty ? (
         <div className="flex flex-col gap-3 px-4 pt-4" data-testid="helper-empty">
           <p className="type-body text-label-1">{mode.ai ? t("helper.empty") : t("helper.guide.title")}</p>
-          {mode.ai && !mode.blocked ? <Starters role={role} onPick={(s) => void host.runner.ask(s)} /> : null}
+          {mode.ai && !mode.blocked ? <Starters role={role} onPick={(s) => void askHere(s)} /> : null}
+          <RecentActions />
           {notes > 0 ? (
             <p className="type-footnote text-label-2" data-testid="helper-memory-used">
               {t("helper.memory.usingNotes", { n: notes })}{" "}
@@ -215,7 +239,7 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
             data-testid="helper-error"
             action={
               lastAsk && lastAsk.kind === "user" && mode.ai ? (
-                <Button size="sm" variant="secondary" onClick={() => void host.runner.ask(lastAsk.text)}>
+                <Button size="sm" variant="secondary" onClick={() => void askHere(lastAsk.text)}>
                   {t("helper.retry")}
                 </Button>
               ) : undefined
@@ -227,10 +251,14 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
         {mode.ai ? <AiUsageBanner /> : null}
         {mode.ai && mode.blocked ? <p className="type-callout text-label-2" data-testid="helper-blocked">{t("helper.limitReason")}</p> : null}
         {guide ? <GuideMode inputRef={guideRef} seed={guideSeed} showLead={!mode.ai} /> : null}
+        <p className="sr-only" role="status" data-testid="helper-context-live">
+          {contextLive}
+        </p>
+        {chipOn && page ? <PageContextChip page={page} onRemove={removeContext} /> : null}
         {mode.ai ? (
           <div ref={composerRef} data-testid="helper-composer">
             <PromptComposer
-              onSend={(text) => void host.runner.ask(text)}
+              onSend={(text) => void askHere(text)}
               busy={turn.busy}
               disabled={mode.blocked}
               placeholder={t("helper.composer.placeholder")}

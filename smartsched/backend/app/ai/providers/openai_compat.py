@@ -23,7 +23,9 @@ Requests arrive in the gateway's Anthropic shape and are translated:
 Capabilities (HB-12): :meth:`list_models` fills each model's record from the list (OpenRouter's
 ``supported_parameters``, vLLM's ``max_model_len``) and :meth:`sniff` asks a local server what it is, with the same
 ``url_guard`` check as every call: LM Studio ``GET /api/v0/models``, llama.cpp ``GET /props``, Ollama
-``GET /api/version`` + ``POST /api/show``.
+``GET /api/version`` + ``POST /api/show`` + ``GET /api/ps`` (the window a loaded model is served with, which is
+``OLLAMA_CONTEXT_LENGTH``, not the model's maximum; HB-17 bug 2). :meth:`served_window` reads it again at the end of
+the probe, when the model has just been loaded.
 
 Answers come back as :class:`GMessage` (``finish_reason`` ``stop`` / ``tool_calls`` / ``length`` /
 ``content_filter`` -> ``end_turn`` / ``tool_use`` / ``max_tokens`` / ``refusal``; ``prompt_tokens_details
@@ -354,12 +356,23 @@ class OpenAICompatAdapter(ProviderAdapter):
             return "llamacpp"
         version = await self._try("GET", "/api/version")
         if version and isinstance(version.get("version"), str):
+            ps = await self._try("GET", "/api/ps")
             for m in models[:40]:
                 show = await self._try("POST", "/api/show", {"model": m.id})
                 if show and ("capabilities" in show or "model_info" in show):
-                    add(m, caps.ollama(show))
+                    add(m, caps.ollama(show, caps.ollama_served(ps, m.id)))
             return "ollama"
         return self._server_kind
+
+    async def served_window(self, model: str) -> int | None:
+        """The context window an Ollama server serves ``model`` with right now: ``GET /api/ps`` ``context_length``,
+        never above the model's maximum (``POST /api/show``). ``None`` for other servers or a model not loaded."""
+        if self.name != "openai_compatible":
+            return None
+        served = caps.ollama_served(await self._try("GET", "/api/ps"), model)
+        if not served:
+            return None
+        return caps.smaller(served, caps.ollama_maximum(await self._try("POST", "/api/show", {"model": model})))
 
     def translate_error(self, exc: Exception, model: str) -> Exception:
         if isinstance(exc, ProviderError):
@@ -423,6 +436,7 @@ def _wrap_emulated(message: GMessage, name: str) -> GMessage:
     if not isinstance(data, dict):
         return message
     message.content = [GBlock(type="tool_use", id=f"call_{uuid.uuid4().hex[:12]}", name=name, input=data)]
+    message.emulated = True
     if message.stop_reason == "end_turn":
         message.stop_reason = "tool_use"
     return message

@@ -4,9 +4,13 @@
  * outcome, fallback, reason}; or `error` {status, detail}. Every card is parsed with the generated zod; a card the
  * client cannot read becomes `bad_card` (the fallback), never raw data. The SSE frame parser is the run chat's
  * (components/chat/chat-stream.ts), shared as helper.md §2.6 asks.
+ *
+ * HX-16: the body carries `context` (the "Bu sayfa: …" chip, HB-D) only when it is given and passes the server's own
+ * rules ({@link TurnContext}); a shape the server would refuse with a 422 is dropped, never sent.
  */
 import { createSseParser } from "@/components/chat/chat-stream";
 import { buildUrl, HttpError } from "@/lib/api/client";
+import { TurnContext } from "@/lib/api/helper";
 import { HelperCard } from "./schema.gen";
 
 export type TurnEvent =
@@ -54,11 +58,18 @@ export function toTurnEvent(event: string, data: unknown): TurnEvent | null {
 }
 
 /** Stream one helper turn. Rejects with an HttpError (detail kept) before the first event when it cannot start. */
-export async function streamTurn(text: string, lang: "tr" | "en", on: (e: TurnEvent) => void, signal?: AbortSignal): Promise<void> {
+export async function streamTurn(
+  text: string,
+  lang: "tr" | "en",
+  on: (e: TurnEvent) => void,
+  opts: { signal?: AbortSignal; context?: TurnContext | null } = {},
+): Promise<void> {
+  const { signal } = opts;
+  const context = opts.context ? TurnContext.safeParse(opts.context) : null;
   const res = await fetch(buildUrl("/helper/turn"), {
     method: "POST",
     headers: { Accept: "text/event-stream", "Content-Type": "application/json" },
-    body: JSON.stringify({ text, lang }),
+    body: JSON.stringify(context?.success ? { text, lang, context: context.data } : { text, lang }),
     credentials: "same-origin",
     signal,
   });

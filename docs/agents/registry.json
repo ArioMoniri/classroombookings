@@ -3837,7 +3837,8 @@
       "goal": "Ledger name `shell-int-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWo…",
       "ledger": "Shell integration: HX mounts, RF-16",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 11:45"
     },
     {
       "id": "ac4f4193a873c4e78",
@@ -3972,6 +3973,26 @@
       "status": "finished",
       "finished_at": "2026-10-18 11:32",
       "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a8121d24efdc62e8e",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:38",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a76674344937600ef",
+      "description": "RF-16b: non-blocking period grid",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 11:46",
+      "scope": "",
+      "goal": "Ledger name `rf-16b-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorke…",
+      "ledger": "RF-16b: non-blocking period grid",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

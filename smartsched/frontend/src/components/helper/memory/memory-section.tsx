@@ -8,12 +8,15 @@
  * notes are deleted only from the notes list ("Sil" per note, "Tüm notları sil"). Without HB-21
  * (`helperCaps.threadsDelete` off), the button reads "Notları ve geçmişi sil" and its dialog says the notes go too.
  * A note exists only after the person adds it here or taps "Hatırla"; the institution's switch (admin) can turn notes off for everyone.
+ * HX-17: "Not ekle" needs the `ai_personal` consent like the remember card; the server's refusal (409
+ * `consent_missing`) is shown with a link to Profil › Gizlilik.
  */
 import { Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useId, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Alert, SectionTitle } from "@/components/admin/kit";
-import { Button, IconButton } from "@/components/ui/button";
+import { Button, buttonVariants, IconButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -23,6 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { helperCaps, helperRefusal, useAddHelperNote, useDeleteAllHelperNotes, useDeleteHelperNote, useDeleteHelperThreads, useHelperMemory, useHelperNotes, useSetHelperMemory } from "@/lib/api/helper";
 import type { Locale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { cn } from "@/lib/utils";
 
 function refusalText(err: unknown, locale: Locale, fallback: string): string {
   const r = helperRefusal(err);
@@ -42,6 +46,7 @@ export function HelperMemorySection() {
   const [confirmNotes, setConfirmNotes] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [needsConsent, setNeedsConsent] = useState(false);
   const [confirmHistory, setConfirmHistory] = useState(false);
   const [live, setLive] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +64,7 @@ export function HelperMemorySection() {
     const value = text.trim();
     if (!value) return;
     setError(null);
+    setNeedsConsent(false);
     try {
       await add.mutateAsync({ text: value, source: "user_confirmed" });
       setText("");
@@ -66,6 +72,7 @@ export function HelperMemorySection() {
       inputRef.current?.focus();
     } catch (err) {
       setError(refusalText(err, locale, t("helper.error.provider")));
+      setNeedsConsent(helperRefusal(err).code === "consent_missing");
       inputRef.current?.focus();
     }
   };
@@ -197,6 +204,11 @@ export function HelperMemorySection() {
                     <p role="alert" className="type-footnote text-status-infeasible-fg" data-testid="helper-note-error">
                       {error}
                     </p>
+                  ) : null}
+                  {error && needsConsent ? (
+                    <Link href="/profile#privacy" className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "self-start")} data-testid="helper-note-consent-link">
+                      {t("helper.memory.consentLink")}
+                    </Link>
                   ) : null}
                 </form>
               ) : null}

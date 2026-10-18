@@ -72,7 +72,9 @@ describe("ChatPanel streaming (ai-engineer follow-up)", () => {
     const box = screen.getByRole("textbox");
     await userEvent.type(box, "Hello{Enter}");
     expect(await screen.findByText("Tamam")).toBeInTheDocument();
-    // a browser drops focus to <body> when the focused box turns disabled; jsdom keeps it there, so stand in for it
+    // while the reply streams the box is disabled: focus waits on the conversation log, never on <body>
+    expect(document.activeElement).toHaveAttribute("aria-live", "polite");
+    // after the turn: stand in for a browser that left focus on <body>
     const box2 = screen.getByRole("textbox");
     Object.defineProperty(document, "activeElement", { configurable: true, get: () => document.body });
     const focus = vi.spyOn(box2, "focus");

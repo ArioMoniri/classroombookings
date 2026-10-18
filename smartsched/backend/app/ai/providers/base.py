@@ -61,6 +61,9 @@ class GMessage:
     usage: GUsage = field(default_factory=GUsage)
     stop_details: GStopDetails | None = None
     _request_id: str | None = None
+    #: the ``tool_use`` was built by the OpenAI-compatible adapter from a JSON-schema answer (HB-13 emulation), not
+    #: chosen by the server: the probe does not count it as an honoured ``tool_choice`` (HB-17 bug 4)
+    emulated: bool = False
 
 
 @dataclass

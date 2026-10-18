@@ -356,6 +356,14 @@ class _SlotPeriods:
         ]
 
 
+async def slot_period_ids(session: AsyncSession, info: TermInfo, room: Room, d: date, start: str | int) -> list[int]:
+    """The booking periods of ``room`` on ``d`` for a slot that starts at ``start`` (``HH:MM`` / ``HH.MM`` / a period
+    number; one grid period, as :func:`find_rooms` without an end), in grid order. The helper's ``create_booking``
+    resolves a clock time with it (HB-17 P1). Raises :class:`FindError` for a time outside the teaching day."""
+    s0, _last, dur = resolve_periods(FindQuery(dates=[d], start=start))
+    return await _SlotPeriods(session, info).ids(room, d, s0, s0 + dur - 1)
+
+
 async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, ledger: bool = False) -> dict[str, Any]:
     """``ledger``: append one aggregate row to the demand ledger (AS-05, ``app.services.demand``; the search screen
     only: internal re-finds of conflicts and alternatives are not demand)."""

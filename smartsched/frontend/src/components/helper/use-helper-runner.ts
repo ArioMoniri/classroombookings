@@ -5,11 +5,15 @@
  * the card's button confirms (`POST /helper/actions/confirm`) and "Geri al" undoes (`POST /helper/actions/undo`).
  * helper.md §4.1: only the card's button confirms (typed "evet" never does), an expired token shows "Bu öneri
  * eskidi" + Yenile, a 409 brings the new preview, the result line takes the focus and a toast offers "Geri al" 8 s.
+ * HX-16: a question carries the "Bu sayfa: …" chip's `context` while the chip is on (the sheet passes it).
+ * HX-15 / HX-17: after a confirm or an undo, "Son işlemler" is refetched, and for a note (`remember_note`) the notes
+ * and the memory count of Profil › Yardımcı too.
  */
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { crbs } from "@/lib/api/crbs";
-import { helperApi, helperRefusal, trackHelper, type ActionArgs } from "@/lib/api/helper";
+import { helperApi, helperRefusal, invalidateAfterHelperWrite, trackHelper, type ActionArgs, type TurnContext } from "@/lib/api/helper";
 import { translate, type Locale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useHelperStore, type CardEntry } from "./helper-store";
@@ -60,7 +64,8 @@ function formValue(card: FormCard, name: string) {
 }
 
 export interface Runner {
-  ask: (text: string) => Promise<void>;
+  /** `context`: the "Bu sayfa: …" chip while it is on (HX-16) */
+  ask: (text: string, opts?: { context?: TurnContext | null }) => Promise<void>;
   runAction: (action: string, args: ActionArgs, opts?: { hints?: IntentHints; step?: number; replaces?: string }) => Promise<void>;
   confirm: (entry: CardEntry, event: { nativeEvent?: Event } | Event | undefined) => Promise<void>;
   undo: (entry: CardEntry, event?: { nativeEvent?: Event } | Event) => Promise<void>;
@@ -70,6 +75,7 @@ export interface Runner {
 
 export function useHelperRunner(): Runner {
   const { locale } = useI18n();
+  const qc = useQueryClient();
 
   const pushServerCard = useCallback((card: HelperCard, extra?: Partial<CardEntry>) => useHelperStore.getState().pushCard(card, extra), []);
 
@@ -115,7 +121,7 @@ export function useHelperRunner(): Runner {
   );
 
   const ask = useCallback<Runner["ask"]>(
-    async (raw) => {
+    async (raw, opts) => {
       const text = raw.trim();
       if (!text) return;
       const st = useHelperStore.getState();
@@ -167,7 +173,7 @@ export function useHelperRunner(): Runner {
             default:
               break;
           }
-        });
+        }, { context: opts?.context ?? undefined });
       } catch (err) {
         // could not start (429 limit, 403, the network): the server's card or its message, in the log
         pushRefusal(err);
@@ -188,17 +194,19 @@ export function useHelperRunner(): Runner {
       st.updateCard(entry.key, { phase: "busy", notice: null });
       try {
         const out = await helperApi.undo(entry.card.undo_token);
+        invalidateAfterHelperWrite(qc, entry.card.action);
         useHelperStore.getState().updateCard(entry.key, { phase: "done", undone: true });
         const key = pushServerCard(out, { undone: true });
         focusEntry(key);
         toast(translate(locale as Locale, "helper.card.undone"));
       } catch (err) {
         const r = helperRefusal(err);
+        invalidateAfterHelperWrite(qc, entry.card.action);
         useHelperStore.getState().updateCard(entry.key, { phase: "done", undone: r.code === "already_undone", notice: r.tr || r.en ? { tr: r.tr ?? "", en: r.en ?? "" } : both("helper.error.provider") });
         focusEntry(entry.key);
       }
     },
-    [locale, pushServerCard],
+    [locale, pushServerCard, qc],
   );
 
   const confirm = useCallback<Runner["confirm"]>(
@@ -213,6 +221,7 @@ export function useHelperRunner(): Runner {
       st.updateCard(entry.key, { phase: "busy", notice: null });
       try {
         const result = await helperApi.confirm(entry.card.token);
+        invalidateAfterHelperWrite(qc, "action" in result && result.action ? result.action : entry.card.action);
         useHelperStore.getState().updateCard(entry.key, { phase: "done" });
         const key = pushServerCard(result);
         focusEntry(key);
@@ -246,7 +255,7 @@ export function useHelperRunner(): Runner {
         focusEntry(entry.key);
       }
     },
-    [locale, pushServerCard, undoImpl],
+    [locale, pushServerCard, qc, undoImpl],
   );
 
   const undo = useCallback<Runner["undo"]>(

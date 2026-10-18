@@ -121,9 +121,14 @@ def test_ra_05() -> None:
         {"room": "A 102", "date": "2026-02-19", "period_id": [1, 2, 3], "notes": ""},
         {"room": "A 102", "date": "2026-02-19", "period_id": 1, "notes": "", "repeat": "daily"},
         {"room": "A 102", "date": "2026-02-19", "period_id": 1, "notes": "", "user_id": 2},
+        # HB-17 P1: the clock time is one start, never a range or a list
+        {"room": "A 102", "date": "2026-02-19", "start": "08:00-22:00", "period_id": 0, "notes": ""},
+        {"room": "A 102", "date": "2026-02-19", "start": ["08:30", "09:30"], "period_id": 0, "notes": ""},
+        {"room": "A 102", "date": "2026-02-19", "start": "her saat", "period_id": 0, "notes": ""},
     ):
         with pytest.raises(reg.ArgsInvalid):
             reg.parse_args(a, bad)
+    assert set(a.args.model_fields) == {"room", "date", "start", "period_id", "notes"}  # one slot, nothing more
 
 
 async def test_ra_06(env) -> None:  # noqa: F811

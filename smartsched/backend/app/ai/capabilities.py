@@ -5,6 +5,13 @@ A capability record (stored on each synced model as ``capabilities``)::
 
     {tools, tool_choice, strict_tools, json_schema, vision, pdf, context_window, parallel_tools, source, checked_at}
 
+plus ``context_verified`` once a layer has said where its ``context_window`` comes from: ``True`` when it is the
+window the server actually serves (Ollama ``GET /api/ps`` ``context_length`` or a ``num_ctx`` parameter, an admin
+override), ``False`` when it is only the model's maximum (an Ollama model that was not loaded at sync). ``False``
+warns ``context_unverified`` on the route and the provider card until the probe reads the served window (HB-17
+bug 2: Ollama serves ``OLLAMA_CONTEXT_LENGTH``, often half the maximum, and silently drops the system prompt of a
+longer prompt).
+
 ``True`` / ``False`` are facts, ``None`` is unknown. ``pdf`` means *this gateway can send a PDF document block to the
 model*: it is ``False`` for every OpenAI-compatible server (the adapter rasterises the pages to PNG instead, HB-13).
 
@@ -24,6 +31,7 @@ Three layers, later ones win per field (a ``None`` never overwrites a fact):
 from __future__ import annotations
 
 import base64
+import inspect
 import json
 import re
 import struct
@@ -55,6 +63,8 @@ def record(source: str = "provider", **values: Any) -> dict[str, Any]:
             out[k] = None if v is None else bool(v)
         elif k == "context_window":
             out[k] = _int(v)
+        elif k == "context_verified" and v is not None:
+            out[k] = bool(v)
     out["source"] = source if source in SOURCES else "provider"
     out["checked_at"] = now_iso()
     return out
@@ -70,7 +80,8 @@ def _int(v: Any) -> int | None:
 
 def merge(*layers: dict[str, Any] | None) -> dict[str, Any]:
     """Later layers win per field; ``None`` never overwrites a known value. ``source`` / ``checked_at`` are those
-    of the last layer that contributed a value."""
+    of the last layer that contributed a value. ``context_verified`` travels with ``context_window``: the layer
+    that sets the window says whether it is the served one (an admin's window counts as known)."""
     out = empty()
     out["source"] = None
     out["checked_at"] = None
@@ -84,6 +95,14 @@ def merge(*layers: dict[str, Any] | None) -> dict[str, Any]:
                 continue
             out[k] = _int(v) if k == "context_window" else bool(v)
             contributed = True
+            if k == "context_window":
+                verified = layer.get("context_verified")
+                if verified is None and layer.get("source") == "admin":
+                    verified = True
+                if verified is None:
+                    out.pop("context_verified", None)
+                else:
+                    out["context_verified"] = bool(verified)
         if contributed:
             out["source"] = layer.get("source") or out["source"]
             out["checked_at"] = layer.get("checked_at") or out["checked_at"]
@@ -162,21 +181,45 @@ def vllm(entry: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def ollama(show: dict[str, Any]) -> dict[str, Any]:
-    """Ollama ``POST /api/show``: ``capabilities`` (``completion``, ``tools``, ``vision``, …) and
-    ``model_info.<arch>.context_length``. Ollama has no ``tool_choice`` and does not enforce ``strict``; its JSON
-    ``format`` is grammar-constrained. A ``num_ctx`` in the model's parameters is the window actually served."""
-    caps = {str(c) for c in show.get("capabilities") or []}
+def ollama_maximum(show: dict[str, Any] | None) -> int | None:
+    """The model's own maximum context from ``POST /api/show`` (``model_info.<arch>.context_length``)."""
     ctx: int | None = None
-    for k, v in (show.get("model_info") or {}).items():
+    for k, v in ((show or {}).get("model_info") or {}).items():
         if str(k).endswith(".context_length"):
             ctx = _int(v)
+    return ctx
+
+
+def ollama_served(ps: dict[str, Any] | None, model: str) -> int | None:
+    """The window Ollama serves a loaded model with: ``GET /api/ps`` ``models[].context_length`` (it follows
+    ``OLLAMA_CONTEXT_LENGTH`` / ``num_ctx``, not the model's maximum). ``None`` while the model is not loaded."""
+    names = {model, model if ":" in model else f"{model}:latest"}
+    for entry in (ps or {}).get("models") or []:
+        if isinstance(entry, dict) and {str(entry.get("name")), str(entry.get("model"))} & names:
+            return _int(entry.get("context_length"))
+    return None
+
+
+def smaller(*windows: int | None) -> int | None:
+    known = [w for w in windows if isinstance(w, int) and w > 0]
+    return min(known) if known else None
+
+
+def ollama(show: dict[str, Any], served: int | None = None) -> dict[str, Any]:
+    """Ollama ``POST /api/show``: ``capabilities`` (``completion``, ``tools``, ``vision``, …) and
+    ``model_info.<arch>.context_length`` (the model's maximum). Ollama has no ``tool_choice`` and does not enforce
+    ``strict``; its JSON ``format`` is grammar-constrained. The window actually served is ``served`` (``GET /api/ps``
+    ``context_length`` of the loaded model) or a ``num_ctx`` in the model's parameters; the record keeps the
+    smaller of that and the maximum, and ``context_verified: False`` while neither is known."""
+    caps = {str(c) for c in show.get("capabilities") or []}
+    maximum = ollama_maximum(show)
+    param: int | None = None
     for line in str(show.get("parameters") or "").splitlines():
         parts = line.split()
         if len(parts) == 2 and parts[0] == "num_ctx":
-            served = _int(parts[1])
-            if served:
-                ctx = min(ctx, served) if ctx else served
+            param = _int(parts[1])
+    known = served or param
+    ctx = smaller(maximum, known)
     return record(
         tools=("tools" in caps) if caps else None,
         tool_choice=False,
@@ -186,6 +229,7 @@ def ollama(show: dict[str, Any]) -> dict[str, Any]:
         pdf=False,
         parallel_tools=False,
         context_window=ctx,
+        context_verified=(known is not None) if ctx else None,
     )
 
 
@@ -335,6 +379,8 @@ def route_issues(feature: str | None, caps: dict[str, Any] | None) -> tuple[list
             add(warnings, "capability_degraded", tr, en, capability=k)
     floor = int(need.get("context") or 0)
     window = c.get("context_window")
+    if floor and isinstance(window, int) and c.get("context_verified") is False:
+        add(warnings, "context_unverified", *unverified_text(window))
     if floor and isinstance(window, int) and window < floor:
         add(
             errors,
@@ -345,6 +391,18 @@ def route_issues(feature: str | None, caps: dict[str, Any] | None) -> tuple[list
             f"{floor}. Raise the context on the local server (e.g. OLLAMA_CONTEXT_LENGTH).",
         )
     return errors, warnings
+
+
+def unverified_text(window: int | None, model: str | None = None) -> tuple[str, str]:
+    """``context_unverified`` in Turkish and English (the route warning and the provider card)."""
+    name_tr = f"{model} için " if model else ""
+    name_en = f" for {model}" if model else ""
+    return (
+        f"Yerel sunucunun {name_tr}gerçekten sunduğu bağlam penceresi henüz bilinmiyor; şimdilik modelin üst sınırı "
+        f"({window} jeton) kullanılıyor. Modeli bir kez yükleyip Test düğmesiyle (yoklama) sınayın.",
+        f"The context window the local server actually serves{name_en} is not known yet; the model's maximum "
+        f"({window} tokens) is used for now. Load the model once and run Test with the probe.",
+    )
 
 
 # ---------------------------------------------------------------------------------------------- at call time (HB-13)
@@ -507,10 +565,17 @@ def _valid(data: Any) -> bool:
     )
 
 
+#: the forced call's message does not ask for the tool: only a server that honours ``tool_choice`` calls it, so one
+#: that ignores the named choice (Ollama) is reported ``tool_choice: False`` (HB-17 bug 4)
+NEUTRAL_ASK = "Say hello in one word."
+
+
 async def probe(adapter: Any, model: str) -> tuple[dict[str, Any], ProbeUsage]:
-    """Three tiny calls (each ≤ 64 output tokens) on ``adapter``: a forced single-tool call (``tools``,
-    ``tool_choice``, ``strict_tools``; an ``auto`` retry tells "tools without tool choice" apart), a JSON-schema
-    answer (``json_schema``) and a 32×32 red square (``vision``). A failing call is a ``False``; nothing raises."""
+    """Three tiny calls (each ≤ 64 output tokens) on ``adapter``: a forced single-tool call with a neutral message
+    (``tools``, ``tool_choice``, ``strict_tools``; an ``auto`` retry that asks for the tool tells "tools without tool
+    choice" apart), a JSON-schema answer (``json_schema``) and a 32×32 red square (``vision``). A failing call is a
+    ``False``; nothing raises. When a call reached the server, the adapter's ``served_window`` (an Ollama model is
+    loaded now) gives the window actually served (``context_window``, ``context_verified``)."""
     usage = ProbeUsage()
     found: dict[str, Any] = {}
     # the adapter must send exactly what the probe asks (no capability-based degrade while probing)
@@ -523,13 +588,14 @@ async def probe(adapter: Any, model: str) -> tuple[dict[str, Any], ProbeUsage]:
             msg = await adapter.create(
                 {
                     **base,
-                    "messages": [ask_tool],
+                    "messages": [{"role": "user", "content": NEUTRAL_ASK}],
                     "tools": [PROBE_TOOL],
                     "tool_choice": {"type": "tool", "name": PROBE_TOOL["name"], "disable_parallel_tool_use": True},
                 }
             )
             usage.add(msg)
-            calls = _tool_calls(msg, PROBE_TOOL["name"])
+            # a call the adapter emulated after the server answered in prose is not an honoured tool choice
+            calls = [] if getattr(msg, "emulated", False) else _tool_calls(msg, PROBE_TOOL["name"])
         except Exception:  # noqa: BLE001 - a server that rejects named tool choice answers 400
             calls = []
             found["tool_choice"] = False
@@ -588,6 +654,14 @@ async def probe(adapter: Any, model: str) -> tuple[dict[str, Any], ProbeUsage]:
             found["vision"] = any(w in _text(msg).lower() for w in ("red", "kırmızı", "kirmizi", "rouge", "rot"))
         except Exception:  # noqa: BLE001
             found["vision"] = False
+        reader = getattr(adapter, "served_window", None)
+        if usage.calls and inspect.iscoroutinefunction(reader):
+            try:
+                served = await reader(model)
+            except Exception:  # noqa: BLE001 - a missing /api/ps leaves the window as synced
+                served = None
+            if served:
+                found.update(context_window=served, context_verified=True)
     finally:
         adapter.capabilities = saved
     return record("probe", **found), usage
@@ -599,6 +673,7 @@ __all__ = [
     "IMAGE_TOKENS",
     "MIN_OUTPUT_TOKENS",
     "NEEDS",
+    "NEUTRAL_ASK",
     "PROBE_SCHEMA",
     "PROBE_TOOL",
     "RED_PNG_B64",
@@ -614,10 +689,14 @@ __all__ = [
     "lmstudio",
     "merge",
     "ollama",
+    "ollama_maximum",
+    "ollama_served",
     "openai_cloud",
     "openrouter",
     "probe",
     "record",
     "route_issues",
+    "smaller",
+    "unverified_text",
     "vllm",
 ]

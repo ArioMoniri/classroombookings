@@ -189,8 +189,22 @@ async def _provider_out(db: DB, p: str) -> dict[str, Any]:
         "transfer_ok": gw.transfer_ok(p, cfg, transfer, local=local),
         "local": local,
         "allow_local": allow_local,
-        "warnings": [LOCAL_WARNING] if allow_local else [],
+        "warnings": ([LOCAL_WARNING] if allow_local else []) + await _context_warnings(db, p),
     }
+
+
+async def _context_warnings(db: DB, p: str) -> list[dict[str, str]]:
+    """``context_unverified`` per synced model whose served context window is not known yet (HB-17 bug 2)."""
+    from app.ai import capabilities as caps
+
+    if p != "openai_compatible":
+        return []
+    out: list[dict[str, str]] = []
+    for mid, c in (await gw.model_capabilities(db, p)).items():
+        if c.get("context_verified") is False:
+            tr, en = caps.unverified_text(c.get("context_window"), mid)
+            out.append({"code": "context_unverified", "message_tr": tr, "message_en": en, "model": mid})
+    return out
 
 
 #: shown on the provider card while the local-server opt-in is on (docs/SECURITY.md R12)
@@ -477,9 +491,10 @@ async def _probe(db: DB, p: str, model: str, adapter: Any, user: User) -> dict[s
         detail="probe" if ok else "probe failed",
         guard_verdict="skipped",
     )
-    probes = await gw.get_json(db, f"ai.provider.{p}.probe", {})
-    probes[model] = found
-    await gw.put_json(db, f"ai.provider.{p}.probe", probes)
+    if ok:  # HB-17 bug 4: an unreachable server proves nothing; its all-"no" record would block routing
+        probes = await gw.get_json(db, f"ai.provider.{p}.probe", {})
+        probes[model] = found
+        await gw.put_json(db, f"ai.provider.{p}.probe", probes)
     result = {
         "at": datetime.now(UTC).isoformat(timespec="seconds"),
         "ok": ok,
@@ -490,7 +505,12 @@ async def _probe(db: DB, p: str, model: str, adapter: Any, user: User) -> dict[s
     }
     await gw.put_json(db, f"ai.provider.{p}.test", result)
     await audit.record(
-        db, "ai.provider.probe", "setting", f"ai.provider.{p}.probe", after={"model": model, **found}, actor=user
+        db,
+        "ai.provider.probe",
+        "setting",
+        f"ai.provider.{p}.probe",
+        after={"model": model, "stored": ok, **found},
+        actor=user,
     )
     await db.commit()
     return {**result, "effective": (await gw.model_capabilities(db, p)).get(model)}

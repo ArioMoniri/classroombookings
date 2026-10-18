@@ -4,8 +4,10 @@
  * `mode: index` (the default until an administrator routes the helper), and at a hard limit under the disabled
  * composer: a "Ne arıyorsunuz?" field over `GET /helper/search` (pages, "Nerede?" answers, data hits) and the
  * deterministic shortcut of the typed text. Nothing here calls a model or writes `ai_usage`.
+ * HX-17: a typed "bunu hatırla: …" offers one "Bunu hatırla: …" row; it sends the text as it is to `POST /helper/turn`,
+ * which answers the `remember_note` confirm card with no model call in index mode too (only its button saves).
  */
-import { CornerDownLeft, Search } from "lucide-react";
+import { BookmarkPlus, CornerDownLeft, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +17,7 @@ import { useCardHost } from "./cards/context";
 import { NavView } from "./cards/nav";
 import { dataHitHref } from "./feature-links";
 import { parseIntent } from "./intents";
+import { rememberText } from "./remember";
 import { useIntentAllowed, useShortcutLabel } from "./shortcut-label";
 
 const MAX_ROWS = 6;
@@ -43,6 +46,7 @@ export function GuideMode({ inputRef, seed, showLead = true }: { inputRef?: Reac
   const intent = text ? parseIntent(text) : null;
   const shortcut = allowed(intent, host.actions) ? intent : null;
   const label = useShortcutLabel(shortcut);
+  const note = text ? rememberText(text) : null;
   // HX-18 M4: one list of at most 6 one-line rows (pages and "Nerede?" first, then data hits), no wall of buttons
   const hits = [...(search.data?.pages ?? []), ...(search.data?.where ?? [])].filter((n, i, all) => all.findIndex((x) => x.feature_id === n.feature_id) === i).slice(0, MAX_ROWS);
   const data = Object.values(search.data?.data ?? {}).flat().slice(0, MAX_ROWS - hits.length);
@@ -56,6 +60,12 @@ export function GuideMode({ inputRef, seed, showLead = true }: { inputRef?: Reac
         <Input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("helper.guide.field")} className="h-11 pl-9 text-base" data-testid="helper-guide-input" enterKeyHint="search" />
       </label>
       <div className="flex flex-col gap-2" aria-live="polite">
+        {note ? (
+          <Button variant="secondary" size="md" className="h-auto min-h-11 justify-between gap-2 py-2 text-left whitespace-normal" shape="rect" onClick={() => void host.runner.ask(text)} data-testid="helper-guide-remember">
+            <span className="min-w-0 break-words">{t("helper.guide.remember", { text: note })}</span>
+            <BookmarkPlus aria-hidden />
+          </Button>
+        ) : null}
         {shortcut && label ? (
           <Button variant="secondary" size="md" className="h-auto min-h-11 justify-between gap-2 py-2 text-left whitespace-normal" shape="rect" onClick={() => void host.runner.runAction(shortcut.action, shortcut.args, { hints: shortcut.hints })} data-testid={`palette-shortcut-${shortcut.action}`}>
             <span>

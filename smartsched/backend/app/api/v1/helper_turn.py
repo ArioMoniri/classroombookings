@@ -18,8 +18,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
+import traceback
 from collections.abc import AsyncIterator
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter
@@ -54,6 +57,24 @@ class TurnIn(BaseModel):
     context: PageContextIn | None = None
 
 
+_BACKEND = Path(__file__).resolve().parents[3]
+
+
+def failure_site(exc: BaseException) -> str:
+    """``app/ai/helper/guard.py:42 in check``: where ``exc`` was raised (the innermost frame), relative to the backend.
+    File, line and function only: never the message or the source line (they can echo the prompt; HB-17 bug 5)."""
+    frames = traceback.extract_tb(exc.__traceback__)
+    if not frames:
+        return "unknown"
+    f = frames[-1]
+    path = Path(f.filename)
+    try:
+        shown = path.resolve().relative_to(_BACKEND).as_posix()
+    except ValueError:
+        shown = path.name
+    return f"{shown}:{f.lineno} in {f.name}"
+
+
 def _sse(kind: str, data: dict[str, Any]) -> str:
     return f"event: {kind}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
 
@@ -74,6 +95,8 @@ async def post_turn(body: TurnIn, db: DB, access: CurrentAccess) -> StreamingRes
         await queue.put((str(data.pop("type")), data))
 
     async def work() -> None:
+        access_: Any = None
+        t0 = time.monotonic()
         try:
             async with get_session_factory()() as s:
                 from app.models import User
@@ -82,18 +105,34 @@ async def post_turn(body: TurnIn, db: DB, access: CurrentAccess) -> StreamingRes
                 if user is None:
                     await queue.put(("error", {"status": 401, "detail": "not signed in"}))
                     return
-                access = await load_access(s, user)
+                access_ = await load_access(s, user)
                 t0 = time.monotonic()
                 ctx = body.context.model_dump() if body.context is not None else None
-                result = await run_turn(s, access, body.text, body.lang, emit=emit, context=ctx)
+                result = await run_turn(s, access_, body.text, body.lang, emit=emit, context=ctx)
                 # HB-14: one query row + metrics + the GenAI log line; no prompt text (never raises)
-                await telemetry.record_turn(s, access, body.text, result, latency_s=time.monotonic() - t0)
+                await telemetry.record_turn(s, access_, body.text, result, latency_s=time.monotonic() - t0)
                 await s.commit()
         except Exception as exc:  # noqa: BLE001 - reported as an event, never with a key or the prompt
-            log.warning("helper turn failed: %s", redact_keys(type(exc).__name__))
+            log.warning("helper turn failed: %s at %s", redact_keys(type(exc).__name__), redact_keys(failure_site(exc)))
+            await _record_failure(exc, access_, time.monotonic() - t0)
             await queue.put(("error", {"status": 500, "detail": "the helper failed; try again"}))
         finally:
             await queue.put(None)
+
+    async def _record_failure(exc: Exception, access_: Any, latency_s: float) -> None:
+        """HB-14 telemetry for the failed turn (``outcome: error``, the exception class as ``reason``), on a fresh
+        session: the turn's own may be unusable. Never raises."""
+        partial = getattr(exc, "turn_result", None)
+        if partial is None or access_ is None:
+            return
+        try:
+            partial.outcome = "error"
+            partial.fallback = re.sub(r"[^a-z_]", "", type(exc).__name__.lower())[:48] or "error"
+            async with get_session_factory()() as s2:
+                await telemetry.record_turn(s2, access_, body.text, partial, latency_s=latency_s)
+                await s2.commit()
+        except Exception:  # noqa: BLE001 - telemetry must never break the error event
+            log.warning("helper turn failure telemetry failed: %s", type(exc).__name__)
 
     async def events() -> AsyncIterator[str]:
         task = asyncio.create_task(work())
