@@ -3162,6 +3162,78 @@
       "status": "finished",
       "finished_at": "2026-10-18 08:10",
       "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a6f35a0fb6d906805",
+      "description": "AU-B resume: sessions + IdP MFA",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:18",
+      "scope": "",
+      "goal": "You are lane AU-B (auth backend), re-created after a container restart. Your earlier work (AU-01…14, migration 0043_mfa) is done and committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). You were then building AU-15 and AU-16, and migration `0045_user_sessions` already exi…",
+      "ledger": "AU-B resume: sessions + IdP MFA",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ac382c44d3ca2cce4",
+      "description": "WG-F resume: welcome guide UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:18",
+      "scope": "",
+      "goal": "You are lane WG-F (welcome guide frontend), re-created after a container restart. Your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `components/welcome/**`, `lib/api/welcome.ts`, `app/(app)/admin/welcome/**`, `e2e/wg-*.spec.ts`, and react-joyride i…",
+      "ledger": "WG-F resume: welcome guide UI",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "aa75e212675093df5",
+      "description": "HB-A resume: helper backend",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:18",
+      "scope": "",
+      "goal": "You are lane HB-A (AI helper backend), re-created after a container restart. Your earlier work is committed in the repo (/home/user/classroombookings, branch claude/focused-wright-ktt0ss): `app/ai/helper/**` and `app/api/v1/helper.py`. Migration 0044_helper is yours. Read first: - docs/agents/briefs…",
+      "ledger": "HB-A resume: helper backend",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "aa8478fed0a6a5b8d",
+      "description": "RF-2 resume: mail follow-ups",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:18",
+      "scope": "",
+      "goal": "You are lane RF-2, re-created after a container restart. RF-11 (the six e-mail senders) is done and committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `app/services/mail_senders.py`, `app/workers/reminders.py`, `tests/test_rf11_mail_senders.py`. Read docs/agents/briefs/…",
+      "ledger": "RF-2 resume: mail follow-ups",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a6d3ca43591bb3955",
+      "description": "AS-B resume: adaptive backend",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:18",
+      "scope": "",
+      "goal": "You are lane AS-B (adaptive scheduling backend), re-created after a container restart. Your earlier work is committed in the repo (/home/user/classroombookings, branch claude/focused-wright-ktt0ss): `services/seasons.py`, `demand.py`, analytics/forecast modules, `solver_bridge.py` merges, migration …",
+      "ledger": "AS-B resume: adaptive backend",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ad78b5988298d3673",
+      "description": "CAL-F resume: calendar export UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:18",
+      "scope": "",
+      "goal": "You are lane CAL-F (calendar export frontend), re-created after a container restart. Your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `components/calendar-export/**`, `lib/api/calendar-export.ts`, the `components/settings/calendar-*` files, and `e…",
+      "ledger": "CAL-F resume: calendar export UI",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
