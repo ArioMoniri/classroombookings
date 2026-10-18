@@ -60,7 +60,8 @@ test("1–4. providers, the voice route, the Ses card and voice limits at 1440; 
   await card.getByTestId("ai-key-deepgram-api_key").fill("e2e-placeholder-deepgram-key-0001");
   await card.getByTestId("ai-transfer-deepgram").locator("summary").click();
   await card.getByTestId("ai-transfer-mech-deepgram").selectOption("standard_contract");
-  await card.getByTestId("ai-transfer-voice-deepgram").click();
+  const voiceBox = card.getByTestId("ai-transfer-voice-deepgram");
+  if (!(await voiceBox.isChecked())) await voiceBox.click(); // a rerun finds it ticked
   await card.getByLabel("Ses kaydının sağlayıcıda saklanma süresi").fill("Saklanmaz");
   await card.getByTestId("ai-provider-save-deepgram").click();
   await expect(page.getByText("Sağlayıcı kaydedildi.")).toBeVisible();

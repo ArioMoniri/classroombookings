@@ -29,7 +29,7 @@ import hmac
 import json
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select, update
@@ -98,14 +98,18 @@ def confirm_token(user_id: int, action: str, args: dict[str, Any], preview_hash:
         "args": args,
         "ah": digest(args),
         "ph": preview_hash,
-        "exp": int(exp.timestamp()),
+        "exp": _epoch(exp),
         "n": secrets.token_hex(16),
     }
     return sign(payload), exp
 
 
+def _epoch(naive_utc: datetime) -> int:
+    return int(naive_utc.replace(tzinfo=UTC).timestamp())
+
+
 def undo_token(user_id: int, invocation_id: int, until: datetime) -> str:
-    return sign({"k": "undo", "u": user_id, "i": invocation_id, "exp": int(until.timestamp()), "n": secrets.token_hex(8)})
+    return sign({"k": "undo", "u": user_id, "i": invocation_id, "exp": _epoch(until), "n": secrets.token_hex(8)})
 
 
 @dataclass
@@ -133,7 +137,8 @@ async def _reject(session: AsyncSession, access: Access, code: str, action: str 
 
 
 def _ts(value: Any) -> datetime:
-    return datetime.fromtimestamp(int(value))
+    """Epoch seconds -> naive UTC (the project's ``utcnow`` convention)."""
+    return datetime.fromtimestamp(int(value), UTC).replace(tzinfo=None)
 
 
 async def confirm(session: AsyncSession, access: Access, token: str) -> dict[str, Any]:
@@ -152,7 +157,7 @@ async def confirm(session: AsyncSession, access: Access, token: str) -> dict[str
         await _reject(session, access, "other_user", action)
         raise ActionRefused(403, "other_user", "Bu onay başka bir hesaba ait.", "This confirmation belongs to another account.")
     now = utcnow()
-    if _ts(p["exp"]) <= now.replace(tzinfo=None):
+    if _ts(p["exp"]) <= now:
         await _reject(session, access, "expired", action)
         raise ActionRefused(410, "expired", "Bu öneri eskidi. Yenileyin.", "This suggestion is out of date. Refresh it.")
     spec = writes.WRITES[action]
@@ -331,7 +336,7 @@ async def undo(session: AsyncSession, access: Access, token: str) -> dict[str, A
         raise ActionRefused(403, "bad_token", "Bu geri alma geçerli değil.", "This undo is not valid.")
     if p.get("u") != access.user_id:
         raise ActionRefused(403, "other_user", "Bu işlem başka bir hesaba ait.", "This belongs to another account.")
-    if _ts(p["exp"]) <= utcnow().replace(tzinfo=None):
+    if _ts(p["exp"]) <= utcnow():
         raise ActionRefused(
             410, "too_old", "Geri alma süresi doldu.", "The time to undo this has passed."
         )
