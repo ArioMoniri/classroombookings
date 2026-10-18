@@ -337,6 +337,9 @@ describe("refused / error / several files", () => {
     show();
     const card = screen.getByTestId("helper-card-file-many");
     expect(card).toHaveTextContent("2 dosya bıraktınız. Birden çok dosyayı Kurulum sihirbazı birlikte okur.");
+    // KVKK Art. 10: these files are never read or staged by the server
+    expect(card).toHaveTextContent("Dosyalar bu cihazda kalır; Kurulum sihirbazında Başlat'a basana kadar hiçbir yere gönderilmez.");
+    expect(card).not.toHaveTextContent("10 dakika şifreli");
     expect(within(card).getAllByRole("button")).toHaveLength(1);
     expect(screen.getAllByTestId("helper-file-chip")).toHaveLength(2);
     fireEvent.click(within(card).getByTestId("helper-file-primary"));

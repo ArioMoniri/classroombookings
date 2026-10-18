@@ -492,7 +492,7 @@ function ManyView({ entry, n, titleId }: StateProps & { n: number }) {
           void router.primary(entry.key, { feature_id: "onboarding", params: {}, carries_file: true }, host.go, null);
         }}
       />
-      <p className="type-caption text-label-2">{t("helper.file.privacy")}</p>
+      <p className="type-caption text-label-2">{t("helper.file.privacyMany")}</p>
     </Frame>
   );
 }
