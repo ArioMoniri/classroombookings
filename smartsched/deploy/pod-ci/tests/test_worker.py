@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -21,15 +22,18 @@ class FakeExecute:
     def __init__(self, fail: set[str] | None = None):
         self.fail = fail or set()
         self.scripts: list[str] = []
+        self.argvs: list[list[str]] = []
         self.envs: list[dict[str, str]] = []
 
     def __call__(self, argv: list[str], log_path: Path, env: dict[str, str], cwd: Path | None, timeout: int) -> int:
-        script = Path(argv[-1]).name
+        script = Path(argv[1]).name  # argv = ["bash", <script>, *gate.args]
         self.scripts.append(script)
+        self.argvs.append(argv)
         self.envs.append(env)
         log_path.parent.mkdir(parents=True, exist_ok=True)
         log_path.write_text(f"ran {script}\n")
-        return 1 if script.removesuffix(".sh") in self.fail else 0
+        gate = log_path.stem  # logs/<run id>/<gate name>.log
+        return 1 if script.removesuffix(".sh") in self.fail or gate in self.fail else 0
 
 
 class CheckoutStubWorker(runner.Worker):
@@ -92,7 +96,9 @@ def test_failed_gate_skips_dependents_and_deploy(cfg: Config, store: Store) -> N
     assert "e2e-mock" not in states  # no mock gate: browser tests run against the real backend only
     assert states["backend"] == states["images"] == SUCCESS  # independent gates still run
     run = store.get(rid)
-    assert run and run.state == FAILURE and run.summary.startswith("failed: frontend, e2e-real")
+    assert states["frontend-unit-1"] == states["frontend-unit-2"] == "skipped"  # vitest needs the frontend gate
+    assert run and run.state == FAILURE
+    assert run.summary.startswith("failed: frontend, frontend-unit-1, frontend-unit-2, e2e-real")
     assert "deploy.sh" not in ex.scripts
     assert rep.last("pod-ci", SHA_A) == "failure" and rep.last("pod-ci/frontend") == "failure"
     assert rep.last("pod-ci/e2e-real") == "error"  # skipped blocking gate is not green
@@ -175,3 +181,49 @@ def test_gate_scripts_exist_and_needs_are_known() -> None:
         assert (REPO / "smartsched/deploy/pod-ci/gates" / g.script).exists(), g.script
         assert set(g.needs) <= names
     assert GATES[0].name == "prepare"
+
+
+def test_worker_exits_when_installed_code_changes(cfg: Config, store: Store, tmp_path: Path) -> None:
+    """GATES is imported once per process: after install.sh swaps the code, the next run needs a new worker."""
+    install = tmp_path / "opt-smartsched-ci"
+    shutil.copytree(cfg.install_dir / "podci", install / "podci", ignore=shutil.ignore_patterns("__pycache__"))
+    shutil.copytree(cfg.install_dir / "gates", install / "gates")
+    cfg = Config(state_dir=cfg.state_dir, deploy_dir=cfg.deploy_dir, install_dir=install, cloud=False,
+                 public_url=cfg.public_url, token_file="")
+    stamp = runner.code_stamp(install)
+    assert stamp == runner.code_stamp(install)
+    ex = FakeExecute()
+    rid = queue(store, "claude/smartsched-universal", SHA_A)
+    rid2 = queue(store, "claude/smartsched-universal", SHA_B)
+
+    class Reinstalled(FakeExecute):
+        def __call__(self, argv: list[str], log_path: Path, env: dict[str, str], cwd: Path | None,
+                     timeout: int) -> int:
+            with (install / "podci/gates.py").open("a") as fh:  # install.sh --upgrade mid-run
+                fh.write("# new limits\n")
+            return super().__call__(argv, log_path, env, cwd, timeout)
+
+    logs: list[str] = []
+    w = CheckoutStubWorker(cfg, store, FakeReporter(), NoCloud(), lambda: "tok", execute=Reinstalled(),
+                           run_cmd=FakeRun(), log=logs.append, disk_usage=lambda: 10.0)
+    assert w.work() == 1
+    assert runner.code_stamp(install) != stamp
+    assert store.get(rid).state == SUCCESS  # type: ignore[union-attr]
+    assert store.get(rid2).state == QUEUED  # type: ignore[union-attr]  # left for the next worker
+    assert any("changed; exiting" in line for line in logs)
+    assert make(cfg, store, ex).work() == 1  # a fresh worker (new stamp) takes it
+    assert store.get(rid2).state == SUCCESS  # type: ignore[union-attr]
+
+
+def test_vitest_shards_run_as_their_own_gates(cfg: Config, store: Store) -> None:
+    """One failed vitest shard fails the run and skips e2e-real; the other shard and the static checks still run."""
+    ex, rep = FakeExecute(fail={"frontend-unit-2"}), FakeReporter()
+    rid = queue(store, "claude/smartsched-universal")
+    make(cfg, store, ex, rep).work()
+    states = {s.name: s.state for s in store.steps(rid)}
+    assert states["frontend"] == states["frontend-unit-1"] == SUCCESS
+    assert states["frontend-unit-2"] == FAILURE and states["e2e-real"] == "skipped"
+    shards = [a[2:] for a in ex.argvs if Path(a[1]).name == "frontend-unit.sh"]
+    assert shards == [["1/2"], ["2/2"]]
+    timeouts = {g.name: g.timeout for g in GATES}
+    assert timeouts["frontend"] == timeouts["frontend-unit-1"] == timeouts["frontend-unit-2"] == 1800

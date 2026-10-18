@@ -34,7 +34,7 @@ class FailDeployOnce(FakeExecute):
 
     def __call__(self, argv: list[str], log_path: Path, env: dict[str, str], cwd: Path | None, timeout: int) -> int:
         super().__call__(argv, log_path, env, cwd, timeout)
-        if Path(argv[-1]).name != "deploy.sh":
+        if Path(argv[1]).name != "deploy.sh":
             return 0
         self.deploys += 1
         return 1 if self.deploys == 1 or not self.rollback_ok else 0

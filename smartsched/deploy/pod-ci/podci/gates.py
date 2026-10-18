@@ -1,7 +1,8 @@
 """The gates pod CI runs for every new commit: the jobs of .github/workflows/smartsched.yml, in Docker.
 
 Each gate is a bash script in ../gates (host side; it starts its own containers). `needs` lists gates that
-must have succeeded first (otherwise the gate is skipped). Non-blocking gates never fail a run.
+must have succeeded first (otherwise the gate is skipped). Non-blocking gates never fail a run. `args` are passed
+to the script.
 """
 
 from __future__ import annotations
@@ -20,17 +21,23 @@ class Gate:
     blocking: bool = True
     needs: tuple[str, ...] = ()
     timeout: int = 1800
+    args: tuple[str, ...] = ()
 
 
+VITEST_SHARDS = 2
 GATES: tuple[Gate, ...] = (
     Gate("prepare", "prepare.sh", "CI images (python CI image, Playwright image)", timeout=1200),
     Gate("validate", "validate.sh", "deploy/validate.sh", needs=("prepare",), timeout=300),
     Gate("backend", "backend.sh", "ruff + mypy + pytest + solver + migrations", needs=("prepare",), timeout=2400),
     Gate("infra", "infra.sh", "pod CI + AWS bootstrap tests", needs=("prepare",), timeout=600),
-    # vitest alone ran past 1800 s on the 2-CPU pod (run #70)
-    Gate("frontend", "frontend.sh", "tsc + eslint + vitest", needs=("prepare",), timeout=3600),
+    # tsc + eslint + vitest in one gate ran past 1800 s on the 2-CPU pod (runs #70, #81): the static checks and
+    # two vitest shards are separate gates now, each well under its limit (2 CPUs: ~3-6 min / ~4-8 min per shard)
+    Gate("frontend", "frontend.sh", "npm ci + tsc + eslint + check-design", needs=("prepare",), timeout=1800),
+    *(Gate(f"frontend-unit-{i}", "frontend-unit.sh", f"vitest shard {i}/{VITEST_SHARDS}", needs=("frontend",),
+           timeout=1800, args=(f"{i}/{VITEST_SHARDS}",)) for i in range(1, VITEST_SHARDS + 1)),
     Gate("e2e-real", "e2e-real.sh", "Playwright (all specs) vs real backend + Bahar fixtures",
-         needs=("frontend", "backend"), timeout=3600),
+         needs=("frontend", *(f"frontend-unit-{i}" for i in range(1, VITEST_SHARDS + 1)), "backend"),
+         timeout=3600),
     # after e2e-real so it reads this run's /w/playwright-report.json; API rows still run if e2e failed
     Gate("parity", "parity.sh", "CRBS superset gate (scripts/parity_check.py)", needs=("backend",), timeout=1800),
     # real workbooks, 4 solves (Bahar term ~5 min): planner-level violations fail the run

@@ -1075,20 +1075,50 @@ def filter_console(text: str, limit: int = 200) -> list[str]:
             for line in keep[-limit:]]
 
 
+# The newest finished pod CI run: the last FAILED_GATE_TAIL lines of every failed or errored gate's log
+# (state from /var/lib/smartsched-ci/ci.sqlite3, opened read-only), so a red gate always shows why it failed
+# even when its error lines match no pattern (ruff/mypy/pytest summaries, "[pod-ci] TIMEOUT after N s").
+# argv: the pod CI state directory, the tail length. Lines are capped at 400 chars (SSM keeps 24 000 chars).
+FAILED_GATE_TAIL = 40
+POD_FAILED_GATES_PY = """
+import os, sqlite3, sys
+state = sys.argv[1] if len(sys.argv) > 1 else "/var/lib/smartsched-ci"
+tail = int(sys.argv[2]) if len(sys.argv) > 2 else 40
+db_path = os.path.join(state, "ci.sqlite3")
+if not os.path.exists(db_path):
+    sys.exit(print("pod-ci: no state database"))
+db = sqlite3.connect("file:" + db_path + "?mode=ro", uri=True)
+run = db.execute("SELECT id, branch, sha, state FROM runs WHERE finished_at IS NOT NULL"
+                 " ORDER BY finished_at DESC, id DESC LIMIT 1").fetchone()
+if run is None:
+    sys.exit(print("pod-ci: no finished run"))
+print(f"==== newest finished run #{run[0]} {run[1]}@{run[2][:8]}: {run[3]}")
+steps = db.execute("SELECT name, state, exit_code, log_path FROM steps WHERE run_id = ?"
+                   " AND state IN ('failure', 'error') ORDER BY seq", (run[0],)).fetchall()
+if not steps:
+    print("no failed gates")
+for name, st, code, log_path in steps:
+    print(f"==== {name}: {st} (exit {code}) {log_path}")
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as fh:
+            lines = fh.read().splitlines()
+    except OSError as exc:
+        print(f"(log unreadable: {exc})")
+        continue
+    for line in lines[-tail:]:
+        print(line[:400])
+"""
+
 # Read-only diagnostics run on the pod through SSM Run Command (the instance profile has
-# AmazonSSMManagedInstanceCore). Output is redacted line by line before it is returned.
+# AmazonSSMManagedInstanceCore). Output is redacted line by line before it is returned; the failed-gate tails
+# come last so the 400-line cap in pod_runtime never cuts them.
 POD_DIAG = (
     "systemctl list-timers 'smartsched-*' --no-pager 2>&1 | head -8; "
     "systemctl is-active smartsched-ci-web.service 2>&1; "
     "docker ps --format '{{.Names}} {{.Status}}' 2>&1; "
     "journalctl -u 'smartsched-ci-*' -n 400 --no-pager -o short-iso 2>&1 | grep '\\[pod-ci\\]' | tail -25; "
-    # error lines of every failed gate in the newest finished run (logs/<run id>/<gate>.log)
-    "for d in $(ls -1dt /var/lib/smartsched-ci/logs/*/ 2>/dev/null | head -3); do "
-    "  for f in \"$d\"*.log; do [ -f \"$f\" ] || continue; "
-    "    if grep -qiE 'error|failed|✘' \"$f\"; then echo \"==== $f\"; "
-    "      grep -iE 'error|failed|✘|expected|received|not found|cannot|timeout' \"$f\" "
-    "        | grep -v -i 'basic_auth' | tail -25; "
-    "      echo '---- tail'; tail -8 \"$f\"; fi; done; done"
+    f"python3 - /var/lib/smartsched-ci {FAILED_GATE_TAIL} <<'PODCI_PY' 2>&1\n"
+    + POD_FAILED_GATES_PY.lstrip("\n") + "PODCI_PY\n"
 )
 
 

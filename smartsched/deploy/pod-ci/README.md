@@ -9,7 +9,7 @@ GitHub Actions minutes are not used for CI. The pod polls GitHub, runs the same 
 systemd timer (2 min) -> podci poll -> git ls-remote (token from SSM) -> new head? -> SQLite queue
                                      -> heartbeat metrics + idle check
 path unit (queue-signal) -> podci work (flock, one job at a time)
-    prepare -> validate -> backend -> infra -> frontend -> e2e-real -> parity -> planner -> images -> watchdog
+    prepare -> validate -> backend -> infra -> frontend -> frontend-unit-1 -> frontend-unit-2 -> e2e-real -> parity -> planner -> images -> watchdog
     -> deploy (deploy branch only, all blocking gates green, commit still the branch head)
     -> POST /repos/{owner}/{repo}/statuses/{sha} per gate + overall ("pod-ci", "pod-ci/<gate>")
 nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
@@ -23,7 +23,9 @@ nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
 | `validate` | host | `smartsched/deploy/validate.sh`, then the docs check: `python3 -I scripts/docs/sync_docs.py --check` (every generated `<!-- AUTO:... -->` block matches its source) and the generator's unit tests | yes |
 | `backend` | python CI container | `make check` (PostgreSQL tests against a `postgres` service container: the compose-pinned image, tmpfs, `TEST_POSTGRES_URL`), solver gate, AI gate, exactly one Alembic head, fresh `alembic upgrade head` on SQLite and PostgreSQL; installs with `requirements.lock` as constraints | yes |
 | `infra` | python CI container | ruff + pytest for `infra/aws` and this directory | yes |
-| `frontend` | Playwright container | `npm ci`, `npm run check` (tsc + eslint + vitest) | yes |
+| `frontend` | Playwright container | `npm ci`, then the static checks of `npm run check`: tsc, eslint, `scripts/check-design.mjs` (each step prints its duration) | yes |
+| `frontend-unit-1` | Playwright container | `vitest run --shard=1/2` on the node_modules `frontend` installed (`gates/frontend-unit.sh 1/2`); needs `frontend` | yes |
+| `frontend-unit-2` | Playwright container | `vitest run --shard=2/2`: with shard 1 every vitest file of `npm run check` runs. One gate for all of `npm run check` ran past 1800 s on the pod (runs #70, #81) | yes |
 | `e2e-real` | backend + Playwright containers on a per-run network | backend imports the real Bahar, Güz 2026-27 and Final fixtures (`tests/fixtures/*.xlsx`) and the room master, seeds the admin, publishes the Bahar and Güz imported boards and seeds the analytics runs (`gates/e2e-seed-analytics.py`), solves the full Bahar term, serves with the booking clock pinned inside Bahar 2026 (`gates/e2e-backend-entry.sh`); `E2E_REAL=1 npx playwright test` runs every spec (smoke, real-backend, bookings, calendar, motion-audit), then the standalone build is checked for mock/demo code (`validate.sh --no-mock-build`). There is no mock-API gate. Also on the network: `smtp` (`gates/smtp-sink.py`: SMTP 1025, JSON API 8025, nothing delivered) and `backend-empty` (an empty database, no users: the first-run installer). Playwright gets `E2E_SMTP_HOST/PORT/API` and `E2E_EMPTY_API_URL`. A booking clock outside Bahar 2026 fails the gate before any spec runs. | yes |
 | `parity` | python CI container | `scripts/parity_check.py` (CRBS superset): API rows run here, UI rows are judged by this run's `/w/playwright-report.json` (skipped / failed / not run = FAIL; no report = gate fails) | yes |
 | `planner` | python CI container | `tools/validate_planner.py` on the real workbooks (4 solves) | yes |
@@ -33,7 +35,7 @@ nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
 
 Containers run as the `smartsched-ci` uid with `--cpus 2 --memory 3g`, `no-new-privileges`, and are
 removed afterwards. The gates run strictly one after another (never in parallel) on a 2 vCPU / 8 GB arm64
-t4g.large that also serves the app (~2 GB). Node containers (`frontend`, the Playwright container of `e2e-real`)
+t4g.large that also serves the app (~2 GB). Node containers (`frontend`, `frontend-unit-*`, the Playwright container of `e2e-real`)
 get `NODE_MEMORY` (4g) and `NODE_OPTIONS=--max-old-space-size=$NODE_HEAP_MB` (3072): V8's default heap ran out
 in run #51 ("Ineffective mark-compacts near heap limit"). Under `CI=1` `vitest.config.mts` uses at most 2 forks
 with a 1536 MB heap each and a 30 s test timeout; Playwright runs `--workers=1`; in `e2e-real` the SMTP sink is
