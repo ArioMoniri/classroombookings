@@ -17,8 +17,8 @@ Render of 2026-10-18 from snapshot `a39559b` (UI in English, captions English, l
 | `smartsched-launch-vertical.mp4` | 14.06 MB | 1080x1920, 60 fps, H.264 High crf 18, ~1.4 Mbit/s |
 | `smartsched-loop.webp` | 0.50 MB | 1280x720, 30 fps, 9.9 s (the phone booking scene) |
 | `smartsched-launch.en.vtt`, 3 posters | 1.1 MB | |
-| not committed: `smartsched-launch-attach.mp4` | 8.00 MB | 1920x1080, 30 fps, crf 24 (fits GitHub's 10 MB free-plan attachment limit) |
-| not committed: `smartsched-loop.avif` | 0.18 MB | 1280x720, 30 fps |
+| `smartsched-launch-attach.mp4` | 8.00 MB | 1920x1080, 30 fps, crf 24 (fits GitHub's 10 MB free-plan attachment limit) |
+| `smartsched-loop.avif` | 0.18 MB | 1280x720, 30 fps |
 
 README clips (`docs/images/recordings`, names unchanged; MP4 1600x960 60 fps, GIF 25 fps; WebP 1280 px 30 fps in
 `media/clips/`): reserve-slot GIF 8.52 MB / WebP 2.04 MB · reserve-drag 6.59 / 1.47 · find-room 1.47 / 0.50 ·
@@ -37,12 +37,14 @@ calendar-move 7.41, studio-rule-fix 6.57, approval-flow 2.67, launch-reserve-pho
 | `smartsched-loop.webp` | the README loop (the phone booking scene) | animated WebP, 1280 px, 30 fps, ≤ 5 MB |
 | `smartsched-loop-poster.png`, `smartsched-launch-poster.png`, `smartsched-launch-vertical-poster.png` | stills | PNG |
 
-Not committed (build folder `OUT/dist`): `smartsched-launch-attach.mp4` (≤ 9.8 MB, 1080p 30 fps, for a GitHub
-user-attachments upload on a free plan, §4) and `smartsched-loop.avif` (RESEARCH.md §1).
+Also in `docs/launch/media/`: `smartsched-launch-attach.mp4` (8.0 MB, ≤ 9.8 MB budget, 1080p 30 fps; the file the
+owner drags into GitHub's README editor for an inline player, §4) and `smartsched-loop.avif` (RESEARCH.md §1).
 
 The per-feature README clips keep their names (`docs/images/recordings/clips.json`): `<id>.gif`, `<take>.mp4`,
 `<take>-poster.png`, now rendered by the same pipeline (1600x960, 60 fps master; GIF fallback at 25 fps), plus
-`<id>.webp` (1280 px, 30 fps) in `docs/launch/media/clips/` until the README generator can show WebP (§4).
+`<id>.webp` (1280 px, 30 fps) in `docs/launch/media/clips/`. The README shows the WebP when it exists, with the GIF
+as the `<img>` fallback inside a `<picture>` (`gen_recordings` in `scripts/docs/sync_docs.py`), so a browser fetches
+only the WebP.
 
 ## 2. The story (scripts/record/launch/story.mjs)
 
@@ -102,7 +104,7 @@ silent by design (captions carry it), so there is no licence to track for audio.
 
 ## 4. README use
 
-The top of the README (asked of the README owner; `scripts/docs/sync_docs.py` is not in this lane):
+The top of the README (in README.md since 2026-10-18, readme-2026-10-18):
 
 ```html
 <a href="docs/launch/media/smartsched-launch.mp4">
@@ -116,9 +118,11 @@ The top of the README (asked of the README owner; `scripts/docs/sync_docs.py` is
 <a href="docs/launch/media/smartsched-launch-vertical.mp4">vertical, for phones</a></sub>
 ```
 
-For an inline player: open README.md on github.com → edit → drag `smartsched-launch-attach.mp4` into the editor →
-keep the `https://github.com/user-attachments/assets/…` line GitHub inserts (on its own line) → commit. That URL
-cannot be produced from a script.
+**Inline player (owner, by hand).** `docs/launch/media/smartsched-launch-attach.mp4` (8 MB, 1920x1080, 30 fps,
+H.264 crf 24) is the file to drag into GitHub's README editor; it fits the 10 MB attachment limit of a free plan.
+Open README.md on github.com → edit (pencil) → drag the file into the editor where the player should be → keep the
+`https://github.com/user-attachments/assets/…` line GitHub inserts, on its own line → commit. GitHub renders that
+line as a video player. The link only exists after the upload in the browser, so no script or agent can make it.
 
 Check after a commit that GitHub kept the reduced-motion `<source>`:
 
@@ -136,6 +140,6 @@ curl -sS -H "Accept: application/vnd.github.html+json" \
 | README clips | 7 GIFs, 1040-1120 px, 20 fps nominal (10-17 fps effective after dropping still frames), 30.6 MB | 8 GIFs, 504-1120 px, 25 fps, 44.0 MB; the 7 new ones as WebP 1280 px 30 fps: 12.8 MB (onboarding stays a 6.0 MB GIF) |
 | Full takes | MP4 1280x838, 20 fps, 0.26-0.36 Mbit/s | MP4 1600x960 (phone 720x1280), 60 fps, 0.4-2.0 Mbit/s |
 | Launch video | none | 1920x1080 60 fps 17.1 MB (+ AV1 8.7 MB, vertical 14.1 MB) |
-| README page load (images only; MP4s are links) | ~34 MB | ~48 MB with GIFs; **~23 MB** once the generator shows WebP (ask in the hand-off) |
-| `check_readme.py` "referenced media" (incl. linked MP4s) | 43.3 MB | 81.4 MB |
+| README page load (images only; MP4s are links) | ~34 MB | ~48 MB with GIFs; **~25 MB** with the WebP clips and the hero loop (generator change 2026-10-18) |
+| `check_readme.py` "referenced media" (incl. linked MP4s) | 43.3 MB | 81.4 MB; 135.0 MB with the hero block (it links the three launch cuts) and the WebP clips |
 

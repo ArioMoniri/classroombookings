@@ -449,9 +449,8 @@ class RecordingsTests(unittest.TestCase):
             self.assertNotIn(".gif", out)
 
     def test_clip_without_gif_or_webp_is_an_error(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(sd.SyncError):
-                sd.gen_recordings(self._clip_root(Path(tmp), gif=False, webp=False))
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(sd.SyncError):
+            sd.gen_recordings(self._clip_root(Path(tmp), gif=False, webp=False))
 
     def test_real_readme_loads_webp_where_the_launch_lane_made_one(self) -> None:
         text = sd.gen_recordings(ctx("README.md"))

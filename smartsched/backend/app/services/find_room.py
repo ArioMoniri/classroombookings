@@ -7,7 +7,8 @@ text, it answers every room the caller may view with a status and the reasons, f
 
 * occupancy = the published timetable (active runs) + blocks + bookings, including PENDING requests that hold
   their slot (``app.services.bookings.booking_occupancy``), loaded once for all rooms and dates;
-* holidays, dates outside the term and dates without a timetable week are closed (the count shows them);
+* holidays, dates outside the term, dates without a timetable week and weekdays the rooms' schedules do not offer
+  (BUG-01: Sunday on a Monday-Friday schedule, reason ``closed_day``) are closed (the count and a label show them);
 * room ACL: only rooms with ``room.view`` (role or room ACL); ``action`` says whether the caller can book,
   must request approval (P1) or can only look;
 * score = wasted seats ``(capacity - headcount) / capacity`` + 0.15 per solver tag the room has but the search
@@ -355,6 +356,15 @@ class _SlotPeriods:
             if p.bookable and wd in (p.days or []) and start <= p.start_period and p.end_period <= end
         ]
 
+    async def days(self, room: Room) -> set[int] | None:
+        """BUG-01: the ISO weekdays the room's applied schedule offers a bookable period on (CRBS shows no column for
+        the others: a Monday-Friday schedule closes Saturday and Sunday); ``None`` when the room has no schedule or
+        its schedule no bookable period (nothing to tell, the booking check refuses it anyway)."""
+        await self.ids(room, date.min, 0, -1)  # loads (and caches) the room's schedule and periods
+        sid = self._schedule[room.room_group_id]
+        offered = {int(x) for p in self._periods.get(sid or -1, []) if p.bookable for x in (p.days or [])}
+        return offered or None
+
 
 async def slot_period_ids(session: AsyncSession, info: TermInfo, room: Room, d: date, start: str | int) -> list[int]:
     """The booking periods of ``room`` on ``d`` for a slot that starts at ``start`` (``HH:MM`` / ``HH.MM`` / a period
@@ -394,15 +404,29 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
             raise FindError(409, "calendar", str(exc), "bu tarih için açık bir dönem yok") from exc
     s0, s1, dur = resolve_periods(q)
     dinfos = await date_infos(session, info, dates)
-    open_dates = [d for d in dates if dinfos[d].open]
-    closed = [
-        {"date": d.isoformat(), "reason": dinfos[d].reason, "holiday": dinfos[d].holiday}
-        for d in dates
-        if not dinfos[d].open
-    ]
 
     # candidates: rooms the caller may view (role or ACL), bookable, CRBS ungrouped rule, filters
     rooms = await bsvc.visible_rooms(session, access, q.room_group_id)
+    # BUG-01: a weekday none of the rooms' schedules offers (Sunday on a Monday-Friday schedule) is a closed day, like
+    # a holiday: no slot, no "Boş" room, a reason in the closed dates (the booking check refuses it as "closed_day")
+    slot_periods = _SlotPeriods(session, info)
+    room_days = {r.id: await slot_periods.days(r) for r in rooms}
+    offered = {wd for ds in room_days.values() if ds for wd in ds}
+    why_closed: dict[date, str | None] = {
+        d: dinfos[d].reason if not dinfos[d].open else ("closed_day" if offered and d.isoweekday() not in offered else None)
+        for d in dates
+    }
+    open_dates = [d for d in dates if why_closed[d] is None]
+    closed = [
+        {
+            "date": d.isoformat(),
+            "reason": why_closed[d],
+            "holiday": dinfos[d].holiday,
+            "label": closed_label(d, why_closed[d], dinfos[d].holiday),
+        }
+        for d in dates
+        if why_closed[d] is not None
+    ]
     bcodes = {b.id: b.code for b in (await session.execute(select(Building))).scalars()}
     if q.buildings:
         wanted_b = await _building_codes(session, q.buildings)
@@ -492,7 +516,10 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
     for c in cands:
         r = c.room
         mode = await rules.mode_for(session, access, r, info.term.id)
-        start, per = scan(c, open_dates, s0, s1) if open_dates else (s0, {})
+        # BUG-01: the dates this room's own schedule offers (a room group may have a shorter week than the others)
+        rdays = room_days.get(r.id)
+        ropen = [d for d in open_dates if rdays is None or d.isoweekday() in rdays]
+        start, per = scan(c, ropen, s0, s1) if ropen else (s0, {})
         start = start or s0
         # P8 booking policies + exam-period mode on the free dates: refused ("policy") or request-only
         policy_hit = None
@@ -515,7 +542,7 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
             status = "mine_pending"
         elif policy_hit is not None and policy_hit.effect == "refuse":
             status = "policy"
-        elif not open_dates:
+        elif not ropen:
             status = "closed"
         elif busy_n == 0:
             status = "requestable" if mode == "request" else "free"
@@ -565,6 +592,10 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
             reasons.insert(0, _reason("Onay gerekli: talep oluşturulur", "Needs approval: a request is created"))
         elif status == "partial":
             reasons.insert(0, _reason(f"{free_n}/{len(per)} tarih boş", f"free on {free_n} of {len(per)} dates"))
+        elif status == "closed":
+            d_closed = next((d for d in dates if why_closed[d] is not None or d not in ropen), dates[0])
+            lab = closed_label(d_closed, why_closed[d_closed] or "closed_day", dinfos[d_closed].holiday)
+            reasons.insert(0, _reason(lab["tr"], lab["en"]))
         elif status == "mine_pending":
             reasons.insert(
                 0,
@@ -602,7 +633,7 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
         }
         if len(dates) > 1:
             item["per_date"] = [
-                {"date": d.isoformat(), "status": "closed", "reason": dinfos[d].reason}
+                {"date": d.isoformat(), "status": "closed", "reason": why_closed[d] or "closed_day"}
                 if d not in per
                 else {"date": d.isoformat(), "status": "free" if per[d] is None else "busy"}
                 for d in dates
@@ -629,11 +660,12 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
 
     alternatives: list[dict[str, Any]] = []
     if free_count < 3 and open_dates:
-        alternatives = await _alternatives(session, access, q, cands, open_dates, s0, s1, dur, holders, rules, info)
+        alternatives = await _alternatives(
+            session, access, q, cands, open_dates, s0, s1, dur, holders, rules, info, room_days=room_days
+        )
     for x in results:
         x.pop("pos", None)
     results = results[: max(1, q.limit)]
-    slot_periods = _SlotPeriods(session, info)
     by_id = {c.room.id: c.room for c in cands}
     for x in results:
         free_on = [d for d in open_dates if not x.get("per_date")] or [
@@ -685,8 +717,14 @@ async def _alternatives(
     holders: Any,
     rules: Any,
     info: TermInfo,
+    *,
+    room_days: dict[int, set[int] | None] | None = None,
 ) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
+
+    def offers(c: _Cand, d: date) -> bool:
+        ds = (room_days or {}).get(c.room.id)
+        return ds is None or d.isoweekday() in ds
 
     def all_free(c: _Cand, ds: list[date], s: int) -> bool:
         return all(_free_on(holders(c.room.id, d), s, s + dur - 1) is None for d in ds)
@@ -727,7 +765,7 @@ async def _alternatives(
             if not infos[od].open:
                 continue
             for c in fits:
-                if all_free(c, [od], s0):
+                if offers(c, od) and all_free(c, [od], s0):
                     out.append(
                         {
                             "kind": "day",
@@ -780,6 +818,18 @@ async def _alternatives(
             seen.add(key)
             unique.append(a)
     return unique[:20]
+
+
+def closed_label(d: date, reason: str | None, holiday: str | None = None) -> dict[str, str]:
+    """BUG-01: why a searched date is closed, in Turkish and English ("Pazar rezervasyona kapalı")."""
+    wd = d.isoweekday()
+    if reason == "holiday":
+        return _reason(f"Tatil: {holiday}" if holiday else "Tatil", f"Holiday: {holiday}" if holiday else "Holiday")
+    if reason == "date_range":
+        return _reason("Dönem dışında", "Outside the term")
+    if reason == "no_week":
+        return _reason("Ders haftası yok", "No timetable week")
+    return _reason(f"{DAY_TR[wd]} rezervasyona kapalı", f"{DAY_EN[wd]} is closed for bookings")
 
 
 def shift_words(shift: int, lang: str) -> str:

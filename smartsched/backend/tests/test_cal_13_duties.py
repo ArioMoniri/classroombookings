@@ -288,9 +288,9 @@ async def test_cal_13_uids_stable_across_resolves_and_tombstoned_when_the_duty_l
 
     # another exam timetable is published for the term: the plan of the old one no longer reaches calendars
     r = await e.client.post(f"/api/v1/runs/{e.exam_run_b}/activate", headers=e.admin)
-    if r.status_code == 200:
-        _, text_b = await _feed(e, sub_m["token"])
-        assert not _duty_events(text_b)
+    assert r.status_code == 200, r.text
+    _, text_b = await _feed(e, sub_m["token"])
+    assert not _duty_events(text_b) and _duty_events(text_b, "CANCELLED")
 
 
 async def test_cal_13_link_serves_only_its_path_file_and_revocation(denv: DutyEnv) -> None:

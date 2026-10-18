@@ -4089,7 +4089,8 @@
       "goal": "Ledger name `readme-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first. No commits; no stack. This is the README and docs media pass. The launch-video lane finished (see docs/launch/README.md, docs/launch/RESEARCH.md and its P…",
       "ledger": "README media pass",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 12:35"
     },
     {
       "id": "abea51c97375bdbc0",
@@ -4109,6 +4110,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-18 12:31",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a786842bd95db1991",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:34",
       "left_off": "is the pod up yet"
     }
   ]
