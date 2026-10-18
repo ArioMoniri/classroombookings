@@ -897,8 +897,41 @@ def _date_tr(iso: str | None) -> str:
     return f"{m.group(3)}.{m.group(2)}.{m.group(1)}" if m else ""
 
 
+#: (KVKK review C1) the only words a sheet title shown on a card may contain, after Turkish lower-casing: weeks,
+#: terms, days, months and sheet words; numbers and punctuation are free. Anything else (a renamed sheet "Prof. Dr.
+#: …", a person's name) drops the title: the name list is unset in production and the ``ai_personal`` redactor only
+#: covers people who withdrew consent, so a deny-list cannot be trusted here.
+TITLE_WORDS = frozenset(
+    """hafta haftası haftasi week weeks sayfa sheet page tablo table liste listesi list dönem dönemi donem term
+    yarıyıl semester güz guz bahar yaz final finaller bütünleme butunleme vize ara sınav sınavı sınavlar sinav exam
+    exams fall autumn spring summer açılış acilis aç ac açılışı başlangıç baslangic başlangıcı bitiş bitis sonu son
+    ders dersler derslik derslikler takvim takvimi program programı plan planlama çizelge cizelge timetable schedule
+    ve and ile tatil holiday resmi pazartesi salı sali çarşamba carsamba perşembe persembe cuma cumartesi pazar
+    monday tuesday wednesday thursday friday saturday sunday pzt sal çrş çar per prş cum cts paz mon tue wed thu fri
+    sat sun ocak şubat subat mart nisan mayıs mayis haziran temmuz ağustos agustos eylül eylul ekim kasım kasim aralık
+    aralik january february march april may june july august september october november december jan feb mar apr jun
+    jul aug sep sept oct nov dec""".split()
+)
+
+
+def safe_sheet_title(title: str | None) -> str | None:
+    """The title when every word is in :data:`TITLE_WORDS` and none is an academic title token; else ``None``."""
+    from app.core import kvkk_guard
+
+    if not title:
+        return None
+    t = cards.clean(title, 40)
+    words = [kvkk_guard.lower_tr(w) for w in re.findall(r"[^\W\d_]+", title)]
+    if not t or any(w in kvkk_guard._TITLES for w in words):  # noqa: SLF001 - the guard's own title tokens
+        return None
+    if any(w not in TITLE_WORDS for w in words):
+        return None
+    return t
+
+
 class _Titles:
-    """Sheet titles made safe for a card: scrubbed, ≤ 40 characters, dropped when a name is found in them."""
+    """Sheet titles made safe for a card: the allow-list above, then the KVKK name list and the ``ai_personal``
+    redactor as a second net; scrubbed and ≤ 40 characters."""
 
     def __init__(self, redactor: Any) -> None:
         self.redactor = redactor
@@ -906,10 +939,10 @@ class _Titles:
     def __call__(self, title: str | None) -> str | None:
         from app.core import kvkk_guard
 
-        if not title:
+        t = safe_sheet_title(title)
+        if t is None or title is None:
             return None
-        t = cards.clean(title, 40)
-        if not t or kvkk_guard.unmasked_hits(title.encode("utf-8"), "title.txt"):
+        if kvkk_guard.unmasked_hits(title.encode("utf-8"), "title.txt"):
             return None
         if self.redactor and self.redactor.text(title) != title:
             return None

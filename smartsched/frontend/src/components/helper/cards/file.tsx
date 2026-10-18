@@ -10,7 +10,7 @@
  *   folded (unknown: "Hangi dosyaları tanıyorum?" open, the primary opens the example files);
  * - **ambiguous**: the server's `choice` card as a `radiogroup` (↑ ↓ move, Enter / Space pick), no primary;
  * - **refused / error**: the message, then "Başka dosya seç" (error: "Tekrar dene" first);
- * - **several files**: the server's one card ("{n} dosya bıraktınız", format `mixed`), "Kurulum sihirbazında aç" with all;
+ * - **several files**: one client card (no classify, no stage), "Kurulum sihirbazında aç" hands all the File objects over;
  * - **expired**: an inline line and "Dosyayı yeniden oku" (the same File again, else the picker).
  * A polite live line says "{dosya}: {tür}, {kesinlik}. {birincil düğme}" once per card. Motion (§9): the card's opacity +
  * y 6 → 0 on `springs.smooth` (reduced: 100 ms opacity), no stagger, no shake; the disclosure's content fades in after 60 ms.
@@ -479,6 +479,24 @@ function LocalView({ entry, titleId, anotherFile, view }: StateProps & { view: E
   );
 }
 
+function ManyView({ entry, n, titleId }: StateProps & { n: number }) {
+  const { t } = useI18n();
+  const host = useCardHost();
+  const router = useFileRouter();
+  return (
+    <Frame testId="helper-card-file-many" titleId={titleId} title={t("helper.file.many", { n })} icon={Paperclip}>
+      <PrimaryButton
+        label={t("helper.file.openWizard")}
+        onClick={(e) => {
+          if (!activation.trusted(e)) return;
+          void router.primary(entry.key, { feature_id: "onboarding", params: {}, carries_file: true }, host.go, null);
+        }}
+      />
+      <p className="type-caption text-label-2">{t("helper.file.privacy")}</p>
+    </Frame>
+  );
+}
+
 /* -------------------------------------------------------------------------------------------- entry view */
 
 function FileChip({ name, size }: { name: string; size: number }) {
@@ -533,6 +551,7 @@ function useLiveLine(entry: FileEntry): string {
   }
   if (v.kind === "card" && v.card.type === "choice") return t("helper.file.liveOther", { file: name, text: pickText(v.card.question, locale) });
   if (v.kind === "card" && (v.card.type === "refusal" || v.card.type === "error" || v.card.type === "limit")) return t("helper.file.liveOther", { file: name, text: pickText(v.card.message, locale) });
+  if (v.kind === "many") return t("helper.file.many", { n: v.n });
   if (v.kind === "local") return t("helper.file.liveOther", { file: name, text: v.code === "file_too_large" ? t("helper.file.refused.size", { size: formatSize(v.size ?? 0, locale), mb: CLASSIFY_MAX_MB }) : t("helper.file.error") });
   return "";
 }
@@ -587,7 +606,9 @@ export function FileEntryView({ entry }: { entry: FileEntry }) {
       ) : null}
       {entry.phase === "shown" && v ? (
         <Enter k={entry.seq}>
-          {v.kind === "local" ? (
+          {v.kind === "many" ? (
+            <ManyView {...props} n={v.n} />
+          ) : v.kind === "local" ? (
             <LocalView {...props} view={v} />
           ) : v.kind === "pick" ? (
             <OtherKindView {...props} card={v.card} />

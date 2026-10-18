@@ -93,10 +93,10 @@ export const Stage = z.object({
 export type Stage = z.infer<typeof Stage>;
 
 /**
- * `stage`: the (first) staged file; `stages`: one per readable file when several were dropped (the setup wizard);
- * `resend: true`: `HELPER_FILE_STAGE=off`, nothing was staged and the target page re-sends the browser's File.
+ * `stage`: the staged file; `resend: true`: `HELPER_FILE_STAGE=off`, nothing was staged and the target page re-sends
+ * the browser's File. Several files are never sent here (decision 16): the browser hands them to the setup wizard.
  */
-export const ClassifyOut = z.object({ card: FileAnswerCard, stage: Stage.nullish(), stages: z.array(Stage).nullish(), resend: z.boolean().nullish() });
+export const ClassifyOut = z.object({ card: FileAnswerCard, stage: Stage.nullish(), resend: z.boolean().nullish() });
 export type ClassifyOut = z.infer<typeof ClassifyOut>;
 
 export const RouteOut = z.object({ card: FileAnswerCard });
@@ -145,10 +145,10 @@ export function isStageGone(err: unknown): boolean {
 }
 
 export const helperFilesApi = {
-  /** one file, or several (planners: one setup-wizard card with a stage per readable file); `termId`: the page's active term */
-  classify: (files: File | readonly File[], opts: { context?: string | null; lang: string; termId?: number | null; signal?: AbortSignal }) => {
+  /** exactly one file; `termId`: the page's active term (the server falls back to the current term) */
+  classify: (file: File, opts: { context?: string | null; lang: string; termId?: number | null; signal?: AbortSignal }) => {
     const fd = new FormData();
-    for (const f of Array.isArray(files) ? files : [files]) fd.append("file", f, f.name);
+    fd.append("file", file, file.name);
     if (opts.context) fd.append("context", opts.context);
     fd.append("lang", opts.lang);
     if (opts.termId) fd.append("term_id", String(opts.termId));
@@ -156,8 +156,7 @@ export const helperFilesApi = {
   },
   route: (uploadToken: string, kind: string, termId?: number | null) =>
     request("/helper/files/route", { ...s, method: "POST", body: termId ? { upload_token: uploadToken, kind, term_id: termId } : { upload_token: uploadToken, kind }, schema: RouteOut }),
-  /** one token, or `upload_tokens` for several files (the setup wizard) */
-  handoff: (body: { upload_token?: string; upload_tokens?: string[]; kind: string | null; feature_id: string; params: Record<string, string | number | null> }) =>
+  handoff: (body: { upload_token: string; kind: string | null; feature_id: string; params: Record<string, string | number | null> }) =>
     request("/helper/files/handoff", { ...s, method: "POST", body, schema: HandoffOut }),
   drop: (sid: string) => request<void>(`/helper/files/${encodeURIComponent(sid)}`, { ...s, method: "DELETE" }),
   examples: () => request("/helper/files/examples", { ...s, schema: ExamplesOut }),

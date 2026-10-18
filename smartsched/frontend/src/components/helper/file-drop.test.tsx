@@ -155,11 +155,11 @@ describe("the sheet's ways in", () => {
     expect(calls.some((c) => c.key.includes("/helper/turn"))).toBe(false);
   });
 
-  it("several files from a planner go in one classify call (one setup-wizard card)", async () => {
+  it("several files from a planner make one setup-wizard card and no classify call (decision 16)", async () => {
     await openSheet();
     fireEvent.change(screen.getByTestId("helper-file-input"), { target: { files: [xlsx(10, "a.xlsx"), xlsx(20, "b.xlsx")] } });
-    await waitFor(() => expect(classifyCalls()).toHaveLength(1));
-    expect((classifyCalls()[0]!.body as FormData).getAll("file").map((f) => (f as File).name)).toEqual(["a.xlsx", "b.xlsx"]);
+    expect(await screen.findByTestId("helper-card-file-many")).toHaveTextContent("2 dosya bıraktınız.");
+    expect(classifyCalls()).toHaveLength(0);
   });
 
   it("a pasted file in the composer is attached; a text paste is left alone", async () => {

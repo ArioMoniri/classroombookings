@@ -71,6 +71,8 @@ export type FileView =
   | { kind: "card"; card: FileAnswerCard }
   /** "Başka bir tür seç": the client's list of kinds this person may import (no server call) */
   | { kind: "pick"; card: FileAnswerCard }
+  /** several files (decision 16): one client card; the browser hands the File objects to the setup wizard, no stage */
+  | { kind: "many"; n: number }
   /** the client's own refusal before any request (size over 15 MB) or a network / read failure */
   | { kind: "local"; code: "file_too_large" | "file_empty" | "file_read_failed"; size?: number };
 
@@ -82,8 +84,6 @@ export interface FileEntry {
   phase: "reading" | "shown" | "collapsed" | "handed" | "cancelled";
   view: FileView | null;
   stage: Stage | null;
-  /** several files: one stage per readable file (the setup wizard reads them together) */
-  stages?: Stage[] | null;
   /** `HELPER_FILE_STAGE=off`: nothing staged; the target page re-sends the browser's File */
   resend?: boolean;
   /** the token's 10 minutes passed (or the server said 410): "Dosyayı yeniden oku" */

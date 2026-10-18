@@ -3,10 +3,10 @@
  * HB-23c (helper-file-router.md §4–§7): the client side of the router. One function set for the sheet's 📎 / paste /
  * drop and the page's edge target:
  *
- * - `attach(files)`: the 15 MB pre-check (no request over it), then `POST /helper/files/classify` with the page's
- *   active term. Several files with `planning.edit` go together: the server answers one "{n} dosya" card that opens
- *   the setup wizard with all of them (owner decision), with a stage per readable file. Others: the first file only.
- *   A newer file collapses the older live card.
+ * - `attach(files)`: several files with `planning.edit` → one client "{n} dosya" card whose primary opens the setup
+ *   wizard with all of them (owner decision; decision 16: no classify, no stage, the browser keeps the File objects
+ *   and /onboarding uploads them itself). Otherwise the first file: the 15 MB pre-check (no request over it), then
+ *   `POST /helper/files/classify` with the page's active term. A newer file collapses the older live card.
  * - `pick(kind)`: the chooser / "Başka bir tür seç" → `POST /helper/files/route` (the token stays valid).
  * - `primary(route)`: a route that carries the file → `POST /helper/files/handoff` (the audit row), then the hand-over
  *   slot (file-handoff.ts) and the page's address; a route without the file deletes the stage and opens the page.
@@ -18,7 +18,7 @@
 import { useMemo } from "react";
 import { HttpError } from "@/lib/api/client";
 import { helperRefusal } from "@/lib/api/helper";
-import { CLASSIFY_MAX_BYTES, dropStage, helperFilesApi, isStageGone, sidOf, type FileAnswerCard, type FileRoute, type Stage } from "@/lib/api/helper-files";
+import { CLASSIFY_MAX_BYTES, dropStage, helperFilesApi, isStageGone, sidOf, type FileAnswerCard, type FileRoute } from "@/lib/api/helper-files";
 import { usePermissions } from "@/lib/api/shell-extra";
 import { translate, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
@@ -51,39 +51,36 @@ export const entryFiles = (key: string): File[] | null => files.get(key) ?? null
 
 const update = (key: string, patch: Partial<FileEntry> | ((e: FileEntry) => Partial<FileEntry>)) => useHelperStore.getState().updateFile(key, patch);
 
-const shown = (key: string, card: FileAnswerCard, stage: FileEntry["stage"], more: Pick<FileEntry, "stages" | "resend"> = {}) =>
+const shown = (key: string, card: FileAnswerCard, stage: FileEntry["stage"], more: Pick<FileEntry, "resend"> = {}) =>
   update(key, (e) => ({ phase: "shown", view: { kind: "card", card }, stage: stage ?? null, expired: false, notice: null, seq: e.seq + 1, ...more }));
 
-/** every live stage of an entry (one, or one per file) */
-const stagesOf = (e: Pick<FileEntry, "stage" | "stages">): Stage[] => (e.stages?.length ? e.stages : e.stage ? [e.stage] : []);
-const dropAll = (e: Pick<FileEntry, "stage" | "stages">) => stagesOf(e).forEach((st) => dropStage(st));
+const dropAll = (e: Pick<FileEntry, "stage">) => dropStage(e.stage);
 
 /** the page's active term (the term switcher's choice); the server falls back to the current term */
 const activeTermId = (): number | null => useUiStore.getState().termId ?? null;
 
-async function classifyInto(key: string, list: readonly File[], lang: string, context: string | null) {
-  update(key, { phase: "reading", view: null, notice: null, expired: false, stage: null, stages: null, resend: false });
-  const big = list.find((f) => f.size > CLASSIFY_MAX_BYTES);
-  if (big) {
-    update(key, (e) => ({ phase: "shown", view: { kind: "local", code: "file_too_large", size: big.size }, seq: e.seq + 1 }));
+async function classifyInto(key: string, file: File, lang: string, context: string | null) {
+  update(key, { phase: "reading", view: null, notice: null, expired: false, stage: null, resend: false });
+  if (file.size > CLASSIFY_MAX_BYTES) {
+    update(key, (e) => ({ phase: "shown", view: { kind: "local", code: "file_too_large", size: file.size }, seq: e.seq + 1 }));
     return;
   }
   const ctl = new AbortController();
   inflight.set(key, ctl);
   try {
-    const out = await helperFilesApi.classify(list.length === 1 ? list[0]! : list, { context, lang, termId: activeTermId(), signal: ctl.signal });
+    const out = await helperFilesApi.classify(file, { context, lang, termId: activeTermId(), signal: ctl.signal });
     if (ctl.signal.aborted || entryOf(key)?.phase !== "reading") {
-      // "Vazgeç" came first: the stages are not wanted
-      dropAll({ stage: out.stage ?? null, stages: out.stages ?? null });
+      // "Vazgeç" came first: the stage is not wanted
+      dropStage(out.stage);
       return;
     }
-    shown(key, out.card, out.stage ?? null, { stages: out.stages ?? null, resend: !!out.resend });
+    shown(key, out.card, out.stage ?? null, { resend: !!out.resend });
   } catch (err) {
     if (ctl.signal.aborted || entryOf(key)?.phase !== "reading") return;
     const status = err instanceof HttpError ? err.status : 0;
     const card = helperRefusal(err).card;
     if (card && (card.type === "refusal" || card.type === "error" || card.type === "limit")) shown(key, card, null);
-    else if (status === 413) update(key, (e) => ({ phase: "shown", view: { kind: "local", code: "file_too_large", size: Math.max(...list.map((f) => f.size)) }, seq: e.seq + 1 }));
+    else if (status === 413) update(key, (e) => ({ phase: "shown", view: { kind: "local", code: "file_too_large", size: file.size }, seq: e.seq + 1 }));
     else update(key, (e) => ({ phase: "shown", view: { kind: "local", code: "file_read_failed" }, seq: e.seq + 1 }));
   } finally {
     inflight.delete(key);
@@ -95,9 +92,9 @@ export function dropLiveStages() {
   for (const e of useHelperStore.getState().entries) {
     if (e.kind !== "file") continue;
     inflight.get(e.key)?.abort();
-    if (stagesOf(e).length) {
+    if (e.stage) {
       dropAll(e);
-      update(e.key, { stage: null, stages: null, expired: e.view?.kind === "card" || e.view?.kind === "pick" ? true : e.expired });
+      update(e.key, { stage: null, expired: e.view?.kind === "card" || e.view?.kind === "pick" ? true : e.expired });
     }
     if (e.phase === "reading") update(e.key, { phase: "cancelled" });
   }
@@ -124,11 +121,17 @@ export function attachFiles(list: readonly File[], opts: { can: Can; lang: strin
   const st = useHelperStore.getState();
   // one live card per thread: the older stage goes (the server also keeps one stage per person)
   for (const e of st.entries) if (e.kind === "file" && (e.phase === "shown" || e.phase === "reading")) dropAll(e);
-  // §15.4: several files go together for planners; everyone else gets the first file classified
-  const batch = picked.length > 1 && opts.can("planning.edit") ? picked : picked.slice(0, 1);
-  const key = st.pushFile(batch.map((f) => ({ name: f.name, size: f.size })));
-  files.set(key, [...batch]);
-  void classifyInto(key, batch, opts.lang, opts.context ?? null);
+  if (picked.length > 1 && opts.can("planning.edit")) {
+    const key = st.pushFile(picked.map((f) => ({ name: f.name, size: f.size })));
+    files.set(key, [...picked]);
+    update(key, (e) => ({ phase: "shown", view: { kind: "many", n: picked.length }, seq: e.seq + 1 }));
+    return key;
+  }
+  // §15.4: people without planning.edit get the first file classified
+  const file = picked[0]!;
+  const key = st.pushFile([{ name: file.name, size: file.size }]);
+  files.set(key, [file]);
+  void classifyInto(key, file, opts.lang, opts.context ?? null);
   return key;
 }
 
@@ -144,7 +147,9 @@ export function useFileRouter() {
     const retry = (key: string): boolean => {
       const list = files.get(key);
       if (!list?.length) return false;
-      void classifyInto(key, list, locale, null);
+      // several files never went to the server: nothing to re-read
+      if (list.length > 1) return true;
+      void classifyInto(key, list[0]!, locale, null);
       return true;
     };
 
@@ -152,7 +157,7 @@ export function useFileRouter() {
       inflight.get(key)?.abort();
       const e = entryOf(key);
       if (e) dropAll(e);
-      update(key, { phase: "cancelled", stage: null, stages: null });
+      update(key, { phase: "cancelled", stage: null });
     };
 
     /** the chooser pick or a kind from "Başka bir tür seç" */
@@ -185,49 +190,50 @@ export function useFileRouter() {
       const href = fileHandoffHref(route.feature_id, params);
       if (!href) return;
       const browserFiles = files.get(key) ?? [];
-      if (!route.carries_file) {
-        // no file on this route (Derslerim, Takvimime ekle…): the stages are not needed any more
-        dropAll(e);
-        update(key, { phase: "handed", stage: null, stages: null });
-        go(href);
-        return;
-      }
-      const staged = stagesOf(e);
-      if (!staged.length) {
-        // HELPER_FILE_STAGE=off (`resend`): nothing is staged; the page re-sends the browser's File objects
-        if (!e.resend || !browserFiles.length) return;
+      const inMemory = () => {
         useFileHandoffStore.getState().set(
           { featureId: route.feature_id, kind, params, items: browserFiles.map((f) => ({ token: null, sid: null, name: f.name, size: f.size, format: null, expiresAt: null })), at: Date.now() },
           browserFiles,
         );
         update(key, { phase: "handed" });
         go(href);
+      };
+      // several files (decision 16) / HELPER_FILE_STAGE=off (`resend`): the browser's File objects, no token, no stage
+      if (e.view?.kind === "many" || (route.carries_file && !e.stage && e.resend)) {
+        if (browserFiles.length) inMemory();
         return;
       }
+      if (!route.carries_file || !e.stage) {
+        // no file on this route (Derslerim, Takvimime ekle…): the stage is not needed any more
+        dropAll(e);
+        update(key, { phase: "handed", stage: null });
+        go(href);
+        return;
+      }
+      const stage = e.stage;
       update(key, { notice: null });
       const wire = Object.fromEntries(Object.entries(params).filter(([, v]) => typeof v === "string" || typeof v === "number")) as Record<string, string | number>;
       try {
-        await helperFilesApi.handoff(
-          staged.length > 1
-            ? { upload_tokens: staged.map((st) => st.upload_token), kind: null, feature_id: route.feature_id, params: wire }
-            : { upload_token: staged[0]!.upload_token, kind, feature_id: route.feature_id, params: wire },
-        );
+        await helperFilesApi.handoff({ upload_token: stage.upload_token, kind, feature_id: route.feature_id, params: wire });
       } catch (err) {
-        if (isStageGone(err)) update(key, { expired: true, stage: null, stages: null });
+        if (isStageGone(err)) update(key, { expired: true, stage: null });
         else update(key, { notice: both(err instanceof HttpError && err.status === 403 ? "helper.file.notAllowed" : "helper.file.error") });
         return;
       }
-      // the browser's name and size of each staged file (a stage carries the size; unreadable files have no stage)
-      const unused = [...browserFiles];
-      const items = staged.map((st, i) => {
-        const at = unused.findIndex((f) => f.size === st.size);
-        const f = at >= 0 ? unused.splice(at, 1)[0] : staged.length === 1 ? browserFiles[0] : undefined;
-        const expiresAt = Date.parse(st.expires_at);
-        return { token: st.upload_token, sid: sidOf(st), name: f?.name ?? e.files[i]?.name ?? "", size: f?.size ?? st.size ?? 0, format: st.format ?? null, expiresAt: Number.isFinite(expiresAt) ? expiresAt : null };
-      });
-      useFileHandoffStore.getState().set({ featureId: route.feature_id, kind, params, items, at: Date.now() }, browserFiles);
-      // the stages now belong to the page (closing the sheet must not delete them)
-      update(key, { phase: "handed", stage: null, stages: null });
+      const f = browserFiles[0];
+      const expiresAt = Date.parse(stage.expires_at);
+      useFileHandoffStore.getState().set(
+        {
+          featureId: route.feature_id,
+          kind,
+          params,
+          items: [{ token: stage.upload_token, sid: sidOf(stage), name: f?.name ?? e.files[0]?.name ?? "", size: f?.size ?? e.files[0]?.size ?? stage.size ?? 0, format: stage.format ?? null, expiresAt: Number.isFinite(expiresAt) ? expiresAt : null }],
+          at: Date.now(),
+        },
+        f ? [f] : [],
+      );
+      // the stage now belongs to the page (closing the sheet must not delete it)
+      update(key, { phase: "handed", stage: null });
       go(href);
     };
 
