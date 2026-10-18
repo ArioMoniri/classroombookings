@@ -4184,6 +4184,42 @@
       "status": "finished",
       "finished_at": "2026-10-18 13:00",
       "left_off": "<analysis> I am the single E2E lane subagent. I worked through the queue section by section, wrote results into docs/testing/e2e-queue/results-2026-10-18.md, made small test-first fixes in finished lanes, and ticked ROADMAP tickets where a section was fully green. The final hand-off must go through SubagentHandback. Order of work and the state of each section: 1. RF-1: done; product fix in users-a…"
+    },
+    {
+      "id": "a6f866b54117920a2",
+      "description": "FIX-A: security, solver, council, helper",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 13:03",
+      "scope": "",
+      "goal": "Ledger name `fix-a-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack; `nice`, pytest on touched files); never `pkill -f`; Tu…",
+      "ledger": "FIX-A: security, solver, council, helper",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a60a39a9a126b9d49",
+      "description": "FIX-B: mobile, CLS, overflow, focus",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 13:03",
+      "scope": "",
+      "goal": "Ledger name `fix-b-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright here; vitest `--maxWork…",
+      "ledger": "FIX-B: mobile, CLS, overflow, focus",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a86f9a684b6abf99e",
+      "description": "FIX-C: bundle size, charts, voice, welcome",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 13:03",
+      "scope": "",
+      "goal": "Ledger name `fix-c-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss (frontend smartsched/frontend; backend only for F-VO-2). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no Playwright; vitest `--m…",
+      "ledger": "FIX-C: bundle size, charts, voice, welcome",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
