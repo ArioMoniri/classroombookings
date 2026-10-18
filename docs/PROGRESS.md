@@ -2,7 +2,7 @@
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `ef8096e` (committed 2026-10-18 14:44 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `df00402` (committed 2026-10-18 14:51 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -571,3 +571,4 @@ Generated blocks last synced on top of commit `ef8096e` (committed 2026-10-18 14
 | 2026-10-18 14:15 | fix builder (fix-f-2026-10-18) | FIX-F: AS-20 and CH-12 round-4 findings | START: AS20 blocker + 5 majors, CH12 major, cheap minors | — |
 | 2026-10-18 15:20 | fix builder (fix-f-2026-10-18) | FIX-F: AS20-F02/F03/F04/F05/F07/F11/F12, part F08/F10/F14; CH12-F01/F03/F05/F06 | DONE (unit level, no stack per resource rule): peaks.term_cube counts only weeks the published board covers; GET /analytics/peaks/campus (any signed-in user) for the find-room chip; POST /analytics/forecast/exams/advice/apply + "Uygula"/"Geri al" on advisor moves, /classes honours ?term=; advisor sorted, 5 cards / 10 moves; learning revert onto the current set writes no version (`unchanged`), mutations don't await refetch; Turkish revert strings; scenario badge on run page; Kullanımdan kaldır for active profiles; NoTerms needs block; chart_stats.term_weeks = rows ∪ 1..week_count; peaks summary; 44 px hit areas; print hides chrome. AS20-F01 = HB18-F02 (fixed by FIX-D). Tests: pytest fix_f 5 new + as_06/as_07/as_09/as_10/as_11/as_12/as_13/as_18/ch_stats/audit_coverage 55+14+3 passed; vitest 47 files / 287 tests (fix-f 12 new, seasons fix-f 1 new); tsc 0 in FIX-F files; eslint, ruff, ruff format, mypy, check-design clean | e2e lane: FIX-F section of docs/testing/e2e-queue/README.md; open: AS20-F06 (not reproduced), F09, F13, F15, CH12-F02/F04/F07/F09/F10 |
 | 2026-10-18 14:51 | fix builder (fix-g-2026-10-18) | FIX-G: AS20-F09/F13/F14/F15/F08 + CH12-F02/F04/F07/F09/F10 | START: owner rule "apply the recommended option": planner drafts / admin activates (F09), one exam counting basis + B6/B6a re-baseline (F13), then open minors | — |
+| 2026-10-18 15:30 | fix builder (fix-e-2026-10-18) | FIX-E: round-4 majors (HX-12b, personas, AUX-12, CAL-10, WG-10) | DONE (unit level, no stack per resource rule): 22 majors fixed/part fixed, 4 open (HX12B-F05 hero fold, PER-F07 IA merge, PER-F09 Derslerim page, PER-F05 importer codes), AUX12-F01 fixed by FIX-D, WG10-F01 already fixed; statuses in each round-4 report; pytest tests/test_fix_e_round4.py + 7 suites 82 passed; vitest 16 dirs 932 passed; tsc, eslint, check-design, ruff, mypy clean | e2e: e2e-queue "FIX-E" |

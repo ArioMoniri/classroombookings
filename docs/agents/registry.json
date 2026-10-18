@@ -4304,7 +4304,8 @@
       "goal": "You are lane FIX-E (ledger name `fix-e-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md first and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; 44 px / 16 px on phones; t…",
       "ledger": "FIX-E: round-4 majors (UX)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 14:55"
     },
     {
       "id": "a9bcffbd96fdefd49",
