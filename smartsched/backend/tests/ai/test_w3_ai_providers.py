@@ -194,7 +194,7 @@ async def test_openai_create_parses_tool_calls_usage_and_auth_header():
     assert msg._request_id == "chatcmpl-1" and len(calls) == 1
 
 
-async def test_openai_content_filter_is_a_refusal_and_bad_json_is_an_error():
+async def test_openai_content_filter_is_a_refusal_and_bad_json_is_marked_invalid():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"choices": [{"finish_reason": "content_filter", "message": {"content": ""}}]})
 
@@ -216,8 +216,9 @@ async def test_openai_content_filter_is_a_refusal_and_bad_json_is_an_error():
         )
 
     transport, _ = _mock(bad)
-    with pytest.raises(ProviderError):
-        await OpenAICompatAdapter("openrouter", api_key="k", transport=transport).create(CONVERSATION)
+    # HB-13: broken arguments no longer fail the whole call; the caller's strict schema check answers INVALID_JSON
+    msg = await OpenAICompatAdapter("openrouter", api_key="k", transport=transport).create(CONVERSATION)
+    assert msg.content[0].type == "tool_use" and msg.content[0].input == {"_invalid": "{oops"}
 
 
 @pytest.mark.parametrize(

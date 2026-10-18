@@ -30,7 +30,7 @@ def _choice(arg: str, rooms: list[Any], args: dict[str, Any], action_name: str) 
         question=cards.txt("Hangi salon?", "Which room?"),
         options=[
             s.Option(
-                value=r.id,
+                value=str(r.id),  # the room arguments are text (code, name or id)
                 label=cards.txt(r.display_name or r.code),
                 hint=cards.txt(f"{r.capacity} kişilik", f"{r.capacity} seats"),
             )

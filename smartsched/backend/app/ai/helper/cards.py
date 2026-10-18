@@ -7,7 +7,6 @@ HTML" rule of :mod:`app.ai.helper.schema`. Nothing here takes text from the mode
 
 from __future__ import annotations
 
-import re
 import uuid
 from collections.abc import Iterable, Sequence
 from typing import Literal
@@ -15,12 +14,10 @@ from typing import Literal
 from app.ai.guardrails import sanitize_output_text
 from app.ai.helper import schema as s
 from app.ai.helper.index import FeatureEntry, Hit
-from app.ai.sanitize import strip_controls
 
 #: helper.md A8: rows shown in a helper list by default (the full list stays on the page)
 LIST_ROWS = 5
-LINK_MARK = "[bağlantı]"
-_LINKISH = re.compile(r"(?:https?|ftp)://\S*|\bwww\.\S*|javascript:|data:", re.IGNORECASE)
+LINK_MARK = s.LINK_MARK
 
 
 def new_id() -> str:
@@ -29,10 +26,7 @@ def new_id() -> str:
 
 def clean(text: object, limit: int = 400) -> str:
     """Database text made safe for a card: no control characters, no angle brackets, no links; trimmed."""
-    t = strip_controls(str(text if text is not None else ""))
-    t = _LINKISH.sub(LINK_MARK, t).replace("<", "‹").replace(">", "›")
-    t = " ".join(t.split())
-    return t if len(t) <= limit else t[: limit - 1] + "…"
+    return s.scrub(text, limit)
 
 
 def txt(tr: str, en: str | None = None) -> s.Txt:

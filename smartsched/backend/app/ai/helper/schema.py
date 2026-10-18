@@ -20,7 +20,9 @@ import re
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter
+
+from app.ai.sanitize import strip_controls
 
 CARD_VERSION: Literal[1] = 1
 SCHEMA_ID = "helper.card.v1"
@@ -36,6 +38,23 @@ def _plain(v: str) -> str:
     return v
 
 
+LINK_MARK = "[bağlantı]"
+_LINKISH = re.compile(r"(?:https?|ftp)://\S*|\bwww\.\S*|javascript:|data:", re.IGNORECASE)
+
+
+def scrub(text: object, limit: int = 400) -> str:
+    """Database or model text made safe for a card: no control characters, no angle brackets, no links; trimmed.
+    (:func:`app.ai.helper.cards.clean` is this function.)"""
+    t = strip_controls(str(text if text is not None else ""))
+    t = _LINKISH.sub(LINK_MARK, t).replace("<", "‹").replace(">", "›")
+    t = " ".join(t.split())
+    return t if len(t) <= limit else t[: limit - 1] + "…"
+
+
+def _scrub_str(v: Any) -> Any:
+    return scrub(v) if isinstance(v, str) else v
+
+
 def _plain_field(max_length: int) -> Any:
     return Field(max_length=max_length, json_schema_extra={"pattern": PLAIN_PATTERN})
 
@@ -44,7 +63,12 @@ Plain = Annotated[str, AfterValidator(_plain), _plain_field(400)]
 LongPlain = Annotated[str, AfterValidator(_plain), _plain_field(1200)]
 Name = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$", max_length=64)]
 Token = Annotated[str, Field(pattern=r"^[A-Za-z0-9_\-.]+$", max_length=600)]
-Scalar = str | int | float | bool | None
+#: an argument value echoed on a card (prefill): text is neutralised, never refused, so a model-written note with a
+#: link can never turn a card into a 500
+SafeStr = Annotated[str, BeforeValidator(_scrub_str), AfterValidator(_plain), _plain_field(400)]
+Scalar = SafeStr | int | float | bool | None
+#: an option's value: an id or a code the server made (``17``, ``room_unavailable``)
+OptionValue = Annotated[str, Field(pattern=r"^[A-Za-z0-9_\-:.]{1,64}$")]
 
 
 class _Strict(BaseModel):
@@ -145,7 +169,7 @@ class FactsCard(CardBase):
 
 
 class Option(_Strict):
-    value: Annotated[str, Field(max_length=64)] | int
+    value: OptionValue | int
     label: Txt
     hint: Txt | None = None
 

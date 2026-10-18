@@ -3175,7 +3175,8 @@
       "goal": "You are lane AU-B (auth backend), re-created after a container restart. Your earlier work (AU-01…14, migration 0043_mfa) is done and committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). You were then building AU-15 and AU-16, and migration `0045_user_sessions` already exi…",
       "ledger": "AU-B resume: sessions + IdP MFA",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 08:35"
     },
     {
       "id": "ac382c44d3ca2cce4",
@@ -3212,7 +3213,8 @@
       "goal": "You are lane RF-2, re-created after a container restart. RF-11 (the six e-mail senders) is done and committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `app/services/mail_senders.py`, `app/workers/reminders.py`, `tests/test_rf11_mail_senders.py`. Read docs/agents/briefs/…",
       "ledger": "RF-2 resume: mail follow-ups",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 08:35"
     },
     {
       "id": "a6d3ca43591bb3955",
@@ -3332,6 +3334,14 @@
       "ledger": "Charts resume: CH-03..09",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "af2af425bb1ceb879",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:34",
+      "left_off": "is the pod deployed yet"
     }
   ]
 }

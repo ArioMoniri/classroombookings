@@ -31,6 +31,7 @@ import { authSecurity, authSecurityKeys, IDENTITY_CHECKS, maskIdentifier, mfaErr
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import { rich } from "@/components/auth/signin-shell";
 import { shortDate, relative } from "@/components/profile/security/format";
 import type { MethodView } from "./users-admin-identity-model";
 
@@ -91,7 +92,7 @@ export function resetProblem(reason: string, check: IdentityCheck | ""): "reason
 }
 
 /** "Açık · uygulama + 2 geçiş anahtarı" / "Kapalı". */
-export function adminStatusText(t: (k: MessageKey, v?: Record<string, string | number>) => string, s: AdminMfa): string {
+export function adminStatusText(t: ReturnType<typeof useI18n>["t"], s: AdminMfa): string {
   const parts: string[] = [];
   if (s.totp_enabled) parts.push(t("auth.admin.methodApp"));
   if (s.passkeys.length) parts.push(t("auth.admin.methodPasskeys", { n: s.passkeys.length }));
@@ -169,8 +170,9 @@ export function useUserSecurity({ meId, onShowCode }: { meId: number | null | un
 
 type Acts = { own: boolean; link: boolean; reset: boolean; code: boolean };
 
-function Explanation({ u, a }: { u: SecurityUser; a: Acts }): string | null {
-  const { t } = useI18n();
+type T = ReturnType<typeof useI18n>["t"];
+
+function explanation(t: T, u: SecurityUser, a: Acts): string | null {
   if (u.account === "sso") return u.providerName ? t("auth.admin.ssoRowNamed", { provider: u.providerName }) : t("auth.admin.ssoRow");
   if (u.account === "ldap") return t("auth.admin.ldapRow");
   if (!a.link && !u.email) return t("auth.admin.noEmailRow");
@@ -179,7 +181,7 @@ function Explanation({ u, a }: { u: SecurityUser; a: Acts }): string | null {
 
 function SecurityMenuItems({ u, a, onOpen, onShowCode }: { u: SecurityUser; a: Acts; onOpen: (k: "reset" | "link") => void; onShowCode?: (id: number) => void }) {
   const { t } = useI18n();
-  const note = Explanation({ u, a });
+  const note = explanation(t, u, a);
   return (
     <>
       <DropdownMenuSeparator />
@@ -222,7 +224,7 @@ function SecurityMenuItems({ u, a, onOpen, onShowCode }: { u: SecurityUser; a: A
 function SecurityBlock({ u, a, onOpen, onShowCode }: { u: SecurityUser; a: Acts; onOpen: (k: "reset" | "link") => void; onShowCode?: (id: number) => void }) {
   const { t, locale } = useI18n();
   const q = useAdminMfa(u.id, u.account !== "sso");
-  const note = Explanation({ u, a });
+  const note = explanation(t, u, a);
   const method = u.account === "sso" ? (u.providerName ?? "SSO") : u.account === "ldap" ? "LDAP" : t("auth.admin.methodLocal");
   const status = u.account === "sso" ? null : q.data ? adminStatusText(t, q.data) : q.isLoading ? t("auth.admin.loading") : null;
   return (
@@ -311,7 +313,7 @@ function ResetMfaForm({ user, onClose }: { user: SecurityUser; onClose: () => vo
   const [busy, setBusy] = useState(false);
   const passkeys = summary?.passkeys.length ?? 0;
   const keepOffered = passkeys > 0 && chip !== "compromised";
-  const policy = useQueryClient().getQueryData<{ mfa_policy?: string; mfa_roles?: string[] }>(authSecurityKeys.policy);
+  const policy = qc.getQueryData<{ mfa_policy?: string; mfa_roles?: string[] }>(authSecurityKeys.policy);
   const required = policy?.mfa_policy === "required_for_roles" && Boolean(user.role && policy.mfa_roles?.includes(user.role));
 
   const pickChip = (c: ReasonChip, on: boolean) => {
@@ -465,7 +467,7 @@ export function ResetLinkDialog({ user, onClose, onShowCode }: { user: SecurityU
       <DialogContent data-testid="reset-link-dialog">
         <DialogHeader>
           <DialogTitle>{t("auth.admin.linkTitle", { name: user?.name ?? "" })}</DialogTitle>
-          <DialogDescription>{t("auth.admin.linkBody", { masked }).replace(/<\/?b>/g, "")}</DialogDescription>
+          <DialogDescription>{rich(t("auth.admin.linkBody"), { masked })}</DialogDescription>
         </DialogHeader>
         {error ? (
           <Alert tone={error.offerCode ? "warning" : "error"} data-testid="reset-link-error">

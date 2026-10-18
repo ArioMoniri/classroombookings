@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.ai.helper import cards
@@ -72,10 +72,12 @@ async def schema(_: CurrentAccess) -> dict[str, Any]:
 
 
 @router.get("/status")
-async def status(_: CurrentAccess) -> dict[str, Any]:
-    """helper.md A6. Until the model turn loop lands (HB-06, after VO-01) the helper answers from the index only, so
-    the chip reads "Yapay zekâ kapalı" and nothing is sent to any model."""
-    return {"mode": "index", "provider_kind": None, "provider_label": None, "fallback_active": False}
+async def status(request: Request, db: DB, access: CurrentAccess) -> dict[str, Any]:
+    """helper.md A6: ``{mode: ai | index, reason, provider_kind: local | cloud, provider_label, fallback_active,
+    message}``. Index-only until an admin routes ``helper`` (owner default); see :mod:`app.ai.helper.status`."""
+    from app.ai.helper import status as st
+
+    return await st.helper_status(db, access.user_id, turn_available=st.turn_registered(request.app))
 
 
 @router.get("/actions")

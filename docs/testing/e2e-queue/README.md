@@ -48,3 +48,12 @@ On pass: tick CAL-08/09.
 3. Behind nginx: `Permissions-Policy: microphone=(self)`; getUserMedia succeeds; a ~5 MB raw clip to
    /api/v1/ai/voice/transcribe does not get 413 (nginx allows 6 MB on that path).
 On pass: tick VO-06/07/08 and VO-05.
+
+## AU-B sessions + IdP MFA (one stack, UVICORN_WORKERS=2)
+1. Sign in on desktop (1440) and phone (390×844 Safari UA); GET /auth/sessions on the phone: 2 rows, one current,
+   "Safari, iPhone", network x.y.z.0/24.
+2. On desktop, delete the phone session: the phone's next request gets 401 at once (repeat ~10× to hit both workers).
+3. "Diğer cihazlardan çıkış yap": every other session gets 401, the current one keeps working.
+4. Admin POST /admin/users/{id}/sessions/revoke and, separately, the admin MFA reset: the target gets 401 everywhere; audit rows present.
+5. Fake OIDC IdP, policy required_for_roles covering the role, amr=["pwd"]: switch on → refused with Turkish
+   `idp_mfa_required`; switch off → succeeds, `idp_mfa_missing` notice once; amr=["pwd","mfa"] → succeeds, no notice.
