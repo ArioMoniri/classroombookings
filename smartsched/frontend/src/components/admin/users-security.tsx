@@ -52,8 +52,8 @@ export type MfaFilter = "" | MfaListState;
 
 /** The list's 2FA state. Ask AU-B: the users status map carries `mfa_state` + `mfa_grace_until` per user; until then
  *  the tag and the filter read nothing (unknown → no tag, every filter but "Tümü" empty). */
-export function mfaListState(s: { mfa_state?: unknown } | null | undefined): MfaListState | null {
-  const v = s?.mfa_state;
+export function mfaListState(s: unknown): MfaListState | null {
+  const v = s && typeof s === "object" ? (s as { mfa_state?: unknown }).mfa_state : undefined;
   return v === "on" || v === "off" || v === "pending" ? v : null;
 }
 

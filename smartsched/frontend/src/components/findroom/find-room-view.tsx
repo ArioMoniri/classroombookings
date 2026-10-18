@@ -11,6 +11,7 @@
 import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Hourglass, Loader2, PackageX, Search, ShieldAlert, SlidersHorizontal, Stamp, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { PolicyWhy } from "@/components/policies/policy-why";
+import { PeakChip } from "./peak-chip";
 import { useApprovalFirst, type EffectiveQuery } from "@/lib/api/booking-policies";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useRef, useState, type ReactNode } from "react";
@@ -432,6 +433,8 @@ export function FindRoomView() {
                   </p>
                 ) : null}
               </div>
+              {/* AS-17: a hint when the searched time is a peak hour (the results are unchanged) */}
+              <PeakChip termId={termId} slot={result.slots[0]} />
               {result.closed_dates.length ? (
                 <Alert tone="warning" title={t("wave1.find.closedTitle", { n: result.closed_dates.length })}>
                   {result.closed_dates

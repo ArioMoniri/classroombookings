@@ -304,7 +304,53 @@ async def b8_standalone() -> Result:
         await dbmod.dispose_engine()
 
 
+# ------------------------------------------------------------------------------------------------ B9 (AS-14)
+
+B9_TRUE = {"room_preference": 12, "building_preference": 7, "day_window": 3, "min_capacity_waste": 1}
+
+
+def b9_weight_learning(true_weights: dict[str, int] | None = None, n: int = 60, seed: int = 0) -> Result:
+    """Synthetic edits made by a planner with known weights (scored by ``evaluate``) -> recovered weights."""
+    from app.services import weight_learning as wl
+
+    truth = dict(true_weights or B9_TRUE)
+    keys = sorted(truth)
+    edits = wl.synthetic_edits(truth, n=n, seed=seed)
+    learned = wl.learn(edits, current=dict(wl.DEFAULTS))
+    again = wl.learn(list(reversed(edits)), current=dict(wl.DEFAULTS))
+    rec = {k: learned.weights.get(k, 0.0) for k in keys}
+    tau_ratios = wl.kendall_tau(wl.ratio_vector(rec, keys), wl.ratio_vector(truth, keys))
+    tau_weights = wl.kendall_tau([rec[k] for k in keys], [truth[k] for k in keys])
+    noisy = wl.synthetic_edits(truth, n=n, seed=seed, noise=0.1)
+    rec_noisy = {k: wl.learn(noisy, current=dict(wl.DEFAULTS)).weights.get(k, 0.0) for k in keys}
+    tau_noisy = wl.kendall_tau(wl.ratio_vector(rec_noisy, keys), wl.ratio_vector(truth, keys))
+    p = wl.proposal(learned, dict(wl.DEFAULTS), edits)
+    anchor = truth["min_capacity_waste"] / max(1e-9, rec["min_capacity_waste"])
+    metrics = {
+        "edits": len(edits),
+        "terms": keys,
+        "true_weights": truth,
+        "recovered_weights": {k: round(v * anchor, 2) for k, v in rec.items()},
+        "kendall_tau_ratios": round(tau_ratios, 4),
+        "kendall_tau_weights": round(tau_weights, 4),
+        "kendall_tau_ratios_10pct_noise": round(tau_noisy, 4),
+        "edits_explained": learned.explained,
+        "deterministic": learned.weights == again.weights,
+        "proposal": p["solver_weights"] if p else None,
+        "proposal_explained": p["edits_explained"] if p else None,
+        "defaults_explained": p["edits_explained_now"] if p else None,
+    }
+    return Result(
+        "B9",
+        "Düzenlemelerden ağırlık öğrenme / weight learning from synthetic edits with known weights",
+        metrics,
+        {"kendall_tau_ratios": ">= 0.8", "deterministic": True},
+        tau_ratios >= 0.8 and learned.weights == again.weights,
+    )
+
+
 __all__ = [
+    "b9_weight_learning",
     "b6_exam_advisor",
     "b6_standalone",
     "b8_input",

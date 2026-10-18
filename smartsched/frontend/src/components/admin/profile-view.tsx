@@ -31,6 +31,8 @@ import { CalendarConnectionsSection } from "@/components/settings/calendar-conne
 import { CalendarExportSection } from "@/components/calendar-export/calendar-export-section";
 import { MyAiUsage } from "@/components/admin/ai/my-ai-usage";
 import { ChartPatternsToggle } from "@/components/charts/chart-patterns-toggle";
+import { mfaErrorCode, usePasswordMinLength } from "@/lib/api/auth-security";
+import { refusalBody } from "@/lib/api/error-text";
 
 /** language names in themselves (Turkish, English); a legacy stored code (`de`) reads as English */
 const langLabel = (code: string | null | undefined) => {
@@ -210,6 +212,11 @@ function PasswordForm({ forced }: { forced: boolean }) {
   const [again, setAgain] = useState("");
   const [error, setError] = useState<string | null>(null);
   const { ref, shake } = useShake<HTMLDivElement>();
+  // AUX-F (owner Q2, AU-B API.md §10): 12 characters, or 8 with 2FA, from GET /auth/mfa; a 422 password_too_short
+  // moves the rule to the backend's min_length
+  const serverMin = usePasswordMinLength();
+  const [refusedMin, setRefusedMin] = useState<number | null>(null);
+  const min = refusedMin ?? serverMin;
   const m = useCrbsMutation(() => crbs.auth.changePassword(forced ? current || null : current, next), [["crbs", "me"], ["me"]]);
   return (
     <section aria-labelledby="pf-pw">
@@ -221,7 +228,7 @@ function PasswordForm({ forced }: { forced: boolean }) {
           onSubmit={(e) => {
             e.preventDefault();
             setError(null);
-            if (next.length < 8) return (setError(t("crbs.reset.tooShort")), shake());
+            if (next.length < min) return (setError(t("auth.setPassword.short", { n: min })), shake());
             if (next !== again) return (setError(t("crbs.reset.mismatch")), shake());
             m.mutate(undefined, {
               onSuccess: (res) => {
@@ -238,6 +245,12 @@ function PasswordForm({ forced }: { forced: boolean }) {
                 setAgain("");
               },
               onError: (err) => {
+                if (mfaErrorCode(err) === "password_too_short") {
+                  const need = refusalBody(err)?.min_length;
+                  if (typeof need === "number") setRefusedMin(need);
+                  setError(t("auth.setPassword.short", { n: typeof need === "number" ? need : min }));
+                  return shake();
+                }
                 const ce = crbsError(err);
                 setError(ce.status === 403 ? t("crbs.profile.wrongCurrent") : ce.status === 422 ? t("crbs.profile.samePassword") : bookingErrorMessage(ce, t));
                 shake();
@@ -249,8 +262,8 @@ function PasswordForm({ forced }: { forced: boolean }) {
             <Field label={t("crbs.profile.current")} htmlFor="pw-cur">
               <Input id="pw-cur" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
             </Field>
-            <Field label={t("crbs.users.newPassword")} htmlFor="pw-new">
-              <Input id="pw-new" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
+            <Field label={t("crbs.users.newPassword")} htmlFor="pw-new" hint={t("auth.setPassword.hintChange", { n: min })}>
+              <Input id="pw-new" type="password" autoComplete="new-password" minLength={min} {...{ passwordrules: `minlength: ${min};` }} value={next} onChange={(e) => setNext(e.target.value)} />
             </Field>
             <Field label={t("crbs.reset.again")} htmlFor="pw-again">
               <Input id="pw-again" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />

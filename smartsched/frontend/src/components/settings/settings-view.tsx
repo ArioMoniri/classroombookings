@@ -40,6 +40,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS } from "@/lib/time";
 import { useUiStore } from "@/stores/ui";
 import { cn } from "@/lib/utils";
+import { SigninSecuritySettings } from "./signin-security";
 
 const WEIGHT_KINDS = ["room_preference", "building_preference", "min_capacity_waste", "same_room_across_weeks", "stability", "exam_gap"] as const;
 /** The solver's own defaults (backend app/solver/weights.py DEFAULT_WEIGHTS): what a run uses when the organisation
@@ -390,6 +391,8 @@ export function SettingsView() {
     // notification channels (setup.settings, as /channels/admin)
     { value: "sso", label: t("sso.admin.tab"), show: can("planning.admin") },
     { value: "channels", label: t("channels.admin.tab"), show: can("setup.settings") },
+    // AUX-11 (docs/design/v3/auth.md §9): the 2FA / passkey policy; GET/PUT /admin/auth/mfa-policy needs setup.authentication
+    { value: "signin-security", label: t("auth.policy.tab"), show: can("setup.authentication") },
     // Phase 19: the learned priors and suggestions (Öğrenme belleği), planning administrators only
     { value: "learning", label: t("settings.learningTab"), show: can("planning.admin") },
     { value: "users", label: t("settings.users"), show: can("setup.users") },
@@ -461,6 +464,7 @@ export function SettingsView() {
         {can("planning.admin") ? <TabsContent value="learning"><LearningMemoryPanel /></TabsContent> : null}
         {can("planning.admin") ? <TabsContent value="sso"><SsoSettings /></TabsContent> : null}
         {can("setup.settings") ? <TabsContent value="channels"><ChannelsAdmin /></TabsContent> : null}
+        {can("setup.authentication") ? <TabsContent value="signin-security"><SigninSecuritySettings /></TabsContent> : null}
       </Tabs>
     </div>
   );

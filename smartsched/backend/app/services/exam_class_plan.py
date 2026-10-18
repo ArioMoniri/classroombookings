@@ -75,16 +75,25 @@ async def course_blocks(
 ) -> tuple[list[sm.Block], dict[str, Any]]:
     """Blocks for an exam run: the class plan of ``term`` on the (week, weekday) of every dated exam event.
 
+    Only exams in teaching weeks count (an EXAM / MAKEUP / HOLIDAY week or a FINAL term has no classes).
     Returns ``(blocks, stats)``; ``stats`` (stored as ``run.stats["class_plan"]``) names the course run, the exam
     dates checked and the number of blocks, or ``status: "not_published"`` when the term has no published course
     run while exams fall in its lecture weeks."""
+    from app.services import seasons
+
+    if (term.kind or "").upper() == "FINAL":
+        return [], {}  # a finals term holds no classes
+    teaching, _dropped = seasons.course_weeks(
+        sorted({int(w) for e in events for w in e.weeks}), seasons.week_kinds(weeks_rows), term
+    )
     wanted: dict[tuple[int, int], set[date]] = defaultdict(set)
     for e in events:
         if e.kind != "exam" or e.fixed_date is None:
             continue
         for w in e.weeks:
-            wanted[(int(w), e.fixed_date.isoweekday())].add(e.fixed_date)
-    if not wanted:
+            if int(w) in set(teaching):
+                wanted[(int(w), e.fixed_date.isoweekday())].add(e.fixed_date)
+    if not wanted:  # every exam sits in an exam / make-up / holiday week: no class meets then
         return [], {}
     course = await active_run_for_term(session, term.id, "COURSE")
     if course is None:

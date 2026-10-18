@@ -32,7 +32,8 @@ export function columnHeader(col: HeatColumn, locale: string): { label: string; 
 
 export type Source = "live" | "run";
 export type Scope = "week" | "term";
-export type HeatTab = "rooms" | "instructors";
+/** "peaks": AS-16 Yoğun saatler (components/analytics/peaks-view.tsx) */
+export type HeatTab = "rooms" | "instructors" | "peaks";
 
 export interface HeatUrlState {
   tab: HeatTab;
@@ -53,7 +54,7 @@ export function readHeatUrl(p: URLSearchParams): HeatUrlState {
   const run = int(p.get("run"));
   const group = p.get("group");
   return {
-    tab: p.get("tab") === "instructors" ? "instructors" : "rooms",
+    tab: p.get("tab") === "instructors" ? "instructors" : p.get("tab") === "peaks" ? "peaks" : "rooms",
     source: p.get("source") === "run" && run !== null ? "run" : "live",
     run,
     group: (GROUP_BY as readonly string[]).includes(group ?? "") ? (group as GroupBy) : "building",

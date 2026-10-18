@@ -5,8 +5,7 @@
  *
  * Accounts are made through the admin API: a local user whose first password change is done through the API, so the
  * UI starts at /login. TOTP codes come from the setup key (RFC 6238, SHA-1, 6 digits, 30 s) computed here.
- * The admin (§7) and policy-tab (§9) cases need the mounts asked of the users and settings owners (asks A5 / A6);
- * they skip with that reason until `users-security` / `signin-security` are on the page.
+ * The admin (§7) and policy-tab (§9) cases use the mounts in admin/users-admin.tsx and settings/settings-view.tsx.
  */
 import { createHmac } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -216,15 +215,18 @@ test("§16.10: an SSO-only account never sees 2FA or passkey rows (API answer)",
   test.skip(!process.env.E2E_SSO_MINT, "needs an SSO account (E2E_SSO_MINT, see sign-in.spec.ts)");
 });
 
-test("§16.7/8: admin menu and the reset dialog (needs ask A5: users-security mounted)", async ({ page }) => {
+test("§16.7/8: admin menu ('Giriş' group, no reset code item) and the reset dialog", async ({ page }) => {
   await page.goto("/login?method=local");
   const r = await page.request.post("/api/v1/auth/login", { data: { email: process.env.E2E_ADMIN_EMAIL ?? "admin@smartsched.local", password: process.env.E2E_ADMIN_PASSWORD ?? "Admin-2026!" } });
   expect(r.ok()).toBe(true);
-  await page.goto("/admin/users");
-  const menu = page.getByTestId(`user-reset-mfa-${userId}`);
-  test.skip((await page.getByTestId(`user-security-menu-${userId}`).count()) === 0 && (await menu.count()) === 0, "users-security.tsx is not mounted yet (ask A5)");
-  await page.getByRole("button", { name: new RegExp(USER.username) }).first().click();
-  await menu.click();
+  await page.goto(`/admin/users?q=${encodeURIComponent(USER.username)}`);
+  await page.getByRole("button", { name: `${USER.username} için işlemler` }).click();
+  const group = page.getByTestId(`user-security-menu-${userId}`);
+  await expect(group).toBeVisible();
+  await expect(page.getByTestId(`user-send-link-${userId}`)).toBeVisible();
+  await expect(page.getByTestId(`user-show-code-${userId}`)).toHaveText("Sıfırlama kodunu ekranda göster");
+  await expect(page.getByRole("menuitem", { name: "Tek kullanımlık sıfırlama kodu" })).toHaveCount(0);
+  await page.getByTestId(`user-reset-mfa-${userId}`).click();
   await page.getByTestId("reset-reason").fill("9 harfli.");
   await page.getByTestId("reset-confirm").click();
   await expect(page.getByTestId("reset-reason-error")).toBeVisible();
@@ -233,15 +235,21 @@ test("§16.7/8: admin menu and the reset dialog (needs ask A5: users-security mo
   await page.getByTestId("reset-identity").selectOption("in_person");
   await page.getByTestId("reset-confirm").click();
   await expect(page.getByText(/iki aşamalı doğrulama sıfırlandı/)).toBeVisible();
+  // the admin's own row offers the Profil link instead of a reset
+  const me = await admin.get<{ id: number; username?: string | null; email?: string | null }>("/auth/me");
+  await page.goto(`/admin/users?q=${encodeURIComponent(me.username ?? me.email ?? "")}`);
+  await page.getByRole("button", { name: `${me.username ?? me.email} için işlemler` }).click();
+  await expect(page.getByTestId(`user-own-security-${me.id}`)).toBeVisible();
+  await expect(page.getByTestId(`user-reset-mfa-${me.id}`)).toHaveCount(0);
 });
 
-test("§16.9/12: policy tab round-trip at 390 (needs ask A6: tab signin-security)", async ({ browser }) => {
+test("§16.9/12: policy tab round-trip at 390 (chips 44 px, save above the tab bar, no horizontal scroll)", async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: "tr-TR", timezoneId: "Europe/Istanbul" });
   const page = await ctx.newPage();
   const r = await page.request.post("/api/v1/auth/login", { data: { email: process.env.E2E_ADMIN_EMAIL ?? "admin@smartsched.local", password: process.env.E2E_ADMIN_PASSWORD ?? "Admin-2026!" } });
   expect(r.ok()).toBe(true);
   await page.goto("/settings?tab=signin-security");
-  test.skip((await page.getByTestId("signin-security").count()) === 0, "the settings tab is not mounted yet (ask A6)");
+  await expect(page.getByTestId("signin-security")).toBeVisible();
   const before = await admin.get<Record<string, unknown>>("/admin/auth/mfa-policy");
   await page.getByTestId("policy-required").click();
   await page.getByTestId("policy-role-PLANNER").click();

@@ -99,7 +99,7 @@ async def test_confirm_with_a_wrong_code_then_the_right_one(setup) -> None:  # t
     assert [e.entity_id for e in await audit_rows("auth.mfa_enabled")] == [str(uid)]
     mails = await outbox("mfa_enabled", uid)
     assert len(mails) == 1 and mails[0].to_email == EMAIL
-    assert mails[0].subject == "İki adımlı doğrulama açıldı"
+    assert mails[0].subject == "İki aşamalı doğrulama açıldı"
 
 
 # --------------------------------------------------------------------------------------------------

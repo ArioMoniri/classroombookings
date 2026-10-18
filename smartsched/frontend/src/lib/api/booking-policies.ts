@@ -5,7 +5,8 @@
  * - `GET /booking-policies` (setup.settings): every rule plus the exam-period setting.
  * - `POST /booking-policies`, `PUT /booking-policies/{id}`, `DELETE /booking-policies/{id}` (setup.settings; 422
  *   `{code: name|scope_type|scope_id|tag|term_id|effect|<limit>|quiet_hours|blackouts|time|empty}` with TR/EN text).
- * - `PUT /booking-policies/exam-period {mode: off|request|closed, from_exam_timetable?, room_ids?}`.
+ * - `PUT /booking-policies/exam-period {mode: off|request|closed|slots, from_exam_timetable?, room_ids?, buffer_periods?,
+ *   slots_effect?}`.
  * - `GET /booking-policies/effective?room_id=&date=&period_id=&term_id=` (any signed-in user): the rules that bind the
  *   caller in that room and, with a date and a period, the verdict `book | request | refuse` with the reasons
  *   ("Neden?").
@@ -24,7 +25,8 @@ export const SCOPE_TYPES = ["all", "room", "room_group", "tag"] as const;
 export type ScopeType = (typeof SCOPE_TYPES)[number];
 export const EFFECTS = ["refuse", "request"] as const;
 export type PolicyEffect = (typeof EFFECTS)[number];
-export const EXAM_MODES = ["off", "request", "closed"] as const;
+/** AS-17: `slots` holds only the exam timetable's slots (± buffer_periods) and frees the rest of the exam weeks */
+export const EXAM_MODES = ["off", "request", "closed", "slots"] as const;
 export type ExamMode = (typeof EXAM_MODES)[number];
 export const RULES = ["min_notice", "max_advance", "max_duration", "max_active", "buffer", "quiet_hours", "blackout", "exam_period"] as const;
 export type PolicyRule = (typeof RULES)[number];
@@ -67,7 +69,15 @@ export const Policy = z.object({
 });
 export type Policy = z.infer<typeof Policy>;
 
-export const ExamPeriod = z.object({ mode: z.enum(EXAM_MODES).catch("off"), from_exam_timetable: z.boolean().default(true), room_ids: z.array(z.number()).default([]) });
+export const ExamPeriod = z.object({
+  mode: z.enum(EXAM_MODES).catch("off"),
+  from_exam_timetable: z.boolean().default(true),
+  room_ids: z.array(z.number()).default([]),
+  /** `slots` mode: periods held before and after each exam (0..4, default 1) */
+  buffer_periods: z.number().int().min(0).max(4).catch(1).default(1),
+  /** `slots` mode: a held slot asks for approval (request) or is refused */
+  slots_effect: z.enum(["request", "refuse"]).catch("request").default("request"),
+});
 export type ExamPeriod = z.infer<typeof ExamPeriod>;
 
 export const PolicyList = z.object({ policies: z.array(Policy).default([]), exam_period: ExamPeriod });

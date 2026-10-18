@@ -320,7 +320,7 @@ KINDS: dict[str, KindSpec] = {
         # AU-B (owner request 2026-10-18): two-step sign-in, passkeys and administrator resets; security footer
         _K(
             "mfa_enabled",
-            "İki adımlı doğrulama açıldı",
+            "İki aşamalı doğrulama açıldı",
             "Two-step verification turned on",
             "Hesabın sahibi",
             "The account owner",
@@ -331,7 +331,7 @@ KINDS: dict[str, KindSpec] = {
         ),
         _K(
             "mfa_disabled",
-            "İki adımlı doğrulama kapatıldı",
+            "İki aşamalı doğrulama kapatıldı",
             "Two-step verification turned off",
             "Hesabın sahibi",
             "The account owner",
@@ -341,8 +341,19 @@ KINDS: dict[str, KindSpec] = {
             owner="AU-B",
         ),
         _K(
+            "mfa_app_changed",
+            "Doğrulama uygulaması değiştirildi",
+            "Authenticator app changed",
+            "Hesabın sahibi",
+            "The account owner",
+            tone="warning",
+            placeholders=("name", "org", "when"),
+            path="/profile#security",
+            owner="AU-B",
+        ),
+        _K(
             "mfa_reset_by_admin",
-            "İki adımlı doğrulama yönetici tarafından sıfırlandı",
+            "İki aşamalı doğrulama yönetici tarafından sıfırlandı",
             "Two-step verification reset by an administrator",
             "Hesabın sahibi",
             "The account owner",
@@ -405,7 +416,7 @@ KINDS: dict[str, KindSpec] = {
         ),
         _K(
             "mfa_required",
-            "İki adımlı doğrulama zorunlu oldu",
+            "İki aşamalı doğrulama zorunlu oldu",
             "Two-step verification now required",
             "Zorunlu rollerdeki kişiler",
             "People in the required roles",
@@ -470,6 +481,7 @@ _DESIGN: dict[str, dict[str, object]] = {
     # AU-B: security e-mails (NIST SP 800-63B-4 §4.6 account notifications) cannot be switched off
     "mfa_enabled": {"footer": "security"},
     "mfa_disabled": {"footer": "security"},
+    "mfa_app_changed": {"footer": "security"},
     "mfa_reset_by_admin": {"footer": "security"},
     "passkey_added": {"footer": "security"},
     "mfa_recovery_code_used": {"footer": "security"},

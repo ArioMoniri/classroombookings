@@ -151,6 +151,11 @@ _BY_KIND: dict[str, dict[str, dict[str, Any] | Any]] = {
         "tr": {"when": "18 Ekim 2026 09:12"},
         "en": {"when": "18 October 2026 09:12"},
     },
+    "mfa_app_changed": {
+        "*": {"cta_url": f"{BASE}/profile#security"},
+        "tr": {"when": "18 Ekim 2026 09:12"},
+        "en": {"when": "18 October 2026 09:12"},
+    },
     "mfa_reset_by_admin": {
         "*": {"actor": "Fatih Demir", "cta_url": f"{BASE}/profile#security"},
         "tr": {"when": "18 Ekim 2026 09:12"},

@@ -3306,7 +3306,8 @@
       "goal": "You are lane AS-S (adaptive scheduling, solver part), re-created after a container restart. Some of your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). For example `tests/solver/test_as_08_peak_smoothing.py` and the related code in `app/solver/`; che…",
       "ledger": "AS-S resume: adaptive solver",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 09:12"
     },
     {
       "id": "a064e936bede62296",
@@ -3426,6 +3427,14 @@
       "ledger": "E2E lane: run the queued browser checks",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a0508738010d2ad42",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:00",
+      "left_off": "is the pod deployed yet and whats the admin login"
     }
   ]
 }

@@ -222,7 +222,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "This invitation is for another sign-in method. Use the button in the invitation e-mail.",
     },
     "idp_mfa_required": {
-        "tr": "Kurumunuz bu rol için iki adımlı doğrulama istiyor. Kimlik sağlayıcınızda çok adımlı doğrulamayı açıp "
+        "tr": "Kurumunuz bu rol için iki aşamalı doğrulama istiyor. Kimlik sağlayıcınızda çok adımlı doğrulamayı açıp "
         "yeniden giriş yapın; sorun sürerse yöneticinize başvurun.",
         "en": "Your institution requires two-step verification for this role. Turn on multi-factor authentication at "
         "your identity provider and sign in again; if it keeps happening, contact your administrator.",
@@ -2213,7 +2213,7 @@ async def set_instructor(db: AsyncSession, actor: User, user_id: int, instructor
 async def user_status(db: AsyncSession) -> dict[str, dict[str, Any]]:
     """Per user (sign-in.md §13 columns): ``status`` (``linked`` | ``invited`` | ``invite_expired`` | ``binding`` |
     ``none``), ``auth_methods``, ``invite``, ``binding_pending``, ``self_signup_at``, ``break_glass``,
-    ``instructor_id``."""
+    ``instructor_id``, ``mfa_state`` / ``mfa_grace_until`` (AU-B, :func:`app.services.mfa.list_states`)."""
     now: datetime = utcnow()
     invites = {i.user_id: i for i in (await db.execute(select(SsoInvite))).scalars()}
     kinds_of = {p.name: p.kind for p in (await _provider_names(db)).values()}
@@ -2225,6 +2225,9 @@ async def user_status(db: AsyncSession) -> dict[str, dict[str, Any]]:
     glass = set((await db.execute(select(User.id).where(*_break_glass_filter()))).scalars())
     linked = await db.execute(select(Instructor.id, Instructor.user_id).where(Instructor.user_id.is_not(None)))
     instructors = {uid: iid for iid, uid in linked}
+    from app.services import mfa as mfa_svc  # AU-B (AUX-F ask): the Users list's 2FA tag and filter
+
+    mfa_states = await mfa_svc.list_states(db)
     out: dict[str, dict[str, Any]] = {}
     for u in (await db.execute(select(User).order_by(User.id))).scalars():
         inv, ident = invites.get(u.id), idents.get(u.id)
@@ -2264,6 +2267,8 @@ async def user_status(db: AsyncSession) -> dict[str, dict[str, Any]]:
             "break_glass": u.id in glass,
             "instructor_id": instructors.get(u.id),
             "providers": [i.provider for i in all_idents.get(u.id, [])],
+            "mfa_state": mfa_states.get(u.id, {}).get("mfa_state"),
+            "mfa_grace_until": mfa_states.get(u.id, {}).get("mfa_grace_until"),
         }
     return out
 

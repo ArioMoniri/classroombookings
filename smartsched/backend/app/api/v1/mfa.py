@@ -94,8 +94,10 @@ async def totp_start(body: PasswordIn, db: DB, user: CurrentUser, request: Reque
 
 @router.post("/mfa/totp/confirm")
 async def totp_confirm(body: CodeIn, db: DB, user: CurrentUser) -> dict[str, Any]:
+    """Finish enrolment, or a change of app (``changed: true``; the saved recovery codes stay, ``[]``)."""
+    changing = await mfa.totp_on(db, user)
     codes = await _run(db, mfa.totp_confirm(db, user, body.code))
-    return {"enabled": True, "recovery_codes": codes}
+    return {"enabled": True, "changed": changing, "recovery_codes": codes}
 
 
 @router.post("/mfa/disable")
@@ -297,13 +299,14 @@ async def sessions_revoke_others(db: DB, user: CurrentUser, request: Request) ->
 
 @admin_router.get("/auth/mfa-policy")
 async def policy_get(db: DB, _me: AuthAdmin) -> dict[str, Any]:
-    return (await mfa.get_policy(db)).out()
+    """The policy plus ``required_people`` / ``enrolled_people`` (the policy screen's counts)."""
+    return await mfa.policy_out(db)
 
 
 @admin_router.put("/auth/mfa-policy")
 async def policy_put(body: PolicyIn, db: DB, me: AuthAdmin) -> dict[str, Any]:
     policy = await _run(db, mfa.set_policy(db, me, body.model_dump(exclude_none=True)))
-    return policy.out()
+    return await mfa.policy_out(db, policy)
 
 
 async def _target(db: DB, me: User, user_id: int) -> User:

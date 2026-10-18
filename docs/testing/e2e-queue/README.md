@@ -109,3 +109,9 @@ On pass: tick VO-06/07/08 and VO-05.
 4. §16.4 add a passkey, rename it, use it as the second step. 5. §16.3 a recovery code works once.
 6. §16.7/8/9/12 (390 px) once A5/A6 are mounted; AUX-03 autofill + Conditional Create; motion-audit sign-in-security;
    MOBILE M-01/02/03/05 on /login, /login/verify, /profile#security.
+
+## AS-S (solver) — after AS-B's merges and AS-17
+1. Gracious stack: a profile with peak_smoothing > 0, run Bahar week 3: the run header shows the weight; placed count and hard score match the off run.
+2. A term with a published course run: a midterm exam request in lecture week 8 in a room a class holds → the exam lands elsewhere; the course run's data issues list `exam_overlap`.
+3. /exams with the Final term: the advisor panel shows the 3 June peak-day card and ranked moves; accepting one lowers the count on refresh (1440 + 390 touch).
+4. Planner: 5+ manual moves in a child run, then POST /learning/weights/propose → a draft "learned" profile in /admin/weeks that changes no run until activated.

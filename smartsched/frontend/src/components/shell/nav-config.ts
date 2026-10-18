@@ -3,6 +3,7 @@ import { ClipboardCheck, FolderPlus } from "lucide-react";
 import { GitCompareArrows, Grid3x3, UserCheck, Zap } from "lucide-react";
 import { Activity } from "lucide-react";
 import { Cpu } from "lucide-react";
+import { CalendarClock, TrendingUp } from "lucide-react";
 import { Plug } from "lucide-react";
 import { Library } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
@@ -51,7 +52,10 @@ export const NAV_GROUPS: NavGroup[] = [
       // planning analytics UI (analytics-ui-2026-10-16): scenario comparison, utilisation heatmaps, invigilators
       { href: "/runs/compare", labelKey: "compare.title", icon: GitCompareArrows, permission: "planning.view" },
       { href: "/analytics/heatmap", labelKey: "analytics.title", icon: Grid3x3, permission: "planning.view" },
+      // AS-16 / AS-17 (as-f-2026-10-18): demand forecast + what-if, and the exam load advisor
+      { href: "/analytics/forecast", labelKey: "adaptive.forecast.title", icon: TrendingUp, permission: "planning.view" },
       { href: "/exams/invigilation", labelKey: "invigilation.title", icon: UserCheck, permission: "planning.view" },
+      { href: "/exams/advisor", labelKey: "adaptive.exams.title", icon: CalendarClock, permission: "planning.view" },
     ],
   },
   {

@@ -2789,9 +2789,10 @@ Lanes: **AS-S** (solver), **AS-B** (backend), **AS-F** (frontend), **AS-T** (tes
   accept: pytest `test_as_07_*`: **B3** Güz weeks 1–2 per-building WAPE ≤ 15 % from the Bahar shape × Güz request level, 80 % coverage reported; every cell carries method / basis / confidence / needs (TR/EN); an empty install gives `none`; deterministic output (same input, same JSON).
   files: new `backend/app/services/forecast.py`, `backend/app/services/backtest.py`, `backend/app/api/v1/analytics.py` (append), `backend/tests/test_as_07_*.py`.
   done (services/forecast.py: requests method (deduped fixed-time needs per building x weekday x period x tag x capacity band), seasonal_naive from the same season's published term (ratio 1 labelled, < 10 weeks low with the campus range), damped_level only with >= 3 points; GET /analytics/forecast/demand; B3 WAPE 5.3 % (weeks 3.2 / 7.5 %), 80 % coverage 25 % reported (one year of history); tests test_as_07_forecast (5); as-b-2026-10-17)
-- [ ] AS-08 · AS-S · no migration · `peak_smoothing` soft constraint: one penalty per room-period above the threshold in a (day, period, group) cell, counted only over events with a flexible day or start (fixed times never move); weight from the profile, `DEFAULT_WEIGHTS["peak_smoothing"] = 0` (off); evaluate.py + greedy/repair paths score it the same way; registered in the constraint catalogue with TR/EN text.
+- [x] AS-08 · AS-S · no migration · `peak_smoothing` soft constraint: one penalty per room-period above the threshold in a (day, period, group) cell, counted only over events with a flexible day or start (fixed times never move); weight from the profile, `DEFAULT_WEIGHTS["peak_smoothing"] = 0` (off); evaluate.py + greedy/repair paths score it the same way; registered in the constraint catalogue with TR/EN text.
   accept: pytest `test_as_08_*`: a toy instance moves a flexible event out of a full cell; **B8** on the Bahar flexible-day subset with weight > 0: hard score and placed count unchanged, load above the threshold ≤ the off run; weight 0 gives a byte-identical result to today; solver suites green.
   files: new `backend/app/solver/constraints/peak_smoothing.py`, `backend/app/solver/constraints/__init__.py` (register), `backend/app/solver/weights.py` (one key), `backend/app/solver/evaluate.py` (if a hook is needed), `backend/tests/test_as_08_*.py`. Integrity guards untouched.
+  done (constraints/peak_smoothing.py: soft only, flexible events only, excess = max(0, min(flex, flex + fixed − allowance)) per (day, period, group) cell and week, groups * / tag / building / room, cells list; weight 0 default = not in the model (byte-identical); evaluate, repair.score and greedy GreedyPeaks agree; catalogue TR/EN; B8 (services/backtest_solver.py, Bahar week 3 Mon–Tue flexible-day subset, weight 10): hard 100 both, 294/294 placed, 0 lost, 0 fixed moved, load above threshold 9 → 5 (full week 3: 25 → 12, 685/685, 400 s/solve); tests tests/solver/test_as_08_peak_smoothing.py 10, tests/test_as_08_backtest.py 1, tests/solver 179 passed; ruff + mypy clean; as-s-2026-10-18)
 - [x] AS-09 · AS-B · no migration · Planner warnings: data issues `peak_pressure` (fixed-time requests alone need > X % of the suitable rooms in a peak cell: "Çarşamba 4. ders: bilgisayar laboratuvarı isteyen 6 ders, uygun 4 oda") and `exam_load` (seats per slot > exam_capacity × threshold; cohort with > 2 exams on a day), TR/EN, with the requests listed.
   accept: pytest `test_as_09_*` on Bahar and Final fixtures: at least one `peak_pressure` for a PC-lab cell if the data has one (assert the computation, not a fixed count); Final 2026 flags Wed 3 June; `precheck.py` is unchanged.
   files: `backend/app/services/data_issues.py`, `backend/app/services/peaks.py`, `backend/tests/test_as_09_*.py`.
@@ -2807,6 +2808,8 @@ Lanes: **AS-S** (solver), **AS-B** (backend), **AS-F** (frontend), **AS-T** (tes
 - [ ] AS-12 · AS-B + AS-S · no migration · Exams vs the class plan + date advisor: exam runs read the published COURSE assignments of the same term on the exam dates as blocks (midterms / early finals can no longer take a held room; reverse warning on the course side); advisor cards (cohort > 2 / day, back-to-back for a cohort or an instructor, large exams in the last 2 days, seat peak per slot) with ranked date or slot moves and the conflict delta; nothing is changed automatically.
   accept: pytest `test_as_12_*`: an exam dated in lecture week 8 avoids the room a class holds then; **B6** Final 2026: accepting the top-N advisor moves (applied in the test only) brings the peak day from 126 to ≤ 100 exams with no new cohort conflicts; existing exam tests (`test_api_exam_share.py`, `test_import_exam_list.py`) green.
   files: `backend/app/services/solver_bridge.py` (exam branch: course blocks), new `backend/app/services/exam_advisor.py`, `backend/app/api/v1/analytics.py` or `backend/app/api/v1/runs.py` (append one route), `backend/tests/test_as_12_*.py`.
+  part done (solver lane: services/exam_class_plan.py course_blocks (published COURSE run of the same term on exam (week, weekday) in teaching weeks → solver blocks, stats class_plan; FINAL terms and EXAM/MAKEUP/HOLIDAY weeks untouched) + exam_overlaps (course-side reverse warning, TR/EN); services/exam_advisor.py (cards peak_day / cohort_day / clash / back_to_back / front_load / seats, greedy ranked date or slot moves with conflict delta, never a new cohort-day excess or clash, advice only, deterministic); B6 Final 2026: peak Wed 3 June 126 → 100 after the top 89 of 125 moves (all 125: 85), new cohort conflicts 0, cohort days > 2: 21 → 0, clashes 104 → 0; tests test_as_12_exam_advisor 8, test_as_12_class_plan 5 (2 wait for the bridge line); as-s-2026-10-18)
+  open: AS-B merges the one bridge line (exam branch after booking_blocks), the data_issues group exam_overlap and GET /analytics/forecast/exams/advice (asks in the AS-B status file); AS-17 advisor panel
 - [x] AS-13 · AS-B · **migration (shared `00xx_adaptive`)** · Learning versions + nightly refresh + calibration: `learning_versions` (term, counts, checksum, diff vs previous) and `learned_prior_snapshots` (version → compact JSON); "Bu sürüme dön" restores a snapshot (accepted rules untouched); nightly extract + recompute for the active term (03:15 Istanbul, beside the purge job, setting `learning.nightly_refresh` default on); Beta posterior per suggestion class → draft "öğrenme ayarı" proposals (MIN_CONFIDENCE per class, display order), applied only by an admin; implement the planning-audit extractor (TODO `learning_extract.py:573`).
   accept: pytest `test_as_13_*`: two refreshes give 2 versions with a correct diff; revert restores the prior set byte-for-byte; **B4** priors from Bahar only → building suggestions vs Güz definitive buildings precision ≥ 0.8 and 0 cross-season room or tag suggestions; audit-based moves are not double-counted with the parent-run comparison; L5/L6 and `test_p19_learning*` green.
   files: `backend/app/models/learning.py`, `backend/app/services/learning.py`, `backend/app/services/learning_extract.py`, `backend/app/api/v1/learning.py`, `backend/app/main.py` (one lifespan line), migration `00xx_adaptive`, `backend/tests/test_as_13_*.py`.
@@ -2814,6 +2817,8 @@ Lanes: **AS-S** (solver), **AS-B** (backend), **AS-F** (frontend), **AS-T** (tes
 - [ ] AS-14 · AS-B + AS-S · no migration · Weight learning from edits (inverse-optimisation lite): for each manual move or lock vs its parent run, score both plans with `solver/evaluate.py`, record ΔΦ per soft term, count agreements per term pair and propose a draft season-profile version ("12 düzenlemenin 10'unda bina tercihi oda israfından önce geldi: building_preference 5 → 8") with the evidence (run ids, counts, no names); never applied without an admin.
   accept: pytest `test_as_14_*`: **B9** synthetic edits generated with known weights → Kendall τ ≥ 0.8 of the recovered ratios; fewer than 5 edits → no proposal (`needs`); the draft appears in `/seasons/profiles` with status draft.
   files: new `backend/app/services/weight_learning.py`, `backend/app/services/seasons.py`, `backend/tests/test_as_14_*.py`.
+  part done (solver lane: services/weight_learning.py: ΔΦ per soft term in units via evaluate (all on-terms at weight 1) for each MANUAL / AI_EDIT move vs the parent run (locks carry no trade), agreements per term pair, Chebyshev-centre LP for the ratios and a minimal-L1-change LP (w·ΔΦ ≤ −1) for the proposal (GLOP, deterministic), draft season-profile version origin learned with TR/EN explanation and evidence (run ids, counts, no names), an existing learned draft is refreshed in place, < 5 edits → needs; B9 synthetic edits with known weights 12/7/3/1: recovered 12.2/7.6/3.3/1, Kendall τ ratios 1.0 (seeds 0–5: ≥ 0.867), proposal building_preference 5 → 7, day_window 5 → 2 explains 60/60 edits vs 51/60 today; tests test_as_14_weight_learning 8; as-s-2026-10-18)
+  open: AS-B route POST /learning/weights/propose (ask in the AS-B status file); AS-17 surface
 - [ ] AS-15 · AS-F · no migration · ⚠ (messages; `/admin/weeks` is not owned by a running lane) Season calendar and profiles UI in `/admin/weeks`: period segments per term, profile list with versions, a weights diff vs standard, approve / activate / revert (confirm, focus to the next row), draft badges with explanation and evidence; Turkish first.
   accept: vitest `components/seasons/*.test.tsx`; Playwright `e2e/as-seasons.spec.ts` at 1440 and 390 touch (tr-TR, Europe/Istanbul): create draft → activate → revert; MOBILE M-01/02/03/05 on /admin/weeks; tsc, eslint, check-design clean.
   files: new `frontend/src/components/seasons/**`, `frontend/src/app/(app)/admin/weeks/page.tsx` (mount), new `frontend/src/lib/api/seasons.ts`, `frontend/messages/{tr,en}.json` (namespace `seasons.*` only), `frontend/playwright.config.ts` (append testMatch).
@@ -3263,7 +3268,7 @@ Ranked tickets:
   - red-team RA-01, 03, 04, 05, 06, 11 (research §7.2) pass offline.
   files: `backend/app/helper/actions/{bookings,approvals,undo}.py`, `backend/app/helper/confirm.py`, `backend/app/api/v1/helper.py` (confirm/undo routes), tests.
   done (5 writes in actions/writes.py; confirm.py: HMAC token, once-only nonce claim, preview hash re-check (409 changed + new card), audit helper.action.<name> / helper.confirm_rejected, undo through bookings_undo (24 h, before the start); own single bookings / cancels / withdrawals one tap R1, approver decides R2, no publish/invite write; test_hb_05_writes.py 6 + red team RA-01/03/04/05/06/11; API contract scratchpad/helper/API.md; hb-a-2026-10-18)
-- [ ] HB-06 · ai-engineer · no migration · **after the security follow-up and VO-01 (same lines in `context.py`/`gateway.py`)** · Gateway feature `helper` and the turn loop.
+- [x] HB-06 · ai-engineer · no migration · **after the security follow-up and VO-01 (same lines in `context.py`/`gateway.py`)** · Gateway feature `helper` and the turn loop.
   - Registration:
     - `FEATURES`/`FEATURE_LABELS` ("Yardımcı"/"Helper");
     - `DEFAULT_CAPS["helper"] = {max_tokens: 4000, max_tool_rounds: 4, timeout_s: 60}`;
@@ -3284,6 +3289,7 @@ Ranked tickets:
   - every SSE `card` validates against `/helper/schema`;
   - one `ai_usage` row per model call with feature `helper`.
   files: `backend/app/ai/context.py`, `backend/app/ai/gateway.py` (`DEFAULT_CAPS`, `PERSONAL_FEATURES`), `backend/app/ai/guardrails.py` (`MAX_INPUT_CHARS` only), new `backend/app/helper/{turn,cards}.py`, `backend/app/ai/prompts/helper.md`, `backend/app/api/v1/helper.py`, tests.
+  done (gateway feature `helper` (FEATURES/labels Yardımcı·Helper, DEFAULT_CAPS 4000/4/60, PERSONAL_FEATURES, MAX_INPUT_CHARS 1000); turn loop `app/ai/helper_turn.py` + SSE `POST /helper/turn` (`app/api/v1/helper_turn.py`, mounted): helper guard → index mode with 0 model calls → ai_scope('helper') loop ≤ 4 rounds, ≤ 10 strict tools, results spotlighted, taint drops writes, confirm card ends the turn, grounded answer card; fallback to index mode on 422/429/409/502/timeout/no key; prompt `app/ai/prompts/helper.md`; tests/ai/test_hb_06_turn.py 14 passed; audit row POST /helper/turn; hb-b-2026-10-18)
 - [x] HB-07 · ai-engineer · no migration · **can start now; align with `docs/design/v3/helper.md` when it lands** · Card contract `helper.card.v1`: pydantic union `answer`/`nav`/`list`/`facts`/`form`/`confirm`/`result`/`limit`/`refusal`/`error` (research §5.3), `GET /helper/schema` (cards + action arg schemas), and form-field kinds derived from action `args`.
   accept:
   - snapshot test of the JSON Schema;
@@ -3316,7 +3322,7 @@ Ranked tickets:
   - RA-12 passes.
   files: new `backend/app/helper/memory.py`, routes in `backend/app/api/v1/helper.py`, tests. Asks (KVKK owner): one `DATA_CLASSES` row and the purge registration in `backend/app/services/kvkk.py`.
   done (memory.py: notes only on Hatırla / Not ekle, 20 x 200, no person's name, 180 days since last use, threads 30 days, admin switch PUT /helper/admin/settings (audited ai.helper), the person's switch, withdrawal of ai_personal deletes notes (withdraw effect helper_notes_deleted), KVKK export rows {kind: note|thread|action} + erasure, prompt_notes for the turn loop; test_hb_09_memory.py 4; hb-a-2026-10-18)
-- [ ] HB-10 · backend · **migration (next head, after VO-02's `ai_usage` migration; after the security follow-up hands off `services/ai_usage.py`)** · Quota chain and multi-worker reservations.
+- [x] HB-10 · backend · **migration (next head, after VO-02's `ai_usage` migration; after the security follow-up hands off `services/ai_usage.py`)** · Quota chain and multi-worker reservations.
   - Columns: `ai_usage.department_id`, `ai_usage.faculty_id` (snapshot at record time; index `(created_at, faculty_id)`).
   - Table `ai_reservations`.
   - `ai.limits` gains `faculties` (with `managers`), `departments`, `features`, `unassigned`.
@@ -3332,7 +3338,8 @@ Ranked tickets:
   - the old `test_w3_ai_gateway.py` suite stays green;
   - the `guardrails.py:633` docstring is corrected.
   files: `backend/app/models/ai_usage.py`, `backend/app/services/ai_usage.py`, `backend/app/ai/gateway.py` (`DEFAULT_LIMITS`), `backend/app/ai/pipeline.py` (rate / concurrency calls), `backend/app/ai/guardrails.py` (limiter classes), `backend/app/api/v1/ai_admin.py` (`LimitsIn`; **after VO-04**), new `backend/alembic/versions/00NN_ai_quota_units.py`, tests.
-- [ ] HB-11 · backend · no migration · Faculty quota managers.
+  done (alembic 0046_ai_quota_units: ai_usage.department_id/faculty_id snapshot + ix (created_at, faculty_id/department_id), table ai_reservations; reserve order concurrency → org → feature → faculty/unassigned → department → role (role_id, then code) → user under pg_advisory_xact_lock + per-worker asyncio lock; per-minute limit and concurrency counted from the table; TR/EN refusals per scope; unit alerts to faculty managers + admins; PUT /ai/admin/limits takes faculties/departments/features/unassigned/strict (department sum ≤ faculty 422; faculty sum > org = warning, 422 with strict); guardrails RateLimiter docstring corrected; tests/ai/test_hb_10_quota_chain.py 20 passed incl. two engines on one real PostgreSQL 16 (fails ['ok','ok'] without the advisory lock), tests/test_hb_10_migration.py 3 passed (SQLite + PG round trip), old test_w3_ai_gateway.py green; hb-b-2026-10-18)
+- [x] HB-11 · backend · no migration · Faculty quota managers.
   - Permission `ai.usage_faculty` ("Fakültemin yapay zekâ kullanımını görme ve paylaştırma"), seeded by `ensure_permissions_and_roles`; it needs a `PERMISSION_TR` label.
   - Scope: `faculties[id].managers`, else the faculty of the manager's own department.
   - `GET /ai/faculty/usage` gives totals, by department, by feature and the trend; by person only with `show_people`.
@@ -3345,7 +3352,8 @@ Ranked tickets:
   - audit rows;
   - permission label in TR/EN.
   files: `backend/app/services/bookings_perms.py` (one permission row + TR label; ask the permissions owner if one is running), new `backend/app/api/v1/ai_faculty.py`, `backend/app/services/ai_usage.py` (report filter), tests. Frontend twin: HX "Fakülteler" sub-tab in `/admin/ai › Sınırlar`.
-- [ ] HB-12 · ai-engineer · no migration · **after the security follow-up and VO-01 (extends VO-01's `ModelInfo` capability fields)** · Capability detection on model sync and route validation.
+  done (permission ai.usage_faculty 'Fakültemin yapay zekâ kullanımını görme ve paylaştırma' (bookings_perms + deps.PERMISSION_TR, admin only by default); `app/api/v1/ai_faculty.py`: GET /ai/faculty/usage (totals, by department, by feature, daily trend; people only with show_people and tokens only; scope = faculties[id].managers else own department's faculty; admins any; cross-user reads in rls.system_scope with the faculty filter in SQL; RA-11 403), PUT /ai/faculty/allocations (programmes of that faculty only, sum ≤ faculty allocation, audited ai.faculty_allocation); tests/ai/test_hb_11_faculty.py 7 passed; hb-b-2026-10-18)
+- [x] HB-12 · ai-engineer · no migration · **after the security follow-up and VO-01 (extends VO-01's `ModelInfo` capability fields)** · Capability detection on model sync and route validation.
   - `ModelInfo.capabilities` {tools, tool_choice, strict_tools, json_schema, vision, pdf, context_window, parallel_tools, source, checked_at}.
   - Sync sniffs the server type through `url_guard`: Ollama `/api/show`, vLLM `/v1/models` `max_model_len`, LM Studio `/api/v0/models`, llama.cpp `/props`, OpenRouter `supported_parameters`.
   - `test?probe=true` runs a forced-tool, a json_schema and a 32×32 image probe (< 1000 tokens, metered `test`).
@@ -3357,7 +3365,8 @@ Ranked tickets:
   - the probe results stored;
   - no request to a blocked address during sniffing.
   files: `backend/app/ai/providers/base.py`, `backend/app/ai/providers/openai_compat.py` (`list_models`, new `probe`), `backend/app/ai/gateway.py` (`validate_route`), `backend/app/api/v1/ai_admin.py` (sync/test; **after VO-04**), tests.
-- [ ] HB-13 · ai-engineer · no migration · **after the security follow-up; the `ingest.py` part after intake lane C** · Local-model degrade fixes.
+  done (capabilities sync/sniff/probe/override (earlier slice); audit DECISIONS row for PUT /ai/admin/providers/{provider}/capabilities; tests/ai/test_hb_12_capabilities.py formatted, 13 passed; hb-b-2026-10-18)
+- [x] HB-13 · ai-engineer · no migration · **after the security follow-up; the `ingest.py` part after intake lane C** · Local-model degrade fixes.
   - Forced tool choice for single-tool features (`client.py`: `force_tool=` → Anthropic `{"type":"tool"}` / OpenAI named function).
   - JSON-schema emulation when `tool_choice` is false or unknown (wrap the result into a `tool_use` block).
   - Invalid tool JSON becomes an `INVALID_JSON` tool result instead of a whole-call `ProviderError` (`providers/base.py:543-552`).
@@ -3371,6 +3380,7 @@ Ranked tickets:
   - a name resolving private does not;
   - existing provider tests stay green.
   files: `backend/app/ai/client.py`, `backend/app/ai/providers/openai_compat.py`, `backend/app/ai/providers/base.py`, `backend/app/ai/elicit.py` (pass `force_tool`), `backend/app/council/llm.py` (`call_tool` `force_tool`), `backend/app/ai/ingest.py` (rasterise branch, `:441-500`), `backend/app/ai/gateway.py` (`transfer_ok`), tests.
+  done (AIClient.complete/stream_complete `force_tool` (elicit + council call_tool pass it): Claude → auto (Opus 5.5/Sonnet 5.5/Fable 5.1 400 on forced choice), OpenAI-compatible → named function or JSON-schema emulation + one emulated retry; broken tool JSON → `_invalid` → INVALID_JSON tool result; scanned PDFs rasterised to PNG pages for local VLMs; pipeline clamps max_tokens to the context window and refuses `context_too_small` / `model_lacks_capability` before sending (fallback skipped when it cannot take the call); is_local_url by resolved addresses; tests/ai/test_hb_13_local_models.py 15 passed, test_w3_ai_providers bad-JSON case updated to the new contract; hb-b-2026-10-18)
 - [ ] HB-14 · ai-engineer · no migration (tables from HB-04) · Telemetry and feedback.
   - `helper_events` writer; `POST /helper/feedback` {turn_id, thumb, note ≤ 300}.
   - Prometheus `smartsched_helper_turns{mode,outcome}`, `smartsched_helper_actions{action,stage,outcome}`, `smartsched_helper_latency_seconds{mode}` (no user label).
@@ -3725,7 +3735,7 @@ passkeys and the stack's SMTP sink catches mail.
   - axe clean;
   - at 390 the slots are ≥ 44 px and the text ≥ 16 px.
   files: new `frontend/src/components/auth/{otp-input,recovery-code-field}.tsx` + tests; ask: `ui/field-styles.ts`.
-  part done (auth/otp-input.tsx on input-otp 1.5.0, recovery-code-field.tsx; vitest paste/one-textbox/keys; SOURCES row); open: ask ui owner `:autofill` rule in ui/field-styles.ts; 390 px check on the stack; aux-f-2026-10-18
+  part done (auth/otp-input.tsx on input-otp 1.5.0, recovery-code-field.tsx; vitest paste/one-textbox/keys; SOURCES row); `:autofill` rule added to ui/field-styles.ts; open: 390 px check on the stack; aux-f-2026-10-18
 - [ ] AUX-03 · frontend · no migration · Sign-in page: passkeys in door 2 (auth.md §4.1–§4.3, §4.6).
   - When `/org/public` says `passkeys_enabled && passkey_first_factor` (ask A1e):
     - the identifier gets `autocomplete="username webauthn"`;
@@ -3776,7 +3786,7 @@ passkeys and the stack's SMTP sink catches mail.
   accept: vitest — the repeat field is gone; errors are linked with `aria-describedby`; the expired-link copy shows;
   after success the person lands on the enrolment notice when the policy requires 2FA.
   files: new `frontend/src/components/auth/set-password-form.tsx` + tests; asks: `identity/local-invite-accept.tsx` (W3-IDP), `admin/reset-password.tsx` (owner).
-  part done (set-password-form.tsx, reset / invite through the route handler with a session; change-password-form uses password_min_length 12 / 8; vitest); open: asks W3-IDP (local-invite-accept delegates) and admin/reset-password owner; aux-f-2026-10-18
+  part done (set-password-form.tsx, reset / invite through the route handler with a session; change-password-form uses password_min_length 12 / 8; vitest); local-invite-accept.tsx delegates to SetPasswordForm, profile PasswordForm on password_min_length; open: admin/reset-password owner; aux-f-2026-10-18
 - [ ] AUX-06 · frontend · no migration · Profil › Giriş ve güvenlik: section, re-auth, 2FA setup (auth.md §6.1–§6.3, §6.7, §6.8).
   - `SecuritySection` (`id="security"`):
     - rows Parola (moves `PasswordForm` in), İki aşamalı doğrulama, Geçiş anahtarları, Oturumlar / Hatırlanan
@@ -3841,7 +3851,7 @@ passkeys and the stack's SMTP sink catches mail.
   - a link to a user without e-mail offers the code;
   - phones act from the edit sheet (bottom-sheet dialogs, 44 px targets).
   files: new `frontend/src/components/admin/users-security.tsx` + tests; ask admin users owner: mounts in `admin/users-admin.tsx` and `admin/users-admin-identity.tsx`, the method-tag line in `users-admin-identity-model.ts`.
-  part done (components/admin/users-security.tsx: useUserSecurity → menuItems / block / dialogs, MfaMethodTag, MfaFilterSelect, reset and link dialogs with every refusal, 'Oturumları sonlandır' (AU-15) with a confirm; users-security.test.tsx 10 tests); open: ask A5 mount in users-admin.tsx + edit sheet; ask AU-B per-user mfa_state / mfa_grace_until in the users status map for the tag and filter; aux-f-2026-10-18
+  part done (components/admin/users-security.tsx: useUserSecurity → menuItems / block / dialogs, MfaMethodTag, MfaFilterSelect, reset and link dialogs with every refusal, 'Oturumları sonlandır' (AU-15) with a confirm; users-security.test.tsx 10 tests); mounted in users-admin.tsx (row menu, edit dialog, dialogs; old reset-code item replaced; aux-f-mounts.test.tsx); open: ask AU-B per-user mfa_state / mfa_grace_until in the users status map for the tag and filter; aux-f-2026-10-18
 - [ ] AUX-09 · motion · no migration · Free transitions.dev recipes and motion rows (auth.md §11.1–§11.2).
   - Add the free "Text states swap", "Icon swap", "Success check" (retimed to 240 ms, y 8 px, blur 4 px) and "Page
     side-by-side" (220 ms, blur 0) with `npx transitions-dev add <name>`, **free only**. Keep the
@@ -3900,7 +3910,7 @@ passkeys and the stack's SMTP sink catches mail.
   - the save bar is sticky above the tab bar on phones (M-05);
   - the role chips wrap and are 44 px.
   files: new `frontend/src/components/settings/signin-security.tsx` + tests; ask: `components/settings/settings-view.tsx` (one tab entry).
-  part done (components/settings/signin-security.tsx: segmented policy, role chips + Tüm roller, grace, live sentence, passkeys + nested passwordless, Gelişmiş remember 0/7/30, SSO note, self banner, Zorunlu / Kapalı confirms, phone save capsule; signin-security.test.tsx 7 tests incl. the AU-16 IdpMfaSwitch); open: ask A6 tab entry in settings-view.tsx; ask AU-B counts for the live sentence; e2e §16.9 at 390; aux-f-2026-10-18
+  part done (components/settings/signin-security.tsx: segmented policy, role chips + Tüm roller, grace, live sentence, passkeys + nested passwordless, Gelişmiş remember 0/7/30, SSO note, self banner, Zorunlu / Kapalı confirms, phone save capsule; signin-security.test.tsx 7 tests incl. the AU-16 IdpMfaSwitch); tab signin-security mounted in settings-view.tsx; open: ask AU-B counts for the live sentence; e2e §16.9 at 390; aux-f-2026-10-18
 - [ ] AUX-12 · tester · Persona runs of auth.md §16 (checks 1–13) on an own stack (`REC_TEACHER=1 REC_LANG=tr`).
   - Run at 1440 mouse and 390 touch.
   - Chromium virtual authenticator for passkeys; the SMTP sink for the six (later nine) security e-mails.

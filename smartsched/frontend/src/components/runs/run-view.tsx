@@ -36,6 +36,7 @@ import { CancelRunButton } from "./cancel-run";
 import { MissingWeeks } from "./missing-weeks";
 import { BaselineRunCard } from "./baseline-card";
 import { RunPolicyLine } from "./relaxation";
+import { RunProfileLine } from "./run-profile";
 import { ResolveRunButton } from "./resolve-run";
 import { isBaselineRun } from "@/lib/api/council";
 import { PublishRunButton } from "./publish-run";
@@ -366,6 +367,7 @@ export function RunView({ id }: { id: number }) {
                 ) : null}
                 <MissingWeeks runId={r.id} stats={r.stats_detail ?? r.stats} />
                 <RunPolicyLine r={r} />
+                <RunProfileLine r={r} />
                 {canPlan && finished && PUBLISHABLE.has(r.status) ? (
                   // round-1 R1-S-06: ERROR / FAILED / INFEASIBLE runs have nothing to publish
                   // phones: the same button becomes a capsule above the tab bar (MOBILE.md M-05; round-1 R1-S-16: "Yayınla"

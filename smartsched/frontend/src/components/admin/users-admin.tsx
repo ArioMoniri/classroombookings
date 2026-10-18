@@ -8,10 +8,10 @@
  * "dot + word" and sign-in method columns, "Kendi kaydı" filter, "Sonraki Microsoft girişinde bağla", the
  * break-glass warning, the edit dialog's identities section and the instructor link.
  */
-import { Copy, KeyRound, Mail, MoreHorizontal, Pencil, ShieldQuestion, Trash2, Upload, UserPlus } from "lucide-react";
+import { Copy, Mail, MoreHorizontal, Pencil, ShieldQuestion, Trash2, Upload, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
@@ -47,6 +47,7 @@ import { canManageAccount, isPrivilegedRole, roleGrantCheck, usePermissions } fr
 import { useAuthProviders, useInvites, useUserIdentityStatus, type Invite, type UserIdentityStatus } from "@/lib/api/identity";
 import { BindDialog, BreakGlassWarning, IdentitiesSection, IdentityMenuItems, IdentityStatusCell, IdentityTags, InviteSheet, MethodCell, RevokeDialog } from "./users-admin-identity";
 import { breakGlassMissing, identityQuery, invitesByUser, methodView, statusView, type IdentityFilter, type MethodFilter } from "./users-admin-identity-model";
+import { matchesMfaFilter, MfaFilterSelect, MfaMethodTag, mfaListState, securityAccount, useUserSecurity, type MfaFilter, type SecurityUser } from "./users-security";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { permissionList, roleLabel } from "@/lib/i18n/roles";
@@ -140,6 +141,25 @@ export function UsersAdmin() {
   const manageable = (u: AdminUser) => canManageAccount(perms, userId, { id: u.id, role: u.role, role_permissions: roles.data?.find((r) => r.id === u.role_id)?.permissions });
   const fmt = useBookingFormat();
   const dt = (iso: string | null | undefined) => fmt.dateTime(iso) || "—";
+  // AUX-08 (auth.md §7): the "Giriş" menu group, the edit sheet's "Giriş ve güvenlik" block and their dialogs;
+  // "Sıfırlama kodunu ekranda göster" is the old one-time reset code
+  const showCode = (id: number) => {
+    const u = visible.find((x) => x.id === id) ?? (editing && editing !== "new" && editing.id === id ? editing : null);
+    if (u) reset.mutate(u, { onSuccess: (tok) => setToken({ user: u, token: tok }), onError: toastError });
+  };
+  const security = useUserSecurity({ meId: userId, onShowCode: showCode });
+  const mfaGrace = (u: AdminUser) => {
+    const v = (statusOf(u) as { mfa_grace_until?: unknown } | undefined)?.mfa_grace_until;
+    return typeof v === "string" ? v : null;
+  };
+  const secUser = (u: AdminUser): SecurityUser => {
+    const m = methodView(statusOf(u), u.auth_source);
+    return { id: u.id, name: u.displayname || u.full_name || u.username || u.email || "", email: u.email, account: securityAccount(m), providerName: m === "microsoft" || m === "microsoftInvite" ? "Microsoft" : null, mfa: mfaListState(statusOf(u)), role: u.role, lastLoginAt: u.last_login_at };
+  };
+  // the 2FA filter appears once the status map carries mfa_state (AU-B); it narrows the loaded page
+  const [mfaFilter, setMfaFilter] = useState<MfaFilter>("");
+  const mfaKnown = usersAdmin && Object.values(idStatus.data ?? {}).some((x) => mfaListState(x) !== null);
+  const rows = mfaKnown ? visible.filter((u) => matchesMfaFilter(mfaListState(statusOf(u)), mfaFilter)) : visible;
 
   return (
     <div className="flex flex-col gap-5">
@@ -262,6 +282,7 @@ export function UsersAdmin() {
                 <option value="ldap">{t("sso.users.method.ldap")}</option>
                 <option value="binding">{t("sso.users.status.binding")}</option>
               </SelectField>
+              {mfaKnown ? <MfaFilterSelect value={mfaFilter} onChange={(v) => setMfaFilter(v)} className="min-w-44" /> : null}
             </div>
           ) : null}
         </>
@@ -326,6 +347,7 @@ export function UsersAdmin() {
                   <option value="ldap">{t("sso.users.method.ldap")}</option>
                   <option value="binding">{t("sso.users.status.binding")}</option>
                 </SelectField>
+              {mfaKnown ? <MfaFilterSelect value={mfaFilter} onChange={(v) => setMfaFilter(v)} className="min-w-44" /> : null}
               </div>
             ) : null}
           </div>
@@ -359,7 +381,7 @@ export function UsersAdmin() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visible.map((u) => (
+              {rows.map((u) => (
                 <TableRow key={u.id} data-username={u.username ?? u.email ?? ""}>
                   <TableCell className="pl-4 whitespace-normal [overflow-wrap:anywhere]">
                     <span className="block font-medium text-label-1">
@@ -404,6 +426,7 @@ export function UsersAdmin() {
                   {usersAdmin && idStatus.data ? (
                     <TableCell className="hidden lg:table-cell">
                       <MethodCell m={methodView(statusOf(u), u.auth_source)} />
+                      <MfaMethodTag state={mfaListState(statusOf(u))} graceUntil={mfaGrace(u)} />
                     </TableCell>
                   ) : null}
                   {usersAdmin && idStatus.data ? (
@@ -424,24 +447,13 @@ export function UsersAdmin() {
                           <Pencil aria-hidden />
                           {t("crbs.common.edit")}
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={!manageable(u)}
-                          onClick={() =>
-                            reset.mutate(u, {
-                              onSuccess: (tok) => setToken({ user: u, token: tok }),
-                              onError: toastError,
-                            })
-                          }
-                        >
-                          <KeyRound aria-hidden />
-                          {t("crbs.users.resetCode")}
-                        </DropdownMenuItem>
                         {/* CRBS users_add_side: the access checker for this person (UI gap audit #15) */}
                         <DropdownMenuItem onClick={() => router.push(`/admin/access?user=${u.id}`)} data-testid={`user-check-access-${u.id}`}>
                           <ShieldQuestion aria-hidden />
                           {t("admingaps.access.check")}
                         </DropdownMenuItem>
                         {usersAdmin ? <IdentityMenuItems user={u} s={statusOf(u)} invite={inviteOf.get(u.id)} canManage={manageable(u)} msEnabled={msEnabled} onBind={setBinding} onRevoke={(invite, kind) => setRevoking({ invite, kind })} /> : null}
+                        {usersAdmin && manageable(u) ? security.menuItems(secUser(u)) : null}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" disabled={!manageable(u)} onClick={() => setDeleting(u)}>
                           <Trash2 aria-hidden />
@@ -452,7 +464,7 @@ export function UsersAdmin() {
                   </TableCell>
                 </TableRow>
               ))}
-              {users.data && visible.length === 0 ? (
+              {users.data && rows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="px-4 py-6 text-label-2">
                     {t("crbs.users.none")}
@@ -481,8 +493,9 @@ export function UsersAdmin() {
         user={editing}
         onClose={() => setEditing(null)}
         canListRoles={can("setup.roles")}
-        identityFor={(u) => (usersAdmin ? { s: statusOf(u), invite: inviteOf.get(u.id), msEnabled, onBind: () => (setEditing(null), setBinding(u)) } : null)}
+        identityFor={(u) => (usersAdmin ? { s: statusOf(u), invite: inviteOf.get(u.id), msEnabled, onBind: () => (setEditing(null), setBinding(u)), security: manageable(u) ? security.block(secUser(u)) : null } : null)}
       />
+      {security.dialogs}
       <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} auth={auth} canListRoles={can("setup.roles")} />
       <BindDialog key={binding?.id ?? "none"} user={binding} privileged={!!binding && privileged(binding)} onClose={() => setBinding(null)} />
       <RevokeDialog value={revoking} onClose={() => setRevoking(null)} />
@@ -558,7 +571,7 @@ function roleBody(v: string): Pick<UserIn, "role_id"> & { role?: string } {
   return {};
 }
 
-type IdentityProps = { s: UserIdentityStatus | undefined; invite: Invite | undefined; msEnabled: boolean; onBind: () => void } | null;
+type IdentityProps = { s: UserIdentityStatus | undefined; invite: Invite | undefined; msEnabled: boolean; onBind: () => void; security?: ReactNode } | null;
 
 function UserDialog({ user, onClose, canListRoles, identityFor }: { user: AdminUser | "new" | null; onClose: () => void; canListRoles: boolean; identityFor: (u: AdminUser) => IdentityProps }) {
   return (
@@ -719,6 +732,7 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
           </details>
         ) : null}
         {user && identity ? <IdentitiesSection user={user} s={identity.s} invite={identity.invite} msEnabled={identity.msEnabled} onBind={identity.onBind} /> : null}
+        {user && identity?.security ? <div className="hairline-t pt-4">{identity.security}</div> : null}
         {user ? <ConstraintsEditor userId={user.id} /> : null}
         {user ? (
           <Link href={`/admin/access?user=${user.id}`} className="inline-flex items-center gap-1.5 self-start type-callout text-tint-text outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="user-form-check-access">

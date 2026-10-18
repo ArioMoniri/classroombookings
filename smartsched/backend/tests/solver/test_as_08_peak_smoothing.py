@@ -15,7 +15,7 @@ from app.solver.model import Assignment, Constraint, SolverResult
 from app.solver.repair import score as repair_score
 from app.solver.scoring import evaluate
 from app.solver.weights import DEFAULT_WEIGHTS
-from ortools.sat.python import cp_model  # type: ignore[import-untyped]
+from ortools.sat.python import cp_model
 from tests.solver.conftest import assigned, event, make_input, room
 
 W = (1,)

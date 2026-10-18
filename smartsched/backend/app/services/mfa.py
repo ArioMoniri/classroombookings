@@ -12,7 +12,7 @@
   bearer token.
 * **Lockout**: 5 consecutive second-factor failures lock the factor for 15 minutes, doubling each further 5 (cap 24 h).
 * **Audit** (``auth.mfa_*``, ``auth.passkey_*``, ``auth.trusted_device_*``, ``auth.reset_link_by_admin``) and the
-  security e-mails (``mail.send_kind``: mfa_enabled, mfa_disabled, mfa_reset_by_admin, passkey_added,
+  security e-mails (``mail.send_kind``: mfa_enabled, mfa_disabled, mfa_app_changed, mfa_reset_by_admin, passkey_added,
   mfa_recovery_code_used, password_reset_link_by_admin). Nothing here ever returns a secret to an administrator.
 
 The routes are in ``app/api/v1/mfa.py``; ``app/api/v1/auth.py`` calls :func:`after_password`.
@@ -109,7 +109,7 @@ def _sso() -> MfaError:
     return MfaError(
         409,
         "sso_account",
-        "Bu hesap kurum kimlik sağlayıcısıyla giriş yapıyor; iki adımlı doğrulama orada yönetilir.",
+        "Bu hesap kurum kimlik sağlayıcısıyla giriş yapıyor; iki aşamalı doğrulama orada yönetilir.",
         "This account signs in with the institution's identity provider; two-step verification is managed there.",
     )
 
@@ -201,6 +201,67 @@ async def set_policy(db: AsyncSession, actor: User, body: dict[str, Any]) -> Pol
                 db, after, set() if before.mfa_policy != "required_for_roles" else set(before.mfa_roles)
             )
     return after
+
+
+async def list_states(db: AsyncSession, policy: Policy | None = None) -> dict[int, dict[str, Any]]:
+    """Every account's 2FA state for the Users list (AUX-F ask; a handful of queries, no per-user round trip):
+
+    * ``mfa_state``: ``on`` (an authenticator app, or a passkey while passkeys are allowed), ``pending`` (the policy
+      requires it for the role and nothing is set up), ``off``; ``None`` for an account that signs in only through an
+      identity provider (its MFA is managed there: no tag);
+    * ``mfa_grace_until``: for ``pending``, the end of the grace period once it started (the first sign-in after the
+      policy covered the person), else ``None``.
+
+    ``covered`` and ``active`` feed the policy counts. Never a secret, a code or a key."""
+    from app.models import Role
+    from app.models.sso import UserIdentity
+
+    policy = policy or await get_policy(db)
+    async with rls.system_scope(db):
+        mfa_rows = {r.user_id: r for r in (await db.execute(select(UserMfa))).scalars()}
+        keyed = (
+            set((await db.execute(select(WebAuthnCredential.user_id).distinct())).scalars())
+            if policy.passkeys_enabled
+            else set()
+        )
+        linked = set((await db.execute(select(UserIdentity.user_id).distinct())).scalars())
+        codes = {rid: str(code or "") for rid, code in await db.execute(select(Role.id, Role.code))}
+        people = list((await db.execute(select(User).order_by(User.id))).scalars())
+    out: dict[int, dict[str, Any]] = {}
+    for u in people:
+        sso_only = u.auth_source != "ldap" and not u.password_hash and (u.auth_source == "oidc" or u.id in linked)
+        row = mfa_rows.get(u.id)
+        on = bool(row and row.totp_secret_enc) or u.id in keyed
+        role = codes.get(u.role_id, "") if u.role_id is not None else ""
+        covered = (
+            not sso_only
+            and policy.mfa_policy == "required_for_roles"
+            and ((role or str(u.role or "")) in policy.mfa_roles or u.role in policy.mfa_roles)
+        )
+        state: str | None = None if sso_only else ("on" if on else ("pending" if covered else "off"))
+        grace = None
+        if state == "pending" and row is not None and row.required_since is not None:
+            grace = row.required_since + timedelta(days=policy.mfa_grace_days)
+        out[u.id] = {
+            "mfa_state": state,
+            "mfa_grace_until": grace,
+            "covered": covered,
+            "active": bool(u.is_active),
+        }
+    return out
+
+
+async def policy_out(db: AsyncSession, policy: Policy | None = None) -> dict[str, Any]:
+    """The policy plus the policy screen's counts (AUX-F ask): ``required_people`` = active accounts the policy
+    requires 2FA of now (``required_for_roles`` and the role; identity-provider-only accounts never), and
+    ``enrolled_people`` = how many of them have a second factor. Both 0 unless the policy is ``required_for_roles``."""
+    policy = policy or await get_policy(db)
+    covered = [s for s in (await list_states(db, policy)).values() if s["covered"] and s["active"]]
+    return {
+        **policy.out(),
+        "required_people": len(covered),
+        "enrolled_people": sum(1 for s in covered if s["mfa_state"] == "on"),
+    }
 
 
 async def _announce_required(db: AsyncSession, policy: Policy, already: set[str]) -> int:
@@ -688,7 +749,7 @@ async def regenerate_recovery(db: AsyncSession, user: User, password: str | None
 
 
 def _not_enabled() -> MfaError:
-    return MfaError(409, "not_enabled", "İki adımlı doğrulama açık değil.", "Two-step verification is not turned on.")
+    return MfaError(409, "not_enabled", "İki aşamalı doğrulama açık değil.", "Two-step verification is not turned on.")
 
 
 # --------------------------------------------------------------------------------------------------
@@ -702,29 +763,33 @@ async def _enrolment_allowed(db: AsyncSession, user: User, policy: Policy) -> No
         raise MfaError(
             409,
             "mfa_off",
-            "Kurumunuz iki adımlı doğrulamayı kapattı.",
+            "Kurumunuz iki aşamalı doğrulamayı kapattı.",
             "Your institution has turned two-step verification off.",
         )
 
 
 async def totp_start(db: AsyncSession, user: User) -> dict[str, Any]:
-    """Begin authenticator-app enrolment (the caller re-authenticated): a new secret and its ``otpauth://`` URI."""
+    """Begin authenticator-app enrolment (the caller re-authenticated): a new secret and its ``otpauth://`` URI.
+
+    With an app already on this starts a change ("Uygulamayı değiştir", ``replacing: true``): the new secret waits as
+    the pending one and the old app keeps signing in until :func:`totp_confirm` gets a code from the new app; an
+    abandoned change simply expires after :data:`PENDING_TTL`."""
     from app.services.bookings_settings import get_value
 
     policy = await get_policy(db)
     await _enrolment_allowed(db, user, policy)
     row = await _row(db, user.id, create=True)
     assert row is not None
-    if row.totp_secret_enc:
-        raise MfaError(
-            409, "already_enabled", "Doğrulama uygulaması zaten açık.", "The authenticator app is already on."
-        )
+    replacing = bool(row.totp_secret_enc)
     secret = totp.new_secret()
     row.totp_pending_enc, row.totp_pending_at = encrypt_secret(secret), clock()
     issuer = str(await get_value(db, "org", "name") or "").strip() or "SmartSched"
     account = user.email or user.username or f"user-{user.id}"
-    await audit.record(db, "auth.mfa_enrolment_started", "user", user.id, actor=user)
+    await audit.record(
+        db, "auth.mfa_app_change_started" if replacing else "auth.mfa_enrolment_started", "user", user.id, actor=user
+    )
     return {
+        "replacing": replacing,
         "secret": secret,
         "otpauth_uri": totp.provisioning_uri(secret, account, issuer),
         "issuer": issuer,
@@ -736,8 +801,15 @@ async def totp_start(db: AsyncSession, user: User) -> dict[str, Any]:
     }
 
 
+async def totp_on(db: AsyncSession, user: User) -> bool:
+    row = await _row(db, user.id)
+    return bool(row and row.totp_secret_enc)
+
+
 async def totp_confirm(db: AsyncSession, user: User, code: str) -> list[str]:
-    """Finish enrolment with a code from the app: TOTP on, ten new recovery codes (returned once)."""
+    """Finish enrolment with a code from the app: TOTP on, ten new recovery codes (returned once). When an app was
+    already on (a change), the new one replaces it, the recovery codes and trusted devices stay (``[]`` is returned),
+    and the person gets ``mfa_app_changed`` instead of ``mfa_enabled``."""
     row = await _row(db, user.id)
     if (
         row is None
@@ -755,8 +827,13 @@ async def totp_confirm(db: AsyncSession, user: User, code: str) -> list[str]:
     step = totp.match(secret, code)
     if step is None:
         raise _invalid_code(422)
+    replacing = bool(row.totp_secret_enc)
     row.totp_secret_enc, row.totp_enabled_at, row.totp_last_step = row.totp_pending_enc, clock(), step
     row.totp_pending_enc = row.totp_pending_at = None
+    if replacing:
+        await audit.record(db, "auth.mfa_app_changed", "user", user.id, after={"method": "totp"}, actor=user)
+        await _mail(db, user, "mfa_app_changed")
+        return []
     codes = await _issue_recovery(db, user.id)
     await audit.record(db, "auth.mfa_enabled", "user", user.id, after={"method": "totp"}, actor=user)
     await _mail(db, user, "mfa_enabled")
@@ -775,7 +852,7 @@ async def disable(
         raise MfaError(
             409,
             "mfa_required_by_policy",
-            "Kurumunuz bu rol için iki adımlı doğrulamayı zorunlu tutuyor; kapatılamaz.",
+            "Kurumunuz bu rol için iki aşamalı doğrulamayı zorunlu tutuyor; kapatılamaz.",
             "Your institution requires two-step verification for this role; it cannot be turned off.",
         )
     row = await _row(db, user.id)
@@ -1162,7 +1239,18 @@ async def status(db: AsyncSession, user: User) -> dict[str, Any]:
         "passkeys_available": available and policy.passkeys_enabled and await _rp_ok(db),
         "required": required,
         "grace_until": grace,
-        "totp": {"enabled": bool(row and row.totp_secret_enc), "enabled_at": row.totp_enabled_at if row else None},
+        "totp": {
+            "enabled": bool(row and row.totp_secret_enc),
+            "enabled_at": row.totp_enabled_at if row else None,
+            # "Uygulamayı değiştir" started and not confirmed yet (the old app still signs in)
+            "change_pending": bool(
+                row
+                and row.totp_secret_enc
+                and row.totp_pending_enc
+                and row.totp_pending_at
+                and row.totp_pending_at + PENDING_TTL >= clock()
+            ),
+        },
         "recovery_codes": {"remaining": left, "total": total},
         "passkeys": await list_passkeys(db, user),
         "trusted_devices": await list_devices(db, user),
@@ -1213,7 +1301,7 @@ async def admin_reset(
         raise MfaError(
             409,
             "sso_account",
-            "Bu hesap kimlik sağlayıcısıyla giriş yapıyor; iki adımlı doğrulamayı kimlik sağlayıcıda sıfırlayın.",
+            "Bu hesap kimlik sağlayıcısıyla giriş yapıyor; iki aşamalı doğrulamayı kimlik sağlayıcıda sıfırlayın.",
             "This account signs in with an identity provider; reset two-step verification there.",
         )
     async with rls.system_scope(db):
@@ -1413,6 +1501,7 @@ HISTORY_ACTIONS = (
     "auth.mfa_locked",
     "auth.mfa_enabled",
     "auth.mfa_disabled",
+    "auth.mfa_app_changed",
     "auth.mfa_reset_by_admin",
     "auth.mfa_recovery_used",
     "auth.mfa_recovery_regenerated",
@@ -1428,8 +1517,7 @@ HISTORY_ACTIONS = (
 
 async def sign_in_history(db: AsyncSession, user: User, limit: int = 50) -> dict[str, Any]:
     """The person's own security events (newest first; no address, the method and the device family only) and the
-    devices that signed in (RF-11 known devices). Sessions are stateless tokens: "sign out everywhere" is
-    ``POST /auth/logout``."""
+    devices that signed in (RF-11 known devices). Open sessions: ``GET /auth/sessions`` (AU-15)."""
     from app.models import AuditEvent
     from app.services import mail_senders
     from app.services.bookings_settings import get_user_value
@@ -1549,7 +1637,7 @@ async def pop_idp_notice(db: AsyncSession, user: User) -> dict[str, Any]:
     return {
         "idp_mfa_missing": True,
         "idp_mfa_message_tr": (
-            f"Kurumunuz bu rol için iki adımlı doğrulama istiyor, ancak {name} bu girişte çok adımlı doğrulama "
+            f"Kurumunuz bu rol için iki aşamalı doğrulama istiyor, ancak {name} bu girişte çok adımlı doğrulama "
             "bildirmedi. Hesabınızda çok adımlı doğrulamayı açın; bir sonraki girişte istenebilir."
         ),
         "idp_mfa_message_en": (

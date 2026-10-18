@@ -171,3 +171,31 @@ async def test_course_run_gets_the_reverse_warning_for_a_published_exam_in_its_r
     assert it["message_tr"].startswith("FIZ 101 (A101, 3.–4. ders) 8. hafta 6 Nisan 2026 Pazartesi")
     assert "KIM101" in it["message_tr"] and "KIM101" in it["message"]
     assert sorted(it["request_ids"]) == sorted([ids["mr"], ids["exam"]])
+
+
+async def test_exams_in_exam_weeks_or_a_finals_term_see_no_class_plan(engine):  # type: ignore[no-untyped-def]
+    """Final exams sit in EXAM weeks (no classes then): no block, no warning, nothing in the stats."""
+    async with get_session_factory()() as s:
+        ids = await _seed(s)
+        week8 = (await s.execute(select(Week).where(Week.term_id == ids["term"], Week.index == 8))).scalar_one()
+        week8.kind = "EXAM"
+        await s.commit()
+        term = await s.get(Term, ids["term"])
+        assert term is not None
+        weeks_rows = list((await s.execute(select(Week).where(Week.term_id == term.id))).scalars())
+        ev = sm.Event(
+            id=ids["exam"],
+            kind="exam",
+            label="KIM101",
+            size=25,
+            duration=2,
+            weeks=frozenset({8}),
+            fixed_day=1,
+            fixed_start=3,
+            allowed_days=frozenset({1}),
+            fixed_date=WEEK8_MON,
+        )
+        assert await ecp.course_blocks(s, term, weeks_rows, [ev]) == ([], {})
+        term.kind = "FINAL"
+        week8.kind = "LECTURE"
+        assert await ecp.course_blocks(s, term, weeks_rows, [ev]) == ([], {})

@@ -403,11 +403,11 @@ TR: dict[str, str] = {
     ),
     "calendar_consent.scope.consent_off.cta": "Gizlilik ayarlarını aç",
     # --- AU-B two-step sign-in, passkeys, admin resets (owner request 2026-10-18; security footer) ----------------
-    "mfa_enabled.subject": "İki adımlı doğrulama açıldı",
+    "mfa_enabled.subject": "İki aşamalı doğrulama açıldı",
     "mfa_enabled.preheader": "Girişte parolanızdan sonra bir kod da sorulacak.",
-    "mfa_enabled.heading": "İki adımlı doğrulama açıldı",
+    "mfa_enabled.heading": "İki aşamalı doğrulama açıldı",
     "mfa_enabled.intro": (
-        "Merhaba {name}, {org} SmartSched hesabınızda iki adımlı doğrulama {when} tarihinde açıldı. Bundan sonra "
+        "Merhaba {name}, {org} SmartSched hesabınızda iki aşamalı doğrulama {when} tarihinde açıldı. Bundan sonra "
         "girişte parolanızdan sonra doğrulama uygulamanızdaki kod ya da geçiş anahtarınız istenecek."
     ),
     "mfa_enabled.cta": "Güvenlik ayarlarını aç",
@@ -415,20 +415,29 @@ TR: dict[str, str] = {
         "Kurtarma kodlarınızı güvenli bir yerde saklayın; telefonunuzu kaybederseniz onlarla girersiniz."
     ),
     "mfa_enabled.note": "Bunu siz yapmadınız mı? Hemen parolanızı değiştirin ve yöneticinize haber verin.",
-    "mfa_disabled.subject": "İki adımlı doğrulama kapatıldı",
+    "mfa_disabled.subject": "İki aşamalı doğrulama kapatıldı",
     "mfa_disabled.preheader": "Girişte artık yalnızca parolanız soruluyor.",
-    "mfa_disabled.heading": "İki adımlı doğrulama kapatıldı",
+    "mfa_disabled.heading": "İki aşamalı doğrulama kapatıldı",
     "mfa_disabled.intro": (
         "Merhaba {name}, {org} SmartSched hesabınızda doğrulama uygulaması {when} tarihinde kapatıldı. Kurtarma "
         "kodlarınız ve güvenilir cihazlarınız da silindi."
     ),
     "mfa_disabled.cta": "Yeniden aç",
     "mfa_disabled.note": "Bunu siz yapmadınız mı? Hemen parolanızı değiştirin ve yöneticinize haber verin.",
-    "mfa_reset_by_admin.subject": "İki adımlı doğrulamanız yönetici tarafından sıfırlandı",
+    "mfa_app_changed.subject": "İki aşamalı doğrulama: doğrulama uygulamanız değiştirildi",
+    "mfa_app_changed.preheader": "Girişte artık yeni uygulamanızdaki kod soruluyor.",
+    "mfa_app_changed.heading": "Doğrulama uygulamanız değiştirildi",
+    "mfa_app_changed.intro": (
+        "Merhaba {name}, {org} SmartSched hesabınızın doğrulama uygulaması {when} tarihinde değiştirildi. Eski "
+        "uygulamadaki kodlar artık geçmiyor; kurtarma kodlarınız ve güvenilir cihazlarınız aynı kaldı."
+    ),
+    "mfa_app_changed.cta": "Güvenlik ayarlarını aç",
+    "mfa_app_changed.note": "Bunu siz yapmadınız mı? Hemen parolanızı değiştirin ve yöneticinize haber verin.",
+    "mfa_reset_by_admin.subject": "İki aşamalı doğrulamanız yönetici tarafından sıfırlandı",
     "mfa_reset_by_admin.preheader": "Girişte yalnızca parolanız sorulacak; doğrulamayı yeniden açın.",
-    "mfa_reset_by_admin.heading": "İki adımlı doğrulamanız sıfırlandı",
+    "mfa_reset_by_admin.heading": "İki aşamalı doğrulamanız sıfırlandı",
     "mfa_reset_by_admin.intro": (
-        "Merhaba {name}, {org} yöneticisi {actor}, {when} tarihinde hesabınızın iki adımlı doğrulamasını sıfırladı. "
+        "Merhaba {name}, {org} yöneticisi {actor}, {when} tarihinde hesabınızın iki aşamalı doğrulamasını sıfırladı. "
         "Doğrulama uygulaması, kurtarma kodları ve güvenilir cihazlar kaldırıldı; tüm oturumlarınız kapatıldı."
     ),
     "mfa_reset_by_admin.cta": "Doğrulamayı yeniden aç",
@@ -467,8 +476,8 @@ TR: dict[str, str] = {
     ),
     "password_reset_link_by_admin.cta": "Yeni parola belirle",
     "password_reset_link_by_admin.after": (
-        "Bağlantı {valid_hours} saat geçerlidir ve bir kez kullanılabilir. İki adımlı doğrulamanız açıksa girişte yine "
-        "sorulur."
+        "Bağlantı {valid_hours} saat geçerlidir ve bir kez kullanılabilir. İki aşamalı doğrulamanız açıksa girişte "
+        "yine sorulur."
     ),
     "password_reset_link_by_admin.note": (
         "Böyle bir şey istemediniz mi? Bağlantıyı açmayın ve yöneticinize haber verin."
@@ -492,16 +501,16 @@ TR: dict[str, str] = {
     "recovery_codes_regenerated.note": (
         "Bunu siz yapmadınız mı? Hemen parolanızı değiştirin ve yöneticinize haber verin."
     ),
-    "mfa_required.subject": "İki adımlı doğrulama zorunlu oldu",
+    "mfa_required.subject": "İki aşamalı doğrulama zorunlu oldu",
     "mfa_required.preheader": "{grace_days} gün içinde doğrulama uygulaması ya da geçiş anahtarı ekleyin.",
-    "mfa_required.heading": "İki adımlı doğrulamayı açın",
+    "mfa_required.heading": "İki aşamalı doğrulamayı açın",
     "mfa_required.intro": (
-        "Merhaba {name}, {org} rolünüz için SmartSched girişinde iki adımlı doğrulamayı zorunlu tuttu. "
+        "Merhaba {name}, {org} rolünüz için SmartSched girişinde iki aşamalı doğrulamayı zorunlu tuttu. "
         "{grace_days} gün içinde bir doğrulama uygulaması ya da geçiş anahtarı ekleyin; bu süreden sonra girişte "
         "önce kurulum istenir."
     ),
     "mfa_required.cta": "Şimdi aç",
-    "mfa_required.after": "Kurulum iki dakika sürer: Profil › Güvenlik › İki adımlı doğrulama.",
+    "mfa_required.after": "Kurulum iki dakika sürer: Profil › Güvenlik › İki aşamalı doğrulama.",
 }
 
 EN: dict[str, str] = {
@@ -875,6 +884,15 @@ EN: dict[str, str] = {
     ),
     "mfa_disabled.cta": "Turn it on again",
     "mfa_disabled.note": "Wasn't this you? Change your password now and tell your administrator.",
+    "mfa_app_changed.subject": "Two-step verification: your authenticator app was changed",
+    "mfa_app_changed.preheader": "Signing in now asks for the code from your new app.",
+    "mfa_app_changed.heading": "Your authenticator app was changed",
+    "mfa_app_changed.intro": (
+        "Hello {name}, the authenticator app of your {org} SmartSched account was changed on {when}. Codes from the "
+        "old app no longer work; your recovery codes and trusted devices stay the same."
+    ),
+    "mfa_app_changed.cta": "Open security settings",
+    "mfa_app_changed.note": "Wasn't this you? Change your password now and tell your administrator.",
     "mfa_reset_by_admin.subject": "An administrator reset your two-step verification",
     "mfa_reset_by_admin.preheader": "Signing in asks only for your password; set up verification again.",
     "mfa_reset_by_admin.heading": "Your two-step verification was reset",

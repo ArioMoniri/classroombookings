@@ -18,6 +18,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { FadePanel } from "./fade-panel";
 import { readHeatUrl, type HeatTab, type HeatUrlState } from "./heat-model";
 import { InstructorsHeat } from "./instructors-heat";
+import { PeaksView } from "./peaks-view";
 import { RoomsHeat } from "./rooms-heat";
 
 export function HeatmapView() {
@@ -52,11 +53,19 @@ export function HeatmapView() {
         options={[
           { value: "rooms", label: t("analytics.tab.rooms"), controls: "heat-panel-rooms", testId: "heat-tab-rooms" },
           { value: "instructors", label: t("analytics.tab.instructors"), controls: "heat-panel-instructors", testId: "heat-tab-instructors" },
+          { value: "peaks", label: t("adaptive.peaks.tab"), controls: "heat-panel-peaks", testId: "heat-tab-peaks" },
         ]}
         value={s.tab}
         onValueChange={(v) => set({ tab: v === "rooms" ? null : v, g: null })}
         className="self-start"
       />
+      {s.tab === "peaks" ? (
+        // AS-16 Yoğun saatler: its own controls (group, period kind, term), no source / week / bookings switches
+        <div id="heat-panel-peaks" role="tabpanel" aria-label={t("adaptive.peaks.tab")} className="flex min-w-0 flex-col gap-4">
+          <PeaksView />
+        </div>
+      ) : (
+      <>
       <section aria-label={t("analytics.controls")} className="flex flex-wrap items-end gap-x-4 gap-y-3 rounded-xl bg-card p-3 edge-hairline" data-testid="heat-controls">
         <div className="flex min-w-0 max-w-full flex-col gap-1 max-sm:w-full">
           <span className="type-footnote font-medium text-label-2" id="heat-source-label">{t("analytics.sourceLabel")}</span>
@@ -160,6 +169,8 @@ export function HeatmapView() {
             )}
           </div>
         </FadePanel>
+      )}
+      </>
       )}
     </div>
   );

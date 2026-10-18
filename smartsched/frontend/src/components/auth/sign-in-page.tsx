@@ -87,8 +87,8 @@ export function SignInPage({ org, params, invite, lastMethodLocal: lastLocalCook
 
       {localInvite && invite?.state === "valid" ? (
         <div className="mt-7 flex flex-col gap-2" data-testid="signin-local-invite">
-          <h2 className="type-headline text-label-1">{t("identity.signin.localInviteTitle")}</h2>
-          <LocalInviteAccept token={invite.token} />
+          {/* AUX-05: SetPasswordForm brings its own title "Parolanızı belirleyin" and the account line */}
+          <LocalInviteAccept token={invite.token} org={orgName} next={params.next} />
         </div>
       ) : multi ? (
         <div className="mt-7">

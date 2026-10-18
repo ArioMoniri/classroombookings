@@ -368,7 +368,7 @@ async def _delete_pending() -> None:
         log.debug("ai reservation release deferred", exc_info=True)
 
 
-def settle(reservation: Reservation | None) -> None:
+def settle(reservation: Reservation | None, *, background: bool = True) -> None:
     """Release a reservation. Synchronous for old callers: this worker stops counting it at once and the row is
     deleted in the background (``await`` :func:`release` to wait for the DELETE)."""
     if reservation is None:
@@ -377,6 +377,8 @@ def settle(reservation: Reservation | None) -> None:
         _RESERVED.pop(reservation.id, None)
         return
     _PENDING.add(reservation.id)
+    if not background:
+        return
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -388,9 +390,15 @@ def settle(reservation: Reservation | None) -> None:
 
 async def release(reservation: Reservation | None) -> None:
     """:func:`settle` and wait until the row is gone (the gateway pipeline's path)."""
-    settle(reservation)
+    settle(reservation, background=False)
     if reservation is not None and not reservation.local:
         await _delete_pending()
+
+
+async def _drain() -> None:
+    """Wait for this worker's background DELETEs (milliseconds) so they never race the next check."""
+    if _TASKS:
+        await asyncio.gather(*list(_TASKS), return_exceptions=True)
 
 
 def forget_local_state() -> None:
@@ -429,6 +437,7 @@ async def rate_hit(user_id: int | None, *, per_minute: int, now: datetime | None
     if user_id is None or per_minute <= 0:
         return True
     moment = utc_naive(now)
+    await _drain()
     try:
         async with get_session_factory()() as s:
             async with _budget_lock(s):
@@ -628,6 +637,7 @@ async def reserve(
     behaviour. In-flight reservations of every worker count (``ai_reservations``), under one lock."""
     moment = utc_naive(now)
     limits = await gw.get_limits(session)
+    await _drain()
     try:
         async with _budget_lock(session):
             done = await _sweep(session, moment)
@@ -762,6 +772,7 @@ async def reserve_audio(
     moment = utc_naive(now)
     limits = await gw.get_limits(session)
     est_ms = int(round(est_audio_s * 1000))
+    await _drain()
     try:
         async with _budget_lock(session):
             done = await _sweep(session, moment)

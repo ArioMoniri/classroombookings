@@ -19,23 +19,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { HttpError } from "@/lib/api/client";
 import { apiText, useProfileActions, useProfiles, type AppliesTo, type Profile, type ProfileList } from "@/lib/api/seasons";
-import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { appliesText, groupProfiles, nextRowKey, profileKey, weightOverrides, type ProfileGroup } from "./season-model";
 import { SeasonPeriods } from "./season-periods";
+import { useWeightLabel } from "./weight-label";
 
 type Lang = "tr" | "en";
 type Confirm = { kind: "activate" | "revert" | "delete"; profile: Profile; key: string };
-
-/** a weight's planner name; an unknown key still reads as words, never snake_case */
-export function useWeightLabel() {
-  const { t } = useI18n();
-  return (key: string) => {
-    const k = `seasons.weight.${key}` as MessageKey;
-    const v = t(k);
-    return v === k ? key.replace(/_/g, " ") : v;
-  };
-}
 
 export function SeasonProfiles() {
   const { t, locale } = useI18n();
@@ -44,18 +34,25 @@ export function SeasonProfiles() {
   const act = useProfileActions();
   const [editing, setEditing] = useState<{ profile: Profile | null } | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
-  const [focusKey, setFocusKey] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const newRef = useRef<HTMLButtonElement>(null);
+  /** the row to focus once the list re-renders after an action (ROADMAP AS-15: focus to the next row) */
+  const pendingFocus = useRef<string | null>(null);
   const groups = useMemo(() => groupProfiles(q.data?.profiles ?? [], lang), [q.data, lang]);
-
-  // after a confirmation the next row takes focus (ROADMAP AS-15), or "Yeni profil" when the list is empty
-  useEffect(() => {
-    if (focusKey === null) return;
-    const row = listRef.current?.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(focusKey)}"]`);
+  const focusRow = (key: string | null) => {
+    const row = key ? listRef.current?.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(key)}"]`) : null;
     (row ?? newRef.current)?.focus();
-    setFocusKey(null);
-  }, [focusKey, groups]);
+  };
+  const setFocusKey = (key: string | null) => {
+    pendingFocus.current = key;
+    // the dialog closes first; the row (or "Yeni profil") takes focus, never <body>
+    requestAnimationFrame(() => focusRow(key));
+  };
+  useEffect(() => {
+    if (pendingFocus.current === null) return;
+    focusRow(pendingFocus.current);
+    pendingFocus.current = null;
+  }, [groups]);
 
   const run = () => {
     if (!confirm) return;
