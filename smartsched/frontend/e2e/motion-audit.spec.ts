@@ -271,6 +271,117 @@ test.describe("motion audit: helper", () => {
   });
 });
 
+test.describe("motion audit: helper drag on phones (HX-19)", () => {
+  // HX-19 / motion.md §3.21: the phone sheet's 44 px handle drags it 1:1; a release past 30 % or a flick closes it in
+  // ≤ 200 ms (dur.fast ease.out) and the focus returns to the opener; a short slow drag springs back (springs.sheet).
+  // Reduced motion: the drag still works, the snap-back and the close are instant. Real touch through CDP.
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: "tr-TR", timezoneId: "Europe/Istanbul" });
+
+  /** A touch swipe from (x, y0) to (x, y1) in `ms`, in `steps` moves (CDP touch → pointer events of type touch). */
+  async function swipe(page: Page, x: number, y0: number, y1: number, ms: number, steps = 8): Promise<number> {
+    const cdp = await page.context().newCDPSession(page);
+    const at = (y: number) => [{ x, y, id: 1 }];
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: at(y0) });
+    for (let i = 1; i <= steps; i++) {
+      await page.waitForTimeout(ms / steps);
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: at(y0 + ((y1 - y0) * i) / steps) });
+    }
+    const released = await page.evaluate(() => performance.now());
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    return released;
+  }
+
+  /** Opens the sheet from a marked page button (the opener the focus must come back to); returns the handle box. */
+  async function openFromButton(page: Page) {
+    await page.goto("/reserve");
+    await page.locator('[data-tour="reserve-when"]').waitFor();
+    await page.waitForTimeout(600);
+    await page.locator("main button:visible").first().evaluate((el) => {
+      el.setAttribute("data-hx19-opener", "");
+      (el as HTMLElement).focus();
+    });
+    await page.keyboard.press("ControlOrMeta+j");
+    await page.getByTestId("helper-sheet").waitFor();
+    await page.waitForTimeout(400); // enter settled (springs.sheet ≈ 270 ms)
+    const handle = page.getByTestId("helper-handle");
+    await expect(handle).toHaveAccessibleName(/Kapat \(aşağı sürükleyin\)|Close \(drag down\)/);
+    const box = (await handle.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(await handle.getAttribute("tabindex")).toBe("-1");
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  }
+
+  /** ms from `released` until the sheet leaves the DOM. */
+  async function detachedAfter(page: Page, released: number): Promise<number> {
+    await page.getByTestId("helper-sheet").waitFor({ state: "detached", timeout: 2000 });
+    return (await page.evaluate(() => performance.now())) - released;
+  }
+
+  const focusOnOpener = (page: Page) => page.evaluate(() => document.activeElement?.hasAttribute("data-hx19-opener") ?? false);
+  const sheetTransform = (page: Page) => page.getByTestId("helper-sheet").evaluate((el) => getComputedStyle(el).transform);
+  const identity = (t: string) => t === "none" || /matrix\(1, 0, 0, 1, 0, 0\)/.test(t);
+
+  for (const reduced of [false, true]) {
+    const label = reduced ? "reduced motion" : "full motion";
+
+    test(`${label}: drag past 30 % closes, focus returns to the opener`, async ({ page, browser }) => {
+      if (reduced) await page.emulateMedia({ reducedMotion: "reduce" });
+      await login(page);
+      const h = await openFromButton(page);
+      await throttle(page);
+      await startFrameProbe(page);
+      let ms = 0;
+      let over: string[] = [];
+      const layouts = await traceLayouts(browser, page, `helper-drag-${reduced ? "rm" : "full"}`, async () => {
+        const released = await swipe(page, h.x, h.y, h.y + 844 * 0.45, 300);
+        over = await animationsOverCeiling(page);
+        ms = await detachedAfter(page, released);
+      });
+      const report = await stopFrameProbe(page);
+      results.push({ surface: "helper", name: `phone drag dismiss (${label})`, ...report, layouts, over, exitMs: Math.round(ms) });
+      expect.soft(over).toEqual([]);
+      // the exit is ≤ 200 ms (120 ms token) plus AnimatePresence's removal frame; reduced motion is instant
+      expect.soft(ms).toBeLessThanOrEqual(reduced ? 80 : 260);
+      await expect.poll(() => focusOnOpener(page)).toBe(true);
+      if (STRICT) expect.soft(report.dropped).toBeLessThanOrEqual(3);
+    });
+
+    test(`${label}: a short slow drag springs back, a flick closes`, async ({ page }) => {
+      if (reduced) await page.emulateMedia({ reducedMotion: "reduce" });
+      await login(page);
+      const h = await openFromButton(page);
+      // 120 px over 800 ms ends still: under 30 % and no flick → it stays and returns to y 0
+      await swipe(page, h.x, h.y, h.y + 120, 800, 10);
+      await page.waitForTimeout(80);
+      await expect(page.getByTestId("helper-sheet")).toBeVisible();
+      if (reduced) expect(identity(await sheetTransform(page))).toBeTruthy(); // back on the next frame
+      await expect.poll(async () => identity(await sheetTransform(page)), { timeout: 600 }).toBe(true); // springs.sheet settles ≈ 270 ms
+      // the trailing click of a drag must not count as a tap
+      await page.waitForTimeout(150);
+      await expect(page.getByTestId("helper-sheet")).toBeVisible();
+      // 90 px in 50 ms is a flick: it closes although it is under 30 %
+      const released = await swipe(page, h.x, h.y, h.y + 90, 50, 3);
+      const ms = await detachedAfter(page, released);
+      results.push({ surface: "helper", name: `phone flick dismiss (${label})`, exitMs: Math.round(ms) });
+      expect.soft(ms).toBeLessThanOrEqual(reduced ? 80 : 260);
+      await expect.poll(() => focusOnOpener(page)).toBe(true);
+    });
+  }
+
+  test("keyboard and screen reader keep ✕ and Esc; the ✕ exit is ≤ 200 ms and faster than the enter", async ({ page }) => {
+    await login(page);
+    await openFromButton(page);
+    await expect(page.getByTestId("helper-close")).toHaveAccessibleName("Kapat");
+    const released = await page.evaluate(() => performance.now());
+    await page.keyboard.press("Escape");
+    const ms = await detachedAfter(page, released);
+    results.push({ surface: "helper", name: "phone Esc exit", exitMs: Math.round(ms) });
+    expect.soft(ms).toBeLessThanOrEqual(260); // dur.base 180 ms + the removal frame
+    await expect.poll(() => focusOnOpener(page)).toBe(true);
+  });
+});
+
 test.describe("motion audit: preferences", () => {
   test("reduced motion: end state at once, no transform animations", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });

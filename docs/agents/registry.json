@@ -4036,6 +4036,27 @@
       "status": "finished",
       "finished_at": "2026-10-18 12:05",
       "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a899bcb688827e924",
+      "description": "HX-19: helper sheet motion",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 12:08",
+      "scope": "",
+      "goal": "Ledger name `hx-19-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorker…",
+      "ledger": "HX-19: helper sheet motion",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 12:22"
+    },
+    {
+      "id": "a24b23a1c561dd148",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:08",
+      "left_off": "is the pod up yet"
     }
   ]
 }

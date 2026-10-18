@@ -14,6 +14,9 @@
  * - HX-15: the empty thread shows "Son işlemler" (recent.tsx). HX-16: the footer's "Bu sayfa: …" chip (AI mode, above
  *   the composer); while it is on every question carries the page `context`; ✕ removes it for this page, the focus
  *   goes to the composer (page-context.tsx).
+ * - HX-19 (audit m11): on phones a 44 px grab handle above the header drags the sheet down 1:1; a release past 30 % or a
+ *   flick closes it (focus back to the opener), otherwise it springs back. Exits ≤ 200 ms on `dur`/`ease` tokens,
+ *   instant under reduced motion (sheet-drag.ts). ✕ and Esc stay the keyboard / screen-reader path.
  */
 import { MoreHorizontal, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -40,6 +43,7 @@ import { PageContextChip, toTurnContext, usePageContext } from "./page-context";
 import { RecentActions } from "./recent";
 import { clientActionLabel } from "./remember";
 import { useHelperStore } from "./helper-store";
+import { helperSheetExit, useHelperSheetDrag, type HelperExitKind } from "./sheet-drag";
 import { Starters, starterRole } from "./starters";
 import { StatusChip, useHelperMode } from "./status-chip";
 import { useHelperRunner } from "./use-helper-runner";
@@ -175,9 +179,11 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
     else if (ask) st.setGuideSeed(ask);
   }, [pendingAsk, pendingAction, mode.loading, mode.ai, mode.blocked, runner, askHere]);
 
-  // focus on open: the composer (AI) or the guide field (index), on the first frame
+  // focus on open: the composer (AI) or the guide field (index), on the first frame — never while the sheet is
+  // leaving (HX-19: the mode can resolve during the exit and would pull the focus back from the opener to <body>)
   useEffect(() => {
     const id = requestAnimationFrame(() => {
+      if (!useHelperStore.getState().open) return;
       const field = composerRef.current?.querySelector<HTMLTextAreaElement>("textarea:not([disabled])") ?? guideRef.current;
       field?.focus();
     });
@@ -191,7 +197,7 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
 
   return (
     <CardHostContext.Provider value={host}>
-      <header className="flex h-14 shrink-0 items-center gap-2 px-2 edge-hairline-b">
+      <header className="flex h-14 shrink-0 items-center gap-2 px-2 edge-hairline-b [&>:not(h2)]:relative [&>:not(h2)]:z-20">
         {!desktop ? <IconButton label={t("helper.close")} onClick={onClose} data-testid="helper-close" className="size-11"><X aria-hidden /></IconButton> : null}
         <h2 id={titleId} className="type-headline min-w-0 flex-1 truncate pl-2 text-label-1">
           {t("helper.title")}
@@ -284,11 +290,21 @@ export function HelperSheet() {
   const ref = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
-  const close = useCallback(() => {
+  // HX-19: how the sheet was closed picks its exit (AnimatePresence `custom` reaches the exiting sheet)
+  const [exitKind, setExitKind] = useState<HelperExitKind>("close");
+  const close = useCallback((kind: HelperExitKind = "close") => {
     const opener = useHelperStore.getState().opener;
+    setExitKind(kind);
     useHelperStore.getState().closeSheet();
     requestAnimationFrame(() => returnFocus(opener));
   }, []);
+  const drag = useHelperSheetDrag(ref, { reduce, onDismiss: close });
+  // a new opening starts from the ✕ exit again (closes from the store — "Git", "Göster", a page change — use it too)
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
+    if (open) setExitKind("close");
+  }
 
   // F6 cycles page ↔ sheet on desktop (the sheet is non-modal)
   useEffect(() => {
@@ -325,10 +341,10 @@ export function HelperSheet() {
 
   const enter = reduce ? { opacity: 0 } : desktop ? { opacity: 0, x: 24 } : { y: "100%" };
   const shown = reduce ? { opacity: 1 } : desktop ? { opacity: 1, x: 0 } : { y: 0 };
-  const exit = reduce ? { opacity: 0, transition: tween.reduced } : desktop ? { opacity: 0, x: 24, transition: { duration: 0.12 } } : { y: "100%", transition: { duration: 0.18 } };
+  const variants = { exit: (kind: HelperExitKind) => helperSheetExit(kind, { reduce, desktop }) };
 
   return (
-    <AnimatePresence>
+    <AnimatePresence custom={exitKind}>
       {open ? (
         <motion.div
           key="helper-sheet"
@@ -343,7 +359,10 @@ export function HelperSheet() {
           onKeyDown={onKeyDown}
           initial={enter}
           animate={shown}
-          exit={exit}
+          exit="exit"
+          variants={variants}
+          custom={exitKind}
+          style={desktop ? undefined : { y: drag.y }}
           transition={reduce ? tween.reduced : springs.sheet}
           className={cn(
             "helper-sheet fixed z-40 flex flex-col overflow-hidden text-label-1 outline-hidden",
@@ -352,7 +371,23 @@ export function HelperSheet() {
               : "inset-0 z-50 h-dvh bg-(--mat-thick-solid) pt-[env(safe-area-inset-top)]",
           )}
         >
-          <SheetBody titleId={titleId} desktop={desktop} onClose={close} />
+          {!desktop ? (
+            // HX-19: the grab handle (36 × 5 px pill in a 44 px target); not a Tab stop, ✕ and Esc are the keyboard path
+            // a 24 px row; the 44 px target reaches into the header's empty middle, the header's controls sit above it
+            <div className="relative h-6 shrink-0">
+              <Button
+                variant="bare"
+                tabIndex={-1}
+                aria-label={t("helper.handle")}
+                data-testid="helper-handle"
+                {...drag.handle}
+                className="group absolute top-0 left-1/2 z-10 flex h-11 w-24 -translate-x-1/2 cursor-grab touch-none items-start justify-center pt-2 outline-hidden active:cursor-grabbing"
+              >
+                <span aria-hidden className="h-1 w-9 rounded-full bg-fill-1 group-data-dragging:bg-label-3" />
+              </Button>
+            </div>
+          ) : null}
+          <SheetBody titleId={titleId} desktop={desktop} onClose={() => close()} />
         </motion.div>
       ) : null}
     </AnimatePresence>

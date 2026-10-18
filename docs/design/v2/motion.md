@@ -488,20 +488,36 @@ shimmer-text, skeleton-reveal and success-check were used as timing references o
 | Moment | Animation | Token | Reduced motion | Reduced transparency |
 |---|---|---|---|---|
 | Sheet opens, desktop (non-modal, no scrim) | the sheet itself x 24 → 0 + opacity; no blur in the motion; composer focused on frame 1 | `springs.sheet` (settles ≈ 269 ms) | 100 ms opacity (`tween.reduced`) | `--mat-thick-solid`, no backdrop-filter |
-| Sheet closes, desktop | opacity + x 24 | 120 ms, `--ease-in` | 100 ms opacity | same |
-| Sheet opens / closes, phone (full-screen dialog) | y 100 % → 0; close y → 100 % in 180 ms | `springs.sheet` (pattern 4) | 100 ms opacity | opaque |
+| Sheet closes, desktop | opacity + x 24 | `dur.fast` 120 ms, `ease.in` (`helperSheetExit`) | instant (HX-19) | same |
+| Sheet opens, phone (full-screen dialog) | y 100 % → 0 | `springs.sheet` (pattern 4, settles ≈ 270 ms) | 100 ms opacity | opaque |
+| Sheet closes, phone, ✕ / Esc / a tap on the handle (HX-19) | y → 100 % | `dur.base` 180 ms, `ease.in` (≤ 200 ms, faster than the enter) | instant, no travel | opaque |
+| Drag on the handle, phone (HX-19) | the sheet follows the finger 1:1 down (no spring lag, upward clamped at 0); `will-change: transform` only during the gesture; the pill darkens (`data-dragging`) | motion value = the sheet's `y` (`sheet-drag.ts`) | 1:1 kept (direct manipulation, §5 "Drag") | opaque |
+| Release past 30 % of the height or a flick > 0.5 px/ms (HX-19) | continues down y → 100 %, then the focus returns to the opener | `dur.fast` 120 ms, `ease.out` (carries the flick); rule `shouldDismissSheet` (ui/sheet, same as every bottom sheet) | instant close | opaque |
+| Release short of it, or a pointer cancel (HX-19) | springs back to y 0 from the release point with the release velocity | `springs.sheet` | back on the same frame | opaque |
 | Thinking ("Düşünüyor…") | label shimmer, the only loop; stops with the first token | 1.6 s linear loop (`helper-shimmer`) | static label | static label (forced colours: CanvasText) |
 | Card appears | opacity + y 6 → 0, once; rows not staggered | `--dur-base` 180 ms, `--ease-out` (`helper-enter`) | none | opaque card |
 | Card done | 20 px check disc scale .8 → 1 | `--dur-base`, `--spring-bouncy-subtle` (`helper-check`) | static check | same |
 | "Göster" ring | WG-05 ring re-targets to `[data-tour=…]` (one element, `layout`), step card docked on phones; page scrolls the target to the centre | `dur.slow` `ease.inOut` (as §3.20) | ring jumps; `scrollIntoView` `behavior: "auto"` | opaque step card |
 | Status chip word | cross-fade | `dur.base` | instant | — |
 
+HX-19 handle (phones only): a 36 × 4 px pill in a 96 × 44 px `<button>` centred at the top (a 24 px row; the target
+reaches into the header's empty middle and the header's controls sit above it). It is named "Kapat (aşağı
+sürükleyin)" / "Close (drag down)", it is not a Tab stop (`tabindex=-1`: ✕ stays the first stop, Esc still closes), and
+activating it (a tap, or a screen-reader double-tap) closes like ✕; the click that trails a drag is ignored.
+`touch-action: none` on the handle only, so the log keeps its own scrolling. Exits are chosen per close through
+AnimatePresence `custom` (`helperSheetExit(kind)`), so a drag close never replays the slower ✕ exit. Hosted
+transitions.dev fixes used: 0 (none approved); no new animation library (motion v14 `useMotionValue` + `animate`).
+
 No motion: typing, palette filtering and group reorders, the "Yardımcıya sor" rows in the user menu and "Daha", the
 page-context chip, memory deletes. Blur budget with the sheet open: shell bar + sheet ≤ 3 surfaces.
 
 Audit: `e2e/motion-audit.spec.ts` "motion audit: helper" (sheet open ⌘J, close Esc, palette › Nerede? › Shift+Enter →
 ring: no finite animation > 300 ms, ≤ 3 dropped frames per interaction under MOTION_STRICT, ≤ 3 backdrop-filter
-surfaces; reduced motion: no transform animation and the sheet at its end transform). Queued for the e2e lane
+surfaces; reduced motion: no transform animation and the sheet at its end transform). HX-19 adds "motion audit: helper
+drag on phones (HX-19)" at 390×844 touch (CDP touch events), with reduced motion off and on: drag past 30 % → detached
+≤ 260 ms after release (120 ms exit + the removal frame; ≤ 80 ms reduced) and focus on the opener; a 120 px slow drag
+→ stays and returns to an identity transform (on the next frame when reduced); its trailing click does not close; a
+90 px / 50 ms flick closes; Esc exit ≤ 260 ms; the handle is ≥ 44 × 44, named, `tabindex=-1`. Queued for the e2e lane
 (resource rule 2026-10-18).
 
 ## 4. Key flows end to end
