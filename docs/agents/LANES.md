@@ -20,6 +20,8 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 
 | Lane | Ledger name | What | Brief / tickets | Waits on |
 |---|---|---|---|---|
+| FIX-D | `fix-d-2026-10-18` | HB-18 blockers: helper confirm cards expired at birth in UTC+3 (naive UTC times), sign-in GET leaks the password before hydration; then HB-18 majors | round4/2026-10-18-hb18.md | — |
+| FIX-E | `fix-e-2026-10-18` | round-4 majors: HX-12b (9), personas (9), AUX-12 (3), CAL-10 (2), WG-10 (2) | round4/*.md | — |
 | FIX-A | `fix-a-2026-10-18` | F-AUB-1 session revoke (security), F-ASB-1 horizon weeks, council merge-question order and term matching, taken-slot copy | e2e results 2026-10-18 | — |
 | Video re-render | child session session_01M8ntN927QstdjmChCTLUTw | desktop hero loop (owner: README showed phone only), README cut to hero + ≤ 3 clips, captures after the alignment fix; deterministic 60 fps capture, crf 14–16, quality gate (≥ 95 % unique frames in motion, VMAF ≥ 95); commits media to this branch with pull --rebase | launch README | — |
 | Tester wave | child session (own private stack) | round-4 personas, WG-10, CAL-10, AS-20, CH-12, VO-09, AUX-12, HB-18, HX-12b, every e2e-queue section; reports in docs/testing/round4/ | e2e queue | — |
