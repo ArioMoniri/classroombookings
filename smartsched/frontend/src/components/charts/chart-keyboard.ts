@@ -1,6 +1,6 @@
 "use client";
 // SmartSched charts (CH-03, docs/design/v3/charts.md §9 "Keyboard"): the plot wrapper is one tab stop; ←/→ move a
-// focused bucket, Home/End jump, Esc hides. The tooltip follows at once (ECharts `showTip`); a polite live region
+// focused bucket, Home/End jump, Esc hides, Enter/Space selects it when the caller passes `onSelect` (CH-08). The tooltip follows at once (ECharts `showTip`); a polite live region
 // reads the bucket after 250 ms, so holding an arrow key does not flood the screen reader. Original work.
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { ChartColumn } from "./chart-csv";
@@ -49,7 +49,7 @@ export function bucketSentence<R>({ row, columns, f, t, unit, partial }: { row: 
   return `${label}: ${t("charts.kb.total", { value: withUnit(f.num(sum)) })}; ${values.map((v) => `${v.c.label} ${v.text}`).join(", ")}`;
 }
 
-export function useChartKeyboard({ count, api, describe, announce }: { count: number; api: ChartApi | null; describe: (index: number) => string; announce: (text: string) => void }) {
+export function useChartKeyboard({ count, api, describe, announce, onSelect }: { count: number; api: ChartApi | null; describe: (index: number) => string; announce: (text: string) => void; onSelect?: (index: number) => void }) {
   const [index, setIndex] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -57,6 +57,12 @@ export function useChartKeyboard({ count, api, describe, announce }: { count: nu
   }, []);
   const onKeyDown = useCallback(
     (e: KeyboardEvent<HTMLElement>) => {
+      // CH-08 / CH-10: Enter or Space opens the focused bucket (a run, a day) when the chart is selectable
+      if ((e.key === "Enter" || e.key === " ") && onSelect && index != null) {
+        e.preventDefault();
+        onSelect(index);
+        return;
+      }
       const move = keyMove(e.key, index, count);
       if (move == null) return;
       e.preventDefault();
@@ -70,8 +76,17 @@ export function useChartKeyboard({ count, api, describe, announce }: { count: nu
       api?.showTip(move);
       timer.current = setTimeout(() => announce(describe(move)), LIVE_DEBOUNCE_MS);
     },
-    [index, count, api, describe, announce],
+    [index, count, api, describe, announce, onSelect],
   );
+  // F-CH-2: a key pressed while the chart's chunk is still loading (the 390 touch run focused the plot ~50 ms
+  // after it appeared) had no API to call; show the focused bucket as soon as the chart is ready
+  const indexRef = useRef(index);
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
+  useEffect(() => {
+    if (api && indexRef.current != null) api.showTip(indexRef.current);
+  }, [api]);
   const onBlur = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     if (index != null) api?.hideTip();

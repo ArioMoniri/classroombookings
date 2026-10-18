@@ -13,7 +13,9 @@ import { mfaErrorCode, usePasswordMinLength } from "@/lib/api/auth-security";
 import { refusalBody } from "@/lib/api/error-text";
 import { changePassword } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
+import { useHydrated } from "@/lib/use-hydrated";
 import { AuthCard } from "./auth-card";
+import { CREDENTIAL_FORM } from "./credential-form";
 
 /**
  * Forced password change after login (`password_change_required`, POST /auth/change-password).
@@ -31,6 +33,7 @@ export function ChangePasswordForm() {
   const [next, setNext] = useState("");
   const [again, setAgain] = useState("");
   const [busy, setBusy] = useState(false);
+  const hydrated = useHydrated(); // HB18-F02: no native submit before hydration
   const [error, setError] = useState<string | null>(null);
   const serverMin = usePasswordMinLength();
   const [refusedMin, setRefusedMin] = useState<number | null>(null);
@@ -67,6 +70,7 @@ export function ChangePasswordForm() {
         </div>
       ) : null}
       <form
+        {...CREDENTIAL_FORM}
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
@@ -90,7 +94,7 @@ export function ChangePasswordForm() {
           <Input id="again" type="password" autoComplete="new-password" aria-invalid={mismatch} value={again} onChange={(e) => setAgain(e.target.value)} />
           {mismatch ? <p className="type-footnote text-status-infeasible-fg">{t("glass.auth.mismatch")}</p> : null}
         </div>
-        <Button type="submit" size="lg" className="w-full" disabled={busy || next.length < min || next !== again}>
+        <Button type="submit" size="lg" className="w-full" disabled={!hydrated || busy || next.length < min || next !== again}>
           {busy ? <Loader2 className="animate-spin" /> : null} {t("glass.auth.changeSubmit")}
         </Button>
       </form>

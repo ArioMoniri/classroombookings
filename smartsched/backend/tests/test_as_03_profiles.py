@@ -1,6 +1,6 @@
 """AS-03: season profiles. Draft -> activate -> a run shows ``weights_source`` ``profile:<key>@<version>``; editing an
 active profile creates the next version as a draft; revert re-activates the parent; a weight outside 0..MAX_WEIGHT
-gives 422 with ``message_tr``; ADMIN only; audited ``season_profile.*``; admin period segments per term.
+gives 422 with ``message_tr``; planners draft, ADMIN approves (AS20-F09); audited ``season_profile.*``; admin period segments per term.
 
 Real row: Bahar planning list row 120 (PTL 204, requested C 403, definitive C 501) in a term whose weeks are the 19
 sheets of the Bahar 2026 weekly grid."""
@@ -168,14 +168,17 @@ async def test_as_03_validation_and_builtins(client, parsed_bahar_grid, parsed_b
 
 
 async def test_as_03_admin_only(client, parsed_bahar_grid, parsed_bahar_list):
+    # AS20-F09 (FIX-G, owner's decision): planners draft, only admins approve; see tests/test_fix_g_2026_10_18.py
     hp = await _planner(client)
     r = await client.get("/api/v1/seasons/profiles", headers=hp)
-    assert r.status_code == 403
+    assert r.status_code == 200
     r = await client.post(
         "/api/v1/seasons/profiles",
         json={"key": "x", "name_tr": "X", "name_en": "X", "applies_to": BAHAR_LECTURE},
         headers=hp,
     )
+    assert r.status_code == 201
+    r = await client.post(f"/api/v1/seasons/profiles/{r.json()['id']}/activate", headers=hp)
     assert r.status_code == 403
 
 

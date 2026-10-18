@@ -6,7 +6,7 @@ import { AlertTriangle, Search, SlidersHorizontal, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { NativeSelect } from "@/components/common/native-select";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
@@ -44,17 +44,19 @@ const QUICK_KEY: Record<QuickFilter, MessageKey> = {
 const STATUS_KIND = { NEW: "preoccupied", PARSED: "feasible", NEEDS_REVIEW: "warning", LOCKED: "locked" } as const;
 const ROW_H = 44;
 
-function useIsNarrow(): boolean {
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    // mobile-b phase 2: touch tablets below lg get the cards too (the 768 table was clipped, 22 px icons)
-    const mq = window.matchMedia("(max-width: 767px), (pointer: coarse) and (max-width: 1023px)");
-    const on = () => setNarrow(mq.matches);
-    on();
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-  return narrow;
+/** mobile-b phase 2: touch tablets below lg get the cards too (the 768 table was clipped, 22 px icons) */
+export const NARROW_QUERY = "(max-width: 767px), (pointer: coarse) and (max-width: 1023px)";
+const subscribeNarrow = (on: () => void) => {
+  const mq = window.matchMedia(NARROW_QUERY);
+  mq.addEventListener("change", on);
+  return () => mq.removeEventListener("change", on);
+};
+
+/** Mobile B fix 15: read on the first client render. It started `false` and flipped in an effect, so on phones the
+ *  Studio step 1 → 2 tap mounted the desktop table (cells, pin popovers) and then replaced it with the cards in a
+ *  second render: the 1,153 ms long frame. The server snapshot stays `false` (no hydration mismatch). */
+export function useIsNarrow(): boolean {
+  return useSyncExternalStore(subscribeNarrow, () => window.matchMedia(NARROW_QUERY).matches, () => false);
 }
 
 export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) => void }) {

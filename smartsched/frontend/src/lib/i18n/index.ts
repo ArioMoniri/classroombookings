@@ -1,5 +1,4 @@
-import en from "../../../messages/en.json";
-import tr from "../../../messages/tr.json";
+import type EnMessages from "../../../messages/en.json";
 
 /**
  * Turkish and English, the two fully translated languages (product-owner decision 2026-10-15, ROADMAP P18-LANG;
@@ -18,7 +17,7 @@ export const LOCALE_COOKIE = "NEXT_LOCALE";
 /** the backend's default `languages` org setting (what the picker offers before `GET /org/i18n` answers) */
 export const DEFAULT_ENABLED: readonly Locale[] = ["tr", "en"];
 
-type Messages = typeof en;
+type Messages = typeof EnMessages;
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : DeepPartial<T[K]> };
 
 type Leaves<T, Prefix extends string = ""> = {
@@ -27,7 +26,75 @@ type Leaves<T, Prefix extends string = ""> = {
 
 export type MessageKey = Leaves<Messages>;
 
-const dictionaries: Record<Locale, DeepPartial<Messages>> = { en, tr };
+/**
+ * F-CH-1 (fix-c-2026-10-18): one chunk per language, fetched when it is first needed (the provider loads the
+ * active one before its first render and the other one before a switch). Both were static imports before, so
+ * every route's first load carried ~250 kB gz of texts in the root layout chunk. The server registers both at
+ * once (`./server`); tests load both in `src/test/setup.ts`.
+ */
+const dictionaries: Partial<Record<Locale, DeepPartial<Messages>>> = {};
+
+/** the per-language chunks (called through the object so tests can observe them) */
+export const messageLoaders: Record<Locale, () => Promise<unknown>> = {
+  tr: () => import("../../../messages/tr.json"),
+  en: () => import("../../../messages/en.json"),
+};
+
+/** a promise React's `use()` reads synchronously once settled (`status`), so a loaded language never suspends */
+type Loading = Promise<void> & { status?: "pending" | "fulfilled"; value?: undefined };
+const loading: Partial<Record<Locale, Loading>> = {};
+const listeners = new Set<() => void>();
+let version = 0;
+
+function settled(): Loading {
+  const p = Promise.resolve() as Loading;
+  p.status = "fulfilled";
+  return p;
+}
+
+/** Puts a language's texts in place (the server's static copy, a loaded chunk) and tells subscribers. */
+export function registerMessages(locale: Locale, dict: DeepPartial<Messages>): void {
+  dictionaries[locale] = dict;
+  loading[locale] = settled();
+  version++;
+  listeners.forEach((l) => l());
+}
+
+export function hasMessages(locale: Locale): boolean {
+  return dictionaries[locale] !== undefined;
+}
+
+/**
+ * Fetches a language's texts once (the same promise while it loads). It never rejects: a failed chunk leaves the
+ * language unloaded (texts read as their keys) and the next call tries again.
+ */
+export function loadMessages(locale: Locale): Promise<void> {
+  const have = loading[locale];
+  if (have) return have;
+  const p = messageLoaders[locale]()
+    .then((mod) => {
+      const m = mod as { default?: DeepPartial<Messages> } & DeepPartial<Messages>;
+      registerMessages(locale, (m.default ?? m) as DeepPartial<Messages>);
+    })
+    .catch(() => {
+      delete loading[locale];
+    })
+    .finally(() => {
+      p.status = "fulfilled";
+    }) as Loading;
+  p.status = "pending";
+  loading[locale] = p;
+  return p;
+}
+
+/** `useSyncExternalStore` pair: changes whenever a language's texts arrive */
+export function subscribeMessages(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+export const messagesVersion = (): number => version;
 
 export interface LocaleInfo {
   /** endonym: the language's name in itself */
@@ -101,7 +168,11 @@ export function overridesFromBundle(messages: Readonly<Record<string, Readonly<R
       const k = key.trim();
       if (!k || typeof text !== "string" || text.trim() === "") continue;
       const full = `${prefix}.${k}`;
-      if (lookup(dictionaries.en, full) === undefined && lookup(dictionaries.tr, full) === undefined) continue;
+      if (!LOCALES.some((l) => {
+        const d = dictionaries[l];
+        return d !== undefined && lookup(d, full) !== undefined;
+      }))
+        continue;
       out[full] = text;
     }
   }
@@ -166,7 +237,9 @@ function formatPlurals(raw: string, vars: Vars, locale: Locale): string {
 export function translate(locale: Locale, key: MessageKey, vars?: Vars, overrides?: MessageOverrides): string {
   const own = overrides && Object.hasOwn(overrides, key) ? overrides[key] : undefined;
   // per key: the override, the locale's own text, English, the key itself
-  const raw = own ?? lookup(dictionaries[locale] ?? dictionaries.en, key) ?? lookup(dictionaries.en, key) ?? key;
+  const mine = dictionaries[locale];
+  const en = dictionaries.en;
+  const raw = own ?? (mine && lookup(mine, key)) ?? (en && lookup(en, key)) ?? key;
   if (!vars) return raw;
   const text = raw.includes(", plural,") ? formatPlurals(raw, vars, locale) : raw;
   return text.replace(/\{(\w+)\}/g, (_, name: string) => (name in vars ? String(vars[name]) : `{${name}}`));

@@ -2,7 +2,8 @@
 """Base image pins: every third-party image the stack runs or builds FROM is ``name:version@sha256:<digest>``.
 
 Where the pins live (one reference may appear in several places; they must agree):
-  * docker-compose.yml / docker-compose.caddy.yml ``image:`` of third-party services
+  * docker-compose.yml / docker-compose.caddy.yml ``image:`` of third-party services, the optional profiles included
+    (``legacy``, ``observability``, ``ollama``: the local model server of docs/deploy/local-models.md, HB-16)
   * docker-compose.yml ``build.args`` ``*_IMAGE`` for the three Dockerfiles (backend PYTHON_IMAGE, frontend
     NODE_IMAGE, legacy PHP_IMAGE). The Dockerfile ``ARG *_IMAGE=`` defaults stay tag-only and must name the
     same tag (plain ``docker build`` keeps working; compose and the pod CI images gate pass the digest).

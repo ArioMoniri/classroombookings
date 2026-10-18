@@ -4,7 +4,7 @@
  * plain view over the sheet's state (export-sheet.tsx owns the calls). Cards on steps 1 and 2 are the action (one tap
  * each); a scope or a channel that is not available is shown with its reason, never as a fake button.
  */
-import { BookOpen, CalendarDays, CalendarPlus, Check, ChevronRight, Copy, Download, Link2, Mail, RefreshCw, Users } from "lucide-react";
+import { BookOpen, CalendarDays, CalendarPlus, Check, ChevronRight, ClipboardCheck, Copy, Download, Link2, Mail, RefreshCw, Users } from "lucide-react";
 import Link from "next/link";
 import { useId, useState, type ReactNode, type RefObject } from "react";
 import { toast } from "sonner";
@@ -38,7 +38,7 @@ export function providerName(p: string, t: T): string {
 
 export function scopeName(kind: string, t: T, department?: string | null): string {
   if (kind === "department_classes" && department) return t("calendarExport.scope.department_named", { department });
-  if (kind === "my_classes" || kind === "department_classes" || kind === "my_bookings") return t(`calendarExport.scope.${kind}`);
+  if (kind === "my_classes" || kind === "department_classes" || kind === "my_bookings" || kind === "my_duties") return t(`calendarExport.scope.${kind}`);
   return kind;
 }
 
@@ -79,17 +79,46 @@ export function Advanced({ children, testId, className }: { children: ReactNode;
 const cardClass = "flex w-full min-h-14 items-start gap-3 rounded-2xl bg-fill-3 px-4 py-3 text-left edge-control transition-colors hover:bg-fill-2";
 
 function ScopeIcon({ kind }: { kind: string }) {
-  const Icon = kind === "my_classes" ? BookOpen : kind === "department_classes" ? Users : CalendarDays;
+  const Icon = kind === "my_classes" ? BookOpen : kind === "department_classes" ? Users : kind === "my_duties" ? ClipboardCheck : CalendarDays;
   return <Icon className="mt-0.5 size-5 shrink-0 text-tint-text" aria-hidden />;
+}
+
+/** CAL10-F01: many departments behind one card and a search (Turkish-insensitive), at most 8 shown at a time. */
+function DepartmentGroup({ choices, card }: { choices: ScopeChoice[]; card: (c: ScopeChoice) => ReactNode }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const id = useId();
+  const fold = (x: string) => x.toLocaleLowerCase("tr");
+  const hits = choices.filter((c) => !q.trim() || fold(c.departmentName ?? "").includes(fold(q.trim())));
+  const shown = hits.slice(0, 8);
+  return (
+    <li data-testid="cal-scope-departments">
+      <BareButton className={cardClass} aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)} data-testid="cal-scope-departments-toggle">
+        <ScopeIcon kind="department_classes" />
+        <span className="grid min-w-0 flex-1 gap-0.5">
+          <span className="type-headline text-label-1">{t("calendarExport.what.departments")}</span>
+          <span className="type-footnote text-label-2">{t("calendarExport.what.departmentsN", { n: choices.length })}</span>
+        </span>
+        <ChevronRight className={cn("mt-0.5 size-4 shrink-0 self-center text-label-3 transition-transform", open && "rotate-90")} aria-hidden />
+      </BareButton>
+      {open ? (
+        <div id={id} className="mt-2 grid gap-2 pl-2">
+          <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("calendarExport.what.departmentsSearch")} aria-label={t("calendarExport.what.departmentsSearch")} className="pointer-coarse:text-base" autoFocus data-testid="cal-departments-search" />
+          <ul className="grid gap-2">{shown.map((c) => card(c))}</ul>
+          {hits.length === 0 ? <p className="type-footnote text-label-2">{t("calendarExport.what.departmentsNone")}</p> : null}
+          {hits.length > shown.length ? <p className="type-footnote text-label-3">{t("calendarExport.what.departmentsMore", { n: hits.length - shown.length })}</p> : null}
+        </div>
+      ) : null}
+    </li>
+  );
 }
 
 /* ------------------------------------------------------------------------------------- 1 · what */
 
 export function WhatStep({ choices, onPick, notLinked, contactEmail }: { choices: ScopeChoice[]; onPick: (c: ScopeChoice) => void; notLinked: boolean; contactEmail: string | null }) {
   const { t } = useI18n();
-  return (
-    <ul className="grid gap-2" data-testid="cal-scopes">
-      {choices.map((c) => {
+  const card = (c: ScopeChoice) => {
         const lead =
           c.kind === "my_classes"
             ? c.hours !== null
@@ -97,7 +126,9 @@ export function WhatStep({ choices, onPick, notLinked, contactEmail }: { choices
               : t("calendarExport.what.my_classesPlain")
             : c.kind === "department_classes"
               ? t("calendarExport.what.department_classes", { department: c.departmentName ?? "" })
-              : t("calendarExport.what.my_bookings");
+              : c.kind === "my_duties"
+                ? t("calendarExport.what.my_duties")
+                : t("calendarExport.what.my_bookings");
         const name = c.kind === "department_classes" && c.departmentName ? t("calendarExport.scope.department_named", { department: c.departmentName }) : scopeName(c.kind, t);
         const why = reasonText(c, t);
         const body = (
@@ -129,7 +160,14 @@ export function WhatStep({ choices, onPick, notLinked, contactEmail }: { choices
             )}
           </li>
         );
-      })}
+  };
+  // CAL10-F01: a department-feed holder got one card per department (146): above 3, one "Bölüm dersleri" card that
+  // opens a search, the person's own department first (the backend's default), and the other scopes stay in place
+  const depts = choices.filter((c) => c.kind === "department_classes");
+  const grouped = depts.length > 3;
+  return (
+    <ul className="grid gap-2" data-testid="cal-scopes">
+      {choices.map((c) => (!grouped || c.kind !== "department_classes" ? card(c) : c === depts[0] ? <DepartmentGroup key="departments" choices={depts} card={card} /> : null))}
       {notLinked ? (
         <li className="flex flex-wrap items-center gap-2 px-1 pt-1" data-testid="cal-not-linked">
           <Button
@@ -150,12 +188,14 @@ export function WhatStep({ choices, onPick, notLinked, contactEmail }: { choices
 
 /* ------------------------------------------------------------------------------------- 2 · how */
 
-export function HowStep({ channels, onPick, domain }: { channels: Channel[]; onPick: (c: Channel) => void; domain?: string | null }) {
+export function HowStep({ channels, onPick, domain, linkNote = null }: { channels: Channel[]; onPick: (c: Channel) => void; domain?: string | null; /** CAL10-F02: why there is no link channel */ linkNote?: string | null }) {
   const { t } = useI18n();
   const refreshId = useId();
-  if (!channels.length) return <p className="type-callout text-label-2" data-testid="cal-no-channels">{t("calendarExport.how.none")}</p>;
+  const note = linkNote ? <p className="type-footnote text-label-2" data-testid="cal-link-note">{linkNote}</p> : null;
+  if (!channels.length) return <>{note}<p className="type-callout text-label-2" data-testid="cal-no-channels">{t("calendarExport.how.none")}</p></>;
   return (
     <div className="grid gap-4">
+      {note}
       <ul className="grid gap-2" data-testid="cal-channels">
         {channels.map((c) => {
           const Icon = c.kind === "push" ? RefreshCw : c.kind === "link" ? Link2 : Download;
@@ -243,7 +283,11 @@ export function ApproveStep({
         ))}
       </ul>
       <p className="type-footnote text-label-2" data-testid="cal-never">
-        {fields.includes("co_instructors") ? t("calendarExport.approve.neverWithCo") : t("calendarExport.approve.never")}
+        {choice.kind === "my_duties"
+          ? t("calendarExport.approve.neverDuties")
+          : fields.includes("co_instructors")
+            ? t("calendarExport.approve.neverWithCo")
+            : t("calendarExport.approve.never")}
       </p>
       <figure className="grid gap-1 rounded-2xl bg-fill-3 px-4 py-3 edge-control" data-testid="cal-sample">
         <figcaption className="type-caption font-medium text-label-3">{t("calendarExport.approve.sample")}</figcaption>
@@ -261,9 +305,15 @@ export function ApproveStep({
         <div className="grid gap-1" data-testid="cal-consent">
           <label htmlFor={consentId} className="flex min-h-11 cursor-pointer items-start gap-3 type-callout text-label-1">
             <Checkbox id={consentId} ref={consentRef} checked={consent} onCheckedChange={(v) => onConsent(v === true)} className="mt-0.5" data-testid="cal-consent-tick" />
-            <span>{choice.kind === "my_bookings" ? t("calendarExport.approve.consentBookings") : t("calendarExport.approve.consent")}</span>
+            <span>
+              {choice.kind === "my_bookings"
+                ? t("calendarExport.approve.consentBookings")
+                : choice.kind === "my_duties"
+                  ? t("calendarExport.approve.consentDuties")
+                  : t("calendarExport.approve.consent")}
+            </span>
           </label>
-          <Link href={GRANT_PATH} className="ml-8 w-fit type-footnote font-medium text-tint-text underline-offset-4 hover:underline" data-testid="cal-notice-link">
+          <Link href={GRANT_PATH} className="ml-8 inline-flex w-fit items-center type-footnote font-medium text-tint-text underline-offset-4 hover:underline pointer-coarse:min-h-11" data-testid="cal-notice-link">
             {t("calendarExport.approve.notice")}
           </Link>
         </div>

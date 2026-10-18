@@ -327,6 +327,24 @@ ranges, so the backend sees the real scheme and client IP.
   `docker compose --env-file .env --profile legacy exec backend python -m app.cli import crbs --dsn mysql://crbs:<CRBS_DB_PASSWORD>@crbs-db:3306/crbs`.
   The alternative is to upload SQL dumps in the UI.
 
+## Local model profile (optional)
+
+The AI features can run on a model inside the institution through an OpenAI-compatible server. The runbook
+[docs/deploy/local-models.md](../../docs/deploy/local-models.md) covers GPU sizing, the vLLM and Ollama commands, the
+firewall, registering the server (`allow_local`, sync, probe) and the KVKK note. The recommended setup is a
+**separate GPU host** running vLLM.
+
+For a pilot next to the stack, the `ollama` service runs only with its profile. It has no published port, so the
+backend reaches it as `http://ollama:11434/v1`. It uses `OLLAMA_CONTEXT_LENGTH` (default 16384) and `OLLAMA_MEMORY`
+(default `12g`) from `.env`, and the image is pinned by digest (`pins.py`). Compose never pulls a model:
+
+```sh
+docker compose --env-file .env --profile ollama up -d ollama
+docker compose --env-file .env exec ollama ollama pull qwen3.5:9b
+```
+
+It is off by default and is not meant for the 8 GB pod (no LLM on the pod; the helper's index search needs none).
+
 ## Troubleshooting
 
 | Symptom | Cause / fix |

@@ -7,6 +7,7 @@ import type { EffectiveQuery } from "@/lib/api/booking-policies";
 import type { ApprovalRequest, FeatureFilter, FindAlternative, FindQuery, FindRow } from "@/lib/api/wave1";
 import { isSelectable } from "@/components/bookings/grid-model";
 import { periodVisible, slotLabel, type LabelFormat, type SlotDisplay } from "@/components/bookings/slot-display";
+import { PERIODS } from "@/lib/time";
 
 export type WhenMode = "date" | "weekday" | "range";
 export type TimeMode = "clock" | "periods" | "duration";
@@ -52,6 +53,23 @@ export function isoDate(text: string | null | undefined): string | null {
   return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+/** RF-16b: the form's clock defaults from the grid in use (P3 start, P5 end, P1 start). */
+export function clockDefaults(): Pick<FindForm, "start" | "end" | "windowStart"> {
+  return { start: PERIODS[2].start, end: PERIODS[4].end, windowStart: PERIODS[0].start };
+}
+
+/**
+ * RF-16b: a late `GET /period-grid` moves the default clock fields the person has not changed (still equal to the
+ * `before` grid's defaults) to the `after` grid's; typed values stay. Returns the same form when nothing moves.
+ */
+export function regridForm(form: FindForm, before: ReturnType<typeof clockDefaults>, after: ReturnType<typeof clockDefaults>): FindForm {
+  const keys = (["start", "end", "windowStart"] as const).filter((k) => form[k] === before[k] && before[k] !== after[k]);
+  if (!keys.length) return form;
+  const next = { ...form };
+  for (const k of keys) next[k] = after[k];
+  return next;
+}
+
 export function emptyForm(today: string): FindForm {
   today = isoDate(today) ?? today;
   return {
@@ -63,12 +81,11 @@ export function emptyForm(today: string): FindForm {
     dateTo: today,
     weekdays: [],
     time: "clock",
-    start: "10:10",
-    end: "12:30",
+    // RF-16: P3–P5 and P1 of the grid in use (10:10–12:30 and 08:30 by default)
+    ...clockDefaults(),
     startPeriod: 3,
     endPeriod: 5,
     durationPeriods: 2,
-    windowStart: "08:30",
     windowEnd: "17:00",
     headcount: "",
     purpose: "teaching",
@@ -287,6 +304,19 @@ export function reserveSpan(slots: GridSlot[]): GridSlot[] | null {
  */
 export function wholeSpan(slots: GridSlot[]): GridSlot[] | null {
   return slots.length && slots.every(isSelectable) ? slots : null;
+}
+
+/** grid `unavailable` reasons that mean the day itself is closed (bookings.py grid: holiday, a weekday the period is not offered on, …) */
+const CLOSED_REASONS = new Set(["holiday", "period", "schedule", "date_range", "no_week", "closed_day"]);
+
+/**
+ * BUG-01: why `wholeSpan` refused a result card's window. `closed`: the day grid has no period for it (Sunday on a
+ * Monday-Friday schedule) or the day is closed (holiday, not offered that weekday): "Bu gün rezervasyona kapalı".
+ * `taken`: a period was booked meanwhile: "Bu derslik az önce doldu".
+ */
+export function spanRefusal(slots: GridSlot[]): "closed" | "taken" {
+  if (!slots.length) return "closed";
+  return slots.some((s) => s.status === "unavailable" && CLOSED_REASONS.has(s.reason ?? "")) ? "closed" : "taken";
 }
 
 /**

@@ -68,6 +68,9 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
   const [busy, setBusy] = useState(false);
   const [consentOpen, setConsentOpen] = useState(false);
   const [fromVoice, setFromVoice] = useState(false);
+  // F-VO-3: the text as the voice left it; the chip goes when the box no longer holds it (a real edit, a send), not
+  // on any input event without the voice flag (an event that changes nothing cleared it: flaky in 2 of 4 e2e runs)
+  const voiceValue = useRef<string | null>(null);
   const [announce, setAnnounce] = useState("");
   const [drag, setDrag] = useState<"none" | "lock" | "cancel">("none");
   const [locked, setLocked] = useState(false);
@@ -81,11 +84,13 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
 
   const deliver = useCallback(
     (text: string) => {
-      if (onTranscript) onTranscript(text);
-      else {
-        const el = field();
-        if (el) insertIntoField(el, text);
-      }
+      const el = field();
+      if (onTranscript) {
+        onTranscript(text);
+        // the owner puts the text in: read the box once it has rendered
+        voiceValue.current = null;
+        if (el && typeof window !== "undefined") window.requestAnimationFrame(() => (voiceValue.current = el.value));
+      } else if (el) voiceValue.current = insertIntoField(el, text).value;
       setFromVoice(true);
       setAnnounce(t("voice.announce.inserted"));
     },
@@ -146,7 +151,10 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
       }
     };
     const onInput = (e: Event) => {
-      if (!(e as unknown as Record<string, boolean>)[VOICE_INPUT_FLAG]) setFromVoice(false);
+      if ((e as unknown as Record<string, boolean>)[VOICE_INPUT_FLAG]) return;
+      const kept = voiceValue.current;
+      if (kept !== null && fieldEl.value === kept) return;
+      setFromVoice(false);
     };
     el.addEventListener("keydown", onKey);
     el.addEventListener("input", onInput);
@@ -161,7 +169,8 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
     const fieldEl = fromVoice ? field() : null;
     if (!fieldEl) return;
     const id = setInterval(() => {
-      if (!fieldEl.value.trim()) setFromVoice(false);
+      const kept = voiceValue.current;
+      if (!fieldEl.value.trim() || (kept !== null && fieldEl.value !== kept)) setFromVoice(false);
     }, 800);
     return () => clearInterval(id);
   }, [fromVoice, field]);

@@ -74,6 +74,10 @@ export interface ChartCardProps<R> {
   summaryTestId?: string;
   /** fewer rows than this → the number instead of a chart (default 3) */
   minPoints?: number;
+  /** CH-08 / CH-10: a click / tap on a bucket, or Enter / Space on the keyboard-focused one, selects it */
+  onSelect?: (index: number) => void;
+  /** one visible line under the plot that says what a tap does (shown only with `onSelect`) */
+  selectHint?: string;
   /** the signed-in user, for the per-user "Grafiklerde desen" preference */
   userId?: string | number | null;
   headingLevel?: 2 | 3 | 4;
@@ -116,7 +120,7 @@ function useInView(rootMargin = "200px") {
 }
 
 export function ChartCard<R>(props: ChartCardProps<R>) {
-  const { id, title, summary, hint, state, columns, rows, unit, legend, period, partial, stale, updatedAt, error, onRetry, focusRetry, empty, range, minPoints = 3, userId, headingLevel = 3, className, children } = props;
+  const { id, title, summary, hint, state, columns, rows, unit, legend, period, partial, stale, updatedAt, error, onRetry, focusRetry, empty, range, minPoints = 3, userId, headingLevel = 3, className, children, onSelect, selectHint } = props;
   const { t } = useI18n();
   const f = useChartFormat();
   const reduce = useReduce();
@@ -168,7 +172,13 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
     (i: number) => (rows[i] ? bucketSentence({ row: rows[i], columns, f, t, unit, partial: partialText && i === rows.length - 1 ? partialText : undefined }) : ""),
     [rows, columns, f, t, unit, partialText],
   );
-  const kb = useChartKeyboard({ count: rows.length, api, describe: describeBucket, announce: setLive });
+  const kb = useChartKeyboard({ count: rows.length, api, describe: describeBucket, announce: setLive, onSelect });
+  const onPlotClick = onSelect
+    ? (e: { clientX: number; clientY: number }) => {
+        const i = api?.indexAt?.(e.clientX, e.clientY);
+        if (i != null && i >= 0 && i < rows.length) onSelect(i);
+      }
+    : undefined;
 
   const ready = state === "ready" && rows.length > 0;
   const tooFew = ready && rows.length < minPoints;
@@ -333,13 +343,20 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
               aria-label={t("charts.kb.label")}
               onKeyDown={kb.onKeyDown}
               onBlur={kb.onBlur}
-              className="ch-plot min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
+              onClick={onPlotClick}
+              className={cn("ch-plot min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)", onSelect && "cursor-pointer")}
+              data-selectable={onSelect ? "true" : undefined}
               data-reveal={reveal ? "true" : "false"}
               data-renderer={renderer}
               data-testid={`chart-plot-${id}`}
             >
               <div aria-hidden="true">{inView ? plot : <ChartSkeleton height={height} />}</div>
             </div>
+          ) : null}
+          {showPlot && onSelect && selectHint ? (
+            <p className="mt-2 type-footnote text-label-3" data-testid={`chart-select-hint-${id}`}>
+              {selectHint}
+            </p>
           ) : null}
         </div>
       )}

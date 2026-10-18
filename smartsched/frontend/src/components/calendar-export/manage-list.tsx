@@ -53,6 +53,9 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
   const legacy = legacyProviders(options.data, subs.data?.rows, subs.data?.connections);
   const accounts = pushAccounts(options.data, subs.data?.connections).filter((p) => p.connected || p.status === "REAUTH" || p.status === "CAL_DELETED");
   const [confirm, setConfirm] = useState<Subscription | null>(null);
+  // CAL10-F05 (fix-h-2026-10-18): "Bağlantıyı yenile" breaks every calendar subscribed to the old link; it asks first
+  const [confirmRotate, setConfirmRotate] = useState<Subscription | null>(null);
+  const rotateTrigger = useRef<HTMLElement | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rotated, setRotated] = useState<{ id: Subscription["id"]; made: SubscriptionCreated } | null>(null);
@@ -102,6 +105,7 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
   const rotate = (r: Subscription) =>
     run(`rotate-${r.id}`, async () => {
       const made = await calendarExportApi.rotate(r);
+      setConfirmRotate(null);
       setRotated({ id: made.id, made });
       toast.success(t("calendarExport.manage.rotated"));
       await qc.invalidateQueries({ queryKey: calendarExportKeys.subscriptions });
@@ -158,7 +162,10 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
                       </BusyLabel>
                     </Button>
                   ) : (
-                    <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" onClick={() => void rotate(r)} disabled={busy !== null} aria-busy={busy === `rotate-${r.id}` || undefined} data-testid={`cal-rotate-${r.id}`}>
+                    <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" onClick={(e) => {
+                        rotateTrigger.current = e.currentTarget;
+                        setConfirmRotate(r);
+                      }} disabled={busy !== null} aria-busy={busy === `rotate-${r.id}` || undefined} data-testid={`cal-rotate-${r.id}`}>
                       <RotateCw aria-hidden />
                       <BusyLabel busy={busy === `rotate-${r.id}`} label={t("busy.working")}>
                         {t("calendarExport.manage.rotate")}
@@ -191,6 +198,24 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
             <Button variant="destructive" onClick={() => confirm && void remove(confirm)} disabled={busy !== null} aria-busy={busy?.startsWith("remove-") || undefined} data-testid="cal-remove-confirm">
               <BusyLabel busy={!!busy?.startsWith("remove-")} label={t("busy.deleting")}>
                 {t("calendarExport.manage.remove")}
+              </BusyLabel>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={confirmRotate !== null} onOpenChange={(o) => !o && busy === null && setConfirmRotate(null)}>
+        <DialogContent role="alertdialog" className="sm:max-w-md" finalFocus={() => rotateTrigger.current ?? true} data-testid="cal-rotate-dialog">
+          <DialogHeader>
+            <DialogTitle>{confirmRotate ? t("calendarExport.manage.rotateTitle", { scope: rowTitle(confirmRotate, t, locale) }) : ""}</DialogTitle>
+            <DialogDescription>{t("calendarExport.manage.rotateBody")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmRotate(null)} disabled={busy !== null}>
+              {t("crbs.common.cancel")}
+            </Button>
+            <Button onClick={() => confirmRotate && void rotate(confirmRotate)} disabled={busy !== null} aria-busy={busy?.startsWith("rotate-") || undefined} data-testid="cal-rotate-confirm">
+              <BusyLabel busy={!!busy?.startsWith("rotate-")} label={t("busy.working")}>
+                {t("calendarExport.manage.rotate")}
               </BusyLabel>
             </Button>
           </DialogFooter>

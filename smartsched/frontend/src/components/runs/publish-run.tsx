@@ -16,7 +16,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, Upload } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -51,14 +51,17 @@ export function publishRefusals(e: unknown): string[] {
 }
 
 /** 409 `scope_reduction` payload (FastAPI wraps the dict in `detail`). */
-export function scopeReductionOf(e: unknown): { weeksLost: number[]; activeId: number | null; message: string } | null {
+export function scopeReductionOf(e: unknown): { weeksLost: number[]; activeId: number | null; runId: number | null; newWeeks: number[]; message: string } | null {
   if (!(e instanceof HttpError)) return null;
   const d = rec(e.detail);
   const inner = rec(d?.detail) ?? d;
   if (inner?.code !== "scope_reduction") return null;
   const lost = Array.isArray(inner.weeks_lost) ? inner.weeks_lost.map(Number).filter(Number.isFinite) : [];
   const active = rec(inner.active);
-  return { weeksLost: lost, activeId: typeof active?.run_id === "number" ? active.run_id : null, message: String(inner.message_tr ?? inner.message ?? "") };
+  const next = rec(inner.new);
+  // video lane (fix-h-2026-10-18): the dialog words the weeks itself in the UI's language; `message` stays a fallback
+  const newWeeks = Array.isArray(next?.weeks) ? next.weeks.map(Number).filter(Number.isFinite) : [];
+  return { weeksLost: lost, activeId: typeof active?.run_id === "number" ? active.run_id : null, runId: typeof next?.run_id === "number" ? next.run_id : null, newWeeks, message: String(inner.message_tr ?? inner.message ?? "") };
 }
 
 /** 409 `forced_breaks`: the hard rules the run breaks through forced moves with a reason (round-1 R1-S-01). */
@@ -72,10 +75,11 @@ export function forcedBreaksOf(e: unknown): { breaks: { rule: string; message: s
   };
 }
 
-export function PublishRunButton({ run, published, exceptions = [], truth = null }: { run: ScheduleRun; /** the term's published run of this kind, if another one */ published: number | null; exceptions?: VerdictException[]; truth?: RunTruth | null }) {
+export function PublishRunButton({ run, published, exceptions = [], truth = null, autoOpen = false }: { run: ScheduleRun; /** the term's published run of this kind, if another one */ published: number | null; exceptions?: VerdictException[]; truth?: RunTruth | null; /** HX-06 `?publish=`: open the dialog on mount (the confirm still publishes) */ autoOpen?: boolean }) {
   const { t, n, locale } = useI18n();
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   // the hero moment (mobile-b phase 2): the check plays only after a publish in this session, never on load
   const [justPublished, setJustPublished] = useState(false);
   const reduce = useReduce();
@@ -151,6 +155,7 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
   return (
     <>
       <Button
+        ref={triggerRef}
         size="sm"
         onClick={() => {
           setRefusals([]);
@@ -162,11 +167,13 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
           setOpen(true);
         }}
         data-testid="run-publish"
+        data-tour="runs-publish"
       >
         <Upload aria-hidden /> {t("runs.publish.button")}
       </Button>
       <Dialog open={open} onOpenChange={(o) => !publish.isPending && setOpen(o)}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+        {/* opened by the trigger or by the `?publish=` hand-over: either way focus goes back to "Yayınla" */}
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg" finalFocus={() => triggerRef.current ?? true}>
           <DialogHeader>
             <DialogTitle>{t("runs.publish.title", { id: run.id })}</DialogTitle>
             <DialogDescription>{weeks.length ? t("runs.publish.scopeWeeks", { weeks: weekList(weeks, tr ? "tr" : "en"), term: run.term_code }) : t("runs.publish.scopeTerm", { term: run.term_code })}</DialogDescription>
@@ -205,17 +212,17 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
             <div role={reduction ? "alert" : undefined} className="grid gap-1.5 rounded-xl bg-status-warning px-3 py-2 type-callout text-status-warning-fg" data-testid="publish-scope-reduction">
               <p className="font-medium">
                 {reduction
-                  ? tr
-                    ? `Bu çalıştırma daha az hafta kapsıyor: ${weekList(reduction.weeksLost, "tr")}${reduction.activeId ? ` (#${reduction.activeId})` : ""} yayından kalkacak.`
-                    : `This run covers fewer weeks: ${weekList(reduction.weeksLost, "en")}${reduction.activeId ? ` of #${reduction.activeId}` : ""} will leave the published timetable.`
+                  ? t(reduction.activeId ? "runs.publish.scopeLessActive" : "runs.publish.scopeLess", { weeks: weekList(reduction.weeksLost, tr ? "tr" : "en"), active: reduction.activeId ?? "" })
                   : t("runs.publish.weeksOnly")}
               </p>
-              {reduction?.message ? <p className="type-footnote text-label-1">{reduction.message}</p> : null}
+              {reduction && reduction.newWeeks.length && reduction.activeId ? (
+                <p className="type-footnote text-label-1">{t("runs.publish.scopeDetail", { id: reduction.runId ?? run.id, weeks: weekList(reduction.newWeeks, tr ? "tr" : "en"), active: reduction.activeId, n: reduction.weeksLost.length })}</p>
+              ) : reduction?.message && tr ? (
+                <p className="type-footnote text-label-1">{reduction.message}</p>
+              ) : null}
               <label className="flex min-h-11 items-center gap-2 text-label-1 pointer-fine:min-h-0">
                 <Checkbox checked={scopeOk} onCheckedChange={(v) => setScopeOk(Boolean(v))} data-testid="publish-scope-ack" />
-                {tr
-                  ? `Evet, ${weeks.length ? weekList(weeks, "tr") + " dışındaki haftalar" : "bu haftalar"}${published !== null ? ` #${published} programından` : ""} yayından kalksın`
-                  : `Yes, remove the ${weeks.length ? `weeks outside ${weekList(weeks, "en")}` : "other weeks"}${published !== null ? ` of #${published}` : ""} from the published timetable`}
+                {t(weeks.length ? (published !== null ? "runs.publish.scopeAckWeeksActive" : "runs.publish.scopeAckWeeks") : published !== null ? "runs.publish.scopeAckActive" : "runs.publish.scopeAck", { weeks: weeks.length ? weekList(weeks, tr ? "tr" : "en") : "", active: published ?? "" })}
               </label>
             </div>
           ) : null}

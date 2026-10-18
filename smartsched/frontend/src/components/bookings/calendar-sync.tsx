@@ -17,7 +17,7 @@ import { focusAfter } from "./focus-after";
  * links; after the tab is closed the user makes a new link (or resets them all).
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarPlus, CalendarSync as CalendarSyncIcon, Copy, ExternalLink, Link2, RefreshCw, Unplug } from "lucide-react";
+import { CalendarPlus, CalendarSync as CalendarSyncIcon, ChevronDown, Copy, ExternalLink, Link2, RefreshCw, Unplug } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
@@ -197,16 +197,25 @@ export function CalendarSyncPanel({ roomId, departmentId }: { roomId?: number | 
               {s.feeds.tokens.length
                 ? t("reserve.sync.existingDated", {
                     n: s.feeds.tokens.length,
-                    dates: s.feeds.tokens.map((x) => (x.created_at ? t("reserve.sync.madeOn", { date: fmt.short(x.created_at.slice(0, 10)) }) : x.hint)).join(", "),
+                    // HX12B-F03: one date is said once ("18.10.2026 tarihinde oluşturuldu", not three times)
+                    dates: [...new Set(s.feeds.tokens.map((x) => (x.created_at ? t("reserve.sync.madeOn", { date: fmt.short(x.created_at.slice(0, 10)) }) : x.hint)))].join(", "),
                   })
                 : t("reserve.sync.none")}
             </p>
             <div className="flex flex-wrap gap-2">
               {s.feeds.tokens.length ? (
-                <Button onClick={startReset} disabled={reset.isPending || ask !== null} aria-expanded={needsConsent ? ask === "reset" : undefined} data-testid="sync-reset">
-                  <RefreshCw aria-hidden />
-                  {t("reserve.sync.reset")}
-                </Button>
+                // HX12B-F03: resetting breaks every subscribed calendar: not this page's primary, behind "Gelişmiş" (the
+                // confirm names the effect)
+                <details className="group w-full rounded-xl" open={ask === "reset" || confirm || undefined} data-testid="sync-advanced">
+                  <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg py-1 type-callout text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:min-h-11">
+                    <ChevronDown className="size-4 transition-transform duration-(--dur-fast) group-open:rotate-180" aria-hidden />
+                    {t("reserve.sync.advanced")}
+                  </summary>
+                  <Button variant="outline" className="mt-2" onClick={startReset} disabled={reset.isPending || ask !== null} aria-expanded={needsConsent ? ask === "reset" : undefined} data-testid="sync-reset">
+                    <RefreshCw aria-hidden />
+                    {t("reserve.sync.reset")}
+                  </Button>
+                </details>
               ) : (
                 <Button onClick={startCreate} disabled={create.isPending || ask !== null} aria-expanded={needsConsent ? ask === "create" : undefined} data-testid="sync-create">
                   <Link2 aria-hidden />

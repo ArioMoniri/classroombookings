@@ -2,41 +2,33 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { publishForward } from "@/lib/handover";
 import { PageHeader } from "@/components/common/page-header";
 import { CompareEntry } from "@/components/compare/compare-entry";
-import type { StatusKind } from "@/components/common/status-badge";
 import { useActiveTerm } from "@/components/shell/term-switcher";
 import { Button } from "@/components/ui/button";
 import { DataTable, StatusDot, type DataColumn } from "@/components/ui/data-table";
 import { useMe, useRuns } from "@/lib/api/hooks";
-import type { RunStatus, ScheduleRun } from "@/lib/api/schemas";
-import type { MessageKey, Vars } from "@/lib/i18n";
+import type { ScheduleRun } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { isBaselineRun } from "@/lib/api/council";
+import dynamic from "next/dynamic";
 
-export const RUN_STATUS_KIND: Record<RunStatus, StatusKind> = { QUEUED: "preoccupied", RUNNING: "pclab", FEASIBLE: "feasible", OPTIMAL: "feasible", FEASIBLE_PARTIAL: "warning", INFEASIBLE: "infeasible", TIMEOUT: "infeasible", ERROR: "infeasible", FAILED: "infeasible", CANCELLED: "preoccupied" };
+// CH-08 bundle rule (charts.md §10): the shell (command palette, notification bell) imports this module for its
+// helpers, so the chart card is its own chunk and only /runs pays for it
+const ScoreHistory = dynamic(() => import("./score-history").then((m) => m.ScoreHistory), { ssr: false });
 
-/** A best-effort run: status ``FEASIBLE_PARTIAL`` (older runs: INFEASIBLE with ``stats.partial``) with
- * ``placed`` of ``events_total`` events stored; shown as "Partial · placed/total" with the warning badge. */
-export function partialCounts(r: ScheduleRun): { placed: number; total: number } | null {
-  const placed = Number(r.stats.placed ?? 0);
-  const total = Number(r.stats.events_total ?? 0);
-  const partial = r.status === "FEASIBLE_PARTIAL" || (r.status === "INFEASIBLE" && Boolean(r.stats.partial ?? placed > 0));
-  return partial && placed > 0 && total > 0 ? { placed, total } : null;
-}
+// F-CH-1: the status helpers live in ./run-status, so the shell (bell, palette) does not pull this page's table in
+import { RUN_STATUS_KIND, partialCounts, runStatusBadge } from "./run-status";
+export { RUN_STATUS_KIND, partialCounts, runStatusBadge };
 
-/** An imported published board (grid import) rather than a solver run: it has no solver stats. The run
- * schema drops `params.source`, so this reads the stats the solver always writes (`solver`, `events`). */
-export function isImportBoard(r: ScheduleRun): boolean {
-  return r.stats.solver === undefined && r.stats.events === undefined && r.prompt_text === null && r.diagnosis.length === 0;
-}
+// moved to ./run-kinds (CH-08: the score-history model needs it without importing this component)
+import { isImportBoard } from "./run-kinds";
+import { coarseHitArea } from "@/components/ui/hit-area";
+import { cn } from "@/lib/utils";
+export { isImportBoard };
 
-export function runStatusBadge(r: ScheduleRun, t: (k: MessageKey, p?: Vars) => string): { kind: StatusKind; label: string } {
-  const partial = partialCounts(r);
-  if (partial) return { kind: "warning", label: t("runs.partial", partial) };
-  return { kind: RUN_STATUS_KIND[r.status], label: `${t(`runs.status.${r.status}`)}${r.status === "RUNNING" ? ` ${r.progress}%` : ""}` };
-}
 
 export function horizonLabel(r: ScheduleRun, t: (k: "generate.week" | "generate.month" | "generate.wholeTerm") => string): string {
   const base = t(r.horizon === "WEEK" ? "generate.week" : r.horizon === "MONTH" ? "generate.month" : "generate.wholeTerm");
@@ -75,6 +67,12 @@ export function runDotTone(r: ScheduleRun): "feasible" | "warning" | "infeasible
 export function RunsList() {
   const { t, locale } = useI18n();
   const router = useRouter();
+  // HX-06 hand-over: /runs?publish=<id> forwards to that run's page with its publish dialog open (read from the
+  // address once; this page has no Suspense boundary for useSearchParams)
+  useEffect(() => {
+    const to = publishForward(new URLSearchParams(window.location.search));
+    if (to) router.replace(to);
+  }, [router]);
   const { term } = useActiveTerm();
   const me = useMe();
   const runs = useRuns(term ? { term_id: term.id } : undefined);
@@ -94,12 +92,14 @@ export function RunsList() {
         sortValue: (r) => r.id,
         cell: (r) => (
           <span className="flex min-w-0 items-baseline gap-1.5">
-            <Link href={`/runs/${r.id}`} className="truncate font-medium text-label-1 hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={(e) => e.stopPropagation()}>
+            <Link href={`/runs/${r.id}`} className={cn("relative truncate font-medium text-label-1 hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)", coarseHitArea)} onClick={(e) => e.stopPropagation()}>
               {isBaselineRun(r) ? t("baseline.listName", { id: r.id }) : isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : `#${r.id}`}
             </Link>
             {/* the planner's own name for the run (ScheduleRun.label); an import board already names its file */}
             {!isImportBoard(r) && r.label?.trim() ? <span className="truncate type-callout text-label-2" data-testid="run-label">{r.label.trim()}</span> : null}
             {r.parent_run_id ? <span className="truncate type-footnote text-label-3">{t("glass.report.childOf", { id: r.parent_run_id })}</span> : null}
+            {/* PER-F06 (M-30): the published run is marked in the list */}
+            {r.is_active ? <span className="shrink-0 rounded-full bg-status-feasible px-1.5 type-caption font-medium text-status-feasible-fg" data-testid="run-published">{t("runs.publish.published")}</span> : null}
           </span>
         ),
       },
@@ -152,6 +152,8 @@ export function RunsList() {
   return (
     <div data-testid="runs">
       <PageHeader title={t("runs.title")} subtitle={term ? `${term.name} · ${t("runs.subtitle")}` : t("runs.subtitle")} actions={<><CompareEntry /><Button nativeButton={false} render={<Link href="/generate" />}>{t("nav.generate")}</Button></>} />
+      {/* CH-08: soft score across this term's finished course runs (nothing below 3 runs) */}
+      <ScoreHistory runs={runs.data} userId={me.data?.id} />
       <DataTable
         tableId="runs"
         userId={me.data?.id}
@@ -169,6 +171,8 @@ export function RunsList() {
 
 /** Plain numerals: "517 / 530" for a partial run, "100 / 100" hard score otherwise (no ring, no badge). */
 function placedText(r: ScheduleRun): string {
+  // HX12B-F07: an imported board has no solver score: the list does not say "100 / 100" while the page says 0/632
+  if (isImportBoard(r)) return "—";
   const p = partialCounts(r);
   if (p) return `${p.placed} / ${p.total}`;
   return r.hard_score === null ? "—" : `${r.hard_score} / 100`;

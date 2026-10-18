@@ -51,6 +51,15 @@ class ProviderIn(BaseModel):
     name_attribute: str | None = Field(default=None, max_length=255)
     groups_attribute: str | None = Field(default=None, max_length=255)
     subject_attribute: str | None = Field(default=None, max_length=255)
+    #: SAML (RF-12): the federation's metadata signing certificate (PEM or base64; "" removes the requirement)
+    metadata_signing_cert: str | None = Field(default=None, max_length=16384)
+    #: SAML SP key pair: write-only private key (PEM, unencrypted RSA >= 2048) with its certificate, or generated
+    sp_private_key: str | None = Field(default=None, max_length=16384)
+    sp_certificate: str | None = Field(default=None, max_length=16384)
+    sp_key_generate: bool | None = None
+    sp_key_remove: bool | None = None
+    #: sign the AuthnRequests with the SP key (HTTP-Redirect SigAlg + Signature); off by default
+    sign_requests: bool | None = None
 
 
 class OrderIn(BaseModel):
@@ -78,3 +87,15 @@ class ResendIn(BaseModel):
 
 class LocalPasswordIn(BaseModel):
     password: str = Field(min_length=8, max_length=256)
+
+
+class ProfileLinkIn(BaseModel):
+    """Profil › Güvenlik › Bağla: ``password`` may be left out within 10 minutes of signing in (``reauth_failed``
+    otherwise); ``confirm`` must be true (the person agrees the identity will sign this account in)."""
+
+    password: str | None = Field(default=None, max_length=256)
+    confirm: Literal[True]
+
+
+class ReauthIn(BaseModel):
+    password: str | None = Field(default=None, max_length=256)

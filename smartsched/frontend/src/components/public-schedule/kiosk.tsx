@@ -18,7 +18,7 @@ import { LocaleToggle } from "@/components/shell/locale-toggle";
 import { Button, IconButton } from "@/components/ui/button";
 import { coarseHitArea } from "@/components/ui/hit-area";
 import { DateField } from "@/components/ui/date-field";
-import { addDays, currentItem, isRateLimited, publicWindow, type PublicItem, type PublicSlotLabels } from "@/lib/api/public-schedule";
+import { addDays, currentItem, isRateLimited, publicWindow, WINDOW, type PublicItem, type PublicSlotLabels } from "@/lib/api/public-schedule";
 import { intlLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -131,14 +131,24 @@ export function KioskFrame({ title, subtitle, back, today, date, onDate, updated
   );
 }
 
-/** The one answer for "off", "unknown" and "outside the window" (the backend never says which). */
-export function PublicNotFound() {
+/** The one answer for "off", "unknown" and "outside the window" (the backend never says which; it logs the reason,
+ *  CH12-F10). With a `?date=` in the address the page names the window and offers today. */
+export function PublicNotFound({ date = null }: { date?: string | null }) {
   const { t } = useI18n();
+  const pathname = usePathname();
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col items-start justify-center gap-3 px-6" data-testid="public-not-found">
       <MonitorOff className="size-8 text-label-3" aria-hidden />
       <h1 className="type-title-1 text-label-1">{t("publicSchedule.notFoundTitle")}</h1>
       <p className="type-body text-label-2">{t("publicSchedule.notFound")}</p>
+      {date ? (
+        <>
+          <p className="type-body text-label-2" data-testid="public-not-found-date">{t("publicSchedule.notFoundDate", { past: WINDOW.past, future: WINDOW.future })}</p>
+          <Button variant="outline" nativeButton={false} render={<Link href={pathname} />} data-testid="public-not-found-today">
+            {t("publicSchedule.today")}
+          </Button>
+        </>
+      ) : null}
       <LocaleToggle />
     </div>
   );

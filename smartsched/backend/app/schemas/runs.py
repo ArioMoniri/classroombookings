@@ -227,6 +227,12 @@ class ImportJobOut(ORMModel):
     error: str | None
     created_at: dt.datetime
     finished_at: dt.datetime | None
+    #: RF-08: who imported - ``user`` (``created_by_id`` / ``created_by_name``) or ``system`` (CLI, deploy seed);
+    #: ``source``: ``upload`` | ``cli`` | ``seed``; ``None`` on jobs made before alembic 0047
+    actor: str | None = None
+    created_by_id: int | None = None
+    created_by_name: str | None = None
+    source: str | None = None
 
     @field_validator("kind", mode="before")
     @classmethod

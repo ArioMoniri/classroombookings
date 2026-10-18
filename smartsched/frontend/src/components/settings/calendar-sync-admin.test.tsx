@@ -52,6 +52,21 @@ describe("CalendarSyncAdmin", () => {
     });
   });
 
+  it("CAL10-F02: without the panel address the card warns that links cannot work and points to the address field", async () => {
+    state.settings = { ...off, public_url: null };
+    renderCard();
+    const warn = await screen.findByTestId("calendar-sync-no-url");
+    expect(warn).toHaveTextContent("Panel address missing");
+    expect(warn).toHaveTextContent("only download the .ics file");
+    expect(screen.getByRole("link", { name: "Enter the panel address" })).toHaveAttribute("href", "#cp-public-url");
+  });
+
+  it("CAL10-F02: no warning once the address is set", async () => {
+    renderCard();
+    await screen.findByTestId("calendar-no-signoff");
+    expect(screen.queryByTestId("calendar-sync-no-url")).toBeNull();
+  });
+
   it("is off with no sign-off on a fresh install", async () => {
     renderCard();
     expect(await screen.findByTestId("calendar-no-signoff")).toHaveTextContent("No sign-off recorded");

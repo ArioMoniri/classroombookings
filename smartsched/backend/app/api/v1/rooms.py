@@ -89,9 +89,14 @@ async def get_room(room_id: int, db: DB, _: Viewer) -> Room:
 
 @router.put("/rooms/{room_id}", response_model=RoomOut)
 async def update_room(room_id: int, body: RoomUpdate, db: DB, _: RoomsEditor) -> Room:
+    from app.importers.catalog import MASTER_ATTRS, mark_master
+
     room = await _room(db, room_id)
-    for k, v in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    edited = [k for k in MASTER_ATTRS if k in data and data[k] is not None and data[k] != getattr(room, k)]
+    for k, v in data.items():
         setattr(room, k, v)
+    mark_master(room, *edited)  # RF-06: the next workbook import keeps what the admin set
     await db.commit()
     await db.refresh(room)
     return room

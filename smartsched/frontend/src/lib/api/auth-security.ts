@@ -171,7 +171,20 @@ export type SignInEvent = z.infer<typeof SignInEvent>;
 export const SignInHistory = z.object({ events: z.array(SignInEvent).default([]), known_devices: z.number().default(0), last_login_at: ts });
 
 /** AU-15 `GET /auth/sessions`: open sessions, newest first. `network` (a /24 or /48) is never shown (KVKK, §6.5). */
-export const SessionRow = z.object({ id: z.number(), created_at: z.string(), last_seen_at: ts, expires_at: ts, device: z.string().nullish(), network: z.string().nullish(), current: z.boolean().default(false) });
+/** `browser` / `os` / `client` (FIX-I): the stored label is language-neutral ("Safari, iPhone", "API", ""); the UI words
+ * unknown parts in the viewer's language and names a script client ("API") instead of an unknown browser. */
+export const SessionRow = z.object({
+  id: z.number(),
+  created_at: z.string(),
+  last_seen_at: ts,
+  expires_at: ts,
+  device: z.string().nullish(),
+  browser: z.string().nullish(),
+  os: z.string().nullish(),
+  client: z.enum(["browser", "api", "unknown"]).nullish(),
+  network: z.string().nullish(),
+  current: z.boolean().default(false),
+});
 export type SessionRow = z.infer<typeof SessionRow>;
 
 /** AU-16 `GET /admin/auth/providers/idp-mfa`: per provider, whether the IdP's MFA is required (SAML: not supported). */

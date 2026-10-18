@@ -40,10 +40,11 @@ in_python --network "$net" \
   -e TEST_POSTGRES_URL="postgresql+psycopg://postgres:${PG_PASSWORD}@postgres:5432/postgres" \
   -e PG_MIGRATE_URL="postgresql+psycopg://postgres:${PG_PASSWORD}@postgres:5432/ci_migrate" -- '
 python -m venv /w/venv && . /w/venv/bin/activate
-pip install -q --upgrade pip
-# the versions the image ships (smartsched/backend/requirements.lock, as constraints like the Dockerfile)
-lock=(); [ -f smartsched/backend/requirements.lock ] && lock=(-c smartsched/backend/requirements.lock)
-pip install -q "${lock[@]}" -e "./smartsched/backend[dev]"
+# no unhashed "pip install --upgrade pip": the bundled pip runs hash-checking mode
+# SECURITY F13: hash-checking mode. requirements-dev.lock = the versions the image ships (requirements.lock) plus
+# pytest / ruff / mypy; requirements-build.lock = setuptools, so the editable install needs no isolated build env
+pip install -q --require-hashes -r smartsched/backend/requirements-dev.lock -r smartsched/backend/requirements-build.lock
+pip install -q --no-deps --no-build-isolation -e "./smartsched/backend"
 # SAML 2.0 is built in (signxml from the lock): fail loudly rather than let tests/test_w3b_idp_saml.py skip
 python -c "import signxml; from importlib.metadata import version; print(\"signxml\", version(\"signxml\"))"
 cd smartsched/backend

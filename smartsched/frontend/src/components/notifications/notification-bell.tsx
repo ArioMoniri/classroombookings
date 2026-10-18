@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/common/status-badge";
-import { runStatusBadge } from "@/components/runs/runs-list";
+import { runStatusBadge } from "@/components/runs/run-status";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";

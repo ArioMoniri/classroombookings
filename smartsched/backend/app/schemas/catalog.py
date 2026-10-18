@@ -67,11 +67,67 @@ class TermOut(ORMModel):
     is_current: bool = False  # the term the app should open (app/services/terms.py)
 
 
+#: kinds of a term week (``weeks.kind``) and the Turkish words admins type for them (RF-09)
+WEEK_KINDS = ("LECTURE", "EXAM", "HOLIDAY", "MAKEUP")
+_WEEK_KIND_WORDS = {
+    "ders": "LECTURE",
+    "ders haftası": "LECTURE",
+    "sınav": "EXAM",
+    "sınav haftası": "EXAM",
+    "final": "EXAM",
+    "tatil": "HOLIDAY",
+    "bütünleme": "MAKEUP",
+    "büt": "MAKEUP",
+}
+
+
+def parse_week_kind(value: Any) -> str:
+    """``"Tatil"`` / ``"TATİL"`` / ``"holiday"`` -> ``HOLIDAY`` (Turkish case folding, NBSP); else :class:`Refusal`."""
+    from app.importers import normalize as n
+    from app.schemas.messages import Refusal
+
+    text = " ".join((n.tr_casefold(n.clean_text(value) or "")).split())
+    kind = _WEEK_KIND_WORDS.get(text) or next((k for k in WEEK_KINDS if text in (k.lower(), n.tr_casefold(k))), None)
+    if kind is None:
+        raise Refusal(
+            "week_kind_invalid",
+            f"Hafta türü anlaşılamadı ({n.clean_text(value) or 'boş'}): Ders, Sınav, Tatil ya da Bütünleme yazın.",
+            f"unknown week kind {value!r}; use one of {', '.join(WEEK_KINDS)}",
+        )
+    return kind
+
+
+def clean_week_label(value: str | None) -> str | None:
+    from app.importers import normalize as n
+
+    return n.clean_text(value) or None
+
+
 class WeekIn(BaseModel):
-    index: int
+    index: int = Field(ge=1, le=60)
     start_date: date | None = None
     kind: str = "LECTURE"
-    label: str | None = None
+    label: str | None = Field(default=None, max_length=128)
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _kind(cls, v: Any) -> str:
+        from app.schemas.messages import validated
+
+        return validated(parse_week_kind, v, code="week_kind_invalid")
+
+    @field_validator("label")
+    @classmethod
+    def _label(cls, v: str | None) -> str | None:
+        return clean_week_label(v)
+
+
+class WeekPatch(BaseModel):
+    """RF-09: one week of the term calendar (``PATCH /terms/{id}/weeks/{index}``); unset fields stay."""
+
+    kind: str | None = None
+    label: str | None = Field(default=None, max_length=128)
+    start_date: date | None = None
 
 
 class WeekOut(ORMModel):
@@ -81,6 +137,8 @@ class WeekOut(ORMModel):
     start_date: date | None
     kind: str
     label: str | None
+    #: an admin changed the week; a board re-import keeps it (RF-06)
+    edited: bool = False
 
 
 class BuildingIn(BaseModel):

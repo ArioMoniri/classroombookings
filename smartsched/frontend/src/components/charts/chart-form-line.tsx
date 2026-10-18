@@ -1,7 +1,7 @@
 "use client";
 // SmartSched charts (CH-02): the line form (charts.md §4: many points or continuous change). Loaded
 // only through `LazyLineChart` (chart-lazy.tsx). EvilCharts `EChartsLineChart` with animation off, the shell's
-// formatters and a dashed last segment for an unfinished bucket. Original work.
+// formatters, a dashed last segment for an unfinished bucket and optional resting dots (CH-08). Original work.
 import { useRef } from "react";
 import { useChartApi } from "./chart-api";
 import type { LineFormProps } from "./chart-form-types";
@@ -23,7 +23,9 @@ export function LineForm(p: LineFormProps) {
         className="h-full"
       >
         {p.series.map((key) => (
-          <EChartsLineChart.Line key={key} dataKey={key} enableBufferLine={p.partialLast} />
+          <EChartsLineChart.Line key={key} dataKey={key} enableBufferLine={p.partialLast}>
+            {p.dots ? <EChartsLineChart.Dot variant="default" /> : null}
+          </EChartsLineChart.Line>
         ))}
         <EChartsLineChart.XAxis dataKey={p.xKey} tickFormatter={p.xTickFormatter} />
         <EChartsLineChart.YAxis tickFormatter={(v) => p.tickFormatter(Number(v))} />

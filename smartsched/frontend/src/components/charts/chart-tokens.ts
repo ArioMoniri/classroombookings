@@ -43,6 +43,12 @@ export function legendItems(series: readonly SeriesSpec[]): LegendItem[] {
   return series.map((s, i) => ({ key: s.key, label: s.label, color: s.color ?? seriesColor(i) }));
 }
 
+/**
+ * Axis text (ticks and axis names): the smallest type token, `type-footnote` = 12 px (F-CH-3; MOBILE.md M-03 floor
+ * 11 px, charts.md §11 "axis text ≥ 11 px"). The vendored EvilCharts forms read it instead of their 10 px.
+ */
+export const AXIS_FONT_PX = 12;
+
 /** hover emphasis on a series: `--dur-fast`; 0 under reduced motion (charts.md §8) */
 export const EMPHASIS_MS = 120;
 

@@ -187,6 +187,7 @@ INTEGRATIONS_SPECS: dict[str, Spec] = {
         Spec("export_my_classes", "bool", True),
         Spec("export_department_classes", "bool", True),
         Spec("export_my_bookings", "bool", True),
+        Spec("export_my_duties", "bool", True),  # CAL-13 "Sınav görevlerim"
         Spec("export_field_course_title", "bool", True),
         Spec("export_field_department", "bool", True),
         Spec("export_field_co_instructors", "bool", False),  # owner decision 2026-10-17: off unless an admin allows

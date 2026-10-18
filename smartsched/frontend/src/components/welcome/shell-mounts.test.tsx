@@ -114,9 +114,11 @@ describe("welcome guide in the shell", () => {
     mockMedia((q) => q.includes("max-width") || q.includes("coarse"));
     stubFetch(TEACHER);
     renderShell();
-    await screen.findByTestId("checklist-home-card", {}, { timeout: 15_000 });
+    await screen.findByRole("heading", { name: "Hızlı rezervasyon" }, { timeout: 15_000 });
     act(() => useUiStore.getState().setDrawerOpen(true));
-    const row = await screen.findByTestId("drawer-checklist");
+    const row = await screen.findByTestId("drawer-checklist", {}, { timeout: 15_000 });
+    // HX12B-F10: on a phone the list lives in "Daha"; no card fills the first screen
+    expect(screen.queryByTestId("checklist-home-card")).toBeNull();
     expect(row).toHaveAccessibleName("Başlarken, 3 adımdan 1 tanesi tamam");
     expect(screen.getByTestId("drawer-welcome")).toContainElement(screen.getAllByTestId("help-restart-tour")[0]!);
   }, 30_000);

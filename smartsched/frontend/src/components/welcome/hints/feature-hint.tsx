@@ -12,8 +12,9 @@ import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/components/ui/use-media-query";
 import { useI18n } from "@/lib/i18n/provider";
-import { dur, useReduce } from "@/lib/motion";
+import { useReduce } from "@/lib/motion";
 import { hintKey } from "../content";
+import { welcomeMotion } from "../motion";
 import { findAnchor } from "../tour/anchors";
 import { otherDialogOpen, useWelcomeStore } from "../welcome-store";
 import { useEligibleHints, useHintActions, useHintText } from "./registry";
@@ -83,7 +84,7 @@ export function FeatureHintPopover() {
       data-testid={`hint-${key}`}
       initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
       animate={{ opacity: pos ? 1 : 0, scale: 1 }}
-      transition={{ duration: reduce ? 0.1 : dur.fast }}
+      transition={reduce ? welcomeMotion.reduced : welcomeMotion.popover}
       style={{ position: "fixed", left: pos?.x ?? 0, top: pos?.y ?? 0, transformOrigin: "left center" }}
       className="z-50 w-80 rounded-2xl bg-(--mat-thick-solid) p-4 text-label-1 shadow-elev-2"
     >

@@ -23,7 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { spanText } from "@/components/timetable/model/check";
 import { dateOf } from "@/components/timetable/model/dates";
-import { LAST_DAYTIME_PERIOD } from "@/components/timetable/model/periods";
+import { lastDaytimePeriod } from "@/components/timetable/model/periods";
 import { heatStep } from "@/components/timetable/model/heat";
 import { chipVars } from "@/components/timetable/event-chip";
 import { useCalendarData } from "@/components/timetable/use-calendar-data";
@@ -69,7 +69,7 @@ export function RoomDetail({ id }: { id: number }) {
 
   const grid = useMemo(() => (cal.model && week !== null ? roomWeek(cal.model, id, week) : null), [cal.model, week, id]);
   const classes = useMemo(() => (cal.model && week !== null ? weekClasses(cal.model, id, week) : []), [cal.model, week, id]);
-  const runs = useMemo(() => (grid ? freeRuns(grid, minLen, [1, 2, 3, 4, 5, 6], evening ? PERIODS_PER_DAY : LAST_DAYTIME_PERIOD) : []), [grid, minLen, evening]);
+  const runs = useMemo(() => (grid ? freeRuns(grid, minLen, [1, 2, 3, 4, 5, 6], evening ? PERIODS_PER_DAY : lastDaytimePeriod()) : []), [grid, minLen, evening]);
   const showSunday = !!grid && grid[6].some((c) => c.kind !== "free");
   const days = showSunday ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5, 6];
   // phones: today's weekday first (the run's clock, else the device's), then whatever the user picks

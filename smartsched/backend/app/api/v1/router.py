@@ -62,6 +62,11 @@ for r in (
 ):
     api_router.include_router(r)
 
+# RF-09: the university's period grid (clock times of P1-P18), editable by schedule admins
+from app.api.v1 import period_grid  # noqa: E402
+
+api_router.include_router(period_grid.router)
+
 # planner-facing data-conflict report of a run (GET /runs/{id}/data-issues)
 from app.api.v1 import data_issues  # noqa: E402
 
@@ -91,6 +96,10 @@ for r in (
 from app.api.v1 import calendar_sync, webhooks  # noqa: E402
 
 api_router.include_router(calendar_sync.router)
+# PER-F09 (fix-h-2026-10-18): "Derslerim", an academician's own classes in one week
+from app.api.v1 import my_classes  # noqa: E402
+
+api_router.include_router(my_classes.router)
 api_router.include_router(webhooks.router)
 # Ingestion Council (universal onboarding)
 api_router.include_router(council.router)
@@ -217,6 +226,11 @@ api_router.include_router(helper_turn_api.router)
 from app.api.v1 import ai_faculty as ai_faculty_api  # noqa: E402
 
 api_router.include_router(ai_faculty_api.router)
+
+# charts CH-07 / CH-10 / CH-11: read-only aggregates (bookings per week, audit per day, my load; chart_stats.py)
+from app.api.v1 import chart_stats as chart_stats_api  # noqa: E402
+
+api_router.include_router(chart_stats_api.router)
 
 # AU-B two-step sign-in, passkeys, trusted devices, admin MFA reset / reset link (app/api/v1/mfa.py)
 from app.api.v1 import mfa as mfa_api  # noqa: E402

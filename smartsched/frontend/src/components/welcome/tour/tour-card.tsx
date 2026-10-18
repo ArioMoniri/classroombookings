@@ -6,8 +6,11 @@
  * target; phones: a docked sheet (min 200 px, max 45 % of the viewport) with 48 px Geri / İleri.
  * Keys: Tab stays in the card (the engine's trap), Enter on the card = İleri, ← / → = Geri / İleri, Esc = Turu bitir
  * (the runner listens for Esc globally).
+ * Motion (WG-09, spec §8.1 "Step card in"): the engine fades the floater in (120 ms); the card adds scale .98 → 1 in
+ * the same 120 ms from its first style (`@starting-style`, toward the bottom edge when docked). Text inside the card
+ * never animates between steps. Reduced motion: the global rules zero the transition, so only the 100 ms fade stays.
  */
-import { createContext, useContext, useId, type KeyboardEvent } from "react";
+import { createContext, useContext, useEffect, useId, useRef, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -25,6 +28,22 @@ export function TourCard(props: { tooltipProps?: { "aria-modal"?: boolean; role?
   const ctx = useContext(TourCardContext);
   const { t } = useI18n();
   const titleId = useId();
+  const nextRef = useRef<HTMLButtonElement>(null);
+  const stepId = ctx?.step.id;
+  // WG10-F02: an interactive step has no focus trap, and its new card (often on a new route) left focus on <body>:
+  // each step's card takes focus on İleri unless focus is already inside it; Tab may still leave for the target
+  useEffect(() => {
+    const ids = [0, 150].map((ms) =>
+      window.setTimeout(() => {
+        const btn = nextRef.current;
+        const card = btn?.closest<HTMLElement>('[data-testid="tour-card"]');
+        const a = document.activeElement;
+        if (!btn || !card || (a && a !== document.body && a.isConnected && card.contains(a))) return;
+        btn.focus({ preventScroll: true });
+      }, ms),
+    );
+    return () => ids.forEach((id) => window.clearTimeout(id));
+  }, [stepId]);
   if (!ctx) return null;
   const { step, controls, docked, bodyId } = ctx;
   const last = controls.index + 1 >= controls.total;
@@ -53,7 +72,8 @@ export function TourCard(props: { tooltipProps?: { "aria-modal"?: boolean; role?
       data-testid="tour-card"
       data-step={step.id}
       className={cn(
-        "flex flex-col gap-3 bg-(--mat-thick-solid) p-5 text-left text-label-1 shadow-elev-3 outline-hidden",
+        "flex flex-col gap-3 bg-(--mat-thick-solid) p-5 text-left text-label-1 shadow-elev-3 outline-hidden transition-[scale] duration-(--dur-fast) ease-(--ease-out) starting:scale-[.98] motion-reduce:transition-none motion-reduce:starting:scale-100",
+        docked ? "origin-bottom" : "origin-center",
         docked ? "max-h-[45dvh] min-h-[200px] w-full overflow-y-auto rounded-3xl" : "w-[360px] max-w-[calc(100vw-2rem)] rounded-3xl",
       )}
     >
@@ -84,7 +104,7 @@ export function TourCard(props: { tooltipProps?: { "aria-modal"?: boolean; role?
             {t("welcome.tour.back")}
           </Button>
         ) : null}
-        <Button className={cn(docked && "h-12 min-w-24")} onClick={controls.next} data-testid="tour-next" data-action="primary">
+        <Button ref={nextRef} className={cn(docked && "h-12 min-w-24")} onClick={controls.next} data-testid="tour-next" data-action="primary">
           {last ? t("welcome.tour.finish") : t("welcome.tour.next")}
         </Button>
       </div>

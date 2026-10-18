@@ -96,13 +96,17 @@ export async function streamChat(runId: number, message: string, lang: "tr" | "e
   });
   if (!res.ok || !res.body || !(res.headers.get("content-type") ?? "").includes("text/event-stream")) {
     let detail = `${res.status} ${res.statusText}`;
+    let body: unknown;
     try {
-      const j = (await res.json()) as { detail?: unknown };
-      if (typeof j.detail === "string") detail = j.detail;
+      body = await res.json();
+      const d = (body as { detail?: unknown }).detail;
+      if (typeof d === "string") detail = d;
+      else if (d && typeof d === "object" && typeof (d as { message_en?: unknown }).message_en === "string") detail = (d as { message_en: string }).message_en;
     } catch {
       /* not JSON */
     }
-    throw new HttpError(res.status, detail);
+    // F-VO-2: the body is kept, so a coded refusal (422 `prompt_injection_*`, 429 limits) reads in the user's language
+    throw new HttpError(res.status, detail, body);
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();

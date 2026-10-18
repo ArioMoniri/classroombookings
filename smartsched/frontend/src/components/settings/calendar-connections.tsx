@@ -35,6 +35,8 @@ import { calendarExportApi, useExportOptions } from "@/lib/api/calendar-export";
 import { crbs, type SyncConnector } from "@/lib/api/crbs";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
+import { coarseHitArea } from "@/components/ui/hit-area";
+import { cn } from "@/lib/utils";
 
 export const SYNC_KEY = ["crbs", "calendar-sync"] as const;
 /** where the provider's redirect lands (a panel path; `app/api/v1/calendar_sync.py` ConnectIn) */
@@ -268,7 +270,7 @@ export function CalendarConnectionsSection() {
       {s?.enabled && needsConsent ? (
         <Alert tone="info" testId="calendar-connections-consent">
           {t("calendarPush.me.needsConsent")}{" "}
-          <Link href="/profile#privacy" className="font-medium text-tint-text underline-offset-4 hover:underline">
+          <Link href="/profile#privacy" className={cn("relative font-medium text-tint-text underline-offset-4 hover:underline", coarseHitArea)}>
             {t("calendarPush.me.consentLink")}
           </Link>
         </Alert>

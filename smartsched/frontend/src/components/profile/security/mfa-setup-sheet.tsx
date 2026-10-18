@@ -12,6 +12,10 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { useI18n } from "@/lib/i18n/provider";
 import { TotpSetup, type SetupStep, type TotpTransport } from "./totp-setup";
 
+/** AUX12-F02: below 600 px a full screen; the overrides carry the base classes' data-[side=right] variant (a plain
+ * max-[599px]:w-full lost to data-[side=right]:w-3/4 and the 6th code slot was cut at 390). */
+export const MFA_SHEET_CLASS = "data-[side=right]:sm:max-w-[480px] max-[599px]:data-[side=right]:inset-0 max-[599px]:data-[side=right]:h-full max-[599px]:data-[side=right]:w-full max-[599px]:data-[side=right]:max-w-none max-[599px]:data-[side=right]:rounded-none";
+
 export function MfaSetupSheet({ open, onOpenChange, transport, org, onDone, changing = false }: { open: boolean; onOpenChange: (open: boolean) => void; transport: TotpTransport; org?: string | null; onDone: (changed?: boolean) => void; changing?: boolean }) {
   const { t } = useI18n();
   const [step, setStep] = useState<SetupStep>("connect");
@@ -24,7 +28,7 @@ export function MfaSetupSheet({ open, onOpenChange, transport, org, onDone, chan
   return (
     <>
       <Sheet open={open} onOpenChange={request}>
-        <SheetContent side="right" className="data-[side=right]:sm:max-w-[480px] max-[599px]:inset-0 max-[599px]:h-full max-[599px]:w-full max-[599px]:rounded-none" data-testid="mfa-setup-sheet">
+        <SheetContent side="right" className={MFA_SHEET_CLASS} data-testid="mfa-setup-sheet">
           <SheetHeader className="sticky top-0 z-10 pr-12">
             <SheetTitle>{changing ? t("auth.setup.changeTitle") : t("auth.setup.title")}</SheetTitle>
             <SheetDescription data-testid="mfa-setup-step">{changing ? t("auth.setup.changeSteps") : step === "codes" ? t("auth.setup.step", { n: 3 }) : t("auth.setup.steps12")}</SheetDescription>

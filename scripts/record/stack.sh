@@ -15,8 +15,15 @@
 #                                           keeps the board-only state before `runs` for F-05 S15, flows README §4.2)
 #   scripts/record/stack.sh mask           KVKK: instructor names -> title + initials in the running stack's
 #                                           database (kvkk_mask.py; `up` already does it after its imports and keeps
-#                                           the name list in $REC_WORKDIR for the fresh-database journeys), then the
-#                                           README §7 check (kvkk_mask.py --verify): fails when a name is left
+#                                           the name list in $REC_WORKDIR for the fresh-database journeys) and in its
+#                                           stored uploads, then the README §7 check (kvkk_mask.py --verify, also over
+#                                           import preview rows, audit rows and uploads): fails when a name is left.
+#                                           Works on a live stack (the append-only audit rows go through the KVKK
+#                                           anonymise window).
+#   scripts/record/stack.sh fixtures       KVKK: masked copies of the seed workbooks in $REC_WORKDIR/fixtures (`up`
+#                                           makes them too). They are the only workbooks the stack's /import and
+#                                           council accept (KVKK_UPLOAD_GUARD, app/core/kvkk_guard.py): use
+#                                           E2E_FIXTURES_DIR=$REC_WORKDIR/fixtures for specs and queue items.
 #   scripts/record/stack.sh runs           real solver runs through POST /runs on the running stack
 #                                           (REC_RUNS, default "2026-GUZ:WEEK:3:120 2026-GUZ:TERM:-:240"
 #                                           = term:horizon:week:time-limit), waits until they finish
@@ -36,6 +43,8 @@
 #      REC_CAL_SIGNOFF=0 (leave calendar sync off with no KVKK sign-off record; default 1 signs it off for the
 #      recordings; the flow tests use 0, docs/testing/flows/README.md §4.2).
 #      REC_SNAPSHOT_NAME (rec.snapshot): the snapshot file `snapshot` writes and `REC_SNAPSHOT=1 up` restores.
+#      Every process the stack starts runs without the caller's credentials (GH_TOKEN, AWS_*, API keys; see
+#      SECRET_VARS); REC_KEEP_ENV="NAME ..." keeps the named ones.
 #      REC_IGNORE_TS=1: build the copy with `typescript.ignoreBuildErrors` (a checkpoint commit whose in-flight lanes do
 #      not type-check yet still runs; only the copy's next.config is patched).
 set -euo pipefail
@@ -55,6 +64,17 @@ UPL_SNAP="uploads.snapshot"; [[ "$SNAP_NAME" != rec.snapshot ]] && UPL_SNAP="upl
 PYTHON="${PYTHON:-python3}"
 [[ -x "$BACKEND/.venv/bin/python" && "$PYTHON" == python3 ]] && PYTHON="$BACKEND/.venv/bin/python"
 
+# the stack never inherits an agent's or developer's credentials (FIX-J): every process starts under "${CLEAN_ENV[@]}" (env -u …)
+SECRET_VARS=(GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_PAT AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+  AWS_SESSION_TOKEN AWS_SECURITY_TOKEN AWS_PROFILE GOOGLE_APPLICATION_CREDENTIALS CLOUDSDK_AUTH_ACCESS_TOKEN
+  AZURE_CLIENT_SECRET ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN OPENAI_API_KEY NPM_TOKEN NODE_AUTH_TOKEN
+  HF_TOKEN DEEPGRAM_API_KEY SSH_AUTH_SOCK)
+CLEAN_ENV=(env)
+for _v in "${SECRET_VARS[@]}"; do
+  [[ " ${REC_KEEP_ENV:-} " == *" $_v "* ]] || CLEAN_ENV+=(-u "$_v")
+done
+unset _v
+
 log() { printf '\033[1;36m[rec-stack]\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31m[rec-stack] error:\033[0m %s\n' "$*" >&2; exit 1; }
 
@@ -70,6 +90,8 @@ backend_env() {
   export ADMIN_EMAIL="$EMAIL" ADMIN_PASSWORD="$PASSWORD"
   export APP_SECRET="${REC_APP_SECRET:-recording-only-secret-recording-only-secret}"
   export UPLOAD_DIR="$WORK/uploads"
+  # KVKK (FIX-J, round-4 E2EA-F01): /import and the council refuse raw seed workbooks and unmasked names
+  export KVKK_UPLOAD_GUARD="${REC_KVKK_GUARD:-1}" KVKK_NAMES_FILE="$WORK/kvkk-names.json"
   export CORS_ORIGINS="[\"http://127.0.0.1:$WEB_PORT\",\"http://localhost:$WEB_PORT\"]"
 }
 
@@ -86,7 +108,7 @@ seed_via_api() {
       && log "created empty term $TERM_CODE" || log "term $TERM_CODE not created (exists?)"
   fi
   if [[ "$1" == 0 && "${REC_DATA:-all}" == all ]]; then
-    "$PYTHON" "$ROOT/scripts/record/setup_api.py" "$api" "$EMAIL" "$PASSWORD" bookings --language "${REC_LANG:-en}" \
+    "${CLEAN_ENV[@]}" "$PYTHON" "$ROOT/scripts/record/setup_api.py" "$api" "$EMAIL" "$PASSWORD" bookings --language "${REC_LANG:-en}" \
       >>"$WORK/import.log" 2>&1 && log "booking setup done (Güz 2026-27 open, admin language ${REC_LANG:-en}, calendar sync $([[ "${REC_CAL_SIGNOFF:-1}" == 0 ]] && echo off || echo 'signed off'))" \
       || die "booking setup failed, see $WORK/import.log"
   fi
@@ -142,36 +164,37 @@ cmd_up() {
   fi
   if [[ $fresh -eq 0 && $restored -eq 0 ]]; then
     log "importing Bahar weekly grid + planning list (≈30 s)"
-    (cd "$BACKEND" && "$PYTHON" -m app.cli import weekly-grid tests/fixtures/bahar_derslikler_takvimi_2026.xlsx \
+    (cd "$BACKEND" && "${CLEAN_ENV[@]}" "$PYTHON" -m app.cli import weekly-grid --source seed tests/fixtures/bahar_derslikler_takvimi_2026.xlsx \
         --term "$TERM_CODE" --year 2026 && \
-      "$PYTHON" -m app.cli import planning-list tests/fixtures/bahar_derslik_planlama_listesi_v5.xlsx \
+      "${CLEAN_ENV[@]}" "$PYTHON" -m app.cli import planning-list --source seed tests/fixtures/bahar_derslik_planlama_listesi_v5.xlsx \
         --term "$TERM_CODE") >"$WORK/import.log" 2>&1 || die "fixture import failed, see $WORK/import.log"
     if [[ "${REC_DATA:-all}" == all ]]; then
       log "importing Güz 2026-27 (grid + planning list), Final 2026 (grid + exam list) and the room master (≈40 s)"
       (cd "$BACKEND" && F=tests/fixtures && \
-        "$PYTHON" -m app.cli import weekly-grid "$F/guz_derslikler_takvimi_2026_2027.xlsx" --term 2026-GUZ --year 2026 && \
-        "$PYTHON" -m app.cli import planning-list "$F/guz_derslik_planlama_2026_2027_v2.xlsx" --term 2026-GUZ && \
-        "$PYTHON" -m app.cli import weekly-grid "$F/final_derslikler_takvimi_2026_v2.xlsx" --term 2026-FINAL --year 2026 && \
-        "$PYTHON" -m app.cli import exam-list "$F/final_planlama_listesi_2026_v2.xlsx" --term 2026-FINAL && \
-        "$PYTHON" -m app.cli import room-master "$F/room_master.csv") >>"$WORK/import.log" 2>&1 \
+        "${CLEAN_ENV[@]}" "$PYTHON" -m app.cli import weekly-grid --source seed "$F/guz_derslikler_takvimi_2026_2027.xlsx" --term 2026-GUZ --year 2026 && \
+        "${CLEAN_ENV[@]}" "$PYTHON" -m app.cli import planning-list --source seed "$F/guz_derslik_planlama_2026_2027_v2.xlsx" --term 2026-GUZ && \
+        "${CLEAN_ENV[@]}" "$PYTHON" -m app.cli import weekly-grid --source seed "$F/final_derslikler_takvimi_2026_v2.xlsx" --term 2026-FINAL --year 2026 && \
+        "${CLEAN_ENV[@]}" "$PYTHON" -m app.cli import exam-list --source seed "$F/final_planlama_listesi_2026_v2.xlsx" --term 2026-FINAL && \
+        "${CLEAN_ENV[@]}" "$PYTHON" -m app.cli import room-master --source seed "$F/room_master.csv") >>"$WORK/import.log" 2>&1 \
         || die "fixture import failed, see $WORK/import.log"
     fi
   fi
-  [[ $restored -eq 1 ]] || { (cd "$BACKEND" && "$PYTHON" -m app.cli seed-admin >>"$WORK/import.log" 2>&1) || die "seed-admin failed"; }
+  [[ $restored -eq 1 ]] || { (cd "$BACKEND" && "${CLEAN_ENV[@]}" "$PYTHON" -m app.cli seed-admin >>"$WORK/import.log" 2>&1) || die "seed-admin failed"; }
   # KVKK: the workbooks name every instructor; the recordings show title + initials only (kvkk_mask.py)
   if [[ $fresh -eq 0 && $restored -eq 0 && "${REC_KVKK_MASK:-1}" == 1 ]]; then
     "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --save-names "$WORK/kvkk-names.json" >"$WORK/kvkk.log" 2>&1 \
       || die "kvkk mask failed, see $WORK/kvkk.log"
     log "instructor names masked to initials ($(grep -m1 '^masked' "$WORK/kvkk.log"))"
     # the KVKK check of docs/testing/flows/README.md §7 (title tokens and initials only), fail loudly
-    "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --verify >>"$WORK/kvkk.log" 2>&1 \
+    "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --verify --names "$WORK/kvkk-names.json" --uploads "$WORK/uploads" >>"$WORK/kvkk.log" 2>&1 \
       || die "names left after masking: $(grep -m1 '^left' "$WORK/kvkk.log"), see $WORK/kvkk.log"
   fi
+  [[ "${REC_KVKK_MASK:-1}" == 1 ]] && ensure_fixtures
 
   # ---- backend ----------------------------------------------------------------------------------
   # exec + setsid: the PID file names the server itself (a session leader, so `down` can stop its
   # whole process group) and no shell keeps the caller's stdout open
-  (cd "$BACKEND" && exec setsid "$PYTHON" -m uvicorn app.main:app --host 127.0.0.1 --port "$API_PORT" \
+  (cd "$BACKEND" && exec "${CLEAN_ENV[@]}" setsid "$PYTHON" -m uvicorn app.main:app --host 127.0.0.1 --port "$API_PORT" \
       >"$WORK/backend.log" 2>&1 </dev/null) &
   echo $! >"$WORK/backend.pid"
   wait_http "http://127.0.0.1:$API_PORT/api/v1/health" 60 || die "backend did not start, see $WORK/backend.log"
@@ -195,22 +218,46 @@ cmd_up() {
     fi
     log "building frontend copy (real mode) in $web"
     (cd "$web" && NEXT_PUBLIC_API_URL="http://127.0.0.1:$API_PORT" \
-        NEXT_TELEMETRY_DISABLED=1 npx next build >"$WORK/build.log" 2>&1) \
+        NEXT_TELEMETRY_DISABLED=1 "${CLEAN_ENV[@]}" npx next build >"$WORK/build.log" 2>&1) \
       || die "next build failed, see $WORK/build.log"
   fi
   (cd "$web" && NEXT_PUBLIC_API_URL="http://127.0.0.1:$API_PORT" \
-      NEXT_TELEMETRY_DISABLED=1 exec setsid npx next start -p "$WEB_PORT" -H 127.0.0.1 \
+      NEXT_TELEMETRY_DISABLED=1 exec "${CLEAN_ENV[@]}" setsid npx next start -p "$WEB_PORT" -H 127.0.0.1 \
       >"$WORK/frontend.log" 2>&1 </dev/null) &
   echo $! >"$WORK/frontend.pid"
   wait_http "http://127.0.0.1:$WEB_PORT/login" 120 || die "frontend did not start, see $WORK/frontend.log"
   log "frontend ready: http://127.0.0.1:$WEB_PORT  (login $EMAIL)"
+  [[ -d "$WORK/fixtures" ]] && log "KVKK: upload only the masked workbooks: E2E_FIXTURES_DIR=$WORK/fixtures"
+  return 0
+}
+
+# KVKK: masked copies of the seed workbooks (title + initials) in $WORK/fixtures. The name list comes from the
+# seeded database; a --fresh stack without one builds it once from a throwaway import (≈70 s), never in the repo.
+ensure_fixtures() {
+  local names="$WORK/kvkk-names.json" F="$BACKEND/tests/fixtures"
+  if [[ ! -s "$names" ]]; then
+    log "KVKK: building the name list for the masked workbooks (throwaway import, ≈70 s)"
+    local tmpdb="$WORK/kvkk-names-build.db"
+    rm -f "$tmpdb"
+    (cd "$BACKEND" && export DATABASE_URL="sqlite+aiosqlite:///$tmpdb" && \
+      "${CLEAN_ENV[@]}" "$PYTHON" -m app.cli import planning-list "$F/bahar_derslik_planlama_listesi_v5.xlsx" --term 2026-BAHAR && \
+      "${CLEAN_ENV[@]}" "$PYTHON" -m app.cli import planning-list "$F/guz_derslik_planlama_2026_2027_v2.xlsx" --term 2026-GUZ && \
+      "${CLEAN_ENV[@]}" "$PYTHON" -m app.cli import exam-list "$F/final_planlama_listesi_2026_v2.xlsx" --term 2026-FINAL) \
+      >>"$WORK/kvkk.log" 2>&1 || die "KVKK name list build failed, see $WORK/kvkk.log"
+    "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$tmpdb" --save-names "$names" >>"$WORK/kvkk.log" 2>&1 \
+      || die "KVKK name list build failed, see $WORK/kvkk.log"
+    rm -f "$tmpdb" "$tmpdb-wal" "$tmpdb-shm"
+  fi
+  "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" --workbooks "$F" "$WORK/fixtures" --names "$names" >>"$WORK/kvkk.log" 2>&1 \
+    || die "masked workbook copies failed, see $WORK/kvkk.log"
+  log "KVKK: masked workbooks in $WORK/fixtures (the only ones this stack accepts)"
 }
 
 # Real solver runs through the public API (the same POST /runs the Generate button sends), one after
 # the other (scripts/record/setup_api.py runs).
 cmd_runs() {
   # shellcheck disable=SC2086
-  "$PYTHON" "$ROOT/scripts/record/setup_api.py" "http://127.0.0.1:$API_PORT/api/v1" "$EMAIL" "$PASSWORD" \
+  "${CLEAN_ENV[@]}" "$PYTHON" "$ROOT/scripts/record/setup_api.py" "http://127.0.0.1:$API_PORT/api/v1" "$EMAIL" "$PASSWORD" \
     runs ${REC_RUNS:-2026-GUZ:WEEK:3:120 2026-GUZ:TERM:-:240} || die "solver runs failed"
 }
 
@@ -227,19 +274,24 @@ cmd_snapshot() {
 
 # KVKK mask on the running stack's database (after the fresh-database journeys imported their workbooks)
 cmd_mask() {
+  # safe on a live stack: SQLite waits for the API's writers (timeout 60 s); audit rows go through the KVKK window
   "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --names "$WORK/kvkk-names.json" | tee -a "$WORK/kvkk.log" | grep -m1 '^masked' \
     || die "kvkk mask failed"
+  # the stored uploads (preview files included, E2EA2-F02)
+  "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" --files "$WORK/uploads" --names "$WORK/kvkk-names.json" | tee -a "$WORK/kvkk.log" \
+    || die "kvkk mask of the uploads failed"
   # README §7 check on the result: prints "left 0", or the shapes of the names left and fails
-  "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --verify | tee -a "$WORK/kvkk.log" \
+  "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --verify --names "$WORK/kvkk-names.json" --uploads "$WORK/uploads" | tee -a "$WORK/kvkk.log" \
     || die "names left after masking (README §7): run the README §4.4 masking block and report the count"
 }
 
 case "${1:-}" in
   snapshot) cmd_snapshot ;;
   mask) cmd_mask ;;
+  fixtures) backend_env; ensure_fixtures ;;
   up) shift; cmd_up "$@" ;;
   runs) cmd_runs ;;
   down) cmd_down ;;
   status) cmd_status ;;
-  *) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  *) sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

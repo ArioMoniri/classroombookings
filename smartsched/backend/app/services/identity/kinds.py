@@ -249,6 +249,11 @@ FIELDS: dict[str, list[dict[str, Any]]] = {
         {"key": "email_attribute", "required": False, "secret": False},
         {"key": "name_attribute", "required": False, "secret": False},
         {"key": "groups_attribute", "required": False, "secret": False},
+        #: RF-12 (Gelişmiş): federation metadata signature, SP key pair (decrypts assertions, signs requests)
+        {"key": "metadata_signing_cert", "required": False, "secret": False},
+        {"key": "sp_private_key", "required": False, "secret": True},
+        {"key": "sp_certificate", "required": False, "secret": False},
+        {"key": "sign_requests", "required": False, "secret": False},
     ],
 }
 

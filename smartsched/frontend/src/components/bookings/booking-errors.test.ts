@@ -25,6 +25,19 @@ describe("booking refusals are explained in the user's language", () => {
     expect(bookingErrorMessage(e, tr, ctx)).toBe("A 101, 16.02.2026 P4–P5: yayımlanmış ders programında FZT 132 dersi var; bu saat rezerve edilemez.");
     expect(bookingErrorMessage(e, en, ctx)).toBe("A 101 on 16.02.2026 P4–P5 is held by FZT 132 in the published timetable, so it cannot be booked.");
   });
+  it("E2EB-F07: a calendar refusal with its own words reads them, never the English message inside the Turkish line", () => {
+    const body = { detail: { code: "calendar", message: "no term covers 18.10.2026", message_tr: "18.10.2026 hiçbir dönemin içinde değil.", message_en: "No term covers 18.10.2026." } };
+    const e = crbsError(new HttpError(409, "", body));
+    expect(bookingErrorMessage(e, tr, { locale: "tr" })).toBe("18.10.2026 hiçbir dönemin içinde değil.");
+    expect(bookingErrorMessage(e, en, { locale: "en" })).toBe("No term covers 18.10.2026.");
+    // without ctx.locale the language of `t` decides
+    expect(bookingErrorMessage(e, tr)).toBe("18.10.2026 hiçbir dönemin içinde değil.");
+    expect(bookingErrorMessage(e, en)).toBe("No term covers 18.10.2026.");
+    // an older server without the pair keeps the template
+    const old = crbsError(new HttpError(409, "", { detail: { code: "calendar", message: "x" } }));
+    expect(bookingErrorMessage(old, tr, { locale: "tr" })).toBe("Bu tarih ya da saat rezerve edilemez (x).");
+  });
+
   it("limits, holidays, maintenance and validation", () => {
     const limit = crbsError(new HttpError(409, "", { detail: { code: "max_active_bookings", message: "…", limit: 3 } }));
     expect(bookingErrorMessage(limit, tr)).toContain("3 etkin rezervasyonunuz var");

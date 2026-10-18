@@ -232,8 +232,24 @@ def horizon_weeks(run: ScheduleRun, term: Term, kinds: Mapping[int, str] | None 
         return raw
     from app.services.seasons import course_weeks
 
-    kept, _dropped = course_weeks(raw, kinds, term)
-    return kept
+    kept, _dropped = course_weeks(_calendar_horizon(run, term, kinds), kinds, term)
+    return [w for w in kept if _within_teaching(w, term) or w in raw]
+
+
+def _within_teaching(week: int, term: Term) -> bool:
+    return not term.week_count or int(week) <= int(term.week_count)
+
+
+def _calendar_horizon(run: ScheduleRun, term: Term, kinds: Mapping[int, str]) -> list[int]:
+    """FIX-A F-ASB-1: the raw horizon of a TERM COURSE run is the term's real calendar, its week rows as well as
+    ``1..week_count``. The weekly-grid importer counts only the lecture weeks (Bahar 2026: 15) but writes a row for
+    every sheet (16 "Yaz Dönemi", 17-18 Final, 19 BÜT), so the exam weeks were never in the horizon and
+    ``stats.horizon_skipped_weeks`` was never written. Weeks past the teaching length are not planned
+    (:func:`horizon_weeks`): they are only listed as skipped."""
+    raw = _raw_horizon(run, term)
+    if run.horizon != "TERM" or (run.horizon_params or {}).get("weeks"):
+        return raw
+    return sorted(set(raw) | {int(w) for w in kinds})
 
 
 #: leading zeros of a course number: the importers' :data:`normalize.LEADING_ZEROS_RX` (one definition)
@@ -610,7 +626,7 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     week_set = set(weeks)
     params = run.params or {}
     exam = run.kind == "EXAM"
-    skipped = sorted(set(_raw_horizon(run, term)) - week_set) if not exam else []
+    skipped = sorted(set(_calendar_horizon(run, term, kinds)) - week_set) if not exam else []
     # AS-01: DEFAULT_WEIGHTS < settings solver_weights < active season profile < run params (server side)
     eff = await seasons.effective_weights(session, run, term=term, weeks=weeks, weeks_rows=list(weeks_rows))
     seed, seed_source = await seasons.effective_seed(session, run)

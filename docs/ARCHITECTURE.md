@@ -101,7 +101,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-42 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0046_ai_quota_units`**. A new migration goes on top of it (`alembic heads` must print one line).
+44 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0048_helper_feedback`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -147,6 +147,8 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 40 | `0044_helper` | `0043_mfa` | AI helper tables (HB-04; docs/research/2026-10-17-ai-helper-architecture.md §5.4, §5.7; app/models/helper.py) |
 | 41 | `0045_user_sessions` | `0044_helper` | Server-side session list (AU-15; app/models/mfa.py ``UserSession``, app/services/sessions.py) |
 | 42 | `0046_ai_quota_units` | `0045_user_sessions` | AI quota chain and shared reservations (HB-10; docs/research/2026-10-17-ai-helper-architecture.md §5.9) |
+| 43 | `0047_rf_import_safety` | `0046_ai_quota_units` | Re-import safety and import history (RF-06 / RF-08 / RF-09; audit… |
+| 44 | `0048_helper_feedback` | `0047_rf_import_safety` | Helper feedback and unanswered queries (HB-14; docs/research/2026-10-17-ai-helper-architecture.md §5.7) |
 
 <!-- /AUTO:migrations -->
 

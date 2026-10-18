@@ -54,22 +54,27 @@ class Step:
 # in Ayarlar is not overridden by the next deploy. The empty profile sets nothing (the default stays "rules").
 APPROVAL_MODE = Step("approval-mode", ("set-setting", "bookings.approval_mode", "all"))
 
+# RF-08: every seed import is recorded as an import job (actor system, source seed) with its report and file, so
+# /import lists the seeded workbooks; ``--source`` only labels the job (the marker below keeps the step names)
+SEED_SOURCE = ("--source", "seed")
+
 # Same files and order as scripts/record/stack.sh (the e2e / record stacks).
 INSTITUTION: tuple[Step, ...] = (
     APPROVAL_MODE,
     Step("bahar-grid", ("import", "weekly-grid", "{files}/bahar_derslikler_takvimi_2026.xlsx", "--term", "2026-BAHAR",
-                        "--year", "2026"), ("bahar_derslikler_takvimi_2026.xlsx",)),
+                        "--year", "2026", *SEED_SOURCE), ("bahar_derslikler_takvimi_2026.xlsx",)),
     Step("bahar-planning", ("import", "planning-list", "{files}/bahar_derslik_planlama_listesi_v5.xlsx", "--term",
-                            "2026-BAHAR"), ("bahar_derslik_planlama_listesi_v5.xlsx",)),
+                            "2026-BAHAR", *SEED_SOURCE), ("bahar_derslik_planlama_listesi_v5.xlsx",)),
     Step("guz-grid", ("import", "weekly-grid", "{files}/guz_derslikler_takvimi_2026_2027.xlsx", "--term", "2026-GUZ",
-                      "--year", "2026"), ("guz_derslikler_takvimi_2026_2027.xlsx",)),
+                      "--year", "2026", *SEED_SOURCE), ("guz_derslikler_takvimi_2026_2027.xlsx",)),
     Step("guz-planning", ("import", "planning-list", "{files}/guz_derslik_planlama_2026_2027_v2.xlsx", "--term",
-                          "2026-GUZ"), ("guz_derslik_planlama_2026_2027_v2.xlsx",)),
+                          "2026-GUZ", *SEED_SOURCE), ("guz_derslik_planlama_2026_2027_v2.xlsx",)),
     Step("final-grid", ("import", "weekly-grid", "{files}/final_derslikler_takvimi_2026_v2.xlsx", "--term",
-                        "2026-FINAL", "--year", "2026"), ("final_derslikler_takvimi_2026_v2.xlsx",)),
-    Step("final-exams", ("import", "exam-list", "{files}/final_planlama_listesi_2026_v2.xlsx", "--term", "2026-FINAL"),
+                        "2026-FINAL", "--year", "2026", *SEED_SOURCE), ("final_derslikler_takvimi_2026_v2.xlsx",)),
+    Step("final-exams", ("import", "exam-list", "{files}/final_planlama_listesi_2026_v2.xlsx", "--term", "2026-FINAL",
+                         *SEED_SOURCE),
          ("final_planlama_listesi_2026_v2.xlsx",)),
-    Step("room-master", ("import", "room-master", "{files}/room_master.csv"), ("room_master.csv",)),
+    Step("room-master", ("import", "room-master", "{files}/room_master.csv", *SEED_SOURCE), ("room_master.csv",)),
     # app.services.learning.refresh over every term (app.cli learning-refresh)
     Step("learning", ("learning-refresh",), optional_cli=True),
 )

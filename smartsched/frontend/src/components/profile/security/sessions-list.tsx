@@ -27,6 +27,15 @@ export const SESSIONS_VISIBLE = 5;
 
 const isPhone = (device: string | null | undefined) => /iPhone|iPad|Android|iOS/i.test(device ?? "");
 
+/** "{browser} · {os}" in the viewer's language (FIX-I): unknown parts are worded here, never taken from the stored
+ * label (older rows were stored in Turkish); a token used only by a script reads "Betik ya da API istemcisi". */
+export function sessionLabel(s: Pick<SessionRow, "device" | "browser" | "os" | "client">, t: ReturnType<typeof useI18n>["t"]): string {
+  if (s.client === "api") return t("auth.security.apiClient");
+  if (s.client === undefined || s.client === null) return s.device || t("auth.security.unknownDevice");
+  if (!s.browser && !s.os) return t("auth.security.unknownDevice");
+  return t("auth.security.deviceLabel", { browser: s.browser || t("auth.security.unknownBrowser"), os: s.os || t("auth.security.unknownSystem") });
+}
+
 /** The current session first, then the newest activity. */
 export function orderSessions(list: readonly SessionRow[]): SessionRow[] {
   return [...list].sort((a, b) => Number(b.current) - Number(a.current) || String(b.last_seen_at ?? b.created_at).localeCompare(String(a.last_seen_at ?? a.created_at)));
@@ -82,13 +91,13 @@ export function SessionsRow({ devices, onChanged }: { devices: TrustedDevice[]; 
       {shown.length ? (
         <ul className="flex flex-col divide-y divide-(--hairline) rounded-xl bg-fill-3" aria-label={t("auth.security.sessions")} data-testid="session-list">
           {shown.map((s) => {
-            const Glyph = isPhone(s.device) ? Smartphone : Monitor;
+            const Glyph = isPhone(s.os ?? s.device) ? Smartphone : Monitor;
             return (
               <li key={s.id} className="auth-row-in flex flex-wrap items-center gap-3 px-3 py-2.5" data-testid="session-row">
                 <Glyph aria-hidden className="size-5 shrink-0 text-label-2" />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="flex min-w-0 flex-wrap items-center gap-2 type-callout font-semibold text-label-1">
-                    <span className="truncate">{s.device || t("auth.security.unknownDevice")}</span>
+                    <span className="truncate" data-testid="session-device">{sessionLabel(s, t)}</span>
                     {s.current ? (
                       <Badge variant="secondary" data-testid="session-current">
                         {t("auth.security.thisDevice")}

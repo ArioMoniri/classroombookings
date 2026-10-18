@@ -1,9 +1,26 @@
 "use client";
 
 import { QueryClientContext, keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, use, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { OrgI18n } from "@/lib/api/crbs";
-import { DEFAULT_ENABLED, DEFAULT_LOCALE, LOCALES, LOCALE_COOKIE, displayLocale, formatNumber, overridesFromBundle, translate, type Locale, type MessageKey, type MessageOverrides, type Vars } from "./index";
+import { DEFAULT_ENABLED, DEFAULT_LOCALE, LOCALES, LOCALE_COOKIE, displayLocale, formatNumber, hasMessages, loadMessages, messagesVersion, overridesFromBundle, subscribeMessages, translate, type Locale, type MessageKey, type MessageOverrides, type Vars } from "./index";
+
+// F-CH-1: start fetching the page's language as soon as this module runs in the browser (before hydration), so
+// the provider's first render rarely waits; `<html lang>` is the server's choice (app/layout.tsx)
+if (typeof document !== "undefined") void loadMessages(displayLocale(document.documentElement.lang) ?? DEFAULT_LOCALE);
+
+/**
+ * The texts of other languages for the few places that show two at once (the helper's TR/EN pairs, the admin
+ * text editor's placeholders): loads them and re-renders when they arrive. True once all are in.
+ */
+export function useMessagesFor(locales: readonly Locale[]): boolean {
+  useSyncExternalStore(subscribeMessages, messagesVersion, messagesVersion);
+  const key = locales.join(",");
+  useEffect(() => {
+    for (const l of key.split(",")) if (l) void loadMessages(l as Locale);
+  }, [key]);
+  return locales.every(hasMessages);
+}
 
 interface I18nContextValue {
   locale: Locale;
@@ -93,14 +110,22 @@ export function I18nProvider({ initialLocale, children }: { initialLocale: Local
   // the overrides need the API; without a QueryClient (isolated component tests) the shipped messages apply
   const hasQueryClient = useContext(QueryClientContext) !== undefined;
 
+  // the active language's texts are in before the first render (SSR waits for them; hydration too, the chunk
+  // was requested when this module ran)
+  use(loadMessages(locale));
+
   const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next);
+    // the cookie first: a router.refresh() right after (the palette's language toggle) renders the server's part in
+    // the new language
     try {
       document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
       document.documentElement.lang = next;
     } catch {
       /* non-browser */
     }
+    // the texts switch once the other language is in (no suspended frame, no keys on screen)
+    if (hasMessages(next)) setLocaleState(next);
+    else void loadMessages(next).then(() => setLocaleState(next));
   }, []);
 
   const overrides = loaded?.locale === locale ? loaded.overrides : NO_OVERRIDES;

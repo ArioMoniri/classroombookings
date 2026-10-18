@@ -48,7 +48,8 @@ export function GenerateButton({ className, size = "lg", testId = "studio-genera
   return (
     <Button size={size} className={className} onClick={() => void generate()} {...busyProps(busy)} data-testid={testId} aria-keyshortcuts="Meta+Enter Control+Enter">
       {busy ? <BusyGlyph /> : <PlayCircle aria-hidden />}
-      {busy ? t("studio.run.preparing") : active ? t("studio.run.again") : t("studio.run.generate")}
+      {/* F-MB-3: the label truncates before the bar runs off a narrow screen at a large root font */}
+      <span className="min-w-0 truncate">{busy ? t("studio.run.preparing") : active ? t("studio.run.again") : t("studio.run.generate")}</span>
     </Button>
   );
 }

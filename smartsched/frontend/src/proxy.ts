@@ -11,6 +11,9 @@
  * - everything else, including `/login/change-password` (it calls the authenticated
  *   `POST /auth/change-password`), needs the cookie and otherwise redirects to /login?next=…
  *
+ * A page URL that carries a credential parameter (`password`, …: a form sent natively as GET, HB18-F02) is 303'd to
+ * the same URL without it.
+ *
  * Every page response also carries a per-request nonce Content-Security-Policy (docs/SECURITY.md F9, the Next.js
  * CSP guide for this version): `script-src 'nonce-…' 'strict-dynamic'` instead of `'unsafe-inline'`. The renderer
  * reads the nonce from the request's CSP header and stamps it on its own scripts; the root layout passes `x-nonce`
@@ -18,6 +21,7 @@
  * prerendered page lacks the nonce. nginx adds its own policy only when this one is missing.
  */
 import { NextResponse, type NextRequest } from "next/server";
+import { stripCredentialParams } from "@/components/auth/credential-form";
 
 const AUTH_COOKIE = "smartsched_token";
 const SIGNED_OUT_ONLY = new Set(["/login"]);
@@ -55,6 +59,17 @@ export function contentSecurityPolicy(nonce: string, dev = process.env.NODE_ENV 
 
 function guard(request: NextRequest, headers: Headers): NextResponse {
   const { pathname, search } = request.nextUrl;
+  // HB18-F02: a form sent natively as GET put the password in the address; send it back without it (and keep it
+  // out of the cache). The backend and nginx never see a page URL with it again.
+  const clean = stripCredentialParams(request.nextUrl.searchParams);
+  if (clean) {
+    const url = request.nextUrl.clone();
+    url.search = clean.toString();
+    const res = NextResponse.redirect(url, 303);
+    res.headers.set("cache-control", "no-store");
+    res.headers.set("referrer-policy", "no-referrer");
+    return res;
+  }
   const token = request.cookies.get(AUTH_COOKIE)?.value;
   const pass = () => NextResponse.next({ request: { headers } });
   if (PUBLIC.has(pathname)) return pass();

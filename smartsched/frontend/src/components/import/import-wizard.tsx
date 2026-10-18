@@ -1,9 +1,10 @@
 "use client";
 
+import { serverTermMismatch, termMismatch } from "./term-hint";
 import { Check, ChevronRight, Database, FileSpreadsheet, Grid3x3, ListChecks, Warehouse, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/page-header";
 import { NativeSelect } from "@/components/common/native-select";
@@ -19,12 +20,13 @@ import { useImports } from "@/lib/api/hooks";
 import type { ImportJob, ImportKind } from "@/lib/api/schemas";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
-import { formatDate } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { ParseWarningsTable, TruncatedWarnings, countBySeverity } from "./parse-warnings-table";
 import { CrbsUpgrade } from "./crbs-upgrade";
 import { RoomMasterImport, type FlowStep } from "./room-master-import";
 import { BareButton } from "@/components/shell/bare-button";
+import { ImportHistory } from "./import-history";
+import { ImportPreview } from "./import-preview";
 
 const KINDS: { kind: ImportKind; icon: LucideIcon; label: MessageKey; desc: MessageKey }[] = [
   { kind: "planning-list", icon: FileSpreadsheet, label: "import.planning", desc: "import.planningDesc" },
@@ -57,7 +59,7 @@ function Stepper({ step }: { step: number }) {
 }
 
 export function ImportWizard() {
-  const { t, n, locale } = useI18n();
+  const { t, n } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
   const kindParam = params.get("kind");
@@ -70,11 +72,13 @@ export function ImportWizard() {
   /** the kind the server says the file is (wrong-file refusal, admin persona M-20) */
   const [suggested, setSuggested] = useState<ImportKind | null>(null);
   const busy = upload.phase === "uploading" || upload.phase === "processing";
+  /** RF-06: every workbook upload is a preview first (`dry_run`); `job` is the applied import */
+  const [preview, setPreview] = useState<ImportJob | null>(null);
   const [job, setJob] = useState<ImportJob | null>(null);
-  const [done, setDone] = useState(false);
+  const reportRef = useRef<HTMLHeadingElement>(null);
   const imports = useImports();
   const reviewed = kind !== null && REVIEWED.includes(kind);
-  const step = !kind ? 0 : reviewed ? FLOW_STEP[flow] : job ? (done ? 3 : 2) : 1;
+  const step = !kind ? 0 : reviewed ? FLOW_STEP[flow] : job ? 3 : preview ? 2 : 1;
   const effectiveTerm = termId ?? term?.id ?? 1;
 
   const chooseKindReset = () => {
@@ -84,12 +88,28 @@ export function ImportWizard() {
 
   const chooseKind = (k: ImportKind) => {
     setJob(null);
-    setDone(false);
+    setPreview(null);
     setFile(null);
     setUpload({ phase: "idle" });
     setFlow("upload");
     setSuggested(null);
     router.replace(`/import?kind=${k}`);
+  };
+
+  /** a preview from the history that was never applied */
+  const openPreview = (j: ImportJob) => {
+    setJob(null);
+    setPreview(j);
+    setFlow("upload");
+    router.replace(`/import?kind=${j.kind}`);
+  };
+
+  const cancelPreview = () => {
+    setPreview(null);
+    setFile(null);
+    setUpload({ phase: "idle" });
+    // E2EA2-F03: the preview unmounts; focus goes to the drop zone's first control, never to <body>
+    requestAnimationFrame(() => document.querySelector('[data-testid="import-dropzone"]')?.querySelector<HTMLElement>('button:not([disabled]), [tabindex="0"]')?.focus());
   };
 
   /** keep the file and import it as the kind the server recognised */
@@ -117,13 +137,14 @@ export function ImportWizard() {
     setUpload({ phase: "uploading", pct: 0 });
     try {
       const j = await uploadImportWithProgress(kind, file, t0, {
+        dryRun: true,
         onProgress: ({ loaded, total }) => {
           const pct = total ? Math.round((loaded / total) * 100) : 0;
           setUpload(pct >= 100 ? { phase: "processing" } : { phase: "uploading", pct });
         },
       });
       setUpload({ phase: "done" });
-      setJob(j);
+      setPreview(j);
       void imports.refetch();
     } catch (e) {
       const status = e instanceof HttpError ? e.status : 0;
@@ -204,18 +225,34 @@ export function ImportWizard() {
             <div className="flex items-center justify-between">
               <Button variant="ghost" onClick={() => router.replace("/import")}>{t("common.back")}</Button>
               <Button onClick={() => void start()} {...busyProps(busy, !canStart)} data-testid="import-start">
-                <BusyLabel busy={busy} label={upload.phase === "processing" ? t("glass.import.reading") : t("import.importing")}>{t("import.start")}</BusyLabel>
+                <BusyLabel busy={busy} label={upload.phase === "processing" ? t("rf.preview.reading") : t("import.importing")}>{t("rf.preview.start")}</BusyLabel>
               </Button>
             </div>
           </CardContent>
         </Card>
       ) : null}
 
-      {!reviewed && (step === 2 || step === 3) && job && counts ? (
+      {step === 2 && kind && !reviewed && preview ? (
+        <ImportPreview
+          key={preview.id}
+          job={preview}
+          termWarning={serverTermMismatch(preview.summary.term_check) ?? (preview.summary.term_check ? null : termMismatch(preview.filename, terms.find((x) => x.id === effectiveTerm), terms))}
+          onCancel={cancelPreview}
+          onApplied={(j) => {
+            setJob(j);
+            void imports.refetch();
+            requestAnimationFrame(() => reportRef.current?.focus());
+          }}
+        />
+      ) : null}
+
+      {!reviewed && step === 3 && job && counts ? (
         <div className="space-y-5" data-testid="import-report">
           <Card>
             <CardHeader>
-              <CardTitle>{job.filename}</CardTitle>
+              <CardTitle>
+                <h2 ref={reportRef} tabIndex={-1} className="outline-hidden">{job.filename}</h2>
+              </CardTitle>
               <p className="type-callout text-label-2" aria-live="polite">
                 {t("glass.import.summary", { rows: n(job.summary.rows), created: n(job.summary.created), skipped: n(job.summary.skipped) })}
               </p>
@@ -239,30 +276,16 @@ export function ImportWizard() {
           </Card>
           <Card>
             <CardHeader><CardTitle>{t("import.warningsTable")}</CardTitle></CardHeader>
-            <CardContent className="space-y-3"><TruncatedWarnings summary={job.summary} /><ParseWarningsTable warnings={job.summary.warnings} /></CardContent>
+            <CardContent className="space-y-3"><TruncatedWarnings summary={job.summary} /><ParseWarningsTable warnings={job.summary.warnings} groups={job.summary.warning_groups} /></CardContent>
           </Card>
           <div className="flex flex-wrap items-center gap-2">
-            <Button nativeButton={false} render={<Link href="/requests?status=NEEDS_REVIEW" />} onClick={() => setDone(true)}>{t("import.goRequests")}</Button>
-            <Button variant="outline" onClick={() => router.replace("/import")}>{t("import.again")}</Button>
+            <Button nativeButton={false} render={<Link href="/requests?status=NEEDS_REVIEW" />}>{t("import.goRequests")}</Button>
+            <Button variant="outline" onClick={() => (setJob(null), cancelPreview(), router.replace("/import"))}>{t("import.again")}</Button>
           </div>
         </div>
       ) : null}
 
-      {step === 0 && imports.data && imports.data.length > 0 ? (
-        <Card className="mt-6 max-w-3xl">
-          <CardHeader><CardTitle>{t("import.recent")}</CardTitle></CardHeader>
-          <CardContent>
-            <ul className="type-callout">
-              {imports.data.slice(0, 6).map((j) => (
-                <li key={j.id} className="flex items-center justify-between gap-3 py-2 [&:not(:last-child)]:hairline-b">
-                  <span className="min-w-0 truncate text-label-1">{j.filename}</span>
-                  <span className="shrink-0 type-footnote text-label-3">{t(KINDS.find((k) => k.kind === j.kind)?.label ?? "import.title")} · {n(j.summary.rows)} · {formatDate(j.created_at.slice(0, 10), locale)}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      ) : null}
+      {step === 0 && imports.data ? <ImportHistory jobs={imports.data} onOpenPreview={openPreview} /> : null}
     </div>
   );
 }

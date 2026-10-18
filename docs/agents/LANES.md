@@ -1,6 +1,6 @@
 # Agent lanes: who is doing what, and how to resume after a limit
 
-Updated 2026-10-18 01:10 UTC by the focused-wright orchestrator (session `claude/focused-wright-ktt0ss`).
+Updated 2026-10-18 09:55 UTC by the focused-wright orchestrator (session `claude/focused-wright-ktt0ss`).
 Background agents belong to the session that started them. If a session hits a usage limit or ends, its
 agents stop, but every change they made is in git: the orchestrator commits the tree every 30 minutes
 (`wip: checkpoint of running agents' work`). To resume a lane in a new session:
@@ -18,41 +18,27 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 
 ## Running now
 
-| Lane | Ledger name | What | Brief / tickets | Ports | Waits on |
-|---|---|---|---|---|---|
-| CAL-F | `cal-f-2026-10-17` | "Takvimime ekle" 3-tap sheet + admin settings CAL-08/09 | same | 19750/19751 | CAL-B API |
-| Launch video | `media-launch` | Recordly + Lottie + Remotion launch/explainer/README videos, phone variants | MEDIA.md | own | final UI |
-| Mobile A, phase 2 | `mobile-a` | Fixes 1–15 of docs/testing/mobile/2026-10-17-mobile-a.md plus the shared primitives from mobile B (inputs, small buttons, tab/top bar) | that report | 19620/19621 | — |
-| Mobile B, phase 2 | `mobile-b` | Route-level fixes of docs/testing/mobile/2026-10-17-mobile-b.md (runs, studio, classes, timetable, moderation, admin, dashboard, analytics, invigilation, policies) | that report | 19630/19631 | — |
-| WG-F | `wg-f-2026-10-17` | Welcome sheet, tour (React Joyride), checklist, hints, /admin/welcome WG-04..08 | same | 19780/19781 | WG-B API |
-| Charts phase 2 | `charts-p2-2026-10-17` | EvilCharts ECharts install + ChartCard shell CH-01/02 | docs/design/v3/charts.md | — | — |
-| AS-B | `as-b-2026-10-17` | Adaptive scheduling backend AS-01..07, 09..11, 13, 18 (+ RF-02 weights, RF-07 learning refresh); migration 0041 | docs/research/2026-10-17-adaptive-scheduling.md | — | — |
-| VO-F | `vo-f-2026-10-18` | Mic button, consent, /admin/ai voice UI, mounts VO-06..08 | same | 19790/19791 | VO-B API |
-| HB-A | `hb-a-2026-10-18` | Helper backend HB-01..05, 08, 09 (feature index, search without AI, action registry, guardrails, memory) | docs/research/2026-10-17-ai-helper-architecture.md | — | helper UX for the card contract |
-| RF-1 | `rf-1-2026-10-18` | Enrolment edit, invite e-mail switch, admin catalogue screens (instructors, courses, faculties, sections) | docs/testing/audits/2026-10-17-no-mock-and-editability.md | 19800/19801 | — |
-| RF-2 | `rf-2-2026-10-18` | Senders for reminder, series, approval receipt, calendar consent, new-device e-mails | same | — | — |
-| AU-B | `au-b-2026-10-18` | TOTP, recovery codes, passkeys (WebAuthn), trusted devices, MFA policy, admin MFA reset + reset link (local accounts only) | docs/research/2026-10-18-auth-backend.md, ROADMAP "— backend" | — | — |
-| AS-S | `as-s-2026-10-18` | Adaptive solver AS-08 (peak smoothing, off by default), AS-12 (exam date advisor), AS-14 (weights learned from edits as drafts) | adaptive research doc | — | AS-B status file |
-| HB-B | `hb-b-2026-10-18` | Helper capability detection HB-12, local-model fixes HB-13, helper turn loop HB-06, quota chain org→faculty→department→role→user in PostgreSQL HB-10, faculty quota managers HB-11 | helper architecture doc | — | HB-A registry (read-only) |
-| Sweeper | `sweep-2026-10-18` | KVKK inventory under system_scope, last backup on /admin/ops, aws-bootstrap.yml secrets → up flags, audit row fix, ruff format for finished lanes | LANES queue | — | — |
+| Lane | Ledger name | What | Brief / tickets | Waits on |
+|---|---|---|---|---|
+| Video re-render | child session session_01M8ntN927QstdjmChCTLUTw | desktop hero loop (owner: README showed phone only), README cut to hero + ≤ 3 clips, captures after the alignment fix; deterministic 60 fps capture, crf 14–16, quality gate (≥ 95 % unique frames in motion, VMAF ≥ 95); commits media to this branch with pull --rebase | launch README | — |
+| Tester wave | child session (own private stack) | round-4 personas, WG-10, CAL-10, AS-20, CH-12, VO-09, AUX-12, HB-18, HX-12b, every e2e-queue section; reports in docs/testing/round4/ | e2e queue | — |
+| HB-17 re-bench | child session (Lambda A10, cap 1.5 h) | qwen2.5:14b and qwen3:14b on the HB-E fixes, 80 turns | hb-17 bench report | — |
 
-## Queued (start when the named lane hands off)
+Done 2026-10-18: FIX-J (KVKK blocker: dev/test upload guard refuses raw seed workbooks and known names, stack.sh masks fixtures + repairs a running DB + env -u for secrets, --verify scans text/JSON columns and uploads; import preview counts 'arşivlenecek' with a confirm over 20 %; programme rename keeps sections; empty-install cards; e2e pending; stacks must use E2E_FIXTURES_DIR), FIX-H (round-4 leftovers: run hero Ayrıntılar, 44 px chips, Derslerim page + GET /me/classes/week, booking rules under Kurulum, sidebar 4 headings + Daha fazla, server term check + grouped Turkish import warnings, feed ETag from body, reset-password form; e2e pending), FIX-G (AS20-F09 planners draft / admins activate, F13 sittings counted once with B6a 98 / 1.667 and B6 ≤ 78, F08/F14/F15, CH12-F02/F09 + parts of F04/F07/F10; e2e pending), FIX-E (round-4 majors: 18 fixed, 4 part, 1 open; one Taleplerim with room + course requests; import term check; Turkish import warnings; tsc clean; leftovers → FIX-H), FIX-F (AS-20 F02–F05, F07, F11, F12 + parts of F08/F10/F14; CH-12 F01/F03/F05/F06; campus peaks route, exam advice apply with undo; decisions F09 planners draft/admins activate and F13 count merged sittings once → FIX-G), FIX-D (HB-18: both blockers + 5 majors + 6 minors; helper times sent as UTC 'Z' + parseServerTime, every credential form posts to /api/auth/no-script and is disabled until hydrated, proxy strips password params; open F08 sheet animation trace, F10 phone card dock, F12 ring offset; e2e pending), FIX-A (F-AUB-1 revoke ends unused older tokens via an `se` epoch claim; TERM horizon skips weeks past week_count and HOLIDAY/EXAM/MAKEUP; council asks cross-group person pairs before the first commit and matches terms by season/year/dates; SLOT_TAKEN copy; 20 new tests; e2e pending), FIX-C (first-load JS −300 to −370 kB gz per route; messages split per language; charts, welcome, voice fixes; e2e pending), FIX-B (CLS, settings capsule, #418, overflow, tab labels, tag size, lens menu, sign-in hero frames; e2e pending), HB-F (re-bench bugs A–E; qwen3 probes without override), UI alignment (5 rows fixed, 8890a86; e2e/ui-alignment.spec.ts passes on a stack), CI green (gracious backend gate: 14 real failures fixed, 737249ff), E2E lane (17 sections, 9 fixes; findings → FIX-A/B/C), small fixes (helper closed-day, duties copy), CAL-13 (duties + own exams feed/file/push; e2e pending), Bugs (BUG-01 closed days, BUG-02 audit labels), README pass (hero loop, WebP clips with GIF fallback; README images ≈ 24.9 MB, was ≈ 48 MB), Launch video (80 s 1080p60 + vertical + README loop + 60 fps clips, from snapshot a39559b; re-render on the final SHA needs a stack), HX-19 (phone drag-to-dismiss; reduced motion keeps 1:1 follow per motion.md §5), HX-15/16/17 (+ notes consent, hand-over links, start-time form), RF-16b (non-blocking period grid, live update), HB-E (bench bugs 1–5, P1 booking by clock time, P2 language check; HB-16 ticked), Shell integration (RF-16; HX-03/06/07/09/10/11 shell side), HB-16/HB-17 GPU bench (Lambda A10, 34 min, ≈ $0.73, torn down; report docs/testing/hb-17-local-bench-2026-10-18.md), HX-18 (M1–M8 + minors; e2e pending), HB-D (remember card, page context, recent actions, HB-21 threads-only delete + share_of_allowance), HX design (HB-07 signed off; HX-12 helper audit written, 0 blockers / 8 major), IDP-2 (CBC needs a signed Response; SAML wizard Gelişmiş), HX (HX-01 done; HX-02..11 part done, e2e pending), RF-F (RF-06, RF-08 ticked; RF-09 part done: client still uses fixed period times → RF-16), RF-C (RF-14, RF-15), IDP (RF-12, encrypted assertions, request signing, profile linking; e2e pending), Sweeper 2 (W3-AI capsule + history spotlighting, F13 hashed locks, /grafana/ drift test, mobile B capsules, fix 15 two of three, A5 density rows), HB-C (HB-14, HB-15; HB-16 part done: needs a GPU host walk-through), CH-B (chart routes; CH-07/10/11 wait on e2e only), RF-B (RF-06/08/09 backend, `mfa_state` filter), CH-M (CH-08 done; CH-07/10/11 frontend waiting on CH-B), HB-B (HB-06, HB-10..13; e2e pending), WG-09 (part done: e2e pending, hosted fix unspent), RF-M (RF-04, RF-10; e2e pending), AUX-10 (part done: e2e pending, the hosted fix "signin-hero-settle" is unspent because `TRANSITIONS_AGENT_LICENSE` is not set in this session), HB-A (HB-01/03..05/07..09), AS-B, AS-F, AUX-F, AU-B, CAL-F, VO-F, WG-F, charts p2, mobile A/B, RF-1, RF-2, sweeper.
+
+## Queued (start when a slot frees; at most 8 agents)
 
 | Next | Starts after | Notes |
 |---|---|---|
-| CAL-10 academician tester | CAL-B + CAL-F | test plan T1–T19 in the calendar research doc |
-| WG-09 motion (one hosted transitions.dev fix) + WG-10 role testers | WG-B + WG-F | |
-| AS frontend AS-15..17, AS tester AS-20 | AS-B | |
-| VO-05 real-stack check of getUserMedia behind nginx and Caddy | VO-F e2e | headers done by VO-B |
-| CAL-13 exam/invigilation duties scope | a published invigilation plan in the fixtures | |
-| Helper frontend HX-01..13 | HB-A + WG-F + mobile A (shell mounts) | docs/design/v3/helper.md; helper UX design done 2026-10-18 |
-| CH-04..12 chart migrations | charts phase 2 | |
-| RF-04, RF-10 (phone month arrows, density) | mobile A/B | |
-| RF-06, RF-08, RF-09 (re-import keeps admin edits, seed imports in history, editable period grid) | CAL-B (lane C done 2026-10-18) | |
-| RF-12 (SAML metadata signature) | — | SAML library done |
-| Round-4 persona testers (staff, academician, admin) | the fix lanes above | re-seed: old snapshots lack migrations ≥ 0037 |
-| Auth frontend AUX | auth UX + AU-B | |
-| README/docs media pass, final merges into gracious + universal | launch video + round 4 | merge rules below |
+| Launch video re-render on the final SHA (`scripts/record/launch.sh all OUT`, about 2.5 h) | final merge + a stack | also try a longer full-term run so the run scene can publish (at a39559b the 240 s run ended hard 99) |
+| HX-12b 12-screen simplicity audit with screenshots | pod health 200 | tester, with the tester wave |
+| **Tester wave** against the pod over HTTPS (not a local stack): WG-10 role testers, CAL-10 academician (T1–T19), round-4 personas (staff, academician, admin; Simplicity), AS-20 adaptive, CH-12 charts, VO-09 voice (fixtures, bench, personas), AUX-12 sign-in (auth.md §16 checks 1–13), HB-18 helper red team and personas | pod health 200 | reports in docs/testing/ |
+| HB-07 design sign-off on the 4 card-contract differences | HX report | design-pro, review only |
+| CAL-13 exam/invigilation duties scope | a published invigilation plan in the fixtures (AS-12 advisor data exists now) | |
+| Council full re-run (round-3 lane C, lost) | E2E lane, on its stack | queued in e2e-queue |
+| README/docs media pass, final merges | launch video + tester wave | merge rules below |
+
+Deferred by the plan ("later" in ROADMAP, not started on purpose): CAL-11, CAL-12, WG-11, AS-19, VO-11..13, HB-19, HB-20, HX-14.
 
 ## Branches and the pod
 

@@ -38,6 +38,9 @@ class Week(Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     kind: Mapped[str] = mapped_column(String(16), default="LECTURE")  # LECTURE, EXAM, HOLIDAY, MAKEUP
     label: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    #: RF-06/RF-09 (alembic 0047_rf_import_safety): an admin changed kind / label / start date; a board re-import
+    #: keeps the week as it is
+    edited: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
     term: Mapped[Term] = relationship(back_populates="weeks")
 

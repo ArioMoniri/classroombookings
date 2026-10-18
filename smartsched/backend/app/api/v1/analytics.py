@@ -10,13 +10,14 @@ Every view answers JSON, or CSV with ``format=csv`` (a download with a file name
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
-from app.api.deps import DB, Planner, Viewer
+from app.api.deps import DB, CurrentUser, Planner, Viewer
 from app.models import ScheduleRun, Term
 from app.services import scenario_compare as sc
 from app.services import utilisation as util
@@ -231,6 +232,18 @@ async def peaks_view(
     return data
 
 
+@router.get("/peaks/campus", response_model=None)
+async def peaks_campus_view(db: DB, _: CurrentUser, term_id: int | None = None) -> dict[str, Any]:
+    """AS20-F03: the campus peak cells for the find-room "Yoğun saat" chip, for anyone signed in (the people who
+    book rooms have no planning.view). Aggregate busy shares of the published timetable only: no run ids or
+    labels, no groups below the campus."""
+    from app.services import peaks
+
+    data = await peaks.peaks(db, term_id=term_id, group_by="campus")
+    data.pop("sources", None)
+    return data
+
+
 @router.get("/forecast/demand", response_model=None)
 async def forecast_demand(
     db: DB,
@@ -305,6 +318,34 @@ async def forecast_exams_advice(db: DB, _: Viewer, term_id: int) -> dict[str, An
         raise HTTPException(
             404, {"code": "term_not_found", "message_tr": "dönem bulunamadı", "message_en": "term not found"}
         ) from exc
+
+
+class AdviceApplyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    term_id: int
+    request_ids: list[int] = Field(min_length=1, max_length=200)
+    date: dt.date
+    start_period: int = Field(ge=1, le=30)
+
+
+@router.post("/forecast/exams/advice/apply", response_model=None)
+async def forecast_exams_advice_apply(body: AdviceApplyIn, db: DB, user: Planner) -> dict[str, Any]:
+    """AS20-F04 "Uygula": move the exam rows of one advisor suggestion (planning.edit; audited per row). The answer
+    carries ``undo``, the same body with the old date and start, for the undo toast."""
+    from app.services import exam_advisor
+
+    try:
+        return await exam_advisor.apply_to_requests(
+            db,
+            term_id=body.term_id,
+            request_ids=body.request_ids,
+            new_date=body.date,
+            start_period=body.start_period,
+            actor=user,
+        )
+    except exam_advisor.ApplyError as exc:
+        raise HTTPException(exc.status, exc.detail()) from exc
 
 
 @router.get("/forecast/exams", response_model=None)

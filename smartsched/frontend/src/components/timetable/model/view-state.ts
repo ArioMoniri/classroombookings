@@ -75,8 +75,16 @@ export function parseViewState(params: URLSearchParams, defaults: Partial<ViewSt
   };
 }
 
+/**
+ * The personal "Yoğunluk" setting (Ayarlar › Görünüm; ui store) as the timetable's default density (RF-10):
+ * "Sıkı" is compact, "Rahat" is the timetable's standard default. The toolbar still changes one view.
+ */
+export function densityFromPersonal(personal: "comfortable" | "compact"): Density {
+  return personal === "compact" ? "compact" : "standard";
+}
+
 /** Serialise only what differs from the defaults so links stay short. */
-export function serializeViewState(s: ViewState, base?: URLSearchParams): URLSearchParams {
+export function serializeViewState(s: ViewState, base?: URLSearchParams, defaults: Pick<Partial<ViewState>, "density"> = {}): URLSearchParams {
   const p = new URLSearchParams(base);
   const set = (k: string, v: string | null) => (v === null ? p.delete(k) : p.set(k, v));
   set("run", s.run !== null ? String(s.run) : null);
@@ -87,7 +95,7 @@ export function serializeViewState(s: ViewState, base?: URLSearchParams): URLSea
   set("day", String(s.day));
   set("subject", s.subject ? `${s.subject.kind}:${s.subject.id}` : null);
   set("compare", s.compare !== null ? String(s.compare) : null);
-  set("density", s.density !== "standard" ? s.density : null);
+  set("density", s.density !== (defaults.density ?? "standard") ? s.density : null);
   set("zoom", s.zoom !== DEFAULT_ZOOM ? String(s.zoom) : null);
   set("sel", s.sel !== null ? String(s.sel) : null);
   return p;

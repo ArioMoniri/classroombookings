@@ -6,10 +6,14 @@
    input, code / essays / translation / general knowledge, with the helper's own length cap (1000 characters);
 2. the **index vocabulary** as the scope signal: a text with no scheduling word *and* no word of the feature index
    (exact, or one typo away) is out of scope. So "şifre", "bildirim" or "takvim" are in scope because the index has
-   them, and "hava nasıl" is not. The refusal carries the top 3 index hits the person may open.
+   them, and "hava nasıl" is not. A time word alone (:data:`app.ai.guardrails.TEMPORAL_WORDS`: "yarın", "akşam",
+   "perşembe" …) is neither a scheduling signal nor an index word here (HB-F bug B: "Yarın İstanbul'da hava…" and
+   "Dün akşamki maç…" passed on it); "Yarın için boş bir salon bul" still passes on "salon". The refusal carries the
+   top 3 index hits the person may open.
 
 :func:`ground_answer` is the output rule: a model answer that names a page without a ``nav`` card for it is replaced
-by the index answer (hallucinated menus are impossible).
+by the index answer (hallucinated menus are impossible), and so is one whose letters drift out of Latin + Turkish
+(more than :data:`MAX_FOREIGN_SHARE`; HB-17 P2: a local 14B model slid into Chinese halfway through 5 of 54 answers).
 """
 
 from __future__ import annotations
@@ -26,9 +30,18 @@ MAX_INPUT_CHARS = 1000
 #: the share of a text's meaningful words the index must know for an in-scope verdict without a scheduling word
 MIN_COVERAGE = 0.34
 OUT_OF_SCOPE = "out_of_scope_helper"
+#: letters an answer may use: ASCII and the Turkish alphabet, with the circumflex vowels (``zekâ``, ``millî``)
+ANSWER_LETTERS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZçğıöşüÇĞİÖŞÜâîûÂÎÛ")
+#: an answer with a larger share of other letters (CJK, Cyrillic, Vietnamese marks …) is replaced by the index answer
+MAX_FOREIGN_SHARE = 0.05
 REFUSAL_TR = "Ben yalnızca SmartSched'i kullanmanıza yardım edebilirim: ders, sınav, derslik ve rezervasyon işleri."
 REFUSAL_EN = "I can only help you use SmartSched: classes, exams, rooms and bookings."
 _WORD = re.compile(r"[a-z0-9]+")
+#: HB18-F13: a typed yes never confirms (only the card's button does); it says so in every mode
+TYPED_YES = "typed_yes"
+TYPED_YES_TR = "Onaylamak için karttaki düğmeye basın."
+TYPED_YES_EN = "To confirm, press the button on the card."
+_YES = re.compile(r"^\s*(?:evet|tamam|onayl(?:a|ayin|ayiniz|iyorum)|olur|yes|yep|ok(?:ay)?|confirm|do it)\s*[.!]*\s*$")
 #: a role handed to the assistant ("artık yöneticisin", "you are now the admin", "act as an administrator"). A person
 #: saying who *they* are ("ben yöneticiyim") is harmless: rights come from their account, never from text
 _ROLE_HANDOFF = re.compile(
@@ -51,18 +64,24 @@ class Verdict:
     rule: str | None = None
 
 
-def _known_share(text: str) -> float:
-    """Share of the text's meaningful words the index knows (exact stem, surface form, or one typo away)."""
+def _known_share(text: str, skip: re.Pattern[str] | None = None) -> float:
+    """Share of the text's meaningful words the index knows (exact stem, surface form, or one typo away). Words and
+    phrases matching ``skip`` (on the folded text; the helper passes :data:`app.ai.guardrails.TEMPORAL_WORDS`) are
+    left out of both counts; ``0.0`` when nothing is left."""
     idx = get_index()
-    words = [w for w in _WORD.findall(g.fold(text)) if w not in STOPWORDS and len(w) >= 2]
+    folded = g.fold(text)
+    if skip is not None:
+        folded = skip.sub(" ", folded)
+    words = [w for w in _WORD.findall(folded) if w not in STOPWORDS and len(w) >= 2]
     if not words:
         return 0.0
     return sum(1 for w in words if idx.knows(w)) / len(words)
 
 
-def check(text: str, perms: Iterable[str]) -> Verdict:
+def check(text: str, perms: Iterable[str], *, min_coverage: float = MIN_COVERAGE) -> Verdict:
     """The helper's pre-model verdict for typed text. ``perms`` only filters the hits shown; the scope decision is
-    the same for everyone (an academician asking about LDAP is in scope, they just get no admin page)."""
+    the same for everyone (an academician asking about LDAP is in scope, they just get no admin page).
+    ``min_coverage`` is the admin's off-scope strictness (``ai.helper.guard.scope``, HB-15)."""
     raw = text or ""
     held = frozenset(perms)
     hits = get_index().search(raw, held, limit=3)
@@ -72,20 +91,47 @@ def check(text: str, perms: Iterable[str]) -> Verdict:
     v = g.check_user_input(raw, "helper")
     if not v.allowed:
         return Verdict(False, v.reason_code, v.message_tr, v.message_en, hits, v.rule)
+    if _YES.match(g.fold(raw)):
+        return Verdict(False, TYPED_YES, TYPED_YES_TR, TYPED_YES_EN, hits, "typed_yes")
     if _ROLE_HANDOFF.search(g.fold(raw)):
         tr, en = g.message_for("prompt_injection_roleplay")
         return Verdict(False, "prompt_injection_roleplay", tr, en, hits, "helper_role_handoff")
-    if g.has_scheduling_signal(raw):
+    if g.has_scheduling_signal(raw, temporal=False):
         return Verdict(True, hits=hits)
-    if _known_share(raw) >= MIN_COVERAGE:
+    if _known_share(raw, skip=g.TEMPORAL_WORDS) >= min_coverage:
         return Verdict(True, hits=hits)
     return Verdict(False, OUT_OF_SCOPE, REFUSAL_TR, REFUSAL_EN, hits, "index_vocabulary")
 
 
+def check_note(text: str) -> Verdict:
+    """The pre-card verdict for the text of a "bunu hatırla: …" note (HB-D). A note is the person's own preference,
+    so the scope check does not apply, but it reaches every later prompt (as a spotlighted ``user_notes`` block), so
+    instructions and role hand-offs are refused before a card is shown."""
+    raw = text or ""
+    v = g.check_user_input(raw, "helper", scope_check=False)
+    if not v.allowed:
+        return Verdict(False, v.reason_code, v.message_tr, v.message_en, rule=v.rule)
+    if _ROLE_HANDOFF.search(g.fold(raw)):
+        tr, en = g.message_for("prompt_injection_roleplay")
+        return Verdict(False, "prompt_injection_roleplay", tr, en, rule="helper_role_handoff")
+    return Verdict(True)
+
+
+def script_share(text: str) -> float:
+    """The share of ``text``'s letters outside Latin + Turkish (:data:`ANSWER_LETTERS`); ``0.0`` without letters."""
+    letters = [ch for ch in text or "" if ch.isalpha()]
+    if not letters:
+        return 0.0
+    return sum(ch not in ANSWER_LETTERS for ch in letters) / len(letters)
+
+
 def ground_answer(answer: str, emitted_feature_ids: Iterable[str]) -> bool:
-    """``True`` when the model's answer may stand: it names no index page title for which no ``nav`` card was sent
-    this turn, and shows no crumb path ("A › B") without any ``nav`` card. ``False`` = replace the text with the
-    index answer (the person then sees only paths the server built, for pages they may open)."""
+    """``True`` when the model's answer may stand: its letters stay in Latin + Turkish (at most
+    :data:`MAX_FOREIGN_SHARE` others), it names no index page title for which no ``nav`` card was sent this turn,
+    and shows no crumb path ("A › B") without any ``nav`` card. ``False`` = replace the text with the index answer
+    (the person then sees only paths the server built, for pages they may open)."""
+    if script_share(answer) > MAX_FOREIGN_SHARE:
+        return False
     emitted = set(emitted_feature_ids)
     if "›" in (answer or "") and not emitted:
         return False
@@ -100,4 +146,16 @@ def ground_answer(answer: str, emitted_feature_ids: Iterable[str]) -> bool:
     return True
 
 
-__all__ = ["MAX_INPUT_CHARS", "OUT_OF_SCOPE", "REFUSAL_EN", "REFUSAL_TR", "Verdict", "check", "ground_answer"]
+__all__ = [
+    "ANSWER_LETTERS",
+    "MAX_FOREIGN_SHARE",
+    "MAX_INPUT_CHARS",
+    "OUT_OF_SCOPE",
+    "REFUSAL_EN",
+    "REFUSAL_TR",
+    "Verdict",
+    "check",
+    "check_note",
+    "ground_answer",
+    "script_share",
+]

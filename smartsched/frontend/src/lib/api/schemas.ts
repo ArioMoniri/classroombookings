@@ -98,8 +98,23 @@ export const ParseWarning = z.object({
   value: z.string().nullable(),
   message: z.string(),
   severity: z.enum(["error", "warning", "info"]),
+  /** PER-F05 (fix-h-2026-10-18): the importer's code and its sentences (app/importers/warning_text.py) */
+  code: z.string().optional(),
+  message_tr: z.string().optional(),
+  message_en: z.string().optional(),
 });
 export type ParseWarning = z.infer<typeof ParseWarning>;
+
+/** PER-F05: one importer warning code with its count and its most frequent sentences (`summary.warning_groups`) */
+export const WarningGroup = z.object({
+  code: z.string(),
+  label_tr: z.string(),
+  label_en: z.string(),
+  count: z.number(),
+  variants: z.number().optional(),
+  items: z.array(z.object({ message_tr: z.string(), message_en: z.string(), count: z.number(), rows: z.array(z.number()).default([]) })).default([]),
+});
+export type WarningGroup = z.infer<typeof WarningGroup>;
 
 export const MeetingRequest = z.object({
   id: z.number(),
@@ -219,12 +234,42 @@ export const ImportJob = z.object({
     warnings_count: z.number().optional(),
     warnings_shown: z.number().optional(),
     warnings_truncated: z.boolean().optional(),
+    /** PER-F04 (fix-h-2026-10-18): the season / year the file names against the target term (previews, newer backends) */
+    term_check: z
+      .object({
+        target_id: z.number(),
+        target_name: z.string(),
+        file_season: z.string().nullable().optional(),
+        file_year: z.number().nullable().optional(),
+        source: z.string().nullable().optional(),
+        mismatch: z.boolean(),
+        suggested_term_id: z.number().nullable().optional(),
+        suggested_term_name: z.string().nullable().optional(),
+      })
+      .optional(),
+    /** PER-F05: all of the import's warnings grouped by code (newer backends) */
+    warning_groups: z.array(WarningGroup).optional(),
     /** the kind the file looks like when it is not the chosen one (backend WrongFileError, admin persona M-20) */
     detected_kind: z.string().nullable().optional(),
+    /** RF-06: a preview (`dry_run=true`): nothing was written; `diff` lists what an apply would change */
+    dry_run: z.boolean().optional(),
+    /** RF-06: the job that applied this preview (once), and on that job the preview it came from */
+    applied_job_id: z.number().nullable().optional(),
+    preview_of: z.number().nullable().optional(),
+    /** RF-06: `summary.diff` of a preview, parsed by `importDiff` (lib/api/rf-admin.ts) */
+    diff: z.unknown().optional(),
+    /** RF-C: previous-import values of exams imported before RF-06, rebuilt from the audit log (`summary.extra`) */
+    rebuilt_import_values: z.object({ from_audit: z.number().optional(), edited_unknown: z.number().optional() }).optional(),
   }),
   /** short, path-free reason of a FAILED job */
   error: z.string().nullable().optional(),
   created_at: z.string(),
+  term_code: z.string().nullable().optional(),
+  /** RF-08: who imported: `user` (created_by_name) or `system`; `source` upload | cli | seed (null before alembic 0047) */
+  actor: z.string().nullable().optional(),
+  source: z.string().nullable().optional(),
+  created_by_id: z.number().nullable().optional(),
+  created_by_name: z.string().nullable().optional(),
 });
 export type ImportJob = z.infer<typeof ImportJob>;
 
@@ -292,6 +337,8 @@ export const RunParams = z.object({
   source: z.string().optional(),
   /** the files a baseline run was read from, each once by sha256 */
   sources: z.array(z.object({ sha256: z.string().nullish(), file: z.string().nullish(), job: z.number().nullish() })).optional(),
+  /** AS-10 what-if draft: the scenario the run was started from (AS20-F07: the run page says "Senaryo taslağı") */
+  scenario: z.record(z.string(), z.unknown()).nullish(),
 });
 export type RunParams = z.infer<typeof RunParams>;
 

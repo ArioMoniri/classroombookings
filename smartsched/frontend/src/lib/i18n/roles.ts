@@ -9,7 +9,7 @@
  *
  * Mirrors the backend's `bookings_perms.role_label()` (TR/EN pair for e-mails and the sign-in hint).
  */
-import { translate, type Locale, type MessageKey } from "./index";
+import { hasMessages, translate, type Locale, type MessageKey } from "./index";
 
 export const BUILTIN_ROLES = ["ADMIN", "PLANNER", "TEACHER", "VIEWER"] as const;
 export type BuiltinRole = (typeof BUILTIN_ROLES)[number];
@@ -22,6 +22,38 @@ const SHIPPED_NAMES: Record<BuiltinRole, readonly string[]> = {
   VIEWER: ["viewer"],
 };
 
+/**
+ * The built-in roles' shipped names and descriptions in both languages (F-CH-1: the browser holds only the active
+ * language's messages, and a role saved in the other language must still read as built-in). Kept equal to
+ * `glass.role.*` / `glass.roleDescription.*` in messages/*.json by lazy-messages.test.tsx.
+ */
+export const SHIPPED_ROLE_TEXTS: Record<"tr" | "en", { name: Record<BuiltinRole, string>; description: Record<BuiltinRole, string> }> = {
+  tr: {
+    name: { ADMIN: "Yönetici", PLANNER: "Planlamacı", TEACHER: "Öğretim elemanı", VIEWER: "İzleyici" },
+    description: {
+      ADMIN: "Her izne sahip; kurulum, kullanıcılar ve roller",
+      PLANNER: "Planlama birimi: içe aktarma, ders programları ve rezervasyonlar",
+      TEACHER: "Öğretim elemanı: salonları görür ve rezervasyon yapar",
+      VIEWER: "Planları ve rezervasyonları yalnızca görüntüler",
+    },
+  },
+  en: {
+    name: { ADMIN: "Administrator", PLANNER: "Planner", TEACHER: "Teacher", VIEWER: "Viewer" },
+    description: {
+      ADMIN: "Every permission: setup, users and roles",
+      PLANNER: "Planning office: imports, timetables and bookings",
+      TEACHER: "Teaching staff: views rooms and books them",
+      VIEWER: "Read-only access to plans and bookings",
+    },
+  },
+};
+
+/** the shipped text in either language (and the active messages, which may carry an organisation's own) */
+function isShippedText(kind: "name" | "description", code: BuiltinRole, folded: string): boolean {
+  const key = (kind === "name" ? `glass.role.${code}` : `glass.roleDescription.${code}`) as MessageKey;
+  return (["tr", "en"] as const).some((l) => fold(SHIPPED_ROLE_TEXTS[l][kind][code]) === folded || (hasMessages(l) && fold(translate(l, key)) === folded));
+}
+
 const isBuiltin = (code: string | null | undefined): code is BuiltinRole => !!code && (BUILTIN_ROLES as readonly string[]).includes(code);
 
 const fold = (s: string) => s.trim().toLocaleLowerCase("tr-TR");
@@ -30,8 +62,7 @@ const fold = (s: string) => s.trim().toLocaleLowerCase("tr-TR");
 function shippedName(code: BuiltinRole, name: string): boolean {
   const n = fold(name);
   if (SHIPPED_NAMES[code].includes(n)) return true;
-  const key = `glass.role.${code}` as MessageKey;
-  return n === fold(translate("tr", key)) || n === fold(translate("en", key));
+  return isShippedText("name", code, n);
 }
 
 type T = (key: MessageKey, vars?: Record<string, string | number>) => string;
@@ -67,7 +98,7 @@ export function roleDescription(t: T, role: (RoleLike & { description?: string |
   if (!isBuiltin(code)) return text;
   const key = `glass.roleDescription.${code}` as MessageKey;
   const n = fold(text);
-  if (!text || SHIPPED_DESCRIPTIONS[code].includes(n) || n === fold(translate("tr", key)) || n === fold(translate("en", key)) || shippedName(code, text)) return t(key);
+  if (!text || SHIPPED_DESCRIPTIONS[code].includes(n) || isShippedText("description", code, n) || shippedName(code, text)) return t(key);
   return text;
 }
 

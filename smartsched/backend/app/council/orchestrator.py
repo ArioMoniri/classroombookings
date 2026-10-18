@@ -33,7 +33,7 @@ from app.ai.policy import ai_allowed
 from app.core import safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
-from app.council import critic, fastpath, llm, planner, reconcile, rules, storage
+from app.council import critic, fastpath, llm, planner, reconcile, rules, storage, term_match
 from app.council.extract import extract, rule_texts
 from app.council.render import Rendered, RenderError, render_file
 from app.council.review import build_items
@@ -447,6 +447,9 @@ async def cross_steps(ctx: Ctx) -> None:
                 {"index": f["index"], "filename": f["filename"], "sheets": [g.name for g in rend.grids] if rend else []}
             )
         plan_out = planner.plan(meta, records, _axis_slots(structures, records), lang=ctx.lang)
+        # FIX-A: a group whose term exists under another key ("2026-GUZ" for the planner's "2026-2027-GUZ")
+        async with factory() as s:
+            await term_match.resolve_groups(s, plan_out)
         st.say(f"{len(plan_out['groups'])} term group(s); period grid: {plan_out['period_grid']['source']}")
         await _artifact(ctx, "plan", plan_out, step_id=st.step_id)
         async with factory() as s:

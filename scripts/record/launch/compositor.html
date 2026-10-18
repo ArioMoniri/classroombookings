@@ -98,10 +98,14 @@ function el(tag, cls, parent, style = {}) {
 /** Inner content of a screen: the captured frame through the camera, the cursor, ripples, taps. */
 function screenContent(L, box, parent) {
   const s = box.w / L.cam.w; // output px per CSS px of the take
+  // the cached element itself, already decoded (draw() awaits it): a new <img> with the same src decodes again on its
+  // own schedule, and a screenshot taken before that showed a blank screen for a frame
   const e = image(L.src);
-  const img = e.img.cloneNode ? e.img : e.img;
-  const im = el("img", "", parent, { width: px(L.srcW * s), height: px(L.srcH * s), transform: `translate(${px(-L.cam.x * s)}, ${px(-L.cam.y * s)})` });
-  im.src = L.src;
+  const im = e.img.isConnected ? e.img.cloneNode() : e.img;
+  im.className = "";
+  im.removeAttribute("style");
+  Object.assign(im.style, { width: px(L.srcW * s), height: px(L.srcH * s), transform: `translate(${px(-L.cam.x * s)}, ${px(-L.cam.y * s)})` });
+  parent.appendChild(im);
   const to = (p) => ({ x: (p.x - L.cam.x) * s, y: (p.y - L.cam.y) * s });
   for (const r of L.ripples ?? []) {
     const p = to(r); const u = r.age; const d = (24 + 70 * u) * Math.max(1, s * 0.9);
@@ -167,6 +171,8 @@ window.draw = async (S) => {
   for (const A of Object.values(anims)) if (!A.holder.dataset.used) A.holder.style.display = "none";
   if (S.preload) for (const s of S.preload) image(s);
   await Promise.all(waits);
+  // every image on the stage (take frames, clones, the logo) decoded before the screenshot paints it
+  await Promise.all([...root.querySelectorAll("img")].map((i) => (i.complete && i.naturalWidth ? undefined : i.decode().catch(() => undefined))));
   // no requestAnimationFrame here: a page that is not the focused tab gets no animation frames (several render
   // workers share one browser); the screenshot itself forces the paint
   return true;

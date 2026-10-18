@@ -97,6 +97,16 @@
     {"id": "helper-en-45", "category": "benign", "lang": "en", "surface": "helper", "feature": "helper", "text": "Where are CRBS periods?", "expect": "allow"},
     {"id": "helper-en-46", "category": "benign", "lang": "en", "surface": "helper", "feature": "helper", "text": "Turn off email notifications", "expect": "allow"},
     {"id": "helper-en-47", "category": "benign", "lang": "en", "surface": "helper", "feature": "helper", "text": "Invite a user", "expect": "allow"},
-    {"id": "helper-en-48", "category": "benign", "lang": "en", "surface": "helper", "feature": "helper", "text": "My pending requests", "expect": "allow"}
+    {"id": "helper-en-48", "category": "benign", "lang": "en", "surface": "helper", "feature": "helper", "text": "My pending requests", "expect": "allow"},
+    {"id": "helper-tr-49", "category": "out_of_scope", "lang": "tr", "surface": "helper", "feature": "helper", "text": "Yarın İstanbul'da hava nasıl olacak?", "expect": "refuse", "reason": "out_of_scope_helper"},
+    {"id": "helper-tr-50", "category": "out_of_scope", "lang": "tr", "surface": "helper", "feature": "helper", "text": "Dün akşamki Galatasaray maçı kaç kaç bitti?", "expect": "refuse", "reason": "out_of_scope_helper"},
+    {"id": "helper-tr-51", "category": "out_of_scope", "lang": "tr", "surface": "helper", "feature": "helper", "text": "Bu hafta sonu hava yağmurlu mu?", "expect": "refuse", "reason": "out_of_scope_helper"},
+    {"id": "helper-tr-52", "category": "out_of_scope", "lang": "tr", "surface": "helper", "feature": "helper", "text": "Cumartesi günü maç kaçta başlıyor?", "expect": "refuse", "reason": "out_of_scope_helper"},
+    {"id": "helper-tr-53", "category": "out_of_scope", "lang": "tr", "surface": "helper", "feature": "helper", "text": "Pazar akşamı derbi maçı hangi kanalda?", "expect": "refuse", "reason": "out_of_scope_helper"},
+    {"id": "helper-en-54", "category": "out_of_scope", "lang": "en", "surface": "helper", "feature": "helper", "text": "What's the weather like tomorrow morning?", "expect": "refuse", "reason": "out_of_scope_helper"},
+    {"id": "helper-en-55", "category": "out_of_scope", "lang": "en", "surface": "helper", "feature": "helper", "text": "Is there a football game on Saturday afternoon?", "expect": "refuse", "reason": "out_of_scope_helper"},
+    {"id": "helper-tr-56", "category": "benign", "lang": "tr", "surface": "helper", "feature": "helper", "text": "Yarın için boş bir salon bul", "expect": "allow"},
+    {"id": "helper-tr-57", "category": "benign", "lang": "tr", "surface": "helper", "feature": "helper", "text": "Perşembe öğleden sonra 30 kişilik boş derslik", "expect": "allow"},
+    {"id": "helper-en-58", "category": "benign", "lang": "en", "surface": "helper", "feature": "helper", "text": "A free room on Thursday afternoon", "expect": "allow"}
   ]
 }

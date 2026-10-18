@@ -10,7 +10,9 @@ indexed read; ``last_seen_at`` is written at most every :data:`SEEN_EVERY`. Writ
 read-only route never commits. A revocation clears this process's cache entry and moves ``users.sessions_epoch`` on;
 a cache entry is trusted only while the epoch it saw is the user's current one, so another worker (the user row is read
 on every request anyway) re-checks at once and the revoked token fails on its very next request, at no extra query.
-Tokens without a ``jti`` (issued before AU-15) still pass on the token-version check only.
+Tokens without a ``jti`` (issued before AU-15) still pass on the token-version check only. A token carries the epoch
+at issue (claim ``se``); one first seen after a later revocation is refused, so "Diğer cihazlardan çıkış yap" also ends
+tokens that were issued but had not made a request yet (FIX-A F-AUB-1).
 """
 
 from __future__ import annotations
@@ -111,14 +113,20 @@ async def check(request: Request, payload: dict[str, Any], user: User) -> int | 
     async with get_session_factory()() as s:
         row = (await s.execute(select(UserSession).where(UserSession.jti_hash == h))).scalar_one_or_none()
         if row is None:
+            if _issued_before(payload, epoch):
+                _remember(h, True, 0, now, epoch)
+                raise _revoked()
             row = await _record(s, request, payload, user, h, now)
         elif row.user_id != user.id:  # a jti reused across accounts cannot happen with random ids: refuse
             raise _revoked()
         if row.revoked_at is not None:
             _remember(h, True, row.id, row.last_seen_at, epoch)
             raise _revoked()
+        dirty = _better_device(row, request)
         if now - row.last_seen_at >= SEEN_EVERY:
             row.last_seen_at = now
+            dirty = True
+        if dirty:
             await s.commit()
         sid, seen = row.id, row.last_seen_at
     _remember(h, False, sid, seen, epoch)
@@ -126,11 +134,95 @@ async def check(request: Request, payload: dict[str, Any], user: User) -> int | 
     return sid
 
 
+#: User-Agent prefixes of scripts and HTTP libraries (a token used only by them is an "API" session, AU-B 1 / FIX-I)
+_SCRIPT_UA = (
+    "curl/",
+    "wget/",
+    "python-requests/",
+    "python-httpx/",
+    "python-urllib",
+    "aiohttp/",
+    "httpie/",
+    "go-http-client/",
+    "postmanruntime/",
+    "insomnia/",
+    "okhttp/",
+    "axios/",
+    "node-fetch",
+    "undici",
+    "node",
+    "playwright/",
+    "java/",
+    "libwww-perl/",
+    "powershell/",
+)
+_BROWSERS = ("Edge", "Opera", "Firefox", "Samsung Internet", "Chrome", "Safari")
+_SYSTEMS = ("iPhone", "iPad", "Android", "Windows", "ChromeOS", "macOS", "Linux")
+API_DEVICE = "API"
+
+
+def _script(user_agent: str) -> bool:
+    ua = user_agent.strip().lower()
+    return bool(ua) and "mozilla/" not in ua and any(ua.startswith(p) for p in _SCRIPT_UA)
+
+
+def session_device(user_agent: str | None) -> str:
+    """The stored, language-neutral device label: "Safari, iPhone" (known parts only), "API" for a script client, or
+    "" when nothing is known. The UI words the unknown parts in the viewer's language (FIX-I; the label used to be
+    stored in Turkish, "bilinmeyen tarayıcı, bilinmeyen cihaz", whatever the viewer's language)."""
+    from app.services import mail_senders
+
+    ua = user_agent or ""
+    browser, system = mail_senders.device_family(ua)
+    if not browser and not system and _script(ua):
+        return API_DEVICE
+    return ", ".join(p for p in (browser, system) if p)[:120]
+
+
+def device_parts(device: str | None) -> dict[str, str | None]:
+    """``browser`` / ``os`` / ``client`` ("browser", "api", "unknown") read from a stored label, old ones included."""
+    parts = [p.strip() for p in (device or "").split(",")]
+    if parts == [API_DEVICE]:
+        return {"browser": None, "os": None, "client": "api"}
+    browser = next((p for p in parts if p in _BROWSERS), None)
+    system = next((p for p in parts if p in _SYSTEMS), None)
+    return {"browser": browser, "os": system, "client": "browser" if browser or system else "unknown"}
+
+
+def _score(device: str | None) -> float:
+    p = device_parts(device)
+    return 2 * (p["browser"] is not None) + (p["os"] is not None) + 0.5 * (p["client"] == "api")
+
+
+def _better_device(row: UserSession, request: Request) -> bool:
+    """AUX12-F03: a token's first request may come from the Next server (Node's user agent, or none), and the row read
+    "bilinmeyen tarayıcı, bilinmeyen cihaz" for ever. A later request that names more of the browser and system
+    updates the label (only ever towards a better one; a stored Turkish label of an older row is rewritten neutral)."""
+    have = _score(row.device)
+    if have >= 3:
+        return False
+    label = session_device(request.headers.get("user-agent"))
+    if _score(label) <= have:
+        return False
+    row.device = label
+    return True
+
+
+def _issued_before(payload: dict[str, Any], epoch: int) -> bool:
+    """FIX-A F-AUB-1: a token never seen before, issued before the user's latest revocation (its ``se`` claim is behind
+    the user's sessions epoch), has no row the revocation could mark; it is refused on its first request instead.
+    A ``jti`` token without the claim (issued before FIX-A) counts as epoch 0."""
+    from app.core.security import SESSIONS_EPOCH_CLAIM
+
+    claim = payload.get(SESSIONS_EPOCH_CLAIM, 0)
+    if isinstance(claim, bool) or not isinstance(claim, int):
+        return True
+    return claim < epoch
+
+
 async def _record(
     s: AsyncSession, request: Request, payload: dict[str, Any], user: User, h: str, now: datetime
 ) -> UserSession:
-    from app.services import mail_senders
-
     tv = payload.get("tv", 0)
     row = UserSession(
         user_id=user.id,
@@ -139,7 +231,7 @@ async def _record(
         created_at=_ts(payload.get("iat")) or now,
         expires_at=_ts(payload.get("exp")) or now + timedelta(hours=12),
         last_seen_at=now,
-        device=mail_senders.device_label(request.headers.get("user-agent"), "tr")[:120],
+        device=session_device(request.headers.get("user-agent")),
         network=network_of(request.client.host if request.client else None),
     )
     s.add(row)
@@ -180,6 +272,7 @@ async def list_own(db: AsyncSession, user: User, current: int | None) -> list[di
             "last_seen_at": r.last_seen_at,
             "expires_at": r.expires_at,
             "device": r.device,
+            **device_parts(r.device),
             "network": r.network,
             "current": r.id == current,
         }
@@ -217,6 +310,8 @@ async def revoke_one(db: AsyncSession, user: User, session_id: int) -> None:
 async def revoke_others(db: AsyncSession, user: User, current: int | None) -> int:
     rows = [r for r in await _open(db, user) if r.id != current]
     n = await _mark(db, user, rows, "others")
+    if not rows:  # FIX-A F-AUB-1: tokens issued but not used yet have no row; the epoch still moves on
+        _bump(user)
     await audit.record(db, "auth.session_revoked", "user", user.id, after={"others": True, "count": n})
     return n
 
@@ -262,4 +357,14 @@ async def dsr_rows(db: AsyncSession, user_id: int) -> list[dict[str, Any]]:
         ]
 
 
-__all__ = ["check", "current_id", "list_own", "network_of", "revoke_all", "revoke_one", "revoke_others"]
+__all__ = [
+    "check",
+    "current_id",
+    "device_parts",
+    "list_own",
+    "network_of",
+    "revoke_all",
+    "revoke_one",
+    "revoke_others",
+    "session_device",
+]

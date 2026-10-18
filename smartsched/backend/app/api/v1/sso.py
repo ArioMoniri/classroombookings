@@ -17,6 +17,10 @@ page), ``POST /invites/{token}/password`` (local-password invites). ``planning.a
 ``GET /admin/providers/{id}/setup``, ``POST /admin/providers/{id}/discover``, ``POST /admin/providers/{id}/test``,
 ``GET /admin/providers/{id}/test/{test_id}``, ``GET/POST/DELETE /admin/providers/{id}/mappings``. ``setup.users``:
 ``POST /admin/invites/{id}/resend``, ``POST /admin/invites/bulk``.
+
+Profile links of the other providers (idp-2026-10-18, app/services/identity/links.py): ``GET /me/identities``,
+``POST /{slug}/link`` (re-authentication + confirm; answers the provider URL), ``POST /{slug}/unlink``
+(re-authentication; audited ``auth.identity_unbound``).
 """
 
 from __future__ import annotations
@@ -24,7 +28,7 @@ from __future__ import annotations
 from collections.abc import Awaitable
 from typing import Any
 
-from fastapi import APIRouter, Form, HTTPException, Query, Response, status
+from fastapi import APIRouter, Form, HTTPException, Query, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.api.deps import DB, Admin, CurrentUser, UsersAdmin
@@ -51,15 +55,18 @@ from app.schemas.sso import (
 from app.services import sso as svc
 from app.services.identity import invites as idp_invites
 from app.services.identity import kinds as idp_kinds
+from app.services.identity import links as idp_links
 from app.services.identity import providers as idp
 from app.services.identity import saml as idp_saml
 from app.services.identity.schemas import (
     BulkInviteIn,
     LocalPasswordIn,
     OrderIn,
+    ProfileLinkIn,
     ProviderCreateIn,
     ProviderIn,
     ProviderMappingIn,
+    ReauthIn,
     ResendIn,
 )
 
@@ -134,6 +141,18 @@ async def invite_banner(token: str, db: DB) -> dict[str, Any]:
 @router.get("/me", response_model=SsoMeOut)
 async def my_identity(user: CurrentUser, db: DB) -> dict[str, Any]:
     return await svc.me(db, user)
+
+
+@router.get("/me/identities")
+async def my_identities(user: CurrentUser, db: DB) -> dict[str, Any]:
+    """Profil › Güvenlik: the Google / OIDC / SAML providers this account can link, and the linked ones."""
+    return await idp_links.my_identities(db, user)
+
+
+def _recent(request: Request) -> bool:
+    from app.api.v1.mfa import _recent as recent_session  # the 10-minute re-authentication window of AU-B
+
+    return recent_session(request)
 
 
 @router.post(f"/{svc.PROVIDER}/link", response_model=AuthorizeOut)
@@ -514,6 +533,25 @@ async def callback(
     [&welcome=self|invited|bound]`` after a sign-in, ``/profile?sso=linked`` after a link, the test page after a test
     login, or ``/login?error=<code>[&ref=…][&provider=…][&invite=…&invited_masked=…&signed_in=…]``."""
     return _redirect(await svc.finish(db, code=code, state=state, error=error, slug=slug[:40].lower()))
+
+
+@router.post("/{slug}/link", response_model=AuthorizeOut)
+async def link_provider(slug: str, body: ProfileLinkIn, request: Request, user: CurrentUser, db: DB) -> AuthorizeOut:
+    """Profil › Güvenlik › Bağla (Google / OIDC / SAML): re-authentication (403 ``reauth_failed``), then the URL the
+    panel navigates to; the provider sends the person back to ``/profile?sso=linked&provider=<slug>`` or
+    ``/profile?error=<code>&provider=<slug>``. 409: ``no_password``, ``already_linked``, ``not_configured``."""
+    url = await _guarded(idp_links.start_link(db, user, slug[:40].lower(), body.password, recent=_recent(request)))
+    await db.commit()
+    return AuthorizeOut(authorize_url=url)
+
+
+@router.post("/{slug}/unlink", status_code=status.HTTP_204_NO_CONTENT)
+async def unlink_provider(slug: str, body: ReauthIn, request: Request, user: CurrentUser, db: DB) -> Response:
+    """Profil › Güvenlik › Bağlantıyı kaldır: re-authentication (403 ``reauth_failed``), 404 ``not_linked``;
+    audited ``auth.identity_unbound``."""
+    await _guarded(idp_links.unlink(db, user, slug[:40].lower(), body.password, recent=_recent(request)))
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{slug}/acs", status_code=status.HTTP_302_FOUND)

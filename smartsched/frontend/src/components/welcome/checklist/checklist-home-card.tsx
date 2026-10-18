@@ -7,7 +7,7 @@ export function ChecklistHomeCard() {
   const model = useChecklistModel();
   if (!model || model.hidden || model.allDone) return null;
   return (
-    <Card className="mb-4 max-w-2xl gap-0 px-4 py-4" data-testid="checklist-home-card">
+    <Card className="mt-6 max-w-2xl gap-0 px-4 py-4" data-testid="checklist-home-card">
       <ChecklistPanel model={model} />
     </Card>
   );

@@ -111,40 +111,90 @@ export function routesBody(def: Partial<Route> | null, features: Partial<Record<
   return out;
 }
 
-/** Fixed categorical order of the stacked chart (colour follows the feature, never its rank). */
-export const CHART_SERIES = ["chat", "rules", "intake", "explain", "vision", "other"] as const;
-export type ChartSeries = (typeof CHART_SERIES)[number];
-export const SERIES_COLOR: Record<ChartSeries, string> = {
-  chat: "var(--cat-1)",
-  rules: "var(--cat-2)",
-  intake: "var(--cat-3)",
-  explain: "var(--cat-4)",
-  vision: "var(--cat-5)",
-  other: "var(--label-3)",
+/**
+ * Stacked chart series (charts.md §4 row 1: "≤ 5 + Diğer"; F-CH-4): the five features with the most tokens in the
+ * range are named, every other one folds into "other" (Diğer). The named ones are listed in a fixed feature order
+ * and keep their own colour (chat = cat-1, rules = cat-2, …); a feature without one takes the first categorical
+ * colour that no shown series holds. Before, only these five had a series and any other feature (booking_nl,
+ * voice_stt, guard) went to Diğer even when fewer than five were in use.
+ */
+export const MAX_NAMED_SERIES = 5;
+export const OTHER_SERIES = "other";
+/** the fixed order (also the colour order of the first five) */
+export const CHART_SERIES = ["chat", "rules", "intake", "explain", "vision", "booking_nl", "voice_stt", "guard"] as const;
+export type ChartSeries = string;
+const CAT_COLORS = ["var(--cat-1)", "var(--cat-2)", "var(--cat-3)", "var(--cat-4)", "var(--cat-5)"] as const;
+export const SERIES_COLOR: Record<string, string> = {
+  chat: CAT_COLORS[0],
+  rules: CAT_COLORS[1],
+  intake: CAT_COLORS[2],
+  explain: CAT_COLORS[3],
+  vision: CAT_COLORS[4],
+  [OTHER_SERIES]: "var(--label-3)",
 };
 
-export function seriesOf(feature: string): ChartSeries {
-  return (CHART_SERIES as readonly string[]).includes(feature) ? (feature as ChartSeries) : "other";
+/** a stable rank: the fixed order first, then any other feature by name */
+function featureRank(feature: string): [number, string] {
+  const i = (CHART_SERIES as readonly string[]).indexOf(feature);
+  return [i < 0 ? CHART_SERIES.length : i, feature];
 }
+const byFeatureOrder = (a: string, b: string) => {
+  const [ra, na] = featureRank(a);
+  const [rb, nb] = featureRank(b);
+  return ra - rb || na.localeCompare(nb);
+};
 
-export type DayPoint = { day: string; label: string; total: number } & Record<ChartSeries, number>;
+/** `day`, `label`, `total`, `other` and one number per feature seen in the range */
+export type DayPoint = { day: string; label: string; total: number; other: number; [feature: string]: string | number };
 
-/** `GET /ai/admin/usage?group=day` rows → one point per day with every series (0 when absent). */
+const NOT_SERIES = new Set(["day", "label", "total"]);
+const num = (v: unknown) => (typeof v === "number" ? v : 0);
+
+/** `GET /ai/admin/usage?group=day` rows → one point per day with every feature in the range (0 when absent). */
 export function dayChartData(rows: readonly UsageRow[], locale: string, lastDays?: number): DayPoint[] {
   const fmt = new Intl.DateTimeFormat(tag(locale), { day: "numeric", month: "short", timeZone: "UTC" });
-  const points = rows.map((r) => {
+  const picked = lastDays ? rows.slice(-lastDays) : rows;
+  const features = new Set<string>();
+  for (const r of picked) for (const f of Object.keys(r.features ?? {})) if (!NOT_SERIES.has(f)) features.add(f);
+  return picked.map((r) => {
     const day = String(r.key ?? "");
-    const p = { day, label: day ? fmt.format(new Date(`${day}T00:00:00Z`)) : "", total: r.tokens } as DayPoint;
-    for (const sname of CHART_SERIES) p[sname] = 0;
-    for (const [feature, n] of Object.entries(r.features ?? {})) p[seriesOf(feature)] += n;
+    const p: DayPoint = { day, label: day ? fmt.format(new Date(`${day}T00:00:00Z`)) : "", total: r.tokens, other: 0 };
+    for (const f of features) p[f] = 0;
+    for (const [feature, n] of Object.entries(r.features ?? {})) if (!NOT_SERIES.has(feature)) p[feature] = num(p[feature]) + n;
     return p;
   });
-  return lastDays ? points.slice(-lastDays) : points;
 }
 
-/** Series that carry any value in the range (the legend lists only these, in the fixed order). */
+/** every feature key of the points (not day/label/total/other) */
+function featureKeys(points: readonly DayPoint[]): string[] {
+  const keys = new Set<string>();
+  for (const p of points) for (const k of Object.keys(p)) if (!NOT_SERIES.has(k) && k !== OTHER_SERIES) keys.add(k);
+  return [...keys];
+}
+
+/** The chart's series: the (up to) five busiest features in the fixed order, then "other" when anything is left. */
 export function activeSeries(points: readonly DayPoint[]): ChartSeries[] {
-  return CHART_SERIES.filter((sname) => points.some((p) => p[sname] > 0));
+  const sums = featureKeys(points)
+    .map((f) => ({ f, v: points.reduce((a, p) => a + num(p[f]), 0) }))
+    .filter((x) => x.v > 0)
+    .sort((a, b) => b.v - a.v || byFeatureOrder(a.f, b.f));
+  const named = sums.slice(0, MAX_NAMED_SERIES).map((x) => x.f).sort(byFeatureOrder);
+  const rest = sums.slice(MAX_NAMED_SERIES).reduce((a, x) => a + x.v, 0) + points.reduce((a, p) => a + num(p[OTHER_SERIES]), 0);
+  return rest > 0 ? [...named, OTHER_SERIES] : named;
+}
+
+/** Points with every feature outside `series` summed into "other" (what the chart, the table and the CSV show). */
+export function foldOther(points: readonly DayPoint[], series: readonly ChartSeries[]): DayPoint[] {
+  const keep = new Set(series);
+  return points.map((p) => {
+    const out: DayPoint = { day: p.day, label: p.label, total: p.total, other: num(p[OTHER_SERIES]) };
+    for (const k of Object.keys(p)) {
+      if (NOT_SERIES.has(k) || k === OTHER_SERIES) continue;
+      if (keep.has(k)) out[k] = num(p[k]);
+      else out.other += num(p[k]);
+    }
+    return out;
+  });
 }
 
 /** The share of a user's monthly (else daily) limit used this period; null without a limit. */
@@ -292,7 +342,11 @@ export function audioDays(rows: readonly UsageRow[], locale: string): { day: str
 
 /** Legend entries for the active series, in the fixed order; the colour follows the feature, not the position. */
 export function dailyLegend(series: readonly ChartSeries[], label: (s: ChartSeries) => string): { key: ChartSeries; label: string; color: string }[] {
-  return CHART_SERIES.filter((s) => series.includes(s)).map((s) => ({ key: s, label: label(s), color: SERIES_COLOR[s] }));
+  const ordered = [...series].filter((s) => s !== OTHER_SERIES).sort(byFeatureOrder);
+  const taken = new Set(ordered.map((s) => SERIES_COLOR[s]).filter(Boolean));
+  const free = CAT_COLORS.filter((c) => !taken.has(c));
+  const out = ordered.map((s) => ({ key: s, label: label(s), color: SERIES_COLOR[s] ?? free.shift() ?? SERIES_COLOR[OTHER_SERIES]! }));
+  return series.includes(OTHER_SERIES) ? [...out, { key: OTHER_SERIES, label: label(OTHER_SERIES), color: SERIES_COLOR[OTHER_SERIES]! }] : out;
 }
 
 /**
@@ -303,11 +357,10 @@ export function foldWeeks(points: readonly DayPoint[], label: (from: string, to:
   const out: DayPoint[] = [];
   for (let end = points.length; end > 0; end -= 7) {
     const block = points.slice(Math.max(0, end - 7), end);
-    const p = { day: block[0]!.day, label: label(block[0]!.day, block.at(-1)!.day), total: 0 } as DayPoint;
-    for (const s of CHART_SERIES) p[s] = 0;
+    const p: DayPoint = { day: block[0]!.day, label: label(block[0]!.day, block.at(-1)!.day), total: 0, other: 0 };
     for (const d of block) {
       p.total += d.total;
-      for (const s of CHART_SERIES) p[s] += d[s];
+      for (const [k, v] of Object.entries(d)) if (!NOT_SERIES.has(k)) p[k] = num(p[k]) + num(v);
     }
     out.unshift(p);
   }

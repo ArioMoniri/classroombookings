@@ -66,7 +66,11 @@ describe("T-R2-05: real 44 px boxes on coarse pointers", () => {
     const chip = screen.getByRole("button", { name: "Bina A" });
     expect(chip).toHaveClass("h-6", "pointer-coarse:h-7");
     expect(screen.getByRole("button", { name: "Kaldır" })).toHaveClass("h-6", "pointer-coarse:h-7");
-    expect(chip.closest("[data-slot=chip]")).toHaveClass("pointer-coarse:py-2");
+    // fix-h-2026-10-18 (HX12B-F13 / PER-F15): the chip and its remove button are 44 px boxes on touch, so the wrapper
+    // needs no padding to keep the hit area inside a scrolling row
+    expect(chip).toHaveClass("pointer-coarse:min-h-11");
+    expect(screen.getByRole("button", { name: "Kaldır" })).toHaveClass("pointer-coarse:min-h-11");
+    expect(chip.closest("[data-slot=chip]")).not.toHaveClass("pointer-coarse:py-2");
   });
 
   it("the toast close button is a 44 × 44 box inside the toast's end padding on touch", () => {

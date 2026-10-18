@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -24,6 +25,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.helper.actions.registry import ActionRefused
+from app.ai.helper.schema import utc_iso
 from app.core import rls
 from app.importers import normalize as n
 from app.models import Instructor, User
@@ -90,9 +92,9 @@ def note_out(x: HelperNote) -> dict[str, Any]:
         "id": x.id,
         "text": x.text,
         "source": x.source,
-        "created_at": x.created_at.isoformat(),
-        "last_used_at": x.last_used_at.isoformat(),
-        "expires_at": x.expires_at.isoformat(),
+        "created_at": utc_iso(x.created_at),
+        "last_used_at": utc_iso(x.last_used_at),
+        "expires_at": utc_iso(x.expires_at),
     }
 
 
@@ -132,9 +134,18 @@ async def _names_another_person(session: AsyncSession, user: User, text: str) ->
     return Redactor(people).text(text) != text
 
 
-async def add_note(session: AsyncSession, user: User, text: str, source: str) -> dict[str, Any]:
-    if source not in ("user_button", "user_confirmed"):
-        raise ActionRefused(422, "source", "Not yalnızca sizin onayınızla kaydedilir.", "A note is saved only by you.")
+CONSENT_MISSING = (
+    "Notlar için Profil › Gizlilik'te yapay zekâ rızanız gerekir.",
+    "Notes need your AI consent under Profile › Privacy.",
+)
+
+
+async def check_note(
+    session: AsyncSession, user: User, text: str, *, require_consent: bool = False
+) -> tuple[str, dict[str, Any]]:
+    """The rules every note passes, without writing: the switches (and, for the helper's "Bunu hatırla" card, the
+    ``ai_personal`` consent), not empty, ≤ 200 characters, ≤ 20 notes, no other person's name. Returns the cleaned
+    text and the memory state; :class:`ActionRefused` otherwise."""
     st = await state(session, user)
     if not st["institution_enabled"]:
         raise ActionRefused(
@@ -150,6 +161,11 @@ async def add_note(session: AsyncSession, user: User, text: str, source: str) ->
             "Yardımcı belleğiniz kapalı; Profil › Yardımcı'dan açabilirsiniz.",
             "Your helper memory is off; switch it on in Profile › Helper.",
         )
+    if require_consent:
+        from app.services import kvkk
+
+        if not await kvkk.has_consent(session, user.id, "ai_personal"):
+            raise ActionRefused(409, "consent_missing", *CONSENT_MISSING)
     clean = " ".join((n.clean_text(text) or "").split())
     if not clean:
         raise ActionRefused(422, "empty", "Not boş olamaz.", "The note cannot be empty.")
@@ -174,6 +190,15 @@ async def add_note(session: AsyncSession, user: User, text: str, source: str) ->
             "Notlar yalnızca sizin tercihleriniz içindir; başka birinin adını içeremez.",
             "Notes are for your own preferences; they cannot name another person.",
         )
+    return clean, st
+
+
+async def add_note(
+    session: AsyncSession, user: User, text: str, source: str, *, require_consent: bool = False
+) -> dict[str, Any]:
+    if source not in ("user_button", "user_confirmed"):
+        raise ActionRefused(422, "source", "Not yalnızca sizin onayınızla kaydedilir.", "A note is saved only by you.")
+    clean, st = await check_note(session, user, text, require_consent=require_consent)
     now = utcnow()
     note = HelperNote(
         user_id=user.id,
@@ -208,6 +233,22 @@ async def prompt_notes(session: AsyncSession, user: User) -> list[str]:
     return [x.text for x in rows]
 
 
+def notes_in_answer(notes: list[str], answer: str, limit: int = 2) -> list[str]:
+    """The notes an answer drew on, for "Notunuza göre: {not}" under it: a note counts when the answer contains one
+    of its meaningful words (Turkish-folded, ≥ 4 letters, not a stop word). Server-side, so a model cannot claim a
+    note it did not use, or hide one it did."""
+    from app.ai import guardrails as g
+    from app.ai.helper.index import STOPWORDS
+
+    said = set(re.findall(r"[a-z0-9]+", g.fold(answer or "")))
+    used = []
+    for note in notes:
+        words = {w for w in re.findall(r"[a-z0-9]+", g.fold(note)) if len(w) >= 4 and w not in STOPWORDS}
+        if words & said:
+            used.append(note)
+    return used[:limit]
+
+
 async def delete_note(session: AsyncSession, user: User, note_id: int) -> None:
     res = await session.execute(
         delete(HelperNote)
@@ -237,6 +278,32 @@ async def delete_all(session: AsyncSession, user: User, *, history: bool = False
     return out
 
 
+async def delete_threads(session: AsyncSession, user: User) -> dict[str, int]:
+    """ "Geçmişi sil" alone (HB-21): the person's chat threads and their messages; the memory notes stay. One
+    ``helper.threads_deleted`` audit row with the counts (no text); commits."""
+    from app.services import audit
+
+    res = await session.execute(
+        delete(HelperMessage).where(HelperMessage.user_id == user.id).execution_options(synchronize_session=False)
+    )
+    messages = int(getattr(res, "rowcount", 0) or 0)
+    res = await session.execute(
+        delete(HelperThread).where(HelperThread.user_id == user.id).execution_options(synchronize_session=False)
+    )
+    threads = int(getattr(res, "rowcount", 0) or 0)
+    kept = (await session.execute(select(func.count(HelperNote.id)).where(HelperNote.user_id == user.id))).scalar_one()
+    await audit.record(
+        session,
+        "helper.threads_deleted",
+        "helper_thread",
+        user.id,
+        after={"threads": threads, "messages": messages, "via": "helper"},
+        actor=user,
+    )
+    await session.commit()
+    return {"threads": threads, "messages": messages, "notes_kept": int(kept)}
+
+
 async def on_ai_personal_withdrawn(session: AsyncSession, user_id: int) -> int:
     """``kvkk.withdraw(ai_personal)``: delete the notes and turn the person's memory off (no commit: the caller's)."""
     async with rls.system_scope(session):
@@ -249,7 +316,8 @@ async def on_ai_personal_withdrawn(session: AsyncSession, user_id: int) -> int:
 
 async def purge(session: AsyncSession, now: datetime | None = None) -> dict[str, int]:
     """Daily (``kvkk.purge_expired``): notes past their 180 days since last use, threads older than the history
-    window, and the person's id on telemetry older than 90 days. Runs in the system scope; no commit."""
+    window, and the person's id and feedback note on telemetry older than 90 days. Runs in the system scope; no
+    commit."""
     now = now or utcnow()
     st = await settings(session)
     out: dict[str, int] = {}
@@ -269,8 +337,11 @@ async def purge(session: AsyncSession, now: datetime | None = None) -> dict[str,
         out["helper_threads"] = int(getattr(res, "rowcount", 0) or 0)
         res = await session.execute(
             update(HelperEvent)
-            .where(HelperEvent.ts < now - EVENTS_ANONYMOUS_AFTER, HelperEvent.user_id.is_not(None))
-            .values(user_id=None)
+            .where(
+                HelperEvent.ts < now - EVENTS_ANONYMOUS_AFTER,
+                (HelperEvent.user_id.is_not(None)) | (HelperEvent.note.is_not(None)),
+            )
+            .values(user_id=None, note=None)
             .execution_options(synchronize_session=False)
         )
         out["helper_events_anonymised"] = int(getattr(res, "rowcount", 0) or 0)
@@ -278,8 +349,9 @@ async def purge(session: AsyncSession, now: datetime | None = None) -> dict[str,
 
 
 async def dsr_rows(session: AsyncSession, user_id: int) -> list[dict[str, Any]]:
-    """The person's notes, conversations and helper actions for the DSR export (``helper``): one list of rows, each
-    with its ``kind`` (``note`` / ``thread`` / ``action``), like the export's other data classes."""
+    """The person's notes, conversations, helper actions and feedback for the DSR export (``helper``): one list of
+    rows, each with its ``kind`` (``note`` / ``thread`` / ``action`` / ``feedback``), like the export's other data
+    classes."""
     async with rls.system_scope(session):
         notes = (
             (await session.execute(select(HelperNote).where(HelperNote.user_id == user_id).order_by(HelperNote.id)))
@@ -315,6 +387,17 @@ async def dsr_rows(session: AsyncSession, user_id: int) -> list[dict[str, Any]]:
             .scalars()
             .all()
         )
+        feedback = (
+            (
+                await session.execute(
+                    select(HelperEvent)
+                    .where(HelperEvent.user_id == user_id, HelperEvent.kind.in_(("thumb_up", "thumb_down")))
+                    .order_by(HelperEvent.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
     by_thread: dict[int, list[dict[str, Any]]] = {}
     for m in messages:
         by_thread.setdefault(m.thread_id, []).append({"role": m.role, "text": m.text, "created_at": m.created_at})
@@ -341,12 +424,22 @@ async def dsr_rows(session: AsyncSession, user_id: int) -> list[dict[str, Any]]:
         }
         for a in actions
     ]
+    rows += [
+        {
+            "kind": "feedback",
+            "thumb": "down" if f.kind == "thumb_down" else "up",
+            "reason": f.reason,
+            "note": f.note,
+            "created_at": f.ts,
+        }
+        for f in feedback
+    ]
     return rows
 
 
 async def erase(session: AsyncSession, user_id: int) -> int:
     """KVKK erasure: the person's notes, threads, messages and helper action rows (the audit log keeps its own
-    entries under its retention policy); telemetry keeps its rows without the person."""
+    entries under its retention policy); telemetry keeps its rows without the person and without feedback notes."""
     total = 0
     async with rls.system_scope(session):
         for model in (HelperNote, HelperMessage, HelperThread, HelperActionInvocation):
@@ -357,7 +450,7 @@ async def erase(session: AsyncSession, user_id: int) -> int:
         await session.execute(
             update(HelperEvent)
             .where(HelperEvent.user_id == user_id)
-            .values(user_id=None)
+            .values(user_id=None, note=None)
             .execution_options(synchronize_session=False)
         )
     return total
@@ -366,12 +459,16 @@ async def erase(session: AsyncSession, user_id: int) -> int:
 __all__ = [
     "MAX_CHARS",
     "MAX_NOTES",
+    "CONSENT_MISSING",
     "add_note",
+    "check_note",
     "delete_all",
     "delete_note",
+    "delete_threads",
     "dsr_rows",
     "erase",
     "list_notes",
+    "notes_in_answer",
     "on_ai_personal_withdrawn",
     "prompt_notes",
     "purge",

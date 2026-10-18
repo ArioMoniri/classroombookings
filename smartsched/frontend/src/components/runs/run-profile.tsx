@@ -5,6 +5,7 @@
  * come from the code defaults and where each came from. Runs from before AS-01 carry none of it: nothing is shown.
  */
 import { useWeightLabel } from "@/components/seasons/weight-label";
+import { Badge } from "@/components/ui/badge";
 import type { ScheduleRun } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 
@@ -74,5 +75,17 @@ export function RunProfileLine({ r }: { r: Pick<ScheduleRun, "stats_detail"> }) 
       {info.peakSmoothing > 0 ? <p data-testid="run-peak-smoothing">{t("adaptive.run.peakSmoothing", { n: info.peakSmoothing })}</p> : null}
       {info.skipped.length ? <p>{t("adaptive.run.skipped", { weeks: info.skipped.join(", ") })}</p> : null}
     </div>
+  );
+}
+
+/** AS20-F07: a what-if draft run (`params.scenario`) names itself under the run title, so it is never taken for a plan */
+export function RunScenarioLine({ r }: { r: Pick<ScheduleRun, "label" | "params"> }) {
+  const { t } = useI18n();
+  if (!r.params?.scenario) return null;
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-2 type-footnote text-label-2" data-testid="run-scenario">
+      <Badge tone="tint">{t("adaptive.run.scenario")}</Badge>
+      {r.label ? <span className="text-label-1">{r.label}</span> : null}
+    </p>
   );
 }

@@ -45,12 +45,12 @@ describe("LearningVersions", () => {
 
   it("reverts to an older version after a confirmation and gives focus back to the refresh button", async () => {
     vi.spyOn(learningVersionsApi, "versions").mockResolvedValue({ versions: [v(12, 3), v(11, 2)], pinned_version_id: null, nightly_refresh: false });
-    const revert = vi.spyOn(learningVersionsApi, "revert").mockResolvedValue({ identical: false, version: v(13, 4, "revert") });
+    const revert = vi.spyOn(learningVersionsApi, "revert").mockResolvedValue({ identical: false, unchanged: false, version: v(13, 4, "revert") });
     wrap(<LearningVersions termId={2} />);
     const rows = await screen.findAllByTestId("version-row");
     fireEvent.click(within(rows[1]!).getByTestId("version-revert"));
     const dialog = await screen.findByRole("alertdialog");
-    expect(dialog).toHaveTextContent("Sürüm 2'e dönülsün mü?");
+    expect(dialog).toHaveTextContent("2. sürüme dönülsün mü?");
     await act(async () => { fireEvent.click(within(dialog).getByRole("button", { name: "Bu sürüme dön" })); });
     await waitFor(() => expect(revert).toHaveBeenCalledWith(11));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("learning-refresh")));

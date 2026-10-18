@@ -22,7 +22,7 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
   const rememberDays = org?.passkeys ? org.passkeys.trusted_device_days : 30;
   return (
     <SignInShell logoUrl={org?.logo_url} kvkkUrl={org?.kvkk_notice_url ?? null} testId="verify-page">
-      <MfaStep methods={pending.m} masked={pending.a} next={safeNext(sp.next) ?? pending.n ?? null} rememberDays={rememberDays} />
+      <MfaStep methods={pending.m} masked={pending.a} next={safeNext(sp.next) ?? pending.n ?? null} rememberDays={rememberDays} passkeySignIn={Boolean(org?.passkeys?.sign_in)} />
     </SignInShell>
   );
 }

@@ -57,7 +57,7 @@ export function subjectOptions(model: CalendarModel, t: ReturnType<typeof useI18
   return out;
 }
 
-export function SubjectPicker({ model, subject, onSubject, condensed }: { model: CalendarModel; subject: Subject | null; onSubject: (s: Subject | null) => void; condensed?: boolean }) {
+export function SubjectPicker({ model, subject, onSubject, condensed, size = "sm" }: { model: CalendarModel; subject: Subject | null; onSubject: (s: Subject | null) => void; condensed?: boolean; size?: "sm" | "md" }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -75,10 +75,10 @@ export function SubjectPicker({ model, subject, onSubject, condensed }: { model:
   ];
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button variant="ghost" size="sm" aria-label={t("calendar.subject.label")} data-testid="subject-picker" className="max-w-[180px]" />}>
+      <PopoverTrigger render={<Button variant="ghost" size={size} aria-label={t("calendar.subject.label")} data-testid="subject-picker" className="max-w-[180px]" />}>
         <Users aria-hidden />
         {!condensed ? <span className="truncate">{current?.label ?? t("calendar.subject.all")}</span> : null}
-        <ChevronDown className="size-3 text-label-3" aria-hidden />
+        <ChevronDown className="text-label-3" aria-hidden />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-1.5">
         <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("calendar.subject.search")} aria-label={t("calendar.subject.search")} className="mb-1" />
@@ -219,9 +219,10 @@ export function CapsuleToolbar(p: CapsuleToolbarProps) {
                 {p.warnings > 0 ? <span className="text-status-warning-fg">{t("calendar.issues.warningsWeek", { n: p.warnings })}</span> : null}
               </span>
               <span className="tnum @min-[72rem]/tb:hidden" aria-label={[p.conflicts > 0 ? t("calendar.issues.conflictsWeek", { n: p.conflicts }) : "", p.warnings > 0 ? t("calendar.issues.warningsWeek", { n: p.warnings }) : ""].filter(Boolean).join(", ")}>
-                {p.conflicts > 0 ? p.conflicts : null}
+                {/* HX12B-F08: never bare numbers ("13 · 135"): the short words stay */}
+                {p.conflicts > 0 ? t("calendar.issues.conflicts", { n: p.conflicts }) : null}
                 {p.conflicts > 0 && p.warnings > 0 ? <span aria-hidden className="text-label-2"> · </span> : null}
-                {p.warnings > 0 ? <span className="text-status-warning-fg">{p.warnings}</span> : null}
+                {p.warnings > 0 ? <span className="text-status-warning-fg">{t("calendar.issues.warnings", { n: p.warnings })}</span> : null}
               </span>
             </Button>
           ) : null}

@@ -18,6 +18,7 @@ from app.models import (
     Assignment,
     AuditEvent,
     Booking,
+    BookingPeriod,
     Building,
     Course,
     MeetingRequest,
@@ -448,9 +449,20 @@ async def dates(
         w.id: {"id": w.id, "name": w.name, "bgcol": f"#{w.bgcol}", "fgcol": fgcol(w.bgcol)}
         for w in (await db.execute(select(TimetableWeek))).scalars()
     }
+    # HX12B-F02 / PER-F08: the first open day from today whose weekday has a bookable period (a Sunday opens on
+    # Monday), so a form's default date finds rooms
+    taught = {
+        int(x)
+        for ds in (await db.execute(select(BookingPeriod.days).where(BookingPeriod.bookable.is_(True)))).scalars()
+        for x in (ds or [])
+    }
+    next_open = next(
+        (d for d, x in sorted(infos.items()) if d >= t and x.open and (not taught or x.weekday in taught)), None
+    )
     return {
         "term_id": info.term.id,
         "today": t.isoformat(),
+        "next_open": next_open.isoformat() if next_open else None,
         "weeks": list(weeks.values()),
         "dates": [
             {
@@ -490,7 +502,7 @@ async def grid(
             use_room_groups=org["use_room_groups"],
         )
     except cal.CalendarError as exc:
-        raise HTTPException(409, {"code": "calendar", "message": str(exc)}) from exc
+        raise HTTPException(409, {"code": "calendar", "message": str(exc), **exc.texts}) from exc
     return await _grid_extras(db, access, out)
 
 

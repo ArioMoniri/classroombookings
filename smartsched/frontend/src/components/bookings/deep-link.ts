@@ -18,7 +18,12 @@ export function useDeepLinkedBooking(open: (id: number) => void, seriesRows?: re
   const target = id ?? (sid !== null && seriesRows ? firstOfSeries(seriesRows, sid) : null);
   useEffect(() => {
     if (!ready) return;
-    if (target !== null) open(target);
+    if (target !== null) {
+      // a sheet opened from the address has no trigger: the sheet returns focus to what was focused when it opened,
+      // which is <body> on a fresh load. Park it on the page's <main> (tabIndex -1) first (e2e 2026-10-18).
+      if (!document.activeElement || document.activeElement === document.body) document.getElementById("main")?.focus({ preventScroll: true });
+      open(target);
+    }
     router.replace(withoutDeepLink(pathname, new URLSearchParams(params.toString())), { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per linked booking; `open` is a state setter
   }, [ready, target]);

@@ -15,7 +15,9 @@ bookings  the one-time CRBS setup that bookings.spec.ts also makes (18-period sc
           date is derived from its imported week count (14 weeks from 21 Sep 2026).
 runs      real solver runs through POST /runs (what the Generate button sends), one after another; a finished
           full-term run is then published (POST /runs/{id}/activate), as a planner would.
-          SPEC = TERM_CODE:HORIZON:WEEK:TIME_LIMIT, e.g. 2026-GUZ:WEEK:3:120 or 2026-GUZ:TERM:-:240.
+          SPEC = TERM_CODE:HORIZON:WEEK:TIME_LIMIT[:nopub], e.g. 2026-GUZ:WEEK:3:120 or 2026-GUZ:TERM:-:240.
+          `nopub` leaves a full-term run unpublished: the launch video's launch-run take publishes it on camera
+          (docs/launch/README.md "Reproduce").
 """
 
 from __future__ import annotations
@@ -104,7 +106,7 @@ def bookings(api: Api, language: str) -> None:
 def runs(api: Api, specs: list[str]) -> None:
     terms = {t["code"]: t for t in api.call("GET", "/terms")}
     for spec in specs:
-        code, horizon, week, limit = spec.split(":")
+        code, horizon, week, limit, *flags = spec.split(":")
         term = terms[code]
         label = f"{LABEL.get(code.split('-')[1], code)} {'week ' + week if horizon == 'WEEK' else 'full term'}"
         body = {"term_id": term["id"], "kind": "COURSE", "horizon": horizon, "label": label,
@@ -118,7 +120,7 @@ def runs(api: Api, specs: list[str]) -> None:
                 break
             time.sleep(5)
         st = r.get("stats") or {}
-        if horizon == "TERM" and r["status"] in ("FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL"):
+        if horizon == "TERM" and r["status"] in ("FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL") and "nopub" not in flags:
             api.call("POST", f"/runs/{rid}/activate")  # publish it: dashboard, bookings and calendar use it
         print(f"run #{rid} {label}: {r['status']} placed {st.get('placed', '?')}/{st.get('events_total', '?')} "
               f"hard {r.get('hard_score')} in {time.time() - t0:.0f} s")

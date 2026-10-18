@@ -5,6 +5,9 @@
  * weights that differ from the standard, every version, and the one action that fits (Onayla / Geri al). A profile
  * never applies by itself: a draft changes nothing until an admin approves it. The weights and the peak threshold
  * sit behind "Gelişmiş" in the form. Confirmations move focus to the next row (never to <body>).
+ * AS20-F09 (FIX-G): a planner (planning.edit) drafts and edits; only an admin (`can_activate`) sees Onayla / Geri al /
+ * Kullanımdan kaldır, the learned proposal and the season calendar. AS20-F08: keys with only retired versions fold
+ * into "Eski profiller".
  */
 import { Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -26,7 +29,7 @@ import { SeasonPeriods } from "./season-periods";
 import { useWeightLabel } from "./weight-label";
 
 type Lang = "tr" | "en";
-type Confirm = { kind: "activate" | "revert" | "delete"; profile: Profile; key: string };
+type Confirm = { kind: "activate" | "revert" | "delete" | "retire"; profile: Profile; key: string };
 
 export function SeasonProfiles() {
   const { t, locale } = useI18n();
@@ -39,9 +42,12 @@ export function SeasonProfiles() {
   const newRef = useRef<HTMLButtonElement>(null);
   /** the row to focus once the list re-renders after an action (ROADMAP AS-15: focus to the next row) */
   const pendingFocus = useRef<string | null>(null);
-  const groups = useMemo(() => groupProfiles(q.data?.profiles ?? [], lang), [q.data, lang]);
+  const allGroups = useMemo(() => groupProfiles(q.data?.profiles ?? [], lang), [q.data, lang]);
+  const groups = useMemo(() => allGroups.filter((g) => g.current.status !== "retired"), [allGroups]);
+  const retired = useMemo(() => allGroups.filter((g) => g.current.status === "retired"), [allGroups]);
+  const canActivate = q.data?.can_activate ?? true;
   const focusRow = (key: string | null) => {
-    const row = key ? listRef.current?.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(key)}"]`) : null;
+    const row = key ? listRef.current?.parentElement?.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(key)}"]`) : null;
     (row ?? newRef.current)?.focus();
   };
   const setFocusKey = (key: string | null) => {
@@ -58,7 +64,8 @@ export function SeasonProfiles() {
   const termId = useActiveTerm().term?.id ?? null;
   const [proposeNote, setProposeNote] = useState<string | null>(null);
   const propose = () => {
-    if (termId === null) return;
+    // AS20-F10: enabled while busy so the focus stays on the button; a second press is ignored
+    if (termId === null || act.propose.isPending) return;
     act.propose.mutate(termId, {
       onSuccess: (out) => {
         if (out.proposal?.key) {
@@ -80,7 +87,7 @@ export function SeasonProfiles() {
       onSuccess: () => {
         toast.success(t(`seasons.done.${kind}`));
         setConfirm(null);
-        setFocusKey(kind === "delete" ? (nextRowKey(groups.map((g) => g.key), key) ?? "") : key);
+        setFocusKey(kind === "delete" || kind === "retire" ? (nextRowKey(groups.map((g) => g.key), key) ?? "") : key);
       },
       onError: (e) => toast.error(apiText(e, locale)),
     });
@@ -95,10 +102,12 @@ export function SeasonProfiles() {
         id="season-profiles"
         actions={
           <span className="flex flex-wrap gap-2">
-            {/* AS-14: a learned draft from the term's manual edits; only an admin activates it */}
-            <Button variant="outline" onClick={propose} disabled={termId === null || act.propose.isPending} data-testid="profile-propose">
-              <BusyLabel busy={act.propose.isPending} label={t("busy.working")}>{t("seasons.propose")}</BusyLabel>
-            </Button>
+            {/* AS-14: a learned draft from the term's manual edits; only an admin asks for it and activates it */}
+            {canActivate ? (
+              <Button variant="outline" onClick={propose} disabled={termId === null} aria-busy={act.propose.isPending || undefined} data-testid="profile-propose">
+                <BusyLabel busy={act.propose.isPending} label={t("busy.working")}>{t("seasons.propose")}</BusyLabel>
+              </Button>
+            ) : null}
             <Button ref={newRef} onClick={() => setEditing({ profile: null })} data-testid="profile-new">
               <Plus /> {t("seasons.new")}
             </Button>
@@ -123,14 +132,27 @@ export function SeasonProfiles() {
             </Alert>
           </div>
         ) : (
-          <ul ref={listRef} data-testid="profile-list">
-            {groups.map((g) => (
-              <ProfileRow key={g.key} g={g} meta={q.data} lang={lang} onEdit={(p) => setEditing({ profile: p })} onConfirm={(kind, profile) => setConfirm({ kind, profile, key: g.key })} />
-            ))}
-          </ul>
+          <>
+            <ul ref={listRef} data-testid="profile-list">
+              {groups.map((g) => (
+                <ProfileRow key={g.key} g={g} meta={q.data} lang={lang} canActivate={canActivate} onEdit={(p) => setEditing({ profile: p })} onConfirm={(kind, profile) => setConfirm({ kind, profile, key: g.key })} />
+              ))}
+            </ul>
+            {retired.length ? (
+              // AS20-F08: switched-off profiles stay readable (and can be edited into a new draft) but out of the way
+              <details className="edge-hairline-t" data-testid="profile-retired">
+                <summary className="flex min-h-11 cursor-pointer items-center px-4 type-callout text-tint-text pointer-fine:min-h-9">{t("seasons.retiredGroup", { n: retired.length })}</summary>
+                <ul>
+                  {retired.map((g) => (
+                    <ProfileRow key={g.key} g={g} meta={q.data} lang={lang} canActivate={canActivate} onEdit={(p) => setEditing({ profile: p })} onConfirm={(kind, profile) => setConfirm({ kind, profile, key: g.key })} />
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+          </>
         )}
       </Card>
-      {q.data ? <SeasonPeriods /> : null}
+      {q.data && canActivate ? <SeasonPeriods /> : null}
       {editing && q.data ? <ProfileForm meta={q.data} profile={editing.profile} onClose={() => setEditing(null)} onSaved={(key) => setFocusKey(key)} /> : null}
       <ConfirmDialog
         open={!!confirm}
@@ -138,7 +160,7 @@ export function SeasonProfiles() {
         title={confirm ? t(`seasons.confirm.${confirm.kind}.title`, { name: confirm.profile.name[lang], v: confirm.profile.version }) : ""}
         description={confirm ? t(`seasons.confirm.${confirm.kind}.body`) : undefined}
         confirmLabel={confirm ? t(`seasons.confirm.${confirm.kind}.go`) : ""}
-        destructive={confirm?.kind === "delete"}
+        destructive={confirm?.kind === "delete" || confirm?.kind === "retire"}
         busy={act.activate.isPending || act.revert.isPending || act.remove.isPending}
         onConfirm={run}
       />
@@ -154,7 +176,7 @@ function StatusBadge({ p }: { p: Profile }) {
   return <Badge variant="outline">{t("seasons.status.retired", { v: p.version })}</Badge>;
 }
 
-function ProfileRow({ g, meta, lang, onEdit, onConfirm }: { g: ProfileGroup; meta: ProfileList | undefined; lang: Lang; onEdit: (p: Profile) => void; onConfirm: (kind: Confirm["kind"], p: Profile) => void }) {
+function ProfileRow({ g, meta, lang, canActivate, onEdit, onConfirm }: { g: ProfileGroup; meta: ProfileList | undefined; lang: Lang; canActivate: boolean; onEdit: (p: Profile) => void; onConfirm: (kind: Confirm["kind"], p: Profile) => void }) {
   const { t, locale } = useI18n();
   const wl = useWeightLabel();
   const p = g.current;
@@ -214,16 +236,20 @@ function ProfileRow({ g, meta, lang, onEdit, onConfirm }: { g: ProfileGroup; met
           ) : null}
         </details>
       ) : null}
+      {pending && !canActivate && !p.builtin ? (
+        <p className="type-footnote text-label-2" data-testid="profile-awaiting">{t("seasons.awaiting")}</p>
+      ) : null}
       {p.builtin ? (
         <p className="type-footnote text-label-3">{t("seasons.builtinHint")}</p>
-      ) : (
+      ) : p.status === "retired" ? null : (
+        // a retired version is read-only (the API answers 409 profile_retired)
         <div className="flex flex-wrap gap-2">
-          {pending ? (
+          {pending && canActivate ? (
             <Button size="sm" onClick={() => onConfirm("activate", pending)} data-testid="profile-activate">
               {t("seasons.activate", { v: pending.version })}
             </Button>
           ) : null}
-          {p.status === "active" && p.parent_id !== null && !g.draft ? (
+          {canActivate && p.status === "active" && p.parent_id !== null && !g.draft ? (
             <Button size="sm" variant="outline" onClick={() => onConfirm("revert", p)} data-testid="profile-revert">
               {t("seasons.revert")}
             </Button>
@@ -234,6 +260,11 @@ function ProfileRow({ g, meta, lang, onEdit, onConfirm }: { g: ProfileGroup; met
           {pending ? (
             <Button size="sm" variant="ghost" onClick={() => onConfirm("delete", pending)} data-testid="profile-delete">
               {t("seasons.deleteDraft")}
+            </Button>
+          ) : canActivate && p.status === "active" ? (
+            // AS20-F08: an active admin profile (a first version too) is switched off here, not only by the API
+            <Button size="sm" variant="ghost" onClick={() => onConfirm("retire", p)} data-testid="profile-retire">
+              {t("seasons.retire")}
             </Button>
           ) : null}
         </div>

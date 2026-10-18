@@ -1,6 +1,7 @@
 "use client";
 /**
- * AS-15 season calendar and profiles (backend app/api/v1/seasons.py, services/seasons.py; ADMIN only, 403 otherwise).
+ * AS-15 season calendar and profiles (backend app/api/v1/seasons.py, services/seasons.py). AS20-F09: planners
+ * (planning.edit) read and draft profiles; activate / revert / retire and the season calendar are ADMIN only.
  *
  * - `GET /seasons/profiles`: built-ins (`standard`, `exam_week`, read-only, `id: null`) + stored versions, the weight
  *   keys, their defaults and the season / period-kind labels.
@@ -62,6 +63,8 @@ export const ProfileList = z.object({
   defaults: z.record(z.string(), z.number()).default({}),
   seasons: z.array(Labelled).default([]),
   period_kinds: z.array(Labelled).default([]),
+  /** AS20-F09: the caller may approve (activate / revert / retire); a planner drafts only (absent = an admin's list) */
+  can_activate: z.boolean().optional(),
 });
 export type ProfileList = z.infer<typeof ProfileList>;
 

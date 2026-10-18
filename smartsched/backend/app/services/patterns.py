@@ -74,7 +74,6 @@ KINDS: tuple[tuple[str, str, str], ...] = (
 )
 #: clock starts of the 18 periods ("08:30", "09:20", ...): exact starts (others snap, see start_snap)
 PERIOD_STARTS: tuple[str, ...] = tuple(f"{p.start:%H:%M}" for p in n.PERIODS)
-_START_BY_MINUTE = {p.start.hour * 60 + p.start.minute: p.index for p in n.PERIODS}
 
 _ALLOWED_KEYS = frozenset(
     {
@@ -184,7 +183,7 @@ def start_snap(value: Any) -> tuple[int, time | None, str | None]:
         t = n.parse_time(text) if re.search(r"\d\s*[.:,hH]\s*\d{2}", text) else None
     if t is None:
         raise PatternError(f"start {value!r} is not a time (e.g. 09.20) or period (e.g. P2)")
-    period = _START_BY_MINUTE.get(t.hour * 60 + t.minute)
+    period = next((p.index for p in n.PERIODS if p.start.hour == t.hour and p.start.minute == t.minute), None)
     if period is not None:
         return period, None, None
     snapped = _half_rule_start(t)

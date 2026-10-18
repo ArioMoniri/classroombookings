@@ -99,6 +99,11 @@
   "wave1": {
     "find": {
       "weeks": "Wythnosau"
+    },
+    "audit": {
+      "f": {
+        "days": "Dyddiau"
+      }
     }
   },
   "moderation": {
@@ -152,10 +157,30 @@
       "day": "Dydd"
     }
   },
+  "charts": {
+    "bookings": {
+      "week": "Wythnos"
+    },
+    "audit": {
+      "day": "Dydd"
+    }
+  },
   "adaptive": {
     "peaks": {
       "col": {
         "weeks": "Wythnosau"
+      }
+    }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Wythnosau"
+      },
+      "field": {
+        "class_year": "Blwyddyn",
+        "day": "Dydd",
+        "week": "Wythnos"
       }
     }
   }

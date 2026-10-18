@@ -388,15 +388,34 @@ class RecordingsTests(unittest.TestCase):
 
     def test_real_clips_render_featured_grid_and_every_take(self) -> None:
         text = sd.gen_recordings(ctx("README.md"))
+        more = sd.gen_recordings_more(ctx("docs/launch/README.md"))
         data = json.loads((REPO / "docs/images/recordings/clips.json").read_text(encoding="utf-8"))
+        self.assertLessEqual(len(data["featured"]), 3)
         for clip in data["featured"]:
             self.assertIn(f'src="docs/images/recordings/{clip["id"]}.gif"', text)
             self.assertIn(f"<b>{clip['title']}.</b>", text)
-        for take in data["takes"]:
-            self.assertIn(f'href="docs/images/recordings/{take["id"]}.mp4"', text)
-            self.assertIn(f'src="docs/images/recordings/{take["id"]}-poster.png"', text)
-        self.assertIn(f"({len(data['takes'])} full takes, MP4)", text)
+        self.assertIn(f"[More clips](docs/launch/README.md#more-clips) ({len(data['more'])} more clips, {len(data['takes'])} full takes)", text)
+        for clip in data["more"]:
+            self.assertIn(f"<b>{clip['title']}.</b>", more)
+            self.assertNotIn(f"<b>{clip['title']}.</b>", text)
+        for take in data["takes"]:  # links relative to docs/launch/README.md
+            self.assertIn(f'href="../images/recordings/{take["id"]}.mp4"', more)
+            self.assertIn(f'src="../images/recordings/{take["id"]}-poster.png"', more)
+        self.assertIn(f"Every full take ({len(data['takes'])}, MP4)", more)
         self.assertEqual(text, sd.gen_recordings(ctx("README.md")))  # deterministic
+
+    def test_more_than_three_featured_clips_is_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rec = root / "docs/images/recordings"
+            rec.mkdir(parents=True)
+            (rec / "clips.json").write_text(json.dumps({
+                "featured": [{"id": "a", "take": "t", "title": "A", "caption": "c"}] * 4, "takes": [],
+            }), encoding="utf-8")
+            (rec / "a.gif").write_bytes(b"x")
+            (rec / "t.mp4").write_bytes(b"x")
+            with self.assertRaises(sd.SyncError):
+                sd.gen_recordings(sd.Context(root=root, target=root / "README.md"))
 
     def test_missing_media_file_is_an_error(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -411,10 +430,55 @@ class RecordingsTests(unittest.TestCase):
             (rec / "t.mp4").write_bytes(b"x")
             c = sd.Context(root=root, target=root / "README.md")
             with self.assertRaises(sd.SyncError):
-                sd.gen_recordings(c)  # t-poster.png is missing
+                sd.gen_recordings_more(c)  # t-poster.png is missing
             (rec / "t-poster.png").write_bytes(b"x")
+            self.assertIn('src="docs/images/recordings/t-poster.png"', sd.gen_recordings_more(c))
             out = sd.gen_recordings(c)
             self.assertIn('<a href="docs/images/recordings/t.mp4"><img alt="Screen recording: A. c"', out)
+            self.assertIn('src="docs/images/recordings/a.gif"', out)
+            self.assertNotIn("<picture>", out)  # no WebP yet: the GIF alone
+
+    def _clip_root(self, root: Path, *, gif: bool, webp: bool) -> object:
+        rec = root / "docs/images/recordings"
+        rec.mkdir(parents=True)
+        (rec / "clips.json").write_text(json.dumps({
+            "featured": [{"id": "a", "take": "t", "title": "A", "caption": "c"}], "takes": [],
+        }), encoding="utf-8")
+        (rec / "t.mp4").write_bytes(b"x")
+        if gif:
+            (rec / "a.gif").write_bytes(b"x")
+        if webp:
+            clips = root / "docs/launch/media/clips"
+            clips.mkdir(parents=True)
+            (clips / "a.webp").write_bytes(b"x")
+        return sd.Context(root=root, target=root / "README.md")
+
+    def test_webp_is_shown_with_the_gif_as_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = sd.gen_recordings(self._clip_root(Path(tmp), gif=True, webp=True))
+            self.assertIn(
+                '<a href="docs/images/recordings/t.mp4"><picture>'
+                '<source srcset="docs/launch/media/clips/a.webp" type="image/webp">'
+                '<img alt="Screen recording: A. c" src="docs/images/recordings/a.gif" width="100%">'
+                "</picture></a>", out)
+
+    def test_webp_only_clip_needs_no_gif(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = sd.gen_recordings(self._clip_root(Path(tmp), gif=False, webp=True))
+            self.assertIn('<img alt="Screen recording: A. c" src="docs/launch/media/clips/a.webp" width="100%">', out)
+            self.assertNotIn(".gif", out)
+
+    def test_clip_without_gif_or_webp_is_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(sd.SyncError):
+            sd.gen_recordings(self._clip_root(Path(tmp), gif=False, webp=False))
+
+    def test_real_readme_loads_webp_where_the_launch_lane_made_one(self) -> None:
+        text = sd.gen_recordings(ctx("README.md"))
+        data = json.loads((REPO / "docs/images/recordings/clips.json").read_text(encoding="utf-8"))
+        for clip in data["featured"]:
+            webp = REPO / "docs/launch/media/clips" / f"{clip['id']}.webp"
+            if webp.is_file():
+                self.assertIn(f'srcset="docs/launch/media/clips/{clip["id"]}.webp"', text)
 
 
 if __name__ == "__main__":

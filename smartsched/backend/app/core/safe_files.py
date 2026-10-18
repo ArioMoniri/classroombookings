@@ -415,6 +415,10 @@ async def run_isolated[T](fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
     s = get_settings()
     call = functools.partial(fn, *args, **kwargs)
     timeout = float(s.parse_timeout_s)
+    if s.parse_isolation == "process":
+        from app.importers import normalize as n  # the admins' period grid travels with the call (RF-09)
+
+        call = functools.partial(n.call_with_period_grid, n.period_grid_times(), fn, *args, **kwargs)
     if s.parse_isolation != "process":
         try:
             return await asyncio.wait_for(asyncio.to_thread(call), timeout)

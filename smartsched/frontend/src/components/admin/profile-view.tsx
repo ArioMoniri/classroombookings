@@ -7,6 +7,7 @@
  * preferences panel of the approval UI (components/notifications/preferences-panel.tsx).
  */
 import Link from "next/link";
+import { usePermissions } from "@/lib/api/shell-extra";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,7 +17,7 @@ import { Card } from "@/components/ui/card";
 import { Input, useShake } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { crbs, crbsError, useCrbsMe, useCrbsMutation, useOrgPublic, useProfile, type Profile } from "@/lib/api/crbs";
-import { LOCALE_INFO, displayLocale, isLocale, translate } from "@/lib/i18n";
+import { LOCALE_INFO, displayLocale, isLocale, loadMessages, translate } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useIsCompact } from "@/components/bookings/use-is-phone";
 import { roleLabel } from "@/lib/i18n/roles";
@@ -30,6 +31,9 @@ import { PrivacySection } from "@/components/privacy/privacy-section";
 import { CalendarConnectionsSection } from "@/components/settings/calendar-connections";
 import { CalendarExportSection } from "@/components/calendar-export/calendar-export-section";
 import { MyAiUsage } from "@/components/admin/ai/my-ai-usage";
+import { HelperMemorySection } from "@/components/helper/memory/memory-section";
+import { MyStats } from "@/components/profile/my-stats";
+import { MyLoad } from "@/components/profile/my-load";
 import { ChartPatternsToggle } from "@/components/charts/chart-patterns-toggle";
 import { mfaErrorCode, usePasswordMinLength } from "@/lib/api/auth-security";
 import { refusalBody } from "@/lib/api/error-text";
@@ -39,6 +43,21 @@ const langLabel = (code: string | null | undefined) => {
   const shown = displayLocale(code);
   return shown ? LOCALE_INFO[shown].name : "";
 };
+
+/** PER-F09 (fix-h-2026-10-18): the academician's way to "Derslerim" (their own classes this week) */
+function MyClassesLink() {
+  const { t } = useI18n();
+  const { can } = usePermissions();
+  if (!can(["book_single.create", "book_recur.create"]) || can("planning.view")) return null;
+  return (
+    <p className="type-callout text-label-2" data-testid="profile-my-classes">
+      {t("myClasses.lead")}{" "}
+      <Link href="/my-classes" className="font-medium text-tint-text underline-offset-4 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">
+        {t("myClasses.title")}
+      </Link>
+    </p>
+  );
+}
 
 export function ProfileView() {
   const { t } = useI18n();
@@ -64,12 +83,18 @@ export function ProfileView() {
       <CalendarExportSection />
       {/* Google Calendar / Microsoft 365 push: connect, choose the calendar, disconnect */}
       <CalendarConnectionsSection />
+      {/* CH-11: my booking numbers, and an academician's weekly teaching load (tiles + BarList, no chart library) */}
+      <MyStats showTitle />
+      <MyLoad />
+      <MyClassesLink />
       {/* wave 3 W3-AI: my AI usage against my limit (hidden for people who never used AI and have no limit) */}
-      <section id="ai-usage" className="scroll-mt-20">
+      <section id="ai-usage" className="scroll-mt-20" data-tour="profile-ai-usage">
         <MyAiUsage />
       </section>
+      {/* HX-08: Profil › Yardımcı — the helper's notes and history, all deletable */}
+      <HelperMemorySection />
       {/* the approval UI's panel: which event reaches you on which channel */}
-      <section id="notifications" className="scroll-mt-20">
+      <section id="notifications" className="scroll-mt-20" data-tour="profile-notifications">
         <NotificationPreferencesPanel />
       </section>
       {/* CH-03: Grafiklerde desen (hatch patterns in charts, per user, default off) */}
@@ -154,7 +179,9 @@ function ProfileForm({ data, phone }: { data: Profile; phone: boolean }) {
                 const shown = displayLocale(p.language);
                 if (shown) setLocale(shown);
                 // round-1 R1-A-30: this closure's t() is the previous language's; a changed language is saved in its own
-                toast.success(shown && shown !== locale ? translate(shown, "crbs.common.saved") : t("crbs.common.saved"));
+                // (F-CH-1: its messages may still be loading; the toast waits for them)
+                if (shown && shown !== locale) void loadMessages(shown).then(() => toast.success(translate(shown, "crbs.common.saved")));
+                else toast.success(t("crbs.common.saved"));
                 void qc.invalidateQueries({ queryKey: ["me"] });
               },
               onError: (err) => setError(bookingErrorMessage(crbsError(err), t)),

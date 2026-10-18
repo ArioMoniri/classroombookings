@@ -17,6 +17,7 @@ from app.core.security import hash_password, revoke_tokens
 from app.importers import normalize as n
 from app.models import ConstraintRow, Program, Role, RoomAcl, ScheduleRun, User, UserConstraint
 from app.models.catalog import Room
+from app.schemas.messages import problem
 from app.schemas.users import PasswordIn, UserAdminOut, UserCreate, UserUpdate
 from app.services import approvals
 from app.services.bookings import BookingError
@@ -202,6 +203,27 @@ async def list_users(
     return [await user_out(db, u) for u in (await db.execute(q)).scalars()]
 
 
+#: the 2FA states ``GET /users/search?mfa_state=`` accepts (``app.services.mfa.list_states``)
+MFA_STATES = ("on", "off", "pending")
+
+
+def _mfa_states(text: str | None) -> set[str] | None:
+    """``"ON,\u00a0Pending"`` -> ``{"on", "pending"}`` (NBSP / spaces / case folded); ``None`` = no filter; 422 for an
+    unknown value."""
+    if text is None or not (n.clean_text(text) or "").strip():
+        return None
+    parts = {n.tr_casefold(p.strip()) for p in (n.clean_text(text) or "").split(",") if p.strip()}
+    bad = sorted(parts - set(MFA_STATES))
+    if bad:
+        raise problem(
+            422,
+            "mfa_state_invalid",
+            "İki aşamalı doğrulama süzgeci şunlardan biri olmalı: açık (on), kapalı (off), bekliyor (pending).",
+            f"mfa_state must be one or more of {', '.join(MFA_STATES)}; got {', '.join(bad)}",
+        )
+    return parts
+
+
 @router.get("/search")
 async def search_users(
     db: DB,
@@ -215,13 +237,23 @@ async def search_users(
     offset: int = 0,
     identity: str | None = Query(default=None, description="comma separated: " + ", ".join(IDENTITY_FILTERS)),
     self_signup_days: int | None = Query(default=None, ge=1, le=3650),
+    mfa_state: str | None = Query(default=None, description="comma separated: " + ", ".join(MFA_STATES)),
 ) -> dict[str, Any]:
     """CRBS ``Users::index`` filters: search over username/names/e-mail (Turkish-insensitive), role,
     department; sort by username, displayname, lastlogin, enabled, role or department. ``identity`` (and
-    ``self_signup_days``) filters by invite / sign-in method on the server (:func:`identity_ids`); ``total`` counts
-    the filtered set and ``limit`` / ``offset`` page it."""
+    ``self_signup_days``) filters by invite / sign-in method on the server (:func:`identity_ids`); ``mfa_state``
+    (``on`` / ``off`` / ``pending``, comma separated) by the 2FA state of ``mfa.list_states`` - accounts that sign in
+    only through an identity provider have none and match no value (RF-B, AUX-F ask); ``total`` counts the filtered
+    set and ``limit`` / ``offset`` page it."""
     query = select(User)
     ids = await identity_ids(db, identity, self_signup_days)
+    wanted = _mfa_states(mfa_state)
+    if wanted is not None:
+        from app.services import mfa as mfa_svc
+
+        states = await mfa_svc.list_states(db)
+        by_mfa = {uid for uid, st in states.items() if st.get("mfa_state") in wanted}
+        ids = by_mfa if ids is None else set(ids) & by_mfa
     if ids is not None:
         query = query.where(User.id.in_(sorted(ids) or [-1]))
     if role_id is not None:

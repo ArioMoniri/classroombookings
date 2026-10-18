@@ -25,7 +25,9 @@ test.afterAll(async () => {
 
 async function closeSheet(page: Page) {
   const sheet = page.getByTestId("welcome-sheet");
-  if (await sheet.isVisible({ timeout: 15_000 }).catch(() => false)) {
+  // locator.isVisible() does not wait (its timeout is ignored): the sheet opened after the check and covered the pill
+  // (e2e lane 2026-10-18); wait for it like a web-first assertion
+  if (await sheet.waitFor({ state: "visible", timeout: 15_000 }).then(() => true, () => false)) {
     await page.getByTestId("welcome-later").click();
     await expect(sheet).toBeHidden();
   }
@@ -36,7 +38,7 @@ async function bookThroughReserve(page: Page): Promise<boolean> {
   await page.goto("/reserve");
   await expect(page.getByTestId("quick-reserve")).toBeVisible({ timeout: 20_000 });
   const room = page.getByTestId("qr-rooms").locator('[role=radio][data-action="book"]').first();
-  if (!(await room.isVisible({ timeout: 10_000 }).catch(() => false))) return false;
+  if (!(await room.waitFor({ state: "visible", timeout: 10_000 }).then(() => true, () => false))) return false;
   await room.click();
   await page.getByTestId("qr-submit").click();
   await expect(page.getByTestId("qr-receipt-title")).toHaveText("Rezerve edildi", { timeout: 20_000 });

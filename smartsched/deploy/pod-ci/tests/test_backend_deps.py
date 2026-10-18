@@ -44,7 +44,7 @@ def test_requirements_lock_pins_every_main_dependency() -> None:
                                                                          re.M)}
     for req in project()["dependencies"]:  # type: ignore[union-attr]
         assert _name(req).replace("_", "-") in pinned, f"{req} is not pinned in requirements.lock"
-    assert "--hash" not in lock  # used as a pip constraints file (-c) by the Dockerfile
+    assert "--hash=sha256:" in lock  # F13: hash-pinned, installed with --require-hashes (test_hash_lock.py)
     assert "requirements.lock" in (BACKEND / "Dockerfile").read_text(encoding="utf-8")
 
 

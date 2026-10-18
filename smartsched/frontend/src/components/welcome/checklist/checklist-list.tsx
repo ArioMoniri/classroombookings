@@ -14,10 +14,11 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { welcomeKeys, type WelcomeState, useWelcomeEvent } from "@/lib/api/welcome";
 import { useI18n } from "@/lib/i18n/provider";
-import { dur, springs, useReduce } from "@/lib/motion";
+import { useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { itemKey } from "../content";
 import { buildChecklist, type ChecklistModel, type ResolvedItem } from "../model";
+import { instant, welcomeMotion } from "../motion";
 import { useWelcomeStore } from "../welcome-store";
 
 /** The cached GET /welcome (the provider fetches it; these readers never trigger a call). */
@@ -61,23 +62,24 @@ export function ChecklistProgress({ model, className }: { model: ChecklistModel;
         {text}
       </p>
       <div role="progressbar" aria-label={t("welcome.check.title")} aria-valuemin={0} aria-valuemax={model.total} aria-valuenow={model.done} aria-valuetext={text} data-testid="checklist-progress" className="h-1.5 w-full overflow-hidden rounded-full bg-fill-1">
-        <motion.div className="h-full w-full origin-left rounded-full bg-tint" initial={false} animate={{ scaleX: ratio }} transition={reduce ? { duration: 0 } : springs.ticker} />
+        <motion.div className="h-full w-full origin-left rounded-full bg-tint" initial={false} animate={{ scaleX: ratio }} transition={reduce ? instant : welcomeMotion.progress} />
       </div>
     </div>
   );
 }
 
-/** A check circle: fill, then the path draws (transitions.dev checkbox-check, retimed; instant under reduced motion). */
+/** A check circle: fill (120 ms), then the path draws (120 ms) — 240 ms in all (transitions.dev checkbox-check idea,
+ * re-implemented and retimed; instant under reduced motion). */
 function Tick({ done }: { done: boolean }) {
   const reduce = useReduce();
   return (
     <span aria-hidden className={cn("relative flex size-6 shrink-0 items-center justify-center rounded-full", done ? "" : "edge-control")}>
       {done ? (
-        <motion.span className="absolute inset-0 rounded-full bg-status-feasible" initial={reduce ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={reduce ? { duration: 0 } : { duration: dur.fast }} />
+        <motion.span className="absolute inset-0 rounded-full bg-status-feasible" initial={reduce ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={reduce ? instant : welcomeMotion.tickFill} />
       ) : null}
       {done ? (
         <svg viewBox="0 0 16 16" className="relative size-3.5 text-status-feasible-fg">
-          <motion.path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={reduce ? { duration: 0 } : { duration: dur.slow, delay: dur.fast }} />
+          <motion.path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={reduce ? instant : welcomeMotion.tickDraw} />
         </svg>
       ) : null}
     </span>
@@ -135,13 +137,14 @@ export function ChecklistRows({ model, onNavigate, phone }: { model: ChecklistMo
   );
 }
 
-/** The all-done state: a disc that pops in with a drawn check (transitions.dev success-check without rotate / blur). */
+/** The all-done state: a disc that scales .8 → 1 with its check (transitions.dev success-check idea without rotate,
+ * blur or bounce; 180 ms; instant under reduced motion). */
 export function ChecklistAllDone() {
   const { t } = useI18n();
   const reduce = useReduce();
   return (
     <div className="flex items-center gap-3 rounded-xl bg-fill-3 p-3" data-testid="checklist-all-done">
-      <motion.span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-status-feasible text-status-feasible-fg" initial={reduce ? false : { scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={reduce ? { duration: 0 } : springs.bouncySubtle}>
+      <motion.span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-status-feasible text-status-feasible-fg" initial={reduce ? false : { scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={reduce ? instant : welcomeMotion.pop}>
         <Check className="size-4" />
       </motion.span>
       <p className="type-callout text-label-1">{t("welcome.check.allDone")}</p>

@@ -448,6 +448,53 @@ and the JSON is imported dynamically with `ssr:false`.
 - No Pro recipes.
 - The hosted Motion Agent may be used **once**, by WG-09, on the sheet-open + hero moment only.
 
+### 8.5 As built (WG-09, 2026-10-18; ledger wg-09-2026-10-18)
+
+The owner's rule for this surface is calm and short: every one-shot UI motion ends within **240 ms, delays included**,
+and nothing moves under reduced motion. The shared springs settle in 270–285 ms, so the welcome surfaces use tweens
+from `components/welcome/motion.ts` (`welcomeMotion`, built from `dur`/`ease`/`staggerRule` tokens). Nobody grabs or
+re-targets these elements with a finger, so tweens lose nothing here. motion still starts every new tween from the
+current value. The phone sheet's drag stays on ui/dialog. `motion.test.ts` checks the ceiling, and it also fails if a
+welcome component uses `springs.*`, a raw duration, or animates without reading the reduced-motion setting.
+
+| Moment | Built as | Time | Reduced motion |
+|---|---|---|---|
+| Sheet open, desktop / phone | ui/dialog `t-modal` (scale .96 → 1 / 2.5 rem up), with `--spring-glass-morph-ms` and `--spring-sheet-ms` set to `--dur-slow` on the welcome dialog only; exit `--dur-fast` | 240 / exit 120 ms | transitions cleared globally (globals.css T-R2-07): end state on the next frame |
+| Cards first reveal (desktop) | y 8 → 0 + opacity, 30 ms apart, max 5 | ≤ 240 ms in all | none |
+| Lottie hero | `WelcomeHero`: after 240 ms (sheet settled) loads player + clip, fades the player in over the empty frame, plays 0 → poster frame once, holds it; at most once per page load | 240 ms fade, clip ≤ 3 s | poster PNG, nothing requested (also Save-Data, a failed load, a theme switch mid-play) |
+| Phone paging | x ±24 + opacity in, out 120 ms; dot pill `layoutId` | 180 / 120 ms | 100 ms fade in, instant out; dot jumps |
+| Step card in | Joyride floater opacity `--dur-fast`; card scale .98 → 1 from `@starting-style` (origin bottom when docked) | 120 ms | 100 ms fade, no scale |
+| Spotlight ring re-target | `layout` + `layoutDependency={target}`: animates only when the step changes. Scroll and resize follow 1:1 in the same frame (before this change it trailed the page on every scroll) | 240 ms `ease.inOut` | jumps |
+| Checklist tick | circle fill, then the path draws | 120 + 120 = 240 ms (was 360) | instant |
+| Progress bar | `scaleX`, no overshoot | 240 ms | instant |
+| All done disc, "Yeni" badge | scale .8 / .6 → 1 + opacity, no bounce | 180 ms | instant |
+| Hint popover / page strip | opacity + scale .98 (popover), opacity + y −6 (strip; `layout` removed, because it animated the strip's own resizes) | 120 / 180 ms | 100 ms fade / instant |
+| Checklist panel loading | none: the panel reads the cached `GET /welcome` and renders only with data, so there is no skeleton state to reveal | – | – |
+
+**transitions.dev:** the recipes named in §8.1 (modal, page-side-by-side, tooltip, checkbox-check, success-check,
+notification-badge, texts-reveal) are re-implemented as ideas in motion code. No CSS was pasted, so there is no
+`welcome.css` and no new `SOURCES.md` row. The modal uses the existing `transitions-dev.css` row.
+
+**Hosted Motion Agent:** not used. `TRANSITIONS_AGENT_LICENSE` was not set in the WG-09 session, so the one approved
+fix (sheet open + hero) is still unspent.
+
+**Lottie `quick-reserve`:** `docs/lottie/build/generate.mjs` scene 5 (720×405, 90 f, plays once with no end fade;
+26 tweens, longest 9 f); poster frame 86. The posters and renders were made without a browser (resource rule):
+lottie-web's svg renderer under jsdom, rasterised with sharp. `render.sh` reproduces them with headless Chromium when
+the resource rule allows.
+
+**References (Mobbin, 2026-10-18):** a welcome dialog with a hero illustration over a dimmed page, then a short tour
+with "n / N" step cards: [Pitch](https://mobbin.com/flows/c4802559-194c-49aa-af85-c81255874ab9),
+[Jasper](https://mobbin.com/flows/5c24bba5-6efb-4847-9897-b796f9fb97d4). Checklist plus a tour in one surface:
+[beehiiv](https://mobbin.com/flows/2e01960d-3001-4150-9de1-f4e1fa95a825) (progress bar "1/5 steps completed",
+checkbox ticks), [Canva](https://mobbin.com/flows/d3237fe5-9e7c-47ec-89e6-56ccfd951dc1) (sidebar "Get started"
+list, "3 / 3" popover on the target). Checklist row ticks with green check circles:
+[HoneyBook](https://mobbin.com/screens/7c915d6b-2a99-4eb0-956d-e7a3a97bb265),
+[Klaviyo](https://mobbin.com/screens/a6302778-7cdc-4f61-96a8-8e4bf83aeeff). Phone paging with dots inside a sheet:
+[Craft](https://mobbin.com/flows/7ead50f4-f551-4b34-861b-f4d3b22c32dd); a docked bottom step card:
+[ChatGPT iOS](https://mobbin.com/flows/dbfbb3db-6c4e-4e3f-93c9-f668698b7f0c). In these references, motion is mostly a
+plain fade or short scale with no bounce, which matches the calm rule above.
+
 ## 9. Phone layouts (390×844, touch)
 
 - **Sheet:** a bottom sheet, top at about 25 %, 28 px top radius, a 48×5 grabber, padding 20, and `env(safe-area-inset-bottom)`.

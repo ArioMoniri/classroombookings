@@ -165,6 +165,9 @@ function themeChecks(theme, v) {
       check(theme, `text on ${st}-solid badge`, darkText, solid, 4.5, theme === "light" && !["warning", "feasible"].includes(st) ? "white text" : "#111114 text");
     }
   }
+  // HX-18 M3 (helper audit 2026-10-18): the helper result card's done / failed disc: the glyph is --mat-thick-solid
+  // on --status-*-fg (white on the dark theme's light green was 1.67:1); a meaningful graphic, non-text 3:1
+  for (const st of ["feasible", "infeasible"]) check(theme, `helper result disc glyph on ${st}-fg`, P("--mat-thick-solid"), P(`--status-${st}-fg`), 3, "non-text 3:1");
 }
 
 themeChecks("light", light);

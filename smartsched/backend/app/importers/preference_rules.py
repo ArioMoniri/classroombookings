@@ -186,9 +186,11 @@ async def sync_text_preferences(
         if str((c.source_ref or {}).get("key") or "").startswith(prefix)
     }
     seen: set[str] = set()
-    created = updated = pending = 0
+    created = updated = pending = kept_edits = 0
+    kept_items: list[dict[str, Any]] = []
     for r in rules:
         seen.add(r.key)
+        reading = {"kind": r.kind, "params": r.params, "hardness": "soft", "nl_text": r.nl_text}
         ref = {
             "file": filename,
             "sheet": sheet,
@@ -197,6 +199,7 @@ async def sync_text_preferences(
             "excerpt": r.cell.text[:300],
             "review": "pending" if r.cell.from_notes else "auto",
             "key": r.key,
+            "imported": reading,  # RF-06: what the file said, so a person's later edit is told apart from it
         }
         row = existing.get(r.key)
         if row is None:
@@ -216,16 +219,29 @@ async def sync_text_preferences(
             created += 1
             pending += r.cell.from_notes
             continue
-        # a re-import: the file's reading is refreshed, the planner's decision (enabled / review) is kept
+        # a re-import: the planner's decision (enabled / review) is kept; the file's reading is refreshed unless a
+        # person edited the rule's kind, params, hardness or text since the import (RF-06: then the edit is kept)
         decided = (row.source_ref or {}).get("review")
-        row.kind, row.params, row.hardness, row.nl_text = r.kind, r.params, "soft", r.nl_text
+        if edited_by_person(row):
+            kept_edits += 1
+            if len(kept_items) < 200:
+                kept_items.append({"id": row.id, "row": r.cell.row, "column": r.cell.column, "file": reading})
+        else:
+            row.kind, row.params, row.hardness, row.nl_text = r.kind, r.params, "soft", r.nl_text
         row.source_ref = {**ref, "review": decided or ref["review"]}
         updated += 1
         pending += decided == "pending"
     removed = 0
     for key, row in existing.items():
-        # a wish that left the file: drop it unless the planner accepted it (then it is theirs)
-        if key not in seen and (row.source_ref or {}).get("review") in ("pending", "auto"):
+        if key in seen:
+            continue
+        if edited_by_person(row):
+            # an edited wish that left the file is the planner's now: kept, flagged (RF-06)
+            if not (row.source_ref or {}).get("left_file"):
+                row.source_ref = {**(row.source_ref or {}), "left_file": True}
+            kept_edits += 1
+        elif (row.source_ref or {}).get("review") in ("pending", "auto"):
+            # a wish that left the file: drop it unless the planner accepted it (then it is theirs)
             await session.delete(row)
             removed += 1
     return {
@@ -234,11 +250,24 @@ async def sync_text_preferences(
         "created": created,
         "updated": updated,
         "removed": removed,
+        "kept_edits": kept_edits,
+        "kept_items": kept_items,
         "pending_review": pending,
         "active": sum(1 for r in rules if not r.cell.from_notes),
         "unparsed": len(unparsed),
         "unparsed_items": unparsed[:200],
     }
+
+
+def edited_by_person(row: ConstraintRow) -> bool:
+    """RF-06: a person changed the FILE rule's kind, params, hardness or text since the import that wrote it
+    (``source_ref.imported``). Rules imported before RF-06 have no record of the file's reading: there a hard rule
+    is an edit (free text never creates one)."""
+    imported = (row.source_ref or {}).get("imported")
+    if not isinstance(imported, dict):
+        return row.hardness != "soft"
+    current = {"kind": row.kind, "params": row.params, "hardness": row.hardness, "nl_text": row.nl_text}
+    return current != {k: imported.get(k) for k in current}
 
 
 def _unparsed(
@@ -255,7 +284,7 @@ def _unparsed(
     }
 
 
-__all__ = ["TextCell", "read_cells", "request_cells", "sync_text_preferences"]
+__all__ = ["TextCell", "edited_by_person", "read_cells", "request_cells", "sync_text_preferences"]
 
 
 NOTES_COLUMN = "Derse Özel Açıklama"

@@ -782,7 +782,10 @@ def check_candidate(
             Issue(
                 code="out_of_range",
                 severity="hard",
-                text=_t("Ders saati 08:30–22:50 aralığının dışına taşıyor", "The span leaves the 08:30–22:50 day"),
+                text=_t(
+                    f"Ders saati {PERIODS[0].start:%H:%M}–{PERIODS[-1].end:%H:%M} aralığının dışına taşıyor",
+                    f"The span leaves the {PERIODS[0].start:%H:%M}–{PERIODS[-1].end:%H:%M} day",
+                ),
             )
         )
         return hard, soft

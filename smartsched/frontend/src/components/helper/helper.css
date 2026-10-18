@@ -1,0 +1,93 @@
+/*
+ * HX-11 helper motion (docs/design/v3/helper.md §7). Original work on our tokens; the timings follow the free
+ * transitions.dev recipe ideas (skeleton-reveal, shimmer-text, success-check), re-implemented, nothing pasted.
+ * Card enter: opacity + 6 px rise once (≤ 180 ms). Thinking: a label shimmer loop (the only loop; it ends with the
+ * work). Done: the check disc scales .8 → 1. Reduced motion: end states (no movement, no loop); reduced
+ * transparency: the sheet is opaque.
+ */
+@keyframes helper-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes helper-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+@keyframes helper-check {
+  from {
+    transform: scale(0.8);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.helper-enter {
+  animation: helper-enter var(--dur-base, 180ms) var(--ease-out, ease-out) both;
+}
+.helper-shimmer {
+  background-image: linear-gradient(90deg, currentColor 0%, currentColor 40%, var(--label-1, currentColor) 50%, currentColor 60%, currentColor 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: helper-shimmer 1.6s linear infinite;
+}
+.helper-check {
+  animation: helper-check var(--dur-base, 180ms) var(--spring-bouncy-subtle, ease-out) both;
+}
+
+/* HX-18 m2: the gradient-clipped text would vanish under forced colours */
+@media (forced-colors: active) {
+  .helper-shimmer {
+    animation: none;
+    background: none;
+    -webkit-text-fill-color: CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .helper-enter,
+  .helper-check {
+    animation: none;
+  }
+  .helper-shimmer {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+html[data-motion="reduced"] .helper-enter,
+html[data-motion="reduced"] .helper-check {
+  animation: none;
+}
+html[data-motion="reduced"] .helper-shimmer {
+  animation: none;
+  background-image: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .helper-sheet.glass-regular {
+    background: var(--mat-thick-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+html[data-transparency="reduced"] .helper-sheet.glass-regular {
+  background: var(--mat-thick-solid);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

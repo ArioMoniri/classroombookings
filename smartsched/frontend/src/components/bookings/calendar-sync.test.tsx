@@ -77,4 +77,17 @@ describe("T-R2-15 calendar-sync card", () => {
     await user.click(copy);
     expect(toast.success).toHaveBeenCalledWith("Bağlantı kopyalandı");
   });
+  it("HX12B-F03: links made elsewhere: the reset waits behind 'Gelişmiş' as a quiet button; one date is said once", async () => {
+    const made = { id: 1, label: "SmartSched", hint: "abcd", created_at: "2026-10-18T10:00:00Z" };
+    api.sync = { ...sync(true), feeds: { tokens: [made, { ...made, id: 2 }, { ...made, id: 3 }], url_templates: { mine: "/m", room: "/r/{id}", department: "/d/{id}" } } };
+    renderIt(<CalendarSyncPanel />);
+    const existing = await screen.findByTestId("sync-existing");
+    expect(existing.textContent?.match(/18\.10\.2026/g)?.length).toBe(1);
+    const reset = screen.getByTestId("sync-reset");
+    const details = reset.closest("details");
+    expect(details).not.toBeNull();
+    expect(details).not.toHaveAttribute("open");
+    expect(details!.querySelector("summary")).toHaveTextContent("Gelişmiş");
+    expect(reset.className).not.toMatch(/\bbg-tint\b/);
+  });
 });

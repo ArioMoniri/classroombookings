@@ -1,7 +1,10 @@
 """What the helper's status chip shows (helper.md §5.2, ask A6): ``GET /helper/status``.
 
 Owner default (2026-10-18): the helper is **index-only** (search, "Nerede?", shortcuts; nothing leaves the server)
-until an admin routes the ``helper`` feature to a model. AI mode needs all of:
+until an admin routes the ``helper`` feature to a model. First the admin's ``ai.helper`` setting (HB-15,
+:mod:`app.ai.helper.settings`): ``enabled: false`` or every audience of the person switched off gives
+``enabled: false`` (the client hides the helper; ``reason`` ``disabled`` / ``audience_off``), and ``mode: index``
+gives ``reason: index_mode``. Then AI mode needs all of:
 
 1. an explicit ``helper`` route set by an admin (``ai.routes.features.helper``; the institution's default route does
    not count, so a fresh install or an existing AI setup never starts sending helper turns by itself);
@@ -23,6 +26,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 TURN_PATH = "/api/v1/helper/turn"
 
 REASONS: dict[str, tuple[str, str]] = {
+    "disabled": (
+        "Yardımcı kurumunuzda kapalı; menü ve arama çalışmaya devam eder.",
+        "The helper is switched off at your institution; the menus and search keep working.",
+    ),
+    "audience_off": (
+        "Yardımcı sizin kullanıcı grubunuz için kapalı; menü ve arama çalışmaya devam eder.",
+        "The helper is switched off for your user group; the menus and search keep working.",
+    ),
+    "index_mode": (
+        "Yardımcı rehber modunda: arama, 'Nerede?' ve kısayollar çalışır; yapay zekâ kullanılmaz.",
+        "The helper is in guide mode: search, 'Where?' and shortcuts work; no AI is used.",
+    ),
     "not_routed": (
         "Yardımcı şu an rehber modunda: arama, 'Nerede?' ve kısayollar çalışır. Yapay zekâyı yöneticiniz açar.",
         "The helper is in guide mode: search, 'Where?' and shortcuts work. Your administrator switches on the AI.",
@@ -54,15 +69,33 @@ def turn_registered(app: Any) -> bool:
         return False
 
 
-async def helper_status(session: AsyncSession, user_id: int, *, turn_available: bool) -> dict[str, Any]:
+async def routing_reason(session: AsyncSession) -> str | None:
+    """``not_routed`` / ``provider_unusable`` / ``None`` (an admin routed ``helper`` to a usable provider)."""
     from app.ai import gateway as gw
     from app.ai.providers import PROVIDERS
-    from app.services import kvkk
 
-    def off(reason: str) -> dict[str, Any]:
+    resolved = await gw.resolve_route(session, "helper")
+    if resolved.source != "feature" or not resolved.route.model:
+        return "not_routed"
+    provider = resolved.route.provider
+    if provider not in PROVIDERS or not await gw.provider_usable(session, provider):
+        return "provider_unusable"
+    return None
+
+
+async def helper_status(session: AsyncSession, user_id: int, *, turn_available: bool) -> dict[str, Any]:
+    from app.ai import gateway as gw
+    from app.ai.helper import settings as hs
+    from app.ai.providers import PROVIDERS
+    from app.models import User
+    from app.services import kvkk
+    from app.services.bookings_perms import load_access
+
+    def off(reason: str, *, enabled: bool = True) -> dict[str, Any]:
         tr, en = REASONS[reason]
         return {
             "mode": "index",
+            "enabled": enabled,
             "reason": reason,
             "provider_kind": None,
             "provider_label": None,
@@ -70,21 +103,28 @@ async def helper_status(session: AsyncSession, user_id: int, *, turn_available: 
             "message": {"tr": tr, "en": en},
         }
 
-    resolved = await gw.resolve_route(session, "helper")
-    if resolved.source != "feature" or not resolved.route.model:
-        return off("not_routed")
-    provider = resolved.route.provider
-    if provider not in PROVIDERS or not await gw.provider_usable(session, provider):
-        return off("provider_unusable")
+    user = await session.get(User, user_id)
+    if user is not None:
+        pol = await hs.policy(session, await load_access(session, user))
+        if not pol.enabled:
+            return off(pol.reason or "disabled", enabled=False)
+        if pol.mode == "index":
+            return off("index_mode")
+    reason = await routing_reason(session)
+    if reason is not None:
+        return off(reason)
     if not await kvkk.has_consent(session, user_id, "ai_personal"):
         return off("consent_missing")
     if not turn_available:
         return off("turn_unavailable")
+    resolved = await gw.resolve_route(session, "helper")
+    provider = resolved.route.provider
     cfg = await gw.provider_config(session, provider)
     spec = PROVIDERS[provider]
     local = gw.is_local_url(str(cfg.get("base_url") or "")) if cfg.get("base_url") else False
     return {
         "mode": "ai",
+        "enabled": True,
         "reason": None,
         "provider_kind": "local" if local else "cloud",
         "provider_label": {"tr": spec.label_tr, "en": spec.label_en},
@@ -94,4 +134,4 @@ async def helper_status(session: AsyncSession, user_id: int, *, turn_available: 
     }
 
 
-__all__ = ["REASONS", "TURN_PATH", "helper_status", "turn_registered"]
+__all__ = ["REASONS", "TURN_PATH", "helper_status", "routing_reason", "turn_registered"]

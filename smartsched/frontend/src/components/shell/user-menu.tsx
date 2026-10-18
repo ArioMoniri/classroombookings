@@ -16,6 +16,7 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 import { HelpMenuGroup } from "@/components/welcome";
+import { AskHelperMenuItem } from "./ask-helper";
 
 export function initials(name: string | null | undefined, email: string): string {
   const src = name?.trim() || email;
@@ -89,8 +90,8 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
-        {/* WG-06: Yardım (Turu yeniden başlat, Başlarken listesi, Yenilikler) */}
-        <HelpMenuGroup />
+        {/* WG-06: Yardım (Turu yeniden başlat, Başlarken listesi, Yenilikler); HX-03: "Yardımcıya sor" first */}
+        <HelpMenuGroup assistant={<AskHelperMenuItem />} />
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={() => void logout()} data-testid="logout">
           <LogOut /> {t("nav.logout")}

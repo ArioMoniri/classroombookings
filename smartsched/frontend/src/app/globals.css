@@ -361,6 +361,8 @@
     --control-h-lg: 48px;
   }
 }
+/* A data table sets its own density (audit A5), so "standard" restates the defaults instead of inheriting html's. */
+[data-density="standard"] { --row-h: 44px; --cell-py: 8px; --cell-px: 12px; }
 [data-density="compact"] { --row-h: 32px; --cell-py: 4px; --cell-px: 8px; }
 [data-density="comfortable"] { --row-h: 56px; --cell-py: 12px; --cell-px: 12px; }
 
@@ -816,5 +818,15 @@
 @media (width < 64rem) {
   main:has([data-slot="page-actions"]) {
     padding-bottom: calc(var(--shell-bottom-h) + 0.75rem + 3.5rem + 1.5rem);
+  }
+}
+
+/* CH12-F06: print the page, not the app chrome (sidebar, the desktop and phone top bars, the tab bar); the chart
+   cards already print their table twin without the menu / period / CSV controls */
+@media print {
+  [data-app-shell] > aside,
+  [data-app-shell] > div > header,
+  [data-slot="tab-bar"] {
+    display: none !important;
   }
 }

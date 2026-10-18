@@ -38,7 +38,7 @@ from sqlalchemy import select
 
 from app.api.deps import DB, CurrentAccess, Planner, Viewer
 from app.api.v1.imports import locked_409
-from app.core import safe_files
+from app.core import kvkk_guard, safe_files
 from app.core.config import get_settings
 from app.core.db import get_session_factory
 from app.council import airows, formats, formats_mail, i18n, memory_admin, storage
@@ -60,6 +60,7 @@ from app.schemas.council import (
     ReviewOut,
     RowDecisionsIn,
 )
+from app.schemas.messages import problem
 from app.services import seasons, term_lock
 from app.workers.queue import get_queue, worker_id
 
@@ -184,6 +185,10 @@ async def create_job(
             raise HTTPException(400, f"{name}: {i18n.localize(str(exc), lang)}") from exc
         except safe_files.UnsafeFileError as exc:
             raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
+        try:  # KVKK guard of recording / test stacks (FIX-J E2EA-F01); the except below removes the files
+            kvkk_guard.check(data, name)
+        except kvkk_guard.KvkkRefused as exc:
+            raise problem(422, exc.code, f"{name}: {exc.message_tr}", f"{name}: {exc.message_en}") from exc
         entries.append(
             {
                 "index": len(entries),

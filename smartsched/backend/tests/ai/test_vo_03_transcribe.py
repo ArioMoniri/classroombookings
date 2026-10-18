@@ -265,11 +265,9 @@ async def test_a_spoken_injection_is_refused_on_send(client, monkeypatch, fake_s
     r = await client.post(
         f"/api/v1/runs/{sd.run_id}/chat/stream", json={"message": r.json()["text"], "lang": "tr"}, headers=h
     )
-    last = [c for c in r.text.strip().split("\n\n") if c.startswith("event: ")][-1]
-    lines = dict(line.split(": ", 1) for line in last.splitlines())
-    assert lines["event"] == "error"
-    data = json.loads(lines["data"])
-    assert data["status"] == 422 and data["detail"]["code"].startswith("prompt_injection")
+    # F-VO-2: the refusal is the HTTP answer (422 JSON), as the voice research §8 says, not 200 + an error event
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"]["code"].startswith("prompt_injection")
     assert fake_sdk.calls == []
 
 

@@ -102,7 +102,7 @@ async def test_real_bahar_import_room_master_end_to_end(session):
     assert rep_m.rows_imported == len(parse_room_master(ROOM_MASTER.read_text(encoding="utf-8"))[0])
     b207 = (await session.execute(select(Room).where(Room.code == "B207"))).scalar_one()
     assert (b207.capacity, b207.exam_capacity, b207.is_bookable) == (60, 60, True)
-    assert set(b207.custom_fields["master"]) == {"capacity", "exam_capacity"}
+    assert set(b207.custom_fields["master"]) == {"capacity", "exam_capacity", "tags"}  # RF-06: its tags too
 
     # a later Final workbook import: its headers are exam seating; the master keeps its numbers
     b207.exam_capacity = 61

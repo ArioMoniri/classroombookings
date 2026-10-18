@@ -28,6 +28,7 @@ import { kvkkKeys, useConsent } from "@/lib/api/kvkk";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import { coarseHitArea } from "@/components/ui/hit-area";
 
 /** `GET /calendar/sync` in the TanStack cache (bookings/calendar-sync.tsx, settings/calendar-connections.tsx) */
 const SYNC_STATUS_KEY = ["crbs", "calendar-sync"] as const;
@@ -63,7 +64,7 @@ export function ConsentRefusal({ refusal, className, testId = "calendar-consent-
   return (
     <Alert tone="error" className={className} data-testid={testId}>
       {refusal.text}{" "}
-      <Link href={refusal.href} className="font-medium underline underline-offset-4" data-testid="calendar-consent-link">
+      <Link href={refusal.href} className={cn("relative font-medium underline underline-offset-4", coarseHitArea)} data-testid="calendar-consent-link">
         {t("calendarPush.me.consentLink")}
       </Link>
     </Alert>
@@ -122,7 +123,7 @@ export function CalendarConsentStep({ onGranted, onCancel, className, testId = "
       <p className="type-footnote text-label-1">{t("privacy.calendarConsent.body")}</p>
       <p className="type-footnote text-label-2">
         {t("privacy.calendarConsent.withdraw")}{" "}
-        <Link href={GRANT_PATH} className="font-medium text-tint-text underline-offset-4 hover:underline">
+        <Link href={GRANT_PATH} className={cn("relative font-medium text-tint-text underline-offset-4 hover:underline", coarseHitArea)}>
           {t("calendarPush.me.consentLink")}
         </Link>
       </p>

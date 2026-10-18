@@ -99,6 +99,11 @@
   "wave1": {
     "find": {
       "weeks": "Semanas"
+    },
+    "audit": {
+      "f": {
+        "days": "Días"
+      }
     }
   },
   "moderation": {
@@ -152,10 +157,30 @@
       "day": "Día"
     }
   },
+  "charts": {
+    "bookings": {
+      "week": "Semana"
+    },
+    "audit": {
+      "day": "Día"
+    }
+  },
   "adaptive": {
     "peaks": {
       "col": {
         "weeks": "Semanas"
+      }
+    }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Semanas"
+      },
+      "field": {
+        "class_year": "Año",
+        "day": "Día",
+        "week": "Semana"
       }
     }
   }

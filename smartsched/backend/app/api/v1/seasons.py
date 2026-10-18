@@ -3,16 +3,21 @@
 =============================================================  ==========  ===========================================
 Route                                                          Who         Notes
 =============================================================  ==========  ===========================================
-``GET /seasons/profiles``                                      ADMIN       built-ins + every version, weight keys
-``POST /seasons/profiles``                                     ADMIN       a new draft (audited season_profile.create)
-``PUT /seasons/profiles/{id}``                                 ADMIN       draft: in place; active: new draft version
+``GET /seasons/profiles``                                      PLANNER     built-ins + every version, weight keys,
+                                                                           ``can_activate`` (the caller is an admin)
+``POST /seasons/profiles``                                     PLANNER     a new draft (audited season_profile.create)
+``PUT /seasons/profiles/{id}``                                 PLANNER     draft: in place; active: new draft version
 ``POST /seasons/profiles/{id}/activate``                       ADMIN       approve; the key's previous version retires
 ``POST /seasons/profiles/{id}/revert``                         ADMIN       "Geri al": the parent version is active again
-``DELETE /seasons/profiles/{id}``                              ADMIN       a draft is deleted, an active one retired
+``DELETE /seasons/profiles/{id}``                              PLANNER /   a draft is deleted (planner or admin), an
+                                                               ADMIN       active one retired (admin only)
 ``GET /seasons/terms/{term_id}/periods``                       ADMIN       dated segments (weeks, holidays, admin)
 ``POST /seasons/terms/{term_id}/segments``                     ADMIN       admin segment (add/drop, midterm ...)
 ``PUT /seasons/segments/{id}`` / ``DELETE``                    ADMIN       edit / remove; approve a draft with status
 =============================================================  ==========  ===========================================
+
+AS20-F09 (FIX-G, owner's recommended option): "planner drafts, admin approves". PLANNER = ``planning.edit`` (or
+``planning.admin``); ADMIN = ``planning.admin``. A planner's draft changes nothing until an admin activates it.
 
 A profile never applies by itself: drafts are inert, and every run records the profile and weights it used
 (``run.stats.profile`` / ``weights_source``).
@@ -21,17 +26,20 @@ A profile never applies by itself: drafts are inert, and every run records the p
 from __future__ import annotations
 
 from collections.abc import Awaitable
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, ConfigDict
 
-from app.api.deps import DB, Admin
-from app.models import Term
+from app.api.deps import DB, Admin, CurrentAccess, forbidden, perm
+from app.models import Term, User
 from app.models.seasons import SeasonSegment
 from app.services import seasons as svc
 
 router = APIRouter(prefix="/seasons", tags=["seasons"])
+
+#: AS20-F09: drafts are a planner's tool; approving (activate / revert / retire) stays with ``planning.admin``
+Drafter = Annotated[User, perm("planning.edit", "planning.admin")]
 
 
 class ProfileIn(BaseModel):
@@ -71,18 +79,18 @@ async def _do[T](db: DB, op: Awaitable[T]) -> T:
 
 
 @router.get("/profiles")
-async def list_profiles(db: DB, _: Admin) -> dict[str, Any]:
-    return await svc.list_profiles(db)
+async def list_profiles(db: DB, _: Drafter, access: CurrentAccess) -> dict[str, Any]:
+    return {**await svc.list_profiles(db), "can_activate": "planning.admin" in access.perms}
 
 
 @router.post("/profiles", status_code=201)
-async def create_profile(body: ProfileIn, db: DB, user: Admin) -> dict[str, Any]:
+async def create_profile(body: ProfileIn, db: DB, user: Drafter) -> dict[str, Any]:
     row = await _do(db, svc.create_profile(db, body.model_dump(exclude_none=True), actor=user))
     return svc.profile_out(row)
 
 
 @router.put("/profiles/{profile_id}")
-async def update_profile(profile_id: int, body: ProfileIn, db: DB, user: Admin) -> dict[str, Any]:
+async def update_profile(profile_id: int, body: ProfileIn, db: DB, user: Drafter) -> dict[str, Any]:
     data = body.model_dump(exclude_unset=True)
     data.pop("key", None)
     row = await _do(db, svc.update_profile(db, profile_id, data, actor=user))
@@ -100,7 +108,14 @@ async def revert_profile(profile_id: int, db: DB, user: Admin) -> dict[str, Any]
 
 
 @router.delete("/profiles/{profile_id}", status_code=204)
-async def delete_profile(profile_id: int, db: DB, user: Admin) -> Response:
+async def delete_profile(profile_id: int, db: DB, user: Drafter, access: CurrentAccess) -> Response:
+    # a planner throws away a draft; retiring an active (or retired) version is an admin's approval step
+    try:
+        row = await svc.get_profile(db, profile_id)
+    except svc.SeasonError as exc:
+        raise HTTPException(exc.status, exc.as_detail()) from exc
+    if row.status != "draft" and "planning.admin" not in access.perms:
+        raise forbidden("planning.admin")
     await _do(db, svc.retire_profile(db, profile_id, actor=user))
     return Response(status_code=204)
 

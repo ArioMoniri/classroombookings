@@ -88,7 +88,7 @@ test.describe("desktop 1440", () => {
     const term = await useTerm(page, GUZ);
     await page.goto("/dashboard");
     const plan = page.getByTestId("dashboard-plan");
-    await expect(plan).toContainText(/Yayında: içe aktarılan pano #\d+/);
+    await expect(plan).toContainText(/Yayında: içe aktarılan çizelge #\d+/);
     await expect(page.getByText("Bu dönem için henüz çizelge oluşturulmadı.")).toHaveCount(0);
 
     const d = await api<Dash>(page, `/dashboard?term_id=${term.id}`);

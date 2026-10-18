@@ -1,18 +1,19 @@
 "use client";
 /**
  * AS-17 "Yoğun saat" on /find-room: when the searched weekday and periods are a peak of the published history
- * (`GET /analytics/peaks?group_by=campus`, `peak: true`), one quiet line says so and names the nearest calmer span
+ * (`GET /analytics/peaks/campus`, `peak: true`; AS20-F03: that route is open to everyone signed in, the planner's
+ * `/analytics/peaks` answered 403 to the academicians who book rooms), one quiet line says so and names the nearest calmer span
  * of the same day. A hint only: the search and its results are unchanged. Silent when the backend has no history
  * (`confidence: none`) or the time is not a peak.
  */
 import { Flame } from "lucide-react";
-import { isoWeekday, peakHit, usePeaks } from "@/lib/api/adaptive";
+import { isoWeekday, peakHit, useCampusPeaks } from "@/lib/api/adaptive";
 import { intlLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 
 export function PeakChip({ termId, slot }: { termId: number | undefined; slot: { date: string; start_period: number; end_period: number } | undefined }) {
   const { t, locale, n } = useI18n();
-  const q = usePeaks({ term_id: termId ?? null, group_by: "campus" }, termId !== undefined && !!slot);
+  const q = useCampusPeaks(termId ?? null, termId !== undefined && !!slot);
   if (!slot || !q.data || q.data.confidence === "none") return null;
   const day = isoWeekday(slot.date);
   const hit = peakHit(q.data.cells, day, slot.start_period, slot.end_period);

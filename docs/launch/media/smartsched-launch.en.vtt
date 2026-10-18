@@ -1,0 +1,70 @@
+WEBVTT
+
+1
+00:00:06.200 --> 00:00:09.200
+Weekly grids, planning lists, exam lists, the room master: the files the office already keeps
+
+2
+00:00:09.300 --> 00:00:15.500
+Drop an edited room master: each change is shown before anything is saved
+
+3
+00:00:15.500 --> 00:00:16.500
+A real solver run on the autumn term's data
+
+4
+00:00:16.600 --> 00:00:19.400
+Hard rules held: every exception is one the planning list asked for, named and counted
+
+5
+00:00:21.300 --> 00:00:27.900
+The report lists each class that could not be placed, and why
+
+6
+00:00:28.000 --> 00:00:30.200
+Each comes with concrete fixes: a free room and time, and what else would move
+
+7
+00:00:30.200 --> 00:00:38.400
+Publish: the dialog says what is left out before anyone sees the plan
+
+8
+00:00:38.500 --> 00:00:40.600
+Published: bookings, calendars and the dashboard now follow this plan
+
+9
+00:00:40.600 --> 00:00:42.800
+When: tomorrow, a free period
+
+10
+00:00:42.900 --> 00:00:46.900
+Where: how many people; only rooms that are free and fit are listed
+
+11
+00:00:47.000 --> 00:00:49.900
+One tap books it; the server checks the slot first
+
+12
+00:00:49.900 --> 00:00:54.500
+The approver's inbox: open the request
+
+13
+00:00:54.600 --> 00:00:57.500
+Approve: the server re-checks the slot first
+
+14
+00:00:58.200 --> 00:01:00.200
+The requester sees it confirmed, with every decision
+
+15
+00:01:00.200 --> 00:01:05.300
+Admins pick the AI provider and model for each feature, and see who used how many tokens
+
+16
+00:01:05.400 --> 00:01:10.700
+Guardrails keep the models on scheduling: injection and off-topic requests are refused
+
+17
+00:01:11.300 --> 00:01:15.300
+The operations panel: service health, metrics and the error log in one place
+

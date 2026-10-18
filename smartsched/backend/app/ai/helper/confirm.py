@@ -19,6 +19,9 @@ Building a card writes nothing.
 
 Rejected tokens are audited as ``helper.confirm_rejected``. :func:`undo` reverses a done invocation through
 ``app/services/bookings_undo.py`` (24 h or until the booking starts, conflict-checked).
+
+"Bunu hatırla" (HB-D, :mod:`app.ai.helper.remember`) uses the same token, claim, audit and undo path with the action
+``remember_note``; it is not a registry write, so the model is never offered it.
 """
 
 from __future__ import annotations
@@ -146,6 +149,7 @@ def _ts(value: Any) -> datetime:
 
 
 async def confirm(session: AsyncSession, access: Access, token: str) -> dict[str, Any]:
+    from app.ai.helper import remember
     from app.ai.helper.actions import writes
 
     try:
@@ -154,7 +158,8 @@ async def confirm(session: AsyncSession, access: Access, token: str) -> dict[str
         await _reject(session, access, "bad_token", None)
         raise
     action = str(p.get("a") or "")
-    if p.get("k") != "confirm" or action not in writes.WRITES:
+    is_note = action == remember.ACTION  # "Bunu hatırla" (HB-D): a note, not a registry write
+    if p.get("k") != "confirm" or (action not in writes.WRITES and not is_note):
         await _reject(session, access, "bad_token", action)
         raise ActionRefused(403, "bad_token", "Bu onay geçerli değil.", "This confirmation is not valid.")
     if p.get("u") != access.user_id:
@@ -168,8 +173,8 @@ async def confirm(session: AsyncSession, access: Access, token: str) -> dict[str
         raise ActionRefused(
             410, "expired", "Bu öneri eskidi. Yenileyin.", "This suggestion is out of date. Refresh it."
         )
-    spec = writes.WRITES[action]
-    if spec.action.name != action or not spec.action.allowed(access):
+    spec = writes.WRITES.get(action)
+    if not is_note and (spec is None or spec.action.name != action or not spec.action.allowed(access)):
         await _reject(session, access, "not_allowed", action)
         raise ActionRefused(403, "not_allowed", "Bu işlem hesabınızda yok.", "This isn't available on your account.")
     nonce = str(p["n"])
@@ -196,6 +201,15 @@ async def confirm(session: AsyncSession, access: Access, token: str) -> dict[str
         await _reject(session, access, "already_done", action)
         raise ActionRefused(409, "already_done", "Bu işlem zaten yapıldı.", "This was already done.") from exc
     inv_id = inv.id
+    if is_note:
+        try:
+            return await remember.execute(session, access, dict(p.get("args") or {}), inv_id)
+        except ActionRefused as exc:
+            await session.rollback()
+            await session.refresh(access.user)
+            await _fail(session, inv_id, exc.code)
+            raise
+    assert spec is not None
     ctx = Ctx(session, access)
     args = spec.action.args.model_validate(p["args"])
     try:
@@ -381,6 +395,10 @@ async def undo(session: AsyncSession, access: Access, token: str) -> dict[str, A
     inv = await session.get(HelperActionInvocation, int(p["i"]))
     if inv is None:
         raise ActionRefused(404, "not_found", "İşlem bulunamadı.", "The action was not found.")
+    from app.ai.helper import remember
+
+    if inv.action == remember.ACTION:  # "Geri al" on a saved note deletes it (HB-D)
+        return await remember.undo(session, access, inv)
     return await undo_invocation(session, access, inv)
 
 

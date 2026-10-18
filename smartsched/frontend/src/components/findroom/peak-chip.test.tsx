@@ -21,17 +21,17 @@ describe("PeakChip", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("marks a Wednesday P4 search and offers P3", async () => {
-    const spy = vi.spyOn(adaptiveApi, "peaks").mockResolvedValue(peaks("medium"));
+    const spy = vi.spyOn(adaptiveApi, "campusPeaks").mockResolvedValue(peaks("medium"));
     mount({ date: "2026-10-21", start_period: 4, end_period: 4 });
     const chip = await screen.findByTestId("fr-peak");
     expect(chip).toHaveTextContent("Yoğun saat");
     expect(chip).toHaveTextContent("odaların genellikle %93'si dolu");
     expect(screen.getByTestId("fr-peak-alt")).toHaveTextContent("Daha sakin: Çarşamba 3. ders.");
-    expect(spy).toHaveBeenCalledWith({ term_id: 2, group_by: "campus" });
+    expect(spy).toHaveBeenCalledWith(2);
   });
 
   it("stays silent off peak and without history", async () => {
-    vi.spyOn(adaptiveApi, "peaks").mockResolvedValue(peaks("medium"));
+    vi.spyOn(adaptiveApi, "campusPeaks").mockResolvedValue(peaks("medium"));
     mount({ date: "2026-10-21", start_period: 2, end_period: 2 });
     await new Promise((r) => setTimeout(r, 20));
     expect(screen.queryByTestId("fr-peak")).toBeNull();

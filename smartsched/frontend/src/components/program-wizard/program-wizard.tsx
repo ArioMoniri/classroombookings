@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { pageActionsCapsule } from "@/components/admin/kit";
 import { PageHeader } from "@/components/common/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Button, IconButton } from "@/components/ui/button";
@@ -128,6 +129,11 @@ function Preview({ p, v, termCode }: { p: Payload; v: Validation; termCode: stri
 
 /* ------------------------------------------------------------------ landing (drafts + committed) */
 
+/** Where a draft row (and the phone "continue" capsule) opens: a draft at the step it was left on, else read-only. */
+export function draftHref(d: DraftListItem): string {
+  return `/programs/new/${d.id}${d.status === "draft" ? `?step=${parseStep(d.step)}` : ""}`;
+}
+
 function DraftRow({ d, onDelete }: { d: DraftListItem; onDelete?: () => void }) {
   const { t, locale } = useI18n();
   const step = parseStep(d.step);
@@ -140,7 +146,7 @@ function DraftRow({ d, onDelete }: { d: DraftListItem; onDelete?: () => void }) 
           {[d.term_code, d.status === "draft" ? t("programWizard.resumeAt", { step: t(`programWizard.step.${step}`) }) : t(`programWizard.status.${d.status}`), t("programWizard.landing.rowCounts", { courses: d.summary.courses, sections: d.summary.sections }), when].filter(Boolean).join(" · ")}
         </span>
       </span>
-      <Button size="sm" variant="secondary" className="max-md:h-11" render={<Link href={`/programs/new/${d.id}${d.status === "draft" ? `?step=${step}` : ""}`} />} nativeButton={false} data-testid="draft-open">
+      <Button size="sm" variant="secondary" className="max-md:h-11" render={<Link href={draftHref(d)} />} nativeButton={false} data-testid="draft-open">
         {d.status === "draft" ? t("programWizard.resume") : t("programWizard.landing.view")}
       </Button>
       {onDelete ? <IconButton size="sm" className="max-md:size-11" label={t("programWizard.forget", { name: d.title || "—" })} onClick={onDelete}><Trash2 aria-hidden /></IconButton> : null}
@@ -181,6 +187,8 @@ function Landing() {
       toast.error(errorText(e, lang));
     }
   };
+  const latest = drafts.data?.items[0]; // newest first (program_drafts.list orders by updated_at desc)
+  const startButton = <Button onClick={() => void start()} disabled={!chosen || busy} aria-busy={busy || undefined} data-testid="wizard-start"><Plus aria-hidden />{t("programWizard.start")}</Button>;
   return (
     <div className="flex max-w-3xl flex-col gap-6" data-testid="wizard-landing">
       <PageHeader title={t("programWizard.title")} subtitle={t("programWizard.subtitle")} />
@@ -194,7 +202,9 @@ function Landing() {
               {sorted.map((x) => <option key={x.id} value={x.id}>{x.code}{x.name && x.name !== x.code ? ` · ${x.name}` : ""}</option>)}
             </NativeSelect>
           </label>
-          <Button onClick={() => void start()} disabled={!chosen || busy} aria-busy={busy || undefined} data-testid="wizard-start"><Plus aria-hidden />{t("programWizard.start")}</Button>
+          {/* MOBILE M-05 (mobile B fix 12): with no draft to continue, starting is the page's one action, so below lg it
+              sits in the page-actions capsule above the tab bar; with drafts, the capsule continues the newest one */}
+          {latest ? startButton : <div data-slot="page-actions" className={pageActionsCapsule}>{startButton}</div>}
         </div>
         <p className="type-footnote text-label-2">{t("programWizard.term.hint")}</p>
       </section>
@@ -207,6 +217,14 @@ function Landing() {
         ) : (
           <p className="type-footnote text-label-2" data-testid="no-drafts">{t("programWizard.noDrafts")}</p>
         )}
+        {latest ? (
+          // phones and tablets only: the rows stay the way to every draft; this is the one thumb-reach action
+          <div data-slot="page-actions" className={cn(pageActionsCapsule, "lg:hidden")}>
+            <Button render={<Link href={draftHref(latest)} />} nativeButton={false} aria-label={t("programWizard.landing.resumeLatestLabel", { name: latest.title || t("programWizard.preview.noName") })} data-testid="draft-resume">
+              {t("programWizard.landing.resumeLatest")}
+            </Button>
+          </div>
+        ) : null}
       </section>
       <section aria-labelledby="committed-title" className="flex flex-col gap-2">
         <h2 id="committed-title" className="type-headline">{t("programWizard.landing.committed")}</h2>

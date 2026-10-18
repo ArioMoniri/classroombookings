@@ -8,6 +8,8 @@ no rooms, no requests, no audit event, the job keeps its status.
 The answer has, per entity (``meeting_requests``, ``sections``, ``rooms``, ``blocks``, ...):
 
 * ``create`` / ``update``: rows inserted / rows whose content changed (bookkeeping columns alone do not count);
+* ``archive``: rows the file no longer has, which the import archives (``archived`` false -> true; FIX-J
+  E2EA2-F01: counted apart from ``update`` so the preview can name the removals);
 * ``unchanged``: rows the file matched that are identical (the importers' and the writer's own counts);
 * ``conflict``: rows where a planner edit (studio, kept in ``imported_snapshots``) and the file disagree. With
   ``on_conflict="keep"`` (default) the planner's value stays; ``"take"`` writes the file's value. Either way
@@ -111,7 +113,8 @@ class ChangeRecorder:
         pk = tuple(inspect(obj).mapper.primary_key_from_instance(obj))
         if any(v is None for v in pk):
             return None
-        return (table, pk[0] if len(pk) == 1 else pk)
+        # a composite key (section_instructors) is one plain string, so a diff row's id is never an array (E2EA-F03)
+        return (table, pk[0] if len(pk) == 1 else ":".join(map(str, pk)))
 
     def _before(self, session: Session, flush_context: Any, instances: Any) -> None:  # noqa: ARG002
         for obj in session.deleted:  # a row created and removed again in the same commit is no change
@@ -164,6 +167,11 @@ def _entity_of_conflict(c: dict[str, Any]) -> str:
     )
 
 
+def _archives(update: dict[str, Any]) -> bool:
+    """A net update that archives the row (the file no longer has it)."""
+    return any(f["field"] == "archived" and f["to"] is True and not f["from"] for f in update["fields"])
+
+
 def summarize(rec: ChangeRecorder, result: dict[str, Any], on_conflict: str) -> dict[str, Any]:
     """Counts per entity and the row diffs of one (dry-run or real) commit."""
     counts: dict[str, Counter[str]] = defaultdict(Counter)
@@ -171,7 +179,7 @@ def summarize(rec: ChangeRecorder, result: dict[str, Any], on_conflict: str) -> 
         counts[key[0]]["create"] += 1
     updates = rec.net_updates()
     for u in updates:
-        counts[u["entity"]]["update"] += 1
+        counts[u["entity"]]["archive" if _archives(u) else "update"] += 1
     for rep in result.get("fast_path", []):
         for entity, n in (rep.get("unchanged") or {}).items():
             counts[entity]["unchanged"] += int(n)
@@ -189,7 +197,7 @@ def summarize(rec: ChangeRecorder, result: dict[str, Any], on_conflict: str) -> 
     ]
     by_row = {(_entity_of_conflict(c), c.get("id")): c for c in conflicts}
     for u in updates:
-        row = {"change": "update", **u}
+        row = {"change": "archive" if _archives(u) else "update", **u}
         if (u["entity"], u["id"]) in by_row:
             row["change"] = "conflict"
         rows.append(row)
@@ -206,12 +214,17 @@ def summarize(rec: ChangeRecorder, result: dict[str, Any], on_conflict: str) -> 
                 for c in conflicts
                 if (_entity_of_conflict(c), c.get("id")) == (r["entity"], r["id"])
             ]
-    order = {"conflict": 0, "update": 1, "create": 2}
+    order = {"conflict": 0, "archive": 1, "update": 2, "create": 3}
     rows.sort(key=lambda r: (order[r["change"]], r["entity"], str(r["id"])))
     return {
         "on_conflict": on_conflict,
         "counts": {
-            e: {k: int(c.get(k, 0)) for k in ("create", "update", "unchanged", "conflict")}
+            # ``archive`` only where the import archives something (older readers expect the four keys)
+            e: {
+                k: int(c.get(k, 0))
+                for k in ("create", "update", "archive", "unchanged", "conflict")
+                if k != "archive" or c.get(k)
+            }
             for e, c in sorted(counts.items())
         },
         "rows": rows[:MAX_ROWS],

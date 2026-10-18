@@ -129,5 +129,7 @@ describe("AiAdmin", () => {
     expect(screen.getByTestId("ai-route-effective-rules")).toHaveTextContent("Ayarlar'daki model");
     expect(screen.getByTestId("ai-route-issues-chat")).toHaveTextContent("KVKK aktarım kaydı yok");
     expect(screen.getByTestId("ai-routes-save")).not.toBeDisabled(); // a missing record warns, the backend refuses calls
+    // MOBILE M-05: below lg the save is in the page-actions capsule above the tab bar (sweep2-2026-10-18)
+    expect(screen.getByTestId("ai-routes-save").closest('[data-slot="page-actions"]')).not.toBeNull();
   });
 });

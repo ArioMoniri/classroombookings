@@ -23,12 +23,14 @@ import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import { ACTION_PREFIXES, ACTION_SENTENCES, ARCHIVED_KINDS, archivedCounts, auditQuery, auditReason, auditSubject, auditTail, canUndo, dedupeOptions, diffRows, emptyAuditFilters, ENTITY_ALIASES, ENTITY_TYPES, isProgramUndo, undoBlockers, undoReasons, valueText, type AuditFilterForm } from "./audit-model";
+import { ACTION_PREFIXES, ACTION_SENTENCES, ARCHIVED_KINDS, archivedCounts, auditQuery, auditReason, auditSubject, auditTail, canUndo, dedupeOptions, diffRows, diffValueText, emptyAuditFilters, ENTITY_ALIASES, ENTITY_TYPES, fieldLabel, isProgramUndo, undoBlockers, undoReasons, type AuditFilterForm } from "./audit-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { DateField } from "@/components/ui/date-field";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { focusAfter } from "@/components/bookings/focus-after";
+import { AuditDaily } from "./audit-daily";
+import { filterToDay } from "./audit-daily-model";
 
 export function AuditView() {
   const { t, locale } = useI18n();
@@ -171,6 +173,16 @@ export function AuditView() {
         </SheetContent>
       </Sheet>
 
+      {/* CH-10: events per day (30 g); a column click filters the list to that day (audit.view only: the counts are everyone's) */}
+      {can("audit.view") ? (
+        <AuditDaily
+          onDay={(day) => {
+            const next = filterToDay(applied, day);
+            setDraft(next);
+            setApplied(next);
+          }}
+        />
+      ) : null}
       <Card className="gap-0 overflow-hidden py-0">
         {log.isLoading ? (
           // the first page of events fills the screen: hold that height, not a one-line spinner (CLS)
@@ -263,6 +275,8 @@ const ENTITY_KEYS: Record<string, MessageKey> = {
   learning_reset: "wave1.audit.e.learning_reset",
   program_draft: "wave1.audit.e.program_draft",
   suggestion: "wave1.audit.e.suggestion",
+  helper_action: "wave1.audit.e.helper_action",
+  helper_thread: "wave1.audit.e.helper_thread",
 };
 
 const VERBS = ["create", "update", "delete", "cancel", "move", "approve", "reject", "decide", "undo", "activate", "withdraw", "import", "policy", "login", "logout", "lock", "unlock", "restore", "archive", "features", "expire", "request", "requested", "approved", "rejected", "withdrawn", "expired", "step", "detect", "resolve", "commit", "deleted", "disabled", "secret"] as const;
@@ -272,12 +286,31 @@ const VERBS = ["create", "update", "delete", "cancel", "move", "approve", "rejec
  * An action this screen does not know still reads as the entity's name plus a generic verb, never the raw key: the
  * key is in the details (`audit-action-<id>`).
  */
-export function auditSentence(action: string, entityType: string, t: ReturnType<typeof useI18n>["t"]): string {
+export function auditSentence(action: string, entityType: string, t: ReturnType<typeof useI18n>["t"], after?: Record<string, unknown> | null): string {
   const special = ACTION_SENTENCES[action];
   const entity = entityLabel(entityType, t);
+  // HB18-F06: a refused helper confirmation names its reason ("Onay reddedildi (geçersiz onay)")
+  if (special === "helper_rejected") {
+    const code = typeof after?.code === "string" ? after.code : "";
+    if ((HELPER_WHY as readonly string[]).includes(code)) return t("wave1.audit.act.helper_rejected_why", { why: t(`wave1.audit.helper.why.${code}` as MessageKey) });
+  }
   if (special) return t(`wave1.audit.act.${special}` as MessageKey, { entity });
   const verb = action.split(".").pop() ?? action;
   return t(((VERBS as readonly string[]).includes(verb) ? `wave1.audit.verb.${verb}` : "wave1.audit.verb.changed") as MessageKey, { entity });
+}
+
+const HELPER_WHY = ["bad_token", "other_user", "already_done", "expired", "not_allowed"] as const;
+const HELPER_ACTIONS = ["create_booking", "cancel_my_booking", "withdraw_my_request", "decide_approval", "undo_last_helper_action", "remember_note"] as const;
+
+/**
+ * HB18-F06: the row tail of a helper event: the action it was about for a refusal ("Rezervasyon"), else the invocation
+ * number; never the raw code ("bad_token · #unknown"). `null` for any other record (the generic tail applies).
+ */
+export function helperTail(e: Pick<AuditEvent, "action" | "entity_type" | "entity_id" | "after" | "before">, t: ReturnType<typeof useI18n>["t"]): string | null {
+  if (e.entity_type !== "helper_action" && e.entity_type !== "helper_thread") return null;
+  const id = e.entity_id ?? "";
+  if ((HELPER_ACTIONS as readonly string[]).includes(id)) return t(`wave1.audit.helper.action.${id}` as MessageKey);
+  return /^\d+$/.test(id) && e.entity_type === "helper_action" ? `#${id}` : "";
 }
 
 /** The record kind for people ("Derslik", "Kişisel veri talebi"); an unknown kind reads as a plain word, not a key. */
@@ -301,7 +334,7 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
       data-action={e.action}
       data-audit-id={e.id}
       tabIndex={-1}
-      aria-label={`${auditSentence(e.action, e.entity_type, t)} ${auditTail(e)}`.trim()}
+      aria-label={`${auditSentence(e.action, e.entity_type, t, e.after)} ${helperTail(e, t) ?? auditTail(e)}`.trim()}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
         <BareButton
@@ -314,8 +347,8 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-baseline gap-x-2">
               {/* UI/UX review §3: a domain sentence ("Derslik özelliği eklendi · #2"), the raw key in the details */}
-              <span className="type-callout font-semibold text-label-1" data-testid={`audit-summary-${e.id}`}>{auditSentence(e.action, e.entity_type, t)}</span>
-              <span className="type-footnote text-label-2 tabular-nums">{auditTail(e)}</span>
+              <span className="type-callout font-semibold text-label-1" data-testid={`audit-summary-${e.id}`}>{auditSentence(e.action, e.entity_type, t, e.after)}</span>
+              <span className="type-footnote text-label-2 tabular-nums">{helperTail(e, t) ?? auditTail(e)}</span>
               {e.undone ? <span className="type-caption font-medium text-label-3">{t("wave1.audit.undone")}</span> : null}
               {e.undo_of ? <span className="type-caption font-medium text-label-3">{t("wave1.audit.undoOf", { id: e.undo_of })}</span> : null}
             </span>
@@ -352,12 +385,13 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
                 <TableBody>
                   {rows.map((r) => (
                     <TableRow key={r.field} data-changed={r.changed || undefined}>
-                      <TableCell className="pl-3 font-mono type-footnote text-label-2">{r.field}</TableCell>
-                      <TableCell className={cn("max-w-64 truncate type-footnote", r.changed ? "text-status-infeasible-fg line-through decoration-1" : "text-label-2")} title={valueText(r.before, words)}>
-                        {valueText(r.before, words)}
+                      {/* BUG-02: the field's label ("Derslik"), and names for the ids this viewer may see (e.refs) */}
+                      <TableCell className="pl-3 type-footnote text-label-2">{fieldLabel(r.field, t)}</TableCell>
+                      <TableCell className={cn("max-w-64 truncate type-footnote", r.changed ? "text-status-infeasible-fg line-through decoration-1" : "text-label-2")} title={diffValueText(r.field, r.before, e.refs, words)}>
+                        {diffValueText(r.field, r.before, e.refs, words)}
                       </TableCell>
-                      <TableCell className={cn("max-w-64 truncate pr-3 type-footnote", r.changed ? "font-medium text-status-feasible-fg" : "text-label-2")} title={valueText(r.after, words)}>
-                        {valueText(r.after, words)}
+                      <TableCell className={cn("max-w-64 truncate pr-3 type-footnote", r.changed ? "font-medium text-status-feasible-fg" : "text-label-2")} title={diffValueText(r.field, r.after, e.refs, words)}>
+                        {diffValueText(r.field, r.after, e.refs, words)}
                       </TableCell>
                     </TableRow>
                   ))}

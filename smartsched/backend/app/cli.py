@@ -14,33 +14,42 @@ from app.core.db import configure_engine, create_all, get_session_factory
 
 
 async def _run_import(args: argparse.Namespace) -> int:
+    """One import, recorded like an upload (RF-08): an ``import_jobs`` row with actor ``system`` and
+    ``summary.source`` (``seed`` for the deploy seed, ``cli`` otherwise), the report and the original file
+    (``GET /imports/{id}/file``), and an ``import.run`` audit event. A failed import is recorded too (no file kept)
+    and exits 1."""
+    from app.services import import_jobs, period_grid
+
     configure_engine(args.database_url or get_settings().database_url)
     await create_all()
-    async with get_session_factory()() as session:
-        if args.what == "planning-list":
-            from app.importers.planning_list import import_planning_list
-
-            rep = await import_planning_list(session, args.file, args.term, week_count=args.week_count)
-        elif args.what == "exam-list":
-            from app.importers.exam_list import import_exam_list
-
-            rep = await import_exam_list(session, args.file, args.term)
-        elif args.what == "weekly-grid":
-            from app.importers.weekly_grid import import_weekly_grid
-
-            rep = await import_weekly_grid(session, args.file, args.term, year=args.year, term_kind=args.term_kind)
-        elif args.what == "room-master":
-            from app.importers.room_master import import_room_master
-
-            rep = await import_room_master(session, args.file)
-        elif args.what == "crbs":
-            from app.importers.crbs_legacy import import_crbs
-
-            source = args.dsn if args.dsn else [Path(f) for f in args.files]
-            rep = await import_crbs(session, source)
-        else:
-            print(f"unknown importer {args.what}", file=sys.stderr)
-            return 2
+    factory = get_session_factory()
+    files = [Path(f) for f in args.files] if args.what == "crbs" else [Path(args.file)]
+    filename = ", ".join(f.name for f in files) if files else (args.dsn or "").split("@")[-1] or None
+    async with factory() as session:
+        await period_grid.refresh(session)  # the admins' period grid (RF-09)
+        job_id = await import_jobs.open_cli_job(
+            session,
+            kind=args.what,
+            filename=filename,
+            term_code=getattr(args, "term", None),
+            source=args.source,
+            files=files,
+        )
+    try:
+        async with factory() as session:
+            rep = await _import(session, args, files)
+    except Exception as exc:  # noqa: BLE001 - recorded on the job, then reported
+        async with factory() as session:
+            await import_jobs.finish_cli_job(session, job_id, error=str(exc) or type(exc).__name__)
+        print(f"import failed (import job {job_id}): {exc}", file=sys.stderr)
+        return 1
+    if rep is None:
+        async with factory() as session:
+            await import_jobs.finish_cli_job(session, job_id, error=f"unknown importer {args.what}")
+        print(f"unknown importer {args.what}", file=sys.stderr)
+        return 2
+    async with factory() as session:
+        await import_jobs.finish_cli_job(session, job_id, result=rep.to_dict())
     d = rep.to_dict()
     print(
         json.dumps(
@@ -57,6 +66,31 @@ async def _run_import(args: argparse.Namespace) -> int:
     if d["rows_skipped_count"]:
         print(f"\n{d['rows_skipped_count']} rows skipped: {d['skip_reasons']}")
     return 0
+
+
+async def _import(session: Any, args: argparse.Namespace, files: list[Path]) -> Any:
+    """The importer call of ``import <what>`` (None for an unknown importer)."""
+    if args.what == "planning-list":
+        from app.importers.planning_list import import_planning_list
+
+        return await import_planning_list(session, args.file, args.term, week_count=args.week_count)
+    if args.what == "exam-list":
+        from app.importers.exam_list import import_exam_list
+
+        return await import_exam_list(session, args.file, args.term)
+    if args.what == "weekly-grid":
+        from app.importers.weekly_grid import import_weekly_grid
+
+        return await import_weekly_grid(session, args.file, args.term, year=args.year, term_kind=args.term_kind)
+    if args.what == "room-master":
+        from app.importers.room_master import import_room_master
+
+        return await import_room_master(session, args.file)
+    if args.what == "crbs":
+        from app.importers.crbs_legacy import import_crbs
+
+        return await import_crbs(session, args.dsn if args.dsn else files)
+    return None
 
 
 async def _run_solve(args: argparse.Namespace) -> int:
@@ -252,7 +286,7 @@ def _backtest(args: argparse.Namespace) -> int:
     return 0 if all(r.passed for r in results) else 1
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="smartsched", description="SmartSched backend CLI")
     p.add_argument("--database-url", default=None)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -274,6 +308,13 @@ def main(argv: list[str] | None = None) -> int:
     cr = imp_sub.add_parser("crbs")
     cr.add_argument("files", nargs="*", help="SQL dump files (structure.sql data.sql …)")
     cr.add_argument("--dsn", default=None, help="mysql://user:pass@host/db")
+    for sp in imp_sub.choices.values():
+        sp.add_argument(
+            "--source",
+            default="cli",
+            choices=["cli", "seed"],
+            help="recorded on the import job (the deploy seed passes seed); the actor is always system",
+        )
     sv = sub.add_parser("solve", help="create and execute a schedule run")
     sv.add_argument("--term", required=True)
     sv.add_argument("--kind", default="COURSE", choices=["COURSE", "EXAM"])
@@ -306,7 +347,11 @@ def main(argv: list[str] | None = None) -> int:
     bt.add_argument(
         "--skip-db", action="store_true", help="leave out B4 and B8 (they build temporary databases, ~3 min)"
     )
-    args = p.parse_args(argv)
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
     if args.cmd == "backtest":
         return _backtest(args)
     if args.cmd == "set-setting":

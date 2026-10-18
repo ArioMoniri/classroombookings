@@ -62,7 +62,9 @@ async def test_import_exam_list_idempotent_and_merges(session):
     assert rep1.extra["merge_groups"] > 500 and rep1.extra["merged_rows"] > 100
     n1 = (await session.execute(select(func.count(ExamRequest.id)))).scalar_one()
     rep2 = await import_exam_list(session, EXAM_LIST, "2026-FINAL")
-    assert rep2.created["exam_requests"] == 0 and rep2.updated["exam_requests"] == rep1.rows_imported
+    # RF-06: an identical file changes nothing; every row is matched and counted unchanged
+    assert rep2.created["exam_requests"] == 0 and rep2.updated["exam_requests"] == 0
+    assert rep2.extra["unchanged"]["exam_requests"] == rep1.rows_imported and rep2.extra["conflicts_count"] == 0
     assert (await session.execute(select(func.count(ExamRequest.id)))).scalar_one() == n1
     # merged cohort: BME 419 on 2026-05-13 13:00 sums enrolment across programmes
     rows = (

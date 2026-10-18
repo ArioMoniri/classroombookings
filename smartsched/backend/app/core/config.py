@@ -111,6 +111,11 @@ class Settings(BaseSettings):
     sqlite_busy_timeout_ms: int = 15_000
 
     upload_dir: str = "./uploads"
+    #: KVKK guard of recording / test stacks (app/core/kvkk_guard.py, FIX-J E2EA-F01): refuse uploads that still
+    #: carry full person names or are a raw seed workbook. Only honoured in dev / test; scripts/record/stack.sh
+    #: turns it on and points ``kvkk_names_file`` at its saved name list (outside the repository).
+    kvkk_upload_guard: bool = False
+    kvkk_names_file: str | None = None
 
     # safe upload intake (app/core/safe_files.py, review B1)
     upload_max_mb: float = 25.0  # any single upload (413 above)

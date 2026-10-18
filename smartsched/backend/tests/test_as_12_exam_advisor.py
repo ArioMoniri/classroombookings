@@ -122,11 +122,12 @@ def test_empty_list_answers_none_with_needs() -> None:
 # ------------------------------------------------------------------------------------------------ B6 (real Final)
 
 
-def test_b6_final_2026_peak_day_126_to_at_most_100_without_new_cohort_conflicts(parsed_exam_list) -> None:  # type: ignore[no-untyped-def]
+def test_b6_final_2026_peak_day_98_to_at_most_78_without_new_cohort_conflicts(parsed_exam_list) -> None:  # type: ignore[no-untyped-def]
+    # AS20-F13 (FIX-G, 2026-10-18): sittings, a merge group once (was 126 exam-list rows -> <= 100)
     res = b6_exam_advisor(parsed_exam_list)
     m = res.metrics
-    assert m["peak_day_before"] == "2026-06-03" and m["peak_exams_before"] == 126
-    assert m["peak_exams_after"] <= 100, m
+    assert m["peak_day_before"] == "2026-06-03" and m["peak_exams_before"] == 98
+    assert m["peak_exams_after"] <= 78, m
     assert m["cohort_days_over_after"] <= m["cohort_days_over_before"]
     assert m["clashes_after"] <= m["clashes_before"]
     assert m["new_cohort_conflicts"] == 0

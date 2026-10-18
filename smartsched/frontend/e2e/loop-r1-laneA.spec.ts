@@ -265,7 +265,7 @@ test("T-R1-06 tabs, user menu, shortcuts and the welcome toast", async ({ browse
   const d = await (await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "tr-TR", timezoneId: "Europe/Istanbul" })).newPage();
   await login(d, ACAD.username, ACAD.password);
   await d.goto("/moderation/me");
-  await expect(d.getByTestId("open-palette")).toHaveAttribute("aria-label", "Komut paleti (Ctrl+K)");
+  await expect(d.getByTestId("helper-trigger")).toHaveAttribute("aria-label", "Ara veya sor (Ctrl+K)"); // HX renamed the trigger
   // the shell arms the global shortcuts on mount and says so (e2e gate: Shift+? landed before the listener existed)
   await expect(d.locator('html[data-shortcuts="armed"]')).toHaveCount(1);
   await d.keyboard.press("Shift+?");

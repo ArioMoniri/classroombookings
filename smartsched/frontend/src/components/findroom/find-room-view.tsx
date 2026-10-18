@@ -37,11 +37,13 @@ import { errorText, pickLang, useFacets, useMyRequests, useRecentSearches, w1Key
 import { intlLocale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { altWhyQuery, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, buildingLabel, periodOptions, recentParts, SHOWN, slotsFor, whyQuery, wholeSpan, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildQuery, clockDefaults, emptyForm, regridForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, buildingLabel, periodOptions, recentParts, SHOWN, slotsFor, spanRefusal, whyQuery, wholeSpan, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { NoBookingTerm } from "@/components/bookings/no-booking-term";
 import { useIsCompact, useIsPhone } from "@/components/bookings/use-is-phone";
+import { PERIODS, usePeriodGridVersion } from "@/lib/time";
 
 const STATUS: Record<string, { icon: LucideIcon; cls: string; key: MessageKey }> = {
   free: { icon: CheckCircle2, cls: "bg-status-feasible text-status-feasible-fg", key: "wave1.find.status.free" },
@@ -100,15 +102,25 @@ export function FindRoomView() {
   const approvalFirst = useApprovalFirst(rooms.data?.[0]?.id, termId);
 
   const [form, setForm] = useState<FindForm | null>(null);
+  const [advOpen, setAdvOpen] = useState(false);
   const [dated, setDated] = useState(false);
   // the form starts on the booking clock's "today" (the backend's, so the e2e clock and the term agree) or the link's
   // ?date= (ISO or GG.AA.YYYY); a switch flipped before the clock answered keeps its value but gets the real date
   if (!dated && today) {
     setDated(true);
-    const init = emptyForm(params.get("date") ?? today);
+    // HX12B-F02 / PER-F08: on a closed day (a Sunday) the form starts on the next teaching day, so "Ara" finds rooms
+    const init = emptyForm(params.get("date") ?? dates.data?.next_open ?? today);
     const text = params.get("text");
     const head = params.get("headcount");
     setForm((p) => (p ? { ...p, date: init.date, weekday: init.weekday, dateFrom: init.dateFrom, dateTo: init.dateTo } : { ...init, text: text ?? "", headcount: head ?? "" }));
+  }
+  // RF-16b: a late period grid moves the default clock fields the person has not changed (and the placeholders)
+  const gridVersion = usePeriodGridVersion();
+  const [grid, setGrid] = useState(() => ({ version: gridVersion, clocks: clockDefaults() }));
+  if (grid.version !== gridVersion) {
+    const clocks = clockDefaults();
+    setGrid({ version: gridVersion, clocks });
+    setForm((p) => (p ? regridForm(p, grid.clocks, clocks) : p));
   }
   const f = form ?? emptyForm(today || "2026-01-01");
   const set = <K extends keyof FindForm>(k: K, v: FindForm[K]) => setForm((p) => ({ ...(p ?? f), [k]: v }));
@@ -167,7 +179,8 @@ export function FindRoomView() {
       // T-R2-14: the whole promised window or nothing (a stale card never opens a trimmed sheet)
       const span = wholeSpan(slotsFor(grid, roomId, date, start, end));
       if (!span) {
-        toast.error(t("wave1.find.notFree"));
+        // BUG-01: a closed day (Sunday, a holiday) says so; only a period booked meanwhile is "az önce doldu"
+        toast.error(t(spanRefusal(slotsFor(grid, roomId, date, start, end)) === "closed" ? "wave1.find.dayClosed" : "wave1.find.notFree"));
         // R3-S-02: the pressed card leaves with the refreshed list, so the refreshed summary takes the focus (not <body>)
         void run(f, false, true);
         return;
@@ -199,8 +212,15 @@ export function FindRoomView() {
   if (!hydrated) return <Loading />;
 
   // features, buildings, free text and the two switches: inline on desktop, a "Filters" sheet below 1024 px
+  const examSwitch = (
+    <label className="flex min-h-11 items-center justify-between gap-3 type-callout text-label-1 pointer-fine:min-h-8">
+      {t("wave1.find.exam")}
+      <Switch checked={f.purpose === "exam"} onCheckedChange={(v) => set("purpose", v ? "exam" : "teaching")} aria-label={t("wave1.find.exam")} />
+    </label>
+  );
   const advanced = (
     <>
+      {examSwitch}
       {facets.data?.length ? <FeaturePicker facets={facets.data} value={f.features} onChange={(v) => set("features", v)} /> : null}
 
       {buildings.length ? (
@@ -234,13 +254,24 @@ export function FindRoomView() {
       </div>
     </>
   );
-  const moreCount = Object.keys(f.features).length + f.buildings.length + (f.text.trim() ? 1 : 0) + (f.showBusy ? 1 : 0) + (f.when === "date" && f.otherDays ? 1 : 0);
+  const moreCount = (f.purpose === "exam" ? 1 : 0) + Object.keys(f.features).length + f.buildings.length + (f.text.trim() ? 1 : 0) + (f.showBusy ? 1 : 0) + (f.when === "date" && f.otherDays ? 1 : 0);
+
+  // E2EB-F03: no bookable term yet (empty install): say why and the next step, never a form whose Ara stays off
+  if (ctx.isSuccess && ctx.data?.current_term_id == null)
+    return (
+      <div className="flex flex-col gap-5" data-testid="find-room">
+        <PageTitle title={t("wave1.find.title")} subtitle={t("wave1.find.lead")} />
+        <NoBookingTerm testId="fr-no-term" />
+      </div>
+    );
 
   return (
     <div className={cn("flex flex-col gap-5", compact && "pb-20")} data-testid="find-room">
       <PageTitle title={t("wave1.find.title")} subtitle={t("wave1.find.lead")} />
-      <div className="grid gap-5 lg:grid-cols-[minmax(20rem,22.5rem)_minmax(0,1fr)] lg:items-start">
-        <div className="flex flex-col gap-4 lg:sticky lg:top-16">
+      {/* F-MA-1: one shrinkable column below lg (an implicit grid column is as wide as its widest min-content; a
+          fieldset is min-content wide by default: the search form ran to 559 px at 200 % text) */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(20rem,22.5rem)_minmax(0,1fr)] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-16">
           <Card className="gap-0 overflow-visible px-4 py-4">
             <form
               id="fr-form"
@@ -251,7 +282,7 @@ export function FindRoomView() {
                 void run();
               }}
             >
-              <fieldset className="flex flex-col gap-2">
+              <fieldset className="flex min-w-0 flex-col gap-2">
                 <legend className="mb-2 type-headline text-label-1">{t("wave1.find.when")}</legend>
                 <SegmentedControl<WhenMode>
                   aria-label={t("wave1.find.when")}
@@ -305,7 +336,7 @@ export function FindRoomView() {
                 )}
               </fieldset>
 
-              <fieldset className="flex flex-col gap-2">
+              <fieldset className="flex min-w-0 flex-col gap-2">
                 <legend className="mb-2 type-headline text-label-1">{t("wave1.find.time")}</legend>
                 <SegmentedControl<TimeMode>
                   aria-label={t("wave1.find.time")}
@@ -322,10 +353,10 @@ export function FindRoomView() {
                 {f.time === "clock" ? (
                   <div className="grid grid-cols-2 gap-2">
                     <Field label={t("wave1.find.start")} htmlFor="fr-start" error={formError === "start" ? t(ERROR_KEY.start) : null}>
-                      <Input id="fr-start" inputMode="numeric" placeholder="10:10" value={f.start} onChange={(e) => set("start", e.target.value)} data-testid="fr-start" />
+                      <Input id="fr-start" inputMode="numeric" placeholder={PERIODS[2].start} value={f.start} onChange={(e) => set("start", e.target.value)} data-testid="fr-start" />
                     </Field>
                     <Field label={t("wave1.find.end")} htmlFor="fr-end" error={formError === "end" || formError === "order" ? t(ERROR_KEY[formError]) : null}>
-                      <Input id="fr-end" inputMode="numeric" placeholder="12:30" value={f.end} onChange={(e) => set("end", e.target.value)} data-testid="fr-end" />
+                      <Input id="fr-end" inputMode="numeric" placeholder={PERIODS[4].end} value={f.end} onChange={(e) => set("end", e.target.value)} data-testid="fr-end" />
                     </Field>
                   </div>
                 ) : f.time === "periods" ? (
@@ -373,18 +404,22 @@ export function FindRoomView() {
               <Field label={t("wave1.find.headcount")} htmlFor="fr-head" hint={t("wave1.find.headcountHint")}>
                 <Input id="fr-head" type="number" min={0} max={5000} inputMode="numeric" placeholder="0" value={f.headcount} onChange={(e) => set("headcount", e.target.value)} data-testid="fr-headcount" />
               </Field>
-              <label className="-mt-1 flex min-h-11 items-center justify-between gap-3 type-callout text-label-1 pointer-fine:min-h-8">
-                {t("wave1.find.exam")}
-                <Switch checked={f.purpose === "exam"} onCheckedChange={(v) => set("purpose", v ? "exam" : "teaching")} aria-label={t("wave1.find.exam")} />
-              </label>
 
               {compact ? (
-                <Button variant="outline" onClick={() => setMoreOpen(true)} aria-haspopup="dialog" className="self-start" data-testid="fr-filters-open">
+                <Button variant="outline" onClick={() => setMoreOpen(true)} aria-haspopup="dialog" className="self-start" data-testid="fr-filters-open" data-tour="find-room-filters">
                   <SlidersHorizontal aria-hidden />
                   {moreCount ? t("reserve.filters.openCount", { n: moreCount }) : t("reserve.filters.open")}
                 </Button>
               ) : (
-                advanced
+                // HX12B-F02 / PER-F08: date, time and head count stay; the rest waits behind "Gelişmiş" (open when set);
+                // E2EB-F06: the desktop "Göster" anchor of find_room.filters (the phone's is the Filtreler button)
+                <details className="group rounded-xl" open={advOpen || moreCount > 0} onToggle={(e) => setAdvOpen(e.currentTarget.open)} data-testid="fr-advanced" data-tour="find-room-filters">
+                  <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg py-1 type-callout text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:min-h-11">
+                    <ChevronDown className="size-4 transition-transform duration-(--dur-fast) group-open:rotate-180" aria-hidden />
+                    {moreCount ? t("wave1.find.advancedN", { n: moreCount }) : t("wave1.find.advanced")}
+                  </summary>
+                  <div className="mt-3 flex flex-col gap-4">{advanced}</div>
+                </details>
               )}
 
               {/* desktop: the search button closes the form; phones / tablets get the page-level capsule below (T-R2-10) */}
@@ -439,7 +474,7 @@ export function FindRoomView() {
                 <Alert tone="warning" title={t("wave1.find.closedTitle", { n: result.closed_dates.length })}>
                   {result.closed_dates
                     .slice(0, 6)
-                    .map((c) => `${fmt.short(c.date)}${c.holiday ? ` (${c.holiday})` : ""}`)
+                    .map((c) => `${fmt.short(c.date)}${c.label ? ` (${pickLang(c.label, locale)})` : c.holiday ? ` (${c.holiday})` : ""}`)
                     .join(", ")}
                 </Alert>
               ) : null}

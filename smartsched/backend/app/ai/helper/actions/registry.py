@@ -165,8 +165,8 @@ def permitted(access: Access, enabled: Iterable[str] | None = None) -> list[Acti
     return [a for a in all_actions() if a.allowed(access) and (on is None or a.name in on)]
 
 
-def permitted_names(access: Access) -> list[str]:
-    return [a.name for a in permitted(access)]
+def permitted_names(access: Access, enabled: Iterable[str] | None = None) -> list[str]:
+    return [a.name for a in permitted(access, enabled)]
 
 
 # ------------------------------------------------------------------------------------------- strict schema

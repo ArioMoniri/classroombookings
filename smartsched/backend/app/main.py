@@ -121,8 +121,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from app.services import channels
 
     channels.register()  # notification channels (push, Telegram, WhatsApp, SMS, Teams/Slack) into notify_dispatch
-    from app.services import learning
+    from app.services import learning, period_grid
     from app.workers import approvals_sweeper
+
+    async with get_session_factory()() as session:
+        await period_grid.refresh(session)  # RF-09: the admins' period grid, before the first request
 
     if settings.environment != "test":  # tests call the sweep directly; no timers inside the test loop
         approvals_sweeper.start()
@@ -136,6 +139,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from app.services import kvkk
 
         kvkk.start_purge_job()  # A4: daily KVKK retention (enabled policies only; every policy ships disabled)
+        period_grid.start_refresh_job()  # RF-09: a grid changed through another worker reaches this one
     log.info("SmartSched backend ready (%s, %s)", settings.environment, settings.database_url.split("@")[-1])
     yield
     await approvals_sweeper.stop()
@@ -149,6 +153,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from app.services import kvkk as kvkk_jobs
 
     await kvkk_jobs.stop_purge_job()
+    await period_grid.stop_refresh_job()
     from app.core import observability
 
     await observability.stop_relays()  # the Prometheus + integrations alert loops (started by the middleware)

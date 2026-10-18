@@ -1,6 +1,6 @@
 /** CAL-08 sheet model: scope cards with reasons, only the configured channels, the approval fields, the sample line. */
 import { describe, expect, it } from "vitest";
-import { ExportOptions, Subscription, connectScopes } from "@/lib/api/calendar-export";
+import { ExportOptions, Subscription, connectScopes, filePath } from "@/lib/api/calendar-export";
 import {
   approvalFields,
   channelChoices,
@@ -104,6 +104,11 @@ describe("approvalFields", () => {
   });
   it("has its own list for bookings", () => {
     expect(approvalFields({ kind: "my_bookings", fields: null })).toEqual(["booking_title", "room", "time"]);
+  });
+  it("CAL-13: a duty has its own bullet (code, exam time, room), never the class 'code and section' one", () => {
+    expect(approvalFields({ kind: "my_duties", fields: null })).toEqual(["duty", "department"]);
+    expect(approvalFields({ kind: "my_duties", fields: ["code", "room", "time", "department", "co_instructors", "link"] })).toEqual(["duty", "department", "link"]);
+    expect(approvalFields({ kind: "my_duties", fields: null }, { department: false, co_instructors: true })).toEqual(["duty"]);
   });
 });
 
@@ -246,5 +251,30 @@ describe("connectScopes (API.md: the new sheet always sends scopes on connect)",
     expect(connectScopes([])).toEqual(["my_bookings"]);
     expect(connectScopes(null)).toEqual(["my_bookings"]);
     expect(connectScopes([" ", ""])).toEqual(["my_bookings"]);
+  });
+});
+
+describe("CAL-13 Sınav görevlerim", () => {
+  const withDuties = ExportOptions.parse({
+    scopes: [
+      { kind: "my_duties", available: true, upcoming: 7 },
+      { kind: "my_bookings", available: true, upcoming: 2 },
+      { kind: "my_classes", available: true, upcoming: 28 },
+    ],
+  });
+
+  it("is the last card, after Rezervasyonlarım", () => {
+    expect(scopeChoices(withDuties, "tr").map((x) => x.key)).toEqual(["my_classes", "my_bookings", "my_duties"]);
+    expect(scopeChoices(withDuties, "tr").at(-1)).toMatchObject({ kind: "my_duties", available: true, upcoming: 7 });
+  });
+
+  it("has its own file, push scope and file name", () => {
+    expect(filePath("my_duties")).toBe("/calendar/export/duties.ics");
+    expect(pushScope("my_duties", null)).toBe("my_duties");
+    expect(fileName("my_duties", "2026-FİNAL")).toBe("sinav-gorevlerim-2026-final.ics");
+  });
+
+  it("never sends the other invigilators' names", () => {
+    expect(approvalFields({ kind: "my_duties", fields: null }, { co_instructors: true })).not.toContain("co_instructors");
   });
 });

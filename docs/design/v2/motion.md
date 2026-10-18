@@ -431,6 +431,95 @@ Rejected: `number-pop-in` (500 ms count-up), `shimmer-text`, `matrix-loader`, Ev
 bar grow-in. Audit: `e2e/charts-a11y.spec.ts` (keyboard, forced colours, print); the motion-audit pattern runs on the
 chart routes in CH-06/CH-12.
 
+### 3.19 Sign-in security (`docs/design/v3/auth.md` §11; AUX-10 hero, aux-10-2026-10-18)
+
+AUX-09 adds the §11.2 rows (2FA step, codes, passkeys) here. Purpose of the hero: "While the person signs in, the scene
+quietly shows what SmartSched does, then holds still; it never competes with the form." Hosted Motion Agent fixes used:
+0. The one reserved fix, "signin-hero-settle", was not spent because `TRANSITIONS_AGENT_LICENSE` was not set in the
+AUX-10 session. It stays reserved for this hero only.
+
+| Moment | Animation | Token | Reduced motion | Reduced transparency |
+|---|---|---|---|---|
+| Sign-in hero enters (≥ 1024 px, `/login` only, after `requestIdleCallback` + 300 ms, once the first frame exists) | tint frame opacity 0 → 1 with a 4 px rise; the Lottie and its player load only then | `dur.slow` 240 ms, `ease.out` | poster PNG, static (no player request) | the frame is `--mat-thin` with no backdrop-filter; the in-app setting makes it solid |
+| Hero plays | `hero-solver` frames 0 → 140 once (4.67 s at 30 fps, every inner tween ≤ 9 frames, `docs/lottie/build/audit.mjs`) | `HERO_SEGMENT` | none | same |
+| Hero settles | pause and seek to frame 140 (the poster frame), then hold; never loops | — | — | — |
+| Theme switch after the pass started | the new theme's poster appears (fade 240 ms); no replay | `dur.slow` | instant | same |
+| Save-Data / `prefers-reduced-data` | poster PNG with the entry fade | `dur.slow` | static | same |
+| < 1024 px, forced colours, 2FA step / setup | not rendered (no bundle request) | — | — | — |
+
+Audit: `e2e/au-signin-hero.spec.ts` (ends ≤ 5 s and does not loop, no LoAF > 50 ms while typing, no bundle at 390,
+poster under reduced motion, motion-audit case: no finite animation > 300 ms, ≤ 2 backdrop-filter surfaces,
+pointer-events none, hidden in forced colours).
+
+### 3.20 Welcome guide (`docs/design/v3/welcome-guide.md` §8; WG-09, wg-09-2026-10-18)
+
+Purpose: "a guide for you appeared; these are the parts; look here now; done, and the server knows." This surface
+uses a stricter ceiling: **≤ 240 ms per one-shot motion, delays included**. It uses tweens from
+`components/welcome/motion.ts` (the shared springs settle in 270–285 ms, and nothing here is dragged). Waiver against
+§1's spring-first rule: none of these elements is grabbed or re-targeted by a finger. Hosted Motion Agent fixes used: 0
+(`TRANSITIONS_AGENT_LICENSE` was not set; the one approved fix for the sheet-open + hero moment is still unspent).
+
+| Moment | Animation | Token | Reduced motion | Reduced transparency |
+|---|---|---|---|---|
+| Welcome sheet opens | ui/dialog `t-modal`: desktop scale .96 → 1 + opacity; phone 2.5 rem up | `--spring-glass-morph` / `--spring-sheet` curves over `--dur-slow` (240 ms); exit `--dur-fast` `--ease-in` | none (globals.css T-R2-07) | sheet opaque |
+| Cards first reveal | y 8 → 0 + opacity, stagger 30 ms, max 5 | `dur.fast` + `staggerRule.step`, ≤ 240 ms total | none | same |
+| Lottie hero | after 240 ms: player fades in, plays 0 → poster frame once (`quick-reserve` 0 → 86 for academician/staff/dept admin/approver, others reuse the set), holds; once per page load | `dur.slow` fade; clip ≤ 3 s, inner tweens ≤ 9 f | poster PNG, no request | same (no glass on the hero) |
+| Phone card paging | x ±24 + opacity; dot pill `layoutId` | `dur.base` in, `dur.fast` out; dot `dur.base` | 100 ms fade, instant out | same |
+| Tour step card in | floater opacity + card scale .98 → 1 (`@starting-style`) | `--dur-fast` `--ease-out` | 100 ms fade | opaque card |
+| Spotlight ring re-target | one ring, `layout` with `layoutDependency={target}` (scroll follows 1:1, no trailing) | `dur.slow` `ease.inOut` | jumps | unchanged |
+| Checklist tick | fill, then path draw | `dur.fast` + `dur.fast` (240 ms) | instant | same |
+| Checklist progress | `scaleX`, no overshoot | `dur.slow` `ease.out` | instant | same |
+| All done disc / "Yeni" badge | scale .8 / .6 → 1 + opacity, no bounce | `dur.base` `ease.out` | instant | same |
+| Hint popover / strip | opacity + scale .98 / opacity + y −6 | `dur.fast` / `dur.base` | 100 ms fade / instant | opaque popover |
+
+Audit: `components/welcome/motion.test.ts` (ceiling + source guard), `welcome-hero.test.tsx`, `welcome-motion.test.tsx`;
+the welcome block for `e2e/motion-audit.spec.ts` is listed in the WG-09 report as an e2e item (sheet open, tour step,
+checklist tick: ≤ 3 dropped frames, no finite animation > 300 ms except the Lottie, reduced motion = end state, reduced
+transparency = opaque).
+
+### 3.21 Helper ("Yardımcı": sheet and Göster; `docs/design/v3/helper.md` §7; HX-11, shell-int-2026-10-18)
+
+Purpose: "a helper appeared beside your page and goes back the same way; the control you asked about is here." Built in
+`components/helper/helper-sheet.tsx` (motion), `components/helper/helper.css` (CSS keyframes) and the WG-05
+`SpotlightRing` reused by `components/helper/show-me.tsx`. transitions.dev: the free recipes panel-reveal,
+shimmer-text, skeleton-reveal and success-check were used as timing references only and re-implemented on our tokens
+(nothing pasted; `components/ui/SOURCES.md` row). Hosted Motion Agent fixes used: 0.
+
+| Moment | Animation | Token | Reduced motion | Reduced transparency |
+|---|---|---|---|---|
+| Sheet opens, desktop (non-modal, no scrim) | the sheet itself x 24 → 0 + opacity; no blur in the motion; composer focused on frame 1 | `springs.sheet` (settles ≈ 269 ms) | 100 ms opacity (`tween.reduced`) | `--mat-thick-solid`, no backdrop-filter |
+| Sheet closes, desktop | opacity + x 24 | `dur.fast` 120 ms, `ease.in` (`helperSheetExit`) | instant (HX-19) | same |
+| Sheet opens, phone (full-screen dialog) | y 100 % → 0 | `springs.sheet` (pattern 4, settles ≈ 270 ms) | 100 ms opacity | opaque |
+| Sheet closes, phone, ✕ / Esc / a tap on the handle (HX-19) | y → 100 % | `dur.base` 180 ms, `ease.in` (≤ 200 ms, faster than the enter) | instant, no travel | opaque |
+| Drag on the handle, phone (HX-19) | the sheet follows the finger 1:1 down (no spring lag, upward clamped at 0); `will-change: transform` only during the gesture; the pill darkens (`data-dragging`) | motion value = the sheet's `y` (`sheet-drag.ts`) | 1:1 kept (direct manipulation, §5 "Drag") | opaque |
+| Release past 30 % of the height or a flick > 0.5 px/ms (HX-19) | continues down y → 100 %, then the focus returns to the opener | `dur.fast` 120 ms, `ease.out` (carries the flick); rule `shouldDismissSheet` (ui/sheet, same as every bottom sheet) | instant close | opaque |
+| Release short of it, or a pointer cancel (HX-19) | springs back to y 0 from the release point with the release velocity | `springs.sheet` | back on the same frame | opaque |
+| Thinking ("Düşünüyor…") | label shimmer, the only loop; stops with the first token | 1.6 s linear loop (`helper-shimmer`) | static label | static label (forced colours: CanvasText) |
+| Card appears | opacity + y 6 → 0, once; rows not staggered | `--dur-base` 180 ms, `--ease-out` (`helper-enter`) | none | opaque card |
+| Card done | 20 px check disc scale .8 → 1 | `--dur-base`, `--spring-bouncy-subtle` (`helper-check`) | static check | same |
+| "Göster" ring | WG-05 ring re-targets to `[data-tour=…]` (one element, `layout`), step card docked on phones; page scrolls the target to the centre | `dur.slow` `ease.inOut` (as §3.20) | ring jumps; `scrollIntoView` `behavior: "auto"` | opaque step card |
+| Status chip word | cross-fade | `dur.base` | instant | — |
+
+HX-19 handle (phones only): a 36 × 4 px pill in a 96 × 44 px `<button>` centred at the top (a 24 px row; the target
+reaches into the header's empty middle and the header's controls sit above it). It is named "Kapat (aşağı
+sürükleyin)" / "Close (drag down)", it is not a Tab stop (`tabindex=-1`: ✕ stays the first stop, Esc still closes), and
+activating it (a tap, or a screen-reader double-tap) closes like ✕; the click that trails a drag is ignored.
+`touch-action: none` on the handle only, so the log keeps its own scrolling. Exits are chosen per close through
+AnimatePresence `custom` (`helperSheetExit(kind)`), so a drag close never replays the slower ✕ exit. Hosted
+transitions.dev fixes used: 0 (none approved); no new animation library (motion v14 `useMotionValue` + `animate`).
+
+No motion: typing, palette filtering and group reorders, the "Yardımcıya sor" rows in the user menu and "Daha", the
+page-context chip, memory deletes. Blur budget with the sheet open: shell bar + sheet ≤ 3 surfaces.
+
+Audit: `e2e/motion-audit.spec.ts` "motion audit: helper" (sheet open ⌘J, close Esc, palette › Nerede? › Shift+Enter →
+ring: no finite animation > 300 ms, ≤ 3 dropped frames per interaction under MOTION_STRICT, ≤ 3 backdrop-filter
+surfaces; reduced motion: no transform animation and the sheet at its end transform). HX-19 adds "motion audit: helper
+drag on phones (HX-19)" at 390×844 touch (CDP touch events), with reduced motion off and on: drag past 30 % → detached
+≤ 260 ms after release (120 ms exit + the removal frame; ≤ 80 ms reduced) and focus on the opener; a 120 px slow drag
+→ stays and returns to an identity transform (on the next frame when reduced); its trailing click does not close; a
+90 px / 50 ms flick closes; Esc exit ≤ 260 ms; the handle is ≥ 44 × 44, named, `tabindex=-1`. Queued for the e2e lane
+(resource rule 2026-10-18).
+
 ## 4. Key flows end to end
 
 **Generate (Studio → island → report)**

@@ -90,7 +90,7 @@ export interface HabitIn {
 export const learningVersionsApi = {
   refresh: (termId: number) => request("/learning/refresh", { method: "POST", body: { term_id: termId }, schema: z.object({ version: LearningVersion.nullable().catch(null).optional() }).passthrough(), ...s }),
   versions: (termId: number) => request("/learning/versions", { query: { term_id: termId }, schema: VersionList, ...s }),
-  revert: (id: number) => request(`/learning/versions/${id}/revert`, { method: "POST", schema: z.object({ identical: z.boolean().default(false), version: LearningVersion.nullable().catch(null).optional() }).passthrough(), ...s }),
+  revert: (id: number) => request(`/learning/versions/${id}/revert`, { method: "POST", schema: z.object({ identical: z.boolean().default(false), unchanged: z.boolean().default(false), version: LearningVersion.nullable().catch(null).optional() }).passthrough(), ...s }),
   calibration: () => request("/learning/calibration", { schema: Calibration, ...s }),
   applyCalibration: (attribute: string, min: number | null) => request("/learning/calibration/apply", { method: "POST", body: { attribute, min_confidence: min }, ...s }),
   priors: (termId: number) => request("/learning/priors", { query: { term_id: termId }, schema: z.array(Prior), ...s }),
@@ -124,7 +124,10 @@ export function useLearningSettings(enabled = true) {
 /** every write refreshes the whole learning cache (summary, suggestions, versions, priors) */
 export function useLearningVersionActions() {
   const qc = useQueryClient();
-  const done = () => qc.invalidateQueries({ queryKey: ["learning"] });
+  // AS20-F11: not awaited, so the caller's toast and focus come at once; the lists refetch in the background
+  const done = () => {
+    void qc.invalidateQueries({ queryKey: ["learning"] });
+  };
   return {
     refresh: useMutation({ mutationFn: (termId: number) => learningVersionsApi.refresh(termId), onSuccess: done }),
     revert: useMutation({ mutationFn: (id: number) => learningVersionsApi.revert(id), onSuccess: done }),

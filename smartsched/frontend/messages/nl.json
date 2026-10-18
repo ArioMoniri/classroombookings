@@ -99,6 +99,11 @@
   "wave1": {
     "find": {
       "weeks": "weken"
+    },
+    "audit": {
+      "f": {
+        "days": "dagen"
+      }
     }
   },
   "moderation": {
@@ -152,10 +157,30 @@
       "day": "dag"
     }
   },
+  "charts": {
+    "bookings": {
+      "week": "week"
+    },
+    "audit": {
+      "day": "dag"
+    }
+  },
   "adaptive": {
     "peaks": {
       "col": {
         "weeks": "weken"
+      }
+    }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "weken"
+      },
+      "field": {
+        "class_year": "jaar",
+        "day": "dag",
+        "week": "week"
       }
     }
   }

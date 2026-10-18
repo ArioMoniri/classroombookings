@@ -34,6 +34,7 @@ import { errorText, wave1Error } from "@/lib/api/wave1";
 import { pairLang, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
+import { coarseHitArea } from "@/components/ui/hit-area";
 
 type Pending = Record<string, boolean>;
 const chanKey = (c: string) => `c:${c}`;
@@ -290,7 +291,7 @@ function Unreachable({ channels, label }: { channels: ChannelPref[]; label: (x: 
         <p>
           {t("notifications.prefs.notLinked", { names: linked.map(label).join(", ") })}
           {" — "}
-          <Link href="/profile#channels" className="font-medium text-tint-text underline-offset-2 hover:underline" data-testid="prefs-link-channels">
+          <Link href="/profile#channels" className={cn("relative font-medium text-tint-text underline-offset-2 hover:underline", coarseHitArea)} data-testid="prefs-link-channels">
             {t("notifications.prefs.linkChannels")}
           </Link>
         </p>

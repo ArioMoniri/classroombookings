@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
 import { StatusBadge } from "@/components/common/status-badge";
-import { runStatusBadge } from "@/components/runs/runs-list";
+import { runStatusBadge } from "@/components/runs/run-status";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { KbdHint } from "@/components/ui/kbd-hint";
 import { ADMIN_SECTION_NAV_ITEMS } from "@/components/admin/nav-items";
@@ -20,6 +20,7 @@ import { visibleNavGroups, type NavItem } from "./nav-config";
 import { useActiveTerm } from "./term-switcher";
 import { useCycleTheme } from "./theme-toggle";
 import { useWelcomeCommands } from "@/components/welcome";
+import { HelperPaletteBottom, HelperPaletteEmpty, HelperPaletteTop, useHelperPaletteSearch } from "@/components/helper/palette-groups";
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -109,7 +110,9 @@ export function CommandPalette() {
   // every setup section the user may open is too (admin persona M-44: "Onay kur" → "Onay kuralları")
   const sectionItems: NavItem[] = ADMIN_SECTION_NAV_ITEMS.filter((i) => can(i.permission)).map((i) => ({ href: i.href, labelKey: i.labelKey, icon: i.icon }));
   const gotoAll = [...visibleNavGroups(can).flatMap((g) => g.items), ...sectionItems];
-  const gotos = actionsOnly ? [] : gotoAll.filter((i, at) => gotoAll.findIndex((x) => x.href === i.href) === at).filter((i) => matches(text, t(i.labelKey), i.href)).slice(0, text ? 12 : 30);
+  // HX-02: pages the helper index already lists under "Sayfalar ve ayarlar" are not repeated in "Git"
+  const helperPages = useHelperPaletteSearch(text).pageHrefs;
+  const gotos = actionsOnly ? [] : gotoAll.filter((i) => !text || !helperPages.has(i.href)).filter((i, at) => gotoAll.findIndex((x) => x.href === i.href) === at).filter((i) => matches(text, t(i.labelKey), i.href)).slice(0, text ? 12 : 30);
   const prefs = [
     { value: "pref-theme", icon: Monitor, label: t("palette.toggleTheme"), keys: ["T"], run: () => { cycleTheme(); setOpen(false); }, words: "theme tema dark light koyu açık" },
     { value: "pref-lang", icon: Languages, label: t("palette.toggleLang"), keys: ["L"], run: () => { setLocale(languages[(languages.indexOf(locale) + 1) % languages.length]!); router.refresh(); setOpen(false); }, words: "language dil türkçe english" },
@@ -147,14 +150,15 @@ export function CommandPalette() {
   );
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen} title={t("palette.title")} description={t("glass.palette.placeholder")} className="top-2 max-w-[calc(100vw-1rem)] sm:top-[14%] sm:max-w-[640px]">
+    <CommandDialog open={open} onOpenChange={setOpen} title={t("palette.title")} description={t("helper.palette.placeholder")} className="top-2 max-w-[calc(100vw-1rem)] sm:top-[14%] sm:max-w-[640px]">
       <LayoutGroup id="palette">
         <Command shouldFilter={false} loop value={selected} onValueChange={setSelected} label={t("palette.title")}>
-          <CommandInput placeholder={t("glass.palette.placeholder")} value={query} onValueChange={setQuery} className="text-base" />
+          <CommandInput placeholder={t("helper.palette.placeholder")} value={query} onValueChange={setQuery} className="text-base" />
           <CommandList className="max-h-[min(60vh,520px)]">
             {listReady ? (
               <>
-            <CommandEmpty>{loading ? t("glass.palette.searching") : t(planner ? "glass.palette.empty" : roomViewer ? "glass.palette.emptyRooms" : "glass.palette.emptyPages", { query: text })}</CommandEmpty>
+            <CommandEmpty>{text ? <HelperPaletteEmpty query={text} loading={loading} /> : t(planner ? "glass.palette.empty" : roomViewer ? "glass.palette.emptyRooms" : "glass.palette.emptyPages", { query: text })}</CommandEmpty>
+            <HelperPaletteTop query={text} />
             {sectionsByCourse.length ? (
               <CommandGroup heading={t("glass.palette.courses")}>
                 {sectionsByCourse.map((c) =>
@@ -275,6 +279,7 @@ export function CommandPalette() {
                 )}
               </CommandGroup>
             ) : null}
+            <HelperPaletteBottom query={query} />
             {prefs.length ? (
               <CommandGroup heading={t("palette.prefs")}>
                 {prefs.map((p) =>

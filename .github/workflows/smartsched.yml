@@ -49,9 +49,11 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: smartsched/backend/pyproject.toml
-      - name: Install
-        run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+          cache-dependency-path: smartsched/backend/requirements-dev.lock
+      - name: Install (hash-checking mode, SECURITY F13)
+        run: |
+          pip install --require-hashes -r requirements-dev.lock -r requirements-build.lock
+          pip install --no-deps --no-build-isolation -e .
       - name: Backend gate (make check = ruff + mypy incl. app/api + app/ai + fast pytest on the real workbooks)
         run: make check
       - name: Backend slow tests (heaviest real-workbook tests, tests/conftest.py SLOW_TESTS)

@@ -6,6 +6,9 @@ speech-only providers' fixed models; the test call of a speech model transcribes
 (``app/ai/voice/assets``); routes accept only speech models for ``voice_stt`` and only text models elsewhere;
 ``GET / PUT /ai/admin/voice`` hold the voice settings (audited ``ai.voice``); limits take audio seconds.
 
+Helper (HB-14 / HB-15): ``GET / PUT /ai/admin/helper`` hold the institution's ``ai.helper`` controls (audited
+``ai.helper``, :mod:`app.ai.helper.settings`); ``GET /ai/admin/helper/summary`` is its telemetry as aggregates.
+
 Who: administrators with ``planning.admin`` or ``setup.settings`` manage everything under ``/ai/admin``; any
 signed-in user reads only their own usage. Keys are write-only: answers carry ``{"set", "masked"}`` and never the
 value; every change writes an audit event (values of secrets never reach the audit log either).
@@ -17,7 +20,7 @@ import asyncio
 import re
 import time
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -186,8 +189,22 @@ async def _provider_out(db: DB, p: str) -> dict[str, Any]:
         "transfer_ok": gw.transfer_ok(p, cfg, transfer, local=local),
         "local": local,
         "allow_local": allow_local,
-        "warnings": [LOCAL_WARNING] if allow_local else [],
+        "warnings": ([LOCAL_WARNING] if allow_local else []) + await _context_warnings(db, p),
     }
+
+
+async def _context_warnings(db: DB, p: str) -> list[dict[str, str]]:
+    """``context_unverified`` per synced model whose served context window is not known yet (HB-17 bug 2)."""
+    from app.ai import capabilities as caps
+
+    if p != "openai_compatible":
+        return []
+    out: list[dict[str, str]] = []
+    for mid, c in (await gw.model_capabilities(db, p)).items():
+        if c.get("context_verified") is False:
+            tr, en = caps.unverified_text(c.get("context_window"), mid)
+            out.append({"code": "context_unverified", "message_tr": tr, "message_en": en, "model": mid})
+    return out
 
 
 #: shown on the provider card while the local-server opt-in is on (docs/SECURITY.md R12)
@@ -388,8 +405,9 @@ async def test_provider(
     provider: str, body: TestIn, db: DB, user: AIAdmin, probe: bool = Query(False)
 ) -> dict[str, Any]:
     """A tiny real call (a few output tokens, no tools) with the stored credentials; metered as ``test``. With
-    ``probe=true`` (HB-12) three tiny calls find out what the model can do (forced tool, JSON schema, a 32×32
-    image; under 1000 tokens, one ``test`` row) and the result is stored as the model's ``probe`` capabilities."""
+    ``probe=true`` (HB-12) three small calls find out what the model can do (forced tool, JSON schema, a 32×32
+    image; at most 512 output tokens each, one ``test`` row) and the result is stored as the model's ``probe``
+    capabilities; a capability a call could not prove (cut off, unreachable, 5xx) stays unknown (HB-F)."""
     p = _provider(provider)
     stored = (await gw.synced_models(db, p)).get("models") or []
     synced = [m.get("id") for m in stored]
@@ -474,9 +492,10 @@ async def _probe(db: DB, p: str, model: str, adapter: Any, user: User) -> dict[s
         detail="probe" if ok else "probe failed",
         guard_verdict="skipped",
     )
-    probes = await gw.get_json(db, f"ai.provider.{p}.probe", {})
-    probes[model] = found
-    await gw.put_json(db, f"ai.provider.{p}.probe", probes)
+    if ok:  # HB-17 bug 4: an unreachable server proves nothing; its all-"no" record would block routing
+        probes = await gw.get_json(db, f"ai.provider.{p}.probe", {})
+        probes[model] = found
+        await gw.put_json(db, f"ai.provider.{p}.probe", probes)
     result = {
         "at": datetime.now(UTC).isoformat(timespec="seconds"),
         "ok": ok,
@@ -487,7 +506,12 @@ async def _probe(db: DB, p: str, model: str, adapter: Any, user: User) -> dict[s
     }
     await gw.put_json(db, f"ai.provider.{p}.test", result)
     await audit.record(
-        db, "ai.provider.probe", "setting", f"ai.provider.{p}.probe", after={"model": model, **found}, actor=user
+        db,
+        "ai.provider.probe",
+        "setting",
+        f"ai.provider.{p}.probe",
+        after={"model": model, "stored": ok, **found},
+        actor=user,
     )
     await db.commit()
     return {**result, "effective": (await gw.model_capabilities(db, p)).get(model)}
@@ -928,6 +952,102 @@ async def redteam(_: AIAdmin) -> dict[str, Any]:
     """Run the shipped red-team guard corpus (TR + EN) through the deterministic guardrails (no model call)."""
     cases = load_cases(GUARD_CASES_PATH)
     return summarize_guard(score_guard_cases(cases))
+
+
+# ---------------------------------------------------------------------------------------------- helper (HB-14/15)
+
+
+class HelperActionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool | None = None
+    #: ``None`` = every audience
+    audiences: list[str] | None = Field(default=None, max_length=16)
+
+
+class HelperMemoryIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool | None = None
+    retention_days: int | None = Field(default=None, ge=1, le=365)
+
+
+class HelperGuardIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scope: Literal["strict", "normal", "loose"] | None = None
+
+
+class HelperSettingsIn(BaseModel):
+    """A partial patch of ``ai.helper``; ``version`` (from GET) refuses the save when another admin saved first."""
+
+    model_config = ConfigDict(extra="forbid")
+    version: str | None = Field(default=None, pattern=r"^[a-f0-9]{16}$")
+    enabled: bool | None = None
+    mode: Literal["ai", "index"] | None = None
+    audiences: dict[str, bool] | None = None
+    actions: dict[str, HelperActionIn] | None = None
+    memory: HelperMemoryIn | None = None
+    history_days: int | None = Field(default=None, ge=1, le=365)
+    feedback_notes: bool | None = None
+    guard: HelperGuardIn | None = None
+
+
+async def _helper_out(db: DB) -> dict[str, Any]:
+    from app.ai.helper import settings as hs
+    from app.ai.helper import status as hst
+
+    current = await hs.load(db)
+    if not current["enabled"]:
+        reason: str | None = "disabled"
+    elif current["mode"] == "index":
+        reason = "index_mode"
+    else:
+        reason = await hst.routing_reason(db)
+    tr, en = hst.REASONS[reason] if reason else hst.ON
+    limits = await gw.get_limits(db)
+    return {
+        "settings": current,
+        "version": hs.version(current),
+        "effective": {"mode": "index" if reason else "ai", "reason": reason, "message": {"tr": tr, "en": en}},
+        "catalog": hs.catalog(),
+        "limits": {
+            "feature": (limits.get("features") or {}).get("helper"),
+            "caps": dict(gw.DEFAULT_CAPS["helper"]),
+            "faculties": len(limits.get("faculties") or {}),
+        },
+    }
+
+
+@router.get("/ai/admin/helper")
+async def helper_settings(db: DB, _: AIAdmin) -> dict[str, Any]:
+    """The institution's helper controls (one ``ai.helper`` row for every admin), what people get now, the action
+    and audience catalogue, and the helper's quotas from the HB-10 chain (read-only here)."""
+    return await _helper_out(db)
+
+
+@router.put("/ai/admin/helper")
+async def helper_settings_put(body: HelperSettingsIn, db: DB, user: AIAdmin) -> dict[str, Any]:
+    """Patch ``ai.helper`` (audited ``ai.helper``). 409 ``stale_settings`` when ``version`` is not the current one;
+    422 ``unknown_action`` / ``unknown_audience``."""
+    from app.ai.helper import settings as hs
+
+    before = await hs.load(db)
+    patch = body.model_dump(exclude_unset=True, exclude={"version"})
+    try:
+        after = await hs.save(db, patch, expected_version=body.version)
+    except hs.SettingsError as exc:
+        await db.rollback()
+        raise _err(exc.status, exc.code, exc.tr, exc.en, **exc.data) from exc
+    await audit.record(db, "ai.helper", "setting", "ai.helper", before=before, after=after, actor=user)
+    await db.commit()
+    return await _helper_out(db)
+
+
+@router.get("/ai/admin/helper/summary")
+async def helper_summary(db: DB, _: AIAdmin, days: int = Query(7, ge=1, le=90)) -> dict[str, Any]:
+    """Helper telemetry as aggregates (HB-14): turns by mode and outcome, fallback share, deflection, the action
+    funnel, thumbs, p50 / p95, cost per feature, unanswered queries typed by ≥ 5 people, four sentence tiles."""
+    from app.ai.helper import telemetry
+
+    return await telemetry.summary(db, days=days)
 
 
 # ---------------------------------------------------------------------------------------------- my usage

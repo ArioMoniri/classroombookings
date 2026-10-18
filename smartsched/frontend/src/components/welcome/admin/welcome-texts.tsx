@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { HttpError } from "@/lib/api/client";
 import { AUDIENCES, type Audience, type WelcomeContent, useSaveWelcomeContent, useWelcomeContent } from "@/lib/api/welcome";
 import { intlLocale, translate, type Locale, type MessageKey } from "@/lib/i18n";
-import { useI18n } from "@/lib/i18n/provider";
+import { useI18n, useMessagesFor } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { CARDS, audienceKey, cardKey, sheetKey } from "../content";
 import { badPlaceholders } from "../model";
@@ -58,8 +58,12 @@ export function staleMessage(err: unknown, locale: Locale, t: (k: MessageKey, v?
   return t("welcome.admin.texts.stale", { ad: who, name: who });
 }
 
+const BOTH_LANGUAGES = ["tr", "en"] as const;
+
 function FieldEditor({ f, audience, drafts, setDraft }: { f: TextField; audience: Audience; drafts: Drafts; setDraft: (loc: Locale, field: string, v: string) => void }) {
   const { t } = useI18n();
+  // F-CH-1: the placeholders show the shipped text of both languages; the browser loads the other one here
+  useMessagesFor(BOTH_LANGUAGES);
   const base = useId();
   const label = f.card ? t(f.field.endsWith(".title") ? "welcome.admin.texts.cardTitle" : "welcome.admin.texts.cardBody", { card: translate("tr", cardKey(audience, f.card, "title")) }) : t(`welcome.admin.texts.field.${f.field}` as MessageKey);
   return (

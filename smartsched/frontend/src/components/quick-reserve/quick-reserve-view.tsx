@@ -43,6 +43,7 @@ import { bookingCapabilities } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
+import { NoBookingTerm } from "@/components/bookings/no-booking-term";
 import { ChipRadioGroup } from "./chip-radio-group";
 import { addDay, dayChips, nextWeekday, schoolWeekdays, defaultSlot, findQuery, lengthChoices, rankRooms, roomAction, slotOptions, spanFor, type SlotOption } from "./quick-reserve-model";
 
@@ -186,6 +187,9 @@ export function QuickReserveView() {
       setReceipt(r);
       setNote("");
       setNoteOpen(false);
+      // HX12B-F04: the pressed "Rezerve et" unmounts; the receipt title takes focus at once and keeps it while the
+      // booking lists refetch (focus fell to <body> at 1440 while the refresh re-rendered the columns)
+      focusAfter(["[data-testid=qr-receipt-title]"], 0, 4000);
       setLive(t(pending ? "quickReserve.receipt.liveRequested" : "quickReserve.receipt.live", { room: room.name }));
       toast.success(t(pending ? "quickReserve.toast.requested" : "quickReserve.toast.booked", { room: room.name }), {
         id: TOAST_ID,
@@ -196,7 +200,6 @@ export function QuickReserveView() {
       });
       await Promise.all(BOOKING_KEYS.map((k) => qc.invalidateQueries({ queryKey: k })));
       void qc.invalidateQueries({ queryKey: ["quick-reserve"] });
-      window.requestAnimationFrame(() => receiptRef.current?.focus());
     } catch (e) {
       const err = crbsError(e);
       const conflict = err.status === 409 && ["conflict", "slots_unavailable", "slot_taken", "booked"].includes(err.code ?? "");
@@ -234,10 +237,11 @@ export function QuickReserveView() {
       }
       setReceipt(null);
       setRoomId(r.room.room_id);
+      // R6 / HX12B-F04: the user sees what came back: the same room selected, focus on its row. Watched through the
+      // list refetch (the row is replaced while it loads), with the list's tab stop as the fallback, never <body>
+      focusAfter([`[data-room-row="${r.room.room_id}"]`, "[data-testid=qr-rooms] [role=radio][tabindex='0']"], 50, 5000);
       await Promise.all(BOOKING_KEYS.map((k) => qc.invalidateQueries({ queryKey: k })));
       await qc.invalidateQueries({ queryKey: ["quick-reserve"] });
-      // R6: the user sees what came back: the same room selected, focus on its row
-      focusAfter([`[data-room-row="${r.room.room_id}"]`], 50);
     } catch (e) {
       toast.error(bookingErrorMessage(crbsError(e), t, { formatDate: fmt.short, locale }));
     } finally {
@@ -271,13 +275,22 @@ export function QuickReserveView() {
   const blocks = sd.unit === "blocks";
   const step = (n: number, key: "when" | "where" | "confirm") => t("quickReserve.step.n", { n, title: t(`quickReserve.step.${key}`) });
 
+  // E2EB-F03: no bookable term yet (empty install): one card with the next step instead of an active-looking form
+  if (ctx.isSuccess && termId == null)
+    return (
+      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5" data-testid="quick-reserve">
+        <PageTitle title={t("quickReserve.title")} subtitle={<span className="max-sm:sr-only">{t("quickReserve.lead")}</span>} className="mb-0" />
+        <NoBookingTerm testId="qr-no-term" />
+      </div>
+    );
+
   return (
     <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5 pb-[calc(15rem+env(safe-area-inset-bottom))] lg:pb-10" onKeyDown={onPageKeyDown} data-testid="quick-reserve">
       <PageTitle title={t("quickReserve.title")} subtitle={<span className="max-sm:sr-only">{t("quickReserve.lead")}</span>} className="mb-0" />
       <p className="sr-only" role="status" aria-live="polite" data-testid="qr-live">
         {liveText}
       </p>
-      {ctx.isSuccess && termId == null ? <Alert tone="warning">{t("quickReserve.noTerm")}</Alert> : null}
+
       {timetableMissing(g) ? <Alert tone="warning" testId="qr-unpublished">{t("quickReserve.unpublished")}</Alert> : null}
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[320px_minmax(0,1fr)_340px] lg:items-start">
@@ -391,7 +404,7 @@ export function QuickReserveView() {
         </section>
 
         {/* 2 · Nerede? */}
-        <section aria-labelledby="qr-where" aria-busy={find.isFetching} className="flex min-w-0 flex-col gap-3">
+        <section aria-labelledby="qr-where" data-tour="reserve-room-list" aria-busy={find.isFetching} className="flex min-w-0 flex-col gap-3">
           <h2 id="qr-where" className="type-title-3 text-label-1">
             {step(2, "where")}
           </h2>
@@ -408,7 +421,7 @@ export function QuickReserveView() {
           {booleanFacets.length ? (
             <div role="group" aria-label={t("quickReserve.features.label")} className="-mx-1 flex gap-2 overflow-x-auto px-1 scrollbar-thin sm:flex-wrap sm:overflow-visible" data-testid="qr-features">
               {booleanFacets.map((f) => (
-                <Chip key={f.id} selected={features.includes(f.id)} onSelectedChange={(on) => (setFeatures((prev) => (on ? [...prev, f.id] : prev.filter((x) => x !== f.id))), resetAfterChange())} data-testid={`qr-feature-${f.id}`}>
+                <Chip key={f.id} className="pointer-coarse:min-h-11" selected={features.includes(f.id)} onSelectedChange={(on) => (setFeatures((prev) => (on ? [...prev, f.id] : prev.filter((x) => x !== f.id))), resetAfterChange())} data-testid={`qr-feature-${f.id}`}>
                   {f.name}
                 </Chip>
               ))}

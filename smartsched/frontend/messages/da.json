@@ -99,6 +99,11 @@
   "wave1": {
     "find": {
       "weeks": "Uger"
+    },
+    "audit": {
+      "f": {
+        "days": "Dage"
+      }
     }
   },
   "moderation": {
@@ -152,10 +157,30 @@
       "day": "Dag"
     }
   },
+  "charts": {
+    "bookings": {
+      "week": "Uge"
+    },
+    "audit": {
+      "day": "Dag"
+    }
+  },
   "adaptive": {
     "peaks": {
       "col": {
         "weeks": "Uger"
+      }
+    }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Uger"
+      },
+      "field": {
+        "class_year": "År",
+        "day": "Dag",
+        "week": "Uge"
       }
     }
   }

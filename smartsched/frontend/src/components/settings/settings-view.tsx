@@ -2,6 +2,7 @@
 
 import { Check, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -26,7 +27,6 @@ import { CalendarSyncAdmin } from "./calendar-sync-admin";
 import { CalendarPushAdmin } from "./calendar-push-admin";
 import { RelaxationTermCard } from "@/components/runs/relaxation-term-card";
 import { WebhooksAdmin } from "./webhooks-admin";
-import { PoliciesAdmin } from "@/components/policies/policies-admin";
 import { PublicScheduleAdmin } from "@/components/public-schedule/public-schedule-admin";
 import { LearningMemoryPanel } from "@/components/learning/learning-memory-panel";
 import { SsoSettings } from "@/components/identity/sso-settings";
@@ -37,10 +37,14 @@ import { MailNoticesCard } from "./mail-notices";
 import { useSettings, useUpdateSettings } from "@/lib/api/hooks";
 import type { Settings } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
-import { PERIODS } from "@/lib/time";
 import { useUiStore } from "@/stores/ui";
 import { cn } from "@/lib/utils";
+import { pageActionsCapsule, SelectField } from "@/components/admin/kit";
 import { SigninSecuritySettings } from "./signin-security";
+import { SettleGate } from "@/components/common/settle-gate";
+import { useIntegrationSettings, useWebhooks } from "@/lib/api/approval-first";
+import { useExportAdminSettings } from "@/lib/api/calendar-export";
+import { usePublicSettings } from "@/lib/api/public-schedule";
 
 const WEIGHT_KINDS = ["room_preference", "building_preference", "min_capacity_waste", "same_room_across_weeks", "stability", "exam_gap"] as const;
 /** The solver's own defaults (backend app/solver/weights.py DEFAULT_WEIGHTS): what a run uses when the organisation
@@ -109,12 +113,15 @@ function AiCard() {
     setTest((prev) => (prev.state === "ok" || prev.state === "failed" ? { ...prev, which: "stored" } : { state: "untested" }));
     toast.success(t("settings.saved"));
   };
-  const saveModel = async () => {
+  const saveModelChoice = async () => {
     await update.mutateAsync({ anthropic_model: model });
     setTest({ state: "untested" });
     toast.success(t("settings.saved"));
   };
   const hint = (m: string) => (m.includes("opus") ? t("glass.settings.modelOpus") : m.includes("haiku") ? t("glass.settings.modelHaiku") : t("glass.settings.modelSonnet"));
+  const saveModel = (
+    <Button size="sm" className={typing ? "mt-3" : undefined} onClick={() => void saveModelChoice()} disabled={!s || model === s.anthropic_model || update.isPending} data-testid="save-model">{t("common.save")}</Button>
+  );
   return (
     <div className="space-y-5">
       <Card>
@@ -141,7 +148,10 @@ function AiCard() {
                 </div>
               </div>
               <Button size="sm" variant="outline" onClick={() => void runTest("typed")} disabled={test.state === "testing"} data-testid="test-key-typed">{t("glass.settings.testFirst")}</Button>
-              <Button size="sm" onClick={() => void saveKey()} disabled={update.isPending}>{t("common.save")}</Button>
+              {/* MOBILE M-05 (mobile B fix 12): the key's save is the task while typing; below lg it sits in the capsule */}
+              <div data-slot="page-actions" className={pageActionsCapsule}>
+                <Button size="sm" onClick={() => void saveKey()} disabled={update.isPending} data-testid="save-key">{t("common.save")}</Button>
+              </div>
               {masked ? <Button size="sm" variant="ghost" onClick={() => setReplacing(false)}>{t("settings.cancelReplace")}</Button> : null}
             </div>
           )}
@@ -164,16 +174,18 @@ function AiCard() {
             <>
           <div role="radiogroup" aria-label={t("settings.model")}>
             {(s?.available_models ?? []).map((m) => (
-              <label key={m} className="flex cursor-pointer items-center gap-3 py-2.5 text-[13px] [&:not(:last-child)]:hairline-b">
-                <input type="radio" name="model" value={m} checked={model === m} onChange={() => setModel(m)} className="accent-(--accent)" />
+              <label key={m} className="flex cursor-pointer items-center gap-3 py-2.5 text-[13px] pointer-coarse:min-h-11 [&:not(:last-child)]:hairline-b">
+                <input type="radio" name="model" value={m} checked={model === m} onChange={() => setModel(m)} className="size-5 shrink-0 accent-(--accent)" />
                 <span className="min-w-0 flex-1">
-                  <span className="block font-medium text-label-1">{m}</span>
+                  {/* HX12B-F14: "Claude Opus 5.5", not the raw id "claude-opus-5-5" */}
+                  <span className="block font-medium text-label-1" title={m}>{modelLabel(m)}</span>
                   <span className="block text-[12px] text-label-3">{hint(m)}</span>
                 </span>
               </label>
             ))}
           </div>
-          <Button size="sm" className="mt-3" onClick={() => void saveModel()} disabled={!s || model === s.anthropic_model || update.isPending} data-testid="save-model">{t("common.save")}</Button>
+          {/* the capsule holds one save: the key's while a key is typed, otherwise the model's */}
+          {typing ? saveModel : <div data-slot="page-actions" className={cn(pageActionsCapsule, "mt-3")}>{saveModel}</div>}
             </>
           )}
         </CardContent>
@@ -337,8 +349,18 @@ function ImportForm({ initial }: { initial: string }) {
   );
 }
 
+/** HX12B-F14 (fix-h-2026-10-18): a model id as people read it: "claude-opus-5-5" → "Claude Opus 5.5"; other ids as they are. */
+export function modelLabel(id: string): string {
+  const m = /^claude-(opus|sonnet|haiku)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?$/i.exec(id.trim());
+  if (!m) return id;
+  const family = m[1]!.charAt(0).toUpperCase() + m[1]!.slice(1).toLowerCase();
+  return `Claude ${family} ${m[2]}${m[3] ? `.${m[3]}` : ""}`;
+}
+
 function GeneralCard() {
   const { t } = useI18n();
+  const { can } = usePermissions();
+  const canSchedules = can("setup.schedules");
   return (
     <div className="space-y-5">
       <Card>
@@ -349,23 +371,36 @@ function GeneralCard() {
           </SettingsRow>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("common.periods")}</CardTitle>
-          <CardDescription>{t("glass.settings.periodsHint")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ol className="grid grid-cols-2 gap-x-6 gap-y-1 text-[13px] tabular-nums sm:grid-cols-3">
-            {PERIODS.map((p) => (
-              <li key={p.index} className="flex gap-2">
-                <span className="w-6 text-label-3">{p.index}.</span>
-                <span className="text-label-1">{p.start}–{p.end}</span>
-              </li>
-            ))}
-          </ol>
-        </CardContent>
-      </Card>
+      {/* PER-F07 (fix-h-2026-10-18): the period times live in one place, Kurulum › Ders saatleri; Ayarlar links there */}
+      {canSchedules ? (
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <p className="min-w-0 flex-1 type-callout text-label-2">{t("settings.periodsMoved")}</p>
+            <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" nativeButton={false} render={<Link href="/admin/schedules" />} data-testid="settings-periods-link">
+              {t("settings.periodsOpen")}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * F-MB-1 (fix-b-2026-10-18): the integrations cards each grow when their own settings answer (the calendar sync card
+ * by the whole CAL-09 export block), and pushed the cards below them down (CLS 0.41 at 390, `calendar-push-admin`).
+ * One placeholder holds the tab until the four answers are in (or SETTLE_CAP_MS), then the cards appear together.
+ */
+function IntegrationsSettle({ children }: { children: React.ReactNode }) {
+  const sync = useIntegrationSettings();
+  const exportAdmin = useExportAdminSettings();
+  const publicSettings = usePublicSettings();
+  const hooks = useWebhooks();
+  const ready = [sync, exportAdmin, publicSettings, hooks].every((q) => !q.isPending);
+  return (
+    <SettleGate ready={ready} testId="integrations-loading" placeholderClassName="min-h-[70dvh] rounded-2xl bg-fill-3 animate-pulse motion-reduce:animate-none">
+      {children}
+    </SettleGate>
   );
 }
 
@@ -383,8 +418,8 @@ export function SettingsView() {
     { value: "import", label: t("settings.importHosts.tab"), show: admin },
     // calendar sync (KVKK sign-off, M-40) and outgoing webhooks: setup.settings, as the backend requires
     { value: "integrations", label: t("notifications.admin.tab"), show: can("setup.settings") },
-    // P8 booking policies + exam-period mode (wave-2 UI; GET/PUT /booking-policies needs setup.settings)
-    { value: "booking-rules", label: t("policies.tab"), show: can("setup.settings") },
+    // P8 booking policies: PER-F07 (fix-h-2026-10-18) moved them to Kurulum › Rezervasyon kuralları (/admin/booking-rules),
+    // next to Onay kuralları; /settings?tab=booking-rules redirects there (app/(app)/settings/page.tsx)
     // W3-SLOT (docs/design/v3/slot-display.md §4): how slots are shown; PUT /settings needs planning.admin
     { value: "slots", label: t("slotDisplay.tab"), show: can("planning.admin") },
     // identity frontend: Microsoft sign-in (planning.admin, as GET/PUT /auth/sso/admin/entra) and the
@@ -395,9 +430,10 @@ export function SettingsView() {
     { value: "signin-security", label: t("auth.policy.tab"), show: can("setup.authentication") },
     // Phase 19: the learned priors and suggestions (Öğrenme belleği), planning administrators only
     { value: "learning", label: t("settings.learningTab"), show: can("planning.admin") },
-    { value: "users", label: t("settings.users"), show: can("setup.users") },
+    // PER-F07: no "Kullanıcılar" tab (it only redirected to /admin/users, which Yönetim lists already)
   ].filter((x) => x.show);
-  const requested = params.get("tab") ?? (admin ? "ai" : "appearance");
+  // PER-F07 / HX12B-F14: an admin opens on "Genel", not on the AI key form
+  const requested = params.get("tab") ?? (admin ? "general" : "appearance");
   const tab = tabs.some((x) => x.value === requested) ? requested : "appearance";
   // a deep link (/settings?tab=integrations) on a phone: bring the chosen tab into the scroller's view
   useEffect(() => {
@@ -417,8 +453,18 @@ export function SettingsView() {
     <div className={tab === "slots" ? "max-w-[1120px]" : "max-w-[960px]"} data-testid="settings">
       <PageHeader title={t("settings.title")} subtitle={admin ? t("settings.subtitle") : t("glass.settings.subtitleUser")} />
       <Tabs value={tab} onValueChange={(v) => router.replace(`/settings?tab=${String(v)}`)}>
+        {/* HX12B-F14 (fix-h-2026-10-18): on a phone the tab strip hid "Genel", "Çözücü" and others off screen with no cue;
+            below 640 px one select names the section instead (16 px text, 44 px tall) */}
+        <div className="mb-5 sm:hidden">
+          <label htmlFor="settings-section" className="mb-1 block type-footnote text-label-2">{t("settings.section")}</label>
+          <SelectField id="settings-section" value={tab} onChange={(e) => router.replace(`/settings?tab=${e.target.value}`)} className="w-full" data-testid="settings-section-select">
+            {tabs.map((x) => (
+              <option key={x.value} value={x.value}>{x.label}</option>
+            ))}
+          </SelectField>
+        </div>
         {/* the track is min-width:max-content, so the scroller is a wrapper (10 tabs no longer fit at 1440) */}
-        <div className="mb-5 max-w-full overflow-x-auto">
+        <div className="mb-5 max-w-full overflow-x-auto max-sm:hidden">
           {/* touch: 44 px tabs (the track grows by its 3 px padding), not the 38 px a 44 px track leaves */}
           <TabsList className="pointer-coarse:h-auto">
             {tabs.map((x) => (
@@ -449,17 +495,18 @@ export function SettingsView() {
         {admin ? <TabsContent value="import"><ImportCard /></TabsContent> : null}
         {can("setup.settings") ? (
           <TabsContent value="integrations">
-            <div className="space-y-5">
-              <CalendarSyncAdmin />
-              {/* the organisation's Google / Microsoft 365 OAuth clients (write-only secrets, redirect URIs) */}
-              <CalendarPushAdmin />
-              {/* V2 public day view: off by default, switching it on records a KVKK sign-off */}
-              <PublicScheduleAdmin />
-              <WebhooksAdmin />
-            </div>
+            <IntegrationsSettle>
+              <div className="space-y-5">
+                <CalendarSyncAdmin />
+                {/* the organisation's Google / Microsoft 365 OAuth clients (write-only secrets, redirect URIs) */}
+                <CalendarPushAdmin />
+                {/* V2 public day view: off by default, switching it on records a KVKK sign-off */}
+                <PublicScheduleAdmin />
+                <WebhooksAdmin />
+              </div>
+            </IntegrationsSettle>
           </TabsContent>
         ) : null}
-        {can("setup.settings") ? <TabsContent value="booking-rules"><PoliciesAdmin /></TabsContent> : null}
         {can("planning.admin") ? <TabsContent value="slots"><SlotDisplaySettings /></TabsContent> : null}
         {can("planning.admin") ? <TabsContent value="learning"><LearningMemoryPanel /></TabsContent> : null}
         {can("planning.admin") ? <TabsContent value="sso"><SsoSettings /></TabsContent> : null}

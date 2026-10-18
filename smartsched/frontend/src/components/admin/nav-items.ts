@@ -7,6 +7,7 @@ import {
   BookMarked,
   ClipboardList,
   Building2,
+  CalendarClock,
   CalendarDays,
   CalendarOff,
   CalendarRange,
@@ -61,6 +62,8 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   // Phase 19: an academician (can book, no planning.view) sees their own planning requests on /moderation;
   // planners keep the "Moderasyon" entry of the planning group
   { href: "/moderation/me", labelKey: "crbs.nav.myRequests", icon: ClipboardList, permission: ["book_single.create", "book_recur.create"], hideWith: "planning.view", bookings: true },
+  // PER-F09 (fix-h-2026-10-18): "Derslerim", the academician's own classes in one week (GET /me/classes/week)
+  { href: "/my-classes", labelKey: "myClasses.title", icon: CalendarDays, permission: ["book_single.create", "book_recur.create"], hideWith: "planning.view", bookings: true },
   { href: "/admin", labelKey: "crbs.nav.admin", icon: Settings2, permission: [...SETUP_PERMISSIONS] },
 ];
 
@@ -80,6 +83,7 @@ export const SECTION_ICONS: Record<string, LucideIcon> = {
   "/admin/authentication": KeyRound,
   "/admin/email": Mail,
   "/admin/approval-rules": Stamp,
+  "/admin/booking-rules": CalendarClock,
   "/admin/audit": History,
   "/admin/kvkk": Lock,
   "/admin/ai": Cpu,

@@ -46,6 +46,7 @@ describe("mobile-a fix 14: the tab bar below 360 px", () => {
     const nav = await screen.findByRole("navigation", { name: "Sekmeler" });
     await waitFor(() => expect(within(nav).getAllByRole("link").length).toBeGreaterThanOrEqual(3));
     expect(screen.getByTestId("open-palette-mobile")).toHaveClass("max-[22.5rem]:hidden");
-    for (const a of within(nav).getAllByRole("link")) expect(a).toHaveClass("max-[22.5rem]:px-0");
+    // F-MA-2 (fix-b-2026-10-18): no side padding at any width now (the label gets the whole column)
+    for (const a of within(nav).getAllByRole("link")) expect(a).toHaveClass("px-0");
   });
 });
