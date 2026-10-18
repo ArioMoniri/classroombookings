@@ -346,3 +346,30 @@ This is the open part of UX-03 above. It is counted under UX-03.
 - **blocker 0**
 - **major 3**: UX-03 (rooms-only empty diff), UX-09 (refused or wrong-type file on step 1 has no reason), UX-27 (new: cross-session stage clear with false "10 dakika" copy)
 - **minor 17**: the 17 round-1 minors minus 3 seen fixed (UX-13, UX-14, UX-20), plus 3 new minors above
+
+## Re-check (round 3)
+
+- Date: 2026-10-18, after the container restart. I signed in again; the accounts and files were the same.
+- Scope: only UX-03, UX-09, UX-27 and the UX-04 leftover, at 1440 where they were found.
+- Nothing was applied in this round.
+- Screenshots: `hb23d-ux/*-r3*.png`.
+
+| id | status | evidence |
+|---|---|---|
+| UX-03 (rooms-only `derslik@`) | **Fixed** | The hand-over gives `/import?kind=room-master&from=helper` with the file row "room_master.csv · CSV · 4.4 KB · İçe aktarmaya hazır". The diff now shows rows: "0 derslik değişiyor · 87 değişmiyor · 0 eşleşmedi · 0 satırda hata" with "Değişmeyen 87 dersliği göster". `GET /rooms` returns 200, and focus is on "Derslik ana listesini uygula". Apply was **not** pressed, as instructed; round 2 already showed apply by token works (202, `"source":"helper"`). Remaining, console only, with no visible effect: 403 on `GET /api/v1/terms` and `GET /api/v1/imports` for this role. Screenshot: `X5-roommaster-rooms-1440-r3-c-target.png` |
+| UX-09 | **Fixed** | Picking `belge.pdf` on `/import?kind=exam-list` step 1 shows `role="alert"`: "belge.pdf bu adımda içe aktarılamaz: yalnızca Excel dosyaları (.xlsx) alınır. Türünü bilmiyorsanız İçe aktar sayfasının başındaki "Türünü bilmiyor musunuz?" alanına bırakın." Dropping it on the zone shows the same alert, and "Önizle" stays disabled in both cases. Note on method: a synthetic drop dispatched on the outer animated wrapper does nothing, but a drop on the inner zone element, where a real pointer lands, works. Screenshots: `UX09-pick-pdf-exam-list-1440-r3.png`, `UX09-drop-inner-pdf-exam-list-1440-r3.png` |
+| UX-27 | **Fixed** | Window A (planner, 1440) shows a card for `bahar_week1_transposed.xlsx`. Window B (same planner, 390) classifies `notlar.xlsx`. A's primary then gives handoff 410, and the card reads "Başka bir pencerede seçtiğiniz dosya bunun yerini aldı. Bu dosyayı kullanmak için yeniden okuyun." with "Dosyayı yeniden oku", which is focused. Pressing it re-classifies the same File without opening the picker and gives a fresh detected card. Screenshots: `UX27-two-sessions-1440-r3.png`, `UX27-after-reread-1440-r3.png` |
+| UX-04 leftover | **Fixed** | `/onboarding` at 1440 now focuses "Başlat · 1 dosya" (single file) and "Başlat · 2 dosya" (two files), and the helper closes. Screenshots: `U4-planner-1440-r3-c-target.png`, `X3-many-admin-1440-r3-c-target.png` |
+
+No new blocker or major was found in round 3.
+
+### Final counts open (after round 3)
+
+- **blocker 0**
+- **major 0**
+- **minor 16**
+  - UX-10, UX-11, UX-12, UX-15, UX-16, UX-17, UX-18, UX-19, UX-21, UX-22, UX-23, UX-24, UX-25, UX-26
+  - the missing "Yardımcıdan geldi" chip on the room-master row
+  - no visible focus ring on 📎 after "Nerede? › Göster"
+
+  The UX-04 leftover is now closed. UX-13, UX-14 and UX-20 were seen fixed in round 2. The minors were not re-tested systematically.
