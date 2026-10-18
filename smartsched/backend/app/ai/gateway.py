@@ -99,6 +99,16 @@ DEFAULT_LIMITS: dict[str, Any] = {
     "user_daily_audio_s": 600,
     "user_monthly_audio_s": 6000,
     "org_monthly_audio_s": 0,
+    #: the quota chain (HB-10; research §5.9), all monthly and optional: a unit without an entry draws from the org
+    #: budget unrestricted. ``faculties``: faculty id -> {monthly_tokens, monthly_cost_usd, managers, show_people};
+    #: ``departments``: programme id -> {monthly_tokens, monthly_cost_usd} (their sum fits the faculty's);
+    #: ``features``: feature -> cap; ``unassigned``: accounts without a faculty; ``strict``: the faculties may not
+    #: allocate more than the org budget (otherwise overbooking is a warning)
+    "faculties": {},
+    "departments": {},
+    "features": {},
+    "unassigned": {},
+    "strict": False,
 }
 
 #: hard ceiling of one clip (owner 2026-10-18); the admin may only lower it

@@ -86,3 +86,5 @@ On pass: tick VO-06/07/08 and VO-05.
 7. Keyboard proxy: book-submit bottom ≤ 508 with the visual viewport at 508 (+ a real iOS 26 device if one is available).
 8. Safe area (notch 59): kiosk content left ≥ 59.
 9. The hosted Motion Agent polish of book sheet open + drag (orchestrator go given; name it in the report).
+7. AS-18 live: upload a grid with a "Vize haftası" sheet in the council and commit → /seasons/terms/{id}/periods lists a draft MIDTERM segment.
+8. /analytics/forecast: a new term of a published season shows the "düşük güven" badge and wide ranges.

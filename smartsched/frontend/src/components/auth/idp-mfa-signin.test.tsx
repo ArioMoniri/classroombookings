@@ -7,6 +7,7 @@ import { I18nProvider } from "@/lib/i18n/provider";
 import { translate } from "@/lib/i18n";
 import { errorBody } from "./sign-in-page";
 import { normalizeSsoError } from "./signin-model";
+import { SignInShell } from "./signin-shell";
 import { SsoExchange } from "./sso-exchange";
 
 const nav = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.fn() }));
@@ -49,5 +50,26 @@ describe("idp_mfa_missing after the exchange", () => {
     await waitFor(() => expect(nav.replace).toHaveBeenCalledWith("/my-bookings"));
     expect(toasts.warning).toHaveBeenCalledTimes(1);
     expect(toasts.warning).toHaveBeenCalledWith("Kimlik sağlayıcınız çok adımlı doğrulama bildirmedi.", expect.objectContaining({ description: "Kimlik sağlayıcınızda çok adımlı doğrulamayı açın.", id: "idp-mfa-missing" }));
+  });
+});
+
+describe("sign-in sheet side padding (mobile A: landscape safe areas)", () => {
+  it("every side padding is max(padding, safe-area inset), so the insets win in landscape", () => {
+    const { getByTestId } = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <I18nProvider initialLocale="tr">
+          <SignInShell logoUrl={null} kvkkUrl={null} testId="shell">
+            <h1 id="signin-title">x</h1>
+          </SignInShell>
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    const cls = getByTestId("signin-sheet").className;
+    for (const bp of ["max-[599px]:", "min-[600px]:", "lg:"]) {
+      expect(cls).toContain(`${bp}pl-[max(`);
+      expect(cls).toContain(`${bp}pr-[max(`);
+    }
+    expect(cls).not.toMatch(/(^|\s)(min-\[600px\]:|lg:|max-\[599px\]:)px-/);
+    expect(cls.match(/env\(safe-area-inset-(left|right)\)/g)).toHaveLength(6);
   });
 });

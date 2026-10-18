@@ -9,6 +9,7 @@ import copy
 from datetime import date
 
 from app.services import exam_advisor as ea
+from app.services.backtest_solver import b6_exam_advisor
 
 MON, TUE, WED, THU, FRI = (date(2026, 6, d) for d in (1, 2, 3, 4, 5))
 
@@ -122,7 +123,7 @@ def test_empty_list_answers_none_with_needs() -> None:
 
 
 def test_b6_final_2026_peak_day_126_to_at_most_100_without_new_cohort_conflicts(parsed_exam_list) -> None:  # type: ignore[no-untyped-def]
-    res = ea.b6_exam_advisor(parsed_exam_list)
+    res = b6_exam_advisor(parsed_exam_list)
     m = res.metrics
     assert m["peak_day_before"] == "2026-06-03" and m["peak_exams_before"] == 126
     assert m["peak_exams_after"] <= 100, m

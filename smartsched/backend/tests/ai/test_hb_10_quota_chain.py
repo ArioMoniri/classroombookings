@@ -179,7 +179,6 @@ async def test_the_unit_snapshot_survives_a_department_change(session):
 def _other_worker() -> None:
     """What a second uvicorn worker would see: none of this process's in-memory state."""
     meter.forget_local_state()
-    pipeline.reset_state()
 
 
 async def test_reservations_are_shared_rows(session):
@@ -188,11 +187,12 @@ async def test_reservations_are_shared_rows(session):
     _other_worker()
     rows = list((await session.execute(select(AIReservation))).scalars())
     assert [(r.kind, r.tokens) for r in rows] == [("call", 600)]
+    session.expunge_all()
     err = await _refusal(session, None, 600)
     assert err.code == "ai_budget_exceeded"
     await meter.release(first)
     await _passes(session, None, 600)
-    assert list((await session.execute(select(AIReservation).where(AIReservation.kind == "call")))) == []
+    assert list(await session.execute(select(AIReservation).where(AIReservation.kind == "call"))) == []
 
 
 async def test_expired_reservations_are_ignored(session):
@@ -257,7 +257,24 @@ async def test_gateway_refuses_with_a_faculty_message_and_records_the_units(sess
         await client.complete(system="x", messages=[{"role": "user", "content": "PHAR 240"}], max_tokens=100)
     assert exc.value.status_code == 429 and exc.value.code == "ai_faculty_limit_reached"
     assert "Fakülte" in exc.value.detail["message_tr"] and "faculty" in exc.value.detail["message_en"]
-    assert list((await session.execute(select(AIReservation).where(AIReservation.kind == "call")))) == []
+    assert list(await session.execute(select(AIReservation).where(AIReservation.kind == "call"))) == []
+
+
+async def test_faculty_threshold_alerts_its_managers(session):
+    from app.models import InAppNotification
+
+    ids = await _units(session)
+    a = await _user(session, "a@uni.edu.tr", department_id=ids["p1"])
+    manager = await _user(session, "dekan@uni.edu.tr", department_id=ids["p2"])
+    admin = await _user(session, "admin@uni.edu.tr", role="ADMIN")
+    await _limits(session, faculties={str(ids["f1"]): {"monthly_tokens": 1000, "managers": [manager.id]}})
+    await _used(session, a, 850)
+    sent = await meter.check_alerts(a.id)
+    assert any(k.startswith(f"ai_usage:faculty:{ids['f1']}:") and k.endswith(":soft") for k in sent)
+    q = select(InAppNotification.user_id).where(InAppNotification.kind == meter.ALERT_EVENT)
+    got = set((await session.execute(q.execution_options(populate_existing=True))).scalars())
+    assert {manager.id, admin.id} <= got and a.id not in got
+    assert await meter.check_alerts(a.id) == []  # once per month and level
 
 
 def test_refusal_texts_per_scope():
@@ -274,9 +291,12 @@ def test_rate_limiter_docstring_no_longer_claims_one_worker():
 # ------------------------------------------------------------------ admin API: allocations
 
 
-async def test_department_sum_must_fit_the_faculty_and_strict_mode(client, session):
-    ids = await _units(session)
+async def test_department_sum_must_fit_the_faculty_and_strict_mode(client):
+    from app.core.db import get_session_factory
+
     h = await login(client)
+    async with get_session_factory()() as session:
+        ids = await _units(session)
     put = "/api/v1/ai/admin/limits"
     r = await client.put(
         put,

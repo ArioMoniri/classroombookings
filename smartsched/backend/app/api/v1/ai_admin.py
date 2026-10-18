@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.ai import gateway as gw
 from app.ai.context import FEATURE_LABELS, FEATURES
@@ -94,6 +94,22 @@ class RoutesIn(BaseModel):
     features: dict[str, dict[str, Any] | None] = {}
 
 
+class UnitCapIn(BaseModel):
+    """A monthly ceiling of one unit (feature, department, the unassigned accounts); 0 = no ceiling."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    monthly_tokens: int = Field(default=0, ge=0)
+    monthly_cost_usd: float = Field(default=0.0, ge=0)
+
+
+class FacultyCapIn(UnitCapIn):
+    """A faculty's allocation, its quota managers (HB-11) and whether they may see per-person token totals."""
+
+    managers: list[int] = Field(default_factory=list, max_length=50)
+    show_people: bool = False
+
+
 class LimitsIn(BaseModel):
     org_monthly_tokens: int | None = Field(default=None, ge=0)
     org_monthly_cost_usd: float | None = Field(default=None, ge=0)
@@ -109,6 +125,13 @@ class LimitsIn(BaseModel):
     user_daily_audio_s: int | None = Field(default=None, ge=0, le=86400)
     user_monthly_audio_s: int | None = Field(default=None, ge=0, le=2678400)
     org_monthly_audio_s: int | None = Field(default=None, ge=0, le=100_000_000)
+    #: the quota chain (HB-10): faculty id -> allocation, department (programme) id -> allocation, feature -> cap,
+    #: accounts without a faculty; ``strict``: the faculties may not allocate more than the org budget
+    faculties: dict[str, FacultyCapIn] | None = None
+    departments: dict[str, UnitCapIn] | None = None
+    features: dict[str, UnitCapIn] | None = None
+    unassigned: UnitCapIn | None = None
+    strict: bool | None = None
 
 
 class VoiceIn(BaseModel):
@@ -729,8 +752,15 @@ async def put_limits(body: LimitsIn, db: DB, user: AIAdmin) -> dict[str, Any]:
                     "Limits are daily / monthly (tokens or audio seconds) and >= 0.",
                     field=f"{key}.{k}",
                 )
+    for f in changes.get("features") or {}:
+        if f not in FEATURES:
+            raise _err(422, "unknown_feature", "Bilinmeyen özellik.", "Unknown feature.", field=f"features.{f}")
     stored = await gw.get_json(db, gw.LIMITS_KEY, {})
     stored.update(changes)
+    errors, warnings = await meter.check_allocations(db, {**before, **stored})
+    if errors:
+        first = errors[0]
+        raise _err(422, first["code"], first["message_tr"], first["message_en"], field=first["field"], errors=errors)
     await gw.put_json(db, gw.LIMITS_KEY, stored)
     after = await gw.get_limits(db)
     await audit.record(
@@ -743,7 +773,7 @@ async def put_limits(body: LimitsIn, db: DB, user: AIAdmin) -> dict[str, Any]:
         actor=user,
     )
     await db.commit()
-    return {**after, "org": await meter.org_state(db)}
+    return {**after, "org": await meter.org_state(db), "warnings": warnings}
 
 
 @router.post("/ai/admin/limits/topup")

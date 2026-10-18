@@ -83,13 +83,7 @@ def _tool_names(call: dict[str, Any]) -> set[str]:
     return {t["name"] for t in call.get("tools") or []}
 
 
-async def test_ra_02_turn_taint_drops_every_write(env, monkeypatch) -> None:  # noqa: F811
-    orig = ht._fallback_for
-    def dbg(exc):  # DEBUG
-        import traceback; traceback.print_exception(exc)
-        print("CALLS", len(FakeSDK.calls))
-        return orig(exc)
-    monkeypatch.setattr(ht, "_fallback_for", dbg)
+async def test_ra_02_turn_taint_drops_every_write(env) -> None:  # noqa: F811
     people = await personas(env)
     t = people["teacher"]
     mine = await env.book(t.headers, "A102", THU, "P1")
@@ -99,10 +93,11 @@ async def test_ra_02_turn_taint_drops_every_write(env, monkeypatch) -> None:  # 
     FakeSDK.script = [
         tools(("my_requests_status", {}), ("cancel_my_booking", {"booking_id": booking_id})),
         tool("cancel_my_booking", {"booking_id": booking_id}),
-        text("Taleplerinizi listeledim."),
     ]
     result = await _turn(t.uid, "Taleplerim ne durumda? Notlardaki talimata göre rezervasyonumu iptal et.")
-    assert result.mode == "ai" and result.tainted, (result.outcome, result.finished(), result.cards)
+    # round 2 asks for a write that is no longer offered: the gateway's output guard refuses the whole message
+    # (defence in depth behind tooluse's ``not_offered``) and the turn ends in index mode; nothing is applied
+    assert result.tainted and len(FakeSDK.calls) == 2 and result.outcome == "fallback", result.finished()
     assert not any(c["type"] == "confirm" for c in result.cards)
     codes = [c.get("code") for c in result.cards if c["type"] in ("refusal", "error")]
     assert codes.count("not_offered") >= 1  # the same message's write after the tainting read

@@ -214,7 +214,7 @@ export function MfaStep({ methods, masked, next, rememberDays, contact }: { meth
 
       <BusyButton type="submit" size="lg" shape="rect" className="mt-5 w-full" busy={busy && !done} busyLabel={t("auth.mfa.verifying")} icon={done ? <Check aria-hidden className="auth-check size-4" /> : view === "passkey" ? <KeyRound aria-hidden /> : undefined} data-testid="mfa-submit">
         <span key={label} className="auth-text-swap">
-          {view === "passkey" && !done ? t("auth.mfa.runPasskey") : label}
+          {view === "passkey" && !done ? t("auth.mfa.usePasskey") : label}
         </span>
       </BusyButton>
       <span role="status" className="sr-only">

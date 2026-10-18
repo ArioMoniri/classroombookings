@@ -818,6 +818,79 @@ async def _check_audio(
                 )
 
 
+# ---------------------------------------------------------------------------------------------- allocations
+
+#: keys of one unit allocation in ``ai.limits`` (``faculties`` add ``managers`` and ``show_people``, HB-11)
+UNIT_KEYS = ("monthly_tokens", "monthly_cost_usd")
+
+
+def _issue(code: str, tr: str, en: str, fld: str) -> dict[str, str]:
+    return {"code": code, "message_tr": tr, "message_en": en, "field": fld}
+
+
+async def faculty_of_programs(session: AsyncSession, program_ids: list[int]) -> dict[int, int | None]:
+    if not program_ids:
+        return {}
+    rows = (await session.execute(select(Program.id, Program.faculty_id).where(Program.id.in_(program_ids)))).all()
+    return {int(pid): fid for pid, fid in rows}
+
+
+async def check_allocations(
+    session: AsyncSession, limits: dict[str, Any]
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """``(errors, warnings)`` of the unit allocations in ``limits`` (HB-10 / HB-11):
+
+    * a faculty / department id that does not exist → ``unknown_unit``;
+    * the departments of a faculty allocate more than the faculty (tokens or cost) → ``department_sum_exceeds_faculty``;
+    * the faculties allocate more than the org budget → the warning ``faculty_sum_exceeds_org`` (overbooking is
+      allowed: units rarely all reach 100 %), an error when ``strict`` is on."""
+    from app.models import Faculty
+
+    errors: list[dict[str, str]] = []
+    warnings: list[dict[str, str]] = []
+    faculties = {k: v for k, v in (limits.get("faculties") or {}).items() if isinstance(v, dict)}
+    departments = {k: v for k, v in (limits.get("departments") or {}).items() if isinstance(v, dict)}
+    fac_ids = [int(k) for k in faculties if str(k).isdigit()]
+    dep_ids = [int(k) for k in departments if str(k).isdigit()]
+    known_fac = set((await session.execute(select(Faculty.id).where(Faculty.id.in_(fac_ids)))).scalars())
+    dep_fac = await faculty_of_programs(session, dep_ids)
+    for k in faculties:
+        if not str(k).isdigit() or int(k) not in known_fac:
+            errors.append(_issue("unknown_unit", "Böyle bir fakülte yok.", "No such faculty.", f"faculties.{k}"))
+    for k in departments:
+        if not str(k).isdigit() or int(k) not in dep_fac:
+            errors.append(_issue("unknown_unit", "Böyle bir bölüm yok.", "No such department.", f"departments.{k}"))
+    if errors:
+        return errors, warnings
+    for fk, fentry in faculties.items():
+        f_tokens, f_cost = _cap(fentry)
+        mine = [departments[str(d)] for d in dep_ids if dep_fac.get(d) == int(fk)]
+        d_tokens = sum(_cap(d)[0] for d in mine)
+        d_cost = sum(_cap(d)[1] for d in mine)
+        if (f_tokens and d_tokens > f_tokens) or (f_cost and d_cost > f_cost + 1e-9):
+            errors.append(
+                _issue(
+                    "department_sum_exceeds_faculty",
+                    f"Bölümlere dağıtılan pay ({d_tokens} jeton) fakültenin payını ({f_tokens} jeton) aşıyor.",
+                    f"The departments' allocations ({d_tokens} tokens) exceed the faculty's ({f_tokens} tokens).",
+                    f"faculties.{fk}",
+                )
+            )
+    budget = org_budget(limits)
+    s_tokens = sum(_cap(v)[0] for v in faculties.values())
+    s_cost = sum(_cap(v)[1] for v in faculties.values())
+    if (budget["tokens"] and s_tokens > budget["tokens"]) or (budget["cost_usd"] and s_cost > budget["cost_usd"]):
+        issue = _issue(
+            "faculty_sum_exceeds_org",
+            f"Fakültelere dağıtılan pay ({s_tokens} jeton) kurumun aylık bütçesini ({budget['tokens']} jeton) aşıyor.",
+            f"The faculties' allocations ({s_tokens} tokens) exceed the org's monthly budget "
+            f"({budget['tokens']} tokens).",
+            "faculties",
+        )
+        (errors if limits.get("strict") else warnings).append(issue)
+    return errors, warnings
+
+
 # ---------------------------------------------------------------------------------------------- state / alerts
 
 
@@ -945,6 +1018,47 @@ async def _notify_self(session: AsyncSession, user_id: int, level: str, pct: flo
         log.exception("ai self alert failed")
 
 
+async def _unit_alerts(
+    session: AsyncSession, limits: dict[str, Any], user_id: int, soft: int, now: datetime | None
+) -> list[tuple[str, str, float, str | None, str, list[User]]]:
+    """The faculty / department thresholds the caller's units crossed this month (HB-10): ``(scope, level, pct,
+    unit name, notice key, the faculty's quota managers)``."""
+    from app.models import Faculty
+
+    department_id, faculty_id = await units_of(session, user_id)
+    out: list[tuple[str, str, float, str | None, str, list[User]]] = []
+    fentry = (limits.get("faculties") or {}).get(str(faculty_id)) if faculty_id is not None else None
+    manager_ids = [int(i) for i in (fentry or {}).get("managers") or [] if str(i).isdigit()]
+    managers = (
+        list((await session.execute(select(User).where(User.id.in_(manager_ids), User.is_active.is_(True)))).scalars())
+        if manager_ids
+        else []
+    )
+    checks: list[tuple[str, Any, Any, int | None]] = [
+        ("faculty", fentry, AIUsage.faculty_id == faculty_id, faculty_id),
+        (
+            "department",
+            (limits.get("departments") or {}).get(str(department_id)) if department_id is not None else None,
+            AIUsage.department_id == department_id,
+            department_id,
+        ),
+    ]
+    for scope, entry, where, unit_id in checks:
+        cap_tokens, cap_cost = _cap(entry)
+        if unit_id is None or (not cap_tokens and not cap_cost):
+            continue
+        tokens, cost = await unit_totals(session, where, now=now)
+        pcts = [p for p in (_pct(tokens, cap_tokens), _pct(cost, cap_cost)) if p is not None]
+        pct = max(pcts) if pcts else None
+        if pct is None or pct < soft:
+            continue
+        level = "hard" if pct >= 100 else "soft"
+        model = Faculty if scope == "faculty" else Program
+        name = (await session.execute(select(model.name).where(model.id == unit_id))).scalar_one_or_none()
+        out.append((scope, level, float(pct), name, f"ai_usage:{scope}:{unit_id}:{month_key(now)}:{level}", managers))
+    return out
+
+
 async def check_alerts(user_id: int | None, now: datetime | None = None) -> list[str]:
     """Send the threshold alerts that became due (own session; never raises). Returns the notice keys sent."""
     sent: list[str] = []
@@ -969,9 +1083,24 @@ async def check_alerts(user_id: int | None, now: datetime | None = None) -> list
                         due.append(
                             ("user", level, float(st["pct"]), label, f"ai_usage:user:{user.id}:{period}:{level}")
                         )
-            if not due:
+            unit_due = await _unit_alerts(s, limits, user_id, soft, now) if user_id is not None else []
+            if not due and not unit_due:
                 return sent
             recipients = await _recipients(s, limits)
+            for scope, level, pct, who, key, managers in unit_due:  # faculty / department: managers + admins
+                extra = [u for u in managers if u.id not in {r.id for r in recipients}]
+                for r in [*recipients, *extra]:
+                    title, body = _alert_texts(scope, level, pct, who, r.language or "tr")
+                    notice = nd.Notice(
+                        event=ALERT_EVENT,
+                        key=key,
+                        title=title,
+                        body=body,
+                        link="/admin/ai?tab=limits",
+                        data={"scope": scope, "level": level, "pct": pct},
+                    )
+                    if await _deliver(s, r, notice):
+                        sent.append(key)
             for scope, level, pct, who, key in due:
                 for r in recipients:
                     title, body = _alert_texts(scope, level, pct, who, r.language or "tr")
@@ -1157,7 +1286,10 @@ __all__ = [
     "GROUPS",
     "LimitRefusal",
     "Reservation",
+    "UNIT_KEYS",
     "check_alerts",
+    "check_allocations",
+    "faculty_of_programs",
     "day_key",
     "flush_outbox",
     "month_key",

@@ -33,13 +33,9 @@ export default {
     }
     if (!headcount) throw new Error("no free computer lab on the next teaching day");
     Object.assign(this, { pc, date, headcount });
-    await page.goto("/find-room");
+    await page.goto(`/find-room?date=${date}`); // the page takes its date from the URL (find-room-view.tsx)
     await page.getByTestId("find-room").waitFor({ timeout: 30_000 });
     // date and time are filled off camera (a native date picker and two times are not worth watching)
-    // the date field is a text field that commits on blur (ui/date-field.tsx): fill, then leave it
-    const [yy, mm, dd] = date.split("-");
-    await page.getByTestId("fr-date").fill(ctx.lang === "tr" ? `${dd}.${mm}.${yy}` : `${mm}/${dd}/${yy}`);
-    await page.getByTestId("fr-date").press("Tab");
     await page.getByTestId("fr-start").fill(START);
     await page.getByTestId("fr-end").fill(END);
   },
