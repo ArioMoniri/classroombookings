@@ -611,6 +611,8 @@ export interface ImportDefaults {
   department_id?: number | null;
   enabled?: boolean;
   force_password_reset?: boolean;
+  /** HB-23c: a CSV the helper staged (`/helper/files/classify`), sent instead of the file (helper-file-router.md §6.5) */
+  upload_token?: string;
 }
 
 export const ResetToken = z.object({ user_id: z.number(), expires_at: z.string().nullish(), emailed: z.boolean(), token: z.string().nullish() });
@@ -1023,9 +1025,10 @@ export const crbs = {
     constraints: (id: number) => json(`/users/${id}/constraints`, Constraints),
     putConstraints: (id: number, body: Partial<Constraints>) => send("PUT", `/users/${id}/constraints`, body, Constraints),
     resetToken: (id: number) => send("POST", `/users/${id}/reset-token`, undefined, ResetToken),
-    import: (file: File, d: ImportDefaults) => {
+    import: (file: File | null, d: ImportDefaults) => {
       const fd = new FormData();
-      fd.append("file", file);
+      if (d.upload_token) fd.append("upload_token", d.upload_token);
+      else if (file) fd.append("file", file);
       if (d.password) fd.append("password", d.password);
       if (d.role_id != null) fd.append("role_id", String(d.role_id));
       if (d.department_id != null) fd.append("department_id", String(d.department_id));

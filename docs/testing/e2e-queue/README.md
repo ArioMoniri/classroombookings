@@ -337,3 +337,51 @@ One stack, `REC_TEACHER=1 REC_LANG=tr REC_CAL_SIGNOFF=0`. Use only `E2E_FIXTURES
 - **Shell / IDP-2 / Mobile:** Göster on admin.users, admin.rooms, admin.sessions, admin.welcome rings the page heading (no "görünmüyor"), find_room.filters at 1440 rings "Gelişmiş"; after Esc / Anladım `document.activeElement` is never BODY (12 cases of E2EB-F06). /admin/ai?tab=limits strict over org → the Turkish 422 text; at 390 the changed faculty save floats above the tab bar. SAML step 3 at 390: "Kaydet" uncovered above the tab bar; "SP anahtarı oluştur" → focus on "Kaldır". Root 32 px at 390: /generate step 1 and /runs/compare?a=7&b=11 scrollWidth ≤ 390. 320×568 /bookings date chip shows the whole "22 Eki". /timetable at 768 touch: tap a chip, Esc → focus on that chip. /classes Sıkı → 32 px rows, Rahat → 56 px. Empty stack /bookings: "18.10.2026 hiçbir dönemin içinde değil." (no English).
 
 - FIX-I/FIX-K (E2EB-F11): on touch, a tap on a class chip moves focus to the inspector heading (only when focus had fallen to <main>/<body>); Esc returns focus to the chip. Check both at 390.
+
+## FIX-K (2026-10-18): e2e-a / e2e-a2 / e2e-b open minors, shell blur and 32 px root, run-page toast
+Fresh stack (`stack.sh up`, masked fixtures) for the KVKK item; the rest on any stack. Desktop 1440 (mouse) and 390×844 touch, tr-TR.
+- **E2EA-F08 (fresh stack only):**
+  - Re-import the masked Bahar planning list from `$REC_WORKDIR/fixtures`. The preview shows "Öğretim elemanları 0 yeni" (it was 72 new).
+  - `kvkk_mask.py --verify --names …` prints `left 0`.
+  - Instructors with colliding initials read like "Ad. K." / "Ay. K.".
+  - The report after Uygula reads "… oluşturuldu · N güncellendi · … atlandı" and shows a "Güncellenen" figure.
+- **E2EA-F05:**
+  - /import after more than 8 jobs: "Daha eski içe aktarmaları göster (n)" reveals the older jobs, the seed jobs among them.
+  - Focus lands on the first revealed row's Rapor button.
+- **E2EA-F07:**
+  - `PUT /constraints/{FILE rule} {"params":{"buildings":["A"]}}` → 422 `rule_scope_lost`, and the rule is unchanged.
+  - Studio › a planner's own rule › Kime uygulanır › Herkes still saves.
+- **E2EA-F09:** /admin/ops: an unknown error class reads "Beklenmeyen bir hata. Teknik metin Ayrıntı içinde.", and the raw text appears only under Ayrıntı.
+- **E2EA-F10:**
+  - With password sign-in only, /admin/users shows "Davet et" (outline) beside "Yeni kullanıcı".
+  - The sheet lead reads "Kişi bağlantıyı açıp kendi parolasını belirler."
+  - The link opens /login?invite=… with a set-password form.
+  - `?invite=1&email=…` opens the sheet.
+- **E2EA-F11 / E2EA2-F07:**
+  - /classes on a phone: the inspector has "Öğrenci sayısı" with − / + at 44 px and an input of at least 16 px. Kaydet shows the toast "Kaydedildi · Sonraki çalıştırmada etkili", and the value survives a reload.
+  - Same on /classes › Sınavlar for an exam (`PUT /requests/exams/{id}`).
+- **E2EA2-F03:** `document.activeElement` is never `<body>` after:
+  - /admin/schedules Kaydet (it stays on Kaydet);
+  - Varsayılana dön (it moves to P1 başlangıç);
+  - /admin/weeks kind change (it stays on the select);
+  - /admin/users Sonraki to the last page (it moves to Önceki);
+  - /import preview Vazgeç (it moves to the drop zone).
+- **E2EA2-F05:** after P1 is set to 08:00, `GET /learning/suggestions?term_id=1` `evidence.value_label.tr` reads "(08:00–13:20)".
+- **E2EA2-F06 (needs a board import after FIX-K):** /admin/weeks: week 14 → Tatil → Ders. The "Elle değiştirildi" badge goes away and `GET /terms/1/weeks` shows `edited:false`.
+- **E2EB-F08:** empty stack after import, 390: "Çizelge oluştur" on /dashboard is at least 44 px tall.
+- **E2EB-F11:** /timetable at 768 touch: tap a class chip, and focus lands on the inspector heading; Esc returns it to the chip.
+- **E2EB-F12:** /onboarding at 390:
+  - after Yaz → confirm, focus is on the result line;
+  - re-uploading the same room list reads "Derslikler: 87 · değişiklik yok";
+  - the diff note reads "Önizleme: veritabanı değişmedi."
+- **E2EB-F13:** /exams/invigilation at 390: CLS < 0.1.
+- **E2EB-F14 / F15:**
+  - With YETKİM metadata unsigned, the provider row shows the Turkish check sentence.
+  - Step 3 has "Meta veriyi yeniden oku". After the metadata is fixed, it turns the provider green and unlocks step 4.
+- **E2EB-F16:** Profil › Güvenlik after `?sso=linked&provider=keycloak`: the address is cleaned; after "Bağlantıyı kaldır" the green notice is gone.
+- **E2EB-F18:** SAML sign-in of an existing unlinked account shows "Giriş yapılamadı." with the S-code and the link hint (no "bu hesap var" wording).
+- **E2EB-F21:** empty stack, imported term with nothing published: /analytics/heatmap reads "Yayımlanmış program yok", not "Genel doluluk %0".
+- **Orchestrator asks:**
+  - 390 with `document.documentElement.style.fontSize="32px"`: /analytics/heatmap scrollWidth ≤ 390. The tab bar has no search capsule; the top bar shows the search button.
+  - Open the helper sheet at 1440 and 390: at most 3 `backdrop-filter` surfaces (`getComputedStyle(el).backdropFilter !== "none"`). The top bar, sidebar and tab bar keep their tint.
+  - As `planlamaci.test`, open /runs/3 and /runs/7 (all tabs, the chat included): no "izni gerekiyor" toast. A refused action, such as a forced move, still toasts.

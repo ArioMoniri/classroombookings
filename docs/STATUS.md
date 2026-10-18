@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `fd04be5` (committed 2026-10-18 16:35 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `2687574` (committed 2026-10-18 16:59 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -179,7 +179,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-406 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 380 · stopped 11 · superseded 7.
+410 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 381 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -190,7 +190,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `AUX-F` | frontend-engineer | 2026-10-18 00:04 |
 | `AS-S` | solver-engineer | 2026-10-18 07:56 |
 | `HB-B` | ai-engineer | 2026-10-18 07:56 |
-| `FIX-K` | general-purpose | 2026-10-18 16:18 |
+| `HB-23b backend` | backend-engineer | 2026-10-18 16:42 |
+| `HB-23c frontend` | frontend-engineer | 2026-10-18 16:42 |
+| `Architecture diagrams + value verdict` | general-purpose | 2026-10-18 16:54 |
+| `KVKK review of the file router` | strict-reviewer | 2026-10-18 16:59 |
 
 <!-- /AUTO:agents -->
 

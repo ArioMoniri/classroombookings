@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Annotated, Any, cast
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy import delete, func, select
 
 from app.api.deps import DB, UsersAdmin, require_permission
@@ -193,16 +193,31 @@ async def put_constraints(user_id: int, body: ConstraintsIO, db: DB, _: UsersAdm
 
 @router.post("/users/import")
 async def import_users(
+    request: Request,
     db: DB,
     me: UsersAdmin,
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(default=None),
     password: str | None = Form(default=None),
     role_id: int | None = Form(default=None),
     department_id: int | None = Form(default=None),
     enabled: bool = Form(default=True),
     force_password_reset: bool = Form(default=False),
+    upload_token: str | None = Form(default=None, max_length=2000),
 ) -> dict[str, Any]:
-    data = await file.read()
+    """``file`` or ``upload_token`` (HB-23b: the users CSV the helper read), exactly one; the same 5 MB cap."""
+    if (file is None) == (not upload_token):
+        raise messages.problem(
+            422,
+            "file_or_token",
+            "Bir dosya ya da yardımcıdan gelen dosya gönderin (ikisi birden değil).",
+            "Send either a file or the helper's upload_token (not both).",
+        )
+    if file is not None:
+        data = await file.read()
+    else:
+        from app.api.v1.helper_files import take
+
+        _ext, data, _meta = await take(request, me, str(upload_token))
     if len(data) > 5 * 1024 * 1024:
         raise HTTPException(413, "CSV larger than 5 MB")
     default_role = await db.get(Role, role_id) if role_id is not None else None

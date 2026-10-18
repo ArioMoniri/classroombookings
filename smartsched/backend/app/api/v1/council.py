@@ -32,7 +32,7 @@ import logging
 import shutil
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
@@ -132,9 +132,14 @@ async def job_out(db: DB, job: CouncilJob, lang: str | None = None) -> CouncilJo
 
 @router.post("/jobs", response_model=CouncilJobOut, status_code=202)
 async def create_job(
+    request: Request,
     db: DB,
     user: Planner,
-    files: list[UploadFile] = File(..., description="any number of schedule files, any format"),
+    files: list[UploadFile] = File(default=[], description="any number of schedule files, any format"),
+    upload_tokens: list[str] = Form(
+        default=[], description="files the helper read (HB-23b): one upload_token per file, instead of the upload"
+    ),
+    upload_names: list[str] = Form(default=[], description="optional browser file names, parallel to upload_tokens"),
     mode: str = Form("auto", description="auto (fast path for known shapes) | general (council for every file)"),
     lang: str = Form("en"),
     year_hint: int | None = Form(None),
@@ -144,9 +149,9 @@ async def create_job(
     st = get_settings()
     if mode not in ("auto", "general"):
         raise HTTPException(400, "mode must be auto or general")
-    if not files:
+    if not files and not upload_tokens:
         raise HTTPException(400, "upload at least one file")
-    if len(files) > st.council_max_files:
+    if len(files) + len(upload_tokens) > st.council_max_files:
         raise HTTPException(413, f"at most {st.council_max_files} files per job")
     # the same intake rules as /imports (app/core/safe_files.py): each upload streamed to disk with a byte cap,
     # a readable type, and OOXML containers (by extension or sniffed) inspected before any parser sees them
@@ -204,19 +209,34 @@ async def create_job(
         )
         return fmt
 
-    try:
+    async def incoming() -> Any:
+        """(name, saved size, bytes) of every upload, then of every helper hand-over (consumed once here)."""
+        from app.api.v1.helper_files import handed_name, take
+
         for i, f in enumerate(files):
             name = f.filename or f"upload-{i}"
-            index = len(entries)
-            stored = storage.stored_name(index, name)
-            target = storage.job_dir(job.id) / stored
+            target = storage.job_dir(job.id) / storage.stored_name(len(entries), name)
             try:
                 size = await safe_files.save_upload(f, target, limit)
             except safe_files.UnsafeFileError as exc:
                 raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
+            yield name, size, target.read_bytes()  # at most `limit` bytes
+        for i, tok in enumerate(upload_tokens):
+            ext, data, meta = await take(request, user, tok)
+            if len(data) > limit:
+                raise HTTPException(413, f"file {i + 1}: larger than the per-file limit")
+            name = handed_name(meta, ext, upload_names[i] if i < len(upload_names) else None)
+            target = storage.job_dir(job.id) / storage.stored_name(len(entries), name)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+            yield name, len(data), data
+
+    try:
+        async for name, size, data in incoming():
+            index = len(entries)
+            stored = storage.stored_name(index, name)
             if not size:
                 raise HTTPException(400, f"{name}: empty file")
-            data = target.read_bytes()  # at most `limit` bytes
             fmt = await admit(name, stored, size, data)
             if fmt != "eml":
                 continue

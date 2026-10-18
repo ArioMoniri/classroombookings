@@ -26,7 +26,7 @@ LABELS: dict[str, tuple[str, str, str]] = {
 #: (``app/ai/helper/file_examples.py``) are built from them, so each label reads back as its own key
 COLUMN_LABELS: dict[str, tuple[str, str]] = {
     "code": ("Ders Kodu", "course code"),
-    "day": ("Gün", "day"),
+    "day": ("Dersin Günü", "day"),
     "start": ("Başlangıç Saati", "start time"),
     "end": ("Bitiş Saati", "end time"),
     "date": ("Sınav Tarihi", "exam date"),

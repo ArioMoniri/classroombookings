@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -38,7 +39,26 @@ async def _save_upload(db: DB, job: ImportJob, file: UploadFile, *, full_load: b
     target = import_jobs.file_target(job.id, file.filename)
     try:
         await safe_files.save_upload(file, target)
-        await safe_files.precheck_upload(target, file.filename, full_load=full_load)
+    except safe_files.UnsafeFileError as exc:
+        _cleanup(job.id)
+        job.status, job.error, job.finished_at = "FAILED", exc.message, utcnow()
+        await db.commit()
+        raise HTTPException(exc.status, exc.message) from exc
+    return await _check_saved(db, job, target, file.filename, full_load=full_load)
+
+
+async def _save_bytes(db: DB, job: ImportJob, filename: str, data: bytes, *, full_load: bool = False) -> Path:
+    """A file handed over by the helper (HB-23b ``upload_token``): written to the job's own target, then the same
+    pre-inspection and KVKK guard as an upload."""
+    target = import_jobs.file_target(job.id, filename)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    return await _check_saved(db, job, target, filename, full_load=full_load)
+
+
+async def _check_saved(db: DB, job: ImportJob, target: Path, filename: str | None, *, full_load: bool) -> Path:
+    try:
+        await safe_files.precheck_upload(target, filename, full_load=full_load)
     except safe_files.UnsafeFileError as exc:
         _cleanup(job.id)
         job.status, job.error, job.finished_at = "FAILED", exc.message, utcnow()
@@ -46,7 +66,7 @@ async def _save_upload(db: DB, job: ImportJob, file: UploadFile, *, full_load: b
         raise HTTPException(exc.status, exc.message) from exc
     try:
         # KVKK guard of recording / test stacks (FIX-J E2EA-F01): no raw seed workbook, no unmasked names
-        kvkk_guard.check(target.read_bytes(), file.filename)
+        kvkk_guard.check(target.read_bytes(), filename)
     except kvkk_guard.KvkkRefused as exc:
         _cleanup(job.id)
         job.status, job.error, job.finished_at = "FAILED", exc.message_tr, utcnow()
@@ -169,10 +189,11 @@ async def _new_job(
     params: dict[str, Any] | None = None,
     dry_run: bool = False,
     preview_of: int | None = None,
+    source: str = "upload",
 ) -> ImportJob:
     """The job row: who imports (RF-08: ``created_by_id`` + ``actor``), the importer's parameters (an apply of a
     preview reuses them) and, for a preview, ``dry_run`` / ``applied_job_id``."""
-    summary: dict[str, Any] = {"worker": worker_id(), "source": "upload", "params": params or {}}
+    summary: dict[str, Any] = {"worker": worker_id(), "source": source, "params": params or {}}
     if dry_run:
         summary |= {"dry_run": True, "applied_job_id": None}
     if preview_of is not None:
@@ -225,11 +246,55 @@ def _runner(kind: str, path: Path, filename: str | None, term_code: str | None, 
     raise HTTPException(400, f"{kind} imports have no preview")
 
 
+@dataclass
+class Incoming:
+    """One file of an import request: an upload, or a file the helper handed over (``upload_token``, HB-23b)."""
+
+    filename: str | None
+    upload: UploadFile | None = None
+    data: bytes | None = None
+
+    @property
+    def source(self) -> str:
+        return "upload" if self.upload is not None else "helper"
+
+
+def _exactly_one() -> HTTPException:
+    return problem(
+        422,
+        "file_or_token",
+        "Bir dosya ya da yardımcıdan gelen dosya gönderin (ikisi birden değil).",
+        "Send either a file or the helper's upload_token (not both).",
+    )
+
+
+async def incoming(
+    request: Request, user: User, file: UploadFile | None, upload_token: str | None, filename: str | None
+) -> Incoming:
+    """``file`` or ``upload_token``, exactly one. The token is consumed here (403 another person / session, 410
+    used / expired); the stored name is the browser's ``filename`` when sent, else ``helper-<sha12>.<ext>``."""
+    if (file is None) == (not upload_token):
+        raise _exactly_one()
+    if file is not None:
+        return Incoming(file.filename, upload=file)
+    from app.api.v1.helper_files import handed_name, take
+
+    ext, data, meta = await take(request, user, str(upload_token))
+    return Incoming(handed_name(meta, ext, filename), data=data)
+
+
+async def _store(db: DB, job: ImportJob, item: Incoming, *, full_load: bool = False) -> Path:
+    if item.upload is not None:
+        return await _save_upload(db, job, item.upload, full_load=full_load)
+    assert item.data is not None and item.filename is not None
+    return await _save_bytes(db, job, item.filename, item.data, full_load=full_load)
+
+
 async def _upload_job(
     db: DB,
     user: User,
     kind: str,
-    file: UploadFile,
+    item: Incoming,
     term_code: str | None,
     params: dict[str, Any],
     *,
@@ -238,58 +303,73 @@ async def _upload_job(
 ) -> ImportJob:
     if term_code is not None and not dry_run:
         await _refuse_if_locked(term_code)
-    job = await _new_job(db, kind, file.filename, term_code, user, params=params, dry_run=dry_run)
-    path = await _save_upload(db, job, file, full_load=full_load)
-    run = _runner(kind, path, file.filename, term_code, params)
-    return await _start_job(db, job, run, term_code=term_code, dry_run=dry_run, upload=(file.filename, path))
+    job = await _new_job(
+        db, kind, item.filename, term_code, user, params=params, dry_run=dry_run, source=item.source
+    )
+    path = await _store(db, job, item, full_load=full_load)
+    run = _runner(kind, path, item.filename, term_code, params)
+    return await _start_job(db, job, run, term_code=term_code, dry_run=dry_run, upload=(item.filename, path))
 
 
 @router.post("/planning-list", response_model=ImportJobOut, status_code=202)
 async def import_planning(
+    request: Request,
     db: DB,
     user: Planner,
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
     term_code: str = Form(...),
     week_count: int = Form(14),
     on_conflict: str = Form("keep", pattern="^(keep|take)$"),
     dry_run: bool = Form(False),
+    upload_token: str | None = Form(None, max_length=2000),
+    filename: str | None = Form(None, max_length=255),
 ) -> ImportJob:
     """Re-imports keep planner edits of fields the file also changed (``on_conflict=keep``, reported in
     ``summary.extra.conflicts``) or apply the file (``take``).
-    ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``."""
+    ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``.
+    ``upload_token`` (HB-23b): the file the helper read, instead of ``file`` (``summary.source = "helper"``)."""
+    item = await incoming(request, user, file, upload_token, filename)
     params = {"week_count": week_count, "on_conflict": on_conflict}
-    return await _upload_job(db, user, "planning-list", file, term_code, params, dry_run=dry_run)
+    return await _upload_job(db, user, "planning-list", item, term_code, params, dry_run=dry_run)
 
 
 @router.post("/exam-list", response_model=ImportJobOut, status_code=202)
 async def import_exams(
+    request: Request,
     db: DB,
     user: Planner,
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
     term_code: str = Form(...),
     on_conflict: str = Form("keep", pattern="^(keep|take)$"),
     dry_run: bool = Form(False),
+    upload_token: str | None = Form(None, max_length=2000),
+    filename: str | None = Form(None, max_length=255),
 ) -> ImportJob:
     """Re-imports keep admin edits and archived rows (RF-06); a field the file changed too is a conflict, kept
     (``on_conflict=keep``) or taken (``take``) and listed in ``summary.extra.conflicts``.
     ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``."""
-    return await _upload_job(db, user, "exam-list", file, term_code, {"on_conflict": on_conflict}, dry_run=dry_run)
+    item = await incoming(request, user, file, upload_token, filename)
+    return await _upload_job(db, user, "exam-list", item, term_code, {"on_conflict": on_conflict}, dry_run=dry_run)
 
 
 @router.post("/weekly-grid", response_model=ImportJobOut, status_code=202)
 async def import_grid(
+    request: Request,
     db: DB,
     user: Planner,
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
     term_code: str = Form(...),
     year: int = Form(...),
     term_kind: str | None = Form(None),
     dry_run: bool = Form(False),
+    upload_token: str | None = Form(None, max_length=2000),
+    filename: str | None = Form(None, max_length=255),
 ) -> ImportJob:
     """A term's room board; weeks an admin edited keep their kind and label (RF-06).
     ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``."""
+    item = await incoming(request, user, file, upload_token, filename)
     params = {"year": year, "term_kind": term_kind}
-    return await _upload_job(db, user, "weekly-grid", file, term_code, params, dry_run=dry_run, full_load=True)
+    return await _upload_job(db, user, "weekly-grid", item, term_code, params, dry_run=dry_run, full_load=True)
 
 
 RoomsEditor = Annotated[User, Depends(require_permission("planning.edit", "setup.rooms"))]
@@ -298,15 +378,22 @@ _ROOM_MASTER_TYPES = (".csv", ".txt", ".xlsx", ".xlsm")
 
 @router.post("/room-master", response_model=ImportJobOut, status_code=202)
 async def import_room_master_endpoint(
-    db: DB, user: RoomsEditor, file: UploadFile = File(...), dry_run: bool = Form(False)
+    request: Request,
+    db: DB,
+    user: RoomsEditor,
+    file: UploadFile | None = File(None),
+    dry_run: bool = Form(False),
+    upload_token: str | None = Form(None, max_length=2000),
+    filename: str | None = Form(None, max_length=255),
 ) -> ImportJob:
     """The room master (``code, capacity, exam_capacity, tags, building, floor, bookable[, notes]``) as CSV
     (UTF-8 or Windows-1254, ``;`` or ``,``) or ``.xlsx`` (first sheet).  Values it sets are never overwritten
     by a later workbook import.  Needs ``planning.edit`` or ``setup.rooms``.
     ``dry_run=true``: a preview (RF-06), see ``POST /imports/{id}/apply``."""
-    if not (file.filename or "").lower().endswith(_ROOM_MASTER_TYPES):
+    item = await incoming(request, user, file, upload_token, filename)
+    if not (item.filename or "").lower().endswith(_ROOM_MASTER_TYPES):
         raise HTTPException(400, "the room master must be a .csv or .xlsx file")
-    return await _upload_job(db, user, "room-master", file, None, {}, dry_run=dry_run)
+    return await _upload_job(db, user, "room-master", item, None, {}, dry_run=dry_run)
 
 
 class ApplyIn(BaseModel):
@@ -363,25 +450,35 @@ async def apply_preview(job_id: int, body: ApplyIn, db: DB, access: CurrentAcces
 
 @router.post("/crbs", response_model=ImportJobOut, status_code=202)
 async def import_crbs_endpoint(
-    db: DB, user: Planner, dsn: str | None = Form(None), files: list[UploadFile] = File(default=[])
+    request: Request,
+    db: DB,
+    user: Planner,
+    dsn: str | None = Form(None),
+    files: list[UploadFile] = File(default=[]),
+    upload_tokens: list[str] = Form(default=[]),
 ) -> ImportJob:
     """Either a MySQL DSN (``mysql://user:pass@host/db``) or one or more SQL dump files. A live DSN is for
-    planning admins and allow-listed hosts only (``crbs_dsn.check_dsn``, review D16); dumps never connect."""
+    planning admins and allow-listed hosts only (``crbs_dsn.check_dsn``, review D16); dumps never connect.
+    ``upload_tokens`` (HB-23b): dumps the helper read, one token per dump."""
     from app.importers.crbs_legacy import import_crbs
     from app.services import crbs_dsn
 
-    if not dsn and not files:
+    if not dsn and not files and not upload_tokens:
         raise HTTPException(400, "provide a dsn or SQL dump files")
     if dsn:
         await crbs_dsn.check_dsn(db, dsn, user)  # 403 / 422 before any job or connection exists
+    items = [Incoming(f.filename, upload=f) for f in files]
+    for tok in upload_tokens:
+        items.append(await incoming(request, user, None, tok, None))
     job = await _new_job(
         db,
         "crbs",
-        ", ".join(f.filename or "?" for f in files) if files else dsn.split("@")[-1] if dsn else None,
+        ", ".join(i.filename or "?" for i in items) if items else dsn.split("@")[-1] if dsn else None,
         None,
         user,
+        source="helper" if upload_tokens else "upload",
     )
-    paths = [await _save_upload(db, job, f) for f in files]
+    paths = [await _store(db, job, i) for i in items]
     source: Any = dsn if dsn else paths
     return await _start_job(db, job, lambda s: import_crbs(s, source, filename=job.filename))
 
