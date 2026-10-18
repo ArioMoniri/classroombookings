@@ -133,6 +133,26 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "Kurumun bu ayki yapay zekâ bütçesi doldu. Yöneticiniz bütçeyi artırana kadar yapay zekâ kullanılamaz.",
         "The institution's AI budget for this month is spent. AI is unavailable until an administrator raises it.",
     ),
+    "ai_faculty_limit_reached": (
+        "Fakültenizin bu ayki yapay zekâ payı doldu. Fakülte yöneticinizden ya da yöneticinizden ek pay "
+        "isteyebilirsiniz.",
+        "Your faculty's AI allowance for this month is used up. Ask your faculty manager or administrator for more.",
+    ),
+    "ai_department_limit_reached": (
+        "Bölümünüzün bu ayki yapay zekâ payı doldu. Fakülte yöneticinizden ek pay isteyebilirsiniz.",
+        "Your department's AI allowance for this month is used up. Ask your faculty manager for more.",
+    ),
+    "ai_feature_limit_reached": (
+        "Bu özelliğin bu ayki yapay zekâ payı doldu. Ay başında yenilenir; yöneticiniz artırabilir.",
+        "This feature's AI allowance for this month is used up. It resets at the start of the month; your "
+        "administrator can raise it.",
+    ),
+    "ai_unit_limit_reached": (
+        "Bir bölüme bağlı olmayan hesapların bu ayki yapay zekâ payı doldu. Yöneticinizden profilinize bölüm "
+        "eklemesini ya da ek pay isteyin.",
+        "The AI allowance of accounts without a department is used up this month. Ask your administrator to add a "
+        "department to your profile or for more.",
+    ),
     "ai_transfer_basis_missing": (
         "Bu sağlayıcıya kişisel veri aktarımı için KVKK aktarım kaydı yok. Yönetici, Yapay zekâ > Sağlayıcılar ekranında kaydı doldurmalı.",
         "There is no KVKK transfer record for sending personal data to this provider. An administrator must fill it in under AI > Providers.",
@@ -642,7 +662,10 @@ def sanitize_output_text(message: Any, *, feature: str) -> list[str]:
 
 
 class RateLimiter:
-    """Sliding one-minute window per user (in process; the API runs one worker per instance)."""
+    """Sliding one-minute window per user, **in this process only**. The shipped compose runs two uvicorn workers
+    (``UVICORN_WORKERS``), so the gateway no longer uses it: the per-minute limit and the concurrency gate are
+    counted from the shared ``ai_reservations`` rows (:func:`app.services.ai_usage.rate_hit`, HB-10). Kept for
+    callers that need a cheap per-process throttle."""
 
     def __init__(self, now: Callable[[], float] = time.monotonic) -> None:
         self._now = now
@@ -665,7 +688,8 @@ class RateLimiter:
 
 
 class ConcurrencyGate:
-    """At most ``limit`` calls in flight per user."""
+    """At most ``limit`` calls in flight per user, in this process only (the gateway counts open
+    ``ai_reservations`` rows instead; HB-10)."""
 
     def __init__(self) -> None:
         self._active: dict[Any, int] = defaultdict(int)

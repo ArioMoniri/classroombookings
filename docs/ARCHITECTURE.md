@@ -101,7 +101,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-41 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0045_user_sessions`**. A new migration goes on top of it (`alembic heads` must print one line).
+42 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0046_ai_quota_units`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -146,6 +146,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 39 | `0043_mfa` | `0042_ai_usage_audio` | Two-step sign-in, passkeys, trusted devices (AU-B; app/models/mfa.py, docs/research/2026-10-18-auth-backend.md) |
 | 40 | `0044_helper` | `0043_mfa` | AI helper tables (HB-04; docs/research/2026-10-17-ai-helper-architecture.md §5.4, §5.7; app/models/helper.py) |
 | 41 | `0045_user_sessions` | `0044_helper` | Server-side session list (AU-15; app/models/mfa.py ``UserSession``, app/services/sessions.py) |
+| 42 | `0046_ai_quota_units` | `0045_user_sessions` | AI quota chain and shared reservations (HB-10; docs/research/2026-10-17-ai-helper-architecture.md §5.9) |
 
 <!-- /AUTO:migrations -->
 

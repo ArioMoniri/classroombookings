@@ -278,8 +278,10 @@ _NEXT = [0]
 #: row ids this worker settled whose DELETE has not run yet: excluded from every count at once
 _PENDING: set[int] = set()
 _TASKS: set[asyncio.Task[None]] = set()
-#: tests: rows created before the last :func:`reset_state` are not counted
+#: tests: rows created before the last :func:`reset_state` are not counted (per-minute rows: also before
+#: :func:`reset_rate_window`)
 _RESET_AT = [datetime.min]
+_RATE_RESET_AT = [datetime.min]
 #: one asyncio lock per engine (a worker); PostgreSQL's advisory lock serialises the workers
 _LOCKS: dict[tuple[int, int], asyncio.Lock] = {}
 
@@ -332,10 +334,8 @@ async def _sweep(session: AsyncSession, moment: datetime) -> set[int]:
 
 
 def _live(moment: datetime, kind: str = "call") -> list[Any]:
-    conds: list[Any] = [
-        AIReservation.kind == kind,
-        AIReservation.created_at >= _RESET_AT[0],
-    ]
+    since = max(_RESET_AT[0], _RATE_RESET_AT[0]) if kind == "rate" else _RESET_AT[0]
+    conds: list[Any] = [AIReservation.kind == kind, AIReservation.created_at >= since]
     if kind == "call":
         conds.append(AIReservation.expires_at > moment)
     if _PENDING:
@@ -397,6 +397,11 @@ def forget_local_state() -> None:
     """Drop this process's in-memory reservation state (tests: what another worker would see)."""
     _RESERVED.clear()
     _LOCKS.clear()
+
+
+def reset_rate_window() -> None:
+    """Tests (``pipeline.reset_state``): earlier per-minute rows no longer count."""
+    _RATE_RESET_AT[0] = utc_naive()
 
 
 def reset_state() -> None:
@@ -1167,6 +1172,7 @@ __all__ = [
     "reserve_audio",
     "release",
     "rate_hit",
+    "reset_rate_window",
     "reset_state",
     "settle",
     "forget_local_state",

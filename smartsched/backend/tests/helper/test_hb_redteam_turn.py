@@ -83,7 +83,13 @@ def _tool_names(call: dict[str, Any]) -> set[str]:
     return {t["name"] for t in call.get("tools") or []}
 
 
-async def test_ra_02_turn_taint_drops_every_write(env) -> None:  # noqa: F811
+async def test_ra_02_turn_taint_drops_every_write(env, monkeypatch) -> None:  # noqa: F811
+    orig = ht._fallback_for
+    def dbg(exc):  # DEBUG
+        import traceback; traceback.print_exception(exc)
+        print("CALLS", len(FakeSDK.calls))
+        return orig(exc)
+    monkeypatch.setattr(ht, "_fallback_for", dbg)
     people = await personas(env)
     t = people["teacher"]
     mine = await env.book(t.headers, "A102", THU, "P1")

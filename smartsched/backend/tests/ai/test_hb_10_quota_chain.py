@@ -77,7 +77,9 @@ async def _refusal(session, user: User | None, tokens: int, feature: str = "chat
 
 
 async def _passes(session, user: User | None, tokens: int, feature: str = "chat") -> None:
-    res = await meter.reserve(session, user_id=user.id if user else None, est_tokens=tokens, est_cost=0, feature=feature)
+    res = await meter.reserve(
+        session, user_id=user.id if user else None, est_tokens=tokens, est_cost=0, feature=feature
+    )
     await meter.release(res)
 
 
@@ -299,9 +301,7 @@ async def test_department_sum_must_fit_the_faculty_and_strict_mode(client, sessi
     assert [w["code"] for w in r.json()["warnings"]] == ["faculty_sum_exceeds_org"]
     r = await client.put(put, json={"strict": True}, headers=h)
     assert r.status_code == 422 and r.json()["detail"]["code"] == "faculty_sum_exceeds_org"
-    r = await client.put(
-        put, json={"strict": True, "faculties": {str(ids["f1"]): {"monthly_tokens": 700}}}, headers=h
-    )
+    r = await client.put(put, json={"strict": True, "faculties": {str(ids["f1"]): {"monthly_tokens": 700}}}, headers=h)
     assert r.status_code == 200 and r.json()["warnings"] == []
     bad = await client.put(put, json={"faculties": {"999999": {"monthly_tokens": 10}}}, headers=h)
     assert bad.status_code == 422 and bad.json()["detail"]["code"] == "unknown_unit"
