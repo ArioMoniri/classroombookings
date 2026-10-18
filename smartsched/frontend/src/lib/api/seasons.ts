@@ -114,6 +114,14 @@ export interface ProfileIn {
   explanation?: { tr: string; en: string };
 }
 
+export interface SegmentIn {
+  kind: string;
+  week_from: number;
+  week_to: number;
+  label_tr?: string;
+  status?: "draft" | "active";
+}
+
 export const seasonsApi = {
   profiles: () => request("/seasons/profiles", { schema: ProfileList, ...s }),
   create: (body: ProfileIn) => request("/seasons/profiles", { method: "POST", body, schema: Profile, ...s }),
@@ -122,6 +130,7 @@ export const seasonsApi = {
   revert: (id: number) => request(`/seasons/profiles/${id}/revert`, { method: "POST", schema: Profile, ...s }),
   remove: (id: number) => request(`/seasons/profiles/${id}`, { method: "DELETE", ...s }),
   periods: (termId: number) => request(`/seasons/terms/${termId}/periods`, { schema: TermPeriods, ...s }),
+  createSegment: (termId: number, body: SegmentIn) => request(`/seasons/terms/${termId}/segments`, { method: "POST", body, schema: Segment, ...s }),
   updateSegment: (id: number, body: { status: "active" | "draft" }) => request(`/seasons/segments/${id}`, { method: "PUT", body, schema: Segment, ...s }),
   removeSegment: (id: number) => request(`/seasons/segments/${id}`, { method: "DELETE", ...s }),
 };
@@ -151,6 +160,7 @@ export function useProfileActions() {
     activate: useMutation({ mutationFn: (id: number) => seasonsApi.activate(id), onSuccess: done }),
     revert: useMutation({ mutationFn: (id: number) => seasonsApi.revert(id), onSuccess: done }),
     remove: useMutation({ mutationFn: (id: number) => seasonsApi.remove(id), onSuccess: done }),
+    createSegment: useMutation({ mutationFn: (v: { termId: number; body: SegmentIn }) => seasonsApi.createSegment(v.termId, v.body), onSuccess: done }),
     approveSegment: useMutation({ mutationFn: (id: number) => seasonsApi.updateSegment(id, { status: "active" }), onSuccess: done }),
     removeSegment: useMutation({ mutationFn: (id: number) => seasonsApi.removeSegment(id), onSuccess: done }),
   };

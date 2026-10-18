@@ -226,6 +226,9 @@ async def test_per_minute_limit_counts_rows_of_every_worker(session):
     assert not await meter.rate_hit(u.id, per_minute=2)
     assert await meter.rate_hit(u.id + 1, per_minute=2)  # per person
     assert await meter.rate_hit(u.id, per_minute=0)  # 0 = no limit
+    # a reservation's sweep in between keeps the per-minute rows
+    await meter.release(await meter.reserve(session, user_id=None, est_tokens=1, est_cost=0))
+    assert not await meter.rate_hit(u.id, per_minute=2)
 
 
 async def test_settle_without_await_is_seen_at_once(session):

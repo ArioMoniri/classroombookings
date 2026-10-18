@@ -324,7 +324,7 @@ async def _sweep(session: AsyncSession, moment: datetime) -> set[int]:
     the settled ids it deleted; the caller forgets them only after its commit."""
     done = set(_PENDING)
     cond = or_(
-        AIReservation.expires_at <= moment,
+        (AIReservation.kind == "call") & (AIReservation.expires_at <= moment),
         (AIReservation.kind == "rate") & (AIReservation.created_at < moment - timedelta(seconds=RATE_KEEP_S)),
     )
     if done:
@@ -440,7 +440,14 @@ async def rate_hit(user_id: int | None, *, per_minute: int, now: datetime | None
                 if int((await s.execute(q)).scalar_one()) >= per_minute:
                     await s.rollback()
                     return False
-                s.add(AIReservation(kind="rate", user_id=user_id, created_at=moment, expires_at=moment))
+                s.add(
+                    AIReservation(
+                        kind="rate",
+                        user_id=user_id,
+                        created_at=moment,
+                        expires_at=moment + timedelta(seconds=RATE_KEEP_S),
+                    )
+                )
                 await s.commit()
     except _MISSING:
         log.warning("ai_reservations table missing; run the migrations (alembic upgrade head)")

@@ -101,3 +101,11 @@ On pass: tick VO-06/07/08 and VO-05.
 8. M-10 at 768: /admin/users new-user dialog is one column, each ≥ 280 px.
 9. Studio step 3 with a rule switched off: contrast ≥ 4.5:1 light and dark.
 10. Hosted Motion Agent fix: publish → "✓ Yayında" (run-published-check).
+
+## AUX-F (sign-in, 2FA, passkeys) — e2e/au-signin-security.spec.ts, Chromium, serial, CDP virtual authenticator, TOTP computed in the spec
+1. §16.6 setup in ≤ 3 steps, the .txt name, "Bitir" only after the tick, the warning when closing at step 3.
+2. §16.1 second step without a reload; a pasted "123 456" submits; a wrong code clears the slots and keeps focus.
+3. §16.2 remember this device; the sessions list shows no network; "Diğer cihazlardan çıkış yap".
+4. §16.4 add a passkey, rename it, use it as the second step. 5. §16.3 a recovery code works once.
+6. §16.7/8/9/12 (390 px) once A5/A6 are mounted; AUX-03 autofill + Conditional Create; motion-audit sign-in-security;
+   MOBILE M-01/02/03/05 on /login, /login/verify, /profile#security.

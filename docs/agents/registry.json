@@ -3260,7 +3260,8 @@
       "goal": "You are lane AUX-F (sign-in, 2FA and passkeys frontend), re-created after a container restart. Your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss); look at `components/auth/**`, `components/profile/security/**`, any `components/settings/*auth*` or log…",
       "ledger": "AUX-F resume: sign-in UI",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 08:58"
     },
     {
       "id": "a41d85f83c1f7a95d",
@@ -3413,6 +3414,18 @@
       "status": "finished",
       "finished_at": "2026-10-18 08:56",
       "left_off": "is the pod up yet"
+    },
+    {
+      "id": "add1d169f4aee3502",
+      "description": "E2E lane: run the queued browser checks",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 08:59",
+      "scope": "",
+      "goal": "You are the single E2E lane for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read these first: - docs/agents/briefs/COMMON.md. You are the ONE lane allowed to run an app stack, but only one stack at a time. Run it with `nice -n 10`, stop it after each section,…",
+      "ledger": "E2E lane: run the queued browser checks",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
