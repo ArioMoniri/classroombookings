@@ -82,6 +82,12 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/auth/sso/admin/invites/{invite_id}/resend": (E, "app.services.identity.invites"),
     "POST /api/v1/auth/sso/invites/{token}/password": (E, "app.services.identity.invites"),
     "POST /api/v1/auth/sso/{slug}/acs": (E, "app.services.sso"),
+    # Profil › Güvenlik links of the Google / OIDC / SAML providers (idp-2026-10-18, app/services/identity/links.py)
+    "POST /api/v1/auth/sso/{slug}/link": (
+        N,
+        "single-use state row after re-authentication; the link is audited (auth.identity_bound) at the callback / ACS",
+    ),
+    "POST /api/v1/auth/sso/{slug}/unlink": (E, "app.services.identity.links"),
     # AU-B two-step sign-in, passkeys, trusted devices, admin resets (app/services/mfa.py audits every event)
     "POST /api/v1/auth/mfa/totp/start": (E, "app.services.mfa"),
     "POST /api/v1/auth/mfa/totp/confirm": (E, "app.services.mfa"),

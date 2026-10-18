@@ -3486,7 +3486,8 @@
       "goal": "Ledger name `rf-b-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; `nice`, pytest only on the files you touch); never `p…",
       "ledger": "RF-B: re-import, seed history, periods",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 10:25"
     },
     {
       "id": "a23253f0f89269410",
@@ -3704,6 +3705,26 @@
       "status": "finished",
       "finished_at": "2026-10-18 10:16",
       "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ae3b3088d9a9d42c2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:17",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ad922c67e804ba98b",
+      "description": "RF-F: import diff, period grid, weeks UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 10:25",
+      "scope": "",
+      "goal": "Ledger name `rf-f-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorkers…",
+      "ledger": "RF-F: import diff, period grid, weeks UI",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

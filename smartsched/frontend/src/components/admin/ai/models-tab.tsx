@@ -8,7 +8,7 @@
 import { Save } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Alert, Loading } from "@/components/admin/kit";
+import { Alert, Loading, pageActionsCapsule } from "@/components/admin/kit";
 import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
@@ -124,14 +124,17 @@ function RoutesEditor({ all, routes, canEdit }: { all: Provider[]; routes: Route
         );
       })}
       {canEdit ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={submit} {...busyProps(save.isPending, anyIssue)} data-testid="ai-routes-save">
-            <BusyLabel busy={save.isPending} label={t("busy.saving")} icon={<Save aria-hidden />}>
-              {t("aiAdmin.models.save")}
-            </BusyLabel>
-          </Button>
+        <>
           {anyIssue ? <p className="type-footnote text-label-2">{t("aiAdmin.models.fixFirst")}</p> : null}
-        </div>
+          {/* MOBILE M-05: below lg the save sits in the page-actions capsule above the tab bar (kit.tsx) */}
+          <div data-slot="page-actions" className={pageActionsCapsule}>
+            <Button onClick={submit} {...busyProps(save.isPending, anyIssue)} data-testid="ai-routes-save">
+              <BusyLabel busy={save.isPending} label={t("busy.saving")} icon={<Save aria-hidden />}>
+                {t("aiAdmin.models.save")}
+              </BusyLabel>
+            </Button>
+          </div>
+        </>
       ) : null}
     </div>
   );

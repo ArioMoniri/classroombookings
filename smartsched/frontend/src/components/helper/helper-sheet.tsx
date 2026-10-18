@@ -137,22 +137,29 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
   const composerRef = useRef<HTMLDivElement>(null);
   const guideRef = useRef<HTMLInputElement>(null);
   const lastAsk = [...entries].reverse().find((e) => e.kind === "user");
-  const guideSeed = useRef<string | null>(null);
+  const guideSeed = useHelperStore((s) => s.guideSeed);
+  const pendingAsk = useHelperStore((s) => s.pendingAsk);
+  const pendingAction = useHelperStore((s) => s.pendingAction);
+  const { runner } = host;
 
-  // the palette's "Yardımcıya sor" text and the Kısayollar action run once the sheet is open
+  // the palette's "Yardımcıya sor" text and the Kısayollar action run once the mode is known (also while open)
   useEffect(() => {
-    const { ask, action } = useHelperStore.getState().takePending();
-    if (action) void host.runner.runAction(action.action, action.args, { hints: action.hints });
-    else if (ask && mode.ai && !mode.blocked) void host.runner.ask(ask);
-    else if (ask) guideSeed.current = ask;
-    // focus: the composer (AI) or the guide field (index), on the first frame
-    requestAnimationFrame(() => {
+    if (mode.loading || (!pendingAsk && !pendingAction)) return;
+    const st = useHelperStore.getState();
+    const { ask, action } = st.takePending();
+    if (action) void runner.runAction(action.action, action.args, { hints: action.hints });
+    else if (ask && mode.ai && !mode.blocked) void runner.ask(ask);
+    else if (ask) st.setGuideSeed(ask);
+  }, [pendingAsk, pendingAction, mode.loading, mode.ai, mode.blocked, runner]);
+
+  // focus on open: the composer (AI) or the guide field (index), on the first frame
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
       const field = composerRef.current?.querySelector<HTMLTextAreaElement>("textarea:not([disabled])") ?? guideRef.current;
       field?.focus();
     });
-    // run once per opening
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => cancelAnimationFrame(id);
+  }, [mode.loading]);
 
   const role = starterRole(can);
   const empty = entries.length === 0 && !turn.busy;
@@ -219,7 +226,7 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
         ) : null}
         {mode.ai ? <AiUsageBanner /> : null}
         {mode.ai && mode.blocked ? <p className="type-callout text-label-2" data-testid="helper-blocked">{t("helper.limitReason")}</p> : null}
-        {guide ? <GuideMode inputRef={guideRef} seed={guideSeed.current} showLead={!mode.ai} /> : null}
+        {guide ? <GuideMode inputRef={guideRef} seed={guideSeed} showLead={!mode.ai} /> : null}
         {mode.ai ? (
           <div ref={composerRef} data-testid="helper-composer">
             <PromptComposer
@@ -264,7 +271,7 @@ export function HelperSheet() {
       if (!sheet) return;
       e.preventDefault();
       if (sheet.contains(document.activeElement)) document.getElementById("main")?.focus();
-      else (sheet.querySelector<HTMLElement>("textarea:not([disabled]), input, [data-testid=helper-close]") ?? sheet).focus();
+      else (sheet.querySelector<HTMLElement>("textarea:not([disabled])") ?? sheet.querySelector<HTMLElement>("[data-testid=helper-guide-input]") ?? sheet.querySelector<HTMLElement>("[data-testid=helper-close]") ?? sheet).focus();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

@@ -123,7 +123,9 @@ GUARD_REFUSALS = Counter(
 #: the AI helper (HB-14, app/ai/helper/telemetry.py): no user label, ever
 HELPER_TURNS = Counter("smartsched_helper_turns", "helper turns by answering mode and outcome", ["mode", "outcome"])
 HELPER_ACTIONS = Counter(
-    "smartsched_helper_actions", "helper actions by stage (preview / confirm / undo) and outcome", ["action", "stage", "outcome"]
+    "smartsched_helper_actions",
+    "helper actions by stage (preview / confirm / undo) and outcome",
+    ["action", "stage", "outcome"],
 )
 HELPER_LATENCY = Histogram(
     "smartsched_helper_latency_seconds",

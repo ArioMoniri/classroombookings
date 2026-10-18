@@ -118,8 +118,8 @@ TRANSLATIONS: tuple[tuple[re.Pattern[str], str, str, int | None], ...] = tuple(
         ),
         (
             r"no SP decryption key",
-            "IdP onayı şifreli gönderiyor ama SmartSched'de SP çözme anahtarı yok. Sağlayıcıda SP anahtarı oluşturun ve "
-            "SP meta verisini IdP'ye yeniden yükleyin.",
+            "IdP onayı şifreli gönderiyor ama SmartSched'de SP çözme anahtarı yok. Sağlayıcıda SP anahtarı "
+            "oluşturun ve SP meta verisini IdP'ye yeniden yükleyin.",
             "The IdP encrypts the assertion but SmartSched has no SP decryption key. Create an SP key for the provider "
             "and import the SP metadata at the IdP again.",
             2,

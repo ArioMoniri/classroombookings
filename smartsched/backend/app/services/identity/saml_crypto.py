@@ -231,8 +231,9 @@ def _oaep(ek: Any) -> padding.OAEP:
 def _encrypted_keys(container: Any, data: Any) -> list[Any]:
     """EncryptedKey inside the EncryptedData's KeyInfo (ADFS) or beside it in the EncryptedAssertion (Shibboleth,
     referenced by a RetrievalMethod)."""
-    inside = data.findall("ds:KeyInfo/xenc:EncryptedKey", NS)
-    return inside or container.findall("xenc:EncryptedKey", NS)
+    inside: list[Any] = data.findall("ds:KeyInfo/xenc:EncryptedKey", NS)
+    beside: list[Any] = container.findall("xenc:EncryptedKey", NS)
+    return inside or beside
 
 
 def decrypt_element(container: Any, key_pem: str) -> bytes:

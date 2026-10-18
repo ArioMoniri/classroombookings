@@ -34,7 +34,7 @@ function ShowMe({ featureId }: { featureId: string }) {
   const reduce = useReduce();
   const desktop = useMediaQuery(DESKTOP_SHEET);
   const entry = featureById(featureId);
-  const [found, setFound] = useState<Found>({ state: "waiting" });
+  const [found, setFound] = useState<Found>(() => (entry && !entry.anchor ? { state: "missing" } : { state: "waiting" }));
   const textId = useId();
   const cardRef = useRef<HTMLDivElement>(null);
   const target = found.state === "found" ? found.el : null;
@@ -44,10 +44,7 @@ function ShowMe({ featureId }: { featureId: string }) {
     if (!entry) return;
     const [path] = entry.route.split("#");
     if (path && path !== pathname) router.push(entry.route);
-    if (!entry.anchor) {
-      setFound({ state: "missing" });
-      return;
-    }
+    if (!entry.anchor) return;
     const ctrl = new AbortController();
     void waitForAnchor(entry.anchor, 3000, ctrl.signal).then((el) => {
       if (ctrl.signal.aborted) return;

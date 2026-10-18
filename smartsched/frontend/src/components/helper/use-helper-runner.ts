@@ -6,7 +6,7 @@
  * helper.md §4.1: only the card's button confirms (typed "evet" never does), an expired token shows "Bu öneri
  * eskidi" + Yenile, a 409 brings the new preview, the result line takes the focus and a toast offers "Geri al" 8 s.
  */
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { crbs } from "@/lib/api/crbs";
 import { helperApi, helperRefusal, trackHelper, type ActionArgs } from "@/lib/api/helper";
@@ -270,5 +270,5 @@ export function useHelperRunner(): Runner {
     if (entry.card.type === "confirm") trackHelper({ kind: "cancel", action: entry.card.action, ...(entry.turnId ? { turn_id: entry.turnId } : {}) });
   }, []);
 
-  return { ask, runAction, confirm, undo, refresh, cancel };
+  return useMemo(() => ({ ask, runAction, confirm, undo, refresh, cancel }), [ask, runAction, confirm, undo, refresh, cancel]);
 }

@@ -82,10 +82,13 @@ interface HelperState {
   pendingAsk: string | null;
   /** a shortcut the sheet should run as soon as it is open (palette → Kısayollar) */
   pendingAction: { action: string; args: Record<string, string | number>; hints?: IntentHints } | null;
+  /** Rehber modu: the text the palette handed over, put into the guide's search field */
+  guideSeed: string | null;
   /** "Göster": a 1-step spotlight on this feature's anchor (show-me.tsx) */
   showMe: { featureId: string; reopen: boolean; n: number } | null;
   openSheet: (opts?: { opener?: HTMLElement | null; ask?: string; action?: HelperState["pendingAction"] }) => void;
   closeSheet: () => void;
+  setGuideSeed: (q: string | null) => void;
   takePending: () => { ask: string | null; action: HelperState["pendingAction"] };
   pushUser: (text: string) => void;
   pushCard: (card: HelperCard, extra?: Partial<CardEntry>) => string;
@@ -115,6 +118,8 @@ export const useHelperStore = create<HelperState>()(
       pendingAsk: null,
       pendingAction: null,
       showMe: null,
+      guideSeed: null,
+      setGuideSeed: (q) => set({ guideSeed: q }),
       openSheet: (opts) =>
         set((s) => ({
           open: true,
@@ -122,7 +127,7 @@ export const useHelperStore = create<HelperState>()(
           pendingAsk: opts?.ask ?? null,
           pendingAction: opts?.action ?? null,
         })),
-      closeSheet: () => set({ open: false, pendingAsk: null, pendingAction: null }),
+      closeSheet: () => set({ open: false, pendingAsk: null, pendingAction: null, guideSeed: null }),
       takePending: () => {
         const { pendingAsk, pendingAction } = get();
         set({ pendingAsk: null, pendingAction: null });

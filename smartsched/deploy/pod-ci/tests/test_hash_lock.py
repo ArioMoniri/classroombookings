@@ -10,7 +10,6 @@ same in the dev lock, and both the Dockerfile and the pod CI backend gate instal
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 from podfakes import REPO
 

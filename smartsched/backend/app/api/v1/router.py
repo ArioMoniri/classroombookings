@@ -223,6 +223,11 @@ from app.api.v1 import ai_faculty as ai_faculty_api  # noqa: E402
 
 api_router.include_router(ai_faculty_api.router)
 
+# charts CH-07 / CH-10 / CH-11: read-only aggregates (bookings per week, audit per day, my load; chart_stats.py)
+from app.api.v1 import chart_stats as chart_stats_api  # noqa: E402
+
+api_router.include_router(chart_stats_api.router)
+
 # AU-B two-step sign-in, passkeys, trusted devices, admin MFA reset / reset link (app/api/v1/mfa.py)
 from app.api.v1 import mfa as mfa_api  # noqa: E402
 

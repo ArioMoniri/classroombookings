@@ -277,7 +277,9 @@ def parse_metadata(
 
 
 def _key_descriptor(use: str, cert_pem: str) -> str:
-    methods = "".join(f'<md:EncryptionMethod Algorithm="{a}"/>' for a in saml_crypto.PREFERRED) if use == "encryption" else ""
+    methods = (
+        "".join(f'<md:EncryptionMethod Algorithm="{a}"/>' for a in saml_crypto.PREFERRED) if use == "encryption" else ""
+    )
     return (
         f'    <md:KeyDescriptor use="{use}"><ds:KeyInfo xmlns:ds="{NS["ds"]}"><ds:X509Data><ds:X509Certificate>'
         f"{saml_crypto.b64_of(cert_pem)}</ds:X509Certificate></ds:X509Data></ds:KeyInfo>{methods}</md:KeyDescriptor>\n"

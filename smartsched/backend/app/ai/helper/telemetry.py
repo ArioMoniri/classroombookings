@@ -425,7 +425,7 @@ async def summary(session: AsyncSession, days: int = 7, now: datetime | None = N
     thumbs["notes"] = int(notes)
     by_mode: dict[str, list[int]] = {"ai": [], "index": []}
     for mode, ms in latencies:
-        if mode in by_mode:
+        if mode in by_mode and ms is not None:
             by_mode[mode].append(int(ms))
     latency = {
         m: ({"p50": _rank(v, 0.5), "p95": _rank(v, 0.95), "n": len(v)} if v else {"p50": None, "p95": None, "n": 0})
@@ -434,8 +434,7 @@ async def summary(session: AsyncSession, days: int = 7, now: datetime | None = N
     cost = [
         {
             "feature": r["key"],
-            "label": {"tr": FEATURE_LABELS.get(r["key"], (r["key"], r["key"]))[0],
-                      "en": FEATURE_LABELS.get(r["key"], (r["key"], r["key"]))[1]},  # fmt: skip
+            "label": dict(zip(("tr", "en"), FEATURE_LABELS.get(r["key"], (r["key"], r["key"])), strict=True)),
             "tokens": r["tokens"],
             "cost_usd": r["cost_usd"],
             "calls": r["calls"],

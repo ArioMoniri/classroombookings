@@ -36,7 +36,11 @@ APPR = "/api/v1/approvals"
 
 async def _people(env):  # type: ignore[no-untyped-def]  # noqa: F811
     _, gozde = await env.user(
-        "gozde.ayrancigil@uni.edu.tr", role="ADMIN", firstname="Gözde", lastname="Ayrancıgil", approves_for=[{"type": "all"}]
+        "gozde.ayrancigil@uni.edu.tr",
+        role="ADMIN",
+        firstname="Gözde",
+        lastname="Ayrancıgil",
+        approves_for=[{"type": "all"}],
     )
     aid, ayse = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")
     return gozde, aid, ayse
@@ -62,7 +66,6 @@ async def _weekly_activity(env):  # type: ignore[no-untyped-def]  # noqa: F811
     assert r.status_code in (200, 204), r.text
     r = await c.put("/api/v1/org/settings", json={"approval_mode": "all"}, headers=env.admin)
     assert r.status_code == 200, r.text
-    ids = []
     for d in (date(2026, 3, 5), date(2026, 3, 12), date(2026, 3, 19), date(2026, 3, 26)):
         r = await env.book(ayse, "A102", d, "P1", notes="Telafi dersi")
         assert r.status_code == 202 and r.json()["status"] == "PENDING", r.text
@@ -91,7 +94,9 @@ async def _recount(term_id: int, weeks: list[dict]) -> tuple[list[int], list[dic
     """Independent SQL recount: live BOOKED rows by date; requests by Istanbul submission day, current status."""
     async with dbmod.get_session_factory()() as s:
         days = list(
-            (await s.execute(select(Booking.date).where(Booking.term_id == term_id, Booking.status == "BOOKED"))).scalars()
+            (
+                await s.execute(select(Booking.date).where(Booking.term_id == term_id, Booking.status == "BOOKED"))
+            ).scalars()
         )
         reqs = (
             await s.execute(
@@ -226,7 +231,9 @@ async def test_ch_10_counts_real_events_of_today(env):  # noqa: F811
     today = datetime.now(IST).date().isoformat()
     body = (await env.client.get(DAILY, params={"days": 1}, headers=env.admin)).json()
     assert body["from"] == body["to"] == today
-    lst = (await env.client.get("/api/v1/audit", params={"from": today, "to": today, "limit": 500}, headers=env.admin)).json()
+    lst = (
+        await env.client.get("/api/v1/audit", params={"from": today, "to": today, "limit": 500}, headers=env.admin)
+    ).json()
     assert body["days"] == [{"day": today, "events": len(lst["items"])}] and len(lst["items"]) >= 1
 
 
@@ -303,8 +310,10 @@ async def test_ch_11_a_user_never_sees_another_instructors_load(env):  # noqa: F
     p = await psy262(env)
     async with dbmod.get_session_factory()() as s:
         other = (
-            await s.execute(select(Instructor.id).where(Instructor.id != p.instructor_id).order_by(Instructor.id))
-        ).scalars().first()
+            (await s.execute(select(Instructor.id).where(Instructor.id != p.instructor_id).order_by(Instructor.id)))
+            .scalars()
+            .first()
+        )
     assert other is not None
     uid_e, ezgi = await env.user("ezgi.soncu@uni.edu.tr", firstname="Ezgi", lastname="Soncu Büyükişcan")
     uid_o, okan = await env.user("okan.diger@uni.edu.tr", firstname="Okan", lastname="Işık")

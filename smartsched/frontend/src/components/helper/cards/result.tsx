@@ -5,6 +5,7 @@
  * and at most 2 follow-up chips (an action with partial args, or a page).
  */
 import { Check, X } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { useI18n } from "@/lib/i18n/provider";
@@ -18,7 +19,9 @@ export function ResultView({ card, entry }: { card: ResultCard; entry: CardEntry
   const { t } = useI18n();
   const host = useCardHost();
   const open = card.entity?.feature_id ? featureHref(card.entity.feature_id) : null;
-  const undoOpen = !!card.undo_token && !entry.undone && (!card.undo_expires_at || Date.parse(card.undo_expires_at) > Date.now());
+  // the window is read when the card appears; the server refuses a late undo with its own message anyway
+  const [shownAt] = useState(() => Date.now());
+  const undoOpen = !!card.undo_token && !entry.undone && (!card.undo_expires_at || Date.parse(card.undo_expires_at) > shownAt);
   const busy = entry.phase === "busy";
   return (
     <HelperCardFrame

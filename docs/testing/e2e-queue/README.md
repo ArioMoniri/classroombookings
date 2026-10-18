@@ -136,3 +136,8 @@ On pass: tick VO-06/07/08 and VO-05.
 ## Added 2026-10-18 10:05 UTC
 
 - **WG-09** (1440 mouse and 390×844 touch, tr-TR, reduced motion on and off): first sign-in as academician shows the sheet in about 240 ms and quick-reserve plays once then rests; reopening shows only the poster; reduced motion downloads no lottie chunk. Cards settle by 240 ms; the tour ring follows 1:1 while scrolling, and the scrim must not flash between steps; the checklist tick takes 240 ms; reduced transparency makes surfaces opaque. Add a `welcome` block to `e2e/motion-audit.spec.ts` (sheet open, tour step, checklist tick: ≤ 3 dropped frames, no finite animation over 300 ms except the Lottie).
+
+## Added 2026-10-18 10:20 UTC
+
+- **RF-B** (seeded gracious stack): /import lists the seven seeded workbooks as "İlk kurulum (sistem)" with report and download; edit A102 capacity, remove PC from A103, rename a programme, edit and archive an exam, edit the row-431 rule, set week 1 to Tatil, re-import each file, and every edit survives; exam-list preview with one changed cell shows the conflict, "Uygula" applies once and a second apply is refused; `PUT /period-grid` P1 → 08:00 shows on the timetable, find-room and a "from grid" booking period, also on a second worker within 30 s; the users 2FA filter returns matches beyond page 1 and never IdP-only users.
+- **CH-M:** /runs score line (≥ 3 finished runs; dot tap and ←/→ Enter open the run); /admin/audit daily chart and the phone toggle; /my-bookings and /profile tiles with no ECharts chunk requested. Update `e2e/loop-r2-laneB.spec.ts:140` (removed `mine-totals` sentence → tiles).

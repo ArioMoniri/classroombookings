@@ -9,7 +9,7 @@
 import { Plus, Save, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
-import { Alert, Field, Loading } from "@/components/admin/kit";
+import { Alert, Field, Loading, pageActionsCapsule } from "@/components/admin/kit";
 import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { type Limits, type LimitsIn, useAiLimits, useSaveLimits, useTopup } from "@/lib/api/ai-admin";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { cn } from "@/lib/utils";
 import { compactTokens, errorMessage, minutesOf, parseLimit, pctText, secondsOf, usd } from "./ai-model";
 
 const ROLES = ["ADMIN", "PLANNER", "VIEWER", "TEACHER"] as const;
@@ -250,11 +251,14 @@ function LimitsForm({ data, canEdit }: { data: Limits; canEdit: boolean }) {
       </Card>
       {error ? <Alert tone="error" testId="ai-limits-error">{error}</Alert> : null}
       {canEdit ? (
-        <Button className="self-start" onClick={submit} {...busyProps(save.isPending)} data-testid="ai-limits-save">
-          <BusyLabel busy={save.isPending} label={t("busy.saving")} icon={<Save aria-hidden />}>
-            {t("aiAdmin.limits.save")}
-          </BusyLabel>
-        </Button>
+        // MOBILE M-05: below lg the save sits in the page-actions capsule above the tab bar (kit.tsx)
+        <div data-slot="page-actions" className={cn(pageActionsCapsule, "self-start")}>
+          <Button onClick={submit} {...busyProps(save.isPending)} data-testid="ai-limits-save">
+            <BusyLabel busy={save.isPending} label={t("busy.saving")} icon={<Save aria-hidden />}>
+              {t("aiAdmin.limits.save")}
+            </BusyLabel>
+          </Button>
+        </div>
       ) : null}
     </>
   );

@@ -221,8 +221,14 @@ async def _seed(session, users: list[int]) -> None:
         HelperEvent(ts=now, user_id=users[0], kind="undo", action="create_booking", outcome="ok"),
         HelperEvent(ts=now, user_id=users[1], kind="thumb_up", turn_id="a" + "0" * 15),
         HelperEvent(ts=now, user_id=users[2], kind="thumb_up", turn_id="b" + "0" * 15),
-        HelperEvent(ts=now, user_id=users[3], kind="thumb_down", turn_id="c" + "0" * 15, reason="wrong_page",
-                    note="Ayşe Hoca'nın odası yanlış"),  # fmt: skip
+        HelperEvent(
+            ts=now,
+            user_id=users[3],
+            kind="thumb_down",
+            turn_id="c" + "0" * 15,
+            reason="wrong_page",
+            note="Ayşe Hoca'nın odası yanlış",
+        ),
         # outside the window: not counted
         HelperEvent(ts=now - timedelta(days=20), user_id=users[0], kind="query", mode="ai", outcome="answered"),
     ]

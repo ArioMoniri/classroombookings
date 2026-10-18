@@ -5,9 +5,9 @@ bearer token, without failing unauthenticated routes), the request id (``X-Reque
 the response) and the hashed client network, and attaches them to the request's DB session, so that
 :mod:`app.services.audit` can write who did what.
 
-* ``GET /audit`` -- filters: entity_type, entity_id, actor_id, action (prefix), from, to, cursor (older than this
-  id), limit. ``audit.view`` sees everything; anyone else only events they made or that touched their own
-  bookings, without request ids and network hashes.
+* ``GET /audit`` -- filters: entity_type, entity_id, actor_id, action (prefix), from, to (Europe/Istanbul days,
+  like the CH-10 chart), cursor (older than this id), limit. ``audit.view`` sees everything; anyone else only
+  events they made or that touched their own bookings, without request ids and network hashes.
 * ``GET /audit/{id}`` -- one event with its children (bulk operations).
 * ``POST /audit/{id}/undo`` -- reverse a booking create, move or cancel (see ``app.services.bookings_undo``), or a
   programme the wizard created (``program.create`` / ``program.restore`` of a draft commit: the drafts undo,
@@ -22,7 +22,7 @@ import csv
 import io
 import re
 import uuid
-from datetime import date, datetime, time, timedelta
+from datetime import date, timedelta
 from typing import Annotated, Any
 
 import jwt
@@ -38,6 +38,7 @@ from app.services import bookings as bsvc
 from app.services import bookings_undo
 from app.services import program_drafts as drafts_svc
 from app.services.bookings_perms import Access
+from app.services.chart_stats import day_start_utc  # from / to are Europe/Istanbul days (CH-10)
 
 router = APIRouter(prefix="/audit", tags=["audit"])
 _RID = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
@@ -146,9 +147,9 @@ async def list_events(
     if action:
         q = q.where(AuditEvent.action.startswith(action.strip()))
     if from_ is not None:
-        q = q.where(AuditEvent.ts >= datetime.combine(from_, time()))
+        q = q.where(AuditEvent.ts >= day_start_utc(from_))
     if to is not None:
-        q = q.where(AuditEvent.ts < datetime.combine(to + timedelta(days=1), time()))
+        q = q.where(AuditEvent.ts < day_start_utc(to + timedelta(days=1)))
     if cursor is not None:
         q = q.where(AuditEvent.id < cursor)
     rows = list((await db.execute(q.limit(limit + 1))).scalars())
@@ -175,9 +176,9 @@ async def export_csv(
     if entity_type:
         q = q.where(AuditEvent.entity_type == entity_type)
     if from_ is not None:
-        q = q.where(AuditEvent.ts >= datetime.combine(from_, time()))
+        q = q.where(AuditEvent.ts >= day_start_utc(from_))
     if to is not None:
-        q = q.where(AuditEvent.ts < datetime.combine(to + timedelta(days=1), time()))
+        q = q.where(AuditEvent.ts < day_start_utc(to + timedelta(days=1)))
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["id", "ts", "actor", "action", "entity_type", "entity_id", "diff", "reason", "undo_of", "parent_id"])

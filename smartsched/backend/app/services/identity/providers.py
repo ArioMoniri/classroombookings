@@ -14,6 +14,11 @@ Guard rules (on top of app/services/sso.py):
 * The self sign-up role must be eligible (no administrative permission; T-R1-35) and grantable by the editor.
 * Enabling needs a usable client: Entra tenant + client + secret; Google client + secret + a hosted domain; OIDC a
   successful discovery; SAML parsed metadata and the optional library; always the public URL.
+* SAML (RF-12, idp-2026-10-18): with a federation signing certificate (``metadata_signing_cert``) only metadata
+  whose root signature verifies with it is read; otherwise the stored metadata is dropped and the check row says
+  why (TR/EN). The SP key pair (``sp_key_generate`` or a pasted ``sp_private_key`` + ``sp_certificate``) decrypts
+  EncryptedAssertions and, with ``sign_requests`` (off by default), signs the AuthnRequests; the private key is
+  Fernet-encrypted (``options.sp_private_key_enc``) and write-only like ``client_secret``.
 * Disabling is refused when it would leave an administrator without any way in (no break-glass administrator and
   an administrator who signs in only through this provider).
 * Deleting needs the provider off; its identities, mappings and invites go, the accounts stay.
@@ -36,7 +41,7 @@ from app.services import audit, sso
 from app.services.bookings_perms import may_grant_role
 from app.services.bookings_settings import get_group
 from app.services.calendar_feeds import public_base
-from app.services.identity import errors, kinds
+from app.services.identity import errors, kinds, saml_crypto
 from app.services.identity import saml as idp_saml
 from app.services.identity.oidc import (
     GOOGLE_DISCOVERY,
@@ -145,6 +150,11 @@ async def provider_out(db: AsyncSession, row: SsoProvider) -> dict[str, Any]:
             "name_attribute": opts.get("name_attribute") or kinds.ATTR_DISPLAY_NAME,
             "groups_attribute": opts.get("groups_attribute") or kinds.ATTR_ENTITLEMENT,
             "subject_attribute": opts.get("subject_attribute"),
+            "metadata_signing_cert": saml_crypto.cert_info(opts.get("metadata_signing_cert")),
+            "metadata_signed": bool(meta.get("signed")),
+            "sp_certificate": saml_crypto.cert_info(opts.get("sp_certificate")),
+            "sp_private_key_set": bool(opts.get("sp_private_key_enc")),
+            "sign_requests": bool(opts.get("sign_requests")),
         }
         if row.kind == kinds.SAML
         else None,
@@ -272,7 +282,14 @@ async def sp_metadata_xml(db: AsyncSession, row: SsoProvider) -> str | None:
     base, _src = await public_base(db)
     if row.kind != kinds.SAML or not base:
         return None
-    return idp_saml.sp_metadata(idp_saml.sp_entity_id(base, row.name), idp_saml.acs_url(base, row.name))
+    opts = row.options or {}
+    cert = opts.get("sp_certificate") if opts.get("sp_private_key_enc") else None
+    return idp_saml.sp_metadata(
+        idp_saml.sp_entity_id(base, row.name),
+        idp_saml.acs_url(base, row.name),
+        sp_cert=cert,
+        sign_requests=bool(opts.get("sign_requests")),
+    )
 
 
 # --------------------------------------------------------------------------------------------------
@@ -301,10 +318,21 @@ async def _free_slug(db: AsyncSession, wanted: str) -> str:
     return f"{wanted}-{n}"
 
 
+def _fingerprint(pem: Any) -> str | None:
+    info = saml_crypto.cert_info(pem) if isinstance(pem, str) else None
+    return info["sha256"] if info else None
+
+
 def _snapshot(row: SsoProvider) -> dict[str, Any]:
-    opts = {k: v for k, v in (row.options or {}).items() if k not in ("discovery_checks", "metadata_xml")}
+    hidden = ("discovery_checks", "metadata_xml", "sp_private_key_enc")
+    opts = {k: v for k, v in (row.options or {}).items() if k not in hidden}
     if (row.options or {}).get("metadata_xml"):
         opts["metadata_xml_set"] = True
+    if (row.options or {}).get("sp_private_key_enc"):
+        opts["sp_private_key_set"] = True  # never the key, not even encrypted
+    for key in ("metadata_signing_cert", "sp_certificate"):
+        if opts.get(key):
+            opts[key] = _fingerprint(opts[key])
     if "metadata" in opts:
         opts["metadata"] = {k: v for k, v in opts["metadata"].items() if k != "certs"} | {
             "certs": len(opts["metadata"].get("certs") or [])
@@ -457,7 +485,7 @@ async def update(db: AsyncSession, actor: User, row: SsoProvider, values: dict[s
     before = _snapshot(row)
     opts = dict(row.options or {})
     secret = values.get("client_secret")
-    rediscover = False
+    rediscover = key_changed = False
     if "name" in values and values["name"] and values["name"] != row.name:
         slug = clean_slug(values["name"])
         used = (
@@ -588,6 +616,23 @@ async def update(db: AsyncSession, actor: User, row: SsoProvider, values: dict[s
             rediscover = True
         if values.get("idp_entity_id") is not None:
             rediscover = rediscover or bool(opts.get("metadata_url") or opts.get("metadata_xml"))
+        if values.get("metadata_signing_cert") is not None:
+            pem = _signing_cert(str(values["metadata_signing_cert"]))
+            if pem != opts.get("metadata_signing_cert"):
+                if pem:
+                    opts["metadata_signing_cert"] = pem
+                else:
+                    opts.pop("metadata_signing_cert", None)
+                rediscover = rediscover or bool(opts.get("metadata_url") or opts.get("metadata_xml"))
+        if values.get("sign_requests") is not None:
+            opts["sign_requests"] = bool(values["sign_requests"])
+        key_changed = await _sp_key_update(db, row, opts, values)
+        if opts.get("sign_requests") and not opts.get("sp_private_key_enc"):
+            raise _bad(
+                "sp_key_required",
+                "signing the requests needs an SP key: generate one or paste it first",
+                "İstekleri imzalamak için bir SP anahtarı gerekli: önce anahtar oluşturun ya da yapıştırın",
+            )
     row.options = opts
     report = None
     if rediscover:
@@ -620,11 +665,77 @@ async def update(db: AsyncSession, actor: User, row: SsoProvider, values: dict[s
     row.updated_at, row.updated_by = utcnow(), actor.id
     await db.flush()
     after = _snapshot(row)
-    if after != before or secret:
+    if after != before or secret or key_changed:
         if secret:
             after["client_secret_changed"] = True
+        if key_changed:
+            after["sp_private_key_changed"] = True
         await audit.record(db, "sso.provider_update", "sso_provider", row.id, before=before, after=after, actor=actor)
     return {"discovery": report} if report is not None else {}
+
+
+def _signing_cert(text: str) -> str | None:
+    if not plain(text):
+        return None
+    try:
+        return idp_saml.pem_certificate(text)
+    except ValueError as exc:
+        raise _bad(
+            "invalid_certificate",
+            "the certificate could not be read: paste it as PEM (-----BEGIN CERTIFICATE-----) or as base64",
+            "Sertifika okunamadı: PEM (-----BEGIN CERTIFICATE-----) ya da base64 olarak yapıştırın",
+        ) from exc
+
+
+async def _sp_key_update(db: AsyncSession, row: SsoProvider, opts: dict[str, Any], values: dict[str, Any]) -> bool:
+    """Generate, paste or remove the SP key pair; ``True`` when it changed. The key is never echoed (not even in a
+    refusal) and is stored Fernet-encrypted."""
+    if values.get("sp_key_remove"):
+        if opts.get("sign_requests"):
+            raise _bad(
+                "sp_key_in_use",
+                "the requests are signed with this key: switch request signing off first",
+                "İstekler bu anahtarla imzalanıyor: önce istek imzalamayı kapatın",
+                409,
+            )
+        removed = bool(opts.pop("sp_private_key_enc", None))
+        opts.pop("sp_certificate", None)
+        return removed
+    key_text, cert_text = values.get("sp_private_key"), values.get("sp_certificate")
+    base, _src = await public_base(db)
+    common_name = (base or "").split("://")[-1].split("/")[0] or f"smartsched-{row.name}"
+    if values.get("sp_key_generate"):
+        key_pem, cert_pem = saml_crypto.generate_keypair(common_name)
+    elif key_text and plain(str(key_text)):
+        try:
+            key_pem = saml_crypto.pem_private_key(str(key_text))
+        except ValueError:
+            raise _bad(
+                "invalid_private_key",
+                "the SP private key could not be read: paste an unencrypted RSA key (2048 bits or more) as PEM",
+                "SP özel anahtarı okunamadı: şifresiz bir RSA anahtarını (en az 2048 bit) PEM olarak yapıştırın",
+            ) from None  # the cause would carry parser state of the key
+        if cert_text and plain(str(cert_text)):
+            cert_pem = _signing_cert(str(cert_text)) or ""
+            if not saml_crypto.key_matches(key_pem, cert_pem):
+                raise _bad(
+                    "sp_key_mismatch",
+                    "the SP certificate does not belong to this private key",
+                    "SP sertifikası bu özel anahtarla eşleşmiyor",
+                )
+        else:
+            cert_pem = saml_crypto.self_signed(key_pem, common_name)
+    elif cert_text and plain(str(cert_text)):
+        raise _bad(
+            "sp_key_required",
+            "an SP certificate needs its private key in the same request",
+            "SP sertifikası, aynı istekte özel anahtarıyla birlikte verilmelidir",
+        )
+    else:
+        return False
+    opts["sp_private_key_enc"] = encrypt_secret(key_pem)
+    opts["sp_certificate"] = cert_pem
+    return True
 
 
 async def _check_enable(db: AsyncSession, row: SsoProvider) -> None:
@@ -643,6 +754,16 @@ async def _check_enable(db: AsyncSession, row: SsoProvider) -> None:
                 "library_required",
                 "SAML needs the optional library signxml on the server (pip install signxml)",
                 "SAML için sunucuda isteğe bağlı signxml kütüphanesi gerekli (kütüphane gerekli)",
+            )
+        if opts.get("metadata_signing_cert") and not (opts.get("metadata") or {}).get("signed"):
+            failed = next(
+                (c for c in opts.get("discovery_checks") or [] if c.get("key") == "metadata_signature" and not c["ok"]),
+                None,
+            )
+            raise _bad(
+                "metadata_signature",
+                failed["en"] if failed else "the metadata signature has not been verified yet: read the metadata",
+                failed["tr"] if failed else "Meta veri imzası henüz doğrulanmadı: önce meta veriyi okuyun",
             )
         if await sso.saml_config(db, row) is None:
             raise _bad("discovery_required", "read the IdP metadata first", "Önce IdP meta verisini okuyun")
@@ -731,11 +852,18 @@ async def _saml_metadata(opts: dict[str, Any]) -> tuple[bool, list[dict[str, Any
         xml = str(opts["metadata_xml"]).encode("utf-8")
     if not xml:
         return False, [errors.check("metadata", False, "missing")]
+    signing = opts.get("metadata_signing_cert")
     try:
-        meta = idp_saml.parse_metadata(xml, opts.get("idp_entity_id"))
+        meta = idp_saml.parse_metadata(xml, opts.get("idp_entity_id"), signing_cert=signing)
+    except idp_saml.MetadataError as exc:
+        opts.pop("metadata", None)  # never keep metadata whose required signature failed
+        return False, [errors.check("metadata_signature", False, exc.code)]
     except ValueError as exc:
         return False, [errors.check("metadata", False, str(exc))]
     checks = [errors.check("metadata", True, entity=meta["entity_id"])]
+    if signing:
+        info = saml_crypto.cert_info(signing) or {}
+        checks.append(errors.check("metadata_signature", True, subject=info.get("subject", "")))
     not_after = _cert_not_after(meta["certs"])
     expired = not_after is not None and not_after < utcnow().isoformat()
     checks.append(errors.check("certificate", not expired, "expired" if expired else "", date=(not_after or "")[:10]))

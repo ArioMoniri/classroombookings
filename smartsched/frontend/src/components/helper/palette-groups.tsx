@@ -13,7 +13,8 @@
 import { CornerDownLeft, FileText, MapPin, MessageCircleQuestion, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { CommandGroup, CommandItem, useCommandState } from "@/components/ui/command";
+import { useCommandState } from "cmdk";
+import { CommandGroup, CommandItem } from "@/components/ui/command";
 import { KbdHint } from "@/components/ui/kbd-hint";
 import { helperApi, trackHelper, useHelperActions, useHelperSearch } from "@/lib/api/helper";
 import { usePermissions } from "@/lib/api/shell-extra";

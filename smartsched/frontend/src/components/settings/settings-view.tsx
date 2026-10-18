@@ -40,6 +40,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS } from "@/lib/time";
 import { useUiStore } from "@/stores/ui";
 import { cn } from "@/lib/utils";
+import { pageActionsCapsule } from "@/components/admin/kit";
 import { SigninSecuritySettings } from "./signin-security";
 
 const WEIGHT_KINDS = ["room_preference", "building_preference", "min_capacity_waste", "same_room_across_weeks", "stability", "exam_gap"] as const;
@@ -109,12 +110,15 @@ function AiCard() {
     setTest((prev) => (prev.state === "ok" || prev.state === "failed" ? { ...prev, which: "stored" } : { state: "untested" }));
     toast.success(t("settings.saved"));
   };
-  const saveModel = async () => {
+  const saveModelChoice = async () => {
     await update.mutateAsync({ anthropic_model: model });
     setTest({ state: "untested" });
     toast.success(t("settings.saved"));
   };
   const hint = (m: string) => (m.includes("opus") ? t("glass.settings.modelOpus") : m.includes("haiku") ? t("glass.settings.modelHaiku") : t("glass.settings.modelSonnet"));
+  const saveModel = (
+    <Button size="sm" className={typing ? "mt-3" : undefined} onClick={() => void saveModelChoice()} disabled={!s || model === s.anthropic_model || update.isPending} data-testid="save-model">{t("common.save")}</Button>
+  );
   return (
     <div className="space-y-5">
       <Card>
@@ -141,7 +145,10 @@ function AiCard() {
                 </div>
               </div>
               <Button size="sm" variant="outline" onClick={() => void runTest("typed")} disabled={test.state === "testing"} data-testid="test-key-typed">{t("glass.settings.testFirst")}</Button>
-              <Button size="sm" onClick={() => void saveKey()} disabled={update.isPending}>{t("common.save")}</Button>
+              {/* MOBILE M-05 (mobile B fix 12): the key's save is the task while typing; below lg it sits in the capsule */}
+              <div data-slot="page-actions" className={pageActionsCapsule}>
+                <Button size="sm" onClick={() => void saveKey()} disabled={update.isPending} data-testid="save-key">{t("common.save")}</Button>
+              </div>
               {masked ? <Button size="sm" variant="ghost" onClick={() => setReplacing(false)}>{t("settings.cancelReplace")}</Button> : null}
             </div>
           )}
@@ -173,7 +180,8 @@ function AiCard() {
               </label>
             ))}
           </div>
-          <Button size="sm" className="mt-3" onClick={() => void saveModel()} disabled={!s || model === s.anthropic_model || update.isPending} data-testid="save-model">{t("common.save")}</Button>
+          {/* the capsule holds one save: the key's while a key is typed, otherwise the model's */}
+          {typing ? saveModel : <div data-slot="page-actions" className={cn(pageActionsCapsule, "mt-3")}>{saveModel}</div>}
             </>
           )}
         </CardContent>

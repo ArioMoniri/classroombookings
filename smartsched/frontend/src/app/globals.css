@@ -361,6 +361,8 @@
     --control-h-lg: 48px;
   }
 }
+/* A data table sets its own density (audit A5), so "standard" restates the defaults instead of inheriting html's. */
+[data-density="standard"] { --row-h: 44px; --cell-py: 8px; --cell-px: 12px; }
 [data-density="compact"] { --row-h: 32px; --cell-py: 4px; --cell-px: 8px; }
 [data-density="comfortable"] { --row-h: 56px; --cell-py: 12px; --cell-px: 12px; }
 

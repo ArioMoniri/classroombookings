@@ -23,13 +23,13 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | IDP | `idp-2026-10-18` | RF-12 metadata signature, encrypted assertions, SP request signing, non-Entra profile linking | auth-backend research | — |
 | HB-C | `hb-c-2026-10-18` | HB-14 telemetry and feedback, HB-15 admin `ai.helper` controls, HB-16 local-model runbook and compose profile | helper architecture doc | — |
 | HX | `hx-2026-10-18` | Helper frontend HX-01..13 (HX-09 after HB-14/15) | helper.md, scratchpad helper/API.md | HB-C for HX-09 |
-| RF-B | `rf-b-2026-10-18` | RF-06, RF-08, RF-09 backend, `/users/search?mfa_state` | audit doc | — |
-| CH-M | `ch-m-2026-10-18` | CH-07, CH-08, CH-10, CH-11 chart migrations | charts.md | — |
+| RF-F | `rf-f-2026-10-18` | /import preview and diff, who imported; period-grid editor; week editor; server-side 2FA filter | scratchpad rf-b/API.md | — |
+| CH-B | `ch-b-2026-10-18` | `/bookings/stats/weekly`, `/audit/stats/daily`, `/me/load` for the CH-07/10/11 cards | charts.md notes | — |
 | Sweeper 2 | `sweep2-2026-10-18` | W3-AI phone Save buttons and chat-history spotlighting, F13 hash-pinned lock, `/grafana/` nginx locations, mobile B fix 15 + capsules, audit A5 | LANES queue | — |
 | Launch video | `media-launch` | Recordly + Lottie + Remotion videos | MEDIA.md | final UI |
 | E2E lane | `e2e-2026-10-18` | docs/testing/e2e-queue section by section → results-2026-10-18.md | e2e-queue README | — |
 
-Done 2026-10-18: HB-B (HB-06, HB-10..13; e2e pending), WG-09 (part done: e2e pending, hosted fix unspent), RF-M (RF-04, RF-10; e2e pending), AUX-10 (part done: e2e pending, the hosted fix "signin-hero-settle" is unspent because `TRANSITIONS_AGENT_LICENSE` is not set in this session), HB-A (HB-01/03..05/07..09), AS-B, AS-F, AUX-F, AU-B, CAL-F, VO-F, WG-F, charts p2, mobile A/B, RF-1, RF-2, sweeper.
+Done 2026-10-18: RF-B (RF-06/08/09 backend, `mfa_state` filter), CH-M (CH-08 done; CH-07/10/11 frontend waiting on CH-B), HB-B (HB-06, HB-10..13; e2e pending), WG-09 (part done: e2e pending, hosted fix unspent), RF-M (RF-04, RF-10; e2e pending), AUX-10 (part done: e2e pending, the hosted fix "signin-hero-settle" is unspent because `TRANSITIONS_AGENT_LICENSE` is not set in this session), HB-A (HB-01/03..05/07..09), AS-B, AS-F, AUX-F, AU-B, CAL-F, VO-F, WG-F, charts p2, mobile A/B, RF-1, RF-2, sweeper.
 
 ## Queued (start when a slot frees; at most 8 agents)
 
