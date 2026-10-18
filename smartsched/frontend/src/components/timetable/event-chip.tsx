@@ -7,6 +7,7 @@
  */
 import { AlertTriangle, Circle, Lock, Moon, PencilLine } from "lucide-react";
 import { memo, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import { usePeriodGridVersion } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { spanText } from "./model/check";
 import type { CalEvent } from "./model/index-model";
@@ -49,6 +50,8 @@ export function chipVars(slot: number): CSSProperties {
 }
 
 function EventChipImpl(p: EventChipProps) {
+  // RF-16b: the chip's time line follows a late period grid (memo with a custom compare: subscribe)
+  usePeriodGridVersion();
   const { ev, rect, lines } = p;
   const a = ev.a;
   const glyph = ev.conflict ? (

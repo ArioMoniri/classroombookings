@@ -393,6 +393,10 @@ async def set_values(
     await mirror(session, room, fields)
     after_vals = {f.id: decode(f, rows.get(f.id), room) for f in fields}
     changed = [fid for fid in after_vals if after_vals[fid] != before_vals.get(fid)]
+    if before_tags != list(room.tags or []):
+        from app.importers.catalog import mark_master
+
+        mark_master(room, "tags")  # RF-06: a workbook re-import no longer adds a tag the admin removed
     if changed or before_tags != list(room.tags or []):
         await audit.record(
             session,

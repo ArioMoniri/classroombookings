@@ -45,7 +45,7 @@ export function ApprovalRulesAdmin() {
         title={t("wave1.rules.title")}
         subtitle={t("wave1.rules.subtitle")}
         actions={
-          <Button onClick={() => setEditing("new")} data-testid="rule-new">
+          <Button onClick={() => setEditing("new")} data-testid="rule-new" data-tour="admin-approval-rules">
             <Plus aria-hidden />
             {t("wave1.rules.new")}
           </Button>

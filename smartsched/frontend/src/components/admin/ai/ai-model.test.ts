@@ -6,6 +6,7 @@ import {
   compactTokens,
   dailyLegend,
   dayChartData,
+  foldOther,
   foldWeeks,
   lastIsToday,
   errorMessage,
@@ -19,7 +20,6 @@ import {
   resetDate,
   routeIssues,
   routesBody,
-  seriesOf,
   sortUsers,
   userPct,
 } from "./ai-model";
@@ -125,13 +125,32 @@ describe("usage", () => {
     { key: "2026-10-17", calls: 1, tokens: 50, cost_usd: 0, refused: 1, features: { rules: 50 } },
   ];
 
-  it("stacks days by feature in the fixed order, unknown features as other", () => {
+  it("stacks days by feature in the fixed order; up to five features keep their own series (F-CH-4)", () => {
     const pts = dayChartData(rows, "tr");
-    expect(pts[0]).toMatchObject({ day: "2026-10-16", chat: 200, other: 100, rules: 0, total: 300 });
+    expect(pts[0]).toMatchObject({ day: "2026-10-16", chat: 200, guard: 100, rules: 0, other: 0, total: 300 });
     expect(pts[0]!.label).toMatch(/16 Eki/);
-    expect(activeSeries(pts)).toEqual(["chat", "rules", "other"]);
+    expect(activeSeries(pts)).toEqual(["chat", "rules", "guard"]);
     expect(dayChartData(rows, "en", 1)).toHaveLength(1);
-    expect(seriesOf("booking_nl")).toBe("other");
+  });
+
+  it("F-CH-4: the five busiest features are named, the rest fold into Diğer (charts.md §4 row 1)", () => {
+    const seven: UsageRow[] = [
+      { key: "2026-10-16", calls: 1, tokens: 0, cost_usd: 0, refused: 0, features: { chat: 900, rules: 800, explain: 700, booking_nl: 600, voice_stt: 500, guard: 20, intake: 10 } },
+      { key: "2026-10-17", calls: 1, tokens: 0, cost_usd: 0, refused: 0, features: { chat: 1 } },
+    ];
+    const pts = dayChartData(seven, "tr");
+    const series = activeSeries(pts);
+    expect(series).toEqual(["chat", "rules", "explain", "booking_nl", "voice_stt", "other"]);
+    const folded = foldOther(pts, series);
+    expect(folded[0]).toMatchObject({ chat: 900, booking_nl: 600, voice_stt: 500, other: 30 });
+    // five features (the e2e seed): five named, no Diğer
+    const five = dayChartData([{ key: "2026-10-16", calls: 1, tokens: 15, cost_usd: 0, refused: 0, features: { chat: 1, rules: 2, explain: 3, booking_nl: 4, voice_stt: 5 } }], "tr");
+    expect(activeSeries(five)).toEqual(["chat", "rules", "explain", "booking_nl", "voice_stt"]);
+  });
+
+  it("F-CH-4: colours follow the feature; a feature without its own colour takes the first one not shown", () => {
+    const legend = dailyLegend(["chat", "rules", "explain", "booking_nl", "voice_stt", "other"], (s) => s);
+    expect(legend.map((l) => l.color)).toEqual(["var(--cat-1)", "var(--cat-2)", "var(--cat-4)", "var(--cat-3)", "var(--cat-5)", "var(--label-3)"]);
   });
 
   it("sorts users by share of their limit and searches Turkish-insensitively", () => {

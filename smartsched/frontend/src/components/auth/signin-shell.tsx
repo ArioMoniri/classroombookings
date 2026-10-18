@@ -23,6 +23,7 @@ import { useAppVersion } from "@/lib/api/crbs";
 import { LOCALE_INFO, type Locale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
+import { SignInHero } from "./signin-hero";
 
 /** Page-local tokens (§9). Control height 44 fine / 48 coarse also drives the fields (--control-h-lg). */
 const SHEET_TOKENS =
@@ -144,9 +145,10 @@ export function SignInFooter({ kvkkUrl }: { kvkkUrl?: string | null }) {
 }
 
 /**
- * Sheet + scene. `children` is the column content between the brand row and the footer.
+ * Sheet + scene. `children` is the column content between the brand row and the footer. `hero` (only `/login`) puts
+ * the decorative sign-in hero in the scene area right of the sheet (auth.md §11.3; never on the 2FA step).
  */
-export function SignInShell({ children, logoUrl, kvkkUrl, labelledBy = "signin-title", testId }: { children: ReactNode; logoUrl?: string | null; kvkkUrl?: string | null; labelledBy?: string; testId?: string }) {
+export function SignInShell({ children, logoUrl, kvkkUrl, labelledBy = "signin-title", testId, hero = false }: { children: ReactNode; logoUrl?: string | null; kvkkUrl?: string | null; labelledBy?: string; testId?: string; hero?: boolean }) {
   const sheet = useRef<HTMLElement>(null);
   useKeyboardSafeFocus(sheet);
   return (
@@ -166,6 +168,7 @@ export function SignInShell({ children, logoUrl, kvkkUrl, labelledBy = "signin-t
           </div>
         </GlassPanel>
       </main>
+      {hero ? <SignInHero /> : null}
     </div>
   );
 }

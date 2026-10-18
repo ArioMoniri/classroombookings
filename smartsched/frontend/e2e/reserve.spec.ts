@@ -209,8 +209,10 @@ test("4. Shift-click selects a span; cells that cannot be booked say why on hove
   await expect(sheet).toBeHidden();
   await cell(page, span[2]!).click({ modifiers: ["Shift"] });
   await expect(sheet.getByTestId("book-submit")).toHaveText(/3 ders saatini rezerve et|Reserve 3 periods/);
-  // the period picker (CRBS single_form) and the chips can change it back to one period
-  await sheet.getByTestId("book-period").selectOption(String(span[1]!.period_id));
+  // the period chips change it back to one period (HX12B-F11: no second "Ders saati" select beside them)
+  await expect(sheet.getByTestId("book-period")).toHaveCount(0);
+  await sheet.locator(`[data-testid="book-periods"] [data-period-id="${span[2]!.period_id}"]`).click();
+  await sheet.locator(`[data-testid="book-periods"] [data-period-id="${span[0]!.period_id}"]`).click();
   await expect(sheet.getByTestId("book-submit")).toHaveText(/Rezerve et|Book this slot|Bu saati rezerve et/);
   await page.keyboard.press("Escape");
   // a timetable cell explains itself on hover

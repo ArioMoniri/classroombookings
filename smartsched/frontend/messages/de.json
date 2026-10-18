@@ -99,6 +99,11 @@
   "wave1": {
     "find": {
       "weeks": "Wochen"
+    },
+    "audit": {
+      "f": {
+        "days": "Tage"
+      }
     }
   },
   "moderation": {
@@ -152,10 +157,30 @@
       "day": "Tag"
     }
   },
+  "charts": {
+    "bookings": {
+      "week": "Woche"
+    },
+    "audit": {
+      "day": "Tag"
+    }
+  },
   "adaptive": {
     "peaks": {
       "col": {
         "weeks": "Wochen"
+      }
+    }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Wochen"
+      },
+      "field": {
+        "class_year": "Jahr",
+        "day": "Tag",
+        "week": "Woche"
       }
     }
   }

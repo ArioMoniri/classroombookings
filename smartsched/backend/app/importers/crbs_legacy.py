@@ -577,7 +577,8 @@ class _Importer:
             name = (n.clean_text(row.get("name")) or f"P{pid}")[:30]
             rng = n.time_range_to_periods(ts, te) if ts and te else None
             if sched is None or ts is None or te is None or rng is None or rng.start_period is None:
-                self.r.warn(f"period {name} ({ts}-{te}) is outside the 08:30-22:50 grid; its bookings are skipped")
+                grid = f"{n.PERIODS[0].start:%H:%M}-{n.PERIODS[-1].end:%H:%M}"
+                self.r.warn(f"period {name} ({ts}-{te}) is outside the {grid} grid; its bookings are skipped")
                 continue
             per = await self._by_legacy(BookingPeriod, pid)
             created = per is None

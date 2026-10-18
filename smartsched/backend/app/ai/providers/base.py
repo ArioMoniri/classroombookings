@@ -61,6 +61,9 @@ class GMessage:
     usage: GUsage = field(default_factory=GUsage)
     stop_details: GStopDetails | None = None
     _request_id: str | None = None
+    #: the ``tool_use`` was built by the OpenAI-compatible adapter from a JSON-schema answer (HB-13 emulation), not
+    #: chosen by the server: the probe does not count it as an honoured ``tool_choice`` (HB-17 bug 4)
+    emulated: bool = False
 
 
 @dataclass
@@ -88,6 +91,9 @@ class ModelInfo:
 
 class ProviderError(RuntimeError):
     """A provider failure, already reduced to a short text without upstream bodies or keys."""
+
+    #: the HTTP status the server answered with, when there was one (the probe treats a 5xx as "unknown", HB-F bug D)
+    status: int | None = None
 
 
 class ProviderUnsupported(ProviderError):

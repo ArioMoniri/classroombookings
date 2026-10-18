@@ -1,8 +1,8 @@
 "use client";
 /**
  * Yapay zekâ › Kullanım › "Günlük token kullanımı" (CH-05, docs/design/v3/charts.md §4 row 1): stacked columns by
- * feature on the shared ChartCard + EvilCharts ECharts bar. Colours stay `SERIES_COLOR` (fixed order, "Diğer" =
- * `--label-3`), today is hatched while it is not over, and phones show weekly sums (≤ 5 columns for 30 days). The
+ * feature on the shared ChartCard + EvilCharts ECharts bar. The five busiest features are named and the rest fold
+ * into "Diğer" (F-CH-4). Colours stay `SERIES_COLOR` (fixed order, "Diğer" = `--label-3`), today is hatched while it is not over, and phones show weekly sums (≤ 5 columns for 30 days). The
  * period control stays the page's (it drives the KPI tiles too). Moved out of usage-tab.tsx so the chart has its own
  * file and test.
  */
@@ -17,7 +17,7 @@ import { BELOW_MD, useMediaQuery } from "@/components/ui/use-media-query";
 import type { UsageRow } from "@/lib/api/ai-admin";
 import { useI18n } from "@/lib/i18n/provider";
 import { useAiLabels } from "./ai-kit";
-import { activeSeries, compactTokens, dailyLegend, dayChartData, foldWeeks, lastIsToday, pctText, type ChartSeries, type DayPoint } from "./ai-model";
+import { OTHER_SERIES, activeSeries, compactTokens, dailyLegend, dayChartData, foldOther, foldWeeks, lastIsToday, pctText, type ChartSeries, type DayPoint } from "./ai-model";
 
 const WEEKLY_ABOVE = 7;
 
@@ -26,17 +26,20 @@ export function DailyChart({ rows, loading, lastDays }: { rows: UsageRow[]; load
   const f = useChartFormat();
   const labels = useAiLabels();
   const phone = useMediaQuery(BELOW_MD);
-  const days = useMemo(() => dayChartData(rows, locale, lastDays), [rows, locale, lastDays]);
+  // F-CH-4: the five busiest features are named, the rest fold into Diğer (charts.md §4 row 1)
+  const raw = useMemo(() => dayChartData(rows, locale, lastDays), [rows, locale, lastDays]);
+  const seriesKey = activeSeries(raw).join(",");
+  const series = useMemo(() => (seriesKey ? seriesKey.split(",") : []), [seriesKey]);
+  const days = useMemo(() => foldOther(raw, series), [raw, series]);
   const weekly = phone && days.length > WEEKLY_ABOVE;
   const points = useMemo(() => (weekly ? foldWeeks(days, (from, to) => `${f.day(from)}–${f.day(to)}`) : days), [weekly, days, f]);
-  const series = activeSeries(days);
-  const label = (s: ChartSeries) => (s === "other" ? t("aiAdmin.feature.other") : labels.feature(s));
+  const label = (s: ChartSeries) => (s === OTHER_SERIES ? t("aiAdmin.feature.other") : labels.feature(s));
   const legend = dailyLegend(series, label);
   const config = categoricalConfig(legend);
   const partial = lastIsToday(days);
 
   const total = days.reduce((a, p) => a + p.total, 0);
-  const top = series.map((s) => ({ s, v: days.reduce((a, p) => a + p[s], 0) })).sort((a, b) => b.v - a.v)[0];
+  const top = series.map((s) => ({ s, v: days.reduce((a, p) => a + Number(p[s] ?? 0), 0) })).sort((a, b) => b.v - a.v)[0];
   const summary = total
     ? [
         t("aiAdmin.usage.summary", { total: compactTokens(total, locale), top: top ? label(top.s) : "", pct: top ? pctText(Math.round((100 * top.v) / total), locale) : "" }),

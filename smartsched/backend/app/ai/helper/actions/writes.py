@@ -29,7 +29,7 @@ from sqlalchemy import func, select
 from app.ai.helper import cards
 from app.ai.helper import confirm as cf
 from app.ai.helper import schema as s
-from app.ai.helper.actions.common import DayText, day_label, resolve_day, resolve_rooms
+from app.ai.helper.actions.common import ClockText, DayText, day_label, resolve_day, resolve_rooms
 from app.ai.helper.actions.registry import REGISTRY, Action, ActionRefused, Args, Ctx, action
 from app.models import ApprovalRequest, AuditEvent, Booking, BookingPeriod, User
 from app.models.base import utcnow
@@ -223,13 +223,39 @@ def _when(d: date, period: BookingPeriod) -> tuple[str, str]:
 
 
 class CreateBookingArgs(Args):
+    """One booking: a room, a date and either a clock time (``start``; the server finds the room's booking period
+    the way find-room does, HB-17 P1) or a ``period_id`` from a ``find_free_rooms`` row (that wins when both)."""
+
     room: Annotated[str, Field(max_length=40, description="room code, name or id from a result, e.g. 'A 204'")] = ""
     date: DayText = ""
-    period_id: Annotated[int, Field(ge=0, description="booking period id from a result; 0 = not chosen yet")] = 0
+    start: Annotated[
+        ClockText,
+        Field(description="start time HH:MM as the user said it, e.g. '13:30'; the server finds the period"),
+    ] = ""
+    period_id: Annotated[
+        int, Field(ge=0, description="booking period id from a find_free_rooms row; 0 = use start instead")
+    ] = 0
     notes: Annotated[str, Field(max_length=255, description="the purpose, in the user's words; '' = none")] = ""
 
 
 def _booking_form(a: CreateBookingArgs, missing: list[str], room: Room | None) -> s.FormCard:
+    when: list[s.FormField] = [
+        s.FormField(
+            name="start", label=cards.txt("Başlangıç", "Start"), kind="time", required=True, value=a.start or None
+        )
+    ]
+    if a.period_id:  # a period the person already picked stays on the form
+        when.append(
+            s.FormField(
+                name="period_id",
+                label=cards.txt("Ders saati", "Period"),
+                kind="period",
+                required=False,
+                value=a.period_id,
+                options_source="periods",
+            )
+        )
+        when[0] = when[0].model_copy(update={"required": False})
     return s.FormCard(
         id=cards.new_id(),
         action="create_booking",
@@ -248,14 +274,7 @@ def _booking_form(a: CreateBookingArgs, missing: list[str], room: Room | None) -
             s.FormField(
                 name="date", label=cards.txt("Tarih", "Date"), kind="date", required=True, value=a.date or None
             ),
-            s.FormField(
-                name="period_id",
-                label=cards.txt("Ders saati", "Period"),
-                kind="period",
-                required=True,
-                value=a.period_id or None,
-                options_source="periods",
-            ),
+            *when,
             s.FormField(
                 name="notes",
                 label=cards.txt("Amaç", "Purpose"),
@@ -274,12 +293,13 @@ def _booking_form(a: CreateBookingArgs, missing: list[str], room: Room | None) -
     args=CreateBookingArgs,
     summary_tr="Rezerve et",
     summary_en="Book a room",
-    description="Prepare one single booking of one room, on one date, in one period, for the user themself. "
-    "The user confirms it on the card; nothing is booked before.",
+    description="Prepare one single booking of one room, on one date, at one start time, for the user themself. "
+    "Give the time as the user said it in start (HH:MM); the server finds the period. The user confirms it on "
+    "the card; nothing is booked before.",
     route="POST /bookings",
     risk="R1",
     route_args={"date": "date", "period_id": "period_id", "notes": "notes"},
-    resolved=("room",),
+    resolved=("room", "start"),
     gate="maintenance",
 )
 async def preview_create_booking(ctx: Ctx, a: CreateBookingArgs) -> Preview | s.CardBase:
@@ -299,7 +319,7 @@ async def preview_create_booking(ctx: Ctx, a: CreateBookingArgs) -> Preview | s.
             return _choice("room", rooms, a.model_dump(), "create_booking")
         room = rooms[0]
     d = await resolve_day(ctx, a.date)
-    missing = [n for n, ok in (("room", room), ("date", d), ("period_id", a.period_id)) if not ok]
+    missing = [n for n, ok in (("room", room), ("date", d), ("start", a.period_id or a.start)) if not ok]
     if missing or room is None or d is None:
         return _booking_form(a, missing, room)
     session, access = ctx.session, ctx.access
@@ -312,7 +332,11 @@ async def preview_create_booking(ctx: Ctx, a: CreateBookingArgs) -> Preview | s.
         need = await asvc.need_for(session, access, room, "book_single", info.term.id)
         try:
             await bsvc._open_date(session, info, d)  # noqa: SLF001 - the create path's own check
-            period = await period_for(session, info, room, a.period_id, d)
+            # BUG-01: a weekday the schedule does not offer (Sunday on Monday-Friday) is refused as ``closed_day``
+            # with "… rezervasyona kapalı bir gün" on the card (refusal() carries message_tr/en), not ``calendar``
+            await bsvc._open_day(session, info, room, d)  # noqa: SLF001
+            period_id = a.period_id or await _period_at(session, info, room, d, a.start)
+            period = await period_for(session, info, room, period_id, d)
         except CalendarError as exc:
             raise bsvc.BookingError(409, "calendar", str(exc)) from exc
         if need is not None:
@@ -362,7 +386,7 @@ async def preview_create_booking(ctx: Ctx, a: CreateBookingArgs) -> Preview | s.
     return Preview(
         action="create_booking",
         risk="R1",
-        args={"room": str(room.id), "date": d.isoformat(), "period_id": period.id, "notes": a.notes},
+        args={"room": str(room.id), "date": d.isoformat(), "start": "", "period_id": period.id, "notes": a.notes},
         facts={
             "room": room.id,
             "date": d.isoformat(),
@@ -379,6 +403,24 @@ async def preview_create_booking(ctx: Ctx, a: CreateBookingArgs) -> Preview | s.
         undoable=not request,
         warnings=warnings,
     )
+
+
+async def _period_at(session: Any, info: Any, room: Room, d: date, start: str) -> int:
+    """The booking period of ``room`` on ``d`` that starts at the clock time ``start`` (find-room's resolution)."""
+    from app.services import find_room as fsvc
+
+    try:
+        ids = await fsvc.slot_period_ids(session, info, room, d, start)
+    except fsvc.FindError as exc:
+        raise ActionRefused(exc.status, exc.code, exc.message_tr, exc.message) from exc
+    if not ids:
+        raise ActionRefused(
+            409,
+            "no_period_at_time",
+            f"{room.display_name} için {start} saatinde başlayan ayrılabilir bir ders saati yok.",
+            f"{room.display_name} has no bookable period starting at {start}.",
+        )
+    return ids[0]
 
 
 @executes("create_booking")

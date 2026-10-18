@@ -9,7 +9,7 @@ import { useWelcomeStore } from "./welcome-store";
 vi.setConfig({ testTimeout: 20_000 });
 
 const nav = vi.hoisted(() => ({ pathname: "/reserve", search: "", push: vi.fn() }));
-const api = vi.hoisted(() => ({ calls: [] as { path: string; method: string; body?: unknown }[], state: {} as Record<string, unknown> }));
+const api = vi.hoisted(() => ({ calls: [] as { path: string; method: string; body?: unknown }[], state: {} as Record<string, unknown>, onEvent: null as ((body: unknown) => void) | null }));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => nav.pathname,
@@ -25,7 +25,10 @@ vi.mock("@/lib/api/client", async (orig) => {
       api.calls.push({ path, method: opts.method ?? "GET", body: opts.body });
       if (path === "/auth/me") return { id: 7, full_name: "Ayşe Tekin", role: "TEACHER", permissions: ["book_single.create"], force_password_reset: false };
       if (path === "/welcome") return opts.schema ? opts.schema.parse(api.state) : api.state;
-      if (path === "/welcome/events") return undefined;
+      if (path === "/welcome/events") {
+        api.onEvent?.(opts.body);
+        return undefined;
+      }
       throw new Error(`unexpected ${path}`);
     },
   };
@@ -38,6 +41,7 @@ beforeEach(() => {
   resetWelcomeStore();
   mockMedia(DESKTOP_MEDIA);
   api.calls = [];
+  api.onEvent = null;
   api.state = makeState({ show: { kind: "sheet", key: "sheet" } });
   nav.pathname = "/reserve";
   nav.search = "";
@@ -49,6 +53,22 @@ describe("WelcomeProvider", () => {
     expect(await screen.findByTestId("welcome-sheet", {}, { timeout: 3000 })).toBeInTheDocument();
     await waitFor(() => expect(events()).toContainEqual({ guide_key: "sheet", event: "shown" }));
     expect(window.sessionStorage.getItem("ss.welcome.auto")).toBe("sheet");
+  });
+
+  it("F-WG-1: 'show again' after a text edit: the sheet keeps 'Güncellendi' after its own 'shown' refetch", async () => {
+    api.state = makeState({ show: { kind: "sheet", key: "sheet", updated: true }, sheet: { cards: [], updated: true } });
+    // the server stores the seen versions on 'shown': the next GET /welcome no longer says updated
+    api.onEvent = (body) => {
+      if ((body as { event?: string }).event === "shown") api.state = makeState({ show: null, sheet: { cards: [], updated: false } });
+    };
+    renderWelcome(<WelcomeProvider />);
+    expect(await screen.findByTestId("welcome-sheet", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByTestId("welcome-updated")).toHaveTextContent("Güncellendi");
+    await waitFor(() => expect(events()).toContainEqual({ guide_key: "sheet", event: "shown" }));
+    await waitFor(() => expect(welcomeCalls().length).toBeGreaterThan(1));
+    await act(async () => new Promise((r) => setTimeout(r, 100)));
+    expect(screen.getByTestId("welcome-sheet")).toBeInTheDocument();
+    expect(screen.getByTestId("welcome-updated")).toHaveTextContent("Güncellendi");
   });
 
   it("'Sonra' writes snoozed and the session budget keeps it closed on the next page", async () => {

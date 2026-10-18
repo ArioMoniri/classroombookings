@@ -17,6 +17,8 @@ import { mfaErrorCode, signInStep, type SignInStepOut } from "@/lib/api/auth-sec
 import { refusalBody } from "@/lib/api/error-text";
 import { HttpError } from "@/lib/api/client";
 import { useI18n } from "@/lib/i18n/provider";
+import { useHydrated } from "@/lib/use-hydrated";
+import { CREDENTIAL_FORM } from "./credential-form";
 import { rich } from "./signin-shell";
 import { useFinishSignIn } from "./use-finish-sign-in";
 import "./auth.css";
@@ -46,6 +48,7 @@ export function SetPasswordForm({ mode, token, username, org, minLength = 12, ne
   const [busy, setBusy] = useState(false);
   const [signedOutDone, setSignedOutDone] = useState(false);
   const { ref: shakeRef, shake } = useShake<HTMLDivElement>();
+  const hydrated = useHydrated(); // HB18-F02: no native submit before hydration
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -90,7 +93,7 @@ export function SetPasswordForm({ mode, token, username, org, minLength = 12, ne
 
   const message = problem === "short" ? t("auth.setPassword.short", { n: min }) : problem === "blocklist" ? t("auth.setPassword.blocklist") : problem === "username" ? t("auth.setPassword.username") : problem === "expired" ? t("auth.setPassword.expired") : null;
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4" data-testid="set-password-form">
+    <form {...CREDENTIAL_FORM} onSubmit={onSubmit} noValidate className="flex flex-col gap-4" data-testid="set-password-form">
       {title ? (
         <div className="flex flex-col gap-1.5">
           <h2 className="type-title-3 text-label-1">{t("auth.setPassword.title")}</h2>
@@ -148,7 +151,7 @@ export function SetPasswordForm({ mode, token, username, org, minLength = 12, ne
           </p>
         ) : null}
       </div>
-      <BusyButton type="submit" size="lg" shape="rect" className="w-full" busy={busy} busyLabel={t("auth.setPassword.busy")} data-testid="set-password-submit">
+      <BusyButton type="submit" size="lg" shape="rect" className="w-full" busy={busy} busyLabel={t("auth.setPassword.busy")} disabled={!hydrated} data-testid="set-password-submit">
         {t("auth.setPassword.submit")}
       </BusyButton>
     </form>

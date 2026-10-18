@@ -99,6 +99,11 @@
   "wave1": {
     "find": {
       "weeks": "Settimane"
+    },
+    "audit": {
+      "f": {
+        "days": "Giorni"
+      }
     }
   },
   "moderation": {
@@ -152,10 +157,30 @@
       "day": "Giorno"
     }
   },
+  "charts": {
+    "bookings": {
+      "week": "Settimana"
+    },
+    "audit": {
+      "day": "Giorno"
+    }
+  },
   "adaptive": {
     "peaks": {
       "col": {
         "weeks": "Settimane"
+      }
+    }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Settimane"
+      },
+      "field": {
+        "class_year": "Anno",
+        "day": "Giorno",
+        "week": "Settimana"
       }
     }
   }

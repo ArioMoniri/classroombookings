@@ -31,6 +31,24 @@
           "title": "Lang",
           "type": "string"
         },
+        "notes_used": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 400,
+                "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+                "type": "string"
+              },
+              "maxItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes Used"
+        },
         "source": {
           "enum": [
             "ai",
@@ -1355,7 +1373,7 @@
           "type": "object"
         },
         "id": {
-          "pattern": "^[A-Za-z0-9_\\-:]{1,64}$",
+          "pattern": "^[A-Za-z0-9_\\-:.]{1,64}$",
           "title": "Id",
           "type": "string"
         }

@@ -79,28 +79,44 @@ function HeroStatus({ plan }: { plan: ScheduleRun | undefined }) {
   );
 }
 
-function QuietNumbers({ d }: { d: DashboardSummary }) {
+/**
+ * The four quiet numbers under the hero. Without data (F-MB-1, fix-b-2026-10-18) the same rows render with the labels
+ * and a line-high placeholder per number and hint, so the hero does not grow by 110 px at 390 when the summary lands.
+ */
+export function QuietNumbers({ d }: { d?: DashboardSummary }) {
   const { t, locale, n } = useI18n();
   const fmt = (v: number) => new Intl.NumberFormat(locale).format(v);
   const items = [
-    { label: t("glass.dashboard.toReview"), value: d.requests_needs_review, href: "/requests?status=NEEDS_REVIEW", hint: t("glass.dashboard.ofRequests", { n: n(d.requests_total) }) },
-    { label: t("dashboard.sections"), value: d.sections_total, href: "/requests" },
-    { label: t("glass.dashboard.bookable"), value: d.rooms_bookable, href: "/rooms", hint: t("glass.dashboard.ofRooms", { n: n(d.rooms_total) }) },
-    { label: t("glass.dashboard.conflicts"), value: d.conflicts, href: "/timetable" },
+    { label: t("glass.dashboard.toReview"), value: d?.requests_needs_review, href: "/requests?status=NEEDS_REVIEW", hint: d ? t("glass.dashboard.ofRequests", { n: n(d.requests_total) }) : true },
+    { label: t("dashboard.sections"), value: d?.sections_total, href: "/requests" },
+    { label: t("glass.dashboard.bookable"), value: d?.rooms_bookable, href: "/rooms", hint: d ? t("glass.dashboard.ofRooms", { n: n(d.rooms_total) }) : true },
+    { label: t("glass.dashboard.conflicts"), value: d?.conflicts, href: "/timetable" },
   ];
   return (
     // container-relative: the KPI labels collided at 1024 with viewport breakpoints (review §3 Dashboard 1024)
-    <dl className="mt-6 grid gap-x-6 gap-y-4 pt-5 hairline-t [grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr))]">
+    <dl className="mt-6 grid gap-x-6 gap-y-4 pt-5 hairline-t [grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr))]" aria-busy={d ? undefined : true}>
       {items.map((i) => (
         <div key={i.label} className="min-w-0">
           <dt className="type-footnote text-label-2">{i.label}</dt>
           <dd>
-            <Link href={i.href} className="rounded-md type-kpi text-label-1 hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus)">
-              {/* round-2 T-R2-26 (R2-S-14): a plain number - the odometer's digit strips reached main.innerText
-                  ('0 1 2 3 4 5 6 7 8 9'), like the run report's before T-R1-48 */}
-              <span className="tabular-nums">{fmt(i.value)}</span>
-            </Link>
-            {i.hint ? <span className="block type-footnote text-label-2">{i.hint}</span> : null}
+            {i.value === undefined ? (
+              <div className="type-kpi">
+                <Skeleton className="h-[1lh] w-14 rounded-md" data-testid="quiet-number-loading" />
+              </div>
+            ) : (
+              <Link href={i.href} className={cn("relative rounded-md type-kpi text-label-1 hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus)", coarseHitArea)}>
+                {/* round-2 T-R2-26 (R2-S-14): a plain number - the odometer's digit strips reached main.innerText
+                    ('0 1 2 3 4 5 6 7 8 9'), like the run report's before T-R1-48 */}
+                <span className="tabular-nums">{fmt(i.value)}</span>
+              </Link>
+            )}
+            {i.hint === true ? (
+              <div className="type-footnote">
+                <Skeleton className="h-[1lh] w-20" data-testid="quiet-hint-loading" />
+              </div>
+            ) : i.hint ? (
+              <span className="block type-footnote text-label-2">{i.hint}</span>
+            ) : null}
           </dd>
         </div>
       ))}
@@ -176,18 +192,17 @@ export function DashboardView() {
             </div>
             {/* baseline-aligned: label and number share one baseline (review §3 "26% ticker sits 10 px high") */}
             <h2 id="hero-title" className="mt-2 flex flex-wrap items-baseline gap-x-2 type-large-title text-label-1">
+              {/* F-MB-1: the words stay while the number loads, so the title wraps the same way on a phone */}
+              <span>{t("glass.dashboard.roomUse")}</span>
               {d ? (
-                <>
-                  <span>{t("glass.dashboard.roomUse")}</span>
-                  <span className="tnum tabular-nums">{`${pctParts.prefix ?? ""}${new Intl.NumberFormat(locale).format(pct)}${pctParts.suffix ?? ""}`}</span>
-                </>
+                <span className="tnum tabular-nums">{`${pctParts.prefix ?? ""}${new Intl.NumberFormat(locale).format(pct)}${pctParts.suffix ?? ""}`}</span>
               ) : (
-                <Skeleton className="h-10 w-72" />
+                <Skeleton className="inline-block h-[1lh] w-[3.5ch] align-baseline" data-testid="hero-number-loading" />
               )}
             </h2>
             {/* mobile-b phase 2 (CLS 0.11): the status sentence is two title-3 lines on a phone; the skeleton is too */}
             <div className="mt-2">{runs.data ? <HeroStatus plan={plan} /> : <Skeleton className="h-[2lh] w-80 max-w-full type-title-3 sm:h-[1lh]" data-testid="dashboard-plan-loading" />}</div>
-            {d ? <QuietNumbers d={d} /> : <Skeleton className="mt-6 h-16" />}
+            <QuietNumbers d={d} />
           </div>
           <div className="min-w-0">
             {/* CH-04: title, hint, peak sentence, table twin and CSV come from the shared ChartCard */}

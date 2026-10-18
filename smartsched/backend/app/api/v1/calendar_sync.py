@@ -173,8 +173,10 @@ def ics_response(request: Request, feed: feeds.Feed, *, attachment: bool = False
     return Response(feed.text.encode("utf-8"), media_type="text/calendar; charset=utf-8", headers=headers)
 
 
-#: CAL-05: token hash -> (version key, Last-Modified of the last full build), to answer If-Modified-Since cheaply
-_LAST_BUILDS: OrderedDict[str, tuple[str, datetime | None]] = OrderedDict()
+#: CAL-05: token hash -> (version key, Last-Modified, ETag of the last full build), to answer conditional GETs cheaply.
+#: CAL10-F03 (fix-h-2026-10-18): the ETag is the rendered body's hash, so an audit event elsewhere (every sign-in
+#: writes one) no longer changes it; the version key only decides whether the cached ETag can be trusted unbuilt
+_LAST_BUILDS: OrderedDict[str, tuple[str, datetime | None, str]] = OrderedDict()
 _LAST_BUILDS_MAX = 4096
 
 
@@ -182,7 +184,8 @@ async def serve_feed(request: Request, db: DB, token: str, kind: str, scope_id: 
     """Rate limits, the KVKK switch, the token bound to its scope (CAL-03: any other path is a 404), then the CAL-05
     conditional GET: a version key (the link, the scope, the newest audit event -- every booking, run, move,
     setting, role and term change writes one -- and the day) is compared before anything is built, so an unchanged
-    feed costs three queries; the full build follows otherwise."""
+    feed costs three queries. When the key moved, the feed is built and its ETag is the body's hash (CAL10-F03): an
+    unrelated change elsewhere still answers 304 to a client that already holds the same body."""
     address = request.client.host if request.client else "?"
     if throttle.FEED_PER_ADDRESS.hit(f"ip:{address}"):
         raise _too_many(f"ip:{address}", throttle.FEED_PER_ADDRESS)
@@ -201,19 +204,16 @@ async def serve_feed(request: Request, db: DB, token: str, kind: str, scope_id: 
     newest = (await db.execute(select(func.max(AuditEvent.id)))).scalar_one_or_none()
     day = datetime.now(UTC).astimezone(ZoneInfo("Europe/Istanbul")).date()
     version = hashlib.sha256(f"v1|{row.id}|{kind}|{scope_id}|{newest}|{day}".encode()).hexdigest()
-    etag = '"' + version[:32] + '"'
     cached = _LAST_BUILDS.get(key)
     inm = request.headers.get("if-none-match")
-    if feeds.etag_matches(inm, etag) or (
-        inm is None
-        and cached is not None
-        and cached[0] == version
-        and _not_modified_since(request.headers.get("if-modified-since"), cached[1])
-    ):
-        headers = {"ETag": etag, "Cache-Control": "private, max-age=300", "Referrer-Policy": "no-referrer"}
-        if cached is not None and cached[0] == version and cached[1] is not None:
-            headers["Last-Modified"] = _http_date(cached[1])
-        return Response(status_code=304, headers=headers)
+    if cached is not None and cached[0] == version:
+        if feeds.etag_matches(inm, cached[2]) or (
+            inm is None and _not_modified_since(request.headers.get("if-modified-since"), cached[1])
+        ):
+            headers = {"ETag": cached[2], "Cache-Control": "private, max-age=300", "Referrer-Policy": "no-referrer"}
+            if cached[1] is not None:
+                headers["Last-Modified"] = _http_date(cached[1])
+            return Response(status_code=304, headers=headers)
     access = await load_access(db, user)
     target = scope_id if scope_id is not None else access.user_id
     scope = feeds.FeedScope(kind, target)
@@ -224,8 +224,8 @@ async def serve_feed(request: Request, db: DB, token: str, kind: str, scope_id: 
         feed = await feeds.build_feed(db, access, scope, source=source)
     except feeds.FeedNotFound as exc:
         raise _not_found() from exc
-    feed.version = version
-    _LAST_BUILDS[key] = (version, feed.last_modified)
+    # feed.version stays unset: Feed.etag is then the body's hash
+    _LAST_BUILDS[key] = (version, feed.last_modified, feed.etag)
     _LAST_BUILDS.move_to_end(key)
     while len(_LAST_BUILDS) > _LAST_BUILDS_MAX:
         _LAST_BUILDS.popitem(last=False)
@@ -264,11 +264,18 @@ async def feed_department_classes(token: str, department_id: int, request: Reque
     return await serve_feed(request, db, token, "department_classes", department_id)
 
 
+@router.get("/feeds/{token}/duties.ics")
+async def feed_my_duties(token: str, request: Request, db: DB) -> Response:
+    """CAL-13 "Sınav görevlerim": the invigilation duties of the active plan and the own exams of the published exam
+    timetable of the instructor record(s) linked to the link's owner."""
+    return await serve_feed(request, db, token, "my_duties", None)
+
+
 # --------------------------------------------------------------------------------------------------
 # CAL-03 subscriptions (scope-bound links) and the export options
 # --------------------------------------------------------------------------------------------------
 
-ScopeKind = Literal["my_classes", "department_classes", "my_bookings", "room", "room_group"]
+ScopeKind = Literal["my_classes", "department_classes", "my_bookings", "room", "room_group", "my_duties"]
 
 
 class SubscriptionIn(BaseModel):
@@ -465,6 +472,14 @@ async def export_department(department_id: int, request: Request, db: DB, access
 @router.get("/export/bookings.ics")
 async def export_my_bookings(request: Request, db: DB, access: CurrentAccess) -> Response:
     return await _file(request, db, access, "my_bookings", None, "rezervasyonlarim.ics")
+
+
+@router.get("/export/duties.ics")
+async def export_my_duties(request: Request, db: DB, access: CurrentAccess) -> Response:
+    """CAL-13: "Sınav görevlerim" as a one-off file (same engine and UIDs as the link)."""
+    from app.services import calendar_duties as cd
+
+    return await _file(request, db, access, "my_duties", None, f"sinav-gorevlerim-{await cd.term_slug(db)}.ics")
 
 
 # --------------------------------------------------------------------------------------------------
@@ -781,6 +796,7 @@ class ExportSettingsIn(BaseModel):
     export_my_classes: bool | None = None
     export_department_classes: bool | None = None
     export_my_bookings: bool | None = None
+    export_my_duties: bool | None = None
     export_field_course_title: bool | None = None
     export_field_department: bool | None = None
     export_field_co_instructors: bool | None = None

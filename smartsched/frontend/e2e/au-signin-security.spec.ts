@@ -10,7 +10,7 @@
 import { createHmac } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { REAL, SKIP_REASON } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON } from "./helpers";
 import { adminApi, API, type Admin } from "./identity";
 import { pinLanguage } from "./language";
 
@@ -41,8 +41,20 @@ export function totp(secret: string, offset = 0, now = Date.now()): string {
   const n = ((h[o]! & 0x7f) << 24) | (h[o + 1]! << 16) | (h[o + 2]! << 8) | h[o + 3]!;
   return String(n % 1_000_000).padStart(6, "0");
 }
-/** a code from the next window, so a code used a moment ago is never replayed */
-const freshCode = (secret: string) => totp(secret, 1);
+/**
+ * A code of a step after the last one used (the backend accepts the current step ±1 and never a step at or before the
+ * account's last one, app/core/totp.py `match`). The earlier fixed offsets (+1, +2, +3 from now) put §16.2's and
+ * §16.4's codes two or three steps ahead, outside the ±1 window: refused every time (e2e lane 2026-10-18). Waits for
+ * the next 30 s step when the next unused step is not inside the window yet.
+ */
+let lastStep = 0;
+async function unusedCode(secret: string): Promise<string> {
+  const want = Math.max(lastStep + 1, Math.floor(Date.now() / 30_000) - 1);
+  const wait = (want - 1) * 30_000 - Date.now() + 200; // `want` is inside current ±1 once current >= want - 1
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastStep = want;
+  return totp(secret, 0, want * 30_000 + 1);
+}
 
 async function virtualAuthenticator(context: BrowserContext, page: Page): Promise<{ count: () => Promise<number> }> {
   const cdp = await context.newCDPSession(page);
@@ -53,15 +65,37 @@ async function virtualAuthenticator(context: BrowserContext, page: Page): Promis
   return { count: async () => (await cdp.send("WebAuthn.getCredentials", { authenticatorId })).credentials.length };
 }
 
+/** A goto that a still-running client navigation of the previous page (router.refresh after sign-in) aborted is
+ * retried once after that navigation settles (AUX12-F10: `net::ERR_ABORTED` on /login?method=local). */
+async function gotoSettled(page: Page, url: string) {
+  try {
+    await page.goto(url);
+  } catch (e) {
+    if (!String(e).includes("ERR_ABORTED")) throw e;
+    await page.waitForLoadState("load").catch(() => undefined);
+    await page.goto(url);
+  }
+}
+
 async function signInWithPassword(page: Page, password = USER.password) {
-  await page.goto("/login?method=local");
+  await gotoSettled(page, "/login?method=local");
   await page.getByLabel(/Kullanıcı adı veya e-posta/).fill(USER.username);
   await page.getByLabel(/^Parola$/).fill(password);
   await page.getByRole("button", { name: /^Giriş yap$/ }).click();
 }
 
+/** AUX12-F05/F10: the landing page moves focus to its heading or #main once it renders; poll for it (up to 3 s)
+ * instead of reading document.activeElement in the same tick as waitForURL. */
 async function focusIsNotBody(page: Page) {
-  expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
+  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName ?? "BODY"), { timeout: 3000 }).not.toBe("BODY");
+}
+
+/** Signed in: off /login, the app shell rendered and the landing page's refresh settled, so the next goto is not
+ * aborted by it (AUX12-F10: `page.goto: net::ERR_ABORTED` at §16.2). */
+async function landed(page: Page) {
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await expect(page.locator("#main")).toBeVisible({ timeout: 15_000 });
+  await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
 }
 
 let admin: Admin;
@@ -90,8 +124,8 @@ test.afterAll(async () => {
 
 test("§16.6: 2FA on in ≤ 3 steps; .txt name; Bitir after the tick; the warning at step 3", async ({ page }) => {
   await signInWithPassword(page);
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
-  await page.goto("/profile#security");
+  await landed(page);
+  await gotoSettled(page, "/profile#security");
   await page.getByTestId("mfa-turn-on").click();
   // signed in moments ago: the 10-minute window, no password dialog
   await expect(page.getByTestId("reauth-dialog")).toHaveCount(0);
@@ -100,7 +134,7 @@ test("§16.6: 2FA on in ≤ 3 steps; .txt name; Bitir after the tick; the warnin
   await sheet.getByTestId("setup-cant-scan").click();
   secret = ((await sheet.getByTestId("setup-key").textContent()) ?? "").replace(/\s/g, "");
   expect(secret).toMatch(/^[A-Z2-7]{32}$/);
-  await sheet.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(totp(secret));
+  await sheet.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(await unusedCode(secret));
   await expect(sheet.getByTestId("setup-step-3")).toBeVisible();
   await expect(sheet.getByTestId("recovery-code-list").locator("li")).toHaveCount(10);
   const [dl] = await Promise.all([page.waitForEvent("download"), sheet.getByTestId("codes-download").click()]);
@@ -127,7 +161,7 @@ test("§16.1: password → 2FA step without reload; '123 456' pasted fills and s
   await expect(page.getByText("Kod doğru değil. Uygulamadaki güncel kodu girin.")).toBeVisible();
   await expect(input).toHaveValue("");
   await expect(input).toBeFocused();
-  const code = freshCode(secret);
+  const code = await unusedCode(secret);
   await input.focus();
   await page.evaluate((c) => {
     const el = document.activeElement as HTMLInputElement;
@@ -135,7 +169,7 @@ test("§16.1: password → 2FA step without reload; '123 456' pasted fills and s
     dt.setData("text/plain", c);
     el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
   }, `${code.slice(0, 3)} ${code.slice(3)}`);
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await landed(page);
   await focusIsNotBody(page);
 });
 
@@ -144,16 +178,17 @@ test("§16.2: 'Bu cihazı 30 gün hatırla' skips the step next time; 'Diğer ci
   await signInWithPassword(page);
   await page.waitForURL("**/login/verify");
   await page.getByTestId("mfa-remember").click();
-  await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(totp(secret, 2));
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(await unusedCode(secret));
+  // let the landing page settle (router.refresh is still loading): a goto right away was aborted by it (e2e lane 2026-10-18)
+  await landed(page);
   // a new session on the same browser (ss_td kept, the session cookie dropped)
   const keep = (await context.cookies()).filter((c) => c.name === "ss_td");
   expect(keep).toHaveLength(1);
   await context.clearCookies();
   await context.addCookies(keep);
   await signInWithPassword(page);
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
-  await page.goto("/profile#security");
+  await landed(page);
+  await gotoSettled(page, "/profile#security");
   await expect(page.getByTestId("device-row")).toHaveCount(1);
   // AU-15: sessions list without any network, the current one tagged
   await expect(page.getByTestId("session-current")).toHaveText("Bu cihaz");
@@ -168,9 +203,9 @@ test("§16.4: passkey added in Profil (virtual authenticator) → 'Hiç kullanı
   await context.clearCookies();
   await signInWithPassword(page);
   await page.waitForURL("**/login/verify");
-  await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(totp(secret, 3));
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
-  await page.goto("/profile#security");
+  await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(await unusedCode(secret));
+  await landed(page);
+  await gotoSettled(page, "/profile#security");
   await page.getByTestId("passkey-add").click();
   await expect(page.getByTestId("passkey-row")).toHaveCount(1);
   await expect(page.getByTestId("passkey-meta")).toContainText("Hiç kullanılmadı");
@@ -185,7 +220,7 @@ test("§16.4: passkey added in Profil (virtual authenticator) → 'Hiç kullanı
   await page.waitForURL("**/login/verify");
   await page.getByRole("button", { name: /Başka bir yöntem/ }).click();
   await page.getByRole("button", { name: /Geçiş anahtarı kullan/ }).click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await landed(page);
 });
 
 test("§16.3: a recovery code works once; the toast names the remaining count", async ({ page, context }) => {
@@ -197,7 +232,7 @@ test("§16.3: a recovery code works once; the toast names the remaining count", 
   // typed lower-case without dashes: the field normalises it
   await page.getByLabel("Kurtarma kodu").fill(codes[0]!.replace(/-/g, "").toLowerCase());
   await page.getByTestId("mfa-submit").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await landed(page);
   await expect(page.getByText(/Bir kurtarma kodu kullandınız\. 9 kod kaldı\./)).toBeVisible();
   // the same code a second time is refused
   await context.clearCookies();
@@ -217,7 +252,7 @@ test("§16.10: an SSO-only account never sees 2FA or passkey rows (API answer)",
 
 test("§16.7/8: admin menu ('Giriş' group, no reset code item) and the reset dialog", async ({ page }) => {
   await page.goto("/login?method=local");
-  const r = await page.request.post("/api/v1/auth/login", { data: { email: process.env.E2E_ADMIN_EMAIL ?? "admin@smartsched.local", password: process.env.E2E_ADMIN_PASSWORD ?? "Admin-2026!" } });
+  const r = await page.request.post("/api/v1/auth/login", { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
   expect(r.ok()).toBe(true);
   await page.goto(`/admin/users?q=${encodeURIComponent(USER.username)}`);
   await page.getByRole("button", { name: `${USER.username} için işlemler` }).click();
@@ -246,7 +281,7 @@ test("§16.7/8: admin menu ('Giriş' group, no reset code item) and the reset di
 test("§16.9/12: policy tab round-trip at 390 (chips 44 px, save above the tab bar, no horizontal scroll)", async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: "tr-TR", timezoneId: "Europe/Istanbul" });
   const page = await ctx.newPage();
-  const r = await page.request.post("/api/v1/auth/login", { data: { email: process.env.E2E_ADMIN_EMAIL ?? "admin@smartsched.local", password: process.env.E2E_ADMIN_PASSWORD ?? "Admin-2026!" } });
+  const r = await page.request.post("/api/v1/auth/login", { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
   expect(r.ok()).toBe(true);
   await page.goto("/settings?tab=signin-security");
   await expect(page.getByTestId("signin-security")).toBeVisible();

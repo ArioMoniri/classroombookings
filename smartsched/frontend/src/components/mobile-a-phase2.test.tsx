@@ -42,7 +42,8 @@ describe("fix 4 · landscape (≤ 500 px tall): compact bars", () => {
     expect(item).toContain("[@media(max-height:500px)]:min-h-11");
     expect(item).toContain("[@media(max-height:500px)]:flex-row");
     expect(lineOf("components/shell/tab-bar.tsx", "<nav aria-label")).toContain("[@media(max-height:500px)]:p-0");
-    expect(lineOf("components/shell/tab-bar.tsx", 'data-testid="open-palette-mobile"')).toContain("[@media(max-height:500px)]:size-11");
+    // the detached search is a tab of its own (ui-alignment 2026-10-18): it drops its padding like the capsule, its ITEM goes 44 px
+    expect(lineOf("components/shell/tab-bar.tsx", 'data-testid="open-palette-mobile"')).toContain("[@media(max-height:500px)]:p-0");
     expect(tabBar).toContain("[@media(max-height:500px)]:bottom-[max(0.5rem,env(safe-area-inset-bottom))]");
   });
   it("the shell's bottom reservation follows the compact bar, and the top bar (static there) reserves nothing", () => {

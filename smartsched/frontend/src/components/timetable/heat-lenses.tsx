@@ -249,9 +249,9 @@ function MonthHeatImpl(p: HeatLensProps & { month: string; onMonth: (m: string) 
   return (
     <div className="cal-canvas flex h-full flex-col overflow-auto px-4 py-4 sm:px-6" data-testid="month-heat">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Button variant="ghost" size="icon-sm" aria-label={t("calendar.nav.prev")} onClick={() => shift(-1)}><ChevronLeft /></Button>
+        <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("calendar.nav.prev")} onClick={() => shift(-1)}><ChevronLeft /></Button>
         <h2 className="type-title-3 min-w-40 capitalize">{title}</h2>
-        <Button variant="ghost" size="icon-sm" aria-label={t("calendar.nav.next")} onClick={() => shift(1)}><ChevronRight /></Button>
+        <Button variant="ghost" size="icon-sm" className="pointer-coarse:size-11" aria-label={t("calendar.nav.next")} onClick={() => shift(1)}><ChevronRight /></Button>
         <div className="ml-auto"><MetricSwitch metric={p.metric} onMetric={p.onMetric} compareOn={p.compareOn} /></div>
       </div>
       <div role="grid" aria-label={title} className="grid min-h-0 flex-1 gap-1" style={{ gridTemplateColumns: "40px repeat(7, minmax(0, 1fr))", gridAutoRows: "minmax(88px, 1fr)" }}>

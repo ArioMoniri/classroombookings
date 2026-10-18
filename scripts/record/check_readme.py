@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Check that every relative link and image in the README files points at a file that exists.
 
-    python3 scripts/record/check_readme.py [README.md smartsched/README.md ...]
+    python3 scripts/record/check_readme.py [README.md smartsched/README.md docs/launch/README.md ...]
 
 Checks Markdown links/images, HTML src/srcset/href attributes and in-page anchors (#heading). External
-URLs are listed, not fetched. Also lists files in docs/images/screens, docs/images/recordings and docs/media that no
+URLs are listed, not fetched. Also lists files in docs/images/screens, docs/images/recordings, docs/media and docs/launch/media that no
 README references (orphans), the total size of the referenced media, and README GIFs over 9 MB. Exit code 1 when
 something is missing, a medium is orphaned or a GIF is over budget.
 """
@@ -20,8 +20,8 @@ ROOT = Path(__file__).resolve().parents[2]
 MD_LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 HTML_ATTR = re.compile(r"\b(?:src|srcset|href)=\"([^\"]+)\"")
 HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$", re.MULTILINE)
-MEDIA_DIRS = ["docs/images/screens", "docs/images/recordings", "docs/media"]
-MEDIA_SUFFIXES = {".gif", ".mp4", ".webm", ".png", ".webp", ".jpg", ".jpeg", ".svg"}
+MEDIA_DIRS = ["docs/images/screens", "docs/images/recordings", "docs/media", "docs/launch/media", "docs/launch/media/clips"]
+MEDIA_SUFFIXES = {".gif", ".mp4", ".webm", ".png", ".webp", ".jpg", ".jpeg", ".svg", ".avif", ".vtt"}
 GIF_MAX = 9_000_000
 
 
@@ -70,7 +70,7 @@ def check(readme: Path) -> tuple[list[str], set[Path], list[str]]:
 
 
 def main(argv: list[str]) -> int:
-    files = [ROOT / a for a in argv] or [ROOT / "README.md", ROOT / "smartsched/README.md"]
+    files = [ROOT / a for a in argv] or [ROOT / "README.md", ROOT / "smartsched/README.md", ROOT / "docs/launch/README.md"]
     missing: list[str] = []
     used: set[Path] = set()
     external: list[str] = []

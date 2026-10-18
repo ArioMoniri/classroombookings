@@ -46,7 +46,12 @@ LEGAL_BASIS = (
 
 
 class NotFound(Exception):
-    """The one answer for off, unknown and out of range."""
+    """The one answer for off, unknown and out of range. ``reason`` (``off`` / ``date`` / ``unknown``) is for the
+    server log only (CH12-F10); the public body stays the same for all three."""
+
+    def __init__(self, reason: str = "unknown") -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 async def settings(session: AsyncSession) -> dict[str, Any]:
@@ -100,10 +105,10 @@ async def update_settings(session: AsyncSession, admin: User, data: dict[str, An
 async def _gate(session: AsyncSession, d: date) -> dict[str, Any]:
     cfg = await settings(session)
     if not cfg["enabled"]:
-        raise NotFound
+        raise NotFound("off")
     today = await bsvc.today(session)
     if not (today - timedelta(days=PAST_DAYS) <= d <= today + timedelta(days=FUTURE_DAYS)):
-        raise NotFound
+        raise NotFound("date")
     return cfg
 
 
@@ -178,7 +183,7 @@ async def index(session: AsyncSession) -> dict[str, Any]:
     """Buildings and their rooms (what a public page can open), only when switched on."""
     cfg = await settings(session)
     if not cfg["enabled"]:
-        raise NotFound
+        raise NotFound("off")
     blds = await _buildings(session)
     groups: dict[str, dict[str, Any]] = {}
     for r in await _public_rooms(session):

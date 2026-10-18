@@ -25,7 +25,7 @@ import { plainRuleText } from "./rule-helpers";
 import { templateFor } from "./rule-sentence";
 import { useStudio, useStudioStore } from "./studio-context";
 import { effectiveRules, isPlacementPin, pinOverrides, type EffectiveRule } from "./studio-reducer";
-import { TemplateGallery, type BuilderPrefill } from "./template-gallery";
+import { TemplateGalleryLauncher, type BuilderPrefill } from "./template-gallery";
 import { TermRuleCard } from "./term-rule-card";
 import { UploadPanel } from "./upload-panel";
 import { UploadReview } from "./upload-review";
@@ -48,7 +48,6 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
   const tray = useStudioStore((s) => s.tray);
   const travel = useStudioStore((s) => s.travel);
   const reduce = useReduce();
-  const [gallery, setGallery] = useState(false);
   const [upload, setUpload] = useState(false);
   const [copy, setCopy] = useState(false);
   const [q, setQ] = useState("");
@@ -60,7 +59,6 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
 
   // an example chip without an AI key opens its template pre-filled (round-1 T-R1-46)
   const [chipPrefill, setChipPrefill] = useState<BuilderPrefill | null>(null);
-  const galleryOpen = gallery || Boolean(builderPrefill) || Boolean(chipPrefill);
   // real pins (room / day and time) vs the draft-only changes a pre-check fix made (unlock, tags, seats)
   const placed = useMemo(() => local.pins.filter(isPlacementPin), [local.pins]);
   const changed = useMemo(() => local.pins.filter((p) => Object.keys(pinOverrides(p)).length > 0), [local.pins]);
@@ -141,9 +139,15 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
         </h3>
         <WriteIt noKey={noKey} onOpenTemplate={setChipPrefill} />
         <div className="flex flex-wrap gap-2 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
-          <Button variant="outline" size="sm" onClick={() => setGallery(true)} data-testid="add-template">
+          <TemplateGalleryLauncher
+            prefill={builderPrefill ?? chipPrefill}
+            onClosed={() => {
+              setChipPrefill(null);
+              onBuilderConsumed?.();
+            }}
+          >
             <LayoutTemplate aria-hidden /> {t("studio.add.template")}
-          </Button>
+          </TemplateGalleryLauncher>
           <Button variant="outline" size="sm" onClick={() => setUpload((v) => !v)} aria-expanded={upload} data-testid="add-upload">
             <FileUp aria-hidden /> {t("studio.add.upload")}
           </Button>
@@ -338,17 +342,6 @@ export function RulesStep({ builderPrefill, onBuilderConsumed }: { builderPrefil
       </section>
       </LayoutGroup>
 
-      <TemplateGallery
-        open={galleryOpen}
-        prefill={builderPrefill ?? chipPrefill}
-        onOpenChange={(v) => {
-          setGallery(v);
-          if (!v) {
-            setChipPrefill(null);
-            onBuilderConsumed?.();
-          }
-        }}
-      />
       <CopyDialog open={copy} onOpenChange={setCopy} />
     </div>
   );

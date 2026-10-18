@@ -11,6 +11,7 @@ import { AiUsageBanner } from "@/components/admin/ai/my-ai-usage";
 import { roomLabel } from "@/components/runs/diagnosis-format";
 import { DiffTable, type DiffTableRow } from "@/components/ui/beautifului/diff-table";
 import { PromptComposer } from "@/components/ui/beautifului/prompt-composer";
+import { focusAfter } from "@/components/bookings/focus-after";
 import { MicButton } from "@/components/voice";
 import { Button } from "@/components/ui/button";
 import { useChat, useSendChat, useSettings, useUndoProposal } from "@/lib/api/hooks";
@@ -19,6 +20,7 @@ import { usePermissions } from "@/lib/api/shell-extra";
 import { qk } from "@/lib/api/hooks";
 import { aiKeys } from "@/lib/api/ai-admin";
 import { BusyGlyph } from "@/components/ui/busy-label";
+import { HttpError } from "@/lib/api/client";
 import { INITIAL_STREAM, streamChat, streamReducer, type StreamState } from "./chat-stream";
 import { applyEdited, type Scope } from "./diff-edits";
 import { useI18n } from "@/lib/i18n/provider";
@@ -222,12 +224,13 @@ function Thinking() {
   );
 }
 
-export function ChatPanel({ runId, className }: { runId: number; className?: string }) {
+export function ChatPanel({ runId, className, prefill = null }: { runId: number; className?: string; /** HX-06 `?chat=`: the composer's draft, never sent by itself */ prefill?: string | null }) {
   const { t, locale } = useI18n();
   const chat = useChat(runId);
   const send = useSendChat(runId, locale === "en" ? "en" : "tr");
-  const settings = useSettings();
   const { can } = usePermissions();
+  // HX12B-F06: only an admin may read the settings; a planner's run page asked anyway and toasted "yetkiniz yok"
+  const settings = useSettings({ peek: true, enabled: can("planning.admin") });
   const listRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const messages = chat.data?.messages ?? [];
@@ -245,9 +248,29 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
     root?.querySelector("textarea")?.setAttribute("data-testid", "chat-input");
     root?.querySelector(`button[aria-label="${CSS.escape(t("chat.send"))}"]`)?.setAttribute("data-testid", "chat-send");
   });
+  // the composer is disabled while a reply streams, so the browser drops focus to <body>: once the turn is over and
+  // the box is enabled again, focus goes back to it (focus never stays on <body>; e2e 2026-10-18, vo-mounts 1)
+  const busyTurn = noKey || send.isPending || streaming;
+  const refocus = useRef(false);
+  useEffect(() => {
+    if (busyTurn || !refocus.current) return;
+    refocus.current = false;
+    const box = composerRef.current?.querySelector("textarea");
+    const a = document.activeElement;
+    if (box && (!a || a === document.body || !a.isConnected || a === listRef.current)) box.focus();
+    // the list re-renders as the finished turn replaces the live one: watch a moment longer (any key / tap ends it)
+    const id = box?.id || (box ? (box.id = `chat-box-${runId}`) : "");
+    if (id) focusAfter([`#${CSS.escape(id)}`], 0, 1500);
+  }, [busyTurn, runId]);
   const lang = locale === "en" ? "en" : "tr";
   const qc = useQueryClient();
+  // F-VO-2: a refused or failed turn puts the text back in the box ("Metniniz duruyor")
+  const [restore, setRestore] = useState<{ text: string; seq: number } | null>(null);
+  const keepText = (msg: string) => setRestore((r) => ({ text: msg, seq: (r?.seq ?? 0) + 1 }));
   const submit = async (msg: string) => {
+    refocus.current = true;
+    // the composer is about to be disabled: hold focus on the conversation (tabIndex -1) while the reply streams
+    if (composerRef.current?.contains(document.activeElement)) listRef.current?.focus({ preventScroll: true });
     let last = INITIAL_STREAM;
     let started = false;
     setLive({ user: msg, s: INITIAL_STREAM });
@@ -261,10 +284,20 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
       if (last.error) {
         const e = last.error;
         toast.error(t("glass.chat.sendFailed"), { description: (lang === "tr" ? e.messageTr : e.messageEn) ?? e.detail });
+        keepText(msg);
       }
       await qc.invalidateQueries({ queryKey: qk.chat(runId) });
       void qc.invalidateQueries({ queryKey: aiKeys.me }); // the near / at-limit banner follows this turn's tokens
-    } catch {
+    } catch (err) {
+      // F-VO-2: the server refused the turn before streaming (422 guardrail, 429 limit, 409 transfer basis, 400): that
+      // is the answer, not a stream that could not start; say why in the user's words and keep the text
+      const refusal = !started && err instanceof HttpError && err.status >= 400 && err.status < 500 && err.status !== 404 && err.status !== 405;
+      if (refusal) {
+        const e = streamReducer(INITIAL_STREAM, { event: "error", data: { status: err.status, detail: (err.detail as { detail?: unknown } | undefined)?.detail ?? err.message } }).error!;
+        toast.error(t("glass.chat.sendFailed"), { description: (lang === "tr" ? e.messageTr : e.messageEn) ?? e.detail });
+        keepText(msg);
+        return;
+      }
       if (!started) {
         // the stream could not start (proxy without streaming, older backend): the non-streaming call
         setLive(null);
@@ -272,10 +305,12 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
           await send.mutateAsync(msg);
         } catch {
           toast.error(noKey ? t("glass.chat.noKeyToast") : t("glass.chat.sendFailed"));
+          keepText(msg);
         }
         return;
       }
       toast.error(t("glass.chat.sendFailed"));
+      keepText(msg);
       await qc.invalidateQueries({ queryKey: qk.chat(runId) });
     } finally {
       setLive(null);
@@ -289,7 +324,7 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
         {!noKey && settings.data ? <span className="ml-auto truncate type-caption text-label-3">{settings.data.anthropic_model}</span> : null}
       </div>
       {/* aria-busy while a reply streams: the polite region announces the finished reply, not every token */}
-      <div ref={listRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3" aria-live="polite" aria-busy={send.isPending || streaming}>
+      <div ref={listRef} tabIndex={-1} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3 outline-hidden" aria-live="polite" aria-busy={send.isPending || streaming}>
         {messages.length === 0 ? <p className="type-callout text-label-2">{t("chat.empty")}</p> : null}
         {messages.map((m) => (
           <Message key={m.id} m={m} runId={runId} />
@@ -320,6 +355,8 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
           sendLabel={t("chat.send")}
           suggestions={messages.length === 0 && !noKey ? STARTERS[pairLang(locale)] : undefined}
           leading={<MicButton target="chat" disabled={noKey || send.isPending || streaming} />}
+          initialDraft={prefill ?? ""}
+          restore={restore}
         />
         <AiNotice className="mt-2" />
       </div>

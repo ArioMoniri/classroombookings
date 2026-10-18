@@ -99,6 +99,11 @@
   "wave1": {
     "find": {
       "weeks": "Týdny"
+    },
+    "audit": {
+      "f": {
+        "days": "Dny"
+      }
     }
   },
   "moderation": {
@@ -152,10 +157,30 @@
       "day": "Den"
     }
   },
+  "charts": {
+    "bookings": {
+      "week": "Týden"
+    },
+    "audit": {
+      "day": "Den"
+    }
+  },
   "adaptive": {
     "peaks": {
       "col": {
         "weeks": "Týdny"
+      }
+    }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Týdny"
+      },
+      "field": {
+        "class_year": "Rok",
+        "day": "Den",
+        "week": "Týden"
       }
     }
   }

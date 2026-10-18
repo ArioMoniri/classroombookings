@@ -21,7 +21,8 @@ Our own fixtures show that the patterns are very regular:
 - **Weekly volume.** Bahar lecture weeks vary by 0.85 % (coefficient of variation).
 - **Peak hours.** P4 and P8 run at 85–92 % of rooms, and the period profile carries over from Bahar to Güz with
   r = 0.995.
-- **Exams.** Final exams peak on Wednesday 3 June 2026 (126 exams, 5,532 seats), which is 1.9× the weekday mean.
+- **Exams.** Final exams peak on Wednesday 3 June 2026 (126 exam-list rows, 5,532 seats), which is 1.9× the weekday mean.
+  Counted in sittings (a shared exam once), the unit the app uses since 2026-10-18 (AS20-F13), the peak is 98 sittings, 1.67×.
 
 These are simple, explainable models: shrunken historical profiles, seasonal-naive forecasts with empirical
 intervals, and request-driven what-if counts. Machine learning is not needed. The design adds season profiles, a
@@ -161,7 +162,7 @@ The script is in the scratchpad (`as/occ.py`). It reads `tests/fixtures/*derslik
 | Period profile, % of rooms busy on a weekday (Bahar / Güz) | P1 41/30 · P2 66/66 · P3 81/88 · **P4 85/92** · P5 82/88 · P6 40/44 · P7 79/78 · **P8 86/89** · P9 81/82 · P10 72/75 · P11 49/51 · P12–P18 ≤ 12 | Two daily peaks: late morning and early afternoon. Lunch (P6) and the evening have spare capacity. |
 | Bahar → Güz shape transfer | Pearson 0.995, Spearman 0.986 over 18 periods | The *time* profile transfers across seasons even though *rooms* do not (consistent with the rule at `learning.py:88`). Cross-season shape with same-season level is a sound forecast. |
 | Day profile (Bahar) | Mon 6,399 · Tue 7,036 · **Wed 8,086** · Thu 7,322 · Fri 5,538 · Sat 324 · Sun 555 | Wednesday is the peak day; Friday has about 30 % slack. |
-| Final 2026 exams with a room (711 of 921 rows) | 1–12 June. Weekday counts 36, 71, **126**, 102, 67 / 66, 82, 51, 52, 23. Seats: Wed 3 June 5,532 | Peak day is 1.86× the weekday mean. The second Friday is almost empty: the dates are uneven. |
+| Final 2026 exams with a room (711 of 921 rows) | 1–12 June. Weekday counts 36, 71, **126**, 102, 67 / 66, 82, 51, 52, 23. Seats: Wed 3 June 5,532 | Peak day is 1.86× the weekday mean. The second Friday is almost empty: the dates are uneven. **Re-baselined 2026-10-18 (AS20-F13, FIX-G)** to sittings, a merge group once (607 sittings of 709 rows with a room and a start period): weekday counts 31, 66, **98**, 78, 59 / 64, 72, 50, 48, 22; peak 1.67× the weekday mean 58.8. |
 | Final 2026 peak start-hour bucket | Wed 3 June 16:00, 1,141 seats = 58 % of the total `exam_capacity` (1,951 over 58 rooms); 13:00 is the busiest start hour over the period (165 exams) | Exam seating has headroom in total, but large cohorts fall together. Seat-level peaks matter more than room counts. |
 | Bahar workbook Final / BÜT / Yaz sheets | Present but empty (0 entries) | Exam-week occupancy comes from the Final workbook and the exam list, not from the Bahar grid. |
 | History depth | 1 Bahar (15 lecture weeks), 1 Güz (2 weeks in the grid, 1,037 list rows), 1 Final | One year. A yearly seasonal model (Prophet needs ≥ 2 years for yearly seasonality) cannot be fitted. Backtests must be within-term (rolling origin) or cross-season shape tests. |
@@ -485,7 +486,7 @@ sentence for cold start.
   - the seat peak per slot against `exam_capacity`.
 
   It then suggests date or slot moves ranked by the conflict reduction. On Final 2026 the advisor flags Wed
-  3 June (126 exams) and offers moves into Fri 12 June (23). Each suggestion is a card the coordinator accepts
+  3 June (126 exam-list rows; 98 sittings since the AS20-F13 re-baseline) and offers moves into Fri 12 June (23). Each suggestion is a card the coordinator accepts
   by editing the request; nothing is changed automatically.
 - **Exam date scheduling (later, AS-19).** Make `ExamRequest` date and slot optional, with
   `allowed_dates`/slots, and let CP-SAT choose them using `exam_gap`, `max_exams_per_day`, a new `front_load`
@@ -535,7 +536,7 @@ asserted in `tests/test_as_backtest_*.py` on the real fixtures, using the sessio
 | B3 | Building × band demand Güz weeks 1–2 forecast from Bahar shape × Güz request level | WAPE ≤ 15 % per building; 80 % interval coverage reported (target ≥ 70 %) | To be measured in AS-07 |
 | B4 | Learning holdout: priors from Bahar only → building suggestions vs Güz definitive buildings | precision@suggestible ≥ 0.8; no cross-season room or tag suggestion | To be measured in AS-13 (the T-R1-40 tests are the base) |
 | B5 | What-if +10 % enrolment on Bahar requests | Count of classes with no fitting room and the shortfall per peak cell; deterministic; draft run never active | To be measured in AS-10 |
-| B6 | Exam advisor on Final 2026 | Peak-day exams 126 → after accepting the top-N suggestions ≤ 100; cohort days with > 2 exams reported | Peak/mean 1.86 |
+| B6 | Exam advisor on Final 2026 | Peak-day exams 126 → after accepting the top-N suggestions ≤ 100; cohort days with > 2 exams reported. **Re-baselined 2026-10-18 (AS20-F13, FIX-G), unit = sittings (a merge group once):** 98 → ≤ 78 (the same 79 %); B6a peak/mean 1.67 ± 0.01. Measured: 91 of 122 moves bring 98 → 78, clashes 104 → 0, cohort days over 21 → 0, 0 new conflicts | Peak/mean 1.86 (rows); 1.667 (sittings) |
 | B7 | Slot-level exam holds on Final 2026 | Room-periods freed vs the whole-week closure > 0, with no exam room-period bookable | To be measured in AS-11 |
 | B8 | Peak smoothing on (flexible-day subset of Bahar) | Hard score unchanged, placed count unchanged, load above the threshold ≤ off | To be measured in AS-08 |
 | B9 | Weight learning on synthetic edits generated with known weights | Kendall τ of recovered weight ratios ≥ 0.8 | To be measured in AS-14 |

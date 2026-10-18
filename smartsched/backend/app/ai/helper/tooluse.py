@@ -6,7 +6,8 @@ The turn loop (lane HB-B, ``POST /helper/turn``) owns the model call. For every 
 1. **Stop reasons first.** ``refusal``, ``max_tokens`` and ``pause_turn`` run no tool (:class:`TurnStopped`); a
    truncated or declined turn never acts.
 2. **Only what was offered.** A tool name outside this turn's list (an unknown name, a write after taint, an action
-   the admin switched off) is refused with ``not_offered``.
+   the admin switched off) is refused with ``not_offered``; an action switched off for the person's audience is
+   refused again by :func:`run_action` (``action_off``, HB-15), which also strips switched-off buttons from cards.
 3. **Strict arguments.** The input is validated with the action's pydantic model (``extra="forbid"``) before the
    action runs; a wrong shape answers ``invalid_args`` with the issues, so the model can correct itself (RA-05,
    RA-15). The provider's own ``strict: true`` is never trusted on its own.
@@ -70,17 +71,23 @@ RATE_EN = "Too many tries; try again in a minute."
 
 
 async def run_action(ctx: reg.Ctx, a: reg.Action, raw_args: Any) -> s.CardBase:
-    """One action, every check: permission, rate, gate, strict args, then the action (a read, or a write's preview).
+    """One action, every check: permission, the admin's switch for the person's audience (HB-15), rate, gate,
+    strict args, then the action (a read, or a write's preview); the card loses the buttons of switched-off actions.
     Raises :class:`~app.ai.helper.actions.registry.ActionRefused` / ``ArgsInvalid``; writes nothing for a write."""
+    from app.ai.helper import settings as hs
+
     if not a.allowed(ctx.access):
         raise reg.ActionRefused(
             403, "not_allowed", "Bu işlem hesabınızda yok.", "This isn't available on your account."
         )
+    enabled = set((await hs.policy(ctx.session, ctx.access)).actions)
+    if a.name not in enabled:
+        raise reg.ActionRefused(403, "action_off", *hs.ACTION_OFF)
     if reg.RATE.hit(ctx.access.user_id, a):
         raise reg.ActionRefused(429, "rate_limited", RATE_TR, RATE_EN)
     await gate(a, ctx)
     parsed = reg.parse_args(a, raw_args)
-    card = await a.run(ctx, parsed)
+    card = hs.strip_card(await a.run(ctx, parsed), enabled)
     s.validate_card(cards.dump(card))
     return card
 

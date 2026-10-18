@@ -9,7 +9,14 @@ import type { Audience } from "@/lib/api/welcome";
 import type { ResolvedStep } from "./model";
 
 export type SheetRequest =
-  | { mode: "auto" | "restart"; kind: "sheet" | "delta"; deltaAudiences?: string[] }
+  | {
+      mode: "auto" | "restart";
+      kind: "sheet" | "delta";
+      deltaAudiences?: string[];
+      /** T4 "show again" (F-WG-1): the "Güncellendi" badge, kept for the whole showing (the server forgets it once
+       *  the sheet's own "shown" event lands and the state is fetched again) */
+      updated?: boolean;
+    }
   | { mode: "preview"; kind: "sheet"; audience: Audience; overrides?: Record<string, string> };
 
 export interface TourRequest {
@@ -80,11 +87,16 @@ export function otherDialogOpen(): boolean {
 }
 
 /** Focus the page's heading (focus never falls to <body> after an action). Retries while a route renders. */
-export function focusPageHeading(timeoutMs = 2000): void {
+export function focusPageHeading(timeoutMs = 2000, opts: { afterNavigation?: boolean } = {}): void {
   if (typeof window === "undefined") return;
   const started = performance.now();
+  // WG10-F02: after router.push the old page's h1 is still there for a moment; focusing it (then it unmounts) left
+  // focus on <body>. Wait for a different heading, and take the old one only when the time is up (same page).
+  const before = opts.afterNavigation ? document.querySelector<HTMLElement>("main h1") : null;
   const tick = () => {
-    const h = document.querySelector<HTMLElement>("main h1") ?? document.querySelector<HTMLElement>("#main");
+    const found = document.querySelector<HTMLElement>("main h1") ?? document.querySelector<HTMLElement>("#main");
+    const waiting = !!before && (found === before || !found?.matches("h1")) && performance.now() - started < timeoutMs;
+    const h = waiting ? null : found;
     if (h) {
       if (!h.hasAttribute("tabindex")) h.setAttribute("tabindex", "-1");
       h.focus({ preventScroll: false });

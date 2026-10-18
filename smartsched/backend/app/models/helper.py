@@ -7,7 +7,8 @@
 * ``helper_threads`` / ``helper_messages``: conversation history (kept ``ai.helper.history_days``, default 30).
 * ``helper_notes``: memory the person chose to keep ("Bunu hatırla"): ≤ 20 per person, ≤ 200 characters, purged
   180 days after last use.
-* ``helper_events``: product telemetry without prompt text; ``user_id`` is nulled after 90 days (HB-14 writes it).
+* ``helper_events``: product telemetry without prompt text; ``user_id`` (and a feedback ``note``) is nulled after 90
+  days. HB-14 writes it (``app.ai.helper.telemetry``); ``reason`` / ``query`` / ``note`` come from 0048_helper_feedback.
 
 Every per-person table cascades with the account and has an owner-only row-level-security policy on PostgreSQL.
 """
@@ -105,6 +106,12 @@ class HelperEvent(Base):
     mode: Mapped[str | None] = mapped_column(String(8), nullable=True)
     provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
     model: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: the fallback code of a turn, or the reason picked with a thumbs-down
+    reason: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    #: an index miss only: Turkish-folded words, no digits, no e-mail; shown after ≥ 5 different people (k-anonymity)
+    query: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: the person's own thumbs-down note (≤ 300); never shown to admins, deleted on erasure and after 90 days
+    note: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
 
 __all__ = [

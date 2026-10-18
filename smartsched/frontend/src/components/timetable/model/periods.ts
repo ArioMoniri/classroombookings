@@ -1,19 +1,37 @@
 /**
  * Period facts derived from the one period grid (`@/lib/time`). Calendar, classes and rooms code reads the grid
- * only through here or `@/lib/time`, so serving the grid from the backend later changes a single source.
+ * only through here or `@/lib/time`. RF-16: the grid is the server's (`GET /period-grid`, applied by the app shell),
+ * so every fact is computed at call time; nothing here is a module-level value computed from PERIODS.
  */
-import { PERIODS, PERIODS_PER_DAY, isEveningPeriod, parseClock } from "@/lib/time";
+import { PERIODS, PERIODS_PER_DAY, isEveningPeriod, parseClock, type Period } from "@/lib/time";
 
 const minutes = (clock: string) => parseClock(clock) ?? 0;
 
-/** "08:30" and "22:50": the teaching day. */
-export const DAY_START = PERIODS[0].start;
-export const DAY_END = PERIODS[PERIODS.length - 1].end;
+/** "08:30" by default: the start of the teaching day (P1). */
+export function dayStart(): string {
+  return PERIODS[0].start;
+}
 
-/** The short transition period between day and evening teaching (17:30–18:00, P12): the shortest period. */
-export const TRANSITION_PERIOD = [...PERIODS].sort((a, b) => minutes(a.end) - minutes(a.start) - (minutes(b.end) - minutes(b.start)) || a.index - b.index)[0].index;
-export const TRANSITION = PERIODS[TRANSITION_PERIOD - 1];
+/** "22:50" by default: the end of the teaching day (P18). */
+export function dayEnd(): string {
+  return PERIODS[PERIODS.length - 1].end;
+}
 
-/** First evening (İÖ) period and the last daytime period before the transition. */
-export const FIRST_EVENING_PERIOD = PERIODS.find((p) => isEveningPeriod(p.index))?.index ?? PERIODS_PER_DAY + 1;
-export const LAST_DAYTIME_PERIOD = TRANSITION_PERIOD - 1;
+/** The short transition period between day and evening teaching (17:30–18:00, P12 by default): the shortest period. */
+export function transitionPeriod(): number {
+  return [...PERIODS].sort((a, b) => minutes(a.end) - minutes(a.start) - (minutes(b.end) - minutes(b.start)) || a.index - b.index)[0].index;
+}
+
+export function transition(): Period {
+  return PERIODS[transitionPeriod() - 1];
+}
+
+/** First evening (İÖ) period. */
+export function firstEveningPeriod(): number {
+  return PERIODS.find((p) => isEveningPeriod(p.index))?.index ?? PERIODS_PER_DAY + 1;
+}
+
+/** The last daytime period before the transition. */
+export function lastDaytimePeriod(): number {
+  return transitionPeriod() - 1;
+}

@@ -34,9 +34,10 @@ export default {
       for (let i = 0; i < n; i++) {
         const chip = chips.nth(i);
         const aid = Number(await chip.getAttribute("data-assignment-id"));
-        await chip.click();
+        // a chip the open inspector covers (or one still settling) is skipped: this loop only looks for a candidate
+        if (!(await chip.click({ timeout: 5000 }).then(() => true, () => false))) continue;
         await insp.waitFor();
-        await insp.getByTestId("inspector-move").click();
+        if (!(await insp.getByTestId("inspector-move").click({ timeout: 5000 }).then(() => true, () => false))) continue;
         await dialog.waitFor();
         const free = dialog.locator(`[data-testid=free-room][data-status=free]:not([data-room-id="${rid}"])`).first();
         if (!(await free.waitFor({ timeout: 15_000 }).then(() => true, () => false))) {

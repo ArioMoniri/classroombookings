@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { mfaErrorCode } from "@/lib/api/auth-security";
+import { CREDENTIAL_FORM } from "@/components/auth/credential-form";
 import { useI18n } from "@/lib/i18n/provider";
 
 export class ReauthCancelled extends Error {
@@ -101,7 +102,7 @@ export function useReauth(): { run: <T>(fn: (password?: string) => Promise<T>) =
   const dialog = (
     <Dialog open={pending !== null} onOpenChange={(open) => (!open ? cancel() : undefined)}>
       <DialogContent initialFocus={inputRef} data-testid="reauth-dialog">
-        <form onSubmit={submit} className="flex flex-col gap-4">
+        <form {...CREDENTIAL_FORM} onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{t("auth.reauth.title")}</DialogTitle>
             <DialogDescription id={ids.lead}>{t("auth.reauth.lead")}</DialogDescription>

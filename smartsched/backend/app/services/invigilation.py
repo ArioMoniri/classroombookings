@@ -55,7 +55,7 @@ from app.models import (
     Week,
 )
 from app.models.invigilation import POOL_KINDS
-from app.services import audit
+from app.services import audit, events
 from app.services.calendar import week_index_for_date
 from app.services.calendar_views import clock
 from app.solver import invigilation as inv
@@ -1744,7 +1744,8 @@ async def reassign_duty(
             raise _refuse(check)
     before = duty_out(d)
     _set_person(d, built, person_key)
-    await audit.record(
+    # CAL-13: an event (audit row + subscribers), so a published plan's edit reaches the pushed duty calendars
+    await events.publish_event(
         session,
         "invigilation.reassign",
         "invigilation_duty",
@@ -1754,6 +1755,7 @@ async def reassign_duty(
         actor=actor,
         reason=reason,
         term_id=plan.term_id,
+        payload={"plan_id": plan.id, "active": bool(plan.is_active)},
     )
     await _rescore(session, plan, built)
     await session.commit()
@@ -1809,7 +1811,7 @@ async def add_duty(
     _set_person(d, built, person_key)
     session.add(d)
     await session.flush()
-    await audit.record(
+    await events.publish_event(
         session,
         "invigilation.add_duty",
         "invigilation_duty",
@@ -1818,6 +1820,7 @@ async def add_duty(
         actor=actor,
         reason=reason,
         term_id=plan.term_id,
+        payload={"plan_id": plan.id, "active": bool(plan.is_active)},
     )
     await _rescore(session, plan, built)
     await session.commit()
@@ -1862,7 +1865,7 @@ async def activate(session: AsyncSession, plan_id: int, actor: User) -> dict[str
             p.is_active = False
     await session.flush()
     plan.is_active = True
-    await audit.record(
+    await events.publish_event(
         session,
         "invigilation.activate",
         "invigilation_plan",
@@ -1871,6 +1874,7 @@ async def activate(session: AsyncSession, plan_id: int, actor: User) -> dict[str
         after={"active_plan_id": plan.id, "status": plan.status, "missing": (plan.stats or {}).get("missing")},
         actor=actor,
         term_id=plan.term_id,
+        payload={"plan_id": plan.id, "active": True},
     )
     await session.commit()
     return plan_brief(plan)

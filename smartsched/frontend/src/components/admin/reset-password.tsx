@@ -2,17 +2,20 @@
 /**
  * /reset-password: request a one-time code (never reveals whether the account exists; without SMTP the
  * administrators are notified) and set a new password with the code (`?token=` pre-fills it).
- * T-R2-06 (R2-A-06, R2-S-12): the page has its own password hint (crbs.reset.passwordHint, no LDAP sentence) and names
- * the 24-hour code lifetime; a short code gets the same coded refusal as a wrong one (backend org.py).
+ * T-R2-06 (R2-A-06, R2-S-12): no LDAP sentence; the page names the 24-hour code lifetime. AUX12-F07 (fix-h): the new
+ * password goes through SetPasswordForm (12 characters, show/hide, one field) and the request field carries the SSO line.
  */
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
-import { Input, useShake } from "@/components/ui/input";
-import { crbs, crbsError, useCrbsMutation } from "@/lib/api/crbs";
+import { Input } from "@/components/ui/input";
+import { crbs, useCrbsMutation } from "@/lib/api/crbs";
+import { SetPasswordForm } from "@/components/auth/set-password-form";
+import { CREDENTIAL_FORM } from "@/components/auth/credential-form";
 import { useI18n } from "@/lib/i18n/provider";
+import { useHydrated } from "@/lib/use-hydrated";
 import { Alert, Field } from "./kit";
 import { PublicCard } from "./public-card";
 
@@ -27,6 +30,7 @@ function RequestForm({ onHaveCode }: { onHaveCode: () => void }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const m = useCrbsMutation(() => crbs.auth.requestReset(email.trim()));
+  const hydrated = useHydrated(); // HB18-F02: no native submit before hydration
   return (
     <PublicCard title={t("crbs.reset.title")} lead={t("crbs.reset.lead")}>
       {sent ? (
@@ -35,16 +39,17 @@ function RequestForm({ onHaveCode }: { onHaveCode: () => void }) {
         </Alert>
       ) : (
         <form
+          {...CREDENTIAL_FORM}
           className="flex flex-col gap-3"
           onSubmit={(e) => {
             e.preventDefault();
             m.mutate(undefined, { onSuccess: () => setSent(true), onError: () => setSent(true) });
           }}
         >
-          <Field label={t("crbs.reset.identifier")} htmlFor="rs-email">
+          <Field label={t("crbs.reset.identifier")} htmlFor="rs-email" hint={t("auth.setPassword.ssoLine")}>
             <Input id="rs-email" autoComplete="username" autoCapitalize="none" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <Button type="submit" size="lg" disabled={!email.trim() || m.isPending} aria-busy={m.isPending || undefined}>
+          <Button type="submit" size="lg" disabled={!hydrated || !email.trim() || m.isPending} aria-busy={m.isPending || undefined}>
             <BusyLabel busy={m.isPending} label={t("busy.working")}>
             {t("crbs.reset.send")}</BusyLabel>
           </Button>
@@ -62,59 +67,24 @@ function RequestForm({ onHaveCode }: { onHaveCode: () => void }) {
   );
 }
 
+/**
+ * AUX12-F07 (fix-h-2026-10-18): the code, then the one set-password form of the sign-in flow (auth.md §4.5,
+ * `SetPasswordForm`): one field with show/hide, "En az 12 karakter" as the backend requires, the live counter.
+ */
 function ConfirmForm({ initialToken, onBack }: { initialToken: string; onBack: () => void }) {
   const { t } = useI18n();
   const [token, setToken] = useState(initialToken);
-  const [pw, setPw] = useState("");
-  const [again, setAgain] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
-  const { ref, shake } = useShake<HTMLDivElement>();
-  const m = useCrbsMutation(() => crbs.auth.confirmReset(token.trim(), pw));
-  const fail = (msg: string) => (setError(msg), shake());
   return (
     <PublicCard title={t("crbs.reset.newTitle")} lead={t("crbs.reset.newLead")}>
-      {done ? (
-        <div className="flex flex-col gap-3">
-          <Alert tone="success" testId="reset-done">
-            {t("crbs.reset.done")}
-          </Alert>
-          <Button nativeButton={false} render={<Link href="/login" />}>
-            {t("crbs.reset.backToLogin")}
-          </Button>
-        </div>
-      ) : (
-        <form
-          className="flex flex-col gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setError(null);
-            if (pw.length < 8) return fail(t("crbs.reset.tooShort"));
-            if (pw !== again) return fail(t("crbs.reset.mismatch"));
-            m.mutate(undefined, { onSuccess: () => setDone(true), onError: (err) => fail(crbsError(err).status === 400 ? t("crbs.reset.badCode") : crbsError(err).message) });
-          }}
-        >
-          <div ref={ref} className="t-input flex flex-col gap-3">
-            <Field label={t("crbs.reset.code")} htmlFor="rs-token">
-              <Input id="rs-token" className="font-mono" autoComplete="one-time-code" required value={token} onChange={(e) => setToken(e.target.value)} />
-            </Field>
-            <Field label={t("crbs.users.newPassword")} htmlFor="rs-pw" hint={t("crbs.reset.passwordHint")}>
-              <Input id="rs-pw" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
-            </Field>
-            <Field label={t("crbs.reset.again")} htmlFor="rs-pw2">
-              <Input id="rs-pw2" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />
-            </Field>
-          </div>
-          {error ? <Alert tone="error">{error}</Alert> : null}
-          <Button type="submit" size="lg" disabled={!token.trim() || !pw || m.isPending} aria-busy={m.isPending || undefined}>
-            <BusyLabel busy={m.isPending} label={t("busy.working")}>
-            {t("crbs.reset.setPassword")}</BusyLabel>
-          </Button>
-          <Button type="button" variant="link" className="self-start px-0" onClick={onBack}>
-            {t("crbs.reset.needCode")}
-          </Button>
-        </form>
-      )}
+      <div className="flex flex-col gap-4">
+        <Field label={t("crbs.reset.code")} htmlFor="rs-token">
+          <Input id="rs-token" className="font-mono" autoComplete="one-time-code" required value={token} onChange={(e) => setToken(e.target.value)} />
+        </Field>
+        <SetPasswordForm mode="reset" token={token.trim()} title={false} />
+        <Button type="button" variant="link" className="self-start px-0 pointer-coarse:min-h-11" onClick={onBack}>
+          {t("crbs.reset.needCode")}
+        </Button>
+      </div>
     </PublicCard>
   );
 }

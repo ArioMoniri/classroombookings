@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.importers import normalize as n
+from app.importers.catalog import remember_alias
 from app.models import (
     Assignment,
     AuditEvent,
@@ -266,7 +267,9 @@ async def update_faculty(session: AsyncSession, actor: User, faculty_id: int, na
         clash = await _faculty_clash(session, parsed.canonical, exclude=f.id)
         if clash is not None:
             raise Conflict(f"faculty {clash.name} already exists", existing=faculty_out(clash))
+        old_canonical = f.canonical_name
         f.name, f.canonical_name = parsed.name, parsed.canonical
+        await remember_alias(session, "faculty", old_canonical, f.id)  # RF-06: the next import maps the old name here
     after = _snap(f)
     if after != before:
         await _audit(session, "faculty.update", "faculty", f.id, actor, before=before, after=after)
@@ -349,7 +352,9 @@ async def update_program(session: AsyncSession, actor: User, program_id: int, da
         clash = await _program_clash(session, parsed.canonical, exclude=p.id)
         if clash is not None:
             raise Conflict(f"programme {clash.name} already exists", existing=program_out(clash))
+        old_canonical = p.canonical_name
         p.name, p.canonical_name = parsed.name, parsed.canonical
+        await remember_alias(session, "program", old_canonical, p.id)  # RF-06: the next import maps the old name here
     if "faculty_id" in data:
         if data["faculty_id"] is not None:
             await _get(session, Faculty, int(data["faculty_id"]), "faculty")
@@ -554,7 +559,11 @@ async def update_instructor(session: AsyncSession, actor: User, instructor_id: i
         clash = await _instructor_clash(session, parsed.canonical, exclude=i.id)
         if clash is not None:
             raise Conflict(f"instructor {clash.full_name} already exists", existing=instructor_out(clash))
+        old_canonical = i.canonical_name
         i.full_name, i.canonical_name = parsed.full_name, parsed.canonical
+        await remember_alias(
+            session, "instructor", old_canonical, i.id
+        )  # RF-06: the next import maps the old name here
         if parsed.title and "title" not in data:
             i.title = parsed.title
     if "title" in data:

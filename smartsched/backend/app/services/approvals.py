@@ -143,7 +143,9 @@ async def set_scopes(session: AsyncSession, actor: User, target: User, scopes: l
                 422,
                 "not_an_administrator",
                 "approvers must be administrators holding approvals.decide",
-                "onaycı, approvals.decide yetkisi olan bir yönetici olmalı",
+                # PER-F03: the next step, never the raw permission key
+                'Bu kişi onaycı olamaz: rolünde "Rezervasyon taleplerini onayla ya da reddet" izni yok. '
+                "Önce Roller'den bu izni içeren bir rol verin.",
             )
     rows: list[ApproverScope] = []
     seen: set[tuple[str, int | None, str | None]] = set()

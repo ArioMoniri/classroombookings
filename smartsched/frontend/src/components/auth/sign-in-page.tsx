@@ -76,7 +76,7 @@ export function SignInPage({ org, params, invite, lastMethodLocal: lastLocalCook
   const role = auth?.self_signup_role_label?.[locale]?.trim() || roleLabelIn(locale, { code: auth?.self_signup_role_code, name: auth?.self_signup_role_name }) || t("signin.microsoft.defaultRole");
 
   return (
-    <SignInShell logoUrl={org?.logo_url} kvkkUrl={org?.kvkk_notice_url ?? null} testId="signin-page">
+    <SignInShell logoUrl={org?.logo_url} kvkkUrl={org?.kvkk_notice_url ?? null} testId="signin-page" hero>
       <Notices org={org} params={params} error={error} invite={invite} base={base} offline={doors.offline} />
       <h1 id="signin-title" className="type-large-title text-label-1">
         {t("signin.title")}

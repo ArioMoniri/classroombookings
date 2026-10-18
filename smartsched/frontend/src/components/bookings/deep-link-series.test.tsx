@@ -67,4 +67,18 @@ describe("series deep links", () => {
     renderHook(() => useDeepLinkedBooking(open));
     expect(open).toHaveBeenCalledExactlyOnceWith(415);
   });
+
+  it("parks focus on <main> before opening, so closing the sheet (it has no trigger) never drops focus to <body> (e2e 2026-10-18)", () => {
+    const main = document.createElement("main");
+    main.id = "main";
+    main.tabIndex = -1;
+    document.body.appendChild(main);
+    nav.query = "booking=413";
+    let focusedAtOpen: Element | null = null;
+    const open = vi.fn(() => (focusedAtOpen = document.activeElement));
+    renderHook(() => useDeepLinkedBooking(open, rows));
+    expect(open).toHaveBeenCalledExactlyOnceWith(413);
+    expect(focusedAtOpen).toBe(main);
+    main.remove();
+  });
 });

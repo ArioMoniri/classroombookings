@@ -41,7 +41,7 @@ import { ClassCards } from "./class-cards";
 import { COLUMN_LABEL, ClassTable, type EditCommit } from "./class-table";
 import { ALL_COLUMNS, SYSTEM_VIEWS, applyFilters, defaultView, normalizeView, parsePastedColumn, parseTokens, sameView, systemPredicate, type SystemView, type ViewState } from "./classes-model";
 import { FilterChips, FilterMenu } from "./filter-bar";
-import { dayName, periodRangeLabel } from "@/lib/time";
+import { dayName, periodRangeLabel, usePeriodGridVersion } from "@/lib/time";
 import { BareButton } from "@/components/shell/bare-button";
 
 const LOCAL_VIEWS = "smartsched.classes.views";
@@ -83,6 +83,8 @@ function readLocal(): LocalView[] {
 
 export function ClassesPage() {
   const { t, locale, n } = useI18n();
+  // RF-16b: the class times follow a late period grid in place (no remount: focus, scroll, selection kept)
+  usePeriodGridVersion();
   const lang = locale === "tr" ? "tr" : "en";
   const reduce = useReduce();
   const router = useRouter();
@@ -102,7 +104,9 @@ export function ClassesPage() {
   // ------------------------------------------------------------------ term, kind, run
   const kind: ClassKind = params.get("kind") === "exams" ? "exams" : "meetings";
   const requestedRun = params.get("run") ? Number(params.get("run")) : null;
-  const { term, termId } = useTermContext();
+  // AS20-F04: a deep link names its term (/requests?kind=exams&id=…&term=… from the exam advisor); the sidebar's
+  // term is the fallback
+  const { term, termId } = useTermContext(Number(params.get("term")) || null);
   const runsQ = useRuns(termId !== null ? { term_id: termId } : undefined);
   const hydrated = useHydrated();
   const runs = useMemo(() => (hydrated ? usableRuns(runsQ.data, termId).filter((r) => (r.kind === "EXAM") === (kind === "exams")) : []), [hydrated, runsQ.data, termId, kind]);

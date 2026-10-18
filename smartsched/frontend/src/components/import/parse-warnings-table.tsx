@@ -5,10 +5,11 @@ import { AlertTriangle, Info, XOctagon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { ParseWarning } from "@/lib/api/schemas";
+import type { ParseWarning, WarningGroup } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { BareButton } from "@/components/shell/bare-button";
+import { warningTr } from "./warning-tr";
 
 type Severity = ParseWarning["severity"];
 const ORDER: Record<Severity, number> = { error: 0, warning: 1, info: 2 };
@@ -37,8 +38,53 @@ export function SeverityIcon({ severity, className }: { severity: Severity; clas
   return <Icon className={cn("size-4", colour, className)} aria-hidden />;
 }
 
-export function ParseWarningsTable({ warnings }: { warnings: readonly ParseWarning[] }) {
-  const { t } = useI18n();
+/** The sentence of one warning in the reader's language: the importer's own (PER-F05), else the client's reading. */
+export function warningText(w: ParseWarning, locale: string): string {
+  if (locale === "tr") return w.message_tr ?? warningTr(w.message);
+  return w.message_en ?? w.message;
+}
+
+/**
+ * PER-F05 (fix-h-2026-10-18): the import's warnings by kind, the biggest first ("Kişi olmayan öğretim elemanı değeri ·
+ * 37 satır"), each opening to its sentences and row numbers; the table below keeps every row.
+ */
+export function WarningGroups({ groups }: { groups: readonly WarningGroup[] }) {
+  const { t, n, locale } = useI18n();
+  if (!groups.length) return null;
+  const tr = locale === "tr";
+  return (
+    <section aria-label={t("import.groupsTitle")} className="flex flex-col gap-1.5" data-testid="warning-groups">
+      <h4 className="type-subheadline font-semibold text-label-1">{t("import.groupsTitle")}</h4>
+      <ul className="flex flex-col gap-1">
+        {groups.map((g) => (
+          <li key={g.code}>
+            <details className="group rounded-lg bg-fill-3 px-3 py-1.5" data-testid={`warning-group-${g.code}`}>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 type-callout text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:min-h-11">
+                <span className="min-w-0">{tr ? g.label_tr : g.label_en}</span>
+                <span className="shrink-0 type-footnote text-label-2 tabular-nums">{t("import.groupRows", { n: n(g.count) })}</span>
+              </summary>
+              <ul className="mt-1 flex flex-col gap-1 pb-1">
+                {g.items.map((it) => (
+                  <li key={it.message_tr} className="type-footnote text-label-1">
+                    {tr ? it.message_tr : it.message_en}
+                    <span className="text-label-3 tabular-nums">
+                      {" · "}
+                      {it.rows.length ? t("import.groupAt", { rows: it.rows.join(", ") + (it.count > it.rows.length ? " …" : "") }) : t("import.groupRows", { n: n(it.count) })}
+                    </span>
+                  </li>
+                ))}
+                {(g.variants ?? g.items.length) > g.items.length ? <li className="type-footnote text-label-3">{t("import.groupMore", { n: n((g.variants ?? 0) - g.items.length) })}</li> : null}
+              </ul>
+            </details>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function ParseWarningsTable({ warnings, groups }: { warnings: readonly ParseWarning[]; groups?: readonly WarningGroup[] }) {
+  const { t, locale } = useI18n();
   const [severity, setSeverity] = useState<Severity | "all">("all");
   const [query, setQuery] = useState("");
   const [sorting, setSorting] = useState<SortingState>([{ id: "severity", desc: false }]);
@@ -46,7 +92,7 @@ export function ParseWarningsTable({ warnings }: { warnings: readonly ParseWarni
 
   const data = useMemo(() => {
     const q = query.toLocaleLowerCase("tr-TR");
-    return warnings.filter((w) => (severity === "all" || w.severity === severity) && (!q || `${w.field} ${w.value ?? ""} ${w.message} ${w.row}`.toLocaleLowerCase("tr-TR").includes(q)));
+    return warnings.filter((w) => (severity === "all" || w.severity === severity) && (!q || `${w.field} ${w.value ?? ""} ${w.message} ${warningText(w, "tr")} ${w.row}`.toLocaleLowerCase("tr-TR").includes(q)));
   }, [warnings, severity, query]);
 
   const columns = useMemo<ColumnDef<ParseWarning>[]>(
@@ -55,9 +101,10 @@ export function ParseWarningsTable({ warnings }: { warnings: readonly ParseWarni
       { accessorKey: "row", header: t("import.row"), cell: ({ getValue }) => <span className="font-mono tabular-nums">{getValue<number>()}</span> },
       { accessorKey: "field", header: t("import.field") },
       { accessorKey: "value", header: t("import.value"), cell: ({ getValue }) => <span className="font-mono text-xs break-all">{getValue<string | null>() ?? "—"}</span> },
-      { accessorKey: "message", header: t("import.message") },
+      // PER-F05: the importer's own Turkish sentence (fix-h), else the client's reading (unknown shapes stay as written)
+      { accessorKey: "message", header: t("import.message"), cell: ({ row }) => warningText(row.original, locale) },
     ],
-    [t],
+    [t, locale],
   );
 
   const table = useReactTable({ data, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(), getFilteredRowModel: getFilteredRowModel() });
@@ -66,6 +113,7 @@ export function ParseWarningsTable({ warnings }: { warnings: readonly ParseWarni
 
   return (
     <div data-testid="parse-warnings">
+      {groups?.length ? <div className="mb-3"><WarningGroups groups={groups} /></div> : null}
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <div role="group" aria-label={t("import.filterSeverity")} className="flex gap-1">
           {(["all", "error", "warning", "info"] as const).map((s) => (

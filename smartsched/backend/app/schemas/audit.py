@@ -34,6 +34,8 @@ class AuditEventOut(BaseModel):
     request_id: str | None = None
     ip_hash: str | None = None
     children: list[dict[str, Any]] | None = None
+    #: BUG-02: {field: {id: name}} for the id fields (room_id -> "A 101"), only names this viewer may see
+    refs: dict[str, dict[str, str]] = {}
 
 
 class AuditPage(BaseModel):

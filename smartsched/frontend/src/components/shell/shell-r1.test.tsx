@@ -73,7 +73,8 @@ describe("tab bar (MOBILE.md M-09)", () => {
     const current = [...navEl.querySelectorAll("[aria-current]")];
     expect(current.map((e) => e.getAttribute("data-testid"))).toEqual(["tab-nav-moderation-me"]);
     // the label leads the accessible name and the text
-    expect(screen.getByTestId("tab-nav-moderation-me")).toHaveAttribute("aria-label", "Taleplerim");
+    // F-MA-2 (fix-b-2026-10-18): the tab-only word "Talepler" (the sidebar and the page title keep "Taleplerim")
+    expect(screen.getByTestId("tab-nav-moderation-me")).toHaveAttribute("aria-label", "Talepler");
   });
 
   it("on a route without a tab (Profil) exactly one item is current: Diğer", async () => {

@@ -163,6 +163,8 @@ async def test_notes_become_soft_preferences_pending_review(session, tmp_path) -
         "excerpt": "A veya C blokta derslik verilmesi talep edilmektedir.",
         "review": "pending",
         "key": nut.source_ref["key"],
+        # RF-06: the file's reading, so a person's later edit of the rule is told apart from it
+        "imported": {"kind": nut.kind, "params": nut.params, "hardness": "soft", "nl_text": nut.nl_text},
     }
     assert nut.nl_text == "A veya C blokta derslik verilmesi talep edilmektedir."
     ing = by_row[3]

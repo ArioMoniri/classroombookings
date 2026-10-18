@@ -1,6 +1,5 @@
 /** Welcome guide per role (docs/design/v3/welcome-guide.md): the shell's mount points. */
-export { WelcomeProvider } from "./welcome-provider";
-export { WelcomePageSlot } from "./page-slot";
+// the provider and the page slot are imported lazily by the shell (components/shell/lazy-shell.tsx, F-CH-1)
 export { ChecklistPill } from "./checklist/checklist-pill";
 export { HelpMenuGroup, DrawerWelcomeRows, useWelcomeCommands } from "./help-menu";
 export { NewBadge } from "./hints/new-badge";

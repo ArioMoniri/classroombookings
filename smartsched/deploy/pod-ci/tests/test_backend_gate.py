@@ -62,7 +62,8 @@ def test_saml_library_comes_from_the_lock_and_is_required(tmp_path: Path) -> Non
     # SAML 2.0 is built in (owner 2026-10-17): signxml is pinned in requirements.lock, installed with it, and the
     # gate fails if it is missing instead of letting tests/test_w3b_idp_saml.py skip.
     _, log = run_gate(tmp_path)
-    assert "-c smartsched/backend/requirements.lock" in log
+    assert "--require-hashes -r smartsched/backend/requirements-dev.lock" in log
     assert re.search(r'^python -c "import signxml', log, re.M)
-    lock = (REPO / "smartsched/backend/requirements.lock").read_text()
-    assert re.search(r"^signxml==\d+\.\d+\.\d+$", lock, re.M)
+    for name in ("requirements.lock", "requirements-dev.lock"):
+        lock = (REPO / "smartsched/backend" / name).read_text()
+        assert re.search(r"^signxml==\d+\.\d+\.\d+ \\$", lock, re.M), name

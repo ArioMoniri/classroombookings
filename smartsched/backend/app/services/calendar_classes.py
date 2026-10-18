@@ -66,7 +66,9 @@ SCOPE_DEPARTMENT = "department_classes"
 SCOPE_MY_BOOKINGS = "my_bookings"
 SCOPE_ROOM = "room"
 SCOPE_ROOM_GROUP = "room_group"
-SCOPE_KINDS = (SCOPE_MY_CLASSES, SCOPE_DEPARTMENT, SCOPE_MY_BOOKINGS, SCOPE_ROOM, SCOPE_ROOM_GROUP)
+#: CAL-13 "Sınav görevlerim": invigilation duties of the active plan + own exams of the active EXAM run
+SCOPE_MY_DUTIES = "my_duties"
+SCOPE_KINDS = (SCOPE_MY_CLASSES, SCOPE_DEPARTMENT, SCOPE_MY_BOOKINGS, SCOPE_ROOM, SCOPE_ROOM_GROUP, SCOPE_MY_DUTIES)
 #: scopes that need an id (``scope_id``)
 SCOPES_WITH_ID = frozenset({SCOPE_DEPARTMENT, SCOPE_ROOM, SCOPE_ROOM_GROUP})
 #: the new permission (bookings_perms; "Bölüm ders takvimini dışa aktarma")
@@ -78,7 +80,10 @@ SCOPE_LABELS: dict[str, tuple[str, str]] = {
     SCOPE_MY_BOOKINGS: ("Rezervasyonlarım", "My bookings"),
     SCOPE_ROOM: ("Derslik takvimi", "Room calendar"),
     SCOPE_ROOM_GROUP: ("Derslik grubu takvimi", "Room group calendar"),
+    SCOPE_MY_DUTIES: ("Sınav görevlerim", "My exam duties"),
 }
+#: CAL-13: exam and invigilation rows of ``calendar_class_revisions`` (``calendar_duties``) start with this
+EXAM_UID_PREFIX = "exam-"
 
 #: what an event may carry (research §2.5); the administrator turns the optional ones on or off
 FIELD_KEYS = ("course_code", "section", "room", "time", "department", "course_title", "co_instructors", "link")
@@ -152,12 +157,16 @@ class ClassOccurrence:
     instructor_ids: tuple[int, ...]
     fingerprint: str
     legacy_uids: tuple[tuple[int, str], ...] = ()  # (room id, pre-0039 UID) per room
+    #: CAL-13: the event title when it is not a class ("Gözetmenlik · PSY 262", "Sınav · PSY 262")
+    label: str | None = None
 
     @property
     def location(self) -> str:
         return ", ".join(self.rooms)
 
     def summary(self) -> str:
+        if self.label:
+            return self.label
         what = " / ".join(self.codes) or "Ders"
         return f"{what} · Şube {self.section}" if self.section else what
 
@@ -422,23 +431,41 @@ async def refresh_term(session: AsyncSession, term: Term, run: ScheduleRun) -> T
 
 
 async def _refresh_term(session: AsyncSession, term: Term, run: ScheduleRun) -> TermSnapshot:
+    return await persist_revisions(session, term.id, await term_occurrences(session, term, run))
+
+
+def _kind_filter(exam: bool) -> Any:
+    """The class rows of a term, or its CAL-13 exam / invigilation rows (one table, two engines)."""
+    like = CalendarClassRevision.uid.like(EXAM_UID_PREFIX + "%")
+    return like if exam else ~like
+
+
+async def persist_revisions(
+    session: AsyncSession, term_id: int, occs: list[ClassOccurrence], *, exam: bool = False
+) -> TermSnapshot:
+    """Store the differences between ``occs`` and the revisions of ``term_id`` (the class rows, or with ``exam``
+    the CAL-13 ``exam-`` rows; each set ends only its own vanished rows). Commits when something changed."""
     now = utcnow().replace(microsecond=0)
-    occs = await term_occurrences(session, term, run)
     rows = {
         r.uid: r
         for r in (
             await session.execute(
                 select(CalendarClassRevision).where(
-                    CalendarClassRevision.term_id == term.id, CalendarClassRevision.legacy.is_(False)
+                    CalendarClassRevision.term_id == term_id,
+                    CalendarClassRevision.legacy.is_(False),
+                    _kind_filter(exam),
                 )
             )
         ).scalars()
     }
     first_time = (
-        not rows
+        not exam
+        and not rows
         and (
             await session.execute(
-                select(CalendarClassRevision.uid).where(CalendarClassRevision.term_id == term.id).limit(1)
+                select(CalendarClassRevision.uid)
+                .where(CalendarClassRevision.term_id == term_id, _kind_filter(False))
+                .limit(1)
             )
         ).first()
         is None
@@ -446,14 +473,14 @@ async def _refresh_term(session: AsyncSession, term: Term, run: ScheduleRun) -> 
     new_rows: list[dict[str, Any]] = []
     present: set[str] = set()
     dirty = False
-    snap = TermSnapshot(term.id, occs)
+    snap = TermSnapshot(term_id, occs)
     for o in occs:
         present.add(o.uid)
         r = rows.get(o.uid)
         if r is None:
             values = {
                 "uid": o.uid,
-                "term_id": term.id,
+                "term_id": term_id,
                 "sequence": 0,
                 "last_modified": now,
                 "ended_at": None,
@@ -485,7 +512,7 @@ async def _refresh_term(session: AsyncSession, term: Term, run: ScheduleRun) -> 
                 legacy_rows.append(
                     {
                         "uid": old,
-                        "term_id": term.id,
+                        "term_id": term_id,
                         "sequence": 1,
                         "last_modified": now,
                         "ended_at": now,

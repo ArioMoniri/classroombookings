@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import os
 import shutil
 import signal
@@ -95,6 +96,19 @@ def poll(cfg: Config, store: Store, reporter: StatusReporter, token: str,
     return queued
 
 
+def code_stamp(install_dir: Path) -> str:
+    """Hash of the installed pod CI code (podci/*.py, gates/*): GATES and its timeouts are imported once per worker
+    process, so a worker that keeps draining the queue after install.sh replaced the code would run the new gate
+    scripts under the old gate list and limits (pod run #81: frontend killed at the old 1800 s, gates.py said 3600)."""
+    h = hashlib.sha256()
+    for sub, pattern in (("podci", "*.py"), ("gates", "*")):
+        for f in sorted((install_dir / sub).glob(pattern)):
+            if f.is_file():
+                h.update(f"{sub}/{f.name}\0".encode())
+                h.update(f.read_bytes())
+    return h.hexdigest()
+
+
 class Worker:
     def __init__(self, cfg: Config, store: Store, reporter: StatusReporter, cloud: Cloud,
                  token: Callable[[], str], execute: Execute = run_logged, run_cmd: Callable[..., Any] = subprocess.run,
@@ -119,8 +133,13 @@ class Worker:
                                    self.cfg.run_url(r.id))
             self._kill_leftover_containers()
             self._safe(lambda: self.cloud.set_alarm_actions(True), "re-enable idle alarm")
+            stamp = code_stamp(self.cfg.install_dir)
             done = 0
             while (run := self.store.next_queued()) is not None:
+                if code_stamp(self.cfg.install_dir) != stamp:
+                    # smartsched-ci-worker.timer (OnUnitInactiveSec=5min) starts a fresh worker on the new code
+                    self.log(f"pod CI code in {self.cfg.install_dir} changed; exiting so a new worker loads it")
+                    break
                 self._safe(lambda: self.cloud.set_alarm_actions(False), "pause idle alarm")
                 self._safe(lambda: self.cloud.heartbeat(True), "heartbeat")
                 try:
@@ -235,7 +254,7 @@ class Worker:
         self.store.step_transition(run.id, g.name, STEP_RUNNING, log_path=str(log_path))
         self.status(run, "pending", f"running: {g.description}", g.name)
         started = time.monotonic()
-        code = self.execute(["bash", str(self.cfg.gates_dir / g.script)], log_path, env, None, g.timeout)
+        code = self.execute(["bash", str(self.cfg.gates_dir / g.script), *g.args], log_path, env, None, g.timeout)
         state = SUCCESS if code == 0 else FAILURE
         self.store.step_transition(run.id, g.name, state, exit_code=code)
         took = f"{int(time.monotonic() - started)} s"

@@ -1,7 +1,7 @@
 "use client";
 /**
  * Yönetim › Yapay zekâ (`/admin/ai`, docs/design/v3/ai-admin.md): Genel bakış · Sağlayıcılar · Modeller · Kullanım ·
- * Limitler · Koruma. Administrators with `planning.admin` or `setup.settings` (the backend checks every call again).
+ * Limitler · Koruma · Yardımcı. Administrators with `planning.admin` or `setup.settings` (the backend checks every call again).
  * The tab lives in the URL (`?tab=`), so a bell notification can open Kullanım directly.
  */
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,6 +9,7 @@ import { NoAccess, PageTitle } from "@/components/admin/kit";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
+import { HelperAdminTab } from "@/components/helper/admin/helper-admin";
 import { AiNotice } from "./ai-kit";
 import { GuardTab } from "./guard-tab";
 import { LimitsTab } from "./limits-tab";
@@ -17,7 +18,7 @@ import { OverviewTab } from "./overview-tab";
 import { ProvidersTab } from "./providers-tab";
 import { UsageTab } from "./usage-tab";
 
-export const AI_TABS = ["overview", "providers", "models", "usage", "limits", "guard"] as const;
+export const AI_TABS = ["overview", "providers", "models", "usage", "limits", "guard", "helper"] as const;
 export type AiTab = (typeof AI_TABS)[number];
 
 export function AiAdmin() {
@@ -51,6 +52,8 @@ export function AiAdmin() {
         <TabsContent value="usage">{tab === "usage" ? <UsageTab /> : null}</TabsContent>
         <TabsContent value="limits">{tab === "limits" ? <LimitsTab canEdit={allowed} /> : null}</TabsContent>
         <TabsContent value="guard">{tab === "guard" ? <GuardTab canEdit={allowed} /> : null}</TabsContent>
+        {/* HX-09: the helper ("Yardımcı"): on / off, mode, audiences, actions, summary */}
+        <TabsContent value="helper">{tab === "helper" ? <HelperAdminTab canEdit={allowed} /> : null}</TabsContent>
       </Tabs>
     </div>
   );

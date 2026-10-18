@@ -42,6 +42,7 @@ import { CalendarSyncPanel } from "./calendar-sync";
 import { CancelManyDialog } from "./cancel-many-dialog";
 import { DepartmentBar, useDepartmentLens } from "./department-lens";
 import { FreeSlotsList } from "./free-slots-list";
+import { ClosedDayNotice, isClosedDay } from "./closed-day";
 import { addDays } from "./date-format";
 import { freeSlotsByRoom } from "./reserve-model";
 import { EntityIcon } from "@/components/admin/icons";
@@ -347,7 +348,7 @@ export function BookingsView() {
   const roomPicker = (wide = false) => (
     <>
       <span className="sr-only">{t("crbs.toolbar.room")}</span>
-      <SelectField value={String(g?.rooms[0]?.id ?? "")} onChange={(e) => setParams({ room: e.target.value })} aria-label={t("crbs.toolbar.room")} className={wide ? "min-w-0 flex-1" : undefined} data-testid="room-select">
+      <SelectField value={String(g?.rooms[0]?.id ?? "")} onChange={(e) => setParams({ room: e.target.value })} aria-label={t("crbs.toolbar.room")} className={wide ? "min-w-0 flex-1" : undefined} fieldSize={wide ? "md" : "sm"} data-testid="room-select">
         {/* CRBS filter/room.php: rooms under their room group */}
         {roomOptions(rooms.data ?? [], g?.rooms ?? [], t("reserve.toolbar.ungrouped")).map((grp) =>
           grp.label === null ? (
@@ -377,7 +378,7 @@ export function BookingsView() {
   const sessionPicker = (wide = false) => (
     <>
       <span className="sr-only">{t("crbs.toolbar.session")}</span>
-      <SelectField value={String(g?.term.id ?? "")} aria-label={t("crbs.toolbar.session")} onChange={(e) => setParams({ term: e.target.value, date: null })} className={wide ? "w-full" : undefined} data-testid="session-select">
+      <SelectField value={String(g?.term.id ?? "")} aria-label={t("crbs.toolbar.session")} onChange={(e) => setParams({ term: e.target.value, date: null })} className={wide ? "w-full" : undefined} fieldSize={wide ? "md" : "sm"} data-testid="session-select">
         {/* CRBS grid/Controls.php: "Current and future" and "Past" */}
         {[
           { label: t("reserve.toolbar.current"), items: sessions.filter((s) => s.is_current || !dates.data?.today || s.end >= dates.data.today) },
@@ -485,7 +486,9 @@ export function BookingsView() {
           {navNext}
           <ToolbarButton size="md" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" className="shrink-0" data-testid="filters-open">
             <SlidersHorizontal aria-hidden />
-            {activeFilters ? t("reserve.filters.openCount", { n: activeFilters }) : t("reserve.filters.open")}
+            {/* E2EB-F09: at 320 px the label took the date chip's room ("2."); below 22.5rem it is icon-only, the
+                name stays for screen readers */}
+            <span className="max-[22.5rem]:sr-only">{activeFilters ? t("reserve.filters.openCount", { n: activeFilters }) : t("reserve.filters.open")}</span>
           </ToolbarButton>
         </Toolbar>
       ) : (
@@ -494,7 +497,7 @@ export function BookingsView() {
           {displayControl()}
           <div className="flex items-center gap-1">
             {navPrev}
-            {g ? <DatePicker {...datePickerProps(g)} /> : <Skeleton className="h-8 w-48 rounded-full" />}
+            {g ? <DatePicker {...datePickerProps(g)} size="sm" /> : <Skeleton className="h-(--control-h-sm) w-48 rounded-full" />}
             {navNext}
             <ToolbarButton onClick={goToday}>{t("crbs.toolbar.today")}</ToolbarButton>
           </div>
@@ -604,7 +607,9 @@ export function BookingsView() {
 
       <HiddenPeriodsChip count={hiddenCount} revealed={revealHidden} onToggle={toggleHidden} />
       <div aria-busy={grid.isFetching} data-stale={stale ? "true" : undefined} className="relative transition-opacity duration-(--dur-fast) data-[stale=true]:opacity-60" data-testid="booking-grid-wrap">
-        {g && lens === "free" ? (
+        {g && isClosedDay(g) ? (
+          <ClosedDayNotice next={g.nav.next ?? null} long={fmt.long} onGo={(d) => setParams({ date: d })} />
+        ) : g && lens === "free" ? (
           <FreeSlotsList
             rooms={freeRooms}
             loading={grid.isFetching || weekGrids.some((x) => x.isLoading)}

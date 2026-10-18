@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 from datetime import date as date_
-from datetime import time
+from datetime import datetime, time
 from pathlib import Path
 from typing import Any
 
@@ -15,11 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.safe_files import run_isolated
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
+from app.importers.identity import TIME_SHADOW, plain
+from app.importers.planning_list import _META, _merge
 from app.importers.preference_rules import TextCell, sync_text_preferences
 from app.importers.report import ImportReport
 from app.importers.settings import importer_settings
 from app.importers.xlsx import iter_sheet_rows, map_headers, row_dict, sheet_title
-from app.models import ExamRequest
+from app.models import AuditEvent, ExamRequest, ImportedSnapshot, ImportJob
 
 HEADER_SPEC: dict[str, list[str]] = {
     "faculty": ["fakülte"],
@@ -189,7 +191,17 @@ async def import_exam_list(
     filename: str | None = None,
     term_name: str | None = None,
     term_kind: str = "FINAL",
+    on_conflict: str = "keep",
 ) -> ImportReport:
+    """Import / re-import an exam list. Rows are matched by ``source_key``; what an admin edited since the previous
+    import (an ``imported_snapshots`` row ``entity = exam`` holds the imported values, written by every import) is
+    kept, also an archived row. A field the file changed too is a conflict: kept (``on_conflict="keep"``) or taken
+    (``"take"``), listed in ``extra.conflicts`` with the admin's, the file's and the previous import's value (RF-06,
+    as the planning list does). Rows that left the file are archived, never deleted; an import-archived row comes back
+    when the file has it again."""
+    if on_conflict not in ("keep", "take"):
+        raise ValueError("on_conflict must be keep or take")
+    take = on_conflict == "take"
     report = ImportReport(kind="exam-list", filename=filename or Path(path).name, term_code=term_code)
     settings = importer_settings()
     # off the event loop, memory-capped child
@@ -203,6 +215,19 @@ async def import_exam_list(
         e.source_key: e
         for e in (await session.execute(select(ExamRequest).where(ExamRequest.term_id == term.id))).scalars()
     }
+    for r in parsed.rows:
+        # rooms named only in a later row's definitive column must exist before earlier rows resolve their
+        # requested venue, or a second import of the same file "changes" those rows (as the planning list does)
+        await cat.room_ids(r.definitive.room_codes, create=True)
+    snaps = await _exam_snapshots(session, [e.id for e in existing.values()])
+    # RF-15: rows imported before RF-06 have no (or only partial) stored import values: rebuilt from the audit log
+    evidence = await _edit_evidence(
+        session, term_code, [e.id for e in existing.values() if not _complete(snaps.get(e.id))]
+    )
+    rebuilt = {"from_audit": 0, "edited_unknown": 0}
+    conflicts: list[dict[str, Any]] = []
+    unchanged = 0
+    to_snapshot: list[tuple[ExamRequest, dict[str, Any]]] = []
     seen_fp: dict[str, int] = {}
     seen_keys: set[str] = set()
     merge_groups: dict[str, int] = {}
@@ -273,19 +298,51 @@ async def import_exam_list(
             session.add(ex)
             existing[key] = ex
             report.created["exam_requests"] += 1
+            to_snapshot.append((ex, fields))
         else:
             if ex.status == "LOCKED" and status != "LOCKED":
-                fields.pop("status")
-            for k, v in fields.items():
-                setattr(ex, k, v)
-            report.updated["exam_requests"] += 1
+                fields.pop("status")  # never downgrade a planner lock
+            snap = snaps.get(ex.id)
+            if ex.id in evidence:
+                snap = _rebuild_snapshot(session, ex, fields, snap, evidence.pop(ex.id), rebuilt)
+                if snap is not None:
+                    snaps[ex.id] = snap
+            ctx = {"entity": "exam", "id": ex.id, "row": r.row, "course": r.course_code}
+            if snap is None:  # imported before RF-06 (no record of the imported values): the file applies
+                changed = _merge(ex, fields, None, take, conflicts, ctx)
+                to_snapshot.append((ex, fields))
+            else:
+                changed = _merge(ex, fields, snap, take, conflicts, ctx)
+                snap.values = {**_snapshot_values(fields), **(snap.values or {})}  # partial (AI / precheck) rows grow
+            if changed:
+                report.updated["exam_requests"] += 1
+            else:
+                unchanged += 1
         report.rows_imported += 1
         text_rows.append((ex, r))
     for skey, ex in existing.items():
         if skey and skey not in seen_keys and not ex.archived:
             ex.archived = True
             report.updated["exam_requests_archived"] += 1
+            snap = snaps.get(ex.id)
+            if snap is not None:  # the import archived it: when the file has the row again, the import restores it
+                snap.values = {**(snap.values or {}), "archived": True}
     await session.flush()
+    for ex, values in to_snapshot:
+        session.add(ImportedSnapshot(entity="exam", entity_id=ex.id, values=_snapshot_values(values)))
+    for c in conflicts:  # a field edited without a recorded old value has no previous import value to show
+        if c.get("previous_import") == _UNKNOWN:
+            c["previous_import"] = None
+    report.extra["unchanged"] = {"exam_requests": unchanged}
+    report.extra["rebuilt_import_values"] = rebuilt
+    report.extra["conflicts_count"] = len(conflicts)
+    report.extra["conflicts"] = conflicts[:500]
+    report.extra["on_conflict"] = on_conflict
+    if conflicts:
+        report.warn(
+            f"{len(conflicts)} field(s) edited by a planner were also changed by the file: "
+            + ("the file's values were taken" if take else "the planner's edits were kept (see extra.conflicts)")
+        )
     # the venue cell's wishes the request fields cannot carry (avoid / building sets / features): soft rules
     # (preference_rules); furniture wishes without a room feature are reported as unparsed
     cols = map_headers(parsed.headers, HEADER_SPEC)
@@ -316,3 +373,128 @@ async def import_exam_list(
     report.extra["merged_rows"] = sum(c for c in merge_groups.values() if c > 1)
     await session.commit()
     return report
+
+
+#: exam columns written by the import that are bookkeeping, not content (never in the snapshot, never a conflict)
+_SNAPSHOT_SKIP = frozenset({*_META, "term_id"})
+
+
+def _snapshot_values(fields: dict[str, Any]) -> dict[str, Any]:
+    """The imported content of one exam row as ``imported_snapshots.values`` (times under ``_start_time`` /
+    ``_end_time``, as the planning list keeps them)."""
+    return {TIME_SHADOW.get(k, k): plain(v) for k, v in fields.items() if k not in _SNAPSHOT_SKIP}
+
+
+#: RF-15: the import value of a field an admin edited without the old value in the audit log (never equal to a
+#: real value, so the field counts as edited; shown as ``previous_import: null``)
+_UNKNOWN: dict[str, str] = {"rf15": "unknown"}
+#: audit entity types of exam edits: ``PUT /requests/exams/{id}`` (``exam_request.update``) and the catalogue's
+#: ``exam.archive``
+_EXAM_AUDIT_TYPES = ("exam_request", "exam")
+
+
+def _complete(snap: ImportedSnapshot | None) -> bool:
+    """Whether a stored snapshot holds every imported field (an RF-06 import writes all of them; the AI and precheck
+    fixes before RF-06 wrote only the fields they changed)."""
+    return snap is not None and "enrolment" in (snap.values or {}) and "archived" in (snap.values or {})
+
+
+async def _previous_import_at(session: AsyncSession, term_code: str) -> datetime | None:
+    """When the previous real (not preview) exam-list import of the term finished, or ``None`` (none recorded:
+    seed / CLI imports before RF-08). An edit before it was already replaced by that import's file value."""
+    jobs = (
+        await session.execute(
+            select(ImportJob.finished_at, ImportJob.summary).where(
+                ImportJob.kind == "exam-list",
+                ImportJob.term_code == term_code,
+                ImportJob.status == "DONE",
+                ImportJob.finished_at.is_not(None),
+            )
+        )
+    ).all()
+    done = [at for at, summary in jobs if not (summary or {}).get("dry_run")]
+    return max(done) if done else None
+
+
+async def _edit_evidence(session: AsyncSession, term_code: str, ids: list[int]) -> dict[int, dict[str, Any]]:
+    """RF-15: for exam rows without complete stored import values, ``{exam id: {snapshot key: imported value}}``
+    from the audit log's edit events since the previous import (the ``before`` value of the first edit of a field;
+    :data:`_UNKNOWN` when the event did not record it). Rows without an edit event are not listed: the file applies
+    to them, as before RF-06."""
+    if not ids:
+        return {}
+    since = await _previous_import_at(session, term_code)
+    out: dict[int, dict[str, Any]] = {}
+    for i in range(0, len(ids), 500):
+        q = (
+            select(AuditEvent)
+            .where(
+                AuditEvent.entity_type.in_(_EXAM_AUDIT_TYPES),
+                AuditEvent.entity_id.in_([str(x) for x in ids[i : i + 500]]),
+                AuditEvent.action != "exam.create",
+            )
+            .order_by(AuditEvent.id)
+        )
+        if since is not None:
+            q = q.where(AuditEvent.ts > since)
+        for ev in (await session.execute(q)).scalars():
+            if not str(ev.entity_id or "").isdigit():
+                continue
+            before = ev.before if isinstance(ev.before, dict) else {}
+            if isinstance(ev.diff, dict) and ev.diff:
+                changed = {k: v[0] for k, v in ev.diff.items() if isinstance(v, list | tuple) and len(v) == 2}
+            else:
+                after = ev.after if isinstance(ev.after, dict) else {}
+                changed = {k: before.get(k, _UNKNOWN) for k in after if before.get(k, _UNKNOWN) != after[k]}
+            seen = out.setdefault(int(str(ev.entity_id)), {})
+            for k, old in changed.items():
+                key = TIME_SHADOW.get(k, k)
+                if key not in seen:  # the first edit's old value is the imported one
+                    seen[key] = _audit_plain(k, old)
+    return {k: v for k, v in out.items() if v}
+
+
+def _audit_plain(field: str, value: Any) -> Any:
+    """An audit log value in the snapshot's form (times ``HH:MM``; the rest is already JSON)."""
+    if value is _UNKNOWN or value is None:
+        return value
+    if field in TIME_SHADOW and isinstance(value, str):
+        t = n.parse_time(value)
+        return plain(t) if t is not None else value
+    return value
+
+
+def _rebuild_snapshot(
+    session: AsyncSession,
+    ex: ExamRequest,
+    fields: dict[str, Any],
+    snap: ImportedSnapshot | None,
+    evidence: dict[str, Any],
+    counts: dict[str, int],
+) -> ImportedSnapshot | None:
+    """The import values of a row imported before RF-06: a field an admin edited (``evidence``) has its imported
+    value from the audit log; every other field its current value (nothing says it was edited). Values already
+    stored (a partial AI / precheck snapshot) win. The merge then keeps the edits and reports conflicts."""
+    file_keys = _snapshot_values(fields).keys()
+    edited = {k: v for k, v in evidence.items() if k in file_keys}
+    if not edited:  # only columns the file does not carry were edited: the file applies, as before
+        return snap
+    current = {TIME_SHADOW.get(k, k): plain(getattr(ex, k)) for k in fields if k not in _SNAPSHOT_SKIP}
+    values = {k: edited.get(k, current.get(k)) for k in file_keys}
+    counts["edited_unknown" if any(v == _UNKNOWN for v in edited.values()) else "from_audit"] += 1
+    if snap is None:
+        snap = ImportedSnapshot(entity="exam", entity_id=ex.id, values={})
+        session.add(snap)
+    snap.values = {**values, **(snap.values or {})}
+    return snap
+
+
+async def _exam_snapshots(session: AsyncSession, ids: list[int]) -> dict[int, ImportedSnapshot]:
+    out: dict[int, ImportedSnapshot] = {}
+    for i in range(0, len(ids), 500):
+        q = select(ImportedSnapshot).where(
+            ImportedSnapshot.entity == "exam", ImportedSnapshot.entity_id.in_(ids[i : i + 500])
+        )
+        for row in (await session.execute(q)).scalars():
+            out[row.entity_id] = row
+    return out

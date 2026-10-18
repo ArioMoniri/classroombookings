@@ -7,7 +7,7 @@
  * sheet with `replacing: true`, no new codes; `totp.change_pending` shows a note while a change waits.
  */
 import { ChevronDown, ShieldCheck, ShieldOff } from "lucide-react";
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { OtpInput } from "@/components/auth/otp-input";
 import { BusyButton } from "@/components/ui/busy-label";
@@ -64,6 +64,24 @@ export function MfaRow({ status, org, onChanged }: { status: MfaStatus; org?: st
   );
   const on = status.totp.enabled || status.passkeys.length > 0;
   const appOn = status.totp.enabled;
+  // AUX12-F05: "Bitir" unmounts "Aç" (the sheet's return target); focus goes to "Yönet" once the row has turned on,
+  // never to <body> (also after the sheet's own close returns focus to the gone trigger)
+  const focusManage = useRef(false);
+  useEffect(() => {
+    if (!on || !focusManage.current) return;
+    focusManage.current = false;
+    const go = () => {
+      const a = document.activeElement;
+      if (a && a !== document.body && a.isConnected) return;
+      document.querySelector<HTMLElement>('[data-testid="mfa-manage"]')?.focus();
+    };
+    const raf = requestAnimationFrame(go);
+    const later = window.setTimeout(go, 350);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(later);
+    };
+  }, [on]);
   const left = status.recovery_codes.remaining;
 
   if (status.reason === "mfa_off") {
@@ -181,6 +199,7 @@ export function MfaRow({ status, org, onChanged }: { status: MfaStatus; org?: st
         org={org}
         changing={changing}
         onDone={(changed) => {
+          focusManage.current = !changed;
           setJustOn(true);
           toast.success(changed ? t("auth.setup.changeDone") : t("auth.enrol.done"));
           onChanged();

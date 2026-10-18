@@ -183,7 +183,8 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { id: "sessions", href: "/admin/sessions", labelKey: "crbs.admin.sessions.title", descriptionKey: "crbs.admin.sessions.lead", permission: ["setup.sessions"], group: "calendar" },
   { id: "holidays", href: "/admin/holidays", labelKey: "crbs.admin.holidays.title", descriptionKey: "crbs.admin.holidays.lead", permission: ["setup.sessions"], group: "calendar" },
   { id: "schedules", href: "/admin/schedules", labelKey: "crbs.admin.schedules.title", descriptionKey: "crbs.admin.schedules.lead", permission: ["setup.schedules"], group: "calendar" },
-  { id: "weeks", href: "/admin/weeks", labelKey: "crbs.admin.weeks.title", descriptionKey: "crbs.admin.weeks.lead", permission: ["setup.timetable_weeks"], group: "calendar" },
+  // AS20-F09: planners reach the page for the season profile drafts; the week editors stay behind setup.timetable_weeks
+  { id: "weeks", href: "/admin/weeks", labelKey: "crbs.admin.weeks.title", descriptionKey: "crbs.admin.weeks.lead", permission: ["setup.timetable_weeks", "planning.edit"], group: "calendar" },
   // planners: bookings the newly published timetable overlaps (GET /bookings/conflicts, planning.view)
   { id: "conflicts", href: "/admin/conflicts", labelKey: "crbs.admin.conflicts.title", descriptionKey: "crbs.admin.conflicts.lead", permission: ["planning.view"], group: "calendar" },
   { id: "settings", href: "/admin/settings", labelKey: "crbs.admin.settings.title", descriptionKey: "crbs.admin.settings.lead", permission: ["setup.settings"], group: "organisation" },

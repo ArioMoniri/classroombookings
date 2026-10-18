@@ -193,7 +193,7 @@ export function VerdictTag({ v, delta, locale }: { v: Verdict; delta: number | n
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 type-footnote font-medium",
+        "inline-flex max-w-full items-center gap-1 type-footnote font-medium",
         v === "better" ? "text-status-feasible-fg" : v === "worse" ? "text-status-infeasible-fg" : "text-label-2",
       )}
       data-verdict={v}
@@ -201,7 +201,8 @@ export function VerdictTag({ v, delta, locale }: { v: Verdict; delta: number | n
       {v === "better" || v === "worse" ? <Icon aria-hidden className="size-3.5" /> : null}
       {Dir ? <Dir aria-hidden className="size-3.5" /> : null}
       {delta !== null ? <span className="tnum">{signed(delta, locale)}</span> : null}
-      <span>{t(`compare.verdict.${v}`)}</span>
+      {/* E2EB-F02: at 200 % text "karşılaştırılamaz" pushed the page to 413 px; it breaks inside its cell */}
+      <span className="min-w-0 [overflow-wrap:anywhere]">{t(`compare.verdict.${v}`)}</span>
     </span>
   );
 }

@@ -112,6 +112,9 @@ def decode_access_token(token: str) -> dict[str, Any]:
 TOKEN_VERSION_CLAIM = "tv"
 
 
+SESSIONS_EPOCH_CLAIM = "se"
+
+
 def user_token(user: Any) -> str:
     """Access token for a signed-in user: ``uid``, the coarse ``role`` code and the current token version."""
     import secrets
@@ -124,6 +127,9 @@ def user_token(user: Any) -> str:
             TOKEN_VERSION_CLAIM: int(user.token_version or 0),
             # AU-15: the session id of the server-side session list (app/services/sessions.py)
             "jti": secrets.token_urlsafe(18),
+            # FIX-A F-AUB-1: the user's sessions epoch at issue; a token first seen after a later revocation
+            # ("Diğer cihazlardan çıkış yap") is refused, so issued-but-unused tokens end too
+            SESSIONS_EPOCH_CLAIM: int(getattr(user, "sessions_epoch", 0) or 0),
         },
     )
 

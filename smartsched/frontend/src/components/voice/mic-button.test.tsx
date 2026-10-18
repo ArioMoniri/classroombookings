@@ -149,6 +149,11 @@ describe("MicButton desktop", () => {
     expect(up.path).toBe("/api/v1/ai/voice/transcribe?feature=rules&lang=tr");
     expect(up.method).toBe("POST");
     expect((up.body as Blob).type).toBe("audio/webm;codecs=opus");
+    // F-VO-3: an input event that leaves the text as the voice put it (a re-dispatch, a framework's own event) keeps
+    // the chip; this cleared it before (2 of 4 e2e runs lost the chip within the 10 s window)
+    fireEvent.input(box);
+    await act(async () => new Promise((r) => setTimeout(r, 900)));
+    expect(screen.getByTestId("voice-chip")).toHaveTextContent("Sesle girildi");
     // the user's own edit removes the chip
     fireEvent.input(box, { target: { value: "B-204 numaralı salonda pazartesi" } });
     expect(screen.queryByTestId("voice-chip")).toBeNull();

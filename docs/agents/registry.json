@@ -2591,7 +2591,8 @@
       "goal": "You are the **launch video producer** of SmartSched (ledger `media-launch-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/MEDIA.md and COMMON.md (same folder) and follow them. You own: `scripts/record/**`, `docs/lottie/**`, `docs/i…",
       "ledger": "Launch video producer (Recordly + Lottie)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 12:30"
     },
     {
       "id": "ad073418ff56391f3",
@@ -3201,7 +3202,8 @@
       "goal": "You are lane HB-A (AI helper backend), re-created after a container restart. Your earlier work is committed in the repo (/home/user/classroombookings, branch claude/focused-wright-ktt0ss): `app/ai/helper/**` and `app/api/v1/helper.py`. Migration 0044_helper is yours. Read first: - docs/agents/briefs…",
       "ledger": "HB-A resume: helper backend",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 09:34"
     },
     {
       "id": "aa8478fed0a6a5b8d",
@@ -3294,7 +3296,8 @@
       "goal": "You are lane HB-B (AI helper second slice and governance), re-created after a container restart. Some of your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss), for example `tests/ai/test_hb_12_capabilities.py` and the capability parts of `app/ai/**` and…",
       "ledger": "HB-B resume: capabilities, local, quotas",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 10:05"
     },
     {
       "id": "a5f68a4d4029dba95",
@@ -3427,7 +3430,8 @@
       "goal": "You are the single E2E lane for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read these first: - docs/agents/briefs/COMMON.md. You are the ONE lane allowed to run an app stack, but only one stack at a time. Run it with `nice -n 10`, stop it after each section,…",
       "ledger": "E2E lane: run the queued browser checks",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 13:02"
     },
     {
       "id": "a0508738010d2ad42",
@@ -3460,6 +3464,950 @@
       "status": "finished",
       "finished_at": "2026-10-18 09:26",
       "left_off": "<analysis> This session is the focused-wright orchestrator for SmartSched, branch claude/focused-wright-ktt0ss. It runs many subagent lanes, commits their work as checkpoints, merges into the gracious and universal branches, and is trying to get the AWS pod deployed. Major events: - Pod start via POD_ACTION from gracious worked. Pod CI gates kept failing: - frontend OOM; - mypy saml unused ignore;…"
+    },
+    {
+      "id": "ae4972a24ad19912d",
+      "description": "RF-M: phone month arrows, density",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 09:29",
+      "scope": "",
+      "goal": "Ledger name `rf-m-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--maxWo…",
+      "ledger": "RF-M: phone month arrows, density",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 09:39"
+    },
+    {
+      "id": "a27e010c042ce226a",
+      "description": "RF-B: re-import, seed history, periods",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 09:29",
+      "scope": "",
+      "goal": "Ledger name `rf-b-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; `nice`, pytest only on the files you touch); never `p…",
+      "ledger": "RF-B: re-import, seed history, periods",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 10:25"
+    },
+    {
+      "id": "a23253f0f89269410",
+      "description": "AUX-10 sign-in hero motion",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 09:29",
+      "scope": "",
+      "goal": "Ledger name `aux-10-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--max…",
+      "ledger": "AUX-10 sign-in hero motion",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 09:40"
+    },
+    {
+      "id": "a0166c6ed587b97fc",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:30",
+      "left_off": "no s3 backups, keep them on the pod"
+    },
+    {
+      "id": "a6a1346ad706a804d",
+      "description": "WG-09 welcome guide motion designer",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 09:35",
+      "scope": "",
+      "goal": "Ledger name `wg-09-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--maxW…",
+      "ledger": "WG-09 welcome guide motion designer",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 10:03"
+    },
+    {
+      "id": "a66d9f96c30f3c9bd",
+      "description": "HX helper chat frontend",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 09:35",
+      "scope": "",
+      "goal": "Ledger name `hx-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--maxWork…",
+      "ledger": "HX helper chat frontend",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 10:52"
+    },
+    {
+      "id": "a6d8a3c2a812b702e",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:36",
+      "left_off": "give me the pod access details when it's up"
+    },
+    {
+      "id": "a565826311bd4071e",
+      "description": "Audit owner requests vs tickets",
+      "subagent_type": "Explore",
+      "isolation": null,
+      "started_at": "2026-10-18 09:40",
+      "scope": "",
+      "goal": "Read-only audit, very thorough. Repo /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Goal: make sure nothing the owner asked for is lost. For each owner request below, find its tickets in docs/ROADMAP.md (and any related lines in docs/agents/LANES.md, docs/HANDOFF.md, docs/testin…",
+      "ledger": "Audit owner requests vs tickets",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 09:41",
+      "left_off": "{\"isasync\": true, \"status\": \"async_launched\", \"agentid\": \"a565826311bd4071e\", \"description\": \"audit owner requests vs tickets\", \"resolvedmodel\": \"claude-opus-5-5\", \"prompt\": \"read-only audit, very thorough. repo /home/user/classroombookings (branch claude/focused-wright-ktt0ss). goal: make sure noth…"
+    },
+    {
+      "id": "a14a3c8186d78b826",
+      "description": "CH-M: remaining chart migrations",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 09:42",
+      "scope": "",
+      "goal": "Ledger name `ch-m-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--maxWo…",
+      "ledger": "CH-M: remaining chart migrations",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 10:08"
+    },
+    {
+      "id": "a863bacc212085413",
+      "description": "HB-C: helper telemetry, admin, local",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 09:42",
+      "scope": "",
+      "goal": "Ledger name `hb-c-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; `nice`, pytest only on…",
+      "ledger": "HB-C: helper telemetry, admin, local",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 10:26"
+    },
+    {
+      "id": "a99c8a2929bf5b2b2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:43",
+      "left_off": "keep going and spawn the testers when the pod is up"
+    },
+    {
+      "id": "a156681d8253364e2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:50",
+      "left_off": "i added the license to the environment, run the hosted fixes"
+    },
+    {
+      "id": "adabb61a9551f13d7",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:54",
+      "left_off": "added the licence env var, start the hosted fixes"
+    },
+    {
+      "id": "a5a41f61a55933cc7",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:55",
+      "left_off": "added the license env var, run the hosted fixes"
+    },
+    {
+      "id": "a5f207afb1a714275",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:58",
+      "left_off": "raise idle to 240 min while testers run"
+    },
+    {
+      "id": "ad43549fa2636893d",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:01",
+      "left_off": "raise idle window to 240 while testers run"
+    },
+    {
+      "id": "a5242da56118c953e",
+      "description": "Sweeper 2: unowned leftovers",
+      "subagent_type": "claude",
+      "isolation": null,
+      "started_at": "2026-10-18 10:03",
+      "scope": "",
+      "goal": "Ledger name `sweep2-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; `nice`, vitest `--maxWorkers=1 --testTimeout=30000`…",
+      "ledger": "Sweeper 2: unowned leftovers",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 10:32"
+    },
+    {
+      "id": "abd7229ecad9bc094",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:05",
+      "left_off": "raise the idle window while testers run"
+    },
+    {
+      "id": "a944fa64056cb8a5a",
+      "description": "IDP lane: SAML hardening, linking",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 10:06",
+      "scope": "",
+      "goal": "Ledger name `idp-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend (frontend at smartsched/frontend for one small screen). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack…",
+      "ledger": "IDP lane: SAML hardening, linking",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 10:37"
+    },
+    {
+      "id": "a3cf4c45ec0d39e6b",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:06",
+      "left_off": "i added it as environment variable check again"
+    },
+    {
+      "id": "a0c98fc8f834d6915",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:08",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a30cb3ab124cfe62d",
+      "description": "CH-B: chart stats backend routes",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 10:08",
+      "scope": "",
+      "goal": "Ledger name `ch-b-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack; `nice`, pytest only on touched files); never `pkill …",
+      "ledger": "CH-B: chart stats backend routes",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 10:26"
+    },
+    {
+      "id": "abe9d8bfdd3472372",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:11",
+      "left_off": "removed the network secret, try the licence again"
+    },
+    {
+      "id": "af6e75c269b03dcc4",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:16",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ae3b3088d9a9d42c2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:17",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ad922c67e804ba98b",
+      "description": "RF-F: import diff, period grid, weeks UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 10:25",
+      "scope": "",
+      "goal": "Ledger name `rf-f-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorkers…",
+      "ledger": "RF-F: import diff, period grid, weeks UI",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 10:51"
+    },
+    {
+      "id": "a877a08f4b4c8b853",
+      "description": "RF-C: RF-14 band times, RF-15 exam edits",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 10:28",
+      "scope": "",
+      "goal": "Ledger name `rf-c-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack; `nice`, pytest only on touched files); never `pkill …",
+      "ledger": "RF-C: RF-14 band times, RF-15 exam edits",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 10:46"
+    },
+    {
+      "id": "a8917f02184aa4b6f",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:28",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "afabce26ca6c5dfea",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:34",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a355bcd9437cf7ca7",
+      "description": "IDP-2: SAML wizard fields, CBC rule",
+      "subagent_type": "claude",
+      "isolation": null,
+      "started_at": "2026-10-18 10:38",
+      "scope": "",
+      "goal": "Ledger name `idp2-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorkers=1 --testTimeout=30000` and pytes…",
+      "ledger": "IDP-2: SAML wizard fields, CBC rule",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 10:56"
+    },
+    {
+      "id": "a9d1770407c4fcc45",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:38",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "aa30f5edf470067a0",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:42",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "af111834e4a2d8215",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:44",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a28f1b3aa38e7ca74",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:48",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a1475fe2a392ab4a2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:51",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a2732883e399ed001",
+      "description": "HB-D: remember card, context, recent",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 10:55",
+      "scope": "",
+      "goal": "Ledger name `hb-d-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack; `nice`, pytest on touched files); never `pkill -f`; …",
+      "ledger": "HB-D: remember card, context, recent",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 11:19"
+    },
+    {
+      "id": "a266acd34c5192a44",
+      "description": "Shell integration: HX mounts, RF-16",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 10:55",
+      "scope": "",
+      "goal": "Ledger name `shell-int-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWo…",
+      "ledger": "Shell integration: HX mounts, RF-16",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 11:45"
+    },
+    {
+      "id": "ac4f4193a873c4e78",
+      "description": "HX design sign-off and audit",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 10:55",
+      "scope": "",
+      "goal": "Ledger name `hx-design-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first. This is a review lane: change only docs (docs/design/v3/helper.md, a new review file), no app code, no commits, no stack. Tickets HB-07 (design sign-of…",
+      "ledger": "HX design sign-off and audit",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 11:02"
+    },
+    {
+      "id": "a02d5264c6ae8676d",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:56",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ae58629231f9c0245",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:57",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "aeb03a710c34b62d8",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:00",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ad30507745fef3c1e",
+      "description": "CI lane: make every pod gate green",
+      "subagent_type": "devops-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 11:02",
+      "scope": "",
+      "goal": "Ledger name `ci-green-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first. No commits (the orchestrator commits). Never `pkill -f`. No Docker stack and no `next build` in this container. Run everything under `nice -n 10`, one h…",
+      "ledger": "CI lane: make every pod gate green",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 12:59"
+    },
+    {
+      "id": "afecc131aef7f8f01",
+      "description": "HX-18: helper design-audit fixes",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 11:03",
+      "scope": "",
+      "goal": "Ledger name `hx-18-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorker…",
+      "ledger": "HX-18: helper design-audit fixes",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 11:25"
+    },
+    {
+      "id": "ac3cb6fcaf64fee1a",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:05",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "aa4fd5d5cfd05cfd2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:08",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ae539234a9400410c",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:20",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a11a57824677ce7c3",
+      "description": "HX-15/16/17 helper frontend + consent",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 11:26",
+      "scope": "",
+      "goal": "Ledger name `hx-15-17-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss (frontend smartsched/frontend; one backend check in smartsched/backend). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next…",
+      "ledger": "HX-15/16/17 helper frontend + consent",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 12:07"
+    },
+    {
+      "id": "a886d87320ae0dc79",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:26",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "aa67da1080135b260",
+      "description": "HB-E: fix bench bugs 1-5, P1, P2",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 11:30",
+      "scope": "",
+      "goal": "Ledger name `hb-e-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend (plus one frontend zod pattern). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first (each fix gets a test that fails before it); r…",
+      "ledger": "HB-E: fix bench bugs 1-5, P1, P2",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 11:56"
+    },
+    {
+      "id": "a1afb651664dfc21e",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:30",
+      "left_off": "bench qwen3 too on the gpu"
+    },
+    {
+      "id": "ab9e0887c57d3f281",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:32",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a8121d24efdc62e8e",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:38",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a76674344937600ef",
+      "description": "RF-16b: non-blocking period grid",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 11:46",
+      "scope": "",
+      "goal": "Ledger name `rf-16b-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorke…",
+      "ledger": "RF-16b: non-blocking period grid",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 11:57"
+    },
+    {
+      "id": "a0724f960a52c30b3",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:46",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a1df35d0e74f41539",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:57",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "acf7dc3b4aa3a6fd3",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:57",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ad53e39ae25d7d885",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:03",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ad5ebc387b73a0fbb",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:05",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a899bcb688827e924",
+      "description": "HX-19: helper sheet motion",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 12:08",
+      "scope": "",
+      "goal": "Ledger name `hx-19-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorker…",
+      "ledger": "HX-19: helper sheet motion",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 12:22"
+    },
+    {
+      "id": "a24b23a1c561dd148",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:08",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "aeb64ec8f12d8bdfd",
+      "description": "CAL-13: exam duties calendar scope",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 12:23",
+      "scope": "",
+      "goal": "Ledger name `cal-13-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend (one small frontend option in smartsched/frontend). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack;…",
+      "ledger": "CAL-13: exam duties calendar scope",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 12:57"
+    },
+    {
+      "id": "a80dbab6d0ccc994d",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:23",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a21c587110f8251f8",
+      "description": "README media pass",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 12:31",
+      "scope": "",
+      "goal": "Ledger name `readme-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first. No commits; no stack. This is the README and docs media pass. The launch-video lane finished (see docs/launch/README.md, docs/launch/RESEARCH.md and its P…",
+      "ledger": "README media pass",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 12:35"
+    },
+    {
+      "id": "abea51c97375bdbc0",
+      "description": "BUG lane: find-room Sunday, audit labels",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 12:31",
+      "scope": "",
+      "goal": "Ledger name `bugs-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss (backend smartsched/backend, small frontend changes in smartsched/frontend). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first (each bug gets a failing test fir…",
+      "ledger": "BUG lane: find-room Sunday, audit labels",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 12:52"
+    },
+    {
+      "id": "a6053724e53e0fe8a",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:31",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a786842bd95db1991",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:34",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a15448e4158b7d594",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:36",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ab7badf24b80ea060",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:38",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a373edc03ba2a99d9",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:44",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "abe9c88a0fd022879",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:53",
+      "left_off": "tell me when pod is up"
+    },
+    {
+      "id": "a93969a0b34360f7c",
+      "description": "Small follow-ups: helper Sunday, duties copy",
+      "subagent_type": "claude",
+      "isolation": null,
+      "started_at": "2026-10-18 12:57",
+      "scope": "",
+      "goal": "Ledger name `small-fix-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first; no commits; tests first; resource rule (no stack; `nice`, pytest and vitest on touched files only); never `pkill -f`. Two small follow-ups: 1. Backend:…",
+      "ledger": "Small follow-ups: helper Sunday, duties copy",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 13:02"
+    },
+    {
+      "id": "a6969329beba31abb",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:58",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a76cc26410f851732",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 13:00",
+      "left_off": "<analysis> I am the single E2E lane subagent. I worked through the queue section by section, wrote results into docs/testing/e2e-queue/results-2026-10-18.md, made small test-first fixes in finished lanes, and ticked ROADMAP tickets where a section was fully green. The final hand-off must go through SubagentHandback. Order of work and the state of each section: 1. RF-1: done; product fix in users-a…"
+    },
+    {
+      "id": "a6f866b54117920a2",
+      "description": "FIX-A: security, solver, council, helper",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 13:03",
+      "scope": "",
+      "goal": "Ledger name `fix-a-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack; `nice`, pytest on touched files); never `pkill -f`; Tu…",
+      "ledger": "FIX-A: security, solver, council, helper",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 14:14"
+    },
+    {
+      "id": "a60a39a9a126b9d49",
+      "description": "FIX-B: mobile, CLS, overflow, focus",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 13:03",
+      "scope": "",
+      "goal": "Ledger name `fix-b-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright here; vitest `--maxWork…",
+      "ledger": "FIX-B: mobile, CLS, overflow, focus",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 13:49",
+      "left_off": "Waiting for the suite to finish."
+    },
+    {
+      "id": "a86f9a684b6abf99e",
+      "description": "FIX-C: bundle size, charts, voice, welcome",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 13:03",
+      "scope": "",
+      "goal": "Ledger name `fix-c-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss (frontend smartsched/frontend; backend only for F-VO-2). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no Playwright; vitest `--m…",
+      "ledger": "FIX-C: bundle size, charts, voice, welcome",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 14:06"
+    },
+    {
+      "id": "a64692bd59ef8e295",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 13:04",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ae70e42f601e3378d",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 13:06",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "aac7a6b303e57f803",
+      "description": "HB-F: re-bench bugs A–E",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 13:30",
+      "scope": "",
+      "goal": "Ledger name `hb-f-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first (each fix gets a test that fails before it); resource rule (no stack; `nice`, pyt…",
+      "ledger": "HB-F: re-bench bugs A–E",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 13:48"
+    },
+    {
+      "id": "a588399e2710a0bca",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 13:33",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a6c8722843af04391",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 13:34",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a679d455c91c2167d",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 13:37",
+      "left_off": "ran the refresh command, it said success"
+    },
+    {
+      "id": "aaa718d30245c8787",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 13:39",
+      "left_off": "ran the refresh command it says success"
+    },
+    {
+      "id": "a946564b9a8245b45",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 14:09",
+      "left_off": "<analysis> This session continues the focused-wright orchestration of SmartSched (a FastAPI/Next.js successor to classroombookings). Main threads in this period: 1. **Pod deploy blocked.** The pod was running but its CI gates kept failing. Through successive logs pulls I found and fixed: - validate: `OPS_BACKUP_TEXTFILE` not declared; - infra: ruff E501 in `test_gate_memory`; - frontend: tsc OOM a…"
+    },
+    {
+      "id": "ac64676cf3c5d04eb",
+      "description": "FIX-E: round-4 majors (UX)",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 14:10",
+      "scope": "",
+      "goal": "You are lane FIX-E (ledger name `fix-e-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md first and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; 44 px / 16 px on phones; t…",
+      "ledger": "FIX-E: round-4 majors (UX)",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 14:55"
+    },
+    {
+      "id": "a9bcffbd96fdefd49",
+      "description": "FIX-D: HB-18 blockers and majors",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 14:10",
+      "scope": "",
+      "goal": "You are lane FIX-D (ledger name `fix-d-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md first and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; no secrets in files; light…",
+      "ledger": "FIX-D: HB-18 blockers and majors",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 14:43"
+    },
+    {
+      "id": "a8c5218d564e6b159",
+      "description": "FIX-F: AS-20 and CH-12 findings",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 14:15",
+      "scope": "",
+      "goal": "You are lane FIX-F (ledger name `fix-f-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md first and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; 44 px / 16 px on phones; S…",
+      "ledger": "FIX-F: AS-20 and CH-12 findings",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 14:50"
+    },
+    {
+      "id": "a3476bc46aece7eb4",
+      "description": "FIX-G: AS-20 decisions and minors",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 14:51",
+      "scope": "",
+      "goal": "You are lane FIX-G (ledger name `fix-g-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md first and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; 44 px / 16 px on phones; S…",
+      "ledger": "FIX-G: AS-20 decisions and minors",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 15:25"
+    },
+    {
+      "id": "aaf92a93c774b1454",
+      "description": "FIX-H: round-4 leftovers",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 14:55",
+      "scope": "",
+      "goal": "You are lane FIX-H (ledger name `fix-h-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md first and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; 44 px / 16 px on phones; t…",
+      "ledger": "FIX-H: round-4 leftovers",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 16:22",
+      "left_off": "The background job that just stopped was only a wait loop watching an earlier test run; it ran no tests itself. Nothing is lost: I re-ran those backend test files one at a time and all 30 tests passed. That result is already in the report I sent you, so there is nothing to re-run."
+    },
+    {
+      "id": "a5db2f5a2bfea19de",
+      "description": "FIX-I: triage round-4 e2e fails",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 15:42",
+      "scope": "",
+      "goal": "You are lane FIX-I (ledger name `fix-i-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md first and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; 44 px / 16 px on phones; l…",
+      "ledger": "FIX-I: triage round-4 e2e fails",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a53fe52604aa0c19c",
+      "description": "FIX-J: KVKK import blocker and import majors",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 15:43",
+      "scope": "",
+      "goal": "You are lane FIX-J (ledger name `fix-j-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md first and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; light resource use: only t…",
+      "ledger": "FIX-J: KVKK import blocker and import majors",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 16:18"
+    },
+    {
+      "id": "a64dedfc491d481e4",
+      "description": "FIX-K: remaining e2e report findings",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 16:18",
+      "scope": "",
+      "goal": "You are lane FIX-K (ledger name `fix-k-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md first and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; 44 px / 16 px on phones; S…",
+      "ledger": "FIX-K: remaining e2e report findings",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a8abfddf65bf411de",
+      "description": "README + repo presentation redesign",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 16:19",
+      "scope": "",
+      "goal": "Lane README-X (ledger name `readme-x-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md; NO git commits (the orchestrator commits); never `pkill -f`; light resource use (no stacks, no builds). Do NOT add or enable any GitHub A…",
+      "ledger": "README + repo presentation redesign",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

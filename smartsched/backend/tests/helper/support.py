@@ -61,3 +61,9 @@ async def personas(env) -> dict[str, Persona]:  # type: ignore[no-untyped-def]
 
 async def card(env, p: Persona, action: str, **args):  # type: ignore[no-untyped-def]
     return await env.client.post(f"{H}/actions/{action}/card", json={"args": args}, headers=p.headers)
+
+
+async def grant_ai_personal(env, p: Persona) -> None:  # type: ignore[no-untyped-def]
+    """The person's own ``ai_personal`` consent (Profil › Gizlilik), which helper notes need (HB-D, HX-17)."""
+    r = await env.client.post("/api/v1/me/consents/ai_personal", headers=p.headers)
+    assert r.status_code in (200, 201), r.text

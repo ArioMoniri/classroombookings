@@ -14,11 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FORECAST_GROUPS, useDemandForecast, useShortfall, type ForecastCell, type ForecastGroup, type ShortfallCell } from "@/lib/api/adaptive";
+import { FORECAST_GROUPS, showRange, useDemandForecast, useShortfall, type ForecastCell, type ForecastGroup, type ShortfallCell } from "@/lib/api/adaptive";
 import { intlLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
-import { ConfidenceNote, RangeText } from "./forecast-bits";
+import { ConfidenceNote, NoTerms, RangeText } from "./forecast-bits";
 import { WhatIfForm } from "./forecast-whatif";
 
 const SHOWN = 10;
@@ -39,15 +39,19 @@ export function ForecastView() {
   return (
     <div className="flex min-w-0 flex-col gap-5" data-testid="forecast-page">
       <PageHeader title={t("adaptive.forecast.title")} subtitle={name ? `${name} · ${t("adaptive.forecast.subtitle")}` : t("adaptive.forecast.subtitle")} />
-      <label className="flex max-w-xs flex-col gap-1">
-        <span className="type-footnote font-medium text-label-2">{t("adaptive.peaks.term")}</span>
-        <NativeSelect value={termId ?? ""} onChange={(e) => setPicked(e.target.value ? Number(e.target.value) : null)} data-testid="forecast-term">
-          {terms.map((x) => (
-            <option key={x.id} value={x.id}>{x.name}</option>
-          ))}
-        </NativeSelect>
-      </label>
-      {termId === null ? (
+      {terms.length === 0 ? (
+        <NoTerms />
+      ) : (
+        <label className="flex max-w-xs flex-col gap-1">
+          <span className="type-footnote font-medium text-label-2">{t("adaptive.peaks.term")}</span>
+          <NativeSelect value={termId ?? ""} onChange={(e) => setPicked(e.target.value ? Number(e.target.value) : null)} data-testid="forecast-term">
+            {terms.map((x) => (
+              <option key={x.id} value={x.id}>{x.name}</option>
+            ))}
+          </NativeSelect>
+        </label>
+      )}
+      {terms.length === 0 ? null : termId === null ? (
         <p className="type-callout text-label-2">{t("analytics.noTerm")}</p>
       ) : (
         <>
@@ -74,6 +78,11 @@ function cellLabel(c: ForecastCell, lang: "tr" | "en"): string {
   return c.label?.[lang] || c.key;
 }
 
+/** AS20-F15: "Bina belirtilmemiş" (building key "*") is not a building: it goes last, with one line saying what it is */
+export function isUnnamedBuilding(group: ForecastGroup, c: Pick<ForecastCell, "key">): boolean {
+  return group === "building" && c.key === "*";
+}
+
 function DemandBlock({ termId }: { termId: number }) {
   const { t, locale, n } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
@@ -81,8 +90,11 @@ function DemandBlock({ termId }: { termId: number }) {
   const [all, setAll] = useState(false);
   const q = useDemandForecast(termId, group);
   const d = q.data;
-  const cells = useMemo(() => [...(d?.cells ?? [])].sort((a, b) => b.value - a.value), [d]);
-  const max = cells[0]?.value ?? 0;
+  const unnamed = (c: ForecastCell) => isUnnamedBuilding(group, c);
+  const cells = useMemo(() => [...(d?.cells ?? [])].sort((a, b) => Number(isUnnamedBuilding(group, a)) - Number(isUnnamedBuilding(group, b)) || b.value - a.value), [d, group]);
+  const max = Math.max(0, ...cells.map((c) => c.value));
+  // AS20-F15: when no row has a range (the term's own requests were counted), say so once instead of a dash per row
+  const anyRange = cells.some((c) => showRange({ lo80: c.lo80, hi80: c.hi80, confidence: c.confidence, method: c.method }));
   const num = (v: number) => n(Math.round(v * 10) / 10);
   return (
     <section aria-labelledby="fc-demand" className="flex flex-col gap-3" data-testid="forecast-demand">
@@ -115,16 +127,21 @@ function DemandBlock({ termId }: { termId: number }) {
             <ul data-testid="forecast-cells">
               {cells.slice(0, all ? cells.length : SHOWN).map((c) => (
                 <li key={c.key} className="grid grid-cols-[minmax(6rem,30%)_1fr_auto] items-center gap-3 px-4 py-2 type-callout not-last:edge-hairline-b max-sm:grid-cols-[1fr_auto]" data-testid="forecast-cell">
-                  <span className="min-w-0 truncate text-label-1">{cellLabel(c, lang)}</span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-label-1">{cellLabel(c, lang)}</span>
+                    {unnamed(c) ? <span className="type-footnote text-label-2" data-testid="forecast-unnamed-hint">{t("adaptive.forecast.noBuildingHint")}</span> : null}
+                  </span>
                   {/* the bar repeats the number (never the only channel) */}
                   <span className="h-2 rounded-full bg-fill-2 max-sm:hidden" aria-hidden>
                     <span className="block h-2 rounded-full bg-(--seq-4)" style={{ width: `${max ? Math.max(2, (c.value / max) * 100) : 0}%` }} />
                   </span>
                   <span className="flex flex-col items-end text-right">
                     <span className="font-semibold tabular-nums">{num(c.value)}</span>
-                    <span className="type-footnote tabular-nums text-label-2">
-                      <RangeText lo={c.lo80} hi={c.hi80} format={num} confidence={c.confidence} method={c.method} />
-                    </span>
+                    {anyRange ? (
+                      <span className="type-footnote tabular-nums text-label-2">
+                        <RangeText lo={c.lo80} hi={c.hi80} format={num} confidence={c.confidence} method={c.method} />
+                      </span>
+                    ) : null}
                   </span>
                 </li>
               ))}
@@ -135,6 +152,7 @@ function DemandBlock({ termId }: { termId: number }) {
               </div>
             ) : null}
           </Card>
+          {!anyRange ? <p className="type-footnote text-label-2" data-testid="forecast-no-ranges">{t("adaptive.forecast.noRanges")}</p> : null}
         </>
       )}
     </section>

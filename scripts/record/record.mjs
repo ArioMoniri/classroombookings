@@ -18,8 +18,10 @@
 //   REC_DEVICE       desktop (default) | phone: 390x844, deviceScaleFactor 3, isMobile + hasTouch (lib/touch.mjs), taps
 //   REC_DSF          device scale factor of a desktop take (default 1; the launch video captures at 2)
 //   REC_CAPTION_LANG caption language when it differs from the UI language (--lang)
-//   --engine frames  the launch video's route (scripts/record/launch): keep the lossless screencast PNG frames +
-//                    <name>.take.json (frames on the recorder clock, steps, pointer, keys); no compositing here
+//   --engine frames  the launch video's route (scripts/record/launch): deterministic capture (lib/frameclock.mjs: the
+//                    page runs on virtual time and every 1/60 s of it is rendered and kept as a lossless PNG) +
+//                    <name>.take.json (frames on the page clock, steps, pointer, keys); no compositing here.
+//                    REC_FRAMES_CAPTURE=screencast falls back to sampling Chrome's screencast (the pre-2026-10-18 route)
 //   PLAYWRIGHT_BROWSERS_PATH (default /opt/pw-browsers when it exists)
 //
 // Output in --out (default ./recordings/<journey>-<theme>): <name>.mp4 (H.264), <name>.<clip>.gif (REC_GIF=1: one
@@ -38,6 +40,7 @@ import { polish } from "./lib/polish.mjs";
 import { exportWithRecordly, writeProject } from "./lib/recordly.mjs";
 import { login, profileLanguage } from "./journeys/_shared.mjs";
 import { startScreencast } from "./lib/screencast.mjs";
+import { FRAME_MS, FrameClock, deterministicArgs, openControlledPage } from "./lib/frameclock.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../..");
@@ -105,11 +108,12 @@ if (args.repolish) {
   const videoDir = join(outDir, ".video");
   // REC_CAPTURE: "video" = Playwright's recordVideo (VP8), "screencast" = lossless PNG frames (lib/screencast.mjs);
 // a journey's own `capture` wins
-  const capture = args.engine === "frames" ? "screencast" : journey.capture ?? env.REC_CAPTURE ?? "video"; // a journey can insist (see import-generate)
-  if (capture === "screencast") env.REC_LOSSLESS = "1";
+  const deterministic = args.engine === "frames" && (env.REC_FRAMES_CAPTURE ?? "deterministic") === "deterministic";
+  const capture = deterministic ? "deterministic" : args.engine === "frames" ? "screencast" : journey.capture ?? env.REC_CAPTURE ?? "video"; // a journey can insist (see import-generate)
+  if (capture === "screencast" || deterministic) env.REC_LOSSLESS = "1";
   let sc = null;
   rmSync(videoDir, { recursive: true, force: true });
-  const browser = await chromium.launch({ headless: !args.headed });
+  const browser = await chromium.launch({ headless: deterministic || !args.headed, ...(deterministic ? { args: deterministicArgs(dsf) } : {}) });
   const context = await browser.newContext({
     baseURL,
     viewport,
@@ -137,8 +141,15 @@ if (args.repolish) {
       document.head.appendChild(s);
     });
   }, args.theme);
-  const page = await context.newPage();
-  const rec = new Recorder(page, { speed: Number(args.speed), viewport, log, touch: phone, virtualPointer: args.engine === "frames" });
+  const page = deterministic ? await openControlledPage(browser, context, viewport) : await context.newPage();
+  let clock = null;
+  if (deterministic) {
+    clock = new FrameClock(page, { log });
+    await clock.start();
+    // journeys' own pauses are page time too
+    page.waitForTimeout = (ms) => clock.sleep(ms);
+  }
+  const rec = new Recorder(page, { speed: Number(args.speed), viewport, log, touch: phone, virtualPointer: args.engine === "frames", clock });
   const ctx = { page, baseURL, creds, lang: args.lang, captionLang: env.REC_CAPTION_LANG ?? args.lang, theme: args.theme, device: phone ? "phone" : "desktop", termCode: env.REC_TERM_CODE ?? "2026-BAHAR" };
 
   let failure = null;
@@ -150,7 +161,10 @@ if (args.repolish) {
     log("setup");
     await journey.setup.call(journey, ctx);
     await page.waitForLoadState("networkidle").catch(() => undefined);
-    if (capture === "screencast") {
+    if (deterministic) {
+      clock.capture(join(outDir, `${name}.frames`));
+      await rec.wait(400);
+    } else if (capture === "screencast") {
       sc = await startScreencast(page, join(outDir, args.engine === "frames" ? `${name}.frames` : ".frames"), viewport, { scale: dsf, keep: args.engine === "frames" });
       await rec.wait(400);
     }
@@ -162,10 +176,14 @@ if (args.repolish) {
   } catch (e) {
     failure = e;
     rec.end();
-    await page.screenshot({ path: join(outDir, `${name}.failure.png`) }).catch(() => undefined);
+    if (clock) await Promise.race([clock.snapshot(join(outDir, `${name}.failure.png`)), new Promise((ok) => setTimeout(ok, 5000))]).catch(() => undefined);
+    else await page.screenshot({ path: join(outDir, `${name}.failure.png`) }).catch(() => undefined);
   }
-  const video = page.video();
-  const screencastFile = sc ? await sc.stop(join(outDir, `${name}.screencast.mkv`)).catch((e) => (failure ??= e, null)) : null;
+  const video = deterministic ? null : page.video();
+  let captured = null;
+  if (deterministic && clock.cap) captured = await clock.stopCapture().catch((e) => (failure ??= e, null));
+  if (clock) await clock.stop();
+  const screencastFile = sc ? await sc.stop(join(outDir, `${name}.screencast.mkv`)).catch((e) => (failure ??= e, null)) : captured?.dir ?? null;
   if (args.engine === "frames") {
     await context.close();
     await browser.close();
@@ -176,10 +194,11 @@ if (args.repolish) {
       process.exit(2);
     }
     const fr = JSON.parse(readFileSync(join(screencastFile, "frames.json"), "utf8"));
-    const take = { version: 1, journey: { id: journey.id, title: journey.title, theme: args.theme, lang: args.lang, captionLang: ctx.captionLang, device: ctx.device },
-      viewport, dsf, framesDir: `${name}.frames`, frames: fr.frames.map((f) => ({ t: +(f.t - tlRec.t0).toFixed(1), file: f.file })), timeline: tlRec };
+    const take = { version: 1, capture: deterministic ? { mode: "deterministic", fps: 60, pumps: clock.stats.pumps, advanced: clock.stats.advanced, shotP50Ms: captured?.shotP50 != null ? +captured.shotP50.toFixed(1) : null } : { mode: "screencast" }, journey: { id: journey.id, title: journey.title, theme: args.theme, lang: args.lang, captionLang: ctx.captionLang, device: ctx.device },
+      viewport, dsf, framesDir: `${name}.frames`, frames: fr.frames.map((f) => ({ t: +(f.t - tlRec.t0).toFixed(deterministic ? 3 : 1), file: f.file })), timeline: tlRec };
     writeFileSync(join(outDir, `${name}.take.json`), JSON.stringify(take));
     const lags = fr.frames.map((f) => f.lag).filter((x) => x != null).sort((a, b) => a - b);
+    if (deterministic) log(`deterministic capture: ${((tlRec.marks.end - tlRec.marks.begin) / FRAME_MS).toFixed(0)} ticks of 1/60 s, beginFrame+PNG p50 ${take.capture.shotP50Ms} ms, ${clock.stats.pumps} network pumps, ${clock.stats.advanced} ticks forced past a pending fetch`);
     log(`frames: ${take.frames.length} unique PNG frames at ${viewport.width * dsf}x${viewport.height * dsf}, ${((tlRec.marks.end - tlRec.marks.begin) / 1000).toFixed(1)} s, arrival lag p50 ${lags[lags.length >> 1] ?? "-"} ms -> ${name}.take.json`);
     process.exit(0);
   }

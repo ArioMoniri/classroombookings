@@ -2,9 +2,12 @@
 /**
  * Shared text pieces of the adaptive views (AS-16): the confidence line (badge word + basis + needs, never colour
  * alone) and a value's 80 % range. AS-21: ranges are calibrated; while confidence is `low` the range carries
- * "düşük güven"; `requests` cells are counted, so they get no range.
+ * "düşük güven"; `requests` cells are counted, so they get no range. AS20-F14: the no-term needs block.
  */
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { lowConfidence, showRange, type Confidence } from "@/lib/api/adaptive";
 import { useI18n } from "@/lib/i18n/provider";
 
@@ -28,5 +31,18 @@ export function RangeText({ lo, hi, format, confidence, method }: { lo: number |
       <span>{t("adaptive.range", { lo: format(lo ?? 0), hi: format(hi ?? 0) })}</span>
       {lowConfidence({ confidence, method }) ? <Badge tone="warning" data-testid="low-confidence">{t("adaptive.lowConfidence")}</Badge> : null}
     </span>
+  );
+}
+
+/** AS20-F14: an install with no term yet says what to do first (never an empty select and "Önce bir dönem seçin.") */
+export function NoTerms() {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-col items-start gap-3 rounded-xl bg-fill-3 px-4 py-5" data-testid="adaptive-no-terms">
+      <p className="type-callout text-label-1">{t("adaptive.noTerms")}</p>
+      <Button variant="outline" nativeButton={false} render={<Link href="/import" />}>
+        {t("adaptive.goImport")} <ArrowRight aria-hidden />
+      </Button>
+    </div>
   );
 }

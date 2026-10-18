@@ -561,9 +561,11 @@ def _sheet_trigger(row: WelcomeProgress | None, auds: list[str], st: Settings, n
     items = row.items or {}
     welcomed = set(items.get("audiences") or [])
     new = [a for a in auds if a not in welcomed]
-    if new:
-        return {"kind": "delta", "key": "sheet", "audiences": new, "updated": False}
     seen_versions = items.get("versions") or {}
+    if new:
+        # F-WG-1: a text the person already saw may have changed too; the delta sheet says "Güncellendi" then
+        changed = any(st.content_version(a) > int(seen_versions.get(a, 0) or 0) for a in auds if a in welcomed)
+        return {"kind": "delta", "key": "sheet", "audiences": new, "updated": changed}
     if any(st.content_version(a) > int(seen_versions.get(a, 0) or 0) for a in auds):
         return {"kind": "sheet", "key": "sheet", "audiences": list(auds), "updated": True}
     if row.state == "snoozed":  # lapsed

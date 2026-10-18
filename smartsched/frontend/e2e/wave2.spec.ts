@@ -239,7 +239,8 @@ test("1. resolver: real clashes after publishing; a taken target comes back insi
 
 test("2. policies: the editor's refusing rule and an API request rule show in a teacher's grid with 'Neden?'", async ({ page }) => {
   await signInAs(page);
-  await page.goto("/settings?tab=booking-rules");
+  // PER-F07 (fix-h): Rezervasyon kuralları live in Kurulum next to Onay kuralları; the old Ayarlar link redirects
+  await page.goto("/admin/booking-rules");
   await expect(page.getByTestId("policies-admin")).toBeVisible();
   await page.getByTestId("policy-new").click();
   const form = page.getByTestId("policy-form");

@@ -25,8 +25,10 @@ import { useI18n } from "@/lib/i18n/provider";
 export function ProfileSsoNotice() {
   const { t } = useI18n();
   const params = useSearchParams();
-  const sso = params.get("sso");
-  const error = normalizeProfileSsoError(params.get("error"));
+  // another provider's link (Google / OIDC / SAML) is shown on its own row in Profil › Güvenlik
+  const other = Boolean(params.get("provider")) && params.get("provider") !== "entra";
+  const sso = other ? null : params.get("sso");
+  const error = other ? null : normalizeProfileSsoError(params.get("error"));
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (error && error !== "cancelled") ref.current?.focus();

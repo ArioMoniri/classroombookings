@@ -99,6 +99,11 @@
   "wave1": {
     "find": {
       "weeks": "Veckor"
+    },
+    "audit": {
+      "f": {
+        "days": "Dagar"
+      }
     }
   },
   "moderation": {
@@ -152,10 +157,30 @@
       "day": "Dag"
     }
   },
+  "charts": {
+    "bookings": {
+      "week": "Vecka"
+    },
+    "audit": {
+      "day": "Dag"
+    }
+  },
   "adaptive": {
     "peaks": {
       "col": {
         "weeks": "Veckor"
+      }
+    }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Veckor"
+      },
+      "field": {
+        "class_year": "År",
+        "day": "Dag",
+        "week": "Vecka"
       }
     }
   }

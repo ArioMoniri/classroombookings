@@ -1,11 +1,11 @@
 "use client";
 
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { useSyncExternalStore } from "react";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { useState, useSyncExternalStore } from "react";
 import { Logo } from "@/components/brand";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { IconButton } from "@/components/ui/button";
+import { BareButton, IconButton } from "@/components/ui/button";
 import { KbdHint } from "@/components/ui/kbd-hint";
 import { SidebarGlass, SidebarGlassContent, SidebarGlassFooter, SidebarGlassHeader, SidebarGlassItem, SidebarGlassSection } from "@/components/ui/sidebar-glass";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -61,11 +61,19 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
   const badges = hydrated ? liveBadges : { needsReview: 0, running: 0, approvals: 0 };
   const { can } = usePermissions();
   const groups = hydrated ? visibleNavGroups(can) : [];
+  // PER-F07 (fix-h-2026-10-18): rarely used entries wait under each group's "Daha fazla" (open while one is the current
+  // page); the icon rail keeps every entry, it has no room for a disclosure
+  const [opened, setOpened] = useState<Record<string, boolean>>({});
   return (
     <>
-      {groups.map((group) => (
+      {groups.map((group) => {
+        const rare = collapsed ? [] : group.items.filter((i) => i.more);
+        const rareActive = rare.some((i) => isActive(pathname, search, i.href));
+        const showRare = rareActive || !!opened[group.labelKey];
+        const shown = collapsed ? group.items : group.items.filter((i) => !i.more || showRare);
+        return (
         <SidebarGlassSection key={group.labelKey} title={collapsed ? undefined : t(group.labelKey)} aria-label={collapsed ? t(group.labelKey) : undefined}>
-          {group.items.map((item) => {
+          {shown.map((item) => {
             const active = isActive(pathname, search, item.href);
             const count = item.badge ? badges[item.badge] : 0;
             const label = t(item.labelKey);
@@ -96,8 +104,22 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
               </Tooltip>
             );
           })}
+          {rare.length && !rareActive ? (
+            <li>
+              <BareButton
+                aria-expanded={showRare}
+                onClick={() => setOpened((o) => ({ ...o, [group.labelKey]: !o[group.labelKey] }))}
+                className="flex h-8 w-full items-center gap-2.5 rounded-[10px] px-2.5 type-footnote font-medium text-label-2 transition-colors duration-(--dur-fast) hover:bg-fill-3 hover:text-label-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus) pointer-coarse:min-h-11"
+                data-testid={`nav-more-${group.labelKey.replace(/\./g, "-")}`}
+              >
+                <ChevronDown aria-hidden className={cn("size-4 shrink-0 transition-transform", showRare && "rotate-180")} />
+                {showRare ? t("nav.less") : t("nav.more", { n: rare.length })}
+              </BareButton>
+            </li>
+          ) : null}
         </SidebarGlassSection>
-      ))}
+        );
+      })}
     </>
   );
 }

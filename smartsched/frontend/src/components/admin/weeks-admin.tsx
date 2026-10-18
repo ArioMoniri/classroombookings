@@ -25,7 +25,7 @@ export function WeeksAdmin() {
   return (
     <div className="flex flex-col gap-5">
       <PageTitle title={t("crbs.admin.weeks.title")} subtitle={t("crbs.weeks.lead")} />
-      <Card className="py-0">
+      <Card className="py-0" data-tour="admin-weeks">
         {weeks.isLoading ? (
           <Loading className="px-4" />
         ) : (weeks.data ?? []).length === 0 ? (

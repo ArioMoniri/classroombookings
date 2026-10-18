@@ -32,7 +32,8 @@ export function LearningVersions({ termId }: { termId: number | null }) {
   const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(locale === "tr" ? "tr-TR" : "en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Istanbul" }) : "");
 
   const refresh = () => {
-    if (termId === null) return;
+    // AS20-F10: the button stays enabled while busy (a disabled button drops the focus to <body>); a second press is ignored
+    if (termId === null || act.refresh.isPending) return;
     act.refresh.mutate(termId, {
       onSuccess: (out) => toast.success(out.version ? t("adaptive.learning.refreshed", { n: out.version.number }) : t("adaptive.learning.refreshedPlain")),
       onError: (e) => toast.error(apiText(e, locale)),
@@ -42,7 +43,8 @@ export function LearningVersions({ termId }: { termId: number | null }) {
     if (!revert) return;
     act.revert.mutate(revert.id, {
       onSuccess: (out) => {
-        toast.success(out.identical ? t("adaptive.learning.revertedSame", { n: revert.number }) : t("adaptive.learning.reverted", { n: revert.number }));
+        // AS20-F11: "already current" only when the server wrote no new version (`identical` is the byte-for-byte check)
+        toast.success(out.unchanged ? t("adaptive.learning.revertedSame", { n: revert.number }) : t("adaptive.learning.reverted", { n: revert.number }));
         setRevert(null);
         refreshRef.current?.focus();
       },
@@ -54,7 +56,7 @@ export function LearningVersions({ termId }: { termId: number | null }) {
     <section aria-labelledby="mem-versions" className="flex flex-col gap-3" data-testid="learning-versions">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 id="mem-versions" className="type-headline">{t("adaptive.learning.title")}</h3>
-        <Button ref={refreshRef} onClick={refresh} disabled={termId === null || act.refresh.isPending} data-testid="learning-refresh">
+        <Button ref={refreshRef} onClick={refresh} disabled={termId === null} aria-busy={act.refresh.isPending || undefined} data-testid="learning-refresh">
           <BusyLabel busy={act.refresh.isPending} label={t("busy.working")}>{t("adaptive.learning.refresh")}</BusyLabel>
         </Button>
       </div>

@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `e0a810a` (committed 2026-10-18 09:15 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `7bd0f46` (committed 2026-10-18 16:18 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -177,11 +177,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-311 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 281 · stopped 11 · superseded 7.
+403 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 377 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
-| `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
 | `WG-F` | frontend-engineer | 2026-10-17 22:58 |
 | `AS-B` | backend-engineer | 2026-10-17 23:01 |
 | `VO-F` | frontend-engineer | 2026-10-17 23:16 |
@@ -189,10 +188,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `AUX-F` | frontend-engineer | 2026-10-18 00:04 |
 | `AS-S` | solver-engineer | 2026-10-18 07:56 |
 | `HB-B` | ai-engineer | 2026-10-18 07:56 |
-| `HB-A resume` | ai-engineer | 2026-10-18 08:18 |
-| `HB-B resume` | ai-engineer | 2026-10-18 08:28 |
-| `AS-F` | frontend-engineer | 2026-10-18 08:50 |
-| `E2E lane` | general-purpose | 2026-10-18 08:59 |
+| `FIX-I` | general-purpose | 2026-10-18 15:42 |
 
 <!-- /AUTO:agents -->
 
@@ -248,7 +244,7 @@ Owner and user decisions recorded in [`docs/ROADMAP.md`](ROADMAP.md), newest fir
 
 | Language | Backend offers | Frontend offers | Message catalogue |
 |---|---|---|---|
-| Turkish (`tr`) | yes | yes | complete (a value for every English key) |
+| Turkish (`tr`) | yes | yes | 1 keys missing |
 | English (`en`) | yes | yes | source catalogue |
 
 Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de es fi fr it nl pt pt-br sv. Their catalogues stay in [`messages/`](../smartsched/frontend/messages); a stored code is kept and shown in English.
@@ -259,7 +255,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **409 ticked · 438 open** checkboxes in 100 sections (96 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **447 ticked · 440 open** checkboxes in 104 sections (98 with open items).
 
 <details><summary>Per section</summary>
 
@@ -347,24 +343,28 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Flow loop round 1: academician and admin reports in (2026-10-16) | 2 | 2 |
 | Round 1 integrity fixes (2026-10-16) | 10 | 2 |
 | Wave 3 enhancements (ranked, research 2026-10-17) | 0 | 26 |
-| Wave 3 — W3-SEC (2026-10-17) | 9 | 2 |
+| Wave 3 — W3-SEC (2026-10-17) | 10 | 1 |
 | Wave 3b (owner request 2026-10-17 ~20:15 UTC): identity, e-mail and integration setup | 0 | 4 |
-| Wave 3 — W3-OPS (2026-10-17) | 6 | 2 |
-| Wave 3 — W3-AI (2026-10-17) | 5 | 3 |
+| Wave 3 — W3-OPS (2026-10-17) | 7 | 1 |
+| Wave 3 — W3-AI (2026-10-17) | 7 | 1 |
 | Wave 3b — W3-MAIL (2026-10-17) | 5 | 1 |
 | Wave 3 — W3-SLOT (2026-10-17) | 7 | 5 |
 | Wave 3b — W3-HUB (2026-10-17) | 4 | 2 |
-| Calendar export & sync for academicians (owner request 2026-10-17) | 7 | 6 |
+| Calendar export & sync for academicians (owner request 2026-10-17) | 10 | 3 |
 | Wave 3b — W3-IDP identity providers (2026-10-17) | 5 | 1 |
 | Welcome guide per role (owner request 2026-10-17) | 3 | 8 |
 | Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 14 | 7 |
 | Voice for AI features (owner request 2026-10-17) | 5 | 8 |
-| Charts & telemetry views (owner request 2026-10-17) | 7 | 5 |
-| Real-not-fake & admin editability (owner request 2026-10-17; audit… | 5 | 7 |
-| AI helper: backend, governance, local models (owner request 2026-10-17) | 12 | 8 |
-| AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 0 | 14 |
+| Charts & telemetry views (owner request 2026-10-17) | 8 | 4 |
+| Real-not-fake & admin editability (owner request 2026-10-17; audit… | 15 | 4 |
+| AI helper: backend, governance, local models (owner request 2026-10-17) | 16 | 4 |
+| AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 9 | 15 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — UX | 0 | 12 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — backend | 17 | 1 |
+| Bugs seen while recording the launch video (2026-10-18) | 2 | 0 |
+| FIX-B (e2e results 2026-10-18: phone layout stability, reflow, settings M-05, hydration… | 0 | 8 |
+| FIX-A: e2e results 2026-10-18 backend fixes (fix-a-2026-10-18) | 5 | 0 |
+| FIX-C: e2e results 2026-10-18 bundle, charts, welcome and voice fixes (fix-c-2026-10-18) | 0 | 8 |
 
 </details>
 

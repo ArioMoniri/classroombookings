@@ -174,6 +174,30 @@ describe("CalendarExportSheet", () => {
     expect(screen.getByTestId("cal-link-note")).toHaveTextContent("Bağlantıyı açmayın, abone olun");
   });
 
+  it("CAL-13 Sınav görevlerim: its own card, the duty consent and never-sent line, a my_duties link", async () => {
+    api.options = baseOptions({
+      scopes: [...(baseOptions().scopes as unknown[]), { kind: "my_duties", available: true, preview: { upcoming_count: 7, fields: ["course_code", "room", "time", "department"] } }],
+    });
+    const user = userEvent.setup();
+    renderSheet();
+    const card = await screen.findByTestId("cal-scope-my_duties");
+    expect(card).toHaveTextContent("Sınav görevlerim");
+    expect(card).toHaveTextContent("Gözetmenlikleriniz ve kendi sınavlarınız");
+    expect(card).toHaveTextContent("7 yaklaşan etkinlik");
+    await user.click(card);
+    await user.click(await screen.findByTestId("cal-channel-link"));
+    expect(await screen.findByTestId("cal-never")).toHaveTextContent("Öğrenci bilgisi, not ve diğer gözetmenlerin adları gönderilmez.");
+    // a duty is not a class section: its own bullet, never "Ders kodu ve şube"
+    const dutyFields = within(screen.getByTestId("cal-fields")).getAllByRole("listitem").map((li) => li.textContent);
+    expect(dutyFields).toEqual(["Ders kodu, sınav saati ve derslik", "Bölüm adı"]);
+    expect(screen.getByTestId("cal-approve-where")).toHaveTextContent("Sınav görevlerim");
+    expect(screen.getByTestId("cal-consent")).toHaveTextContent("Sınav görevlerimin seçtiğim takvime gönderilmesini onaylıyorum.");
+    await user.click(screen.getByTestId("cal-consent-tick"));
+    await user.click(screen.getByTestId("cal-submit"));
+    expect(await screen.findByTestId("cal-link")).toBeInTheDocument();
+    expect(api.calls.find((c) => c.path === "/calendar/subscriptions" && c.method === "POST")?.body).toEqual({ scope_kind: "my_duties", scope_id: null, channel: "link" });
+  });
+
   it("department scope sends its department id and no consent box when the consent is given", async () => {
     api.options = baseOptions({ consent: { purpose: "calendar_sync", required: true, granted: true } });
     const user = userEvent.setup();
@@ -247,6 +271,22 @@ describe("CalendarExportSheet", () => {
     });
     await waitFor(() => expect(screen.getByTestId("cal-push-done")).toHaveTextContent(/Eklendi · Son eşitleme: bugün \d\d:\d\d/));
   }, 10_000);
+
+  it("CAL10-F04: steps 2 and 3 take focus on their heading, even when the sheet pulls focus to itself after the tapped card unmounts", async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByTestId("cal-scope-my_classes"));
+    const heading = screen.getByRole("heading", { name: "Nasıl eklemek istiyorsunuz?" });
+    await waitFor(() => expect(heading).toHaveFocus());
+    // what the dialog's focus manager did on the stack once the clicked card was gone: focus on the popup itself
+    act(() => screen.getByTestId("cal-sheet").focus());
+    expect(heading).toHaveFocus();
+    await user.click(screen.getByTestId("cal-channel-link"));
+    await waitFor(() => expect(screen.getByTestId("cal-step-heading")).toHaveTextContent("Takviminize şunlar gönderilecek"));
+    act(() => screen.getByTestId("cal-sheet").focus());
+    expect(screen.getByTestId("cal-step-heading")).toHaveFocus();
+    expect(screen.getByTestId("cal-step")).toHaveTextContent("Adım 3/3");
+  });
 
   it("back returns to the previous step", async () => {
     const user = userEvent.setup();

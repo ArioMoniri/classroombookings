@@ -1,7 +1,7 @@
 /**
  * Identity providers administration (wave 3b W3-IDP; backend app/api/v1/sso.py `/auth/sso/admin/providers*`,
- * app/services/identity/**). zod parses every answer. The client secret is write-only: no schema has a field for it,
- * only `client_secret_set`.
+ * app/services/identity/**). zod parses every answer. The client secret and the SAML SP private key are write-only:
+ * no schema has a field for them, only `client_secret_set` / `saml.sp_private_key_set`.
  */
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { z } from "zod";
@@ -21,6 +21,14 @@ export const Check = z.object({
   detail: z.string().nullish(),
 });
 export type Check = z.infer<typeof Check>;
+
+/** What the screen shows of a certificate (app/services/identity/saml_crypto.py `cert_info`); never the PEM. */
+export const CertInfo = z.object({
+  subject: z.string(),
+  not_after: z.string(),
+  sha256: z.string(),
+});
+export type CertInfo = z.infer<typeof CertInfo>;
 
 export const Provider = z.object({
   id: z.number(),
@@ -71,6 +79,12 @@ export const Provider = z.object({
       name_attribute: z.string().nullish(),
       groups_attribute: z.string().nullish(),
       subject_attribute: z.string().nullish(),
+      // RF-12 (idp-2026-10-18): the federation certificate and the SP key pair; the private key is write-only
+      metadata_signing_cert: CertInfo.nullish(),
+      metadata_signed: z.boolean().default(false),
+      sp_certificate: CertInfo.nullish(),
+      sp_private_key_set: z.boolean().default(false),
+      sign_requests: z.boolean().default(false),
     })
     .nullish(),
   library_required: z.boolean().default(false),
@@ -261,6 +275,14 @@ export type ProviderIn = Partial<{
   email_attribute: string;
   name_attribute: string;
   groups_attribute: string;
+  /** PEM or base64; "" removes it */
+  metadata_signing_cert: string;
+  /** write-only: never in an answer, only `saml.sp_private_key_set` */
+  sp_private_key: string;
+  sp_certificate: string;
+  sp_key_generate: boolean;
+  sp_key_remove: boolean;
+  sign_requests: boolean;
 }>;
 
 export interface ProviderInviteIn {

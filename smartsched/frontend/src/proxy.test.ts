@@ -95,3 +95,19 @@ describe("nonce Content-Security-Policy (docs/SECURITY.md F9)", () => {
     expect(nonceOf(a.headers.get("x-middleware-request-content-security-policy"))).toBe(na);
   });
 });
+
+describe("credentials in the address (HB18-F02)", () => {
+  it("a GET that carries a password is sent back without it (and without the username)", () => {
+    expect(target("/login?username=ayse&password=s3cret")).toBe("/login");
+    expect(target("/login?next=%2Ftimetable&password=s3cret")).toBe("/login?next=%2Ftimetable");
+    expect(target("/reset-password?token=abc&new-password=x")).toBe("/reset-password?token=abc");
+    const res = visit("/login?username=ayse&password=s3cret");
+    expect(res.headers.get("cache-control") ?? "").toContain("no-store");
+  });
+
+  it("leaves ordinary query strings alone", () => {
+    expect(target("/login?next=%2Ftimetable")).toBeNull();
+    expect(target("/login/sso?ticket=abc")).toBeNull();
+    expect(target("/reset-password?token=abc")).toBeNull();
+  });
+});

@@ -8,7 +8,7 @@ import { I18nProvider } from "@/lib/i18n/provider";
 import { forgetReauth, rememberedPassword } from "./reauth-dialog";
 import { codesFileName, codesFileText } from "./recovery-codes";
 import { SecuritySection } from "./security-section";
-import { orderSessions } from "./sessions-list";
+import { orderSessions, sessionLabel } from "./sessions-list";
 import { groupKey } from "./totp-setup";
 
 const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }));
@@ -147,6 +147,30 @@ describe("SecuritySection", () => {
     expect(rememberedPassword(Date.now() + 11 * 60_000)).toBeUndefined();
   });
 
+  it("AUX12-F05: after 'Bitir' focus is on 'Yönet', never on <body>", async () => {
+    let enabled = false;
+    routes["GET /api/v1/auth/mfa"] = () => res(200, enabled ? { ...STATUS, totp: { enabled: true, enabled_at: "2026-10-18T09:00:00" }, recovery_codes: { remaining: 10, total: 10 } } : STATUS);
+    routes["POST /api/v1/auth/mfa/totp/start"] = () => res(200, START);
+    routes["POST /api/v1/auth/mfa/totp/confirm"] = () => {
+      enabled = true;
+      return res(200, { enabled: true, recovery_codes: CODES });
+    };
+    wrap();
+    fireEvent.click(await screen.findByTestId("mfa-turn-on"));
+    const pw = screen.queryByTestId("reauth-password") ?? (await screen.findByTestId("reauth-password").catch(() => null));
+    if (pw) {
+      fireEvent.change(pw, { target: { value: "doğru-parola" } });
+      fireEvent.click(screen.getByTestId("reauth-submit"));
+    }
+    const sheet = await screen.findByTestId("mfa-setup-sheet");
+    fireEvent.paste(await within(sheet).findByRole("textbox", { name: "Doğrulama kodu" }), { clipboardData: { getData: () => "123456" } });
+    await within(sheet).findByTestId("setup-step-3");
+    fireEvent.click(within(sheet).getByTestId("codes-saved"));
+    fireEvent.click(within(sheet).getByTestId("codes-finish"));
+    const manage = await screen.findByTestId("mfa-manage");
+    await waitFor(() => expect(document.activeElement).toBe(manage), { timeout: 2000 });
+  });
+
   it("closing at step 3 without the tick asks first", async () => {
     forgetReauth();
     routes["POST /api/v1/auth/mfa/totp/start"] = () => res(200, START);
@@ -207,6 +231,37 @@ describe("Uygulamayı değiştir (AU-18)", () => {
     await within(sheet).findByTestId("setup-replacing");
     fireEvent.paste(within(sheet).getByRole("textbox", { name: "Doğrulama kodu" }), { clipboardData: { getData: () => "111111" } });
     expect(await within(sheet).findByText("Kod doğru değil. Yeni uygulamanın gösterdiği güncel kodu girin.")).toBeInTheDocument();
+  });
+});
+
+describe("FIX-I: session device labels (AU-B 1)", () => {
+  const tr = (key: string, vars?: Record<string, string | number>) =>
+    ({ "auth.security.apiClient": "Betik ya da API istemcisi", "auth.security.unknownDevice": "Bilinmeyen cihaz", "auth.security.unknownBrowser": "Bilinmeyen tarayıcı", "auth.security.unknownSystem": "bilinmeyen sistem" })[key] ??
+    (key === "auth.security.deviceLabel" ? `${vars?.browser} · ${vars?.os}` : key);
+  it("words the parts from browser / os / client, never from a stored Turkish label", () => {
+    expect(sessionLabel({ device: "Safari, iPhone", browser: "Safari", os: "iPhone", client: "browser" }, tr as never)).toBe("Safari · iPhone");
+    expect(sessionLabel({ device: "API", browser: null, os: null, client: "api" }, tr as never)).toBe("Betik ya da API istemcisi");
+    expect(sessionLabel({ device: "bilinmeyen tarayıcı, bilinmeyen cihaz", browser: null, os: null, client: "unknown" }, tr as never)).toBe("Bilinmeyen cihaz");
+    expect(sessionLabel({ device: "Linux", browser: null, os: "Linux", client: "browser" }, tr as never)).toBe("Bilinmeyen tarayıcı · Linux");
+  });
+  it("an English viewer reads the API row and an unknown row in English", async () => {
+    routes["GET /api/v1/auth/sessions"] = () =>
+      res(200, [
+        { id: 3, created_at: "2026-10-18T07:00:00", last_seen_at: "2026-10-18T07:00:00", expires_at: "2026-10-19T07:00:00", device: "API", browser: null, os: null, client: "api", network: null, current: false },
+        { id: 4, created_at: "2026-10-18T06:00:00", last_seen_at: "2026-10-18T06:00:00", expires_at: "2026-10-19T06:00:00", device: "bilinmeyen tarayıcı, bilinmeyen cihaz", browser: null, os: null, client: "unknown", network: null, current: false },
+        { ...SESSIONS[1], browser: "Chrome", os: "macOS", client: "browser" },
+      ]);
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <I18nProvider initialLocale="en">
+          <SecuritySection />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    const rows = await screen.findAllByTestId("session-row");
+    const names = rows.map((r) => within(r).getByTestId("session-device").textContent);
+    expect(names).toEqual(["Chrome · macOS", "Script or API client", "Unknown device"]);
+    expect(screen.getByTestId("security-sessions").textContent).not.toMatch(/bilinmeyen/);
   });
 });
 

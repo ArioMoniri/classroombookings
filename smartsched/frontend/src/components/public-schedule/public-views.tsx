@@ -73,7 +73,7 @@ export function PublicRoomView({ code }: { code: string }) {
   const q = usePublicRoom(code, date);
   const today = useBackendToday("room", code, date, q.data?.date);
   const clock = useClock();
-  if (q.isError && isNotFound(q.error)) return <PublicNotFound />;
+  if (q.isError && isNotFound(q.error)) return <PublicNotFound date={date} />;
   const d = q.data;
   const live = !!d && d.date === clock.iso;
   const now = d && live ? currentItem(d.items, clock.hhmm) : null;
@@ -116,7 +116,7 @@ export function PublicBuildingView({ code }: { code: string }) {
   const q = usePublicBuilding(code, date);
   const today = useBackendToday("building", code, date, q.data?.date);
   const clock = useClock();
-  if (q.isError && isNotFound(q.error)) return <PublicNotFound />;
+  if (q.isError && isNotFound(q.error)) return <PublicNotFound date={date} />;
   const d = q.data;
   const live = !!d && d.date === clock.iso;
   const lbl = (it: PublicItem) => (locale === "tr" ? it.label.tr : it.label.en);

@@ -434,16 +434,18 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
           lg–xl: sticky INSIDE main, not fixed to the viewport: the fixed bar covered the sidebar footer at 1024
           (review 2026-10-15 §3 Generate 1024). */}
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] lg:sticky lg:inset-x-auto lg:bottom-3 lg:mt-4 lg:px-0 xl:hidden" data-testid="studio-bottom-bar">
-        <div data-glass="chrome" className="glass-chrome pointer-events-auto mx-auto flex max-w-3xl items-center gap-2 rounded-full p-1.5 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
+        {/* F-MB-3: the bar decides by its own width in rem (a container query: rem follows the root font size there, in a
+            media query it is the browser default 16 px), so a 32 px root hides the Back word and Generate may shrink */}
+        <div data-glass="chrome" className="@container/sbar glass-chrome pointer-events-auto mx-auto flex max-w-3xl items-center gap-2 rounded-full p-1.5 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
           <Button variant="ghost" size="sm" disabled={index === 0} onClick={() => goStep(STUDIO_STEPS[index - 1])}>
-            {/* 200 % text (rem media query = the user's font size): the icon stays, the word goes to sr-only */}
-            <ChevronLeft aria-hidden /> <span className="max-[24rem]:sr-only">{t("common.back")}</span>
+            {/* 200 % text: the icon stays, the word goes to sr-only */}
+            <ChevronLeft aria-hidden /> <span className="@max-[22rem]/sbar:sr-only">{t("common.back")}</span>
           </Button>
           <BareButton onClick={() => setSummaryOpen(true)} className="min-h-(--control-h-sm) min-w-0 flex-1 truncate rounded-full bg-fill-3 px-3 text-left type-footnote focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="summary-pill">
             <SummaryPill />
           </BareButton>
           {step === "run" ? (
-            <GenerateButton size="sm" testId="bar-generate" />
+            <GenerateButton size="sm" testId="bar-generate" className="min-w-0 shrink" />
           ) : (
             <Button size="sm" onClick={() => goStep(STUDIO_STEPS[index + 1])} data-testid="step-next">
               {t("common.next")} <ChevronRight aria-hidden />

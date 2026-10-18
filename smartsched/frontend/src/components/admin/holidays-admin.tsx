@@ -104,7 +104,8 @@ export function HolidaysAdmin() {
           }}
         >
           <Field label={t("crbs.common.name")} htmlFor="hol-name">
-            <Input id="hol-name" required maxLength={50} placeholder={t("crbs.holidays.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
+            {/* HB18-F12: "Göster" rings the first field to fill, not the "Ekle" button that stays disabled until then */}
+            <Input id="hol-name" data-tour="admin-holidays-add" required maxLength={50} placeholder={t("crbs.holidays.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
           <Field label={t("crbs.holidays.start")} htmlFor="hol-start">
             <DateField id="hol-start" required min={term?.date_start ?? undefined} max={term?.date_end ?? undefined} value={start} onChange={(v) => setStart(v)} />

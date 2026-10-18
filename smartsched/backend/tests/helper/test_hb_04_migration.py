@@ -89,7 +89,8 @@ def test_hb_04_sqlite_round_trip(tmp_path) -> None:
     con = sqlite3.connect(path)
     for model in (hm.HelperActionInvocation, hm.HelperThread, hm.HelperMessage, hm.HelperNote, hm.HelperEvent):
         have = {r[1] for r in con.execute(f"pragma table_info({model.__tablename__})")}
-        assert {c.name for c in model.__table__.columns} <= have, model.__tablename__
+        later = {"reason", "query", "note"} if model is hm.HelperEvent else set()  # 0048_helper_feedback (HB-14)
+        assert {c.name for c in model.__table__.columns} - later <= have, model.__tablename__
     con.close()
     _run(url, command.downgrade, PREV)
     assert not (TABLES & _tables(path))

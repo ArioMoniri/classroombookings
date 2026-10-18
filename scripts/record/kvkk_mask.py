@@ -29,6 +29,23 @@ initials only ("Dr. Öğr. Üyesi A. C. K.", "Üye. E. N. K." where the workbook
 "A. Y.-K."). It prints `left N` with the shapes of the rows that fail (first letter + "*", never the name) and exits
 1 when N > 0. stack.sh runs it after every masking pass.
 
+Running stack (FIX-J, round-4 E2EA-F01): `audit_events` is append-only (alembic 0031_kvkk). Its rows are masked
+through the sanctioned path of app/services/kvkk.py: an `anonymise` window in `audit_purge_windows` per entity,
+opened and deleted in the same transaction as the update, so `stack.sh mask` repairs a live database too.
+Each masked instructor also gets a `catalog_aliases` row (entity instructor, alias = the masked canonical name) when
+its initials are unique, so a re-import of the masked workbooks matches the existing rows instead of adding new ones.
+
+    python3 scripts/record/kvkk_mask.py --workbooks SRC_DIR DST_DIR --names FILE   masked copies of the workbooks
+    python3 scripts/record/kvkk_mask.py --files DIR --names FILE                     mask stored uploads in place
+
+--workbooks writes a masked copy of every .xlsx / .csv in SRC_DIR (cells, comments, document authors) to DST_DIR;
+stack.sh keeps them in $REC_WORKDIR/fixtures, the only workbooks a test stack accepts (app/core/kvkk_guard.py).
+--files masks the import and council uploads the stack stored (preview files included).
+
+--verify also scans, with --names FILE, every text and JSON column (import preview rows in `import_jobs.summary`,
+audit snapshots, council artifacts) for two consecutive words of a known name, and with --uploads DIR every stored
+.xlsx / .csv upload; it reports `table.column: N cells` / `upload: N files`, never a value.
+
 --check changes nothing and only reports. The last lines count the cells that still hold a whole word equal to
 an original surname: these are ordinary words that happen to be surnames ("Bulut", "Bellek" in course names);
 read the samples before publishing media.
@@ -183,7 +200,8 @@ class Masker:
         if isinstance(v, list):
             return [self.value(x) for x in v]
         if isinstance(v, dict):
-            return {k: self.value(x) for k, x in v.items()}
+            # keys too: some summaries key their counts by the cell text (an instructor's spelling)
+            return {self.text(k) if isinstance(k, str) else k: self.value(x) for k, x in v.items()}
         return v
 
     def cell(self, val: str) -> str:
@@ -223,24 +241,198 @@ def is_masked(name: str) -> bool:
     return all(is_title(w) or INITIAL.fullmatch(w) for w in name.split())
 
 
-def verify(db: str) -> int:
+def _read_text(path: str) -> tuple[str, str]:
+    raw = open(path, "rb").read()
+    for enc in ("utf-8-sig", "utf-8", "cp1254"):
+        try:
+            return raw.decode(enc), enc
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin-1"), "latin-1"
+
+
+def _upload_files(folder: str) -> list[str]:
+    import os
+
+    out = []
+    for base, _dirs, files in os.walk(folder):
+        out += [os.path.join(base, f) for f in files if f.lower().endswith((".xlsx", ".xlsm", ".csv", ".txt"))]
+    return sorted(out)
+
+
+def _file_texts(path: str) -> list[str]:
+    """The texts of an upload: for a workbook the XML of its strings, sheets, comments and document properties
+    (read straight from the zip, fast on large grids), one item per string."""
+    if path.lower().endswith((".xlsx", ".xlsm")):
+        import html
+        import zipfile
+
+        parts = re.compile(r"^(xl/(sharedStrings|comments[^/]*|worksheets/[^/]+)|docProps/(core|app))\.xml$", re.I)
+        try:
+            with zipfile.ZipFile(path) as z:
+                xml = [z.read(n).decode("utf-8", "replace") for n in z.namelist() if parts.match(n)]
+        except (OSError, zipfile.BadZipFile):
+            return []
+        # one item per shared string / cell / comment / property; rich-text runs inside one item stay together
+        items = (re.sub(r"<[^>]+>", "", x) for doc in xml for x in re.split(r"</(?:\w+:)?(?:si|c|comment|is)>|(?<=>)(?=<dc:|<cp:)", doc))
+        return [html.unescape(x) for x in items if x.strip()]
+    return _read_text(path)[0].splitlines()
+
+
+def _load_names(path: str | None) -> list[str]:
+    if not path:
+        return []
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return list(json.load(fh))
+    except FileNotFoundError:
+        print(f"warning: {path} not found")
+        return []
+
+
+def full_name_runs(names: list[str]) -> re.Pattern[str] | None:
+    """Two or more consecutive whole name words (initials a workbook already wrote, "B." in "Ayşe B. Kaya", break
+    a run), so masked output ("A. B. K.") never matches its own pattern."""
+    runs: set[str] = set()
+    for full in names:
+        for part in re.split(r"\S*\b[^\W\d_]\.\S*", " ".join(name_words(full))):
+            ws = [w for w in part.split() if sum(ch.isalpha() for ch in w) >= 2]
+            for i in range(len(ws)):
+                for j in range(i + 2, len(ws) + 1):
+                    runs.add(lower_tr(" ".join(ws[i:j])))
+    return bounded(runs) if runs else None
+
+
+def verify(db: str, names_file: str | None = None, uploads: str | None = None) -> int:
     con = sqlite3.connect(db, timeout=60)
     left: list[str] = []
     for table in ("instructors", "users"):
         for (val,) in con.execute(f'select full_name from "{table}" where full_name is not null'):
             if val.strip() and val not in PLACEHOLDER_NAMES and not is_masked(val):
                 left.append(table + ": " + " ".join(w if is_title(w) or INITIAL.fullmatch(w) else w[:1] + "*" for w in val.split()))
+    runs = full_name_runs(_load_names(names_file))
+    if runs is not None:
+        # every text / JSON column: import preview rows (import_jobs.summary), audit snapshots, council artifacts
+        for t, c in text_columns(con):
+            n = 0
+            for (val,) in con.execute(f'select "{c}" from "{t}" where "{c}" is not null'):
+                if isinstance(val, str) and runs.search(lower_tr(readable(val))):
+                    n += 1
+            if n:
+                left.append(f"{t}.{c}: {n} cells")
+        if uploads:
+            bad = [p for p in _upload_files(uploads) if any(runs.search(lower_tr(x)) for x in _file_texts(p))]
+            if bad:
+                left.append(f"upload: {len(bad)} files")
+    elif names_file or uploads:
+        print("warning: no names to look for; text columns and uploads were not scanned")
     con.close()
     print(f"left {len(left)}" + (f" ({'; '.join(left[:10])})" if left else ""))
     return 1 if left else 0
+
+
+def mask_file(src: str, dst: str, masker: Masker) -> bool:
+    """A masked copy of one workbook / CSV (dst may equal src). True when something changed."""
+    if src.lower().endswith((".xlsx", ".xlsm")):
+        from openpyxl import load_workbook
+        from openpyxl.comments import Comment
+
+        wb = load_workbook(src, keep_vba=src.lower().endswith(".xlsm"))
+        changed = False
+        for attr in ("creator", "lastModifiedBy"):
+            if getattr(wb.properties, attr):
+                setattr(wb.properties, attr, "SmartSched")
+                changed = True
+        for ws in wb.worksheets:
+            for row in ws.iter_rows():
+                for c in row:
+                    if isinstance(c.value, str):
+                        new = masker.text(c.value)
+                        if new != c.value:
+                            c.value, changed = new, True
+                    if c.comment is not None:
+                        text, author = masker.text(c.comment.text or ""), masker.text(c.comment.author or "")
+                        if (text, author) != (c.comment.text or "", c.comment.author or ""):
+                            c.comment, changed = Comment(text, author), True
+        if changed or dst != src:
+            wb.save(dst)
+        return changed
+    text, enc = _read_text(src)
+    new = "\n".join(masker.text(line) for line in text.split("\n"))
+    if new != text or dst != src:
+        with open(dst, "w", encoding="utf-8" if enc == "utf-8-sig" else enc, newline="") as fh:
+            fh.write(new)
+    return new != text
+
+
+def mask_files(argv: list[str]) -> int:
+    import os
+    import shutil
+
+    names_file = argv[argv.index("--names") + 1] if "--names" in argv else None
+    masker = Masker(_load_names(names_file))
+    if masker.runs is None:
+        print("error: --names FILE with the saved name list is required")
+        return 1
+    if "--workbooks" in argv:
+        i = argv.index("--workbooks")
+        src, dst = argv[i + 1], argv[i + 2]
+        os.makedirs(dst, exist_ok=True)
+        n = 0
+        for f in sorted(os.listdir(src)):
+            p = os.path.join(src, f)
+            if not os.path.isfile(p):
+                continue
+            if f.lower().endswith((".xlsx", ".xlsm", ".csv", ".txt")):
+                mask_file(p, os.path.join(dst, f), masker)
+            else:
+                shutil.copyfile(p, os.path.join(dst, f))
+            n += 1
+        print(f"masked copies: {n} files in {dst}")
+        return 0
+    folder = argv[argv.index("--files") + 1]
+    n = sum(1 for p in _upload_files(folder) if mask_file(p, p, masker))
+    print(f"masked uploads: {n} files")
+    return 0
+
+
+def _audit_updates(con: sqlite3.Connection, col: str, updates: list[tuple[str, int]]) -> None:
+    """Masked audit cells through the anonymise windows of the append-only trigger (app/services/kvkk.py)."""
+    windows = []
+    for _new, rowid in updates:
+        et, eid, actor = con.execute("select entity_type, entity_id, actor_id from audit_events where rowid = ?", (rowid,)).fetchone()
+        if eid is not None:
+            windows.append(("anonymise", None, et, eid))
+        elif actor is not None:
+            windows.append(("anonymise", actor, None, None))
+    now = "2000-01-01 00:00:00"
+    ids = []
+    for w in set(windows):
+        cur = con.execute(
+            "insert into audit_purge_windows (kind, subject_actor_id, entity_type, entity_id, created_at) values (?, ?, ?, ?, ?)",
+            (*w, now),
+        )
+        ids.append(cur.lastrowid)
+    try:
+        for new, rowid in updates:
+            try:
+                con.execute(f'update audit_events set "{col}" = ? where rowid = ?', (new, rowid))
+            except sqlite3.IntegrityError:
+                print(f"  audit_events.{col}: row {rowid} has no entity or actor; left as it is")
+    finally:
+        con.executemany("delete from audit_purge_windows where id = ?", [(i,) for i in ids])
 
 
 def main(argv: list[str]) -> int:
     if not argv:
         print(__doc__)
         return 1
+    if "--workbooks" in argv or "--files" in argv:
+        return mask_files(argv)
     if "--verify" in argv:
-        return verify(argv[0])
+        names = argv[argv.index("--names") + 1] if "--names" in argv else None
+        uploads = argv[argv.index("--uploads") + 1] if "--uploads" in argv else None
+        return verify(argv[0], names, uploads)
     db, check = argv[0], "--check" in argv
 
     def opt(flag: str) -> str | None:
@@ -290,10 +482,27 @@ def main(argv: list[str]) -> int:
             print(f"  {t}.{c}: {len(updates)} cells")
             changed += len(updates)
             if not check:
-                con.executemany(f'update "{t}" set "{c}" = ? where rowid = ?', updates)
+                if t == "audit_events":
+                    _audit_updates(con, c, updates)
+                else:
+                    con.executemany(f'update "{t}" set "{c}" = ? where rowid = ?', updates)
     if not check:
         for iid, _full, m in todo:
             con.execute("update instructors set full_name = ?, canonical_name = ? where id = ?", (m, f"{lower_tr(m)} #{iid}", iid))
+        # the masked workbooks name these rows by their initials: an alias per unique masked name, so a re-import
+        # of $REC_WORKDIR/fixtures matches them (catalog.instructor -> CatalogAlias) instead of creating new rows
+        if con.execute("select 1 from sqlite_master where type='table' and name='catalog_aliases'").fetchone():
+            masked = Counter()
+            keyed: dict[str, int] = {}
+            for iid, full in con.execute("select id, full_name from instructors"):
+                key = lower_tr(" ".join(w for w in (full or "").split() if not is_title(w)))
+                if key:
+                    masked[key] += 1
+                    keyed[key] = iid
+            con.executemany(
+                "insert or ignore into catalog_aliases (entity, alias, target_id, created_at) values ('instructor', ?, ?, ?)",
+                [(k, keyed[k], "2000-01-01 00:00:00") for k, n in masked.items() if n == 1 and is_masked(k)],
+            )
         cols = {r[1] for r in con.execute("pragma table_info('instructors')")}
         for col in ("email", "phone"):
             if col in cols:

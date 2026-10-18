@@ -651,3 +651,48 @@ def test_logs_reads_latest_console_output(aws: StubAws) -> None:
     assert pod["lines"] == ["[user-data] waiting for SSM /smartsched/github_token"]
     assert pod["runtime"][0] == "smartsched-backend Up 2 minutes (healthy)"
     assert "hunter2" not in "\n".join(pod["runtime"])
+
+
+def test_pod_diag_prints_failed_gate_tails(tmp_path: Any) -> None:
+    """POD_DIAG's python block: the last FAILED_GATE_TAIL lines of each failed gate of the newest finished run."""
+    import sqlite3
+    import sys
+
+    logs = tmp_path / "logs"
+    db = sqlite3.connect(tmp_path / "ci.sqlite3")
+    db.executescript("""
+        CREATE TABLE runs (id INTEGER PRIMARY KEY, branch TEXT, sha TEXT, state TEXT, finished_at REAL);
+        CREATE TABLE steps (run_id INTEGER, seq INTEGER, name TEXT, state TEXT, exit_code INTEGER, log_path TEXT);
+    """)
+
+    def gate_log(run: int, name: str, lines: list[str]) -> str:
+        (logs / str(run)).mkdir(parents=True, exist_ok=True)
+        path = logs / str(run) / f"{name}.log"
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return str(path)
+
+    backend = [f"backend line {i}" for i in range(100)] + ["FAILED tests/test_x.py::test_y - assert 1 == 2"]
+    db.executemany("INSERT INTO runs VALUES (?, ?, ?, ?, ?)", [
+        (80, "main", "a" * 40, "failure", 100.0),
+        (81, "claude/x", "e92feedb" + "0" * 32, "failure", 200.0),
+        (82, "claude/x", "f" * 40, "running", None),  # still running: not the newest *finished* run
+    ])
+    db.executemany("INSERT INTO steps VALUES (?, ?, ?, ?, ?, ?)", [
+        (80, 1, "infra", "failure", 1, gate_log(80, "infra", ["old run"])),
+        (81, 1, "prepare", "success", 0, gate_log(81, "prepare", ["prepare ok"])),
+        (81, 2, "backend", "failure", 1, gate_log(81, "backend", backend)),
+        (81, 3, "frontend", "failure", -9, gate_log(81, "frontend", ["vitest", "[pod-ci] TIMEOUT after 1800 s"])),
+        (81, 4, "e2e-real", "skipped", None, ""),
+    ])
+    db.commit()
+    db.close()
+    out = subprocess.run([sys.executable, "-", str(tmp_path), str(sa.FAILED_GATE_TAIL)], input=sa.POD_FAILED_GATES_PY,
+                         text=True, capture_output=True, check=True).stdout.splitlines()
+    assert out[0] == "==== newest finished run #81 claude/x@e92feedb: failure"
+    i = out.index(f"==== backend: failure (exit 1) {logs / '81' / 'backend.log'}")
+    assert out[i + 1:i + 1 + sa.FAILED_GATE_TAIL] == backend[-sa.FAILED_GATE_TAIL:]
+    assert out[-3:] == [f"==== frontend: failure (exit -9) {logs / '81' / 'frontend.log'}", "vitest",
+                        "[pod-ci] TIMEOUT after 1800 s"]
+    assert "prepare ok" not in out and "old run" not in out and not any("e2e-real" in line for line in out)
+    assert f"python3 - /var/lib/smartsched-ci {sa.FAILED_GATE_TAIL} <<" in sa.POD_DIAG
+    assert sa.POD_DIAG.endswith("PODCI_PY\n") and sa.POD_FAILED_GATES_PY.strip() in sa.POD_DIAG

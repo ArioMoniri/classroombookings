@@ -311,6 +311,16 @@ async def revert(session: AsyncSession, version_id: int, actor: Any) -> dict[str
     v = await session.get(LearningVersion, version_id)
     if v is None:
         raise _err(404, "version_not_found", "learning version not found", "öğrenme sürümü bulunamadı")
+    current = await _last(session, v.term_id)
+    if (
+        current is not None
+        and current.checksum == v.checksum
+        and checksum(await prior_rows(session, v.term_id)) == v.checksum
+    ):
+        # AS20-F11: the version is already the current prior set; pin it, write no new "Geri dönüş" row
+        await _put_setting(session, f"{PIN_PREFIX}{v.term_id}", current.id)
+        await session.flush()
+        return {"restored": version_out(v), "version": version_out(current), "identical": True, "unchanged": True}
     rows = await _snapshot(session, v.id)
     want = {int(r["id"]): r for r in rows}
     existing = {
@@ -350,7 +360,12 @@ async def revert(session: AsyncSession, version_id: int, actor: Any) -> dict[str
         actor=actor,
         term_id=v.term_id,
     )
-    return {"restored": version_out(v), "version": version_out(nv), "identical": nv.checksum == v.checksum}
+    return {
+        "restored": version_out(v),
+        "version": version_out(nv),
+        "identical": nv.checksum == v.checksum,
+        "unchanged": False,
+    }
 
 
 async def scrub_person(session: AsyncSession, keys: list[tuple[str, str]]) -> int:

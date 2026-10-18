@@ -196,10 +196,18 @@ async def build_items(session: AsyncSession, job: CouncilJob) -> list[dict[str, 
                 confidence=g["confidence"],
                 files=g["files"],
                 evidence=g.get("evidence", []),
+                # FIX-A: two existing terms fit the group: the reviewer picks one (edit {code}) or accepts a new one
+                **(
+                    {"blocking": True, "term_candidates": g["term_candidates"], "file_indexes": list(g["files"])}
+                    if g.get("term_candidates")
+                    else {"term_id": g["term_id"]}
+                    if g.get("term_id")
+                    else {}
+                ),
             )
     # renamed instructors (owner decision 2026-10-17): "Aynı kişi mi?" before a second person is created
     for item_id, title, extra in await person_merge_items(session, job):
-        add(item_id, "person_merge", title, **extra)
+        add(item_id, "person_merge", title, legacy_id=extra.pop("legacy_id", None), **extra)
     # rows read by the AI model: one blocking item per file until a person decided each row (P19-A2)
     from app.council import airows
 
@@ -215,33 +223,17 @@ async def build_items(session: AsyncSession, job: CouncilJob) -> list[dict[str, 
 
 
 async def _term_ids(session: AsyncSession, job: CouncilJob) -> list[int] | None:
-    """The existing terms the job's planner groups name: the same code, else the one term whose code carries the
-    group's season word and year ("BAHAR" -> "2026-BAHAR"; the commit panel's rule, R3-M-04). ``None``: no group
-    names an existing term (the people of every term are then the known ones)."""
-    import re
+    """The existing terms the job's planner groups name: the same code, else the one term the group matches
+    (:mod:`app.council.term_match`: the season in any spelling and the year or dates; "2026-2027-GUZ" ->
+    "2026-GUZ"). ``None``: no group names an existing term (the people of every term are then the known ones)."""
+    from app.council import term_match
 
-    from sqlalchemy import select
-
-    from app.models import Term
-
-    terms = (await session.execute(select(Term.id, Term.code))).all()
-    up = {tid: (code or "").strip().upper() for tid, code in terms}
     out: list[int] = []
     for g in (job.plan or {}).get("groups", []):
-        want = str(g.get("code") or "").strip().upper()
-        if not want:
+        if not str(g.get("code") or "").strip():
             continue
-        same = [tid for tid, c in up.items() if c == want]
-        if not same:
-            season = re.sub(r"\d{4}[-/]?\d{0,4}", "", want).replace("-", " ").strip()
-            year = g.get("year") or job.year_hint
-            same = [
-                tid
-                for tid, c in up.items()
-                if season and season in re.split(r"[-_ ]+", c) and (not year or str(year) in c)
-            ]
-            same = same if len(same) == 1 else []
-        out += same
+        found = await term_match.candidates(session, {**g, "year": g.get("year") or job.year_hint})
+        out += [found[0].id] if len(found) == 1 else []
     return sorted(set(out)) or None
 
 
@@ -305,7 +297,7 @@ async def person_merge_items(session: AsyncSession, job: CouncilJob) -> list[tup
     if not todo:
         return []
     q = (
-        select(Instructor.id, Instructor.full_name, Instructor.email, Course.code)
+        select(Instructor.id, Instructor.full_name, Instructor.email, Course.code, Instructor.canonical_name)
         .join(SectionInstructor, SectionInstructor.instructor_id == Instructor.id)
         .join(Section, Section.id == SectionInstructor.section_id)
         .join(Course, Course.id == Section.course_id)
@@ -316,10 +308,25 @@ async def person_merge_items(session: AsyncSession, job: CouncilJob) -> list[tup
         q = q.where(Section.term_id.in_(term_ids))
     people: dict[int, dict[str, Any]] = {}
     by_course: dict[str, set[int]] = {}
-    for iid, name, email, code in (await session.execute(q)).all():
-        p = people.setdefault(iid, {"name": name, "email": email, "courses": set()})
+    for iid, name, email, code, canonical in (await session.execute(q)).all():
+        p = people.setdefault(iid, {"name": name, "email": email, "courses": set(), "canonical": canonical})
         p["courses"].add(code)
         by_course.setdefault(n.course_key(code), set()).add(iid)
+    # FIX-A (e2e 2026-10-18): the people of the job's other planner groups. A person two groups name in two
+    # spellings is asked about once, before either commit (``person:pair:``); after the first commit created one
+    # spelling, the question against that person carries the same answer (its ``legacy_id``)
+    group_of = {int(fi): gi for gi, g in enumerate((job.plan or {}).get("groups", [])) for fi in g.get("files", [])}
+    by_canon: dict[str, list[tuple[int, str]]] = {}
+    for (fi2, key2), c2 in canon.items():
+        by_canon.setdefault(c2, []).append((fi2, key2))
+
+    def pair_id(a: str, b: str) -> str:
+        return "person:pair:" + hashlib.sha256("|".join(sorted((a, b))).encode()).hexdigest()[:16]
+
+    def other_group(fi_a: int, fi_b: int) -> bool:
+        return group_of.get(fi_a) is not None and group_of.get(fi_b) is not None and group_of[fi_a] != group_of[fi_b]
+
+    asked: set[tuple[int, str]] = set()
     out: list[tuple[str, str, dict[str, Any]]] = []
     for (fi, key), e in sorted(todo.items(), key=lambda kv: kv[0]):
         person = IncomingPerson(
@@ -340,7 +347,77 @@ async def person_merge_items(session: AsyncSession, job: CouncilJob) -> list[tup
         digest = hashlib.sha256(f"{key}|{item['existing_id']}".encode()).hexdigest()[:16]
         fields = {k: v for k, v in item.items() if k not in ("kind", "options")}
         fields.update(choices=item["options"], file_index=fi, raw=e["raw"], title_tr=item["message_tr"])
+        target = people[int(item["existing_id"])].get("canonical")
+        peer = next(((f2, k2) for f2, k2 in by_canon.get(target or "", []) if other_group(fi, f2)), None)
+        if peer is not None:
+            fields["legacy_id"] = pair_id(key, peer[1])
+        asked.add((fi, key))
         out.append((f"person:{fi}:{digest}", item["message_en"], fields))
+    out += _pair_items(todo, asked, emails, staff_nos, other_group, pair_id)
+    return out
+
+
+def _pair_items(
+    todo: dict[tuple[int, str], dict[str, Any]],
+    asked: set[tuple[int, str]],
+    emails: dict[str, str],
+    staff_nos: dict[str, Any],
+    other_group: Any,
+    pair_id: Any,
+) -> list[tuple[str, str, dict[str, Any]]]:
+    """FIX-A: "Aynı kişi mi?" between two people nobody knows yet, named by files of two planner groups (one
+    question per pair; it holds both groups' commits, ``file_indexes``). No person exists yet, so there is no
+    ``existing_id``: an accepted pair writes nothing at the first commit, and the second commit's question
+    against the person the first one created takes the same answer."""
+    from app.importers import normalize as n
+    from app.services.person_match import IncomingPerson, KnownPerson, match_person, review_item
+
+    entries = sorted(todo.items(), key=lambda kv: kv[0])
+    peers = {-(i + 1): (fi, key, e) for i, ((fi, key), e) in enumerate(entries)}  # synthetic ids: never an instructor's
+    by_course: dict[str, set[int]] = {}
+    for pid, (_fi, _key, e) in peers.items():
+        for c in e["courses"]:
+            by_course.setdefault(n.course_key(c), set()).add(pid)
+    out: list[tuple[str, str, dict[str, Any]]] = []
+    seen: set[str] = set()
+    for (fi, key), e in entries:
+        if (fi, key) in asked or not e["courses"]:
+            continue
+        ids = set().union(*(by_course.get(n.course_key(c), set()) for c in e["courses"]))
+        known = [
+            KnownPerson(
+                id=pid,
+                name=peers[pid][2]["raw"],
+                courses=frozenset(peers[pid][2]["courses"]),
+                email=emails.get(peers[pid][1]),
+            )
+            for pid in sorted(ids)
+            if other_group(fi, peers[pid][0]) and peers[pid][1] != key and (peers[pid][0], peers[pid][1]) not in asked
+        ]
+        if not known:
+            continue
+        person = IncomingPerson(
+            name=e["raw"], courses=frozenset(e["courses"]), email=emails.get(key), staff_no=staff_nos.get(key)
+        )
+        match = match_person(person, known)
+        item = review_item(person, match, known) if match.kind == "near" else None
+        if item is None:
+            continue
+        p_fi, p_key, _p = peers[int(item["existing_id"])]
+        item_id = pair_id(key, p_key)
+        if item_id in seen:
+            continue
+        seen.add(item_id)
+        fields = {k: v for k, v in item.items() if k not in ("kind", "options")}
+        fields.update(
+            choices=item["options"],
+            existing_id=None,
+            file_index=fi,
+            file_indexes=sorted({fi, p_fi}),
+            raw=e["raw"],
+            title_tr=item["message_tr"],
+        )
+        out.append((item_id, item["message_en"], fields))
     return out
 
 
@@ -422,6 +499,9 @@ async def rerun_deterministic(session: AsyncSession, job: CouncilJob, file_index
         if art.payload.get("shape") == "weekly-grid":
             axes.append([[p["start"], p["end"]] for p in planner.DEFAULT_GRID])
     new_plan = planner.plan(meta, records_all, axes, lang=job.lang)
+    from app.council import term_match
+
+    await term_match.resolve_groups(session, new_plan)  # FIX-A: the existing term of each group
     if old_plan is not None:  # sheet names are not re-read here; keep the earlier week lists per group code
         old = {g["code"]: g for g in old_plan.payload.get("groups", [])}
         for g in new_plan["groups"]:

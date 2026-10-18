@@ -55,7 +55,7 @@ export function Providers({ locale, nonce, children }: { locale: Locale; nonce?:
           <AppearanceMotionConfig>
             <TooltipProvider delay={300}>
               {children}
-              <Toaster position="bottom-right" closeButton visibleToasts={3} />
+              <LocalToaster />
               <ApiErrorBridge />
             </TooltipProvider>
           </AppearanceMotionConfig>
@@ -63,4 +63,10 @@ export function Providers({ locale, nonce, children }: { locale: Locale; nonce?:
       </ThemeProvider>
     </QueryClientProvider>
   );
+}
+
+/** PER-F16: the toast region's accessible name in the reader's language (sonner's default is "Notifications alt+T"). */
+function LocalToaster() {
+  const { t } = useI18n();
+  return <Toaster position="bottom-right" closeButton visibleToasts={3} containerAriaLabel={t("nav.notifications")} />;
 }

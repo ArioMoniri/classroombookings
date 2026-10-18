@@ -6,7 +6,7 @@
 import { PERIODS, PERIODS_PER_DAY } from "@/lib/time";
 import type { Text2 } from "@/lib/api/calendar";
 import { roomCap, type CalEvent, type CalendarModel, type WeekMask } from "./index-model";
-import { DAY_END, DAY_START, TRANSITION, TRANSITION_PERIOD } from "./periods";
+import { dayEnd, dayStart, transition, transitionPeriod } from "./periods";
 
 export type Severity = "hard" | "soft";
 export interface CheckIssue {
@@ -61,7 +61,8 @@ export function checkMove(model: CalendarModel, moving: CalEvent, target: MoveTa
   const mask = target.mask ?? moving.mask;
   const self = new Set<number>([a.id, ...ignore]);
   if (target.sp < 1 || target.ep > PERIODS_PER_DAY || target.sp > target.ep || target.day < 1 || target.day > 7) {
-    hard.push({ code: "out_of_range", severity: "hard", text: { tr: `Ders saati ${DAY_START}–${DAY_END} aralığının dışına taşıyor`, en: `The span leaves the ${DAY_START}–${DAY_END} day` } });
+    const [from, to] = [dayStart(), dayEnd()];
+    hard.push({ code: "out_of_range", severity: "hard", text: { tr: `Ders saati ${from}–${to} aralığının dışına taşıyor`, en: `The span leaves the ${from}–${to} day` } });
     return { ok: false, hard, soft, culprits };
   }
   const room = model.roomById.get(target.room);
@@ -135,8 +136,10 @@ export function checkMove(model: CalendarModel, moving: CalEvent, target: MoveTa
     }
   }
   if (a.locked) soft.push({ code: "locked", severity: "soft", text: { tr: "Kilitli ders: taşıma kilidi korur", en: "Locked class: the move keeps it locked" } });
-  if (target.sp <= TRANSITION_PERIOD && target.ep >= TRANSITION_PERIOD && target.ep > target.sp) {
-    soft.push({ code: "p12", severity: "soft", text: { tr: `Aralık ${TRANSITION.start}–${TRANSITION.end} geçiş saatini içeriyor`, en: `The span includes the ${TRANSITION.start}–${TRANSITION.end} transition (P${TRANSITION_PERIOD})` } });
+  const tp = transitionPeriod();
+  if (target.sp <= tp && target.ep >= tp && target.ep > target.sp) {
+    const tr = transition();
+    soft.push({ code: "p12", severity: "soft", text: { tr: `Aralık ${tr.start}–${tr.end} geçiş saatini içeriyor`, en: `The span includes the ${tr.start}–${tr.end} transition (P${tp})` } });
   }
   return { ok: hard.length === 0, hard, soft, culprits };
 }

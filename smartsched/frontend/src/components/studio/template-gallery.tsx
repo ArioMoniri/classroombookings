@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, Building2, Clock, DoorOpen, GraduationCap, NotebookPen, Plus, type LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -35,6 +35,28 @@ export interface BuilderPrefill {
   /** field values an example chip stands for (round-1 T-R1-46); merged over the template defaults */
   params?: Params;
   hardness?: "hard" | "soft";
+}
+
+/** Mobile B fix 15: the "Şablondan seç" trigger and the gallery keep their own open state, so the tap re-renders
+ *  this launcher only. The state lived in RulesStep, and opening re-rendered every rule card of the step (1,854 ms
+ *  on a tablet). A prefill (an example chip, a "make a rule" hand-off from the classes) opens it as before. */
+export function TemplateGalleryLauncher({ children, prefill, onClosed }: { children: ReactNode; prefill?: BuilderPrefill | null; onClosed?: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)} data-testid="add-template">
+        {children}
+      </Button>
+      <TemplateGallery
+        open={open || Boolean(prefill)}
+        prefill={prefill}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) onClosed?.();
+        }}
+      />
+    </>
+  );
 }
 
 /** (b) Pick a template: gallery (topic tabs + cards), then the builder (live sentence on top, fields below). */

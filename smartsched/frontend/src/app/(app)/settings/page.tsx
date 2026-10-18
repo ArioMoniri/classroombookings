@@ -13,7 +13,10 @@ export const generateMetadata = localizedTitle("titles.settings");
  */
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const tab = (await searchParams).tab;
-  if ((Array.isArray(tab) ? tab[0] : tab) === "users") redirect("/admin/users");
+  const first = Array.isArray(tab) ? tab[0] : tab;
+  if (first === "users") redirect("/admin/users");
+  // PER-F07 (fix-h-2026-10-18): Rezervasyon kuralları moved to Kurulum, next to Onay kuralları
+  if (first === "booking-rules") redirect("/admin/booking-rules");
   return (
     <Suspense fallback={null}>
       <HydrationGate>

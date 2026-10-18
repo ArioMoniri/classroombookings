@@ -11,7 +11,7 @@
 import { Copy, Mail, MoreHorizontal, Pencil, ShieldQuestion, Trash2, Upload, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
@@ -45,6 +45,7 @@ import {
 } from "@/lib/api/crbs";
 import { canManageAccount, isPrivilegedRole, roleGrantCheck, usePermissions } from "@/lib/permissions";
 import { useAuthProviders, useInvites, useUserIdentityStatus, type Invite, type UserIdentityStatus } from "@/lib/api/identity";
+import { invitePrefill, roleValueFor, type InvitePrefill } from "@/lib/handover";
 import { BindDialog, BreakGlassWarning, IdentitiesSection, IdentityMenuItems, IdentityStatusCell, IdentityTags, InviteSheet, MethodCell, RevokeDialog } from "./users-admin-identity";
 import { breakGlassMissing, identityQuery, invitesByUser, methodView, statusView, type IdentityFilter, type MethodFilter } from "./users-admin-identity-model";
 import { matchesMfaFilter, MfaFilterSelect, MfaMethodTag, mfaListState, securityAccount, useUserSecurity, type MfaFilter, type SecurityUser } from "./users-security";
@@ -78,11 +79,15 @@ export function UsersAdmin() {
   const router = useRouter();
   const pathname = usePathname();
   const [q, setQ] = useState(() => params.get("q") ?? "");
-  const [role, setRole] = useState(() => (params.get("role") ?? "").replace(/\D/g, ""));
-  const [dept, setDept] = useState(() => (params.get("department") ?? "").replace(/\D/g, ""));
+  // HX-06 hand-over: ?invite=1&email=&name=&role=&department= are the invite's fields, not the list filters
+  const [handover] = useState(() => invitePrefill(params));
+  const [role, setRole] = useState(() => (handover ? "" : (params.get("role") ?? "").replace(/\D/g, "")));
+  const [dept, setDept] = useState(() => (handover ? "" : (params.get("department") ?? "").replace(/\D/g, "")));
   const [enabled, setEnabled] = useState(() => (params.get("enabled") === "1" || params.get("enabled") === "0" ? params.get("enabled")! : ""));
   const [sort, setSort] = useState("username");
   const [page, setPage] = useState(0);
+  const prevRef = useRef<HTMLButtonElement>(null);
+  const nextRef = useRef<HTMLButtonElement>(null);
   const [idFilter, setIdFilter] = useState<IdentityFilter>(() => (params.get("identity") === "invited" ? "invited" : params.get("identity") === "self" ? "self" : "all"));
   const [method, setMethod] = useState<MethodFilter>(() => (["microsoft", "local", "ldap", "binding"].includes(params.get("method") ?? "") ? (params.get("method") as MethodFilter) : ""));
   // T-R1-33: the filters live in the address (?role=&q=&department=&enabled=&identity=&method=), so a reload or a
@@ -99,14 +104,16 @@ export function UsersAdmin() {
     }
     if (changed) router.replace(next.size ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
   }, [q, role, dept, enabled, idFilter, method, params, pathname, router]);
+  // the 2FA filter (AU-18 mfa_state) is a server parameter too (RF-B `mfa_state=`): total and paging cover every page
+  const [mfaFilter, setMfaFilter] = useState<MfaFilter>("");
   const phone = useIsPhone();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const activeFilters = [role, dept, enabled, idFilter === "all" ? "" : idFilter, method].filter(Boolean).length;
+  const activeFilters = [role, dept, enabled, idFilter === "all" ? "" : idFilter, method, mfaFilter].filter(Boolean).length;
   const usersAdmin = can("setup.users");
   // the identity chips and the method select filter on the server (`identity=`, `self_signup_days=7`), with
   // server paging and the server's total; only setup.users sees the identity columns, so only they filter by it
   const base = { q: q || undefined, role_id: role ? Number(role) : undefined, department_id: dept ? Number(dept) : undefined, enabled: enabled === "" ? undefined : enabled === "1" };
-  const query = { ...base, ...(usersAdmin ? identityQuery(idFilter, method) : {}), sort, limit: PAGE, offset: page * PAGE };
+  const query = { ...base, ...(usersAdmin ? identityQuery(idFilter, method) : {}), ...(usersAdmin && mfaFilter ? { mfa_state: mfaFilter } : {}), sort, limit: PAGE, offset: page * PAGE };
   const users = useUserSearch(query);
   // the chip counts: the server's totals for the same filters (limit 1)
   const invitedCount = useUserSearch({ ...base, ...identityQuery("invited", ""), limit: 1 }, usersAdmin);
@@ -120,6 +127,9 @@ export function UsersAdmin() {
   const statusOf = (u: AdminUser): UserIdentityStatus | undefined => idStatus.data?.[String(u.id)];
   const counts = { invited: invitedCount.data?.total ?? 0, selfRecent: selfCount.data?.total ?? 0 };
   const [inviteOpen, setInviteOpen] = useState(false);
+  // the hand-over opens the invite sheet (Microsoft on) or "Yeni kullanıcı", prefilled; it never sends anything.
+  // Once opened, its keys leave the address, so a reload does not reopen it.
+  const [handoverOpened, setHandoverOpened] = useState(false);
   const [binding, setBinding] = useState<AdminUser | null>(null);
   const [revoking, setRevoking] = useState<{ invite: Invite; kind: "invite" | "bind" } | null>(null);
   const nameOf = (id: number | null | undefined) => {
@@ -131,6 +141,16 @@ export function UsersAdmin() {
   const roles = useRoles(can("setup.roles"));
   const departments = useDepartments();
   const [editing, setEditing] = useState<AdminUser | "new" | null>(null);
+  useEffect(() => {
+    if (!handover || handoverOpened || providers.isPending) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a one-off hand-over read from the address once the sign-in methods are known
+    setHandoverOpened(true);
+    if (usersAdmin) setInviteOpen(true); // E2EA-F10: a local-password invite when Microsoft is off
+    else setEditing("new");
+    const next = new URLSearchParams(window.location.search);
+    for (const k of ["invite", "email", "name"]) next.delete(k);
+    router.replace(next.size ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
+  }, [handover, handoverOpened, providers.isPending, usersAdmin, router, pathname]);
   const [importOpen, setImportOpen] = useState(false);
   const [token, setToken] = useState<{ user: AdminUser; token: ResetToken } | null>(null);
   const [deleting, setDeleting] = useState<AdminUser | null>(null);
@@ -153,10 +173,10 @@ export function UsersAdmin() {
     const m = methodView(statusOf(u), u.auth_source);
     return { id: u.id, name: u.displayname || u.full_name || u.username || u.email || "", email: u.email, account: securityAccount(m), providerName: m === "microsoft" || m === "microsoftInvite" ? "Microsoft" : null, mfa: mfaListState(statusOf(u)), role: u.role, lastLoginAt: u.last_login_at };
   };
-  // the 2FA filter (AU-18 mfa_state in the status map); it narrows the loaded page
-  const [mfaFilter, setMfaFilter] = useState<MfaFilter>("");
+  // the filter is applied by the server; a row whose known state in the status map disagrees (the map refreshed
+  // while the page was cached) is still left out, an unknown state is trusted to the server
   const mfaKnown = usersAdmin && Object.values(idStatus.data ?? {}).some((x) => mfaListState(x) !== null);
-  const rows = mfaKnown ? visible.filter((u) => matchesMfaFilter(mfaListState(statusOf(u)), mfaFilter)) : visible;
+  const rows = mfaKnown && mfaFilter ? visible.filter((u) => { const s = mfaListState(statusOf(u)); return s === null || matchesMfaFilter(s, mfaFilter); }) : visible;
 
   return (
     <div className="flex flex-col gap-5">
@@ -177,12 +197,21 @@ export function UsersAdmin() {
               {phone ? null : t("crbs.users.import")}
             </Button>
             {/* local accounts are the exception once Microsoft is on (break-glass, service accounts) */}
-            <Button variant={msEnabled && usersAdmin ? "outline" : "default"} size={phone ? "icon" : "default"} onClick={() => setEditing("new")} data-testid="users-new" aria-label={phone ? (msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")) : undefined} title={phone ? (msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")) : undefined}>
+            {/* HX12B-F15 (fix-h-2026-10-18): on a phone the screen's one primary keeps its words ("Yeni kullanıcı", or
+                "Davet et" once Microsoft is on); only the secondary actions shrink to labelled icons */}
+            <Button variant={msEnabled && usersAdmin ? "outline" : "default"} size={phone && msEnabled && usersAdmin ? "icon" : "default"} className={phone && !(msEnabled && usersAdmin) ? "min-h-11 rounded-full px-4" : undefined} onClick={() => setEditing("new")} data-testid="users-new" data-tour={msEnabled && usersAdmin ? undefined : "admin-users-invite"} aria-label={phone && msEnabled && usersAdmin ? t("sso.users.createLocal") : undefined} title={phone && msEnabled && usersAdmin ? t("sso.users.createLocal") : undefined}>
               <UserPlus aria-hidden />
-              {phone ? null : msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")}
+              {phone && msEnabled && usersAdmin ? null : msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")}
             </Button>
             {msEnabled && usersAdmin ? (
-              <Button size={phone ? "icon" : "default"} onClick={() => setInviteOpen(true)} data-testid="users-invite" aria-label={phone ? t("sso.users.inviteAction") : undefined} title={phone ? t("sso.users.inviteAction") : undefined}>
+              <Button className={phone ? "min-h-11 rounded-full px-4" : undefined} onClick={() => setInviteOpen(true)} data-testid="users-invite" data-tour="admin-users-invite">
+                <Mail aria-hidden />
+                {t("sso.users.inviteAction")}
+              </Button>
+            ) : usersAdmin ? (
+              // E2EA-F10 (FIX-K): with password sign-in only, "Davet et" sends a link where the person sets a password;
+              // "Yeni kullanıcı" stays the one primary
+              <Button variant="outline" size={phone ? "icon" : "default"} onClick={() => setInviteOpen(true)} data-testid="users-invite" aria-label={phone ? t("sso.users.inviteAction") : undefined} title={phone ? t("sso.users.inviteAction") : undefined}>
                 <Mail aria-hidden />
                 {phone ? null : t("sso.users.inviteAction")}
               </Button>
@@ -279,7 +308,7 @@ export function UsersAdmin() {
                 <option value="ldap">{t("sso.users.method.ldap")}</option>
                 <option value="binding">{t("sso.users.status.binding")}</option>
               </SelectField>
-              {mfaKnown ? <MfaFilterSelect value={mfaFilter} onChange={(v) => setMfaFilter(v)} className="min-w-44" /> : null}
+              {mfaKnown ? <MfaFilterSelect value={mfaFilter} onChange={(v) => (setMfaFilter(v), setPage(0))} className="min-w-44" /> : null}
             </div>
           ) : null}
         </>
@@ -344,7 +373,7 @@ export function UsersAdmin() {
                   <option value="ldap">{t("sso.users.method.ldap")}</option>
                   <option value="binding">{t("sso.users.status.binding")}</option>
                 </SelectField>
-              {mfaKnown ? <MfaFilterSelect value={mfaFilter} onChange={(v) => setMfaFilter(v)} className="min-w-44" /> : null}
+              {mfaKnown ? <MfaFilterSelect value={mfaFilter} onChange={(v) => (setMfaFilter(v), setPage(0))} className="min-w-44" /> : null}
               </div>
             ) : null}
           </div>
@@ -476,10 +505,11 @@ export function UsersAdmin() {
         <div className="flex items-center justify-between type-callout text-label-2">
           <span>{t("crbs.users.page", { from: page * PAGE + 1, to: Math.min(total, (page + 1) * PAGE), total })}</span>
           <div className="flex gap-2">
-            <Button className="pointer-coarse:h-11" variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+            {/* E2EA2-F03: the pressed button disables itself on the first / last page, so focus moves to the other one */}
+            <Button ref={prevRef} className="pointer-coarse:h-11" variant="ghost" size="sm" disabled={page === 0} onClick={() => (setPage((p) => p - 1), page - 1 === 0 && requestAnimationFrame(() => nextRef.current?.focus()))}>
               {t("crbs.users.prev")}
             </Button>
-            <Button className="pointer-coarse:h-11" variant="ghost" size="sm" disabled={(page + 1) * PAGE >= total} onClick={() => setPage((p) => p + 1)}>
+            <Button ref={nextRef} className="pointer-coarse:h-11" variant="ghost" size="sm" disabled={(page + 1) * PAGE >= total} onClick={() => (setPage((p) => p + 1), (page + 2) * PAGE >= total && requestAnimationFrame(() => prevRef.current?.focus()))}>
               {t("crbs.users.next")}
             </Button>
           </div>
@@ -488,12 +518,13 @@ export function UsersAdmin() {
 
       <UserDialog
         user={editing}
+        prefill={handover}
         onClose={() => setEditing(null)}
         canListRoles={can("setup.roles")}
         identityFor={(u) => (usersAdmin ? { s: statusOf(u), invite: inviteOf.get(u.id), msEnabled, onBind: () => (setEditing(null), setBinding(u)), security: manageable(u) ? security.block(secUser(u)) : null } : null)}
       />
       {security.dialogs}
-      <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} auth={auth} canListRoles={can("setup.roles")} />
+      <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} auth={auth} canListRoles={can("setup.roles")} prefill={handover} local={!msEnabled} />
       <BindDialog key={binding?.id ?? "none"} user={binding} privileged={!!binding && privileged(binding)} onClose={() => setBinding(null)} />
       <RevokeDialog value={revoking} onClose={() => setRevoking(null)} />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} canListRoles={can("setup.roles")} />
@@ -570,34 +601,35 @@ function roleBody(v: string): Pick<UserIn, "role_id"> & { role?: string } {
 
 type IdentityProps = { s: UserIdentityStatus | undefined; invite: Invite | undefined; msEnabled: boolean; onBind: () => void; security?: ReactNode } | null;
 
-function UserDialog({ user, onClose, canListRoles, identityFor }: { user: AdminUser | "new" | null; onClose: () => void; canListRoles: boolean; identityFor: (u: AdminUser) => IdentityProps }) {
+function UserDialog({ user, onClose, canListRoles, identityFor, prefill = null }: { user: AdminUser | "new" | null; onClose: () => void; canListRoles: boolean; identityFor: (u: AdminUser) => IdentityProps; /** HX-06: a new user's fields from the invite hand-over */ prefill?: InvitePrefill | null }) {
   return (
     <Dialog open={user !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl lg:max-w-2xl" data-testid="user-dialog">
-        {user !== null ? <UserForm key={user === "new" ? "new" : user.id} user={user === "new" ? null : user} onClose={onClose} canListRoles={canListRoles} identity={user === "new" ? null : identityFor(user)} /> : null}
+      {/* a new user (the button or the `?invite=1` hand-over): focus goes back to "Yeni kullanıcı" */}
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl lg:max-w-2xl" finalFocus={user === "new" ? () => document.querySelector<HTMLElement>('[data-testid="users-new"]') ?? true : undefined} data-testid="user-dialog">
+        {user !== null ? <UserForm key={user === "new" ? "new" : user.id} user={user === "new" ? null : user} onClose={onClose} canListRoles={canListRoles} identity={user === "new" ? null : identityFor(user)} prefill={user === "new" ? prefill : null} /> : null}
       </DialogContent>
     </Dialog>
   );
 }
 
-function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser | null; onClose: () => void; canListRoles: boolean; identity: IdentityProps }) {
-  const { t } = useI18n();
+function UserForm({ user, onClose, canListRoles, identity, prefill = null }: { user: AdminUser | null; onClose: () => void; canListRoles: boolean; identity: IdentityProps; prefill?: InvitePrefill | null }) {
+  const { t, locale } = useI18n();
   const departments = useDepartments();
   // P1 "approves for" (wave 1): only an approver who may manage users designates others
-  const { can } = usePermissions();
+  const { can, perms } = usePermissions();
   const canDesignate = can("approvals.decide") && can("setup.users");
   const lookups = useScopeLookups(canDesignate);
   const [approves, setApproves] = useState<Scope[]>(() => (user?.approves_for ?? []).map((x) => ({ type: x.type, id: x.id ?? null, tag: x.tag ?? null })));
   const [approvesDirty, setApprovesDirty] = useState(false);
   const [f, setF] = useState({
     username: user?.username ?? "",
-    email: user?.email ?? "",
+    email: user?.email ?? prefill?.email ?? "",
     firstname: user?.firstname ?? "",
     lastname: user?.lastname ?? "",
-    displayname: user?.displayname ?? user?.full_name ?? "",
+    displayname: user?.displayname ?? user?.full_name ?? prefill?.name ?? "",
     ext: user?.ext ?? "",
     role: user?.role_id ? `id:${user.role_id}` : "",
-    department: user?.department_id ? String(user.department_id) : "",
+    department: user?.department_id ? String(user.department_id) : (prefill?.department ?? ""),
     is_active: user?.is_active ?? true,
     force_password_reset: user?.force_password_reset ?? false,
     password: "",
@@ -606,7 +638,22 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
   });
   const [error, setError] = useState<string | null>(null);
   const [roleError, setRoleError] = useState<string | null>(null);
+  const [advOpen, setAdvOpen] = useState(false);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((prev) => ({ ...prev, [k]: v }));
+  // PER-F03: the "approves for" picker only for a role that holds approvals.decide (the backend refuses the rest);
+  // otherwise one sentence with the next step. Unknown role list: the picker stays (the backend still checks)
+  const designRoles = useRoles(canDesignate && canListRoles);
+  const pickedRole = f.role.startsWith("id:") ? designRoles.data?.find((r) => `id:${r.id}` === f.role) : f.role.startsWith("code:") ? designRoles.data?.find((r) => r.code === f.role.slice(5)) : undefined;
+  const targetMayApprove = !pickedRole || pickedRole.permissions.includes("approvals.decide");
+  // the hand-over's role once the role list is known, only one this admin may grant (RoleSelect's rule)
+  const prefillRoles = useRoles(canListRoles && !!prefill?.role);
+  const [rolePrefilled, setRolePrefilled] = useState(!prefill?.role);
+  if (!rolePrefilled && (!canListRoles || prefillRoles.data)) {
+    setRolePrefilled(true);
+    const v = roleValueFor(prefill?.role ?? "", prefillRoles.data);
+    const r = v.startsWith("id:") ? prefillRoles.data?.find((x) => `id:${x.id}` === v) : v ? { code: v.slice(5) } : null;
+    if (r && roleGrantCheck(perms, r).allowed) setF((prev) => ({ ...prev, role: v }));
+  }
   const body = (): UserIn & { role?: string } => ({
     username: f.username.trim() || null,
     email: f.email.trim() || null,
@@ -639,21 +686,22 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
             document.getElementById("u-role")?.focus();
             return;
           }
-          if (f.password !== f.password2) return setError(t("admingaps.users.passwordMismatch"));
+          if (f.password !== f.password2) {
+            setAdvOpen(true);
+            return setError(t("admingaps.users.passwordMismatch"));
+          }
           save.mutate(undefined, {
             onSuccess: (u) => {
               toast.success(user ? t("crbs.common.saved") : t("crbs.users.created", { name: u.username ?? u.email ?? "" }));
               onClose();
             },
-            onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
+            // PER-F03: the backend's Turkish sentence in Turkish (it was the English one)
+            onError: (e) => setError(bookingErrorMessage(crbsError(e), t, { locale })),
           });
         }}
       >
         {/* mobile-b phase 2 (M-10): columns of at least 280 px; one column at 768, two in the wider desktop dialog */}
         <div className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(17.5rem,1fr))]">
-          <Field label={t("crbs.users.username")} htmlFor="u-username" hint={t("crbs.users.usernameHint")}>
-            <Input id="u-username" autoComplete="off" value={f.username} onChange={(e) => set("username", e.target.value)} />
-          </Field>
           <Field label={t("crbs.users.email")} htmlFor="u-email">
             <Input id="u-email" type="email" autoComplete="off" value={f.email} onChange={(e) => set("email", e.target.value)} />
           </Field>
@@ -662,12 +710,6 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
           </Field>
           <Field label={t("crbs.users.lastname")} htmlFor="u-last">
             <Input id="u-last" value={f.lastname} onChange={(e) => set("lastname", e.target.value)} />
-          </Field>
-          <Field label={t("crbs.users.displayname")} htmlFor="u-display">
-            <Input id="u-display" value={f.displayname} onChange={(e) => set("displayname", e.target.value)} />
-          </Field>
-          <Field label={t("crbs.users.ext")} htmlFor="u-ext">
-            <Input id="u-ext" value={f.ext} onChange={(e) => set("ext", e.target.value)} />
           </Field>
           <Field label={t("crbs.users.role")} htmlFor="u-role">
             <RoleSelect
@@ -691,30 +733,58 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
               ))}
             </SelectField>
           </Field>
-          <Field label={user ? t("crbs.users.newPassword") : t("crbs.users.password")} htmlFor="u-password" hint={t("crbs.users.passwordHint")}>
-            <Input id="u-password" type="password" autoComplete="new-password" minLength={8} value={f.password} onChange={(e) => set("password", e.target.value)} />
-          </Field>
-          <Field label={t("admingaps.users.passwordConfirm")} htmlFor="u-password2" error={f.password2 && f.password !== f.password2 ? t("admingaps.users.passwordMismatch") : null}>
-            <Input id="u-password2" type="password" autoComplete="new-password" value={f.password2} onChange={(e) => set("password2", e.target.value)} data-testid="user-password-confirm" />
-          </Field>
         </div>
-        <label className="flex items-center justify-between gap-3 type-callout text-label-1">
-          {t("crbs.users.enabled")}
-          <Switch checked={f.is_active} onCheckedChange={(v) => set("is_active", v)} aria-label={t("crbs.users.enabled")} />
-        </label>
-        <label className="flex items-center justify-between gap-3 type-callout text-label-1">
-          <span>
-            {t("crbs.users.forceReset")}
-            <span className="block type-footnote text-label-3">{t("crbs.users.forceResetHint")}</span>
-          </span>
-          <Switch checked={f.force_password_reset} onCheckedChange={(v) => set("force_password_reset", v)} aria-label={t("crbs.users.forceReset")} />
-        </label>
+        {/* HX12B-F09: e-mail, name, role and department first; the rest of CRBS's form waits behind "Gelişmiş" */}
+        <details className="group rounded-xl bg-fill-3 px-3 py-2" open={advOpen} onToggle={(e) => setAdvOpen(e.currentTarget.open)} data-testid="user-advanced">
+          <summary className="cursor-pointer list-none type-callout font-medium text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:flex-col pointer-coarse:justify-center">
+            {t("crbs.users.advanced")}
+            <span className="block type-footnote font-normal text-label-3">{t("crbs.users.advancedHint")}</span>
+          </summary>
+          <div className="flex flex-col gap-3 pt-3">
+            <div className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(17.5rem,1fr))]">
+              <Field label={t("crbs.users.username")} htmlFor="u-username" hint={t("crbs.users.usernameHint")}>
+                <Input id="u-username" autoComplete="off" value={f.username} onChange={(e) => set("username", e.target.value)} />
+              </Field>
+              <Field label={t("crbs.users.displayname")} htmlFor="u-display">
+                <Input id="u-display" value={f.displayname} onChange={(e) => set("displayname", e.target.value)} />
+              </Field>
+              <Field label={t("crbs.users.ext")} htmlFor="u-ext">
+                <Input id="u-ext" value={f.ext} onChange={(e) => set("ext", e.target.value)} />
+              </Field>
+              <Field label={user ? t("crbs.users.newPassword") : t("crbs.users.password")} htmlFor="u-password" hint={t("crbs.users.passwordHint")}>
+                <Input id="u-password" type="password" autoComplete="new-password" minLength={8} value={f.password} onChange={(e) => set("password", e.target.value)} />
+              </Field>
+              <Field label={t("admingaps.users.passwordConfirm")} htmlFor="u-password2" error={f.password2 && f.password !== f.password2 ? t("admingaps.users.passwordMismatch") : null}>
+                <Input id="u-password2" type="password" autoComplete="new-password" value={f.password2} onChange={(e) => set("password2", e.target.value)} data-testid="user-password-confirm" />
+              </Field>
+            </div>
+            <label className="flex items-center justify-between gap-3 type-callout text-label-1">
+              {t("crbs.users.enabled")}
+              <Switch checked={f.is_active} onCheckedChange={(v) => set("is_active", v)} aria-label={t("crbs.users.enabled")} />
+            </label>
+            <label className="flex items-center justify-between gap-3 type-callout text-label-1">
+              <span>
+                {t("crbs.users.forceReset")}
+                <span className="block type-footnote text-label-3">{t("crbs.users.forceResetHint")}</span>
+              </span>
+              <Switch checked={f.force_password_reset} onCheckedChange={(v) => set("force_password_reset", v)} aria-label={t("crbs.users.forceReset")} />
+            </label>
+          </div>
+        </details>
         {canDesignate ? (
           <details className="group rounded-xl bg-fill-3 px-3 py-2" open={approves.length > 0 || undefined} data-testid="user-approves-for">
             <summary className="cursor-pointer list-none type-callout font-medium text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:flex-col pointer-coarse:justify-center">
               {t("wave1.scope.title")}
               <span className="block type-footnote font-normal text-label-3">{approves.length ? approves.map((x) => scopeLabel(x, lookups, t)).join(", ") : t("wave1.scope.hint")}</span>
             </summary>
+            {!targetMayApprove && !approves.length ? (
+              <p className="pt-3 type-callout text-label-2" data-testid="user-approves-needs-right">
+                {t("wave1.scope.needsRight")}{" "}
+                <Link href="/admin/roles" className="font-medium text-tint-text underline-offset-2 hover:underline">
+                  {t("wave1.scope.needsRightLink")}
+                </Link>
+              </p>
+            ) : (
             <div className="pt-3">
               <ScopePicker
                 value={approves}
@@ -726,6 +796,7 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
                 idPrefix="user"
               />
             </div>
+            )}
           </details>
         ) : null}
         {user && identity ? <IdentitiesSection user={user} s={identity.s} invite={identity.invite} msEnabled={identity.msEnabled} onBind={identity.onBind} /> : null}

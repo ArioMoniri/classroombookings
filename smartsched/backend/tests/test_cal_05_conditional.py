@@ -62,8 +62,9 @@ async def test_cal_05_second_poll_is_304_with_three_queries_and_a_change_flips_t
     # If-Modified-Since alone (clients without ETags)
     ims = await env.client.get(url, headers={"If-Modified-Since": first.headers["last-modified"]})
     assert ims.status_code == 304
-    # any audited change flips the ETag (here a forced move of PSY 262 week 5, which the owner rule of 2026-10-17
-    # turns into a draft copy: audited, the published plan unchanged)
+    # an audited change (here a forced move of PSY 262 week 5, which the owner rule of 2026-10-17 turns into a draft
+    # copy: audited, the published plan unchanged) moves the version key, so the feed is rebuilt; CAL10-F03
+    # (fix-h-2026-10-18): the ETag is the body's hash, so it flips exactly when the body does
     r = await env.client.post(
         f"/api/v1/runs/{env.run_id}/assignments/{p.week5_assignment_id}/move",
         json={"day": 1, "start_period": 10, "end_period": 12, "force": True, "reason": "CAL-05 test"},
@@ -71,7 +72,11 @@ async def test_cal_05_second_poll_is_304_with_three_queries_and_a_change_flips_t
     )
     assert r.status_code == 200, r.text
     changed = await env.client.get(url, headers={"If-None-Match": etag})
-    assert changed.status_code == 200 and changed.headers["etag"] != etag
+    body = (await env.client.get(url)).text
+    if body == first.text:
+        assert changed.status_code == 304 and changed.headers["etag"] == etag
+    else:
+        assert changed.status_code == 200 and changed.headers["etag"] != etag
     # "Takviminiz en son çekti" from last_used_at
     links = (await env.client.get("/api/v1/calendar/subscriptions", headers=ayse)).json()["links"]
     assert links[0]["last_fetched_tr"].startswith("Takviminiz en son çekti: ")

@@ -99,6 +99,11 @@
   "wave1": {
     "find": {
       "weeks": "viikot"
+    },
+    "audit": {
+      "f": {
+        "days": "päivät"
+      }
     }
   },
   "moderation": {
@@ -152,10 +157,30 @@
       "day": "päivää"
     }
   },
+  "charts": {
+    "bookings": {
+      "week": "viikko"
+    },
+    "audit": {
+      "day": "päivää"
+    }
+  },
   "adaptive": {
     "peaks": {
       "col": {
         "weeks": "viikot"
+      }
+    }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "viikot"
+      },
+      "field": {
+        "class_year": "vuosi",
+        "day": "päivää",
+        "week": "viikko"
       }
     }
   }

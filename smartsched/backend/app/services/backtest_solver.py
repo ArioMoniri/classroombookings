@@ -62,7 +62,13 @@ def _conflict_cells(items: Iterable[Any], max_per_day: int) -> set[tuple[str, st
     return out
 
 
-def b6_exam_advisor(exam_list: Any, room_master: Path | None = None, target: int = 100) -> Result:
+#: B6 target on the peak day, in sittings (AS20-F13, re-baselined 2026-10-18 by FIX-G: the peak is 98 sittings,
+#: so the old "<= 100 from 126 rows" (79 %) becomes "<= 78 from 98"; the advisor's own day target is
+#: ceil(1.25 x 58.8) = 74)
+B6_TARGET = 78
+
+
+def b6_exam_advisor(exam_list: Any, room_master: Path | None = None, target: int = B6_TARGET) -> Result:
     from app.services import exam_advisor as ea
 
     items = ea.items_from_exam_list(exam_list)
@@ -113,7 +119,11 @@ def b6_exam_advisor(exam_list: Any, room_master: Path | None = None, target: int
         "B6",
         "Sınav tarihi danışmanı / exam date advisor (Final 2026)",
         metrics,
-        {"peak_exams_after": f"<= {target} (from 126)", "new_cohort_conflicts": 0, "deterministic": True},
+        {
+            "peak_exams_after": f"<= {target} sittings (from 98; re-baselined 2026-10-18, was <= 100 from 126 rows)",
+            "new_cohort_conflicts": 0,
+            "deterministic": True,
+        },
         before["peak_exams"] > after["peak_exams"]
         and after["peak_exams"] <= target
         and not new_conflicts

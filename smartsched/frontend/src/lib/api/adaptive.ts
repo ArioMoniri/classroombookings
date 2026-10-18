@@ -13,7 +13,7 @@
  * Every answer has `confidence: high | medium | low | none` and a `needs {tr, en}` sentence when it is thin. A range is
  * calibrated (AS-21) and shown with "düşük güven" beside it while confidence is `low`; `requests` counts get no range.
  */
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { buildUrl, HttpError, request } from "./client";
 
@@ -54,7 +54,8 @@ export const Peaks = z.object({
   term_code: z.string().nullable().catch(null),
   period_kind: z.string().default("LECTURE"),
   group_by: z.string().default("building"),
-  threshold_pct: z.number().default(85),
+  // null on an install without a published term: .default() only covers a missing field (e2e 2026-10-18)
+  threshold_pct: z.number().catch(85).default(85),
   weeks: z.array(z.number()).catch([]).default([]),
   rooms: z.number().catch(0).default(0),
   cells: z.array(PeakCell).default([]),
@@ -78,7 +79,9 @@ export interface PeaksQuery {
 /* ------------------------------------------------------------------ forecast */
 
 export const ForecastCell = z.object({
-  key: z.string(),
+  // the backend sends the group values as a list (["A"], ["3", "4"]); a plain string is accepted too (e2e 2026-10-18:
+  // z.string() refused every cell, so the demand card said "Yüklenemedi" on every term)
+  key: z.union([z.string(), z.array(z.union([z.string(), z.number()])).transform((k) => k.join(" · "))]),
   label: z.union([Pair, z.string()]).optional(),
   value: z.number(),
   lo80: z.number().nullable().catch(null),
@@ -238,6 +241,11 @@ export const ExamAdvice = z.object({
 });
 export type ExamAdvice = z.infer<typeof ExamAdvice>;
 
+export const AdviceApplyIn = z.object({ term_id: z.number(), request_ids: z.array(z.number()), date: z.string(), start_period: z.number() });
+export type AdviceApplyIn = z.infer<typeof AdviceApplyIn>;
+export const AdviceApplyOut = z.object({ applied: z.array(z.number()).catch([]).default([]), undo: AdviceApplyIn, message_tr: z.string().default(""), message_en: z.string().default("") });
+export type AdviceApplyOut = z.infer<typeof AdviceApplyOut>;
+
 /* ------------------------------------------------------------------ api + hooks */
 
 export const adaptiveApi = {
@@ -249,6 +257,10 @@ export const adaptiveApi = {
   exams: (termId: number) => request("/analytics/forecast/exams", { query: { term_id: termId }, schema: ExamForecast, ...s }),
   /** AS-12 date advisor (AS-B route): cards + ranked moves; nothing changes */
   examAdvice: (termId: number) => request("/analytics/forecast/exams/advice", { query: { term_id: termId }, schema: ExamAdvice, ...s }),
+  /** AS20-F04 "Uygula": move the exam rows of one advisor suggestion (planning.edit); `undo` is the same body back */
+  applyAdvice: (body: AdviceApplyIn) => request("/analytics/forecast/exams/advice/apply", { method: "POST", body, schema: AdviceApplyOut, ...s }),
+  /** AS20-F03: the campus peak cells for the find-room chip, for anyone signed in (no planning.view needed) */
+  campusPeaks: (termId: number | null) => request("/analytics/peaks/campus", { query: { term_id: termId }, schema: Peaks, ...s }),
 };
 
 const noRetry = (n: number, e: unknown) => !(e instanceof HttpError && [401, 403, 404, 422].includes(e.status)) && n < 2;
@@ -259,6 +271,7 @@ export const adaptiveKeys = {
   shortfall: (termId: number | null) => ["adaptive", "shortfall", termId] as const,
   exams: (termId: number | null) => ["adaptive", "exams", termId] as const,
   advice: (termId: number | null) => ["adaptive", "exam-advice", termId] as const,
+  campusPeaks: (termId: number | null) => ["adaptive", "peaks-campus", termId] as const,
 };
 
 export function usePeaks(q: PeaksQuery, enabled = true) {
@@ -276,6 +289,22 @@ export function useExamForecast(termId: number | null) {
 /** a 404 means the route is not deployed yet: the panel then falls back to the cards it derives from the load */
 export function useExamAdvice(termId: number | null) {
   return useQuery({ queryKey: adaptiveKeys.advice(termId), queryFn: () => adaptiveApi.examAdvice(termId ?? 0), enabled: termId !== null, retry: noRetry, staleTime: 5 * 60_000 });
+}
+/** the find-room chip's campus peaks (AS20-F03: the planner route answers 403 to the people who book rooms) */
+export function useCampusPeaks(termId: number | null, enabled = true) {
+  return useQuery({ queryKey: adaptiveKeys.campusPeaks(termId), queryFn: () => adaptiveApi.campusPeaks(termId), enabled, retry: noRetry, staleTime: 5 * 60_000 });
+}
+/** AS20-F04: apply (or undo) one advisor move; the exam load and the advice are read again afterwards */
+export function useApplyAdvice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AdviceApplyIn) => adaptiveApi.applyAdvice(body),
+    onSuccess: (_out, body) => {
+      void qc.invalidateQueries({ queryKey: adaptiveKeys.advice(body.term_id) });
+      void qc.invalidateQueries({ queryKey: adaptiveKeys.exams(body.term_id) });
+      void qc.invalidateQueries({ queryKey: ["classes"] });
+    },
+  });
 }
 export function useWhatIf() {
   return useMutation({ mutationFn: (body: WhatIfIn) => adaptiveApi.whatIf(body) });

@@ -4,12 +4,13 @@
  * token limits, per-role defaults, per-user overrides (user > role > default), the warning threshold (soft, default
  * 80 %: in-app + e-mail to the recipients, a banner for the user; 100 % refuses with `ai_limit_reached` /
  * `ai_budget_exceeded`), the alert recipients, per-user requests per minute and concurrent calls, and an audited
- * one-off top-up of this month's budget. Every rule reads as a sentence.
+ * one-off top-up of this month's budget, then the faculty allowances (HX-10 "Fakülteler") and the faculty view.
+ * Every rule reads as a sentence.
  */
 import { Plus, Save, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
-import { Alert, Field, Loading } from "@/components/admin/kit";
+import { Alert, Field, Loading, pageActionsCapsule } from "@/components/admin/kit";
 import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
@@ -18,6 +19,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { type Limits, type LimitsIn, useAiLimits, useSaveLimits, useTopup } from "@/lib/api/ai-admin";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import { cn } from "@/lib/utils";
+import { FacultyLimits } from "@/components/helper/admin/faculty-limits";
+import { FacultyUsageView } from "@/components/helper/admin/faculty-usage";
 import { compactTokens, errorMessage, minutesOf, parseLimit, pctText, secondsOf, usd } from "./ai-model";
 
 const ROLES = ["ADMIN", "PLANNER", "VIEWER", "TEACHER"] as const;
@@ -32,6 +36,10 @@ export function LimitsTab({ canEdit }: { canEdit: boolean }) {
       {/* mounted once: after a save the form already shows what was stored; a remount would drop the focus */}
       <LimitsForm data={q.data} canEdit={canEdit} />
       {canEdit ? <Topup data={q.data} /> : null}
+      {/* HX-10: the faculty allowances (Fakülteler) and a faculty's use as its managers see it */}
+      {/* mounted once like LimitsForm: after a save the drafts already are what was stored */}
+      <FacultyLimits data={q.data} canEdit={canEdit} />
+      <FacultyUsageView />
     </div>
   );
 }
@@ -250,11 +258,14 @@ function LimitsForm({ data, canEdit }: { data: Limits; canEdit: boolean }) {
       </Card>
       {error ? <Alert tone="error" testId="ai-limits-error">{error}</Alert> : null}
       {canEdit ? (
-        <Button className="self-start" onClick={submit} {...busyProps(save.isPending)} data-testid="ai-limits-save">
-          <BusyLabel busy={save.isPending} label={t("busy.saving")} icon={<Save aria-hidden />}>
-            {t("aiAdmin.limits.save")}
-          </BusyLabel>
-        </Button>
+        // MOBILE M-05: below lg the save sits in the page-actions capsule above the tab bar (kit.tsx)
+        <div data-slot="page-actions" className={cn(pageActionsCapsule, "self-start")}>
+          <Button onClick={submit} {...busyProps(save.isPending)} data-testid="ai-limits-save">
+            <BusyLabel busy={save.isPending} label={t("busy.saving")} icon={<Save aria-hidden />}>
+              {t("aiAdmin.limits.save")}
+            </BusyLabel>
+          </Button>
+        </div>
       ) : null}
     </>
   );

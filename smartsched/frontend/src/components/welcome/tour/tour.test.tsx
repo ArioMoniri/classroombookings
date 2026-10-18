@@ -2,7 +2,7 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DESKTOP_MEDIA, mockMedia, renderWelcome, resetWelcomeStore } from "../test-helpers";
+import { DESKTOP_MEDIA, PHONE_MEDIA, mockMedia, renderWelcome, resetWelcomeStore } from "../test-helpers";
 import { useWelcomeStore } from "../welcome-store";
 import { TOUR_RUNNING_ATTR, findAnchor, tourAnchorFor } from "./anchors";
 import { TourRunner } from "./tour-runner";
@@ -127,5 +127,47 @@ describe("TourRunner (react-joyride adapter)", () => {
     await waitFor(() => expect(screen.getByTestId("tour-counter")).toHaveTextContent("Adım 2 / 2"));
     fireEvent.keyDown(screen.getByTestId("tour-card"), { key: "ArrowLeft" });
     await waitFor(() => expect(screen.getByTestId("tour-counter")).toHaveTextContent("Adım 1 / 2"));
+  }, 15_000);
+});
+
+describe("docked step card on a phone (e2e 2026-10-18)", () => {
+  it("the floating box spans the viewport less 8 px a side, so the card is not shrink-wrapped (334 px at 390 on the stack)", async () => {
+    mockMedia(PHONE_MEDIA);
+    anchor("nav-reserve", "Hızlı rezervasyon");
+    const one = [steps[0]!];
+    useWelcomeStore.setState({ tour: { steps: one } });
+    renderWelcome(<TourRunner request={{ steps: one }} />);
+    const card = await screen.findByTestId("tour-card", {}, { timeout: 3000 });
+    // every wrapper between the card and the fixed floating element takes the docked width
+    let el: HTMLElement | null = card.parentElement;
+    const widths: string[] = [];
+    while (el && el !== document.body) {
+      widths.push(el.style.width);
+      if (el.style.position === "fixed") break;
+      el = el.parentElement;
+    }
+    expect(el?.style.position).toBe("fixed");
+    expect(el?.style.width).toBe("calc(100vw - 16px)");
+  });
+});
+
+
+describe("WG-09 no scrim flash between steps (WG10-F07)", () => {
+  it("a hold scrim covers the page while the next step's anchor (another route) is awaited, and leaves once the step shows", async () => {
+    anchor("nav-reserve", "Hızlı rezervasyon");
+    const two = [steps[0]!, { anchor: "reserve-late", interactive: false, audience: "academician" as const }];
+    useWelcomeStore.setState({ tour: { steps: two } });
+    renderWelcome(<TourRunner request={{ steps: two }} />);
+    await screen.findByTestId("tour-card", {}, { timeout: 3000 });
+    expect(screen.queryByTestId("tour-scrim-hold")).toBeNull();
+    fireEvent.click(screen.getByTestId("tour-next"));
+    // same render as the click: the old card is gone, the scrim is not
+    expect(screen.getByTestId("tour-scrim-hold")).toBeInTheDocument();
+    expect(screen.getByTestId("tour-scrim-hold")).toHaveAttribute("aria-hidden", "true");
+    await new Promise((r) => setTimeout(r, 400));
+    expect(screen.getByTestId("tour-scrim-hold")).toBeInTheDocument();
+    anchor("reserve-late", "Ne zaman");
+    await waitFor(() => expect(screen.getByTestId("tour-counter")).toHaveTextContent("Adım 2 / 2"), { timeout: 3000 });
+    await waitFor(() => expect(screen.queryByTestId("tour-scrim-hold")).toBeNull(), { timeout: 2000 });
   }, 15_000);
 });

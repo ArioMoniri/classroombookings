@@ -16,13 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useMediaQuery } from "@/components/ui/use-media-query";
 import type { WelcomeState } from "@/lib/api/welcome";
-import { springs, tween, useReduce } from "@/lib/motion";
+import { useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import type { ResolvedCard, SheetModel } from "./model";
-import { SheetHero } from "./sheet-hero";
+import { instant, welcomeMotion } from "./motion";
 import { PagerDots } from "./pager-dots";
 import { useGuideText } from "./use-guide-text";
 import { WelcomeCard } from "./welcome-card";
+import { WelcomeHero } from "./welcome-hero";
 
 export type SheetAction = { type: "start" } | { type: "later" } | { type: "never" } | { type: "checklist" } | { type: "card"; card: ResolvedCard };
 
@@ -83,8 +84,9 @@ export function WelcomeSheet({ open, model, state, tourEnabled, checklistEnabled
     return h1 ?? document.querySelector<HTMLElement>("#main");
   };
 
-  const reveal = (i: number) =>
-    reduce ? {} : { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { ...springs.smooth, delay: 0.06 + Math.min(i, 4) * 0.03 } };
+  // first reveal of the desktop cards (spec §8.1): y 8 → 0 + opacity, 30 ms apart, max 5, all done by 240 ms; none
+  // under reduced motion
+  const reveal = (i: number) => (reduce ? {} : { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: welcomeMotion.cardReveal(i) });
 
   const cardEl = (c: ResolvedCard) => <WelcomeCard card={c} title={text.cardTitle(c)} body={text.cardBody(c)} alsoLabel={t("welcome.sheet.also")} onOpen={(card) => act({ type: "card", card })} />;
 
@@ -107,9 +109,12 @@ export function WelcomeSheet({ open, model, state, tourEnabled, checklistEnabled
         data-variant={phone ? "pager" : "dialog"}
         initialFocus={titleRef}
         finalFocus={finalFocus}
-        className="[--dialog-pad:1.25rem] sm:max-w-[640px] sm:[--dialog-pad:2rem] max-sm:max-h-[min(75dvh,calc(100dvh-3rem))] landscape:max-sm:max-h-[90dvh]"
+        // WG-09: the shared dialog opens on --spring-glass-morph (desktop scale .96 → 1) or --spring-sheet (phone, from
+        // below); for the welcome sheet both settle in --dur-slow (240 ms, not 270–280 ms). Exit stays --dur-fast.
+        // Reduced motion clears these transitions globally (globals.css T-R2-07), whatever the value here.
+        className="[--spring-glass-morph-ms:var(--dur-slow)] [--spring-sheet-ms:var(--dur-slow)] [--dialog-pad:1.25rem] sm:max-w-[640px] sm:[--dialog-pad:2rem] max-sm:max-h-[min(75dvh,calc(100dvh-3rem))] landscape:max-sm:max-h-[90dvh]"
       >
-        <SheetHero audience={model.primary} />
+        <WelcomeHero audience={model.primary} />
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             {badge ? (
@@ -135,8 +140,8 @@ export function WelcomeSheet({ open, model, state, tourEnabled, checklistEnabled
                   custom={dir}
                   initial={reduce ? { opacity: 0 } : { opacity: 0, x: 24 * dir }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={reduce ? { opacity: 0, transition: tween.reduced } : { opacity: 0, x: -24 * dir, transition: tween.exit }}
-                  transition={reduce ? tween.reduced : springs.smooth}
+                  exit={reduce ? { opacity: 0, transition: instant } : { opacity: 0, x: -24 * dir, transition: welcomeMotion.pageExit }}
+                  transition={reduce ? welcomeMotion.reduced : welcomeMotion.pageEnter}
                 >
                   {cards[page] ? cardEl(cards[page]) : null}
                 </motion.div>

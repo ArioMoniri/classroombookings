@@ -6,6 +6,9 @@ import { I18nProvider } from "@/lib/i18n/provider";
 import { EnrolNotice } from "./enrol-notice";
 import { MfaStep } from "./mfa-step";
 
+const cc = vi.hoisted(() => ({ tryConditionalCreate: vi.fn(async () => false) }));
+vi.mock("./passkey-door", () => ({ tryConditionalCreate: cc.tryConditionalCreate }));
+
 const nav = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.fn() }));
 const toasts = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => nav, useSearchParams: () => new URLSearchParams() }));
@@ -50,6 +53,23 @@ describe("MfaStep", () => {
     await waitFor(() => expect(nav.replace).toHaveBeenCalledWith("/dashboard"));
     expect(fetchMock.mock.calls[0][0]).toBe("/api/auth/mfa/verify");
     expect(bodyOf(0)).toEqual({ method: "totp", code: "123456", trust_device: false, next: null });
+  });
+
+  it("AUX12-F06: with passwordless allowed, a successful code step offers Conditional Create; without it, never", async () => {
+    cc.tryConditionalCreate.mockClear();
+    fetchMock.mockResolvedValueOnce(resp(200, { status: "signed_in", user: { id: 1, permissions: ["planning.view"] } }));
+    const first = wrap(<MfaStep methods={["totp"]} masked={null} next={null} rememberDays={30} passkeySignIn />);
+    paste(screen.getByRole("textbox", { name: "Doğrulama kodu" }), "123456");
+    await waitFor(() => expect(nav.replace).toHaveBeenCalled());
+    expect(cc.tryConditionalCreate).toHaveBeenCalledTimes(1);
+    first.unmount();
+    cc.tryConditionalCreate.mockClear();
+    nav.replace.mockReset();
+    fetchMock.mockResolvedValueOnce(resp(200, { status: "signed_in", user: { id: 1, permissions: ["planning.view"] } }));
+    wrap(<MfaStep methods={["totp"]} masked={null} next={null} rememberDays={30} />);
+    paste(screen.getByRole("textbox", { name: "Doğrulama kodu" }), "654321");
+    await waitFor(() => expect(nav.replace).toHaveBeenCalled());
+    expect(cc.tryConditionalCreate).not.toHaveBeenCalled();
   });
 
   it("a wrong code clears the slots, shows the message and keeps focus; the 2nd adds the clock hint", async () => {

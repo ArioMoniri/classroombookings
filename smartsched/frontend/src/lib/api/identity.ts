@@ -176,6 +176,8 @@ export interface InviteIn {
   /** RF-03: e-mail the link at once (themed invitation e-mail); needs SMTP (`inviteMail().configured`) */
   send_email?: boolean;
   locale?: "tr" | "en";
+  /** E2EA-F10: `local` = the link sets a password (password sign-in only); default the Microsoft invite */
+  provider?: string;
 }
 
 export const IdentityStatus = z.enum(["linked", "invited", "invite_expired", "binding", "none"]);
@@ -198,12 +200,36 @@ export type UserIdentityStatus = z.infer<typeof UserIdentityStatus>;
 export const UserStatusMap = z.record(z.string(), UserIdentityStatus);
 export type UserStatusMap = z.infer<typeof UserStatusMap>;
 
+/** Profil › Güvenlik: one Google / OIDC / SAML provider this account can link, or is linked to (idp-2026-10-18). */
+export const LinkedProvider = z.object({
+  slug: z.string(),
+  kind: z.string(),
+  badge: z.string().optional(),
+  label: z.string(),
+  label_en: z.string().optional(),
+  /** false: the provider was switched off; a link can still be removed */
+  enabled: z.boolean().default(true),
+  linked: z.boolean(),
+  email_at_login: z.string().nullish(),
+  display_name: z.string().nullish(),
+  linked_at: z.string().nullish(),
+  last_login_at: z.string().nullish(),
+});
+export type LinkedProvider = z.infer<typeof LinkedProvider>;
+export const MyIdentities = z.object({ has_password: z.boolean(), providers: z.array(LinkedProvider).default([]) });
+export type MyIdentities = z.infer<typeof MyIdentities>;
+
 export const identity = {
   providers: () => request("/auth/sso/providers", { schema: z.object({ auth: PublicAuth }), silent: true }),
   invite: (token: string) => request(`/auth/sso/invites/${encodeURIComponent(token)}`, { schema: PublicInvite, silent: true }),
   me: () => request("/auth/sso/me", { schema: SsoMe, silent: true }),
   link: (password: string) => request("/auth/sso/entra/link", { method: "POST", body: { password, confirm: true }, schema: z.object({ authorize_url: z.string() }), silent: true }),
   unlink: () => request<void>("/auth/sso/entra/link", { method: "DELETE", silent: true }),
+  myIdentities: () => request("/auth/sso/me/identities", { schema: MyIdentities, silent: true }),
+  /** re-authentication: `password` may be left out within 10 minutes of signing in (403 `reauth_failed` otherwise) */
+  linkProvider: (slug: string, password?: string) =>
+    request(`/auth/sso/${encodeURIComponent(slug)}/link`, { method: "POST", body: { password: password || undefined, confirm: true }, schema: z.object({ authorize_url: z.string() }), silent: true }),
+  unlinkProvider: (slug: string, password?: string) => request<void>(`/auth/sso/${encodeURIComponent(slug)}/unlink`, { method: "POST", body: { password: password || undefined }, silent: true }),
   config: () => request("/auth/sso/admin/entra", { schema: SsoConfig, silent: true }),
   putConfig: (body: SsoConfigIn) => request("/auth/sso/admin/entra", { method: "PUT", body, schema: SsoConfig, silent: true }),
   mappings: () => request("/auth/sso/admin/entra/mappings", { schema: z.array(Mapping), silent: true }),
@@ -227,6 +253,7 @@ export const identity = {
 export const identityKeys = {
   providers: ["identity", "providers"] as const,
   me: ["identity", "me"] as const,
+  myIdentities: ["identity", "me", "identities"] as const,
   config: ["identity", "config"] as const,
   mappings: ["identity", "mappings"] as const,
   invites: ["identity", "invites"] as const,
@@ -235,6 +262,7 @@ export const identityKeys = {
   instructors: (q: string, limit: number) => ["identity", "instructors", q, limit] as const,
 };
 
+export const useMyIdentities = (enabled = true) => useQuery({ queryKey: identityKeys.myIdentities, queryFn: identity.myIdentities, enabled, retry: false, staleTime: 30_000 });
 export const useSsoMe = (enabled = true) => useQuery({ queryKey: identityKeys.me, queryFn: identity.me, enabled, retry: false, staleTime: 30_000 });
 export const useSsoConfig = (enabled = true) => useQuery({ queryKey: identityKeys.config, queryFn: identity.config, enabled, retry: false });
 export const useSsoMappings = (enabled = true) => useQuery({ queryKey: identityKeys.mappings, queryFn: identity.mappings, enabled, retry: false });

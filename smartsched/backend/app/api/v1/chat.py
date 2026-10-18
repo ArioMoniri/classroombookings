@@ -15,7 +15,7 @@ from pathlib import PurePath
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import catalog
@@ -50,6 +50,9 @@ from app.schemas.ai import (
 
 router = APIRouter(tags=["ai"])
 log = logging.getLogger(__name__)
+
+#: how long ``/chat/stream`` waits for its first event before it commits to a 200 stream (F-VO-2)
+PRE_STREAM_WAIT_S = 2.0
 
 NO_KEY = "No Anthropic API key is configured. An admin can add one under Settings > AI (Ayarlar > Yapay zekâ)."
 
@@ -101,10 +104,13 @@ async def post_chat(run_id: int, body: ChatIn, db: DB, user: Planner) -> ChatOut
 
 
 @router.post("/runs/{run_id}/chat/stream")
-async def post_chat_stream(run_id: int, body: ChatIn, db: DB, user: Planner) -> StreamingResponse:
+async def post_chat_stream(run_id: int, body: ChatIn, db: DB, user: Planner) -> Response:
     """Same as ``POST /runs/{id}/chat``, streamed as ``text/event-stream``: ``text`` deltas, ``tool_start`` /
     ``tool`` / ``retry`` events, then ``done`` (the :class:`ChatOut` body) or ``error`` (``status``, ``detail``).
-    404 / 409 are answered before the stream starts. Nothing is applied."""
+    404 / 409 are answered before the stream starts. A refusal decided before the first event (guardrail 422,
+    limit / rate 429, transfer basis 409, a bad message 400) is the HTTP answer itself, with the same JSON detail as
+    ``POST /chat`` (F-VO-2: a spoken injection was 200 + an error event); only a failure after the stream has started
+    is an ``error`` event. Nothing is applied."""
     await _run(db, run_id)
     client = await _client(db)
     user_id = user.id  # read before the rollback expires the ORM objects of this session
@@ -135,13 +141,27 @@ async def post_chat_stream(run_id: int, body: ChatIn, db: DB, user: Planner) -> 
         finally:
             await queue.put(None)
 
+    task = asyncio.create_task(work())
+    # the guard, the limits and the transfer basis run before the model is called (milliseconds): wait that long for
+    # the first event, so a refusal is answered as its own status instead of 200 + an error event
+    first = asyncio.ensure_future(queue.get())
+    await asyncio.wait({first}, timeout=PRE_STREAM_WAIT_S)
+    if first.done():
+        item = first.result()
+        if item is not None and item[0] == "error" and 400 <= int(item[1].get("status") or 0) < 500:
+            await task
+            return JSONResponse(status_code=int(item[1]["status"]), content={"detail": item[1].get("detail")})
+
     async def events() -> AsyncIterator[str]:
-        task = asyncio.create_task(work())
         try:
-            while (item := await queue.get()) is not None:
+            item = await first
+            while item is not None:
                 kind, data = item
                 yield f"event: {kind}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
+                item = await queue.get()
         finally:
+            if not first.done():
+                first.cancel()
             if not task.done():
                 task.cancel()
 

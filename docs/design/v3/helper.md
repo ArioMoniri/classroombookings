@@ -1,6 +1,7 @@
 # AI helper ("Yardımcı"): one "Ara veya sor" entry, "Nerede?" answers, generative action cards
 
-Owner: product designer + motion designer (helper-ux-2026-10-17) · Status: v3.0 spec (2026-10-17) · Builders: tickets
+Owner: product designer + motion designer (helper-ux-2026-10-17) · Status: v3.1 spec (2026-10-17; HB-07 sign-off and
+HX-12 audit 2026-10-18, §17.1) · Builders: tickets
 **HX-01…HX-14** in `docs/ROADMAP.md` ("AI helper: search, \"where is it\", generative actions (owner request 2026-10-17)
 — UX"). Backend: **HB-01…HB-20** in `docs/ROADMAP.md` ("AI helper: backend, governance, local models"), designed in
 [`docs/research/2026-10-17-ai-helper-architecture.md`](../../research/2026-10-17-ai-helper-architecture.md) (the
@@ -56,9 +57,9 @@ OpenAI's new intelligent UI". Decide where it sits.
   edits a timetable. It hands over with an "Çalıştırma sohbetinde aç" card. The two share the stream client, the
   composer, the banner and the card frame.
 - **Memory** (architecture doc §5.4):
-  - **notes** only when the user taps "Hatırla" (≤ 20, 180 days);
+  - **notes** only when the user taps "Hatırla" (≤ 20, 180 days; until HB-D's remember card ships, notes are added in Profil › Yardımcı only, §17.1 #8);
   - **conversation history** for 30 days, so it continues on another device;
-  - "Son yaptıklarınız" comes from the user's own confirmed actions.
+  - "Son işlemler" comes from the user's own confirmed actions (deferred to HB-D's recent-actions endpoint; §17.1 #6).
   - All of it is visible and deletable in Profil › Yardımcı and covered by DSR export and erasure. It is off when
     `ai_personal` consent is withdrawn.
 - **Limits and status:** a status chip says **Yerel model** / **Bulut · {sağlayıcı}** / **Yapay zekâ kapalı**. The
@@ -106,8 +107,9 @@ articles.
 
 - The placeholder reads **"Sayfa, ayar, salon, kişi ya da ders arayın… veya bir soru sorun"**.
 - With an **empty query**, the palette shows three groups:
-  1. **Son yaptıklarınız**: up to 3 of the user's own confirmed helper actions ("A 204 rezerve edildi · dün"), each
-     opening the object.
+  1. **Son işlemler**: up to 3 of the user's own confirmed helper actions ("A 204 rezerve edildi · dün"), each
+     opening the object. *Deferred (§17.1 #6):* shown once HB-D's recent-actions endpoint lands; until then the empty
+     palette shows groups 2 and 3 only.
   2. **Şunları sorabilirsiniz**: 3 starters for the user's role (§6.2).
   3. **Git**: today's list.
 - With a **query**, groups appear in this fixed order, and groups without hits are hidden:
@@ -143,7 +145,8 @@ articles.
 - **Footer:**
   - `AiUsageBanner` (existing);
   - a context chip **"Bu sayfa: {sayfa adı}"** (removable; it sends the route and the selected entity, never page
-    text);
+    text). *Deferred (§17.1 #7):* added when HB-D's `context` field lands on `POST /helper/turn`; until then "bu oda"
+    style requests resolve through a `choice` or a `form`;
   - `PromptComposer` (existing, 16 px), with starters on an empty thread;
   - `AiNotice` (existing).
 - **Esc** closes the sheet when focus is inside it. Focus returns to the opener (palette row → the top-bar trigger).
@@ -187,7 +190,8 @@ articles.
 - **UX additions to the YAML** (asks to HB-01, which owns the file):
   - a `kind` field: `page` | `tab` | `setting` | `control`. It decides between the "Sayfalar ve ayarlar" and
     "Nerede?" groups;
-  - a `path` (crumb labels) for the grey path line;
+  - a `path` for the grey path line, sent on the wire as plain text arrays `{tr[], en[]}` (and `steps` the same way;
+    §17.1 #1), so the client does not keep its own copy of the index;
   - **the CRBS synonyms of §3.2**, all of them;
   - ≤ 3 steps per entry (the architecture doc allows 5; the simplicity rule wants 3).
 - **Role filter:** done on the server. The client also hides any hit whose `feature_id` it cannot map, or whose
@@ -226,8 +230,10 @@ articles.
   2. wait for `[data-tour=anchor]` (≤ 3 s, as WG-05);
   3. `scrollIntoView({block:"center"})`;
   4. show the **spotlight ring + one step card** ("Davet et: Yeni kişileri e-posta ile buradan davet edersiniz.").
-  - Desktop: the step card has "Anladım" and "Yardımcıya dön", the scrim is dimmed only at 25 % (the helper sheet stays
-    visible), and the target stays **interactive**.
+  - Desktop: the step card has "Anladım" and "Yardımcıya dön". **No scrim** (§17.1 #5): the 3 px `--focus` ring alone
+    marks the control (5.6:1 light, 6.9:1 dark; `Highlight` in forced colours), the helper sheet stays visible, and the
+    target stays **interactive**. When the target lies under the docked sheet, the sheet steps aside for the step
+    (as on a phone) and "Yardımcıya dön" brings it back (audit 2026-10-18 M1).
   - Phone: the step card is docked, as in WG-05.
 - **Missing anchor** (a feature flag hid it, or the page is empty): navigate only, then "Bu düğme şu an bu sayfada
   görünmüyor." plus the steps.
@@ -310,11 +316,11 @@ welcome-guide anchors (§13 there) are reused as they are.
 | `nav` | **where** | Path line from the client's link map, ≤ 3 steps (collapsed), "Göster" (when an `anchor` exists) / "Sayfayı aç" / "Burada yap" (when the entry has an action) |
 | `list` | e.g. find_room, my_bookings, approvals_list | ≤ 5 rows visible (the wire allows 20) + "Tümünü {sayfa}'da aç"; row actions are 44 px text buttons; columns collapse to two lines on phones |
 | `facts` | e.g. run_status, publish preview, my_ai_usage | Label / value rows, each with a unit and a sentence (simplicity rule 5); never a bare number |
-| `form` | mini form | ≤ 5 visible fields (the rest behind "Gelişmiş"); native inputs, 16 px; options fetched from existing endpoints (`options_source`); primary "Önizle" only when the action is R2. For R1, the button reads with the effect and goes straight to confirm |
-| `confirm` | action card | Server preview rows; R2 "Etkilenenler" line; primary button = effect + object; "Değiştir" / "Vazgeç" |
-| `result` | done card | Check + one line + "Aç" + "Geri al" (with `undo_token`) + ≤ 2 follow-up chips |
+| `form` | mini form | ≤ 5 visible fields (the rest behind "Gelişmiş"); native inputs, 16 px; options fetched from existing endpoints (`options_source`); primary "Devam" (R1) or "Önizle" (R2): submitting only asks for the preview, so the effect verb ("Rezerve et", "Talep et") lives only on the `confirm` card (HX-18 M5, 2026-10-18). The first field takes the focus; missing fields point at the error line (`aria-describedby`) |
+| `confirm` | action card | Server preview rows; R2 "Etkilenenler" line; primary button = effect + object; "Değiştir" (prefilled from `confirm.args`, §17.1 #4) / "Vazgeç" |
+| `result` | done card | Check + one line + "Aç" (via `entity.feature_id`; `entity.kind` is `booking` \| `approval_request` \| `note`, §17.1 #2) + "Geri al" (with `undo_token`) + ≤ 2 follow-up chips |
 | `limit` / `refusal` / `error` | status | `Alert` inside the log with the TR/EN message + `fallback` index hits as `nav` rows + "Menüde ara" (opens the palette with the query) |
-| **`choice`** (UX ask, §17) | ask_choice | 2–5 options as 44 px rows, a "1 / 2" counter (Shopify Sidekick pattern), "Vazgeç". It is used when an argument is ambiguous ("Hangi A 204? B blok / C blok") |
+| **`choice`** (UX ask, §17) | ask_choice | 2–5 options as 44 px rows, "Vazgeç". The server sends one choice at a time and no total, so there is no "1 / 2" counter: from the second choice in a run the client shows "{n}. soru" (§17.1 #3). It is used when an argument is ambiguous ("Hangi A 204? B blok / C blok") |
 
 ### 4.3 Catalogue (v1, aligned with the registry of architecture doc §5.2)
 
@@ -336,7 +342,7 @@ welcome-guide anchors (§13 there) are reused as they are.
 | **run_status / review** | "Son çalıştırma ne durumda?" / "Kaç talep bekliyor?" | R0 | `planning.view` | `facts` + `nav` | `run_status`, `requests_needing_review` | — |
 | **my_ai_usage** | "Ne kadar yapay zekâ hakkım kaldı?" | R0 | anyone | `facts` | `my_ai_usage` | — |
 | **open_run_chat** | "MAT 112'yi salıya taşı" | R0 hand-over | `planning.edit` | `nav` | navigates to the run and pre-fills the run chat composer (`?chat=` param; ask the chat owner) | — |
-| **remember** | "Hep B blokta öner" | user note | signed in | `result` with "Hatırla" / "Hayır" | `POST /helper/notes` (`source=user_button`) | "Unut" |
+| **remember** (deferred to HB-D's remember card, §17.1 #8) | "Hep B blokta öner" | user note | signed in | `result` with "Hatırla" / "Hayır" | `POST /helper/notes` (`source=user_button`) | "Unut" |
 | **undo_last** | "Son yaptığımı geri al" | R1 | the original permission | `confirm` → `result` | `undo_last_helper_action` | — |
 
 **Not in v1** (architecture doc §5.2 exclusions; each needs an owner decision on its risk class): recurring and
@@ -391,7 +397,7 @@ toast  "Rezerve edildi · Geri al (8 sn)"; a polite live region repeats the resu
 |---|---|---|---|
 | **Notes** (`helper_notes`) | "Tercih edilen bina: B blok", "Varsayılan süre: 2 ders saati" | ≤ 20 notes, ≤ 200 characters each, 180 days since last use | **only when the user taps "Hatırla"** on a `remember` result (or adds one in Profil); a note naming a person is refused |
 | **Conversation history** (`helper_threads` / `helper_messages`) | the last threads, so a phone continues a desktop conversation | 30 days (`ai.helper.history_days`); the model sees the last 6 turns | on; "Yeni konuşma" starts a thread, "Geçmişi sil" deletes all |
-| **"Son yaptıklarınız"** | "A 204 rezerve edildi · dün" | derived from the user's own confirmed actions (`helper_action_invocations`, done), last 30 days, max 3 shown | on (no extra data: the record exists for audit and undo) |
+| **"Son işlemler"** (deferred, §17.1 #6) | "A 204 rezerve edildi · dün" | derived from the user's own confirmed actions (`helper_action_invocations`, done), last 30 days, max 3 shown | on once HB-D's endpoint lands (no extra data: the record exists for audit and undo) |
 | Starters dismissed, "Yalnızca metin" | — | `localStorage` (device only) | — |
 
 - **Profil › Yardımcı** (`helper-states.svg` C) shows:
@@ -446,7 +452,7 @@ model.
 | `helper.palette.ask` | Yardımcıya sor: “{q}” | Ask the helper: “{q}” |
 | `helper.palette.groups.where` | Nerede? | Where is it? |
 | `helper.palette.groups.shortcuts` | Kısayollar | Shortcuts |
-| `helper.palette.groups.recent` | Son yaptıklarınız | Your recent tasks |
+| `helper.palette.groups.recent` | Son işlemler | Your recent tasks |
 | `helper.palette.groups.starters` | Şunları sorabilirsiniz | You can ask |
 | `helper.title` | Yardımcı | Helper |
 | `helper.empty` | Size nasıl yardım edebilirim? Bir sayfa sorun ya da yapmak istediğinizi yazın. | How can I help? Ask where something is or say what you want to do. |
@@ -514,7 +520,7 @@ the app (initials in screenshots and tests, KVKK).
 | Palette open | (unchanged) "search is here" | pattern 18 | `glassMorph` | as today | as today |
 | "Yardımcıya sor" row moves to the top for a question | — | **no motion** (the list re-renders; frequent action) | — | — | — |
 | Helper sheet open, desktop | "a helper appeared beside your page" | The sheet itself (never a wrapper) x 24 → 0 + opacity; exit 120 ms. Composer focused on frame 1 | `springs.sheet` (settles 269 ms); exit `dur.fast` + `--ease-in`; recipe **panel-reveal** retimed, **no blur** | 100 ms opacity | opaque `--mat-thick-solid` |
-| Helper sheet open, phone | "it came from below and goes back below" | y 100 % → 0; the drag follows the finger; dismiss on a flick | `springs.sheet` (pattern 4) | 100 ms opacity; drag without a spring | opaque |
+| Helper sheet open, phone | "it came from below and goes back below" | y 100 % → 0; the 44 px handle drags it 1:1; release past 30 % or a flick closes (`dur.fast` `ease.out`), else it springs back; ✕ / Esc exit `dur.base` `ease.in` (built HX-19, motion.md §3.21) | `springs.sheet` (pattern 4) | 100 ms opacity in; drag 1:1 without a spring; close instant | opaque |
 | Thinking | "working on it" (a real wait) | label shimmer "Düşünüyor…", elapsed seconds after 5 s; stops with the first token | pattern 17; recipe **thinking-states** / **shimmer-text** (loop 1.6 s) | static label | same |
 | Streaming text | "the answer is arriving" | chunk fade 120 ms via CSS, no JS per token; stick to the bottom only when already there | pattern 16; recipe **streaming-text** retimed | no fade | — |
 | Card appears | "this is something you can act on" | opacity + y 6 → 0, once; no stagger of the rows | `springs.smooth`; recipe **skeleton-reveal** for the preview skeleton → content | 100 ms opacity | opaque card |
@@ -596,7 +602,7 @@ Use this list on every screen review. A "no" is a **major** finding with a scree
 | Surface | Loading | Empty | Error |
 |---|---|---|---|
 | Palette | today's "Aranıyor…" | §2.3 no hits | today's |
-| Helper thread | "Düşünüyor…" (status) | `helper.empty` + 3 starters + "Son yaptıklarınızı hatırlıyorum · Yönet" (memory on) | `helper.error.provider` + "Tekrar dene" |
+| Helper thread | "Düşünüyor…" (status) | `helper.empty` + 3 starters + "{n} notunuzu kullanıyorum · Yönet" (memory on and notes exist) | `helper.error.provider` + "Tekrar dene" |
 | Card preview | skeleton rows (static bars, shimmer only on the title label) | `find_room` with 0 rooms: "Bu saatte uygun salon yok." + "Bir sonraki boş saati göster" (re-runs the preview +1 period) | the API message in the card, inputs kept |
 | Card confirm | the button shows a spinner with "Kaydediliyor…" | — | 409 conflict: "Bu saat az önce doldu." + "Başka saat öner"; 403: "Bu işlem artık hesabınızda yok." (card closes); network: "Bağlantı kesildi. Tekrar dene" |
 | Memory page | placeholder rows | "Henüz hatırlanan bir şey yok." | danger alert + "Tekrar dene" |
@@ -620,7 +626,7 @@ Use this list on every screen review. A "no" is a **major** finding with a scree
 
 | Token | Value | Use |
 |---|---|---|
-| Sheet width | 400 (≥ 1280) / 360 (1024–1279) / 100 % (< 1024 → full-screen sheet under 640, else a right sheet 400) | Helper |
+| Sheet width | 400 (≥ 1280) / 360 (1024–1279) / full-screen dialog below 1024 (as built; one phone/tablet layout, audit 2026-10-18 m10) | Helper |
 | Sheet surface | glass regular; `--mat-thick-solid` under reduced transparency; `--radius-lg`; inset 8 px from the top bar and viewport edges | Helper |
 | Card | `--fill-3` well (no glass on glass) + `edge-hairline`, `--radius-md`, padding 16, gap 12; title `type-headline`, body `type-callout`, meta `type-footnote` | Cards |
 | Risk accent | R0 none; R1 `--primary` button; R2 `--primary` + an "Etkilenenler" line with an `--status-warning` icon; R3 an `--status-warning` header strip + a neutral button that opens the dialog | Cards |
@@ -638,7 +644,7 @@ Use this list on every screen review. A "no" is a **major** finding with a scree
 | API client: zod types generated from `GET /helper/schema`, hooks for search, turn (SSE), confirm, undo, notes, threads | `lib/api/helper.ts`, `components/helper/schema.gen.ts` (HX-01) | React Query, zod 4 | MIT |
 | Feature link map (`feature_id` → href, anchor, kind, path) + the nav-index vitest | `components/helper/feature-links.ts` (HX-01) | `nav-config.ts`, `admin/nav-items.ts`, message keys | ours |
 | Intent parser (dates, periods, rooms, headcount; TR + EN) | `components/helper/intents.ts` (HX-01) | `lib/time.ts` PERIODS, the palette's `fold()` | ours |
-| Palette groups (Nerede?, Kısayollar, Son yaptıklarınız, Yardımcıya sor) | `components/helper/palette-groups.tsx` (HX-02) + **ask: mount in `components/shell/command-palette.tsx`** | cmdk 1.1 `CommandGroup` / `CommandItem`, `GET /helper/search` | MIT |
+| Palette groups (Nerede?, Kısayollar, Son işlemler, Yardımcıya sor) | `components/helper/palette-groups.tsx` (HX-02) + **ask: mount in `components/shell/command-palette.tsx`** | cmdk 1.1 `CommandGroup` / `CommandItem`, `GET /helper/search` | MIT |
 | Top-bar trigger | `components/helper/helper-trigger.tsx` (HX-02) + **ask: replace the "Ara" button in `top-bar.tsx`; aria label in `tab-bar.tsx`** | `button.tsx`, `kbd-hint.tsx` | MIT (shadcn on Base UI) |
 | `HelperProvider` (open state, current thread id, ⌘J) | `components/helper/helper-provider.tsx` (HX-03) + **ask: one mount in `app-shell.tsx`, ⌘J in `use-global-shortcuts.ts`** | the zustand pattern of `stores/ui` | ours |
 | `HelperSheet` (desktop side sheet / phone full screen, Rehber modu) | `components/helper/helper-sheet.tsx` (HX-03) | `sheet.tsx`, `glass-panel.tsx`, `PromptComposer`, `AiUsageBanner`, `AiNotice` | MIT / ours |
@@ -704,9 +710,26 @@ Use this list on every screen review. A "no" is a **major** finding with a scree
 |---|---|---|---|
 | A1 | When every required argument of an R1 write resolves, return `confirm` directly (skip `form`). Keep `form` for missing or ambiguous arguments and for "Değiştir" | HB-05 / HB-07 | Two taps → one; the owner's simplicity rule. Safety is unchanged: the token, the preview hash and the undo |
 | A2 | A `choice` card type (2–5 options, an argument name, option ids) for ambiguous entities ("Hangi A 204?") | HB-07 | Without it, the model asks in prose and the user types again |
-| A3 | `features.yaml`: add `kind` (page / tab / setting / control), `path` (crumb keys), the §3.2 CRBS synonyms, ≤ 3 steps per entry | HB-01 | "Nerede?" vs "Sayfalar" grouping; ex-CRBS vocabulary |
+| A3 | `features.yaml`: add `kind` (page / tab / setting / control), `path` (text arrays on the wire, §17.1 #1), the §3.2 CRBS synonyms, ≤ 3 steps per entry | HB-01 | "Nerede?" vs "Sayfalar" grouping; ex-CRBS vocabulary |
 | A4 | `POST /helper/actions/{name}/card` with partial `args` → `confirm` / `form` / `list`, with **no model call** (for Kısayollar) | HB-05 / HB-07 | Shortcuts work in index mode and at the limit |
 | A5 | The palette group is named **"Nerede?"** (the architecture doc says "Nasıl yapılır"). Steps appear inside the `nav` card | HB-02 (label only) | The owner asked "where is it and where to click" |
 | A6 | The status chip needs `GET /ai/me/usage` (or `/helper/status`) to return `{mode: "ai" \| "index", provider_kind: "local" \| "cloud", provider_label, fallback_active}` | HB-06 / HB-13 / HB-15 | Yerel / Bulut / Kapalı chip; never inferred on the client |
 | A7 | `result` cards carry ≤ 2 `follow_ups` (action names with partial args), e.g. after `create_booking` → the calendar `nav`, "Başka saat" | HB-07 | The ClickUp / Manus follow-up pattern (research M11); fewer typed requests |
 | A8 | `list` rows ≤ 5 by default in the helper (the full list stays on the page via `more`) | HB-07 | Simplicity rule 4 |
+
+### 17.1 HB-07 design sign-off: HX's 8 differences (hx-design-2026-10-18)
+
+The card contract `helper.card.v1` (API.md "Designer field list vs helper.md") is signed off with the decisions below.
+Findings from the code audit are in `docs/testing/audits/2026-10-18-helper-design-audit.md`.
+
+| # | Difference reported by HX | Decision | Reason |
+|---|---|---|---|
+| 1 | `nav.path` and `steps` arrive as text `{tr[], en[]}`, not crumb keys | **Accept** | The server's strings are plain-text-pattern checked and paired TR/EN; the client still maps `feature_id` → route and permission, so no URL or label comes from the model |
+| 2 | `result.entity.kind` is `booking` \| `approval_request` \| `note` | **Accept** | It covers every v1 write (bookings, decisions, the remember note); "Aç" uses `entity.feature_id`, so a new kind needs no client change |
+| 3 | `choice` has no counter; the client shows "{n}. soru" from the second choice | **Accept** | The server sends one choice at a time and cannot know the total, so "1 / 2" would be a guess; "2. soru" is honest and quieter |
+| 4 | `confirm.args` prefills "Değiştir" | **Accept** | One source of truth for the form; the unresolved value ("A 204") stays visible until a real option is picked |
+| 5 | "Göster" has no 25 % scrim; the ring alone marks the control, which stays clickable | **Accept**, with a condition | A scrim is a third layer next to the non-modal sheet and fights "one interruption at a time"; the ring meets 3:1. Condition: a target under the docked sheet must not be ringed behind it (audit M1) |
+| 6 | "Son işlemler" left out (HB-D builds the recent-actions endpoint) | **Accept as deferred** | The empty palette still has starters and "Git"; ship the group when the endpoint lands (ticket HX-15) |
+| 7 | The "Bu sayfa: …" context chip left out (HB-D adds a context field) | **Accept as deferred** | Without context, "bu oda" requests fall back to `choice` / `form`, which is safe; add the chip with the field (ticket HX-16) |
+| 8 | No "Hatırla" on cards yet (HB-D adds a remember card) | **Accept as deferred** | Notes still only exist by an explicit act (Profil › Yardımcı › Not ekle), so the memory promise holds; add the card with HB-D (ticket HX-17) |
+

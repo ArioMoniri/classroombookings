@@ -189,7 +189,7 @@ export type DateInfo = z.infer<typeof DateInfo>;
 export const TimetableWeek = z.object({ id: z.number(), name: z.string(), bgcol: z.string(), fgcol: z.string(), icon: z.string().nullish() });
 export type TimetableWeek = z.infer<typeof TimetableWeek>;
 
-export const DatesOut = z.object({ term_id: z.number(), today: z.string(), weeks: z.array(TimetableWeek), dates: z.array(DateInfo) });
+export const DatesOut = z.object({ term_id: z.number(), today: z.string(), next_open: z.string().nullable().optional(), weeks: z.array(TimetableWeek), dates: z.array(DateInfo) });
 export type DatesOut = z.infer<typeof DatesOut>;
 
 export const SlotStatus = z.enum(["available", "booked", "timetable", "unavailable"]);
@@ -1013,7 +1013,7 @@ export const crbs = {
   },
   users: {
     /** `identity` (comma = OR: invited | self_signup | sso | binding | local | ldap) and `self_signup_days` filter on the server */
-    search: (q: { q?: string; role_id?: number; department_id?: number; enabled?: boolean; sort?: string; limit?: number; offset?: number; identity?: string; self_signup_days?: number }) =>
+    search: (q: { q?: string; role_id?: number; department_id?: number; enabled?: boolean; sort?: string; limit?: number; offset?: number; identity?: string; self_signup_days?: number; mfa_state?: string }) =>
       json("/users/search", UserPage, { ...q }),
     list: () => json("/users", z.array(AdminUser)),
     get: (id: number) => json(`/users/${id}`, AdminUser),
@@ -1294,7 +1294,7 @@ export function useCrbsMutation<TVars, TOut>(fn: (vars: TVars) => Promise<TOut>,
 }
 
 /** Everything a booking can change: the grid, the lists, the context counters. */
-export const BOOKING_KEYS: QueryKey[] = [["crbs", "grid"], ["crbs", "mine"], ["crbs", "dashboard"], ["crbs", "owned-rooms"], crbsKeys.context, ["crbs", "booking"], ["crbs", "series"], ["crbs", "conflicts"], ["w1", "approvals"], ["w1", "notifications"]];
+export const BOOKING_KEYS: QueryKey[] = [["crbs", "grid"], ["crbs", "mine"], ["crbs", "dashboard"], ["crbs", "owned-rooms"], crbsKeys.context, ["crbs", "booking"], ["crbs", "series"], ["crbs", "conflicts"], ["w1", "approvals"], ["w1", "notifications"], ["welcome", "state"]]; // WG10-F03: "İlk rezervasyonunuzu yapın" ticks at once
 
 /* ------------------------------------------------------------- admin gaps (UI gap audit 2026-10-08) */
 

@@ -72,13 +72,14 @@ async def sync_enabled(session: AsyncSession) -> bool:
 
 async def feed_switches(session: AsyncSession) -> dict[str, bool]:
     """In one query (the CAL-05 304 path): ``enabled`` (the KVKK switch with its sign-off, :func:`sync_enabled`) and
-    the admin's switch per export scope (``my_classes`` / ``department_classes`` / ``my_bookings``)."""
+    the admin's switch per export scope (``my_classes`` / ``department_classes`` / ``my_bookings`` /
+    ``my_duties``)."""
     from app.models import Setting
     from app.services import bookings_settings as bs
 
     group, key, signoff = bs.SIGNOFF_GATED
     switch_keys = {"my_classes": "export_my_classes", "department_classes": "export_department_classes",
-                   "my_bookings": "export_my_bookings"}  # fmt: skip
+                   "my_bookings": "export_my_bookings", "my_duties": "export_my_duties"}  # fmt: skip
     names = [f"{group}.{key}", f"{group}.{signoff}", *(f"{group}.{k}" for k in switch_keys.values())]
     rows = {r.key: r.value for r in (await session.execute(select(Setting).where(Setting.key.in_(names)))).scalars()}
     specs = bs.GROUPS[group]
@@ -433,7 +434,7 @@ async def revisions(session: AsyncSession, views: list[EventView]) -> dict[int, 
 
 @dataclass(frozen=True)
 class FeedScope:
-    kind: str  # mine | room | department | room_group | my_classes | department_classes
+    kind: str  # mine | room | department | room_group | my_classes | department_classes | my_duties
     id: int
 
 
@@ -492,6 +493,7 @@ async def build_feed(
     """The calendar of ``scope`` as seen by ``access``; :class:`FeedNotFound` for what the user may not see.
     ``source``: the subscription URL (RFC 7986 ``SOURCE``); ``attachment``: a one-off file (CAL-04, no SOURCE)."""
     from app.services import calendar_classes as cc
+    from app.services import calendar_duties as cd
 
     group = await get_group(session, "integrations")
     today: date = await booking_svc.today(session)
@@ -503,6 +505,7 @@ async def build_feed(
     room_filter: list[int] | None = None
     class_filter: cc.ScopeFilter | None = None
     own_instructors: list[int] = []
+    duties = False
     if scope.kind == "mine":
         q = q.where(Booking.user_id == scope.id)
         include_pending = True
@@ -544,6 +547,12 @@ async def build_feed(
             raise FeedNotFound
         default_title, filename = "SmartSched – Derslerim", "derslerim.ics"
         class_filter = cc.ScopeFilter(instructor_ids=frozenset(own_instructors))
+    elif scope.kind == "my_duties":  # CAL-13 "Sınav görevlerim"
+        own_instructors = await cc.linked_instructor_ids(session, scope.id)
+        if not own_instructors:
+            raise FeedNotFound
+        default_title, filename = "SmartSched – Sınav görevlerim", "sinav-gorevlerim.ics"
+        duties = True
     else:
         raise FeedNotFound
     views: list[EventView] = []
@@ -591,6 +600,13 @@ async def build_feed(
             grace_days=grace_days,
             ctx=ctx,
             room_visible=lambda rid: rid in rooms and access.can_view_room(rooms[rid]),
+        )
+        events.sort(key=lambda e: (e.start, e.uid))
+    if duties:
+        base, _ = await public_base(session)
+        ctx = cc.EventContext(fields=await cc.fields_setting(session), base_url=base)
+        events += await cd.duty_events(
+            session, frozenset(own_instructors), since, cd.horizon(today), grace_days=grace_days, ctx=ctx
         )
         events.sort(key=lambda e: (e.start, e.uid))
     tz_name = str(await settings_service.get_value(session, "timezone") or "Europe/Istanbul")
@@ -656,6 +672,7 @@ SCOPE_FEED_KIND = {
     "my_bookings": "mine",
     "room": "room",
     "room_group": "room_group",
+    "my_duties": "my_duties",
 }
 #: what a legacy (scope-less) link may open: its pre-CAL-03 paths
 LEGACY_FEED_KINDS = frozenset({"mine", "room", "department", "room_group"})
@@ -664,6 +681,7 @@ SCOPE_SWITCH = {
     "my_classes": "export_my_classes",
     "department_classes": "export_department_classes",
     "my_bookings": "export_my_bookings",
+    "my_duties": "export_my_duties",
 }
 _SHORT_DAYS = ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
 _SHORT_DAYS_EN = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
@@ -692,6 +710,8 @@ def scoped_path(row: CalendarFeedToken) -> str | None:
         return f"room/{row.scope_id}.ics"
     if kind == "room_group":
         return f"room-group/{row.scope_id}.ics"
+    if kind == "my_duties":
+        return "duties.ics"
     return None
 
 
@@ -804,7 +824,7 @@ async def check_scope(session: AsyncSession, access: Access, kind: str, scope_id
             "The administrator has turned this calendar off.",
             "Bu takvim seçeneği yönetici tarafından kapatıldı.",
         )
-    if kind == "my_classes":
+    if kind in ("my_classes", "my_duties"):
         if not await cc.linked_instructor_ids(session, access.user_id):
             raise cc.not_linked_error()
     elif kind == "department_classes":
@@ -908,9 +928,12 @@ async def preview(session: AsyncSession, access: Access, kind: str, scope_id: in
     """Tap 3 "Takviminize şunlar gönderilecek": the fields that leave SmartSched, the number of upcoming events
     and a sample event card from the real first upcoming one (``sample`` is null when there is none)."""
     from app.services import calendar_classes as cc
+    from app.services import calendar_duties as cd
 
     today: date = await booking_svc.today(session)
     fields = (await cc.fields_setting(session)).as_dict()
+    if kind == "my_duties":  # CAL-13: never another person's name, whatever the class setting says
+        fields = {**fields, "section": False, "co_instructors": False}
     sample: dict[str, Any] | None = None
     count = 0
     if kind == "my_bookings":
@@ -929,9 +952,14 @@ async def preview(session: AsyncSession, access: Access, kind: str, scope_id: in
                           "end": view.end.isoformat(), "text_tr": tr, "text_en": en}  # fmt: skip
     else:
         flt = await _class_filter(session, access, kind, scope_id)
-        if flt is not None:
+        sel = None
+        if kind == "my_duties":
+            mine = frozenset(await cc.linked_instructor_ids(session, access.user_id))
+            sel = await cd.select_duties(session, mine, today, cd.horizon(today), grace_days=0)
+        elif flt is not None:
             horizon = await cc.horizon_end(session, today)
             sel = await cc.select_classes(session, flt, today, horizon, grace_days=0)
+        if sel is not None:
             live = sorted((o for o, _ in sel.live), key=lambda o: (o.start, o.uid))
             count = len(live)
             if live:
@@ -946,10 +974,14 @@ async def preview(session: AsyncSession, access: Access, kind: str, scope_id: in
         "upcoming_count": count,
         "sample": sample,
         "fields": [{"key": k, "label_tr": cc.FIELD_LABELS[k][0], "label_en": cc.FIELD_LABELS[k][1]} for k in sent],
-        "never_tr": "Öğrenci bilgisi, not ve diğer öğretim elemanlarının adları gönderilmez."
+        "never_tr": "Öğrenci bilgisi, not ve diğer gözetmenlerin adları gönderilmez."
+        if kind == "my_duties"
+        else "Öğrenci bilgisi, not ve diğer öğretim elemanlarının adları gönderilmez."
         if not fields["co_instructors"]
         else "Öğrenci bilgisi ve notlar gönderilmez.",
-        "never_en": "No student data, notes or other instructors' names are sent."
+        "never_en": "No student data, notes or other invigilators' names are sent."
+        if kind == "my_duties"
+        else "No student data, notes or other instructors' names are sent."
         if not fields["co_instructors"]
         else "No student data or notes are sent.",
     }
@@ -990,7 +1022,7 @@ async def export_options(session: AsyncSession, access: Access) -> dict[str, Any
     taught = sorted(await cc.taught_program_ids(session, linked) & {d.id for d in deps})
     default_dep = own or (taught[0] if taught else (deps[0].id if deps else None))
     scopes: list[dict[str, Any]] = []
-    for kind in ("my_classes", "department_classes", "my_bookings"):
+    for kind in ("my_classes", "department_classes", "my_bookings", "my_duties"):
         tr, en = cc.SCOPE_LABELS[kind]
         item: dict[str, Any] = {"kind": kind, "label_tr": tr, "label_en": en, "available": True, "reason": None}
         scope_id = default_dep if kind == "department_classes" else None
@@ -1015,6 +1047,7 @@ async def export_options(session: AsyncSession, access: Access) -> dict[str, Any
     hint = (await conn_svc.verify_account(session, access.user, conn_svc.PROVIDERS["google"],
                                           conn_svc.AccountInfo(None, None))).domain  # fmt: skip
     verified_only = await conn_svc.push_verified_only(session)
+    base, _ = await public_base(session)
     verification = {"required": verified_only, "domain": hint,
                     **({k: v for k, v in conn_svc.not_verified_detail(hint).items() if k.startswith("message")}
                        if verified_only else {})}  # fmt: skip
@@ -1030,7 +1063,23 @@ async def export_options(session: AsyncSession, access: Access) -> dict[str, Any
                 "freshness_en": FRESHNESS["push"][1],
                 "verification": verification,
             },
-            "link": {"available": enabled, "freshness_tr": FRESHNESS["link"][0], "freshness_en": FRESHNESS["link"][1]},
+            # CAL10-F02: without a panel address a link cannot subscribe ("never a fake button"): not offered, said why
+            "link": {
+                "available": enabled and bool(base),
+                **(
+                    {
+                        "reason": "no_public_url",
+                        "message_tr": "Abonelik bağlantısı için yöneticinizin panel adresini girmesi gerekiyor. "
+                        "Şimdilik .ics dosyasını indirebilirsiniz.",
+                        "message_en": "A subscription link needs the panel address, which your administrator has not "
+                        "set yet. You can download an .ics file for now.",
+                    }
+                    if enabled and not base
+                    else {}
+                ),
+                "freshness_tr": FRESHNESS["link"][0],
+                "freshness_en": FRESHNESS["link"][1],
+            },
             "file": {"available": True, "freshness_tr": FRESHNESS["file"][0], "freshness_en": FRESHNESS["file"][1]},
         },
     }

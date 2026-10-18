@@ -14,7 +14,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePhone, useTouchList } from "./use-media";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
-import { pageActionsCapsule } from "@/components/admin/kit";
+import { pageActionsCapsule, SectionTitle } from "@/components/admin/kit";
+import { MyRequests as RoomRequests } from "@/components/approvals/my-requests";
+import { useBookingFormat } from "@/components/bookings/use-booking-format";
+import { useMyRequests as useMyRoomRequests } from "@/lib/api/wave1";
 import { Chip } from "@/components/ui/chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -493,6 +496,11 @@ export function MyRequests() {
   const lang = locale === "tr" ? "tr" : "en";
   // GET /moderation/me: the linked instructor, the visibility and the current term (no 403 probe, no planning reads)
   const me = useModerationMe();
+  // PER-F02: "Taleplerim" is where my room requests are too (staff are not linked to an instructor; the page was a
+  // dead end "Hesabınız bir öğretim elemanına bağlı değil" while the C 606 request waited in Rezervasyonlarım)
+  const fmt = useBookingFormat();
+  const roomRequests = useMyRoomRequests();
+  const hasRoomRequests = (roomRequests.data?.length ?? 0) > 0;
   const term = me.data?.current_term ?? null;
   const linked = me.data ? me.data.instructor_id !== null : null;
   const termId = linked ? (term?.id ?? null) : null;
@@ -552,10 +560,16 @@ export function MyRequests() {
           ) : null
         }
       />
+      <RoomRequests fmt={fmt} testId="my-room-requests" />
+      {hasRoomRequests && linked ? <SectionTitle id="mine-courses">{t("moderation.mine.courses")}</SectionTitle> : null}
       {me.isLoading ? (
         <ConsoleSkeleton />
       ) : me.isError ? (
         <p role="alert" className="type-callout text-label-2">{t("moderation.loadError")}</p>
+      ) : forbidden && hasRoomRequests ? (
+        <p className="type-footnote text-label-2" data-testid="mine-unlinked-note">{t("moderation.mine.unlinkedNote")}</p>
+      ) : forbidden && linked === false ? (
+        <EmptyState data-testid="mine-unlinked" title={t("moderation.mine.noneTitle")} description={`${t("moderation.mine.none")} ${t("moderation.mine.unlinkedNote")}`} />
       ) : forbidden ? (
         <EmptyState data-testid="mine-unlinked" title={t("moderation.mine.unlinkedTitle")} description={t("moderation.mine.unlinked")} />
       ) : q.isError ? (

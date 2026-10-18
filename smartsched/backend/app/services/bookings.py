@@ -82,6 +82,19 @@ def _conflict(code: str, message: str, **data: Any) -> BookingError:
     return BookingError(409, code, message, **data)
 
 
+#: FIX-A (e2e 2026-10-18, HX/HB copy): the words of a taken slot, as the helper cards and quick reserve say them
+#: ("Bu saat az önce doldu.", ``components/helper/__fixtures__/cards.json``, docs/design/v3/helper.md); the helper's
+#: refusal (``app/ai/helper/actions/writes.refusal``) prefers these over its own fallback "Bu saat dolu."
+SLOT_TAKEN = {"message_tr": "Bu saat az önce doldu.", "message_en": "This slot was just taken."}
+SLOT_HELD = {
+    "timetable": {
+        "message_tr": "Bu saatte yayımlanmış ders programında ders var.",
+        "message_en": "The published timetable holds this slot.",
+    },
+    "block": {"message_tr": "Bu saat ayrılmış bir blokta.", "message_en": "This slot is a reserved block."},
+}
+
+
 async def today(session: AsyncSession) -> date:
     tz = str(await settings_service.get_value(session, "timezone") or "Europe/Istanbul")
     try:
@@ -692,13 +705,33 @@ async def _who_and_department(
 async def _open_date(session: AsyncSession, info: TermInfo, d: date) -> DateInfo:
     di = (await date_infos(session, info, [d]))[d]
     if not di.open:
-        msg = {
-            "holiday": f"{d:%d.%m.%Y} is a holiday ({di.holiday})",
-            "no_week": f"{d:%d.%m.%Y} has no timetable week",
-            "date_range": f"{d:%d.%m.%Y} is outside the term",
-        }[di.reason or "date_range"]
-        raise _conflict(di.reason or "closed", msg)
+        reason = di.reason or "date_range"
+        en, tr = {
+            "holiday": (f"{d:%d.%m.%Y} is a holiday ({di.holiday})", f"{d:%d.%m.%Y} tatil ({di.holiday})"),
+            "no_week": (f"{d:%d.%m.%Y} has no timetable week", f"{d:%d.%m.%Y} için ders haftası yok"),
+            "date_range": (f"{d:%d.%m.%Y} is outside the term", f"{d:%d.%m.%Y} dönem dışında"),
+        }[reason]
+        raise _conflict(reason, en, message_en=en, message_tr=tr)
     return di
+
+
+DAY_EN = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+DAY_TR = {1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi", 7: "Pazar"}
+
+
+async def _open_day(session: AsyncSession, info: TermInfo, room: Room, d: date) -> None:
+    """BUG-01: a weekday the room's schedule offers no bookable period on (Sunday on a Monday-Friday schedule) is a
+    closed day: refused as ``closed_day`` ("22.02.2026 Pazar rezervasyona kapalı bir gün"), not as a generic
+    ``calendar`` error (the find-room screen closes the same days, ``find_room.closed_label``)."""
+    schedule = await applied_schedule(session, info, room)
+    if schedule is None:
+        return  # period_for names the missing schedule
+    offered = {int(x) for p in schedule.periods if p.bookable for x in (p.days or [])}
+    if offered and d.isoweekday() not in offered:
+        wd = d.isoweekday()
+        en = f"{d:%d.%m.%Y} is a {DAY_EN[wd]}, closed for bookings"
+        tr = f"{d:%d.%m.%Y} {DAY_TR[wd]} rezervasyona kapalı bir gün"
+        raise _conflict("closed_day", en, message_en=en, message_tr=tr, weekday=wd)
 
 
 def _slot_rows(b: Booking) -> list[BookingSlot]:
@@ -764,7 +797,7 @@ async def _insert(session: AsyncSession, b: Booking) -> Booking:
         await session.flush()
     except IntegrityError as exc:  # a concurrent booking won the race; the unique key is the referee
         await session.rollback()
-        raise _conflict("conflict", "the slot was booked by someone else a moment ago") from exc
+        raise _conflict("conflict", "the slot was booked by someone else a moment ago", **SLOT_TAKEN) from exc
     return b
 
 
@@ -775,6 +808,7 @@ async def _conflict_error(held: Held, room: Room, d: date) -> BookingError:
         f"{room.display_name} on {d:%d.%m.%Y} P{held.start}-P{held.end} is held by {what[held.kind]}"
         + (f" ({held.label})" if held.kind != "booking" and held.label else ""),
         conflict=held.as_dict(),
+        **SLOT_HELD.get(held.kind, SLOT_TAKEN),
     )
 
 
@@ -815,13 +849,14 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
     try:
         info = await resolve_term(session, body.date, body.term_id, view_all=access.can("system.view_all_sessions"))
     except CalendarError as exc:
-        raise _conflict("calendar", str(exc)) from exc
+        raise _conflict("calendar", str(exc), **exc.texts) from exc
     need = await approvals.need_for(session, access, room, "book_single", info.term.id)
     try:
         await _open_date(session, info, body.date)
+        await _open_day(session, info, room, body.date)
         period = await period_for(session, info, room, body.period_id, body.date)
     except CalendarError as exc:
-        raise _conflict("calendar", str(exc)) from exc
+        raise _conflict("calendar", str(exc), **exc.texts) from exc
     if need is not None:
         await approvals.check_lead_time(session, need, info.term.id, body.date)
     user_id, dep_id = await _who_and_department(session, access, room, "book_single", body)
@@ -955,13 +990,14 @@ async def plan_recurring(session: AsyncSession, access: Access, body: RecurIn) -
     try:
         info = await resolve_term(session, body.date, body.term_id, view_all=access.can("system.view_all_sessions"))
     except CalendarError as exc:
-        raise _conflict("calendar", str(exc)) from exc
+        raise _conflict("calendar", str(exc), **exc.texts) from exc
     need = await approvals.need_for(session, access, room, "book_recur", info.term.id)
     try:
         anchor = await _open_date(session, info, body.date)
+        await _open_day(session, info, room, body.date)
         period = await period_for(session, info, room, body.period_id, body.date)
     except CalendarError as exc:
-        raise _conflict("calendar", str(exc)) from exc
+        raise _conflict("calendar", str(exc), **exc.texts) from exc
     dates = await recurring_dates(session, info, body.date)
     if not dates:
         raise _conflict("no_recurring_dates", "no dates to repeat this booking on")
@@ -1446,11 +1482,16 @@ async def update(
         info = await term_info(session, term)
         try:
             if info is None or not (info.start <= new_date <= info.end):
-                raise CalendarError(f"{new_date:%d.%m.%Y} is outside the booking's term")
+                raise CalendarError(
+                    f"{new_date:%d.%m.%Y} is outside the booking's term",
+                    message_tr=f"{new_date:%d.%m.%Y} tarihi bu rezervasyonun döneminin dışında.",
+                    message_en=f"{new_date:%d.%m.%Y} is outside the booking's term.",
+                )
             await _open_date(session, info, new_date)
+            await _open_day(session, info, new_room, new_date)
             period = await period_for(session, info, new_room, data.get("period_id", b.period_id), new_date)
         except CalendarError as exc:
-            raise _conflict("calendar", str(exc)) from exc
+            raise _conflict("calendar", str(exc), **exc.texts) from exc
         if not access.can(f"{_kind(b)}.edit_other_booking") and "date" in data:
             # owners (and room-level editors) move a booking within their own booking window only: never into
             # the past, never beyond range_min / range_max (deliberate security difference)
@@ -1481,7 +1522,7 @@ async def update(
             await session.flush()
         except IntegrityError as exc:
             await session.rollback()
-            raise _conflict("conflict", "the slot was booked by someone else a moment ago") from exc
+            raise _conflict("conflict", "the slot was booked by someone else a moment ago", **SLOT_TAKEN) from exc
     now = utcnow()
     for row in targets:
         for key in ("notes", "department_id", "user_id"):
@@ -1554,7 +1595,7 @@ async def create_selection(session: AsyncSession, access: Access, slots: list[di
             session, first["date"], first.get("term_id"), view_all=access.can("system.view_all_sessions")
         )
     except CalendarError as exc:
-        raise _conflict("calendar", str(exc)) from exc
+        raise _conflict("calendar", str(exc), **exc.texts) from exc
     anchor = (await date_infos(session, info, [first["date"]]))[first["date"]]
     mb = MultiBooking(user_id=access.user_id, term_id=info.term.id, timetable_week_id=anchor.timetable_week_id)
     seen = set()
@@ -1944,6 +1985,16 @@ async def grid(
                 seen_periods.setdefault(p.id, p)
     periods = sorted(seen_periods.values(), key=lambda p: (p.time_start, p.start_period, p.id))
     period_days = {int(x) for p in periods for x in (p.days or [])}
+    if d is None and period_days and target.isoweekday() not in period_days:
+        # HX12B-F01 / PER-F01: today has no periods (a weekend): open on the next teaching day (and its week)
+        _, nxt = await _prev_next(session, info, target, "day", period_days)
+        if nxt is not None:
+            target = nxt
+            if display == "day":
+                dates = [target]
+            else:
+                monday = target - timedelta(days=target.isoweekday() - 1)
+                dates = [monday + timedelta(days=i) for i in range(7)]
     if display == "day":
         periods = [p for p in periods if target.isoweekday() in (p.days or [])]
     elif period_days:
@@ -1999,6 +2050,8 @@ async def grid(
                         status, reason = "unavailable", "limit"
                     elif not single and not recur:
                         status, reason = "unavailable", "permissions"
+                    elif past and not may_book_past and day < t:
+                        status, reason = "unavailable", "past"  # PER-F10: a past day reads "Geçmiş", not "Çok yakın"
                     elif single and not recur and day < min_date:
                         status, reason = "unavailable", "range_min"
                     elif single and not recur and day > max_date:
@@ -2101,8 +2154,10 @@ async def _prev_next(
         before = [d for d, x in infos.items() if d < target and ok(x)]
         after = [d for d, x in infos.items() if d > target and ok(x)]
     else:
-        before = [d for d, x in infos.items() if d <= target - timedelta(days=7) and ok(x)]
-        after = [d for d, x in infos.items() if d >= target + timedelta(days=7) and ok(x)]
+        # PER-F01: from the Monday of the shown week, so a weekend target's "next" is the coming week
+        monday = target - timedelta(days=target.isoweekday() - 1)
+        before = [d for d, x in infos.items() if d <= monday - timedelta(days=7) and ok(x)]
+        after = [d for d, x in infos.items() if d >= monday + timedelta(days=7) and ok(x)]
     return (max(before) if before else None), (min(after) if after else None)
 
 

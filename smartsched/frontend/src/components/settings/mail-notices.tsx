@@ -21,6 +21,7 @@ import { request } from "@/lib/api/client";
 import { crbsKeys } from "@/lib/api/crbs";
 import { refusalBody } from "@/lib/api/error-text";
 import { useI18n } from "@/lib/i18n/provider";
+import { useDirtyCapsule } from "./dirty-capsule";
 
 const Notices = z.object({
   reminder_lead_hours: z.number().int().catch(24).default(24),
@@ -71,6 +72,8 @@ export function MailNoticesCard() {
   });
 
   const lead = parseLeadHours(shownHours);
+  const dirty = hours !== null || newDevice !== null;
+  const capsule = useDirtyCapsule(dirty);
   return (
     <Card data-testid="settings-mail-notices">
       <CardHeader>
@@ -98,11 +101,11 @@ export function MailNoticesCard() {
               <Input
                 id={`${ids}-hours`}
                 ref={hoursRef}
-                type="number"
+                // text, not number: a number input silently drops the comma of a Turkish "2,5" (saved as 25 h);
+                // parseLeadHours refuses it with the inline error instead (e2e 2026-10-18)
+                type="text"
                 inputMode="numeric"
-                min={0}
-                max={LEAD_MAX}
-                step={1}
+                autoComplete="off"
                 className="w-24 max-md:text-base"
                 aria-invalid={error ? true : undefined}
                 value={shownHours}
@@ -119,10 +122,14 @@ export function MailNoticesCard() {
             </span>
             <Switch checked={shownDevice} onCheckedChange={(v: boolean) => setNewDevice(v)} aria-label={t("settings.mailNotices.newDevice")} aria-describedby={`${ids}-device-hint`} data-testid="mail-notices-new-device" />
           </div>
-          {/* never disabled while saving: a disabled button drops the focus to <body>; a second submit is ignored */}
-          <Button ref={saveRef} type="submit" aria-busy={save.isPending || undefined} className="pointer-coarse:min-h-11" data-testid="mail-notices-save">
-            {t("settings.mailNotices.save")}
-          </Button>
+          {/* F-RF2-1: with unsaved changes the save row is the phone's page-actions capsule (M-05), named after the card */}
+          <div {...capsule.props}>
+            {dirty ? <span className="min-w-0 truncate pl-2 type-callout text-label-1 lg:hidden">{t("settings.mailNotices.title")}</span> : null}
+            {/* never disabled while saving: a disabled button drops the focus to <body>; a second submit is ignored */}
+            <Button ref={saveRef} type="submit" aria-busy={save.isPending || undefined} className="pointer-coarse:min-h-11" data-testid="mail-notices-save">
+              {t("settings.mailNotices.save")}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

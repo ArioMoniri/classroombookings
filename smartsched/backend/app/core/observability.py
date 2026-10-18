@@ -120,6 +120,19 @@ PROCESS_RSS = Gauge(
 GUARD_REFUSALS = Counter(
     "smartsched_guard_refusals", "integrity / AI guard refusals (publish, pin, move, AI scope)", ["guard"]
 )
+#: the AI helper (HB-14, app/ai/helper/telemetry.py): no user label, ever
+HELPER_TURNS = Counter("smartsched_helper_turns", "helper turns by answering mode and outcome", ["mode", "outcome"])
+HELPER_ACTIONS = Counter(
+    "smartsched_helper_actions",
+    "helper actions by stage (preview / confirm / undo) and outcome",
+    ["action", "stage", "outcome"],
+)
+HELPER_LATENCY = Histogram(
+    "smartsched_helper_latency_seconds",
+    "helper turn latency by answering mode",
+    ["mode"],
+    buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0),
+)
 
 #: route templates whose 2xx answer is a domain event (method, template) -> event
 DOMAIN_ROUTES: dict[tuple[str, str], str] = {
@@ -187,6 +200,25 @@ def record_guard_refusal(guard: str) -> None:
         GUARD_REFUSALS.labels(_label(guard, 32)).inc()
     except Exception:  # noqa: BLE001
         log.debug("record_guard_refusal failed", exc_info=True)
+
+
+def record_helper_turn(mode: str, outcome: str, latency_s: float | None = None) -> None:
+    """Count one helper turn (``mode``: ``ai`` | ``index``; ``outcome``: the turn's outcome). Never raises."""
+    try:
+        m = _label(mode, 8)
+        HELPER_TURNS.labels(m, _label(outcome, 24)).inc()
+        if latency_s is not None and latency_s >= 0:
+            HELPER_LATENCY.labels(m).observe(latency_s)
+    except Exception:  # noqa: BLE001 - metrics must never break a turn
+        log.debug("record_helper_turn failed", exc_info=True)
+
+
+def record_helper_action(action: str, stage: str, outcome: str) -> None:
+    """Count one helper action step (``stage``: ``preview`` | ``confirm`` | ``undo``). Never raises."""
+    try:
+        HELPER_ACTIONS.labels(_label(action, 64), _label(stage, 16), _label(outcome, 48)).inc()
+    except Exception:  # noqa: BLE001
+        log.debug("record_helper_action failed", exc_info=True)
 
 
 # --------------------------------------------------------------------------------------------------------------------

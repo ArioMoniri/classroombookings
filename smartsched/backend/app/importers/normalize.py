@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any
@@ -336,7 +336,8 @@ class Period:
         return f"{self.start:%H:%M}-{self.end:%H:%M}"
 
 
-PERIODS: tuple[Period, ...] = tuple(
+#: the university's period grid as shipped (DATA_ANALYSIS "Time grid")
+DEFAULT_PERIODS: tuple[Period, ...] = tuple(
     Period(i + 1, time(sh, sm), time(eh, em))
     for i, (sh, sm, eh, em) in enumerate(
         [
@@ -361,7 +362,40 @@ PERIODS: tuple[Period, ...] = tuple(
         ]
     )
 )
+#: the grid in use: the default, or the admins' clock times (``app.services.period_grid``, setting
+#: ``calendar.period_grid``; RF-09). Changed in place by :func:`set_period_grid`, so every
+#: ``from app.importers.normalize import PERIODS`` sees the change; the number of periods never changes (the solver,
+#: the stored requests and the booking periods address P1-P18)
+PERIODS: list[Period] = list(DEFAULT_PERIODS)
 PERIODS_PER_DAY = len(PERIODS)
+
+
+def set_period_grid(times: Sequence[tuple[time, time]] | None) -> None:
+    """Use ``times`` (``PERIODS_PER_DAY`` ``(start, end)`` pairs, validated by ``app.services.period_grid``) as the
+    period grid of this process; ``None`` restores the default."""
+    if times is None:
+        PERIODS[:] = DEFAULT_PERIODS
+        return
+    if len(times) != PERIODS_PER_DAY:
+        raise ValueError(f"the period grid has {PERIODS_PER_DAY} periods, got {len(times)}")
+    PERIODS[:] = [Period(i + 1, s, e) for i, (s, e) in enumerate(times)]
+
+
+def period_grid_times() -> list[tuple[str, str]]:
+    """The grid in use as ``[("08:30", "09:10"), ...]`` (picklable: handed to the parse child process)."""
+    return [(f"{p.start:%H:%M}", f"{p.end:%H:%M}") for p in PERIODS]
+
+
+def call_with_period_grid[T](grid: list[tuple[str, str]], fn: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
+    """Run ``fn`` with ``grid`` as the period grid (``safe_files.run_isolated``: a parse child starts with the default
+    grid of its forkserver, the admins' grid comes with the call)."""
+    set_period_grid([(_hm(a), _hm(b)) for a, b in grid])
+    return fn(*args, **kwargs)
+
+
+def _hm(text: str) -> time:
+    h, m = text.split(":")
+    return time(int(h), int(m))
 
 
 def _minutes(t: time) -> int:

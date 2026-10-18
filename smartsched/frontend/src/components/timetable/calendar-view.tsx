@@ -22,7 +22,7 @@ import { useMe } from "@/lib/api/hooks";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
-import { dayName } from "@/lib/time";
+import { dayName, usePeriodGridVersion } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { AgendaLens } from "./agenda-lens";
 import { BoardStrip } from "./board-strip";
@@ -47,9 +47,10 @@ import { computeHeat, weeklyMean, type HeatMetric } from "./model/heat";
 import { blocksOf, bookingsOf, eventsOf, roomCap, termLongBlocks, type CalEvent, type CalendarModel } from "./model/index-model";
 import { useUndoStore } from "./model/undo-store";
 import { useActiveTerm } from "@/components/shell/term-switcher";
+import { useUiStore } from "@/stores/ui";
 import { useRememberedWeek } from "@/components/shell/workspace";
 import { buildIcs, icsNow } from "./model/ics";
-import { lensDirection, lensForKey, parseViewState, serializeViewState, weekInRun, type Lens, type Subject, type ViewState } from "./model/view-state";
+import { densityFromPersonal, lensDirection, lensForKey, parseViewState, serializeViewState, weekInRun, type Lens, type Subject, type ViewState } from "./model/view-state";
 import { useCalendarActions } from "./use-calendar-actions";
 import { useCalendarData } from "./use-calendar-data";
 import { StaleVeil, useDeferredView } from "./stale-veil";
@@ -114,6 +115,8 @@ export interface CalendarViewProps {
 
 export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, className }: CalendarViewProps) {
   const { t, locale, n } = useI18n();
+  // RF-16b: a late period grid re-renders the toolbar, sidebar and lenses in place (no remount: focus, scroll kept)
+  usePeriodGridVersion();
   const lang = locale === "tr" ? "tr" : "en";
   const reduce = useReduce();
   const router = useRouter();
@@ -130,9 +133,11 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
 
   // ------------------------------------------------------------------ view state ↔ URL
   const search = useSearchParams();
+  // RF-10: Ayarlar › Görünüm › Yoğunluk is the timetable's default density (the toolbar changes one view)
+  const personalDensity = densityFromPersonal(useUiStore((st) => st.density));
   const [vs, setVs] = useState<ViewState>(() => {
     const params = !embedded ? new URLSearchParams(search.toString()) : new URLSearchParams();
-    const s = parseViewState(params, { run: fixedRun ?? null, week: initialWeek ?? null });
+    const s = parseViewState(params, { run: fixedRun ?? null, week: initialWeek ?? null, density: personalDensity });
     return params.has("day") ? s : { ...s, day: 0 };
   });
   const update = useCallback((patch: Partial<ViewState>) => setVs((s) => ({ ...s, ...patch })), []);
@@ -212,10 +217,10 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   }, [model, embedded, liveWeek, rememberWeek]);
   useEffect(() => {
     if (embedded) return;
-    const p = serializeViewState(urlState, new URLSearchParams(window.location.search));
+    const p = serializeViewState(urlState, new URLSearchParams(window.location.search), { density: personalDensity });
     const url = `${window.location.pathname}?${p.toString()}`;
     if (url !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, "", url);
-  }, [urlState, embedded]);
+  }, [urlState, embedded, personalDensity]);
   const weekInfo = model?.index.weeks.find((w) => w.index === week);
   const liveWeekInfo = model?.index.weeks.find((w) => w.index === liveWeek);
   const dates = useMemo(() => [1, 2, 3, 4, 5, 6, 7].map((d) => (model ? dateOf(model.index.weeks, week, d) : null)), [model, week]);
@@ -495,10 +500,13 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
         if (sidebarOpen && !wide && !embedded) setSidebarOpen(false);
         else {
           // focus inside the inspector would fall to <body> when it empties: back to the class chip (mobile-b phase 2)
-          const inInspector = Boolean((document.activeElement as HTMLElement | null)?.closest?.('[data-testid="class-inspector"]'));
+          const active = document.activeElement as HTMLElement | null;
+          const inInspector = Boolean(active?.closest?.('[data-testid="class-inspector"]'));
+          // E2EB-F11: after a touch tap focus sat on <main> (or <body>), so Esc left it there: back to the chip too
+          const lost = !active || active === document.body || active.tagName === "MAIN";
           if (selection.size) setSelection(new Set());
           else setInspectorOpen(false);
-          if (inInspector) focusClassChip(selectedEvents[0]?.a.id);
+          if (inInspector || lost) focusClassChip(selectedEvents[0]?.a.id);
         }
         return;
       }
@@ -859,7 +867,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   if (mobile && !embedded && model) {
     return (
       <>
-        <MobileCalendar model={model} week={liveWeek} day={liveDay} dates={liveDates} onDay={(d) => update({ day: d })} onWeek={setWeek} heat={heat} now={now} selection={selection} onSelect={onSelect} subject={vs.subject} onSubject={(s) => update({ subject: s })} runId={runId} termId={data.term?.id ?? null} actions={actions} readOnly={readOnly} canForce={isAdmin} lens={vs.lens} onLens={setLens} onOpenFilters={runId !== null ? () => setSidebarOpen(true) : undefined} keep={phoneKeep} filterCount={activeFilterCount(filters)} />
+        <MobileCalendar model={model} week={liveWeek} day={liveDay} dates={liveDates} onDay={(d) => update({ day: d })} onWeek={setWeek} heat={heat} now={now} selection={selection} onSelect={onSelect} subject={vs.subject} onSubject={(s) => update({ subject: s })} runId={runId} termId={data.term?.id ?? null} actions={actions} readOnly={readOnly} canForce={isAdmin} lens={vs.lens} onLens={setLens} onOpenFilters={runId !== null ? () => setSidebarOpen(true) : undefined} keep={phoneKeep} filterCount={activeFilterCount(filters)} unplacedByDay={unplacedByDay} />
         {/* round-3 R3-M-05: the filters as a full-width bottom sheet with 44 px rows, a 16 px search and a sticky
             "show" action (MOBILE M-04 / M-02 / M-03 / M-05), not the desktop sidebar in a 293 px side panel */}
         <Sheet open={sidebarOpen} onOpenChange={(o) => setSidebarOpen(o)}>

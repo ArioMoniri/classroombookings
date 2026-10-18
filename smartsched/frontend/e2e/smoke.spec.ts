@@ -48,6 +48,9 @@ test.describe("SmartSched smoke (real backend)", () => {
     await page.getByTestId("import-kind-planning-list").click();
     await page.getByTestId("file-input").setInputFiles(PLANNING_LIST);
     await page.getByTestId("import-start").click();
+    // RF-06: the upload is a preview first; one "Uygula" imports it
+    await expect(page.getByTestId("import-preview")).toBeVisible({ timeout: 120_000 });
+    await page.getByTestId("import-apply").click();
     await expect(page.getByTestId("import-report")).toBeVisible({ timeout: 120_000 });
     await expect(page.getByTestId("import-report")).toContainText("bahar_derslik_planlama_listesi_v5.xlsx");
     await expect(page.getByTestId("parse-warnings")).toBeVisible();

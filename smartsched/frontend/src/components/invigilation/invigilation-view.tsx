@@ -76,6 +76,7 @@ export function InvigilationView() {
     return `${pathname}?${next.toString()}`;
   };
   const go = (patch: Record<string, string | null>) => router.replace(href(patch), { scroll: false });
+  const panelLoading = runs.isLoading || (tab === "plans" && !!run && plans.isLoading);
 
   return (
     <div className="flex min-w-0 flex-col gap-4" data-testid="invigilation-page">
@@ -114,12 +115,13 @@ export function InvigilationView() {
       </section>
 
       {runs.isError ? <Alert tone="error">{errorText(runs.error, lang)}</Alert> : null}
-      {run && tab === "plans" && isBoardRun(run) ? (
+      {/* F-MB-1 (CLS 0.12 at 390): the board-run notice comes with the panel, so it never lands above the placeholder */}
+      {!panelLoading && run && tab === "plans" && isBoardRun(run) ? (
         <Alert tone="warning" title={t("invigilation.boardRunTitle")} data-testid="invig-board-run">
           {t("invigilation.boardRunBody")}
         </Alert>
       ) : null}
-      {runs.isLoading || (tab === "plans" && run && plans.isLoading) ? (
+      {panelLoading ? (
         // mobile-b phase 2 (CLS 0.39–0.56): one placeholder of the panel's height until the runs and the plans are in,
         // instead of "Plan yok" flashing and the list and the detail pushing each other down
         <div className="grid min-h-[60dvh] min-w-0 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]" aria-busy="true" data-testid="invig-loading">

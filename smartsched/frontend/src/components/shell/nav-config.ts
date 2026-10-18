@@ -2,7 +2,7 @@ import { CalendarDays, FileUp, FolderInput, Inbox, LayoutDashboard, ListChecks, 
 import { ClipboardCheck, FolderPlus } from "lucide-react";
 import { GitCompareArrows, Grid3x3, UserCheck, Zap } from "lucide-react";
 import { Activity } from "lucide-react";
-import { Cpu } from "lucide-react";
+import { Cpu, PieChart } from "lucide-react";
 import { CalendarClock, TrendingUp } from "lucide-react";
 import { Plug } from "lucide-react";
 import { Library } from "lucide-react";
@@ -20,6 +20,8 @@ export interface NavItem {
   permission?: string | string[];
   /** hidden for users who hold this permission */
   hideWith?: string;
+  /** PER-F07 (fix-h-2026-10-18): a rarely used entry, listed under its group's "Daha fazla" until opened or active */
+  more?: boolean;
 }
 export interface NavGroup {
   labelKey: MessageKey;
@@ -40,7 +42,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/generate", labelKey: "nav.generate", icon: PlayCircle, key: "g", permission: "planning.edit" },
       // Phase 19 F1-F4 (p19-frontend): the moderation console and the program-from-scratch wizard
       { href: "/moderation", labelKey: "moderation.title", icon: ClipboardCheck, permission: "planning.view" },
-      { href: "/programs/new", labelKey: "programWizard.nav", icon: FolderPlus, permission: "planning.edit" },
+      // PER-F07: the rooms were a one-entry "Ana veriler" group; they belong with the planning entries (4 headings in all)
+      { href: "/rooms", labelKey: "nav.rooms", icon: Warehouse, permission: ["planning.view", "setup.rooms"] },
+      { href: "/programs/new", labelKey: "programWizard.nav", icon: FolderPlus, permission: "planning.edit", more: true },
     ],
   },
   {
@@ -50,17 +54,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/timetable", labelKey: "nav.timetable", icon: CalendarDays, key: "t", permission: "planning.view" },
       { href: "/runs", labelKey: "nav.runs", icon: ListChecks, badge: "running", permission: "planning.view" },
       // planning analytics UI (analytics-ui-2026-10-16): scenario comparison, utilisation heatmaps, invigilators
-      { href: "/runs/compare", labelKey: "compare.title", icon: GitCompareArrows, permission: "planning.view" },
+      { href: "/runs/compare", labelKey: "compare.title", icon: GitCompareArrows, permission: "planning.view", more: true },
       { href: "/analytics/heatmap", labelKey: "analytics.title", icon: Grid3x3, permission: "planning.view" },
       // AS-16 / AS-17 (as-f-2026-10-18): demand forecast + what-if, and the exam load advisor
-      { href: "/analytics/forecast", labelKey: "adaptive.forecast.title", icon: TrendingUp, permission: "planning.view" },
-      { href: "/exams/invigilation", labelKey: "invigilation.title", icon: UserCheck, permission: "planning.view" },
-      { href: "/exams/advisor", labelKey: "adaptive.exams.title", icon: CalendarClock, permission: "planning.view" },
+      { href: "/analytics/forecast", labelKey: "adaptive.forecast.title", icon: TrendingUp, permission: "planning.view", more: true },
+      { href: "/exams/invigilation", labelKey: "invigilation.title", icon: UserCheck, permission: "planning.view", more: true },
+      { href: "/exams/advisor", labelKey: "adaptive.exams.title", icon: CalendarClock, permission: "planning.view", more: true },
     ],
-  },
-  {
-    labelKey: "nav.master",
-    items: [{ href: "/rooms", labelKey: "nav.rooms", icon: Warehouse, permission: ["planning.view", "setup.rooms"] }],
   },
   {
     labelKey: "nav.admin",
@@ -69,13 +69,15 @@ export const NAV_GROUPS: NavGroup[] = [
       // the full CRBS user screen (username, role, department, limits, import); the old 4-field tab redirects here
       { href: "/admin/users", labelKey: "nav.users", icon: Users, permission: "setup.users" },
       // wave 3 W3-OPS: service status, error groups, Grafana, log tail
-      { href: "/admin/ops", labelKey: "ops.nav", icon: Activity, permission: ["setup.settings", "planning.admin"] },
+      { href: "/admin/ops", labelKey: "ops.nav", icon: Activity, permission: ["setup.settings", "planning.admin"], more: true },
       // wave 3 W3-AI: AI providers, models per feature, usage, limits, guardrails
-      { href: "/admin/ai", labelKey: "aiAdmin.nav", icon: Cpu, permission: ["setup.settings", "planning.admin"] },
+      { href: "/admin/ai", labelKey: "aiAdmin.nav", icon: Cpu, permission: ["setup.settings", "planning.admin"], more: true },
+      // HX-10: a faculty's AI quota managers (ai.usage_faculty); administrators have it under /admin/ai › Limitler
+      { href: "/ai/faculty", labelKey: "helper.facultyNav", icon: PieChart, permission: "ai.usage_faculty", hideWith: "planning.admin" },
       // wave 3b W3-HUB: integrations gallery (identity, e-mail, calendar, channels, webhooks / automation, AI)
       { href: "/admin/integrations", labelKey: "integrations.nav", icon: Plug, permission: ["setup.settings", "planning.admin"] },
       // RF-05: Yönetim › Katalog — the imported instructors, courses, programmes, faculties and sections, editable
-      { href: "/admin/catalog", labelKey: "catalog.nav", icon: Library, permission: "planning.view" },
+      { href: "/admin/catalog", labelKey: "catalog.nav", icon: Library, permission: "planning.view", more: true },
     ],
   },
 ];

@@ -82,6 +82,12 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/auth/sso/admin/invites/{invite_id}/resend": (E, "app.services.identity.invites"),
     "POST /api/v1/auth/sso/invites/{token}/password": (E, "app.services.identity.invites"),
     "POST /api/v1/auth/sso/{slug}/acs": (E, "app.services.sso"),
+    # Profil › Güvenlik links of the Google / OIDC / SAML providers (idp-2026-10-18, app/services/identity/links.py)
+    "POST /api/v1/auth/sso/{slug}/link": (
+        N,
+        "single-use state row after re-authentication; the link is audited (auth.identity_bound) at the callback / ACS",
+    ),
+    "POST /api/v1/auth/sso/{slug}/unlink": (E, "app.services.identity.links"),
     # AU-B two-step sign-in, passkeys, trusted devices, admin resets (app/services/mfa.py audits every event)
     "POST /api/v1/auth/mfa/totp/start": (E, "app.services.mfa"),
     "POST /api/v1/auth/mfa/totp/confirm": (E, "app.services.mfa"),
@@ -212,6 +218,11 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/imports/weekly-grid": (J, "import_jobs"),
     "POST /api/v1/imports/room-master": (J, "import_jobs"),
     "POST /api/v1/imports/crbs": (J, "import_jobs"),
+    # RF-06: apply a previewed import (dry_run); the job records who, the finished import writes import.run
+    "POST /api/v1/imports/{job_id}/apply": (J, "import_jobs (created_by, preview_of) + import.run"),
+    # RF-09: the period grid (clock times of P1-P18)
+    "PUT /api/v1/period-grid": (E, "app.services.period_grid"),
+    "DELETE /api/v1/period-grid": (E, "app.services.period_grid"),
     # learned suggestions (P19-L2..L4)
     "POST /api/v1/learning/refresh": (E, "app.api.v1.learning"),  # learning.refresh (actor, term, counts)
     "POST /api/v1/learning/suggestions/{prior_id}/accept": (E, "app.services.learning"),
@@ -335,6 +346,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/terms/{term_id}": (T, "Term"),
     "DELETE /api/v1/terms/{term_id}": (T, "Term"),
     "PUT /api/v1/terms/{term_id}/weeks": (T, "Week"),
+    "PATCH /api/v1/terms/{term_id}/weeks/{index}": (T, "Week"),  # RF-09: one week, marked edited
     "PUT /api/v1/terms/{term_id}/relaxation-policy": (E, "app.api.v1.terms"),  # term.relaxation_policy
     "POST /api/v1/terms/{term_id}/elicit": (N, "AI proposals, nothing written"),
     "POST /api/v1/terms/{term_id}/elicit/accept": (J, "ai_proposal_decisions + constraints.source_ref (AI agent)"),
@@ -445,6 +457,8 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/seasons/segments/{segment_id}": (E, "app.api.v1.seasons"),
     "DELETE /api/v1/seasons/segments/{segment_id}": (E, "app.api.v1.seasons"),
     "POST /api/v1/analytics/forecast/what-if": (E, "app.services.forecast"),
+    # FIX-F AS20-F04: "Uygula" on an exam advisor move (one exam_request.update row per moved row)
+    "POST /api/v1/analytics/forecast/exams/advice/apply": (E, "app.services.exam_advisor"),
     # AS-13 / RF-07: learning versions, calibration, per-habit controls, nightly switch
     "POST /api/v1/learning/versions/{version_id}/revert": (E, "app.services.learning_versions"),
     "POST /api/v1/learning/calibration/apply": (E, "app.services.learning_versions"),
@@ -461,7 +475,12 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/helper/notes": (N, "the person's own helper note (Bunu hatırla)"),
     "DELETE /api/v1/helper/notes/{note_id}": (N, "the person's own helper note"),
     "DELETE /api/v1/helper/notes": (N, "the person's own helper notes and history"),
+    "DELETE /api/v1/helper/threads": (E, "app.ai.helper.memory"),
     "PUT /api/v1/helper/admin/settings": (E, "app.api.v1.helper"),
+    # helper telemetry (HB-14): aggregate product events of the person, no content; settings (HB-15) audited
+    "POST /api/v1/helper/feedback": (N, "the person's own thumbs / note on an answer (helper_events, aggregates)"),
+    "POST /api/v1/helper/events": (N, "client telemetry (nav_click / form_open / cancel), aggregates only"),
+    "PUT /api/v1/ai/admin/helper": (E, "app.api.v1.ai_admin"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)

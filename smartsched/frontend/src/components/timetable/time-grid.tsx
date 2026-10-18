@@ -29,7 +29,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { PERIODS, PERIODS_PER_DAY } from "@/lib/time";
+import { PERIODS, PERIODS_PER_DAY, usePeriodGridVersion } from "@/lib/time";
 import { dur, ease, springs, useReduce } from "@/lib/motion";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -146,7 +146,9 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
   const reduce = useReduce();
   const gridId = useId();
   const scroller = useRef<HTMLDivElement>(null);
-  const rows: RowTable = useMemo(() => rowTable(rowH), [rowH]);
+  // RF-16b: the row table and gutter times follow a late period grid (memoised view: subscribe)
+  const gridVersion = usePeriodGridVersion();
+  const rows: RowTable = useMemo(() => rowTable(rowH), [rowH, gridVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const [view, setView] = useState({ left: 0, top: 0, width: 1200, height: 800 });
   const [cursor, setCursor] = useState<{ col: number; p: number }>({ col: 0, p: 1 });
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -812,8 +814,8 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
               >
                 <span className="flex items-baseline justify-between gap-1">
                   <span className="truncate type-callout leading-4 font-semibold">{c.label}</span>
-                  {/* room tags ("TIP", "PC", "H3"): 12 px on touch (mobile-b phase 2; 10 px read at 768), 10 px only in the desktop zoom */}
-                  {c.tag ? <span className="shrink-0 text-2xs font-semibold text-status-tip-fg pointer-coarse:text-xs" data-testid="column-tag">{c.tag}</span> : null}
+                  {/* room tags ("TIP", "PC", "H3"): the footnote token, 12 px at every pointer (F-MB-2: 10 px read at 768) */}
+                  {c.tag ? <span className="shrink-0 type-footnote leading-4 font-semibold text-status-tip-fg" data-testid="column-tag">{c.tag}</span> : null}
                 </span>
                 {c.sub ? <span className="truncate type-caption leading-[14px] text-label-2 tabular-nums">{c.sub}</span> : null}
               </div>

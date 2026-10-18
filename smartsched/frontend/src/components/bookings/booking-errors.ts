@@ -4,7 +4,7 @@
  * here from the code instead of showing the English `message`.
  */
 import type { CrbsError } from "@/lib/api/crbs";
-import type { MessageKey, Vars } from "@/lib/i18n";
+import { translate, type MessageKey, type Vars } from "@/lib/i18n";
 
 type T = (key: MessageKey, vars?: Vars) => string;
 
@@ -71,6 +71,14 @@ export function bookingErrorMessage(err: CrbsError, t: T, ctx: ErrorContext = {}
   if (err.code === "conflict") return t("crbs.errors.conflict_race");
   if (err.code && err.code.startsWith("edit_")) return t("crbs.errors.edit_field");
   if (err.status === 503) return t("crbs.errors.maintenance_with", { message: err.message });
+  // E2EB-F07: calendar refusals now carry their own words (message_tr / message_en); the template put the English
+  // `message` inside the Turkish line ("… rezerve edilemez (no term covers 18.10.2026).")
+  if (err.code === "calendar") {
+    // most callers pass only `t`: its language is the one whose words it returns
+    const turkish = ctx.locale ? ctx.locale === "tr" : t("crbs.errors.holiday") === translate("tr", "crbs.errors.holiday");
+    const own = turkish ? err.data.message_tr : err.data.message_en;
+    if (typeof own === "string" && own) return own;
+  }
   const key = err.code ? CODE_KEYS[err.code] : undefined;
   if (key) {
     return t(key, {

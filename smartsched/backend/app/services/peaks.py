@@ -291,6 +291,13 @@ async def term_cube(session: Any, term_id: int, period_kind: str = "LECTURE") ->
     weeks = [w for w in sc.weeks if (seg_kinds.get(w) or kinds.get(w, "LECTURE")) == period_kind]
     if period_kind == "EXAM":
         weeks = weeks or sc.weeks
+    # AS20-F02: only the weeks the published timetable actually covers. A board imported for weeks 1-2 of a 14-week
+    # term would otherwise put 12 empty weeks in the denominator (Güz read 13 % at its real ~90 % peaks); a week
+    # with no published placement is "no data", not "free". Bookings / blocks alone keep a week only when no week
+    # has a placement at all.
+    run_weeks = {w for (_rid, w, _d, _p), src in sc.occ.cells.items() if "run" in src}
+    busy_weeks = {w for (_rid, w, _d, _p), src in sc.occ.cells.items() if src & {"run", "booking", "block"}}
+    weeks = [w for w in weeks if w in (run_weeks or busy_weeks)] or weeks
     rinfo = room_infos(sc.rooms.values())
     cube = Cube.empty(weeks, rinfo)
     for (rid, w, d, p), src in sc.occ.cells.items():

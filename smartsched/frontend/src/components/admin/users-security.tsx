@@ -374,7 +374,7 @@ function ResetMfaForm({ user, onClose }: { user: SecurityUser; onClose: () => vo
       ) : null}
       <div className="flex flex-wrap gap-2" role="group" aria-label={t("auth.admin.reason")}>
         {REASON_CHIPS.map((c) => (
-          <Chip key={c} selected={chip === c} onSelectedChange={(on) => pickChip(c, on)} data-testid={`reset-chip-${c}`}>
+          <Chip key={c} className="pointer-coarse:min-h-11" selected={chip === c} onSelectedChange={(on) => pickChip(c, on)} data-testid={`reset-chip-${c}`}>
             {t(CHIP_KEY[c])}
           </Chip>
         ))}

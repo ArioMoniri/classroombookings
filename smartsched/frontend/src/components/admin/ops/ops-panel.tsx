@@ -32,6 +32,7 @@ import { intlLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { plainErrorKey } from "./ops-error-plain";
 import { CARD_ORDER, TONE, cardStatus, formatBytes, formatUptime, overall, sameOrigin, type CardKey } from "./ops-model";
 import { RequestsChart } from "./requests-chart";
 
@@ -242,17 +243,20 @@ function ErrorRow({ e, expanded, onToggle, onAct, busy, onFindInLogs }: { e: Err
   const when = useWhen();
   const detail = useOpsError(expanded ? e.id : null);
   const statusTone: Record<ErrorStatus, CardStatus> = { open: "down", acknowledged: "warn", resolved: "ok", ignored: "off" };
+  const plain = plainErrorKey(e.kind, e.message);
   return (
     <Card className="gap-1.5 px-4 py-3" data-testid={`ops-error-${e.id}`} data-status={e.status}>
       <div className="flex flex-wrap items-center gap-2">
         <span className={cn("rounded-full px-2 py-0.5 type-caption font-medium", TONE[statusTone[e.status]])}>{t(`ops.errors.status.${e.status}` as MessageKey)}</span>
         <span className="rounded-full bg-fill-2 px-2 py-0.5 type-caption text-label-2">{t(`ops.errors.source.${e.source}` as MessageKey)}</span>
-        <p className="min-w-0 break-words type-headline text-label-1">{e.kind}</p>
+        <p className="min-w-0 break-words type-headline text-label-1" data-testid={`ops-error-kind-${e.id}`}>{plain ? t(`ops.errors.plain.${plain}`) : e.kind}</p>
         <span className="ml-auto type-footnote text-label-2" data-testid={`ops-error-count-${e.id}`}>
           {t("ops.errors.count", { n: e.count })}
         </span>
       </div>
-      <p className="break-words type-callout text-label-1">{e.message}</p>
+      {/* CH12-F04 / E2EA-F09: a known class reads as one plain line, an unknown one as a generic line; the raw class,
+          message and SQL always wait behind "Ayrıntı" */}
+      {plain ? null : <p className="break-words type-callout text-label-2">{t("ops.errors.plainOther")}</p>}
       <p className="break-words type-footnote text-label-2">
         {[e.method, e.route].filter(Boolean).join(" ") || "–"}
         {e.status_code ? ` · ${e.status_code}` : ""}
@@ -265,6 +269,7 @@ function ErrorRow({ e, expanded, onToggle, onAct, busy, onFindInLogs }: { e: Err
       </p>
       {expanded ? (
         <pre className="max-h-72 overflow-auto rounded-md bg-fill-3 p-2 font-mono type-caption whitespace-pre-wrap break-words text-label-1" data-testid={`ops-error-stack-${e.id}`}>
+          {`${e.kind}: ${e.message}\n\n`}
           {detail.isLoading ? t("crbs.common.loading") : detail.data?.sample_stack || t("ops.errors.noStack")}
         </pre>
       ) : null}

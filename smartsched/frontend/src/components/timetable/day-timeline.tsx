@@ -7,14 +7,14 @@
  */
 import { animate, motion, useMotionValue } from "motion/react";
 import { memo, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { PERIODS, PERIODS_PER_DAY } from "@/lib/time";
+import { PERIODS, PERIODS_PER_DAY, usePeriodGridVersion } from "@/lib/time";
 import { springs, useReduce } from "@/lib/motion";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { IndexRoom } from "@/lib/api/calendar";
 import { chipVars } from "./event-chip";
 import { checkMove, slotFree, spanText, whenText, type CheckResult } from "./model/check";
-import { DAY_END_MIN, DAY_START_MIN, minuteX, periodEndMin, periodStartMin, visibleRange } from "./model/geometry";
+import { dayEndMin, dayStartMin, minuteX, periodEndMin, periodStartMin, visibleRange } from "./model/geometry";
 import type { CalBlock, CalBooking, CalEvent, CalendarModel, WeekMask } from "./model/index-model";
 import { pullFactor } from "./model/magnet";
 import type { CreateIntent, GridColumn, MoveIntent } from "./time-grid";
@@ -61,7 +61,7 @@ function nearestPeriodByX(x: number, pxPerMin: number): { p: number; x: number }
 }
 
 function periodAtX(x: number, pxPerMin: number): number {
-  const min = DAY_START_MIN + x / pxPerMin;
+  const min = dayStartMin() + x / pxPerMin;
   for (let p = 1; p <= PERIODS_PER_DAY; p++) if (min < periodEndMin(p)) return p;
   return PERIODS_PER_DAY;
 }
@@ -77,7 +77,9 @@ function DayTimelineImpl(p: DayTimelineProps) {
   const ptr = useRef<{ id: number; x: number; y: number; ev: CalEvent | null; started: boolean; meta: boolean } | null>(null);
   const gx = useMotionValue(0);
   const gy = useMotionValue(0);
-  const width = LABEL_W + minuteX(DAY_END_MIN, p.pxPerMin);
+  // RF-16b: the period header and bar positions follow a late period grid (memoised view: subscribe)
+  usePeriodGridVersion();
+  const width = LABEL_W + minuteX(dayEndMin(), p.pxPerMin);
   const rowIndex = useMemo(() => new Map(p.rooms.map((r, i) => [r.id, i])), [p.rooms]);
 
   useEffect(() => {
@@ -204,7 +206,7 @@ function DayTimelineImpl(p: DayTimelineProps) {
     }
   };
 
-  const nowX = p.isToday && p.nowMin !== null && p.nowMin >= DAY_START_MIN && p.nowMin <= DAY_END_MIN ? LABEL_W + minuteX(p.nowMin, p.pxPerMin) : null;
+  const nowX = p.isToday && p.nowMin !== null && p.nowMin >= dayStartMin() && p.nowMin <= dayEndMin() ? LABEL_W + minuteX(p.nowMin, p.pxPerMin) : null;
   const nowLabel = p.nowMin !== null ? `${String(Math.floor(p.nowMin / 60)).padStart(2, "0")}:${String(p.nowMin % 60).padStart(2, "0")}` : "";
   const byRoom = useMemo(() => {
     const m = new Map<number, CalEvent[]>();

@@ -119,9 +119,12 @@ export function ApprovalsView() {
             { value: "decided", label: t("wave1.approvals.boxDecided") },
           ]}
         />
-        <p className="hidden items-center gap-2 type-footnote text-label-3 md:flex pointer-coarse:hidden">
-          <KbdHint keys={["A"]} /> {t("wave1.approvals.approve")} <KbdHint keys={["D"]} /> {t("wave1.approvals.reject")} <KbdHint keys={["R"]} /> {t("wave1.approvals.otherRoom")}
-        </p>
+        {/* HX12B-F16: the keys only when there is something to decide (never on an empty inbox; already hidden on touch) */}
+        {box === "open" && entries.length ? (
+          <p className="hidden items-center gap-2 type-footnote text-label-3 md:flex pointer-coarse:hidden">
+            <KbdHint keys={["A"]} /> {t("wave1.approvals.approve")} <KbdHint keys={["D"]} /> {t("wave1.approvals.reject")} <KbdHint keys={["R"]} /> {t("wave1.approvals.otherRoom")}
+          </p>
+        ) : null}
       </div>
       <Card variant="glass" className="gap-0 overflow-hidden py-0">
         {list.isLoading ? (

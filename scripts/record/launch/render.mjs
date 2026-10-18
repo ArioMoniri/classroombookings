@@ -6,9 +6,11 @@
 //        [--fps 60] [--from SEC] [--to SEC] [--workers 2] [--still SEC=FILE.png ...] [--plan]
 //
 // Why offline: the camera, cursor, ripples, captions and the Lottie intro/outro are computed for each output frame
-// from the logged timeline, so motion is exactly 60 fps whatever the capture rate was, and a busy host only makes
-// the render slower, never the video choppier. The page underneath is the take's own PNG frames (2x device
-// pixels on desktop, 3x on the phone), shown through a spring camera with sub-pixel transforms.
+// from the logged timeline, so motion is exactly 60 fps, and a busy host only makes the render slower, never the
+// video choppier. The page underneath is the take's own PNG frames (1.5x device pixels on desktop, 2x on the phone),
+// shown through a spring camera with sub-pixel transforms. A deterministic take (record.mjs --engine frames,
+// lib/frameclock.mjs) has a frame for every 1/60 s of page time: scene starts and the take's kept spans are put on
+// that grid, so output frame n shows take tick n of its span, one to one, never a repeat.
 //
 // Output: FILE.mkv (H.264 RGB lossless, -qp 0) + FILE.plan.json (scene list with output times, captions: the
 // subtitle track and the README loop window are cut from it by launch.sh). Licence: same as the repository.
@@ -19,6 +21,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { cameraTrack, pointerAt, shots } from "../lib/camera.mjs";
+import { deterministicArgs, openControlledPage } from "../lib/frameclock.mjs";
 import { buildStory, BRAND } from "./story.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -26,7 +29,8 @@ const REPO = resolve(HERE, "../../..");
 const env = process.env;
 const { values: args } = parseArgs({
   options: {
-    takes: { type: "string" },
+    takes: { type: "string" }, // a folder of takes, or several joined with ':'
+
     out: { type: "string" },
     format: { type: "string", default: "landscape" },
     fps: { type: "string", default: "60" },
@@ -37,7 +41,7 @@ const { values: args } = parseArgs({
     plan: { type: "boolean", default: false },
     theme: { type: "string", default: "light" },
     scenes: { type: "string" }, // comma-separated scene ids: render only these (previews)
-    story: { type: "string", default: "launch" }, // launch | clip (one take, for the README feature clips)
+    story: { type: "string", default: "launch" }, // launch | clip (one take, for the README feature clips) | hero (README loop)
     take: { type: "string" }, // clip: the take name (e.g. find-room-light)
     steps: { type: "string" }, // clip: "first-last" step indexes (default: all)
     title: { type: "string" }, // clip: chapter chip label
@@ -58,14 +62,19 @@ const easeOut = (u) => 1 - Math.pow(1 - clamp(u, 0, 1), 3);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 // ---- takes ---------------------------------------------------------------------------------------------------
+const FRAME = 1000 / 60;
+const onGrid = (ms) => Math.round(ms / FRAME) * FRAME;
 const takeCache = new Map();
 function loadTake(dir, name) {
   if (takeCache.has(name)) return takeCache.get(name);
-  const file = join(dir, `${name}.take.json`);
+  // --takes may list several folders (DIR:DIR, the hero cut uses the launch takes and the clip takes)
+  const file = dir.split(":").map((d) => join(d, `${name}.take.json`)).find((f) => existsSync(f)) ?? join(dir.split(":")[0], `${name}.take.json`);
   if (!existsSync(file)) throw new Error(`missing take ${file}: run launch.sh record (or record.mjs --engine frames)`);
+  dir = dirname(file);
   const t = JSON.parse(readFileSync(file, "utf8"));
   t.dir = join(dir, t.framesDir);
   t.ft = Float64Array.from(t.frames.map((f) => f.t));
+  t.grid = t.capture?.mode === "deterministic" && FPS === 60;
   takeCache.set(name, t);
   return t;
 }
@@ -114,6 +123,8 @@ function segment(take, sel) {
       if (gb - ga > 200) spans = spans.flatMap(([s, e]) => (gb <= s || ga >= e ? [[s, e]] : [[s, ga], [gb, e]].filter(([x, y]) => y - x > 30)));
     }
   }
+  // deterministic takes: whole ticks only, so a span plays tick after tick
+  if (take.grid) spans = spans.map(([s, e]) => [onGrid(s), onGrid(e)]).filter(([s, e]) => e - s >= FRAME);
   const offs = [];
   let acc = 0;
   for (const [s, e] of spans) {
@@ -163,14 +174,21 @@ for (const sc of story.scenes.filter((x) => !only || only.has(x.id))) {
   if (s.kind === "take") {
     s.parts = (s.views ?? [{ take: s.take, steps: s.steps, trim: s.trim, role: "main" }]).map((v) => {
       const take = loadTake(args.takes, v.take);
+      if (v.clip && !v.steps) {
+        const idx = take.timeline.steps.map((x, i) => (x.clip === v.clip ? i : -1)).filter((i) => i >= 0);
+        if (!idx.length) throw new Error(`take ${v.take} has no steps with clip "${v.clip}"`);
+        v = { ...v, steps: [idx[0], idx[idx.length - 1]] };
+      }
       const seg = segment(take, v);
+      if (v.maxMs && seg.durMs > v.maxMs) seg.durMs = v.maxMs; // a cut that must stay short (the README hero) ends early
       const cam = camera(take, seg, { ...(story.camera?.[take.journey.device] ?? {}), ...(v.camera ?? {}) });
       return { ...v, take, seg, cam };
     });
     s.durMs = Math.max(...s.parts.map((p) => p.seg.durMs / (p.speed ?? 1))) + (s.extraMs ?? 0);
   }
-  s.start = tCursor;
-  s.end = tCursor + s.durMs;
+  s.start = onGrid(tCursor);
+  s.durMs = onGrid(s.durMs);
+  s.end = s.start + s.durMs;
   scenes.push(s);
   tCursor = s.end - (s.overlapNext === false ? 0 : XF);
 }
@@ -193,7 +211,8 @@ scenes.forEach((s, i) => (s.index = i));
 function viewState(p, local, box, kind) {
   const take = p.take;
   const lt = clamp(local * (p.speed ?? 1), 0, p.seg.durMs);
-  const recT = p.seg.toRec(lt);
+  // on the grid, sample half a tick late: the frame painted at tick k is shown for [k, k+1), robust to float error
+  const recT = take.grid ? onGrid(p.seg.toRec(lt)) + FRAME / 2 : p.seg.toRec(lt);
   const f = frameAt(take, recT);
   const ci = clamp(Math.round((lt / 1000) * FPS), 0, p.cam.length - 1);
   let cam = p.cam[ci];
@@ -317,28 +336,52 @@ if (args.plan) process.exit(0);
 // ---- render ----------------------------------------------------------------------------------------------------
 const lottieData = Object.fromEntries(story.lotties.map((n) => [n, JSON.parse(readFileSync(join(REPO, "docs/lottie", `${n}-${args.theme}.json`), "utf8"))]));
 
+// The compositor page paints only when told to (BeginFrame control, lib/frameclock.mjs): draw(state), then one
+// HeadlessExperimental.beginFrame that runs every compositor stage before it draws and returns the screenshot. A
+// Page.captureScreenshot right after draw() now and then returned the frame before (two renders of the same second
+// differed, and the master had repeated frames in the middle of a Lottie); this cannot.
+const FRAME_MS = 1000 / FPS;
 async function openPage(browser) {
   // one context per worker: each is its own window, so no worker is a throttled background tab
   const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
-  const page = await context.newPage();
+  const page = await openControlledPage(browser, context, { width: W, height: H });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(pathToFileURL(join(HERE, "compositor.html")).href);
-  await page.addScriptTag({ path: lottiePath });
-  for (const [n, d] of Object.entries(lottieData)) await page.evaluate(([n, d]) => window.loadLottie(n, d), [n, d]);
-  await page.evaluate(() => document.fonts.ready);
   const cdp = await page.context().newCDPSession(page);
-  return { page, cdp, errors };
+  const ctx = { page, cdp, errors, tick: 1e6, last: null };
+  await pumping(ctx, (async () => {
+    await page.goto(pathToFileURL(join(HERE, "compositor.html")).href);
+    await page.addScriptTag({ path: lottiePath });
+    for (const [n, d] of Object.entries(lottieData)) await page.evaluate(([n, d]) => window.loadLottie(n, d), [n, d]);
+    await page.evaluate(() => document.fonts.ready);
+  })());
+  return ctx;
+}
+
+/** Await `work` while sending frames that draw nothing: a page under BeginFrame control loads, decodes and runs its
+ * promises only on frames. */
+async function pumping(ctx, work) {
+  let done = false;
+  const w = work.finally(() => (done = true));
+  while (!done) {
+    await Promise.race([w.catch(() => undefined), new Promise((ok) => setTimeout(ok, 15))]);
+    if (!done) await ctx.cdp.send("HeadlessExperimental.beginFrame", { frameTimeTicks: (ctx.tick += 0.01), interval: FRAME_MS, noDisplayUpdates: true });
+  }
+  return w;
 }
 
 async function shoot(ctx, t) {
   const st = stateAt(t);
-  await ctx.page.evaluate((s) => window.draw(s), st);
-  const { data } = await ctx.cdp.send("Page.captureScreenshot", { format: "png", optimizeForSpeed: true, clip: { x: 0, y: 0, width: W, height: H, scale: 1 } });
-  return Buffer.from(data, "base64");
+  await pumping(ctx, ctx.page.evaluate((s) => window.draw(s), st));
+  ctx.tick = Math.max(ctx.tick + 0.01, 1e6 + t);
+  const r = await ctx.cdp.send("HeadlessExperimental.beginFrame", { frameTimeTicks: ctx.tick, interval: FRAME_MS, screenshot: { format: "png", optimizeForSpeed: true } });
+  // no damage: nothing changed since the last frame, which is then this frame too
+  if (r.screenshotData) ctx.last = Buffer.from(r.screenshotData, "base64");
+  if (!ctx.last) throw new Error(`no frame at ${t} ms (beginFrame without damage before any frame)`);
+  return ctx.last;
 }
 
-const LAUNCH_ARGS = ["--allow-file-access-from-files", "--disable-gpu", "--font-render-hinting=none", "--force-color-profile=srgb", "--hide-scrollbars"];
+const LAUNCH_ARGS = ["--allow-file-access-from-files", "--disable-gpu", "--font-render-hinting=none", "--force-color-profile=srgb", "--hide-scrollbars", ...deterministicArgs(1)];
 if (args.still?.length) {
   const browser = await chromium.launch({ args: LAUNCH_ARGS });
   const ctx = await openPage(browser);

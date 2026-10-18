@@ -83,7 +83,7 @@ export function CalendarExportSection() {
         ) : null}
         {enabled ? (
           <div>
-            <Button ref={buttonRef} onClick={() => setOpen(true)} className="pointer-coarse:min-h-11" data-testid="cal-open">
+            <Button ref={buttonRef} onClick={() => setOpen(true)} className="pointer-coarse:min-h-11" data-testid="cal-open" data-tour="profile-calendar">
               <CalendarPlus aria-hidden />
               {t("calendarExport.open")}
             </Button>

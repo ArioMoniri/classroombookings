@@ -28,7 +28,7 @@ import { groupInbox, groupStatus, isOpen, requestSlots, suggestionRooms } from "
 import { GroupSlotLine, RequestReason, RequestTimeline, SlotLine, StatusPill } from "./request-parts";
 import { ResponsiveDialog } from "./responsive-dialog";
 
-export function MyRequests({ fmt }: { fmt: DateFormatter }) {
+export function MyRequests({ fmt, testId = "my-requests" }: { fmt: DateFormatter; /** PER-F02: Taleplerim shows it under its own id */ testId?: string }) {
   const { t } = useI18n();
   const mine = useMyRequests();
   const params = useSearchParams();
@@ -40,7 +40,7 @@ export function MyRequests({ fmt }: { fmt: DateFormatter }) {
   const entries = groupInbox(rows);
   const open = entries.filter((e) => e.requests.some(isOpen)).length;
   return (
-    <section aria-labelledby="mine-requests" data-testid="my-requests">
+    <section aria-labelledby="mine-requests" data-testid={testId}>
       <SectionTitle id="mine-requests">
         {t("wave1.mine.title")}
         {open ? <span className="ml-2 type-callout font-normal text-label-2">{t("wave1.mine.openN", { n: open })}</span> : null}

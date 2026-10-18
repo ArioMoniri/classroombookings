@@ -4,9 +4,20 @@
 // (review §2). Read through useSyncExternalStore so the server render and the first client render agree.
 import * as React from "react"
 
+import { useUiStore, type Density as AppDensity } from "@/stores/ui"
+
 import { autoWidth, clamp, layoutColumns, type ColumnLayout, type ColumnSpec } from "./column-system"
 
 export type Density = "compact" | "standard" | "comfortable"
+
+/** Row height per density, in px; the same numbers as `--row-h` in globals.css (the virtualiser estimates with it). */
+export const ROW_H: Record<Density, number> = { compact: 32, standard: 44, comfortable: 56 }
+
+/** The density a table shows (audit A5): the one picked in its Görünüm menu, else the app's Ayarlar › Görünüm ›
+ *  Yoğunluk ("Sıkı" → compact, "Rahat", the default, → standard). */
+export function tableDensity(own: Density | undefined, app: AppDensity): Density {
+  return own ?? (app === "compact" ? "compact" : "standard")
+}
 
 export interface TablePrefs {
   order?: string[]
@@ -127,6 +138,7 @@ export function useColumnLayout<Row>({
   squeeze?: boolean
 }): ColumnLayoutApi {
   const { prefs, update } = useTablePrefs(tableId, userId)
+  const appDensity = useUiStore((s) => s.density)
   const container = useContainerWidth(containerRef)
   // auto widths are measured once per data set (header + first 200 rows), not per render
   const auto = React.useMemo(() => {
@@ -172,7 +184,7 @@ export function useColumnLayout<Row>({
   return {
     layout,
     prefs,
-    density: prefs.density ?? "standard",
+    density: tableDensity(prefs.density, appDensity),
     setDensity: (d) => update((p) => ({ ...p, density: d })),
     setWidth,
     autoFit,

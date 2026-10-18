@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 import type { ColumnSpec } from "./column-system"
 import { ColumnResizeHandle, ColumnsMenu, SqueezedChip, useTableCopy } from "./parts"
-import { useColumnLayout } from "./use-column-layout"
+import { ROW_H, useColumnLayout } from "./use-column-layout"
 
 export interface DataColumn<Row> extends ColumnSpec<Row> {
   cell: (row: Row) => React.ReactNode
@@ -109,8 +109,10 @@ export function DataTable<Row>({
   })
   const model = table.getRowModel().rows
   const virtual = model.length > VIRTUAL_FROM
-  const rowH = api.density === "compact" ? 32 : api.density === "comfortable" ? 56 : 44
+  // rows are exactly --row-h tall (h-(--row-h)), so the estimate is the size; re-measure when the density changes
+  const rowH = ROW_H[api.density]
   const v = useVirtualizer({ count: virtual ? model.length : 0, getScrollElement: () => scroller.current, estimateSize: () => rowH, overscan: 12 })
+  React.useEffect(() => v.measure(), [v, rowH])
   const { layout } = api
   const loading = rows === undefined
   const asCards = narrow === "cards" && api.container > 0 && api.container < narrowBelow

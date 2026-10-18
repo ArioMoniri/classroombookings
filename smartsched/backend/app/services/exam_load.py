@@ -2,7 +2,9 @@
 
 * **Structural load** (always available from the exam list): exams and seats per day and per start slot against
   the rooms' ``exam_capacity``; the peak day and its ratio to the weekday mean (Final 2026: Wednesday 3 June,
-  126 exams, 1.86x).
+  98 sittings, 1.67x). The unit is the **sitting**: a shared exam listed once per programme (one merge key) counts
+  once, here, in the ``exam_load`` data issues and in the exam advisor (AS20-F13, FIX-G; before, the advisor and
+  B6/B6a counted exam-list rows: 126, 1.87x).
 * **Invigilators**: ``Σ ceil(seated / students_per_invigilator)`` per slot against the pool size, an early warning
   before an invigilation plan is run.
 * **Booking demand in exam weeks**: bookings and blocks per day in EXAM / MAKEUP weeks against the lecture weeks of

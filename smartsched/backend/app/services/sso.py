@@ -1284,8 +1284,10 @@ async def refuse(
         return await test_done_url(db, False)
     public = PUBLIC_CODES.get(err.code, "failed")
     params = {"ref": ref} if public == "failed" else {}
-    if public in ("domain", "invite_provider", "tenant", "unavailable", "signup_closed", "cancelled"):
-        params["provider"] = slug
+    if public in ("domain", "invite_provider", "tenant", "unavailable", "signup_closed", "cancelled") or (
+        purpose == "link" and slug != PROVIDER
+    ):
+        params["provider"] = slug  # a profile link of another provider: the panel names it
     return await error_url(db, public, link=purpose == "link", **params, **err.extra)
 
 
@@ -1345,6 +1347,23 @@ async def finish(
     return await _issue_ticket(db, user, return_path, welcome)
 
 
+async def _note_saml_response(db: AsyncSession, slug: str, detail: str | None) -> None:
+    """Keep the provider's response check rows current (idp2-2026-10-18): an AES-CBC assertion in an unsigned
+    Response adds the "assertion_encryption" refusal row the wizard shows; a response that passed removes it. The
+    caller's next commit (test report, refusal audit, ticket) stores it."""
+    from app.services.identity import errors as idp_errors
+
+    prov = await get_provider(db, slug=slug)
+    if prov is None:
+        return
+    opts = dict(prov.options or {})
+    before = list(opts.get("discovery_checks") or [])
+    after = idp_errors.response_checks(before, detail)
+    if after != before:
+        opts["discovery_checks"] = after
+        prov.options = opts
+
+
 async def _exchange_and_validate(cfg: OidcClient, code: str, verifier: str, nonce_hash: str | None) -> dict[str, Any]:
     try:
         async with _oauth(cfg) as client:
@@ -1375,9 +1394,11 @@ async def start_saml(
     invite: str | None = None,
     purpose: str = "login",
     data: dict[str, Any] | None = None,
+    user_id: int | None = None,
 ) -> str:
     """The IdP's SSO URL with a deflated AuthnRequest; ``RelayState`` is the state (hashed in ``sso_auth_states``
-    with the request id, so ``InResponseTo`` is checked on the way back)."""
+    with the request id, so ``InResponseTo`` is checked on the way back). ``user_id``: the account a profile link
+    (``purpose="link"``) binds to."""
     if not idp_saml.AVAILABLE:
         raise SsoError("unavailable", "SAML library (signxml) not installed")
     cfg = await saml_config(db, row)
@@ -1396,6 +1417,7 @@ async def start_saml(
             provider=row.name,
             purpose=purpose,
             nonce_hash=_hash(request_id),
+            user_id=user_id,
             return_path=safe_return_path(next_path),
             data=state_data,
             expires_at=utcnow() + STATE_TTL,
@@ -1408,9 +1430,9 @@ async def start_saml(
 async def finish_saml(db: AsyncSession, *, slug: str, saml_response: str | None, relay_state: str | None) -> str:
     """The IdP's POST to the ACS. Same answers as :func:`finish`."""
     row = await _take_state(db, relay_state, slug)
-    if row is None or row.purpose == "link":
+    if row is None:
         return await refuse(db, SsoError("state", "unknown, used or expired RelayState"), "login", slug=slug)
-    purpose, return_path, data = row.purpose, row.return_path, dict(row.data or {})
+    purpose, return_path, data, link_user_id = row.purpose, row.return_path, dict(row.data or {}), row.user_id
     request_id = str(data.get("request_id") or "")
     await db.delete(row)
     await db.commit()
@@ -1429,15 +1451,19 @@ async def finish_saml(db: AsyncSession, *, slug: str, saml_response: str | None,
             claims = idp_saml.parse_response(cfg, saml_response[: 2 * idp_saml.MAX_XML], request_id, datetime.now(UTC))
         except idp_saml.SamlError as exc:
             raise SsoError(exc.code, exc.detail) from exc
+        await _note_saml_response(db, slug, None)
         claims["_kind"] = idp_kinds.SAML
         claims["_trust_email"] = True
         claims["_roles"] = []
         claims["_groups"] = list(claims.get("groups") or [])
         if purpose == "test":
             return await _finish_test(db, slug, data, claims, None)
+        if purpose == "link":  # Profil › Güvenlik (app/services/identity/links.py)
+            return await _finish_link(db, link_user_id, cfg, claims)
         user, welcome = await _resolve_login(db, prov, cfg, claims, data.get("invite_id"))
     except SsoError as err:
         await db.rollback()
+        await _note_saml_response(db, slug, err.detail)
         if purpose == "test":
             return await _finish_test(db, slug, data, claims, err)
         return await refuse(db, err, purpose, claims, slug=slug)
@@ -1724,6 +1750,9 @@ async def _finish_link(db: AsyncSession, user_id: int | None, cfg: Any, claims: 
     own = await _identity_of(db, user.id, cfg.slug)
     if own is not None and ident is None:
         raise SsoError("already_linked", "account linked to another identity", user_id=user.id)
+    prov = await get_provider(db, slug=cfg.slug)
+    if prov is not None and prov.kind != idp_kinds.ENTRA and not _domain_allowed(prov, verified_identifiers(claims)):
+        raise SsoError("domain", "the identity's address is outside the provider's allowed domains", user_id=user.id)
     if ident is None:
         ident = _new_identity(user.id, cfg, claims, "link")
         db.add(ident)
@@ -1745,6 +1774,8 @@ async def _finish_link(db: AsyncSession, user_id: int | None, cfg: Any, claims: 
     )
     await db.commit()
     base, _ = await public_base(db)
+    if cfg.slug != PROVIDER:
+        return f"{base}/profile?{urlencode({'sso': 'linked', 'provider': cfg.slug})}"
     return f"{base}/profile?sso=linked"
 
 

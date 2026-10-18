@@ -37,7 +37,7 @@ export function EmailSettingsPanel({ initialTab = "setup" }: { initialTab?: Pane
   const [tab, setTab] = useState<PanelTab>(initialTab);
   const base = useId();
   return (
-    <div className="flex min-w-0 flex-col gap-4" data-testid="email-settings-panel">
+    <div className="flex min-w-0 flex-col gap-4" data-testid="email-settings-panel" data-tour="admin-mail">
       <SegmentedControl
         aria-label={t("email.panel.tabs")}
         value={tab}

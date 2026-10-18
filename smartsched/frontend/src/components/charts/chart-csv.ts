@@ -42,7 +42,8 @@ export function toCsv<R>(rows: readonly R[], columns: readonly ChartColumn<R>[],
   for (const c of columns) {
     const kind = c.kind ?? "text";
     if (kind === "date") head.push(c.label, `${c.label} (ISO)`);
-    else if (kind === "percent") head.push(`${c.label} (%)`);
+    // a label that already names the unit ("Dolu derslik (%)") is not marked twice (e2e 2026-10-18)
+    else if (kind === "percent") head.push(/\(%\)\s*$/.test(c.label) ? c.label : `${c.label} (%)`);
     else head.push(c.label);
   }
   const lines = [head.map((h) => cell(h, sep)).join(sep)];

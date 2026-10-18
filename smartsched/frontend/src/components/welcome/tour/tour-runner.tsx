@@ -8,6 +8,8 @@
  * `step`, `completed` ("Bitir"), `dismissed` with the step (Esc / "Turu bitir"); none in an admin preview.
  * While it runs, html[data-tour-running] pauses the global shortcuts and ⌘K. Afterwards focus goes to the step's
  * target (Esc, when focusable) or the page's h1, never to <body>.
+ * Between steps (WG-09, WG10-F07) a hold scrim of the same colour stays until the next step's own overlay is drawn,
+ * so a cross-route step (route push + anchor wait, ~300 ms) never shows the page unscrimmed.
  */
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -40,6 +42,7 @@ export function TourRunner({ request }: { request: TourRequest }) {
   const [index, setIndex] = useState(0);
   const [active, setActive] = useState<{ index: number; step: EngineStep } | null>(null);
   const [live, setLive] = useState("");
+  const [holding, setHolding] = useState(false);
   const dir = useRef(1);
   const finished = useRef(false);
   const latest = useRef({ active, index, pathname });
@@ -100,7 +103,10 @@ export function TourRunner({ request }: { request: TourRequest }) {
       if (!target) {
         console.warn(`[welcome] tour step skipped: no [data-tour="${step.anchor}"] on ${window.location.pathname}`);
         const next = index + dir.current;
-        if (next < 0 || next >= steps.length) finish(next < 0 ? "dismissed" : "completed");
+        if (next < 0 || next >= steps.length) {
+          setHolding(false);
+          finish(next < 0 ? "dismissed" : "completed");
+        }
         else setIndex(next);
         return;
       }
@@ -114,6 +120,23 @@ export function TourRunner({ request }: { request: TourRequest }) {
     // a step resolves once per index
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
+
+  // release the hold scrim once the new step's Joyride overlay is in the DOM (or after 1 s, whatever comes first)
+  useEffect(() => {
+    if (!holding || !active || active.index !== index) return;
+    let raf = 0;
+    const started = performance.now();
+    const tick = () => {
+      if (document.querySelector(".react-joyride__overlay") || performance.now() - started > 1000) {
+        // one more frame: the overlay paints before the hold leaves
+        raf = requestAnimationFrame(() => setHolding(false));
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [holding, active, index]);
 
   // the target is described by the step body while the step is active
   useEffect(() => {
@@ -147,12 +170,14 @@ export function TourRunner({ request }: { request: TourRequest }) {
       if (index + 1 >= steps.length) finish("completed");
       else {
         dir.current = 1;
+        setHolding(true);
         setIndex(index + 1);
       }
     },
     back: () => {
       if (index === 0) return;
       dir.current = -1;
+      setHolding(true);
       setIndex(index - 1);
     },
     end: () => finish("dismissed"),
@@ -163,6 +188,14 @@ export function TourRunner({ request }: { request: TourRequest }) {
       <p className="sr-only" aria-live="polite" data-testid="tour-live">
         {live}
       </p>
+      {holding ? (
+        <div
+          aria-hidden="true"
+          data-testid="tour-scrim-hold"
+          className="pointer-events-auto fixed inset-0 z-[9999]"
+          style={{ backgroundColor: "var(--overlay, rgba(15, 23, 42, 0.45))" }}
+        />
+      ) : null}
       {active && active.index === index ? (
         <>
           <SpotlightRing target={active.step.target} reduceMotion={reduce} />

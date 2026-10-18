@@ -403,22 +403,19 @@ def b7_slot_holds(exam_list: Any, buffer_periods: int = 1) -> Result:
 
 
 def exam_day_load(exam_list: Any) -> Result:
-    """Exams with a date and a room per weekday of the Final period: the peak day and its ratio to the mean."""
+    """Exam sittings with a date, a start period and a room per weekday of the Final period: the peak day and its
+    ratio to the mean. The unit is the sitting (a merge group counts once), the advisor's and the forecast's unit
+    (AS20-F13, re-baselined 2026-10-18 by FIX-G: 98 sittings, 1.667; the row count was 126, 1.867)."""
+    from app.services.exam_advisor import items_from_exam_list
     from app.services.exam_load import day_load
 
-    load = day_load(
-        [
-            (r.date, int(r.enrolment or 0))
-            for r in exam_list.rows
-            if r.date is not None and getattr(r.definitive, "room_codes", None)
-        ]
-    )
+    load = day_load([(i.date, i.seats) for i in items_from_exam_list(exam_list)])
     return Result(
         "B6a",
         "Sınav günü yükü / exam day load (Final 2026)",
         load,
-        {"peak_to_mean": "1.86 ± 0.01 (measured 2026-10-17)"},
-        abs(load["peak_to_mean"] - 1.86) <= 0.01,
+        {"peak_to_mean": "1.67 ± 0.01 sittings (re-baselined 2026-10-18; was 1.86 on exam-list rows)"},
+        abs(load["peak_to_mean"] - 1.67) <= 0.01,
     )
 
 
