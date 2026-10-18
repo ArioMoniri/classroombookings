@@ -294,3 +294,29 @@ def test_nginx_classify_comment_does_not_claim_streaming():
     conf = (DEPLOY / "nginx" / "default.conf").read_text(encoding="utf-8")
     block = conf[conf.index("# Helper file router") : conf.index("location = /api/v1/helper/files/classify")]
     assert "bodies streamed" not in block and "arrayBuffer" in block
+
+
+# ------------------------------------------------------------------- UX-27: a newer file replaced the stage
+async def test_a_stage_replaced_by_a_newer_file_says_so(rc):
+    """HB-23d UX-27: one live stage per person (N9), so a classify in another window replaces the older stage. Its
+    token then answers 410 ``stage_replaced`` with its own words, not "the file expired (10 minutes)"."""
+    h = await login(rc)
+    first = (await card_of(rc, h, BAHAR_LIST))["stage"]["upload_token"]
+    await card_of(rc, h, FIX / "room_master.csv")  # the same person, another window
+    for path, body in (
+        (f"{C}/route", {"upload_token": first, "kind": "planning_list"}),
+        (
+            f"{C}/handoff",
+            {
+                "upload_token": first,
+                "kind": "planning_list",
+                "feature_id": "import",
+                "params": {"kind": "planning-list"},
+            },
+        ),
+    ):
+        r = await rc.post(path, json=body, headers=h)
+        assert r.status_code == 410, r.text
+        d = r.json()["detail"]
+        assert d["code"] == "stage_replaced" and "pencere" in d["message_tr"] and "10 dakika" not in d["message_tr"]
+    assert len(live_stages()) == 1  # the newer file is untouched
