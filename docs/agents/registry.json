@@ -3236,7 +3236,8 @@
       "goal": "You are lane CAL-F (calendar export frontend), re-created after a container restart. Your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `components/calendar-export/**`, `lib/api/calendar-export.ts`, the `components/settings/calendar-*` files, and `e…",
       "ledger": "CAL-F resume: calendar export UI",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 08:29"
     },
     {
       "id": "a7eac7171a5e66a48",
