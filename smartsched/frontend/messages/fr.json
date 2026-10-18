@@ -151,5 +151,12 @@
     "usage": {
       "day": "Jour"
     }
+  },
+  "adaptive": {
+    "peaks": {
+      "col": {
+        "weeks": "Semaines"
+      }
+    }
   }
 }

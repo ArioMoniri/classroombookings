@@ -151,5 +151,12 @@
     "usage": {
       "day": "Den"
     }
+  },
+  "adaptive": {
+    "peaks": {
+      "col": {
+        "weeks": "Týdny"
+      }
+    }
   }
 }

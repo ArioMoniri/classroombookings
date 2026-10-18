@@ -151,5 +151,12 @@
     "usage": {
       "day": "Tag"
     }
+  },
+  "adaptive": {
+    "peaks": {
+      "col": {
+        "weeks": "Wochen"
+      }
+    }
   }
 }

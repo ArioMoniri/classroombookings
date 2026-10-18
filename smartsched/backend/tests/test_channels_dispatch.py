@@ -97,15 +97,21 @@ async def test_link_only_rejection_reaches_telegram_without_names_rooms_dates_or
     assert ("approval.rejected", "sent") in await _ledger(aid, "telegram")
     # the approver linked nothing: the channel is off for her (linking is the opt-in), so nothing is written
     assert await _ledger(gid, "telegram") == []
-    assert await drain() == 1
-    ((url, _title, body),) = [s for s in net.sent if "5550001" in s[0]]
-    assert url.startswith("tgram://") and BOT_TOKEN.split(":")[1] in url
-    assert "SmartSched" in body and f"https://smartsched.uni.edu.tr/bookings/mine?request={rid}" in body
-    for leak in (*NAMES, "A 102", "A102", "19.02.2026", "2026-02-19", "08:30", "P1", "FZT", "toplantı", "Oda uygun"):
-        assert leak not in body, (leak, body)
+    # RF-11: the submitter's receipt (approval.submitted) is queued at the request, the decision after it
+    assert await drain() == 2
+    sent = [s for s in net.sent if "5550001" in s[0]]
+    assert len(sent) == 2
+    leaks = (*NAMES, "A 102", "A102", "19.02.2026", "2026-02-19", "08:30", "P1", "FZT", "toplantı", "Oda uygun")
+    for url, _title, body in sent:
+        assert url.startswith("tgram://") and BOT_TOKEN.split(":")[1] in url
+        assert "SmartSched" in body and f"https://smartsched.uni.edu.tr/bookings/mine?request={rid}" in body
+        for leak in leaks:
+            assert leak not in body, (leak, body)
     # the outbox keeps only the link in link_only mode (minimisation at rest too)
-    (row,) = await _outbox_rows(aid)
-    assert row.status == "SENT" and set(row.payload) <= {"event", "lang", "mode", "link"}
+    rows = await _outbox_rows(aid)
+    assert [r.event for r in rows] == ["approval.submitted", "approval.rejected"]
+    for row in rows:
+        assert row.status == "SENT" and set(row.payload) <= {"event", "lang", "mode", "link"}
     # idempotent: the same occurrence dispatched again sends nothing new
     async with dbmod.get_session_factory()() as s:
         user = await s.get(User, aid)
@@ -115,14 +121,17 @@ async def test_link_only_rejection_reaches_telegram_without_names_rooms_dates_or
         )
         await s.commit()
     assert {d.channel: d.status for d in out}["telegram"] == "duplicate"
-    assert await drain() == 0 and len([s for s in net.sent if "5550001" in s[0]]) == 1
+    assert await drain() == 0 and len([s for s in net.sent if "5550001" in s[0]]) == 2
 
 
 async def test_full_mode_carries_room_dates_periods_and_reason_but_no_person_names(env, net):  # noqa: F811
     gid, gozde, aid, ayse = await _setup(env, net, "full")
     await _reject(env, gozde, ayse)
     await drain()
-    ((_url, _title, body),) = [s for s in net.sent if "5550001" in s[0]]
+    # RF-11: the first message is the submitter's receipt, the second the decision
+    receipt, (_url, _title, body) = [s for s in net.sent if "5550001" in s[0]]
+    for leak in NAMES:
+        assert leak not in receipt[2], (leak, receipt[2])
     assert "reddedildi" in body and "A 102" in body and "19.02.2026" in body and "P1 08:30-09:10" in body
     assert "Gerekçe: Oda uygun değil: " + REASON in body
     for leak in (*NAMES, "FZT 132", "telafi"):
@@ -147,7 +156,10 @@ async def test_a_failing_channel_is_recorded_and_retried_and_never_breaks_the_de
     net.apprise_ok = False
     await _reject(env, gozde, ayse)  # 200 although the channel is down
     await drain()
-    (row,) = await _outbox_rows(aid)
+    # RF-11: the submitter's receipt (approval.submitted) fails the same way as the decision
+    rows = await _outbox_rows(aid)
+    assert [r.event for r in rows] == ["approval.submitted", "approval.rejected"]
+    row = rows[1]
     assert row.status == "PENDING" and row.attempts == 1 and row.next_attempt_at is not None
     assert row.last_error and BOT_TOKEN not in row.last_error
     # every retry fails: after the last back-off step the row is FAILED, nothing is raised anywhere
@@ -155,8 +167,8 @@ async def test_a_failing_channel_is_recorded_and_retried_and_never_breaks_the_de
     for _ in range(8):
         when += timedelta(hours=7)
         await outbox.drain_due(when, 200)
-    (row,) = await _outbox_rows(aid)
-    assert row.status == "FAILED" and row.attempts == 6 and row.next_attempt_at is None
+    for row in await _outbox_rows(aid):
+        assert row.status == "FAILED" and row.attempts == 6 and row.next_attempt_at is None
     # the e-mail and in-app copies were unaffected
     assert ("approval.rejected", "sent") in await _ledger(aid, "email")
     assert ("approval.rejected", "sent") in await _ledger(aid, "in_app")
