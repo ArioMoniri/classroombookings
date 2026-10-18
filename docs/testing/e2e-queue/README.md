@@ -57,3 +57,12 @@ On pass: tick VO-06/07/08 and VO-05.
 4. Admin POST /admin/users/{id}/sessions/revoke and, separately, the admin MFA reset: the target gets 401 everywhere; audit rows present.
 5. Fake OIDC IdP, policy required_for_roles covering the role, amr=["pwd"]: switch on → refused with Turkish
    `idp_mfa_required`; switch off → succeeds, `idp_mfa_missing` notice once; amr=["pwd","mfa"] → succeeds, no notice.
+
+## RF-2 (mail follow-ups)
+1. /bookings/mine?series=<sid>&booking=<bid> lands on /my-bookings with that booking's sheet open; closing doesn't reopen; the URL is cleaned.
+2. /my-bookings?series=<sid> opens the series' earliest upcoming booking.
+3. /bookings?date=<d>&series=<sid>&booking=<bid> opens the grid's detail sheet.
+4. Settings › Genel › "E-posta bildirimleri": 2 h saves (toast, focus on Kaydet); 337 and "2,5" give an inline error with
+   focus on the field; the new-device switch off is saved; phone 16 px / 44 px; MOBILE M-01/02/03/05 on /settings, /my-bookings, /bookings.
+5. FakeSMTP: with all of a person's mails muted, a new-device sign-in still mails with the "kapatılamaz" footer; calendar
+   consent on/off and a Google connect/disconnect each mail; Profil › Bildirimler doesn't list these events.

@@ -91,7 +91,9 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<Response> {
       if (me.ok) user = await me.json();
     }
     const extra = segment === "auth/sso/exchange" ? { next: data.next ?? null, welcome: data.welcome ?? null, inviter_name: data.inviter_name ?? null } : {};
-    const res = NextResponse.json({ user, password_change_required: Boolean(data.password_change_required), ...extra });
+    // AU-17: a policy that requires 2FA, still in grace, signs in and offers the enrolment (auth.md §5.6)
+    const setup = data.mfa_setup_required ? { mfa_setup_required: true, mfa_grace_until: data.mfa_grace_until ?? null, mfa_setup_methods: data.mfa_setup_methods ?? ["totp"] } : {};
+    const res = NextResponse.json({ user, password_change_required: Boolean(data.password_change_required), ...setup, ...extra });
     // the cookie must not outlive the JWT (backend TokenOut.expires_in, seconds)
     const maxAge = typeof data.expires_in === "number" && data.expires_in > 0 ? Math.floor(data.expires_in) : COOKIE_MAX_AGE;
     res.cookies.set({ name: AUTH_COOKIE, value: data.access_token, httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge });

@@ -56,4 +56,18 @@ describe("generic proxy (AU-17)", () => {
     res = await call("auth/sso/invites/tok123/password", { password: "a long sentence" });
     expect(cookieOf(res, "smartsched_token")).toMatch(/JWT4/);
   });
+
+  it("auth/login in the grace period: the session cookie plus mfa_setup_required / grace passed through", async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { access_token: "JWT5", expires_in: 3600, mfa_setup_required: true, mfa_grace_until: "2026-11-01T00:00:00", mfa_setup_methods: ["totp", "passkey"] })).mockResolvedValueOnce(json(200, { id: 5 }));
+    const res = await call("auth/login", { username: "fatih", password: "x" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ user: { id: 5 }, mfa_setup_required: true, mfa_grace_until: "2026-11-01T00:00:00", mfa_setup_methods: ["totp", "passkey"] });
+    expect(cookieOf(res, "smartsched_token")).toMatch(/JWT5/);
+  });
+
+  it("auth/login with neither a token nor a second step is still a 502", async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { access_token: null }));
+    const res = await call("auth/login", { username: "fatih", password: "x" });
+    expect(res.status).toBe(502);
+  });
 });

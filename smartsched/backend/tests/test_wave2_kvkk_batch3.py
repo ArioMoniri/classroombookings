@@ -314,7 +314,9 @@ async def test_withdrawing_ai_personal_keeps_the_person_out_of_every_prompt(env,
 
     out = await _withdraw(env, teacher, "ai_personal")
     assert {k: out[k] for k in ZERO} == ZERO and out["ai_excluded"] is True
-    assert [e["code"] for e in out["effects"]] == ["ai_excluded"]
+    # HB-09: withdrawing ai_personal also deletes the helper's notes and turns its memory off (none existed here)
+    assert [e["code"] for e in out["effects"]] == ["ai_excluded", "helper_notes_deleted"]
+    assert next(e for e in out["effects"] if e["code"] == "helper_notes_deleted")["count"] == 0
     assert (await _last_withdraw_audit("ai_personal"))["ai_excluded"] is True
 
     script("[KİŞİ_1]")

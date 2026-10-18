@@ -53,7 +53,7 @@ export function ChangePasswordForm() {
       if (mfaErrorCode(e) === "password_too_short") {
         const need = refusalBody(e)?.min_length;
         if (typeof need === "number") setRefusedMin(need);
-        setError(t("auth.setPassword.errShort", { n: typeof need === "number" ? need : min }));
+        setError(t("auth.setPassword.short", { n: typeof need === "number" ? need : min }));
       } else setError(e instanceof HttpError && e.status === 400 ? t("glass.auth.changeRejected") : t("glass.auth.changeFailed"));
     } finally {
       setBusy(false);
@@ -80,7 +80,7 @@ export function ChangePasswordForm() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="new">{t("glass.auth.new")}</Label>
-          <Input id="new" type="password" autoComplete="new-password" minLength={min} passwordrules={`minlength: ${min};`} aria-invalid={tooShort} aria-describedby="new-hint" value={next} onChange={(e) => setNext(e.target.value)} />
+          <Input id="new" type="password" autoComplete="new-password" minLength={min} {...{ passwordrules: `minlength: ${min};` }} aria-invalid={tooShort} aria-describedby="new-hint" value={next} onChange={(e) => setNext(e.target.value)} />
           <p id="new-hint" className={tooShort ? "type-footnote text-status-infeasible-fg" : "type-footnote text-label-3"}>
             {t("auth.setPassword.hintChange", { n: min })}
           </p>
