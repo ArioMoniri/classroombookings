@@ -56,7 +56,7 @@ test("1–4. providers, the voice route, the Ses card and voice limits at 1440; 
   const card = page.getByTestId("ai-provider-deepgram");
   await expect(card).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("ai-provider-caps-deepgram")).toHaveText(/Ses→yazı/);
-  await expect(page.getByTestId("ai-provider-caps-anthropic")).toHaveText(/^(Yetenekler: )?Metin$/);
+  await expect(page.getByTestId("ai-provider-caps-anthropic")).toHaveText(/^Yetenekler: Metin( · |$)/);
   await card.getByTestId("ai-key-deepgram-api_key").fill("e2e-placeholder-deepgram-key-0001");
   await card.getByTestId("ai-transfer-deepgram").locator("summary").click();
   await card.getByTestId("ai-transfer-mech-deepgram").selectOption("standard_contract");
