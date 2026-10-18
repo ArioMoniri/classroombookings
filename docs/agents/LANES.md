@@ -1,6 +1,6 @@
 # Agent lanes: who is doing what, and how to resume after a limit
 
-Updated 2026-10-18 01:10 UTC by the focused-wright orchestrator (session `claude/focused-wright-ktt0ss`).
+Updated 2026-10-18 09:32 UTC by the focused-wright orchestrator (session `claude/focused-wright-ktt0ss`).
 Background agents belong to the session that started them. If a session hits a usage limit or ends, its
 agents stop, but every change they made is in git: the orchestrator commits the tree every 30 minutes
 (`wip: checkpoint of running agents' work`). To resume a lane in a new session:
@@ -18,23 +18,17 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 
 ## Running now
 
-| Lane | Ledger name | What | Brief / tickets | Ports | Waits on |
-|---|---|---|---|---|---|
-| CAL-F | `cal-f-2026-10-17` | "Takvimime ekle" 3-tap sheet + admin settings CAL-08/09 | same | 19750/19751 | CAL-B API |
-| Launch video | `media-launch` | Recordly + Lottie + Remotion launch/explainer/README videos, phone variants | MEDIA.md | own | final UI |
-| Mobile A, phase 2 | `mobile-a` | Fixes 1–15 of docs/testing/mobile/2026-10-17-mobile-a.md plus the shared primitives from mobile B (inputs, small buttons, tab/top bar) | that report | 19620/19621 | — |
-| Mobile B, phase 2 | `mobile-b` | Route-level fixes of docs/testing/mobile/2026-10-17-mobile-b.md (runs, studio, classes, timetable, moderation, admin, dashboard, analytics, invigilation, policies) | that report | 19630/19631 | — |
-| WG-F | `wg-f-2026-10-17` | Welcome sheet, tour (React Joyride), checklist, hints, /admin/welcome WG-04..08 | same | 19780/19781 | WG-B API |
-| Charts phase 2 | `charts-p2-2026-10-17` | EvilCharts ECharts install + ChartCard shell CH-01/02 | docs/design/v3/charts.md | — | — |
-| AS-B | `as-b-2026-10-17` | Adaptive scheduling backend AS-01..07, 09..11, 13, 18 (+ RF-02 weights, RF-07 learning refresh); migration 0041 | docs/research/2026-10-17-adaptive-scheduling.md | — | — |
-| VO-F | `vo-f-2026-10-18` | Mic button, consent, /admin/ai voice UI, mounts VO-06..08 | same | 19790/19791 | VO-B API |
-| HB-A | `hb-a-2026-10-18` | Helper backend HB-01..05, 08, 09 (feature index, search without AI, action registry, guardrails, memory) | docs/research/2026-10-17-ai-helper-architecture.md | — | helper UX for the card contract |
-| RF-1 | `rf-1-2026-10-18` | Enrolment edit, invite e-mail switch, admin catalogue screens (instructors, courses, faculties, sections) | docs/testing/audits/2026-10-17-no-mock-and-editability.md | 19800/19801 | — |
-| RF-2 | `rf-2-2026-10-18` | Senders for reminder, series, approval receipt, calendar consent, new-device e-mails | same | — | — |
-| AU-B | `au-b-2026-10-18` | TOTP, recovery codes, passkeys (WebAuthn), trusted devices, MFA policy, admin MFA reset + reset link (local accounts only) | docs/research/2026-10-18-auth-backend.md, ROADMAP "— backend" | — | — |
-| AS-S | `as-s-2026-10-18` | Adaptive solver AS-08 (peak smoothing, off by default), AS-12 (exam date advisor), AS-14 (weights learned from edits as drafts) | adaptive research doc | — | AS-B status file |
-| HB-B | `hb-b-2026-10-18` | Helper capability detection HB-12, local-model fixes HB-13, helper turn loop HB-06, quota chain org→faculty→department→role→user in PostgreSQL HB-10, faculty quota managers HB-11 | helper architecture doc | — | HB-A registry (read-only) |
-| Sweeper | `sweep-2026-10-18` | KVKK inventory under system_scope, last backup on /admin/ops, aws-bootstrap.yml secrets → up flags, audit row fix, ruff format for finished lanes | LANES queue | — | — |
+| Lane | Ledger name | What | Brief / tickets | Waits on |
+|---|---|---|---|---|
+| HB-A | `hb-a-2026-10-18` | Helper backend HB-05/09, card contract | helper architecture doc | — |
+| HB-B | `hb-b-2026-10-18` | HB-12/13/06/10/11, DECISIONS row for provider capabilities | helper architecture doc | — |
+| Launch video | `media-launch` | Recordly + Lottie + Remotion videos | MEDIA.md | final UI |
+| E2E lane | `e2e-2026-10-18` | Runs docs/testing/e2e-queue section by section → results-2026-10-18.md | e2e-queue README | — |
+| RF-B | `rf-b-2026-10-18` | RF-06 re-import keeps edits, RF-08 seed imports in history, RF-09 backend, `/users/search?mfa_state` | audit doc | — |
+| AUX-10 | `aux-10-2026-10-18` | Sign-in hero (one hosted fix "signin-hero-settle") | auth.md §11.3–§11.4 | — |
+| RF-M | `rf-m-2026-10-18` | RF-04 phone month arrows, RF-10 density on timetable | audit doc | — |
+
+Done 2026-10-18: AS-B (AS-S merges, backtest B1–B9 pass), AS-F (AS-15..17 + RF-07 UI, part done until e2e), AUX-F (AU-18 wiring), AU-B, CAL-F, VO-F, WG-F, charts p2, mobile A/B, RF-1, RF-2, sweeper.
 
 ## Queued (start when the named lane hands off)
 

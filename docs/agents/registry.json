@@ -3460,6 +3460,42 @@
       "status": "finished",
       "finished_at": "2026-10-18 09:26",
       "left_off": "<analysis> This session is the focused-wright orchestrator for SmartSched, branch claude/focused-wright-ktt0ss. It runs many subagent lanes, commits their work as checkpoints, merges into the gracious and universal branches, and is trying to get the AWS pod deployed. Major events: - Pod start via POD_ACTION from gracious worked. Pod CI gates kept failing: - frontend OOM; - mypy saml unused ignore;…"
+    },
+    {
+      "id": "ae4972a24ad19912d",
+      "description": "RF-M: phone month arrows, density",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 09:29",
+      "scope": "",
+      "goal": "Ledger name `rf-m-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--maxWo…",
+      "ledger": "RF-M: phone month arrows, density",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a27e010c042ce226a",
+      "description": "RF-B: re-import, seed history, periods",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 09:29",
+      "scope": "",
+      "goal": "Ledger name `rf-b-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; `nice`, pytest only on the files you touch); never `p…",
+      "ledger": "RF-B: re-import, seed history, periods",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a23253f0f89269410",
+      "description": "AUX-10 sign-in hero motion",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 09:29",
+      "scope": "",
+      "goal": "Ledger name `aux-10-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--max…",
+      "ledger": "AUX-10 sign-in hero motion",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
