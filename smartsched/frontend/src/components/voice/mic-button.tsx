@@ -153,7 +153,7 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
     const onInput = (e: Event) => {
       if ((e as unknown as Record<string, boolean>)[VOICE_INPUT_FLAG]) return;
       const kept = voiceValue.current;
-      if (kept !== null && el.value === kept) return;
+      if (kept !== null && fieldEl.value === kept) return;
       setFromVoice(false);
     };
     el.addEventListener("keydown", onKey);

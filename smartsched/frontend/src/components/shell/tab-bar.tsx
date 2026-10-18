@@ -142,7 +142,7 @@ export function TabBar() {
       {/* ui-alignment 2026-10-18: the detached search is a tab of its own (same capsule padding, ITEM box, 20 px icon and
           label), so its glyph sits on the tabs' icon line; the 48 px circle centred a 16 px glyph 12 px below them */}
       <BareButton aria-label={t("helper.trigger.name")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className="glass-chrome pointer-events-auto shrink-0 rounded-full p-1 font-normal max-[22.5rem]:hidden [@media(max-height:500px)]:p-0" data-testid="open-palette-mobile">
-        <span className={cn(ITEM, "px-3")}>
+        <span className={cn(ITEM, "px-[min(0.75rem,12px)]")}>
           <span aria-hidden className={cn(ICON, "text-label-2")}>
             <Search />
           </span>
