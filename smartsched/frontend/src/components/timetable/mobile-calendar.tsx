@@ -5,7 +5,7 @@
  * and the inspector as a bottom sheet. Moving uses "Taşı…" (the Move dialog with the free-room finder); no drag.
  */
 import { CalendarDays, Search, SlidersHorizontal } from "lucide-react";
-import { useMemo, useRef, useState, type PointerEvent } from "react";
+import { useMemo, useRef, useState, type ComponentProps, type PointerEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -53,6 +53,21 @@ export interface MobileCalendarProps {
   keep?: (e: CalEvent) => boolean;
   /** how many filters are on (the trigger says so; an empty day says the filters hide everything) */
   filterCount?: number;
+  /** unplaced classes per `week:day` (the month and term lenses' "Yerleşmeyen" metric; RF-04) */
+  unplacedByDay?: Map<string, number>;
+}
+
+const NO_UNPLACED = new Map<string, number>();
+
+/**
+ * The phone month lens keeps its own month, as calendar-view does on the desktop (RF-04: the ‹ › arrows were
+ * wired to a no-op and the month was derived from the selected day, so it could never change). It mounts only
+ * while the month lens is open, so coming back starts again from the selected day's month.
+ */
+function PhoneMonth(p: Omit<ComponentProps<typeof MonthHeat>, "month" | "onMonth"> & { start: string }) {
+  const { start, ...rest } = p;
+  const [month, setMonth] = useState(start);
+  return <MonthHeat {...rest} month={month} onMonth={setMonth} />;
 }
 
 export function MobileCalendar(p: MobileCalendarProps) {
@@ -114,9 +129,9 @@ export function MobileCalendar(p: MobileCalendarProps) {
       </header>
 
       {p.lens === "month" ? (
-        <div className="min-h-[70dvh]"><MonthHeat model={p.model} heat={p.heat} metric={metric} onMetric={setMetric} unplacedByDay={new Map()} todayIso={p.now.iso} onPick={(w, d) => { p.onWeek(w); p.onDay(d); p.onLens("agenda"); }} compareOn={false} month={(date ?? p.now.iso).slice(0, 7)} onMonth={() => undefined} /></div>
+        <div className="min-h-[70dvh]"><PhoneMonth model={p.model} heat={p.heat} metric={metric} onMetric={setMetric} unplacedByDay={p.unplacedByDay ?? NO_UNPLACED} todayIso={p.now.iso} onPick={(w, d) => { p.onWeek(w); p.onDay(d); p.onLens("agenda"); }} compareOn={false} start={(date ?? p.now.iso).slice(0, 7)} /></div>
       ) : p.lens === "term" ? (
-        <div className="min-h-[70dvh]"><TermHeat model={p.model} heat={p.heat} metric={metric} onMetric={setMetric} unplacedByDay={new Map()} todayIso={p.now.iso} onPick={(w, d) => { p.onWeek(w); p.onDay(d); p.onLens("agenda"); }} compareOn={false} brush={null} onBrush={() => undefined} currentWeek={p.week} /></div>
+        <div className="min-h-[70dvh]"><TermHeat model={p.model} heat={p.heat} metric={metric} onMetric={setMetric} unplacedByDay={p.unplacedByDay ?? NO_UNPLACED} todayIso={p.now.iso} onPick={(w, d) => { p.onWeek(w); p.onDay(d); p.onLens("agenda"); }} compareOn={false} brush={null} onBrush={() => undefined} currentWeek={p.week} /></div>
       ) : (
         <>
           <div className="mt-3 grid grid-cols-7 px-2" role="tablist" aria-label={t("calendar.mobile.days")} onPointerDown={onStripDown} onPointerUp={onStripUp} style={{ touchAction: "pan-y" }}>

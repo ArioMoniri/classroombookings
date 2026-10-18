@@ -3496,6 +3496,14 @@
       "ledger": "AUX-10 sign-in hero motion",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a0166c6ed587b97fc",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:30",
+      "left_off": "no s3 backups, keep them on the pod"
     }
   ]
 }

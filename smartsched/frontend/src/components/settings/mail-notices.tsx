@@ -98,11 +98,11 @@ export function MailNoticesCard() {
               <Input
                 id={`${ids}-hours`}
                 ref={hoursRef}
-                type="number"
+                // text, not number: a number input silently drops the comma of a Turkish "2,5" (saved as 25 h);
+                // parseLeadHours refuses it with the inline error instead (e2e 2026-10-18)
+                type="text"
                 inputMode="numeric"
-                min={0}
-                max={LEAD_MAX}
-                step={1}
+                autoComplete="off"
                 className="w-24 max-md:text-base"
                 aria-invalid={error ? true : undefined}
                 value={shownHours}

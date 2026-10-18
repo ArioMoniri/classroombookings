@@ -46,7 +46,8 @@ describe("MailNoticesCard", () => {
     renderIt();
     expect(await screen.findByText("E-posta bildirimleri")).toBeInTheDocument();
     const hours = await screen.findByLabelText("Hatırlatma: başlangıçtan kaç saat önce");
-    await waitFor(() => expect(hours).toHaveValue(24));
+    // a text field now (numeric keypad), so the value is the typed string
+    await waitFor(() => expect(hours).toHaveValue("24"));
     expect(hours).toHaveAttribute("inputmode", "numeric");
     fireEvent.change(hours, { target: { value: "2" } });
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
@@ -58,6 +59,17 @@ describe("MailNoticesCard", () => {
     renderIt();
     const hours = await screen.findByLabelText("Hatırlatma: başlangıçtan kaç saat önce");
     fireEvent.change(hours, { target: { value: "400" } });
+    fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
+    expect(await screen.findByText("0 ile 336 arasında bir saat girin (0: hatırlatma yok).")).toBeInTheDocument();
+    expect(hours).toHaveFocus();
+    expect(puts).toEqual([]);
+  });
+
+  it("keeps a Turkish decimal '2,5' as typed and refuses it (a number input dropped the comma and saved 25; e2e 2026-10-18)", async () => {
+    renderIt();
+    const hours = await screen.findByLabelText("Hatırlatma: başlangıçtan kaç saat önce");
+    fireEvent.change(hours, { target: { value: "2,5" } });
+    expect(hours).toHaveValue("2,5");
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
     expect(await screen.findByText("0 ile 336 arasında bir saat girin (0: hatırlatma yok).")).toBeInTheDocument();
     expect(hours).toHaveFocus();

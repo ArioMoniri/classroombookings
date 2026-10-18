@@ -2165,7 +2165,7 @@
         "orange": "Orange"
       },
       "density": "Density",
-      "densityHint": "Compact fits more periods on the timetable.",
+      "densityHint": "Compact fits more rows in lists and more rooms on the timetable.",
       "comfortable": "Comfortable",
       "compact": "Compact",
       "accessibility": "Accessibility",

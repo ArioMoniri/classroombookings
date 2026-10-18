@@ -2164,7 +2164,7 @@
         "orange": "Turuncu"
       },
       "density": "Yoğunluk",
-      "densityHint": "Sıkı görünüm çizelgeye daha çok ders saati sığdırır.",
+      "densityHint": "Sıkı görünüm listelere daha çok satır, çizelgeye daha çok derslik sığdırır.",
       "comfortable": "Rahat",
       "compact": "Sıkı",
       "accessibility": "Erişilebilirlik",
