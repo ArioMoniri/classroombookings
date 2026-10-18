@@ -15,6 +15,7 @@
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, Upload } from "lucide-react";
+import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { api } from "@/lib/api/endpoints";
 import { qk } from "@/lib/api/hooks";
 import type { ScheduleRun } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
+import { pick, springs, useReduce } from "@/lib/motion";
 import { weekList } from "@/lib/i18n/turkish";
 import { partialCounts } from "./runs-list";
 import { sectionOf } from "./diagnosis-format";
@@ -74,6 +76,9 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
   const { t, n, locale } = useI18n();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  // the hero moment (mobile-b phase 2): the check plays only after a publish in this session, never on load
+  const [justPublished, setJustPublished] = useState(false);
+  const reduce = useReduce();
   const [refusals, setRefusals] = useState<string[]>([]);
   const [reduction, setReduction] = useState<ReturnType<typeof scopeReductionOf>>(null);
   const [forcedRefusal, setForcedRefusal] = useState<ReturnType<typeof forcedBreaksOf>>(null);
@@ -84,6 +89,7 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
   const publish = useMutation({
     mutationFn: (o: { scope: boolean; forced: boolean }) => api.runs.activate(run.id, { confirmScopeReduction: o.scope, confirmForcedBreaks: o.forced }),
     onSuccess: () => {
+      setJustPublished(true);
       setOpen(false);
       setReduction(null);
       setForcedRefusal(null);
@@ -116,7 +122,19 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
   if (run.is_active) {
     return (
       <span tabIndex={-1} className="inline-flex items-center gap-1 rounded-full bg-status-feasible px-2.5 py-1 type-footnote font-medium text-status-feasible-fg focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="run-published">
-        <BadgeCheck className="size-3.5" aria-hidden /> {t("runs.publish.published")}
+        {/* transitions.dev free "success-check", re-tuned to motion.md: fade + rotate + bob on springs.bouncySubtle
+            (≈ 285 ms instead of 500 ms, no blur), off under reduced motion */}
+        <motion.span
+          className="inline-flex"
+          data-testid="run-published-check"
+          data-state={justPublished ? "in" : "still"}
+          initial={justPublished && !reduce ? { opacity: 0, rotate: -80, y: 6 } : false}
+          animate={{ opacity: 1, rotate: 0, y: 0 }}
+          transition={pick(reduce, springs.bouncySubtle)}
+        >
+          <BadgeCheck className="size-3.5" aria-hidden />
+        </motion.span>{" "}
+        {t("runs.publish.published")}
       </span>
     );
   }
