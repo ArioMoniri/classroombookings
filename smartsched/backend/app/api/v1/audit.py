@@ -9,6 +9,8 @@ the response) and the hashed client network, and attaches them to the request's 
   like the CH-10 chart), cursor (older than this id), limit. ``audit.view`` sees everything; anyone else only
   events they made or that touched their own bookings, without request ids and network hashes.
 * ``GET /audit/{id}`` -- one event with its children (bulk operations).
+* every event carries ``refs`` (BUG-02, ``app.services.audit_refs``): ``{field: {id: name}}`` for its id fields,
+  only the names this viewer may see (rooms by ``room.view``, people as the booking screens show them).
 * ``POST /audit/{id}/undo`` -- reverse a booking create, move or cancel (see ``app.services.bookings_undo``), or a
   programme the wizard created (``program.create`` / ``program.restore`` of a draft commit: the drafts undo,
   ``app.services.program_drafts.undo_from_audit``). ``undo_via`` on each event says which one applies.
@@ -34,6 +36,7 @@ from app.core.security import decode_access_token
 from app.models import AuditEvent, Booking, User
 from app.schemas.audit import AuditEventOut, AuditPage, UndoOut
 from app.services import audit as audit_svc
+from app.services import audit_refs
 from app.services import bookings as bsvc
 from app.services import bookings_undo
 from app.services import program_drafts as drafts_svc
@@ -161,7 +164,11 @@ async def list_events(
             (await db.execute(select(AuditEvent.undo_of).where(AuditEvent.undo_of.in_([r.id for r in rows])))).scalars()
         )
     via = await _undo_via(db, rows)
-    items = [_with_undo({**_out(r, full), "undone": r.id in undone}, via.get(r.id)) for r in rows]
+    refs = await audit_refs.refs_for(db, access, rows)  # BUG-02: names behind the id fields, for this viewer
+    items = [
+        _with_undo({**_out(r, full), "undone": r.id in undone, "refs": refs.get(r.id, {})}, via.get(r.id))
+        for r in rows
+    ]
     return {"items": items, "next_cursor": rows[-1].id if more and rows else None}
 
 
@@ -220,13 +227,20 @@ async def get_event(event_id: int, db: DB, access: CurrentAccess) -> dict[str, A
     ev = (await db.execute(q)).scalar_one_or_none()
     if ev is None:
         raise HTTPException(404, "audit event not found")
-    children = (
-        await db.execute(select(AuditEvent).where(AuditEvent.parent_id == ev.id).order_by(AuditEvent.id))
-    ).scalars()
+    children = list(
+        (await db.execute(select(AuditEvent).where(AuditEvent.parent_id == ev.id).order_by(AuditEvent.id))).scalars()
+    )
     undone = (await db.execute(select(AuditEvent.id).where(AuditEvent.undo_of == ev.id))).first()
     via = (await _undo_via(db, [ev])).get(ev.id)
+    refs = await audit_refs.refs_for(db, access, [ev, *children])
     return _with_undo(
-        {**_out(ev, full), "undone": undone is not None, "children": [_out(c, full) for c in children]}, via
+        {
+            **_out(ev, full),
+            "undone": undone is not None,
+            "refs": refs.get(ev.id, {}),
+            "children": [{**_out(c, full), "refs": refs.get(c.id, {})} for c in children],
+        },
+        via,
     )
 
 
