@@ -14,6 +14,7 @@ import type { RunStatus, ScheduleRun } from "@/lib/api/schemas";
 import type { MessageKey, Vars } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { isBaselineRun } from "@/lib/api/council";
+import { ScoreHistory } from "./score-history";
 
 export const RUN_STATUS_KIND: Record<RunStatus, StatusKind> = { QUEUED: "preoccupied", RUNNING: "pclab", FEASIBLE: "feasible", OPTIMAL: "feasible", FEASIBLE_PARTIAL: "warning", INFEASIBLE: "infeasible", TIMEOUT: "infeasible", ERROR: "infeasible", FAILED: "infeasible", CANCELLED: "preoccupied" };
 
@@ -150,6 +151,8 @@ export function RunsList() {
   return (
     <div data-testid="runs">
       <PageHeader title={t("runs.title")} subtitle={term ? `${term.name} · ${t("runs.subtitle")}` : t("runs.subtitle")} actions={<><CompareEntry /><Button nativeButton={false} render={<Link href="/generate" />}>{t("nav.generate")}</Button></>} />
+      {/* CH-08: soft score across this term's finished course runs (nothing below 3 runs) */}
+      <ScoreHistory runs={runs.data} userId={me.data?.id} />
       <DataTable
         tableId="runs"
         userId={me.data?.id}

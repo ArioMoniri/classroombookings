@@ -29,6 +29,8 @@ import { DateField } from "@/components/ui/date-field";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsPhone } from "@/components/bookings/use-is-phone";
 import { focusAfter } from "@/components/bookings/focus-after";
+import { AuditDaily } from "./audit-daily";
+import { filterToDay } from "./audit-daily-model";
 
 export function AuditView() {
   const { t, locale } = useI18n();
@@ -171,6 +173,16 @@ export function AuditView() {
         </SheetContent>
       </Sheet>
 
+      {/* CH-10: events per day (30 g); a column click filters the list to that day (audit.view only: the counts are everyone's) */}
+      {can("audit.view") ? (
+        <AuditDaily
+          onDay={(day) => {
+            const next = filterToDay(applied, day);
+            setDraft(next);
+            setApplied(next);
+          }}
+        />
+      ) : null}
       <Card className="gap-0 overflow-hidden py-0">
         {log.isLoading ? (
           // the first page of events fills the screen: hold that height, not a one-line spinner (CLS)

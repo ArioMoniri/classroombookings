@@ -34,7 +34,7 @@ export function ScoreHistory({ runs, userId }: { runs: readonly ScheduleRun[] | 
   ];
 
   return (
-    <Card className="px-4 py-4" data-testid="runs-score-history">
+    <Card className="mb-4 px-4 py-4" data-testid="runs-score-history">
       <ChartCard<ScorePoint>
         id="runs-soft-score"
         title={t("charts.runs.title")}

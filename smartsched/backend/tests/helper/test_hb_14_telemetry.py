@@ -159,12 +159,12 @@ async def test_hb_14_record_turn_moves_counters_and_stores_no_prompt(session) ->
     assert (e.turn_id, e.mode, e.outcome, e.latency_ms, e.user_id) == (result.turn_id, "index", "index", 40, u.id)
     assert e.feature_id and e.feature_id.startswith("profile") and e.query is None  # a hit: nothing typed is kept
     # a miss keeps only the folded words, never digits or an address
-    miss = "Yemekhane menüsü 12 Şubat ali@uni.edu.tr"
+    miss = "Kantin fiyatları 12 Şubat ali@uni.edu.tr"
     result = await ht.run_turn(session, access, miss, "tr")
     await telemetry.record_turn(session, access, miss, result, latency_s=0.01)
     await session.commit()
     rows = await _events(kind="query")
-    assert len(rows) == 2 and rows[1].query == "yemekhane menusu subat", rows[1].query
+    assert len(rows) == 2 and rows[1].query == "kantin fiyatlari subat", rows[1].query
     for row in rows:
         for col in HelperEvent.__table__.columns:
             value = getattr(row, col.name)
