@@ -43,14 +43,14 @@ export function errorField(code: string | null, messages: string, row: Row | und
 export function PeriodGridEditor() {
   const grid = usePeriodGrid();
   // E2EA2-F03: the form remounts on a new answer, so the control to focus afterwards is kept up here
-  const focusAfter = useRef<"save" | "p1" | null>(null);
+  const focusAfterRef = useRef<"save" | "p1" | null>(null);
   if (grid.isLoading) return <Loading />;
   if (!grid.data) return null;
   // a new server answer (save, reset) starts the form again from it
-  return <GridForm key={JSON.stringify(grid.data.periods)} grid={grid.data} focusAfter={focusAfter} />;
+  return <GridForm key={JSON.stringify(grid.data.periods)} grid={grid.data} focusAfterRef={focusAfterRef} />;
 }
 
-function GridForm({ grid, focusAfter }: { grid: PeriodGrid; focusAfter: RefObject<"save" | "p1" | null> }) {
+function GridForm({ grid, focusAfterRef }: { grid: PeriodGrid; focusAfterRef: RefObject<"save" | "p1" | null> }) {
   const { t, n, locale } = useI18n();
   const qc = useQueryClient();
   const [rows, setRows] = useState<Row[]>(() => rowsOf(grid));
@@ -62,13 +62,13 @@ function GridForm({ grid, focusAfter }: { grid: PeriodGrid; focusAfter: RefObjec
   const id = useId();
   const saveRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    const want = focusAfter.current;
+    const want = focusAfterRef.current;
     if (!want) return;
-    focusAfter.current = null;
+    focusAfterRef.current = null;
     // after the confirm dialog has handed focus back (reset), so this one wins
     const raf = requestAnimationFrame(() => (want === "save" ? saveRef.current : document.getElementById(`${id}-1-start`))?.focus());
     return () => cancelAnimationFrame(raf);
-  }, [focusAfter, id]);
+  }, [focusAfterRef, id]);
   const initial = rowsOf(grid);
   const dirty = rows.some((r, i) => r.start.trim() !== initial[i]?.start || r.end.trim() !== initial[i]?.end);
 
@@ -85,7 +85,7 @@ function GridForm({ grid, focusAfter }: { grid: PeriodGrid; focusAfter: RefObjec
     setError(null);
     try {
       const out = await periodGridApi.save(rows.map((r) => ({ start: r.start.trim(), end: r.end.trim() })));
-      focusAfter.current = "save";
+      focusAfterRef.current = "save";
       done(out, "saved");
     } catch (e) {
       const message = serverMessage(e, locale) ?? t("glass.import.failed");
@@ -107,7 +107,7 @@ function GridForm({ grid, focusAfter }: { grid: PeriodGrid; focusAfter: RefObjec
     setResetting(true);
     try {
       const out = await periodGridApi.reset();
-      focusAfter.current = "p1";
+      focusAfterRef.current = "p1";
       done(out, "reset");
       setConfirm(false);
     } catch (e) {

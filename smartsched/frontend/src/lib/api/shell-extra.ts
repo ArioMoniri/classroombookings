@@ -231,12 +231,27 @@ export function uploadImportWithProgress(
   kind: ImportKind,
   file: File | null,
   term: Pick<Term, "id" | "code" | "start_date">,
-  opts: { dsn?: string; onProgress?: (p: UploadProgress) => void; signal?: AbortSignal; dryRun?: boolean; onConflict?: "keep" | "take" } = {},
+  opts: {
+    dsn?: string;
+    onProgress?: (p: UploadProgress) => void;
+    signal?: AbortSignal;
+    dryRun?: boolean;
+    onConflict?: "keep" | "take";
+    /** HB-23c: a file the helper staged (`/helper/files/classify`): sent instead of the bytes (helper-file-router.md §6.5) */
+    uploadToken?: string;
+    /** the browser's file name of a staged file (the page shows it; the server stores it with the job) */
+    filename?: string;
+    /** weekly grid: the year the helper read from the file (else the term's start year) */
+    year?: number;
+  } = {},
 ): Promise<ImportJob> {
   const fd = new FormData();
-  if (file) fd.append(kind === "crbs" ? "files" : "file", file);
+  if (opts.uploadToken) {
+    fd.append(kind === "crbs" ? "upload_tokens" : "upload_token", opts.uploadToken);
+    if (opts.filename) fd.append("filename", opts.filename);
+  } else if (file) fd.append(kind === "crbs" ? "files" : "file", file);
   if (kind !== "crbs") fd.append("term_code", term.code);
-  if (kind === "weekly-grid") fd.append("year", String(Number(term.start_date.slice(0, 4)) || new Date().getFullYear()));
+  if (kind === "weekly-grid") fd.append("year", String(opts.year ?? (Number(term.start_date.slice(0, 4)) || new Date().getFullYear())));
   if (kind === "planning-list") fd.append("week_count", "14");
   fd.append("term_id", String(term.id));
   if (opts.dsn) fd.append("dsn", opts.dsn);

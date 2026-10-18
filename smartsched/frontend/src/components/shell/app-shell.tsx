@@ -22,6 +22,7 @@ import { useGlobalShortcuts } from "./use-global-shortcuts";
 import { useWorkspaceStore, useWorkspaceUser } from "./workspace";
 import { useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { HelperRoot } from "@/components/helper/helper-root";
+import { PageFileTarget } from "@/components/helper/page-file-target";
 import { PeriodGridGate } from "./period-grid-gate";
 import { WelcomeSettle } from "./welcome-settle";
 // F-CH-1: palette, shortcuts, welcome guide and privacy gate in their own chunks (lazy-shell.tsx)
@@ -204,6 +205,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <LazyCommandPalette />
       {/* HX-03: the helper sheet ("Yardımcı"), ⌘J and "Göster" */}
       <HelperRoot />
+      {/* HB-23c: an OS file dragged onto any signed-in desktop page → the helper's file router (quiet edge outline) */}
+      <PageFileTarget />
       <LazyShortcutsSheet />
       <Shortcuts />
       <UserSync />

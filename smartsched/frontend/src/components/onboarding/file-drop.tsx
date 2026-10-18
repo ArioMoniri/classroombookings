@@ -20,6 +20,8 @@ import { BareButton, Button, IconButton, buttonVariants } from "@/components/ui/
 import { BusyGlyph } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { handedFile, useHelperFileHandoff } from "@/components/helper/file-handoff";
+import { HandedFileExpired } from "@/components/helper/handed-file-row";
 import { useAiPolicy } from "@/lib/api/ai-policy";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -29,6 +31,8 @@ import { MethodBadge } from "./method-badge";
 export interface DropOptions {
   forceGeneral: boolean;
   useAi: boolean;
+  /** HB-23c: files the helper staged (`POST /council/jobs` `upload_tokens`), sent instead of their bytes */
+  uploadTokens?: string[];
 }
 
 /** The formats the council reads (copy.dropHint, app/council/formats.py), as the file input's `accept` list. */
@@ -43,7 +47,12 @@ function ext(name: string): string {
 export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: File[], opts: DropOptions) => void }) {
   const { t, n } = useI18n();
   const c = useOnboardingCopy();
-  const [files, setFiles] = useState<File[]>([]);
+  // HB-23c (helper-file-router.md §6.5): files from the helper's card. A staged file is a token row (no bytes here);
+  // several files arrive as the browser's File objects and join the list with the "Yardımcıdan geldi" chip
+  const handed = useHelperFileHandoff("onboarding");
+  const staged = handed.expired ? [] : (handed.handoff?.items.filter((i) => i.token) ?? []);
+  const [files, setFiles] = useState<File[]>(() => (handed.handoff?.items ?? []).filter((i) => !i.token).flatMap((i) => handedFile(i) ?? []));
+  const [fromHelper] = useState<ReadonlySet<File>>(() => new Set(files));
   const [dragging, setDragging] = useState(false);
   const [forceGeneral, setForceGeneral] = useState(false);
   const [wantAi, setUseAi] = useState(true);
@@ -61,7 +70,9 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
     const incoming = Array.from(list);
     setFiles((prev) => [...prev, ...incoming.filter((f) => !prev.some((p) => p.name === f.name && p.size === f.size))]);
   };
-  const anyAi = useAi && files.some((f) => predictedRoute(f.name) === "ai");
+  const anyAi = useAi && [...files, ...staged].some((f) => predictedRoute(f.name) === "ai");
+  const count = files.length + staged.length;
+  const chip = <span className="ml-2 inline-flex h-6 items-center rounded-full bg-fill-2 px-2 align-middle type-caption text-label-1">{t("helper.file.handed")}</span>;
 
   return (
     <Card className="gap-0 p-0" data-testid="onboarding-drop">
@@ -98,10 +109,15 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
         <input ref={inputRef} id={inputId} type="file" multiple accept={ACCEPT} tabIndex={-1} aria-labelledby={titleId} className="sr-only" data-testid="onboarding-input" onChange={(e) => add(e.target.files)} />
       </div>
 
-      {files.length ? (
+      {handed.expired && handed.handoff ? (
+        <div className="px-4 pb-3">
+          <HandedFileExpired testId="onboarding-handed-expired" />
+        </div>
+      ) : null}
+      {count ? (
         <>
           <div className="overflow-x-auto edge-hairline-t">
-            <table className="w-full type-callout" aria-label={t("onboarding.filesSelected", { count: files.length })}>
+            <table className="w-full type-callout" aria-label={t("onboarding.filesSelected", { count })}>
               <thead>
                 <tr className="text-left type-footnote text-label-2 edge-hairline-b">
                   <th scope="col" className="px-4 py-2 font-semibold">{c.colName}</th>
@@ -112,9 +128,28 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
                 </tr>
               </thead>
               <tbody>
+                {staged.map((f) => (
+                  <tr key={`staged:${f.name}:${f.size}`} className="bg-tint-soft edge-hairline-b" data-testid="onboarding-handed-file">
+                    <td className="max-w-0 truncate px-4 py-1.5 text-label-1">
+                      {f.name}
+                      {chip}
+                    </td>
+                    <td className="px-2 py-1.5 text-label-2">{ext(f.name)}</td>
+                    <td className="px-2 py-1.5 text-right text-label-2">{n(Math.max(1, Math.ceil(f.size / 1024)))} KB</td>
+                    <td className="px-2 py-1.5"><MethodBadge method={predictedRoute(f.name) === "ai" ? (useAi ? "ai" : "off") : "direct"} /></td>
+                    <td className="px-2 py-1">
+                      <IconButton size="sm" label={t("helper.file.removeName", { name: f.name })} onClick={() => handed.remove()}>
+                        <X aria-hidden />
+                      </IconButton>
+                    </td>
+                  </tr>
+                ))}
                 {files.map((f) => (
-                  <tr key={`${f.name}:${f.size}`} className="edge-hairline-b">
-                    <td className="max-w-0 truncate px-4 py-1.5 text-label-1">{f.name}</td>
+                  <tr key={`${f.name}:${f.size}`} className="edge-hairline-b" data-testid={fromHelper.has(f) ? "onboarding-handed-file" : undefined}>
+                    <td className="max-w-0 truncate px-4 py-1.5 text-label-1">
+                      {f.name}
+                      {fromHelper.has(f) ? chip : null}
+                    </td>
                     <td className="px-2 py-1.5 text-label-2">{ext(f.name)}</td>
                     <td className="px-2 py-1.5 text-right text-label-2">{n(Math.max(1, Math.ceil(f.size / 1024)))} KB</td>
                     <td className="px-2 py-1.5"><MethodBadge method={predictedRoute(f.name) === "ai" ? (useAi ? "ai" : "off") : "direct"} /></td>
@@ -144,9 +179,19 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
                 {t("onboarding.forceGeneral")}
               </label>
             </div>
-            <Button className="ml-auto" data-testid="onboarding-start" disabled={busy} onClick={() => onStart(files, { forceGeneral, useAi })}>
+            <Button
+              className="ml-auto"
+              data-testid="onboarding-start"
+              disabled={busy}
+              onClick={() => {
+                const uploadTokens = staged.flatMap((i) => (i.token ? [i.token] : []));
+                onStart(files, uploadTokens.length ? { forceGeneral, useAi, uploadTokens } : { forceGeneral, useAi });
+                // the server consumes the tokens with the job; the hand-over is done
+                if (handed.handoff) handed.consumed();
+              }}
+            >
               {busy ? <BusyGlyph /> : null}
-              {anyAi ? c.startAi : c.start(files.length)}
+              {anyAi ? c.startAi : c.start(count)}
             </Button>
           </div>
         </>

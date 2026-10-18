@@ -31,6 +31,9 @@ import { useHelperStore, type FileEntry } from "../helper-store";
 import type { ChoiceCard, ErrorCard, LimitCard, RefusalCard } from "../schema.gen";
 import { activation } from "../use-helper-runner";
 import { pickText, useCardHost } from "./context";
+import { formatSize } from "./file-size";
+
+export { formatSize };
 
 /* ------------------------------------------------------------------------------------------------ helpers */
 
@@ -75,13 +78,6 @@ const KIND_ICON: Readonly<Record<string, LucideIcon>> = {
   calendar_ics: CalendarDays,
   holidays: CalendarDays,
 };
-
-/** "1,2 MB" / "640 KB" in the reader's language */
-export function formatSize(bytes: number, locale: string): string {
-  const tag = locale === "tr" ? "tr-TR" : "en-GB";
-  if (bytes >= 1024 * 1024) return `${new Intl.NumberFormat(tag, { maximumFractionDigits: 1 }).format(bytes / (1024 * 1024))} MB`;
-  return `${new Intl.NumberFormat(tag).format(Math.max(1, Math.ceil(bytes / 1024)))} KB`;
-}
 
 function useKindLabel() {
   const { t } = useI18n();

@@ -45,9 +45,11 @@ function Target() {
   const [shown, setShown] = useState(false);
   const depth = useRef(0);
   const canRef = useRef(can);
-  canRef.current = can;
   const langRef = useRef(locale);
-  langRef.current = locale;
+  useEffect(() => {
+    canRef.current = can;
+    langRef.current = locale;
+  });
 
   useEffect(() => {
     if (!enabled) return;

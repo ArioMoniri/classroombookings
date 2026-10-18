@@ -4,7 +4,7 @@ import { serverTermMismatch, termMismatch } from "./term-hint";
 import { Check, ChevronRight, Database, FileSpreadsheet, Grid3x3, ListChecks, Warehouse, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/page-header";
 import { NativeSelect } from "@/components/common/native-select";
@@ -15,6 +15,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { HttpError } from "@/lib/api/client";
 import { uploadImportWithProgress } from "@/lib/api/shell-extra";
+import { isStageGone } from "@/lib/api/helper-files";
+import { useHelperFileHandoff } from "@/components/helper/file-handoff";
+import { HandedFileExpired, HandedFileRow } from "@/components/helper/handed-file-row";
 import { MagneticDrop, type UploadState } from "./magnetic-drop";
 import { useImports } from "@/lib/api/hooks";
 import type { ImportJob, ImportKind } from "@/lib/api/schemas";
@@ -65,7 +68,15 @@ export function ImportWizard() {
   const kindParam = params.get("kind");
   const kind = KINDS.find((k) => k.kind === kindParam)?.kind ?? null;
   const { term, terms } = useActiveTerm();
+  // HB-23c: `term` (and `year`) in the address preset the target term (the helper's card carries the file's term)
+  const termParam = Number(params.get("term")) || null;
+  const yearParam = Number(params.get("year")) || undefined;
   const [termId, setTermId] = useState<number | null>(null);
+  /** HB-23c: the file the helper handed over (a staged token, never in the address); shown with `from=helper` only */
+  const fromHelper = params.get("from") === "helper";
+  const handed = useHelperFileHandoff("import", { kind });
+  const handedItem = fromHelper && !handed.expired ? (handed.handoff?.items[0] ?? null) : null;
+  const handedExpired = fromHelper && !!handed.handoff && handed.expired;
   const [file, setFile] = useState<File | null>(null);
   const [upload, setUpload] = useState<UploadState>({ phase: "idle" });
   const [flow, setFlow] = useState<FlowStep>("upload");
@@ -79,7 +90,23 @@ export function ImportWizard() {
   const imports = useImports();
   const reviewed = kind !== null && REVIEWED.includes(kind);
   const step = !kind ? 0 : reviewed ? FLOW_STEP[flow] : job ? 3 : preview ? 2 : 1;
-  const effectiveTerm = termId ?? term?.id ?? 1;
+  const effectiveTerm = termId ?? (termParam && terms.some((x) => x.id === termParam) ? termParam : null) ?? term?.id ?? 1;
+  const focusZone = () => requestAnimationFrame(() => document.querySelector('[data-testid="import-dropzone"]')?.querySelector<HTMLElement>('button:not([disabled]), [tabindex="0"]')?.focus());
+  // the handed-over file is here: the page's own primary ("Önizle") takes the focus (§10)
+  const handedToken = handedItem?.token ?? null;
+  useEffect(() => {
+    if (!handedToken) return;
+    const id = requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-testid="import-start"]:not([disabled])')?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [handedToken]);
+  // the token ran out on this page: the zone comes back and takes the focus
+  useEffect(() => {
+    if (handedExpired) focusZone();
+  }, [handedExpired]);
+  const removeHanded = () => {
+    handed.remove();
+    focusZone();
+  };
 
   const chooseKindReset = () => {
     setFlow("upload");
@@ -120,6 +147,7 @@ export function ImportWizard() {
   };
 
   const onFile = (f: File | null) => {
+    if (handed.handoff) handed.consumed();
     setUpload({ phase: "idle" });
     setSuggested(null);
     if (f && !/\.(xlsx|xlsm)$/i.test(f.name)) {
@@ -134,19 +162,28 @@ export function ImportWizard() {
     if (!kind) return;
     const t0 = terms.find((x) => x.id === effectiveTerm) ?? term;
     if (!t0) return;
-    setUpload({ phase: "uploading", pct: 0 });
+    // a staged file has no bytes to send: straight to "the server reads it"
+    setUpload(handedItem?.token ? { phase: "processing" } : { phase: "uploading", pct: 0 });
     try {
-      const j = await uploadImportWithProgress(kind, file, t0, {
+      const j = await uploadImportWithProgress(kind, handedItem?.token ? null : file, t0, {
         dryRun: true,
+        ...(handedItem?.token ? { uploadToken: handedItem.token, filename: handedItem.name } : {}),
+        year: yearParam,
         onProgress: ({ loaded, total }) => {
           const pct = total ? Math.round((loaded / total) * 100) : 0;
           setUpload(pct >= 100 ? { phase: "processing" } : { phase: "uploading", pct });
         },
       });
       setUpload({ phase: "done" });
+      if (handedItem?.token) handed.consumed();
       setPreview(j);
       void imports.refetch();
     } catch (e) {
+      if (handedItem?.token && isStageGone(e)) {
+        setUpload({ phase: "idle" });
+        handed.markExpired();
+        return;
+      }
       const status = e instanceof HttpError ? e.status : 0;
       // a FAILED job comes back as the detail: the server's reason and, for a wrong file, what it looks like
       const failed = e instanceof HttpError && e.detail && typeof e.detail === "object" && "summary" in e.detail ? (e.detail as ImportJob) : null;
@@ -169,7 +206,7 @@ export function ImportWizard() {
     }
   };
 
-  const canStart = file !== null;
+  const canStart = file !== null || !!handedItem?.token;
   const counts = job ? countBySeverity(job.summary.warnings) : null;
 
   return (
@@ -216,7 +253,14 @@ export function ImportWizard() {
                 {terms.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
               </NativeSelect>
             </div>
-            <MagneticDrop files={file ? [file] : []} onFiles={(f) => onFile(f[0] ?? null)} upload={upload} disabled={busy} />
+            {handedItem ? (
+              <HandedFileRow item={handedItem} onRemove={removeHanded} />
+            ) : (
+              <>
+                {handedExpired ? <HandedFileExpired /> : null}
+                <MagneticDrop files={file ? [file] : []} onFiles={(f) => onFile(f[0] ?? null)} upload={upload} disabled={busy} />
+              </>
+            )}
             {suggested ? (
               <Button variant="outline" size="sm" onClick={() => switchKind(suggested)} data-testid="import-switch-kind">
                 {t("importFlows.importAs", { kind: t(KINDS.find((k) => k.kind === suggested)!.label) })}
