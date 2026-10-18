@@ -3688,7 +3688,8 @@
       "goal": "Ledger name `ch-b-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack; `nice`, pytest only on touched files); never `pkill …",
       "ledger": "CH-B: chart stats backend routes",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 10:26"
     },
     {
       "id": "abe9d8bfdd3472372",
