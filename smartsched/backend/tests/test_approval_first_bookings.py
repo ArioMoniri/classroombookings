@@ -398,6 +398,13 @@ def test_channel_registry_is_the_extension_point():
         # wave 3b W3-HUB: integration errors / expiring client secrets to administrators (app.api.v1.integrations)
         "integration.error",
         "integration.secret_expiring",
+        # RF-11: the senders of app.services.mail_senders (tests/test_rf11_mail_senders.py)
+        "booking.reminder",
+        "series.created",
+        "series.changed",
+        "approval.submitted",
+        "calendar.consent",
+        "new_device.sign_in",
     }
     assert nd.EVENTS["ai.usage_alert"] == ("Yapay zekâ kullanım uyarıları", "AI usage alerts")
     assert nd.EVENTS["ops.alert"] == ("Sistem uyarıları (yöneticiler)", "System alerts (administrators)")
