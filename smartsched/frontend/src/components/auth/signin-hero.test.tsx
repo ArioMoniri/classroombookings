@@ -22,7 +22,8 @@ vi.mock("lottie-react", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/api/crbs", () => ({ useAppVersion: () => ({ data: "1.4.0" }), crbs: { org: { i18n: () => Promise.reject(new Error("x")) } } }));
-vi.mock("next-themes", () => ({ useTheme: () => ({ resolvedTheme: "light", theme: "system", setTheme: () => undefined }) }));
+const themeState = vi.hoisted(() => ({ resolved: "light" as "light" | "dark" | undefined }));
+vi.mock("next-themes", () => ({ useTheme: () => ({ resolvedTheme: themeState.resolved, theme: "system", setTheme: () => undefined }) }));
 
 let media: Record<string, boolean> = {};
 function setMedia(m: Record<string, boolean>) {
@@ -36,6 +37,7 @@ const original = window.matchMedia;
 describe("SignInHero (auth.md §11.3)", () => {
   beforeEach(() => {
     lot.props = null;
+    themeState.resolved = "light";
     document.documentElement.removeAttribute("data-motion");
     Object.defineProperty(navigator, "connection", { value: undefined, configurable: true });
   });
@@ -112,6 +114,32 @@ describe("SignInHero (auth.md §11.3)", () => {
     await new Promise((r) => setTimeout(r, HERO_DELAY_MS + 100));
     expect(player).not.toHaveBeenCalled();
     expect(screen.queryByTestId("lottie-mock")).toBeNull();
+  });
+
+  it("a theme switch after the pass started shows the new theme's poster instead of replaying", async () => {
+    setMedia({ [WIDE]: true });
+    const data = vi.spyOn(heroLoaders.data, "dark");
+    const { rerender } = render(<SignInHero />);
+    await screen.findByTestId("lottie-mock", undefined, { timeout: 3000 });
+    themeState.resolved = "dark";
+    rerender(<SignInHero />);
+    const hero = screen.getByTestId("signin-hero");
+    expect(hero).toHaveAttribute("data-state", "poster");
+    expect(screen.queryByTestId("lottie-mock")).toBeNull();
+    expect(hero.querySelector("img")?.getAttribute("src")).toContain("dark");
+    expect(data).not.toHaveBeenCalled();
+  });
+
+  it("the theme is read when the pass starts (next-themes resolves after mount): dark plays the dark file", async () => {
+    setMedia({ [WIDE]: true });
+    themeState.resolved = undefined;
+    const dark = vi.spyOn(heroLoaders.data, "dark");
+    const { rerender } = render(<SignInHero />);
+    themeState.resolved = "dark";
+    rerender(<SignInHero />);
+    await screen.findByTestId("lottie-mock", undefined, { timeout: 3000 });
+    expect(dark).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("signin-hero")).toHaveAttribute("data-state", "playing");
   });
 
   it("falls back to the poster when the player fails to load", async () => {

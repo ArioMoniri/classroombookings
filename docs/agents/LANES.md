@@ -27,13 +27,16 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | RF-B | `rf-b-2026-10-18` | RF-06 re-import keeps edits, RF-08 seed imports in history, RF-09 backend, `/users/search?mfa_state` | audit doc | — |
 | AUX-10 | `aux-10-2026-10-18` | Sign-in hero (one hosted fix "signin-hero-settle") | auth.md §11.3–§11.4 | — |
 | RF-M | `rf-m-2026-10-18` | RF-04 phone month arrows, RF-10 density on timetable | audit doc | — |
+| WG-09 | `wg-09-2026-10-18` | Welcome-guide motion pass (one hosted transitions.dev fix) | welcome-guide.md | — |
+| HX | `hx-2026-10-18` | Helper frontend HX-01..13 (search without AI, chat with live cards, confirm/undo, memory, status) | helper.md, scratchpad helper/API.md | — |
 
-Done 2026-10-18: AS-B (AS-S merges, backtest B1–B9 pass), AS-F (AS-15..17 + RF-07 UI, part done until e2e), AUX-F (AU-18 wiring), AU-B, CAL-F, VO-F, WG-F, charts p2, mobile A/B, RF-1, RF-2, sweeper.
+Done 2026-10-18: HB-A (HB-01/03..05/07..09; HB-02 p95 needs a stack), AS-B (AS-S merges, backtest B1–B9 pass), AS-F (AS-15..17 + RF-07 UI, part done until e2e), AUX-F (AU-18 wiring), AU-B, CAL-F, VO-F, WG-F, charts p2, mobile A/B, RF-1, RF-2, sweeper.
 
 ## Queued (start when the named lane hands off)
 
 | Next | Starts after | Notes |
 |---|---|---|
+| **Tester wave** (against the pod over HTTPS, not a local stack): WG-10 role testers (teacher, staff, admin), CAL-10 academician tester (T1–T19), round-4 personas (staff, academician, admin), AS-20 adaptive tester, CH-12 chart pass | pod health 200 after the 09:29 merge | one slot each as lanes free up; at most 8 agents; reports in docs/testing/ |
 | CAL-10 academician tester | CAL-B + CAL-F | test plan T1–T19 in the calendar research doc |
 | WG-09 motion (one hosted transitions.dev fix) + WG-10 role testers | WG-B + WG-F | |
 | AS frontend AS-15..17, AS tester AS-20 | AS-B | |

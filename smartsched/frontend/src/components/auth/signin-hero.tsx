@@ -108,8 +108,7 @@ function Poster({ theme }: { theme: Theme }) {
 type Loaded = { Player: Player; data: LottieJson };
 
 /** Loads after idle + 300 ms, enters, plays 0 → 140 once, then holds frame 140. */
-function HeroPlayer({ theme, onState }: { theme: Theme; onState: (s: "playing" | "done" | "poster") => void }) {
-  const [startTheme] = useState(theme);
+function HeroPlayer({ theme, onState, onStart }: { theme: Theme; onState: (s: "playing" | "done" | "poster") => void; onStart: (t: Theme) => void }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState(false);
   const handle = useRef<LottieHandle>(null);
@@ -120,12 +119,17 @@ function HeroPlayer({ theme, onState }: { theme: Theme; onState: (s: "playing" |
     let idle: number | undefined;
     const start = () => {
       timer = setTimeout(() => {
-        Promise.all([heroLoaders.player(), heroLoaders.data[startTheme]()])
+        onStart(theme);
+        Promise.all([heroLoaders.player(), heroLoaders.data[theme]()])
           .then(([Player, mod]) => {
-            if (!cancelled) setLoaded({ Player, data: withoutBackground(mod) });
+            if (cancelled) return;
+            setLoaded({ Player, data: withoutBackground(mod) });
+            onState("playing");
           })
           .catch(() => {
-            if (!cancelled) setFailed(true);
+            if (cancelled) return;
+            setFailed(true);
+            onState("poster");
           });
       }, HERO_DELAY_MS);
     };
@@ -136,15 +140,9 @@ function HeroPlayer({ theme, onState }: { theme: Theme; onState: (s: "playing" |
       if (idle !== undefined) window.cancelIdleCallback?.(idle);
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [startTheme]);
+  }, [theme, onState, onStart]);
 
-  const showPoster = failed || theme !== startTheme;
-  useEffect(() => {
-    if (showPoster) onState("poster");
-    else if (loaded) onState("playing");
-  }, [showPoster, loaded, onState]);
-
-  if (showPoster) {
+  if (failed) {
     return (
       <motion.div className={FRAME} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: dur.slow, ease: ease.out }}>
         <Poster theme={theme} />
@@ -188,10 +186,13 @@ export function SignInHero() {
   const { resolvedTheme } = useTheme();
   const theme: Theme = resolvedTheme === "dark" ? "dark" : "light";
   const [playState, setPlayState] = useState<"loading" | "playing" | "done" | "poster">("loading");
+  // the theme the pass started in (captured at load time: next-themes resolves only after mount); a switch
+  // afterwards shows the new theme's poster instead of replaying
+  const [playTheme, setPlayTheme] = useState<Theme | null>(null);
 
   if (!hydrated || !wide || forced) return null;
   const reduce = osReduce || appReduce;
-  const still = reduce || saveData;
+  const still = reduce || saveData || (playTheme !== null && theme !== playTheme);
   const state = still ? "poster" : playState;
   return (
     <div
@@ -211,7 +212,7 @@ export function SignInHero() {
           </motion.div>
         )
       ) : (
-        <HeroPlayer theme={theme} onState={setPlayState} />
+        <HeroPlayer theme={theme} onState={setPlayState} onStart={setPlayTheme} />
       )}
     </div>
   );
