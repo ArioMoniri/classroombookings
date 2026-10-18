@@ -159,3 +159,33 @@ export function useHelperFileHandoff(featureId: string, opts: { kind?: string | 
     },
   };
 }
+
+/**
+ * HB-23d (§10 "focus never falls to <body>"): after a hand-over the target page should hold the focus: its own primary
+ * (`data-handed-primary`; /import's "Önizle" focuses itself), else the handed-file row (`data-handed-focus`), else its h1 / main. Polls a
+ * short while for the route and the page to arrive; never takes the focus from a page that already placed it.
+ */
+export function landFocus(href: string, { tries = 20, every = 50 }: { tries?: number; every?: number } = {}): void {
+  if (typeof window === "undefined") return;
+  const path = href.split(/[?#]/)[0];
+  let n = 0;
+  const tick = () => {
+    n += 1;
+    const lost = !document.activeElement || document.activeElement === document.body;
+    if (window.location.pathname === path && n >= 4) {
+      if (!lost) return;
+      const el =
+        document.querySelector<HTMLElement>("[data-handed-primary]:not([disabled])") ??
+        document.querySelector<HTMLElement>("[data-handed-focus]") ??
+        document.querySelector<HTMLElement>("main h1") ??
+        document.getElementById("main");
+      if (el) {
+        if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "-1");
+        el.focus({ preventScroll: false });
+        return;
+      }
+    }
+    if (n < tries) window.setTimeout(tick, every);
+  };
+  window.setTimeout(tick, every);
+}

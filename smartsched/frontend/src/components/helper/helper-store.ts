@@ -151,6 +151,17 @@ interface HelperState {
   endShowMe: () => void;
 }
 
+/** Focus the first element matching `sel` once it is on the page (the sheet's chunk loads lazily); ≤ 3 s. */
+function focusWhenThere(sel: string, tries = 60): void {
+  if (typeof window === "undefined") return;
+  const el = document.querySelector<HTMLElement>(sel);
+  if (el) {
+    el.focus();
+    return;
+  }
+  if (tries > 0) window.setTimeout(() => focusWhenThere(sel, tries - 1), 50);
+}
+
 let seq = 0;
 const nextKey = (p: string) => `${p}-${Date.now().toString(36)}-${(seq += 1)}`;
 
@@ -224,7 +235,16 @@ export const useHelperStore = create<HelperState>()(
       setTurn: (patch) => set((s) => ({ turn: { ...s.turn, ...(typeof patch === "function" ? patch(s.turn) : patch) } })),
       newThread: () => set({ entries: [], turn: IDLE }),
       setTextOnly: (v) => set({ textOnly: v }),
-      startShowMe: (featureId, reopen) => set({ showMe: { featureId, reopen, n: (seq += 1) } }),
+      startShowMe: (featureId, reopen) => {
+        // HB-23d UX-08: the 📎 lives in the helper itself: "Göster" opens the helper and puts the focus on it
+        if (featureId === "helper.files") {
+          set({ showMe: null });
+          get().openSheet();
+          focusWhenThere('[data-tour="helper-attach"]');
+          return;
+        }
+        set({ showMe: { featureId, reopen, n: (seq += 1) } });
+      },
       endShowMe: () => set({ showMe: null }),
     }),
     // only the device preference is kept (helper.md §5.1: "Yalnızca metin" in localStorage)

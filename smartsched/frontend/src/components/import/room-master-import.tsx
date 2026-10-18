@@ -8,7 +8,10 @@
  * room master sets are never overwritten by a later workbook import (backend `custom_fields.master`).
  */
 import { Check } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { handedFile, useHelperFileHandoff } from "@/components/helper/file-handoff";
+import { HandedFileRow } from "@/components/helper/handed-file-row";
+import { isStageGone } from "@/lib/api/helper-files";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
@@ -54,13 +57,24 @@ export function RoomMasterImport({ term, onStep, onBack }: { term: Pick<Term, "i
   const resultRef = useRef<HTMLHeadingElement>(null);
   const busy = upload.phase === "uploading" || upload.phase === "processing";
   const xlsx = !!file && /\.(xlsx|xlsm)$/i.test(file.name);
-  const step: FlowStep = job ? "done" : parsed || xlsx ? "preview" : "upload";
+  // HB-23d UX-03: a room master the helper handed over is already here: its in-memory File gives the diff, its token
+  // is what goes to the server (no second upload); a reload (no bytes) applies by the token without a diff
+  const handed = useHelperFileHandoff("import", { kind: "room-master" });
+  const handedItem = handed.handoff && !handed.expired ? (handed.handoff.items[0] ?? null) : null;
+  // derived: the store slot is cleared by remove() / consumed()
+  const token = handedItem?.token ? { token: handedItem.token, name: handedItem.name } : null;
+  const took = useRef(false);
+  const step: FlowStep = job ? "done" : parsed || xlsx || (token && !file) ? "preview" : "upload";
 
   const diff = useMemo<DiffRow[]>(() => (parsed && rooms.data ? diffRoomMaster(parsed.rows, rooms.data) : []), [parsed, rooms.data]);
   const counts = diffCounts(diff);
 
-  const choose = async (files: File[]) => {
+  const choose = async (files: File[], fromHelper = false) => {
     const f = files[0] ?? null;
+    // a file the person picks replaces the handed-over one
+    if (!fromHelper && token) {
+      handed.remove();
+    }
     setReadError(null);
     setParsed(null);
     setUpload({ phase: "idle" });
@@ -87,25 +101,47 @@ export function RoomMasterImport({ term, onStep, onBack }: { term: Pick<Term, "i
     }
   };
 
+  useEffect(() => {
+    if (took.current || !handedItem?.token) return;
+    took.current = true;
+    const f = handedFile(handedItem);
+    // after this commit (not inside the effect body): read the file, then the focus goes to the apply button
+    void Promise.resolve()
+      .then(() => (f ? choose([f], true) : onStep("preview")))
+      .then(() => requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-testid="room-master-apply"]:not([disabled])')?.focus()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the hand-over is first seen
+  }, [handedItem?.token]);
+
   const apply = async () => {
-    if (!file) return;
+    if (!file && !token) return;
     // the room master is not per term; the shared upload helper still sends a term field, which the API ignores
     const target = term ?? { id: 0, code: "", start_date: "" };
     setUpload({ phase: "uploading", pct: 0 });
     try {
-      const j = await uploadImportWithProgress("room-master", file, target, {
+      const j = await uploadImportWithProgress("room-master", token ? null : file, target, {
+        ...(token ? { uploadToken: token.token, filename: token.name } : {}),
         onProgress: ({ loaded, total }) => {
           const pct = total ? Math.round((loaded / total) * 100) : 0;
           setUpload(pct >= 100 ? { phase: "processing" } : { phase: "uploading", pct });
         },
       });
       setUpload({ phase: "done" });
+      if (token) {
+        handed.consumed();
+      }
       setJob(j);
       onStep("done");
       void qc.invalidateQueries({ queryKey: ["rooms"] });
       void qc.invalidateQueries({ queryKey: ["imports"] });
       requestAnimationFrame(() => resultRef.current?.focus());
     } catch (e) {
+      if (token && isStageGone(e)) {
+        // the 10 minutes ran out: the bytes go if the browser still has them, else the zone comes back
+        handed.consumed();
+        setUpload({ phase: "idle" });
+        if (!file) onStep("upload");
+        return;
+      }
       const status = e instanceof HttpError ? e.status : 0;
       setUpload({ phase: "error", message: status === 413 ? t("glass.import.tooLarge") : status === 0 ? t("glass.auth.offline") : status === 403 ? t("importFlows.roomMaster.forbidden") : status === 400 || status === 422 ? t("importFlows.roomMaster.refused") : t("glass.import.failed") });
     }
@@ -141,6 +177,15 @@ export function RoomMasterImport({ term, onStep, onBack }: { term: Pick<Term, "i
         <p className="type-callout text-label-2">{t("importFlows.roomMaster.lead")}</p>
       </CardHeader>
       <CardContent className="space-y-4">
+        {token && !file && handedItem ? (
+          <HandedFileRow
+            item={handedItem}
+            onRemove={() => {
+              handed.remove();
+              onStep("upload");
+            }}
+          />
+        ) : null}
         <MagneticDrop files={file ? [file] : []} onFiles={(f) => void choose(f)} upload={upload} disabled={busy} accept=".csv,.txt,.xlsx,.xlsm" title={t("importFlows.roomMaster.drop")} hint={t("importFlows.roomMaster.dropHint")} />
         {readError ? <p role="alert" className="type-callout text-status-infeasible-fg">{readError}</p> : null}
 
@@ -214,7 +259,7 @@ export function RoomMasterImport({ term, onStep, onBack }: { term: Pick<Term, "i
 
         <div className="flex items-center justify-between gap-2">
           <Button variant="ghost" onClick={onBack} disabled={busy}>{t("common.back")}</Button>
-          <Button onClick={() => void apply()} {...busyProps(busy, step !== "preview" || (!!parsed && parsed.rows.length === 0))} data-testid="room-master-apply">
+          <Button onClick={() => void apply()} {...busyProps(busy, step !== "preview" || (!!parsed && parsed.rows.length === 0))} data-testid="room-master-apply" data-handed-primary="">
             <BusyLabel busy={busy} label={upload.phase === "processing" ? t("glass.import.reading") : t("import.importing")} icon={<Check aria-hidden />}>
               {t("importFlows.roomMaster.apply")}
             </BusyLabel>

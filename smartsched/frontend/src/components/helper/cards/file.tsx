@@ -186,7 +186,7 @@ function PrimaryButton({ label, short, onClick, testId = "helper-file-primary", 
 
 function TextButton({ children, onClick, testId, ...rest }: { children: ReactNode; onClick: () => void; testId: string } & Record<`aria-${string}`, string | boolean | undefined>) {
   return (
-    <Button variant="ghost" size="md" onClick={onClick} data-testid={testId} className="min-h-11 px-3 whitespace-normal max-sm:w-full" {...rest}>
+    <Button variant="ghost" size="md" onClick={onClick} data-testid={testId} className="h-auto min-h-11 max-w-full min-w-0 shrink px-3 py-2 text-left whitespace-normal max-sm:w-full" {...rest}>
       {children}
     </Button>
   );
@@ -603,6 +603,7 @@ export function FileEntryView({ entry }: { entry: FileEntry }) {
   const picker = useFilePicker((list) => router.attach(list), { testId: "helper-file-reinput" });
   const live = useLiveLine(entry);
   const [said, setSaid] = useState<{ seq: number; text: string }>({ seq: 0, text: "" });
+  const initialKey = useRef(`${entry.phase}:${entry.view?.kind ?? ""}:${entry.expired ? 1 : 0}`);
   if (entry.seq !== said.seq && entry.phase === "shown") setSaid({ seq: entry.seq, text: live });
 
   // focus the card title when a new card arrives (the reader hears what the file is before the button)
@@ -611,6 +612,30 @@ export function FileEntryView({ entry }: { entry: FileEntry }) {
     const id = requestAnimationFrame(() => document.getElementById(titleId)?.focus({ preventScroll: false }));
     return () => cancelAnimationFrame(id);
   }, [entry.seq, entry.phase, titleId]);
+
+  // HB-23d DS-01…DS-03: a view change that removes the focused control ("Başka bir tür seç", "Vazgeç", an expired
+  // hand-over) moves the focus to what replaced it, never leaving it on <body>
+  const focusKey = `${entry.phase}:${entry.view?.kind ?? ""}:${entry.expired ? 1 : 0}`;
+  const [seenKey, setSeenKey] = useState(focusKey);
+  if (seenKey !== focusKey) setSeenKey(focusKey);
+  useEffect(() => {
+    if (seenKey === initialKey.current) return;
+    const id = requestAnimationFrame(() => {
+      const a = document.activeElement;
+      if (a && a !== document.body) return;
+      const root = document.querySelector(`[data-file-entry="${entry.key}"]`);
+      const target = entry.expired
+        ? root?.querySelector<HTMLElement>('[data-testid="helper-file-reread"]')
+        : entry.phase === "cancelled"
+          ? root?.querySelector<HTMLElement>('[data-testid="helper-file-cancelled"]')
+          : entry.view?.kind === "pick"
+            ? root?.querySelector<HTMLElement>('[role="radio"][tabindex="0"]')
+            : document.getElementById(titleId);
+      target?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the view changes
+  }, [seenKey]);
 
   // the token's 10 minutes: the button turns into "Dosyayı yeniden oku"
   const expiresAt = entry.stage ? Date.parse(entry.stage.expires_at) : NaN;
@@ -628,7 +653,7 @@ export function FileEntryView({ entry }: { entry: FileEntry }) {
   const kindOf = v?.kind === "card" && v.card.type === "file" ? label(v.card.kind) : null;
 
   return (
-    <div className="flex min-w-0 flex-col gap-3" data-testid="helper-file-entry" data-phase={entry.phase}>
+    <div className="flex min-w-0 flex-col gap-3" data-testid="helper-file-entry" data-phase={entry.phase} data-file-entry={entry.key}>
       <div className="ml-auto flex max-w-[85%] flex-wrap justify-end gap-1.5" data-testid="helper-user-file">
         {entry.files.slice(0, 3).map((f) => (
           <FileChip key={`${f.name}:${f.size}`} name={f.name} size={f.size} />
@@ -637,7 +662,7 @@ export function FileEntryView({ entry }: { entry: FileEntry }) {
       </div>
       {picker.input}
       {entry.phase === "reading" ? <Reading onCancel={() => router.cancel(entry.key)} /> : null}
-      {entry.phase === "cancelled" ? <p className="type-footnote text-label-2" data-testid="helper-file-cancelled">{t("helper.file.cancelled")}</p> : null}
+      {entry.phase === "cancelled" ? <p tabIndex={-1} className="rounded-sm type-footnote text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="helper-file-cancelled">{t("helper.file.cancelled")}</p> : null}
       {entry.phase === "collapsed" || entry.phase === "handed" ? (
         <p className="type-footnote text-label-2" data-testid={`helper-file-${entry.phase}`}>
           {kindOf ? t(entry.phase === "handed" ? "helper.file.opened" : "helper.file.collapsed", { kind: kindOf }) : t("helper.file.collapsedPlain")}
