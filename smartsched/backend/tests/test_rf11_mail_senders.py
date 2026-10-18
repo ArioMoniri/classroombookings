@@ -91,6 +91,24 @@ async def _opt_out(env, headers, event: str) -> None:  # type: ignore[no-untyped
     assert r.status_code == 200, r.text
 
 
+async def _mute_email(env, headers) -> None:  # type: ignore[no-untyped-def]  # noqa: F811
+    """Every e-mail off (the channel's master switch) -- mandatory security / legal mails still go."""
+    r = await env.client.put(
+        "/api/v1/me/notification-preferences", json={"channels": {"email": False}}, headers=headers
+    )
+    assert r.status_code == 200, r.text
+
+
+async def _not_switchable(env, headers, event: str) -> None:  # type: ignore[no-untyped-def]  # noqa: F811
+    """A mandatory event is not in the preferences screen and cannot be switched off (emails.md §8)."""
+    prefs = (await env.client.get("/api/v1/me/notification-preferences", headers=headers)).json()
+    assert event not in {e["event"] for e in prefs["events"]}
+    r = await env.client.put(
+        "/api/v1/me/notification-preferences", json={"events": {event: {"email": False}}}, headers=headers
+    )
+    assert r.status_code == 422, r.text
+
+
 async def _age(booking_id: int, when: datetime) -> None:
     """The booking was made ``when`` (UTC), before the reminder window opened."""
     async with dbmod.get_session_factory()() as s:
@@ -364,13 +382,17 @@ async def test_calendar_consent_mail_on_grant_and_withdraw(env, monkeypatch):  #
     assert off.subject == "Takvim eşitleme izninizi geri çektiniz"
     assert "artık Google ya da Microsoft takviminize aktarılmıyor" in off.body
     assert len(_sent("hatice.ozturk@uni.edu.tr")) == 2
-    # another purpose sends nothing; an opt-out stops the e-mail
+    # a legal notice (emails.md §8): the "kapatılamaz" footer, no preferences link
+    assert "Bu e-posta yasal bir bildirimdir (KVKK); kapatılamaz." in _plain(_sent("hatice.ozturk@uni.edu.tr")[0])
+    assert "profile?tab=notifications" not in _plain(_sent("hatice.ozturk@uni.edu.tr")[0])
+    # another purpose sends nothing; it is mandatory: no opt-out, and it goes with every e-mail switched off
     assert (await c.post("/api/v1/me/consents/photo", headers=teacher)).status_code == 200
     oid, ozge = await env.user("ozge.ince@uni.edu.tr")
-    await _opt_out(env, ozge, "calendar.consent")
+    await _not_switchable(env, ozge, "calendar.consent")
+    await _mute_email(env, ozge)
     assert (await c.post("/api/v1/me/consents/calendar_sync", headers=ozge)).status_code == 200
     await worker.wait_idle()
-    assert len(await _rows("calendar_consent")) == 2 and await _rows("calendar_consent", oid) == []
+    assert len(await _rows("calendar_consent", oid)) == 1 and len(await _rows("calendar_consent")) == 3
     assert len(await _bell(oid, "calendar.consent")) == 1
 
 
@@ -414,7 +436,7 @@ async def test_new_device_sign_in_once_per_device(env, monkeypatch):  # noqa: F8
     assert "85.105" not in stored and "Chrome" not in stored and "Safari" not in stored  # hashed only
 
 
-async def test_new_device_switch_and_opt_out(env, monkeypatch):  # noqa: F811
+async def test_new_device_org_switch_and_no_personal_opt_out(env, monkeypatch):  # noqa: F811
     await _smtp(env, monkeypatch)
     settings = (await env.client.get("/api/v1/org/settings", headers=env.admin)).json()
     assert settings["new_device_sign_in_mail"] is True
@@ -427,11 +449,65 @@ async def test_new_device_switch_and_opt_out(env, monkeypatch):  # noqa: F811
     assert await _rows("new_device_sign_in", tid) == [] and await _bell(tid, "new_device.sign_in") == []
     r = await env.client.put("/api/v1/org/settings", json={"new_device_sign_in_mail": True}, headers=env.admin)
     assert r.status_code == 200, r.text
-    await _opt_out(env, teacher, "new_device.sign_in")
+    # a security mail (emails.md §8): not switchable per person, sent with every e-mail switched off
+    await _not_switchable(env, teacher, "new_device.sign_in")
+    await _mute_email(env, teacher)
     await _login(env, email, CHROME_WIN, "212.156.4.9")
     await worker.wait_idle()
-    assert await _rows("new_device_sign_in", tid) == []
-    assert len(await _bell(tid, "new_device.sign_in")) == 1
+    (row,) = await _rows("new_device_sign_in", tid)
+    assert row.status == "SENT" and len(await _bell(tid, "new_device.sign_in")) == 1
+    (msg,) = _sent(email)
+    assert "Bu bir güvenlik e-postasıdır; bildirim tercihlerinden kapatılamaz." in _plain(msg)
+
+
+async def test_known_devices_are_in_the_kvkk_export_and_erased(env, monkeypatch):  # noqa: F811
+    from app.models import Setting, User
+    from app.services import kvkk
+
+    await _smtp(env, monkeypatch)
+    email = "hatice.ozturk@uni.edu.tr"
+    tid, _ = await env.user(email)
+    await _login(env, email, SAFARI_IPHONE, "85.105.12.40")
+    await _login(env, email, SAFARI_IPHONE, "85.105.12.99")  # the same device again: one row, last seen moves
+    async with dbmod.get_session_factory()() as s:
+        user = await s.get(User, tid)
+        assert user is not None
+        rows = (await kvkk.export_data(s, user))["known_devices"]
+        assert len(rows) == 2 and all(len(r["device"]) == 32 for r in rows)  # the HMAC only, never the address
+        assert all(r["first_seen"] and r["last_seen"] and r["first_seen"] <= r["last_seen"] for r in rows)
+        assert "85.105" not in str(rows) and "Safari" not in str(rows)
+        assert "known_devices" in kvkk.EXPORT_FILES and "known_devices" in kvkk.DATA_CLASSES
+        admin = (await s.execute(select(User).where(User.email == "admin@example.com"))).scalar_one()
+        res = await kvkk.erase_user(s, admin, user)
+        await s.commit()
+        assert res["counts"]["known_devices"] == 2
+        assert await s.get(Setting, f"user.{tid}.known_devices") is None
+
+
+async def test_calendar_provider_connect_and_disconnect_mails(env, monkeypatch):  # noqa: F811
+    from app.services import calendar_connectors
+
+    from tests.integrations_support import FakeGoogle, client_factory, kvkk_sign_off
+    from tests.test_calendar_connectors import configure, connect
+
+    await _smtp(env, monkeypatch)
+    await kvkk_sign_off(env)
+    fake = FakeGoogle()
+    monkeypatch.setattr(calendar_connectors, "http_client", client_factory(fake))
+    await configure(env, "google")
+    uid, teacher = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")
+    await connect(env, fake, teacher, "google")
+    await worker.wait_idle()
+    subjects = [r.subject for r in await _rows("calendar_consent", uid)]
+    assert subjects.count("Google takviminiz bağlandı") == 1
+    (msg,) = [m for m in _sent("ayse.yilmaz@uni.edu.tr") if m["Subject"] == "Google takviminiz bağlandı"]
+    assert "Google sunucuları yurt dışındadır" in _plain(msg) and "kapatılamaz" in _plain(msg)
+    r = await env.client.delete("/api/v1/calendar/connectors/google", headers=teacher)
+    assert r.status_code == 204, r.text
+    await worker.wait_idle()
+    subjects = [r.subject for r in await _rows("calendar_consent", uid)]
+    assert subjects.count("Google takviminizin bağlantısı kaldırıldı") == 1
+    assert subjects.count("Google takviminiz bağlandı") == 1
 
 
 # --------------------------------------------------------------------------------------------------

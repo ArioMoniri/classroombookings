@@ -179,3 +179,11 @@ describe("fix 12 · the one primary action sits in the page-actions capsule (thu
   it("/moderation 'Yeniden oluştur' (was at y 179, then scrolled off)", () => expect(inCapsule("moderation/moderation-console.tsx", "recreate-open")).toBe(true));
   it("/exams/invigilation 'Yeni plan' (was at y 145)", () => expect(inCapsule("invigilation/invigilation-view.tsx", "invig-new")).toBe(true));
 });
+
+describe("fix 12 · /admin/rooms Gruplar: 'Yeni grup' in the capsule like 'Yeni derslik'", () => {
+  it("the new-group button is wrapped in the page-actions capsule", () => {
+    const src = read("admin/rooms-admin.tsx");
+    const at = src.indexOf('t("crbs.rooms.newGroup")');
+    expect(src.slice(Math.max(0, at - 300), at)).toContain('data-slot="page-actions" className={pageActionsCapsule}');
+  });
+});

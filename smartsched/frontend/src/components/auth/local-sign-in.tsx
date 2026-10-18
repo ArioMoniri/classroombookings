@@ -63,7 +63,7 @@ export function rememberMethod(method: "local" | "microsoft") {
 }
 
 export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, autoFocus, footnote, passkeySignIn = false, lastMethodPasskey = false }: { next: string | null; primary: boolean; resetLink: boolean; lastMethodLocal: boolean; autoFocus?: boolean; footnote?: string; passkeySignIn?: boolean; lastMethodPasskey?: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const reduce = useReduce();
   const finish = useFinishSignIn(next);
   const passkey = usePasskeySignIn(passkeySignIn, next);
@@ -142,7 +142,7 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
       return fail({ kind: "credentials" });
     }
     // §4.3 item 4: a silent passkey offer after a password sign-in (passwordless allowed only); never blocks
-    if (passkeySignIn && out.out.status === "signed_in" && !out.out.password_change_required) void tryConditionalCreate((msg) => toast.success(msg, { duration: 4000 }), t);
+    if (passkeySignIn && out.out.status === "signed_in" && !out.out.password_change_required) void tryConditionalCreate((msg) => toast.success(msg, { duration: 4000 }), t, locale);
     // ~3 s greeting, gone before the first screen's own toasts (T-R1-06, R1-S-33); or the second step / enrolment
     await finish(out.out, "local");
     if (out.out.status !== "signed_in") setBusy(false);

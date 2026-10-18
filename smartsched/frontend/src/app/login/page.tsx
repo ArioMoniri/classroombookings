@@ -1,7 +1,7 @@
 import { SignInPage } from "@/components/auth/sign-in-page";
 import { readSignInParams } from "@/components/auth/signin-model";
 import { localizedTitle } from "@/lib/i18n/server";
-import { lastMethodLocal, loadInvite, loadOrgPublic } from "@/lib/server/sign-in";
+import { lastMethodLocal, lastMethodPasskey, loadInvite, loadOrgPublic } from "@/lib/server/sign-in";
 
 export const generateMetadata = localizedTitle("titles.login");
 export const dynamic = "force-dynamic";
@@ -15,6 +15,6 @@ export const dynamic = "force-dynamic";
  */
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = readSignInParams(await searchParams);
-  const [org, invite, lastLocal] = await Promise.all([loadOrgPublic(), loadInvite(params.invite), lastMethodLocal()]);
-  return <SignInPage org={org} params={params} invite={invite} lastMethodLocal={lastLocal} />;
+  const [org, invite, lastLocal, lastPasskey] = await Promise.all([loadOrgPublic(), loadInvite(params.invite), lastMethodLocal(), lastMethodPasskey()]);
+  return <SignInPage org={org} params={params} invite={invite} lastMethodLocal={lastLocal} lastMethodPasskey={lastPasskey} />;
 }

@@ -409,6 +409,28 @@ dropped frames, no `Layout` events per frame after the first, nothing > 300 ms i
 | Forced-move reason dialog | Dialog open (pattern 1 / modal) | Dialog primitive | opacity 100 ms | opaque |
 | BarList values, KPI numerals, heatmap | none on load (A9); a KPI that changes while open rolls (pattern 11) | `ticker` | final value | — |
 
+### 3.18 Charts (`docs/design/v3/charts.md` §8; CH-02/CH-03, designer charts-p2-2026-10-17)
+
+Numbered 3.18 because charts.md and the ROADMAP cite it (3.14–3.17 are not used yet). Purpose: "When a chart's data
+arrives or changes because the user asked, motion tells them the new state is ready; it never decorates." Free
+transitions.dev recipes only, re-implemented in `components/charts/chart-card.css`; Motion Agent hosted fixes used: 0.
+
+| Moment | Animation | Token | Reduced motion | Reduced transparency |
+|---|---|---|---|---|
+| First load of a plot | none: no grow-in, no stagger (`animationType="none"`, ECharts `animation: false`) (A9) | — | same | — |
+| Loading → plot | skeleton bars pulse while fetching (stops when the skeleton unmounts), then the plot fades in, only when it replaces a loading state | `skeleton-reveal` (free): pulse 1000 ms loop, reveal retimed 400 → 180 ms (`--dur-base`), opacity only (no blur on a plot > 400 × 300) | no pulse; 100 ms linear fade | skeleton is an opaque fill |
+| Period change (user caused) | data swaps at once; the summary sentence rises in | `text-states-swap` (free), enter half only, 150 ms, 4 px | instant | — |
+| "Veriyi indir → İndirildi ✓" (and back after 2 s) | label rises in; polite live region "CSV indirildi" | `text-states-swap` (free), 150 ms | instant | — |
+| Tooltip (hover, tap, keyboard ←/→) | fades and scales 0.97 → 1 after 80 ms; out is instant (ECharts `display: none`) | `tooltip` (free), 150 ms in | opacity only, 100 ms | the tooltip is always solid (no glass: fading a glass ancestor strips its blur) |
+| Hover emphasis on a series | ECharts `stateAnimation.duration` | 120 ms (`--dur-fast`) | 0 | — |
+| Keyboard scrub (CH-03) | the tooltip jumps to the bucket (no travel); the live region reads it after 250 ms | — | same | — |
+| Period control pill | existing SegmentedControl thumb (3.13) | `glass-morph` | existing | existing |
+| Live telemetry tick (ops) | none; the "Güncellendi" time swaps | — | — | — |
+
+Rejected: `number-pop-in` (500 ms count-up), `shimmer-text`, `matrix-loader`, EvilCharts' 2 s loading shimmer and 500 ms
+bar grow-in. Audit: `e2e/charts-a11y.spec.ts` (keyboard, forced colours, print); the motion-audit pattern runs on the
+chart routes in CH-06/CH-12.
+
 ## 4. Key flows end to end
 
 **Generate (Studio → island → report)**

@@ -189,3 +189,14 @@ __all__ += ["WelcomeContent", "WelcomeProgress"]
 from app.models.mfa import AuthChallenge, MfaRecoveryCode, TrustedDevice, UserMfa, WebAuthnCredential  # noqa: E402
 
 __all__ += ["AuthChallenge", "MfaRecoveryCode", "TrustedDevice", "UserMfa", "WebAuthnCredential"]
+
+# AI helper HB-04: confirmed helper writes, history, notes, telemetry (alembic 0044_helper; app/models/helper.py)
+from app.models.helper import (  # noqa: E402
+    HelperActionInvocation,
+    HelperEvent,
+    HelperMessage,
+    HelperNote,
+    HelperThread,
+)
+
+__all__ += ["HelperActionInvocation", "HelperEvent", "HelperMessage", "HelperNote", "HelperThread"]

@@ -4,7 +4,7 @@
  * after the provider's OAuth round trip: the sheet stored the scope in sessionStorage before leaving; back on
  * /profile?calendar=connected the backend has applied the scopes it got with the connect call, and the sheet reopens
  * on its progress state. `?calendar=error` drops the stored scope; `reason=account_not_verified&domain=…` says which
- * account to use instead (CAL-07).
+ * account to use instead (CAL-07). `?calendar=1` (the helper's "Takvime ekle" hand-over, ROADMAP HX-06) opens the sheet.
  */
 import { CalendarPlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -58,6 +58,11 @@ export function CalendarExportSection() {
     // a URL value read once on mount (an external system), not derived from props or state
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (notVerified !== null) setRefused(notVerified);
+    // HX-06 hand-over: /profile?calendar=1 opens the sheet on step 1
+    if (!pending && new URLSearchParams(window.location.search).get("calendar") === "1") {
+      setOpen(true);
+      return;
+    }
     if (!pending) return;
     // the backend applied the scopes on the callback (connect sent them); follow the progress
     void refresh();

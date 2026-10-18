@@ -85,6 +85,14 @@ describe("CalendarExportSection", () => {
   });
 });
 
+describe("CalendarExportSection › ?calendar=1 (HX-06 hand-over)", () => {
+  it("opens the sheet on step 1", async () => {
+    window.history.replaceState(null, "", "/profile?calendar=1");
+    renderIt(<CalendarExportSection />);
+    expect(await screen.findByRole("heading", { name: "Neyi eklemek istiyorsunuz?" })).toBeInTheDocument();
+  });
+});
+
 describe("CalendarExportSection › account not verified (CAL-07)", () => {
   it("says which account to use after ?calendar=error&reason=account_not_verified", async () => {
     window.history.replaceState(null, "", "/profile?calendar=error&provider=google&reason=account_not_verified&domain=uni.edu.tr");

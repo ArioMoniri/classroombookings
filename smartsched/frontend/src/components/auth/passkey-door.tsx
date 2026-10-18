@@ -16,10 +16,11 @@ import { KeyRound } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { BusyButton } from "@/components/ui/busy-label";
-import { mfaErrorCode, signInStep, type SignInStepOut } from "@/lib/api/auth-security";
+import { authSecurity, mfaErrorCode, signInStep, type SignInStepOut } from "@/lib/api/auth-security";
 import { HttpError } from "@/lib/api/client";
 import { useI18n } from "@/lib/i18n/provider";
-import { getPasskey, PasskeyError, signalUnknown, startConditionalGet, type ConditionalHandle, type ServerOptions } from "./passkey";
+import { defaultPasskeyName } from "@/components/profile/security/aaguid";
+import { conditionalCreate, getPasskey, PasskeyError, signalUnknown, startConditionalGet, type ConditionalHandle, type ServerOptions } from "./passkey";
 import { useFinishSignIn } from "./use-finish-sign-in";
 
 export type PasskeyNotice = "cancelled" | "unknown" | "failed" | "disabledOrg" | null;
@@ -152,4 +153,26 @@ export function PasskeyDoor({ ctl }: { ctl: PasskeySignIn }) {
       </BusyButton>
     </div>
   );
+}
+
+/**
+ * §4.3 item 4: after a password sign-in, ask the browser to save a passkey silently (Chrome Conditional Create). Only
+ * with passwordless sign-in allowed; any failure (no capability, refused, server said no) is silent. The backend
+ * accepts the registration without a password within 10 minutes of the sign-in (AU-B §4 re-auth window).
+ */
+export async function tryConditionalCreate(onSaved: (message: string) => void, t: ReturnType<typeof useI18n>["t"], locale = "tr"): Promise<boolean> {
+  let token: string | undefined;
+  const made = await conditionalCreate(async () => {
+    const o = await authSecurity.registerOptions();
+    token = o.challenge_token;
+    return o.options;
+  });
+  if (!made || !token) return false;
+  try {
+    await authSecurity.registerVerify(token, made.credential, defaultPasskeyName(made.aaguid, locale));
+    onSaved(t("auth.passkey.saved"));
+    return true;
+  } catch {
+    return false;
+  }
 }

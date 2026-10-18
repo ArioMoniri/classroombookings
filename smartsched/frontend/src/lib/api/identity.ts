@@ -59,6 +59,8 @@ export const OrgPublicAuth = z.object({
   auth: PublicAuth.nullish(),
   /** the institution's KVKK notice (footer link); rendered only when the backend provides it */
   kvkk_notice_url: z.string().nullish(),
+  /** AU-B / AUX-03 (auth.md §4.1): passkeys on, passwordless passkey sign-in, "Bu cihazı hatırla" days */
+  passkeys: z.object({ enabled: z.boolean().default(false), sign_in: z.boolean().default(false), trusted_device_days: z.number().default(30) }).nullish(),
 });
 export type OrgPublicAuth = z.infer<typeof OrgPublicAuth>;
 

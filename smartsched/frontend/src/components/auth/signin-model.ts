@@ -4,6 +4,7 @@
  */
 
 import { ADMIN_SECTIONS } from "@/lib/permissions";
+import { readMfaNotice, type MfaNotice } from "./mfa-model";
 
 /** SSO callback codes the page renders (§6.3, §14). Anything else renders `failed` (no enumeration, §15 #16).
  *  `not_enabled` (T-R1-35 / T-R1-09): Microsoft sign-in is switched off: a state, shown without a support code. */
@@ -84,6 +85,9 @@ export interface SignInParams {
   methodLocal: boolean;
   invitedMasked: string | null;
   signedIn: string | null;
+  /** AUX-04: back from the second step (`?mfa=tooMany|expired|locked`, `&min=` for the lock) */
+  mfa?: MfaNotice | null;
+  mfaMinutes?: number | null;
 }
 
 export function readSignInParams(sp: URLSearchParams | Record<string, Raw>): SignInParams {
@@ -98,6 +102,11 @@ export function readSignInParams(sp: URLSearchParams | Record<string, Raw>): Sig
     methodLocal: first(get("method")) === "local",
     invitedMasked: safeMasked(get("invited_masked")),
     signedIn: safeMasked(get("signed_in")),
+    mfa: readMfaNotice(get("mfa")),
+    mfaMinutes: (() => {
+      const n = Number(first(get("min")));
+      return Number.isFinite(n) && n > 0 && n <= 1440 ? Math.ceil(n) : null;
+    })(),
   };
 }
 
