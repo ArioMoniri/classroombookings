@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { BusyLabel } from "@/components/ui/busy-label";
+import { HttpError } from "@/lib/api/client";
 import { apiText, useProfileActions, useProfiles, type AppliesTo, type Profile, type ProfileList } from "@/lib/api/seasons";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
@@ -70,6 +71,9 @@ export function SeasonProfiles() {
       onError: (e) => toast.error(apiText(e, locale)),
     });
   };
+
+  // ADMIN only: anyone else who opens /admin/weeks keeps the week editor alone (no 403 panel)
+  if (q.error instanceof HttpError && q.error.status === 403) return null;
 
   return (
     <section aria-labelledby="season-profiles" className="flex flex-col gap-3" data-testid="season-profiles">
