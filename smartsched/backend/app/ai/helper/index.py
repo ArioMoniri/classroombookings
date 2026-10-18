@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import lru_cache
@@ -217,7 +217,7 @@ class Hit:
 @dataclass
 class _Doc:
     entry: FeatureEntry
-    tf: Counter[str]
+    tf: dict[str, float]
     length: float
     #: stem sets of the title and of every synonym (the phrase bonus)
     phrases: list[frozenset[str]]
@@ -229,7 +229,7 @@ class Index:
         self._docs: list[_Doc] = []
         df: Counter[str] = Counter()
         for e in entries:
-            tf: Counter[str] = Counter()
+            tf: dict[str, float] = defaultdict(float)
             fields = {
                 "title": [e.title.tr, e.title.en],
                 "synonyms": [*e.synonyms.tr, *e.synonyms.en],
@@ -272,11 +272,11 @@ class Index:
         q_terms: list[tuple[str, list[tuple[str, float]]]] = []
         for w in words:
             s = stem(w)
-            cands = dict(self._expand(s))
+            found = dict(self._expand(s))
             if s != w:
                 for t, f in self._expand(w):
-                    cands[t] = max(cands.get(t, 0.0), f)
-            q_terms.append((s, list(cands.items())))
+                    found[t] = max(found.get(t, 0.0), f)
+            q_terms.append((s, list(found.items())))
         q_stems = frozenset(s for s, _ in q_terms)
         hits: list[Hit] = []
         for d in self._docs:

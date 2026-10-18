@@ -2803,8 +2803,8 @@
       "ledger": "CAL-F: calendar export UI",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-18 00:24",
-      "left_off": "The spec is ready. I'll wait for the stack build to finish."
+      "finished_at": "2026-10-18 00:30",
+      "left_off": "The permission label maps (`calendar.department_feed` → `crbs.perm.calendar_department_feed`) and the lane D parity test passes (4/4). The backend is up and the frontend is building. Waiting for it."
     },
     {
       "id": "a188be943a3fea75a",

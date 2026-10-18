@@ -70,7 +70,7 @@ def _run_fact(label: tuple[str, str], run: Any) -> s.Fact:
     return s.Fact(
         label=cards.txt(*label),
         value=cards.txt(f"#{run.id} {name} · {st_tr}{placed[0]}".strip(), f"#{run.id} {name} · {st_en}{placed[1]}"),
-        status=status,  # type: ignore[arg-type]
+        status=status,
     )
 
 

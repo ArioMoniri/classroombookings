@@ -442,6 +442,8 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/learning/calibration/apply": (E, "app.services.learning_versions"),
     "PUT /api/v1/learning/priors/{prior_id}/habit": (E, "app.services.learning_versions"),
     "PUT /api/v1/learning/settings": (E, "app.api.v1.learning"),
+    # AI helper (app/ai/helper; app/api/v1/helper.py): action cards are reads or dry-run previews
+    "POST /api/v1/helper/actions/{name}/card": (N, "a read, or a write's dry-run preview with a signed token"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)

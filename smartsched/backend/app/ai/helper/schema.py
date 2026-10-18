@@ -22,7 +22,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, TypeAdapter
 
-CARD_VERSION = 1
+CARD_VERSION: Literal[1] = 1
 SCHEMA_ID = "helper.card.v1"
 
 _FORBIDDEN = re.compile(r"[<>]|://|\bwww\.|javascript:|data:", re.IGNORECASE)

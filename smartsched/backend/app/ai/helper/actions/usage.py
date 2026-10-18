@@ -59,7 +59,7 @@ async def my_ai_usage(ctx: Ctx, _args: NoArgs) -> s.CardBase:
                 label=cards.txt("Bu ay", "This month"),
                 value=cards.txt(*_tokens(st.get("month_tokens"), st.get("monthly_limit"))),
             ),
-            s.Fact(label=cards.txt("Durum", "Status"), value=cards.txt(tr, en), status=status),  # type: ignore[arg-type]
+            s.Fact(label=cards.txt("Durum", "Status"), value=cards.txt(tr, en), status=status),
         ],
         nav="profile.ai_usage",
     )

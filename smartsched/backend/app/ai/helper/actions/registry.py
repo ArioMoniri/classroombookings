@@ -226,7 +226,7 @@ def strict_schema(model: type[BaseModel]) -> dict[str, Any]:
             return [inline(v) for v in node]
         return node
 
-    schema = _strip(inline(raw))
+    schema: dict[str, Any] = _strip(inline(raw))
     schema.pop("description", None)
     return schema
 

@@ -16,6 +16,7 @@ from app.ai.helper.actions.common import ClockText, DayText, day_label, resolve_
 from app.ai.helper.actions.registry import ActionRefused, Args, Ctx, action
 from app.services import bookings as bsvc
 from app.services import find_room as fsvc
+from app.services.bookings_calendar import CalendarError
 from app.services.bookings_settings import get_group
 
 BOOKERS = ("book_single.create", "book_single.request")
@@ -207,7 +208,7 @@ async def room_day_schedule(ctx: Ctx, args: RoomDayArgs) -> s.CardBase:
             room_id=room.id,
             use_room_groups=org["use_room_groups"],
         )
-    except bsvc.CalendarError as exc:
+    except CalendarError as exc:
         raise ActionRefused(409, "calendar", str(exc), str(exc)) from exc
     periods = {p["id"]: p for p in grid["periods"]}
     rows = []

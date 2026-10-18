@@ -14,6 +14,7 @@ from app.ai.helper import cards
 from app.ai.helper import schema as s
 from app.ai.helper.actions.common import day_label
 from app.ai.helper.actions.registry import Args, Ctx, action
+from app.models.booking import PENDING
 from app.services import approvals as asvc
 
 REQUESTERS = ("book_single.create", "book_single.request", "book_recur.create", "book_recur.request")
@@ -75,11 +76,11 @@ async def my_requests_status(ctx: Ctx, _args: NoArgs) -> s.CardBase:
                         args={"request_id": int(r["id"])},
                     )
                 ]
-                if r["status"] == asvc.PENDING
+                if r["status"] == PENDING
                 else [],
             )
         )
-    pending = sum(1 for r in items if r["status"] == asvc.PENDING)
+    pending = len([r for r in items if r["status"] == PENDING])
     return s.ListCard(
         id=cards.new_id(),
         action="my_requests_status",

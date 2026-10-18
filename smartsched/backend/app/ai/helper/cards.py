@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import uuid
 from collections.abc import Iterable, Sequence
+from typing import Literal
 
 from app.ai.guardrails import sanitize_output_text
 from app.ai.helper import schema as s
@@ -60,18 +61,17 @@ def nav_hits(hits: Sequence[Hit], allowed_actions: Iterable[str] = (), limit: in
 def status(
     kind: str, code: str, tr: str, en: str, fallback: Sequence[s.NavCard] = (), action: str | None = None
 ) -> s.LimitCard | s.RefusalCard | s.ErrorCard:
-    cls: type[s.LimitCard] | type[s.RefusalCard] | type[s.ErrorCard] = {
-        "limit": s.LimitCard,
-        "refusal": s.RefusalCard,
-        "error": s.ErrorCard,
-    }[kind]
-    return cls(id=new_id(), code=code, message=txt(tr, en), fallback=list(fallback)[:3], action=action)
+    if kind == "limit":
+        return s.LimitCard(id=new_id(), code=code, message=txt(tr, en), fallback=list(fallback)[:3], action=action)
+    if kind == "refusal":
+        return s.RefusalCard(id=new_id(), code=code, message=txt(tr, en), fallback=list(fallback)[:3], action=action)
+    return s.ErrorCard(id=new_id(), code=code, message=txt(tr, en), fallback=list(fallback)[:3], action=action)
 
 
-def answer(text: str, lang: str, *, source: str = "ai") -> s.AnswerCard:
+def answer(text: str, lang: str, *, source: Literal["ai", "index"] = "ai") -> s.AnswerCard:
     """The model's words: the gateway's output cleaning (links, code, active HTML removed), then :func:`clean`."""
     cleaned = sanitize_output_text_str(text)
-    return s.AnswerCard(id=new_id(), text=clean(cleaned, 1200), lang="en" if lang == "en" else "tr", source=source)  # type: ignore[arg-type]
+    return s.AnswerCard(id=new_id(), text=clean(cleaned, 1200), lang="en" if lang == "en" else "tr", source=source)
 
 
 def sanitize_output_text_str(text: str) -> str:

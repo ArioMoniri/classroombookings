@@ -194,7 +194,10 @@ function RequestsChart() {
         <h2 id="ops-chart-h" className="type-title-3 text-label-1">
           {t("ops.chart.title")}
         </h2>
-        <SegmentedControl aria-label={t("ops.chart.range")} value={range} onValueChange={(v) => setRange(v as (typeof RANGES)[number])} options={RANGES.map((r) => ({ value: r, label: t("ops.chart.minutes", { n: Number(r) }), testId: `ops-range-${r}` }))} />
+        {/* 200 % text: the segment scrolls inside itself, the page does not (mobile-b phase 2) */}
+        <div className="max-w-full overflow-x-auto">
+          <SegmentedControl aria-label={t("ops.chart.range")} value={range} onValueChange={(v) => setRange(v as (typeof RANGES)[number])} options={RANGES.map((r) => ({ value: r, label: t("ops.chart.minutes", { n: Number(r) }), testId: `ops-range-${r}` }))} />
+        </div>
       </div>
       <Card className="gap-2 px-4 py-3">
         <p className="type-footnote text-label-2" data-testid="ops-chart-summary">

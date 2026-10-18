@@ -139,3 +139,24 @@ describe("fix 10 · Studio at 200 % text", () => {
     expect(bar).toMatch(/<span className="max-\[24rem\]:sr-only">\{t\("common\.back"\)\}<\/span>/);
   });
 });
+
+describe("fix 10 · /admin/ops range at 200 % text", () => {
+  it("the 30 / 60 / 180 dk segment sits in its own horizontal scroller", () => {
+    const src = read("admin/ops/ops-panel.tsx");
+    const at = src.indexOf('aria-label={t("ops.chart.range")}');
+    expect(src.slice(src.lastIndexOf("<div", at), at)).toContain('className="max-w-full overflow-x-auto"');
+  });
+});
+
+describe("fix 11 · moderation on touch: card rows on tablets, 44 px chips", () => {
+  const src = read("moderation/moderation-console.tsx");
+  it("the console's tables become cards below 1024 on a coarse pointer (mod-row was 718×36 at 768)", () => {
+    expect(read("moderation/use-media.ts")).toContain('export const TOUCH_LIST = "(max-width: 767px), (pointer: coarse) and (max-width: 1023px)"');
+    expect(src).toMatch(/function CoordinatorConsole[\s\S]{0,400}const mobile = useTouchList\(\);/);
+  });
+  it("the filter chips ('Herkes' 86×28, chip-unsatisfied 165×28) are 44 px on touch", () => {
+    const chips = src.split("\n").filter((l) => l.includes("<Chip "));
+    expect(chips.length).toBeGreaterThanOrEqual(2);
+    for (const c of chips) expect(c).toContain("pointer-coarse:min-h-11");
+  });
+});

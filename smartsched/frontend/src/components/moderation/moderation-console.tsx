@@ -11,7 +11,7 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePhone } from "./use-media";
+import { usePhone, useTouchList } from "./use-media";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -94,7 +94,8 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const reduce = useReduce();
-  const mobile = usePhone();
+  const mobile = useTouchList();
+  const phone = usePhone();
   const tab = parseTab(params.get("tab"));
   const { term, termId } = useTermContext();
   const matchings = useMatchings(termId);
@@ -313,7 +314,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
         {/* touch: wrapped chip rows 44 px apart so their hit areas do not overlap (M-02) */}
         <div className="flex flex-wrap items-center gap-2 pointer-coarse:gap-y-4">
           {(["all", "unmet", "streak"] as const).map((c) => (
-            <Chip key={c} selected={peopleChip === c} onSelectedChange={() => setPeopleChip(c)}>
+            <Chip key={c} selected={peopleChip === c} onSelectedChange={() => setPeopleChip(c)} className="pointer-coarse:min-h-11">
               {t(`moderation.peopleChip.${c}`)}
             </Chip>
           ))}
@@ -397,7 +398,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
         <div className="flex flex-wrap items-center gap-2 pointer-coarse:gap-y-4">
           {isMatch
             ? MATCH_CHIPS.map((c) => (
-                <Chip key={c} selected={chip === c} onSelectedChange={() => setChip(c)} data-testid={`chip-${c}`}>
+                <Chip key={c} selected={chip === c} onSelectedChange={() => setChip(c)} className="pointer-coarse:min-h-11" data-testid={`chip-${c}`}>
                   {t(`moderation.chip.${c}`)} <span className="tabular-nums">{n(chipCount(counts, c))}</span>
                 </Chip>
               ))
@@ -456,8 +457,8 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
       >
         {body}
       </motion.div>
-      <MatchingInspector termId={termId} requestId={inspect} canEdit={canEdit} onClose={() => setInspect(null)} side={mobile ? "bottom" : "right"} focusPriority={inspectPriority} />
-      {canEdit && runId ? <RecreateSheet open={recreate} onOpenChange={setRecreate} termId={termId} baseRunId={runId} staged={staged} side={mobile ? "bottom" : "right"} /> : null}
+      <MatchingInspector termId={termId} requestId={inspect} canEdit={canEdit} onClose={() => setInspect(null)} side={phone ? "bottom" : "right"} focusPriority={inspectPriority} />
+      {canEdit && runId ? <RecreateSheet open={recreate} onOpenChange={setRecreate} termId={termId} baseRunId={runId} staged={staged} side={phone ? "bottom" : "right"} /> : null}
     </div>
   );
 }
