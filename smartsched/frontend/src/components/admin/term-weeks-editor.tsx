@@ -101,6 +101,7 @@ function WeekRow({ termId, week }: { termId: number; week: TermWeek }) {
   const [error, setError] = useState<string | null>(null);
   const id = useId();
   const change = async (kind: string) => {
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -129,7 +130,8 @@ function WeekRow({ termId, week }: { termId: number; week: TermWeek }) {
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-err` : undefined}
           value={week.kind}
-          disabled={busy}
+          // E2EA2-F03: aria-disabled (not disabled) while it saves, so focus stays on the select
+          aria-disabled={busy || undefined}
           aria-busy={busy || undefined}
           onChange={(e) => void change(e.target.value)}
         >

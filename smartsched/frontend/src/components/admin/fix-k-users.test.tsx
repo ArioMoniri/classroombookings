@@ -72,9 +72,9 @@ describe("Davet et without Microsoft sign-in (E2EA-F10)", () => {
     let posted: Record<string, unknown> | null = null;
     routes["/api/v1/auth/sso/admin/invite-mail"] = () => res(200, { configured: false });
     routes["/api/v1/auth/sso/admin/invites"] = () => res(201, { id: 9, user_id: 5, email: "kisi.b@ornek.edu.tr", kind: "local", status: "invited", created_at: "2026-10-18T08:00:00Z", expires_at: "2026-10-25T08:00:00Z", link: "https://x/login?invite=abc", email_status: null });
-    const f = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+    const f = vi.mocked(globalThis.fetch);
     const inner = f.getMockImplementation()!;
-    f.mockImplementation(async (url: string, init?: RequestInit) => {
+    f.mockImplementation(async (url, init) => {
       if (String(url).endsWith("/auth/sso/admin/invites") && init?.method === "POST") posted = JSON.parse(String(init.body));
       return inner(url, init);
     });
