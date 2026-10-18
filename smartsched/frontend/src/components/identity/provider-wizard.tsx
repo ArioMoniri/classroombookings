@@ -624,6 +624,7 @@ function FederationCert({ p, check }: { p: Provider; check: Check | undefined })
   const { t } = useI18n();
   const { save, error, conflict, pending } = useSave(p);
   const [text, setText] = useState("");
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
   const cert = p.saml?.metadata_signing_cert ?? null;
   const signed = p.saml?.metadata_signed === true;
   return (
@@ -643,6 +644,7 @@ function FederationCert({ p, check }: { p: Provider; check: Check | undefined })
       ) : null}
       <Field label={t(cert ? "identity.saml.fedReplace" : "identity.saml.fedPaste")} htmlFor="idp-fed-cert" hint={t("identity.saml.pemHint")}>
         <Textarea
+          ref={fieldRef}
           id="idp-fed-cert"
           rows={3}
           value={text}
@@ -666,7 +668,7 @@ function FederationCert({ p, check }: { p: Provider; check: Check | undefined })
           {t("identity.saml.fedSave")}
         </BusyButton>
         {cert ? (
-          <Button variant="ghost" disabled={pending} className="min-h-11 sm:min-h-9" onClick={() => save({ metadata_signing_cert: "" }, t("identity.saml.fedRemoved"))} data-testid="idp-fed-remove">
+          <Button variant="ghost" disabled={pending} className="min-h-11 sm:min-h-9" onClick={() => save({ metadata_signing_cert: "" }, t("identity.saml.fedRemoved"), () => fieldRef.current?.focus())} data-testid="idp-fed-remove">
             {t("identity.saml.fedRemove")}
           </Button>
         ) : null}
@@ -684,8 +686,19 @@ function SpKey({ p }: { p: Provider }) {
   const [cert, setCert] = useState("");
   const [confirm, setConfirm] = useState(false);
   const removeRef = useRef<HTMLButtonElement>(null);
+  const generateRef = useRef<HTMLButtonElement>(null);
+  const moved = useRef(false);
   const isSet = p.saml?.sp_private_key_set === true;
   const spCert = p.saml?.sp_certificate ?? null;
+  // the pressed button goes away with the change (Oluştur ↔ Kaldır): focus moves to the one that replaces it
+  useEffect(() => {
+    if (!moved.current) return;
+    moved.current = false;
+    (isSet ? removeRef : generateRef).current?.focus();
+  }, [isSet]);
+  const changed = () => {
+    moved.current = true;
+  };
   return (
     <SubBlock title={t("identity.saml.spTitle")} hint={t("identity.saml.spHint")}>
       {isSet ? (
@@ -709,12 +722,13 @@ function SpKey({ p }: { p: Provider }) {
           </span>
           <div className="flex flex-wrap gap-2">
             <BusyButton
+              ref={generateRef}
               variant="outline"
               busy={pending && !pasting}
               busyLabel={t("busy.saving")}
               disabled={pending}
               className="min-h-11 sm:min-h-9"
-              onClick={() => save({ sp_key_generate: true }, t("identity.saml.spGenerated"))}
+              onClick={() => save({ sp_key_generate: true }, t("identity.saml.spGenerated"), changed)}
               data-testid="idp-sp-generate"
             >
               <KeyRound aria-hidden />
@@ -761,6 +775,7 @@ function SpKey({ p }: { p: Provider }) {
                   save({ sp_private_key: key, ...(cert.trim() ? { sp_certificate: cert } : {}) }, t("identity.saml.spSaved"), () => {
                     setKey("");
                     setCert("");
+                    changed();
                   })
                 }
                 data-testid="idp-sp-save"
@@ -786,7 +801,7 @@ function SpKey({ p }: { p: Provider }) {
         onConfirm={() => {
           setConfirm(false);
           removeRef.current?.focus();
-          save({ sp_key_remove: true }, t("identity.saml.spRemoved"));
+          save({ sp_key_remove: true }, t("identity.saml.spRemoved"), changed);
         }}
       />
     </SubBlock>
