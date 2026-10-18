@@ -127,8 +127,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     async with get_session_factory()() as session:
         await period_grid.refresh(session)  # RF-09: the admins' period grid, before the first request
 
+    from app.ai.helper import files as helper_files
+
+    helper_files.sweep()  # HB-23b: encrypted file stages older than 10 minutes go at start-up
     if settings.environment != "test":  # tests call the sweep directly; no timers inside the test loop
         approvals_sweeper.start()
+        helper_files.start_sweeper()  # and every minute
         from app.workers import reminders
 
         reminders.start()  # RF-11: booking reminders before the start (bookings.reminder_lead_hours)
@@ -143,6 +147,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     log.info("SmartSched backend ready (%s, %s)", settings.environment, settings.database_url.split("@")[-1])
     yield
     await approvals_sweeper.stop()
+    await helper_files.stop_sweeper()
     from app.workers import reminders as reminder_jobs
 
     await reminder_jobs.stop()

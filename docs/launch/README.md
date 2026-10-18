@@ -8,34 +8,35 @@ and not Remotion, Recordly or a screen recorder: [RESEARCH.md](RESEARCH.md).
 
 <!-- launch:deliverables (rewritten by hand from dist/REPORT.txt and dist/QUALITY.json after each render) -->
 
-Render of 2026-10-18 from `8890a86` (the top-bar / tab-bar alignment fix included; UI in English, captions English,
-light theme), 79.1 s, every take captured deterministically (§3):
+Render of 2026-10-18 evening (LV-02: no magenta sync frame at the two off-camera cuts, a 300 ms dissolve across them,
+the end card without the repository address; UI in English, captions English, light theme), 75.0 s, every take
+captured deterministically (§3):
 
 | File (`media/`) | Size | What, measured |
 |---|---|---|
-| [`smartsched-launch.mp4`](media/smartsched-launch.mp4) | 34.51 MB | the hero cut: 1920x1080, 60 fps, H.264 High crf 15 (`-preset slow -tune animation`), yuv420p BT.709, `+faststart`, 3.5 Mbit/s; [poster](media/smartsched-launch-poster.png), [English captions](media/smartsched-launch.en.vtt) (also burned in) |
-| [`smartsched-launch-av1.webm`](media/smartsched-launch-av1.webm) | 20.36 MB | the same cut in AV1: SVT-AV1 preset 5, crf 28, 10-bit, 2.1 Mbit/s |
-| [`smartsched-launch-vertical.mp4`](media/smartsched-launch-vertical.mp4) | 27.49 MB | phones and social: 1080x1920, 60 fps, H.264 High crf 15, 2.8 Mbit/s; [poster](media/smartsched-launch-vertical-poster.png) |
-| [`smartsched-launch-attach.mp4`](media/smartsched-launch-attach.mp4) | 9.57 MB | for GitHub's 10 MB attachment limit (§4): 1920x1080, 30 fps (every other frame of the master, all real), crf 26 |
+| [`smartsched-launch.mp4`](media/smartsched-launch.mp4) | 31.21 MB | the hero cut: 1920x1080, 60 fps, H.264 High crf 15 (`-preset slow -tune animation`), yuv420p BT.709, `+faststart`, 3.3 Mbit/s; [poster](media/smartsched-launch-poster.png), [English captions](media/smartsched-launch.en.vtt) (also burned in) |
+| [`smartsched-launch-av1.webm`](media/smartsched-launch-av1.webm) | 18.16 MB | the same cut in AV1: SVT-AV1 preset 5, crf 28, 10-bit, 1.9 Mbit/s |
+| [`smartsched-launch-vertical.mp4`](media/smartsched-launch-vertical.mp4) | 26.35 MB | phones and social: 1080x1920, 60 fps, H.264 High crf 15, 2.8 Mbit/s; [poster](media/smartsched-launch-vertical-poster.png) |
+| [`smartsched-launch-attach.mp4`](media/smartsched-launch-attach.mp4) | 9.52 MB | for GitHub's 10 MB attachment limit (§4): 1920x1080, 30 fps (every other frame of the master, all real), crf 25 |
 | [`smartsched-hero.webp`](media/smartsched-hero.webp) | 2.85 MB | **the README hero**: the desktop product in 22 s (a full-term run held to every hard rule, publish, find a room, reserve, move a class), 1280x720, 30 fps; [poster](media/smartsched-hero-poster.png) |
-| [`smartsched-loop.webp`](media/smartsched-loop.webp) | 0.40 MB | the phone booking scene as a loop, 1280x720, 30 fps (linked under the hero); [poster](media/smartsched-loop-poster.png), [AVIF](media/smartsched-loop.avif) 0.18 MB |
+| [`smartsched-loop.webp`](media/smartsched-loop.webp) | 0.37 MB | the phone booking scene as a loop, 1280x720, 30 fps (linked under the hero); [poster](media/smartsched-loop-poster.png), [AVIF](media/smartsched-loop.avif) 0.17 MB |
 
 Quality gate (`launch.sh check`, `launch/quality.py`), before (the 2026-10-18 morning render, screencast capture)
 and after:
 
 | | Before | After |
 |---|---|---|
-| Unique frames (mpdecimate), whole video | 2405 of 4738 (50.8 %) | 2438 of 4745 (51.4 %): the rest are still screens and holds, not repeats |
+| Unique frames (mpdecimate), whole video | 2405 of 4738 (50.8 %) | 2319 of 4499 (51.5 %): the rest are still screens and holds, not repeats |
 | Frames identical to the one before **inside visible motion** (the judder signature) | 41 | **0** (master and MP4) |
 | Unique frames inside motion segments | 96.0 % | 96.8 % master, 96.2 % MP4 (the remainder: frames that change below mpdecimate's threshold, e.g. ease-out tails) |
 | freezedetect freezes ≥ 50 ms | 227 | 104, of which 103 are slow motion below freezedetect's noise floor or holds; 1 is the camera at rest for 83 ms between two moves (all real frames) |
-| VMAF v0.6.1 of the MP4 against the lossless master | (no master kept) | **97.13** mean, 94.46 1st percentile; PSNR-Y 46.5 dB |
-| Bitrate | 1.7 Mbit/s (crf 18) | 3.5 Mbit/s (crf 15): most of the picture is still UI, so crf 15 needs fewer bits than the 6-10 Mbit/s budgeted |
+| VMAF v0.6.1 of the MP4 against the lossless master | (no master kept) | **97.26** mean, 94.36 1st percentile; PSNR-Y 50.1 dB |
+| Bitrate | 1.7 Mbit/s (crf 18) | 3.3 Mbit/s (crf 15): most of the picture is still UI, so crf 15 needs fewer bits than the 6-10 Mbit/s budgeted |
 
 The README clips (`docs/images/recordings`, names unchanged) come from the same takes and pipeline: MP4 1600x960 60 fps
 crf 16 (phone 720x1280), WebP 1280 px 30 fps in `media/clips/`, and a GIF fallback (25 fps) only for the three clips
 the README shows. reserve-panel 6.59 MB, find-room 1.01, audit-undo 2.84, calendar-move 7.51, studio-rule-fix 7.70,
-approval-flow 4.53, launch-reserve-phone 0.63. `onboarding` (needs an empty instance) keeps its 2026-10-16 GIF and MP4.
+approval-flow 4.79 (re-rendered 2026-10-18 evening without the sync frame), launch-reserve-phone 0.63. `onboarding` (needs an empty instance) keeps its 2026-10-16 GIF and MP4.
 
 ## 2. The story (scripts/record/launch/story.mjs)
 
@@ -49,7 +50,7 @@ approval-flow 4.53, launch-reserve-phone 0.63. `onboarding` (needs an empty inst
 | 5 | A member of staff books a room on a phone with quick reserve (`/reserve`), touch taps shown as finger dots | `launch-reserve` (390x844, `isMobile`, `hasTouch`) |
 | 6 | The approver opens the request and approves it | `approval-flow` steps 2-4 |
 | 7 | The admin views of wave 3: AI console (providers/models, usage, limits, guardrails) and the operations panel | `launch-admin` |
-| 8 | Outro: lockup, licence, repository, feature pills | — |
+| 8 | Outro: the lockup (mark + product name) and one line. No repository address, branch or host anywhere in the video (owner, 2026-10-18: the repository and branches will move) | — |
 
 The vertical cut uses the same scenes: desktop scenes become a 1000x800 window that follows the camera, the phone fills
 the frame, titles sit above.
@@ -124,8 +125,8 @@ The top of the README (the desktop hero since the evening of 2026-10-18; owner: 
 <a href="docs/launch/media/smartsched-loop.webp">booking on a phone (loop)</a></sub>
 ```
 
-**Inline player (owner, by hand).** `docs/launch/media/smartsched-launch-attach.mp4` (9.6 MB, 1920x1080, 30 fps,
-H.264 crf 26) is the file to drag into GitHub's README editor; it fits the 10 MB attachment limit of a free plan.
+**Inline player (owner, by hand).** `docs/launch/media/smartsched-launch-attach.mp4` (9.5 MB, 1920x1080, 30 fps,
+H.264 crf 25) is the file to drag into GitHub's README editor; it fits the 10 MB attachment limit of a free plan.
 Open README.md on github.com → edit (pencil) → drag the file into the editor where the player should be → keep the
 `https://github.com/user-attachments/assets/…` line GitHub inserts, on its own line → commit. GitHub renders that
 line as a video player. The link only exists after the upload in the browser, so no script or agent can make it.
@@ -145,10 +146,20 @@ curl -sS -H "Accept: application/vnd.github.html+json" \
 |---|---|---|
 | README top | phone loop, WebP 0.50 MB | desktop hero, WebP 2.85 MB (the phone loop is a link) |
 | README clips | 8 inline (GIF + WebP), 11 takes in a table | 3 inline (WebP, GIF fallback), the rest under [More clips](#more-clips) |
-| Launch video | 1080p60, 17.1 MB, 1.7 Mbit/s, screencast capture | 1080p60, 34.5 MB, 3.5 Mbit/s, deterministic capture (+ AV1 20.4 MB, vertical 27.5 MB) |
+| Launch video | 1080p60, 17.1 MB, 1.7 Mbit/s, screencast capture | 1080p60, 31.2 MB, 3.3 Mbit/s, deterministic capture (+ AV1 18.2 MB, vertical 26.4 MB) |
 
 `python3 -I scripts/record/check_readme.py` reports the referenced media and fails on orphans (it checks this file
 too since 2026-10-18).
+
+## 6. Social preview
+
+<img alt="SmartSched social preview: the wordmark, the line Timetabling, exam planning and room booking for universities with its Turkish twin, four chips and the run report screen" src="media/social-preview.png" width="640">
+
+`media/social-preview.png` (1280 × 640 PNG, about 0.26 MB) is the card GitHub shows when the repository is shared.
+It is made from the dark brand lockup (`docs/images/brand/smartsched-lockup-dark.svg`), Inter and a crop of
+`media/smartsched-hero-poster.png`, rendered with headless Chromium (README-X, 2026-10-18). It names no repository
+address, owner or branch, so a rename does not make it stale. GitHub does not read it from the tree: an owner
+uploads it in **Settings → General → Social preview → Edit → Upload an image…**.
 
 ## More clips
 

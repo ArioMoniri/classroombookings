@@ -217,6 +217,11 @@ from app.api.v1 import helper as helper_api  # noqa: E402
 
 api_router.include_router(helper_api.router)
 
+# AI helper HB-23b: the file router (classify / route / handoff / stage / templates; app/ai/helper/files.py)
+from app.api.v1 import helper_files as helper_files_api  # noqa: E402
+
+api_router.include_router(helper_files_api.router)
+
 # AI helper HB-06: the turn loop (POST /helper/turn, SSE; app/ai/helper_turn.py, lane HB-B)
 from app.api.v1 import helper_turn as helper_turn_api  # noqa: E402
 

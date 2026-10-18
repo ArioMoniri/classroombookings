@@ -18,7 +18,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: /(analytics|real-backend|bookings|calendar|languages|motion-audit|smoke|admin-gaps|reserve|wave1|studio-calendar-sweep|shell-admin-sweep|phase19|visual-quality|approval-first|sign-in|channels|followups-ui|wave2|intake|studio-relaxation|consent|integrity-r1|loop-r1-laneD|loop-r1-laneF|loop-r1-laneB|loop-r1-laneA|loop-r1-laneH|loop-r1-laneE|loop-r2-lane[A-Z]|w3-[a-z]+|cal-[a-z-]+|charts-a11y|wg-[a-z-]+|vo-[a-z-]+|au-[a-z-]+|hx-[a-z-]+|rf-[a-z-]+|ui-alignment)\.spec\.ts/,
+  testMatch: /(analytics|real-backend|bookings|calendar|languages|motion-audit|smoke|admin-gaps|reserve|wave1|studio-calendar-sweep|shell-admin-sweep|phase19|visual-quality|approval-first|sign-in|channels|followups-ui|wave2|intake|studio-relaxation|consent|integrity-r1|loop-r1-laneD|loop-r1-laneF|loop-r1-laneB|loop-r1-laneA|loop-r1-laneH|loop-r1-laneE|loop-r2-lane[A-Z]|w3-[a-z]+|cal-[a-z-]+|charts-a11y|wg-[a-z-]+|vo-[a-z-]+|au-[a-z-]+|hx-[a-z-]+|rf-[a-z-]+|ui-alignment|helper-file-router)\.spec\.ts/,
   globalSetup: REAL ? "./e2e/global-setup.ts" : undefined,
   timeout: 60_000,
   expect: { timeout: 10_000 },

@@ -21,12 +21,40 @@ LABELS: dict[str, tuple[str, str, str]] = {
     "room-master": ("derslik ana listesi", "the room master", "room master"),
 }
 #: the columns an importer could not find, as the planner's workbook names them
+#: (HB-23b) every key of the planning / exam ``HEADER_SPEC``: the helper file router shows these canonical labels
+#: as its evidence, never the workbook's raw header text (a header may name a person), and the downloadable templates
+#: (``app/ai/helper/file_examples.py``) are built from them, so each label reads back as its own key
 COLUMN_LABELS: dict[str, tuple[str, str]] = {
     "code": ("Ders Kodu", "course code"),
-    "day": ("Gün", "day"),
+    "day": ("Dersin Günü", "day"),
     "start": ("Başlangıç Saati", "start time"),
     "end": ("Bitiş Saati", "end time"),
     "date": ("Sınav Tarihi", "exam date"),
+    "faculty": ("Fakülte", "faculty"),
+    "program": ("Bölüm/Program", "department / programme"),
+    "class_year": ("Sınıf", "year of study"),
+    "semester": ("Yarıyıl", "semester"),
+    "name": ("Ders Adı", "course name"),
+    "label": ("Şube", "section"),
+    "t": ("T", "theory hours"),
+    "u": ("U", "practice hours"),
+    "l": ("L", "lab hours"),
+    "k": ("K", "credits"),
+    "ects": ("AKTS", "ECTS"),
+    "enrolment": ("Öğrenci Sayısı", "enrolment"),
+    "request": ("Derslik Talebi", "room request"),
+    "definitive": ("Kesinleşen Derslik", "confirmed room"),
+    "ins1": ("1. Öğretim Elemanı", "1st instructor"),
+    "ins2": ("2. Öğretim Elemanı", "2nd instructor"),
+    "mode": ("Öğretim Şekli", "teaching mode"),
+    "notes": ("Özel Açıklama", "notes"),
+    "whole_term": ("Dönemin Tamamı", "whole term"),
+    "weeks": ("Kullanılacağı Haftalar", "weeks used"),
+    "remote_pct": ("Uzaktan Eğitim Yüzdesi", "remote share"),
+    "instructor": ("Öğretim Elemanı", "instructor"),
+    "venue": ("Sınavın Yapılacağı Yer", "exam venue request"),
+    "on_campus": ("Kampüste", "on campus"),
+    "no_exam": ("Sınav Yapılmayacak", "no exam"),
 }
 _GRID_DAY_RX = re.compile(r"^(?:\d{1,2}\s+[a-z]+\s+)?(pazartesi|sali|carsamba|persembe|cuma|cumartesi|pazar)$")
 

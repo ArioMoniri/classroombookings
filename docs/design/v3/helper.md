@@ -247,7 +247,8 @@ articles.
 
 `admin-users-invite`, `admin-holidays-add`, `admin-periods`, `admin-weeks`, `admin-access-rules`, `admin-approval-rules`,
 `admin-mail`, `admin-sso`, `profile-calendar`, `profile-notifications`, `profile-ai-usage`, `profile-helper-memory`,
-`reserve-room-list`, `find-room-filters`, `my-bookings-cancel`, `runs-publish`, `runs-export`, `bookings-export`. The
+`reserve-room-list`, `find-room-filters`, `my-bookings-cancel`, `runs-publish`, `runs-export`, `bookings-export`,
+`helper-attach` (the composer's 📎 "Dosya ekle", [`helper-file-router.md`](helper-file-router.md) §8.3). The
 welcome-guide anchors (§13 there) are reused as they are.
 
 ## 4. Generative action cards

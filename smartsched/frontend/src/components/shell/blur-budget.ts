@@ -13,6 +13,7 @@
  *   thickening on scroll (motion pattern §15) is unchanged: it fades that tint layer, never a filter.
  */
 import { usePathname } from "next/navigation";
+import { useHelperStore } from "@/components/helper/helper-store";
 
 /** Routes whose own chrome uses the glass budget (prefix match: `/timetable?run=…`, `/classes/…`). */
 export const TINT_ONLY_ROUTES = ["/timetable", "/classes"] as const;
@@ -22,8 +23,11 @@ export function isTintOnlyRoute(pathname: string | null | undefined): boolean {
   return TINT_ONLY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 }
 
+/** FIX-K: the helper sheet open spends the budget too (motion.md: shell bar + sheet ≤ 3 surfaces; helper.md). */
 export function useTintOnlyChrome(): boolean {
-  return isTintOnlyRoute(usePathname());
+  const pathname = usePathname();
+  const helperOpen = useHelperStore((s) => s.open);
+  return helperOpen || isTintOnlyRoute(pathname);
 }
 
 /** Translucent chrome over the scene without its blur pass (the sidebar). */

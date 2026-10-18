@@ -123,6 +123,8 @@ describe("preview first (RF-06)", () => {
     await uploadFile();
     fireEvent.click(screen.getByTestId("import-apply"));
     expect(await screen.findByTestId("import-report")).toBeInTheDocument();
+    // E2EA-F08 (FIX-K): the report line names the updated rows too
+    expect(screen.getByTestId("import-report")).toHaveTextContent("924 satır okundu · 1 oluşturuldu · 3 güncellendi · 0 atlandı");
     expect(calls.filter((c) => c.key === "POST /api/v1/imports/41/apply")).toHaveLength(1);
     expect(calls.find((c) => c.key === "POST /api/v1/imports/41/apply")!.body).toEqual({ on_conflict: null });
   });

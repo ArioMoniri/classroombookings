@@ -470,6 +470,12 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/helper/actions/{name}/card": (N, "a read, or a write's dry-run preview with a signed token"),
     "POST /api/v1/helper/actions/confirm": (E, "app.ai.helper.confirm"),
     "POST /api/v1/helper/turn": (N, "reads and write previews, metered in ai_usage; writes need /confirm"),
+    # HB-23b helper file router: classify writes no row (the bytes are staged encrypted for 10 minutes, KVKK note
+    # docs/kvkk/helper-file-stage.md); the card's button writes helper.file.handoff; the target import audits itself
+    "POST /api/v1/helper/files/classify": (N, "reads a file's header area; no row, no job; encrypted 10-min stage"),
+    "POST /api/v1/helper/files/route": (N, "a card from the staged signals; nothing written"),
+    "POST /api/v1/helper/files/handoff": (E, "app.api.v1.helper_files"),
+    "DELETE /api/v1/helper/files/{sid}": (N, "deletes the person's own encrypted file stage"),
     "POST /api/v1/helper/actions/undo": (E, "app.ai.helper.confirm"),
     "PUT /api/v1/helper/memory": (T, "Setting (user.<id>.helper_memory)"),
     "POST /api/v1/helper/notes": (N, "the person's own helper note (Bunu hatırla)"),

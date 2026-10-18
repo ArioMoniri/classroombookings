@@ -1,0 +1,57 @@
+name: Feature request
+description: Suggest a change or a new feature.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check `docs/STATUS.md` in the repository first: the feature may already exist or be planned.
+        SmartSched keeps screens simple (one primary action, advanced options behind "Gelişmiş"), so tell us
+        the problem before the solution. Türkçe yazabilirsiniz.
+  - type: dropdown
+    id: role
+    attributes:
+      label: Who is it for?
+      multiple: true
+      options:
+        - Planning office / coordinator
+        - Academic staff
+        - Staff who book rooms
+        - Approver
+        - Administrator / IT
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What is hard or impossible today, and how do people work around it?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: The behaviour you have in mind. Sketches or screenshots of other tools are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: dropdown
+    id: crbs
+    attributes:
+      label: Does classroombookings do this today?
+      options:
+        - "Yes, and SmartSched should match it"
+        - "No"
+        - Not sure
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues, docs/STATUS.md and docs/ROADMAP.md.
+          required: true

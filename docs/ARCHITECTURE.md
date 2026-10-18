@@ -9,6 +9,9 @@ data source we import from; SmartSched replaces the manual Excel planning workfl
 3. **Converse** (Claude API: natural-language preferences before generation and edits after).
 4. **Publish** (weekly/monthly/term/exam timetables, exports back to Excel/iCal/CRBS bookings).
 
+Diagrams of all this (C4 context and containers, the backend facade, sequences of the key flows, ER, deployment and
+state diagrams), checked against the code by a test: [docs/architecture/](architecture/README.md).
+
 ```
 repo root
 ├── crbs-core/, index.php, assets/ …      legacy CRBS (unchanged)

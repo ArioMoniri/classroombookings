@@ -19,13 +19,16 @@ from app.council.term_match import calendar_year, term_season
 from app.models import Term
 
 
-def _sheet_titles(path: Path) -> list[str]:
-    if path.suffix.lower() not in {".xlsx", ".xlsm"}:
+def _sheet_titles(src: Path | bytes, filename: str | None = None) -> list[str]:
+    """The sheet titles of a workbook on disk or in memory (HB-23b: the helper file router never writes a plain
+    file, so it passes the bytes; their type comes from ``filename``)."""
+    suffix = src.suffix if isinstance(src, Path) else Path(filename or "").suffix
+    if suffix.lower() not in {".xlsx", ".xlsm"}:
         return []
     try:
         from app.core.safe_files import open_workbook
 
-        wb = open_workbook(path, read_only=True, data_only=True, max_cols=1)
+        wb = open_workbook(src, read_only=True, data_only=True, max_cols=1)
     except Exception:  # a file the importer itself refuses says so in its own report
         return []
     try:
@@ -34,13 +37,14 @@ def _sheet_titles(path: Path) -> list[str]:
         wb.close()
 
 
-def file_term(filename: str | None, path: Path | None) -> tuple[str | None, int | None, str | None]:
-    """(season, calendar year, source) the file names: ``source`` is ``file_name`` or ``sheet_title``."""
+def file_term(filename: str | None, path: Path | bytes | None) -> tuple[str | None, int | None, str | None]:
+    """(season, calendar year, source) the file names: ``source`` is ``file_name`` or ``sheet_title``. ``path`` may
+    be the file's bytes (the workbook is opened in memory, read-only, after the same zip pre-inspection)."""
     stem = Path(filename or "").stem
     season = term_season(stem)
     if season:
         return season, calendar_year(season, stem), "file_name"
-    for title in _sheet_titles(path) if path is not None else []:
+    for title in _sheet_titles(path, filename) if path is not None else []:
         season = term_season(title)
         if season:
             return season, calendar_year(season, title, stem), "sheet_title"

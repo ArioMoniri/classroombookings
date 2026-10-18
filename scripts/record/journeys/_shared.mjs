@@ -4,7 +4,9 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-export const FIXTURES = resolve(REPO, "smartsched/backend/tests/fixtures");
+// the workbooks a journey uploads: the masked copies stack.sh writes ($REC_WORKDIR/fixtures, E2E_FIXTURES_DIR) when
+// set; a stack with the KVKK upload guard refuses the raw seed workbooks
+export const FIXTURES = process.env.E2E_FIXTURES_DIR ? resolve(process.env.E2E_FIXTURES_DIR) : resolve(REPO, "smartsched/backend/tests/fixtures");
 
 /** Caption in the requested language (REC_CAPTION_LANG / ctx.captionLang when it differs from the UI language). */
 export const tr = (ctx, en, trText) => ((ctx.captionLang ?? ctx.lang) === "tr" ? trText : en);

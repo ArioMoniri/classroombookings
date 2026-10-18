@@ -78,12 +78,38 @@ async def create_constraint(body: ConstraintIn, db: DB, user: Planner) -> Constr
     return row
 
 
+def _keep_scope(source: str | None, before: dict[str, Any], after: dict[str, Any]) -> None:
+    """E2EA-F07: ``params`` replace the whole object, so a client that sends only the field it changed would turn a
+    one-exam rule into a term-wide one. ``kinds`` ("only exams") is never dropped by a replace, and a FILE row's
+    rule (one row of the exam / planning list) keeps its ``event_ids``; the Studio's "Kime uygulanır" may still widen
+    a planner's own rule on purpose (it rewrites the selectors)."""
+    lost = [k for k in ("kinds",) if before.get(k) and not after.get(k)]
+    if source == "FILE" and before.get("event_ids") and not after.get("event_ids"):
+        lost.append("event_ids")
+    if lost:
+        raise HTTPException(
+            422,
+            {
+                "code": "rule_scope_lost",
+                "message": f"these params drop the rule's scope ({', '.join(lost)}): send them again, or add a new "
+                "rule for the whole term",
+                "message_tr": "Bu değişiklik kuralın kapsamını siliyor (hangi sınav / ders için olduğu). Kapsamı "
+                "koruyun ya da tüm dönem için yeni bir kural ekleyin.",
+                "message_en": "This change removes the rule's scope (which exam or class it is for). Keep the "
+                "scope, or add a new rule for the whole term.",
+                "fields": lost,
+            },
+        )
+
+
 @router.put("/{cid}", response_model=ConstraintOut)
 async def update_constraint(cid: int, body: ConstraintUpdate, db: DB, user: Planner) -> ConstraintRow:
     row = await _editable(db, cid)
     data = body.model_dump(exclude_unset=True, exclude={"reason"})
     params: dict[str, Any] = data["params"] if data.get("params") is not None else dict(row.params or {})
     hardness = data.get("hardness") or row.hardness
+    if data.get("params") is not None:
+        _keep_scope(row.source, row.params or {}, params)
     _validate(row.kind, params, hardness)
     enabled = data["enabled"] if data.get("enabled") is not None else row.enabled
     if row.source == "TEACHER" and enabled and not row.enabled and (row.source_ref or {}).get("review") != "accepted":

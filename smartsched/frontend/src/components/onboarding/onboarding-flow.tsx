@@ -81,7 +81,7 @@ export function OnboardingFlow({ initialJobId = null }: { initialJobId?: number 
     setBusy(true);
     setError(null);
     try {
-      const created = await councilApi.create(files, { mode: opts.forceGeneral ? "general" : "auto", lang: locale, ai: opts.useAi });
+      const created = await councilApi.create(files, { mode: opts.forceGeneral ? "general" : "auto", lang: locale, ai: opts.useAi, uploadTokens: opts.uploadTokens });
       qc.setQueryData(councilKey(created.id), created);
       setJobId(created.id);
       setResult(null);

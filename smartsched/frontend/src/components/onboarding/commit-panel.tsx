@@ -10,7 +10,7 @@
  * result is a Turkish summary (no raw keys) whose rule count is every constraint the commit wrote.
  */
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { BusyButton, BusyGlyph } from "@/components/ui/busy-label";
@@ -88,6 +88,11 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
   const changed = (counts: Record<string, { create: number; update: number }> | null | undefined) =>
     Object.entries(counts ?? {}).filter(([, v]) => v.create || v.update);
   const disabled = busy || blocking > 0 || !term.code.trim() || !targetReady(baseline);
+  const resultRef = useRef<HTMLParagraphElement>(null);
+  const hasResult = Boolean(result);
+  useEffect(() => {
+    if (hasResult) requestAnimationFrame(() => resultRef.current?.focus());
+  }, [hasResult]);
 
   return (
     <Card data-testid="onboarding-commit">
@@ -203,12 +208,22 @@ export function CommitPanel({ job, blocking, busy, result, onCommit }: { job: Co
         ) : null}
         {result ? (
           <div className="rounded-lg p-3 edge-hairline" data-testid="onboarding-result" role="status">
-            <p className="font-medium text-label-1">{t("onboarding.committed", { code: result.term_code })}</p>
+            {/* E2EB-F12: "Yaz" unmounts with the capsule; focus lands on the result, never on <body> */}
+            <p ref={resultRef} tabIndex={-1} className="font-medium text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="onboarding-result-title">{t("onboarding.committed", { code: result.term_code })}</p>
             {changed(result.changes).length ? (
               <ul className="type-footnote text-label-2">
                 {changed(result.changes).map(([entity, v]) => (
                   <li key={entity} data-entity={entity}>{c.resultLine(label(entity), n(v.create), n(v.update))}</li>
                 ))}
+              </ul>
+            ) : Object.values(result.changes ?? {}).some((v) => v.unchanged) ? (
+              // E2EB-F12: nothing new or changed, e.g. the same room list again: "87 derslik · değişiklik yok"
+              <ul className="type-footnote text-label-2">
+                {Object.entries(result.changes ?? {})
+                  .filter(([, v]) => v.unchanged)
+                  .map(([entity, v]) => (
+                    <li key={entity} data-entity={entity}>{c.resultSame(label(entity), n(v.unchanged))}</li>
+                  ))}
               </ul>
             ) : Object.keys(result.general).some((k) => k in c.entity) ? (
               // an answer without `changes` (older backends): the writer's own per-entity counts

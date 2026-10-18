@@ -64,6 +64,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 // ---- takes ---------------------------------------------------------------------------------------------------
 const FRAME = 1000 / 60;
 const onGrid = (ms) => Math.round(ms / FRAME) * FRAME;
+const CUT_DISSOLVE_MS = 300;
 const takeCache = new Map();
 function loadTake(dir, name) {
   if (takeCache.has(name)) return takeCache.get(name);
@@ -101,7 +102,10 @@ function segment(take, sel) {
   const start = Math.max(tl.marks.begin, steps[a].startMs - (sel.leadMs ?? 350));
   const end = Math.min(tl.marks.end, steps[b].endMs + (sel.tailMs ?? 0));
   let spans = [[start, end]];
-  for (const c of tl.cuts ?? []) {
+  // the cuts lose two more ticks on each side: no tick of their magenta sync flashes may reach the video (takes recorded
+  // before the Recorder.flash fix logged the start two ticks after the paint: a magenta frame at 58.1 s, 2026-10-18)
+  const cuts = (tl.cuts ?? []).map((c) => ({ start: c.start - 2 * FRAME, end: c.end + 2 * FRAME }));
+  for (const c of cuts) {
     spans = spans.flatMap(([s, e]) => (c.end <= s || c.start >= e ? [[s, e]] : [[s, c.start], [c.end, e]].filter(([x, y]) => y - x > 30)));
   }
   // long still stretches the story asks to shorten: [{atStep, keepMs}] trims the end of that step's hold
@@ -131,6 +135,8 @@ function segment(take, sel) {
     offs.push({ s, e, l0: acc });
     acc += e - s;
   }
+  // joins across an off-camera cut (another page, another user): viewState dissolves them instead of a hard jump
+  const joins = offs.slice(1).filter((o, i) => cuts.some((c) => c.start > offs[i].e - FRAME && c.end < o.s + FRAME)).map((o) => ({ l: o.l0, from: offs[offs.indexOf(o) - 1].e - FRAME }));
   const toRec = (l) => {
     for (const o of offs) if (l < o.l0 + (o.e - o.s)) return o.s + Math.max(0, l - o.l0);
     const o = offs[offs.length - 1];
@@ -140,7 +146,7 @@ function segment(take, sel) {
     for (const o of offs) if (r >= o.s && r <= o.e) return o.l0 + (r - o.s);
     return null;
   };
-  return { durMs: acc, toRec, toLocal, steps: steps.slice(a, b + 1).map((s, i) => ({ ...s, index: a + i })) };
+  return { durMs: acc, toRec, toLocal, joins, steps: steps.slice(a, b + 1).map((s, i) => ({ ...s, index: a + i })) };
 }
 
 /** Spring camera on the segment clock (lib/camera.mjs, the same maths as the README clips, at 60 fps). */
@@ -229,6 +235,12 @@ function viewState(p, local, box, kind) {
   const cy = clamp(cam.cy, ch / 2, vp.height - ch / 2);
   const camR = { x: cx - cw / 2, y: cy - ch / 2, w: cw, h: ch };
   const L = { kind, box, src: srcOf(take, f), srcW: vp.width, srcH: vp.height, cam: camR };
+  // a cut join: the last frame before the cut stays under the new one while it fades in (CUT_DISSOLVE_MS)
+  const j = (p.seg.joins ?? []).find((x) => lt >= x.l && lt < x.l + CUT_DISSOLVE_MS);
+  if (j) {
+    const g = frameAt(take, take.grid ? onGrid(j.from) + FRAME / 2 : j.from);
+    if (g !== f) L.under = { src: srcOf(take, g), a: ease((lt - j.l + FRAME) / (CUT_DISSOLVE_MS + FRAME)) };
+  }
   const ptr = take.timeline.pointer;
   if (take.journey.device === "phone") {
     L.taps = ptr.filter((q) => q.type === "click" && recT >= q.t - 60 && recT - q.t < 520).map((q) => ({ x: q.x, y: q.y, age: clamp((recT - q.t + 60) / 580, 0, 1) }));

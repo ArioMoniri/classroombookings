@@ -23,6 +23,7 @@ from app.importers.catalog import Catalog
 from app.importers.report import ImportReport
 from app.importers.settings import importer_settings
 from app.models import Assignment, Block, MeetingRequest, ScheduleRun, Section, Week
+from app.services.week_snapshots import remember_imported_week
 
 
 @dataclass
@@ -458,25 +459,31 @@ async def import_weekly_grid(
     existing_weeks = {
         w.index: w for w in (await session.execute(select(Week).where(Week.term_id == term.id))).scalars()
     }
+    imported_weeks: list[Week] = []
     for s in parsed.sheets:
         w = existing_weeks.get(s.week_index)
         if w is None:
-            session.add(
-                Week(
-                    term_id=term.id,
-                    index=s.week_index,
-                    start_date=s.start_date,
-                    kind=s.kind if s.kind != "SUMMER" else "LECTURE",
-                    label=s.name,
-                )
+            w = Week(
+                term_id=term.id,
+                index=s.week_index,
+                start_date=s.start_date,
+                kind=s.kind if s.kind != "SUMMER" else "LECTURE",
+                label=s.name,
             )
+            session.add(w)
+            imported_weeks.append(w)
             report.created["weeks"] += 1
         elif w.edited:  # RF-06: an admin set this week's kind / label / dates; the board does not overwrite it
             report.extra.setdefault("weeks_kept", []).append(w.index)
         else:
             w.label, w.start_date = s.name, s.start_date or w.start_date
             w.kind = s.kind if s.kind != "SUMMER" else "LECTURE"
+            imported_weeks.append(w)
             report.updated["weeks"] += 1
+    if imported_weeks:  # E2EA2-F06: the file's values, so a week set back to them is no longer "edited"
+        await session.flush()
+        for w in imported_weeks:
+            await remember_imported_week(session, w)
     if report.extra.get("weeks_kept"):
         report.warn(
             f"weeks {report.extra['weeks_kept']} were edited by an admin; kept as they are (not from the board)"

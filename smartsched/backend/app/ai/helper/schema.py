@@ -314,6 +314,64 @@ class ErrorCard(_StatusCard):
     type: Literal["error"] = "error"
 
 
+# ------------------------------------------------------------------------------------------------ files (HB-23b)
+
+
+class FileWarning(_Strict):
+    """One line of what to watch out for on a file card (helper-file-router.md §4.5), ≤ 4 per card."""
+
+    code: Annotated[str, Field(pattern=r"^[a-z_]{2,48}$")]
+    message: Txt
+    status: Literal["info", "warn", "bad"] = "info"
+
+
+class FileRoute(_Strict):
+    """A hand-over to a page's own flow. The client maps ``feature_id`` → href (``handover-links.fileHandoffHref``);
+    the server never sends a URL. ``carries_file``: the client calls ``POST /helper/files/handoff`` and the page
+    sends the ``upload_token`` instead of the file."""
+
+    feature_id: Name
+    #: ``kind`` (the importer's kind, e.g. ``planning-list``), ``term_id``, ``year``, ``import``
+    params: dict[Name, Scalar] = Field(default_factory=dict)
+    #: server-built: "Bahar 2026 dönemine planlama listesi olarak aktar"
+    label: Txt
+    #: under 640 px when present (≤ 28 characters); the accessible name keeps ``label`` (§8.5)
+    label_short: Txt | None = None
+    carries_file: bool
+
+
+class FileTerm(_Strict):
+    term_id: int | None
+    #: "Güz 2026-2027"
+    name: Txt
+    source: Literal["file_name", "sheet_title"]
+    matches_active: bool
+
+
+class FileCard(CardBase):
+    """Drop any file: what it is, why (canonical column labels only, never a cell value or a raw header), which
+    term, what to watch out for and one primary hand-over. Ephemeral: never written to ``helper_messages``."""
+
+    type: Literal["file"] = "file"
+    action: Literal["classify_file"] = "classify_file"
+    state: Literal["detected", "unknown", "needs_planner"]
+    kind: Name | None = None
+    kind_label: Txt | None = None
+    certainty: Literal["sure", "likely", "unsure"] | None = None
+    #: xlsx | csv | ics | sql | docx | pdf | image | … (``mixed`` for several files)
+    format: Name
+    evidence: Texts = Field(default_factory=Texts)
+    term: FileTerm | None = None
+    warnings: list[FileWarning] = Field(default_factory=list, max_length=4)
+    primary: FileRoute | None = None
+    secondary: list[FileRoute] = Field(default_factory=list, max_length=2)
+    #: "Bu dosya nedir?" (detected / needs_planner) or the accepted kinds (unknown)
+    explain: Texts = Field(default_factory=Texts)
+    #: kinds with a downloadable template (``GET /helper/files/examples/{kind}.{ext}``), unknown state
+    examples: list[Name] = Field(default_factory=list, max_length=8)
+    ai_sorted: bool = False
+
+
 Card = Annotated[
     AnswerCard
     | NavCard
@@ -325,11 +383,25 @@ Card = Annotated[
     | ResultCard
     | LimitCard
     | RefusalCard
-    | ErrorCard,
+    | ErrorCard
+    | FileCard,
     Field(discriminator="type"),
 ]
 CARD_ADAPTER: TypeAdapter[Any] = TypeAdapter(Card)
-CARD_TYPES = ("answer", "nav", "list", "facts", "choice", "form", "confirm", "result", "limit", "refusal", "error")
+CARD_TYPES = (
+    "answer",
+    "nav",
+    "list",
+    "facts",
+    "choice",
+    "form",
+    "confirm",
+    "result",
+    "limit",
+    "refusal",
+    "error",
+    "file",
+)
 
 
 def validate_card(data: Any) -> Any:
@@ -356,6 +428,10 @@ __all__ = [
     "ErrorCard",
     "Fact",
     "FactsCard",
+    "FileCard",
+    "FileRoute",
+    "FileTerm",
+    "FileWarning",
     "FollowUp",
     "FormCard",
     "FormField",

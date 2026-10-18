@@ -16,6 +16,7 @@ import { BusyGlyph } from "@/components/ui/busy-label";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ClassInspector, SelectionSummary } from "@/components/classes/class-inspector";
+import { focusInspectorIfLost } from "./inspector-focus";
 import { useCalendarIndex } from "@/lib/api/calendar";
 import { api } from "@/lib/api/endpoints";
 import { useMe } from "@/lib/api/hooks";
@@ -296,6 +297,8 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       });
       if (mode !== "range") setAnchorAid(aid);
       setInspectorOpen(true);
+      // E2EB-F11: a touch tap leaves focus on <main>; once the inspector renders, its heading takes it
+      requestAnimationFrame(() => focusInspectorIfLost());
       update({ sel: aid });
     },
     [anchorAid, weekEvents, day, vs.lens, update],

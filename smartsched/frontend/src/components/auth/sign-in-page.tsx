@@ -320,6 +320,7 @@ export function errorBody(code: Exclude<SsoErrorCode, "cancelled" | "not_enabled
       return { title: t("signin.error.inviteMismatchTitle"), text: v.invited && v.signedIn ? t("signin.error.inviteMismatch", { invited: v.invited, signedIn: v.signedIn }) : t("signin.error.inviteMismatchPlain") };
     case "failed":
     default:
-      return { title: t("signin.error.failedTitle"), text: v.ref ? t("signin.error.failed", { ref: v.ref }) : t("signin.error.failedNoRef") };
+      // E2EB-F18: the same hint for every refusal (an existing unlinked account among them), so nothing is revealed
+      return { title: t("signin.error.failedTitle"), text: `${v.ref ? t("signin.error.failed", { ref: v.ref }) : t("signin.error.failedNoRef")} ${t("signin.error.failedLinkHint")}` };
   }
 }

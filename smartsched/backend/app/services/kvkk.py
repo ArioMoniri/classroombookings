@@ -246,6 +246,33 @@ DATA_CLASSES: dict[str, dict[str, Any]] = {
         "retention": None,
         "kept": "son 20 cihaz, hesapla birlikte; silme talebinde silinir",
     },
+    # uploaded source files (workbooks, CRBS dumps, council files): may hold names and enrolments; files, not tables
+    "upload_files": {
+        "tr": "Yüklenen kaynak dosyalar: içe aktarılan çalışma kitapları, classroombookings dökümleri, kurulum "
+        "sihirbazı dosyaları (ad ve öğrenci sayısı içerebilir)",
+        "en": "Uploaded source files: imported workbooks, classroombookings dumps, setup-wizard files (may hold names "
+        "and enrolments)",
+        "tables": [],
+        "files": ["uploads/imports", "uploads/council"],
+        "legal_basis": "KVKK m.5/2(c) sözleşmenin ifası, (ç) hukuki yükümlülük, (f) meşru menfaat (dönem planlaması)",
+        "retention": None,
+        "kept": "30 gün (UPLOAD_RETENTION_DAYS), sonra silinir (deploy/purge-uploads.sh)",
+    },
+    # HB-23b helper file router (app/ai/helper/files.py): short-term encrypted storage as one step of the import
+    # processing activity (docs/kvkk/helper-file-stage.md); not exempt "transient processing" (KVKK m.3/1(e))
+    "helper_file_stage": {
+        "tr": "Yardımcıya bırakılan dosya: türünü anlamak ve seçilen sayfaya aktarmak için, şifreli (AES-256-GCM), en "
+        "çok 10 dakika",
+        "en": "A file dropped on the helper: to tell its type and hand it to the chosen page; encrypted (AES-256-GCM), "
+        "at most 10 minutes",
+        "tables": [],
+        "files": ["uploads/helper-stage"],
+        "legal_basis": "İçe aktarmanın hukuki sebebiyle aynı: KVKK m.5/2(c), (ç), (f) (içe aktarma işleminin bir "
+        "adımı)",
+        "retention": None,
+        "kept": "kullanılınca, iptalde ya da 10 dakikada silinir; anahtar yalnızca kişinin oturumundaki belirteçte "
+        "(sunucu anahtarı tutmaz)",
+    },
 }
 FLOORS = {k: v["retention"]["floor_days"] for k, v in DATA_CLASSES.items() if v["retention"]}
 
@@ -661,6 +688,7 @@ async def inventory(session: AsyncSession) -> dict[str, Any]:
                 "label_tr": spec["tr"],
                 "label_en": spec["en"],
                 "tables": spec["tables"],
+                "files": spec.get("files", []),
                 "rows": counts,
                 "legal_basis": spec["legal_basis"],
                 "retention": policy_out(p) if p else None,
@@ -2242,6 +2270,11 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
     uid = subject.id
     label = pseudonym(uid)
     counts: dict[str, int] = {}
+    from app.ai.helper import files as helper_files
+
+    staged = helper_files.clear(uid)  # HB-23b: a file the person staged for the helper goes at once
+    if staged:
+        counts["helper_file_stages"] = staged
     # 0. push calendars first, while nothing is written yet: pushed events removed, grants revoked at the provider
     n_conns, calendar_out, failures = await _erase_calendars(session, uid)
     today = await bsvc.today(session)

@@ -190,13 +190,13 @@ export function MobileTopBar() {
   const title = crumbs.at(-1)?.label ?? "";
   const tintOnly = useTintOnlyChrome();
   return (
-    <header className="sticky top-0 z-30 box-content flex h-12 items-center gap-2 pt-[env(safe-area-inset-top)] [@media(max-height:500px)]:static pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] lg:hidden" data-scrolled={scrolled} data-chrome={tintOnly ? "tint" : "glass"}>
+    <header className="sticky top-0 z-30 box-content flex h-12 items-center gap-2 pt-[env(safe-area-inset-top)] [@media(max-height:500px)]:static pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] lg:hidden @container" data-scrolled={scrolled} data-chrome={tintOnly ? "tint" : "glass"}>
       <span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-20", !tintOnly && BACKDROP)} />
       <motion.span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-10 edge-hairline-b", tintOnly ? "bg-(--mat-chrome-solid)" : "bg-(--mat-chrome)")} style={{ opacity: solid ? 1 : reduce ? undefined : tint }} animate={reduce && !solid ? { opacity: scrolled ? 1 : 0.35 } : undefined} transition={tween.fadeIn} />
       <motion.p className="type-headline min-w-0 flex-1 truncate text-label-1" style={{ opacity: reduce ? (scrolled ? 1 : 0) : titleOpacity }} aria-hidden>
         {title}
       </motion.p>
-      <Button variant="ghost" size="icon" onClick={() => setPaletteOpen(true)} aria-label={t("helper.trigger.name")} className={ownBottomBar ? "inline-flex" : "hidden max-[22.5rem]:inline-flex"} data-testid="open-palette-narrow">
+      <Button variant="ghost" size="icon" onClick={() => setPaletteOpen(true)} aria-label={t("helper.trigger.name")} className={ownBottomBar ? "inline-flex" : "hidden max-[22.5rem]:inline-flex @max-[22.5rem]:inline-flex"} data-testid="open-palette-narrow">
         <Search aria-hidden />
       </Button>
       {ownBottomBar ? (

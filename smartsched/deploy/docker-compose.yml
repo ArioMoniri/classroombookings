@@ -114,6 +114,10 @@ services:
     volumes:
       - uploads:/data/uploads
       - /var/lib/smartsched/textfile:/host/textfile:ro
+    # Starlette spools uploads larger than 1 MiB to /tmp in plain text: keep that in memory, never on disk
+    # (HB-23 KVKK review C5; the helper's file stage itself is encrypted under uploads/helper-stage)
+    tmpfs:
+      - /tmp:size=256m,mode=1777
     expose:
       - "8000"
     # Healthcheck comes from the image (GET /api/v1/health); repeated here so `depends_on` is explicit.

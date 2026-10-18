@@ -32,7 +32,7 @@ docker compose --env-file "$ENV_FILE" -f "$HERE/docker-compose.yml" exec -T db \
 mv "$BACKUP_DIR/db-$day.dump.part" "$BACKUP_DIR/db-$day.dump"
 
 echo "[backup] uploads volume ${project}_uploads"
-docker run --rm -v "${project}_uploads:/u:ro" -v "$BACKUP_DIR:/b" "$ALPINE" tar czf "/b/uploads-$day.tgz" -C /u .
+docker run --rm -v "${project}_uploads:/u:ro" -v "$BACKUP_DIR:/b" "$ALPINE" tar czf "/b/uploads-$day.tgz" --exclude=./helper-stage -C /u .
 
 find "$BACKUP_DIR" -type f \( -name 'db-*.dump' -o -name 'uploads-*.tgz' \) -mtime +"$KEEP" -delete
 

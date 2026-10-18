@@ -137,11 +137,12 @@ export function InvigilationView() {
           <p className="mt-1 type-callout text-label-2">{t("invigilation.noExamRunsBody")}</p>
         </div>
       ) : tab === "pool" ? (
-        <div id="invig-panel-pool" role="tabpanel" aria-label={t("invigilation.tab.pool")}>
+        // E2EB-F13 (CLS 0.12 at 390): the panels keep the placeholder's 60dvh, so nothing below them moves when they land
+        <div id="invig-panel-pool" role="tabpanel" aria-label={t("invigilation.tab.pool")} className="min-h-[60dvh]">
           <PoolView termId={run?.term_id ?? term?.id ?? null} canEdit={canEdit} />
         </div>
       ) : (
-        <div id="invig-panel-plans" role="tabpanel" aria-label={t("invigilation.tab.plans")} className="grid min-w-0 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
+        <div id="invig-panel-plans" role="tabpanel" aria-label={t("invigilation.tab.plans")} className="grid min-h-[60dvh] min-w-0 content-start gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
           <aside aria-label={t("invigilation.planList")} className="flex min-w-0 flex-col gap-2">
             <h2 className="type-headline">{t("invigilation.planList")}</h2>
             {plans.isLoading ? (

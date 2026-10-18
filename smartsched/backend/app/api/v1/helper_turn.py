@@ -27,7 +27,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.api.deps import DB, CurrentAccess
 from app.core.db import get_session_factory
@@ -55,6 +55,17 @@ class TurnIn(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
     lang: Literal["tr", "en"] = "tr"
     context: PageContextIn | None = None
+
+    @field_validator("text")
+    @classmethod
+    def _no_tokens(cls, v: str) -> str:
+        """A pasted helper token (a file's ``upload_token``, a confirm token) never reaches the model or the
+        history (HB-23 KVKK review 15): it is replaced before anything else reads the text."""
+        return _SIGNED_TOKEN.sub("[belirteç]", v)
+
+
+#: base64url(JSON) "." base64url(HMAC): the helper's upload / confirm / undo tokens
+_SIGNED_TOKEN = re.compile(r"eyJ[\w-]{16,}\.[\w-]{16,}")
 
 
 _BACKEND = Path(__file__).resolve().parents[3]

@@ -116,6 +116,10 @@ class Settings(BaseSettings):
     #: turns it on and points ``kvkk_names_file`` at its saved name list (outside the repository).
     kvkk_upload_guard: bool = False
     kvkk_names_file: str | None = None
+    #: HB-23b helper file router: classify stages the bytes encrypted for 10 minutes under a key that lives only in
+    #: the person's ``upload_token`` (docs/design/v3/helper-file-router.md §6.3). ``HELPER_FILE_STAGE=off``: nothing
+    #: is staged and the target page asks the browser to send the same File object again.
+    helper_file_stage: bool = True
 
     # safe upload intake (app/core/safe_files.py, review B1)
     upload_max_mb: float = 25.0  # any single upload (413 above)
