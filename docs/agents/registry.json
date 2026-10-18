@@ -4450,8 +4450,8 @@
       "ledger": "HB-23b backend: file classify + hand-over",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-18 18:12",
-      "left_off": "The background task that was just stopped was only a wait loop watching the regression run. That run had already finished and its result is in the report (209 passed, 1 failed; the failure was fixed and that test now passes). The report has already gone back to the orchestrator; there is nothing to re-run."
+      "finished_at": "2026-10-18 18:13",
+      "left_off": "A second wait loop was stopped at its time limit. It was only watching the regression run, which had already finished, so nothing needs restarting. Its result is already in the hand-back report: 209 passed and 1 failed; that failing test was fixed and now passes."
     },
     {
       "id": "aed34f4fadb1b25c9",
