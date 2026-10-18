@@ -164,7 +164,7 @@ function ProfileRow({ g, meta, lang, onEdit, onConfirm }: { g: ProfileGroup; met
   const evidence = pending ? Object.entries(pending.evidence).filter(([, v]) => typeof v === "number" || typeof v === "string") : [];
   const diff = (pending ?? p).weights_diff;
   return (
-    <li className="flex flex-col gap-2 px-4 py-3 outline-hidden focus-visible:outline-2 focus-visible:outline-(--focus) not-last:edge-hairline-b" tabIndex={-1} data-row-key={g.key} data-testid="profile-row" data-status={p.status}>
+    <li className="flex flex-col gap-2 px-4 py-3 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) not-last:edge-hairline-b" tabIndex={-1} data-row-key={g.key} data-testid="profile-row" data-status={p.status}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="type-headline text-label-1">{p.name[lang] || p.name.tr}</span>
         <StatusBadge p={p} />

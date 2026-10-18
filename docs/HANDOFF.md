@@ -41,7 +41,7 @@ had 8 builder lanes. At `455f9703`:
 | E2E stabilisation | fixes landed | "two green full gate runs + mobile" not confirmed | last milestone 07:25: 154 passed / 18 failed / 3 flaky |
 
 Owner decisions still open (ROADMAP): R1-M-07 (KVKK AI default), R1-S-37 (forced edit on the live plan),
-the locked-class self-move (recommend: keep as re-deciding the lock), T-R1-25 person key.
+the locked-class self-move (decided 2026-10-18: re-deciding the lock), T-R1-25 person key.
 
 ## What focused-wright does, in order
 
@@ -97,6 +97,8 @@ Round-2 sweeper (after lanes C and E finish): `ui/date-field.tsx` calendar butto
 - Owner-decision items stay open: R1-M-07, R1-S-37, locked-class self-move, T-R1-25 person key, R2-A-19 third language entry, R2-M-08 planner person-priority right.
 
 ## Progress log (newest first)
+
+- **2026-10-18 09:55 UTC**: audit of every owner request against the tickets (done at the owner's request). Lanes were added for the open items no lane covered: HB-C (HB-14/15/16) and CH-M (CH-07/08/10/11). The tester wave now also covers VO-09, AUX-12 and HB-18; HB-17 follows HB-C. Leftovers went to two queued lanes, Sweeper 2 and IDP (see LANES.md). "Later" tickets are listed as deferred on purpose. Decision applied under the owner's "use the recommended option" rule: a locked class's self-move counts as re-deciding the lock. No owner decisions are open. Focus-ring test fixed in forecast-whatif and season-profiles (`focus-visible:outline-solid`).
 
 - **2026-10-18 09:40 UTC**: owner decision: no S3 or other off-host backups; backups stay on the pod (nightly, 7 days). Recorded in docs/deploy/ONE-CLICK.md §2. Decision closed.
 

@@ -431,6 +431,26 @@ Rejected: `number-pop-in` (500 ms count-up), `shimmer-text`, `matrix-loader`, Ev
 bar grow-in. Audit: `e2e/charts-a11y.spec.ts` (keyboard, forced colours, print); the motion-audit pattern runs on the
 chart routes in CH-06/CH-12.
 
+### 3.19 Sign-in security (`docs/design/v3/auth.md` §11; AUX-10 hero, aux-10-2026-10-18)
+
+AUX-09 adds the §11.2 rows (2FA step, codes, passkeys) here. Purpose of the hero: "While the person signs in, the scene
+quietly shows what SmartSched does, then holds still; it never competes with the form." Hosted Motion Agent fixes used:
+0. The one reserved fix, "signin-hero-settle", was not spent because `TRANSITIONS_AGENT_LICENSE` was not set in the
+AUX-10 session. It stays reserved for this hero only.
+
+| Moment | Animation | Token | Reduced motion | Reduced transparency |
+|---|---|---|---|---|
+| Sign-in hero enters (≥ 1024 px, `/login` only, after `requestIdleCallback` + 300 ms, once the first frame exists) | tint frame opacity 0 → 1 with a 4 px rise; the Lottie and its player load only then | `dur.slow` 240 ms, `ease.out` | poster PNG, static (no player request) | the frame is `--mat-thin` with no backdrop-filter; the in-app setting makes it solid |
+| Hero plays | `hero-solver` frames 0 → 140 once (4.67 s at 30 fps, every inner tween ≤ 9 frames, `docs/lottie/build/audit.mjs`) | `HERO_SEGMENT` | none | same |
+| Hero settles | pause and seek to frame 140 (the poster frame), then hold; never loops | — | — | — |
+| Theme switch after the pass started | the new theme's poster appears (fade 240 ms); no replay | `dur.slow` | instant | same |
+| Save-Data / `prefers-reduced-data` | poster PNG with the entry fade | `dur.slow` | static | same |
+| < 1024 px, forced colours, 2FA step / setup | not rendered (no bundle request) | — | — | — |
+
+Audit: `e2e/au-signin-hero.spec.ts` (ends ≤ 5 s and does not loop, no LoAF > 50 ms while typing, no bundle at 390,
+poster under reduced motion, motion-audit case: no finite animation > 300 ms, ≤ 2 backdrop-filter surfaces,
+pointer-events none, hidden in forced colours).
+
 ## 4. Key flows end to end
 
 **Generate (Studio → island → report)**

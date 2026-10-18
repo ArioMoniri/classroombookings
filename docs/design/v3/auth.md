@@ -720,6 +720,10 @@ how the hero enters after idle and settles onto the poster frame (opacity 0 → 
 hold). No other surface in this spec may use a hosted fix. Unlimited free scans may be used on every surface. The licence
 key stays in `TRANSITIONS_AGENT_LICENSE` and is never written anywhere.
 
+**Status (AUX-10, 2026-10-18):** the hero is built to the values above (`components/auth/signin-hero.tsx`: 240 ms
+`ease.out` entry with a 4 px rise, pause + seek to frame 140). The hosted fix **was not spent**: the licence variable
+was not set in the AUX-10 session. "signin-hero-settle" stays reserved for this file.
+
 ## 12. Components (existing first; source and licence)
 
 | Component | Status | Source | Licence |

@@ -125,3 +125,10 @@ On pass: tick VO-06/07/08 and VO-05.
 - **AS-F** (1440 mouse and 390×844 touch, tr-TR): `e2e/as-seasons.spec.ts`, `e2e/as-analytics.spec.ts` (gracious and empty stacks), `e2e/as-surfaces.spec.ts`. Steps are in the AS-F hand-off (PROGRESS row `as-f`): draft, activate and revert a profile on /admin/weeks with focus on the row; peaks tab P4/P8; "düşük güven" beside forecast ranges; a what-if draft-run link; the needs texts on an empty stack; the find-room peak chip on Wednesday P4; the advisor card for the Final term; "Profil:" in the run header; `slots` mode saves; Öğrenmeyi yenile and Bu sürüme dön.
 - **AS-B API checks:** an EXAM run shows `stats.class_plan` and no exam takes a room a class holds; the course run's data issues show "Sınavla çakışan dersler"; `/analytics/forecast/exams/advice` answers on Final 2026; POST `/learning/weights/propose` after 5 or more edits creates a draft profile.
 - **AUX-F:** `e2e/au-signin-security.spec.ts`: the 2FA tag and filter on /admin/users, the live policy sentence with counts, and "Uygulamayı değiştir" (an old-app code is refused).
+
+## Added 2026-10-18 09:55 UTC
+
+- **RF-M:** RF-04 phone month arrows on /timetable (390×844: › twice, ‹ once, 44 px, Yerleşmeyen counts match desktop, focus stays on the arrow); RF-10 density (Sıkı → compact room columns 112 px; toolbar override survives reload).
+- **AUX-10:** `e2e/au-signin-hero.spec.ts` (one pass ≤ 5 s, no loop, reduced motion shows the poster and downloads no player, nothing at 390).
+- **HB-02:** p95 of `GET /helper/search` under 50 ms on the seeded stack, 4 personas. HB-A cases 2–4 (confirm, result, undo; `/helper/status` reasons; notes withdrawn with `ai_personal`).
+- **Council full re-run** (round-3 lane C's final run was lost): run it once on the gracious stack and record the result.

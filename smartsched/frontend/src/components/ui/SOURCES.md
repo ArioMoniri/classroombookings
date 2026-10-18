@@ -35,10 +35,10 @@ and licence verification are in `docs/design/v2/references.md` §4, and the syst
 | `components/auth/otp-input.tsx` | `input-otp` 1.5.0 by Guilherme Rodz (https://github.com/guilhermerodz/input-otp), pinned in package.json | MIT | npm dependency, wrapped | yes: one real input drawn as 6 slots (3 + 3), SmartSched field tokens, error / success states, steady caret under reduced motion |
 | `components/profile/security/totp-setup.tsx` (QR) | `qrcode` 1.5.4 (https://github.com/soldair/node-qrcode), pinned | MIT | npm dependency | no: the QR is drawn black on white with a 4-module quiet zone in both themes |
 | `components/profile/security/aaguid.ts` | `passkeydeveloper/passkey-authenticator-aaguids` (https://github.com/passkeydeveloper/passkey-authenticator-aaguids), a 13-entry subset | MIT | copied names only (no vendor icons) | yes: Turkish names added |
-| `src/assets/lottie/*.json`, `*-poster.png` (used by `empty-state.tsx`) | `docs/lottie`, `docs/images/lottie` (original SmartSched work) | AGPL-3.0 (same as the repository) | copied | no (the background layer is dropped at runtime) |
+| `src/assets/lottie/*.json`, `*-poster.png` (used by `empty-state.tsx` and `auth/signin-hero.tsx`) | `docs/lottie`, `docs/images/lottie` (original SmartSched work) | AGPL-3.0 (same as the repository) | copied | no (the background layer is dropped at runtime) |
 
 npm dependencies added: `echarts@6.1.0` (Apache-2.0, for EvilCharts ECharts, CH-01; the Recharts package was removed in CH-09 with the Recharts-variant files, 2026-10-18; `LICENSES/evilcharts-MIT.txt` stays for the ECharts files), `@floating-ui/dom@^1.8.0` (MIT, for the
-beUI tooltip/status-bar), `lottie-react@^3.1.2` (MIT, for EmptyState). `clsx`, `tailwind-merge` and
+beUI tooltip/status-bar), `lottie-react@^3.1.2` (MIT, for EmptyState and the sign-in hero). `clsx`, `tailwind-merge` and
 `motion` were already present.
 
 ## Original SmartSched primitives (Liquid Glass v2)

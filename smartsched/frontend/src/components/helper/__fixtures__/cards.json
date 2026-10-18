@@ -1,0 +1,714 @@
+{
+ "answer": {
+  "v": 1,
+  "id": "0a0b0c0d",
+  "type": "answer",
+  "text": "A 204 yarın 10:00–10:50 boş.",
+  "lang": "tr",
+  "source": "ai"
+ },
+ "answer_index": {
+  "v": 1,
+  "id": "0a0b0c0e",
+  "type": "answer",
+  "text": "Aradığınız şu sayfalarda olabilir:",
+  "lang": "tr",
+  "source": "index"
+ },
+ "nav": {
+  "v": 1,
+  "id": "a1b2c3d4",
+  "title": {
+   "tr": "Tatiller",
+   "en": "Holidays"
+  },
+  "type": "nav",
+  "feature_id": "admin.holidays",
+  "kind": "page",
+  "path": {
+   "tr": [
+    "Yönetim",
+    "Dönem ve saatler",
+    "Tatiller"
+   ],
+   "en": [
+    "Admin",
+    "Terms and times",
+    "Holidays"
+   ]
+  },
+  "steps": {
+   "tr": [
+    "Yönetim'i açın.",
+    "Dönem ve saatler › Tatiller'i seçin.",
+    "Tatil ekle'ye basın."
+   ],
+   "en": [
+    "Open Admin.",
+    "Pick Terms and times › Holidays.",
+    "Press Add holiday."
+   ]
+  },
+  "anchor": "admin-holidays-add",
+  "actions": []
+ },
+ "nav_booking": {
+  "v": 1,
+  "id": "a1b2c3d5",
+  "title": {
+   "tr": "Hızlı rezervasyon",
+   "en": "Quick reserve"
+  },
+  "type": "nav",
+  "feature_id": "reserve",
+  "kind": "page",
+  "path": {
+   "tr": [
+    "Rezervasyonlar",
+    "Hızlı rezervasyon"
+   ],
+   "en": [
+    "Bookings",
+    "Quick reserve"
+   ]
+  },
+  "steps": {
+   "tr": [],
+   "en": []
+  },
+  "anchor": "nav-reserve",
+  "actions": [
+   "find_free_rooms",
+   "create_booking"
+  ]
+ },
+ "list": {
+  "v": 1,
+  "id": "1a1b1c1d",
+  "action": "find_free_rooms",
+  "title": {
+   "tr": "Boş salonlar",
+   "en": "Free rooms"
+  },
+  "type": "list",
+  "columns": [
+   {
+    "key": "room",
+    "label": {
+     "tr": "Salon",
+     "en": "Room"
+    },
+    "kind": "room"
+   },
+   {
+    "key": "capacity",
+    "label": {
+     "tr": "Kişi",
+     "en": "Seats"
+    },
+    "kind": "number"
+   }
+  ],
+  "rows": [
+   {
+    "id": "r1",
+    "cells": {
+     "room": "A 201",
+     "capacity": {
+      "tr": "11 kişilik",
+      "en": "11 seats"
+     }
+    },
+    "actions": [
+     {
+      "action": "create_booking",
+      "label": {
+       "tr": "Ayır",
+       "en": "Book"
+      },
+      "args": {
+       "room": "101",
+       "date": "2026-10-19"
+      },
+      "danger": false
+     }
+    ]
+   },
+   {
+    "id": "r2",
+    "cells": {
+     "room": "A 202",
+     "capacity": {
+      "tr": "12 kişilik",
+      "en": "12 seats"
+     }
+    },
+    "actions": [
+     {
+      "action": "create_booking",
+      "label": {
+       "tr": "Ayır",
+       "en": "Book"
+      },
+      "args": {
+       "room": "102",
+       "date": "2026-10-19"
+      },
+      "danger": false
+     }
+    ]
+   },
+   {
+    "id": "r3",
+    "cells": {
+     "room": "A 203",
+     "capacity": {
+      "tr": "13 kişilik",
+      "en": "13 seats"
+     }
+    },
+    "actions": [
+     {
+      "action": "create_booking",
+      "label": {
+       "tr": "Ayır",
+       "en": "Book"
+      },
+      "args": {
+       "room": "103",
+       "date": "2026-10-19"
+      },
+      "danger": false
+     }
+    ]
+   },
+   {
+    "id": "r4",
+    "cells": {
+     "room": "A 204",
+     "capacity": {
+      "tr": "14 kişilik",
+      "en": "14 seats"
+     }
+    },
+    "actions": [
+     {
+      "action": "create_booking",
+      "label": {
+       "tr": "Ayır",
+       "en": "Book"
+      },
+      "args": {
+       "room": "104",
+       "date": "2026-10-19"
+      },
+      "danger": false
+     }
+    ]
+   },
+   {
+    "id": "r5",
+    "cells": {
+     "room": "A 205",
+     "capacity": {
+      "tr": "15 kişilik",
+      "en": "15 seats"
+     }
+    },
+    "actions": [
+     {
+      "action": "create_booking",
+      "label": {
+       "tr": "Ayır",
+       "en": "Book"
+      },
+      "args": {
+       "room": "105",
+       "date": "2026-10-19"
+      },
+      "danger": false
+     }
+    ]
+   },
+   {
+    "id": "r6",
+    "cells": {
+     "room": "A 206",
+     "capacity": {
+      "tr": "16 kişilik",
+      "en": "16 seats"
+     }
+    },
+    "actions": [
+     {
+      "action": "create_booking",
+      "label": {
+       "tr": "Ayır",
+       "en": "Book"
+      },
+      "args": {
+       "room": "106",
+       "date": "2026-10-19"
+      },
+      "danger": false
+     }
+    ]
+   },
+   {
+    "id": "r7",
+    "cells": {
+     "room": "A 207",
+     "capacity": {
+      "tr": "17 kişilik",
+      "en": "17 seats"
+     }
+    },
+    "actions": [
+     {
+      "action": "create_booking",
+      "label": {
+       "tr": "Ayır",
+       "en": "Book"
+      },
+      "args": {
+       "room": "107",
+       "date": "2026-10-19"
+      },
+      "danger": false
+     }
+    ]
+   }
+  ],
+  "total": 9,
+  "more": "find_room",
+  "empty": {
+   "tr": "Bu saatte uygun salon yok.",
+   "en": "No room is free at this time."
+  }
+ },
+ "list_empty": {
+  "v": 1,
+  "id": "1a1b1c1e",
+  "action": "my_bookings",
+  "type": "list",
+  "columns": [],
+  "rows": [],
+  "total": 0,
+  "empty": {
+   "tr": "Önümüzdeki 14 günde rezervasyonunuz yok.",
+   "en": "You have no bookings in the next 14 days."
+  }
+ },
+ "facts": {
+  "v": 1,
+  "id": "2a2b2c2d",
+  "action": "my_ai_usage",
+  "title": {
+   "tr": "Yapay zekâ kullanımım",
+   "en": "My AI usage"
+  },
+  "type": "facts",
+  "items": [
+   {
+    "label": {
+     "tr": "Bu ay",
+     "en": "This month"
+    },
+    "value": {
+     "tr": "12.400 / 50.000 token (%25)",
+     "en": "12,400 / 50,000 tokens (25%)"
+    },
+    "status": "ok"
+   },
+   {
+    "label": {
+     "tr": "Sınır",
+     "en": "Limit"
+    },
+    "value": {
+     "tr": "1 Kasım'da yenilenir",
+     "en": "Resets on 1 November"
+    },
+    "status": "info"
+   }
+  ],
+  "nav": "profile.ai_usage"
+ },
+ "choice": {
+  "v": 1,
+  "id": "3a3b3c3d",
+  "action": "create_booking",
+  "type": "choice",
+  "arg": "room",
+  "question": {
+   "tr": "Hangi A 204?",
+   "en": "Which A 204?"
+  },
+  "options": [
+   {
+    "value": "12",
+    "label": {
+     "tr": "A 204 · B blok",
+     "en": "A 204 · B block"
+    },
+    "hint": {
+     "tr": "40 kişilik",
+     "en": "40 seats"
+    }
+   },
+   {
+    "value": "13",
+    "label": {
+     "tr": "A 204 · C blok",
+     "en": "A 204 · C block"
+    }
+   }
+  ],
+  "args": {
+   "room": "A 204",
+   "date": "2026-10-19",
+   "period_id": 3,
+   "notes": ""
+  }
+ },
+ "form": {
+  "v": 1,
+  "id": "4a4b4c4d",
+  "action": "create_booking",
+  "title": {
+   "tr": "Rezervasyon",
+   "en": "Booking"
+  },
+  "type": "form",
+  "fields": [
+   {
+    "name": "room",
+    "label": {
+     "tr": "Salon",
+     "en": "Room"
+    },
+    "kind": "room",
+    "required": true,
+    "value": "12",
+    "options_source": "rooms",
+    "options": []
+   },
+   {
+    "name": "date",
+    "label": {
+     "tr": "Tarih",
+     "en": "Date"
+    },
+    "kind": "date",
+    "required": true,
+    "value": "2026-10-19",
+    "options": []
+   },
+   {
+    "name": "period_id",
+    "label": {
+     "tr": "Ders saati",
+     "en": "Period"
+    },
+    "kind": "period",
+    "required": true,
+    "options_source": "periods",
+    "options": []
+   },
+   {
+    "name": "notes",
+    "label": {
+     "tr": "Amaç",
+     "en": "Purpose"
+    },
+    "kind": "text",
+    "required": false,
+    "options": [],
+    "max_length": 255
+   }
+  ],
+  "missing": [
+   "period_id"
+  ],
+  "risk": "R1"
+ },
+ "form_reject": {
+  "v": 1,
+  "id": "4a4b4c4e",
+  "action": "decide_approval",
+  "title": {
+   "tr": "Reddetme gerekçesi",
+   "en": "Reason for rejecting"
+  },
+  "type": "form",
+  "fields": [
+   {
+    "name": "request_id",
+    "label": {
+     "tr": "Talep",
+     "en": "Request"
+    },
+    "kind": "number",
+    "required": true,
+    "value": 7,
+    "options": []
+   },
+   {
+    "name": "decision",
+    "label": {
+     "tr": "Karar",
+     "en": "Decision"
+    },
+    "kind": "select",
+    "required": true,
+    "value": "reject",
+    "options": [
+     {
+      "value": "approve",
+      "label": {
+       "tr": "Onayla",
+       "en": "Approve"
+      }
+     },
+     {
+      "value": "reject",
+      "label": {
+       "tr": "Reddet",
+       "en": "Reject"
+      }
+     }
+    ]
+   },
+   {
+    "name": "reason_code",
+    "label": {
+     "tr": "Gerekçe",
+     "en": "Reason"
+    },
+    "kind": "select",
+    "required": true,
+    "options_source": "reasons",
+    "options": []
+   },
+   {
+    "name": "reason",
+    "label": {
+     "tr": "Açıklama",
+     "en": "Note"
+    },
+    "kind": "textarea",
+    "required": false,
+    "options": [],
+    "max_length": 500
+   }
+  ],
+  "missing": [
+   "reason_code"
+  ],
+  "risk": "R2",
+  "message": {
+   "tr": "Reddetmek için bir gerekçe seçin ya da yazın.",
+   "en": "Pick or write a reason to reject."
+  }
+ },
+ "confirm": {
+  "v": 1,
+  "id": "5a5b5c5d",
+  "action": "create_booking",
+  "title": {
+   "tr": "Rezervasyon",
+   "en": "Booking"
+  },
+  "type": "confirm",
+  "risk": "R1",
+  "token": "eyJrIjoiY29uZmlybSJ9.c2lnbmF0dXJl",
+  "expires_at": "2026-10-18T10:10:00Z",
+  "preview": [
+   {
+    "label": {
+     "tr": "Salon",
+     "en": "Room"
+    },
+    "value": {
+     "tr": "A 204",
+     "en": "A 204"
+    }
+   },
+   {
+    "label": {
+     "tr": "Zaman",
+     "en": "When"
+    },
+    "value": {
+     "tr": "Yarın 10:00–10:50",
+     "en": "Tomorrow 10:00–10:50"
+    }
+   }
+  ],
+  "warnings": [],
+  "button": {
+   "tr": "Rezerve et: A 204 · yarın 10:00",
+   "en": "Book: A 204 · tomorrow 10:00"
+  },
+  "undoable": true,
+  "danger": false,
+  "args": {
+   "room": "12",
+   "date": "2026-10-19",
+   "period_id": 3,
+   "notes": ""
+  }
+ },
+ "confirm_r2": {
+  "v": 1,
+  "id": "5a5b5c5e",
+  "action": "decide_approval",
+  "type": "confirm",
+  "risk": "R2",
+  "token": "eyJrIjoiY29uZmlybSJ9.c2lnbmF0dXJm",
+  "expires_at": "2026-10-18T10:10:00Z",
+  "preview": [
+   {
+    "label": {
+     "tr": "Talep",
+     "en": "Request"
+    },
+    "value": {
+     "tr": "A 204 · 19 Ekim",
+     "en": "A 204 · 19 October"
+    }
+   }
+  ],
+  "affected": {
+   "tr": "P. T.'ye bildirim gider.",
+   "en": "P. T. is notified."
+  },
+  "warnings": [
+   {
+    "tr": "Bu talep 2 gündür bekliyor.",
+    "en": "This request has waited 2 days."
+   }
+  ],
+  "button": {
+   "tr": "Onayla: A 204 · 19 Ekim",
+   "en": "Approve: A 204 · 19 October"
+  },
+  "undoable": false,
+  "danger": false,
+  "args": {
+   "request_id": 7,
+   "decision": "approve",
+   "reason_code": "",
+   "reason": ""
+  }
+ },
+ "result": {
+  "v": 1,
+  "id": "6a6b6c6d",
+  "action": "create_booking",
+  "type": "result",
+  "ok": true,
+  "message": {
+   "tr": "A 204 yarın 10:00–10:50 için rezerve edildi.",
+   "en": "A 204 booked for tomorrow 10:00–10:50."
+  },
+  "entity": {
+   "kind": "booking",
+   "id": 501,
+   "feature_id": "my_bookings"
+  },
+  "undo_token": "eyJrIjoidW5kbyJ9.c2ln",
+  "undo_expires_at": "2026-10-19T07:00:00Z",
+  "follow_ups": [
+   {
+    "label": {
+     "tr": "Takvimime ekle",
+     "en": "Add to my calendar"
+    },
+    "feature_id": "profile.calendar",
+    "args": {}
+   },
+   {
+    "label": {
+     "tr": "Başka saat",
+     "en": "Another time"
+    },
+    "action": "find_free_rooms",
+    "args": {
+     "date": "2026-10-19"
+    }
+   }
+  ]
+ },
+ "limit": {
+  "v": 1,
+  "id": "7a7b7c7d",
+  "code": "ai_limit_reached",
+  "message": {
+   "tr": "Bu ayki yapay zekâ payınız doldu.",
+   "en": "Your AI allowance for this month is used up."
+  },
+  "fallback": [
+   {
+    "v": 1,
+    "id": "a1b2c3d4",
+    "title": {
+     "tr": "Tatiller",
+     "en": "Holidays"
+    },
+    "type": "nav",
+    "feature_id": "admin.holidays",
+    "kind": "page",
+    "path": {
+     "tr": [
+      "Yönetim",
+      "Dönem ve saatler",
+      "Tatiller"
+     ],
+     "en": [
+      "Admin",
+      "Terms and times",
+      "Holidays"
+     ]
+    },
+    "steps": {
+     "tr": [
+      "Yönetim'i açın.",
+      "Dönem ve saatler › Tatiller'i seçin.",
+      "Tatil ekle'ye basın."
+     ],
+     "en": [
+      "Open Admin.",
+      "Pick Terms and times › Holidays.",
+      "Press Add holiday."
+     ]
+    },
+    "anchor": "admin-holidays-add",
+    "actions": []
+   }
+  ],
+  "type": "limit"
+ },
+ "refusal": {
+  "v": 1,
+  "id": "8a8b8c8d",
+  "code": "not_allowed",
+  "message": {
+   "tr": "Bu işlem hesabınızda yok.",
+   "en": "This isn't available on your account."
+  },
+  "fallback": [],
+  "type": "refusal"
+ },
+ "error": {
+  "v": 1,
+  "id": "9a9b9c9d",
+  "code": "slot_taken",
+  "message": {
+   "tr": "Bu saat az önce doldu.",
+   "en": "This slot was just taken."
+  },
+  "fallback": [],
+  "type": "error"
+ }
+}

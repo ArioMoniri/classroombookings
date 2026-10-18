@@ -3472,7 +3472,8 @@
       "goal": "Ledger name `rf-m-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--maxWo…",
       "ledger": "RF-M: phone month arrows, density",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 09:39"
     },
     {
       "id": "a27e010c042ce226a",
@@ -3496,7 +3497,8 @@
       "goal": "Ledger name `aux-10-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--max…",
       "ledger": "AUX-10 sign-in hero motion",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 09:40"
     },
     {
       "id": "a0166c6ed587b97fc",
@@ -3527,6 +3529,52 @@
       "scope": "",
       "goal": "Ledger name `hx-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--maxWork…",
       "ledger": "HX helper chat frontend",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a6d8a3c2a812b702e",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:36",
+      "left_off": "give me the pod access details when it's up"
+    },
+    {
+      "id": "a565826311bd4071e",
+      "description": "Audit owner requests vs tickets",
+      "subagent_type": "Explore",
+      "isolation": null,
+      "started_at": "2026-10-18 09:40",
+      "scope": "",
+      "goal": "Read-only audit, very thorough. Repo /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Goal: make sure nothing the owner asked for is lost. For each owner request below, find its tickets in docs/ROADMAP.md (and any related lines in docs/agents/LANES.md, docs/HANDOFF.md, docs/testin…",
+      "ledger": "Audit owner requests vs tickets",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 09:41",
+      "left_off": "{\"isasync\": true, \"status\": \"async_launched\", \"agentid\": \"a565826311bd4071e\", \"description\": \"audit owner requests vs tickets\", \"resolvedmodel\": \"claude-opus-5-5\", \"prompt\": \"read-only audit, very thorough. repo /home/user/classroombookings (branch claude/focused-wright-ktt0ss). goal: make sure noth…"
+    },
+    {
+      "id": "a14a3c8186d78b826",
+      "description": "CH-M: remaining chart migrations",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 09:42",
+      "scope": "",
+      "goal": "Ledger name `ch-m-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--maxWo…",
+      "ledger": "CH-M: remaining chart migrations",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a863bacc212085413",
+      "description": "HB-C: helper telemetry, admin, local",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 09:42",
+      "scope": "",
+      "goal": "Ledger name `hb-c-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; `nice`, pytest only on…",
+      "ledger": "HB-C: helper telemetry, admin, local",
       "resumed": false,
       "status": "running"
     }

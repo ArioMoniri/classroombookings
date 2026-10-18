@@ -608,8 +608,89 @@ function precheckFix(T) {
   return composition("precheck-fix", W, H, F, T, { base: [], content, fade: [104, 113] });
 }
 
+// ================================================================= 5. quick-reserve (720x405, 3 s; WG-09)
+// The welcome sheet's hero for academicians, staff and department admins (docs/design/v3/welcome-guide.md §8.2):
+// a day row (one day picked), slot chips (one chip picked), room rows (one room checked) and a receipt with a drawn
+// check. It plays ONCE and rests on its last frames (no content fade, no loop); the poster is frame 86.
+function quickReserve(T) {
+  const W = 720, H = 405, F = 90;
+  const content = [];
+  const press = (t) => K([[t, [100, 100], "out"], [t + 3, [94, 94], "inOut"], [t + 7, [100, 100]]]);
+  const swapC = (t, a, b) => K([[t, a, "out"], [t + 5, b]]);
+  const lx = 214, ly = 202, lw = 348, lh = 320;
+
+  // the picker card (day row, slot chips, room rows)
+  const tDay = 10, tSlot = 24, tRoom = 38;
+  const pillC = T.ring ? T.surface : T.surface2; // dark: the card is surface2, so the pills step down
+  const days = [-124, -62, 0, 62, 124].map((x, i) => {
+    const picked = i === 2;
+    return group("day-" + i, [
+      bar(22, 6, picked ? swapC(tDay + 1, T.fgSubtle, T.primaryFg) : T.fgSubtle, picked ? 100 : 55, 0, 0),
+      group("pill", [rect(50, 30, 8), fill(picked ? swapC(tDay, pillC, T.primary) : pillC)]),
+    ], { p: [x, -118], s: picked ? press(tDay - 2) : [100, 100] });
+  });
+  const slots = [];
+  [[-58, 0], [-14, 1]].forEach(([y, row]) => {
+    [-104, 0, 104].forEach((x, col) => {
+      const picked = row === 0 && col === 1;
+      slots.push(group(`slot-${row}-${col}`, [
+        bar(44, 6, picked ? swapC(tSlot + 1, T.fgSubtle, T.primary) : T.fgSubtle, picked ? 100 : 50, 0, 0),
+        group("chip", [
+          rect(92, 34, 10),
+          stroke(picked ? swapC(tSlot, T.ring ?? T.border, T.primary) : (T.ring ?? T.border), picked ? K([[tSlot, 1.25, "out"], [tSlot + 5, 2]]) : 1.25),
+          fill(picked ? swapC(tSlot, T.raised, T.primaryTint) : T.raised),
+        ]),
+      ], { p: [x, y], s: picked ? press(tSlot - 2) : [100, 100] }));
+    });
+  });
+  const rooms = [42, 84, 126].map((y, i) => {
+    const picked = i === 1;
+    const items = [
+      bar(96, 7, T.fg, 70, -62, -6),
+      bar(60, 5, T.fgSubtle, 45, -80, 8),
+      group("icon", [rect(22, 22, 6), fill(T.cat[i])], { p: [-136, 0] }),
+      group("row", [
+        rect(312, 36, 10),
+        stroke(picked ? swapC(tRoom, T.ring ?? T.border, T.feasible.border) : (T.ring ?? T.border), 1.25),
+        fill(picked ? swapC(tRoom, T.raised, T.feasible.bg) : T.raised),
+      ]),
+    ];
+    if (picked) {
+      items.unshift(group("check", [circleCheck(T.feasible.solid, T.feasible.on, 11, K([[tRoom + 4, 0, "out"], [tRoom + 10, 100]]), 2.25)], {
+        p: [130, 0],
+        s: K([[tRoom, [0, 0], "out"], [tRoom + 6, [108, 108], "inOut"], [tRoom + 9, [100, 100]]]),
+      }));
+    }
+    return group("room-" + i, items, { p: [0, y], s: picked ? press(tRoom - 2) : [100, 100] });
+  });
+  content.push(layer("picker", [...days, ...slots, ...rooms, ...cardSurface(T, lw, lh, 16)], {
+    p: K([[0, [lx, ly + 12], "out"], [9, [lx, ly]]]),
+    o: fadeIn(0, 6),
+  }));
+
+  // the receipt: slides up beside the picker, then a check pops and draws
+  const tRc = 52, tChk = tRc + 7;
+  content.push(layer("receipt", [
+    group("lines", [
+      bar(124, 10, T.fg, 75, -13, 0),
+      bar(150, 6, T.fgSubtle, 45, 0, 24),
+      bar(110, 6, T.fgSubtle, 45, -20, 40),
+      group("chip", [bar(36, 5, T.primary, 100, 0, 0), group("bg", [rect(56, 20, 10), fill(T.primaryTint)])], { p: [-47, 70] }),
+    ], { p: [0, 18], o: fadeIn(tChk + 4, 6) }),
+    group("done", [circleCheck(T.feasible.solid, T.feasible.on, 26, K([[tChk + 4, 0, "out"], [tChk + 11, 100]]), 3.25)], {
+      p: [0, -56],
+      s: K([[tChk, [0, 0], "out"], [tChk + 6, [106, 106], "inOut"], [tChk + 9, [100, 100]]]),
+    }),
+    ...cardSurface(T, 236, 232, 16, { borderC: swapC(tChk + 2, T.ring ?? T.border, T.feasible.border) }),
+  ], {
+    p: K([[tRc, [548, ly + 16], "out"], [tRc + 9, [548, ly]]]),
+    o: fadeIn(tRc, 6),
+  }));
+  return composition("quick-reserve", W, H, F, T, { base: [], content, fade: null });
+}
+
 // ---------------------------------------------------------------- write
-const SCENES = { "hero-solver": heroSolver, "nl-to-rules": nlToRules, "file-to-rules": fileToRules, "precheck-fix": precheckFix };
+const SCENES = { "hero-solver": heroSolver, "nl-to-rules": nlToRules, "file-to-rules": fileToRules, "precheck-fix": precheckFix, "quick-reserve": quickReserve };
 mkdirSync(OUT, { recursive: true });
 for (const [name, fn] of Object.entries(SCENES)) {
   for (const theme of ["light", "dark"]) {

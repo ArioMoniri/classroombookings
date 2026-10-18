@@ -18,11 +18,15 @@
      to the model **spotlighted** (``<untrusted source="tool_result">``) in one user message;
    * **taint**: once a result carried other people's free text, the next rounds get read tools only;
    * a ``confirm`` card ends the turn (only the person's button writes);
+   * the person's helper notes (HB-09 ``memory.prompt_notes``; none while memory is off) go into the first message
+     as one spotlighted ``user_notes`` block;
    * the model's final text becomes one ``answer`` card, after the output cleaning and
      :func:`~app.ai.helper.guard.ground_answer` (a page named without its ``nav`` card is replaced by the index
      answer).
 4. **Fallback to index mode** when the gateway refuses (422 guard / capability, 429 limits / rate, 409 transfer
-   basis), the provider fails (502), the call times out or no key is configured: a ``limit`` / ``refusal`` /
+   basis), the output guard rejects a tool that was not offered (``output_rejected``), the model gets an action's
+   arguments wrong in two rounds (``invalid_args``, RA-15), the provider fails (502), the call times out or no key
+   is configured: a ``limit`` / ``refusal`` /
    ``error`` card with the index hits, then ``run_finished`` with ``mode: "index"`` and the ``fallback`` code.
 
 Events (``emit``): ``run_started`` → (``tool_start`` → ``tool``)* → ``text`` → ``card``* → ``run_finished``; an
@@ -52,6 +56,8 @@ MAX_TOOLS = 10
 #: model calls in one turn when the route sets no cap (``DEFAULT_CAPS["helper"]["max_tool_rounds"]``)
 DEFAULT_ROUNDS = 4
 MAX_OUTPUT_TOKENS = 4000
+#: rounds with an ``invalid_args`` tool result after which the turn falls back to index mode (RA-15)
+MAX_INVALID_ROUNDS = 2
 #: index hits shown to the model and as fallback rows
 HITS = 5
 
@@ -83,6 +89,10 @@ _FALLBACK_TEXT: dict[str, tuple[str, str]] = {
     "model_refused": (
         "Yapay zekâ bu isteği yanıtlamadı; dizinden bulduklarım aşağıda.",
         "The AI declined this request; here is what the index found.",
+    ),
+    "invalid_args": (
+        "Yapay zekâ işlemin bilgilerini iki kez hatalı verdi; hiçbir şey yapılmadı. Dizinden bulduklarım aşağıda.",
+        "The AI gave the action's details wrongly twice; nothing was done. Here is what the index found.",
     ),
     "stopped": (
         "Yanıt yarıda kesildi; hiçbir işlem yapılmadı. Dizinden bulduklarım aşağıda.",
@@ -218,13 +228,15 @@ class _Fallback(Exception):
 
 
 def _fallback_for(exc: BaseException) -> _Fallback:
-    from app.ai.client import AIConfigError, AIRefusal
+    from app.ai.client import AIConfigError, AIOutputRejected, AIRefusal
     from app.ai.pipeline import AIGuardError
 
     if isinstance(exc, AIGuardError):
         detail: dict[str, Any] = exc.detail if isinstance(exc.detail, dict) else {}
         kind = "limit" if exc.status_code == 429 else "refusal"
         return _Fallback(kind, exc.code, str(detail.get("message_tr") or ""), str(detail.get("message_en") or ""))
+    if isinstance(exc, AIOutputRejected):  # the gateway's output guard (a tool not offered): not the provider's fault
+        return _Fallback("error", "output_rejected", exc.message_tr, exc.message_en)
     if isinstance(exc, AIConfigError):
         return _Fallback("error", "not_configured", *_FALLBACK_TEXT["not_configured"])
     if isinstance(exc, AIRefusal):
@@ -266,8 +278,16 @@ async def _ai_turn(
     question = (
         f"{_index_context(hits)}\n\nAnswer in {'Turkish' if lang == 'tr' else 'English'}.\n\nThe person asks:\n{text}"
     )
+    from app.ai import guardrails as g
+    from app.ai.helper import memory
+
+    notes = await memory.prompt_notes(session, access.user)  # [] while memory is off (HB-09)
+    if notes:
+        listed = "\n".join(f"- {n}" for n in notes)
+        question = f"Notes the person asked you to remember:\n{g.spotlight(listed, 'user_notes')}\n\n{question}"
     messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
     allow_writes = True
+    invalid_rounds = 0
     emitted_features: list[str] = []
     final_text = ""
     with ai_scope("helper", user_id=access.user_id, user_text=text):
@@ -302,6 +322,10 @@ async def _ai_turn(
                 if o.card.get("type") == "nav":
                     emitted_features.append(str(o.card.get("feature_id")))
                 confirm = confirm or o.card.get("type") == "confirm"
+            if any(o.is_error and o.card.get("code") == "invalid_args" for o in outcomes):
+                invalid_rounds += 1
+                if invalid_rounds >= MAX_INVALID_ROUNDS:  # RA-15: no third guess at an action's arguments
+                    raise _Fallback("error", "invalid_args", *_FALLBACK_TEXT["invalid_args"])
             if not tooluse.writes_allowed_after(outcomes):
                 allow_writes, result.tainted = False, True
             if confirm:  # the person's button decides; the model is not asked again

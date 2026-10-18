@@ -12,7 +12,7 @@ import { HERO_DELAY_MS, HERO_SEGMENT, heroLoaders, SignInHero } from "./signin-h
 import { SignInShell } from "./signin-shell";
 
 type MockProps = { src: { layers: { nm?: string }[] }; loop?: boolean; autoplay?: boolean; segment?: readonly [number, number]; subscriptions?: { complete?: () => void }; lottieRef?: { current: unknown } };
-const lot = vi.hoisted(() => ({ props: null as unknown, handle: { pause: () => undefined, seek: (_: unknown) => undefined } }));
+const lot = vi.hoisted(() => ({ props: null as unknown, handle: { pause: () => undefined, seek: (target: unknown) => void target } }));
 vi.mock("lottie-react", () => ({
   LottieLight: (p: MockProps) => {
     lot.props = p;
