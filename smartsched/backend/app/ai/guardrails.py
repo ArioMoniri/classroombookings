@@ -105,6 +105,18 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "Bu istek için izin verilen yapay zekâ adım sayısı doldu.",
         "This request used up its allowed number of AI steps.",
     ),
+    "model_lacks_capability": (
+        "Bu özellik için seçilen yapay zekâ modeli bu isteği karşılayamıyor (araç çağırma ya da görüntü okuma yok). "
+        "Yöneticiniz Yönetim > Yapay zekâ sayfasından başka bir model seçebilir.",
+        "The AI model chosen for this feature cannot handle this request (no tool calling or image input). Your "
+        "administrator can choose another model under Admin > AI.",
+    ),
+    "context_too_small": (
+        "İstek, seçilen yapay zekâ modelinin bağlam penceresine sığmıyor. Metni kısaltın ya da yöneticiniz daha "
+        "geniş bağlamlı bir model seçsin.",
+        "The request does not fit the chosen AI model's context window. Shorten the text, or ask your "
+        "administrator to choose a model with a larger context.",
+    ),
     "output_unexpected_tool": (
         "Yapay zekâ beklenmeyen bir işlem istedi; hiçbir şey uygulanmadı.",
         "The AI asked for an unexpected action; nothing was applied.",

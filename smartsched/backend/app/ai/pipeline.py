@@ -5,7 +5,9 @@
 2. KVKK transfer basis for a feature that can carry personal data (R-AI-03; 409 ``ai_transfer_basis_missing``);
 3. tool-round cap, per-user requests per minute and concurrent calls;
 4. the input guard on the person's typed text, once per interaction (+ the optional model-based scope check);
-5. limits: reserve the estimated tokens / cost against the org budget and the user's limits;
+5. what the model is known to handle (HB-13): tools / images it lacks refuse with ``model_lacks_capability``, a
+   prompt that leaves no room in its context window with ``context_too_small``; ``max_tokens`` is clamped to the
+   room left; then the limits: reserve the estimated tokens / cost against the org budget and the user's limits;
 6. caps (``max_tokens``, effort, timeout) and the guard preamble in ``system``;
 7. the provider call (one retry on the route's fallback provider / model after a provider failure);
 8. output guard (only offered tools, schema-valid structured output, no links / code in free text);
@@ -28,6 +30,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from app.ai import capabilities as capmod
 from app.ai import guardrails as g
 from app.ai.context import current_actor, current_scope
 from app.ai.gateway import PERSONAL_FEATURES, ResolvedRoute
@@ -221,6 +224,17 @@ async def run_call(
     cap_tokens = int(route.max_tokens or rr.caps.get("max_tokens") or 0)
     if cap_tokens and max_tokens > cap_tokens:
         max_tokens = cap_tokens
+    # 5a. what the model is known to handle (HB-13): tools / images it lacks, the prompt against its context window
+    model_caps = gw.caps_of(provider, model)
+    issue = capmod.call_issue(model_caps, kwargs)
+    if issue is not None:
+        raise await refuse(issue, "refused_by_guardrail", f"{provider}:{model}"[:120])
+    fitted = capmod.fit_context(model_caps, kwargs, max_tokens)
+    if fitted is None:
+        raise await refuse(
+            "context_too_small", "refused_by_guardrail", f"window={model_caps and model_caps.get('context_window')}"
+        )
+    max_tokens = fitted
     est_tokens = int(chars / 3.5) + min(max_tokens or 4000, 4000)
     rate = gw.synced_prices.get(provider, {}).get(model)
     est_cost = estimate_cost_usd(model, int(chars / 3.5), min(max_tokens or 4000, 4000), provider=provider, prices=rate)
@@ -335,6 +349,14 @@ async def _call_with_fallback(
     last: Exception | None = None
     for i, (prov, mod) in enumerate(attempts):
         payload = {**call, "model": mod}
+        if i:  # the fallback model may lack a capability or have a smaller window (HB-13): skip it then
+            fb_caps = gw.caps_of(prov, mod)
+            fitted = capmod.fit_context(fb_caps, payload, int(payload.get("max_tokens") or 0))
+            if fitted is None or capmod.call_issue(fb_caps, payload) is not None:
+                log.info("ai fallback %s/%s cannot take this request; skipped", prov, mod)
+                continue
+            if fitted:
+                payload["max_tokens"] = fitted
         try:
             adapter = gw.adapter(prov, mod, route.temperature)
             adapter.capabilities = gw.caps_of(prov, mod)  # named tool choice / emulation / PDF pages (HB-13)

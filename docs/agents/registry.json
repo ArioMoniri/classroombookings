@@ -3320,6 +3320,18 @@
       "status": "finished",
       "finished_at": "2026-10-18 08:31",
       "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a96cecc693934b205",
+      "description": "Charts resume: CH-03..09",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 08:33",
+      "scope": "",
+      "goal": "You are the CHARTS lane, re-created after a container restart. CH-01 and CH-02 are done and committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `components/charts/**` and `components/charts/evil/**`. You may also have started CH-04 (the dashboard `PeriodArea` migration);…",
+      "ledger": "Charts resume: CH-03..09",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

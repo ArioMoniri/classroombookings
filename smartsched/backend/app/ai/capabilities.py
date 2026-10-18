@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 import struct
 import zlib
 from datetime import UTC, datetime
@@ -346,6 +347,99 @@ def route_issues(feature: str | None, caps: dict[str, Any] | None) -> tuple[list
     return errors, warnings
 
 
+# ---------------------------------------------------------------------------------------------- at call time (HB-13)
+
+#: rough tokens of one image / one PDF page as a vision model reads it (Claude ~1 600 for a full page; Qwen-VL and
+#: LLaVA tile smaller): the estimate errs high so a small local window is refused before it overflows
+IMAGE_TOKENS = 1_600
+#: the answer must have at least this many tokens of room, else the call is ``context_too_small``
+MIN_OUTPUT_TOKENS = 512
+_PAGE = re.compile(rb"/Type\s*/Page(?![s\w])")
+
+
+def _pdf_pages(b64: str) -> int:
+    try:
+        raw = base64.standard_b64decode(b64 or "")
+    except ValueError:
+        return 1
+    return max(len(_PAGE.findall(raw)), 1)
+
+
+def _media_tokens(block: dict[str, Any]) -> tuple[int, int]:
+    """``(text chars, media tokens)`` of one content block (a base64 payload is never counted as text)."""
+    kind = block.get("type")
+    if kind == "image":
+        return 0, IMAGE_TOKENS
+    if kind == "document":
+        src = block.get("source") or {}
+        if src.get("type") == "text":
+            return len(str(src.get("data") or "")), 0
+        if src.get("type") == "base64":
+            return 0, IMAGE_TOKENS * _pdf_pages(str(src.get("data") or ""))
+        return 0, IMAGE_TOKENS
+    if kind == "tool_result":
+        content = block.get("content")
+        if isinstance(content, list):
+            chars = tokens = 0
+            for b in content:
+                c, t = _media_tokens(b) if isinstance(b, dict) else (len(str(b)), 0)
+                chars, tokens = chars + c, tokens + t
+            return chars, tokens
+        return len(str(content or "")), 0
+    if kind == "text":
+        return len(str(block.get("text") or "")), 0
+    return len(json.dumps(block, ensure_ascii=False, default=str)), 0
+
+
+def estimate_input_tokens(kwargs: dict[str, Any]) -> int:
+    """A deliberately high estimate of the prompt (system + messages + tool schemas): 1 token per 3 characters of
+    text (Turkish runs longer than English) and :data:`IMAGE_TOKENS` per image or PDF page."""
+    from app.ai.providers.base import block_dict, system_text
+
+    chars = len(system_text(kwargs.get("system")))
+    media = 0
+    for msg in kwargs.get("messages") or []:
+        content = msg.get("content") if isinstance(msg, dict) else None
+        if isinstance(content, str):
+            chars += len(content)
+            continue
+        for b in content or []:
+            c, t = _media_tokens(block_dict(b))
+            chars, media = chars + c, media + t
+    if kwargs.get("tools"):
+        chars += len(json.dumps(kwargs["tools"], ensure_ascii=False, default=str))
+    return chars // 3 + media + 16 * len(kwargs.get("messages") or [])
+
+
+def fit_context(caps: dict[str, Any] | None, kwargs: dict[str, Any], max_tokens: int) -> int | None:
+    """``max_tokens`` clamped to what is left of the model's context window after the prompt; ``None`` when not even
+    :data:`MIN_OUTPUT_TOKENS` are left (``context_too_small``). An unknown window keeps ``max_tokens``."""
+    window = (caps or {}).get("context_window")
+    if not isinstance(window, int) or window <= 0:
+        return max_tokens
+    room = window - estimate_input_tokens(kwargs) - max(window // 50, 64)
+    if room < min(MIN_OUTPUT_TOKENS, max_tokens or MIN_OUTPUT_TOKENS):
+        return None
+    return min(max_tokens, room) if max_tokens else room
+
+
+def call_issue(caps: dict[str, Any] | None, kwargs: dict[str, Any]) -> str | None:
+    """A request the model is *known* not to handle (a ``False`` fact; unknown never refuses): tools on a model
+    without tool calling (a forced single tool still works through JSON-schema emulation unless that is known to
+    fail too), or an image on a model without vision. Returns ``model_lacks_capability`` or ``None``."""
+    c = caps or {}
+    if kwargs.get("tools") and c.get("tools") is False:
+        choice = kwargs.get("tool_choice") or {}
+        if choice.get("type") != "tool" or c.get("json_schema") is False:
+            return "model_lacks_capability"
+    if c.get("vision") is False:
+        for msg in kwargs.get("messages") or []:
+            content = msg.get("content") if isinstance(msg, dict) else None
+            if isinstance(content, list) and any(isinstance(b, dict) and b.get("type") == "image" for b in content):
+                return "model_lacks_capability"
+    return None
+
+
 # ---------------------------------------------------------------------------------------------- probe
 
 
@@ -502,12 +596,17 @@ async def probe(adapter: Any, model: str) -> tuple[dict[str, Any], ProbeUsage]:
 __all__ = [
     "BOOL_KEYS",
     "CAP_KEYS",
+    "IMAGE_TOKENS",
+    "MIN_OUTPUT_TOKENS",
     "NEEDS",
     "PROBE_SCHEMA",
     "PROBE_TOOL",
     "RED_PNG_B64",
+    "call_issue",
     "claude",
     "empty",
+    "estimate_input_tokens",
+    "fit_context",
     "for_listing",
     "gemini",
     "is_known",

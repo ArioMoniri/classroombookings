@@ -93,7 +93,9 @@ async def _route_local(session, feature: str, model: str, capabilities: dict[str
     if capabilities is not None:
         entry["capabilities"] = caps.record(**capabilities)
     await gw.store_synced_models(session, "openai_compatible", [entry], None)
-    await gw.put_json(session, gw.ROUTES_KEY, {"features": {feature: {"provider": "openai_compatible", "model": model}}})
+    await gw.put_json(
+        session, gw.ROUTES_KEY, {"features": {feature: {"provider": "openai_compatible", "model": model}}}
+    )
     await gw.put_json(
         session, "ai.provider.openai_compatible.config", {"base_url": LOCAL, "enabled": True, "allow_local": True}
     )
