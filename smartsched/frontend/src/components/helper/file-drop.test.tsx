@@ -132,7 +132,8 @@ describe("the sheet's ways in", () => {
     const target = screen.getByTestId("helper-file-drop");
     expect(target).toHaveTextContent("Dosyayı buraya bırakın. Ne olduğunu ve ne yapacağınızı söyleyeyim.");
     expect(target).toHaveTextContent("en çok 15 MB");
-    expect(target).toHaveTextContent("Siz onaylayana kadar hiçbir şey kaydedilmez.");
+    // KVKK review C3 (Art. 10): what really happens to the file
+    expect(target).toHaveTextContent("Dosya yalnızca türünü anlamak için okunur ve en çok 10 dakika şifreli tutulur. Açılan sayfada Önizle'ye basana kadar hiçbir şey kaydedilmez.");
     fireEvent.dragLeave(log, { dataTransfer: { types: ["Files"], files: [] } });
     expect(screen.queryByTestId("helper-file-drop")).toBeNull();
   });

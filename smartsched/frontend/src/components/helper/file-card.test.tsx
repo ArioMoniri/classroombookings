@@ -115,6 +115,7 @@ describe("detected", () => {
     const what = within(card).getByTestId("helper-file-what");
     expect(what).toHaveAttribute("aria-expanded", "false");
     expect(within(card).queryByTestId("helper-file-explain")).toBeNull();
+    expect(card).toHaveTextContent("Dosya yalnızca türünü anlamak için okunur ve en çok 10 dakika şifreli tutulur. Açılan sayfada Önizle'ye basana kadar hiçbir şey kaydedilmez.");
     fireEvent.click(what);
     expect(within(card).getByTestId("helper-file-explain")).toHaveTextContent("Haftalık derslik takvimi, her hafta için bir sayfadır.");
   });
