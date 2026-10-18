@@ -29,7 +29,7 @@ async def test_per_f01_week_next_from_a_sunday_is_the_coming_week(env):  # noqa:
     # Sunday 1 March shows Mon 23 – Fri 27 Feb; "Sonraki hafta" is Mon 2 March, not Mon 9 March
     assert week["dates"][0]["date"] == "2026-02-23"
     assert week["nav"]["next"] == "2026-03-02"
-    assert week["nav"]["prev"] == "2026-02-20"
+    assert week["nav"]["prev"] == "2026-02-16"
 
 
 async def test_hx12b_f01_default_opens_on_the_next_teaching_day_on_a_weekend(env):  # noqa: F811

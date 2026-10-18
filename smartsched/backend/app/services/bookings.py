@@ -2152,7 +2152,7 @@ async def _prev_next(
     else:
         # PER-F01: from the Monday of the shown week, so a weekend target's "next" is the coming week
         monday = target - timedelta(days=target.isoweekday() - 1)
-        before = [d for d, x in infos.items() if d < monday and ok(x)]
+        before = [d for d, x in infos.items() if d <= monday - timedelta(days=7) and ok(x)]
         after = [d for d, x in infos.items() if d >= monday + timedelta(days=7) and ok(x)]
     return (max(before) if before else None), (min(after) if after else None)
 
