@@ -3342,6 +3342,30 @@
       "status": "finished",
       "finished_at": "2026-10-18 08:34",
       "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a20df7639564aebd2",
+      "description": "Mobile A resume: primitives + user routes",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 08:36",
+      "scope": "",
+      "goal": "You are lane MOBILE A, phase 2, re-created after a container restart. Some of your earlier fixes are already committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss); for example `ui/input.tsx` and `ui/hit-area.ts` now use `pointer-coarse:text-base`. Check `git log` and `git d…",
+      "ledger": "Mobile A resume: primitives + user routes",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a747b9edc3aff8921",
+      "description": "Mobile B resume: route-level fixes",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 08:36",
+      "scope": "",
+      "goal": "You are lane MOBILE B, phase 2, re-created after a container restart. Your earlier route-level fixes are partly committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). You stopped while moving \"Yeni grup\" on /admin/rooms into the capsule. Check `git log` and `git diff` for t…",
+      "ledger": "Mobile B resume: route-level fixes",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
