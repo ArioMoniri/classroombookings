@@ -30,10 +30,16 @@ test.skip(!REAL, SKIP_REASON);
 let stub: http.Server | null = null;
 let runId = 0;
 let browser: Browser;
+// VO09-F04: the global AI settings this suite changes are put back afterwards (routes and the voice switch; provider
+// keys cannot be read back, so the placeholder keys stay until an admin replaces them)
+let savedRoutes: unknown = null;
+let savedVoice: unknown = null;
 
 test.beforeAll(async () => {
   stub = await startTextStub(STUB_PORT);
   const admin = await ctxFor(ADMIN_EMAIL, ADMIN_PASSWORD);
+  savedRoutes = await (await admin.get(`${API}/ai/admin/routes`)).json().catch(() => null);
+  savedVoice = await (await admin.get(`${API}/ai/admin/voice`)).json().catch(() => null);
   await setupVoice(admin);
   await setupText(admin, STUB_PORT);
   // a fresh first use: the admin has not agreed to voice yet
@@ -47,11 +53,29 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  const admin = await ctxFor(ADMIN_EMAIL, ADMIN_PASSWORD).catch(() => null);
+  if (admin) {
+    const features = (savedRoutes as { features?: unknown } | null)?.features;
+    if (features) await admin.put(`${API}/ai/admin/routes`, { data: { features } }).catch(() => undefined);
+    const enabled = (savedVoice as { enabled?: boolean } | null)?.enabled;
+    if (typeof enabled === "boolean") await admin.put(`${API}/ai/admin/voice`, { data: { enabled } }).catch(() => undefined);
+    await admin.dispose();
+  }
   await browser?.close();
   await new Promise<void>((resolve) => (stub ? stub.close(() => resolve()) : resolve()));
 });
 
-async function open(opts: typeof DESKTOP | typeof PHONE, grant = true): Promise<{ ctx: BrowserContext; page: Page }> {
+/** VO09-F04: every test but the consent ones starts with the voice consent given, so each one runs alone (`-g`) and
+ * none depends on test 1 having accepted the sheet. */
+async function grantVoiceConsent() {
+  const admin = await ctxFor(ADMIN_EMAIL, ADMIN_PASSWORD);
+  const r = await admin.post(`${API}/me/consents/voice`);
+  expect(r.ok(), `voice consent: ${r.status()} ${await r.text()}`).toBeTruthy();
+  await admin.dispose();
+}
+
+async function open(opts: typeof DESKTOP | typeof PHONE, grant = true, consent = true): Promise<{ ctx: BrowserContext; page: Page }> {
+  if (consent) await grantVoiceConsent();
   const ctx = await browser.newContext({ ...opts, baseURL: BASE, permissions: grant ? ["microphone"] : [] });
   const page = await ctx.newPage();
   await login(page);
@@ -62,7 +86,10 @@ const chatBox = (page: Page) => page.getByTestId("chat-panel").locator("textarea
 const chatMic = (page: Page) => page.getByTestId("voice-mic-chat").getByTestId("voice-mic");
 
 test("1. chat at 1440: consent first, click to start / stop, transcript in the box, never sent until the user sends", async () => {
-  const { ctx, page } = await open(DESKTOP);
+  const fresh = await ctxFor(ADMIN_EMAIL, ADMIN_PASSWORD);
+  await fresh.delete(`${API}/me/consents/voice`);
+  await fresh.dispose();
+  const { ctx, page } = await open(DESKTOP, true, false);
   const calls = await stubTranscript(page, SPOKEN);
   await page.goto(`/runs/${runId}`);
   const mic = chatMic(page);
@@ -141,8 +168,12 @@ test("3. a spoken injection lands in the box and is refused on send", async () =
   await expect(box).toHaveValue(SPOKEN_INJECTION, { timeout: 15_000 });
   const refused = page.waitForResponse((r) => /\/chat(\/stream)?$/.test(new URL(r.url()).pathname) && r.request().method() === "POST");
   await box.press("Enter");
+  // the agreed contract (backend chat.py post_chat_stream, F-VO-2): a refusal decided before the stream starts is the
+  // HTTP answer itself (422 + the same JSON detail as POST /chat), not 200 + an error event
   expect((await refused).status()).toBe(422);
   await expect(page.getByTestId("chat-panel")).not.toContainText("Tamam, B-204");
+  // VO09-F01: the refusal keeps the text in the box ("Metniniz duruyor")
+  await expect(box).toHaveValue(SPOKEN_INJECTION);
   await page.screenshot({ path: test.info().outputPath("chat-injection-1440.png") });
   await focusNotOnBody(page);
   await ctx.close();
@@ -223,7 +254,7 @@ test("5b. phone: the consent sheet is a bottom sheet with 44 px actions", async 
   const admin = await ctxFor(ADMIN_EMAIL, ADMIN_PASSWORD);
   await admin.delete(`${API}/me/consents/voice`);
   await admin.dispose();
-  const { ctx, page } = await open(PHONE);
+  const { ctx, page } = await open(PHONE, true, false);
   await page.goto(`/runs/${runId}`);
   await page.getByRole("tab", { name: "Sohbet" }).click();
   await chatMic(page).tap();

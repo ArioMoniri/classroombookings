@@ -849,14 +849,14 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
     try:
         info = await resolve_term(session, body.date, body.term_id, view_all=access.can("system.view_all_sessions"))
     except CalendarError as exc:
-        raise _conflict("calendar", str(exc)) from exc
+        raise _conflict("calendar", str(exc), **exc.texts) from exc
     need = await approvals.need_for(session, access, room, "book_single", info.term.id)
     try:
         await _open_date(session, info, body.date)
         await _open_day(session, info, room, body.date)
         period = await period_for(session, info, room, body.period_id, body.date)
     except CalendarError as exc:
-        raise _conflict("calendar", str(exc)) from exc
+        raise _conflict("calendar", str(exc), **exc.texts) from exc
     if need is not None:
         await approvals.check_lead_time(session, need, info.term.id, body.date)
     user_id, dep_id = await _who_and_department(session, access, room, "book_single", body)
@@ -990,14 +990,14 @@ async def plan_recurring(session: AsyncSession, access: Access, body: RecurIn) -
     try:
         info = await resolve_term(session, body.date, body.term_id, view_all=access.can("system.view_all_sessions"))
     except CalendarError as exc:
-        raise _conflict("calendar", str(exc)) from exc
+        raise _conflict("calendar", str(exc), **exc.texts) from exc
     need = await approvals.need_for(session, access, room, "book_recur", info.term.id)
     try:
         anchor = await _open_date(session, info, body.date)
         await _open_day(session, info, room, body.date)
         period = await period_for(session, info, room, body.period_id, body.date)
     except CalendarError as exc:
-        raise _conflict("calendar", str(exc)) from exc
+        raise _conflict("calendar", str(exc), **exc.texts) from exc
     dates = await recurring_dates(session, info, body.date)
     if not dates:
         raise _conflict("no_recurring_dates", "no dates to repeat this booking on")
@@ -1482,12 +1482,16 @@ async def update(
         info = await term_info(session, term)
         try:
             if info is None or not (info.start <= new_date <= info.end):
-                raise CalendarError(f"{new_date:%d.%m.%Y} is outside the booking's term")
+                raise CalendarError(
+                    f"{new_date:%d.%m.%Y} is outside the booking's term",
+                    message_tr=f"{new_date:%d.%m.%Y} tarihi bu rezervasyonun döneminin dışında.",
+                    message_en=f"{new_date:%d.%m.%Y} is outside the booking's term.",
+                )
             await _open_date(session, info, new_date)
             await _open_day(session, info, new_room, new_date)
             period = await period_for(session, info, new_room, data.get("period_id", b.period_id), new_date)
         except CalendarError as exc:
-            raise _conflict("calendar", str(exc)) from exc
+            raise _conflict("calendar", str(exc), **exc.texts) from exc
         if not access.can(f"{_kind(b)}.edit_other_booking") and "date" in data:
             # owners (and room-level editors) move a booking within their own booking window only: never into
             # the past, never beyond range_min / range_max (deliberate security difference)
@@ -1591,7 +1595,7 @@ async def create_selection(session: AsyncSession, access: Access, slots: list[di
             session, first["date"], first.get("term_id"), view_all=access.can("system.view_all_sessions")
         )
     except CalendarError as exc:
-        raise _conflict("calendar", str(exc)) from exc
+        raise _conflict("calendar", str(exc), **exc.texts) from exc
     anchor = (await date_infos(session, info, [first["date"]]))[first["date"]]
     mb = MultiBooking(user_id=access.user_id, term_id=info.term.id, timetable_week_id=anchor.timetable_week_id)
     seen = set()

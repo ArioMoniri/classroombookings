@@ -26,7 +26,23 @@ from app.services.calendar import term_monday, week_index_for_date
 
 
 class CalendarError(ValueError):
-    """A booking request does not fit the calendar (409 with this message)."""
+    """A booking request does not fit the calendar (409 with this message). ``message_tr`` / ``message_en`` (E2EB-F07)
+    are what a person reads; the plain message stays English for logs and older clients."""
+
+    def __init__(self, message: str, *, message_tr: str | None = None, message_en: str | None = None) -> None:
+        super().__init__(message)
+        self.message_tr, self.message_en = message_tr, message_en
+
+    @property
+    def texts(self) -> dict[str, str]:
+        """``{message_tr, message_en}`` when the refusal has its own words, else empty."""
+        if not self.message_tr:
+            return {}
+        return {"message_tr": self.message_tr, "message_en": self.message_en or str(self)}
+
+
+def _term_label(term: Term) -> str:
+    return term.name or term.code
 
 
 # --------------------------------------------------------------------------------------------------
@@ -137,20 +153,41 @@ async def resolve_term(session: AsyncSession, d: date, term_id: int | None, *, v
     if term_id is not None:
         term = await session.get(Term, term_id)
         if term is None:
-            raise CalendarError(f"term {term_id} not found")
+            raise CalendarError(
+                f"term {term_id} not found", message_tr="Dönem bulunamadı.", message_en="The term was not found."
+            )
         info = await term_info(session, term)
         if info is None:
-            raise CalendarError(f"term {term.code} has no dates")
+            name = _term_label(term)
+            raise CalendarError(
+                f"term {term.code} has no dates",
+                message_tr=f"{name} döneminin tarihleri girilmemiş.",
+                message_en=f"The term {name} has no dates yet.",
+            )
         if not (info.start <= d <= info.end):
-            raise CalendarError(f"{d:%d.%m.%Y} is outside term {term.code} ({info.start:%d.%m.%Y}-{info.end:%d.%m.%Y})")
+            name, span = _term_label(term), f"{info.start:%d.%m.%Y}–{info.end:%d.%m.%Y}"
+            raise CalendarError(
+                f"{d:%d.%m.%Y} is outside term {term.code} ({info.start:%d.%m.%Y}-{info.end:%d.%m.%Y})",
+                message_tr=f"{d:%d.%m.%Y} tarihi {name} döneminin dışında ({span}).",
+                message_en=f"{d:%d.%m.%Y} is outside the term {name} ({span}).",
+            )
     else:
         cands = await terms_for_date(session, d)
         cands.sort(key=lambda t: (not t.term.is_active, not t.is_selectable, t.term.id))
         if not cands:
-            raise CalendarError(f"no term covers {d:%d.%m.%Y}")
+            raise CalendarError(
+                f"no term covers {d:%d.%m.%Y}",
+                message_tr=f"{d:%d.%m.%Y} hiçbir dönemin içinde değil.",
+                message_en=f"No term covers {d:%d.%m.%Y}.",
+            )
         info = cands[0]
     if not view_all and not info.is_selectable:
-        raise CalendarError(f"term {info.term.code} is not open for bookings")
+        name = _term_label(info.term)
+        raise CalendarError(
+            f"term {info.term.code} is not open for bookings",
+            message_tr=f"{name} dönemi rezervasyona açık değil.",
+            message_en=f"The term {name} is not open for bookings.",
+        )
     return info
 
 
@@ -259,14 +296,33 @@ async def applied_schedule(session: AsyncSession, info: TermInfo, room: Room) ->
 async def period_for(session: AsyncSession, info: TermInfo, room: Room, period_id: int, d: date) -> BookingPeriod:
     period = await session.get(BookingPeriod, period_id)
     if period is None:
-        raise CalendarError(f"period {period_id} not found")
+        raise CalendarError(
+            f"period {period_id} not found", message_tr="Ders saati bulunamadı.", message_en="The period was not found."
+        )
     schedule = await applied_schedule(session, info, room)
     if schedule is None:
-        raise CalendarError(f"no schedule is set for {room.display_name} in term {info.term.code}")
+        term = _term_label(info.term)
+        raise CalendarError(
+            f"no schedule is set for {room.display_name} in term {info.term.code}",
+            message_tr=f"{room.display_name} için {term} döneminde ders saatleri tanımlanmamış.",
+            message_en=f"No periods are set for {room.display_name} in the term {term}.",
+        )
     if period.schedule_id != schedule.id:
-        raise CalendarError(f"period {period.name} is not in the schedule of {room.display_name} ({schedule.name})")
+        raise CalendarError(
+            f"period {period.name} is not in the schedule of {room.display_name} ({schedule.name})",
+            message_tr=f"{period.name} ders saati {room.display_name} salonunun ders saatlerinde yok.",
+            message_en=f"{period.name} is not one of {room.display_name}'s periods.",
+        )
     if not period.bookable:
-        raise CalendarError(f"period {period.name} is not bookable")
+        raise CalendarError(
+            f"period {period.name} is not bookable",
+            message_tr=f"{period.name} ders saati rezervasyona açık değil.",
+            message_en=f"{period.name} is not open for bookings.",
+        )
     if d.isoweekday() not in (period.days or []):
-        raise CalendarError(f"period {period.name} is not available on {n.DAY_LABELS_TR.get(d.isoweekday(), d)}")
+        raise CalendarError(
+            f"period {period.name} is not available on {n.DAY_LABELS_TR.get(d.isoweekday(), d)}",
+            message_tr=f"{period.name} ders saati {n.DAY_LABELS_TR.get(d.isoweekday(), d)} günü yok.",
+            message_en=f"{period.name} is not available on {d:%A}.",
+        )
     return period

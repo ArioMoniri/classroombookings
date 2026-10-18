@@ -192,7 +192,12 @@ function StepFrame({ title, lead, children, footer }: { title: string; lead?: Re
         {lead ? <p className="mt-1 type-footnote text-label-2">{lead}</p> : null}
       </div>
       {children}
-      {footer ? <div className="sticky bottom-0 -mx-4 flex flex-wrap gap-2 bg-(--mat) px-4 pt-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] sm:static sm:mx-0 sm:px-0 sm:pb-0">{footer}</div> : null}
+      {/* E2EB-F04: on a phone the footer sticks above the bottom tab bar (bottom-0 put "Kaydet" under it, M-05) */}
+      {footer ? (
+        <div data-slot="step-footer" className="flex flex-wrap gap-2 max-sm:sticky max-sm:bottom-[calc(var(--shell-bottom-h)+0.5rem)] max-sm:z-10 max-sm:-mx-2 max-sm:rounded-2xl max-sm:bg-(--mat-thick-solid) max-sm:p-1.5 max-sm:shadow-elev-2">
+          {footer}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -696,8 +701,19 @@ function SpKey({ p }: { p: Provider }) {
     moved.current = false;
     (isSet ? removeRef : generateRef).current?.focus();
   }, [isSet]);
-  const changed = () => {
+  // E2EB-F17: the provider in the cache may flip before or after the save's success callback; arm the move at the
+  // press, and focus the replacing button once it is mounted whichever comes first (never <body>)
+  const arm = () => {
     moved.current = true;
+  };
+  const changed = (out: Provider) => {
+    const set = out.saml?.sp_private_key_set === true;
+    requestAnimationFrame(() => {
+      const a = document.activeElement;
+      if (a && a !== document.body && a.isConnected) return;
+      moved.current = false;
+      (set ? removeRef : generateRef).current?.focus();
+    });
   };
   return (
     <SubBlock title={t("identity.saml.spTitle")} hint={t("identity.saml.spHint")}>
@@ -728,7 +744,10 @@ function SpKey({ p }: { p: Provider }) {
               busyLabel={t("busy.saving")}
               disabled={pending}
               className="min-h-11 sm:min-h-9"
-              onClick={() => save({ sp_key_generate: true }, t("identity.saml.spGenerated"), changed)}
+              onClick={() => {
+                arm();
+                save({ sp_key_generate: true }, t("identity.saml.spGenerated"), changed);
+              }}
               data-testid="idp-sp-generate"
             >
               <KeyRound aria-hidden />
@@ -771,13 +790,14 @@ function SpKey({ p }: { p: Provider }) {
                 busyLabel={t("busy.saving")}
                 disabled={!key.trim()}
                 className="min-h-11 self-start sm:min-h-9"
-                onClick={() =>
-                  save({ sp_private_key: key, ...(cert.trim() ? { sp_certificate: cert } : {}) }, t("identity.saml.spSaved"), () => {
+                onClick={() => {
+                  arm();
+                  save({ sp_private_key: key, ...(cert.trim() ? { sp_certificate: cert } : {}) }, t("identity.saml.spSaved"), (out) => {
                     setKey("");
                     setCert("");
-                    changed();
-                  })
-                }
+                    changed(out);
+                  });
+                }}
                 data-testid="idp-sp-save"
               >
                 {t("identity.saml.spSave")}
@@ -801,6 +821,7 @@ function SpKey({ p }: { p: Provider }) {
         onConfirm={() => {
           setConfirm(false);
           removeRef.current?.focus();
+          arm();
           save({ sp_key_remove: true }, t("identity.saml.spRemoved"), changed);
         }}
       />

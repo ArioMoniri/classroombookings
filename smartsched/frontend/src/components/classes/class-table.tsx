@@ -237,6 +237,12 @@ function ClassTableImpl(p: ClassTableProps) {
     },
   });
 
+  // E2EA2-F04: the virtualizer caches the sizes it estimated; a density change (Sıkı 32 / Standart 44 / Rahat 56)
+  // has to drop them, or every row stays at the old height
+  useEffect(() => {
+    v.measure();
+  }, [rowH, v]);
+
   const firstVisible = v.range?.startIndex ?? 0;
   const activeSticky = [...stickyIndexes].reverse().find((i) => i <= firstVisible) ?? -1;
   const specs = useMemo<ColumnSpec<ClassRow>[]>(() => p.columns.map((c) => ({ id: c, header: t(HEAD_KEY[c] ?? "classes.col.course"), ...(SPEC[c] ?? { minSize: 96, maxSize: 240 }) })), [p.columns, t]);

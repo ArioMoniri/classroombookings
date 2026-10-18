@@ -500,10 +500,13 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
         if (sidebarOpen && !wide && !embedded) setSidebarOpen(false);
         else {
           // focus inside the inspector would fall to <body> when it empties: back to the class chip (mobile-b phase 2)
-          const inInspector = Boolean((document.activeElement as HTMLElement | null)?.closest?.('[data-testid="class-inspector"]'));
+          const active = document.activeElement as HTMLElement | null;
+          const inInspector = Boolean(active?.closest?.('[data-testid="class-inspector"]'));
+          // E2EB-F11: after a touch tap focus sat on <main> (or <body>), so Esc left it there: back to the chip too
+          const lost = !active || active === document.body || active.tagName === "MAIN";
           if (selection.size) setSelection(new Set());
           else setInspectorOpen(false);
-          if (inInspector) focusClassChip(selectedEvents[0]?.a.id);
+          if (inInspector || lost) focusClassChip(selectedEvents[0]?.a.id);
         }
         return;
       }

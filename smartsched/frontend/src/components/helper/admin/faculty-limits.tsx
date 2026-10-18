@@ -24,8 +24,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { type FacultyCap, type Limits, type LimitsIn, type UnitCap, useSaveLimits } from "@/lib/api/ai-admin";
 import { catalogApi } from "@/lib/api/catalog-admin";
-import { HttpError } from "@/lib/api/client";
+import { refusalBody } from "@/lib/api/error-text";
 import { useFacultyUsage } from "@/lib/api/helper";
+import { useDirtyCapsule } from "@/components/settings/dirty-capsule";
 import { useI18n } from "@/lib/i18n/provider";
 
 interface FacultyDraft {
@@ -91,14 +92,17 @@ export function splitCheck(split: Record<string, number>, allowance: number | nu
 }
 
 /** The faculty a 422 names (`field: "faculties.3"`), or null. */
+/** E2EB-F05: the client keeps FastAPI's wrapper (`{detail: {code, message_tr, field}}`); read the inner body. */
+const errorBody = (err: unknown): Record<string, unknown> => refusalBody(err) ?? {};
+
 function facultyOfField(err: unknown): string | null {
-  const d = err instanceof HttpError && err.detail && typeof err.detail === "object" ? (err.detail as Record<string, unknown>) : {};
+  const d = errorBody(err);
   const m = typeof d.field === "string" ? /^faculties\.(\d+)$/.exec(d.field) : null;
   return m ? m[1]! : null;
 }
 
 function serverText(err: unknown, locale: string, fallback: string): string {
-  const d = err instanceof HttpError && err.detail && typeof err.detail === "object" ? (err.detail as Record<string, unknown>) : {};
+  const d = errorBody(err);
   const text = locale === "en" ? d.message_en : d.message_tr;
   return typeof text === "string" && text ? text : fallback;
 }
@@ -169,6 +173,14 @@ export function FacultyLimits({ data, canEdit }: { data: Limits; canEdit: boolea
   const [warning, setWarning] = useState<string | null>(null);
   const [overIn, setOverIn] = useState<Record<string, boolean>>({});
 
+  // E2EB-F19: with unsaved changes "Fakülte paylarını kaydet" is the phone's page-actions capsule (M-05), not 1200 px
+  // down the tab; the same element changes class, so the focus stays
+  const initial = useMemo(
+    () => JSON.stringify([Object.fromEntries(Object.entries(data.faculties).map(([k, v]) => [k, draftOf(v)])), Object.fromEntries(Object.entries(data.departments).map(([k, v]) => [k, v.monthly_tokens ? String(v.monthly_tokens) : ""])), data.strict]),
+    [data],
+  );
+  const dirty = JSON.stringify([drafts, deps, strict]) !== initial;
+  const capsule = useDirtyCapsule(canEdit && dirty, "flex self-start");
   const draft = (id: string) => drafts[id] ?? draftOf(undefined);
   const setDraft = (id: string, patch: Partial<FacultyDraft>) => setDrafts((x) => ({ ...x, [id]: { ...draft(id), ...patch } }));
   // the in-browser check of the opened faculties: a department split over the allowance blocks the save
@@ -282,11 +294,13 @@ export function FacultyLimits({ data, canEdit }: { data: Limits; canEdit: boolea
       {error && error.faculty === null ? <Alert tone="error" testId="faculty-limits-error">{error.text}</Alert> : null}
       {warning ? <Alert tone="warning" testId="faculty-limits-warning">{warning}</Alert> : null}
       {canEdit && faculties.length ? (
-        <Button variant="outline" className="self-start" onClick={submit} {...busyProps(save.isPending, overAny)} data-testid="faculty-limits-save">
-          <BusyLabel busy={save.isPending} label={t("busy.saving")} icon={<Save aria-hidden />}>
-            {t("helper.facultyLimits.save")}
-          </BusyLabel>
-        </Button>
+        <div {...capsule.props}>
+          <Button variant="outline" onClick={submit} {...busyProps(save.isPending, overAny)} data-testid="faculty-limits-save">
+            <BusyLabel busy={save.isPending} label={t("busy.saving")} icon={<Save aria-hidden />}>
+              {t("helper.facultyLimits.save")}
+            </BusyLabel>
+          </Button>
+        </div>
       ) : null}
     </Card>
   );

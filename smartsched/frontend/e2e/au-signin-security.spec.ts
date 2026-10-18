@@ -10,7 +10,7 @@
 import { createHmac } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { REAL, SKIP_REASON } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON } from "./helpers";
 import { adminApi, API, type Admin } from "./identity";
 import { pinLanguage } from "./language";
 
@@ -65,8 +65,20 @@ async function virtualAuthenticator(context: BrowserContext, page: Page): Promis
   return { count: async () => (await cdp.send("WebAuthn.getCredentials", { authenticatorId })).credentials.length };
 }
 
+/** A goto that a still-running client navigation of the previous page (router.refresh after sign-in) aborted is
+ * retried once after that navigation settles (AUX12-F10: `net::ERR_ABORTED` on /login?method=local). */
+async function gotoSettled(page: Page, url: string) {
+  try {
+    await page.goto(url);
+  } catch (e) {
+    if (!String(e).includes("ERR_ABORTED")) throw e;
+    await page.waitForLoadState("load").catch(() => undefined);
+    await page.goto(url);
+  }
+}
+
 async function signInWithPassword(page: Page, password = USER.password) {
-  await page.goto("/login?method=local");
+  await gotoSettled(page, "/login?method=local");
   await page.getByLabel(/Kullanıcı adı veya e-posta/).fill(USER.username);
   await page.getByLabel(/^Parola$/).fill(password);
   await page.getByRole("button", { name: /^Giriş yap$/ }).click();
@@ -113,7 +125,7 @@ test.afterAll(async () => {
 test("§16.6: 2FA on in ≤ 3 steps; .txt name; Bitir after the tick; the warning at step 3", async ({ page }) => {
   await signInWithPassword(page);
   await landed(page);
-  await page.goto("/profile#security");
+  await gotoSettled(page, "/profile#security");
   await page.getByTestId("mfa-turn-on").click();
   // signed in moments ago: the 10-minute window, no password dialog
   await expect(page.getByTestId("reauth-dialog")).toHaveCount(0);
@@ -176,7 +188,7 @@ test("§16.2: 'Bu cihazı 30 gün hatırla' skips the step next time; 'Diğer ci
   await context.addCookies(keep);
   await signInWithPassword(page);
   await landed(page);
-  await page.goto("/profile#security");
+  await gotoSettled(page, "/profile#security");
   await expect(page.getByTestId("device-row")).toHaveCount(1);
   // AU-15: sessions list without any network, the current one tagged
   await expect(page.getByTestId("session-current")).toHaveText("Bu cihaz");
@@ -193,7 +205,7 @@ test("§16.4: passkey added in Profil (virtual authenticator) → 'Hiç kullanı
   await page.waitForURL("**/login/verify");
   await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(await unusedCode(secret));
   await landed(page);
-  await page.goto("/profile#security");
+  await gotoSettled(page, "/profile#security");
   await page.getByTestId("passkey-add").click();
   await expect(page.getByTestId("passkey-row")).toHaveCount(1);
   await expect(page.getByTestId("passkey-meta")).toContainText("Hiç kullanılmadı");
@@ -240,7 +252,7 @@ test("§16.10: an SSO-only account never sees 2FA or passkey rows (API answer)",
 
 test("§16.7/8: admin menu ('Giriş' group, no reset code item) and the reset dialog", async ({ page }) => {
   await page.goto("/login?method=local");
-  const r = await page.request.post("/api/v1/auth/login", { data: { email: process.env.E2E_ADMIN_EMAIL ?? "admin@smartsched.local", password: process.env.E2E_ADMIN_PASSWORD ?? "Admin-2026!" } });
+  const r = await page.request.post("/api/v1/auth/login", { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
   expect(r.ok()).toBe(true);
   await page.goto(`/admin/users?q=${encodeURIComponent(USER.username)}`);
   await page.getByRole("button", { name: `${USER.username} için işlemler` }).click();
@@ -269,7 +281,7 @@ test("§16.7/8: admin menu ('Giriş' group, no reset code item) and the reset di
 test("§16.9/12: policy tab round-trip at 390 (chips 44 px, save above the tab bar, no horizontal scroll)", async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: "tr-TR", timezoneId: "Europe/Istanbul" });
   const page = await ctx.newPage();
-  const r = await page.request.post("/api/v1/auth/login", { data: { email: process.env.E2E_ADMIN_EMAIL ?? "admin@smartsched.local", password: process.env.E2E_ADMIN_PASSWORD ?? "Admin-2026!" } });
+  const r = await page.request.post("/api/v1/auth/login", { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
   expect(r.ok()).toBe(true);
   await page.goto("/settings?tab=signin-security");
   await expect(page.getByTestId("signin-security")).toBeVisible();

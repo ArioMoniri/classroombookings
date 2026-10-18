@@ -43,6 +43,7 @@ import { bookingCapabilities } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
+import { NoBookingTerm } from "@/components/bookings/no-booking-term";
 import { ChipRadioGroup } from "./chip-radio-group";
 import { addDay, dayChips, nextWeekday, schoolWeekdays, defaultSlot, findQuery, lengthChoices, rankRooms, roomAction, slotOptions, spanFor, type SlotOption } from "./quick-reserve-model";
 
@@ -274,13 +275,22 @@ export function QuickReserveView() {
   const blocks = sd.unit === "blocks";
   const step = (n: number, key: "when" | "where" | "confirm") => t("quickReserve.step.n", { n, title: t(`quickReserve.step.${key}`) });
 
+  // E2EB-F03: no bookable term yet (empty install): one card with the next step instead of an active-looking form
+  if (ctx.isSuccess && termId == null)
+    return (
+      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5" data-testid="quick-reserve">
+        <PageTitle title={t("quickReserve.title")} subtitle={<span className="max-sm:sr-only">{t("quickReserve.lead")}</span>} className="mb-0" />
+        <NoBookingTerm testId="qr-no-term" />
+      </div>
+    );
+
   return (
     <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5 pb-[calc(15rem+env(safe-area-inset-bottom))] lg:pb-10" onKeyDown={onPageKeyDown} data-testid="quick-reserve">
       <PageTitle title={t("quickReserve.title")} subtitle={<span className="max-sm:sr-only">{t("quickReserve.lead")}</span>} className="mb-0" />
       <p className="sr-only" role="status" aria-live="polite" data-testid="qr-live">
         {liveText}
       </p>
-      {ctx.isSuccess && termId == null ? <Alert tone="warning">{t("quickReserve.noTerm")}</Alert> : null}
+
       {timetableMissing(g) ? <Alert tone="warning" testId="qr-unpublished">{t("quickReserve.unpublished")}</Alert> : null}
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[320px_minmax(0,1fr)_340px] lg:items-start">

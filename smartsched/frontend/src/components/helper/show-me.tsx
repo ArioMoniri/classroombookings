@@ -65,6 +65,41 @@ export function waitForStableLayout(maxMs = 1500, signal?: AbortSignal): Promise
 
 type Found = { state: "waiting" } | { state: "found"; el: HTMLElement } | { state: "missing" };
 
+const FOCUSABLE = "summary, a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+
+/** Make `el` take the focus even when it is not a control (tabindex -1, no outline ring of its own). */
+function focusHere(el: HTMLElement): boolean {
+  if (!el.isConnected) return false;
+  if (!el.hasAttribute("tabindex") && !el.matches(FOCUSABLE)) el.setAttribute("tabindex", "-1");
+  el.focus({ preventScroll: true });
+  return document.activeElement === el;
+}
+
+/**
+ * E2EB-F06: Esc / "Anladım" end with the focus on the target when it is a control; on an anchor that is a container
+ * (a settings card, a section) on its first control, else on the container itself; with no target on the page's
+ * heading, else #main. Never on <body>.
+ */
+export function focusAfterShowMe(target: HTMLElement | null): void {
+  if (target?.isConnected) {
+    if (isFocusable(target)) {
+      target.focus();
+      if (document.activeElement === target) return;
+    }
+    const all = [...target.querySelectorAll<HTMLElement>(FOCUSABLE)];
+    const inner = all.find((el) => el.getClientRects().length > 0) ?? all[0];
+    if (inner) {
+      inner.focus();
+      if (document.activeElement === inner) return;
+    }
+    if (focusHere(target)) return;
+  }
+  const heading = document.querySelector<HTMLElement>("main h1") ?? document.querySelector<HTMLElement>("h1");
+  if (heading && focusHere(heading)) return;
+  const main = document.getElementById("main");
+  if (main) focusHere(main);
+}
+
 export function ShowMeHost() {
   const req = useHelperStore((s) => s.showMe);
   // a new request remounts the step (fresh wait, fresh state)
@@ -126,14 +161,17 @@ function ShowMe({ featureId }: { featureId: string }) {
       const [path] = route.split("#");
       if (path && path !== pathname) router.push(route);
       return anchor ? waitForAnchor(anchor, 3000, ctrl.signal) : undefined;
-    })().then((el): Promise<HTMLElement | null | undefined> | undefined => {
-      if (ctrl.signal.aborted || el === undefined) return undefined;
+    })().then((found): Promise<HTMLElement | null | undefined> | undefined => {
+      if (ctrl.signal.aborted || found === undefined) return undefined;
+      // E2EB-F06: a page entry is answered by the page itself: when its anchor (e.g. the /admin overview group of
+      // admin.users) is not on the page, the page heading is rung instead of "Bu düğme şu an bu sayfada görünmüyor."
+      const el = found ?? (entry.kind === "page" ? document.querySelector<HTMLElement>("main h1") : null);
       if (!el) {
         setFound({ state: "missing" });
         return undefined;
       }
       // HB18-F04: scroll once the page stops growing, to the anchor as it is then (it may have been re-mounted)
-      return waitForStableLayout(1500, ctrl.signal).then(() => (anchor ? findAnchor(anchor) : null) ?? (el.isConnected ? el : null));
+      return waitForStableLayout(1500, ctrl.signal).then(() => (anchor ? findAnchor(anchor) : null) ?? (el.isConnected ? el : found ? null : document.querySelector<HTMLElement>("main h1")));
     }).then((el) => {
       if (ctrl.signal.aborted || el === undefined) return;
       if (!el) return setFound({ state: "missing" });
@@ -176,8 +214,7 @@ function ShowMe({ featureId }: { featureId: string }) {
       useHelperStore.getState().openSheet({ opener: target && isFocusable(target) ? target : null });
       return;
     }
-    if (target && isFocusable(target)) target.focus();
-    else (document.querySelector<HTMLElement>("main h1") ?? document.getElementById("main"))?.focus();
+    focusAfterShowMe(target);
   };
 
   useEffect(() => {

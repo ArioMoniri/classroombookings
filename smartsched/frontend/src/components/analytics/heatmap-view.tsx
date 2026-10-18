@@ -16,6 +16,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { GROUP_BY, useRunOptions, type GroupBy } from "@/lib/api/analytics";
 import { useI18n } from "@/lib/i18n/provider";
 import { FadePanel } from "./fade-panel";
+import { NoTerms } from "./forecast-bits";
 import { readHeatUrl, type HeatTab, type HeatUrlState } from "./heat-model";
 import { InstructorsHeat } from "./instructors-heat";
 import { PeaksView } from "./peaks-view";
@@ -27,7 +28,7 @@ export function HeatmapView() {
   const router = useRouter();
   const pathname = usePathname();
   const s = readHeatUrl(params);
-  const { term } = useActiveTerm();
+  const { term, terms, isLoading: termsLoading } = useActiveTerm();
   const runs = useRunOptions(term?.id ?? null);
   const runText = useRunText();
   const runChoices = useMemo(() => (runs.data ?? []).filter((r) => (s.tab === "instructors" ? r.kind === "COURSE" : true)), [runs.data, s.tab]);
@@ -44,6 +45,15 @@ export function HeatmapView() {
   const runId = s.source === "run" && s.run !== null && runChoices.some((r) => r.id === s.run) ? s.run : null;
   const source = runId !== null ? ({ run_id: runId } as const) : termId !== undefined ? ({ term_id: termId } as const) : null;
   const weekCount = term?.week_count ?? 0;
+
+  // E2EB-F03: an install with no term yet gets one next step, not a control panel over "Önce bir dönem seçin."
+  if (!termsLoading && terms.length === 0)
+    return (
+      <div className="flex min-w-0 flex-col gap-4" data-testid="heatmap-page">
+        <PageHeader title={t("analytics.title")} subtitle={t("analytics.subtitle")} />
+        <NoTerms />
+      </div>
+    );
 
   return (
     <div className="flex min-w-0 flex-col gap-4" data-testid="heatmap-page">

@@ -49,7 +49,6 @@ from app.council.orchestrator import enqueue
 from app.council.render import RenderError
 from app.council.review import _threshold, apply_decisions, build_items, decisions, effective_plan
 from app.models import CouncilArtifact, CouncilJob, Term
-from app.schemas.messages import problem
 from app.schemas.council import (
     CommitIn,
     CouncilFileOut,
@@ -61,6 +60,7 @@ from app.schemas.council import (
     ReviewOut,
     RowDecisionsIn,
 )
+from app.schemas.messages import problem
 from app.services import seasons, term_lock
 from app.workers.queue import get_queue, worker_id
 

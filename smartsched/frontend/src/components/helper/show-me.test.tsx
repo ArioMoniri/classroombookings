@@ -1,7 +1,7 @@
 /** HX-07 (helper.md §3.3): Göster = navigate, wait for the anchor, ring it, one step card; Esc ends on the target. */
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/lib/api/endpoints";
 import { useHelperStore } from "./helper-store";
 import { ShowMeHost } from "./show-me";
@@ -14,6 +14,10 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), usePathname: ()
 function media(desktop: boolean) {
   window.matchMedia = ((q: string) => ({ matches: q.includes("min-width: 1024px") ? desktop : q.includes("reduce") ? false : false, media: q, onchange: null, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 beforeEach(() => {
   resetHelperStore();
@@ -45,6 +49,81 @@ describe("Göster", () => {
     expect(document.activeElement).toBe(target);
     expect(target).not.toHaveAttribute("aria-describedby");
   });
+
+  it("E2EB-F06: an anchor that is a container ends with the focus on its first control", async () => {
+    renderHelper(
+      <>
+        <section data-tour="admin-holidays-add">
+          <h2>Tatiller</h2>
+          <button type="button">Ekle</button>
+        </section>
+        <ShowMeHost />
+      </>,
+    );
+    act(() => useHelperStore.getState().startShowMe("admin.holidays", false));
+    await screen.findByTestId("helper-step");
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(useHelperStore.getState().showMe).toBeNull());
+    expect(document.activeElement).toBe(screen.getByText("Ekle"));
+  });
+
+  it("E2EB-F06: a container with no control takes the focus itself (tabindex -1), never <body>", async () => {
+    renderHelper(
+      <>
+        <div data-tour="admin-holidays-add">Tatil listesi</div>
+        <ShowMeHost />
+      </>,
+    );
+    act(() => useHelperStore.getState().startShowMe("admin.holidays", false));
+    await screen.findByTestId("helper-step");
+    fireEvent.click(await screen.findByTestId("helper-step-done"));
+    await waitFor(() => expect(useHelperStore.getState().showMe).toBeNull());
+    expect(document.activeElement).toBe(screen.getByText("Tatil listesi"));
+    expect(screen.getByText("Tatil listesi")).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("E2EB-F06: a missing anchor ends on the page heading (focusable), never <body>", async () => {
+    renderHelper(
+      <>
+        <main id="main">
+          <h1>Tatiller</h1>
+        </main>
+        <ShowMeHost />
+      </>,
+    );
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    act(() => useHelperStore.getState().startShowMe("admin.users.invite", false));
+    await act(async () => {
+      vi.advanceTimersByTime(3200);
+    });
+    await screen.findByTestId("helper-step-missing");
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(useHelperStore.getState().showMe).toBeNull());
+    expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Tatiller" }));
+    vi.useRealTimers();
+  }, 15_000);
+
+  it("E2EB-F06: a page entry whose anchor lives elsewhere (admin.users → the /admin overview group) rings the page heading, not 'görünmüyor'", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderHelper(
+      <>
+        <main id="main">
+          <h1>Kullanıcılar</h1>
+        </main>
+        <ShowMeHost />
+      </>,
+    );
+    act(() => useHelperStore.getState().startShowMe("admin.users", false));
+    for (let i = 0; i < 6; i++)
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+    expect(await screen.findByTestId("tour-ring")).toBeInTheDocument();
+    expect(screen.queryByTestId("helper-step-missing")).toBeNull();
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(useHelperStore.getState().showMe).toBeNull());
+    expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Kullanıcılar" }));
+  }, 15_000);
 
   it("Yardımcıya dön reopens the sheet with the thread", async () => {
     renderHelper(

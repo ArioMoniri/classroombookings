@@ -15,7 +15,7 @@
  */
 import { CalendarCheck, DoorOpen, Repeat, Stamp } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useReducer, useState } from "react";
+import { useMemo, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
@@ -117,6 +117,7 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
 
   const noTimetable = timetableMissing(grid);
   const [ackTimetable, setAckTimetable] = useState(false);
+  const submitRef = useRef<HTMLButtonElement>(null);
   // P1: does this room need approval for me? (no rule → CRBS behaviour, "book")
   const check = useRoomApprovalCheck(first.room_id, grid.term.id);
   const asks = check.data?.action === "request";
@@ -193,6 +194,9 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
     // A-24: no published timetable for the week: the first press asks, the second books
     if (noTimetable && !ackTimetable) {
       setAckTimetable(true);
+      // video lane (fix-h-2026-10-18): the second step is the same one primary, now "Yine de rezerve et"; focus stays on
+      // it (a re-render never drops it to <body>) and the warning above says to press it once more
+      window.requestAnimationFrame(() => submitRef.current?.focus());
       return;
     }
     if (isSpan) {
@@ -409,8 +413,9 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
           </fieldset>
         ) : null}
         {noTimetable ? (
-          <Alert tone="warning" testId="book-no-timetable">
-            {ackTimetable ? t("wave1.grid.noTimetableConfirm") : t("wave1.grid.noTimetable")}
+          <Alert tone="warning" testId="book-no-timetable" live={ackTimetable ? "assertive" : "polite"} title={t("wave1.grid.noTimetableTitle")}>
+            {t("wave1.grid.noTimetable")}
+            {ackTimetable ? <span className="mt-1 block font-medium" data-testid="book-no-timetable-confirm">{t("wave1.grid.noTimetableConfirm")}</span> : null}
           </Alert>
         ) : null}
         {asks ? (
@@ -463,7 +468,7 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
           </Button>
         ) : (
         /* T-R1-12 (R1-A-16): aria-busy at once, "Gönderiliyor…" / "Kaydediliyor…" while waiting, focus kept */
-        <Button className="pointer-coarse:h-11" onClick={submit} {...busyProps(busy, !kinds.length || (kind === "recurring" && !isSpan && (!preview.plan || summary.willCreate === 0)))} data-testid="book-submit">
+        <Button ref={submitRef} className="pointer-coarse:h-11" onClick={submit} {...busyProps(busy, !kinds.length || (kind === "recurring" && !isSpan && (!preview.plan || summary.willCreate === 0)))} data-testid="book-submit">
           <BusyLabel busy={busy} label={t(asks ? "busy.sending" : "busy.saving")} icon={asks ? <Stamp aria-hidden /> : null}>
           {noTimetable && ackTimetable
             ? t("wave1.grid.bookAnyway")

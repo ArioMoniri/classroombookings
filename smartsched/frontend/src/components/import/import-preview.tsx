@@ -11,9 +11,10 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert } from "@/components/ui/alert";
 import { serverMessage } from "@/lib/api/error-text";
-import { diffTotals, importDiff, importPreviewApi, type ImportDiffRow, type OnConflict } from "@/lib/api/rf-admin";
+import { diffTotals, importDiff, importPreviewApi, largeArchives, type ImportDiffRow, type OnConflict } from "@/lib/api/rf-admin";
 import type { ImportJob } from "@/lib/api/schemas";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
@@ -49,6 +50,8 @@ export function ImportPreview({ job, onApplied, onCancel, termWarning = null }: 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [termOk, setTermOk] = useState(false);
+  // E2EA2-F01: Uygula asks first when the file would archive a large share of an entity
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const termBlocked = !!termWarning && !termOk;
   const errorRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -66,7 +69,9 @@ export function ImportPreview({ job, onApplied, onCancel, termWarning = null }: 
   const canChoose = CONFLICT_KINDS.has(job.kind) && (diff?.conflicts_total ?? 0) > 0;
   const original: OnConflict = diff?.on_conflict === "take" ? "take" : "keep";
 
+  const bigArchives = diff && !applied ? largeArchives(diff) : [];
   const apply = async () => {
+    setConfirmArchive(false);
     setBusy(true);
     setError(null);
     try {
@@ -82,7 +87,7 @@ export function ImportPreview({ job, onApplied, onCancel, termWarning = null }: 
   };
 
   const sentence = (key: MessageKey, value: number) => (value > 0 ? <li key={key}>{t(key, { n: n(value) })}</li> : null);
-  const changes = totals ? totals.create + totals.update + totals.conflict : 0;
+  const changes = totals ? totals.create + totals.update + totals.archive + totals.conflict : 0;
 
   return (
     <Card className="max-w-4xl" data-testid="import-preview">
@@ -108,6 +113,11 @@ export function ImportPreview({ job, onApplied, onCancel, termWarning = null }: 
           <>
             <ul className="space-y-1 type-body text-label-1" data-testid="import-preview-summary" aria-live="polite">
               {changes === 0 ? <li>{t("rf.preview.nothing")}</li> : null}
+              {totals.archive > 0 ? (
+                <li key="archived" className="font-medium text-status-warning-fg" data-testid="import-preview-archived">
+                  {t("rf.preview.archived", { n: n(totals.archive) })}
+                </li>
+              ) : null}
               {sentence("rf.preview.created", totals.create)}
               {sentence("rf.preview.updated", totals.update)}
               {sentence(choice === "take" && canChoose ? "rf.preview.taken" : "rf.preview.kept", totals.conflict)}
@@ -117,7 +127,10 @@ export function ImportPreview({ job, onApplied, onCancel, termWarning = null }: 
               {Object.entries(diff.counts).map(([entity, c]) => (
                 <li key={entity} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 px-3 py-2 type-callout" data-testid={`import-preview-entity-${entity}`}>
                   <span className="font-medium text-label-1">{t(entityLabelKey(entity))}</span>
-                  <span className="text-label-2 tabular-nums">{t("rf.preview.entityLine", { created: n(c.create), updated: n(c.update), conflict: n(c.conflict), unchanged: n(c.unchanged) })}</span>
+                  <span className="text-label-2 tabular-nums">
+                    {t("rf.preview.entityLine", { created: n(c.create), updated: n(c.update), conflict: n(c.conflict), unchanged: n(c.unchanged) })}
+                    {c.archive > 0 ? <span className="font-medium text-status-warning-fg"> · {t("rf.preview.entityArchive", { n: n(c.archive) })}</span> : null}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -240,13 +253,30 @@ export function ImportPreview({ job, onApplied, onCancel, termWarning = null }: 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button variant="ghost" onClick={onCancel} disabled={busy}>{t("rf.preview.cancel")}</Button>
           {!applied ? (
-            <Button onClick={() => void apply()} {...busyProps(busy, job.status !== "DONE" || termBlocked)} data-testid="import-apply">
+            <Button onClick={() => (bigArchives.length ? setConfirmArchive(true) : void apply())} {...busyProps(busy, job.status !== "DONE" || termBlocked)} data-testid="import-apply">
               <BusyLabel busy={busy} label={t("rf.preview.applying")} icon={<Check aria-hidden />}>
                 {t("rf.preview.apply")}
               </BusyLabel>
             </Button>
           ) : null}
         </div>
+        <Dialog open={confirmArchive} onOpenChange={(o) => !busy && setConfirmArchive(o)}>
+          <DialogContent className="sm:max-w-md" data-testid="import-archive-confirm">
+            <DialogHeader>
+              <DialogTitle>{t("rf.preview.archiveConfirmTitle")}</DialogTitle>
+              <DialogDescription>{t("rf.preview.archiveConfirmLead")}</DialogDescription>
+            </DialogHeader>
+            <ul className="grid gap-1 type-callout text-label-1">
+              {bigArchives.map((a) => (
+                <li key={a.entity}>{t("rf.preview.archiveConfirmLine", { entity: t(entityLabelKey(a.entity)), n: n(a.archive), pct: n(Math.round(a.share * 100)) })}</li>
+              ))}
+            </ul>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmArchive(false)}>{t("rf.preview.cancel")}</Button>
+              <Button variant="destructive" onClick={() => void apply()} data-testid="import-archive-confirm-apply">{t("rf.preview.archiveConfirm")}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
@@ -257,8 +287,8 @@ function ChangeRow({ row }: { row: ImportDiffRow }) {
   return (
     <li className="px-3 py-2">
       <div className="flex flex-wrap items-baseline gap-2">
-        <span className={cn("inline-flex h-5 items-center rounded-full px-2 type-caption font-medium", row.change === "create" ? "bg-tint-soft text-tint-text" : "bg-fill-2 text-label-2")}>
-          {row.change === "create" ? t("rf.preview.changeCreate") : t("rf.preview.changeUpdate")}
+        <span className={cn("inline-flex h-5 items-center rounded-full px-2 type-caption font-medium", row.change === "create" ? "bg-tint-soft text-tint-text" : row.change === "archive" ? "bg-status-warning text-status-warning-fg" : "bg-fill-2 text-label-2")}>
+          {row.change === "create" ? t("rf.preview.changeCreate") : row.change === "archive" ? t("rf.preview.changeArchive") : t("rf.preview.changeUpdate")}
         </span>
         <span className="text-label-2">{t(entityLabelKey(row.entity))}</span>
         <span className="font-mono type-footnote text-label-1">{row.key ?? row.id}</span>

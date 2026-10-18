@@ -15,6 +15,7 @@ import { Check, KeyRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 import { Alert } from "@/components/ui/alert";
 import { BusyButton } from "@/components/ui/busy-label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -30,13 +31,14 @@ import { OtpInput, type OtpState } from "./otp-input";
 import { getPasskey, PasskeyError, type ServerOptions } from "./passkey";
 import { RecoveryCodeField } from "./recovery-code-field";
 import { rich } from "./signin-shell";
+import { tryConditionalCreate } from "./passkey-door";
 import { useFinishSignIn } from "./use-finish-sign-in";
 import "./auth.css";
 
 export const MAX_TRIES = 5;
 
-export function MfaStep({ methods, masked, next, rememberDays, contact }: { methods: string[]; masked: string | null; next: string | null; rememberDays: number; contact?: string | null }) {
-  const { t } = useI18n();
+export function MfaStep({ methods, masked, next, rememberDays, contact, passkeySignIn = false }: { methods: string[]; masked: string | null; next: string | null; rememberDays: number; contact?: string | null; passkeySignIn?: boolean }) {
+  const { t, locale } = useI18n();
   const router = useRouter();
   const reduce = useReduce();
   const finish = useFinishSignIn(next);
@@ -68,6 +70,9 @@ export function MfaStep({ methods, masked, next, rememberDays, contact }: { meth
   };
 
   const succeed = async (out: SignInStepOut, method: "local" | "passkey" = "local") => {
+    // AUX12-F06 (§4.3 item 4, "every successful case"): after a code or recovery step too, a silent passkey offer
+    // (passwordless allowed only; never blocks, any failure is silent)
+    if (passkeySignIn && method === "local" && out.status === "signed_in" && !out.password_change_required) void tryConditionalCreate((msg) => toast.success(msg, { duration: 4000 }), t, locale);
     setDone(true);
     setState("success");
     await new Promise((r) => setTimeout(r, reduce ? 0 : 240));

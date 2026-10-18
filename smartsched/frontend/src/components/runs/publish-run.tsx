@@ -51,14 +51,17 @@ export function publishRefusals(e: unknown): string[] {
 }
 
 /** 409 `scope_reduction` payload (FastAPI wraps the dict in `detail`). */
-export function scopeReductionOf(e: unknown): { weeksLost: number[]; activeId: number | null; message: string } | null {
+export function scopeReductionOf(e: unknown): { weeksLost: number[]; activeId: number | null; runId: number | null; newWeeks: number[]; message: string } | null {
   if (!(e instanceof HttpError)) return null;
   const d = rec(e.detail);
   const inner = rec(d?.detail) ?? d;
   if (inner?.code !== "scope_reduction") return null;
   const lost = Array.isArray(inner.weeks_lost) ? inner.weeks_lost.map(Number).filter(Number.isFinite) : [];
   const active = rec(inner.active);
-  return { weeksLost: lost, activeId: typeof active?.run_id === "number" ? active.run_id : null, message: String(inner.message_tr ?? inner.message ?? "") };
+  const next = rec(inner.new);
+  // video lane (fix-h-2026-10-18): the dialog words the weeks itself in the UI's language; `message` stays a fallback
+  const newWeeks = Array.isArray(next?.weeks) ? next.weeks.map(Number).filter(Number.isFinite) : [];
+  return { weeksLost: lost, activeId: typeof active?.run_id === "number" ? active.run_id : null, runId: typeof next?.run_id === "number" ? next.run_id : null, newWeeks, message: String(inner.message_tr ?? inner.message ?? "") };
 }
 
 /** 409 `forced_breaks`: the hard rules the run breaks through forced moves with a reason (round-1 R1-S-01). */
@@ -209,17 +212,17 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
             <div role={reduction ? "alert" : undefined} className="grid gap-1.5 rounded-xl bg-status-warning px-3 py-2 type-callout text-status-warning-fg" data-testid="publish-scope-reduction">
               <p className="font-medium">
                 {reduction
-                  ? tr
-                    ? `Bu çalıştırma daha az hafta kapsıyor: ${weekList(reduction.weeksLost, "tr")}${reduction.activeId ? ` (#${reduction.activeId})` : ""} yayından kalkacak.`
-                    : `This run covers fewer weeks: ${weekList(reduction.weeksLost, "en")}${reduction.activeId ? ` of #${reduction.activeId}` : ""} will leave the published timetable.`
+                  ? t(reduction.activeId ? "runs.publish.scopeLessActive" : "runs.publish.scopeLess", { weeks: weekList(reduction.weeksLost, tr ? "tr" : "en"), active: reduction.activeId ?? "" })
                   : t("runs.publish.weeksOnly")}
               </p>
-              {reduction?.message ? <p className="type-footnote text-label-1">{reduction.message}</p> : null}
+              {reduction && reduction.newWeeks.length && reduction.activeId ? (
+                <p className="type-footnote text-label-1">{t("runs.publish.scopeDetail", { id: reduction.runId ?? run.id, weeks: weekList(reduction.newWeeks, tr ? "tr" : "en"), active: reduction.activeId, n: reduction.weeksLost.length })}</p>
+              ) : reduction?.message && tr ? (
+                <p className="type-footnote text-label-1">{reduction.message}</p>
+              ) : null}
               <label className="flex min-h-11 items-center gap-2 text-label-1 pointer-fine:min-h-0">
                 <Checkbox checked={scopeOk} onCheckedChange={(v) => setScopeOk(Boolean(v))} data-testid="publish-scope-ack" />
-                {tr
-                  ? `Evet, ${weeks.length ? weekList(weeks, "tr") + " dışındaki haftalar" : "bu haftalar"}${published !== null ? ` #${published} programından` : ""} yayından kalksın`
-                  : `Yes, remove the ${weeks.length ? `weeks outside ${weekList(weeks, "en")}` : "other weeks"}${published !== null ? ` of #${published}` : ""} from the published timetable`}
+                {t(weeks.length ? (published !== null ? "runs.publish.scopeAckWeeksActive" : "runs.publish.scopeAckWeeks") : published !== null ? "runs.publish.scopeAckActive" : "runs.publish.scopeAck", { weeks: weeks.length ? weekList(weeks, tr ? "tr" : "en") : "", active: published ?? "" })}
               </label>
             </div>
           ) : null}

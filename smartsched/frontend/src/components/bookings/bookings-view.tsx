@@ -486,7 +486,9 @@ export function BookingsView() {
           {navNext}
           <ToolbarButton size="md" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" className="shrink-0" data-testid="filters-open">
             <SlidersHorizontal aria-hidden />
-            {activeFilters ? t("reserve.filters.openCount", { n: activeFilters }) : t("reserve.filters.open")}
+            {/* E2EB-F09: at 320 px the label took the date chip's room ("2."); below 22.5rem it is icon-only, the
+                name stays for screen readers */}
+            <span className="max-[22.5rem]:sr-only">{activeFilters ? t("reserve.filters.openCount", { n: activeFilters }) : t("reserve.filters.open")}</span>
           </ToolbarButton>
         </Toolbar>
       ) : (

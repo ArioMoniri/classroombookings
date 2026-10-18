@@ -298,3 +298,29 @@ Browser checks for the FIX-H rows of docs/testing/round4/2026-10-18-{hx12b,perso
 - **CAL10-F03** curl a classes feed, sign in elsewhere (an audit event), curl with If-None-Match: 304, same ETag.
 - **CAL10-F04** Takvimime ekle: after "Derslerim" and after "Abonelik bağlantısı" `document.activeElement` is `cal-step-heading`, never `DIV#cal-sheet`.
 - **CAL10-F05** Gelişmiş › Bağlantıyı yenile: the confirm names the effect; Vazgeç keeps the link, focus back on the button; Yenile shows the new link once.
+- **Video lane, publish scope reduction** (English UI): /runs/8 › Yayınla with a whole-term run published: the scope box reads "This run covers fewer weeks: … of #3 …" and "Run #8 covers weeks 1 and 2 only; …", no Turkish sentence; in Turkish "#8 yalnızca şu haftaları kapsıyor: 1. ve 2. haftalar. …".
+- **Video lane, booking a week without a published timetable** (WEEK run published): the sheet shows "Bu hafta ders programı yayımlanmamış" + the sentence; first press of the one primary keeps focus on it, its label becomes "Yine de rezerve et", the warning adds "…bir kez daha basın." (announced assertively); the second press books.
+
+## FIX-J (2026-10-18): KVKK import blocker, import preview archives, rename re-import, empty-stack next steps
+One stack, `REC_TEACHER=1 REC_LANG=tr REC_CAL_SIGNOFF=0`. Use only `E2E_FIXTURES_DIR=$REC_WORKDIR/fixtures` (the masked workbooks `stack.sh up` writes) for every item that uploads a workbook.
+- **E2EA-F01 / E2EA2-F02 (blocker):**
+  - `stack.sh up` logs "KVKK: masked workbooks in …/fixtures", and `kvkk_mask.py rec.db --verify --names kvkk-names.json --uploads uploads` prints `left 0`.
+  - /import › Ders planlama listesi with the raw `tests/fixtures/bahar_derslik_planlama_listesi_v5.xlsx` is refused with 422 "KVKK: bu dosya maskelenmemiş örnek çalışma kitaplarından biri…". The job is FAILED and no file is kept. The same check covers /onboarding (council).
+  - The masked copy previews and applies. After Uygula, `--verify` still prints `left 0`, and /admin/audit shows initials only.
+  - On a live stack: apply any change, then `stack.sh mask` succeeds; append-only audit rows are no longer an error.
+  - `cat /proc/<backend pid>/environ | tr '\0' '\n' | grep -c -E 'GH_TOKEN|AWS_'` gives 0.
+- **E2EA2-F01:** preview a 3-row planning list for Bahar.
+  - The card leads with "N kayıt dosyada yok; arşivlenecek", and the entity lines read "… · N arşivlenecek".
+  - Uygula opens "Bu dosya dönemin büyük bir kısmını arşivleyecek", with "Yine de uygula" (destructive) and Vazgeç. Nothing is applied until "Yine de uygula". Vazgeç keeps focus on Uygula. Check at 1440 and 390.
+  - Do not apply: the item is preview + dialog only.
+- **E2EA-F02:**
+  - Rename programme #32 (append " RFB").
+  - Previewing the masked Bahar planning list shows "Şubeler 0 yeni" and no archive.
+  - After apply, `GET /sections?term_id=1&program_id=32&include_archived=true` holds the same ids, none archived.
+  - Rename it back.
+- **E2EA-F03:** the masked Güz planning list preview shows the counts and the change list, never "Bu önizlemede değişiklik listesi yok."
+- **E2EA-F06:** /import history: seed rows read "İlk kurulum (sistem)" on a stack started after this change.
+- **E2EB-F03 (empty stack `up --fresh`, before any import, at 1440 and 390):**
+  - /analytics/heatmap shows only "Henüz dönem yok…" + İçe aktar.
+  - /find-room and /reserve show "Rezervasyon yapılabilecek bir dönem yok" + "Dosyalardan kur" (→ /onboarding) for the admin, and the "yöneticinize başvurun" text for an academician.
+  - M-01/02/03 pass on all three.

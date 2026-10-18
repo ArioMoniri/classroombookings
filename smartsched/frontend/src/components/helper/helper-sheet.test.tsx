@@ -117,6 +117,22 @@ describe("helper sheet", () => {
     expect(sheet.contains(document.activeElement)).toBe(true);
   });
 
+  it("HB18-F10: on a phone the log is bottom-anchored, so a short thread's newest card (and its primary) sits above the field, in thumb reach", async () => {
+    media(false);
+    renderHelper(<HelperSheet />);
+    open();
+    const log = await screen.findByTestId("helper-log");
+    expect(log.className).toContain("[&>:first-child]:mt-auto");
+  });
+
+  it("desktop keeps the log top-anchored", async () => {
+    media(true);
+    renderHelper(<HelperSheet />);
+    open();
+    const log = await screen.findByTestId("helper-log");
+    expect(log.className).not.toContain("mt-auto");
+  });
+
   it("Rehber modu in index mode: a search field and no composer; nothing is streamed", async () => {
     media(true);
     vi.spyOn(helperApi, "status").mockResolvedValue(status({ mode: "index", reason: "not_routed", provider_kind: null, provider_label: null }));

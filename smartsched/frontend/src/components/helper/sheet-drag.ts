@@ -13,12 +13,25 @@
  *   motion: every close is instant.
  * - `will-change: transform` is set on pointerdown and cleared on release (skill §4).
  */
-import { animate, useMotionValue, type MotionValue, type TargetAndTransition } from "motion/react";
+import { animate, useMotionValue, type MotionValue, type TargetAndTransition, type Transition } from "motion/react";
 import { useRef, type PointerEvent, type RefObject } from "react";
 import { shouldDismissSheet } from "@/components/ui/sheet";
-import { dur, ease, springs } from "@/lib/motion";
+import { dur, ease, springs, tween } from "@/lib/motion";
 
 export type HelperExitKind = "close" | "drag";
+
+/**
+ * The open transition (HB18-F08). motion plays a spring as one WAAPI animation that lasts until the value is at rest,
+ * so `springs.sheet` with the default rest thresholds ran 550 ms on opacity and 650 ms on a 844 px y, over the
+ * motion-audit 300 ms ceiling, although it looks settled at ≈ 270 ms. The same spring shape with rest thresholds of
+ * 2 px / 200 px·s⁻¹ (invisible: the last 2 px are inside one frame) ends by 300 ms; the desktop fade is a `dur.fast`
+ * tween instead of riding the spring.
+ */
+export function helperSheetEnter({ reduce, desktop }: { reduce: boolean; desktop: boolean }): Transition {
+  if (reduce) return tween.reduced;
+  const move = { ...springs.sheet, restDelta: 2, restSpeed: 200 };
+  return desktop ? { x: move, opacity: { duration: dur.fast, ease: ease.out } } : { y: move };
+}
 
 /** The exit target of the sheet for how it was closed. */
 export function helperSheetExit(kind: HelperExitKind, { reduce, desktop }: { reduce: boolean; desktop: boolean }): TargetAndTransition {

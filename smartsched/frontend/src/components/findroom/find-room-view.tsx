@@ -41,6 +41,7 @@ import { altWhyQuery, asRequestable, buildQuery, clockDefaults, emptyForm, regri
 import { BareButton } from "@/components/shell/bare-button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { NoBookingTerm } from "@/components/bookings/no-booking-term";
 import { useIsCompact, useIsPhone } from "@/components/bookings/use-is-phone";
 import { PERIODS, usePeriodGridVersion } from "@/lib/time";
 
@@ -255,6 +256,15 @@ export function FindRoomView() {
   );
   const moreCount = (f.purpose === "exam" ? 1 : 0) + Object.keys(f.features).length + f.buildings.length + (f.text.trim() ? 1 : 0) + (f.showBusy ? 1 : 0) + (f.when === "date" && f.otherDays ? 1 : 0);
 
+  // E2EB-F03: no bookable term yet (empty install): say why and the next step, never a form whose Ara stays off
+  if (ctx.isSuccess && ctx.data?.current_term_id == null)
+    return (
+      <div className="flex flex-col gap-5" data-testid="find-room">
+        <PageTitle title={t("wave1.find.title")} subtitle={t("wave1.find.lead")} />
+        <NoBookingTerm testId="fr-no-term" />
+      </div>
+    );
+
   return (
     <div className={cn("flex flex-col gap-5", compact && "pb-20")} data-testid="find-room">
       <PageTitle title={t("wave1.find.title")} subtitle={t("wave1.find.lead")} />
@@ -401,8 +411,9 @@ export function FindRoomView() {
                   {moreCount ? t("reserve.filters.openCount", { n: moreCount }) : t("reserve.filters.open")}
                 </Button>
               ) : (
-                // HX12B-F02 / PER-F08: date, time and head count stay; the rest waits behind "Gelişmiş" (open when set)
-                <details className="group rounded-xl" open={advOpen || moreCount > 0} onToggle={(e) => setAdvOpen(e.currentTarget.open)} data-testid="fr-advanced">
+                // HX12B-F02 / PER-F08: date, time and head count stay; the rest waits behind "Gelişmiş" (open when set);
+                // E2EB-F06: the desktop "Göster" anchor of find_room.filters (the phone's is the Filtreler button)
+                <details className="group rounded-xl" open={advOpen || moreCount > 0} onToggle={(e) => setAdvOpen(e.currentTarget.open)} data-testid="fr-advanced" data-tour="find-room-filters">
                   <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg py-1 type-callout text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:min-h-11">
                     <ChevronDown className="size-4 transition-transform duration-(--dur-fast) group-open:rotate-180" aria-hidden />
                     {moreCount ? t("wave1.find.advancedN", { n: moreCount }) : t("wave1.find.advanced")}

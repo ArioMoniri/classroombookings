@@ -228,6 +228,35 @@ describe("SAML step › Gelişmiş", () => {
     expect(puts(f)[0]).toEqual({ version: VERSION, sp_key_generate: true });
   });
 
+  it("E2EB-F17: after 'SP anahtarı oluştur' focus is on 'Kaldır', never on <body>", async () => {
+    let current = provider();
+    mockFetch((url, init) => {
+      if (url.includes("/providers/7/setup")) return { status: 200, body: setup(current) };
+      if (url.endsWith("/auth/sso/admin/providers/7") && init?.method === "PUT") {
+        current = provider({ sp_certificate: SPC, sp_private_key_set: true });
+        return { status: 200, body: current };
+      }
+      return undefined;
+    });
+    wrap(<ProviderWizard providerId={7} onBack={() => undefined} />);
+    await screen.findByTestId("idp-wizard");
+    fireEvent.click(screen.getByTestId("idp-step-values"));
+    fireEvent.click(screen.getByTestId("idp-saml-advanced-toggle"));
+    const gen = screen.getByTestId("idp-sp-generate");
+    gen.focus();
+    fireEvent.click(gen);
+    const remove = await screen.findByTestId("idp-sp-remove");
+    await waitFor(() => expect(document.activeElement).toBe(remove));
+  });
+
+  it("E2EB-F04: below sm the step footer ('Kaydet') sticks above the tab bar, not under it", async () => {
+    await openAdvanced(provider());
+    const footer = screen.getByTestId("idp-values-save").closest("[data-slot=step-footer]") as HTMLElement;
+    expect(footer).not.toBeNull();
+    expect(footer.className).toContain("max-sm:bottom-[calc(var(--shell-bottom-h)+0.5rem)]");
+    expect(footer.className).not.toMatch(/(^| )bottom-0( |$)/);
+  });
+
   it("pastes an SP key and certificate, then clears the fields", async () => {
     const f = await openAdvanced(provider());
     fireEvent.click(screen.getByTestId("idp-saml-advanced-toggle"));

@@ -261,7 +261,7 @@ async def test_dry_run_returns_a_diff_and_apply_imports_the_previewed_file(clien
     assert s_["dry_run"] is True and s_["applied_job_id"] is None
     diff = s_["diff"]
     assert diff["counts"]["exam_requests"]["conflict"] == 1
-    assert diff["counts"]["exam_requests"]["update"] >= 1  # row 4 archived
+    assert diff["counts"]["exam_requests"]["archive"] == 1  # row 4 archived (FIX-J: counted apart from updates)
     conflict = next(r for r in diff["rows"] if r["change"] == "conflict")
     assert conflict["id"] == ex2.id and conflict["conflicts"][0]["planner"] == 30
     assert conflict["conflicts"][0]["file"] == 28

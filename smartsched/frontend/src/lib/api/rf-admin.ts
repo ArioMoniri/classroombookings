@@ -24,15 +24,18 @@ const DiffConflict = z.object({
   previous_import: z.unknown().optional(),
   resolution: z.string().nullable().optional(),
 });
+/** a composite primary key (section_instructors) arrives as one "a:b" string; older previews sent an array (E2EA-F03) */
+const DiffId = z.preprocess((v) => (Array.isArray(v) ? v.map(String).join(":") : v), z.union([z.number(), z.string()]).nullable().optional());
 const DiffRow = z.object({
-  change: z.enum(["create", "update", "conflict"]),
+  /** archive (FIX-J E2EA2-F01): the file no longer has the row, so the import archives it */
+  change: z.enum(["create", "update", "archive", "conflict"]),
   entity: z.string(),
-  id: z.union([z.number(), z.string()]).nullable().optional(),
+  id: DiffId,
   key: z.string().nullable().optional(),
   fields: z.array(z.object({ field: z.string(), from: z.unknown().optional(), to: z.unknown().optional() })).optional().default([]),
   conflicts: z.array(DiffConflict).optional().default([]),
 });
-const DiffCounts = z.object({ create: z.number().default(0), update: z.number().default(0), unchanged: z.number().default(0), conflict: z.number().default(0) });
+const DiffCounts = z.object({ create: z.number().default(0), update: z.number().default(0), archive: z.number().default(0), unchanged: z.number().default(0), conflict: z.number().default(0) });
 export const ImportDiff = z.object({
   on_conflict: z.string().nullable().optional(),
   counts: z.record(z.string(), DiffCounts).default({}),
@@ -43,22 +46,45 @@ export const ImportDiff = z.object({
 export type ImportDiff = z.infer<typeof ImportDiff>;
 export type ImportDiffRow = z.infer<typeof DiffRow>;
 
-/** `summary.diff` of a finished preview, or null when the job has none (an older job, a failed parse). */
+/** `summary.diff` of a finished preview, or null when the job has none (an older job, a failed parse). One
+ * unreadable row never hides the counts: rows are read one by one and a bad one is left out (E2EA-F03). */
 export function importDiff(job: Pick<ImportJob, "summary"> | null | undefined): ImportDiff | null {
-  const parsed = ImportDiff.safeParse(job?.summary.diff);
-  return parsed.success ? parsed.data : null;
+  const raw = job?.summary.diff;
+  const parsed = ImportDiff.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  if (!raw || typeof raw !== "object") return null;
+  const { rows, ...rest } = raw as Record<string, unknown>;
+  const head = ImportDiff.safeParse({ ...rest, rows: [] });
+  if (!head.success) return null;
+  const good = (Array.isArray(rows) ? rows : []).flatMap((r) => {
+    const one = DiffRow.safeParse(r);
+    return one.success ? [one.data] : [];
+  });
+  return { ...head.data, rows: good };
 }
 
 /** Totals over every entity of the diff. */
-export function diffTotals(diff: ImportDiff): { create: number; update: number; unchanged: number; conflict: number } {
-  const out = { create: 0, update: 0, unchanged: 0, conflict: 0 };
+export function diffTotals(diff: ImportDiff): { create: number; update: number; archive: number; unchanged: number; conflict: number } {
+  const out = { create: 0, update: 0, archive: 0, unchanged: 0, conflict: 0 };
   for (const c of Object.values(diff.counts)) {
     out.create += c.create;
     out.update += c.update;
+    out.archive += c.archive;
     out.unchanged += c.unchanged;
     out.conflict += c.conflict;
   }
   return out;
+}
+
+/** Above this share of an entity's rows in the term, archiving needs a deliberate confirm (E2EA2-F01). */
+export const ARCHIVE_CONFIRM_SHARE = 0.2;
+/** The entities whose archive share needs that confirm, largest share first. The term's rows of an entity are the
+ * ones the file matched (update, unchanged, conflict) plus the ones it archives. */
+export function largeArchives(diff: ImportDiff): { entity: string; archive: number; share: number }[] {
+  return Object.entries(diff.counts)
+    .map(([entity, c]) => ({ entity, archive: c.archive, share: c.archive / Math.max(1, c.archive + c.update + c.unchanged + c.conflict) }))
+    .filter((e) => e.archive >= 5 && e.share > ARCHIVE_CONFIRM_SHARE)
+    .sort((a, b) => b.share - a.share);
 }
 
 export const importPreviewApi = {

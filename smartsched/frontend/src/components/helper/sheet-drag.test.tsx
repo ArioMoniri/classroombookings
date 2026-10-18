@@ -11,7 +11,8 @@ import { helperApi, type HelperStatus } from "@/lib/api/helper";
 import { cssSpring, dur, ease } from "@/lib/motion";
 import { HelperSheet } from "./helper-sheet";
 import { useHelperStore } from "./helper-store";
-import { helperSheetExit, useHelperSheetDrag } from "./sheet-drag";
+import { calcGeneratorDuration, spring } from "motion";
+import { helperSheetEnter, helperSheetExit, useHelperSheetDrag } from "./sheet-drag";
 import { renderHelper, resetHelperStore } from "./test-helpers";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/reserve", useSearchParams: () => new URLSearchParams() }));
@@ -84,6 +85,25 @@ function drag(handle: HTMLElement, dy: number, { totalMs = 600, lastMs = 200 } =
   // jsdom's requestAnimationFrame (focus return) needs the real clock once the gesture is over
   clock.mockRestore();
 }
+
+describe("HB18-F08: the open settles inside the 300 ms motion-audit ceiling", () => {
+  // motion runs a spring as one WAAPI animation lasting until the spring is at rest: springs.sheet with the default
+  // rest thresholds lasted 550 ms on opacity 0 → 1 and 650 ms on y 844 → 0 (the audit's "500 ms finite animation")
+  const settle = (from: number, to: number, t: Record<string, unknown>) => calcGeneratorDuration(spring({ keyframes: [from, to], ...(t as object) }));
+  it("desktop: opacity on a ≤ 180 ms tween, x 24 → 0 on the sheet spring within 300 ms", () => {
+    const t = helperSheetEnter({ reduce: false, desktop: true }) as Record<string, Record<string, unknown>>;
+    expect(t.opacity).toMatchObject({ duration: dur.fast });
+    expect(settle(24, 0, t.x!)).toBeLessThanOrEqual(300);
+  });
+  it("phone: y 100 % (844 px) → 0 within 300 ms, the same spring shape", () => {
+    const t = helperSheetEnter({ reduce: false, desktop: false }) as Record<string, Record<string, unknown>>;
+    expect(settle(844, 0, t.y!)).toBeLessThanOrEqual(300);
+    expect(t.y).toMatchObject({ type: "spring", stiffness: 300, damping: 30 });
+  });
+  it("reduced motion: the reduced tween", () => {
+    expect(helperSheetEnter({ reduce: true, desktop: true })).toMatchObject({ duration: expect.any(Number) });
+  });
+});
 
 describe("HX-19 exit timing", () => {
   const enter = cssSpring.sheet.ms / 1000;

@@ -138,3 +138,28 @@ describe("PER-F09: Derslerim", () => {
     expect(ADMIN_NAV_ITEMS.find((i) => i.href === "/my-classes")).toMatchObject({ hideWith: "planning.view", bookings: true });
   });
 });
+
+describe("video lane: the publish dialog's scope reduction reads in the UI's language", () => {
+  it("scopeReductionOf keeps the structured weeks; the dialog's sentences come from messages in both languages", async () => {
+    const { HttpError } = await import("@/lib/api/client");
+    const { scopeReductionOf } = await import("./runs/publish-run");
+    const e = new HttpError(409, "scope", { detail: { code: "scope_reduction", message_tr: "#8 yalnız 1, 2. haftaları kapsıyor; …", new: { run_id: 8, weeks: [1, 2] }, active: { run_id: 3, weeks: [1, 2, 3] }, weeks_lost: [3] } });
+    expect(scopeReductionOf(e)).toMatchObject({ runId: 8, newWeeks: [1, 2], activeId: 3, weeksLost: [3] });
+    const src = read("runs/publish-run.tsx");
+    expect(src).not.toContain("Bu çalıştırma daha az hafta kapsıyor");
+    expect(src).not.toMatch(/\{reduction\?\.message \?/);
+    expect(translate("en", "runs.publish.scopeDetail", { id: 8, weeks: "weeks 1 and 2", active: 3, n: 1 })).toBe("Run #8 covers weeks 1 and 2 only; publishing it takes the other weeks of run #3 off the published timetable.");
+    expect(translate("tr", "runs.publish.scopeDetail", { id: 8, weeks: "1. ve 2. haftalar", active: 3, n: 1 })).toBe("#8 yalnızca şu haftaları kapsıyor: 1. ve 2. haftalar. Yayımlanırsa #3 programının 1 haftası yayından kalkar.");
+  });
+});
+
+describe("video lane: booking a week without a published timetable is one clear second step", () => {
+  it("Turkish wording names what to press; the second step is announced and the one primary keeps focus", () => {
+    expect(translate("tr", "wave1.grid.noTimetable")).toBe("Bu hafta için yayımlanmış ders programı yok: derslik boş görünse de o saatte ders olabilir.");
+    expect(translate("tr", "wave1.grid.noTimetableConfirm")).toBe("Yine de rezerve etmek istiyorsanız “Yine de rezerve et” düğmesine bir kez daha basın.");
+    expect(translate("tr", "wave1.grid.noTimetableTitle")).toBe("Bu hafta ders programı yayımlanmamış");
+    const src = read("bookings/book-sheet.tsx");
+    expect(src).toMatch(/testId="book-no-timetable"[^>]*live=\{ackTimetable \? "assertive" : "polite"\}/);
+    expect(src).toContain("submitRef.current?.focus()");
+  });
+});

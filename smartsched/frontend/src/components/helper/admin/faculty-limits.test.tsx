@@ -116,6 +116,43 @@ describe("Fakülteler (admin allocation editor)", () => {
     expect(inline).toHaveTextContent("Bölümlere dağıtılan pay (105000 jeton) fakültenin payını (100000 jeton) aşıyor.");
   });
 
+  it("E2EB-F05: the real client body ({detail: {...}}) of a strict-mode 422 shows the Turkish reason, not 'Kaydedilemedi.'", async () => {
+    vi.spyOn(aiAdminApi, "saveLimits").mockRejectedValue(
+      new HttpError(422, "422 Unprocessable Entity", {
+        detail: {
+          code: "faculty_sum_exceeds_org",
+          message_tr: "Fakültelere dağıtılan pay (100000 jeton) kurumun aylık bütçesini (50000 jeton) aşıyor.",
+          message_en: "The faculties' allocations exceed the org budget.",
+          field: "faculties",
+        },
+      }),
+    );
+    renderHelper(<FacultyLimits data={limits} canEdit />);
+    await screen.findByTestId("faculty-limit-3");
+    fireEvent.click(screen.getByTestId("faculty-limits-save"));
+    expect(await screen.findByTestId("faculty-limits-error")).toHaveTextContent("Fakültelere dağıtılan pay (100000 jeton) kurumun aylık bütçesini (50000 jeton) aşıyor.");
+  });
+
+  it("E2EB-F05: a wrapped faculty field still lands inline on that faculty", async () => {
+    vi.spyOn(aiAdminApi, "saveLimits").mockRejectedValue(
+      new HttpError(422, "x", { detail: { code: "department_sum_exceeds_faculty", message_tr: "Bölümlere dağıtılan pay fakültenin payını aşıyor.", message_en: "Over.", field: "faculties.3" } }),
+    );
+    renderHelper(<FacultyLimits data={limits} canEdit />);
+    await screen.findByTestId("faculty-limit-3");
+    fireEvent.click(screen.getByTestId("faculty-limits-save"));
+    expect(await within(screen.getByTestId("faculty-limit-3")).findByRole("alert")).toHaveTextContent("Bölümlere dağıtılan pay fakültenin payını aşıyor.");
+  });
+
+  it("E2EB-F19: after a change the save row is the phone's page-actions capsule (M-05); at rest it stays in the card", async () => {
+    renderHelper(<FacultyLimits data={limits} canEdit />);
+    const row = await screen.findByTestId("faculty-limit-3");
+    const slot = () => screen.getByTestId("faculty-limits-save").parentElement!;
+    expect(slot()).not.toHaveAttribute("data-slot", "page-actions");
+    fireEvent.change(within(row).getByRole("textbox"), { target: { value: "120000" } });
+    expect(slot()).toHaveAttribute("data-slot", "page-actions");
+    expect(slot().className).toContain("max-lg:bottom-[calc(var(--shell-bottom-h)+0.75rem+var(--capsule-offset,0rem))]");
+  });
+
   it("keeps the managers and the people switch with the faculty, and strict mode under Gelişmiş", async () => {
     const save = vi.spyOn(aiAdminApi, "saveLimits").mockResolvedValue(limits);
     renderHelper(<FacultyLimits data={limits} canEdit />);

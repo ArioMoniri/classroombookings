@@ -33,7 +33,7 @@ import { useMediaQuery } from "@/components/ui/use-media-query";
 import { useHelperActions, useHelperMemory } from "@/lib/api/helper";
 import { usePermissions } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
-import { springs, tween, useReduce } from "@/lib/motion";
+import { useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 import { CardHostContext, pickText, type CardHost } from "./cards/context";
@@ -43,7 +43,7 @@ import { PageContextChip, toTurnContext, usePageContext } from "./page-context";
 import { RecentActions } from "./recent";
 import { clientActionLabel } from "./remember";
 import { useHelperStore } from "./helper-store";
-import { helperSheetExit, useHelperSheetDrag, type HelperExitKind } from "./sheet-drag";
+import { helperSheetEnter, helperSheetExit, useHelperSheetDrag, type HelperExitKind } from "./sheet-drag";
 import { Starters, starterRole } from "./starters";
 import { StatusChip, useHelperMode } from "./status-chip";
 import { useHelperRunner } from "./use-helper-runner";
@@ -90,7 +90,9 @@ function useCardHostValue(desktop: boolean): CardHost {
   }, [actions.data, can, desktop, locale, router, runner, textOnly]);
 }
 
-function Log({ busy }: { busy: boolean }) {
+/** HB18-F10: on a phone the log is bottom-anchored (the first entry takes the free space above it), so the newest
+ * card of a short thread and its primary sit just above the field, in thumb reach (M-05), not at the sheet's top. */
+function Log({ busy, desktop }: { busy: boolean; desktop: boolean }) {
   const { t } = useI18n();
   const entries = useHelperStore((s) => s.entries);
   const turn = useHelperStore((s) => s.turn);
@@ -112,7 +114,7 @@ function Log({ busy }: { busy: boolean }) {
         const el = e.currentTarget;
         stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
       }}
-      className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-3"
+      className={cn("flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-3", !desktop && "[&>:first-child]:mt-auto")}
     >
       {entries.map((e) => (
         <div key={e.key} data-entry={e.key} tabIndex={-1} className="helper-enter flex flex-col outline-hidden">
@@ -237,7 +239,7 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
           ) : null}
         </div>
       ) : null}
-      <Log busy={turn.busy} />
+      <Log busy={turn.busy} desktop={desktop} />
       <footer className="flex shrink-0 flex-col gap-2 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] edge-hairline-t">
         {turn.error ? (
           <Alert
@@ -363,7 +365,7 @@ export function HelperSheet() {
           variants={variants}
           custom={exitKind}
           style={desktop ? undefined : { y: drag.y }}
-          transition={reduce ? tween.reduced : springs.sheet}
+          transition={helperSheetEnter({ reduce, desktop })}
           className={cn(
             "helper-sheet fixed z-40 flex flex-col overflow-hidden text-label-1 outline-hidden",
             desktop

@@ -34,6 +34,7 @@ _TITLES = {
 }  # fmt: skip
 _WORD = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*")
 _TAG = re.compile(r"<[^>]+>")
+_ITEM_END = re.compile(r"</(?:\w+:)?(?:si|c|comment|is)>|(?<=>)(?=<dc:|<cp:)")
 _TEXT_PARTS = re.compile(r"^(xl/(sharedStrings|comments[^/]*|worksheets/[^/]+)|docProps/(core|app))\.xml$", re.I)
 
 
@@ -85,13 +86,11 @@ def _texts(data: bytes, filename: str | None) -> list[str]:
     if data[:2] == b"PK":
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as z:
-                return [
-                    html.unescape(_TAG.sub(" ", z.read(n).decode("utf-8", "replace")))
-                    for n in z.namelist()
-                    if _TEXT_PARTS.match(n)
-                ]
+                docs = [z.read(n).decode("utf-8", "replace") for n in z.namelist() if _TEXT_PARTS.match(n)]
         except (zipfile.BadZipFile, OSError):
             return []
+        # one item per shared string / cell / comment / property; rich-text runs inside one item stay together
+        return [html.unescape(_TAG.sub("", x)) for d in docs for x in _ITEM_END.split(d) if x.strip()]
     for enc in ("utf-8", "cp1254"):
         try:
             return data.decode(enc).splitlines()
@@ -107,11 +106,10 @@ def unmasked_hits(data: bytes, filename: str | None) -> int:
         return 0
     hits = 0
     for text in _texts(data, filename):
-        # one shared-strings part holds every cell: count per line / string item, never print the text
-        for piece in re.split(r"\s{2,}|\n", text):
-            ws = _words(piece)
-            if any(p in pairs for p in zip(ws, ws[1:], strict=False)):
-                hits += 1
+        # count per string item / line, never print the text
+        ws = _words(text)
+        if any(p in pairs for p in zip(ws, ws[1:], strict=False)):
+            hits += 1
     return hits
 
 

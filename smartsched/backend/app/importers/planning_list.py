@@ -30,7 +30,7 @@ from app.importers.preference_rules import TextCell, sync_text_preferences
 from app.importers.report import ImportReport
 from app.importers.settings import importer_settings
 from app.importers.xlsx import iter_sheet_rows, map_headers, row_dict, sheet_title
-from app.models import ImportedSnapshot, MeetingRequest, Section, SectionInstructor, StudioDraft
+from app.models import ImportedSnapshot, MeetingRequest, Program, Section, SectionInstructor, StudioDraft
 
 HEADER_SPEC: dict[str, list[str]] = {
     "faculty": ["fakülte"],
@@ -285,6 +285,16 @@ def parse_planning_list(
     return ParsedPlanningList(parsed, total, skipped, headers, capacities, sheet_title(path, sheet))
 
 
+def _program_key(text: Any, program: Program | None) -> str:
+    """The programme part of a section's stable key: the file's own spelling, canonicalised. An admin's rename
+    changes ``Program.canonical_name`` (the old spelling stays an alias), so keying on the stored name would archive
+    and recreate every section of a renamed programme on the next re-import (FIX-J, round-4 E2EA-F02)."""
+    if program is None:
+        return ""
+    parsed = n.canon_program(text)
+    return parsed.canonical if parsed is not None else program.canonical_name
+
+
 async def import_planning_list(
     session: AsyncSession,
     path: str | Path,
@@ -341,7 +351,7 @@ async def import_planning_list(
         # requested venue, or a second import of the same file "changes" those rows
         await cat.room_ids(r.definitive.room_codes, create=True)
         prog = await cat.program(r.program, await cat.faculty(r.faculty))
-        sk = f"{r.course_code}|{prog.canonical_name if prog else ''}|{r.label or ''}"
+        sk = f"{r.course_code}|{_program_key(r.program, prog)}|{r.label or ''}"
         keyed.append((sk, tuple(r.day.days), time_sort_key(r.start_time, r.row)))
     merged_into, merged_units = _class_year_merges(parsed.rows, keyed)
     # occurrence numbers count the rows that become meetings (a row merged into another class year's row is
@@ -400,7 +410,7 @@ async def import_planning_list(
         course = await cat.course(
             r.course_code or "", name=r.course_name, t=r.t, u=r.u, l=r.l, credits=r.credits, ects=r.ects
         )
-        section_key = f"{r.course_code}|{program.canonical_name if program else ''}|{r.label or ''}"
+        section_key = f"{r.course_code}|{_program_key(r.program, program)}|{r.label or ''}"
         section = existing_sections.get(section_key)
         class_year = r.class_years[0] if r.class_years else None
         if section is None:

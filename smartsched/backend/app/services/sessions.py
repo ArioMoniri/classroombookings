@@ -134,18 +134,75 @@ async def check(request: Request, payload: dict[str, Any], user: User) -> int | 
     return sid
 
 
+#: User-Agent prefixes of scripts and HTTP libraries (a token used only by them is an "API" session, AU-B 1 / FIX-I)
+_SCRIPT_UA = (
+    "curl/",
+    "wget/",
+    "python-requests/",
+    "python-httpx/",
+    "python-urllib",
+    "aiohttp/",
+    "httpie/",
+    "go-http-client/",
+    "postmanruntime/",
+    "insomnia/",
+    "okhttp/",
+    "axios/",
+    "node-fetch",
+    "undici",
+    "node",
+    "playwright/",
+    "java/",
+    "libwww-perl/",
+    "powershell/",
+)
+_BROWSERS = ("Edge", "Opera", "Firefox", "Samsung Internet", "Chrome", "Safari")
+_SYSTEMS = ("iPhone", "iPad", "Android", "Windows", "ChromeOS", "macOS", "Linux")
+API_DEVICE = "API"
+
+
+def _script(user_agent: str) -> bool:
+    ua = user_agent.strip().lower()
+    return bool(ua) and "mozilla/" not in ua and any(ua.startswith(p) for p in _SCRIPT_UA)
+
+
+def session_device(user_agent: str | None) -> str:
+    """The stored, language-neutral device label: "Safari, iPhone" (known parts only), "API" for a script client, or
+    "" when nothing is known. The UI words the unknown parts in the viewer's language (FIX-I; the label used to be
+    stored in Turkish, "bilinmeyen tarayıcı, bilinmeyen cihaz", whatever the viewer's language)."""
+    from app.services import mail_senders
+
+    ua = user_agent or ""
+    browser, system = mail_senders.device_family(ua)
+    if not browser and not system and _script(ua):
+        return API_DEVICE
+    return ", ".join(p for p in (browser, system) if p)[:120]
+
+
+def device_parts(device: str | None) -> dict[str, str | None]:
+    """``browser`` / ``os`` / ``client`` ("browser", "api", "unknown") read from a stored label, old ones included."""
+    parts = [p.strip() for p in (device or "").split(",")]
+    if parts == [API_DEVICE]:
+        return {"browser": None, "os": None, "client": "api"}
+    browser = next((p for p in parts if p in _BROWSERS), None)
+    system = next((p for p in parts if p in _SYSTEMS), None)
+    return {"browser": browser, "os": system, "client": "browser" if browser or system else "unknown"}
+
+
+def _score(device: str | None) -> float:
+    p = device_parts(device)
+    return 2 * (p["browser"] is not None) + (p["os"] is not None) + 0.5 * (p["client"] == "api")
+
+
 def _better_device(row: UserSession, request: Request) -> bool:
     """AUX12-F03: a token's first request may come from the Next server (Node's user agent, or none), and the row read
     "bilinmeyen tarayıcı, bilinmeyen cihaz" for ever. A later request that names more of the browser and system
-    updates the label (only ever towards a better one)."""
-    from app.services import mail_senders
-
-    unknown = ("bilinmeyen tarayıcı", "bilinmeyen cihaz")
-    have = sum(u in (row.device or "") for u in unknown)
-    if not have:
+    updates the label (only ever towards a better one; a stored Turkish label of an older row is rewritten neutral)."""
+    have = _score(row.device)
+    if have >= 3:
         return False
-    label = mail_senders.device_label(request.headers.get("user-agent"), "tr")[:120]
-    if sum(u in label for u in unknown) >= have:
+    label = session_device(request.headers.get("user-agent"))
+    if _score(label) <= have:
         return False
     row.device = label
     return True
@@ -166,8 +223,6 @@ def _issued_before(payload: dict[str, Any], epoch: int) -> bool:
 async def _record(
     s: AsyncSession, request: Request, payload: dict[str, Any], user: User, h: str, now: datetime
 ) -> UserSession:
-    from app.services import mail_senders
-
     tv = payload.get("tv", 0)
     row = UserSession(
         user_id=user.id,
@@ -176,7 +231,7 @@ async def _record(
         created_at=_ts(payload.get("iat")) or now,
         expires_at=_ts(payload.get("exp")) or now + timedelta(hours=12),
         last_seen_at=now,
-        device=mail_senders.device_label(request.headers.get("user-agent"), "tr")[:120],
+        device=session_device(request.headers.get("user-agent")),
         network=network_of(request.client.host if request.client else None),
     )
     s.add(row)
@@ -217,6 +272,7 @@ async def list_own(db: AsyncSession, user: User, current: int | None) -> list[di
             "last_seen_at": r.last_seen_at,
             "expires_at": r.expires_at,
             "device": r.device,
+            **device_parts(r.device),
             "network": r.network,
             "current": r.id == current,
         }
@@ -301,4 +357,14 @@ async def dsr_rows(db: AsyncSession, user_id: int) -> list[dict[str, Any]]:
         ]
 
 
-__all__ = ["check", "current_id", "list_own", "network_of", "revoke_all", "revoke_one", "revoke_others"]
+__all__ = [
+    "check",
+    "current_id",
+    "device_parts",
+    "list_own",
+    "network_of",
+    "revoke_all",
+    "revoke_one",
+    "revoke_others",
+    "session_device",
+]

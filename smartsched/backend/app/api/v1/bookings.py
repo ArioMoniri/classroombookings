@@ -502,7 +502,7 @@ async def grid(
             use_room_groups=org["use_room_groups"],
         )
     except cal.CalendarError as exc:
-        raise HTTPException(409, {"code": "calendar", "message": str(exc)}) from exc
+        raise HTTPException(409, {"code": "calendar", "message": str(exc), **exc.texts}) from exc
     return await _grid_extras(db, access, out)
 
 
