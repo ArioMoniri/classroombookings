@@ -49,7 +49,7 @@ approval-flow 4.53, launch-reserve-phone 0.63. `onboarding` (needs an empty inst
 | 5 | A member of staff books a room on a phone with quick reserve (`/reserve`), touch taps shown as finger dots | `launch-reserve` (390x844, `isMobile`, `hasTouch`) |
 | 6 | The approver opens the request and approves it | `approval-flow` steps 2-4 |
 | 7 | The admin views of wave 3: AI console (providers/models, usage, limits, guardrails) and the operations panel | `launch-admin` |
-| 8 | Outro: lockup, licence, repository, feature pills | — |
+| 8 | Outro: the lockup (mark + product name) and one line. No repository address, branch or host anywhere in the video (owner, 2026-10-18: the repository and branches will move) | — |
 
 The vertical cut uses the same scenes: desktop scenes become a 1000x800 window that follows the camera, the phone fills
 the frame, titles sit above.

@@ -26,7 +26,11 @@ dot); the exact flags separate those from real repeats.
 
 Fidelity (with --ref, the lossless master the file was encoded from, scaled to the same size): PSNR (Y) and, when an
 ffmpeg with libvmaf is given (--ffmpeg-vmaf, e.g. a static build; the system ffmpeg may lack it), VMAF v0.6.1 mean
-and 1st percentile. Gate: VMAF mean >= 95. Licence: same as the repository.
+and 1st percentile. Gate: VMAF mean >= 95.
+
+Sync flashes: the recorder paints a full-screen magenta frame (#ff00ff, lib/recorder.mjs SYNC_COLOR) around every
+off-camera cut; render.mjs cuts them out. A frame whose picture is 5 % or more that colour (on a 64x36 thumbnail) is
+one that leaked into the video (the 2026-10-18 render had two). Gate: none. Licence: same as the repository.
 """
 import argparse
 import json
@@ -118,6 +122,19 @@ def smoothness(path, fps, exact_src=None, src_fps=None):
     }
 
 
+def sync_flashes(path, fps):
+    w, h = 64, 36
+    raw = subprocess.run(["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-i", path, "-an", "-vf", f"scale={w}:{h}:flags=area,format=rgb24",
+                          "-f", "rawvideo", "-"], capture_output=True, check=False).stdout
+    n, hits = w * h * 3, []
+    for i in range(len(raw) // n):
+        f = raw[i * n:(i + 1) * n]
+        mag = sum(1 for j in range(0, n, 3) if f[j] > 200 and f[j + 1] < 90 and f[j + 2] > 200)
+        if mag >= 0.05 * w * h:
+            hits.append(round(i / fps, 3))
+    return hits
+
+
 def fidelity(path, ref, vmaf_ffmpeg, info):
     w, h = info["width"], info["height"]
     out = {}
@@ -158,6 +175,7 @@ def main():
     ref = probe(a.ref) if a.ref else None
     same_frames = ref and abs(ref["duration"] - info["duration"]) < 0.1 and round(ref["fps"]) % round(info["fps"]) == 0
     r = {"file": a.video, **info, **smoothness(a.video, info["fps"], a.video if a.exact else a.ref if same_frames else None, ref["fps"] if ref else None)}
+    r["sync_flash_frames"] = sync_flashes(a.video, info["fps"])[:20]
     if a.plan:
         lottie = [(sc["start"] / 1000, sc["end"] / 1000) for sc in json.load(open(a.plan))["scenes"] if sc["kind"] in ("intro", "chapter", "outro")]
         takes = [(sc["start"] / 1000, sc["end"] / 1000) for sc in json.load(open(a.plan))["scenes"] if sc["kind"] == "take"]
@@ -172,6 +190,7 @@ def main():
     r["gate"] = {
         "motion_unique_ge_95": r["motion_unique_pct"] >= 95,
         "no_judder_freeze": r["judder_freezes"] == 0,
+        "no_sync_flash": not r["sync_flash_frames"],
         **({"no_midmotion_repeat": r["midmotion_repeats"] == 0} if a.exact else {}),
         **({"vmaf_ge_95": r["vmaf_mean"] >= 95} if "vmaf_mean" in r else {}),
     }

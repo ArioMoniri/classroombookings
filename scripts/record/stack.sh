@@ -185,6 +185,9 @@ cmd_up() {
     "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --save-names "$WORK/kvkk-names.json" >"$WORK/kvkk.log" 2>&1 \
       || die "kvkk mask failed, see $WORK/kvkk.log"
     log "instructor names masked to initials ($(grep -m1 '^masked' "$WORK/kvkk.log"))"
+    # the seed imports keep their workbooks under uploads/imports: mask those too before the check reads them
+    "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" --files "$WORK/uploads" --names "$WORK/kvkk-names.json" >>"$WORK/kvkk.log" 2>&1 \
+      || die "kvkk mask of the uploads failed, see $WORK/kvkk.log"
     # the KVKK check of docs/testing/flows/README.md §7 (title tokens and initials only), fail loudly
     "$PYTHON" -I "$ROOT/scripts/record/kvkk_mask.py" "$WORK/rec.db" --verify --names "$WORK/kvkk-names.json" --uploads "$WORK/uploads" >>"$WORK/kvkk.log" 2>&1 \
       || die "names left after masking: $(grep -m1 '^left' "$WORK/kvkk.log"), see $WORK/kvkk.log"

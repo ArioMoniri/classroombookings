@@ -51,6 +51,11 @@ export class Recorder {
 
   /** Paint a full-viewport magenta frame for ~`ms`; returns {start, end} on the recorder clock. */
   async flash(ms = 350) {
+    // with the frame clock the page keeps ticking (and capturing) through the two requestAnimationFrame waits: a start
+    // logged after them left magenta ticks before the cut span launch/render.mjs removes (the 2026-10-18 render showed
+    // one at 58.1 s and 71.3 s), so there it is logged before the paint. The screencast sync matches the logged start
+    // to the first magenta frame of the video and keeps the old instant.
+    const before = this.now();
     await this.page.evaluate((color) => {
       const d = document.createElement("div");
       d.id = "__rec_sync";
@@ -58,7 +63,7 @@ export class Recorder {
       document.documentElement.appendChild(d);
       return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     }, SYNC_COLOR);
-    const start = this.now();
+    const start = this.clock ? before : this.now();
     await this.sleep(ms);
     await this.page.evaluate(() => {
       document.getElementById("__rec_sync")?.remove();
