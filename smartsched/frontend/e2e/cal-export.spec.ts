@@ -233,6 +233,18 @@ for (const [label, device] of [
       expect(forged.body.detail?.code).toBe("department_not_allowed");
       if (phone) await noSideScroll(page);
     });
+
+    test(`CAL-07 refused account after the OAuth round trip: a Turkish sentence, never the code; one primary action (${label})`, async ({ page }) => {
+      await login(page, MEHMET.username, MEHMET.password);
+      await page.goto("/profile?calendar=error&provider=google&reason=account_not_verified&domain=uni.edu.tr");
+      await expect(page.getByTestId("cal-not-verified")).toHaveText("Bu hesap kurumunuzun doğrulanmış hesabı değil. uni.edu.tr uzantılı hesabınızla bağlanın.");
+      await expect(page.locator("body")).not.toContainText("account_not_verified");
+      // the older push panel sits closed under Gelişmiş: "Takvimime ekle" is the one primary action
+      const older = page.getByTestId("calendar-connections-advanced");
+      if (await older.count()) await expect(older).not.toHaveAttribute("open", /.*/);
+      await expect(page.getByTestId("cal-open")).toBeVisible();
+      if (phone) await noSideScroll(page);
+    });
   });
 }
 

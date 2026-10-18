@@ -231,9 +231,12 @@ def test_chat_route_to_a_no_tools_model_is_refused_in_turkish_and_english():
     )
     assert [e["code"] for e in errs] == ["context_too_small"]
     # rules accept JSON-schema emulation, vision needs image input
-    assert gw.validate_route(
-        {"provider": "openai_compatible", "model": "llava:7b"}, synced, feature="rules", capabilities=capmap
-    ) == []
+    assert (
+        gw.validate_route(
+            {"provider": "openai_compatible", "model": "llava:7b"}, synced, feature="rules", capabilities=capmap
+        )
+        == []
+    )
     errs = gw.validate_route(
         {"provider": "openai_compatible", "model": "qwen3:14b"}, synced, feature="vision", capabilities=capmap
     )

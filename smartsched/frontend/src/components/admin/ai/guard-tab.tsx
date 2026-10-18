@@ -19,7 +19,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { MicButton } from "@/components/voice";
-import { AI_FEATURES, GUARD_SWITCHES, useAiGuardrails, useAiRefusals, useGuardCheck, useRedTeam, useSaveGuardrails } from "@/lib/api/ai-admin";
+import { GUARD_SWITCHES, TEXT_FEATURES, useAiGuardrails, useAiRefusals, useGuardCheck, useRedTeam, useSaveGuardrails } from "@/lib/api/ai-admin";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { StatusWord, useAiLabels } from "./ai-kit";
@@ -143,7 +143,7 @@ function Bench() {
               {t("aiAdmin.guard.feature")}
             </Label>
             <NativeSelect id={`${uid}-f`} value={feature} onChange={(e) => setFeature(e.target.value)}>
-              {AI_FEATURES.map((f) => (
+              {TEXT_FEATURES.map((f) => (
                 <option key={f} value={f}>
                   {labels.feature(f)}
                 </option>

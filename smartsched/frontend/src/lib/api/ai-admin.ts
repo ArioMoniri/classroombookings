@@ -9,7 +9,7 @@
  *   project_id?, enabled?, transfer?}` (422 `invalid_key | invalid_url | unknown_field | invalid_mechanism`).
  * - `POST /ai/admin/providers/{p}/sync` (409 `no_credentials`) → `{ok, fetched_at, models, error}`.
  * - `POST /ai/admin/providers/{p}/test {model?}` → `{ok, detail, model, at}` (a few-token real call, metered as `test`).
- * - `GET/PUT /ai/admin/routes` — `{default, features: {rules|chat|intake|vision|explain|booking_nl: Route|null}}`; the
+ * - `GET/PUT /ai/admin/routes` — `{default, features: {rules|chat|intake|vision|explain|booking_nl|voice_stt: Route|null}}`; the
  *   answer adds `effective` (the route each feature uses, with `source` feature/default/legacy and `caps`); 422
  *   `invalid_routes` with `errors[] {route, field, code, message_tr, message_en}` (`model_not_synced` …).
  * - `GET /ai/admin/usage?group=day|user|feature|model|provider|outcome&start&end&q` → `{rows}`;
@@ -25,15 +25,22 @@ import { request } from "./client";
 
 const s = { silent: true } as const;
 
-export const AI_FEATURES = ["rules", "chat", "intake", "vision", "explain", "booking_nl"] as const;
-export type AiFeature = (typeof AI_FEATURES)[number];
+/** The text features: their rows offer text models, and the guard bench checks prompts for them. */
+export const TEXT_FEATURES = ["rules", "chat", "intake", "vision", "explain", "booking_nl"] as const;
+export type TextFeature = (typeof TEXT_FEATURES)[number];
 /** Voice (VO-04): speech-to-text has its own route and never follows the text default (source `none` until set).
  *  `voice_tts` (read aloud) joins when VO-13 ships. */
 export const VOICE_FEATURES = ["voice_stt"] as const;
 export type VoiceFeature = (typeof VOICE_FEATURES)[number];
-/** Every feature with a route on Modeller: the text features, then voice. */
-export const ROUTE_FEATURES = [...AI_FEATURES, ...VOICE_FEATURES] as const;
-export type RouteFeature = (typeof ROUTE_FEATURES)[number];
+/** Every AI feature with a route on Modeller (`PUT /ai/admin/routes`): the text features, then voice. */
+export const AI_FEATURES = [...TEXT_FEATURES, ...VOICE_FEATURES] as const;
+export type AiFeature = (typeof AI_FEATURES)[number];
+/** Kept for callers of the older name. */
+export const ROUTE_FEATURES = AI_FEATURES;
+export type RouteFeature = AiFeature;
+export function isVoiceFeature(f: string): f is VoiceFeature {
+  return (VOICE_FEATURES as readonly string[]).includes(f);
+}
 /** What a provider can do (VO-01 `ProviderSpec.capabilities`) and what a synced model takes (`ModelInfo.modalities`). */
 export const CAPABILITIES = ["text", "stt", "tts", "audio_native"] as const;
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
