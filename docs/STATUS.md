@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `2687574` (committed 2026-10-18 16:59 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `b03f3bb` (committed 2026-10-18 17:22 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -154,21 +154,24 @@ The validate gate also runs `sync_docs.py --check` and the generator's own tests
 
 <!-- AUTO:gates -->
 
-12 gates in [`podci/gates.py`](../smartsched/deploy/pod-ci/podci/gates.py), run in this order for every new commit; `deploy` runs only on the deploy branch after every blocking gate is green.
+15 gates in [`podci/gates.py`](../smartsched/deploy/pod-ci/podci/gates.py), run in this order for every new commit; `deploy` runs only on the deploy branch after every blocking gate is green.
 Results with their commit and date from [`gate-results.json`](testing/gate-results.json) (local: the devops agent's run of every pod gate (docs/ROADMAP.md, 'Devops agent finished')).
 
 | Gate | Runs | Blocking | Needs | Local `5d0e6c2` (2026-10-15) |
 |---|---|---|---|---|
 | `prepare` | CI images (python CI image, Playwright image) | yes | - | success |
 | `validate` | deploy/validate.sh | yes | prepare | success |
-| `backend` | ruff + mypy + pytest + solver + migrations | yes | prepare | failure (a lint failure stopped it before pytest; formatted locally 1197 passed) |
+| `backend` | ruff + format + mypy + solver + migrations | yes | prepare | failure (a lint failure stopped it before pytest; formatted locally 1197 passed) |
+| `backend-unit-1` | pytest shard 1/3 | yes | prepare | not recorded |
+| `backend-unit-2` | pytest shard 2/3 | yes | prepare | not recorded |
+| `backend-unit-3` | pytest shard 3/3 | yes | prepare | not recorded |
 | `infra` | pod CI + AWS bootstrap tests | yes | prepare | success |
 | `frontend` | npm ci + tsc + eslint + check-design | yes | prepare | success (378 tests) |
 | `frontend-unit-1` | vitest shard 1/2 | yes | frontend | not recorded |
 | `frontend-unit-2` | vitest shard 2/2 | yes | frontend | not recorded |
-| `e2e-real` | Playwright (all specs) vs real backend + Bahar fixtures | yes | frontend, frontend-unit-1, frontend-unit-2, backend | failure (forced; 72 passed, 1 failed (studio mapping-step)) |
-| `parity` | CRBS superset gate (scripts/parity_check.py) | yes | backend | success (forced; PASS 179 / GAP 13 / FAIL 0) |
-| `planner` | planner-level validation (tools/validate_planner.py) | yes | backend | success (forced; 0 violations on all 4) |
+| `e2e-real` | Playwright (all specs) vs real backend + Bahar fixtures | yes | frontend, frontend-unit-1, frontend-unit-2, backend, backend-unit-1, backend-unit-2, backend-unit-3 | failure (forced; 72 passed, 1 failed (studio mapping-step)) |
+| `parity` | CRBS superset gate (scripts/parity_check.py) | yes | backend, backend-unit-1, backend-unit-2, backend-unit-3 | success (forced; PASS 179 / GAP 13 / FAIL 0) |
+| `planner` | planner-level validation (tools/validate_planner.py) | yes | backend, backend-unit-1, backend-unit-2, backend-unit-3 | success (forced; 0 violations on all 4) |
 | `images` | docker build backend/frontend/crbs | yes | prepare | error (did not finish: disk, needs 8 GB free) |
 | `watchdog` | agent ledger report | no (report only) | prepare | not recorded |
 | `deploy` | deploy.sh --update | yes | - | success (deploy smoke OK) |
@@ -179,7 +182,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-410 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 381 · stopped 11 · superseded 7.
+410 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 384 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -191,9 +194,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `AS-S` | solver-engineer | 2026-10-18 07:56 |
 | `HB-B` | ai-engineer | 2026-10-18 07:56 |
 | `HB-23b backend` | backend-engineer | 2026-10-18 16:42 |
-| `HB-23c frontend` | frontend-engineer | 2026-10-18 16:42 |
-| `Architecture diagrams + value verdict` | general-purpose | 2026-10-18 16:54 |
-| `KVKK review of the file router` | strict-reviewer | 2026-10-18 16:59 |
 
 <!-- /AUTO:agents -->
 
@@ -260,7 +260,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **448 ticked · 444 open** checkboxes in 105 sections (99 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **449 ticked · 443 open** checkboxes in 105 sections (99 with open items).
 
 <details><summary>Per section</summary>
 
@@ -370,7 +370,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | FIX-B (e2e results 2026-10-18: phone layout stability, reflow, settings M-05, hydration… | 0 | 8 |
 | FIX-A: e2e results 2026-10-18 backend fixes (fix-a-2026-10-18) | 5 | 0 |
 | FIX-C: e2e results 2026-10-18 bundle, charts, welcome and voice fixes (fix-c-2026-10-18) | 0 | 8 |
-| HB-23 · Helper file router (owner 2026-10-18) | 1 | 4 |
+| HB-23 · Helper file router (owner 2026-10-18) | 2 | 3 |
 
 </details>
 

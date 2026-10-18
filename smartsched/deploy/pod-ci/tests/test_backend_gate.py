@@ -67,3 +67,56 @@ def test_saml_library_comes_from_the_lock_and_is_required(tmp_path: Path) -> Non
     for name in ("requirements.lock", "requirements-dev.lock"):
         lock = (REPO / "smartsched/backend" / name).read_text()
         assert re.search(r"^signxml==\d+\.\d+\.\d+ \\$", lock, re.M), name
+
+
+UNIT = POD_CI / "gates/backend-unit.sh"
+
+
+def test_backend_gate_runs_the_static_checks_and_leaves_pytest_to_the_shards(tmp_path: Path) -> None:
+    _, log = run_gate(tmp_path)
+    assert "make lint type" in log and "make check" not in log and "python -m pytest tests/solver -q" in log
+    from podci.gates import GATES
+
+    gates = {g.name: g for g in GATES}
+    shards = [g for g in GATES if g.script == "backend-unit.sh"]
+    assert [g.args for g in shards] == [("1/3",), ("2/3",), ("3/3",)]
+    assert all(g.timeout == 3600 for g in shards) and gates["backend"].timeout == 1800
+    for name in ("e2e-real", "parity", "planner"):
+        assert {"backend", *(g.name for g in shards)} <= set(gates[name].needs), name
+
+
+def test_backend_unit_shard_runs_pytest_on_its_files_against_postgres(tmp_path: Path) -> None:
+    env = gate_env(tmp_path)
+    src = tmp_path / "ws/src/smartsched/deploy"
+    src.mkdir(parents=True)
+    shutil.copy(COMPOSE, src / "docker-compose.yml")
+    env.update({"PG_READY_TRIES": "2", "PG_READY_SLEEP": "0"})
+    r = subprocess.run(["bash", str(UNIT), "2/3"], env=env, capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stdout + r.stderr
+    log = (tmp_path / "docker.log").read_text()
+    tests = next(c for c in log.splitlines() if c.startswith("run --rm --init") and "TEST_POSTGRES_URL=" in c)
+    assert "-e SHARD_INDEX=2 -e SHARD_COUNT=3" in tests and "--network smartsched-ci-pg-7-abc1234" in tests
+    assert 'python -m pytest -q --ignore=tests/solver -m "not slow"' in log
+    assert log.splitlines()[-1].startswith("network rm ")
+    for bad in ("0/3", "4/3", "1", "1/3; rm -rf /"):
+        b = subprocess.run(["bash", str(UNIT), bad], env=env, capture_output=True, text=True, timeout=60)
+        assert b.returncode == 2 and "bad shard" in b.stdout, bad
+
+
+def test_backend_unit_shards_partition_every_make_test_file() -> None:
+    """The shard file lists (the pipeline of backend-unit.sh, run on the real tests/) cover each file once."""
+    script = UNIT.read_text()
+    pipeline = re.search(r"mapfile -t files < <\((.*?)\)\necho", script, re.S)
+    assert pipeline
+    cmd = pipeline.group(1).replace("\\\n", " ")
+    backend = REPO / "smartsched/backend"
+    shards = []
+    for i in (1, 2, 3):
+        out = subprocess.run(["bash", "-c", cmd], cwd=backend, env={"PATH": "/usr/bin:/bin", "SHARD_INDEX": str(i),
+                             "SHARD_COUNT": "3"}, capture_output=True, text=True, check=True).stdout.split()
+        shards.append(out)
+    every = sorted(str(p.relative_to(backend)) for p in (backend / "tests").rglob("*.py")
+                   if (p.name.startswith("test_") or p.name.endswith("_test.py"))
+                   and not str(p.relative_to(backend)).startswith("tests/solver/"))
+    assert all(shards) and sorted(f for s in shards for f in s) == every
+    assert len(every) > 100
