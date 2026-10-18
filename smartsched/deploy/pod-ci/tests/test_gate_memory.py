@@ -105,6 +105,11 @@ def test_frontend_image_build_sets_the_heap_for_next_build() -> None:
     assert build.index("NODE_OPTIONS") < build.index("npm run build")
 
 
-def test_gates_run_one_at_a_time() -> None:
-    runner_src = (POD_CI / "podci/runner.py").read_text()
-    assert "for g in self.gates:\n                results[g.name] = self._run_gate(" in runner_src
+def test_an_8_gb_pod_still_runs_one_gate_at_a_time() -> None:
+    """t4g.large (2 vCPU / 8 GB, ~7.6 GiB MemTotal): one slot, so GATE_CPUS / GATE_MEMORY / NODE_MEMORY stay as
+    configured (lib.sh defaults); the gates' memory caps never add up past the pod."""
+    from podci.config import Config
+    from podci.runner import plan_slots
+
+    slots = plan_slots(Config(), cpu_count=2, memory_mb=7800)
+    assert slots.count == 1 and slots.env(1) == {} and slots.env(2) == {}

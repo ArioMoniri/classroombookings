@@ -223,19 +223,29 @@ class Store:
                " id ASC LIMIT 1")
         return self._run(self.db.execute(sql, (QUEUED, deploy_branch)).fetchone())
 
-    def recover_interrupted(self, max_attempts: int) -> tuple[list[Run], list[Run]]:
-        """Runs left 'running' by a dead worker: requeue (attempts left) or fail. Returns (requeued, failed)."""
-        requeued, failed = [], []
+    def recover_interrupted(self, max_attempts: int) -> tuple[list[Run], list[Run], list[Run]]:
+        """Runs left 'running' by a dead worker: requeue (attempts left) or fail. A run whose branch already has a
+        newer queued run is superseded instead (it would only test an old head again, e.g. after the owner stopped or
+        resized the pod mid-run). Returns (requeued, failed, superseded)."""
+        requeued, failed, superseded = [], [], []
         for row in self.db.execute("SELECT * FROM runs WHERE state=?", (RUNNING,)).fetchall():
             run = _must(self._run(row), "run")
             self.db.execute("UPDATE steps SET state=?, finished_at=? WHERE run_id=? AND state=?",
                             (ERROR, self.now(), run.id, STEP_RUNNING))
-            if run.attempts < max_attempts:
+            newer = self.db.execute("SELECT id FROM runs WHERE branch=? AND state=? AND id>? ORDER BY id DESC LIMIT 1",
+                                    (run.branch, QUEUED, run.id)).fetchone()
+            if newer is not None:
+                self.db.execute("UPDATE steps SET state=? WHERE run_id=? AND state=?",
+                                (STEP_SKIPPED, run.id, STEP_PENDING))
+                self.transition(run.id, QUEUED)
+                superseded.append(self.transition(run.id, SUPERSEDED,
+                                                  summary=f"interrupted; superseded by run #{newer[0]}"))
+            elif run.attempts < max_attempts:
                 self.db.execute("DELETE FROM steps WHERE run_id=?", (run.id,))
                 requeued.append(self.transition(run.id, QUEUED, summary="requeued after an interrupted worker"))
             else:
                 failed.append(self.transition(run.id, ERROR, summary=f"interrupted {run.attempts} times"))
-        return requeued, failed
+        return requeued, failed, superseded
 
     def recent(self, limit: int = 50) -> list[Run]:
         rows = self.db.execute("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()

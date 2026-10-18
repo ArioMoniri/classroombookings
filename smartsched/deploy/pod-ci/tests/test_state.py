@@ -87,6 +87,25 @@ def test_next_queued_takes_the_configured_deploy_branch_first(store: Store) -> N
     assert store.next_queued(deploy_first=False).id == other.id  # type: ignore[union-attr]
 
 
+def test_interrupted_run_is_superseded_by_a_newer_queued_run_of_its_branch(store: Store) -> None:
+    """Run #89 on an old head is not run again after a stop/resize when its branch has a newer queued commit."""
+    old = store.enqueue("claude/gracious-cerf-w1598m", SHA_A, deploy=True)
+    other = store.enqueue("claude/smartsched-universal", SHA_A, deploy=False)
+    assert old and other
+    store.transition(old.id, RUNNING)
+    store.add_steps(old.id, [("prepare", True), ("backend", True)])
+    store.step_transition(old.id, "prepare", RUNNING)
+    store.transition(other.id, RUNNING)  # no newer run of its branch: requeued as before
+    new = store.enqueue("claude/gracious-cerf-w1598m", SHA_B, deploy=True)
+    assert new
+    requeued, failed, superseded = store.recover_interrupted(max_attempts=2)
+    assert [r.id for r in superseded] == [old.id] and [r.id for r in requeued] == [other.id] and not failed
+    gone = store.get(old.id)
+    assert gone and gone.state == SUPERSEDED and f"run #{new.id}" in gone.summary
+    assert {s.name: s.state for s in store.steps(old.id)} == {"prepare": ERROR, "backend": "skipped"}
+    assert store.next_queued(deploy_branch="claude/gracious-cerf-w1598m").id == new.id  # type: ignore[union-attr]
+
+
 def test_restart_recovery_requeues_then_errors(cfg: Config, clock: Clock) -> None:
     s1 = Store(cfg.db_path, clock=clock)
     run = s1.enqueue("main", SHA_A, deploy=True)
@@ -96,11 +115,11 @@ def test_restart_recovery_requeues_then_errors(cfg: Config, clock: Clock) -> Non
     s1.step_transition(run.id, "backend", "running", log_path="/x")
     del s1  # worker killed mid-run
     s2 = Store(cfg.db_path, clock=clock)  # state survives in SQLite
-    requeued, failed = s2.recover_interrupted(max_attempts=2)
+    requeued, failed, _ = s2.recover_interrupted(max_attempts=2)
     assert [r.id for r in requeued] == [run.id] and not failed
     assert s2.get(run.id).state == QUEUED and s2.steps(run.id) == []  # type: ignore[union-attr]
     s2.transition(run.id, RUNNING)  # attempt 2, killed again
-    requeued, failed = Store(cfg.db_path, clock=clock).recover_interrupted(max_attempts=2)
+    requeued, failed, _ = Store(cfg.db_path, clock=clock).recover_interrupted(max_attempts=2)
     assert not requeued and [r.id for r in failed] == [run.id]
     assert s2.get(run.id).state == ERROR  # type: ignore[union-attr]
 

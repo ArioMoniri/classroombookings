@@ -27,7 +27,8 @@ def cfg(tmp_path: Path) -> Config:
     (deploy / "smartsched/deploy/nginx").mkdir(parents=True)
     (deploy / "smartsched/deploy/nginx/default.conf").write_text(
         (REPO / "smartsched/deploy/nginx/default.conf").read_text())
-    return Config(state_dir=tmp_path / "state", deploy_dir=deploy, install_dir=POD_CI, cloud=False,
+    # parallel=1: the worker tests are sequential unless they ask for slots (test_worker.parallel_worker)
+    return Config(state_dir=tmp_path / "state", deploy_dir=deploy, install_dir=POD_CI, cloud=False, parallel=1,
                   public_url="https://203-0-113-10.sslip.io", token_file="")
 
 

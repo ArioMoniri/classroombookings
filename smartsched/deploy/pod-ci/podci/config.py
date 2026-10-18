@@ -40,6 +40,12 @@ class Config:
     idle_cpu: float = 5.0
     gate_cpus: str = "2"
     gate_memory: str = "3g"
+    # Gates run concurrently along their `needs` DAG, at most `parallel` slots at once (0 = auto: half the CPUs).
+    # Slots are also capped by memory: (MemTotal - memory_reserve_mb) / slot_min_mb, so an 8 GB pod stays at one
+    # gate at a time (today's behaviour, gate_cpus / gate_memory as set) and a 16 GB c7g.2xlarge runs three.
+    parallel: int = 0
+    memory_reserve_mb: int = 3072
+    slot_min_mb: int = 4096
     # = the backend PYTHON_IMAGE build arg in docker-compose.yml (deploy/pins.py checks they agree)
     python_image: str = "python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258"  # noqa: E501
     max_attempts: int = 2
