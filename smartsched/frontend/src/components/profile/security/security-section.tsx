@@ -1,8 +1,8 @@
 "use client";
 /**
  * Profil › Giriş ve güvenlik (`/profile#security`, docs/design/v3/auth.md §6; AUX-06/07). One glass card, one row per
- * subject: Parola, İki aşamalı doğrulama, Geçiş anahtarları, Hatırlanan cihazlar (+ "Her yerden çıkış yap"), Son
- * girişler. The only primary is "Aç" (2FA off). SSO-only accounts (D1) get one explanation row instead of the first
+ * subject: Parola, İki aşamalı doğrulama, Geçiş anahtarları, Oturumlar ve cihazlar (sessions + remembered devices,
+ * "Diğer tüm oturumları kapat"), Son girişler. The only primary is "Aç" (2FA off). SSO-only accounts (D1) get one explanation row instead of the first
  * three; the devices and history stay. The target of every security e-mail.
  */
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,7 +16,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { HistoryRow } from "./sign-in-history";
 import { MfaRow, SecurityRow } from "./mfa-row";
 import { PasskeysRow } from "./passkeys-list";
-import { DevicesRow } from "./trusted-devices";
+import { SessionsRow } from "./sessions-list";
 
 /** "Değiştir": the existing password form of the profile page (`#pf-pw`), focused. */
 function focusPasswordForm() {
@@ -69,7 +69,7 @@ export function SecuritySection() {
                 {s.reason !== "mfa_off" ? <PasskeysRow status={s} org={org} onChanged={refresh} /> : null}
               </>
             )}
-            <DevicesRow devices={s.trusted_devices} onChanged={refresh} />
+            <SessionsRow devices={s.trusted_devices} onChanged={refresh} />
             <HistoryRow />
           </ul>
         )}
