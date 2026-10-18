@@ -1464,25 +1464,55 @@ async def sign_in_history(db: AsyncSession, user: User, limit: int = 50) -> dict
 # --------------------------------------------------------------------------------------------------
 
 
-async def dsr_rows(db: AsyncSession, user_id: int) -> dict[str, Any]:
-    """The person's own sign-in security data for the DSR export: what is on and when, never a secret or a key."""
+async def dsr_rows(db: AsyncSession, user_id: int) -> list[dict[str, Any]]:
+    """The person's own sign-in security data for the DSR export (one row per item, CSV-friendly): what is on and
+    when, never a secret, a code or a key."""
     async with rls.system_scope(db):
         row = await _row(db, user_id)
         left, total = await _codes_left(db, user_id)
         keys = await _passkeys(db, user_id)
         devices = list((await db.execute(select(TrustedDevice).where(TrustedDevice.user_id == user_id))).scalars())
-    return {
-        "authenticator_app": {
+    out: list[dict[str, Any]] = [
+        {
+            "item": "authenticator_app",
+            "name": None,
             "enabled": bool(row and row.totp_secret_enc),
-            "enabled_at": row.totp_enabled_at if row else None,
+            "created_at": row.totp_enabled_at if row else None,
+            "last_used_at": None,
+            "detail": None,
         },
-        "recovery_codes": {"remaining": left, "total": total},
-        "passkeys": [{"name": k.name, "created_at": k.created_at, "last_used_at": k.last_used_at} for k in keys],
-        "trusted_devices": [
-            {"label": d.label, "created_at": d.created_at, "expires_at": d.expires_at, "revoked_at": d.revoked_at}
-            for d in devices
-        ],
-    }
+        {
+            "item": "recovery_codes",
+            "name": None,
+            "enabled": total > 0,
+            "created_at": None,
+            "last_used_at": None,
+            "detail": f"{left}/{total}",
+        },
+    ]
+    for k in keys:
+        out.append(
+            {
+                "item": "passkey",
+                "name": k.name,
+                "enabled": True,
+                "created_at": k.created_at,
+                "last_used_at": k.last_used_at,
+                "detail": None,
+            }
+        )
+    for d in devices:
+        out.append(
+            {
+                "item": "trusted_device",
+                "name": d.label,
+                "enabled": d.revoked_at is None,
+                "created_at": d.created_at,
+                "last_used_at": d.last_used_at,
+                "detail": f"expires {d.expires_at:%Y-%m-%d}",
+            }
+        )
+    return out
 
 
 async def erase(db: AsyncSession, user_id: int) -> int:

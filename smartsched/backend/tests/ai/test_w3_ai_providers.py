@@ -81,6 +81,10 @@ def test_registry_lists_every_provider_and_credentials_rule():
         "gemini",
         "bedrock",
         "vertex",
+        # speech-only providers (VO-10; app/ai/voice/**)
+        "azure_speech",
+        "google_stt",
+        "deepgram",
     }
     assert has_credentials("openai_compatible", {})  # a local Ollama needs no key
     assert not has_credentials("openai", {})

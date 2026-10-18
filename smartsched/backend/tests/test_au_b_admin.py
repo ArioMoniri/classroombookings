@@ -261,3 +261,22 @@ async def test_break_glass_admin_with_identity_and_password_is_local(setup) -> N
     await set_user(uid, password_hash=None)
     body = (await c.get(f"{API}/admin/users/{uid}/mfa", headers=admin)).json()
     assert body["account_type"] == "sso" and body["can_reset_mfa"] is False and body["can_send_reset_link"] is False
+
+
+async def test_kvkk_export_lists_factors_without_secrets_and_erasure_removes_them(setup) -> None:  # type: ignore[no-untyped-def]
+    from app.core import db as dbmod
+    from app.models.mfa import MfaRecoveryCode, UserMfa
+    from app.services import mfa
+    from sqlalchemy import func, select
+
+    c, _admin, uid, headers = setup
+    secret, codes = await enrol_totp(c, headers)
+    async with dbmod.get_session_factory()() as s:
+        rows = await mfa.dsr_rows(s, uid)
+        assert rows[0]["item"] == "authenticator_app" and rows[0]["enabled"] is True
+        assert rows[1]["detail"] == "10/10"
+        assert secret not in str(rows) and not any(code in str(rows) for code in codes)
+        assert await mfa.erase(s, uid) >= 11
+        await s.commit()
+        assert (await s.execute(select(func.count(MfaRecoveryCode.id)))).scalar_one() == 0
+        assert await s.get(UserMfa, uid) is None

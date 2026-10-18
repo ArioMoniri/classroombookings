@@ -429,3 +429,27 @@
   phase: "adaptive scheduling (AS-B, AS-13; audit RF-07)"
   evidence: smartsched/backend/tests/test_as_13_learning.py
   note: "app/services/learning_versions.py, learning_extract._planning_audit, learning.recompute_priors honours habit overrides + min confidence; /learning/{versions,calibration,habits,settings}, PUT /learning/priors/{id}/habit"
+- feature: "Class size edit on /classes is real (RF-01): PUT /requests/meetings/{id} {enrolment} writes the section's enrolment (audited section.update), PUT /requests/exams/{id} {enrolment} the exam's head count (audited exam_request.update); time-shaped or out-of-range values answer 422"
+  area: planning
+  status: done
+  phase: "real-not-fake (RF-1)"
+  evidence: smartsched/backend/tests/test_rf1_catalog_editability.py
+  note: "audit 2026-10-17 A1; app/schemas/requests.py + app/api/v1/requests.py; the classes page already sent the field"
+- feature: "Invite sheet e-mail switch on /admin/users (RF-03): 'Davet e-postası gönder' on by default when SMTP is set up and sends send_email; without SMTP 'E-posta ayarlanmadı' with a link to /admin/email; sent / failed toast"
+  area: platform
+  status: done
+  phase: "real-not-fake (RF-1)"
+  evidence: smartsched/frontend/src/components/admin/rf1-invite-mail.test.tsx
+  note: "GET /auth/sso/admin/invite-mail (setup.users) -> {configured}; components/admin/users-admin-identity.tsx"
+- feature: "Yönetim › Katalog (RF-05): view, edit and delete the imported instructors, courses, programmes, faculties and the term's sections; one searchable list per entity, 'Yeni', edit sheet with 'Son değişiklik: <ad>, <zaman>', advanced fields behind 'Gelişmiş', delete that names its consequences and is refused while the record is in use (sections are archived); planning.view reads, planning.edit writes, every write audited"
+  area: planning
+  status: done
+  phase: "real-not-fake (RF-1)"
+  evidence: smartsched/frontend/src/components/admin/catalog/catalog-admin.test.tsx
+  note: "app/(app)/admin/catalog/**, components/admin/catalog/**, lib/api/catalog-admin.ts catalogAdminApi; backend GET /catalog/usage/{entity}/{id} (uses, blocked, action, last_change) in app/services/catalog_admin.py; tests test_rf1_catalog_editability.py"
+- feature: "Two-step sign-in and passkeys (backend): authenticator app (stdlib RFC 6238, ±1 step, replay refused, secret Fernet-encrypted), ten single-use argon2id recovery codes shown once, sign-in challenge step (signed single-use token, 5 tries, lockout 5 → 15 min doubling), passkeys via py_webauthn 3.0.1 as second factor and passkey-only sign-in (UV required) with RP ID = public host, trusted devices 0/7/30 days, organisation policy off / optional / required_for_roles with grace and setup token, 10-minute re-auth window, password minimum 12 (8 with 2FA); SSO-only accounts get no local factor; admin MFA reset (reason + identity check, audited, e-mailed) and password-reset link by e-mail (local accounts only, token never shown); nine security e-mails"
+  area: platform
+  status: done
+  phase: "sign-in, 2FA and passkeys (AU-B, AU-01..14)"
+  evidence: smartsched/backend/tests/test_au_b_mfa_api.py
+  note: "alembic 0043_mfa (5 tables, PG rls_owner); app/core/totp.py, app/models/mfa.py, app/services/mfa.py + passkeys.py, app/api/v1/mfa.py; auth.py login gate; tests test_au_b_{totp,mfa_api,passkeys,admin,ux_asks,migration}; frontend = AUX lane"

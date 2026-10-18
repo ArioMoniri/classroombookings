@@ -3068,7 +3068,9 @@
       "goal": "You are lane AU-B (authentication backend: 2FA, passkeys, admin resets) for SmartSched (repo /home/user/classroombookings, FastAPI backend smartsched/backend, branch claude/focused-wright-ktt0ss). Read first: - /home/user/classroombookings/docs/agents/briefs/COMMON.md: NEVER commit or push, test-fir…",
       "ledger": "AU-B: 2FA, passkeys, admin resets",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 00:22",
+      "left_off": "Waiting for the output file."
     },
     {
       "id": "aa8b9be94ac997055",

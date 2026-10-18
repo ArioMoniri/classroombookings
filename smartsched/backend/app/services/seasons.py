@@ -1232,13 +1232,13 @@ async def after_import(session: AsyncSession, term: Term) -> list[SeasonSegment]
             found[(kind, int(w.index))] = w.label or ""
     out: list[SeasonSegment] = []
     for kind in dict.fromkeys(k for k, _w in found):
-        weeks = sorted(w for k, w in found if k == kind)
+        weeks = sorted(wi for k, wi in found if k == kind)
         runs: list[list[int]] = []
-        for w in weeks:
-            if runs and runs[-1][-1] + 1 == w:
-                runs[-1].append(w)
+        for wi in weeks:
+            if runs and runs[-1][-1] + 1 == wi:
+                runs[-1].append(wi)
             else:
-                runs.append([w])
+                runs.append([wi])
         for r in runs:
             if (kind, r[0], r[-1]) in have:
                 continue

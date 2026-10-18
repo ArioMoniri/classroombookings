@@ -1163,7 +1163,7 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, Any]:
     data["welcome_guide"] = await welcome_svc.dsr_rows(session, uid)
     from app.services import mfa as mfa_svc  # AU-B: what is on and when; never a secret, a code or a key
 
-    data["sign_in_security"] = await mfa_svc.dsr_rows(session, uid)  # type: ignore[assignment]
+    data["sign_in_security"] = await mfa_svc.dsr_rows(session, uid)
     data.update(await _person_records(session, user, rooms))
     return await _scrub_others(session, user, data)
 

@@ -91,7 +91,7 @@ async def test_one_row_per_transcription(client, monkeypatch):
 async def test_daily_limit_refuses_at_601_seconds(client, monkeypatch):
     openai_stub()
     h = await configure(client)
-    fake = install_fake(monkeypatch)
+    fake = install_fake(monkeypatch, Transcript(text="x", duration_s=5.0))
     await _used("admin@example.com", 595)
     r = await transcribe(client, h, wav(6))
     assert r.status_code == 429

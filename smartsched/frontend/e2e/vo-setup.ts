@@ -121,9 +121,11 @@ export async function m02m03(page: Page, scope: string) {
       for (const el of Array.from(root.querySelectorAll<HTMLElement>("button, a[href], summary, select, textarea, input:not([type=hidden]), [role=switch], [role=checkbox]"))) {
         const r = el.getBoundingClientRect();
         if (!r.width || !r.height || (el.checkVisibility && !el.checkVisibility()) || el.closest("[aria-hidden=true]")) continue;
+        // the shared coarse hit area (ui/hit-area.ts): an absolute ::after with negative insets around the control
         const after = getComputedStyle(el, "::after");
-        const hitW = after.content !== "none" && after.position === "absolute" ? Math.max(r.width, parseFloat(after.width) || 0) : r.width;
-        const hitH = after.content !== "none" && after.position === "absolute" ? Math.max(r.height, parseFloat(after.height) || 0) : r.height;
+        const grow = (v: string) => (after.position === "absolute" && after.content !== "none" ? Math.max(0, -(parseFloat(v) || 0)) : 0);
+        const hitW = r.width + grow(after.left) + grow(after.right);
+        const hitH = r.height + grow(after.top) + grow(after.bottom);
         const lab = (el as HTMLInputElement).labels?.[0]?.getBoundingClientRect();
         if (Math.max(hitW, lab?.width ?? 0) < 43.5 || Math.max(hitH, lab?.height ?? 0) < 43.5) out.push(`${el.tagName.toLowerCase()}[${el.dataset.testid ?? el.getAttribute("aria-label") ?? el.textContent?.trim().slice(0, 24)}] ${r.width.toFixed(0)}×${r.height.toFixed(0)}`);
         if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName) && parseFloat(getComputedStyle(el).fontSize) < 16) out.push(`${el.tagName.toLowerCase()}[${el.id}] font ${getComputedStyle(el).fontSize}`);
