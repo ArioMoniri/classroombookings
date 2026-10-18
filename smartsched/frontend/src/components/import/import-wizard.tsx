@@ -5,7 +5,6 @@ import { Check, ChevronRight, Database, FileSpreadsheet, Grid3x3, ListChecks, Wa
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { PageHeader } from "@/components/common/page-header";
 import { NativeSelect } from "@/components/common/native-select";
 import { useActiveTerm } from "@/components/shell/term-switcher";
@@ -112,6 +111,8 @@ export function ImportWizard() {
   const [suggested, setSuggested] = useState<ImportKind | null>(null);
   /** HB-23d UX-09: the check refused the file (KVKK guard, unreadable…): its own reason, and no start */
   const [refused, setRefused] = useState<string | null>(null);
+  /** a picked file of a type this step does not take (UX-09) */
+  const [rejected, setRejected] = useState<string | null>(null);
   const busy = upload.phase === "uploading" || upload.phase === "processing";
   /** RF-06: every workbook upload is a preview first (`dry_run`); `job` is the applied import */
   const [preview, setPreview] = useState<ImportJob | null>(null);
@@ -189,9 +190,12 @@ export function ImportWizard() {
     setSuggested(null);
     setRefused(null);
     if (f && !/\.(xlsx|xlsm)$/i.test(f.name)) {
-      toast.error(t("glass.import.onlyXlsx"));
+      // HB-23d UX-09: said on the page next to the zone (a toast alone passes unseen)
+      setRejected(t("import.rejectedType", { name: f.name }));
+      setFile(null);
       return;
     }
+    setRejected(null);
     setFile(f);
     if (f) void probeFile(f);
   };
@@ -389,6 +393,11 @@ export function ImportWizard() {
               <>
                 {handedExpired ? <HandedFileExpired /> : null}
                 <MagneticDrop files={file ? [file] : []} onFiles={(f) => onFile(f[0] ?? null)} upload={upload} disabled={busy} />
+                {rejected ? (
+                  <p role="alert" className="type-callout text-status-infeasible-fg" data-testid="import-rejected">
+                    {rejected}
+                  </p>
+                ) : null}
                 <p className="type-caption text-label-2" data-testid="import-privacy">{t("helper.file.privacyRead")}</p>
               </>
             )}

@@ -318,6 +318,18 @@ describe("/import step 1: a refused file says why (HB-23d UX-09)", () => {
     expect(screen.getByTestId("import-start")).toBeDisabled();
   });
 
+  it("a file of the wrong type (a PDF on an Excel step) says so on the page, not only in a passing toast", async () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "kind=exam-list";
+    wrap(<ImportWizard />);
+    const input = screen.getByTestId("import-dropzone").parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["%PDF"], "belge.pdf", { type: "application/pdf" })] } });
+    const alert = await screen.findByTestId("import-rejected");
+    expect(alert).toHaveAttribute("role", "alert");
+    expect(alert).toHaveTextContent("belge.pdf");
+    expect(screen.getByTestId("import-start")).toBeDisabled();
+  });
+
   it("an upload refused with a coded problem shows the server's Turkish reason, not the template hint", async () => {
     useFileHandoffStore.getState().clear();
     nav.search = "kind=planning-list";

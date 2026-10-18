@@ -481,3 +481,16 @@ describe("landFocus: after a hand-over the target page holds the focus", () => {
     }
   });
 });
+
+describe("a stage replaced in another window (HB-23d UX-27)", () => {
+  it("410 stage_replaced says another window's file took its place, not 'süresi doldu'", async () => {
+    answer = (k) => (k.includes("handoff") ? res(410, { detail: { code: "stage_replaced", message_tr: "x", message_en: "x" } }) : res(200, {}));
+    seed({ kind: "card", card: DETECTED });
+    show();
+    fireEvent.click(screen.getByTestId("helper-file-primary"));
+    const line = await screen.findByTestId("helper-file-expired");
+    expect(line).toHaveTextContent("Başka bir pencerede seçtiğiniz dosya bunun yerini aldı.");
+    expect(line).not.toHaveTextContent("10 dakika");
+    expect(screen.getByTestId("helper-file-reread")).toBeInTheDocument();
+  });
+});
