@@ -41,8 +41,20 @@ export function totp(secret: string, offset = 0, now = Date.now()): string {
   const n = ((h[o]! & 0x7f) << 24) | (h[o + 1]! << 16) | (h[o + 2]! << 8) | h[o + 3]!;
   return String(n % 1_000_000).padStart(6, "0");
 }
-/** a code from the next window, so a code used a moment ago is never replayed */
-const freshCode = (secret: string) => totp(secret, 1);
+/**
+ * A code of a step after the last one used (the backend accepts the current step ±1 and never a step at or before the
+ * account's last one, app/core/totp.py `match`). The earlier fixed offsets (+1, +2, +3 from now) put §16.2's and
+ * §16.4's codes two or three steps ahead, outside the ±1 window: refused every time (e2e lane 2026-10-18). Waits for
+ * the next 30 s step when the next unused step is not inside the window yet.
+ */
+let lastStep = 0;
+async function unusedCode(secret: string): Promise<string> {
+  const want = Math.max(lastStep + 1, Math.floor(Date.now() / 30_000) - 1);
+  const wait = (want - 1) * 30_000 - Date.now() + 200; // `want` is inside current ±1 once current >= want - 1
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastStep = want;
+  return totp(secret, 0, want * 30_000 + 1);
+}
 
 async function virtualAuthenticator(context: BrowserContext, page: Page): Promise<{ count: () => Promise<number> }> {
   const cdp = await context.newCDPSession(page);
@@ -100,7 +112,7 @@ test("§16.6: 2FA on in ≤ 3 steps; .txt name; Bitir after the tick; the warnin
   await sheet.getByTestId("setup-cant-scan").click();
   secret = ((await sheet.getByTestId("setup-key").textContent()) ?? "").replace(/\s/g, "");
   expect(secret).toMatch(/^[A-Z2-7]{32}$/);
-  await sheet.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(totp(secret));
+  await sheet.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(await unusedCode(secret));
   await expect(sheet.getByTestId("setup-step-3")).toBeVisible();
   await expect(sheet.getByTestId("recovery-code-list").locator("li")).toHaveCount(10);
   const [dl] = await Promise.all([page.waitForEvent("download"), sheet.getByTestId("codes-download").click()]);
@@ -127,7 +139,7 @@ test("§16.1: password → 2FA step without reload; '123 456' pasted fills and s
   await expect(page.getByText("Kod doğru değil. Uygulamadaki güncel kodu girin.")).toBeVisible();
   await expect(input).toHaveValue("");
   await expect(input).toBeFocused();
-  const code = freshCode(secret);
+  const code = await unusedCode(secret);
   await input.focus();
   await page.evaluate((c) => {
     const el = document.activeElement as HTMLInputElement;
@@ -144,7 +156,7 @@ test("§16.2: 'Bu cihazı 30 gün hatırla' skips the step next time; 'Diğer ci
   await signInWithPassword(page);
   await page.waitForURL("**/login/verify");
   await page.getByTestId("mfa-remember").click();
-  await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(totp(secret, 2));
+  await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(await unusedCode(secret));
   await page.waitForURL((u) => !u.pathname.startsWith("/login"));
   // a new session on the same browser (ss_td kept, the session cookie dropped)
   const keep = (await context.cookies()).filter((c) => c.name === "ss_td");
@@ -168,7 +180,7 @@ test("§16.4: passkey added in Profil (virtual authenticator) → 'Hiç kullanı
   await context.clearCookies();
   await signInWithPassword(page);
   await page.waitForURL("**/login/verify");
-  await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(totp(secret, 3));
+  await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(await unusedCode(secret));
   await page.waitForURL((u) => !u.pathname.startsWith("/login"));
   await page.goto("/profile#security");
   await page.getByTestId("passkey-add").click();

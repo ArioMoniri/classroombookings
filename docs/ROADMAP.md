@@ -3206,7 +3206,7 @@ Order: CH-01 → CH-02 → CH-03 → CH-04 → CH-05 → CH-06 → CH-09 → CH-
 - [x] RF-06 major: re-import keeps admin edits (room capacity and tags, programme renames, exam requests and archived rows, FILE preference rules) with a diff review — after lane C
   part done (backend: exam-list snapshot merge with on_conflict keep/take and conflicts like planning-list, admin-archived rows kept, import-archived rows restored; FILE rules keep a person's kind/params/hardness/text edits (source_ref.imported) and edited rules are never deleted (left_file); admin capacity / tag edits marked custom_fields.master (rooms.py, room_admin.py, rooms_features.set_values; room master marks tags too); programme / faculty / instructor renames kept as catalog_aliases (alembic 0047_rf_import_safety); board re-import keeps admin-edited weeks; dry_run=true preview on every workbook upload with summary.diff (council dryrun.summarize) + POST /imports/{id}/apply; A14 wording; tests tests/test_rf06_reimport.py (8, real Final/Güz rows, failed first); rf-b-2026-10-18)
   open: frontend preview/diff screen on /import (contract in scratchpad rf-b/API.md §2-3); e2e on a stack.
-  done (frontend: every planning / exam / board upload on /import is a preview first (dry_run=true, button 'Önizle'); the preview card reads summary.diff in plain words ('N yeni kayıt eklenecek / N kayıt değişecek / N düzenlemeniz korunacak / N kayıt aynı kalacak', one line per entity in Turkish, conflicts first with 'Sizin değeriniz / Dosyadaki / Önceki içe aktarma', field names in Turkish, changes and warnings behind disclosures); one primary 'Uygula' → POST /imports/{id}/apply then the usual report; any refusal (preview_already_applied, preview_file_gone, term lock) inline at the button in message_tr; keep/take under 'Gelişmiş' ('Düzenlemelerimi koru' default, sent only when changed; the backend takes one choice per import, not per conflict); un-applied previews reopen from the history; room master keeps its own client diff review; files components/import/import-preview.tsx, import-wizard.tsx, lib/api/rf-admin.ts, schemas.ts/adapters.ts (ImportJob preview + actor fields), shell-extra.ts (dryRun/onConflict), rf.* messages; vitest rf-import-preview.test.tsx 6 (red first); e2e pending (e2e/rf-f.spec.ts, smoke.spec.ts updated for the preview step); rf-f-2026-10-18)
+  done (frontend: every planning / exam / board upload on /import is a preview first (dry_run=true, button 'Önizle'); the preview card reads summary.diff in plain words ('N yeni kayıt eklenecek / N kayıt değişecek / N düzenlemeniz korunacak / N kayıt aynı kalacak', one line per entity in Turkish, conflicts first with 'Sizin değeriniz / Dosyadaki / Önceki içe aktarma', field names in Turkish, changes and warnings behind disclosures); one primary 'Uygula' → POST /imports/{id}/apply then the usual report; any refusal (preview_already_applied, preview_file_gone, term lock) inline at the button in message_tr; keep/take under 'Gelişmiş' ('Düzenlemelerimi koru' default, sent only when changed; the backend takes one choice per import, not per conflict); un-applied previews reopen from the history; room master keeps its own client diff review; files components/import/import-preview.tsx, import-wizard.tsx, lib/api/rf-admin.ts, schemas.ts/adapters.ts (ImportJob preview + actor fields), shell-extra.ts (dryRun/onConflict), rf.* messages; vitest rf-import-preview.test.tsx 6 (red first) + 2 for RF-C (a null previous_import reads 'bilinmiyor'; summary.extra.rebuilt_import_values gives one plain line under the diff); e2e pending (e2e/rf-f.spec.ts, smoke.spec.ts updated for the preview step); rf-f-2026-10-18)
 - [ ] RF-07 major: learning refresh button + nightly refresh; correct, disable or tune individual habits — AS-B, AS-13
   part done (backend: POST /learning/refresh returns a learning version, nightly refresh 03:15 Europe/Istanbul for the active term behind GET/PUT /learning/settings, PUT /learning/priors/{id}/habit disable / correct / tune, GET /learning/habits, all audited; tests test_as_13_learning (7); as-b-2026-10-17)
   open: the 'Öğrenmeyi yenile' button, nightly switch and per-habit controls in LearningMemoryPanel (AS-17 frontend lane, contract in the AS-B API notes).
@@ -3512,7 +3512,8 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
 **Lanes:** **HX-F** frontend (HX-01…10), **HX-M** motion (HX-11), **HX-D** design (HX-12), **HX-T** tester (HX-13). Every file is new under `smartsched/frontend/src/components/helper/**` (+ `lib/api/helper.ts`), except the one-line mounts listed as asks. Nothing here touches the integrity guards, W3-*, CAL-*, WG-* files or the round-3 lanes.
 
 **Testers:** academician (`akademisyen.test@`), staff (`personel.test@`, later granted `approvals.decide`), planner, admin (`admin@`). Viewports: 1440 mouse and 390×844 touch, tr-TR, Europe/Istanbul.
-- [ ] HX-01 · frontend · no migration · **can start with HB-01/HB-02/HB-07 contracts** · API client and the client-side helpers.
+- [x] HX-01 · frontend · no migration · **can start with HB-01/HB-02/HB-07 contracts** · API client and the client-side helpers.
+  done (lib/api/helper.ts (search/status/actions/card/confirm/undo/memory/notes/feedback/events + admin/faculty hooks); components/helper/schema.gen.ts generated by scripts/gen-helper-schema.mjs from tests/helper/fixtures/helper_card_v1.schema.json (incl. answer.notes_used; --check); feature-index.gen.ts by scripts/gen-helper-features.mjs from features.yaml + feature-links.ts; intents.ts; vitest schema.gen.test.ts 6, feature-links.test.ts 8 (routes exist, anchors in welcome-guide §13 / helper §3.4, nav-index coverage + same permission), intents.test.ts 5 (66 TR/EN phrasings); tsc 0, eslint, check-design clean; hx-2026-10-18)
   - `lib/api/helper.ts`: zod types generated from `GET /helper/schema` (snapshot test), React Query hooks for `GET /helper/search`, `POST /helper/turn` (SSE), `POST /helper/actions/confirm`, `POST /helper/actions/undo`, notes and threads.
   - `components/helper/feature-links.ts`: `feature_id` → href, anchor, kind, path. It is generated from `nav-config.ts`, `ADMIN_SECTION_NAV_ITEMS`, the settings / profile tabs and `helper.md` §3.4. The server never sends a URL.
   - `components/helper/intents.ts`: TR/EN dates, periods, times, room codes and headcounts → action + partial args.
@@ -3526,6 +3527,7 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
   files: new `frontend/src/lib/api/helper.ts`, `frontend/src/components/helper/{feature-links,intents,schema.gen}.ts` + tests.
   testers: — (unit level).
 - [ ] HX-02 · frontend · no migration · **"Ara veya sor"**: the extended palette and its trigger (`helper.md` §2.2, §2.3; `helper-search-1440.svg`, `helper-390.svg` A).
+  part done (palette-groups.tsx (Sayfalar ve ayarlar, Nerede?, Kısayollar, Yardımcıya sor first for questions, starters when empty, Shift+Enter = Göster, ask row hidden in index mode / disabled at the limit), helper-trigger.tsx; mounts in command-palette.tsx / top-bar.tsx / tab-bar.tsx; helper.* keys TR+EN; vitest palette-groups.test.tsx 7; hx-2026-10-18); open: e2e/hx-palette.spec.ts at 1440 + 390 on a stack (resource rule), "Son yaptıklarınız" needs a backend list of the person's confirmed actions, playwright testMatch
   - Groups in this order: Sayfalar ve ayarlar, **Nerede?**, the existing data groups, **Kısayollar**, **Yardımcıya sor**. Empty query: Son yaptıklarınız (≤ 3) + role starters + Git.
   - The ask row is last, or first and preselected when the query reads as a question.
   - Shift+Enter = Göster.
@@ -3546,6 +3548,7 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
   - playwright `testMatch` append `hx-[a-z-]+`.
   testers: academician (phone), admin (desktop).
 - [ ] HX-03 · frontend · no migration · **after HB-06 (turn) or against its SSE fixture** · Helper sheet and conversation (`helper.md` §2.4, §2.5, §5.2, §5.3; `helper-sheet-1440.svg`, `helper-390.svg` B, `helper-states.svg` A/B).
+  part done (helper-root.tsx (⌘J, not on /runs/<id>; hidden when status.enabled=false / embed / kiosk), helper-sheet.tsx (desktop non-modal complementary 360/400 px, F6; phone full-screen dialog + focus trap; log role=log; Düşünüyor…; AiUsageBanner/PromptComposer/AiNotice; Rehber modu guide.tsx; limit disables composer with reason), stream.ts (shared chat-stream parser), status-chip.tsx (why AI is off + who can turn it on), starters.tsx, helper-store.ts, use-helper-runner.ts; app-shell.tsx one mount; vitest helper-sheet.test.tsx 8, stream.test.ts 4, status-chip.test.tsx 4; hx-2026-10-18); open: e2e/hx-sheet.spec.ts, the page-context chip (POST /helper/turn has no context field), user menu / Daha › Yardımcıya sor rows (shell / welcome owners)
   - `HelperProvider`: open state, current thread, ⌘J; on `/runs/[id]`, ⌘J keeps focusing the run chat.
   - `HelperSheet`: desktop non-modal `role="complementary"` 400 / 360 px, no scrim, F6; phone full-screen dialog with a focus trap.
   - Message log (`role="log"`), streaming text, "Düşünüyor…", the page-context chip, `PromptComposer` (16 px), `AiUsageBanner`, `AiNotice`, role starters.
@@ -3566,6 +3569,7 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
   - "Yardımcıya sor" in the user menu › Yardım group (next to WG-06's items) and the "Daha" › Yardım group.
   testers: academician (phone), admin (desktop), planner (⌘J on a run page).
 - [ ] HX-04 · frontend · no migration · **with HB-05/HB-07** · Card renderer and the confirm / undo plumbing (`helper.md` §4.1, §4.2, §4.6).
+  part done (cards/{frame,render,context,answer,nav,list,facts,form,confirm,result,status,choice}.tsx; isTrusted-only confirm, typed evet answered, expiry → Yenile, 409 changed → new preview, conflict message on the card, focus → result line / undone line, 8 s toast with Geri al, older pending card parked, Yalnızca metin, unknown write action → fallback, answer thumbs + notes_used; vitest cards/cards.test.tsx 27 incl. axe-core on the fixtures; hx-2026-10-18); open: stack check with real tokens
   - `HelperCardFrame` + one component per wire type: `answer`, `nav`, `list`, `facts`, `form`, `confirm`, `result`, `limit` / `refusal` / `error`, `choice` (ask A2).
   - Unknown type or action → `answer` + `nav` fallback.
   - Confirm only on an `isTrusted` click or key on the card's button; "evet" in the composer answers `helper.card.typedYes`.
@@ -3579,6 +3583,7 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
   files: new `frontend/src/components/helper/cards/{frame,render,answer,nav,list,facts,form,confirm,result,status,choice}.tsx` + tests.
   testers: academician, approver.
 - [ ] HX-05 · frontend · no migration · **after HX-04 and HB-05** · Action presentations R0/R1 (`helper.md` §4.3; `helper-cards.svg`): `book_room` (create_booking, "Talep et" in request mode), `find_room`, `room_day`, `my_bookings`, `cancel_booking`, `my_requests` (+ withdraw), `run_status` / review, `my_ai_usage`, `remember` (notes), `undo_last`.
+  part done (create_booking/find/room_day/my_bookings/cancel/my_requests/run_status/my_ai_usage/undo_last all render through the generic typed cards; Değiştir → client form prefilled from confirm.args; options_source rooms/periods/reasons from the pages' endpoints; ≤ 5 fields + Gelişmiş; follow-ups; shortcut time / "3. saat" resolved to the period so a resolved booking goes straight to confirm (A1); hx-2026-10-18); open: e2e/hx-actions.spec.ts on a stack, remember/"Hatırla" (no server card yet)
   - Prefilled `confirm` with "Değiştir" → `form` (ask A1).
   - Option lists from the existing endpoints (`options_source`).
   - ≤ 5 visible fields; the rest behind "Gelişmiş".
@@ -3593,6 +3598,7 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
   files: new `frontend/src/components/helper/cards/actions/*.tsx` + tests, `frontend/e2e/hx-actions.spec.ts`.
   testers: academician, staff.
 - [ ] HX-06 · frontend · no migration · **after HX-04** · R2 and hand-overs:
+  part done (approvals_list rows → decide_approval confirm / reject form with the reasons list; invite and calendar are nav hand-overs "Davet penceresini aç" / "Takvimime ekle"; hx-2026-10-18); open: publish / report / run-chat presentations and the prefill URL params (asks to the runs, admin-users, CAL-F and chat owners), e2e/hx-handover.spec.ts
   - `approvals_list` (row confirm, reject reason as on `/approvals`);
   - `invite_user` (client form → opens the users page's invite dialog prefilled);
   - `publish_run` (a `facts` preview → opens the runs page's own publish dialog; blockers disable it with the reason);
@@ -3613,6 +3619,7 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
   - the chat owner: `?chat=<text>` prefill on `/runs/[id]`.
   testers: approver, planner, admin.
 - [ ] HX-07 · frontend · no migration · **after WG-05** · "Göster" (`helper.md` §3.3; `helper-where-1440.svg`, `helper-390.svg` D).
+  part done (show-me.tsx on WG-05 SpotlightRing + waitForAnchor: navigate, ≤ 3 s, centre, ring, step card Anladım / Yardımcıya dön, target stays interactive, Esc → focus on target, missing anchor message; vitest show-me.test.tsx 3; hx-2026-10-18); open: the §3.4 data-tour anchors on their pages (only approvals-row-actions, nav-*, user-menu, reserve-when exist), e2e/hx-showme.spec.ts
   - `ShowMe` = a 1-step tour on WG-05's `SpotlightRing` + `TourCard`: navigate, wait ≤ 3 s for `[data-tour]`, scroll to centre, ring, step card "Anladım" / "Yardımcıya dön".
   - The target stays interactive. The scrim is at 25 % on desktop with the sheet visible. On phones the sheet closes and the step card is docked.
   - A missing anchor → the steps + "Bu düğme şu an bu sayfada görünmüyor."
@@ -3625,6 +3632,7 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
   asks: the `data-tour` anchors of `helper.md` §3.4, one attribute each, from their page owners (admin setup, profile, reserve, find-room, my-bookings, runs, bookings).
   testers: admin, academician.
 - [ ] HX-08 · frontend · no migration · **after HB-09** · Profil › Yardımcı (`helper.md` §5.1; `helper-states.svg` C):
+  part done (memory/memory-section.tsx mounted in profile-view.tsx (#helper, data-tour profile-helper-memory): switch, notes add/delete (server refusals inline, focus kept), Geçmişi sil with confirm, notice; sheet shows "N notunuzu kullanıyorum · Yönet"; vitest memory-section.test.tsx 7; hx-2026-10-18); open: e2e/hx-memory.spec.ts (DSR export, ai_personal withdrawal)
   - the memory switch;
   - notes (list, Sil, Not ekle ≤ 200 characters, the server refuses a person's name);
   - history ("Son 30 günün konuşmaları saklanır", Geçmişi sil with confirm);
@@ -3641,6 +3649,7 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
   asks: one mount in `components/admin/profile-view.tsx` (profile owner).
   testers: academician.
 - [ ] HX-09 · frontend · no migration · **after HB-14/HB-15** · `/admin/ai` › **Yardımcı** tab:
+  part done (admin/helper-admin.tsx: on/off, mode, audiences, actions with risk words, Gelişmiş memory/retention/history/feedback notes/scope, version + 409 stale_settings, summary tiles and k≥5 misses; vitest helper-admin.test.tsx 3; hx-2026-10-18); open: the tab entry in components/admin/ai/ai-admin.tsx (W3-AI owner ask), e2e/hx-admin.spec.ts
   - on / off and mode (Yapay zekâ / Yalnızca dizin);
   - audiences;
   - actions per audience with plain risk words ("Kendi rezervasyonu", "Başkalarını etkiler");
@@ -3656,6 +3665,7 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
   asks (W3-AI owner): one tab entry in `components/admin/ai/ai-admin.tsx`.
   testers: admin.
 - [ ] HX-10 · frontend · no migration · **after HB-10/HB-11** · Faculty quotas:
+  part done (admin/faculty-usage.tsx manager view: sentences, Bölümlere paylaştır checked against the allowance, 422 inline, people only with show_people; vitest faculty-usage.test.tsx 5; hx-2026-10-18); open: admin Sınırlar › Fakülteler editor (PUT /ai/admin/limits faculties), its mount in limits-tab.tsx and the ai.usage_faculty nav entry (asks), e2e/hx-faculty.spec.ts
   - `/admin/ai` › Sınırlar › **Fakülteler**: one row per faculty (allocation, used meter with words, managers), expandable departments; strict mode and per-feature caps under "Gelişmiş".
   - The faculty manager's own view (`ai.usage_faculty`): totals, departments and trend in sentences, people only with `show_people`, and "Bölümlere paylaştır" with the sum checked against the faculty allocation (422 message shown inline).
   accept: vitest; Playwright `e2e/hx-faculty.spec.ts`:
@@ -3667,6 +3677,7 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
   asks: a sub-tab slot in `components/admin/ai/limits-tab.tsx` (W3-AI owner); a nav entry for `ai.usage_faculty` holders in `nav-config.ts` (shell owner).
   testers: admin + a faculty manager account.
 - [ ] HX-11 · motion · no migration · Helper motion (`helper.md` §7).
+  part done (helper.css: card enter, thinking shimmer, check; reduced motion = end states, reduced transparency = opaque sheet; sheet uses springs.sheet x 24→0 desktop / y 100% phone, no blur on the motion; hx-2026-10-18); open: motion-audit helper block, SOURCES.md row, motion.md §3.19 rows (their owners)
   - Sheet open (desktop: `sheet` spring, x 24 → 0, no blur; phone: pattern 4), thinking (pattern 17), streaming chunk fade (pattern 16), card enter, confirm → success check, toast, pending-card collapse, Göster ring, status-chip word swap.
   - Free transitions.dev recipes only (panel-reveal, thinking-states / shimmer-text, streaming-text, skeleton-reveal, success-check, text-states-swap, toast, tooltip), re-implemented on our tokens, ≤ 300 ms.
   - Reduced motion = end states / ≤ 100 ms fades; reduced transparency = opaque.

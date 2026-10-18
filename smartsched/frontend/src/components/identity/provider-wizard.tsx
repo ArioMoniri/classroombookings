@@ -6,12 +6,14 @@
  * check rows + a real test login in a popup that reports the claims), 5 Etkinleştir (who may sign in, the sign-up role,
  * allowed domains, role mapping). Shared by every administrator: the header says "Son değişiklik: <ad>, <zaman>" and
  * each save sends the version it started from (409 ``conflict`` when another administrator saved in between).
+ * The SAML values step keeps the federation certificate, the SP key and request signing behind "Gelişmiş"
+ * (idp2-2026-10-18; the private key is write-only: only "Anahtar kayıtlı" comes back).
  */
-import { ArrowLeft, Check as CheckIcon, Circle, Lock, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check as CheckIcon, ChevronDown, Circle, KeyRound, Lock, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { CopyField } from "@/components/admin/integrations/copy-field";
-import { Field, FieldRow, Loading, SelectField } from "@/components/admin/kit";
+import { ConfirmDialog, Field, FieldRow, Loading, SelectField } from "@/components/admin/kit";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { BusyButton } from "@/components/ui/busy-label";
@@ -28,7 +30,7 @@ import { roleLabel } from "@/lib/i18n/roles";
 import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { IdpMfaSwitch } from "./idp-mfa-switch";
-import { idp, idpKeys, useIdpMutation, useProviderMappings, useSetup, type Check, type Provider, type ProviderIn, type Setup, type TestResult } from "./providers-api";
+import { idp, idpKeys, useIdpMutation, useProviderMappings, useSetup, type CertInfo, type Check, type Provider, type ProviderIn, type Setup, type TestResult } from "./providers-api";
 import { cleanPasted, copyAllText, firstOpenStep, looksLikeGuid, missingFields, parseDomains, signupRoleEligible, stepState, WIZARD_STEPS, type WizardStep } from "./providers-model";
 
 export const POLL_MS = 1500;
@@ -541,9 +543,268 @@ function ValuesStep({ p, setup, onNext }: { p: Provider; setup: Setup; onNext: (
           </div>
         </div>
       ) : null}
-      <Checks checks={p.discovery.checks} />
+      {p.kind === "saml" ? <SamlAdvanced p={p} /> : null}
+      <Checks checks={p.kind === "saml" ? p.discovery.checks.filter((x) => !ADVANCED_CHECKS.includes(x.key)) : p.discovery.checks} />
       <ErrorLine error={error} conflict={conflict} />
     </StepFrame>
+  );
+}
+
+/* ------------------------------------------------------------------------------ step 3 › SAML › Gelişmiş */
+
+/** check rows shown inside "Gelişmiş" (beside the certificate they are about) instead of the step's list */
+const ADVANCED_CHECKS = ["metadata_signature"];
+
+function certDate(iso: string, locale: string): string {
+  const d = new Date(/[zZ]$|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso}Z`);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString(locale === "en" ? "en-GB" : "tr-TR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Istanbul" });
+}
+
+function CertDetails({ cert, testId }: { cert: CertInfo; testId: string }) {
+  const { t, locale } = useI18n();
+  return (
+    <dl className="grid grid-cols-1 gap-x-3 gap-y-0.5 type-footnote sm:grid-cols-[minmax(8rem,auto)_1fr]" data-testid={testId}>
+      <dt className="text-label-2">{t("identity.saml.certSubject")}</dt>
+      <dd className="mb-1 break-all text-label-1 sm:mb-0">{cert.subject}</dd>
+      <dt className="text-label-2">{t("identity.saml.certUntil")}</dt>
+      <dd className="mb-1 text-label-1 sm:mb-0">{certDate(cert.not_after, locale)}</dd>
+      <dt className="text-label-2">{t("identity.saml.certSha256")}</dt>
+      <dd className="break-all font-mono text-label-1">{cert.sha256}</dd>
+    </dl>
+  );
+}
+
+function SubBlock({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3 rounded-xl bg-fill-3 p-3 sm:p-4">
+      <div>
+        <h4 className="type-callout font-semibold text-label-1">{title}</h4>
+        <p className="type-footnote text-label-2">{hint}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function SamlAdvanced({ p }: { p: Provider }) {
+  const { t } = useI18n();
+  const sigCheck = p.discovery.checks.find((c) => c.key === "metadata_signature");
+  // closed by default (simplicity); open when its own check failed, so the reason is not hidden
+  const [open, setOpen] = useState(sigCheck?.ok === false);
+  if (!p.saml) return null;
+  return (
+    <div className="flex flex-col gap-3" data-testid="idp-saml-advanced">
+      <Button
+        type="button"
+        variant="ghost"
+        className="-ml-2 self-start pointer-coarse:min-h-11"
+        aria-expanded={open}
+        aria-controls="idp-saml-advanced-body"
+        onClick={() => setOpen((o) => !o)}
+        data-testid="idp-saml-advanced-toggle"
+      >
+        <ChevronDown aria-hidden className={cn("transition-transform motion-reduce:transition-none", open && "rotate-180")} />
+        {t("identity.saml.advanced")}
+      </Button>
+      {open ? (
+        <div id="idp-saml-advanced-body" className="flex flex-col gap-4">
+          <p className="type-footnote text-label-2">{t("identity.saml.advancedLead")}</p>
+          <FederationCert p={p} check={sigCheck} />
+          <SpKey p={p} />
+          <SignRequests p={p} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FederationCert({ p, check }: { p: Provider; check: Check | undefined }) {
+  const { t } = useI18n();
+  const { save, error, conflict, pending } = useSave(p);
+  const [text, setText] = useState("");
+  const cert = p.saml?.metadata_signing_cert ?? null;
+  const signed = p.saml?.metadata_signed === true;
+  return (
+    <SubBlock title={t("identity.saml.fedTitle")} hint={t("identity.saml.fedHint")}>
+      {cert || check ? (
+        <div className="flex flex-col gap-2" data-testid="idp-fed-details">
+          {cert ? <CertDetails cert={cert} testId="idp-fed-cert-info" /> : null}
+          {cert ? (
+            <StatusDot tone={signed ? "feasible" : "infeasible"}>
+              <span data-testid="idp-metadata-signed" data-ok={signed}>
+                {t(signed ? "identity.saml.metadataSigned" : "identity.saml.metadataNotSigned")}
+              </span>
+            </StatusDot>
+          ) : null}
+          {check ? <Checks checks={[check]} /> : null}
+        </div>
+      ) : null}
+      <Field label={t(cert ? "identity.saml.fedReplace" : "identity.saml.fedPaste")} htmlFor="idp-fed-cert" hint={t("identity.saml.pemHint")}>
+        <Textarea
+          id="idp-fed-cert"
+          rows={3}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          spellCheck={false}
+          autoComplete="off"
+          className="font-mono text-base sm:text-sm"
+          data-testid="idp-fed-cert"
+        />
+      </Field>
+      <div className="flex flex-wrap gap-2">
+        <BusyButton
+          variant="outline"
+          busy={pending}
+          busyLabel={t("busy.saving")}
+          disabled={!text.trim()}
+          className="min-h-11 sm:min-h-9"
+          onClick={() => save({ metadata_signing_cert: text }, t("identity.saml.fedSaved"), () => setText(""))}
+          data-testid="idp-fed-save"
+        >
+          {t("identity.saml.fedSave")}
+        </BusyButton>
+        {cert ? (
+          <Button variant="ghost" disabled={pending} className="min-h-11 sm:min-h-9" onClick={() => save({ metadata_signing_cert: "" }, t("identity.saml.fedRemoved"))} data-testid="idp-fed-remove">
+            {t("identity.saml.fedRemove")}
+          </Button>
+        ) : null}
+      </div>
+      <ErrorLine error={error} conflict={conflict} />
+    </SubBlock>
+  );
+}
+
+function SpKey({ p }: { p: Provider }) {
+  const { t } = useI18n();
+  const { save, error, conflict, pending } = useSave(p);
+  const [pasting, setPasting] = useState(false);
+  const [key, setKey] = useState("");
+  const [cert, setCert] = useState("");
+  const [confirm, setConfirm] = useState(false);
+  const removeRef = useRef<HTMLButtonElement>(null);
+  const isSet = p.saml?.sp_private_key_set === true;
+  const spCert = p.saml?.sp_certificate ?? null;
+  return (
+    <SubBlock title={t("identity.saml.spTitle")} hint={t("identity.saml.spHint")}>
+      {isSet ? (
+        <div className="flex flex-col gap-2">
+          <span className="flex flex-wrap items-center gap-2">
+            <StatusDot tone="feasible">
+              <span data-testid="idp-sp-set">{t("identity.saml.spSet")}</span>
+            </StatusDot>
+            <Button ref={removeRef} size="sm" variant="outline" className="min-h-11 sm:min-h-9" onClick={() => setConfirm(true)} data-testid="idp-sp-remove">
+              <Trash2 aria-hidden />
+              {t("identity.saml.spRemove")}
+            </Button>
+          </span>
+          {spCert ? <CertDetails cert={spCert} testId="idp-sp-details" /> : null}
+          <p className="type-footnote text-label-2">{t("identity.saml.reimport")}</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <span className="type-footnote text-label-2" data-testid="idp-sp-none">
+            {t("identity.saml.spNone")}
+          </span>
+          <div className="flex flex-wrap gap-2">
+            <BusyButton
+              variant="outline"
+              busy={pending && !pasting}
+              busyLabel={t("busy.saving")}
+              disabled={pending}
+              className="min-h-11 sm:min-h-9"
+              onClick={() => save({ sp_key_generate: true }, t("identity.saml.spGenerated"))}
+              data-testid="idp-sp-generate"
+            >
+              <KeyRound aria-hidden />
+              {t("identity.saml.spGenerate")}
+            </BusyButton>
+            <Button variant="ghost" className="min-h-11 sm:min-h-9" aria-expanded={pasting} onClick={() => setPasting((x) => !x)} data-testid="idp-sp-paste-toggle">
+              {t("identity.saml.spPasteToggle")}
+            </Button>
+          </div>
+          {pasting ? (
+            <div className="flex flex-col gap-3">
+              <Field label={t("identity.saml.spKey")} htmlFor="idp-sp-private-key" hint={t("identity.saml.spKeyHint")}>
+                <Textarea
+                  id="idp-sp-private-key"
+                  rows={4}
+                  value={key}
+                  onChange={(e) => setKey(e.target.value)}
+                  spellCheck={false}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  className="font-mono text-base sm:text-sm"
+                  data-testid="idp-sp-private-key"
+                />
+              </Field>
+              <Field label={t("identity.saml.spCert")} htmlFor="idp-sp-certificate" hint={t("identity.saml.spCertHint")}>
+                <Textarea
+                  id="idp-sp-certificate"
+                  rows={3}
+                  value={cert}
+                  onChange={(e) => setCert(e.target.value)}
+                  spellCheck={false}
+                  autoComplete="off"
+                  className="font-mono text-base sm:text-sm"
+                  data-testid="idp-sp-certificate"
+                />
+              </Field>
+              <BusyButton
+                busy={pending}
+                busyLabel={t("busy.saving")}
+                disabled={!key.trim()}
+                className="min-h-11 self-start sm:min-h-9"
+                onClick={() =>
+                  save({ sp_private_key: key, ...(cert.trim() ? { sp_certificate: cert } : {}) }, t("identity.saml.spSaved"), () => {
+                    setKey("");
+                    setCert("");
+                  })
+                }
+                data-testid="idp-sp-save"
+              >
+                {t("identity.saml.spSave")}
+              </BusyButton>
+            </div>
+          ) : null}
+        </div>
+      )}
+      <ErrorLine error={error} conflict={conflict} />
+      <ConfirmDialog
+        open={confirm}
+        onOpenChange={(o) => {
+          setConfirm(o);
+          if (!o) removeRef.current?.focus();
+        }}
+        title={t("identity.saml.spRemoveTitle")}
+        description={t("identity.saml.spRemoveBody")}
+        confirmLabel={t("identity.saml.spRemoveConfirm")}
+        destructive
+        busy={pending}
+        onConfirm={() => {
+          setConfirm(false);
+          removeRef.current?.focus();
+          save({ sp_key_remove: true }, t("identity.saml.spRemoved"));
+        }}
+      />
+    </SubBlock>
+  );
+}
+
+function SignRequests({ p }: { p: Provider }) {
+  const { t } = useI18n();
+  const { save, error, conflict, pending } = useSave(p);
+  return (
+    <SubBlock title={t("identity.saml.signTitle")} hint={t("identity.saml.signHint")}>
+      <div data-testid="idp-sign-requests-row">
+        <FieldRow label={t("identity.saml.signRequests")} htmlFor="idp-sign-requests" className="py-0">
+          <Switch id="idp-sign-requests" checked={p.saml?.sign_requests === true} disabled={pending} onCheckedChange={(x) => save({ sign_requests: x })} data-testid="idp-sign-requests" />
+        </FieldRow>
+      </div>
+      <ErrorLine error={error} conflict={conflict} />
+    </SubBlock>
   );
 }
 

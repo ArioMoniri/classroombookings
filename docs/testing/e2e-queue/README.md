@@ -154,3 +154,7 @@ On pass: tick VO-06/07/08 and VO-05.
 ## Added 2026-10-18 10:55 UTC
 
 - **RF-C:** /admin/schedules P1 → "08.00"–"08:40": a period habit ("sabah saatleri") in learning suggestions/priors shows "(08:00–13:20)", reset shows "(08:30–13:20)". On a stack seeded before RF-06 (or with `imported_snapshots` rows for entity 'exam' removed): edit a BME 419 exam head count, re-import a Final list where that cell differs as a preview → one conflict (planner, file, previous import); apply keeps the edit and `summary.extra.rebuilt_import_values.from_audit ≥ 1`.
+
+## Added 2026-10-18 11:00 UTC
+
+- **RF-F** (`e2e/rf-f.spec.ts` + the smoke import step; 1440 and 390, tr-TR): /import planning list preview → wording → Uygula → report, a second apply via API → 409, history "Önizleme · uygulandı" / "Yükleyen:" / "İlk kurulum (sistem)", download is .xlsx; exam list conflict row mine / file / previous ("bilinmiyor" on older data), Gelişmiş › "Dosyadakini al"; /admin/schedules 18 rows, P3 09.00 error at P3, 08.35 survives reload, "Varsayılana dön" restores 08:30; /admin/weeks week 14 → Tatil with badge after reload, duplicate week 1 refused inline, "Dönem profilleri" below; /admin/users 2FA filter sends `mfa_state` with offset 0 and the total matches; phones 44 px / 16 px, focus never on `<body>`.
