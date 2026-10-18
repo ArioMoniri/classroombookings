@@ -306,12 +306,17 @@ async def update_room(room_id: int, body: RoomBookingUpdate, db: DB, _: RoomsAdm
     for k in ("location", "icon", "notes", "display_name"):
         if k in data:
             data[k] = n.clean_text(data[k]) if data[k] is not None else None
+    edited_capacity = data.get("capacity") is not None and data["capacity"] != r.capacity
     for k, v in data.items():
         if k == "display_name" and not v:
             continue
         if k == "is_bookable" and v is None:
             continue
         setattr(r, k, v)
+    if edited_capacity:
+        from app.importers.catalog import mark_master
+
+        mark_master(r, "capacity")  # RF-06: the next workbook import keeps the admin's capacity
     await db.commit()
     await db.refresh(r)
     return await _room_out(db, r)

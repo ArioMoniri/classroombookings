@@ -16,8 +16,8 @@ GIF_FPS="${GIF_FPS:-30}"
 mkdir -p "$OUT"
 
 # poster frame = the most informative moment of each loop
-declare -A POSTER=([hero-solver]=140 [nl-to-rules]=125 [file-to-rules]=128 [precheck-fix]=96)
-NAMES=("${@:-hero-solver nl-to-rules file-to-rules precheck-fix}")
+declare -A POSTER=([hero-solver]=140 [nl-to-rules]=125 [file-to-rules]=128 [precheck-fix]=96 [quick-reserve]=86)
+NAMES=("${@:-hero-solver nl-to-rules file-to-rules precheck-fix quick-reserve}")
 NAMES=(${NAMES[@]})
 
 for name in "${NAMES[@]}"; do

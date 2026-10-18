@@ -169,9 +169,11 @@ async def import_room_master(session: AsyncSession, path: str | Path, *, filenam
                 if getattr(room, attr) != r[attr]:
                     setattr(room, attr, r[attr])
                     changed = True
-        if r["tags"] is not None and list(room.tags or []) != r["tags"]:
-            room.tags = r["tags"]
-            changed = True
+        if r["tags"] is not None:
+            master.add("tags")  # RF-06: the master's tags are the room's tags; workbooks no longer add to them
+            if list(room.tags or []) != r["tags"]:
+                room.tags = r["tags"]
+                changed = True
         if r["building"]:
             b = await cat.building(r["building"])
             if room.building_id != b.id:

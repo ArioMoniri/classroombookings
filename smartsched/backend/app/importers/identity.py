@@ -15,7 +15,7 @@ import json
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from datetime import time
+from datetime import date, time
 from typing import Any
 
 MEETING_FIELDS = (
@@ -49,6 +49,8 @@ _LEGACY = re.compile(r"^PL:(?P<term>.+):[0-9a-f]{16}#\d+$")
 def plain(v: Any) -> Any:
     if isinstance(v, time):
         return v.strftime("%H:%M")
+    if isinstance(v, date):  # exam dates (RF-06 exam snapshots are JSON)
+        return v.isoformat()
     if isinstance(v, list | tuple):
         return [plain(x) for x in v]
     return v

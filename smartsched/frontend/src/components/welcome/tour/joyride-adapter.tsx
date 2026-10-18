@@ -15,6 +15,11 @@ import { Joyride, type Step } from "react-joyride";
 import { useId, useMemo } from "react";
 import type { TourEngineProps } from "./engine";
 import { TourCard, TourCardContext } from "./tour-card";
+import { welcomeMotion } from "../motion";
+
+/** The step card fades in (spec §8.1 "Step card in / out"); the card itself adds the .98 → 1 scale (tour-card.tsx). */
+const FLOATER_IN = `opacity var(--dur-fast) var(--ease-out)`;
+const FLOATER_IN_REDUCED = `opacity ${welcomeMotion.reduced.duration * 1000}ms linear`;
 
 function cssVar(name: string, fallback: string): string {
   if (typeof window === "undefined") return fallback;
@@ -79,7 +84,7 @@ export default function JoyrideAdapter({ step, controls, docked, reduceMotion }:
           offset: 12,
         }}
         styles={{
-          floater: { filter: "none", transition: reduceMotion ? "opacity 100ms linear" : "opacity 120ms cubic-bezier(0.16, 1, 0.3, 1)" },
+          floater: { filter: "none", transition: reduceMotion ? FLOATER_IN_REDUCED : FLOATER_IN },
           tooltip: { padding: 0, backgroundColor: "transparent", borderRadius: 24 },
         }}
       />

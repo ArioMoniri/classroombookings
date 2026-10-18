@@ -84,7 +84,7 @@ from app.models.scheduling import (
 )
 from app.models.sso import SsoAuthState, SsoInvite, SsoProvider, SsoRoleMapping, UserIdentity  # noqa: F401
 from app.models.studio import ImportedSnapshot, StudioDraft, StudioPreset
-from app.models.system import ImportJob, Setting, User
+from app.models.system import CatalogAlias, ImportJob, Setting, User
 
 __all__ = [
     "AIProposalDecision",
@@ -111,6 +111,7 @@ __all__ = [
     "BookingSeries",
     "BookingSlot",
     "Building",
+    "CatalogAlias",
     "ChatApplyClaim",
     "ChatMessage",
     "ConstraintRow",

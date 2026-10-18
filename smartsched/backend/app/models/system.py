@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, utcnow
@@ -68,3 +68,23 @@ class ImportJob(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # review M6
+    #: RF-08 (alembic 0047_rf_import_safety): who imported - the uploading person (``actor = user``) or
+    #: ``actor = system`` for CLI imports, the deploy seed among them (``summary.source`` says which)
+    created_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    actor: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+
+class CatalogAlias(Base):
+    """RF-06: the old canonical name of a renamed programme / faculty / instructor (alembic 0047_rf_import_safety);
+    the importers' catalogue maps the file's old spelling to the renamed row (``app.importers.catalog``)."""
+
+    __tablename__ = "catalog_aliases"
+    __table_args__ = (UniqueConstraint("entity", "alias", name="uq_catalog_aliases_entity_alias"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entity: Mapped[str] = mapped_column(String(16))  # program | faculty | instructor
+    alias: Mapped[str] = mapped_column(String(255))
+    target_id: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

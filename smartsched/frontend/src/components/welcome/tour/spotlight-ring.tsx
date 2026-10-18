@@ -1,12 +1,14 @@
 "use client";
 /**
  * The one spotlight ring (spec §4.2, §10): 3 px `--focus`, radius = the target's + 4 px, a 4 px gap, moving between
- * targets with motion `layout` (FLIP transforms, springs.smooth; it jumps under reduced motion). `aria-hidden`,
- * `pointer-events: none`. Forced colours: `Highlight`.
+ * targets with motion `layout` (FLIP transforms, `welcomeMotion.ring` 240 ms; it jumps under reduced motion). The
+ * layout animation runs only when the TARGET changes (`layoutDependency`): scroll and resize updates follow the target
+ * 1:1 in the same frame, so the ring never trails behind a scrolling page. `aria-hidden`, `pointer-events: none`.
+ * Forced colours: `Highlight`.
  */
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { springs } from "@/lib/motion";
+import { instant, welcomeMotion } from "../motion";
 
 interface Box {
   left: number;
@@ -49,7 +51,8 @@ export function SpotlightRing({ target, reduceMotion }: { target: HTMLElement | 
       aria-hidden
       data-testid="tour-ring"
       layout={!reduceMotion}
-      transition={reduceMotion ? { duration: 0 } : springs.smooth}
+      layoutDependency={target}
+      transition={reduceMotion ? instant : welcomeMotion.ring}
       className="pointer-events-none fixed z-[10002] border-[3px] border-(--focus) forced-colors:border-[Highlight]"
       style={{ left: box.left, top: box.top, width: box.width, height: box.height, borderRadius: box.radius }}
     />

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.importers import normalize as n
 from app.importers.report import ImportReport
-from app.models import Building, Course, Faculty, Instructor, Program, Room, Term
+from app.models import Building, CatalogAlias, Course, Faculty, Instructor, Program, Room, Term
 
 BUILDING_NAMES = {"A": "A Blok", "B": "B Blok", "C": "C Blok", "D": "D Blok"}
 
@@ -109,7 +109,12 @@ class Catalog:
                 setattr(room, attr, value)
                 fields = _sources(fields, source, **{attr: value})
                 changed = True
-            if tags:
+            if tags and "tags" in master:
+                # the room master or an admin set this room's tags: a workbook neither adds nor restores one (RF-06)
+                extra = [t for t in tags if t not in (room.tags or [])]
+                if extra:
+                    self.report.warn(f"room {code}: {source or 'import'} says tags {extra}, kept {list(room.tags or [])}")
+            elif tags:
                 merged = list(dict.fromkeys([*room.tags, *tags]))
                 if merged != room.tags:
                     room.tags = merged
@@ -166,6 +171,21 @@ class Catalog:
             )
             self.report.extra["rooms_without_capacity"] = no_capacity
 
+    async def _aliased[M: (Faculty, Program, Instructor)](self, entity: str, model: type[M], canonical: str) -> M | None:
+        """The row an admin renamed away from ``canonical`` (RF-06, :func:`remember_alias`), if any."""
+        target = (
+            await self.s.execute(
+                select(CatalogAlias.target_id).where(CatalogAlias.entity == entity, CatalogAlias.alias == canonical)
+            )
+        ).scalar_one_or_none()
+        if target is None:
+            return None
+        row = await self.s.get(model, target)
+        if row is not None:
+            self.report.extra.setdefault("aliases_used", {}).setdefault(entity, 0)
+            self.report.extra["aliases_used"][entity] += 1
+        return row
+
     async def faculty(self, text: Any) -> Faculty | None:
         parsed = n.canon_faculty(text)
         if parsed is None:
@@ -175,6 +195,8 @@ class Catalog:
         f = (
             await self.s.execute(select(Faculty).where(Faculty.canonical_name == parsed.canonical))
         ).scalar_one_or_none()
+        if f is None:
+            f = await self._aliased("faculty", Faculty, parsed.canonical)
         if f is None:
             f = Faculty(name=parsed.name, canonical_name=parsed.canonical)
             self.s.add(f)
@@ -192,6 +214,8 @@ class Catalog:
         p = (
             await self.s.execute(select(Program).where(Program.canonical_name == parsed.canonical))
         ).scalar_one_or_none()
+        if p is None:
+            p = await self._aliased("program", Program, parsed.canonical)
         if p is None:
             p = Program(
                 name=parsed.name,
@@ -270,6 +294,8 @@ class Catalog:
             await self.s.execute(select(Instructor).where(Instructor.canonical_name == parsed.canonical))
         ).scalar_one_or_none()
         if i is None:
+            i = await self._aliased("instructor", Instructor, parsed.canonical)
+        if i is None:
             i = Instructor(full_name=parsed.full_name, canonical_name=parsed.canonical, title=parsed.title)
             self.s.add(i)
             await self.s.flush()
@@ -284,6 +310,47 @@ class Catalog:
             if r is not None:
                 ids.append(r.id)
         return ids
+
+
+#: the room attributes an admin edit makes authoritative (``custom_fields.master``, as the room master does)
+MASTER_ATTRS = ("capacity", "exam_capacity", "tags")
+
+
+def mark_master(room: Room, *attrs: str) -> None:
+    """RF-06: an admin set ``attrs`` of ``room`` (capacity, exam capacity, tags) - later workbook imports keep them, as
+    they keep the room master's values (``custom_fields.master``; a differing workbook value is a warning)."""
+    wanted = {a for a in attrs if a in MASTER_ATTRS}
+    if not wanted:
+        return
+    fields = dict(room.custom_fields or {})
+    master = set(fields.get("master") or [])
+    if wanted <= master:
+        return
+    fields["master"] = sorted(master | wanted)
+    room.custom_fields = fields
+
+
+async def remember_alias(session: AsyncSession, entity: str, old_canonical: str | None, target_id: int) -> None:
+    """RF-06: a programme / faculty / instructor was renamed from ``old_canonical``; the next import maps that spelling
+    to ``target_id`` instead of creating a duplicate. The row's new canonical name needs no alias (it matches
+    directly), so an alias equal to it is dropped (a rename back)."""
+    from sqlalchemy import delete
+
+    row = await session.get({"program": Program, "faculty": Faculty, "instructor": Instructor}[entity], target_id)
+    current = getattr(row, "canonical_name", None)
+    if current:
+        await session.execute(delete(CatalogAlias).where(CatalogAlias.entity == entity, CatalogAlias.alias == current))
+    if not old_canonical or old_canonical == current:
+        return
+    alias = (
+        await session.execute(
+            select(CatalogAlias).where(CatalogAlias.entity == entity, CatalogAlias.alias == old_canonical)
+        )
+    ).scalar_one_or_none()
+    if alias is None:
+        session.add(CatalogAlias(entity=entity, alias=old_canonical, target_id=target_id))
+    else:
+        alias.target_id = target_id
 
 
 def _sources(fields: dict[str, Any], source: str | None, **values: int | None) -> dict[str, Any]:

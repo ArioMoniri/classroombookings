@@ -9,6 +9,7 @@ from sqlalchemy import delete, func, select, update
 
 from app.api.deps import DB, CurrentUser, require_permission
 from app.importers import normalize as n
+from app.importers.catalog import remember_alias
 from app.models import Booking, BookingSeries, ExamRequest, Program, RoomAcl, Section, User
 from app.schemas.crbs import DepartmentIn, DepartmentOut, DepartmentUpdate
 from app.services.bookings_collation import tr_sort_key
@@ -77,7 +78,9 @@ async def update_department(dep_id: int, body: DepartmentUpdate, db: DB, _: Dept
         ).scalar_one_or_none()
         if clash is not None:
             raise HTTPException(409, f"department {data['name']} already exists")
+        old_canonical = p.canonical_name
         p.name, p.canonical_name = data["name"], canon
+        await remember_alias(db, "program", old_canonical, p.id)  # RF-06: the next import maps the old name here
     for k in ("description", "icon"):
         if k in data:
             setattr(p, k, data[k])

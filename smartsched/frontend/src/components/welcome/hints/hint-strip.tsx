@@ -2,14 +2,17 @@
 /**
  * Inline hint strip on the feature's own page, and the phone hint card at the top of a page (spec §4.5, §9). Non-modal,
  * never moves focus, `role="status"` (announced once), pushes the content down (never an overlay). 44 px buttons.
+ * Motion (WG-09): it eases in once (opacity + y -6 → 0, 180 ms); no `layout` (it would animate the strip's own resizes
+ * on every viewport change); nothing under reduced motion.
  */
 import { Megaphone } from "lucide-react";
 import { motion } from "motion/react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/provider";
-import { springs, useReduce } from "@/lib/motion";
+import { useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { instant, welcomeMotion } from "../motion";
 import { type ActiveHint, useHintActions, useHintText } from "./registry";
 
 export function HintStrip({ hint, className }: { hint: ActiveHint; className?: string }) {
@@ -24,10 +27,9 @@ export function HintStrip({ hint, className }: { hint: ActiveHint; className?: s
     <motion.div
       role="status"
       data-testid={`hint-${key}`}
-      layout={!reduce}
       initial={reduce ? false : { opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={reduce ? { duration: 0 } : springs.smooth}
+      transition={reduce ? instant : welcomeMotion.pageEnter}
       className={cn("mb-4 flex flex-col gap-3 rounded-2xl bg-tint-soft p-4 edge-hairline sm:flex-row sm:items-center", className)}
     >
       <Megaphone aria-hidden className="hidden size-5 shrink-0 text-tint-text sm:block" />
