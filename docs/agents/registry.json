@@ -4491,6 +4491,18 @@
       "resumed": false,
       "status": "finished",
       "finished_at": "2026-10-18 17:52"
+    },
+    {
+      "id": "a894feef6271671d4",
+      "description": "KVKK masking gap in exam list",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 18:34",
+      "scope": "",
+      "goal": "Lane KVKK-MASK (ledger `kvkk-mask-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: docs/agents/briefs/COMMON.md (NO commits; tests first; never `pkill -f`; light resources, no stack). NEVER print, log or write any real person name — not in tests, reports, co…",
+      "ledger": "KVKK masking gap in exam list",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
