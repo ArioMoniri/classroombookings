@@ -15,13 +15,16 @@ initials stay two rows (the ids differ), so the solver sees exactly the same dat
 over every text and JSON column (imported source rows, exam requests' instructor text, grid block labels, run
 results): any run of two or more consecutive words of an instructor's name, in any casing ("Elif DORMAN",
 "Merve ANTMEN" for "Fatma Merve Antmen"), becomes its initials, and so does a lone surname right after an initial
-or a title ("D. D. Deliormanlı"), and a first name before "hoca" ("EMRAH HOCA" -> "E. HOCA"). JSON cells are decoded first, so \\u-escaped names are found too. Instructors'
-e-mail addresses and phone numbers are cleared.
+or a title ("D. D. Deliormanlı"), and a first name before "hoca" ("EMRAH HOCA" -> "E. HOCA").
+JSON cells are decoded first, so \\u-escaped names are found too. Instructors' e-mail addresses and phone
+numbers are cleared.
 
 --save-names FILE writes the names found (before masking) to FILE, and --names FILE adds the names in FILE: the
 fresh-database journeys (import-generate, onboarding-intake) import the workbooks during the take, so their
 instructors are masked with the names saved by the seeded stack (stack.sh keeps FILE in $REC_WORKDIR, next to the
-throwaway database, never in the repository).
+throwaway database, never in the repository). The list holds name words only (title tokens dropped,
+KVKK-MASK): app/core/kvkk_guard.py reads the same file, and a title a masked cell keeps ("Dr.Öğ.Üy. A. K.") must
+not count as two name words; --workbooks / --files rewrite an older list that still has them.
 
 --verify changes nothing: it is the KVKK check of docs/testing/flows/README.md §7. Every person name
 (instructors.full_name and users.full_name, except the placeholder accounts) must consist of title tokens and
@@ -67,7 +70,10 @@ from collections import Counter
 TITLE_TOKENS = {
     "prof.", "doç.", "dr.", "öğr.", "üyesi", "üye.", "gör.", "gör", "arş.", "uzm.", "eğt.", "eğitmen", "okt.", "ecz.",
     "öğretim", "görevlisi", "asst.", "assoc.", "yrd.", "doç", "prof", "dr", "öğr", "tek.", "okt", "hoca",
-}
+    # KVKK-MASK (kvkk-mask-2026-10-18): shorter spellings the exam list writes glued ("Dr.Öğ.Üy.", "Eğit. Gör.");
+    # unknown, they became name words of the saved list and the upload guard read the kept title as a name
+    "öğ.", "üy.", "eğit.", "psk.", "gr.", "gö.",
+}  # fmt: skip
 # words that make a free-text segment a unit, not a person ("Hemşirelik Bölümü")
 NOT_A_NAME = re.compile(
     r"(?i)(bölüm|fakülte|okul|enstitü|merkez|hastane|koordinat|müdür|daire|birim|department|faculty|school|"
@@ -118,6 +124,13 @@ def initials(name: str) -> str:
 
 def name_words(full: str) -> list[str]:
     return [w for w in full.split() if not is_title(w) and any(ch.isalpha() for ch in w)]
+
+
+def saved_names(names: list[str]) -> list[str]:
+    """The name list as --save-names writes it (KVKK-MASK): name words only, title tokens dropped, so the upload
+    guard (app/core/kvkk_guard.py), which reads the same file, never takes a title a masked cell keeps ("Dr.Öğ.Üy.
+    A. K.") for two words of a name. Masking is unchanged: it only ever uses the name words."""
+    return sorted({" ".join(ws) for ws in map(name_words, names) if ws})
 
 
 def person_norm(full: str) -> str:
@@ -240,7 +253,11 @@ class Masker:
         self.runs = bounded(runs) if runs else None
         # a lone surname right after an initial or a title: "D. D. Deliormanlı", "Dr. Arslan"
         # ("D. D. Deliormanlı", "Ö.KURT")
-        self.lone = re.compile(r"(?:(?<=[^\W\d_]\. )|(?<=[^\W\d_]\.))(?:" + trie_pattern(surnames) + r")(?!\w)") if surnames else None
+        self.lone = (
+            re.compile(r"(?:(?<=[^\W\d_]\. )|(?<=[^\W\d_]\.))(?:" + trie_pattern(surnames) + r")(?!\w)")
+            if surnames
+            else None
+        )
         self.surnames = surnames
         # a capitalised word + a surname that is not also an ordinary word ("Fatih DeMİR" in a grid note);
         # vocabulary = words of course, programme, faculty and room names ("Modern Türk Edebiyatı" stays)
@@ -350,7 +367,11 @@ def _file_texts(path: str) -> list[str]:
         except (OSError, zipfile.BadZipFile):
             return []
         # one item per shared string / cell / comment / property; rich-text runs inside one item stay together
-        items = (re.sub(r"<[^>]+>", "", x) for doc in xml for x in re.split(r"</(?:\w+:)?(?:si|c|comment|is)>|(?<=>)(?=<dc:|<cp:)", doc))
+        items = (
+            re.sub(r"<[^>]+>", "", x)
+            for doc in xml
+            for x in re.split(r"</(?:\w+:)?(?:si|c|comment|is)>|(?<=>)(?=<dc:|<cp:)", doc)
+        )
         return [html.unescape(x) for x in items if x.strip()]
     return _read_text(path)[0].splitlines()
 
@@ -385,7 +406,11 @@ def verify(db: str, names_file: str | None = None, uploads: str | None = None) -
     for table in ("instructors", "users"):
         for (val,) in con.execute(f'select full_name from "{table}" where full_name is not null'):
             if val.strip() and val not in PLACEHOLDER_NAMES and not is_masked(val):
-                left.append(table + ": " + " ".join(w if is_title(w) or INITIAL.fullmatch(w) else w[:1] + "*" for w in val.split()))
+                left.append(
+                    table
+                    + ": "
+                    + " ".join(w if is_title(w) or INITIAL.fullmatch(w) else w[:1] + "*" for w in val.split())
+                )
     runs = full_name_runs(_load_names(names_file))
     if runs is not None:
         # every text / JSON column: import preview rows (import_jobs.summary), audit snapshots, council artifacts
@@ -446,10 +471,16 @@ def mask_files(argv: list[str]) -> int:
     import shutil
 
     names_file = argv[argv.index("--names") + 1] if "--names" in argv else None
-    masker = Masker(_load_names(names_file))
+    names = _load_names(names_file)
+    masker = Masker(names)
     if masker.runs is None:
         print("error: --names FILE with the saved name list is required")
         return 1
+    if names_file and saved_names(names) != names:
+        # a list saved before KVKK-MASK still holds title tokens; the guard reads this file too
+        with open(names_file, "w", encoding="utf-8") as fh:
+            json.dump(saved_names(names), fh, ensure_ascii=False)
+        print(f"name list rewritten without title tokens: {len(saved_names(names))} names")
     if "--workbooks" in argv:
         i = argv.index("--workbooks")
         src, dst = argv[i + 1], argv[i + 2]
@@ -476,7 +507,9 @@ def _audit_updates(con: sqlite3.Connection, col: str, updates: list[tuple[str, i
     """Masked audit cells through the anonymise windows of the append-only trigger (app/services/kvkk.py)."""
     windows = []
     for _new, rowid in updates:
-        et, eid, actor = con.execute("select entity_type, entity_id, actor_id from audit_events where rowid = ?", (rowid,)).fetchone()
+        et, eid, actor = con.execute(
+            "select entity_type, entity_id, actor_id from audit_events where rowid = ?", (rowid,)
+        ).fetchone()
         if eid is not None:
             windows.append(("anonymise", None, et, eid))
         elif actor is not None:
@@ -485,7 +518,8 @@ def _audit_updates(con: sqlite3.Connection, col: str, updates: list[tuple[str, i
     ids = []
     for w in set(windows):
         cur = con.execute(
-            "insert into audit_purge_windows (kind, subject_actor_id, entity_type, entity_id, created_at) values (?, ?, ?, ?, ?)",
+            "insert into audit_purge_windows (kind, subject_actor_id, entity_type, entity_id, created_at)"
+            " values (?, ?, ?, ?, ?)",
             (*w, now),
         )
         ids.append(cur.lastrowid)
@@ -513,6 +547,7 @@ def main(argv: list[str]) -> int:
 
     def opt(flag: str) -> str | None:
         return argv[argv.index(flag) + 1] if flag in argv else None
+
     con = sqlite3.connect(db, timeout=60)
     rows = con.execute("select id, full_name, title from instructors").fetchall()
     todo = [(iid, full, initials(full)) for iid, full, _ in rows if full and initials(full) != full]
@@ -523,7 +558,13 @@ def main(argv: list[str]) -> int:
             for (val,) in con.execute(f'select distinct "{c}" from "{t}" where "{c}" is not null'):
                 extra.update(n for n in names_in_text(val) if len(n.split()) >= 2)
     vocabulary: set[str] = set()
-    for t, c in (("courses", "name"), ("programs", "name"), ("faculties", "name"), ("rooms", "display_name"), ("exam_requests", "course_name")):
+    for t, c in (
+        ("courses", "name"),
+        ("programs", "name"),
+        ("faculties", "name"),
+        ("rooms", "display_name"),
+        ("exam_requests", "course_name"),
+    ):
         try:
             for (val,) in con.execute(f'select distinct "{c}" from "{t}" where "{c}" is not null'):
                 vocabulary.update(re.findall(r"[^\W\d_]+", lower_tr(val)))
@@ -540,7 +581,7 @@ def main(argv: list[str]) -> int:
     save = opt("--save-names")
     if save:
         with open(save, "w", encoding="utf-8") as fh:
-            json.dump(sorted(set(known)), fh, ensure_ascii=False)
+            json.dump(saved_names(known), fh, ensure_ascii=False)
     masker = Masker(known, vocabulary)
     todo = [(iid, full, mask_person(full, masker.keys)) for iid, full, _ in todo]
     print(f"  + {len(extra)} names from free-text instructor columns")
@@ -565,7 +606,10 @@ def main(argv: list[str]) -> int:
                     con.executemany(f'update "{t}" set "{c}" = ? where rowid = ?', updates)
     if not check:
         for iid, _full, m in todo:
-            con.execute("update instructors set full_name = ?, canonical_name = ? where id = ?", (m, f"{lower_tr(m)} #{iid}", iid))
+            con.execute(
+                "update instructors set full_name = ?, canonical_name = ? where id = ?",
+                (m, f"{lower_tr(m)} #{iid}", iid),
+            )
         # the masked workbooks name these rows by their initials: an alias per unique masked name, so a re-import
         # of $REC_WORKDIR/fixtures matches them (catalog.instructor -> CatalogAlias) instead of creating new rows
         if con.execute("select 1 from sqlite_master where type='table' and name='catalog_aliases'").fetchone():
@@ -577,7 +621,8 @@ def main(argv: list[str]) -> int:
                     masked[key] += 1
                     keyed[key] = iid
             con.executemany(
-                "insert or ignore into catalog_aliases (entity, alias, target_id, created_at) values ('instructor', ?, ?, ?)",
+                "insert or ignore into catalog_aliases (entity, alias, target_id, created_at)"
+                " values ('instructor', ?, ?, ?)",
                 [(k, keyed[k], "2000-01-01 00:00:00") for k, n in masked.items() if n == 1 and is_masked(k)],
             )
         cols = {r[1] for r in con.execute("pragma table_info('instructors')")}
@@ -585,7 +630,10 @@ def main(argv: list[str]) -> int:
             if col in cols:
                 con.execute(f"update instructors set {col} = NULL where {col} is not null")
         con.commit()
-    print(f"{'would mask' if check else 'masked'} {len(todo)} instructors and {changed} other cells ({masker.hits['names']} names)")
+    print(
+        f"{'would mask' if check else 'masked'} {len(todo)} instructors and {changed} other cells"
+        f" ({masker.hits['names']} names)"
+    )
 
     # what is left: whole words equal to an original surname (mostly ordinary words such as course names)
     if masker.surnames and not check:
@@ -600,7 +648,11 @@ def main(argv: list[str]) -> int:
                         sample.setdefault((t, c), set()).add(m.group(0))
         for (t, c), n in left.most_common():
             print(f"  surname-like word left in {t}.{c}: {n} ({', '.join(sorted(sample[(t, c)])[:10])})")
-    emails = sum(1 for (v,) in con.execute("select email from users where email is not null") if EMAIL.fullmatch(v or "") and not v.endswith("@smartsched.local"))
+    emails = sum(
+        1
+        for (v,) in con.execute("select email from users where email is not null")
+        if EMAIL.fullmatch(v or "") and not v.endswith("@smartsched.local")
+    )
     print(f"user e-mails outside @smartsched.local: {emails}")
     con.close()
     return 0

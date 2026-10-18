@@ -31,7 +31,7 @@
 <a href="docs/launch/media/smartsched-launch-vertical.mp4">vertical, for phones</a> ·
 <a href="docs/launch/media/smartsched-loop.webp">booking on a phone (loop)</a></sub>
 
-https://github.com/user-attachments/assets/055b48ab-fd52-4b0a-b4e3-0b839431209a
+https://github.com/user-attachments/assets/ef9a1d4a-ab84-43d8-abc6-15e5bd7fd8b4
 
 SmartSched reads the Excel workbooks a planning office already keeps, places every class it can with a
 CP-SAT solver, explains the ones it cannot place, and runs the
