@@ -1294,7 +1294,7 @@ export function useCrbsMutation<TVars, TOut>(fn: (vars: TVars) => Promise<TOut>,
 }
 
 /** Everything a booking can change: the grid, the lists, the context counters. */
-export const BOOKING_KEYS: QueryKey[] = [["crbs", "grid"], ["crbs", "mine"], ["crbs", "dashboard"], ["crbs", "owned-rooms"], crbsKeys.context, ["crbs", "booking"], ["crbs", "series"], ["crbs", "conflicts"], ["w1", "approvals"], ["w1", "notifications"]];
+export const BOOKING_KEYS: QueryKey[] = [["crbs", "grid"], ["crbs", "mine"], ["crbs", "dashboard"], ["crbs", "owned-rooms"], crbsKeys.context, ["crbs", "booking"], ["crbs", "series"], ["crbs", "conflicts"], ["w1", "approvals"], ["w1", "notifications"], ["welcome", "state"]]; // WG10-F03: "İlk rezervasyonunuzu yapın" ticks at once
 
 /* ------------------------------------------------------------- admin gaps (UI gap audit 2026-10-08) */
 

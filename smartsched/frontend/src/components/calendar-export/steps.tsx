@@ -313,7 +313,7 @@ export function ApproveStep({
                   : t("calendarExport.approve.consent")}
             </span>
           </label>
-          <Link href={GRANT_PATH} className="ml-8 w-fit type-footnote font-medium text-tint-text underline-offset-4 hover:underline" data-testid="cal-notice-link">
+          <Link href={GRANT_PATH} className="ml-8 inline-flex w-fit items-center type-footnote font-medium text-tint-text underline-offset-4 hover:underline pointer-coarse:min-h-11" data-testid="cal-notice-link">
             {t("calendarExport.approve.notice")}
           </Link>
         </div>

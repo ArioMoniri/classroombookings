@@ -26,7 +26,7 @@ import { SeasonPeriods } from "./season-periods";
 import { useWeightLabel } from "./weight-label";
 
 type Lang = "tr" | "en";
-type Confirm = { kind: "activate" | "revert" | "delete"; profile: Profile; key: string };
+type Confirm = { kind: "activate" | "revert" | "delete" | "retire"; profile: Profile; key: string };
 
 export function SeasonProfiles() {
   const { t, locale } = useI18n();
@@ -81,7 +81,7 @@ export function SeasonProfiles() {
       onSuccess: () => {
         toast.success(t(`seasons.done.${kind}`));
         setConfirm(null);
-        setFocusKey(kind === "delete" ? (nextRowKey(groups.map((g) => g.key), key) ?? "") : key);
+        setFocusKey(kind === "delete" || kind === "retire" ? (nextRowKey(groups.map((g) => g.key), key) ?? "") : key);
       },
       onError: (e) => toast.error(apiText(e, locale)),
     });
@@ -139,7 +139,7 @@ export function SeasonProfiles() {
         title={confirm ? t(`seasons.confirm.${confirm.kind}.title`, { name: confirm.profile.name[lang], v: confirm.profile.version }) : ""}
         description={confirm ? t(`seasons.confirm.${confirm.kind}.body`) : undefined}
         confirmLabel={confirm ? t(`seasons.confirm.${confirm.kind}.go`) : ""}
-        destructive={confirm?.kind === "delete"}
+        destructive={confirm?.kind === "delete" || confirm?.kind === "retire"}
         busy={act.activate.isPending || act.revert.isPending || act.remove.isPending}
         onConfirm={run}
       />
@@ -235,6 +235,11 @@ function ProfileRow({ g, meta, lang, onEdit, onConfirm }: { g: ProfileGroup; met
           {pending ? (
             <Button size="sm" variant="ghost" onClick={() => onConfirm("delete", pending)} data-testid="profile-delete">
               {t("seasons.deleteDraft")}
+            </Button>
+          ) : p.status === "active" ? (
+            // AS20-F08: an active admin profile (a first version too) is switched off here, not only by the API
+            <Button size="sm" variant="ghost" onClick={() => onConfirm("retire", p)} data-testid="profile-retire">
+              {t("seasons.retire")}
             </Button>
           ) : null}
         </div>

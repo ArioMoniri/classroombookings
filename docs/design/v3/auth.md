@@ -847,7 +847,7 @@ was not set in the AUX-10 session. "signin-hero-settle" stays reserved for this 
    admin's name and no reason text. The admin's own row offers no reset (409 `own_account` if forced).
 9. Policy "Zorunlu" for Yönetici + Planlamacı with 14 days: a planner without 2FA sees the enrolment notice with the date and
    "Daha sonra (14 gün kaldı)". After the date (clock moved on the test stack) there is no "Daha sonra".
-10. SSO users never see SmartSched 2FA or passkey rows (`GET /auth/mfa/status` → `available: false, reason:
+10. SSO users never see SmartSched 2FA or passkey rows (`GET /auth/mfa` → `available: false, reason:
     "sso_account"`). Profil shows the explanation row (and Oturumlar / Son girişler once ask A1a lands).
 11. Reduced motion: no shake, slide, check draw or Lottie anywhere in these flows; the poster PNG shows at 1440.
     `document.getAnimations()` shows nothing over 300 ms; the hero's Lottie is not loaded.

@@ -212,7 +212,10 @@ function adaptScope(v: unknown): unknown {
       return { ...d, reason: isObj(d.reason) ? str(d.reason.code) : d.reason, sample: own ? out.sample : adaptSample(d.sample), upcoming: own ? out.upcoming : d.upcoming };
     });
     // CAL10-F01: the person's own department first (then the backend's order)
-    if (dflt !== null) out.departments = [...out.departments.filter((d) => isObj(d) && d.id === dflt), ...out.departments.filter((d) => !(isObj(d) && d.id === dflt))];
+    if (dflt !== null) {
+      const list = out.departments as unknown[];
+      out.departments = [...list.filter((d) => isObj(d) && d.id === dflt), ...list.filter((d) => !(isObj(d) && d.id === dflt))];
+    }
   }
   return out;
 }

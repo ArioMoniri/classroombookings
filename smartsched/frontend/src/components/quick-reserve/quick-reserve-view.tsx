@@ -411,7 +411,7 @@ export function QuickReserveView() {
           {booleanFacets.length ? (
             <div role="group" aria-label={t("quickReserve.features.label")} className="-mx-1 flex gap-2 overflow-x-auto px-1 scrollbar-thin sm:flex-wrap sm:overflow-visible" data-testid="qr-features">
               {booleanFacets.map((f) => (
-                <Chip key={f.id} selected={features.includes(f.id)} onSelectedChange={(on) => (setFeatures((prev) => (on ? [...prev, f.id] : prev.filter((x) => x !== f.id))), resetAfterChange())} data-testid={`qr-feature-${f.id}`}>
+                <Chip key={f.id} className="pointer-coarse:min-h-11" selected={features.includes(f.id)} onSelectedChange={(on) => (setFeatures((prev) => (on ? [...prev, f.id] : prev.filter((x) => x !== f.id))), resetAfterChange())} data-testid={`qr-feature-${f.id}`}>
                   {f.name}
                 </Chip>
               ))}
