@@ -203,6 +203,8 @@ flowchart LR
 Solver runs, imports, calendar push, webhooks and the approvals sweep run as jobs inside the backend. The design,
 the domain model and the solver contract are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the pipeline from
 import to publish is in [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
+Detailed diagrams (C4 context and containers, backend components, key flows, data model, deployment, states) are in
+[docs/architecture/](docs/architecture/README.md).
 
 ## Screenshots
 

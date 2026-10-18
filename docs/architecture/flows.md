@@ -165,7 +165,7 @@ Where in the code: [`api/v1/bookings.py`](../../smartsched/backend/app/api/v1/bo
 [`workers/integrations.py`](../../smartsched/backend/app/workers/integrations.py),
 [`workers/approvals_sweeper.py`](../../smartsched/backend/app/workers/approvals_sweeper.py).
 
-## 4. Helper turn with a confirm card (and the HB-23 file hand-over)
+## 4. Helper turn with a confirm card, and the HB-23 file hand-over
 
 ```mermaid
 sequenceDiagram
@@ -204,28 +204,30 @@ sequenceDiagram
 sequenceDiagram
   autonumber
   actor U as Admin or academician
-  participant H as helper sheet (HB-23c, in progress)
-  participant F as /helper/files/* (HB-23b, planned)
-  participant PG as target page (e.g. import wizard)
+  participant H as helper sheet (file-router.ts)
+  participant F as api/v1/helper_files.py + ai/helper/files.py
+  participant PG as target page (e.g. import-wizard.tsx)
   participant R as api/v1/imports.py
 
-  U->>H: drop or attach a file
-  H->>F: classify (multipart file) — planned
-  F->>F: existing detectors, no model call, stage bytes encrypted 10 min — planned
-  F-->>H: file card (kind, term, warnings, one button) + upload_token — planned
+  U->>H: drop, attach or paste a file
+  H->>F: POST /helper/files/classify (multipart file)
+  F->>F: existing detectors, no model call, stage bytes encrypted for 10 min
+  F-->>H: file card (kind, term, warnings, one button) + upload_token
   U->>H: presses the card's button
-  H->>F: handoff (audit helper.file.handoff) — planned
-  H->>PG: open the page with the token in the store, never in the URL
-  U->>PG: page's own "Önizle" then "Uygula"
-  PG->>R: upload_token instead of the file — planned
-  R->>R: same preview, term check and lock as flow 1
+  H->>F: POST /helper/files/handoff (audit helper.file.handoff)
+  H->>PG: open the page, token in the store (file-handoff.ts), never in the URL
+  U->>PG: the page's own "Önizle"
+  PG->>R: POST /imports/planning-list (dry_run, upload_token instead of the file)
+  R->>F: consume the token once (owner and session bound)
+  R->>R: from here exactly flow 1: preview, term check, Uygula under the lock
 ```
 
 A write never runs from model output or from typed text. The model can only call the tools it was offered; a write
 stops at a confirm card whose token is HMAC-signed, bound to the person, valid 10 minutes and usable once. The confirm
 re-runs the preview and answers 409 `changed` when the world moved. The file router (second diagram, design
 [helper-file-router.md](../design/v3/helper-file-router.md)) follows the same rule: the helper never imports, it hands
-the staged file to the page whose own preview and "Uygula" write. Steps marked "planned" are not merged yet.
+the staged file to the page whose own preview and "Uygula" write. HB-23b/c code is in the tree since 2026-10-18; its
+tests and UX run (HB-23d) are still open in the ROADMAP.
 
 Where in the code: [`api/v1/helper_turn.py`](../../smartsched/backend/app/api/v1/helper_turn.py),
 [`api/v1/helper.py`](../../smartsched/backend/app/api/v1/helper.py),
@@ -234,7 +236,11 @@ Where in the code: [`api/v1/helper_turn.py`](../../smartsched/backend/app/api/v1
 [`ai/helper/tooluse.py`](../../smartsched/backend/app/ai/helper/tooluse.py),
 [`ai/helper/confirm.py`](../../smartsched/backend/app/ai/helper/confirm.py),
 [`ai/pipeline.py`](../../smartsched/backend/app/ai/pipeline.py),
-[`components/helper/`](../../smartsched/frontend/src/components/helper/).
+[`components/helper/`](../../smartsched/frontend/src/components/helper/); file router
+[`api/v1/helper_files.py`](../../smartsched/backend/app/api/v1/helper_files.py),
+[`ai/helper/files.py`](../../smartsched/backend/app/ai/helper/files.py) (`stage`, `consume`),
+[`file-router.ts`](../../smartsched/frontend/src/components/helper/file-router.ts),
+[`file-handoff.ts`](../../smartsched/frontend/src/components/helper/file-handoff.ts).
 
 ## 5. Sign-in: password + second step, or SSO
 

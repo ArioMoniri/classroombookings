@@ -4460,7 +4460,8 @@
       "goal": "Lane ARCH-D (ledger name `arch-d-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md; NO git commits; never `pkill -f`; no stacks or builds; docs only. No repo address, owner handle, branch names, hostnames or IPs in diagrams (…",
       "ledger": "Architecture diagrams + value verdict",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 17:10"
     },
     {
       "id": "ad4b4bf23d8991b10",

@@ -277,13 +277,14 @@ async def test_ics_planner_vs_academician(rc):
     assert c["kind"] == "calendar_ics" and c["primary"]["feature_id"] == "onboarding"
     assert any("3 etkinlik" in line for line in c["evidence"]["tr"])
     teacher = await person(rc, admin, "akad.at@uni.edu.tr", role="TEACHER")
+    before = stage_files()  # the planner's own stage
     out = await card_of(rc, teacher, HF / "seminar.ics")
     c = out["card"]
     assert c["state"] == "needs_planner" and c["primary"]["feature_id"] == "profile.calendar"
     assert c["primary"]["carries_file"] is False and c["primary"]["label"]["tr"] == "Takvimime ekle"
     assert any(w["code"] == "ics_academic" for w in c["warnings"])
     assert "stage" not in out  # nothing carries the file: nothing staged
-    assert stage_files() == []
+    assert stage_files() == before
 
 
 async def test_intake_json(rc):

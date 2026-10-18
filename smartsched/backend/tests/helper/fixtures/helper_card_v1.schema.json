@@ -585,6 +585,305 @@
       "title": "FactsCard",
       "type": "object"
     },
+    "FileCard": {
+      "additionalProperties": false,
+      "description": "Drop any file: what it is, why (canonical column labels only, never a cell value or a raw header), which\nterm, what to watch out for and one primary hand-over. Ephemeral: never written to ``helper_messages``.",
+      "properties": {
+        "action": {
+          "const": "classify_file",
+          "default": "classify_file",
+          "title": "Action",
+          "type": "string"
+        },
+        "ai_sorted": {
+          "default": false,
+          "title": "Ai Sorted",
+          "type": "boolean"
+        },
+        "certainty": {
+          "anyOf": [
+            {
+              "enum": [
+                "sure",
+                "likely",
+                "unsure"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Certainty"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Texts"
+        },
+        "examples": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Examples",
+          "type": "array"
+        },
+        "explain": {
+          "$ref": "#/$defs/Texts"
+        },
+        "format": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Format",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{8,32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "kind_label": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "primary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FileRoute"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "secondary": {
+          "items": {
+            "$ref": "#/$defs/FileRoute"
+          },
+          "maxItems": 2,
+          "title": "Secondary",
+          "type": "array"
+        },
+        "state": {
+          "enum": [
+            "detected",
+            "unknown",
+            "needs_planner"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "term": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FileTerm"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "const": "file",
+          "default": "file",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        },
+        "warnings": {
+          "items": {
+            "$ref": "#/$defs/FileWarning"
+          },
+          "maxItems": 4,
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "format"
+      ],
+      "title": "FileCard",
+      "type": "object"
+    },
+    "FileRoute": {
+      "additionalProperties": false,
+      "description": "A hand-over to a page's own flow. The client maps ``feature_id`` → href (``handover-links.fileHandoffHref``);\nthe server never sends a URL. ``carries_file``: the client calls ``POST /helper/files/handoff`` and the page\nsends the ``upload_token`` instead of the file.",
+      "properties": {
+        "carries_file": {
+          "title": "Carries File",
+          "type": "boolean"
+        },
+        "feature_id": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Feature Id",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/Txt"
+        },
+        "label_short": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "params": {
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$": {
+              "anyOf": [
+                {
+                  "maxLength": 400,
+                  "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "feature_id",
+        "label",
+        "carries_file"
+      ],
+      "title": "FileRoute",
+      "type": "object"
+    },
+    "FileTerm": {
+      "additionalProperties": false,
+      "properties": {
+        "matches_active": {
+          "title": "Matches Active",
+          "type": "boolean"
+        },
+        "name": {
+          "$ref": "#/$defs/Txt"
+        },
+        "source": {
+          "enum": [
+            "file_name",
+            "sheet_title"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "term_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Term Id"
+        }
+      },
+      "required": [
+        "term_id",
+        "name",
+        "source",
+        "matches_active"
+      ],
+      "title": "FileTerm",
+      "type": "object"
+    },
+    "FileWarning": {
+      "additionalProperties": false,
+      "description": "One line of what to watch out for on a file card (helper-file-router.md §4.5), ≤ 4 per card.",
+      "properties": {
+        "code": {
+          "pattern": "^[a-z_]{2,48}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "$ref": "#/$defs/Txt"
+        },
+        "status": {
+          "default": "info",
+          "enum": [
+            "info",
+            "warn",
+            "bad"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "FileWarning",
+      "type": "object"
+    },
     "FollowUp": {
       "additionalProperties": false,
       "description": "helper.md A7: ≤ 2 chips after a result, an action with partial args or a feature to open.",
@@ -1501,6 +1800,7 @@
       "confirm": "#/$defs/ConfirmCard",
       "error": "#/$defs/ErrorCard",
       "facts": "#/$defs/FactsCard",
+      "file": "#/$defs/FileCard",
       "form": "#/$defs/FormCard",
       "limit": "#/$defs/LimitCard",
       "list": "#/$defs/ListCard",
@@ -1543,6 +1843,9 @@
     },
     {
       "$ref": "#/$defs/ErrorCard"
+    },
+    {
+      "$ref": "#/$defs/FileCard"
     }
   ],
   "title": "SmartSched helper card v1"

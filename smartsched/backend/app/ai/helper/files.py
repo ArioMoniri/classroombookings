@@ -528,6 +528,16 @@ def read_signals(name: str, data: bytes) -> Signals:
     else:
         rendered = formats.render(data, name)
         titles = [g.name for g in rendered.grids] if fmt in ("xls", "ods") else []
+    if fmt == "csv" and not rendered.grids and len(rendered.units) == 1:
+        # a header-only CSV (a downloaded template): the council reads one line as text; it is the header row
+        line = rendered.units[0].text
+        sep = max(";,\t|", key=line.count)
+        cells = [c.strip().strip('"') for c in line.split(sep)]
+        if line.count(sep) >= 1 and all(cells):
+            from app.council.render import Grid
+
+            rendered.grids.append(Grid("csv", "csv", [cells], [], {"table": "csv"}, [1]))
+            rendered.units.clear()
     for g in rendered.grids:
         del g.cells[HEAD_ROWS:]
         del g.row_numbers[HEAD_ROWS:]

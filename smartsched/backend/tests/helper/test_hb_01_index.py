@@ -30,7 +30,7 @@ ANCHORS = frozenset(
     admin-group-timetable admin-users-invite admin-holidays-add admin-periods admin-weeks admin-access-rules
     admin-approval-rules admin-mail admin-sso profile-calendar profile-notifications profile-ai-usage
     profile-helper-memory reserve-room-list find-room-filters my-bookings-cancel runs-publish runs-export
-    bookings-export""".split()
+    bookings-export helper-attach""".split()
 )
 
 #: helper.md §3.2: entry id -> CRBS words that must be indexed (folded)

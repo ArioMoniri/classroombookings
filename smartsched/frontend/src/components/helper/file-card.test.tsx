@@ -120,7 +120,7 @@ describe("detected", () => {
   });
 
   it("a bad warning is an alert; the user bubble shows the file chip (name · size)", () => {
-    seed({ kind: "card", card: { ...DETECTED, warnings: [{ code: "too_large_for_target", status: "bad", message: tr("Kullanıcı listesi en çok 5 MB olabilir; dosya 6 MB. Listeyi bölün.") }] } });
+    seed({ kind: "card", card: { ...DETECTED, warnings: [{ code: "too_large_for_target", status: "bad" as const, message: tr("Kullanıcı listesi en çok 5 MB olabilir; dosya 6 MB. Listeyi bölün.") }] } });
     show();
     expect(screen.getByTestId("helper-file-warning-too_large_for_target")).toHaveAttribute("role", "alert");
     expect(screen.getByTestId("helper-file-chip")).toHaveTextContent("Bahar_son.xlsx");

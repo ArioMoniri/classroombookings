@@ -92,18 +92,22 @@ export const Stage = z.object({
 });
 export type Stage = z.infer<typeof Stage>;
 
-export const ClassifyOut = z.object({ card: FileAnswerCard, stage: Stage.nullish() });
+/**
+ * `stage`: the (first) staged file; `stages`: one per readable file when several were dropped (the setup wizard);
+ * `resend: true`: `HELPER_FILE_STAGE=off`, nothing was staged and the target page re-sends the browser's File.
+ */
+export const ClassifyOut = z.object({ card: FileAnswerCard, stage: Stage.nullish(), stages: z.array(Stage).nullish(), resend: z.boolean().nullish() });
 export type ClassifyOut = z.infer<typeof ClassifyOut>;
 
 export const RouteOut = z.object({ card: FileAnswerCard });
 export const HandoffOut = z.object({ ok: z.boolean(), href_params: z.record(z.string(), Scalar).nullish() }).passthrough();
 export type HandoffOut = z.infer<typeof HandoffOut>;
 
-export const ExampleItem = z.object({ kind: Name, ext: z.enum(["xlsx", "csv", "ics", "sql", "json"]), label: Txt.nullish() }).passthrough();
+export const ExampleItem = z.object({ kind: Name, format: z.enum(["xlsx", "csv", "ics", "sql", "json"]), file_name: z.string().nullish(), label: Txt.nullish(), description: Txt.nullish() }).passthrough();
 export const ExamplesOut = z.array(ExampleItem).catch([]);
 export type ExampleItem = z.infer<typeof ExampleItem>;
 
-/** The template's extension per kind when `GET /helper/files/examples` has not answered (§6.6). */
+/** The template's extension per kind (`GET /helper/files/examples` → `format`; §6.6). */
 export const EXAMPLE_EXT: Readonly<Record<string, ExampleItem["ext"]>> = {
   planning_list: "xlsx",
   exam_list: "xlsx",
@@ -115,14 +119,15 @@ export const EXAMPLE_EXT: Readonly<Record<string, ExampleItem["ext"]>> = {
   intake_json: "json",
 };
 
-/** The stage id of a token: `base64url(payload).base64url(hmac)`, payload `{sid, …}` (§6.3). Null when unreadable. */
+/** The stage id of a token: `base64url(payload).base64url(hmac)`, payload `{k: "file", s: <sid>, …}` (§6.3). Null when unreadable. */
 export function stageIdOf(token: string): string | null {
   const head = token.split(".")[0];
   if (!head) return null;
   try {
     const b64 = head.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(head.length / 4) * 4, "=");
-    const json = JSON.parse(atob(b64)) as { sid?: unknown };
-    return typeof json.sid === "string" && /^[A-Za-z0-9_\-]{4,64}$/.test(json.sid) ? json.sid : null;
+    const json = JSON.parse(atob(b64)) as { s?: unknown; sid?: unknown };
+    const sid = json.s ?? json.sid;
+    return typeof sid === "string" && /^[A-Za-z0-9_\-]{4,64}$/.test(sid) ? sid : null;
   } catch {
     return null;
   }
@@ -140,15 +145,19 @@ export function isStageGone(err: unknown): boolean {
 }
 
 export const helperFilesApi = {
-  classify: (file: File, opts: { context?: string | null; lang: string; signal?: AbortSignal }) => {
+  /** one file, or several (planners: one setup-wizard card with a stage per readable file); `termId`: the page's active term */
+  classify: (files: File | readonly File[], opts: { context?: string | null; lang: string; termId?: number | null; signal?: AbortSignal }) => {
     const fd = new FormData();
-    fd.append("file", file, file.name);
+    for (const f of Array.isArray(files) ? files : [files]) fd.append("file", f, f.name);
     if (opts.context) fd.append("context", opts.context);
     fd.append("lang", opts.lang);
+    if (opts.termId) fd.append("term_id", String(opts.termId));
     return request("/helper/files/classify", { ...s, method: "POST", formData: fd, schema: ClassifyOut, signal: opts.signal });
   },
-  route: (uploadToken: string, kind: string) => request("/helper/files/route", { ...s, method: "POST", body: { upload_token: uploadToken, kind }, schema: RouteOut }),
-  handoff: (body: { upload_token: string; kind: string | null; feature_id: string; params: Record<string, string | number | boolean> }) =>
+  route: (uploadToken: string, kind: string, termId?: number | null) =>
+    request("/helper/files/route", { ...s, method: "POST", body: termId ? { upload_token: uploadToken, kind, term_id: termId } : { upload_token: uploadToken, kind }, schema: RouteOut }),
+  /** one token, or `upload_tokens` for several files (the setup wizard) */
+  handoff: (body: { upload_token?: string; upload_tokens?: string[]; kind: string | null; feature_id: string; params: Record<string, string | number | null> }) =>
     request("/helper/files/handoff", { ...s, method: "POST", body, schema: HandoffOut }),
   drop: (sid: string) => request<void>(`/helper/files/${encodeURIComponent(sid)}`, { ...s, method: "DELETE" }),
   examples: () => request("/helper/files/examples", { ...s, schema: ExamplesOut }),
