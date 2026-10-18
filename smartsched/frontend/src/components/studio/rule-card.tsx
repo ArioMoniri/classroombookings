@@ -96,7 +96,9 @@ export function RuleCard(p: RuleCardProps) {
       className={cn(
         "outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) group/rule rounded-[var(--radius-md)] border bg-card p-3 text-sm shadow-elev-1 sm:p-4",
         p.proposal && "border-dashed border-primary/50 bg-tint-soft/40",
-        p.enabled === false && "opacity-60",
+        // an off rule reads as off by colour and a dashed edge, not by opacity: opacity-60 put the course codes and
+        // building letters at 3.51 : 1 (light) / 4.29 : 1 (dark); label-2 on fill-3 stays above 4.5 (mobile-b phase 2)
+        p.enabled === false && "border-dashed bg-fill-3 text-label-2 shadow-none",
         p.clash && "border-status-infeasible-border",
       )}
     >

@@ -129,7 +129,7 @@ async def test_a_full_read_turn(session, fake_sdk):
     await _route_helper(session)
     fake_sdk.script = [
         tool("open_feature", {"feature_id": "profile.password"}),
-        text("Şifrenizi Profil sayfasından değiştirebilirsiniz; kartta yolu gösterdim."),
+        text("Şifrenizi değiştirmenin yolunu kartta gösterdim."),
     ]
     result, events = await _turn(session, user, "şifremi nasıl değiştiririm?")
     assert result.mode == "ai" and result.outcome == "answered" and result.model_calls == 2
@@ -247,17 +247,21 @@ async def test_provider_failure_falls_back_to_index_mode(session, fake_sdk):
     assert [c["type"] for c in result.cards] == ["error"]
 
 
-async def test_no_key_falls_back_to_index_mode(session, fake_sdk):
+async def test_no_key_falls_back_to_index_mode(session, fake_sdk, monkeypatch):
+    """The key went away between the status check and the call: ``AIConfigError`` -> index mode, nothing sent."""
+    from app.ai import client as client_mod
+
     user = await _person(session)
-    await gw.put_json(session, gw.ROUTES_KEY, {"features": {"helper": {"provider": "anthropic", "model": MODEL}}})
-    await ss.set_value(session, "anthropic_api_key", "sk-ant-test-0000")
-    await session.commit()
-    access = await load_access(session, user)
-    await ss.set_value(session, "anthropic_api_key", "")  # removed between the status check and the call
-    await session.commit()
-    result = await ht.run_turn(session, access, "şifremi nasıl değiştiririm?", "tr")
-    assert result.mode == "index" and result.fallback in {"not_configured", None}
-    assert fake_sdk.calls == []
+    await _route_helper(session)
+
+    async def no_key(*a, **k):
+        raise client_mod.AIConfigError("no Anthropic API key configured")
+
+    monkeypatch.setattr(client_mod, "get_client", no_key)
+    result, _ = await _turn(session, user, "şifremi nasıl değiştiririm?")
+    assert result.mode == "index" and result.fallback == "not_configured" and fake_sdk.calls == []
+    [err] = [c for c in result.cards if c["type"] == "error"]
+    assert err["code"] == "not_configured" and err["fallback"]
 
 
 # ------------------------------------------------------------------ the SSE route

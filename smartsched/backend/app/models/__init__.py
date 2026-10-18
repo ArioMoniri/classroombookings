@@ -170,9 +170,9 @@ __all__ = [
 ]
 
 # wave 3 W3-AI: AI gateway usage metering (alembic 0034_ai_usage)
-from app.models.ai_usage import AIUsage  # noqa: E402
+from app.models.ai_usage import AIReservation, AIUsage  # noqa: E402
 
-__all__ += ["AIUsage"]
+__all__ += ["AIReservation", "AIUsage"]
 
 # adaptive scheduling AS-03 / AS-05 / AS-13: season profiles, period segments, demand ledger, learning versions
 from app.models.learning import LearnedPriorSnapshot, LearningVersion  # noqa: E402

@@ -6,6 +6,7 @@
  */
 import { ArrowLeftRight } from "lucide-react";
 import { useId, useMemo, useState } from "react";
+import { pageActionsCapsule } from "@/components/admin/kit";
 import { Button, IconButton } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import type { ScheduleRun } from "@/lib/api/schemas";
@@ -53,6 +54,7 @@ export function RunPairPicker({
     return [...m.entries()];
   }, [list]);
   const valid = a !== null && b !== null && a !== b && okForB.has(b);
+  const floating = !compact && valid && (a !== initialA || b !== initialB);
 
   const options = (forB: boolean) =>
     terms.map(([code, rs]) => (
@@ -117,9 +119,13 @@ export function RunPairPicker({
           {options(true)}
         </NativeSelect>
       </label>
-      <Button type="submit" disabled={!valid} className="max-md:h-11" data-testid="compare-apply">
-        {t("compare.picker.apply")}
-      </Button>
+      {/* MOBILE.md M-05 (mobile-b phase 2: compare-apply sat at y 375): once a new pair is picked, the one primary
+          floats in the page-actions capsule above the tab bar below lg; in a dialog (compact) it stays in flow */}
+      <div data-slot="page-actions" className={cn("flex", floating && pageActionsCapsule)} data-floating={floating || undefined}>
+        <Button type="submit" disabled={!valid} className="max-md:h-11" data-testid="compare-apply">
+          {t("compare.picker.apply")}
+        </Button>
+      </div>
     </form>
   );
 }

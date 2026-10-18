@@ -52,14 +52,14 @@ export function MfaRow({ status, org, onChanged }: { status: MfaStatus; org?: st
   const started = useRef<ReturnType<TotpTransport["start"]> | null>(null);
   const transport = useMemo<TotpTransport>(
     () => ({
-      start: () => {
-        const first = started.current;
-        started.current = null;
-        return first ?? authSecurity.totpStart();
+      // the answer of the re-authenticated start opens the sheet; it is reused (StrictMode re-mounts) until a restart
+      start: (fresh) => {
+        if (fresh || !started.current) started.current = run((pw) => authSecurity.totpStart(pw));
+        return started.current;
       },
       confirm: (code) => authSecurity.totpConfirm(code),
     }),
-    [],
+    [run],
   );
   const on = status.totp.enabled || status.passkeys.length > 0;
   const appOn = status.totp.enabled;

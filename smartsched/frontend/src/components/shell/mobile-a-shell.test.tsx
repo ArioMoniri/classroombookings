@@ -45,7 +45,7 @@ describe("mobile-a fix 14: the tab bar below 360 px", () => {
     );
     const nav = await screen.findByRole("navigation", { name: "Sekmeler" });
     await waitFor(() => expect(within(nav).getAllByRole("link").length).toBeGreaterThanOrEqual(3));
-    expect(screen.getByTestId("open-palette-mobile")).toHaveClass("max-[359px]:hidden");
-    for (const a of within(nav).getAllByRole("link")) expect(a).toHaveClass("max-[359px]:px-0");
+    expect(screen.getByTestId("open-palette-mobile")).toHaveClass("max-[22.5rem]:hidden");
+    for (const a of within(nav).getAllByRole("link")) expect(a).toHaveClass("max-[22.5rem]:px-0");
   });
 });

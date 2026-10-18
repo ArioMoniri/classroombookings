@@ -24,7 +24,8 @@ import { RecoveryCodes } from "./recovery-codes";
 import "@/components/auth/auth.css";
 
 export interface TotpTransport {
-  start: () => Promise<TotpStart>;
+  /** `fresh`: a new key (restart after the 15-minute expiry); otherwise the transport may hand out the answer it has */
+  start: (fresh?: boolean) => Promise<TotpStart>;
   confirm: (code: string) => Promise<{ recovery_codes?: string[] }>;
 }
 
@@ -61,16 +62,24 @@ export function TotpSetup({ transport, org, onStep, onDone, finishLabel }: { tra
     setState("idle");
     setMessage(null);
     try {
-      setData(await transport.start());
+      setData(await transport.start(true));
     } catch (e) {
       if (mfaErrorCode(e) === "enrolment_expired") setExpired(true);
       else setLoadError(true);
     }
   }, [transport]);
 
+  // the first key on mount (state starts empty, so only the answer is set, in the callback)
   useEffect(() => {
-    void start();
-  }, [start]);
+    let live = true;
+    transport.start().then(
+      (d) => live && setData(d),
+      (e: unknown) => live && (mfaErrorCode(e) === "enrolment_expired" ? setExpired(true) : setLoadError(true)),
+    );
+    return () => {
+      live = false;
+    };
+  }, [transport]);
 
   // the pending set-up ends after expires_in (15 min): nothing expires while typing, the message says so after
   useEffect(() => {

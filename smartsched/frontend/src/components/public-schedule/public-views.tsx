@@ -130,7 +130,8 @@ export function PublicBuildingView({ code }: { code: string }) {
           const now = live ? currentItem(r.items, clock.hhmm) : null;
           const next = live ? nextItem(r.items, clock.hhmm) : null;
           return (
-            <li key={r.code}>
+            // mobile-a fix 5: a building can list 40+ room cards; the ones off screen skip layout and paint
+            <li key={r.code} className="[content-visibility:auto] [contain-intrinsic-size:auto_11rem]">
               <Card className="h-full gap-3 px-4 py-4" data-testid={`public-room-${r.code}`}>
                 <div className="flex items-baseline justify-between gap-2">
                   <Link href={`/public/rooms/${encodeURIComponent(r.code)}${date ? `?date=${date}` : ""}`} className={`relative type-title-2 text-label-1 underline-offset-4 hover:underline ${coarseHitArea}`}>

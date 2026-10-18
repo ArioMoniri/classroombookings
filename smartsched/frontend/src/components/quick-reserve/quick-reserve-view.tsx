@@ -469,9 +469,9 @@ export function QuickReserveView() {
         </section>
 
         {/* 3 · Onayla: the sticky action bar on phones and tablets, a card in the third column on desktop */}
-        <section aria-labelledby="qr-confirm" className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(4.75rem+max(0.75rem,env(safe-area-inset-bottom)))] max-lg:z-30 max-lg:px-3 lg:sticky lg:top-20" data-testid="qr-confirm">
+        <section aria-labelledby="qr-confirm" className="max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(4.75rem+max(0.75rem,env(safe-area-inset-bottom)))] max-lg:[@media(max-height:500px)]:bottom-[calc(3.25rem+max(0.5rem,env(safe-area-inset-bottom)))] max-lg:z-30 max-lg:px-3 lg:sticky lg:top-20" data-testid="qr-confirm">
           {/* mobile-a fix 3: on a short landscape phone (≤ 500 px tall) the bar is one row, summary beside the button (the
-              column took 160 of 390 px and left the list 32 % of the screen) */}
+              column took 160 of 390 px and left the list 32 % of the screen); it sits 8 px above the 44 px compact tab bar */}
           <div className="mx-auto flex max-h-[45dvh] w-full max-w-xl flex-col gap-2 overflow-y-auto rounded-3xl bg-(--mat-thick-solid) p-3 shadow-elev-3 edge-hairline lg:max-h-none lg:gap-3 lg:rounded-xl lg:p-4 lg:shadow-none [@media(max-height:500px)]:max-w-3xl [@media(max-height:500px)]:flex-row [@media(max-height:500px)]:items-center [@media(max-height:500px)]:gap-3 [@media(max-height:500px)]:py-2">
             {receipt ? (
               <ReceiptCard receipt={receipt} headingRef={receiptRef} undoing={undoing} onUndo={() => void undo(receipt)} onAgain={newBooking} line={t("quickReserve.summary.line", { room: receipt.room.name, day: dayWord(receipt.date), slot: spanText(receipt.span) })} />

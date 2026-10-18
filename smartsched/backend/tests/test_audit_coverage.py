@@ -452,7 +452,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     # AI helper (app/ai/helper; app/api/v1/helper.py): action cards are reads or dry-run previews
     "POST /api/v1/helper/actions/{name}/card": (N, "a read, or a write's dry-run preview with a signed token"),
     "POST /api/v1/helper/actions/confirm": (E, "app.ai.helper.confirm"),
-    "POST /api/v1/helper/turn": (N, "reads and write previews only, metered in ai_usage; writes need the confirm route"),
+    "POST /api/v1/helper/turn": (N, "reads and write previews, metered in ai_usage; writes need /confirm"),
     "POST /api/v1/helper/actions/undo": (E, "app.ai.helper.confirm"),
     "PUT /api/v1/helper/memory": (T, "Setting (user.<id>.helper_memory)"),
     "POST /api/v1/helper/notes": (N, "the person's own helper note (Bunu hatırla)"),

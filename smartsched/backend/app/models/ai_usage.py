@@ -1,4 +1,5 @@
-"""AI gateway metering (wave 3 W3-AI, alembic 0034_ai_usage; voice columns 0042_ai_usage_audio).
+"""AI gateway metering (wave 3 W3-AI, alembic 0034_ai_usage; voice columns 0042_ai_usage_audio; units and
+``ai_reservations`` 0046_ai_quota_units).
 
 ``ai_usage``: one row per model call that went through the gateway (``app/ai/client.py`` :class:`AIClient`) and
 one row per call the gateway refused before it left the server. The row never holds prompt or answer text, only
@@ -37,6 +38,8 @@ class AIUsage(Base):
     __table_args__ = (
         Index("ix_ai_usage_user_created", "user_id", "created_at"),
         Index("ix_ai_usage_outcome_created", "outcome", "created_at"),
+        Index("ix_ai_usage_created_faculty", "created_at", "faculty_id"),
+        Index("ix_ai_usage_created_department", "created_at", "department_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -71,6 +74,10 @@ class AIUsage(Base):
     audio_ms: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     #: ``text`` | ``audio_in`` (speech to text) | ``audio_out`` (read-aloud, later)
     modality: Mapped[str] = mapped_column(String(12), default="text", server_default="text")
+    #: the caller's department (programme) and its faculty when the row was recorded (HB-10, 0046): a snapshot, so
+    #: the faculty totals do not move when a person changes department; NULL for background jobs and old rows
+    department_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    faculty_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     @property
     def total_tokens(self) -> int:
@@ -82,4 +89,30 @@ class AIUsage(Base):
         )
 
 
-__all__ = ["MODALITIES", "OUTCOMES", "AIUsage"]
+class AIReservation(Base):
+    """An in-flight gateway call's estimate (``kind = call``) or one counted request of the per-minute limit
+    (``kind = rate``), shared by every API worker (HB-10, alembic 0046_ai_quota_units). Transient: a call row is
+    deleted when the call settles and ignored after ``expires_at``; rate rows are swept after two minutes."""
+
+    __tablename__ = "ai_reservations"
+    __table_args__ = (
+        Index("ix_ai_reservations_user_created", "user_id", "created_at"),
+        Index("ix_ai_reservations_expires", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    #: ``call`` | ``rate``
+    kind: Mapped[str] = mapped_column(String(8), default="call", server_default="call")
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    feature: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    role_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    faculty_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    department_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    audio_ms: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+__all__ = ["MODALITIES", "OUTCOMES", "AIReservation", "AIUsage"]

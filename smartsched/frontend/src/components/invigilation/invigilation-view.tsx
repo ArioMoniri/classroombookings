@@ -119,7 +119,17 @@ export function InvigilationView() {
           {t("invigilation.boardRunBody")}
         </Alert>
       ) : null}
-      {!runs.isLoading && exams.length === 0 ? (
+      {runs.isLoading || (tab === "plans" && run && plans.isLoading) ? (
+        // mobile-b phase 2 (CLS 0.39–0.56): one placeholder of the panel's height until the runs and the plans are in,
+        // instead of "Plan yok" flashing and the list and the detail pushing each other down
+        <div className="grid min-h-[60dvh] min-w-0 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]" aria-busy="true" data-testid="invig-loading">
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+          <Skeleton className="h-80 w-full rounded-2xl" />
+        </div>
+      ) : !runs.isLoading && exams.length === 0 ? (
         <div className="rounded-xl bg-fill-3 px-4 py-5" data-testid="invig-no-runs">
           <p className="type-headline">{t("invigilation.noExamRunsTitle")}</p>
           <p className="mt-1 type-callout text-label-2">{t("invigilation.noExamRunsBody")}</p>

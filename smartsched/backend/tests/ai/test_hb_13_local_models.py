@@ -16,9 +16,8 @@ from typing import Any
 import httpx
 import pytest
 from app.ai import capabilities as caps
-from app.ai import catalog
+from app.ai import catalog, pipeline
 from app.ai import gateway as gw
-from app.ai import pipeline
 from app.ai.client import AIClient, get_client
 from app.ai.context import ai_scope
 from app.ai.elicit import elicit_constraints

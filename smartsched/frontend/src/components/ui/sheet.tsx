@@ -66,9 +66,19 @@ export function shouldDismissSheet(dy: number, height: number, velocity: number)
   return dy > height * 0.3 || (dy > 24 && velocity > 0.5)
 }
 
-/** The grabber's pointer handlers: the popup follows the finger (no transition), then closes or snaps back. */
+/** The open sheet's backdrop (the overlay rendered just before the popup in the same portal). */
+function backdropOf(el: HTMLElement): HTMLElement | null {
+  const all = el.ownerDocument.querySelectorAll<HTMLElement>("[data-slot=sheet-overlay]")
+  return all.length ? all[all.length - 1]! : null
+}
+
+/**
+ * The grabber's pointer handlers: the popup follows the finger (no transition) and the backdrop fades with the offset
+ * (HIG sheets), then it closes or snaps back. The snap-back uses the sheet's own spring transition, which the
+ * reduced-motion tokens already shorten to an instant change.
+ */
 function useSheetDrag(popupRef: React.RefObject<HTMLDivElement | null>, closeRef: React.RefObject<HTMLButtonElement | null>) {
-  const start = React.useRef<{ y: number; t: number } | null>(null)
+  const start = React.useRef<{ y: number; t: number; h: number } | null>(null)
   const end = (e: React.PointerEvent) => {
     const s = start.current
     const el = popupRef.current
@@ -76,18 +86,27 @@ function useSheetDrag(popupRef: React.RefObject<HTMLDivElement | null>, closeRef
     if (!s || !el) return
     const dy = Math.max(0, e.clientY - s.y)
     el.style.transition = ""
-    if (shouldDismissSheet(dy, el.getBoundingClientRect().height, dy / Math.max(1, performance.now() - s.t))) closeRef.current?.click()
+    const backdrop = backdropOf(el)
+    if (shouldDismissSheet(dy, s.h, dy / Math.max(1, performance.now() - s.t))) closeRef.current?.click()
     else el.style.translate = ""
+    if (backdrop) backdrop.style.opacity = ""
   }
   const handlers = {
     onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!popupRef.current) return
-      start.current = { y: e.clientY, t: performance.now() }
+      const el = popupRef.current
+      if (!el) return
+      start.current = { y: e.clientY, t: performance.now(), h: el.getBoundingClientRect().height }
       e.currentTarget.setPointerCapture?.(e.pointerId)
-      popupRef.current.style.transition = "none"
+      el.style.transition = "none"
     },
     onPointerMove: (e: React.PointerEvent) => {
-      if (start.current && popupRef.current) popupRef.current.style.translate = `0 ${Math.max(0, e.clientY - start.current.y)}px`
+      const s = start.current
+      const el = popupRef.current
+      if (!s || !el) return
+      const dy = Math.max(0, e.clientY - s.y)
+      el.style.translate = `0 ${dy}px`
+      const backdrop = backdropOf(el)
+      if (backdrop) backdrop.style.opacity = Math.max(0, 1 - dy / Math.max(1, s.h)).toFixed(3)
     },
     onPointerUp: end,
     onPointerCancel: end,
@@ -126,7 +145,7 @@ function SheetContent({
       >
         {side === "bottom" ? (
           <>
-            <div aria-hidden data-slot="sheet-grabber" {...grab} className="relative mx-auto h-1 w-9 shrink-0 cursor-grab touch-none rounded-full bg-fill-1 after:absolute after:-inset-x-20 after:-inset-y-4 after:content-['']" />
+            <div aria-hidden data-slot="sheet-grabber" {...grab} className="relative mx-auto h-1 w-9 shrink-0 cursor-grab touch-none rounded-full bg-fill-1 after:absolute after:-inset-x-20 after:-inset-y-5 after:content-['']" />
             <SheetPrimitive.Close ref={closeRef} hidden tabIndex={-1} aria-hidden data-slot="sheet-drag-close" />
           </>
         ) : null}

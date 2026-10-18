@@ -12,9 +12,9 @@ the only ``User`` in the session's identity map, else ``None`` (a background job
 
 Features (research R-AI-01): ``rules`` (rules from text), ``chat`` (chat edits), ``intake`` (uploads / the
 Ingestion Council), ``vision`` (scans and images), ``explain`` (explanations), ``booking_nl`` (booking requests in
-plain language), ``helper`` (the in-app helper's turns, HB-06), ``voice_stt`` (speech to text before any of them: the transcript returns to the person for
-review and is sent through the feature it was spoken for; VO-01), plus ``guard`` (the optional model-based scope
-check) and ``test`` (the admin's test call).
+plain language), ``helper`` (the in-app helper's turns, HB-06), ``voice_stt`` (speech to text before any of them:
+the transcript returns to the person for review and is sent through the feature it was spoken for; VO-01), plus
+``guard`` (the optional model-based scope check) and ``test`` (the admin's test call).
 """
 
 from __future__ import annotations

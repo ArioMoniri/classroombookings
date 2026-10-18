@@ -75,3 +75,14 @@ On pass: tick VO-06/07/08 and VO-05.
 4. /dashboard as Fatih Bey: chart, summary, table toggle, CSV in a tr-TR parser; M-01/02/03/05.
 5. /admin/ai: tooltip on tap, CSV with 5 feature columns + total; M-01/02/03/05.
 6. /admin/ops: tooltip scrub without dropped frames, stale strip, backup card; M-01/02/03/05.
+
+## Mobile A (scripts: scratchpad/mobile-a/scripts run.mjs, extra.mjs, chrome.mjs)
+1. M-13 at 844×390 on every app route and /reserve with the new snippet: ratio ≤ 0.25 at rest and after a 300 px scroll; /reserve content ≥ 0.60.
+2. M-15 CLS ≤ 0.1 on /profile, /public/buildings/A, /public/rooms/A101, /bookings at 768.
+3. M-16 INP ≤ 200 ms opening the book sheet, filters and bell at 390.
+4. Root 200 % at 390: no sideways scroll; body text ≥ 26 px.
+5. 320×568: tab labels and the date chip are not clipped; M-02.
+6. Grabber: a 500 px drag dismisses, the backdrop fades, focus returns.
+7. Keyboard proxy: book-submit bottom ≤ 508 with the visual viewport at 508 (+ a real iOS 26 device if one is available).
+8. Safe area (notch 59): kiosk content left ≥ 59.
+9. The hosted Motion Agent polish of book sheet open + drag (orchestrator go given; name it in the report).

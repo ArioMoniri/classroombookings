@@ -185,7 +185,8 @@ export function DashboardView() {
                 <Skeleton className="h-10 w-72" />
               )}
             </h2>
-            <div className="mt-2">{runs.data ? <HeroStatus plan={plan} /> : <Skeleton className="h-6 w-80" />}</div>
+            {/* mobile-b phase 2 (CLS 0.11): the status sentence is two title-3 lines on a phone; the skeleton is too */}
+            <div className="mt-2">{runs.data ? <HeroStatus plan={plan} /> : <Skeleton className="h-[2lh] w-80 max-w-full type-title-3 sm:h-[1lh]" data-testid="dashboard-plan-loading" />}</div>
             {d ? <QuietNumbers d={d} /> : <Skeleton className="mt-6 h-16" />}
           </div>
           <div className="min-w-0">

@@ -47,7 +47,8 @@ type Tab = "upcoming" | "past" | "cancelled";
 /** MOBILE.md M-02 (loop-r1-laneB2, lane-A2 ask): a row stacks a 16 px checkbox, the room chip and the date line; on
  *  coarse pointers the row keeps 20 px between the checkbox (its 44 px zone reaches 14 px past the box) and the
  *  text, and each text control is at least 44 × 44, so no tap zone is cut by its neighbour. */
-export const BOOKING_ROW_CLASS = "flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b pointer-coarse:gap-5";
+/** mobile-a fix 5: `content-visibility: auto` skips layout and paint of the rows off screen (a term of bookings is a long list) */
+export const BOOKING_ROW_CLASS = "flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b pointer-coarse:gap-5 [content-visibility:auto] [contain-intrinsic-size:auto_4rem]";
 export const BOOKING_ROW_CONTROL_CLASS = "pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:py-1";
 
 export function MyBookingsView() {

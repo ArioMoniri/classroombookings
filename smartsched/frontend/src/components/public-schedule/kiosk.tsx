@@ -113,12 +113,14 @@ export function KioskFrame({ title, subtitle, back, today, date, onDate, updated
               {t("publicSchedule.today")}
             </Button>
           ) : null}
-          <p className="type-title-3 font-medium text-label-1 sm:ml-2" data-testid="kiosk-long-date">
+          <p className="type-title-3 font-medium text-label-1 max-sm:basis-full sm:ml-2" data-testid="kiosk-long-date">
             {long(shown)}
           </p>
         </nav>
       ) : dateNav ? (
-        <div aria-hidden className="min-h-11" data-testid="kiosk-nav-placeholder" />
+        // phones: the long date is its own line under the arrows, so the placeholder holds both lines (it held one and the
+        // wrapped date still pushed the list down)
+        <div aria-hidden className="min-h-11 max-sm:min-h-[calc(3.25rem+var(--text-title-3)*var(--text-title-3-lh))]" data-testid="kiosk-nav-placeholder" />
       ) : null}
       <main className="flex-1">{children}</main>
       <footer className="flex flex-wrap items-center justify-between gap-2 type-footnote text-label-3">

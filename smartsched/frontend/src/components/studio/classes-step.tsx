@@ -619,7 +619,7 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
 
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
         {/* mobile-b phase 2: a bottom sheet (MOBILE.md M-04) with one action, like the timetable filters */}
-        <SheetContent side="bottom" className="flex max-h-[88dvh] flex-col p-0" data-testid="filters-sheet">
+        <SheetContent side="bottom" className="flex max-h-[88dvh] flex-col p-0 sm:mx-auto sm:max-w-[40rem]" data-testid="filters-sheet">
           <SheetHeader>
             <SheetTitle>{t("common.filter")}</SheetTitle>
           </SheetHeader>

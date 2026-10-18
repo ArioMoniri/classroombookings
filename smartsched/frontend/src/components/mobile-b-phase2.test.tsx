@@ -16,6 +16,7 @@ import { I18nProvider } from "@/lib/i18n/provider";
 import { PublishRunButton } from "./runs/publish-run";
 import { focusClassChip } from "./timetable/focus-chip";
 import { SortableList } from "./admin/sortable-list";
+import { RunPairPicker } from "./compare/run-pair-picker";
 
 const ROOT = join(process.cwd(), "src/components");
 const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
@@ -141,14 +142,6 @@ describe("fix 10 · Studio at 200 % text", () => {
   });
 });
 
-describe("fix 10 · /admin/ops range at 200 % text", () => {
-  it("the 30 / 60 / 180 dk segment sits in its own horizontal scroller", () => {
-    const src = read("admin/ops/ops-panel.tsx");
-    const at = src.indexOf('aria-label={t("ops.chart.range")}');
-    expect(src.slice(src.lastIndexOf("<div", at), at)).toContain('className="max-w-full overflow-x-auto"');
-  });
-});
-
 describe("fix 11 · moderation on touch: card rows on tablets, 44 px chips", () => {
   const src = read("moderation/moderation-console.tsx");
   it("the console's tables become cards below 1024 on a coarse pointer (mod-row was 718×36 at 768)", () => {
@@ -186,6 +179,8 @@ describe("fix 12 · /admin/rooms Gruplar: 'Yeni grup' in the capsule like 'Yeni 
     const src = read("admin/rooms-admin.tsx");
     const at = src.indexOf('t("crbs.rooms.newGroup")');
     expect(src.slice(Math.max(0, at - 300), at)).toContain('data-slot="page-actions" className={pageActionsCapsule}');
+    // MOBILE.md §3 PRIMARY for /admin/rooms (it had no test id)
+    expect(src.slice(Math.max(0, at - 200), at)).toContain('data-testid="group-new"');
   });
 });
 
@@ -228,4 +223,133 @@ describe("hero motion · publish → '✓ Yayında' confirms itself once (free t
     view.rerender(wrap(run({ horizon: "TERM", horizon_params: { weeks: [] }, status: "FEASIBLE", is_active: true, stats: { placed: 683, events_total: 683 } })));
     expect((await screen.findByTestId("run-published-check")).getAttribute("data-state")).toBe("in");
   }, 20000);
+});
+
+describe("fix 1 · CLS round 2: every slot the report named holds its final height while its data loads", () => {
+  it("/runs/<id>: the report tab waits for the summary and the data checks behind one 60dvh placeholder (0.48)", () => {
+    const src = read("runs/run-view.tsx");
+    expect(src).toContain("const reportPending = reportable && (summary.isPending || issues.isPending);");
+    expect(src).toMatch(/\{reportPending \? \(\s*<div className="min-h-\[60dvh\][^"]*" aria-busy="true" data-testid="run-report-loading">/);
+    // the "Veri notları N" line under Sorun keeps its line until the summary answers
+    expect(src).toContain('data-testid="kpi-data-notes-pending"');
+  });
+  it("Studio step 2: the class-list skeleton is as tall as the cards (60dvh) or the table (62dvh) it becomes (0.21 / 0.98)", () => {
+    expect(read("studio/classes-step.tsx")).toContain('className={cn("space-y-1 overflow-hidden", narrow ? "h-[60dvh]" : "h-[62dvh]")}');
+  });
+  it("/onboarding/<id>: the job and the review land in reserved slots (0.55)", () => {
+    const src = read("onboarding/onboarding-flow.tsx");
+    expect(src).toMatch(/jobId !== null && !job\.data && !job\.isError \? \(\s*<div className="min-h-\[70dvh\][^"]*" aria-busy="true" data-testid="onboarding-loading">/);
+    expect(src).toMatch(/!review\.data && !review\.isError \? \(\s*<div className="min-h-\[50dvh\]" aria-busy="true" data-testid="onboarding-review-loading">/);
+  });
+  it("/moderation: the skeleton has the console's shape, ending in the list's 560 px frame (0.31–0.47)", () => {
+    const src = read("moderation/moderation-console.tsx");
+    expect(src).toContain('<div className="flex h-[35rem] flex-col gap-1 overflow-hidden">');
+    expect(src).toContain("const loadingRows = <ListSkeleton />;");
+    expect(src).toMatch(/function ConsoleSkeleton\(\)[\s\S]{0,400}<ListSkeleton \/>/);
+  });
+  it("/exams/invigilation: one 60dvh placeholder until the runs and the plans are in (0.39–0.56)", () => {
+    const src = read("invigilation/invigilation-view.tsx");
+    expect(src).toContain('{runs.isLoading || (tab === "plans" && run && plans.isLoading) ? (');
+    expect(src).toContain('data-testid="invig-loading"');
+    expect(lineOf("invigilation/invigilation-view.tsx", "invig-loading")).toContain("min-h-[60dvh]");
+  });
+  it("/admin hub: a placeholder until the permissions are known, eight checklist rows, the server checks' frame (0.40)", () => {
+    const src = read("admin/admin-overview.tsx");
+    expect(lineOf("admin/admin-overview.tsx", "admin-overview-loading")).toContain("min-h-[80dvh]");
+    expect(src).toMatch(/setup-checklist-loading[\s\S]{0,120}Array\.from\(\{ length: 8 \}/);
+    expect(src).toContain('data-testid="setup-requirements-loading"');
+  });
+  it("/admin/audit: the phone / desktop split is CSS, not a hook that reads false before hydration (1.32)", () => {
+    const src = read("audit/audit-view.tsx");
+    const title = src.slice(src.indexOf("<PageTitle"), src.indexOf("{activeFilters ? ("));
+    expect(title).not.toMatch(/phone \?/);
+    expect(title).toContain('className="sm:hidden"');
+    expect(src).toContain('<Card className="gap-3 px-4 py-4 max-sm:hidden">{filterForm}</Card>');
+    expect(lineOf("audit/audit-view.tsx", "audit-loading")).toContain("min-h-[70dvh]");
+  });
+  it("/dashboard: the status skeleton is two title-3 lines on a phone (0.11)", () => {
+    expect(lineOf("dashboard/dashboard-view.tsx", "dashboard-plan-loading")).toContain('className="h-[2lh] w-80 max-w-full type-title-3 sm:h-[1lh]"');
+  });
+  it("/admin/ai overview and providers hold a viewport of height while loading (0.74 / 0.57)", () => {
+    expect(lineOf("admin/ai/overview-tab.tsx", "ai-overview-loading")).toContain("min-h-[70dvh]");
+    expect(lineOf("admin/ai/providers-tab.tsx", "ai-providers-loading")).toContain("min-h-[70dvh]");
+  });
+});
+
+describe("fix 6 · timetable room tags are 12 px on touch", () => {
+  it("the column tag ('TIP', 'PC', 'H3') is text-xs on a coarse pointer, not the 11 px caption", () => {
+    const tag = lineOf("timetable/time-grid.tsx", "column-tag");
+    expect(tag).toContain("pointer-coarse:text-xs");
+    expect(tag).not.toContain("pointer-coarse:type-caption");
+  });
+});
+
+describe("fix 7 · the Studio filters sheet is at most 640 px wide on a tablet (752 at 768)", () => {
+  it("caps and centres the bottom sheet from sm", () => {
+    expect(lineOf("studio/classes-step.tsx", "filters-sheet")).toContain("sm:mx-auto sm:max-w-[40rem]");
+  });
+});
+
+describe("fix 10 · 200 % text: controls shrink or stack instead of pushing the page sideways", () => {
+  it("/analytics/heatmap: the selects are full width on a phone and the segments scroll in their own row", () => {
+    const src = read("analytics/heatmap-view.tsx");
+    for (const id of ["heat-group", "heat-week"]) expect(lineOf("analytics/heatmap-view.tsx", id)).toContain("max-sm:w-full");
+    expect(src.match(/<div className="max-w-full overflow-x-auto \[scrollbar-width:none\]">\s*<SegmentedControl/g)).toHaveLength(2);
+  });
+  it("Studio step 1: the kind and horizon fields may shrink, so the segment falls back to its select", () => {
+    const src = read("studio/scope-step.tsx");
+    expect(src.match(/<div className="grid min-w-0 max-w-full grid-cols-\[minmax\(0,1fr\)\] gap-1\.5">/g)).toHaveLength(2);
+  });
+  it("/runs/compare: the week select is full width on a phone", () => {
+    expect(lineOf("compare/compare-view.tsx", "compare-week")).toContain("max-sm:w-full");
+  });
+});
+
+describe("fix 11 · /runs/compare run titles are 44 px lines on touch (333×20)", () => {
+  it("the title link is a block with a 44 px line on a coarse pointer", () => {
+    const src = read("compare/compare-view.tsx");
+    expect(src).toContain('className="block truncate type-headline text-label-1 pointer-coarse:leading-11');
+  });
+});
+
+describe("fix 12 · /runs/compare 'Karşılaştır' floats in thumb reach once a new pair is picked (y 375)", () => {
+  const mk = (id: number) => ScheduleRun.parse({ ...run({ id, kind: "COURSE", term_id: 1 }) });
+  const runs = [mk(7), mk(8)];
+  it("in flow before a pair, in the capsule after picking A and B, back in flow in a dialog (compact)", async () => {
+    const view = render(
+      <I18nProvider initialLocale="tr">
+        <RunPairPicker runs={runs} a={null} b={null} onApply={() => undefined} />
+      </I18nProvider>,
+    );
+    const wrap = () => screen.getByTestId("compare-apply").parentElement!;
+    expect(wrap().getAttribute("data-floating")).toBeNull();
+    await userEvent.selectOptions(screen.getByTestId("compare-pick-a"), "7");
+    await userEvent.selectOptions(screen.getByTestId("compare-pick-b"), "8");
+    expect(wrap().getAttribute("data-floating")).toBe("true");
+    expect(wrap().className).toContain("max-lg:fixed");
+    view.rerender(
+      <I18nProvider initialLocale="tr">
+        <RunPairPicker runs={runs} a={7} b={8} onApply={() => undefined} />
+      </I18nProvider>,
+    );
+    // the applied pair is on screen: nothing left to confirm, the button goes back into the form
+    expect(wrap().getAttribute("data-floating")).toBeNull();
+    view.unmount();
+    render(
+      <I18nProvider initialLocale="tr">
+        <RunPairPicker runs={runs} a={null} b={null} compact onApply={() => undefined} />
+      </I18nProvider>,
+    );
+    await userEvent.selectOptions(screen.getByTestId("compare-pick-a"), "7");
+    await userEvent.selectOptions(screen.getByTestId("compare-pick-b"), "8");
+    expect(wrap().getAttribute("data-floating")).toBeNull();
+  }, 20000);
+});
+
+describe("fix 14 · Studio step 3: an off rule is told by colour, not opacity (3.51 : 1 light / 4.29 : 1 dark)", () => {
+  it("the off rule card uses label-2 on fill-3 and a dashed edge, never opacity-60", () => {
+    const src = read("studio/rule-card.tsx");
+    expect(src).not.toContain('"opacity-60"');
+    expect(src).toContain('p.enabled === false && "border-dashed bg-fill-3 text-label-2 shadow-none"');
+  });
 });

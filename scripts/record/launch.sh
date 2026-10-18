@@ -112,8 +112,8 @@ do_clips() {
   local CL="$OUT/clips" CT="$OUT/clip-takes" list
   mkdir -p "$CL" "$CT"
   list="$(node --input-type=module -e "import { CLIPS } from '$HERE/launch/story.mjs'; for (const c of CLIPS) console.log([c.id, c.journey, c.clip ?? '-', c.device].join(' '))")"
-  # 1. one take per journey
-  while read -r id journey clip device; do
+  # 1. one take per journey (LAUNCH_CLIPS_STAGE=render skips to step 2)
+  [[ "${LAUNCH_CLIPS_STAGE:-all}" == render ]] || while read -r id journey clip device; do
     local name="$journey-light"; [[ "$UI_LANG" != en ]] && name="$name-$UI_LANG"; [[ "$device" == phone ]] && name="$name-phone"
     [[ -n "${LAUNCH_ONLY:-}" && " $LAUNCH_ONLY " != *" $journey "* ]] && continue
     if [[ ! -f "$CT/$name.take.json" ]]; then
@@ -123,7 +123,8 @@ do_clips() {
         $N node "$HERE/record.mjs" --journey "$journey" --lang "$UI_LANG" --engine frames --out "$CT" </dev/null || { log "take $journey failed"; continue; }
     fi
   done <<<"$list"
-  # 2. renders + encodes
+  [[ "${LAUNCH_CLIPS_STAGE:-all}" == record ]] && return 0
+  # 2. renders + encodes (LAUNCH_CLIPS_STAGE=record stops before this, so the stack can go down first)
   while read -r id journey clip device; do
     local name="$journey-light"; [[ "$UI_LANG" != en ]] && name="$name-$UI_LANG"; [[ "$device" == phone ]] && name="$name-phone"
     [[ -f "$CT/$name.take.json" ]] || continue

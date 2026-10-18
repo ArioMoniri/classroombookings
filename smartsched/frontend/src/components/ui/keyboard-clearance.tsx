@@ -128,18 +128,24 @@ export function KeyboardClearance({ scope = "popup" }: { scope?: "popup" | "docu
     }
     const onFocus = (e: FocusEvent) => reveal(e.target as Element | null)
     const popup = page ? null : (root.closest(POPUP) as HTMLElement | null)
-    const onResize = () => {
+    const lift = () => {
       const v = window.visualViewport
       if (popup && v) popup.style.setProperty("--kb-inset", `${keyboardInset(window.innerHeight, v.height, v.offsetTop)}px`)
+    }
+    const onResize = () => {
+      lift()
       reveal(document.activeElement)
     }
     root.addEventListener("focusin", onFocus)
     const vv = window.visualViewport
     vv?.addEventListener("resize", onResize)
+    // iOS also pans the visual viewport (offsetTop) while the keyboard is up, without a resize: only re-lift then
+    vv?.addEventListener("scroll", lift)
     window.addEventListener("resize", onResize)
     return () => {
       root.removeEventListener("focusin", onFocus)
       vv?.removeEventListener("resize", onResize)
+      vv?.removeEventListener("scroll", lift)
       window.removeEventListener("resize", onResize)
       if (timer !== null) window.clearTimeout(timer)
     }

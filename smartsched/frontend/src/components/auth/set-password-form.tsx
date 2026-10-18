@@ -117,7 +117,6 @@ export function SetPasswordForm({ mode, token, username, org, minLength = 12, ne
             autoComplete="new-password"
             enterKeyHint="go"
             minLength={min}
-            // eslint-disable-next-line react/no-unknown-property -- Safari's password-rules hint for generated passwords
             {...{ passwordrules: `minlength: ${min};` }}
             value={pw}
             onChange={(e) => {

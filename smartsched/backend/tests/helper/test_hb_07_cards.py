@@ -25,6 +25,7 @@ from app.ai.helper import cards, schema
 from app.ai.helper import status as helper_status
 from app.ai.helper.actions import registry as reg
 from app.core import db as dbmod
+from app.main import app
 from pydantic import ValidationError
 
 from tests.crbs_env import env  # noqa: F401
@@ -210,8 +211,13 @@ async def test_hb_07_status_is_index_only_until_an_admin_routes_the_helper(env, 
     g = await env.client.post("/api/v1/me/consents/ai_personal", headers=t.headers)
     assert g.status_code in (200, 201), g.text
     st = (await env.client.get(f"{H}/status", headers=t.headers)).json()
-    assert st["mode"] == "index" and st["reason"] == "turn_unavailable"  # HB-06 not deployed yet
-    monkeypatch.setattr(helper_status, "turn_registered", lambda _app: True)
+    monkeypatch.setattr(helper_status, "turn_registered", lambda _app: False)
+    st = (await env.client.get(f"{H}/status", headers=t.headers)).json()
+    assert st["mode"] == "index" and st["reason"] == "turn_unavailable"  # a server without HB-06
+    monkeypatch.undo()  # the real check: HB-06's POST /helper/turn is mounted on this app
+    monkeypatch.setattr(gw, "FEATURES", (*gw.FEATURES, "helper"))
+    monkeypatch.setattr(gw, "provider_usable", usable)
+    assert helper_status.turn_registered(app)
     st = (await env.client.get(f"{H}/status", headers=t.headers)).json()
     assert st["mode"] == "ai" and st["reason"] is None
     assert st["provider_kind"] == "cloud" and st["provider_label"]["tr"].startswith("Anthropic")

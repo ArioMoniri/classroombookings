@@ -172,3 +172,35 @@ async def test_hb_09_purge_export_and_erasure(env) -> None:  # noqa: F811
             assert (
                 await s.execute(select(func.count()).select_from(model).where(model.user_id == t.uid))
             ).scalar_one() == 0
+
+
+async def test_hb_09_prompt_notes_refresh_their_last_use_and_follow_the_switches(env) -> None:  # noqa: F811
+    """What the turn loop puts in the prompt (HB-B): the person's notes as plain lines, only while memory is on;
+    using a note restarts its 180 days."""
+    people = await personas(env)
+    t = people["teacher"]
+    r = await env.client.post(
+        f"{H}/notes", json={"text": "Hep B blokta öner", "source": "user_button"}, headers=t.headers
+    )
+    assert r.status_code == 201, r.text
+    async with dbmod.get_session_factory()() as s:
+        note = (await s.execute(select(HelperNote).where(HelperNote.user_id == t.uid))).scalars().one()
+        note.last_used_at = note.created_at - timedelta(days=100)
+        note.expires_at = note.last_used_at + timedelta(days=180)
+        await s.commit()
+    async with dbmod.get_session_factory()() as s:
+        user = await s.get(User, t.uid)
+        assert user is not None
+        assert await memory.prompt_notes(s, user) == ["Hep B blokta öner"]
+        await s.commit()
+    async with dbmod.get_session_factory()() as s:
+        note = (await s.execute(select(HelperNote).where(HelperNote.user_id == t.uid))).scalars().one()
+        assert note.expires_at - note.last_used_at == timedelta(days=180)
+        assert note.last_used_at >= utcnow() - timedelta(minutes=5)
+    off = await env.client.put(f"{H}/memory", json={"enabled": False}, headers=t.headers)
+    assert off.status_code == 200 and off.json()["enabled"] is False
+    async with dbmod.get_session_factory()() as s:
+        user = await s.get(User, t.uid)
+        assert user is not None
+        assert await memory.prompt_notes(s, user) == []  # off keeps the notes but never sends them
+    assert await _notes(t.uid) == 1

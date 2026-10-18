@@ -23,6 +23,9 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   manifest: "/site.webmanifest",
+  // mobile-a fix 13: <meta name="text-scale" content="scale"> (Chrome 146+): the OS text size scales the root font,
+  // and the rem-based type scale (globals.css type-*, body) follows it instead of staying at 14 px
+  other: { "text-scale": "scale" },
 };
 
 export const viewport: Viewport = {

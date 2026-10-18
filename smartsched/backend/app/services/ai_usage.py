@@ -23,13 +23,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import case, delete, func, or_, select, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,7 +40,8 @@ from app.ai import gateway as gw
 from app.core import rls
 from app.core.db import get_session_factory
 from app.models import User
-from app.models.ai_usage import AIUsage
+from app.models.ai_usage import AIReservation, AIUsage
+from app.models.catalog import Program
 from app.services import notify_dispatch as nd
 
 log = logging.getLogger(__name__)
@@ -139,7 +143,13 @@ async def _write(rows: list[dict[str, Any]]) -> None:
             conn = await s.connection()
             await conn.exec_driver_sql("PRAGMA busy_timeout=250")
         try:
+            units: dict[int, tuple[int | None, int | None]] = {}
             for r in rows:
+                uid = r.get("user_id")
+                if uid is not None and "faculty_id" not in r:  # the unit snapshot at record time (HB-10)
+                    if uid not in units:
+                        units[uid] = await units_of(s, int(uid))
+                    r["department_id"], r["faculty_id"] = units[uid]
                 s.add(AIUsage(**r))
             await s.commit()
         finally:
@@ -244,44 +254,192 @@ def pending_outbox() -> list[dict[str, Any]]:
 
 # ---------------------------------------------------------------------------------------------- reservations
 
+#: a call's reservation outlives its timeout by this much before other workers ignore it (a crashed worker)
+RESERVATION_GRACE_S = 60
+#: kept per-minute rows are swept after this long
+RATE_KEEP_S = 120
+_LOCK_KEY = "smartsched_ai_budget"
+
 
 @dataclass
 class Reservation:
+    #: the ``ai_reservations`` row id (``0`` = a process-local fallback reservation, old schema)
     id: int
     user_id: int | None
     tokens: int
     cost: float
     audio_ms: int = 0
+    local: bool = False
 
 
+#: the fallback when ``ai_reservations`` does not exist yet (a schema behind the code): the old in-process ledger
 _RESERVED: dict[int, Reservation] = {}
 _NEXT = [0]
+#: row ids this worker settled whose DELETE has not run yet: excluded from every count at once
+_PENDING: set[int] = set()
+_TASKS: set[asyncio.Task[None]] = set()
+#: tests: rows created before the last :func:`reset_state` are not counted
+_RESET_AT = [datetime.min]
+#: one asyncio lock per engine (a worker); PostgreSQL's advisory lock serialises the workers
+_LOCKS: dict[tuple[int, int], asyncio.Lock] = {}
 
 
-def _reserved(user_id: int | None = None) -> tuple[int, float]:
+def utc_naive(now: datetime | None = None) -> datetime:
+    now = now or datetime.now(UTC)
+    return now.astimezone(UTC).replace(tzinfo=None) if now.tzinfo else now
+
+
+def _local_reserved(user_id: int | None = None) -> tuple[int, float, int]:
     items = [r for r in _RESERVED.values() if user_id is None or r.user_id == user_id]
-    return sum(r.tokens for r in items), sum(r.cost for r in items)
+    return sum(r.tokens for r in items), sum(r.cost for r in items), sum(r.audio_ms for r in items)
 
 
-def _reserved_audio_ms(user_id: int | None = None) -> int:
-    return sum(r.audio_ms for r in _RESERVED.values() if user_id is None or r.user_id == user_id)
+def _engine_key(session: AsyncSession) -> int:
+    try:
+        return id(session.bind)
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+@asynccontextmanager
+async def _budget_lock(session: AsyncSession) -> AsyncIterator[None]:
+    """Serialise the check-then-insert of every reservation: an asyncio lock for this worker's coroutines and, on
+    PostgreSQL, ``pg_advisory_xact_lock`` for every worker (held until the caller's commit / rollback)."""
+    key = (id(asyncio.get_running_loop()), _engine_key(session))
+    lock = _LOCKS.get(key)
+    if lock is None:
+        if len(_LOCKS) > 32:
+            _LOCKS.clear()
+        lock = _LOCKS[key] = asyncio.Lock()
+    async with lock:
+        if not _is_sqlite(session):
+            await session.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": _LOCK_KEY})
+        yield
+
+
+async def _sweep(session: AsyncSession, moment: datetime) -> set[int]:
+    """Delete this worker's settled rows, expired calls and old per-minute rows (inside the budget lock). Returns
+    the settled ids it deleted; the caller forgets them only after its commit."""
+    done = set(_PENDING)
+    cond = or_(
+        AIReservation.expires_at <= moment,
+        (AIReservation.kind == "rate") & (AIReservation.created_at < moment - timedelta(seconds=RATE_KEEP_S)),
+    )
+    if done:
+        cond = or_(cond, AIReservation.id.in_(done))
+    await session.execute(delete(AIReservation).where(cond))
+    return done
+
+
+def _live(moment: datetime, kind: str = "call") -> list[Any]:
+    conds: list[Any] = [
+        AIReservation.kind == kind,
+        AIReservation.created_at >= _RESET_AT[0],
+    ]
+    if kind == "call":
+        conds.append(AIReservation.expires_at > moment)
+    if _PENDING:
+        conds.append(AIReservation.id.not_in(set(_PENDING)))
+    return conds
+
+
+async def _held(session: AsyncSession, moment: datetime, *where: Any) -> tuple[int, float, int, int]:
+    """``(tokens, cost, audio_ms, rows)`` of the open call reservations matching ``where`` (every worker's)."""
+    q = select(
+        func.coalesce(func.sum(AIReservation.tokens), 0),
+        func.coalesce(func.sum(AIReservation.cost_usd), 0.0),
+        func.coalesce(func.sum(AIReservation.audio_ms), 0),
+        func.count(AIReservation.id),
+    ).where(*_live(moment), *where)
+    tokens, cost, audio_ms, rows = (await session.execute(q)).one()
+    return int(tokens), float(cost), int(audio_ms), int(rows)
+
+
+async def _delete_pending() -> None:
+    if not _PENDING:
+        return
+    ids = set(_PENDING)
+    try:
+        async with get_session_factory()() as s:
+            await s.execute(delete(AIReservation).where(AIReservation.id.in_(ids)))
+            await s.commit()
+        _PENDING.difference_update(ids)
+    except Exception:  # noqa: BLE001 - the next reserve sweeps them; never break the call that settles
+        log.debug("ai reservation release deferred", exc_info=True)
 
 
 def settle(reservation: Reservation | None) -> None:
-    if reservation is not None:
+    """Release a reservation. Synchronous for old callers: this worker stops counting it at once and the row is
+    deleted in the background (``await`` :func:`release` to wait for the DELETE)."""
+    if reservation is None:
+        return
+    if reservation.local:
         _RESERVED.pop(reservation.id, None)
+        return
+    _PENDING.add(reservation.id)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return  # no loop: the next reserve sweeps it
+    task = loop.create_task(_delete_pending())
+    _TASKS.add(task)
+    task.add_done_callback(_TASKS.discard)
+
+
+async def release(reservation: Reservation | None) -> None:
+    """:func:`settle` and wait until the row is gone (the gateway pipeline's path)."""
+    settle(reservation)
+    if reservation is not None and not reservation.local:
+        await _delete_pending()
+
+
+def forget_local_state() -> None:
+    """Drop this process's in-memory reservation state (tests: what another worker would see)."""
+    _RESERVED.clear()
+    _LOCKS.clear()
 
 
 def reset_state() -> None:
-    """Tests: forget reservations and the outbox."""
+    """Tests: forget reservations, per-minute rows and the outbox of earlier tests."""
     _RESERVED.clear()
     _OUTBOX.clear()
+    _PENDING.clear()
+    _LOCKS.clear()
+    _RESET_AT[0] = utc_naive()
 
 
 class LimitRefusal(Exception):
     def __init__(self, code: str, scope: str, used: float, limit: float) -> None:
         super().__init__(code)
         self.code, self.scope, self.used, self.limit = code, scope, used, limit
+
+
+_MISSING = (OperationalError, ProgrammingError)
+
+
+async def rate_hit(user_id: int | None, *, per_minute: int, now: datetime | None = None) -> bool:
+    """Count one request of ``user_id`` against ``per_minute`` over every worker (``ai_reservations`` rows of kind
+    ``rate`` in the last 60 s). ``False`` = over the limit (not counted). Own session; a schema without the table
+    falls back to allowing the call (the per-call checks still run)."""
+    if user_id is None or per_minute <= 0:
+        return True
+    moment = utc_naive(now)
+    try:
+        async with get_session_factory()() as s:
+            async with _budget_lock(s):
+                q = select(func.count(AIReservation.id)).where(
+                    *_live(moment, "rate"),
+                    AIReservation.user_id == user_id,
+                    AIReservation.created_at > moment - timedelta(seconds=60),
+                )
+                if int((await s.execute(q)).scalar_one()) >= per_minute:
+                    await s.rollback()
+                    return False
+                s.add(AIReservation(kind="rate", user_id=user_id, created_at=moment, expires_at=moment))
+                await s.commit()
+    except _MISSING:
+        log.warning("ai_reservations table missing; run the migrations (alembic upgrade head)")
+    return True
 
 
 # ---------------------------------------------------------------------------------------------- totals
@@ -325,12 +483,24 @@ async def totals(session: AsyncSession, *, user_id: int | None = None, now: date
     return out
 
 
+def _role_entry(limits: dict[str, Any], user: User | None) -> dict[str, Any]:
+    """The role's limits: keyed by ``role_id`` first (every custom role its own), else by the role code."""
+    if user is None:
+        return {}
+    roles = limits.get("roles") or {}
+    for key in (str(user.role_id) if user.role_id is not None else None, str(user.role or "")):
+        if key and isinstance(roles.get(key), dict):
+            return dict(roles[key])
+    return {}
+
+
 def user_limits(limits: dict[str, Any], user: User | None) -> dict[str, int]:
-    """Daily / monthly token limit of ``user``: the per-user override, else the role's, else the default (0 = none)."""
+    """Daily / monthly token limit of ``user``: the per-user override, else the role's (by ``role_id``, then the
+    role code), else the default (0 = none)."""
     daily = int(limits.get("user_daily_tokens") or 0)
     monthly = int(limits.get("user_monthly_tokens") or 0)
     if user is not None:
-        role = (limits.get("roles") or {}).get(str(user.role or "")) or {}
+        role = _role_entry(limits, user)
         if role:
             daily = int(role.get("daily", daily) or 0)
             monthly = int(role.get("monthly", monthly) or 0)
@@ -347,7 +517,7 @@ def user_audio_limits(limits: dict[str, Any], user: User | None) -> dict[str, in
     daily = int(limits.get("user_daily_audio_s") or 0)
     monthly = int(limits.get("user_monthly_audio_s") or 0)
     if user is not None:
-        role = (limits.get("roles") or {}).get(str(user.role or ""))
+        role = _role_entry(limits, user)
         person = (limits.get("users") or {}).get(str(user.id))
         for own in (role, person):
             if isinstance(own, dict):
@@ -368,30 +538,204 @@ def org_budget(limits: dict[str, Any], now: datetime | None = None) -> dict[str,
     return {"tokens": tokens, "cost_usd": round(cost, 6)}
 
 
+async def units_of(session: AsyncSession, user_id: int | None) -> tuple[int | None, int | None]:
+    """``(department_id, faculty_id)`` of a person now: ``User.department_id`` (a programme) and its faculty."""
+    if user_id is None:
+        return None, None
+    row = (
+        await session.execute(
+            select(User.department_id, Program.faculty_id)
+            .outerjoin(Program, Program.id == User.department_id)
+            .where(User.id == user_id)
+        )
+    ).first()
+    return (row[0], row[1]) if row is not None else (None, None)
+
+
+async def unit_totals(session: AsyncSession, *where: Any, now: datetime | None = None) -> tuple[int, float]:
+    """This month's tokens / cost of the rows matching ``where`` (everyone's: a cross-user aggregate)."""
+    start, end = period_bounds(now)["month"]
+    q = select(func.coalesce(func.sum(_TOKENS), 0), func.coalesce(func.sum(AIUsage.cost_usd), 0.0)).where(
+        AIUsage.created_at >= start, AIUsage.created_at < end, *where
+    )
+    async with rls.system_scope(session):
+        tokens, cost = (await session.execute(q)).one()
+    for r in _OUTBOX:  # rows not written yet (a busy SQLite): counted for the org level only
+        if not where and start <= r["created_at"] < end:
+            tokens += sum(int(r.get(k) or 0) for k in ("input_tokens", "output_tokens"))
+            cost += float(r.get("cost_usd") or 0)
+    return int(tokens), float(cost)
+
+
+def _cap(entry: Any) -> tuple[int, float]:
+    if not isinstance(entry, dict):
+        return 0, 0.0
+    return int(entry.get("monthly_tokens") or 0), float(entry.get("monthly_cost_usd") or 0)
+
+
+async def _check_unit(
+    session: AsyncSession,
+    moment: datetime,
+    entry: Any,
+    usage_where: list[Any],
+    held_where: list[Any],
+    est_tokens: int,
+    est_cost: float,
+    code: str,
+    scope: str,
+    now: datetime | None,
+) -> None:
+    cap_tokens, cap_cost = _cap(entry)
+    if not cap_tokens and not cap_cost:
+        return
+    used_tokens, used_cost = await unit_totals(session, *usage_where, now=now)
+    h_tokens, h_cost, _, _ = await _held(session, moment, *held_where)
+    if cap_tokens and used_tokens + h_tokens + est_tokens > cap_tokens:
+        raise LimitRefusal(code, scope, used_tokens, cap_tokens)
+    if cap_cost and used_cost + h_cost + est_cost > cap_cost:
+        raise LimitRefusal(code, scope, round(used_cost, 6), cap_cost)
+
+
 async def reserve(
-    session: AsyncSession, *, user_id: int | None, est_tokens: int, est_cost: float, now: datetime | None = None
+    session: AsyncSession,
+    *,
+    user_id: int | None,
+    est_tokens: int,
+    est_cost: float,
+    now: datetime | None = None,
+    feature: str | None = None,
+    max_concurrent: int = 0,
+    timeout_s: float = 300,
 ) -> Reservation:
-    """Check the org budget and the user's limits with this call's estimate; raises :class:`LimitRefusal`."""
+    """Check the quota chain with this call's estimate and hold it until :func:`settle` / :func:`release`;
+    raises :class:`LimitRefusal`. Commits ``session`` (use a session of its own).
+
+    Order (HB-10): the person's open calls (``max_concurrent``) → org tokens / cost → the feature's cap → the
+    faculty (or ``unassigned``) → the department → the role (by ``role_id``, then the code) and the person's own
+    daily / monthly limit. A level without a configured cap is skipped, so nothing configured means the old
+    behaviour. In-flight reservations of every worker count (``ai_reservations``), under one lock."""
+    moment = utc_naive(now)
     limits = await gw.get_limits(session)
+    try:
+        async with _budget_lock(session):
+            done = await _sweep(session, moment)
+            try:
+                res = await _reserve_locked(
+                    session, limits, moment, user_id, est_tokens, est_cost, now, feature, max_concurrent, timeout_s
+                )
+            finally:  # a refusal inserted nothing: commit the sweep either way
+                await session.commit()
+                _PENDING.difference_update(done)
+            return res
+    except _MISSING:
+        await session.rollback()
+        log.warning("ai_reservations table missing; run the migrations (alembic upgrade head)")
+        return await _reserve_local(session, limits, user_id, est_tokens, est_cost, now)
+
+
+async def _reserve_locked(
+    session: AsyncSession,
+    limits: dict[str, Any],
+    moment: datetime,
+    user_id: int | None,
+    est_tokens: int,
+    est_cost: float,
+    now: datetime | None,
+    feature: str | None,
+    max_concurrent: int,
+    timeout_s: float,
+) -> Reservation:
+    if user_id is not None and max_concurrent > 0:
+        _, _, _, open_calls = await _held(session, moment, AIReservation.user_id == user_id)
+        if open_calls >= max_concurrent:
+            raise LimitRefusal("too_many_concurrent", "concurrent", open_calls, max_concurrent)
     budget = org_budget(limits, now)
     org = await totals(session, now=now)
-    r_tokens, r_cost = _reserved()
+    r_tokens, r_cost, _, _ = await _held(session, moment)
+    if budget["tokens"] and org["month_tokens"] + r_tokens + est_tokens > budget["tokens"]:
+        raise LimitRefusal("ai_budget_exceeded", "org_tokens", org["month_tokens"], budget["tokens"])
+    if budget["cost_usd"] and org["month_cost_usd"] + r_cost + est_cost > budget["cost_usd"]:
+        raise LimitRefusal("ai_budget_exceeded", "org_cost", org["month_cost_usd"], budget["cost_usd"])
+    if feature:
+        await _check_unit(
+            session, moment, (limits.get("features") or {}).get(feature), [AIUsage.feature == feature],
+            [AIReservation.feature == feature], est_tokens, est_cost, "ai_feature_limit_reached",
+            "feature_monthly", now,
+        )  # fmt: skip
+    user = await session.get(User, user_id) if user_id is not None else None
+    department_id, faculty_id = await units_of(session, user_id) if user is not None else (None, None)
+    if user is not None:
+        if faculty_id is not None:
+            await _check_unit(
+                session, moment, (limits.get("faculties") or {}).get(str(faculty_id)),
+                [AIUsage.faculty_id == faculty_id], [AIReservation.faculty_id == faculty_id], est_tokens, est_cost,
+                "ai_faculty_limit_reached", "faculty_monthly", now,
+            )  # fmt: skip
+        else:
+            await _check_unit(
+                session, moment, limits.get("unassigned"),
+                [AIUsage.user_id.is_not(None), AIUsage.faculty_id.is_(None)],
+                [AIReservation.user_id.is_not(None), AIReservation.faculty_id.is_(None)], est_tokens, est_cost,
+                "ai_unit_limit_reached", "unassigned_monthly", now,
+            )  # fmt: skip
+        if department_id is not None:
+            await _check_unit(
+                session, moment, (limits.get("departments") or {}).get(str(department_id)),
+                [AIUsage.department_id == department_id], [AIReservation.department_id == department_id],
+                est_tokens, est_cost, "ai_department_limit_reached", "department_monthly", now,
+            )  # fmt: skip
+        lim = user_limits(limits, user)
+        if lim["daily"] or lim["monthly"]:
+            mine = await totals(session, user_id=user_id, now=now)
+            u_tokens, _, _, _ = await _held(session, moment, AIReservation.user_id == user_id)
+            if lim["daily"] and mine["day_tokens"] + u_tokens + est_tokens > lim["daily"]:
+                raise LimitRefusal("ai_limit_reached", "user_daily", mine["day_tokens"], lim["daily"])
+            if lim["monthly"] and mine["month_tokens"] + u_tokens + est_tokens > lim["monthly"]:
+                raise LimitRefusal("ai_limit_reached", "user_monthly", mine["month_tokens"], lim["monthly"])
+    row = AIReservation(
+        kind="call",
+        user_id=user_id,
+        feature=(feature or None) and str(feature)[:16],
+        role_key=(str(user.role_id) if user is not None and user.role_id is not None else None),
+        faculty_id=faculty_id,
+        department_id=department_id,
+        tokens=int(est_tokens),
+        cost_usd=float(est_cost),
+        created_at=moment,
+        expires_at=moment + timedelta(seconds=float(timeout_s) + RESERVATION_GRACE_S),
+    )
+    session.add(row)
+    await session.flush()
+    return Reservation(int(row.id), user_id, int(est_tokens), float(est_cost))
+
+
+async def _reserve_local(
+    session: AsyncSession,
+    limits: dict[str, Any],
+    user_id: int | None,
+    est_tokens: int,
+    est_cost: float,
+    now: datetime | None,
+) -> Reservation:
+    """The pre-0046 in-process ledger (org + person only), for a schema behind the code."""
+    budget = org_budget(limits, now)
+    org = await totals(session, now=now)
+    r_tokens, r_cost, _ = _local_reserved()
     if budget["tokens"] and org["month_tokens"] + r_tokens + est_tokens > budget["tokens"]:
         raise LimitRefusal("ai_budget_exceeded", "org_tokens", org["month_tokens"], budget["tokens"])
     if budget["cost_usd"] and org["month_cost_usd"] + r_cost + est_cost > budget["cost_usd"]:
         raise LimitRefusal("ai_budget_exceeded", "org_cost", org["month_cost_usd"], budget["cost_usd"])
     if user_id is not None:
-        user = await session.get(User, user_id)
-        lim = user_limits(limits, user)
+        lim = user_limits(limits, await session.get(User, user_id))
         if lim["daily"] or lim["monthly"]:
             mine = await totals(session, user_id=user_id, now=now)
-            u_tokens, _ = _reserved(user_id)
+            u_tokens, _, _ = _local_reserved(user_id)
             if lim["daily"] and mine["day_tokens"] + u_tokens + est_tokens > lim["daily"]:
                 raise LimitRefusal("ai_limit_reached", "user_daily", mine["day_tokens"], lim["daily"])
             if lim["monthly"] and mine["month_tokens"] + u_tokens + est_tokens > lim["monthly"]:
                 raise LimitRefusal("ai_limit_reached", "user_monthly", mine["month_tokens"], lim["monthly"])
     _NEXT[0] += 1
-    res = Reservation(_NEXT[0], user_id, int(est_tokens), float(est_cost))
+    res = Reservation(_NEXT[0], user_id, int(est_tokens), float(est_cost), local=True)
     _RESERVED[res.id] = res
     return res
 
@@ -401,32 +745,72 @@ async def reserve_audio(
 ) -> Reservation:
     """Before a speech-to-text call: the org cost budget (voice counts toward it), the org's monthly audio seconds
     and the person's daily / monthly audio seconds, with this clip's estimate; raises :class:`LimitRefusal`
-    (``ai_budget_exceeded`` | ``ai_voice_limit_reached``; ``used`` / ``limit`` in seconds for audio)."""
+    (``ai_budget_exceeded`` | ``ai_voice_limit_reached``; ``used`` / ``limit`` in seconds for audio). Held in
+    ``ai_reservations`` like a text call, so every worker sees it."""
+    moment = utc_naive(now)
     limits = await gw.get_limits(session)
+    est_ms = int(round(est_audio_s * 1000))
+    try:
+        async with _budget_lock(session):
+            done = await _sweep(session, moment)
+            try:
+                _, r_cost, r_ms, _ = await _held(session, moment)
+                mine_ms = (await _held(session, moment, AIReservation.user_id == user_id))[2] if user_id else 0
+                await _check_audio(session, limits, user_id, est_ms, est_cost, r_cost, r_ms, mine_ms, now)
+                row = AIReservation(
+                    kind="call",
+                    user_id=user_id,
+                    feature="voice_stt",
+                    cost_usd=float(est_cost),
+                    audio_ms=est_ms,
+                    created_at=moment,
+                    expires_at=moment + timedelta(seconds=300 + RESERVATION_GRACE_S),
+                )
+                session.add(row)
+                await session.flush()
+                res = Reservation(int(row.id), user_id, 0, float(est_cost), est_ms)
+            finally:  # a refusal inserted nothing: commit the sweep either way
+                await session.commit()
+                _PENDING.difference_update(done)
+            return res
+    except _MISSING:
+        await session.rollback()
+        _, r_cost, r_ms = _local_reserved()
+        await _check_audio(session, limits, user_id, est_ms, est_cost, r_cost, r_ms, _local_reserved(user_id)[2], now)
+        _NEXT[0] += 1
+        res = Reservation(_NEXT[0], user_id, 0, float(est_cost), est_ms, local=True)
+        _RESERVED[res.id] = res
+        return res
+
+
+async def _check_audio(
+    session: AsyncSession,
+    limits: dict[str, Any],
+    user_id: int | None,
+    est_ms: int,
+    est_cost: float,
+    r_cost: float,
+    r_ms: int,
+    mine_ms: int,
+    now: datetime | None,
+) -> None:
     budget = org_budget(limits, now)
     org = await totals(session, now=now)
-    _, r_cost = _reserved()
-    est_ms = int(round(est_audio_s * 1000))
     if budget["cost_usd"] and org["month_cost_usd"] + r_cost + est_cost > budget["cost_usd"]:
         raise LimitRefusal("ai_budget_exceeded", "org_cost", org["month_cost_usd"], budget["cost_usd"])
     org_audio = int(limits.get("org_monthly_audio_s") or 0)
-    if org_audio and org["month_audio_ms"] + _reserved_audio_ms() + est_ms > org_audio * 1000:
+    if org_audio and org["month_audio_ms"] + r_ms + est_ms > org_audio * 1000:
         raise LimitRefusal("ai_voice_limit_reached", "org_audio", org["month_audio_ms"] / 1000, org_audio)
     if user_id is not None:
         lim = user_audio_limits(limits, await session.get(User, user_id))
         if lim["daily_s"] or lim["monthly_s"]:
             mine = await totals(session, user_id=user_id, now=now)
-            held = _reserved_audio_ms(user_id)
-            if lim["daily_s"] and mine["day_audio_ms"] + held + est_ms > lim["daily_s"] * 1000:
+            if lim["daily_s"] and mine["day_audio_ms"] + mine_ms + est_ms > lim["daily_s"] * 1000:
                 raise LimitRefusal("ai_voice_limit_reached", "user_daily", mine["day_audio_ms"] / 1000, lim["daily_s"])
-            if lim["monthly_s"] and mine["month_audio_ms"] + held + est_ms > lim["monthly_s"] * 1000:
+            if lim["monthly_s"] and mine["month_audio_ms"] + mine_ms + est_ms > lim["monthly_s"] * 1000:
                 raise LimitRefusal(
                     "ai_voice_limit_reached", "user_monthly", mine["month_audio_ms"] / 1000, lim["monthly_s"]
                 )
-    _NEXT[0] += 1
-    res = Reservation(_NEXT[0], user_id, 0, float(est_cost), est_ms)
-    _RESERVED[res.id] = res
-    return res
 
 
 # ---------------------------------------------------------------------------------------------- state / alerts
@@ -781,8 +1165,14 @@ __all__ = [
     "report",
     "reserve",
     "reserve_audio",
+    "release",
+    "rate_hit",
     "reset_state",
     "settle",
+    "forget_local_state",
+    "unit_totals",
+    "units_of",
+    "utc_naive",
     "totals",
     "user_audio_limits",
     "user_limits",

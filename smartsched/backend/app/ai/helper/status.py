@@ -44,8 +44,14 @@ ON = ("Yardımcı yapay zekâ ile yanıtlar.", "The helper answers with AI.")
 
 
 def turn_registered(app: Any) -> bool:
-    """Whether the turn loop's route is mounted (HB-06)."""
-    return any(getattr(r, "path", None) == TURN_PATH for r in getattr(app, "routes", ()))
+    """Whether the turn loop's route is mounted (HB-06). Included routers are wrapped (FastAPI ≥ 0.140), so the
+    flat route list misses them; the app's (cached) OpenAPI paths list every mounted route."""
+    if any(getattr(r, "path", None) == TURN_PATH for r in getattr(app, "routes", ())):
+        return True
+    try:
+        return TURN_PATH in (app.openapi().get("paths") or {})
+    except Exception:  # noqa: BLE001 - a broken schema must not break the status chip
+        return False
 
 
 async def helper_status(session: AsyncSession, user_id: int, *, turn_available: bool) -> dict[str, Any]:

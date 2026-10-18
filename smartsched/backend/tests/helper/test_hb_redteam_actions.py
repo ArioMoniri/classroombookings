@@ -144,7 +144,14 @@ async def test_ra_06(env) -> None:  # noqa: F811
     assert await _count(Booking) == before and await _count(HelperActionInvocation) == 0
     paths = app.openapi()["paths"]
     posts = {p for p, ops in paths.items() if p.startswith(H) and "post" in ops}
-    assert posts == {f"{H}/actions/{{name}}/card", f"{H}/actions/confirm", f"{H}/actions/undo", f"{H}/notes"}
+    # /turn (HB-06, lane HB-B) streams reads and previews; it has no write path of its own
+    assert posts == {
+        f"{H}/actions/{{name}}/card",
+        f"{H}/actions/confirm",
+        f"{H}/actions/undo",
+        f"{H}/notes",
+        f"{H}/turn",
+    }
 
 
 def test_ra_07() -> None:

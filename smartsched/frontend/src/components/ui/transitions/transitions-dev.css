@@ -173,7 +173,6 @@
 
 .t-input {
   transition: border-color 150ms ease-out;
-  will-change: transform;
 }
 .t-input.is-error {
   transition: border-color var(--revert-dur, 280ms) ease-out;
@@ -195,7 +194,9 @@
 }
 
 /* 80 + 60 + 80 + 60 = 280 ms total, within the 300 ms ceiling */
+/* AUX-09 (auth.md §11.1, motion_designer §4): will-change only while shaking, never left on idle fields */
 .t-input.is-shaking {
+  will-change: transform;
   animation: t-input-shake calc(
       var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2
     ) linear;

@@ -125,9 +125,6 @@ function PasskeyItem({ p, fresh, onRenamed, onRemove }: { p: PasskeyRow; fresh: 
   const inputRef = useRef<HTMLInputElement>(null);
   const labelId = useId();
   useEffect(() => {
-    if (fresh) setEditing(true);
-  }, [fresh]);
-  useEffect(() => {
     if (editing) inputRef.current?.focus();
   }, [editing]);
 

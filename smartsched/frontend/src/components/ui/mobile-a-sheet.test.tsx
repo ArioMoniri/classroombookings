@@ -2,6 +2,7 @@
 //  5  a phone bottom sheet is opaque (no backdrop blur repainting the page under a 270 ms slide);
 //  8  iOS resizes only the visual viewport for the keyboard, so the popup is lifted by --kb-inset;
 //  9  the grabber is a real drag handle: a drag down past 30 % of the height (or a flick) closes the sheet;
+//    The backdrop fades with the drag; --kb-inset also follows a visual-viewport pan (iOS scroll event).
 // 10  the bottom inset uses the Chrome 135+ edge-to-edge pattern (max inset, pulled down by the live inset).
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -77,6 +78,27 @@ describe("bottom sheet on phones", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false, expect.anything());
   });
 
+  it("the backdrop fades with the drag and comes back on release; the grabber's touch area is 44 px tall", () => {
+    tr(
+      <Sheet open>
+        <SheetContent side="bottom">
+          <SheetTitle>Rezerve et</SheetTitle>
+        </SheetContent>
+      </Sheet>,
+    );
+    const sheet = screen.getByRole("dialog");
+    vi.spyOn(sheet, "getBoundingClientRect").mockReturnValue({ top: 44, bottom: 844, height: 800, left: 0, right: 390, width: 390, x: 0, y: 44, toJSON: () => ({}) });
+    const grabber = sheet.querySelector<HTMLElement>("[data-slot=sheet-grabber]")!;
+    expect(grabber).toHaveClass("h-1", "after:-inset-y-5"); // 4 + 2 × 20 = 44
+    const backdrop = document.querySelector<HTMLElement>("[data-slot=sheet-overlay]")!;
+    vi.spyOn(performance, "now").mockReturnValueOnce(0).mockReturnValue(1000);
+    fireEvent.pointerDown(grabber, { pointerId: 1, clientY: 50 });
+    fireEvent.pointerMove(grabber, { pointerId: 1, clientY: 250 });
+    expect(Number(backdrop.style.opacity)).toBe(0.75);
+    fireEvent.pointerUp(grabber, { pointerId: 1, clientY: 100 });
+    expect(backdrop.style.opacity).toBe("");
+  });
+
   it("snaps back after a short drag", () => {
     const onOpenChange = vi.fn();
     tr(
@@ -132,6 +154,28 @@ describe("--kb-inset on the open popup", () => {
       vv.dispatchEvent(new Event("resize"));
     });
     expect(popup.style.getPropertyValue("--kb-inset")).toBe("0px");
+    Reflect.deleteProperty(window, "visualViewport");
+  });
+
+  it("follows the visual viewport when iOS pans it under the keyboard (scroll, no resize)", () => {
+    const vv = Object.assign(new EventTarget(), { height: 508, offsetTop: 0, width: 390 });
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: vv });
+    vi.spyOn(window, "innerHeight", "get").mockReturnValue(844);
+    tr(
+      <Sheet open>
+        <SheetContent side="bottom">
+          <SheetTitle>Not</SheetTitle>
+        </SheetContent>
+      </Sheet>,
+    );
+    const popup = screen.getByRole("dialog");
+    act(() => vv.dispatchEvent(new Event("resize")));
+    expect(popup.style.getPropertyValue("--kb-inset")).toBe("336px");
+    act(() => {
+      vv.offsetTop = 200;
+      vv.dispatchEvent(new Event("scroll"));
+    });
+    expect(popup.style.getPropertyValue("--kb-inset")).toBe("136px");
     Reflect.deleteProperty(window, "visualViewport");
   });
 });

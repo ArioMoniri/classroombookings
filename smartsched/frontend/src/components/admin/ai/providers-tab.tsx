@@ -39,7 +39,12 @@ const CONFIG_LABEL: Record<string, MessageKey> = {
 export function ProvidersTab({ canEdit }: { canEdit: boolean }) {
   const { t, locale } = useI18n();
   const q = useAiProviders();
-  if (q.isLoading) return <Loading />;
+  if (q.isLoading) return (
+      // mobile-b phase 2 (CLS 0.74 / 0.57 at 390): the tab's cards fill the screen; hold that height while they load
+      <div className="min-h-[70dvh]" aria-busy="true" data-testid="ai-providers-loading">
+        <Loading />
+      </div>
+    );
   if (q.isError || !q.data) return <Alert tone="error">{errorMessage(q.error, locale, t("aiAdmin.error.load"))}</Alert>;
   return (
     <div className="flex flex-col gap-4" data-testid="ai-providers">

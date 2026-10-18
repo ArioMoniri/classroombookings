@@ -222,7 +222,7 @@ def _fallback_for(exc: BaseException) -> _Fallback:
     from app.ai.pipeline import AIGuardError
 
     if isinstance(exc, AIGuardError):
-        detail = exc.detail if isinstance(exc.detail, dict) else {}
+        detail: dict[str, Any] = exc.detail if isinstance(exc.detail, dict) else {}
         kind = "limit" if exc.status_code == 429 else "refusal"
         return _Fallback(kind, exc.code, str(detail.get("message_tr") or ""), str(detail.get("message_en") or ""))
     if isinstance(exc, AIConfigError):
@@ -264,8 +264,7 @@ async def _ai_turn(
     candidates = [a for h in hits for a in h.entry.actions]
     ctx = reg.Ctx(session=session, access=access, lang=lang)
     question = (
-        f"{_index_context(hits)}\n\nAnswer in {'Turkish' if lang == 'tr' else 'English'}.\n\n"
-        f"The person asks:\n{text}"
+        f"{_index_context(hits)}\n\nAnswer in {'Turkish' if lang == 'tr' else 'English'}.\n\nThe person asks:\n{text}"
     )
     messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
     allow_writes = True
@@ -312,7 +311,9 @@ async def _ai_turn(
             messages.append(_spotlit(tooluse.tool_results(outcomes)))
         else:
             result.outcome = "rounds_exhausted"
-            await card(cards.dump(cards.answer(ROUNDS_USED[0] if lang == "tr" else ROUNDS_USED[1], lang, source="index")))
+            await card(
+                cards.dump(cards.answer(ROUNDS_USED[0] if lang == "tr" else ROUNDS_USED[1], lang, source="index"))
+            )
             return
     answer = cards.answer(final_text, lang) if final_text.strip() else None
     if answer is not None and guard.ground_answer(answer.text, emitted_features):

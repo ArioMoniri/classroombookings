@@ -12,6 +12,7 @@
  * motion).
  */
 import { Check, KeyRound } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -124,7 +125,7 @@ export function MfaStep({ methods, masked, next, rememberDays, contact }: { meth
     }
   };
 
-  const usePasskey = async () => {
+  const runPasskey = async () => {
     if (busy || done) return;
     setBusy(true);
     setError(null);
@@ -150,7 +151,7 @@ export function MfaStep({ methods, masked, next, rememberDays, contact }: { meth
     e.preventDefault();
     if (view === "totp") void submitCode(code);
     else if (view === "recovery") void submitRecovery();
-    else void usePasskey();
+    else void runPasskey();
   };
 
   const otherAccount = () => {
@@ -167,7 +168,7 @@ export function MfaStep({ methods, masked, next, rememberDays, contact }: { meth
       </h1>
       <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 type-callout text-label-2" data-testid="mfa-account">
         {masked ? <span>{rich(t("auth.mfa.signingInAs"), { masked })}</span> : null}
-        <a
+        <Link
           href="/login?method=local"
           onClick={(e) => {
             e.preventDefault();
@@ -177,7 +178,7 @@ export function MfaStep({ methods, masked, next, rememberDays, contact }: { meth
           data-testid="mfa-other-account"
         >
           {t("auth.mfa.otherAccount")}
-        </a>
+        </Link>
       </div>
       <p id={leadId} className="mt-4 type-callout text-label-1">
         {view === "passkey" ? t("auth.mfa.leadPasskey") : view === "totp" ? t("auth.mfa.lead") : null}
@@ -213,7 +214,7 @@ export function MfaStep({ methods, masked, next, rememberDays, contact }: { meth
 
       <BusyButton type="submit" size="lg" shape="rect" className="mt-5 w-full" busy={busy && !done} busyLabel={t("auth.mfa.verifying")} icon={done ? <Check aria-hidden className="auth-check size-4" /> : view === "passkey" ? <KeyRound aria-hidden /> : undefined} data-testid="mfa-submit">
         <span key={label} className="auth-text-swap">
-          {view === "passkey" && !done ? t("auth.mfa.usePasskey") : label}
+          {view === "passkey" && !done ? t("auth.mfa.runPasskey") : label}
         </span>
       </BusyButton>
       <span role="status" className="sr-only">
@@ -229,7 +230,7 @@ export function MfaStep({ methods, masked, next, rememberDays, contact }: { meth
           setState("idle");
           if (v === "passkey") {
             setView("passkey");
-            void usePasskey();
+            void runPasskey();
           } else setView(v);
         }}
       />

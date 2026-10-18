@@ -131,6 +131,8 @@ for (const y of [0, 400, 1e6]) {
 ```
 - A screen whose content fits without scrolling passes if the button is in the bottom 40 % and free.
 - Inside a sheet, the primary action sits in the sheet's footer (e.g. "Talep et", "Kaydet", "Ara", "Onayla ve yayınla").
+- A **disabled** primary reads as covered in the snippet (`elementFromPoint` passes through `pointer-events: none` to what lies under it). Check `getComputedStyle(el).pointerEvents` / `el.disabled` before calling it a cover (mobile-b 2026-10-17 §7).
+- A primary that appears only once the form is dirty (`/admin/settings` `org-save`) is the intended pattern: make one change, then probe.
 
 ### M-06 · Safe-area insets
 
@@ -272,13 +274,19 @@ const m13 = await page.evaluate(() => {
   const vh = document.documentElement.clientHeight;
   const fixedOf = (el) => { for (let p = el; p && p !== document.body; p = p.parentElement) if (/(fixed|sticky)/.test(getComputedStyle(p).position)) return p; return null; };
   const header = [...document.querySelectorAll("header")].map(fixedOf).find((h) => h && h.getBoundingClientRect().height);
-  const nav = document.querySelector('nav[aria-label="Sekmeler"]'); const tabs = nav && fixedOf(nav);
-  const parts = { header: header ? Math.round(header.getBoundingClientRect().bottom) : 0, tabs: tabs ? Math.round(vh - nav.getBoundingClientRect().top) : 0 };
+  // tr "Sekmeler", en "Tabs"; a hidden bar (lg+, Studio / programme wizard) has an empty box and counts 0
+  const nav = document.querySelector('nav[aria-label="Sekmeler"], nav[aria-label="Tabs"]');
+  const navBox = nav?.getBoundingClientRect(); const tabs = nav && navBox.height > 0 && fixedOf(nav);
+  const parts = { header: header ? Math.max(0, Math.round(header.getBoundingClientRect().bottom)) : 0, tabs: tabs ? Math.round(vh - navBox.top) : 0 };
   return { ...parts, vh, ratio: +((parts.header + parts.tabs) / vh).toFixed(2) };
 });
 // PASS: m13.ratio <= 0.25 (with the page at rest and again after scrolling 300 px: a bar that scrolls away counts 0),
 //       plus M-01 / M-04 / M-05 at this size
 ```
+- Expected after mobile-a phase 2: the top bar is static at ≤ 500 px tall (0 once scrolled) and the tab bar is a 44 px
+  compact capsule 8 px above the edge, so `m13.tabs` ≈ 52 and the ratio ≈ 0.13 at rest, 0.13 after scrolling.
+- The earlier snippet read the tab bar's box even when it was hidden (`display: none` at lg+ gives top 0, so `tabs`
+  became the full height) and only matched the Turkish label; both are fixed above.
 - Round 3 and earlier used a filter on `position !== "static"` that dropped the tab bar (its `nav` is static inside the
   fixed wrapper), so every route read ~0.12 when header + tab bar were really 104 / 390 = 0.27 (mobile audit A,
   docs/testing/mobile/2026-10-17-mobile-a.md §6).
@@ -377,24 +385,24 @@ const m16 = await page.evaluate(() => { const w = window.__ev.sort((a, b) => b.d
 | `/find-room` | staff, academician | `getByTestId("fr-search")`; results: `fr-reserve-<code>` | results → cards | F-03 |
 | `/approvals` | admin | drawer: `approval-approve` / `approval-group-approve` | list → cards | F-01 |
 | `/profile` | all | `getByTestId("profile-save")` | – | F-12, F-13 |
-| `/settings` (`?tab=<name>`: `tab-<name>`) | all; admin for the AI policy and the solver tab | per tab, inside the open panel: integrations `calendar-confirm` / the AI policy confirm `ai-policy-confirm` (admin); `?tab=solver` (admin, T-R2-29): `save-solver`; appearance / profile tabs: the tab's save. Open the tab before probing: the save lives inside the panel, not on the page (round 2's `M-05@/admin/settings` NOT RUN) | solver weights table → one column, inputs ≥ 16 px | F-11, F-13, F-04 S02 |
+| `/settings` (`?tab=<name>`: `tab-<name>`) | all; admin for the AI policy and the solver tab | per tab, inside the open panel: integrations `calendar-confirm` (only while calendar sync is on; with `REC_CAL_SIGNOFF=0` there is none: NOT APPLICABLE) / the AI policy confirm `ai-policy-confirm` (admin); `?tab=solver` (admin, T-R2-29): `save-solver`; appearance / profile tabs: the tab's save. Open the tab before probing: the save lives inside the panel, not on the page (round 2's `M-05@/admin/settings` NOT RUN) | solver weights table → one column, inputs ≥ 16 px | F-11, F-13, F-04 S02 |
 | `/dashboard` | admin | none (read) | KPI rows wrap; charts readable; odometer digits not in the accessible text (R2-S-14) | F-12, F-05 S15 |
 | `/analytics/heatmap` | admin, planner | none (read); the controls (`heat-controls`: run / week / grouping selects) ≥ 44 px | heat grid scrolls inside itself (`rooms-heat`, `instructors-heat`), the page never scrolls sideways; legend readable | F-05 S15, T-R1-01 |
-| `/runs/compare?a=&b=` | admin, planner | `getByTestId("compare-apply")` in the run pair picker (`compare-pick-a` / `compare-pick-b`); with a pair chosen: none (read) | metric tables → cards or a pinned first column; the changed-rooms list → cards | R1-M-10 (week vs term comparison), sanity pass once per round |
-| `/timetable` | admin, planner | inspector: "Taşı…"; move sheet: `move-confirm` | week grid → day / agenda (M-08) | F-10 |
+| `/runs/compare?a=&b=` | admin, planner | `getByTestId("compare-apply")` in the run pair picker (`compare-pick-a` / `compare-pick-b`); once a new pair is picked it floats in the page-actions capsule below lg (`[data-slot=page-actions][data-floating]`); with the pair applied: none (read) | metric tables → cards or a pinned first column; the changed-rooms list → cards | R1-M-10 (week vs term comparison), sanity pass once per round |
+| `/timetable` | admin, planner | inspector: "Taşı…"; move sheet: `move-confirm`; Escape / close returns focus to the class chip (`calendar-event[data-assignment-id]`), never `<body>` | week grid → day / agenda (M-08); at 768 the M-08 ids include the board ("Pano") view | F-10 |
 | `/classes`, `/requests` | admin | bulk bar action when selected | table → cards or pinned "Ders" column | F-09 |
 | `/rooms`, `/rooms/[id]` | admin | none (read) | cards or table with pinned code | F-11 |
-| `/runs`, `/runs/[id]` | admin | `getByTestId("run-publish")` | runs list → cards | F-09 |
+| `/runs`, `/runs/[id]` | admin | `getByTestId("run-publish")`: a capsule (`run-publish-row`) above the tab bar below `sm`, and below `lg` on a coarse pointer (768 tablet); an already published run has none (probe an unpublished one) | runs list → cards | F-09 |
 | `/generate` | admin, planner | `studio-bottom-bar` primary ("Devam" / "Oluştur") | class table → cards | F-09, F-06 |
-| `/onboarding` (+ job steps: `/onboarding?job=<id>` on `deb38315`; `/onboarding/<id>` once T-R2-20 lands, then both) | admin | drop zone button; job: the commit capsule "Kaydet" | files and review → cards | F-08 |
-| `/moderation` | academician (Taleplerim), admin | coordinator: `recreate-open`; academician: none | tabs' tables → cards | F-05 |
+| `/onboarding` (+ job steps: `/onboarding?job=<id>` on `deb38315`; `/onboarding/<id>` once T-R2-20 lands, then both) | admin | drop zone button; job: `getByTestId("onboarding-commit-capsule-button")` (the commit capsule "Kaydet"; `onboarding-commit-button` is the in-flow one and fails M-05 by design) | files and review → cards | F-08 |
+| `/moderation` | academician (Taleplerim), admin | coordinator: `recreate-open` (in the page-actions capsule below lg; only with a published run); academician: none | tabs' tables → cards | F-05 |
 | `/moderation/people/[id]` | academician, admin | none; Öneriler: `suggestion-accept` | timeline → grouped list | F-05, F-06 |
 | `/moderation/recreate/[id]` | admin | `getByTestId("preview-publish")` | diff → grouped list | F-05, F-07 |
 | `/moderation/learning` | admin, planner (forbidden view) | `reset-confirm` in the open dialog | resets → cards | F-06 |
 | `/programs/new` | admin | "Devam ›" in the floating capsule; last step "Oluştur ve çöz" | course / section grids → cards | F-07 |
 | `/admin/users` | admin, limited admin | `users-new`; dialog: `user-save` | users table → cards | F-11 |
 | `/admin/roles` | admin, limited admin | `role-save` | permission groups → sections | F-11 |
-| `/admin/rooms` (+ Özellikler) | admin | `room-new`; dialog: `room-create` / `room-save`; features: `feature-save` | rooms, features → cards | F-11, F-03 |
+| `/admin/rooms` (+ Özellikler) | admin | opens on "Gruplar": `group-new` ("Yeni grup", in the capsule); "Salonlar" tab: `room-new`; dialog: `room-create` / `room-save`; features: `feature-save` | rooms, features → cards | F-11, F-03 |
 | `/admin/approval-rules` | admin | `rule-new`; form: `rule-save` | rules → cards | F-01, F-11 |
 | `/admin/audit` | admin | row "Geri al" | events → cards | F-02, F-11 |
 | `/admin/settings`, `/admin/email`, `/admin/authentication` | admin | `org-save` (in the sticky capsule) / the form's save; `/admin/authentication`: "Bağlantıyı dene" is disabled until the test user and password are typed | – | F-01, F-11, F-12 |

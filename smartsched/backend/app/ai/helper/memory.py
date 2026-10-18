@@ -188,6 +188,26 @@ async def add_note(session: AsyncSession, user: User, text: str, source: str) ->
     return note_out(note)
 
 
+async def prompt_notes(session: AsyncSession, user: User) -> list[str]:
+    """The person's notes for the model prompt (the turn loop, lane HB-B, spotlights them as one ``user_notes``
+    block): ``[]`` while the institution's or the person's memory is off. Using the notes restarts their 180 days
+    (``last_used_at``); flushed, the caller commits."""
+    st = await state(session, user)
+    if not st["enabled"]:
+        return []
+    rows = list(
+        (await session.execute(select(HelperNote).where(HelperNote.user_id == user.id).order_by(HelperNote.id)))
+        .scalars()
+        .all()
+    )
+    now = utcnow()
+    for x in rows:
+        x.last_used_at = now
+        x.expires_at = now + timedelta(days=int(st["retention_days"]))
+    await session.flush()
+    return [x.text for x in rows]
+
+
 async def delete_note(session: AsyncSession, user: User, note_id: int) -> None:
     res = await session.execute(
         delete(HelperNote)
@@ -353,6 +373,7 @@ __all__ = [
     "erase",
     "list_notes",
     "on_ai_personal_withdrawn",
+    "prompt_notes",
     "purge",
     "save_settings",
     "set_user_enabled",

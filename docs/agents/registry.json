@@ -3354,7 +3354,8 @@
       "goal": "You are lane MOBILE A, phase 2, re-created after a container restart. Some of your earlier fixes are already committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss); for example `ui/input.tsx` and `ui/hit-area.ts` now use `pointer-coarse:text-base`. Check `git log` and `git d…",
       "ledger": "Mobile A resume: primitives + user routes",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 08:49"
     },
     {
       "id": "a747b9edc3aff8921",
@@ -3374,6 +3375,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-18 08:37",
+      "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a821c04288b23a6f6",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:41",
       "left_off": "is the pod deployed yet"
     }
   ]
