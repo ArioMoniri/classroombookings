@@ -21,7 +21,7 @@ from datetime import date
 from typing import Any
 
 import pytest
-from anthropic.types import Message
+from anthropic.types import Message, ToolUseBlock
 from app.ai.helper import schema, tooluse
 from app.ai.helper.actions import registry as reg
 from app.core import db as dbmod
@@ -123,11 +123,14 @@ async def test_hb_03_tool_calls_are_validated_before_they_run(env) -> None:  # n
                         4, "decide_approval", {"request_id": 1, "decision": "approve", "reason_code": "", "reason": ""}
                     ),
                     _use(5, "drop_all_tables", {}),
-                    _use(6, "my_bookings", "not an object"),  # type: ignore[arg-type]
                 )
             ]
         )
         reply = await fake.create(model=MODEL, max_tokens=4000, tools=tools, messages=[])
+        # a lax local adapter can hand over a non-object input; the SDK model would refuse it, so add it raw
+        reply.content.append(
+            ToolUseBlock.model_construct(type="tool_use", id="toolu_06", name="my_bookings", input="not an object")
+        )
         out = await tooluse.apply_message(ctx, reply, offered=offered)
 
     assert [o.tool_use_id for o in out] == [f"toolu_{i:02d}" for i in range(1, 7)]

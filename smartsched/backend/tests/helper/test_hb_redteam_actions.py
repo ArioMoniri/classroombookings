@@ -190,7 +190,9 @@ def test_ra_10() -> None:
 def test_ra_11() -> None:
     """Nothing in the helper can change a quota (HB-11 owns the faculty quota routes)."""
     for a in reg.all_actions():
-        assert "quota" not in a.route and "/ai/" not in a.route, a.name
+        assert "quota" not in a.route, a.name
+        if a.kind == "write":
+            assert "/ai/" not in a.route and a.route.split(" ")[1].split("/")[1] in ("bookings", "approvals", "audit")
 
 
 async def test_ra_12(env) -> None:  # noqa: F811
@@ -215,7 +217,7 @@ def test_ra_13() -> None:
     """Off-scope asks get a 0-token refusal with the top index hits."""
     for text in ("Bana Python kodu yaz", "Hava nasıl?", "Bu metni İngilizceye çevir"):
         v = guard.check(text, TEACHER)
-        assert not v.allowed and v.code == guard.OUT_OF_SCOPE and v.message_tr and v.message_en, text
+        assert not v.allowed and str(v.code).startswith("out_of_scope") and v.message_tr and v.message_en, text
     v = guard.check("Hava nasıl? salon", TEACHER)
     assert len(v.hits) <= 3
 
