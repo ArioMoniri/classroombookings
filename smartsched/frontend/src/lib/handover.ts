@@ -11,8 +11,7 @@
  */
 
 /** Control and bidi-override characters (never useful in a prefill, and a spoofing vector). */
-// eslint-disable-next-line no-control-regex
-const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F‎‏‪-‮⁦-⁩]/g;
+const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200E\u200F\u202A-\u202E\u2066-\u2069]/g;
 
 function plain(value: string | null, max: number): string {
   return (value ?? "").replace(CONTROL, "").replace(/\s+/g, " ").trim().slice(0, max);

@@ -56,6 +56,8 @@ export function PeriodGridGate({ children }: { children: ReactNode }) {
   });
   useEffect(() => {
     if (!hydrated) return;
+    // the device's stored grid (an external system), read once after hydration
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (readCache()) setCached(true);
     const id = window.setTimeout(() => setTimedOut(true), WAIT_MS);
     return () => window.clearTimeout(id);
@@ -66,6 +68,8 @@ export function PeriodGridGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!rows) return;
     if (applyPeriodGrid(rows)) writeCache(rows);
+    // the module grid (an external store) now holds these rows: the page may render with them
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAppliedFor(rows);
   }, [rows]);
   const ready = hydrated && (cached || timedOut || q.isError || (!!rows && appliedFor === rows));

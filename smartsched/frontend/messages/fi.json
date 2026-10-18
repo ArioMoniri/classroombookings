@@ -166,5 +166,17 @@
         "weeks": "viikot"
       }
     }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "viikot"
+      },
+      "field": {
+        "class_year": "vuosi",
+        "day": "päivää",
+        "week": "viikko"
+      }
+    }
   }
 }

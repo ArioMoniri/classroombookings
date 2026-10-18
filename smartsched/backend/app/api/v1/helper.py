@@ -297,10 +297,12 @@ async def notes(db: DB, user: CurrentUser) -> list[dict[str, Any]]:
 
 @router.post("/notes", status_code=201)
 async def add_note(body: NoteIn, db: DB, user: CurrentUser) -> dict[str, Any]:
+    """ "Not ekle": the memory switches, the ``ai_personal`` consent (409 ``consent_missing``) and the note rules."""
     from app.ai.helper import memory
 
     try:
-        return await memory.add_note(db, user, body.text, body.source)
+        # HX-17 (2026-10-18): "Not ekle" needs the ai_personal consent like "Bunu hatırla" (same code and text)
+        return await memory.add_note(db, user, body.text, body.source, require_consent=True)
     except reg.ActionRefused as exc:
         raise _refusal(exc) from exc
 

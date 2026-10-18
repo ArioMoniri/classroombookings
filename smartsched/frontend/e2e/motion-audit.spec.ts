@@ -1,5 +1,6 @@
 /**
- * Motion audit (.claude/skills/motion_designer/references/audit.md) for the dashboard and the run report.
+ * Motion audit (.claude/skills/motion_designer/references/audit.md) for the dashboard, the run report and the helper
+ * (sheet, Göster ring; motion.md §3.21).
  * Runs against the REAL backend (E2E_REAL=1, see playwright.config.ts):
  *   E2E_REAL=1 PW_PORT=3600 npx playwright test e2e/motion-audit.spec.ts
  * Env: AUDIT_EMAIL / AUDIT_PASSWORD (default the seeded admin), AUDIT_RUN (a finished run id; e2e/global-setup.ts
@@ -189,6 +190,84 @@ test.describe("motion audit: run report", () => {
     await measure("issue group expand", 1, async () => {
       await page.locator("[data-testid^=issue-group-] button[aria-expanded]").first().click();
     });
+  });
+});
+
+test.describe("motion audit: helper", () => {
+  // HX-11 / motion.md §3.21: the helper sheet (desktop x 24 → 0 on springs.sheet, phone y 100 % → 0), the card enter
+  // and the "Göster" ring. Works in index mode (no model): the sheet opens with ⌘J, the ring from the palette's
+  // "Nerede?" row (Shift+Enter). The thinking shimmer is the only allowed loop.
+  test("helper sheet open / close and Göster hold the budget", async ({ page, browser }) => {
+    await login(page);
+    await page.goto("/reserve");
+    await page.locator('[data-tour="reserve-when"]').waitFor();
+    await page.waitForTimeout(800);
+    const rate = await throttle(page);
+    const measure = async (name: string, interactions: number, run: () => Promise<void>) => {
+      await startFrameProbe(page);
+      let over: string[] = [];
+      const layouts = await traceLayouts(browser, page, `helper-${name.replace(/\W+/g, "-")}`, async () => {
+        await run();
+        over = await animationsOverCeiling(page);
+        await page.waitForTimeout(450);
+      });
+      const report = await stopFrameProbe(page);
+      results.push({ surface: "helper", name, ...report, layouts, over });
+      expect.soft(over).toEqual([]);
+      if (STRICT) {
+        expect.soft(report.dropped).toBeLessThanOrEqual(3 * interactions);
+        expect.soft(report.worstLongFrame).toBeLessThanOrEqual(rate > 1 ? 150 : 100);
+      }
+    };
+    await measure("no-op click (baseline)", 1, async () => {
+      await page.mouse.click(5, 880);
+    });
+    await measure("sheet open (⌘J)", 1, async () => {
+      await page.keyboard.press("ControlOrMeta+j");
+      await page.getByTestId("helper-sheet").waitFor();
+    });
+    // the page stays usable: no scrim, ≤ 3 backdrop-filter surfaces while the sheet is open (blur budget)
+    const blurred = await page.evaluate(() => [...document.querySelectorAll("*")].filter((el) => { const b = getComputedStyle(el).backdropFilter; return b && b !== "none"; }).length);
+    results.push({ surface: "helper", check: "blur surfaces with the sheet open", blurred });
+    expect.soft(blurred).toBeLessThanOrEqual(3);
+    await measure("sheet close (Esc)", 1, async () => {
+      await page.getByTestId("helper-composer").locator("textarea").focus();
+      await page.keyboard.press("Escape");
+      await page.getByTestId("helper-sheet").waitFor({ state: "detached" });
+    });
+    await measure("Göster: palette › Nerede? › ring", 2, async () => {
+      await page.keyboard.press("ControlOrMeta+k");
+      await page.getByRole("dialog").waitFor();
+      await page.keyboard.type("tatil ekle");
+      await page.waitForTimeout(400);
+      await page.keyboard.press("Shift+Enter");
+      await page.getByTestId("tour-ring").waitFor({ timeout: 5000 });
+    });
+    await page.keyboard.press("Escape");
+  });
+
+  test("reduced motion: the sheet and the ring reach their end state at once", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await login(page);
+    await page.goto("/reserve");
+    await page.locator('[data-tour="reserve-when"]').waitFor();
+    await page.keyboard.press("ControlOrMeta+j");
+    await page.getByTestId("helper-sheet").waitFor();
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const moving = await page.evaluate(
+      () =>
+        document.getAnimations().filter((a) => {
+          const t = a.effect?.getComputedTiming();
+          if (t && (t.iterations === Infinity || Number(t.duration) <= 1)) return false;
+          const kf = (a.effect as KeyframeEffect | null)?.getKeyframes() ?? [];
+          return kf.some((k) => "transform" in k || "translate" in k || "scale" in k);
+        }).length,
+    );
+    // motion (framer) writes inline transforms, not WAAPI: the sheet must already sit at its end position
+    const transform = await page.getByTestId("helper-sheet").evaluate((el) => getComputedStyle(el).transform);
+    results.push({ check: "helper reduced motion", movingAnimations: moving, transform });
+    expect(moving).toBe(0);
+    expect(transform === "none" || /matrix\(1, 0, 0, 1, 0, 0\)/.test(transform)).toBeTruthy();
   });
 });
 

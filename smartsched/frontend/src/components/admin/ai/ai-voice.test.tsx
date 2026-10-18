@@ -7,6 +7,7 @@ import { I18nProvider } from "@/lib/i18n/provider";
 const state = vi.hoisted(() => ({
   tab: "models",
   calls: [] as { path: string; method?: string; body?: unknown }[],
+  deepgramTests: 0,
   voice: { enabled: false, language: "tr", max_seconds: 120, vocabulary: "catalog", live_captions: "on_device", prices_per_min: {} } as Record<string, unknown>,
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -68,6 +69,10 @@ vi.mock("@/lib/api/client", async (orig) => {
           legacy_model: "claude-opus-5-5",
         });
       if (path === "/ai/admin/providers/openai/test") return out({ ok: true, detail: "ok", model: "gpt-4o-mini-transcribe", transcript_preview: "B-204 numaralı salonda" });
+      if (path === "/ai/admin/providers/deepgram/test") {
+        state.deepgramTests += 1;
+        return out(state.deepgramTests === 1 ? { ok: false, detail: "Deepgram rejected the API key (authentication error)" } : { ok: true, detail: "ok", model: "nova-3", kind: "stt", transcript_preview: "Şu cümle çok önemli" });
+      }
       if (path === "/ai/admin/voice") {
         if (opts.method === "PUT") state.voice = { ...state.voice, ...(opts.body as object) };
         return out({
@@ -196,6 +201,25 @@ describe("Sağlayıcılar: capabilities and the voice test", () => {
     await waitFor(() => expect(state.calls.find((c) => c.path === "/ai/admin/providers/openai/test")?.body).toEqual({ model: "gpt-4o-mini-transcribe" }));
     expect(screen.getByTestId("ai-transfer-voice-openai")).toBeInTheDocument();
     expect(screen.queryByTestId("ai-transfer-voice-anthropic")).toBeNull();
+  });
+});
+
+describe("speech-only provider: Bağlantıyı test et (e2e 2026-10-18, vo-admin 5)", () => {
+  it("a passing test shows the transcript preview and clears the earlier failure", async () => {
+    state.tab = "providers";
+    state.deepgramTests = 0;
+    const { toast } = await import("sonner");
+    renderIt();
+    const btn = await screen.findByTestId("ai-provider-test-deepgram");
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+    expect(await screen.findByTestId("ai-provider-error-deepgram")).toHaveTextContent("Deepgram rejected the API key");
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Ses testi başarılı: “Şu cümle çok önemli”"));
+    expect(screen.queryByTestId("ai-provider-error-deepgram")).toBeNull();
   });
 });
 

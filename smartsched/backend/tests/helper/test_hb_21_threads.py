@@ -11,7 +11,7 @@ from app.models.helper import HelperMessage, HelperNote, HelperThread
 from sqlalchemy import func, select
 
 from tests.crbs_env import env  # noqa: F401
-from tests.helper.support import H, personas
+from tests.helper.support import H, grant_ai_personal, personas
 
 
 async def _thread(uid: int, n: int = 2) -> None:
@@ -32,6 +32,7 @@ async def _count(model, *where) -> int:  # type: ignore[no-untyped-def]
 async def test_hb_21_threads_only_delete_keeps_notes(env) -> None:  # noqa: F811
     people = await personas(env)
     t, a = people["teacher"], people["approver"]
+    await grant_ai_personal(env, t)  # "Not ekle" needs the ai_personal consent (HX-17)
     r = await env.client.post(
         f"{H}/notes", json={"text": "Tercih edilen bina: B blok", "source": "user_button"}, headers=t.headers
     )

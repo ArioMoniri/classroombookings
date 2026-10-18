@@ -166,5 +166,17 @@
         "weeks": "Veckor"
       }
     }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Veckor"
+      },
+      "field": {
+        "class_year": "År",
+        "day": "Dag",
+        "week": "Vecka"
+      }
+    }
   }
 }

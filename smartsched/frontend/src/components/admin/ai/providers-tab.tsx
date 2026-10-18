@@ -288,7 +288,21 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
           <Button
             variant="outline"
             {...busyProps(test.isPending, !p.has_credentials)}
-            onClick={() => test.mutate({ p: p.id }, { onSuccess: (r) => (r.ok ? toast.success(t("aiAdmin.provider.testOk", { detail: r.detail })) : setError(t("aiAdmin.provider.testFail", { detail: r.detail }))), onError: fail })}
+            onClick={() =>
+              test.mutate(
+                { p: p.id },
+                {
+                  // a speech-only provider answers with the transcript of the sample clip: show it ("Ses testi başarılı:
+                  // “…”"), and a passing test clears the earlier failure (e2e 2026-10-18, vo-admin 5)
+                  onSuccess: (r) => {
+                    if (!r.ok) return setError(t("aiAdmin.provider.testFail", { detail: r.detail }));
+                    setError(null);
+                    toast.success(r.transcript_preview ? t("voice.admin.testOk", { preview: r.transcript_preview }) : t("aiAdmin.provider.testOk", { detail: r.detail }));
+                  },
+                  onError: fail,
+                },
+              )
+            }
             data-testid={`ai-provider-test-${p.id}`}
           >
             <BusyLabel busy={test.isPending} label={t("aiAdmin.provider.testing")} icon={<PlugZap aria-hidden />}>

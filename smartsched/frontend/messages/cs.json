@@ -166,5 +166,17 @@
         "weeks": "Týdny"
       }
     }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Týdny"
+      },
+      "field": {
+        "class_year": "Rok",
+        "day": "Den",
+        "week": "Týden"
+      }
+    }
   }
 }

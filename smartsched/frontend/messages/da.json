@@ -166,5 +166,17 @@
         "weeks": "Uger"
       }
     }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Uger"
+      },
+      "field": {
+        "class_year": "År",
+        "day": "Dag",
+        "week": "Uge"
+      }
+    }
   }
 }

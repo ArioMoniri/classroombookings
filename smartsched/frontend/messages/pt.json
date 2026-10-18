@@ -166,5 +166,17 @@
         "weeks": "Semanas"
       }
     }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Semanas"
+      },
+      "field": {
+        "class_year": "Ano",
+        "day": "Dia",
+        "week": "Semana"
+      }
+    }
   }
 }

@@ -477,6 +477,33 @@ the welcome block for `e2e/motion-audit.spec.ts` is listed in the WG-09 report a
 checklist tick: ≤ 3 dropped frames, no finite animation > 300 ms except the Lottie, reduced motion = end state, reduced
 transparency = opaque).
 
+### 3.21 Helper ("Yardımcı": sheet and Göster; `docs/design/v3/helper.md` §7; HX-11, shell-int-2026-10-18)
+
+Purpose: "a helper appeared beside your page and goes back the same way; the control you asked about is here." Built in
+`components/helper/helper-sheet.tsx` (motion), `components/helper/helper.css` (CSS keyframes) and the WG-05
+`SpotlightRing` reused by `components/helper/show-me.tsx`. transitions.dev: the free recipes panel-reveal,
+shimmer-text, skeleton-reveal and success-check were used as timing references only and re-implemented on our tokens
+(nothing pasted; `components/ui/SOURCES.md` row). Hosted Motion Agent fixes used: 0.
+
+| Moment | Animation | Token | Reduced motion | Reduced transparency |
+|---|---|---|---|---|
+| Sheet opens, desktop (non-modal, no scrim) | the sheet itself x 24 → 0 + opacity; no blur in the motion; composer focused on frame 1 | `springs.sheet` (settles ≈ 269 ms) | 100 ms opacity (`tween.reduced`) | `--mat-thick-solid`, no backdrop-filter |
+| Sheet closes, desktop | opacity + x 24 | 120 ms, `--ease-in` | 100 ms opacity | same |
+| Sheet opens / closes, phone (full-screen dialog) | y 100 % → 0; close y → 100 % in 180 ms | `springs.sheet` (pattern 4) | 100 ms opacity | opaque |
+| Thinking ("Düşünüyor…") | label shimmer, the only loop; stops with the first token | 1.6 s linear loop (`helper-shimmer`) | static label | static label (forced colours: CanvasText) |
+| Card appears | opacity + y 6 → 0, once; rows not staggered | `--dur-base` 180 ms, `--ease-out` (`helper-enter`) | none | opaque card |
+| Card done | 20 px check disc scale .8 → 1 | `--dur-base`, `--spring-bouncy-subtle` (`helper-check`) | static check | same |
+| "Göster" ring | WG-05 ring re-targets to `[data-tour=…]` (one element, `layout`), step card docked on phones; page scrolls the target to the centre | `dur.slow` `ease.inOut` (as §3.20) | ring jumps; `scrollIntoView` `behavior: "auto"` | opaque step card |
+| Status chip word | cross-fade | `dur.base` | instant | — |
+
+No motion: typing, palette filtering and group reorders, the "Yardımcıya sor" rows in the user menu and "Daha", the
+page-context chip, memory deletes. Blur budget with the sheet open: shell bar + sheet ≤ 3 surfaces.
+
+Audit: `e2e/motion-audit.spec.ts` "motion audit: helper" (sheet open ⌘J, close Esc, palette › Nerede? › Shift+Enter →
+ring: no finite animation > 300 ms, ≤ 3 dropped frames per interaction under MOTION_STRICT, ≤ 3 backdrop-filter
+surfaces; reduced motion: no transform animation and the sheet at its end transform). Queued for the e2e lane
+(resource rule 2026-10-18).
+
 ## 4. Key flows end to end
 
 **Generate (Studio → island → report)**

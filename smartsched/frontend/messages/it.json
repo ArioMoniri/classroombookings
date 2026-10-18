@@ -166,5 +166,17 @@
         "weeks": "Settimane"
       }
     }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Settimane"
+      },
+      "field": {
+        "class_year": "Anno",
+        "day": "Giorno",
+        "week": "Settimana"
+      }
+    }
   }
 }

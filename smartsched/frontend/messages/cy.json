@@ -166,5 +166,17 @@
         "weeks": "Wythnosau"
       }
     }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Wythnosau"
+      },
+      "field": {
+        "class_year": "Blwyddyn",
+        "day": "Dydd",
+        "week": "Wythnos"
+      }
+    }
   }
 }

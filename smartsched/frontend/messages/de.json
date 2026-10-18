@@ -166,5 +166,17 @@
         "weeks": "Wochen"
       }
     }
+  },
+  "rf": {
+    "preview": {
+      "entity": {
+        "weeks": "Wochen"
+      },
+      "field": {
+        "class_year": "Jahr",
+        "day": "Tag",
+        "week": "Woche"
+      }
+    }
   }
 }

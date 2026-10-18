@@ -20,7 +20,7 @@ describe("hand-over params", () => {
     expect(chatPrefill(q("chat=MAT%20112'yi%20sal%C4%B1ya%20ta%C5%9F%C4%B1"))).toBe("MAT 112'yi salıya taşı");
     expect(chatPrefill(q("chat=%20%20"))).toBeNull();
     expect(chatPrefill(q(""))).toBeNull();
-    expect(chatPrefill(q(`chat=${encodeURIComponent("a\u0000b‮c\n\nd")}`))).toBe("abc d");
+    expect(chatPrefill(q(`chat=${encodeURIComponent("a\u0000b\u202Ec\n\nd")}`))).toBe("abc d");
     expect(chatPrefill(q(`chat=${"x".repeat(900)}`))?.length).toBe(500);
   });
 
