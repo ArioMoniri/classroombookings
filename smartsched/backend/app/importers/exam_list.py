@@ -15,11 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.safe_files import run_isolated
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
+from app.importers.identity import TIME_SHADOW, plain
+from app.importers.planning_list import _META, _merge
 from app.importers.preference_rules import TextCell, sync_text_preferences
 from app.importers.report import ImportReport
 from app.importers.settings import importer_settings
 from app.importers.xlsx import iter_sheet_rows, map_headers, row_dict, sheet_title
-from app.models import ExamRequest
+from app.models import ExamRequest, ImportedSnapshot
 
 HEADER_SPEC: dict[str, list[str]] = {
     "faculty": ["fakülte"],
@@ -189,7 +191,17 @@ async def import_exam_list(
     filename: str | None = None,
     term_name: str | None = None,
     term_kind: str = "FINAL",
+    on_conflict: str = "keep",
 ) -> ImportReport:
+    """Import / re-import an exam list. Rows are matched by ``source_key``; what an admin edited since the previous
+    import (an ``imported_snapshots`` row ``entity = exam`` holds the imported values, written by every import) is
+    kept, also an archived row. A field the file changed too is a conflict: kept (``on_conflict="keep"``) or taken
+    (``"take"``), listed in ``extra.conflicts`` with the admin's, the file's and the previous import's value (RF-06,
+    as the planning list does). Rows that left the file are archived, never deleted; an import-archived row comes back
+    when the file has it again."""
+    if on_conflict not in ("keep", "take"):
+        raise ValueError("on_conflict must be keep or take")
+    take = on_conflict == "take"
     report = ImportReport(kind="exam-list", filename=filename or Path(path).name, term_code=term_code)
     settings = importer_settings()
     # off the event loop, memory-capped child
@@ -203,6 +215,10 @@ async def import_exam_list(
         e.source_key: e
         for e in (await session.execute(select(ExamRequest).where(ExamRequest.term_id == term.id))).scalars()
     }
+    snaps = await _exam_snapshots(session, [e.id for e in existing.values()])
+    conflicts: list[dict[str, Any]] = []
+    unchanged = 0
+    to_snapshot: list[tuple[ExamRequest, dict[str, Any]]] = []
     seen_fp: dict[str, int] = {}
     seen_keys: set[str] = set()
     merge_groups: dict[str, int] = {}
@@ -273,19 +289,43 @@ async def import_exam_list(
             session.add(ex)
             existing[key] = ex
             report.created["exam_requests"] += 1
+            to_snapshot.append((ex, fields))
         else:
             if ex.status == "LOCKED" and status != "LOCKED":
-                fields.pop("status")
-            for k, v in fields.items():
-                setattr(ex, k, v)
-            report.updated["exam_requests"] += 1
+                fields.pop("status")  # never downgrade a planner lock
+            snap = snaps.get(ex.id)
+            ctx = {"entity": "exam", "id": ex.id, "row": r.row, "course": r.course_code}
+            if snap is None:  # imported before RF-06 (no record of the imported values): the file applies
+                changed = _merge(ex, fields, None, take, conflicts, ctx)
+                to_snapshot.append((ex, fields))
+            else:
+                changed = _merge(ex, fields, snap, take, conflicts, ctx)
+                snap.values = {**_snapshot_values(fields), **(snap.values or {})}  # partial (AI / precheck) rows grow
+            if changed:
+                report.updated["exam_requests"] += 1
+            else:
+                unchanged += 1
         report.rows_imported += 1
         text_rows.append((ex, r))
     for skey, ex in existing.items():
         if skey and skey not in seen_keys and not ex.archived:
             ex.archived = True
             report.updated["exam_requests_archived"] += 1
+            snap = snaps.get(ex.id)
+            if snap is not None:  # the import archived it: when the file has the row again, the import restores it
+                snap.values = {**(snap.values or {}), "archived": True}
     await session.flush()
+    for ex, values in to_snapshot:
+        session.add(ImportedSnapshot(entity="exam", entity_id=ex.id, values=_snapshot_values(values)))
+    report.extra["unchanged"] = {"exam_requests": unchanged}
+    report.extra["conflicts_count"] = len(conflicts)
+    report.extra["conflicts"] = conflicts[:500]
+    report.extra["on_conflict"] = on_conflict
+    if conflicts:
+        report.warn(
+            f"{len(conflicts)} field(s) edited by a planner were also changed by the file: "
+            + ("the file's values were taken" if take else "the planner's edits were kept (see extra.conflicts)")
+        )
     # the venue cell's wishes the request fields cannot carry (avoid / building sets / features): soft rules
     # (preference_rules); furniture wishes without a room feature are reported as unparsed
     cols = map_headers(parsed.headers, HEADER_SPEC)
@@ -316,3 +356,24 @@ async def import_exam_list(
     report.extra["merged_rows"] = sum(c for c in merge_groups.values() if c > 1)
     await session.commit()
     return report
+
+
+#: exam columns written by the import that are bookkeeping, not content (never in the snapshot, never a conflict)
+_SNAPSHOT_SKIP = frozenset({*_META, "term_id"})
+
+
+def _snapshot_values(fields: dict[str, Any]) -> dict[str, Any]:
+    """The imported content of one exam row as ``imported_snapshots.values`` (times under ``_start_time`` /
+    ``_end_time``, as the planning list keeps them)."""
+    return {TIME_SHADOW.get(k, k): plain(v) for k, v in fields.items() if k not in _SNAPSHOT_SKIP}
+
+
+async def _exam_snapshots(session: AsyncSession, ids: list[int]) -> dict[int, ImportedSnapshot]:
+    out: dict[int, ImportedSnapshot] = {}
+    for i in range(0, len(ids), 500):
+        q = select(ImportedSnapshot).where(
+            ImportedSnapshot.entity == "exam", ImportedSnapshot.entity_id.in_(ids[i : i + 500])
+        )
+        for row in (await session.execute(q)).scalars():
+            out[row.entity_id] = row
+    return out
