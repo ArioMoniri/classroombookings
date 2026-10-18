@@ -2946,6 +2946,7 @@ Collisions are marked per ticket.
   files: `deploy/nginx/default.conf`, `deploy/caddy/Caddyfile`, `deploy/docker-compose.yml` (new service + profile), `deploy/pins.py`, `deploy/README.md`, `backend/tests/test_w3_sec_hardening.py` (one assertion).
   collisions: W3-SEC header owners (ask), integrator for compose.
 - [ ] VO-06 · frontend · no migration · `components/voice/**` core.
+  part done (recorder, mic button, on-device-only captions, consent sheet, error copy, lib/api/voice.ts raw-body upload per VO-B API.md; vitest green; vo-f-2026-10-18). open: e2e vo-mounts on a stack (resource rule).
   - `use-voice-recorder.ts`:
     - MediaRecorder with `isTypeSupported` (webm/opus, then mp4);
     - AnalyserNode level meter;
@@ -2967,6 +2968,7 @@ Collisions are marked per ticket.
   files: new `frontend/src/components/voice/{mic-button,use-voice-recorder,voice-captions,voice-consent-sheet,voice-errors,index}.ts(x)` + tests, new `frontend/src/lib/api/voice.ts`, `frontend/messages/{tr,en}.json` (`voice.*`).
   collisions: CAL-F and WG-04 also append to `messages/*.json` (namespaces only).
 - [ ] VO-07 · frontend · no migration · /admin/ai voice UI.
+  part done (`voice_stt` in `AI_FEATURES` (TEXT_FEATURES for text rows / guard bench), Models row offers only `modalities ∋ stt`, provider cards show capabilities, regions, retention; Ses card, limits, usage, my usage; ai-voice.test.tsx; vo-f-2026-10-18). open: e2e vo-admin; `voice_tts` waits for VO-13.
   - Models tab: rows for `voice_stt` / `voice_tts` that offer only speech-capable synced models, and a "no model → mic hidden" note.
   - Providers tab: capability chips "Metin · Ses→yazı · Sesli okuma", an STT test button showing the transcript preview, and the "processes voice" field on the transfer record.
   - Limits tab: audio minutes per user, role and person.
@@ -2980,6 +2982,7 @@ Collisions are marked per ticket.
   files: `frontend/src/components/admin/ai/{ai-model.ts,models-tab,providers-tab,limits-tab,usage-tab,guard-tab,my-ai-usage}.tsx` + tests, `frontend/src/lib/api/ai-admin.ts`, `frontend/e2e/vo-admin.spec.ts`.
   collisions: charts design (`usage-tab`, `CHART_SERIES`), WG-07 (`<HintSlot>` line in `ai-admin.tsx`).
 - [ ] VO-08 · frontend · no migration · Mounts on every AI text surface.
+  part done (mic in chat composer, write-it, upload paste, guard bench; never auto-sends; quick reserve waits for booking_nl; vo-f-2026-10-18). open: e2e vo-mounts; `vo-[a-z-]+` in playwright testMatch.
   - Chat composer (`components/chat/chat-panel.tsx:313`, plus an actions slot in `components/ui/beautifului/prompt-composer.tsx`), `target=chat`.
   - Studio write-it (`components/studio/write-it.tsx:100`), `rules`.
   - Upload panel paste tab (`components/studio/upload-panel.tsx:219`), `rules`.

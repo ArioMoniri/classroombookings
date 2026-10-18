@@ -155,9 +155,11 @@ async def test_hb_09_purge_export_and_erasure(env) -> None:  # noqa: F811
         assert user is not None
         data = await kvkk.export_data(s, user)
     helper = data["helper"]
-    assert [n["text"] for n in helper["notes"]] == ["güncel"]
-    assert [th["title"] for th in helper["threads"]] == ["yeni"]
-    assert helper["threads"][0]["messages"][0]["text"] == "yarın boş salon"
+    assert isinstance(helper, list) and {r["kind"] for r in helper} <= {"note", "thread", "action"}
+    assert [r["text"] for r in helper if r["kind"] == "note"] == ["güncel"]
+    threads = [r for r in helper if r["kind"] == "thread"]
+    assert [th["title"] for th in threads] == ["yeni"]
+    assert threads[0]["messages"][0]["text"] == "yarın boş salon"
     async with dbmod.get_session_factory()() as s:
         admin = await s.get(User, people["admin"].uid)
         subject = await s.get(User, t.uid)

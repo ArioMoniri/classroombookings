@@ -330,9 +330,14 @@ class AIClient:
         effort: str | None = None,
         disable_parallel_tool_use: bool = False,
         model: str | None = None,
+        force_tool: str | None = None,
     ) -> Any:
         """One model call. Returns the message; raises :class:`AIRefusal` on refusal, :class:`AIGuardError` when
-        the gateway refused the call, :class:`AIUpstreamError` on provider failures."""
+        the gateway refused the call, :class:`AIUpstreamError` on provider failures.
+
+        ``force_tool`` (HB-13): the name of the one tool the answer must call. Each adapter sends it the way its
+        provider accepts: Claude as ``auto`` (current models refuse a forced choice), an OpenAI-compatible server as
+        the named function or, without named tool choice, as JSON-schema output wrapped back into the call."""
         kwargs = self._kwargs(
             system=system,
             messages=messages,
@@ -342,6 +347,7 @@ class AIClient:
             effort=effort,
             disable_parallel_tool_use=disable_parallel_tool_use,
             model=model,
+            force_tool=force_tool,
         )
         return await self._dispatch(kwargs, stream=False, on_event=None, model_override=model)
 
@@ -356,6 +362,7 @@ class AIClient:
         disable_parallel_tool_use: bool = False,
         model: str | None = None,
         on_event: EventSink | None = None,
+        force_tool: str | None = None,
     ) -> Any:
         """Like :meth:`complete`, streamed: ``on_event`` gets ``{"type": "text", "text"}`` deltas and
         ``{"type": "tool_start", "name"}``. Every tool carries ``eager_input_streaming: true``, so the server no
@@ -372,6 +379,7 @@ class AIClient:
             disable_parallel_tool_use=disable_parallel_tool_use,
             model=model,
             eager=True,
+            force_tool=force_tool,
         )
         return await self._dispatch(kwargs, stream=True, on_event=on_event, model_override=model)
 
@@ -426,6 +434,7 @@ class AIClient:
         disable_parallel_tool_use: bool,
         model: str | None,
         eager: bool = False,
+        force_tool: str | None = None,
     ) -> dict[str, Any]:
         if self.redactor:
             system, messages = self.redactor.payload(system), self.redactor.payload(messages)
@@ -438,6 +447,8 @@ class AIClient:
         if tools:
             kwargs["tools"] = [{**t, EAGER_FIELD: True} for t in tools] if eager else tools
             kwargs["tool_choice"] = {"type": "auto", "disable_parallel_tool_use": disable_parallel_tool_use}
+            if force_tool and any(t.get("name") == force_tool for t in tools):
+                kwargs["tool_choice"] = {"type": "tool", "name": force_tool, "disable_parallel_tool_use": True}
         if output_format:
             kwargs["output_config"] = {"format": output_format}
         if effort:

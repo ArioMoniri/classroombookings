@@ -42,18 +42,6 @@ def refused(status: int, code: str, tr: str, en: str, **data: Any) -> HTTPExcept
     )
 
 
-async def gate(a: reg.Action, db: DB, access: CurrentAccess) -> None:
-    """The REST twin's bookings gate (maintenance mode), so the helper is never a way around it."""
-    if a.gate is None:
-        return
-    from app.api.v1 import bookings as bookings_api
-
-    if a.gate == "maintenance":
-        await bookings_api.maintenance_gate(access, db)
-    else:
-        await bookings_api.list_gate(access, db)
-
-
 def _action_out(a: reg.Action) -> dict[str, Any]:
     return {
         "name": a.name,
@@ -101,21 +89,14 @@ class CardIn(BaseModel):
 
 
 async def build_card(name: str, args: dict[str, Any], db: DB, access: CurrentAccess) -> dict[str, Any]:
+    """The same checks as a model's tool call (:func:`app.ai.helper.tooluse.run_action`), with no model call."""
+    from app.ai.helper import tooluse
+
     a = reg.get(name)
     if a is None:
         raise refused(404, "unknown_action", "Böyle bir işlem yok.", "There is no such action.")
-    if not a.allowed(access):
-        raise refused(403, "not_allowed", "Bu işlem hesabınızda yok.", "This isn't available on your account.")
-    if reg.RATE.hit(access.user_id, a):
-        raise refused(
-            429,
-            "rate_limited",
-            "Çok sık denediniz; bir dakika sonra yeniden deneyin.",
-            "Too many tries; try again in a minute.",
-        )
-    await gate(a, db, access)
     try:
-        parsed = reg.parse_args(a, args)
+        card = await tooluse.run_action(reg.Ctx(db, access), a, args)
     except reg.ArgsInvalid as exc:
         raise refused(
             422,
@@ -124,8 +105,6 @@ async def build_card(name: str, args: dict[str, Any], db: DB, access: CurrentAcc
             "The action's details are missing or invalid.",
             issues=exc.issues,
         ) from exc
-    try:
-        card = await a.run(reg.Ctx(db, access), parsed)
     except reg.ActionRefused as exc:
         raise refused(exc.status, exc.code, exc.tr, exc.en, **exc.data) from exc
     return cards.dump(card)
@@ -149,6 +128,7 @@ async def confirm(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any
     """The card's button: verify the token, claim it once, re-run the preview, then write through the service.
     403 bad / other user's token, 410 expired, 409 already done or changed (with the new card)."""
     from app.ai.helper import confirm as cf
+    from app.ai.helper import tooluse
     from app.ai.helper.actions import writes
 
     try:
@@ -159,13 +139,8 @@ async def confirm(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any
         spec = writes.WRITES.get(str(p.get("a")))
         if spec is not None:
             if reg.RATE.hit(access.user_id, spec.action):
-                raise refused(
-                    429,
-                    "rate_limited",
-                    "Çok sık denediniz; bir dakika sonra yeniden deneyin.",
-                    "Too many tries; try again in a minute.",
-                )
-            await gate(spec.action, db, access)
+                raise reg.ActionRefused(429, "rate_limited", tooluse.RATE_TR, tooluse.RATE_EN)
+            await tooluse.gate(spec.action, reg.Ctx(db, access))
         return await cf.confirm(db, access, body.token)
     except reg.ActionRefused as exc:
         raise refused(exc.status, exc.code, exc.tr, exc.en, **exc.data) from exc

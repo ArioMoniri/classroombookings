@@ -12,14 +12,16 @@ from __future__ import annotations
 
 from datetime import date
 
+import openpyxl
 from app.core.db import get_session_factory
 from app.models import Term, Week
+from app.models.seasons import SeasonSegment
 from app.services import seasons
 from app.workers import queue as qmod
 from sqlalchemy import select
 
 from tests.api_fixtures import login
-from tests.council.conftest import EN_CSV, ROOM_MASTER
+from tests.council.conftest import EN_CSV, GUZ_GRID, ROOM_MASTER
 
 EMPTY_GETS = (
     "/api/v1/analytics/peaks",
@@ -167,3 +169,59 @@ async def test_as_18_after_import_semester_break_and_holiday_weeks(engine, sessi
     assert [(sg.kind, sg.week_from, sg.week_to) for sg in out] == [("BREAK", 2, 3), ("HOLIDAY", 5, 5)]
     assert (out[0].label_tr, out[0].label_en) == ("Ara: 2–3. haftalar", "Break: weeks 2–3")
     assert {sg.status for sg in out} == {"draft"}
+
+
+def _guz_grid_with_vize(tmp_path):
+    """The real Güz weekly grid with its second sheet ("28-02 Ekim 2. hafta") renamed to name a midterm week."""
+    wb = openpyxl.load_workbook(GUZ_GRID)
+    assert wb.sheetnames[1] == "28-02 Ekim 2. hafta"
+    wb[wb.sheetnames[1]].title = "28-02 Ekim VİZE HAFTASI"
+    out = tmp_path / "guz_derslikler_takvimi_vize.xlsx"
+    wb.save(out)
+    return out
+
+
+async def _council_commit(client, h, path, code):
+    files = [("files", (path.name, path.read_bytes(), "application/octet-stream"))]
+    r = await client.post("/api/v1/council/jobs", headers=h, files=files, data={"lang": "tr", "year_hint": "2026"})
+    assert r.status_code == 202, r.text
+    job_id = r.json()["id"]
+    await qmod.get_queue().wait_idle(600)
+    review = (await client.get(f"/api/v1/council/jobs/{job_id}/review", headers=h)).json()
+    pending = [it for it in review["items"] if it["blocking"] and it["decision"] is None]
+    if pending:
+        decisions = [{"id": it["id"], "action": "reject" if it["kind"] == "merge" else "accept"} for it in pending]
+        r = await client.post(f"/api/v1/council/jobs/{job_id}/review", headers=h, json={"decisions": decisions})
+        assert r.status_code == 200, r.text
+        await qmod.get_queue().wait_idle(600)
+    return await client.post(
+        f"/api/v1/council/jobs/{job_id}/commit", headers=h, json={"group": 0, "term": {"code": code}}
+    )
+
+
+async def _segments(code):
+    async with get_session_factory()() as s:
+        tid = (await s.execute(select(Term.id).where(Term.code == code))).scalar_one()
+        return list((await s.execute(select(SeasonSegment).where(SeasonSegment.term_id == tid))).scalars())
+
+
+async def test_as_18_council_commit_proposes_a_draft_from_a_vize_sheet(client, tmp_path):
+    h = await login(client)
+    r = await _council_commit(client, h, _guz_grid_with_vize(tmp_path), "2026-GUZ")
+    assert r.status_code == 200, r.text
+    segs = await _segments("2026-GUZ")
+    assert [(sg.kind, sg.week_from, sg.week_to, sg.status) for sg in segs] == [("MIDTERM", 2, 2, "draft")]
+
+
+async def test_as_18_council_commit_survives_an_after_import_error(client, tmp_path, monkeypatch, caplog):
+    async def boom(session, term):
+        raise RuntimeError("after_import broke")
+
+    monkeypatch.setattr(seasons, "after_import", boom)
+    h = await login(client)
+    with caplog.at_level("WARNING"):
+        r = await _council_commit(client, h, _guz_grid_with_vize(tmp_path), "2026-GUZ")
+    assert r.status_code == 200, r.text
+    assert r.json()["term_code"] == "2026-GUZ"
+    assert await _segments("2026-GUZ") == []
+    assert any("after_import" in rec.getMessage() for rec in caplog.records)

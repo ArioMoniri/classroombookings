@@ -257,8 +257,9 @@ async def purge(session: AsyncSession, now: datetime | None = None) -> dict[str,
     return out
 
 
-async def dsr_rows(session: AsyncSession, user_id: int) -> dict[str, Any]:
-    """The person's notes and conversation history, for the DSR export (``helper``)."""
+async def dsr_rows(session: AsyncSession, user_id: int) -> list[dict[str, Any]]:
+    """The person's notes, conversations and helper actions for the DSR export (``helper``): one list of rows, each
+    with its ``kind`` (``note`` / ``thread`` / ``action``), like the export's other data classes."""
     async with rls.system_scope(session):
         notes = (
             (await session.execute(select(HelperNote).where(HelperNote.user_id == user_id).order_by(HelperNote.id)))
@@ -297,24 +298,30 @@ async def dsr_rows(session: AsyncSession, user_id: int) -> dict[str, Any]:
     by_thread: dict[int, list[dict[str, Any]]] = {}
     for m in messages:
         by_thread.setdefault(m.thread_id, []).append({"role": m.role, "text": m.text, "created_at": m.created_at})
-    return {
-        "notes": [note_out(x) for x in notes],
-        "threads": [
-            {"title": t.title, "created_at": t.created_at, "last_at": t.last_at, "messages": by_thread.get(t.id, [])}
-            for t in threads
-        ],
-        "actions": [
-            {
-                "action": a.action,
-                "status": a.status,
-                "entity": a.entity_type,
-                "entity_id": a.entity_id,
-                "created_at": a.created_at,
-                "done_at": a.done_at,
-            }
-            for a in actions
-        ],
-    }
+    rows: list[dict[str, Any]] = [{"kind": "note", **note_out(x)} for x in notes]
+    rows += [
+        {
+            "kind": "thread",
+            "title": t.title,
+            "created_at": t.created_at,
+            "last_at": t.last_at,
+            "messages": by_thread.get(t.id, []),
+        }
+        for t in threads
+    ]
+    rows += [
+        {
+            "kind": "action",
+            "action": a.action,
+            "status": a.status,
+            "entity": a.entity_type,
+            "entity_id": a.entity_id,
+            "created_at": a.created_at,
+            "done_at": a.done_at,
+        }
+        for a in actions
+    ]
+    return rows
 
 
 async def erase(session: AsyncSession, user_id: int) -> int:
@@ -324,7 +331,7 @@ async def erase(session: AsyncSession, user_id: int) -> int:
     async with rls.system_scope(session):
         for model in (HelperNote, HelperMessage, HelperThread, HelperActionInvocation):
             res = await session.execute(
-                delete(model).where(model.user_id == user_id).execution_options(synchronize_session=False)  # type: ignore[attr-defined]
+                delete(model).where(model.user_id == user_id).execution_options(synchronize_session=False)
             )
             total += int(getattr(res, "rowcount", 0) or 0)
         await session.execute(

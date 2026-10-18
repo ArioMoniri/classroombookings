@@ -1,15 +1,15 @@
 "use client";
 /**
  * Turn on the authenticator app (docs/design/v3/auth.md §6.3; AUX-06, also the enrolment of §5.6). Two views:
- * - steps 1–2 together: the QR (black on white with a 4-module quiet zone, also in dark mode), the account line, the
- *   32-character key in 8 groups with "Kopyala", and the code field. On phones (< 1024 px) "Uygulamada aç"
+ * - steps 1–2 together: the QR (black on white with a 4-module quiet zone, also in dark mode), the account line,
+ *   "QR kodunu tarayamıyor musunuz?" → the 32-character key in 8 groups with "Kopyala", and the code field. On phones (< 1024 px) "Uygulamada aç"
  *   (`otpauth://`) leads, the key follows, and the QR sits behind a disclosure (you cannot scan your own screen);
  * - step 3: the recovery codes (RecoveryCodes).
  * 2FA is on once the code verifies; the pending set-up expires after `expires_in` (15 min): "Kurulum süresi doldu;
  * yeniden başlayın." with a new key. The transport differs: Profil (signed in, re-authenticated) or the enrolment
  * the policy forces (the setup token in the route handler's cookie).
  */
-import { Check, Copy, ExternalLink } from "lucide-react";
+import { Check, ChevronDown, Copy, ExternalLink } from "lucide-react";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -47,6 +47,7 @@ export function TotpSetup({ transport, org, onStep, onDone, finishLabel }: { tra
   const [codes, setCodes] = useState<string[] | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
+  const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState(false);
   const otpRef = useRef<HTMLInputElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -190,9 +191,18 @@ export function TotpSetup({ transport, org, onStep, onDone, finishLabel }: { tra
         <p className="type-callout text-label-2">{wide ? t("auth.setup.step1Text") : t("auth.setup.step1Phone")}</p>
         {data ? <p className="type-footnote text-label-2">{`SmartSched (${data.issuer}) · ${data.account}`}</p> : null}
         {wide ? (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             {qrImage}
-            {keyBlock}
+            {/* §6.3: the key is behind "QR kodunu tarayamıyor musunuz?" (Panel reveal) */}
+            <Button type="button" variant="ghost" shape="rect" aria-expanded={showKey} aria-controls={`${keyId}-panel`} onClick={() => setShowKey((v) => !v)} className="w-fit" data-testid="setup-cant-scan">
+              {t("auth.setup.cantScan")}
+              <ChevronDown aria-hidden className={cn("transition-transform duration-(--dur-fast) motion-reduce:transition-none", showKey && "rotate-180")} />
+            </Button>
+            {showKey ? (
+              <div id={`${keyId}-panel`} className="auth-panel-in">
+                {keyBlock}
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="flex flex-col gap-3">

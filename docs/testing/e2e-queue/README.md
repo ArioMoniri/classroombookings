@@ -38,3 +38,13 @@ On pass: tick CAL-08/09.
 4. AS-10: what-if +10 % with `solve:true` creates an inactive draft run "Senaryo: …".
 5. AS-13: learning refresh, then revert to a version; the term stays pinned to it.
 6. AS-18: import a grid with a "Vize haftası" sheet; /seasons/terms/{id}/periods lists a draft segment.
+
+## VO-F (voice UI)
+1. e2e/vo-admin.spec.ts (3): sync the stub provider, save the voice_stt route (only stt models listed), provider voice test
+   preview "Şu cümle çok önemli…"; a second admin sees the same route; MOBILE M-01/02/03/05 on /admin/ai.
+2. e2e/vo-mounts.spec.ts (9) with Chromium's fake mic (--use-fake-device-for-media-stream --use-fake-ui-for-media-stream,
+   grantPermissions(['microphone'])): consent sheet on first use; chat/write-it/upload paste/guard bench put the transcript
+   into the box, never auto-send; permission_denied copy; 429 copy; spoken injection refused; provider error; focus never on <body>.
+3. Behind nginx: `Permissions-Policy: microphone=(self)`; getUserMedia succeeds; a ~5 MB raw clip to
+   /api/v1/ai/voice/transcribe does not get 413 (nginx allows 6 MB on that path).
+On pass: tick VO-06/07/08 and VO-05.

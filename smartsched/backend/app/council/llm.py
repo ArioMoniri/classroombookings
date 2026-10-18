@@ -15,8 +15,9 @@ Rules shared by all roles (see ``prompts/council.md``):
 * tools are ``strict: true`` with ``additionalProperties: false`` and every property required, and the
   input is validated again client side (``app.ai.catalog._check``); a truncated (``max_tokens``) or
   refused turn is discarded with a message, never acted on;
-* forced ``tool_choice`` is rejected by current models, so the request uses ``auto`` with
-  ``disable_parallel_tool_use`` and the prompt asks for exactly one call;
+* every call names its one tool (``force_tool``, HB-13): current Claude models reject a forced ``tool_choice``, so
+  the Anthropic adapter sends ``auto`` with ``disable_parallel_tool_use`` and the prompt asks for exactly one call;
+  an OpenAI-compatible server gets the named function, or JSON-schema output when it has no named tool choice;
 * the model only *labels* data the server already read. Values are re-parsed by the deterministic
   parsers, so a model cannot invent a room, a time or a capacity that is not in the file.
 """
@@ -196,6 +197,7 @@ async def call_tool(
         system=_system(role),
         messages=[{"role": "user", "content": content}],
         tools=[tool],
+        force_tool=tool["name"],  # HB-13: Claude gets auto; a local server the named function or JSON emulation
         max_tokens=max_tokens,
         effort=effort,
         disable_parallel_tool_use=True,
