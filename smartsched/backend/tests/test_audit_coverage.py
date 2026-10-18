@@ -468,6 +468,10 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "DELETE /api/v1/helper/notes/{note_id}": (N, "the person's own helper note"),
     "DELETE /api/v1/helper/notes": (N, "the person's own helper notes and history"),
     "PUT /api/v1/helper/admin/settings": (E, "app.api.v1.helper"),
+    # helper telemetry (HB-14): aggregate product events of the person, no content; settings (HB-15) audited
+    "POST /api/v1/helper/feedback": (N, "the person's own thumbs / note on an answer (helper_events, aggregates)"),
+    "POST /api/v1/helper/events": (N, "client telemetry (nav_click / form_open / cancel), aggregates only"),
+    "PUT /api/v1/ai/admin/helper": (E, "app.api.v1.ai_admin"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)
