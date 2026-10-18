@@ -3008,7 +3008,8 @@
       "goal": "You are lane RF-2 for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pkill -f`, `nice …",
       "ledger": "RF-2: wire the unsent e-mails",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 00:34"
     },
     {
       "id": "a81129ececcc4ad90",

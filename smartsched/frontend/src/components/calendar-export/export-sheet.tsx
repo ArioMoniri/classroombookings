@@ -42,7 +42,7 @@ import {
   type ScopeChoice,
   type Step,
 } from "./model";
-import { ApproveStep, HowStep, LinkResult, StepHeading, WhatStep, providerName, scopeName } from "./steps";
+import { ApproveStep, HowStep, LinkResult, StepHeading, WhatStep, backendText, providerName, scopeName } from "./steps";
 
 type Result = { kind: "link"; urls: SubscriptionUrls } | { kind: "file"; name: string } | { kind: "push"; provider: string } | { kind: "redirect"; provider: string };
 
@@ -57,7 +57,7 @@ function refusalText(e: unknown, t: ReturnType<typeof useI18n>["t"], locale: str
   if (w.code === "department_not_allowed" && !(locale === "tr" ? w.messageTr : null)) return t("calendarExport.reason.department_not_allowed");
   // a coded refusal carries its own sentence (API.md: message_tr first, never the code)
   if (w.code && (w.messageTr || typeof w.data.message_en === "string")) return locale === "tr" ? (w.messageTr ?? String(w.data.message_en)) : String(w.data.message_en ?? w.message);
-  return t("calendarExport.failed", { message: errorText(w, locale) });
+  return t("calendarExport.failed", { message: backendText(e, locale) });
 }
 
 export function CalendarExportSheet({ open, onOpenChange, resume }: { open: boolean; onOpenChange: (open: boolean) => void; resume?: PendingPush | null }) {

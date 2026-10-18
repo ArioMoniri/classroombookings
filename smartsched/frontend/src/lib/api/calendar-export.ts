@@ -152,7 +152,9 @@ export const SubscriptionCreated = z
   .object({
     id: z.union([z.number(), z.string()]),
     urls: SubscriptionUrls,
-    preview: z.object({ fields: z.array(z.string()).nullish(), sample: SampleEvent.nullish() }).passthrough().nullish(),
+    /** shown before the approval from the options; the answer's copy is not read (API.md: fields are `{key, label_*}`) */
+    preview: z.unknown().optional(),
+    url_known: z.boolean().nullish(),
   })
   .passthrough();
 export type SubscriptionCreated = z.infer<typeof SubscriptionCreated>;

@@ -26,7 +26,10 @@ type T = ReturnType<typeof useI18n>["t"];
 export function backendText(e: unknown, locale: string): string {
   const w = wave1Error(e);
   if (locale === "tr" && w.messageTr) return w.messageTr;
-  return typeof w.data.message_en === "string" ? w.data.message_en : errorText(w, locale);
+  if (typeof w.data.message_en === "string") return w.data.message_en;
+  const text = errorText(w, locale);
+  // a response that failed its schema carries zod issues, not FastAPI `{msg}` items: never show "[object Object]"
+  return text.includes("[object Object]") && e instanceof Error ? e.message : text;
 }
 
 export function providerName(p: string, t: T): string {

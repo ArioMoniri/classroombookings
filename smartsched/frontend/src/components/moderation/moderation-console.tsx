@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePhone, useTouchList } from "./use-media";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
+import { pageActionsCapsule } from "@/components/admin/kit";
 import { Chip } from "@/components/ui/chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -193,10 +194,13 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
           ) : null}
           <ChangesLink termId={termId} canEdit={canEdit} />
           {canEdit && runId ? (
-            <Button variant={staged.length ? "default" : "outline"} onClick={() => setRecreate(true)} aria-keyshortcuts="Shift+R" data-testid="recreate-open">
-              <RefreshCw aria-hidden />
-              {t("moderation.recreate.open")}
-            </Button>
+            // the screen's one primary action: a capsule above the tab bar below lg (MOBILE.md M-05; mobile-b phase 2)
+            <div data-slot="page-actions" className={pageActionsCapsule}>
+              <Button variant={staged.length ? "default" : "outline"} onClick={() => setRecreate(true)} aria-keyshortcuts="Shift+R" data-testid="recreate-open">
+                <RefreshCw aria-hidden />
+                {t("moderation.recreate.open")}
+              </Button>
+            </div>
           ) : null}
         </>
       }

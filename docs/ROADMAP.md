@@ -3150,7 +3150,8 @@ Order: CH-01 → CH-02 → CH-03 → CH-04 → CH-05 → CH-06 → CH-09 → CH-
 - [ ] RF-08 major: seeded workbooks are recorded as imports with an actor, a report and a download — after lane C
 - [ ] RF-09 major: period grid and term week calendar editable by admins — after lane C / CAL-B
 - [ ] RF-10 major: the personal 'Yoğunluk' setting also applies to the timetable — after the mobile optimisers
-- [ ] RF-11 major: senders for reminder, series created and changed, approval submitted and calendar consent; new-device sign-in after the security follow-up; correct the 'template only' labels in /admin/email — lane RF-2
+- [x] RF-11 major: senders for reminder, series created and changed, approval submitted and calendar consent; new-device sign-in after the security follow-up; correct the 'template only' labels in /admin/email — lane RF-2
+  done (app/services/mail_senders.py through notify_dispatch: booking.reminder (worker app/workers/reminders.py, bookings.reminder_lead_hours default 24, 0 = off, ledger key per booking/date/period), series.created (replaces the booking_created mail for series), series.changed (owners + approvers who approved the series), approval.submitted (receipt; bell copy read), calendar.consent (kvkk.grant/withdraw hooks, no services/calendar_* edits), new_device.sign_in (UA family + /24 HMAC in user setting known_devices, org.new_device_sign_in_mail); every kind sender=wired; renderer no longer repeats note/intro or leaves literal {placeholders} on the queued re-render; /admin/email copy without lane names; tests/test_rf11_mail_senders.py 12 + 4 updated suites, FakeSMTP outbox sink, pytest/ruff/mypy, no stack; rf-2-2026-10-18)
 - [ ] RF-12 major: SAML federation metadata signature check — after the SAML library lane
 
 

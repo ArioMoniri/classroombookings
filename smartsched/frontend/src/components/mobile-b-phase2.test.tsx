@@ -169,3 +169,13 @@ describe("fix 11 · /dashboard 'Tümünü gör' is a 44 px target on touch (meas
     for (const l of links) expect(l).toMatch(/inline-flex[^"]*pointer-coarse:min-h-11/);
   });
 });
+
+describe("fix 12 · the one primary action sits in the page-actions capsule (thumb reach below lg)", () => {
+  const inCapsule = (rel: string, testid: string) => {
+    const src = read(rel);
+    const at = src.indexOf(`data-testid="${testid}"`);
+    return src.slice(Math.max(0, at - 400), at).includes('data-slot="page-actions" className={pageActionsCapsule}');
+  };
+  it("/moderation 'Yeniden oluştur' (was at y 179, then scrolled off)", () => expect(inCapsule("moderation/moderation-console.tsx", "recreate-open")).toBe(true));
+  it("/exams/invigilation 'Yeni plan' (was at y 145)", () => expect(inCapsule("invigilation/invigilation-view.tsx", "invig-new")).toBe(true));
+});

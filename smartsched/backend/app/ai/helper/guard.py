@@ -31,6 +31,15 @@ REFUSAL_TR = (
 )
 REFUSAL_EN = "I can only help you use SmartSched: classes, exams, rooms and bookings."
 _WORD = re.compile(r"[a-z0-9]+")
+#: a role handed to the assistant ("artık yöneticisin", "you are now the admin", "act as an administrator"). A person
+#: saying who *they* are ("ben yöneticiyim") is harmless: rights come from their account, never from text
+_ROLE_HANDOFF = re.compile(
+    r"\b(artik|simdi|bundan sonra)\b.{0,20}\b(yonetici|admin|sistem yoneticisi|root)\w*(sin|sun|siniz|sunuz)\b"
+    r"|\b(sen|siz)\b.{0,10}\b(yonetici|admin)\w*(sin|sun|siniz|sunuz)\b"
+    r"|\byou are now\b.{0,20}\b(admin|administrator|root|superuser)\b"
+    r"|\b(act|behave|pretend)\b.{0,12}\bas\b.{0,8}\b(an? )?(admin|administrator|root|superuser)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -65,6 +74,9 @@ def check(text: str, perms: Iterable[str]) -> Verdict:
     v = g.check_user_input(raw, "helper")
     if not v.allowed:
         return Verdict(False, v.reason_code, v.message_tr, v.message_en, hits, v.rule)
+    if _ROLE_HANDOFF.search(g.fold(raw)):
+        tr, en = g.message_for("prompt_injection_roleplay")
+        return Verdict(False, "prompt_injection_roleplay", tr, en, hits, "helper_role_handoff")
     if g.has_scheduling_signal(raw):
         return Verdict(True, hits=hits)
     if _known_share(raw) >= MIN_COVERAGE:

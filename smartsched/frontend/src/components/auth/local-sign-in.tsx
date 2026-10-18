@@ -14,55 +14,62 @@
  * login moves focus to the alert (an effect, not a frame callback); the identifier field has inputmode=email; the
  * 429 lock belongs to the identifier it was earned for (the limit is per identifier), so typing another one
  * re-enables "Giriş yap".
+ *
+ * AUX-03/04 (docs/design/v3/auth.md §4.1–§4.3, §5): the password goes through the sign-in route handler
+ * (`/api/auth/mfa/login`), which answers a session, a second step (→ `/login/verify`) or the enrolment the policy
+ * requires (→ `/login/setup-2fa`); the challenge stays in its httpOnly cookie. With passwordless passkeys allowed
+ * (`passkeySignIn`): the identifier offers passkeys through autofill (`username webauthn`, conditional `get()` while
+ * the form is mounted, aborted on submit), the passkey button sits under the form (PasskeyDoor), and a successful
+ * password sign-in tries a silent Conditional Create.
  */
 import { Eye, EyeOff } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { toast } from "sonner";
-import { applySessionLanguage } from "@/components/bookings/use-booking-format";
 import { Alert } from "@/components/ui/alert";
 import { BusyButton } from "@/components/ui/busy-label";
 import { IconButton } from "@/components/ui/button";
 import { Input, useShake } from "@/components/ui/input";
-import { MeFull } from "@/lib/api/shell-extra";
+import type { SignInStepOut } from "@/lib/api/auth-security";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import { homeFor, LAST_METHOD_COOKIE, retryMinutes } from "./signin-model";
+import { PasskeyDoor, tryConditionalCreate, usePasskeySignIn } from "./passkey-door";
+import { LAST_METHOD_COOKIE, retryMinutes } from "./signin-model";
+import { useFinishSignIn } from "./use-finish-sign-in";
 
 type LocalError = { kind: "credentials" } | { kind: "rate"; minutes: number; until: number; identifier: string } | { kind: "offline" };
 
 const normId = (v: string) => v.trim().toLocaleLowerCase("tr-TR");
 
-type LoginOutcome = { ok: true; user: MeFull | null; mustChangePassword: boolean } | { ok: false; status: number; retryAfter: string | null };
+type LoginOutcome = { ok: true; out: SignInStepOut } | { ok: false; status: number; retryAfter: string | null };
 
-/** `POST /auth/login` through the proxy (it stores the JWT in the httpOnly cookie and returns `/auth/me`). */
-async function postLogin(identifier: string, password: string): Promise<LoginOutcome> {
-  const id = identifier.trim();
-  const body = id.includes("@") ? { email: id, password } : { username: id, password };
+/** `POST /auth/login` through the sign-in route handler (it stores the JWT, or the challenge, in httpOnly cookies). */
+async function postLogin(identifier: string, password: string, next: string | null): Promise<LoginOutcome> {
   let res: Response;
   try {
-    res = await fetch("/api/v1/auth/login", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body), credentials: "same-origin" });
+    res = await fetch("/api/auth/mfa/login", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ identifier: identifier.trim(), password, next }), credentials: "same-origin" });
   } catch {
     return { ok: false, status: 0, retryAfter: null };
   }
   if (!res.ok) return { ok: false, status: res.status, retryAfter: res.headers.get("retry-after") };
-  const out = (await res.json().catch(() => null)) as { user?: unknown; password_change_required?: boolean } | null;
-  const parsed = MeFull.safeParse(out?.user);
-  const user = parsed.success ? parsed.data : null;
-  return { ok: true, user, mustChangePassword: Boolean(out?.password_change_required) || Boolean(user?.force_password_reset) };
+  const out = (await res.json().catch(() => null)) as SignInStepOut | null;
+  return out ? { ok: true, out } : { ok: false, status: 502, retryAfter: null };
 }
 
 export function rememberMethod(method: "local" | "microsoft") {
   document.cookie = `${LAST_METHOD_COOKIE}=${method}; path=/; max-age=31536000; samesite=lax`;
 }
 
-export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, autoFocus, footnote }: { next: string | null; primary: boolean; resetLink: boolean; lastMethodLocal: boolean; autoFocus?: boolean; footnote?: string }) {
-  const { t, locale, setLocale } = useI18n();
-  const router = useRouter();
+export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, autoFocus, footnote, passkeySignIn = false, lastMethodPasskey = false }: { next: string | null; primary: boolean; resetLink: boolean; lastMethodLocal: boolean; autoFocus?: boolean; footnote?: string; passkeySignIn?: boolean; lastMethodPasskey?: boolean }) {
+  const { t } = useI18n();
   const reduce = useReduce();
+  const finish = useFinishSignIn(next);
+  const passkey = usePasskeySignIn(passkeySignIn, next);
+  const { autofill } = passkey;
+  // the identifier's passkey autofill runs while the form is mounted (door 2 open) and stops when it unmounts
+  useEffect(() => autofill(), [autofill]);
   const ids = { error: useId(), caps: useId(), idRequired: useId(), pwRequired: useId() };
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -123,7 +130,8 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
     }
     setBusy(true);
     setError(null);
-    const out = await postLogin(identifier, password);
+    passkey.abort();
+    const out = await postLogin(identifier, password, next);
     if (!out.ok) {
       setBusy(false);
       if (out.status === 0 || out.status === 502 || out.status === 503 || out.status === 504) return fail({ kind: "offline" });
@@ -133,18 +141,11 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
       }
       return fail({ kind: "credentials" });
     }
-    rememberMethod("local");
-    const target = next ?? homeFor(out.user?.permissions);
-    if (out.mustChangePassword) {
-      router.replace(`/login/change-password?next=${encodeURIComponent(target)}`);
-      return;
-    }
-    if (out.user) await applySessionLanguage(out.user.id, locale, setLocale);
-    const name = out.user?.full_name?.split(" ")[0];
-    // ~3 s: a greeting, gone before the first screen's own toasts (T-R1-06, R1-S-33)
-    toast.success(name ? t("glass.auth.welcome", { name }) : t("signin.title"), { duration: 3000 });
-    router.replace(target);
-    router.refresh();
+    // §4.3 item 4: a silent passkey offer after a password sign-in (passwordless allowed only); never blocks
+    if (passkeySignIn && out.out.status === "signed_in" && !out.out.password_change_required) void tryConditionalCreate((msg) => toast.success(msg, { duration: 4000 }), t);
+    // ~3 s greeting, gone before the first screen's own toasts (T-R1-06, R1-S-33); or the second step / enrolment
+    await finish(out.out, "local");
+    if (out.out.status !== "signed_in") setBusy(false);
   };
 
   // Caps Lock: the modifier state where the browser reports it, else the letter's case against Shift (a typed
@@ -187,7 +188,7 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
             id="identifier"
             name="username"
             fieldSize="lg"
-            autoComplete="username"
+            autoComplete={passkeySignIn ? "username webauthn" : "username"}
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
@@ -287,8 +288,13 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
       <span role="status" className="sr-only">
         {busy ? t("signin.local.busy") : ""}
       </span>
+      <PasskeyDoor ctl={passkey} />
       {footnote ? <p className="mt-3 type-footnote text-label-2" data-testid="login-no-account">{footnote}</p> : null}
-      {lastMethodLocal ? <p className="mt-3 type-footnote text-label-3" data-testid="login-last-method">{t("signin.local.lastMethod")}</p> : null}
+      {lastMethodPasskey ? (
+        <p className="mt-3 type-footnote text-label-3" data-testid="login-last-method">{t("auth.passkey.lastPasskey")}</p>
+      ) : lastMethodLocal ? (
+        <p className="mt-3 type-footnote text-label-3" data-testid="login-last-method">{t("signin.local.lastMethod")}</p>
+      ) : null}
     </form>
   );
 }

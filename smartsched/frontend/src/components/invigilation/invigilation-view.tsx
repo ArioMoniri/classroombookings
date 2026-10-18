@@ -10,6 +10,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { pageActionsCapsule } from "@/components/admin/kit";
 import { PageHeader } from "@/components/common/page-header";
 import { useRunText } from "@/components/compare/run-text";
 import { useActiveTerm } from "@/components/shell/term-switcher";
@@ -82,10 +83,13 @@ export function InvigilationView() {
         title={t("invigilation.title")}
         subtitle={t("invigilation.subtitle")}
         actions={canEdit && run && tab === "plans" ? (
-          <Button onClick={() => setForm("new")} data-testid="invig-new">
-            <Plus aria-hidden />
-            {t("invigilation.newPlan")}
-          </Button>
+          // a capsule above the tab bar below lg (MOBILE.md M-05; mobile-b phase 2: it sat at y 145)
+          <div data-slot="page-actions" className={pageActionsCapsule}>
+            <Button onClick={() => setForm("new")} data-testid="invig-new">
+              <Plus aria-hidden />
+              {t("invigilation.newPlan")}
+            </Button>
+          </div>
         ) : undefined}
       />
       <section aria-label={t("invigilation.examRun")} className="flex flex-wrap items-end gap-3 rounded-xl bg-card p-3 edge-hairline">
