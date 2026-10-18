@@ -29,6 +29,8 @@ export interface CardEntry {
   hints?: IntentHints;
   /** a localised line under the card (an error of the button, "Önizleme değişti") */
   notice?: { tr: string; en: string } | null;
+  /** form cards: the server's refusal of one field's value (HB-E `time_outside_grid` / `no_period_at_time` → start) */
+  fieldError?: { name: string; text: { tr: string; en: string } } | null;
   /** "1 / 2": the place of a choice in a run of choices (the server sends one at a time) */
   step?: number;
   /** result cards: undone already */

@@ -372,8 +372,9 @@ describe("HX-18 design audit fixes (docs/testing/audits/2026-10-18-helper-design
 
   it("m4: the Değiştir form's labels come from the message keys (English too)", () => {
     const form = formFromConfirm({ ...card("confirm"), expires_at: future() } as ConfirmCard)!;
-    expect(form.fields.map((f) => f.label.tr)).toEqual(["Salon", "Tarih", "Ders saati", "Amaç"]);
-    expect(form.fields.map((f) => f.label.en)).toEqual(["Room", "Date", "Period", "Purpose"]);
+    // HB-E: the start time, and the chosen period (the fixture's confirm has period_id 3)
+    expect(form.fields.map((f) => f.label.tr)).toEqual(["Salon", "Tarih", "Başlangıç", "Ders saati", "Amaç"]);
+    expect(form.fields.map((f) => f.label.en)).toEqual(["Room", "Date", "Start", "Period", "Purpose"]);
   });
 
   it("m5 + m14: missing fields point at the error line; the first field is the focus target", () => {

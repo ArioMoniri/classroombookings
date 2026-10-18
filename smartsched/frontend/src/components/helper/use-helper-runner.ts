@@ -59,6 +59,9 @@ export async function resolvePeriod(roomId: number, date: string, hints: IntentH
   }
 }
 
+/** Refusals of a form's resubmission that belong to one field (HB-E: the clock time of a booking). */
+const FIELD_OF_CODE: Readonly<Record<string, string>> = { time_outside_grid: "start", no_period_at_time: "start" };
+
 function formValue(card: FormCard, name: string) {
   return card.fields.find((f) => f.name === name)?.value ?? null;
 }
@@ -97,8 +100,13 @@ export function useHelperRunner(): Runner {
       try {
         let card = await helperApi.card(action, args);
         // helper.md A1: a shortcut's clock time / "3. saat" picks the period itself, so a resolved room and day go
-        // straight to the confirm card (no form step)
-        if (card.type === "form" && card.action === "create_booking" && opts?.hints && card.missing?.length === 1 && card.missing[0] === "period_id") {
+        // straight to the confirm card (no form step). HB-E: a clock time goes to the server as `start`.
+        const lone = card.type === "form" && card.action === "create_booking" && card.missing?.length === 1 ? card.missing[0] : null;
+        if (card.type === "form" && lone === "start" && opts?.hints?.time) {
+          const room = Number(formValue(card, "room"));
+          const date = String(formValue(card, "date") ?? "");
+          if (room > 0 && date) card = await helperApi.card(action, { ...args, room: String(room), date, start: opts.hints.time });
+        } else if (card.type === "form" && (lone === "period_id" || lone === "start") && opts?.hints) {
           const room = Number(formValue(card, "room"));
           const date = String(formValue(card, "date") ?? "");
           if (room > 0 && date) {
@@ -111,6 +119,17 @@ export function useHelperRunner(): Runner {
         if (card.type === "form") trackHelper({ kind: "form_open", action: card.action });
         focusEntry(key);
       } catch (err) {
+        // HB-E: a refused value of a resubmitted form stays at its field (the form keeps its inputs and the focus)
+        const r = helperRefusal(err);
+        const field = FIELD_OF_CODE[r.code];
+        const form = opts?.replaces ? useHelperStore.getState().entries.find((e) => e.kind === "card" && e.key === opts.replaces) : undefined;
+        if (field && form?.kind === "card" && form.card.type === "form" && form.card.fields.some((f) => f.name === field) && (r.tr || r.en)) {
+          useHelperStore.getState().updateCard(form.key, { fieldError: { name: field, text: { tr: r.tr ?? r.en ?? "", en: r.en ?? r.tr ?? "" } } });
+          const focus = () => document.querySelector<HTMLElement>(`[data-entry="${CSS.escape(form.key)}"] [data-testid="helper-field-${field}"]`)?.focus();
+          if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => requestAnimationFrame(focus));
+          else focus();
+          return;
+        }
         const key = pushRefusal(err);
         if (key) focusEntry(key);
       } finally {

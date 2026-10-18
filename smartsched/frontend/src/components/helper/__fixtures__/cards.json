@@ -710,5 +710,65 @@
   },
   "fallback": [],
   "type": "error"
+ },
+ "form_start": {
+  "v": 1,
+  "id": "4a4b4c4e",
+  "action": "create_booking",
+  "title": {
+   "tr": "Rezervasyon",
+   "en": "Booking"
+  },
+  "type": "form",
+  "fields": [
+   {
+    "name": "room",
+    "label": {
+     "tr": "Salon",
+     "en": "Room"
+    },
+    "kind": "room",
+    "required": true,
+    "value": "12",
+    "options_source": "rooms",
+    "options": []
+   },
+   {
+    "name": "date",
+    "label": {
+     "tr": "Tarih",
+     "en": "Date"
+    },
+    "kind": "date",
+    "required": true,
+    "value": "2026-10-19",
+    "options": []
+   },
+   {
+    "name": "start",
+    "label": {
+     "tr": "Başlangıç",
+     "en": "Start"
+    },
+    "kind": "time",
+    "required": true,
+    "options": []
+   },
+   {
+    "name": "notes",
+    "label": {
+     "tr": "Amaç",
+     "en": "Purpose"
+    },
+    "kind": "text",
+    "required": false,
+    "options": [],
+    "max_length": 255
+   }
+  ],
+  "missing": [
+   "start"
+  ],
+  "risk": "R1"
  }
 }
