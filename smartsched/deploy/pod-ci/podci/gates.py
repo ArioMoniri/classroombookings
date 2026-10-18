@@ -33,11 +33,13 @@ GATES: tuple[Gate, ...] = (
     # tsc + eslint + vitest in one gate ran past 1800 s on the 2-CPU pod (runs #70, #81): the static checks and
     # two vitest shards are separate gates now, each well under its limit (2 CPUs: ~3-6 min / ~4-8 min per shard)
     Gate("frontend", "frontend.sh", "npm ci + tsc + eslint + check-design", needs=("prepare",), timeout=1800),
-    *(Gate(f"frontend-unit-{i}", "frontend-unit.sh", f"vitest shard {i}/{VITEST_SHARDS}", needs=("frontend",),
-           timeout=1800, args=(f"{i}/{VITEST_SHARDS}",)) for i in range(1, VITEST_SHARDS + 1)),
+    # literal values only: scripts/docs/sync_docs.py reads this list without importing it
+    Gate("frontend-unit-1", "frontend-unit.sh", "vitest shard 1/2", needs=("frontend",), timeout=1800,
+         args=("1/2",)),
+    Gate("frontend-unit-2", "frontend-unit.sh", "vitest shard 2/2", needs=("frontend",), timeout=1800,
+         args=("2/2",)),
     Gate("e2e-real", "e2e-real.sh", "Playwright (all specs) vs real backend + Bahar fixtures",
-         needs=("frontend", *(f"frontend-unit-{i}" for i in range(1, VITEST_SHARDS + 1)), "backend"),
-         timeout=3600),
+         needs=("frontend", "frontend-unit-1", "frontend-unit-2", "backend"), timeout=3600),
     # after e2e-real so it reads this run's /w/playwright-report.json; API rows still run if e2e failed
     Gate("parity", "parity.sh", "CRBS superset gate (scripts/parity_check.py)", needs=("backend",), timeout=1800),
     # real workbooks, 4 solves (Bahar term ~5 min): planner-level violations fail the run
