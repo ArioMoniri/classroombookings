@@ -233,3 +233,45 @@ review scratch file `res-r2.json`.
 - **Actual:** at 1440, the name cell is 212 px wide while the row has spare width. It reads "room_master.csv…" and "seminar.ics…", and "Yardımcıdan geldi" sits past the ellipsis, so it can't be seen.
 - **Screenshot:** `handed-onboarding-1440-r2.png`.
 - **Source:** `components/onboarding/file-drop.tsx:138-141,154-157`. Apply the phone layout (chip on its own line) at every width.
+
+## Re-check (round 3)
+
+Re-checked 2026-10-18 after the container restart: signed in again, same method. Screenshots end in `-r3`. The raw
+results are in the review scratch file `res-r3.json`.
+
+**BLUF: DS-22, DS-04 and DS-23 are fixed.** The new inline "rejected type" line and the "stage replaced" line pass the
+copy and contrast checks. One new minor, DS-24 (the card title wraps one word per line at 32 px on the phone).
+**Still open: 0 blocker, 0 major, 12 minor.** That is the 11 minors from round 1 (not re-checked) plus DS-24.
+
+| Id | Round 3 | Evidence |
+|---|---|---|
+| DS-22 | ✅ fixed | At 32 px the whole sheet scrolls (`helper-sheet` scrollHeight 1280 against 844 at 390, and 1159 against 756 at 1440). The log keeps **464 px (390) and 495 px (1440)**, up from 48 and 92 px. The card can be read through them, and the primary, "Başka bir tür seç" and "Kurulum sihirbazında aç" are reachable by scrolling. ✕ and ⋯ come into view when focused, at both sizes. Nothing sticks out of the sheet and there is no page horizontal scroll. The normal 16 px layout is unchanged: header 56, log 560 / 568, footer 204 px, one log scroller. `detected-390-32px-r3.png`, `detected-390-32px-primary-r3.png`, `detected-1440-32px-r3.png`, `detected-1440-32px-primary-r3.png`, `detected-390-32px-header-r3.png`, `detected-390-r3.png`, `detected-1440-r3.png` |
+| DS-04 | ✅ fixed | After the hand-over to `/onboarding?from=helper`, focus lands on `onboarding-start` "Başlat · 2 dosya" at 1440 and 390. `handed-onboarding-1440-r3.png`, `handed-onboarding-390-r3.png` |
+| DS-23 | ✅ fixed | At 1440 both handed rows show the full name ("room_master.csv", "seminar.ics") with no clipping, and "Yardımcıdan geldi" sits inside the cell. The phone layout is unchanged and still correct. `handed-onboarding-1440-r3.png` |
+
+**New "rejected type" line on `/import` step 1** (`/import?kind=exam-list`, `belge.pdf` picked through the zone's file
+chooser): ✅
+- **Copy:** "belge.pdf bu adımda içe aktarılamaz: yalnızca Excel dosyaları (.xlsx) alınır. Türünü bilmiyorsanız İçe aktar
+  sayfasının başındaki "Türünü bilmiyor musunuz?" alanına bırakın." Two sentences, formal "siz", no enum, and it names
+  the way out.
+- **Contrast:** `--status-infeasible-fg` on the card is **7.27:1** at 13 px.
+- **Behaviour:** `role="alert"`, shown next to the zone. Focus stays on the zone button at both sizes. An earlier BODY
+  reading came from `setInputFiles` without a click.
+- Screenshots: `import-rejected-1440-r3.png`, `import-rejected-390-r3.png`.
+
+**New "stage replaced" line (UX-27)** (hand-over answered 410 `{"detail":{"code":"stage_replaced"}}`): ✅
+- **Copy:** "Başka bir pencerede seçtiğiniz dosya bunun yerini aldı. Bu dosyayı kullanmak için yeniden okuyun." Two
+  sentences, formal, and it explains the cause.
+- **Contrast:** `--label-2` on the card well is **7.04:1** (1440) and **7.99:1** (390) at 12 px.
+- **Behaviour:** focus lands on "Dosyayı yeniden oku", the single primary.
+- Screenshots: `replaced-1440-r3.png`, `replaced-390-r3.png`.
+
+### DS-24 · minor (new) · S: at 32 px on the phone the card title wraps one word per line
+- **Actual:** at 390 with 32 px root text, the title and the certainty badge share one row. The title column gets about
+  40 px, so "Bu / bir / haftalık / derslik / takvimi" wrap word by word. "haftalık" and "derslik" spill past the title's
+  focus ring.
+- **Impact:** the text stays readable and isn't cut off, so this is minor.
+- **Screenshot:** `detected-390-32px-r3.png`.
+- **Fix:** let the badge wrap under the title when the row is narrow (as §8.2 already shows for phones), for example
+  `basis-full` on the title below a container width.
+- **Source:** `components/helper/cards/file.tsx:157-164` (`Frame` header row).
