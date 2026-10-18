@@ -669,8 +669,8 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
     by_id = {c.room.id: c.room for c in cands}
     for x in results:
         free_on = [d for d in open_dates if not x.get("per_date")] or [
-            date.fromisoformat(p["date"]) for p in x["per_date"] if p["status"] == "free"
-        ]
+            date.fromisoformat(p["date"]) for p in x.get("per_date") or [] if p["status"] == "free"
+        ]  # BUG-01: a single closed date has no per_date (was a KeyError, a 500 on "Dolu olanları da göster")
         d_ = (free_on or open_dates or dates)[0]
         x["period_ids"] = await slot_periods.ids(by_id[x["room_id"]], d_, x["start_period"], x["end_period"])
         x["period_id"] = x["period_ids"][0] if x["period_ids"] else None

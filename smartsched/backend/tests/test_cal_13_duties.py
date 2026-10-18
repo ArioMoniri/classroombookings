@@ -228,6 +228,7 @@ async def test_cal_13_duties_appear_on_activation_and_only_the_persons_own(denv:
     await _activate(e, e.plan_id)
     status, text = await _feed(e, sub["token"])
     assert status == 200
+    print("FEEDTEXT\n" + text)
     cal = lint_ics(text, forbidden=[e.mehmet.name, e.ayse.name, "Ayşe Yılmaz", "Mehmet Öz"])
     assert str(cal["X-WR-CALNAME"]) == "SmartSched – Sınav görevlerim"
     mine = _keyed(_duty_events(text))
