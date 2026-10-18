@@ -16,7 +16,7 @@ import { Card } from "@/components/ui/card";
 import { Input, useShake } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { crbs, crbsError, useCrbsMe, useCrbsMutation, useOrgPublic, useProfile, type Profile } from "@/lib/api/crbs";
-import { LOCALE_INFO, displayLocale, isLocale, translate } from "@/lib/i18n";
+import { LOCALE_INFO, displayLocale, isLocale, loadMessages, translate } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useIsCompact } from "@/components/bookings/use-is-phone";
 import { roleLabel } from "@/lib/i18n/roles";
@@ -162,7 +162,9 @@ function ProfileForm({ data, phone }: { data: Profile; phone: boolean }) {
                 const shown = displayLocale(p.language);
                 if (shown) setLocale(shown);
                 // round-1 R1-A-30: this closure's t() is the previous language's; a changed language is saved in its own
-                toast.success(shown && shown !== locale ? translate(shown, "crbs.common.saved") : t("crbs.common.saved"));
+                // (F-CH-1: its messages may still be loading; the toast waits for them)
+                if (shown && shown !== locale) void loadMessages(shown).then(() => toast.success(translate(shown, "crbs.common.saved")));
+                else toast.success(t("crbs.common.saved"));
                 void qc.invalidateQueries({ queryKey: ["me"] });
               },
               onError: (err) => setError(bookingErrorMessage(crbsError(err), t)),

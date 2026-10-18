@@ -69,7 +69,7 @@ export function FieldRow({ label, hint, htmlFor, children, className }: { label:
 /** Stacked form field: label above the control. */
 export function Field({ label, hint, error, children, htmlFor, className }: { label: ReactNode; hint?: ReactNode; error?: string | null; children: ReactNode; htmlFor?: string; className?: string }) {
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
+    <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
       <label htmlFor={htmlFor} className="type-footnote font-medium text-label-2">
         {label}
       </label>

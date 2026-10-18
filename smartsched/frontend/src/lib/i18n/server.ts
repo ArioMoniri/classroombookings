@@ -1,7 +1,13 @@
 import "server-only";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { DEFAULT_LOCALE, LOCALE_COOKIE, displayLocale, translate, type Locale, type MessageKey } from "./index";
+import en from "../../../messages/en.json";
+import tr from "../../../messages/tr.json";
+import { DEFAULT_LOCALE, LOCALE_COOKIE, displayLocale, registerMessages, translate, type Locale, type MessageKey } from "./index";
+
+// server components (titles, metadata) read both languages at once; the browser loads one chunk per language
+registerMessages("tr", tr);
+registerMessages("en", en);
 
 /**
  * The request's interface language on the server: the language cookie the picker (and the profile language,

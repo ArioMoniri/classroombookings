@@ -12,7 +12,9 @@ export function PageHeader({ title, subtitle, actions, className }: { title: str
         </h1>
         {subtitle ? <p className="mt-1 type-callout text-label-2">{subtitle}</p> : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {/* F-MB-1: below lg a page-actions capsule is fixed above the tab bar; its wrapper must not add the column's
+          12 px gap when the actions arrive with the data (it pushed the page down, /exams/invigilation at 390) */}
+      {actions ? <div className="flex flex-wrap items-center gap-2 max-lg:has-[>[data-slot=page-actions]]:contents">{actions}</div> : null}
     </div>
   );
 }

@@ -31,10 +31,11 @@ export function MyStats({ headingLevel = 2, showTitle = false }: { headingLevel?
       <Heading id="my-stats-title" className={showTitle ? "mb-3 type-title-3 text-label-1" : "sr-only"}>
         {t("charts.mine.title")}
       </Heading>
-      <dl className="grid grid-cols-3 gap-2 sm:gap-3" aria-busy={dash.isLoading || undefined}>
+      {/* F-MA-1: three tiles at 390, fewer columns when the text is large (200 % root: one column), never a sideways page */}
+      <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,6.5rem),1fr))] gap-2 sm:gap-3" aria-busy={dash.isLoading || undefined}>
         {(tiles ?? (["active", "term", "open"] as const).map((key) => ({ key, value: null }))).map((tile) => (
           <Card key={tile.key} className="gap-1 px-3 py-3 sm:px-4" data-testid={`my-stat-${tile.key}`}>
-            <dt className="type-footnote text-label-2">{t(TILE_LABEL[tile.key])}</dt>
+            <dt className="type-footnote text-label-2 [overflow-wrap:anywhere] hyphens-auto">{t(TILE_LABEL[tile.key])}</dt>
             <dd className="type-title-2 font-semibold text-label-1 tabular-nums">{tile.value == null ? <Skeleton className="h-[1lh] w-10" /> : n(tile.value)}</dd>
           </Card>
         ))}

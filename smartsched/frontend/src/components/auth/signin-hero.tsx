@@ -23,7 +23,7 @@ import type { LottieHandle } from "lottie-react";
 import { motion } from "motion/react";
 import Image, { type StaticImageData } from "next/image";
 import { useTheme } from "next-themes";
-import { useEffect, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
+import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
 import heroDarkPoster from "@/assets/lottie/hero-solver-dark-poster.png";
 import heroLightPoster from "@/assets/lottie/hero-solver-light-poster.png";
 import { dur, ease, useReduce } from "@/lib/motion";
@@ -36,7 +36,7 @@ type PlayerProps = {
   autoplay?: boolean;
   loop?: boolean;
   segment?: readonly [number, number];
-  subscriptions?: { complete?: () => void };
+  subscriptions?: { ready?: () => void; complete?: () => void };
   lottieRef?: React.Ref<LottieHandle>;
   className?: string;
 };
@@ -46,6 +46,89 @@ type Player = ComponentType<PlayerProps>;
 export const HERO_SEGMENT = [0, 140] as const;
 /** After idle, so the form is interactive first (§11.3 "When it plays"). */
 export const HERO_DELAY_MS = 300;
+/** The file's frame rate (docs/lottie/README.md): frame 140 is reached 4.67 s after the first frame. */
+export const HERO_FPS = 30;
+/** At most this many frames in a row are skipped for input (a held key must not freeze the scene). */
+const MAX_SKIP = 4;
+/** Events that mean "the person is using the form": the hero draws nothing in the frame that handles one. */
+const INPUT_EVENTS = ["keydown", "beforeinput", "input", "pointerdown", "compositionupdate"] as const;
+
+/** The animation clock (an object so tests can drive it by hand). */
+export const heroClock = {
+  raf: (cb: (t: number) => void): number => window.requestAnimationFrame(cb),
+  caf: (id: number): void => window.cancelAnimationFrame(id),
+};
+
+type Scheduling = { scheduling?: { isInputPending?: () => boolean } };
+const browserInputPending = () => (navigator as Navigator & Scheduling).scheduling?.isInputPending?.() === true;
+
+export type HeroDriver = { start: () => void; noteInput: () => void; stop: () => void };
+
+/**
+ * AUX-10 typing fix (fix-b-2026-10-18): the longest frame while typing was 55-70 ms because lottie drew the scene in
+ * the same frame that handled the keystroke. The hero now runs its own clock instead of lottie's autoplay: each
+ * animation frame works out the frame number from the elapsed time (whole frames at 30 fps) and seeks there, EXCEPT
+ * in a frame that follows an input event (or while the browser reports pending input), which draws nothing of the
+ * hero. The next frame draws where the time says, so skipping never delays the pass (one pass stays 4.67 s ≤ 5 s).
+ */
+export function createHeroDriver(o: {
+  seek: (frame: number) => void;
+  pause: () => void;
+  onDone: () => void;
+  raf?: (cb: (t: number) => void) => number;
+  caf?: (id: number) => void;
+  inputPending?: () => boolean;
+}): HeroDriver {
+  const raf = o.raf ?? heroClock.raf;
+  const caf = o.caf ?? heroClock.caf;
+  const inputPending = o.inputPending ?? browserInputPending;
+  const end = HERO_SEGMENT[1];
+  let t0: number | null = null;
+  let last = -1;
+  let input = false;
+  let skipped = 0;
+  let id: number | null = null;
+  let finished = false;
+  const tick = (t: number) => {
+    id = null;
+    if (finished) return;
+    if (t0 === null) t0 = t;
+    if ((input || inputPending()) && skipped < MAX_SKIP) {
+      input = false;
+      skipped += 1;
+      id = raf(tick);
+      return;
+    }
+    input = false;
+    skipped = 0;
+    const frame = Math.min(end, Math.floor(((t - t0) * HERO_FPS) / 1000));
+    if (frame !== last) {
+      last = frame;
+      o.seek(frame);
+    }
+    if (frame >= end) {
+      // settle: hold exactly on the poster frame, never loop
+      finished = true;
+      o.pause();
+      o.onDone();
+      return;
+    }
+    id = raf(tick);
+  };
+  return {
+    start: () => {
+      if (id === null && !finished) id = raf(tick);
+    },
+    noteInput: () => {
+      input = true;
+    },
+    stop: () => {
+      finished = true;
+      if (id !== null) caf(id);
+      id = null;
+    },
+  };
+}
 
 /** Code-split loaders; nothing here is in the initial bundle. Called through the object so tests can observe them. */
 export const heroLoaders = {
@@ -112,6 +195,32 @@ function HeroPlayer({ theme, onState, onStart }: { theme: Theme; onState: (s: "p
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState(false);
   const handle = useRef<LottieHandle>(null);
+  const driver = useRef<HeroDriver | null>(null);
+  // stable props: a re-render of the player never re-subscribes or restarts anything
+  const subscriptions = useMemo(
+    () => ({
+      ready: () => {
+        driver.current?.stop();
+        driver.current = createHeroDriver({
+          seek: (frame) => handle.current?.seek({ frame }),
+          pause: () => handle.current?.pause(),
+          onDone: () => onState("done"),
+        });
+        driver.current.start();
+      },
+    }),
+    [onState],
+  );
+  // any keystroke, text input or tap: the frame that handles it draws nothing of the hero (passive, capture)
+  useEffect(() => {
+    const note = () => driver.current?.noteInput();
+    const opts = { capture: true, passive: true } as const;
+    for (const type of INPUT_EVENTS) document.addEventListener(type, note, opts);
+    return () => {
+      for (const type of INPUT_EVENTS) document.removeEventListener(type, note, opts);
+      driver.current?.stop();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,29 +263,18 @@ function HeroPlayer({ theme, onState, onStart }: { theme: Theme; onState: (s: "p
     // hidden (opacity 0) until the first frame exists; the frame holds no backdrop-filter, so fading it is safe
     <motion.div className={FRAME} initial={{ opacity: 0, y: 4 }} animate={loaded ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }} transition={{ duration: dur.slow, ease: ease.out }}>
       {Player && data ? (
-        <Player
-          src={data}
-          autoplay
-          loop={false}
-          segment={HERO_SEGMENT}
-          lottieRef={handle}
-          className="size-full"
-          subscriptions={{
-            complete: () => {
-              // settle: hold exactly on the poster frame, never loop
-              handle.current?.pause();
-              handle.current?.seek({ frame: HERO_SEGMENT[1] });
-              onState("done");
-            },
-          }}
-        />
+        // autoplay off: createHeroDriver steps the frames from `ready` to the poster frame (one pass, no loop)
+        <Player src={data} autoplay={false} loop={false} segment={HERO_SEGMENT} lottieRef={handle} className="size-full" subscriptions={subscriptions} />
       ) : null}
     </motion.div>
   );
 }
 
-/** Mounted by `SignInShell` (scene area, right of the sheet) on `/login` only. */
-export function SignInHero() {
+/**
+ * Mounted by `SignInShell` (scene area, right of the sheet) on `/login` only. Memoised (no props): the sheet's
+ * re-renders never reach it (AUX-10: no hero work on a keystroke).
+ */
+export const SignInHero = memo(function SignInHero() {
   const hydrated = useHydrated();
   const wide = useMedia(WIDE);
   const forced = useMedia(FORCED);
@@ -216,4 +314,4 @@ export function SignInHero() {
       )}
     </div>
   );
-}
+});

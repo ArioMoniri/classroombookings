@@ -13,9 +13,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { useHydrated } from "@/lib/use-hydrated";
 import { useUiStore } from "@/stores/ui";
 import { useAccentPreference } from "./appearance";
-import { CommandPalette } from "./command-palette";
 import { MobileDrawer } from "./mobile-drawer";
-import { ShortcutsSheet } from "./shortcuts-sheet";
 import { Sidebar } from "./sidebar";
 import { TabBar } from "./tab-bar";
 import { MobileTopBar, TopBar } from "./top-bar";
@@ -23,10 +21,11 @@ import { planningRequirement } from "./nav-config";
 import { useGlobalShortcuts } from "./use-global-shortcuts";
 import { useWorkspaceStore, useWorkspaceUser } from "./workspace";
 import { useProfileLanguage } from "@/components/bookings/use-booking-format";
-import { PrivacyNoticeGate } from "@/components/privacy/notice-gate";
-import { WelcomePageSlot, WelcomeProvider } from "@/components/welcome";
 import { HelperRoot } from "@/components/helper/helper-root";
 import { PeriodGridGate } from "./period-grid-gate";
+import { WelcomeSettle } from "./welcome-settle";
+// F-CH-1: palette, shortcuts, welcome guide and privacy gate in their own chunks (lazy-shell.tsx)
+import { LazyCommandPalette, LazyPrivacyNoticeGate, LazyShortcutsSheet, LazyWelcomePageSlot, LazyWelcomeProvider } from "./lazy-shell";
 
 function OfflineBanner() {
   const { t } = useI18n();
@@ -182,12 +181,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         <MaintenanceBanner />
         <main id="main" tabIndex={-1} className="flex-1 outline-hidden pt-3 pr-[max(1rem,env(safe-area-inset-right))] pb-[calc(6rem+env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] lg:px-8 lg:pt-4 lg:pb-8">
           <div className="mx-auto w-full max-w-[1600px]">
-            {/* WG-06 / WG-07: the hint strip and the "Başlarken" card at the top of the page */}
-            <WelcomePageSlot />
-            {/* RF-16: the university's period grid (GET /period-grid) before the first screen that shows times */}
-            <PeriodGridGate>
-              <RouteGuard>{children}</RouteGuard>
-            </PeriodGridGate>
+            {/* F-MB-1: on /dashboard, /reserve and /admin the card and the page appear together (no push-down) */}
+            <WelcomeSettle>
+              {/* WG-06 / WG-07: the hint strip and the "Başlarken" card at the top of the page */}
+              <LazyWelcomePageSlot />
+              {/* RF-16: the university's period grid (GET /period-grid) before the first screen that shows times */}
+              <PeriodGridGate>
+                <RouteGuard>{children}</RouteGuard>
+              </PeriodGridGate>
+            </WelcomeSettle>
           </div>
         </main>
       </div>
@@ -197,16 +199,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       </Suspense>
       {/* T-R2-01: page-level fields scroll clear of the sticky save / search bars and the tab bar when the keyboard opens */}
       <KeyboardClearance scope="document" />
-      <CommandPalette />
+      <LazyCommandPalette />
       {/* HX-03: the helper sheet ("Yardımcı"), ⌘J and "Göster" */}
       <HelperRoot />
-      <ShortcutsSheet />
+      <LazyShortcutsSheet />
       <Shortcuts />
       <UserSync />
       {/* A4 KVKK: the current privacy notice until acknowledged (never over /admin/kvkk; admins may postpone) */}
-      <PrivacyNoticeGate />
+      <LazyPrivacyNoticeGate />
       {/* WG-04: the welcome guide (sheet, tour, checklist list, hints); it waits for any other dialog */}
-      <WelcomeProvider />
+      <LazyWelcomeProvider />
     </div>
   );
 }

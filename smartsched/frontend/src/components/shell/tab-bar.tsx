@@ -33,9 +33,13 @@ const PILL = "pointer-events-none absolute inset-0 -z-10 rounded-full bg-(--mat-
 /** mobile-a fix 14: below 360 px the items lose their side padding (and the search circle moves to the top bar). The
  * threshold is in rem (22.5rem = 360 px at the default text size), so at 125–200 % text a phone gets the same room.
  * mobile-a fix 4: on a short landscape screen (≤ 500 px tall) an item is one 44 px row, label beside the icon. */
-const ITEM = "relative isolate flex min-h-12 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-full px-1 max-[22.5rem]:px-0 [@media(max-height:500px)]:min-h-11 [@media(max-height:500px)]:flex-row [@media(max-height:500px)]:gap-1.5";
-/** T-R2-04 (R2-A-01, R2-S-07): the label never runs into its neighbour: it truncates inside its column (safety net) */
-const LABEL = "type-caption whitespace-nowrap min-w-0 max-w-full truncate";
+/* F-MA-2 / F-MB-3 (fix-b-2026-10-18): no side padding at any width (the label gets the whole column: 58 px at 390), and
+ * the 44 px minimum stays 44 px at a 32 px root (min(2.75rem, 44px)), so five items never push the bar sideways. */
+const ITEM = "relative isolate flex min-h-12 w-full min-w-[min(2.75rem,44px)] flex-col items-center justify-center gap-0.5 rounded-full px-0 [@media(max-height:500px)]:min-h-11 [@media(max-height:500px)]:flex-row [@media(max-height:500px)]:gap-1.5";
+/** T-R2-04 (R2-A-01, R2-S-07): the label never runs into its neighbour. F-MA-2 (fix-b-2026-10-18): it is never cut
+ *  off either (MOBILE.md M-09: no ellipsis at 320 or 390): a two-word label takes two centred lines, a long word breaks
+ *  (hyphenated where the browser can) instead of ending in "…"; the tab-only words are ≤ 8 letters. */
+const LABEL = "type-caption min-w-0 max-w-full text-center line-clamp-2 [overflow-wrap:anywhere] hyphens-auto";
 /** the glyph box: 20 px icons (tokens §A3) on one line for every tab, the detached search included */
 const ICON = "relative flex [&_svg]:size-5 [&_svg]:stroke-[1.75]";
 /**
@@ -49,6 +53,9 @@ const TAB_LABELS: Readonly<Record<string, MessageKey>> = {
   "/approvals": "nav.tab.approvals",
   "/moderation/me": "nav.tab.myRequests",
   "/reserve": "nav.tab.reserve",
+  // F-MA-2: the planner's bar; Turkish keeps "Özet" / "Çizelge", English gets 8-letter words for 58 px columns
+  "/dashboard": "nav.tab.dashboard",
+  "/timetable": "nav.tab.timetable",
 };
 
 /** routes whose screen carries its own bottom bar (studio-bottom-bar, the wizard's step capsule) */
@@ -68,7 +75,7 @@ export function TabBar() {
   const { can } = usePermissions();
   // a teacher has no planning tabs: the bookings entries (admin/nav-items) take their place; a linked academician
   // (Taleplerim, /moderation/me: hidden from planners) gets it as a tab too (T-R1-06, R1-A-31)
-  const planning = TABS.filter((tab) => can(tab.permission));
+  const planning = TABS.filter((tab) => can(tab.permission)).map((tab) => ({ ...tab, labelKey: TAB_LABELS[tab.href] ?? tab.labelKey }));
   // W3-SLOT: "Rezerve et" (/reserve, the quick reservation) is the first bookings tab for anyone who may book
   const bookings: Tab[] = [QUICK_RESERVE_ITEM, ...ADMIN_NAV_ITEMS.filter((i) => i.href.startsWith("/bookings") || i.href.startsWith("/my-bookings") || i.bookings)]
     .filter((i) => can(i.permission) && !("hideWith" in i && i.hideWith && can(i.hideWith)))

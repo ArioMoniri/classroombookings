@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { crbs } from "@/lib/api/crbs";
 import { helperApi, helperRefusal, invalidateAfterHelperWrite, trackHelper, type ActionArgs, type TurnContext } from "@/lib/api/helper";
 import { translate, type Locale, type MessageKey } from "@/lib/i18n";
-import { useI18n } from "@/lib/i18n/provider";
+import { useI18n, useMessagesFor } from "@/lib/i18n/provider";
 import { useHelperStore, type CardEntry } from "./helper-store";
 import type { IntentHints } from "./intents";
 import type { FormCard, HelperCard } from "./schema.gen";
@@ -76,8 +76,13 @@ export interface Runner {
   cancel: (entry: CardEntry) => void;
 }
 
+/** the helper's cards carry both languages (`both`, `formFromConfirm`) */
+const BOTH_LANGUAGES = ["tr", "en"] as const;
+
 export function useHelperRunner(): Runner {
   const { locale } = useI18n();
+  // F-CH-1: the browser loads one language's messages; the TR/EN card texts need the other one too
+  useMessagesFor(BOTH_LANGUAGES);
   const qc = useQueryClient();
 
   const pushServerCard = useCallback((card: HelperCard, extra?: Partial<CardEntry>) => useHelperStore.getState().pushCard(card, extra), []);

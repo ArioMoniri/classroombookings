@@ -15,11 +15,13 @@
   "nav": {
     "tab": {
       "bookings": "Takvim",
-      "myBookings": "Benimkiler",
+      "myBookings": "Benim",
       "findRoom": "Oda bul",
       "approvals": "Onaylar",
-      "myRequests": "Taleplerim",
-      "reserve": "Rezerve et"
+      "myRequests": "Talepler",
+      "reserve": "Rezerve et",
+      "dashboard": "Özet",
+      "timetable": "Çizelge"
     },
     "plan": "Planlama", "results": "Sonuçlar", "master": "Ana veriler", "admin": "Yönetim",
     "dashboard": "Özet", "import": "İçe aktar", "onboarding": "Dosyalardan kur", "requests": "Talepler", "generate": "Oluştur",

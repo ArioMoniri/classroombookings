@@ -814,8 +814,8 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
               >
                 <span className="flex items-baseline justify-between gap-1">
                   <span className="truncate type-callout leading-4 font-semibold">{c.label}</span>
-                  {/* room tags ("TIP", "PC", "H3"): 12 px on touch (mobile-b phase 2; 10 px read at 768), 10 px only in the desktop zoom */}
-                  {c.tag ? <span className="shrink-0 text-2xs font-semibold text-status-tip-fg pointer-coarse:text-xs" data-testid="column-tag">{c.tag}</span> : null}
+                  {/* room tags ("TIP", "PC", "H3"): the footnote token, 12 px at every pointer (F-MB-2: 10 px read at 768) */}
+                  {c.tag ? <span className="shrink-0 type-footnote leading-4 font-semibold text-status-tip-fg" data-testid="column-tag">{c.tag}</span> : null}
                 </span>
                 {c.sub ? <span className="truncate type-caption leading-[14px] text-label-2 tabular-nums">{c.sub}</span> : null}
               </div>

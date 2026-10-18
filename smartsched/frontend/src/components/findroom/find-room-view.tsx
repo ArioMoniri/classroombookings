@@ -249,8 +249,10 @@ export function FindRoomView() {
   return (
     <div className={cn("flex flex-col gap-5", compact && "pb-20")} data-testid="find-room">
       <PageTitle title={t("wave1.find.title")} subtitle={t("wave1.find.lead")} />
-      <div className="grid gap-5 lg:grid-cols-[minmax(20rem,22.5rem)_minmax(0,1fr)] lg:items-start">
-        <div className="flex flex-col gap-4 lg:sticky lg:top-16">
+      {/* F-MA-1: one shrinkable column below lg (an implicit grid column is as wide as its widest min-content; a
+          fieldset is min-content wide by default: the search form ran to 559 px at 200 % text) */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(20rem,22.5rem)_minmax(0,1fr)] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-16">
           <Card className="gap-0 overflow-visible px-4 py-4">
             <form
               id="fr-form"
@@ -261,7 +263,7 @@ export function FindRoomView() {
                 void run();
               }}
             >
-              <fieldset className="flex flex-col gap-2">
+              <fieldset className="flex min-w-0 flex-col gap-2">
                 <legend className="mb-2 type-headline text-label-1">{t("wave1.find.when")}</legend>
                 <SegmentedControl<WhenMode>
                   aria-label={t("wave1.find.when")}
@@ -315,7 +317,7 @@ export function FindRoomView() {
                 )}
               </fieldset>
 
-              <fieldset className="flex flex-col gap-2">
+              <fieldset className="flex min-w-0 flex-col gap-2">
                 <legend className="mb-2 type-headline text-label-1">{t("wave1.find.time")}</legend>
                 <SegmentedControl<TimeMode>
                   aria-label={t("wave1.find.time")}

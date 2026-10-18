@@ -20,7 +20,9 @@
       "findRoom": "Find room",
       "approvals": "Approvals",
       "myRequests": "Requests",
-      "reserve": "Reserve"
+      "reserve": "Reserve",
+      "dashboard": "Overview",
+      "timetable": "Schedule"
     },
     "plan": "Plan", "results": "Results", "master": "Master data", "admin": "Admin",
     "dashboard": "Dashboard", "import": "Import", "onboarding": "Set up from files", "requests": "Requests", "generate": "Generate",

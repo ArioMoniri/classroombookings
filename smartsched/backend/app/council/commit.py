@@ -130,11 +130,29 @@ _GAP_ONLY = frozenset({"requested_room_ids", "requested_capacity", "weeks"})
 _TEXT = frozenset({"requested_room_text", "definitive_room_text", "notes"})
 
 
-async def _term(session: AsyncSession, spec: dict[str, Any]) -> tuple[Term, bool]:
+def concerns(item: dict[str, Any], chosen: list[int] | set[int]) -> bool:
+    """Whether a review item is about a commit of the ``chosen`` files: an item of several files
+    (``file_indexes``: a planner group's term question, a person named in two groups' files) concerns each of them;
+    an item of no file concerns every commit."""
+    many = item.get("file_indexes")
+    if many:
+        return any(i in chosen for i in many)
+    return item.get("file_index") in (None, *chosen)
+
+
+async def _term(session: AsyncSession, spec: dict[str, Any], *, match: bool = False) -> tuple[Term, bool]:
+    """The term of a commit: the one of ``spec.code``; with ``match`` (the code is the planner's, not the caller's)
+    else the one existing term the group matches (:mod:`app.council.term_match`: "2026-GUZ" for "2026-2027-GUZ");
+    else a new term."""
     code = str(spec.get("code") or "").strip()[:32]
     if not code:
         raise CommitError("a term code is needed (term.code or a planner group)")
     term = (await session.execute(select(Term).where(Term.code == code))).scalar_one_or_none()
+    if term is None and match:
+        from app.council import term_match
+
+        found = await term_match.candidates(session, spec)
+        term = found[0] if len(found) == 1 else None
     created = False
     if term is None:
         start = spec.get("start_date")
@@ -827,9 +845,7 @@ async def commit(
     if not chosen or any(i not in known for i in chosen):
         raise CommitError("choose a planner group or a list of valid file indexes")
     items = await build_items(session, job)
-    pending = [
-        it for it in items if it["blocking"] and it["decision"] is None and it.get("file_index") in (None, *chosen)
-    ]
+    pending = [it for it in items if it["blocking"] and it["decision"] is None and concerns(it, chosen)]
     ai_pending = await airows.pending_ai(session, job, chosen)
     if ai_pending:  # P19-A2: allow_pending never covers rows the AI model read
         raise CommitError(
@@ -848,6 +864,7 @@ async def commit(
         if it["kind"] == "person_merge"
         and (it.get("decision") or {}).get("action") == "accept"
         and it.get("file_index") in chosen
+        and it.get("existing_id") is not None  # FIX-A: a pair of two new people writes nothing at the first commit
     ]
     if pending and not allow_pending:
         # T-R2-21 / R2-S-13: counts only - a merge item's title names two people, and a refusal body is no place
@@ -865,7 +882,7 @@ async def commit(
             raise CommitError(f"term {term_id} not found")
         term_created = False
     else:
-        term, term_created = await _term(session, {**g, **(term_spec or {})})
+        term, term_created = await _term(session, {**g, **(term_spec or {})}, match=not (term_spec or {}).get("code"))
     periods = plan.get("period_grid", {}).get("periods") or []
     if term.periods_json:
         periods = [

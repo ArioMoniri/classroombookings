@@ -59,18 +59,20 @@ const tabs = () => within(screen.getByRole("navigation", { name: "Sekmeler" })).
 describe("T-R2-04: tab-bar labels fit their column", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("a teacher's tabs read the short tab-only labels, and the label span truncates as the safety net", async () => {
+  it("a teacher's tabs read the short tab-only labels, and the label span wraps to two lines as the safety net", async () => {
     nav.pathname = "/my-bookings";
     stubFetch(ACADEMICIAN);
     wrap(<TabBar />);
     await waitFor(() => expect(tabs().length).toBeGreaterThanOrEqual(3));
     const names = tabs().map((a) => a.getAttribute("aria-label"));
     // W3-SLOT follow-up: "Rezerve et" (/reserve, the quick reservation) is the teacher's first tab
-    expect(names).toEqual(["Rezerve et", "Takvim", "Benimkiler", "Taleplerim"]); // the grid tab reads "Takvim", never confused with "Rezerve et"
+    expect(names).toEqual(["Rezerve et", "Takvim", "Benim", "Talepler"]); // F-MA-2: ≤ 8-letter words fit a 58 px column // the grid tab reads "Takvim", never confused with "Rezerve et"
     expect(tabs()[0]).toHaveAttribute("href", "/reserve");
     for (const a of tabs()) {
       const label = a.querySelector("[data-slot=tab-label]")!;
-      expect(label).toHaveClass("min-w-0", "max-w-full", "truncate");
+      // F-MA-2 (fix-b-2026-10-18): two centred lines, never an ellipsis (MOBILE.md M-09)
+      expect(label).toHaveClass("min-w-0", "max-w-full", "line-clamp-2", "text-center");
+      expect(label).not.toHaveClass("truncate");
       expect(a.textContent!.trim().startsWith(a.getAttribute("aria-label")!)).toBe(true);
     }
     // the tab-only keys are shorter than the sidebar words in both languages

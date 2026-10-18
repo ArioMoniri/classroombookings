@@ -82,6 +82,19 @@ def _conflict(code: str, message: str, **data: Any) -> BookingError:
     return BookingError(409, code, message, **data)
 
 
+#: FIX-A (e2e 2026-10-18, HX/HB copy): the words of a taken slot, as the helper cards and quick reserve say them
+#: ("Bu saat az önce doldu.", ``components/helper/__fixtures__/cards.json``, docs/design/v3/helper.md); the helper's
+#: refusal (``app/ai/helper/actions/writes.refusal``) prefers these over its own fallback "Bu saat dolu."
+SLOT_TAKEN = {"message_tr": "Bu saat az önce doldu.", "message_en": "This slot was just taken."}
+SLOT_HELD = {
+    "timetable": {
+        "message_tr": "Bu saatte yayımlanmış ders programında ders var.",
+        "message_en": "The published timetable holds this slot.",
+    },
+    "block": {"message_tr": "Bu saat ayrılmış bir blokta.", "message_en": "This slot is a reserved block."},
+}
+
+
 async def today(session: AsyncSession) -> date:
     tz = str(await settings_service.get_value(session, "timezone") or "Europe/Istanbul")
     try:
@@ -784,7 +797,7 @@ async def _insert(session: AsyncSession, b: Booking) -> Booking:
         await session.flush()
     except IntegrityError as exc:  # a concurrent booking won the race; the unique key is the referee
         await session.rollback()
-        raise _conflict("conflict", "the slot was booked by someone else a moment ago") from exc
+        raise _conflict("conflict", "the slot was booked by someone else a moment ago", **SLOT_TAKEN) from exc
     return b
 
 
@@ -795,6 +808,7 @@ async def _conflict_error(held: Held, room: Room, d: date) -> BookingError:
         f"{room.display_name} on {d:%d.%m.%Y} P{held.start}-P{held.end} is held by {what[held.kind]}"
         + (f" ({held.label})" if held.kind != "booking" and held.label else ""),
         conflict=held.as_dict(),
+        **SLOT_HELD.get(held.kind, SLOT_TAKEN),
     )
 
 
@@ -1504,7 +1518,7 @@ async def update(
             await session.flush()
         except IntegrityError as exc:
             await session.rollback()
-            raise _conflict("conflict", "the slot was booked by someone else a moment ago") from exc
+            raise _conflict("conflict", "the slot was booked by someone else a moment ago", **SLOT_TAKEN) from exc
     now = utcnow()
     for row in targets:
         for key in ("notes", "department_id", "user_id"):

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
 import { StatusBadge } from "@/components/common/status-badge";
-import { runStatusBadge } from "@/components/runs/runs-list";
+import { runStatusBadge } from "@/components/runs/run-status";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { KbdHint } from "@/components/ui/kbd-hint";
 import { ADMIN_SECTION_NAV_ITEMS } from "@/components/admin/nav-items";

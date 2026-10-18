@@ -19,6 +19,7 @@ import { request } from "@/lib/api/client";
 import { refusalBody } from "@/lib/api/error-text";
 import { useMeFull } from "@/lib/api/shell-extra";
 import { useI18n } from "@/lib/i18n/provider";
+import { useDirtyCapsule } from "./dirty-capsule";
 
 const Contact = z.object({
   contact_email: z.string().nullish(),
@@ -50,6 +51,7 @@ function SecurityContactForm() {
   const form: Record<FieldName, string> = edits ?? { contact_email: q.data?.contact_email ?? "", contact_url: q.data?.contact_url ?? "", policy_url: q.data?.policy_url ?? "", preferred_languages: q.data?.preferred_languages ?? "tr, en" };
   const setForm = (next: (f: Record<FieldName, string>) => Record<FieldName, string>) => setEdits(next(form));
   const [error, setError] = useState<{ field: FieldName | null; text: string } | null>(null);
+  const capsule = useDirtyCapsule(edits !== null);
   const refs = useRef<Partial<Record<FieldName, HTMLInputElement | null>>>({});
   useEffect(() => {
     if (error?.field) refs.current[error.field]?.focus();
@@ -119,10 +121,14 @@ function SecurityContactForm() {
             </Field>
           ))}
           <div className="flex flex-wrap items-center gap-3 md:col-span-2">
-            {/* never disabled while saving: a disabled button drops the focus to <body>; a second submit is ignored */}
-            <Button type="submit" aria-busy={save.isPending || undefined} className="pointer-coarse:min-h-11" data-testid="security-contact-save">
-              {t("settings.securityContact.save")}
-            </Button>
+            {/* F-RF2-1: with unsaved changes the save is the phone's page-actions capsule (M-05), named after the card */}
+            <div {...capsule.props}>
+              {edits !== null ? <span className="min-w-0 truncate pl-2 type-callout text-label-1 lg:hidden">{t("settings.securityContact.title")}</span> : null}
+              {/* never disabled while saving: a disabled button drops the focus to <body>; a second submit is ignored */}
+              <Button type="submit" aria-busy={save.isPending || undefined} className="pointer-coarse:min-h-11" data-testid="security-contact-save">
+                {t("settings.securityContact.save")}
+              </Button>
+            </div>
             <p className="type-footnote text-label-3" data-testid="security-contact-last">
               {last?.at ? t("settings.securityContact.lastChange", { name: last.actor ?? "—", time: when(last.at) }) : t("settings.securityContact.never")}
             </p>

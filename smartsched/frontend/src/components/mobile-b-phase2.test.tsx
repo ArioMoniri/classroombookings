@@ -138,9 +138,9 @@ describe("fix 10 · Studio at 200 % text", () => {
   it("the undo / redo / advanced row wraps", () => {
     expect(src).toContain('<div className="flex flex-wrap items-center gap-2 xl:hidden">');
   });
-  it("the bottom bar's 'Geri' keeps its icon and moves its word to sr-only once the text is large (rem media query)", () => {
+  it("the bottom bar's 'Geri' keeps its icon and moves its word to sr-only once the text is large (F-MB-3: a container query, rem = root font)", () => {
     const bar = src.slice(src.indexOf('data-glass="chrome"'), src.indexOf('data-testid="step-next"'));
-    expect(bar).toMatch(/<span className="max-\[24rem\]:sr-only">\{t\("common\.back"\)\}<\/span>/);
+    expect(bar).toMatch(/<span className="@max-\[22rem\]\/sbar:sr-only">\{t\("common\.back"\)\}<\/span>/);
   });
 });
 
@@ -251,7 +251,8 @@ describe("fix 1 · CLS round 2: every slot the report named holds its final heig
   });
   it("/exams/invigilation: one 60dvh placeholder until the runs and the plans are in (0.39–0.56)", () => {
     const src = read("invigilation/invigilation-view.tsx");
-    expect(src).toContain('{runs.isLoading || (tab === "plans" && run && plans.isLoading) ? (');
+    expect(src).toContain('const panelLoading = runs.isLoading || (tab === "plans" && !!run && plans.isLoading);');
+    expect(src).toContain("{panelLoading ? (");
     expect(src).toContain('data-testid="invig-loading"');
     expect(lineOf("invigilation/invigilation-view.tsx", "invig-loading")).toContain("min-h-[60dvh]");
   });
@@ -279,10 +280,11 @@ describe("fix 1 · CLS round 2: every slot the report named holds its final heig
 });
 
 describe("fix 6 · timetable room tags are 12 px on touch", () => {
-  it("the column tag ('TIP', 'PC', 'H3') is text-xs on a coarse pointer, not the 11 px caption", () => {
+  it("the column tag ('TIP', 'PC', 'H3') is 12 px, not the 11 px caption (F-MB-2 2026-10-18: 12 px at every pointer)", () => {
     const tag = lineOf("timetable/time-grid.tsx", "column-tag");
-    expect(tag).toContain("pointer-coarse:text-xs");
-    expect(tag).not.toContain("pointer-coarse:type-caption");
+    expect(tag).toContain("type-footnote");
+    expect(tag).not.toContain("text-2xs");
+    expect(tag).not.toContain("type-caption");
   });
 });
 

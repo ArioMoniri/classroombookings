@@ -29,3 +29,7 @@ if (typeof window !== "undefined") {
     window.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
   }
 }
+
+// F-CH-1: the message dictionaries are one chunk per language in the app; component tests read both at once
+import { loadMessages } from "@/lib/i18n";
+await Promise.all([loadMessages("tr"), loadMessages("en")]);

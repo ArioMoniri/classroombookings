@@ -3,7 +3,20 @@
  * attaches the JWT from the httpOnly cookie and forwards to the FastAPI backend).
  */
 import type { z } from "zod";
-import { ApiError } from "./schemas";
+import type { ApiError } from "./schemas";
+
+/**
+ * `ApiError` checked by hand (F-CH-1: client.ts is in every page's root main chunk through
+ * instrumentation-client → ops; the zod schema pulled zod and the whole schema module in with it).
+ */
+function asApiError(json: unknown): ApiError | null {
+  if (typeof json !== "object" || json === null) return null;
+  const { detail, error_id } = json as { detail?: unknown; error_id?: unknown };
+  if (error_id !== undefined && typeof error_id !== "string") return null;
+  const okList = Array.isArray(detail) && detail.every((d) => typeof d === "object" && d !== null && typeof (d as { msg?: unknown }).msg === "string" && ((d as { loc?: unknown }).loc === undefined || (Array.isArray((d as { loc?: unknown }).loc) && ((d as { loc: unknown[] }).loc).every((x) => typeof x === "string" || typeof x === "number"))));
+  if (typeof detail !== "string" && !okList) return null;
+  return json as ApiError;
+}
 
 export const API_PREFIX = "/api/v1";
 
@@ -76,13 +89,13 @@ async function parseError(res: Response): Promise<HttpError> {
   let errorId: string | undefined;
   try {
     const json: unknown = await res.json();
-    const parsed = ApiError.safeParse(json);
-    if (parsed.success) {
+    const parsed = asApiError(json);
+    if (parsed) {
       // the raw detail is kept (zod would strip a validator's `ctx` with its Turkish text, lib/api/error-text.ts)
       detail = (json as { detail: unknown }).detail;
-      errorId = parsed.data.error_id;
+      errorId = parsed.error_id;
       // T-R1-31: pydantic's "Value error, " prefix is never part of what a person reads
-      message = typeof parsed.data.detail === "string" ? stripPrefix(parsed.data.detail) : parsed.data.detail.map((d) => stripPrefix(d.msg)).join("; ");
+      message = typeof parsed.detail === "string" ? stripPrefix(parsed.detail) : parsed.detail.map((d) => stripPrefix(d.msg)).join("; ");
     } else {
       detail = json;
     }

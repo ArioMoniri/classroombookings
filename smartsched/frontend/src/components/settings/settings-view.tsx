@@ -42,6 +42,10 @@ import { useUiStore } from "@/stores/ui";
 import { cn } from "@/lib/utils";
 import { pageActionsCapsule } from "@/components/admin/kit";
 import { SigninSecuritySettings } from "./signin-security";
+import { SettleGate } from "@/components/common/settle-gate";
+import { useIntegrationSettings, useWebhooks } from "@/lib/api/approval-first";
+import { useExportAdminSettings } from "@/lib/api/calendar-export";
+import { usePublicSettings } from "@/lib/api/public-schedule";
 
 const WEIGHT_KINDS = ["room_preference", "building_preference", "min_capacity_waste", "same_room_across_weeks", "stability", "exam_gap"] as const;
 /** The solver's own defaults (backend app/solver/weights.py DEFAULT_WEIGHTS): what a run uses when the organisation
@@ -377,6 +381,24 @@ function GeneralCard() {
   );
 }
 
+/**
+ * F-MB-1 (fix-b-2026-10-18): the integrations cards each grow when their own settings answer (the calendar sync card
+ * by the whole CAL-09 export block), and pushed the cards below them down (CLS 0.41 at 390, `calendar-push-admin`).
+ * One placeholder holds the tab until the four answers are in (or SETTLE_CAP_MS), then the cards appear together.
+ */
+function IntegrationsSettle({ children }: { children: React.ReactNode }) {
+  const sync = useIntegrationSettings();
+  const exportAdmin = useExportAdminSettings();
+  const publicSettings = usePublicSettings();
+  const hooks = useWebhooks();
+  const ready = [sync, exportAdmin, publicSettings, hooks].every((q) => !q.isPending);
+  return (
+    <SettleGate ready={ready} testId="integrations-loading" placeholderClassName="min-h-[70dvh] rounded-2xl bg-fill-3 animate-pulse motion-reduce:animate-none">
+      {children}
+    </SettleGate>
+  );
+}
+
 export function SettingsView() {
   const { t } = useI18n();
   const router = useRouter();
@@ -457,14 +479,16 @@ export function SettingsView() {
         {admin ? <TabsContent value="import"><ImportCard /></TabsContent> : null}
         {can("setup.settings") ? (
           <TabsContent value="integrations">
-            <div className="space-y-5">
-              <CalendarSyncAdmin />
-              {/* the organisation's Google / Microsoft 365 OAuth clients (write-only secrets, redirect URIs) */}
-              <CalendarPushAdmin />
-              {/* V2 public day view: off by default, switching it on records a KVKK sign-off */}
-              <PublicScheduleAdmin />
-              <WebhooksAdmin />
-            </div>
+            <IntegrationsSettle>
+              <div className="space-y-5">
+                <CalendarSyncAdmin />
+                {/* the organisation's Google / Microsoft 365 OAuth clients (write-only secrets, redirect URIs) */}
+                <CalendarPushAdmin />
+                {/* V2 public day view: off by default, switching it on records a KVKK sign-off */}
+                <PublicScheduleAdmin />
+                <WebhooksAdmin />
+              </div>
+            </IntegrationsSettle>
           </TabsContent>
         ) : null}
         {can("setup.settings") ? <TabsContent value="booking-rules"><PoliciesAdmin /></TabsContent> : null}

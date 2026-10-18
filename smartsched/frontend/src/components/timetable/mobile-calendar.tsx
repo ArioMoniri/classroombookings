@@ -117,10 +117,11 @@ export function MobileCalendar(p: MobileCalendarProps) {
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="outline" size="icon-lg" aria-label={t("calendar.lens.label")} />}><CalendarDays /></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {/* RF-M #5: a pick closes the menu (Base UI radio items stay open by default) */}
               <DropdownMenuRadioGroup value={p.lens === "month" || p.lens === "term" ? p.lens : "agenda"} onValueChange={(v) => p.onLens(v as Lens)}>
-                <DropdownMenuRadioItem value="agenda">{t("calendar.lens.day")}</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="month">{t("calendar.lens.month")}</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="term">{t("calendar.lens.term")}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="agenda" closeOnClick>{t("calendar.lens.day")}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="month" closeOnClick>{t("calendar.lens.month")}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="term" closeOnClick>{t("calendar.lens.term")}</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
