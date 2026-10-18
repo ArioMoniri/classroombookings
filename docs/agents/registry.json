@@ -4449,7 +4449,8 @@
       "goal": "Lane HB-23b (ledger name `hb23b-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; light resource use: targeted pytest wit…",
       "ledger": "HB-23b backend: file classify + hand-over",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 17:44"
     },
     {
       "id": "aed34f4fadb1b25c9",
