@@ -326,17 +326,58 @@ describe("refused / error / several files", () => {
     expect(screen.getByTestId("helper-card-file-refused")).toHaveTextContent("Dosya 16 MB; en çok 15 MB okuyabilirim.");
   });
 
-  it("several files: one card, one primary that opens the setup wizard with all of them", async () => {
-    const key = useHelperStore.getState().pushFile([{ name: "a.xlsx", size: 1 }, { name: "b.ics", size: 2 }]);
-    useHelperStore.getState().updateFile(key, { phase: "shown", view: { kind: "many", n: 2 }, seq: 1 });
+  it("several files: the server's one card, one primary; the hand-over sends every token to the setup wizard", async () => {
+    const t2 = `${btoa(JSON.stringify({ k: "file", s: "stage43" })).replace(/=+$/, "")}.c2lnbmF0dXJlLXNpZ25hdHVyZQ`;
+    const exp = new Date(Date.now() + 600_000).toISOString();
+    const a = new File(["a"], "a.xlsx");
+    const b = new File(["bb"], "b.ics");
+    const many: FileCard = {
+      ...DETECTED,
+      title: tr("2 dosya bıraktınız. Birden çok dosyayı Kurulum sihirbazı birlikte okur."),
+      kind: null,
+      kind_label: null,
+      certainty: null,
+      format: "mixed",
+      term: null,
+      warnings: [],
+      evidence: { tr: ["1. dosya: Planlama listesi", "2. dosya: Takvim dosyası"] },
+      primary: { feature_id: "onboarding", params: {}, label: tr("Kurulum sihirbazında aç"), label_short: null, carries_file: true },
+      secondary: [],
+    };
+    const key = useHelperStore.getState().pushFile([{ name: a.name, size: a.size }, { name: b.name, size: b.size }]);
+    const stages = [
+      { upload_token: TOKEN, expires_at: exp, size: 1, format: "xlsx" },
+      { upload_token: t2, expires_at: exp, size: 2, format: "ics" },
+    ];
+    useHelperStore.getState().updateFile(key, { phase: "shown", view: { kind: "card", card: many }, stage: stages[0]!, stages, seq: 1 });
+    // the browser's File objects (the router keeps them by entry): attach them as the router would
+    const { attachFilesForTest } = await import("./file-router");
+    attachFilesForTest(key, [a, b]);
     show();
-    const card = screen.getByTestId("helper-card-file-many");
-    expect(card).toHaveTextContent("2 dosya bıraktınız. Birden çok dosyayı Kurulum sihirbazı birlikte okur.");
-    expect(within(card).getAllByRole("button")).toHaveLength(1);
+    const card = screen.getByTestId("helper-card-file-detected");
+    expect(card).toHaveTextContent("2 dosya bıraktınız.");
+    expect(within(card).getAllByTestId("helper-file-primary")).toHaveLength(1);
+    expect(within(card).queryByTestId("helper-file-other")).toBeNull();
+    expect(screen.getAllByTestId("helper-file-chip")).toHaveLength(2);
     fireEvent.click(within(card).getByTestId("helper-file-primary"));
     await waitFor(() => expect(host.go).toHaveBeenCalledWith("/onboarding?from=helper"));
-    expect(useFileHandoffStore.getState().handoff).toMatchObject({ featureId: "onboarding" });
-    expect(screen.getAllByTestId("helper-file-chip")).toHaveLength(2);
+    expect(fetches.find((f) => f.key === "POST /api/v1/helper/files/handoff")?.body).toEqual({ upload_tokens: [TOKEN, t2], kind: null, feature_id: "onboarding", params: {} });
+    expect(useFileHandoffStore.getState().handoff?.items.map((i) => [i.name, i.sid])).toEqual([
+      ["a.xlsx", "stage42"],
+      ["b.ics", "stage43"],
+    ]);
+  });
+
+  it("HELPER_FILE_STAGE=off (resend): the primary hands over the browser's File without a token or an audit call", async () => {
+    const f = new File(["x"], "Bahar_son.xlsx");
+    const key = seed({ kind: "card", card: DETECTED }, { stage: null, resend: true });
+    const { attachFilesForTest } = await import("./file-router");
+    attachFilesForTest(key, [f]);
+    show();
+    fireEvent.click(screen.getByTestId("helper-file-primary"));
+    await waitFor(() => expect(host.go).toHaveBeenCalledWith("/import?kind=weekly-grid&term=12&year=2026&from=helper"));
+    expect(fetches).toHaveLength(0);
+    expect(useFileHandoffStore.getState().handoff?.items[0]).toMatchObject({ token: null, name: "Bahar_son.xlsx" });
   });
 
   it("a newer file collapses the older live card to one line", () => {

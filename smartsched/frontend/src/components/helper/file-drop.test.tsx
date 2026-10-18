@@ -10,6 +10,7 @@ import { helperApi, type HelperStatus } from "@/lib/api/helper";
 import { HelperSheet } from "./helper-sheet";
 import { useHelperStore } from "./helper-store";
 import { PageFileTarget } from "./page-file-target";
+import { useUiStore } from "@/stores/ui";
 import { renderHelper, resetHelperStore } from "./test-helpers";
 
 const nav = vi.hoisted(() => ({ pathname: "/dashboard", search: "" }));
@@ -37,7 +38,7 @@ function media(desktop: boolean) {
 }
 
 const status = (over: Partial<HelperStatus> = {}): HelperStatus => ({ mode: "ai", enabled: true, reason: null, provider_kind: "local", provider_label: null, fallback_active: false, message: null, ...over });
-const TOKEN = `${btoa(JSON.stringify({ sid: "stage77" })).replace(/=+$/, "")}.c2lnbmF0dXJlLXNpZ25hdHVyZQ`;
+const TOKEN = `${btoa(JSON.stringify({ k: "file", s: "stage77" })).replace(/=+$/, "")}.c2lnbmF0dXJlLXNpZ25hdHVyZQ`;
 const CARD = {
   v: 1,
   id: "a1b2c3d4e5f6",
@@ -64,6 +65,7 @@ let calls: { key: string; body: BodyInit | null | undefined }[];
 beforeEach(() => {
   Element.prototype.scrollIntoView ??= vi.fn();
   resetHelperStore();
+  useUiStore.setState({ termId: 11 });
   media(true);
   fine.value = true;
   nav.pathname = "/dashboard";
@@ -146,9 +148,18 @@ describe("the sheet's ways in", () => {
     const fd = classifyCalls()[0]!.body as FormData;
     expect((fd.get("file") as File).name).toBe("Bahar_son.xlsx");
     expect(fd.get("lang")).toBe("tr");
+    // the term switcher's choice goes along, so the card can say "the file says Bahar; Güz is selected"
+    expect(fd.get("term_id")).toBe("11");
     await waitFor(() => expect(document.activeElement).toHaveTextContent("Bu bir planlama listesi"));
     // nothing went to the model's turn
     expect(calls.some((c) => c.key.includes("/helper/turn"))).toBe(false);
+  });
+
+  it("several files from a planner go in one classify call (one setup-wizard card)", async () => {
+    await openSheet();
+    fireEvent.change(screen.getByTestId("helper-file-input"), { target: { files: [xlsx(10, "a.xlsx"), xlsx(20, "b.xlsx")] } });
+    await waitFor(() => expect(classifyCalls()).toHaveLength(1));
+    expect((classifyCalls()[0]!.body as FormData).getAll("file").map((f) => (f as File).name)).toEqual(["a.xlsx", "b.xlsx"]);
   });
 
   it("a pasted file in the composer is attached; a text paste is left alone", async () => {

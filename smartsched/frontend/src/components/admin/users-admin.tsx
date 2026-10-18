@@ -56,7 +56,7 @@ import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
-import { useHelperFileHandoff } from "@/components/helper/file-handoff";
+import { handedFile, useHelperFileHandoff } from "@/components/helper/file-handoff";
 import { HandedFileRow } from "@/components/helper/handed-file-row";
 import { normaliseScopes } from "@/components/approvals/approvals-model";
 import { ScopePicker, scopeLabel, useScopeLookups } from "@/components/approvals/scope-picker";
@@ -962,7 +962,10 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
   const [file, setFile] = useState<File | null>(null);
   // HB-23c: the CSV the helper handed over (a staged token) replaces the file field until ✕
   const handed = useHelperFileHandoff("admin.users");
-  const handedItem = handed.expired ? null : (handed.handoff?.items[0] ?? null);
+  const handedRaw = handed.expired ? null : (handed.handoff?.items[0] ?? null);
+  // HELPER_FILE_STAGE=off: the browser's File itself (no token); gone after a reload
+  const handedBytes = handedRaw && !handedRaw.token ? handedFile(handedRaw) : null;
+  const handedItem = handedRaw && (handedRaw.token || handedBytes) ? handedRaw : null;
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
   const [dept, setDept] = useState("");
@@ -971,7 +974,7 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const m = useCrbsMutation(
-    () => crbs.users.import(handedItem?.token ? null : file, { password: password || undefined, role_id: role.startsWith("id:") ? Number(role.slice(3)) : null, department_id: dept ? Number(dept) : null, enabled, force_password_reset: force, upload_token: handedItem?.token ?? undefined }),
+    () => crbs.users.import(handedItem?.token ? null : (handedBytes ?? file), { password: password || undefined, role_id: role.startsWith("id:") ? Number(role.slice(3)) : null, department_id: dept ? Number(dept) : null, enabled, force_password_reset: force, upload_token: handedItem?.token ?? undefined }),
     [["crbs", "users"]],
   );
   const close = (o: boolean) => {
@@ -1078,11 +1081,11 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
           </Button>
           {!result ? (
             <Button
-              disabled={(!file && !handedItem?.token) || m.isPending}
+              disabled={(!file && !handedItem) || m.isPending}
               onClick={() =>
                 m.mutate(undefined, {
                   onSuccess: (r) => {
-                    if (handedItem?.token) handed.consumed();
+                    if (handedItem) handed.consumed();
                     setResult(r);
                   },
                   onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),

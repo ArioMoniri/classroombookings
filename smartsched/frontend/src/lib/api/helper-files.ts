@@ -108,7 +108,7 @@ export const ExamplesOut = z.array(ExampleItem).catch([]);
 export type ExampleItem = z.infer<typeof ExampleItem>;
 
 /** The template's extension per kind (`GET /helper/files/examples` → `format`; §6.6). */
-export const EXAMPLE_EXT: Readonly<Record<string, ExampleItem["ext"]>> = {
+export const EXAMPLE_EXT: Readonly<Record<string, ExampleItem["format"]>> = {
   planning_list: "xlsx",
   exam_list: "xlsx",
   weekly_grid: "xlsx",

@@ -6,7 +6,7 @@ import { isStageGone, sidOf, stageIdOf } from "@/lib/api/helper-files";
 import { HttpError } from "@/lib/api/client";
 import { HANDOFF_STORAGE_KEY, fileHandoffHref, handedFile, useFileHandoffStore, useHelperFileHandoff, type FileHandoff } from "./file-handoff";
 
-const TOKEN = `${btoa(JSON.stringify({ sid: "abc123", uid: 1 })).replace(/=+$/, "")}.c2lnbmF0dXJl`;
+const TOKEN = `${btoa(JSON.stringify({ k: "file", s: "abc123", u: 1 })).replace(/=+$/, "")}.c2lnbmF0dXJl`;
 
 const sample = (over: Partial<FileHandoff> = {}): FileHandoff => ({
   featureId: "import",
@@ -97,6 +97,7 @@ describe("stage helpers", () => {
   it("reads the stage id from the token's payload when the stage does not name it", () => {
     expect(stageIdOf(TOKEN)).toBe("abc123");
     expect(stageIdOf("not-a-token")).toBeNull();
+    expect(stageIdOf(`${btoa(JSON.stringify({ sid: "older1" })).replace(/=+$/, "")}.x`)).toBe("older1");
     expect(sidOf({ upload_token: TOKEN, sid: "given1" })).toBe("given1");
     expect(sidOf({ upload_token: TOKEN })).toBe("abc123");
   });

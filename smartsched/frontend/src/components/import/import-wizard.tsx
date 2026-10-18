@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { HttpError } from "@/lib/api/client";
 import { uploadImportWithProgress } from "@/lib/api/shell-extra";
 import { isStageGone } from "@/lib/api/helper-files";
-import { useHelperFileHandoff } from "@/components/helper/file-handoff";
+import { handedFile, useHelperFileHandoff } from "@/components/helper/file-handoff";
 import { HandedFileExpired, HandedFileRow } from "@/components/helper/handed-file-row";
 import { MagneticDrop, type UploadState } from "./magnetic-drop";
 import { useImports } from "@/lib/api/hooks";
@@ -75,8 +75,12 @@ export function ImportWizard() {
   /** HB-23c: the file the helper handed over (a staged token, never in the address); shown with `from=helper` only */
   const fromHelper = params.get("from") === "helper";
   const handed = useHelperFileHandoff("import", { kind });
-  const handedItem = fromHelper && !handed.expired ? (handed.handoff?.items[0] ?? null) : null;
-  const handedExpired = fromHelper && !!handed.handoff && handed.expired;
+  const handedRaw = fromHelper ? (handed.handoff?.items[0] ?? null) : null;
+  // HELPER_FILE_STAGE=off: no token, the browser's File itself (gone after a reload: same as expired)
+  const handedBytes = handedRaw && !handedRaw.token ? handedFile(handedRaw) : null;
+  const handedLost = !!handedRaw && !handedRaw.token && !handedBytes;
+  const handedItem = handedRaw && !handed.expired && !handedLost ? handedRaw : null;
+  const handedExpired = !!handedRaw && (handed.expired || handedLost);
   const [file, setFile] = useState<File | null>(null);
   const [upload, setUpload] = useState<UploadState>({ phase: "idle" });
   const [flow, setFlow] = useState<FlowStep>("upload");
@@ -93,7 +97,7 @@ export function ImportWizard() {
   const effectiveTerm = termId ?? (termParam && terms.some((x) => x.id === termParam) ? termParam : null) ?? term?.id ?? 1;
   const focusZone = () => requestAnimationFrame(() => document.querySelector('[data-testid="import-dropzone"]')?.querySelector<HTMLElement>('button:not([disabled]), [tabindex="0"]')?.focus());
   // the handed-over file is here: the page's own primary ("Önizle") takes the focus (§10)
-  const handedToken = handedItem?.token ?? null;
+  const handedToken = handedItem ? (handedItem.token ?? `file:${handedItem.name}`) : null;
   useEffect(() => {
     if (!handedToken) return;
     const id = requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-testid="import-start"]:not([disabled])')?.focus());
@@ -165,7 +169,7 @@ export function ImportWizard() {
     // a staged file has no bytes to send: straight to "the server reads it"
     setUpload(handedItem?.token ? { phase: "processing" } : { phase: "uploading", pct: 0 });
     try {
-      const j = await uploadImportWithProgress(kind, handedItem?.token ? null : file, t0, {
+      const j = await uploadImportWithProgress(kind, handedItem?.token ? null : (handedBytes ?? file), t0, {
         dryRun: true,
         ...(handedItem?.token ? { uploadToken: handedItem.token, filename: handedItem.name } : {}),
         year: yearParam,
@@ -175,7 +179,7 @@ export function ImportWizard() {
         },
       });
       setUpload({ phase: "done" });
-      if (handedItem?.token) handed.consumed();
+      if (handedItem) handed.consumed();
       setPreview(j);
       void imports.refetch();
     } catch (e) {
@@ -206,7 +210,7 @@ export function ImportWizard() {
     }
   };
 
-  const canStart = file !== null || !!handedItem?.token;
+  const canStart = file !== null || !!handedItem;
   const counts = job ? countBySeverity(job.summary.warnings) : null;
 
   return (

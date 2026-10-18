@@ -83,7 +83,7 @@ async function classifyInto(key: string, list: readonly File[], lang: string, co
     const status = err instanceof HttpError ? err.status : 0;
     const card = helperRefusal(err).card;
     if (card && (card.type === "refusal" || card.type === "error" || card.type === "limit")) shown(key, card, null);
-    else if (status === 413) update(key, (e) => ({ phase: "shown", view: { kind: "local", code: "file_too_large", size: file.size }, seq: e.seq + 1 }));
+    else if (status === 413) update(key, (e) => ({ phase: "shown", view: { kind: "local", code: "file_too_large", size: Math.max(...list.map((f) => f.size)) }, seq: e.seq + 1 }));
     else update(key, (e) => ({ phase: "shown", view: { kind: "local", code: "file_read_failed" }, seq: e.seq + 1 }));
   } finally {
     inflight.delete(key);
@@ -105,6 +105,11 @@ export function dropLiveStages() {
 
 export function forgetEntryFiles() {
   files.clear();
+}
+
+/** tests: give an entry its browser File objects without a classify */
+export function attachFilesForTest(key: string, list: File[]) {
+  files.set(key, list);
 }
 
 type Can = (perm: string | readonly string[] | undefined) => boolean;
