@@ -2969,7 +2969,8 @@
       "goal": "You are the CHARTS lane, phase 2, for SmartSched (repo /home/user/classroombookings, frontend smartsched/frontend). Phase 1 is done: read docs/design/v3/charts.md, the wireframes docs/design/v3/wireframes/charts-*.svg and the CH-01…CH-12 tickets at the end of docs/ROADMAP.md. Also read /tmp/claude-0…",
       "ledger": "Charts phase 2: install + shell",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 00:06"
     },
     {
       "id": "adf240663ffd2d762",

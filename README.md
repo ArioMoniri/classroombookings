@@ -359,7 +359,7 @@ backend only so far are listed in [docs/STATUS.md](docs/STATUS.md).
 
 <!-- AUTO:status only=done -->
 
-Done 63 · Backend only 0 · In progress 2 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
+Done 63 · Backend only 3 · In progress 2 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
 
 | Feature | Area | Evidence |
 |---|---|---|
@@ -450,6 +450,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `138ab31` (committed 2026-10-17 23:54 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `2e3712f` (committed 2026-10-18 00:05 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

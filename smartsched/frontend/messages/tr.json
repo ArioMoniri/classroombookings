@@ -6808,7 +6808,8 @@
       "start": "Sesle yaz",
       "stop": "Kaydı durdur",
       "hold": "Konuşmak için basılı tutun",
-      "shortcut": "Ctrl+Shift+M"
+      "shortcut": "Ctrl+Shift+M",
+      "limit": "Sesli giriş sınırına ulaşıldı"
     },
     "strip": {
       "starting": "Mikrofon açılıyor…",
@@ -6833,9 +6834,8 @@
       "title": "Sesli giriş",
       "where": "Sesiniz yazıya dökülmek için {provider} hizmetine gönderilir.",
       "whereRegion": "Sesiniz yazıya dökülmek için {provider} hizmetine ({region}) gönderilir.",
-      "whereLocal": "Sesiniz kurumun kendi sunucusundaki {provider} hizmetinde yazıya dökülür.",
       "providerUnknown": "yöneticilerin seçtiği ses",
-      "noKeep": "Ses kaydı saklanmaz; yalnızca yazıya dökülmüş metin size döner.",
+      "noKeep": "Ses yazıya döküldükten sonra silinir; ses kaydı saklanmaz.",
       "review": "Metin kutuya gelir. Siz düzeltip gönderene kadar hiçbir yere gönderilmez.",
       "browser": "Tarayıcınız şimdi mikrofon izni isteyecek.",
       "withdraw": "Onayınızı istediğiniz zaman Profil › Gizlilik'ten geri alabilirsiniz.",
@@ -6858,7 +6858,14 @@
       "voice_off": "Sesli giriş yöneticiler tarafından kapatıldı. Yazarak devam edebilirsiniz.",
       "not_configured": "Ses için bir model seçilmedi.",
       "ai_transfer_basis_missing": "Bu ses hizmeti için KVKK aktarım kaydı yok; yönetici tamamlamalı.",
-      "provider_error": "Ses yazıya dökülemedi. Tekrar deneyin ya da yazarak devam edin."
+      "provider_error": "Ses yazıya dökülemedi. Tekrar deneyin ya da yazarak devam edin.",
+      "not_permitted": "Bu alanda sesli giriş için yetkiniz yok. Yazarak devam edebilirsiniz.",
+      "unsupported_audio": "Bu ses biçimi desteklenmiyor. Başka bir tarayıcıyla deneyin ya da yazarak devam edin.",
+      "rate_limited": "Çok sık denendi. Biraz bekleyip tekrar deneyin.",
+      "ai_budget_exceeded": "Kurumun bu ayki yapay zekâ bütçesi doldu. Yazarak devam edebilirsiniz.",
+      "truncated": "Metin, alanın sınırına göre kısaltıldı.",
+      "ai_voice_limit_reached_month": "Bu ayki sesli giriş sınırınıza ulaştınız ({used}/{limit} dk). Yazarak devam edebilirsiniz.",
+      "ai_voice_limit_reached_org": "Kurumun bu ayki sesli giriş süresi doldu. Yazarak devam edebilirsiniz."
     },
     "help": {
       "chrome": "Chrome / Edge: adres çubuğundaki kilit simgesi › Mikrofon › İzin ver, sonra sayfayı yenileyin.",
@@ -6867,7 +6874,6 @@
     },
     "admin": {
       "feature": "Sesle yazma",
-      "featureTts": "Sesli okuma",
       "need": "Konuşmayı yazıya döker. Yalnızca ses destekli modeller listelenir.",
       "noModel": "Model seçilmezse mikrofon kimseye gösterilmez.",
       "unset": "Seçilmedi (mikrofon gizli)",
@@ -6889,16 +6895,12 @@
       "card": {
         "title": "Ses",
         "lead": "Kullanıcılar yapay zekâ kutularına konuşarak yazabilir. Ses, Modeller sekmesinde seçilen ses hizmetinde yazıya dökülür; metin kutuya gelir ve kullanıcı düzeltip kendisi gönderir.",
-        "enabled": "Sesli girişi aç",
+        "enabled": "Sesle yazmayı aç",
         "enabledHint": "Kapalıyken mikrofon kimseye gösterilmez.",
         "noRoute": "Önce Modeller sekmesinde \"Sesle yazma\" için bir model seçin.",
         "advanced": "Gelişmiş",
-        "consent": "İlk kullanımda onay iste",
-        "consentHint": "KVKK: kullanıcı, sesinin hangi hizmete gittiğini görür ve onaylar.",
         "maxSeconds": "En uzun kayıt (saniye)",
-        "maxSecondsHint": "10 ile 120 arasında.",
-        "localOnly": "Yalnızca kurum içi ses hizmeti",
-        "localOnlyHint": "Açıkken bulut ses hizmetlerine hiçbir kayıt gönderilmez.",
+        "maxSecondsHint": "5 ile 120 arasında.",
         "vocabulary": "Sözlük ipucu",
         "vocabularyHint": "Derslik, bina ve ders kodlarını ses hizmetine ipucu olarak gönderir; kişi adları gönderilmez.",
         "vocab": {
@@ -6912,10 +6914,16 @@
           "off": "Kapalı"
         },
         "review": "Metin her zaman gönderilmeden önce kullanıcıya gösterilir.",
-        "retention": "Ses kayıtları sunucuda saklanmaz.",
+        "retention": "Ses kayıtları saklanmaz; yazıya döküldükten sonra silinir.",
         "saved": "Ses ayarları kaydedildi.",
         "save": "Ses ayarlarını kaydet",
-        "invalidSeconds": "En uzun kayıt 10 ile 120 saniye arasında olmalı."
+        "invalidSeconds": "En uzun kayıt 5 ile 120 saniye arasında olmalı.",
+        "language": "Konuşma dili (varsayılan)",
+        "languageHint": "Kullanıcı arayüzü İngilizceyse İngilizce kullanılır.",
+        "lang": {
+          "tr": "Türkçe",
+          "en": "İngilizce"
+        }
       },
       "limits": {
         "title": "Ses süresi",

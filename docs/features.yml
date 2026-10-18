@@ -387,3 +387,21 @@
   phase: "welcome guide (WG-B, WG-01..03)"
   evidence: smartsched/backend/tests/test_wg_01_welcome.py
   note: "alembic 0040_welcome_guide (welcome_progress + welcome_content, PG policy rls_owner); app/services/welcome.py + welcome_hints.py + api/v1/welcome.py; kvkk.py export file welcome_guide + erase count; tests test_wg_01_*, test_wg_02_signals, test_wg_03_admin; frontend = WG-04..08 (WG-F)"
+- feature: "Voice input for the AI fields: a clip of at most 120 s is transcribed by the cloud speech model the admins chose (OpenAI gpt-transcribe / gpt-4o(-mini)-transcribe / whisper, Azure OpenAI, Azure AI Speech fast transcription, Gemini audio input, Google Cloud STT Chirp 3 EU, Deepgram EU) and returned to the person for review; on send the unchanged text pipeline runs (guard, injection check, redaction, limits); KVKK consent 'voice', a transfer record per provider, audio never stored"
+  area: platform
+  status: backend-only
+  phase: "VO-01, VO-03, VO-10"
+  evidence: smartsched/backend/tests/ai/test_vo_03_transcribe.py
+  note: "app/ai/voice/**, POST /ai/voice/transcribe + GET /ai/voice/status (raw body, memory only); mic UI is VO-06/08 (frontend lane)"
+- feature: "Voice metering and limits: audio seconds and modality per AI usage row, per-minute prices (table + admin prices), 10 min/day and 100 min/month per person by default, raisable per role or person, org monthly audio budget, audio minutes in the admin reports and in my usage"
+  area: platform
+  status: backend-only
+  phase: "VO-02"
+  evidence: smartsched/backend/tests/ai/test_vo_02_metering.py
+  note: "alembic 0042_ai_usage_audio; app/services/ai_usage.py reserve_audio"
+- feature: "Voice administration shared by every admin: speech capabilities, regions and retention notes per provider, model sync tagged text / speech, voice route with fallback that accepts only speech models, a test call with a bundled 5 s Turkish clip, voice settings (on/off, language, clip length, vocabulary, live captions, prices) audited, microphone allowed for our own origin at the edge"
+  area: platform
+  status: backend-only
+  phase: "VO-04, VO-05"
+  evidence: smartsched/backend/tests/ai/test_vo_04_admin.py
+  note: "GET/PUT /ai/admin/voice; /admin/ai voice UI is VO-07 (frontend lane); Permissions-Policy microphone=(self) in nginx + Caddy"

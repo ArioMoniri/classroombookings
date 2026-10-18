@@ -375,7 +375,7 @@ The non-chart rows are CH-11: academician load and the user totals tiles.
 
 ## 12. Phase 2 plan and sources
 
-Phase 2 waits for "phase 2 go", because another agent is editing package.json and the lockfile now.
+Phase 2 started on "phase 2 go" (2026-10-17); CH-01 and CH-02 are done (notes below).
 
 ```bash
 cd smartsched/frontend
@@ -397,14 +397,54 @@ Nothing else is changed, so diffs against the registry stay readable.
 
 | Item | Source URL | Licence | Notes |
 |---|---|---|---|
-| `charts/evil/charts/echarts-bar-chart.tsx` | https://evilcharts.com/r/echarts-bar-chart.json (repo https://github.com/legions-developer/evilcharts) | MIT © 2026 Gurbinder, `src/components/ui/LICENSES/evilcharts-MIT.txt` | phase 2 |
-| `charts/evil/charts/echarts-line-chart.tsx` | https://evilcharts.com/r/echarts-line-chart.json | MIT (same) | phase 2 |
-| `charts/evil/charts/echarts-area-chart.tsx` | https://evilcharts.com/r/echarts-area-chart.json | MIT (same) | phase 2 |
-| `charts/evil/ui/echarts-{chart,tooltip,legend,dot,brush}.tsx` | https://evilcharts.com/r/echarts-*.json (registry dependencies) | MIT (same) | phase 2 |
-| `echarts` npm 6.1.0 | https://echarts.apache.org | Apache-2.0 (NOTICE retained in node_modules) | tree-shaken `echarts/core` imports only |
+| `charts/evil/charts/echarts-bar-chart.tsx` | https://evilcharts.com/r/echarts-bar-chart.json (repo https://github.com/legions-developer/evilcharts) | MIT © 2026 Gurbinder, `src/components/ui/LICENSES/evilcharts-MIT.txt` | added CH-01 (shadcn 4.22.0), header per file |
+| `charts/evil/charts/echarts-line-chart.tsx` | https://evilcharts.com/r/echarts-line-chart.json | MIT (same) | added CH-01, header per file |
+| `charts/evil/charts/echarts-area-chart.tsx` | https://evilcharts.com/r/echarts-area-chart.json | MIT (same) | added CH-01, header per file |
+| `charts/evil/ui/echarts-{chart,tooltip,legend,dot,brush}.tsx` | https://evilcharts.com/r/echarts-*.json (registry dependencies) | MIT (same) | added CH-01, header per file |
+| `echarts` npm 6.1.0 (pinned exactly) | https://echarts.apache.org | Apache-2.0 (NOTICE retained in node_modules) | tree-shaken `echarts/core` imports only; installed CH-01 |
 | `zrender` npm 6.1.0 | https://github.com/ecomfe/zrender | BSD-3-Clause | transitive |
 | transitions.dev free recipes `skeleton-reveal`, `tooltip`, `text-states-swap` | scratchpad `transitions/free/*.md` | free plan: use and modify in commercial projects, no redistribution; re-implemented, `/* transitions.dev: <name> */` header if any CSS is pasted | no Pro |
 | Mobbin references | §3 links | reference only | — |
+
+### Phase 2 notes (CH-01 + CH-02, designer charts-p2-2026-10-17)
+
+Built: `smartsched/frontend/src/components/charts/**` (shell, lazy forms, vendored `evil/**`). No app surface uses it
+yet (CH-04 onward). Where the build differs from §5–§8, and why:
+
+| Spec | Built | Why |
+|---|---|---|
+| §5.3.7 frosted tooltip | solid EvilCharts `default` tooltip (bg-background) | the free `tooltip` recipe fades the tooltip root; fading an ancestor of `backdrop-filter` strips the blur (motion skill §4, backdrop-root rule). Reduced transparency is then free |
+| §5.3.4 CSV in the ⋯ menu | "Tabloyu göster" and "Veriyi indir" are footer buttons (44 px on touch, full width on phones); the ⋯ menu holds "Görseli indir" and "Yazdır" | Simplicity principle: the two common actions are visible, the rare ones sit behind ⋯ |
+| §5.3.4 menu as a bottom sheet on phones | Base UI dropdown on all sizes | open for CH-03 (the sheet needs the phone pattern 4 wrapper) |
+| §8 skeleton-reveal (blur + fade) | 1000 ms pulse while loading, then a 180 ms opacity-only reveal, only when the plot replaces a loading state | no blur on a plot larger than 400 × 300 (motion skill §4) |
+| §8 text-states-swap (exit + enter) | enter half only (150 ms, 4 px), on the summary and the CSV label; the label swaps back after 2 s | the new numbers are never delayed by the exit half |
+| §8 tooltip 50 ms out | instant out | ECharts hides the root with `display: none` (`displayTransition: false`) |
+| §6 "Grafiklerde desen" | `use-chart-patterns.ts`: per user in localStorage `smartsched.charts.patterns.<userId>`, default off, forced-colors turns it on; `aria.decal.show` follows it; `aria.label` stays off (no generated English description; the plot is aria-hidden) | §13.3 is still open; the toggle in /profile is CH-03's |
+| §5.6 renderer | `pickRenderer`: SVG when marks ≤ 300, on phones (< 768 px) and on print (`beforeprint`/`print` media); canvas otherwise | as specified, plus phones (brief: SVG on phones) |
+| §10 off-screen mount | `IntersectionObserver` (rootMargin 200 px) before the plot mounts | as specified |
+
+Vendored patches (each file's header lists them): import paths (code and comments, `grep @/registry` = 0);
+`<Tooltip valueFormatter labelFormatter className>` (tooltip values used a bare `toLocaleString()`); tooltip text
+HTML-escaped (`escapeHtml`, the tooltip is innerHTML); `AriaComponent` registered; `useReducedMotion` → `useReduce`
+from `@/lib/motion` (honours the in-app switch; eslint `no-restricted-imports`); file-level `react-hooks/refs` waiver
+in the three chart files (the ECharts instance lives in refs by design). `chartOptions` is merged **shallowly** by
+EvilCharts, so the shell only passes top-level keys (`animation`, `stateAnimation`, `aria`), never `tooltip`/`series`.
+
+Bundle (esbuild 0.28, minified, gzip -9, React/Next/motion/lucide/Base UI and the app's `@/lib`, `@/components/ui`
+external, split ESM like `next/dynamic`):
+
+| Chunk | gz |
+|---|---|
+| shared engine chunk (echarts core + zrender + both renderers + Aria + `evil/ui/echarts-chart`) | 203.7 kB |
+| bar form (EvilCharts bar + wrapper) | 8.6 kB |
+| line form | 7.8 kB |
+| area form | 9.1 kB |
+| a bar route's lazy total / all three forms | 212.3 kB / 229.2 kB (budget ≤ 240 kB) |
+| the shell itself, static (chart-card + table + csv + format + summary + period + skeleton) | 5.3 kB JS + 1.1 kB CSS |
+| routes without a chart | +0 kB: nothing outside `components/charts/**` imports it |
+
+`next build` was not run in phase 2: the shared host had about 2.4 GB free and even a full `tsc` was OOM-killed. The
+before/after route table is the first step of CH-04 (the first route that mounts a ChartCard).
 
 ## 13. Open questions for the orchestrator / owner
 

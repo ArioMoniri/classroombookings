@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `138ab31` (committed 2026-10-17 23:54 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `2e3712f` (committed 2026-10-18 00:05 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 63 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 63 · Backend only 3 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -125,6 +125,9 @@ Done 63 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.ym
 | /login with several providers: equal-weight buttons in the admins' order (Microsoft and Google branding), at most 3 + 'Diğer giriş yolları', invite shows only the invited method, provider error codes domain / invite_provider in TR/EN | Done: components/identity/provider-buttons.tsx in components/auth/sign-in-page.tsx; auth.providers in GET /org/public | wave 3b (W3-IDP) | [`identity-wizard.test.tsx`](../smartsched/frontend/src/components/identity/identity-wizard.test.tsx) |
 | Calendar export for academicians (backend): 'Derslerim' and 'Bölümümün dersleri' from the published run only, as scope-bound revocable subscription links (classes.ics, department-classes/{id}.ics), one-off .ics files and push into a dedicated 'SmartSched – Derslerim' Google (calendar.app.created) / Microsoft calendar; stable class UIDs across re-publishes and room moves, SEQUENCE on every change, CANCELLED tombstones, Europe/Istanbul VTIMEZONE, RFC 7986 NAME/SOURCE, version-key ETag/304 + Last-Modified, 1 MB cap; department rule (own, taught, calendar.department_feed); per-scope approval with consent id and audit; verified accounts for push (identity, Workspace hd, Entra tid, own e-mail / institution domain, admin-allowed domains); nightly repair 03:30 | Done: alembic 0039_calendar_classes; app/services/calendar_classes.py + calendar_feeds.py + calendar_connectors.py + api/v1/calendar_sync.py + workers/integrations.py; tests test_cal_01..07_*; frontend sheet = CAL-08/09 (CAL-F) | calendar export (CAL-B, CAL-01..07) | [`test_cal_06_push.py`](../smartsched/backend/tests/test_cal_06_push.py) |
 | Welcome guide per role (backend): audiences from permissions + the instructor link (academician, staff, approver, dept_admin, viewer, planner, admin; never role codes), one server-decided automatic surface per call (first sign-in sheet, 'Sonra' back after 3 days at most twice, role-change delta with only the new audiences, admin 'show again', else one wave-3 feature hint for accounts created before its release, 60 days), self-ticking 'Başlarken' checklist from real rows and audit events (booking, decision, channel, calendar link, intake commit, run, publish, org/mail/rooms/users), deep-link / kiosk / embed / maintenance suppression; admin switches, TR/EN text overrides with version conflict (409 stale naming the editor), completion stats with groups under 5 hidden; RLS owner-only progress rows; KVKK export + erasure | Done: alembic 0040_welcome_guide (welcome_progress + welcome_content, PG policy rls_owner); app/services/welcome.py + welcome_hints.py + api/v1/welcome.py; kvkk.py export file welcome_guide + erase count; tests test_wg_01_*, test_wg_02_signals, test_wg_03_admin; frontend = WG-04..08 (WG-F) | welcome guide (WG-B, WG-01..03) | [`test_wg_01_welcome.py`](../smartsched/backend/tests/test_wg_01_welcome.py) |
+| Voice input for the AI fields: a clip of at most 120 s is transcribed by the cloud speech model the admins chose (OpenAI gpt-transcribe / gpt-4o(-mini)-transcribe / whisper, Azure OpenAI, Azure AI Speech fast transcription, Gemini audio input, Google Cloud STT Chirp 3 EU, Deepgram EU) and returned to the person for review; on send the unchanged text pipeline runs (guard, injection check, redaction, limits); KVKK consent 'voice', a transfer record per provider, audio never stored | Backend only: app/ai/voice/**, POST /ai/voice/transcribe + GET /ai/voice/status (raw body, memory only); mic UI is VO-06/08 (frontend lane) | VO-01, VO-03, VO-10 | [`test_vo_03_transcribe.py`](../smartsched/backend/tests/ai/test_vo_03_transcribe.py) |
+| Voice metering and limits: audio seconds and modality per AI usage row, per-minute prices (table + admin prices), 10 min/day and 100 min/month per person by default, raisable per role or person, org monthly audio budget, audio minutes in the admin reports and in my usage | Backend only: alembic 0042_ai_usage_audio; app/services/ai_usage.py reserve_audio | VO-02 | [`test_vo_02_metering.py`](../smartsched/backend/tests/ai/test_vo_02_metering.py) |
+| Voice administration shared by every admin: speech capabilities, regions and retention notes per provider, model sync tagged text / speech, voice route with fallback that accepts only speech models, a test call with a bundled 5 s Turkish clip, voice settings (on/off, language, clip length, vocabulary, live captions, prices) audited, microphone allowed for our own origin at the edge | Backend only: GET/PUT /ai/admin/voice; /admin/ai voice UI is VO-07 (frontend lane); Permissions-Policy microphone=(self) in nginx + Caddy | VO-04, VO-05 | [`test_vo_04_admin.py`](../smartsched/backend/tests/ai/test_vo_04_admin.py) |
 
 <!-- /AUTO:status -->
 
@@ -166,7 +169,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-275 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 245 · stopped 11 · superseded 7.
+276 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 246 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -174,7 +177,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `CAL-B` | backend-engineer | 2026-10-17 21:54 |
 | `WG-F` | frontend-engineer | 2026-10-17 22:58 |
 | `AS-B` | backend-engineer | 2026-10-17 23:01 |
-| `Charts phase 2` | design-pro | 2026-10-17 23:12 |
 | `VO-B` | ai-engineer | 2026-10-17 23:16 |
 | `VO-F` | frontend-engineer | 2026-10-17 23:16 |
 | `RF-1` | general-purpose | 2026-10-17 23:22 |
@@ -182,6 +184,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `HB-A` | ai-engineer | 2026-10-17 23:28 |
 | `One-click deploy both branches` | devops-engineer | 2026-10-17 23:30 |
 | `AU-B` | general-purpose | 2026-10-17 23:36 |
+| `AUX-F` | frontend-engineer | 2026-10-18 00:04 |
 
 <!-- /AUTO:agents -->
 
@@ -248,7 +251,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **349 ticked · 479 open** checkboxes in 99 sections (95 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **351 ticked · 477 open** checkboxes in 99 sections (95 with open items).
 
 <details><summary>Per section</summary>
 
@@ -348,7 +351,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Welcome guide per role (owner request 2026-10-17) | 3 | 8 |
 | Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 0 | 20 |
 | Voice for AI features (owner request 2026-10-17) | 0 | 13 |
-| Charts & telemetry views (owner request 2026-10-17) | 0 | 12 |
+| Charts & telemetry views (owner request 2026-10-17) | 2 | 10 |
 | Real-not-fake & admin editability (owner request 2026-10-17; audit… | 0 | 12 |
 | AI helper: backend, governance, local models (owner request 2026-10-17) | 0 | 20 |
 | AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 0 | 14 |

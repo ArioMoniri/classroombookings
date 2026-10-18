@@ -6809,7 +6809,8 @@
       "start": "Dictate",
       "stop": "Stop recording",
       "hold": "Press and hold to talk",
-      "shortcut": "Ctrl+Shift+M"
+      "shortcut": "Ctrl+Shift+M",
+      "limit": "Voice input limit reached"
     },
     "strip": {
       "starting": "Opening the microphone…",
@@ -6834,9 +6835,8 @@
       "title": "Voice input",
       "where": "Your voice is sent to {provider} to be transcribed.",
       "whereRegion": "Your voice is sent to {provider} ({region}) to be transcribed.",
-      "whereLocal": "Your voice is transcribed by {provider} on the institution's own server.",
       "providerUnknown": "the voice service your administrators chose",
-      "noKeep": "No recording is kept; only the transcribed text comes back to you.",
+      "noKeep": "The audio is deleted once it is transcribed; no recording is kept.",
       "review": "The text goes into the box. Nothing is sent until you correct it and send it yourself.",
       "browser": "Your browser will now ask for the microphone.",
       "withdraw": "You can withdraw this consent at any time in Profile › Privacy.",
@@ -6859,7 +6859,14 @@
       "voice_off": "Your administrators have turned voice input off. You can keep typing.",
       "not_configured": "No voice model has been chosen.",
       "ai_transfer_basis_missing": "This voice service has no KVKK transfer record; an administrator must add it.",
-      "provider_error": "The recording could not be transcribed. Try again or type instead."
+      "provider_error": "The recording could not be transcribed. Try again or type instead.",
+      "not_permitted": "You do not have permission to use voice input here. You can keep typing.",
+      "unsupported_audio": "This audio format is not supported. Try another browser or type instead.",
+      "rate_limited": "Too many tries. Wait a moment and try again.",
+      "ai_budget_exceeded": "The organisation's AI budget for this month is spent. You can keep typing.",
+      "truncated": "The text was shortened to the field's limit.",
+      "ai_voice_limit_reached_month": "You have reached this month's voice input limit ({used}/{limit} min). You can keep typing.",
+      "ai_voice_limit_reached_org": "The organisation's voice input time for this month is used up. You can keep typing."
     },
     "help": {
       "chrome": "Chrome / Edge: lock icon in the address bar › Microphone › Allow, then reload the page.",
@@ -6868,7 +6875,6 @@
     },
     "admin": {
       "feature": "Voice input",
-      "featureTts": "Read aloud",
       "need": "Turns speech into text. Only speech-capable models are listed.",
       "noModel": "With no model chosen, nobody sees the mic.",
       "unset": "Not chosen (mic hidden)",
@@ -6894,12 +6900,8 @@
         "enabledHint": "While off, nobody sees the mic.",
         "noRoute": "First choose a model for \"Voice input\" on the Models tab.",
         "advanced": "Advanced",
-        "consent": "Ask for consent on first use",
-        "consentHint": "KVKK: the person sees which service their voice goes to and agrees.",
         "maxSeconds": "Longest recording (seconds)",
-        "maxSecondsHint": "Between 10 and 120.",
-        "localOnly": "In-house voice service only",
-        "localOnlyHint": "While on, no recording goes to a cloud voice service.",
+        "maxSecondsHint": "Between 5 and 120.",
         "vocabulary": "Vocabulary hint",
         "vocabularyHint": "Sends room, building and course codes to the voice service as a hint; never people's names.",
         "vocab": {
@@ -6913,10 +6915,16 @@
           "off": "Off"
         },
         "review": "The text is always shown to the person before it is sent.",
-        "retention": "Recordings are not kept on the server.",
+        "retention": "Recordings are not kept; the audio is deleted once it is transcribed.",
         "saved": "Voice settings saved.",
         "save": "Save voice settings",
-        "invalidSeconds": "The longest recording must be between 10 and 120 seconds."
+        "invalidSeconds": "The longest recording must be between 5 and 120 seconds.",
+        "language": "Spoken language (default)",
+        "languageHint": "English is used when the person's interface is in English.",
+        "lang": {
+          "tr": "Turkish",
+          "en": "English"
+        }
       },
       "limits": {
         "title": "Voice time",
