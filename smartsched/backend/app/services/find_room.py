@@ -45,7 +45,6 @@ from app.services.bookings_collation import tr_sort_key
 from app.services.bookings_perms import Access
 from app.services.calendar import date_for
 
-GRID_START, GRID_END = n.PERIODS[0].start, n.PERIODS[-1].end
 MAX_DATES = 120
 SURPLUS_PENALTY = 0.15
 BUILDING_BONUS = 0.2
@@ -111,8 +110,8 @@ def _bad_time(value: Any) -> FindError:
     return FindError(
         422,
         "time_outside_grid",
-        f"{value} is outside the 08:30-22:50 teaching day",
-        f"{value} saati 08:30-22:50 ders gününün dışında",
+        f"{value} is outside the {n.PERIODS[0].start:%H:%M}-{n.PERIODS[-1].end:%H:%M} teaching day",
+        f"{value} saati {n.PERIODS[0].start:%H:%M}-{n.PERIODS[-1].end:%H:%M} ders gününün dışında",
     )
 
 
@@ -128,7 +127,8 @@ def _clock(value: str | int | None, kind: str) -> tuple[int | None, time | None]
     t = n.parse_time(value)
     if t is None:
         raise FindError(422, "time", f"cannot read the time {value!r}", f"{value!r} saati okunamadı")
-    if t < GRID_START or t > GRID_END or (kind == "start" and t >= GRID_END):
+    grid_start, grid_end = n.PERIODS[0].start, n.PERIODS[-1].end  # the admins' grid (RF-09)
+    if t < grid_start or t > grid_end or (kind == "start" and t >= grid_end):
         raise _bad_time(f"{t:%H:%M}")
     m = n.time_to_period(t, kind)
     if m.period is None:

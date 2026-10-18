@@ -78,7 +78,9 @@ export interface PeaksQuery {
 /* ------------------------------------------------------------------ forecast */
 
 export const ForecastCell = z.object({
-  key: z.string(),
+  // the backend sends the group values as a list (["A"], ["3", "4"]); a plain string is accepted too (e2e 2026-10-18:
+  // z.string() refused every cell, so the demand card said "Yüklenemedi" on every term)
+  key: z.union([z.string(), z.array(z.union([z.string(), z.number()])).transform((k) => k.join(" · "))]),
   label: z.union([Pair, z.string()]).optional(),
   value: z.number(),
   lo80: z.number().nullable().catch(null),

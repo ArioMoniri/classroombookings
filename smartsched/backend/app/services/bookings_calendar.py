@@ -48,7 +48,8 @@ def grid_span(start: time, end: time) -> tuple[int, int]:
         raise ValueError("time_end must be after time_start")
     rng = n.time_range_to_periods(start, end)
     if rng.start_period is None or rng.end_period is None:
-        raise ValueError(f"{start:%H:%M}-{end:%H:%M} is outside the 08:30-22:50 period grid")
+        day = f"{n.PERIODS[0].start:%H:%M}-{n.PERIODS[-1].end:%H:%M}"
+        raise ValueError(f"{start:%H:%M}-{end:%H:%M} is outside the {day} period grid")
     return rng.start_period, rng.end_period
 
 

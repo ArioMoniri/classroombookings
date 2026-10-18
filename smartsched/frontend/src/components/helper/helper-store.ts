@@ -47,7 +47,14 @@ export interface FallbackEntry {
   key: string;
 }
 
-export type LogEntry = CardEntry | UserEntry | FallbackEntry;
+/** A short client line in the log (e.g. typed "evet": "Onaylamak için karttaki düğmeye basın."). */
+export interface NoteEntry {
+  kind: "note";
+  key: string;
+  text: { tr: string; en: string };
+}
+
+export type LogEntry = CardEntry | UserEntry | FallbackEntry | NoteEntry;
 
 export interface TurnState {
   busy: boolean;
@@ -81,6 +88,7 @@ interface HelperState {
   pushUser: (text: string) => void;
   pushCard: (card: HelperCard, extra?: Partial<CardEntry>) => string;
   pushFallback: () => void;
+  pushNote: (text: { tr: string; en: string }) => void;
   updateCard: (key: string, patch: Partial<CardEntry>) => void;
   setTurn: (patch: Partial<TurnState> | ((t: TurnState) => Partial<TurnState>)) => void;
   newThread: () => void;
@@ -132,6 +140,7 @@ export const useHelperStore = create<HelperState>()(
         return key;
       },
       pushFallback: () => set((s) => ({ entries: [...s.entries, { kind: "fallback", key: nextKey("f") }] })),
+      pushNote: (text) => set((s) => ({ entries: [...s.entries, { kind: "note", key: nextKey("n"), text }] })),
       updateCard: (key, patch) => set((s) => ({ entries: s.entries.map((e) => (e.kind === "card" && e.key === key ? { ...e, ...patch } : e)) })),
       setTurn: (patch) => set((s) => ({ turn: { ...s.turn, ...(typeof patch === "function" ? patch(s.turn) : patch) } })),
       newThread: () => set({ entries: [], turn: IDLE }),

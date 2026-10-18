@@ -9,7 +9,17 @@ from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DB, Admin, Planner, Viewer, require_permission
 from app.models import Term, User, Week
-from app.schemas.catalog import TermIn, TermOut, TermUpdate, WeekIn, WeekOut
+from app.schemas.catalog import (
+    TermIn,
+    TermOut,
+    TermUpdate,
+    WeekIn,
+    WeekOut,
+    WeekPatch,
+    clean_week_label,
+    parse_week_kind,
+)
+from app.schemas.messages import Refusal, problem
 
 router = APIRouter(prefix="/terms", tags=["terms"])
 #: CRBS ``Sessions`` controller: creating, editing and deleting sessions needs ``setup.sessions``; the
@@ -172,16 +182,23 @@ async def list_weeks(term_id: int, db: DB, _: Viewer) -> list[Week]:
 
 @router.put("/{term_id}/weeks", response_model=list[WeekOut])
 async def replace_weeks(term_id: int, body: list[WeekIn], db: DB, _: Planner) -> list[Week]:
+    """Replace the term's week calendar (audited through the ``Week`` flush hook). Weeks this call creates or changes
+    are marked ``edited``, so a board re-import keeps them (RF-06/RF-09); kinds may be Turkish words."""
     term = await _get(db, term_id)
+    if len({w.index for w in body}) != len(body):
+        raise problem(422, "week_index_duplicate", "Aynı hafta numarası iki kez verildi.", "duplicate week index")
     existing = {w.index: w for w in (await db.execute(select(Week).where(Week.term_id == term_id))).scalars()}
     seen = set()
     for w in body:
         seen.add(w.index)
         row = existing.get(w.index)
         if row is None:
-            db.add(Week(term_id=term_id, **w.model_dump()))
+            db.add(Week(term_id=term_id, edited=True, **w.model_dump()))
         else:
-            for k, v in w.model_dump().items():
+            data = w.model_dump()
+            if any(getattr(row, k) != v for k, v in data.items() if k != "index"):
+                row.edited = True
+            for k, v in data.items():
                 setattr(row, k, v)
     for idx, row in existing.items():
         if idx not in seen:
@@ -192,6 +209,34 @@ async def replace_weeks(term_id: int, body: list[WeekIn], db: DB, _: Planner) ->
         )
     await db.commit()
     return list((await db.execute(select(Week).where(Week.term_id == term_id).order_by(Week.index))).scalars())
+
+
+@router.patch("/{term_id}/weeks/{index}", response_model=WeekOut)
+async def patch_week(term_id: int, index: int, body: WeekPatch, db: DB, _: Planner) -> Week:
+    """RF-09: change one week of the term calendar (kind ``Ders`` / ``Sınav`` / ``Tatil`` / ``Bütünleme`` or the
+    codes, label, start date). The week is marked ``edited``: a board re-import keeps it. Audited (``term_week``)."""
+    await _get(db, term_id)
+    row = (await db.execute(select(Week).where(Week.term_id == term_id, Week.index == index))).scalar_one_or_none()
+    if row is None:
+        raise problem(404, "week_not_found", f"Bu dönemde {index}. hafta yok.", f"week {index} not found")
+    data = body.model_dump(exclude_unset=True)
+    if data.get("kind") is not None:
+        try:
+            data["kind"] = parse_week_kind(data["kind"])
+        except Refusal as exc:
+            raise problem(422, exc.code, exc.tr, exc.en) from exc
+    elif "kind" in data:
+        data.pop("kind")
+    if "label" in data:
+        data["label"] = clean_week_label(data["label"])
+    changed = {k: v for k, v in data.items() if getattr(row, k) != v}
+    for k, v in changed.items():
+        setattr(row, k, v)
+    if changed:
+        row.edited = True
+    await db.commit()
+    await db.refresh(row)
+    return row
 
 
 # --------------------------------------------------------------------------- relaxation policy

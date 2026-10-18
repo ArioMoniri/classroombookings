@@ -62,6 +62,11 @@ for r in (
 ):
     api_router.include_router(r)
 
+# RF-09: the university's period grid (clock times of P1-P18), editable by schedule admins
+from app.api.v1 import period_grid  # noqa: E402
+
+api_router.include_router(period_grid.router)
+
 # planner-facing data-conflict report of a run (GET /runs/{id}/data-issues)
 from app.api.v1 import data_issues  # noqa: E402
 

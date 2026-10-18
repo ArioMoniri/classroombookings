@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isoWeekday, lowConfidence, peakHit, Peaks, showRange, type PeakCell } from "./adaptive";
+import { DemandForecast, isoWeekday, lowConfidence, peakHit, Peaks, showRange, type PeakCell } from "./adaptive";
 
 const cell = (day: number, period: number, peak: boolean): PeakCell => ({ day, period, group: "*", value: peak ? 92 : 40, lo80: 30, hi80: 95, n_weeks: 12, rooms: 40, peak });
 
@@ -48,5 +48,16 @@ describe("Peaks schema", () => {
     const out = Peaks.parse({ term_id: null, term_code: null, cells: [], peaks: [], confidence: "none", needs: { tr: "Yayımlanmış program yok", en: "No published timetable" } });
     expect(out.confidence).toBe("none");
     expect(out.needs?.tr).toMatch(/Yayımlanmış/);
+  });
+});
+
+describe("demand forecast schema (e2e 2026-10-18)", () => {
+  it("reads the backend's cell key, a list of group values (GET /analytics/forecast/demand)", () => {
+    // verbatim shape from the gracious stack: the 2027 Bahar term forecast from the published 2026 Bahar
+    const raw = { term_id: 4, term_code: "2027-BAHAR", group_by: "building", method: "seasonal_naive", confidence: "low", total: 2350.7,
+      cells: [{ key: ["A"], label: { tr: "A blok", en: "Building A" }, value: 710.5, lo80: 650.8, hi80: 770.3, method: "seasonal_naive", confidence: "low", needs: null }] };
+    const parsed = DemandForecast.safeParse(raw);
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.cells[0]).toMatchObject({ key: "A", value: 710.5, lo80: 650.8, confidence: "low" });
   });
 });

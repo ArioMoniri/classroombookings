@@ -22,6 +22,7 @@ import { motion } from "motion/react";
 import Image, { type StaticImageData } from "next/image";
 import { useTheme } from "next-themes";
 import { useEffect, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
+import { useMediaQuery } from "@/components/ui/use-media-query";
 import fileToRulesDark from "@/assets/lottie/file-to-rules-dark-poster.png";
 import fileToRulesLight from "@/assets/lottie/file-to-rules-light-poster.png";
 import heroSolverDark from "@/assets/lottie/hero-solver-dark-poster.png";
@@ -130,7 +131,10 @@ type HeroState = "waiting" | "playing" | "done" | "poster";
 export function WelcomeHero({ audience, className }: { audience: Audience; className?: string }) {
   const { resolvedTheme } = useTheme();
   const hydrated = useHydrated();
-  const reduce = useReduce();
+  // useReduce() covers the in-app switch; the OS query is also read live here (motion caches its own first answer)
+  const appReduce = useReduce();
+  const osReduce = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const reduce = appReduce || osReduce;
   const saveData = useSaveData();
   const theme: Theme = hydrated && resolvedTheme === "dark" ? "dark" : "light";
   const clip = HERO_CLIP[audience];
@@ -144,12 +148,14 @@ export function WelcomeHero({ audience, className }: { audience: Audience; class
   const [failed, setFailed] = useState(false);
   const [done, setDone] = useState(false);
   const handle = useRef<LottieHandle>(null);
+  const started = useRef(false);
   const wantsMotion = hydrated && mayPlay && !reduce && !saveData;
 
   useEffect(() => {
-    if (!wantsMotion || startedKey) return;
+    if (!wantsMotion || started.current) return;
     let cancelled = false;
     const timer = window.setTimeout(() => {
+      started.current = true;
       playedThisLoad = true;
       setStartedKey(key);
       Promise.all([heroLoaders.player(), heroLoaders.data[key]()])
@@ -164,7 +170,7 @@ export function WelcomeHero({ audience, className }: { audience: Audience; class
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [wantsMotion, startedKey, key]);
+  }, [wantsMotion, key]);
 
   // the poster whenever the clip cannot (or must not) play: reduced motion / Save-Data / played before / failed /
   // the theme changed after it started (no replay)

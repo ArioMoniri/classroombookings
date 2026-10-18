@@ -32,6 +32,17 @@ export function useChartApi(ref: RefObject<HTMLElement | null>, onReady?: (api: 
         inst.dispatchAction({ type: "showTip", x, y: inst.getHeight() / 2 } as Action);
       },
       hideTip: () => findInstance(ref.current)?.dispatchAction({ type: "hideTip" } as Action),
+      // CH-08 / CH-10: a click or tap selects the bucket under it (category axis → its index), only inside the grid
+      indexAt: (clientX, clientY) => {
+        const inst = findInstance(ref.current);
+        if (!inst) return null;
+        const rect = inst.getDom().getBoundingClientRect();
+        const point = [clientX - rect.left, clientY - rect.top];
+        if (!inst.containPixel({ gridIndex: 0 }, point)) return null;
+        const value = inst.convertFromPixel({ gridIndex: 0 }, point) as unknown;
+        const x = Array.isArray(value) ? Number(value[0]) : Number(value);
+        return Number.isFinite(x) ? Math.round(x) : null;
+      },
     });
   }, [ref, onReady]);
 }

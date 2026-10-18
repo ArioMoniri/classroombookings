@@ -11,6 +11,8 @@ export interface ChartApi {
   /** shows the tooltip at bucket `index` (keyboard scrub, CH-03) */
   showTip: (index: number) => void;
   hideTip: () => void;
+  /** the bucket under a click / tap at viewport coordinates, or null outside the plot (CH-08, CH-10) */
+  indexAt?: (clientX: number, clientY: number) => number | null;
 }
 
 /** what `ChartCard` hands its plot (spread it into a Lazy*Chart) */
@@ -46,5 +48,8 @@ export interface BarFormProps extends ChartFormProps {
   stackType?: "default" | "stacked";
 }
 
-export type LineFormProps = ChartFormProps;
+export interface LineFormProps extends ChartFormProps {
+  /** a resting dot on every point (few points where each one is a thing, e.g. a run; CH-08) */
+  dots?: boolean;
+}
 export type AreaFormProps = ChartFormProps;
