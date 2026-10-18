@@ -23,9 +23,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        /* the single tint, with a 1px specular top edge so it reads as lit glass, not flat paint */
+        /* the single tint, with a 1px specular top edge so it reads as lit glass, not flat paint; a ButtonText border in
+           forced colours, where the fill is dropped and the primary would have no boundary (HB-23d DS-09) */
         default:
-          "bg-tint text-tint-foreground shadow-[inset_0_1px_0_0_rgba(255,255,255,0.28),0_1px_2px_0_rgba(0,0,0,0.12)] hover:bg-(--accent-hover)",
+          "bg-tint text-tint-foreground shadow-[inset_0_1px_0_0_rgba(255,255,255,0.28),0_1px_2px_0_rgba(0,0,0,0.12)] hover:bg-(--accent-hover) forced-colors:border forced-colors:border-[ButtonText]",
         /* quiet control on any surface: thick colour + the 3:1 control edge */
         outline:
           "bg-(--mat-thick) text-label-1 shadow-(--edge-control) hover:bg-(--mat-thick-solid) aria-expanded:bg-(--mat-thick-solid)",

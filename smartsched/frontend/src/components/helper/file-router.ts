@@ -23,7 +23,7 @@ import { usePermissions } from "@/lib/api/shell-extra";
 import { translate, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useUiStore } from "@/stores/ui";
-import { fileHandoffHref, useFileHandoffStore, type HandoffParams } from "./file-handoff";
+import { fileHandoffHref, landFocus, useFileHandoffStore, type HandoffParams } from "./file-handoff";
 import { useHelperStore, type FileEntry } from "./helper-store";
 
 const both = (key: MessageKey, vars?: Record<string, string | number>) => ({ tr: translate("tr", key, vars), en: translate("en", key, vars) });
@@ -202,8 +202,16 @@ export function useFileRouter() {
       const e = entryOf(key);
       if (!e) return;
       const params = (route.params ?? {}) as HandoffParams;
-      const href = fileHandoffHref(route.feature_id, params);
-      if (!href) return;
+      const target = fileHandoffHref(route.feature_id, params);
+      if (!target) return;
+      const href: string = target;
+      // HB-23d UX-02: the page's own primary takes over, so the sheet closes (on desktop it covered "Önizle" /
+      // "Uygula"); the conversation stays. The focus lands on the page (UX-04), never on <body>.
+      const leave = (to: string) => {
+        useHelperStore.getState().closeSheet();
+        go(to);
+        landFocus(to);
+      };
       const browserFiles = files.get(key) ?? [];
       const inMemory = () => {
         useFileHandoffStore.getState().set(
@@ -211,7 +219,7 @@ export function useFileRouter() {
           browserFiles,
         );
         update(key, { phase: "handed" });
-        go(href);
+        leave(href);
       };
       // several files (decision 16) / HELPER_FILE_STAGE=off (`resend`): the browser's File objects, no token, no stage
       if (e.view?.kind === "many" || (route.carries_file && !e.stage && e.resend)) {
@@ -222,7 +230,7 @@ export function useFileRouter() {
         // no file on this route (Derslerim, Takvimime ekle…): the stage is not needed any more
         dropAll(e);
         update(key, { phase: "handed", stage: null });
-        go(href);
+        leave(href);
         return;
       }
       const stage = e.stage;
@@ -249,7 +257,7 @@ export function useFileRouter() {
       );
       // the stage now belongs to the page (closing the sheet must not delete it)
       update(key, { phase: "handed", stage: null });
-      go(href);
+      leave(href);
     };
 
     return { attach, retry, cancel, pick, showKinds, hideKinds, primary };

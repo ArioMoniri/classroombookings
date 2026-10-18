@@ -409,3 +409,75 @@ describe("what happens to the file (KVKK N3 / N4)", () => {
     expect(within(screen.getByTestId("helper-card-file-ambiguous")).getByTestId("helper-file-privacy")).toHaveTextContent(READ);
   });
 });
+
+describe("focus never falls to <body> (HB-23d DS-01…DS-04, UX-02, UX-04)", () => {
+  it("the hand-over closes the sheet so the page's own primary is not covered", async () => {
+    useHelperStore.setState({ open: true });
+    seed({ kind: "card", card: DETECTED });
+    show();
+    fireEvent.click(screen.getByTestId("helper-file-primary"));
+    await waitFor(() => expect(host.go).toHaveBeenCalled());
+    expect(useHelperStore.getState().open).toBe(false);
+  });
+
+  it("'Başka bir tür seç' moves the focus into the list, 'geri' back to the card title", async () => {
+    seed({ kind: "card", card: DETECTED });
+    show();
+    // the card's own arrival focus (its title) first, as for a person
+    await waitFor(() => expect(document.activeElement?.tagName).toBe("P"));
+    const other = screen.getByTestId("helper-file-other");
+    other.focus();
+    fireEvent.click(other);
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("role", "radio"));
+  });
+
+  it("'Vazgeç' while reading leaves the focus on the cancelled line", async () => {
+    const key = useHelperStore.getState().pushFile([{ name: "Bahar_son.xlsx", size: 10 }]);
+    useHelperStore.getState().updateFile(key, { phase: "reading" });
+    show();
+    const cancel = screen.getByTestId("helper-file-cancel");
+    cancel.focus();
+    fireEvent.click(cancel);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("helper-file-cancelled")));
+  });
+
+  it("an expired hand-over (410) gives the focus to 'Dosyayı yeniden oku'", async () => {
+    answer = (k) => (k.includes("handoff") ? res(410, { detail: { code: "stage_expired", message_tr: "Süre doldu", message_en: "Expired" } }) : res(200, {}));
+    seed({ kind: "card", card: DETECTED });
+    show();
+    await waitFor(() => expect(document.activeElement?.tagName).toBe("P"));
+    const primary = screen.getByTestId("helper-file-primary");
+    primary.focus();
+    fireEvent.click(primary);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("helper-file-reread")));
+  });
+});
+
+describe("landFocus: after a hand-over the target page holds the focus", () => {
+  it("focuses the page's handed-file row, else its h1, when the focus is on <body>", async () => {
+    const { landFocus } = await import("./file-handoff");
+    vi.useFakeTimers();
+    try {
+      document.body.innerHTML = '<main id="main"><h1>Kurulum</h1></main>';
+      window.history.pushState({}, "", "/onboarding?from=helper");
+      (document.activeElement as HTMLElement | null)?.blur();
+      landFocus("/onboarding?from=helper");
+      vi.advanceTimersByTime(1000);
+      expect(document.activeElement?.tagName).toBe("H1");
+      document.body.innerHTML = '<main id="main"><h1>Kurulum</h1><div data-handed-focus tabindex="-1">room_master.csv</div></main>';
+      (document.activeElement as HTMLElement | null)?.blur();
+      landFocus("/onboarding?from=helper");
+      vi.advanceTimersByTime(1000);
+      expect(document.activeElement).toHaveAttribute("data-handed-focus");
+      // a page that focused its own primary keeps it
+      document.body.innerHTML = '<main id="main"><h1>İçe aktar</h1><button id="go">Önizle</button></main>';
+      landFocus("/onboarding?from=helper");
+      document.getElementById("go")!.focus();
+      vi.advanceTimersByTime(1000);
+      expect(document.activeElement?.id).toBe("go");
+    } finally {
+      vi.useRealTimers();
+      window.history.pushState({}, "", "/");
+    }
+  });
+});

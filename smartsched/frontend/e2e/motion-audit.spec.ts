@@ -344,10 +344,13 @@ test.describe("motion audit: helper file router (§9, HB-23d)", () => {
       d.items.add(new File(["x"], "a.xlsx"));
       return d;
     });
-    await page.dispatchEvent("main", "dragenter", { dataTransfer: dt });
-    await page.dispatchEvent("main", "dragover", { dataTransfer: dt });
     const target = page.getByTestId("page-file-target");
-    await target.waitFor();
+    // the shell's drag listener is wired after hydration: drag again until the target answers
+    await expect(async () => {
+      await page.dispatchEvent("main", "dragenter", { dataTransfer: dt });
+      await page.dispatchEvent("main", "dragover", { dataTransfer: dt });
+      await expect(target).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
     const targetAnims = await target.evaluate((el) => el.getAnimations({ subtree: true }).filter((a) => Number(a.effect?.getComputedTiming().duration) > 1).length);
     expect(targetAnims).toBe(0);
     await page.dispatchEvent("main", "dragleave", { dataTransfer: dt });

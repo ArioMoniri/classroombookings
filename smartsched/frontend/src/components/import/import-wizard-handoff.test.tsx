@@ -300,6 +300,30 @@ describe("/import step 1: the wrong-kind check before the upload (M-20)", () => 
   });
 });
 
+describe("/import step 1: a refused file says why (HB-23d UX-09)", () => {
+  it("the check's refusal shows its own message at once and the start stays off", async () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "kind=exam-list";
+    classifyOut = { card: { v: 1, id: "abcdef12", type: "refusal", code: "kvkk_unmasked_names", message: { tr: "KVKK: dosyada maskelenmemiş 2 kişi adı var.", en: "KVKK: 2 unmasked names." } } };
+    wrap(<ImportWizard />);
+    const input = screen.getByTestId("import-dropzone").parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["x"], "final.xlsx")] } });
+    expect(await screen.findByText("KVKK: dosyada maskelenmemiş 2 kişi adı var.")).toBeInTheDocument();
+    expect(screen.getByTestId("import-start")).toBeDisabled();
+  });
+
+  it("an upload refused with a coded problem shows the server's Turkish reason, not the template hint", async () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "kind=planning-list";
+    up.fn.mockReset().mockRejectedValue(new HttpError(422, "x", { detail: { code: "kvkk_unmasked_names", message_tr: "KVKK: dosyada maskelenmemiş 2 kişi adı var.", message_en: "KVKK" } }));
+    wrap(<ImportWizard />);
+    const input = screen.getByTestId("import-dropzone").parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["x"], "bahar.xlsx")] } });
+    fireEvent.click(screen.getByTestId("import-start"));
+    expect(await screen.findByText("KVKK: dosyada maskelenmemiş 2 kişi adı var.")).toBeInTheDocument();
+  });
+});
+
 describe("/import: the check's stage never outlives its use (KVKK N2)", () => {
   const STAGE = { upload_token: TOKEN, expires_at: new Date(Date.now() + 600_000).toISOString(), size: 1, format: "xlsx" };
   const drops = () => calls.filter((c) => /^DELETE .*\/helper\/files\//.test(c));

@@ -52,6 +52,21 @@ def test_masked_text_passes(guard) -> None:
     assert kvkk_guard.unmasked_hits("kod;hoca\nTST 101;D. Ö.\n".encode(), "x.csv") == 0
 
 
+def test_abbreviated_titles_in_the_name_list_are_not_a_name(tmp_path, monkeypatch) -> None:
+    """HB-23d UX-01: the saved name list holds titles cut short ("Öğ. Üy. Deneme Örnekoğlu"); the pair "öğ üy" is a title,
+    not a name, so a masked cell "Dr.Öğ.Üy. D. Ö." passes (it refused the masked exam list on the stack)."""
+    names = tmp_path / "kvkk-names.json"
+    names.write_text(json.dumps(["Öğ. Üy. Deneme Örnekoğlu", "Öğ.Gör. Sentetik Yapayoğlu"]), encoding="utf-8")
+    monkeypatch.setattr(get_settings(), "kvkk_upload_guard", True)
+    monkeypatch.setattr(get_settings(), "kvkk_names_file", str(names))
+    kvkk_guard.reset_cache()
+    try:
+        assert kvkk_guard.unmasked_hits(_xlsx(["Dr.Öğ.Üy. D. Ö.", "Öğ. Gör. S. Y."]), "x.xlsx") == 0
+        assert kvkk_guard.unmasked_hits(_xlsx(["Öğ. Üy. Deneme Örnekoğlu"]), "x.xlsx") == 1
+    finally:
+        kvkk_guard.reset_cache()
+
+
 def test_seed_workbook_is_refused_by_hash(guard) -> None:
     assert kvkk_guard.is_seed_workbook(BAHAR_LIST.read_bytes())
     assert not kvkk_guard.is_seed_workbook(_xlsx(["D. Ö."]))

@@ -84,6 +84,12 @@ describe("users import from the helper", () => {
     expect(String(nav.replace.mock.calls.at(-1)![0])).not.toContain("import=1");
   });
 
+  it("HB-23d UX-05: the focus goes to 'İçe aktar', not to the row's ✕ (one Enter must not remove the file)", async () => {
+    wrap();
+    const dialog = await screen.findByTestId("import-dialog");
+    await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByTestId("import-run")));
+  });
+
   it("İçe aktar sends upload_token instead of the bytes, with the page's defaults", async () => {
     wrap();
     const dialog = await screen.findByTestId("import-dialog");

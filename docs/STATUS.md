@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `c846753` (committed 2026-10-18 18:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `6d5e870` (committed 2026-10-18 19:07 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -154,17 +154,18 @@ The validate gate also runs `sync_docs.py --check` and the generator's own tests
 
 <!-- AUTO:gates -->
 
-15 gates in [`podci/gates.py`](../smartsched/deploy/pod-ci/podci/gates.py), run in this order for every new commit; `deploy` runs only on the deploy branch after every blocking gate is green.
+16 gates in [`podci/gates.py`](../smartsched/deploy/pod-ci/podci/gates.py), run in this order for every new commit; `deploy` runs only on the deploy branch after every blocking gate is green.
 Results with their commit and date from [`gate-results.json`](testing/gate-results.json) (local: the devops agent's run of every pod gate (docs/ROADMAP.md, 'Devops agent finished')).
 
 | Gate | Runs | Blocking | Needs | Local `5d0e6c2` (2026-10-15) |
 |---|---|---|---|---|
 | `prepare` | CI images (python CI image, Playwright image) | yes | - | success |
 | `validate` | deploy/validate.sh | yes | prepare | success |
-| `backend` | ruff + format + mypy + solver + migrations | yes | prepare | failure (a lint failure stopped it before pytest; formatted locally 1197 passed) |
-| `backend-unit-1` | pytest shard 1/3 | yes | prepare | not recorded |
-| `backend-unit-2` | pytest shard 2/3 | yes | prepare | not recorded |
-| `backend-unit-3` | pytest shard 3/3 | yes | prepare | not recorded |
+| `backend-deps` | backend venv from the hash-pinned locks | yes | prepare | not recorded |
+| `backend` | ruff + format + mypy + solver + migrations | yes | backend-deps | failure (a lint failure stopped it before pytest; formatted locally 1197 passed) |
+| `backend-unit-1` | pytest shard 1/3 | yes | backend-deps | not recorded |
+| `backend-unit-2` | pytest shard 2/3 | yes | backend-deps | not recorded |
+| `backend-unit-3` | pytest shard 3/3 | yes | backend-deps | not recorded |
 | `infra` | pod CI + AWS bootstrap tests | yes | prepare | success |
 | `frontend` | npm ci + tsc + eslint + check-design | yes | prepare | success (378 tests) |
 | `frontend-unit-1` | vitest shard 1/2 | yes | frontend | not recorded |

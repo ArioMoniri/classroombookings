@@ -10,7 +10,9 @@ import signal
 import subprocess
 import time
 from collections.abc import Callable, Iterator
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Any
 
@@ -109,15 +111,58 @@ def code_stamp(install_dir: Path) -> str:
     return h.hexdigest()
 
 
+def mem_total_mb() -> int:
+    """MemTotal of /proc/meminfo in MiB (0 when unknown: then the worker stays at one gate at a time)."""
+    try:
+        for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
+            if line.startswith("MemTotal:"):
+                return int(line.split()[1]) // 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return 0
+
+
+@dataclass(frozen=True)
+class Slots:
+    """How many gates run at once and what one slot gets. count == 1: today's sequential worker, cfg.gate_cpus and
+    cfg.gate_memory (lib.sh defaults for the node containers). count > 1: CPUs and memory are split per slot."""
+    count: int
+    cpus: int = 0
+    memory_mb: int = 0
+
+    def env(self, weight: int) -> dict[str, str]:
+        if self.count <= 1:
+            return {}
+        w = max(1, min(weight, self.count))
+        mem = self.memory_mb * w
+        # GATE_MEMORY leaves 1 GiB of the slot for a side container (postgres --memory 1g, e2e's smtp / empty backend)
+        gate_mb = max(2048, mem - 1024)
+        return {"GATE_CPUS": str(self.cpus * w), "GATE_MEMORY": f"{gate_mb}m", "NODE_MEMORY": f"{mem}m",
+                "NODE_HEAP_MB": str(mem * 3 // 4)}
+
+
+def plan_slots(cfg: Config, cpu_count: int, memory_mb: int) -> Slots:
+    """PODCI_PARALLEL (0 = cpu_count // 2), capped so every slot has slot_min_mb of the memory left after
+    memory_reserve_mb (the app stack): the sum of the gates' container caps stays inside the pod."""
+    want = cfg.parallel if cfg.parallel > 0 else max(1, cpu_count // 2)
+    budget = memory_mb - cfg.memory_reserve_mb
+    count = max(1, min(want, budget // cfg.slot_min_mb if budget > 0 else 1))
+    if count == 1:
+        return Slots(1)
+    return Slots(count, cpus=max(1, cpu_count // count), memory_mb=budget // count)
+
+
 class Worker:
     def __init__(self, cfg: Config, store: Store, reporter: StatusReporter, cloud: Cloud,
                  token: Callable[[], str], execute: Execute = run_logged, run_cmd: Callable[..., Any] = subprocess.run,
                  log: Log = print, disk_usage: Callable[[], float] = disk.usage_percent,
-                 gates: tuple[Gate, ...] = GATES):
+                 gates: tuple[Gate, ...] = GATES, cpu_count: int | None = None, memory_mb: int | None = None):
         self.cfg, self.store, self.reporter, self.cloud = cfg, store, reporter, cloud
         self.token, self.execute, self.run_cmd, self.log = token, execute, run_cmd, log
         self.disk_usage = disk_usage
         self.gates = gates
+        self.slots = plan_slots(cfg, (os.cpu_count() or 1) if cpu_count is None else cpu_count,
+                                mem_total_mb() if memory_mb is None else memory_mb)
 
     # ---- loop ---------------------------------------------------------------------------------
     def work(self, max_runs: int | None = None) -> int:
@@ -125,7 +170,11 @@ class Worker:
             if not got:
                 self.log("another worker is running; exiting")
                 return 0
-            requeued, failed = self.store.recover_interrupted(self.cfg.max_attempts)
+            requeued, failed, superseded = self.store.recover_interrupted(self.cfg.max_attempts)
+            for r in superseded:
+                self.log(f"run #{r.id} interrupted; {r.summary}")
+                self.reporter.post(r.sha, "error", self.cfg.status_context, f"not finished: {r.summary}",
+                                   self.cfg.run_url(r.id))
             for r in requeued:
                 self.log(f"run #{r.id} requeued after an interrupted worker")
             for r in failed:
@@ -187,9 +236,7 @@ class Worker:
             logs.mkdir(parents=True, exist_ok=True)
             self._checkout(run, ws, logs / "checkout.log")
             env = self._gate_env(run, ws)
-            results: dict[str, str] = {}
-            for g in self.gates:
-                results[g.name] = self._run_gate(run, g, env, logs)
+            results = self._run_gates(run, env, logs)
             blocking_failed = [g.name for g in self.gates if g.blocking and results[g.name] != SUCCESS]
             final = FAILURE if blocking_failed else SUCCESS
             summary = f"failed: {', '.join(blocking_failed)}" if blocking_failed else "all gates passed"
@@ -244,17 +291,63 @@ class Worker:
         })
         return env
 
-    def _run_gate(self, run: Run, g: Gate, env: dict[str, str], logs: Path) -> str:
-        unmet = [n for n in g.needs if (s := self.store.step(run.id, n)) is None or s.state != SUCCESS]
-        if unmet:
-            self.store.step_transition(run.id, g.name, STEP_SKIPPED)
-            self.status(run, "error" if g.blocking else "success", f"skipped: needs {', '.join(unmet)}", g.name)
-            return STEP_SKIPPED
+    def _run_gates(self, run: Run, env: dict[str, str], logs: Path) -> dict[str, str]:
+        """Every gate once, along the `needs` DAG: a gate starts when its needs succeeded and its `after` gates
+        finished (in GATES order among the ready ones), at most self.slots.count slots at once (a gate takes
+        `weight` slots); a gate whose need failed or was skipped is skipped. Only the subprocess runs in a thread:
+        the store and the status posts stay on this thread."""
+        results: dict[str, str] = {}
+        running: dict[Future[int], tuple[Gate, float]] = {}
+        pending = list(self.gates)
+        free = self.slots.count
+        with ThreadPoolExecutor(max_workers=self.slots.count, thread_name_prefix="gate") as pool:
+            try:
+                while pending or running:
+                    for g in list(pending):
+                        if any(n not in results for n in (*g.needs, *g.after)):
+                            continue
+                        unmet = [n for n in g.needs if results[n] != SUCCESS]
+                        if unmet:
+                            pending.remove(g)
+                            results[g.name] = self._skip_gate(run, g, unmet)
+                            continue
+                        weight = max(1, min(g.weight, self.slots.count))
+                        if weight > free:
+                            continue
+                        pending.remove(g)
+                        free -= weight
+                        argv, log_path, gate_env = self._start_gate(run, g, env, logs)
+                        fut = pool.submit(self.execute, argv, log_path, gate_env, None, g.timeout)
+                        running[fut] = (g, time.monotonic())
+                    if not running:
+                        if pending:  # needs that no gate provides: never runnable
+                            for g in pending:
+                                results[g.name] = self._skip_gate(run, g, [n for n in g.needs if n not in results])
+                            pending.clear()
+                        break
+                    done, _ = wait(running, return_when=FIRST_COMPLETED)
+                    for fut in done:
+                        g, started = running.pop(fut)
+                        free += max(1, min(g.weight, self.slots.count))
+                        results[g.name] = self._finish_gate(run, g, fut.result(), started)
+            finally:
+                wait(running)  # never leave a gate subprocess behind an exception
+        return results
+
+    def _skip_gate(self, run: Run, g: Gate, unmet: list[str]) -> str:
+        self.store.step_transition(run.id, g.name, STEP_SKIPPED)
+        self.status(run, "error" if g.blocking else "success", f"skipped: needs {', '.join(unmet)}", g.name)
+        return STEP_SKIPPED
+
+    def _start_gate(self, run: Run, g: Gate, env: dict[str, str],
+                    logs: Path) -> tuple[list[str], Path, dict[str, str]]:
         log_path = logs / f"{g.name}.log"
         self.store.step_transition(run.id, g.name, STEP_RUNNING, log_path=str(log_path))
         self.status(run, "pending", f"running: {g.description}", g.name)
-        started = time.monotonic()
-        code = self.execute(["bash", str(self.cfg.gates_dir / g.script), *g.args], log_path, env, None, g.timeout)
+        gate_env = {**env, "GATE_NAME": g.name, **self.slots.env(g.weight)}
+        return ["bash", str(self.cfg.gates_dir / g.script), *g.args], log_path, gate_env
+
+    def _finish_gate(self, run: Run, g: Gate, code: int, started: float) -> str:
         state = SUCCESS if code == 0 else FAILURE
         self.store.step_transition(run.id, g.name, state, exit_code=code)
         took = f"{int(time.monotonic() - started)} s"

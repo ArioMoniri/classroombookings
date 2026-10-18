@@ -15,7 +15,8 @@ GATE = POD_CI / "gates/backend.sh"
 COMPOSE = REPO / "smartsched/deploy/docker-compose.yml"
 
 
-def run_gate(tmp_path: Path, unhealthy: bool = False) -> tuple[subprocess.CompletedProcess[str], str]:
+def run_gate(tmp_path: Path, unhealthy: bool = False,
+             gate: Path = GATE) -> tuple[subprocess.CompletedProcess[str], str]:
     env = gate_env(tmp_path)
     src = tmp_path / "ws/src/smartsched/deploy"
     src.mkdir(parents=True)
@@ -23,7 +24,7 @@ def run_gate(tmp_path: Path, unhealthy: bool = False) -> tuple[subprocess.Comple
     env.update({"PG_READY_TRIES": "2", "PG_READY_SLEEP": "0"})
     if unhealthy:
         (tmp_path / "unhealthy").write_text("1")
-    r = subprocess.run(["bash", str(GATE)], env=env, capture_output=True, text=True, timeout=60)
+    r = subprocess.run(["bash", str(gate)], env=env, capture_output=True, text=True, timeout=60)
     log = (tmp_path / "docker.log").read_text() if (tmp_path / "docker.log").exists() else ""
     return r, log
 
@@ -40,7 +41,8 @@ def test_postgres_service_uses_the_compose_pin_and_reaches_the_tests(tmp_path: P
     assert "--network smartsched-ci-pg-7-abc1234" in tests
     assert "TEST_POSTGRES_URL=postgresql+psycopg://postgres:ci-7-abc1234@postgres:5432/postgres" in tests
     assert any(c.startswith("exec ") and "pg_isready" in c for c in lines)
-    assert lines[-2:] == ["rm -f smartsched-ci-pg-7-abc1234", "network rm smartsched-ci-pg-7-abc1234"]
+    # one postgres per gate (GATE_NAME, default backend): gates may run concurrently
+    assert lines[-2:] == ["rm -f smartsched-ci-pg-7-abc1234-backend", "network rm smartsched-ci-pg-7-abc1234-backend"]
 
 
 def test_migrations_check_counts_heads_instead_of_pinning_one(tmp_path: Path) -> None:
@@ -61,9 +63,12 @@ def test_gate_fails_and_cleans_up_when_postgres_never_gets_ready(tmp_path: Path)
 def test_saml_library_comes_from_the_lock_and_is_required(tmp_path: Path) -> None:
     # SAML 2.0 is built in (owner 2026-10-17): signxml is pinned in requirements.lock, installed with it, and the
     # gate fails if it is missing instead of letting tests/test_w3b_idp_saml.py skip.
-    _, log = run_gate(tmp_path)
+    _, log = run_gate(tmp_path, gate=POD_CI / "gates/backend-deps.sh")  # the venv is built once per run here
     assert "--require-hashes -r smartsched/backend/requirements-dev.lock" in log
     assert re.search(r'^python -c "import signxml', log, re.M)
+    (tmp_path / "b").mkdir()
+    _, log = run_gate(tmp_path / "b", gate=GATE)  # and checked again where the tests run
+    assert re.search(r'^python -c "import signxml', log, re.M) and "pip install" not in log
     for name in ("requirements.lock", "requirements-dev.lock"):
         lock = (REPO / "smartsched/backend" / name).read_text()
         assert re.search(r"^signxml==\d+\.\d+\.\d+ \\$", lock, re.M), name
@@ -91,11 +96,13 @@ def test_backend_unit_shard_runs_pytest_on_its_files_against_postgres(tmp_path: 
     src.mkdir(parents=True)
     shutil.copy(COMPOSE, src / "docker-compose.yml")
     env.update({"PG_READY_TRIES": "2", "PG_READY_SLEEP": "0"})
+    env["GATE_NAME"] = "backend-unit-2"
     r = subprocess.run(["bash", str(UNIT), "2/3"], env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stdout + r.stderr
     log = (tmp_path / "docker.log").read_text()
     tests = next(c for c in log.splitlines() if c.startswith("run --rm --init") and "TEST_POSTGRES_URL=" in c)
-    assert "-e SHARD_INDEX=2 -e SHARD_COUNT=3" in tests and "--network smartsched-ci-pg-7-abc1234" in tests
+    assert "-e SHARD_INDEX=2 -e SHARD_COUNT=3" in tests
+    assert "--network smartsched-ci-pg-7-abc1234-backend-unit-2" in tests  # its own postgres, not backend's
     assert 'python -m pytest -q --ignore=tests/solver -m "not slow"' in log
     assert log.splitlines()[-1].startswith("network rm ")
     for bad in ("0/3", "4/3", "1", "1/3; rm -rf /"):

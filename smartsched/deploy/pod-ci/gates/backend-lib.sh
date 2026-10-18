@@ -6,9 +6,11 @@
 # (tests/pg_support.py: concurrency, locks) at it, so they run instead of skipping. Removed on exit.
 # PG_NET / PG_ENV: the docker run arguments that put a python container on that network with both URLs.
 COMPOSE_FILE="$WS/src/smartsched/deploy/docker-compose.yml"
+# one postgres per gate: backend and the backend-unit-* shards may run at the same time (podci/runner.py)
+PG_TAG="${RUN_TAG}-${GATE_NAME:-backend}"
 PG_PASSWORD="ci-${RUN_TAG}"
-net="smartsched-ci-pg-${RUN_TAG}"
-pg="smartsched-ci-pg-${RUN_TAG}"
+net="smartsched-ci-pg-${PG_TAG}"
+pg="smartsched-ci-pg-${PG_TAG}"
 PG_NET=(--network "$net")
 PG_ENV=(
   -e TEST_POSTGRES_URL="postgresql+psycopg://postgres:${PG_PASSWORD}@postgres:5432/postgres"
@@ -37,11 +39,12 @@ start_postgres() {
   echo "postgres ready"
 }
 
-# The backend venv in the run's workspace (/w/venv): created by the first backend gate of the run, reused by the
-# later ones (gates run one after another in the same workspace). /w/venv/.podci-installed marks a finished install.
+# The backend venv in the run's workspace (/w/venv): built by the backend-deps gate (PY_VENV_INSTALL), then only
+# activated (PY_VENV) by backend.sh and backend-unit.sh, which may run concurrently. /w/venv/.podci-installed marks a
+# finished install.
 # shellcheck disable=SC2016
-PY_VENV='
-if [ ! -f /w/venv/.podci-installed ]; then
+PY_VENV_INSTALL='
+rm -rf /w/venv
 python -m venv /w/venv && . /w/venv/bin/activate
 # no unhashed "pip install --upgrade pip": the bundled pip runs hash-checking mode
 # SECURITY F13: hash-checking mode. requirements-dev.lock = the versions the image ships (requirements.lock) plus
@@ -49,7 +52,10 @@ python -m venv /w/venv && . /w/venv/bin/activate
 pip install -q --require-hashes -r smartsched/backend/requirements-dev.lock -r smartsched/backend/requirements-build.lock
 pip install -q --no-deps --no-build-isolation -e "./smartsched/backend"
 touch /w/venv/.podci-installed
-fi
+'
+# shellcheck disable=SC2016
+PY_VENV='
+[ -f /w/venv/.podci-installed ] || { echo "no backend venv in /w/venv: the backend-deps gate builds it"; exit 1; }
 . /w/venv/bin/activate
 # SAML 2.0 is built in (signxml from the lock): fail loudly rather than let tests/test_w3b_idp_saml.py skip
 python -c "import signxml; from importlib.metadata import version; print(\"signxml\", version(\"signxml\"))"

@@ -969,6 +969,8 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
   // HELPER_FILE_STAGE=off: the browser's File itself (no token); gone after a reload
   const handedBytes = handedRaw && !handedRaw.token ? handedFile(handedRaw) : null;
   const handedItem = handedRaw && (handedRaw.token || handedBytes) ? handedRaw : null;
+  // HB-23d UX-05: with a handed-over file the dialog opens on "İçe aktar" (not on the row's ✕)
+  const runRef = useRef<HTMLButtonElement>(null);
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
   const [dept, setDept] = useState("");
@@ -990,7 +992,7 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
   };
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl" data-testid="import-dialog">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl" data-testid="import-dialog" initialFocus={handedItem ? runRef : undefined}>
         <DialogHeader>
           <DialogTitle>{t("crbs.import.title")}</DialogTitle>
           <DialogDescription>{t("crbs.import.lead")}</DialogDescription>
@@ -1095,6 +1097,7 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
                 })
               }
               data-testid="import-run"
+              ref={runRef}
              aria-busy={m.isPending || undefined}>
               <BusyLabel busy={m.isPending} label={t("busy.working")}>
               {t("crbs.import.run")}</BusyLabel>

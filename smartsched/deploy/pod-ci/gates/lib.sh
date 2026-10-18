@@ -5,7 +5,9 @@
 #   RUN_TAG     unique per run (container labels, image tags, network names)
 #   CI_UID/CI_GID, GATE_CPUS, GATE_MEMORY, PY_IMAGE (pod CI python image), PW_IMAGE (Playwright image
 #   matching package-lock.json), GATES_DIR (this directory, mounted read-only at /ci)
-# Gates run one at a time (podci/runner.py, never in parallel); containers are non-root, resource-limited and removed afterwards.
+#   GATE_NAME (this gate), and with PODCI_PARALLEL slots > 1 also GATE_CPUS / GATE_MEMORY / NODE_MEMORY / NODE_HEAP_MB
+#   (one slot's share: gates may run at the same time, podci/runner.py). Never share a container or network name
+#   or a /w path between gates that can overlap. Containers are non-root, resource-limited and removed afterwards.
 set -euo pipefail
 : "${WS:?}" "${CACHE_DIR:?}" "${RUN_TAG:?}" "${CI_UID:?}" "${CI_GID:?}" "${GATES_DIR:?}"
 GATE_CPUS="${GATE_CPUS:-2}"
