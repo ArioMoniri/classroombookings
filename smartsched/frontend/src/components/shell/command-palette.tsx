@@ -20,7 +20,7 @@ import { visibleNavGroups, type NavItem } from "./nav-config";
 import { useActiveTerm } from "./term-switcher";
 import { useCycleTheme } from "./theme-toggle";
 import { useWelcomeCommands } from "@/components/welcome";
-import { HelperPaletteBottom, HelperPaletteTop, useHelperPaletteSearch } from "@/components/helper/palette-groups";
+import { HelperPaletteBottom, HelperPaletteEmpty, HelperPaletteTop, useHelperPaletteSearch } from "@/components/helper/palette-groups";
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -157,7 +157,7 @@ export function CommandPalette() {
           <CommandList className="max-h-[min(60vh,520px)]">
             {listReady ? (
               <>
-            <CommandEmpty>{loading ? t("glass.palette.searching") : t(planner ? "glass.palette.empty" : roomViewer ? "glass.palette.emptyRooms" : "glass.palette.emptyPages", { query: text })}</CommandEmpty>
+            <CommandEmpty>{text ? <HelperPaletteEmpty query={text} loading={loading} /> : t(planner ? "glass.palette.empty" : roomViewer ? "glass.palette.emptyRooms" : "glass.palette.emptyPages", { query: text })}</CommandEmpty>
             <HelperPaletteTop query={text} />
             {sectionsByCourse.length ? (
               <CommandGroup heading={t("glass.palette.courses")}>
