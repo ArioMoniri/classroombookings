@@ -4078,6 +4078,30 @@
       "status": "finished",
       "finished_at": "2026-10-18 12:23",
       "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a21c587110f8251f8",
+      "description": "README media pass",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 12:31",
+      "scope": "",
+      "goal": "Ledger name `readme-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first. No commits; no stack. This is the README and docs media pass. The launch-video lane finished (see docs/launch/README.md, docs/launch/RESEARCH.md and its P…",
+      "ledger": "README media pass",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "abea51c97375bdbc0",
+      "description": "BUG lane: find-room Sunday, audit labels",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 12:31",
+      "scope": "",
+      "goal": "Ledger name `bugs-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss (backend smartsched/backend, small frontend changes in smartsched/frontend). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first (each bug gets a failing test fir…",
+      "ledger": "BUG lane: find-room Sunday, audit labels",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
