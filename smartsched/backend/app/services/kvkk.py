@@ -206,6 +206,16 @@ DATA_CLASSES: dict[str, dict[str, Any]] = {
         "retention": None,
         "kept": "hesapla birlikte; silme talebinde silinir",
     },
+    # RF-11 new-device sign-in mail (app/services/mail_senders.py): browser + system family and network, as an HMAC
+    "known_devices": {
+        "tr": "Bilinen giriş cihazları: tarayıcı ve sistem türü ile ağın (/24) özeti, ilk ve son görülme zamanı",
+        "en": "Known sign-in devices: a hash of the browser and system family and the network (/24), first and last "
+        "seen",
+        "tables": ["settings (user.<id>.known_devices)"],
+        "legal_basis": "KVKK m.12 veri güvenliği tedbiri (tanınmayan cihazdan girişi bildirmek)",
+        "retention": None,
+        "kept": "son 20 cihaz, hesapla birlikte; silme talebinde silinir",
+    },
 }
 FLOORS = {k: v["retention"]["floor_days"] for k, v in DATA_CLASSES.items() if v["retention"]}
 
@@ -1164,6 +1174,9 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, Any]:
     from app.services import mfa as mfa_svc  # AU-B: what is on and when; never a secret, a code or a key
 
     data["sign_in_security"] = await mfa_svc.dsr_rows(session, uid)
+    from app.services import mail_senders  # RF-11: the new-device check's hashed devices
+
+    data["known_devices"] = await mail_senders.dsr_rows(session, uid)
     data.update(await _person_records(session, user, rooms))
     return await _scrub_others(session, user, data)
 
@@ -1837,6 +1850,11 @@ EXPORT_FILES: dict[str, tuple[str, str]] = {
         "Your sign-in security: whether the authenticator app is on, recovery codes left, your passkeys' names and "
         "dates, trusted devices (secrets and codes are never exported).",
     ),
+    "known_devices": (
+        "Hesabınıza giriş yapılan cihazların özeti (ilk ve son görülme); tarayıcı, sistem ve adres saklanmaz.",
+        "A hash of each device that signed in to your account (first and last seen); the browser, system and "
+        "address are not stored.",
+    ),
 }
 
 
@@ -2226,6 +2244,9 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
     )
     await session.execute(update(ApprovalRequest).where(ApprovalRequest.requested_by == uid).values(requested_by=None))
     # 3. notifications, delivery ledgers, channel links, identities, calendar links, tokens, personal settings
+    from app.services import mail_senders  # RF-11: counted before the user.<id>.* settings go below
+
+    counts["known_devices"] = await mail_senders.erase(session, uid)
     for name, stmt in (
         ("inapp_notifications", delete(InAppNotification).where(InAppNotification.user_id == uid)),
         ("notification_deliveries", delete(NotificationDelivery).where(NotificationDelivery.user_id == uid)),

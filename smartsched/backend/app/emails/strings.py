@@ -402,9 +402,6 @@ TR: dict[str, str] = {
         "bağlantılarınız iptal edildi ve bağlı takvimleriniz kaldırıldı."
     ),
     "calendar_consent.scope.consent_off.cta": "Gizlilik ayarlarını aç",
-    "calendar_consent.why": 'Bu e-postayı, "Takvim eşitleme iznim değişti" bildirimi açık olduğu için aldınız.',
-    "new_device_sign_in.why": 'Bu e-postayı, "Hesabıma yeni bir cihazdan giriş yapıldı" bildirimi açık olduğu için '
-    "aldınız.",
     # --- AU-B two-step sign-in, passkeys, admin resets (owner request 2026-10-18; security footer) ----------------
     "mfa_enabled.subject": "İki adımlı doğrulama açıldı",
     "mfa_enabled.preheader": "Girişte parolanızdan sonra bir kod da sorulacak.",
@@ -858,9 +855,6 @@ EN: dict[str, str] = {
         "subscription links were revoked and your connected calendars removed."
     ),
     "calendar_consent.scope.consent_off.cta": "Open privacy settings",
-    "calendar_consent.why": 'You received this because "My calendar sync consent changed" notifications are on.',
-    "new_device_sign_in.why": 'You received this because "My account was signed in on a new device" notifications '
-    "are on.",
     # --- AU-B two-step sign-in, passkeys, admin resets ---------------------------------------------------------------
     "mfa_enabled.subject": "Two-step verification is on",
     "mfa_enabled.preheader": "Signing in will ask for a code after your password.",

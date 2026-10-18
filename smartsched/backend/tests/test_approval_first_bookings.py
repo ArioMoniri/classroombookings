@@ -406,9 +406,9 @@ def test_channel_registry_is_the_extension_point():
         "series.created",
         "series.changed",
         "approval.submitted",
-        "calendar.consent",
-        "new_device.sign_in",
     }
+    # security and legal notices are mandatory: not switchable, so not in the preferences list (emails.md §8)
+    assert {"calendar.consent", "new_device.sign_in"} <= set(nd.MANDATORY) and not set(nd.MANDATORY) & set(nd.EVENTS)
     assert nd.EVENTS["ai.usage_alert"] == ("Yapay zekâ kullanım uyarıları", "AI usage alerts")
     assert nd.EVENTS["ops.alert"] == ("Sistem uyarıları (yöneticiler)", "System alerts (administrators)")
 

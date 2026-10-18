@@ -1,7 +1,8 @@
 """RF-11 (audit 2026-10-17 A6): the senders of the e-mail kinds that used to be preview-only.
 
 Every message goes through :func:`app.services.notify_dispatch.dispatch`, so the recipient's channel preferences
-(Profil › Bildirimler), the delivery ledger (``notification_deliveries``: one occurrence reaches a person once per
+(Profil › Bildirimler; not for the mandatory security / legal events of ``notify_dispatch.MANDATORY``), the delivery
+ledger (``notification_deliveries``: one occurrence reaches a person once per
 channel) and the e-mail outbox (``notification_outbox``, sent after the commit by the integrations worker) apply as
 for every other notice. The words are the kind's shipped template (``app.emails.strings``, admin overrides of set
 ``email`` first) in the reader's language; the in-app bell shows the same subject and text.
@@ -19,12 +20,16 @@ series.changed      series_changed         instances of a series are edited with
                                            series (``to=approver``)
 approval.submitted  approval_submitted     a request is opened (first step); a receipt to the person who submitted it
 calendar.consent    calendar_consent       the KVKK ``calendar_sync`` consent is given or withdrawn (``app.services
-                                           .kvkk.grant`` / ``withdraw``; ``scope=consent_on`` / ``consent_off``)
+                                           .kvkk.grant`` / ``withdraw``; ``scope=consent_on`` / ``consent_off``),
+                                           or a Google / Microsoft calendar is connected or removed
+                                           (``calendar_connectors``; ``provider`` + ``state=on`` / ``off``).
+                                           Mandatory (legal): not switchable per person
 new_device.sign_in  new_device_sign_in     a sign-in from a device not seen before: user-agent family (browser + OS,
                                            no versions) plus the client network (/24, /48 for IPv6), stored only as
                                            an HMAC in the user setting ``known_devices``; the very first device of an
                                            account is recorded silently; off for the whole organisation with
-                                           ``org.new_device_sign_in_mail``
+                                           ``org.new_device_sign_in_mail``. Mandatory (security): not switchable
+                                           per person
 ==================  =====================  ==========================================================================
 """
 
@@ -602,7 +607,10 @@ async def _on_logged_in(session: AsyncSession, payload: dict[str, Any]) -> None:
     from app.models.base import utcnow
 
     now = utcnow()
-    known = [{"h": h, "seen": now.isoformat(timespec="seconds")}, *(d for d in known if d["h"] != h)][:MAX_DEVICES]
+    stamp_now = now.isoformat(timespec="seconds")
+    first_seen = next((d.get("first") or d.get("seen") for d in known if d["h"] == h), None) or stamp_now
+    entry = {"h": h, "first": first_seen, "seen": stamp_now}
+    known = [entry, *(d for d in known if d["h"] != h)][:MAX_DEVICES]
     await set_user_value(session, user.id, DEVICES_KEY, json.dumps(known, separators=(",", ":")))
     if not is_new or first_device or not user.email:
         return
@@ -624,6 +632,54 @@ async def _on_logged_in(session: AsyncSession, payload: dict[str, Any]) -> None:
         when=stamp,
         device=device,
         details=[("Zaman", stamp), ("Cihaz", device)] if lang == "tr" else [("When", stamp), ("Device", device)],
+    )
+
+
+async def dsr_rows(session: AsyncSession, user_id: int) -> list[dict[str, Any]]:
+    """The person's known sign-in devices for the KVKK export (``known_devices``): the HMAC and when it was first and
+    last seen -- the browser, the system and the address are never stored, so they cannot be exported."""
+    return [
+        {"device": d["h"], "first_seen": d.get("first") or d.get("seen"), "last_seen": d.get("seen")}
+        for d in _known(await get_user_value(session, user_id, DEVICES_KEY))
+    ]
+
+
+async def erase(session: AsyncSession, user_id: int) -> int:
+    """KVKK erasure: forget every known device of the person; the number of devices removed."""
+    n = len(_known(await get_user_value(session, user_id, DEVICES_KEY)))
+    from app.models import Setting
+
+    row = await session.get(Setting, f"user.{user_id}.{DEVICES_KEY}")
+    if row is not None:
+        await session.delete(row)
+        await session.flush()
+    return n
+
+
+# --------------------------------------------------------------------------------------------------
+# 6. Calendar provider connected / disconnected (app.services.calendar_connectors)
+# --------------------------------------------------------------------------------------------------
+
+
+async def calendar_connection(
+    session: AsyncSession, user: User, *, provider: str, connected: bool, connection_id: int | None
+) -> None:
+    """``calendar_consent`` with ``provider`` (google / microsoft) and ``state`` (on / off): the person connected a
+    calendar for push, or removed it (mandatory, like the consent itself)."""
+    from app.models.base import utcnow
+
+    state = "on" if connected else "off"
+    await send(
+        session,
+        user,
+        event="calendar.consent",
+        key=f"calendar_connection:{connection_id or '-'}:{provider}:{state}:{utcnow():%Y%m%dT%H%M%S}",
+        kind="calendar_consent",
+        link="/profile#privacy",
+        data={"provider": provider, "connected": connected, "connection_id": connection_id},
+        read=True,
+        provider=provider,
+        state=state,
     )
 
 

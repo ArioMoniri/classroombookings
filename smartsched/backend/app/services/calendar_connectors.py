@@ -1028,6 +1028,12 @@ async def finish_authorization(
         actor=user,
     )
     await queue_full_sync(session, conn)
+    if is_new and user is not None:  # RF-11: "Google takviminiz bağlandı" (mandatory legal notice)
+        from app.services import mail_senders
+
+        await mail_senders.calendar_connection(
+            session, user, provider=provider.name, connected=True, connection_id=conn.id
+        )
     await session.commit()
     worker.schedule_drain()
     return _panel(base, path, calendar="connected", provider=provider.name)
@@ -1061,6 +1067,30 @@ WAIT_CLEANUP_S = 20.0
 
 
 async def disconnect(
+    session: AsyncSession,
+    conn: CalendarConnection,
+    *,
+    remove_events: bool = True,
+    wait: bool = False,
+    timeout: float | None = None,
+    notify: bool = False,
+) -> dict[str, Any]:
+    """:func:`_disconnect`; ``notify`` (the person removed it themselves: ``DELETE /calendar/connectors/{provider}``)
+    sends them "… takviminizin bağlantısı kaldırıldı" (RF-11, mandatory legal notice). A KVKK withdrawal or erasure
+    and a reconnect with fewer permissions do not: the withdrawal has its own message."""
+    user_id, provider_name, conn_id = conn.user_id, conn.provider, conn.id
+    out = await _disconnect(session, conn, remove_events=remove_events, wait=wait, timeout=timeout)
+    user = await session.get(User, user_id) if notify and user_id else None
+    if user is not None and user.is_active:
+        from app.services import mail_senders
+
+        await mail_senders.calendar_connection(
+            session, user, provider=provider_name, connected=False, connection_id=conn_id
+        )
+    return out
+
+
+async def _disconnect(
     session: AsyncSession,
     conn: CalendarConnection,
     *,

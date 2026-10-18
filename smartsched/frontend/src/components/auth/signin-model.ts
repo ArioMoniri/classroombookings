@@ -102,12 +102,16 @@ export function readSignInParams(sp: URLSearchParams | Record<string, Raw>): Sig
     methodLocal: first(get("method")) === "local",
     invitedMasked: safeMasked(get("invited_masked")),
     signedIn: safeMasked(get("signed_in")),
-    mfa: readMfaNotice(get("mfa")),
-    mfaMinutes: (() => {
-      const n = Number(first(get("min")));
-      return Number.isFinite(n) && n > 0 && n <= 1440 ? Math.ceil(n) : null;
-    })(),
+    ...mfaParams(get),
   };
+}
+
+/** `?mfa=` / `&min=` only when present, so the contract object is unchanged without them. */
+function mfaParams(get: (k: string) => Raw): Pick<SignInParams, "mfa" | "mfaMinutes"> {
+  const mfa = readMfaNotice(get("mfa"));
+  if (!mfa) return {};
+  const n = Number(first(get("min")));
+  return { mfa, mfaMinutes: Number.isFinite(n) && n > 0 && n <= 1440 ? Math.ceil(n) : null };
 }
 
 /** The Microsoft start URL: a real navigation (`<a href>`, §4.2), never `fetch`. */

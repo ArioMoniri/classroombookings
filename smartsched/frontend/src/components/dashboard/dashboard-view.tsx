@@ -189,9 +189,8 @@ export function DashboardView() {
             {d ? <QuietNumbers d={d} /> : <Skeleton className="mt-6 h-16" />}
           </div>
           <div className="min-w-0">
-            <p className="type-callout font-medium text-label-1">{t("glass.dashboard.byPeriod")}</p>
-            <p className="type-footnote text-label-3">{t("glass.dashboard.byPeriodHint")}</p>
-            {d ? <PeriodArea data={d} className="mt-2 h-[180px]" /> : <Skeleton className="mt-2 h-[180px]" />}
+            {/* CH-04: title, hint, peak sentence, table twin and CSV come from the shared ChartCard */}
+            <PeriodArea data={d} />
           </div>
         </div>
       </GlassPanel>

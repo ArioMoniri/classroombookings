@@ -440,8 +440,9 @@ _DESIGN: dict[str, dict[str, object]] = {
         "enums": ("method",),
         "placeholders": ("name", "org", "actor", "username", "role", "provider", "valid_hours"),
     },
-    # RF-11: event ``new_device.sign_in`` (switchable per person, and per organisation: org.new_device_sign_in_mail)
-    "new_device_sign_in": {"placeholders": ("name", "org", "when", "device")},
+    # RF-11: mandatory event ``new_device.sign_in`` (notify_dispatch.MANDATORY; the organisation may switch the mail
+    # off with org.new_device_sign_in_mail, a person cannot)
+    "new_device_sign_in": {"footer": "security", "placeholders": ("name", "org", "when", "device")},
     "approval_submitted": {"enums": ("hold",), "placeholders": ("name", "org", "what", "held_until")},
     "approval_withdrawn": {"enums": ("to",)},
     "booking_cancelled": {"enums": ("cause",)},
@@ -449,9 +450,10 @@ _DESIGN: dict[str, dict[str, object]] = {
     # RF-11: ``by=self`` when the owner made the series; ``to=approver`` for the approver who approved it
     "series_created": {"enums": ("by",), "placeholders": ("who", "room", "pattern", "count", "series_id", "items")},
     "series_changed": {"enums": ("to",), "placeholders": ("who", "room", "series_id", "change", "items")},
-    # RF-11: sent through notify_dispatch (event ``calendar.consent``), so the person's preferences apply and the
-    # footer says why and links them; ``scope=consent_on`` / ``consent_off`` is the KVKK consent itself
+    # RF-11: mandatory event ``calendar.consent`` (notify_dispatch.MANDATORY): the KVKK consent itself
+    # (``scope=consent_on`` / ``consent_off``) and a provider connection (``provider`` + ``state=on`` / ``off``)
     "calendar_consent": {
+        "footer": "legal",
         "enums": ("state", "provider", "scope"),
         "placeholders": ("name", "provider", "actor", "when"),
     },

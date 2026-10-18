@@ -41,6 +41,8 @@ export interface ChartCardProps<R> {
   title: string;
   /** one plain sentence from chart-summary.ts; the figure's description */
   summary: string;
+  /** what the measure is, in a few words, under the title (read before the summary) */
+  hint?: string;
   state: ChartState;
   /** drives the table twin and the CSV; the first column is the bucket */
   columns: readonly ChartColumn<R>[];
@@ -110,7 +112,7 @@ function useInView(rootMargin = "200px") {
 }
 
 export function ChartCard<R>(props: ChartCardProps<R>) {
-  const { id, title, summary, state, columns, rows, unit, legend, period, partial, stale, updatedAt, error, onRetry, focusRetry, empty, range, minPoints = 3, userId, headingLevel = 3, className, children } = props;
+  const { id, title, summary, hint, state, columns, rows, unit, legend, period, partial, stale, updatedAt, error, onRetry, focusRetry, empty, range, minPoints = 3, userId, headingLevel = 3, className, children } = props;
   const { t } = useI18n();
   const f = useChartFormat();
   const reduce = useReduce();
@@ -119,7 +121,9 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
   const uid = useId();
   const titleId = `${uid}-title`;
   const summaryId = `${uid}-summary`;
-  const height = props.height ?? (phone ? PHONE_HEIGHT : 240);
+  const hintId = `${uid}-hint`;
+  // phones always get the 200 px plot (charts.md §7); `height` is the desktop plot
+  const height = phone ? PHONE_HEIGHT : (props.height ?? 240);
 
   const numberColumns = columns.filter((c) => c.kind === "number" || c.kind === "percent");
   const marks = rows.length * (props.series ?? Math.max(1, numberColumns.length));
@@ -214,7 +218,7 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
   return (
     <figure
       aria-labelledby={titleId}
-      aria-describedby={summaryId}
+      aria-describedby={hint ? `${hintId} ${summaryId}` : summaryId}
       aria-busy={state === "loading" ? true : undefined}
       data-chart-card={id}
       data-state={shownState}
@@ -225,6 +229,11 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
           <Heading id={titleId} className="type-headline text-label-1">
             {title}
           </Heading>
+          {hint ? (
+            <p id={hintId} className="type-footnote text-label-3">
+              {hint}
+            </p>
+          ) : null}
           <p id={summaryId} className="mt-1 type-subheadline text-label-2">
             {state === "loading" ? <Skeleton className="inline-block h-[1lh] w-3/4 align-middle" /> : <SwapText text={summary} reduce={reduce} />}
           </p>

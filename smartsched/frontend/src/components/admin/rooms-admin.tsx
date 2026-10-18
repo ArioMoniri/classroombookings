@@ -144,10 +144,13 @@ function GroupsTab() {
             <Building2 aria-hidden />
             {t("crbs.rooms.fromBuildings")}
           </Button>
-          <Button onClick={() => setEditing("new")}>
-            <Plus aria-hidden />
-            {t("crbs.rooms.newGroup")}
-          </Button>
+          {/* the tab's primary in the capsule above the tab bar below lg, like "Yeni derslik" (mobile-b phase 2) */}
+          <div data-slot="page-actions" className={pageActionsCapsule}>
+            <Button onClick={() => setEditing("new")}>
+              <Plus aria-hidden />
+              {t("crbs.rooms.newGroup")}
+            </Button>
+          </div>
         </div>
       </div>
       <Card className="overflow-hidden py-0">

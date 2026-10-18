@@ -123,9 +123,28 @@ EVENTS: dict[str, tuple[str, str]] = {
         "My recurring booking (or a series I approved) changed",
     ),
     "approval.submitted": ("Talebim alındı", "My request was received"),
-    "calendar.consent": ("Takvim eşitleme iznim değişti", "My calendar sync consent changed"),
-    "new_device.sign_in": ("Hesabıma yeni bir cihazdan giriş yapıldı", "My account was signed in on a new device"),
 }
+
+#: Mandatory events (owner decision 2026-10-18, emails.md §8): security and legal notices. They always reach the
+#: built-in channels (:data:`MANDATORY_CHANNELS`) whatever the person's preferences, are not listed in the
+#: preferences screen and cannot be switched off there (``unknown_event``); other channels follow their own master
+#: switch and default. The e-mail footer says so ("kapatılamaz"). A sender may also set ``Notice.mandatory``.
+MANDATORY: dict[str, tuple[str, str]] = {
+    "calendar.consent": ("Takvim eşitleme izni ve takvim bağlantıları", "Calendar sync consent and connections"),
+    "new_device.sign_in": ("Hesaba yeni bir cihazdan giriş", "Sign-in from a new device"),
+    # AU-B (outbox kinds mfa_reset_by_admin, password_reset_link_by_admin) when their senders use the dispatcher;
+    # the password reset code itself is sent directly (bookings_notify.notify, deliver_now) and never switchable
+    "mfa_reset.by_admin": ("Yönetici iki adımlı girişimi sıfırladı", "An administrator reset my two-step sign-in"),
+    "password_reset_link.by_admin": (
+        "Yönetici parola sıfırlama bağlantısı gönderdi",
+        "An administrator sent me a password reset link",
+    ),
+}
+MANDATORY_CHANNELS = ("in_app", "email")
+
+
+def is_mandatory(event: str) -> bool:
+    return event in MANDATORY
 
 
 class DispatchError(Exception):
@@ -154,6 +173,8 @@ class Notice:
     data: Mapping[str, Any] = field(default_factory=dict)
     #: in-app only: stored as already read (a record of the recipient's own action, e.g. their withdrawal: T-R1-15)
     read: bool = False
+    #: a security / legal notice: reaches the built-in channels whatever the preferences (see :data:`MANDATORY`)
+    mandatory: bool = False
 
 
 @dataclass(frozen=True)
@@ -382,12 +403,14 @@ async def _delivered(session: AsyncSession, key: str, user_id: int, name: str) -
 
 async def dispatch(session: AsyncSession, user: User, notice: Notice) -> list[Delivery]:
     """Fan ``notice`` out to ``user``'s channels, at most once per (``notice.key``, user, channel)."""
-    if notice.event not in EVENTS:
+    if notice.event not in EVENTS and notice.event not in MANDATORY:
         raise ValueError(f"unknown notification event {notice.event!r}")
+    mandatory = notice.mandatory or is_mandatory(notice.event)
     prefs = await load_preferences(session, user.id)
     out: list[Delivery] = []
     for adapter in list(_CHANNELS):
-        if not prefs.enabled(notice.event, adapter):
+        forced = mandatory and adapter.name in MANDATORY_CHANNELS
+        if not forced and not prefs.enabled(notice.event, adapter):
             out.append(Delivery(adapter.name, "off"))
             continue
         if await _delivered(session, notice.key, user.id, adapter.name):
