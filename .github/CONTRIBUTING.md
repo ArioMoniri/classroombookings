@@ -6,9 +6,9 @@ house rules. Please also read the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Ways to help
 
-- **Report a bug** with the [bug form](https://github.com/ArioMoniri/classroombookings/issues/new?template=bug_report.yml)
+- **Report a bug** with the **Bug report** form (Issues → New issue)
   (steps, what you expected, what happened, the screen width).
-- **Suggest a feature** with the [feature form](https://github.com/ArioMoniri/classroombookings/issues/new?template=feature_request.yml).
+- **Suggest a feature** with the **Feature request** form.
   Say who it is for (planner, coordinator, academic, staff, administrator) and what they do today instead.
 - **Fix something.** Small fixes can go straight to a pull request. For anything larger, open an issue first so
   we can agree on the approach.
