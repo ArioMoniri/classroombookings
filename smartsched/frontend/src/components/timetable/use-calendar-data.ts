@@ -30,10 +30,12 @@ export function usableRuns(runs: readonly ScheduleRun[] | undefined, termId: num
   return (runs ?? []).filter((r) => USABLE.has(r.status) && (termId === null || r.term_id === termId)).sort((a, b) => b.id - a.id);
 }
 
-/** Latest usable run of the term, of the kind its term implies (exam terms → EXAM runs). */
+/** The term's published run of the kind its term implies (exam terms → EXAM runs), else its latest usable run of
+ * that kind (PER-F06 / HX12B-F08: Çizelge and its export followed the newest unpublished scenario, here #9 over #3). */
 export function defaultRun(runs: readonly ScheduleRun[], term: Term | undefined): ScheduleRun | undefined {
   const wantExam = term ? term.kind !== "REGULAR" && term.kind !== "SUMMER" : false;
-  return runs.find((r) => (r.kind === "EXAM") === wantExam) ?? runs[0];
+  const ofKind = (r: ScheduleRun) => (r.kind === "EXAM") === wantExam;
+  return runs.find((r) => r.is_active && ofKind(r)) ?? runs.find(ofKind) ?? runs[0];
 }
 
 /** The shell's working term (session pick → remembered → current by date), unless a deep-linked run says otherwise. */

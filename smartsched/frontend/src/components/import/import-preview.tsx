@@ -19,6 +19,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { ParseWarningsTable, TruncatedWarnings } from "./parse-warnings-table";
+import type { TermMismatch } from "./term-hint";
 
 const ENTITIES = ["exam_requests", "meeting_requests", "sections", "rooms", "programs", "courses", "instructors", "constraints", "weeks", "blocks", "faculties"] as const;
 const FIELDS = [
@@ -38,7 +39,7 @@ function fieldLabelKey(field: string | null | undefined): MessageKey {
 /** kinds whose apply takes `on_conflict` (planning and exam lists) */
 const CONFLICT_KINDS = new Set(["planning-list", "exam-list"]);
 
-export function ImportPreview({ job, onApplied, onCancel }: { job: ImportJob; onApplied: (applied: ImportJob) => void; onCancel: () => void }) {
+export function ImportPreview({ job, onApplied, onCancel, termWarning = null }: { job: ImportJob; onApplied: (applied: ImportJob) => void; onCancel: () => void; /** PER-F04: the file names another term than the target */ termWarning?: TermMismatch | null }) {
   const { t, n, locale } = useI18n();
   const diff = importDiff(job);
   const [choice, setChoice] = useState<OnConflict>(diff?.on_conflict === "take" ? "take" : "keep");
@@ -47,6 +48,8 @@ export function ImportPreview({ job, onApplied, onCancel }: { job: ImportJob; on
   const [showWarnings, setShowWarnings] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [termOk, setTermOk] = useState(false);
+  const termBlocked = !!termWarning && !termOk;
   const errorRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   // the preview replaces the upload card: focus moves to its heading, never to <body>
@@ -92,6 +95,15 @@ export function ImportPreview({ job, onApplied, onCancel }: { job: ImportJob; on
         <p className="type-callout text-label-2">{applied ? t("rf.preview.applied") : t("rf.preview.lead")}</p>
       </CardHeader>
       <CardContent className="space-y-5">
+        {termWarning && !applied ? (
+          <Alert tone="warning" data-testid="import-term-mismatch" title={termWarning.likely ? t("rf.preview.termMismatch", { file: termWarning.likely.name, target: termWarning.target }) : t("rf.preview.termMismatchUnknown", { target: termWarning.target })}>
+            <p>{t("rf.preview.termMismatchHint")}</p>
+            <label className="mt-2 flex min-h-11 cursor-pointer items-center gap-3">
+              <input type="checkbox" checked={termOk} onChange={(e) => setTermOk(e.target.checked)} className="size-4 accent-(--tint)" data-testid="import-term-confirm" />
+              <span className="type-callout font-medium">{t("rf.preview.termConfirm", { target: termWarning.target })}</span>
+            </label>
+          </Alert>
+        ) : null}
         {diff && totals ? (
           <>
             <ul className="space-y-1 type-body text-label-1" data-testid="import-preview-summary" aria-live="polite">
@@ -228,7 +240,7 @@ export function ImportPreview({ job, onApplied, onCancel }: { job: ImportJob; on
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button variant="ghost" onClick={onCancel} disabled={busy}>{t("rf.preview.cancel")}</Button>
           {!applied ? (
-            <Button onClick={() => void apply()} {...busyProps(busy, job.status !== "DONE")} data-testid="import-apply">
+            <Button onClick={() => void apply()} {...busyProps(busy, job.status !== "DONE" || termBlocked)} data-testid="import-apply">
               <BusyLabel busy={busy} label={t("rf.preview.applying")} icon={<Check aria-hidden />}>
                 {t("rf.preview.apply")}
               </BusyLabel>

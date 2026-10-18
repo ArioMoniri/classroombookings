@@ -9,6 +9,7 @@ import type { ParseWarning } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { BareButton } from "@/components/shell/bare-button";
+import { warningTr } from "./warning-tr";
 
 type Severity = ParseWarning["severity"];
 const ORDER: Record<Severity, number> = { error: 0, warning: 1, info: 2 };
@@ -38,7 +39,7 @@ export function SeverityIcon({ severity, className }: { severity: Severity; clas
 }
 
 export function ParseWarningsTable({ warnings }: { warnings: readonly ParseWarning[] }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [severity, setSeverity] = useState<Severity | "all">("all");
   const [query, setQuery] = useState("");
   const [sorting, setSorting] = useState<SortingState>([{ id: "severity", desc: false }]);
@@ -46,7 +47,7 @@ export function ParseWarningsTable({ warnings }: { warnings: readonly ParseWarni
 
   const data = useMemo(() => {
     const q = query.toLocaleLowerCase("tr-TR");
-    return warnings.filter((w) => (severity === "all" || w.severity === severity) && (!q || `${w.field} ${w.value ?? ""} ${w.message} ${w.row}`.toLocaleLowerCase("tr-TR").includes(q)));
+    return warnings.filter((w) => (severity === "all" || w.severity === severity) && (!q || `${w.field} ${w.value ?? ""} ${w.message} ${warningTr(w.message)} ${w.row}`.toLocaleLowerCase("tr-TR").includes(q)));
   }, [warnings, severity, query]);
 
   const columns = useMemo<ColumnDef<ParseWarning>[]>(
@@ -55,9 +56,10 @@ export function ParseWarningsTable({ warnings }: { warnings: readonly ParseWarni
       { accessorKey: "row", header: t("import.row"), cell: ({ getValue }) => <span className="font-mono tabular-nums">{getValue<number>()}</span> },
       { accessorKey: "field", header: t("import.field") },
       { accessorKey: "value", header: t("import.value"), cell: ({ getValue }) => <span className="font-mono text-xs break-all">{getValue<string | null>() ?? "—"}</span> },
-      { accessorKey: "message", header: t("import.message") },
+      // PER-F05: the importers' English sentences read in Turkish (unknown shapes stay as written)
+      { accessorKey: "message", header: t("import.message"), cell: ({ getValue }) => (locale === "tr" ? warningTr(getValue<string>()) : getValue<string>()) },
     ],
-    [t],
+    [t, locale],
   );
 
   const table = useReactTable({ data, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(), getFilteredRowModel: getFilteredRowModel() });

@@ -121,7 +121,16 @@ function NavRow({ n, kind, onSelect }: { n: NavCard; kind: "page" | "where"; onS
         <span className="truncate">{title}</span>
         {path ? <span className="truncate type-footnote text-label-3">{path}</span> : null}
       </span>
-      {n.anchor ?? e.anchor ? <span className="ml-auto pl-3 type-footnote text-label-3">{kind === "where" ? t("helper.palette.showHint") : <KbdHint keys={["shift", "enter"]} aria-hidden />}</span> : null}
+      {n.anchor ?? e.anchor ? (
+        kind === "where" ? (
+          <span className="ml-auto pl-3 type-footnote text-label-3">{t("helper.palette.showHint")}</span>
+        ) : (
+          // HB18-F11: keycaps mean nothing on a touch phone (no Shift); the "Nerede?" row says "Göster" there
+          <span className="ml-auto pl-3 type-footnote text-label-3 pointer-coarse:hidden" data-testid="palette-kbd-hint">
+            <KbdHint keys={["shift", "enter"]} aria-hidden />
+          </span>
+        )
+      ) : null}
     </CommandItem>
   );
 }

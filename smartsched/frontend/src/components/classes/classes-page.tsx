@@ -104,7 +104,9 @@ export function ClassesPage() {
   // ------------------------------------------------------------------ term, kind, run
   const kind: ClassKind = params.get("kind") === "exams" ? "exams" : "meetings";
   const requestedRun = params.get("run") ? Number(params.get("run")) : null;
-  const { term, termId } = useTermContext();
+  // AS20-F04: a deep link names its term (/requests?kind=exams&id=…&term=… from the exam advisor); the sidebar's
+  // term is the fallback
+  const { term, termId } = useTermContext(Number(params.get("term")) || null);
   const runsQ = useRuns(termId !== null ? { term_id: termId } : undefined);
   const hydrated = useHydrated();
   const runs = useMemo(() => (hydrated ? usableRuns(runsQ.data, termId).filter((r) => (r.kind === "EXAM") === (kind === "exams")) : []), [hydrated, runsQ.data, termId, kind]);

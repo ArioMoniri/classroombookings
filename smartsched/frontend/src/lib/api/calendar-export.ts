@@ -109,6 +109,8 @@ export const ExportOptions = z.object({
   channels: z
     .object({
       link: z.boolean().default(true),
+      /** CAL10-F02: why the link channel is not offered (no panel address), in both languages */
+      link_note: z.object({ tr: z.string().nullish(), en: z.string().nullish() }).nullish(),
       file: z.boolean().default(true),
       push: z.array(PushChannel).default([]),
     })
@@ -209,6 +211,8 @@ function adaptScope(v: unknown): unknown {
       const own = d.id === dflt && pv;
       return { ...d, reason: isObj(d.reason) ? str(d.reason.code) : d.reason, sample: own ? out.sample : adaptSample(d.sample), upcoming: own ? out.upcoming : d.upcoming };
     });
+    // CAL10-F01: the person's own department first (then the backend's order)
+    if (dflt !== null) out.departments = [...out.departments.filter((d) => isObj(d) && d.id === dflt), ...out.departments.filter((d) => !(isObj(d) && d.id === dflt))];
   }
   return out;
 }
@@ -225,7 +229,8 @@ export function adaptOptions(raw: unknown): unknown {
           .map(([provider, p]) => ({ provider, configured: !!(p as Raw).configured, connected: !!(p as Raw).connected }))
       : [];
     const avail = (c: unknown) => (typeof c === "boolean" ? c : isObj(c) ? c.available !== false : true);
-    out.channels = { link: avail(ch.link), file: avail(ch.file), push };
+    const note = isObj(ch.link) && ch.link.reason ? { tr: str(ch.link.message_tr), en: str(ch.link.message_en) } : null;
+    out.channels = { link: avail(ch.link), ...(note ? { link_note: note } : {}), file: avail(ch.file), push };
     if (isObj(ch.push) && isObj(ch.push.verification)) out.push_verification = ch.push.verification;
   }
   return out;

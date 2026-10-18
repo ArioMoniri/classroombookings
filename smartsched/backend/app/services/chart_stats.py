@@ -2,11 +2,12 @@
 parses exactly these shapes in ``smartsched/frontend/src/lib/api/stats.ts``). Nothing here writes, so the routes
 have no audit rows; every query runs in the caller's request session, so PostgreSQL row-level security applies.
 
-* :func:`weekly_bookings` (CH-07): one row per term week of the term calendar (``weeks`` rows, else the term's
-  weekly arithmetic) with ``exam`` (an EXAM / MAKEUP week, or an active MIDTERM / EXAM / MAKEUP season segment over
-  it), ``partial`` (the week holds today, or the term starts / ends inside it; ``start`` / ``end`` are then clipped
-  to the term), ``bookings`` (live ``BOOKED`` booking rows dated in the week) and ``requests`` (booking approval
-  requests by the Istanbul day they were submitted, current status; expired and withdrawn ones are not counted).
+* :func:`weekly_bookings` (CH-07): one row per term week of the term calendar (``weeks`` rows plus the term's weekly
+  arithmetic for 1..``week_count``) with ``exam`` (an EXAM / MAKEUP week, or an active MIDTERM / EXAM / MAKEUP
+  season segment over it), ``partial`` (the week holds today, or the term starts / ends inside it; ``start`` /
+  ``end`` are then clipped to the term), ``bookings`` (live ``BOOKED`` booking rows dated in the week) and
+  ``requests`` (booking approval requests by the Istanbul day they were submitted, current status; expired and
+  withdrawn ones are not counted).
 * :func:`daily_audit` (CH-10): audit events per Europe/Istanbul day, every day of the window present (0 for a quiet
   day). ``scope`` is the audit list's own scope condition, so the chart counts what the list shows.
 * :func:`my_load` (CH-11): the caller's own instructor record (``Instructor.user_id``) on the term's published
@@ -98,7 +99,10 @@ def term_weeks(term: Term, rows: Sequence[Week]) -> list[tuple[int, date, date, 
     the week's Monday and ``end`` its Sunday, clipped to the term's first / last day (``clipped`` then)."""
     first = term.start_date
     last = term_end(term)
-    numbers = sorted({int(w.index) for w in rows}) or list(range(1, int(term.week_count or 14) + 1))
+    # CH12-F01: the calendar's week rows *and* 1..week_count. An import that wrote rows for weeks 1-2 only (Güz
+    # 2026-27) must not end the chart on 4 Oct while the term runs 14 weeks; the missing weeks are dated by the
+    # term's weekly arithmetic (``seasons.week_start``).
+    numbers = sorted({int(w.index) for w in rows} | set(range(1, int(term.week_count or 14) + 1)))
     out: list[tuple[int, date, date, bool]] = []
     for wk in numbers:
         mon = seasons.week_start(term, wk, rows)

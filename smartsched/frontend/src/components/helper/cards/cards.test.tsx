@@ -237,7 +237,9 @@ describe("confirm / undo plumbing", () => {
     pushConfirm();
     fireEvent.click(await screen.findByTestId("helper-card-confirm"));
     await waitFor(() => expect(screen.getByTestId("helper-card-error")).toHaveTextContent("Bu saat az önce doldu."));
-    expect(screen.getByTestId("helper-card-confirm")).toBeEnabled();
+    // HB18-F03: the slot is gone, so "Rezerve et" is too; the card offers another time instead
+    expect(screen.queryByTestId("helper-card-confirm")).toBeNull();
+    expect(screen.getByTestId("helper-card-other-time")).toHaveTextContent("Başka saat öner");
   });
 
   it("a new pending card parks the older one (one card in focus)", async () => {

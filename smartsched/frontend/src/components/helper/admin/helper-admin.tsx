@@ -8,7 +8,7 @@
  * A save sends `version`; 409 `stale_settings` reloads the current values and says so.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Alert, SectionTitle } from "@/components/admin/kit";
 import { Button } from "@/components/ui/button";
@@ -38,9 +38,14 @@ function Row({ id, label, hint, checked, onChange, disabled, testId }: { id: str
   );
 }
 
-function Editor({ data, canEdit, error, setError }: { data: AdminData; canEdit: boolean; error: string | null; setError: (e: string | null) => void }) {
+function Editor({ data, canEdit, error, setError, refocus }: { data: AdminData; canEdit: boolean; error: string | null; setError: (e: string | null) => void; refocus: { mark: (v: boolean) => void; take: () => boolean } }) {
   const { t, locale } = useI18n();
   const save = useSaveHelperAdmin();
+  const saveRef = useRef<HTMLButtonElement>(null);
+  // HB18-F07: a save reloads the editor with the new version (it is keyed by it); the focus comes back to Kaydet
+  useEffect(() => {
+    if (refocus.take()) saveRef.current?.focus();
+  }, [refocus]);
   const [s, setS] = useState<HelperAdminSettings>(data.settings);
   const [advanced, setAdvanced] = useState(false);
   const qc = useQueryClient();
@@ -50,7 +55,9 @@ function Editor({ data, canEdit, error, setError }: { data: AdminData; canEdit: 
     setS((p) => ({ ...p, actions: { ...p.actions, [name]: { enabled: p.actions[name]?.enabled ?? true, audiences: p.actions[name]?.audiences ?? null, ...patch } } }));
 
   const submit = async () => {
+    if (save.isPending) return;
     setError(null);
+    refocus.mark(document.activeElement === saveRef.current);
     try {
       await save.mutateAsync({
         version: data.version ?? undefined,
@@ -183,7 +190,8 @@ function Editor({ data, canEdit, error, setError }: { data: AdminData; canEdit: 
         </Alert>
       ) : null}
       {canEdit ? (
-        <Button className="self-start" onClick={() => void submit()} disabled={save.isPending} data-testid="helper-admin-save">
+        // aria-disabled, not disabled, while saving: a disabled button drops the focus to <body> (HB18-F07)
+        <Button ref={saveRef} className="self-start" onClick={() => void submit()} aria-disabled={save.isPending || undefined} aria-busy={save.isPending || undefined} data-testid="helper-admin-save">
           {save.isPending ? t("busy.saving") : t("helper.admin.save")}
         </Button>
       ) : null}
@@ -232,6 +240,17 @@ export function HelperAdminTab({ canEdit = true }: { canEdit?: boolean }) {
   const { t } = useI18n();
   const q = useHelperAdmin();
   const [error, setError] = useState<string | null>(null);
+  const pending = useRef(false);
+  const [refocus] = useState(() => ({
+    mark: (v: boolean) => {
+      pending.current = v;
+    },
+    take: () => {
+      const v = pending.current;
+      pending.current = false;
+      return v;
+    },
+  }));
   return (
     <div className="flex flex-col gap-6" data-testid="helper-admin">
       <div>
@@ -241,7 +260,7 @@ export function HelperAdminTab({ canEdit = true }: { canEdit?: boolean }) {
       {q.isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : q.data ? (
-        <Editor key={q.data.version ?? "v"} data={q.data} canEdit={canEdit} error={error} setError={setError} />
+        <Editor key={q.data.version ?? "v"} data={q.data} canEdit={canEdit} error={error} setError={setError} refocus={refocus} />
       ) : (
         <Alert tone="error" action={<Button size="sm" variant="secondary" onClick={() => void q.refetch()}>{t("helper.retry")}</Button>}>
           {t("helper.admin.loadError")}

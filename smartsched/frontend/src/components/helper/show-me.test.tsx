@@ -119,7 +119,7 @@ describe("Göster", () => {
     expect(screen.getByText("Tatil ekle").style.scrollMarginTop).not.toBe("");
   });
 
-  it("Yayınla is on the run's page: Göster from /runs goes to the published run first", async () => {
+  it("Yayınla is on the run's page: Göster from /runs goes to the newest finished unpublished run (HB18-F05)", async () => {
     pathname = "/runs";
     vi.spyOn(api.runs, "list").mockResolvedValue([{ id: 3, status: "OPTIMAL", is_active: false }, { id: 5, status: "FEASIBLE", is_active: true }] as never);
     renderHelper(
@@ -129,7 +129,8 @@ describe("Göster", () => {
       </>,
     );
     act(() => useHelperStore.getState().startShowMe("runs.publish", false));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/runs/5"));
+    // the published run #5 has no Yayınla (HB18-F05: it was a dead end); #3 is finished and not published yet
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/runs/3"));
     expect(await screen.findByTestId("tour-ring")).toBeInTheDocument();
   });
 
@@ -215,3 +216,15 @@ describe("Göster on a page that loads in parts (HB18-F04)", () => {
     expect(screen.getByTestId("tour-ring")).toBeInTheDocument();
   });
 });
+
+describe("a missing control (HB18-F05)", () => {
+  it("lists the steps the text promises", async () => {
+    renderHelper(<ShowMeHost />);
+    act(() => useHelperStore.getState().startShowMe("admin.holidays", false));
+    expect(await screen.findByTestId("helper-step-missing", {}, { timeout: 4000 })).toHaveTextContent("Adımlar aşağıda.");
+    const steps = screen.getByTestId("helper-step-steps");
+    expect(steps.tagName).toBe("OL");
+    expect(steps.querySelectorAll("li").length).toBeGreaterThan(1);
+  }, 10_000);
+});
+

@@ -53,4 +53,14 @@ describe("hand-over links", () => {
     list.mockRejectedValue(new Error("403"));
     expect(await resolveRunId("/timetable")).toBeNull();
   });
+
+  it("HB18-F05: Yayınla goes to the newest finished run that is not published yet (the published one has no Yayınla)", async () => {
+    const runs = [run(3, "OPTIMAL", { is_active: true }), run(7, "FEASIBLE"), run(8, "OPTIMAL"), run(9, "RUNNING")] as never;
+    expect(pickRun(runs, "runs.publish")).toBe(8);
+    expect(pickRun(runs, "runs.export")).toBe(3);
+    expect(pickRun([run(3, "OPTIMAL", { is_active: true })] as never, "runs.publish")).toBe(3);
+    vi.spyOn(api.runs, "list").mockResolvedValue(runs);
+    expect(await resolveRunId("/runs", "runs.publish")).toBe(8);
+    expect(await resolveRunId("/runs")).toBe(3);
+  });
 });

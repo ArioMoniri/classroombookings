@@ -147,4 +147,13 @@ describe("HX-18 m7: the palette's empty state", () => {
     renderHelper(<HelperPaletteEmpty query="tatli" loading />);
     expect(screen.getByText("Aranıyor…")).toBeInTheDocument();
   });
+
+  it("HB18-F11: the Shift Enter keycaps of a page row are not shown on a touch phone", async () => {
+    renderPalette("periods");
+    const row = await screen.findByTestId("palette-page-admin.schedules");
+    const hint = row.querySelector("[data-testid=palette-kbd-hint]");
+    expect(hint).not.toBeNull();
+    expect(hint!.className).toMatch(/pointer-coarse:hidden/);
+  });
 });
+

@@ -25,6 +25,8 @@ export { RUN_STATUS_KIND, partialCounts, runStatusBadge };
 
 // moved to ./run-kinds (CH-08: the score-history model needs it without importing this component)
 import { isImportBoard } from "./run-kinds";
+import { coarseHitArea } from "@/components/ui/hit-area";
+import { cn } from "@/lib/utils";
 export { isImportBoard };
 
 
@@ -90,12 +92,14 @@ export function RunsList() {
         sortValue: (r) => r.id,
         cell: (r) => (
           <span className="flex min-w-0 items-baseline gap-1.5">
-            <Link href={`/runs/${r.id}`} className="truncate font-medium text-label-1 hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)" onClick={(e) => e.stopPropagation()}>
+            <Link href={`/runs/${r.id}`} className={cn("relative truncate font-medium text-label-1 hover:underline focus-visible:outline-2 focus-visible:outline-(--focus)", coarseHitArea)} onClick={(e) => e.stopPropagation()}>
               {isBaselineRun(r) ? t("baseline.listName", { id: r.id }) : isImportBoard(r) ? t("glass.dashboard.importedBoard", { id: r.id }) : `#${r.id}`}
             </Link>
             {/* the planner's own name for the run (ScheduleRun.label); an import board already names its file */}
             {!isImportBoard(r) && r.label?.trim() ? <span className="truncate type-callout text-label-2" data-testid="run-label">{r.label.trim()}</span> : null}
             {r.parent_run_id ? <span className="truncate type-footnote text-label-3">{t("glass.report.childOf", { id: r.parent_run_id })}</span> : null}
+            {/* PER-F06 (M-30): the published run is marked in the list */}
+            {r.is_active ? <span className="shrink-0 rounded-full bg-status-feasible px-1.5 type-caption font-medium text-status-feasible-fg" data-testid="run-published">{t("runs.publish.published")}</span> : null}
           </span>
         ),
       },
@@ -167,6 +171,8 @@ export function RunsList() {
 
 /** Plain numerals: "517 / 530" for a partial run, "100 / 100" hard score otherwise (no ring, no badge). */
 function placedText(r: ScheduleRun): string {
+  // HX12B-F07: an imported board has no solver score: the list does not say "100 / 100" while the page says 0/632
+  if (isImportBoard(r)) return "—";
   const p = partialCounts(r);
   if (p) return `${p.placed} / ${p.total}`;
   return r.hard_score === null ? "—" : `${r.hard_score} / 100`;

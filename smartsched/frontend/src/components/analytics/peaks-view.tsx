@@ -134,7 +134,7 @@ export function PeaksView() {
             id="peaks-period-profile"
             title={t("adaptive.peaks.profileTitle")}
             hint={t("adaptive.peaks.profileHint")}
-            summary={top ? t("adaptive.peaks.profileSummary", { period: t("adaptive.peaks.periodN", { n: maxPeriod(d.period_profile) }) }) : ""}
+            summary={d.period_profile.some((p) => p.value > 0) ? t("adaptive.peaks.profileSummary", { period: t("adaptive.peaks.periodN", { n: maxPeriod(d.period_profile) }) }) : ""}
             state={rows.length ? "ready" : "empty"}
             empty={{ reason: t("adaptive.peaks.empty") }}
             columns={columns}

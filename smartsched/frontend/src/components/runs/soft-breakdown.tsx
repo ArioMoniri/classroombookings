@@ -53,7 +53,7 @@ export function SoftBreakdown({ score, breakdown, weights, className }: { score:
           </tbody>
         </table>
       ) : (
-        <BarList className="mt-3" aria-label={t("glass.report.points")} items={rows.map((r) => ({ key: r.kind, label: r.label, value: r.points, display: n(r.points) }))} />
+        <BarList className="mt-3" aria-label={t("glass.report.points")} items={rows.map((r) => ({ key: r.kind, label: r.label, value: r.points, display: t("glass.report.pointsN", { n: n(r.points) }) }))} />
       )}
       {rows.length ? (
         <Button variant="ghost" size="xs" aria-pressed={table} className="mt-1 text-tint-text" onClick={() => setTable((v) => !v)}>

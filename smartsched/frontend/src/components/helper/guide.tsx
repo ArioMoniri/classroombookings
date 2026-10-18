@@ -16,6 +16,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { useCardHost } from "./cards/context";
 import { NavView } from "./cards/nav";
 import { dataHitHref } from "./feature-links";
+import { useHelperStore } from "./helper-store";
 import { parseIntent } from "./intents";
 import { rememberText } from "./remember";
 import { useIntentAllowed, useShortcutLabel } from "./shortcut-label";
@@ -34,7 +35,11 @@ function useDebounced<T>(value: T, ms: number): T {
 export function GuideMode({ inputRef, seed, showLead = true }: { inputRef?: React.Ref<HTMLInputElement>; seed?: string | null; showLead?: boolean }) {
   const { t } = useI18n();
   const host = useCardHost();
-  const [q, setQ] = useState(seed ?? "");
+  // HB18-F09: the field starts with the palette's text, else what was typed before "Göster" closed the sheet
+  const [q, setQ] = useState(() => seed ?? useHelperStore.getState().guideText);
+  useEffect(() => {
+    useHelperStore.getState().setGuideText(q);
+  }, [q]);
   const [seen, setSeen] = useState(seed);
   if (seed !== seen) {
     setSeen(seed);

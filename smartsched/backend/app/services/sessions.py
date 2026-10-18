@@ -122,13 +122,33 @@ async def check(request: Request, payload: dict[str, Any], user: User) -> int | 
         if row.revoked_at is not None:
             _remember(h, True, row.id, row.last_seen_at, epoch)
             raise _revoked()
+        dirty = _better_device(row, request)
         if now - row.last_seen_at >= SEEN_EVERY:
             row.last_seen_at = now
+            dirty = True
+        if dirty:
             await s.commit()
         sid, seen = row.id, row.last_seen_at
     _remember(h, False, sid, seen, epoch)
     request.state.__setattr__(STATE_KEY, sid)
     return sid
+
+
+def _better_device(row: UserSession, request: Request) -> bool:
+    """AUX12-F03: a token's first request may come from the Next server (Node's user agent, or none), and the row read
+    "bilinmeyen tarayıcı, bilinmeyen cihaz" for ever. A later request that names more of the browser and system
+    updates the label (only ever towards a better one)."""
+    from app.services import mail_senders
+
+    unknown = ("bilinmeyen tarayıcı", "bilinmeyen cihaz")
+    have = sum(u in (row.device or "") for u in unknown)
+    if not have:
+        return False
+    label = mail_senders.device_label(request.headers.get("user-agent"), "tr")[:120]
+    if sum(u in label for u in unknown) >= have:
+        return False
+    row.device = label
+    return True
 
 
 def _issued_before(payload: dict[str, Any], epoch: int) -> bool:

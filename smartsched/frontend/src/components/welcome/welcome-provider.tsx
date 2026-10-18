@@ -149,7 +149,7 @@ function WelcomeHost() {
         post("completed");
         if (preview) return;
         router.push(a.card.href);
-        focusPageHeading(3000);
+        focusPageHeading(3000, { afterNavigation: true });
         return;
     }
   };

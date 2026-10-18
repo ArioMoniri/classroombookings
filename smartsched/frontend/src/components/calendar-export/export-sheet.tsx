@@ -237,6 +237,7 @@ function Flow({ onClose, resume }: { onClose: () => void; resume: PendingPush | 
           <HowStep
             channels={channels}
             domain={o.push_verification?.required ? (o.push_verification.domain ?? null) : null}
+            linkNote={(locale === "tr" ? o.channels.link_note?.tr : o.channels.link_note?.en) ?? o.channels.link_note?.tr ?? null}
             onPick={(c) => {
               setChannel(c);
               goto("approve");

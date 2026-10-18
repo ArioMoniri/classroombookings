@@ -8,13 +8,15 @@
  * bu sayfada görünmüyor." Esc or "Anladım" ends it with the focus on the target; reduced motion: the ring jumps.
  * Yayınla and Dışa aktar live on a run's page only: "Göster" goes to the run first (the address's, else the published
  * one, else the newest finished one; handover-links.ts).
+ * HB18-F04: the scroll waits until the page stops growing (sections that load in parts), and a re-mounted anchor is
+ * followed and ringed again.
  */
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/components/ui/use-media-query";
 import { SpotlightRing } from "@/components/welcome/tour/spotlight-ring";
-import { isFocusable, waitForAnchor } from "@/components/welcome/tour/anchors";
+import { findAnchor, isFocusable, waitForAnchor } from "@/components/welcome/tour/anchors";
 import { useI18n } from "@/lib/i18n/provider";
 import { useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -30,6 +32,35 @@ export function underSheet(el: HTMLElement): boolean {
   const a = el.getBoundingClientRect();
   const b = sheet.getBoundingClientRect();
   return b.width > 0 && a.right > b.left && a.left < b.right;
+}
+
+/**
+ * HB18-F04: resolves once the page stops growing (the document's height unchanged for 3 frames in a row, ≥ 120 ms),
+ * at most `maxMs`. Profil's sections load in parts: a scroll made while they arrive lands the target under the docked
+ * step card.
+ */
+export function waitForStableLayout(maxMs = 1500, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const start = performance.now();
+    let last = -1;
+    let same = 0;
+    let since = start;
+    const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb: FrameRequestCallback) => window.setTimeout(() => cb(performance.now()), 16);
+    const tick = () => {
+      if (signal?.aborted) return resolve();
+      const now = performance.now();
+      const h = document.documentElement.scrollHeight;
+      if (h === last) same += 1;
+      else {
+        same = 0;
+        since = now;
+        last = h;
+      }
+      if ((same >= 3 && now - since >= 120) || now - start >= maxMs) return resolve();
+      raf(tick);
+    };
+    raf(tick);
+  });
 }
 
 type Found = { state: "waiting" } | { state: "found"; el: HTMLElement } | { state: "missing" };
@@ -53,18 +84,57 @@ function ShowMe({ featureId }: { featureId: string }) {
   const margin = useRef<{ el: HTMLElement; before: string } | null>(null);
   const target = found.state === "found" ? found.el : null;
 
+  /** Scroll the target into view: centred on desktop; on a phone the docked step card takes the bottom, so the
+   *  upper half (HX-18 m12). */
+  const reveal = (el: HTMLElement) => {
+    const wide = window.matchMedia(DESKTOP_SHEET).matches;
+    if (!wide) {
+      if (margin.current && margin.current.el !== el) margin.current.el.style.scrollMarginTop = margin.current.before;
+      if (!margin.current || margin.current.el !== el) margin.current = { el, before: el.style.scrollMarginTop };
+      el.style.scrollMarginTop = "4.5rem"; // the 56 px top bar + 16 px
+    }
+    el.scrollIntoView({ block: wide ? "center" : "start", behavior: reduce ? "auto" : "smooth" });
+  };
+
+  // HB18-F04: the page re-mounted the anchor (a section that loaded later): follow it and ring the new element
+  useEffect(() => {
+    const anchor = entry?.anchor;
+    if (!target || !anchor) return;
+    const check = () => {
+      if (target.isConnected) return;
+      const next = findAnchor(anchor);
+      if (next && next !== target) {
+        reveal(next);
+        setFound({ state: "found", el: next });
+      }
+    };
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+    // reveal reads refs only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, entry?.anchor]);
+
   // navigate, then wait for the anchor
   useEffect(() => {
     if (!entry) return;
     const ctrl = new AbortController();
     const anchor = entry.anchor;
     void (async () => {
-      const route = isRunScoped(entry) ? runFeatureHref(entry.id, await resolveRunId(pathname)) : entry.route;
+      const route = isRunScoped(entry) ? runFeatureHref(entry.id, await resolveRunId(pathname, entry.id)) : entry.route;
       if (ctrl.signal.aborted) return;
       const [path] = route.split("#");
       if (path && path !== pathname) router.push(route);
       return anchor ? waitForAnchor(anchor, 3000, ctrl.signal) : undefined;
-    })().then((el) => {
+    })().then((el): Promise<HTMLElement | null | undefined> | undefined => {
+      if (ctrl.signal.aborted || el === undefined) return undefined;
+      if (!el) {
+        setFound({ state: "missing" });
+        return undefined;
+      }
+      // HB18-F04: scroll once the page stops growing, to the anchor as it is then (it may have been re-mounted)
+      return waitForStableLayout(1500, ctrl.signal).then(() => (anchor ? findAnchor(anchor) : null) ?? (el.isConnected ? el : null));
+    }).then((el) => {
       if (ctrl.signal.aborted || el === undefined) return;
       if (!el) return setFound({ state: "missing" });
       // HX-18 M1: the desktop sheet is fixed over the right column and the ring draws above it, so a control under
@@ -73,13 +143,7 @@ function ShowMe({ featureId }: { featureId: string }) {
         useHelperStore.getState().closeSheet();
         useHelperStore.setState((s) => (s.showMe ? { showMe: { ...s.showMe, reopen: true } } : {}));
       }
-      // HX-18 m12: on a phone the docked step card takes the bottom, so the target goes to the upper half
-      const wide = window.matchMedia(DESKTOP_SHEET).matches;
-      if (!wide) {
-        margin.current = { el, before: el.style.scrollMarginTop };
-        el.style.scrollMarginTop = "4.5rem"; // the 56 px top bar + 16 px
-      }
-      el.scrollIntoView({ block: wide ? "center" : "start", behavior: reduce ? "auto" : "smooth" });
+      reveal(el);
       setFound({ state: "found", el });
     });
     return () => {
@@ -129,6 +193,7 @@ function ShowMe({ featureId }: { featureId: string }) {
   if (!entry) return null;
   const title = entry.title[locale] ?? entry.title.tr;
   const path = pathLine(entry.path, locale);
+  const steps = entry.path?.[locale] ?? entry.path?.tr ?? [];
   return (
     <>
       {target ? <SpotlightRing target={target} reduceMotion={reduce} /> : null}
@@ -151,6 +216,14 @@ function ShowMe({ featureId }: { featureId: string }) {
           <div id={textId} className="flex flex-col gap-1 type-callout text-label-2">
             {path ? <p>{path}</p> : null}
             {found.state === "missing" ? <p data-testid="helper-step-missing">{t("helper.where.missing")}</p> : null}
+            {found.state === "missing" && steps.length ? (
+              // HB18-F05: the steps the sentence promises ("Adımlar aşağıda."), one menu level per line
+              <ol className="list-decimal ps-5" data-testid="helper-step-steps">
+                {steps.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ol>
+            ) : null}
           </div>
           <div className="mt-auto flex flex-wrap gap-2 max-sm:flex-col max-sm:items-stretch">
             <Button size="md" className="max-sm:h-12" data-step-primary="" onClick={() => end(false)} data-testid="helper-step-done">

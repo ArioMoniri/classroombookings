@@ -657,8 +657,92 @@ async def advise_term(session: Any, term_id: int, *, cfg: AdvisorConfig | None =
     return {"term_id": term_id, "term_code": term.code, **out}
 
 
+class ApplyError(Exception):
+    """A refused apply: HTTP status, code and both sentences."""
+
+    def __init__(self, status: int, code: str, message_tr: str, message_en: str) -> None:
+        super().__init__(message_en)
+        self.status, self.code, self.message_tr, self.message_en = status, code, message_tr, message_en
+
+    def detail(self) -> dict[str, str]:
+        return {"code": self.code, "message_tr": self.message_tr, "message_en": self.message_en}
+
+
+async def apply_to_requests(
+    session: Any, *, term_id: int, request_ids: Sequence[int], new_date: date, start_period: int, actor: Any
+) -> dict[str, Any]:
+    """AS20-F04 "Uygula": the planner accepts one advisor move. The exam-list rows of the move (a merge group moves
+    as one) go to ``new_date`` with the group's first start at ``start_period``; each row keeps its own length,
+    clock times follow the period grid where the row had them. One ``exam_request.update`` audit row per changed
+    row. Returns the move that undoes it (the same call with the old date and start)."""
+    from sqlalchemy import select
+
+    from app.importers import normalize as n
+    from app.models import ExamRequest
+    from app.services.events import publish_event
+    from app.services.planning_audit import changed_fields
+
+    ids = sorted({int(i) for i in request_ids})
+    rows = list(
+        (
+            await session.execute(
+                select(ExamRequest).where(
+                    ExamRequest.id.in_(ids), ExamRequest.term_id == term_id, ExamRequest.archived.is_(False)
+                )
+            )
+        ).scalars()
+    )
+    if not ids or len(rows) != len(ids):
+        raise ApplyError(404, "exam_not_found", "Sınav talebi bulunamadı.", "Exam request not found.")
+    if any((r.status or "").upper() == "LOCKED" for r in rows):
+        raise ApplyError(
+            409, "exam_locked", "Kilitli bir sınav taşınamaz; önce kilidi açın.", "A locked exam cannot be moved."
+        )
+    starts = [int(r.start_period) for r in rows if r.start_period is not None]
+    if not starts or any(r.date is None for r in rows):
+        raise ApplyError(422, "exam_not_dated", "Bu sınavın tarihi ya da saati yok.", "This exam has no date or time.")
+    head_start, old_date = min(starts), rows[0].date
+    shift = int(start_period) - head_start
+    last = len(n.PERIODS)
+    if any(int(r.end_period or r.start_period) + shift > last for r in rows) or int(start_period) < 1:
+        raise ApplyError(
+            422, "exam_out_of_day", "Sınav günün ders saatlerine sığmıyor.", "The exam does not fit the day."
+        )
+    for r in rows:
+        s0 = int(r.start_period) + shift
+        e0 = int(r.end_period or r.start_period) + shift
+        data: dict[str, Any] = {"date": new_date, "start_period": s0, "end_period": e0}
+        if r.start_time is not None or r.end_time is not None:
+            data["start_time"] = n.PERIODS[s0 - 1].start
+            data["end_time"] = n.PERIODS[e0 - 1].end
+        before, after = changed_fields(r, data)
+        for k, v in data.items():
+            setattr(r, k, v)
+        if after:
+            await publish_event(
+                session,
+                "exam_request.update",
+                "exam_request",
+                r.id,
+                before=before,
+                after={**after, "source": "exam_advisor"},
+                actor=actor,
+                term_id=term_id,
+            )
+    await session.commit()
+    label = day_label(new_date)
+    return {
+        "applied": ids,
+        "undo": {"term_id": term_id, "request_ids": ids, "date": old_date.isoformat(), "start_period": head_start},
+        "message_tr": f"{rows[0].course_code} {label['tr']} gününe taşındı.",
+        "message_en": f"{rows[0].course_code} moved to {label['en']}.",
+    }
+
+
 __all__ = [
     "WEIGHTS",
+    "ApplyError",
+    "apply_to_requests",
     "AdvisorConfig",
     "ExamItem",
     "advise",

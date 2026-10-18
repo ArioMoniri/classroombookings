@@ -19,5 +19,7 @@ async def test_as20_f11_identical_revert_adds_no_version(env):  # noqa: F811
     assert out["unchanged"] is True and out["identical"] is True
     assert out["version"]["number"] == 2  # the current version, not a new "Geri dönüş" row
     async with _session() as s:
-        n = (await s.execute(select(func.count(LearningVersion.id)).where(LearningVersion.term_id == env.guz))).scalar_one()
+        n = (
+            await s.execute(select(func.count(LearningVersion.id)).where(LearningVersion.term_id == env.guz))
+        ).scalar_one()
     assert n == 2

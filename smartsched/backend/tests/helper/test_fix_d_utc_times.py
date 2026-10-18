@@ -78,7 +78,9 @@ async def test_helper_api_times_are_aware_utc(env) -> None:  # noqa: F811
             _aware_utc(row["undo_expires_at"])
 
     await _consent(t.uid)
-    n = await env.client.post(f"{H}/notes", json={"text": "Pazartesi B blok", "source": "user_confirmed"}, headers=t.headers)
+    n = await env.client.post(
+        f"{H}/notes", json={"text": "Pazartesi B blok", "source": "user_confirmed"}, headers=t.headers
+    )
     assert n.status_code == 201, n.text
     notes = (await env.client.get(f"{H}/notes", headers=t.headers)).json()
     items = notes["notes"] if isinstance(notes, dict) else notes
@@ -86,3 +88,15 @@ async def test_helper_api_times_are_aware_utc(env) -> None:  # noqa: F811
     for x in items:
         for k in ("created_at", "last_used_at", "expires_at"):
             _aware_utc(x[k])
+
+
+def test_hb18_f13_typed_yes_points_at_the_card_button() -> None:
+    """HB18-F13: a typed "evet" never confirms; in index mode too it says how to confirm, not the scope sentence."""
+    from app.ai.helper import guard
+
+    for text in ("evet", "Evet!", "tamam", "onaylıyorum", "onayla", "OK", "yes"):
+        v = guard.check(text, [])
+        assert not v.allowed and v.code == "typed_yes", (text, v)
+        assert v.message_tr == "Onaylamak için karttaki düğmeye basın.", text
+        assert v.message_en == "To confirm, press the button on the card.", text
+    assert guard.check("evet A 204 nerede", []).code != "typed_yes"

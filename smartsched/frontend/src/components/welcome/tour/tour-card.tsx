@@ -10,7 +10,7 @@
  * the same 120 ms from its first style (`@starting-style`, toward the bottom edge when docked). Text inside the card
  * never animates between steps. Reduced motion: the global rules zero the transition, so only the 100 ms fade stays.
  */
-import { createContext, useContext, useId, type KeyboardEvent } from "react";
+import { createContext, useContext, useEffect, useId, useRef, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,22 @@ export function TourCard(props: { tooltipProps?: { "aria-modal"?: boolean; role?
   const ctx = useContext(TourCardContext);
   const { t } = useI18n();
   const titleId = useId();
+  const nextRef = useRef<HTMLButtonElement>(null);
+  const stepId = ctx?.step.id;
+  // WG10-F02: an interactive step has no focus trap, and its new card (often on a new route) left focus on <body>:
+  // each step's card takes focus on İleri unless focus is already inside it; Tab may still leave for the target
+  useEffect(() => {
+    const ids = [0, 150].map((ms) =>
+      window.setTimeout(() => {
+        const btn = nextRef.current;
+        const card = btn?.closest<HTMLElement>('[data-testid="tour-card"]');
+        const a = document.activeElement;
+        if (!btn || !card || (a && a !== document.body && a.isConnected && card.contains(a))) return;
+        btn.focus({ preventScroll: true });
+      }, ms),
+    );
+    return () => ids.forEach((id) => window.clearTimeout(id));
+  }, [stepId]);
   if (!ctx) return null;
   const { step, controls, docked, bodyId } = ctx;
   const last = controls.index + 1 >= controls.total;
@@ -88,7 +104,7 @@ export function TourCard(props: { tooltipProps?: { "aria-modal"?: boolean; role?
             {t("welcome.tour.back")}
           </Button>
         ) : null}
-        <Button className={cn(docked && "h-12 min-w-24")} onClick={controls.next} data-testid="tour-next" data-action="primary">
+        <Button ref={nextRef} className={cn(docked && "h-12 min-w-24")} onClick={controls.next} data-testid="tour-next" data-action="primary">
           {last ? t("welcome.tour.finish") : t("welcome.tour.next")}
         </Button>
       </div>

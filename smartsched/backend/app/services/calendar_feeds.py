@@ -1047,6 +1047,7 @@ async def export_options(session: AsyncSession, access: Access) -> dict[str, Any
     hint = (await conn_svc.verify_account(session, access.user, conn_svc.PROVIDERS["google"],
                                           conn_svc.AccountInfo(None, None))).domain  # fmt: skip
     verified_only = await conn_svc.push_verified_only(session)
+    base, _ = await public_base(session)
     verification = {"required": verified_only, "domain": hint,
                     **({k: v for k, v in conn_svc.not_verified_detail(hint).items() if k.startswith("message")}
                        if verified_only else {})}  # fmt: skip
@@ -1062,7 +1063,23 @@ async def export_options(session: AsyncSession, access: Access) -> dict[str, Any
                 "freshness_en": FRESHNESS["push"][1],
                 "verification": verification,
             },
-            "link": {"available": enabled, "freshness_tr": FRESHNESS["link"][0], "freshness_en": FRESHNESS["link"][1]},
+            # CAL10-F02: without a panel address a link cannot subscribe ("never a fake button"): not offered, said why
+            "link": {
+                "available": enabled and bool(base),
+                **(
+                    {
+                        "reason": "no_public_url",
+                        "message_tr": "Abonelik bağlantısı için yöneticinizin panel adresini girmesi gerekiyor. "
+                        "Şimdilik .ics dosyasını indirebilirsiniz.",
+                        "message_en": "A subscription link needs the panel address, which your administrator has not "
+                        "set yet. You can download an .ics file for now.",
+                    }
+                    if enabled and not base
+                    else {}
+                ),
+                "freshness_tr": FRESHNESS["link"][0],
+                "freshness_en": FRESHNESS["link"][1],
+            },
             "file": {"available": True, "freshness_tr": FRESHNESS["file"][0], "freshness_en": FRESHNESS["file"][1]},
         },
     }

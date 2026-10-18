@@ -121,6 +121,8 @@ test("1. the administrator creates a teacher in Setup → Users", async ({ page 
   await page.goto("/admin/users");
   await page.getByTestId("users-new").click();
   const dialog = page.getByTestId("user-dialog");
+  // HX12B-F09: user name and local password sit behind "Gelişmiş"
+  await dialog.getByTestId("user-advanced").locator("summary").click();
   await dialog.locator("#u-username").fill(TEACHER.username);
   await dialog.locator("#u-email").fill(TEACHER.email);
   await dialog.locator("#u-first").fill(TEACHER.first);

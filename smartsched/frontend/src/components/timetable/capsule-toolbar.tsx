@@ -219,9 +219,10 @@ export function CapsuleToolbar(p: CapsuleToolbarProps) {
                 {p.warnings > 0 ? <span className="text-status-warning-fg">{t("calendar.issues.warningsWeek", { n: p.warnings })}</span> : null}
               </span>
               <span className="tnum @min-[72rem]/tb:hidden" aria-label={[p.conflicts > 0 ? t("calendar.issues.conflictsWeek", { n: p.conflicts }) : "", p.warnings > 0 ? t("calendar.issues.warningsWeek", { n: p.warnings }) : ""].filter(Boolean).join(", ")}>
-                {p.conflicts > 0 ? p.conflicts : null}
+                {/* HX12B-F08: never bare numbers ("13 · 135"): the short words stay */}
+                {p.conflicts > 0 ? t("calendar.issues.conflicts", { n: p.conflicts }) : null}
                 {p.conflicts > 0 && p.warnings > 0 ? <span aria-hidden className="text-label-2"> · </span> : null}
-                {p.warnings > 0 ? <span className="text-status-warning-fg">{p.warnings}</span> : null}
+                {p.warnings > 0 ? <span className="text-status-warning-fg">{t("calendar.issues.warnings", { n: p.warnings })}</span> : null}
               </span>
             </Button>
           ) : null}

@@ -820,3 +820,13 @@
     padding-bottom: calc(var(--shell-bottom-h) + 0.75rem + 3.5rem + 1.5rem);
   }
 }
+
+/* CH12-F06: print the page, not the app chrome (sidebar, the desktop and phone top bars, the tab bar); the chart
+   cards already print their table twin without the menu / period / CSV controls */
+@media print {
+  [data-app-shell] > aside,
+  [data-app-shell] > div > header,
+  [data-slot="tab-bar"] {
+    display: none !important;
+  }
+}

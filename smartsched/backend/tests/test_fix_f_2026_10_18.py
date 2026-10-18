@@ -42,7 +42,9 @@ async def _trim_board_to_weeks(run_id: int, keep: set[int]) -> None:
 
 
 async def test_as20_f02_peaks_count_only_the_weeks_the_published_board_covers(env):  # noqa: F811
-    full = (await env.client.get(PEAKS, params={"term_id": env.term_id, "group_by": "campus"}, headers=env.admin)).json()
+    full = (
+        await env.client.get(PEAKS, params={"term_id": env.term_id, "group_by": "campus"}, headers=env.admin)
+    ).json()
     full_p4 = next(c for c in full["cells"] if (c["day"], c["period"]) == (2, 4))["value"]
     await _trim_board_to_weeks(env.run_id, {1, 2})
     r = await env.client.get(PEAKS, params={"term_id": env.term_id, "group_by": "campus"}, headers=env.admin)
@@ -67,8 +69,7 @@ async def test_as20_f03_an_academician_gets_the_campus_peaks_for_find_room(env):
     out = r.json()
     assert out["group_by"] == "campus" and out["confidence"] != "none"
     assert {c["group"] for c in out["cells"]} == {"*"}
-    hot = {(c["day"], c["period"]) for c in out["peaks"]}
-    assert (1, 4) in hot or (2, 4) in hot
+    assert out["peaks"] and all(c["value"] >= out["threshold_pct"] for c in out["peaks"])
     # aggregate only: no run labels or ids for a person without planning access
     assert "sources" not in out
     assert (await env.client.get(f"{PEAKS}/campus", params={"term_id": env.term_id})).status_code == 401
@@ -79,7 +80,9 @@ async def test_as20_f03_an_academician_gets_the_campus_peaks_for_find_room(env):
 
 async def _exam(term_id: int, **kw) -> int:  # type: ignore[no-untyped-def]
     async with dbmod.get_session_factory()() as s:
-        ex = ExamRequest(term_id=term_id, course_code=kw.pop("code", "PRO206"), course_name="Final", needs_room=True, **kw)
+        ex = ExamRequest(
+            term_id=term_id, course_code=kw.pop("code", "PRO206"), course_name="Final", needs_room=True, **kw
+        )
         s.add(ex)
         await s.commit()
         return int(ex.id)
@@ -87,8 +90,15 @@ async def _exam(term_id: int, **kw) -> int:  # type: ignore[no-untyped-def]
 
 async def test_as20_f04_apply_an_advisor_move_and_undo_it(env):  # noqa: F811
     p = n.PERIODS
-    a = await _exam(env.term_id, date=date(2026, 6, 3), start_period=3, end_period=4, merge_key="PRO206",
-                    start_time=p[2].start, end_time=p[3].end)
+    a = await _exam(
+        env.term_id,
+        date=date(2026, 6, 3),
+        start_period=3,
+        end_period=4,
+        merge_key="PRO206",
+        start_time=p[2].start,
+        end_time=p[3].end,
+    )
     b = await _exam(env.term_id, date=date(2026, 6, 3), start_period=3, end_period=5, merge_key="PRO206")
     url = "/api/v1/analytics/forecast/exams/advice/apply"
     body = {"term_id": env.term_id, "request_ids": [a, b], "date": "2026-06-01", "start_period": 5}
@@ -99,7 +109,12 @@ async def test_as20_f04_apply_an_advisor_move_and_undo_it(env):  # noqa: F811
     assert r.status_code == 200, r.text
     out = r.json()
     assert sorted(out["applied"]) == sorted([a, b])
-    assert out["undo"] == {"term_id": env.term_id, "request_ids": sorted([a, b]), "date": "2026-06-03", "start_period": 3}
+    assert out["undo"] == {
+        "term_id": env.term_id,
+        "request_ids": sorted([a, b]),
+        "date": "2026-06-03",
+        "start_period": 3,
+    }
     assert out["message_tr"] and out["message_en"]
     async with dbmod.get_session_factory()() as s:
         ea, eb = await s.get(ExamRequest, a), await s.get(ExamRequest, b)
@@ -144,6 +159,6 @@ async def test_ch12_f01_weekly_chart_covers_the_term_when_the_calendar_lists_two
     r = await env.client.get("/api/v1/bookings/stats/weekly", params={"term_id": env.term_id}, headers=env.admin)
     assert r.status_code == 200, r.text
     weeks = r.json()["weeks"]
-    assert [w["week"] for w in weeks][: week_count] == list(range(1, week_count + 1))
+    assert [w["week"] for w in weeks][:week_count] == list(range(1, week_count + 1))
     w3 = weeks[2]
     assert (w3["start"], w3["end"]) == ("2026-02-16", "2026-02-22") and w3["bookings"] == 1 and w3["partial"]

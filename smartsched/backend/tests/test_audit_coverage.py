@@ -457,6 +457,8 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/seasons/segments/{segment_id}": (E, "app.api.v1.seasons"),
     "DELETE /api/v1/seasons/segments/{segment_id}": (E, "app.api.v1.seasons"),
     "POST /api/v1/analytics/forecast/what-if": (E, "app.services.forecast"),
+    # FIX-F AS20-F04: "Uygula" on an exam advisor move (one exam_request.update row per moved row)
+    "POST /api/v1/analytics/forecast/exams/advice/apply": (E, "app.services.exam_advisor"),
     # AS-13 / RF-07: learning versions, calibration, per-habit controls, nightly switch
     "POST /api/v1/learning/versions/{version_id}/revert": (E, "app.services.learning_versions"),
     "POST /api/v1/learning/calibration/apply": (E, "app.services.learning_versions"),

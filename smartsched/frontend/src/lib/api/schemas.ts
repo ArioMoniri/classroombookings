@@ -307,6 +307,8 @@ export const RunParams = z.object({
   source: z.string().optional(),
   /** the files a baseline run was read from, each once by sha256 */
   sources: z.array(z.object({ sha256: z.string().nullish(), file: z.string().nullish(), job: z.number().nullish() })).optional(),
+  /** AS-10 what-if draft: the scenario the run was started from (AS20-F07: the run page says "Senaryo taslağı") */
+  scenario: z.record(z.string(), z.unknown()).nullish(),
 });
 export type RunParams = z.infer<typeof RunParams>;
 

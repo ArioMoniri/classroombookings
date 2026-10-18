@@ -88,6 +88,9 @@ interface HelperState {
   pendingAction: { action: string; args: Record<string, string | number>; hints?: IntentHints } | null;
   /** Rehber modu: the text the palette handed over, put into the guide's search field */
   guideSeed: string | null;
+  /** Rehber modu: what the person typed in the guide field; kept while "Göster" closes the sheet (HB18-F09) */
+  guideText: string;
+  setGuideText: (q: string) => void;
   /** "Göster": a 1-step spotlight on this feature's anchor (show-me.tsx) */
   showMe: { featureId: string; reopen: boolean; n: number } | null;
   openSheet: (opts?: { opener?: HTMLElement | null; ask?: string; action?: HelperState["pendingAction"] }) => void;
@@ -124,12 +127,16 @@ export const useHelperStore = create<HelperState>()(
       showMe: null,
       guideSeed: null,
       setGuideSeed: (q) => set({ guideSeed: q }),
+      guideText: "",
+      setGuideText: (q) => set({ guideText: q }),
       openSheet: (opts) =>
         set((s) => ({
           open: true,
           opener: opts?.opener ?? (s.open ? s.opener : typeof document !== "undefined" && document.activeElement instanceof HTMLElement ? document.activeElement : null),
           pendingAsk: opts?.ask ?? null,
           pendingAction: opts?.action ?? null,
+          // HB18-F14: a step card left open would cover the sheet and take its focus
+          showMe: null,
         })),
       closeSheet: () => set({ open: false, pendingAsk: null, pendingAction: null, guideSeed: null }),
       takePending: () => {

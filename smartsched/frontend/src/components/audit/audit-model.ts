@@ -61,6 +61,9 @@ export const ENTITY_TYPES = [
   "learning_reset",
   "program_draft",
   "suggestion",
+  // HB18-F06: what the helper did ("Yardımcı işlemi") and its chat history
+  "helper_action",
+  "helper_thread",
 ] as const;
 
 /** A row's label is the same for the two spellings the backend uses for one record kind. */
@@ -71,6 +74,16 @@ export const ENTITY_ALIASES: Record<string, string> = { setting: "settings", sch
  * action → `wave1.audit.act.<key>` message key suffix. Anything else reads `wave1.audit.verb.<verb>` with the entity.
  */
 export const ACTION_SENTENCES: Record<string, string> = {
+  // HB18-F06: the helper's writes (`helper.action.<name>`), its refusals and the chat-history deletion
+  "helper.action.create_booking": "helper_create_booking",
+  "helper.action.cancel_my_booking": "helper_cancel_my_booking",
+  "helper.action.withdraw_my_request": "helper_withdraw_my_request",
+  "helper.action.decide_approval": "helper_decide_approval",
+  "helper.action.undo_last_helper_action": "helper_undo",
+  "helper.action.remember_note": "helper_note",
+  "helper.action.remember_note.undo": "helper_note_undo",
+  "helper.confirm_rejected": "helper_rejected",
+  "helper.threads_deleted": "helper_threads_deleted",
   "kvkk.dsr_refuse": "kvkk_dsr_refuse",
   "kvkk.dsr_complete": "kvkk_dsr_complete",
   "kvkk.dsr_download": "kvkk_dsr_download",
@@ -197,7 +210,7 @@ export function dedupeOptions<T extends { value: string; label: string; hint?: s
 }
 
 /** Action prefixes the filter offers (`action` is a prefix on the backend: `booking.` matches all). */
-export const ACTION_PREFIXES = ["booking.", "series.", "approval.", "approval_rule.", "approver.", "room.", "room_feature.", "user.", "role.", "room_acl.", "settings."] as const;
+export const ACTION_PREFIXES = ["booking.", "series.", "approval.", "approval_rule.", "approver.", "room.", "room_feature.", "user.", "role.", "room_acl.", "settings.", "helper."] as const;
 
 /** Actions the backend can undo (`POST /audit/{id}/undo`). */
 export const UNDOABLE = new Set(["booking.create", "series.create", "booking.move", "booking.cancel"]);

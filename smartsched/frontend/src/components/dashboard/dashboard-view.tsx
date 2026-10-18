@@ -104,7 +104,7 @@ export function QuietNumbers({ d }: { d?: DashboardSummary }) {
                 <Skeleton className="h-[1lh] w-14 rounded-md" data-testid="quiet-number-loading" />
               </div>
             ) : (
-              <Link href={i.href} className="rounded-md type-kpi text-label-1 hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus)">
+              <Link href={i.href} className={cn("relative rounded-md type-kpi text-label-1 hover:text-tint-text focus-visible:outline-2 focus-visible:outline-(--focus)", coarseHitArea)}>
                 {/* round-2 T-R2-26 (R2-S-14): a plain number - the odometer's digit strips reached main.innerText
                     ('0 1 2 3 4 5 6 7 8 9'), like the run report's before T-R1-48 */}
                 <span className="tabular-nums">{fmt(i.value)}</span>

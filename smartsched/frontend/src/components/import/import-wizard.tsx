@@ -1,5 +1,6 @@
 "use client";
 
+import { termMismatch } from "./term-hint";
 import { Check, ChevronRight, Database, FileSpreadsheet, Grid3x3, ListChecks, Warehouse, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -233,6 +234,7 @@ export function ImportWizard() {
         <ImportPreview
           key={preview.id}
           job={preview}
+          termWarning={termMismatch(preview.filename, terms.find((x) => x.id === effectiveTerm), terms)}
           onCancel={cancelPreview}
           onApplied={(j) => {
             setJob(j);

@@ -18,7 +18,7 @@ import { FORECAST_GROUPS, useDemandForecast, useShortfall, type ForecastCell, ty
 import { intlLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
-import { ConfidenceNote, RangeText } from "./forecast-bits";
+import { ConfidenceNote, NoTerms, RangeText } from "./forecast-bits";
 import { WhatIfForm } from "./forecast-whatif";
 
 const SHOWN = 10;
@@ -39,15 +39,19 @@ export function ForecastView() {
   return (
     <div className="flex min-w-0 flex-col gap-5" data-testid="forecast-page">
       <PageHeader title={t("adaptive.forecast.title")} subtitle={name ? `${name} · ${t("adaptive.forecast.subtitle")}` : t("adaptive.forecast.subtitle")} />
-      <label className="flex max-w-xs flex-col gap-1">
-        <span className="type-footnote font-medium text-label-2">{t("adaptive.peaks.term")}</span>
-        <NativeSelect value={termId ?? ""} onChange={(e) => setPicked(e.target.value ? Number(e.target.value) : null)} data-testid="forecast-term">
-          {terms.map((x) => (
-            <option key={x.id} value={x.id}>{x.name}</option>
-          ))}
-        </NativeSelect>
-      </label>
-      {termId === null ? (
+      {terms.length === 0 ? (
+        <NoTerms />
+      ) : (
+        <label className="flex max-w-xs flex-col gap-1">
+          <span className="type-footnote font-medium text-label-2">{t("adaptive.peaks.term")}</span>
+          <NativeSelect value={termId ?? ""} onChange={(e) => setPicked(e.target.value ? Number(e.target.value) : null)} data-testid="forecast-term">
+            {terms.map((x) => (
+              <option key={x.id} value={x.id}>{x.name}</option>
+            ))}
+          </NativeSelect>
+        </label>
+      )}
+      {terms.length === 0 ? null : termId === null ? (
         <p className="type-callout text-label-2">{t("analytics.noTerm")}</p>
       ) : (
         <>

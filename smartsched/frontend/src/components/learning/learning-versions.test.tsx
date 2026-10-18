@@ -50,7 +50,7 @@ describe("LearningVersions", () => {
     const rows = await screen.findAllByTestId("version-row");
     fireEvent.click(within(rows[1]!).getByTestId("version-revert"));
     const dialog = await screen.findByRole("alertdialog");
-    expect(dialog).toHaveTextContent("Sürüm 2'e dönülsün mü?");
+    expect(dialog).toHaveTextContent("2. sürüme dönülsün mü?");
     await act(async () => { fireEvent.click(within(dialog).getByRole("button", { name: "Bu sürüme dön" })); });
     await waitFor(() => expect(revert).toHaveBeenCalledWith(11));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("learning-refresh")));

@@ -12,7 +12,7 @@
  * 100–200 ms frames, so they would measure the machine, not the UI (same policy as e2e/calendar.spec.ts).
  */
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { login as signIn } from "./helpers";
+import { ADMIN_PASSWORD, login as signIn } from "./helpers";
 import { pinLanguage } from "./language";
 
 test.skip(process.env.E2E_REAL !== "1", "motion audit runs against the real backend: set E2E_REAL=1 (see playwright.config.ts)");
@@ -20,7 +20,8 @@ test.skip(process.env.E2E_REAL !== "1", "motion audit runs against the real back
 pinLanguage("tr");
 
 const EMAIL = process.env.AUDIT_EMAIL ?? "admin@smartsched.local";
-const PASSWORD = process.env.AUDIT_PASSWORD ?? "Admin-2026!";
+// HB18-F15: no password literal here: AUDIT_PASSWORD, else the shared seed default of e2e/helpers.ts (E2E_ADMIN_PASSWORD)
+const PASSWORD = process.env.AUDIT_PASSWORD ?? ADMIN_PASSWORD;
 const STRICT = process.env.MOTION_STRICT === "1";
 const RUN = process.env.AUDIT_RUN ?? process.env.E2E_SOLVER_RUN ?? "1";
 
@@ -231,7 +232,9 @@ test.describe("motion audit: helper", () => {
     results.push({ surface: "helper", check: "blur surfaces with the sheet open", blurred });
     expect.soft(blurred).toBeLessThanOrEqual(3);
     await measure("sheet close (Esc)", 1, async () => {
-      await page.getByTestId("helper-composer").locator("textarea").focus();
+      // HB18-F15: index mode has no composer; Rehber modu's field takes the focus instead
+      const composer = page.getByTestId("helper-composer").locator("textarea");
+      await ((await composer.count()) ? composer : page.getByTestId("helper-guide-input")).focus();
       await page.keyboard.press("Escape");
       await page.getByTestId("helper-sheet").waitFor({ state: "detached" });
     });

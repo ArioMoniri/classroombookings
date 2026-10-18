@@ -8,8 +8,8 @@
  * - `/runs/<id>?chat=<text>`: the run chat's composer, prefilled, not sent.
  *
  * Yayınla and Dışa aktar exist only on a run's own page (`/runs/<id>`), while the feature index (static routes)
- * says `/runs`. {@link resolveRunId} picks the run: the one in the address, else the published one, else the newest
- * finished one; with no run they fall back to `/runs` (where "Göster" then says the button is not on the page).
+ * says `/runs`. {@link resolveRunId} picks the run: the one in the address, else (Yayınla) the newest finished
+ * unpublished one, else the published one, else the newest finished one; with no run they fall back to `/runs` (where "Göster" then says the button is not on the page).
  */
 import { api } from "@/lib/api/endpoints";
 import type { ScheduleRun } from "@/lib/api/schemas";
@@ -29,8 +29,15 @@ export const isRunScoped = (e: FeatureEntry): boolean => RUN_SCOPED.has(e.id);
 
 const FINISHED: ReadonlySet<string> = new Set(["OPTIMAL", "FEASIBLE", "FEASIBLE_PARTIAL"]);
 
-/** The published run, else the newest finished one (by id), else null. */
-export function pickRun(runs: readonly Pick<ScheduleRun, "id" | "status" | "is_active">[]): number | null {
+/**
+ * The published run, else the newest finished one (by id), else null. For Yayınla (`runs.publish`) the newest
+ * finished run that is not published yet comes first: the published run has no Yayınla button (HB18-F05).
+ */
+export function pickRun(runs: readonly Pick<ScheduleRun, "id" | "status" | "is_active">[], featureId?: string): number | null {
+  if (featureId === "runs.publish") {
+    const unpublished = runs.filter((r) => !r.is_active && FINISHED.has(r.status)).sort((a, b) => b.id - a.id);
+    if (unpublished[0]) return unpublished[0].id;
+  }
   const active = runs.find((r) => r.is_active && FINISHED.has(r.status));
   if (active) return active.id;
   const done = runs.filter((r) => FINISHED.has(r.status)).sort((a, b) => b.id - a.id);
@@ -38,11 +45,11 @@ export function pickRun(runs: readonly Pick<ScheduleRun, "id" | "status" | "is_a
 }
 
 /** The run a run-scoped control means: the address's `/runs/<id>`, else {@link pickRun} over the person's runs. */
-export async function resolveRunId(pathname: string): Promise<number | null> {
+export async function resolveRunId(pathname: string, featureId?: string): Promise<number | null> {
   const here = /^\/runs\/(\d+)(?:\/|$)/.exec(pathname);
   if (here) return Number(here[1]);
   try {
-    return pickRun(await api.runs.list());
+    return pickRun(await api.runs.list(), featureId);
   } catch {
     return null;
   }

@@ -27,6 +27,8 @@ export default {
     await rec.step(tr(ctx, "Add an account for the planning office", "Planlama ofisi için bir hesap ekleyin"), async () => {
       await rec.click(page.getByTestId("users-new"));
       await dialog.waitFor();
+      // HX12B-F09: user name and local password sit behind "Gelişmiş"
+      await rec.click(dialog.getByTestId("user-advanced").locator("summary"));
       await rec.type(dialog.locator("#u-username"), ACCOUNT.username, { delay: 60 });
       await rec.type(dialog.locator("#u-email"), ACCOUNT.email, { delay: 30 });
       await rec.type(dialog.locator("#u-first"), ACCOUNT.first, { delay: 50 });

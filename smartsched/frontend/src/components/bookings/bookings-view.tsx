@@ -606,7 +606,7 @@ export function BookingsView() {
       <HiddenPeriodsChip count={hiddenCount} revealed={revealHidden} onToggle={toggleHidden} />
       <div aria-busy={grid.isFetching} data-stale={stale ? "true" : undefined} className="relative transition-opacity duration-(--dur-fast) data-[stale=true]:opacity-60" data-testid="booking-grid-wrap">
         {g && isClosedDay(g) ? (
-          <ClosedDayNotice next={g.nav.next} long={fmt.long} onGo={(d) => setParams({ date: d })} />
+          <ClosedDayNotice next={g.nav.next ?? null} long={fmt.long} onGo={(d) => setParams({ date: d })} />
         ) : g && lens === "free" ? (
           <FreeSlotsList
             rooms={freeRooms}

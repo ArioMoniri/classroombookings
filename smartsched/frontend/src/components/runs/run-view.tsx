@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowLeft, CheckCircle2, Download, XOctagon } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Download, Info, XOctagon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -36,7 +36,7 @@ import { CancelRunButton } from "./cancel-run";
 import { MissingWeeks } from "./missing-weeks";
 import { BaselineRunCard } from "./baseline-card";
 import { RunPolicyLine } from "./relaxation";
-import { RunProfileLine } from "./run-profile";
+import { RunProfileLine, RunScenarioLine } from "./run-profile";
 import { ResolveRunButton } from "./resolve-run";
 import { isBaselineRun } from "@/lib/api/council";
 import { PublishRunButton } from "./publish-run";
@@ -126,10 +126,18 @@ function TruthVerdict({ truth }: { truth: RunTruth }) {
         </div>
       </div>
     );
-  if (truth.verdict === "clean")
+  // HX12B-F07: never the success tone when nothing is placed
+  if (truth.verdict === "clean" && truth.placed !== 0)
     return (
       <p className="flex items-start gap-2 type-title-3 text-status-feasible-fg" data-testid="run-verdict" data-state="complete">
         <CheckCircle2 className="mt-0.5 size-5 shrink-0 stroke-[2]" aria-hidden />
+        <span>{head}</span>
+      </p>
+    );
+  if (truth.verdict === "clean")
+    return (
+      <p className="flex items-start gap-2 type-title-3 text-label-1" data-testid="run-verdict" data-state="empty">
+        <Info className="mt-0.5 size-5 shrink-0 stroke-[2] text-label-2" aria-hidden />
         <span>{head}</span>
       </p>
     );
@@ -137,7 +145,7 @@ function TruthVerdict({ truth }: { truth: RunTruth }) {
 }
 
 /** The status headline: honest for partial runs (amber "660/683 placed · no rule broken", never green 100/100). */
-function Verdict({ r, headline, exceptions = [], truth = null, outcome }: { r: ScheduleRun; headline?: string; exceptions?: VerdictException[]; truth?: RunTruth | null; outcome: RunOutcome }) {
+export function Verdict({ r, headline, exceptions = [], truth = null, outcome }: { r: ScheduleRun; headline?: string; exceptions?: VerdictException[]; truth?: RunTruth | null; outcome: RunOutcome }) {
   const { t, n, locale } = useI18n();
   if (outcome.kind === "cancelled") {
     // round-1 R1-M-15: a cancelled run is "İptal edildi", by whom and when; it claims nothing about rules or preferences
@@ -153,6 +161,14 @@ function Verdict({ r, headline, exceptions = [], truth = null, outcome }: { r: S
       </div>
     );
   }
+  // HX12B-F07: an imported board had no solver: no "✓ 0/632 ders yerleşti" in the success tone, one plain sentence
+  if (isImportBoard(r))
+    return (
+      <p className="flex items-start gap-2 type-title-3 text-label-1" data-testid="run-verdict" data-state="imported">
+        <Info className="mt-0.5 size-5 shrink-0 stroke-[2] text-label-2" aria-hidden />
+        <span>{t("glass.report.importedNoSolver")}</span>
+      </p>
+    );
   if (truth && truth.verdict !== "none" && WITH_TIMETABLE.has(r.status)) return <TruthVerdict truth={truth} />;
   const partial = partialCounts(r);
   const complete = !partial && (r.status === "FEASIBLE" || r.status === "OPTIMAL");
@@ -332,7 +348,8 @@ export function RunView({ id }: { id: number }) {
             </Button>
             {/* a new solve with this run as its parent (stability on) and its relaxation policy */}
             {canPlan && finished && r.status !== "CANCELLED" ? <ResolveRunButton run={r} autoOpen={params.get("resolve") === "1"} /> : null}
-            <Button nativeButton={false} render={<Link href="/generate" />}>
+            {/* HX12B-F05: one primary per state: "Yayınla" when the run can be published, else this one */}
+            <Button variant={canPlan && finished && PUBLISHABLE.has(r.status) ? "outline" : "default"} nativeButton={false} render={<Link href="/generate" />} data-testid="run-edit-solve">
               {t("glass.report.editAndSolve")}
             </Button>
           </>
@@ -362,6 +379,7 @@ export function RunView({ id }: { id: number }) {
             <div className="grid gap-6 @container/hero xl:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
               <div className="min-w-0">
                 <Verdict r={r} headline={headline} exceptions={exceptions} truth={truth} outcome={outcome} />
+                <RunScenarioLine r={r} />
                 {partial ? (
                   <p className="mt-1 type-callout text-label-2" data-testid="partial-hint">
                     {/* "every placed class keeps every rule" only when the truth says so (round-1 R1-M-04) */}
@@ -382,6 +400,8 @@ export function RunView({ id }: { id: number }) {
                     </div>
                   </div>
                 ) : null}
+                {/* HX12B-F07: an imported board has no solver figures to show */}
+                {isImportBoard(r) ? null : (
                 <dl className="mt-5 grid gap-x-6 gap-y-4 pt-4 hairline-t [grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr))]">
                   {[
                     { k: t("glass.report.placed"), v: placed, suffix: total ? ` / ${n(total)}` : "" },
@@ -417,6 +437,7 @@ export function RunView({ id }: { id: number }) {
                     <dd className="type-kpi text-label-1">{duration(r)}</dd>
                   </div>
                 </dl>
+                )}
                 {isBaselineRun(r) ? <BaselineRunCard r={r} /> : null}
                 {extras.forcedOverrides.length ? (
                   <section className="mt-4 grid gap-1.5 rounded-lg bg-status-warning px-3 py-2" data-testid="forced-overrides" aria-labelledby="forced-title">
@@ -437,7 +458,7 @@ export function RunView({ id }: { id: number }) {
                   </section>
                 ) : null}
               </div>
-              {hasTimetable ? <SoftBreakdown score={r.soft_score} breakdown={r.objective_breakdown} weights={r.params.weights} /> : null}
+              {hasTimetable && !isImportBoard(r) ? <SoftBreakdown score={r.soft_score} breakdown={r.objective_breakdown} weights={r.params.weights} /> : null}
             </div>
           </Card>
 

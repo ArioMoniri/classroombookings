@@ -127,6 +127,8 @@ test("admin gaps 2. the sidebar Users entry and the old settings tab open /admin
 
   await page.getByTestId("users-new").click();
   const dialog = page.getByTestId("user-dialog");
+  // HX12B-F09: user name and local password sit behind "Gelişmiş"
+  await dialog.getByTestId("user-advanced").locator("summary").click();
   await dialog.locator("#u-username").fill(`e2e.c.${STAMP}`);
   await dialog.locator("#u-role").selectOption(`id:${teacher.id}`);
   await dialog.locator("#u-password").fill("Parola-2026!");

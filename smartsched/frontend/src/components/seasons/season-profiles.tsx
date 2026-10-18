@@ -58,7 +58,8 @@ export function SeasonProfiles() {
   const termId = useActiveTerm().term?.id ?? null;
   const [proposeNote, setProposeNote] = useState<string | null>(null);
   const propose = () => {
-    if (termId === null) return;
+    // AS20-F10: enabled while busy so the focus stays on the button; a second press is ignored
+    if (termId === null || act.propose.isPending) return;
     act.propose.mutate(termId, {
       onSuccess: (out) => {
         if (out.proposal?.key) {
@@ -96,7 +97,7 @@ export function SeasonProfiles() {
         actions={
           <span className="flex flex-wrap gap-2">
             {/* AS-14: a learned draft from the term's manual edits; only an admin activates it */}
-            <Button variant="outline" onClick={propose} disabled={termId === null || act.propose.isPending} data-testid="profile-propose">
+            <Button variant="outline" onClick={propose} disabled={termId === null} aria-busy={act.propose.isPending || undefined} data-testid="profile-propose">
               <BusyLabel busy={act.propose.isPending} label={t("busy.working")}>{t("seasons.propose")}</BusyLabel>
             </Button>
             <Button ref={newRef} onClick={() => setEditing({ profile: null })} data-testid="profile-new">

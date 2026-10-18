@@ -427,7 +427,8 @@ export function SettingsView() {
     { value: "learning", label: t("settings.learningTab"), show: can("planning.admin") },
     { value: "users", label: t("settings.users"), show: can("setup.users") },
   ].filter((x) => x.show);
-  const requested = params.get("tab") ?? (admin ? "ai" : "appearance");
+  // PER-F07 / HX12B-F14: an admin opens on "Genel", not on the AI key form
+  const requested = params.get("tab") ?? (admin ? "general" : "appearance");
   const tab = tabs.some((x) => x.value === requested) ? requested : "appearance";
   // a deep link (/settings?tab=integrations) on a phone: bring the chosen tab into the scroller's view
   useEffect(() => {

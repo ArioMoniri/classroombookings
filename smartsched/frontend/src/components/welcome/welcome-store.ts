@@ -87,11 +87,16 @@ export function otherDialogOpen(): boolean {
 }
 
 /** Focus the page's heading (focus never falls to <body> after an action). Retries while a route renders. */
-export function focusPageHeading(timeoutMs = 2000): void {
+export function focusPageHeading(timeoutMs = 2000, opts: { afterNavigation?: boolean } = {}): void {
   if (typeof window === "undefined") return;
   const started = performance.now();
+  // WG10-F02: after router.push the old page's h1 is still there for a moment; focusing it (then it unmounts) left
+  // focus on <body>. Wait for a different heading, and take the old one only when the time is up (same page).
+  const before = opts.afterNavigation ? document.querySelector<HTMLElement>("main h1") : null;
   const tick = () => {
-    const h = document.querySelector<HTMLElement>("main h1") ?? document.querySelector<HTMLElement>("#main");
+    const found = document.querySelector<HTMLElement>("main h1") ?? document.querySelector<HTMLElement>("#main");
+    const waiting = !!before && (found === before || !found?.matches("h1")) && performance.now() - started < timeoutMs;
+    const h = waiting ? null : found;
     if (h) {
       if (!h.hasAttribute("tabindex")) h.setAttribute("tabindex", "-1");
       h.focus({ preventScroll: false });

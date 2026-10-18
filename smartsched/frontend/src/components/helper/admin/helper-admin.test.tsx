@@ -85,4 +85,27 @@ describe("Yardımcı tab", () => {
     expect(await screen.findByTestId("helper-admin-error")).toHaveTextContent("Başka bir yönetici ayarları değiştirdi.");
     await waitFor(() => expect(helperAdminApi.get).toHaveBeenCalledTimes(2));
   });
+
+  it("HB18-F07: after Kaydet the focus stays on Kaydet (the editor reloads with the new version), never <body>", async () => {
+    vi.spyOn(helperAdminApi, "put").mockResolvedValue(data({ mode: "index" }, "v2"));
+    renderHelper(<HelperAdminTab />);
+    const save = await screen.findByTestId("helper-admin-save");
+    save.focus();
+    fireEvent.click(save);
+    await waitFor(() => expect(helperAdminApi.put).toHaveBeenCalled());
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("data-testid", "helper-admin-save"));
+    expect(document.activeElement).not.toBe(document.body);
+    expect(screen.getByTestId("helper-admin-save")).not.toBeDisabled();
+  });
+
+  it("HB18-F07: a stale save keeps the focus on Kaydet too", async () => {
+    vi.spyOn(helperAdminApi, "put").mockRejectedValue(new HttpError(409, "stale", { detail: { code: "stale_settings", message_tr: "x", message_en: "x" } }));
+    renderHelper(<HelperAdminTab />);
+    const save = await screen.findByTestId("helper-admin-save");
+    save.focus();
+    fireEvent.click(save);
+    expect(await screen.findByTestId("helper-admin-error")).toHaveTextContent("Başka bir yönetici ayarları değiştirdi.");
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("data-testid", "helper-admin-save"));
+  });
 });
+

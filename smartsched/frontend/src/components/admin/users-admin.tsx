@@ -601,7 +601,7 @@ function UserDialog({ user, onClose, canListRoles, identityFor, prefill = null }
 }
 
 function UserForm({ user, onClose, canListRoles, identity, prefill = null }: { user: AdminUser | null; onClose: () => void; canListRoles: boolean; identity: IdentityProps; prefill?: InvitePrefill | null }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const departments = useDepartments();
   // P1 "approves for" (wave 1): only an approver who may manage users designates others
   const { can, perms } = usePermissions();
@@ -626,7 +626,13 @@ function UserForm({ user, onClose, canListRoles, identity, prefill = null }: { u
   });
   const [error, setError] = useState<string | null>(null);
   const [roleError, setRoleError] = useState<string | null>(null);
+  const [advOpen, setAdvOpen] = useState(false);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((prev) => ({ ...prev, [k]: v }));
+  // PER-F03: the "approves for" picker only for a role that holds approvals.decide (the backend refuses the rest);
+  // otherwise one sentence with the next step. Unknown role list: the picker stays (the backend still checks)
+  const designRoles = useRoles(canDesignate && canListRoles);
+  const pickedRole = f.role.startsWith("id:") ? designRoles.data?.find((r) => `id:${r.id}` === f.role) : f.role.startsWith("code:") ? designRoles.data?.find((r) => r.code === f.role.slice(5)) : undefined;
+  const targetMayApprove = !pickedRole || pickedRole.permissions.includes("approvals.decide");
   // the hand-over's role once the role list is known, only one this admin may grant (RoleSelect's rule)
   const prefillRoles = useRoles(canListRoles && !!prefill?.role);
   const [rolePrefilled, setRolePrefilled] = useState(!prefill?.role);
@@ -668,21 +674,22 @@ function UserForm({ user, onClose, canListRoles, identity, prefill = null }: { u
             document.getElementById("u-role")?.focus();
             return;
           }
-          if (f.password !== f.password2) return setError(t("admingaps.users.passwordMismatch"));
+          if (f.password !== f.password2) {
+            setAdvOpen(true);
+            return setError(t("admingaps.users.passwordMismatch"));
+          }
           save.mutate(undefined, {
             onSuccess: (u) => {
               toast.success(user ? t("crbs.common.saved") : t("crbs.users.created", { name: u.username ?? u.email ?? "" }));
               onClose();
             },
-            onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
+            // PER-F03: the backend's Turkish sentence in Turkish (it was the English one)
+            onError: (e) => setError(bookingErrorMessage(crbsError(e), t, { locale })),
           });
         }}
       >
         {/* mobile-b phase 2 (M-10): columns of at least 280 px; one column at 768, two in the wider desktop dialog */}
         <div className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(17.5rem,1fr))]">
-          <Field label={t("crbs.users.username")} htmlFor="u-username" hint={t("crbs.users.usernameHint")}>
-            <Input id="u-username" autoComplete="off" value={f.username} onChange={(e) => set("username", e.target.value)} />
-          </Field>
           <Field label={t("crbs.users.email")} htmlFor="u-email">
             <Input id="u-email" type="email" autoComplete="off" value={f.email} onChange={(e) => set("email", e.target.value)} />
           </Field>
@@ -691,12 +698,6 @@ function UserForm({ user, onClose, canListRoles, identity, prefill = null }: { u
           </Field>
           <Field label={t("crbs.users.lastname")} htmlFor="u-last">
             <Input id="u-last" value={f.lastname} onChange={(e) => set("lastname", e.target.value)} />
-          </Field>
-          <Field label={t("crbs.users.displayname")} htmlFor="u-display">
-            <Input id="u-display" value={f.displayname} onChange={(e) => set("displayname", e.target.value)} />
-          </Field>
-          <Field label={t("crbs.users.ext")} htmlFor="u-ext">
-            <Input id="u-ext" value={f.ext} onChange={(e) => set("ext", e.target.value)} />
           </Field>
           <Field label={t("crbs.users.role")} htmlFor="u-role">
             <RoleSelect
@@ -720,30 +721,58 @@ function UserForm({ user, onClose, canListRoles, identity, prefill = null }: { u
               ))}
             </SelectField>
           </Field>
-          <Field label={user ? t("crbs.users.newPassword") : t("crbs.users.password")} htmlFor="u-password" hint={t("crbs.users.passwordHint")}>
-            <Input id="u-password" type="password" autoComplete="new-password" minLength={8} value={f.password} onChange={(e) => set("password", e.target.value)} />
-          </Field>
-          <Field label={t("admingaps.users.passwordConfirm")} htmlFor="u-password2" error={f.password2 && f.password !== f.password2 ? t("admingaps.users.passwordMismatch") : null}>
-            <Input id="u-password2" type="password" autoComplete="new-password" value={f.password2} onChange={(e) => set("password2", e.target.value)} data-testid="user-password-confirm" />
-          </Field>
         </div>
-        <label className="flex items-center justify-between gap-3 type-callout text-label-1">
-          {t("crbs.users.enabled")}
-          <Switch checked={f.is_active} onCheckedChange={(v) => set("is_active", v)} aria-label={t("crbs.users.enabled")} />
-        </label>
-        <label className="flex items-center justify-between gap-3 type-callout text-label-1">
-          <span>
-            {t("crbs.users.forceReset")}
-            <span className="block type-footnote text-label-3">{t("crbs.users.forceResetHint")}</span>
-          </span>
-          <Switch checked={f.force_password_reset} onCheckedChange={(v) => set("force_password_reset", v)} aria-label={t("crbs.users.forceReset")} />
-        </label>
+        {/* HX12B-F09: e-mail, name, role and department first; the rest of CRBS's form waits behind "Gelişmiş" */}
+        <details className="group rounded-xl bg-fill-3 px-3 py-2" open={advOpen} onToggle={(e) => setAdvOpen(e.currentTarget.open)} data-testid="user-advanced">
+          <summary className="cursor-pointer list-none type-callout font-medium text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:flex-col pointer-coarse:justify-center">
+            {t("crbs.users.advanced")}
+            <span className="block type-footnote font-normal text-label-3">{t("crbs.users.advancedHint")}</span>
+          </summary>
+          <div className="flex flex-col gap-3 pt-3">
+            <div className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(17.5rem,1fr))]">
+              <Field label={t("crbs.users.username")} htmlFor="u-username" hint={t("crbs.users.usernameHint")}>
+                <Input id="u-username" autoComplete="off" value={f.username} onChange={(e) => set("username", e.target.value)} />
+              </Field>
+              <Field label={t("crbs.users.displayname")} htmlFor="u-display">
+                <Input id="u-display" value={f.displayname} onChange={(e) => set("displayname", e.target.value)} />
+              </Field>
+              <Field label={t("crbs.users.ext")} htmlFor="u-ext">
+                <Input id="u-ext" value={f.ext} onChange={(e) => set("ext", e.target.value)} />
+              </Field>
+              <Field label={user ? t("crbs.users.newPassword") : t("crbs.users.password")} htmlFor="u-password" hint={t("crbs.users.passwordHint")}>
+                <Input id="u-password" type="password" autoComplete="new-password" minLength={8} value={f.password} onChange={(e) => set("password", e.target.value)} />
+              </Field>
+              <Field label={t("admingaps.users.passwordConfirm")} htmlFor="u-password2" error={f.password2 && f.password !== f.password2 ? t("admingaps.users.passwordMismatch") : null}>
+                <Input id="u-password2" type="password" autoComplete="new-password" value={f.password2} onChange={(e) => set("password2", e.target.value)} data-testid="user-password-confirm" />
+              </Field>
+            </div>
+            <label className="flex items-center justify-between gap-3 type-callout text-label-1">
+              {t("crbs.users.enabled")}
+              <Switch checked={f.is_active} onCheckedChange={(v) => set("is_active", v)} aria-label={t("crbs.users.enabled")} />
+            </label>
+            <label className="flex items-center justify-between gap-3 type-callout text-label-1">
+              <span>
+                {t("crbs.users.forceReset")}
+                <span className="block type-footnote text-label-3">{t("crbs.users.forceResetHint")}</span>
+              </span>
+              <Switch checked={f.force_password_reset} onCheckedChange={(v) => set("force_password_reset", v)} aria-label={t("crbs.users.forceReset")} />
+            </label>
+          </div>
+        </details>
         {canDesignate ? (
           <details className="group rounded-xl bg-fill-3 px-3 py-2" open={approves.length > 0 || undefined} data-testid="user-approves-for">
             <summary className="cursor-pointer list-none type-callout font-medium text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:flex-col pointer-coarse:justify-center">
               {t("wave1.scope.title")}
               <span className="block type-footnote font-normal text-label-3">{approves.length ? approves.map((x) => scopeLabel(x, lookups, t)).join(", ") : t("wave1.scope.hint")}</span>
             </summary>
+            {!targetMayApprove && !approves.length ? (
+              <p className="pt-3 type-callout text-label-2" data-testid="user-approves-needs-right">
+                {t("wave1.scope.needsRight")}{" "}
+                <Link href="/admin/roles" className="font-medium text-tint-text underline-offset-2 hover:underline">
+                  {t("wave1.scope.needsRightLink")}
+                </Link>
+              </p>
+            ) : (
             <div className="pt-3">
               <ScopePicker
                 value={approves}
@@ -755,6 +784,7 @@ function UserForm({ user, onClose, canListRoles, identity, prefill = null }: { u
                 idPrefix="user"
               />
             </div>
+            )}
           </details>
         ) : null}
         {user && identity ? <IdentitiesSection user={user} s={identity.s} invite={identity.invite} msEnabled={identity.msEnabled} onBind={identity.onBind} /> : null}

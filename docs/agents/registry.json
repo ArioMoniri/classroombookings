@@ -4316,7 +4316,8 @@
       "goal": "You are lane FIX-D (ledger name `fix-d-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md first and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; no secrets in files; light…",
       "ledger": "FIX-D: HB-18 blockers and majors",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 14:43"
     },
     {
       "id": "a8c5218d564e6b159",
