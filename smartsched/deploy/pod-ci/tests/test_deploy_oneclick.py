@@ -197,3 +197,26 @@ def test_observability_flag_and_env(tmp_path: Path) -> None:
     assert deploy(env2, "--admin-email", "admin@uni.edu.tr").returncode == 0
     assert env_file(tmp_path / "o")["OBSERVABILITY"] == "1"
     assert any("--profile observability" in c for c in calls(tmp_path / "o") if " up -d" in c)
+
+
+def test_pod_runs_nightly_backups_without_a_manual_cron_line() -> None:
+    pod = DEPLOY / "pod-ci"
+    svc = (pod / "systemd/smartsched-backup.service").read_text()
+    timer = (pod / "systemd/smartsched-backup.timer").read_text()
+    assert "ExecStart=/opt/smartsched/src/smartsched/deploy/backup.sh" in svc and "User=smartsched-ci" in svc
+    assert "BACKUP_DIR=/var/lib/smartsched-ci/backups" in svc and "Persistent=true" in timer
+    install = (pod / "install.sh").read_text()
+    assert "smartsched-backup.timer" in install and "/var/lib/smartsched/textfile" in install
+
+
+def test_deploy_sh_backups_flag_writes_the_cron_file(tmp_path: Path) -> None:
+    env = fake_env(tmp_path)
+    env["BACKUP_CRON_FILE"] = str(tmp_path / "cron.d/smartsched-backup")
+    (tmp_path / "cron.d").mkdir()
+    r = deploy(env, "--admin-email", "admin@uni.edu.tr", "--backups")
+    assert r.returncode == 0, r.stdout + r.stderr
+    text = (tmp_path / "cron.d/smartsched-backup").read_text()
+    line = text.splitlines()[-1]
+    assert f"{DEPLOY}/backup.sh" in line and "ENV_FILE=" in line and line.split()[:2] == ["30", "2"]
+    assert deploy(env, "--backups").returncode == 0  # idempotent
+    assert (tmp_path / "cron.d/smartsched-backup").read_text() == text

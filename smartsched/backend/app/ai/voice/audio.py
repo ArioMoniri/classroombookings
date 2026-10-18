@@ -96,7 +96,7 @@ def _ogg(data: bytes) -> float | None:
     granule = int(struct.unpack_from("<q", data, last + 6)[0])
     if granule < 0 or not rate:
         return None
-    return max(granule - pre_skip, 0) / rate
+    return max(granule - int(pre_skip), 0) / float(rate)
 
 
 # ---------------------------------------------------------------------------------------------- WebM (EBML)

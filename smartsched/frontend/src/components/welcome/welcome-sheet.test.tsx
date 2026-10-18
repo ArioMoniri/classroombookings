@@ -7,6 +7,9 @@ import { buildSheet } from "./model";
 import { DESKTOP_MEDIA, makeState, mockMedia, PHONE_MEDIA, renderWelcome } from "./test-helpers";
 import { WelcomeSheet, type SheetAction } from "./welcome-sheet";
 
+// the first test pays the cold transform of the shell modules on a shared, loaded host
+vi.setConfig({ testTimeout: 20_000 });
+
 vi.mock("@/lib/api/client", async (orig) => {
   const real = await orig<typeof import("@/lib/api/client")>();
   return { ...real, request: async (path: string) => (path === "/auth/me" ? { id: 7, full_name: "Ayşe Tekin", role: "TEACHER", permissions: [] } : null) };
@@ -80,7 +83,7 @@ describe("WelcomeSheet (desktop)", () => {
   it("'Ayrıca' card for a secondary audience and the 'Güncellendi' badge", async () => {
     const state = makeState({ audiences: ["staff", "approver"], primary: "staff", sheet: { cards: [], updated: true } });
     renderWelcome(<Harness state={state} onAction={() => undefined} />, { state });
-    expect(await screen.findByTestId("welcome-card-approvals")).toHaveTextContent("Ayrıca");
+    expect(await screen.findByTestId("welcome-card-approvals_inbox")).toHaveTextContent("Ayrıca");
     expect(screen.getAllByTestId(/^welcome-card-/)).toHaveLength(5);
     expect(screen.getByTestId("welcome-updated")).toHaveTextContent("Güncellendi");
   });

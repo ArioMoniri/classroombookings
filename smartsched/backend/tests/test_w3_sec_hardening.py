@@ -207,7 +207,7 @@ def test_nginx_security_headers_and_csrf_fence() -> None:
     assert 'Permissions-Policy "camera=(), microphone=(self), geolocation=()' in NGINX
     assert "microphone=()" not in NGINX
     voice = NGINX.split("location = /api/v1/ai/voice/transcribe {", 1)[1].split("\n    }", 1)[0]
-    assert "client_max_body_size 6m;" in voice and "if ($smartsched_origin_bad = \"w\") { return 403; }" in voice
+    assert "client_max_body_size 6m;" in voice and 'if ($smartsched_origin_bad = "w") { return 403; }' in voice
 
 
 def test_caddy_edge_headers() -> None:

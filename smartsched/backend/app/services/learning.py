@@ -1516,6 +1516,7 @@ async def stop_purge_job() -> None:
 
 
 __all__ = [
+    "season_of",
     "BANDS",
     "LEARNED_KINDS",
     "LEARNED_WEIGHT",

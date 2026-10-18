@@ -1,0 +1,62 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='390' height='1080' viewBox='0 0 390 1080' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Giriş sayfası, geçiş anahtarı, 390'>
+<title>Giriş sayfası, geçiş anahtarı, 390</title>
+<rect width='390' height='1080' fill='#F4F6F9'/>
+<text x='20' y='30' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>9:41</text>
+<rect x='16' y='56' width='96' height='32' rx='8' fill='#F1F5F9' fill-opacity='1'/>
+<text x='64' y='77' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Üniversite logosu</text>
+<line x1='124' y1='60' x2='124' y2='84' stroke='#CBD5E1' stroke-width='1'/>
+<rect x='136' y='60' width='24' height='24' rx='6' fill='#2563EB' fill-opacity='1'/>
+<text x='148' y='77' font-size='13' font-weight='700' fill='#FFFFFF' text-anchor='middle'>S</text>
+<text x='168' y='78' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='16' y='120' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Giriş yap</text>
+<text x='16' y='146' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Örnek Üniversitesi · ders programı, sınavlar ve derslik</text>
+<text x='16' y='164' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>rezervasyonu</text>
+<rect x='16' y='186' width='358' height='48' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#8C8C8C' stroke-width='1'/>
+<rect x='85.0' y='200.0' width='9' height='9' rx='0' fill='#F25022' fill-opacity='1'/>
+<rect x='95.0' y='200.0' width='9' height='9' rx='0' fill='#7FBA00' fill-opacity='1'/>
+<rect x='85.0' y='210.0' width='9' height='9' rx='0' fill='#00A4EF' fill-opacity='1'/>
+<rect x='95.0' y='210.0' width='9' height='9' rx='0' fill='#FFB900' fill-opacity='1'/>
+<text x='115.0' y='215.0' font-size='15' font-weight='600' fill='#5E5E5E' text-anchor='start'>Microsoft ile giriş yap</text>
+<rect x='16' y='246' width='358' height='48' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#747775' stroke-width='1'/>
+<circle cx='104.0' cy='270.0' r='9' fill='none' stroke='#4285F4' stroke-width='2'/>
+<text x='104.0' y='274.0' font-size='11' font-weight='700' fill='#4285F4' text-anchor='middle'>G</text>
+<text x='125.0' y='275.0' font-size='14' font-weight='500' fill='#1F1F1F' text-anchor='start'>Google ile oturum açın</text>
+<line x1='16' y1='316' x2='374' y2='316' stroke='#E2E8F0' stroke-width='1'/>
+<text x='16' y='346' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Kullanıcı adı ve parolayla giriş yap</text>
+<text x='366' y='346' font-size='15' font-weight='600' fill='#0F172A' text-anchor='end'>⌃</text>
+<text x='16' y='384' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Kullanıcı adı veya e-posta</text>
+<rect x='16' y='392' width='358' height='48' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<rect x='13' y='389' width='364' height='54' rx='12' fill='none' fill-opacity='1' stroke='#BFD3FB' stroke-width='3'/>
+<text x='30' y='421.0' font-size='15' font-weight='400' fill='#0F172A' text-anchor='start'>ay</text>
+<rect x='16' y='446' width='358' height='92' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#CBD5E1' stroke-width='1'/>
+<text x='28' y='466' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>Tarayıcının öneri listesi (bizim çizimimiz değil)</text>
+<circle cx='35' cy='488' r='5' fill='none' stroke='#2563EB' stroke-width='2'/>
+<line x1='40' y1='488' x2='50' y2='488' stroke='#2563EB' stroke-width='2'/>
+<line x1='47' y1='488' x2='47' y2='492' stroke='#2563EB' stroke-width='2'/>
+<text x='60' y='492' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>ayse.yilmaz · geçiş anahtarı</text>
+<text x='60' y='510' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>iCloud Anahtar Zinciri</text>
+<text x='60' y='530' font-size='12' font-weight='500' fill='#2563EB' text-anchor='start'>Başka bir cihazdaki geçiş anahtarını kullan</text>
+<text x='16' y='558' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Parola</text>
+<text x='374' y='558' font-size='13' font-weight='500' fill='#2563EB' text-anchor='end'>Parolamı unuttum</text>
+<rect x='16' y='566' width='358' height='48' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<text x='358' y='595.0' font-size='13' font-weight='600' fill='#475569' text-anchor='end'>👁</text>
+<rect x='16' y='632' width='358' height='48' rx='24.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='195.0' y='661.4' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Giriş yap</text>
+<line x1='16' y1='702' x2='171.0' y2='702' stroke='#E2E8F0' stroke-width='1'/>
+<line x1='219.0' y1='702' x2='374' y2='702' stroke='#E2E8F0' stroke-width='1'/>
+<text x='195.0' y='706' font-size='12' font-weight='500' fill='#475569' text-anchor='middle'>veya</text>
+<rect x='16' y='720' width='358' height='48' rx='24.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<circle cx='90.0' cy='744.0' r='5' fill='none' stroke='#0F172A' stroke-width='2'/>
+<line x1='95.0' y1='744.0' x2='105.0' y2='744.0' stroke='#0F172A' stroke-width='2'/>
+<line x1='102.0' y1='744.0' x2='102.0' y2='748.0' stroke='#0F172A' stroke-width='2'/>
+<text x='207.0' y='749.0' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Geçiş anahtarıyla giriş yap</text>
+<text x='16' y='790' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Son girişinizi geçiş anahtarıyla yaptınız.</text>
+<text x='16' y='840' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>KVKK Aydınlatma Metni   v1.4.0</text>
+<rect x='234' y='822' width='84' height='32' rx='16' fill='#F1F5F9' fill-opacity='1'/>
+<text x='276' y='843' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>TR | EN</text>
+<rect x='330' y='822' width='32' height='32' rx='16' fill='#F1F5F9' fill-opacity='1'/>
+<text x='346' y='843' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>◐</text>
+<text x='16' y='890' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Sayfa = sayfa (inset 0). Kahraman yok (&lt; 1024 px).</text>
+<text x='16' y='908' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Alanlar 48 px, 16 px yazı; odaklanan alan klavyenin üstünde ortalanır.</text>
+<text x='16' y='926' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Düğmeler tam genişlik, sabitlenmez; gönder parolanın hemen altında.</text>
+</svg>

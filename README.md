@@ -144,19 +144,27 @@ Docker Engine 24 or newer with Compose v2:
 
 ```bash
 cd smartsched/deploy
-ADMIN_EMAIL=you@uni.edu.tr ./deploy.sh
-# http://localhost:8080  (the admin password is ADMIN_PASSWORD in .env)
+./deploy.sh --admin-email you@uni.edu.tr
+# prints the panel URL and, on a terminal, the admin password once (also ADMIN_PASSWORD in .env)
 ```
 
-This starts PostgreSQL, the backend, the frontend and nginx. `--tls` adds HTTPS through Caddy,
-`--legacy` also runs the original classroombookings, `--update` rebuilds and migrates. The first boot
-loads the branch's seed profile from `smartsched/deploy/profile.env`: `institution` loads the 2026
-workbooks, `empty` starts with the setup wizard. More in
-[smartsched/deploy/README.md](smartsched/deploy/README.md).
+This starts PostgreSQL, the backend, the frontend and nginx, runs the migrations, creates the administrator and
+loads the branch's seed profile from `smartsched/deploy/profile.env`: `institution` loads the 2026 workbooks,
+`empty` starts with the welcome guide and `/onboarding`. Optional deploy-time values:
+
+- `--domain smartsched.uni.edu.tr` sets up HTTPS through Caddy;
+- `--org-name`, `--smtp-host` / `--smtp-user` / `--smtp-from`, `--security-contact` and `--ai-provider` are
+  written into the database once (`AI_API_KEY` and `SMTP_PASSWORD` come from the environment, never a flag);
+- `--observability` starts Grafana, `--backups` installs the nightly backup, `--update` rebuilds and migrates.
+
+Every setting can also be changed afterwards in the admin panel, and a redeploy never overwrites those changes.
+See [docs/deploy/ONE-CLICK.md](docs/deploy/ONE-CLICK.md) for both branches, what the deploy prints and the
+first-login checklist, and [smartsched/deploy/README.md](smartsched/deploy/README.md) for the details.
 
 **AWS.** One EC2 instance runs the stack and the project's CI. It is controlled by the first line of
 `infra/aws/POD_ACTION` (`up`, `status`, `stop`, `start`, `cost`, `down destroy`) through a GitHub OIDC
-role, with a monthly budget that stops the instance. See [docs/deploy/AWS.md](docs/deploy/AWS.md).
+role, with a monthly budget that stops the instance. Locally: `python infra/aws/smartsched_aws.py up --pod
+gracious|universal` (same deploy-time flags as `deploy.sh`). See [docs/deploy/AWS.md](docs/deploy/AWS.md).
 
 **Local development.** `scripts/dev.sh --run` creates the Python venv, installs the frontend, seeds an
 admin into SQLite and starts the backend on :8000 and the frontend on :3000. The frontend always talks to
@@ -442,6 +450,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `f08e83d` (committed 2026-10-17 23:53 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `138ab31` (committed 2026-10-17 23:54 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

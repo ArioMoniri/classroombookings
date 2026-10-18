@@ -139,7 +139,7 @@ export function WhatStep({ choices, onPick, notLinked, contactEmail }: { choices
 
 /* ------------------------------------------------------------------------------------- 2 · how */
 
-export function HowStep({ channels, onPick }: { channels: Channel[]; onPick: (c: Channel) => void }) {
+export function HowStep({ channels, onPick, domain }: { channels: Channel[]; onPick: (c: Channel) => void; domain?: string | null }) {
   const { t } = useI18n();
   const refreshId = useId();
   if (!channels.length) return <p className="type-callout text-label-2" data-testid="cal-no-channels">{t("calendarExport.how.none")}</p>;
@@ -161,7 +161,10 @@ export function HowStep({ channels, onPick }: { channels: Channel[]; onPick: (c:
                   </span>
                   <span className="type-footnote text-label-2">{lead}</span>
                   {c.kind === "push" ? (
-                    <span className="type-footnote text-label-3">{c.connected && c.account ? t("calendarExport.how.pushConnected", { account: c.account }) : t("calendarExport.how.pushNotConnected", { provider: providerName(c.provider, t) })}</span>
+                    <span className="type-footnote text-label-3">
+                      {c.connected && c.account ? t("calendarExport.how.pushConnected", { account: c.account }) : t("calendarExport.how.pushNotConnected", { provider: providerName(c.provider, t) })}
+                      {!c.connected && domain ? ` ${t("calendarExport.how.pushDomain", { domain })}` : ""}
+                    </span>
                   ) : null}
                 </span>
                 <ChevronRight className="mt-0.5 size-4 shrink-0 self-center text-label-3" aria-hidden />
@@ -329,6 +332,11 @@ export function LinkResult({ urls, name, testId = "cal-link" }: { urls: { https:
           {t("calendarExport.done.outlook")}
         </Button>
       </div>
+      {!/^https?:\/\//i.test(l.https) ? (
+        <p className="rounded-xl bg-status-warning px-3 py-2 type-footnote text-status-warning-fg" data-testid={`${testId}-no-url`}>
+          {t("calendarExport.done.noPublicUrl")}
+        </p>
+      ) : null}
       <CopyButton value={l.https} testId={`${testId}-copy`} />
       <p className="rounded-xl bg-status-warning px-3 py-2 type-footnote text-status-warning-fg" data-testid={`${testId}-note`}>
         {t("calendarExport.done.linkNote")}

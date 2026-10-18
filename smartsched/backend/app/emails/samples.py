@@ -140,6 +140,35 @@ _BY_KIND: dict[str, dict[str, dict[str, Any] | Any]] = {
         "en": {"what": "Wednesday mornings", "reason": "Shared lectures run on Wednesday mornings"},
     },
     "smtp_test": {"*": {"host": "smtp.uni.edu.tr"}},
+    # AU-B (two-step sign-in, passkeys, administrator resets)
+    "mfa_enabled": {
+        "*": {"cta_url": f"{BASE}/profile#security"},
+        "tr": {"when": "18 Ekim 2026 09:12"},
+        "en": {"when": "18 October 2026 09:12"},
+    },
+    "mfa_disabled": {
+        "*": {"cta_url": f"{BASE}/profile#security"},
+        "tr": {"when": "18 Ekim 2026 09:12"},
+        "en": {"when": "18 October 2026 09:12"},
+    },
+    "mfa_reset_by_admin": {
+        "*": {"actor": "Fatih Demir", "cta_url": f"{BASE}/profile#security"},
+        "tr": {"when": "18 Ekim 2026 09:12"},
+        "en": {"when": "18 October 2026 09:12"},
+    },
+    "passkey_added": {
+        "*": {"device": "iPhone", "cta_url": f"{BASE}/profile#security"},
+        "tr": {"when": "18 Ekim 2026 09:12"},
+        "en": {"when": "18 October 2026 09:12"},
+    },
+    "mfa_recovery_code_used": {
+        "*": {"remaining": 9, "cta_url": f"{BASE}/profile#security"},
+        "tr": {"when": "18 Ekim 2026 09:12"},
+        "en": {"when": "18 October 2026 09:12"},
+    },
+    "password_reset_link_by_admin": {
+        "*": {"actor": "Fatih Demir", "valid_hours": 24, "cta_url": f"{BASE}/reset-password?token=Kq7Zp2Lm9Xw4Rt8Vb3Nc"}
+    },
 }
 
 

@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `f08e83d` (committed 2026-10-17 23:53 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `138ab31` (committed 2026-10-17 23:54 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -166,7 +166,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-275 agents in [`docs/agents/registry.json`](agents/registry.json): running 13 · finished 244 · stopped 11 · superseded 7.
+275 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 245 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -182,7 +182,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `HB-A` | ai-engineer | 2026-10-17 23:28 |
 | `One-click deploy both branches` | devops-engineer | 2026-10-17 23:30 |
 | `AU-B` | general-purpose | 2026-10-17 23:36 |
-| `Auth screens design (login, 2FA, passkeys)` | design-pro | 2026-10-17 23:36 |
 
 <!-- /AUTO:agents -->
 
@@ -249,7 +248,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **342 ticked · 473 open** checkboxes in 98 sections (94 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **349 ticked · 479 open** checkboxes in 99 sections (95 with open items).
 
 <details><summary>Per section</summary>
 
@@ -344,7 +343,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Wave 3b — W3-MAIL (2026-10-17) | 5 | 1 |
 | Wave 3 — W3-SLOT (2026-10-17) | 7 | 5 |
 | Wave 3b — W3-HUB (2026-10-17) | 4 | 2 |
-| Calendar export & sync for academicians (owner request 2026-10-17) | 0 | 12 |
+| Calendar export & sync for academicians (owner request 2026-10-17) | 7 | 6 |
 | Wave 3b — W3-IDP identity providers (2026-10-17) | 5 | 1 |
 | Welcome guide per role (owner request 2026-10-17) | 3 | 8 |
 | Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 0 | 20 |
@@ -353,6 +352,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Real-not-fake & admin editability (owner request 2026-10-17; audit… | 0 | 12 |
 | AI helper: backend, governance, local models (owner request 2026-10-17) | 0 | 20 |
 | AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 0 | 14 |
+| Sign-in, 2FA and passkeys (owner request 2026-10-18) — UX | 0 | 12 |
 
 </details>
 

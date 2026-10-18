@@ -51,7 +51,7 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
   const refresh = useRefreshCalendar();
   const rows = manageRows(subs.data?.rows);
   const legacy = legacyProviders(options.data, subs.data?.rows);
-  const accounts = pushAccounts(options.data, subs.data?.connections).filter((p) => p.connected || p.status === "REAUTH");
+  const accounts = pushAccounts(options.data, subs.data?.connections).filter((p) => p.connected || p.status === "REAUTH" || p.status === "CAL_DELETED");
   const [confirm, setConfirm] = useState<Subscription | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -207,7 +207,8 @@ function Account({ p, legacy, busy, onReconnect, onDisconnected }: { p: PushChan
   const [error, setError] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const name = providerName(p.provider, t);
-  const reauth = p.status === "REAUTH";
+  // REAUTH: the grant expired; CAL_DELETED: the person deleted the SmartSched calendar twice (API.md); both reconnect
+  const reauth = p.status === "REAUTH" || p.status === "CAL_DELETED";
   const disconnect = async () => {
     setWorking(true);
     setError(null);
@@ -233,12 +234,13 @@ function Account({ p, legacy, busy, onReconnect, onDisconnected }: { p: PushChan
           </span>
         ) : null}
       </div>
-      {reauth ? <p className="type-footnote text-status-warning-fg">{t("calendarExport.manage.reauth")}</p> : null}
+      {reauth ? <p className="type-footnote text-status-warning-fg">{p.status === "CAL_DELETED" ? t("calendarExport.manage.calDeleted") : t("calendarExport.manage.reauth")}</p> : null}
+      {p.status === "ERROR" ? <p className="type-footnote text-status-warning-fg">{t("calendarExport.manage.error")}</p> : null}
       {reauth ? (
         <div>
           <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" onClick={onReconnect} disabled={busy !== null} aria-busy={busy === `reconnect-${p.provider}` || undefined} data-testid={`cal-reconnect-${p.provider}`}>
             <BusyLabel busy={busy === `reconnect-${p.provider}`} label={t("calendarPush.me.redirecting")}>
-              {t("calendarExport.manage.reconnect")}
+              {p.status === "CAL_DELETED" ? t("calendarExport.manage.renewConnection") : t("calendarExport.manage.reconnect")}
             </BusyLabel>
           </Button>
         </div>

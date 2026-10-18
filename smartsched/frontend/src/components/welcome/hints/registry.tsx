@@ -35,16 +35,17 @@ export function useHintActions() {
   const event = useWelcomeEvent();
   const dismiss = useWelcomeStore((s) => s.dismissHint);
   const setAutoHint = useWelcomeStore((s) => s.setAutoHint);
-  const seen = (key: string) => {
+  const close = (key: string, e: "seen" | "started") => {
     const k = hintKey(key);
     dismiss(k);
     setAutoHint(null);
-    event.mutate({ guide_key: `hint.${k}`, event: "seen" });
+    event.mutate({ guide_key: `hint.${k}`, event: e });
   };
+  const seen = (key: string) => close(key, "seen");
   return {
     seen,
     tryIt: (h: HintDef) => {
-      seen(h.key);
+      close(h.key, "started");
       router.push(h.href);
     },
     allNews: (h: HintDef) => {

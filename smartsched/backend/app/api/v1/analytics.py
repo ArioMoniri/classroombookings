@@ -291,3 +291,18 @@ async def forecast_what_if(body: WhatIfIn, db: DB, user: Planner) -> dict[str, A
         raise HTTPException(
             404, {"code": "term_not_found", "message_tr": "dönem bulunamadı", "message_en": "term not found"}
         ) from exc
+
+
+@router.get("/forecast/exams", response_model=None)
+async def forecast_exams(
+    db: DB, _: Viewer, term_id: int, students_per_invigilator: int | None = Query(None, ge=5, le=500)
+) -> dict[str, Any]:
+    """Exam seats per day and slot vs exam capacity, invigilators vs the pool, exam-week bookings, draft holds."""
+    from app.services import exam_load
+
+    try:
+        return await exam_load.exam_forecast(db, term_id, students_per_invigilator=students_per_invigilator)
+    except LookupError as exc:
+        raise HTTPException(
+            404, {"code": "term_not_found", "message_tr": "dönem bulunamadı", "message_en": "term not found"}
+        ) from exc

@@ -5,6 +5,9 @@ import { renderWelcome, resetWelcomeStore } from "../test-helpers";
 import { useWelcomeStore } from "../welcome-store";
 import { WelcomeAdmin } from "./welcome-admin";
 
+// the first test pays the cold transform of the shell modules on a shared, loaded host
+vi.setConfig({ testTimeout: 20_000 });
+
 const state = vi.hoisted(() => ({
   perms: ["setup.settings"] as string[],
   tab: "general",
@@ -25,10 +28,12 @@ vi.mock("@/lib/api/client", async (orig) => {
       const method = opts.method ?? "GET";
       state.calls.push({ path, method, body: opts.body });
       const parse = (v: unknown) => (opts.schema ? opts.schema.parse(v) : v);
-      if (path === "/welcome/settings") return parse(method === "PUT" ? { enabled: true, sheet: true, tour: true, checklist: true, hints: true, hints_for_all: false, ...(opts.body as object) } : { enabled: true, sheet: true, tour: true, checklist: true, hints: true, hints_for_all: false });
+      // WG-B answers {settings: {...}, content_version, …}
+      if (path === "/welcome/settings") return parse({ settings: { enabled: true, sheet: true, tour: true, checklist: true, hints: true, hints_for_all: false, min_cohort: 5, ...(method === "PUT" ? (opts.body as object) : {}) }, content_version: { academician: 1 } });
       if (path === "/welcome/content/academician") {
-        if (method === "PUT" && state.stale) throw new real.HttpError(409, "stale", { code: "stale", updated_by: "Fatih Bey" });
-        return parse({ audience: "academician", version: 3, texts: { tr: { title: "Hoş geldiniz {ad}" }, en: {} }, updated_by: "Fatih Bey", updated_at: "2026-10-17T10:00:00Z" });
+        // the client keeps the whole body when FastAPI's `detail` is an object
+        if (method === "PUT" && state.stale) throw new real.HttpError(409, "stale", { detail: { code: "stale", current_version: 4, updated_by: "Fatih Bey" } });
+        return parse({ audience: "academician", version: 3, content_version: 1, fields: { tr: { title: "Hoş geldiniz {ad}" }, en: {} }, updated_by: "Fatih Bey", updated_at: "2026-10-17T10:00:00Z" });
       }
       if (path === "/welcome/content/academician/reshow") return { ok: true };
       if (path === "/welcome/stats") return parse({ days: 30, audiences: [{ audience: "academician", small_group: false, shown: 12, tour_completed_pct: 50, checklist_80_pct: 25, dismissed_pct: 8, median_days_to_first_booking: 2 }, { audience: "planner", small_group: true }] });
@@ -98,9 +103,9 @@ describe("WelcomeAdmin", () => {
     expect(dialog).toHaveTextContent("Kaydedince bu kitleye rehber yeniden gösterilsin mi?");
     fireEvent.click(within(dialog).getByTestId("welcome-reshow"));
     fireEvent.click(within(dialog).getByRole("button", { name: "Kaydet" }));
-    await waitFor(() => expect(state.calls.some((c) => c.path === "/welcome/content/academician/reshow" && c.method === "POST")).toBe(true));
+    await waitFor(() => expect(state.calls.some((c) => c.path === "/welcome/content/academician" && c.method === "PUT")).toBe(true));
     const put = state.calls.find((c) => c.path === "/welcome/content/academician" && c.method === "PUT")!;
-    expect(put.body).toMatchObject({ version: 3, texts: { tr: { title: "Merhaba {ad}" } } });
+    expect(put.body).toMatchObject({ version: 3, reshow: true, fields: { tr: { title: "Merhaba {ad}", lead: "" } } });
   });
 
   it("Metinler: a stale save shows who changed it", async () => {

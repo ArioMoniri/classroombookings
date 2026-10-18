@@ -13,6 +13,8 @@
 #   ./deploy.sh --logs     follow logs
 #   ./deploy.sh --down     stop the stack (volumes are kept; add --volumes to delete data)
 #   ./deploy.sh --status   show container status + health
+#   ./deploy.sh --backups  also install the nightly backup (backup.sh, 02:30) as /etc/cron.d/smartsched-backup (root;
+#                          otherwise the line to install is printed). The AWS pod has a systemd timer instead.
 #   extra flags: --no-build (start existing images), --no-pull (--update without git pull)
 #
 # Deploy-time values (each flag also works as --flag=value; docs/deploy/ONE-CLICK.md):
@@ -68,6 +70,7 @@ NO_BUILD=0
 NO_PULL=0
 DOMAIN=""
 ENV_CREATED=0
+BACKUPS=0
 # every variable seed/bootstrap_settings.py reads (pod-ci/tests/test_deploy_oneclick.py keeps the lists equal)
 SETTINGS_KEYS=(ORG_NAME AI_PROVIDER AI_API_KEY AI_BASE_URL SMTP_HOST SMTP_PORT SMTP_SECURITY SMTP_USERNAME SMTP_PASSWORD SMTP_FROM SMTP_FROM_NAME SECURITY_CONTACT GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET MICROSOFT_CLIENT_ID MICROSOFT_CLIENT_SECRET MICROSOFT_TENANT)
 
@@ -102,6 +105,7 @@ while [[ $# -gt 0 ]]; do
     --volumes)  REMOVE_VOLUMES=1 ;;
     --no-build) NO_BUILD=1 ;;
     --no-pull)  NO_PULL=1 ;;
+    --backups)  BACKUPS=1 ;;
     --domain)   DOMAIN="$value" ;;
     --acme-email)  export ACME_EMAIL_FLAG="$value" ;;
     --admin-email) export ADMIN_EMAIL="$value" ;;
@@ -226,7 +230,7 @@ ensure_env() {
     read -r -p "Administrator e-mail (the first login): " ADMIN_EMAIL || true
   fi
   if [[ -n "$(env_get ADMIN_EMAIL)" && -n "${ADMIN_EMAIL:-}" && "$(env_get ADMIN_EMAIL)" != "$ADMIN_EMAIL" ]]; then
-    warn "ADMIN_EMAIL is used on the first start only; keeping $(env_get ADMIN_EMAIL). Add or rename administrators in Yönetim > Kullanıcılar"
+    warn "ADMIN_EMAIL is used on the first start only; keeping $(env_get ADMIN_EMAIL). Add or rename administrators in Kurulum > Kullanıcılar (/admin/users)"
   fi
   if [[ -z "$(env_get ADMIN_EMAIL)" && -n "${ADMIN_EMAIL:-}" ]]; then
     [[ "$ADMIN_EMAIL" =~ ^[^[:space:]\|\\\&]+@[^[:space:]\|\\\&]+$ ]] || die "ADMIN_EMAIL='$ADMIN_EMAIL' is not an e-mail address"
@@ -342,7 +346,7 @@ run_seed() {
   local profile
   profile="$(seed_profile)"
   if [[ "$profile" == empty ]]; then
-    log "seed profile: empty (the instance opens on the setup wizard)"
+    log "seed profile: empty (nothing loaded; the administrator starts at /admin/welcome and /onboarding)"
     return 0
   fi
   [[ -d "$SEED_FILES_DIR" ]] || die "seed profile $profile needs the seed files in $SEED_FILES_DIR"
@@ -388,6 +392,20 @@ run_settings() {
     *) warn "deploy-time settings were not written (exit $rc); set them in the admin panel or redeploy" ;;
   esac
   return 0
+}
+
+# ---- nightly backup (--backups) -------------------------------------------------------------------------------
+install_backups() {
+  [[ $BACKUPS == 1 ]] || return 0
+  local file="${BACKUP_CRON_FILE:-/etc/cron.d/smartsched-backup}"
+  local line="30 2 * * * root ENV_FILE=$ENV_FILE $HERE/backup.sh >> /var/log/smartsched-backup.log 2>&1"
+  if { printf '# SmartSched nightly backup (deploy.sh --backups; backup.sh header)\n%s\n' "$line" > "$file"; } 2>/dev/null; then
+    chmod 644 "$file" 2>/dev/null || true
+    log "nightly backup installed: $file (02:30, ${BACKUP_DIR:-/var/backups/smartsched}, 14 days)"
+  else
+    warn "cannot write $file (not root); install the nightly backup with:"
+    warn "  echo '$line' | sudo tee $file"
+  fi
 }
 
 print_summary() {
@@ -459,6 +477,7 @@ case "$ACTION" in
     wait_healthy "http://localhost:$(env_get PROXY_PORT)/api/v1/health"
     run_seed
     run_settings
+    install_backups
     docker image prune -f >/dev/null 2>&1 || true
     print_summary
     ;;
@@ -477,6 +496,7 @@ case "$ACTION" in
     wait_healthy "http://localhost:$(env_get PROXY_PORT)/api/v1/health"
     run_seed
     run_settings
+    install_backups
     print_summary
     ;;
 esac

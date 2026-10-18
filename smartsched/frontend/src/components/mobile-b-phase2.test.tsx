@@ -9,11 +9,12 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ScheduleRun } from "@/lib/api/schemas";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { PublishRunButton } from "./runs/publish-run";
 import { focusClassChip } from "./timetable/focus-chip";
+import { SortableList } from "./admin/sortable-list";
 
 const ROOT = join(process.cwd(), "src/components");
 const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
@@ -92,5 +93,22 @@ describe("fix 6 · timetable: closing the inspector with Escape keeps focus on t
     const src = read("timetable/calendar-view.tsx");
     const esc = src.slice(src.indexOf('if (e.key === "Escape") {'), src.indexOf('if (e.key === "?")'));
     expect(esc).toContain("focusClassChip(");
+  });
+});
+
+describe("fix 16 · drag-to-reorder has visible buttons on touch (MOBILE.md M-11: a gesture is only a shortcut)", () => {
+  it("'Aşağı taşı' moves a row one step, the ends are disabled, the buttons show only on a coarse pointer", async () => {
+    const onReorder = vi.fn();
+    render(
+      <I18nProvider initialLocale="tr">
+        <SortableList label="Gruplar" items={[{ id: 1, label: "A Blok" }, { id: 2, label: "B Blok" }]} onReorder={onReorder} render={(g) => <span>{g.label}</span>} />
+      </I18nProvider>,
+    );
+    const down = screen.getByRole("button", { name: "A Blok aşağı taşı" });
+    expect(down.className).toContain("pointer-coarse:inline-flex");
+    expect(screen.getByRole("button", { name: "A Blok yukarı taşı" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "B Blok aşağı taşı" })).toBeDisabled();
+    await userEvent.click(down);
+    expect(onReorder).toHaveBeenCalledWith([{ id: 2, label: "B Blok" }, { id: 1, label: "A Blok" }]);
   });
 });

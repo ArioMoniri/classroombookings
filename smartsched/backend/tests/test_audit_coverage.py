@@ -404,6 +404,16 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/welcome/settings": (E, "app.services.welcome"),
     "PUT /api/v1/welcome/content/{audience}": (E, "app.services.welcome"),
     "POST /api/v1/welcome/content/{audience}/reshow": (E, "app.services.welcome"),
+    # adaptive scheduling AS-03 / AS-10: season profiles (season_profile.*), admin period segments, what-if runs
+    "POST /api/v1/seasons/profiles": (E, "app.services.seasons"),
+    "PUT /api/v1/seasons/profiles/{profile_id}": (E, "app.services.seasons"),
+    "POST /api/v1/seasons/profiles/{profile_id}/activate": (E, "app.services.seasons"),
+    "POST /api/v1/seasons/profiles/{profile_id}/revert": (E, "app.services.seasons"),
+    "DELETE /api/v1/seasons/profiles/{profile_id}": (E, "app.services.seasons"),
+    "POST /api/v1/seasons/terms/{term_id}/segments": (E, "app.api.v1.seasons"),
+    "PUT /api/v1/seasons/segments/{segment_id}": (E, "app.api.v1.seasons"),
+    "DELETE /api/v1/seasons/segments/{segment_id}": (E, "app.api.v1.seasons"),
+    "POST /api/v1/analytics/forecast/what-if": (E, "app.services.forecast"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)

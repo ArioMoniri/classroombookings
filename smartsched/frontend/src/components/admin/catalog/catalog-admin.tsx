@@ -45,7 +45,14 @@ function useDebounced<V>(value: V, ms: number): V {
   return v;
 }
 
-function fetchPage(tab: CatalogTab, search: string, offset: number, termId: number | undefined) {
+interface RowPage {
+  items: CatalogRow[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+function fetchPage(tab: CatalogTab, search: string, offset: number, termId: number | undefined): Promise<RowPage> {
   const q = { search, limit: PAGE, offset };
   switch (tab) {
     case "instructors":
@@ -82,7 +89,7 @@ export function CatalogAdmin({ tab }: { tab: CatalogTab }) {
   });
   const faculties = useQuery({ queryKey: ["catalog", "faculty-options"], queryFn: () => catalogAdminApi.facultiesPage({ limit: 500 }), enabled: tab === "programs", staleTime: 60_000 });
   const facultyName = new Map((faculties.data?.items ?? []).map((f) => [f.id, f.name]));
-  const rows: CatalogRow[] = (list.data?.pages ?? []).flatMap((p) => p.items as CatalogRow[]);
+  const rows: CatalogRow[] = (list.data?.pages ?? []).flatMap((p) => p.items);
   const total = list.data?.pages[0]?.total ?? 0;
   const [editing, setEditing] = useState<{ row: CatalogRow | null } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);

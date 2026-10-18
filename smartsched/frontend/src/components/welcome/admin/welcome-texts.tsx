@@ -49,7 +49,9 @@ export function fieldsFor(audience: Audience): TextField[] {
 /** "Bu metni siz düzenlerken {ad} değiştirdi…" from a 409 (the backend's own sentence when it sends one). */
 export function staleMessage(err: unknown, locale: Locale, t: (k: MessageKey, v?: Record<string, string>) => string): string | null {
   if (!(err instanceof HttpError) || err.status !== 409) return null;
-  const d = (err.detail ?? {}) as Record<string, unknown>;
+  const raw = (err.detail ?? {}) as Record<string, unknown>;
+  // FastAPI `{"detail": {"code": "stale", …}}`: the client keeps the whole body when `detail` is an object
+  const d = (raw.detail && typeof raw.detail === "object" ? raw.detail : raw) as Record<string, unknown>;
   const own = locale === "tr" ? d.message_tr : d.message_en;
   if (typeof own === "string" && own.trim()) return own;
   const who = [d.updated_by, d.by, d.name].find((x): x is string => typeof x === "string" && !!x.trim()) ?? t("welcome.admin.texts.staleSomeone");

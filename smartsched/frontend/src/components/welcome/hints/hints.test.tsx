@@ -7,6 +7,9 @@ import { useWelcomeStore } from "../welcome-store";
 import { FeatureHintPopover } from "./feature-hint";
 import { NewBadge } from "./new-badge";
 
+// the first test pays the cold transform of the shell modules on a shared, loaded host
+vi.setConfig({ testTimeout: 20_000 });
+
 const nav = vi.hoisted(() => ({ pathname: "/admin/ai", push: vi.fn() }));
 const api = vi.hoisted(() => ({ events: [] as unknown[] }));
 vi.mock("next/navigation", () => ({ usePathname: () => nav.pathname, useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push: nav.push, replace: vi.fn() }) }));
@@ -77,7 +80,8 @@ describe("hints", () => {
     renderWelcome(<WelcomePageSlot />, { state: makeState({ audiences: ["staff"], primary: "staff", hints: [{ key: "hint.quick_reserve" }] }) });
     fireEvent.click(screen.getByTestId("hint-try-quick_reserve"));
     expect(nav.push).toHaveBeenCalledWith("/reserve");
-    await waitFor(() => expect(api.events).toContainEqual({ guide_key: "hint.quick_reserve", event: "seen" }));
+    // "Dene" = started (WG-B: any hint event ends the hint for this user)
+    await waitFor(() => expect(api.events).toContainEqual({ guide_key: "hint.quick_reserve", event: "started" }));
   });
 
   it("desktop nav popover: non-modal, keeps focus, Esc = Anladım", async () => {

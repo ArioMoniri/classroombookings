@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.common import ORMModel
@@ -24,10 +26,21 @@ class LoginIn(BaseModel):
 
 
 class TokenOut(BaseModel):
-    access_token: str
+    """The sign-in answer. AU-B: when a second factor is needed ``access_token`` is ``None`` and ``mfa_required`` /
+    ``challenge_token`` / ``mfa_methods`` say how to go on (``POST /auth/mfa/verify``); when the policy requires
+    enrolment first, ``mfa_setup_required`` (with ``challenge_token`` once the grace period is over)."""
+
+    access_token: str | None
     token_type: str = "bearer"
     expires_in: int
     password_change_required: bool = False
+    mfa_required: bool = False
+    mfa_methods: list[str] | None = None
+    challenge_token: str | None = None
+    challenge_expires_in: int | None = None
+    mfa_setup_required: bool = False
+    mfa_setup_methods: list[str] | None = None
+    mfa_grace_until: datetime | None = None
 
 
 class UserOut(ORMModel):

@@ -1,6 +1,6 @@
 # Mobile acceptance criteria (390×844 and 768×1024)
 
-Owner decision (ROADMAP "Standing flow loop"): mobile is part of the definition of done for **every screen**. A screen passes when it meets M-01 … M-14 at **390×844** (phone, portrait) and **768×1024** (tablet, portrait), plus M-13 in landscape (844×390). The builders work against this file, and the testers check it.
+Owner decision (ROADMAP "Standing flow loop"): mobile is part of the definition of done for **every screen**. A screen passes when it meets M-01 … M-16 at **390×844** (phone, portrait) and **768×1024** (tablet, portrait), plus M-13 in landscape (844×390). The builders work against this file, and the testers check it.
 
 How to run:
 - Contexts as in README §3: `isMobile: true`, `hasTouch: true`, `locale: "tr-TR"`, `timezoneId: "Europe/Istanbul"`, built with `scripts/record/lib/touch.mjs` (`newFlowPage`). Call `assertTouch(page)` before every M-02, M-03 and M-05 run, and take full-page screenshots only with its `shot()`: a plain `page.screenshot({ fullPage: true })` switches touch emulation off for the rest of the page, so every later measurement reads the mouse sizes (32 px controls, 13–14 px inputs). That is what round 1 measured (T-R1-45).
@@ -266,10 +266,22 @@ Rotate the phone context (`viewport: { width: 844, height: 390 }`) on each route
 - the tab bar and the top bar together take ≤ 25 % of the height (≤ 97 px), or hide while scrolling;
 - the scrolling content area is ≥ 50 % of the height.
 ```js
-const m13 = await page.evaluate(() => { const bars = [...document.querySelectorAll('header, nav[aria-label="Sekmeler"]')].filter((b) => getComputedStyle(b).position !== "static").reduce((s, b) => s + b.getBoundingClientRect().height, 0);
-  const vh = document.documentElement.clientHeight; return { bars, vh, ratio: bars / vh }; });
-// PASS: m13.ratio <= 0.25, plus M-01 / M-04 / M-05 at this size
+const m13 = await page.evaluate(() => {
+  // the tab bar's <nav> is static inside a fixed wrapper (shell/tab-bar.tsx): measure the positioned box that holds it,
+  // from its top to the viewport bottom (the safe-area gap under the capsule counts too)
+  const vh = document.documentElement.clientHeight;
+  const fixedOf = (el) => { for (let p = el; p && p !== document.body; p = p.parentElement) if (/(fixed|sticky)/.test(getComputedStyle(p).position)) return p; return null; };
+  const header = [...document.querySelectorAll("header")].map(fixedOf).find((h) => h && h.getBoundingClientRect().height);
+  const nav = document.querySelector('nav[aria-label="Sekmeler"]'); const tabs = nav && fixedOf(nav);
+  const parts = { header: header ? Math.round(header.getBoundingClientRect().bottom) : 0, tabs: tabs ? Math.round(vh - nav.getBoundingClientRect().top) : 0 };
+  return { ...parts, vh, ratio: +((parts.header + parts.tabs) / vh).toFixed(2) };
+});
+// PASS: m13.ratio <= 0.25 (with the page at rest and again after scrolling 300 px: a bar that scrolls away counts 0),
+//       plus M-01 / M-04 / M-05 at this size
 ```
+- Round 3 and earlier used a filter on `position !== "static"` that dropped the tab bar (its `nav` is static inside the
+  fixed wrapper), so every route read ~0.12 when header + tab bar were really 104 / 390 = 0.27 (mobile audit A,
+  docs/testing/mobile/2026-10-17-mobile-a.md §6).
 
 ### M-14 · Performance: no long task over 200 ms on a tap
 
@@ -298,13 +310,47 @@ const m14 = await page.evaluate(probeStop);
 - Run at 1× CPU. Repeat at 4× (`cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })`) as advisory information for phones. Only the 1× result decides PASS/FAIL on this shared host.
 - The taps to measure, per flow, are the ones marked "probe" or listed in F-13 B04: open a sheet, submit, next day, search, approve, expand a row, open the bell.
 
+### M-15 · Layout stability: CLS ≤ 0.1 on load
+
+The page does not jump while it loads: a skeleton holds the space of what is coming (one line of spinner that gives way
+to a 700 px form is the classic failure). Measured with a `layout-shift` observer installed **before** the page's own
+scripts (`page.addInitScript`), then the web.dev session-window sum (gap < 1 s, window ≤ 5 s):
+
+```js
+await page.addInitScript(() => { window.__ls = []; new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__ls.push({ v: e.value, t: e.startTime, src: (e.sources || []).map((s) => s.node?.nodeName) }); }).observe({ type: "layout-shift", buffered: true }); });
+// … goto the route, wait for its main test id, then 1.5 s …
+const m15 = await page.evaluate(() => { let best = 0, cur = 0, start = -1, prev = -1;
+  for (const e of window.__ls) { if (prev >= 0 && e.t - prev < 1000 && e.t - start < 5000) cur += e.v; else { cur = e.v; start = e.t; } prev = e.t; best = Math.max(best, cur); }
+  return { cls: +best.toFixed(3), shifts: window.__ls.length }; });
+// PASS: m15.cls <= 0.1   (web.dev: good ≤ 0.1, poor > 0.25). Report the shifted nodes (e.sources) with a FAIL.
+```
+- Load-independent: CLS is a layout measure, so it decides PASS/FAIL even on a busy host.
+- Seen before: /profile 0.45 (phone) / 0.73 (tablet), /public/buildings/A 0.77, /bookings at 768 0.28 (mobile audit A).
+
+### M-16 · Responsiveness: INP ≤ 200 ms on the tap that opens a sheet
+
+The tap that opens the screen's main sheet or dialog (book sheet, filters, bell, recurring) answers within 200 ms, from
+the touch to the next paint (Interaction to Next Paint). Event-timing entries carry the interaction id; the longest
+entry of the tap is its INP:
+
+```js
+await page.addInitScript(() => { window.__ev = []; new PerformanceObserver((l) => { for (const e of l.getEntries()) if (e.interactionId) window.__ev.push({ id: e.interactionId, d: e.duration, delay: e.processingStart - e.startTime, proc: e.processingEnd - e.processingStart }); }).observe({ type: "event", durationThreshold: 16, buffered: true }); });
+await page.evaluate(() => { window.__ev = []; });
+await opener.tap();
+await page.waitForTimeout(800);
+const m16 = await page.evaluate(() => { const w = window.__ev.sort((a, b) => b.d - a.d)[0]; return w ? { inp: Math.round(w.d), inputDelay: Math.round(w.delay), processing: Math.round(w.proc), presentation: Math.round(w.d - w.delay - w.proc) } : { inp: 0 }; });
+// PASS: m16.inp <= 200   (web.dev: good ≤ 200 ms, poor > 500 ms). The split says where the time goes: a large
+//       `presentation` is paint (blur, big DOM), a large `processing` is the click handler.
+```
+- Timing row: run the M-14 baseline first; under load (README §8) the row is INCONCLUSIVE, not FAIL.
+
 ---
 
 ## 2. What changes between 390 and 768
 
 | Criterion | 390×844 phone | 768×1024 tablet |
 |---|---|---|
-| M-01, M-02, M-03 (11 px), M-06, M-11, M-14 | required | required (touch) |
+| M-01, M-02, M-03 (11 px), M-06, M-11, M-14, M-15, M-16 | required | required (touch) |
 | M-03 inputs ≥ 16 px | required | recommended |
 | M-04 dialogs | bottom sheet | bottom sheet, or a centred dialog / side sheet 360–640 px wide |
 | M-05 primary action | sticky, bottom 40 % | sticky and visible; position free |
@@ -364,5 +410,5 @@ A route not in this table (a new screen) inherits M-01…M-14. Its builder adds 
 ## 4. Reporting
 
 - One row per criterion × route × viewport (README §6). Example: `| F-03 | M-05@/find-room | staff | phone | FAIL | perf/… | FL-03-007 |`.
-- Severity: a failed M-01, M-02, M-05 or M-12 on a flow's primary screen is **major**. M-03, M-06, M-07, M-09, M-10 and M-13 are **minor**, unless they make a step impossible (then major). A failed M-11 that blocks a step on touch is **major**. M-14 over 200 ms is **minor**, or **INCONCLUSIVE** under load.
+- Severity: a failed M-01, M-02, M-05 or M-12 on a flow's primary screen is **major**. M-03, M-06, M-07, M-09, M-10 and M-13 are **minor**, unless they make a step impossible (then major). A failed M-11 that blocks a step on touch is **major**. M-14 over 200 ms is **minor**, or **INCONCLUSIVE** under load. M-15 over 0.25 on a flow's primary screen is **major**, between 0.1 and 0.25 **minor**. M-16 over 200 ms is **minor** (over 500 ms **major**), or **INCONCLUSIVE** under load.
 - Attach the snippet's JSON output. For M-02, the first 10 offenders with their sizes are enough.

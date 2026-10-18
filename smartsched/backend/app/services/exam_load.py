@@ -113,11 +113,11 @@ async def exam_forecast(session: Any, term_id: int, *, students_per_invigilator:
         key = getattr(r, "merge_key", None) or ("id", r.id)
         merged.setdefault(key, r)
         sizes[key] += int(r.enrolment or 0)
-    exams = [(r.date, sizes[k]) for k, r in merged.items()]
+    exams = [(r.date, sizes[k]) for k, r in merged.items() if r.date is not None]
     timed = [
         (r.date, int(r.start_period), int(r.end_period), sizes[k])
         for k, r in merged.items()
-        if r.start_period and r.end_period
+        if r.date is not None and r.start_period and r.end_period
     ]
     cap_total = int(
         (
@@ -260,3 +260,145 @@ def _week_monday(d: date) -> date:
 
 
 __all__ = ["day_label", "day_load", "exam_forecast", "exam_week_bookings", "slot_load"]
+
+
+def exam_issues(
+    exams: Iterable[tuple[int, date, int, int, int, frozenset[str]]],
+    exam_capacity: int,
+    threshold_pct: float = 85.0,
+    peak_ratio: float = 1.5,
+) -> list[dict[str, Any]]:
+    """``exam_load`` findings: seats in a slot above ``threshold_pct`` of the exam capacity, a cohort with more than
+    two exams on one day, a day with more than ``peak_ratio`` x the weekday mean of exams. ``exams``: (request id,
+    date, start, end, seats, cohort keys)."""
+    rows = list(exams)
+    out: list[dict[str, Any]] = []
+    load = day_load([(d, n) for _i, d, _s, _e, n, _c in rows])
+    mean = load["weekday_mean"] or 0.0
+    for day in load["days"]:
+        d = date.fromisoformat(day["date"])
+        if mean and day["exams"] > peak_ratio * mean:
+            ratio = day["exams"] / mean
+            out.append(
+                {
+                    "kind": "peak_day",
+                    "date": day["date"],
+                    "request_ids": sorted(i for i, dd, *_r in rows if dd == d),
+                    "params": {"exams": day["exams"], "seats": day["seats"], "ratio": round(ratio, 2)},
+                    "text": _t(
+                        f"{day_label(d)['tr']}: {day['exams']} sınav, hafta içi ortalamanın {ratio:.2f}".replace(
+                            ".", ","
+                        )
+                        + " katı",
+                        f"{day_label(d)['en']}: {day['exams']} exams, {ratio:.2f}x the weekday mean",
+                    ),
+                }
+            )
+    for (d, p), v in sorted(slot_load([(dd, s, e, n) for _i, dd, s, e, n, _c in rows]).items()):
+        if exam_capacity and v["seats"] > exam_capacity * threshold_pct / 100.0:
+            out.append(
+                {
+                    "kind": "seats",
+                    "date": d.isoformat(),
+                    "period": p,
+                    "request_ids": sorted(i for i, dd, s, e, *_r in rows if dd == d and s <= p <= e),
+                    "params": {"seats": v["seats"], "exam_capacity": exam_capacity},
+                    "text": _t(
+                        f"{day_label(d)['tr']} {p}. ders: {v['seats']} öğrenci, sınav koltuğu {exam_capacity}",
+                        f"{day_label(d)['en']} period {p}: {v['seats']} students, {exam_capacity} exam seats",
+                    ),
+                }
+            )
+    per_cohort: dict[tuple[str, date], list[int]] = defaultdict(list)
+    for i, d, _s, _e, _n, cohorts in rows:
+        for c in cohorts:
+            per_cohort[(c, d)].append(i)
+    for (c, d), ids in sorted(per_cohort.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+        if len(ids) > 2:
+            name = c.split(":", 1)[-1]
+            out.append(
+                {
+                    "kind": "cohort_day",
+                    "date": d.isoformat(),
+                    "request_ids": sorted(ids),
+                    "params": {"cohort": name, "exams": len(ids)},
+                    "text": _t(
+                        f"{name}: {day_label(d)['tr']} günü {len(ids)} sınav (en çok 2)",
+                        f"{name}: {len(ids)} exams on {day_label(d)['en']} (at most 2)",
+                    ),
+                }
+            )
+    return out
+
+
+async def exam_load_issues(session: Any, term_id: int) -> list[dict[str, Any]]:
+    """The ``exam_load`` data issues of a term's exam list (no run needed)."""
+    from sqlalchemy import func, select
+    from sqlalchemy.orm import selectinload
+
+    from app.models import ExamRequest, Room
+
+    rows = list(
+        (
+            await session.execute(
+                select(ExamRequest)
+                .where(
+                    ExamRequest.term_id == term_id,
+                    ExamRequest.archived.is_(False),
+                    ExamRequest.needs_room.is_(True),
+                    ExamRequest.date.is_not(None),
+                )
+                .options(selectinload(ExamRequest.program))
+            )
+        ).scalars()
+    )
+    merged: dict[Any, list[ExamRequest]] = defaultdict(list)
+    for r in rows:
+        merged[r.merge_key or ("id", r.id)].append(r)
+    exams = []
+    for group in merged.values():
+        head = group[0]
+        if head.date is None:
+            continue
+        cohorts = frozenset(
+            f"COH:{(r.program.name if r.program else '?')} {y}. sınıf"
+            for r in group
+            for y in ([int(x) for x in (r.class_years or [])] or ([r.class_year] if r.class_year else []))
+            if r.program is not None
+        )
+        exams.append(
+            (
+                head.id,
+                head.date,
+                int(head.start_period or 0),
+                int(head.end_period or head.start_period or 0),
+                sum(int(r.enrolment or 0) for r in group),
+                cohorts,
+            )
+        )
+    cap = int(
+        (
+            await session.execute(
+                select(func.coalesce(func.sum(Room.exam_capacity), 0)).where(Room.is_bookable.is_(True))
+            )
+        ).scalar_one()
+    )
+    out = []
+    for f in exam_issues([e for e in exams if e[2]], cap):
+        out.append(
+            {
+                "diagnosis_index": -1,
+                "code": "exam_load",
+                "severity": "warning" if f["kind"] != "peak_day" else "info",
+                "message": f["text"]["en"],
+                "message_tr": f["text"]["tr"],
+                "detail": f["kind"],
+                "suggestions": ["move an exam to a lighter day or slot (advice only; edit the exam request)"],
+                "event_ids": [],
+                "request_ids": f["request_ids"],
+                "unplaced": False,
+                "params": {"kind": f["kind"], "date": f["date"], **f["params"]},
+                "classes": [],
+            }
+        )
+    return out

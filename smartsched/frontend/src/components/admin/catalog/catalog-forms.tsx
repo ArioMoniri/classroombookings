@@ -147,7 +147,7 @@ function FormShell({
           ) : null}
         </fieldset>
         {error ? (
-          <Alert tone="error" testId="catalog-error">
+          <Alert tone="error" data-testid="catalog-error">
             {error}
           </Alert>
         ) : null}

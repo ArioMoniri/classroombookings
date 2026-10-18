@@ -53,7 +53,7 @@ fi
 rm -f "$BOOT_ENV"
 
 systemctl enable --now smartsched-ci-web.service smartsched-ci-poll.timer smartsched-ci-worker.timer \
-  smartsched-ci-worker.path smartsched-ci-update.path
+  smartsched-ci-worker.path smartsched-ci-update.path smartsched-upload-purge.timer smartsched-backup.timer
 systemctl enable smartsched-stack.service
 echo "[pod-bootstrap] panel https://${DOMAIN}  CI https://${DOMAIN}/ci/"
 echo "[pod-bootstrap] admin ${SMARTSCHED_ADMIN_EMAIL}; password in SSM ${SMARTSCHED_SSM_PREFIX:-/smartsched}/admin_password"

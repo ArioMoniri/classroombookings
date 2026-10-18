@@ -30,14 +30,14 @@ QUERIES = {
 async def test_hb_02_four_personas_ten_queries(env) -> None:  # noqa: F811
     people = await personas(env)
     idx = get_index()
-    timings: list[float] = []
+    timings: list[tuple[float, str, str]] = []
     for name, qs in QUERIES.items():
         p = people[name]
         for q in qs:
             r = await env.client.get(f"{H}/search", params={"q": q}, headers=p.headers)
             assert r.status_code == 200, (name, q, r.text)
             out = r.json()
-            timings.append(out["timing_ms"])
+            timings.append((out["timing_ms"], name, q))
             for group in ("pages", "where"):
                 assert len(out[group]) <= 6
                 for c in out[group]:
@@ -49,7 +49,8 @@ async def test_hb_02_four_personas_ten_queries(env) -> None:  # noqa: F811
                     # "Burada yap" only names actions the person may run
                     assert set(c.get("actions", [])) <= set(entry.actions)
             assert sum(len(v) for v in out["data"].values()) + len(out["pages"]) + len(out["where"]) <= 24
-    assert statistics.quantiles(timings, n=20)[-1] < 50, timings
+    p95 = statistics.quantiles([t for t, *_ in timings], n=20)[-1]
+    assert p95 < 50, sorted(timings, reverse=True)[:8]
     async with dbmod.get_session_factory()() as s:  # no AI, no metering
         assert (await s.execute(select(func.count(AIUsage.id)))).scalar_one() == 0
 

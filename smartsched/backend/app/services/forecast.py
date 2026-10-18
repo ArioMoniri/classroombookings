@@ -215,11 +215,11 @@ def shortfall_cells(needs: Sequence[Need], rooms: Sequence[RoomCap], week: int |
     return out
 
 
-def demand_cells(needs: Sequence[Need], lecture_weeks: Sequence[int]) -> Counter[tuple[str, int, int, str, str]]:
+def demand_cells(needs: Sequence[Need], lecture_weeks: Sequence[int]) -> dict[tuple[str, int, int, str, str], float]:
     """Weekly room-periods per (building, weekday, period, tag group, capacity band), averaged over the lecture
     weeks (a request for some weeks counts in those only)."""
     weeks = list(lecture_weeks) or list(range(1, 15))
-    out: Counter[tuple[str, int, int, str, str]] = Counter()
+    out: dict[tuple[str, int, int, str, str], float] = defaultdict(float)
     for x in needs:
         active = len([w for w in weeks if x.weeks is None or w in x.weeks]) / len(weeks)
         if active <= 0:
@@ -410,7 +410,7 @@ async def demand_forecast(session: Any, term_id: int | None, group_by: str = "bu
     weeks = await lecture_weeks(session, term)
     if needs:
         cells = demand_cells(needs, weeks)
-        agg: Counter[tuple[Any, ...]] = Counter()
+        agg: dict[tuple[Any, ...], float] = defaultdict(float)
         for k, v in cells.items():
             agg[_project(k, group_by)] += v
         basis = _t(
@@ -508,7 +508,7 @@ async def _seasonal_naive(session: Any, term: Any, group_by: str) -> dict[str, A
         f"{src.code} yayımlanmış programı (aynı dönem, {n_cal} hafta) × kohort oranı 1 (bir yıllık geçmiş)",
         f"the published timetable of {src.code} (same season, {n_cal} weeks) × cohort ratio 1 (one year of history)",
     )
-    rows = []
+    rows: list[dict[str, Any]] = []
     for k in sorted(weekly, key=lambda x: tuple(str(v) for v in x)):
         v = np.asarray(weekly[k], float)
         val = float(v.mean())
@@ -552,7 +552,7 @@ async def _seasonal_naive(session: Any, term: Any, group_by: str) -> dict[str, A
         ),
         "source_term_id": src.id,
         "cells": rows,
-        "total": round(sum(r["value"] for r in rows), 1),
+        "total": round(sum(float(r["value"]) for r in rows), 1),
     }
 
 
@@ -813,3 +813,86 @@ __all__ = [
     "shortfall_cells",
     "what_if",
 ]
+
+
+# ------------------------------------------------------------------------------------------------ AS-09 warnings
+
+
+def pressure_cells(
+    needs: Sequence[Need], rooms: Sequence[RoomCap], threshold_pct: float = 85.0
+) -> list[dict[str, Any]]:
+    """Cells where the fixed-time requests alone need more than ``threshold_pct`` of the suitable rooms (room
+    group ``PC`` / ``TIP`` / every room), consecutive periods with the same numbers merged."""
+    cells = [
+        c for c in shortfall_cells(needs, rooms) if c["supply"] and 100.0 * c["demand"] / c["supply"] > threshold_pct
+    ]
+    merged: list[dict[str, Any]] = []
+    for c in sorted(cells, key=lambda c: (c["group"], c["day"], c["period"])):
+        last = merged[-1] if merged else None
+        if (
+            last is not None
+            and (last["group"], last["day"], last["demand"], last["supply"])
+            == (c["group"], c["day"], c["demand"], c["supply"])
+            and last["end_period"] + 1 == c["period"]
+        ):
+            last["end_period"] = c["period"]
+            last["competing"] = sorted(set(last["competing"]) | set(c["competing"]))
+            continue
+        merged.append({**c, "start_period": c["period"], "end_period": c["period"]})
+    return merged
+
+
+def pressure_text(c: Mapping[str, Any]) -> dict[str, str]:
+    d, s, e, g = c["day"], c["start_period"], c["end_period"], c["group"]
+    when_tr = f"{s}. ders" if s == e else f"{s}.–{e}. ders"
+    when_en = f"period {s}" if s == e else f"periods {s}–{e}"
+    what_tr = f"{TAG_TR.get(g, g)} isteyen" if g != "*" else "derslik isteyen"
+    what_en = f"needing a {TAG_EN.get(g, g)}" if g != "*" else "needing a room"
+    room_tr = "uygun" if g != "*" else "toplam"
+    return _t(
+        f"{_DAY_TR[d]} {when_tr}: {what_tr} {c['demand']} ders, {room_tr} {c['supply']} oda",
+        f"{_DAY_EN[d]} {when_en}: {c['demand']} classes {what_en}, {c['supply']} suitable room(s)",
+    )
+
+
+async def peak_pressure(session: Any, term_id: int, threshold_pct: float | None = None) -> list[dict[str, Any]]:
+    """``peak_pressure`` data issues of a term (no run needed)."""
+    from app.models import Term
+    from app.services import seasons
+
+    term = await session.get(Term, term_id)
+    if term is None:
+        return []
+    if threshold_pct is None:
+        prof = await seasons.resolve_profile(session, seasons.season_of(term), "LECTURE")
+        threshold_pct = float(prof.peak_threshold_pct if prof else seasons.DEFAULT_PEAK_THRESHOLD)
+    needs, _u = await needs_from_db(session, term_id)
+    if not needs:
+        return []
+    rooms = await rooms_from_db(session)
+    by_label: dict[str, set[int]] = defaultdict(set)
+    for x in needs:
+        by_label[x.label] |= set(x.request_ids)
+    out = []
+    for c in pressure_cells(needs, rooms, threshold_pct):
+        text = pressure_text(c)
+        out.append(
+            {
+                "diagnosis_index": -1,
+                "code": "peak_pressure",
+                "severity": "warning" if c["demand"] > c["supply"] else "info",
+                "message": text["en"],
+                "message_tr": text["tr"],
+                "detail": "",
+                "suggestions": ["move a class with a flexible time out of this cell, or free a suitable room"],
+                "event_ids": [],
+                "request_ids": sorted({r for lab in c["competing"] for r in by_label.get(lab, set())}),
+                "unplaced": False,
+                "params": {
+                    k: c[k] for k in ("day", "start_period", "end_period", "group", "demand", "supply", "shortfall")
+                }
+                | {"threshold_pct": threshold_pct, "competing": c["competing"]},
+                "classes": [],
+            }
+        )
+    return out

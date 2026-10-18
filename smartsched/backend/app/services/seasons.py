@@ -250,7 +250,8 @@ def periods(
     for sg in segments:
         kind = (sg.kind or "LECTURE").upper()
         df = sg.date_from or (week_start(term, sg.week_from, rows) if sg.week_from else None)
-        wt_mon = week_start(term, sg.week_to or sg.week_from, rows) if (sg.week_to or sg.week_from) else None
+        wk_to = sg.week_to or sg.week_from
+        wt_mon = week_start(term, wk_to, rows) if wk_to else None
         dt = sg.date_to or (wt_mon + timedelta(days=6) if wt_mon else None)
         out.append(
             PeriodSegment(

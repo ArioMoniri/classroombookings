@@ -121,20 +121,16 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
     onClip: (clip) => void transcribe(clip),
     onCap: () => setNotice({ code: "too_long", params: { n: max } }),
     onError: (e) => setErr(e),
+    onStart: () => setAnnounce(t("voice.announce.started")),
   });
   const recording = rec.phase === "recording" || rec.phase === "starting";
 
-  useEffect(() => {
-    if (rec.phase === "recording") setAnnounce(t("voice.announce.started"));
-  }, [rec.phase, t]);
-
-  // the field: remember whether its caret is meaningful; ⌘/Ctrl+Shift+M toggles; the chip goes on the user's edit
-  const [fieldEl, setFieldEl] = useState<VoiceField | null>(null);
-  useEffect(() => {
-    setFieldEl(field());
-  }, [field, status.data]);
+  // the field (found once the mic is rendered): remember whether its caret is meaningful; ⌘/Ctrl+Shift+M toggles;
+  // the "Sesle girildi" chip goes on the user's own edit
   const toggleRef = useRef<() => void>(() => undefined);
+  const visible = !hidesMic(status.data, status.error);
   useEffect(() => {
+    const fieldEl = visible ? field() : null;
     if (!fieldEl) return;
     const untrack = trackCaret(fieldEl);
     const el: HTMLElement = fieldEl;
@@ -154,15 +150,16 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
       el.removeEventListener("keydown", onKey);
       el.removeEventListener("input", onInput);
     };
-  }, [fieldEl]);
+  }, [field, visible]);
   // the box was sent or cleared by its owner (no input event): drop the chip
   useEffect(() => {
-    if (!fromVoice || !fieldEl) return;
+    const fieldEl = fromVoice ? field() : null;
+    if (!fieldEl) return;
     const id = setInterval(() => {
       if (!fieldEl.value.trim()) setFromVoice(false);
     }, 800);
     return () => clearInterval(id);
-  }, [fromVoice, fieldEl]);
+  }, [fromVoice, field]);
 
   const begin = useCallback(
     (handsFree: boolean, consented = false) => {
@@ -193,7 +190,9 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
     else if (rec.phase === "starting") cancelAll();
     else begin(true);
   }, [begin, busy, cancelAll, rec]);
-  toggleRef.current = toggle;
+  useEffect(() => {
+    toggleRef.current = toggle;
+  }, [toggle]);
 
   // Esc cancels a recording (or a transcription) from anywhere on the page
   useEffect(() => {
@@ -208,7 +207,7 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
     return () => document.removeEventListener("keydown", onKey);
   }, [recording, busy, cancelAll]);
 
-  if (hidesMic(status.data, status.error)) return null;
+  if (!visible) return null;
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!coarse || e.pointerType === "mouse" || busy || disabled) return;

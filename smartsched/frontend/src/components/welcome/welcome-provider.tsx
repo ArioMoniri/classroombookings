@@ -66,7 +66,7 @@ function WelcomeHost() {
   const show = data?.show;
   const showKey = show ? `${show.kind}:${show.key ?? ""}` : "";
   useEffect(() => {
-    if (!data || !show || excluded) return;
+    if (!data || !show || excluded || show.reason === "restart") return;
     if (!autoBudgetFree()) return;
     const state = useWelcomeStore.getState();
     if (state.sheet || state.tour) return;

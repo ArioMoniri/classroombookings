@@ -124,8 +124,8 @@ password and replaces all ten.
 
 OWASP MFA cheat sheet (S9) accepts "remember this device" for a limited period with a revocable token. **Decision:**
 a 256-bit random token, only its SHA-256 stored, 30 days, bound to the account (a token of another account is
-ignored), revocable one by one or all at once, revoked by an MFA reset, by disabling 2FA and by a password change
-(the token version check). It skips only the second factor: the password is still required. The backend returns the
+ignored), revocable one by one or all at once, and revoked by an MFA reset and by disabling 2FA (a sign-out does not end
+them: they only skip the second step, the password is still asked). It skips only the second factor: the password is still required. The backend returns the
 token once in the sign-in answer (`trusted_device_token`); the Next.js route handler keeps it in an httpOnly,
 `SameSite=Lax`, `Secure` cookie and forwards it as the `X-Trusted-Device` header to `POST /auth/login` (the browser
 never reads it). The device list shows the browser/OS family label (`mail_senders.device_label`) and dates only.

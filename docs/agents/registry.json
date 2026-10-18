@@ -3053,7 +3053,8 @@
       "goal": "You are the AUTH SCREENS designer and motion designer for SmartSched (repo /home/user/classroombookings, Next.js frontend smartsched/frontend). Read these first: - /home/user/classroombookings/docs/agents/briefs/COMMON.md (with the Simplicity principle) and MEDIA.md. Hard rules: NEVER commit, never …",
       "ledger": "Auth screens design (login, 2FA, passkeys)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 00:04"
     },
     {
       "id": "a14c604526c495b1a",

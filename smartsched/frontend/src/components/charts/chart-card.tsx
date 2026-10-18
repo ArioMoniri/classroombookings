@@ -6,7 +6,7 @@
 // plot is a render prop, usually a `Lazy*Chart` from ./chart-lazy, so ECharts loads only when a plot shows.
 // Original work.
 import { AlertTriangle, Ellipsis } from "lucide-react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { cn } from "cn";
 import { Button, IconButton } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -78,9 +78,9 @@ const SWAP_BACK_MS = 2000;
 /** The free `text-states-swap` recipe: new text rises in; the first render and reduced motion do not animate. */
 function SwapText({ text, reduce }: { text: string; reduce: boolean }) {
   const [initial] = useState(text);
-  const changed = useRef(false);
-  if (text !== initial) changed.current = true;
-  const animate = !reduce && changed.current;
+  const [changed, setChanged] = useState(false);
+  if (text !== initial && !changed) setChanged(true);
+  const animate = !reduce && changed;
   return (
     <span key={text} className="ch-swap" data-swap={animate ? "true" : "false"}>
       {text}
@@ -90,10 +90,9 @@ function SwapText({ text, reduce }: { text: string; reduce: boolean }) {
 
 /** Off-screen cards mount their plot on intersection (charts.md §10, ≤ 4 live instances per route). */
 function useInView(rootMargin = "200px") {
-  const ref = useRef<HTMLDivElement>(null);
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
   const [inView, setInView] = useState(() => typeof IntersectionObserver === "undefined");
   useEffect(() => {
-    const el = ref.current;
     if (inView || !el || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) {
@@ -103,8 +102,8 @@ function useInView(rootMargin = "200px") {
     }, { rootMargin });
     io.observe(el);
     return () => io.disconnect();
-  }, [inView, rootMargin]);
-  return [ref, inView] as const;
+  }, [el, inView, rootMargin]);
+  return { setEl, inView };
 }
 
 export function ChartCard<R>(props: ChartCardProps<R>) {
@@ -126,10 +125,8 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
   const [tableMode, setTableMode] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [live, setLive] = useState("");
-  const apiRef = useRef<ChartApi | null>(null);
-  const onReady = useCallback((api: ChartApi) => {
-    apiRef.current = api;
-  }, []);
+  const [api, setApi] = useState<ChartApi | null>(null);
+  const onReady = setApi;
 
   // the plot fades in (skeleton-reveal) only when it replaces a loading state
   const wasLoading = useRef(state === "loading");
@@ -153,7 +150,7 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
     if (state === "error" && focusRetry) retryRef.current?.focus();
   }, [state, focusRetry]);
 
-  const [plotRef, inView] = useInView();
+  const { setEl: plotRef, inView } = useInView();
 
   const ready = state === "ready" && rows.length > 0;
   const tooFew = ready && rows.length < minPoints;
@@ -191,7 +188,7 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
   const downloadImage = () => {
     const type = renderer === "svg" ? "svg" : "png";
     const background = typeof window !== "undefined" ? getComputedStyle(document.body).backgroundColor : undefined;
-    const url = apiRef.current?.getDataURL({ type, pixelRatio: 2, backgroundColor: background });
+    const url = api?.getDataURL({ type, pixelRatio: 2, backgroundColor: background });
     if (!url) return;
     downloadUrl(csvFilename(id, range?.from, range?.to).replace(/\.csv$/, `.${type}`), url);
     setLive(t("charts.imageDownloadedLive"));

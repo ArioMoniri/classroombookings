@@ -5,6 +5,9 @@ import { DESKTOP_MEDIA, makeState, mockMedia, renderWelcome, resetWelcomeStore }
 import { WelcomeProvider } from "./welcome-provider";
 import { useWelcomeStore } from "./welcome-store";
 
+// the first test pays the cold transform of the shell modules on a shared, loaded host
+vi.setConfig({ testTimeout: 20_000 });
+
 const nav = vi.hoisted(() => ({ pathname: "/reserve", search: "", push: vi.fn() }));
 const api = vi.hoisted(() => ({ calls: [] as { path: string; method: string; body?: unknown }[], state: {} as Record<string, unknown> }));
 

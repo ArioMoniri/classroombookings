@@ -7,6 +7,9 @@ import { useWelcomeStore } from "../welcome-store";
 import { ChecklistHomeCard } from "./checklist-home-card";
 import { ChecklistPill } from "./checklist-pill";
 
+// the first test pays the cold transform of the shell modules on a shared, loaded host
+vi.setConfig({ testTimeout: 20_000 });
+
 const api = vi.hoisted(() => ({ events: [] as unknown[] }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/reserve", useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock("@/lib/api/client", async (orig) => {

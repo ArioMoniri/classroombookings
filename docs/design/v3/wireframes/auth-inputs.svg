@@ -1,0 +1,106 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='860' viewBox='0 0 1440 860' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Girdi kutusu sistemi: durumlar, OTP slotları, otomatik doldurma, klavyeler'>
+<title>Girdi kutusu sistemi: durumlar, OTP slotları, otomatik doldurma, klavyeler</title>
+<rect width='1440' height='860' fill='#F4F6F9'/>
+<text x='40' y='56' font-size='26' font-weight='700' fill='#0F172A' text-anchor='start'>Girdi kutusu sistemi (auth.md §10)</text>
+<text x='40' y='86' font-size='12' font-weight='700' fill='#7C3AED' text-anchor='start'>Varsayılan</text>
+<text x='40' y='112' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Kullanıcı adı veya e-posta</text>
+<rect x='40' y='120' width='400' height='44' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<text x='500' y='86' font-size='12' font-weight='700' fill='#7C3AED' text-anchor='start'>Odak</text>
+<text x='500' y='112' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Kullanıcı adı veya e-posta</text>
+<rect x='500' y='120' width='400' height='44' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<rect x='497' y='117' width='406' height='50' rx='12' fill='none' fill-opacity='1' stroke='#BFD3FB' stroke-width='3'/>
+<text x='514' y='147.0' font-size='15' font-weight='400' fill='#0F172A' text-anchor='start'>ayse.yil</text>
+<text x='960' y='86' font-size='12' font-weight='700' fill='#7C3AED' text-anchor='start'>Otomatik dolduruldu</text>
+<text x='960' y='112' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Kullanıcı adı veya e-posta</text>
+<rect x='960' y='120' width='400' height='44' rx='10' fill='#EAF1FD' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<text x='974' y='147.0' font-size='15' font-weight='400' fill='#0F172A' text-anchor='start'>ayse.yilmaz</text>
+<text x='960' y='182' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>%7 tint, sarı/mavi yok</text>
+<text x='40' y='236' font-size='12' font-weight='700' fill='#7C3AED' text-anchor='start'>Hata</text>
+<text x='40' y='262' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Kullanıcı adı veya e-posta</text>
+<rect x='40' y='270' width='400' height='44' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#B91C1C' stroke-width='2'/>
+<text x='54' y='297.0' font-size='15' font-weight='400' fill='#0F172A' text-anchor='start'>ayse</text>
+<text x='40' y='332' font-size='12' font-weight='600' fill='#B91C1C' text-anchor='start'>⚠ Kullanıcı adı, e-posta veya parola yanlış.</text>
+<text x='500' y='236' font-size='12' font-weight='700' fill='#7C3AED' text-anchor='start'>Başarılı (yalnız doğrulama)</text>
+<text x='500' y='262' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Kurtarma kodu</text>
+<rect x='500' y='270' width='400' height='44' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='514' y='297.0' font-size='15' font-weight='500' fill='#0F172A' text-anchor='start'>7K3M-Q9PX-2DTA-8WRB</text>
+<text x='500' y='332' font-size='12' font-weight='600' fill='#15803D' text-anchor='start'>✓ Doğrulandı</text>
+<text x='960' y='236' font-size='12' font-weight='700' fill='#7C3AED' text-anchor='start'>Salt okunur</text>
+<text x='960' y='262' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Kullanıcı adı veya e-posta</text>
+<rect x='960' y='270' width='400' height='44' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#8A94A6' stroke-width='1' stroke-dasharray='4 3'/>
+<text x='974' y='297.0' font-size='15' font-weight='400' fill='#475569' text-anchor='start'>ayse.yilmaz</text>
+<text x='40' y='440' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>OTP slotları (tek gerçek input; 3 + 3)</text>
+<text x='40' y='470' font-size='12' font-weight='600' fill='#7C3AED' text-anchor='start'>Boş, odakta</text>
+<rect x='40' y='484' width='44' height='52' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<rect x='61.0' y='498.0' width='2' height='24' rx='1' fill='#2563EB' fill-opacity='1'/>
+<rect x='92' y='484' width='44' height='52' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<rect x='144' y='484' width='44' height='52' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<rect x='204' y='484' width='44' height='52' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<rect x='256' y='484' width='44' height='52' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<rect x='308' y='484' width='44' height='52' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<text x='380' y='470' font-size='12' font-weight='600' fill='#7C3AED' text-anchor='start'>Yazılıyor</text>
+<rect x='380' y='484' width='44' height='52' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<text x='402.0' y='519.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>4</text>
+<rect x='432' y='484' width='44' height='52' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<text x='454.0' y='519.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>8</text>
+<rect x='484' y='484' width='44' height='52' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<text x='506.0' y='519.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>2</text>
+<rect x='544' y='484' width='44' height='52' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<rect x='565.0' y='498.0' width='2' height='24' rx='1' fill='#2563EB' fill-opacity='1'/>
+<rect x='596' y='484' width='44' height='52' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<rect x='648' y='484' width='44' height='52' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<text x='720' y='470' font-size='12' font-weight='600' fill='#7C3AED' text-anchor='start'>Hata</text>
+<rect x='720' y='484' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<rect x='741.0' y='498.0' width='2' height='24' rx='1' fill='#2563EB' fill-opacity='1'/>
+<rect x='772' y='484' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#B91C1C' stroke-width='2'/>
+<rect x='824' y='484' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#B91C1C' stroke-width='2'/>
+<rect x='884' y='484' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#B91C1C' stroke-width='2'/>
+<rect x='936' y='484' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#B91C1C' stroke-width='2'/>
+<rect x='988' y='484' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#B91C1C' stroke-width='2'/>
+<text x='1060' y='470' font-size='12' font-weight='600' fill='#7C3AED' text-anchor='start'>Doğrulandı</text>
+<rect x='1060' y='484' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='1082.0' y='519.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>4</text>
+<rect x='1112' y='484' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='1134.0' y='519.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>8</text>
+<rect x='1164' y='484' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='1186.0' y='519.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>2</text>
+<rect x='1224' y='484' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='1246.0' y='519.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>9</text>
+<rect x='1276' y='484' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='1298.0' y='519.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>1</text>
+<rect x='1328' y='484' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='1350.0' y='519.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>3</text>
+<text x='40' y='564' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>İnce imleç 44×52, kaba 48×56; aralık 8, orta 16; 24/600 tablo rakamları; imleç 1 s adım (azaltılmış: sabit).</text>
+<text x='40' y='600' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>Klavye ve otomatik doldurma öznitelikleri</text>
+<text x='40' y='630' font-size='13' font-weight='700' fill='#64748B' text-anchor='start'>Alan</text>
+<text x='270' y='630' font-size='13' font-weight='700' fill='#64748B' text-anchor='start'>type</text>
+<text x='500' y='630' font-size='13' font-weight='700' fill='#64748B' text-anchor='start'>inputmode</text>
+<text x='730' y='630' font-size='13' font-weight='700' fill='#64748B' text-anchor='start'>autocomplete</text>
+<text x='960' y='630' font-size='13' font-weight='700' fill='#64748B' text-anchor='start'>enterkeyhint</text>
+<text x='40' y='656' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Kimlik</text>
+<text x='270' y='656' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>text</text>
+<text x='500' y='656' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>email</text>
+<text x='730' y='656' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>username webauthn</text>
+<text x='960' y='656' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>next</text>
+<text x='40' y='682' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Parola</text>
+<text x='270' y='682' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>password</text>
+<text x='500' y='682' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>—</text>
+<text x='730' y='682' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>current-password</text>
+<text x='960' y='682' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>go</text>
+<text x='40' y='708' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Yeni parola</text>
+<text x='270' y='708' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>password</text>
+<text x='500' y='708' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>—</text>
+<text x='730' y='708' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>new-password</text>
+<text x='960' y='708' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>go</text>
+<text x='40' y='734' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Doğrulama kodu</text>
+<text x='270' y='734' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>text</text>
+<text x='500' y='734' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>numeric</text>
+<text x='730' y='734' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>one-time-code</text>
+<text x='960' y='734' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>done</text>
+<text x='40' y='760' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Kurtarma kodu</text>
+<text x='270' y='760' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>text</text>
+<text x='500' y='760' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>text</text>
+<text x='730' y='760' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>off</text>
+<text x='960' y='760' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>go</text>
+<text x='40' y='800' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Telefonda her alan ≥ 16 px (iOS yakınlaştırmaz); giriş alanları kaba imleçte 48 px.</text>
+</svg>

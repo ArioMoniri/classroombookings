@@ -207,3 +207,9 @@ api_router.include_router(voice_api.router)
 from app.api.v1 import helper as helper_api  # noqa: E402
 
 api_router.include_router(helper_api.router)
+
+# AU-B two-step sign-in, passkeys, trusted devices, admin MFA reset / reset link (app/api/v1/mfa.py, app/services/mfa.py)
+from app.api.v1 import mfa as mfa_api  # noqa: E402
+
+api_router.include_router(mfa_api.router)
+api_router.include_router(mfa_api.admin_router)

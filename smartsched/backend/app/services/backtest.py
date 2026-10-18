@@ -59,7 +59,7 @@ def wape(actual: Sequence[float], forecast: Sequence[float]) -> float:
     return float(np.abs(a - f).sum() / den * 100.0) if den else math.nan
 
 
-def pearson(x: Sequence[float], y: Sequence[float]) -> float:
+def pearson(x: Any, y: Any) -> float:
     return float(np.corrcoef(np.asarray(x, float), np.asarray(y, float))[0, 1])
 
 
@@ -229,7 +229,8 @@ def b3_building_demand(bahar_grid: Any, guz_grid: Any, guz_list: Any) -> Result:
     rel_sd = float(totals.std() / totals.mean()) if totals.size > 1 else 0.0
     needs = fc.needs_from_planning_rows(guz_list.rows)
     actual = building_course_room_periods(guz_grid)
-    rows, inside, n_cells = [], 0, 0
+    rows: list[dict[str, Any]] = []
+    inside, n_cells = 0, 0
     wapes = {}
     per_building_err: dict[str, list[float]] = defaultdict(list)
     for w, by_b in actual.items():

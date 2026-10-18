@@ -16,7 +16,7 @@ describe("buildSheet", () => {
     const m = buildSheet(makeState({ audiences: ["staff", "approver"], primary: null }))!;
     expect(m.primary).toBe("staff");
     expect(m.cards).toHaveLength(5);
-    expect(m.cards.filter((c) => c.also).map((c) => c.key)).toEqual(["approvals"]);
+    expect(m.cards.filter((c) => c.also).map((c) => c.key)).toEqual(["approvals_inbox"]);
   });
 
   it("precedence picks admin over planner; never more than 5 cards with several secondaries", () => {
@@ -29,7 +29,7 @@ describe("buildSheet", () => {
   it("delta: only the new audience's cards", () => {
     const m = buildSheet(makeState({ audiences: ["staff", "approver"], primary: "staff", show: { kind: "delta", audiences: ["approver"] } }))!;
     expect(m.kind).toBe("delta");
-    expect(m.cards.map((c) => `${c.audience}:${c.key}`)).toEqual(["approver:approvals"]);
+    expect(m.cards.map((c) => `${c.audience}:${c.key}`)).toEqual(["approver:approvals_inbox"]);
   });
 
   it("server cards win and carry the admin's overrides", () => {

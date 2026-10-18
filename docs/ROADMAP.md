@@ -2650,27 +2650,34 @@ R-AI-01…10 (docs/research/2026-10-17-state-of-the-art.md §2.2) folded in wher
 
 ### Calendar export & sync for academicians (owner request 2026-10-17)
 Ledger `calendar-export-res-2026-10-17`. Research, current-state map, design, Turkish copy and the persona test plan: [docs/research/2026-10-17-calendar-export.md](research/2026-10-17-calendar-export.md). Owner: "each academician's own classes or their department's classes, through verified connected accounts, an ICS link or an ICS file; dynamic, easy, approved by the user." Today `mine.ics` and push carry bookings only (P19-T4 open); class UIDs churn on re-publish; any user can pull any department feed; one token opens every scope; push ignores class moves. Lanes: **CAL-B** (backend, CAL-01…07 in order, one migration), **CAL-F** (frontend, CAL-08/09), **CAL-T** (tester, CAL-10). None of the files below is owned by W3-SEC, W3-IDP, W3-HUB, intake lane C, the integrator or the mobile optimisers, except where an "ask" is named. Every new token feed path stays under `/api/v1/calendar/feeds/{token}/….ics`, so the nginx no-log rule (W3-SEC) needs no change.
-- [ ] CAL-01 · backend · **migration (next head, `0039_calendar_classes`; down_revision `0038_email_templates` unless W3-IDP / W3-SEC / others land a later head first)** · Stable class identity and revisions: a run-, assignment- and room-independent class UID (`class-<sha1(term|meeting_request or course+section|date|ordinal)>@host`); new table `calendar_class_revisions` (uid, term_id, fingerprint, sequence, last_modified, ended_at, program_id, instructor_ids, starts_at); SEQUENCE / LAST-MODIFIED bump on a move; vanished occurrences emitted as `STATUS:CANCELLED` for `feed_cancelled_grace_days`; the old `class-{a}-{room}-{date}` UIDs cancelled once in room / department feeds. The same migration also adds `calendar_feed_tokens.scope_kind / scope_id / consent_id / fields`, `calendar_connections.scopes / owned_calendar / account_verified / last_reconciled_at`, `calendar_event_links.item_key` (backfilled `booking:<id>`, unique per connection), `calendar_sync_jobs.item_key`. SQLite + PostgreSQL.
+- [x] CAL-01 · backend · **migration (next head, `0039_calendar_classes`; down_revision `0038_email_templates` unless W3-IDP / W3-SEC / others land a later head first)** · Stable class identity and revisions: a run-, assignment- and room-independent class UID (`class-<sha1(term|meeting_request or course+section|date|ordinal)>@host`); new table `calendar_class_revisions` (uid, term_id, fingerprint, sequence, last_modified, ended_at, program_id, instructor_ids, starts_at); SEQUENCE / LAST-MODIFIED bump on a move; vanished occurrences emitted as `STATUS:CANCELLED` for `feed_cancelled_grace_days`; the old `class-{a}-{room}-{date}` UIDs cancelled once in room / department feeds. The same migration also adds `calendar_feed_tokens.scope_kind / scope_id / consent_id / fields`, `calendar_connections.scopes / owned_calendar / account_verified / last_reconciled_at`, `calendar_event_links.item_key` (backfilled `booking:<id>`, unique per connection), `calendar_sync_jobs.item_key`. SQLite + PostgreSQL.
   accept: pytest `test_cal_01_*`: publish → move week 5 → re-publish a new run → the same UID, SEQUENCE +1, new DTSTART / LOCATION; removing a meeting → CANCELLED tombstone then gone after the grace period; `alembic upgrade head` + downgrade on SQLite and PostgreSQL; one head.
   files: `backend/app/services/calendar_feeds.py` (class_events), new `backend/app/services/calendar_classes.py`, `backend/app/models/integrations.py`, `backend/alembic/versions/0039_calendar_classes.py`, `backend/tests/test_cal_01_*.py`. Ask W3-SEC: RLS for the new columns follows its R4 plan for `calendar_connections`.
-- [ ] CAL-02 · backend · no migration · "Derslerim" scope: classes of the linked instructor(s) (`Instructor.user_id` → `section_instructors` → meeting requests → active-run assignments; board rows by course code fallback); `GET /calendar/feeds/{token}/classes.ics`; published runs only (never drafts); fields: course code, section, title (setting), room, start/end, department; DESCRIPTION with a SmartSched link; no student data, notes or co-instructor names (setting, default off); RFC 7986 `NAME` + `SOURCE`.
+  done (alembic `0039_calendar_classes` after `0038_email_templates`, one head, SQLite + PostgreSQL round trip; new `app/services/calendar_classes.py` (UID `class-<sha1(term|request or course key|teaching week|ordinal)>@smartsched`, revisions with `seen` sets so a room / teacher change also sends a CANCELLED tombstone to the feed it left, legacy UIDs stored once as cancelled `legacy` rows); `build_feed` on the engine; connection column named `export_scopes` because `calendar_connections.scopes` already holds the OAuth grant; tests `test_cal_01_classes.py` 3 + `test_cal_01_migration.py` 3; cal-b-2026-10-17)
+- [x] CAL-02 · backend · no migration · "Derslerim" scope: classes of the linked instructor(s) (`Instructor.user_id` → `section_instructors` → meeting requests → active-run assignments; board rows by course code fallback); `GET /calendar/feeds/{token}/classes.ics`; published runs only (never drafts); fields: course code, section, title (setting), room, start/end, department; DESCRIPTION with a SmartSched link; no student data, notes or co-instructor names (setting, default off); RFC 7986 `NAME` + `SOURCE`.
   accept: pytest `test_cal_02_*` on the Bahar 2026 env: the PSY 262 instructor's feed holds exactly its meetings (Mon 13:30–15:50 A 308, TZID Europe/Istanbul + VTIMEZONE), round-trips through `icalendar`, a PII allow-list test passes, a draft run changes nothing; a not-linked user gets 409 `not_linked` (TR/EN).
   files: `backend/app/services/calendar_classes.py`, `backend/app/services/calendar_feeds.py`, `backend/app/api/v1/calendar_sync.py`, `backend/tests/test_cal_02_*.py`.
-- [ ] CAL-03 · backend · no migration (columns from CAL-01) · Scope-bound links, the department rule, per-scope approval: `POST/GET/DELETE /calendar/subscriptions` (one token per scope; serves only its own path); department scope allowed for the user's own department, a department of a section they teach, or the new permission `calendar.department_feed` ("Bölüm ders takvimini dışa aktarma"), re-checked on every poll and enforced on the legacy `department/{id}.ics` too; each create records the consent id; audit `calendar.subscription_create / _revoke / calendar.scope_denied`; `GET /calendar/export/options` (per scope: available, reason, upcoming count, departments, channels, consent).
+  done (`GET /calendar/feeds/{token}/classes.ics`, fields allow-list with admin switches `integrations.export_field_*` (co-instructors off), DESCRIPTION title / Bölüm / SmartSched link, RFC 7986 NAME + SOURCE via an additive `extra` kwarg on `render_calendar`; tests `test_cal_02_my_classes.py` 3 (PSY 262 instructor feed, PII allow-list, draft unchanged, 409 not_linked TR/EN); cal-b-2026-10-17)
+- [x] CAL-03 · backend · no migration (columns from CAL-01) · Scope-bound links, the department rule, per-scope approval: `POST/GET/DELETE /calendar/subscriptions` (one token per scope; serves only its own path); department scope allowed for the user's own department, a department of a section they teach, or the new permission `calendar.department_feed` ("Bölüm ders takvimini dışa aktarma"), re-checked on every poll and enforced on the legacy `department/{id}.ics` too; each create records the consent id; audit `calendar.subscription_create / _revoke / calendar.scope_denied`; `GET /calendar/export/options` (per scope: available, reason, upcoming count, departments, channels, consent).
   accept: pytest `test_cal_03_*`: the token of scope A is a 404 on scope B; a forged department id → 403 `department_not_allowed` with message_tr; the permission grants it; revoke → 404; consent withdrawal revokes all; legacy tokens keep mine / room feeds.
   files: `backend/app/services/calendar_feeds.py`, `backend/app/api/v1/calendar_sync.py`, `backend/app/services/bookings_perms.py` (append the permission + TR label only), `backend/app/services/kvkk.py` (DSR export lists subscriptions; erasure covers them; small additive change), `backend/tests/test_cal_03_*.py`.
-- [ ] CAL-04 · backend · no migration · One-off `.ics` files from the same engine: `GET /calendar/export/classes.ics`, `/calendar/export/department/{id}.ics`, `/calendar/export/bookings.ics` (JWT, attachment, `derslerim-<term>.ics`), with the same UIDs as the links; fix the planner run export (`format=ics`) to use `render_calendar` (TZID instead of floating times, no board notes in DESCRIPTION).
+  done (`POST/GET/DELETE /calendar/subscriptions` + `POST /calendar/subscriptions/{id}/rotate`, `GET /calendar/export/options`; scope-bound tokens serve only their path; department rule (own, taught, `calendar.department_feed`, plus planning.view holders, who already see every timetable) checked again on every poll and on the legacy `department/{id}.ics`; consent id + field list on each link; audit `calendar.subscription_create/_revoke/_rotate`, `calendar.scope_denied`; KVKK DSR export lists the scopes; tests `test_cal_03_subscriptions.py` 3; `test_calendar_feeds` / `test_a14_class_feeds` updated for the department rule and the new UIDs; cal-b-2026-10-17)
+- [x] CAL-04 · backend · no migration · One-off `.ics` files from the same engine: `GET /calendar/export/classes.ics`, `/calendar/export/department/{id}.ics`, `/calendar/export/bookings.ics` (JWT, attachment, `derslerim-<term>.ics`), with the same UIDs as the links; fix the planner run export (`format=ics`) to use `render_calendar` (TZID instead of floating times, no board notes in DESCRIPTION).
   accept: pytest `test_cal_04_*`: the file and feed have identical UIDs / SEQUENCE; the run export carries `TZID=Europe/Istanbul`; existing `test_api_runs` ics tests still pass.
   files: `backend/app/api/v1/calendar_sync.py`, `backend/app/services/exports.py` (export_ics only), `backend/tests/test_cal_04_*.py`.
-- [ ] CAL-05 · backend · no migration · Cheap conditional GET: a version key (scope, active run ids, newest class / booking revision, settings version, date) checked before rendering → 304 without a build; `Last-Modified` + `If-Modified-Since`; department feeds capped at 1 MB (horizon to term end); `last_used_at` exposed as "en son çekti".
+  done (`/calendar/export/classes.ics`, `/department/{id}.ics`, `/bookings.ics` attachments `derslerim-2026-bahar.ics`; planner run export on `render_calendar` (TZID, no board notes; `test_review_exports` assertion updated since notes are no longer exported); tests `test_cal_04_files.py` 2; cal-b-2026-10-17)
+- [x] CAL-05 · backend · no migration · Cheap conditional GET: a version key (scope, active run ids, newest class / booking revision, settings version, date) checked before rendering → 304 without a build; `Last-Modified` + `If-Modified-Since`; department feeds capped at 1 MB (horizon to term end); `last_used_at` exposed as "en son çekti".
   accept: pytest `test_cal_05_*`: a second poll answers 304 with ≤ 3 queries (count via SQLAlchemy events); a change flips the ETag; a 1 MB guard test.
   files: `backend/app/services/calendar_feeds.py`, `backend/app/api/v1/calendar_sync.py`, `backend/tests/test_cal_05_*.py`.
-- [ ] CAL-06 · backend · no migration (columns from CAL-01) · Push classes to connected accounts: new connections request Google `openid email calendar.app.created` and create a dedicated "SmartSched – Derslerim" calendar (Graph: `POST /me/calendars`, `Calendars.ReadWrite`); `PUT /calendar/connectors/{provider}/scopes`; `class` jobs keyed by `item_key`: diff the desired set against the links → insert (deterministic Google id / Graph `transactionId`), PATCH on a new fingerprint, DELETE on a tombstone; the subscriber in `workers/integrations.register` also listens to `run.delete` and `assignment.*` and queues one job per affected connection after commit; nightly reconcile (03:30 Istanbul) of SmartSched-tagged events (`privateExtendedProperty`), recreating a deleted calendar once; disconnect or scope removal deletes the owned calendar, then revokes; old connections keep working and are flagged "Daha az izinle yeniden bağlan".
+  done (version key = link, scope, newest `audit_events.id`, Istanbul date → 304 with 3 queries; `Last-Modified` + `If-Modified-Since`; 1 MB trim (tombstones first, then farthest); horizon to term end; `last_fetched_tr` "Takviminiz en son çekti: …"; tests `test_cal_05_conditional.py` 2; cal-b-2026-10-17)
+- [x] CAL-06 · backend · no migration (columns from CAL-01) · Push classes to connected accounts: new connections request Google `openid email calendar.app.created` and create a dedicated "SmartSched – Derslerim" calendar (Graph: `POST /me/calendars`, `Calendars.ReadWrite`); `PUT /calendar/connectors/{provider}/scopes`; `class` jobs keyed by `item_key`: diff the desired set against the links → insert (deterministic Google id / Graph `transactionId`), PATCH on a new fingerprint, DELETE on a tombstone; the subscriber in `workers/integrations.register` also listens to `run.delete` and `assignment.*` and queues one job per affected connection after commit; nightly reconcile (03:30 Istanbul) of SmartSched-tagged events (`privateExtendedProperty`), recreating a deleted calendar once; disconnect or scope removal deletes the owned calendar, then revokes; old connections keep working and are flagged "Daha az izinle yeniden bağlan".
   accept: pytest `test_cal_06_*` on `httpx.MockTransport`: publish → N inserts; a move → 1 PATCH; a removal → 1 DELETE; a retried job is idempotent (no duplicates); 429 → backoff honouring Retry-After; disconnect → `calendars.delete` + revoke; the existing `test_calendar_connectors.py` stays green.
   files: `backend/app/services/calendar_connectors.py`, `backend/app/workers/integrations.py` (register + affected ids), `backend/tests/test_cal_06_*.py`. Keep `connectors_out()` / `settings_out()` backward-compatible (W3-HUB reads them).
-- [ ] CAL-07 · backend · no migration · Verified accounts: `integrations.push_verified_only` (default on) accepts a provider account that matches the person's `UserIdentity` subject, the Google Workspace IdP hosted domain (`hd`), the Entra IdP tenant (`tid`, FLE-005) or an admin-allowed e-mail domain; else 403 `account_not_verified` with "Bu hesap kurumunuzun doğrulanmış hesabı değil. {alan} uzantılı hesabınızla bağlanın."; `account_verified` stored and shown; optional `integrations.calendar_client_source = identity | own` (reuse the IdP's OAuth client).
+  done (connect with `scopes` → Google `openid email calendar.app.created` / Graph `Calendars.ReadWrite`, owned calendar "SmartSched – Derslerim" created on first job; `classes` + `nightly` jobs keyed `class:<uid>`; deterministic Google ids, Graph transactionId, PATCH on change, DELETE on removal, Retry-After honoured; subscriber on `run.activate/run.delete/assignment.*` (drafts ignored); nightly loop 03:30 Istanbul in `workers/integrations.on_startup`; disconnect deletes the owned calendar then revokes; `PUT /calendar/connectors/{provider}/scopes` (409 `reconnect_required` for legacy grants); `push_out` in `GET /calendar/subscriptions` with `least_privilege` / "Daha az izinle yeniden bağlan"; `connectors_out()` / `settings_out()` unchanged; tests `test_cal_06_push.py` 5 + `test_calendar_connectors.py` green; cal-b-2026-10-17)
+- [x] CAL-07 · backend · no migration · Verified accounts: `integrations.push_verified_only` (default on) accepts a provider account that matches the person's `UserIdentity` subject, the Google Workspace IdP hosted domain (`hd`), the Entra IdP tenant (`tid`, FLE-005) or an admin-allowed e-mail domain; else 403 `account_not_verified` with "Bu hesap kurumunuzun doğrulanmış hesabı değil. {alan} uzantılı hesabınızla bağlanın."; `account_verified` stored and shown; optional `integrations.calendar_client_source = identity | own` (reuse the IdP's OAuth client).
   accept: pytest `test_cal_07_*`: matching hd / tid / identity → connected; gmail.com → 403 with message_tr; the setting off → allowed and audited.
   files: `backend/app/services/calendar_connectors.py`, `backend/app/api/v1/calendar_sync.py` (settings fields), `backend/tests/test_cal_07_*.py`. **Ask W3-IDP**: a read-only accessor in `services/identity/` (e.g. `identity.calendar_identity_hints(session, user) -> {subjects, google_hd, entra_tenant, client}`); until then read `UserIdentity` / `SsoProvider` rows directly, without writing them.
+  done (`integrations.push_verified_only` default on; verified by UserIdentity subject, Workspace hd, Entra tid, own sign-in e-mail, institution domain of the person's e-mail (never consumer domains), admin-allowed domains; refused at the callback with `reason=account_not_verified&domain=…`, grant revoked, audit `calendar.push_refused`; `account_verified` stored; `calendar_client_source = identity` reuses the enabled IdP client (read only); admin `GET/PUT /calendar/admin/export-settings` (audited `integrations.calendar_export`); tests `test_cal_07_verified.py` 3; cal-b-2026-10-17)
 - [ ] CAL-08 · frontend · no migration · Academician 3-tap sheet "Takvimime ekle" (what → how → approve, Turkish copy from the research doc §3.7): scope cards with reasons, only the configured channels, the approval card with field bullets + a real sample event + the consent tick, done states (push progress, webcal / Google / Outlook / Kopyala, file download), the manage list with "Son eşitleme" / "en son çekti", "Şimdi eşitle", "Bağlantıyı yenile", "Kaldır" (confirm, focus to the next row); phone full-screen one step per screen, desktop 560 px sheet; entry points Profil › Takvim and the academician's own classes / requests view.
   accept: vitest for the sheet model and component; Playwright `e2e/cal-export.spec.ts` at 1440 and 390 touch (tr-TR, Europe/Istanbul): 3 taps to a link, a disabled department card with its reason, revoke; MOBILE M-01/02/03/05 on /profile; `check-design.mjs`, tsc, eslint clean.
   files: new `frontend/src/components/calendar-export/**`, new `frontend/src/lib/api/calendar-export.ts`, `frontend/messages/{tr,en}.json` (namespace `calendarExport.*` only), one mount line in `frontend/src/components/admin/profile-view.tsx` (after mobile optimiser A hands off; ask), optional entry in `components/moderation/**` (ask its owner), `frontend/playwright.config.ts` testMatch `cal-[a-z-]+` (append).
@@ -2682,6 +2689,7 @@ Ledger `calendar-export-res-2026-10-17`. Research, current-state map, design, Tu
   files: `docs/testing/2026-10-xx-persona-calendar-export.md`, scratch only otherwise.
 - [ ] CAL-11 · backend · later · CalDAV push (iCloud `caldav.icloud.com`, app-specific password encrypted, `PUT {uid}.ics` with `If-Match`) — deferred: webcal already covers Apple users and app passwords are password-equivalent secrets.
 - [ ] CAL-12 · backend + mail · later · "Takvime ekle" link in the publish digest e-mail (P19-T3) and the W3-MAIL open item (`.ics` add-to-calendar), pointing at the CAL-08 sheet, never at a raw token.
+- [ ] CAL-13 · backend · next (owner default 2026-10-17 (5)) · "Sınav görevlerim" scope on the same engine: the person's duties of the **active** invigilation plan (`invigilation_plans.is_active`, `invigilation_duties.instructor_id` → `Instructor.user_id`) and their own exams from the active EXAM run; UID `exam-<sha1(term|post_key or exam_request ids|date|ordinal)>@smartsched` in `calendar_class_revisions` (term key prefixed), scope kind `my_duties` added to `calendar_classes.SCOPE_KINDS`, `calendar_feeds.SCOPE_FEED_KIND` (`/calendar/feeds/{token}/duties.ics`), the options, the files and the push scopes; tests need a fixture with a solved, activated invigilation plan. Not built by CAL-B (cal-b-2026-10-17): the Bahar fixture has no published plan without a solver run.
 
 ### Wave 3b — W3-IDP identity providers (2026-10-17)
 - [x] Several providers set by admins, shared by all admins: `entra` (tenant pin, every 0026 behaviour kept), `google_workspace` (hd pin, email_verified), `oidc` (discovery; Okta/Keycloak/Auth0/Authentik/ADFS presets), `saml` (Shibboleth/eduGAIN/YETKİM/ADFS; signxml built in since 2026-10-17, "kütüphane gerekli" only if it is missing), LDAP listed beside. Migration `0037_identity_providers` keeps the Entra row losslessly. Per provider: label + /login order, allowed domains, invite-only, eligible sign-up role, group/claim mapping that never grants beyond its creator, write-only encrypted secret, audit, "Son değişiklik" + version conflict (409), disable refused when it strands an admin, delete only when off.
@@ -3581,3 +3589,268 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
 7. HX-11 starts after HX-03/HX-04.
 8. HX-12 can start now.
 9. HX-13 runs last, with HB-18.
+
+### Sign-in, 2FA and passkeys (owner request 2026-10-18) — UX
+Ledger `auth-ux-2026-10-18`. The owner asked for the login pages with motion and input-box design, covering:
+- two-factor authentication;
+- adding passkeys;
+- the login providers;
+- for accounts that admins added by e-mail: an admin can reset the user's 2FA or send a password-reset link.
+
+Documents:
+- Design: [docs/design/v3/auth.md](design/v3/auth.md).
+- Wireframes: `docs/design/v3/wireframes/auth-{signin,2fa,security,admin}-{1440,390}.svg` and `auth-inputs.svg`,
+  generated by `auth-gen.py`.
+- Research: [docs/research/2026-10-18-auth-ux.md](research/2026-10-18-auth-ux.md). It covers NIST SP 800-63B-4,
+  OWASP MFA / ASVS 5, Chrome Conditional Create, web.dev OTP and passkey management, input-otp (MIT), FIDO /
+  Passkey Central, Okta, Entra, Google, e-Devlet, and Mobbin flows and screens M1–M13.
+
+**Backend:** AU-B (`docs/research/2026-10-18-auth-backend.md`, AU-xx tickets). The screens are aligned with it. The
+remaining gaps are asks A1a–A1i in auth.md §17: sessions and history API, re-auth window, trusted-device days,
+`/org/public` passkey flags, Conditional Create, invite and reset returning a session.
+
+**Lanes:**
+- **AUX-F** frontend: AUX-01…08 and AUX-11.
+- **AUX-M** motion: AUX-09 and AUX-10.
+- **AUX-T** tester: AUX-12.
+
+New files live under:
+- `smartsched/frontend/src/components/auth/**` (new parts only);
+- `components/profile/security/**`;
+- `components/admin/users-security.tsx`;
+- `components/settings/signin-security.tsx`;
+- `lib/api/auth-security.ts`;
+- the routes `app/login/verify`, `app/login/setup-2fa`.
+
+The one-line mounts in files other lanes own are listed as asks. Nothing touches the integrity guards.
+
+**Testers:** a local planner with 2FA, a local staff member without it, an LDAP user, a Microsoft academician and an
+admin. Viewports: 1440 mouse and 390×844 touch, tr-TR, Europe/Istanbul. A Chromium virtual authenticator handles
+passkeys and the stack's SMTP sink catches mail.
+
+- [ ] AUX-01 · frontend · no migration · **after AU-B's routes** · API client and passkey helpers.
+  - `lib/api/auth-security.ts`: zod types and React Query hooks for:
+    - `/auth/mfa/status`;
+    - TOTP start / confirm / disable;
+    - recovery-code status / regenerate;
+    - passkey register / login options and verify, list, rename, delete;
+    - trusted devices;
+    - the admin MFA reset and reset link;
+    - `auth.*` settings.
+  - `components/auth/passkey.ts`:
+    - feature detection (`PublicKeyCredential`, `getClientCapabilities()`);
+    - conditional `get()` with AbortController;
+    - modal `get()`, `create()`, Conditional Create;
+    - Signal API calls (`signalAllAcceptedCredentials`, `signalUnknownCredential`);
+    - mapping of `NotAllowedError` / `InvalidStateError` / `AbortError` to the copy keys of auth.md §4.6 / §6.4.
+  accept: vitest
+  - schema snapshot against AU-B's OpenAPI;
+  - passkey.ts with a mocked `navigator.credentials`: an abort cancels a pending conditional get, and Conditional
+    Create failures are silent;
+  - tsc, eslint, `check-design.mjs` clean.
+  files: new `frontend/src/lib/api/auth-security.ts`, `frontend/src/components/auth/passkey.ts` + tests.
+- [ ] AUX-02 · frontend · no migration · Input-box system: OTP slots, recovery field, autofill styling (auth.md §10).
+  - `components/auth/otp-input.tsx`:
+    - built on `input-otp` (MIT; SOURCES.md row);
+    - one real input with `inputmode=numeric`, `autocomplete=one-time-code` and `pattern=\d{6}`;
+    - 6 slots grouped 3 + 3: 44×52 fine, 48×56 coarse;
+    - paste strips spaces and hyphens; `onComplete` fires;
+    - error and success states; the caret blinks, and is steady under reduced motion.
+  - `components/auth/recovery-code-field.tsx`:
+    - `autocapitalize=characters`;
+    - normalises case, spaces and hyphens, and O→0, I/L→1;
+    - format `XXXX-XXXX-XXXX-XXXX`.
+  - Ask the ui owner: an `:autofill` rule in `ui/field-styles.ts` (7 % tint, no browser yellow).
+  accept: vitest
+  - paste "123 456" and "123-456" → 6 digits and `onComplete` once;
+  - the accessibility tree shows one textbox named "Doğrulama kodu";
+  - Backspace and ← → work;
+  - axe clean;
+  - at 390 the slots are ≥ 44 px and the text ≥ 16 px.
+  files: new `frontend/src/components/auth/{otp-input,recovery-code-field}.tsx` + tests; ask: `ui/field-styles.ts`.
+- [ ] AUX-03 · frontend · no migration · Sign-in page: passkeys in door 2 (auth.md §4.1–§4.3, §4.6).
+  - When `/org/public` says `passkeys_enabled && passkey_first_factor` (ask A1e):
+    - the identifier gets `autocomplete="username webauthn"`;
+    - a conditional `get()` runs while door 2 is open;
+    - "veya" + the secondary "Geçiş anahtarıyla giriş yap" appears under the form.
+  - Last-method cookie value `passkey` opens door 2 and shows "Son girişinizi geçiş anahtarıyla yaptınız."
+  - Conditional Create runs after a password sign-in, with silent failure and the toast `signin.passkey.saved`.
+  - New copy keys `signin.passkey.*` (TR + EN).
+  - It edits the sign-in files (`sign-in-page.tsx`, `local-sign-in.tsx`, `signin-model.ts`) through a small
+    `PasskeyDoor` part.
+  accept: vitest + Playwright (virtual authenticator)
+  - with passwordless off: no button and no `webauthn` token;
+  - with it on: autofill sign-in succeeds with no 2FA step;
+  - `NotAllowedError` shows the neutral notice, an unknown credential shows the error with focus;
+  - doorsFor tests extended;
+  - no layout shift on first paint.
+  files: new `frontend/src/components/auth/passkey-door.tsx` + tests; edits in `components/auth/{sign-in-page,local-sign-in,signin-model}.tsx/ts` (sign-in owner informed); `messages/{tr,en}.json` keys `signin.passkey.*`.
+- [ ] AUX-04 · frontend · no migration · **after AU-B's challenge route** · 2FA step and enrolment notice (auth.md §5).
+  - `/login/verify`, in the same `SignInShell`:
+    - account line + "Farklı bir hesap";
+    - OTP (AUX-02), with automatic submit on the 6th digit;
+    - "Bu cihazı 30 gün hatırla" (hidden when not allowed);
+    - "Başka bir yöntem" panel: passkey, recovery code, "Hiçbirine erişemiyor musunuz?" with the org's security
+      contact;
+    - the states `signin.mfa.*` (wrong, clock, recoveryWrong, tooMany, expired, locked with minutes, offline).
+  - `/login/setup-2fa`: the enrolment notice with the deadline, "Şimdi kur" and "Daha sonra ({n} gün kaldı)" (grace
+    only). After the deadline the session is enrolment-only.
+  - The challenge token stays in the route handler's httpOnly cookie, never in the URL.
+  accept: vitest + Playwright at 1440 and 390
+  - a wrong code clears the slots and focus stays;
+  - 5 failures → back to `/login` with the notice;
+  - the remember tick skips the step next time;
+  - a recovery code works once, and the toast shows the remaining count (≤ 3 → "Yeni kodlar oluştur");
+  - with the keypad open at 390, "Doğrula" is visible;
+  - focus never lands on `<body>`.
+  files: new `frontend/src/app/login/verify/page.tsx`, `frontend/src/app/login/setup-2fa/page.tsx`, `frontend/src/components/auth/{mfa-step,other-methods,enrol-notice}.tsx` + tests; `messages/*` keys `signin.mfa.*`, `signin.enrol.*`.
+- [ ] AUX-05 · frontend · no migration · Set-password form and forgot-password lines (auth.md §4.4, §4.5).
+  - `SetPasswordForm`:
+    - one field with show/hide, `autocomplete=new-password`, `passwordrules`;
+    - a hidden username field for password managers;
+    - the length hint, live counter and blocklist / username errors;
+    - "Parolayı kaydet ve giriş yap", which signs in (ask A1i).
+  - Used by the local invite (ask W3-IDP: `local-invite-accept.tsx` delegates), the reset code and the admin-sent
+    link.
+  - `/reset-password` gets the SSO line and "İki aşamalı doğrulamanız değişmedi…".
+  accept: vitest — the repeat field is gone; errors are linked with `aria-describedby`; the expired-link copy shows;
+  after success the person lands on the enrolment notice when the policy requires 2FA.
+  files: new `frontend/src/components/auth/set-password-form.tsx` + tests; asks: `identity/local-invite-accept.tsx` (W3-IDP), `admin/reset-password.tsx` (owner).
+- [ ] AUX-06 · frontend · no migration · Profil › Giriş ve güvenlik: section, re-auth, 2FA setup (auth.md §6.1–§6.3, §6.7, §6.8).
+  - `SecuritySection` (`id="security"`):
+    - rows Parola (moves `PasswordForm` in), İki aşamalı doğrulama, Geçiş anahtarları, Oturumlar / Hatırlanan
+      cihazlar, Son girişler;
+    - one tint button ("Aç").
+  - `ReauthDialog`: password (+ code or passkey when 2FA is on), reused for 10 minutes (ask A1b).
+  - `MfaSetupSheet`:
+    - steps 1–2 in one view at ≥ 1024: QR black on white, the 32-character key in 8 groups with "Kopyala", the OTP
+      with "✓ Doğrulandı";
+    - on phones "Uygulamada aç" + the key, with the QR behind a disclosure;
+    - step 3: 10 codes, "İndir (.txt)", "Kopyala", "Yazdır", the tick, then "Bitir";
+    - the warning on close;
+    - a 15-minute expiry message.
+  - Also: "Yeni kurtarma kodları oluştur", "Uygulamayı değiştir", "Kapat" (hidden when the policy requires it).
+  - SSO accounts get the single explanation row.
+  accept: vitest + Playwright at 1440 and 390
+  - setup in ≤ 3 steps;
+  - `.txt` content and file name;
+  - "Bitir" stays disabled until the tick;
+  - the re-auth dialog appears once per 10 min;
+  - SSO user: no 2FA or passkey rows;
+  - the QR has ≥ 4 modules of quiet zone in dark mode.
+  files: new `frontend/src/components/profile/security/{security-section,password-row,mfa-row,mfa-setup-sheet,recovery-codes,reauth-dialog}.tsx` + tests; ask profile owner: mount in `admin/profile-view.tsx` after `MicrosoftAccountSection`.
+- [ ] AUX-07 · frontend · no migration · Profil: passkeys list, remembered devices, then sessions and history (auth.md §6.4–§6.6).
+  - Passkey rows:
+    - provider icon and name from the AAGUID (MIT list), with the name editable right after adding;
+    - created and last-used dates, and "Yalnızca bu cihazda";
+    - ⋯ → "Yeniden adlandır" (inline) / "Kaldır" (dialog, Signal API);
+    - the last-method warning;
+    - add errors, and a limit of 10.
+  - "Hatırlanan cihazlar" with "Unutulsun" and "Tümünü unut".
+  - When ask A1a lands: sessions ("Bu cihaz", "Oturumu kapat", "Diğer tüm oturumları kapat") and "Son girişler" (20
+    rows, icon + word).
+  accept: vitest + Playwright (virtual authenticator)
+  - add → row + toast + `passkey_added` at the SMTP sink;
+  - rename keeps focus on the row's ⋯;
+  - remove → the row leaves and `passkey_removed` arrives (after ask A2);
+  - lists are `<ul>`;
+  - no IP shown.
+  files: new `frontend/src/components/profile/security/{passkeys-list,trusted-devices,sessions-list,sign-in-history}.tsx`, `frontend/src/components/profile/security/aaguid.ts` (+ the MIT data file and a SOURCES.md row) + tests.
+- [ ] AUX-08 · frontend · no migration · Admin › Kullanıcılar additions (auth.md §7).
+  - Method tags "Yerel · 2FA" and "Yerel · 2FA bekleniyor ({date})".
+  - Filter "İki aşamalı doğrulama: Tümü / Açık / Kapalı / Bekleniyor".
+  - Row menu group "Giriş":
+    - local: link / reset / show code;
+    - LDAP: reset + explanation;
+    - **SSO: one explanation row, not a button**;
+    - own row: the link to Profil.
+  - The edit sheet's "Giriş ve güvenlik" block.
+  - "2FA'yı sıfırla" dialog: chips that fill the reason (10–500 characters), the identity-check select, "Geçiş
+    anahtarlarını koru ({n})" (hidden for the compromise chip), the destructive confirm, and the errors
+    `own_account` / `sso_account` / 403.
+  - "Parola sıfırlama bağlantısı gönder" dialog with `no_email` / `mail_not_configured` (offers "Kodu göster"),
+    `sso_account`, `directory_account` and 429.
+  - Rename "Tek kullanımlık sıfırlama kodu" → "Sıfırlama kodunu ekranda göster".
+  accept: vitest + Playwright
+  - a Microsoft user's menu has no reset or link button, only the text;
+  - a reset with a 9-character reason is refused client-side;
+  - after reset: the audit row and `mfa_reset_by_admin` at the sink, with no reason text;
+  - a link to a user without e-mail offers the code;
+  - phones act from the edit sheet (bottom-sheet dialogs, 44 px targets).
+  files: new `frontend/src/components/admin/users-security.tsx` + tests; ask admin users owner: mounts in `admin/users-admin.tsx` and `admin/users-admin-identity.tsx`, the method-tag line in `users-admin-identity-model.ts`.
+- [ ] AUX-09 · motion · no migration · Free transitions.dev recipes and motion rows (auth.md §11.1–§11.2).
+  - Add the free "Text states swap", "Icon swap", "Success check" (retimed to 240 ms, y 8 px, blur 4 px) and "Page
+    side-by-side" (220 ms, blur 0) with `npx transitions-dev add <name>`, **free only**. Keep the
+    `Transitions.dev — <name>` headers and add SOURCES.md rows.
+  - Wire the moments:
+    - password → 2FA step;
+    - setup steps;
+    - wrong-code shake on the slot group;
+    - Doğrula → Doğrulandı ✓;
+    - "Başka bir yöntem" panel (Panel reveal 240/160);
+    - the eye icon swap;
+    - "Kopyalandı";
+    - the shield ✓ when 2FA turns on;
+    - passkey row insert / remove (pattern 6).
+  - Move `will-change: transform` from `.t-input` to `.t-input.is-shaking`.
+  - Ask the motion.md owner: §11.2 becomes `v2/motion.md` §3.19.
+  accept:
+  - `e2e/motion-audit.spec.ts` gets a `sign-in-security` case: under 4× CPU, ≤ 3 dropped frames per interaction;
+    nothing > 300 ms in `document.getAnimations()`;
+  - under `reducedMotion: "reduce"`: no transform or travel, end state on the next frame or ≤ 100 ms fade;
+  - reduced transparency: opaque;
+  - no `will-change` left on idle fields.
+  files: `frontend/src/components/ui/transitions/transitions-dev.css` (ui owner informed), `components/ui/SOURCES.md`, the AUX parts above; `frontend/e2e/motion-audit.spec.ts` (append case).
+- [ ] AUX-10 · motion · no migration · Sign-in hero (auth.md §11.3–§11.4).
+  - `components/auth/signin-hero.tsx`:
+    - `docs/lottie/hero-solver-{light,dark}.json` played with `lottie-react`, lazy-loaded at ≥ 1024 px only, after
+      idle + 300 ms;
+    - **one pass of frames 0→140 (4.67 s)**, then it stops on the poster frame;
+    - a glass-tint frame (no backdrop-filter), `aria-hidden`, `pointer-events: none`;
+    - the poster PNG under reduced motion or `Save-Data`;
+    - hidden < 1024 px, in forced colours and on the 2FA step.
+  - **Uses the project's one hosted Motion Agent fix for this hero, named "signin-hero-settle"**: the entry
+    (opacity 0→1 over 240 ms, 4 px rise) and the settle onto the poster frame. Free scans only otherwise. The key
+    stays in `TRANSITIONS_AGENT_LICENSE` and is never written down.
+  accept:
+  - Playwright at 1440: the animation ends ≤ 5 s after start and does not loop;
+  - no long animation frame > 50 ms while typing in the identifier;
+  - at 390 the Lottie bundle is not requested;
+  - reduced motion shows the PNG;
+  - the motion-audit case passes.
+  files: new `frontend/src/components/auth/signin-hero.tsx` + test; one mount line in `components/auth/signin-shell.tsx` (scene area, sign-in owner informed); the JSON copied or imported from `docs/lottie/`.
+- [ ] AUX-11 · frontend · no migration · Ayarlar › Giriş güvenliği policy tab (auth.md §9).
+  - Segmented Kapalı / İsteğe bağlı / Zorunlu.
+  - Role chips (default Yönetici) and the grace period 7 / 14 / 30.
+  - The live sentence "{n} kişi {date} tarihine kadar kurmalı; {m} kişi zaten kurdu".
+  - The passkeys switch, with the nested "Parolasız girişe de izin ver".
+  - Gelişmiş: "Bu cihazı hatırla" (after ask A1d).
+  - The SSO note.
+  - Confirmations for Zorunlu and Kapalı ("askıya alınır, silinmez").
+  - A self-scope banner with "Şimdi kur".
+  - Ask the settings owner: tab `signin-security` in `settings-view.tsx`.
+  accept: vitest + Playwright at 1440 and 390
+  - the saved values round-trip to `auth.*`;
+  - the Kapalı confirm names the count;
+  - the save bar is sticky above the tab bar on phones (M-05);
+  - the role chips wrap and are 44 px.
+  files: new `frontend/src/components/settings/signin-security.tsx` + tests; ask: `components/settings/settings-view.tsx` (one tab entry).
+- [ ] AUX-12 · tester · Persona runs of auth.md §16 (checks 1–13) on an own stack (`REC_TEACHER=1 REC_LANG=tr`).
+  - Run at 1440 mouse and 390 touch.
+  - Chromium virtual authenticator for passkeys; the SMTP sink for the six (later nine) security e-mails.
+  - MOBILE M-01/M-02/M-03/M-05 on `/login`, `/login/verify`, `/login/setup-2fa`, `/profile#security`,
+    `/admin/users`, `/settings?tab=signin-security`.
+  - Simplicity probe: "where do I click?" is a **major** finding, with a screenshot.
+  accept: a report in `docs/testing/` with screenshots per check, and failures filed as AUX-xx follow-ups.
+  files: new `frontend/e2e/auth-ux.spec.ts`, `docs/testing/2026-10-xx-auth-ux.md`.
+
+Order:
+1. AUX-01 and AUX-02 can start now (mock AU-B's documented shapes).
+2. AUX-03 and AUX-04 run after AU-B's login / challenge / passkey routes.
+3. AUX-05 runs after ask A1i.
+4. AUX-06 and AUX-07 run after AU-B's enrolment and passkey routes (AUX-07's sessions part after ask A1a).
+5. AUX-08 runs after AU-B's admin routes.
+6. AUX-11 runs after AU-B's settings rows.
+7. AUX-09 runs alongside AUX-03…08.
+8. AUX-10 runs after AUX-03.
+9. AUX-12 runs last.

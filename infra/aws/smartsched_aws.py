@@ -43,7 +43,7 @@ import re
 import shlex
 import sys
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
@@ -893,9 +893,9 @@ def _check_with_seed_tool(values: dict[str, str]) -> None:
         raise BootstrapError(f"deploy-time settings: {exc}") from exc
 
 
-def bootstrap_values(a: argparse.Namespace, env: dict[str, str] | None = None) -> dict[str, tuple[str, bool]]:
+def bootstrap_values(a: argparse.Namespace, environ: dict[str, str] | None = None) -> dict[str, tuple[str, bool]]:
     """``{KEY: (value, secret)}`` from the flags and the environment; refused input raises BootstrapError."""
-    env = os.environ if env is None else env
+    env: Mapping[str, str] = os.environ if environ is None else environ
     out: dict[str, tuple[str, bool]] = {}
     for dest, key in BOOTSTRAP_FLAGS.items():
         value = str(getattr(a, dest, None) or "").strip()

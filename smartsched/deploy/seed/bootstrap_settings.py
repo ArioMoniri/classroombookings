@@ -65,18 +65,18 @@ class Group:
 
 
 GROUPS: tuple[Group, ...] = (
-    Group("org", ("ORG_NAME",), ("ORG_NAME",), label="organisation name (Yönetim > Ayarlar)"),
+    Group("org", ("ORG_NAME",), ("ORG_NAME",), label="institution name (Kurum ayarları, /admin/settings)"),
     Group("ai", ("AI_API_KEY", "AI_BASE_URL"), ("AI_PROVIDER", "AI_API_KEY", "AI_BASE_URL"), ("AI_API_KEY",),
-          label="AI provider key (Yönetim > Yapay zekâ)"),
+          label="AI provider key (Yapay zekâ yönetimi, /admin/ai)"),
     Group("smtp", ("SMTP_HOST",), ("SMTP_HOST", "SMTP_PORT", "SMTP_SECURITY", "SMTP_USERNAME", "SMTP_PASSWORD",
                                    "SMTP_FROM", "SMTP_FROM_NAME"), ("SMTP_PASSWORD",),
-          label="outgoing mail (Yönetim > E-posta)"),
-    Group("security", ("SECURITY_CONTACT",), ("SECURITY_CONTACT",), label="security.txt contact (Yönetim > Ayarlar)"),
+          label="outgoing mail (E-posta, /admin/email)"),
+    Group("security", ("SECURITY_CONTACT",), ("SECURITY_CONTACT",), label="security.txt contact (Ayarlar > Genel, /settings)"),
     Group("google", ("GOOGLE_CLIENT_ID",), ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"), ("GOOGLE_CLIENT_SECRET",),
-          label="Google calendar OAuth client (Yönetim > Entegrasyonlar)"),
+          label="Google calendar OAuth client (Entegrasyonlar, /admin/integrations)"),
     Group("microsoft", ("MICROSOFT_CLIENT_ID",), ("MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET",
                                                   "MICROSOFT_TENANT"), ("MICROSOFT_CLIENT_SECRET",),
-          label="Microsoft calendar OAuth client (Yönetim > Entegrasyonlar)"),
+          label="Microsoft calendar OAuth client (Entegrasyonlar, /admin/integrations)"),
 )
 BY_NAME = {g.name: g for g in GROUPS}
 #: every variable this tool reads (deploy.sh passes exactly these to the container, by name)
@@ -103,7 +103,7 @@ def collect(env: Mapping[str, str]) -> dict[str, dict[str, str]]:
         out["ai"]["AI_PROVIDER"] = p
         if p not in AI_PROVIDERS:
             raise BootstrapError(f"AI_PROVIDER: expected one of {', '.join(AI_PROVIDERS)} (bedrock and vertex: set "
-                                 "their keys in Yönetim > Yapay zekâ)")
+                                 "their keys in Yapay zekâ yönetimi, /admin/ai)")
         url = out["ai"].get("AI_BASE_URL", "")
         if url and not url.startswith(("https://", "http://")):
             raise BootstrapError("AI_BASE_URL: must start with https:// (or http:// for a local server)")
@@ -342,7 +342,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[settings] {exc}", file=sys.stderr)
         return 1
     if a.command == "plan":
-        print(f"[settings] {describe(values)}")
+        for line in describe(values).splitlines():
+            print(f"[settings] {line}")
         return 0
     if not values:
         print("[settings] no deploy-time settings given")

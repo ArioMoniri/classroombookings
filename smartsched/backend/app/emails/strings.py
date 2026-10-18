@@ -405,6 +405,67 @@ TR: dict[str, str] = {
     "calendar_consent.why": 'Bu e-postayı, "Takvim eşitleme iznim değişti" bildirimi açık olduğu için aldınız.',
     "new_device_sign_in.why": 'Bu e-postayı, "Hesabıma yeni bir cihazdan giriş yapıldı" bildirimi açık olduğu için '
     "aldınız.",
+    # --- AU-B two-step sign-in, passkeys, admin resets (owner request 2026-10-18; security footer) ----------------
+    "mfa_enabled.subject": "İki adımlı doğrulama açıldı",
+    "mfa_enabled.preheader": "Girişte parolanızdan sonra bir kod da sorulacak.",
+    "mfa_enabled.heading": "İki adımlı doğrulama açıldı",
+    "mfa_enabled.intro": (
+        "Merhaba {name}, {org} SmartSched hesabınızda iki adımlı doğrulama {when} tarihinde açıldı. Bundan sonra "
+        "girişte parolanızdan sonra doğrulama uygulamanızdaki kod ya da geçiş anahtarınız istenecek."
+    ),
+    "mfa_enabled.cta": "Güvenlik ayarlarını aç",
+    "mfa_enabled.after": "Kurtarma kodlarınızı güvenli bir yerde saklayın; telefonunuzu kaybederseniz onlarla girersiniz.",
+    "mfa_enabled.note": "Bunu siz yapmadınız mı? Hemen parolanızı değiştirin ve yöneticinize haber verin.",
+    "mfa_disabled.subject": "İki adımlı doğrulama kapatıldı",
+    "mfa_disabled.preheader": "Girişte artık yalnızca parolanız soruluyor.",
+    "mfa_disabled.heading": "İki adımlı doğrulama kapatıldı",
+    "mfa_disabled.intro": (
+        "Merhaba {name}, {org} SmartSched hesabınızda doğrulama uygulaması {when} tarihinde kapatıldı. Kurtarma "
+        "kodlarınız ve güvenilir cihazlarınız da silindi."
+    ),
+    "mfa_disabled.cta": "Yeniden aç",
+    "mfa_disabled.note": "Bunu siz yapmadınız mı? Hemen parolanızı değiştirin ve yöneticinize haber verin.",
+    "mfa_reset_by_admin.subject": "İki adımlı doğrulamanız yönetici tarafından sıfırlandı",
+    "mfa_reset_by_admin.preheader": "Girişte yalnızca parolanız sorulacak; doğrulamayı yeniden açın.",
+    "mfa_reset_by_admin.heading": "İki adımlı doğrulamanız sıfırlandı",
+    "mfa_reset_by_admin.intro": (
+        "Merhaba {name}, {org} yöneticisi {actor}, {when} tarihinde hesabınızın iki adımlı doğrulamasını sıfırladı. "
+        "Doğrulama uygulaması, kurtarma kodları ve güvenilir cihazlar kaldırıldı; tüm oturumlarınız kapatıldı."
+    ),
+    "mfa_reset_by_admin.cta": "Doğrulamayı yeniden aç",
+    "mfa_reset_by_admin.after": "Giriş yaptıktan sonra Profil › Güvenlik bölümünden doğrulama uygulamanızı yeniden ekleyin.",
+    "mfa_reset_by_admin.note": "Böyle bir talepte bulunmadınız mı? Hemen yöneticinize ya da bilgi işlem birimine haber verin.",
+    "passkey_added.subject": "Hesabınıza yeni bir geçiş anahtarı eklendi",
+    "passkey_added.preheader": "{device} adlı geçiş anahtarı eklendi.",
+    "passkey_added.heading": "Yeni geçiş anahtarı eklendi",
+    "passkey_added.intro": (
+        "Merhaba {name}, {org} SmartSched hesabınıza {when} tarihinde {device} adlı bir geçiş anahtarı eklendi. Bu "
+        "anahtarla parmak izi, yüz tanıma ya da cihaz PIN'i ile giriş yapılabilir."
+    ),
+    "passkey_added.cta": "Geçiş anahtarlarımı göster",
+    "passkey_added.note": "Bu anahtarı siz eklemediniz mi? Güvenlik ayarlarından kaldırın ve parolanızı değiştirin.",
+    "mfa_recovery_code_used.subject": "Bir kurtarma kodu kullanıldı",
+    "mfa_recovery_code_used.preheader": "Kalan kurtarma kodu: {remaining}.",
+    "mfa_recovery_code_used.heading": "Hesabınıza kurtarma koduyla girildi",
+    "mfa_recovery_code_used.intro": (
+        "Merhaba {name}, {org} SmartSched hesabınıza {when} tarihinde bir kurtarma koduyla giriş yapıldı. Kullanılan "
+        "kod artık geçersiz; {remaining} kodunuz kaldı."
+    ),
+    "mfa_recovery_code_used.cta": "Yeni kurtarma kodları oluştur",
+    "mfa_recovery_code_used.note": "Bu giriş size ait değil mi? Hemen parolanızı değiştirin ve yöneticinize haber verin.",
+    "password_reset_link_by_admin.subject": "Parola sıfırlama bağlantınız",
+    "password_reset_link_by_admin.preheader": "Bağlantı {valid_hours} saat geçerli ve bir kez kullanılabilir.",
+    "password_reset_link_by_admin.heading": "Yeni parolanızı belirleyin",
+    "password_reset_link_by_admin.intro": (
+        "Merhaba {name}, {org} yöneticisi {actor}, SmartSched hesabınız için bir parola sıfırlama bağlantısı "
+        "gönderdi. Yönetici parolanızı görmez ve seçemez; yeni parolayı siz belirlersiniz."
+    ),
+    "password_reset_link_by_admin.cta": "Yeni parola belirle",
+    "password_reset_link_by_admin.after": (
+        "Bağlantı {valid_hours} saat geçerlidir ve bir kez kullanılabilir. İki adımlı doğrulamanız açıksa girişte yine "
+        "sorulur."
+    ),
+    "password_reset_link_by_admin.note": "Böyle bir şey istemediniz mi? Bağlantıyı açmayın ve yöneticinize haber verin.",
 }
 
 EN: dict[str, str] = {
@@ -761,6 +822,68 @@ EN: dict[str, str] = {
     "calendar_consent.why": 'You received this because "My calendar sync consent changed" notifications are on.',
     "new_device_sign_in.why": 'You received this because "My account was signed in on a new device" notifications '
     "are on.",
+    # --- AU-B two-step sign-in, passkeys, admin resets ---------------------------------------------------------------
+    "mfa_enabled.subject": "Two-step verification is on",
+    "mfa_enabled.preheader": "Signing in will ask for a code after your password.",
+    "mfa_enabled.heading": "Two-step verification is on",
+    "mfa_enabled.intro": (
+        "Hello {name}, two-step verification was turned on for your {org} SmartSched account on {when}. From now on, "
+        "signing in asks for the code from your authenticator app or your passkey after your password."
+    ),
+    "mfa_enabled.cta": "Open security settings",
+    "mfa_enabled.after": "Keep your recovery codes somewhere safe; they get you in if you lose your phone.",
+    "mfa_enabled.note": "Wasn't this you? Change your password now and tell your administrator.",
+    "mfa_disabled.subject": "Two-step verification is off",
+    "mfa_disabled.preheader": "Signing in now asks only for your password.",
+    "mfa_disabled.heading": "Two-step verification is off",
+    "mfa_disabled.intro": (
+        "Hello {name}, the authenticator app was turned off for your {org} SmartSched account on {when}. Your "
+        "recovery codes and trusted devices were removed too."
+    ),
+    "mfa_disabled.cta": "Turn it on again",
+    "mfa_disabled.note": "Wasn't this you? Change your password now and tell your administrator.",
+    "mfa_reset_by_admin.subject": "An administrator reset your two-step verification",
+    "mfa_reset_by_admin.preheader": "Signing in asks only for your password; set up verification again.",
+    "mfa_reset_by_admin.heading": "Your two-step verification was reset",
+    "mfa_reset_by_admin.intro": (
+        "Hello {name}, {actor}, an administrator of {org}, reset two-step verification for your account on {when}. "
+        "The authenticator app, the recovery codes and the trusted devices were removed and you were signed out "
+        "everywhere."
+    ),
+    "mfa_reset_by_admin.cta": "Set up verification again",
+    "mfa_reset_by_admin.after": "After signing in, add your authenticator app again under Profile › Security.",
+    "mfa_reset_by_admin.note": "Didn't ask for this? Tell your administrator or the IT department right away.",
+    "passkey_added.subject": "A new passkey was added to your account",
+    "passkey_added.preheader": "The passkey {device} was added.",
+    "passkey_added.heading": "New passkey added",
+    "passkey_added.intro": (
+        "Hello {name}, a passkey named {device} was added to your {org} SmartSched account on {when}. It can sign "
+        "in with a fingerprint, face recognition or the device PIN."
+    ),
+    "passkey_added.cta": "Show my passkeys",
+    "passkey_added.note": "Didn't add it? Remove it in the security settings and change your password.",
+    "mfa_recovery_code_used.subject": "A recovery code was used",
+    "mfa_recovery_code_used.preheader": "Recovery codes left: {remaining}.",
+    "mfa_recovery_code_used.heading": "Someone signed in with a recovery code",
+    "mfa_recovery_code_used.intro": (
+        "Hello {name}, your {org} SmartSched account was signed in with a recovery code on {when}. That code no "
+        "longer works; you have {remaining} left."
+    ),
+    "mfa_recovery_code_used.cta": "Create new recovery codes",
+    "mfa_recovery_code_used.note": "Wasn't this you? Change your password now and tell your administrator.",
+    "password_reset_link_by_admin.subject": "Your password reset link",
+    "password_reset_link_by_admin.preheader": "The link is valid for {valid_hours} hours and works once.",
+    "password_reset_link_by_admin.heading": "Choose a new password",
+    "password_reset_link_by_admin.intro": (
+        "Hello {name}, {actor}, an administrator of {org}, sent you a password reset link for your SmartSched "
+        "account. Administrators never see or choose your password; you set the new one."
+    ),
+    "password_reset_link_by_admin.cta": "Set a new password",
+    "password_reset_link_by_admin.after": (
+        "The link is valid for {valid_hours} hours and works once. If two-step verification is on, signing in still "
+        "asks for it."
+    ),
+    "password_reset_link_by_admin.note": "Didn't expect this? Don't open the link and tell your administrator.",
 }
 
 SHIPPED: dict[str, dict[str, str]] = {"tr": TR, "en": EN}

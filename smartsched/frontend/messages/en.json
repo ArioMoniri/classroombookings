@@ -1367,6 +1367,8 @@
       "picked": "Picked up {name}",
       "over": "Over position {pos}",
       "cancelled": "Move cancelled",
+      "up": "Move {name} up",
+      "down": "Move {name} down",
       "instructions": "Press Space to pick up, arrow keys to move, Space to drop, Escape to cancel.",
       "hint": "Drag the handle to change the order, or use Alt+↑/↓ on it. The order is used in the booking grid."
     },
@@ -6367,7 +6369,7 @@
         "title": "Welcome to your approvals, {name}",
         "lead": "You decide the booking requests that reach you here.",
         "cards": {
-          "approvals": {
+          "approvals_inbox": {
             "title": "Approvals inbox",
             "body": "Booking requests for your rooms wait here. When you reject one you pick a reason, and the person sees it."
           }
@@ -6385,7 +6387,7 @@
             "title": "Recurring series",
             "body": "Book a room at the same time every week for the term; holidays are skipped."
           },
-          "dept_calendar": {
+          "department_calendar": {
             "title": "Department calendar",
             "body": "Share your department's classes as a calendar link."
           }
@@ -6417,7 +6419,7 @@
         "title": "Welcome to the planning office, {name}",
         "lead": "From files to a published timetable in five steps.",
         "cards": {
-          "intake": {
+          "from_files": {
             "title": "Set up from files",
             "body": "Drop the Excel files; classes, instructors and rules are read."
           },
@@ -6443,23 +6445,23 @@
         "title": "Welcome to administration, {name}",
         "lead": "You set up your institution in four parts; these cards show the order.",
         "cards": {
-          "users": {
+          "users_roles": {
             "title": "Users and roles",
             "body": "Invite people, give roles; nobody can grant more than they hold."
           },
-          "rooms": {
+          "rooms_access": {
             "title": "Rooms and access",
             "body": "Define rooms, groups and who may book them."
           },
-          "terms": {
+          "term_times": {
             "title": "Term and times",
             "body": "Enter terms, holidays and period schemes."
           },
-          "rules": {
+          "rules_connections": {
             "title": "Rules and connections",
             "body": "Approval rules, e-mail, sign-in methods and integrations."
           },
-          "welcome": {
+          "welcome_guide": {
             "title": "Welcome guide",
             "body": "Switch this guide on or off and edit its texts for your institution."
           }

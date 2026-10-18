@@ -30,7 +30,7 @@ from tests.webauthn_soft import SoftAuthenticator
 
 EMAIL = "hatice.ozturk@uni.edu.tr"
 REASON = "Telefonunu kaybetti; kimliğini bölüm sekreterliğinde yüz yüze doğruladım."
-SECRET_WORDS = ("secret", "recovery_codes", "public_key", "code_hash", "token_hash", "otpauth")
+SECRET_WORDS = ("secret", '"recovery_codes"', "public_key", "code_hash", "token_hash", "otpauth", "credential_id")
 
 
 @pytest.fixture
@@ -109,7 +109,7 @@ async def test_reset_removes_factors_signs_out_audits_and_mails(setup) -> None: 
     r = await c.post(f"{API}/admin/users/{uid}/mfa/reset", json=_reset_body(), headers=admin)
     assert r.status_code == 200, r.text
     out = r.json()
-    assert out["removed"] == {"totp": True, "recovery_codes": 10, "passkeys": 1, "trusted_devices": 1}
+    assert out["removed"] == {"totp": True, "recovery_code_count": 10, "passkeys": 1, "trusted_devices": 1}
     assert not any(w in r.text.lower() for w in SECRET_WORDS)
     # signed out everywhere; the next sign-in needs only the password; the trusted device is gone
     assert (await c.get(f"{API}/auth/me", headers=headers)).status_code == 401

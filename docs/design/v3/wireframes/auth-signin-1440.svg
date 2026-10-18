@@ -1,0 +1,117 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Giriş sayfası, geçiş anahtarı otomatik doldurma, 1440'>
+<title>Giriş sayfası, geçiş anahtarı otomatik doldurma, 1440</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<rect x='0' y='0' width='1440' height='900' rx='0' fill='#E8EEF6' fill-opacity='1'/>
+<rect x='8' y='8' width='480' height='884' rx='22' fill='#FFFFFF' fill-opacity='0.96' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='48' y='40' width='96' height='32' rx='8' fill='#F1F5F9' fill-opacity='1'/>
+<text x='96' y='61' font-size='10' font-weight='500' fill='#475569' text-anchor='middle'>Üniversite logosu</text>
+<line x1='156' y1='44' x2='156' y2='68' stroke='#CBD5E1' stroke-width='1'/>
+<rect x='168' y='44' width='24' height='24' rx='6' fill='#2563EB' fill-opacity='1'/>
+<text x='180' y='61' font-size='13' font-weight='700' fill='#FFFFFF' text-anchor='middle'>S</text>
+<text x='200' y='62' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='48' y='124' font-size='30' font-weight='700' fill='#0F172A' text-anchor='start'>Giriş yap</text>
+<text x='48' y='150' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Örnek Üniversitesi · ders programı, sınavlar ve derslik</text>
+<text x='48' y='168' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>rezervasyonu</text>
+<rect x='48' y='190' width='400' height='44' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#8C8C8C' stroke-width='1'/>
+<rect x='138.0' y='202.0' width='9' height='9' rx='0' fill='#F25022' fill-opacity='1'/>
+<rect x='148.0' y='202.0' width='9' height='9' rx='0' fill='#7FBA00' fill-opacity='1'/>
+<rect x='138.0' y='212.0' width='9' height='9' rx='0' fill='#00A4EF' fill-opacity='1'/>
+<rect x='148.0' y='212.0' width='9' height='9' rx='0' fill='#FFB900' fill-opacity='1'/>
+<text x='168.0' y='217.0' font-size='15' font-weight='600' fill='#5E5E5E' text-anchor='start'>Microsoft ile giriş yap</text>
+<rect x='48' y='246' width='400' height='44' rx='12' fill='#FFFFFF' fill-opacity='1' stroke='#747775' stroke-width='1'/>
+<circle cx='157.0' cy='268.0' r='9' fill='none' stroke='#4285F4' stroke-width='2'/>
+<text x='157.0' y='272.0' font-size='11' font-weight='700' fill='#4285F4' text-anchor='middle'>G</text>
+<text x='178.0' y='273.0' font-size='14' font-weight='500' fill='#1F1F1F' text-anchor='start'>Google ile oturum açın</text>
+<line x1='48' y1='312' x2='448' y2='312' stroke='#E2E8F0' stroke-width='1'/>
+<text x='48' y='342' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Kullanıcı adı ve parolayla giriş yap</text>
+<text x='440' y='342' font-size='15' font-weight='600' fill='#0F172A' text-anchor='end'>⌃</text>
+<text x='48' y='380' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Kullanıcı adı veya e-posta</text>
+<rect x='48' y='388' width='400' height='44' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<rect x='45' y='385' width='406' height='50' rx='12' fill='none' fill-opacity='1' stroke='#BFD3FB' stroke-width='3'/>
+<text x='62' y='415.0' font-size='15' font-weight='400' fill='#0F172A' text-anchor='start'>ay</text>
+<rect x='48' y='438' width='400' height='92' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#CBD5E1' stroke-width='1'/>
+<text x='60' y='458' font-size='10' font-weight='500' fill='#7C3AED' text-anchor='start'>Tarayıcının öneri listesi (bizim çizimimiz değil)</text>
+<circle cx='67' cy='480' r='5' fill='none' stroke='#2563EB' stroke-width='2'/>
+<line x1='72' y1='480' x2='82' y2='480' stroke='#2563EB' stroke-width='2'/>
+<line x1='79' y1='480' x2='79' y2='484' stroke='#2563EB' stroke-width='2'/>
+<text x='92' y='484' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>ayse.yilmaz · geçiş anahtarı</text>
+<text x='92' y='502' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>iCloud Anahtar Zinciri</text>
+<text x='92' y='522' font-size='12' font-weight='500' fill='#2563EB' text-anchor='start'>Başka bir cihazdaki geçiş anahtarını kullan</text>
+<text x='48' y='550' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Parola</text>
+<text x='448' y='550' font-size='13' font-weight='500' fill='#2563EB' text-anchor='end'>Parolamı unuttum</text>
+<rect x='48' y='558' width='400' height='44' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<text x='432' y='585.0' font-size='13' font-weight='600' fill='#475569' text-anchor='end'>👁</text>
+<rect x='48' y='620' width='400' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='248.0' y='647.4' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Giriş yap</text>
+<line x1='48' y1='686' x2='224.0' y2='686' stroke='#E2E8F0' stroke-width='1'/>
+<line x1='272.0' y1='686' x2='448' y2='686' stroke='#E2E8F0' stroke-width='1'/>
+<text x='248.0' y='690' font-size='12' font-weight='500' fill='#475569' text-anchor='middle'>veya</text>
+<rect x='48' y='704' width='400' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<circle cx='143.0' cy='726.0' r='5' fill='none' stroke='#0F172A' stroke-width='2'/>
+<line x1='148.0' y1='726.0' x2='158.0' y2='726.0' stroke='#0F172A' stroke-width='2'/>
+<line x1='155.0' y1='726.0' x2='155.0' y2='730.0' stroke='#0F172A' stroke-width='2'/>
+<text x='260.0' y='731.0' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Geçiş anahtarıyla giriş yap</text>
+<text x='48' y='770' font-size='12' font-weight='400' fill='#64748B' text-anchor='start'>Son girişinizi geçiş anahtarıyla yaptınız.</text>
+<text x='48' y='868' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>KVKK Aydınlatma Metni   v1.4.0</text>
+<rect x='308' y='850' width='84' height='32' rx='16' fill='#F1F5F9' fill-opacity='1'/>
+<text x='350' y='871' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>TR | EN</text>
+<rect x='404' y='850' width='32' height='32' rx='16' fill='#F1F5F9' fill-opacity='1'/>
+<text x='420' y='871' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>◐</text>
+<rect x='640' y='330' width='640' height='380' rx='18' fill='#FFFFFF' fill-opacity='0.55' stroke='#E2E8F0' stroke-width='1'/>
+<text x='668' y='411.0' font-size='10' font-weight='600' fill='#64748B' text-anchor='start'>B-201</text>
+<rect x='704.0' y='370.0' width='64.0' height='52.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='774.0' y='370.0' width='64.0' height='52.0' rx='6' fill='#eb6834' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='844.0' y='370.0' width='64.0' height='52.0' rx='6' fill='#1baf7a' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='914.0' y='370.0' width='64.0' height='52.0' rx='6' fill='#eda100' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='984.0' y='370.0' width='64.0' height='52.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1054.0' y='370.0' width='64.0' height='52.0' rx='6' fill='#2a78d6' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1124.0' y='370.0' width='64.0' height='52.0' rx='6' fill='#eb6834' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1194.0' y='370.0' width='64.0' height='52.0' rx='6' fill='#1baf7a' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<text x='668' y='469.0' font-size='10' font-weight='600' fill='#64748B' text-anchor='start'>B-202</text>
+<rect x='704.0' y='428.0' width='64.0' height='52.0' rx='6' fill='#eda100' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='774.0' y='428.0' width='64.0' height='52.0' rx='6' fill='#e87ba4' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='844.0' y='428.0' width='64.0' height='52.0' rx='6' fill='#2a78d6' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='914.0' y='428.0' width='64.0' height='52.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='984.0' y='428.0' width='64.0' height='52.0' rx='6' fill='#1baf7a' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1054.0' y='428.0' width='64.0' height='52.0' rx='6' fill='#eda100' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1124.0' y='428.0' width='64.0' height='52.0' rx='6' fill='#e87ba4' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1194.0' y='428.0' width='64.0' height='52.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='668' y='527.0' font-size='10' font-weight='600' fill='#64748B' text-anchor='start'>B-203</text>
+<rect x='704.0' y='486.0' width='64.0' height='52.0' rx='6' fill='#eb6834' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='774.0' y='486.0' width='64.0' height='52.0' rx='6' fill='#1baf7a' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='844.0' y='486.0' width='64.0' height='52.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='914.0' y='486.0' width='64.0' height='52.0' rx='6' fill='#e87ba4' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='984.0' y='486.0' width='64.0' height='52.0' rx='6' fill='#2a78d6' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1054.0' y='486.0' width='64.0' height='52.0' rx='6' fill='#eb6834' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1124.0' y='486.0' width='64.0' height='52.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1194.0' y='486.0' width='64.0' height='52.0' rx='6' fill='#eda100' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<text x='668' y='585.0' font-size='10' font-weight='600' fill='#64748B' text-anchor='start'>B-204</text>
+<rect x='704.0' y='544.0' width='64.0' height='52.0' rx='6' fill='#e87ba4' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='774.0' y='544.0' width='64.0' height='52.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='844.0' y='544.0' width='64.0' height='52.0' rx='6' fill='#eb6834' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='914.0' y='544.0' width='64.0' height='52.0' rx='6' fill='#1baf7a' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='984.0' y='544.0' width='64.0' height='52.0' rx='6' fill='#eda100' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1054.0' y='544.0' width='64.0' height='52.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1124.0' y='544.0' width='64.0' height='52.0' rx='6' fill='#2a78d6' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1194.0' y='544.0' width='64.0' height='52.0' rx='6' fill='#eb6834' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<text x='668' y='643.0' font-size='10' font-weight='600' fill='#64748B' text-anchor='start'>B-205</text>
+<rect x='704.0' y='602.0' width='64.0' height='52.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='774.0' y='602.0' width='64.0' height='52.0' rx='6' fill='#eda100' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='844.0' y='602.0' width='64.0' height='52.0' rx='6' fill='#e87ba4' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='914.0' y='602.0' width='64.0' height='52.0' rx='6' fill='#2a78d6' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='984.0' y='602.0' width='64.0' height='52.0' rx='6' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1054.0' y='602.0' width='64.0' height='52.0' rx='6' fill='#1baf7a' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1124.0' y='602.0' width='64.0' height='52.0' rx='6' fill='#eda100' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='1194.0' y='602.0' width='64.0' height='52.0' rx='6' fill='#e87ba4' fill-opacity='0.85' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='704' y='676' width='480' height='8' rx='4' fill='#E2E8F0' fill-opacity='1'/>
+<rect x='704' y='676' width='480' height='8' rx='4' fill='#15803D' fill-opacity='1'/>
+<rect x='1194' y='670' width='62' height='20' rx='10' fill='#DCFCE7' fill-opacity='1'/>
+<text x='1225.0' y='684' font-size='11' font-weight='600' fill='#15803D' text-anchor='middle'>100/100</text>
+<text x='660' y='740' font-size='15' font-weight='600' fill='#0F172A' text-anchor='start'>Güz 2026–27 · 3. hafta</text>
+<text x='660' y='760' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>15 Ekim 2026, Perşembe</text>
+<text x='560' y='60' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Kahraman: hero-solver Lottie, ≥ 1024 px, boşta kalınca 300 ms sonra bir kez oynar (0→140, 4,7 s), poster karede durur.</text>
+<text x='560' y='80' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Azaltılmış hareket / Save-Data: yalnızca poster PNG. aria-hidden, pointer-events none, cam yok (glass-tint çerçeve).</text>
+<text x='560' y='100' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Kapı 2: kimlik alanı autocomplete='username webauthn' → koşullu get() kapı açılınca başlar.</text>
+<text x='560' y='120' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Geçiş anahtarı düğmesi sağlayıcı değildir: yalnız yerel hesaplar içindir, bu yüzden kapı 2'nin içinde.</text>
+<text x='560' y='140' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Microsoft/Google: eşit ağırlık, marka kuralları değişmedi (integrations.md §6).</text>
+</svg>

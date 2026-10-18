@@ -48,10 +48,12 @@ export interface RecorderOptions {
   /** the cap stopped the recording (the clip is still delivered) */
   onCap?: () => void;
   onError?: (e: VoiceError) => void;
+  /** the microphone is live (announce it) */
+  onStart?: () => void;
   silenceMs?: number;
 }
 
-export function useVoiceRecorder({ maxSeconds, onClip, onCap, onError, silenceMs = 2000 }: RecorderOptions) {
+export function useVoiceRecorder({ maxSeconds, onClip, onCap, onError, onStart, silenceMs = 2000 }: RecorderOptions) {
   const [phase, setPhase] = useState<RecorderPhase>("idle");
   const [elapsedMs, setElapsed] = useState(0);
   const [level, setLevel] = useState(0);
@@ -71,8 +73,10 @@ export function useVoiceRecorder({ maxSeconds, onClip, onCap, onError, silenceMs
     handsFree: false,
     busy: false,
   });
-  const cb = useRef({ onClip, onCap, onError, maxSeconds, silenceMs });
-  cb.current = { onClip, onCap, onError, maxSeconds, silenceMs };
+  const cb = useRef({ onClip, onCap, onError, onStart, maxSeconds, silenceMs });
+  useEffect(() => {
+    cb.current = { onClip, onCap, onError, onStart, maxSeconds, silenceMs };
+  });
 
   const release = useCallback(() => {
     const s = r.current;
@@ -197,6 +201,7 @@ export function useVoiceRecorder({ maxSeconds, onClip, onCap, onError, silenceMs
       rec.start(1000);
       s.t0 = Date.now();
       setPhase("recording");
+      cb.current.onStart?.();
       try {
         navigator.vibrate?.(10);
       } catch {

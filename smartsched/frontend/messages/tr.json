@@ -1366,6 +1366,8 @@
       "picked": "{name} tutuldu",
       "over": "{pos}. sıranın üzerinde",
       "cancelled": "Taşıma iptal edildi",
+      "up": "{name} yukarı taşı",
+      "down": "{name} aşağı taşı",
       "instructions": "Tutmak için Boşluk, taşımak için ok tuşları, bırakmak için Boşluk, vazgeçmek için Escape.",
       "hint": "Sırayı değiştirmek için tutamağı sürükleyin ya da üzerinde Alt+↑/↓ kullanın. Rezervasyon tablosu bu sırayı kullanır."
     },
@@ -6366,7 +6368,7 @@
         "title": "Onay kutunuza hoş geldiniz, {ad}",
         "lead": "Size gelen rezervasyon taleplerini buradan karara bağlarsınız.",
         "cards": {
-          "approvals": {
+          "approvals_inbox": {
             "title": "Onay kutusu",
             "body": "Size gelen rezervasyon talepleri burada bekler. Reddederken bir gerekçe seçersiniz; kişi bunu görür."
           }
@@ -6384,7 +6386,7 @@
             "title": "Dönemlik tekrar",
             "body": "Bir salonu dönem boyunca her hafta aynı saate ayırın; tatiller atlanır."
           },
-          "dept_calendar": {
+          "department_calendar": {
             "title": "Bölüm takvimi",
             "body": "Bölümünüzün derslerini takvim bağlantısıyla paylaşın."
           }
@@ -6416,7 +6418,7 @@
         "title": "Planlama ofisine hoş geldiniz, {ad}",
         "lead": "Dosyalardan yayınlanmış bir programa beş adımda.",
         "cards": {
-          "intake": {
+          "from_files": {
             "title": "Dosyalardan kur",
             "body": "Excel dosyalarını bırakın; dersler, hocalar ve kurallar okunur."
           },
@@ -6442,23 +6444,23 @@
         "title": "Yönetim paneline hoş geldiniz, {ad}",
         "lead": "Kurumunuzu dört bölümde kurarsınız; bu kartlar sırayı gösterir.",
         "cards": {
-          "users": {
+          "users_roles": {
             "title": "Kullanıcılar ve roller",
             "body": "Davet edin, rol verin; kimse kendi yetkisinden fazlasını veremez."
           },
-          "rooms": {
+          "rooms_access": {
             "title": "Salonlar ve erişim",
             "body": "Salonları, grupları ve kimin ayırabileceğini tanımlayın."
           },
-          "terms": {
+          "term_times": {
             "title": "Dönem ve saatler",
             "body": "Dönemleri, tatilleri ve ders saati şemalarını girin."
           },
-          "rules": {
+          "rules_connections": {
             "title": "Kurallar ve bağlantılar",
             "body": "Onay kuralları, e-posta, giriş yöntemleri ve entegrasyonlar."
           },
-          "welcome": {
+          "welcome_guide": {
             "title": "Karşılama rehberi",
             "body": "Bu rehberi açıp kapatın, metinlerini kurumunuza göre düzenleyin."
           }

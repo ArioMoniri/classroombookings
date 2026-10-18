@@ -1,0 +1,11 @@
+[Unit]
+Description=SmartSched: nightly backup at 02:30 (Europe/Istanbul is UTC+3: 23:30 UTC)
+
+[Timer]
+OnCalendar=*-*-* 23:30:00 UTC
+RandomizedDelaySec=15min
+# the pod idle-stops itself: a backup missed while it was stopped runs right after the next boot
+Persistent=true
+
+[Install]
+WantedBy=timers.target

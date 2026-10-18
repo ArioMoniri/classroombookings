@@ -63,11 +63,11 @@ export const CARDS: Record<Audience, CardDef[]> = {
     { key: "approval_rooms", href: "/find-room", icon: Stamp },
     { key: "my_bookings", href: "/my-bookings", icon: BookMarked },
   ],
-  approver: [{ key: "approvals", href: "/approvals", icon: Stamp }],
+  approver: [{ key: "approvals_inbox", href: "/approvals", icon: Stamp }],
   dept_admin: [
     { key: "book_for_other", href: "/bookings", icon: UserPlus },
     { key: "recurring", href: "/bookings", icon: Repeat },
-    { key: "dept_calendar", href: "/profile#calendar", icon: CalendarRange },
+    { key: "department_calendar", href: "/profile#calendar", icon: CalendarRange },
   ],
   viewer: [
     { key: "dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -76,18 +76,18 @@ export const CARDS: Record<Audience, CardDef[]> = {
     { key: "heatmap", href: "/analytics/heatmap", icon: Grid3x3 },
   ],
   planner: [
-    { key: "intake", href: "/onboarding", icon: FolderInput },
+    { key: "from_files", href: "/onboarding", icon: FolderInput },
     { key: "requests", href: "/requests", icon: Inbox },
     { key: "generate", href: "/generate", icon: PlayCircle },
     { key: "timetable", href: "/timetable", icon: CalendarDays },
     { key: "publish", href: "/runs", icon: Send },
   ],
   admin: [
-    { key: "users", href: "/admin/users", icon: Users },
-    { key: "rooms", href: "/admin/rooms", icon: Warehouse },
-    { key: "terms", href: "/admin/sessions", icon: CalendarRange },
-    { key: "rules", href: "/admin/integrations", icon: Plug },
-    { key: "welcome", href: "/admin/welcome", icon: MapIcon },
+    { key: "users_roles", href: "/admin/users", icon: Users },
+    { key: "rooms_access", href: "/admin/rooms", icon: Warehouse },
+    { key: "term_times", href: "/admin/sessions", icon: CalendarRange },
+    { key: "rules_connections", href: "/admin/integrations", icon: Plug },
+    { key: "welcome_guide", href: "/admin/welcome", icon: MapIcon },
   ],
 };
 

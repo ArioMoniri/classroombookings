@@ -271,6 +271,24 @@ GROUPS: tuple[GroupSpec, ...] = (
         "Derslik bazı haftalarda takvimde kapalı; o haftalar aynı saatte başka dersliğe alındı.",
         "The room is blocked in some weeks; those weeks moved to another room at the same time.",
     ),
+    # adaptive scheduling AS-09: load warnings computed from the term's requests (no run needed)
+    GroupSpec(
+        "peak_pressure",
+        "Yoğun saat - Peak pressure",
+        "Yoğun saatlerde uygun oda sıkışıklığı",
+        "Peak cells short of suitable rooms",
+        "Sabit saatli talepler bu saatte uygun odaların çoğunu istiyor; esnek saatli bir dersi kaydırın ya da "
+        "oda açın.",
+        "Fixed-time requests alone need most suitable rooms at this time; move a flexible class or free a room.",
+    ),
+    GroupSpec(
+        "exam_load",
+        "Sınav yükü - Exam load",
+        "Sınav günü ve saat yükü",
+        "Exam day and slot load",
+        "Bir gün ya da saatte çok sınav var veya bir sınıfın günde 2'den fazla sınavı var; tarih önerisidir.",
+        "Too many exams on a day or in a slot, or a cohort has more than 2 exams a day; advice only.",
+    ),
     GroupSpec(
         "other",
         "Diğer - Other",
@@ -2204,6 +2222,15 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
     from_board = await board_checks(session, run)
     from_text = await preference_checks(session, run)
     from_text.update(await time_snaps(session, run))
+    # AS-09: peak pressure (course runs) and exam load (exam runs) of the term's requests
+    if run.kind == "EXAM":
+        from app.services.exam_load import exam_load_issues
+
+        from_text["exam_load"] = await exam_load_issues(session, run.term_id)
+    else:
+        from app.services.forecast import peak_pressure
+
+        from_text["peak_pressure"] = await peak_pressure(session, run.term_id)
     groups_out: list[dict[str, Any]] = []
     for spec in GROUPS:
         items: list[dict[str, Any]] = []

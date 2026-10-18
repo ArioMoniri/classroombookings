@@ -299,7 +299,7 @@ async def term_cube(session: Any, term_id: int, period_kind: str = "LECTURE") ->
     for w, d in sc.occ.closed:
         cube.close(w, d)
     # seat fill from the published runs' request sizes
-    sizes: dict[int, int] = {}
+    sizes: dict[tuple[str, int | None], int] = {}
     for r in sc.runs:
         q = select(Assignment).where(Assignment.run_id == r.id, Assignment.archived.is_(False))
         rows = list((await session.execute(q)).scalars())
@@ -313,18 +313,18 @@ async def term_cube(session: Any, term_id: int, period_kind: str = "LECTURE") ->
                     .where(MeetingRequest.id.in_(mids))
                 )
             ).all():
-                sizes[("m", mid)] = int(enr or 0)  # type: ignore[index]
+                sizes[("m", mid)] = int(enr or 0)
         if eids:
             for eid, enr in (
                 await session.execute(select(ExamRequest.id, ExamRequest.enrolment).where(ExamRequest.id.in_(eids)))
             ).all():
-                sizes[("e", eid)] = int(enr or 0)  # type: ignore[index]
+                sizes[("e", eid)] = int(enr or 0)
         from app.services.grid import assignment_weeks
 
         for a in rows:
             size = (
                 sizes.get(("m", a.meeting_request_id)) if a.meeting_request_id else sizes.get(("e", a.exam_request_id))
-            )  # type: ignore[call-overload]
+            )
             if not size or not a.room_ids:
                 continue
             per_room = max(1, int(size) // max(1, len(a.room_ids)))

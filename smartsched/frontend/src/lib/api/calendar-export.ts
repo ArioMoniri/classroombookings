@@ -112,6 +112,8 @@ export const ExportOptions = z.object({
     })
     .default({ link: true, file: true, push: [] }),
   fields: z.record(z.string(), z.boolean()).nullish(),
+  /** CAL-07 `channels.push.verification`: verified accounts only, the institution's domain */
+  push_verification: z.object({ required: z.boolean().default(false), domain: z.string().nullish() }).nullish(),
   consent: Consent.nullish(),
   /** where "Planlama ofisine yaz" writes to (the organisation's contact address) */
   contact_email: z.string().nullish(),
@@ -215,11 +217,12 @@ export function adaptOptions(raw: unknown): unknown {
   if (isObj(ch) && ch.push !== undefined && !Array.isArray(ch.push)) {
     const push = isObj(ch.push)
       ? Object.entries(ch.push)
-          .filter(([, p]) => isObj(p) && "configured" in p)
+          .filter(([k, p]) => k !== "verification" && isObj(p) && "configured" in p)
           .map(([provider, p]) => ({ provider, configured: !!(p as Raw).configured, connected: !!(p as Raw).connected }))
       : [];
     const avail = (c: unknown) => (typeof c === "boolean" ? c : isObj(c) ? c.available !== false : true);
     out.channels = { link: avail(ch.link), file: avail(ch.file), push };
+    if (isObj(ch.push) && isObj(ch.push.verification)) out.push_verification = ch.push.verification;
   }
   return out;
 }

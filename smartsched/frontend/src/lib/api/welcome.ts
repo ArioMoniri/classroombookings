@@ -87,6 +87,10 @@ const Show = z
     key: z.string().nullish(),
     /** delta: the new audiences only */
     audiences: z.array(z.string()).nullish(),
+    /** T4 "show again": the "Güncellendi" badge */
+    updated: z.boolean().nullish(),
+    /** `restart`: the answer of POST /welcome/restart (the user's own ask, never an automatic surface) */
+    reason: z.string().nullish(),
   })
   .passthrough();
 
@@ -106,7 +110,12 @@ export const WelcomeState = z
     primary: z.string().nullish(),
     show: Show.nullish(),
     department: z.string().nullish(),
+    /** the value of `{ad}` / `{name}` (first name, "" when unknown) */
+    name: z.string().nullish(),
     first_name: z.string().nullish(),
+    /** `deep_link` | `excluded_route` | `kiosk` | `embed` | `maintenance` | `disabled` (then `show` is null) */
+    suppressed: z.string().nullish(),
+    preview: z.boolean().nullish(),
     sheet: z
       .object({
         cards: z.array(SheetCard).default([]),
@@ -127,7 +136,8 @@ export const WelcomeState = z
       .passthrough()
       .default({ items: [], hidden: false }),
     hints: z.array(HintEntry).default([]),
-    content_version: z.number().nullish(),
+    /** per audience (`{academician: 1, …}`) */
+    content_version: z.unknown().optional(),
   })
   .passthrough();
 export type WelcomeState = z.infer<typeof WelcomeState>;
@@ -145,7 +155,8 @@ export interface WelcomeEvent {
 export const PARTS = ["enabled", "sheet", "tour", "checklist", "hints", "hints_for_all"] as const;
 export type Part = (typeof PARTS)[number];
 
-export const WelcomeSettings = z
+/** `GET/PUT /welcome/settings` answers `{settings: {...}, content_version, …}`; a flat object is read too. */
+export const WelcomeSettings = z.preprocess((v) => (v && typeof v === "object" && "settings" in v && typeof (v as { settings: unknown }).settings === "object" ? (v as { settings: object }).settings : v), z
   .object({
     enabled: z.boolean().default(true),
     sheet: z.boolean().default(true),
@@ -155,7 +166,7 @@ export const WelcomeSettings = z
     hints_for_all: z.boolean().default(false),
     min_cohort: z.number().default(5),
   })
-  .passthrough();
+  .passthrough());
 export type WelcomeSettings = z.infer<typeof WelcomeSettings>;
 
 const ContentField = z
@@ -177,7 +188,8 @@ export const WelcomeContent = z
   .object({
     audience: z.string(),
     version: z.number().default(0),
-    fields: z.array(ContentField).nullish(),
+    /** the overrides: `{tr: {title: …}, en: {}}` (WG-B), or a flat list of rows */
+    fields: z.union([z.array(ContentField), z.record(z.string(), z.record(z.string(), z.string().nullable()))]).nullish(),
     texts: z.record(z.string(), z.record(z.string(), z.string())).nullish(),
     updated_by: z.string().nullish(),
     updated_at: z.string().nullish(),
@@ -188,9 +200,13 @@ export const WelcomeContent = z
     const texts: Record<string, Record<string, string>> = { tr: {}, en: {} };
     for (const [loc, map] of Object.entries(c.texts ?? {})) texts[loc] = { ...(texts[loc] ?? {}), ...map };
     let last: { by?: string | null; at?: string | null } = { by: c.updated_by, at: c.updated_at };
-    for (const f of c.fields ?? []) {
-      (texts[f.locale] ??= {})[f.field] = f.text;
-      if (f.updated_at && (!last.at || f.updated_at > last.at)) last = { by: f.updated_by, at: f.updated_at };
+    if (Array.isArray(c.fields)) {
+      for (const f of c.fields) {
+        (texts[f.locale] ??= {})[f.field] = f.text;
+        if (f.updated_at && (!last.at || f.updated_at > last.at)) last = { by: f.updated_by, at: f.updated_at };
+      }
+    } else {
+      for (const [loc, map] of Object.entries(c.fields ?? {})) for (const [k, v] of Object.entries(map)) if (v) (texts[loc] ??= {})[k] = v;
     }
     return { audience: c.audience, version: c.version, texts, updatedBy: last.by ?? null, updatedAt: last.at ?? null, contentVersion: c.content_version ?? null };
   });
@@ -233,7 +249,8 @@ export const welcomeApi = {
   settings: () => request("/welcome/settings", { schema: WelcomeSettings, ...s }),
   saveSettings: (body: Partial<WelcomeSettings>) => request("/welcome/settings", { method: "PUT", body, schema: WelcomeSettings, ...s }),
   content: (audience: string) => request(`/welcome/content/${audience}`, { schema: WelcomeContent, ...s }),
-  saveContent: (audience: string, body: { version: number; texts: Record<string, Record<string, string>>; reshow?: boolean }) =>
+  /** only the fields sent change; `""` = "Varsayılana dön"; `reshow` = "Evet, 'Güncellendi' etiketiyle" */
+  saveContent: (audience: string, body: { version: number; fields: Record<string, Record<string, string>>; reshow?: boolean }) =>
     request(`/welcome/content/${audience}`, { method: "PUT", body, schema: WelcomeContent, ...s }),
   reshow: (audience: string) => request<unknown>(`/welcome/content/${audience}/reshow`, { method: "POST", ...s }),
   stats: (days: number) => request("/welcome/stats", { query: { days }, schema: WelcomeStats, ...s }),
@@ -300,9 +317,7 @@ export function useSaveWelcomeContent(audience: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: { version: number; texts: Record<string, Record<string, string>>; reshow: boolean }) => {
-      const saved = await welcomeApi.saveContent(audience, { version: body.version, texts: body.texts });
-      if (body.reshow) await welcomeApi.reshow(audience);
-      return saved;
+      return welcomeApi.saveContent(audience, { version: body.version, fields: body.texts, reshow: body.reshow });
     },
     onSuccess: (data) => {
       qc.setQueryData(welcomeKeys.content(audience), data);
