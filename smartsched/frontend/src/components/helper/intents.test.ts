@@ -100,7 +100,7 @@ describe("intents", () => {
       const got = p(text);
       const ok =
         got?.action === want.action &&
-        stable(got.args) === stable(want.args) &&
+        stable(got.args) === stable(want.args ?? {}) &&
         stable(got.hints ?? {}) === stable(want.hints ?? {});
       if (!ok) wrong.push(`${text}\n   got  ${JSON.stringify(got)}\n   want ${JSON.stringify(want)}`);
     }

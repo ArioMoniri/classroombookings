@@ -87,15 +87,16 @@ function FieldInput({ field, value, onChange, values, invalid }: { field: FormFi
   const label = pickText(field.label, host.locale);
   const rooms = useRoomOptions(field.options_source === "rooms");
   const periods = usePeriodOptions(Number(values.room) || 0, String(values.date ?? ""), field.options_source === "periods");
+  const options = field.options ?? [];
   const common = { id, "aria-invalid": invalid || undefined, required: field.required, "data-testid": `helper-field-${field.name}` };
   let control;
   if (field.kind === "toggle") {
     control = <Switch id={id} checked={value === true} onCheckedChange={(v) => onChange(v)} aria-label={label} data-testid={`helper-field-${field.name}`} />;
   } else if (field.kind === "textarea") {
     control = <Textarea {...common} value={String(value ?? "")} maxLength={field.max_length ?? undefined} onChange={(e) => onChange(e.target.value)} />;
-  } else if (field.kind === "room" || field.kind === "period" || field.kind === "select" || field.options.length) {
-    const opts: { value: string; label: string }[] = field.options.length
-      ? field.options.map((o) => ({ value: String(o.value), label: pickText(o.label, host.locale) }))
+  } else if (field.kind === "room" || field.kind === "period" || field.kind === "select" || options.length) {
+    const opts: { value: string; label: string }[] = options.length
+      ? options.map((o) => ({ value: String(o.value), label: pickText(o.label, host.locale) }))
       : field.options_source === "rooms"
         ? (rooms.data ?? []).map((r) => ({ value: String(r.id), label: [r.name || r.code, r.capacity ? t("glass.palette.seats", { n: r.capacity }) : null].filter(Boolean).join(" · ") }))
         : field.options_source === "periods"

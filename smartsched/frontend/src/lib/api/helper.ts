@@ -33,7 +33,11 @@ const listOf = <T extends z.ZodType>(item: T) =>
 
 export const HelperStatus = z.object({
   mode: z.enum(["ai", "index"]).catch("index"),
-  /** why AI is off (`mode: index`) */
+  /** false: an administrator switched the helper off (`reason: disabled`) or off for all the person's audiences
+   * (`audience_off`): hide the trigger's helper part and the sheet; the palette's page search stays */
+  enabled: z.boolean().catch(true).default(true),
+  /** why AI is off (`mode: index`): not_routed · provider_unusable · consent_missing · turn_unavailable · disabled ·
+   * audience_off · index_mode */
   reason: z.string().nullish(),
   provider_kind: z.enum(["local", "cloud"]).nullish().catch(null),
   provider_label: Txt.nullish().catch(null),
@@ -127,8 +131,15 @@ export const errorCard = (err: unknown): HelperCard | null => helperRefusal(err)
 export type ActionArgs = Record<string, string | number | boolean | null>;
 
 export const helperApi = {
-  search: (q: string, termId?: number | null, signal?: AbortSignal) =>
-    request("/helper/search", { ...s, query: { q, limit: 6, term_id: termId ?? undefined }, schema: HelperSearch, signal }),
+  search: (q: string, termId?: number | null, signal?: AbortSignal, final = false) =>
+    request("/helper/search", { ...s, query: { q, limit: 6, term_id: termId ?? undefined, final: final ? "true" : undefined }, schema: HelperSearch, signal }),
+  /** the person submitted the search (Enter / picked a "Nerede?" row): one `query` event server-side */
+  searchFinal: (q: string) => request("/helper/search", { ...s, query: { q, limit: 1, final: "true" } }).then(() => undefined),
+  /** 👍 / 👎 on a turn (`run_started.turn_id`) */
+  feedback: (body: { turn_id: string; thumb: "up" | "down"; reason?: string; note?: string }) => request("/helper/feedback", { ...s, method: "POST", body }),
+  /** what deflection counts: `nav_click` ("Sayfayı aç"), `form_open`, `cancel` ("Vazgeç" on a confirm card) */
+  event: (body: { kind: "nav_click" | "form_open" | "cancel"; turn_id?: string; feature_id?: string; action?: string }) =>
+    request<void>("/helper/events", { ...s, method: "POST", body }),
   status: () => request("/helper/status", { ...s, schema: HelperStatus }),
   actions: () => request("/helper/actions", { ...s, schema: listOf(HelperAction) }),
   card: (name: string, args: ActionArgs) => request(`/helper/actions/${encodeURIComponent(name)}/card`, { ...s, method: "POST", body: { args }, schema: HelperCard }),
