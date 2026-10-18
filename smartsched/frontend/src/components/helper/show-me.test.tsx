@@ -174,12 +174,11 @@ describe("Göster on a page that loads in parts (HB18-F04)", () => {
     });
     renderHelper(
       <>
-        <button type="button" data-tour="profile-calendar-add">Takvimime ekle</button>
+        <button type="button" data-tour="admin-holidays-add">Tatil ekle</button>
         <ShowMeHost />
       </>,
     );
     act(() => useHelperStore.getState().startShowMe("admin.holidays", false));
-    // the request names admin.holidays; point the anchor at it
     expect(await screen.findByTestId("helper-step", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(scrolledAt === 0 || scrolledAt - t0 >= 240).toBe(true);
     grow.mockRestore();
