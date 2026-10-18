@@ -1,6 +1,6 @@
 /** CAL-08 sheet model: scope cards with reasons, only the configured channels, the approval fields, the sample line. */
 import { describe, expect, it } from "vitest";
-import { ExportOptions, Subscription } from "@/lib/api/calendar-export";
+import { ExportOptions, Subscription, connectScopes } from "@/lib/api/calendar-export";
 import {
   approvalFields,
   channelChoices,
@@ -235,5 +235,16 @@ describe("POST /calendar/subscriptions answer (API.md)", () => {
       preview: { scope_kind: "my_classes", upcoming_count: 13, sample: { summary: "PSY 262 · Şube 1", location: "C 504", start: "2026-02-23T13:30:00", end: "2026-02-23T15:50:00" }, fields: [{ key: "course_code", label_tr: "Ders kodu", label_en: "Course code" }] },
     });
     expect(made.urls.webcal).toMatch(/^webcal:/);
+  });
+});
+
+describe("connectScopes (API.md: the new sheet always sends scopes on connect)", () => {
+  it("keeps the given scopes once each, in order", () => {
+    expect(connectScopes(["my_classes", "department_classes:28", "my_classes"])).toEqual(["my_classes", "department_classes:28"]);
+  });
+  it("never sends an empty or missing list: a bookings-only legacy connection reconnects with my_bookings", () => {
+    expect(connectScopes([])).toEqual(["my_bookings"]);
+    expect(connectScopes(null)).toEqual(["my_bookings"]);
+    expect(connectScopes([" ", ""])).toEqual(["my_bookings"]);
   });
 });

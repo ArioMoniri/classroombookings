@@ -128,8 +128,12 @@ in SSM `{prefix}/bootstrap/<KEY>` (SecureString for secrets) before the instance
 and every pod CI deploy hand them to `deploy.sh` as environment variables, never as arguments, and
 `seed/bootstrap_settings.py` writes each group into the database once. A group already set in the admin panel is
 kept, and later deploys never overwrite panel edits. The pod role already reads `{prefix}/*`, so no IAM change
-is needed, and `down` deletes the parameters with the rest of the prefix. The `POD_ACTION` workflow passes no
-deploy-time settings: set them in the panel, or run `up` locally.
+is needed, and `down` deletes the parameters with the rest of the prefix. The `POD_ACTION` workflow takes them as
+`key=value` words on the `up` line (quote values with spaces): `org=` `admin=` `acme=` `ai=` `ai-base-url=`
+`smtp-host=` `smtp-port=` `smtp-security=` `smtp-user=` `smtp-from=` `smtp-from-name=` `security=`
+`observability=on|off`, mapped to the flags above (`domain=` is refused: the pod is always on sslip.io). The
+optional repo secrets `AI_API_KEY`, `SMTP_PASSWORD`, `GOOGLE_CLIENT_ID/_SECRET`, `MICROSOFT_CLIENT_ID/_SECRET/_TENANT`
+reach `up` as environment variables; the log shows flag and parameter names only.
 
 ## 4. What the user must provide
 

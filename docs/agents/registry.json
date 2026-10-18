@@ -3021,7 +3021,8 @@
       "goal": "You are lane RF-1 for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pkill -f`, `nice …",
       "ledger": "RF-1: catalog admin screens + blockers",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 08:23"
     },
     {
       "id": "a6a3c2eba3be265b7",
@@ -3234,6 +3235,14 @@
       "ledger": "CAL-F resume: calendar export UI",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a7eac7171a5e66a48",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:19",
+      "left_off": "give me the admin login and website link when pod is up"
     }
   ]
 }

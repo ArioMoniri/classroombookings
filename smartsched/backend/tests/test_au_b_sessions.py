@@ -77,6 +77,31 @@ async def test_a_revocation_holds_after_the_cache_is_gone(setup) -> None:  # typ
     assert (await c.get(f"{API}/auth/me", headers=phone)).status_code == 401
 
 
+async def test_a_revocation_on_another_worker_is_seen_at_once(setup, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Two uvicorn workers (docker-entrypoint default): the worker that answers the phone's next request still holds
+    a fresh "not revoked" cache entry. The person's session epoch (on the user row, read anyway) tells it the entry
+    is stale, so the revoked token fails on its very next request, not after the cache TTL."""
+    c, _admin, _uid, headers = setup
+    phone = await _sign_in(c, SAFARI)
+    assert (await c.get(f"{API}/auth/me", headers=phone)).status_code == 200  # cached "open" in this process
+    other = next(x for x in (await c.get(f"{API}/auth/sessions", headers=headers)).json() if not x["current"])
+    monkeypatch.setattr(sessions, "forget", lambda h=None: None)  # the revoking request ran on the other worker
+    assert (await c.delete(f"{API}/auth/sessions/{other['id']}", headers=headers)).status_code == 204
+    r = await c.get(f"{API}/auth/me", headers=phone)
+    assert r.status_code == 401 and r.json()["detail"] == "session revoked"
+    assert (await c.get(f"{API}/auth/me", headers=headers)).status_code == 200
+
+
+async def test_sign_out_others_on_another_worker_is_seen_at_once(setup, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    c, _admin, _uid, headers = setup
+    phone = await _sign_in(c, SAFARI)
+    assert (await c.get(f"{API}/auth/me", headers=phone)).status_code == 200
+    monkeypatch.setattr(sessions, "forget", lambda h=None: None)
+    assert (await c.post(f"{API}/auth/sessions/revoke-others", headers=headers)).json()["revoked"] == 1
+    assert (await c.get(f"{API}/auth/me", headers=phone)).status_code == 401
+    assert (await c.get(f"{API}/auth/me", headers=headers)).status_code == 200
+
+
 async def test_sign_out_other_devices(setup) -> None:  # type: ignore[no-untyped-def]
     c, _admin, _uid, headers = setup
     others = [await _sign_in(c) for _ in range(2)]

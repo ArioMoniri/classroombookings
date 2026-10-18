@@ -5047,6 +5047,7 @@
     "me": {
       "title": "Takvim aktarımı",
       "lead": "Bağladığınız takvime rezervasyonlarınız kendiliğinden yazılır, değişince güncellenir, iptal edilince silinir.",
+      "advancedHint": "Eski bağlantı ayarları. Yeni bir şey eklemek için yukarıdaki \"Takvimime ekle\" düğmesini kullanın.",
       "off": "Takvim eşitleme kurumunuzda kapalı.",
       "notConfigured": "Yönetici bu sağlayıcıyı henüz kurmadı.",
       "notConnected": "Bağlı değil",
@@ -5071,6 +5072,7 @@
       "resync": "Hepsini yeniden aktar",
       "resyncQueued": "{n, plural, =0 {Aktarılacak rezervasyon yok} other {# rezervasyon sıraya alındı}}",
       "connectedToast": "{provider} bağlandı; rezervasyonlarınız aktarılıyor",
+      "connectFailed": "Bağlanılamadı. Yeniden deneyin.",
       "connectError": "Bağlanılamadı: {reason}",
       "consentLink": "Gizlilik bölümüne git",
       "reason": {
@@ -5078,7 +5080,8 @@
         "state": "oturum doğrulanamadı, yeniden deneyin",
         "exchange": "sağlayıcı yanıtı alınamadı",
         "disabled": "takvim eşitleme kapalı",
-        "not_configured": "yönetici bu sağlayıcıyı kurmamış"
+        "not_configured": "yönetici bu sağlayıcıyı kurmamış",
+        "account_not_verified": "bu hesap kurumunuzun doğrulanmış hesabı değil"
       },
       "needsConsent": "Bağlanırken önce takvim eşitleme rızanız istenir; rızanızı Gizlilik bölümünde de verebilirsiniz."
     }

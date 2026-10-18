@@ -5048,6 +5048,7 @@
     "me": {
       "title": "Calendar push",
       "lead": "Your bookings are written into the calendar you connect, updated when they change and removed when they are cancelled.",
+      "advancedHint": "Older connection settings. To add something new, use \"Add to my calendar\" above.",
       "off": "Calendar sync is turned off in your organisation.",
       "notConfigured": "Your administrator has not set this provider up yet.",
       "notConnected": "Not connected",
@@ -5072,6 +5073,7 @@
       "resync": "Push everything again",
       "resyncQueued": "{n, plural, =0 {No bookings to push} one {# booking queued} other {# bookings queued}}",
       "connectedToast": "{provider} connected; your bookings are being pushed",
+      "connectFailed": "Could not connect. Try again.",
       "connectError": "Could not connect: {reason}",
       "consentLink": "Go to Privacy",
       "reason": {
@@ -5079,7 +5081,8 @@
         "state": "the sign-in could not be verified, try again",
         "exchange": "the provider did not answer",
         "disabled": "calendar sync is off",
-        "not_configured": "your administrator has not set this provider up"
+        "not_configured": "your administrator has not set this provider up",
+        "account_not_verified": "this is not your institution's verified account"
       },
       "needsConsent": "Connecting asks for your calendar sync consent first; you can also give it under Privacy."
     }
@@ -6242,7 +6245,7 @@
       "disconnectTitle": "Disconnect {provider}?",
       "disconnectBody": "The \"SmartSched – Derslerim\" calendar and its events are deleted, and your permission is revoked.",
       "disconnected": "{provider} disconnected",
-      "notVerified": "This account is not a verified account of your organisation. Connect with your {domain} account.",
+      "notVerified": "This is not your institution's verified account. Connect with your {domain} account.",
       "notVerifiedPlain": "This account is not a verified account of your organisation. Connect with your organisation account.",
       "calDeleted": "The calendar was deleted. Connect again and SmartSched creates it again.",
       "error": "Syncing ran into a problem; it is retried shortly.",

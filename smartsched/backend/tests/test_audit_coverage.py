@@ -161,7 +161,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "DELETE /api/v1/calendar/feeds/tokens/{token_id}": (N, "the caller's own calendar link"),
     "POST /api/v1/calendar/connectors/{provider}/connect": (N, "the caller's own OAuth grant"),
     "PUT /api/v1/calendar/connectors/{provider}": (N, "the caller's own calendar choice"),
-    "DELETE /api/v1/calendar/connectors/{provider}": (N, "the caller's own OAuth grant"),
+    "DELETE /api/v1/calendar/connectors/{provider}": (E, "app.api.v1.calendar_sync"),  # calendar.push_disconnect
     "POST /api/v1/calendar/connectors/{provider}/resync": (N, "re-queues the caller's own push jobs"),
     "PUT /api/v1/calendar/admin/settings": (E, "app.api.v1.calendar_sync"),
     # calendar export for academicians (CAL-03 / CAL-06 / CAL-07; cal-b-2026-10-17)

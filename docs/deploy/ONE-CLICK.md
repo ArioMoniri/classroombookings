@@ -128,8 +128,10 @@ aws ssm get-parameter --region <region> --name /smartsched/admin_password --with
 ```
 
 Through GitHub Actions (`infra/aws/POD_ACTION`, docs/deploy/AWS.md section 3), `up pod=universal <timestamp>`
-runs the same `up` without deploy-time settings. Set them in the panel afterwards, or run `up` locally with the
-flags.
+runs the same `up`. Deploy-time settings go on the same line as `key=value` (`org="Örnek Üniversitesi"
+admin=it@uni.edu.tr smtp-host=... security=... observability=off`, list in AWS.md section 3), and the optional repo
+secrets `AI_API_KEY` / `SMTP_PASSWORD` (plus the Google / Microsoft client ones) are passed from the environment,
+never printed. `domain=` is refused there: the pod's domain is always the sslip.io name.
 
 On the pod, backups run as `smartsched-backup.timer`: nightly at 02:30 Istanbul time, 7 days kept in
 `/var/lib/smartsched-ci/backups` on the pod disk. That protects against a bad migration or a deletion, but not

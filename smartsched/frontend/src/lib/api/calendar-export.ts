@@ -340,6 +340,17 @@ export type ExportAdminSettingsIn = Partial<{
 
 /* ------------------------------------------------------------------------------------------- calls */
 
+/** The `scopes` of a connect call: never empty and never absent, so every new connection is least-privilege and
+ * SmartSched-owned. A legacy connection that pushed bookings only (no `export_scopes`) reconnects with `my_bookings`. */
+export function connectScopes(scopes: readonly string[] | null | undefined): string[] {
+  const out: string[] = [];
+  for (const x of scopes ?? []) {
+    const v = typeof x === "string" ? x.trim() : "";
+    if (v && !out.includes(v)) out.push(v);
+  }
+  return out.length ? out : ["my_bookings"];
+}
+
 /** The one-off file path for a scope (relative to /api/v1). */
 export function filePath(kind: ScopeKind, departmentId?: number | null): string {
   if (kind === "my_classes") return "/calendar/export/classes.ics";
@@ -412,9 +423,10 @@ export const calendarExportApi = {
   },
   download: (kind: ScopeKind, departmentId: number | null | undefined, fallback: string) => download(filePath(kind, departmentId), fallback),
   pushScopes: (provider: string, scopes: string[]) => request(`/calendar/connectors/${provider}/scopes`, { ...s, method: "PUT", body: { scopes } }),
-  /** starts the provider's OAuth round trip; the scopes ride along so the backend can apply them on the callback */
-  connect: (provider: string, returnPath: string, scopes: string[]) =>
-    request(`/calendar/connectors/${provider}/connect`, { ...s, method: "POST", body: { return_path: returnPath, scopes }, schema: z.object({ authorize_url: z.string() }) }),
+  /** starts the provider's OAuth round trip; the scopes ride along so the backend can apply them on the callback.
+   * Always with `scopes` (API.md: without them the backend makes a legacy bookings-only grant on the primary calendar). */
+  connect: (provider: string, returnPath: string, scopes: readonly string[]) =>
+    request(`/calendar/connectors/${provider}/connect`, { ...s, method: "POST", body: { return_path: returnPath, scopes: connectScopes(scopes) }, schema: z.object({ authorize_url: z.string() }) }),
   resync: (provider: string) => request(`/calendar/connectors/${provider}/resync`, { ...s, method: "POST", schema: z.object({ queued: z.number() }).passthrough() }),
   disconnect: (provider: string) => request(`/calendar/connectors/${provider}`, { ...s, method: "DELETE" }),
   admin: {
