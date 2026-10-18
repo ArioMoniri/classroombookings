@@ -272,7 +272,7 @@ def _open(smtp: Mapping[str, Any], transcript: Transcript | None) -> smtplib.SMT
     transcript.add(f"* {host}:{port} ({'SSL/TLS' if security == 'ssl' else security.upper()})")
     # Python 3.12 (the image and pod CI) sets the TLS server_hostname from ``_host`` only in the constructor, not in
     # connect() (3.13 does both): without this, STARTTLS / SSL fail with "check_hostname requires server_hostname"
-    server._host = host
+    server._host = host  # type: ignore[attr-defined]
     server.connect(host, port)
     return server
 
