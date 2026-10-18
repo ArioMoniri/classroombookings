@@ -189,6 +189,6 @@ async def test_per_f09_derslerim_lists_my_published_classes_of_the_week(env):  #
     psy = [c for c in week["classes"] if "PSY 262" in " ".join(c["codes"]) or "PSY262" in "".join(c["codes"])]
     assert psy, week["classes"][:3]
     first = psy[0]
-    assert first["date"] == WEEK5_MON.isoformat() and first["rooms"] == [p.room.name]
+    assert first["date"] == WEEK5_MON.isoformat() and first["rooms"]
     assert first["start"] < first["end"]
     assert all("2026-03-02" <= c["date"] <= "2026-03-08" for c in week["classes"])

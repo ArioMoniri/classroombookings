@@ -173,6 +173,22 @@
   actions: [approvals_inbox, decide_approval]
   since: "2026.10"
 
+- id: my_classes
+  kind: page
+  route: /my-classes
+  title: {tr: Derslerim, en: My classes}
+  path: {tr: [Rezervasyonlar, Derslerim], en: [Bookings, My classes]}
+  synonyms:
+    tr: [derslerim nerede, bu haftaki derslerim, ders programım, hangi derslikte dersim var, derslerim ne zaman]
+    en: [where are my classes, my classes this week, my teaching timetable, which room is my class in]
+  steps:
+    tr: ["Rezervasyonlar › Derslerim'i açın.", "Haftanın günleri, saatleri ve derslikleri listelenir."]
+    en: ["Open Bookings › My classes.", "The days, times and rooms of the week are listed."]
+  permission: [book_single.create, book_recur.create]
+  hide_with: planning.view
+  actions: []
+  since: "2026.10"
+
 - id: my_requests
   kind: page
   route: /moderation/me

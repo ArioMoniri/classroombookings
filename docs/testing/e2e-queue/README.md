@@ -277,3 +277,24 @@ isMobile + hasTouch, tr-TR, Europe/Istanbul):
 - **CH12-F09:** re-run `e2e/motion-audit.spec.ts -g "run report"` without `AUDIT_RUN`: the setup log names a solver run (e.g. #8), not the import board #1, and the test passes.
 - **CH12-F10:** kiosk /public/rooms/C304?date=<9 days ago>: "Bu sayfa kullanılamıyor" + "Bu ekran son 7 gün ile önümüzdeki 120 günü gösterir; …" + "Bugün" (→ /public/rooms/C304, renders); the backend log has `public_schedule.not_found reason=date`; with the view switched off the log says `reason=off`, the body is still the same 404.
 - MOBILE M-01/02/03/05 on /admin/weeks (planner), /analytics/heatmap › Yoğun saatler (empty), /analytics/forecast, /runs, /public/rooms/C304 at 390.
+
+## FIX-H (2026-10-18): open round-4 items after FIX-E
+
+Browser checks for the FIX-H rows of docs/testing/round4/2026-10-18-{hx12b,personas,aux12,cal10}.md (unit level done;
+1440 mouse and 390×844 touch, isMobile + hasTouch, tr-TR, Europe/Istanbul):
+- **HX12B-F05** /runs/7 (`planlamaci.test`): above the fold only the verdict sentence, "Yayınla" (filled) and "Ayrıntılar" (closed); opening it shows the KPI row, policy/profile lines and the bars; 390: the Yayınla capsule still free (M-05). Re-run `e2e/loop-r1-laneH.spec.ts` / `loop-r2-laneE.spec.ts` KPI steps (they read text inside the closed details).
+- **HX12B-F10** /reserve and /dashboard: 1440 the page title is first, "Başlarken" below the page; 390 no card, Diğer › Başlarken row present.
+- **HX12B-F11** /bookings sheet on a free run: only the P-chips, no "Ders saati" select; `e2e/reserve.spec.ts` test 4 (chips used).
+- **HX12B-F13 / PER-F15** M-02 at 390 on /bookings (Salon bilgisi chips), /reserve, /admin/users dialog building chips, /settings model radios, /runs/7 fix rows: every chip ≥ 44 px tall; no chip row overflows sideways (M-01).
+- **HX12B-F14** /settings at 390: "Ayar grubu" select lists every tab and switches; the AI tab shows "Claude Opus 5.5".
+- **HX12B-F15** /admin/users at 390: "Yeni kullanıcı" is a labelled capsule; M-05.
+- **HX12B-F17 / F18** /import: room-master subtitle without "room_master.csv"; /runs column "Tercih puanı (100 üzerinden)", rows "İçe aktarılan çizelge #3".
+- **PER-F04** İçe aktar › Ders planlama listesi, target Güz, `bahar_…v5.xlsx` › Önizle: warning names "Bahar 2026" (from `summary.term_check`); the same file renamed `liste.xlsx` with a "BAHAR 2026" sheet title also warns. Do not press Uygula on the shared stack.
+- **PER-F05** the same preview › Uyarıları göster: "Türlerine göre" lists "Kişi olmayan öğretim elemanı değeri · N satır" first; the table rows read Turkish; a viewer sees counts only.
+- **PER-F07** admin: Ayarlar has no Kullanıcılar / Rezervasyon kuralları tabs; `/settings?tab=booking-rules` lands on Kurulum › Rezervasyon kuralları (`e2e/wave2.spec.ts` test 2 opens it directly); Genel links to Ders saatleri; sidebar: 4 headings, "Daha fazla (n)" opens / closes with keyboard, opens itself on /exams/advisor; welcome tours (planner, viewer, admin) still find their nav anchors. `e2e/real-backend.spec.ts` users step goes to /admin/users.
+- **PER-F09** `akademisyen.ayse` (linked): sidebar / Diğer › Derslerim → this week's classes by day with rooms; Önceki/Sonraki hafta; "N dersinize henüz derslik atanmadı" when Taleplerim has unplaced rows; an unlinked teacher sees the sentence, no 403; Profil links to it. 390: M-01/02/03.
+- **AUX12-F07** /reset-password › Kodum var (and `?token=`): one password field with show/hide, "En az 12 karakter"; the SSO line under the request field; `e2e/bookings.spec.ts` test 12.
+- **CAL10-F02** Ayarlar › Takvim ve entegrasyonlar with the panel address empty: the warning on the KVKK card, "Panel adresini girin" focuses the field.
+- **CAL10-F03** curl a classes feed, sign in elsewhere (an audit event), curl with If-None-Match: 304, same ETag.
+- **CAL10-F04** Takvimime ekle: after "Derslerim" and after "Abonelik bağlantısı" `document.activeElement` is `cal-step-heading`, never `DIV#cal-sheet`.
+- **CAL10-F05** Gelişmiş › Bağlantıyı yenile: the confirm names the effect; Vazgeç keeps the link, focus back on the button; Yenile shows the new link once.

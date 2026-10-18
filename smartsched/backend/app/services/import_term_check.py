@@ -23,7 +23,7 @@ def _sheet_titles(path: Path) -> list[str]:
     if path.suffix.lower() not in {".xlsx", ".xlsm"}:
         return []
     try:
-        from app.importers.xlsx import open_workbook
+        from app.core.safe_files import open_workbook
 
         wb = open_workbook(path, read_only=True, data_only=True, max_cols=1)
     except Exception:  # a file the importer itself refuses says so in its own report
@@ -71,7 +71,8 @@ async def term_check(
         )
         same = [t for t in terms if term_season(t.code, t.name) == season]
         exact = [t for t in same if year is None or calendar_year(season, t.code, t.name) == year]
-        suggested = (exact or same or [None])[0]
+        pick = exact or same
+        suggested = pick[0] if pick else None
     check = {
         "target_id": target.id,
         "target_name": target.name,

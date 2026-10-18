@@ -5,7 +5,7 @@ import { useState, useSyncExternalStore } from "react";
 import { Logo } from "@/components/brand";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { IconButton } from "@/components/ui/button";
+import { BareButton, IconButton } from "@/components/ui/button";
 import { KbdHint } from "@/components/ui/kbd-hint";
 import { SidebarGlass, SidebarGlassContent, SidebarGlassFooter, SidebarGlassHeader, SidebarGlassItem, SidebarGlassSection } from "@/components/ui/sidebar-glass";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -106,8 +106,7 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
           })}
           {rare.length && !rareActive ? (
             <li>
-              <button
-                type="button"
+              <BareButton
                 aria-expanded={showRare}
                 onClick={() => setOpened((o) => ({ ...o, [group.labelKey]: !o[group.labelKey] }))}
                 className="flex h-8 w-full items-center gap-2.5 rounded-[10px] px-2.5 type-footnote font-medium text-label-2 transition-colors duration-(--dur-fast) hover:bg-fill-3 hover:text-label-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus) pointer-coarse:min-h-11"
@@ -115,7 +114,7 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
               >
                 <ChevronDown aria-hidden className={cn("size-4 shrink-0 transition-transform", showRare && "rotate-180")} />
                 {showRare ? t("nav.less") : t("nav.more", { n: rare.length })}
-              </button>
+              </BareButton>
             </li>
           ) : null}
         </SidebarGlassSection>

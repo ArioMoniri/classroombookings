@@ -6,7 +6,7 @@
     "profile": "Profile", "settings": "Settings", "import": "Import", "dashboard": "Dashboard", "rooms": "Rooms",
     "room": "Room", "admin": "Setup", "adminUsers": "Users", "adminRooms": "Rooms", "adminAudit": "Audit log",
     "adminAccess": "Access checker", "adminSettings": "Organisation settings", "adminSessions": "Sessions",
-    "adminApprovalRules": "Approval rules", "adminBookingRules": "Booking rules", "adminHolidays": "Holidays", "adminCatalog": "Catalogue", "adminEmail": "E-mail", "adminDepartments": "Departments",
+    "adminApprovalRules": "Approval rules", "adminBookingRules": "Booking rules", "myClasses": "My classes", "adminHolidays": "Holidays", "adminCatalog": "Catalogue", "adminEmail": "E-mail", "adminDepartments": "Departments",
     "adminRoles": "Roles", "adminConflicts": "Booking conflicts", "adminAuthentication": "Authentication",
     "adminWeeks": "Timetable weeks", "adminSchedules": "Schedules", "login": "Sign in", "changePassword": "Change password",
     "resetPassword": "Reset password", "setup": "Setup", "notFound": "Page not found", "timetable": "Timetable",
@@ -4508,6 +4508,7 @@
       "unnotifiedHint": "Some bookings have no owner account; tell the people concerned yourself."
     }
   },
+  "myClasses": {"title": "My classes", "lead": "Your classes in the published timetable, week by week.", "prev": "Previous week", "next": "Next week", "thisWeek": "This week", "week": "{from} – {to}", "empty": "You have no classes in the published timetable this week.", "notLinked": "Your account is not linked to an instructor record, so your classes cannot show here. Contact the planning office.", "unplaced": "{n} of your classes have no room yet; the planning office has been told.", "unplacedLink": "See My requests", "section": "Section {s}", "noRoom": "No room", "weekNo": "Week {n}", "loadFailed": "Your classes could not be loaded.", "calendar": "Add to my calendar"},
   "policies": {
     "tab": "Booking rules", "pageSubtitle": "Notice, how far ahead, length and closed dates. Which rooms need approval is under Approval rules.",
     "title": "Booking rules",

@@ -7,6 +7,7 @@
  * preferences panel of the approval UI (components/notifications/preferences-panel.tsx).
  */
 import Link from "next/link";
+import { usePermissions } from "@/lib/api/shell-extra";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -43,6 +44,21 @@ const langLabel = (code: string | null | undefined) => {
   return shown ? LOCALE_INFO[shown].name : "";
 };
 
+/** PER-F09 (fix-h-2026-10-18): the academician's way to "Derslerim" (their own classes this week) */
+function MyClassesLink() {
+  const { t } = useI18n();
+  const { can } = usePermissions();
+  if (!can(["book_single.create", "book_recur.create"]) || can("planning.view")) return null;
+  return (
+    <p className="type-callout text-label-2" data-testid="profile-my-classes">
+      {t("myClasses.lead")}{" "}
+      <Link href="/my-classes" className="font-medium text-tint-text underline-offset-4 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">
+        {t("myClasses.title")}
+      </Link>
+    </p>
+  );
+}
+
 export function ProfileView() {
   const { t } = useI18n();
   const q = useProfile();
@@ -70,6 +86,7 @@ export function ProfileView() {
       {/* CH-11: my booking numbers, and an academician's weekly teaching load (tiles + BarList, no chart library) */}
       <MyStats showTitle />
       <MyLoad />
+      <MyClassesLink />
       {/* wave 3 W3-AI: my AI usage against my limit (hidden for people who never used AI and have no limit) */}
       <section id="ai-usage" className="scroll-mt-20" data-tour="profile-ai-usage">
         <MyAiUsage />

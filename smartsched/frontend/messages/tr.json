@@ -5,7 +5,7 @@
     "bookings": "Rezervasyonlar", "myBookings": "Rezervasyonlarım", "findRoom": "Boş derslik bul", "approvals": "Onaylar",
     "profile": "Profil", "settings": "Ayarlar", "import": "İçe aktar", "dashboard": "Özet", "rooms": "Derslikler",
     "room": "Derslik", "admin": "Kurulum", "adminUsers": "Kullanıcılar", "adminRooms": "Derslikler", "adminAudit": "Denetim kaydı",
-    "adminAccess": "Erişim denetimi", "adminSettings": "Kurum ayarları", "adminSessions": "Dönemler", "adminApprovalRules": "Onay kuralları", "adminBookingRules": "Rezervasyon kuralları",
+    "adminAccess": "Erişim denetimi", "adminSettings": "Kurum ayarları", "adminSessions": "Dönemler", "adminApprovalRules": "Onay kuralları", "adminBookingRules": "Rezervasyon kuralları", "myClasses": "Derslerim",
     "adminHolidays": "Tatiller", "adminCatalog": "Katalog", "adminEmail": "E-posta", "adminDepartments": "Bölümler", "adminRoles": "Roller",
     "adminConflicts": "Rezervasyon çakışmaları", "adminAuthentication": "Kimlik doğrulama", "adminWeeks": "Takvim haftaları",
     "adminSchedules": "Ders saati planları", "login": "Giriş yap", "changePassword": "Parola değiştir", "resetPassword": "Parola sıfırlama",
@@ -19,7 +19,7 @@
       "findRoom": "Oda bul",
       "approvals": "Onaylar",
       "myRequests": "Talepler",
-      "reserve": "Rezerve",
+      "reserve": "Rezerve et",
       "dashboard": "Özet",
       "timetable": "Çizelge"
     },
@@ -4506,6 +4506,7 @@
       "unnotifiedHint": "Bazı rezervasyonların hesabı olan bir sahibi yok; ilgilileri siz bilgilendirin."
     }
   },
+  "myClasses": {"title": "Derslerim", "lead": "Yayımlanan çizelgedeki dersleriniz, haftaya göre.", "prev": "Önceki hafta", "next": "Sonraki hafta", "thisWeek": "Bu hafta", "week": "{from} – {to}", "empty": "Bu hafta yayımlanan çizelgede dersiniz yok.", "notLinked": "Hesabınız bir öğretim elemanı kaydına bağlı değil; dersleriniz burada görünmez. Planlama ofisine başvurun.", "unplaced": "{n} dersinize henüz derslik atanmadı; planlama birimi bilgilendirildi.", "unplacedLink": "Taleplerim'de görün", "section": "Şube {s}", "noRoom": "Derslik yok", "weekNo": "{n}. hafta", "loadFailed": "Dersleriniz yüklenemedi.", "calendar": "Takvimime ekle"},
   "policies": {
     "tab": "Rezervasyon kuralları", "pageSubtitle": "Önceden bildirim, ne kadar ileri, süre ve kapalı tarihler. Hangi salonun onay gerektirdiği Onay kuralları'nda.",
     "title": "Rezervasyon kuralları",
