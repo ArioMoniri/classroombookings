@@ -4422,7 +4422,8 @@
       "goal": "Design lane HB-23-D (ledger name `hb23-design-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md; NO git commits; never `pkill -f`; no stacks or builds; design docs only (no app code). Owner request (verbatim): \"the helper par…",
       "ledger": "Design: helper file router (HB-23)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 16:41"
     }
   ]
 }

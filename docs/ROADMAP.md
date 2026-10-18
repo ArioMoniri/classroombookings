@@ -4246,7 +4246,8 @@ before and after (resource rule: no stack, no Playwright); each item waits for i
   open: vo-mounts test 1 ×4 on fresh stacks)
 
 ### HB-23 · Helper file router (owner 2026-10-18)
-- [ ] HB-23a design spec: docs/design/v3/helper-file-router.md (drop any file → what it is + one in-flight primary button routing with the file and prefill; role-aware; no model needed; KVKK: nothing stored until confirm)
+- [x] HB-23a design spec: docs/design/v3/helper-file-router.md (drop any file → what it is + one in-flight primary button routing with the file and prefill; role-aware; no model needed; KVKK: nothing stored until confirm)
+  done (spec docs/design/v3/helper-file-router.md: inventory of existing classifiers incl. fixture measurements, deterministic pipeline + agreement rule, role/permission route table, states + TR/EN copy, new `file` card type, /helper/files/{classify,route,handoff} + encrypted 10-min owner-bound upload token, target-page upload_token fields, motion rows, a11y, acceptance + pytest/vitest/E2E/UX/design-review plan, 9 open questions; design only, no app code; hb23-design-2026-10-18)
 - [ ] HB-23b backend: POST /helper/files/classify (deterministic, reuses council/importers), short-lived owner-bound upload token, target pages accept it
 - [ ] HB-23c frontend: drop target in the helper sheet (desktop + phone), /import, /onboarding, empty states; card states per spec
 - [ ] HB-23d tests: unit per file kind (masked fixtures); UX run by user-tester (admin who doesn't know the file type, planner, academician; 1440 + 390); design review

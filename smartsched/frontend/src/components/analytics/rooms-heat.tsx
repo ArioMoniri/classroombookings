@@ -75,7 +75,8 @@ function Summary({ data, query }: { data: RoomHeatmap; query: RoomHeatQuery }) {
   return (
     <section aria-label={t("analytics.summary")} className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <p className="type-title-2 tnum" data-testid="heat-overall">{t("analytics.overall", { pct: pctLabel(tot.pct, locale) })}</p>
+        {/* E2EB-F21: the live board without a published run reads as such, not "%0" beside real block counts */}
+        <p className="type-title-2 tnum" data-testid="heat-overall">{data.source === "board" && data.runs.length === 0 ? t("analytics.overallNoRun") : t("analytics.overall", { pct: pctLabel(tot.pct, locale) })}</p>
         <p className="type-callout text-label-2 tnum">{t("analytics.overallDetail", { occupied: n(tot.occupied), free: n(tot.capacity - tot.blocked), rooms: n(data.overall.rooms), withBlocks: pctLabel(tot.pct_with_blocks, locale) })}</p>
         <span className="ml-auto"><CsvButton href={csvHref.rooms(query)} label={t("analytics.csv")} testId="heat-csv" /></span>
       </div>
