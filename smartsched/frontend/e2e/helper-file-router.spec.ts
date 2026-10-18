@@ -143,9 +143,12 @@ test.describe("helper file router: desktop 1440", () => {
       for (const f of list) d.items.add(new File([Uint8Array.from(atob(f.b64), (c) => c.charCodeAt(0))], f.name));
       return d;
     }, payload);
-    await page.dispatchEvent("main", "dragenter", { dataTransfer: dt });
-    await page.dispatchEvent("main", "dragover", { dataTransfer: dt });
-    await expect(page.getByTestId("page-file-target")).toContainText("Yardımcıya bırakın");
+    // the shell's drag listener is wired after hydration: drag again until the target answers
+    await expect(async () => {
+      await page.dispatchEvent("main", "dragenter", { dataTransfer: dt });
+      await page.dispatchEvent("main", "dragover", { dataTransfer: dt });
+      await expect(page.getByTestId("page-file-target")).toContainText("Yardımcıya bırakın", { timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
     await page.dispatchEvent("main", "drop", { dataTransfer: dt });
     await expect(page.getByTestId("page-file-target")).toHaveCount(0);
     await expect(page.getByTestId("helper-sheet")).toBeVisible();
@@ -271,8 +274,14 @@ test.describe("helper file router: phone 390 touch", () => {
     await expect(card.getByRole("button", { name: /içe aktar/i })).toHaveCount(0);
     await page.getByTestId("helper-file-input").first().setInputFiles(ICS);
     const ics = page.getByTestId(/helper-card-file-(needs_planner|detected)/).last();
-    await expect(ics.getByTestId("helper-file-primary")).toHaveText("Takvimime ekle");
-    await ics.getByTestId("helper-file-primary").tap();
-    await page.waitForURL(/\/profile\?calendar=1/);
+    await expect(ics).toBeVisible();
+    if (await ics.getByTestId("helper-file-warning-calendar_sync_off").count()) {
+      // UX-06: calendar sync is off on this stack (REC_CAL_SIGNOFF=0): no dead-end "Takvimime ekle", the reason instead
+      await expect(ics.getByTestId("helper-file-primary")).toHaveCount(0);
+    } else {
+      await expect(ics.getByTestId("helper-file-primary")).toHaveText("Takvimime ekle");
+      await ics.getByTestId("helper-file-primary").tap();
+      await page.waitForURL(/\/profile\?calendar=1/);
+    }
   });
 });

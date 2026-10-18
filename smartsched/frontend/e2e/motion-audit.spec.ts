@@ -359,7 +359,8 @@ test.describe("motion audit: helper file router (§9, HB-23d)", () => {
     await page.getByTestId("helper-file-input").first().setInputFiles(BOARD);
     const card = page.getByTestId("helper-card-file-detected");
     await card.waitFor({ timeout: 6000 });
-    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    // §9 reduced motion: a 100 ms opacity fade at most, no movement: the end state once that fade is over
+    await page.waitForTimeout(150);
     const { opacity, transform } = await card.evaluate((el) => {
       // the card's motion wrapper is the entry's first animated ancestor (or the card itself)
       let n: Element | null = el;
