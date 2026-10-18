@@ -4357,7 +4357,8 @@
       "ledger": "FIX-H: round-4 leftovers",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-18 16:17"
+      "finished_at": "2026-10-18 16:22",
+      "left_off": "The background job that just stopped was only a wait loop watching an earlier test run; it ran no tests itself. Nothing is lost: I re-ran those backend test files one at a time and all 30 tests passed. That result is already in the report I sent you, so there is nothing to re-run."
     },
     {
       "id": "a5db2f5a2bfea19de",

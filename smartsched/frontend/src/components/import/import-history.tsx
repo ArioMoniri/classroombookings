@@ -6,7 +6,7 @@
  * (`GET /imports/{id}/file`, planners only; a failed CLI job has no file).
  */
 import { ChevronDown, Download } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { importPreviewApi } from "@/lib/api/rf-admin";
@@ -36,6 +36,15 @@ export function actorText(job: ImportJob, t: ReturnType<typeof useI18n>["t"]): s
 export function ImportHistory({ jobs, onOpenPreview, limit = 8 }: { jobs: ImportJob[]; onOpenPreview?: (job: ImportJob) => void; limit?: number }) {
   const { t, locale } = useI18n();
   const [open, setOpen] = useState<number | null>(null);
+  // E2EA-F05: older jobs (the seed imports among them) stay reachable, one step of `limit` at a time
+  const [shown, setShown] = useState(limit);
+  const focusId = useRef<number | null>(null);
+  useEffect(() => {
+    if (focusId.current == null) return;
+    document.querySelector<HTMLElement>(`[data-testid="import-history-report-${focusId.current}"]`)?.focus();
+    focusId.current = null;
+  }, [shown]);
+  const rest = jobs.length - shown;
   const when = new Intl.DateTimeFormat(locale, { timeZone: "Europe/Istanbul", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   if (!jobs.length) return null;
   return (
@@ -47,7 +56,7 @@ export function ImportHistory({ jobs, onOpenPreview, limit = 8 }: { jobs: Import
       </CardHeader>
       <CardContent>
         <ul className="type-callout">
-          {jobs.slice(0, limit).map((j) => {
+          {jobs.slice(0, shown).map((j) => {
             const preview = Boolean(j.summary.dry_run);
             const failed = j.status === "FAILED";
             const running = j.status === "QUEUED" || j.status === "RUNNING";
@@ -89,6 +98,20 @@ export function ImportHistory({ jobs, onOpenPreview, limit = 8 }: { jobs: Import
             );
           })}
         </ul>
+        {rest > 0 ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 pointer-coarse:h-11"
+            onClick={() => {
+              focusId.current = jobs[shown]?.id ?? null;
+              setShown(shown + limit);
+            }}
+            data-testid="import-history-more"
+          >
+            {t("rf.history.more", { n: rest })}
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );
