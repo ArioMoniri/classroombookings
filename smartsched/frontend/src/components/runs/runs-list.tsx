@@ -26,11 +26,9 @@ export function partialCounts(r: ScheduleRun): { placed: number; total: number }
   return partial && placed > 0 && total > 0 ? { placed, total } : null;
 }
 
-/** An imported published board (grid import) rather than a solver run: it has no solver stats. The run
- * schema drops `params.source`, so this reads the stats the solver always writes (`solver`, `events`). */
-export function isImportBoard(r: ScheduleRun): boolean {
-  return r.stats.solver === undefined && r.stats.events === undefined && r.prompt_text === null && r.diagnosis.length === 0;
-}
+// moved to ./run-kinds (CH-08: the score-history model needs it without importing this component)
+import { isImportBoard } from "./run-kinds";
+export { isImportBoard };
 
 export function runStatusBadge(r: ScheduleRun, t: (k: MessageKey, p?: Vars) => string): { kind: StatusKind; label: string } {
   const partial = partialCounts(r);

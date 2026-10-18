@@ -60,9 +60,10 @@ def _known_share(text: str) -> float:
     return sum(1 for w in words if idx.knows(w)) / len(words)
 
 
-def check(text: str, perms: Iterable[str]) -> Verdict:
+def check(text: str, perms: Iterable[str], *, min_coverage: float = MIN_COVERAGE) -> Verdict:
     """The helper's pre-model verdict for typed text. ``perms`` only filters the hits shown; the scope decision is
-    the same for everyone (an academician asking about LDAP is in scope, they just get no admin page)."""
+    the same for everyone (an academician asking about LDAP is in scope, they just get no admin page).
+    ``min_coverage`` is the admin's off-scope strictness (``ai.helper.guard.scope``, HB-15)."""
     raw = text or ""
     held = frozenset(perms)
     hits = get_index().search(raw, held, limit=3)
@@ -77,7 +78,7 @@ def check(text: str, perms: Iterable[str]) -> Verdict:
         return Verdict(False, "prompt_injection_roleplay", tr, en, hits, "helper_role_handoff")
     if g.has_scheduling_signal(raw):
         return Verdict(True, hits=hits)
-    if _known_share(raw) >= MIN_COVERAGE:
+    if _known_share(raw) >= min_coverage:
         return Verdict(True, hits=hits)
     return Verdict(False, OUT_OF_SCOPE, REFUSAL_TR, REFUSAL_EN, hits, "index_vocabulary")
 

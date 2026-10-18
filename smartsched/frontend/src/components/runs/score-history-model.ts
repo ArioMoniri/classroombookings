@@ -5,7 +5,7 @@
 import type { ChartFormat } from "@/components/charts/chart-format";
 import type { Translate } from "@/components/charts/chart-summary";
 import type { ScheduleRun } from "@/lib/api/schemas";
-import { isImportBoard } from "./runs-list";
+import { isImportBoard } from "./run-kinds";
 
 /** fewer finished runs than this → no chart at all (the ticket: "else nothing") */
 export const MIN_RUNS = 3;
