@@ -140,9 +140,11 @@ async def test_recurring_partial_results_and_holidays(env):  # noqa: F811
     assert (await env.client.post(FIND, json=one, headers=ayse)).status_code == 200
     with _sql_statements() as every_thursday:
         out = (await env.client.post(FIND, json=body, headers=ayse)).json()
+    hol_row = next(x for x in out["closed_dates"] if x["date"] == "2026-04-23")
     assert {"date": "2026-04-23", "reason": "holiday"} == {
-        k: v for k, v in next(x for x in out["closed_dates"] if x["date"] == "2026-04-23").items() if k != "holiday"
+        k: v for k, v in hol_row.items() if k not in ("holiday", "label")
     }
+    assert hol_row["label"]["tr"] == "Tatil: Ulusal Egemenlik ve Çocuk Bayramı"  # BUG-01: every closed date says why
     a102 = next(x for x in out["results"] if x["code"] == "A102")
     assert a102["status"] == "partial" and a102["free_dates"] == a102["open_dates"] - 1
     per = {p["date"]: p["status"] for p in a102["per_date"]}
