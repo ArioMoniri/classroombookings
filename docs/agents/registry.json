@@ -3626,6 +3626,18 @@
       "status": "finished",
       "finished_at": "2026-10-18 10:01",
       "left_off": "raise idle window to 240 while testers run"
+    },
+    {
+      "id": "a5242da56118c953e",
+      "description": "Sweeper 2: unowned leftovers",
+      "subagent_type": "claude",
+      "isolation": null,
+      "started_at": "2026-10-18 10:03",
+      "scope": "",
+      "goal": "Ledger name `sweep2-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; `nice`, vitest `--maxWorkers=1 --testTimeout=30000`…",
+      "ledger": "Sweeper 2: unowned leftovers",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

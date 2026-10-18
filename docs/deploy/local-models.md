@@ -165,8 +165,8 @@ bul". The answer must be in Turkish, come with `nav` / `list` cards, and add one
   transfer record and basis like any cloud provider.
 - The model server is a processing system of the institution. Write it down in the processing inventory (VERBİS),
   including where it runs, who administers it, and that it keeps no prompts. vLLM and Ollama keep no conversation
-  history. Turn off any request logging that would store prompts (no `--enable-log-requests` on vLLM, no debug
-  logging on Ollama).
+  history. Do not turn on request logging on vLLM or debug logging on Ollama: both would write prompts to
+  the logs.
 - The same rules as for cloud routes apply: the redactor, the per-feature consent (`ai_personal` for the helper), the
   quotas (token quotas count; local cost is 0 unless an internal price is set) and the audit log.
 - Keep the GPU host patched and inside the institution network (section 4). The model weights' licences (Apache-2.0
@@ -179,5 +179,5 @@ bul". The answer must be in Turkish, come with `nav` / `list` cards, and add one
 | Helper always answers from the index ("Rehber modu") | no `helper` route, `mode: index` in /admin/ai › Yardımcı, or no consent | route the helper (section 5), check the Yardımcı tab, check Profil › Gizlilik |
 | `422 model_lacks_capability` when routing | sync / probe found no tool support | use a tool-capable model; for vLLM add `--enable-auto-tool-choice --tool-call-parser …` |
 | `context_too_small` | the server's context is smaller than the prompt | raise `--max-model-len` / `OLLAMA_CONTEXT_LENGTH` to ≥ 16384, then sync again |
-| `unsafe_base_url` / address refused | `allow_local` off, or the name resolves to a public address | turn on "Yerel sunucu"; use the internal address |
+| `unsafe_url` / address refused | `allow_local` off, or the name resolves to a public address | turn on "Yerel sunucu"; use the internal address |
 | Slow first answer | the model loads on the first request | Ollama: `OLLAMA_KEEP_ALIVE` (compose sets 30m); vLLM loads at start |
