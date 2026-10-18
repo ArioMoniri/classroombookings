@@ -4395,6 +4395,18 @@
       "ledger": "FIX-K: remaining e2e report findings",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a8abfddf65bf411de",
+      "description": "README + repo presentation redesign",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 16:19",
+      "scope": "",
+      "goal": "Lane README-X (ledger name `readme-x-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md; NO git commits (the orchestrator commits); never `pkill -f`; light resource use (no stacks, no builds). Do NOT add or enable any GitHub A…",
+      "ledger": "README + repo presentation redesign",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

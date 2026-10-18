@@ -16,3 +16,23 @@ describe("E2EB-F02 /runs/compare at 200 % text: the unbreakable verdict word wra
     expect(label.parentElement!.className).toContain("max-w-full");
   });
 });
+
+describe("e2e fixtures on a recording stack (FIX-J KVKK upload guard)", async () => {
+  const { resolveFixturesDir } = await import("../../e2e/fixtures-dir");
+  const raw = "/repo/smartsched/backend/tests/fixtures";
+  const none = () => false;
+  it("pod CI / a plain local run: the raw fixtures (the guard is off there)", () => {
+    expect(resolveFixturesDir({}, raw, none)).toBe(raw);
+  });
+  it("E2E_FIXTURES_DIR always wins", () => {
+    expect(resolveFixturesDir({ E2E_FIXTURES_DIR: "/w/fixtures", REC_WORKDIR: "/w" }, raw, none)).toBe("/w/fixtures");
+  });
+  it("a recording stack (REC_WORKDIR) uses its masked copies when `stack.sh fixtures` made them", () => {
+    expect(resolveFixturesDir({ REC_WORKDIR: "/w" }, raw, (p) => p === "/w/fixtures")).toBe("/w/fixtures");
+  });
+  it("a recording stack without masked copies fails with a clear message instead of using the raw workbooks", () => {
+    expect(() => resolveFixturesDir({ REC_WORKDIR: "/w" }, raw, none)).toThrow(/E2E_FIXTURES_DIR.*stack\.sh fixtures/s);
+    expect(() => resolveFixturesDir({ KVKK_UPLOAD_GUARD: "1" }, raw, none)).toThrow(/KVKK/);
+    expect(() => resolveFixturesDir({ E2E_RECORDING_STACK: "1" }, raw, none)).toThrow(/E2E_FIXTURES_DIR/);
+  });
+});
