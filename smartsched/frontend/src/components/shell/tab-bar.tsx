@@ -31,8 +31,10 @@ const TABS: Tab[] = [
 
 const PILL = "pointer-events-none absolute inset-0 -z-10 rounded-full bg-(--mat-thick) glass-edge";
 /** one equal column per tab; 48 px tall (≥ 44 px target) with the label always shown (review §3 "Mobile tab bar") */
-/** mobile-a fix 14: below 360 px the items lose their side padding (and the search circle moves to the top bar) */
-const ITEM = "relative isolate flex min-h-12 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-full px-1 max-[359px]:px-0";
+/** mobile-a fix 14: below 360 px the items lose their side padding (and the search circle moves to the top bar). The
+ * threshold is in rem (22.5rem = 360 px at the default text size), so at 125–200 % text a phone gets the same room.
+ * mobile-a fix 4: on a short landscape screen (≤ 500 px tall) an item is one 44 px row, label beside the icon. */
+const ITEM = "relative isolate flex min-h-12 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-full px-1 max-[22.5rem]:px-0 [@media(max-height:500px)]:min-h-11 [@media(max-height:500px)]:flex-row [@media(max-height:500px)]:gap-1.5";
 /** T-R2-04 (R2-A-01, R2-S-07): the label never runs into its neighbour: it truncates inside its column (safety net) */
 const LABEL = "type-caption whitespace-nowrap min-w-0 max-w-full truncate";
 /**
@@ -120,16 +122,16 @@ export function TabBar() {
   // too, the two bars took about 200 px of a phone. The top bar carries the menu (drawer) and search there.
   if (hasOwnBottomBar(pathname)) return null;
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex items-end justify-center gap-2 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] lg:hidden">
+    <div data-slot="tab-bar" className="pointer-events-none fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] [@media(max-height:500px)]:bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-40 flex items-end justify-center gap-2 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] lg:hidden">
       <LayoutGroup id="tab-bar">
-        <nav aria-label={t("glass.shell.tabs")} data-glass="chrome" className="glass-chrome pointer-events-auto min-w-0 flex-1 rounded-full p-1 sm:max-w-md sm:flex-none">
+        <nav aria-label={t("glass.shell.tabs")} data-glass="chrome" className="glass-chrome pointer-events-auto min-w-0 flex-1 rounded-full p-1 sm:max-w-md sm:flex-none [@media(max-height:500px)]:p-0 [@media(max-height:500px)]:sm:max-w-xl">
           <ul className="grid grid-flow-col auto-cols-[minmax(0,1fr)] items-center gap-0.5">
             {tabs.map((tab) => item(tab.href, t(tab.labelKey), <tab.icon />, tab.href === activeHref, { href: tab.href, count: tab.badge ? badges[tab.badge] : undefined, testId: `tab-${navTestId(tab.href)}` }))}
             {item("more", t("glass.shell.more"), <MoreHorizontal />, moreActive, { onClick: () => setDrawerOpen(true), testId: "open-drawer" })}
           </ul>
         </nav>
       </LayoutGroup>
-      <IconButton label={t("nav.search")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className="glass-chrome pointer-events-auto size-12 shrink-0 rounded-full text-label-1 hover:bg-transparent max-[359px]:hidden [&_svg]:size-5" data-testid="open-palette-mobile">
+      <IconButton label={t("nav.search")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className="glass-chrome pointer-events-auto size-12 shrink-0 rounded-full text-label-1 hover:bg-transparent max-[22.5rem]:hidden [@media(max-height:500px)]:size-11 [&_svg]:size-5" data-testid="open-palette-mobile">
         <Search aria-hidden />
       </IconButton>
     </div>
