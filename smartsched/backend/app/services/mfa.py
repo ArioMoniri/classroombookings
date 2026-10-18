@@ -60,6 +60,9 @@ LOCK_AFTER = 5
 LOCK_BASE = timedelta(minutes=15)
 LOCK_MAX = timedelta(hours=24)
 TRUST_DAYS = 30
+TRUST_CHOICES = (0, 7, 30)
+#: a bearer token issued this recently counts as a fresh sign-in: sensitive changes need no password again
+REAUTH_WINDOW = timedelta(minutes=10)
 MAX_PASSKEYS = 10
 IDENTITY_CHECKS = ("in_person", "video_call", "phone_callback", "other")
 #: recovery codes: argon2id at OWASP's minimum (m = 19 MiB, t = 2, p = 1); 80-bit codes, single use, 10 per person
@@ -127,6 +130,8 @@ class Policy:
     mfa_grace_days: int = 14
     passkeys_enabled: bool = True
     passkey_first_factor: bool = False
+    #: "Bu cihazı hatırla": 0 (off), 7 or 30 days
+    trusted_device_days: int = TRUST_DAYS
 
     def out(self) -> dict[str, Any]:
         return asdict(self)
@@ -138,6 +143,7 @@ _POLICY_KEYS = {
     "mfa_grace_days": "auth.mfa_grace_days",
     "passkeys_enabled": "auth.passkeys_enabled",
     "passkey_first_factor": "auth.passkey_first_factor",
+    "trusted_device_days": "auth.trusted_device_days",
 }
 
 
@@ -156,6 +162,9 @@ async def get_policy(db: AsyncSession) -> Policy:
                 p.mfa_roles = [str(r) for r in roles if r in ROLE_CODES]
         if rows.get("auth.mfa_grace_days") is not None:
             p.mfa_grace_days = max(0, min(90, int(str(rows["auth.mfa_grace_days"]))))
+        if rows.get("auth.trusted_device_days") is not None:
+            days = int(str(rows["auth.trusted_device_days"]))
+            p.trusted_device_days = days if days in TRUST_CHOICES else TRUST_DAYS
         for k in ("passkeys_enabled", "passkey_first_factor"):
             raw = rows.get(f"auth.{k}")
             if raw is not None:
@@ -181,8 +190,37 @@ async def set_policy(db: AsyncSession, actor: User, body: dict[str, Any]) -> Pol
             row.value = raw
     await db.flush()
     if after.out() != before.out():
-        await audit.record(db, "auth.mfa_policy", "setting", "auth", before=before.out(), after=after.out(), actor=actor)
+        await audit.record(
+            db, "auth.mfa_policy", "setting", "auth", before=before.out(), after=after.out(), actor=actor
+        )
+        newly = after.mfa_policy == "required_for_roles" and (
+            before.mfa_policy != "required_for_roles" or set(after.mfa_roles) - set(before.mfa_roles)
+        )
+        if newly:
+            await _announce_required(
+                db, after, set() if before.mfa_policy != "required_for_roles" else set(before.mfa_roles)
+            )
     return after
+
+
+async def _announce_required(db: AsyncSession, policy: Policy, already: set[str]) -> int:
+    """``mfa_required`` to every active local / LDAP person the policy now covers who has no second factor yet."""
+    sent = 0
+    async with rls.system_scope(db):
+        people = list(
+            (await db.execute(select(User).where(User.is_active.is_(True), User.email.is_not(None)))).scalars()
+        )
+        for u in people:
+            code = await _role_code(db, u)
+            if code not in policy.mfa_roles and u.role not in policy.mfa_roles:
+                continue
+            if code in already or u.role in already:
+                continue
+            if await account_type(db, u) == "sso" or await methods(db, u, policy):
+                continue
+            await _mail(db, u, "mfa_required", grace_days=policy.mfa_grace_days)
+            sent += 1
+    return sent
 
 
 # --------------------------------------------------------------------------------------------------
@@ -211,10 +249,12 @@ async def _refuse_sso(db: AsyncSession, user: User) -> None:
         raise _sso()
 
 
-async def reauth(db: AsyncSession, user: User, password: str | None) -> bool:
-    """Re-authentication for a sensitive change: the local password, or the directory for an LDAP account."""
+async def reauth(db: AsyncSession, user: User, password: str | None, *, recent: bool = False) -> bool:
+    """Re-authentication for a sensitive change: the local password, or the directory for an LDAP account. Without a
+    password, a session younger than :data:`REAUTH_WINDOW` (``recent``) counts; a password that is given must be
+    right."""
     if not password:
-        return False
+        return recent
     if user.auth_source == "ldap":
         from app.services import bookings_ldap
 
@@ -323,7 +363,9 @@ async def resolve(db: AsyncSession, token: str | None, *purposes: str) -> AuthCh
         raise _expired() from exc
     if claims.get("typ") != "ss-challenge" or claims.get("p") not in purposes:
         raise _expired()
-    row = (await db.execute(select(AuthChallenge).where(AuthChallenge.jti == str(claims.get("j"))))).scalar_one_or_none()
+    row = (
+        await db.execute(select(AuthChallenge).where(AuthChallenge.jti == str(claims.get("j"))))
+    ).scalar_one_or_none()
     if row is None or row.purpose not in purposes or row.used_at is not None or row.expires_at <= clock():
         raise _expired()
     if row.attempts >= MAX_TRIES:
@@ -461,8 +503,8 @@ class Gate:
     extra: dict[str, Any] = field(default_factory=dict)
 
 
-async def _trusted(db: AsyncSession, user: User, token: str | None) -> bool:
-    if not token or len(token) > 200:
+async def _trusted(db: AsyncSession, user: User, token: str | None, policy: Policy) -> bool:
+    if not token or len(token) > 200 or not policy.trusted_device_days:
         return False
     h = hashlib.sha256(token.encode("utf-8")).hexdigest()
     row = (await db.execute(select(TrustedDevice).where(TrustedDevice.token_hash == h))).scalar_one_or_none()
@@ -477,16 +519,14 @@ async def _rp_ok(db: AsyncSession) -> bool:
     return await passkeys.relying_party(db) is not None
 
 
-async def after_password(
-    db: AsyncSession, user: User, auth_method: str, trusted_token: str | None = None
-) -> Gate:
+async def after_password(db: AsyncSession, user: User, auth_method: str, trusted_token: str | None = None) -> Gate:
     """Called by ``POST /auth/login`` once the password (local or LDAP) is right and the account may sign in."""
     policy = await get_policy(db)
     if policy.mfa_policy == "off" or await account_type(db, user) == "sso":
         return Gate("pass")
     have = await methods(db, user, policy)
     if have:
-        if await _trusted(db, user, trusted_token):
+        if await _trusted(db, user, trusted_token, policy):
             await audit.record(db, "auth.trusted_device_used", "user", user.id, actor=user)
             return Gate("pass")
         token, ch = await issue_challenge(db, user.id, "mfa", data={"auth_method": auth_method})
@@ -526,6 +566,9 @@ async def after_password(
 async def _trust_device(db: AsyncSession, user: User) -> dict[str, Any]:
     from app.services import mail_senders
 
+    days = (await get_policy(db)).trusted_device_days
+    if not days:
+        return {"trusted_device_token": None, "trusted_device_days": 0}
     token = secrets.token_urlsafe(32)
     now = clock()
     label = mail_senders.device_label(db.info.get(mail_senders.UA_KEY), "tr")[:120]
@@ -534,12 +577,12 @@ async def _trust_device(db: AsyncSession, user: User) -> dict[str, Any]:
         token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest(),
         label=label,
         created_at=now,
-        expires_at=now + timedelta(days=TRUST_DAYS),
+        expires_at=now + timedelta(days=days),
     )
     db.add(row)
     await db.flush()
     await audit.record(db, "auth.trusted_device_added", "user", user.id, after={"label": label}, actor=user)
-    return {"trusted_device_token": token, "trusted_device_days": TRUST_DAYS}
+    return {"trusted_device_token": token, "trusted_device_days": days}
 
 
 async def verify_code(
@@ -632,21 +675,20 @@ async def _use_recovery(db: AsyncSession, user: User, typed: str | None) -> int 
     return len(rows) - 1
 
 
-async def regenerate_recovery(db: AsyncSession, user: User, password: str | None) -> list[str]:
+async def regenerate_recovery(db: AsyncSession, user: User, password: str | None, *, recent: bool = False) -> list[str]:
     await _refuse_sso(db, user)
-    if not await reauth(db, user, password):
+    if not await reauth(db, user, password, recent=recent):
         raise reauth_failed()
     if not await methods(db, user):
         raise _not_enabled()
     codes = await _issue_recovery(db, user.id)
     await audit.record(db, "auth.mfa_recovery_regenerated", "user", user.id, after={"count": len(codes)}, actor=user)
+    await _mail(db, user, "recovery_codes_regenerated")
     return codes
 
 
 def _not_enabled() -> MfaError:
-    return MfaError(
-        409, "not_enabled", "İki adımlı doğrulama açık değil.", "Two-step verification is not turned on."
-    )
+    return MfaError(409, "not_enabled", "İki adımlı doğrulama açık değil.", "Two-step verification is not turned on.")
 
 
 # --------------------------------------------------------------------------------------------------
@@ -697,7 +739,12 @@ async def totp_start(db: AsyncSession, user: User) -> dict[str, Any]:
 async def totp_confirm(db: AsyncSession, user: User, code: str) -> list[str]:
     """Finish enrolment with a code from the app: TOTP on, ten new recovery codes (returned once)."""
     row = await _row(db, user.id)
-    if row is None or not row.totp_pending_enc or not row.totp_pending_at or row.totp_pending_at + PENDING_TTL < clock():
+    if (
+        row is None
+        or not row.totp_pending_enc
+        or not row.totp_pending_at
+        or row.totp_pending_at + PENDING_TTL < clock()
+    ):
         raise MfaError(
             409,
             "enrolment_expired",
@@ -716,11 +763,13 @@ async def totp_confirm(db: AsyncSession, user: User, code: str) -> list[str]:
     return codes
 
 
-async def disable(db: AsyncSession, user: User, password: str | None, code: str | None) -> dict[str, Any]:
+async def disable(
+    db: AsyncSession, user: User, password: str | None, code: str | None, *, recent: bool = False
+) -> dict[str, Any]:
     """Turn the authenticator app off (password + a current code or a recovery code). Recovery codes and trusted
     devices go with it; passkeys stay (removed one by one)."""
     await _refuse_sso(db, user)
-    if not await reauth(db, user, password):
+    if not await reauth(db, user, password, recent=recent):
         raise reauth_failed()
     if await required_for(db, user):
         raise MfaError(
@@ -903,11 +952,11 @@ async def rename_passkey(db: AsyncSession, user: User, pid: int, name: str) -> d
     return passkey_out(c)
 
 
-async def remove_passkey(db: AsyncSession, user: User, pid: int, password: str | None) -> None:
+async def remove_passkey(db: AsyncSession, user: User, pid: int, password: str | None, *, recent: bool = False) -> None:
     c = await db.get(WebAuthnCredential, pid)
     if c is None or c.user_id != user.id:
         raise MfaError(404, "not_found", "Geçiş anahtarı bulunamadı.", "Passkey not found.")
-    if not await reauth(db, user, password):
+    if not await reauth(db, user, password, recent=recent):
         raise reauth_failed()
     row = await _row(db, user.id)
     others = len(await _passkeys(db, user.id)) - 1
@@ -920,6 +969,7 @@ async def remove_passkey(db: AsyncSession, user: User, pid: int, password: str |
         )
     await db.delete(c)
     await audit.record(db, "auth.passkey_removed", "user", user.id, after={"name": c.name}, actor=user)
+    await _mail(db, user, "passkey_removed", device=c.name)
 
 
 async def _assert(
@@ -934,7 +984,9 @@ async def _assert(
     rp = await _rp(db, origin)
     cid = passkeys.credential_id_of(credential)
     cred = (
-        (await db.execute(select(WebAuthnCredential).where(WebAuthnCredential.credential_id == cid))).scalar_one_or_none()
+        (
+            await db.execute(select(WebAuthnCredential).where(WebAuthnCredential.credential_id == cid))
+        ).scalar_one_or_none()
         if cid
         else None
     )
@@ -952,9 +1004,7 @@ async def _assert(
         )
     except passkeys.CeremonyError as exc:
         if exc.counter:
-            await audit.record(
-                db, "auth.passkey_counter_error", "user", user.id, after={"name": cred.name}, actor=user
-            )
+            await audit.record(db, "auth.passkey_counter_error", "user", user.id, after={"name": cred.name}, actor=user)
         await _fail(db, user, ch, "passkey")
         raise _passkey_invalid(401) from exc
     cred.sign_count, cred.last_used_at = count, clock()
@@ -1013,7 +1063,9 @@ async def first_factor_verify(
     ch = await resolve(db, token, "passkey")
     cid = passkeys.credential_id_of(credential)
     cred = (
-        (await db.execute(select(WebAuthnCredential).where(WebAuthnCredential.credential_id == cid))).scalar_one_or_none()
+        (
+            await db.execute(select(WebAuthnCredential).where(WebAuthnCredential.credential_id == cid))
+        ).scalar_one_or_none()
         if cid
         else None
     )
@@ -1022,7 +1074,11 @@ async def first_factor_verify(
         ch.attempts = int(ch.attempts or 0) + 1
         if user is not None and not user.is_active:
             await audit.record(
-                db, "auth.login_refused", "user", user.id, after={"reason": "account disabled", "auth_method": "passkey"}
+                db,
+                "auth.login_refused",
+                "user",
+                user.id,
+                after={"reason": "account disabled", "auth_method": "passkey"},
             )
         raise _passkey_invalid(401)
     await _check_lock(db, user.id)
@@ -1221,9 +1277,7 @@ async def send_reset_link(db: AsyncSession, actor: User, target: User, reason: s
     if not target.is_active:
         raise MfaError(409, "account_disabled", "Hesap devre dışı.", "The account is disabled.")
     if not target.email:
-        raise MfaError(
-            409, "no_email", "Bu kişinin e-posta adresi yok.", "This person has no e-mail address."
-        )
+        raise MfaError(409, "no_email", "Bu kişinin e-posta adresi yok.", "This person has no e-mail address.")
     if not await smtp_configured(db):
         raise MfaError(
             409,
@@ -1275,6 +1329,100 @@ async def send_reset_link(db: AsyncSession, actor: User, target: User, reason: s
 
 
 # --------------------------------------------------------------------------------------------------
+# hooks for the login page and the password routes
+# --------------------------------------------------------------------------------------------------
+
+
+async def public_flags(db: AsyncSession) -> dict[str, Any]:
+    """For ``GET /org/public`` (the login page decides before first paint): no account is named."""
+    policy = await get_policy(db)
+    on = policy.mfa_policy != "off" and policy.passkeys_enabled and await _rp_ok(db)
+    return {
+        "enabled": on,
+        "sign_in": on and policy.passkey_first_factor,
+        "trusted_device_days": policy.trusted_device_days if policy.mfa_policy != "off" else 0,
+    }
+
+
+async def on_password_changed(db: AsyncSession, user: User) -> int:
+    """A password change or reset ends every remembered device of the person (auth UX spec §17)."""
+    async with rls.system_scope(db):
+        n = await _revoke_devices(db, user.id)
+    if n:
+        await audit.record(
+            db, "auth.trusted_device_revoked", "user", user.id, after={"password_change": True, "count": n}
+        )
+    return n
+
+
+async def session_after_password(db: AsyncSession, user: User) -> dict[str, Any]:
+    """After a reset link or a local invite set the password: the same gate as the password step (``mfa_required`` /
+    ``mfa_setup_required`` with a challenge token, else a session)."""
+    gate = await after_password(db, user, "local")
+    if gate.kind != "pass":
+        return {"access_token": None, "expires_in": 0, **gate.extra}
+    return {**await finish_sign_in(db, user, "local"), **gate.extra}
+
+
+HISTORY_ACTIONS = (
+    "auth.login",
+    "auth.login_refused",
+    "auth.mfa_verified",
+    "auth.mfa_failed",
+    "auth.mfa_locked",
+    "auth.mfa_enabled",
+    "auth.mfa_disabled",
+    "auth.mfa_reset_by_admin",
+    "auth.mfa_recovery_used",
+    "auth.mfa_recovery_regenerated",
+    "auth.passkey_added",
+    "auth.passkey_removed",
+    "auth.trusted_device_used",
+    "auth.trusted_device_added",
+    "auth.trusted_device_revoked",
+    "auth.reset_link_by_admin",
+    "user.reset_code",
+)
+
+
+async def sign_in_history(db: AsyncSession, user: User, limit: int = 50) -> dict[str, Any]:
+    """The person's own security events (newest first; no address, the method and the device family only) and the
+    devices that signed in (RF-11 known devices). Sessions are stateless tokens: "sign out everywhere" is
+    ``POST /auth/logout``."""
+    from app.models import AuditEvent
+    from app.services import mail_senders
+    from app.services.bookings_settings import get_user_value
+
+    q = (
+        select(AuditEvent)
+        .where(
+            AuditEvent.entity_type == "user",
+            AuditEvent.entity_id == str(user.id),
+            AuditEvent.action.in_(HISTORY_ACTIONS),
+        )
+        .order_by(AuditEvent.id.desc())
+        .limit(max(1, min(200, limit)))
+    )
+    events = []
+    for e in (await db.execute(q)).scalars():
+        after = e.after or {}
+        events.append(
+            {
+                "at": e.ts,
+                "action": e.action,
+                "method": after.get("method") or after.get("auth_method"),
+                "by_admin": e.actor_id is not None and e.actor_id != user.id,
+            }
+        )
+    raw = await get_user_value(db, user.id, mail_senders.DEVICES_KEY)
+    try:
+        devices = [{"seen": d.get("seen")} for d in (json.loads(raw) if raw else []) if isinstance(d, dict)]
+    except ValueError:
+        devices = []
+    return {"events": events, "known_devices": len(devices), "last_login_at": user.last_login_at}
+
+
+# --------------------------------------------------------------------------------------------------
 # KVKK
 # --------------------------------------------------------------------------------------------------
 
@@ -1287,7 +1435,10 @@ async def dsr_rows(db: AsyncSession, user_id: int) -> dict[str, Any]:
         keys = await _passkeys(db, user_id)
         devices = list((await db.execute(select(TrustedDevice).where(TrustedDevice.user_id == user_id))).scalars())
     return {
-        "authenticator_app": {"enabled": bool(row and row.totp_secret_enc), "enabled_at": row.totp_enabled_at if row else None},
+        "authenticator_app": {
+            "enabled": bool(row and row.totp_secret_enc),
+            "enabled_at": row.totp_enabled_at if row else None,
+        },
         "recovery_codes": {"remaining": left, "total": total},
         "passkeys": [{"name": k.name, "created_at": k.created_at, "last_used_at": k.last_used_at} for k in keys],
         "trusted_devices": [

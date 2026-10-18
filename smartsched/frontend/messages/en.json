@@ -6953,6 +6953,8 @@
     }
   },
   "charts": {
+    "kb": {"label": "Chart, use the arrow keys to move", "total": "total {value}"},
+    "patterns": {"label": "Patterns in charts", "hint": "Adds hatched patterns to chart colours. Turn it on if the colours are hard to tell apart."},
     "menu": "Chart options",
     "downloadImage": "Download image",
     "print": "Print",

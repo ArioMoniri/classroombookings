@@ -383,6 +383,38 @@ KINDS: dict[str, KindSpec] = {
             owner="AU-B",
         ),
         _K(
+            "passkey_removed",
+            "Geçiş anahtarı kaldırıldı",
+            "Passkey removed",
+            "Hesabın sahibi",
+            "The account owner",
+            tone="warning",
+            placeholders=("name", "org", "device", "when"),
+            path="/profile#security",
+            owner="AU-B",
+        ),
+        _K(
+            "recovery_codes_regenerated",
+            "Kurtarma kodları yenilendi",
+            "Recovery codes renewed",
+            "Hesabın sahibi",
+            "The account owner",
+            placeholders=("name", "org", "when"),
+            path="/profile#security",
+            owner="AU-B",
+        ),
+        _K(
+            "mfa_required",
+            "İki adımlı doğrulama zorunlu oldu",
+            "Two-step verification now required",
+            "Zorunlu rollerdeki kişiler",
+            "People in the required roles",
+            tone="warning",
+            placeholders=("name", "org", "grace_days"),
+            path="/profile#security",
+            owner="AU-B",
+        ),
+        _K(
             "smtp_test",
             "Deneme iletisi",
             "Test message",
@@ -440,6 +472,9 @@ _DESIGN: dict[str, dict[str, object]] = {
     "passkey_added": {"footer": "security"},
     "mfa_recovery_code_used": {"footer": "security"},
     "password_reset_link_by_admin": {"footer": "security", "fallback_url": True},
+    "passkey_removed": {"footer": "security"},
+    "recovery_codes_regenerated": {"footer": "security"},
+    "mfa_required": {"footer": "security"},
 }
 for _kind, _upd in _DESIGN.items():
     KINDS[_kind] = replace(KINDS[_kind], **_upd)  # type: ignore[arg-type]

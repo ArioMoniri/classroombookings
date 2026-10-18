@@ -254,6 +254,13 @@ export function speechProviders(providers: readonly Provider[], kind: SpeechKind
   return providers.filter((p) => providerCan(p, kind)).map((p) => ({ ...p, models: p.models.filter((m) => isSpeechModel(m, kind)) }));
 }
 
+/** The providers a text route may use, each without its speech-only models (VO-B: text rows offer text models). */
+export function textProviders(providers: readonly Provider[]): Provider[] {
+  return providers
+    .filter((p) => !p.capabilities?.length || p.capabilities.includes("text"))
+    .map((p) => ({ ...p, models: (p.models ?? []).filter((m) => !m.modalities?.length || m.modalities.includes("text")) }));
+}
+
 /** The first speech-capable synced model of a provider (what its voice test transcribes with). */
 export function firstSpeechModel(p: Provider, kind: SpeechKind = "stt"): string | null {
   if (!providerCan(p, kind)) return null;

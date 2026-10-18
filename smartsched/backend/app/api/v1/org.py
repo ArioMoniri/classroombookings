@@ -60,6 +60,7 @@ from app.services.bookings_settings import (
     set_user_value,
     smtp_configured,
 )
+from app.services import mfa as _mfa
 from app.services.bookings_users import consume_reset_token, find_login_user, issue_reset_token
 
 router = APIRouter(prefix="/org", tags=["org"])
@@ -92,6 +93,8 @@ async def public_info(db: DB) -> dict[str, Any]:
         "default_language": bookings_i18n.display_language(org["default_language"]),
         "languages": bookings_i18n.effective_languages(org["languages"]),
         "auth": await sso.public_auth(db),  # sign-in methods for the login page (sign-in.md §14)
+        # AU-B: passkey buttons and "Bu cihazı hatırla" decided before first paint (app/services/mfa.py)
+        "passkeys": await _mfa.public_flags(db),
     }
 
 
@@ -613,6 +616,7 @@ async def change_password(body: ChangePasswordIn, db: DB, user: CurrentUser) -> 
     user.password_hash = hash_password(body.new_password)
     user.force_password_reset = False
     revoke_tokens(user)  # B-AUTH-11: every session, this one included, signs in again with the new password
+    await _mfa.on_password_changed(db, user)  # AU-B: remembered devices end with the old password
     await db.commit()
     return {"ok": True, "signed_out": True}
 
@@ -669,5 +673,9 @@ async def reset_confirm(body: ResetConfirmIn, db: DB) -> dict[str, Any]:
     user = await consume_reset_token(db, token, body.password)
     if user is None:
         raise HTTPException(400, _INVALID_CODE)
+    # AU-B: remembered devices end with the old password; the answer signs the person in through the same gate as
+    # the password step (a second factor is still asked when it is on: ASVS 6.4.3)
+    await _mfa.on_password_changed(db, user)
+    session = await _mfa.session_after_password(db, user)
     await db.commit()
-    return {"ok": True, "user_id": user.id}
+    return {"ok": True, "user_id": user.id, "session": session}

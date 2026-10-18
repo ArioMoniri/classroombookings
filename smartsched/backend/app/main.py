@@ -130,6 +130,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         reminders.start()  # RF-11: booking reminders before the start (bookings.reminder_lead_hours)
         learning.start_purge_job()  # P19-L4: daily purge of memory resets past their 30-day undo window
+        from app.services import learning_versions
+
+        learning_versions.start_nightly_job()  # AS-13: nightly learning refresh of the active term, 03:15 Istanbul
         from app.services import kvkk
 
         kvkk.start_purge_job()  # A4: daily KVKK retention (enabled policies only; every policy ships disabled)
@@ -140,6 +143,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     await reminder_jobs.stop()
     await learning.stop_purge_job()
+    from app.services import learning_versions as learning_nightly
+
+    await learning_nightly.stop_nightly_job()
     from app.services import kvkk as kvkk_jobs
 
     await kvkk_jobs.stop_purge_job()

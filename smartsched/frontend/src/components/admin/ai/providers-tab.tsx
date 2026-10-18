@@ -216,7 +216,7 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
             </div>
           ) : null}
           {caps.includes("stt") && transfer.processes_voice === "true" ? (
-            <Field label={t("voice.admin.audioRetention")} htmlFor={`${ids.base}-tr-audio`}>
+            <Field label={t("voice.admin.audioRetention")} htmlFor={`${ids.base}-tr-audio`} hint={(locale === "tr" ? p.retention_tr : p.retention_en) ?? undefined}>
               <Input id={`${ids.base}-tr-audio`} value={transfer.audio_retention ?? ""} disabled={!canEdit} onChange={(e) => setTransfer((x) => ({ ...x, audio_retention: e.target.value }))} />
             </Field>
           ) : null}
@@ -280,7 +280,7 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
               {t("aiAdmin.provider.test")}
             </BusyLabel>
           </Button>
-          {sttModel ? (
+          {sttModel && caps.includes("text") ? (
             <Button
               variant="outline"
               {...busyProps(voiceTest.isPending, !p.has_credentials)}

@@ -34,7 +34,6 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | RF-1 | `rf-1-2026-10-18` | Enrolment edit, invite e-mail switch, admin catalogue screens (instructors, courses, faculties, sections) | docs/testing/audits/2026-10-17-no-mock-and-editability.md | 19800/19801 | — |
 | RF-2 | `rf-2-2026-10-18` | Senders for reminder, series, approval receipt, calendar consent, new-device e-mails | same | — | — |
 | AU-B | `au-b-2026-10-18` | TOTP, recovery codes, passkeys (WebAuthn), trusted devices, MFA policy, admin MFA reset + reset link (local accounts only) | docs/research/2026-10-18-auth-backend.md, ROADMAP "— backend" | — | — |
-| Deploy one-click | `deploy-1click-2026-10-18` | Both branches one-click deployable; every setting reachable from the CLI or the first admin's setup | this file, docs/deploy | — | — |
 
 ## Queued (start when the named lane hands off)
 
@@ -54,6 +53,7 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | RF-12 (SAML metadata signature) | — | SAML library done |
 | Round-4 persona testers (staff, academician, admin) | the fix lanes above | re-seed: old snapshots lack migrations ≥ 0037 |
 | KVKK inventory counts under rls.system_scope (+ welcome_progress in the processing inventory) | — | small backend fix, unowned |
+| Last backup time on /admin/ops; aws-bootstrap.yml maps AI_API_KEY/SMTP_PASSWORD secrets + POD_ACTION keys to `up` flags | — | small, unowned |
 | Auth frontend AUX | auth UX + AU-B | |
 | README/docs media pass, final merges into gracious + universal | launch video + round 4 | merge rules below |
 

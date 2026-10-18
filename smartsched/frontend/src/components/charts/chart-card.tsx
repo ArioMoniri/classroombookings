@@ -6,7 +6,7 @@
 // plot is a render prop, usually a `Lazy*Chart` from ./chart-lazy, so ECharts loads only when a plot shows.
 // Original work.
 import { AlertTriangle, Ellipsis } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { cn } from "cn";
 import { Button, IconButton } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -19,6 +19,7 @@ import { useChartFormat, type ChartFormat } from "./chart-format";
 import type { ChartApi, ChartFormCommon } from "./chart-form-types";
 import { useChartRenderer } from "./chart-renderer";
 import { ChartSkeleton } from "./chart-skeleton";
+import { bucketSentence, useChartKeyboard } from "./chart-keyboard";
 import { ChartTable } from "./chart-table";
 import { engineOptions, type LegendItem } from "./chart-tokens";
 import { PeriodPicker, type PeriodOption } from "./period-picker";
@@ -44,6 +45,8 @@ export interface ChartCardProps<R> {
   /** drives the table twin and the CSV; the first column is the bucket */
   columns: readonly ChartColumn<R>[];
   rows: readonly R[];
+  /** the measure, for the keyboard read-out ("token"); optional */
+  unit?: string;
   /** number of series (marks = rows × series decides SVG vs canvas); default: the number columns */
   series?: number;
   legend?: readonly LegendItem[];
@@ -107,7 +110,7 @@ function useInView(rootMargin = "200px") {
 }
 
 export function ChartCard<R>(props: ChartCardProps<R>) {
-  const { id, title, summary, state, columns, rows, legend, period, partial, stale, updatedAt, error, onRetry, focusRetry, empty, range, minPoints = 3, userId, headingLevel = 3, className, children } = props;
+  const { id, title, summary, state, columns, rows, unit, legend, period, partial, stale, updatedAt, error, onRetry, focusRetry, empty, range, minPoints = 3, userId, headingLevel = 3, className, children } = props;
   const { t } = useI18n();
   const f = useChartFormat();
   const reduce = useReduce();
@@ -151,6 +154,13 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
   }, [state, focusRetry]);
 
   const { setEl: plotRef, inView } = useInView();
+
+  const partialText = partial ? t("charts.partialRow") : undefined;
+  const describeBucket = useCallback(
+    (i: number) => (rows[i] ? bucketSentence({ row: rows[i], columns, f, t, unit, partial: partialText && i === rows.length - 1 ? partialText : undefined }) : ""),
+    [rows, columns, f, t, unit, partialText],
+  );
+  const kb = useChartKeyboard({ count: rows.length, api, describe: describeBucket, announce: setLive });
 
   const ready = state === "ready" && rows.length > 0;
   const tooFew = ready && rows.length < minPoints;
@@ -299,8 +309,19 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
             </div>
           ) : null}
           {showPlot ? (
-            <div ref={plotRef} aria-hidden="true" className="ch-plot min-w-0" data-reveal={reveal ? "true" : "false"} data-renderer={renderer}>
-              {inView ? children(ctx) : <ChartSkeleton height={height} />}
+            <div
+              ref={plotRef}
+              role="group"
+              tabIndex={0}
+              aria-label={t("charts.kb.label")}
+              onKeyDown={kb.onKeyDown}
+              onBlur={kb.onBlur}
+              className="ch-plot min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
+              data-reveal={reveal ? "true" : "false"}
+              data-renderer={renderer}
+              data-testid={`chart-plot-${id}`}
+            >
+              <div aria-hidden="true">{inView ? children(ctx) : <ChartSkeleton height={height} />}</div>
             </div>
           ) : null}
         </div>
@@ -309,7 +330,7 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
       {ready ? <ChartTable id={id} caption={caption} model={model} visible={tableMode || tooFew} /> : null}
 
       {ready ? (
-        <div className="flex flex-wrap items-center gap-2 max-md:[&>[data-slot=button]]:flex-1">
+        <div data-chart-footer className="flex flex-wrap items-center gap-2 max-md:[&>[data-slot=button]]:flex-1">
           {!tooFew ? (
             <Button variant="secondary" size="md" onClick={() => setTableMode((v) => !v)}>
               {tableMode ? t("charts.showChart") : t("charts.showTable")}

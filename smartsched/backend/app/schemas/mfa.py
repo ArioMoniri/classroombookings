@@ -51,10 +51,13 @@ class RenameIn(BaseModel):
 
 class PolicyIn(BaseModel):
     mfa_policy: Literal["off", "optional", "required_for_roles"] | None = None
-    mfa_roles: list[Literal["ADMIN", "PLANNER", "TEACHER", "VIEWER", "CUSTOM"]] | None = Field(default=None, max_length=5)
+    mfa_roles: list[Literal["ADMIN", "PLANNER", "TEACHER", "VIEWER", "CUSTOM"]] | None = Field(
+        default=None, max_length=5
+    )
     mfa_grace_days: int | None = Field(default=None, ge=0, le=90)
     passkeys_enabled: bool | None = None
     passkey_first_factor: bool | None = None
+    trusted_device_days: Literal[0, 7, 30] | None = None
 
 
 class AdminResetIn(BaseModel):

@@ -378,7 +378,7 @@ async def test_disable_refused_while_the_policy_requires_it(setup) -> None:  # t
 
 async def test_sso_only_account_is_not_offered_local_2fa(setup) -> None:  # type: ignore[no-untyped-def]
     c, admin, uid, headers = setup
-    await set_user(uid, auth_source="oidc")
+    await set_user(uid, auth_source="oidc", password_hash=None)
     status = (await c.get(f"{API}/auth/mfa", headers=headers)).json()
     assert status["available"] is False and status["reason"] == "sso_account"
     r = await c.post(f"{API}/auth/mfa/totp/start", json={"password": PASSWORD}, headers=headers)

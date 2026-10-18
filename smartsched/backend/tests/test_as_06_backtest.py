@@ -82,7 +82,7 @@ def test_as_06_cli_backtest_json(
 
     fx = bt.Fixtures(parsed_bahar_grid, parsed_guz_grid, parsed_bahar_list, parsed_guz_list, parsed_exam_list)
     monkeypatch.setattr(bt, "load_fixtures", lambda: fx)
-    code = cli.main(["backtest", "adaptive", "--json"])
+    code = cli.main(["backtest", "adaptive", "--json", "--skip-db"])  # B4: tests/test_as_13_learning.py
     out = json.loads(capsys.readouterr().out)
     ids = [r["id"] for r in out]
     assert {"B1", "B2", "B3", "B5", "B7"} <= set(ids)

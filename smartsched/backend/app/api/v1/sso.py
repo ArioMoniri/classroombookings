@@ -457,8 +457,11 @@ async def accept_local_invite(token: str, body: LocalPasswordIn, db: DB) -> dict
                 "tr": svc.MESSAGES["invite_invalid"]["tr"],
             },
         )
+    from app.services import mfa  # AU-B: accepting the invite signs the person in (same gate as the password step)
+
+    session = await mfa.session_after_password(db, user)
     await db.commit()
-    return {"ok": True, "email": user.email}
+    return {"ok": True, "email": user.email, "session": session}
 
 
 # --------------------------------------------------------------------------------------------------

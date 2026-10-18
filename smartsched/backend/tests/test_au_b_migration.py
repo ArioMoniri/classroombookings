@@ -49,6 +49,8 @@ def test_au_b_sqlite_round_trip_and_cascade(tmp_path) -> None:
     _run(url, command.upgrade, REV)
     assert TABLES <= _tables(path)
     con = sqlite3.connect(path)
+    # a fresh install: passwordless passkey sign-in is on (owner default 2026-10-18)
+    assert con.execute("select value from settings where key = 'auth.passkey_first_factor'").fetchall() == [("1",)]
     con.execute("pragma foreign_keys = on")
     con.execute(
         "insert into users (id, email, role, is_active, created_at, force_password_reset, auth_source, token_version)"
@@ -96,6 +98,23 @@ def test_au_b_sqlite_round_trip_and_cascade(tmp_path) -> None:
     _run(url, command.downgrade, PREV)
     assert not (TABLES & _tables(path))
     _run(url, command.upgrade, "head")
+
+
+def test_au_b_existing_install_keeps_passkey_sign_in_off(tmp_path) -> None:
+    path = tmp_path / "old.db"
+    url = f"sqlite+aiosqlite:///{path}"
+    _run(url, command.upgrade, PREV)
+    con = sqlite3.connect(path)
+    con.execute(
+        "insert into users (id, email, role, is_active, created_at, force_password_reset, auth_source, token_version)"
+        " values (1, 'admin@uni.edu.tr', 'ADMIN', 1, '2026-02-16 08:00:00', 0, 'local', 0)"
+    )
+    con.commit()
+    con.close()
+    _run(url, command.upgrade, REV)
+    con = sqlite3.connect(path)
+    assert con.execute("select count(*) from settings where key like 'auth.%'").fetchone()[0] == 0
+    con.close()
 
 
 def test_au_b_postgres_round_trip(pg_server) -> None:  # noqa: F811

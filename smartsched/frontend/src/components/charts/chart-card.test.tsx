@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChartCard, type ChartCardProps, type ChartState } from "./chart-card";
 import type { ChartColumn } from "./chart-csv";
@@ -264,5 +265,48 @@ describe("ChartCard plot context", { timeout: 20_000 }, () => {
     );
     fireEvent.click(screen.getByRole("tab", { name: "7 gün" }));
     expect(onChange).toHaveBeenCalledWith("7d");
+  });
+});
+
+describe("ChartCard keyboard (CH-03)", { timeout: 20_000 }, () => {
+  function keyed() {
+    const dispatchAction = vi.fn();
+    const api = { getDataURL: () => null, dispatchAction };
+    function Plot({ onReady }: { onReady: (a: typeof api) => void }) {
+      useEffect(() => onReady(api), [onReady]);
+      return <div data-testid="plot" />;
+    }
+    render(
+      <ChartCard<Row> id="kb" title="Günlük token" summary="Özet." state="ready" columns={columns} rows={rows} unit="token">
+        {(ctx) => <Plot onReady={ctx.onReady} />}
+      </ChartCard>,
+    );
+    return dispatchAction;
+  }
+
+  it("the plot is one tab stop: a named group that is not hidden; only the drawing inside is aria-hidden", () => {
+    keyed();
+    const group = screen.getByRole("group", { name: "Grafik, ok tuşlarıyla gezinin" });
+    expect(group).toHaveAttribute("tabindex", "0");
+    expect(group).not.toHaveAttribute("aria-hidden");
+    expect(screen.getByTestId("plot").closest("[aria-hidden='true']")).not.toBeNull();
+  });
+
+  it("→ shows the first bucket's tooltip and reads it after 250 ms; End jumps; Esc hides", () => {
+    vi.useFakeTimers();
+    const dispatchAction = keyed();
+    const group = screen.getByRole("group", { name: "Grafik, ok tuşlarıyla gezinin" });
+    fireEvent.keyDown(group, { key: "ArrowRight" });
+    expect(dispatchAction).toHaveBeenLastCalledWith({ type: "showTip", seriesIndex: 0, dataIndex: 0 });
+    const live = screen.getByTestId("chart-live-kb");
+    expect(live).toHaveTextContent("");
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+    expect(live).toHaveTextContent("12 Ekim Pazartesi: toplam 38.120 token; Sohbet 37.120, Kurallar 1.000");
+    fireEvent.keyDown(group, { key: "End" });
+    expect(dispatchAction).toHaveBeenLastCalledWith({ type: "showTip", seriesIndex: 0, dataIndex: 2 });
+    fireEvent.keyDown(group, { key: "Escape" });
+    expect(dispatchAction).toHaveBeenLastCalledWith({ type: "hideTip" });
   });
 });

@@ -87,6 +87,10 @@ export const Provider = z.object({
   allow_local: z.boolean().default(false),
   warnings: z.array(z.object({ code: z.string(), message_tr: z.string(), message_en: z.string() })).default([]),
   capabilities: z.array(z.string()).default([]),
+  regions: z.array(z.string()).default([]),
+  /** one line on how long the provider keeps data (the KVKK record form's hint) */
+  retention_tr: z.string().nullish(),
+  retention_en: z.string().nullish(),
 });
 export type Provider = z.infer<typeof Provider>;
 const ProviderList = z.object({ providers: z.array(Provider), kvkk_mechanisms: z.array(z.string()) });
@@ -239,11 +243,11 @@ export const MyUsage = z.object({
   soft_pct: z.number(),
   org_state: z.string(),
   by_feature: z.array(UsageRow).default([]),
-  /** voice (VO-02): minutes today / this month and the person's limits in minutes (0 = none) */
-  audio_minutes_day: z.number().optional(),
-  audio_minutes_month: z.number().optional(),
-  audio_daily_limit_min: z.number().optional(),
-  audio_monthly_limit_min: z.number().optional(),
+  /** voice (VO-02): seconds of audio today / this month and the person's limits in seconds (0 = none) */
+  day_audio_s: z.number().optional(),
+  month_audio_s: z.number().optional(),
+  audio_daily_limit_s: z.number().optional(),
+  audio_monthly_limit_s: z.number().optional(),
 });
 export type MyUsage = z.infer<typeof MyUsage>;
 

@@ -9,8 +9,8 @@ import { installMedia } from "@/test/voice-media";
 
 const state = vi.hoisted(() => ({
   status: {} as Record<string, unknown> | Error,
-  transcribe: null as null | ((fd: FormData) => unknown),
-  calls: [] as { path: string; method?: string; fd?: FormData }[],
+  transcribe: null as null | ((body: Blob) => { status?: number; json: unknown }),
+  calls: [] as { path: string; method?: string; body?: unknown }[],
   coarse: false,
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -19,12 +19,11 @@ vi.mock("@/lib/api/client", async (orig) => {
   return {
     ...real,
     request: async (path: string, opts: { method?: string; formData?: FormData } = {}) => {
-      state.calls.push({ path, method: opts.method, fd: opts.formData });
+      state.calls.push({ path, method: opts.method });
       if (path === "/ai/voice/status") {
         if (state.status instanceof Error) throw state.status;
         return (await import("@/lib/api/voice")).VoiceStatus.parse(state.status);
       }
-      if (path === "/ai/voice/transcribe") return state.transcribe!(opts.formData!);
       if (path === "/me/consents/voice") return { ok: true };
       if (path === "/ai/me/usage") return {};
       throw new Error(`unexpected ${path}`);
@@ -43,11 +42,18 @@ beforeEach(() => {
   state.calls = [];
   state.coarse = false;
   state.status = { ...ok };
-  state.transcribe = () => ({ text: "B-204 numaralı salonda", duration_s: 3, language: "tr" });
+  state.transcribe = () => ({ json: { text: "B-204 numaralı salonda", duration_s: 3, language: "tr", warnings: [] } });
+  // the clip goes as the raw body through fetch (VO-B API.md §2), not through request()
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+    state.calls.push({ path: url, method: init.method, body: init.body });
+    const r = state.transcribe!(init.body as Blob);
+    return new Response(JSON.stringify(r.json), { status: r.status ?? 200, headers: { "Content-Type": "application/json" } });
+  });
   window.matchMedia = ((q: string) => ({ matches: q.includes("coarse") ? state.coarse : false, media: q, onchange: null, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined, dispatchEvent: () => false })) as typeof window.matchMedia;
   media = installMedia();
 });
 afterEach(() => {
+  vi.unstubAllGlobals();
   media.restore();
   window.matchMedia = realMatch;
   delete document.documentElement.dataset.motion;
@@ -100,6 +106,27 @@ describe("MicButton visibility", () => {
   });
 });
 
+describe("MicButton status", () => {
+  it("is hidden on a surface outside `targets`", async () => {
+    state.status = { ...ok, targets: ["guard"] };
+    renderIt(<Box target="rules" />);
+    await waitFor(() => expect(state.calls.some((c) => c.path === "/ai/voice/status")).toBe(true));
+    await act(async () => undefined);
+    expect(screen.queryByTestId("voice-mic")).toBeNull();
+  });
+  it("limit reached: the mic stays, marked disabled, and says the minutes without recording", async () => {
+    state.status = { ...ok, available: false, reason: "limit_reached", usage: { day_s: 600, day_limit_s: 600, month_s: 600, month_limit_s: 6000 } };
+    renderIt(<Box />);
+    const btn = await screen.findByTestId("voice-mic");
+    expect(btn).toHaveAttribute("aria-disabled", "true");
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+    expect(await screen.findByTestId("voice-error")).toHaveTextContent("Bugünkü sesli giriş sınırınıza ulaştınız (10/10 dk).");
+    expect(media.getUserMedia).not.toHaveBeenCalled();
+  });
+});
+
 describe("MicButton desktop", () => {
   it("click to start, click to stop: the transcript lands in the box, selected, focused, with the chip — nothing is sent", async () => {
     renderIt(<Box />);
@@ -118,11 +145,10 @@ describe("MicButton desktop", () => {
     expect(document.activeElement).toBe(box);
     expect([box.selectionStart, box.selectionEnd]).toEqual([0, 22]);
     expect(screen.getByTestId("voice-chip")).toHaveTextContent("Sesle girildi");
-    const up = state.calls.find((c) => c.path === "/ai/voice/transcribe")!;
+    const up = state.calls.find((c) => c.path.startsWith("/api/v1/ai/voice/transcribe"))!;
+    expect(up.path).toBe("/api/v1/ai/voice/transcribe?feature=rules&lang=tr");
     expect(up.method).toBe("POST");
-    expect(up.fd!.get("feature")).toBe("rules");
-    expect(up.fd!.get("lang")).toBe("tr");
-    expect((up.fd!.get("audio") as File).type).toBe("audio/webm");
+    expect((up.body as Blob).type).toBe("audio/webm;codecs=opus");
     // the user's own edit removes the chip
     fireEvent.input(box, { target: { value: "B-204 numaralı salonda pazartesi" } });
     expect(screen.queryByTestId("voice-chip")).toBeNull();
@@ -161,7 +187,7 @@ describe("MicButton desktop", () => {
     });
     expect(screen.getByTestId("voice-mic-rules")).toHaveAttribute("data-phase", "idle");
     expect(document.activeElement).toBe(screen.getByTestId("voice-mic"));
-    expect(state.calls.some((c) => c.path === "/ai/voice/transcribe")).toBe(false);
+    expect(state.calls.some((c) => c.path.startsWith("/api/v1/ai/voice/transcribe"))).toBe(false);
   });
 });
 
@@ -175,7 +201,7 @@ describe("MicButton consent", () => {
     });
     const sheet = await screen.findByTestId("voice-consent");
     expect(sheet).toHaveTextContent("OpenAI hizmetine (EU)");
-    expect(sheet).toHaveTextContent("Ses kaydı saklanmaz");
+    expect(sheet).toHaveTextContent("ses kaydı saklanmaz");
     expect(media.getUserMedia).not.toHaveBeenCalled();
     await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("voice-consent-accept")));
     await act(async () => {
@@ -232,14 +258,13 @@ describe("MicButton errors", () => {
   });
 
   it.each([
-    [429, { code: "ai_voice_limit_reached", used_min: 10, limit_min: 10 }, "Bugünkü sesli giriş sınırınıza ulaştınız (10/10 dk)."],
-    [409, { code: "voice_disabled" }, "Sesli giriş yöneticiler tarafından kapatıldı."],
+    [429, { code: "ai_voice_limit_reached", scope: "user_daily", used_min: 10, limit_min: 10 }, "Bugünkü sesli giriş sınırınıza ulaştınız (10/10 dk)."],
+    [409, { code: "voice_not_configured", reason: "disabled" }, "Ses için bir model seçilmedi."],
+    [409, { code: "ai_transfer_basis_missing" }, "KVKK aktarım kaydı yok"],
     [502, { code: "provider_error" }, "Ses yazıya dökülemedi. Tekrar deneyin ya da yazarak devam edin."],
     [413, { code: "too_long" }, "Kayıt en fazla 120 saniye olabilir"],
   ])("server %s → its sentence, the box untouched", async (status, detail, text) => {
-    state.transcribe = () => {
-      throw new HttpError(status, String(status), { detail });
-    };
+    state.transcribe = () => ({ status, json: { detail: { ...detail, message_tr: "x", message_en: "x" } } });
     renderIt(<Box />);
     const btn = await screen.findByTestId("voice-mic");
     await record(btn);
@@ -252,7 +277,7 @@ describe("MicButton errors", () => {
   });
 
   it("an empty transcript is 'no speech'", async () => {
-    state.transcribe = () => ({ text: "   " });
+    state.transcribe = () => ({ json: { text: "", warnings: ["empty"] } });
     renderIt(<Box />);
     const btn = await screen.findByTestId("voice-mic");
     await record(btn);
@@ -304,7 +329,7 @@ describe("MicButton phone (coarse pointer)", () => {
       up(btn);
     });
     expect(screen.getByTestId("voice-mic-rules")).toHaveAttribute("data-phase", "idle");
-    expect(state.calls.some((c) => c.path === "/ai/voice/transcribe")).toBe(false);
+    expect(state.calls.some((c) => c.path.startsWith("/api/v1/ai/voice/transcribe"))).toBe(false);
   });
 
   it("slide up locks: release keeps recording until Bitti", async () => {

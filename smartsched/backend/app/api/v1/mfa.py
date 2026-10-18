@@ -52,8 +52,25 @@ def _origin(request: Request) -> str | None:
     return request.headers.get("origin")
 
 
-async def _reauth(db: DB, user: User, password: str) -> None:
-    if not await mfa.reauth(db, user, password):
+def _recent(request: Request) -> bool:
+    """The bearer token was issued within :data:`mfa.REAUTH_WINDOW` (10 minutes): the person just signed in, so a
+    sensitive change needs no password again (auth UX spec §17). A password that is sent must still be right."""
+    import time
+
+    from app.core.security import decode_access_token
+
+    auth = request.headers.get("authorization") or ""
+    if not auth.lower().startswith("bearer "):
+        return False
+    try:
+        iat = int(decode_access_token(auth[7:].strip()).get("iat") or 0)
+    except Exception:
+        return False
+    return 0 <= time.time() - iat <= mfa.REAUTH_WINDOW.total_seconds()
+
+
+async def _reauth(db: DB, user: User, password: str, request: Request) -> None:
+    if not await mfa.reauth(db, user, password, recent=_recent(request)):
         raise mfa.reauth_failed().http()
 
 
@@ -68,11 +85,11 @@ async def mfa_status(db: DB, user: CurrentUser) -> dict[str, Any]:
 
 
 @router.post("/mfa/totp/start")
-async def totp_start(body: PasswordIn, db: DB, user: CurrentUser) -> dict[str, Any]:
+async def totp_start(body: PasswordIn, db: DB, user: CurrentUser, request: Request) -> dict[str, Any]:
     """Begin authenticator-app enrolment (re-authentication: the password). The secret and the ``otpauth://`` URI are
     shown to the person for the QR code; the frontend draws the QR from ``otpauth_uri``."""
     await _run(db, mfa._refuse_sso(db, user))
-    await _reauth(db, user, body.password)
+    await _reauth(db, user, body.password, request)
     return await _run(db, mfa.totp_start(db, user))
 
 
@@ -83,13 +100,20 @@ async def totp_confirm(body: CodeIn, db: DB, user: CurrentUser) -> dict[str, Any
 
 
 @router.post("/mfa/disable")
-async def totp_disable(body: DisableIn, db: DB, user: CurrentUser) -> dict[str, Any]:
-    return await _run(db, mfa.disable(db, user, body.password, body.code))
+async def totp_disable(body: DisableIn, db: DB, user: CurrentUser, request: Request) -> dict[str, Any]:
+    return await _run(db, mfa.disable(db, user, body.password, body.code, recent=_recent(request)))
 
 
 @router.post("/mfa/recovery-codes")
-async def recovery_regenerate(body: PasswordIn, db: DB, user: CurrentUser) -> dict[str, Any]:
-    return {"recovery_codes": await _run(db, mfa.regenerate_recovery(db, user, body.password))}
+async def recovery_regenerate(body: PasswordIn, db: DB, user: CurrentUser, request: Request) -> dict[str, Any]:
+    codes = await _run(db, mfa.regenerate_recovery(db, user, body.password, recent=_recent(request)))
+    return {"recovery_codes": codes}
+
+
+@router.get("/sign-ins")
+async def sign_ins(db: DB, user: CurrentUser) -> dict[str, Any]:
+    """The person's own sign-in and security history (newest first)."""
+    return await mfa.sign_in_history(db, user)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -175,7 +199,7 @@ async def passkeys_list(db: DB, user: CurrentUser) -> list[dict[str, Any]]:
 @router.post("/passkeys/register/options")
 async def passkeys_register_options(body: PasswordIn, db: DB, user: CurrentUser, request: Request) -> dict[str, Any]:
     await _run(db, mfa._refuse_sso(db, user))
-    await _reauth(db, user, body.password)
+    await _reauth(db, user, body.password, request)
     return await _run(db, mfa.register_options(db, user, _origin(request)))
 
 
@@ -194,8 +218,8 @@ async def passkeys_rename(passkey_id: int, body: RenameIn, db: DB, user: Current
 
 
 @router.post("/passkeys/{passkey_id}/remove", status_code=status.HTTP_204_NO_CONTENT)
-async def passkeys_remove(passkey_id: int, body: PasswordIn, db: DB, user: CurrentUser) -> Response:
-    await _run(db, mfa.remove_passkey(db, user, passkey_id, body.password))
+async def passkeys_remove(passkey_id: int, body: PasswordIn, db: DB, user: CurrentUser, request: Request) -> Response:
+    await _run(db, mfa.remove_passkey(db, user, passkey_id, body.password, recent=_recent(request)))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

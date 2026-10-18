@@ -8,9 +8,12 @@
 * ``trusted_devices``: SHA-256 of the 30-day device token, label, expiry, revocation;
 * ``auth_challenges``: single-use sign-in / ceremony steps (jti, purpose, WebAuthn challenge, tries, expiry).
 
+A fresh install (no account yet) gets ``auth.passkey_first_factor = 1`` (owner default 2026-10-18: passwordless passkey
+sign-in on for new installations); an existing database is left unchanged.
+
 Every table cascades with ``users``. The organisation policy (``auth.mfa_policy``, ``auth.mfa_roles``,
 ``auth.mfa_grace_days``, ``auth.passkeys_enabled``, ``auth.passkey_first_factor``) is ordinary ``settings`` rows with
-code defaults (app/services/mfa.py): nothing to seed.
+code defaults (app/services/mfa.py).
 
 PostgreSQL: the five tables get the owner-only row-level security policy of the 0035_rls_policies pattern (the
 signed-in user's own rows, or the system context: sign-in is unauthenticated, administrator resets run in
@@ -44,6 +47,23 @@ POLICIES: tuple[tuple[str, str, str, str], ...] = tuple(
 def _has_rls_helpers() -> bool:
     row = op.get_bind().execute(sa.text("SELECT 1 FROM pg_proc WHERE proname = 'smartsched_rls_uid'")).first()
     return row is not None
+
+
+def _seed_fresh_install() -> None:
+    """Owner default 2026-10-18: passkey-only sign-in is ON for new installs (a database without any account yet);
+    an existing installation keeps the code default (off) until an administrator switches it on."""
+    bind = op.get_bind()
+    if bind.execute(sa.text("SELECT COUNT(*) FROM users")).scalar_one():
+        return
+    if bind.execute(sa.text("SELECT 1 FROM settings WHERE key = 'auth.passkey_first_factor'")).first() is not None:
+        return
+    bind.execute(
+        sa.text(
+            "INSERT INTO settings (key, value, is_secret, updated_at) "
+            "VALUES ('auth.passkey_first_factor', '1', :f, CURRENT_TIMESTAMP)"
+        ),
+        {"f": False},
+    )
 
 
 def _user_fk(nullable: bool = False) -> sa.Column:
@@ -121,6 +141,7 @@ def upgrade() -> None:
     )
     op.create_index("ix_auth_challenges_user_id", "auth_challenges", ["user_id"])
     op.create_index("ix_auth_challenges_expires_at", "auth_challenges", ["expires_at"])
+    _seed_fresh_install()
     if op.get_bind().dialect.name != "postgresql" or not _has_rls_helpers():
         return
     for table in sorted({t for t, *_ in POLICIES}):

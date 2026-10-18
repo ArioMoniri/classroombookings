@@ -195,6 +195,17 @@ DATA_CLASSES: dict[str, dict[str, Any]] = {
         "retention": None,
         "kept": "hesapla birlikte; silme talebinde silinir",
     },
+    # AU-B two-step sign-in (app/services/mfa.py): secrets encrypted, codes and device tokens only as hashes
+    "sign_in_security": {
+        "tr": "Giriş güvenliği: doğrulama uygulaması (şifreli), kurtarma kodları (özet), geçiş anahtarları (açık "
+        "anahtar), güvenilir cihazlar (özet), giriş adımları",
+        "en": "Sign-in security: authenticator app (encrypted), recovery codes (hashed), passkeys (public keys), "
+        "trusted devices (hashed), sign-in steps",
+        "tables": ["user_mfa", "mfa_recovery_codes", "webauthn_credentials", "trusted_devices", "auth_challenges"],
+        "legal_basis": "KVKK m.12 veri güvenliği tedbiri; m.5/2(c) sözleşmenin ifası (hesaba güvenli giriş)",
+        "retention": None,
+        "kept": "hesapla birlikte; silme talebinde silinir",
+    },
 }
 FLOORS = {k: v["retention"]["floor_days"] for k, v in DATA_CLASSES.items() if v["retention"]}
 
@@ -1150,6 +1161,9 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, Any]:
     from app.services import welcome as welcome_svc  # WG-03: the welcome guide's per-person state
 
     data["welcome_guide"] = await welcome_svc.dsr_rows(session, uid)
+    from app.services import mfa as mfa_svc  # AU-B: what is on and when; never a secret, a code or a key
+
+    data["sign_in_security"] = await mfa_svc.dsr_rows(session, uid)
     data.update(await _person_records(session, user, rooms))
     return await _scrub_others(session, user, data)
 
@@ -1817,6 +1831,12 @@ EXPORT_FILES: dict[str, tuple[str, str]] = {
         "Karşılama rehberinin sizin için durumu (gösterildi, ertelendi, tur adımı, tamamlanan maddeler).",
         "The welcome guide's state for you (shown, snoozed, tour step, items done).",
     ),
+    "sign_in_security": (
+        "Giriş güvenliğiniz: doğrulama uygulaması açık mı, kalan kurtarma kodu sayısı, geçiş anahtarlarınızın adları ve "
+        "tarihleri, güvenilir cihazlar (gizli anahtarlar ve kodlar dışa aktarılmaz).",
+        "Your sign-in security: whether the authenticator app is on, recovery codes left, your passkeys' names and "
+        "dates, trusted devices (secrets and codes are never exported).",
+    ),
 }
 
 
@@ -2240,6 +2260,9 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
     from app.services import welcome as welcome_svc  # WG-03: the welcome guide's per-person state
 
     counts["welcome_progress"] = await welcome_svc.erase(session, uid)
+    from app.services import mfa as mfa_svc  # AU-B: second factors, passkeys, trusted devices, challenges
+
+    counts["sign_in_security"] = await mfa_svc.erase(session, uid)
     counts["profile_photo"] = delete_profile_photo(uid)
     await session.execute(update(Room).where(Room.owner_user_id == uid).values(owner_user_id=None))
     # 4. learned observations of the person (and of their instructor record), then the link

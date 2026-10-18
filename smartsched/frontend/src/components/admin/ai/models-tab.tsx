@@ -18,7 +18,7 @@ import { AI_FEATURES, EFFORTS, type Provider, type Route, type RouteFeature, typ
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useAiLabels } from "./ai-kit";
-import { errorDetail, errorMessage, providerLabel, routableProviders, routeIssues, routesBody, speechProviders, syncedIds, type RouteIssue } from "./ai-model";
+import { errorDetail, errorMessage, providerLabel, routableProviders, routeIssues, routesBody, speechProviders, syncedIds, textProviders, type RouteIssue } from "./ai-model";
 
 type Draft = Partial<Route> | null;
 
@@ -29,19 +29,20 @@ export function ModelsTab({ canEdit }: { canEdit: boolean }) {
   if (providers.isLoading || routes.isLoading) return <Loading />;
   if (!providers.data || !routes.data) return <Alert tone="error">{errorMessage(providers.error ?? routes.error, locale, t("aiAdmin.error.load"))}</Alert>;
   // mounted once: after a save the draft already equals what was stored, and a remount would drop the focus
-  return <RoutesEditor providers={providers.data.providers} routes={routes.data} canEdit={canEdit} />;
+  return <RoutesEditor all={providers.data.providers} routes={routes.data} canEdit={canEdit} />;
 }
 
-function RoutesEditor({ providers, routes, canEdit }: { providers: Provider[]; routes: Routes; canEdit: boolean }) {
+function RoutesEditor({ all, routes, canEdit }: { all: Provider[]; routes: Routes; canEdit: boolean }) {
   const { t, locale } = useI18n();
   const labels = useAiLabels();
   const save = useSaveRoutes();
   const [def, setDef] = useState<Draft>(routes.default ?? null);
   const [features, setFeatures] = useState<Partial<Record<RouteFeature, Draft>>>(() => ({ ...(routes.features as Partial<Record<RouteFeature, Draft>>) }));
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
+  // text rows offer text models only; the voice row only speech-to-text models (VO-B: model_not_text / model_not_speech)
+  const providers = useMemo(() => textProviders(all), [all]);
   const routable = useMemo(() => routableProviders(providers), [providers]);
-  // voice: only speech-capable providers, each with only its speech-to-text models
-  const speech = useMemo(() => speechProviders(providers), [providers]);
+  const speech = useMemo(() => speechProviders(all), [all]);
   const speechRoutable = useMemo(() => routableProviders(speech), [speech]);
   const issueText = (i: RouteIssue) => t(`aiAdmin.models.issue.${i}` as MessageKey);
   const anyIssue = [routeIssues(def, providers), ...AI_FEATURES.map((f) => routeIssues(features[f], providers, f)), routeIssues(features.voice_stt, speech, "voice_stt")].some((x) => x.filter((i) => i !== "transferMissing").length);
@@ -115,7 +116,7 @@ function RoutesEditor({ providers, routes, canEdit }: { providers: Provider[]; r
         effective={(() => {
           const eff = routes.effective.voice_stt;
           if (!eff || eff.source === "none" || !eff.provider) return null;
-          return t(`aiAdmin.models.source.${eff.source}` as MessageKey, { provider: providerLabel(providers.find((p) => p.id === eff.provider) ?? { label_tr: eff.provider, label_en: eff.provider }, locale), model: eff.model });
+          return t(`aiAdmin.models.source.${eff.source}` as MessageKey, { provider: providerLabel(all.find((p) => p.id === eff.provider) ?? { label_tr: eff.provider, label_en: eff.provider }, locale), model: eff.model });
         })()}
         note={!speechRoutable.length ? t("voice.admin.noSpeechModels") : !features.voice_stt?.provider ? t("voice.admin.noModel") : null}
       />

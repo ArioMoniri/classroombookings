@@ -49,10 +49,10 @@ async def test_as_10_what_if_api_and_draft_run(client, stub_solver, parsed_bahar
     assert zero["today"] == zero["what_if"] and zero["delta"] == {"no_fit": 0, "shortfall_total": 0}
     # today MAT 112 (180) is larger than every room (A 204 seats 156: the planner splits it)
     assert zero["today"]["no_fit"] == 1 and zero["today"]["no_fit_classes"][0]["label"].startswith("MAT112")
-    # +10 % and C 501 closed: NUT 254 (66) no longer fits A 101 (58)
+    # +10 % with C 501 and A 204 closed: NUT 254 (66) no longer fits A 101 (58)
     r = await client.post(
         "/api/v1/analytics/forecast/what-if",
-        json={"term_id": tid, "enrolment_pct": 10, "rooms_closed": [rooms["C501"]], "solve": True},
+        json={"term_id": tid, "enrolment_pct": 10, "rooms_closed": [rooms["C501"], rooms["A204"]], "solve": True},
         headers=h,
     )
     out = r.json()
@@ -71,7 +71,7 @@ async def test_as_10_what_if_api_and_draft_run(client, stub_solver, parsed_bahar
         inp, _m = await build_solver_input(s, row)
     sizes = {e.id: e.size for e in inp.events}
     assert sizes[ids["nut"]] == 66 and sizes[ids["mat"]] == 198  # 60 and 180 x 1.1
-    assert rooms["C501"] not in {r_.id for r_ in inp.rooms}
+    assert not {rooms["C501"], rooms["A204"]} & {r_.id for r_ in inp.rooms}
     # a scope needs its value
     r = await client.post("/api/v1/analytics/forecast/what-if", json={"term_id": tid, "scope": "faculty"}, headers=h)
     assert r.status_code == 422 and r.json()["detail"]["message_tr"]

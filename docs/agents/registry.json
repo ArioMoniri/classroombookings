@@ -3042,7 +3042,8 @@
       "goal": "You are lane `deploy-1click-2026-10-18` for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read /home/user/classroombookings/docs/agents/briefs/COMMON.md first. Hard rules: NEVER commit or push, never `pkill -f`, `nice -n 10`, test-first where testable, no secre…",
       "ledger": "One-click deploy both branches",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 00:10"
     },
     {
       "id": "a5e52b3b009c22145",

@@ -50,7 +50,7 @@ describe("useVoiceRecorder", () => {
     expect(result.current.phase).toBe("idle");
     expect(onClip).toHaveBeenCalledTimes(1);
     const [blob, ms] = onClip.mock.calls[0]!;
-    expect((blob as Blob).type).toBe("audio/webm");
+    expect((blob as Blob).type).toBe("audio/webm;codecs=opus");
     expect(ms).toBe(3000);
     expect(media.track.stop).toHaveBeenCalled();
   });

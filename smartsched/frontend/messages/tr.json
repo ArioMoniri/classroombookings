@@ -6952,6 +6952,8 @@
     }
   },
   "charts": {
+    "kb": {"label": "Grafik, ok tuşlarıyla gezinin", "total": "toplam {value}"},
+    "patterns": {"label": "Grafiklerde desen", "hint": "Grafik renklerine çizgili desen ekler. Renkleri ayırt etmekte zorlanıyorsanız açın."},
     "menu": "Grafik seçenekleri",
     "downloadImage": "Görseli indir",
     "print": "Yazdır",

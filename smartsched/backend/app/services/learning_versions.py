@@ -151,7 +151,9 @@ async def prior_rows(session: AsyncSession, term_id: int) -> list[dict[str, Any]
     """The term's active prior rows (``active``), as canonical dicts sorted by id."""
     cols = [getattr(LearnedPrior, f) for f in SNAP_FIELDS]
     q = select(*cols).where(LearnedPrior.term_id == term_id, LearnedPrior.active.is_(True)).order_by(LearnedPrior.id)
-    return [{f: _jsonable(v) for f, v in zip(SNAP_FIELDS, row, strict=True)} for row in (await session.execute(q)).all()]
+    return [
+        {f: _jsonable(v) for f, v in zip(SNAP_FIELDS, row, strict=True)} for row in (await session.execute(q)).all()
+    ]
 
 
 def checksum(rows: list[dict[str, Any]]) -> str:
@@ -286,7 +288,9 @@ async def list_versions(session: AsyncSession, term_id: int) -> dict[str, Any]:
     }
 
 
-async def refresh_term(session: AsyncSession, term_id: int, *, trigger: str = "manual", actor: Any = None) -> dict[str, Any]:
+async def refresh_term(
+    session: AsyncSession, term_id: int, *, trigger: str = "manual", actor: Any = None
+) -> dict[str, Any]:
     """Extract + recompute the term's priors and record a version (a manual refresh lifts a revert's pin)."""
     from app.services import learning
 
@@ -299,7 +303,7 @@ async def refresh_term(session: AsyncSession, term_id: int, *, trigger: str = "m
 
 
 async def revert(session: AsyncSession, version_id: int, actor: Any) -> dict[str, Any]:
-    """"Bu sürüme dön": the term's prior set becomes the snapshot of ``version_id`` (same checksum); priors that
+    """ "Bu sürüme dön": the term's prior set becomes the snapshot of ``version_id`` (same checksum); priors that
     were not in it are deactivated (ids kept for the decisions that point at them). Accepted rules stay."""
     from app.services import learning
     from app.services.events import publish_event
@@ -421,10 +425,10 @@ async def calibration(session: AsyncSession) -> dict[str, Any]:
         "display_order": [f"{c['attribute']}:{c['band']}" for c in order],
         "proposals": proposals,
         "applied": current,
-        "confidence": "none" if not classes else ("low" if sum(c["posterior"]["n"] for c in classes) < 20 else "medium"),
-        "needs": None
-        if classes
-        else _t("Henüz kabul ya da ret kararı yok", "No accept or reject decision yet"),
+        "confidence": "none"
+        if not classes
+        else ("low" if sum(c["posterior"]["n"] for c in classes) < 20 else "medium"),
+        "needs": None if classes else _t("Henüz kabul ya da ret kararı yok", "No accept or reject decision yet"),
     }
 
 
@@ -435,9 +439,13 @@ async def apply_calibration(session: AsyncSession, attribute: str, value: float 
     from app.services.events import publish_event
 
     if attribute not in ATTRIBUTES:
-        raise _err(422, "attribute", f"attribute: one of {', '.join(ATTRIBUTES)}", f"öznitelik: {', '.join(ATTRIBUTES)}")
+        raise _err(
+            422, "attribute", f"attribute: one of {', '.join(ATTRIBUTES)}", f"öznitelik: {', '.join(ATTRIBUTES)}"
+        )
     if value is not None and not 0.5 <= float(value) <= 0.99:
-        raise _err(422, "min_confidence", "min_confidence must be 0.5..0.99", "en düşük güven 0,5 ile 0,99 arasında olmalı")
+        raise _err(
+            422, "min_confidence", "min_confidence must be 0.5..0.99", "en düşük güven 0,5 ile 0,99 arasında olmalı"
+        )
     cur = await min_confidence(session)
     before = dict(cur)
     if value is None:
@@ -445,7 +453,9 @@ async def apply_calibration(session: AsyncSession, attribute: str, value: float 
     else:
         cur[attribute] = round(float(value), 2)
     await _put_setting(session, MIN_CONF_KEY, cur)
-    await publish_event(session, "learning.calibration_apply", "setting", MIN_CONF_KEY, before=before, after=cur, actor=actor)
+    await publish_event(
+        session, "learning.calibration_apply", "setting", MIN_CONF_KEY, before=before, after=cur, actor=actor
+    )
     from app.services import learning
 
     learning._forget()
@@ -456,8 +466,14 @@ async def apply_calibration(session: AsyncSession, attribute: str, value: float 
 
 
 async def set_habit(
-    session: AsyncSession, prior_id: int, *, state: str | None, actor: Any, reason: str | None = None,
-    value: str | None = None, weight: int | None = None,
+    session: AsyncSession,
+    prior_id: int,
+    *,
+    state: str | None,
+    actor: Any,
+    reason: str | None = None,
+    value: str | None = None,
+    weight: int | None = None,
 ) -> dict[str, Any]:
     """Disable / correct / tune one learned habit (or ``state=None`` to clear). ``corrected`` adds correction
     evidence for ``value`` (+2, like a planner correction) so the right habit is learned, not just the wrong one
@@ -485,22 +501,30 @@ async def set_habit(
         }
         if state == "tuned":
             if weight is None or not 1 <= int(weight) <= learning.MAX_WEIGHT:
-                raise _err(422, "weight", f"weight must be 1..{learning.MAX_WEIGHT}", f"ağırlık 1 ile {learning.MAX_WEIGHT} arasında olmalı")
+                raise _err(
+                    422,
+                    "weight",
+                    f"weight must be 1..{learning.MAX_WEIGHT}",
+                    f"ağırlık 1 ile {learning.MAX_WEIGHT} arasında olmalı",
+                )
             entry["weight"] = int(weight)
         if state == "corrected":
             val = (value or "").strip()
             if not val or val == p.value:
                 raise _err(422, "value", "a correction names a different value", "düzeltme farklı bir değer vermeli")
             entry["to"] = val[:64]
-            next_id = int(
-                (
-                    await session.execute(
-                        select(func.coalesce(func.max(LearnedObservation.source_id), 0)).where(
-                            LearnedObservation.source_table == "habit_corrections"
+            next_id = (
+                int(
+                    (
+                        await session.execute(
+                            select(func.coalesce(func.max(LearnedObservation.source_id), 0)).where(
+                                LearnedObservation.source_table == "habit_corrections"
+                            )
                         )
-                    )
-                ).scalar_one()
-            ) + 1
+                    ).scalar_one()
+                )
+                + 1
+            )
             session.add(
                 LearnedObservation(
                     ts=utcnow(),

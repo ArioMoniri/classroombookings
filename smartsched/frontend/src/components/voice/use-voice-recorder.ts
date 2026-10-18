@@ -174,7 +174,7 @@ export function useVoiceRecorder({ maxSeconds, onClip, onCap, onError, onStart, 
         setPhase("idle");
         if (cancelled) return;
         if (capped) cb.current.onCap?.();
-        const blob = new Blob(chunks, { type: type.split(";")[0] });
+        const blob = new Blob(chunks, { type }); // e.g. audio/webm;codecs=opus: the Content-Type of the upload
         if (duration < MIN_CLIP_MS || !blob.size) {
           const e: VoiceError = { code: "empty" };
           setError(e);

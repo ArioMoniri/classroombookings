@@ -239,6 +239,8 @@ def _backtest(args: argparse.Namespace) -> int:
     from app.services import backtest
 
     results = backtest.run_all()
+    if not args.skip_db:
+        results.insert(3, asyncio.run(backtest.b4_standalone()))
     if args.json:
         print(json.dumps([r.as_dict() for r in results], ensure_ascii=False, indent=2, default=str))
     else:
@@ -297,6 +299,7 @@ def main(argv: list[str] | None = None) -> int:
         "suite", choices=["adaptive"], help="adaptive: B1-B7 (docs/research/2026-10-17-adaptive-scheduling.md)"
     )
     bt.add_argument("--json", action="store_true", help="print the results as JSON")
+    bt.add_argument("--skip-db", action="store_true", help="leave out B4 (it builds a temporary database, ~2 min)")
     args = p.parse_args(argv)
     if args.cmd == "backtest":
         return _backtest(args)

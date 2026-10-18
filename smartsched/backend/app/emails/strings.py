@@ -466,6 +466,33 @@ TR: dict[str, str] = {
         "sorulur."
     ),
     "password_reset_link_by_admin.note": "Böyle bir şey istemediniz mi? Bağlantıyı açmayın ve yöneticinize haber verin.",
+    "passkey_removed.subject": "Hesabınızdan bir geçiş anahtarı kaldırıldı",
+    "passkey_removed.preheader": "{device} adlı geçiş anahtarı artık kullanılamaz.",
+    "passkey_removed.heading": "Geçiş anahtarı kaldırıldı",
+    "passkey_removed.intro": (
+        "Merhaba {name}, {org} SmartSched hesabınızdan {when} tarihinde {device} adlı geçiş anahtarı kaldırıldı."
+    ),
+    "passkey_removed.cta": "Güvenlik ayarlarını aç",
+    "passkey_removed.note": "Bunu siz yapmadınız mı? Hemen parolanızı değiştirin ve yöneticinize haber verin.",
+    "recovery_codes_regenerated.subject": "Yeni kurtarma kodları oluşturuldu",
+    "recovery_codes_regenerated.preheader": "Eski kurtarma kodlarınız artık geçersiz.",
+    "recovery_codes_regenerated.heading": "Kurtarma kodlarınız yenilendi",
+    "recovery_codes_regenerated.intro": (
+        "Merhaba {name}, {org} SmartSched hesabınız için {when} tarihinde on yeni kurtarma kodu oluşturuldu. Eski "
+        "kodlarınızın hiçbiri artık çalışmaz."
+    ),
+    "recovery_codes_regenerated.cta": "Güvenlik ayarlarını aç",
+    "recovery_codes_regenerated.note": "Bunu siz yapmadınız mı? Hemen parolanızı değiştirin ve yöneticinize haber verin.",
+    "mfa_required.subject": "İki adımlı doğrulama zorunlu oldu",
+    "mfa_required.preheader": "{grace_days} gün içinde doğrulama uygulaması ya da geçiş anahtarı ekleyin.",
+    "mfa_required.heading": "İki adımlı doğrulamayı açın",
+    "mfa_required.intro": (
+        "Merhaba {name}, {org} rolünüz için SmartSched girişinde iki adımlı doğrulamayı zorunlu tuttu. "
+        "{grace_days} gün içinde bir doğrulama uygulaması ya da geçiş anahtarı ekleyin; bu süreden sonra girişte "
+        "önce kurulum istenir."
+    ),
+    "mfa_required.cta": "Şimdi aç",
+    "mfa_required.after": "Kurulum iki dakika sürer: Profil › Güvenlik › İki adımlı doğrulama.",
 }
 
 EN: dict[str, str] = {
@@ -884,6 +911,30 @@ EN: dict[str, str] = {
         "asks for it."
     ),
     "password_reset_link_by_admin.note": "Didn't expect this? Don't open the link and tell your administrator.",
+    "passkey_removed.subject": "A passkey was removed from your account",
+    "passkey_removed.preheader": "The passkey {device} no longer works.",
+    "passkey_removed.heading": "Passkey removed",
+    "passkey_removed.intro": "Hello {name}, the passkey {device} was removed from your {org} SmartSched account on {when}.",
+    "passkey_removed.cta": "Open security settings",
+    "passkey_removed.note": "Wasn't this you? Change your password now and tell your administrator.",
+    "recovery_codes_regenerated.subject": "New recovery codes were created",
+    "recovery_codes_regenerated.preheader": "Your old recovery codes no longer work.",
+    "recovery_codes_regenerated.heading": "Your recovery codes were renewed",
+    "recovery_codes_regenerated.intro": (
+        "Hello {name}, ten new recovery codes were created for your {org} SmartSched account on {when}. None of the "
+        "old codes works any more."
+    ),
+    "recovery_codes_regenerated.cta": "Open security settings",
+    "recovery_codes_regenerated.note": "Wasn't this you? Change your password now and tell your administrator.",
+    "mfa_required.subject": "Two-step verification is now required",
+    "mfa_required.preheader": "Add an authenticator app or a passkey within {grace_days} days.",
+    "mfa_required.heading": "Turn on two-step verification",
+    "mfa_required.intro": (
+        "Hello {name}, {org} now requires two-step verification for your role when signing in to SmartSched. Add an "
+        "authenticator app or a passkey within {grace_days} days; after that, signing in asks you to set it up first."
+    ),
+    "mfa_required.cta": "Turn it on now",
+    "mfa_required.after": "It takes two minutes: Profile › Security › Two-step verification.",
 }
 
 SHIPPED: dict[str, dict[str, str]] = {"tr": TR, "en": EN}

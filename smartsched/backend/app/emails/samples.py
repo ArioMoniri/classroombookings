@@ -166,6 +166,17 @@ _BY_KIND: dict[str, dict[str, dict[str, Any] | Any]] = {
         "tr": {"when": "18 Ekim 2026 09:12"},
         "en": {"when": "18 October 2026 09:12"},
     },
+    "passkey_removed": {
+        "*": {"device": "YubiKey", "cta_url": f"{BASE}/profile#security"},
+        "tr": {"when": "18 Ekim 2026 09:12"},
+        "en": {"when": "18 October 2026 09:12"},
+    },
+    "recovery_codes_regenerated": {
+        "*": {"cta_url": f"{BASE}/profile#security"},
+        "tr": {"when": "18 Ekim 2026 09:12"},
+        "en": {"when": "18 October 2026 09:12"},
+    },
+    "mfa_required": {"*": {"grace_days": 14, "cta_url": f"{BASE}/profile#security"}},
     "password_reset_link_by_admin": {
         "*": {"actor": "Fatih Demir", "valid_hours": 24, "cta_url": f"{BASE}/reset-password?token=Kq7Zp2Lm9Xw4Rt8Vb3Nc"}
     },

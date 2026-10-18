@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import en from "../../../messages/en.json";
 import tr from "../../../messages/tr.json";
 import { HttpError } from "@/lib/api/client";
-import { hidesMic, maxSecondsFor, needsConsent, VoiceStatus } from "@/lib/api/voice";
+import { hidesMic, limitMinutes, needsConsent, VoiceStatus } from "@/lib/api/voice";
 import { insertIntoField, spliceText, trackCaret } from "./insert-text";
 import { canCaptionOnDevice, onDeviceRecognition } from "./voice-captions";
 import { errorKey, mediaError, permissionHelpKey, serverError, VOICE_ERRORS } from "./voice-errors";
@@ -13,7 +13,7 @@ const lookup = (dict: unknown, key: string) => key.split(".").reduce<unknown>((o
 
 describe("copy", () => {
   it("every error code has Turkish and English copy, and the two differ", () => {
-    for (const code of [...VOICE_ERRORS, "ai_voice_limit_reached_plain"]) {
+    for (const code of [...VOICE_ERRORS, "ai_voice_limit_reached_plain", "ai_voice_limit_reached_month", "ai_voice_limit_reached_org"]) {
       const a = lookup(tr, `voice.error.${code}`);
       const b = lookup(en, `voice.error.${code}`);
       expect(typeof a, code).toBe("string");
@@ -39,11 +39,22 @@ describe("serverError", () => {
   it("maps the transcribe endpoint's codes", () => {
     expect(serverError(http(403, { detail: { code: "voice_consent_required" } }), 120)).toEqual({ code: "consent_required" });
     expect(serverError(http(413, { code: "too_long" }), 120)).toEqual({ code: "too_long", params: { n: 120 } });
-    expect(serverError(http(429, { code: "ai_voice_limit_reached", used_min: 10, limit_min: 10 }), 120)).toEqual({ code: "ai_voice_limit_reached", params: { used: 10, limit: 10 } });
+    const limit = serverError(http(429, { code: "ai_voice_limit_reached", scope: "user_daily", used_min: 10, limit_min: 10 }), 120);
+    expect(limit).toEqual({ code: "ai_voice_limit_reached", params: { used: 10, limit: 10, scope: "user_daily" } });
+    expect(errorKey(limit)).toBe("voice.error.ai_voice_limit_reached");
+    expect(errorKey(serverError(http(429, { code: "ai_voice_limit_reached", scope: "user_monthly", used_min: 100, limit_min: 100 }), 120))).toBe("voice.error.ai_voice_limit_reached_month");
+    expect(errorKey(serverError(http(429, { code: "ai_voice_limit_reached", scope: "org_audio" }), 120))).toBe("voice.error.ai_voice_limit_reached_org");
     expect(errorKey(serverError(http(429, { code: "ai_voice_limit_reached" }), 120))).toBe("voice.error.ai_voice_limit_reached_plain");
     expect(serverError(http(409, { code: "ai_transfer_basis_missing" }), 120)).toEqual({ code: "ai_transfer_basis_missing" });
-    expect(serverError(http(409, { code: "voice_disabled" }), 120)).toEqual({ code: "voice_off" });
-    expect(serverError(http(502, { code: "whatever" }), 120)).toEqual({ code: "provider_error" });
+    expect(serverError(http(409, { code: "voice_not_configured", reason: "disabled" }), 120)).toEqual({ code: "not_configured" });
+    expect(serverError(http(403, { code: "not_permitted" }), 120)).toEqual({ code: "not_permitted" });
+    expect(serverError(http(415, { code: "unsupported_audio" }), 120)).toEqual({ code: "unsupported_audio" });
+    expect(serverError(http(422, { code: "empty_audio" }), 120)).toEqual({ code: "empty" });
+    expect(serverError(http(429, { code: "too_many_concurrent" }), 120)).toEqual({ code: "rate_limited" });
+    expect(serverError(http(429, { code: "ai_budget_exceeded", scope: "org" }), 120)).toEqual({ code: "ai_budget_exceeded" });
+    expect(serverError(http(413, undefined), 60)).toEqual({ code: "too_long", params: { n: 60 } }); // nginx, no JSON
+    expect(serverError(http(502, { code: "provider_error" }), 120)).toEqual({ code: "provider_error" });
+    expect(serverError(http(500, { code: "whatever" }), 120)).toEqual({ code: "provider_error" });
     expect(serverError(new Error("x"), 120)).toEqual({ code: "provider_error" });
   });
   it("per-browser permission help", () => {
@@ -55,21 +66,20 @@ describe("serverError", () => {
 
 describe("status helpers", () => {
   const st = (o: Record<string, unknown>) => VoiceStatus.parse({ available: true, ...o });
-  it("hides the mic for config reasons and without a voice backend, keeps it for consent and the limit", () => {
+  it("hides the mic for config reasons, for a surface outside `targets` and without a voice backend; keeps it for consent and the limit", () => {
     expect(hidesMic(undefined, new Error("404"))).toBe(true);
-    expect(hidesMic(st({ available: false, reason: "disabled" }), null)).toBe(true);
-    expect(hidesMic(st({ available: false, reason: "not_configured" }), null)).toBe(true);
-    expect(hidesMic(st({ available: false, reason: "no_permission" }), null)).toBe(true);
-    expect(hidesMic(st({ available: false, reason: "consent_required" }), null)).toBe(false);
-    expect(hidesMic(st({ available: false, reason: "ai_voice_limit_reached" }), null)).toBe(false);
-    expect(hidesMic(st({}), null)).toBe(false);
+    for (const reason of ["not_configured", "disabled", "provider_unusable", "transfer_basis_missing"]) expect(hidesMic(st({ available: false, reason, hide_mic: true }), null), reason).toBe(true);
+    expect(hidesMic(st({ available: false, reason: "not_permitted", targets: [] }), null, "chat")).toBe(true);
+    expect(hidesMic(st({ available: true, targets: ["guard"] }), null, "chat")).toBe(true);
+    expect(hidesMic(st({ available: true, targets: ["chat", "rules", "guard"] }), null, "chat")).toBe(false);
+    expect(hidesMic(st({ available: false, reason: "consent_required", consent: false }), null, "rules")).toBe(false);
+    expect(hidesMic(st({ available: false, reason: "limit_reached" }), null)).toBe(false);
   });
-  it("consent and the per-surface cap", () => {
+  it("consent and the minutes of the limit reached", () => {
     expect(needsConsent(st({ consent: false }))).toBe(true);
-    expect(needsConsent(st({ consent: "granted" }))).toBe(false);
-    expect(needsConsent(st({ consent: false, consent_required: false }))).toBe(false);
-    expect(maxSecondsFor(st({ max_seconds: 120, max_seconds_by_target: { booking_nl: 45 } }), "booking_nl")).toBe(45);
-    expect(maxSecondsFor(st({ max_seconds: 60 }), "chat")).toBe(60);
+    expect(needsConsent(st({ consent: true }))).toBe(false);
+    expect(limitMinutes(st({ usage: { day_s: 600, day_limit_s: 600, month_s: 900, month_limit_s: 6000 } }))).toEqual({ used: 10, limit: 10, month: false });
+    expect(limitMinutes(st({ usage: { day_s: 60, day_limit_s: 0, month_s: 6000, month_limit_s: 6000 } }))).toEqual({ used: 100, limit: 100, month: true });
   });
 });
 

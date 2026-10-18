@@ -21,7 +21,7 @@ Everything here is computed from the workbooks through the production parsers (n
 from __future__ import annotations
 
 import math
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -425,3 +425,101 @@ def table(results: Sequence[Result]) -> str:
         lines.append(f"          {keep}")
         lines.append(f"          targets: {r.targets}")
     return "\n".join(lines)
+
+
+# ------------------------------------------------------------------------------------------------ B4 (AS-13)
+
+
+async def b4_learning_holdout(session: Any, train_code: str = "2026-BAHAR", test_code: str = "2026-GUZ") -> Result:
+    """Priors for the Güz term learned from Bahar evidence only (the Güz term's own observations are left out:
+    run this on a copy) -> the suggestible building priors vs the buildings of the Güz definitive rooms of the same
+    subjects (instructor, course, programme). Also: no room or room-feature prior may be suggestible across seasons.
+
+    Destructive on purpose: it deletes the test term's observations in the given database."""
+    from sqlalchemy import delete, select
+
+    from app.models import LearnedObservation, LearnedPrior, MeetingRequest, Room, Section, SectionInstructor, Term
+    from app.services import learning
+
+    terms = {t.code: t for t in (await session.execute(select(Term))).scalars()}
+    test = terms[test_code]
+    await session.execute(delete(LearnedObservation).where(LearnedObservation.term_id == test.id))
+    await session.flush()
+    learning._forget()
+    await learning.recompute_priors(session, test.id)
+    rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
+    truth: dict[tuple[str, str], set[str]] = defaultdict(set)
+    q = (
+        select(MeetingRequest.definitive_room_ids, Section.course_id, Section.program_id, Section.id)
+        .join(Section, Section.id == MeetingRequest.section_id)
+        .where(Section.term_id == test.id, MeetingRequest.archived.is_(False))
+    )
+    sec_ins: dict[int, list[int]] = defaultdict(list)
+    for sid, iid in (
+        await session.execute(
+            select(SectionInstructor.section_id, SectionInstructor.instructor_id)
+            .join(Section, Section.id == SectionInstructor.section_id)
+            .where(Section.term_id == test.id)
+        )
+    ).all():
+        sec_ins[int(sid)].append(int(iid))
+    for ids, cid, pid, sid in (await session.execute(q)).all():
+        blds = {rooms[int(r)].code[:1] for r in ids or [] if int(r) in rooms}
+        if not blds:
+            continue
+        truth[("course", str(cid))] |= blds
+        if pid:
+            truth[("program", str(pid))] |= blds
+        for iid in sec_ins.get(int(sid), []):
+            truth[("instructor", str(iid))] |= blds
+    priors = list(
+        (
+            await session.execute(
+                select(LearnedPrior).where(LearnedPrior.term_id == test.id, LearnedPrior.suggestible.is_(True))
+            )
+        ).scalars()
+    )
+    building = [p for p in priors if p.attribute == "building" and (p.subject_type, p.subject_key) in truth]
+    hits = sum(1 for p in building if p.value in truth[(p.subject_type, p.subject_key)])
+    cross = [p for p in priors if p.attribute in ("room", "tag")]
+    precision = hits / len(building) if building else math.nan
+    return Result(
+        "B4",
+        "Öğrenme: yalnız Bahar → Güz bina önerileri / learning holdout: Bahar only → Güz building suggestions",
+        {
+            "building_suggestions": len(building),
+            "hits": hits,
+            "precision": round(precision, 3) if building else None,
+            "cross_season_room_or_tag": len(cross),
+            "suggestible_total": len(priors),
+            "by_subject": dict(Counter(p.subject_type for p in building)),
+        },
+        {"precision": ">= 0.8", "cross_season_room_or_tag": 0},
+        bool(building) and precision >= 0.8 and not cross,
+    )
+
+
+async def b4_standalone() -> Result:
+    """B4 on a throwaway SQLite database built from the two planning lists (the CLI path)."""
+    import tempfile
+
+    from app.core import db as dbmod
+    from app.importers.planning_list import import_planning_list
+    from app.models import Base
+    from app.services import learning_extract
+
+    with tempfile.TemporaryDirectory(prefix="smartsched-b4-") as tmp:
+        dbmod.configure_engine(f"sqlite+aiosqlite:///{tmp}/b4.db")
+        async with dbmod.get_engine().begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        try:
+            async with dbmod.get_session_factory()() as s:
+                await import_planning_list(s, BAHAR_LIST, "2026-BAHAR")
+                await s.commit()
+                await import_planning_list(s, GUZ_LIST, "2026-GUZ")
+                await s.commit()
+                await learning_extract.extract(s)
+                await s.commit()
+                return await b4_learning_holdout(s)
+        finally:
+            await dbmod.dispose_engine()
