@@ -9,7 +9,8 @@
  * "Sıfırlama kodunu ekranda göster"; local without e-mail → the code, the reset and an explanation; LDAP → the reset +
  * "Parola kurum dizininde (LDAP) değiştirilir."; SSO → one explanation row, never a button (D10); own account → the
  * link to Profil › Giriş ve güvenlik. The dialogs state the consequence first, need a reason (10–500) and how the
- * identity was checked, and map every refusal of §7.3 / §7.4 to its sentence.
+ * identity was checked, and map every refusal of §7.3 / §7.4 to its sentence. "Oturumları sonlandır" (AU-15,
+ * `POST /admin/users/{id}/sessions/revoke`) confirms first and works for every account but your own.
  */
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 import Link from "next/link";
@@ -142,7 +143,8 @@ export function MfaFilterSelect({ value, onChange, className }: { value: MfaFilt
 
 /* ------------------------------------------------------------------------------------------ the actions */
 
-type Open = { kind: "reset" | "link"; user: SecurityUser } | null;
+type Kind = "reset" | "link" | "sessions";
+type Open = { kind: Kind; user: SecurityUser } | null;
 
 export function useUserSecurity({ meId, onShowCode }: { meId: number | null | undefined; onShowCode?: (userId: number) => void }): {
   menuItems: (u: SecurityUser) => ReactNode;
@@ -155,6 +157,8 @@ export function useUserSecurity({ meId, onShowCode }: { meId: number | null | un
     link: u.account === "local" && Boolean(u.email),
     reset: u.account !== "sso" && u.mfa !== "off",
     code: u.account === "local" && Boolean(onShowCode),
+    // AU-15: SmartSched sessions end for every kind of account (SSO too); your own via Profil
+    sessions: !(meId != null && u.id === meId),
   });
   const menuItems = (u: SecurityUser) => <SecurityMenuItems u={u} a={actions(u)} onOpen={(kind) => setOpen({ kind, user: u })} onShowCode={onShowCode} />;
   const block = (u: SecurityUser) => <SecurityBlock u={u} a={actions(u)} onOpen={(kind) => setOpen({ kind, user: u })} onShowCode={onShowCode} />;
@@ -163,12 +167,13 @@ export function useUserSecurity({ meId, onShowCode }: { meId: number | null | un
     <>
       <ResetMfaDialog user={open?.kind === "reset" ? open.user : null} onClose={close} />
       <ResetLinkDialog user={open?.kind === "link" ? open.user : null} onClose={close} onShowCode={onShowCode} />
+      <EndSessionsDialog user={open?.kind === "sessions" ? open.user : null} onClose={close} />
     </>
   );
   return { menuItems, block, dialogs };
 }
 
-type Acts = { own: boolean; link: boolean; reset: boolean; code: boolean };
+type Acts = { own: boolean; link: boolean; reset: boolean; code: boolean; sessions: boolean };
 
 type T = ReturnType<typeof useI18n>["t"];
 
@@ -179,7 +184,7 @@ function explanation(t: T, u: SecurityUser, a: Acts): string | null {
   return null;
 }
 
-function SecurityMenuItems({ u, a, onOpen, onShowCode }: { u: SecurityUser; a: Acts; onOpen: (k: "reset" | "link") => void; onShowCode?: (id: number) => void }) {
+function SecurityMenuItems({ u, a, onOpen, onShowCode }: { u: SecurityUser; a: Acts; onOpen: (k: Kind) => void; onShowCode?: (id: number) => void }) {
   const { t } = useI18n();
   const note = explanation(t, u, a);
   return (
@@ -210,6 +215,11 @@ function SecurityMenuItems({ u, a, onOpen, onShowCode }: { u: SecurityUser; a: A
             ) : null}
           </>
         )}
+        {a.sessions ? (
+          <DropdownMenuItem onClick={() => onOpen("sessions")} data-testid={`user-end-sessions-${u.id}`}>
+            {t("auth.admin.endSessions")}
+          </DropdownMenuItem>
+        ) : null}
         {/* D10: an explanation, not a disabled button (the reason is the content, also on touch) */}
         {note ? (
           <p role="note" className="max-w-72 px-1.5 py-1.5 type-footnote text-label-2" data-testid={`user-security-note-${u.id}`}>
@@ -221,7 +231,7 @@ function SecurityMenuItems({ u, a, onOpen, onShowCode }: { u: SecurityUser; a: A
   );
 }
 
-function SecurityBlock({ u, a, onOpen, onShowCode }: { u: SecurityUser; a: Acts; onOpen: (k: "reset" | "link") => void; onShowCode?: (id: number) => void }) {
+function SecurityBlock({ u, a, onOpen, onShowCode }: { u: SecurityUser; a: Acts; onOpen: (k: Kind) => void; onShowCode?: (id: number) => void }) {
   const { t, locale } = useI18n();
   const q = useAdminMfa(u.id, u.account !== "sso");
   const note = explanation(t, u, a);
@@ -268,6 +278,11 @@ function SecurityBlock({ u, a, onOpen, onShowCode }: { u: SecurityUser; a: Acts;
             </Button>
           ) : null}
         </div>
+      ) : null}
+      {a.sessions ? (
+        <Button type="button" variant="secondary" shape="rect" className="self-start max-sm:w-full" onClick={() => onOpen("sessions")} data-testid="block-end-sessions">
+          {t("auth.admin.endSessions")}
+        </Button>
       ) : null}
       {note ? (
         <p className="type-footnote text-label-2" data-testid="block-note">
@@ -487,6 +502,46 @@ export function ResetLinkDialog({ user, onClose, onShowCode }: { user: SecurityU
           </Button>
           <BusyButton type="button" shape="rect" busy={busy} busyLabel={t("busy.working")} onClick={() => void send()} data-testid="reset-link-send">
             {t("auth.admin.linkSend")}
+          </BusyButton>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function EndSessionsDialog({ user, onClose }: { user: SecurityUser | null; onClose: () => void }) {
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<MessageKey | null>(null);
+  const close = () => (setError(null), onClose());
+  const run = async () => {
+    if (!user || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const out = await authSecurity.adminEndSessions(user.id);
+      toast.success(t("auth.admin.endSessionsDone", { name: user.name, n: out.revoked }));
+      close();
+    } catch (e) {
+      setError(e instanceof HttpError && e.status === 403 ? "auth.admin.err403" : "auth.admin.errGeneric");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog open={user !== null} onOpenChange={(o) => (!o ? close() : undefined)}>
+      <DialogContent role="alertdialog" data-testid="end-sessions-dialog">
+        <DialogHeader>
+          <DialogTitle>{t("auth.admin.endSessionsTitle", { name: user?.name ?? "" })}</DialogTitle>
+          <DialogDescription>{t("auth.admin.endSessionsBody", { name: user?.name ?? "" })}</DialogDescription>
+        </DialogHeader>
+        {error ? <Alert tone="error">{t(error)}</Alert> : null}
+        <DialogFooter>
+          <Button type="button" variant="secondary" shape="rect" onClick={close}>
+            {t("auth.admin.cancel")}
+          </Button>
+          <BusyButton type="button" variant="destructive" shape="rect" busy={busy} busyLabel={t("busy.working")} onClick={() => void run()} data-testid="end-sessions-confirm">
+            {t("auth.admin.endSessions")}
           </BusyButton>
         </DialogFooter>
       </DialogContent>

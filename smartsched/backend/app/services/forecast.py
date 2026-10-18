@@ -36,6 +36,16 @@ TAG_TR = {"PC": "bilgisayar laboratuvarı", "LAB": "laboratuvar", "TIP": "tıp d
 TAG_EN = {"PC": "computer lab", "LAB": "laboratory", "TIP": "medicine room", "AMPHI": "amphitheatre"}
 MIN_CALIBRATION = 10
 MIN_REL_HALF_WIDTH = 0.02
+Z80 = 1.2816
+#: AS-21 calibrated ranges (split conformal). A cell's score is the Poisson-scaled error |actual - forecast| /
+#: sqrt(forecast). SHAPE_Q80 is the 80 % conformal quantile of the shape-only scores of the Güz -> Bahar fold of
+#: the real workbooks (60 cells, ``backtest.shape_scores``; tests/test_as_07 recomputes it). LEVEL_REL_SD_PRIOR is a
+#: stated prior for the term-to-term level change (not fitted: two terms cannot calibrate it). Both apply until
+#: the install has its own history (MIN_CONFORMAL_SCORES scores from two published terms of the season); until
+#: then the forecast says "düşük güven".
+SHAPE_Q80 = 1.45
+LEVEL_REL_SD_PRIOR = 0.05
+MIN_CONFORMAL_SCORES = 20
 DEMAND_GROUPS = ("building", "weekday", "period", "tag", "capacity_band", "cell")
 
 
@@ -229,22 +239,97 @@ def demand_cells(needs: Sequence[Need], lecture_weeks: Sequence[int]) -> dict[tu
     return out
 
 
+def poisson_score(actual: float, forecast: float) -> float:
+    """The conformal score of one cell: |actual - forecast| / sqrt(forecast) (scale-free across a 40 and a 650
+    room-period building)."""
+    return abs(float(actual) - float(forecast)) / math.sqrt(max(float(forecast), 1.0))
+
+
+def conformal_quantile(scores: Sequence[float], coverage: float = 0.8) -> float | None:
+    """Split-conformal quantile: the ceil((n + 1) x coverage)-th smallest score; None when there are too few
+    scores for that rank (the range would be unbounded)."""
+    s = sorted(float(x) for x in scores)
+    k = math.ceil((len(s) + 1) * coverage)
+    return s[k - 1] if s and k <= len(s) else None
+
+
+def calibrated_half_width(value: float, q80: float, rel_level_sd: float = 0.0) -> float:
+    """80 % half-width: the shape term q80 x sqrt(value) and the level term Z80 x rel_level_sd x value, added in
+    quadrature."""
+    v = max(float(value), 0.0)
+    return math.hypot(q80 * math.sqrt(max(v, 1.0)), Z80 * rel_level_sd * v)
+
+
 def shape_times_level(
-    level: float, weekly_shares: Mapping[str, Sequence[float]], *, rel_level_sd: float = 0.0
+    level: float,
+    weekly_shares: Mapping[str, Sequence[float]],
+    *,
+    rel_level_sd: float = 0.0,
+    shape_q80: float | None = None,
 ) -> dict[str, tuple[float, float, float]]:
-    """(value, lo80, hi80) per group: ``level`` x the mean share; the 80 % range from the 10th-90th percentile of the
-    weekly shares, widened by the level's relative spread and at least ±2 %."""
+    """(value, lo80, hi80) per group: ``level`` x the mean share. Without ``shape_q80`` the range is the old
+    within-term one (10th-90th percentile of the weekly shares, widened by the level's spread, at least ±2 %; it
+    covered 25 % in B3). With ``shape_q80`` (AS-21) the range is at least the calibrated half-width."""
     out: dict[str, tuple[float, float, float]] = {}
     for g, shares in weekly_shares.items():
         s = np.asarray(shares, float)
         mean = float(s.mean()) if s.size else 0.0
         lo_s, hi_s = (float(np.percentile(s, 10)), float(np.percentile(s, 90))) if s.size > 1 else (mean, mean)
         v = level * mean
-        lo = level * lo_s * (1 - 1.2816 * rel_level_sd)
-        hi = level * hi_s * (1 + 1.2816 * rel_level_sd)
+        lo = level * lo_s * (1 - Z80 * rel_level_sd)
+        hi = level * hi_s * (1 + Z80 * rel_level_sd)
         lo, hi = min(lo, v * (1 - MIN_REL_HALF_WIDTH)), max(hi, v * (1 + MIN_REL_HALF_WIDTH))
+        if shape_q80 is not None:
+            hw = calibrated_half_width(v, shape_q80, rel_level_sd)
+            lo, hi = min(lo, v - hw), max(hi, v + hw)
         out[g] = (v, max(0.0, lo), hi)
     return out
+
+
+@dataclass(frozen=True)
+class SeasonalRanges:
+    """``seasonal_ranges``: (value, lo80, hi80) per key, the confidence, the quantile used and its score count."""
+
+    cells: dict[tuple[Any, ...], tuple[float, float, float]]
+    confidence: str
+    q80: float | None
+    n_scores: int
+
+
+def seasonal_ranges(
+    weekly: Mapping[tuple[Any, ...], Sequence[float]],
+    prev_weekly: Mapping[tuple[Any, ...], Sequence[float]] | None = None,
+) -> SeasonalRanges:
+    """Seasonal-naive cells from the source term's weekly counts (value = the weekly mean). The 80 % range:
+    * the install's own history (AS-21): the earlier same-season term's weekly means predict each week of the
+      source term; with >= MIN_CONFORMAL_SCORES scores their conformal quantile is the half-width
+      (``medium``);
+    * otherwise the backtest calibration SHAPE_Q80 with the LEVEL_REL_SD_PRIOR level prior (``low``,
+      "düşük güven").
+    Never narrower than the source term's own 10th-90th week percentiles or ±2 %."""
+    q: float | None = None
+    scores: list[float] = []
+    if prev_weekly:
+        for k, weeks in weekly.items():
+            prev = prev_weekly.get(k)
+            f = float(np.mean(prev)) if prev else 0.0
+            scores.extend(poisson_score(a, f) for a in weeks)
+        q = conformal_quantile(scores) if len(scores) >= MIN_CONFORMAL_SCORES else None
+    own = q is not None
+    cells: dict[tuple[Any, ...], tuple[float, float, float]] = {}
+    for k, weeks in weekly.items():
+        v = np.asarray(weeks, float)
+        val = float(v.mean()) if v.size else 0.0
+        lo, hi = (float(np.percentile(v, 10)), float(np.percentile(v, 90))) if v.size > 1 else (val, val)
+        hw = (
+            calibrated_half_width(val, q, 0.0)
+            if q is not None
+            else calibrated_half_width(val, SHAPE_Q80, LEVEL_REL_SD_PRIOR)
+        )
+        lo = min(lo, val * (1 - MIN_REL_HALF_WIDTH), val - hw)
+        hi = max(hi, val * (1 + MIN_REL_HALF_WIDTH), val + hw)
+        cells[k] = (val, max(0.0, lo), hi)
+    return SeasonalRanges(cells, "medium" if own else "low", q if own else SHAPE_Q80, len(scores) if own else 0)
 
 
 def damped_level(values: Sequence[float], alpha: float = 0.5, beta: float = 0.3, phi: float = 0.9) -> float:
@@ -451,6 +536,22 @@ async def demand_forecast(session: Any, term_id: int | None, group_by: str = "bu
     return await _seasonal_naive(session, term, group_by)
 
 
+def _weekly_counts(tc: Any, group_by: str) -> dict[tuple[Any, ...], list[float]]:
+    """Weekly room-periods per building / weekday / period of a term cube (``peaks.term_cube``)."""
+    busy = tc.cube.busy  # (W, 7, 18, R)
+    weekly: dict[tuple[Any, ...], list[float]] = defaultdict(list)
+    for wi in range(len(tc.weeks)):
+        counts: Counter[tuple[Any, ...]] = Counter()
+        for ri, room in enumerate(tc.cube.rooms):
+            col = busy[wi, :, :, ri]
+            for d, p in zip(*np.nonzero(col), strict=False):
+                key = {"building": (room.building,), "weekday": (int(d) + 1,), "period": (int(p) + 1,)}[group_by]
+                counts[key] += 1
+        for k in set(counts) | set(weekly):
+            weekly[k].append(float(counts.get(k, 0)))
+    return weekly
+
+
 async def _seasonal_naive(session: Any, term: Any, group_by: str) -> dict[str, Any]:
     """The same season's last published term, ratio 1 (one year of history), per building / weekday / period."""
     from sqlalchemy import select
@@ -485,41 +586,37 @@ async def _seasonal_naive(session: Any, term: Any, group_by: str) -> dict[str, A
             )
         )
         return _empty(term.id, group_by, "none", needs, term_code=term.code)
-    src = sorted(published, key=lambda t: (t.start_date is not None, t.start_date, t.id))[-1]
+    ordered = sorted(published, key=lambda t: (t.start_date is not None, t.start_date, t.id))
+    src = ordered[-1]
     tc = await peaks.term_cube(session, src.id, "LECTURE")
     if tc is None or not tc.weeks:
         return _empty(term.id, group_by, "none", NEEDS_NONE, term_code=term.code)
-    busy = tc.cube.busy  # (W, 7, 18, R)
-    weekly: dict[tuple[Any, ...], list[float]] = defaultdict(list)
-    for wi in range(len(tc.weeks)):
-        counts: Counter[tuple[Any, ...]] = Counter()
-        for ri, room in enumerate(tc.cube.rooms):
-            col = busy[wi, :, :, ri]
-            for d, p in zip(*np.nonzero(col), strict=False):
-                key = {"building": (room.building,), "weekday": (int(d) + 1,), "period": (int(p) + 1,)}[group_by]
-                counts[key] += 1
-        for k in set(counts) | set(weekly):
-            weekly[k].append(float(counts.get(k, 0)))
+    weekly = _weekly_counts(tc, group_by)
+    prev_weekly = None
+    if len(ordered) >= 2:  # AS-21: the install's own cross-term history calibrates the range
+        prev_tc = await peaks.term_cube(session, ordered[-2].id, "LECTURE")
+        prev_weekly = _weekly_counts(prev_tc, group_by) if prev_tc is not None and prev_tc.weeks else None
     n_cal = len(tc.weeks)
-    conf = "medium" if n_cal >= MIN_CALIBRATION else "low"
-    totals = np.asarray([sum(v[i] for v in weekly.values()) for i in range(n_cal)], float)
-    rel = float(np.std(totals) / np.mean(totals)) if totals.size > 1 and totals.mean() else 0.0
+    ranges = seasonal_ranges(weekly, prev_weekly)
+    conf = ranges.confidence
     basis = _t(
         f"{src.code} yayımlanmış programı (aynı dönem, {n_cal} hafta) × kohort oranı 1 (bir yıllık geçmiş)",
         f"the published timetable of {src.code} (same season, {n_cal} weeks) × cohort ratio 1 (one year of history)",
     )
+    if conf == "medium":
+        basis = _t(
+            f"{basis['tr']}; aralık {ordered[-2].code} → {src.code} hatalarından kalibre ({ranges.n_scores} hücre)",
+            f"{basis['en']}; range calibrated on the {ordered[-2].code} → {src.code} errors ({ranges.n_scores} cells)",
+        )
+    low_needs = _t(
+        "Düşük güven: aralık bu kurumun geçmişiyle henüz kalibre edilmedi (aynı dönemden iki yayımlanmış program "
+        "gerekir); geniş aralık örnek verilerdeki geriye dönük testten",
+        "Low confidence: the range is not yet calibrated on this institution's history (two published terms of "
+        "the season are needed); the wide range comes from the backtest on the sample data",
+    )
     rows: list[dict[str, Any]] = []
-    for k in sorted(weekly, key=lambda x: tuple(str(v) for v in x)):
-        v = np.asarray(weekly[k], float)
-        val = float(v.mean())
-        if n_cal >= MIN_CALIBRATION:
-            lo, hi = float(np.percentile(v, 10)), float(np.percentile(v, 90))
-        else:  # parent (campus) relative range
-            lo, hi = (
-                val * (1 - max(1.2816 * rel, MIN_REL_HALF_WIDTH)),
-                val * (1 + max(1.2816 * rel, MIN_REL_HALF_WIDTH)),
-            )
-        lo, hi = min(lo, val * (1 - MIN_REL_HALF_WIDTH)), max(hi, val * (1 + MIN_REL_HALF_WIDTH))
+    for k in sorted(ranges.cells, key=lambda x: tuple(str(v) for v in x)):
+        val, lo, hi = ranges.cells[k]
         rows.append(
             {
                 "key": list(k),
@@ -530,12 +627,7 @@ async def _seasonal_naive(session: Any, term: Any, group_by: str) -> dict[str, A
                 "method": "seasonal_naive",
                 "basis": basis,
                 "confidence": conf,
-                "needs": _t(
-                    "Düşük güven: 10'dan az kalibrasyon haftası; aralık kampüs düzeyindeki dalgalanmadan",
-                    "Low confidence: fewer than 10 calibration weeks; the range comes from the campus-level spread",
-                )
-                if conf == "low"
-                else None,
+                "needs": low_needs if conf == "low" else None,
             }
         )
     return {
@@ -547,8 +639,10 @@ async def _seasonal_naive(session: Any, term: Any, group_by: str) -> dict[str, A
         "basis": basis,
         "confidence": conf,
         "needs": _t(
-            "Planlama listesi içe aktarıldığında tahmin dönemin kendi taleplerinden hesaplanır",
-            "Once the planning list is imported, demand is computed from the term's own requests",
+            (low_needs["tr"] + ". " if conf == "low" else "")
+            + "Planlama listesi içe aktarıldığında tahmin dönemin kendi taleplerinden hesaplanır",
+            (low_needs["en"] + ". " if conf == "low" else "")
+            + "Once the planning list is imported, demand is computed from the term's own requests",
         ),
         "source_term_id": src.id,
         "cells": rows,

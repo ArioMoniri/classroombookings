@@ -292,6 +292,8 @@ export function RunView({ id }: { id: number }) {
   // the truth lists ('398 kabul edilmiş istisna' -> Sorun 398); the data notes are a labelled second line. Without a
   // truth (an imported board, an old run) the data notes stay the count
   const problems = truth ? problemCount(truth) : dataNotes;
+  // the report tab waits for the summary and the data checks together (each one changes which cards show)
+  const reportPending = reportable && (summary.isPending || issues.isPending);
   const exceptions = verdictExceptions({
     waiver: waiverOf(r.stats_detail ?? r.stats, r.diagnosis),
     counts: index.data ? runIssueCounts(index.data.assignments) : { conflicts: 0, overCapacity: 0 },
@@ -394,6 +396,10 @@ export function RunView({ id }: { id: number }) {
                           <span aria-label={locale === "tr" ? "çizelge yok" : "no timetable"}>—</span>
                         )}
                       </dd>
+                      {x.k === t("glass.report.problems") && reportable && summary.isPending ? (
+                        // the "Veri notları N" line arrives with the summary: keep its line (CLS)
+                        <p className="type-footnote" aria-hidden="true" data-testid="kpi-data-notes-pending">&nbsp;</p>
+                      ) : null}
                       {x.k === t("glass.report.problems") && truth && outcome.kind !== "cancelled" ? (
                         <p className="type-footnote text-label-2" data-testid="kpi-data-notes">
                           {locale === "tr" ? `Veri notları ${n(dataNotes)}` : `Data notes ${n(dataNotes)}`}
@@ -447,6 +453,15 @@ export function RunView({ id }: { id: number }) {
               </TabsList>
               </div>
               <TabsContent value="report" keepMounted className="space-y-5 pt-4 data-[hidden]:hidden">
+                {/* mobile-b phase 2 (CLS 0.48 at 390): the cards depend on the summary and the data checks; until both
+                    answer, one placeholder of the list's height holds the place instead of cards that reshuffle */}
+                {reportPending ? (
+                  <div className="min-h-[60dvh] space-y-3" aria-busy="true" data-testid="run-report-loading">
+                    <Skeleton className="h-24 rounded-2xl" />
+                    <Skeleton className="h-40 rounded-2xl" />
+                  </div>
+                ) : (
+                <>
                 {problems === 0 && !reportable ? (
                   // a cancelled run: no "İhlal yok" (there is nothing to have violations), just why the list is empty
                   <Card>
@@ -503,6 +518,8 @@ export function RunView({ id }: { id: number }) {
                     </CardContent>
                   </Card>
                 ) : null}
+                </>
+                )}
               </TabsContent>
               <TabsContent value="grid" className="pt-4">
                 {/* the calendar lives on its own page (owned by the calendar view); deep-link run + week */}

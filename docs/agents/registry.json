@@ -3333,7 +3333,8 @@
       "goal": "You are the CHARTS lane, re-created after a container restart. CH-01 and CH-02 are done and committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `components/charts/**` and `components/charts/evil/**`. You may also have started CH-04 (the dashboard `PeriodArea` migration);…",
       "ledger": "Charts resume: CH-03..09",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 08:40"
     },
     {
       "id": "af2af425bb1ceb879",
@@ -3366,6 +3367,14 @@
       "ledger": "Mobile B resume: route-level fixes",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "aad32dace96a27bc2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:37",
+      "left_off": "is the pod deployed yet"
     }
   ]
 }

@@ -12,7 +12,7 @@ the only ``User`` in the session's identity map, else ``None`` (a background job
 
 Features (research R-AI-01): ``rules`` (rules from text), ``chat`` (chat edits), ``intake`` (uploads / the
 Ingestion Council), ``vision`` (scans and images), ``explain`` (explanations), ``booking_nl`` (booking requests in
-plain language), ``voice_stt`` (speech to text before any of them: the transcript returns to the person for
+plain language), ``helper`` (the in-app helper's turns, HB-06), ``voice_stt`` (speech to text before any of them: the transcript returns to the person for
 review and is sent through the feature it was spoken for; VO-01), plus ``guard`` (the optional model-based scope
 check) and ``test`` (the admin's test call).
 """
@@ -26,7 +26,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
 
-FEATURES = ("rules", "chat", "intake", "vision", "explain", "booking_nl", "voice_stt")
+FEATURES = ("rules", "chat", "intake", "vision", "explain", "booking_nl", "voice_stt", "helper")
 #: features served by a speech model (never routed to a text model, never following the text default)
 VOICE_FEATURES = ("voice_stt",)
 INTERNAL_FEATURES = ("guard", "test", "other")
@@ -38,6 +38,7 @@ FEATURE_LABELS: dict[str, tuple[str, str]] = {
     "explain": ("Açıklamalar", "Explanations"),
     "booking_nl": ("Doğal dille rezervasyon", "Bookings in plain language"),
     "voice_stt": ("Sesle yazma", "Voice input"),
+    "helper": ("Yardımcı", "Helper"),
     "guard": ("Kapsam denetimi", "Scope check"),
     "test": ("Bağlantı testi", "Connection test"),
     "other": ("Diğer", "Other"),
@@ -125,6 +126,8 @@ _FRAME_FEATURES: list[tuple[str, str | None, str]] = [
     ("app.api.v1.calendar", None, "explain"),
     ("app.services.calendar_views", None, "explain"),
     ("app.council", None, "intake"),
+    ("app.ai.helper_turn", None, "helper"),
+    ("app.api.v1.helper_turn", None, "helper"),
 ]
 
 

@@ -25,7 +25,13 @@ def test_as_07_b3_building_demand(parsed_bahar_grid, parsed_guz_grid, parsed_guz
     r = bt.b3_building_demand(parsed_bahar_grid, parsed_guz_grid, parsed_guz_list)
     assert r.passed, r.metrics
     assert r.metrics["wape_pct"] <= 15.0
-    assert 0.0 <= r.metrics["coverage80_pct"] <= 100.0  # reported, not a gate (one year of history)
+    # AS-21: the 80 % ranges are calibrated out of sample (split conformal on the Güz -> Bahar fold) and cover
+    # 70-90 % of the Güz cells; the old within-term week quantiles covered 25 %
+    assert 70.0 <= r.metrics["coverage80_pct"] <= 90.0, r.metrics["coverage80_pct"]
+    assert r.metrics["coverage80_uncalibrated_pct"] == 25.0
+    cal = r.metrics["calibration"]
+    assert cal["fold"] == "guz->bahar" and cal["n"] == 60 and cal["shape_q80"] == fc.SHAPE_Q80
+    assert cal["level_rel_sd"] == fc.LEVEL_REL_SD_PRIOR
     assert {c["building"] for c in r.metrics["cells"]} >= {"A", "B", "C"}
     again = bt.b3_building_demand(parsed_bahar_grid, parsed_guz_grid, parsed_guz_list)
     assert json.dumps(again.as_dict(), sort_keys=True) == json.dumps(r.as_dict(), sort_keys=True)
@@ -88,9 +94,13 @@ async def test_as_07_seasonal_naive_for_a_new_term_of_a_published_season(env):  
         )
     ).json()
     assert out["method"] == "seasonal_naive" and out["source_term_id"] == env.term_id
-    assert out["confidence"] == "medium"  # 15 calibration weeks
+    # AS-21: one published term of the season cannot calibrate a cross-term range: "düşük güven" with the
+    # backtest-calibrated default width, never the narrow week-to-week quantiles
+    assert out["confidence"] == "low"
     a = next(c for c in out["cells"] if c["key"] == ["A"])
     assert a["lo80"] <= a["value"] <= a["hi80"] and a["value"] > 0
+    assert a["confidence"] == "low" and a["needs"]["tr"].startswith("Düşük güven") and a["needs"]["en"]
+    assert a["hi80"] - a["value"] >= 0.99 * fc.calibrated_half_width(a["value"], fc.SHAPE_Q80, fc.LEVEL_REL_SD_PRIOR)
     assert "kohort oranı 1" in a["basis"]["tr"]
     tagged = (
         await env.client.get(
@@ -98,3 +108,33 @@ async def test_as_07_seasonal_naive_for_a_new_term_of_a_published_season(env):  
         )
     ).json()
     assert tagged["confidence"] == "none" and tagged["needs"]["tr"]
+
+
+def test_as_07_shape_q80_is_the_backtest_calibration(parsed_bahar_grid, parsed_guz_grid):
+    # the shipped default is what the Güz -> Bahar fold of the real workbooks gives (shape-only Poisson scores)
+    scores = bt.shape_scores(parsed_guz_grid, parsed_bahar_grid)
+    assert len(scores) == 60
+    assert round(fc.conformal_quantile(scores), 2) == fc.SHAPE_Q80
+
+
+def test_as_07_conformal_quantile_needs_enough_scores():
+    assert fc.conformal_quantile([1.0, 2.0, 3.0]) is None  # ceil(4 x 0.8) = 4 > 3 scores
+    assert fc.conformal_quantile([float(i) for i in range(1, 11)]) == 9.0  # ceil(11 x 0.8) = 9th smallest
+
+
+def test_as_07_seasonal_ranges_calibrate_on_the_installs_own_history(parsed_bahar_grid, parsed_guz_grid):
+    # real weekly room-periods per building: the earlier term (Güz) predicts the later one (Bahar)
+    def weekly(grid):
+        by_week = bt.building_course_room_periods(grid)
+        keys = sorted({b for v in by_week.values() for b in v})
+        return {(b,): [float(by_week[w].get(b, 0)) for w in sorted(by_week)] for b in keys}
+
+    src = weekly(parsed_bahar_grid)
+    alone = fc.seasonal_ranges(src)
+    assert alone.confidence == "low" and alone.q80 == fc.SHAPE_Q80 and alone.n_scores == 0
+    own = fc.seasonal_ranges(src, prev_weekly=weekly(parsed_guz_grid))
+    assert own.confidence == "medium" and own.n_scores == 60 and own.q80 is not None and own.q80 > 0
+    for key, (v, lo, hi) in own.cells.items():
+        assert lo <= v <= hi, key
+    for v, _lo, hi in own.cells.values():
+        assert hi - v >= 0.99 * own.q80 * max(v, 1.0) ** 0.5  # the own quantile, no level prior on top

@@ -68,7 +68,7 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<Response> {
 
   if (segment === "auth/login" || segment === "auth/sso/exchange") {
     if (!upstream.ok) return passthrough(upstream);
-    const data = (await upstream.json()) as TokenAnswer & { user?: unknown; next?: string | null; welcome?: string | null; inviter_name?: string | null };
+    const data = (await upstream.json()) as TokenAnswer & { user?: unknown; next?: string | null; welcome?: string | null; inviter_name?: string | null; idp_mfa_missing?: boolean; idp_mfa_message_tr?: string | null; idp_mfa_message_en?: string | null };
     if (!data.access_token) {
       // AU-17: a second step or the enrolment the policy requires: the challenge goes into the httpOnly `ss_mfa`
       // cookie (the /login/verify and /login/setup-2fa pages read it), the page gets the methods, never the token
@@ -90,7 +90,9 @@ async function handle(req: NextRequest, ctx: Ctx): Promise<Response> {
       const me = await resolve(new Request(new URL(`${backendBaseUrl()}/api/v1/auth/me`), { headers: { authorization: `Bearer ${data.access_token}`, accept: "application/json" } }));
       if (me.ok) user = await me.json();
     }
-    const extra = segment === "auth/sso/exchange" ? { next: data.next ?? null, welcome: data.welcome ?? null, inviter_name: data.inviter_name ?? null } : {};
+    // AU-16: the one-time "IdP asserted no MFA" notice travels with the exchange answer
+    const idpMfa = data.idp_mfa_missing ? { idp_mfa_missing: true, idp_mfa_message_tr: data.idp_mfa_message_tr ?? null, idp_mfa_message_en: data.idp_mfa_message_en ?? null } : {};
+    const extra = segment === "auth/sso/exchange" ? { next: data.next ?? null, welcome: data.welcome ?? null, inviter_name: data.inviter_name ?? null, ...idpMfa } : {};
     // AU-17: a policy that requires 2FA, still in grace, signs in and offers the enrolment (auth.md §5.6)
     const setup = data.mfa_setup_required ? { mfa_setup_required: true, mfa_grace_until: data.mfa_grace_until ?? null, mfa_setup_methods: data.mfa_setup_methods ?? ["totp"] } : {};
     const res = NextResponse.json({ user, password_change_required: Boolean(data.password_change_required), ...setup, ...extra });

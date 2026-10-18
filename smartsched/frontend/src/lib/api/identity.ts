@@ -82,6 +82,10 @@ export const ExchangeOut = z.object({
   next: z.string().nullish(),
   welcome: z.enum(["self", "invited", "bound"]).nullish(),
   inviter_name: z.string().nullish(),
+  /** AU-16: the policy wants 2FA for the role and the provider asserted none (step-up notice, shown once) */
+  idp_mfa_missing: z.boolean().default(false),
+  idp_mfa_message_tr: z.string().nullish(),
+  idp_mfa_message_en: z.string().nullish(),
 });
 export type ExchangeOut = z.infer<typeof ExchangeOut>;
 

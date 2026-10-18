@@ -3070,7 +3070,7 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   files: `smartsched/frontend/src/components/charts/chart-keyboard.ts(x)`, `chart-print.css` (or a module in `chart-card.tsx`), profile preference key (ask the profile owner), `e2e/charts-a11y.spec.ts`, `playwright.config.ts` (append testMatch).
   tester: a11y tester (keyboard + screen reader + forced colours).
   done (`components/charts/chart-keyboard.ts` (`keyMove`, `bucketSentence`, `useChartKeyboard`: the plot is one tab stop `role=group` "Grafik, ok tuşlarıyla gezinin" with a visible focus outline, ←/→/Home/End show the tooltip at the bucket (pixel `showTip`, `chart-api.ts`), Esc hides, a polite live region reads "14 Ekim Çarşamba: toplam 82.300 token; Sohbet 37.120, Kurallar 45.180" after 250 ms; only the drawing inside is aria-hidden); the plot element is memoised so keyboard/live re-renders do not make EvilCharts re-push its option (that dropped the tooltip); `chart-patterns-toggle.tsx` "Grafiklerde desen" (per user, default off) mounted on /profile with one line in `admin/profile-view.tsx`; forced colours turn `aria.decal` on; print CSS in `chart-card.css` (menu, period and footer hidden, table twin printed, SVG renderer). Tests: vitest src/components/charts 8 files / 52 passed; `e2e/charts-a11y.spec.ts` 6 passed at 1440 + 390×844 touch, tr-TR, Europe/Istanbul (keyboard read-out, focus never on body, forced colours → SVG `<pattern>`s, print → SVG + table + `page.pdf()`), self-contained: vite-built fixture `e2e/fixtures/charts/**` served by `page.route`, no app route and no backend; added to playwright.config.ts testMatch; scoped tsc 0, eslint clean, check:design passed; motion.md §3.18 "Charts" written; designer charts-p2-2026-10-17)
-- [ ] CH-04 · frontend · no migration · Migrate dashboard `PeriodArea` to `ChartCard` + `echarts-area-chart`.
+- [x] CH-04 · frontend · no migration · Migrate dashboard `PeriodArea` to `ChartCard` + `echarts-area-chart`.
   - Single series `--seq-4`; peak in the summary ("En yoğun saat 10:30 (%86)").
   - SVG renderer; the existing sr-only table moves into the shell twin.
   - `BuildingBars` and `UtilisationHeatmap` stay unchanged.
@@ -3081,7 +3081,8 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - `grep EvilAreaChart src/components/dashboard` = 0.
   files: `smartsched/frontend/src/components/dashboard/dashboard-charts.tsx` (current owner: frontend dashboard / design-system), `messages` keys under `charts.dashboard.*`.
   tester: planner persona tester.
-- [ ] CH-05 · frontend · no migration · Migrate the AI "Günlük token kullanımı" stacked bar to `ChartCard` + `echarts-bar-chart` (`stackType="stacked"`).
+  done (`dashboard/dashboard-charts.tsx` `PeriodArea` on `ChartCard` + `LazyAreaChart`, one series `--seq-4` via `singleConfig`, SVG by the renderer rule, the old sr-only table is the shell's table twin, summary "En yoğun saat 10:10 (%86).", `hint` names the measure; `periodSeries` unchanged; `BuildingBars` / `UtilisationHeatmap` untouched; `grep EvilAreaChart src/components/dashboard` = 0; dashboard-charts.test.tsx (periodSeries + accessible description); vitest (--maxWorkers=1) charts + dashboard + admin/ai + admin/ops + profile 18 files / 110 passed; eslint clean; check:design passed; full-project `tsc --noEmit` 0 errors. Open: Playwright planner flow + CSV in a tr-TR parser + M-01/02/03/05 on /dashboard, and the `next build` before/after route table: E2E lane (resource rule); designer charts-p2-2026-10-17, verified after the restart 2026-10-18)
+- [x] CH-05 · frontend · no migration · Migrate the AI "Günlük token kullanımı" stacked bar to `ChartCard` + `echarts-bar-chart` (`stackType="stacked"`).
   - Colours stay `SERIES_COLOR` (fixed order, "Diğer" = `--label-3`); today hatched.
   - Phone: weekly sums ≤ 5 columns; 7 g / 30 g / Dönem picker.
   - The meters, tiles and BarList stay unchanged.
@@ -3092,7 +3093,8 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - `grep EvilBarChart src/components/admin/ai` = 0.
   files: `smartsched/frontend/src/components/admin/ai/usage-tab.tsx`, `ai-model.ts` (current owner: W3-AI).
   tester: admin persona tester.
-- [ ] CH-06 · frontend · no migration · Migrate the ops "İstekler" hand-drawn SVG to three small multiples (requests/min, 5xx/min, p95 ms), each with its own axis and a shared x.
+  done (`admin/ai/usage-chart.tsx` `DailyChart` (moved out of usage-tab.tsx): stacked `LazyBarChart`, `SERIES_COLOR` per feature through `dailyLegend` (fixed order, "Diğer" = `--label-3`, colour follows the entity when a series is filtered out), today hatched (`lastIsToday` → `partial`), phones fold to weekly sums ≤ 5 columns (`foldWeeks`); the period control stays the page's (it also drives the KPI tiles); meters, tiles and BarList unchanged; `grep EvilBarChart src/components/admin/ai` = 0; tests usage-chart.test.tsx + ai-model.test.ts (`dayChartData`, `activeSeries`, legend order/colour); vitest (--maxWorkers=1) charts + dashboard + admin/ai + admin/ops + profile 18 files / 110 passed; eslint clean; check:design passed; full-project `tsc --noEmit` 0 errors. Open: Playwright w3-ai at 1440 + 390 (tap tooltip, CSV 5 features + total) + M-01/02/03/05 on /admin/ai: E2E lane; designer charts-p2-2026-10-17, verified after the restart 2026-10-18)
+- [x] CH-06 · frontend · no migration · Migrate the ops "İstekler" hand-drawn SVG to three small multiples (requests/min, 5xx/min, p95 ms), each with its own axis and a shared x.
   - `echarts-line-chart`, canvas, `sampling: "lttb"`; 1 sa / 24 sa / 7 g.
   - Stale strip when Prometheus/Loki is down; Grafana links unchanged.
   accept:
@@ -3101,6 +3103,7 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - M-01/02/03/05 on `/admin/ops`.
   files: `smartsched/frontend/src/components/admin/ops/ops-panel.tsx`, `ops-model.ts` (current owner: W3-OPS).
   tester: admin/ops tester.
+  done (`admin/ops/requests-chart.tsx`: one ChartCard with three small multiples (requests/min, 5xx/min, p95 ms; shared minute axis, own axis each, never dual), one summary/table twin/CSV, the keyboard scrub moves all three tooltips; stale strip when a refetch fails over old data; Grafana links unchanged; the sweeper's "Son yedek" backup card in ops-panel.tsx kept (test present); `chartGeometry` retired, `totals` kept + new `requestsDigest`. Deviations: ranges 30 / 60 / 180 dk because `GET /ops/requests` caps `minutes` at 180 (le=180 in api/v1/ops.py), so 24 sa / 7 g need a coarser server step (ask W3-OPS); ≤ 180 points → SVG by the renderer rule, `sampling: "lttb"` not needed yet; summary pattern "Dakikada ort. {n} istek; en çok 5xx {saat} ({n})." instead of the ticket's "…; 19:21'de 5xx artışı" (ops-panel.test.tsx asserts "Dakikada ort. 20 istek; en çok 5xx HH:MM (1)."). vitest (--maxWorkers=1) charts + dashboard + admin/ai + admin/ops + profile 18 files / 110 passed; eslint clean; check:design passed; full-project `tsc --noEmit` 0 errors. Open: Playwright ops spec at 1440 + 390 (dropped frames on scrub; the 1,440-point case waits for the server step) + M-01/02/03/05 on /admin/ops: E2E lane; designer charts-p2-2026-10-17, verified after the restart 2026-10-18)
 - [ ] CH-07 · backend + frontend · no migration · Bookings per week (term) and request outcomes per week.
   - Backend: read-only `GET /bookings/stats/weekly?term_id=` (counts per ISO week, exam weeks flagged, current week `partial: true`) and `GET /requests/stats` reuse (exists).
   - Frontend: two `ChartCard`s with `echarts-bar-chart` on the admin overview: the exam week direct-labelled "Sınav haftası", the current week hatched.
@@ -3116,7 +3119,7 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - Playwright planner flow at 1440 + 390; keyboard ←/→ moves between runs and Enter opens one.
   files: `smartsched/frontend/src/components/runs/runs-list.tsx` (+ new `runs/score-history.tsx`) (current owner: runs lane; AS-17 also touches `components/runs/**`: coordinate).
   tester: planner persona tester.
-- [ ] CH-09 · frontend · no migration · Remove Recharts after CH-04/05 have landed.
+- [x] CH-09 · frontend · no migration · Remove Recharts after CH-04/05 have landed.
   - Delete `src/components/ui/evilcharts/**` (Recharts files, incl. the unused radial/brush/background/dot); drop `recharts` from package.json.
   - Update SOURCES.md (keep the EvilCharts MIT LICENSE file: the ECharts files still need it).
   accept:
@@ -3125,6 +3128,7 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - full vitest + tsc + eslint + check:design green.
   files: `smartsched/frontend/src/components/ui/evilcharts/**`, `package.json`, `package-lock.json`, `src/components/ui/SOURCES.md` (owner: design-system; package.json needs the orchestrator's go).
   tester: frontend build/perf tester.
+  done (`components/ui/evilcharts/**` (Recharts files) deleted, `recharts` uninstalled: package.json and package-lock.json have no recharts (recharts, d3-*, redux, victory-vendor gone), node_modules/recharts absent, `grep -rn recharts src package.json package-lock.json` = 0; SOURCES.md updated, `LICENSES/evilcharts-MIT.txt` kept for the ECharts files; vitest (--maxWorkers=1) charts + dashboard + admin/ai + admin/ops + profile 18 files / 110 passed; eslint clean; check:design passed; full-project `tsc --noEmit` 0 errors. Open: `next build` net change on /dashboard and /admin/ai ≤ +110 kB gz vs before CH-01, plus the full vitest run: E2E/build lane (resource rule); designer charts-p2-2026-10-17, verified after the restart 2026-10-18)
 - [ ] CH-10 · later · frontend · no migration · Audit events per day (30 g, `echarts-bar-chart`) above the audit table, only if admins ask for it; a click on a column filters the table to that day.
   accept: vitest + Playwright at 1440 + 390; the table filter is keyboard reachable.
   files: `smartsched/frontend/src/components/audit/audit-view.tsx` (admin lane).

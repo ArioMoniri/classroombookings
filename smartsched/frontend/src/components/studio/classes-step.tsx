@@ -453,8 +453,9 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
       ) : null}
 
       {classesLoading ? (
-        <div className="space-y-1" aria-busy="true" aria-label={t("common.loading")}>
-          {Array.from({ length: 12 }, (_, i) => (
+        // mobile-b phase 2 (CLS 0.21 phone / 0.98 tablet): the placeholder is as tall as the list that replaces it
+        <div className={cn("space-y-1 overflow-hidden", narrow ? "h-[60dvh]" : "h-[62dvh]")} aria-busy="true" aria-label={t("common.loading")} data-testid="classes-loading">
+          {Array.from({ length: 16 }, (_, i) => (
             <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>

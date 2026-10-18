@@ -167,6 +167,11 @@ export const SignInHistory = z.object({ events: z.array(SignInEvent).default([])
 export const SessionRow = z.object({ id: z.number(), created_at: z.string(), last_seen_at: ts, expires_at: ts, device: z.string().nullish(), network: z.string().nullish(), current: z.boolean().default(false) });
 export type SessionRow = z.infer<typeof SessionRow>;
 
+/** AU-16 `GET /admin/auth/providers/idp-mfa`: per provider, whether the IdP's MFA is required (SAML: not supported). */
+export const IdpMfaRow = z.object({ id: z.number(), name: z.string().nullish(), display_name: z.string().nullish(), kind: z.string().nullish(), supported: z.boolean().default(true), require_idp_mfa: z.boolean().default(false) });
+export type IdpMfaRow = z.infer<typeof IdpMfaRow>;
+export const AdminSessionsOut = z.object({ user_id: z.number(), revoked: z.number().default(0), signed_out: z.boolean().optional() });
+
 export const IDENTITY_CHECKS = ["in_person", "video_call", "phone_callback", "other"] as const;
 export type IdentityCheck = (typeof IDENTITY_CHECKS)[number];
 export const AdminResetOut = z.object({ user_id: z.number(), removed: z.record(z.string(), z.unknown()).optional(), signed_out: z.boolean().optional() });
@@ -220,6 +225,8 @@ export const AUTH_SECURITY_PATHS: ReadonlyArray<readonly ["GET" | "POST" | "PUT"
   ["DELETE", "/auth/sessions/{session_id}"],
   ["POST", "/auth/sessions/revoke-others"],
   ["POST", "/admin/users/{user_id}/sessions/revoke"],
+  ["GET", "/admin/auth/providers/idp-mfa"],
+  ["PUT", "/admin/auth/providers/{provider_id}/idp-mfa"],
   ["DELETE", "/auth/trusted-devices/{device_id}"],
   ["DELETE", "/auth/trusted-devices"],
   ["GET", "/admin/auth/mfa-policy"],
@@ -273,6 +280,7 @@ export async function signInStep<T = SignInStepOut>(step: SignInStep, body?: unk
 export const authSecurityKeys = {
   status: ["auth-security", "status"] as const,
   sessions: ["auth-security", "sessions"] as const,
+  idpMfa: ["auth-security", "idp-mfa"] as const,
   policy: ["auth-security", "policy"] as const,
   admin: (userId: number) => ["auth-security", "admin", userId] as const,
 };
@@ -298,6 +306,9 @@ export const authSecurity = {
   endOtherSessions: () => request("/auth/sessions/revoke-others", { method: "POST", body: {}, schema: z.object({ revoked: z.number() }), silent: true }),
   policy: () => request("/admin/auth/mfa-policy", { schema: MfaPolicy, silent: true }),
   savePolicy: (body: Partial<MfaPolicy>) => request("/admin/auth/mfa-policy", { method: "PUT", body, schema: MfaPolicy, silent: true }),
+  adminEndSessions: (userId: number) => request(`/admin/users/${userId}/sessions/revoke`, { method: "POST", body: {}, schema: AdminSessionsOut, silent: true }),
+  idpMfa: () => request("/admin/auth/providers/idp-mfa", { schema: z.array(IdpMfaRow), silent: true }),
+  setIdpMfa: (providerId: number, require: boolean) => request(`/admin/auth/providers/${providerId}/idp-mfa`, { method: "PUT", body: { require }, schema: IdpMfaRow, silent: true }),
   adminSummary: (userId: number) => request(`/admin/users/${userId}/mfa`, { schema: AdminMfa, silent: true }),
   adminReset: (userId: number, body: { reason: string; identity_check: IdentityCheck; keep_passkeys: boolean }) =>
     request(`/admin/users/${userId}/mfa/reset`, { method: "POST", body, schema: AdminResetOut, silent: true }),

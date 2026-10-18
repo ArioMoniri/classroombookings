@@ -214,9 +214,37 @@ def building_course_room_periods(parsed: Any) -> dict[int, dict[str, int]]:
     return {w: dict(v) for w, v in sorted(out.items())}
 
 
+def _weekly_shares(grid: Any) -> dict[str, list[float]]:
+    by_week = building_course_room_periods(grid)
+    shares: dict[str, list[float]] = defaultdict(list)
+    for _w, by_b in by_week.items():
+        tot = sum(by_b.values())
+        for b in sorted({k for v in by_week.values() for k in v}):
+            shares[b].append(by_b.get(b, 0) / tot if tot else 0.0)
+    return shares
+
+
+def shape_scores(src_grid: Any, tgt_grid: Any) -> list[float]:
+    """AS-21 calibration fold: the source term's mean building shares x each target week's real total, scored
+    against the target week (``forecast.poisson_score``). Shape only: the level comes from the target itself,
+    because the Bahar request list overstates the realised Bahar grid by ~27 % (a list effect B3 does not have)."""
+    from app.services import forecast as fc
+
+    shares = _weekly_shares(src_grid)
+    out: list[float] = []
+    for _w, by_b in sorted(building_course_room_periods(tgt_grid).items()):
+        total = float(sum(by_b.values()))
+        for b in sorted(set(shares) | set(by_b)):
+            mean = float(np.mean(shares[b])) if shares.get(b) else 0.0
+            out.append(fc.poisson_score(float(by_b.get(b, 0)), total * mean))
+    return out
+
+
 def b3_building_demand(bahar_grid: Any, guz_grid: Any, guz_list: Any) -> Result:
     """Güz weeks 1-2 course room-periods per building = (the Güz requests' weekly room-periods) x (the Bahar share
-    of each building, week by week); 80 % ranges from the Bahar weekly shares and the Bahar weekly level spread."""
+    of each building, week by week). 80 % ranges (AS-21): split conformal, calibrated out of sample on the reverse
+    fold (Güz shape -> Bahar weeks, ``shape_scores``) plus the level prior; the old within-term range is reported
+    as ``coverage80_uncalibrated_pct``. Gate: WAPE <= 15 % and coverage 70-90 %."""
     from app.services import forecast as fc
 
     bahar = building_course_room_periods(bahar_grid)
@@ -233,9 +261,15 @@ def b3_building_demand(bahar_grid: Any, guz_grid: Any, guz_list: Any) -> Result:
     inside, n_cells = 0, 0
     wapes = {}
     per_building_err: dict[str, list[float]] = defaultdict(list)
+    cal_scores = shape_scores(guz_grid, bahar_grid)
+    q80 = fc.conformal_quantile(cal_scores)
+    q80 = round(q80, 2) if q80 is not None else fc.SHAPE_Q80
+    level_sd = max(rel_sd, fc.LEVEL_REL_SD_PRIOR)
+    inside_old = 0
     for w, by_b in actual.items():
         level = float(sum(x.span for x in needs if x.weeks is None or w in x.weeks))
-        fcast = fc.shape_times_level(level, shares, rel_level_sd=rel_sd)
+        uncal = fc.shape_times_level(level, shares, rel_level_sd=rel_sd)
+        fcast = fc.shape_times_level(level, shares, rel_level_sd=level_sd, shape_q80=q80)
         a_list, f_list = [], []
         for b in sorted(set(fcast) | set(by_b)):
             v, lo, hi = fcast.get(b, (0.0, 0.0, 0.0))
@@ -244,6 +278,8 @@ def b3_building_demand(bahar_grid: Any, guz_grid: Any, guz_list: Any) -> Result:
             f_list.append(v)
             n_cells += 1
             inside += int(lo <= a <= hi)
+            _ov, olo, ohi = uncal.get(b, (0.0, 0.0, 0.0))
+            inside_old += int(olo <= a <= ohi)
             per_building_err[b].append(abs(a - v) / a * 100.0 if a else 0.0)
             rows.append(
                 {
@@ -258,6 +294,7 @@ def b3_building_demand(bahar_grid: Any, guz_grid: Any, guz_list: Any) -> Result:
         wapes[w] = round(wape(a_list, f_list), 2)
     overall = wape([r["actual"] for r in rows], [r["forecast"] for r in rows])
     coverage = inside / n_cells * 100.0 if n_cells else math.nan
+    coverage_old = inside_old / n_cells * 100.0 if n_cells else math.nan
     return Result(
         "B3",
         "Bina talebi: Bahar şekli × Güz talep düzeyi / building demand: Bahar shape × Fall request level",
@@ -266,11 +303,19 @@ def b3_building_demand(bahar_grid: Any, guz_grid: Any, guz_list: Any) -> Result:
             "wape_by_week_pct": wapes,
             "ape_by_building_pct": {b: [round(x, 1) for x in v] for b, v in sorted(per_building_err.items())},
             "coverage80_pct": round(coverage, 1),
+            "coverage80_uncalibrated_pct": round(coverage_old, 1),
+            "calibration": {
+                "fold": "guz->bahar",
+                "method": "split conformal, Poisson-scaled shape scores",
+                "n": len(cal_scores),
+                "shape_q80": q80,
+                "level_rel_sd": level_sd,
+            },
             "level_requests": {w: float(sum(x.span for x in needs if x.weeks is None or w in x.weeks)) for w in actual},
             "cells": rows,
         },
-        {"wape_pct": "<= 15", "coverage80_pct": "reported (target >= 70)"},
-        overall <= 15.0,
+        {"wape_pct": "<= 15", "coverage80_pct": "70-90"},
+        overall <= 15.0 and 70.0 <= coverage <= 90.0,
     )
 
 

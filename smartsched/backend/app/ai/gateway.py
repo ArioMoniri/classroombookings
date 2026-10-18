@@ -50,7 +50,8 @@ EFFORTS = ("low", "medium", "high", "xhigh", "max")
 #: features whose requests can carry personal data (names in files, chat about people): a provider abroad needs a
 #: KVKK transfer record for them (R-AI-03); the Anthropic intake path keeps its own sign-off (``app/ai/policy.py``)
 #: a voice recording is personal data (KVKK; research 2026-10-17-voice-ai.md §2.5), so ``voice_stt`` is one of them
-PERSONAL_FEATURES = frozenset({"intake", "vision", "chat", "rules", "booking_nl", "voice_stt"})
+#: the helper reads names and booking data through its actions (HB-06), so it is one of them too
+PERSONAL_FEATURES = frozenset({"intake", "vision", "chat", "rules", "booking_nl", "voice_stt", "helper"})
 KVKK_MECHANISMS = ("adequacy", "standard_contract", "binding_rules", "explicit_consent", "incidental", "domestic")
 
 #: per-feature caps (OWASP LLM10 unbounded consumption): applied when the route does not set its own
@@ -61,6 +62,8 @@ DEFAULT_CAPS: dict[str, dict[str, Any]] = {
     "vision": {"max_tokens": 64000, "max_tool_rounds": 20, "timeout_s": 300},
     "explain": {"max_tokens": 16000, "max_tool_rounds": 4, "timeout_s": 120},
     "booking_nl": {"max_tokens": 8000, "max_tool_rounds": 4, "timeout_s": 60},
+    #: the in-app helper (HB-06): short answers, at most 4 model calls per turn, a minute per call
+    "helper": {"max_tokens": 4000, "max_tool_rounds": 4, "timeout_s": 60},
     #: one clip: at most 120 s and 5 MB, answered within 60 s
     "voice_stt": {"timeout_s": 60, "max_audio_s": 120, "max_bytes": 5_000_000},
 }

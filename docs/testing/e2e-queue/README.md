@@ -66,3 +66,12 @@ On pass: tick VO-06/07/08 and VO-05.
    focus on the field; the new-device switch off is saved; phone 16 px / 44 px; MOBILE M-01/02/03/05 on /settings, /my-bookings, /bookings.
 5. FakeSMTP: with all of a person's mails muted, a new-device sign-in still mails with the "kapatılamaz" footer; calendar
    consent on/off and a Google connect/disconnect each mail; Profil › Bildirimler doesn't list these events.
+
+## Charts (CH-01..09)
+1. `next build` route table vs the pre-CH-01 baseline: routes without a chart +0 kB; /dashboard and /admin/ai ≤ +110 kB gz;
+   the lazy ECharts chunk ≤ 240 kB gz (esbuild 229.2 kB).
+2. A full vitest run (CH-09).
+3. e2e/charts-a11y.spec.ts at 1440 and 390 touch.
+4. /dashboard as Fatih Bey: chart, summary, table toggle, CSV in a tr-TR parser; M-01/02/03/05.
+5. /admin/ai: tooltip on tap, CSV with 5 feature columns + total; M-01/02/03/05.
+6. /admin/ops: tooltip scrub without dropped frames, stale strip, backup card; M-01/02/03/05.

@@ -1,5 +1,5 @@
 {
-  "note": "AU-B OpenAPI subset (generated from smartsched/backend app.openapi(), 2026-10-18, aux-f); regenerate when the routes change (regenerated 2026-10-18 with the AU-15 session routes)",
+  "note": "AU-B OpenAPI subset (generated from smartsched/backend app.openapi(), 2026-10-18, aux-f); regenerate when the routes change (regenerated 2026-10-18 with the AU-15 session and AU-16 idp-mfa routes)",
   "paths": {
     "/api/v1/admin/auth/mfa-policy": [
       "GET",
@@ -95,6 +95,12 @@
     ],
     "/api/v1/admin/users/{user_id}/sessions/revoke": [
       "POST"
+    ],
+    "/api/v1/admin/auth/providers/idp-mfa": [
+      "GET"
+    ],
+    "/api/v1/admin/auth/providers/{provider_id}/idp-mfa": [
+      "PUT"
     ]
   },
   "schemas": {

@@ -313,6 +313,9 @@ export function errorBody(code: Exclude<SsoErrorCode, "cancelled" | "not_enabled
       return { title: t("identity.signin.errorDomainTitle"), text: t("identity.signin.errorDomain") };
     case "invite_provider":
       return { title: t("identity.signin.errorInviteProviderTitle"), text: t("identity.signin.errorInviteProvider") };
+    case "idp_mfa_required":
+      // AU-16: the policy requires 2FA for the role and the identity provider asserted none
+      return { title: t("auth.idp.mfaRequiredTitle"), text: t("auth.idp.mfaRequired") };
     case "invite_mismatch":
       return { title: t("signin.error.inviteMismatchTitle"), text: v.invited && v.signedIn ? t("signin.error.inviteMismatch", { invited: v.invited, signedIn: v.signedIn }) : t("signin.error.inviteMismatchPlain") };
     case "failed":

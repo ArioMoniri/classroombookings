@@ -1,0 +1,330 @@
+"""The helper's turn loop (HB-06; architecture doc §4, §5.1, §2.4): one question in, server-built cards out.
+
+:func:`run_turn` is what ``POST /helper/turn`` streams (:mod:`app.api.v1.helper_turn`). Order:
+
+1. **The helper's guard** (:func:`app.ai.helper.guard.check`, 0 tokens): injection, length, the index vocabulary as
+   the scope signal. A refusal is one ``refusal`` card with the top 3 index hits; no model call.
+2. **Mode** (:func:`app.ai.helper.status.helper_status`): ``index`` until an admin routed the ``helper`` feature, the
+   provider is usable and the person gave the ``ai_personal`` consent. Index mode answers with ``nav`` cards from
+   the index pre-route and makes **zero model calls**.
+3. **AI mode**, inside ``ai_scope("helper", user, text)`` so every call runs the gateway pipeline (transfer basis,
+   rate, input guard, limits, caps, output guard) and writes one ``ai_usage`` row with feature ``helper``:
+
+   * the tools are :func:`~app.ai.helper.actions.registry.tools_for` the person, the index hits' actions first,
+     **at most 10** (:data:`MAX_TOOLS`), each ``strict: true``;
+   * at most ``max_tool_rounds`` model calls (the route's cap, default 4, ``DEFAULT_CAPS["helper"]``);
+   * every tool call is validated and run by :func:`app.ai.helper.tooluse.apply_message` (offered names only,
+     strict pydantic args, the person's own ``Access``, writes stop at a ``confirm`` card); every result goes back
+     to the model **spotlighted** (``<untrusted source="tool_result">``) in one user message;
+   * **taint**: once a result carried other people's free text, the next rounds get read tools only;
+   * a ``confirm`` card ends the turn (only the person's button writes);
+   * the model's final text becomes one ``answer`` card, after the output cleaning and
+     :func:`~app.ai.helper.guard.ground_answer` (a page named without its ``nav`` card is replaced by the index
+     answer).
+4. **Fallback to index mode** when the gateway refuses (422 guard / capability, 429 limits / rate, 409 transfer
+   basis), the provider fails (502), the call times out or no key is configured: a ``limit`` / ``refusal`` /
+   ``error`` card with the index hits, then ``run_finished`` with ``mode: "index"`` and the ``fallback`` code.
+
+Events (``emit``): ``run_started`` → (``tool_start`` → ``tool``)* → ``text`` → ``card``* → ``run_finished``; an
+unexpected failure ends with ``error``. Every card is validated against ``helper.card.v1`` before it is sent.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.services.bookings_perms import Access
+
+log = logging.getLogger(__name__)
+
+EventSink = Callable[[dict[str, Any]], Awaitable[None]]
+
+SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "helper.md").read_text(encoding="utf-8")
+#: tools offered in one turn (the strict-schema budget of :mod:`app.ai.helper.actions.registry`)
+MAX_TOOLS = 10
+#: model calls in one turn when the route sets no cap (``DEFAULT_CAPS["helper"]["max_tool_rounds"]``)
+DEFAULT_ROUNDS = 4
+MAX_OUTPUT_TOKENS = 4000
+#: index hits shown to the model and as fallback rows
+HITS = 5
+
+NO_MATCH = (
+    "Bununla ilgili bir sayfa bulamadım; başka sözcüklerle deneyin.",
+    "I could not find a page for that; try other words.",
+)
+INDEX_ANSWER = (
+    "Aradığınız şu sayfalarda olabilir:",
+    "What you are looking for may be on these pages:",
+)
+ROUNDS_USED = (
+    "Bu soru için ayrılan adımlar doldu; aşağıdaki kartlardan devam edebilirsiniz.",
+    "This question used up its steps; you can continue from the cards below.",
+)
+_FALLBACK_TEXT: dict[str, tuple[str, str]] = {
+    "provider_error": (
+        "Yapay zekâ şu an yanıt veremiyor; dizinden bulduklarım aşağıda.",
+        "The AI cannot answer right now; here is what the index found.",
+    ),
+    "timeout": (
+        "Yapay zekâ zamanında yanıt vermedi; dizinden bulduklarım aşağıda.",
+        "The AI did not answer in time; here is what the index found.",
+    ),
+    "not_configured": (
+        "Yardımcının yapay zekâ sağlayıcısı ayarlı değil; dizinden bulduklarım aşağıda.",
+        "The helper's AI provider is not set up; here is what the index found.",
+    ),
+    "model_refused": (
+        "Yapay zekâ bu isteği yanıtlamadı; dizinden bulduklarım aşağıda.",
+        "The AI declined this request; here is what the index found.",
+    ),
+    "stopped": (
+        "Yanıt yarıda kesildi; hiçbir işlem yapılmadı. Dizinden bulduklarım aşağıda.",
+        "The answer was cut off; nothing was done. Here is what the index found.",
+    ),
+}
+
+
+@dataclass
+class TurnResult:
+    turn_id: str
+    #: ``ai`` | ``index``
+    mode: str
+    cards: list[dict[str, Any]] = field(default_factory=list)
+    model_calls: int = 0
+    #: why an AI turn ended in index mode (``rate_limited``, ``ai_limit_reached``, ``provider_error`` ...)
+    fallback: str | None = None
+    #: ``answered`` | ``confirm`` | ``refused`` | ``index`` | ``fallback`` | ``rounds_exhausted``
+    outcome: str = "answered"
+    tainted: bool = False
+    tools_offered: list[list[str]] = field(default_factory=list)
+
+    def finished(self) -> dict[str, Any]:
+        return {
+            "turn_id": self.turn_id,
+            "mode": self.mode,
+            "outcome": self.outcome,
+            "fallback": self.fallback,
+            "model_calls": self.model_calls,
+            "cards": len(self.cards),
+        }
+
+
+def _code(raw: str | None) -> str:
+    code = re.sub(r"[^a-z_]", "", (raw or "").lower())[:48]
+    return code if len(code) >= 2 else "error"
+
+
+def _index_context(hits: list[Any]) -> str:
+    """The index pre-route as the model reads it: ids, titles and paths only (trusted server data)."""
+    if not hits:
+        return "Index entries: none matched."
+    lines = []
+    for h in hits:
+        e = h.entry
+        lines.append(f"- {e.id} ({e.kind}): {e.title.en} / {e.title.tr}; path: {' › '.join(e.path.en)}")
+    return "Index entries that match the question:\n" + "\n".join(lines)
+
+
+def _spotlit(message: dict[str, Any]) -> dict[str, Any]:
+    from app.ai import guardrails as g
+
+    return {
+        **message,
+        "content": [
+            {**b, "content": g.spotlight(str(b.get("content") or ""), "tool_result")} for b in message["content"]
+        ],
+    }
+
+
+async def run_turn(
+    session: AsyncSession,
+    access: Access,
+    text: str,
+    lang: str = "tr",
+    *,
+    emit: EventSink | None = None,
+    client: Any | None = None,
+) -> TurnResult:
+    """One helper turn for ``access``'s person. ``client`` is for tests (else :func:`app.ai.client.get_client` with
+    feature ``helper``). Never raises for a model / gateway failure: those end in index mode."""
+    from app.ai.helper import cards, guard
+    from app.ai.helper import schema as cs
+    from app.ai.helper import status as st
+    from app.ai.helper.actions import registry as reg
+
+    lang = "en" if lang == "en" else "tr"
+    result = TurnResult(turn_id=cards.new_id(), mode="index")
+
+    async def send(kind: str, **data: Any) -> None:
+        if emit is not None:
+            await emit({"type": kind, **data})
+
+    async def card(c: dict[str, Any]) -> None:
+        cs.validate_card(c)
+        result.cards.append(c)
+        await send("card", card=c)
+
+    allowed = reg.permitted_names(access)
+    await send("run_started", turn_id=result.turn_id)
+    verdict = guard.check(text, access.perms)
+    nav = [cards.dump(c) for c in cards.nav_hits(verdict.hits, allowed, limit=3)]
+    if not verdict.allowed:
+        result.outcome = "refused"
+        fallback = cards.nav_hits(verdict.hits, allowed, limit=3)
+        await card(
+            cards.dump(cards.status("refusal", _code(verdict.code), verdict.message_tr, verdict.message_en, fallback))
+        )
+        await send("run_finished", **result.finished())
+        return result
+
+    async def index_answer(prefix: tuple[str, str] | None = None) -> None:
+        if nav:
+            tr, en = prefix or INDEX_ANSWER
+            await card(cards.dump(cards.answer(tr if lang == "tr" else en, lang, source="index")))
+            for c in nav:
+                await card(c)
+        else:
+            await card(cards.dump(cards.answer(NO_MATCH[0] if lang == "tr" else NO_MATCH[1], lang, source="index")))
+
+    state = await st.helper_status(session, access.user_id, turn_available=True)
+    if state.get("mode") != "ai":
+        result.outcome = "index"
+        await index_answer()
+        await send("run_finished", **result.finished(), reason=state.get("reason"))
+        return result
+
+    result.mode = "ai"
+    try:
+        await _ai_turn(session, access, text, lang, verdict.hits, allowed, result, send, card, client)
+    except _Fallback as fb:
+        result.mode, result.outcome, result.fallback = "index", "fallback", fb.code
+        fallback = cards.nav_hits(verdict.hits, allowed, limit=3)
+        await card(cards.dump(cards.status(fb.kind, _code(fb.code), fb.tr, fb.en, fallback)))
+    await send("run_finished", **result.finished())
+    return result
+
+
+class _Fallback(Exception):
+    def __init__(self, kind: str, code: str, tr: str, en: str) -> None:
+        super().__init__(code)
+        self.kind, self.code, self.tr, self.en = kind, code, tr, en
+
+
+def _fallback_for(exc: BaseException) -> _Fallback:
+    from app.ai.client import AIConfigError, AIRefusal
+    from app.ai.pipeline import AIGuardError
+
+    if isinstance(exc, AIGuardError):
+        detail = exc.detail if isinstance(exc.detail, dict) else {}
+        kind = "limit" if exc.status_code == 429 else "refusal"
+        return _Fallback(kind, exc.code, str(detail.get("message_tr") or ""), str(detail.get("message_en") or ""))
+    if isinstance(exc, AIConfigError):
+        return _Fallback("error", "not_configured", *_FALLBACK_TEXT["not_configured"])
+    if isinstance(exc, AIRefusal):
+        return _Fallback("refusal", "model_refused", *_FALLBACK_TEXT["model_refused"])
+    if isinstance(exc, TimeoutError):
+        return _Fallback("error", "timeout", *_FALLBACK_TEXT["timeout"])
+    return _Fallback("error", "provider_error", *_FALLBACK_TEXT["provider_error"])
+
+
+async def _ai_turn(
+    session: AsyncSession,
+    access: Access,
+    text: str,
+    lang: str,
+    hits: list[Any],
+    allowed: list[str],
+    result: TurnResult,
+    send: Callable[..., Awaitable[None]],
+    card: Callable[[dict[str, Any]], Awaitable[None]],
+    client: Any | None,
+) -> None:
+    from app.ai import gateway as gw
+    from app.ai.client import AIError, content_params, get_client, text_of
+    from app.ai.context import ai_scope
+    from app.ai.helper import cards, guard, tooluse
+    from app.ai.helper.actions import registry as reg
+    from app.ai.pipeline import AIGuardError
+
+    try:
+        if client is None:
+            client = await get_client(session, feature="helper", user_id=access.user_id)
+        route = await gw.resolve_route(session, "helper")
+    except (AIError, AIGuardError) as exc:
+        raise _fallback_for(exc) from exc
+    rounds = int(route.route.max_tool_rounds or route.caps.get("max_tool_rounds") or DEFAULT_ROUNDS)
+    max_tokens = int(route.route.max_tokens or route.caps.get("max_tokens") or MAX_OUTPUT_TOKENS)
+    candidates = [a for h in hits for a in h.entry.actions]
+    ctx = reg.Ctx(session=session, access=access, lang=lang)
+    question = (
+        f"{_index_context(hits)}\n\nAnswer in {'Turkish' if lang == 'tr' else 'English'}.\n\n"
+        f"The person asks:\n{text}"
+    )
+    messages: list[dict[str, Any]] = [{"role": "user", "content": question}]
+    allow_writes = True
+    emitted_features: list[str] = []
+    final_text = ""
+    with ai_scope("helper", user_id=access.user_id, user_text=text):
+        for _ in range(max(1, rounds)):
+            tools = reg.tools_for(access, candidates, allow_writes=allow_writes, limit=MAX_TOOLS)[:MAX_TOOLS]
+            result.tools_offered.append([t["name"] for t in tools])
+            try:
+                message = await client.complete(
+                    system=SYSTEM_PROMPT,
+                    messages=messages,
+                    tools=tools,
+                    max_tokens=max_tokens,
+                    effort=route.route.effort or "low",
+                )
+            except (AIError, AIGuardError, TimeoutError) as exc:
+                raise _fallback_for(exc) from exc
+            result.model_calls += 1
+            final_text = text_of(message) or final_text
+            calls = [b for b in message.content if getattr(b, "type", None) == "tool_use"]
+            if not calls:
+                break
+            for b in calls:
+                await send("tool_start", name=str(b.name))
+            try:
+                outcomes = await tooluse.apply_message(ctx, message, offered=tooluse.offered(tools))
+            except tooluse.TurnStopped as exc:
+                raise _Fallback("error", "stopped", *_FALLBACK_TEXT["stopped"]) from exc
+            confirm = False
+            for o in outcomes:
+                await send("tool", name=o.name, ok=not o.is_error)
+                await card(o.card)
+                if o.card.get("type") == "nav":
+                    emitted_features.append(str(o.card.get("feature_id")))
+                confirm = confirm or o.card.get("type") == "confirm"
+            if not tooluse.writes_allowed_after(outcomes):
+                allow_writes, result.tainted = False, True
+            if confirm:  # the person's button decides; the model is not asked again
+                result.outcome = "confirm"
+                return
+            messages.append({"role": "assistant", "content": content_params(message)})
+            messages.append(_spotlit(tooluse.tool_results(outcomes)))
+        else:
+            result.outcome = "rounds_exhausted"
+            await card(cards.dump(cards.answer(ROUNDS_USED[0] if lang == "tr" else ROUNDS_USED[1], lang, source="index")))
+            return
+    answer = cards.answer(final_text, lang) if final_text.strip() else None
+    if answer is not None and guard.ground_answer(answer.text, emitted_features):
+        await send("text", text=answer.text)
+        await card(cards.dump(answer))
+        return
+    # an empty answer, or one naming a page the server did not send: the index answer instead
+    nav = cards.nav_hits(hits, allowed, limit=3)
+    tr, en = INDEX_ANSWER if nav else NO_MATCH
+    await card(cards.dump(cards.answer(tr if lang == "tr" else en, lang, source="index")))
+    for c in nav:
+        await card(cards.dump(c))
+
+
+__all__ = ["DEFAULT_ROUNDS", "MAX_TOOLS", "SYSTEM_PROMPT", "TurnResult", "run_turn"]

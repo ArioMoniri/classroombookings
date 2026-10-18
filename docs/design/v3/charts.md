@@ -464,3 +464,5 @@ before/after route table is the first step of CH-04 (the first route that mounts
    change), or be derived from the user's own timetable feed? The latter needs no new endpoint.
 3. Should the "Grafiklerde desen" accessibility toggle be an org setting, a per-user preference, or both? It could be
    proposed as a per-user preference in `/profile`.
+   **Answered in CH-03:** per user, in `/profile` (`chart-patterns-toggle.tsx`, default off; forced colours turn it on).
+   An org-wide default is not built; ask again if admins want one.

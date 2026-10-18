@@ -8,7 +8,7 @@ import { readMfaNotice, type MfaNotice } from "./mfa-model";
 
 /** SSO callback codes the page renders (§6.3, §14). Anything else renders `failed` (no enumeration, §15 #16).
  *  `not_enabled` (T-R1-35 / T-R1-09): Microsoft sign-in is switched off: a state, shown without a support code. */
-export const SSO_ERROR_CODES = ["tenant", "cancelled", "failed", "unavailable", "not_enabled", "signup_closed", "invite_expired", "invite_invalid", "invite_mismatch", "domain", "invite_provider"] as const;
+export const SSO_ERROR_CODES = ["tenant", "cancelled", "failed", "unavailable", "not_enabled", "signup_closed", "invite_expired", "invite_invalid", "invite_mismatch", "domain", "invite_provider", "idp_mfa_required"] as const;
 export type SsoErrorCode = (typeof SSO_ERROR_CODES)[number];
 
 /** `/profile?error=` codes after a profile link (§14): the sign-in codes plus `already_linked`. */

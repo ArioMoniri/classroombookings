@@ -27,6 +27,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { roleLabel } from "@/lib/i18n/roles";
 import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { IdpMfaSwitch } from "./idp-mfa-switch";
 import { idp, idpKeys, useIdpMutation, useProviderMappings, useSetup, type Check, type Provider, type ProviderIn, type Setup, type TestResult } from "./providers-api";
 import { cleanPasted, copyAllText, firstOpenStep, looksLikeGuid, missingFields, parseDomains, signupRoleEligible, stepState, WIZARD_STEPS, type WizardStep } from "./providers-model";
 
@@ -771,6 +772,8 @@ function EnableStep({ p, tested, onDone }: { p: Provider; tested: boolean; onDon
         <Switch id="idp-mapping" checked={p.role_mapping_enabled} disabled={pending} onCheckedChange={(x) => save({ role_mapping_enabled: x })} data-testid="idp-mapping" />
       </FieldRow>
       {p.role_mapping_enabled ? <Mappings p={p} /> : null}
+      {/* AU-16 / AUX-F: "IdP MFA'yı zorunlu tut" (setup.authentication; hidden without it) */}
+      <IdpMfaSwitch providerId={p.id} />
       <ErrorLine error={error} conflict={conflict} />
     </StepFrame>
   );

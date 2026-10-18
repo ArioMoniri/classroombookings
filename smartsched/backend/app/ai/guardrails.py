@@ -461,7 +461,7 @@ _COURSE = re.compile(r"\b[A-ZÇĞİÖŞÜ]{2,5}\s?\d{3}\b")
 _TIME = re.compile(r"\b\d{1,2}[:.]\d{2}\b")
 
 #: longest text a person may type per feature (characters)
-MAX_INPUT_CHARS = {"chat": 4000, "rules": 20000, "explain": 2000, "booking_nl": 1000}
+MAX_INPUT_CHARS = {"chat": 4000, "rules": 20000, "explain": 2000, "booking_nl": 1000, "helper": 1000}
 DEFAULT_MAX_INPUT_CHARS = 20000
 
 
