@@ -7,7 +7,7 @@ import { I18nProvider } from "@/lib/i18n/provider";
 const state = vi.hoisted(() => ({
   tab: "models",
   calls: [] as { path: string; method?: string; body?: unknown }[],
-  voice: { enabled: false, consent_required: true, max_seconds: 120, local_only: false, vocabulary: "catalog", live_captions: "off" } as Record<string, unknown>,
+  voice: { enabled: false, language: "tr", max_seconds: 120, vocabulary: "catalog", live_captions: "on_device", prices_per_min: {} } as Record<string, unknown>,
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), useSearchParams: () => new URLSearchParams(`tab=${state.tab}`) }));
@@ -65,7 +65,15 @@ vi.mock("@/lib/api/client", async (orig) => {
       if (path === "/ai/admin/providers/openai/test") return out({ ok: true, detail: "ok", model: "gpt-4o-mini-transcribe", transcript_preview: "B-204 numaralı salonda" });
       if (path === "/ai/admin/voice") {
         if (opts.method === "PUT") state.voice = { ...state.voice, ...(opts.body as object) };
-        return out(state.voice);
+        return out({
+          settings: state.voice,
+          fixed: { retention_days: 0, review_before_send: true, max_seconds_cap: 120, consent: "voice" },
+          route: { provider: null, model: null, source: "none", usable: false, transfer_ok: false },
+          providers: ["openai"],
+          languages: ["tr", "en"],
+          vocabulary_options: ["catalog", "off"],
+          live_captions_options: ["on_device", "off"],
+        });
       }
       if (path === "/ai/admin/guardrails") return out({ scope_check: true, injection_check: true, model_scope_check: false, upload_neutralize: true, output_check: true, rate_limit: true });
       if (path === "/ai/admin/refusals") return out({ rows: [] });
@@ -138,6 +146,10 @@ describe("Modeller: Sesle yazma", () => {
     const prov = screen.getByTestId("ai-route-provider-voice_stt") as HTMLSelectElement;
     expect(Array.from(prov.options).map((o) => o.value)).toEqual(["", "openai"]);
     expect(prov.options[0]!.textContent).toBe("Seçilmedi (mikrofon gizli)");
+    // the text rows never offer a transcription model
+    const chatModels = screen.getByTestId("ai-route-provider-chat") as HTMLSelectElement;
+    fireEvent.change(chatModels, { target: { value: "openai" } });
+    expect(Array.from((screen.getByTestId("ai-route-model-chat") as HTMLSelectElement).options).map((o) => o.value)).toEqual(["gpt-5"]);
     fireEvent.change(prov, { target: { value: "openai" } });
     const model = screen.getByTestId("ai-route-model-voice_stt") as HTMLSelectElement;
     expect(Array.from(model.options).map((o) => o.value)).toEqual(["gpt-4o-mini-transcribe", "gpt-transcribe"]);
@@ -181,7 +193,7 @@ describe("Koruma: Ses card", () => {
     await act(async () => {
       fireEvent.click(screen.getByTestId("ai-voice-save"));
     });
-    expect(screen.getByTestId("ai-voice-error")).toHaveTextContent("10 ile 120");
+    expect(screen.getByTestId("ai-voice-error")).toHaveTextContent("5 ile 120");
   });
 });
 

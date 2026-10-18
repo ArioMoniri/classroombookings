@@ -1199,8 +1199,71 @@ async def term_periods(session: AsyncSession, term_id: int) -> dict[str, Any]:
     }
 
 
+# ------------------------------------------------------------------------------------------------ AS-18
+
+#: words in a week / sheet name that mark a period kind no week kind carries (folded, Turkish first)
+SEGMENT_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("ADD_DROP", ("ekle-birak", "ekle birak", "ders ekleme", "add/drop", "add-drop", "add drop")),
+    ("MIDTERM", ("vize", "ara sinav", "arasinav", "midterm")),
+    ("HOLIDAY", ("tatil", "bayram", "holiday", "break week")),
+    ("BREAK", ("ara tatil", "yariyil tatili", "semester break")),
+)
+
+
+def segment_kind_of(name: str | None) -> str | None:
+    folded = n.fold(name or "").lower()
+    for kind, words in SEGMENT_WORDS:
+        if any(w in folded for w in words):
+            return kind
+    return None
+
+
+async def after_import(session: AsyncSession, term: Term) -> list[SeasonSegment]:
+    """Cold start (AS-18): after an import (the council commit calls this), propose **draft** period segments from
+    the week / sheet names that name an add/drop, midterm, holiday or break week ("Vize haftası", "Ekle-bırak").
+    Nothing is invented: a term whose week names say nothing gets no proposal. Drafts apply only once an admin
+    approves them (``PUT /seasons/segments/{id}`` with ``status = active``); an existing segment is not repeated."""
+    weeks_rows, _holidays, segs = await load_calendar(session, term)
+    have = {(sg.kind, sg.week_from, sg.week_to) for sg in segs}
+    found: dict[tuple[str, int], str] = {}
+    for w in sorted(weeks_rows, key=lambda x: int(x.index)):
+        kind = segment_kind_of(w.label)
+        if kind is not None:
+            found[(kind, int(w.index))] = w.label or ""
+    out: list[SeasonSegment] = []
+    for kind in dict.fromkeys(k for k, _w in found):
+        weeks = sorted(w for k, w in found if k == kind)
+        runs: list[list[int]] = []
+        for w in weeks:
+            if runs and runs[-1][-1] + 1 == w:
+                runs[-1].append(w)
+            else:
+                runs.append([w])
+        for r in runs:
+            if (kind, r[0], r[-1]) in have:
+                continue
+            tr, en = KIND_LABEL[kind]
+            span_tr = f"{r[0]}. hafta" if r[0] == r[-1] else f"{r[0]}–{r[-1]}. haftalar"
+            span_en = f"week {r[0]}" if r[0] == r[-1] else f"weeks {r[0]}–{r[-1]}"
+            sg = SeasonSegment(
+                term_id=term.id,
+                kind=kind,
+                week_from=r[0],
+                week_to=r[-1],
+                label_tr=f"{tr}: {span_tr}"[:128],
+                label_en=f"{en}: {span_en}"[:128],
+                status="draft",
+            )
+            session.add(sg)
+            out.append(sg)
+    await session.flush()
+    return out
+
+
 __all__ = [
     "BUILTIN_KEYS",
+    "after_import",
+    "segment_kind_of",
     "SEED_SETTING",
     "effective_seed",
     "SeasonError",
