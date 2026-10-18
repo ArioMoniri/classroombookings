@@ -66,7 +66,12 @@ def test_dockerfile_installs_in_hash_checking_mode() -> None:
 
 
 def test_pod_ci_backend_gate_installs_in_hash_checking_mode() -> None:
-    gate = (REPO / "smartsched/deploy/pod-ci/gates/backend.sh").read_text(encoding="utf-8")
+    # the backend venv install of backend.sh and backend-unit.sh lives in gates/backend-lib.sh
+    gate = (REPO / "smartsched/deploy/pod-ci/gates/backend-lib.sh").read_text(encoding="utf-8")
+    for script in ("backend.sh", "backend-unit.sh"):
+        text = (REPO / "smartsched/deploy/pod-ci/gates" / script).read_text(encoding="utf-8")
+        assert 'source "$(dirname "${BASH_SOURCE[0]}")/backend-lib.sh"' in text and '"$PY_VENV"' in text
+        assert "pip install" not in text
     assert (
         "pip install -q --require-hashes -r smartsched/backend/requirements-dev.lock"
         " -r smartsched/backend/requirements-build.lock" in gate

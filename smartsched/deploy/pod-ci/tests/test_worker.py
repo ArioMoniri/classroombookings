@@ -227,3 +227,20 @@ def test_vitest_shards_run_as_their_own_gates(cfg: Config, store: Store) -> None
     assert shards == [["1/2"], ["2/2"]]
     timeouts = {g.name: g.timeout for g in GATES}
     assert timeouts["frontend"] == timeouts["frontend-unit-1"] == timeouts["frontend-unit-2"] == 1800
+
+
+def test_worker_runs_the_deploy_branch_before_older_runs_of_other_branches(cfg: Config, store: Store) -> None:
+    ex = FakeExecute()
+    other = queue(store, "claude/smartsched-universal", SHA_A)
+    deploy = queue(store, DEPLOY_BRANCH, SHA_B)
+    order: list[int] = []
+
+    class Recording(CheckoutStubWorker):
+        def run_one(self, run: Any) -> str:
+            order.append(run.id)
+            return super().run_one(run)
+
+    w = Recording(cfg, store, FakeReporter(), NoCloud(), lambda: "tok", execute=ex, run_cmd=FakeRun(),
+                  log=lambda _: None, disk_usage=lambda: 10.0)
+    assert w.work() == 2
+    assert order == [deploy, other]

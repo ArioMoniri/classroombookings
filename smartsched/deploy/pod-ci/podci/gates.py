@@ -24,11 +24,15 @@ class Gate:
     args: tuple[str, ...] = ()
 
 
-VITEST_SHARDS = 2
 GATES: tuple[Gate, ...] = (
     Gate("prepare", "prepare.sh", "CI images (python CI image, Playwright image)", timeout=1200),
     Gate("validate", "validate.sh", "deploy/validate.sh", needs=("prepare",), timeout=300),
-    Gate("backend", "backend.sh", "ruff + mypy + pytest + solver + migrations", needs=("prepare",), timeout=2400),
+    # ruff + format + mypy + pytest in one gate ran past 2400 s on the 2-CPU pod (runs #81, #82; pytest ~90 min at
+    # 2 CPUs): the static checks, solver tests and migrations stay here, pytest runs in three shards
+    Gate("backend", "backend.sh", "ruff + format + mypy + solver + migrations", needs=("prepare",), timeout=1800),
+    Gate("backend-unit-1", "backend-unit.sh", "pytest shard 1/3", needs=("prepare",), timeout=3600, args=("1/3",)),
+    Gate("backend-unit-2", "backend-unit.sh", "pytest shard 2/3", needs=("prepare",), timeout=3600, args=("2/3",)),
+    Gate("backend-unit-3", "backend-unit.sh", "pytest shard 3/3", needs=("prepare",), timeout=3600, args=("3/3",)),
     Gate("infra", "infra.sh", "pod CI + AWS bootstrap tests", needs=("prepare",), timeout=600),
     # tsc + eslint + vitest in one gate ran past 1800 s on the 2-CPU pod (runs #70, #81): the static checks and
     # two vitest shards are separate gates now, each well under its limit (2 CPUs: ~3-6 min / ~4-8 min per shard)
@@ -39,12 +43,14 @@ GATES: tuple[Gate, ...] = (
     Gate("frontend-unit-2", "frontend-unit.sh", "vitest shard 2/2", needs=("frontend",), timeout=1800,
          args=("2/2",)),
     Gate("e2e-real", "e2e-real.sh", "Playwright (all specs) vs real backend + Bahar fixtures",
-         needs=("frontend", "frontend-unit-1", "frontend-unit-2", "backend"), timeout=3600),
+         needs=("frontend", "frontend-unit-1", "frontend-unit-2", "backend", "backend-unit-1", "backend-unit-2",
+                "backend-unit-3"), timeout=3600),
     # after e2e-real so it reads this run's /w/playwright-report.json; API rows still run if e2e failed
-    Gate("parity", "parity.sh", "CRBS superset gate (scripts/parity_check.py)", needs=("backend",), timeout=1800),
+    Gate("parity", "parity.sh", "CRBS superset gate (scripts/parity_check.py)",
+         needs=("backend", "backend-unit-1", "backend-unit-2", "backend-unit-3"), timeout=1800),
     # real workbooks, 4 solves (Bahar term ~5 min): planner-level violations fail the run
-    Gate("planner", "planner.sh", "planner-level validation (tools/validate_planner.py)", needs=("backend",),
-         timeout=3600),
+    Gate("planner", "planner.sh", "planner-level validation (tools/validate_planner.py)",
+         needs=("backend", "backend-unit-1", "backend-unit-2", "backend-unit-3"), timeout=3600),
     Gate("images", "images.sh", "docker build backend/frontend/crbs", needs=("prepare",), timeout=2700),
     Gate("watchdog", "watchdog.sh", "agent ledger report", blocking=False, needs=("prepare",), timeout=300),
 )
