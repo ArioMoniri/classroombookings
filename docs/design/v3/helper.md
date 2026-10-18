@@ -59,7 +59,7 @@ OpenAI's new intelligent UI". Decide where it sits.
 - **Memory** (architecture doc §5.4):
   - **notes** only when the user taps "Hatırla" (≤ 20, 180 days; until HB-D's remember card ships, notes are added in Profil › Yardımcı only, §17.1 #8);
   - **conversation history** for 30 days, so it continues on another device;
-  - "Son yaptıklarınız" comes from the user's own confirmed actions (deferred to HB-D's recent-actions endpoint; §17.1 #6).
+  - "Son işlemler" comes from the user's own confirmed actions (deferred to HB-D's recent-actions endpoint; §17.1 #6).
   - All of it is visible and deletable in Profil › Yardımcı and covered by DSR export and erasure. It is off when
     `ai_personal` consent is withdrawn.
 - **Limits and status:** a status chip says **Yerel model** / **Bulut · {sağlayıcı}** / **Yapay zekâ kapalı**. The
@@ -107,7 +107,7 @@ articles.
 
 - The placeholder reads **"Sayfa, ayar, salon, kişi ya da ders arayın… veya bir soru sorun"**.
 - With an **empty query**, the palette shows three groups:
-  1. **Son yaptıklarınız**: up to 3 of the user's own confirmed helper actions ("A 204 rezerve edildi · dün"), each
+  1. **Son işlemler**: up to 3 of the user's own confirmed helper actions ("A 204 rezerve edildi · dün"), each
      opening the object. *Deferred (§17.1 #6):* shown once HB-D's recent-actions endpoint lands; until then the empty
      palette shows groups 2 and 3 only.
   2. **Şunları sorabilirsiniz**: 3 starters for the user's role (§6.2).
@@ -397,7 +397,7 @@ toast  "Rezerve edildi · Geri al (8 sn)"; a polite live region repeats the resu
 |---|---|---|---|
 | **Notes** (`helper_notes`) | "Tercih edilen bina: B blok", "Varsayılan süre: 2 ders saati" | ≤ 20 notes, ≤ 200 characters each, 180 days since last use | **only when the user taps "Hatırla"** on a `remember` result (or adds one in Profil); a note naming a person is refused |
 | **Conversation history** (`helper_threads` / `helper_messages`) | the last threads, so a phone continues a desktop conversation | 30 days (`ai.helper.history_days`); the model sees the last 6 turns | on; "Yeni konuşma" starts a thread, "Geçmişi sil" deletes all |
-| **"Son yaptıklarınız"** (deferred, §17.1 #6) | "A 204 rezerve edildi · dün" | derived from the user's own confirmed actions (`helper_action_invocations`, done), last 30 days, max 3 shown | on once HB-D's endpoint lands (no extra data: the record exists for audit and undo) |
+| **"Son işlemler"** (deferred, §17.1 #6) | "A 204 rezerve edildi · dün" | derived from the user's own confirmed actions (`helper_action_invocations`, done), last 30 days, max 3 shown | on once HB-D's endpoint lands (no extra data: the record exists for audit and undo) |
 | Starters dismissed, "Yalnızca metin" | — | `localStorage` (device only) | — |
 
 - **Profil › Yardımcı** (`helper-states.svg` C) shows:
@@ -452,7 +452,7 @@ model.
 | `helper.palette.ask` | Yardımcıya sor: “{q}” | Ask the helper: “{q}” |
 | `helper.palette.groups.where` | Nerede? | Where is it? |
 | `helper.palette.groups.shortcuts` | Kısayollar | Shortcuts |
-| `helper.palette.groups.recent` | Son yaptıklarınız | Your recent tasks |
+| `helper.palette.groups.recent` | Son işlemler | Your recent tasks |
 | `helper.palette.groups.starters` | Şunları sorabilirsiniz | You can ask |
 | `helper.title` | Yardımcı | Helper |
 | `helper.empty` | Size nasıl yardım edebilirim? Bir sayfa sorun ya da yapmak istediğinizi yazın. | How can I help? Ask where something is or say what you want to do. |
@@ -644,7 +644,7 @@ Use this list on every screen review. A "no" is a **major** finding with a scree
 | API client: zod types generated from `GET /helper/schema`, hooks for search, turn (SSE), confirm, undo, notes, threads | `lib/api/helper.ts`, `components/helper/schema.gen.ts` (HX-01) | React Query, zod 4 | MIT |
 | Feature link map (`feature_id` → href, anchor, kind, path) + the nav-index vitest | `components/helper/feature-links.ts` (HX-01) | `nav-config.ts`, `admin/nav-items.ts`, message keys | ours |
 | Intent parser (dates, periods, rooms, headcount; TR + EN) | `components/helper/intents.ts` (HX-01) | `lib/time.ts` PERIODS, the palette's `fold()` | ours |
-| Palette groups (Nerede?, Kısayollar, Son yaptıklarınız, Yardımcıya sor) | `components/helper/palette-groups.tsx` (HX-02) + **ask: mount in `components/shell/command-palette.tsx`** | cmdk 1.1 `CommandGroup` / `CommandItem`, `GET /helper/search` | MIT |
+| Palette groups (Nerede?, Kısayollar, Son işlemler, Yardımcıya sor) | `components/helper/palette-groups.tsx` (HX-02) + **ask: mount in `components/shell/command-palette.tsx`** | cmdk 1.1 `CommandGroup` / `CommandItem`, `GET /helper/search` | MIT |
 | Top-bar trigger | `components/helper/helper-trigger.tsx` (HX-02) + **ask: replace the "Ara" button in `top-bar.tsx`; aria label in `tab-bar.tsx`** | `button.tsx`, `kbd-hint.tsx` | MIT (shadcn on Base UI) |
 | `HelperProvider` (open state, current thread id, ⌘J) | `components/helper/helper-provider.tsx` (HX-03) + **ask: one mount in `app-shell.tsx`, ⌘J in `use-global-shortcuts.ts`** | the zustand pattern of `stores/ui` | ours |
 | `HelperSheet` (desktop side sheet / phone full screen, Rehber modu) | `components/helper/helper-sheet.tsx` (HX-03) | `sheet.tsx`, `glass-panel.tsx`, `PromptComposer`, `AiUsageBanner`, `AiNotice` | MIT / ours |
@@ -729,7 +729,7 @@ Findings from the code audit are in `docs/testing/audits/2026-10-18-helper-desig
 | 3 | `choice` has no counter; the client shows "{n}. soru" from the second choice | **Accept** | The server sends one choice at a time and cannot know the total, so "1 / 2" would be a guess; "2. soru" is honest and quieter |
 | 4 | `confirm.args` prefills "Değiştir" | **Accept** | One source of truth for the form; the unresolved value ("A 204") stays visible until a real option is picked |
 | 5 | "Göster" has no 25 % scrim; the ring alone marks the control, which stays clickable | **Accept**, with a condition | A scrim is a third layer next to the non-modal sheet and fights "one interruption at a time"; the ring meets 3:1. Condition: a target under the docked sheet must not be ringed behind it (audit M1) |
-| 6 | "Son yaptıklarınız" left out (HB-D builds the recent-actions endpoint) | **Accept as deferred** | The empty palette still has starters and "Git"; ship the group when the endpoint lands (ticket HX-15) |
+| 6 | "Son işlemler" left out (HB-D builds the recent-actions endpoint) | **Accept as deferred** | The empty palette still has starters and "Git"; ship the group when the endpoint lands (ticket HX-15) |
 | 7 | The "Bu sayfa: …" context chip left out (HB-D adds a context field) | **Accept as deferred** | Without context, "bu oda" requests fall back to `choice` / `form`, which is safe; add the chip with the field (ticket HX-16) |
 | 8 | No "Hatırla" on cards yet (HB-D adds a remember card) | **Accept as deferred** | Notes still only exist by an explicit act (Profil › Yardımcı › Not ekle), so the memory promise holds; add the card with HB-D (ticket HX-17) |
 
