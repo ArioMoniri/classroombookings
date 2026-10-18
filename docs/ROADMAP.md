@@ -4244,3 +4244,10 @@ before and after (resource rule: no stack, no Playwright); each item waits for i
 - [ ] F-VO-3 flaky "Sesle girildi" chip. part done (the chip went on any input event without the voice flag; it now
   stays while the box holds the text as the voice left it and goes on a real change; mic-button.test.tsx +1.
   open: vo-mounts test 1 ×4 on fresh stacks)
+
+### HB-23 · Helper file router (owner 2026-10-18)
+- [ ] HB-23a design spec: docs/design/v3/helper-file-router.md (drop any file → what it is + one in-flight primary button routing with the file and prefill; role-aware; no model needed; KVKK: nothing stored until confirm)
+- [ ] HB-23b backend: POST /helper/files/classify (deterministic, reuses council/importers), short-lived owner-bound upload token, target pages accept it
+- [ ] HB-23c frontend: drop target in the helper sheet (desktop + phone), /import, /onboarding, empty states; card states per spec
+- [ ] HB-23d tests: unit per file kind (masked fixtures); UX run by user-tester (admin who doesn't know the file type, planner, academician; 1440 + 390); design review
+- [ ] LV-02 launch video: minute-1 purple flash fixed, no repo address/branch in any frame; owner re-uploads -attach.mp4

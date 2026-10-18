@@ -19,6 +19,7 @@ import { PERIODS, dayName } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { chipVars } from "@/components/timetable/event-chip";
 import { spanText } from "@/components/timetable/model/check";
+import { EnrolmentField } from "./enrolment-field";
 import { NotesSection } from "./notes-section";
 
 export interface InspectorProps {
@@ -274,6 +275,12 @@ export function ClassInspector(p: InspectorProps) {
           {placement?.matched === "board" ? <p className="type-caption text-label-3">{t("calendar.insp.matchedBoard")}</p> : null}
         </SectionBlock>
 
+        {/* E2EA-F11 / E2EA2-F07: the only "Öğrenci sayısı" editor on a phone and for exams */}
+        {mr !== null && !p.readOnly ? (
+          <div className="py-3 hairline-t">
+            <EnrolmentField key={`${p.kind}-${mr}`} kind={p.kind} requestId={mr} value={row?.enrolment ?? a?.size ?? null} />
+          </div>
+        ) : null}
         {mr !== null ? <NotesSection requestId={mr} notes={row?.req.notes} termId={p.termId} runId={p.runId} /> : null}
 
         <SectionBlock title={t("calendar.insp.who")}>
