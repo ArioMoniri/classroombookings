@@ -284,19 +284,19 @@ const SEEDED = [
   { code: "ADMIN", key: "crbs.users.roleAdmin" },
 ] as const;
 
-export function InviteSheet({ open, onOpenChange, auth, canListRoles, prefill = null }: { open: boolean; onOpenChange: (o: boolean) => void; auth: PublicAuth | undefined; canListRoles: boolean; /** HX-06 `?invite=1&…`: the fields it opens with (sent only by "Davet et") */ prefill?: InvitePrefill | null }) {
+export function InviteSheet({ open, onOpenChange, auth, canListRoles, prefill = null, local = false }: { open: boolean; onOpenChange: (o: boolean) => void; auth: PublicAuth | undefined; canListRoles: boolean; /** HX-06 `?invite=1&…`: the fields it opens with (sent only by "Davet et") */ prefill?: InvitePrefill | null; /** E2EA-F10: password sign-in only, the link lets the person set a password (`provider: "local"`) */ local?: boolean }) {
   const fine = useFinePointer();
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       {/* also opened by the `?invite=1` hand-over (no trigger was pressed): focus goes to "Davet et" on close */}
       <SheetContent side={fine ? "right" : "bottom"} className="flex flex-col gap-0 overflow-y-auto sm:max-w-md" finalFocus={() => document.querySelector<HTMLElement>('[data-testid="users-invite"]') ?? true} data-testid="invite-sheet">
-        {open ? <InviteForm onDone={() => onOpenChange(false)} domainHint={auth?.microsoft.domain_hint ?? null} canListRoles={canListRoles} prefill={prefill} /> : null}
+        {open ? <InviteForm onDone={() => onOpenChange(false)} domainHint={local ? null : (auth?.microsoft.domain_hint ?? null)} canListRoles={canListRoles} prefill={prefill} local={local} /> : null}
       </SheetContent>
     </Sheet>
   );
 }
 
-function InviteForm({ onDone, domainHint, canListRoles, prefill }: { onDone: () => void; domainHint: string | null; canListRoles: boolean; prefill: InvitePrefill | null }) {
+function InviteForm({ onDone, domainHint, canListRoles, prefill, local }: { onDone: () => void; domainHint: string | null; canListRoles: boolean; prefill: InvitePrefill | null; local: boolean }) {
   const { t, locale } = useI18n();
   const { perms } = usePermissions();
   const roles = useRoles(canListRoles);
@@ -338,7 +338,7 @@ function InviteForm({ onDone, domainHint, canListRoles, prefill }: { onDone: () 
     setError(null);
     if (!cleaned.valid) return setError({ text: t("sso.users.invite.badEmail"), code: null });
     if (!role) return setError({ text: t("sso.users.invite.needRole"), code: null });
-    const body: InviteIn = { email: cleaned.email, full_name: name.trim() || null, department_id: dept ? Number(dept) : null, ...(role.startsWith("id:") ? { role_id: Number(role.slice(3)) } : { role: role.slice(5) }), send_email: sendMail, locale: locale === "en" ? "en" : "tr" };
+    const body: InviteIn = { email: cleaned.email, full_name: name.trim() || null, department_id: dept ? Number(dept) : null, ...(role.startsWith("id:") ? { role_id: Number(role.slice(3)) } : { role: role.slice(5) }), send_email: sendMail, locale: locale === "en" ? "en" : "tr", ...(local ? { provider: "local" } : {}) };
     create.mutate(body, {
       onSuccess: (inv) => {
         const copy = inv.link ? { action: { label: t("sso.users.copyLink"), onClick: () => copyText(inv.link ?? "", t("sso.users.linkCopied"), t("sso.users.copyFailed")) } } : undefined;
@@ -371,10 +371,10 @@ function InviteForm({ onDone, domainHint, canListRoles, prefill }: { onDone: () 
     >
       <SheetHeader className="pr-12">
         <SheetTitle>{t("sso.users.invite.title")}</SheetTitle>
-        <SheetDescription>{t("sso.users.invite.lead")}</SheetDescription>
+        <SheetDescription>{t(local ? "sso.users.invite.leadLocal" : "sso.users.invite.lead")}</SheetDescription>
       </SheetHeader>
       <div className="flex flex-col gap-4 px-4 pb-4">
-        <Field label={t("sso.users.invite.email")} htmlFor="invite-email" hint={cleaned.domainMismatch ? undefined : domainHint ? t("sso.users.invite.emailHint", { domain: domainHint }) : t("sso.users.invite.emailHintPlain")}>
+        <Field label={t("sso.users.invite.email")} htmlFor="invite-email" hint={cleaned.domainMismatch || local ? undefined : domainHint ? t("sso.users.invite.emailHint", { domain: domainHint }) : t("sso.users.invite.emailHintPlain")}>
           <Input id="invite-email" type="email" inputMode="email" autoComplete="off" autoCapitalize="none" spellCheck={false} required value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => cleaned.valid && setEmail(cleaned.email)} data-testid="invite-email" />
         </Field>
         {cleaned.domainMismatch ? (

@@ -3736,6 +3736,7 @@
       "invite": {
         "title": "Invite user",
         "lead": "The invitation links to the person's Microsoft account on their first sign-in. No password is created.",
+        "leadLocal": "The person opens the link and sets their own password.",
         "email": "Microsoft account (e-mail)",
         "emailHint": "Must be the institution's work or school account (@{domain}).",
         "emailHintPlain": "Must be the institution's work or school account.",

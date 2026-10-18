@@ -3734,6 +3734,7 @@
       "invite": {
         "title": "Kullanıcı davet et",
         "lead": "Davet, kişinin Microsoft hesabına ilk girişinde bağlanır. Parola oluşturulmaz.",
+        "leadLocal": "Kişi bağlantıyı açıp kendi parolasını belirler.",
         "email": "Microsoft hesabı (e-posta)",
         "emailHint": "Kurumun iş veya okul hesabı olmalı (@{domain}).",
         "emailHintPlain": "Kurumun iş veya okul hesabı olmalı.",

@@ -176,6 +176,8 @@ export interface InviteIn {
   /** RF-03: e-mail the link at once (themed invitation e-mail); needs SMTP (`inviteMail().configured`) */
   send_email?: boolean;
   locale?: "tr" | "en";
+  /** E2EA-F10: `local` = the link sets a password (password sign-in only); default the Microsoft invite */
+  provider?: string;
 }
 
 export const IdentityStatus = z.enum(["linked", "invited", "invite_expired", "binding", "none"]);

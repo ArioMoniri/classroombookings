@@ -11,7 +11,7 @@
 import { Copy, Mail, MoreHorizontal, Pencil, ShieldQuestion, Trash2, Upload, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/chip";
@@ -86,6 +86,8 @@ export function UsersAdmin() {
   const [enabled, setEnabled] = useState(() => (params.get("enabled") === "1" || params.get("enabled") === "0" ? params.get("enabled")! : ""));
   const [sort, setSort] = useState("username");
   const [page, setPage] = useState(0);
+  const prevRef = useRef<HTMLButtonElement>(null);
+  const nextRef = useRef<HTMLButtonElement>(null);
   const [idFilter, setIdFilter] = useState<IdentityFilter>(() => (params.get("identity") === "invited" ? "invited" : params.get("identity") === "self" ? "self" : "all"));
   const [method, setMethod] = useState<MethodFilter>(() => (["microsoft", "local", "ldap", "binding"].includes(params.get("method") ?? "") ? (params.get("method") as MethodFilter) : ""));
   // T-R1-33: the filters live in the address (?role=&q=&department=&enabled=&identity=&method=), so a reload or a
@@ -143,12 +145,12 @@ export function UsersAdmin() {
     if (!handover || handoverOpened || providers.isPending) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- a one-off hand-over read from the address once the sign-in methods are known
     setHandoverOpened(true);
-    if (msEnabled && usersAdmin) setInviteOpen(true);
+    if (usersAdmin) setInviteOpen(true); // E2EA-F10: a local-password invite when Microsoft is off
     else setEditing("new");
     const next = new URLSearchParams(window.location.search);
     for (const k of ["invite", "email", "name"]) next.delete(k);
     router.replace(next.size ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
-  }, [handover, handoverOpened, providers.isPending, msEnabled, usersAdmin, router, pathname]);
+  }, [handover, handoverOpened, providers.isPending, usersAdmin, router, pathname]);
   const [importOpen, setImportOpen] = useState(false);
   const [token, setToken] = useState<{ user: AdminUser; token: ResetToken } | null>(null);
   const [deleting, setDeleting] = useState<AdminUser | null>(null);
@@ -205,6 +207,13 @@ export function UsersAdmin() {
               <Button className={phone ? "min-h-11 rounded-full px-4" : undefined} onClick={() => setInviteOpen(true)} data-testid="users-invite" data-tour="admin-users-invite">
                 <Mail aria-hidden />
                 {t("sso.users.inviteAction")}
+              </Button>
+            ) : usersAdmin ? (
+              // E2EA-F10 (FIX-K): with password sign-in only, "Davet et" sends a link where the person sets a password;
+              // "Yeni kullanıcı" stays the one primary
+              <Button variant="outline" size={phone ? "icon" : "default"} onClick={() => setInviteOpen(true)} data-testid="users-invite" aria-label={phone ? t("sso.users.inviteAction") : undefined} title={phone ? t("sso.users.inviteAction") : undefined}>
+                <Mail aria-hidden />
+                {phone ? null : t("sso.users.inviteAction")}
               </Button>
             ) : null}
           </>
@@ -496,10 +505,11 @@ export function UsersAdmin() {
         <div className="flex items-center justify-between type-callout text-label-2">
           <span>{t("crbs.users.page", { from: page * PAGE + 1, to: Math.min(total, (page + 1) * PAGE), total })}</span>
           <div className="flex gap-2">
-            <Button className="pointer-coarse:h-11" variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+            {/* E2EA2-F03: the pressed button disables itself on the first / last page, so focus moves to the other one */}
+            <Button ref={prevRef} className="pointer-coarse:h-11" variant="ghost" size="sm" disabled={page === 0} onClick={() => (setPage((p) => p - 1), page - 1 === 0 && requestAnimationFrame(() => nextRef.current?.focus()))}>
               {t("crbs.users.prev")}
             </Button>
-            <Button className="pointer-coarse:h-11" variant="ghost" size="sm" disabled={(page + 1) * PAGE >= total} onClick={() => setPage((p) => p + 1)}>
+            <Button ref={nextRef} className="pointer-coarse:h-11" variant="ghost" size="sm" disabled={(page + 1) * PAGE >= total} onClick={() => (setPage((p) => p + 1), (page + 2) * PAGE >= total && requestAnimationFrame(() => prevRef.current?.focus()))}>
               {t("crbs.users.next")}
             </Button>
           </div>
@@ -514,7 +524,7 @@ export function UsersAdmin() {
         identityFor={(u) => (usersAdmin ? { s: statusOf(u), invite: inviteOf.get(u.id), msEnabled, onBind: () => (setEditing(null), setBinding(u)), security: manageable(u) ? security.block(secUser(u)) : null } : null)}
       />
       {security.dialogs}
-      <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} auth={auth} canListRoles={can("setup.roles")} prefill={handover} />
+      <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} auth={auth} canListRoles={can("setup.roles")} prefill={handover} local={!msEnabled} />
       <BindDialog key={binding?.id ?? "none"} user={binding} privileged={!!binding && privileged(binding)} onClose={() => setBinding(null)} />
       <RevokeDialog value={revoking} onClose={() => setRevoking(null)} />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} canListRoles={can("setup.roles")} />
