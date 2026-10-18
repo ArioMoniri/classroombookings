@@ -135,7 +135,7 @@ class Worker:
             self._safe(lambda: self.cloud.set_alarm_actions(True), "re-enable idle alarm")
             stamp = code_stamp(self.cfg.install_dir)
             done = 0
-            while (run := self.store.next_queued()) is not None:
+            while (run := self.store.next_queued(deploy_branch=self.cfg.deploy_branch)) is not None:
                 if code_stamp(self.cfg.install_dir) != stamp:
                     # smartsched-ci-worker.timer (OnUnitInactiveSec=5min) starts a fresh worker on the new code
                     self.log(f"pod CI code in {self.cfg.install_dir} changed; exiting so a new worker loads it")

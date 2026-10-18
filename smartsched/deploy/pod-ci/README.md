@@ -9,7 +9,7 @@ GitHub Actions minutes are not used for CI. The pod polls GitHub, runs the same 
 systemd timer (2 min) -> podci poll -> git ls-remote (token from SSM) -> new head? -> SQLite queue
                                      -> heartbeat metrics + idle check
 path unit (queue-signal) -> podci work (flock, one job at a time)
-    prepare -> validate -> backend -> infra -> frontend -> frontend-unit-1 -> frontend-unit-2 -> e2e-real -> parity -> planner -> images -> watchdog
+    prepare -> validate -> backend -> backend-unit-1 -> backend-unit-2 -> backend-unit-3 -> infra -> frontend -> frontend-unit-1 -> frontend-unit-2 -> e2e-real -> parity -> planner -> images -> watchdog
     -> deploy (deploy branch only, all blocking gates green, commit still the branch head)
     -> POST /repos/{owner}/{repo}/statuses/{sha} per gate + overall ("pod-ci", "pod-ci/<gate>")
 nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
@@ -21,7 +21,10 @@ nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
 |---|---|---|---|
 | `prepare` | host | builds `smartsched-podci-python:<hash>` (backend base image + make/git/PyYAML), pulls `mcr.microsoft.com/playwright:v<locked version>-noble` | yes |
 | `validate` | host | `smartsched/deploy/validate.sh`, then the docs check: `python3 -I scripts/docs/sync_docs.py --check` (every generated `<!-- AUTO:... -->` block matches its source) and the generator's unit tests | yes |
-| `backend` | python CI container | `make check` (PostgreSQL tests against a `postgres` service container: the compose-pinned image, tmpfs, `TEST_POSTGRES_URL`), solver gate, AI gate, exactly one Alembic head, fresh `alembic upgrade head` on SQLite and PostgreSQL; installs with `requirements.lock` as constraints | yes |
+| `backend` | python CI container | `make lint type` (ruff, ruff format, mypy), solver gate, AI gate, exactly one Alembic head, fresh `alembic upgrade head` on SQLite and PostgreSQL (a `postgres` service container: the compose-pinned image, tmpfs; `gates/backend-lib.sh`); installs the hash-pinned `requirements-dev.lock` into `/w/venv` | yes |
+| `backend-unit-1` | python CI container | `make test`'s pytest (`-m "not slow"`, PostgreSQL tests against the `postgres` service via `TEST_POSTGRES_URL`) on shard 1/3 of the test files: `tests/**/test_*.py` outside `tests/solver`, sorted, every 3rd from the 1st (`gates/backend-unit.sh 1/3`); reuses `/w/venv` or installs it | yes |
+| `backend-unit-2` | python CI container | the same on shard 2/3 | yes |
+| `backend-unit-3` | python CI container | the same on shard 3/3: the three shards run every file of `make test`. One gate for all of `make check` ran past 2400 s on the pod (runs #81, #82; pytest ~90 min at 2 CPUs) | yes |
 | `infra` | python CI container | ruff + pytest for `infra/aws` and this directory | yes |
 | `frontend` | Playwright container | `npm ci`, then the static checks of `npm run check`: tsc, eslint, `scripts/check-design.mjs` (each step prints its duration) | yes |
 | `frontend-unit-1` | Playwright container | `vitest run --shard=1/2` on the node_modules `frontend` installed (`gates/frontend-unit.sh 1/2`); needs `frontend` | yes |

@@ -212,10 +212,16 @@ class Store:
                        "WHERE id=?", (QUEUED, run_id))
         return _must(self.get(run_id), f"run {run_id}")
 
-    def next_queued(self, deploy_first: bool = True) -> Run | None:
-        order = "deploy DESC, id ASC" if deploy_first else "id ASC"
-        return self._run(self.db.execute(f"SELECT * FROM runs WHERE state=? ORDER BY {order} LIMIT 1",  # noqa: S608
-                                         (QUEUED,)).fetchone())
+    def next_queued(self, deploy_first: bool = True, deploy_branch: str = "") -> Run | None:
+        """The oldest queued run, the deploy branch's first (the institution pod deploys before it tests the other
+        branches): runs of `deploy_branch` (the configured PODCI_DEPLOY_BRANCH, also for runs queued before it was
+        set), then runs queued with deploy=1, then the rest; FIFO within each."""
+        if not deploy_first:
+            return self._run(self.db.execute("SELECT * FROM runs WHERE state=? ORDER BY id ASC LIMIT 1",
+                                             (QUEUED,)).fetchone())
+        sql = ("SELECT * FROM runs WHERE state=? ORDER BY CASE WHEN branch = ? THEN 0 WHEN deploy THEN 1 ELSE 2 END,"
+               " id ASC LIMIT 1")
+        return self._run(self.db.execute(sql, (QUEUED, deploy_branch)).fetchone())
 
     def recover_interrupted(self, max_attempts: int) -> tuple[list[Run], list[Run]]:
         """Runs left 'running' by a dead worker: requeue (attempts left) or fail. Returns (requeued, failed)."""

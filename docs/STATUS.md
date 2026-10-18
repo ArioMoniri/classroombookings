@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `64489a8` (committed 2026-10-18 16:26 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `e428c08` (committed 2026-10-18 16:35 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -154,21 +154,24 @@ The validate gate also runs `sync_docs.py --check` and the generator's own tests
 
 <!-- AUTO:gates -->
 
-12 gates in [`podci/gates.py`](../smartsched/deploy/pod-ci/podci/gates.py), run in this order for every new commit; `deploy` runs only on the deploy branch after every blocking gate is green.
+15 gates in [`podci/gates.py`](../smartsched/deploy/pod-ci/podci/gates.py), run in this order for every new commit; `deploy` runs only on the deploy branch after every blocking gate is green.
 Results with their commit and date from [`gate-results.json`](testing/gate-results.json) (local: the devops agent's run of every pod gate (docs/ROADMAP.md, 'Devops agent finished')).
 
 | Gate | Runs | Blocking | Needs | Local `5d0e6c2` (2026-10-15) |
 |---|---|---|---|---|
 | `prepare` | CI images (python CI image, Playwright image) | yes | - | success |
 | `validate` | deploy/validate.sh | yes | prepare | success |
-| `backend` | ruff + mypy + pytest + solver + migrations | yes | prepare | failure (a lint failure stopped it before pytest; formatted locally 1197 passed) |
+| `backend` | ruff + format + mypy + solver + migrations | yes | prepare | failure (a lint failure stopped it before pytest; formatted locally 1197 passed) |
+| `backend-unit-1` | pytest shard 1/3 | yes | prepare | not recorded |
+| `backend-unit-2` | pytest shard 2/3 | yes | prepare | not recorded |
+| `backend-unit-3` | pytest shard 3/3 | yes | prepare | not recorded |
 | `infra` | pod CI + AWS bootstrap tests | yes | prepare | success |
 | `frontend` | npm ci + tsc + eslint + check-design | yes | prepare | success (378 tests) |
 | `frontend-unit-1` | vitest shard 1/2 | yes | frontend | not recorded |
 | `frontend-unit-2` | vitest shard 2/2 | yes | frontend | not recorded |
-| `e2e-real` | Playwright (all specs) vs real backend + Bahar fixtures | yes | frontend, frontend-unit-1, frontend-unit-2, backend | failure (forced; 72 passed, 1 failed (studio mapping-step)) |
-| `parity` | CRBS superset gate (scripts/parity_check.py) | yes | backend | success (forced; PASS 179 / GAP 13 / FAIL 0) |
-| `planner` | planner-level validation (tools/validate_planner.py) | yes | backend | success (forced; 0 violations on all 4) |
+| `e2e-real` | Playwright (all specs) vs real backend + Bahar fixtures | yes | frontend, frontend-unit-1, frontend-unit-2, backend, backend-unit-1, backend-unit-2, backend-unit-3 | failure (forced; 72 passed, 1 failed (studio mapping-step)) |
+| `parity` | CRBS superset gate (scripts/parity_check.py) | yes | backend, backend-unit-1, backend-unit-2, backend-unit-3 | success (forced; PASS 179 / GAP 13 / FAIL 0) |
+| `planner` | planner-level validation (tools/validate_planner.py) | yes | backend, backend-unit-1, backend-unit-2, backend-unit-3 | success (forced; 0 violations on all 4) |
 | `images` | docker build backend/frontend/crbs | yes | prepare | error (did not finish: disk, needs 8 GB free) |
 | `watchdog` | agent ledger report | no (report only) | prepare | not recorded |
 | `deploy` | deploy.sh --update | yes | - | success (deploy smoke OK) |

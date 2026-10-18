@@ -73,6 +73,20 @@ def test_next_queued_prefers_deploy_branch_then_fifo(store: Store) -> None:
     assert store.next_queued().id == f.id  # type: ignore[union-attr]
 
 
+def test_next_queued_takes_the_configured_deploy_branch_first(store: Store) -> None:
+    """Runs of PODCI_DEPLOY_BRANCH go first even when they were queued with deploy=0 (before the setting changed)."""
+    other = store.enqueue("claude/smartsched-universal", SHA_A, deploy=False)
+    old = store.enqueue("claude/gracious-cerf-w1598m", SHA_A, deploy=False)
+    new = store.enqueue("claude/gracious-cerf-w1598m", SHA_B, deploy=True)
+    assert other and old and new
+    assert store.next_queued(deploy_branch="claude/gracious-cerf-w1598m").id == old.id  # type: ignore[union-attr]
+    store.transition(old.id, RUNNING)
+    assert store.next_queued(deploy_branch="claude/gracious-cerf-w1598m").id == new.id  # type: ignore[union-attr]
+    store.transition(new.id, RUNNING)
+    assert store.next_queued(deploy_branch="claude/gracious-cerf-w1598m").id == other.id  # type: ignore[union-attr]
+    assert store.next_queued(deploy_first=False).id == other.id  # type: ignore[union-attr]
+
+
 def test_restart_recovery_requeues_then_errors(cfg: Config, clock: Clock) -> None:
     s1 = Store(cfg.db_path, clock=clock)
     run = s1.enqueue("main", SHA_A, deploy=True)
