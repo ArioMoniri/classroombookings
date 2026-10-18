@@ -98,6 +98,8 @@ Round-2 sweeper (after lanes C and E finish): `ui/date-field.tsx` calendar butto
 
 ## Progress log (newest first)
 
+- **2026-10-18 10:08 UTC**: **pod**: the 09:29 merge never deployed because the idle alarm had stopped the instance at 01:38 UTC (CPU < 5 % for 60 min). `start` was pushed at 09:57 (run 26); `status` at 10:05 shows it running since 09:57:56, with the alarm's actions disabled while pod CI runs the gates on gracious 20f8db8d. Health is watched until 200. Lanes: HB-B and WG-09 done; Sweeper 2 and IDP started. Asks routed: 0047 `catalog_aliases` mismatch and audit rows go to RF-B; helper/events and feedback audit rows, the `ai_reservations` DATA_CLASSES row (decision: yes, transient) and "Notunuza göre" go to HB-C; the perm key and helper tsc errors go to HX. The licence variable is still not visible to a fresh session (warm container); the owner was asked to confirm it is an environment variable.
+
 - **2026-10-18 09:55 UTC**: audit of every owner request against the tickets (done at the owner's request). Lanes were added for the open items no lane covered: HB-C (HB-14/15/16) and CH-M (CH-07/08/10/11). The tester wave now also covers VO-09, AUX-12 and HB-18; HB-17 follows HB-C. Leftovers went to two queued lanes, Sweeper 2 and IDP (see LANES.md). "Later" tickets are listed as deferred on purpose. Decision applied under the owner's "use the recommended option" rule: a locked class's self-move counts as re-deciding the lock. No owner decisions are open. Focus-ring test fixed in forecast-whatif and season-profiles (`focus-visible:outline-solid`).
 
 - **2026-10-18 09:40 UTC**: owner decision: no S3 or other off-host backups; backups stay on the pod (nightly, 7 days). Recorded in docs/deploy/ONE-CLICK.md §2. Decision closed.

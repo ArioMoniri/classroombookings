@@ -54,7 +54,8 @@ export const Peaks = z.object({
   term_code: z.string().nullable().catch(null),
   period_kind: z.string().default("LECTURE"),
   group_by: z.string().default("building"),
-  threshold_pct: z.number().default(85),
+  // null on an install without a published term: .default() only covers a missing field (e2e 2026-10-18)
+  threshold_pct: z.number().catch(85).default(85),
   weeks: z.array(z.number()).catch([]).default([]),
   rooms: z.number().catch(0).default(0),
   cells: z.array(PeakCell).default([]),

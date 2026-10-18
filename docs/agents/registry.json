@@ -3295,7 +3295,8 @@
       "goal": "You are lane HB-B (AI helper second slice and governance), re-created after a container restart. Some of your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss), for example `tests/ai/test_hb_12_capabilities.py` and the capability parts of `app/ai/**` and…",
       "ledger": "HB-B resume: capabilities, local, quotas",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 10:05"
     },
     {
       "id": "a5f68a4d4029dba95",
@@ -3636,6 +3637,26 @@
       "scope": "",
       "goal": "Ledger name `sweep2-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; `nice`, vitest `--maxWorkers=1 --testTimeout=30000`…",
       "ledger": "Sweeper 2: unowned leftovers",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "abd7229ecad9bc094",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:05",
+      "left_off": "raise the idle window while testers run"
+    },
+    {
+      "id": "a944fa64056cb8a5a",
+      "description": "IDP lane: SAML hardening, linking",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 10:06",
+      "scope": "",
+      "goal": "Ledger name `idp-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend (frontend at smartsched/frontend for one small screen). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack…",
+      "ledger": "IDP lane: SAML hardening, linking",
       "resumed": false,
       "status": "running"
     }

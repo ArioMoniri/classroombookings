@@ -14,7 +14,11 @@ import type { RunStatus, ScheduleRun } from "@/lib/api/schemas";
 import type { MessageKey, Vars } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { isBaselineRun } from "@/lib/api/council";
-import { ScoreHistory } from "./score-history";
+import dynamic from "next/dynamic";
+
+// CH-08 bundle rule (charts.md §10): the shell (command palette, notification bell) imports this module for its
+// helpers, so the chart card is its own chunk and only /runs pays for it
+const ScoreHistory = dynamic(() => import("./score-history").then((m) => m.ScoreHistory), { ssr: false });
 
 export const RUN_STATUS_KIND: Record<RunStatus, StatusKind> = { QUEUED: "preoccupied", RUNNING: "pclab", FEASIBLE: "feasible", OPTIMAL: "feasible", FEASIBLE_PARTIAL: "warning", INFEASIBLE: "infeasible", TIMEOUT: "infeasible", ERROR: "infeasible", FAILED: "infeasible", CANCELLED: "preoccupied" };
 

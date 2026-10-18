@@ -15,7 +15,7 @@ import { useCardHost } from "./cards/context";
 import { NavView } from "./cards/nav";
 import { dataHitHref } from "./feature-links";
 import { parseIntent } from "./intents";
-import { useShortcutLabel } from "./shortcut-label";
+import { useIntentAllowed, useShortcutLabel } from "./shortcut-label";
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -37,8 +37,9 @@ export function GuideMode({ inputRef, seed, showLead = true }: { inputRef?: Reac
   }
   const text = useDebounced(q, 150).trim();
   const search = useHelperSearch(text);
+  const allowed = useIntentAllowed();
   const intent = text ? parseIntent(text) : null;
-  const shortcut = intent && (!host.actions || host.actions.has(intent.action)) ? intent : null;
+  const shortcut = allowed(intent, host.actions) ? intent : null;
   const label = useShortcutLabel(shortcut);
   const data = Object.values(search.data?.data ?? {}).flat().slice(0, 6);
   const hits = [...(search.data?.pages ?? []), ...(search.data?.where ?? [])];

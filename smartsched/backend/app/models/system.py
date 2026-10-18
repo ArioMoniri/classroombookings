@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, utcnow
@@ -81,7 +81,10 @@ class CatalogAlias(Base):
     the importers' catalogue maps the file's old spelling to the renamed row (``app.importers.catalog``)."""
 
     __tablename__ = "catalog_aliases"
-    __table_args__ = (UniqueConstraint("entity", "alias", name="uq_catalog_aliases_entity_alias"),)
+    __table_args__ = (
+        UniqueConstraint("entity", "alias", name="uq_catalog_aliases_entity_alias"),
+        Index("ix_catalog_aliases_target", "entity", "target_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     entity: Mapped[str] = mapped_column(String(16))  # program | faculty | instructor

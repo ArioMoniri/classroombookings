@@ -61,3 +61,15 @@ describe("demand forecast schema (e2e 2026-10-18)", () => {
     expect(parsed.data?.cells[0]).toMatchObject({ key: "A", value: 710.5, lo80: 650.8, confidence: "low" });
   });
 });
+
+describe("peaks schema on an empty install (e2e 2026-10-18)", () => {
+  it("reads threshold_pct null and keeps the needs text (GET /analytics/peaks with no published term)", () => {
+    const raw = { term_id: 1, term_code: "2026-BAHAR", period_kind: "LECTURE", group_by: "building", threshold_pct: null, weeks: [], rooms: 0, sources: [], cells: [], peaks: [], period_profile: [], method: "shrunk_weekly_mean", basis: null, confidence: "none",
+      confidence_label: { tr: "veri yok", en: "no data" }, needs: { tr: "Yayımlanmış bir dönem gerekli", en: "A published term is needed" }, definitions: {} };
+    const parsed = Peaks.safeParse(raw);
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.threshold_pct).toBe(85);
+    expect(parsed.data?.needs?.tr).toBe("Yayımlanmış bir dönem gerekli");
+  });
+});
+
