@@ -266,8 +266,9 @@ async def test_permissions_are_grouped_like_crbs(env):
     groups = {g for scope in perms.values() for g in scope}
     assert {"system", "setup", "room", "book_single", "book_recur"} <= groups
     # 28 CRBS + 3 planning.* + 5 wave-1 permissions (rooms.features, audit.view, approvals.decide, book_*.request)
-    # + 1 approval-first permission (bookings.skip_approval)
-    assert len([p for scope in perms.values() for items in scope.values() for p in items]) == 37
+    # + 1 approval-first permission (bookings.skip_approval) + calendar.department_feed (CAL-03) + ai.usage_faculty
+    # (HB-11)
+    assert len([p for scope in perms.values() for items in scope.values() for p in items]) == 39
     # the CRBS booking groups keep CRBS's order; the new request action sits right after create
     single = [p["name"] for p in perms["bookings"]["book_single"]]
     assert single[:2] == ["book_single.create", "book_single.request"]

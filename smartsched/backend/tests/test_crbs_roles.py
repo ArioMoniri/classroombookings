@@ -27,7 +27,8 @@ async def test_seeded_roles_are_the_crbs_defaults_plus_smartsched_roles(client):
     perms = (await client.get("/api/v1/permissions", headers=admin)).json()
     names = {p["name"] for groups in perms.values() for items in groups.values() for p in items}
     # 28 CRBS + 3 planning.* + 5 booking-enhancements wave 1 (inventory rows X-08..X-11) + bookings.skip_approval
-    assert len(names) == 37 and {"planning.view", "planning.edit", "planning.admin"} <= names
+    # + calendar.department_feed (CAL-03) + ai.usage_faculty (HB-11)
+    assert len(names) == 39 and {"planning.view", "planning.edit", "planning.admin"} <= names
     assert {"rooms.features", "audit.view", "approvals.decide", "book_single.request", "book_recur.request"} <= names
     assert set(roles["ADMIN"]["permissions"]) == names
     assert set(roles["TEACHER"]["permissions"]) == TEACHER_DATA_SQL

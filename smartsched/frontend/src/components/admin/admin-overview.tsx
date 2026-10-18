@@ -11,6 +11,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { PageTitle, SectionTitle } from "./kit";
 import { RequirementsList } from "./requirements-list";
+import { BookingWeekly } from "./booking-weekly";
 import { wave1SectionsFor } from "./wave1-sections";
 
 /** WG-05: the admin tour's anchors on the setup groups */
@@ -126,6 +127,8 @@ export function AdminOverview() {
           </section>
         );
       })}
+      {/* CH-07: bookings and request outcomes per week of the current term (self-gated on system.export_bookings) */}
+      <BookingWeekly />
       {canExport ? (
         <section aria-labelledby="grp-data">
           <SectionTitle id="grp-data">{t("admingaps.overview.data")}</SectionTitle>
