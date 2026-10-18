@@ -43,7 +43,12 @@ const providers = () => [
       { id: "gpt-4o-mini-transcribe", modalities: ["stt"] },
       { id: "gpt-transcribe", modalities: ["stt"] },
     ],
+    regions: ["eu", "us"],
+    retention_tr: "Ses kaydı saklanmaz (retention 0).",
+    retention_en: "Audio is not kept (retention 0).",
   }),
+  provider("gemini", { capabilities: ["stt", "text"], models: [{ id: "gemini-3-flash", modalities: ["text", "stt"] }, { id: "gemini-tts", modalities: ["tts"] }] }),
+  provider("deepgram", { capabilities: ["stt"], models: [{ id: "nova-3", modalities: ["stt"] }] }),
 ];
 vi.mock("@/lib/api/client", async (orig) => {
   const real = await orig<typeof import("@/lib/api/client")>();
@@ -101,7 +106,8 @@ vi.mock("@/lib/api/client", async (orig) => {
   };
 });
 
-import { isSpeechModel, routesBody, secondsOf, speechProviders } from "./ai-model";
+import { AI_FEATURES, TEXT_FEATURES } from "@/lib/api/ai-admin";
+import { isSpeechModel, routesBody, secondsOf, speechProviders, textProviders } from "./ai-model";
 import { AiAdmin } from "./ai-admin";
 
 function renderIt() {
@@ -125,8 +131,16 @@ describe("voice helpers", () => {
     expect(isSpeechModel({ id: "whisper-1", modalities: [] })).toBe(true);
     expect(isSpeechModel({ id: "gpt-4o-mini-tts", modalities: [] }, "tts")).toBe(true);
     const out = speechProviders(providers() as never);
-    expect(out.map((p) => p.id)).toEqual(["openai"]);
+    expect(out.map((p) => p.id)).toEqual(["openai", "gemini", "deepgram"]);
     expect(out[0]!.models.map((m) => m.id)).toEqual(["gpt-4o-mini-transcribe", "gpt-transcribe"]);
+    expect(out[1]!.models.map((m) => m.id)).toEqual(["gemini-3-flash"]); // text+stt yes, tts no
+    const text = textProviders(providers() as never);
+    expect(text.map((p) => p.id)).toEqual(["anthropic", "openai", "gemini"]); // speech-only deepgram is not a text provider
+    expect(text[1]!.models.map((m) => m.id)).toEqual(["gpt-5"]);
+  });
+  it("voice_stt is an AI feature with a route; the guard bench keeps the text features", () => {
+    expect(AI_FEATURES).toContain("voice_stt");
+    expect(TEXT_FEATURES).not.toContain("voice_stt" as never);
   });
   it("the routes body carries voice_stt; minutes become seconds", () => {
     expect(routesBody(null, { voice_stt: { provider: "openai", model: "gpt-transcribe" } }).features).toEqual({ voice_stt: { provider: "openai", model: "gpt-transcribe" } });
@@ -144,12 +158,15 @@ describe("Modeller: Sesle yazma", () => {
     expect(row).toHaveTextContent("Sesle yazma");
     expect(screen.getByTestId("ai-route-note-voice_stt")).toHaveTextContent("Model seçilmezse mikrofon kimseye gösterilmez.");
     const prov = screen.getByTestId("ai-route-provider-voice_stt") as HTMLSelectElement;
-    expect(Array.from(prov.options).map((o) => o.value)).toEqual(["", "openai"]);
+    expect(Array.from(prov.options).map((o) => o.value)).toEqual(["", "openai", "gemini", "deepgram"]);
     expect(prov.options[0]!.textContent).toBe("Seçilmedi (mikrofon gizli)");
     // the text rows never offer a transcription model
     const chatModels = screen.getByTestId("ai-route-provider-chat") as HTMLSelectElement;
     fireEvent.change(chatModels, { target: { value: "openai" } });
     expect(Array.from((screen.getByTestId("ai-route-model-chat") as HTMLSelectElement).options).map((o) => o.value)).toEqual(["gpt-5"]);
+    expect(Array.from(chatModels.options).map((o) => o.value)).not.toContain("deepgram");
+    // each text row once, the voice row once (AI_FEATURES drives both)
+    expect(screen.getAllByTestId(/^ai-route-(rules|chat|intake|vision|explain|booking_nl|voice_stt)$/)).toHaveLength(7);
     fireEvent.change(prov, { target: { value: "openai" } });
     const model = screen.getByTestId("ai-route-model-voice_stt") as HTMLSelectElement;
     expect(Array.from(model.options).map((o) => o.value)).toEqual(["gpt-4o-mini-transcribe", "gpt-transcribe"]);
@@ -168,6 +185,10 @@ describe("Sağlayıcılar: capabilities and the voice test", () => {
     renderIt();
     expect(await screen.findByTestId("ai-provider-caps-openai")).toHaveTextContent("Metin · Ses→yazı · Sesli okuma · Doğal ses");
     expect(screen.getByTestId("ai-provider-caps-anthropic")).toHaveTextContent("Metin");
+    expect(screen.getByTestId("ai-provider-caps-deepgram")).toHaveTextContent(/^Yetenekler: Ses→yazı$/);
+    expect(screen.getByTestId("ai-provider-regions-openai")).toHaveTextContent("Bölge: EU, US");
+    expect(screen.queryByTestId("ai-provider-regions-anthropic")).toBeNull();
+    expect(screen.getByTestId("ai-provider-retention-openai")).toHaveTextContent("Ses kaydı saklanmaz");
     expect(screen.queryByTestId("ai-provider-voice-test-anthropic")).toBeNull();
     await act(async () => {
       fireEvent.click(screen.getByTestId("ai-provider-voice-test-openai"));

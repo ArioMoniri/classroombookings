@@ -29,3 +29,12 @@ On pass: tick WG-04..08 `[x]` in docs/ROADMAP.md.
    sentence (no raw code) and the old panel is closed. CAL-09: the admin export block, co-instructor names off by default.
 3. MOBILE M-01/02/03/05 on /profile; the W3-HUB e2e test 4 (setup-sheet embeds).
 On pass: tick CAL-08/09.
+
+## AS-B (adaptive backend; API checks on one stack)
+1. RF-02/AS-01: seed + weights set in Ayarlar; runs from POST /runs, Studio and moderation re-solve; GET /runs/{id} stats show
+   `seed.source=settings`, `weights_source`, `profile`.
+2. AS-02: a TERM run of Bahar has no classes in the Final/BÜT weeks; `stats.horizon_skipped_weeks` lists them.
+3. AS-03/04: profile draft → activate → run (profile in stats) → revert; booking in an exam week is refused with "Final haftası profili …".
+4. AS-10: what-if +10 % with `solve:true` creates an inactive draft run "Senaryo: …".
+5. AS-13: learning refresh, then revert to a version; the term stays pinned to it.
+6. AS-18: import a grid with a "Vize haftası" sheet; /seasons/terms/{id}/periods lists a draft segment.

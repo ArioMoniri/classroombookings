@@ -4,6 +4,9 @@
  * within 10 minutes of signing in the password may be left out (API.md §4 ⓡ). So `run(fn)` first calls `fn()`
  * without a password; only a `reauth_failed` refusal opens this dialog, and the action is retried with the password.
  * A wrong password keeps the dialog open with the error; Escape / "Vazgeç" rejects with `ReauthCancelled`.
+ * §6.7 "valid for 10 minutes, reused by every action in the section": a confirmed password is kept in this module's
+ * memory (never in storage) for 10 minutes and sent with the next protected calls, so the dialog appears once per
+ * window. It is dropped on a refusal, on page hide and when the window ends.
  */
 import { useCallback, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { BusyButton } from "@/components/ui/busy-label";
@@ -20,6 +23,19 @@ export class ReauthCancelled extends Error {
   }
 }
 
+export const REAUTH_WINDOW_MS = 10 * 60_000;
+let remembered: { pw: string; until: number } | null = null;
+/** the password confirmed in the last 10 minutes, if any */
+export function rememberedPassword(now: number = Date.now()): string | undefined {
+  if (remembered && remembered.until > now) return remembered.pw;
+  remembered = null;
+  return undefined;
+}
+export function forgetReauth() {
+  remembered = null;
+}
+if (typeof window !== "undefined") window.addEventListener("pagehide", forgetReauth);
+
 type Pending = { attempt: (pw: string) => Promise<void>; reject: (e: unknown) => void };
 
 export function useReauth(): { run: <T>(fn: (password?: string) => Promise<T>) => Promise<T>; dialog: ReactNode } {
@@ -34,9 +50,10 @@ export function useReauth(): { run: <T>(fn: (password?: string) => Promise<T>) =
   const run = useCallback(<T,>(fn: (password?: string) => Promise<T>): Promise<T> => {
     return (async () => {
       try {
-        return await fn();
+        return await fn(rememberedPassword());
       } catch (e) {
         if (mfaErrorCode(e) !== "reauth_failed") throw e;
+        forgetReauth();
       }
       return await new Promise<T>((resolve, reject) => {
         setPw("");
@@ -45,6 +62,7 @@ export function useReauth(): { run: <T>(fn: (password?: string) => Promise<T>) =
           attempt: async (password) => {
             try {
               const out = await fn(password);
+              remembered = { pw: password, until: Date.now() + REAUTH_WINDOW_MS };
               setPending(null);
               resolve(out);
             } catch (e) {

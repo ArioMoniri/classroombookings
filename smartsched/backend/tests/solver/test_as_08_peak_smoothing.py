@@ -16,7 +16,6 @@ from app.solver.repair import score as repair_score
 from app.solver.scoring import evaluate
 from app.solver.weights import DEFAULT_WEIGHTS
 from ortools.sat.python import cp_model  # type: ignore[import-untyped]
-
 from tests.solver.conftest import assigned, event, make_input, room
 
 W = (1,)
@@ -51,7 +50,9 @@ def test_default_weight_is_zero_and_kind_is_soft_only() -> None:
     inp = _busy_monday(0)
     kinds = [c.kind for c in effective_constraints(inp)[0]]
     assert "peak_smoothing" not in kinds  # off: not even in the model
-    on = [c for c in effective_constraints(replace(inp, weights={"peak_smoothing": 3}))[0] if c.kind == "peak_smoothing"]
+    on = [
+        c for c in effective_constraints(replace(inp, weights={"peak_smoothing": 3}))[0] if c.kind == "peak_smoothing"
+    ]
     assert len(on) == 1 and on[0].hard is False
     hard = replace(inp, constraints=(Constraint("peak_smoothing", {}, hard=True),), weights={"peak_smoothing": 3})
     cons, warnings, _soft = effective_constraints(hard)
@@ -110,7 +111,10 @@ def test_evaluate_and_model_agree_and_repair_scores_the_same() -> None:
     assert repair_score(inp, monday)[2]["peak_smoothing"] == 20
     # the CP-SAT objective term on the same placement: the fixed classes locked, D still flexible by its request
     # (no fixed day) but left with Monday only
-    forced = (*(replace(e, locked=a) for e, a in zip(inp.events[:3], monday, strict=False)), replace(inp.events[3], allowed_days=frozenset({1})))
+    forced = (
+        *(replace(e, locked=a) for e, a in zip(inp.events[:3], monday, strict=False)),
+        replace(inp.events[3], allowed_days=frozenset({1})),
+    )
     prep = prepare(replace(inp, events=forced))
     ctx = build_model(prep)
     solver = cp_model.CpSolver()
@@ -132,15 +136,17 @@ def test_room_groups_tags_and_cells() -> None:
     fixed = event(1, size=20, day=1, start=1, weeks=W, required_tags=("PC",))
     lab = event(2, size=20, allowed_days=(1, 2), earliest=1, latest=2, weeks=W, required_tags=("PC",))
     tuesday = Constraint("day_window", {"event_ids": [2], "days": [2], "earliest": 3}, hard=False)
-    inp = make_input(
-        rooms, (fixed, lab), (tuesday,), days=(1, 2), weeks=W, workers=1, weights={"peak_smoothing": 10}
-    )
+    inp = make_input(rooms, (fixed, lab), (tuesday,), days=(1, 2), weeks=W, workers=1, weights={"peak_smoothing": 10})
     assert ps.groups_of(inp, {}) == ["*", "tag:PC"]
     res = ok(solve(inp))
     assert assigned(res.assignments, 2).day == 2  # PC: 2 of 2 > 1 (85 % of 2)
     # a cells list naming only Tuesday leaves Monday unpenalised
     only_tue = replace(
-        inp, constraints=(tuesday, Constraint("peak_smoothing", {"cells": [{"day": 2, "period": 1, "group": "tag:PC"}]}, hard=False))
+        inp,
+        constraints=(
+            tuesday,
+            Constraint("peak_smoothing", {"cells": [{"day": 2, "period": 1, "group": "tag:PC"}]}, hard=False),
+        ),
     )
     assert assigned(ok(solve(only_tue)).assignments, 2).day == 1
 

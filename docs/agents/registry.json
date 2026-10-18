@@ -3224,7 +3224,8 @@
       "goal": "You are lane AS-B (adaptive scheduling backend), re-created after a container restart. Your earlier work is committed in the repo (/home/user/classroombookings, branch claude/focused-wright-ktt0ss): `services/seasons.py`, `demand.py`, analytics/forecast modules, `solver_bridge.py` merges, migration …",
       "ledger": "AS-B resume: adaptive backend",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 08:30"
     },
     {
       "id": "ad78b5988298d3673",
@@ -3290,6 +3291,26 @@
       "ledger": "HB-B resume: capabilities, local, quotas",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a5f68a4d4029dba95",
+      "description": "AS-S resume: adaptive solver",
+      "subagent_type": "solver-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:30",
+      "scope": "",
+      "goal": "You are lane AS-S (adaptive scheduling, solver part), re-created after a container restart. Some of your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). For example `tests/solver/test_as_08_peak_smoothing.py` and the related code in `app/solver/`; che…",
+      "ledger": "AS-S resume: adaptive solver",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a064e936bede62296",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:30",
+      "left_off": "deploy to pod once fixed and tell me the link"
     }
   ]
 }
