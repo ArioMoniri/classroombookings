@@ -467,7 +467,7 @@ _SCOPE_RULES: list[tuple[str, str, re.Pattern[str], bool]] = [
 
 _SCHEDULING_WORDS = _rx(
     r"\b(ders\w*|sinav\w*|derslik\w*|salon\w*|oda\w*|sinif\w*|donem\w*|sube\w*|ogrenci\w*|kapasite\w*|"
-    r"rezervasyon\w*|program\w*|takvim\w*|"
+    r"rezervasyon\w*|program\w*|takvim\w*|[a-z] haftas\w*|"
     r"hoca\w*|ogretim|gozetmen\w*|kural\w*|kisit\w*|tasi\w*|bina\w*|amfi\w*|laboratuvar\w*|plan\w*|"
     r"room\w*|class\w*|course\w*|exam\w*|lecture\w*|schedul\w*|timetable\w*|slot\w*|booking\w*|reserv\w*|period\w*|"
     r"capacity|section\w*|instructor\w*|"
@@ -477,7 +477,8 @@ _SCHEDULING_WORDS = _rx(
 #: signal and still are for the gateway guard (:func:`has_scheduling_signal` by default), but alone they say nothing
 #: about scope: "Yarın İstanbul'da hava nasıl?" and "Dün akşamki maç…" passed the helper guard on them (HB-F bug B), so
 #: the helper asks ``has_scheduling_signal(text, temporal=False)`` and leaves them out of its coverage count.
-#: ``hafta sonu`` is one phrase, so "sonu" is not counted as an index word either.
+#: ``hafta sonu`` is one phrase, so "sonu" is not counted as an index word either. A letter before "haftası" ("A
+#: haftası", "B haftası") is a CRBS week type, a scheduling word in :data:`_SCHEDULING_WORDS`.
 TEMPORAL_WORDS = _rx(
     r"\b(hafta ?sonu\w*|saat\w*|gun\w*|hafta\w*|pazartesi|sali|carsamba|persembe|cuma\w*|cumartesi|pazar|sabah|ogle\w*|"
     r"aksam\w*|yarin\w*|week\w*|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon)\b"

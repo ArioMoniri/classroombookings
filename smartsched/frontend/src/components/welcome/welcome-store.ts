@@ -9,7 +9,14 @@ import type { Audience } from "@/lib/api/welcome";
 import type { ResolvedStep } from "./model";
 
 export type SheetRequest =
-  | { mode: "auto" | "restart"; kind: "sheet" | "delta"; deltaAudiences?: string[] }
+  | {
+      mode: "auto" | "restart";
+      kind: "sheet" | "delta";
+      deltaAudiences?: string[];
+      /** T4 "show again" (F-WG-1): the "Güncellendi" badge, kept for the whole showing (the server forgets it once
+       *  the sheet's own "shown" event lands and the state is fetched again) */
+      updated?: boolean;
+    }
   | { mode: "preview"; kind: "sheet"; audience: Audience; overrides?: Record<string, string> };
 
 export interface TourRequest {

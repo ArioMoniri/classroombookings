@@ -83,7 +83,7 @@ function WelcomeHost() {
       if (!autoBudgetFree()) return;
       if (isSheet) {
         spendAutoBudget("sheet");
-        openSheet({ mode: "auto", kind: show.kind === "delta" ? "delta" : "sheet", deltaAudiences: show.audiences ?? undefined });
+        openSheet({ mode: "auto", kind: show.kind === "delta" ? "delta" : "sheet", deltaAudiences: show.audiences ?? undefined, updated: show.kind !== "delta" && (!!show.updated || !!data.sheet.updated) });
         event.mutate({ guide_key: "sheet", event: "shown" });
       } else if (show.key) {
         spendAutoBudget(`hint:${show.key}`);
@@ -113,11 +113,13 @@ function WelcomeHost() {
   if (sheetReq && sheetReq !== lastReq) setLastReq(sheetReq);
   const req = sheetReq ?? lastReq;
   const preview = req?.mode === "preview";
-  const model = req
+  const built = req
     ? req.mode === "preview"
       ? buildSheet(data, { previewAudience: req.audience, previewOverrides: req.overrides })
       : buildSheet(data, { kind: req.kind, deltaAudiences: req.deltaAudiences })
     : null;
+  // F-WG-1: "Güncellendi" as decided when the sheet opened, not from the refetch after its "shown" event
+  const model = built && req?.mode !== "preview" && req?.updated ? { ...built, updated: true } : built;
 
   const onAction = (a: SheetAction) => {
     const post = (e: "snoozed" | "dismissed" | "completed") => {

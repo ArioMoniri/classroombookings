@@ -34,6 +34,8 @@ MUST_PASS = [
     "A free room on Thursday afternoon",
     "Cancel my booking on Thursday",
     "Perşembe 13:30 B 406 rezervasyon",
+    "a haftası b haftası",  # CRBS week types (a where-query): "hafta" after a letter is the A/B week, not a time
+    "B haftası hangi günler?",
 ]
 
 
