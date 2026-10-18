@@ -3067,6 +3067,18 @@
       "ledger": "AU-B: 2FA, passkeys, admin resets",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "aa8b9be94ac997055",
+      "description": "AUX-F: auth frontend (AUX-01/02 now)",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 00:04",
+      "scope": "",
+      "goal": "You are lane AUX-F (sign-in, 2FA and passkeys frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: /home/user/classroombookings/docs/agents/briefs/COMMON.md (Simplicity principle) and MEDIA.md (hard rules: NEVER commit or push, test-first, nev…",
+      "ledger": "AUX-F: auth frontend (AUX-01/02 now)",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

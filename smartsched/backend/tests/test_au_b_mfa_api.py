@@ -25,10 +25,12 @@ from tests.au_b_support import (
     code_now,
     enrol_totp,
     make_user,
+    next_code,
     outbox,
     password_step,
     set_policy,
     set_user,
+    totp_clock,  # noqa: F401  (autouse fixture)
 )
 
 EMAIL = "ayse.yilmaz@uni.edu.tr"
@@ -114,12 +116,12 @@ async def test_password_step_answers_mfa_required_and_the_code_gives_a_session(s
     assert 0 < step["challenge_expires_in"] <= 300
     # the challenge token is not a session
     assert (await c.get(f"{API}/auth/me", headers=bearer(step["challenge_token"]))).status_code == 401
-    r = await _session(c, step["challenge_token"], code_now(secret))
+    r = await _session(c, step["challenge_token"], next_code(secret))
     assert r.status_code == 200, r.text
     me = await c.get(f"{API}/auth/me", headers=bearer(r.json()["access_token"]))
     assert me.status_code == 200 and me.json()["id"] == uid
     # single use: the same challenge cannot start a second session
-    r = await _session(c, step["challenge_token"], code_now(secret, 1))
+    r = await _session(c, step["challenge_token"], next_code(secret))
     assert r.status_code == 401 and r.json()["detail"]["code"] == "challenge_expired"
     assert len(await audit_rows("auth.mfa_verified")) == 1
 
@@ -177,7 +179,7 @@ async def test_recovery_codes_are_single_use_and_announced(setup) -> None:  # ty
 async def test_lockout_after_five_failures_even_with_the_right_code(setup) -> None:  # type: ignore[no-untyped-def]
     c, _admin, _uid, headers = setup
     secret, _ = await enrol_totp(c, headers)
-    right = code_now(secret)
+    right = next_code(secret)
     wrong = "123456" if right != "123456" else "654321"
     step = await password_step(c, EMAIL)
     for _ in range(5):
@@ -221,7 +223,7 @@ async def test_trusted_device_skips_the_second_factor_for_its_account_only(setup
     c, admin, _uid, headers = setup
     secret, _ = await enrol_totp(c, headers)
     step = await password_step(c, EMAIL)
-    r = await _session(c, step["challenge_token"], code_now(secret), trust_device=True)
+    r = await _session(c, step["challenge_token"], next_code(secret), trust_device=True)
     assert r.status_code == 200, r.text
     device = r.json()["trusted_device_token"]
     assert device and len(device) >= 40 and r.json()["trusted_device_days"] == 30
@@ -248,9 +250,9 @@ async def test_revoke_all_trusted_devices(setup) -> None:  # type: ignore[no-unt
     c, _admin, _uid, headers = setup
     secret, _ = await enrol_totp(c, headers)
     tokens = []
-    for delta in (0, 1):
+    for _ in range(2):
         step = await password_step(c, EMAIL)
-        r = await _session(c, step["challenge_token"], code_now(secret, delta), trust_device=True)
+        r = await _session(c, step["challenge_token"], next_code(secret), trust_device=True)
         assert r.status_code == 200, r.text
         tokens.append(r.json()["trusted_device_token"])
     r = await c.delete(f"{API}/auth/trusted-devices", headers=headers)

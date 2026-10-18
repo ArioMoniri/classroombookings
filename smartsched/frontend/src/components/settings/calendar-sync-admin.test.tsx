@@ -8,11 +8,15 @@ import { I18nProvider } from "@/lib/i18n/provider";
 // user events on a shared, loaded host (load average above 20 on 4 cores during the CAL lanes)
 vi.setConfig({ testTimeout: 20_000 });
 
-const state = vi.hoisted(() => ({ settings: null as unknown, put: vi.fn(), status: null as unknown }));
+const state = vi.hoisted(() => ({ settings: null as unknown, put: vi.fn(), exp: null as unknown, expPut: vi.fn() }));
 vi.mock("@/lib/api/client", async (orig) => ({
   ...(await orig<typeof import("@/lib/api/client")>()),
   request: async (path: string, opts: { method?: string; body?: unknown; schema?: { parse: (v: unknown) => unknown } } = {}) => {
-    if (path === "/calendar/admin/status" && state.status) return opts.schema ? opts.schema.parse(state.status) : state.status;
+    if (path === "/calendar/admin/export-settings") {
+      if (!state.exp) throw new Error("404 on an older backend");
+      const v = opts.method === "PUT" ? await state.expPut(opts.body) : state.exp;
+      return opts.schema ? opts.schema.parse(v) : v;
+    }
     if (path !== "/calendar/admin/settings") throw new Error(`unexpected ${path}`);
     return opts.method === "PUT" ? state.put(opts.body) : state.settings;
   },
@@ -37,7 +41,7 @@ function renderCard() {
 describe("CalendarSyncAdmin", () => {
   beforeEach(() => {
     state.settings = off;
-    state.status = null;
+    state.exp = null;
     state.put.mockReset();
     state.put.mockImplementation(async (b: { calendar_sync_enabled?: boolean; webhooks_enabled?: boolean }) => {
       const cur = state.settings as typeof off;
@@ -95,71 +99,82 @@ describe("CalendarSyncAdmin", () => {
   });
 });
 
-/** CAL-09: the calendar-export block under the sign-off (scopes, who may export a department, fields, horizon, status). */
+/** CAL-09 (contract: CAL-B API.md `GET/PUT /calendar/admin/export-settings`): scopes and fields up front; the
+ * department rule, the time range and the status counts under a closed "Advanced". */
 describe("CalendarSyncAdmin › calendar export (CAL-09)", () => {
-  const cal = {
-    ...off,
-    calendar_sync_enabled: true,
-    export_scopes: { my_classes: true, department_classes: true, my_bookings: true },
-    department_rule: { own: true, taught: true, permission: true },
-    export_fields: { title: true, department: true, co_instructors: false, link: true },
-    feed_future_days: 200,
+  const exp = {
+    export_my_classes: true,
+    export_department_classes: true,
+    export_my_bookings: true,
+    export_field_course_title: true,
+    export_field_department: true,
+    export_field_co_instructors: false,
+    export_field_link: true,
+    push_verified_only: true,
+    push_allowed_domains: ["uni.edu.tr"],
+    calendar_client_source: "own",
+    fields_always: ["course_code", "section", "room", "time"],
+    identity_clients: { google: false, microsoft: true },
+    status: { links: { my_classes: 9, department_classes: 3, legacy: 40 }, connections: { google: 4, microsoft: 1 }, connections_by_scope: { my_classes: 4 }, needs_attention: 1, least_privilege_flagged: 2, failed_jobs: 1, nightly_reconcile: null },
   };
   beforeEach(() => {
-    state.settings = cal;
-    state.status = { active_links: 12, links_by_scope: { my_classes: 9, department_classes: 3 }, connections: [{ provider: "google", count: 4, by_scope: { my_classes: 4 } }], failed_jobs: 1, last_reconcile_at: null };
+    state.settings = { ...off, calendar_sync_enabled: true };
+    state.exp = exp;
     state.put.mockReset();
     state.put.mockImplementation(async (b: Record<string, unknown>) => {
       state.settings = { ...(state.settings as object), ...b };
       return state.settings;
     });
+    state.expPut.mockReset();
+    state.expPut.mockImplementation(async (b: Record<string, unknown>) => {
+      state.exp = { ...(state.exp as object), ...b };
+      return state.exp;
+    });
   });
 
   it("is absent while the backend has no export settings", async () => {
-    state.settings = off;
+    state.exp = null;
     renderCard();
-    await screen.findByTestId("calendar-no-signoff");
-    expect(screen.queryByTestId("cal-admin-export")).toBeNull();
+    await screen.findByTestId("calendar-sync-switch");
+    await waitFor(() => expect(screen.queryByTestId("cal-admin-export")).toBeNull());
   });
 
-  it("shows the defaults: co-instructor names off, the rest on, and the status counts", async () => {
+  it("shows the defaults: co-instructor names off, the rest on; the rest under a closed Advanced", async () => {
     renderCard();
     expect(await screen.findByTestId("cal-admin-export")).toHaveTextContent("Calendar export");
     expect(screen.getByTestId("cal-admin-field-co_instructors")).not.toHaveAttribute("data-checked");
     expect(screen.getByTestId("cal-admin-field-title")).toHaveAttribute("data-checked");
     expect(screen.getByTestId("cal-admin-scope-my_classes")).toHaveAttribute("data-checked");
-    expect(await screen.findByTestId("cal-admin-links")).toHaveTextContent("12");
-    expect(screen.getByTestId("cal-admin-connections-google")).toHaveTextContent("4");
-    expect(screen.getByTestId("cal-admin-failed")).toHaveTextContent("1");
-    expect(screen.getByTestId("cal-admin-reconcile")).toHaveTextContent("Has not run yet");
-    // simplicity principle: the department rule, the time range and the counts sit behind a closed "Advanced"
     const adv = screen.getByTestId("cal-admin-advanced");
     expect(adv).not.toHaveAttribute("open");
-    for (const id of ["cal-admin-who", "cal-admin-horizon", "cal-admin-status"]) expect(adv).toContainElement(screen.getByTestId(id));
-    expect(screen.getByTestId("cal-admin-scopes")).not.toHaveTextContent("Who may export");
+    for (const id of ["cal-admin-who", "cal-admin-horizon", "cal-admin-status"]) expect(adv).toContainElement(await screen.findByTestId(id));
+    expect(screen.getByTestId("cal-admin-links")).toHaveTextContent("52");
+    expect(screen.getByTestId("cal-admin-connections-google")).toHaveTextContent("4");
+    expect(screen.getByTestId("cal-admin-attention")).toHaveTextContent("1");
+    expect(screen.getByTestId("cal-admin-failed")).toHaveTextContent("1");
+    expect(screen.getByTestId("cal-admin-reconcile")).toHaveTextContent("Has not run yet");
   });
 
-  it("saves one switch with the whole map of its group", async () => {
+  it("saves one switch with just its own flat key", async () => {
     renderCard();
     await userEvent.click(await screen.findByTestId("cal-admin-scope-department_classes"));
-    await waitFor(() => expect(state.put).toHaveBeenCalledWith({ export_scopes: { my_classes: true, department_classes: false, my_bookings: true } }));
-    await waitFor(() => expect(screen.getByTestId("cal-admin-rule-own")).toHaveAttribute("data-disabled"));
+    await waitFor(() => expect(state.expPut).toHaveBeenCalledWith({ export_department_classes: false }));
     await userEvent.click(screen.getByTestId("cal-admin-field-co_instructors"));
-    await waitFor(() => expect(state.put).toHaveBeenCalledWith({ export_fields: { title: true, department: true, co_instructors: true, link: true } }));
+    await waitFor(() => expect(state.expPut).toHaveBeenCalledWith({ export_field_co_instructors: true }));
   });
 
-  it("checks the horizon bounds before saving", async () => {
+  it("checks the time range before saving it to the KVKK card's endpoint", async () => {
     renderCard();
-    const future = await screen.findByTestId("cal-admin-feed_future_days");
-    await userEvent.clear(future);
-    await userEvent.type(future, "365");
+    const past = await screen.findByTestId("cal-admin-feed_past_days");
+    await userEvent.clear(past);
+    await userEvent.type(past, "999");
     await userEvent.click(screen.getByTestId("cal-admin-horizon-save"));
-    expect(screen.getByTestId("cal-admin-horizon-error")).toHaveTextContent("from 1 to 200");
+    expect(screen.getByTestId("cal-admin-horizon-error")).toHaveTextContent("from 0 to 730");
     expect(state.put).not.toHaveBeenCalled();
-    await userEvent.clear(future);
-    await userEvent.type(future, "120");
+    await userEvent.clear(past);
+    await userEvent.type(past, "60");
     await userEvent.click(screen.getByTestId("cal-admin-horizon-save"));
-    await waitFor(() => expect(state.put).toHaveBeenCalledWith({ feed_past_days: 30, feed_future_days: 120, feed_cancelled_grace_days: 7 }));
+    await waitFor(() => expect(state.put).toHaveBeenCalledWith({ feed_past_days: 60, feed_cancelled_grace_days: 7 }));
   });
 
   it("reads in Turkish", async () => {
@@ -173,7 +188,8 @@ describe("CalendarSyncAdmin › calendar export (CAL-09)", () => {
     );
     const block = await screen.findByTestId("cal-admin-export");
     expect(block).toHaveTextContent("Takvim dışa aktarma");
-    expect(block).toHaveTextContent("Bölüm derslerini kim dışa aktarabilir?");
+    expect(block).toHaveTextContent("Gelişmiş");
+    expect(block).toHaveTextContent("Bölüm derslerini kimler dışa aktarabilir?");
     expect(block).toHaveTextContent("Bölüm ders takvimini dışa aktarma");
     expect(block).toHaveTextContent("Diğer öğretim elemanlarının adları");
   });

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
+
+import pytest
 
 from app.core import db as dbmod
 from app.core import totp
@@ -42,6 +45,34 @@ async def enrol_totp(c: AsyncClient, headers: dict[str, str]) -> tuple[str, list
 
 def code_now(secret: str, delta_steps: int = 0) -> str:
     return totp.code_at(secret, int(totp.now()) + delta_steps * totp.PERIOD)
+
+
+class FakeTotpClock:
+    """The TOTP clock of a test: real time at the start, moved on one 30 s step by :func:`next_code` (a code works
+    once, so each sign-in of a test needs a later step than the one before)."""
+
+    def __init__(self) -> None:
+        self.t = float(int(time.time()))
+
+    def __call__(self) -> float:
+        return self.t
+
+    def tick(self, steps: int = 1) -> None:
+        self.t += totp.PERIOD * steps
+
+
+@pytest.fixture(autouse=True)
+def totp_clock(monkeypatch) -> FakeTotpClock:  # type: ignore[no-untyped-def]
+    clk = FakeTotpClock()
+    monkeypatch.setattr(totp, "now", clk)
+    return clk
+
+
+def next_code(secret: str) -> str:
+    """The code of the next 30 s step (the clock moves on)."""
+    if isinstance(totp.now, FakeTotpClock):
+        totp.now.tick()
+    return code_now(secret)
 
 
 def bearer(token: str) -> dict[str, str]:

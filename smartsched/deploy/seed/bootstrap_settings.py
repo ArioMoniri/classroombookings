@@ -65,13 +65,14 @@ class Group:
 
 
 GROUPS: tuple[Group, ...] = (
-    Group("org", ("ORG_NAME",), ("ORG_NAME",), label="institution name (Kurum ayarları, /admin/settings)"),
+    Group("org", ("ORG_NAME",), ("ORG_NAME",), label="institution name (Kurum ayarlar\u0131, /admin/settings)"),
     Group("ai", ("AI_API_KEY", "AI_BASE_URL"), ("AI_PROVIDER", "AI_API_KEY", "AI_BASE_URL"), ("AI_API_KEY",),
           label="AI provider key (Yapay zekâ yönetimi, /admin/ai)"),
     Group("smtp", ("SMTP_HOST",), ("SMTP_HOST", "SMTP_PORT", "SMTP_SECURITY", "SMTP_USERNAME", "SMTP_PASSWORD",
                                    "SMTP_FROM", "SMTP_FROM_NAME"), ("SMTP_PASSWORD",),
           label="outgoing mail (E-posta, /admin/email)"),
-    Group("security", ("SECURITY_CONTACT",), ("SECURITY_CONTACT",), label="security.txt contact (Ayarlar > Genel, /settings)"),
+    Group("security", ("SECURITY_CONTACT",), ("SECURITY_CONTACT",),
+          label="security.txt contact (Ayarlar > Genel, /settings)"),
     Group("google", ("GOOGLE_CLIENT_ID",), ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"), ("GOOGLE_CLIENT_SECRET",),
           label="Google calendar OAuth client (Entegrasyonlar, /admin/integrations)"),
     Group("microsoft", ("MICROSOFT_CLIENT_ID",), ("MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET",

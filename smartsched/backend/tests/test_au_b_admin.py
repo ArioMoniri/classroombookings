@@ -18,12 +18,13 @@ from tests.au_b_support import (
     API,
     PASSWORD,
     audit_rows,
-    code_now,
     enrol_totp,
     make_user,
+    next_code,
     outbox,
     password_step,
     set_user,
+    totp_clock,  # noqa: F401  (autouse fixture)
 )
 from tests.test_crbs_users import FakeSMTP
 from tests.webauthn_soft import SoftAuthenticator
@@ -102,7 +103,7 @@ async def test_reset_removes_factors_signs_out_audits_and_mails(setup) -> None: 
     step = await password_step(c, EMAIL)
     r = await c.post(
         f"{API}/auth/mfa/verify",
-        json={"challenge_token": step["challenge_token"], "method": "totp", "code": code_now(secret), "trust_device": True},
+        json={"challenge_token": step["challenge_token"], "method": "totp", "code": next_code(secret), "trust_device": True},
     )
     device = r.json()["trusted_device_token"]
 
