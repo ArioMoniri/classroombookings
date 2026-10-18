@@ -60,7 +60,7 @@ async def relying_party(session: AsyncSession, request_origin: str | None = None
     base, _source = await public_base(session)
     if base:
         return relying_party_from(base, name)
-    if get_settings().environment != "production" and request_origin:
+    if get_settings().environment != "prod" and request_origin:
         rp = relying_party_from(request_origin, name)
         if rp is not None and rp.rp_id in LOCAL_HOSTS:
             return rp
