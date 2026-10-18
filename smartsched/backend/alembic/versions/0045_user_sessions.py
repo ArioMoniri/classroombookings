@@ -2,7 +2,8 @@
 
 ``user_sessions``: one row per signed-in token, keyed by the SHA-256 of the token's ``jti`` (unique), the token version
 it carries, created / expires / last seen, the browser + OS family, the client network (/24 or /48) and the
-revocation. Cascades with ``users``. PostgreSQL: owner-only row-level security (0035 pattern; the request check runs
+revocation. Cascades with ``users``. ``users.sessions_epoch`` moves on at every revocation, so a worker whose cache still
+says "open" re-checks at once (the user row is read on every request anyway). PostgreSQL: owner-only row-level security (0035 pattern; the request check runs
 in the system context before the request binds its user). SQLite: a plain table.
 
 Revision ID: 0045_user_sessions
@@ -49,6 +50,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("jti_hash", name="uq_user_sessions_jti_hash"),
     )
     op.create_index("ix_user_sessions_user_id", "user_sessions", ["user_id"])
+    op.add_column("users", sa.Column("sessions_epoch", sa.Integer(), nullable=False, server_default="0"))
     if op.get_bind().dialect.name != "postgresql" or not _has_rls_helpers():
         return
     op.execute("ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY")
@@ -60,5 +62,7 @@ def downgrade() -> None:
     if op.get_bind().dialect.name == "postgresql":
         for table, name, _cmd, _using in POLICIES:
             op.execute(f"DROP POLICY IF EXISTS {name} ON {table}")
+    with op.batch_alter_table("users") as batch:
+        batch.drop_column("sessions_epoch")
     op.drop_index("ix_user_sessions_user_id", table_name="user_sessions")
     op.drop_table("user_sessions")

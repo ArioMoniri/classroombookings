@@ -211,7 +211,11 @@ def test_au_15_user_sessions_round_trip(tmp_path) -> None:
     con = sqlite3.connect(path)
     have = {r[1] for r in con.execute("pragma table_info(user_sessions)")}
     assert {c.name for c in UserSession.__table__.columns} <= have
+    assert "sessions_epoch" in {r[1] for r in con.execute("pragma table_info(users)")}
     con.close()
     _run(url, command.downgrade, REV)
     assert "user_sessions" not in _tables(path)
+    con = sqlite3.connect(path)
+    assert "sessions_epoch" not in {r[1] for r in con.execute("pragma table_info(users)")}
+    con.close()
     _run(url, command.upgrade, "head")

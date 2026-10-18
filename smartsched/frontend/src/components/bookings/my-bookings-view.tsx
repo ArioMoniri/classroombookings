@@ -64,7 +64,7 @@ export function MyBookingsView() {
   const dash = useBookingDashboard();
   const owned = useOwnedRooms();
   const [detail, setDetail] = useState<number | null>(null);
-  useDeepLinkedBooking(setDetail); // RF-11: an e-mail's ?booking=<id> (and ?series=<id>) opens its detail sheet
+  useDeepLinkedBooking(setDetail, list.data); // RF-11: an e-mail's ?booking=<id> or ?series=<id> opens its detail sheet
   const [roomInfo, setRoomInfo] = useState<{ id: number; date: string } | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [cancelOpen, setCancelOpen] = useState(false);

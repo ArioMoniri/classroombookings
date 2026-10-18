@@ -118,7 +118,9 @@ export function BookingsView() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [book, setBook] = useState<BookTarget | null>(null);
   const [detail, setDetail] = useState<number | null>(null);
-  useDeepLinkedBooking(setDetail); // RF-11: an e-mail's ?booking=<id> (and ?series=<id>) opens its detail sheet
+  // RF-11: an e-mail's ?booking=<id> or ?series=<id> (the series' earliest booking on the shown grid) opens its sheet
+  const gridBookings = useMemo(() => (g ? g.slots.flatMap((s) => (s.booking ? [s.booking] : [])) : null), [g]);
+  useDeepLinkedBooking(setDetail, gridBookings);
   const [info, setInfo] = useState<{ slot: GridSlot; grid: Grid } | null>(null);
   const [multiOpen, setMultiOpen] = useState(false);
 
