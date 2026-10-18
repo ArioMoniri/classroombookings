@@ -1,5 +1,6 @@
 "use client";
 
+import { clearHelperFileSession } from "@/components/helper/file-session";
 import { useQueryClient } from "@tanstack/react-query";
 import { Keyboard, LogOut, Settings, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -41,6 +42,8 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
   // CRBS layout footer: the running version (backend GET /health), so a bug report can name it
   const version = useAppVersion();
   const logout = async () => {
+    // KVKK (HB-23 review, condition 10): the helper's file hand-over and stages go before the session does
+    await clearHelperFileSession().catch(() => undefined);
     await api.auth.logout();
     qc.clear();
     router.push("/login?reason=signed_out"); // "Çıkış yaptınız." (sign-in.md §6.2)

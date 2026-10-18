@@ -23,6 +23,7 @@ import { useWorkspaceStore, useWorkspaceUser } from "./workspace";
 import { useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { HelperRoot } from "@/components/helper/helper-root";
 import { PageFileTarget } from "@/components/helper/page-file-target";
+import { clearHelperFileSession } from "@/components/helper/file-session";
 import { PeriodGridGate } from "./period-grid-gate";
 import { WelcomeSettle } from "./welcome-settle";
 // F-CH-1: palette, shortcuts, welcome guide and privacy gate in their own chunks (lazy-shell.tsx)
@@ -108,7 +109,10 @@ function UserSync() {
       if (leaving) return;
       leaving = true;
       const next = `${window.location.pathname}${window.location.search}`;
-      void fetch("/api/auth/logout", { method: "POST" })
+      // KVKK (HB-23 review, condition 10): no file hand-over (token + name) survives into the next session
+      void clearHelperFileSession()
+        .catch(() => undefined)
+        .then(() => fetch("/api/auth/logout", { method: "POST" }))
         .catch(() => undefined)
         .finally(() => {
           // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full load drops every cached query of the dead session

@@ -48,8 +48,11 @@ FINAL_GRID = FIX / "final_derslikler_takvimi_2026_v2.xlsx"
 async def rc(client, monkeypatch):  # type: ignore[no-untyped-def]
     """The API client with the three terms of the fixtures, the parse in a thread (fast; one test keeps the
     rlimit child) and a clean rate limiter."""
+    import shutil
+
     monkeypatch.setattr(get_settings(), "parse_isolation", "thread")
     hf.reset_rate_limit()
+    shutil.rmtree(Path(get_settings().upload_dir) / "helper-stage", ignore_errors=True)
     async with get_session_factory()() as s:
         for code, name, kind, active in (
             ("2026-BAHAR", "Bahar 2026", "REGULAR", False),
@@ -191,7 +194,10 @@ async def test_kind_weekly_grid(rc, path):
     c = (await card_of(rc, h, path))["card"]
     assert c["kind"] == "weekly_grid" and c["certainty"] == "sure"
     assert c["primary"]["params"]["kind"] == "weekly-grid" and c["primary"]["params"]["year"] == 2026
-    assert any("sayfa" in line and "derslik sütunu" in line for line in c["evidence"]["tr"])
+    # distinct rooms: the board repeats each room under all 7 day columns (29 rooms, not 203 columns)
+    grid = [line for line in c["evidence"]["tr"] if "sayfa" in line]
+    m = re.search(r"(\d+) derslik$", grid[0]) if grid else None
+    assert m and 5 <= int(m.group(1)) <= 120, grid
 
 
 async def test_transposed_goes_to_onboarding(rc):
@@ -202,7 +208,9 @@ async def test_transposed_goes_to_onboarding(rc):
     assert c["primary"]["feature_id"] == "onboarding" and c["primary"]["carries_file"] is True
     assert any("yan çevrilmiş" in line for line in c["evidence"]["tr"])
     # weekly_grid is not a candidate: routing the token to it is refused
-    r = await rc.post(f"{C}/route", json={"upload_token": out["stage"]["upload_token"], "kind": "weekly_grid"}, headers=h)
+    r = await rc.post(
+        f"{C}/route", json={"upload_token": out["stage"]["upload_token"], "kind": "weekly_grid"}, headers=h
+    )
     assert r.status_code == 403 and r.json()["detail"]["code"] == "kind_not_allowed"
 
 
@@ -331,7 +339,9 @@ async def test_empty_unsupported_and_bomb_are_refused_and_never_staged(rc):
     from tests.council import exports
     from tests.council.test_formats import _ods_cell, _ods_row
 
-    bomb = exports.ods_from_content(f'<table:table table:name="S">{_ods_row(_ods_cell("bomb"), repeat=1_000_000)}</table:table>')
+    bomb = exports.ods_from_content(
+        f'<table:table table:name="S">{_ods_row(_ods_cell("bomb"), repeat=1_000_000)}</table:table>'
+    )
     out = await card_of(rc, h, name="bomb.ods", data=bomb)
     assert out["card"]["type"] == "refusal" and out["card"]["code"] == "file_unsafe" and "stage" not in out
     assert stage_files() == []
@@ -414,9 +424,7 @@ async def test_token_owner_once_expiry(rc, monkeypatch):
     token = (await card_of(rc, admin, BAHAR_LIST))["stage"]["upload_token"]
     real = hf.now()
     monkeypatch.setattr(hf, "now", lambda: real + 601)
-    r = await rc.post(
-        "/api/v1/imports/planning-list", data={**form, "upload_token": token}, headers=admin
-    )
+    r = await rc.post("/api/v1/imports/planning-list", data={**form, "upload_token": token}, headers=admin)
     assert r.status_code == 410 and r.json()["detail"]["code"] == "stage_expired"
     assert hf.sweep() >= 1 and not [p for p in stage_files() if p.suffix == ".bin"]
     monkeypatch.setattr(hf, "now", lambda: real)
@@ -615,13 +623,9 @@ async def test_several_files_one_card_to_onboarding(rc):
     c = out["card"]
     schema.validate_card(c)
     assert c["type"] == "file" and c["state"] == "detected" and c["primary"]["feature_id"] == "onboarding"
-    assert "2 dosya" in c["title"]["tr"] and len(out["stages"]) == 2
-    r = await rc.post(
-        "/api/v1/council/jobs",
-        data={"upload_tokens": [s["upload_token"] for s in out["stages"]], "ai": "false"},
-        headers=h,
-    )
-    assert r.status_code == 202, r.text and len(r.json()["files"]) == 2
+    assert "2 dosya" in c["title"]["tr"] and stage_files() == []
+    # the browser holds the File objects and the wizard uploads them itself: nothing is staged (review item 16)
+    assert "stage" not in out and "stages" not in out and out["resend"] is True
 
 
 async def test_isolated_child_classifies_too(rc, monkeypatch):
@@ -705,3 +709,152 @@ def test_feature_index_has_the_attach_control():
     assert e.kind == "control" and e.anchor == "helper-attach" and e.permission == []
     hits = [h.entry.id for h in get_index().search("bu dosya ne", frozenset(), limit=3)]
     assert "helper.files" in hits
+
+
+# ------------------------------------------------------------------------------------------------ KVKK review (C1–C5)
+
+
+@pytest.mark.parametrize(
+    ("title", "shown"),
+    [
+        ("2  - 8 Şubat Bahar Dönem Açılış", True),
+        ("1 - 5 Haziran", True),
+        ("28-02 Ekim 2. hafta", True),
+        ("Sayfa1", True),
+        ("Prof. Dr. Ahmet Yılmaz", False),
+        ("Ahmet Yılmaz", False),
+        ("AYŞE KAYA 3", False),
+        ("Dr. Hafta 1", False),
+        ("Bahar Ekim", False),  # two allowed words and no number may still be a person
+    ],
+)
+def test_sheet_titles_are_an_allow_list(title, shown):
+    assert (hf.safe_sheet_title(title) is not None) is shown
+
+
+async def test_renamed_sheets_never_reach_the_card(rc, tmp_path):
+    """A planning list whose sheets were renamed after people: neither name is on the card (C1)."""
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    assert ws is not None
+    ws.title = "Prof. Dr. Ahmet Yılmaz"
+    ws.append(["Ders Kodu", "Şube", "Dersin Günü", "Başlangıç", "Bitiş", "Kesinleşen Derslik"])
+    ws.append(["BME 101", "1", "Pazartesi", "09:00", "10:00", "A 204"])
+    other = wb.create_sheet("Ayşe Kaya Listesi")
+    other.append(["Derslik", "Kapasite"])
+    other.append(["A 204", 40])
+    buf = io.BytesIO()
+    wb.save(buf)
+    h = await login(rc)
+    body = json.dumps(await card_of(rc, h, name="liste.xlsx", data=buf.getvalue()), ensure_ascii=False)
+    for word in ("Ahmet", "Yılmaz", "Ayşe", "Kaya", "Prof"):
+        assert word not in body, word
+
+
+async def test_no_stage_without_a_session(rc, monkeypatch):
+    from app.services import sessions
+
+    monkeypatch.setattr(sessions, "current_id", lambda request: None)
+    h = await login(rc)
+    out = await card_of(rc, h, BAHAR_LIST)
+    assert "stage" not in out and out["resend"] is True and stage_files() == []
+
+
+async def test_checks_run_before_the_token_is_consumed(rc):
+    h = await login(rc)
+    token = (await card_of(rc, h, HF / "users_initials.csv"))["stage"]["upload_token"]
+    r = await rc.post("/api/v1/users/import", data={"upload_token": token, "role_id": "99999"}, headers=h)
+    assert r.status_code == 422
+    r = await rc.post("/api/v1/users/import", data={"upload_token": token, "password": "parola-1234"}, headers=h)
+    assert r.status_code == 200, r.text  # the refused request did not use the file up
+
+
+async def test_the_token_key_alone_cannot_decrypt_the_stage(rc):
+    from cryptography.exceptions import InvalidTag
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    h = await login(rc)
+    token = (await card_of(rc, h, BAHAR_LIST))["stage"]["upload_token"]
+    body = json.loads(hf._unb64(token.split(".")[0]))  # noqa: SLF001
+    [stage] = [p for p in stage_files() if p.suffix == ".bin"]
+    blob = stage.read_bytes()
+    i = len(b"SSHF1")
+    n = int.from_bytes(blob[i : i + 4], "big")
+    with pytest.raises(InvalidTag):
+        AESGCM(hf._unb64(body["key"])).decrypt(blob[i + 4 : i + 16], blob[i + 16 : i + 16 + n], body["s"].encode())  # noqa: SLF001
+
+
+async def test_second_consume_is_used_even_mid_claim(rc):
+    h = await login(rc)
+    token = (await card_of(rc, h, FIX / "room_master.csv"))["stage"]["upload_token"]
+    sess_out = await rc.post("/api/v1/imports/room-master", data={"upload_token": token, "dry_run": "true"}, headers=h)
+    assert sess_out.status_code == 202
+    r = await rc.post("/api/v1/imports/room-master", data={"upload_token": token, "dry_run": "true"}, headers=h)
+    assert r.status_code == 410 and r.json()["detail"]["code"] == "stage_used"
+    r = await rc.post(f"{C}/route", json={"upload_token": token, "kind": "room_master"}, headers=h)
+    assert r.status_code == 410 and r.json()["detail"]["code"] == "stage_used"
+
+
+async def test_sign_out_drops_the_stage(rc):
+    h = await login(rc)
+    await card_of(rc, h, BAHAR_LIST)
+    assert [p for p in stage_files() if p.suffix == ".bin"]
+    assert (await rc.post("/api/v1/auth/logout", headers=h)).status_code == 204
+    assert not [p for p in stage_files() if p.suffix == ".bin"]
+
+
+async def test_turn_and_actions_never_take_a_file_token(rc):
+    from app.api.v1.helper_turn import TurnIn
+
+    h = await login(rc)
+    token = (await card_of(rc, h, BAHAR_LIST))["stage"]["upload_token"]
+    assert token not in TurnIn(text=f"bu ne {token}").text
+    r = await rc.post(f"{H_ACTIONS}/classify_file/card", json={"args": {"upload_token": token}}, headers=h)
+    assert r.status_code == 404
+
+
+H_ACTIONS = "/api/v1/helper/actions"
+
+
+def test_kvkk_inventory_lists_the_upload_files_and_the_stage():
+    from app.services import kvkk
+
+    stage = kvkk.DATA_CLASSES["helper_file_stage"]
+    assert stage["files"] == ["uploads/helper-stage"] and "10 dakika" in stage["kept"]
+    assert "AES-256-GCM" in stage["tr"] and stage["retention"] is None
+    up = kvkk.DATA_CLASSES["upload_files"]
+    assert up["files"] == ["uploads/imports", "uploads/council"] and "UPLOAD_RETENTION_DAYS" in up["kept"]
+    note = Path(__file__).resolve().parents[4] / "docs" / "kvkk" / "helper-file-stage.md"
+    text_ = note.read_text(encoding="utf-8")
+    assert "Short-term encrypted storage as one step of the import processing activity" in text_
+
+
+def test_sentry_sends_no_locals_and_no_bodies(monkeypatch):
+    import sys
+    import types
+
+    from app.core import observability as obs
+
+    seen: dict[str, Any] = {}
+    fake = types.ModuleType("sentry_sdk")
+    fake.init = lambda **kw: seen.update(kw)  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "sentry_sdk", fake)
+    monkeypatch.setenv("SENTRY_DSN", "https://k@sentry.invalid/1")
+    monkeypatch.setattr(obs, "_sentry", None, raising=False)
+    assert obs.init_sentry() is True
+    assert seen["include_local_variables"] is False and seen["max_request_body_size"] == "never"
+    event = {
+        "exception": {"values": [{"stacktrace": {"frames": [{"function": "f", "vars": {"data": "x"}}]}}]},
+        "request": {"url": "/api/v1/helper/files/classify", "data": "bytes"},
+    }
+    out = seen["before_send"](event, None)
+    assert "vars" not in out["exception"]["values"][0]["stacktrace"]["frames"][0] and "data" not in out["request"]
+
+
+def test_log_scrub_hides_upload_tokens():
+    from app.core.observability import scrub
+
+    token = "eyJrIjoiZmlsZSIsInMiOiJhYmMifQ" + "." + "c2lnbmF0dXJlLXNpZ25hdHVyZQ"
+    assert token not in scrub(f"consume failed for {token}")

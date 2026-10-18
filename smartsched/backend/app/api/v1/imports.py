@@ -253,10 +253,25 @@ class Incoming:
     filename: str | None
     upload: UploadFile | None = None
     data: bytes | None = None
+    #: a checked, not yet consumed hand-over (consumed by :func:`_resolve` after the endpoint's own checks)
+    token: str | None = None
+    request: Request | None = None
+    user: User | None = None
 
     @property
     def source(self) -> str:
         return "upload" if self.upload is not None else "helper"
+
+
+async def _resolve(item: Incoming) -> Incoming:
+    """Consume a hand-over token once everything else passed (permission, term lock); 410 when it was used."""
+    if item.token is None or item.data is not None:
+        return item
+    from app.api.v1.helper_files import take
+
+    assert item.request is not None and item.user is not None
+    _ext, item.data, _meta = await take(item.request, item.user, item.token)
+    return item
 
 
 def _exactly_one() -> HTTPException:
@@ -271,16 +286,17 @@ def _exactly_one() -> HTTPException:
 async def incoming(
     request: Request, user: User, file: UploadFile | None, upload_token: str | None, filename: str | None
 ) -> Incoming:
-    """``file`` or ``upload_token``, exactly one. The token is consumed here (403 another person / session, 410
-    used / expired); the stored name is the browser's ``filename`` when sent, else ``helper-<sha12>.<ext>``."""
+    """``file`` or ``upload_token``, exactly one. The token is checked here (403 another person / session, 410
+    used / expired) and consumed by :func:`_resolve` after the endpoint's own checks; the stored name is the
+    browser's ``filename`` when sent, else ``helper-<sha12>.<ext>``."""
     if (file is None) == (not upload_token):
         raise _exactly_one()
     if file is not None:
         return Incoming(file.filename, upload=file)
-    from app.api.v1.helper_files import handed_name, take
+    from app.api.v1.helper_files import handed_name, look
 
-    ext, data, meta = await take(request, user, str(upload_token))
-    return Incoming(handed_name(meta, ext, filename), data=data)
+    ext, meta = look(request, user, str(upload_token))  # owner, session and expiry now; consumed later
+    return Incoming(handed_name(meta, ext, filename), token=str(upload_token), request=request, user=user)
 
 
 async def _store(db: DB, job: ImportJob, item: Incoming, *, full_load: bool = False) -> Path:
@@ -303,9 +319,8 @@ async def _upload_job(
 ) -> ImportJob:
     if term_code is not None and not dry_run:
         await _refuse_if_locked(term_code)
-    job = await _new_job(
-        db, kind, item.filename, term_code, user, params=params, dry_run=dry_run, source=item.source
-    )
+    item = await _resolve(item)
+    job = await _new_job(db, kind, item.filename, term_code, user, params=params, dry_run=dry_run, source=item.source)
     path = await _store(db, job, item, full_load=full_load)
     run = _runner(kind, path, item.filename, term_code, params)
     return await _start_job(db, job, run, term_code=term_code, dry_run=dry_run, upload=(item.filename, path))
@@ -469,7 +484,7 @@ async def import_crbs_endpoint(
         await crbs_dsn.check_dsn(db, dsn, user)  # 403 / 422 before any job or connection exists
     items = [Incoming(f.filename, upload=f) for f in files]
     for tok in upload_tokens:
-        items.append(await incoming(request, user, None, tok, None))
+        items.append(await _resolve(await incoming(request, user, None, tok, None)))
     job = await _new_job(
         db,
         "crbs",

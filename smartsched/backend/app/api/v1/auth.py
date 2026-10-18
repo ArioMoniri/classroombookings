@@ -136,6 +136,9 @@ async def logout(user: CurrentUser, db: DB) -> Response:
     password change is pending."""
     revoke_tokens(user)
     await db.commit()
+    from app.ai.helper import files as helper_files
+
+    helper_files.clear(user.id)  # HB-23b: a file staged for the helper goes with the session
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

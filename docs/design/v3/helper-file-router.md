@@ -302,7 +302,7 @@ marks, no emoji.
 | `helper.file.title` | Bu bir {tür} | This is a {kind} |
 | `helper.file.titleLikely` | Bu büyük olasılıkla bir {tür} | This is most likely a {kind} |
 | `helper.file.evidence.columns` | Sütunlar: {sütunlar} → {tür} | Columns: {columns} → {kind} |
-| `helper.file.evidence.grid` | {n} sayfa, her biri bir hafta ("{ilk_sayfa}"); üstte gün adları, solda ders saatleri, {m} derslik sütunu | {n} sheets, one per week ("{first_sheet}"); day names on top, periods on the left, {m} room columns |
+| `helper.file.evidence.grid` | {n} sayfa, her biri bir hafta ("{ilk_sayfa}"); üstte gün adları, solda ders saatleri, {m} derslik | {n} sheets, one per week ("{first_sheet}"); day names on top, periods on the left, {m} rooms |
 | `helper.file.evidence.transposed` | Saatler üstte, derslikler solda: yan çevrilmiş bir çizelge | Times across the top, rooms down the side: a transposed timetable |
 | `helper.file.evidence.ics` | Takvim dosyası: {n} etkinlik, {ilk} – {son} | Calendar file: {n} events, {first} – {last} |
 | `helper.file.evidence.sql` | Veritabanı dökümü; tablolar: {tablolar} → classroombookings | Database dump; tables: {tables} → classroombookings |
@@ -398,7 +398,8 @@ of §4.2 (copy review in the design checklist, §11.3).
   shows the refused card itself without uploading.
 - **Persistence: none.**
   - No `ImportJob`, `CouncilJob` or `helper_messages` row is written, and no audit row either.
-  - No plain bytes are written to disk. The only artefact is the encrypted stage (§6.3).
+  - No plain bytes on persistent disk. The only artefact is the encrypted stage (§6.3). (Starlette spools uploads
+    larger than 1 MiB to `/tmp`; the backend container mounts `/tmp` as tmpfs, `deploy/docker-compose.yml`.)
   - Telemetry `helper.files.classified {kind, band, format, ms, state}` carries no content.
 
 ### 6.2 `POST /helper/files/route` (chooser pick and "Başka bir tür seç")
@@ -468,6 +469,59 @@ Frontend (`fileHandoffHref` in `handover-links.ts`):
 - **Expired or used token on the target page:** the row turns into "Dosyanın süresi doldu (10 dakika). Yeniden seçin."
   The page's drop zone comes back with the kind and term kept, and focus moves to the zone's button.
 - **The person removes the file (✕):** `DELETE /helper/files/{sid}`, and the page returns to its normal empty step.
+
+### 6.5a As built (HB-23b, 2026-10-18): API notes where the build differs from or adds to §6.1–§6.6
+
+Everything above holds unless listed here. All additions are optional and backward compatible.
+
+- **Classify form fields:** besides `file`, `context`, `lang`: `term_id` (optional; the page's active term from
+  `useActiveTerm`, else the server's current term decides `matches_active`) and `kind` (optional; a forced kind, used
+  for the chooser pick when nothing is staged).
+- **`resend: true`** in the classify answer when a route carries the file but nothing was staged
+  (`HELPER_FILE_STAGE=off`, no sign-in session to bind to, or several files). The target page then sends the File
+  object the browser still holds; the chooser pick re-sends the file to classify with `kind`.
+- **Several files** (owner decision 4, then the KVKK review item 16): one `file` card, title `helper.file.many`,
+  `format: "mixed"`, evidence "1. dosya: Planlama listesi" per file (≤ 4), primary `onboarding` with
+  `carries_file: true`, **no stage** and `resend: true`: the wizard uploads the File objects itself. People without
+  `planning.edit` get the first file's card. An unreadable file adds the warning `file_skipped` (bad).
+- **Extra warning codes:** `ics_academic` (info, the `icsAcademic` text, academician + `.ics`), `my_classes_known`
+  (info, the `myClasses` text, academician + planning / exam list), `file_skipped` (several files). The term warnings
+  (`term_mismatch`, `term_unknown`, `term_locked`) only appear when the primary imports into a term.
+- **`FileRoute.label_short`** (§8.5) is sent for "{term} dönemine aktar" when it fits 28 characters.
+- **`profile.calendar`** routes carry `params: {calendar: 1}`; `admin.holidays` ("Tatilleri elle ekle") is the
+  holidays secondary.
+- **Chooser:** the `onboarding` row has `value: "onboarding"`; `/route` with `kind: "onboarding"` answers a `file` card
+  with `kind` absent and primary `onboarding`. The token's `kinds` are the routable candidates plus `onboarding` for
+  planners; the unknown card's wizard route uses `kind` absent (= `onboarding`) on `/handoff`.
+- **Unknown state** keeps "Kurulum sihirbazında aç" for planners as a secondary that **carries** the file, so a stage
+  exists for planners there.
+- **`/handoff`** body: `upload_token`, optional `kind` (absent = `onboarding`), `feature_id`, `params` (`kind`,
+  `term_id`, `year`). It answers `{ok: true, href_params: {kind?, term_id?, year?, import?}}`. 403
+  `route_not_allowed` (a page this kind is not routed to for this person), 403 `kind_not_allowed`, 422 `bad_term` /
+  `bad_year`. The audit row is `helper.file.handoff` on entity `helper_file` / sha12 with
+  `{kind, feature_id, term_id, ext, size, sha12, files, via: "helper"}`.
+- **Stage errors** (on `/route`, `/handoff` and every target endpoint): 403 `stage_bad_token` / `stage_other_user`,
+  410 `stage_expired` / `stage_used`, in the project's `{code, message_tr, message_en}` shape (the helper routes add
+  `card`). Target endpoints check the token first and **consume it only after their own checks pass** (a refused
+  role, a locked term or a bad form leaves the file usable).
+- **Target endpoints:** `/imports/planning-list`, `/exam-list`, `/weekly-grid`, `/room-master` take `upload_token` +
+  optional `filename`; exactly one of `file` / `upload_token`, else 422 `file_or_token`. `/imports/crbs` takes
+  `upload_tokens`. `/council/jobs` takes `upload_tokens` + optional parallel `upload_names`. `/users/import` takes
+  `upload_token`. The stored name is the browser's `filename` when its extension matches, else `helper-<sha12>.<ext>`.
+- **Stage crypto:** the AES-256-GCM key is HKDF(token key, salt = stage id, info = HMAC(APP_SECRET,
+  "helper-file-kek")); the claim is an exclusive `.used` tombstone written before the rename. Sign-out and KVKK
+  erasure delete the person's stages. Classify telemetry is a log line (`helper.files.classified`), not a row.
+- **Permissions:** the room-master import route is offered on `planning.edit` **or** `setup.rooms` (the endpoint's
+  own rule), although the `import` index entry lists `planning.edit` only: the client's double-check must use the
+  route, not the index entry, for `{kind: room-master}`. The setup wizard always needs `planning.edit`.
+- **Sheet titles** on a card (grid evidence, `many_sheets`, "Sayfa2: …") only when every word is a week / term / day
+  / month / sheet word and, for more than one word, the title holds a number (KVKK review C1).
+- **Rate limit** 20 / minute, 200 / day per person **per process** (accepted).
+- **Templates:** header-only (owner decision), for `planning_list` and `exam_list` (.xlsx, from `HEADER_SPEC` through
+  `detect.COLUMN_LABELS`), `room_master` (.csv, `room_master.COLUMNS`) and `users_csv` (.csv, Turkish header words).
+  `GET /helper/files/examples` → `[{kind, format, file_name, label, description, permission}]`; no weekly-grid or ICS
+  template in v1.
+- **Evidence grid count:** `{m}` is the number of distinct rooms (the board repeats each room under all 7 day columns).
 
 ### 6.6 Templates ("Örnek dosyaları gör")
 

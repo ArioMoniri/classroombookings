@@ -212,20 +212,24 @@ async def import_users(
             "Bir dosya ya da yardımcıdan gelen dosya gönderin (ikisi birden değil).",
             "Send either a file or the helper's upload_token (not both).",
         )
-    if file is not None:
-        data = await file.read()
-    else:
-        from app.api.v1.helper_files import take
+    from app.api.v1.helper_files import look, take
 
-        _ext, data, _meta = await take(request, me, str(upload_token))
-    if len(data) > 5 * 1024 * 1024:
-        raise HTTPException(413, "CSV larger than 5 MB")
+    if upload_token:
+        _ext, meta = look(request, me, upload_token)  # owner, session, expiry; consumed after the checks below
+        if int(meta.get("size") or 0) > 5 * 1024 * 1024:
+            raise HTTPException(413, "CSV larger than 5 MB")
     default_role = await db.get(Role, role_id) if role_id is not None else None
     if role_id is not None and default_role is None:
         raise HTTPException(422, f"unknown role {role_id}")
     await guard_privileged(db, me, default_role)
     if department_id is not None and await db.get(Program, department_id) is None:
         raise HTTPException(422, f"unknown department {department_id}")
+    if file is not None:
+        data = await file.read()
+    else:
+        _ext, data, _meta = await take(request, me, str(upload_token))
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(413, "CSV larger than 5 MB")
     try:
         res = await import_users_csv(
             db,

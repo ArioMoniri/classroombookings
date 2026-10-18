@@ -4436,7 +4436,8 @@
       "goal": "Lane HB-23c (ledger name `hb23c-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; 44 px touch / 16 px text on phones; the…",
       "ledger": "HB-23c frontend: file router UI",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 17:22"
     },
     {
       "id": "acd80cae1ea3f522d",

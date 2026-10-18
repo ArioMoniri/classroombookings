@@ -99,14 +99,20 @@ async def classify(
             )
             raise HTTPException(
                 413,
-                {"code": "file_too_large", "message": exc.message, "message_en": exc.message,
-                 "message_tr": card.message.tr, "card": cards.dump(card)},
+                {
+                    "code": "file_too_large",
+                    "message": exc.message,
+                    "message_en": exc.message,
+                    "message_tr": card.message.tr,
+                    "card": cards.dump(card),
+                },
             ) from exc
         reads.append((up.filename or "upload", data))
     sess = hf.session_tag(request, access.user)
-    stage_on = bool(get_settings().helper_file_stage)
+    # no stage without a sign-in session to bind it to (KVKK review 14): the browser sends the file again
+    stage_on = bool(get_settings().helper_file_stage) and bool(sess)
     if len(reads) > 1:
-        return await _classify_many(db, access, sess, reads, stage_on, t0)
+        return await _classify_many(db, access, reads, t0)
     name, data = reads[0]
     sig, refusal = await hf.read_file(name, data)
     if refusal is not None or sig is None:
@@ -134,11 +140,10 @@ async def classify(
     return {"card": cards.dump(built.card), **out}
 
 
-async def _classify_many(
-    db: DB, access: CurrentAccess, sess: str, reads: list[tuple[str, bytes]], stage_on: bool, t0: float
-) -> dict[str, Any]:
+async def _classify_many(db: DB, access: CurrentAccess, reads: list[tuple[str, bytes]], t0: float) -> dict[str, Any]:
     """Open question 4 (owner: take the recommendation): one card, "{n} dosya bıraktınız", whose primary opens the
-    setup wizard with every file; each readable file gets its own stage (all kept until used or expired)."""
+    setup wizard with every file. Nothing is staged (orchestrator decision after the KVKK review, item 16): the
+    browser still holds the File objects and the wizard uploads them itself, so the answer says ``resend``."""
     from app.ai.helper import schema as s
 
     good: list[tuple[bytes, hf.Signals]] = []
@@ -195,16 +200,8 @@ async def _classify_many(
         ),
         explain=s.Texts(tr=[hf.KINDS["intake_json"].hint[0]], en=[hf.KINDS["intake_json"].hint[1]]),
     )
-    out: dict[str, Any] = {"card": cards.dump(card)}
-    if stage_on:
-        stages = [
-            hf.stage(data, sig, [hf.CHOOSER_ONBOARDING, "many"], access.user_id, sess, replace=i == 0)
-            for i, (data, sig) in enumerate(good)
-        ]
-        out["stage"] = _stage_out(stages[0])
-        out["stages"] = [_stage_out(st) for st in stages]
-    else:
-        out["resend"] = True
+    out: dict[str, Any] = {"card": cards.dump(card), "resend": True}
+    hf.clear(access.user_id)  # one live file card per person: the previous stage goes
     hf.telemetry("many", None, "mixed", (time.perf_counter() - t0) * 1000, "detected")
     return out
 
@@ -232,7 +229,9 @@ async def route(body: RouteIn, request: Request, db: DB, access: CurrentAccess) 
         )
     sig = hf.Signals.from_dict(meta["sig"])
     try:
-        built = await hf.build(db, access, sig, active_term_id=body.term_id, context=body.context, forced_kind=body.kind)
+        built = await hf.build(
+            db, access, sig, active_term_id=body.term_id, context=body.context, forced_kind=body.kind
+        )
     except hf.KindNotAllowed as exc:
         raise refused(
             403, "kind_not_allowed", "Bu dosya bu türe aktarılamaz.", "This file can't be routed to that type."
@@ -348,8 +347,15 @@ async def example_file(name: str, _: CurrentAccess) -> RawResponse:
     kind, _dot, ext = name.partition(".")
     ex = file_examples.EXAMPLES.get(kind)
     if ex is None or ext != ex.format:
-        raise HTTPException(404, {"code": "not_found", "message": "no such template", "message_en": "no such template",
-                                  "message_tr": "Böyle bir örnek dosya yok."})
+        raise HTTPException(
+            404,
+            {
+                "code": "not_found",
+                "message": "no such template",
+                "message_en": "no such template",
+                "message_tr": "Böyle bir örnek dosya yok.",
+            },
+        )
     return RawResponse(
         file_examples.render(kind),
         media_type=_MEDIA[ex.format],
@@ -358,6 +364,18 @@ async def example_file(name: str, _: CurrentAccess) -> RawResponse:
 
 
 # ------------------------------------------------------------------------------------- the target pages (§6.5)
+
+
+def look(request: Request, user: Any, token: str) -> tuple[str, dict[str, Any]]:
+    """Check a hand-over token without consuming it (owner, session, expiry): (extension, metadata). The target
+    endpoints call this first and :func:`take` only after their own checks passed (KVKK review 12)."""
+    try:
+        meta, _ = hf.peek(token, int(user.id), hf.session_tag(request, user))
+    except hf.StageError as exc:
+        from app.schemas.messages import problem
+
+        raise problem(exc.status, exc.code, exc.tr, exc.en) from exc
+    return str(meta.get("ext") or meta.get("fmt") or "bin"), meta
 
 
 async def take(request: Request, user: Any, token: str) -> tuple[str, bytes, dict[str, Any]]:
@@ -383,4 +401,4 @@ def handed_name(meta: dict[str, Any], ext: str, filename: str | None) -> str:
     return f"helper-{str(meta.get('sha') or '')[:12]}.{ext or 'bin'}"
 
 
-__all__ = ["cap_bytes", "handed_name", "router", "take"]
+__all__ = ["cap_bytes", "handed_name", "look", "router", "take"]

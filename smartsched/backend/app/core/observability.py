@@ -286,6 +286,8 @@ def reset_ring() -> None:
 _SCRUBBERS: tuple[tuple[re.Pattern[str], str], ...] = (
     # JWTs and bearer / basic credentials
     (re.compile(r"eyJ[\w-]{6,}\.[\w-]{6,}\.[\w-]{6,}"), "[token]"),
+    # two-part signed tokens (the helper's confirm / upload tokens: base64url(JSON) "." base64url(HMAC))
+    (re.compile(r"eyJ[\w-]{16,}\.[\w-]{16,}"), "[token]"),
     (re.compile(r"(?i)\b(bearer|basic)\s+[\w.~+/=-]{8,}"), r"\1 [token]"),
     # key=value / "key": "value" secrets
     (
@@ -591,6 +593,19 @@ _sentry: Any = None
 _sentry_pending: dict[int, BaseException] = {}
 
 
+def sentry_before_send(event: dict[str, Any], hint: Any = None) -> dict[str, Any]:
+    """Strip what could carry file content or a token from a Sentry event: every frame's ``vars`` and the request
+    body (``request.data``); the rest goes as Sentry built it (no PII by ``send_default_pii=False``)."""
+    for exc in ((event.get("exception") or {}).get("values") or []) if isinstance(event, dict) else []:
+        for frame in ((exc or {}).get("stacktrace") or {}).get("frames") or []:
+            if isinstance(frame, dict):
+                frame.pop("vars", None)
+    req = event.get("request") if isinstance(event, dict) else None
+    if isinstance(req, dict):
+        req.pop("data", None)
+    return event
+
+
 def init_sentry() -> bool:
     """Initialise Sentry when ``SENTRY_DSN`` is set and ``sentry_sdk`` is installed (no PII, no tracing)."""
     global _sentry
@@ -609,6 +624,10 @@ def init_sentry() -> bool:
         send_default_pii=False,
         traces_sample_rate=0.0,
         default_integrations=False,
+        # HB-23 KVKK review C4: no local variables (an upload's bytes, a token) and no request bodies leave the host
+        include_local_variables=False,
+        max_request_body_size="never",
+        before_send=sentry_before_send,
     )
     _sentry = sentry_sdk
     return True

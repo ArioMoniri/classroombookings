@@ -25,8 +25,8 @@ const listed = (() => {
 })();
 
 describe("helper.md §3.4 data-tour anchors", () => {
-  it("lists the 18 anchors", () => {
-    expect(listed).toHaveLength(18);
+  it("lists the 19 anchors (HB-23c: helper-attach)", () => {
+    expect(listed).toHaveLength(19);
   });
 
   it("each one is on its page", () => {

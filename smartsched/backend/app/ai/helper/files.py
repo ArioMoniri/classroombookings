@@ -465,7 +465,9 @@ def _render_xlsx_head(name: str, data: bytes) -> tuple[Any, list[str]]:
             if len(out.grids) >= HEAD_SHEETS:
                 break
             width = 0
-            for row in ws.iter_rows(min_row=1, max_row=min(rd.SCAN_ROWS, HEAD_ROWS), max_col=rd.MAX_COLS, values_only=True):
+            for row in ws.iter_rows(
+                min_row=1, max_row=min(rd.SCAN_ROWS, HEAD_ROWS), max_col=rd.MAX_COLS, values_only=True
+            ):
                 for c in range(len(row) - 1, -1, -1):
                     if row[c] is not None and tx.cell_text(row[c]):
                         width = max(width, c + 1)
@@ -520,7 +522,9 @@ def read_signals(name: str, data: bytes) -> Signals:
     det = formats.detect(name, data)
     fmt = det.spec.name
     sig = Signals(
-        format=fmt, ext=PurePath(name).suffix.lower().lstrip(".")[:8], size=len(data),
+        format=fmt,
+        ext=PurePath(name).suffix.lower().lstrip(".")[:8],
+        size=len(data),
         sha256=hashlib.sha256(data).hexdigest(),
     )
     if fmt == "xlsx":
@@ -563,7 +567,9 @@ def read_signals(name: str, data: bytes) -> Signals:
         folded = [str(h).strip().casefold() for h in g0.cells[0]]
         sig.room_master_cols = [c for c in ROOM_COLUMNS if c in folded]
     if g0 is not None and sig.shape == "weekly-grid" and g0.n_rows > 1:
-        sig.grid_rooms = sum(1 for v in g0.cells[1][1:] if v and n.parse_room_header(v) is not None)
+        # distinct rooms: the board repeats every room under each of the 7 day columns
+        heads = (n.parse_room_header(v) for v in g0.cells[1][1:] if v)
+        sig.grid_rooms = len({h.code for h in heads if h is not None})
     for a in structure.analyze(rendered):
         fields = list(dict.fromkeys(c.field for c in a.columns if c.field))
         orient = "/".join(sorted({ax.orientation for ax in a.axes}))
@@ -730,7 +736,9 @@ def file_routes(kind: str, sig: Signals, term: TermGuess | None, year: int | Non
     if kind in ("users_csv", "staff_list") and set(sig.users_fields) & {"username", "email"}:
         if sig.size > USERS_MAX_BYTES:
             return []
-        return [RouteSpec("admin.users", {"import": 1}, ("Kullanıcıları içe aktar", "Import users"), True, ("setup.users",))]
+        return [
+            RouteSpec("admin.users", {"import": 1}, ("Kullanıcıları içe aktar", "Import users"), True, ("setup.users",))
+        ]
     if kind == "users_csv":
         return []
     if kind == "crbs_dump":
@@ -851,7 +859,8 @@ async def guess_term(session: AsyncSession, sig: Signals, active_term_id: int | 
     ordered = sorted(terms, key=lambda t: (t.start_date is not None, t.start_date, t.id), reverse=True)
     same = [t for t in ordered if term_season(t.code, t.name) == season]
     exact = [t for t in same if year is None or calendar_year(season, t.code, t.name) == year]
-    pick = (exact or same or [None])[0]
+    found = exact or same
+    pick = found[0] if found else None
     if pick is not None:
         name = (cards.clean(pick.name, 60), cards.clean(pick.name, 60))
         matches = active is not None and pick.id == active.id
@@ -926,6 +935,8 @@ def safe_sheet_title(title: str | None) -> str | None:
         return None
     if any(w not in TITLE_WORDS for w in words):
         return None
+    if len(words) > 1 and not re.search(r"\d", title):
+        return None  # two allowed words and no number ("Bahar Ekim") may still be a person's name
     return t
 
 
@@ -959,9 +970,9 @@ def evidence(kind: str, sig: Signals, safe_title: _Titles) -> list[tuple[str, st
         lines.append(
             (
                 f"{sig.n_sheets} sayfa, her biri bir hafta{where_tr}; üstte gün adları, solda ders saatleri, "
-                f"{sig.grid_rooms} derslik sütunu",
+                f"{sig.grid_rooms} derslik",
                 f"{sig.n_sheets} sheets, one per week{where_tr}; day names on top, periods on the left, "
-                f"{sig.grid_rooms} room columns",
+                f"{sig.grid_rooms} rooms",
             )
         )
     elif kind == "planning_list" and sig.plan_keys:
@@ -980,15 +991,22 @@ def evidence(kind: str, sig: Signals, safe_title: _Titles) -> list[tuple[str, st
         more = len(sig.crbs_tables) - len(names)
         joined = ", ".join(names) + (f", +{more}" if more else "")
         lines.append(
-            (f"Veritabanı dökümü; tablolar: {joined} → classroombookings", f"Database dump; tables: {joined} → classroombookings")
+            (
+                f"Veritabanı dökümü; tablolar: {joined} → classroombookings",
+                f"Database dump; tables: {joined} → classroombookings",
+            )
         )
     elif kind == "calendar_ics":
         first_d, last_d = sig.ics_first or "", sig.ics_last or ""
         span_tr = f", {_date_tr(first_d)} – {_date_tr(last_d)}" if first_d else ""
         span_en = f", {first_d} – {last_d}" if first_d else ""
-        lines.append((f"Takvim dosyası: {sig.ics_events} etkinlik{span_tr}", f"Calendar file: {sig.ics_events} events{span_en}"))
+        lines.append(
+            (f"Takvim dosyası: {sig.ics_events} etkinlik{span_tr}", f"Calendar file: {sig.ics_events} events{span_en}")
+        )
     elif kind == "intake_json":
-        lines.append(("SmartSched içe aktarma biçimi (smartsched.intake.v1)", "SmartSched import format (smartsched.intake.v1)"))
+        lines.append(
+            ("SmartSched içe aktarma biçimi (smartsched.intake.v1)", "SmartSched import format (smartsched.intake.v1)")
+        )
     elif kind == "timetable_other":
         if first is not None and "horizontal" in first.orientation:
             lines.append(
@@ -999,22 +1017,39 @@ def evidence(kind: str, sig: Signals, safe_title: _Titles) -> list[tuple[str, st
             )
         else:
             lines.append(
-                ("Ders saatleri ve derslikler var, ama haftalık takvim düzeninde değil", "Periods and rooms, but not in the weekly-board layout")
+                (
+                    "Ders saatleri ve derslikler var, ama haftalık takvim düzeninde değil",
+                    "Periods and rooms, but not in the weekly-board layout",
+                )
             )
     elif kind == "scan":
-        lines.append(("Görüntü ya da taranmış sayfa; okunabilir metin yok", "An image or a scanned page; no readable text"))
+        lines.append(
+            ("Görüntü ya da taranmış sayfa; okunabilir metin yok", "An image or a scanned page; no readable text")
+        )
     elif kind == "rules_doc":
         lines.append(
-            (f"Belge: {sig.units} paragraf; kural ve tercih cümleleri var", f"Document: {sig.units} paragraphs with rules and preferences")
+            (
+                f"Belge: {sig.units} paragraf; kural ve tercih cümleleri var",
+                f"Document: {sig.units} paragraphs with rules and preferences",
+            )
         )
     elif first is not None and first.fields:
         labs = [FIELD_LABELS[f] for f in first.fields if f in FIELD_LABELS]
         if labs:
             lines.append(_labels_line(labs, info.label))
     if kind == "request_list" and first is not None and first.language == "en":
-        lines.append(("Sütun adları İngilizce; Kurulum sihirbazı onları eşleştirir", "The column names are English; the setup wizard maps them"))
+        lines.append(
+            (
+                "Sütun adları İngilizce; Kurulum sihirbazı onları eşleştirir",
+                "The column names are English; the setup wizard maps them",
+            )
+        )
     # several sheets with different kinds: the first sheet decided, the others add one line
-    others = [h for h in sig.council if h.grid >= 0 and h is not first and h.kind not in ("other", first.kind if first else "")]
+    others = [
+        h
+        for h in sig.council
+        if h.grid >= 0 and h is not first and h.kind not in ("other", first.kind if first else "")
+    ]
     if others:
         h = others[0]
         t = safe_title(h.name)
@@ -1048,7 +1083,7 @@ def _route(r: RouteSpec) -> s.FileRoute:
 
 
 def _warn(code: str, status: str, tr: str, en: str) -> s.FileWarning:
-    return s.FileWarning(code=code, status=status, message=cards.txt(tr, en))  # type: ignore[arg-type]
+    return s.FileWarning(code=code, status=status, message=cards.txt(tr, en))
 
 
 async def _ai_vision(session: AsyncSession) -> bool:
@@ -1107,7 +1142,11 @@ async def kind_card(
             )
         else:
             team = ("yönetici", "an administrator") if kind == "users_csv" else ("planlama ekibi", "the planning team")
-            send = ("yöneticinize", "your administrator") if kind == "users_csv" else ("bölüm planlamacınıza", "your department's planner")
+            send = (
+                ("yöneticinize", "your administrator")
+                if kind == "users_csv"
+                else ("bölüm planlamacınıza", "your department's planner")
+            )
             if plan.primary is not None:
                 title = cards.txt(
                     f"Bu dosya bir {info.phrase[0]}. Bunu {team[0]} içe aktarır. Sizin için:",
@@ -1225,7 +1264,7 @@ async def kind_card(
         state="needs_planner" if plan.needs_planner else "detected",
         kind=kind,
         kind_label=cards.txt(*info.label),
-        certainty=certainty,  # type: ignore[arg-type]
+        certainty=certainty,
         format=sig.card_format,
         evidence=s.Texts(tr=[cards.clean(t) for t, _ in lines], en=[cards.clean(e) for _, e in lines]),
         term=file_term,
@@ -1443,7 +1482,9 @@ _rate_lock = threading.Lock()
 
 
 def rate_ok(user_id: int) -> bool:
-    """20 per minute and 200 per day per person (in-process; the helper's other limits are per feature)."""
+    """20 per minute and 200 per day per person. Per process (accepted, KVKK review 11): with N workers the real
+    ceiling is N times this; classify is cheap (header area, no model) and never stores anything, so the limit only
+    bounds CPU, not data."""
     t = now()
     with _rate_lock:
         q = _rate.setdefault(user_id, deque())
@@ -1519,7 +1560,11 @@ def _verify(token: str) -> dict[str, Any]:
         payload = json.loads(body) if good else None
     except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
         payload = None
-    if not isinstance(payload, dict) or payload.get("k") != "file" or not re.fullmatch(r"[a-f0-9]{32}", str(payload.get("s"))):
+    if (
+        not isinstance(payload, dict)
+        or payload.get("k") != "file"
+        or not re.fullmatch(r"[a-f0-9]{32}", str(payload.get("s")))
+    ):
         raise _err("stage_bad_token")
     return payload
 
@@ -1543,7 +1588,21 @@ def session_tag(request: Any, user: Any) -> str:
     """The sign-in session a token is bound to: the AU-15 session row and the token version."""
     from app.services import sessions
 
-    return f"{sessions.current_id(request) or 0}:{int(getattr(user, 'token_version', 0) or 0)}"
+    sid = sessions.current_id(request)
+    return f"{sid}:{int(getattr(user, 'token_version', 0) or 0)}" if sid else ""
+
+
+def _kek() -> bytes:
+    return hmac.new(get_settings().app_secret.encode("utf-8"), b"helper-file-kek", hashlib.sha256).digest()
+
+
+def _aes_key(token_key: bytes, sid: str) -> bytes:
+    """(KVKK review 8) the AES key is HKDF(token key, salt = stage id, info = HMAC(APP_SECRET, "helper-file-kek")):
+    the token alone cannot decrypt a copied stage file, and neither can the server without the token."""
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+    return HKDF(algorithm=hashes.SHA256(), length=32, salt=sid.encode(), info=_kek()).derive(token_key)
 
 
 @dataclass
@@ -1571,20 +1630,25 @@ def clear(user_id: int) -> int:
     return n
 
 
-def stage(
-    data: bytes, sig: Signals, kinds: list[str], user_id: int, sess: str, *, replace: bool = True
-) -> Staged:
+def stage(data: bytes, sig: Signals, kinds: list[str], user_id: int, sess: str, *, replace: bool = True) -> Staged:
     """Encrypt ``data`` under a fresh key that only the returned token carries; mode 0600; 10 minutes."""
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
     if replace:
         clear(user_id)
     sid = secrets.token_hex(16)
-    key = AESGCM.generate_key(bit_length=256)
-    aes = AESGCM(key)
+    key = secrets.token_bytes(32)
+    aes = AESGCM(_aes_key(key, sid))
     meta = json.dumps(
-        {"sig": sig.to_dict(), "kinds": kinds, "fmt": sig.card_format, "ext": sig.ext, "size": len(data),
-         "sha": sig.sha256, "uid": user_id},
+        {
+            "sig": sig.to_dict(),
+            "kinds": kinds,
+            "fmt": sig.card_format,
+            "ext": sig.ext,
+            "size": len(data),
+            "sha": sig.sha256,
+            "uid": user_id,
+        },
         separators=(",", ":"),
     ).encode("utf-8")
     n1, n2 = secrets.token_bytes(12), secrets.token_bytes(12)
@@ -1617,7 +1681,7 @@ def _decrypt(blob: bytes, p: dict[str, Any], *, with_data: bool) -> tuple[dict[s
 
     if not blob.startswith(_MAGIC):
         raise _err("stage_bad_token")
-    aes = AESGCM(_unb64(str(p["key"])))
+    aes = AESGCM(_aes_key(_unb64(str(p["key"])), str(p["s"])))
     i = len(_MAGIC)
     ln = int.from_bytes(blob[i : i + 4], "big")
     n1, meta_ct = blob[i + 4 : i + 16], blob[i + 16 : i + 16 + ln]
@@ -1630,18 +1694,19 @@ def _decrypt(blob: bytes, p: dict[str, Any], *, with_data: bool) -> tuple[dict[s
     return meta, data
 
 
-def _gone(used: Path) -> StageError:
-    return _err("stage_used") if used.exists() else _err("stage_expired")
+def _gone(used: Path, claimed: Path | None = None) -> StageError:
+    taken = used.exists() or (claimed is not None and claimed.exists())
+    return _err("stage_used") if taken else _err("stage_expired")
 
 
 def peek(token: str, user_id: int, sess: str, *, with_data: bool = False) -> tuple[dict[str, Any], bytes]:
     """The stage's metadata (and bytes) without consuming it (chooser pick, hand-over)."""
     p = _check(token, user_id, sess)
-    path, _claimed, used = _paths(p)
+    path, claimed, used = _paths(p)
     try:
         blob = path.read_bytes()
     except FileNotFoundError as exc:
-        raise _gone(used) from exc
+        raise _gone(used, claimed) from exc
     return _decrypt(blob, p, with_data=with_data)
 
 
@@ -1650,15 +1715,20 @@ def consume(token: str, user_id: int, sess: str) -> tuple[dict[str, Any], bytes]
     p = _check(token, user_id, sess)
     path, claimed, used = _paths(p)
     try:
+        # the claim: the tombstone is created exclusively *before* the rename, so of two racing uses exactly one
+        # gets past here and the other answers "used" (KVKK review 12)
+        _write_private(used, b"")
+    except FileExistsError as exc:
+        raise _err("stage_used") from exc
+    try:
         os.rename(path, claimed)
     except FileNotFoundError as exc:
-        raise _gone(used) from exc
+        used.unlink(missing_ok=True)  # nothing was there: expired, swept or cancelled
+        raise _err("stage_expired") from exc
     try:
         meta, data = _decrypt(claimed.read_bytes(), p, with_data=True)
     finally:
         claimed.unlink(missing_ok=True)
-        if not used.exists():
-            _write_private(used, b"")  # the tombstone: a second use says "used", not "expired"
     return meta, data
 
 

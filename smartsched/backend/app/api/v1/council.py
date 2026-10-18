@@ -151,6 +151,10 @@ async def create_job(
         raise HTTPException(400, "mode must be auto or general")
     if not files and not upload_tokens:
         raise HTTPException(400, "upload at least one file")
+    from app.api.v1.helper_files import look
+
+    for tok in upload_tokens:  # every hand-over checked before anything is written or consumed
+        look(request, user, tok)
     if len(files) + len(upload_tokens) > st.council_max_files:
         raise HTTPException(413, f"at most {st.council_max_files} files per job")
     # the same intake rules as /imports (app/core/safe_files.py): each upload streamed to disk with a byte cap,

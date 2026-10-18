@@ -16,6 +16,10 @@
 	request_body /api/v1/ai/voice/transcribe {
 		max_size 6MB
 	}
+	# helper file router (HB-23b): the council's per-job total (COUNCIL_MAX_JOB_MB)
+	request_body /api/v1/helper/files/classify {
+		max_size 50MB
+	}
 	# Security headers (W3-SEC, docs/SECURITY.md §5). nginx behind this edge sets the full set (CSP with the
 	# /grafana/ frame-ancestors exception, X-Frame-Options, Permissions-Policy); "?" only fills in what is missing,
 	# so the proxy's (or a nonce-based frontend's) values win.
