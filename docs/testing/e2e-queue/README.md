@@ -166,3 +166,7 @@ On pass: tick VO-06/07/08 and VO-05.
 ## Added 2026-10-18 11:10 UTC
 
 - **IDP-2** (1440 and 390, tr-TR): YETKİM (SAML) wizard step 3, Gelişmiş closed by default; federation certificate saved, then re-read shows the details and "Meta veri imzalı ve doğrulandı"; removing it puts focus on the textarea. Unsigned metadata with a certificate set opens Gelişmiş by itself with the Turkish reason. "SP anahtarı oluştur" shows "Anahtar kayıtlı" + SHA-256 with focus on Kaldır; the SP metadata has an encryption KeyDescriptor; the private key never appears on screen or in the network. A mismatched pasted pair is refused. "İstekleri imzala" without a key → 422 text; with a key `/start` carries SigAlg and Signature; Kaldır while signing → 409 text. Mock IdP: AES-CBC in an unsigned Response is refused with the TR hint and an `assertion_encryption` row; signed Response passes and the row clears; GCM with an unsigned Response passes. M-01/02/03/05 on step 3.
+
+## Added 2026-10-18 11:15 UTC
+
+- **HB-D** (1440 and 390, tr-TR): "bunu hatırla: Pazartesi B blok" → confirm card → "Hatırla" → result → "Geri al", and Profil › Yardımcı notes update; memory off and no-consent each give a refusal card; turns from /my-bookings and a booking detail carry `context`; "Son işlemler" with "Geri al"; "Geçmişi sil" keeps notes; faculty usage shows a percentage.

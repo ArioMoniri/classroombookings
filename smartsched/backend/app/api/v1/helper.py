@@ -9,6 +9,7 @@
   runs; a write is previewed and answers ``confirm`` (all args resolved, A1), ``form`` or ``choice`` (HB-05)
 * ``POST /helper/actions/confirm`` / ``/undo``                                                     (HB-05)
 * ``GET / POST / DELETE /helper/notes``, ``PUT /helper/memory``                                    (HB-09)
+* ``DELETE /helper/threads``               "Geçmişi sil" alone: threads and messages, the notes stay   (HB-21)
 * ``POST /helper/feedback``, ``POST /helper/events``; ``GET /helper/search?final=true`` records one query (HB-14)
 
 The admin's ``ai.helper`` switches (HB-15, :mod:`app.ai.helper.settings`) filter the actions everywhere here; the
@@ -135,9 +136,7 @@ async def actions(db: DB, access: CurrentAccess) -> list[dict[str, Any]]:
 
 
 @router.get("/actions/recent")
-async def recent_actions(
-    db: DB, access: CurrentAccess, limit: int = Query(5, ge=1, le=20)
-) -> list[dict[str, Any]]:
+async def recent_actions(db: DB, access: CurrentAccess, limit: int = Query(5, ge=1, le=20)) -> list[dict[str, Any]]:
     """The person's own last confirmed helper actions (HB-D): ``[{id, action, kind, entity_id, feature_id,
     label {tr,en}, at, status: done | undone, undoable, undo_token?, undo_expires_at?}]``, newest first."""
     from app.ai.helper import recent
@@ -322,6 +321,15 @@ async def delete_notes(db: DB, user: CurrentUser, history: bool = False) -> dict
     from app.ai.helper import memory
 
     return await memory.delete_all(db, user, history=history)
+
+
+@router.delete("/threads")
+async def delete_threads(db: DB, user: CurrentUser) -> dict[str, int]:
+    """ "Geçmişi sil" without the notes (HB-21): the person's own chat threads and messages; notes stay. Audited
+    ``helper.threads_deleted`` (counts only)."""
+    from app.ai.helper import memory
+
+    return await memory.delete_threads(db, user)
 
 
 class AdminSettingsIn(BaseModel):

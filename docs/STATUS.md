@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `4d756d0` (committed 2026-10-18 10:59 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `716e9f8` (committed 2026-10-18 11:07 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -177,7 +177,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-354 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 324 · stopped 11 · superseded 7.
+357 agents in [`docs/agents/registry.json`](agents/registry.json): running 13 · finished 326 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -193,6 +193,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `HB-D` | ai-engineer | 2026-10-18 10:55 |
 | `Shell integration` | frontend-engineer | 2026-10-18 10:55 |
 | `CI lane` | devops-engineer | 2026-10-18 11:02 |
+| `HX-18` | frontend-engineer | 2026-10-18 11:03 |
 
 <!-- /AUTO:agents -->
 
@@ -259,7 +260,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **426 ticked · 435 open** checkboxes in 100 sections (96 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **428 ticked · 433 open** checkboxes in 100 sections (96 with open items).
 
 <details><summary>Per section</summary>
 
@@ -354,7 +355,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Wave 3b — W3-MAIL (2026-10-17) | 5 | 1 |
 | Wave 3 — W3-SLOT (2026-10-17) | 7 | 5 |
 | Wave 3b — W3-HUB (2026-10-17) | 4 | 2 |
-| Calendar export & sync for academicians (owner request 2026-10-17) | 7 | 6 |
+| Calendar export & sync for academicians (owner request 2026-10-17) | 9 | 4 |
 | Wave 3b — W3-IDP identity providers (2026-10-17) | 5 | 1 |
 | Welcome guide per role (owner request 2026-10-17) | 3 | 8 |
 | Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 14 | 7 |

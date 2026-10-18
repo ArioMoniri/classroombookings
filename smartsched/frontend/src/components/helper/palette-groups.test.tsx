@@ -8,7 +8,7 @@ import { Command, CommandList } from "@/components/ui/command";
 import { helperApi, type HelperSearch, type HelperStatus } from "@/lib/api/helper";
 import fixtures from "./__fixtures__/cards.json";
 import { useHelperStore } from "./helper-store";
-import { HelperPaletteBottom, HelperPaletteTop } from "./palette-groups";
+import { HelperPaletteBottom, HelperPaletteEmpty, HelperPaletteTop } from "./palette-groups";
 import { renderHelper, resetHelperStore } from "./test-helpers";
 
 const push = vi.fn();
@@ -124,5 +124,27 @@ describe("palette groups", () => {
   it("shows the role starters with an empty query", async () => {
     renderPalette("");
     expect(await screen.findByTestId("palette-group-starters")).toHaveTextContent("Tatil nerede eklenir?");
+  });
+});
+
+describe("HX-18 m7: the palette's empty state", () => {
+  it("says there are no hits and, with AI off, what to try next", async () => {
+    vi.spyOn(helperApi, "status").mockResolvedValue(status({ mode: "index", reason: "index_mode" }));
+    renderHelper(<HelperPaletteEmpty query="tatli" loading={false} />);
+    const none = screen.getByTestId("palette-none");
+    expect(none).toHaveTextContent("“tatli” için sonuç yok.");
+    await waitFor(() => expect(none).toHaveTextContent("Yardımcı şu an kapalı."));
+  });
+
+  it("with AI on, only the no-hits line", async () => {
+    const st = vi.spyOn(helperApi, "status").mockResolvedValue(status());
+    renderHelper(<HelperPaletteEmpty query="tatli" loading={false} />);
+    await waitFor(() => expect(st).toHaveBeenCalled());
+    expect(screen.getByTestId("palette-none")).not.toHaveTextContent("Yardımcı şu an kapalı.");
+  });
+
+  it("while searching, the searching line", () => {
+    renderHelper(<HelperPaletteEmpty query="tatli" loading />);
+    expect(screen.getByText("Aranıyor…")).toBeInTheDocument();
   });
 });

@@ -4,7 +4,8 @@
  * the confirmation: one primary button names the effect and the object ("Rezerve et: A 204 · yarın 10:00"); only a
  * trusted click or key on it sends the token. R2 names who is affected. "Değiştir" turns a booking into its form;
  * "Vazgeç" drops it. An expired token reads "Bu öneri eskidi." with "Yenile"; an older pending card is parked as one
- * line ("Rezervasyon · bekliyor").
+ * line ("Rezervasyon · bekliyor", "· eskidi" once its token timed out). While the token is sent the button is
+ * `aria-disabled` (it keeps the focus); after "Vazgeç" the focus goes to the "Vazgeçildi." line (HX-18 M2, M6).
  */
 import { AlertTriangle, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -16,7 +17,7 @@ import type { ConfirmCard } from "../schema.gen";
 import { focusEntry } from "../use-helper-runner";
 import { pickText, useCardHost } from "./context";
 import { formFromConfirm } from "./form";
-import { CardLine, HelperCardFrame } from "./frame";
+import { CancelledLine, CardLine, HelperCardFrame } from "./frame";
 
 function useExpired(expiresAt: string): boolean {
   const at = Date.parse(expiresAt);
@@ -33,7 +34,8 @@ export function ConfirmView({ card, entry }: { card: ConfirmCard; entry: CardEnt
   const { t } = useI18n();
   const host = useCardHost();
   const timedOut = useExpired(card.expires_at);
-  const expired = entry.phase === "expired" || (timedOut && (entry.phase === "pending" || entry.phase === "parked"));
+  // HX-18 M6: a parked card that timed out stays one line; only the card in focus offers "Yenile"
+  const expired = entry.phase === "expired" || (timedOut && entry.phase === "pending");
   const title = card.title ? pickText(card.title, host.locale) : host.actionVerb(card.action) ?? t("helper.card.proposal");
   const testId = `helper-card-confirm-${card.action}`;
 
@@ -42,6 +44,7 @@ export function ConfirmView({ card, entry }: { card: ConfirmCard; entry: CardEnt
       <p data-testid={testId} data-phase="parked" className="flex items-center gap-2 rounded-(--radius-md) bg-fill-3 px-4 py-2 type-callout text-label-2 edge-hairline">
         <Clock aria-hidden className="size-4 shrink-0" />
         {t("helper.card.pending", { title })}
+        {timedOut ? ` · ${t("helper.card.stale")}` : null}
       </p>
     );
   }
@@ -65,8 +68,12 @@ export function ConfirmView({ card, entry }: { card: ConfirmCard; entry: CardEnt
               variant={card.danger ? "destructive" : "default"}
               className="max-sm:h-12 whitespace-normal"
               aria-busy={busy || undefined}
-              disabled={busy}
-              onClick={(e) => void host.runner.confirm(entry, e)}
+              // HX-18 M2: aria-disabled, not disabled, so the focus stays on the button while the result comes
+              aria-disabled={busy || undefined}
+              onClick={(e) => {
+                if (busy) return;
+                void host.runner.confirm(entry, e);
+              }}
               data-testid="helper-card-confirm"
             >
               {busy ? t("busy.saving") : pickText(card.button, host.locale)}
@@ -106,7 +113,7 @@ export function ConfirmView({ card, entry }: { card: ConfirmCard; entry: CardEnt
         </ul>
       ) : null}
       {expired ? <p className="type-callout text-label-2" data-testid="helper-card-expired">{t("helper.card.expired")}</p> : null}
-      {entry.phase === "cancelled" ? <p className="type-footnote text-label-3">{t("helper.card.cancelled")}</p> : null}
+      {entry.phase === "cancelled" ? <CancelledLine /> : null}
       {entry.phase === "done" ? <p className="type-footnote text-label-3">{t("helper.card.done")}</p> : null}
       {entry.notice ? (
         <Alert tone="warning" data-testid="helper-card-error">

@@ -27,7 +27,6 @@ import { catalogApi } from "@/lib/api/catalog-admin";
 import { HttpError } from "@/lib/api/client";
 import { useFacultyUsage } from "@/lib/api/helper";
 import { useI18n } from "@/lib/i18n/provider";
-import { shareCheck } from "./faculty-usage";
 
 interface FacultyDraft {
   tokens: string;
@@ -85,6 +84,12 @@ export function facultyBody(facultyIds: number[], drafts: Record<string, Faculty
   return { faculties, departments, strict };
 }
 
+/** The department split's total and whether it is over the faculty's allowance (`null` = no allowance). */
+export function splitCheck(split: Record<string, number>, allowance: number | null): { sum: number; over: boolean } {
+  const sum = Object.values(split).reduce((a, v) => a + v, 0);
+  return { sum, over: allowance !== null && sum > allowance };
+}
+
 /** The faculty a 422 names (`field: "faculties.3"`), or null. */
 function facultyOfField(err: unknown): string | null {
   const d = err instanceof HttpError && err.detail && typeof err.detail === "object" ? (err.detail as Record<string, unknown>) : {};
@@ -103,18 +108,18 @@ function Departments({ facultyId, allowance, deps, setDep, onOver, canEdit }: { 
   const q = useFacultyUsage(facultyId);
   const rows = q.data?.by_department ?? [];
   const split = Object.fromEntries(rows.map((d) => [String(d.id), wholeOrZero(deps[String(d.id)] ?? "") ?? 0]));
-  const { sum, over } = shareCheck(split, allowance > 0 ? allowance : null);
+  const { sum, over } = splitCheck(split, allowance > 0 ? allowance : null);
   // the parent's save button reads it; closing the details clears it
   useEffect(() => {
     onOver(facultyId, over);
   }, [over, onOver, facultyId]);
   useEffect(() => () => onOver(facultyId, false), [onOver, facultyId]);
   if (q.isLoading) return <Skeleton className="h-16 w-full" />;
-  if (!q.data) return <p className="type-callout text-label-2">{t("helper.faculty.loadError")}</p>;
+  if (!q.data) return <p className="type-callout text-label-2">{t("helper.facultyLimits.usageError")}</p>;
   return (
     <div className="flex flex-col gap-2">
       <p className="type-callout text-label-1">{t("helper.facultyLimits.used", { tokens: n(q.data.totals.tokens) })}</p>
-      <h4 className="type-callout font-semibold text-label-1">{t("helper.faculty.departments")}</h4>
+      <h4 className="type-callout font-semibold text-label-1">{t("helper.facultyLimits.departments")}</h4>
       {rows.length ? (
         <>
           <p className="type-footnote text-label-2">{t("helper.facultyLimits.deptHint")}</p>
@@ -123,7 +128,7 @@ function Departments({ facultyId, allowance, deps, setDep, onOver, canEdit }: { 
               <li key={d.id} className="grid items-center gap-1.5 sm:grid-cols-[1fr_12rem]">
                 <Label htmlFor={`fl-${facultyId}-d${d.id}`} className="flex flex-col items-start">
                   <span>{d.name}</span>
-                  <span className="type-footnote font-normal text-label-2">{t("helper.faculty.deptRow", { tokens: n(d.tokens) })}</span>
+                  <span className="type-footnote font-normal text-label-2">{t("helper.facultyLimits.deptRow", { tokens: n(d.tokens) })}</span>
                 </Label>
                 <Input
                   id={`fl-${facultyId}-d${d.id}`}
@@ -132,14 +137,14 @@ function Departments({ facultyId, allowance, deps, setDep, onOver, canEdit }: { 
                   value={deps[String(d.id)] ?? ""}
                   disabled={!canEdit}
                   onChange={(e) => setDep(String(d.id), e.target.value)}
-                  className="text-base sm:type-callout"
+                  className="text-base pointer-fine:sm:type-callout"
                 />
               </li>
             ))}
           </ul>
           {allowance > 0 ? (
             <p className={over ? "type-callout text-status-infeasible-fg" : "type-callout text-label-2"} role={over ? "alert" : undefined} data-testid={`faculty-limit-sum-${facultyId}`} data-over={over || undefined}>
-              {over ? t("helper.faculty.shareOver") : t("helper.faculty.shareSum", { sum: n(sum), max: n(allowance) })}
+              {over ? t("helper.facultyLimits.over") : t("helper.facultyLimits.sum", { sum: n(sum), max: n(allowance) })}
             </p>
           ) : null}
         </>
@@ -216,7 +221,7 @@ export function FacultyLimits({ data, canEdit }: { data: Limits; canEdit: boolea
                     value={d.tokens}
                     disabled={!canEdit}
                     onChange={(e) => setDraft(id, { tokens: e.target.value })}
-                    className="text-base sm:type-callout"
+                    className="text-base pointer-fine:sm:type-callout"
                   />
                 </div>
                 {error?.faculty === id ? (
@@ -240,7 +245,7 @@ export function FacultyLimits({ data, canEdit }: { data: Limits; canEdit: boolea
                         canEdit={canEdit}
                       />
                       <Field label={t("helper.facultyLimits.managers")} htmlFor={`${uid}-m${id}`} hint={t("helper.facultyLimits.managersHint")}>
-                        <Input id={`${uid}-m${id}`} value={d.managers} disabled={!canEdit} onChange={(e) => setDraft(id, { managers: e.target.value })} className="text-base sm:type-callout" />
+                        <Input id={`${uid}-m${id}`} value={d.managers} disabled={!canEdit} onChange={(e) => setDraft(id, { managers: e.target.value })} className="text-base pointer-fine:sm:type-callout" />
                       </Field>
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
@@ -252,7 +257,7 @@ export function FacultyLimits({ data, canEdit }: { data: Limits; canEdit: boolea
                         <Switch id={`${uid}-p${id}`} checked={d.showPeople} disabled={!canEdit} onCheckedChange={(v) => setDraft(id, { showPeople: v })} />
                       </div>
                       <Field label={t("helper.facultyLimits.cost")} htmlFor={`${uid}-c${id}`} hint={t("aiAdmin.limits.zeroHint")}>
-                        <Input id={`${uid}-c${id}`} inputMode="decimal" value={d.cost} disabled={!canEdit} onChange={(e) => setDraft(id, { cost: e.target.value })} className="text-base sm:type-callout" />
+                        <Input id={`${uid}-c${id}`} inputMode="decimal" value={d.cost} disabled={!canEdit} onChange={(e) => setDraft(id, { cost: e.target.value })} className="text-base pointer-fine:sm:type-callout" />
                       </Field>
                     </div>
                   ) : null}

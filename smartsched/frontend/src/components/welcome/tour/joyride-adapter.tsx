@@ -84,7 +84,9 @@ export default function JoyrideAdapter({ step, controls, docked, reduceMotion }:
           offset: 12,
         }}
         styles={{
-          floater: { filter: "none", transition: reduceMotion ? FLOATER_IN_REDUCED : FLOATER_IN },
+          // docked: the fixed floating box itself spans the viewport; without a width it shrink-wrapped the card
+          // (334 px of 390, the tooltip's 100% max-width follows it) (e2e 2026-10-18, wg-tour phone)
+          floater: { filter: "none", transition: reduceMotion ? FLOATER_IN_REDUCED : FLOATER_IN, ...(docked ? { width: "calc(100vw - 16px)" } : {}) },
           tooltip: { padding: 0, backgroundColor: "transparent", borderRadius: 24 },
         }}
       />

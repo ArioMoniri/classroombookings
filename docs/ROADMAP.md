@@ -3725,7 +3725,10 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
 - [ ] HX-17 · frontend · "Hatırla" remember card (save only on click, undo) — after HB-D
 - [ ] HX-18 · frontend · design audit fixes M1–M8 and the minors (docs/testing/audits/2026-10-18-helper-design-audit.md) — running
 - [ ] HX-19 · motion · phone drag-to-dismiss and exit timing for the helper sheet
-- [ ] HB-21 · backend · threads-only delete (keep notes) and faculty usage as a share of the allowance — with HB-D
+- [x] HB-21 · backend · threads-only delete (keep notes) and faculty usage as a share of the allowance — with HB-D
+  done (DELETE /helper/threads: own threads + messages, notes kept, audited helper.threads_deleted, DECISIONS row event; GET /ai/faculty/usage faculty.share_of_allowance + by_department[].share_of_allowance 0..1, max of token/cost share, null without an allowance; memory.delete_threads, ai_faculty.share_of_allowance; tests/helper/test_hb_21_threads.py 1, tests/ai/test_hb_21_share.py 1; no migration; API.md "HB-D" §4–5; hb-d-2026-10-18)
+- [x] HB-D · ai-engineer · no migration · HX asks: "Bunu hatırla" confirm card, `context` on POST /helper/turn, GET /helper/actions/recent
+  done (remember.py: "bunu hatırla: …" → confirm card remember_note, 0 model calls, saved only by POST /actions/confirm (user_button) after the switches, ai_personal consent, length/count/name rules and the note injection guard (guard.check_note), audited helper.action.remember_note (no text), undo via /actions/undo; page_context.py: route checked against features.yaml + visible(), entity read-checked (room/booking/approval_request), one spotlighted page_context block, no permission effect; recent.py + GET /helper/actions/recent?limit=1..20: own invocation rows, TR/EN labels, undoable + undo_token; card schema unchanged; tests/helper/test_hb_d_asks.py 6 + 1 live smoke (skipped without ANTHROPIC_API_KEY); open: e2e on a stack (resource rule); hb-d-2026-10-18)
 - [ ] HX-12b · tester · the 12-screen simplicity audit with screenshots at 1440 and 390 — needs a stack (pod or e2e lane)
 
 **Sequence:**

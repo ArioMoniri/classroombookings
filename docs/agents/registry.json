@@ -3824,7 +3824,8 @@
       "goal": "Ledger name `hb-d-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack; `nice`, pytest on touched files); never `pkill -f`; …",
       "ledger": "HB-D: remember card, context, recent",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 11:19"
     },
     {
       "id": "a266acd34c5192a44",
@@ -3905,6 +3906,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-18 11:05",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "aa4fd5d5cfd05cfd2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:08",
       "left_off": "is the pod up yet"
     }
   ]

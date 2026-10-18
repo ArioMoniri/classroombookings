@@ -49,6 +49,15 @@
   animation: helper-check var(--dur-base, 180ms) var(--spring-bouncy-subtle, ease-out) both;
 }
 
+/* HX-18 m2: the gradient-clipped text would vanish under forced colours */
+@media (forced-colors: active) {
+  .helper-shimmer {
+    animation: none;
+    background: none;
+    -webkit-text-fill-color: CanvasText;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .helper-enter,
   .helper-check {

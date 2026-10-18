@@ -625,6 +625,22 @@
   actions: []
   since: "2026.10"
 
+- id: ai.faculty_usage
+  kind: page
+  route: /ai/faculty
+  title: {tr: Fakültemin yapay zekâ kullanımı, en: My faculty's AI usage}
+  path: {tr: [Yönetim, Fakültemin yapay zekâ kullanımı], en: [Admin, My faculty's AI usage]}
+  synonyms:
+    tr: [fakülte kotası, fakültenin yapay zeka payı, bölümlere pay dağıt, bölüm kotası, fakülte kullanımı]
+    en: [faculty quota, faculty ai allowance, split among departments, department quota, faculty usage]
+  steps:
+    tr: ["Yönetim › Fakültemin yapay zekâ kullanımı'nı açın.", "Payı bölümlere paylaştırın."]
+    en: ["Open Admin › My faculty's AI usage.", "Split the allowance among the departments."]
+  permission: [ai.usage_faculty]
+  hide_with: planning.admin
+  actions: []
+  since: "2026.10"
+
 - id: admin.integrations
   kind: page
   route: /admin/integrations

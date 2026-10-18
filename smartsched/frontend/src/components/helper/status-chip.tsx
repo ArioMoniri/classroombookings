@@ -123,7 +123,7 @@ export function StatusChip({ mode }: { mode: HelperMode }) {
     <Popover>
       <PopoverTrigger
         render={
-          <Button variant="ghost" size="sm" aria-haspopup="dialog" data-testid="helper-status" data-state={mode.state} className="h-6 gap-1.5 rounded-full bg-fill-2 px-2 type-caption font-medium">
+          <Button variant="ghost" size="sm" aria-haspopup="dialog" data-testid="helper-status" data-state={mode.state} className="h-6 gap-1.5 rounded-full bg-fill-2 px-2 type-caption font-medium pointer-coarse:min-h-0">
             <span aria-hidden className={cn("size-2 shrink-0 rounded-full forced-colors:outline forced-colors:outline-1", DOT[mode.state])} />
             {word}
           </Button>

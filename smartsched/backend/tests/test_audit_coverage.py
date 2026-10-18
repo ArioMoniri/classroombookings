@@ -473,6 +473,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/helper/notes": (N, "the person's own helper note (Bunu hatırla)"),
     "DELETE /api/v1/helper/notes/{note_id}": (N, "the person's own helper note"),
     "DELETE /api/v1/helper/notes": (N, "the person's own helper notes and history"),
+    "DELETE /api/v1/helper/threads": (E, "app.ai.helper.memory"),
     "PUT /api/v1/helper/admin/settings": (E, "app.api.v1.helper"),
     # helper telemetry (HB-14): aggregate product events of the person, no content; settings (HB-15) audited
     "POST /api/v1/helper/feedback": (N, "the person's own thumbs / note on an answer (helper_events, aggregates)"),

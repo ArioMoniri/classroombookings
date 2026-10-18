@@ -2,7 +2,7 @@ import { CalendarDays, FileUp, FolderInput, Inbox, LayoutDashboard, ListChecks, 
 import { ClipboardCheck, FolderPlus } from "lucide-react";
 import { GitCompareArrows, Grid3x3, UserCheck, Zap } from "lucide-react";
 import { Activity } from "lucide-react";
-import { Cpu } from "lucide-react";
+import { Cpu, PieChart } from "lucide-react";
 import { CalendarClock, TrendingUp } from "lucide-react";
 import { Plug } from "lucide-react";
 import { Library } from "lucide-react";
@@ -72,6 +72,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/ops", labelKey: "ops.nav", icon: Activity, permission: ["setup.settings", "planning.admin"] },
       // wave 3 W3-AI: AI providers, models per feature, usage, limits, guardrails
       { href: "/admin/ai", labelKey: "aiAdmin.nav", icon: Cpu, permission: ["setup.settings", "planning.admin"] },
+      // HX-10: a faculty's AI quota managers (ai.usage_faculty); administrators have it under /admin/ai › Limitler
+      { href: "/ai/faculty", labelKey: "helper.facultyNav", icon: PieChart, permission: "ai.usage_faculty", hideWith: "planning.admin" },
       // wave 3b W3-HUB: integrations gallery (identity, e-mail, calendar, channels, webhooks / automation, AI)
       { href: "/admin/integrations", labelKey: "integrations.nav", icon: Plug, permission: ["setup.settings", "planning.admin"] },
       // RF-05: Yönetim › Katalog — the imported instructors, courses, programmes, faculties and sections, editable

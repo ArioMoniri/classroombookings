@@ -3,7 +3,10 @@
  * HX-08 (helper.md §5.1, `helper-states.svg` C): Profil › Yardımcı — what the helper remembers, all of it visible and
  * deletable. The person's switch "Yardımcı notlarımı kullansın" (`PUT /helper/memory`), the notes (≤ 20 × ≤ 200
  * characters; "Sil" per note, "Not ekle"; the server refuses a person's name and says so), the conversation history
- * ("Son 30 günün konuşmaları saklanır", "Geçmişi sil" with a confirmation) and the plain notice. A note exists only
+ * ("Son 30 günün konuşmaları saklanır", "Sohbet geçmişini sil" with a confirmation) and the plain notice.
+ * HX-18 M7: the history button deletes the threads only and keeps the notes (HB-21 `DELETE /helper/threads`); the
+ * notes are deleted only from the notes list ("Sil" per note, "Tüm notları sil"). Until HB-21 ships
+ * (`helperCaps.threadsDelete`), the button reads "Notları ve geçmişi sil" and its dialog says the notes go too. A note exists only
  * after the person adds it here or taps "Hatırla"; the institution's switch (admin) can turn notes off for everyone.
  */
 import { Trash2 } from "lucide-react";
@@ -17,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { helperRefusal, useAddHelperNote, useDeleteAllHelperNotes, useDeleteHelperNote, useHelperMemory, useHelperNotes, useSetHelperMemory } from "@/lib/api/helper";
+import { helperCaps, helperRefusal, useAddHelperNote, useDeleteAllHelperNotes, useDeleteHelperNote, useDeleteHelperThreads, useHelperMemory, useHelperNotes, useSetHelperMemory } from "@/lib/api/helper";
 import type { Locale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 
@@ -34,6 +37,9 @@ export function HelperMemorySection() {
   const add = useAddHelperNote();
   const del = useDeleteHelperNote();
   const delAll = useDeleteAllHelperNotes();
+  const delThreads = useDeleteHelperThreads();
+  const threadsOnly = helperCaps.threadsDelete;
+  const [confirmNotes, setConfirmNotes] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirmHistory, setConfirmHistory] = useState(false);
@@ -80,14 +86,30 @@ export function HelperMemorySection() {
 
   const deleteHistory = async () => {
     try {
-      await delAll.mutateAsync({ history: true });
+      if (threadsOnly) await delThreads.mutateAsync();
+      else await delAll.mutateAsync({ history: true });
       setConfirmHistory(false);
-      toast(t("helper.memory.historyDeleted"));
-      setLive(t("helper.memory.historyDeleted"));
+      const said = t(threadsOnly ? "helper.memory.historyDeleted" : "helper.memory.historyAndNotesDeleted");
+      toast(said);
+      setLive(said);
       requestAnimationFrame(() => headingRef.current?.focus());
     } catch (err) {
       setError(refusalText(err, locale, t("helper.error.provider")));
       setConfirmHistory(false);
+    }
+  };
+
+  const deleteNotes = async () => {
+    try {
+      await delAll.mutateAsync({ history: false });
+      setConfirmNotes(false);
+      toast(t("helper.memory.allDeleted"));
+      setLive(t("helper.memory.allDeleted"));
+      // the button is gone with the notes: the note field, else the section heading (never <body>)
+      requestAnimationFrame(() => (inputRef.current && !inputRef.current.disabled ? inputRef.current : headingRef.current)?.focus());
+    } catch (err) {
+      setError(refusalText(err, locale, t("helper.error.provider")));
+      setConfirmNotes(false);
     }
   };
 
@@ -139,6 +161,11 @@ export function HelperMemorySection() {
                   ))}
                 </ul>
               )}
+              {list.length > 1 ? (
+                <Button variant="ghost" size="sm" className="-ml-2 self-start" onClick={() => setConfirmNotes(true)} data-testid="helper-notes-delete-all">
+                  {t("helper.memory.deleteAll")}
+                </Button>
+              ) : null}
               {!institutionOff ? (
                 <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-1.5" noValidate>
                   <Label htmlFor={fieldId}>{t("helper.memory.noteLabel")}</Label>
@@ -156,7 +183,7 @@ export function HelperMemorySection() {
                       placeholder={t("helper.memory.notePlaceholder")}
                       aria-invalid={error ? true : undefined}
                       aria-describedby={`${fieldId}-hint`}
-                      className="text-base sm:type-callout"
+                      className="text-base pointer-fine:sm:type-callout"
                       data-testid="helper-note-input"
                     />
                     <Button type="submit" disabled={!text.trim() || full || add.isPending} data-testid="helper-note-add">
@@ -180,7 +207,7 @@ export function HelperMemorySection() {
               <h3 className="type-headline text-label-1">{t("helper.memory.historyTitle")}</h3>
               <p className="type-callout text-label-2">{t("helper.memory.history", { days: m?.history_days ?? 30 })}</p>
               <Button variant="secondary" className="self-start" onClick={() => setConfirmHistory(true)} data-testid="helper-history-delete">
-                {t("helper.memory.deleteHistory")}
+                {t(threadsOnly ? "helper.memory.deleteHistory" : "helper.memory.deleteHistoryAndNotes")}
               </Button>
             </div>
             <p className="type-footnote text-label-2">{t("helper.memory.notice", { days: m?.history_days ?? 30 })}</p>
@@ -190,15 +217,31 @@ export function HelperMemorySection() {
       <Dialog open={confirmHistory} onOpenChange={setConfirmHistory}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("helper.memory.deleteHistoryTitle")}</DialogTitle>
-            <DialogDescription>{t("helper.memory.deleteHistoryBody", { days: m?.history_days ?? 30 })}</DialogDescription>
+            <DialogTitle>{t(threadsOnly ? "helper.memory.deleteHistoryTitle" : "helper.memory.deleteHistoryAndNotesTitle")}</DialogTitle>
+            <DialogDescription>{t(threadsOnly ? "helper.memory.deleteHistoryBody" : "helper.memory.deleteHistoryAndNotesBody", { days: m?.history_days ?? 30 })}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setConfirmHistory(false)}>
               {t("helper.card.cancel")}
             </Button>
-            <Button variant="destructive" onClick={() => void deleteHistory()} disabled={delAll.isPending} data-testid="helper-history-confirm">
-              {t("helper.memory.deleteHistory")}
+            <Button variant="destructive" onClick={() => void deleteHistory()} disabled={delAll.isPending || delThreads.isPending} data-testid="helper-history-confirm">
+              {t(threadsOnly ? "helper.memory.deleteHistory" : "helper.memory.deleteHistoryAndNotes")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={confirmNotes} onOpenChange={setConfirmNotes}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("helper.memory.deleteAllTitle")}</DialogTitle>
+            <DialogDescription>{t("helper.memory.deleteAllBody", { n: list.length })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmNotes(false)}>
+              {t("helper.card.cancel")}
+            </Button>
+            <Button variant="destructive" onClick={() => void deleteNotes()} disabled={delAll.isPending} data-testid="helper-notes-delete-all-confirm">
+              {t("helper.memory.deleteAll")}
             </Button>
           </DialogFooter>
         </DialogContent>

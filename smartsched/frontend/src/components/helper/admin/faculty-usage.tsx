@@ -2,6 +2,8 @@
 /**
  * HX-10 (ROADMAP HX-10; backend HB-10 / HB-11 `GET /ai/faculty/usage`, `PUT /ai/faculty/allocations`): the faculty
  * manager's view (`ai.usage_faculty`, or an admin). Totals, departments and the trend in sentences (no KPI wall),
+ * led by the share of the allowance and the requests; the word "token" never shows, the raw counts are "yapay zekâ
+ * birimi" under "Gelişmiş" and in the split editor's label (HX-18 M8),
  * people only when the faculty shows them, and "Bölümlere paylaştır": the department split is checked against the
  * faculty's allowance before saving, and the server's 422 message is shown inline.
  */
@@ -18,6 +20,12 @@ import { helperRefusal, useFacultyUsage, useSaveFacultyAllocations, type Faculty
 import { intlLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 
+/** Whole per cent of `used` against `of` (null when there is no allowance). */
+export function percentOf(used: number, of: number | null | undefined): number | null {
+  if (!of || of <= 0) return null;
+  return Math.round((used / of) * 100);
+}
+
 /** The department split's total and whether it fits the faculty's monthly allowance (null = no allowance). */
 export function shareCheck(split: Record<string, number | null>, allowance: number | null | undefined): { sum: number; over: boolean } {
   const sum = Object.values(split).reduce<number>((a, v) => a + (v ?? 0), 0);
@@ -31,6 +39,10 @@ function Split({ data }: { data: Usage }) {
   const [error, setError] = useState<string | null>(null);
   const allowance = data.allocation?.monthly_tokens ?? null;
   const { sum, over } = shareCheck(split, allowance);
+  const deptLine = (d: Usage["by_department"][number]) => {
+    const pct = percentOf(d.tokens, d.allocation?.monthly_tokens);
+    return pct === null ? t("helper.faculty.deptRowNoShare", { calls: n(d.calls) }) : t("helper.faculty.deptRow", { calls: n(d.calls), pct: n(pct) });
+  };
   const submit = async () => {
     if (!data.faculty || over) return;
     setError(null);
@@ -50,7 +62,7 @@ function Split({ data }: { data: Usage }) {
           <li key={d.id} className="grid items-center gap-1.5 sm:grid-cols-[1fr_12rem]" data-testid={`faculty-row-${d.id}`}>
             <Label htmlFor={`fa-${d.id}`} className="flex flex-col items-start">
               <span>{d.name}</span>
-              <span className="type-footnote font-normal text-label-2">{t("helper.faculty.deptRow", { tokens: n(d.tokens) })}</span>
+              <span className="type-footnote font-normal text-label-2">{deptLine(d)}</span>
             </Label>
             <Input
               id={`fa-${d.id}`}
@@ -60,7 +72,7 @@ function Split({ data }: { data: Usage }) {
               aria-label={`${d.name}: ${t("helper.faculty.deptShare")}`}
               value={split[String(d.id)] ?? ""}
               onChange={(e) => setSplit((p) => ({ ...p, [String(d.id)]: e.target.value === "" ? null : Math.max(0, Math.round(Number(e.target.value))) }))}
-              className="text-base sm:type-callout"
+              className="text-base pointer-fine:sm:type-callout"
             />
           </li>
         ))}
@@ -80,10 +92,15 @@ function Split({ data }: { data: Usage }) {
 
 export function FacultyUsageView() {
   const { t, locale, n } = useI18n();
+  const totalLine = (u: Usage) => {
+    const pct = percentOf(u.totals.tokens, u.allocation?.monthly_tokens);
+    return pct === null ? t("helper.faculty.totalNoShare", { calls: n(u.totals.calls) }) : t("helper.faculty.total", { pct: n(pct), calls: n(u.totals.calls) });
+  };
   const [facultyId, setFacultyId] = useState<number | null>(null);
   const q = useFacultyUsage(facultyId);
   const d = q.data;
   const refusal = q.error ? helperRefusal(q.error) : null;
+  const [advanced, setAdvanced] = useState(false);
   const busiest = d?.trend.reduce<{ day: string; tokens: number } | null>((a, x) => (!a || x.tokens > a.tokens ? x : a), null);
   const topFeature = d?.by_feature.slice().sort((a, b) => b.tokens - a.tokens)[0];
   return (
@@ -112,16 +129,27 @@ export function FacultyUsageView() {
             <p className="type-headline text-label-1">{d.faculty.name}</p>
           ) : null}
           <div className="flex flex-col gap-1 type-callout text-label-1">
-            <p data-testid="faculty-total">{t("helper.faculty.total", { tokens: n(d.totals.tokens), calls: n(d.totals.calls) })}</p>
-            <p className="text-label-2">{d.allocation?.monthly_tokens ? t("helper.faculty.allocation", { tokens: n(d.allocation.monthly_tokens) }) : t("helper.faculty.noAllocation")}</p>
+            <p data-testid="faculty-total">{totalLine(d)}</p>
+            {d.allocation?.monthly_tokens ? null : <p className="text-label-2">{t("helper.faculty.noAllocation")}</p>}
             {busiest && busiest.tokens > 0 ? (
               <p className="text-label-2">
-                {t("helper.faculty.trend", { day: new Intl.DateTimeFormat(intlLocale(locale), { day: "numeric", month: "long" }).format(new Date(busiest.day)), tokens: n(busiest.tokens) })}
+                {t("helper.faculty.trend", { day: new Intl.DateTimeFormat(intlLocale(locale), { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(busiest.day)) })}
               </p>
             ) : null}
             {topFeature ? <p className="text-label-2">{t("helper.faculty.features", { feature: (locale === "en" ? topFeature.label_en : topFeature.label_tr) ?? topFeature.feature })}</p> : null}
           </div>
           {d.faculty && d.by_department.length ? <Split key={d.faculty.id} data={d} /> : null}
+          <div className="flex flex-col gap-1">
+            <Button variant="ghost" size="sm" className="-ml-2 self-start" aria-expanded={advanced} onClick={() => setAdvanced((v) => !v)} data-testid="faculty-advanced">
+              {t("helper.faculty.advanced")}
+            </Button>
+            {advanced ? (
+              <div className="flex flex-col gap-1 type-callout text-label-2" data-testid="faculty-units">
+                <p>{d.allocation?.monthly_tokens ? t("helper.faculty.units", { used: n(d.totals.tokens), max: n(d.allocation.monthly_tokens) }) : t("helper.faculty.unitsNoShare", { used: n(d.totals.tokens) })}</p>
+                <p className="type-footnote">{t("helper.faculty.unitsHint")}</p>
+              </div>
+            ) : null}
+          </div>
           {d.show_people && d.people?.length ? (
             <div className="flex flex-col gap-1">
               <h3 className="type-headline text-label-1">{t("helper.faculty.people")}</h3>
@@ -129,7 +157,8 @@ export function FacultyUsageView() {
                 {d.people.map((p, i) => (
                   <li key={i} className="py-1 not-last:edge-hairline-b">
                     {p.label}
-                    {p.department ? <span className="text-label-2"> · {p.department}</span> : null} · {t("helper.faculty.deptRow", { tokens: n(p.tokens) })}
+                    {p.department ? <span className="text-label-2"> · {p.department}</span> : null}
+                    {d.totals.tokens > 0 ? <span className="text-label-2"> · {t("helper.faculty.personRow", { pct: n(percentOf(p.tokens, d.totals.tokens) ?? 0) })}</span> : null}
                   </li>
                 ))}
               </ul>

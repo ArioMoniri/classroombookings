@@ -5,8 +5,12 @@
  * this person may not open, renders nothing (double filter). Buttons: "Göster" (an anchor exists), "Sayfayı aç",
  * and "Burada yap" when the entry has an action this person may run here. Hand-overs keep the page's own dialog:
  * the calendar entry reads "Takvimime ekle", the invite entry "Davet penceresini aç".
+ *
+ * `compact` (Rehber modu hits, the index rows of a limit / refusal / error card): one 44 px row (56 px on phones) like
+ * the palette's rows: icon, title, grey path and a trailing "Göster" hint. A tap does "Göster" when the control has an
+ * anchor, else opens the page. No buttons inside, so a list of hits is not a wall of primaries (HX-18 M4).
  */
-import { ChevronDown, MapPin } from "lucide-react";
+import { ChevronDown, ChevronRight, MapPin } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { trackHelper } from "@/lib/api/helper";
@@ -38,6 +42,28 @@ export function NavView({ card, compact = false }: { card: NavCard; compact?: bo
   const anchor = card.anchor ?? entry.anchor;
   const doHere = (card.actions ?? []).find((a) => DO_HERE.includes(a) && (!host.actions || host.actions.has(a)));
   const openLabel = HANDOVER_LABEL[card.feature_id] ? t(HANDOVER_LABEL[card.feature_id]!) : t("helper.where.open");
+  const open = () => {
+    trackHelper({ kind: "nav_click", feature_id: card.feature_id });
+    host.go(href);
+  };
+  if (compact) {
+    return (
+      <Button
+        variant="ghost"
+        shape="rect"
+        onClick={() => (anchor ? host.showMe(card.feature_id) : open())}
+        className="h-auto min-h-11 w-full justify-start gap-3 px-3 py-1.5 text-left whitespace-normal max-sm:min-h-14"
+        data-testid={`helper-nav-row-${card.feature_id}`}
+      >
+        <MapPin aria-hidden className="size-4 shrink-0 text-label-2" />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate font-medium text-label-1">{title}</span>
+          {path ? <span className="truncate type-footnote text-label-2">{path}</span> : null}
+        </span>
+        {anchor ? <span className="shrink-0 pl-2 type-footnote text-label-2">{t("helper.palette.showHint")}</span> : <ChevronRight aria-hidden className="size-4 shrink-0 text-label-2" />}
+      </Button>
+    );
+  }
   return (
     <HelperCardFrame
       testId={`helper-card-nav${card.action ? `-${card.action}` : ""}`}
@@ -47,7 +73,6 @@ export function NavView({ card, compact = false }: { card: NavCard; compact?: bo
           {title}
         </span>
       }
-      className={cn(compact && "p-3")}
       actions={
         <>
           {anchor ? (
@@ -55,10 +80,7 @@ export function NavView({ card, compact = false }: { card: NavCard; compact?: bo
               {t("helper.where.show")}
             </Button>
           ) : null}
-          <Button size="md" variant={anchor ? "secondary" : "default"} onClick={() => {
-              trackHelper({ kind: "nav_click", feature_id: card.feature_id });
-              host.go(href);
-            }} data-testid="helper-card-secondary">
+          <Button size="md" variant={anchor ? "secondary" : "default"} onClick={open} data-testid="helper-card-secondary">
             {openLabel}
           </Button>
           {doHere ? (

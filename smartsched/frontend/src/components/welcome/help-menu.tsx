@@ -4,7 +4,7 @@
  * listesi 2 / 5", "Yenilikler"; the existing "Klavye kısayolları" entry stays where it is), the ⌘K commands, and the
  * phone "Daha" rows (the checklist as the first row, 92 px, then the help rows).
  *
- * `assistant`: a slot at the top of the group for the "Ara veya sor…" AI helper, designed separately (not built here).
+ * `assistant`: a slot at the top of the group for the AI helper's "Yardımcıya sor" row (components/shell/ask-helper.tsx).
  */
 import { ListChecks, Megaphone, RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
@@ -104,7 +104,8 @@ export function DrawerWelcomeRows({ onNavigate, assistant }: { onNavigate?: () =
   const hydrated = useHydrated();
   const actions = useWelcomeActions();
   const model = useChecklistModel();
-  if (!hydrated || (!model && !actions.available)) return null;
+  // the helper row (`assistant`) keeps the Yardım group even when the guide is off
+  if (!hydrated || (!model && !actions.available && !assistant)) return null;
   const run = (fn: () => void) => () => {
     onNavigate?.();
     // after the drawer's close, so the next sheet is not opened inside a closing one

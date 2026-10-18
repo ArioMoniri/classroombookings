@@ -40,6 +40,7 @@ import { RunProfileLine } from "./run-profile";
 import { ResolveRunButton } from "./resolve-run";
 import { isBaselineRun } from "@/lib/api/council";
 import { PublishRunButton } from "./publish-run";
+import { chatPrefill, publishRequested } from "@/lib/handover";
 import { BROKEN_RULE_TR, brokenText, problemCount, runIssueCounts, runOutcome, runTruth, summaryExtras, verdictExceptions, waiverOf, type RunOutcome, type RunTruth, type VerdictException } from "./run-truth";
 import { useCalendarIndex } from "@/lib/api/calendar";
 
@@ -231,7 +232,9 @@ export function RunView({ id }: { id: number }) {
   const { t, n, locale } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
-  const tab = params.get("tab") ?? "report";
+  // HX-06 hand-overs: `?chat=` prefills the run chat (and shows its tab below xl), `?publish=1` opens the dialog
+  const chatDraft = chatPrefill(params);
+  const tab = params.get("tab") ?? (chatDraft ? "chat" : "report");
   const run = useRun(id);
   const canPlan = usePermissions().can("planning.edit");
   const applyFix = useApplyFix(id);
@@ -375,7 +378,7 @@ export function RunView({ id }: { id: number }) {
                   // mobile-b phase 2: touch tablets (768, coarse pointer, below lg) get the same capsule
                   <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:pointer-events-none max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-sm:z-30 max-sm:mt-0 max-sm:justify-end max-sm:px-4 max-lg:pointer-coarse:pointer-events-none max-lg:pointer-coarse:fixed max-lg:pointer-coarse:inset-x-0 max-lg:pointer-coarse:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-lg:pointer-coarse:z-30 max-lg:pointer-coarse:mt-0 max-lg:pointer-coarse:justify-end max-lg:pointer-coarse:px-4" data-testid="run-publish-row">
                     <div className="max-sm:pointer-events-auto max-sm:rounded-full max-sm:bg-(--mat-thick-solid) max-sm:p-1 max-sm:shadow-elev-3 max-sm:edge-hairline max-sm:[&_button]:min-h-11 max-sm:[&_button]:rounded-full max-sm:[&_button]:px-5 max-lg:pointer-coarse:pointer-events-auto max-lg:pointer-coarse:rounded-full max-lg:pointer-coarse:bg-(--mat-thick-solid) max-lg:pointer-coarse:p-1 max-lg:pointer-coarse:shadow-elev-3 max-lg:pointer-coarse:edge-hairline max-lg:pointer-coarse:[&_button]:min-h-11 max-lg:pointer-coarse:[&_button]:rounded-full max-lg:pointer-coarse:[&_button]:px-5">
-                      <PublishRunButton run={r} published={publishedId} exceptions={truth ? [] : exceptions} truth={truth} />
+                      <PublishRunButton run={r} published={publishedId} exceptions={truth ? [] : exceptions} truth={truth} autoOpen={publishRequested(params, r.id)} />
                     </div>
                   </div>
                 ) : null}
@@ -553,11 +556,11 @@ export function RunView({ id }: { id: number }) {
                 </Card>
               </TabsContent>
               <TabsContent value="chat" className="pt-4 xl:hidden">
-                <ChatPanel runId={r.id} className="h-[70dvh]" />
+                <ChatPanel runId={r.id} className="h-[70dvh]" prefill={chatDraft} />
               </TabsContent>
             </Tabs>
             <div className="hidden xl:block">
-              <ChatPanel runId={r.id} className="sticky top-16 h-[calc(100dvh-120px)]" />
+              <ChatPanel runId={r.id} className="sticky top-16 h-[calc(100dvh-120px)]" prefill={chatDraft} />
             </div>
           </div>
         </>

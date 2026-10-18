@@ -277,6 +277,32 @@ async def delete_all(session: AsyncSession, user: User, *, history: bool = False
     return out
 
 
+async def delete_threads(session: AsyncSession, user: User) -> dict[str, int]:
+    """ "Geçmişi sil" alone (HB-21): the person's chat threads and their messages; the memory notes stay. One
+    ``helper.threads_deleted`` audit row with the counts (no text); commits."""
+    from app.services import audit
+
+    res = await session.execute(
+        delete(HelperMessage).where(HelperMessage.user_id == user.id).execution_options(synchronize_session=False)
+    )
+    messages = int(getattr(res, "rowcount", 0) or 0)
+    res = await session.execute(
+        delete(HelperThread).where(HelperThread.user_id == user.id).execution_options(synchronize_session=False)
+    )
+    threads = int(getattr(res, "rowcount", 0) or 0)
+    kept = (await session.execute(select(func.count(HelperNote.id)).where(HelperNote.user_id == user.id))).scalar_one()
+    await audit.record(
+        session,
+        "helper.threads_deleted",
+        "helper_thread",
+        user.id,
+        after={"threads": threads, "messages": messages, "via": "helper"},
+        actor=user,
+    )
+    await session.commit()
+    return {"threads": threads, "messages": messages, "notes_kept": int(kept)}
+
+
 async def on_ai_personal_withdrawn(session: AsyncSession, user_id: int) -> int:
     """``kvkk.withdraw(ai_personal)``: delete the notes and turn the person's memory off (no commit: the caller's)."""
     async with rls.system_scope(session):
@@ -437,6 +463,7 @@ __all__ = [
     "check_note",
     "delete_all",
     "delete_note",
+    "delete_threads",
     "dsr_rows",
     "erase",
     "list_notes",

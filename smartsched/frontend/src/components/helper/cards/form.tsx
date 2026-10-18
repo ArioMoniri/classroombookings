@@ -3,8 +3,9 @@
  * HX-04 / HX-05 (helper.md §4.2, A1): the mini `form` (missing or ambiguous arguments of a write, or "Değiştir" on a
  * confirm card). At most 5 fields are visible, the rest behind "Gelişmiş"; native inputs with 16 px text on touch;
  * the options of room / period / reason fields come from the pages' own endpoints (`options_source`). Submitting
- * asks the action's card again (no model call): an R1 write's button names the effect ("Rezerve et") and leads to
- * the confirm card; an R2 write's reads "Önizle".
+ * asks the action's card again (no model call), so the button never names the effect: an R1 write's reads "Devam",
+ * an R2 write's "Önizle"; the effect verb lives only on the confirm card (HX-18 M5). The first field is the focus
+ * target when the card appears (m14), and the missing fields point at the error line (m5).
  */
 import { useQuery } from "@tanstack/react-query";
 import { useId, useMemo, useState, type FormEvent } from "react";
@@ -16,12 +17,12 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { crbs } from "@/lib/api/crbs";
 import type { ActionArgs } from "@/lib/api/helper";
-import type { MessageKey } from "@/lib/i18n";
+import { translate, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import type { CardEntry } from "../helper-store";
 import type { ConfirmCard, FormCard, FormField } from "../schema.gen";
 import { pickText, useCardHost } from "./context";
-import { HelperCardFrame } from "./frame";
+import { CancelledLine, HelperCardFrame } from "./frame";
 
 export const VISIBLE_FIELDS = 5;
 
@@ -43,21 +44,22 @@ let localSeq = 0;
 export function formFromConfirm(card: ConfirmCard): FormCard | null {
   if (card.action !== "create_booking") return null;
   const a = card.args ?? {};
-  const txt = (tr: string, en: string) => ({ tr, en });
+  // HX-18 m4: both languages from the message keys
+  const txt = (key: MessageKey) => ({ tr: translate("tr", key), en: translate("en", key) });
   localSeq += 1;
   return {
     v: 1,
     type: "form",
     id: `${Date.now().toString(16)}${localSeq.toString(16)}`.slice(0, 32).padEnd(8, "0"),
     action: "create_booking",
-    title: card.title ?? txt("Rezervasyon", "Booking"),
+    title: card.title ?? txt("helper.form.fields.title"),
     risk: "R1",
     missing: [],
     fields: [
-      { name: "room", label: txt("Salon", "Room"), kind: "room", required: true, value: a.room ?? null, options_source: "rooms", options: [] },
-      { name: "date", label: txt("Tarih", "Date"), kind: "date", required: true, value: a.date ?? null, options: [] },
-      { name: "period_id", label: txt("Ders saati", "Period"), kind: "period", required: true, value: a.period_id ?? null, options_source: "periods", options: [] },
-      { name: "notes", label: txt("Amaç", "Purpose"), kind: "text", required: false, value: a.notes ?? null, max_length: 255, options: [] },
+      { name: "room", label: txt("helper.form.fields.room"), kind: "room", required: true, value: a.room ?? null, options_source: "rooms", options: [] },
+      { name: "date", label: txt("helper.form.fields.date"), kind: "date", required: true, value: a.date ?? null, options: [] },
+      { name: "period_id", label: txt("helper.form.fields.period"), kind: "period", required: true, value: a.period_id ?? null, options_source: "periods", options: [] },
+      { name: "notes", label: txt("helper.form.fields.notes"), kind: "text", required: false, value: a.notes ?? null, max_length: 255, options: [] },
     ],
   };
 }
@@ -80,7 +82,7 @@ function usePeriodOptions(roomId: number, date: string, enabled: boolean) {
   });
 }
 
-function FieldInput({ field, value, onChange, values, invalid }: { field: FormField; value: Value; onChange: (v: Value) => void; values: Record<string, Value>; invalid: boolean }) {
+function FieldInput({ field, value, onChange, values, invalid, errorId, first }: { field: FormField; value: Value; onChange: (v: Value) => void; values: Record<string, Value>; invalid: boolean; errorId: string; first: boolean }) {
   const { t } = useI18n();
   const host = useCardHost();
   const id = useId();
@@ -88,10 +90,17 @@ function FieldInput({ field, value, onChange, values, invalid }: { field: FormFi
   const rooms = useRoomOptions(field.options_source === "rooms");
   const periods = usePeriodOptions(Number(values.room) || 0, String(values.date ?? ""), field.options_source === "periods");
   const options = field.options ?? [];
-  const common = { id, "aria-invalid": invalid || undefined, required: field.required, "data-testid": `helper-field-${field.name}` };
+  const common = {
+    id,
+    "aria-invalid": invalid || undefined,
+    "aria-describedby": invalid ? errorId : undefined,
+    required: field.required,
+    "data-testid": `helper-field-${field.name}`,
+    "data-focus-target": first ? "" : undefined,
+  };
   let control;
   if (field.kind === "toggle") {
-    control = <Switch id={id} checked={value === true} onCheckedChange={(v) => onChange(v)} aria-label={label} data-testid={`helper-field-${field.name}`} />;
+    control = <Switch id={id} checked={value === true} onCheckedChange={(v) => onChange(v)} aria-label={label} data-testid={`helper-field-${field.name}`} data-focus-target={first ? "" : undefined} />;
   } else if (field.kind === "textarea") {
     control = <Textarea {...common} value={String(value ?? "")} maxLength={field.max_length ?? undefined} onChange={(e) => onChange(e.target.value)} />;
   } else if (field.kind === "room" || field.kind === "period" || field.kind === "select" || options.length) {
@@ -138,6 +147,7 @@ export function FormView({ card, entry }: { card: FormCard; entry: CardEntry }) 
   const [values, setValues] = useState<Record<string, Value>>(() => initial(card));
   const [advanced, setAdvanced] = useState(false);
   const [tried, setTried] = useState(false);
+  const errorId = useId();
   const open = entry.phase === "pending";
   const visible = card.fields.slice(0, VISIBLE_FIELDS);
   const more = card.fields.slice(VISIBLE_FIELDS);
@@ -155,8 +165,10 @@ export function FormView({ card, entry }: { card: FormCard; entry: CardEntry }) 
     void host.runner.runAction(card.action, args, { hints: entry.hints, replaces: entry.key });
   };
   const verb = host.actionVerb(card.action);
-  const primary = card.risk === "R2" ? t("helper.form.preview") : verb ?? t("helper.form.continue");
-  const field = (f: FormField) => <FieldInput key={f.name} field={f} value={values[f.name] ?? ""} values={values} invalid={tried && missing.includes(f.name)} onChange={(v) => setValues((p) => ({ ...p, [f.name]: v }))} />;
+  const primary = card.risk === "R2" ? t("helper.form.preview") : t("helper.form.continue");
+  const field = (f: FormField) => (
+    <FieldInput key={f.name} field={f} value={values[f.name] ?? ""} values={values} invalid={tried && missing.includes(f.name)} errorId={errorId} first={open && f === card.fields[0]} onChange={(v) => setValues((p) => ({ ...p, [f.name]: v }))} />
+  );
   return (
     <HelperCardFrame testId={`helper-card-form-${card.action}`} title={card.title ? pickText(card.title, host.locale) : verb ?? undefined}>
       {card.message ? <p className="type-callout text-label-2">{pickText(card.message, host.locale)}</p> : null}
@@ -173,10 +185,11 @@ export function FormView({ card, entry }: { card: FormCard; entry: CardEntry }) 
           ) : null}
         </fieldset>
         {tried && missing.length ? (
-          <p role="alert" className="type-footnote text-status-infeasible-fg">
+          <p id={errorId} role="alert" className="type-footnote text-status-infeasible-fg">
             {t("helper.form.missing")}
           </p>
         ) : null}
+        {entry.phase === "cancelled" ? <CancelledLine /> : null}
         {open ? (
           <div className="flex flex-wrap gap-2 max-sm:flex-col max-sm:items-stretch">
             <Button type="submit" size="md" className="max-sm:h-12" data-testid="helper-form-submit">

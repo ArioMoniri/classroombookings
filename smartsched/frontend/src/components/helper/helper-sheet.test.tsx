@@ -126,7 +126,7 @@ describe("helper sheet", () => {
     expect(screen.queryByTestId("helper-composer")).toBeNull();
     expect(screen.getByTestId("helper-guide")).toHaveTextContent("Rehber modu");
     fireEvent.change(field, { target: { value: "tatil" } });
-    expect(await screen.findByTestId("helper-card-nav")).toHaveTextContent("Tatiller");
+    expect(await screen.findByTestId("helper-nav-row-admin.holidays")).toHaveTextContent("Tatiller");
     expect(stream).not.toHaveBeenCalled();
     expect(screen.getByTestId("helper-status")).toHaveTextContent("Yapay zekâ kapalı");
   });

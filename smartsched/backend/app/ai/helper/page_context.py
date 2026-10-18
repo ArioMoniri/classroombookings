@@ -80,7 +80,8 @@ def match_route(route: str, perms: Any) -> FeatureEntry | None:
                 return with_hash[0]
         same = [e for e in entries if e.route == p]
         pages = [e for e in same if e.kind == "page"]
-        return (pages or same or [None])[0]
+        found = pages or same
+        return found[0] if found else None
 
     hit = best(path)
     if hit is None:

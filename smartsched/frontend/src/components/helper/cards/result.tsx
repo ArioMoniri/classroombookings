@@ -2,13 +2,15 @@
 /**
  * HX-04 (helper.md §4.1 rule 6, §4.4, A7): the `result` card. A check, one line (the focus moves to it after the
  * button, and the log's polite live region reads it), "Aç" for the object, "Geri al" while the undo token is valid,
- * and at most 2 follow-up chips (an action with partial args, or a page).
+ * and at most 2 follow-up chips (an action with partial args, or a page). The disc's glyph is `--mat-thick-solid`
+ * (white in light, the sheet's dark in dark): white on the dark theme's light green / red was 1.7–2.0:1 (HX-18 M3).
  */
 import { Check, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { useI18n } from "@/lib/i18n/provider";
+import { cn } from "@/lib/utils";
 import { featureHref } from "../feature-links";
 import type { CardEntry } from "../helper-store";
 import type { ResultCard } from "../schema.gen";
@@ -36,7 +38,16 @@ export function ResultView({ card, entry }: { card: ResultCard; entry: CardEntry
               </Button>
             ) : null}
             {undoOpen ? (
-              <Button size="md" variant="ghost" disabled={busy} aria-busy={busy || undefined} onClick={(e) => void host.runner.undo(entry, e)} data-testid="helper-card-undo">
+              <Button
+                size="md"
+                variant="ghost"
+                aria-disabled={busy || undefined}
+                aria-busy={busy || undefined}
+                onClick={(e) => {
+                  if (!busy) void host.runner.undo(entry, e);
+                }}
+                data-testid="helper-card-undo"
+              >
                 {busy ? t("busy.working") : t("helper.card.undo")}
               </Button>
             ) : null}
@@ -45,7 +56,7 @@ export function ResultView({ card, entry }: { card: ResultCard; entry: CardEntry
       }
     >
       <p tabIndex={-1} data-focus-target="" data-testid="helper-card-result" className="flex items-start gap-2 type-body text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-(--focus) rounded-sm">
-        <span aria-hidden className={card.ok ? "helper-check mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-status-feasible-fg text-white" : "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-status-infeasible-fg text-white"}>
+        <span aria-hidden className={cn("mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-(--mat-thick-solid)", card.ok ? "helper-check bg-status-feasible-fg" : "bg-status-infeasible-fg")}>
           {card.ok ? <Check className="size-3.5 stroke-[3]" /> : <X className="size-3.5 stroke-[3]" />}
         </span>
         <span>

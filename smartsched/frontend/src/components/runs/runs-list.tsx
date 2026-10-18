@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { publishForward } from "@/lib/handover";
 import { PageHeader } from "@/components/common/page-header";
 import { CompareEntry } from "@/components/compare/compare-entry";
 import type { StatusKind } from "@/components/common/status-badge";
@@ -78,6 +79,12 @@ export function runDotTone(r: ScheduleRun): "feasible" | "warning" | "infeasible
 export function RunsList() {
   const { t, locale } = useI18n();
   const router = useRouter();
+  // HX-06 hand-over: /runs?publish=<id> forwards to that run's page with its publish dialog open (read from the
+  // address once; this page has no Suspense boundary for useSearchParams)
+  useEffect(() => {
+    const to = publishForward(new URLSearchParams(window.location.search));
+    if (to) router.replace(to);
+  }, [router]);
   const { term } = useActiveTerm();
   const me = useMe();
   const runs = useRuns(term ? { term_id: term.id } : undefined);

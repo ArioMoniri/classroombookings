@@ -13,6 +13,7 @@ let notes = [{ id: 7, text: "Tercih edilen bina: B blok", source: "user_confirme
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  helperCaps.threadsDelete = false;
   notes = [{ id: 7, text: "Tercih edilen bina: B blok", source: "user_confirmed", created_at: null, last_used_at: null, expires_at: null }];
   vi.spyOn(helperApi, "memory").mockImplementation(async () => mem({ notes: notes.length }));
   vi.spyOn(helperApi, "notes").mockImplementation(async () => notes);
@@ -98,6 +99,7 @@ describe("Profil › Yardımcı", () => {
   });
 
   it("HX-18 M7: Tüm notları sil (notes list) asks first, deletes only the notes and keeps the focus on the page", async () => {
+    notes = [...notes, { id: 9, text: "Varsayılan süre: 2 ders saati", source: "user_confirmed", created_at: null, last_used_at: null, expires_at: null }];
     const all = vi.spyOn(helperApi, "deleteAll").mockImplementation(async () => {
       notes = [];
       return { notes: 1, threads: 0 };
@@ -105,9 +107,16 @@ describe("Profil › Yardımcı", () => {
     renderHelper(<HelperMemorySection />);
     fireEvent.click(await screen.findByTestId("helper-notes-delete-all"));
     expect(await screen.findByRole("dialog")).toHaveTextContent("Tüm notlarınız silinsin mi?");
+    expect(screen.getByRole("dialog")).toHaveTextContent("Konuşma geçmişiniz kalır.");
     fireEvent.click(screen.getByTestId("helper-notes-delete-all-confirm"));
     await waitFor(() => expect(all).toHaveBeenCalledWith(false));
     await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+  });
+
+  it("HX-18 M7: with one note only its own Sil shows (no second delete control)", async () => {
+    renderHelper(<HelperMemorySection />);
+    expect(await screen.findByTestId("helper-note-delete-7")).toBeInTheDocument();
+    expect(screen.queryByTestId("helper-notes-delete-all")).toBeNull();
   });
 
   it("HX-18 m3: the note field stays 16 px on a touch tablet", async () => {

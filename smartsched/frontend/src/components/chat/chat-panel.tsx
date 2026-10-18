@@ -222,7 +222,7 @@ function Thinking() {
   );
 }
 
-export function ChatPanel({ runId, className }: { runId: number; className?: string }) {
+export function ChatPanel({ runId, className, prefill = null }: { runId: number; className?: string; /** HX-06 `?chat=`: the composer's draft, never sent by itself */ prefill?: string | null }) {
   const { t, locale } = useI18n();
   const chat = useChat(runId);
   const send = useSendChat(runId, locale === "en" ? "en" : "tr");
@@ -320,6 +320,7 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
           sendLabel={t("chat.send")}
           suggestions={messages.length === 0 && !noKey ? STARTERS[pairLang(locale)] : undefined}
           leading={<MicButton target="chat" disabled={noKey || send.isPending || streaming} />}
+          initialDraft={prefill ?? ""}
         />
         <AiNotice className="mt-2" />
       </div>

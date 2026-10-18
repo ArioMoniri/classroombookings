@@ -10,6 +10,7 @@ import { NavList } from "./sidebar";
 import { TermSwitcher } from "./term-switcher";
 import { ThemeToggle } from "./theme-toggle";
 import { DrawerWelcomeRows } from "@/components/welcome";
+import { AskHelperDrawerRow } from "./ask-helper";
 
 /** "More" on phones: every destination in a bottom sheet (inset, grabber), grouped like the sidebar. */
 export function MobileDrawer() {
@@ -29,7 +30,7 @@ export function MobileDrawer() {
           <TermSwitcher collapsed={false} />
         </div>
         {/* WG-06: the "Başlarken" row first, then Yardım */}
-        <DrawerWelcomeRows onNavigate={() => setOpen(false)} />
+        <DrawerWelcomeRows onNavigate={() => setOpen(false)} assistant={<AskHelperDrawerRow onNavigate={() => setOpen(false)} />} />
         <nav aria-label={t("glass.shell.primary")} className="scrollbar-thin flex max-h-[55dvh] flex-col gap-4 overflow-y-auto px-2 pb-3 [&_a]:h-11">
           <NavList collapsed={false} onNavigate={() => setOpen(false)} />
         </nav>

@@ -31,6 +31,7 @@ const limits = {
   faculties: { "3": { monthly_tokens: 100000, monthly_cost_usd: 0, managers: [41], show_people: false } },
   departments: { "11": { monthly_tokens: 60000, monthly_cost_usd: 0 }, "99": { monthly_tokens: 5000, monthly_cost_usd: 0 } },
   strict: false,
+  warnings: [],
 } as unknown as Limits;
 
 const usage: FacultyUsage = {
@@ -64,7 +65,7 @@ const openDetails = async (name: string) => {
 describe("Fakülteler (admin allocation editor)", () => {
   it("lists every faculty with its allowance in words", async () => {
     renderHelper(<FacultyLimits data={limits} canEdit />);
-    expect(await screen.findByLabelText("Eczacılık Fakültesi: aylık pay (token)")).toHaveValue("100000");
+    expect(await screen.findByLabelText("Eczacılık Fakültesi: aylık pay (yapay zekâ birimi)")).toHaveValue("100000");
     expect(screen.getByTestId("faculty-limit-4")).toHaveTextContent("Pay yok: kurumun bütçesinden kullanır.");
     // advanced options stay closed
     expect(screen.getByTestId("faculty-limits-advanced")).not.toHaveAttribute("open");
@@ -74,10 +75,10 @@ describe("Fakülteler (admin allocation editor)", () => {
     const save = vi.spyOn(aiAdminApi, "saveLimits").mockResolvedValue(limits);
     renderHelper(<FacultyLimits data={limits} canEdit />);
     const row = await openDetails("3");
-    expect(await within(row).findByText("Bu ay 42.000 token kullanıldı.")).toBeInTheDocument();
-    fireEvent.change(within(row).getByLabelText("Farmasötik Kimya: aylık pay (token)"), { target: { value: "30000" } });
-    expect(within(row).getByTestId("faculty-limit-sum-3")).toHaveTextContent("Bölümlere toplam 90.000 / 100.000 token.");
-    fireEvent.change(screen.getByLabelText("Tıp Fakültesi: aylık pay (token)"), { target: { value: "200000" } });
+    expect(await within(row).findByText("Bu ay 42.000 birim kullanıldı.")).toBeInTheDocument();
+    fireEvent.change(within(row).getByLabelText("Farmasötik Kimya: aylık pay (yapay zekâ birimi)"), { target: { value: "30000" } });
+    expect(within(row).getByTestId("faculty-limit-sum-3")).toHaveTextContent("Bölümlere toplam 90.000 / 100.000 birim.");
+    fireEvent.change(screen.getByLabelText("Tıp Fakültesi: aylık pay (yapay zekâ birimi)"), { target: { value: "200000" } });
     fireEvent.click(screen.getByTestId("faculty-limits-save"));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     expect(save.mock.calls[0]![0]).toEqual({
@@ -94,7 +95,7 @@ describe("Fakülteler (admin allocation editor)", () => {
   it("blocks a department split over the allowance with the Turkish message", async () => {
     renderHelper(<FacultyLimits data={limits} canEdit />);
     const row = await openDetails("3");
-    fireEvent.change(await within(row).findByLabelText("Farmasötik Kimya: aylık pay (token)"), { target: { value: "50000" } });
+    fireEvent.change(await within(row).findByLabelText("Farmasötik Kimya: aylık pay (yapay zekâ birimi)"), { target: { value: "50000" } });
     expect(within(row).getByTestId("faculty-limit-sum-3")).toHaveTextContent("Bölümlerin toplamı fakültenin payını aşıyor.");
     expect(screen.getByTestId("faculty-limits-save")).toBeDisabled();
   });
@@ -119,9 +120,9 @@ describe("Fakülteler (admin allocation editor)", () => {
     const save = vi.spyOn(aiAdminApi, "saveLimits").mockResolvedValue(limits);
     renderHelper(<FacultyLimits data={limits} canEdit />);
     const row = await openDetails("3");
-    fireEvent.change(within(row).getByLabelText("Kota yöneticileri (kullanıcı numaraları)"), { target: { value: "41, 52" } });
-    fireEvent.click(within(row).getByLabelText("Yöneticiler kişi bazında token toplamlarını görsün"));
-    fireEvent.click(screen.getByLabelText("Fakültelerin toplamı kurumun aylık bütçesini aşamasın"));
+    fireEvent.change(await within(row).findByLabelText("Kota yöneticileri (kullanıcı numaraları)"), { target: { value: "41, 52" } });
+    fireEvent.click(within(row).getByRole("switch", { name: "Yöneticiler kişi bazında toplam kullanımı görsün" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Fakültelerin toplamı kurumun aylık bütçesini aşamasın" }));
     fireEvent.click(screen.getByTestId("faculty-limits-save"));
     await waitFor(() => expect(save).toHaveBeenCalled());
     const body = save.mock.calls[0]![0] as { faculties: Record<string, unknown>; strict: boolean };
@@ -129,9 +130,17 @@ describe("Fakülteler (admin allocation editor)", () => {
     expect(body.strict).toBe(true);
   });
 
+  it("says when the faculties together go over the org budget (saved, a warning when not strict)", async () => {
+    vi.spyOn(aiAdminApi, "saveLimits").mockResolvedValue({ ...limits, warnings: [{ code: "faculty_sum_exceeds_org", message_tr: "Fakültelere dağıtılan pay (1200000 jeton) kurumun aylık bütçesini (1000000 jeton) aşıyor.", message_en: "Over the org budget.", field: "faculties" }] } as Limits);
+    renderHelper(<FacultyLimits data={limits} canEdit />);
+    await screen.findByTestId("faculty-limit-3");
+    fireEvent.click(screen.getByTestId("faculty-limits-save"));
+    expect(await screen.findByTestId("faculty-limits-warning")).toHaveTextContent("kurumun aylık bütçesini (1000000 jeton) aşıyor.");
+  });
+
   it("is read-only without the edit right", async () => {
     renderHelper(<FacultyLimits data={limits} canEdit={false} />);
-    expect(await screen.findByLabelText("Eczacılık Fakültesi: aylık pay (token)")).toBeDisabled();
+    expect(await screen.findByLabelText("Eczacılık Fakültesi: aylık pay (yapay zekâ birimi)")).toBeDisabled();
     expect(screen.queryByTestId("faculty-limits-save")).toBeNull();
   });
 });

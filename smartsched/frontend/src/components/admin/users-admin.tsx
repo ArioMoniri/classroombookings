@@ -45,6 +45,7 @@ import {
 } from "@/lib/api/crbs";
 import { canManageAccount, isPrivilegedRole, roleGrantCheck, usePermissions } from "@/lib/permissions";
 import { useAuthProviders, useInvites, useUserIdentityStatus, type Invite, type UserIdentityStatus } from "@/lib/api/identity";
+import { invitePrefill, roleValueFor, type InvitePrefill } from "@/lib/handover";
 import { BindDialog, BreakGlassWarning, IdentitiesSection, IdentityMenuItems, IdentityStatusCell, IdentityTags, InviteSheet, MethodCell, RevokeDialog } from "./users-admin-identity";
 import { breakGlassMissing, identityQuery, invitesByUser, methodView, statusView, type IdentityFilter, type MethodFilter } from "./users-admin-identity-model";
 import { matchesMfaFilter, MfaFilterSelect, MfaMethodTag, mfaListState, securityAccount, useUserSecurity, type MfaFilter, type SecurityUser } from "./users-security";
@@ -78,8 +79,10 @@ export function UsersAdmin() {
   const router = useRouter();
   const pathname = usePathname();
   const [q, setQ] = useState(() => params.get("q") ?? "");
-  const [role, setRole] = useState(() => (params.get("role") ?? "").replace(/\D/g, ""));
-  const [dept, setDept] = useState(() => (params.get("department") ?? "").replace(/\D/g, ""));
+  // HX-06 hand-over: ?invite=1&email=&name=&role=&department= are the invite's fields, not the list filters
+  const [handover] = useState(() => invitePrefill(params));
+  const [role, setRole] = useState(() => (handover ? "" : (params.get("role") ?? "").replace(/\D/g, "")));
+  const [dept, setDept] = useState(() => (handover ? "" : (params.get("department") ?? "").replace(/\D/g, "")));
   const [enabled, setEnabled] = useState(() => (params.get("enabled") === "1" || params.get("enabled") === "0" ? params.get("enabled")! : ""));
   const [sort, setSort] = useState("username");
   const [page, setPage] = useState(0);
@@ -122,6 +125,9 @@ export function UsersAdmin() {
   const statusOf = (u: AdminUser): UserIdentityStatus | undefined => idStatus.data?.[String(u.id)];
   const counts = { invited: invitedCount.data?.total ?? 0, selfRecent: selfCount.data?.total ?? 0 };
   const [inviteOpen, setInviteOpen] = useState(false);
+  // the hand-over opens the invite sheet (Microsoft on) or "Yeni kullanıcı", prefilled; it never sends anything.
+  // Once opened, its keys leave the address, so a reload does not reopen it.
+  const [handoverOpened, setHandoverOpened] = useState(false);
   const [binding, setBinding] = useState<AdminUser | null>(null);
   const [revoking, setRevoking] = useState<{ invite: Invite; kind: "invite" | "bind" } | null>(null);
   const nameOf = (id: number | null | undefined) => {
@@ -133,6 +139,16 @@ export function UsersAdmin() {
   const roles = useRoles(can("setup.roles"));
   const departments = useDepartments();
   const [editing, setEditing] = useState<AdminUser | "new" | null>(null);
+  useEffect(() => {
+    if (!handover || handoverOpened || providers.isPending) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a one-off hand-over read from the address once the sign-in methods are known
+    setHandoverOpened(true);
+    if (msEnabled && usersAdmin) setInviteOpen(true);
+    else setEditing("new");
+    const next = new URLSearchParams(window.location.search);
+    for (const k of ["invite", "email", "name"]) next.delete(k);
+    router.replace(next.size ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
+  }, [handover, handoverOpened, providers.isPending, msEnabled, usersAdmin, router, pathname]);
   const [importOpen, setImportOpen] = useState(false);
   const [token, setToken] = useState<{ user: AdminUser; token: ResetToken } | null>(null);
   const [deleting, setDeleting] = useState<AdminUser | null>(null);
@@ -490,12 +506,13 @@ export function UsersAdmin() {
 
       <UserDialog
         user={editing}
+        prefill={handover}
         onClose={() => setEditing(null)}
         canListRoles={can("setup.roles")}
         identityFor={(u) => (usersAdmin ? { s: statusOf(u), invite: inviteOf.get(u.id), msEnabled, onBind: () => (setEditing(null), setBinding(u)), security: manageable(u) ? security.block(secUser(u)) : null } : null)}
       />
       {security.dialogs}
-      <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} auth={auth} canListRoles={can("setup.roles")} />
+      <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} auth={auth} canListRoles={can("setup.roles")} prefill={handover} />
       <BindDialog key={binding?.id ?? "none"} user={binding} privileged={!!binding && privileged(binding)} onClose={() => setBinding(null)} />
       <RevokeDialog value={revoking} onClose={() => setRevoking(null)} />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} canListRoles={can("setup.roles")} />
@@ -572,34 +589,34 @@ function roleBody(v: string): Pick<UserIn, "role_id"> & { role?: string } {
 
 type IdentityProps = { s: UserIdentityStatus | undefined; invite: Invite | undefined; msEnabled: boolean; onBind: () => void; security?: ReactNode } | null;
 
-function UserDialog({ user, onClose, canListRoles, identityFor }: { user: AdminUser | "new" | null; onClose: () => void; canListRoles: boolean; identityFor: (u: AdminUser) => IdentityProps }) {
+function UserDialog({ user, onClose, canListRoles, identityFor, prefill = null }: { user: AdminUser | "new" | null; onClose: () => void; canListRoles: boolean; identityFor: (u: AdminUser) => IdentityProps; /** HX-06: a new user's fields from the invite hand-over */ prefill?: InvitePrefill | null }) {
   return (
     <Dialog open={user !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl lg:max-w-2xl" data-testid="user-dialog">
-        {user !== null ? <UserForm key={user === "new" ? "new" : user.id} user={user === "new" ? null : user} onClose={onClose} canListRoles={canListRoles} identity={user === "new" ? null : identityFor(user)} /> : null}
+        {user !== null ? <UserForm key={user === "new" ? "new" : user.id} user={user === "new" ? null : user} onClose={onClose} canListRoles={canListRoles} identity={user === "new" ? null : identityFor(user)} prefill={user === "new" ? prefill : null} /> : null}
       </DialogContent>
     </Dialog>
   );
 }
 
-function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser | null; onClose: () => void; canListRoles: boolean; identity: IdentityProps }) {
+function UserForm({ user, onClose, canListRoles, identity, prefill = null }: { user: AdminUser | null; onClose: () => void; canListRoles: boolean; identity: IdentityProps; prefill?: InvitePrefill | null }) {
   const { t } = useI18n();
   const departments = useDepartments();
   // P1 "approves for" (wave 1): only an approver who may manage users designates others
-  const { can } = usePermissions();
+  const { can, perms } = usePermissions();
   const canDesignate = can("approvals.decide") && can("setup.users");
   const lookups = useScopeLookups(canDesignate);
   const [approves, setApproves] = useState<Scope[]>(() => (user?.approves_for ?? []).map((x) => ({ type: x.type, id: x.id ?? null, tag: x.tag ?? null })));
   const [approvesDirty, setApprovesDirty] = useState(false);
   const [f, setF] = useState({
     username: user?.username ?? "",
-    email: user?.email ?? "",
+    email: user?.email ?? prefill?.email ?? "",
     firstname: user?.firstname ?? "",
     lastname: user?.lastname ?? "",
-    displayname: user?.displayname ?? user?.full_name ?? "",
+    displayname: user?.displayname ?? user?.full_name ?? prefill?.name ?? "",
     ext: user?.ext ?? "",
     role: user?.role_id ? `id:${user.role_id}` : "",
-    department: user?.department_id ? String(user.department_id) : "",
+    department: user?.department_id ? String(user.department_id) : (prefill?.department ?? ""),
     is_active: user?.is_active ?? true,
     force_password_reset: user?.force_password_reset ?? false,
     password: "",
@@ -609,6 +626,15 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
   const [error, setError] = useState<string | null>(null);
   const [roleError, setRoleError] = useState<string | null>(null);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((prev) => ({ ...prev, [k]: v }));
+  // the hand-over's role once the role list is known, only one this admin may grant (RoleSelect's rule)
+  const prefillRoles = useRoles(canListRoles && !!prefill?.role);
+  const [rolePrefilled, setRolePrefilled] = useState(!prefill?.role);
+  if (!rolePrefilled && (!canListRoles || prefillRoles.data)) {
+    setRolePrefilled(true);
+    const v = roleValueFor(prefill?.role ?? "", prefillRoles.data);
+    const r = v.startsWith("id:") ? prefillRoles.data?.find((x) => `id:${x.id}` === v) : v ? { code: v.slice(5) } : null;
+    if (r && roleGrantCheck(perms, r).allowed) setF((prev) => ({ ...prev, role: v }));
+  }
   const body = (): UserIn & { role?: string } => ({
     username: f.username.trim() || null,
     email: f.email.trim() || null,

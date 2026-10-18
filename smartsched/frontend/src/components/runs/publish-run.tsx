@@ -72,10 +72,10 @@ export function forcedBreaksOf(e: unknown): { breaks: { rule: string; message: s
   };
 }
 
-export function PublishRunButton({ run, published, exceptions = [], truth = null }: { run: ScheduleRun; /** the term's published run of this kind, if another one */ published: number | null; exceptions?: VerdictException[]; truth?: RunTruth | null }) {
+export function PublishRunButton({ run, published, exceptions = [], truth = null, autoOpen = false }: { run: ScheduleRun; /** the term's published run of this kind, if another one */ published: number | null; exceptions?: VerdictException[]; truth?: RunTruth | null; /** HX-06 `?publish=`: open the dialog on mount (the confirm still publishes) */ autoOpen?: boolean }) {
   const { t, n, locale } = useI18n();
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
   // the hero moment (mobile-b phase 2): the check plays only after a publish in this session, never on load
   const [justPublished, setJustPublished] = useState(false);
   const reduce = useReduce();

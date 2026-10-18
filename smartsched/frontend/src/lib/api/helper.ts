@@ -10,7 +10,7 @@
  *   form / choice). `POST /helper/actions/confirm` / `undo` `{token}`: the card's button and "Geri al".
  * - `POST /helper/turn` `{text, lang}`: one question, streamed as `text/event-stream` of server-built cards
  *   (components/helper/stream.ts).
- * - `GET/PUT /helper/memory`, `GET/POST/DELETE /helper/notes`: Profil › Yardımcı.
+ * - `GET/PUT /helper/memory`, `GET/POST/DELETE /helper/notes`, `DELETE /helper/threads` (HB-21): Profil › Yardımcı.
  *
  * Cards are parsed with the zod generated from the server's JSON Schema (components/helper/schema.gen.ts). Errors
  * keep the project's shape `detail = {code, message_tr, message_en, card}`; {@link errorCard} reads the card.
@@ -150,6 +150,8 @@ export const helperApi = {
   notes: () => request("/helper/notes", { ...s, schema: z.array(HelperNote) }),
   addNote: (text: string, source: "user_button" | "user_confirmed") => request("/helper/notes", { ...s, method: "POST", body: { text, source }, schema: HelperNote }),
   deleteNote: (id: number) => request<void>(`/helper/notes/${id}`, { ...s, method: "DELETE" }),
+  /** HB-21: the conversation history only; the notes stay (HX-18 M7). Used once {@link helperCaps}.threadsDelete is on. */
+  deleteThreads: () => request("/helper/threads", { ...s, method: "DELETE", schema: DeletedOut }),
   deleteAll: (history: boolean) => request("/helper/notes", { ...s, method: "DELETE", query: { history: history ? "true" : undefined }, schema: DeletedOut }),
 };
 
@@ -201,6 +203,17 @@ export function useAddHelperNote() {
 export function useDeleteHelperNote() {
   const done = useMemoryInvalidate();
   return useMutation({ mutationFn: (id: number) => helperApi.deleteNote(id), onSuccess: done });
+}
+/**
+ * What this client may rely on from the server. `threadsDelete`: HB-21's threads-only `DELETE /helper/threads`. Until
+ * it ships, "Geçmişi sil" calls `DELETE /helper/notes?history=true` and says that the notes go too (HX-18 M7).
+ * Turn it on when HB-21 lands (a plain object so the tests can switch it).
+ */
+export const helperCaps = { threadsDelete: false };
+
+export function useDeleteHelperThreads() {
+  const done = useMemoryInvalidate();
+  return useMutation({ mutationFn: () => helperApi.deleteThreads(), onSuccess: done });
 }
 export function useDeleteAllHelperNotes() {
   const done = useMemoryInvalidate();

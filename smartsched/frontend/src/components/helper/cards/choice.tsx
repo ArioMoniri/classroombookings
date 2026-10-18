@@ -10,7 +10,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import type { CardEntry } from "../helper-store";
 import type { ChoiceCard } from "../schema.gen";
 import { pickText, useCardHost } from "./context";
-import { HelperCardFrame } from "./frame";
+import { CancelledLine, HelperCardFrame } from "./frame";
 
 export function ChoiceView({ card, entry }: { card: ChoiceCard; entry: CardEntry }) {
   const { t } = useI18n();
@@ -33,6 +33,7 @@ export function ChoiceView({ card, entry }: { card: ChoiceCard; entry: CardEntry
         ) : undefined
       }
     >
+      {entry.phase === "cancelled" ? <CancelledLine /> : null}
       {step > 1 ? <p className="type-footnote text-label-3">{t("helper.card.step", { n: step })}</p> : null}
       <ul className="flex flex-col gap-1">
         {card.options.map((o) => (

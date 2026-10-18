@@ -17,6 +17,8 @@ import { dataHitHref } from "./feature-links";
 import { parseIntent } from "./intents";
 import { useIntentAllowed, useShortcutLabel } from "./shortcut-label";
 
+const MAX_ROWS = 6;
+
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
   useEffect(() => {
@@ -41,8 +43,9 @@ export function GuideMode({ inputRef, seed, showLead = true }: { inputRef?: Reac
   const intent = text ? parseIntent(text) : null;
   const shortcut = allowed(intent, host.actions) ? intent : null;
   const label = useShortcutLabel(shortcut);
-  const data = Object.values(search.data?.data ?? {}).flat().slice(0, 6);
-  const hits = [...(search.data?.pages ?? []), ...(search.data?.where ?? [])];
+  // HX-18 M4: one list of at most 6 one-line rows (pages and "Nerede?" first, then data hits), no wall of buttons
+  const hits = [...(search.data?.pages ?? []), ...(search.data?.where ?? [])].filter((n, i, all) => all.findIndex((x) => x.feature_id === n.feature_id) === i).slice(0, MAX_ROWS);
+  const data = Object.values(search.data?.data ?? {}).flat().slice(0, MAX_ROWS - hits.length);
   const none = text.length >= 2 && search.isSuccess && !hits.length && !data.length && !shortcut;
   return (
     <div className="flex flex-col gap-3" data-testid="helper-guide">
@@ -62,9 +65,13 @@ export function GuideMode({ inputRef, seed, showLead = true }: { inputRef?: Reac
             <CornerDownLeft aria-hidden />
           </Button>
         ) : null}
-        {hits.map((n) => (
-          <NavView key={n.id} card={n} compact />
-        ))}
+        {hits.length ? (
+          <div className="flex flex-col">
+            {hits.map((n) => (
+              <NavView key={n.id} card={n} compact />
+            ))}
+          </div>
+        ) : null}
         {data.length ? (
           <ul className="flex flex-col">
             {data.map((d) => {

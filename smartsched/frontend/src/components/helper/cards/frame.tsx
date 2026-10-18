@@ -5,6 +5,7 @@
  * on phones). Risk accent: R2 shows the "Etkilenenler" line, R3 hand-overs a warning strip (rendered by the cards).
  */
 import { useId, type ReactNode } from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 export function HelperCardFrame({
@@ -29,7 +30,8 @@ export function HelperCardFrame({
       aria-labelledby={title ? id : undefined}
       data-testid={testId}
       data-tone={tone}
-      className={cn("helper-card flex min-w-0 flex-col gap-3 rounded-(--radius-md) bg-fill-3 p-4 edge-hairline forced-colors:border forced-colors:border-[CanvasText]", tone === "muted" && "opacity-80", className)}
+      // HX-18 m1: no opacity on "muted" (the footnote fell below 4.5:1); the state line says it instead
+      className={cn("helper-card flex min-w-0 flex-col gap-3 rounded-(--radius-md) bg-fill-3 p-4 edge-hairline forced-colors:border forced-colors:border-[CanvasText]", className)}
     >
       {title ? (
         <p id={id} className="type-headline text-label-1">
@@ -39,6 +41,16 @@ export function HelperCardFrame({
       {children}
       {actions ? <div className="flex flex-wrap items-center gap-2 max-sm:flex-col max-sm:items-stretch">{actions}</div> : null}
     </div>
+  );
+}
+
+/** "Vazgeçildi.": the state line of a dropped card, and where the focus goes after "Vazgeç" (HX-18 M2, m1). */
+export function CancelledLine() {
+  const { t } = useI18n();
+  return (
+    <p tabIndex={-1} data-focus-target="" data-testid="helper-card-cancelled" className="rounded-sm type-footnote text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-(--focus)">
+      {t("helper.card.cancelled")}
+    </p>
   );
 }
 

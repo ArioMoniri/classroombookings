@@ -8,6 +8,8 @@ department. Administrators (``planning.admin`` / ``setup.settings``) see every f
   one faculty, from the rows' faculty snapshot (``ai_usage.faculty_id``, HB-10). By person **only** when the admin
   switched ``show_people`` on for that faculty, and then the token total only (KVKK proportionality: no cost, no
   features, no prompts, no times per person).
+  ``faculty.share_of_allowance`` and ``by_department[].share_of_allowance`` (0..1, ``null`` without an allowance;
+  HB-21) let the UI say "payın %40'ı" instead of token counts.
 * ``PUT /ai/faculty/allocations`` — split the faculty's monthly allocation across its departments (the sum may not
   exceed the faculty's allocation); audited ``ai.faculty_allocation``. A manager cannot change the faculty's own
   allocation, the routes, the keys or the guardrails.
@@ -94,6 +96,17 @@ def _alloc(entry: Any) -> dict[str, Any]:
     }
 
 
+def share_of_allowance(tokens: int, cost_usd: float, allocation: dict[str, Any]) -> float | None:
+    """How much of an allowance is used, 0..1 (HB-21): the larger of the token and cost shares, 1 at or above the
+    allowance, ``None`` when neither cap is set."""
+    shares = []
+    if allocation["monthly_tokens"] > 0:
+        shares.append(tokens / allocation["monthly_tokens"])
+    if allocation["monthly_cost_usd"] > 0:
+        shares.append(cost_usd / allocation["monthly_cost_usd"])
+    return round(min(1.0, max(shares)), 4) if shares else None
+
+
 @router.get("/ai/faculty/usage")
 async def faculty_usage(
     db: DB, user: FacultyManager, faculty_id: Annotated[int | None, Query(ge=1)] = None
@@ -150,14 +163,17 @@ async def faculty_usage(
     departments = []
     for p in programs:
         row = by_dep.get(p.id)
+        tokens, cost = (int(row[1]), float(row[2])) if row else (0, 0.0)
+        alloc = _alloc(dep_alloc.get(str(p.id)))
         departments.append(
             {
                 "id": p.id,
                 "name": p.name,
-                "tokens": int(row[1]) if row else 0,
-                "cost_usd": round(float(row[2]), 6) if row else 0.0,
+                "tokens": tokens,
+                "cost_usd": round(cost, 6),
                 "calls": int(row[3]) if row else 0,
-                "allocation": _alloc(dep_alloc.get(str(p.id))),
+                "allocation": alloc,
+                "share_of_allowance": share_of_allowance(tokens, cost, alloc),
             }
         )
     trend: dict[str, int] = {}
@@ -170,7 +186,11 @@ async def faculty_usage(
         k = meter._local(created.replace(tzinfo=UTC)).date().isoformat()
         trend[k] = trend.get(k, 0) + int(tokens or 0)
     out: dict[str, Any] = {
-        "faculty": {"id": fid, "name": names.get(fid)},
+        "faculty": {
+            "id": fid,
+            "name": names.get(fid),
+            "share_of_allowance": share_of_allowance(int(total[0]), float(total[1]), _alloc(entry)),
+        },
         "faculties": [{"id": f, "name": names.get(f)} for f in allowed],
         "month": meter.month_key(),
         "allocation": _alloc(entry),

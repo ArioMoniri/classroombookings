@@ -1,4 +1,4 @@
-""""Bunu hatırla: …" (HB-D; helper.md §5.1): a note is saved only by the person's click on a confirm card.
+""" "Bunu hatırla: …" (HB-D; helper.md §5.1): a note is saved only by the person's click on a confirm card.
 
 * :func:`detect` finds a request to remember at the **start** of what the person typed ("bunu hatırla: …",
   "hatırla: …", "aklında tut: …", "remember (this|that): …") and returns their own words after it. The turn loop

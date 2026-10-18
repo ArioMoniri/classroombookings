@@ -2,7 +2,7 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DESKTOP_MEDIA, mockMedia, renderWelcome, resetWelcomeStore } from "../test-helpers";
+import { DESKTOP_MEDIA, PHONE_MEDIA, mockMedia, renderWelcome, resetWelcomeStore } from "../test-helpers";
 import { useWelcomeStore } from "../welcome-store";
 import { TOUR_RUNNING_ATTR, findAnchor, tourAnchorFor } from "./anchors";
 import { TourRunner } from "./tour-runner";
@@ -129,3 +129,25 @@ describe("TourRunner (react-joyride adapter)", () => {
     await waitFor(() => expect(screen.getByTestId("tour-counter")).toHaveTextContent("Adım 1 / 2"));
   }, 15_000);
 });
+
+describe("docked step card on a phone (e2e 2026-10-18)", () => {
+  it("the floating box spans the viewport less 8 px a side, so the card is not shrink-wrapped (334 px at 390 on the stack)", async () => {
+    mockMedia(PHONE_MEDIA);
+    anchor("nav-reserve", "Hızlı rezervasyon");
+    const one = [steps[0]!];
+    useWelcomeStore.setState({ tour: { steps: one } });
+    renderWelcome(<TourRunner request={{ steps: one }} />);
+    const card = await screen.findByTestId("tour-card", {}, { timeout: 3000 });
+    // every wrapper between the card and the fixed floating element takes the docked width
+    let el: HTMLElement | null = card.parentElement;
+    const widths: string[] = [];
+    while (el && el !== document.body) {
+      widths.push(el.style.width);
+      if (el.style.position === "fixed") break;
+      el = el.parentElement;
+    }
+    expect(el?.style.position).toBe("fixed");
+    expect(el?.style.width).toBe("calc(100vw - 16px)");
+  });
+});
+

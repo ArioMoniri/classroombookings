@@ -235,3 +235,21 @@ export function HelperPaletteBottom({ query }: { query: string }) {
     </>
   );
 }
+
+/**
+ * HX-18 m7 (helper.md §2.3, §9 rule 14): the palette's empty state. No hits: "“…” için sonuç yok." and, when the
+ * helper runs in index mode (AI off), the next step ("Yardımcı şu an kapalı. Yazımı kontrol edin …"). The shell's
+ * `<CommandEmpty>` renders it.
+ */
+export function HelperPaletteEmpty({ query, loading }: { query: string; loading: boolean }) {
+  const { t } = useI18n();
+  const mode = useHelperMode();
+  if (loading) return <>{t("glass.palette.searching")}</>;
+  const off = !mode.loading && !!mode.status && !mode.ai;
+  return (
+    <span className="flex flex-col items-center gap-1" data-testid="palette-none">
+      <span>{t("helper.palette.none", { q: query })}</span>
+      {off ? <span className="type-footnote text-label-2">{t("helper.palette.offHint")}</span> : null}
+    </span>
+  );
+}

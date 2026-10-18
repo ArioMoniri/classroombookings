@@ -3,7 +3,8 @@
  * HX-07 (helper.md §3.3, §11 D): "Göster" — a 1-step tour on the welcome guide's spotlight ring. Navigate to the
  * feature's page, wait ≤ 3 s for its `[data-tour]` anchor, scroll it to the centre, ring it and show one step card
  * ("Anladım" / "Yardımcıya dön"). The target stays interactive (the ring and the card never cover it). On phones
- * the sheet closed first and the card is docked at the bottom. A missing anchor shows the path and "Bu düğme şu an
+ * the sheet closed first and the card is docked at the bottom, the target scrolled to the upper half (HX-18 m12). On
+ * desktop a target under the open sheet moves the sheet aside first (HX-18 M1); "Yardımcıya dön" brings it back. A missing anchor shows the path and "Bu düğme şu an
  * bu sayfada görünmüyor." Esc or "Anladım" ends it with the focus on the target; reduced motion: the ring jumps.
  */
 import { usePathname, useRouter } from "next/navigation";
@@ -18,6 +19,15 @@ import { cn } from "@/lib/utils";
 import { featureById, pathLine } from "./feature-links";
 import { useHelperStore } from "./helper-store";
 import { DESKTOP_SHEET } from "./helper-sheet";
+
+/** The control lies (partly) under the open desktop sheet: the sheet spans the viewport's height, so the columns decide. */
+export function underSheet(el: HTMLElement): boolean {
+  const sheet = document.querySelector<HTMLElement>("[data-helper-sheet]");
+  if (!sheet || !useHelperStore.getState().open) return false;
+  const a = el.getBoundingClientRect();
+  const b = sheet.getBoundingClientRect();
+  return b.width > 0 && a.right > b.left && a.left < b.right;
+}
 
 type Found = { state: "waiting" } | { state: "found"; el: HTMLElement } | { state: "missing" };
 
@@ -37,6 +47,7 @@ function ShowMe({ featureId }: { featureId: string }) {
   const [found, setFound] = useState<Found>(() => (entry && !entry.anchor ? { state: "missing" } : { state: "waiting" }));
   const textId = useId();
   const cardRef = useRef<HTMLDivElement>(null);
+  const margin = useRef<{ el: HTMLElement; before: string } | null>(null);
   const target = found.state === "found" ? found.el : null;
 
   // navigate, then wait for the anchor
@@ -49,10 +60,25 @@ function ShowMe({ featureId }: { featureId: string }) {
     void waitForAnchor(entry.anchor, 3000, ctrl.signal).then((el) => {
       if (ctrl.signal.aborted) return;
       if (!el) return setFound({ state: "missing" });
-      el.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+      // HX-18 M1: the desktop sheet is fixed over the right column and the ring draws above it, so a control under
+      // it would be ringed but not clickable: move the sheet aside (the thread stays; "Yardımcıya dön" reopens it)
+      if (underSheet(el)) {
+        useHelperStore.getState().closeSheet();
+        useHelperStore.setState((s) => (s.showMe ? { showMe: { ...s.showMe, reopen: true } } : {}));
+      }
+      // HX-18 m12: on a phone the docked step card takes the bottom, so the target goes to the upper half
+      const wide = window.matchMedia(DESKTOP_SHEET).matches;
+      if (!wide) {
+        margin.current = { el, before: el.style.scrollMarginTop };
+        el.style.scrollMarginTop = "4.5rem"; // the 56 px top bar + 16 px
+      }
+      el.scrollIntoView({ block: wide ? "center" : "start", behavior: reduce ? "auto" : "smooth" });
       setFound({ state: "found", el });
     });
-    return () => ctrl.abort();
+    return () => {
+      ctrl.abort();
+      if (margin.current) margin.current.el.style.scrollMarginTop = margin.current.before;
+    };
     // the request is fixed for this mount (keyed by the host)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

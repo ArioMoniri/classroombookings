@@ -326,8 +326,8 @@ async def test_hb_d_turn_route_takes_context(env) -> None:  # noqa: F811
 # ------------------------------------------------------------------------------------------ 3. recent actions
 
 
-async def _confirm(env, p: Persona, c: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
-    r = await env.client.post(f"{H}/actions/confirm", json={"token": c["token"]}, headers=p.headers)
+async def _confirm(e, p: Persona, c: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    r = await e.client.post(f"{H}/actions/confirm", json={"token": c["token"]}, headers=p.headers)
     assert r.status_code == 200, r.text
     return dict(r.json())
 

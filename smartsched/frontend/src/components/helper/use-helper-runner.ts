@@ -216,7 +216,9 @@ export function useHelperRunner(): Runner {
         useHelperStore.getState().updateCard(entry.key, { phase: "done" });
         const key = pushServerCard(result);
         focusEntry(key);
-        if (result.type === "result" && result.ok) {
+        // HX-18 m6: while the sheet is open the log's polite region and the focused result line announce it; the
+        // toast (with "Geri al") is only for a sheet that closed before the result came
+        if (result.type === "result" && result.ok && !useHelperStore.getState().open) {
           const message = result.message[locale as Locale] ?? result.message.tr;
           const fresh = useHelperStore.getState().entries.find((e) => e.key === key) as CardEntry | undefined;
           if (result.undo_token && fresh) toast(message, { duration: 8000, action: { label: translate(locale as Locale, "helper.card.undo"), onClick: () => void undoImpl(fresh) } });
@@ -267,6 +269,8 @@ export function useHelperRunner(): Runner {
 
   const cancel = useCallback<Runner["cancel"]>((entry) => {
     useHelperStore.getState().updateCard(entry.key, { phase: "cancelled" });
+    // HX-18 M2: "Vazgeç" unmounts the focused button; the focus goes to the card's "Vazgeçildi." line
+    focusEntry(entry.key);
     if (entry.card.type === "confirm") trackHelper({ kind: "cancel", action: entry.card.action, ...(entry.turnId ? { turn_id: entry.turnId } : {}) });
   }, []);
 
