@@ -255,7 +255,6 @@ describe("F-MB-3 · 32 px root on /generate and /analytics/heatmap", () => {
     expect(tab).toContain("min-w-[min(2.75rem,44px)]");
   });
 });
-});
 
 /* ------------------------------------------------------------------------------------------ F-MA-2 */
 

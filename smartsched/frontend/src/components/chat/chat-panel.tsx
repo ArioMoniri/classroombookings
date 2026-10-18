@@ -20,6 +20,7 @@ import { usePermissions } from "@/lib/api/shell-extra";
 import { qk } from "@/lib/api/hooks";
 import { aiKeys } from "@/lib/api/ai-admin";
 import { BusyGlyph } from "@/components/ui/busy-label";
+import { HttpError } from "@/lib/api/client";
 import { INITIAL_STREAM, streamChat, streamReducer, type StreamState } from "./chat-stream";
 import { applyEdited, type Scope } from "./diff-edits";
 import { useI18n } from "@/lib/i18n/provider";
@@ -262,6 +263,9 @@ export function ChatPanel({ runId, className, prefill = null }: { runId: number;
   }, [busyTurn, runId]);
   const lang = locale === "en" ? "en" : "tr";
   const qc = useQueryClient();
+  // F-VO-2: a refused or failed turn puts the text back in the box ("Metniniz duruyor")
+  const [restore, setRestore] = useState<{ text: string; seq: number } | null>(null);
+  const keepText = (msg: string) => setRestore((r) => ({ text: msg, seq: (r?.seq ?? 0) + 1 }));
   const submit = async (msg: string) => {
     refocus.current = true;
     // the composer is about to be disabled: hold focus on the conversation (tabIndex -1) while the reply streams
@@ -279,10 +283,20 @@ export function ChatPanel({ runId, className, prefill = null }: { runId: number;
       if (last.error) {
         const e = last.error;
         toast.error(t("glass.chat.sendFailed"), { description: (lang === "tr" ? e.messageTr : e.messageEn) ?? e.detail });
+        keepText(msg);
       }
       await qc.invalidateQueries({ queryKey: qk.chat(runId) });
       void qc.invalidateQueries({ queryKey: aiKeys.me }); // the near / at-limit banner follows this turn's tokens
-    } catch {
+    } catch (err) {
+      // F-VO-2: the server refused the turn before streaming (422 guardrail, 429 limit, 409 transfer basis, 400): that
+      // is the answer, not a stream that could not start; say why in the user's words and keep the text
+      const refusal = !started && err instanceof HttpError && err.status >= 400 && err.status < 500 && err.status !== 404 && err.status !== 405;
+      if (refusal) {
+        const e = streamReducer(INITIAL_STREAM, { event: "error", data: { status: err.status, detail: (err.detail as { detail?: unknown } | undefined)?.detail ?? err.message } }).error!;
+        toast.error(t("glass.chat.sendFailed"), { description: (lang === "tr" ? e.messageTr : e.messageEn) ?? e.detail });
+        keepText(msg);
+        return;
+      }
       if (!started) {
         // the stream could not start (proxy without streaming, older backend): the non-streaming call
         setLive(null);
@@ -290,10 +304,12 @@ export function ChatPanel({ runId, className, prefill = null }: { runId: number;
           await send.mutateAsync(msg);
         } catch {
           toast.error(noKey ? t("glass.chat.noKeyToast") : t("glass.chat.sendFailed"));
+          keepText(msg);
         }
         return;
       }
       toast.error(t("glass.chat.sendFailed"));
+      keepText(msg);
       await qc.invalidateQueries({ queryKey: qk.chat(runId) });
     } finally {
       setLive(null);
@@ -339,6 +355,7 @@ export function ChatPanel({ runId, className, prefill = null }: { runId: number;
           suggestions={messages.length === 0 && !noKey ? STARTERS[pairLang(locale)] : undefined}
           leading={<MicButton target="chat" disabled={noKey || send.isPending || streaming} />}
           initialDraft={prefill ?? ""}
+          restore={restore}
         />
         <AiNotice className="mt-2" />
       </div>

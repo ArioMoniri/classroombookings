@@ -4,7 +4,7 @@
 // (full text: src/components/ui/LICENSES/beautifului-MIT.txt).
 // Modified: yes — extracted the composer from the scripted demo panel (no fake replies/timers); input is an
 // auto-growing textarea (Enter sends, Shift+Enter breaks a line, IME-safe); adds busy/stop state, leading
-// slot (attach), suggestion chips, localisable labels, an initial draft; tokens re-mapped to Liquid Glass. Kept: the field
+// slot (attach), suggestion chips, localisable labels, an initial draft, a restored draft (F-VO-2); tokens re-mapped to Liquid Glass. Kept: the field
 // block that focuses on click, and the send button that turns from muted to ink when there is text.
 import * as React from "react"
 import { ArrowUpIcon, SquareIcon } from "lucide-react"
@@ -31,6 +31,9 @@ type PromptComposerProps = {
   maxRows?: number
   /** the draft it starts with (a hand-over prefill, e.g. the run chat's `?chat=`); never sent by itself */
   initialDraft?: string
+  /** puts a sent text back when the owner says it was not taken (a refusal, a failed turn; F-VO-2). A new `seq`
+   *  restores once, and never over text typed since */
+  restore?: { text: string; seq: number } | null
 }
 
 function PromptComposer({
@@ -48,8 +51,14 @@ function PromptComposer({
   className,
   maxRows = 6,
   initialDraft = "",
+  restore = null,
 }: PromptComposerProps) {
   const [draft, setDraft] = React.useState(initialDraft)
+  const [restored, setRestored] = React.useState(restore?.seq ?? 0)
+  if (restore && restore.seq !== restored) {
+    setRestored(restore.seq)
+    if (!draft.trim()) setDraft(restore.text)
+  }
   const ref = React.useRef<HTMLTextAreaElement>(null)
   const canSend = draft.trim().length > 0 && !disabled && !busy
 

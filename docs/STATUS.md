@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `0bc13d2` (committed 2026-10-18 12:57 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `c9399d2` (committed 2026-10-18 13:46 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -177,7 +177,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-385 agents in [`docs/agents/registry.json`](agents/registry.json): running 7 · finished 360 · stopped 11 · superseded 7.
+395 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 368 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -188,6 +188,8 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `AUX-F` | frontend-engineer | 2026-10-18 00:04 |
 | `AS-S` | solver-engineer | 2026-10-18 07:56 |
 | `HB-B` | ai-engineer | 2026-10-18 07:56 |
+| `FIX-A` | backend-engineer | 2026-10-18 13:03 |
+| `FIX-C` | frontend-engineer | 2026-10-18 13:03 |
 
 <!-- /AUTO:agents -->
 
@@ -254,7 +256,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **440 ticked · 424 open** checkboxes in 101 sections (96 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **447 ticked · 432 open** checkboxes in 103 sections (97 with open items).
 
 <details><summary>Per section</summary>
 
@@ -356,11 +358,13 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Voice for AI features (owner request 2026-10-17) | 5 | 8 |
 | Charts & telemetry views (owner request 2026-10-17) | 8 | 4 |
 | Real-not-fake & admin editability (owner request 2026-10-17; audit… | 15 | 4 |
-| AI helper: backend, governance, local models (owner request 2026-10-17) | 15 | 5 |
-| AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 8 | 14 |
+| AI helper: backend, governance, local models (owner request 2026-10-17) | 16 | 4 |
+| AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 9 | 15 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — UX | 0 | 12 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — backend | 17 | 1 |
 | Bugs seen while recording the launch video (2026-10-18) | 2 | 0 |
+| FIX-B (e2e results 2026-10-18: phone layout stability, reflow, settings M-05, hydration… | 0 | 8 |
+| FIX-A: e2e results 2026-10-18 backend fixes (fix-a-2026-10-18) | 5 | 0 |
 
 </details>
 

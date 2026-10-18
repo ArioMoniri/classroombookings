@@ -4249,7 +4249,8 @@
       "goal": "Ledger name `hb-f-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first (each fix gets a test that fails before it); resource rule (no stack; `nice`, pyt…",
       "ledger": "HB-F: re-bench bugs A–E",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 13:48"
     },
     {
       "id": "a588399e2710a0bca",

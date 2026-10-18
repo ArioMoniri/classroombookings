@@ -625,7 +625,11 @@ async def probe(adapter: Any, model: str) -> tuple[dict[str, Any], ProbeUsage]:
     # the adapter must send exactly what the probe asks (no capability-based degrade while probing)
     saved = getattr(adapter, "capabilities", None)
     adapter.capabilities = {"tool_choice": True, "json_schema": True, "pdf": False}
-    base = {"model": model, "max_tokens": PROBE_MAX_TOKENS, "system": "You are a capability probe. Follow the instruction exactly."}
+    base = {
+        "model": model,
+        "max_tokens": PROBE_MAX_TOKENS,
+        "system": "You are a capability probe. Follow the instruction exactly.",
+    }
     ask_tool = {"role": "user", "content": "Call report_colour with colour blue and count 2."}
     try:
         try:
