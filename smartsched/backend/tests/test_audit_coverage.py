@@ -450,6 +450,13 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/learning/settings": (E, "app.api.v1.learning"),
     # AI helper (app/ai/helper; app/api/v1/helper.py): action cards are reads or dry-run previews
     "POST /api/v1/helper/actions/{name}/card": (N, "a read, or a write's dry-run preview with a signed token"),
+    "POST /api/v1/helper/actions/confirm": (E, "app.ai.helper.confirm"),
+    "POST /api/v1/helper/actions/undo": (E, "app.ai.helper.confirm"),
+    "PUT /api/v1/helper/memory": (T, "Setting (user.<id>.helper_memory)"),
+    "POST /api/v1/helper/notes": (N, "the person's own helper note (Bunu hatırla)"),
+    "DELETE /api/v1/helper/notes/{note_id}": (N, "the person's own helper note"),
+    "DELETE /api/v1/helper/notes": (N, "the person's own helper notes and history"),
+    "PUT /api/v1/helper/admin/settings": (E, "app.api.v1.helper"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)

@@ -14,7 +14,8 @@ export default {
   db: "seeded",
   role: "admin",
   verified: "2026-10-15 on the real backend (snapshot 6c4b790)",
-  async setup({ page }) {
+  async setup(ctx) {
+    const { page } = ctx;
     const features = (await api(page, "/room-admin/features")).data ?? [];
     const pc = features.find((f) => f.solver_tag === "PC");
     if (!pc) throw new Error("no PC feature: scripts/record/setup_api.py bookings adopts the room tags");
@@ -36,8 +37,9 @@ export default {
     await page.getByTestId("find-room").waitFor({ timeout: 30_000 });
     // date and time are filled off camera (a native date picker and two times are not worth watching)
     // the date field is a text field that commits on blur (ui/date-field.tsx): fill, then leave it
-    await page.getByTestId("fr-date").fill(date);
-    await page.getByTestId("fr-date").blur();
+    const [yy, mm, dd] = date.split("-");
+    await page.getByTestId("fr-date").fill(ctx.lang === "tr" ? `${dd}.${mm}.${yy}` : `${mm}/${dd}/${yy}`);
+    await page.getByTestId("fr-date").press("Tab");
     await page.getByTestId("fr-start").fill(START);
     await page.getByTestId("fr-end").fill(END);
   },

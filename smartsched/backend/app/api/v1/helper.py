@@ -14,16 +14,17 @@ Everything runs as the signed-in person (``CurrentAccess``), through the same se
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.ai.helper import cards
 from app.ai.helper import schema as cs
 from app.ai.helper.actions import registry as reg
 from app.ai.helper.search import search as run_search
-from app.api.deps import DB, CurrentAccess
+from app.api.deps import DB, CurrentAccess, CurrentUser, require_permission
+from app.models import User
 
 router = APIRouter(prefix="/helper", tags=["helper"])
 
@@ -175,3 +176,109 @@ async def undo(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
         return await cf.undo(db, access, body.token)
     except reg.ActionRefused as exc:
         raise refused(exc.status, exc.code, exc.tr, exc.en, **exc.data) from exc
+
+
+# ------------------------------------------------------------------------------------------- memory (HB-09)
+
+HelperAdmin = Annotated[User, Depends(require_permission("setup.settings", "planning.admin"))]
+
+
+def _refusal(exc: reg.ActionRefused) -> HTTPException:
+    return refused(exc.status, exc.code, exc.tr, exc.en, **exc.data)
+
+
+class NoteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=400)
+    #: ``user_button`` = "Bunu hatırla" on a card, ``user_confirmed`` = "Not ekle" in Profil › Yardımcı
+    source: Literal["user_button", "user_confirmed"]
+
+
+class MemoryIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool
+
+
+@router.get("/memory")
+async def memory_state(db: DB, user: CurrentUser) -> dict[str, Any]:
+    from app.ai.helper import memory
+
+    return await memory.state(db, user)
+
+
+@router.put("/memory")
+async def memory_switch(body: MemoryIn, db: DB, user: CurrentUser) -> dict[str, Any]:
+    """The person's own switch "Yardımcı notlarımı kullansın" (off keeps the notes; "Tümünü sil" deletes them)."""
+    from app.ai.helper import memory
+
+    await memory.set_user_enabled(db, user, body.enabled)
+    return await memory.state(db, user)
+
+
+@router.get("/notes")
+async def notes(db: DB, user: CurrentUser) -> list[dict[str, Any]]:
+    from app.ai.helper import memory
+
+    return await memory.list_notes(db, user)
+
+
+@router.post("/notes", status_code=201)
+async def add_note(body: NoteIn, db: DB, user: CurrentUser) -> dict[str, Any]:
+    from app.ai.helper import memory
+
+    try:
+        return await memory.add_note(db, user, body.text, body.source)
+    except reg.ActionRefused as exc:
+        raise _refusal(exc) from exc
+
+
+@router.delete("/notes/{note_id}", status_code=204)
+async def delete_note(note_id: int, db: DB, user: CurrentUser) -> None:
+    from app.ai.helper import memory
+
+    try:
+        await memory.delete_note(db, user, note_id)
+    except reg.ActionRefused as exc:
+        raise _refusal(exc) from exc
+
+
+@router.delete("/notes")
+async def delete_notes(db: DB, user: CurrentUser, history: bool = False) -> dict[str, int]:
+    """"Tümünü sil" (notes); with ``history=true`` also "Geçmişi sil" (the conversation threads)."""
+    from app.ai.helper import memory
+
+    return await memory.delete_all(db, user, history=history)
+
+
+class AdminSettingsIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    memory_enabled: bool | None = None
+    retention_days: int | None = Field(default=None, ge=1, le=365)
+    history_days: int | None = Field(default=None, ge=1, le=365)
+
+
+@router.get("/admin/settings")
+async def admin_settings(db: DB, _: HelperAdmin) -> dict[str, Any]:
+    from app.ai.helper import memory
+
+    return await memory.settings(db)
+
+
+@router.put("/admin/settings")
+async def admin_settings_put(body: AdminSettingsIn, db: DB, user: HelperAdmin) -> dict[str, Any]:
+    """The institution's memory switch and retention (audited ``ai.helper``). HB-15 adds modes and actions."""
+    from app.ai.helper import memory
+    from app.services import audit
+
+    before = await memory.settings(db)
+    patch: dict[str, Any] = {"memory": {}}
+    if body.memory_enabled is not None:
+        patch["memory"]["enabled"] = body.memory_enabled
+    if body.retention_days is not None:
+        patch["memory"]["retention_days"] = body.retention_days
+    if body.history_days is not None:
+        patch["history_days"] = body.history_days
+    after = await memory.save_settings(db, patch)
+    await audit.record(db, "ai.helper", "setting", "ai.helper", before=before, after=after, actor=user)
+    await db.commit()
+    return after

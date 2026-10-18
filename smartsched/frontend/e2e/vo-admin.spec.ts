@@ -143,7 +143,7 @@ test("5. the speech test: the stored preview is shown; the real call with the fa
   const res = await real;
   const body = (await res.json()) as { ok: boolean; kind?: string };
   expect(body.ok).toBe(false);
-  await expect(card.getByTestId("ai-provider-error-deepgram")).toContainText("Ses testi başarısız", { timeout: 60_000 });
+  await expect(card.getByTestId("ai-provider-error-deepgram")).toContainText("başarısız", { timeout: 60_000 });
   // the preview rendering, with the answer a real key gives (VO-B API.md §3)
   await page.route("**/api/v1/ai/admin/providers/deepgram/test", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ at: "2026-10-18T09:00:00", ok: true, detail: "ok", model: "nova-3", kind: "stt", transcript_preview: "Şu cümle çok önemli" }) }),

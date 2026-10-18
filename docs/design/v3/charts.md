@@ -446,6 +446,16 @@ external, split ESM like `next/dynamic`):
 `next build` was not run in phase 2: the shared host had about 2.4 GB free and even a full `tsc` was OOM-killed. The
 before/after route table is the first step of CH-04 (the first route that mounts a ChartCard).
 
+### Migration notes (CH-03 … CH-09, designer charts-p2-2026-10-17)
+
+| Ticket | Built | Differs from the spec because |
+|---|---|---|
+| CH-03 | `chart-keyboard.ts` (one tab stop, ←/→/Home/End/Esc, live read-out after 250 ms), `chart-patterns-toggle.tsx` on /profile, print CSS in `chart-card.css`, `e2e/charts-a11y.spec.ts` on a vite-built fixture | `showTip` by `dataIndex` shows an empty tooltip when the axis pointer is `none` (EvilCharts bars), so `chart-api.ts` shows it by pixel. ChartCard memoises the plot element: re-rendering an EvilCharts chart re-pushes its option (`notMerge`) and dropped the keyboard tooltip. Callers should pass stable `data`/`config` (useMemo) for the same reason |
+| CH-04 | `PeriodArea` on ChartCard + area form, one series `--seq-4`, `hint` = what is measured, summary "En yoğun saat 10:10 (%86)." | the dashboard's own title/hint lines moved into the card (one heading); the y axis is not pinned to 0–100 % (EvilCharts merges `chartOptions` shallowly, so `yAxis` cannot be overridden without losing its formatter) |
+| CH-05 | `admin/ai/usage-chart.tsx` (moved out of usage-tab.tsx), stacked bar, `SERIES_COLOR` per feature (`dailyLegend`), today hatched (`lastIsToday`), phones fold to weekly sums (`foldWeeks`, ≤ 5 columns) | the period control stays the page's (it drives the KPI tiles too), so the card has none |
+| CH-06 | `admin/ops/requests-chart.tsx`: ONE ChartCard with three small multiples (requests, 5xx, p95; shared x, own axis each), one summary/table/CSV, the keyboard scrub moves all three tooltips; stale strip when a refetch fails over old data; `chartGeometry` retired | ranges stay 30 / 60 / 180 dk: the backend caps `/ops/requests?minutes=` at 180. 24 sa / 7 g need a coarser server step (W3-OPS). ≤ 180 points per chart → SVG by the renderer rule, so `sampling: "lttb"` is not needed yet (and `series` cannot be set through the shallow `chartOptions`) |
+| CH-09 | `components/ui/evilcharts/**` deleted, `recharts` uninstalled (lock: recharts + d3-*, redux, victory-vendor gone), SOURCES.md updated, `LICENSES/evilcharts-MIT.txt` kept | — |
+
 ## 13. Open questions for the orchestrator / owner
 
 1. Bookings per week (CH-07) needs a read-only aggregate. `GET /bookings/stats/weekly?term=` does not exist. Should

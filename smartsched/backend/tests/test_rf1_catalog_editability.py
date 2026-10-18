@@ -173,3 +173,23 @@ async def test_catalog_usage_needs_planning_view(client: AsyncClient) -> None:
     ins = (await client.post(f"{API}/instructors", json={"full_name": "Mehmet Demir"}, headers=h)).json()
     _, teacher = await make_user(client, h, "ogretmen@example.com", role="TEACHER")
     assert (await client.get(f"{API}/catalog/usage/instructor/{ins['id']}", headers=teacher)).status_code == 403
+
+
+async def test_course_and_section_search_by_display_code(client: AsyncClient) -> None:
+    """RF-05 (found on the stack): imported codes are stored as ``ACU-1421``; the admin types what the list shows
+    (``ACU 1421``) and must find it."""
+    h = await login(client)
+    term_id = await _term(client, h)
+    async with dbmod.get_session_factory()() as s:
+        from app.models import Course
+
+        c = Course(code="ACU-1421", display_code="ACU 1421", name="Tıbbi Müdahalede Hukuki Sorumluluk")
+        s.add(c)
+        await s.flush()
+        s.add(Section(term_id=term_id, course_id=c.id, enrolment=20, source_key="PL:acu"))
+        await s.commit()
+    for q in ("ACU 1421", "acu 1421", "ACU1421", "ACU-1421"):
+        r = await client.get(f"{API}/courses", params={"search": q}, headers=h)
+        assert [x["display_code"] for x in r.json()["items"]] == ["ACU 1421"], q
+        r = await client.get(f"{API}/sections", params={"search": q, "term_id": term_id}, headers=h)
+        assert [x["course_code"] for x in r.json()["items"]] == ["ACU 1421"], q

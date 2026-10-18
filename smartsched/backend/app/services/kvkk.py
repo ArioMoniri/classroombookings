@@ -187,6 +187,17 @@ DATA_CLASSES: dict[str, dict[str, Any]] = {
         "retention": None,
         "kept": "tutulmaz",
     },
+    # AI helper HB-09 (app/ai/helper/memory.py): notes only on "Bunu hatırla", history 30 days, the helper's writes
+    "helper": {
+        "tr": "Yardımcı: sizin kaydettiğiniz notlar (en fazla 20), son 30 günün konuşmaları, yardımcıyla yaptığınız "
+        "işlemlerin kaydı",
+        "en": "Helper: the notes you saved (at most 20), the last 30 days of conversations, the actions you took "
+        "through the helper",
+        "tables": ["helper_notes", "helper_threads", "helper_messages", "helper_action_invocations", "helper_events"],
+        "legal_basis": "KVKK m.5/1 açık rıza (notlar: 'Bunu hatırla'), m.5/2(f) meşru menfaat (işlem kaydı, geri alma)",
+        "retention": None,
+        "kept": "notlar son kullanımdan 180 gün, konuşmalar 30 gün; kullanım verisinde kişi 90 gün sonra silinir",
+    },
     # welcome guide per role (WG-03, app/services/welcome.py): show / hide the guide; no content, clicks or timings
     "welcome": {
         "tr": "Karşılama rehberi durumu: gösterildi mi, ertelendi mi, turun adımı, tamamlanan maddeler",
@@ -565,6 +576,10 @@ async def purge_expired(session: AsyncSession, now: datetime | None = None) -> d
     from app.services import demand
 
     out["demand"] = await demand.purge(session, now)
+    # HB-09: helper notes (180 days since last use), threads (30 days), telemetry's person id (90 days)
+    from app.ai.helper import memory as helper_memory
+
+    out["helper"] = await helper_memory.purge(session, now)
     await session.flush()
     return out
 
@@ -958,6 +973,17 @@ async def withdraw(session: AsyncSession, user: User, purpose: str) -> dict[str,
                 "değiştirilir",
             )
         )
+        from app.ai.helper import memory as helper_memory  # HB-09: the helper's notes go, its memory turns off
+
+        k = await helper_memory.on_ai_personal_withdrawn(session, user.id)
+        effects.append(
+            _effect(
+                "helper_notes_deleted",
+                k,
+                f"{k} helper note(s) deleted; the helper no longer remembers anything for you",
+                f"yardımcının {k} notu silindi; yardımcı artık sizin için bir şey hatırlamaz",
+            )
+        )
     ai_excluded = purpose == "ai_personal"
     await session.flush()
     await audit.record(
@@ -1182,6 +1208,9 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, Any]:
     from app.services import welcome as welcome_svc  # WG-03: the welcome guide's per-person state
 
     data["welcome_guide"] = await welcome_svc.dsr_rows(session, uid)
+    from app.ai.helper import memory as helper_memory  # HB-09: notes, conversations, helper actions
+
+    data["helper"] = await helper_memory.dsr_rows(session, uid)
     from app.services import mfa as mfa_svc  # AU-B: what is on and when; never a secret, a code or a key
 
     data["sign_in_security"] = await mfa_svc.dsr_rows(session, uid)
@@ -1855,6 +1884,10 @@ EXPORT_FILES: dict[str, tuple[str, str]] = {
         "Karşılama rehberinin sizin için durumu (gösterildi, ertelendi, tur adımı, tamamlanan maddeler).",
         "The welcome guide's state for you (shown, snoozed, tour step, items done).",
     ),
+    "helper": (
+        "Yardımcı: kaydettiğiniz notlar, son 30 günün konuşmaları ve yardımcıyla yaptığınız işlemler.",
+        "Helper: the notes you saved, the last 30 days of conversations and the actions you took through it.",
+    ),
     "sign_in_security": (
         "Giriş güvenliğiniz: doğrulama uygulaması açık mı, kalan kurtarma kodu sayısı, geçiş anahtarlarınızın adları "
         "ve tarihleri, güvenilir cihazlar (gizli anahtarlar ve kodlar dışa aktarılmaz).",
@@ -2292,6 +2325,9 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
     from app.services import welcome as welcome_svc  # WG-03: the welcome guide's per-person state
 
     counts["welcome_progress"] = await welcome_svc.erase(session, uid)
+    from app.ai.helper import memory as helper_memory  # HB-09: notes, conversations, helper action rows
+
+    counts["helper"] = await helper_memory.erase(session, uid)
     from app.services import mfa as mfa_svc  # AU-B: second factors, passkeys, trusted devices, challenges
 
     counts["sign_in_security"] = await mfa_svc.erase(session, uid)

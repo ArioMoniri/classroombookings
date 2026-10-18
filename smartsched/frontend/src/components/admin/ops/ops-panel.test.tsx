@@ -223,7 +223,7 @@ describe("mobile-b phase 2 · CLS: the status cards keep their place while /ops/
     );
     const grid = await screen.findByTestId("ops-cards-loading");
     expect(grid.className).toContain("grid-cols-1");
-    expect(grid.querySelectorAll("li")).toHaveLength(10);
+    expect(grid.querySelectorAll("li")).toHaveLength(11); // 10 cards + the backup card (sweep 2026-10-18)
     state.statusPending = false;
   });
 });
