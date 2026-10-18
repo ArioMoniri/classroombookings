@@ -11,6 +11,7 @@
  *  4. academician 390: planning list → "Derslerim'i aç"; .ics → /profile?calendar=1 (needs E2E_TEACHER_EMAIL).
  *  5. page-level drop on /dashboard 1440 → edge target → the sheet opens with the card.
  *  6. several files → one card → /onboarding with all rows (decision 16: no classify request).
+ * 6b. /import step 0 (§11.2 E2E 6): the planning list → the kind preselected, the file row, focus on Önizle.
  *  7. KVKK guard stack (KVKK_UPLOAD_GUARD=1, E2E_KVKK_GUARD=1): the raw seed workbook → refused card.
  *  8. sign-out clears sessionStorage["smartsched.helper.fileHandoff"] (KVKK condition 10); no token in any URL.
  */
@@ -69,6 +70,15 @@ async function chooseTerm(page: Page, name: RegExp) {
   await page.reload();
 }
 
+/** ⌘J / Ctrl+J once the shell listens (the shortcut is wired after the session loads): press until the sheet is up */
+async function openHelper(page: Page) {
+  const sheet = page.getByTestId("helper-sheet");
+  await expect(async () => {
+    if (!(await sheet.isVisible())) await page.keyboard.press("Control+j");
+    await expect(sheet).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 15_000 });
+}
+
 const tokenIn = (urls: string[], token: string) => urls.some((u) => u.includes(token) || u.includes(encodeURIComponent(token)));
 
 test.describe("helper file router: desktop 1440", () => {
@@ -79,8 +89,7 @@ test.describe("helper file router: desktop 1440", () => {
     await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto("/dashboard");
     await chooseTerm(page, /Güz/i);
-    await page.keyboard.press("Control+j");
-    await expect(page.getByTestId("helper-sheet")).toBeVisible();
+    await openHelper(page);
     const classify = page.waitForResponse((r) => r.url().includes("/helper/files/classify"));
     await dropFiles(page, '[data-testid="helper-log"]', [BOARD]);
     const out = await (await classify).json();
@@ -114,8 +123,8 @@ test.describe("helper file router: desktop 1440", () => {
   test("3. planner: the transposed grid → the setup wizard's row 1 with the chip", async ({ page }) => {
     await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto("/dashboard");
-    await page.keyboard.press("Control+j");
-    await page.getByTestId("helper-composer").getByTestId("helper-file-input").setInputFiles(TRANSPOSED);
+    await openHelper(page);
+    await page.getByTestId("helper-sheet").getByTestId("helper-file-input").first().setInputFiles(TRANSPOSED);
     const card = page.getByTestId("helper-card-file-detected");
     await expect(card).toBeVisible();
     await expect(card.getByTestId("helper-file-certainty")).toHaveText("Büyük olasılıkla");
@@ -163,8 +172,8 @@ test.describe("helper file router: desktop 1440", () => {
     page.on("request", (r) => {
       if (r.url().includes("/helper/files/classify")) classified += 1;
     });
-    await page.keyboard.press("Control+j");
-    await page.getByTestId("helper-composer").getByTestId("helper-file-input").setInputFiles([PLANNING, BOARD]);
+    await openHelper(page);
+    await page.getByTestId("helper-sheet").getByTestId("helper-file-input").first().setInputFiles([PLANNING, BOARD]);
     const card = page.getByTestId("helper-card-file-many");
     await expect(card).toContainText("2 dosya bıraktınız");
     await card.getByTestId("helper-file-primary").click();
@@ -173,14 +182,28 @@ test.describe("helper file router: desktop 1440", () => {
     expect(classified).toBe(0);
   });
 
+  test("6b. /import step 0 → the planning list → the kind is preselected with the detected line", async ({ page }) => {
+    await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto("/import");
+    const classify = page.waitForResponse((r) => r.url().includes("/helper/files/classify"));
+    await page.getByTestId("import-kind-drop-input").setInputFiles(PLANNING);
+    expect((await classify).ok()).toBe(true);
+    await page.waitForURL(/\/import\?kind=planning-list.*from=helper/);
+    await expect(page.getByTestId("import-detected")).toContainText("planlama listesi");
+    await expect(page.getByTestId("import-handed-file")).toBeVisible();
+    await expect(page.getByTestId("import-start")).toBeFocused();
+    // no sheet: the page took the answer itself
+    await expect(page.getByTestId("helper-sheet")).toHaveCount(0);
+  });
+
   test("7. KVKK guard stack: the raw seed workbook → refused card, nothing staged", async ({ page }) => {
     test.skip(process.env.E2E_KVKK_GUARD !== "1", "needs a stack with KVKK_UPLOAD_GUARD=1 and the raw workbook");
     const raw = process.env.E2E_RAW_WORKBOOK ?? path.resolve(process.cwd(), "../backend/tests/fixtures/bahar_derslik_planlama_listesi_v5.xlsx");
     await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto("/dashboard");
-    await page.keyboard.press("Control+j");
+    await openHelper(page);
     const classify = page.waitForResponse((r) => r.url().includes("/helper/files/classify"));
-    await page.getByTestId("helper-composer").getByTestId("helper-file-input").setInputFiles(raw);
+    await page.getByTestId("helper-sheet").getByTestId("helper-file-input").first().setInputFiles(raw);
     const out = await (await classify).json();
     expect(out.stage ?? null).toBeNull();
     await expect(page.getByTestId("helper-card-file-refused")).toBeVisible();
@@ -190,12 +213,12 @@ test.describe("helper file router: desktop 1440", () => {
   test("8. sign-out clears the hand-over (KVKK condition 10)", async ({ page }) => {
     await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto("/dashboard");
-    await page.keyboard.press("Control+j");
-    await page.getByTestId("helper-composer").getByTestId("helper-file-input").setInputFiles(PLANNING);
+    await openHelper(page);
+    await page.getByTestId("helper-sheet").getByTestId("helper-file-input").first().setInputFiles(PLANNING);
     await page.getByTestId("helper-card-file-detected").getByTestId("helper-file-primary").click();
     await page.waitForURL(/from=helper/);
     expect(await page.evaluate(() => sessionStorage.getItem("smartsched.helper.fileHandoff"))).not.toBeNull();
-    await page.getByTestId("user-menu").click();
+    await page.getByTestId("user-menu").filter({ visible: true }).first().click();
     await page.getByTestId("logout").click();
     await page.waitForURL(/\/login/);
     expect(await page.evaluate(() => sessionStorage.getItem("smartsched.helper.fileHandoff"))).toBeNull();
@@ -221,8 +244,7 @@ test.describe("helper file router: phone 390 touch", () => {
     await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto("/dashboard");
     // Ctrl+J opens the full-screen sheet on phones too (the window's shortcut listener)
-    await page.keyboard.press("Control+j");
-    await expect(page.getByTestId("helper-sheet")).toBeVisible();
+    await openHelper(page);
     // no OS drag on phones: the 📎's native picker
     await page.getByTestId("helper-file-input").first().setInputFiles(BOARD);
     const card = page.getByTestId("helper-card-file-detected");
@@ -240,12 +262,13 @@ test.describe("helper file router: phone 390 touch", () => {
     test.skip(!TEACHER, "needs E2E_TEACHER_EMAIL (an academician account)");
     await login(page, TEACHER!, TEACHER_PASSWORD);
     await page.goto("/reserve");
-    await page.keyboard.press("Control+j");
+    await openHelper(page);
     await page.getByTestId("helper-file-input").first().setInputFiles(PLANNING);
     const card = page.getByTestId("helper-card-file-needs_planner");
     await expect(card).toBeVisible();
     await expect(card.getByTestId("helper-file-primary")).toHaveText("Derslerim'i aç");
-    await expect(card).not.toContainText("içe aktar");
+    // no import button for an academician (the text may say the planning team imports it)
+    await expect(card.getByRole("button", { name: /içe aktar/i })).toHaveCount(0);
     await page.getByTestId("helper-file-input").first().setInputFiles(ICS);
     const ics = page.getByTestId(/helper-card-file-(needs_planner|detected)/).last();
     await expect(ics.getByTestId("helper-file-primary")).toHaveText("Takvimime ekle");

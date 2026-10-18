@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useAppearancePreferences } from "@/components/ui/appearance-preferences";
 import { KeyboardClearance } from "@/components/ui/keyboard-clearance";
@@ -17,7 +17,7 @@ import { MobileDrawer } from "./mobile-drawer";
 import { Sidebar } from "./sidebar";
 import { TabBar } from "./tab-bar";
 import { MobileTopBar, TopBar } from "./top-bar";
-import { planningRequirement } from "./nav-config";
+import { planningRequirement, queryDependentRoute } from "./nav-config";
 import { useGlobalShortcuts } from "./use-global-shortcuts";
 import { useWorkspaceStore, useWorkspaceUser } from "./workspace";
 import { useProfileLanguage } from "@/components/bookings/use-booking-format";
@@ -142,12 +142,28 @@ function UserSync() {
  * is known after hydration (no #418 mismatch, no flash of planner chrome).
  */
 function RouteGuard({ children }: { children: ReactNode }) {
-  const { t } = useI18n();
   const pathname = usePathname();
+  // only a query-dependent route (/import?kind=room-master) reads the search params, inside its own Suspense, so every
+  // other page keeps its server render
+  if (queryDependentRoute(pathname))
+    return (
+      <Suspense fallback={null}>
+        <QueryRouteGuard pathname={pathname}>{children}</QueryRouteGuard>
+      </Suspense>
+    );
+  return <PathGuard pathname={pathname} need={planningRequirement(pathname)}>{children}</PathGuard>;
+}
+
+function QueryRouteGuard({ pathname, children }: { pathname: string; children: ReactNode }) {
+  const search = useSearchParams();
+  return <PathGuard pathname={pathname} need={planningRequirement(pathname, search)}>{children}</PathGuard>;
+}
+
+function PathGuard({ pathname, need, children }: { pathname: string; need: string | string[] | undefined; children: ReactNode }) {
+  const { t } = useI18n();
   const router = useRouter();
   const me = useMeFull();
   const hydrated = useHydrated();
-  const need = planningRequirement(pathname);
   const known = hydrated && !me.isLoading;
   const denied = !!need && known && !me.isError && !hasPermission(me.data?.permissions, need);
   const home = denied && pathname === "/dashboard";

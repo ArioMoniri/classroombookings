@@ -125,11 +125,17 @@ def person_norm(full: str) -> str:
     return lower_tr(" ".join(name_words(full)))
 
 
+# a person key keeps at most this many letters of a word, and never the whole word (HB-23d: "Zeynep" / "Zeynel" grew
+# to the full first name, a leak the §7 verify rejects); people it cannot tell apart within that share a key
+KEY_MAX_LETTERS = 4
+
+
 def _prefix(w: str, n: int) -> str:
     """The masked form of one word: its initial ('K.'), or its first ``n`` letters ('Ka.') for a person key."""
+    letters = [ch for ch in w if ch.isalpha()]
+    n = min(n, KEY_MAX_LETTERS, len(letters) - 1)
     if n <= 1:
         return initial(w)
-    letters = [ch for ch in w if ch.isalpha()]
     return upper_tr(letters[0]) + lower_tr("".join(letters[1:n])) + "."
 
 
@@ -159,7 +165,7 @@ def person_keys(full_names: list[str]) -> dict[str, str]:
 
         for pos in range(len(lengths)):
             before = count()
-            longest = max(sum(ch.isalpha() for ch in w[pos]) for w in words if pos < len(w))
+            longest = min(KEY_MAX_LETTERS, max(sum(ch.isalpha() for ch in w[pos]) for w in words if pos < len(w)))
             while count() < len(words) and lengths[pos] < longest:
                 lengths[pos] += 1
             if count() == before:  # this word does not tell them apart ("Aday" twice): keep its initial

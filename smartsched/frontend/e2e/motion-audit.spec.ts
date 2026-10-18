@@ -11,8 +11,9 @@
  * MOTION_STRICT=1 (a dedicated device check): on a shared CI container even the no-op baseline click shows
  * 100–200 ms frames, so they would measure the machine, not the UI (same policy as e2e/calendar.spec.ts).
  */
+import path from "node:path";
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { ADMIN_PASSWORD, login as signIn } from "./helpers";
+import { ADMIN_PASSWORD, FIXTURES, login as signIn } from "./helpers";
 import { pinLanguage } from "./language";
 import { DESKTOP, PHONE, adminApi, makeAcademician, signIn as signInAs, unlink, type Api } from "./wg-helpers";
 
@@ -271,6 +272,106 @@ test.describe("motion audit: helper", () => {
     const transform = await page.getByTestId("helper-sheet").evaluate((el) => getComputedStyle(el).transform);
     results.push({ check: "helper reduced motion", movingAnimations: moving, transform });
     expect(moving).toBe(0);
+    expect(transform === "none" || /matrix\(1, 0, 0, 1, 0, 0\)/.test(transform)).toBeTruthy();
+  });
+});
+
+test.describe("motion audit: helper file router (§9, HB-23d)", () => {
+  // helper-file-router.md §9: "drop → card", "chooser pick" and "hand-over" hold the budget (nothing over 300 ms but
+  // the reading shimmer, ≤ 3 dropped frames each under MOTION_STRICT), reduced motion = end state, and the OS drag
+  // target is instant (no transition on it). The board comes from the masked fixtures (E2E_FIXTURES_DIR); the
+  // ambiguous file is a synthetic header-only CSV (planning + exam signals, no person in it).
+  const BOARD = path.join(FIXTURES, "bahar_derslikler_takvimi_2026.xlsx");
+  /** ⌘J once the shell listens (wired after the session loads): press until the sheet is up */
+  async function openSheet(page: Page) {
+    const sheet = page.getByTestId("helper-sheet");
+    await expect(async () => {
+      if (!(await sheet.isVisible())) await page.keyboard.press("ControlOrMeta+j");
+      await expect(sheet).toBeVisible({ timeout: 1500 });
+    }).toPass({ timeout: 15_000 });
+  }
+  const MIXED = { name: "karisik.csv", mimeType: "text/csv", buffer: Buffer.from("Ders Kodu;Ders Adı;Sınav Tarihi;Dersin Günü;Başlangıç;Bitiş;Kesinleşen Derslik\nBME 101;Giriş;2026-06-01;Pazartesi;09:00;10:00;A 204\n", "utf8") };
+
+  test("drop → card, chooser pick and hand-over hold the budget", async ({ page, browser }) => {
+    await login(page);
+    await page.goto("/dashboard");
+    await page.waitForTimeout(800);
+    const rate = await throttle(page);
+    const measure = async (name: string, run: () => Promise<void>) => {
+      await startFrameProbe(page);
+      let over: string[] = [];
+      const layouts = await traceLayouts(browser, page, `file-${name.replace(/\W+/g, "-")}`, async () => {
+        await run();
+        over = await animationsOverCeiling(page);
+        await page.waitForTimeout(450);
+      });
+      const report = await stopFrameProbe(page);
+      results.push({ surface: "helper-file", name, ...report, layouts, over });
+      expect.soft(over).toEqual([]);
+      if (STRICT) {
+        expect.soft(report.dropped).toBeLessThanOrEqual(3);
+        expect.soft(report.worstLongFrame).toBeLessThanOrEqual(rate > 1 ? 150 : 100);
+      }
+    };
+    await openSheet(page);
+    await page.waitForTimeout(400);
+    await measure("drop → card", async () => {
+      await page.getByTestId("helper-file-input").first().setInputFiles(BOARD);
+      await page.getByTestId("helper-card-file-detected").waitFor({ timeout: 6000 });
+    });
+    await measure("chooser pick", async () => {
+      await page.getByTestId("helper-file-input").first().setInputFiles(MIXED);
+      await page.getByTestId("helper-card-file-ambiguous").waitFor({ timeout: 6000 });
+      await page.getByTestId("helper-file-choice-exam_list").click();
+      await page.getByTestId("helper-card-file-detected").last().waitFor();
+    });
+    await page.getByTestId("helper-file-input").first().setInputFiles(BOARD);
+    const card = page.getByTestId("helper-card-file-detected").last();
+    await card.getByTestId("helper-file-primary").waitFor({ timeout: 6000 });
+    await measure("hand-over", async () => {
+      await card.getByTestId("helper-file-primary").click();
+      await page.waitForURL(/\/import\?.*from=helper/);
+      await page.getByTestId("import-handed-file").waitFor();
+    });
+  });
+
+  test("the OS drag target is instant and reduced motion gives the card's end state", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await login(page);
+    await page.goto("/dashboard");
+    const dt = await page.evaluateHandle(() => {
+      const d = new DataTransfer();
+      d.items.add(new File(["x"], "a.xlsx"));
+      return d;
+    });
+    await page.dispatchEvent("main", "dragenter", { dataTransfer: dt });
+    await page.dispatchEvent("main", "dragover", { dataTransfer: dt });
+    const target = page.getByTestId("page-file-target");
+    await target.waitFor();
+    const targetAnims = await target.evaluate((el) => el.getAnimations({ subtree: true }).filter((a) => Number(a.effect?.getComputedTiming().duration) > 1).length);
+    expect(targetAnims).toBe(0);
+    await page.dispatchEvent("main", "dragleave", { dataTransfer: dt });
+    await page.keyboard.press("Escape");
+    await openSheet(page);
+    await page.getByTestId("helper-file-input").first().setInputFiles(BOARD);
+    const card = page.getByTestId("helper-card-file-detected");
+    await card.waitFor({ timeout: 6000 });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const { opacity, transform } = await card.evaluate((el) => {
+      // the card's motion wrapper is the entry's first animated ancestor (or the card itself)
+      let n: Element | null = el;
+      let o = 1;
+      let t = "none";
+      while (n && !n.matches('[data-testid="helper-log"]')) {
+        const cs = getComputedStyle(n);
+        o *= Number(cs.opacity);
+        if (cs.transform !== "none") t = cs.transform;
+        n = n.parentElement;
+      }
+      return { opacity: o, transform: t };
+    });
+    results.push({ check: "helper file card reduced motion", opacity, transform, targetAnims });
+    expect(opacity).toBe(1);
     expect(transform === "none" || /matrix\(1, 0, 0, 1, 0, 0\)/.test(transform)).toBeTruthy();
   });
 });

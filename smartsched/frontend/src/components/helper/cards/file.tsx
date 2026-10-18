@@ -135,11 +135,15 @@ function EvidenceLine({ line }: { line: string }) {
   );
 }
 
-/** The card's enter (§9): opacity + y 6 → 0 once, `springs.smooth`; reduced motion 100 ms opacity. */
+/**
+ * The card's enter (§9): y 6 → 0 once on `springs.smooth`, opacity on `tween.fadeIn` (a spring on opacity becomes a
+ * 400 ms WAAPI animation, over the 300 ms ceiling of the motion audit); reduced motion 100 ms opacity.
+ */
+const ENTER = { ...springs.smooth, opacity: tween.fadeIn };
 function Enter({ children, k }: { children: ReactNode; k: string | number }) {
   const reduce = useReduce();
   return (
-    <motion.div key={k} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }} animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }} transition={reduce ? tween.reduced : springs.smooth} className="min-w-0">
+    <motion.div key={k} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }} animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }} transition={reduce ? tween.reduced : ENTER} className="min-w-0">
       {children}
     </motion.div>
   );

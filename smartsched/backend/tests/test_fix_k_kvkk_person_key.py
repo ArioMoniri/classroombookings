@@ -70,3 +70,17 @@ def test_db_and_workbook_copies_share_the_key_and_the_alias_matches(km, tmp_path
     capsys.readouterr()
     assert km.verify(str(db), str(names)) == 0
     assert json.loads(names.read_text(encoding="utf-8"))  # the saved list the workbook pass used
+
+
+def test_a_key_never_spells_out_a_whole_word(km) -> None:
+    """HB-23d: people whose names differ only late in a word ("Zeynep" / "Zeynel", synthetic) once grew the prefix to
+    the whole first name ("Zeynep. K."), which the README §7 verify rightly rejects. A key keeps at most 4 letters of a
+    word and never the whole word; people it cannot tell apart within that share a key (a collision beats a leak)."""
+    names = ["Zeynep Kural", "Zeynel Kural", "Zeynep Tokçan Kural", "Zeynep Tokcan Kural", "Ali Kaya", "Alp Kaya"]
+    keys = km.person_keys(names)
+    for full in names:
+        key = keys[km.person_norm(full)]
+        assert km.is_masked(key), key
+        for w, k in zip(km.name_words(full), key.split(), strict=True):
+            letters = k.rstrip(".")
+            assert len(letters) <= 4 and km.lower_tr(letters) != km.lower_tr(w), (w, k)
