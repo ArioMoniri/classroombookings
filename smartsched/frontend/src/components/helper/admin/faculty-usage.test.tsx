@@ -36,17 +36,48 @@ describe("faculty usage", () => {
     expect(shareCheck({ a: 1 }, null)).toEqual({ sum: 1, over: false });
   });
 
-  it("says the totals in sentences and hides people when the faculty does not show them", async () => {
+  it("HX-18 M8: leads with the share of the allowance and the requests, with no 'token' in the copy", async () => {
     renderHelper(<FacultyUsageView />);
-    expect(await screen.findByTestId("faculty-total")).toHaveTextContent("Bu ay 42.000 token kullanıldı (120 istek).");
-    expect(screen.getByTestId("faculty-usage")).toHaveTextContent("Fakültenin aylık payı: 100.000 token.");
-    expect(screen.getByTestId("faculty-usage")).toHaveTextContent("En çok kullanılan: Yardımcı");
+    expect(await screen.findByTestId("faculty-total")).toHaveTextContent("Bu ay fakülte payından %42 kullanıldı (120 istek).");
+    const view = screen.getByTestId("faculty-usage");
+    expect(view).toHaveTextContent("Farmakoloji80 istek · bölüm payından %50");
+    expect(view).toHaveTextContent("Son günlerde en yoğun gün: 14 Ekim.");
+    expect(view).toHaveTextContent("En çok kullanılan: Yardımcı");
+    expect(view.textContent).not.toMatch(/token/i);
     expect(screen.queryByText("Kişiler")).toBeNull();
+  });
+
+  it("HX-18 M8: the raw units only under Gelişmiş, in plain words", async () => {
+    renderHelper(<FacultyUsageView />);
+    const more = await screen.findByTestId("faculty-advanced");
+    expect(screen.queryByTestId("faculty-units")).toBeNull();
+    fireEvent.click(more);
+    expect(screen.getByTestId("faculty-units")).toHaveTextContent("Bu ay 42.000 yapay zekâ birimi kullanıldı; fakültenin aylık payı 100.000 birim.");
+    expect(screen.getByTestId("faculty-usage").textContent).not.toMatch(/token/i);
+  });
+
+  it("HX-18 M8: with no allowance it says the requests and that no share is set", async () => {
+    vi.spyOn(helperAdminApi, "facultyUsage").mockResolvedValue({ ...usage, allocation: null });
+    renderHelper(<FacultyUsageView />);
+    expect(await screen.findByTestId("faculty-total")).toHaveTextContent("Bu ay 120 istek yapıldı.");
+    expect(screen.getByTestId("faculty-usage")).toHaveTextContent("Fakülteye henüz aylık pay ayrılmadı.");
+  });
+
+  it("HX-18 M8: English uses per cent and AI units", async () => {
+    renderHelper(<FacultyUsageView />, { locale: "en" });
+    expect(await screen.findByTestId("faculty-total")).toHaveTextContent("42% of the faculty's allowance used this month (120 requests).");
+    expect(screen.getByTestId("faculty-usage").textContent).not.toMatch(/token/i);
+  });
+
+  it("HX-18 m3: the share fields stay 16 px on a touch tablet", async () => {
+    renderHelper(<FacultyUsageView />);
+    const input = await screen.findByLabelText("Farmasötik Kimya: Aylık pay (yapay zekâ birimi)");
+    expect(input.className).toMatch(/pointer-fine:sm:type-callout/);
   });
 
   it("blocks a split over the allowance with the Turkish message", async () => {
     renderHelper(<FacultyUsageView />);
-    const input = await screen.findByLabelText("Farmasötik Kimya: Aylık pay (token)");
+    const input = await screen.findByLabelText("Farmasötik Kimya: Aylık pay (yapay zekâ birimi)");
     fireEvent.change(input, { target: { value: "50000" } });
     expect(screen.getByTestId("faculty-share-sum")).toHaveTextContent("Bölümlerin toplamı fakültenin payını aşıyor.");
     expect(screen.getByTestId("faculty-share-save")).toBeDisabled();
@@ -55,7 +86,7 @@ describe("faculty usage", () => {
   it("saves a valid split and shows a 422 inline", async () => {
     const put = vi.spyOn(helperAdminApi, "facultyAllocations").mockRejectedValue(new HttpError(422, "x", { code: "department_not_in_faculty", message_tr: "Bu bölüm bu fakülteye bağlı değil.", message_en: "Not in faculty." }));
     renderHelper(<FacultyUsageView />);
-    fireEvent.change(await screen.findByLabelText("Farmasötik Kimya: Aylık pay (token)"), { target: { value: "20000" } });
+    fireEvent.change(await screen.findByLabelText("Farmasötik Kimya: Aylık pay (yapay zekâ birimi)"), { target: { value: "20000" } });
     fireEvent.click(screen.getByTestId("faculty-share-save"));
     await waitFor(() => expect(put).toHaveBeenCalledWith(3, { "11": { monthly_tokens: 60000 }, "12": { monthly_tokens: 20000 } }));
     expect(await screen.findByTestId("faculty-share-error")).toHaveTextContent("Bu bölüm bu fakülteye bağlı değil.");

@@ -16,6 +16,11 @@ import { card, makeHost, renderHelper, resetHelperStore, type FixtureName } from
 import { activation, useHelperRunner } from "../use-helper-runner";
 import { CardHostContext } from "./context";
 import { EntryView } from "./render";
+import { NavView } from "./nav";
+import { formFromConfirm } from "./form";
+import { GuideMode } from "../guide";
+import { FEATURE_INDEX } from "../feature-index.gen";
+import type { ConfirmCard, NavCard } from "../schema.gen";
 
 const stream = vi.fn();
 vi.mock("../stream", async (orig) => ({ ...(await orig<typeof import("../stream")>()), streamTurn: (...a: unknown[]) => stream(...a) }));
@@ -262,5 +267,146 @@ describe("confirm / undo plumbing", () => {
     expect(cardCall).toHaveBeenLastCalledWith("create_booking", { room: "12", date: "2026-10-19", period_id: 3 });
     expect(screen.getByTestId("helper-card-confirm")).toBeInTheDocument();
     expect(screen.queryByTestId("helper-card-form-create_booking")).toBeNull();
+  });
+});
+
+describe("HX-18 design audit fixes (docs/testing/audits/2026-10-18-helper-design-audit.md)", () => {
+  function pushConfirm() {
+    const c = { ...card("confirm"), expires_at: future() } as HelperCard;
+    let key = "";
+    act(() => {
+      key = useHelperStore.getState().pushCard(c);
+    });
+    return key;
+  }
+
+  it.each([
+    ["confirm", "helper-card-cancel"],
+    ["form", "helper-form-cancel"],
+    ["choice", "helper-choice-cancel"],
+  ] as const)("M2: Vazgeç on a %s card keeps the focus on the card, never <body>", async (name, cancelId) => {
+    renderHelper(<Harness />);
+    if (name === "confirm") pushConfirm();
+    else
+      act(() => {
+        useHelperStore.getState().pushCard(card(name));
+      });
+    const btn = await screen.findByTestId(cancelId);
+    btn.focus();
+    fireEvent.click(btn);
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+    expect(document.activeElement).toHaveTextContent("Vazgeçildi.");
+  });
+
+  it("M2: the busy confirm button keeps the focus (aria-disabled, not disabled) and ignores a second press", async () => {
+    vi.spyOn(activation, "trusted").mockReturnValue(true);
+    const confirm = vi.spyOn(helperApi, "confirm").mockReturnValue(new Promise(() => undefined));
+    renderHelper(<Harness />);
+    pushConfirm();
+    const btn = await screen.findByTestId("helper-card-confirm");
+    btn.focus();
+    fireEvent.click(btn);
+    await waitFor(() => expect(screen.getByTestId("helper-card-confirm")).toHaveAttribute("aria-disabled", "true"));
+    const busy = screen.getByTestId("helper-card-confirm");
+    expect(busy).not.toBeDisabled();
+    expect(document.activeElement).toBe(busy);
+    fireEvent.click(busy);
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("M3: the result disc's glyph uses the solid material colour, not white (dark-mode contrast)", () => {
+    renderHelper(<EntryView entry={entry("result")} />, { host: makeHost() });
+    const disc = screen.getByTestId("helper-card-result").querySelector("span[aria-hidden]")!;
+    expect(disc.className).not.toMatch(/text-white/);
+    expect(disc.className).toMatch(/text-\(--mat-thick-solid\)/);
+  });
+
+  it("M4: a compact nav is one row with one action (Göster when there is an anchor), not a card of buttons", () => {
+    const host = makeHost();
+    renderHelper(<NavView card={card("nav") as NavCard} compact />, { host });
+    const row = screen.getByTestId("helper-nav-row-admin.holidays");
+    expect(row).toHaveTextContent("Tatiller");
+    expect(row).toHaveTextContent("Yönetim › Dönem ve saatler › Tatiller");
+    expect(screen.queryByTestId("helper-show")).toBeNull();
+    expect(screen.queryByTestId("helper-card-secondary")).toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    fireEvent.click(row);
+    expect(host.showMe).toHaveBeenCalledWith("admin.holidays");
+  });
+
+  it("M4: a limit card lists its index hits as rows, without primary buttons", () => {
+    renderHelper(<EntryView entry={entry("limit")} />, { host: makeHost() });
+    expect(screen.getByTestId("helper-nav-row-admin.holidays")).toBeInTheDocument();
+    expect(screen.queryByTestId("helper-show")).toBeNull();
+  });
+
+  it("M4: Rehber modu shows at most 6 rows", async () => {
+    const ids = FEATURE_INDEX.filter((f) => f.anchor).slice(0, 9).map((f) => f.id);
+    const nav = (id: string) => ({ ...card("nav"), id: `${id.replace(/\W/g, "").padEnd(8, "0").slice(0, 8)}`, feature_id: id, title: { tr: id, en: id }, path: { tr: [id], en: [id] } });
+    vi.spyOn(helperApi, "search").mockResolvedValue({ pages: ids.slice(0, 5).map(nav), where: ids.slice(5).map(nav), data: {}, question: false } as never);
+    renderHelper(<GuideMode seed="rezervasyon" />, { host: makeHost() });
+    await waitFor(() => expect(screen.getAllByTestId(/^helper-nav-row-/)).toHaveLength(6));
+  });
+
+  it("M5: the R1 form's button reads Devam (it only asks for the preview); R2 reads Önizle", () => {
+    const { unmount } = renderHelper(<EntryView entry={entry("form")} />, { host: makeHost() });
+    expect(screen.getByTestId("helper-form-submit")).toHaveTextContent(/^Devam$/);
+    unmount();
+    const r2 = HelperCard.parse({ ...card("form"), risk: "R2" });
+    renderHelper(<EntryView entry={{ ...entry("form"), card: r2 }} />, { host: makeHost() });
+    expect(screen.getByTestId("helper-form-submit")).toHaveTextContent(/^Önizle$/);
+  });
+
+  it("M6: a parked card that timed out stays one line ('· eskidi'), with no Yenile", () => {
+    renderHelper(<EntryView entry={entry("confirm", { phase: "parked" })} />, { host: makeHost() });
+    const line = screen.getByTestId("helper-card-confirm-create_booking");
+    expect(line).toHaveAttribute("data-phase", "parked");
+    expect(line).toHaveTextContent("Rezervasyon · bekliyor · eskidi");
+    expect(screen.queryByTestId("helper-card-refresh")).toBeNull();
+  });
+
+  it("m1: a cancelled card is not dimmed with opacity", () => {
+    renderHelper(<EntryView entry={entry("confirm", { phase: "cancelled", card: { ...card("confirm"), expires_at: future() } as HelperCard })} />, { host: makeHost() });
+    expect(screen.getByTestId("helper-card-confirm-create_booking").className).not.toMatch(/opacity-/);
+  });
+
+  it("m4: the Değiştir form's labels come from the message keys (English too)", () => {
+    const form = formFromConfirm({ ...card("confirm"), expires_at: future() } as ConfirmCard)!;
+    expect(form.fields.map((f) => f.label.tr)).toEqual(["Salon", "Tarih", "Ders saati", "Amaç"]);
+    expect(form.fields.map((f) => f.label.en)).toEqual(["Room", "Date", "Period", "Purpose"]);
+  });
+
+  it("m5 + m14: missing fields point at the error line; the first field is the focus target", () => {
+    renderHelper(<EntryView entry={entry("form")} />, { host: makeHost() });
+    expect(screen.getByTestId("helper-field-room")).toHaveAttribute("data-focus-target");
+    fireEvent.click(screen.getByTestId("helper-form-submit"));
+    const alert = screen.getByRole("alert");
+    expect(alert.id).toBeTruthy();
+    expect(screen.getByTestId("helper-field-period_id")).toHaveAttribute("aria-describedby", expect.stringContaining(alert.id));
+    expect(screen.getByTestId("helper-field-room")).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("m6: no toast while the sheet is open (the log announces the result)", async () => {
+    vi.spyOn(activation, "trusted").mockReturnValue(true);
+    vi.spyOn(helperApi, "confirm").mockResolvedValue(card("result"));
+    const { toast } = await import("sonner");
+    vi.mocked(toast).mockClear();
+    renderHelper(<Harness />);
+    act(() => useHelperStore.setState({ open: true }));
+    pushConfirm();
+    fireEvent.click(await screen.findByTestId("helper-card-confirm"));
+    await waitFor(() => expect(screen.getByTestId("helper-card-result")).toBeInTheDocument());
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  it("m6: a toast with Geri al when the sheet closed before the result", async () => {
+    vi.spyOn(activation, "trusted").mockReturnValue(true);
+    vi.spyOn(helperApi, "confirm").mockResolvedValue(card("result"));
+    const { toast } = await import("sonner");
+    vi.mocked(toast).mockClear();
+    renderHelper(<Harness />);
+    pushConfirm();
+    fireEvent.click(await screen.findByTestId("helper-card-confirm"));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith("A 204 yarın 10:00–10:50 için rezerve edildi.", expect.objectContaining({ action: expect.anything() })));
   });
 });

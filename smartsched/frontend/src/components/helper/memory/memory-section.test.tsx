@@ -2,7 +2,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError } from "@/lib/api/client";
-import { helperApi, type HelperMemory } from "@/lib/api/helper";
+import { helperApi, helperCaps, type HelperMemory } from "@/lib/api/helper";
 import { renderHelper } from "../test-helpers";
 import { HelperMemorySection } from "./memory-section";
 
@@ -69,13 +69,52 @@ describe("Profil › Yardımcı", () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("helper-note-input")));
   });
 
-  it("Geçmişi sil asks first, then deletes notes and threads", async () => {
+  it("HX-18 M7: Sohbet geçmişini sil keeps the notes (threads-only DELETE /helper/threads)", async () => {
+    helperCaps.threadsDelete = true;
+    const threads = vi.spyOn(helperApi, "deleteThreads").mockResolvedValue({ notes: 0, threads: 3 });
+    const all = vi.spyOn(helperApi, "deleteAll");
+    renderHelper(<HelperMemorySection />);
+    const btn = await screen.findByTestId("helper-history-delete");
+    expect(btn).toHaveTextContent("Sohbet geçmişini sil");
+    fireEvent.click(btn);
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Sohbet geçmişiniz silinsin mi?");
+    expect(screen.getByRole("dialog")).toHaveTextContent("Notlarınız silinmez.");
+    fireEvent.click(screen.getByTestId("helper-history-confirm"));
+    await waitFor(() => expect(threads).toHaveBeenCalled());
+    expect(all).not.toHaveBeenCalled();
+  });
+
+  it("HX-18 M7: without the threads-only route the button and the dialog say the notes go too", async () => {
+    helperCaps.threadsDelete = false;
     const all = vi.spyOn(helperApi, "deleteAll").mockResolvedValue({ notes: 1, threads: 3 });
     renderHelper(<HelperMemorySection />);
-    fireEvent.click(await screen.findByTestId("helper-history-delete"));
+    const btn = await screen.findByTestId("helper-history-delete");
+    expect(btn).toHaveTextContent("Notları ve geçmişi sil");
+    fireEvent.click(btn);
     expect(all).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByTestId("helper-history-confirm"));
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Notlarınız ve konuşma geçmişiniz silinsin mi?");
+    fireEvent.click(screen.getByTestId("helper-history-confirm"));
     await waitFor(() => expect(all).toHaveBeenCalledWith(true));
+  });
+
+  it("HX-18 M7: Tüm notları sil (notes list) asks first, deletes only the notes and keeps the focus on the page", async () => {
+    const all = vi.spyOn(helperApi, "deleteAll").mockImplementation(async () => {
+      notes = [];
+      return { notes: 1, threads: 0 };
+    });
+    renderHelper(<HelperMemorySection />);
+    fireEvent.click(await screen.findByTestId("helper-notes-delete-all"));
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Tüm notlarınız silinsin mi?");
+    fireEvent.click(screen.getByTestId("helper-notes-delete-all-confirm"));
+    await waitFor(() => expect(all).toHaveBeenCalledWith(false));
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+  });
+
+  it("HX-18 m3: the note field stays 16 px on a touch tablet", async () => {
+    renderHelper(<HelperMemorySection />);
+    const input = await screen.findByTestId("helper-note-input");
+    expect(input.className).toMatch(/pointer-fine:sm:type-callout/);
+    expect(input.className).not.toMatch(/(^| )sm:type-callout/);
   });
 
   it("with the institution's memory off the switch is disabled and says why", async () => {

@@ -262,16 +262,16 @@ async def test_hb_d_context_is_validated_and_spotlighted(env) -> None:  # noqa: 
     assert "page_context" not in await _ctx_turn(t.uid, question)
     plain_tools = {x["name"] for x in FakeSDK.calls[0]["tools"]}
 
-    # a visible room on a known page: one spotlighted block with the page and the room
+    # a visible room on a page the person may open (the teacher has no /rooms: planning.view / setup.rooms): one spotlighted block with the page and the room
     room_id = env.rooms["A102"]
-    prompt = await _ctx_turn(t.uid, question, {"route": "/rooms", "entity_kind": "room", "entity_id": room_id})
+    prompt = await _ctx_turn(t.uid, question, {"route": "/bookings", "entity_kind": "room", "entity_id": room_id})
     assert prompt.count('<untrusted source=\\"page_context\\">') == 1, prompt
-    assert "rooms" in prompt and "A 102" in prompt and f"room {room_id}" in prompt
+    assert "Page: bookings" in prompt and "A 102" in prompt and f"room {room_id}" in prompt
     # the context never changes what the person may do
     assert {x["name"] for x in FakeSDK.calls[0]["tools"]} <= allowed and plain_tools <= allowed
 
     # unknown routes and pages the person cannot open are dropped (with their entity)
-    for route in ("/no-such-page", "/admin/users", "javascript:alert(1)", "/rooms/../admin"):
+    for route in ("/no-such-page", "/admin/users", "/rooms", "javascript:alert(1)", "/rooms/../admin"):
         ctx = {"route": route, "entity_kind": "room", "entity_id": room_id}
         assert "page_context" not in await _ctx_turn(t.uid, question, ctx), route
     # a query string, a hash and a trailing slash still find the page
@@ -316,7 +316,7 @@ async def test_hb_d_turn_route_takes_context(env) -> None:  # noqa: F811
     FakeSDK.script = [text("Salonlar sayfasındasınız.")]
     r = await env.client.post(
         url,
-        json={"text": "Bu sayfada ne yapabilirim?", "context": {"route": "/rooms"}},
+        json={"text": "Bu sayfada rezervasyon nasıl yaparım?", "context": {"route": "/bookings"}},
         headers=t.headers,
     )
     assert r.status_code == 200 and "run_finished" in r.text, r.text
