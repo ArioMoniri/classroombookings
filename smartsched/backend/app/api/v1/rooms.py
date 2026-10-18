@@ -20,6 +20,8 @@ router = APIRouter(tags=["rooms"])
 #: CRBS ``setup/rooms/Rooms::add`` / ``delete``: a room administrator (``setup.rooms``) creates and deletes rooms
 #: from Admin -> Rooms; the planning office keeps ``planning.edit`` (UI gap audit 2026-10-08 #4)
 RoomsEditor = Annotated[User, Depends(require_permission("planning.edit", "setup.rooms"))]
+#: HB-23d UX-03: a room administrator (setup.rooms) reads the list too: the room-master import diffs against it
+RoomsReader = Annotated[User, Depends(require_permission("planning.view", "setup.rooms"))]
 
 
 @router.get("/buildings", response_model=list[BuildingOut])
@@ -38,7 +40,7 @@ async def create_building(body: BuildingIn, db: DB, _: Planner) -> Building:
 
 @router.get("/rooms", response_model=list[RoomOut])
 async def list_rooms(
-    db: DB, _: Viewer, building: str | None = None, bookable: bool | None = None, search: str | None = None
+    db: DB, _: RoomsReader, building: str | None = None, bookable: bool | None = None, search: str | None = None
 ) -> list[Room]:
     q = select(Room).order_by(Room.code)
     if building:

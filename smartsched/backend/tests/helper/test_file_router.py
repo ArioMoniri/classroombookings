@@ -24,6 +24,7 @@ from app.ai.helper import schema
 from app.core.config import get_settings
 from app.core.db import get_session_factory
 from app.models import Term
+from app.workers import queue as qmod
 from sqlalchemy import select, text
 
 from tests.api_fixtures import login
@@ -534,6 +535,9 @@ async def test_council_accepts_upload_tokens(rc):
     assert r.status_code == 202, r.text
     files = r.json()["files"]
     assert len(files) == 1 and files[0]["format"] == "csv" and files[0]["filename"].startswith("helper-")
+    # the council job runs in the background queue: let it finish so it never outlives the test (a job still
+    # running at teardown hung the event loop's shutdown, pod run #100 backend-unit-2)
+    await qmod.get_queue().wait_idle(600)
 
 
 async def test_users_import_accepts_token(rc):

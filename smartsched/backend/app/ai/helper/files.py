@@ -1624,6 +1624,12 @@ _MESSAGES = {
         "The file expired (10 minutes). Choose it again.",
     ),
     "stage_used": (410, "Bu dosya zaten kullanıldı. Yeniden seçin.", "This file was already used. Choose it again."),
+    # HB-23d UX-27: one stage per person; a file picked in another window (or tab) took this one's place
+    "stage_replaced": (
+        410,
+        "Başka bir pencerede seçtiğiniz dosya bunun yerini aldı. Bu dosyayı kullanmak için yeniden seçin.",
+        "A file you picked in another window replaced this one. Choose this file again to use it.",
+    ),
 }
 
 
@@ -1718,11 +1724,17 @@ def _write_private(path: Path, blob: bytes) -> None:
 
 
 def clear(user_id: int) -> int:
-    """Delete every stage of one person (a new classify, sign-out)."""
+    """Delete every stage of one person (a new classify, sign-out). Each deleted stage leaves an empty ``.replaced``
+    tombstone (swept like the stages), so its token answers ``stage_replaced``, not "expired" (HB-23d UX-27)."""
     n = 0
     for p in _dir().glob(f"{_tag(user_id)}-*"):
         if p.suffix in (".bin", ".claimed"):
             p.unlink(missing_ok=True)
+            if p.suffix == ".bin":
+                try:
+                    _write_private(p.with_suffix(".replaced"), b"")
+                except FileExistsError:
+                    pass
             n += 1
     return n
 
@@ -1795,7 +1807,9 @@ def _decrypt(blob: bytes, p: dict[str, Any], *, with_data: bool) -> tuple[dict[s
 
 def _gone(used: Path, claimed: Path | None = None) -> StageError:
     taken = used.exists() or (claimed is not None and claimed.exists())
-    return _err("stage_used") if taken else _err("stage_expired")
+    if taken:
+        return _err("stage_used")
+    return _err("stage_replaced") if used.with_suffix(".replaced").exists() else _err("stage_expired")
 
 
 def peek(token: str, user_id: int, sess: str, *, with_data: bool = False) -> tuple[dict[str, Any], bytes]:
@@ -1822,8 +1836,8 @@ def consume(token: str, user_id: int, sess: str) -> tuple[dict[str, Any], bytes]
     try:
         os.rename(path, claimed)
     except FileNotFoundError as exc:
-        used.unlink(missing_ok=True)  # nothing was there: expired, swept or cancelled
-        raise _err("stage_expired") from exc
+        used.unlink(missing_ok=True)  # nothing was there: replaced by a newer file, expired, swept or cancelled
+        raise _gone(used) from exc
     try:
         meta, data = _decrypt(claimed.read_bytes(), p, with_data=True)
     finally:
