@@ -3186,7 +3186,8 @@
       "goal": "You are lane WG-F (welcome guide frontend), re-created after a container restart. Your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `components/welcome/**`, `lib/api/welcome.ts`, `app/(app)/admin/welcome/**`, `e2e/wg-*.spec.ts`, and react-joyride i…",
       "ledger": "WG-F resume: welcome guide UI",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 08:27"
     },
     {
       "id": "aa75e212675093df5",
@@ -3255,6 +3256,14 @@
       "ledger": "AUX-F resume: sign-in UI",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a41d85f83c1f7a95d",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:24",
+      "left_off": "keep all agents running and tell me when pod is live"
     }
   ]
 }

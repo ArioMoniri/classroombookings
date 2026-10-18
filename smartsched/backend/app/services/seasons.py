@@ -1205,8 +1205,9 @@ async def term_periods(session: AsyncSession, term_id: int) -> dict[str, Any]:
 SEGMENT_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("ADD_DROP", ("ekle-birak", "ekle birak", "ders ekleme", "add/drop", "add-drop", "add drop")),
     ("MIDTERM", ("vize", "ara sinav", "arasinav", "midterm")),
+    # BREAK before HOLIDAY: "ara tatil" / "yarıyıl tatili" also contain "tatil"
+    ("BREAK", ("ara tatil", "yariyil tatil", "semester break", "mid-term break")),
     ("HOLIDAY", ("tatil", "bayram", "holiday", "break week")),
-    ("BREAK", ("ara tatil", "yariyil tatili", "semester break")),
 )
 
 
@@ -1228,7 +1229,7 @@ async def after_import(session: AsyncSession, term: Term) -> list[SeasonSegment]
     found: dict[tuple[str, int], str] = {}
     for w in sorted(weeks_rows, key=lambda x: int(x.index)):
         kind = segment_kind_of(w.label)
-        if kind is not None:
+        if kind is not None and kind != (w.kind or "").upper():  # the week kind already says it
             found[(kind, int(w.index))] = w.label or ""
     out: list[SeasonSegment] = []
     for kind in dict.fromkeys(k for k, _w in found):

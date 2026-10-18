@@ -91,7 +91,7 @@ describe("role-level capabilities, without assuming three roles", () => {
       expect(canAccessRoute(TEACHER, href)).toBe(false);
     }
     expect(adminSectionsFor(AI_ADMIN).map((s) => s.id)).toEqual(["conflicts", "ai", "ops", "catalog", "welcome"]);
-    expect(adminSectionsFor(["setup.settings"]).map((s) => s.id)).toEqual(["settings", "email", "ai", "ops"]);
+    expect(adminSectionsFor(["setup.settings"]).map((s) => s.id)).toEqual(["settings", "email", "ai", "ops", "welcome"]);
   });
   it("unknown admin sub-routes still need some setup permission", () => {
     expect(routeRequirement("/admin/whatever")).not.toBeNull();

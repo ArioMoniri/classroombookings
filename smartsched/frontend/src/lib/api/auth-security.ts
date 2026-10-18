@@ -235,6 +235,8 @@ export type SignInStep =
   | "setup-totp-confirm"
   | "setup-passkey-options"
   | "setup-passkey-verify"
+  | "reset-confirm"
+  | "invite-password"
   | "cancel";
 
 export const STEP_PREFIX = "/api/auth/mfa";

@@ -7,8 +7,10 @@ token (password, second factor, passkey, SSO exchange, reset link, invite) witho
 
 Cost per request: an in-process cache (:data:`TTL` 15 s) answers most checks without the database; a miss is one
 indexed read; ``last_seen_at`` is written at most every :data:`SEEN_EVERY`. Writes use a short separate session, so a
-read-only route never commits. A revocation clears this process's cache entry at once; another worker learns it within
-the TTL. Tokens without a ``jti`` (issued before AU-15) still pass on the token-version check only.
+read-only route never commits. A revocation clears this process's cache entry and moves ``users.sessions_epoch`` on;
+a cache entry is trusted only while the epoch it saw is the user's current one, so another worker (the user row is read
+on every request anyway) re-checks at once and the revoked token fails on its very next request, at no extra query.
+Tokens without a ``jti`` (issued before AU-15) still pass on the token-version check only.
 """
 
 from __future__ import annotations
@@ -34,8 +36,8 @@ from app.services import audit
 TTL = 15.0
 SEEN_EVERY = timedelta(minutes=5)
 _lock = threading.Lock()
-#: jti hash -> (checked at, monotonic; revoked; session id; last seen written)
-_cache: dict[str, tuple[float, bool, int, datetime]] = {}
+#: jti hash -> (checked at, monotonic; revoked; session id; last seen written; the user's sessions epoch then)
+_cache: dict[str, tuple[float, bool, int, datetime, int]] = {}
 STATE_KEY = "au_session_id"
 
 
@@ -52,11 +54,20 @@ def network_of(address: str | None) -> str:
     return str(ipaddress.ip_network(f"{ip}/{prefix}", strict=False))
 
 
-def _remember(h: str, revoked: bool, sid: int, seen: datetime) -> None:
+def _epoch(user: User) -> int:
+    return int(getattr(user, "sessions_epoch", 0) or 0)
+
+
+def _bump(user: User) -> None:
+    """Every worker's cached answers for ``user`` become stale (the caller commits)."""
+    user.sessions_epoch = _epoch(user) + 1
+
+
+def _remember(h: str, revoked: bool, sid: int, seen: datetime, epoch: int) -> None:
     with _lock:
         if len(_cache) > 20_000:
             _cache.clear()
-        _cache[h] = (time.monotonic(), revoked, sid, seen)
+        _cache[h] = (time.monotonic(), revoked, sid, seen, epoch)
 
 
 def forget(h: str | None = None) -> None:
@@ -88,8 +99,9 @@ async def check(request: Request, payload: dict[str, Any], user: User) -> int | 
     now = utcnow()
     with _lock:
         hit = _cache.get(h)
-    if hit is not None and time.monotonic() - hit[0] < TTL:
-        _checked, revoked, sid, seen = hit
+    epoch = _epoch(user)
+    if hit is not None and time.monotonic() - hit[0] < TTL and hit[4] == epoch:
+        _checked, revoked, sid, seen, _epoch_then = hit
         if revoked:
             raise _revoked()
         request.state.__setattr__(STATE_KEY, sid)
@@ -103,13 +115,13 @@ async def check(request: Request, payload: dict[str, Any], user: User) -> int | 
         elif row.user_id != user.id:  # a jti reused across accounts cannot happen with random ids: refuse
             raise _revoked()
         if row.revoked_at is not None:
-            _remember(h, True, row.id, row.last_seen_at)
+            _remember(h, True, row.id, row.last_seen_at, epoch)
             raise _revoked()
         if now - row.last_seen_at >= SEEN_EVERY:
             row.last_seen_at = now
             await s.commit()
         sid, seen = row.id, row.last_seen_at
-    _remember(h, False, sid, seen)
+    _remember(h, False, sid, seen, epoch)
     request.state.__setattr__(STATE_KEY, sid)
     return sid
 
@@ -175,8 +187,10 @@ async def list_own(db: AsyncSession, user: User, current: int | None) -> list[di
     ]
 
 
-async def _mark(db: AsyncSession, rows: list[UserSession], reason: str) -> int:
+async def _mark(db: AsyncSession, user: User, rows: list[UserSession], reason: str) -> int:
     now = utcnow()
+    if rows:
+        _bump(user)
     for r in rows:
         r.revoked_at, r.revoked_reason = now, reason[:32]
         forget(r.jti_hash)
@@ -196,13 +210,13 @@ async def revoke_one(db: AsyncSession, user: User, session_id: int) -> None:
                 "message_tr": "Oturum bulunamadı.",
             },
         )
-    await _mark(db, [row], "self")
+    await _mark(db, user, [row], "self")
     await audit.record(db, "auth.session_revoked", "user", user.id, after={"session_id": row.id, "device": row.device})
 
 
 async def revoke_others(db: AsyncSession, user: User, current: int | None) -> int:
     rows = [r for r in await _open(db, user) if r.id != current]
-    n = await _mark(db, rows, "others")
+    n = await _mark(db, user, rows, "others")
     await audit.record(db, "auth.session_revoked", "user", user.id, after={"others": True, "count": n})
     return n
 
@@ -220,7 +234,7 @@ async def revoke_all(db: AsyncSession, user: User, *, actor: User | None, reason
                 )
             ).scalars()
         )
-        n = await _mark(db, rows, reason)
+        n = await _mark(db, user, rows, reason)
     revoke_tokens(user)
     await audit.record(
         db,

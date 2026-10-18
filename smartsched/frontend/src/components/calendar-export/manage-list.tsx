@@ -50,7 +50,7 @@ export function CalendarExportManage({ fallbackFocus }: { fallbackFocus: RefObje
   const options = useExportOptions();
   const refresh = useRefreshCalendar();
   const rows = manageRows(subs.data?.rows);
-  const legacy = legacyProviders(options.data, subs.data?.rows);
+  const legacy = legacyProviders(options.data, subs.data?.rows, subs.data?.connections);
   const accounts = pushAccounts(options.data, subs.data?.connections).filter((p) => p.connected || p.status === "REAUTH" || p.status === "CAL_DELETED");
   const [confirm, setConfirm] = useState<Subscription | null>(null);
   const [busy, setBusy] = useState<string | null>(null);

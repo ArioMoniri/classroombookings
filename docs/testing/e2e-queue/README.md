@@ -9,3 +9,11 @@ Each lane lists the browser checks it could not run. The e2e lane runs them one 
 2. RF-01 /classes: edit the "Öğrenci" cell, reload, the value stays; a `section.update` row in /admin/audit.
 3. RF-03 /admin/users › Davet et: without SMTP the switch is off and disabled with "E-posta ayarlanmadı" and a link
    to /admin/email; with SMTP it is on and the invite mail is sent.
+
+## WG-F (welcome guide) — specs e2e/wg-*.spec.ts (helpers e2e/wg-helpers.ts); 1440 mouse + 390×844 touch, tr-TR, Europe/Istanbul
+1. wg-sheet.spec.ts, then MOBILE M-01/02/03/05 on /reserve with the sheet open.
+2. wg-tour.spec.ts, plus a bundle check that the tour chunk is not in /reserve's first-load JS (needs `next build`).
+3. wg-checklist.spec.ts, then M-01/02/03/05 on the Daha tab.
+4. wg-hints.spec.ts, plus axe on the hinted pages.
+5. wg-admin.spec.ts, then M-01/02/03/05 on /admin/welcome.
+On pass: tick WG-04..08 `[x]` in docs/ROADMAP.md.

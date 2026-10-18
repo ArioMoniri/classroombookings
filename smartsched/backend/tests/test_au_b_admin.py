@@ -133,6 +133,13 @@ async def test_reset_removes_factors_signs_out_audits_and_mails(setup) -> None: 
     assert not any(w in r.text.lower() for w in SECRET_WORDS)
     # signed out everywhere; the next sign-in needs only the password; the trusted device is gone
     assert (await c.get(f"{API}/auth/me", headers=headers)).status_code == 401
+    from app.core import db as dbmod
+    from app.models.mfa import UserSession  # AU-15: the session rows are ended too, not only the token version
+    from sqlalchemy import select
+
+    async with dbmod.get_session_factory()() as s:
+        rows = list((await s.execute(select(UserSession).where(UserSession.user_id == uid))).scalars())
+    assert rows and all(r.revoked_at is not None and r.revoked_reason == "mfa_reset" for r in rows)
     assert "access_token" in await password_step(c, EMAIL, **{"X-Trusted-Device": device})
     events = await audit_rows("auth.mfa_reset_by_admin")
     assert len(events) == 1

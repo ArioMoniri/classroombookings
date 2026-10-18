@@ -4,7 +4,8 @@
   only the built-in ``standard`` and ``exam_week`` profiles exist;
 * after the universal fixture (``tests/fixtures/universal/bahar_requests_en.csv``, an English CSV of the Bahar
   list) is committed through the intake council, request-driven demand is not empty;
-* ``seasons.after_import`` proposes draft segments only from week names that say so ("Vize haftası").
+* ``seasons.after_import`` proposes draft segments only from week names that say so ("Vize haftası", "Yarıyıl
+  tatili"), never for a week whose kind already says it (a HOLIDAY week named "Kurban Bayramı").
 """
 
 from __future__ import annotations
@@ -103,3 +104,66 @@ async def test_as_18_after_import_proposes_drafts_from_week_names(engine, sessio
     assert seasons.period_kind_on(term, date(2026, 2, 17), weeks_rows, hol, segs) == "LECTURE"
     segs[0].status = "active"
     assert seasons.period_kind_on(term, date(2026, 2, 17), weeks_rows, hol, segs) == "MIDTERM"
+
+
+#: the 19 sheet names of the real Bahar weekly grid (tests/fixtures/bahar_derslikler_takvimi_2026.xlsx), with
+#: the week kinds the grid importer gives them
+BAHAR_SHEETS = (
+    *(
+        (name, "LECTURE")
+        for name in (
+            "2  - 8 Şubat Bahar Dönem Açılış",
+            "9 - 15 Şubat Bahar Dönem Aç (2",
+            "16 - 22 Şubat",
+            "23 Şubat - 1 Mart",
+            "2 - 8 Mart",
+            "9 - 15 Mart",
+            "16 - 22 Mart",
+            "23 - 29 Mart",
+            "30 mart - 05 Nisan",
+            "6 - 12 Nisan",
+            "13 - 19 Nisan",
+            "20 - 26 Nisan",
+            "27 Nisan - 03 Mayıs",
+            "4 - 10 Mayıs",
+            "11 - 17 Mayıs",
+        )
+    ),
+    ("Yaz Dönemi", "SUMMER"),
+    ("Final 1 - 7 Haziran", "EXAM"),
+    ("Final 8 - 14 Haziran", "EXAM"),
+    ("BÜT 22 - 24 Haziran", "MAKEUP"),
+)
+
+
+async def _term_with_weeks(session, weeks) -> Term:
+    term = Term(code="2026-BAHAR", name="2026 Bahar", week_count=len(weeks), start_date=date(2026, 2, 2))
+    session.add(term)
+    await session.flush()
+    for i, (label, kind) in enumerate(weeks, 1):
+        session.add(Week(term_id=term.id, index=i, kind=kind, label=label))
+    await session.flush()
+    return term
+
+
+async def test_as_18_after_import_real_bahar_sheets_propose_nothing(engine, session):
+    # Final / BÜT / Yaz are week kinds already; no sheet names an add/drop, midterm or break week
+    term = await _term_with_weeks(session, BAHAR_SHEETS)
+    assert await seasons.after_import(session, term) == []
+
+
+async def test_as_18_after_import_semester_break_and_holiday_weeks(engine, session):
+    term = await _term_with_weeks(
+        session,
+        (
+            ("19 - 25 Ocak", "LECTURE"),
+            ("YARIYIL TATİLİ 26 Ocak - 1 Şubat", "LECTURE"),  # dotted capital İ
+            ("Ara Tatil", "LECTURE"),  # NBSP from a pasted sheet name
+            ("Kurban Bayramı", "HOLIDAY"),  # the week kind already says holiday: no second proposal
+            ("Ramazan Bayramı", "LECTURE"),
+        ),
+    )
+    out = await seasons.after_import(session, term)
+    assert [(sg.kind, sg.week_from, sg.week_to) for sg in out] == [("BREAK", 2, 3), ("HOLIDAY", 5, 5)]
+    assert (out[0].label_tr, out[0].label_en) == ("Ara: 2–3. haftalar", "Break: weeks 2–3")
+    assert {sg.status for sg in out} == {"draft"}
