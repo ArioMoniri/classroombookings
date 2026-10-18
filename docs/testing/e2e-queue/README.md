@@ -146,3 +146,7 @@ On pass: tick VO-06/07/08 and VO-05.
 
 - **Sweeper 2** (390 touch, M-05/M-02; 1440 unchanged): Save sits in the capsule above the tab bar at scroll 0/400/end on `/admin/ai?tab=limits`, `?tab=models`, `/programs/new` with and without drafts, `/settings?tab=ai` with and without a key. Fix 15 re-measure: Studio "İleri" at 390, "Şablondan seç" at 768, timetable "Filtreler" at 390 (worst long frame ≤ 200 ms; take a trace for Filtreler). A5: Yoğunluk Sıkı → table rows 32 px on /classes (> 80 rows) with no gaps; Rahat → 44 px. `/grafana/`: admin 200, teacher 403, signed out 302. Run chat: a second message keeps earlier context (live model).
 - **Pod CI:** the first gracious deploy after this tree installs the backend with `--require-hashes` (hashed locks); watch the backend gate on arm64.
+
+## Added 2026-10-18 10:48 UTC
+
+- **IDP** (1440 and 390, tr-TR): Profil › Güvenlik link Keycloak (mock issuer `e2e/w3-idp-mock-issuer.py`) → "bağlandı" → unlink with password, focus on "Bağla", toast; the same with a SAML IdP and an encrypted assertion through the ACS; `?error=already_linked&provider=keycloak` shows on the Keycloak row only; admin with a federation certificate and unsigned metadata → provider "error" with the Turkish reason.

@@ -3757,6 +3757,18 @@
       "status": "finished",
       "finished_at": "2026-10-18 10:34",
       "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a355bcd9437cf7ca7",
+      "description": "IDP-2: SAML wizard fields, CBC rule",
+      "subagent_type": "claude",
+      "isolation": null,
+      "started_at": "2026-10-18 10:38",
+      "scope": "",
+      "goal": "Ledger name `idp2-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorkers=1 --testTimeout=30000` and pytes…",
+      "ledger": "IDP-2: SAML wizard fields, CBC rule",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

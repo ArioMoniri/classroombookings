@@ -20,14 +20,14 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 
 | Lane | Ledger name | What | Brief / tickets | Waits on |
 |---|---|---|---|---|
-| IDP | `idp-2026-10-18` | RF-12 metadata signature, encrypted assertions, SP request signing, non-Entra profile linking | auth-backend research | — |
+| IDP-2 | `idp2-2026-10-18` | SAML wizard fields (signing cert, SP key, sign requests); refuse AES-CBC unless the Response is signed | IDP PROGRESS rows | — |
 | HX | `hx-2026-10-18` | Helper frontend HX-01..13 (HX-09 after HB-14/15) | helper.md, scratchpad helper/API.md | HB-C for HX-09 |
 | RF-F | `rf-f-2026-10-18` | /import preview and diff, who imported; period-grid editor; week editor; server-side 2FA filter | scratchpad rf-b/API.md | — |
 | RF-C | `rf-c-2026-10-18` | RF-14 learning band times follow the period grid, RF-15 pre-RF-06 exam edits survive the first re-import | RF section | — |
 | Launch video | `media-launch` | Recordly + Lottie + Remotion videos | MEDIA.md | final UI |
 | E2E lane | `e2e-2026-10-18` | docs/testing/e2e-queue section by section → results-2026-10-18.md | e2e-queue README | — |
 
-Done 2026-10-18: Sweeper 2 (W3-AI capsule + history spotlighting, F13 hashed locks, /grafana/ drift test, mobile B capsules, fix 15 two of three, A5 density rows), HB-C (HB-14, HB-15; HB-16 part done: needs a GPU host walk-through), CH-B (chart routes; CH-07/10/11 wait on e2e only), RF-B (RF-06/08/09 backend, `mfa_state` filter), CH-M (CH-08 done; CH-07/10/11 frontend waiting on CH-B), HB-B (HB-06, HB-10..13; e2e pending), WG-09 (part done: e2e pending, hosted fix unspent), RF-M (RF-04, RF-10; e2e pending), AUX-10 (part done: e2e pending, the hosted fix "signin-hero-settle" is unspent because `TRANSITIONS_AGENT_LICENSE` is not set in this session), HB-A (HB-01/03..05/07..09), AS-B, AS-F, AUX-F, AU-B, CAL-F, VO-F, WG-F, charts p2, mobile A/B, RF-1, RF-2, sweeper.
+Done 2026-10-18: IDP (RF-12, encrypted assertions, request signing, profile linking; e2e pending), Sweeper 2 (W3-AI capsule + history spotlighting, F13 hashed locks, /grafana/ drift test, mobile B capsules, fix 15 two of three, A5 density rows), HB-C (HB-14, HB-15; HB-16 part done: needs a GPU host walk-through), CH-B (chart routes; CH-07/10/11 wait on e2e only), RF-B (RF-06/08/09 backend, `mfa_state` filter), CH-M (CH-08 done; CH-07/10/11 frontend waiting on CH-B), HB-B (HB-06, HB-10..13; e2e pending), WG-09 (part done: e2e pending, hosted fix unspent), RF-M (RF-04, RF-10; e2e pending), AUX-10 (part done: e2e pending, the hosted fix "signin-hero-settle" is unspent because `TRANSITIONS_AGENT_LICENSE` is not set in this session), HB-A (HB-01/03..05/07..09), AS-B, AS-F, AUX-F, AU-B, CAL-F, VO-F, WG-F, charts p2, mobile A/B, RF-1, RF-2, sweeper.
 
 ## Queued (start when a slot frees; at most 8 agents)
 
