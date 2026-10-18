@@ -93,7 +93,7 @@ export function EntryView({ entry }: { entry: LogEntry }) {
   if (writeLike && (!card.action || !KNOWN_ACTIONS.has(card.action))) return <FallbackView />;
   switch (card.type) {
     case "answer":
-      return <AnswerView card={card} />;
+      return <AnswerView card={card} entry={entry} />;
     case "nav":
       return <NavView card={card} />;
     case "list":

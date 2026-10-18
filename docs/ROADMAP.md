@@ -3904,6 +3904,7 @@ passkeys and the stack's SMTP sink catches mail.
   files: `frontend/src/components/ui/transitions/transitions-dev.css` (ui owner informed), `components/ui/SOURCES.md`, the AUX parts above; `frontend/e2e/motion-audit.spec.ts` (append case).
   part done (free recipes re-implemented in components/auth/auth.css with reduced-motion stops; will-change moved to .t-input.is-shaking; SOURCES rows); open: motion-audit sign-in-security case (e2e lane); aux-f-2026-10-18
 - [ ] AUX-10 · motion · no migration · Sign-in hero (auth.md §11.3–§11.4).
+  Hosted fix "signin-hero-settle" spent 2026-10-18 (1/10): proposal reviewed and rejected (wrong tokens and easing, hero untouched); auth.css durations moved to `--dur-*` tokens instead. Open: e2e only.
   - `components/auth/signin-hero.tsx`:
     - `docs/lottie/hero-solver-{light,dark}.json` played with `lottie-react`, lazy-loaded at ≥ 1024 px only, after
       idle + 300 ms;

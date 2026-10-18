@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from collections.abc import AsyncIterator
 from typing import Any, Literal
 
@@ -44,6 +45,7 @@ def _sse(kind: str, data: dict[str, Any]) -> str:
 @router.post("/turn")
 async def post_turn(body: TurnIn, db: DB, access: CurrentAccess) -> StreamingResponse:
     """One helper turn, streamed. The turn runs on its own session (this request's session is released first)."""
+    from app.ai.helper import telemetry
     from app.ai.helper_turn import run_turn
     from app.services.bookings_perms import load_access
 
@@ -64,7 +66,11 @@ async def post_turn(body: TurnIn, db: DB, access: CurrentAccess) -> StreamingRes
                 if user is None:
                     await queue.put(("error", {"status": 401, "detail": "not signed in"}))
                     return
-                await run_turn(s, await load_access(s, user), body.text, body.lang, emit=emit)
+                access = await load_access(s, user)
+                t0 = time.monotonic()
+                result = await run_turn(s, access, body.text, body.lang, emit=emit)
+                # HB-14: one query row + metrics + the GenAI log line; no prompt text (never raises)
+                await telemetry.record_turn(s, access, body.text, result, latency_s=time.monotonic() - t0)
                 await s.commit()
         except Exception as exc:  # noqa: BLE001 - reported as an event, never with a key or the prompt
             log.warning("helper turn failed: %s", redact_keys(type(exc).__name__))

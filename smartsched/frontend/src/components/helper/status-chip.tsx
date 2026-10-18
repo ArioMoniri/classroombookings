@@ -31,7 +31,10 @@ export interface HelperMode {
 }
 
 /** Turn codes that mean "a limit", not "the provider failed" (HB-B `run_finished.fallback`). */
-const LIMIT_CODES = new Set(["ai_limit_reached", "limit", "quota", "faculty_limit", "department_limit", "rate_limited"]);
+const LIMIT_CODES = new Set([
+  "ai_limit_reached", "ai_budget_exceeded", "ai_faculty_limit_reached", "ai_department_limit_reached", "ai_feature_limit_reached",
+  "ai_unit_limit_reached", "rate_limited", "too_many_concurrent",
+]);
 
 export function chipState(status: HelperStatus | undefined, usageState: string | undefined, fallback: string | null): ChipState {
   if (!status || status.mode !== "ai") return "off";
@@ -71,6 +74,9 @@ const WHO: Record<string, MessageKey> = {
   provider_unusable: "helper.status.who.admin",
   consent_missing: "helper.status.who.you",
   turn_unavailable: "helper.status.who.server",
+  index_mode: "helper.status.who.admin",
+  disabled: "helper.status.who.disabled",
+  audience_off: "helper.status.who.disabled",
 };
 
 export function useChipWord(mode: HelperMode): string {
@@ -134,7 +140,7 @@ export function StatusChip({ mode }: { mode: HelperMode }) {
               {t("helper.status.openPrivacy")}
             </Button>
           ) : null}
-          {mode.state === "off" && admin && (reason === "not_routed" || reason === "provider_unusable") ? (
+          {mode.state === "off" && admin && (reason === "not_routed" || reason === "provider_unusable" || reason === "index_mode") ? (
             <Button size="sm" variant="secondary" className="self-start" onClick={() => go("/admin/ai")} data-testid="helper-status-admin">
               {t("helper.status.openAdmin")}
             </Button>

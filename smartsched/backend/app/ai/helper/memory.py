@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -206,6 +207,22 @@ async def prompt_notes(session: AsyncSession, user: User) -> list[str]:
         x.expires_at = now + timedelta(days=int(st["retention_days"]))
     await session.flush()
     return [x.text for x in rows]
+
+
+def notes_in_answer(notes: list[str], answer: str, limit: int = 2) -> list[str]:
+    """The notes an answer drew on, for "Notunuza göre: {not}" under it: a note counts when the answer contains one
+    of its meaningful words (Turkish-folded, ≥ 4 letters, not a stop word). Server-side, so a model cannot claim a
+    note it did not use, or hide one it did."""
+    from app.ai import guardrails as g
+    from app.ai.helper.index import STOPWORDS
+
+    said = set(re.findall(r"[a-z0-9]+", g.fold(answer or "")))
+    used = []
+    for note in notes:
+        words = {w for w in re.findall(r"[a-z0-9]+", g.fold(note)) if len(w) >= 4 and w not in STOPWORDS}
+        if words & said:
+            used.append(note)
+    return used[:limit]
 
 
 async def delete_note(session: AsyncSession, user: User, note_id: int) -> None:
@@ -398,6 +415,7 @@ __all__ = [
     "dsr_rows",
     "erase",
     "list_notes",
+    "notes_in_answer",
     "on_ai_personal_withdrawn",
     "prompt_notes",
     "purge",

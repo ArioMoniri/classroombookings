@@ -9,7 +9,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { crbs } from "@/lib/api/crbs";
-import { helperApi, helperRefusal, type ActionArgs } from "@/lib/api/helper";
+import { helperApi, helperRefusal, trackHelper, type ActionArgs } from "@/lib/api/helper";
 import { translate, type Locale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useHelperStore, type CardEntry } from "./helper-store";
@@ -102,6 +102,7 @@ export function useHelperRunner(): Runner {
         }
         if (opts?.replaces) useHelperStore.getState().updateCard(opts.replaces, { phase: "parked" });
         const key = pushServerCard(card, { hints: opts?.hints, step: card.type === "choice" ? opts?.step ?? 1 : undefined });
+        if (card.type === "form") trackHelper({ kind: "form_open", action: card.action });
         focusEntry(key);
       } catch (err) {
         const key = pushRefusal(err);
@@ -126,10 +127,14 @@ export function useHelperRunner(): Runner {
       }
       st.setTurn({ busy: true, tools: [], draft: "", error: null, fallback: null });
       let answered = false;
+      let turnId: string | undefined;
       try {
         await streamTurn(text, locale as Locale, (e) => {
           const s = useHelperStore.getState();
           switch (e.type) {
+            case "run_started":
+              turnId = e.turnId || undefined;
+              break;
             case "tool_start":
               s.setTurn((t) => ({ tools: [...t.tools, { name: e.name, state: "pending" }] }));
               break;
@@ -145,7 +150,8 @@ export function useHelperRunner(): Runner {
               break;
             case "card":
               answered = true;
-              s.pushCard(e.card);
+              s.pushCard(e.card, { turnId });
+              if (e.card.type === "form") trackHelper({ kind: "form_open", action: e.card.action, ...(turnId ? { turn_id: turnId } : {}) });
               if (e.card.type === "answer") s.setTurn({ draft: "" });
               break;
             case "bad_card":
@@ -261,6 +267,7 @@ export function useHelperRunner(): Runner {
 
   const cancel = useCallback<Runner["cancel"]>((entry) => {
     useHelperStore.getState().updateCard(entry.key, { phase: "cancelled" });
+    if (entry.card.type === "confirm") trackHelper({ kind: "cancel", action: entry.card.action, ...(entry.turnId ? { turn_id: entry.turnId } : {}) });
   }, []);
 
   return { ask, runAction, confirm, undo, refresh, cancel };

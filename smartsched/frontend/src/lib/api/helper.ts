@@ -135,7 +135,7 @@ export const helperApi = {
     request("/helper/search", { ...s, query: { q, limit: 6, term_id: termId ?? undefined, final: final ? "true" : undefined }, schema: HelperSearch, signal }),
   /** the person submitted the search (Enter / picked a "Nerede?" row): one `query` event server-side */
   searchFinal: (q: string) => request("/helper/search", { ...s, query: { q, limit: 1, final: "true" } }).then(() => undefined),
-  /** 👍 / 👎 on a turn (`run_started.turn_id`) */
+  /** thumbs up / down on a turn (`run_started.turn_id`) */
   feedback: (body: { turn_id: string; thumb: "up" | "down"; reason?: string; note?: string }) => request("/helper/feedback", { ...s, method: "POST", body }),
   /** what deflection counts: `nav_click` ("Sayfayı aç"), `form_open`, `cancel` ("Vazgeç" on a confirm card) */
   event: (body: { kind: "nav_click" | "form_open" | "cancel"; turn_id?: string; feature_id?: string; action?: string }) =>
@@ -205,4 +205,125 @@ export function useDeleteHelperNote() {
 export function useDeleteAllHelperNotes() {
   const done = useMemoryInvalidate();
   return useMutation({ mutationFn: ({ history }: { history: boolean }) => helperApi.deleteAll(history), onSuccess: done });
+}
+
+/** Fire-and-forget telemetry (never blocks or fails the person's action). */
+export function trackHelper(body: Parameters<typeof helperApi.event>[0]): void {
+  void helperApi.event(body).catch(() => undefined);
+}
+
+/* ------------------------------------------------------------------------- /admin/ai › Yardımcı (HB-14 / HB-15) */
+
+const Label = Txt.catch({ tr: "", en: "" });
+
+export const HelperAdminSettings = z.object({
+  enabled: z.boolean().catch(true),
+  mode: z.enum(["ai", "index"]).catch("ai"),
+  audiences: z.record(z.string(), z.boolean()).catch({}),
+  actions: z.record(z.string(), z.object({ enabled: z.boolean().catch(true), audiences: z.array(z.string()).nullish().catch(null) }).passthrough()).catch({}),
+  memory: z.object({ enabled: z.boolean().catch(true), retention_days: z.number().catch(180) }).passthrough().catch({ enabled: true, retention_days: 180 }),
+  history_days: z.number().catch(30),
+  feedback_notes: z.boolean().catch(true),
+  guard: z.object({ scope: z.string().catch("normal") }).passthrough().catch({ scope: "normal" }),
+});
+export type HelperAdminSettings = z.infer<typeof HelperAdminSettings>;
+
+export const HelperAdmin = z.object({
+  settings: HelperAdminSettings,
+  version: z.string().nullish(),
+  effective: z.object({ mode: z.enum(["ai", "index"]).catch("index"), reason: z.string().nullish(), message: Txt.nullish().catch(null) }).passthrough().nullish(),
+  catalog: z
+    .object({
+      audiences: z.array(z.object({ id: z.string(), label: Label })).catch([]),
+      actions: z.array(z.object({ name: z.string(), kind: z.string().catch("read"), risk: z.string().catch("R0"), summary: Label, risk_label: Label })).catch([]),
+      scopes: z.array(z.object({ id: z.string(), label: Label, hint: Txt.nullish().catch(null) })).catch([]),
+    })
+    .catch({ audiences: [], actions: [], scopes: [] }),
+});
+export type HelperAdmin = z.infer<typeof HelperAdmin>;
+
+export interface HelperAdminPatch {
+  version?: string | null;
+  enabled?: boolean;
+  mode?: "ai" | "index";
+  audiences?: Record<string, boolean>;
+  actions?: Record<string, { enabled?: boolean; audiences?: string[] | null }>;
+  memory?: { enabled?: boolean; retention_days?: number };
+  history_days?: number;
+  feedback_notes?: boolean;
+  guard?: { scope?: string };
+}
+
+export const HelperSummary = z.object({
+  days: z.number().catch(7),
+  tiles: z.array(z.object({ id: z.string(), tr: z.string(), en: z.string() })).catch([]),
+  misses: z.array(z.object({ query: z.string(), users: z.number(), count: z.number() })).catch([]),
+  k_min: z.number().catch(5),
+});
+export type HelperSummary = z.infer<typeof HelperSummary>;
+
+/* ------------------------------------------------------------------- faculty quotas (HB-10 / HB-11, `/ai/faculty`) */
+
+export const FacultyUsage = z.object({
+  faculty: z.object({ id: z.number(), name: z.string() }).nullish(),
+  faculties: z.array(z.object({ id: z.number(), name: z.string() })).catch([]),
+  month: z.string().nullish(),
+  allocation: z.object({ monthly_tokens: z.number().nullish(), monthly_cost_usd: z.number().nullish() }).passthrough().nullish().catch(null),
+  totals: z.object({ tokens: z.number().catch(0), cost_usd: z.number().catch(0), calls: z.number().catch(0) }).catch({ tokens: 0, cost_usd: 0, calls: 0 }),
+  by_department: z
+    .array(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        tokens: z.number().catch(0),
+        calls: z.number().catch(0),
+        allocation: z.object({ monthly_tokens: z.number().nullish(), monthly_cost_usd: z.number().nullish() }).passthrough().nullish().catch(null),
+      }),
+    )
+    .catch([]),
+  by_feature: z.array(z.object({ feature: z.string(), label_tr: z.string().nullish(), label_en: z.string().nullish(), tokens: z.number().catch(0) }).passthrough()).catch([]),
+  trend: z.array(z.object({ day: z.string(), tokens: z.number().catch(0) })).catch([]),
+  show_people: z.boolean().catch(false),
+  people: z.array(z.object({ label: z.string(), department: z.string().nullish(), tokens: z.number().catch(0) })).nullish().catch(null),
+});
+export type FacultyUsage = z.infer<typeof FacultyUsage>;
+
+export const helperAdminApi = {
+  get: () => request("/ai/admin/helper", { ...s, schema: HelperAdmin }),
+  put: (patch: HelperAdminPatch) => request("/ai/admin/helper", { ...s, method: "PUT", body: patch, schema: HelperAdmin }),
+  summary: (days = 7) => request("/ai/admin/helper/summary", { ...s, query: { days }, schema: HelperSummary }),
+  facultyUsage: (facultyId?: number | null) => request("/ai/faculty/usage", { ...s, query: { faculty_id: facultyId ?? undefined }, schema: FacultyUsage }),
+  facultyAllocations: (facultyId: number, departments: Record<string, { monthly_tokens: number | null; monthly_cost_usd?: number | null }>) =>
+    request("/ai/faculty/allocations", { ...s, method: "PUT", body: { faculty_id: facultyId, departments } }),
+};
+
+export const helperAdminKeys = {
+  settings: ["helper", "admin"] as const,
+  summary: (days: number) => ["helper", "admin", "summary", days] as const,
+  faculty: (id: number | null) => ["helper", "faculty", id] as const,
+};
+
+export const useHelperAdmin = (enabled = true) => useQuery({ queryKey: helperAdminKeys.settings, queryFn: helperAdminApi.get, enabled, retry: false });
+export const useHelperSummary = (days = 7, enabled = true) => useQuery({ queryKey: helperAdminKeys.summary(days), queryFn: () => helperAdminApi.summary(days), enabled, retry: false });
+export const useFacultyUsage = (facultyId: number | null, enabled = true) =>
+  useQuery({ queryKey: helperAdminKeys.faculty(facultyId), queryFn: () => helperAdminApi.facultyUsage(facultyId), enabled, retry: false });
+
+export function useSaveHelperAdmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: helperAdminApi.put,
+    onSuccess: (data) => {
+      qc.setQueryData(helperAdminKeys.settings, data);
+      void qc.invalidateQueries({ queryKey: helperKeys.status });
+      void qc.invalidateQueries({ queryKey: helperKeys.actions });
+    },
+  });
+}
+
+export function useSaveFacultyAllocations() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ facultyId, departments }: { facultyId: number; departments: Record<string, { monthly_tokens: number | null }> }) => helperAdminApi.facultyAllocations(facultyId, departments),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["helper", "faculty"] }),
+  });
 }

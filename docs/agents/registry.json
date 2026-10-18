@@ -3688,6 +3688,14 @@
       "ledger": "CH-B: chart stats backend routes",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "abe9d8bfdd3472372",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:11",
+      "left_off": "removed the network secret, try the licence again"
     }
   ]
 }

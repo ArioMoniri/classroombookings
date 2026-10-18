@@ -9,6 +9,7 @@
 import { ChevronDown, MapPin } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { trackHelper } from "@/lib/api/helper";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { canOpenFeature, featureById, featureHref, pathLine } from "../feature-links";
@@ -54,7 +55,10 @@ export function NavView({ card, compact = false }: { card: NavCard; compact?: bo
               {t("helper.where.show")}
             </Button>
           ) : null}
-          <Button size="md" variant={anchor ? "secondary" : "default"} onClick={() => host.go(href)} data-testid="helper-card-secondary">
+          <Button size="md" variant={anchor ? "secondary" : "default"} onClick={() => {
+              trackHelper({ kind: "nav_click", feature_id: card.feature_id });
+              host.go(href);
+            }} data-testid="helper-card-secondary">
             {openLabel}
           </Button>
           {doHere ? (

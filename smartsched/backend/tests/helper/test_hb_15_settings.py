@@ -216,3 +216,39 @@ def test_hb_15_guard_scope_sets_the_off_scope_threshold() -> None:
     v = guard.check("şifre değiştir", perms, min_coverage=1.01)
     assert not v.allowed and v.code == guard.OUT_OF_SCOPE
     assert hs.min_coverage({**hs.defaults(), "guard": {"scope": "strict"}}) == hs.SCOPES["strict"]
+
+
+async def test_hb_15_switched_off_action_is_not_a_model_tool(session, fake_sdk) -> None:  # noqa: F811
+    user = await _person(session)
+    access = await load_access(session, user)
+    fake_sdk.script = [text("Boş salonları sayfada görebilirsiniz.")]
+    await ht.run_turn(session, access, "yarın boş salon ayırmak istiyorum", "tr")
+    first = {t["name"] for t in fake_sdk.calls[0]["tools"]}
+    assert "create_booking" in first
+    await hs.save(session, {"actions": {"create_booking": {"enabled": False}}})
+    await session.commit()
+    fake_sdk.calls.clear()
+    fake_sdk.script = [text("Boş salonları sayfada görebilirsiniz.")]
+    await ht.run_turn(session, access, "yarın boş salon ayırmak istiyorum", "tr")
+    offered = {t["name"] for t in fake_sdk.calls[0]["tools"]}
+    assert "create_booking" not in offered and "open_feature" in offered
+
+
+async def test_hb_15_notes_used_under_the_answer(session, fake_sdk) -> None:  # noqa: F811
+    from app.ai.helper import memory
+
+    user = await _person(session)
+    access = await load_access(session, user)
+    await memory.add_note(session, user, "Derslerim B blokta.", "user_button")
+    await memory.add_note(session, user, "Sabah saatlerini severim.", "user_button")
+    await session.commit()
+    fake_sdk.script = [text("B blokta yarın 10:10 için boş bir salon var.")]
+    result = await ht.run_turn(session, access, "yarın boş salon var mı?", "tr")
+    answer = next(c for c in result.cards if c["type"] == "answer")
+    assert answer["source"] == "ai" and answer["notes_used"] == ["Derslerim B blokta."]
+    cs.validate_card(answer)
+    # an answer that draws on no note carries no field (older clients see the same card as before)
+    fake_sdk.script = [text("Yarın 10:10 için boş bir salon var.")]
+    result = await ht.run_turn(session, access, "yarın boş salon var mı?", "tr")
+    assert "notes_used" not in next(c for c in result.cards if c["type"] == "answer")
+    assert memory.notes_in_answer(["Derslerim B blokta."], "Bir şey yok.") == []

@@ -33,6 +33,8 @@ export interface CardEntry {
   step?: number;
   /** result cards: undone already */
   undone?: boolean;
+  /** the turn that sent it (`run_started.turn_id`): feedback and telemetry */
+  turnId?: string;
 }
 
 export interface UserEntry {
@@ -81,7 +83,7 @@ interface HelperState {
   /** a shortcut the sheet should run as soon as it is open (palette → Kısayollar) */
   pendingAction: { action: string; args: Record<string, string | number>; hints?: IntentHints } | null;
   /** "Göster": a 1-step spotlight on this feature's anchor (show-me.tsx) */
-  showMe: { featureId: string; reopen: boolean } | null;
+  showMe: { featureId: string; reopen: boolean; n: number } | null;
   openSheet: (opts?: { opener?: HTMLElement | null; ask?: string; action?: HelperState["pendingAction"] }) => void;
   closeSheet: () => void;
   takePending: () => { ask: string | null; action: HelperState["pendingAction"] };
@@ -145,7 +147,7 @@ export const useHelperStore = create<HelperState>()(
       setTurn: (patch) => set((s) => ({ turn: { ...s.turn, ...(typeof patch === "function" ? patch(s.turn) : patch) } })),
       newThread: () => set({ entries: [], turn: IDLE }),
       setTextOnly: (v) => set({ textOnly: v }),
-      startShowMe: (featureId, reopen) => set({ showMe: { featureId, reopen } }),
+      startShowMe: (featureId, reopen) => set({ showMe: { featureId, reopen, n: (seq += 1) } }),
       endShowMe: () => set({ showMe: null }),
     }),
     // only the device preference is kept (helper.md §5.1: "Yalnızca metin" in localStorage)

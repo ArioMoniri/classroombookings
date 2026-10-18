@@ -215,6 +215,10 @@ async def import_exam_list(
         e.source_key: e
         for e in (await session.execute(select(ExamRequest).where(ExamRequest.term_id == term.id))).scalars()
     }
+    for r in parsed.rows:
+        # rooms named only in a later row's definitive column must exist before earlier rows resolve their
+        # requested venue, or a second import of the same file "changes" those rows (as the planning list does)
+        await cat.room_ids(r.definitive.room_codes, create=True)
     snaps = await _exam_snapshots(session, [e.id for e in existing.values()])
     conflicts: list[dict[str, Any]] = []
     unchanged = 0

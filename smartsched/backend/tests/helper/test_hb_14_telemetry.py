@@ -334,3 +334,13 @@ async def test_hb_14_feedback_in_dsr_export_erasure_and_purge(client) -> None:  
         await s.commit()
     e = (await _events(turn_id="1" * 16))[0]
     assert e.user_id is None and e.note is None
+
+
+async def test_hb_14_turn_route_records_one_query(client) -> None:  # noqa: F811
+    admin = await login(client)
+    uid, teacher = await make_user(client, admin, "ayse.yilmaz@uni.edu.tr")
+    r = await client.post(f"{H}/turn", json={"text": "şifremi nasıl değiştiririm?"}, headers=teacher)
+    assert r.status_code == 200 and "run_finished" in r.text
+    rows = await _events(kind="query")
+    assert [(e.user_id, e.mode, e.outcome) for e in rows] == [(uid, "index", "index")]
+    assert rows[0].turn_id and rows[0].turn_id in r.text and rows[0].latency_ms is not None

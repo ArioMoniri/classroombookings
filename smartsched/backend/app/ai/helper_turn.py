@@ -11,7 +11,8 @@
    rate, input guard, limits, caps, output guard) and writes one ``ai_usage`` row with feature ``helper``:
 
    * the tools are :func:`~app.ai.helper.actions.registry.tools_for` the person, the index hits' actions first,
-     **at most 10** (:data:`MAX_TOOLS`), each ``strict: true``;
+     **at most 10** (:data:`MAX_TOOLS`), each ``strict: true``; only the actions the admin switched on for the
+     person's audiences (HB-15 :func:`app.ai.helper.settings.policy`, which also sets the guard's strictness);
    * at most ``max_tool_rounds`` model calls (the route's cap, default 4, ``DEFAULT_CAPS["helper"]``);
    * every tool call is validated and run by :func:`app.ai.helper.tooluse.apply_message` (offered names only,
      strict pydantic args, the person's own ``Access``, writes stop at a ``confirm`` card); every result goes back
@@ -22,7 +23,7 @@
      as one spotlighted ``user_notes`` block;
    * the model's final text becomes one ``answer`` card, after the output cleaning and
      :func:`~app.ai.helper.guard.ground_answer` (a page named without its ``nav`` card is replaced by the index
-     answer).
+     answer); ``notes_used`` names the person's notes the answer drew on (:func:`memory.notes_in_answer`).
 4. **Fallback to index mode** when the gateway refuses (422 guard / capability, 429 limits / rate, 409 transfer
    basis), the output guard rejects a tool that was not offered (``output_rejected``), the model gets an action's
    arguments wrong in two rounds (``invalid_args``, RA-15), the provider fails (502), the call times out or no key
@@ -181,9 +182,12 @@ async def run_turn(
         result.cards.append(c)
         await send("card", card=c)
 
-    allowed = reg.permitted_names(access)
+    from app.ai.helper import settings as hs
+
+    pol = await hs.policy(session, access)  # the admin's ai.helper switches (HB-15)
+    allowed = reg.permitted_names(access, pol.actions)
     await send("run_started", turn_id=result.turn_id)
-    verdict = guard.check(text, access.perms)
+    verdict = guard.check(text, access.perms, min_coverage=pol.min_coverage)
     nav = [cards.dump(c) for c in cards.nav_hits(verdict.hits, allowed, limit=3)]
     if not verdict.allowed:
         result.outcome = "refused"
@@ -212,7 +216,7 @@ async def run_turn(
 
     result.mode = "ai"
     try:
-        await _ai_turn(session, access, text, lang, verdict.hits, allowed, result, send, card, client)
+        await _ai_turn(session, access, text, lang, verdict.hits, allowed, result, send, card, client, pol.actions)
     except _Fallback as fb:
         result.mode, result.outcome, result.fallback = "index", "fallback", fb.code
         fallback = cards.nav_hits(verdict.hits, allowed, limit=3)
@@ -257,6 +261,7 @@ async def _ai_turn(
     send: Callable[..., Awaitable[None]],
     card: Callable[[dict[str, Any]], Awaitable[None]],
     client: Any | None,
+    enabled: list[str] | None = None,
 ) -> None:
     from app.ai import gateway as gw
     from app.ai.client import AIError, content_params, get_client, text_of
@@ -292,7 +297,7 @@ async def _ai_turn(
     final_text = ""
     with ai_scope("helper", user_id=access.user_id, user_text=text):
         for _ in range(max(1, rounds)):
-            tools = reg.tools_for(access, candidates, allow_writes=allow_writes, limit=MAX_TOOLS)[:MAX_TOOLS]
+            tools = reg.tools_for(access, candidates, enabled, allow_writes=allow_writes, limit=MAX_TOOLS)[:MAX_TOOLS]
             result.tools_offered.append([t["name"] for t in tools])
             try:
                 message = await client.complete(
@@ -341,6 +346,7 @@ async def _ai_turn(
             return
     answer = cards.answer(final_text, lang) if final_text.strip() else None
     if answer is not None and guard.ground_answer(answer.text, emitted_features):
+        answer.notes_used = memory.notes_in_answer(notes, answer.text) or None  # "Notunuza göre: …" (helper.md §5.1)
         await send("text", text=answer.text)
         await card(cards.dump(answer))
         return

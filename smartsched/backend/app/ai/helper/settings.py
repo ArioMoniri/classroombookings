@@ -238,7 +238,9 @@ class Policy:
 
 async def policy(session: AsyncSession, access: Access) -> Policy:
     st = await load(session)
-    auds = await audiences_of(session, access)
+    restricted = not all(st["audiences"].values()) or any(c["audiences"] is not None for c in st["actions"].values())
+    # the audiences cost a query; without any audience switch they change nothing (the default)
+    auds = await audiences_of(session, access) if restricted else audiences_for(access.perms, instructor_linked=False)
     allowed = person_allowed(st, auds)
     reason = None if allowed else ("disabled" if not st["enabled"] else "audience_off")
     return Policy(allowed, reason, st["mode"], auds, enabled_names(st, auds) if allowed else [], min_coverage(st))

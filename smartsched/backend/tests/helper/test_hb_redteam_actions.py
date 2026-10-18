@@ -151,6 +151,9 @@ async def test_ra_06(env) -> None:  # noqa: F811
         f"{H}/actions/undo",
         f"{H}/notes",
         f"{H}/turn",
+        # HB-14 telemetry: helper_events rows only (thumbs, client steps), never a booking or request
+        f"{H}/feedback",
+        f"{H}/events",
     }
 
 

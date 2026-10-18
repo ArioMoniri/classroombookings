@@ -2,9 +2,10 @@
 # SmartSched backend: FastAPI + SQLAlchemy 2 + OR-Tools CP-SAT.
 # Build context: smartsched/backend (see smartsched/deploy/docker-compose.yml).
 #
-# Reproducibility: the base image is pinned to a patch release + Debian codename. Python dependencies
-# come from pyproject.toml; when a `requirements.lock` (pip freeze / pip-compile output) is present in
-# the build context it is used as a constraints file so every build resolves the same versions.
+# Reproducibility and supply chain (SECURITY F13): the base image is pinned to a patch release + Debian codename.
+# Python dependencies are installed only from the hash-pinned `requirements.lock` (`make lock`, uv) in pip's
+# hash-checking mode, plus the build backend from `requirements-build.lock`; the package itself is then built with
+# no dependencies and no isolated build environment, so nothing unverified is fetched from the index.
 
 ARG PYTHON_IMAGE=python:3.12.15-slim-bookworm
 
@@ -24,14 +25,11 @@ FROM base AS builder
 WORKDIR /build
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-# `requirements.lock*` is optional (glob matches nothing when the file is absent).
-COPY pyproject.toml README.md requirements.lock* ./
-# Dependency layer first (cached until pyproject/lock change), then the package itself.
-RUN mkdir -p app && touch app/__init__.py \
- && if [ -f requirements.lock ]; then pip install -c requirements.lock . ; else pip install . ; fi \
- && rm -rf app build ./*.egg-info
+COPY pyproject.toml README.md requirements.lock requirements-build.lock ./
+# Dependency layer first (cached until the locks change), then the package itself.
+RUN pip install --require-hashes -r requirements.lock -r requirements-build.lock
 COPY app ./app
-RUN pip install --no-deps .
+RUN pip install --no-deps --no-build-isolation .
 # Optional extras, e.g. EXTRA_PIP="pymysql" for the live CRBS (MySQL) importer.
 ARG EXTRA_PIP=""
 RUN if [ -n "$EXTRA_PIP" ]; then pip install $EXTRA_PIP; fi

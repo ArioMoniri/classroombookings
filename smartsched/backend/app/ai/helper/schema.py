@@ -106,6 +106,9 @@ class AnswerCard(CardBase):
     text: LongPlain
     lang: Literal["tr", "en"]
     source: Literal["ai", "index"]
+    #: the person's own helper notes this answer drew on, shown as "Notunuza göre: {not}" (helper.md §5.1); absent
+    #: when none (the server matches the note's words in the answer; the model's claim is never trusted)
+    notes_used: list[Plain] | None = Field(default=None, max_length=2)
 
 
 class NavCard(CardBase):
