@@ -139,7 +139,7 @@ function GroupsTab() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="type-callout text-label-2">{t("crbs.rooms.groupsLead", { n: ungrouped })}</p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" disabled={fromBuildings.isPending} onClick={() => fromBuildings.mutate(undefined, { onSuccess: (g) => toast.success(t("crbs.rooms.fromBuildingsDone", { n: g.length })), onError: toastError })} data-testid="groups-from-buildings">
             <Building2 aria-hidden />
             {t("crbs.rooms.fromBuildings")}

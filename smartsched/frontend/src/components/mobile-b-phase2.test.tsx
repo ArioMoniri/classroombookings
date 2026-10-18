@@ -112,3 +112,12 @@ describe("fix 16 · drag-to-reorder has visible buttons on touch (MOBILE.md M-11
     expect(onReorder).toHaveBeenCalledWith([{ id: 2, label: "B Blok" }, { id: 1, label: "A Blok" }]);
   });
 });
+
+describe("fix 10 · 200 % text: action rows wrap instead of pushing the page sideways", () => {
+  it("/admin/rooms 'Her bina için bir grup' + 'Yeni grup' wrap", () => {
+    const src = read("admin/rooms-admin.tsx");
+    const at = src.indexOf('t("crbs.rooms.fromBuildings")');
+    const group = src.lastIndexOf('<div className="', src.lastIndexOf("<Button", at));
+    expect(src.slice(group, group + 40)).toContain("flex-wrap");
+  });
+});
