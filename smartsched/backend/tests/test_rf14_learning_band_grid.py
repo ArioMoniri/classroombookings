@@ -55,9 +55,15 @@ def test_band_hours_follow_the_period_grid() -> None:
 
 def test_a_stored_sentence_is_read_with_the_current_grid() -> None:
     stored = "{subject} derslerinin 4/5'i sabah saatlerinde (08:30–13:20) yapıldı."
-    assert learning._fill(stored, "BME 419", "morning") == "BME 419 derslerinin 4/5'i sabah saatlerinde (08:30–13:20) yapıldı."
+    assert (
+        learning._fill(stored, "BME 419", "morning")
+        == "BME 419 derslerinin 4/5'i sabah saatlerinde (08:30–13:20) yapıldı."
+    )
     _faculty_grid()
-    assert learning._fill(stored, "BME 419", "morning") == "BME 419 derslerinin 4/5'i sabah saatlerinde (08:00–13:20) yapıldı."
+    assert (
+        learning._fill(stored, "BME 419", "morning")
+        == "BME 419 derslerinin 4/5'i sabah saatlerinde (08:00–13:20) yapıldı."
+    )
     # a room or building sentence has no band: nothing else is touched
     assert learning._fill("{subject} A 204'te (08:30–13:20)", "BME 419", None) == "BME 419 A 204'te (08:30–13:20)"
 

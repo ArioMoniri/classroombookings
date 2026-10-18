@@ -213,7 +213,6 @@ export const CLIPS = [
   { id: "calendar-move", journey: "calendar-move", clip: "calendar-move", device: "desktop" },
   { id: "precheck-fix", journey: "studio-rule-fix", clip: "precheck-fix", device: "desktop" },
   { id: "reserve-phone", journey: "launch-reserve", clip: null, device: "phone" },
-  { id: "find-room-phone", journey: "find-room", clip: null, device: "phone" },
   { id: "approval-request", journey: "approval-flow", clip: "approval-request", device: "desktop" },
   { id: "approval-approve", journey: "approval-flow", clip: "approval-approve", device: "desktop" },
 ];

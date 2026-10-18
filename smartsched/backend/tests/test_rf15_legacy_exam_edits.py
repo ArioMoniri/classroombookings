@@ -72,9 +72,9 @@ async def test_edit_made_before_rf06_survives_the_first_reimport(client, tmp_pat
     diff = preview["summary"]["diff"]
     conflict = next(row for row in diff["rows"] if row["change"] == "conflict")
     assert conflict["id"] == ex2.id
-    assert [(c["field"], c["planner"], c["file"], c["previous_import"], c["resolution"]) for c in conflict["conflicts"]] == [
-        ("enrolment", 30, 28, 26, "kept")
-    ]
+    assert [
+        (c["field"], c["planner"], c["file"], c["previous_import"], c["resolution"]) for c in conflict["conflicts"]
+    ] == [("enrolment", 30, 28, 26, "kept")]
     assert diff["counts"]["exam_requests"]["conflict"] == 1
     assert (await _snapshot(ex2.id)) is None  # a preview writes nothing
 
@@ -98,7 +98,7 @@ async def test_edit_made_before_rf06_survives_the_first_reimport(client, tmp_pat
     }
 
 
-async def test_edit_without_an_old_value_is_kept_and_a_row_without_edits_follows_the_file(client, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]  # noqa: F811
+async def test_edit_without_a_recorded_old_value_is_kept(client, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]  # noqa: F811
     h = await login(client)
     await _upload(client, h, "exam-list", EXAM_LIST, term_code=FINAL)
     ex2 = await _exam_by_row(2)
