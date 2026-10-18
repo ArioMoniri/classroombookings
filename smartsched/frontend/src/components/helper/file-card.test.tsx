@@ -385,7 +385,7 @@ describe("what happens to the file (KVKK N3 / N4)", () => {
   });
 
   it("without a stage (needs_planner, HELPER_FILE_STAGE=off) it says the file was only read and not kept", () => {
-    seed({ kind: "card", card: { ...DETECTED, state: "needs_planner", primary: { feature_id: "my_classes", params: {}, label: tr("Derslerim'i aç"), carries_file: false } } }, { stage: null });
+    seed({ kind: "card", card: { ...DETECTED, state: "needs_planner" as const, primary: { feature_id: "my_classes", params: {}, label: tr("Derslerim'i aç"), carries_file: false } } }, { stage: null });
     show();
     expect(screen.getByTestId("helper-file-privacy")).toHaveTextContent(NOT_KEPT);
   });

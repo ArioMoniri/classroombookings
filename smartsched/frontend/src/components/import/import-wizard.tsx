@@ -99,7 +99,9 @@ export function ImportWizard() {
   const [probe, setProbe] = useState<{ file: File; stage: Stage | null; kind: string | null } | null>(null);
   // KVKK N2: the check's stage never outlives the page (leaving it drops the stage the person no longer needs)
   const probeRef = useRef(probe);
-  probeRef.current = probe;
+  useEffect(() => {
+    probeRef.current = probe;
+  }, [probe]);
   useEffect(() => () => dropStage(probeRef.current?.stage), []);
   const fileRef = useRef<File | null>(null);
   const [file, setFile] = useState<File | null>(null);
