@@ -3928,6 +3928,9 @@ scratchpad `auth/API.md` (summarised in the research §9). Alembic `0043_mfa`; d
   0045_user_sessions, owner-only RLS), check per request with a 15 s cache, `GET /auth/sessions`, `DELETE
   /auth/sessions/{id}`, `POST /auth/sessions/revoke-others`, `POST /admin/users/{id}/sessions/revoke`; MFA reset ends
   them. done (app/services/sessions.py, deps.py hook; tests/test_au_b_sessions.py: revoked token 401 on its next request)
+  2026-10-18 after the restart: `users.sessions_epoch` (0045) makes a self-revocation hold at once on the other uvicorn
+  worker too (cache entry trusted only while the epoch matches; no extra query); MFA reset marks rows `mfa_reset`
+  (test_au_b_admin); unit tests only, E2E pending (au-b-2026-10-18)
 - [x] AU-16 IdP-asserted MFA (`amr` / `acr`, OIDC / Entra) when the policy requires 2FA for the role: per-provider
   "IdP MFA'yı zorunlu tut" (off by default) refuses with `idp_mfa_required`, else a one-time step-up notice on the
   exchange; `GET/PUT /admin/auth/providers/.../idp-mfa`. done (mfa.idp_mfa_gate in sso._resolve_login; test_au_b_sessions)
