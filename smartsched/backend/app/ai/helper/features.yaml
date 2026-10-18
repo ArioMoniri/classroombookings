@@ -319,13 +319,13 @@
 - id: helper.files
   kind: control
   route: /dashboard
-  title: {tr: Dosyanın ne olduğunu öğren, en: Find out what a file is}
+  title: {tr: Dosya türünü öğren, en: Find out a file's type}
   path: {tr: [Yardımcı, Dosya ekle], en: [Helper, Attach a file]}
   synonyms:
     tr: [bu dosya ne, hangi dosya, dosya türü, excel ne yapayım, dosyamı nereye yüklerim, yanlış dosya, elimde bir dosya var, dosya ekle]
-    en: [which file, what is this file, file type, where do i upload my file, wrong file, i have a file, attach a file]
+    en: [which file, what is this file, file type, where do i upload my file, wrong file, got a file, attach a file]
   steps:
-    tr: ["Yardımcıyı açın (⌘J).", "Ataç düğmesiyle dosyayı ekleyin ya da sürükleyip bırakın.", "Kartın düğmesi dosyayı doğru sayfada açar."]
+    tr: ["Yardımcıyı açın (⌘J).", "Ataç düğmesiyle dosyayı ekleyin ya da sürükleyip bırakın.", "Önerilen düğme dosyayı doğru sayfada açar."]
     en: ["Open the helper (⌘J).", "Attach the file with the paperclip button or drop it in.", "The card's button opens the file on the right page."]
   anchor: helper-attach
   permission: []

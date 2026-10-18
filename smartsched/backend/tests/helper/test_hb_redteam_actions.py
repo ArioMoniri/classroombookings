@@ -159,6 +159,10 @@ async def test_ra_06(env) -> None:  # noqa: F811
         # HB-14 telemetry: helper_events rows only (thumbs, client steps), never a booking or request
         f"{H}/feedback",
         f"{H}/events",
+        # HB-23 file router (KVKK-reviewed 2026-10-18): classify reads, route picks, handoff audits; no domain writes
+        f"{H}/files/classify",
+        f"{H}/files/route",
+        f"{H}/files/handoff",
     }
 
 
