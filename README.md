@@ -402,7 +402,7 @@ Arayüz Türkçe ve İngilizcedir.
 ## Licence
 
 A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rodway, licensed under the
-[GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html) ([LICENSE.txt](LICENSE.txt)).
+[GNU Affero General Public License v3.0 or later](https://www.gnu.org/licenses/agpl-3.0.html) ([LICENSE.txt](LICENSE.txt)).
 To cite SmartSched, use [CITATION.cff](CITATION.cff) or GitHub's "Cite this repository" button.
 
 <!-- AUTO:last-updated -->
