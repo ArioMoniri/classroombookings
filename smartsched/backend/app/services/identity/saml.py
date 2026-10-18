@@ -426,7 +426,9 @@ def parse_response(cfg: SamlConfig, saml_response: str, request_id: str | None, 
         encrypted = root.findall("saml:EncryptedAssertion", NS)
         if len(found) + len(encrypted) == 1 and encrypted:
             found = [_decrypt(cfg, encrypted[0])]
-        if len(found) + len(encrypted) != 1 or found[0].find("ds:Signature", NS) is None:
+        elif encrypted:
+            found = []
+        if len(found) != 1 or found[0].find("ds:Signature", NS) is None:
             raise SamlError("invalid_token", "neither the response nor the assertion is signed")
         signed = _verify(etree.tostring(found[0]), cfg.certs)
         assertions = [signed] if signed.tag == f"{{{NS['saml']}}}Assertion" else []
