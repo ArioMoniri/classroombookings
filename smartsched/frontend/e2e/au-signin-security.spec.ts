@@ -72,8 +72,18 @@ async function signInWithPassword(page: Page, password = USER.password) {
   await page.getByRole("button", { name: /^Giriş yap$/ }).click();
 }
 
+/** AUX12-F05/F10: the landing page moves focus to its heading or #main once it renders; poll for it (up to 3 s)
+ * instead of reading document.activeElement in the same tick as waitForURL. */
 async function focusIsNotBody(page: Page) {
-  expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
+  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName ?? "BODY"), { timeout: 3000 }).not.toBe("BODY");
+}
+
+/** Signed in: off /login, the app shell rendered and the landing page's refresh settled, so the next goto is not
+ * aborted by it (AUX12-F10: `page.goto: net::ERR_ABORTED` at §16.2). */
+async function landed(page: Page) {
+  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await expect(page.locator("#main")).toBeVisible({ timeout: 15_000 });
+  await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
 }
 
 let admin: Admin;
@@ -102,7 +112,7 @@ test.afterAll(async () => {
 
 test("§16.6: 2FA on in ≤ 3 steps; .txt name; Bitir after the tick; the warning at step 3", async ({ page }) => {
   await signInWithPassword(page);
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await landed(page);
   await page.goto("/profile#security");
   await page.getByTestId("mfa-turn-on").click();
   // signed in moments ago: the 10-minute window, no password dialog
@@ -147,7 +157,7 @@ test("§16.1: password → 2FA step without reload; '123 456' pasted fills and s
     dt.setData("text/plain", c);
     el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
   }, `${code.slice(0, 3)} ${code.slice(3)}`);
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await landed(page);
   await focusIsNotBody(page);
 });
 
@@ -157,17 +167,15 @@ test("§16.2: 'Bu cihazı 30 gün hatırla' skips the step next time; 'Diğer ci
   await page.waitForURL("**/login/verify");
   await page.getByTestId("mfa-remember").click();
   await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(await unusedCode(secret));
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
   // let the landing page settle (router.refresh is still loading): a goto right away was aborted by it (e2e lane 2026-10-18)
-  await expect(page.locator("#main")).toBeVisible();
-  await page.waitForTimeout(1500);
+  await landed(page);
   // a new session on the same browser (ss_td kept, the session cookie dropped)
   const keep = (await context.cookies()).filter((c) => c.name === "ss_td");
   expect(keep).toHaveLength(1);
   await context.clearCookies();
   await context.addCookies(keep);
   await signInWithPassword(page);
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await landed(page);
   await page.goto("/profile#security");
   await expect(page.getByTestId("device-row")).toHaveCount(1);
   // AU-15: sessions list without any network, the current one tagged
@@ -184,7 +192,7 @@ test("§16.4: passkey added in Profil (virtual authenticator) → 'Hiç kullanı
   await signInWithPassword(page);
   await page.waitForURL("**/login/verify");
   await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(await unusedCode(secret));
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await landed(page);
   await page.goto("/profile#security");
   await page.getByTestId("passkey-add").click();
   await expect(page.getByTestId("passkey-row")).toHaveCount(1);
@@ -200,7 +208,7 @@ test("§16.4: passkey added in Profil (virtual authenticator) → 'Hiç kullanı
   await page.waitForURL("**/login/verify");
   await page.getByRole("button", { name: /Başka bir yöntem/ }).click();
   await page.getByRole("button", { name: /Geçiş anahtarı kullan/ }).click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await landed(page);
 });
 
 test("§16.3: a recovery code works once; the toast names the remaining count", async ({ page, context }) => {
@@ -212,7 +220,7 @@ test("§16.3: a recovery code works once; the toast names the remaining count", 
   // typed lower-case without dashes: the field normalises it
   await page.getByLabel("Kurtarma kodu").fill(codes[0]!.replace(/-/g, "").toLowerCase());
   await page.getByTestId("mfa-submit").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  await landed(page);
   await expect(page.getByText(/Bir kurtarma kodu kullandınız\. 9 kod kaldı\./)).toBeVisible();
   // the same code a second time is refused
   await context.clearCookies();

@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.api.deps import DB, CurrentAccess, Planner, forbidden, require_permission
-from app.core import safe_files
+from app.core import kvkk_guard, safe_files
 from app.core.db import get_session_factory
 from app.importers.detect import WrongFileError
 from app.importers.report import ImportReport
@@ -44,6 +44,14 @@ async def _save_upload(db: DB, job: ImportJob, file: UploadFile, *, full_load: b
         job.status, job.error, job.finished_at = "FAILED", exc.message, utcnow()
         await db.commit()
         raise HTTPException(exc.status, exc.message) from exc
+    try:
+        # KVKK guard of recording / test stacks (FIX-J E2EA-F01): no raw seed workbook, no unmasked names
+        kvkk_guard.check(target.read_bytes(), file.filename)
+    except kvkk_guard.KvkkRefused as exc:
+        _cleanup(job.id)
+        job.status, job.error, job.finished_at = "FAILED", exc.message_tr, utcnow()
+        await db.commit()
+        raise problem(422, exc.code, exc.message_tr, exc.message_en) from exc
     return target
 
 

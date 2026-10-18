@@ -1,6 +1,6 @@
 /**
- * Motion audit (.claude/skills/motion_designer/references/audit.md) for the dashboard, the run report and the helper
- * (sheet, Göster ring; motion.md §3.21).
+ * Motion audit (.claude/skills/motion_designer/references/audit.md) for the dashboard, the run report, the helper
+ * (sheet, Göster ring; motion.md §3.21) and the welcome guide (WG-09: sheet open, tour steps, no scrim flash).
  * Runs against the REAL backend (E2E_REAL=1, see playwright.config.ts):
  *   E2E_REAL=1 PW_PORT=3600 npx playwright test e2e/motion-audit.spec.ts
  * Env: AUDIT_EMAIL / AUDIT_PASSWORD (default the seeded admin), AUDIT_RUN (a finished run id; e2e/global-setup.ts
@@ -14,6 +14,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { ADMIN_PASSWORD, login as signIn } from "./helpers";
 import { pinLanguage } from "./language";
+import { DESKTOP, PHONE, adminApi, makeAcademician, signIn as signInAs, unlink, type Api } from "./wg-helpers";
 
 test.skip(process.env.E2E_REAL !== "1", "motion audit runs against the real backend: set E2E_REAL=1 (see playwright.config.ts)");
 // the assertions read Turkish (the product default): pin it, whatever the previous spec left behind
@@ -420,5 +421,118 @@ test.describe("motion audit: preferences", () => {
       results.push({ check: "reduced transparency", path, ...style });
       expect(style.backdrop === "none" || style.backdrop === "").toBeTruthy();
     }
+  });
+});
+
+test.describe("motion audit: welcome", () => {
+  // WG-09 (welcome-guide.md §8): the first sign-in sheet settles in ≤ 240 ms (ceiling 300 enforced like every block),
+  // the tour's scrim never flashes off between steps, a cross-route step included (WG10-F07: the runner keeps a hold
+  // scrim until the next step's overlay is drawn), ≤ 3 dropped frames per interaction (MOTION_STRICT only, WG10-F08:
+  // re-measure on a GPU runner) and reduced motion moves nothing. A fresh academician per test: the sheet is real.
+  test.describe.configure({ mode: "serial", timeout: 180_000 });
+  let api: Api;
+  const linked: { id: number; instructorId: number | null }[] = [];
+  test.beforeAll(async () => {
+    api = await adminApi();
+  });
+  test.afterAll(async () => {
+    for (const p of linked) await unlink(api, p);
+    await api.ctx.dispose();
+  });
+
+  /** Per animation frame: is a scrim (Joyride's overlay or the runner's hold scrim) or the step card on screen? */
+  async function startScrimProbe(page: Page) {
+    await page.evaluate(() => {
+      const w = window as unknown as { __scrim?: { gaps: number; frames: number; stop: boolean } };
+      const st = { gaps: 0, frames: 0, stop: false };
+      w.__scrim = st;
+      const tick = () => {
+        st.frames++;
+        if (!document.querySelector('.react-joyride__overlay, [data-testid="tour-scrim-hold"], [data-testid="tour-card"]')) st.gaps++;
+        if (!st.stop) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+  const stopScrimProbe = (page: Page) =>
+    page.evaluate(() => {
+      const w = window as unknown as { __scrim: { gaps: number; frames: number; stop: boolean } };
+      w.__scrim.stop = true;
+      return { gaps: w.__scrim.gaps, frames: w.__scrim.frames };
+    });
+
+  for (const [label, opts] of [
+    ["1440", DESKTOP],
+    ["390", PHONE],
+  ] as const) {
+    test(`${label}: sheet open, tour steps across routes, no scrim flash`, async ({ browser }) => {
+      const ayse = await makeAcademician(api, `wg.motion.${label}`);
+      linked.push(ayse);
+      const { context, page } = await signInAs(browser, ayse, opts);
+      // start away from /reserve so step 2 ("Önce zamanı seçin", /reserve) is a cross-route step
+      await page.goto("/my-bookings", { waitUntil: "domcontentloaded" });
+      const sheet = page.getByTestId("welcome-sheet");
+      await startFrameProbe(page);
+      await sheet.waitFor({ timeout: 20_000 });
+      const over = await animationsOverCeiling(page);
+      await page.waitForTimeout(450);
+      const open = await stopFrameProbe(page);
+      results.push({ surface: "welcome", name: `sheet open ${label}`, ...open, over });
+      expect.soft(over).toEqual([]);
+      if (STRICT) expect.soft(open.dropped).toBeLessThanOrEqual(3);
+
+      await page.getByTestId("welcome-start-tour").click();
+      const card = page.getByTestId("tour-card");
+      await card.waitFor({ timeout: 15_000 });
+      await page.waitForTimeout(300);
+      const text = (await page.getByTestId("tour-counter").textContent()) ?? "";
+      const total = Number(/\/ (\d+)/.exec(text)?.[1] ?? 1);
+      for (let step = 1; step < Math.min(total, 4); step++) {
+        await startScrimProbe(page);
+        await startFrameProbe(page);
+        await page.getByTestId("tour-next").click();
+        await expect(page.getByTestId("tour-counter")).toContainText(`${step + 1} /`, { timeout: 10_000 });
+        await page.waitForTimeout(400);
+        const scrim = await stopScrimProbe(page);
+        const frames = await stopFrameProbe(page);
+        results.push({ surface: "welcome", name: `tour step ${step} → ${step + 1} ${label}`, url: page.url(), ...frames, scrimGaps: scrim.gaps, scrimFrames: scrim.frames });
+        expect.soft(scrim.gaps, `frames with neither scrim nor card, step ${step} → ${step + 1}`).toBe(0);
+        if (STRICT) expect.soft(frames.dropped).toBeLessThanOrEqual(3);
+      }
+      await page.keyboard.press("Escape");
+      await expect(card).toBeHidden();
+      await context.close();
+    });
+  }
+
+  test("390 reduced motion: the sheet and the tour move nothing", async ({ browser }) => {
+    const ayse = await makeAcademician(api, "wg.motion.rm");
+    linked.push(ayse);
+    const context = await browser.newContext({ ...PHONE, reducedMotion: "reduce" });
+    const page = await context.newPage();
+    await signIn(page, ayse.username, ayse.password);
+    await page.goto("/my-bookings", { waitUntil: "domcontentloaded" });
+    await page.getByTestId("welcome-sheet").waitFor({ timeout: 20_000 });
+    const moving = () =>
+      page.evaluate(
+        () =>
+          document.getAnimations().filter((a) => {
+            const t = a.effect?.getComputedTiming();
+            if (!t || t.iterations === Infinity || Number(t.duration) <= 1 || a.playState !== "running") return false;
+            const kf = (a.effect as KeyframeEffect | null)?.getKeyframes() ?? [];
+            return kf.some((k) => "transform" in k || "translate" in k || "scale" in k);
+          }).length,
+      );
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const onSheet = await moving();
+    await page.getByTestId("welcome-start-tour").click();
+    await page.getByTestId("tour-card").waitFor({ timeout: 15_000 });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const onTour = await moving();
+    results.push({ surface: "welcome", check: "reduced motion", onSheet, onTour });
+    expect.soft(onSheet).toBe(0);
+    expect.soft(onTour).toBe(0);
+    await page.keyboard.press("Escape");
+    await context.close();
   });
 });

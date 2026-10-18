@@ -151,3 +151,23 @@ describe("docked step card on a phone (e2e 2026-10-18)", () => {
   });
 });
 
+
+describe("WG-09 no scrim flash between steps (WG10-F07)", () => {
+  it("a hold scrim covers the page while the next step's anchor (another route) is awaited, and leaves once the step shows", async () => {
+    anchor("nav-reserve", "Hızlı rezervasyon");
+    const two = [steps[0]!, { anchor: "reserve-late", interactive: false, audience: "academician" as const }];
+    useWelcomeStore.setState({ tour: { steps: two } });
+    renderWelcome(<TourRunner request={{ steps: two }} />);
+    await screen.findByTestId("tour-card", {}, { timeout: 3000 });
+    expect(screen.queryByTestId("tour-scrim-hold")).toBeNull();
+    fireEvent.click(screen.getByTestId("tour-next"));
+    // same render as the click: the old card is gone, the scrim is not
+    expect(screen.getByTestId("tour-scrim-hold")).toBeInTheDocument();
+    expect(screen.getByTestId("tour-scrim-hold")).toHaveAttribute("aria-hidden", "true");
+    await new Promise((r) => setTimeout(r, 400));
+    expect(screen.getByTestId("tour-scrim-hold")).toBeInTheDocument();
+    anchor("reserve-late", "Ne zaman");
+    await waitFor(() => expect(screen.getByTestId("tour-counter")).toHaveTextContent("Adım 2 / 2"), { timeout: 3000 });
+    await waitFor(() => expect(screen.queryByTestId("tour-scrim-hold")).toBeNull(), { timeout: 2000 });
+  }, 15_000);
+});
