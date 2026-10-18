@@ -34,7 +34,7 @@ Done 2026-10-18: IDP (RF-12, encrypted assertions, request signing, profile link
 | Next | Starts after | Notes |
 |---|---|---|
 | **Tester wave** against the pod over HTTPS (not a local stack): WG-10 role testers, CAL-10 academician (T1–T19), round-4 personas (staff, academician, admin; Simplicity), AS-20 adaptive, CH-12 charts, VO-09 voice (fixtures, bench, personas), AUX-12 sign-in (auth.md §16 checks 1–13), HB-18 helper red team and personas | pod health 200 | reports in docs/testing/ |
-| HB-17 local-model bench of helper features, and the HB-16 GPU walk-through | a GPU host from the owner (none in this environment) | tester; blocked on hardware |
+| HB-17 local-model bench + HB-16 GPU walk-through | running in child session session_01PJDxbGh1r6tTTr7RXHJySF (Lambda A10, cap 2.5 h, teardown check 13:25 UTC) | tester |
 | HB-07 design sign-off on the 4 card-contract differences | HX report | design-pro, review only |
 | CAL-13 exam/invigilation duties scope | a published invigilation plan in the fixtures (AS-12 advisor data exists now) | |
 | Council full re-run (round-3 lane C, lost) | E2E lane, on its stack | queued in e2e-queue |

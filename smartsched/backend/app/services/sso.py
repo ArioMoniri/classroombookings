@@ -1341,7 +1341,6 @@ async def finish(
         user, welcome = await _resolve_login(db, prov, cfg, claims, data.get("invite_id"))
     except SsoError as err:
         await db.rollback()
-        await _note_saml_response(db, slug, err.detail)
         if purpose == "test":
             return await _finish_test(db, slug, data, claims, err)
         return await refuse(db, err, purpose, claims, slug=slug)
@@ -1464,6 +1463,7 @@ async def finish_saml(db: AsyncSession, *, slug: str, saml_response: str | None,
         user, welcome = await _resolve_login(db, prov, cfg, claims, data.get("invite_id"))
     except SsoError as err:
         await db.rollback()
+        await _note_saml_response(db, slug, err.detail)
         if purpose == "test":
             return await _finish_test(db, slug, data, claims, err)
         return await refuse(db, err, purpose, claims, slug=slug)

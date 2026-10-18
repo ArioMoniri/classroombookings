@@ -394,7 +394,7 @@ async def test_aes_cbc_needs_a_signed_response(fed) -> None:  # type: ignore[no-
         (ev,) = (await s.execute(select(AuditEvent).where(AuditEvent.action == "auth.login_refused"))).scalars()
     assert "aes-cbc" in ev.after["detail"] and ev.after["reason"] == "invalid_token"
     out = (await env.client.get(f"{ADMIN}/{p['id']}", headers=env.admin)).json()
-    print("DBG", out["discovery"]); row = _row(out["discovery"]["checks"], "assertion_encryption")
+    row = _row(out["discovery"]["checks"], "assertion_encryption")
     assert row["ok"] is False and row["detail"] == "cbc_unsigned"
     assert row["tr"] == (
         "Şifreli onay AES-CBC kullanıyor; yanıt imzalı değilse kabul edilmez. IdP'de yanıt imzalamayı açın ya da "
