@@ -3936,7 +3936,8 @@
       "goal": "Ledger name `hx-15-17-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss (frontend smartsched/frontend; one backend check in smartsched/backend). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next…",
       "ledger": "HX-15/16/17 helper frontend + consent",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 12:07"
     },
     {
       "id": "a886d87320ae0dc79",
@@ -4026,6 +4027,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-18 12:03",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ad5ebc387b73a0fbb",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:05",
       "left_off": "is the pod up yet"
     }
   ]
