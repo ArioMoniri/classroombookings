@@ -4409,7 +4409,8 @@
       "goal": "Lane README-X (ledger name `readme-x-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md; NO git commits (the orchestrator commits); never `pkill -f`; light resource use (no stacks, no builds). Do NOT add or enable any GitHub A…",
       "ledger": "README + repo presentation redesign",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 16:33"
     },
     {
       "id": "a2dc22bac8bec63ed",

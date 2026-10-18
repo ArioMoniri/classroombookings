@@ -50,7 +50,7 @@ const tr = {
   select: (id: string) => `${id} satırını seç`,
   diff: "Farkı göster",
   diffTitle: "Kaydetmeden önce fark",
-  diffHint: "Aynı yazıcı geri alınan bir işlemde çalıştı; veritabanı değişmedi.",
+  diffHint: "Önizleme: veritabanı değişmedi.",
   diffCols: { entity: "Kayıt", create: "Yeni", update: "Değişecek", unchanged: "Aynı", conflict: "Çakışan" },
   onConflict: "Planlamacının düzelttiği bir değer dosyada değişmişse",
   keep: "Düzeltmeyi koru",
@@ -94,6 +94,8 @@ const tr = {
   rowsRejected: (v: string) => `${v} satır reddedildi, yazılmadı`,
   rowsEdited: (v: string) => `${v} satır düzeltilerek yazıldı`,
   resultLine: (label: string, created: string, updated: string) => `${label}: ${created} yeni · ${updated} değişti`,
+  // E2EB-F12: a re-upload of the same file says what it read, not "written by the importers"
+  resultSame: (label: string, n: string) => `${label}: ${n} · değişiklik yok`,
 }
 type Copy = { [K in keyof typeof tr]: (typeof tr)[K] extends (...a: infer A) => string ? (...a: A) => string : (typeof tr)[K] }
 
@@ -140,7 +142,7 @@ const en: Copy = {
   select: (id: string) => `Select row ${id}`,
   diff: "Show the diff",
   diffTitle: "Diff before saving",
-  diffHint: "The same writer ran in a rolled-back transaction; the database did not change.",
+  diffHint: "Preview: the database did not change.",
   diffCols: { entity: "Record", create: "New", update: "Will change", unchanged: "Same", conflict: "Conflict" },
   onConflict: "When a planner's correction changed in the file",
   keep: "Keep the correction",
@@ -180,6 +182,7 @@ const en: Copy = {
   rowsRejected: (v: string) => `${v} rows rejected, not written`,
   rowsEdited: (v: string) => `${v} rows written as edited`,
   resultLine: (label: string, created: string, updated: string) => `${label}: ${created} new · ${updated} changed`,
+  resultSame: (label: string, n: string) => `${label}: ${n} · no change`,
 }
 
 export function useOnboardingCopy(): Copy {

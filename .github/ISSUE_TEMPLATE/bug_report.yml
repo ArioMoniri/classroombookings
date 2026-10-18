@@ -1,0 +1,98 @@
+name: Bug report
+description: Something in SmartSched does not work as expected.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Do not paste real personal data** (names, e-mails, student numbers, workbook rows
+        with people in them): use initials or made-up names. Security problems go to the Security tab, not here.
+        Türkçe yazabilirsiniz.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Import (workbooks, onboarding, intake)
+        - Planning (Generator Studio, solver runs, run report)
+        - Timetable / calendar
+        - Bookings (grid, quick reserve, find a room, approvals)
+        - Sign-in and accounts
+        - Notifications, e-mail, calendar sync, integrations
+        - AI features
+        - Administration and settings
+        - Deploy, upgrade, operations
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The page (URL path), your role and each click or upload.
+      placeholder: |
+        1. Sign in as a coordinator
+        2. Open /bookings and pick tomorrow
+        3. Click a free period in room A 101
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Error messages exactly as shown (Turkish or English). Screenshots help; blur personal data.
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      multiple: true
+      options:
+        - Desktop browser
+        - Tablet
+        - Phone
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: e.g. Chrome 141, Safari 26 on iOS
+  - type: input
+    id: version
+    attributes:
+      label: SmartSched commit or deploy date
+      description: For example `git rev-parse --short HEAD` in the checkout on the server, or the deploy date.
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: How it is deployed
+      options:
+        - deploy.sh (Docker Compose)
+        - AWS pod
+        - Local development (scripts/dev.sh)
+        - Not sure
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant backend or browser console lines, with tokens and personal data removed.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues and docs/ROADMAP.md.
+          required: true
+        - label: The report contains no real personal data and no secrets.
+          required: true

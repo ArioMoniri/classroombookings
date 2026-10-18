@@ -5940,6 +5940,7 @@
   },
   "identity": {
     "title": "Kimlik sağlayıcıları",
+    "lastCheckFailed": "Son bağlantı denetimi başarısız oldu. Kurulumu açıp adımları kontrol edin.",
     "lead": "Kurumun giriş yöntemleri. Bir yöneticinin yaptığı ayar tüm yöneticiler için geçerlidir; gizli anahtarlar yalnızca yazılır, geri gösterilmez.",
     "empty": "Henüz bir kimlik sağlayıcısı yok. Microsoft, Google, OIDC ya da SAML ile girişi eklemek için “Sağlayıcı ekle”yi kullanın.",
     "add": "Sağlayıcı ekle",
@@ -6045,7 +6046,10 @@
     },
     "values": {
       "missing": "Eksik: {fields}",
-      "complete": "Gerekli tüm değerler girildi."
+      "complete": "Gerekli tüm değerler girildi.",
+      "rediscover": "Meta veriyi yeniden oku",
+      "rediscoverOk": "Meta veri yeniden okundu.",
+      "rediscoverFailed": "Meta veri okundu ama bir denetim geçmedi; aşağıdaki satıra bakın."
     },
     "field": {
       "display_name": "Girişte görünen ad",

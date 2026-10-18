@@ -8,7 +8,7 @@ import { trPercent } from "@/components/common/tr-suffix";
 import { isImportBoard, partialCounts, runDotTone } from "@/components/runs/runs-list";
 import { useActiveTerm, useTermKindLabel } from "@/components/shell/term-switcher";
 import { useRememberedTermWeek, weekOfTerm } from "@/components/shell/workspace";
-import { Button, IconButton } from "@/components/ui/button";
+import { Button, IconButton, buttonVariants } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/data-table";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -35,13 +35,14 @@ function relative(iso: string, locale: string): string {
   return rtf.format(-Math.round(hours / 24), "day");
 }
 
-function HeroStatus({ plan }: { plan: ScheduleRun | undefined }) {
+export function HeroStatus({ plan }: { plan: ScheduleRun | undefined }) {
   const { t, n } = useI18n();
   if (!plan) {
     return (
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 type-title-3 text-label-2" data-testid="dashboard-plan">
         {t("glass.dashboard.noPlan")}
-        <Link href="/generate" className={cn("relative type-body font-medium text-tint-text hover:underline", coarseHitArea)}>
+        {/* E2EB-F08: a real 44 px control on touch (the hit area was clipped in the wrapping line) */}
+        <Link href="/generate" className={cn(buttonVariants({ variant: "outline", size: "md" }), "pointer-coarse:min-h-11")} data-testid="dashboard-make-plan">
           {t("glass.dashboard.makePlan")}
         </Link>
       </p>

@@ -46,7 +46,14 @@ export function IdentityLinkRows({ navigate = goTo, notice: given }: { navigate?
   const qc = useQueryClient();
   const q = useMyIdentities();
   const { run, dialog } = useReauth();
-  const [notice] = useState<LinkNotice | null>(() => given ?? (typeof window === "undefined" ? null : readLinkNotice(window.location.search)));
+  const [notice, setNotice] = useState<LinkNotice | null>(() => given ?? (typeof window === "undefined" ? null : readLinkNotice(window.location.search)));
+  // E2EB-F16: once read, the return keys leave the address, so a reload (or an unlink) does not show it again
+  useEffect(() => {
+    if (given || !notice) return;
+    const u = new URL(window.location.href);
+    for (const k of ["sso", "provider", "error"]) u.searchParams.delete(k);
+    window.history.replaceState(window.history.state, "", `${u.pathname}${u.search}${u.hash}`);
+  }, [given, notice]);
   const [linking, setLinking] = useState<LinkedProvider | null>(null);
   const [unlinking, setUnlinking] = useState<LinkedProvider | null>(null);
   const [ack, setAck] = useState(false);
@@ -91,6 +98,7 @@ export function IdentityLinkRows({ navigate = goTo, notice: given }: { navigate?
     try {
       await run((pw) => identity.unlinkProvider(p.slug, pw));
       toast.success(t("profile.identities.unlinked", { provider: label(p) }));
+      if (notice?.provider === p.slug) setNotice(null); // E2EB-F16: "bağlandı" no longer holds
       focusSlug.current = p.slug;
       await qc.invalidateQueries({ queryKey: identityKeys.myIdentities });
     } catch (e) {

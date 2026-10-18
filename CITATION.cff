@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use SmartSched in research or a report, please cite it as below."
+title: "SmartSched: timetabling, exam planning and room booking for a university"
+type: software
+authors:
+  - name: "SmartSched contributors"
+abstract: >-
+  SmartSched reads the Excel workbooks a university planning office already keeps, places classes and exams
+  with an OR-Tools CP-SAT solver under hard rules, explains the classes it cannot place, and runs the
+  classroombookings booking grid on top of the published timetable.
+license: AGPL-3.0
+keywords:
+  - timetabling
+  - course scheduling
+  - exam scheduling
+  - room booking
+  - constraint programming
+  - CP-SAT
+  - university
+references:
+  - type: software
+    title: "classroombookings"
+    authors:
+      - name: "classroombookings authors"
+    url: "https://www.classroombookings.com/"
+    license: AGPL-3.0

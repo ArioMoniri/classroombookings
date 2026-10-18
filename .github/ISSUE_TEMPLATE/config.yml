@@ -1,0 +1,7 @@
+# Issue chooser. Contact links must be absolute URLs; the repository address is left out on purpose
+# (the repository will be renamed), so deploy and usage help is linked from the forms and SUPPORT.md instead.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability
+    about: Never in a public issue. Open this repository's Security tab and choose "Report a vulnerability" (.github/SECURITY.md).

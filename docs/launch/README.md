@@ -150,6 +150,16 @@ curl -sS -H "Accept: application/vnd.github.html+json" \
 `python3 -I scripts/record/check_readme.py` reports the referenced media and fails on orphans (it checks this file
 too since 2026-10-18).
 
+## 6. Social preview
+
+<img alt="SmartSched social preview: the wordmark, the line Timetabling, exam planning and room booking for universities with its Turkish twin, four chips and the run report screen" src="media/social-preview.png" width="640">
+
+`media/social-preview.png` (1280 × 640 PNG, about 0.26 MB) is the card GitHub shows when the repository is shared.
+It is made from the dark brand lockup (`docs/images/brand/smartsched-lockup-dark.svg`), Inter and a crop of
+`media/smartsched-hero-poster.png`, rendered with headless Chromium (README-X, 2026-10-18). It names no repository
+address, owner or branch, so a rename does not make it stale. GitHub does not read it from the tree: an owner
+uploads it in **Settings → General → Social preview → Edit → Upload an image…**.
+
 ## More clips
 
 The README shows three clips (`featured` in `docs/images/recordings/clips.json`); these are the others, and every full

@@ -5942,6 +5942,7 @@
   },
   "identity": {
     "title": "Identity providers",
+    "lastCheckFailed": "The last connection check failed. Open the setup and check the steps.",
     "lead": "The institution's sign-in methods. A setting saved by one administrator applies to every administrator; secrets are write-only and never shown again.",
     "empty": "No identity provider yet. Use “Add provider” to add sign-in with Microsoft, Google, OIDC or SAML.",
     "add": "Add provider",
@@ -6047,7 +6048,10 @@
     },
     "values": {
       "missing": "Missing: {fields}",
-      "complete": "Every required value is set."
+      "complete": "Every required value is set.",
+      "rediscover": "Read the metadata again",
+      "rediscoverOk": "The metadata was read again.",
+      "rediscoverFailed": "The metadata was read but a check failed; see the row below."
     },
     "field": {
       "display_name": "Name shown at sign-in",

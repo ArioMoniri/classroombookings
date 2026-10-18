@@ -158,6 +158,22 @@ function puts(f: ReturnType<typeof mockFetch>) {
 }
 
 describe("SAML step › Gelişmiş", () => {
+  it("E2EB-F15 (FIX-K): step 3 offers 'Meta veriyi yeniden oku' (POST /discover) once a metadata URL is saved", async () => {
+    const p = provider({ metadata_signing_cert: FED }, { status: "error", discovery: { ok: false, checks: [{ key: "metadata_signature", ok: false, tr: "Meta veri imzalı değil.", en: "The metadata is not signed.", detail: "unsigned" }], fetched_at: null } });
+    const f = mockFetch((url, init) => {
+      if (url.includes("/providers/7/setup")) return { status: 200, body: setup(p) };
+      if (url.endsWith("/providers/7/discover") && init?.method === "POST") return { status: 200, body: { ok: true, checks: [] } };
+      return undefined;
+    });
+    wrap(<ProviderWizard providerId={7} onBack={() => undefined} />);
+    await screen.findByTestId("idp-wizard");
+    fireEvent.click(screen.getByTestId("idp-step-values"));
+    const btn = await screen.findByTestId("idp-values-rediscover");
+    expect(btn).toHaveTextContent("Meta veriyi yeniden oku");
+    fireEvent.click(btn);
+    await waitFor(() => expect(f.mock.calls.some(([u, init]) => String(u).endsWith("/providers/7/discover") && init?.method === "POST")).toBe(true));
+  });
+
   it("keeps the advanced fields closed until Gelişmiş is opened (simplicity)", async () => {
     await openAdvanced(provider());
     const toggle = screen.getByTestId("idp-saml-advanced-toggle");
