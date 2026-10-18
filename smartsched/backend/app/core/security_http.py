@@ -96,6 +96,19 @@ def _default_rules() -> list[Rule]:
         Rule("reset_confirm", POST, _rx(r"/auth/password-reset/confirm"), per_address=Throttle(900, 20)),
         Rule("sso_exchange", POST, _rx(r"/auth/sso/exchange"), per_address=Throttle(300, 60)),
         Rule("change_password", POST, _rx(r"/auth/change-password"), per_user=Throttle(900, 10)),
+        # AU-B two-step sign-in (docs/research/2026-10-18-auth-backend.md §6): the second step, passkey-only sign-in
+        # and the enrolment the policy forces are unauthenticated; the per-account lockout lives in app/services/mfa.py
+        Rule(
+            "mfa_verify", POST, _rx(r"/auth/mfa/(verify|passkey/options|passkey/verify)"), per_address=Throttle(300, 30)
+        ),
+        Rule("passkey_sign_in", POST, _rx(r"/auth/passkey/(options|verify)"), per_address=Throttle(300, 60)),
+        Rule("mfa_setup", POST, _rx(r"/auth/mfa/setup/[a-z]+/[a-z]+"), per_address=Throttle(300, 30)),
+        Rule(
+            "mfa_reauth",
+            POST,
+            _rx(r"/auth/(mfa/(totp/start|disable|recovery-codes)|passkeys/(register/options|\d+/remove))"),
+            per_user=Throttle(900, 10),
+        ),
         Rule(
             "ai",
             WRITE,

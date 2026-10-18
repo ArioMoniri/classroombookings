@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { Button, IconButton } from "@/components/ui/button";
 import { COARSE_POINTER, useMediaQuery } from "@/components/ui/use-media-query";
 import { aiKeys } from "@/lib/api/ai-admin";
-import { hidesMic, maxSecondsFor, needsConsent, useVoiceStatus, voiceApi, voiceKeys, type VoiceTarget } from "@/lib/api/voice";
+import { hidesMic, limitMinutes, needsConsent, useVoiceStatus, voiceApi, voiceKeys, type VoiceTarget } from "@/lib/api/voice";
 import type { MessageKey } from "@/lib/i18n";
 import { pairLang } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
@@ -74,7 +74,8 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
   const hold = useRef<{ id: number; x: number; y: number; t: number } | null>(null);
   const suppressClick = useRef(false);
   const abort = useRef<AbortController | null>(null);
-  const max = maxSecondsFor(status.data, target);
+  const max = status.data?.max_seconds ?? 120;
+  const limited = status.data?.reason === "limit_reached";
 
   const field = useCallback(() => fieldRef?.current ?? findField(btn.current), [fieldRef]);
 
@@ -100,13 +101,17 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
       try {
         const res = await voiceApi.transcribe(clip, target, lang, ac.signal);
         const text = res.text.trim();
-        if (!text) setErr({ code: "empty" });
-        else deliver(text);
+        if (!text || res.warnings.includes("empty")) setErr({ code: "empty" });
+        else {
+          deliver(text);
+          if (res.warnings.includes("truncated")) setNotice({ code: "truncated" });
+        }
       } catch (e) {
         if (ac.signal.aborted) return;
         const code = serverError(e, max);
         setErr(code);
-        if (code.code === "consent_required" || code.code === "voice_off" || code.code === "not_configured") void qc.invalidateQueries({ queryKey: voiceKeys.status });
+        // the status changed under us (consent withdrawn, voice switched off, limit reached): read it again
+        if (["consent_required", "not_configured", "not_permitted", "ai_voice_limit_reached", "ai_transfer_basis_missing"].includes(code.code)) void qc.invalidateQueries({ queryKey: voiceKeys.status });
       } finally {
         abort.current = null;
         setBusy(false);
@@ -121,22 +126,19 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
     onClip: (clip) => void transcribe(clip),
     onCap: () => setNotice({ code: "too_long", params: { n: max } }),
     onError: (e) => setErr(e),
+    onStart: () => setAnnounce(t("voice.announce.started")),
   });
   const recording = rec.phase === "recording" || rec.phase === "starting";
 
-  useEffect(() => {
-    if (rec.phase === "recording") setAnnounce(t("voice.announce.started"));
-  }, [rec.phase, t]);
-
-  // the field: remember whether its caret is meaningful; ⌘/Ctrl+Shift+M toggles; the chip goes on the user's edit
-  const [fieldEl, setFieldEl] = useState<VoiceField | null>(null);
-  useEffect(() => {
-    setFieldEl(field());
-  }, [field, status.data]);
+  // the field (found once the mic is rendered): remember whether its caret is meaningful; ⌘/Ctrl+Shift+M toggles;
+  // the "Sesle girildi" chip goes on the user's own edit
   const toggleRef = useRef<() => void>(() => undefined);
+  const visible = !hidesMic(status.data, status.error, target);
   useEffect(() => {
+    const fieldEl = visible ? field() : null;
     if (!fieldEl) return;
     const untrack = trackCaret(fieldEl);
+    const el: HTMLElement = fieldEl;
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "M" || e.key === "m")) {
         e.preventDefault();
@@ -146,34 +148,38 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
     const onInput = (e: Event) => {
       if (!(e as unknown as Record<string, boolean>)[VOICE_INPUT_FLAG]) setFromVoice(false);
     };
-    fieldEl.addEventListener("keydown", onKey);
-    fieldEl.addEventListener("input", onInput);
+    el.addEventListener("keydown", onKey);
+    el.addEventListener("input", onInput);
     return () => {
       untrack();
-      fieldEl.removeEventListener("keydown", onKey);
-      fieldEl.removeEventListener("input", onInput);
+      el.removeEventListener("keydown", onKey);
+      el.removeEventListener("input", onInput);
     };
-  }, [fieldEl]);
+  }, [field, visible]);
   // the box was sent or cleared by its owner (no input event): drop the chip
   useEffect(() => {
-    if (!fromVoice || !fieldEl) return;
+    const fieldEl = fromVoice ? field() : null;
+    if (!fieldEl) return;
     const id = setInterval(() => {
       if (!fieldEl.value.trim()) setFromVoice(false);
     }, 800);
     return () => clearInterval(id);
-  }, [fromVoice, fieldEl]);
+  }, [fromVoice, field]);
 
   const begin = useCallback(
     (handsFree: boolean, consented = false) => {
       setErr(null);
       setNotice(null);
       rec.reset();
-      if (status.data?.reason === "ai_voice_limit_reached") return setErr({ code: "ai_voice_limit_reached" });
+      if (limited) {
+        const m = limitMinutes(status.data);
+        return setErr({ code: "ai_voice_limit_reached", params: m ? { used: m.used, limit: m.limit, scope: m.month ? "user_monthly" : "user_daily" } : {} });
+      }
       if (!consented && needsConsent(status.data)) return setConsentOpen(true);
       setLocked(handsFree);
       void rec.start({ handsFree });
     },
-    [rec, status.data],
+    [limited, rec, status.data],
   );
 
   const cancelAll = useCallback(() => {
@@ -192,7 +198,9 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
     else if (rec.phase === "starting") cancelAll();
     else begin(true);
   }, [begin, busy, cancelAll, rec]);
-  toggleRef.current = toggle;
+  useEffect(() => {
+    toggleRef.current = toggle;
+  }, [toggle]);
 
   // Esc cancels a recording (or a transcription) from anywhere on the page
   useEffect(() => {
@@ -207,13 +215,13 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
     return () => document.removeEventListener("keydown", onKey);
   }, [recording, busy, cancelAll]);
 
-  if (hidesMic(status.data, status.error)) return null;
+  if (!visible) return null;
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!coarse || e.pointerType === "mouse" || busy || disabled) return;
     if (recording) return; // a locked recording: the tap (click) stops it
     suppressClick.current = true;
-    if (needsConsent(status.data) || status.data?.reason === "ai_voice_limit_reached") return begin(false);
+    if (needsConsent(status.data) || limited) return begin(false);
     e.preventDefault();
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -269,13 +277,13 @@ export function MicButton({ target, fieldRef, onTranscript, disabled, className 
       <IconButton
         ref={btn}
         label={label}
-        title={coarse ? (recording ? label : t("voice.mic.hold")) : `${label} (${t("voice.mic.shortcut")})`}
+        title={limited ? t("voice.mic.limit") : coarse ? (recording ? label : t("voice.mic.hold")) : `${label} (${t("voice.mic.shortcut")})`}
         size="sm"
         variant={recording ? "destructive" : "ghost"}
         aria-pressed={recording}
         aria-keyshortcuts="Control+Shift+M Meta+Shift+M"
         disabled={disabled}
-        aria-disabled={busy || undefined}
+        aria-disabled={busy || limited || undefined}
         onClick={onClick}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

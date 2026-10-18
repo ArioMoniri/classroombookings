@@ -44,6 +44,7 @@ const ctx = {} as {
   departmentId: number | null;
   departmentName: string;
   syncWasOn: boolean;
+  urlWasSet: boolean;
 };
 
 async function call<T = unknown>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, token = ctx.admin): Promise<{ status: number; body: T; headers: Record<string, string> }> {
@@ -80,9 +81,12 @@ test.beforeAll(async () => {
   ctx.api = await pwRequest.newContext();
   ctx.admin = await token(ADMIN_EMAIL, ADMIN_PASSWORD);
   // the organisation's KVKK sign-off for calendar sync (REC_CAL_SIGNOFF=0 leaves it off)
-  const settings = await api<{ calendar_sync_enabled: boolean }>("GET", "/calendar/admin/settings");
+  const settings = await api<{ calendar_sync_enabled: boolean; public_url: string | null }>("GET", "/calendar/admin/settings");
   ctx.syncWasOn = settings.calendar_sync_enabled;
   if (!ctx.syncWasOn) await api("PUT", "/calendar/admin/settings", { calendar_sync_enabled: true });
+  // absolute links (https + webcal) need the panel's public address; this stack's own when none is set
+  ctx.urlWasSet = !!settings.public_url;
+  if (!ctx.urlWasSet) await api("PUT", "/calendar/admin/settings", { public_url: `http://127.0.0.1:${process.env.PW_PORT ?? 3100}` });
 
   // an instructor of the current term with published classes nobody is linked to yet
   const me = await api<{ current_term: { id: number } | null }>("GET", "/moderation/me");
@@ -110,6 +114,7 @@ test.afterAll(async () => {
   await revokeAll(MEHMET.username, MEHMET.password).catch(() => undefined);
   if (ctx.ayseId && ctx.instructorId) await call("PUT", `/auth/sso/admin/users/${ctx.ayseId}/instructor`, { instructor_id: null });
   if (!ctx.syncWasOn) await call("PUT", "/calendar/admin/settings", { calendar_sync_enabled: false });
+  if (!ctx.urlWasSet) await call("PUT", "/calendar/admin/settings", { public_url: "" });
   await ctx.api.dispose();
 });
 
@@ -158,6 +163,7 @@ for (const [label, device] of [
       }
       // T2: three taps + the consent tick
       await page.getByTestId("cal-scope-my_classes").click(); // 1
+      await expect(page.getByTestId("cal-refresh-times")).toBeHidden(); // refresh times under "Gelişmiş"
       await page.getByTestId("cal-channel-link").click(); // 2
       await expect(page.getByTestId("cal-step-heading")).toHaveText("Takviminize şunlar gönderilecek");
       await expect(page.getByTestId("cal-fields")).toContainText("Ders kodu ve şube");
@@ -171,6 +177,9 @@ for (const [label, device] of [
       await expect(page.getByTestId("cal-link")).toBeVisible();
       for (const k of ["apple", "google", "outlook"]) await expect(page.getByTestId(`cal-link-${k}`)).toBeVisible();
       await expect(page.getByTestId("cal-link-note")).toContainText("Bağlantıyı açmayın, abone olun");
+      // the raw addresses sit behind "Gelişmiş" (simplicity principle): closed until asked for
+      await expect(page.getByTestId("cal-link-https-value")).toBeHidden();
+      await page.getByTestId("cal-link-advanced-toggle").click();
       if (phone) {
         const fs = await page.getByTestId("cal-link-https-value").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
         expect(fs).toBeGreaterThanOrEqual(16);
@@ -222,6 +231,18 @@ for (const [label, device] of [
       const forged = await call<{ detail?: { code?: string } }>("POST", "/calendar/subscriptions", { scope_kind: "department_classes", scope_id: ctx.departmentId, channel: "link" }, await token(MEHMET.username, MEHMET.password));
       expect(forged.status).toBe(403);
       expect(forged.body.detail?.code).toBe("department_not_allowed");
+      if (phone) await noSideScroll(page);
+    });
+
+    test(`CAL-07 refused account after the OAuth round trip: a Turkish sentence, never the code; one primary action (${label})`, async ({ page }) => {
+      await login(page, MEHMET.username, MEHMET.password);
+      await page.goto("/profile?calendar=error&provider=google&reason=account_not_verified&domain=uni.edu.tr");
+      await expect(page.getByTestId("cal-not-verified")).toHaveText("Bu hesap kurumunuzun doğrulanmış hesabı değil. uni.edu.tr uzantılı hesabınızla bağlanın.");
+      await expect(page.locator("body")).not.toContainText("account_not_verified");
+      // the older push panel sits closed under Gelişmiş: "Takvimime ekle" is the one primary action
+      const older = page.getByTestId("calendar-connections-advanced");
+      if (await older.count()) await expect(older).not.toHaveAttribute("open", /.*/);
+      await expect(page.getByTestId("cal-open")).toBeVisible();
       if (phone) await noSideScroll(page);
     });
   });

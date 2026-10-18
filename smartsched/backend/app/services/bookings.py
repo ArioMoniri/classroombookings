@@ -891,6 +891,9 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
         await approvals.open_request(session, access, need, room, [b])
     if commit:
         await session.commit()
+        from app.services import demand
+
+        await demand.record_booking(b)  # AS-05: aggregate demand ledger (no user id)
     return b
 
 

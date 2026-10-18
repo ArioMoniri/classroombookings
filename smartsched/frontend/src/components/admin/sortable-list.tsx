@@ -9,7 +9,7 @@
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import { useState, type KeyboardEvent, type ReactNode } from "react";
 import { cssSpring, useReduce } from "@/lib/motion";
 import { IconButton } from "@/components/ui/button";
@@ -57,7 +57,7 @@ export function SortableList<T extends SortableItem>({ items, onReorder, render,
         <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
           <ul aria-label={label} className="flex flex-col">
             {items.map((item, i) => (
-              <Row key={item.id} item={item} onKeyMove={(d) => move(i, i + d)}>
+              <Row key={item.id} item={item} onKeyMove={(d) => move(i, i + d)} first={i === 0} last={i === items.length - 1}>
                 {render(item)}
               </Row>
             ))}
@@ -71,7 +71,7 @@ export function SortableList<T extends SortableItem>({ items, onReorder, render,
   );
 }
 
-function Row({ item, children, onKeyMove }: { item: SortableItem; children: ReactNode; onKeyMove: (dir: -1 | 1) => void }) {
+function Row({ item, children, onKeyMove, first, last }: { item: SortableItem; children: ReactNode; onKeyMove: (dir: -1 | 1) => void; first: boolean; last: boolean }) {
   const t = useT();
   const reduce = useReduce();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
@@ -108,6 +108,13 @@ function Row({ item, children, onKeyMove }: { item: SortableItem; children: Reac
         <GripVertical aria-hidden />
       </IconButton>
       <div className="relative min-w-0 flex-1">{children}</div>
+      {/* touch: the drag is a shortcut, these are the visible way (MOBILE.md M-11; mobile-b phase 2) */}
+      <IconButton label={t("crbs.sort.up", { name: item.label })} disabled={first} onClick={() => onKeyMove(-1)} className="hidden text-label-2 pointer-coarse:inline-flex">
+        <ChevronUp aria-hidden />
+      </IconButton>
+      <IconButton label={t("crbs.sort.down", { name: item.label })} disabled={last} onClick={() => onKeyMove(1)} className="hidden text-label-2 pointer-coarse:inline-flex">
+        <ChevronDown aria-hidden />
+      </IconButton>
     </li>
   );
 }

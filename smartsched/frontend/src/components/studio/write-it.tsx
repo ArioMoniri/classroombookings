@@ -18,6 +18,7 @@ import { useStudio, useStudioStore } from "./studio-context";
 import { pairLang } from "@/lib/i18n";
 import { refusedAsDecisions, splitRefused } from "./refused";
 import { BareButton } from "@/components/shell/bare-button";
+import { MicButton } from "@/components/voice";
 import { chipPrefill } from "./chip-prefill";
 import { useStudioData } from "./studio-data";
 import type { BuilderPrefill } from "./template-gallery";
@@ -121,6 +122,7 @@ export function WriteIt({ noKey, onOpenTemplate }: { noKey: boolean; onOpenTempl
           {busy ? <BusyGlyph /> : <ScanText aria-hidden />}
           {busy ? t("studio.write.reading") : t("studio.write.analyse")}
         </Button>
+        <MicButton target="rules" fieldRef={area} disabled={busy} />
         <span id="studio-write-hint" className="text-xs text-label-2">
           {t("studio.write.hint")}
         </span>

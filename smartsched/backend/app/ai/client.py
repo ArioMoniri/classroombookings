@@ -21,6 +21,7 @@ Prompts and model outputs are only ever logged at DEBUG level and only as length
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -84,6 +85,37 @@ PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     "claude-haiku-5-5": (0.10, 0.50),
     "claude-haiku-4-5": (1.0, 5.0),
 }
+
+#: version of :data:`STT_PRICE_TABLE` (OpenAI pricing page read 2026-10-17; research 2026-10-17-voice-ai.md §2.2)
+STT_PRICE_TABLE_VERSION = "stt-2026-10-17"
+
+#: USD per audio minute of speech-to-text models (VO-02), matched by the longest model-id prefix so dated ids
+#: (``gpt-4o-mini-transcribe-2025-12-15``) and Azure deployments named after the model price the same. Providers
+#: without a published per-minute price here are ``unpriced`` until an admin enters one (``ai.voice``
+#: ``prices_per_min``).
+STT_PRICE_TABLE: dict[str, float] = {
+    "gpt-transcribe": 0.0045,
+    "gpt-4o-transcribe": 0.006,
+    "gpt-4o-mini-transcribe": 0.003,
+    "whisper-1": 0.006,
+}
+
+
+def estimate_stt_cost(
+    provider: str, model: str, seconds: float, *, prices: dict[str, Any] | None = None
+) -> tuple[float, str]:
+    """``(USD, price_version)`` of ``seconds`` of audio: the admin's price for ``provider:model`` (``admin``), else
+    :data:`STT_PRICE_TABLE` (:data:`STT_PRICE_TABLE_VERSION`), else ``(0, "unpriced")``."""
+    minutes = max(float(seconds), 0.0) / 60.0
+    own = (prices or {}).get(f"{provider}:{model}")
+    if isinstance(own, int | float) and own >= 0:
+        return round(minutes * float(own), 6), "admin"
+    base = (model or "").lower().rsplit("/", 1)[-1]
+    match = max((k for k in STT_PRICE_TABLE if base.startswith(k)), key=len, default=None)
+    if match is None:
+        return 0.0, "unpriced"
+    return round(minutes * STT_PRICE_TABLE[match], 6), STT_PRICE_TABLE_VERSION
+
 
 #: Models on which the server-side refusal fallback beta is accepted (claude-api skill).
 FALLBACK_MODELS = _FALLBACK_MODELS
@@ -298,9 +330,14 @@ class AIClient:
         effort: str | None = None,
         disable_parallel_tool_use: bool = False,
         model: str | None = None,
+        force_tool: str | None = None,
     ) -> Any:
         """One model call. Returns the message; raises :class:`AIRefusal` on refusal, :class:`AIGuardError` when
-        the gateway refused the call, :class:`AIUpstreamError` on provider failures."""
+        the gateway refused the call, :class:`AIUpstreamError` on provider failures.
+
+        ``force_tool`` (HB-13): the name of the one tool the answer must call. Each adapter sends it the way its
+        provider accepts: Claude as ``auto`` (current models refuse a forced choice), an OpenAI-compatible server as
+        the named function or, without named tool choice, as JSON-schema output wrapped back into the call."""
         kwargs = self._kwargs(
             system=system,
             messages=messages,
@@ -310,6 +347,7 @@ class AIClient:
             effort=effort,
             disable_parallel_tool_use=disable_parallel_tool_use,
             model=model,
+            force_tool=force_tool,
         )
         return await self._dispatch(kwargs, stream=False, on_event=None, model_override=model)
 
@@ -324,6 +362,7 @@ class AIClient:
         disable_parallel_tool_use: bool = False,
         model: str | None = None,
         on_event: EventSink | None = None,
+        force_tool: str | None = None,
     ) -> Any:
         """Like :meth:`complete`, streamed: ``on_event`` gets ``{"type": "text", "text"}`` deltas and
         ``{"type": "tool_start", "name"}``. Every tool carries ``eager_input_streaming: true``, so the server no
@@ -340,6 +379,7 @@ class AIClient:
             disable_parallel_tool_use=disable_parallel_tool_use,
             model=model,
             eager=True,
+            force_tool=force_tool,
         )
         return await self._dispatch(kwargs, stream=True, on_event=on_event, model_override=model)
 
@@ -394,6 +434,7 @@ class AIClient:
         disable_parallel_tool_use: bool,
         model: str | None,
         eager: bool = False,
+        force_tool: str | None = None,
     ) -> dict[str, Any]:
         if self.redactor:
             system, messages = self.redactor.payload(system), self.redactor.payload(messages)
@@ -406,6 +447,8 @@ class AIClient:
         if tools:
             kwargs["tools"] = [{**t, EAGER_FIELD: True} for t in tools] if eager else tools
             kwargs["tool_choice"] = {"type": "auto", "disable_parallel_tool_use": disable_parallel_tool_use}
+            if force_tool and any(t.get("name") == force_tool for t in tools):
+                kwargs["tool_choice"] = {"type": "tool", "name": force_tool, "disable_parallel_tool_use": True}
         if output_format:
             kwargs["output_config"] = {"format": output_format}
         if effort:
@@ -474,7 +517,13 @@ async def get_client(
     }
     secrets = {p: await gw.provider_secrets(session, p) for p in providers if p in PROVIDERS}
     configs = {p: await gw.provider_config(session, p) for p in providers if p in PROVIDERS}
-    transfer = {p: gw.transfer_ok(p, configs[p], await gw.transfer_record(session, p)) for p in configs}
+    transfer: dict[str, bool] = {}
+    for p in configs:
+        local = None
+        if p == "openai_compatible":  # by the resolved addresses (HB-13), off the event loop
+            local = await asyncio.to_thread(gw.is_local_url, configs[p].get("base_url"))
+        transfer[p] = gw.transfer_ok(p, configs[p], await gw.transfer_record(session, p), local=local)
+    capabilities = {p: await gw.model_capabilities(session, p) for p in configs}
     prices: dict[str, dict[str, tuple[float | None, float | None]]] = {}
     for p in configs:
         synced = await gw.synced_models(session, p)
@@ -492,6 +541,7 @@ async def get_client(
         guards=await gw.get_guardrails(session),
         limits=await gw.get_limits(session),
         synced_prices=prices,
+        capabilities=capabilities,
         user_id=user_id or current_actor() or actor_from_session(session),
         timeout_s=float(kwargs.get("timeout_s", DEFAULT_TIMEOUT_S)),
         max_retries=int(kwargs.get("max_retries", DEFAULT_MAX_RETRIES)),

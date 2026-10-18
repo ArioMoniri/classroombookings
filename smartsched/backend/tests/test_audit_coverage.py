@@ -82,6 +82,35 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/auth/sso/admin/invites/{invite_id}/resend": (E, "app.services.identity.invites"),
     "POST /api/v1/auth/sso/invites/{token}/password": (E, "app.services.identity.invites"),
     "POST /api/v1/auth/sso/{slug}/acs": (E, "app.services.sso"),
+    # AU-B two-step sign-in, passkeys, trusted devices, admin resets (app/services/mfa.py audits every event)
+    "POST /api/v1/auth/mfa/totp/start": (E, "app.services.mfa"),
+    "POST /api/v1/auth/mfa/totp/confirm": (E, "app.services.mfa"),
+    "POST /api/v1/auth/mfa/disable": (E, "app.services.mfa"),
+    "POST /api/v1/auth/mfa/recovery-codes": (E, "app.services.mfa"),
+    "POST /api/v1/auth/mfa/verify": (E, "app.services.mfa"),
+    "POST /api/v1/auth/mfa/passkey/options": (N, "stores the WebAuthn challenge on the caller's own sign-in step"),
+    "POST /api/v1/auth/mfa/passkey/verify": (E, "app.services.mfa"),
+    "POST /api/v1/auth/mfa/setup/totp/start": (E, "app.services.mfa"),
+    "POST /api/v1/auth/mfa/setup/totp/confirm": (E, "app.services.mfa"),
+    "POST /api/v1/auth/mfa/setup/passkey/options": (N, "stores the WebAuthn challenge on the caller's own setup step"),
+    "POST /api/v1/auth/mfa/setup/passkey/verify": (E, "app.services.mfa"),
+    "POST /api/v1/auth/passkeys/register/options": (N, "a single-use registration challenge row of the caller"),
+    "POST /api/v1/auth/passkeys/register/verify": (E, "app.services.mfa"),
+    "PATCH /api/v1/auth/passkeys/{passkey_id}": (E, "app.services.mfa"),
+    "POST /api/v1/auth/passkeys/{passkey_id}/remove": (E, "app.services.mfa"),
+    "POST /api/v1/auth/passkey/options": (N, "an anonymous single-use passkey sign-in challenge"),
+    "POST /api/v1/auth/passkey/verify": (E, "app.services.mfa"),
+    "DELETE /api/v1/auth/trusted-devices/{device_id}": (E, "app.services.mfa"),
+    "DELETE /api/v1/auth/trusted-devices": (E, "app.services.mfa"),
+    "PUT /api/v1/admin/auth/mfa-policy": (E, "app.services.mfa"),
+    "POST /api/v1/admin/users/{user_id}/mfa/reset": (E, "app.services.mfa"),
+    "POST /api/v1/admin/users/{user_id}/password-reset-link": (E, "app.services.mfa"),
+    # AU-15 server-side sessions (app/services/sessions.py)
+    "DELETE /api/v1/auth/sessions/{session_id}": (E, "app.services.sessions"),
+    "POST /api/v1/auth/sessions/revoke-others": (E, "app.services.sessions"),
+    "POST /api/v1/admin/users/{user_id}/sessions/revoke": (E, "app.services.sessions"),
+    # AU-16 "IdP MFA'yı zorunlu tut" per provider
+    "PUT /api/v1/admin/auth/providers/{provider_id}/idp-mfa": (E, "app.services.mfa"),
     # booking administration (CRBS setup)
     "PUT /api/v1/booking-admin/sessions/{term_id}": (T, "TermBookingSettings"),
     "PUT /api/v1/booking-admin/sessions/{term_id}/schedules": (T, "TermSchedule"),
@@ -132,7 +161,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "DELETE /api/v1/calendar/feeds/tokens/{token_id}": (N, "the caller's own calendar link"),
     "POST /api/v1/calendar/connectors/{provider}/connect": (N, "the caller's own OAuth grant"),
     "PUT /api/v1/calendar/connectors/{provider}": (N, "the caller's own calendar choice"),
-    "DELETE /api/v1/calendar/connectors/{provider}": (N, "the caller's own OAuth grant"),
+    "DELETE /api/v1/calendar/connectors/{provider}": (E, "app.api.v1.calendar_sync"),  # calendar.push_disconnect
     "POST /api/v1/calendar/connectors/{provider}/resync": (N, "re-queues the caller's own push jobs"),
     "PUT /api/v1/calendar/admin/settings": (E, "app.api.v1.calendar_sync"),
     # calendar export for academicians (CAL-03 / CAL-06 / CAL-07; cal-b-2026-10-17)
@@ -377,12 +406,17 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/ai/admin/providers/{provider}": (E, "app.api.v1.ai_admin"),
     "POST /api/v1/ai/admin/providers/{provider}/sync": (E, "app.api.v1.ai_admin"),
     "POST /api/v1/ai/admin/providers/{provider}/test": (T, "ai_usage + setting ai.provider.<p>.test"),
+    "PUT /api/v1/ai/admin/providers/{provider}/capabilities": (E, "app.api.v1.ai_admin"),
+    "PUT /api/v1/ai/faculty/allocations": (E, "app.api.v1.ai_faculty"),
     "PUT /api/v1/ai/admin/routes": (E, "app.api.v1.ai_admin"),
     "PUT /api/v1/ai/admin/limits": (E, "app.api.v1.ai_admin"),
     "POST /api/v1/ai/admin/limits/topup": (E, "app.api.v1.ai_admin"),
     "PUT /api/v1/ai/admin/guardrails": (E, "app.api.v1.ai_admin"),
     "POST /api/v1/ai/admin/guardrails/check": (N, "dry run: the deterministic guard's verdict, no model call"),
     "POST /api/v1/ai/admin/redteam": (N, "dry run: the shipped guard corpus, no model call"),
+    # voice VO-03 / VO-04: the transcription writes only its metering row (audio and transcript are never stored)
+    "POST /api/v1/ai/voice/transcribe": (J, "ai_usage row (voice_stt, audio_in); no audio, no transcript"),
+    "PUT /api/v1/ai/admin/voice": (E, "app.api.v1.ai_admin"),
     # W3-OPS error tracking: reports are rows of their own table; the triage is an audit event
     "POST /api/v1/ops/errors": (J, "error_events (grouped, scrubbed client report)"),
     "POST /api/v1/ops/client-errors": (J, "error_events (alias of POST /ops/errors)"),
@@ -395,6 +429,39 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/mail/templates/{kind}/preview": (N, "render only"),
     "PUT /api/v1/mail/templates/{kind}": (T, "translations set email"),
     "POST /api/v1/mail/templates/{kind}/test": (E, "app.services.mail"),
+    # welcome guide per role WG-01..03: the person's own guide state; the admin switches / texts / reshow are audited
+    "POST /api/v1/welcome/events": (N, "the caller's own welcome_progress (shown / snoozed / step / item_done)"),
+    "POST /api/v1/welcome/restart": (N, "the caller's own welcome_progress (Help › Turu yeniden başlat)"),
+    "PUT /api/v1/welcome/settings": (E, "app.services.welcome"),
+    "PUT /api/v1/welcome/content/{audience}": (E, "app.services.welcome"),
+    "POST /api/v1/welcome/content/{audience}/reshow": (E, "app.services.welcome"),
+    # adaptive scheduling AS-03 / AS-10: season profiles (season_profile.*), admin period segments, what-if runs
+    "POST /api/v1/seasons/profiles": (E, "app.services.seasons"),
+    "PUT /api/v1/seasons/profiles/{profile_id}": (E, "app.services.seasons"),
+    "POST /api/v1/seasons/profiles/{profile_id}/activate": (E, "app.services.seasons"),
+    "POST /api/v1/seasons/profiles/{profile_id}/revert": (E, "app.services.seasons"),
+    "DELETE /api/v1/seasons/profiles/{profile_id}": (E, "app.services.seasons"),
+    "POST /api/v1/seasons/terms/{term_id}/segments": (E, "app.api.v1.seasons"),
+    "PUT /api/v1/seasons/segments/{segment_id}": (E, "app.api.v1.seasons"),
+    "DELETE /api/v1/seasons/segments/{segment_id}": (E, "app.api.v1.seasons"),
+    "POST /api/v1/analytics/forecast/what-if": (E, "app.services.forecast"),
+    # AS-13 / RF-07: learning versions, calibration, per-habit controls, nightly switch
+    "POST /api/v1/learning/versions/{version_id}/revert": (E, "app.services.learning_versions"),
+    "POST /api/v1/learning/calibration/apply": (E, "app.services.learning_versions"),
+    "PUT /api/v1/learning/priors/{prior_id}/habit": (E, "app.services.learning_versions"),
+    "PUT /api/v1/learning/settings": (E, "app.api.v1.learning"),
+    # AS-14: a learned-weights draft profile goes through seasons.create_profile / update_profile (season_profile.*)
+    "POST /api/v1/learning/weights/propose": (E, "app.services.seasons"),
+    # AI helper (app/ai/helper; app/api/v1/helper.py): action cards are reads or dry-run previews
+    "POST /api/v1/helper/actions/{name}/card": (N, "a read, or a write's dry-run preview with a signed token"),
+    "POST /api/v1/helper/actions/confirm": (E, "app.ai.helper.confirm"),
+    "POST /api/v1/helper/turn": (N, "reads and write previews, metered in ai_usage; writes need /confirm"),
+    "POST /api/v1/helper/actions/undo": (E, "app.ai.helper.confirm"),
+    "PUT /api/v1/helper/memory": (T, "Setting (user.<id>.helper_memory)"),
+    "POST /api/v1/helper/notes": (N, "the person's own helper note (Bunu hatırla)"),
+    "DELETE /api/v1/helper/notes/{note_id}": (N, "the person's own helper note"),
+    "DELETE /api/v1/helper/notes": (N, "the person's own helper notes and history"),
+    "PUT /api/v1/helper/admin/settings": (E, "app.api.v1.helper"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)

@@ -13,6 +13,8 @@ import { BareButton } from "@/components/shell/bare-button";
 
 /** Rule clashes come before data problems; the unplaced group is rendered as fix cards above. */
 const RULE_GROUPS = ["locked_room_overlap", "locked_room_blocked", "shared_room_overflow"];
+/** AS-09 / AS-17: planning warnings about the term (peak hours, exam load), not data errors: listed last */
+export const ADVICE_GROUPS = new Set(["peak_pressure", "exam_load"]);
 /** Shown above as cards with fixes (from run.diagnosis): unplaced classes and locked overlaps. */
 export const UNPLACED_GROUPS = new Set(["no_free_room", "locked_room_overlap"]);
 
@@ -20,8 +22,8 @@ export function orderGroups(groups: DataIssueGroup[]): DataIssueGroup[] {
   return groups
     .filter((g) => g.count > 0 && !UNPLACED_GROUPS.has(g.code))
     .sort((a, b) => {
-      const ra = RULE_GROUPS.includes(a.code) ? 0 : 1;
-      const rb = RULE_GROUPS.includes(b.code) ? 0 : 1;
+      const ra = RULE_GROUPS.includes(a.code) ? 0 : ADVICE_GROUPS.has(a.code) ? 2 : 1;
+      const rb = RULE_GROUPS.includes(b.code) ? 0 : ADVICE_GROUPS.has(b.code) ? 2 : 1;
       return ra - rb || b.count - a.count;
     });
 }

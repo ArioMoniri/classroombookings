@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { BusyGlyph, BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { MicButton } from "@/components/voice";
 import { api } from "@/lib/api/endpoints";
 import { HttpError } from "@/lib/api/client";
 import type { Extraction, MappingColumns, MappingProposals, MappingSpec } from "@/lib/api/studio-schemas";
@@ -215,11 +216,14 @@ export function UploadPanel({ onClose }: { onClose: () => void }) {
           <p className="text-xs text-label-2">{t("studio.upload.examples")}</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2" data-voice-scope>
           <Textarea rows={5} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={t("studio.upload.pastePlaceholder")} aria-label={t("studio.upload.tabPaste")} lang={locale} />
-          <Button size="sm" onClick={() => void readPaste()} {...busyProps(pasting, !paste.trim())}>
-            <BusyLabel busy={pasting} label={t("studio.upload.stage.reading")}>{t("studio.upload.readPaste")}</BusyLabel>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={() => void readPaste()} {...busyProps(pasting, !paste.trim())}>
+              <BusyLabel busy={pasting} label={t("studio.upload.stage.reading")}>{t("studio.upload.readPaste")}</BusyLabel>
+            </Button>
+            <MicButton target="rules" disabled={pasting} />
+          </div>
         </div>
       )}
       {rows.length ? (

@@ -1,0 +1,88 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='780' height='1180' viewBox='0 0 780 1180' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Profil › Giriş ve güvenlik (sol) ve kurtarma kodları adımı (sağ), 390'>
+<title>Profil › Giriş ve güvenlik (sol) ve kurtarma kodları adımı (sağ), 390</title>
+<rect width='780' height='1180' fill='#F4F6F9'/>
+<rect x='0' y='0' width='390' height='1180' rx='0' fill='#F4F6F9' fill-opacity='1'/>
+<text x='20' y='30' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>9:41</text>
+<text x='16' y='80' font-size='30' font-weight='700' fill='#0F172A' text-anchor='start'>Profil</text>
+<text x='16' y='120' font-size='22' font-weight='700' fill='#0F172A' text-anchor='start'>Giriş ve güvenlik</text>
+<rect x='16' y='138' width='358' height='740' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='164' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Parola</text>
+<text x='32' y='184' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Son değişiklik: 2 Eylül 2026</text>
+<rect x='32' y='188' width='326' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='195.0' y='215.04' font-size='14' font-weight='600' fill='#0F172A' text-anchor='middle'>Değiştir</text>
+<line x1='32' y1='246' x2='358' y2='246' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='272' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>İki aşamalı doğrulama</text>
+<text x='32' y='292' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Kapalı · Girişte parolanıza ek olarak telefo…</text>
+<rect x='32' y='320' width='326' height='44' rx='22.0' fill='#2563EB' fill-opacity='1'/>
+<text x='195.0' y='347.04' font-size='14' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Aç</text>
+<line x1='32' y1='378' x2='358' y2='378' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='404' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Geçiş anahtarları (passkey)</text>
+<rect x='32' y='550' width='326' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='195.0' y='577.04' font-size='14' font-weight='600' fill='#0F172A' text-anchor='middle'>Geçiş anahtarı ekle</text>
+<rect x='32' y='436' width='24' height='24' rx='6' fill='#E0E7FF' fill-opacity='1'/>
+<circle cx='39' cy='448' r='5' fill='none' stroke='#4338CA' stroke-width='2'/>
+<line x1='44' y1='448' x2='54' y2='448' stroke='#4338CA' stroke-width='2'/>
+<line x1='51' y1='448' x2='51' y2='452' stroke='#4338CA' stroke-width='2'/>
+<text x='68' y='448' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>iCloud Anahtar Zinciri</text>
+<text x='68' y='466' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Eklendi 18 Eki 2026 · Son kullanım…</text>
+<text x='344' y='454' font-size='18' font-weight='700' fill='#0F172A' text-anchor='middle'>⋯</text>
+<rect x='32' y='486' width='24' height='24' rx='6' fill='#E0E7FF' fill-opacity='1'/>
+<circle cx='39' cy='498' r='5' fill='none' stroke='#4338CA' stroke-width='2'/>
+<line x1='44' y1='498' x2='54' y2='498' stroke='#4338CA' stroke-width='2'/>
+<line x1='51' y1='498' x2='51' y2='502' stroke='#4338CA' stroke-width='2'/>
+<text x='68' y='498' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Güvenlik anahtarı</text>
+<text x='68' y='516' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Eklendi 1 Eki 2026 · Hiç kullanılm…</text>
+<text x='344' y='504' font-size='18' font-weight='700' fill='#0F172A' text-anchor='middle'>⋯</text>
+<line x1='32' y1='608' x2='358' y2='608' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='634' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Oturumlar ve cihazlar</text>
+<rect x='32' y='764' width='326' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='195.0' y='791.04' font-size='14' font-weight='600' fill='#0F172A' text-anchor='middle'>Diğer tüm oturumları kapat</text>
+<rect x='32' y='666' width='24' height='18' rx='3' fill='none' fill-opacity='1' stroke='#0F172A' stroke-width='1.5'/>
+<text x='68' y='678' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Chrome · Windows</text>
+<rect x='198' y='664' width='68' height='20' rx='10' fill='#EFF6FF' fill-opacity='1'/>
+<text x='232.0' y='678' font-size='11' font-weight='600' fill='#2563EB' text-anchor='middle'>Bu cihaz</text>
+<text x='68' y='696' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Son etkinlik şimdi · Parola + uy…</text>
+<rect x='32' y='712' width='24' height='18' rx='3' fill='none' fill-opacity='1' stroke='#0F172A' stroke-width='1.5'/>
+<text x='68' y='724' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Safari · iPhone</text>
+<rect x='198' y='710' width='121' height='20' rx='10' fill='#F1F5F9' fill-opacity='1'/>
+<text x='258.5' y='724' font-size='11' font-weight='600' fill='#475569' text-anchor='middle'>2FA hatırlanıyor</text>
+<text x='68' y='742' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Son etkinlik 3 saat önce · Geçiş…</text>
+<line x1='32' y1='822' x2='358' y2='822' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='848' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Son girişler</text>
+<text x='32' y='868' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Son girişleri göster  ⌄</text>
+<rect x='390' y='0' width='390' height='1180' rx='0' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='410' y='30' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>9:41</text>
+<text x='406' y='80' font-size='18' font-weight='700' fill='#0F172A' text-anchor='start'>İki aşamalı doğrulamayı açın</text>
+<text x='406' y='102' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>Adım 3 / 3</text>
+<text x='406' y='142' font-size='20' font-weight='700' fill='#0F172A' text-anchor='start'>Kurtarma kodlarınızı kaydedin</text>
+<text x='406' y='168' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Telefonunuza erişemezseniz bu kodlarla giriş</text>
+<text x='406' y='186' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>yaparsınız. Her kod bir kez kullanılır.</text>
+<text x='406' y='204' font-size='13' font-weight='700' fill='#0F172A' text-anchor='start'>Bu kodlar bir daha gösterilmez.</text>
+<rect x='406' y='226' width='358' height='228' rx='12' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='422' y='254' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'> 1.  7K3M-Q9PX-2DTA-8WRB</text>
+<text x='422' y='274' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'> 2.  H4ZN-6CEV-P1KQ-3MTS</text>
+<text x='422' y='294' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'> 3.  R8WD-2YFJ-K5NA-9XQE</text>
+<text x='422' y='314' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'> 4.  C6TP-4HMB-Z7RW-1DKG</text>
+<text x='422' y='334' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'> 5.  N2QX-8VSE-J3FL-6PAT</text>
+<text x='422' y='354' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'> 6.  W9KC-5RDY-M2HV-7BNQ</text>
+<text x='422' y='374' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'> 7.  E1LS-3GTW-X8PD-4ZMC</text>
+<text x='422' y='394' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'> 8.  Y5FB-7NKQ-C2RJ-8VHT</text>
+<text x='422' y='414' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'> 9.  P3DM-9WXA-T6EK-2LGS</text>
+<text x='422' y='434' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>10.  K7RV-1ZPC-H4NQ-5WYD</text>
+<rect x='406' y='470' width='114' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='463.0' y='496.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>İndir (.txt)</text>
+<rect x='528' y='470' width='114' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='585.0' y='496.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Kopyala</text>
+<rect x='650' y='470' width='114' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='707.0' y='496.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Yazdır</text>
+<rect x='406' y='540' width='20' height='20' rx='5' fill='#2563EB' fill-opacity='1' stroke='#2563EB' stroke-width='1.5'/>
+<polyline points='411,550 415,554 421,546' fill='none' stroke='#FFFFFF' stroke-width='2' stroke-linejoin='round'/>
+<text x='436' y='555' font-size='14' font-weight='500' fill='#0F172A' text-anchor='start'>Kodları güvenli bir yere kaydettim</text>
+<rect x='406' y='590' width='358' height='48' rx='24.0' fill='#2563EB' fill-opacity='1'/>
+<text x='585.0' y='619.4' font-size='15' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Bitir</text>
+<text x='406' y='680' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>'Bitir' kutu işaretlenmeden pasif.</text>
+<text x='406' y='698' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Kodlar ≥ 64 bit (NIST), 4'lü gruplar; ekran</text>
+<text x='406' y='716' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>okuyucu 10 öğelik liste olarak duyurur.</text>
+<text x='406' y='734' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Tam ekran sayfa; adım başlığı yapışkan.</text>
+<text x='406' y='752' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>'Kopyala' → 'Kopyalandı ✓' (Text swap 150 ms).</text>
+</svg>

@@ -19,7 +19,8 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
-import { emptyPolicy, policyToInput, useDeletePolicy, usePolicies, useSaveExamPeriod, useSavePolicy, type ExamMode, type Policy, type PolicyIn } from "@/lib/api/booking-policies";
+import { emptyPolicy, policyToInput, useDeletePolicy, usePolicies, useSaveExamPeriod, useSavePolicy, type ExamMode, type ExamPeriod, type Policy, type PolicyIn } from "@/lib/api/booking-policies";
+import { ExamSlotsOptions } from "./exam-slots";
 import { crbs, useBookingContext, useRoles } from "@/lib/api/crbs";
 import { api } from "@/lib/api/endpoints";
 import { qk, useTerms } from "@/lib/api/hooks";
@@ -226,9 +227,12 @@ export function PoliciesAdmin() {
   );
 }
 
-const MODES: ExamMode[] = ["off", "request", "closed"];
+const MODES: ExamMode[] = ["off", "request", "closed", "slots"];
+/** AS-17: the `slots` texts live in the adaptive namespace */
+const modeLabel = (m: ExamMode): MessageKey => (m === "slots" ? "adaptive.hold.mode" : (`policies.exam.modes.${m}` as MessageKey));
+const modeHint = (m: ExamMode): MessageKey => (m === "slots" ? "adaptive.hold.hint" : (`policies.exam.hint.${m}` as MessageKey));
 
-function ExamPeriodCard({ exam, rooms }: { exam: { mode: ExamMode; from_exam_timetable: boolean; room_ids: number[] }; rooms: { id: number; name: string }[] }) {
+function ExamPeriodCard({ exam, rooms }: { exam: ExamPeriod; rooms: { id: number; name: string }[] }) {
   const { t, locale } = useI18n();
   const save = useSaveExamPeriod();
   const fromId = useId();
@@ -249,9 +253,10 @@ function ExamPeriodCard({ exam, rooms }: { exam: { mode: ExamMode; from_exam_tim
           <span className="type-footnote font-medium text-label-2" id={`${fromId}-mode`}>
             {t("policies.exam.mode")}
           </span>
-          <SegmentedControl aria-labelledby={`${fromId}-mode`} value={exam.mode} onValueChange={(v) => save.mutate({ mode: v as ExamMode }, { onSuccess: ok, onError: fail })} options={MODES.map((m) => ({ value: m, label: t(`policies.exam.modes.${m}` as MessageKey), testId: `exam-mode-${m}` }))} />
-          <p className="type-footnote text-label-3">{t(`policies.exam.hint.${exam.mode}` as MessageKey)}</p>
+          <SegmentedControl aria-labelledby={`${fromId}-mode`} value={exam.mode} onValueChange={(v) => save.mutate({ mode: v as ExamMode }, { onSuccess: ok, onError: fail })} options={MODES.map((m) => ({ value: m, label: t(modeLabel(m)), testId: `exam-mode-${m}` }))} />
+          <p className="type-footnote text-label-3">{t(modeHint(exam.mode))}</p>
         </div>
+        {exam.mode === "slots" ? <ExamSlotsOptions exam={exam} termId={examTerms?.[0]?.term.id ?? null} /> : null}
         {/* round-1 R1-M-33: which dates are exam weeks and how many rooms count as exam rooms */}
         <div className="flex flex-col gap-1.5" data-testid="exam-weeks">
           <span className="type-footnote font-medium text-label-2">{t("policies.exam.weeks")}</span>

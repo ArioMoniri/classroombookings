@@ -185,13 +185,13 @@ export function DashboardView() {
                 <Skeleton className="h-10 w-72" />
               )}
             </h2>
-            <div className="mt-2">{runs.data ? <HeroStatus plan={plan} /> : <Skeleton className="h-6 w-80" />}</div>
+            {/* mobile-b phase 2 (CLS 0.11): the status sentence is two title-3 lines on a phone; the skeleton is too */}
+            <div className="mt-2">{runs.data ? <HeroStatus plan={plan} /> : <Skeleton className="h-[2lh] w-80 max-w-full type-title-3 sm:h-[1lh]" data-testid="dashboard-plan-loading" />}</div>
             {d ? <QuietNumbers d={d} /> : <Skeleton className="mt-6 h-16" />}
           </div>
           <div className="min-w-0">
-            <p className="type-callout font-medium text-label-1">{t("glass.dashboard.byPeriod")}</p>
-            <p className="type-footnote text-label-3">{t("glass.dashboard.byPeriodHint")}</p>
-            {d ? <PeriodArea data={d} className="mt-2 h-[180px]" /> : <Skeleton className="mt-2 h-[180px]" />}
+            {/* CH-04: title, hint, peak sentence, table twin and CSV come from the shared ChartCard */}
+            <PeriodArea data={d} />
           </div>
         </div>
       </GlassPanel>
@@ -216,7 +216,7 @@ export function DashboardView() {
           <CardHeader>
             <CardTitle>{t("dashboard.lastRuns")}</CardTitle>
             <CardAction>
-              <Link href="/runs" className={cn("relative type-callout font-medium text-tint-text hover:underline", coarseHitArea)}>
+              <Link href="/runs" className={cn("relative inline-flex items-center type-callout font-medium text-tint-text hover:underline pointer-coarse:min-h-11", coarseHitArea)}>
                 {t("dashboard.viewAll")}
               </Link>
             </CardAction>
@@ -246,7 +246,7 @@ export function DashboardView() {
               {t("glass.dashboard.toReview")} <span className="font-normal text-label-3 tabular-nums">{pending.data ? n(pending.data.total) : ""}</span>
             </CardTitle>
             <CardAction>
-              <Link href="/requests?status=NEEDS_REVIEW" className={cn("relative type-callout font-medium text-tint-text hover:underline", coarseHitArea)}>
+              <Link href="/requests?status=NEEDS_REVIEW" className={cn("relative inline-flex items-center type-callout font-medium text-tint-text hover:underline pointer-coarse:min-h-11", coarseHitArea)}>
                 {t("dashboard.viewAll")}
               </Link>
             </CardAction>

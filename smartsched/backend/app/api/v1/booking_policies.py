@@ -4,7 +4,8 @@
 * ``GET /booking-policies`` -- every rule plus the exam-period setting (``setup.settings``);
 * ``POST /booking-policies``, ``PUT /booking-policies/{id}``, ``DELETE /booking-policies/{id}`` (``setup.settings``,
   audited ``booking_policy.create|update|delete``);
-* ``PUT /booking-policies/exam-period`` -- ``{mode: off|request|closed, from_exam_timetable, room_ids}``
+* ``PUT /booking-policies/exam-period`` -- ``{mode: off|request|closed|slots, from_exam_timetable, room_ids,
+  buffer_periods, slots_effect}``
   (``setup.settings``, audited ``booking_policy.exam_period``);
 * ``GET /booking-policies/effective?room_id=&date=&period_id=`` -- any signed-in user: the rules that bind the caller
   in that room and, for a slot, the verdict ``book | request | refuse`` with the reasons ("Neden?").
@@ -69,6 +70,9 @@ class ExamPeriodIn(BaseModel):
     mode: str | None = None
     from_exam_timetable: bool | None = None
     room_ids: list[int] | None = None
+    #: AS-04 ``slots``: periods held before and after each exam (0..4) and what a held slot does
+    buffer_periods: int | None = None
+    slots_effect: str | None = None
 
 
 def _err(exc: svc.PolicyError) -> HTTPException:

@@ -7,7 +7,10 @@ Behaviour is the one ``AIClient`` had before the gateway (load the ``claude-api`
   stable endpoint otherwise, and once without the beta when a deployment rejects it;
 * streaming with ``eager_input_streaming`` on every tool, retried once without it when a proxy rejects the field;
 * typed SDK errors -> short texts, most specific first (the upstream body may echo input and is only logged,
-  redacted).
+  redacted);
+* a forced single tool (``tool_choice`` ``{"type": "tool"}``, HB-13) is sent as ``auto``: current Claude models
+  (Opus 5.5, Sonnet 5.5, Fable 5.1) answer a forced ``tool`` / ``any`` choice with a 400, and Claude follows the
+  one-tool prompt reliably (claude-api skill, "Forced tool use removed").
 
 Model listing: ``client.models.list()`` (auto-paginating; ``id``, ``display_name``, ``created_at``,
 ``max_input_tokens``, ``max_tokens``). Bedrock lists through the Mantle client when it answers ``/v1/models`` and
@@ -36,6 +39,17 @@ def _iso(value: Any) -> str | None:
         return None
     iso = getattr(value, "isoformat", None)
     return str(iso()) if callable(iso) else str(value)
+
+
+def unforced(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """``tool_choice`` ``tool`` / ``any`` -> ``auto`` (keeping ``disable_parallel_tool_use``)."""
+    choice = kwargs.get("tool_choice")
+    if not isinstance(choice, dict) or choice.get("type") not in {"tool", "any"}:
+        return kwargs
+    auto: dict[str, Any] = {"type": "auto"}
+    if "disable_parallel_tool_use" in choice:
+        auto["disable_parallel_tool_use"] = bool(choice["disable_parallel_tool_use"])
+    return {**kwargs, "tool_choice": auto}
 
 
 class AnthropicAdapter(ProviderAdapter):
@@ -68,6 +82,7 @@ class AnthropicAdapter(ProviderAdapter):
         If the beta is rejected by the deployment we retry once without it."""
         import anthropic
 
+        kwargs = unforced(kwargs)
         if self.use_fallbacks:
             try:
                 return await self._raw.beta.messages.create(betas=[FALLBACK_BETA], fallbacks="default", **kwargs)
@@ -83,6 +98,7 @@ class AnthropicAdapter(ProviderAdapter):
         ``eager_input_streaming`` (a proxy, an older serving stack) is retried once without it."""
         import anthropic
 
+        kwargs = unforced(kwargs)
         for attempt in range(2):
             try:
                 if self.use_fallbacks:
@@ -296,4 +312,5 @@ __all__ = [
     "AnthropicAdapter",
     "BedrockAdapter",
     "bedrock_model_id",
+    "unforced",
 ]

@@ -27,6 +27,8 @@ import { useActiveTerm } from "@/components/shell/term-switcher";
 import { IntakeMemoryPanel } from "@/components/onboarding/intake-memory";
 import { resetStatus } from "./learning-model";
 import { ResetDialog } from "./reset-dialog";
+import { LearningHabits } from "./learning-habits";
+import { LearningVersions } from "./learning-versions";
 
 function PersonPicker({ value, onChange, id }: { value: Instructor | null; onChange: (i: Instructor | null) => void; id: string }) {
   const { t } = useI18n();
@@ -147,6 +149,10 @@ export function LearningMemoryPanel({ heading = "h2" }: { heading?: "h1" | "h2" 
           </motion.dl>
         )}
       </section>
+
+      {/* AS-17 / RF-07: refresh + versions with revert + calibration drafts, then the per-habit controls */}
+      <LearningVersions termId={termId} />
+      <LearningHabits termId={termId} />
 
       <section aria-labelledby="mem-reset" className="flex flex-col gap-3">
         <h3 id="mem-reset" className="type-headline">{t("learning.memory.reset")}</h3>

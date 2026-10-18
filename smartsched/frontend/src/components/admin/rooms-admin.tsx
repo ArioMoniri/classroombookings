@@ -139,15 +139,18 @@ function GroupsTab() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="type-callout text-label-2">{t("crbs.rooms.groupsLead", { n: ungrouped })}</p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" disabled={fromBuildings.isPending} onClick={() => fromBuildings.mutate(undefined, { onSuccess: (g) => toast.success(t("crbs.rooms.fromBuildingsDone", { n: g.length })), onError: toastError })} data-testid="groups-from-buildings">
             <Building2 aria-hidden />
             {t("crbs.rooms.fromBuildings")}
           </Button>
-          <Button onClick={() => setEditing("new")}>
-            <Plus aria-hidden />
-            {t("crbs.rooms.newGroup")}
-          </Button>
+          {/* the tab's primary in the capsule above the tab bar below lg, like "Yeni derslik" (mobile-b phase 2) */}
+          <div data-slot="page-actions" className={pageActionsCapsule}>
+            <Button onClick={() => setEditing("new")} data-testid="group-new">
+              <Plus aria-hidden />
+              {t("crbs.rooms.newGroup")}
+            </Button>
+          </div>
         </div>
       </div>
       <Card className="overflow-hidden py-0">

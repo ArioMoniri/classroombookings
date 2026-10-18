@@ -171,7 +171,8 @@ async def test_approvers_get_one_message_per_submission(env):  # noqa: F811
     assert "Ayşe Yılmaz" in note.body
     (mail,) = await _outbox(gid, "approval_requested")
     assert "10:10-12:30" in mail.subject and "Ayşe Yılmaz" in mail.body
-    assert await _inapp(aid) == []  # the requester gets nothing for her own submission
+    # the requester gets nothing for her own submission but her receipt, stored as read (RF-11)
+    assert [(n.kind, n.read_at is not None) for n in await _inapp(aid)] == [("approval.submitted", True)]
     # a single request still gets its own message
     r = await env.book(ayse, "A202", WED, "P3")
     assert r.status_code == 202, r.text
@@ -210,7 +211,8 @@ async def test_group_decision_advancing_a_step_sends_one_message_to_the_next_ste
     assert step2.data is not None and step2.data["step"] == 2 and step2.data["group_id"] == mb_id
     assert len(step2.data["request_ids"]) == 3 and "Işık" not in step2.body and "Ayşe Yılmaz" in step2.body
     assert len(await _outbox(mid, "approval_requested")) == 1
-    assert await _inapp(aid) == []  # not decided yet: nothing for the requester
+    # not decided yet: nothing for the requester but her receipt of the submission (RF-11, stored as read)
+    assert [n.kind for n in await _inapp(aid)] == ["approval.submitted"]
     r = await c.post(f"{APPR}/groups/{mb_id}/decide", json={"decision": "approve"}, headers=murat)
     assert [x["status"] for x in r.json()["results"]] == ["APPROVED"] * 3, r.text
     assert len(await _inapp(aid, "approval.approved")) == 1
@@ -308,9 +310,12 @@ async def test_own_booking_sends_nothing_and_series_mail_keeps_its_template(env)
     }
     r = await c.post("/api/v1/bookings/recurring", json=body, headers=env.planner)
     assert r.status_code == 201, r.text
-    (mail,) = await _outbox(tid, "booking_created")
-    assert mail.subject == "Sizin adınıza rezervasyon yapıldı" and mail.body.count("A 102") == 3
-    assert len(await _inapp(tid, "booking.created")) == 1
+    # RF-11 (audit 2026-10-17 A6): a series is announced with its own template (series_created), not as single
+    # bookings; one message listing the three dates
+    assert await _outbox(tid, "booking_created") == []
+    (mail,) = await _outbox(tid, "series_created")
+    assert mail.subject == "Yinelenen rezervasyon: A 102 · her Perşembe P1" and mail.body.count("A 102, ") == 3
+    assert len(await _inapp(tid, "series.created")) == 1
 
 
 # --------------------------------------------------------------------------------------------------

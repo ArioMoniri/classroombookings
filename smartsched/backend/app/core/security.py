@@ -114,9 +114,17 @@ TOKEN_VERSION_CLAIM = "tv"
 
 def user_token(user: Any) -> str:
     """Access token for a signed-in user: ``uid``, the coarse ``role`` code and the current token version."""
+    import secrets
+
     return create_access_token(
         user.email or user.username or str(user.id),
-        {"uid": user.id, "role": user.role, TOKEN_VERSION_CLAIM: int(user.token_version or 0)},
+        {
+            "uid": user.id,
+            "role": user.role,
+            TOKEN_VERSION_CLAIM: int(user.token_version or 0),
+            # AU-15: the session id of the server-side session list (app/services/sessions.py)
+            "jti": secrets.token_urlsafe(18),
+        },
     )
 
 

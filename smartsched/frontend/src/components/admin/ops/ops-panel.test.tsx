@@ -11,6 +11,8 @@ const state = vi.hoisted(() => ({
   grafanaUp: false,
   lokiUp: true,
   errors: [] as Record<string, unknown>[],
+  statusPending: false,
+  backup: undefined as Record<string, unknown> | undefined,
 }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
@@ -25,7 +27,7 @@ vi.mock("@/lib/api/client", async (orig) => {
     request: async (path: string, opts: { method?: string; body?: unknown; query?: Record<string, unknown> } = {}) => {
       const method = opts.method ?? "GET";
       state.calls.push({ path, method, query: opts.query, body: opts.body });
-      if (path === "/ops/status") return status();
+      if (path === "/ops/status") return state.statusPending ? new Promise(() => {}) : status();
       if (path === "/ops/requests") return { source: "process", points: [{ t: 60, requests: 10, errors: 1, p95_ms: 120 }, { t: 120, requests: 30, errors: 0, p95_ms: 80 }] };
       if (path === "/ops/errors" && method === "GET") {
         const st = String(opts.query?.status ?? "");
@@ -62,6 +64,7 @@ function status() {
     deliveries: { status: "ok", failed: 0 },
     disk: { status: "ok", total_bytes: 100 * 2 ** 30, used_bytes: 40 * 2 ** 30, free_bytes: 60 * 2 ** 30, used_pct: 40 },
     errors: { status: "warn", open: 1, seen_24h: 2 },
+    ...(state.backup ? { backup: state.backup } : {}),
     services: { grafana: probe(state.grafanaUp), prometheus: probe(false, false), loki: probe(state.lokiUp) },
     grafana_path: "/grafana/",
     podci: { ...probe(true), last_run: { state: "success", branch: "main", sha: "abc1234", started: "2026-10-17 18:00:00 UTC" } },
@@ -95,6 +98,31 @@ describe("OpsPanel", () => {
     state.lokiUp = true;
     state.errors = [group(1), group(2, "acknowledged", { source: "backend", kind: "RuntimeError", route: "/api/v1/runs/{run_id}", method: "POST", status_code: 500, last_request_id: "req-42" })];
     toast.success.mockReset();
+    state.backup = undefined;
+  });
+
+  it("backup card: 'Son yedek' with the time, a warning past 26 h, and no crash on an older backend", async () => {
+    state.backup = { status: "ok", last_success_at: "2026-10-17T23:30:00Z", age_h: 3.2, source: "textfile", stale_after_h: 26 };
+    const first = renderIt();
+    const card = await screen.findByTestId("ops-card-backup");
+    expect(card).toHaveAttribute("data-status", "ok");
+    expect(card).toHaveTextContent(/Son yedek: \d/);
+    expect(card).not.toHaveTextContent("26 saatten eski");
+    first.unmount();
+
+    state.backup = { status: "warn", last_success_at: "2026-10-16T02:30:00Z", age_h: 30.5, source: "textfile", stale_after_h: 26 };
+    const second = renderIt();
+    const stale = await screen.findByTestId("ops-card-backup");
+    expect(stale).toHaveAttribute("data-status", "warn");
+    expect(stale).toHaveTextContent("Son yedek 26 saatten eski (31 sa önce).");
+    second.unmount();
+
+    state.backup = undefined;
+    renderIt("en");
+    const none = await screen.findByTestId("ops-card-backup");
+    expect(none).toHaveAttribute("data-status", "unknown");
+    expect(none).toHaveTextContent("No backup recorded yet");
+    expect(screen.getByTestId("ops-panel").textContent).not.toMatch(/ops\.|textfile/);
   });
 
   it("shows every service card in Turkish with its state, the release and the pod CI run", async () => {
@@ -174,7 +202,28 @@ describe("OpsPanel", () => {
     renderIt();
     await waitFor(() => expect(screen.getByTestId("ops-chart-summary")).toHaveTextContent("40 istek · 1 hata (%2,5) · en yüksek p95 120 ms"));
     expect(screen.getByTestId("ops-chart")).toHaveTextContent("Kaynak: bu API işlemi");
+    // CH-06: the shared ChartCard (title, one summary, the table twin with the three measures)
+    const fig = screen.getByRole("figure", { name: "İstekler ve gecikme" });
+    expect(fig).toHaveAccessibleDescription(/Dakikada ort\. 20 istek; en çok 5xx \d\d:\d\d \(1\)\./);
+    expect(within(within(fig).getByRole("table")).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Saat", "İstek", "5xx", "p95 (ms)"]);
     await userEvent.click(screen.getByTestId("ops-range-180"));
     await waitFor(() => expect(state.calls.some((c) => c.path === "/ops/requests" && c.query?.minutes === 180)).toBe(true));
+  });
+});
+
+describe("mobile-b phase 2 · CLS: the status cards keep their place while /ops/status loads", () => {
+  it("renders one placeholder per card in the cards' grid, not a one-line spinner that ~1,000 px of cards replace", async () => {
+    state.statusPending = true;
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <I18nProvider initialLocale="tr">
+          <OpsPanel />
+        </I18nProvider>
+      </QueryClientProvider>,
+    );
+    const grid = await screen.findByTestId("ops-cards-loading");
+    expect(grid.className).toContain("grid-cols-1");
+    expect(grid.querySelectorAll("li")).toHaveLength(11); // 10 cards + the backup card (sweep 2026-10-18)
+    state.statusPending = false;
   });
 });

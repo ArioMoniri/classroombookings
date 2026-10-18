@@ -56,7 +56,9 @@ class Hint:
 
 
 HINTS: tuple[Hint, ...] = (
-    Hint("hint.quick_reserve", frozenset({"book_single.create"}), WAVE3_RELEASE, WAVE3_VERSION, "/reserve", "nav-reserve"),
+    Hint(
+        "hint.quick_reserve", frozenset({"book_single.create"}), WAVE3_RELEASE, WAVE3_VERSION, "/reserve", "nav-reserve"
+    ),
     Hint(
         "hint.calendar_export",
         frozenset(),

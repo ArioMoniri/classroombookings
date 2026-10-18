@@ -42,27 +42,28 @@
 <rect x='944' y='70' width='440' height='600' rx='20' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
 <text x='964' y='110' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>Profil › Yardımcı neleri hatırlıyor?</text>
 <rect x='964' y='132' width='400' height='52' rx='12' fill='#F8FAFC' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
-<text x='980' y='163' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>Yardımcı yaptıklarımı hatırlasın</text>
+<text x='980' y='163' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>Yardımcı notlarımı kullansın</text>
 <rect x='1308' y='146' width='44' height='24' rx='12' fill='#2563EB' fill-opacity='1'/>
 <circle cx='1340' cy='158' r='9' fill='#FFFFFF'/>
-<rect x='964' y='202' width='400' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
-<text x='980' y='224' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>A 204 rezerve edildi</text>
-<text x='980' y='242' font-size='11' font-weight='400' fill='#64748B' text-anchor='start'>Son görev · 17 Eki</text>
-<rect x='1284' y='208' width='64' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
-<text x='1316.0' y='232.32' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Sil</text>
-<rect x='964' y='262' width='400' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
-<text x='980' y='284' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Takvimime ekle: Google</text>
-<text x='980' y='302' font-size='11' font-weight='400' fill='#64748B' text-anchor='start'>Son görev · 15 Eki</text>
-<rect x='1284' y='268' width='64' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
-<text x='1316.0' y='292.32' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Sil</text>
-<rect x='964' y='322' width='400' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
-<text x='980' y='344' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Tercih edilen bina: B blok</text>
-<text x='980' y='362' font-size='11' font-weight='400' fill='#64748B' text-anchor='start'>Tercih · 12 Eki</text>
-<rect x='1284' y='328' width='64' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
-<text x='1316.0' y='352.32' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Sil</text>
-<rect x='964' y='400' width='140' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
-<text x='1034.0' y='426.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Tümünü sil</text>
-<text x='964' y='470' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Yardımcı yalnızca bu listeyi hatırlar. Konuşmalarınız</text>
-<text x='964' y='488' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>kaydedilmez. Bu bilgiler hesabınız silinince silinir.</text>
-<text x='964' y='700' font-size='12' font-weight='700' fill='#7C3AED' text-anchor='start'>C · bellek: görünür, tek tek silinir, 90 gün, KVKK DSR</text>
+<text x='964' y='214' font-size='13' font-weight='650' fill='#0F172A' text-anchor='start'>Notlar (2 / 20)</text>
+<rect x='964' y='226' width='400' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='980' y='248' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Tercih edilen bina: B blok</text>
+<text x='980' y='266' font-size='11' font-weight='400' fill='#64748B' text-anchor='start'>“Hatırla” ile · 12 Eki</text>
+<rect x='1284' y='232' width='64' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1316.0' y='256.32' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Sil</text>
+<rect x='964' y='286' width='400' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='980' y='308' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>Varsayılan süre: 2 ders saati</text>
+<text x='980' y='326' font-size='11' font-weight='400' fill='#64748B' text-anchor='start'>Profilden eklendi · 3 Eki</text>
+<rect x='1284' y='292' width='64' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1316.0' y='316.32' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Sil</text>
+<rect x='964' y='352' width='120' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1024.0' y='378.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Not ekle</text>
+<text x='964' y='430' font-size='13' font-weight='650' fill='#0F172A' text-anchor='start'>Konuşma geçmişi</text>
+<text x='964' y='452' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Son 30 günün konuşmaları saklanır.</text>
+<rect x='964' y='466' width='140' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1034.0' y='492.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Geçmişi sil</text>
+<text x='964' y='546' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Yardımcı yalnızca buradaki notları ve son 30 günün</text>
+<text x='964' y='564' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>konuşmalarını hatırlar. Hepsini silebilirsiniz. Hesabınız</text>
+<text x='964' y='582' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>silinince bunlar da silinir.</text>
+<text x='964' y='700' font-size='12' font-weight='700' fill='#7C3AED' text-anchor='start'>C · bellek: not yalnızca “Hatırla” ile; geçmiş 30 gün; KVKK DSR</text>
 </svg>

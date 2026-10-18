@@ -344,7 +344,7 @@ def cards():
     # invite_user R2
     y3 = 560
     x = 24
-    frame(x, y3, 300, "Kullanıcı davet et · invite_user", "R2")
+    frame(x, y3, 300, "Kullanıcı davet et · invite_user", "R3", WARN)
     for i, (lab, val) in enumerate([("E-posta", "a.kaya@uni.edu.tr"), ("Ad", "A. K."), ("Rol", "Öğretim elemanı ▾"),
                                      ("Bölüm", "Psikoloji ▾")]):
         s.t(x + 16, y3 + 62 + i * 40, lab, 12, 500, MUTED)
@@ -352,9 +352,9 @@ def cards():
         s.t(x + 100, y3 + 64 + i * 40, val, 12, 500)
     s.r(x + 16, y3 + 206, col - 32, 30, WARNBG, 8)
     s.t(x + 28, y3 + 226, "Etkilenen: A. K.'ye davet e-postası gider", 12, 500, WARN)
-    s.btn(x + 16, y3 + 246, col - 32, 40, "Davet gönder", "pri", 13)
-    s.note(x, y3 + 316, "R2: etkilenen kişi gösterilmeden düğme etkin değil;", 11)
-    s.note(x, y3 + 332, "rol listesi = yöneticinin verebildikleri", 11)
+    s.btn(x + 16, y3 + 246, col - 32, 40, "Davet penceresini aç", "sec", 13)
+    s.note(x, y3 + 316, "R3 devir: form sayfanın kendi davet penceresini doldurur;", 11)
+    s.note(x, y3 + 332, "yazma ve denetim o pencerede (v1’de yardımcı yazmaz)", 11)
     # approvals_list R2
     x = 24 + col + 20
     frame(x, y3, 300, "Bekleyen talepler · approvals_list", "R2")
@@ -364,7 +364,7 @@ def cards():
         s.t(x + 28, yy + 24, r, 12, 600)
         s.btn(x + 28, yy + 38, 110, 40, "Onayla", "pri", 12)
         s.btn(x + 148, yy + 38, 130, 40, "Reddet…", "sec", 12)
-    s.note(x, y3 + 316, "Reddet gerekçe ister (sayfadaki seçim)", 11)
+    s.note(x, y3 + 316, "R2: satır başına confirm; Reddet gerekçe ister", 11)
     # publish_run R3
     x = 24 + 2 * (col + 20)
     frame(x, y3, 300, "Planı yayınla · publish_run", "R3", WARN)
@@ -428,19 +428,24 @@ def states():
     s.r(x, y, w, 600, CARD, 20, LINE)
     s.t(x + 20, y + 40, "Profil › Yardımcı neleri hatırlıyor?", 16, 700)
     s.r(x + 20, y + 62, w - 40, 52, "#F8FAFC", 12, LINE)
-    s.t(x + 36, y + 93, "Yardımcı yaptıklarımı hatırlasın", 13, 500)
+    s.t(x + 36, y + 93, "Yardımcı notlarımı kullansın", 13, 500)
     s.r(x + w - 76, y + 76, 44, 24, PRI, 12); s.c(x + w - 44, y + 88, 9, "#FFFFFF")
-    for i, (t1, t2) in enumerate([("A 204 rezerve edildi", "Son görev · 17 Eki"), ("Takvimime ekle: Google", "Son görev · 15 Eki"),
-                                   ("Tercih edilen bina: B blok", "Tercih · 12 Eki")]):
-        yy = y + 132 + i * 60
+    s.t(x + 20, y + 144, "Notlar (2 / 20)", 13, 650)
+    for i, (t1, t2) in enumerate([("Tercih edilen bina: B blok", "“Hatırla” ile · 12 Eki"),
+                                   ("Varsayılan süre: 2 ders saati", "Profilden eklendi · 3 Eki")]):
+        yy = y + 156 + i * 60
         s.r(x + 20, yy, w - 40, 52, CARD, 10, LINE)
         s.t(x + 36, yy + 22, t1, 13, 600)
         s.t(x + 36, yy + 40, t2, 11, 400, SOFT)
         s.btn(x + w - 100, yy + 6, 64, 40, "Sil", "sec", 12)
-    s.btn(x + 20, y + 330, 140, 44, "Tümünü sil", "sec", 13)
-    s.t(x + 20, y + 400, "Yardımcı yalnızca bu listeyi hatırlar. Konuşmalarınız", 12, 400, MUTED)
-    s.t(x + 20, y + 418, "kaydedilmez. Bu bilgiler hesabınız silinince silinir.", 12, 400, MUTED)
-    s.t(x + 20, y + 630, "C · bellek: görünür, tek tek silinir, 90 gün, KVKK DSR", 12, 700, "#7C3AED")
+    s.btn(x + 20, y + 282, 120, 44, "Not ekle", "sec", 13)
+    s.t(x + 20, y + 360, "Konuşma geçmişi", 13, 650)
+    s.t(x + 20, y + 382, "Son 30 günün konuşmaları saklanır.", 12, 400, MUTED)
+    s.btn(x + 20, y + 396, 140, 44, "Geçmişi sil", "sec", 13)
+    s.t(x + 20, y + 476, "Yardımcı yalnızca buradaki notları ve son 30 günün", 12, 400, MUTED)
+    s.t(x + 20, y + 494, "konuşmalarını hatırlar. Hepsini silebilirsiniz. Hesabınız", 12, 400, MUTED)
+    s.t(x + 20, y + 512, "silinince bunlar da silinir.", 12, 400, MUTED)
+    s.t(x + 20, y + 630, "C · bellek: not yalnızca “Hatırla” ile; geçmiş 30 gün; KVKK DSR", 12, 700, "#7C3AED")
     s.save(os.path.join(OUT, "helper-states.svg"))
 
 

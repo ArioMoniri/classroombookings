@@ -27,7 +27,7 @@ describe("solver settings on touch", () => {
     }
     expect(fieldSize.md).toContain("h-(--control-h-md)");
     render(<Input id="s-time" type="number" aria-label="Süre sınırı" />);
-    expect(screen.getByRole("spinbutton", { name: "Süre sınırı" })).toHaveClass("h-(--control-h-md)", "max-md:pointer-coarse:text-base");
+    expect(screen.getByRole("spinbutton", { name: "Süre sınırı" })).toHaveClass("h-(--control-h-md)", "pointer-coarse:text-base");
   });
 
   it("the weight slider thumb grows a 44 × 44 hit area on coarse pointers", () => {

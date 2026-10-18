@@ -13,6 +13,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 
 from app.solver.build import Prepared, hint_assignments, stable_rank
+from app.solver.constraints.peak_smoothing import GreedyPeaks
 from app.solver.domains import (
     EventDomain,
     TimeOption,
@@ -122,11 +123,14 @@ def greedy_assignments(prep: Prepared) -> list[Assignment]:
     out: list[Assignment] = []
     order = _order(prep)
     done: set[int] = set()
+    peaks = GreedyPeaks(inp, prep.doms.soft)  # AS-08: off (no effect) unless ``peak_smoothing`` has a weight
 
     def place(dom: EventDomain) -> None:
         e = dom.event
         prev = previous.get(e.id)
         times = list(dom.times)
+        if peaks.flexible(e):
+            times.sort(key=lambda t: peaks.cost(e, t.day, t.periods))  # stable: domain order among equals
         if prev is not None:
             times.sort(key=lambda t: 0 if (t.day, t.start) == (prev.day, prev.start) else 1)
         # fixed requests whose key clashes are waived input conflicts keep their time regardless
@@ -145,6 +149,7 @@ def greedy_assignments(prep: Prepared) -> list[Assignment]:
             chosen, seats = picked
             out.append(Assignment(e.id, t.day, t.start, t.end, tuple(sorted(chosen)), e.weeks, e.fixed_date))
             occ.take(e, t, chosen, seats)
+            peaks.take(e, t.day, t.periods, chosen)
             return
 
     # 1) the planner's locks
@@ -171,6 +176,7 @@ def greedy_assignments(prep: Prepared) -> list[Assignment]:
             continue
         out.append(Assignment(e.id, t.day, t.start, t.end, tuple(sorted(want)), e.weeks, e.fixed_date))
         occ.take(e, t, want)
+        peaks.take(e, t.day, t.periods, want)
         done.add(e.id)
     # 3) everything else: fixed-time by size, then flexible by number of options
     for dom in order:

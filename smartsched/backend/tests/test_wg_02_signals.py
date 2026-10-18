@@ -67,9 +67,7 @@ async def test_wg_02_a_real_booking_ticks_first_booking_without_a_client_event(e
 
 async def test_wg_02_profile_channel_and_calendar_come_from_rows(env, clock):  # type: ignore[no-untyped-def]  # noqa: F811
     uid, h = await academician(env)
-    r = await env.client.put(
-        "/api/v1/me/notification-preferences", json={"channels": {"email": True}}, headers=h
-    )
+    r = await env.client.put("/api/v1/me/notification-preferences", json={"channels": {"email": True}}, headers=h)
     assert r.status_code == 200, r.text
     async with dbmod.get_session_factory()() as s:
         await s.execute(update(User).where(User.id == uid).values(department_id=None, language="tr"))
@@ -89,9 +87,7 @@ async def test_wg_02_staff_never_gets_admin_hints(env, clock):  # type: ignore[n
     assert "hint.quick_reserve" in keys
     assert not any(k.startswith("hint.admin_") for k in keys)
     assert body["show"] == {"kind": "hint", "key": "hint.quick_reserve", "audiences": [], "updated": False}
-    r = await env.client.post(
-        "/api/v1/welcome/events", json={"guide_key": "hint.admin_ai", "event": "seen"}, headers=h
-    )
+    r = await env.client.post("/api/v1/welcome/events", json={"guide_key": "hint.admin_ai", "event": "seen"}, headers=h)
     assert r.status_code == 422 and r.json()["detail"]["code"] == "not_eligible"
     # "Anladım" once: gone on every device
     await ev(env, h, "hint.quick_reserve", "seen")
@@ -181,4 +177,4 @@ async def test_wg_02_get_welcome_costs_at_most_six_statements(env, clock):  # ty
         finally:
             event.remove(engine, "before_cursor_execute", count)
     assert body["checklist"]["items"]
-    assert len(statements) <= 6, statements
+    assert 3 <= len(statements) <= 6, statements  # settings, signals, progress rows (+ texts, + snapshot)

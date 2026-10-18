@@ -45,6 +45,7 @@ from app.schemas.crbs import (
 )
 from app.services import bookings_events as events
 from app.services import bookings_i18n, bookings_ldap, bookings_setup, settings_service, sso
+from app.services import mfa as _mfa
 from app.services.bookings_notify import notify
 from app.services.bookings_perms import (
     ensure_permissions_and_roles,
@@ -92,6 +93,8 @@ async def public_info(db: DB) -> dict[str, Any]:
         "default_language": bookings_i18n.display_language(org["default_language"]),
         "languages": bookings_i18n.effective_languages(org["languages"]),
         "auth": await sso.public_auth(db),  # sign-in methods for the login page (sign-in.md §14)
+        # AU-B: passkey buttons and "Bu cihazı hatırla" decided before first paint (app/services/mfa.py)
+        "passkeys": await _mfa.public_flags(db),
     }
 
 
@@ -610,9 +613,14 @@ async def change_password(body: ChangePasswordIn, db: DB, user: CurrentUser) -> 
             raise HTTPException(403, "current password is wrong")
     if user.password_hash and verify_password(body.new_password, user.password_hash):
         raise HTTPException(422, "the new password must differ from the current one")
+    try:  # AU-B owner default: 12 characters, or 8 with 2FA
+        await _mfa.check_password_length(db, user, body.new_password)
+    except _mfa.MfaError as exc:
+        raise exc.http() from exc
     user.password_hash = hash_password(body.new_password)
     user.force_password_reset = False
     revoke_tokens(user)  # B-AUTH-11: every session, this one included, signs in again with the new password
+    await _mfa.on_password_changed(db, user)  # AU-B: remembered devices end with the old password
     await db.commit()
     return {"ok": True, "signed_out": True}
 
@@ -666,8 +674,18 @@ async def reset_confirm(body: ResetConfirmIn, db: DB) -> dict[str, Any]:
     token = body.token.strip()
     if not 8 <= len(token) <= 128:
         raise HTTPException(400, _INVALID_CODE)
+    owner = await _mfa.user_for_reset_code(db, token)
+    if owner is not None:
+        try:  # AU-B owner default: 12 characters, or 8 with 2FA
+            await _mfa.check_password_length(db, owner, body.password)
+        except _mfa.MfaError as exc:
+            raise exc.http() from exc
     user = await consume_reset_token(db, token, body.password)
     if user is None:
         raise HTTPException(400, _INVALID_CODE)
+    # AU-B: remembered devices end with the old password; the answer signs the person in through the same gate as
+    # the password step (a second factor is still asked when it is on: ASVS 6.4.3)
+    await _mfa.on_password_changed(db, user)
+    session = await _mfa.session_after_password(db, user)
     await db.commit()
-    return {"ok": True, "user_id": user.id}
+    return {"ok": True, "user_id": user.id, "session": session}

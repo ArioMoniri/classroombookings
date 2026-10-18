@@ -14,11 +14,11 @@ import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { AI_FEATURES, EFFORTS, type AiFeature, type Provider, type Route, type Routes, useAiProviders, useAiRoutes, useSaveRoutes } from "@/lib/api/ai-admin";
+import { AI_FEATURES, EFFORTS, isVoiceFeature, type Provider, type Route, type RouteFeature, type Routes, useAiProviders, useAiRoutes, useSaveRoutes } from "@/lib/api/ai-admin";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useAiLabels } from "./ai-kit";
-import { errorDetail, errorMessage, providerLabel, routableProviders, routeIssues, routesBody, syncedIds, type RouteIssue } from "./ai-model";
+import { errorDetail, errorMessage, providerLabel, routableProviders, routeIssues, routesBody, speechProviders, syncedIds, textProviders, type RouteIssue } from "./ai-model";
 
 type Draft = Partial<Route> | null;
 
@@ -29,19 +29,24 @@ export function ModelsTab({ canEdit }: { canEdit: boolean }) {
   if (providers.isLoading || routes.isLoading) return <Loading />;
   if (!providers.data || !routes.data) return <Alert tone="error">{errorMessage(providers.error ?? routes.error, locale, t("aiAdmin.error.load"))}</Alert>;
   // mounted once: after a save the draft already equals what was stored, and a remount would drop the focus
-  return <RoutesEditor providers={providers.data.providers} routes={routes.data} canEdit={canEdit} />;
+  return <RoutesEditor all={providers.data.providers} routes={routes.data} canEdit={canEdit} />;
 }
 
-function RoutesEditor({ providers, routes, canEdit }: { providers: Provider[]; routes: Routes; canEdit: boolean }) {
+function RoutesEditor({ all, routes, canEdit }: { all: Provider[]; routes: Routes; canEdit: boolean }) {
   const { t, locale } = useI18n();
   const labels = useAiLabels();
   const save = useSaveRoutes();
   const [def, setDef] = useState<Draft>(routes.default ?? null);
-  const [features, setFeatures] = useState<Partial<Record<AiFeature, Draft>>>(() => ({ ...(routes.features as Partial<Record<AiFeature, Draft>>) }));
+  const [features, setFeatures] = useState<Partial<Record<RouteFeature, Draft>>>(() => ({ ...(routes.features as Partial<Record<RouteFeature, Draft>>) }));
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
+  // text rows offer text models only; the voice row only speech-to-text models (VO-B: model_not_text / model_not_speech)
+  const providers = useMemo(() => textProviders(all), [all]);
   const routable = useMemo(() => routableProviders(providers), [providers]);
+  const speech = useMemo(() => speechProviders(all), [all]);
+  const speechRoutable = useMemo(() => routableProviders(speech), [speech]);
   const issueText = (i: RouteIssue) => t(`aiAdmin.models.issue.${i}` as MessageKey);
-  const anyIssue = [routeIssues(def, providers), ...AI_FEATURES.map((f) => routeIssues(features[f], providers, f))].some((x) => x.filter((i) => i !== "transferMissing").length);
+  const rowProviders = (f: RouteFeature) => (isVoiceFeature(f) ? speech : providers);
+  const anyIssue = [routeIssues(def, providers), ...AI_FEATURES.map((f) => routeIssues(features[f], rowProviders(f), f))].some((x) => x.filter((i) => i !== "transferMissing").length);
 
   const submit = () => {
     setServerErrors({});
@@ -77,6 +82,29 @@ function RoutesEditor({ providers, routes, canEdit }: { providers: Provider[]; r
       />
       {AI_FEATURES.map((f) => {
         const eff = routes.effective[f];
+        const effective = eff && eff.source !== "none" && eff.provider ? t(`aiAdmin.models.source.${eff.source}` as MessageKey, { provider: providerLabel(all.find((p) => p.id === eff.provider) ?? { label_tr: eff.provider, label_en: eff.provider }, locale), model: eff.model }) : null;
+        if (isVoiceFeature(f))
+          // speech-to-text: only models whose modalities include "stt"; no default to follow (no route → mic hidden)
+          return (
+            <RouteRow
+              key={f}
+              id={f}
+              title={t("voice.admin.feature")}
+              hint={t("voice.admin.need")}
+              draft={features[f] ?? null}
+              onChange={(d) => setFeatures((x) => ({ ...x, [f]: d }))}
+              providers={speech}
+              routable={speechRoutable}
+              canEdit={canEdit}
+              allowFollow
+              followLabel={t("voice.admin.unset")}
+              noEffort
+              issues={routeIssues(features[f], speech, f).map(issueText)}
+              serverError={serverErrors[f]}
+              effective={effective}
+              note={!speechRoutable.length ? t("voice.admin.noSpeechModels") : !features[f]?.provider ? t("voice.admin.noModel") : null}
+            />
+          );
         return (
           <RouteRow
             key={f}
@@ -91,7 +119,7 @@ function RoutesEditor({ providers, routes, canEdit }: { providers: Provider[]; r
             allowFollow
             issues={routeIssues(features[f], providers, f).map(issueText)}
             serverError={serverErrors[f]}
-            effective={eff ? t(`aiAdmin.models.source.${eff.source}` as MessageKey, { provider: providerLabel(providers.find((p) => p.id === eff.provider) ?? { label_tr: eff.provider, label_en: eff.provider }, locale), model: eff.model }) : null}
+            effective={effective}
           />
         );
       })}
@@ -122,6 +150,9 @@ function RouteRow({
   issues,
   serverError,
   effective,
+  followLabel,
+  noEffort,
+  note,
 }: {
   id: string;
   title: string;
@@ -135,6 +166,12 @@ function RouteRow({
   issues: string[];
   serverError?: string;
   effective: string | null;
+  /** the empty choice's label when it does not follow the default (voice: "not chosen, mic hidden") */
+  followLabel?: string;
+  /** no effort select (speech-to-text has no reasoning effort) */
+  noEffort?: boolean;
+  /** one plain line under the hint (voice: no model → mic hidden) */
+  note?: string | null;
 }) {
   const { t, locale } = useI18n();
   const uid = useId();
@@ -157,6 +194,11 @@ function RouteRow({
             {effective}
           </p>
         ) : null}
+        {note ? (
+          <p className="type-footnote text-label-2" data-testid={`ai-route-note-${id}`}>
+            {note}
+          </p>
+        ) : null}
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-1.5">
@@ -164,7 +206,7 @@ function RouteRow({
             {t("aiAdmin.models.provider")}
           </Label>
           <NativeSelect id={`${uid}-p`} value={draft?.provider ?? ""} disabled={!canEdit} onChange={(e) => (e.target.value ? onChange({ ...(draft ?? {}), provider: e.target.value, model: syncedIds(providers, e.target.value)[0] ?? "" }) : onChange(null))} data-testid={`ai-route-provider-${id}`}>
-            <option value="">{allowFollow ? t("aiAdmin.models.followDefault") : t("aiAdmin.models.legacy")}</option>
+            <option value="">{followLabel ?? (allowFollow ? t("aiAdmin.models.followDefault") : t("aiAdmin.models.legacy"))}</option>
             {providerOptions(draft?.provider).map((p) => (
               <option key={p.id} value={p.id}>
                 {providerLabel(p, locale)}
@@ -185,7 +227,7 @@ function RouteRow({
             ))}
           </NativeSelect>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className={noEffort ? "hidden" : "flex flex-col gap-1.5"}>
           <Label htmlFor={`${uid}-e`} className="type-footnote font-medium text-label-2">
             {t("aiAdmin.models.effort")}
           </Label>

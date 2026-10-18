@@ -120,6 +120,11 @@ def _fill(template: str | None, values: Mapping[str, Any]) -> str | None:
         return template
 
 
+def _unfilled(template: str, values: Mapping[str, Any]) -> bool:
+    """Whether ``template`` names a placeholder ``values`` has no value for."""
+    return any(p not in values for p in _PLACEHOLDER.findall(template or ""))
+
+
 def _fill_strict(template: str | None, values: Mapping[str, Any]) -> str | None:
     """Fill a *shipped* string; ``None`` when one of its placeholders has no value (the part is left out)."""
     if template is None:
@@ -285,7 +290,8 @@ def render(
         candidates.append(base)
         for key in candidates:
             if key in overrides and not (composed and k.caller_applies_overrides):
-                return _fill(overrides[key], values)
+                if not (composed and _unfilled(overrides[key], values)):
+                    return _fill(overrides[key], values)
             if key in base_strings:
                 filled = _fill_strict(base_strings[key], values)
                 if filled is None and not composed:
@@ -301,6 +307,10 @@ def render(
     def override(part: str) -> str | None:
         key = keys[part]
         if key in overrides and not (composed and k.caller_applies_overrides):
+            if composed and _unfilled(overrides[key], values):
+                # the caller's words were rendered with this override already (a queued template-mode message):
+                # filling it again from the composed context would leave a literal ``{room}``
+                return None
             return _fill(overrides[key], values)
         return None
 
@@ -311,7 +321,7 @@ def render(
         heading = one_line(heading_src or subject)
         body = clean(ctx["body"]).strip("\n")
         lead = override("intro")
-        if lead:
+        if lead and clean(lead).strip() not in body:  # a queued template-mode message carries its intro already
             body = f"{clean(lead).strip()}\n\n{body}"
         status = "" if varies("status") else one_line(shipped_part("status") or "")
     else:
@@ -322,6 +332,11 @@ def render(
     subject = subject[:255]
     after = clean(shipped_part("after") or "").strip()
     note_text = clean(ctx.get("note") or shipped_part("note") or "").strip()
+    if composed:
+        # a template-mode message queued through the outbox (app.services.mail.send_kind, notify_dispatch) stores
+        # its content with the after-text and the note: the re-render at send time must not add them a second time
+        after = "" if after and after in body else after
+        note_text = "" if note_text and note_text in body else note_text
     code = one_line(ctx.get("code") or "")
     detail_rows = [(one_line(a), one_line(b)) for a, b in (ctx.get("details") or [])]
     cta_url = safe_url(ctx.get("cta_url") or ctx.get("link") or "", base_url)

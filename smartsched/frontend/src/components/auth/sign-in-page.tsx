@@ -35,16 +35,22 @@ export interface SignInPageProps {
   params: SignInParams;
   invite: InviteState;
   lastMethodLocal: boolean;
+  /** AUX-03: the last sign-in on this browser used a passkey (opens door 2, footnote) */
+  lastMethodPasskey?: boolean;
 }
 
 const HINT_IDS = { domain: "signin-hint-account", signup: "signin-hint-signup" } as const;
 
-export function SignInPage({ org, params, invite, lastMethodLocal }: SignInPageProps) {
+export function SignInPage({ org, params, invite, lastMethodLocal: lastLocalCookie, lastMethodPasskey = false }: SignInPageProps) {
   const { t, locale } = useI18n();
   const reduce = useReduce();
   const fine = useFinePointer();
   const auth = org?.auth ?? null;
+  // AUX-03 (auth.md §4.2): a passkey last time opens door 2 like the password form did
+  const lastMethodLocal = lastLocalCookie || lastMethodPasskey;
   const doors = doorsFor({ auth, reachable: org !== null, params, invite, lastMethodLocal });
+  // passwordless passkeys (`/org/public` → passkeys.sign_in): autofill + the door-2 button; never on an invite
+  const passkeySignIn = Boolean(org?.passkeys?.sign_in) && !doors.offline && !invite;
   // wave 3b W3-IDP (design v3 integrations.md §6): several providers → equal buttons in the admins' order; the
   // password form stays the quiet second door; an invite shows only the invited method (local: set a password)
   const buttons = auth?.providers ?? [];
@@ -81,8 +87,8 @@ export function SignInPage({ org, params, invite, lastMethodLocal }: SignInPageP
 
       {localInvite && invite?.state === "valid" ? (
         <div className="mt-7 flex flex-col gap-2" data-testid="signin-local-invite">
-          <h2 className="type-headline text-label-1">{t("identity.signin.localInviteTitle")}</h2>
-          <LocalInviteAccept token={invite.token} />
+          {/* AUX-05: SetPasswordForm brings its own title "Parolanızı belirleyin" and the account line */}
+          <LocalInviteAccept token={invite.token} org={orgName} next={params.next} />
         </div>
       ) : multi ? (
         <div className="mt-7">
@@ -138,14 +144,14 @@ export function SignInPage({ org, params, invite, lastMethodLocal }: SignInPageP
                 className="pt-2"
               >
                 <p className="mb-4 type-footnote text-label-2">{t("signin.local.lead")}</p>
-                <LocalSignInForm next={params.next} primary={false} resetLink={doors.resetLink} lastMethodLocal={lastMethodLocal} autoFocus={userOpened} />
+                <LocalSignInForm next={params.next} primary={false} resetLink={doors.resetLink} lastMethodLocal={lastLocalCookie} autoFocus={userOpened} passkeySignIn={passkeySignIn} lastMethodPasskey={lastMethodPasskey} />
               </motion.div>
             ) : null}
           </AnimatePresence>
         </div>
       ) : formPrimary ? (
         <div className="mt-7" id="signin-door2">
-          <LocalSignInForm next={params.next} primary resetLink={doors.resetLink} lastMethodLocal={false} autoFocus={fine && !error && !localInvite} footnote={doors.offline || localInvite ? undefined : t("signin.local.noAccount")} />
+          <LocalSignInForm next={params.next} primary resetLink={doors.resetLink} lastMethodLocal={false} autoFocus={fine && !error && !localInvite && !params.mfa} footnote={doors.offline || localInvite ? undefined : t("signin.local.noAccount")} passkeySignIn={passkeySignIn && !localInvite} lastMethodPasskey={lastMethodPasskey} />
         </div>
       ) : null}
     </SignInShell>
@@ -209,6 +215,23 @@ function Notices({ org, params, error, invite, base, offline }: { org: SignInPag
           {action ? <span className="block">{action}</span> : null}
         </Alert>
       </FocusOnMount>,
+    );
+  }
+
+  // AUX-04 (auth.md §5.4): back from the second step
+  if (params.mfa === "tooMany" || params.mfa === "locked") {
+    items.push(
+      <FocusOnMount key="mfa">
+        <Alert tone="error" data-testid={`signin-mfa-${params.mfa}`}>
+          {params.mfa === "locked" ? t("auth.mfa.locked", { n: params.mfaMinutes ?? 15 }) : t("auth.mfa.tooMany")}
+        </Alert>
+      </FocusOnMount>,
+    );
+  } else if (params.mfa === "expired") {
+    items.push(
+      <Alert key="mfa" tone="neutral" icon={<Clock />} data-testid="signin-mfa-expired">
+        {t("auth.mfa.expired")}
+      </Alert>,
     );
   }
 
@@ -290,6 +313,9 @@ export function errorBody(code: Exclude<SsoErrorCode, "cancelled" | "not_enabled
       return { title: t("identity.signin.errorDomainTitle"), text: t("identity.signin.errorDomain") };
     case "invite_provider":
       return { title: t("identity.signin.errorInviteProviderTitle"), text: t("identity.signin.errorInviteProvider") };
+    case "idp_mfa_required":
+      // AU-16: the policy requires 2FA for the role and the identity provider asserted none
+      return { title: t("auth.idp.mfaRequiredTitle"), text: t("auth.idp.mfaRequired") };
     case "invite_mismatch":
       return { title: t("signin.error.inviteMismatchTitle"), text: v.invited && v.signedIn ? t("signin.error.inviteMismatch", { invited: v.invited, signedIn: v.signedIn }) : t("signin.error.inviteMismatchPlain") };
     case "failed":

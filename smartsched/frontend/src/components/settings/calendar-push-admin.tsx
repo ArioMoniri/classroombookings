@@ -238,6 +238,8 @@ export function CalendarPushAdmin() {
         {q.isError ? (
           <p role="alert" className="type-footnote text-status-infeasible-fg">{errorText(wave1Error(q.error), locale)}</p>
         ) : null}
+        {/* mobile-b phase 2 (CLS 0.44 at 390): keep the card's visible height while the settings load */}
+        {q.isLoading ? <div className="min-h-[70dvh] animate-pulse rounded-xl bg-fill-3 motion-reduce:animate-none" aria-busy="true" data-testid="calendar-push-loading" /> : null}
         {s ? (
           <>
             <div className="grid gap-2" data-testid="calendar-push-kvkk">

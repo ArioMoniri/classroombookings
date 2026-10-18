@@ -19,6 +19,7 @@ import {
   KeyRound,
   Lock,
   Mail,
+  Map,
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
@@ -83,6 +84,7 @@ export const SECTION_ICONS: Record<string, LucideIcon> = {
   "/admin/kvkk": Lock,
   "/admin/ai": Cpu,
   "/admin/ops": Activity,
+  "/admin/welcome": Map,
 };
 
 /** Secondary destinations: the profile (user menu) and every setup screen (⌘K, or a collapsible "Setup" group). */

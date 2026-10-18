@@ -52,7 +52,7 @@ export default {
     }, { clip: "audit-undo", poster: true });
     await rec.step(tr(ctx, "Undo moves it back", "Geri al eski yerine taşır"), async () => {
       await rec.click(event.locator('[data-testid^="audit-undo-"]').first());
-      const dialog = page.getByRole("dialog");
+      const dialog = page.locator('[role="alertdialog"], [role="dialog"]').last(); // the confirm is an alertdialog since the redesign
       await dialog.waitFor();
       await rec.click(dialog.getByRole("button", { name: /Undo|Geri al/ }).last());
       await dialog.waitFor({ state: "hidden", timeout: 20_000 });

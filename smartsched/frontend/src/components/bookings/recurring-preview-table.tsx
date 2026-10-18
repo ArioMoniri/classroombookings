@@ -58,7 +58,7 @@ export function RecurringPreviewTable({ summary, dispatch, fmt }: { summary: Pre
           const st = STATUS[row.status] ?? STATUS.booked!;
           const Icon = row.kind === "instance" && row.status === "booked" && row.instance?.held?.series_id ? Repeat : st.icon;
           return (
-            <li key={row.date} data-date={row.date} data-kind={row.kind} className={cn("flex items-center gap-3 px-3 py-2 not-last:edge-hairline-b", row.kind === "holiday" && "hatch-preoccupied")}>
+            <li key={row.date} data-date={row.date} data-kind={row.kind} className={cn("flex items-center gap-3 px-3 py-2 not-last:edge-hairline-b [content-visibility:auto] [contain-intrinsic-size:auto_3.5rem]", row.kind === "holiday" && "hatch-preoccupied")}>
               <div className="min-w-0 flex-1">
                 <p className={cn("type-callout font-medium text-label-1", (row.action === "do_not_book" || row.kind === "holiday" || row.cut) && "text-label-2")}>
                   {fmt.weekday(row.date)}

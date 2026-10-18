@@ -74,6 +74,12 @@ class CaseScore:
         return {**asdict(self), "recall": self.recall, "precision": self.precision, "passed": self.passed}
 
 
+def load_helper_cases(path: str | Path = GUARD_CASES_PATH) -> list[dict[str, Any]]:
+    """The helper's guard cases (HB-08, ``helper_cases`` of the corpus; surface ``helper``)."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    return [c for c in (data.get("helper_cases") or []) if isinstance(c, dict)] if isinstance(data, dict) else []
+
+
 def load_cases(path: str | Path) -> list[dict[str, Any]]:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     cases = data["cases"] if isinstance(data, dict) else data
@@ -210,6 +216,11 @@ def score_guard_cases(cases: list[dict[str, Any]]) -> list[GuardScore]:
             cleaned, findings = g.neutralize_upload(text)
             got = "remove" if g.REMOVED_MARK in cleaned else ("mark" if findings else "keep")
             reason = findings[0].code if findings else None
+        elif c.get("surface") == "helper":  # HB-08: the helper's own guard (index vocabulary as the scope)
+            from app.ai.helper import guard as helper_guard
+
+            hv = helper_guard.check(text, ())
+            got, reason = ("allow", None) if hv.allowed else ("refuse", hv.code)
         else:
             v = g.check_user_input(text, str(c.get("feature") or "chat"))
             got, reason = ("allow", None) if v.allowed else ("refuse", v.reason_code)
@@ -252,6 +263,7 @@ def summarize_guard(scores: list[GuardScore]) -> dict[str, Any]:
 __all__ = [
     "GUARD_CASES_PATH",
     "GuardScore",
+    "load_helper_cases",
     "score_guard_cases",
     "summarize_guard",
     "MIN_PRECISION",

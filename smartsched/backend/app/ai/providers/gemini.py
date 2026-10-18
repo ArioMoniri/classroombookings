@@ -141,7 +141,13 @@ class GeminiAdapter(ProviderAdapter):
                     ]
                 }
             ]
-            payload["toolConfig"] = {"functionCallingConfig": {"mode": "AUTO"}}
+            choice = kwargs.get("tool_choice") or {}
+            if choice.get("type") == "tool" and choice.get("name"):  # a forced single tool (HB-13)
+                payload["toolConfig"] = {
+                    "functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": [str(choice["name"])]}
+                }
+            else:
+                payload["toolConfig"] = {"functionCallingConfig": {"mode": "AUTO"}}
         gen: dict[str, Any] = {}
         if kwargs.get("max_tokens"):
             gen["maxOutputTokens"] = int(kwargs["max_tokens"])

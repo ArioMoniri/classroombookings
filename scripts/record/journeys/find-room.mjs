@@ -14,7 +14,8 @@ export default {
   db: "seeded",
   role: "admin",
   verified: "2026-10-15 on the real backend (snapshot 6c4b790)",
-  async setup({ page }) {
+  async setup(ctx) {
+    const { page } = ctx;
     const features = (await api(page, "/room-admin/features")).data ?? [];
     const pc = features.find((f) => f.solver_tag === "PC");
     if (!pc) throw new Error("no PC feature: scripts/record/setup_api.py bookings adopts the room tags");
@@ -32,10 +33,9 @@ export default {
     }
     if (!headcount) throw new Error("no free computer lab on the next teaching day");
     Object.assign(this, { pc, date, headcount });
-    await page.goto("/find-room");
+    await page.goto(`/find-room?date=${date}`); // the page takes its date from the URL (find-room-view.tsx)
     await page.getByTestId("find-room").waitFor({ timeout: 30_000 });
     // date and time are filled off camera (a native date picker and two times are not worth watching)
-    await page.getByTestId("fr-date").fill(date);
     await page.getByTestId("fr-start").fill(START);
     await page.getByTestId("fr-end").fill(END);
   },

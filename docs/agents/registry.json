@@ -2237,8 +2237,8 @@
       "ledger": "R2 lane C: intake/council/wizard",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 22:46",
-      "left_off": "Docs are written; only the final suite count (for the PROGRESS DONE row) is outstanding."
+      "finished_at": "2026-10-18 00:17",
+      "left_off": "The final backend suite run had still not finished at hand-off, and it still has no result. The command has now been going for more than an hour, against about 46 minutes for the last full run. When it ends, its result will be in `/tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/r2laneC/r3-suite3.txt`. I left it running and changed nothing else after the r…"
     },
     {
       "id": "afe38e299d6f66d51",
@@ -2789,7 +2789,8 @@
       "goal": "You are lane CAL-B (calendar export backend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first…",
       "ledger": "CAL-B: calendar export backend",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 00:25"
     },
     {
       "id": "a39411690ed09401f",
@@ -2802,8 +2803,8 @@
       "ledger": "CAL-F: calendar export UI",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-17 23:02",
-      "left_off": "The client is reconciled with CAL-B's in-code contract and 54 vitest tests pass. The watcher is waiting on API.md before the final e2e run."
+      "finished_at": "2026-10-18 08:04",
+      "left_off": "Lane tests pass (75/75). The fresh stack is starting; I'll wait for it."
     },
     {
       "id": "a188be943a3fea75a",
@@ -2815,7 +2816,8 @@
       "goal": "You are the SECURITY FOLLOW-UP lane for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md: NEVER commit or push, test-first, never `pkill -f`, `nice -n …",
       "ledger": "Security follow-ups from W3-SEC",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:45"
     },
     {
       "id": "aec6575a6b9f762e8",
@@ -2917,7 +2919,8 @@
       "goal": "You are lane WG-B (welcome guide backend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read these first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-fi…",
       "ledger": "WG-B: welcome guide backend",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:53"
     },
     {
       "id": "a11216155165962e6",
@@ -2954,7 +2957,8 @@
       "goal": "You are the AI-HELPER UX designer for SmartSched (repo /home/user/classroombookings; Next.js frontend smartsched/frontend; design docs in docs/design/v2 and v3). Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md, especially the …",
       "ledger": "Helper UX design (generative UI)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-17 23:35"
     },
     {
       "id": "a4d25076e12c6f1df",
@@ -2966,7 +2970,8 @@
       "goal": "You are the CHARTS lane, phase 2, for SmartSched (repo /home/user/classroombookings, frontend smartsched/frontend). Phase 1 is done: read docs/design/v3/charts.md, the wireframes docs/design/v3/wireframes/charts-*.svg and the CH-01…CH-12 tickets at the end of docs/ROADMAP.md. Also read /tmp/claude-0…",
       "ledger": "Charts phase 2: install + shell",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 00:06"
     },
     {
       "id": "adf240663ffd2d762",
@@ -2990,7 +2995,8 @@
       "goal": "You are lane VO-B (voice backend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pk…",
       "ledger": "VO-B: voice backend (cloud STT)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 00:25"
     },
     {
       "id": "ad5cab851edb7febf",
@@ -3002,7 +3008,8 @@
       "goal": "You are lane RF-2 for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pkill -f`, `nice …",
       "ledger": "RF-2: wire the unsent e-mails",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 00:34"
     },
     {
       "id": "a81129ececcc4ad90",
@@ -3014,7 +3021,8 @@
       "goal": "You are lane RF-1 for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pkill -f`, `nice …",
       "ledger": "RF-1: catalog admin screens + blockers",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 08:23"
     },
     {
       "id": "a6a3c2eba3be265b7",
@@ -3027,6 +3035,431 @@
       "ledger": "HB-A: helper index, registry, guardrails",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a1a46db0d72906fcb",
+      "description": "One-click deploy both branches",
+      "subagent_type": "devops-engineer",
+      "isolation": null,
+      "started_at": "2026-10-17 23:30",
+      "scope": "",
+      "goal": "You are lane `deploy-1click-2026-10-18` for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read /home/user/classroombookings/docs/agents/briefs/COMMON.md first. Hard rules: NEVER commit or push, never `pkill -f`, `nice -n 10`, test-first where testable, no secre…",
+      "ledger": "One-click deploy both branches",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 00:10"
+    },
+    {
+      "id": "a5e52b3b009c22145",
+      "description": "Auth screens design (login, 2FA, passkeys)",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-17 23:36",
+      "scope": "",
+      "goal": "You are the AUTH SCREENS designer and motion designer for SmartSched (repo /home/user/classroombookings, Next.js frontend smartsched/frontend). Read these first: - /home/user/classroombookings/docs/agents/briefs/COMMON.md (with the Simplicity principle) and MEDIA.md. Hard rules: NEVER commit, never …",
+      "ledger": "Auth screens design (login, 2FA, passkeys)",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 00:04"
+    },
+    {
+      "id": "a14c604526c495b1a",
+      "description": "AU-B: 2FA, passkeys, admin resets",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-17 23:36",
+      "scope": "",
+      "goal": "You are lane AU-B (authentication backend: 2FA, passkeys, admin resets) for SmartSched (repo /home/user/classroombookings, FastAPI backend smartsched/backend, branch claude/focused-wright-ktt0ss). Read first: - /home/user/classroombookings/docs/agents/briefs/COMMON.md: NEVER commit or push, test-fir…",
+      "ledger": "AU-B: 2FA, passkeys, admin resets",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 08:09",
+      "left_off": "Waiting for the regression run."
+    },
+    {
+      "id": "aa8b9be94ac997055",
+      "description": "AUX-F: auth frontend (AUX-01/02 now)",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 00:04",
+      "scope": "",
+      "goal": "You are lane AUX-F (sign-in, 2FA and passkeys frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: /home/user/classroombookings/docs/agents/briefs/COMMON.md (Simplicity principle) and MEDIA.md (hard rules: NEVER commit or push, test-first, nev…",
+      "ledger": "AUX-F: auth frontend (AUX-01/02 now)",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a539ec6281abcad6c",
+      "description": "AS-S: adaptive solver lane",
+      "subagent_type": "solver-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 07:56",
+      "scope": "",
+      "goal": "You are lane AS-S (adaptive scheduling, solver part) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /home/user/classroombookings/docs/agents/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pkill -f`, `nice -n 10`, Turkish …",
+      "ledger": "AS-S: adaptive solver lane",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ab67ef430f74c8c50",
+      "description": "HB-B: helper loop, local models, quotas",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 07:56",
+      "scope": "",
+      "goal": "You are lane HB-B (AI helper second slice and AI governance) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /home/user/classroombookings/docs/agents/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pkill -f`, `nice -n 10`, …",
+      "ledger": "HB-B: helper loop, local models, quotas",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ad8353049ba43c8f0",
+      "description": "Sweeper: small queued fixes",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 07:56",
+      "scope": "",
+      "goal": "You are the SWEEPER lane for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read /home/user/classroombookings/docs/agents/briefs/COMMON.md: NEVER commit or push, test-first, never `pkill -f`, `nice -n 10`, Turkish first, no demo/mock code in production. Many lan…",
+      "ledger": "Sweeper: small queued fixes",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 08:27"
+    },
+    {
+      "id": "a4d4cfb2b530c6b14",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 07:57",
+      "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a23dbee5ea6a04ff6",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 07:58",
+      "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a273961c59a2b129f",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:02",
+      "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "acfb94914e0072c3a",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:04",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a7464426b74f6644b",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:10",
+      "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a6f35a0fb6d906805",
+      "description": "AU-B resume: sessions + IdP MFA",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:18",
+      "scope": "",
+      "goal": "You are lane AU-B (auth backend), re-created after a container restart. Your earlier work (AU-01…14, migration 0043_mfa) is done and committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). You were then building AU-15 and AU-16, and migration `0045_user_sessions` already exi…",
+      "ledger": "AU-B resume: sessions + IdP MFA",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 09:15"
+    },
+    {
+      "id": "ac382c44d3ca2cce4",
+      "description": "WG-F resume: welcome guide UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:18",
+      "scope": "",
+      "goal": "You are lane WG-F (welcome guide frontend), re-created after a container restart. Your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `components/welcome/**`, `lib/api/welcome.ts`, `app/(app)/admin/welcome/**`, `e2e/wg-*.spec.ts`, and react-joyride i…",
+      "ledger": "WG-F resume: welcome guide UI",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 08:27"
+    },
+    {
+      "id": "aa75e212675093df5",
+      "description": "HB-A resume: helper backend",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:18",
+      "scope": "",
+      "goal": "You are lane HB-A (AI helper backend), re-created after a container restart. Your earlier work is committed in the repo (/home/user/classroombookings, branch claude/focused-wright-ktt0ss): `app/ai/helper/**` and `app/api/v1/helper.py`. Migration 0044_helper is yours. Read first: - docs/agents/briefs…",
+      "ledger": "HB-A resume: helper backend",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "aa8478fed0a6a5b8d",
+      "description": "RF-2 resume: mail follow-ups",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:18",
+      "scope": "",
+      "goal": "You are lane RF-2, re-created after a container restart. RF-11 (the six e-mail senders) is done and committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `app/services/mail_senders.py`, `app/workers/reminders.py`, `tests/test_rf11_mail_senders.py`. Read docs/agents/briefs/…",
+      "ledger": "RF-2 resume: mail follow-ups",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 08:35"
+    },
+    {
+      "id": "a6d3ca43591bb3955",
+      "description": "AS-B resume: adaptive backend",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:18",
+      "scope": "",
+      "goal": "You are lane AS-B (adaptive scheduling backend), re-created after a container restart. Your earlier work is committed in the repo (/home/user/classroombookings, branch claude/focused-wright-ktt0ss): `services/seasons.py`, `demand.py`, analytics/forecast modules, `solver_bridge.py` merges, migration …",
+      "ledger": "AS-B resume: adaptive backend",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 09:25"
+    },
+    {
+      "id": "ad78b5988298d3673",
+      "description": "CAL-F resume: calendar export UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:18",
+      "scope": "",
+      "goal": "You are lane CAL-F (calendar export frontend), re-created after a container restart. Your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `components/calendar-export/**`, `lib/api/calendar-export.ts`, the `components/settings/calendar-*` files, and `e…",
+      "ledger": "CAL-F resume: calendar export UI",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 08:29"
+    },
+    {
+      "id": "a7eac7171a5e66a48",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:19",
+      "left_off": "give me the admin login and website link when pod is up"
+    },
+    {
+      "id": "af31f22c9a8649027",
+      "description": "AUX-F resume: sign-in UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:23",
+      "scope": "",
+      "goal": "You are lane AUX-F (sign-in, 2FA and passkeys frontend), re-created after a container restart. Your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss); look at `components/auth/**`, `components/profile/security/**`, any `components/settings/*auth*` or log…",
+      "ledger": "AUX-F resume: sign-in UI",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 09:27"
+    },
+    {
+      "id": "a41d85f83c1f7a95d",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:24",
+      "left_off": "keep all agents running and tell me when pod is live"
+    },
+    {
+      "id": "aa312506611611c8d",
+      "description": "VO-F resume: voice UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:27",
+      "scope": "",
+      "goal": "You are lane VO-F (voice frontend), re-created after a container restart. Your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `components/voice/**`, `lib/api/voice.ts`, the voice parts of `components/admin/ai/**`, and the mic mounts. Read first: - do…",
+      "ledger": "VO-F resume: voice UI",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 08:33"
+    },
+    {
+      "id": "a0b4897c0dc379dc1",
+      "description": "HB-B resume: capabilities, local, quotas",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:28",
+      "scope": "",
+      "goal": "You are lane HB-B (AI helper second slice and governance), re-created after a container restart. Some of your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss), for example `tests/ai/test_hb_12_capabilities.py` and the capability parts of `app/ai/**` and…",
+      "ledger": "HB-B resume: capabilities, local, quotas",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a5f68a4d4029dba95",
+      "description": "AS-S resume: adaptive solver",
+      "subagent_type": "solver-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:30",
+      "scope": "",
+      "goal": "You are lane AS-S (adaptive scheduling, solver part), re-created after a container restart. Some of your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). For example `tests/solver/test_as_08_peak_smoothing.py` and the related code in `app/solver/`; che…",
+      "ledger": "AS-S resume: adaptive solver",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 09:12"
+    },
+    {
+      "id": "a064e936bede62296",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:30",
+      "left_off": "deploy to pod once fixed and tell me the link"
+    },
+    {
+      "id": "a23e4a86c41a9c76a",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:31",
+      "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a96cecc693934b205",
+      "description": "Charts resume: CH-03..09",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 08:33",
+      "scope": "",
+      "goal": "You are the CHARTS lane, re-created after a container restart. CH-01 and CH-02 are done and committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss): `components/charts/**` and `components/charts/evil/**`. You may also have started CH-04 (the dashboard `PeriodArea` migration);…",
+      "ledger": "Charts resume: CH-03..09",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 08:40"
+    },
+    {
+      "id": "af2af425bb1ceb879",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:34",
+      "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a20df7639564aebd2",
+      "description": "Mobile A resume: primitives + user routes",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 08:36",
+      "scope": "",
+      "goal": "You are lane MOBILE A, phase 2, re-created after a container restart. Some of your earlier fixes are already committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss); for example `ui/input.tsx` and `ui/hit-area.ts` now use `pointer-coarse:text-base`. Check `git log` and `git d…",
+      "ledger": "Mobile A resume: primitives + user routes",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 08:49"
+    },
+    {
+      "id": "a747b9edc3aff8921",
+      "description": "Mobile B resume: route-level fixes",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 08:36",
+      "scope": "",
+      "goal": "You are lane MOBILE B, phase 2, re-created after a container restart. Your earlier route-level fixes are partly committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). You stopped while moving \"Yeni grup\" on /admin/rooms into the capsule. Check `git log` and `git diff` for t…",
+      "ledger": "Mobile B resume: route-level fixes",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 08:58"
+    },
+    {
+      "id": "aad32dace96a27bc2",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:37",
+      "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a821c04288b23a6f6",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:41",
+      "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a70beb041dff7e1f7",
+      "description": "AS-F: adaptive scheduling UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:50",
+      "scope": "",
+      "goal": "You are lane AS-F (adaptive scheduling frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - docs/agents/briefs/COMMON.md. The Resource rule applies: no stack, no build, no Playwright, vitest with --maxWorkers=1. The Simplicity principle is v…",
+      "ledger": "AS-F: adaptive scheduling UI",
+      "resumed": false,
+      "status": "finished",
+      "finished_at": "2026-10-18 09:24"
+    },
+    {
+      "id": "a0de75a8c91913521",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:51",
+      "left_off": "keep going, deploy the pod when lint is clean"
+    },
+    {
+      "id": "a5821250442f05781",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 08:56",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "add1d169f4aee3502",
+      "description": "E2E lane: run the queued browser checks",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-18 08:59",
+      "scope": "",
+      "goal": "You are the single E2E lane for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read these first: - docs/agents/briefs/COMMON.md. You are the ONE lane allowed to run an app stack, but only one stack at a time. Run it with `nice -n 10`, stop it after each section,…",
+      "ledger": "E2E lane: run the queued browser checks",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a0508738010d2ad42",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:00",
+      "left_off": "is the pod deployed yet and whats the admin login"
+    },
+    {
+      "id": "adc5066d3a7d967cd",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:13",
+      "left_off": "when is the pod deployed and live"
+    },
+    {
+      "id": "a2ddef58f81bf72eb",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:15",
+      "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a8212ca23bcca0598",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:26",
+      "left_off": "<analysis> This session is the focused-wright orchestrator for SmartSched, branch claude/focused-wright-ktt0ss. It runs many subagent lanes, commits their work as checkpoints, merges into the gracious and universal branches, and is trying to get the AWS pod deployed. Major events: - Pod start via POD_ACTION from gracious worked. Pod CI gates kept failing: - frontend OOM; - mypy saml unused ignore;…"
     }
   ]
 }

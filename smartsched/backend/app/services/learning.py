@@ -378,6 +378,11 @@ async def ensure_priors(session: AsyncSession, term_id: int, *, force: bool = Fa
     has = (await session.execute(select(func.count()).where(LearnedPrior.term_id == term_id))).scalar_one()
     if not force and has and _FRESH.get(key) == fp:
         return False
+    if not force and has:
+        from app.services import learning_versions as lv
+
+        if await lv.pinned(session, term_id):  # AS-13: a reverted version holds until the next manual refresh
+            return False
     await recompute_priors(session, term_id)
     # a reset or an extraction that committed while this recompute ran must trigger the next one (T-R2-24):
     # the term is marked fresh only when the evidence it read is still the evidence in the database
@@ -404,6 +409,10 @@ async def recompute_priors(
     if target is None:
         raise LearningError(404, "term not found")
     season = season_of(target)
+    from app.services import learning_versions as lv
+
+    habits = await lv.habit_overrides(session)  # RF-07: disabled / corrected habits are never suggested
+    min_conf = await lv.min_confidence(session)  # AS-13: per-attribute minimum confidence an admin applied
     rooms = {r.id: r for r in (await session.execute(select(Room))).scalars()}
     tagged: dict[str, list[int]] = defaultdict(list)
     for r in sorted(rooms.values(), key=lambda r: (-int(r.capacity or 0), r.code)):
@@ -501,7 +510,11 @@ async def recompute_priors(
                 "total": total,
                 "terms_count": seen_terms,
                 "confidence": conf,
-                "suggestible": bool(proposal) and score > 0 and enough and conf >= MIN_CONFIDENCE,
+                "suggestible": bool(proposal)
+                and score > 0
+                and enough
+                and conf >= max(MIN_CONFIDENCE, min_conf.get(attr, MIN_CONFIDENCE))
+                and (habits.get(lv.scope_key(st, sk, attr, val)) or {}).get("state") not in ("disabled", "corrected"),
                 "active": True,
                 "proposal": proposal,
                 "explanation": {
@@ -520,6 +533,11 @@ async def recompute_priors(
                     "cross_season": is_cross,
                     "value_label": {"tr": vt["tr"], "en": vt["en"]},
                     "excluded": excluded,
+                    **(
+                        {"habit": habits[lv.scope_key(st, sk, attr, val)]}
+                        if lv.scope_key(st, sk, attr, val) in habits
+                        else {}
+                    ),
                 },
                 "computed_at": now,
             }
@@ -992,6 +1010,13 @@ async def accept(
     if scope not in ("term", "persistent"):
         raise LearningError(422, "scope must be term or persistent")
     p = await _prior(session, prior_id)
+    if weight is None:  # RF-07: a tuned habit carries the weight an admin chose
+        from app.services import learning_versions as lv
+
+        tuned = (await lv.habit_overrides(session)).get(
+            lv.scope_key(p.subject_type, p.subject_key, p.attribute, p.value)
+        )
+        weight = int(tuned["weight"]) if tuned and tuned.get("state") == "tuned" and tuned.get("weight") else None
     w = LEARNED_WEIGHT if weight is None else int(weight)
     item = await _render_one(session, p, w)
     if item["state"] != "open":
@@ -1417,7 +1442,15 @@ async def erase_person(session: AsyncSession, actor: User, *, instructor_id: int
     n_obs = await _count(session, delete(LearnedObservation).where(_subject_clause(LearnedObservation, keys)))
     n_fb = await _count(session, delete(SuggestionFeedback).where(_subject_clause(SuggestionFeedback, keys)))
     n_pr = await _count(session, delete(LearnedPrior).where(_subject_clause(LearnedPrior, keys)))
-    rs.counts = {"observations": int(n_obs or 0), "feedback": int(n_fb or 0), "priors": int(n_pr or 0)}
+    from app.services import learning_versions as lv
+
+    n_snap = await lv.scrub_person(session, keys)  # AS-13: no version revert can bring the person back
+    rs.counts = {
+        "observations": int(n_obs or 0),
+        "feedback": int(n_fb or 0),
+        "priors": int(n_pr or 0),
+        "snapshot_rows": int(n_snap),
+    }
     _forget()
     await publish_event(
         session,
@@ -1516,6 +1549,7 @@ async def stop_purge_job() -> None:
 
 
 __all__ = [
+    "season_of",
     "BANDS",
     "LEARNED_KINDS",
     "LEARNED_WEIGHT",

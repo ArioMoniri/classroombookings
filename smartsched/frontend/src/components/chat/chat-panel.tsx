@@ -11,6 +11,7 @@ import { AiUsageBanner } from "@/components/admin/ai/my-ai-usage";
 import { roomLabel } from "@/components/runs/diagnosis-format";
 import { DiffTable, type DiffTableRow } from "@/components/ui/beautifului/diff-table";
 import { PromptComposer } from "@/components/ui/beautifului/prompt-composer";
+import { MicButton } from "@/components/voice";
 import { Button } from "@/components/ui/button";
 import { useChat, useSendChat, useSettings, useUndoProposal } from "@/lib/api/hooks";
 import type { ChatMessage, ChatProposal } from "@/lib/api/schemas";
@@ -318,6 +319,7 @@ export function ChatPanel({ runId, className }: { runId: number; className?: str
           label={t("chat.placeholder")}
           sendLabel={t("chat.send")}
           suggestions={messages.length === 0 && !noKey ? STARTERS[pairLang(locale)] : undefined}
+          leading={<MicButton target="chat" disabled={noKey || send.isPending || streaming} />}
         />
         <AiNotice className="mt-2" />
       </div>

@@ -67,6 +67,9 @@ async def audit_context(request: Request, response: Response, db: DB) -> None:
             ip_hash=audit_svc.hash_ip(address),
         ),
     )
+    from app.services import mail_senders  # RF-11: the new-device check compares the user-agent family + network
+
+    mail_senders.bind_user_agent(db, request.headers.get("user-agent"))
 
 
 def _out(ev: AuditEvent, full: bool) -> dict[str, Any]:

@@ -52,6 +52,9 @@ async def get_current_user(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user not found or inactive")
     if not token_is_current(payload, user):  # signed out, password changed, disabled or role changed since
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "token revoked")
+    from app.services import sessions as user_sessions  # AU-15: a revoked session answers 401 at once
+
+    await user_sessions.check(request, payload, user)
     if (
         user.force_password_reset
         and user.auth_source != "ldap"
@@ -116,6 +119,7 @@ PERMISSION_TR: dict[str, str] = {
     "book_recur.request": "Bir onaycının onaylayacağı yinelenen rezervasyon iste",
     "bookings.skip_approval": "Onaysız doğrudan rezervasyon",
     "calendar.department_feed": "Bölüm ders takvimini dışa aktarma",
+    "ai.usage_faculty": "Fakültemin yapay zekâ kullanımını görme ve paylaştırma",
 }
 
 

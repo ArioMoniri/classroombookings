@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `220124b` (committed 2026-10-17 23:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `e0a810a` (committed 2026-10-18 09:15 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -29,7 +29,7 @@ lands, its agent updates the row there. [`docs/ROADMAP.md`](ROADMAP.md) stays th
 
 <!-- AUTO:status -->
 
-Done 62 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
+Done 67 · Backend only 7 · In progress 2 · Planned 0 (from [`docs/features.yml`](features.yml)).
 
 **Planning**
 
@@ -49,6 +49,11 @@ Done 62 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.ym
 | Learned suggestions from earlier terms, with a resettable memory (per person, per term or all) | Done: accept for the term or persistent (admin, confirmed), undo of any decision; never auto-applied | P19 L1-L4, F2 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Programmes from scratch: faculties, programmes, courses, sections and meetings, with the weekly-pattern expander | Done: server drafts with autosave, per-step validation, pre-check, one-transaction commit and a 30-day undo | P19 C1-C4, F3 | [`followup.phase19.spec.ts`](../smartsched/frontend/e2e/followup.phase19.spec.ts) |
 | Scenario comparison (A/B runs side by side), utilisation heatmaps, invigilator assignment | Done: /runs/compare (also from the runs list), /analytics/heatmap (rooms + instructor load, live board or one run), /exams/invigilation (pool, plans, lock / reassign, re-run, publish, roster CSV); backend tests/test_invigilation_api.py | backlog | [`analytics.spec.ts`](../smartsched/frontend/e2e/analytics.spec.ts) |
+| Adaptive scheduling (backend): server-side effective solver weights and seed on every run path (DEFAULT_WEIGHTS < Ayarlar solver_weights / solver_default_seed < the active season profile < run params; every run records weights_effective, weights_source, profile and seed); COURSE runs skip HOLIDAY / EXAM / MAKEUP (and non-summer SUMMER) weeks; holidays and HOLIDAY weeks out of the heatmap's numerator and denominator; dated period segments per term (weeks, holidays, admin add/drop and midterm segments, draft proposals after an import) | Backend only: app/services/seasons.py (effective_weights, effective_seed, periods, closed_days, course_weeks, after_import), solver_bridge.horizon_weeks(kinds=) + stats.horizon_weeks, utilisation Occupancy.closed; tests test_as_01_*, test_as_02_*, test_as_18_*; UI = AS-15..17 (AS-F) | adaptive scheduling (AS-B, AS-01, AS-02, AS-18; audit RF-02) | [`test_as_01_paths.py`](../smartsched/backend/tests/test_as_01_paths.py) |
+| Demand, peaks and forecasts with honest confidence: aggregate find-room / booking demand ledger (no user id, no text, cells under 5 hidden, 400-day KVKK retention), peak-hour model (shrunk weekly means, 80 % ranges, P4 / P8 peaks Mon-Thu on Bahar), request-driven demand per building / weekday / period / feature / capacity band from the first import, seasonal-naive forecast from a published term of the same season, capacity shortfall (Hall check) and what-if (+x % enrolment, faculty / programme scope, closed rooms, extra sections, optional draft run 'Senaryo: ...'), exam-period load (peak day, seats per slot, invigilators vs the pool), planner warnings peak_pressure / exam_load; backtests B1-B7 via python -m app.cli backtest adaptive | Backend only: app/services/{demand,peaks,forecast,exam_load,backtest}.py; GET /analytics/{demand,peaks,forecast/demand,forecast/shortfall,forecast/exams}, POST /analytics/forecast/what-if; data_issues groups peak_pressure + exam_load | adaptive scheduling (AS-B, AS-05, AS-06, AS-07, AS-09, AS-10, AS-11) | [`test_as_06_backtest.py`](../smartsched/backend/tests/test_as_06_backtest.py) |
+| Learning versions and per-habit control: every refresh (manual, nightly 03:15 Istanbul for the active term, revert) is a version with counts, checksum and diff; 'Bu sürüme dön' restores a prior set byte for byte and holds until the next refresh; per-habit disable / correct / tune (RF-07); calibration drafts from accept / reject (Beta posterior) applied only by an admin; the planning audit's moves are learned once | Backend only: app/services/learning_versions.py, learning_extract._planning_audit, learning.recompute_priors honours habit overrides + min confidence; /learning/{versions,calibration,habits,settings}, PUT /learning/priors/{id}/habit | adaptive scheduling (AS-B, AS-13; audit RF-07) | [`test_as_13_learning.py`](../smartsched/backend/tests/test_as_13_learning.py) |
+| Class size edit on /classes is real (RF-01): PUT /requests/meetings/{id} {enrolment} writes the section's enrolment (audited section.update), PUT /requests/exams/{id} {enrolment} the exam's head count (audited exam_request.update); time-shaped or out-of-range values answer 422 | Done: audit 2026-10-17 A1; app/schemas/requests.py + app/api/v1/requests.py; the classes page already sent the field | real-not-fake (RF-1) | [`test_rf1_catalog_editability.py`](../smartsched/backend/tests/test_rf1_catalog_editability.py) |
+| Yönetim › Katalog (RF-05): view, edit and delete the imported instructors, courses, programmes, faculties and the term's sections; one searchable list per entity, 'Yeni', edit sheet with 'Son değişiklik: <ad>, <zaman>', advanced fields behind 'Gelişmiş', delete that names its consequences and is refused while the record is in use (sections are archived); planning.view reads, planning.edit writes, every write audited | Done: app/(app)/admin/catalog/**, components/admin/catalog/**, lib/api/catalog-admin.ts catalogAdminApi; backend GET /catalog/usage/{entity}/{id} (uses, blocked, action, last_change) in app/services/catalog_admin.py; tests test_rf1_catalog_editability.py | real-not-fake (RF-1) | [`catalog-admin.test.tsx`](../smartsched/frontend/src/components/admin/catalog/catalog-admin.test.tsx) |
 
 **Intake**
 
@@ -79,6 +84,7 @@ Done 62 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.ym
 | Conflict resolver after publishing, booking policies, a public day view, KVKK retention of audit rows | Done: UI 2026-10-16: /bookings/conflicts/[run] resolver (banner, ranked options, scope, auto -> dry-run review -> apply, 409 problems in their row); Ayarlar › Rezervasyon kuralları + exam period, 'Neden?' in grid / book sheet / find-room; /public kiosk (rooms, buildings, 60 s refresh) with the KVKK sign-off card; Profil › Gizlilik + first-login notice sheet; Yönetim › KVKK (requests, notice, retention, inventory CSV); e2e 5/5 on a real backend incl. phone 390; backend tests/test_wave2_*.py | 17 (P2, P8, V2, A4) | [`wave2.spec.ts`](../smartsched/frontend/e2e/wave2.spec.ts) |
 | Slot display set by administrators (Ayarlar › Ders saatleri, also /bookings › Görünüm): period rows or time blocks (15/30/60 min drawn onto the periods), label period / time / both (schedule name or ordinal, start or range), density compact / standard / comfortable, first / last visible period, hide short slots and the weekend, default view for desktop and phone, quick-reserve lengths; live preview with the real grid, list and chips; every booking surface reads one useSlotDisplay() | Done: booking.slot_display.* settings (key/value, admin write via PUT /settings, sanitised read in GET /bookings/context slot_display + GET /bookings/slot-display); tests test_w3_slot_display.py, slot-display.test.ts, w3-slot-grid.test.tsx, settings/slot-display.test.tsx; find-room and the public kiosk do not read it yet (asks) | wave 3 (W3-SLOT) | [`w3-slot.spec.ts`](../smartsched/frontend/e2e/w3-slot.spec.ts) |
 | Quick reservation /reserve (Hızlı rezervasyon): day chips, a slot in the admin's unit, an optional length, how many people and feature chips, a short ranked list of free rooms (own waiting request marked), one primary that says Rezerve et or Talep et, a receipt with the real undo (POST /audit/{id}/undo) or Talebi geri çek; 2 taps for the next free slot, keyboard and screen-reader complete, one thumb at 390 | Done: POST /bookings and multi create now return audit_event_id (test_w3_slot_undo.py); first sidebar entry and first action on /bookings; the phone tab bar entry is an ask (tab-bar.tsx / admin nav-items.ts) | wave 3 (W3-SLOT) | [`w3-slot.spec.ts`](../smartsched/frontend/e2e/w3-slot.spec.ts) |
+| Season profiles: versioned per-season solver weights, booking overlays (e.g. PC labs at most 2 active bookings per person in exam weeks) and peak threshold; draft -> activate (approved by an admin) -> retired, edit = new draft version, 'Geri al' re-activates the parent; built-in standard and exam_week; ADMIN only, audited season_profile.*; slot-level exam holds (mode slots: only the exam timetable's room-periods ± a buffer, as requests by default) | Backend only: alembic 0041_adaptive (season_profiles, season_segments, demand_events, learning_versions, learned_prior_snapshots); app/api/v1/seasons.py; booking_policies overlays + exam_slot_index + slot_hold_summary; GET /booking-policies/effective lists season_overlays | adaptive scheduling (AS-B, AS-03, AS-04) | [`test_as_04_overlays.py`](../smartsched/backend/tests/test_as_04_overlays.py) |
 
 **Identity and notifications**
 
@@ -124,6 +130,12 @@ Done 62 · Backend only 0 · In progress 2 · Planned 0 (from [`docs/features.ym
 | Invitations per provider: invite by e-mail with the provider or a local password (set from the link), themed invitation e-mail (W3-MAIL send_kind), resend, renew, revoke (disables the unused placeholder, T-R1-35), bulk invite from a Turkish Excel CSV; account_created e-mail on self sign-up and local acceptance | Done: POST /auth/sso/admin/invites (provider, send_email), /bulk, /{id}/resend, POST /auth/sso/invites/{token}/password; components/identity/invites-panel.tsx, local-invite-accept.tsx | wave 3b (W3-IDP) | [`test_w3b_idp_invites.py`](../smartsched/backend/tests/test_w3b_idp_invites.py) |
 | /login with several providers: equal-weight buttons in the admins' order (Microsoft and Google branding), at most 3 + 'Diğer giriş yolları', invite shows only the invited method, provider error codes domain / invite_provider in TR/EN | Done: components/identity/provider-buttons.tsx in components/auth/sign-in-page.tsx; auth.providers in GET /org/public | wave 3b (W3-IDP) | [`identity-wizard.test.tsx`](../smartsched/frontend/src/components/identity/identity-wizard.test.tsx) |
 | Calendar export for academicians (backend): 'Derslerim' and 'Bölümümün dersleri' from the published run only, as scope-bound revocable subscription links (classes.ics, department-classes/{id}.ics), one-off .ics files and push into a dedicated 'SmartSched – Derslerim' Google (calendar.app.created) / Microsoft calendar; stable class UIDs across re-publishes and room moves, SEQUENCE on every change, CANCELLED tombstones, Europe/Istanbul VTIMEZONE, RFC 7986 NAME/SOURCE, version-key ETag/304 + Last-Modified, 1 MB cap; department rule (own, taught, calendar.department_feed); per-scope approval with consent id and audit; verified accounts for push (identity, Workspace hd, Entra tid, own e-mail / institution domain, admin-allowed domains); nightly repair 03:30 | Done: alembic 0039_calendar_classes; app/services/calendar_classes.py + calendar_feeds.py + calendar_connectors.py + api/v1/calendar_sync.py + workers/integrations.py; tests test_cal_01..07_*; frontend sheet = CAL-08/09 (CAL-F) | calendar export (CAL-B, CAL-01..07) | [`test_cal_06_push.py`](../smartsched/backend/tests/test_cal_06_push.py) |
+| Welcome guide per role (backend): audiences from permissions + the instructor link (academician, staff, approver, dept_admin, viewer, planner, admin; never role codes), one server-decided automatic surface per call (first sign-in sheet, 'Sonra' back after 3 days at most twice, role-change delta with only the new audiences, admin 'show again', else one wave-3 feature hint for accounts created before its release, 60 days), self-ticking 'Başlarken' checklist from real rows and audit events (booking, decision, channel, calendar link, intake commit, run, publish, org/mail/rooms/users), deep-link / kiosk / embed / maintenance suppression; admin switches, TR/EN text overrides with version conflict (409 stale naming the editor), completion stats with groups under 5 hidden; RLS owner-only progress rows; KVKK export + erasure | Done: alembic 0040_welcome_guide (welcome_progress + welcome_content, PG policy rls_owner); app/services/welcome.py + welcome_hints.py + api/v1/welcome.py; kvkk.py export file welcome_guide + erase count; tests test_wg_01_*, test_wg_02_signals, test_wg_03_admin; frontend = WG-04..08 (WG-F) | welcome guide (WG-B, WG-01..03) | [`test_wg_01_welcome.py`](../smartsched/backend/tests/test_wg_01_welcome.py) |
+| Voice input for the AI fields: a clip of at most 120 s is transcribed by the cloud speech model the admins chose (OpenAI gpt-transcribe / gpt-4o(-mini)-transcribe / whisper, Azure OpenAI, Azure AI Speech fast transcription, Gemini audio input, Google Cloud STT Chirp 3 EU, Deepgram EU) and returned to the person for review; on send the unchanged text pipeline runs (guard, injection check, redaction, limits); KVKK consent 'voice', a transfer record per provider, audio never stored | Backend only: app/ai/voice/**, POST /ai/voice/transcribe + GET /ai/voice/status (raw body, memory only); mic UI is VO-06/08 (frontend lane) | VO-01, VO-03, VO-10 | [`test_vo_03_transcribe.py`](../smartsched/backend/tests/ai/test_vo_03_transcribe.py) |
+| Voice metering and limits: audio seconds and modality per AI usage row, per-minute prices (table + admin prices), 10 min/day and 100 min/month per person by default, raisable per role or person, org monthly audio budget, audio minutes in the admin reports and in my usage | Backend only: alembic 0042_ai_usage_audio; app/services/ai_usage.py reserve_audio | VO-02 | [`test_vo_02_metering.py`](../smartsched/backend/tests/ai/test_vo_02_metering.py) |
+| Voice administration shared by every admin: speech capabilities, regions and retention notes per provider, model sync tagged text / speech, voice route with fallback that accepts only speech models, a test call with a bundled 5 s Turkish clip, voice settings (on/off, language, clip length, vocabulary, live captions, prices) audited, microphone allowed for our own origin at the edge | Backend only: GET/PUT /ai/admin/voice; /admin/ai voice UI is VO-07 (frontend lane); Permissions-Policy microphone=(self) in nginx + Caddy | VO-04, VO-05 | [`test_vo_04_admin.py`](../smartsched/backend/tests/ai/test_vo_04_admin.py) |
+| Invite sheet e-mail switch on /admin/users (RF-03): 'Davet e-postası gönder' on by default when SMTP is set up and sends send_email; without SMTP 'E-posta ayarlanmadı' with a link to /admin/email; sent / failed toast | Done: GET /auth/sso/admin/invite-mail (setup.users) -> {configured}; components/admin/users-admin-identity.tsx | real-not-fake (RF-1) | [`rf1-invite-mail.test.tsx`](../smartsched/frontend/src/components/admin/rf1-invite-mail.test.tsx) |
+| Two-step sign-in and passkeys (backend): authenticator app (stdlib RFC 6238, ±1 step, replay refused, secret Fernet-encrypted), ten single-use argon2id recovery codes shown once, sign-in challenge step (signed single-use token, 5 tries, lockout 5 → 15 min doubling), passkeys via py_webauthn 3.0.1 as second factor and passkey-only sign-in (UV required) with RP ID = public host, trusted devices 0/7/30 days, organisation policy off / optional / required_for_roles with grace and setup token, 10-minute re-auth window, password minimum 12 (8 with 2FA); SSO-only accounts get no local factor; admin MFA reset (reason + identity check, audited, e-mailed) and password-reset link by e-mail (local accounts only, token never shown); nine security e-mails | Done: alembic 0043_mfa (5 tables, PG rls_owner); app/core/totp.py, app/models/mfa.py, app/services/mfa.py + passkeys.py, app/api/v1/mfa.py; auth.py login gate; tests test_au_b_{totp,mfa_api,passkeys,admin,ux_asks,migration}; frontend = AUX lane | sign-in, 2FA and passkeys (AU-B, AU-01..14) | [`test_au_b_mfa_api.py`](../smartsched/backend/tests/test_au_b_mfa_api.py) |
 
 <!-- /AUTO:status -->
 
@@ -165,21 +177,22 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-267 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 238 · stopped 11 · superseded 7.
+311 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 281 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
 | `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
-| `Mobile optimiser B` | frontend-engineer | 2026-10-17 19:56 |
-| `CAL-B` | backend-engineer | 2026-10-17 21:54 |
-| `Security follow-ups from W3-SEC` | general-purpose | 2026-10-17 22:17 |
-| `Audit` | strict-reviewer | 2026-10-17 22:45 |
-| `WG-B` | backend-engineer | 2026-10-17 22:58 |
 | `WG-F` | frontend-engineer | 2026-10-17 22:58 |
 | `AS-B` | backend-engineer | 2026-10-17 23:01 |
-| `Charts phase 2` | design-pro | 2026-10-17 23:12 |
-| `Helper UX design (generative UI)` | design-pro | 2026-10-17 23:12 |
-| `Helper architecture + AI governance` | general-purpose | 2026-10-17 23:12 |
+| `VO-F` | frontend-engineer | 2026-10-17 23:16 |
+| `HB-A` | ai-engineer | 2026-10-17 23:28 |
+| `AUX-F` | frontend-engineer | 2026-10-18 00:04 |
+| `AS-S` | solver-engineer | 2026-10-18 07:56 |
+| `HB-B` | ai-engineer | 2026-10-18 07:56 |
+| `HB-A resume` | ai-engineer | 2026-10-18 08:18 |
+| `HB-B resume` | ai-engineer | 2026-10-18 08:28 |
+| `AS-F` | frontend-engineer | 2026-10-18 08:50 |
+| `E2E lane` | general-purpose | 2026-10-18 08:59 |
 
 <!-- /AUTO:agents -->
 
@@ -246,7 +259,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **339 ticked · 430 open** checkboxes in 95 sections (91 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **409 ticked · 438 open** checkboxes in 100 sections (96 with open items).
 
 <details><summary>Per section</summary>
 
@@ -341,12 +354,17 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Wave 3b — W3-MAIL (2026-10-17) | 5 | 1 |
 | Wave 3 — W3-SLOT (2026-10-17) | 7 | 5 |
 | Wave 3b — W3-HUB (2026-10-17) | 4 | 2 |
-| Calendar export & sync for academicians (owner request 2026-10-17) | 0 | 12 |
+| Calendar export & sync for academicians (owner request 2026-10-17) | 7 | 6 |
 | Wave 3b — W3-IDP identity providers (2026-10-17) | 5 | 1 |
-| Welcome guide per role (owner request 2026-10-17) | 0 | 11 |
-| Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 0 | 20 |
-| Voice for AI features (owner request 2026-10-17) | 0 | 13 |
-| Charts & telemetry views (owner request 2026-10-17) | 0 | 12 |
+| Welcome guide per role (owner request 2026-10-17) | 3 | 8 |
+| Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 14 | 7 |
+| Voice for AI features (owner request 2026-10-17) | 5 | 8 |
+| Charts & telemetry views (owner request 2026-10-17) | 7 | 5 |
+| Real-not-fake & admin editability (owner request 2026-10-17; audit… | 5 | 7 |
+| AI helper: backend, governance, local models (owner request 2026-10-17) | 12 | 8 |
+| AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 0 | 14 |
+| Sign-in, 2FA and passkeys (owner request 2026-10-18) — UX | 0 | 12 |
+| Sign-in, 2FA and passkeys (owner request 2026-10-18) — backend | 17 | 1 |
 
 </details>
 

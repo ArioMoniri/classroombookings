@@ -20,7 +20,12 @@ export function OverviewTab({ go }: { go: (tab: string) => void }) {
   const providers = useAiProviders();
   const users = useAiUsage("user");
   const refusals = useAiRefusals();
-  if (summary.isLoading) return <Loading />;
+  if (summary.isLoading) return (
+      // mobile-b phase 2 (CLS 0.74 / 0.57 at 390): the tab's cards fill the screen; hold that height while they load
+      <div className="min-h-[70dvh]" aria-busy="true" data-testid="ai-overview-loading">
+        <Loading />
+      </div>
+    );
   if (!summary.data) return <Alert tone="error">{errorMessage(summary.error, locale, t("aiAdmin.error.load"))}</Alert>;
   const org = summary.data.org;
   const blocked = summary.data.by_feature.reduce((a, r) => a + r.refused, 0);

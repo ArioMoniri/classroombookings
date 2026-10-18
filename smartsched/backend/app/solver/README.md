@@ -114,13 +114,31 @@ Weighted sum of penalty terms. `weight = base_weight(name) × Constraint.weight`
 (`Constraint.params["learned"]`) `learned_room_preference` 5 / `learned_building_preference` 2 (policy Q7:
 learned < explicit), `stability_room` 20,
 `stability_time` 30, `exam_gap` 10, `max_exams_per_day` 10, `day_window` 5,
-`evening_programs_in_buildings` 5, and 20–50 for the *softened* structural rules). The reported
+`evening_programs_in_buildings` 5, `peak_smoothing` 0 = off (see below), and 20–50 for the *softened*
+structural rules). The reported
 `objective_breakdown` and both scores are computed by `scoring.evaluate` on the extracted
 assignments, never read back from CP-SAT, so `solve()` and `validate()` agree by construction
 (`stats["objective_value"] == stats["evaluated_penalty"]` is asserted in the tests).
 
 `hard_score` = 100 when there is no hard violation, else `100 × (1 − violated events / events)`;
 `soft_score` = `100 × (1 − penalty / worst-case penalty)` where each term reports its own bound.
+
+### Peak smoothing (`constraints/peak_smoothing.py`, AS-08)
+
+Opt-in soft rule, never hard (an explicit hard copy is softened with a warning). A cell is (day, period, room
+group) per teaching week; its allowance is `floor(rooms_in_group × threshold_pct / 100)` (default 85 %, the
+season profile's `peak_threshold_pct`). Penalty per room-period-week above the allowance, counted only over
+**flexible** events (day or start left open by the request and not locked):
+`excess = max(0, min(flex, flex + fixed − allowance))`, so a cell that fixed classes alone overfill costs nothing
+and fixed times never move. Groups: `"*"` plus `tag:<T>` for each tag a flexible event requires (params
+`groups`: `"building:*"`, `"building:C"`, `"tag:PC"`, `"room:A101"`; `cells`: only the listed (day, period,
+group) cells, e.g. from `GET /analytics/peaks`). Weight `peak_smoothing` defaults to 0: the implicit rule is then
+not in the model at all (`off_at_zero_weight`), so a run without a weight is byte-identical to one before AS-08.
+`evaluate`, `repair.score` and the greedy warm start (`GreedyPeaks`) score it the same way. Backtest B8
+(`services/backtest_solver.py`, Bahar week 3 Mon–Tue with the unlocked classes free to take either day,
+weight 10, groups `*`, `building:*`, `tag:PC`): hard 100 and 294 / 294 placed both ways, 0 classes lost, 0 fixed
+classes moved, load above the threshold 9 → 5 room-periods (full week 3: 25 → 12, 685 / 685 placed, 400 s per
+solve, so not in the unit suite).
 
 ### Shared exam rooms (`Event.share_room`)
 

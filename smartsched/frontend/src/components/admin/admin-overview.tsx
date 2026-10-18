@@ -1,16 +1,20 @@
 "use client";
 /** /admin — the CRBS setup dashboard: a checklist of what bookings need, then the screens by group. */
+import { tourAnchorFor } from "@/components/welcome/tour/anchors";
 import { CheckCircle2, ChevronRight, Circle, Download } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAppVersion, useSetupRequirements, useSetupStatus } from "@/lib/api/crbs";
 import { adminSectionsFor, usePermissions, type AdminSection } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
-import { Loading, PageTitle, SectionTitle } from "./kit";
+import { PageTitle, SectionTitle } from "./kit";
 import { RequirementsList } from "./requirements-list";
 import { wave1SectionsFor } from "./wave1-sections";
 
+/** WG-05: the admin tour's anchors on the setup groups */
+const TOUR_GROUP: Record<AdminSection["group"], string> = { people: "admin-group-users", rooms: "admin-group-resources", calendar: "admin-group-timetable", organisation: "admin-group-organisation" };
 const GROUPS: { id: AdminSection["group"]; key: MessageKey }[] = [
   { id: "people", key: "crbs.admin.group.people" },
   { id: "rooms", key: "crbs.admin.group.rooms" },
@@ -20,7 +24,7 @@ const GROUPS: { id: AdminSection["group"]; key: MessageKey }[] = [
 
 export function AdminOverview() {
   const { t, n } = useI18n();
-  const { perms, can } = usePermissions();
+  const { perms, can, loading } = usePermissions();
   const status = useSetupStatus();
   // the installer's server checks stay visible after setup (they list versions and paths: setup.settings only)
   const showReqs = can("setup.settings");
@@ -43,6 +47,19 @@ export function AdminOverview() {
       ]
     : [];
   const done = checks.filter((x) => x.done).length;
+  // mobile-b phase 2 (CLS 0.40 at 390): the section list and the server checks depend on the permissions; until
+  // they are known, one viewport-tall placeholder stands under the title instead of sections appearing one by one
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-8">
+        <PageTitle title={t("crbs.admin.title")} subtitle={t("crbs.admin.lead")} />
+        <div className="min-h-[80dvh] space-y-3" aria-busy="true" data-testid="admin-overview-loading">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-[22rem] w-full rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-8">
       <PageTitle title={t("crbs.admin.title")} subtitle={t("crbs.admin.lead")} />
@@ -50,7 +67,14 @@ export function AdminOverview() {
         <SectionTitle id="checklist">{t("crbs.setup.checklist", { done, total: checks.length })}</SectionTitle>
         <Card className="py-0">
           {status.isLoading ? (
-            <Loading className="px-4" />
+            // the eight checklist rows, at their own height (the list replaced a one-line spinner)
+            <ul aria-busy="true" data-testid="setup-checklist-loading">
+              {Array.from({ length: 8 }, (_, i) => (
+                <li key={i} className="flex min-h-11 items-center px-4 py-2.5 not-last:edge-hairline-b pointer-fine:min-h-0">
+                  <Skeleton className="h-5 w-full" />
+                </li>
+              ))}
+            </ul>
           ) : (
             <ul>
               {checks.map((x) => (
@@ -74,20 +98,21 @@ export function AdminOverview() {
       {showReqs ? (
         <section aria-labelledby="requirements">
           <SectionTitle id="requirements">{t("crbs.setup.req.title")}</SectionTitle>
-          <RequirementsList query={reqs} />
+          {/* the server checks are a dozen rows: keep their place while they load (CLS) */}
+          {reqs.isLoading ? <Skeleton className="h-[28rem] w-full rounded-2xl" data-testid="setup-requirements-loading" /> : <RequirementsList query={reqs} />}
         </section>
       ) : null}
       {GROUPS.map((g) => {
         const items = sections.filter((s) => s.group === g.id);
         if (!items.length) return null;
         return (
-          <section key={g.id} aria-labelledby={`grp-${g.id}`}>
+          <section key={g.id} aria-labelledby={`grp-${g.id}`} data-tour={TOUR_GROUP[g.id]}>
             <SectionTitle id={`grp-${g.id}`}>{t(g.key)}</SectionTitle>
             <Card variant="plain" className="py-0">
               <ul>
                 {items.map((s) => (
                   <li key={s.href} className="not-last:edge-hairline-b">
-                    <Link href={s.href} className="flex items-center gap-3 px-4 py-3 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
+                    <Link href={s.href} data-tour={tourAnchorFor(s.href)} className="flex items-center gap-3 px-4 py-3 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus)">
                       <span className="min-w-0 flex-1">
                         <span className="block type-headline text-label-1">{t(s.labelKey)}</span>
                         <span className="block type-footnote text-label-2">{t(s.descriptionKey)}</span>

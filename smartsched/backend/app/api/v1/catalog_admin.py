@@ -12,6 +12,7 @@ Route                                                      Permission           
 ``POST /sections/{id}/pattern``                            planning.edit               the weekly expander
 ``POST /requests/meetings``, ``DELETE /requests/meetings/{id}``  planning.edit         DELETE archives
 ``POST /requests/exams``, ``DELETE /requests/exams/{id}``  planning.edit               DELETE archives
+``GET /catalog/usage/{entity}/{id}``                       planning.view               RF-05: uses, last change
 =========================================================  ==========================  =====================
 
 ``DELETE ...?purge=true`` hard-deletes a hand-made (``MAN:``) section / meeting / exam that no run uses. The
@@ -84,6 +85,19 @@ async def _run[T](db: DB, op: Awaitable[T]) -> T:
         await db.rollback()
         raise HTTPException(409, "the row was created or changed by someone else meanwhile; reload and retry") from exc
     return result
+
+
+# --------------------------------------------------------------------------- usage + last change (RF-05)
+
+
+@router.get("/catalog/usage/{entity}/{obj_id}")
+async def catalog_usage(entity: str, obj_id: int, db: DB, _: Reader) -> dict[str, Any]:
+    """The /admin/catalog edit sheet: what a delete would touch (``uses``, ``blocked``, ``action``) and "Son
+    değişiklik" (``last_change``: actor, at, action) of an instructor, course, faculty, programme or section."""
+    try:
+        return await svc.usage(db, entity, obj_id)
+    except svc.CatalogError as exc:
+        raise HTTPException(exc.status, exc.detail) from exc
 
 
 # --------------------------------------------------------------------------- faculties

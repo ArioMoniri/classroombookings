@@ -30,19 +30,24 @@ function useBackendToday(kind: "room" | "building", code: string, date: string |
   return date ? (q.data?.date ?? null) : (answered ?? null);
 }
 
+/** mobile-a fix 2: the loading state holds most of a screen, so the footer does not jump when the list arrives */
+function KioskLoading() {
+  return <Loading className="min-h-[60svh] items-start" />;
+}
+
 export function PublicIndexView() {
   const { t } = useI18n();
   const q = usePublicIndex();
   if (q.isError && isNotFound(q.error)) return <PublicNotFound />;
   return (
-    <KioskFrame title={t("publicSchedule.indexTitle")} subtitle={t("publicSchedule.indexLead")} today={null} date={null} onDate={() => undefined} updatedAt={q.dataUpdatedAt || undefined}>
-      {q.isLoading ? <Loading /> : null}
+    <KioskFrame title={t("publicSchedule.indexTitle")} subtitle={t("publicSchedule.indexLead")} today={null} date={null} onDate={() => undefined} dateNav={false} updatedAt={q.dataUpdatedAt || undefined}>
+      {q.isLoading ? <KioskLoading /> : null}
       {q.isError ? <PublicError error={q.error} /> : null}
       {q.data && !q.data.buildings.length ? <p className="type-title-3 font-normal text-label-2">{t("publicSchedule.noRooms")}</p> : null}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="public-index">
         {q.data?.buildings.map((b) => (
           <Card key={b.code} className="gap-3 px-4 py-4">
-            <Link href={`/public/buildings/${encodeURIComponent(b.code)}`} className="type-title-2 text-label-1 underline-offset-4 hover:underline" data-testid={`public-building-${b.code}`}>
+            <Link href={`/public/buildings/${encodeURIComponent(b.code)}`} className="inline-flex min-h-11 items-center self-start type-title-2 text-label-1 underline-offset-4 hover:underline" data-testid={`public-building-${b.code}`}>
               {b.name}
             </Link>
             <ul className="flex flex-wrap gap-2">
@@ -83,7 +88,7 @@ export function PublicRoomView({ code }: { code: string }) {
       onDate={setDate}
       updatedAt={q.dataUpdatedAt || undefined}
     >
-      {q.isLoading ? <Loading /> : null}
+      {q.isLoading ? <KioskLoading /> : null}
       {q.isError ? <PublicError error={q.error} /> : null}
       {d ? (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
@@ -117,7 +122,7 @@ export function PublicBuildingView({ code }: { code: string }) {
   const lbl = (it: PublicItem) => (locale === "tr" ? it.label.tr : it.label.en);
   return (
     <KioskFrame title={d?.building.name ?? code} back={{ href: "/public", label: t("publicSchedule.allRooms") }} today={today} date={date} onDate={setDate} updatedAt={q.dataUpdatedAt || undefined}>
-      {q.isLoading ? <Loading /> : null}
+      {q.isLoading ? <KioskLoading /> : null}
       {q.isError ? <PublicError error={q.error} /> : null}
       {d && !d.rooms.length ? <p className="type-title-3 font-normal text-label-2">{t("publicSchedule.noRooms")}</p> : null}
       <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" data-testid="public-building-rooms">
@@ -125,7 +130,8 @@ export function PublicBuildingView({ code }: { code: string }) {
           const now = live ? currentItem(r.items, clock.hhmm) : null;
           const next = live ? nextItem(r.items, clock.hhmm) : null;
           return (
-            <li key={r.code}>
+            // mobile-a fix 5: a building can list 40+ room cards; the ones off screen skip layout and paint
+            <li key={r.code} className="[content-visibility:auto] [contain-intrinsic-size:auto_11rem]">
               <Card className="h-full gap-3 px-4 py-4" data-testid={`public-room-${r.code}`}>
                 <div className="flex items-baseline justify-between gap-2">
                   <Link href={`/public/rooms/${encodeURIComponent(r.code)}${date ? `?date=${date}` : ""}`} className={`relative type-title-2 text-label-1 underline-offset-4 hover:underline ${coarseHitArea}`}>

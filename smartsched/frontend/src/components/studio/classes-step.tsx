@@ -47,7 +47,8 @@ const ROW_H = 44;
 function useIsNarrow(): boolean {
   const [narrow, setNarrow] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
+    // mobile-b phase 2: touch tablets below lg get the cards too (the 768 table was clipped, 22 px icons)
+    const mq = window.matchMedia("(max-width: 767px), (pointer: coarse) and (max-width: 1023px)");
     const on = () => setNarrow(mq.matches);
     on();
     mq.addEventListener("change", on);
@@ -452,8 +453,9 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
       ) : null}
 
       {classesLoading ? (
-        <div className="space-y-1" aria-busy="true" aria-label={t("common.loading")}>
-          {Array.from({ length: 12 }, (_, i) => (
+        // mobile-b phase 2 (CLS 0.21 phone / 0.98 tablet): the placeholder is as tall as the list that replaces it
+        <div className={cn("space-y-1 overflow-hidden", narrow ? "h-[60dvh]" : "h-[62dvh]")} aria-busy="true" aria-label={t("common.loading")} data-testid="classes-loading">
+          {Array.from({ length: 16 }, (_, i) => (
             <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
@@ -616,11 +618,17 @@ export function ClassesStep({ onMakeRule }: { onMakeRule: (eventIds: number[]) =
       </AnimatePresence>
 
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sm" data-testid="filters-sheet">
+        {/* mobile-b phase 2: a bottom sheet (MOBILE.md M-04) with one action, like the timetable filters */}
+        <SheetContent side="bottom" className="flex max-h-[88dvh] flex-col p-0 sm:mx-auto sm:max-w-[40rem]" data-testid="filters-sheet">
           <SheetHeader>
             <SheetTitle>{t("common.filter")}</SheetTitle>
           </SheetHeader>
-          <div className="grid gap-3 px-4 pb-4 [&>span]:w-full">{filterControls}</div>
+          <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto px-4 pb-4 [&>span]:w-full">{filterControls}</div>
+          <div className="shrink-0 bg-(--mat-thick-solid) px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] hairline-t">
+            <Button className="min-h-11 w-full" onClick={() => setFiltersOpen(false)} data-testid="filters-apply">
+              {t("classes.showN", { n: shown.length })}
+            </Button>
+          </div>
         </SheetContent>
       </Sheet>
       <Sheet open={changesOpen} onOpenChange={setChangesOpen}>

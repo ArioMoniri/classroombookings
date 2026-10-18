@@ -1,0 +1,1531 @@
+{
+  "$defs": {
+    "AnswerCard": {
+      "additionalProperties": false,
+      "description": "The model's text (plain, cleaned by the output guard), or an index sentence (``source: index``).",
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{8,32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "lang": {
+          "enum": [
+            "tr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "ai",
+            "index"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 1200,
+          "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+          "title": "Text",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "const": "answer",
+          "default": "answer",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "lang",
+        "source"
+      ],
+      "title": "AnswerCard",
+      "type": "object"
+    },
+    "ChoiceCard": {
+      "additionalProperties": false,
+      "description": "helper.md A2: one ambiguous argument (\"Hangi A 204?\"), 2–5 options; the pick re-asks the action's card.",
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "arg": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Arg",
+          "type": "string"
+        },
+        "args": {
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$": {
+              "anyOf": [
+                {
+                  "maxLength": 400,
+                  "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "title": "Args",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{8,32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "maxItems": 5,
+          "minItems": 2,
+          "title": "Options",
+          "type": "array"
+        },
+        "question": {
+          "$ref": "#/$defs/Txt"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "const": "choice",
+          "default": "choice",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "arg",
+        "question",
+        "options"
+      ],
+      "title": "ChoiceCard",
+      "type": "object"
+    },
+    "Column": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Key",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "date",
+            "time",
+            "room",
+            "person",
+            "status",
+            "number"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/Txt"
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "kind"
+      ],
+      "title": "Column",
+      "type": "object"
+    },
+    "ConfirmCard": {
+      "additionalProperties": false,
+      "description": "The server preview of one write. The card *is* the confirmation (R1); R2 names who is affected. Only the\nbutton confirms (``POST /helper/actions/confirm`` with ``token``); typed text never does.",
+      "properties": {
+        "action": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Action",
+          "type": "string"
+        },
+        "affected": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "args": {
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$": {
+              "anyOf": [
+                {
+                  "maxLength": 400,
+                  "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "title": "Args",
+          "type": "object"
+        },
+        "button": {
+          "$ref": "#/$defs/Txt"
+        },
+        "danger": {
+          "default": false,
+          "title": "Danger",
+          "type": "boolean"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{8,32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "preview": {
+          "items": {
+            "$ref": "#/$defs/PreviewLine"
+          },
+          "maxItems": 8,
+          "title": "Preview",
+          "type": "array"
+        },
+        "risk": {
+          "enum": [
+            "R1",
+            "R2"
+          ],
+          "title": "Risk",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "token": {
+          "maxLength": 600,
+          "pattern": "^[A-Za-z0-9_\\-.]+$",
+          "title": "Token",
+          "type": "string"
+        },
+        "type": {
+          "const": "confirm",
+          "default": "confirm",
+          "title": "Type",
+          "type": "string"
+        },
+        "undoable": {
+          "title": "Undoable",
+          "type": "boolean"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        },
+        "warnings": {
+          "items": {
+            "$ref": "#/$defs/Txt"
+          },
+          "maxItems": 4,
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "action",
+        "risk",
+        "token",
+        "expires_at",
+        "preview",
+        "button",
+        "undoable"
+      ],
+      "title": "ConfirmCard",
+      "type": "object"
+    },
+    "Entity": {
+      "additionalProperties": false,
+      "properties": {
+        "feature_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Feature Id"
+        },
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "booking",
+            "approval_request",
+            "note"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "title": "Entity",
+      "type": "object"
+    },
+    "ErrorCard": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "code": {
+          "pattern": "^[a-z_]{2,48}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "fallback": {
+          "items": {
+            "$ref": "#/$defs/NavCard"
+          },
+          "maxItems": 3,
+          "title": "Fallback",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{8,32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "message": {
+          "$ref": "#/$defs/Txt"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "const": "error",
+          "default": "error",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "code",
+        "message"
+      ],
+      "title": "ErrorCard",
+      "type": "object"
+    },
+    "Fact": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/Txt"
+        },
+        "status": {
+          "default": "info",
+          "enum": [
+            "ok",
+            "warn",
+            "bad",
+            "info"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/Txt"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "title": "Fact",
+      "type": "object"
+    },
+    "FactsCard": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{8,32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/Fact"
+          },
+          "maxItems": 8,
+          "title": "Items",
+          "type": "array"
+        },
+        "nav": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nav"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "const": "facts",
+          "default": "facts",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "items"
+      ],
+      "title": "FactsCard",
+      "type": "object"
+    },
+    "FollowUp": {
+      "additionalProperties": false,
+      "description": "helper.md A7: ≤ 2 chips after a result, an action with partial args or a feature to open.",
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "args": {
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$": {
+              "anyOf": [
+                {
+                  "maxLength": 400,
+                  "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "title": "Args",
+          "type": "object"
+        },
+        "feature_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Feature Id"
+        },
+        "label": {
+          "$ref": "#/$defs/Txt"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "FollowUp",
+      "type": "object"
+    },
+    "FormCard": {
+      "additionalProperties": false,
+      "description": "Missing or ambiguous arguments of a write (or \"Değiştir\"); submitting asks the action's card again.",
+      "properties": {
+        "action": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Action",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FormField"
+          },
+          "maxItems": 7,
+          "title": "Fields",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{8,32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "missing": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+            "type": "string"
+          },
+          "title": "Missing",
+          "type": "array"
+        },
+        "risk": {
+          "enum": [
+            "R1",
+            "R2"
+          ],
+          "title": "Risk",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "const": "form",
+          "default": "form",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "action",
+        "fields",
+        "risk"
+      ],
+      "title": "FormCard",
+      "type": "object"
+    },
+    "FormField": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "text",
+            "number",
+            "date",
+            "time",
+            "period",
+            "room",
+            "select",
+            "toggle",
+            "textarea"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/Txt"
+        },
+        "max_length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Length"
+        },
+        "name": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "maxItems": 12,
+          "title": "Options",
+          "type": "array"
+        },
+        "options_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "rooms",
+                "periods",
+                "reasons"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Options Source"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maxLength": 400,
+              "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "kind",
+        "required"
+      ],
+      "title": "FormField",
+      "type": "object"
+    },
+    "LimitCard": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "code": {
+          "pattern": "^[a-z_]{2,48}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "fallback": {
+          "items": {
+            "$ref": "#/$defs/NavCard"
+          },
+          "maxItems": 3,
+          "title": "Fallback",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{8,32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "message": {
+          "$ref": "#/$defs/Txt"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "const": "limit",
+          "default": "limit",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "code",
+        "message"
+      ],
+      "title": "LimitCard",
+      "type": "object"
+    },
+    "ListCard": {
+      "additionalProperties": false,
+      "description": "≤ 5 rows by default (helper.md A8; the wire allows 20), the rest on the page through ``more``.",
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/Column"
+          },
+          "maxItems": 6,
+          "title": "Columns",
+          "type": "array"
+        },
+        "empty": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{8,32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "more": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "More"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/Row"
+          },
+          "maxItems": 20,
+          "title": "Rows",
+          "type": "array"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        },
+        "type": {
+          "const": "list",
+          "default": "list",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "columns",
+        "rows",
+        "total"
+      ],
+      "title": "ListCard",
+      "type": "object"
+    },
+    "NavCard": {
+      "additionalProperties": false,
+      "description": "\"Nerede?\": a feature-index entry. The client resolves ``feature_id`` → href; the server sends no URL.",
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "actions": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+            "type": "string"
+          },
+          "maxItems": 4,
+          "title": "Actions",
+          "type": "array"
+        },
+        "anchor": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9\\-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Anchor"
+        },
+        "feature_id": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Feature Id",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{8,32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "page",
+            "tab",
+            "setting",
+            "control"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "path": {
+          "$ref": "#/$defs/Texts"
+        },
+        "steps": {
+          "$ref": "#/$defs/Texts"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "const": "nav",
+          "default": "nav",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "feature_id",
+        "kind",
+        "path"
+      ],
+      "title": "NavCard",
+      "type": "object"
+    },
+    "Option": {
+      "additionalProperties": false,
+      "properties": {
+        "hint": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "label": {
+          "$ref": "#/$defs/Txt"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_\\-:.]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "title": "Option",
+      "type": "object"
+    },
+    "PreviewLine": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/Txt"
+        },
+        "value": {
+          "$ref": "#/$defs/Txt"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "title": "PreviewLine",
+      "type": "object"
+    },
+    "RefusalCard": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "code": {
+          "pattern": "^[a-z_]{2,48}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "fallback": {
+          "items": {
+            "$ref": "#/$defs/NavCard"
+          },
+          "maxItems": 3,
+          "title": "Fallback",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{8,32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "message": {
+          "$ref": "#/$defs/Txt"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "const": "refusal",
+          "default": "refusal",
+          "title": "Type",
+          "type": "string"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "code",
+        "message"
+      ],
+      "title": "RefusalCard",
+      "type": "object"
+    },
+    "ResultCard": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Action",
+          "type": "string"
+        },
+        "entity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Entity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "follow_ups": {
+          "items": {
+            "$ref": "#/$defs/FollowUp"
+          },
+          "maxItems": 2,
+          "title": "Follow Ups",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{8,32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "message": {
+          "$ref": "#/$defs/Txt"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Txt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "const": "result",
+          "default": "result",
+          "title": "Type",
+          "type": "string"
+        },
+        "undo_expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Undo Expires At"
+        },
+        "undo_token": {
+          "anyOf": [
+            {
+              "maxLength": 600,
+              "pattern": "^[A-Za-z0-9_\\-.]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Undo Token"
+        },
+        "v": {
+          "const": 1,
+          "default": 1,
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "action",
+        "ok",
+        "message"
+      ],
+      "title": "ResultCard",
+      "type": "object"
+    },
+    "Row": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/RowAction"
+          },
+          "maxItems": 3,
+          "title": "Actions",
+          "type": "array"
+        },
+        "cells": {
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$": {
+              "anyOf": [
+                {
+                  "maxLength": 400,
+                  "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/Txt"
+                }
+              ]
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "title": "Cells",
+          "type": "object"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_\\-:]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "cells"
+      ],
+      "title": "Row",
+      "type": "object"
+    },
+    "RowAction": {
+      "additionalProperties": false,
+      "description": "A per-row button: asks ``POST /helper/actions/{action}/card`` with ``args`` (no model call).",
+      "properties": {
+        "action": {
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "title": "Action",
+          "type": "string"
+        },
+        "args": {
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$": {
+              "anyOf": [
+                {
+                  "maxLength": 400,
+                  "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "title": "Args",
+          "type": "object"
+        },
+        "danger": {
+          "default": false,
+          "title": "Danger",
+          "type": "boolean"
+        },
+        "label": {
+          "$ref": "#/$defs/Txt"
+        }
+      },
+      "required": [
+        "action",
+        "label"
+      ],
+      "title": "RowAction",
+      "type": "object"
+    },
+    "Texts": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "items": {
+            "maxLength": 400,
+            "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "En",
+          "type": "array"
+        },
+        "tr": {
+          "items": {
+            "maxLength": 400,
+            "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Tr",
+          "type": "array"
+        }
+      },
+      "title": "Texts",
+      "type": "object"
+    },
+    "Txt": {
+      "additionalProperties": false,
+      "description": "One person-facing text in both languages (Turkish first).",
+      "properties": {
+        "en": {
+          "maxLength": 400,
+          "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+          "title": "En",
+          "type": "string"
+        },
+        "tr": {
+          "maxLength": 400,
+          "pattern": "^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$",
+          "title": "Tr",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tr",
+        "en"
+      ],
+      "title": "Txt",
+      "type": "object"
+    }
+  },
+  "$id": "helper.card.v1",
+  "discriminator": {
+    "mapping": {
+      "answer": "#/$defs/AnswerCard",
+      "choice": "#/$defs/ChoiceCard",
+      "confirm": "#/$defs/ConfirmCard",
+      "error": "#/$defs/ErrorCard",
+      "facts": "#/$defs/FactsCard",
+      "form": "#/$defs/FormCard",
+      "limit": "#/$defs/LimitCard",
+      "list": "#/$defs/ListCard",
+      "nav": "#/$defs/NavCard",
+      "refusal": "#/$defs/RefusalCard",
+      "result": "#/$defs/ResultCard"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/AnswerCard"
+    },
+    {
+      "$ref": "#/$defs/NavCard"
+    },
+    {
+      "$ref": "#/$defs/ListCard"
+    },
+    {
+      "$ref": "#/$defs/FactsCard"
+    },
+    {
+      "$ref": "#/$defs/ChoiceCard"
+    },
+    {
+      "$ref": "#/$defs/FormCard"
+    },
+    {
+      "$ref": "#/$defs/ConfirmCard"
+    },
+    {
+      "$ref": "#/$defs/ResultCard"
+    },
+    {
+      "$ref": "#/$defs/LimitCard"
+    },
+    {
+      "$ref": "#/$defs/RefusalCard"
+    },
+    {
+      "$ref": "#/$defs/ErrorCard"
+    }
+  ],
+  "title": "SmartSched helper card v1"
+}

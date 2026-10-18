@@ -62,7 +62,7 @@ export function useLongDate() {
   };
 }
 
-export function KioskFrame({ title, subtitle, back, today, date, onDate, updatedAt, children }: { title: string; subtitle?: ReactNode; back?: { href: string; label: string }; today: string | null; date: string | null; onDate: (d: string | null) => void; updatedAt?: number; children: ReactNode }) {
+export function KioskFrame({ title, subtitle, back, today, date, onDate, updatedAt, dateNav = true, children }: { title: string; subtitle?: ReactNode; back?: { href: string; label: string }; today: string | null; date: string | null; onDate: (d: string | null) => void; updatedAt?: number; /** false on /public (no day) */ dateNav?: boolean; children: ReactNode }) {
   const { t, locale } = useI18n();
   const clock = useClock();
   const long = useLongDate();
@@ -76,7 +76,7 @@ export function KioskFrame({ title, subtitle, back, today, date, onDate, updated
   };
   const updated = updatedAt ? new Intl.DateTimeFormat(intlLocale(locale), { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" }).format(new Date(updatedAt)) : null;
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[1800px] flex-col gap-5 px-[max(1rem,env(safe-area-inset-left))] pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 sm:pt-6" data-testid="kiosk">
+    <div className="mx-auto flex min-h-dvh w-full max-w-[1800px] flex-col gap-5 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pr-[max(2rem,env(safe-area-inset-right))] sm:pl-[max(2rem,env(safe-area-inset-left))] sm:pt-6" data-testid="kiosk">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           {back ? (
@@ -98,6 +98,7 @@ export function KioskFrame({ title, subtitle, back, today, date, onDate, updated
           <LocaleToggle />
         </div>
       </header>
+      {/* mobile-a fix 2: until the backend's today arrives, a placeholder holds the row (it pushed the list down: CLS 0.77) */}
       {shown && win ? (
         <nav className="flex flex-wrap items-center gap-2" aria-label={t("publicSchedule.dateNav")}>
           <IconButton label={t("publicSchedule.prevDay")} variant="outline" onClick={() => go(-1)} disabled={addDays(shown, -1) < win.min} data-testid="kiosk-prev">
@@ -112,10 +113,14 @@ export function KioskFrame({ title, subtitle, back, today, date, onDate, updated
               {t("publicSchedule.today")}
             </Button>
           ) : null}
-          <p className="type-title-3 font-medium text-label-1 sm:ml-2" data-testid="kiosk-long-date">
+          <p className="type-title-3 font-medium text-label-1 max-sm:basis-full sm:ml-2" data-testid="kiosk-long-date">
             {long(shown)}
           </p>
         </nav>
+      ) : dateNav ? (
+        // phones: the long date is its own line under the arrows, so the placeholder holds both lines (it held one and the
+        // wrapped date still pushed the list down)
+        <div aria-hidden className="min-h-11 max-sm:min-h-[calc(3.25rem+var(--text-title-3)*var(--text-title-3-lh))]" data-testid="kiosk-nav-placeholder" />
       ) : null}
       <main className="flex-1">{children}</main>
       <footer className="flex flex-wrap items-center justify-between gap-2 type-footnote text-label-3">

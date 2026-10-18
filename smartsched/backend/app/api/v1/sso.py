@@ -99,12 +99,18 @@ async def exchange(body: ExchangeIn, db: DB) -> SsoTokenOut:
     got = await svc.exchange_ticket(db, body.ticket)
     if got is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid or expired sign-in ticket")
+    from app.services import mfa  # AU-16: the step-up notice when the provider asserted no MFA (shown once)
+
+    notice = await mfa.pop_idp_notice(db, got.user)
+    if notice:
+        await db.commit()
     return SsoTokenOut(
         access_token=user_token(got.user),
         expires_in=get_settings().jwt_expire_minutes * 60,
         next=got.next,
         welcome=got.welcome,
         inviter_name=got.inviter_name,
+        **notice,
     )
 
 
@@ -276,6 +282,15 @@ async def set_instructor(user_id: int, body: InstructorIn, db: DB, me: UsersAdmi
     return out
 
 
+@router.get("/admin/invite-mail")
+async def invite_mail(db: DB, _: UsersAdmin) -> dict[str, bool]:
+    """RF-03: whether the invite sheet can e-mail the link (SMTP set up in /admin/email); without it the sheet says
+    "E-posta ayarlanmadı" and the administrator copies the link."""
+    from app.services import mail
+
+    return {"configured": bool((await mail.status(db))["configured"])}
+
+
 @router.get("/admin/user-status")
 async def user_status(db: DB, _: UsersAdmin) -> dict[str, dict[str, Any]]:
     """``{user_id: {status, auth_methods, invite, binding_pending, self_signup_at, break_glass, instructor_id}}`` for
@@ -438,6 +453,12 @@ async def test_done(ok: str = Query(default="0", max_length=1)) -> HTMLResponse:
 async def accept_local_invite(token: str, body: LocalPasswordIn, db: DB) -> dict[str, Any]:
     """A local-password invite: the invited person sets the password, then signs in with the form. 404 for an
     unknown / used / expired / non-local invite (one answer: no enumeration)."""
+    from app.services import mfa as _mfa
+
+    try:  # AU-B owner default: a new account's password has at least 12 characters
+        await _mfa.check_password_length(db, None, body.password)
+    except _mfa.MfaError as exc:
+        raise exc.http() from exc
     user = await idp_invites.accept_local(db, token[:256], body.password)
     if user is None:
         raise HTTPException(
@@ -448,8 +469,11 @@ async def accept_local_invite(token: str, body: LocalPasswordIn, db: DB) -> dict
                 "tr": svc.MESSAGES["invite_invalid"]["tr"],
             },
         )
+    from app.services import mfa  # AU-B: accepting the invite signs the person in (same gate as the password step)
+
+    session = await mfa.session_after_password(db, user)
     await db.commit()
-    return {"ok": True, "email": user.email}
+    return {"ok": True, "email": user.email, "session": session}
 
 
 # --------------------------------------------------------------------------------------------------

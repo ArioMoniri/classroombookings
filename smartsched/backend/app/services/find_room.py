@@ -356,7 +356,9 @@ class _SlotPeriods:
         ]
 
 
-async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dict[str, Any]:
+async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, ledger: bool = False) -> dict[str, Any]:
+    """``ledger``: append one aggregate row to the demand ledger (AS-05, ``app.services.demand``; the search screen
+    only: internal re-finds of conflicts and alternatives are not demand)."""
     from app.services import approvals
 
     t0 = _time.perf_counter()
@@ -637,6 +639,10 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery) -> dic
             by_id[a["room_id"]], date.fromisoformat(a["dates"][0]), a["start_period"], a["end_period"]
         )
         a["period_id"] = a["period_ids"][0] if a["period_ids"] else None
+    if ledger:
+        from app.services import demand
+
+        await demand.record_search(info.term.id, open_dates or dates, s0, s1 + dur - 1, q, free_count, sorted(tags))
     return {
         "query_echo": _echo(q),
         "term_id": info.term.id,

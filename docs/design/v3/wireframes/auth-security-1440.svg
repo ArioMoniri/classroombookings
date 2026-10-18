@@ -1,0 +1,177 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1440' height='900' viewBox='0 0 1440 900' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Profil › Giriş ve güvenlik ve 2FA kurulum sayfası, 1440'>
+<title>Profil › Giriş ve güvenlik ve 2FA kurulum sayfası, 1440</title>
+<rect width='1440' height='900' fill='#F4F6F9'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='#FFFFFF' fill-opacity='0.86'/>
+<rect x='12' y='12' width='232' height='876' rx='18' fill='none' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='32' y='48' font-size='16' font-weight='700' fill='#0F172A' text-anchor='start'>SmartSched</text>
+<text x='40' y='101' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezerve et</text>
+<text x='40' y='137' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Rezervasyonlarım</text>
+<text x='40' y='173' font-size='13' font-weight='400' fill='#0F172A' text-anchor='start'>Derslik bul</text>
+<text x='32' y='210' font-size='11' font-weight='600' fill='#64748B' text-anchor='start'>HESAP</text>
+<rect x='24' y='224' width='208' height='32' rx='8' fill='#EFF6FF' fill-opacity='1'/>
+<text x='40' y='245' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Profil</text>
+<text x='276' y='56' font-size='28' font-weight='700' fill='#0F172A' text-anchor='start'>Profil</text>
+<text x='276' y='100' font-size='22' font-weight='700' fill='#0F172A' text-anchor='start'>Giriş ve güvenlik</text>
+<rect x='276' y='118' width='640' height='512' rx='16' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='144' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Parola</text>
+<text x='292' y='164' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Son değişiklik: 2 Eylül 2026</text>
+<rect x='805' y='132' width='95' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='852.5' y='154.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Değiştir</text>
+<line x1='292' y1='182' x2='900' y2='182' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='208' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>İki aşamalı doğrulama</text>
+<text x='292' y='228' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Kapalı · Girişte parolanıza ek olarak telefonunuzdaki bir kod sorulur.</text>
+<rect x='810' y='196' width='90' height='36' rx='18.0' fill='#2563EB' fill-opacity='1'/>
+<text x='855.0' y='218.68' font-size='13' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Aç</text>
+<line x1='292' y1='254' x2='900' y2='254' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='280' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Geçiş anahtarları (passkey)</text>
+<rect x='715' y='268' width='185' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='807.5' y='290.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Geçiş anahtarı ekle</text>
+<rect x='292' y='312' width='24' height='24' rx='6' fill='#E0E7FF' fill-opacity='1'/>
+<circle cx='299' cy='324' r='5' fill='none' stroke='#4338CA' stroke-width='2'/>
+<line x1='304' y1='324' x2='314' y2='324' stroke='#4338CA' stroke-width='2'/>
+<line x1='311' y1='324' x2='311' y2='328' stroke='#4338CA' stroke-width='2'/>
+<text x='328' y='324' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>iCloud Anahtar Zinciri</text>
+<text x='328' y='342' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Eklendi 18 Eki 2026 · Son kullanım 2 saat önce</text>
+<text x='886' y='330' font-size='18' font-weight='700' fill='#0F172A' text-anchor='middle'>⋯</text>
+<rect x='292' y='362' width='24' height='24' rx='6' fill='#E0E7FF' fill-opacity='1'/>
+<circle cx='299' cy='374' r='5' fill='none' stroke='#4338CA' stroke-width='2'/>
+<line x1='304' y1='374' x2='314' y2='374' stroke='#4338CA' stroke-width='2'/>
+<line x1='311' y1='374' x2='311' y2='378' stroke='#4338CA' stroke-width='2'/>
+<text x='328' y='374' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Güvenlik anahtarı</text>
+<text x='328' y='392' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Eklendi 1 Eki 2026 · Hiç kullanılmadı</text>
+<rect x='478' y='360' width='141' height='20' rx='10' fill='#F1F5F9' fill-opacity='1'/>
+<text x='548.5' y='374' font-size='11' font-weight='600' fill='#475569' text-anchor='middle'>Yalnızca bu cihazda</text>
+<text x='886' y='380' font-size='18' font-weight='700' fill='#0F172A' text-anchor='middle'>⋯</text>
+<line x1='292' y1='424' x2='900' y2='424' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='450' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Oturumlar ve cihazlar</text>
+<rect x='657' y='438' width='243' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='778.5' y='460.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Diğer tüm oturumları kapat</text>
+<rect x='292' y='482' width='24' height='18' rx='3' fill='none' fill-opacity='1' stroke='#0F172A' stroke-width='1.5'/>
+<text x='328' y='494' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Chrome · Windows</text>
+<rect x='458' y='480' width='68' height='20' rx='10' fill='#EFF6FF' fill-opacity='1'/>
+<text x='492.0' y='494' font-size='11' font-weight='600' fill='#2563EB' text-anchor='middle'>Bu cihaz</text>
+<text x='328' y='512' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Son etkinlik şimdi · Parola + uygulama kodu</text>
+<rect x='292' y='528' width='24' height='18' rx='3' fill='none' fill-opacity='1' stroke='#0F172A' stroke-width='1.5'/>
+<text x='328' y='540' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>Safari · iPhone</text>
+<rect x='458' y='526' width='220' height='20' rx='10' fill='#F1F5F9' fill-opacity='1'/>
+<text x='568.0' y='540' font-size='11' font-weight='600' fill='#475569' text-anchor='middle'>2FA 17 Kas'a kadar hatırlanıyor</text>
+<text x='328' y='558' font-size='12' font-weight='400' fill='#475569' text-anchor='start'>Son etkinlik 3 saat önce · Geçiş anahtarı</text>
+<text x='892' y='546' font-size='13' font-weight='600' fill='#B91C1C' text-anchor='end'>Oturumu kapat</text>
+<line x1='292' y1='574' x2='900' y2='574' stroke='#E2E8F0' stroke-width='1'/>
+<text x='292' y='600' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Son girişler</text>
+<text x='292' y='620' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Son girişleri göster  ⌄</text>
+<rect x='0' y='0' width='1440' height='900' rx='0' fill='#0F172A' fill-opacity='0.28'/>
+<rect x='948' y='8' width='484' height='884' rx='22' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='972' y='52' font-size='20' font-weight='700' fill='#0F172A' text-anchor='start'>İki aşamalı doğrulamayı açın</text>
+<text x='972' y='76' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>Adım 1–2 / 3</text>
+<text x='1408' y='52' font-size='18' font-weight='600' fill='#0F172A' text-anchor='end'>✕</text>
+<text x='972' y='116' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>1 · Uygulamayı bağlayın</text>
+<text x='972' y='140' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Telefonunuzdaki doğrulama uygulamasını açın</text>
+<text x='972' y='158' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>(Microsoft Authenticator, Google Authenticator,</text>
+<text x='972' y='176' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>1Password ya da benzeri) ve bu kodu tarayın.</text>
+<rect x='972' y='204' width='176' height='176' rx='4' fill='#FFFFFF' fill-opacity='1' stroke='#0F172A' stroke-width='2'/>
+<rect x='982.0' y='214.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='996.2' y='214.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1010.4' y='214.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1024.6' y='214.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1038.8' y='214.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1053.0' y='214.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1067.2' y='214.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1081.4' y='214.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1095.6' y='214.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1109.8' y='214.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1124.0' y='214.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='996.2' y='228.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1038.8' y='228.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1081.4' y='228.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1124.0' y='228.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='996.2' y='242.4' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1038.8' y='242.4' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1081.4' y='242.4' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1124.0' y='242.4' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='982.0' y='256.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='996.2' y='256.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1010.4' y='256.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1024.6' y='256.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1038.8' y='256.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1053.0' y='256.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1067.2' y='256.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1081.4' y='256.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1095.6' y='256.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1109.8' y='256.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1124.0' y='256.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='996.2' y='270.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1038.8' y='270.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1081.4' y='270.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1124.0' y='270.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='996.2' y='285.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1038.8' y='285.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1081.4' y='285.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1124.0' y='285.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='982.0' y='299.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='996.2' y='299.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1010.4' y='299.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1024.6' y='299.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1038.8' y='299.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1053.0' y='299.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1067.2' y='299.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1081.4' y='299.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1095.6' y='299.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1109.8' y='299.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1124.0' y='299.2' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='996.2' y='313.4' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1038.8' y='313.4' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1081.4' y='313.4' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1124.0' y='313.4' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='996.2' y='327.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1038.8' y='327.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1081.4' y='327.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1124.0' y='327.6' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='982.0' y='341.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='996.2' y='341.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1010.4' y='341.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1024.6' y='341.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1038.8' y='341.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1053.0' y='341.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1067.2' y='341.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1081.4' y='341.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1095.6' y='341.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1109.8' y='341.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1124.0' y='341.8' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='996.2' y='356.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1038.8' y='356.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1081.4' y='356.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<rect x='1124.0' y='356.0' width='12' height='12' rx='1' fill='#0F172A' fill-opacity='1'/>
+<text x='1168' y='224' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>SmartSched (Örnek Üniv.)</text>
+<text x='1168' y='242' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>ayse.yilmaz</text>
+<text x='1168' y='280' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>QR kodunu tarayamıyor</text>
+<text x='1168' y='298' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>musunuz?  ⌃</text>
+<rect x='1168' y='312' width='240' height='80' rx='10' fill='#F1F5F9' fill-opacity='1' stroke='#8A94A6' stroke-width='1'/>
+<text x='1180' y='334' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>JBSW Y3DP EHPK 3PXP</text>
+<text x='1180' y='352' font-size='13' font-weight='600' fill='#0F172A' text-anchor='start'>KR4S M5QG YZTN 7WAE</text>
+<text x='1180' y='378' font-size='13' font-weight='600' fill='#2563EB' text-anchor='start'>Kopyala</text>
+<line x1='972' y1='404' x2='1408' y2='404' stroke='#E2E8F0' stroke-width='1'/>
+<text x='972' y='436' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>2 · Kodu girin</text>
+<text x='972' y='458' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>Uygulamanın gösterdiği 6 haneli kodu girin.</text>
+<rect x='972' y='476' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='994.0' y='511.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>4</text>
+<rect x='1024' y='476' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='1046.0' y='511.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>8</text>
+<rect x='1076' y='476' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='1098.0' y='511.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>2</text>
+<rect x='1136' y='476' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='1158.0' y='511.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>9</text>
+<rect x='1188' y='476' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='1210.0' y='511.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>1</text>
+<rect x='1240' y='476' width='44' height='52' rx='10' fill='#FFFFFF' fill-opacity='1' stroke='#15803D' stroke-width='2'/>
+<text x='1262.0' y='511.0' font-size='24' font-weight='600' fill='#0F172A' text-anchor='middle'>3</text>
+<text x='972' y='552' font-size='13' font-weight='700' fill='#15803D' text-anchor='start'>✓ Doğrulandı</text>
+<line x1='972' y1='584' x2='1408' y2='584' stroke='#E2E8F0' stroke-width='1'/>
+<text x='972' y='616' font-size='15' font-weight='700' fill='#475569' text-anchor='start'>3 · Kurtarma kodlarınızı kaydedin</text>
+<text x='972' y='638' font-size='12' font-weight='500' fill='#7C3AED' text-anchor='start'>(doğrulamadan sonra açılır; sayfa yan yana 220 ms)</text>
+<text x='972' y='690' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Sayfa açılmadan önce: 'Kimliğinizi doğrulayın' (10 dk geçerli).</text>
+<text x='972' y='710' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>≥ 1024: adım 1 ve 2 tek görünümde (QR + anahtar yan yana, kod altta);</text>
+<text x='972' y='730' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>kod doğrulanınca 2FA açılır, ✓ Success check 240 ms; sonra adım 3.</text>
+<text x='972' y='750' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>QR her temada siyah-beyaz, 4 modül sessiz alan.</text>
+<text x='972' y='770' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Sol: tek birincil eylem 'Aç' (bölümdeki tek tint düğme).</text>
+</svg>

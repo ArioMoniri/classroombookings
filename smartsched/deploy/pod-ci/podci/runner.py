@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Any
 
-from podci import disk, gitops, nginx
+from podci import disk, envfile, gitops, nginx
 from podci.cloud import Cloud
 from podci.config import Config
 from podci.gates import DEPLOY, GATES, Gate, playwright_image, python_ci_image
@@ -272,7 +272,18 @@ class Worker:
     def _deploy_env(self) -> dict[str, str]:
         cfg = self.cfg
         return {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(cfg.state_dir),
-                "DEPLOY_DIR": str(cfg.deploy_dir), "DEPLOY_FLAGS": " ".join(cfg.deploy_flags)}
+                "DEPLOY_DIR": str(cfg.deploy_dir), "DEPLOY_FLAGS": " ".join(cfg.deploy_flags),
+                **self._bootstrap_env()}
+
+    def _bootstrap_env(self) -> dict[str, str]:
+        """Deploy-time settings from SSM {prefix}/bootstrap/* (smartsched_aws.py up): deploy.sh writes each group
+        into the database once (seed/bootstrap_settings.py; the admin panel wins later). Only the deploy step gets
+        them, never a test gate. SSM unreachable = deploy without them (they are retried on the next deploy)."""
+        try:
+            return envfile.bootstrap_env(self.cloud.get_params_under("bootstrap"))
+        except Exception as exc:  # noqa: BLE001
+            self.log(f"deploy-time settings not read from SSM ({type(exc).__name__}); deploying without them")
+            return {}
 
     def _deploy(self, run: Run, logs: Path) -> str:
         """deploy.sh --update never stops the running stack first (build, then `up -d`), so a failed build

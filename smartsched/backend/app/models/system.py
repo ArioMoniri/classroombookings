@@ -50,6 +50,9 @@ class User(Base):
     #: bumped to sign the user out everywhere (sign-out, password change/reset, disabling, role change); access
     #: tokens carry it as the ``tv`` claim and a token with an older value answers 401 (parity B-AUTH-11)
     token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    #: AU-15: bumped whenever one of the user's sessions is revoked (alembic 0045_user_sessions). Every worker reads it
+    #: with the user row anyway, so a cached "session open" answer older than the bump is re-checked at once
+    sessions_epoch: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 class ImportJob(Base):

@@ -6,7 +6,7 @@
     "profile": "Profile", "settings": "Settings", "import": "Import", "dashboard": "Dashboard", "rooms": "Rooms",
     "room": "Room", "admin": "Setup", "adminUsers": "Users", "adminRooms": "Rooms", "adminAudit": "Audit log",
     "adminAccess": "Access checker", "adminSettings": "Organisation settings", "adminSessions": "Sessions",
-    "adminApprovalRules": "Approval rules", "adminHolidays": "Holidays", "adminEmail": "E-mail", "adminDepartments": "Departments",
+    "adminApprovalRules": "Approval rules", "adminHolidays": "Holidays", "adminCatalog": "Catalogue", "adminEmail": "E-mail", "adminDepartments": "Departments",
     "adminRoles": "Roles", "adminConflicts": "Booking conflicts", "adminAuthentication": "Authentication",
     "adminWeeks": "Timetable weeks", "adminSchedules": "Schedules", "login": "Sign in", "changePassword": "Change password",
     "resetPassword": "Reset password", "setup": "Setup", "notFound": "Page not found", "timetable": "Timetable",
@@ -41,7 +41,20 @@
   },
   "auth": {
     "title": "Sign in", "subtitle": "Room booking and planning", "email": "E-mail", "password": "Password",
-    "submit": "Sign in", "signingIn": "Signing in…", "failed": "Sign-in failed. Check your credentials."
+    "submit": "Sign in", "signingIn": "Signing in…", "failed": "Sign-in failed. Check your credentials.",
+    "otp": { "label": "Verification code", "hint": "6-digit code", "verified": "Verified" },
+    "recovery": { "label": "Recovery code", "hint": "Enter one of the codes you saved. Each code works once." },
+    "passkey": { "button": "Sign in with a passkey", "or": "or", "cancelled": "No passkey was used. Try again or sign in with your password.", "unknown": "This passkey is no longer registered for this account. Sign in with your password; you can then delete the old one from your password manager.", "failed": "Couldn't sign in with the passkey. Sign in with your password.", "disabledOrg": "Your organisation turned off passkey sign-in. Sign in with your password.", "lastPasskey": "You used a passkey last time.", "saved": "Passkey saved. Next time you can sign in without your password.", "busy": "Waiting for the passkey…", "addCancelled": "No passkey was created.", "addExists": "This password manager already has a passkey for this account.", "addFailed": "The passkey couldn't be added. Try again.", "addLimit": "You can add at most 10 passkeys; remove one first.", "unavailable": "Passkeys need the panel's public https address. Ask your administrator." },
+    "mfa": { "title": "Two-step verification", "signingInAs": "Signing in as <b>{masked}</b>", "otherAccount": "Use another account", "lead": "Enter the 6-digit code from your authenticator app.", "leadPasskey": "Verify with your account's passkey.", "remember": "Remember this device for {n} days", "rememberHint": "Only on your own device. Your password will still be asked.", "verify": "Verify", "verifying": "Verifying…", "verified": "Verified", "otherMethod": "Use another method", "usePasskey": "Use a passkey", "useRecovery": "Use a recovery code", "useApp": "Use the authenticator app", "noAccess": "Can't use any of these?", "noAccessText": "Ask your organisation's administrator to reset your two-step verification. Once they have confirmed it's you, you can sign in with your password and set it up again.", "wrong": "That code isn't right. Enter the current code from your app.", "clock": "Codes depend on your phone's clock. Make sure it is set automatically.", "recoveryWrong": "This recovery code isn't valid or was already used.", "recoveryEmpty": "Enter the recovery code.", "tooMany": "Too many wrong attempts. Sign in again to continue.", "expired": "The verification timed out. Sign in again.", "locked": "Too many wrong codes. The second step is locked for {n} minutes; try again later or contact your administrator.", "offline": "Can't reach the server. Check your connection and try again.", "recoveryUsed": "You used a recovery code. {n} left.", "newCodes": "Create new codes" },
+    "enrol": { "title": "Protect your account with two-step verification", "lead": "{org} requires two-step verification for this account. Setting it up takes about 2 minutes.", "leadNoOrg": "Your organisation requires two-step verification for this account. Setting it up takes about 2 minutes.", "deadline": "You have until {date} to set it up.", "passed": "Set it up now to continue.", "now": "Set up now", "later": "Later ({n} days left)", "orPasskey": "Or add a passkey instead.", "addPasskey": "Add a passkey", "done": "Two-step verification is on." },
+    "reauth": { "title": "Confirm it's you", "lead": "For your security, confirm it's you before this change.", "password": "Password", "submit": "Verify", "wrong": "That password isn't right." },
+    "security": { "title": "Sign-in and security", "loading": "Loading security details…", "loadFailed": "Couldn't load the security details.", "password": "Password", "passwordLdap": "Your password is changed in the directory (LDAP).", "passwordStatus": "The password you use to sign in.", "change": "Change", "close": "Close", "mfa": "Two-step verification", "mfaOff": "Off · After your password you'd be asked for a code from your phone.", "mfaOn": "On · Authenticator app (since {date}) · Recovery codes: {n}/10 left", "mfaOnPasskey": "On · Passkey · Recovery codes: {n}/10 left", "mfaOrgOff": "Your organisation turned two-step verification off.", "turnOn": "Turn on", "manage": "Manage", "newCodes": "Create new recovery codes", "changeApp": "Change app", "turnOff": "Turn off", "requiredNote": "Your organisation requires it for this account.", "passkeys": "Passkeys", "passkeysNone": "Sign in without a password, with your fingerprint, face or device PIN.", "passkeysBenefit1": "Sign in in seconds, without typing a password", "passkeysBenefit2": "Useless on phishing sites, so it's safer", "passkeysOff": "Your organisation turned passkeys off.", "addPasskey": "Add a passkey", "passkeyAdded": "Passkey added", "passkeyMeta": "Added {created} · Last used {used}", "passkeyNeverUsed": "Added {created} · Never used", "thisDeviceOnly": "This device only", "actionsFor": "Actions for {name}", "rename": "Rename", "renameLabel": "Passkey name", "renamePrompt": "Want to change the name?", "save": "Save", "cancel": "Cancel", "remove": "Remove", "removeTitle": "Remove {name}?", "removeBody": "You won't be able to sign in with this passkey. You can also delete the copy from your password manager.", "removeLast": "This is your last second-step method. If you remove it you'll need to set one up at your next sign-in.", "removed": "Passkey removed", "devices": "Remembered devices", "devicesNone": "No remembered devices. Tick \"Remember this device\" at sign-in and it shows here.", "deviceUntil": "2FA remembered until {date}", "forget": "Forget", "forgetAll": "Forget all remembered devices", "forgotten": "Device forgotten", "forgottenAll": "Remembered devices forgotten ({n})", "ssoTitle": "Sign-in method", "ssoText": "This account signs in with your organisation account (e.g. Microsoft). Your password and two-step verification are managed there.", "never": "never", "signOutAll": "Sign out everywhere", "signOutAllTitle": "Sign out everywhere?", "signOutAllBody": "All your open sessions, this one included, are signed out; you'll need to sign in again. Remembered devices stay.", "sessionsNote": "A list of sessions is coming. For now you can sign out all sessions at once.", "pwChangeHint": "Changing the password forgets the remembered devices.", "sessions": "Sessions and devices", "thisDevice": "This device", "lastActive": "Last active {when}", "endSession": "Sign out", "sessionEnded": "That session was signed out.", "showAll": "Show all ({n})", "endOthers": "Sign out of other devices", "endOthersTitle": "Sign out of other devices?", "endOthersBody": "Every session except this device is signed out, and remembered devices are forgotten.", "endOthersDone": "Other sessions signed out ({n}).", "sessionsNone": "No open sessions were found.", "unknownDevice": "Unknown device" },
+    "setup": { "title": "Turn on two-step verification", "steps12": "Step 1–2 of 3", "step": "Step {n} of 3", "step1": "Connect the app", "step1Text": "Open the authenticator app on your phone (Microsoft Authenticator, Google Authenticator, 1Password or similar) and scan this code.", "step1Phone": "If you're setting up on this phone, tap \"Open in app\" or paste the key into your app.", "openInApp": "Open in app", "showQr": "Show the QR code", "cantScan": "Can't scan the QR code?", "key": "Setup key", "qrAlt": "QR code for the authenticator app", "copy": "Copy", "copied": "Copied", "step2": "Enter the code", "step2Text": "Enter the 6-digit code the app shows.", "step3": "Save your recovery codes", "step3Text": "If you lose your phone, you can sign in with these codes. Each code works once.", "step3Warn": "They won't be shown again.", "codesLabel": "Recovery codes", "download": "Download (.txt)", "print": "Print", "saved": "I saved the codes somewhere safe", "finish": "Finish", "closeTitle": "Close without saving the codes?", "closeBody": "Two-step verification stays on; you can create new codes in Profile › Sign-in and security.", "backToCodes": "Back to the codes", "expired": "The set-up timed out; start again.", "restart": "Start again", "fileHeader": "SmartSched recovery codes", "fileAccount": "Account", "fileDate": "Date", "fileNote": "Each code works once. Keep this file somewhere safe.", "regenTitle": "Create new codes?", "regenBody": "Your old codes stop working at once.", "regenCreate": "Create", "newCodesTitle": "Your new recovery codes", "offTitle": "Turn off two-step verification?", "offBody": "Only your password will be asked at sign-in. Your recovery codes and remembered devices are deleted.", "offPasskeys": "Your passkeys stay and are asked as the second step; remove them too to turn it off completely.", "offCode": "Enter the current code from your app or a recovery code.", "offDone": "Two-step verification is off.", "codesDone": "New recovery codes created.", "changeTitle": "Change your authenticator app", "changeSteps": "Steps 1–2 of 2", "changeLead": "Connect the new app. Your old app keeps working until the new one's code is verified; your recovery codes don't change.", "changeWrong": "That code isn't right. Enter the current code from the new app.", "changeDone": "Authenticator app changed. Your recovery codes and remembered devices are unchanged.", "changePending": "A new app is waiting to be connected; it is cancelled if not finished within 15 minutes. Your old app still works." },
+    "admin": { "group": "Sign-in", "blockTitle": "Sign-in and security", "tag2fa": "2FA", "tagPending": "2FA pending", "statusOn": "On", "statusOnDetail": "On · {methods}", "methodApp": "app", "methodPasskeys": "{n} passkeys", "statusOff": "Off", "mfaLabel": "Two-step verification (2FA)", "sendLink": "Send password reset link", "reset": "Reset 2FA", "showCode": "Show a reset code on screen", "noEmailRow": "No link can be sent: there is no e-mail address.", "ldapRow": "The password is changed in the directory (LDAP).", "ssoRow": "This account signs in with an organisation account (e.g. Microsoft). Password and two-step verification are managed there.", "ownRow": "Use Profile › Sign-in and security for your own account.", "loading": "Loading security details…", "resetTitle": "Reset two-step verification for {name}?", "resetBody": "The authenticator app, recovery codes, passkeys and remembered devices are removed, and they are signed out everywhere. {name} will sign in with only their password next time.", "resetBodyKeep": "The authenticator app, recovery codes and remembered devices are removed, and they are signed out everywhere. Their passkeys are kept.", "resetRequired": "…and must set up two-step verification again right away.", "chipLost": "Lost or replaced their phone", "chipCodes": "Can't reach their recovery codes", "chipCompromised": "Account may be compromised", "reason": "Reason", "reasonHint": "10 to 500 characters. It isn't included in the e-mail to the person.", "reasonShort": "The reason needs at least 10 characters.", "identity": "How was their identity checked?", "identityPick": "Choose…", "identityRequired": "Choose how their identity was checked.", "idInPerson": "In person", "idVideo": "Video call", "idPhone": "Call back on a known number", "idOther": "Other", "keepPasskeys": "Keep their passkeys ({n})", "resetConfirm": "Reset 2FA", "cancel": "Cancel", "resetDone": "Two-step verification was reset for {name}. They've been e-mailed.", "errOwn": "Use Profile › Sign-in and security for your own account.", "errSso": "This account signs in with an organisation account; reset two-step verification there.", "err403": "You don't have permission to change this user's security settings.", "errGeneric": "That didn't work. Try again.", "linkTitle": "Send a password reset link to {name}?", "linkBody": "A link valid for 24 hours is sent to <b>{masked}</b>. Their current password keeps working until the link is used. Their two-step verification is unchanged.", "linkSend": "Send link", "linkDone": "Link sent ({masked}).", "errNoEmail": "This user has no e-mail address. You can show a reset code on screen instead.", "errMail": "E-mail sending isn't set up. Set it up in Settings › Integrations › E-mail, or show a reset code on screen.", "errMailFailed": "The e-mail couldn't be sent. Check the e-mail settings and try again.", "errSsoLink": "This account signs in with an organisation account; the password is changed there.", "errLdap": "This account's password is changed in the directory (LDAP).", "errDisabled": "The account is disabled; enable it first.", "err429": "A link was sent a moment ago. You can send another in {n} minutes.", "showCodeAction": "Show code", "filter": "Two-step verification", "filterAll": "All", "filterOn": "On", "filterOff": "Off", "filterPending": "Pending", "tagPendingDate": "2FA pending ({date})", "ssoRowNamed": "This account signs in with {provider}. Password and two-step verification are managed there.", "method": "Sign-in method", "methodLocal": "Local", "lastSignIn": "Last sign-in", "endSessions": "End sessions", "endSessionsTitle": "End every session for {name}?", "endSessionsBody": "{name} is signed out on every device and must sign in again. Their password and two-step verification don't change.", "endSessionsDone": "Sessions ended for {name} ({n}).", "tagPendingFirst": "2FA pending (starts at first sign-in)" },
+    "policy": { "tab": "Sign-in security", "title": "Sign-in security", "lead": "Choose how local and LDAP accounts sign in.", "mfa": "Two-step verification", "off": "Off", "optional": "Optional", "required": "Required", "help": "Off: nobody can set it up; existing set-ups are paused, not deleted. Optional: anyone can turn it on in Profile. Required: once the grace period ends, local accounts in the roles you choose can't sign in without it.", "roles": "Which roles?", "rolesHint": "Planners can change the published timetable, so adding them is recommended.", "rolesNone": "Choose at least one role.", "roleADMIN": "Administrator", "rolePLANNER": "Planner", "roleTEACHER": "Academic", "roleVIEWER": "Viewer", "roleCUSTOM": "Custom roles", "grace": "Time to set up", "graceDays": "{n} days", "graceSentence": "With this setting people in the chosen roles must set it up by {date}.", "passkeys": "Passkeys", "passkeysHelp": "Local accounts can pass the second step with a fingerprint, face or device PIN.", "passwordless": "Also allow passwordless sign-in (a passkey alone is enough)", "advanced": "Advanced", "remember": "Remember this device", "rememberOff": "Off", "rememberDays": "{n} days", "ssoNote": "People who sign in with an organisation account (Microsoft, Google…) aren't affected; their identity provider protects them.", "selfBanner": "This rule includes you. Set it up by {date}.", "selfBannerNow": "This rule includes you.", "setupNow": "Set up now", "save": "Save", "saved": "Sign-in security saved.", "saveFailed": "Couldn't save. Try again.", "confirmRequiredTitle": "Make it required?", "confirmRequired": "People in the chosen roles will be e-mailed and asked to set it up at their next sign-in.", "confirmOffTitle": "Turn two-step verification off?", "confirmOff": "Existing two-step verification is paused (not deleted); only the password will be asked at sign-in.", "keepOptional": "Keep it optional", "loadFailed": "Couldn't load the settings.", "unsaved": "You have unsaved changes.", "allRoles": "All roles", "liveSentence": "With this setting {n} people must set it up by {date}; {m} already have.", "rememberHelp": "Only the second step is skipped on a remembered device; the password is always asked." },
+    "setPassword": { "title": "Choose your password", "lead": "Your {org} SmartSched account: <b>{username}</b>", "field": "New password", "hint": "At least {n} characters. A long sentence works too; common passwords are refused.", "submit": "Save password and sign in", "submitOnly": "Save password", "busy": "Saving…", "short": "The password needs at least {n} characters.", "blocklist": "This password is too common or appears in breach lists. Choose another one.", "username": "The password can't contain your username.", "expired": "This link has expired or was already used. Ask your administrator for a new one, or use \"Forgot password\".", "ssoLine": "If you sign in with your organisation account (Microsoft, Google…), change your password on your organisation's page.", "mfaKept": "Your two-step verification hasn't changed; you'll still be asked for your code.", "hintChange": "At least {n} characters, different from the current one. A long sentence works too." },
+    "history": { "title": "Recent sign-ins", "show": "Show recent sign-ins", "hide": "Hide recent sign-ins", "empty": "Nothing yet.", "footer": "If you see a sign-in you don't recognise, change your password and sign out your other sessions.", "byAdmin": "administrator", "a_login": "Signed in", "a_login_refused": "Blocked", "a_mfa_verified": "Second step verified", "a_mfa_failed": "Wrong code", "a_mfa_locked": "Second step locked", "a_mfa_enabled": "Two-step verification turned on", "a_mfa_disabled": "Two-step verification turned off", "a_mfa_reset_by_admin": "Administrator reset two-step verification", "a_mfa_recovery_used": "Recovery code used", "a_mfa_recovery_regenerated": "New recovery codes created", "a_passkey_added": "Passkey added", "a_passkey_removed": "Passkey removed", "a_trusted_device_used": "Signed in on a remembered device", "a_trusted_device_added": "Device remembered", "a_trusted_device_revoked": "Remembered device forgotten", "a_reset_link_by_admin": "Administrator sent a password reset link", "a_reset_code": "Password reset code created", "a_other": "Security event", "m_local": "Password", "m_ldap": "Password (LDAP)", "m_passkey": "Passkey", "m_totp": "App code", "m_recovery": "Recovery code", "m_disable": "App code" },
+    "idp": { "mfaRequiredTitle": "Two-step verification is required.", "mfaRequired": "Your institution requires two-step verification for this role. Turn on multi-factor authentication at your identity provider and sign in again; if it keeps happening, contact your administrator.", "mfaMissingTitle": "Your identity provider reported no multi-factor sign-in.", "mfaMissing": "Your institution requires two-step verification for this role. Turn on multi-factor authentication at your identity provider.", "switch": "Require MFA at the identity provider", "switchHelp": "When on, sign-ins in roles that require two-step verification are refused if the identity provider asserts no MFA. When off, the person signs in and sees a warning.", "entraNote": "Entra: v2 ID tokens carry amr only when it is configured as an optional claim; otherwise leave this off and enforce MFA with Conditional Access.", "samlNote": "MFA can't be checked on SAML sign-ins.", "saved": "Saved.", "onlyRequired": "Applies only to the roles set to \"Required\" in Settings › Sign-in security." }
   },
   "common": {
     "notANumber": "Enter a number.", "tooShort": "The value is too short.", "tooLong": "The value is too long.", "requiredField": "This field is required.", "invalidInput": "The value was not accepted.", "technicalDetail": "Technical detail", "loading": "Loading…", "error": "Something went wrong", "retry": "Retry", "save": "Save", "cancel": "Cancel",
@@ -248,6 +261,7 @@
     "you": "You", "assistant": "Planner", "streaming": "Streaming…", "noKey": "Add an Anthropic API key in Settings to enable chat."
   },
   "settings": {
+    "mailNotices": {"title": "E-mail notifications", "lead": "Booking reminders and the new-device sign-in alert, for the whole organisation.", "hours": "Reminder: hours before the start", "hoursUnit": "hours before", "hoursHint": "Default 24 hours (a day before). Everyone can turn their own reminders off in Profile › Notifications.", "hoursOff": "0: no reminders are sent.", "hoursInvalid": "Enter a number of hours from 0 to 336 (0: no reminders).", "newDevice": "Sign-in from a new device e-mail", "newDeviceHint": "When an account is signed in on a device not seen before, its owner gets a security e-mail. People cannot turn it off.", "save": "Save", "saved": "E-mail notifications saved.", "failed": "Could not save. Try again."},
     "securityContact": {
       "title": "Security contact",
       "lead": "People reporting a vulnerability see these addresses in /.well-known/security.txt (RFC 9116). The file's expiry date moves one year ahead on every request.",
@@ -1367,6 +1381,8 @@
       "picked": "Picked up {name}",
       "over": "Over position {pos}",
       "cancelled": "Move cancelled",
+      "up": "Move {name} up",
+      "down": "Move {name} down",
       "instructions": "Press Space to pick up, arrow keys to move, Space to drop, Escape to cancel.",
       "hint": "Drag the handle to change the order, or use Alt+↑/↓ on it. The order is used in the booking grid."
     },
@@ -1582,6 +1598,7 @@
       "deleteBody": "{n, plural, one {# user} other {# users}} will have no role (and no permissions) until you give them one; the role's room access entries go too."
     },
     "perm": {
+      "calendar_department_feed": "Export department class calendar",
       "bookingsScope": "Bookings (can also be granted per room)",
       "action": "Permission",
       "group": {
@@ -3707,7 +3724,12 @@
         "audited": "Written to the audit log.",
         "department": "Department · optional",
         "sendMail": "Send invitation e-mail",
-        "sendMailOff": "Not available yet: copy the link and send it yourself.",
+        "sendMailOff": "E-mail is not set up: copy the link and send it yourself.",
+        "sendMailOn": "The link goes to this address by e-mail. You can also copy it.",
+        "sendMailSkip": "No e-mail goes out: copy the link and send it yourself.",
+        "mailSetup": "Set up e-mail",
+        "mailed": "Invitation e-mail sent · {email}",
+        "mailFailed": "The invitation was created but the e-mail could not be sent. Copy the link and send it.",
         "bindNote": "The account links to {email} on the first Microsoft sign-in.",
         "bindNotePlain": "The account links on the first Microsoft sign-in with this address.",
         "submit": "Invite",
@@ -5027,6 +5049,7 @@
     "me": {
       "title": "Calendar push",
       "lead": "Your bookings are written into the calendar you connect, updated when they change and removed when they are cancelled.",
+      "advancedHint": "Older connection settings. To add something new, use \"Add to my calendar\" above.",
       "off": "Calendar sync is turned off in your organisation.",
       "notConfigured": "Your administrator has not set this provider up yet.",
       "notConnected": "Not connected",
@@ -5051,6 +5074,7 @@
       "resync": "Push everything again",
       "resyncQueued": "{n, plural, =0 {No bookings to push} one {# booking queued} other {# bookings queued}}",
       "connectedToast": "{provider} connected; your bookings are being pushed",
+      "connectFailed": "Could not connect. Try again.",
       "connectError": "Could not connect: {reason}",
       "consentLink": "Go to Privacy",
       "reason": {
@@ -5058,7 +5082,8 @@
         "state": "the sign-in could not be verified, try again",
         "exchange": "the provider did not answer",
         "disabled": "calendar sync is off",
-        "not_configured": "your administrator has not set this provider up"
+        "not_configured": "your administrator has not set this provider up",
+        "account_not_verified": "this is not your institution's verified account"
       },
       "needsConsent": "Connecting asks for your calendar sync consent first; you can also give it under Privacy."
     }
@@ -5251,6 +5276,12 @@
         "title": "Disk",
         "used": "{pct}% used",
         "free": "{free} free"
+      },
+      "backup": {
+        "title": "Backup",
+        "last": "Last backup: {when}",
+        "stale": "The last backup is older than {h} h ({age} h ago).",
+        "none": "No backup recorded yet"
       },
       "errors": {
         "title": "Errors",
@@ -6076,7 +6107,7 @@
     "dns": {"title": "From-domain: {domain}", "run": "Check the records", "rerun": "Check again", "lead": "Without these records mail may land in spam. This step warns but never blocks.", "ok": "Right", "warn": "Warning", "error": "Missing", "unknown": "Not readable", "record": "Record", "fix": "To do"},
     "test": {"to": "Send the test to", "send": "Send a test message", "sent": "Sent: the server accepted the message ({ms} ms).", "failed": "Not sent", "unsent": "Save the server and the from-address first.", "transcript": "SMTP conversation (secrets are never shown)", "arrived": "Did the test message reach your inbox?", "yes": "Yes, it arrived", "no": "No / in spam", "tips": "Check the spam folder; fix the SPF, DKIM and DMARC rows of the Domain step; make sure the account may send as the from-address.", "thanks": "Great: notifications will reach your users."},
     "enable": {"summary": "Sends as {from} through {host}.", "ready": "E-mail sending is ready.", "notReady": "Nothing is sent until the server and the from-address are saved.", "unsent": "{n} notifications are waiting to be sent (last 7 days).", "onlyNew": "Send new ones only", "sendWaiting": "Send the waiting ones too", "queued": "{n} notifications queued"},
-    "tpl": {"title": "E-mail templates", "lead": "Every message goes out in the same theme, in Turkish and English. You can change the subject and the opening text for your organisation.", "list": "Messages", "wired": "Sending", "template": "Template ready", "templateHint": "sent once {owner} wires it", "changed": "Changed", "audience": "To: {who}", "language": "Language", "width": "Preview width", "desktop": "Desktop", "phone": "Phone", "preview": "Preview", "previewTitle": "Preview of {kind}", "subject": "Subject", "intro": "Opening text", "shipped": "Default: {text}", "fields": "Available fields: {list}", "save": "Save", "reset": "Restore default", "saved": "Template saved", "testTo": "Test address", "testSend": "Send test", "testSent": "Test sent to {to}", "text": "Plain text", "choose": "Choose a message to preview."},
+    "tpl": {"title": "E-mail templates", "lead": "Every message goes out in the same theme, in Turkish and English. You can change the subject and the opening text for your organisation.", "list": "Messages", "wired": "Sending", "template": "Test only", "templateHint": "This message is not sent automatically yet; you can preview it and send a test.", "changed": "Changed", "audience": "To: {who}", "language": "Language", "width": "Preview width", "desktop": "Desktop", "phone": "Phone", "preview": "Preview", "previewTitle": "Preview of {kind}", "subject": "Subject", "intro": "Opening text", "shipped": "Default: {text}", "fields": "Available fields: {list}", "save": "Save", "reset": "Restore default", "saved": "Template saved", "testTo": "Test address", "testSend": "Send test", "testSent": "Test sent to {to}", "text": "Plain text", "choose": "Choose a message to preview."},
     "outbox": {"requeued": "{n} notifications queued again"}
   },
   "calendarExport": {
@@ -6132,7 +6163,8 @@
       "refreshPush": "Connected account: within about a minute.",
       "refreshApple": "Apple Calendar: on a Mac from every 5 minutes to weekly; on an iPhone it follows Settings › Fetch New Data.",
       "refreshGoogle": "Google Calendar: usually up to 12 hours, sometimes 24.",
-      "refreshOutlook": "Outlook: several hours; desktop Outlook also refreshes when it starts."
+      "refreshOutlook": "Outlook: several hours; desktop Outlook also refreshes when it starts.",
+      "pushDomain": "Connect with your {domain} institutional account."
     },
     "approve": {
       "title": "This will be sent to your calendar",
@@ -6181,7 +6213,8 @@
       "fileNote": "To stay up to date, use the link or the account option.",
       "fileAgain": "Download again",
       "finish": "Done",
-      "another": "Add something else"
+      "another": "Add something else",
+      "noPublicUrl": "Your administrator has not entered the panel address; the link may not work in a calendar app. Let them know."
     },
     "manage": {
       "title": "Added to my calendar",
@@ -6213,8 +6246,12 @@
       "disconnectTitle": "Disconnect {provider}?",
       "disconnectBody": "The \"SmartSched – Derslerim\" calendar and its events are deleted, and your permission is revoked.",
       "disconnected": "{provider} disconnected",
-      "notVerified": "This account is not a verified account of your organisation. Connect with your {domain} account.",
-      "notVerifiedPlain": "This account is not a verified account of your organisation. Connect with your organisation account."
+      "notVerified": "This is not your institution's verified account. Connect with your {domain} account.",
+      "notVerifiedPlain": "This account is not a verified account of your organisation. Connect with your organisation account.",
+      "calDeleted": "The calendar was deleted. Connect again and SmartSched creates it again.",
+      "error": "Syncing ran into a problem; it is retried shortly.",
+      "renewConnection": "Renew the connection",
+      "notVerifiedCorporate": "This is not your institution's verified account. Connect with your institutional account."
     },
     "admin": {
       "title": "Calendar export",
@@ -6236,7 +6273,7 @@
         "taught": "The departments they teach in",
         "permission": "People with \"Export the department class calendar\" (every department)"
       },
-      "rulePermissionHint": "The permission is granted in Administration › Roles.",
+      "rulePermissionHint": "Grant it in Administration › Roles and permissions.",
       "fields": "Details sent",
       "fieldsHint": "Course code, section, room, day and time are always sent. Student data and notes are never sent.",
       "field": {
@@ -6248,10 +6285,8 @@
       },
       "horizon": "Time range",
       "past": "Past (days)",
-      "future": "Ahead (days, at most to term end and 200)",
       "grace": "Keep cancelled events visible (days)",
       "saveHorizon": "Save the range",
-      "range": "{label}: enter a whole number from {min} to {max}.",
       "push": "Account push rules",
       "verifiedOnly": "Verified organisation accounts only",
       "verifiedOnlyHint": "Accounts that match the sign-in identity, the Google Workspace domain, the Entra tenant or one of the domains below may connect.",
@@ -6262,10 +6297,6 @@
       "source": "OAuth client",
       "sourceIdentity": "Use the sign-in provider's client",
       "sourceOwn": "A separate calendar client (below)",
-      "googleScope": "Google permission scope",
-      "googleAppCreated": "Only the calendar SmartSched creates (recommended)",
-      "googleEvents": "Events in every calendar (legacy)",
-      "googleEventsHint": "Old connections keep working with this scope; users are offered \"Reconnect with fewer permissions\".",
       "status": "Status",
       "links": "Active links",
       "connections": "{provider} connections",
@@ -6273,7 +6304,16 @@
       "reconcile": "Last nightly reconcile",
       "reconcileNever": "Has not run yet",
       "byScope": "{scope}: {n}",
-      "advancedHint": "The defaults suit most organisations."
+      "advancedHint": "The defaults suit most organisations.",
+      "whoLead": "The rule is fixed:",
+      "horizonHint": "Ahead runs to the end of the term (at most 200 days).",
+      "attention": "Connections that need attention",
+      "broadGrant": "Old connections with broad permissions",
+      "sourceIdentityMissing": "No sign-in provider is enabled; add one under Identity first.",
+      "sourceIdentityHint": "Add the redirect address {url} to that app registration.",
+      "legacyLinks": "Legacy links (every calendar)",
+      "reconcileAt": "{when} · {n} calendars queued",
+      "range": "{label}: enter a whole number from {min} to {max}."
     },
     "advanced": "Advanced"
   },
@@ -6353,7 +6393,7 @@
         "title": "Welcome to your approvals, {name}",
         "lead": "You decide the booking requests that reach you here.",
         "cards": {
-          "approvals": {
+          "approvals_inbox": {
             "title": "Approvals inbox",
             "body": "Booking requests for your rooms wait here. When you reject one you pick a reason, and the person sees it."
           }
@@ -6371,7 +6411,7 @@
             "title": "Recurring series",
             "body": "Book a room at the same time every week for the term; holidays are skipped."
           },
-          "dept_calendar": {
+          "department_calendar": {
             "title": "Department calendar",
             "body": "Share your department's classes as a calendar link."
           }
@@ -6403,7 +6443,7 @@
         "title": "Welcome to the planning office, {name}",
         "lead": "From files to a published timetable in five steps.",
         "cards": {
-          "intake": {
+          "from_files": {
             "title": "Set up from files",
             "body": "Drop the Excel files; classes, instructors and rules are read."
           },
@@ -6429,23 +6469,23 @@
         "title": "Welcome to administration, {name}",
         "lead": "You set up your institution in four parts; these cards show the order.",
         "cards": {
-          "users": {
+          "users_roles": {
             "title": "Users and roles",
             "body": "Invite people, give roles; nobody can grant more than they hold."
           },
-          "rooms": {
+          "rooms_access": {
             "title": "Rooms and access",
             "body": "Define rooms, groups and who may book them."
           },
-          "terms": {
+          "term_times": {
             "title": "Term and times",
             "body": "Enter terms, holidays and period schemes."
           },
-          "rules": {
+          "rules_connections": {
             "title": "Rules and connections",
             "body": "Approval rules, e-mail, sign-in methods and integrations."
           },
-          "welcome": {
+          "welcome_guide": {
             "title": "Welcome guide",
             "body": "Switch this guide on or off and edit its texts for your institution."
           }
@@ -6738,6 +6778,7 @@
         "open": "Preview",
         "audience": "Audience"
       },
+      "advanced": "Advanced",
       "saved": "Saved.",
       "saveFailed": "Could not save. Try again.",
       "texts": {
@@ -6750,6 +6791,7 @@
         },
         "cardTitle": "{card}: title",
         "cardBody": "{card}: text",
+        "cards": "Card texts",
         "reset": "Reset to default",
         "resetLabel": "{field} ({locale}): reset to default",
         "preview": "Preview",
@@ -6791,7 +6833,8 @@
       "start": "Dictate",
       "stop": "Stop recording",
       "hold": "Press and hold to talk",
-      "shortcut": "Ctrl+Shift+M"
+      "shortcut": "Ctrl+Shift+M",
+      "limit": "Voice input limit reached"
     },
     "strip": {
       "starting": "Opening the microphone…",
@@ -6816,9 +6859,8 @@
       "title": "Voice input",
       "where": "Your voice is sent to {provider} to be transcribed.",
       "whereRegion": "Your voice is sent to {provider} ({region}) to be transcribed.",
-      "whereLocal": "Your voice is transcribed by {provider} on the institution's own server.",
       "providerUnknown": "the voice service your administrators chose",
-      "noKeep": "No recording is kept; only the transcribed text comes back to you.",
+      "noKeep": "The audio is deleted once it is transcribed; no recording is kept.",
       "review": "The text goes into the box. Nothing is sent until you correct it and send it yourself.",
       "browser": "Your browser will now ask for the microphone.",
       "withdraw": "You can withdraw this consent at any time in Profile › Privacy.",
@@ -6841,7 +6883,14 @@
       "voice_off": "Your administrators have turned voice input off. You can keep typing.",
       "not_configured": "No voice model has been chosen.",
       "ai_transfer_basis_missing": "This voice service has no KVKK transfer record; an administrator must add it.",
-      "provider_error": "The recording could not be transcribed. Try again or type instead."
+      "provider_error": "The recording could not be transcribed. Try again or type instead.",
+      "not_permitted": "You do not have permission to use voice input here. You can keep typing.",
+      "unsupported_audio": "This audio format is not supported. Try another browser or type instead.",
+      "rate_limited": "Too many tries. Wait a moment and try again.",
+      "ai_budget_exceeded": "The organisation's AI budget for this month is spent. You can keep typing.",
+      "truncated": "The text was shortened to the field's limit.",
+      "ai_voice_limit_reached_month": "You have reached this month's voice input limit ({used}/{limit} min). You can keep typing.",
+      "ai_voice_limit_reached_org": "The organisation's voice input time for this month is used up. You can keep typing."
     },
     "help": {
       "chrome": "Chrome / Edge: lock icon in the address bar › Microphone › Allow, then reload the page.",
@@ -6850,7 +6899,6 @@
     },
     "admin": {
       "feature": "Voice input",
-      "featureTts": "Read aloud",
       "need": "Turns speech into text. Only speech-capable models are listed.",
       "noModel": "With no model chosen, nobody sees the mic.",
       "unset": "Not chosen (mic hidden)",
@@ -6876,12 +6924,8 @@
         "enabledHint": "While off, nobody sees the mic.",
         "noRoute": "First choose a model for \"Voice input\" on the Models tab.",
         "advanced": "Advanced",
-        "consent": "Ask for consent on first use",
-        "consentHint": "KVKK: the person sees which service their voice goes to and agrees.",
         "maxSeconds": "Longest recording (seconds)",
-        "maxSecondsHint": "Between 10 and 120.",
-        "localOnly": "In-house voice service only",
-        "localOnlyHint": "While on, no recording goes to a cloud voice service.",
+        "maxSecondsHint": "Between 5 and 120.",
         "vocabulary": "Vocabulary hint",
         "vocabularyHint": "Sends room, building and course codes to the voice service as a hint; never people's names.",
         "vocab": {
@@ -6895,10 +6939,16 @@
           "off": "Off"
         },
         "review": "The text is always shown to the person before it is sent.",
-        "retention": "Recordings are not kept on the server.",
+        "retention": "Recordings are not kept; the audio is deleted once it is transcribed.",
         "saved": "Voice settings saved.",
         "save": "Save voice settings",
-        "invalidSeconds": "The longest recording must be between 10 and 120 seconds."
+        "invalidSeconds": "The longest recording must be between 5 and 120 seconds.",
+        "language": "Spoken language (default)",
+        "languageHint": "English is used when the person's interface is in English.",
+        "lang": {
+          "tr": "Turkish",
+          "en": "English"
+        }
       },
       "limits": {
         "title": "Voice time",
@@ -6923,7 +6973,216 @@
       "me": {
         "line": "Voice input: today {day} min{dayLimit} · this month {month} min{monthLimit}",
         "of": " / {n}"
+      },
+      "regions": "Region: {regions}"
+    }
+  },
+  "charts": {
+    "ops": {"time": "Time", "requests": "Requests", "errors": "5xx", "p95": "p95 (ms)", "avg": "{n} requests per minute on average", "spike": "most 5xx at {time} ({n})", "mRequests": "Requests per minute", "mErrors": "5xx per minute", "mP95": "p95 latency (ms)", "sourceProm": "Source: Prometheus (all processes).", "sourceProcess": "Source: this API process (Prometheus is not running).", "staleReason": "the requests could not be fetched again"},
+    "unit": {"tokens": "tokens"},
+    "kb": {"label": "Chart, use the arrow keys to move", "total": "total {value}"},
+    "patterns": {"label": "Patterns in charts", "hint": "Adds hatched patterns to chart colours. Turn it on if the colours are hard to tell apart."},
+    "menu": "Chart options",
+    "downloadImage": "Download image",
+    "print": "Print",
+    "showTable": "Show table",
+    "showChart": "Show chart",
+    "download": "Download data",
+    "downloaded": "Downloaded ✓",
+    "downloadedLive": "CSV downloaded",
+    "imageDownloadedLive": "Image downloaded",
+    "updated": "Updated {time} · Europe/Istanbul",
+    "stale": "Last updated {ago}",
+    "staleReason": "Last updated {ago} · {reason}",
+    "empty": {
+      "title": "No data to show yet",
+      "period": "Nothing was recorded in this period. You can pick another period.",
+      "changePeriod": "Change period"
+    },
+    "error": {
+      "title": "The chart could not be loaded",
+      "retry": "Try again"
+    },
+    "tooFew": "A chart needs at least 3 points; showing the total for now.",
+    "partialRow": "(partial)",
+    "period": {
+      "label": "Period",
+      "7d": "7 days",
+      "30d": "30 days",
+      "term": "Term",
+      "1h": "1 h",
+      "24h": "24 h"
+    },
+    "periodPhrase": {
+      "7d": "In the last 7 days:",
+      "30d": "In the last 30 days:",
+      "term": "This term:",
+      "1h": "In the last hour:",
+      "24h": "In the last 24 hours:"
+    },
+    "kind": {
+      "day": "day",
+      "week": "week",
+      "hour": "hour",
+      "slot": "time",
+      "run": "run"
+    },
+    "summary": {
+      "totalPeak": "{period} {total} {unit}; busiest {kind} {peak} ({peakValue}).",
+      "peak": "Busiest {kind}: {peak} ({peakValue}).",
+      "weekly": "Weekly totals are shown on phones.",
+      "trendUp": "Up {pct}% on the previous period.",
+      "trendDown": "Down {pct}% on the previous period.",
+      "trendFlat": "No change on the previous period.",
+      "partial": {
+        "day": "Today is not over yet.",
+        "week": "This week is not over yet.",
+        "hour": "This hour is not over yet.",
+        "slot": "The last slot is not over yet.",
+        "run": "The last run has not finished yet."
       }
     }
-  }
+  },
+  "catalog": {
+    "nav": "Catalogue",
+    "title": "Catalogue",
+    "lead": "The instructors, courses, programmes and sections from the imported files. Every change is written to the audit log.",
+    "tabsLabel": "Catalogue lists",
+    "tabs": {
+      "instructors": "Instructors",
+      "courses": "Courses",
+      "programs": "Programmes",
+      "faculties": "Faculties",
+      "sections": "Sections"
+    },
+    "search": {
+      "instructors": "Search by name",
+      "courses": "Search by code or name",
+      "programs": "Search programmes",
+      "faculties": "Search faculties",
+      "sections": "Search by course code or name"
+    },
+    "searchLabel": "Search",
+    "new": "New",
+    "newNamed": {
+      "instructors": "New instructor",
+      "courses": "New course",
+      "programs": "New programme",
+      "faculties": "New faculty"
+    },
+    "count": "{n} records",
+    "countOf": "{shown} of {n} records",
+    "more": "Show more",
+    "empty": "No records.",
+    "emptySearch": "No results for \"{q}\".",
+    "loadError": "The list could not be loaded.",
+    "retry": "Try again",
+    "readOnly": "You can only view this. Editing needs the planning edit permission.",
+    "col": {
+      "name": "Full name",
+      "title": "Title",
+      "email": "E-mail",
+      "code": "Code",
+      "courseName": "Course name",
+      "hours": "T-P-L",
+      "credits": "Credits",
+      "ects": "ECTS",
+      "program": "Programme",
+      "faculty": "Faculty",
+      "evening": "Evening",
+      "section": "Section",
+      "students": "Students",
+      "mode": "Mode",
+      "course": "Course",
+      "facultyName": "Faculty name",
+      "programName": "Programme name"
+    },
+    "editNamed": "Edit {name}",
+    "openNamed": "Open {name}",
+    "advanced": "Advanced",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "saved": "Saved · {name}",
+    "created": "Added · {name}",
+    "lastChange": "Last change: {name}, {time}",
+    "neverChanged": "Not changed since the import.",
+    "system": "system",
+    "delete": "Delete",
+    "archive": "Archive",
+    "deleteTitle": "Delete {name}?",
+    "archiveTitle": "Archive {name}?",
+    "deleteFree": "Nothing uses this record. The deletion is written to the audit log.",
+    "blockedTitle": "{name} cannot be deleted",
+    "blockedBody": "This record is in use. Move or remove these first:",
+    "archiveBody": "The section and its class hours stay out of later runs. Archiving is written to the audit log.",
+    "uses": {
+      "sections": "{n} sections",
+      "programs": "{n} programmes",
+      "exam_requests": "{n} exam requests",
+      "users": "{n} users",
+      "bookings": "{n} bookings",
+      "meetings": "{n} class-hour requests are archived too",
+      "runs": "placements in {n} runs stay as they are"
+    },
+    "deleted": "Deleted · {name}",
+    "archived": "Archived · {name}",
+    "checking": "Checking where it is used…",
+    "field": {
+      "fullName": "Full name",
+      "title": "Title",
+      "titleHint": "For example: Asst. Prof. Dr.",
+      "email": "E-mail",
+      "code": "Course code",
+      "codeHint": "For example: MBG 532",
+      "name": "Course name",
+      "t": "Theory (hours)",
+      "u": "Practice (hours)",
+      "l": "Lab (hours)",
+      "credits": "Credits",
+      "ects": "ECTS",
+      "facultyName": "Faculty name",
+      "programName": "Programme name",
+      "faculty": "Faculty",
+      "noFaculty": "No faculty",
+      "evening": "Evening programme (İÖ)",
+      "label": "Section",
+      "students": "Number of students",
+      "studentsHint": "The solver picks a room for this many students.",
+      "program": "Programme",
+      "noProgram": "No programme",
+      "mode": "Mode",
+      "notes": "Note",
+      "instructors": "Instructors",
+      "noInstructors": "Not assigned"
+    },
+    "mode": {
+      "F2F": "In person",
+      "ONLINE": "Online",
+      "HYBRID": "Hybrid",
+      "UZEM": "Distance (UZEM)",
+      "ASYNC": "Asynchronous",
+      "HOSPITAL": "Hospital",
+      "SIMULATION": "Simulation",
+      "OTHER": "Other"
+    },
+    "sectionsLead": "Term {term}. New sections are added with the programme wizard.",
+    "wizardLink": "Open the programme wizard",
+    "noTerm": "No term yet.",
+    "error": {
+      "duplicate": "This record already exists: {name}",
+      "duplicatePlain": "This record already exists.",
+      "invalid": "A value is not valid. Check it and try again.",
+      "inUse": "The record is in use; it was not deleted.",
+      "generic": "Could not save. Try again.",
+      "notFound": "The record was not found; the list was refreshed.",
+      "forbidden": "You do not have permission for this.",
+      "students": "Students must be a whole number from 0 to 2000.",
+      "hours": "Hours must be a whole number from 0 to 40.",
+      "decimal": "Enter a number from 0 to 60 (for example 4.5).",
+      "required": "This field cannot be empty."
+    }
+  },
+  "seasons": {"title": "Season profiles", "lead": "A profile changes the solver weights in certain periods (for example the final exam week). Drafts change nothing until approved.", "new": "New profile", "loadError": "Season profiles could not be loaded.", "anySeason": "Every season", "anyKind": "every week", "appliesTo": "Applies to: {text}", "evidence": "Evidence", "details": "Weights and versions", "weightsCaption": "Weights that differ from the standard", "col": {"weight": "Weight", "standard": "Standard", "profile": "This profile"}, "versions": "Versions", "propose": "Propose weights from edits", "proposed": "Learned draft v{v} is ready; approve it to activate.", "proposeNone": "The current weights explain the edits; nothing proposed.", "approvedAt": "approved {date}", "createdAt": "created {date}", "builtinHint": "Built-in profile: read-only.", "activate": "Approve and activate (v{v})", "revert": "Revert", "edit": "Edit", "deleteDraft": "Delete draft", "status": {"builtin": "Built-in", "active": "Active · v{v}", "draft": "Draft · v{v}", "retired": "Retired · v{v}"}, "origin": {"learned": "Learned proposal"}, "done": {"activate": "Profile activated. The next solve uses it.", "revert": "The previous version is active again.", "delete": "Draft deleted.", "saved": "Draft saved.", "newVersion": "New draft version v{v} created; the active version stays until it is approved."}, "confirm": {"activate": {"title": "Activate {name} v{v}?", "body": "The profile's previous active version is retired. The published plan does not change; the next solve uses these weights.", "go": "Activate"}, "revert": {"title": "Revert {name}?", "body": "The previous version becomes active again. The next solve uses it.", "go": "Revert"}, "delete": {"title": "Delete the {name} v{v} draft?", "body": "The draft was never active; deleting it changes no plan.", "go": "Delete"}}, "form": {"newTitle": "New season profile", "editTitle": "Edit profile", "draftHint": "Saved as a draft; it changes nothing until you approve it.", "activeHint": "Editing an active profile creates a new draft version; the active one stays until you approve it.", "nameTr": "Name (Turkish)", "nameEn": "Name (English)", "namePh": "e.g. Final exam week", "when": "When does it apply?", "season": "Season", "kind": "Week kind", "addWhen": "Add another period", "removeWhen": "Remove", "why": "Why? (optional)", "whyHint": "Planners see this explanation on the profile row.", "advanced": "Advanced", "threshold": "Peak-hour threshold (%)", "thresholdHint": "An hour counts as a peak when more than this share of rooms is busy (default 85).", "thresholdInvalid": "The threshold must be a whole number from 50 to 100.", "weightsHint": "A blank weight keeps its standard value.", "weightInvalid": "Weights must be whole numbers from 0 to 10,000: {names}", "nameMissing": "Enter the Turkish name.", "saveDraft": "Save draft"}, "periods": {"title": "Term calendar", "lead": "The term's weeks and holidays decide when a profile applies. Proposals from an import change nothing until approved.", "term": "Term", "none": "No calendar for this term.", "week": "week {n}", "weeks": "weeks {from}–{to}", "proposal": "Proposal", "approve": "Approve", "remove": "Delete", "approved": "Proposal approved.", "removed": "Deleted.", "advanced": "Advanced: add a week range", "kind": "Kind", "from": "First week", "to": "Last week", "add": "Add", "added": "Week range added.", "weeksInvalid": "Enter a valid week range."}, "weight": {"capacity": "Capacity", "fixed_time": "Fixed time", "room_tags": "Room features", "room_pin": "Room pin", "room_forbid": "Room ban", "room_closed": "Closed room", "room_preference": "Requested room", "building_preference": "Requested building", "learned_room_preference": "Learned room preference", "learned_building_preference": "Learned building preference", "min_capacity_waste": "Empty seats", "same_room_group": "Same room group", "same_room_across_weeks": "Same room every week", "stability": "Fewer changes", "stability_room": "Keep the room", "stability_time": "Keep the time", "exam_gap": "Gap between exams", "max_exams_per_day": "Exams per day", "day_window": "Day window", "evening_programs_in_buildings": "Evening programme buildings", "peak_smoothing": "Spread peak hours"}},
+  "adaptive": {"loadError": "Could not load. Try again shortly.", "showAll": "Show all ({n})", "range": "80% range {lo}–{hi}", "noRange": "no range", "lowConfidence": "low confidence", "confidence": {"high": "High confidence", "medium": "Medium confidence", "low": "Low confidence", "none": "No data"}, "kind": {"LECTURE": "Lecture period", "EXAM": "Exam period", "MIDTERM": "Midterm week", "ADD_DROP": "Add/drop", "MAKEUP": "Make-up exams", "SUMMER": "Summer term"}, "peaks": {"tab": "Peak hours", "term": "Term", "kind": "Week kind", "group": {"building": "Building", "campus": "Whole campus", "room_type": "Room type", "capacity_band": "Capacity band"}, "allRooms": "All rooms", "summary": "The busiest hour is {cell} ({group}, {pct} of rooms busy). {n} hours are above {threshold}.", "noPeak": "No hour is above {threshold}.", "tableCaption": "Hours above {threshold}", "col": {"when": "Day and period", "group": "Group", "value": "Busy", "range": "80% range", "weeks": "Weeks", "period": "Period"}, "periodN": "P{n}", "profileTitle": "Busy share by period", "profileHint": "across the term, mean of all days", "profileSummary": "The busiest period of the day is {period}.", "empty": "Peak hours need a published timetable first."}, "forecast": {"title": "Forecast and what-if", "subtitle": "room demand, short hours, scenarios", "link": "Forecast and what-if", "demandTitle": "Room demand", "demandHint": "Expected demand next term", "unit": "Unit: {unit}", "group": {"building": "Building", "weekday": "Weekday", "period": "Period", "tag": "Feature", "capacity_band": "Capacity band"}, "empty": "No data to forecast yet: import a planning list or publish a timetable."}, "shortfall": {"title": "Hours that may run short of rooms", "hint": "Fixed-time requests against suitable rooms in peak hours", "row": "{day} P{period} · {group}: {demand} requests, {supply} suitable rooms ({short} short)", "all": "all rooms", "none": "Rooms suffice in the peak hours.", "competing": "Competing: {list}"}, "whatIf": {"title": "What if enrolment grows", "hint": "Grow today's requests by a percentage and see which classes no longer fit a room. The published plan does not change.", "pct": "Change (%)", "pctInvalid": "Enter a percentage from −90 to 200.", "scope": "Scope", "scopeAll": "Institution", "scopeFaculty": "Faculty", "scopeProgram": "Programme", "pick": "Choose", "scopeMissing": "Choose the faculty or programme.", "solve": "Also start a draft solve (never published)", "submit": "Calculate", "result": "Scenario", "today": "Today", "scenario": "In the scenario", "fit": "{noFit} of {classes} classes do not fit a room · {short} seat-hours short", "worse": "{n} more classes are left without a room.", "better": "{n} fewer classes are left without a room.", "same": "The number of classes without a room does not change.", "openRun": "Open the draft solve (#{id})", "compare": "Compare"}, "exams": {"title": "Exam load and advice", "subtitle": "exam days, seats, invigilators; advice only", "linkHint": "Exams per day, seats and invigilators needed", "open": "Open", "empty": "No dated exams in this term: create an exam timetable first.", "adviceTitle": "Advice", "adviceHint": "No exam is moved by itself.", "calm": "Exam days are balanced; no advice.", "card": {"peak_day": {"title": "{day}: the busiest exam day", "body": "{exams} exams; the weekday mean is {mean}. Consider moving some to calmer days."}, "seats": {"title": "{day}, P{period}: seats may run short", "body": "{seats} students, {capacity} exam seats ({pct}%)."}, "invigilators": {"title": "{day}, P{period}: invigilators short", "body": "{need} invigilators needed, {pool} in the pool ({short} short)."}}, "chartTitle": "Exams per day", "chartHint": "across the exam period", "chartSummary": "The busiest day is {day}: {n} exams (weekday mean {mean}).", "col": {"date": "Date", "exams": "Exams", "seats": "Students"}, "holds": "Exam slots are held: {held} room-periods held, {freed} freed for bookings (±{buffer} periods buffer).", "holdsLink": "Exam period rule", "seeMoves": "Suggested moves: {list}", "movesTitle": "Suggested moves", "editRequest": "Edit the request"}, "find": {"chip": "Peak hour", "body": "Usually {pct} of rooms are busy at this time.", "alt": "Calmer: {day} {span}.", "period": "period {n}", "periods": "periods {from}–{to}"}, "run": {"profile": "Profile: {name} v{v}", "noProfile": "Profile: none", "weights": "weights ({n} changed)", "defaults": "standard weights", "peakSmoothing": "Peak-hour spreading on (weight {n})", "source": {"settings": "from settings", "profile": "from the profile", "run": "this solve"}, "skipped": "Weeks left out (exams / holidays): {weeks}"}, "hold": {"mode": "Exam slots", "hint": "Exam rooms are held only in the exam timetable's slots (and the buffer); other hours stay bookable.", "buffer": "Buffer", "bufferHint": "Periods held before and after each exam", "bufferNone": "No buffer", "bufferN": "{n} periods", "effect": "Booking in a held slot", "effectRequest": "Needs approval", "effectRefuse": "Refused", "freed": "{freed} room-periods freed for bookings, {held} held for exams.", "noTimetable": "Freed room-periods show here once a dated exam timetable exists."}, "learning": {"title": "Learning versions", "refresh": "Refresh learning", "hint": "A refresh records a new version from the term's current evidence. Suggestions are never applied by themselves.", "nightly": "Refresh every night", "nightlyHint": "03:15 Istanbul time, for the active term", "none": "No learning version yet.", "version": "Version {n}", "counts": "{obs} observations · {sugg} suggestions · +{new} new, −{dropped} dropped, {changed} changed", "current": "Current", "pinned": "Reverted to", "revert": "Revert to this version", "revertTitle": "Revert to version {n}?", "revertBody": "Suggestions return to this version. The term stays on it until the next manual refresh.", "reverted": "Reverted to version {n}.", "revertedSame": "Version {n} was identical to the current one.", "refreshed": "Learning refreshed: version {n}.", "refreshedPlain": "Learning refreshed.", "calibration": "Advanced: tuning proposals ({n})", "apply": "Apply", "applied": "Applied; effective at the next refresh.", "appliedRow": "{attr}: minimum confidence {v}", "clear": "Remove", "cleared": "Removed."}, "habit": {"title": "Learned habits", "hint": "Turn off, correct or tune a habit that was learned wrongly.", "none": "No learned habits for this term.", "search": "Search person, course or value", "claim": "{subject}: {attr} {value}", "attr": {"room": "room", "building": "building", "day": "day", "period": "time", "day_period": "day and time", "tag": "feature"}, "state": {"disabled": "Off", "corrected": "Corrected: {to}", "tuned": "Weight {n}"}, "edit": "Edit", "do": {"disabled": "Turn off", "corrected": "Correct", "tuned": "Tune", "clear": "Reset"}, "doHint": {"disabled": "This habit is never suggested again.", "corrected": "The right value is learned as a planner correction.", "tuned": "When accepted, the rule gets this weight (1–5).", "clear": "The habit is suggested from the evidence again."}, "value": "Right {attr}", "valueMissing": "Enter the right value.", "weight": "Weight", "reason": "Why? (optional)", "save": "Save", "saved": "Habit updated."}}
 }

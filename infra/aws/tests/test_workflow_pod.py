@@ -51,3 +51,54 @@ def test_every_bootstrap_call_names_the_pod() -> None:
         if " preflight " in ln:
             continue  # credentials only, no pod resources
         assert '--pod "$POD_NAME"' in ln, ln
+
+
+# sweep 2026-10-18: deploy-time settings on the POD_ACTION line map to `smartsched_aws.py up` flags
+# (docs/deploy/ONE-CLICK.md); the optional repo secrets reach `up` as environment variables only.
+
+
+def flags(tmp_path: Path) -> list[str]:
+    p = tmp_path / "pod-flags"
+    return [x for x in p.read_text().split("\0") if x] if p.exists() else []
+
+
+def test_settings_on_the_line_become_up_flags(tmp_path: Path) -> None:
+    line = ('up pod=universal org="Örnek Üniversitesi" admin=it@uni.edu.tr smtp-host=smtp.uni.edu.tr '
+            'smtp-port=587 smtp-security=starttls security=guvenlik@uni.edu.tr observability=off '
+            'ai=openai 2026-10-18T08:00Z')
+    code, vals, log = resolve(tmp_path, line)
+    assert code == 0, log
+    assert vals["pod"] == "universal" and vals["command"] == "up"
+    assert flags(tmp_path) == [
+        "--org-name", "Örnek Üniversitesi", "--admin-email", "it@uni.edu.tr", "--smtp-host", "smtp.uni.edu.tr",
+        "--smtp-port", "587", "--smtp-security", "starttls", "--security-contact", "guvenlik@uni.edu.tr",
+        "--no-observability", "--ai-provider", "openai",
+    ]
+    assert "Örnek" not in log  # only the flag names are logged
+
+
+@pytest.mark.parametrize(("line", "needle"), [
+    ("up domain=plan.uni.edu.tr", "sslip.io"),
+    ("up orgname=X", "unknown setting 'orgname'"),
+    ("up org=\"unclosed", "cannot parse"),
+    ("up observability=maybe", "observability=on|off"),
+])
+def test_bad_settings_fail(tmp_path: Path, line: str, needle: str) -> None:
+    code, _, log = resolve(tmp_path, line)
+    assert code == 1 and needle in log, log
+
+
+def test_settings_are_ignored_for_other_commands(tmp_path: Path) -> None:
+    code, vals, log = resolve(tmp_path, "status org=X region=eu-central-1")
+    assert code == 0, log
+    assert vals["region"] == "eu-central-1" and flags(tmp_path) == []
+
+
+def test_up_step_gets_the_optional_secrets_as_env_and_never_echoes_them() -> None:
+    wf = yaml.safe_load(WORKFLOW.read_text())
+    step = next(s for s in wf["jobs"]["pod"]["steps"] if str(s.get("name", "")).startswith("smartsched_aws.py"))
+    for key in ("AI_API_KEY", "SMTP_PASSWORD"):
+        assert step["env"][key] == f"${{{{ secrets.{key} }}}}"
+        assert f"${key}" not in step["run"] and f"${{{key}}}" not in step["run"]
+    assert "pod-flags" in step["run"]
+    assert set(wf[True]) == {"push", "workflow_dispatch"} and wf[True]["push"]["paths"] == ["infra/aws/POD_ACTION"]

@@ -82,7 +82,7 @@ export function buildSheet(state: WelcomeState | undefined, opts: { kind?: "shee
   }
   const fromServer = state.sheet.cards.map((c) => resolveCard(c, audiences, primary)).filter((c): c is ResolvedCard => !!c);
   const cards = fromServer.length ? fromServer.slice(0, MAX_CARDS) : catalogCards(primary, audiences.length ? audiences : [primary]);
-  return { primary, kind, updated: state.sheet.updated, cards, overrides };
+  return { primary, kind, updated: state.sheet.updated || !!state.show?.updated, cards, overrides };
 }
 
 function pick(map: Record<string, string>, prefix: string): Record<string, string> {
@@ -186,7 +186,7 @@ export function badPlaceholders(text: string): string[] {
 
 /** The person's first name for `{ad}` (the server's `first_name`, else the first word of the full name). */
 export function firstNameOf(state: WelcomeState | undefined, fullName: string | null | undefined): string {
-  const fromServer = state?.first_name?.trim();
+  const fromServer = (state?.name ?? state?.first_name)?.trim();
   if (fromServer) return fromServer;
   const words = (fullName ?? "").trim().split(/\s+/).filter(Boolean);
   // "Dr. A. Tekin": skip titles and initials, keep the first real word

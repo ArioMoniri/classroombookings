@@ -593,7 +593,7 @@
    browser text size reaches them; only the KPI numerals stay fixed. */
 /* KPI numerals: fixed, tabular, never fluid (they must line up across cards). */
 @utility type-kpi {
-  font-size: 28px; line-height: 32px; font-weight: 650; letter-spacing: -0.021em; font-variant-numeric: tabular-nums;
+  font-size: 1.75rem; line-height: 2rem; font-weight: 650; letter-spacing: -0.021em; font-variant-numeric: tabular-nums;
 }
 @utility type-headline {
   font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; letter-spacing: -0.006em;
@@ -635,6 +635,11 @@
     --shell-top-h: calc(3rem + env(safe-area-inset-top));
     --shell-bottom-h: calc(3.5rem + max(0.75rem, env(safe-area-inset-bottom)));
   }
+  /* mobile-a fix 4: a short landscape phone (≤ 500 px tall) gets the 44 px compact tab bar, 8 px above the edge, and the
+     top bar scrolls away with the page (shell/tab-bar.tsx, top-bar.tsx) */
+  @media (max-height: 500px) {
+    :root { --shell-top-h: 0px; --shell-bottom-h: calc(2.75rem + max(0.5rem, env(safe-area-inset-bottom))); }
+  }
   @media (width >= 64rem) {
     :root { --shell-top-h: 3.25rem; --shell-bottom-h: 0px; }
   }
@@ -667,8 +672,9 @@
     background-image: var(--scene-mesh);
     background-attachment: fixed;
     min-height: 100dvh;
-    font-size: 14px;
-    line-height: 20px;
+    /* mobile-a fix 13: rem, so the OS / browser text size (and <meta name="text-scale">) reaches body text */
+    font-size: 0.875rem;
+    line-height: 1.25rem;
     letter-spacing: -0.003em;
   }
   :focus-visible {
@@ -698,7 +704,7 @@
   .shadow-elev-2 { box-shadow: var(--shadow-2); }
   .shadow-elev-3 { box-shadow: var(--shadow-3); }
   .scrollbar-thin { scrollbar-width: thin; scrollbar-color: var(--fill-1) transparent; }
-  .text-2xs { font-size: 10px; line-height: 12px; }
+  .text-2xs { font-size: 0.625rem; line-height: 0.75rem; }
 }
 
 @media (forced-colors: active) {

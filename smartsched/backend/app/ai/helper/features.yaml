@@ -1,0 +1,955 @@
+# SmartSched feature index ("Nerede?" / "Where is it?"), HB-01.
+#
+# One entry per page, tab or control a person can be sent to. The helper searches it with Turkish-folded BM25
+# (app/ai/helper/index.py) and never shows an entry the person cannot open: `permission` is any-of, exactly as the
+# frontend nav (`nav-config.ts`, `admin/nav-items.ts`, `lib/permissions.ts` ADMIN_SECTIONS, `wave1-sections.ts`);
+# an empty list means every signed-in person. tests/helper/test_hb_01_index.py fails when a nav href has no entry,
+# when the permissions differ, or when a route has no page.tsx.
+#
+# Fields: id, kind (page | tab | setting | control), route (a page path, optionally with #section), title / path / synonyms /
+# steps in Turkish and English, anchor (a data-tour id from welcome-guide.md §13 or helper.md §3.4), permission
+# (any-of), hide_with (hidden for holders of this permission, like NavItem.hideWith), actions (helper registry
+# actions reachable from the entry), since (release).
+#
+# Synonyms carry the words people already use, CRBS words first (helper.md §3.2).
+
+- id: bookings
+  kind: page
+  route: /bookings
+  title: {tr: Rezervasyonlar, en: Bookings}
+  path: {tr: [Rezervasyonlar], en: [Bookings]}
+  synonyms:
+    tr: [rezervasyon, booking, rezervasyon yap, salon ayır, oda ayır, derslik ayır, haftalık rezervasyon tablosu, boş saat, rezervasyon takvimi, ayırma, sınıf ayır, amfi ayır, lab ayır, tablo]
+    en: [bookings, book a room, booking grid, reserve a room, weekly booking table, free slot, crbs bookings, room schedule]
+  steps:
+    tr: ["Sol menüden Rezervasyonlar'ı açın.", "Haftayı ve salonu seçin.", "Boş bir saate tıklayıp rezerve edin."]
+    en: ["Open Bookings in the side menu.", "Pick the week and the room.", "Click a free slot and book it."]
+  anchor: nav-bookings
+  permission: []
+  actions: [room_day_schedule, create_booking]
+  since: "2026.10"
+
+- id: reserve
+  kind: page
+  route: /reserve
+  title: {tr: Hızlı rezervasyon, en: Quick reserve}
+  path: {tr: [Rezervasyonlar, Hızlı rezervasyon], en: [Bookings, Quick reserve]}
+  synonyms:
+    tr: [hızlı ayır, hemen rezerve et, çabuk rezervasyon, tek tıkla rezervasyon, şimdi salon lazım, yarın için salon ayır]
+    en: [quick booking, book now, fast reserve, one click booking, i need a room now]
+  steps:
+    tr: ["Rezervasyonlar › Hızlı rezervasyon'u açın.", "Zamanı seçin.", "Listeden bir salon seçip rezerve edin."]
+    en: ["Open Bookings › Quick reserve.", "Choose the time.", "Pick a room from the list and book it."]
+  anchor: nav-reserve
+  permission: [book_single.create]
+  actions: [find_free_rooms, create_booking]
+  since: "2026.10"
+
+- id: reserve.rooms
+  kind: control
+  route: /reserve
+  title: {tr: Hızlı rezervasyondaki salon listesi, en: Room list in quick reserve}
+  path: {tr: [Rezervasyonlar, Hızlı rezervasyon, Salon listesi], en: [Bookings, Quick reserve, Room list]}
+  synonyms:
+    tr: [uygun salonlar listesi, boş salonlar, müsait salonlar]
+    en: [available rooms list, rooms free now]
+  steps:
+    tr: ["Hızlı rezervasyon'da zamanı seçin.", "Uygun salonlar listede görünür."]
+    en: ["Choose the time in Quick reserve.", "The available rooms appear in the list."]
+  anchor: reserve-room-list
+  permission: [book_single.create]
+  actions: [find_free_rooms]
+  since: "2026.10"
+
+- id: my_bookings
+  kind: page
+  route: /my-bookings
+  title: {tr: Rezervasyonlarım, en: My bookings}
+  path: {tr: [Rezervasyonlar, Rezervasyonlarım], en: [Bookings, My bookings]}
+  synonyms:
+    tr: [benim rezervasyonlarım, kendi rezervasyonlarım, yaptığım rezervasyonlar, ayırdığım salonlar, rezervasyon geçmişi, gelecek rezervasyonlarım]
+    en: [my reservations, bookings i made, my booked rooms, upcoming bookings]
+  steps:
+    tr: ["Rezervasyonlar › Rezervasyonlarım'ı açın.", "Yaklaşan rezervasyonlarınız listelenir."]
+    en: ["Open Bookings › My bookings.", "Your upcoming bookings are listed."]
+  anchor: nav-my-bookings
+  permission: []
+  actions: [my_bookings, cancel_my_booking]
+  since: "2026.10"
+
+- id: my_bookings.cancel
+  kind: control
+  route: /my-bookings
+  title: {tr: Rezervasyon iptal et, en: Cancel a booking}
+  path: {tr: [Rezervasyonlar, Rezervasyonlarım, İptal et], en: [Bookings, My bookings, Cancel]}
+  synonyms:
+    tr: [rezervasyonu iptal et, rezervasyon sil, ayırmayı kaldır, salonu bırak, vazgeç rezervasyon, iptal]
+    en: [cancel booking, delete booking, remove reservation, release a room, cancel my reservation]
+  steps:
+    tr: ["Rezervasyonlar › Rezervasyonlarım'ı açın.", "Rezervasyonun yanındaki İptal et'e basın.", "Onaylayın."]
+    en: ["Open Bookings › My bookings.", "Press Cancel next to the booking.", "Confirm."]
+  anchor: my-bookings-cancel
+  permission: []
+  actions: [my_bookings, cancel_my_booking]
+  since: "2026.10"
+
+- id: bookings.export
+  kind: control
+  route: /my-bookings
+  title: {tr: Rezervasyonları dışa aktar (CSV), en: Export bookings (CSV)}
+  path: {tr: [Rezervasyonlar, Rezervasyonlarım, Dışa aktar], en: [Bookings, My bookings, Export]}
+  synonyms:
+    tr: [csv indir, rezervasyon raporu, excel indir, rezervasyon listesi indir, dışa aktarım]
+    en: [download csv, bookings report, export to excel, download bookings]
+  steps:
+    tr: ["Rezervasyonlar › Rezervasyonlarım'ı açın.", "Dışa aktar bölümünde tarih aralığını seçin.", "CSV'yi indirin."]
+    en: ["Open Bookings › My bookings.", "Choose the date range under Export.", "Download the CSV."]
+  anchor: bookings-export
+  permission: [system.export_bookings]
+  actions: []
+  since: "2026.10"
+
+- id: find_room
+  kind: page
+  route: /find-room
+  title: {tr: Boş derslik bul, en: Find a room}
+  path: {tr: [Rezervasyonlar, Boş derslik bul], en: [Bookings, Find a room]}
+  synonyms:
+    tr: [derslik bul, salon bul, boş salon, boş sınıf, uygun oda, müsait derslik, kapasiteye göre salon, projeksiyonlu salon, kaç kişilik salon, oda ara]
+    en: [find room, free room, empty classroom, available room, room search, room with projector, room by capacity]
+  steps:
+    tr: ["Rezervasyonlar › Boş derslik bul'u açın.", "Tarih, saat ve kişi sayısını girin.", "Sonuçlardan birini seçip rezerve edin."]
+    en: ["Open Bookings › Find a room.", "Enter the date, time and headcount.", "Pick a result and book it."]
+  anchor: nav-find-room
+  permission: []
+  actions: [find_free_rooms, create_booking]
+  since: "2026.10"
+
+- id: find_room.filters
+  kind: control
+  route: /find-room
+  title: {tr: Derslik arama filtreleri, en: Room search filters}
+  path: {tr: [Rezervasyonlar, Boş derslik bul, Filtreler], en: [Bookings, Find a room, Filters]}
+  synonyms:
+    tr: [bina filtresi, özellik filtresi, kapasite filtresi, bilgisayar laboratuvarı, projeksiyon]
+    en: [building filter, feature filter, capacity filter, computer lab]
+  steps:
+    tr: ["Boş derslik bul'da filtreleri açın.", "Bina, kapasite ve özellikleri seçin."]
+    en: ["Open the filters in Find a room.", "Choose building, capacity and features."]
+  anchor: find-room-filters
+  permission: []
+  actions: [find_free_rooms]
+  since: "2026.10"
+
+- id: approvals
+  kind: page
+  route: /approvals
+  title: {tr: Onaylar, en: Approvals}
+  path: {tr: [Rezervasyonlar, Onaylar], en: [Bookings, Approvals]}
+  synonyms:
+    tr: [bekleyen talepler, onay bekleyen rezervasyonlar, talep onayla, talep reddet, onay kutusu, gelen talepler, onaylanacaklar]
+    en: [pending requests, approve request, reject request, approval inbox, requests to approve]
+  steps:
+    tr: ["Rezervasyonlar › Onaylar'ı açın.", "Bir talebin yanındaki Onayla ya da Reddet'e basın.", "Reddederken gerekçe seçin."]
+    en: ["Open Bookings › Approvals.", "Press Approve or Reject next to a request.", "Choose a reason when you reject."]
+  anchor: nav-approvals
+  permission: [approvals.decide]
+  actions: [approvals_inbox, decide_approval]
+  since: "2026.10"
+
+- id: approvals.row_actions
+  kind: control
+  route: /approvals
+  title: {tr: Talebi onayla ya da reddet, en: Approve or reject a request}
+  path: {tr: [Rezervasyonlar, Onaylar, Onayla / Reddet], en: [Bookings, Approvals, Approve / Reject]}
+  synonyms:
+    tr: [talebi reddet, talebi onayla, red gerekçesi, onay ver]
+    en: [reject a request, approve a request, rejection reason]
+  steps:
+    tr: ["Onaylar'da talebi bulun.", "Onayla'ya ya da Reddet'e basın."]
+    en: ["Find the request in Approvals.", "Press Approve or Reject."]
+  anchor: approvals-row-actions
+  permission: [approvals.decide]
+  actions: [approvals_inbox, decide_approval]
+  since: "2026.10"
+
+- id: my_requests
+  kind: page
+  route: /moderation/me
+  title: {tr: Taleplerim, en: My requests}
+  path: {tr: [Rezervasyonlar, Taleplerim], en: [Bookings, My requests]}
+  synonyms:
+    tr: [talebim ne durumda, talep durumu, onay bekleyen talebim, gönderdiğim talepler, talebimi geri çek, ders talebim]
+    en: [my request status, my pending requests, requests i sent, withdraw my request]
+  steps:
+    tr: ["Rezervasyonlar › Taleplerim'i açın.", "Her talebin durumu ve kararı görünür."]
+    en: ["Open Bookings › My requests.", "Each request shows its status and decision."]
+  anchor: nav-my-requests
+  permission: [book_single.create, book_recur.create]
+  hide_with: planning.view
+  actions: [my_requests_status, withdraw_my_request]
+  since: "2026.10"
+
+- id: profile
+  kind: page
+  route: /profile
+  title: {tr: Profil, en: Profile}
+  path: {tr: [Profil], en: [Profile]}
+  synonyms:
+    tr: [hesabım, profilim, adımı değiştir, e-posta adresim, kişisel bilgiler, dil seçimi]
+    en: [my account, my profile, change my name, my email, personal details, language]
+  steps:
+    tr: ["Sağ üstteki kullanıcı menüsünü açın.", "Profil'i seçin."]
+    en: ["Open the user menu at the top right.", "Choose Profile."]
+  anchor: user-menu
+  permission: []
+  actions: []
+  since: "2026.10"
+
+- id: profile.password
+  kind: tab
+  route: /profile
+  title: {tr: Parolayı değiştir, en: Change password}
+  path: {tr: [Profil, Parola], en: [Profile, Password]}
+  synonyms:
+    tr: [şifre değiştir, şifremi değiştir, parola değiştir, yeni şifre, şifre yenile]
+    en: [change password, new password, reset my password, password]
+  steps:
+    tr: ["Kullanıcı menüsünden Profil'i açın.", "Parola bölümünde eski ve yeni parolayı girin.", "Parolayı değiştir'e basın."]
+    en: ["Open Profile from the user menu.", "Enter the old and the new password under Password.", "Press Change password."]
+  permission: []
+  actions: []
+  since: "2026.10"
+
+- id: profile.calendar
+  kind: tab
+  route: /profile
+  title: {tr: Takvimime ekle, en: Add to my calendar}
+  path: {tr: [Profil, Takvim], en: [Profile, Calendar]}
+  synonyms:
+    tr: [derslerimi takvimime ekle, google takvim, outlook takvim, apple takvim, takvim bağlantısı, ics, takvim aboneliği, derslerim telefonda]
+    en: [add my classes to my calendar, google calendar, outlook calendar, calendar feed, ics, calendar subscription]
+  steps:
+    tr: ["Profil'i açın.", "Takvim bölümünde takviminizi seçin.", "Bağlantıyı ekleyin."]
+    en: ["Open Profile.", "Choose your calendar under Calendar.", "Add the link."]
+  anchor: profile-calendar
+  permission: []
+  actions: []
+  since: "2026.10"
+
+- id: profile.notifications
+  kind: tab
+  route: /profile#notifications
+  title: {tr: Bildirim tercihleri, en: Notification preferences}
+  path: {tr: [Profil, Bildirimler], en: [Profile, Notifications]}
+  synonyms:
+    tr: [bildirimleri kapat, e-posta bildirimleri, bildirim ayarları, e-posta gelmesin, onay bildirimleri, uyarılar]
+    en: [turn off notifications, email notifications, notification settings, stop emails, approval notices]
+  steps:
+    tr: ["Profil'i açın.", "Bildirimler bölümünde kanalları seçin."]
+    en: ["Open Profile.", "Choose the channels under Notifications."]
+  anchor: profile-notifications
+  permission: []
+  actions: []
+  since: "2026.10"
+
+- id: profile.channels
+  kind: tab
+  route: /profile#channels
+  title: {tr: Bağlı kanallar, en: Linked channels}
+  path: {tr: [Profil, Bağlı kanallar], en: [Profile, Linked channels]}
+  synonyms:
+    tr: [sms bağla, whatsapp bağla, telegram bağla, telefon numaram, mesaj kanalı]
+    en: [link sms, link whatsapp, link telegram, my phone number]
+  steps:
+    tr: ["Profil'i açın.", "Bağlı kanallar bölümünden bir kanal ekleyin."]
+    en: ["Open Profile.", "Add a channel under Linked channels."]
+  permission: []
+  actions: []
+  since: "2026.10"
+
+- id: profile.ai_usage
+  kind: tab
+  route: /profile#ai-usage
+  title: {tr: Yapay zekâ kullanımım, en: My AI usage}
+  path: {tr: [Profil, Yapay zekâ kullanımım], en: [Profile, My AI usage]}
+  synonyms:
+    tr: [yapay zeka kotam, kalan hakkım, token kullanımım, yapay zeka sınırım]
+    en: [my ai quota, my token usage, ai limit, how much ai left]
+  steps:
+    tr: ["Profil'i açın.", "Yapay zekâ kullanımım bölümüne bakın."]
+    en: ["Open Profile.", "Look at My AI usage."]
+  anchor: profile-ai-usage
+  permission: []
+  actions: [my_ai_usage]
+  since: "2026.10"
+
+- id: profile.helper_memory
+  kind: tab
+  route: /profile
+  title: {tr: "Yardımcı neleri hatırlıyor?", en: What the helper remembers}
+  path: {tr: [Profil, Yardımcı], en: [Profile, Helper]}
+  synonyms:
+    tr: [yardımcı belleği, hatırladıkların, notlarımı sil, hafızayı temizle, unut]
+    en: [helper memory, what you remember, delete my notes, forget]
+  steps:
+    tr: ["Profil'i açın.", "Yardımcı bölümünde notları görün ya da silin."]
+    en: ["Open Profile.", "See or delete the notes under Helper."]
+  anchor: profile-helper-memory
+  permission: []
+  actions: []
+  since: "2026.10"
+
+- id: profile.privacy
+  kind: tab
+  route: /profile
+  title: {tr: Kişisel verilerim (KVKK), en: My personal data (KVKK)}
+  path: {tr: [Profil, Gizlilik], en: [Profile, Privacy]}
+  synonyms:
+    tr: [verilerimi indir, verilerimi sil, açık rıza, kvkk başvurusu, hesabımı sil, aydınlatma metni]
+    en: [download my data, delete my data, consent, data request, delete my account, privacy notice]
+  steps:
+    tr: ["Profil'i açın.", "Gizlilik bölümünden başvurunuzu oluşturun."]
+    en: ["Open Profile.", "Create your request under Privacy."]
+  permission: []
+  actions: []
+  since: "2026.10"
+
+- id: dashboard
+  kind: page
+  route: /dashboard
+  title: {tr: Özet, en: Dashboard}
+  path: {tr: [Planlama, Özet], en: [Plan, Dashboard]}
+  synonyms:
+    tr: [ana sayfa, genel durum, planlama özeti, gösterge paneli]
+    en: [home, overview, planning summary]
+  steps:
+    tr: ["Sol menüden Planlama › Özet'i açın."]
+    en: ["Open Plan › Dashboard in the side menu."]
+  anchor: nav-dashboard
+  permission: [planning.view]
+  actions: [run_status, requests_needing_review]
+  since: "2026.10"
+
+- id: onboarding
+  kind: page
+  route: /onboarding
+  title: {tr: Dosyalardan kur, en: Set up from files}
+  path: {tr: [Planlama, Dosyalardan kur], en: [Plan, Set up from files]}
+  synonyms:
+    tr: [excel yükle, dosya yükle, kurulum sihirbazı, pdf yükle, ders programı dosyası, eski programı aktar]
+    en: [upload excel, upload files, setup wizard, upload pdf, onboarding]
+  steps:
+    tr: ["Planlama › Dosyalardan kur'u açın.", "Dosyalarınızı bırakın.", "Önerileri inceleyip onaylayın."]
+    en: ["Open Plan › Set up from files.", "Drop your files.", "Review and accept the proposals."]
+  anchor: nav-onboarding
+  permission: [planning.edit]
+  actions: []
+  since: "2026.10"
+
+- id: import
+  kind: page
+  route: /import
+  title: {tr: İçe aktar, en: Import}
+  path: {tr: [Planlama, İçe aktar], en: [Plan, Import]}
+  synonyms:
+    tr: [planlama listesi yükle, derslik takvimi yükle, xlsx içe aktar, veri aktar]
+    en: [import planning list, import workbook, import xlsx, data import]
+  steps:
+    tr: ["Planlama › İçe aktar'ı açın.", "Excel dosyasını seçin.", "Önizlemeyi kontrol edip içe aktarın."]
+    en: ["Open Plan › Import.", "Choose the Excel file.", "Check the preview and import."]
+  permission: [planning.edit]
+  actions: []
+  since: "2026.10"
+
+- id: requests
+  kind: page
+  route: /requests
+  title: {tr: Talepler, en: Requests}
+  path: {tr: [Planlama, Talepler], en: [Plan, Requests]}
+  synonyms:
+    tr: [ders talepleri, incelenecek talepler, gözden geçirilecekler, sınav talepleri, talep listesi]
+    en: [meeting requests, requests to review, needs review, exam requests]
+  steps:
+    tr: ["Planlama › Talepler'i açın.", "İncelenecekler filtresini seçin."]
+    en: ["Open Plan › Requests.", "Choose the needs-review filter."]
+  anchor: nav-requests
+  permission: [planning.view]
+  actions: [requests_needing_review]
+  since: "2026.10"
+
+- id: generate
+  kind: page
+  route: /generate
+  title: {tr: Oluştur, en: Generate}
+  path: {tr: [Planlama, Oluştur], en: [Plan, Generate]}
+  synonyms:
+    tr: [ders programı oluştur, program üret, çizelge oluştur, çözücüyü çalıştır, yeni çalıştırma, sınav programı oluştur]
+    en: [generate timetable, run the solver, new run, create schedule, exam schedule]
+  steps:
+    tr: ["Planlama › Oluştur'u açın.", "Dönemi ve ayarları seçin.", "Oluştur'a basın."]
+    en: ["Open Plan › Generate.", "Choose the term and settings.", "Press Generate."]
+  anchor: nav-generate
+  permission: [planning.edit]
+  actions: []
+  since: "2026.10"
+
+- id: moderation
+  kind: page
+  route: /moderation
+  title: {tr: Moderasyon, en: Moderation}
+  path: {tr: [Planlama, Moderasyon], en: [Plan, Moderation]}
+  synonyms:
+    tr: [kişi eşleştirme, öncelikler, öğretim elemanı tercihleri, eşleşmeler]
+    en: [people matching, priorities, instructor preferences, matchings]
+  steps:
+    tr: ["Planlama › Moderasyon'u açın."]
+    en: ["Open Plan › Moderation."]
+  anchor: nav-moderation
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
+- id: programs.new
+  kind: page
+  route: /programs/new
+  title: {tr: Yeni program, en: New programme}
+  path: {tr: [Planlama, Yeni program], en: [Plan, New programme]}
+  synonyms:
+    tr: [sıfırdan program, yeni bölüm programı, program sihirbazı, müfredat oluştur]
+    en: [programme from scratch, new curriculum, programme wizard]
+  steps:
+    tr: ["Planlama › Yeni program'ı açın.", "Adımları izleyin."]
+    en: ["Open Plan › New programme.", "Follow the steps."]
+  permission: [planning.edit]
+  actions: []
+  since: "2026.10"
+
+- id: timetable
+  kind: page
+  route: /timetable
+  title: {tr: Çizelge, en: Timetable}
+  path: {tr: [Sonuçlar, Çizelge], en: [Results, Timetable]}
+  synonyms:
+    tr: [ders programı, haftalık program, ders çizelgesi, programı gör, takvim görünümü]
+    en: [timetable view, weekly timetable, class schedule, see the schedule]
+  steps:
+    tr: ["Sonuçlar › Çizelge'yi açın.", "Haftayı ve görünümü seçin."]
+    en: ["Open Results › Timetable.", "Choose the week and the view."]
+  anchor: nav-timetable
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
+- id: runs
+  kind: page
+  route: /runs
+  title: {tr: Çalıştırmalar, en: Runs}
+  path: {tr: [Sonuçlar, Çalıştırmalar], en: [Results, Runs]}
+  synonyms:
+    tr: [çalıştırma durumu, son çalıştırma, çözüm sonuçları, yayındaki plan, plan durumu]
+    en: [run status, latest run, solver results, published plan, plan status]
+  steps:
+    tr: ["Sonuçlar › Çalıştırmalar'ı açın.", "Bir çalıştırmayı seçip özetine bakın."]
+    en: ["Open Results › Runs.", "Choose a run and look at its summary."]
+  anchor: nav-runs
+  permission: [planning.view]
+  actions: [run_status]
+  since: "2026.10"
+
+- id: runs.publish
+  kind: control
+  route: /runs
+  title: {tr: Planı yayınla, en: Publish the plan}
+  path: {tr: [Sonuçlar, Çalıştırmalar, Yayınla], en: [Results, Runs, Publish]}
+  synonyms:
+    tr: [yayınla, yayımla, programı yayınla, planı etkinleştir, aktif et]
+    en: [publish, activate run, make the plan live]
+  steps:
+    tr: ["Sonuçlar › Çalıştırmalar'ı açın.", "Çalıştırmayı açın.", "Yayınla'ya basın ve pencereden onaylayın."]
+    en: ["Open Results › Runs.", "Open the run.", "Press Publish and confirm in the dialog."]
+  anchor: runs-publish
+  permission: [planning.edit]
+  actions: [run_status]
+  since: "2026.10"
+
+- id: runs.export
+  kind: control
+  route: /runs
+  title: {tr: Çalıştırmayı dışa aktar, en: Export a run}
+  path: {tr: [Sonuçlar, Çalıştırmalar, Dışa aktar], en: [Results, Runs, Export]}
+  synonyms:
+    tr: [programı indir, çalıştırma raporu, excel olarak indir, son çalıştırmanın raporu]
+    en: [download timetable, run report, export to excel, latest run report]
+  steps:
+    tr: ["Sonuçlar › Çalıştırmalar'da çalıştırmayı açın.", "Dışa aktar'a basın."]
+    en: ["Open the run in Results › Runs.", "Press Export."]
+  anchor: runs-export
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
+- id: runs.compare
+  kind: page
+  route: /runs/compare
+  title: {tr: Senaryo karşılaştırma, en: Scenario comparison}
+  path: {tr: [Sonuçlar, Senaryo karşılaştırma], en: [Results, Scenario comparison]}
+  synonyms:
+    tr: [iki çalıştırmayı karşılaştır, fark göster, senaryolar]
+    en: [compare two runs, show differences, scenarios]
+  steps:
+    tr: ["Sonuçlar › Senaryo karşılaştırma'yı açın.", "İki çalıştırma seçin."]
+    en: ["Open Results › Scenario comparison.", "Choose two runs."]
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
+- id: analytics.heatmap
+  kind: page
+  route: /analytics/heatmap
+  title: {tr: Doluluk ısı haritası, en: Utilisation heatmap}
+  path: {tr: [Sonuçlar, Doluluk ısı haritası], en: [Results, Utilisation heatmap]}
+  synonyms:
+    tr: [salon doluluğu, kullanım oranı, doluluk raporu, hangi saatler dolu]
+    en: [room utilisation, usage rate, occupancy report, busy hours]
+  steps:
+    tr: ["Sonuçlar › Doluluk ısı haritası'nı açın."]
+    en: ["Open Results › Utilisation heatmap."]
+  anchor: nav-heatmap
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
+- id: analytics.forecast
+  kind: page
+  route: /analytics/forecast
+  title: {tr: Tahmin ve senaryo, en: Forecast and what-if}
+  path: {tr: [Sonuçlar, Tahmin ve senaryo], en: [Results, Forecast and what-if]}
+  synonyms:
+    tr: [oda talebi tahmini, gelecek dönem talep, oda yetmeyecek saatler, senaryo, öğrenci sayısı artarsa, kapasite planlama, yoğun saatler]
+    en: [room demand forecast, next term demand, room shortfall, what if, student numbers grow, capacity planning, peak hours]
+  steps:
+    tr: ["Sonuçlar › Tahmin ve senaryo'yu açın.", "Senaryo için yüzdeyi yazıp Senaryoyu hesapla'ya basın."]
+    en: ["Open Results › Forecast and what-if.", "Type a percentage and press Calculate the scenario."]
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
+- id: exams.advisor
+  kind: page
+  route: /exams/advisor
+  title: {tr: Sınav yükü ve öneriler, en: Exam load and advice}
+  path: {tr: [Sonuçlar, Sınav yükü ve öneriler], en: [Results, Exam load and advice]}
+  synonyms:
+    tr: [sınav yükü, en yoğun sınav günü, sınav koltuk yetmiyor, gözetmen eksik, sınav günü dengesi, sınav önerileri]
+    en: [exam load, busiest exam day, exam seats short, invigilators short, exam day balance, exam advice]
+  steps:
+    tr: ["Sonuçlar › Sınav yükü ve öneriler'i açın."]
+    en: ["Open Results › Exam load and advice."]
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
+- id: exams.invigilation
+  kind: page
+  route: /exams/invigilation
+  title: {tr: Gözetmen ataması, en: Invigilator assignment}
+  path: {tr: [Sonuçlar, Gözetmen ataması], en: [Results, Invigilator assignment]}
+  synonyms:
+    tr: [gözetmen, sınav gözetmeni, gözetmen görevleri, gözetmen havuzu]
+    en: [invigilators, exam proctor, invigilation duties, proctor pool]
+  steps:
+    tr: ["Sonuçlar › Gözetmen ataması'nı açın."]
+    en: ["Open Results › Invigilator assignment."]
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
+- id: rooms
+  kind: page
+  route: /rooms
+  title: {tr: Derslikler, en: Rooms}
+  path: {tr: [Ana veriler, Derslikler], en: [Master data, Rooms]}
+  synonyms:
+    tr: [derslik listesi, salon listesi, salon kapasiteleri, salon özellikleri]
+    en: [room list, room capacities, room features]
+  steps:
+    tr: ["Ana veriler › Derslikler'i açın."]
+    en: ["Open Master data › Rooms."]
+  permission: [planning.view, setup.rooms]
+  actions: []
+  since: "2026.10"
+
+- id: settings
+  kind: page
+  route: /settings
+  title: {tr: Ayarlar, en: Settings}
+  path: {tr: [Yönetim, Ayarlar], en: [Admin, Settings]}
+  synonyms:
+    tr: [planlama ayarları, çözücü ayarları, kurallar, yerleşik kurallar]
+    en: [planning settings, solver settings, built-in rules]
+  steps:
+    tr: ["Yönetim › Ayarlar'ı açın."]
+    en: ["Open Admin › Settings."]
+  permission: [planning.admin, setup.settings]
+  actions: []
+  since: "2026.10"
+
+- id: admin.ops
+  kind: page
+  route: /admin/ops
+  title: {tr: Operasyon, en: Operations}
+  path: {tr: [Yönetim, Operasyon], en: [Admin, Operations]}
+  synonyms:
+    tr: [sistem durumu, hata kayıtları, günlükler, sunucu durumu, grafana]
+    en: [system status, error log, logs, server health]
+  steps:
+    tr: ["Yönetim › Operasyon'u açın."]
+    en: ["Open Admin › Operations."]
+  permission: [setup.settings, planning.admin]
+  actions: []
+  since: "2026.10"
+
+- id: admin.ai
+  kind: page
+  route: /admin/ai
+  title: {tr: Yapay zekâ yönetimi, en: AI administration}
+  path: {tr: [Yönetim, Yapay zekâ], en: [Admin, AI]}
+  synonyms:
+    tr: [yapay zeka ayarları, model seçimi, api anahtarı, sağlayıcı, yerel model, yapay zeka sınırları, kota, yardımcıyı aç]
+    en: [ai settings, model routing, api key, provider, local model, ai limits, quota, helper settings]
+  steps:
+    tr: ["Yönetim › Yapay zekâ'yı açın.", "Sağlayıcıyı ve modelleri seçin."]
+    en: ["Open Admin › AI.", "Choose the provider and models."]
+  permission: [setup.settings, planning.admin]
+  actions: []
+  since: "2026.10"
+
+- id: admin.integrations
+  kind: page
+  route: /admin/integrations
+  title: {tr: Entegrasyonlar, en: Integrations}
+  path: {tr: [Yönetim, Entegrasyonlar], en: [Admin, Integrations]}
+  synonyms:
+    tr: [bağlantılar, webhook, otomasyon, google entegrasyonu, microsoft entegrasyonu]
+    en: [connections, webhooks, automation, google integration, microsoft integration]
+  steps:
+    tr: ["Yönetim › Entegrasyonlar'ı açın."]
+    en: ["Open Admin › Integrations."]
+  anchor: nav-integrations
+  permission: [setup.settings, planning.admin]
+  actions: []
+  since: "2026.10"
+
+- id: admin
+  kind: page
+  route: /admin
+  title: {tr: Kurulum, en: Setup}
+  path: {tr: [Yönetim, Kurulum], en: [Admin, Setup]}
+  synonyms:
+    tr: [yönetim paneli, kurulum menüsü, crbs ayarları]
+    en: [admin panel, setup menu, crbs setup]
+  steps:
+    tr: ["Yönetim › Kurulum'u açın."]
+    en: ["Open Admin › Setup."]
+  anchor: nav-admin
+  permission: [setup.authentication, setup.departments, setup.roles, setup.rooms, setup.rooms_acl, setup.schedules, setup.sessions, setup.settings, setup.timetable_weeks, setup.users]
+  actions: []
+  since: "2026.10"
+
+- id: admin.users
+  kind: page
+  route: /admin/users
+  title: {tr: Kullanıcılar, en: Users}
+  path: {tr: [Kurulum, Kişiler, Kullanıcılar], en: [Setup, People, Users]}
+  synonyms:
+    tr: [davet, hesap, kullanıcı, user, kullanıcı ekle, hesap aç, kullanıcı listesi, kullanıcıyı devre dışı bırak, rol ata, kullanıcı içe aktar]
+    en: [users, add user, create account, user list, disable a user, assign role, import users]
+  steps:
+    tr: ["Kurulum › Kullanıcılar'ı açın."]
+    en: ["Open Setup › Users."]
+  anchor: admin-group-users
+  permission: [setup.users]
+  actions: []
+  since: "2026.10"
+
+- id: admin.users.invite
+  kind: control
+  route: /admin/users
+  title: {tr: Kullanıcı davet et, en: Invite a user}
+  path: {tr: [Kurulum, Kullanıcılar, Davet et], en: [Setup, Users, Invite]}
+  synonyms:
+    tr: [davet gönder, öğretim elemanı davet et, yeni kişi davet, e-posta ile davet]
+    en: [send invite, invite a teacher, invite by email, invite someone]
+  steps:
+    tr: ["Kurulum › Kullanıcılar'ı açın.", "Davet et'e basın.", "E-posta ve rolü girip gönderin."]
+    en: ["Open Setup › Users.", "Press Invite.", "Enter the e-mail and role and send."]
+  anchor: admin-users-invite
+  permission: [setup.users]
+  actions: []
+  since: "2026.10"
+
+- id: admin.roles
+  kind: page
+  route: /admin/roles
+  title: {tr: Roller, en: Roles}
+  path: {tr: [Kurulum, Kişiler, Roller], en: [Setup, People, Roles]}
+  synonyms:
+    tr: [roller ve izinler, yetkiler, izin ver, rol oluştur, yetki tanımla]
+    en: [roles and permissions, permissions, grant permission, create role]
+  steps:
+    tr: ["Kurulum › Roller'i açın.", "Bir rol seçip izinlerini düzenleyin."]
+    en: ["Open Setup › Roles.", "Choose a role and edit its permissions."]
+  permission: [setup.roles]
+  actions: []
+  since: "2026.10"
+
+- id: admin.departments
+  kind: page
+  route: /admin/departments
+  title: {tr: Bölümler, en: Departments}
+  path: {tr: [Kurulum, Kişiler, Bölümler], en: [Setup, People, Departments]}
+  synonyms:
+    tr: [bölüm, department, bölüm ekle, birimler, birim, fakülte bölümleri]
+    en: [departments, department, add department, units]
+  steps:
+    tr: ["Kurulum › Bölümler'i açın."]
+    en: ["Open Setup › Departments."]
+  permission: [setup.departments]
+  actions: []
+  since: "2026.10"
+
+- id: admin.rooms
+  kind: page
+  route: /admin/rooms
+  title: {tr: Salonlar, en: Rooms}
+  path: {tr: [Kurulum, Salonlar], en: [Setup, Rooms]}
+  synonyms:
+    tr: [lab, salon, derslik, oda, room, salon ekle, derslik ekle, oda ekle, salon grupları, amfi, laboratuvar, salon özellikleri düzenle, salonu rezervasyona kapat]
+    en: [rooms, add room, room groups, lecture hall, lab, room fields, close a room for bookings]
+  steps:
+    tr: ["Kurulum › Salonlar'ı açın.", "Salon ekle'ye basın."]
+    en: ["Open Setup › Rooms.", "Press Add room."]
+  anchor: admin-group-resources
+  permission: [setup.rooms, setup.rooms_acl]
+  actions: []
+  since: "2026.10"
+
+- id: admin.access
+  kind: page
+  route: /admin/access
+  title: {tr: Erişim denetimi, en: Access checker}
+  path: {tr: [Kurulum, Salonlar, Erişim], en: [Setup, Rooms, Access]}
+  synonyms:
+    tr: [izin, erişim, access, kim ayırabilir, salon erişimi, erişim kuralları, salon izinleri, kim rezerve edebilir]
+    en: [who can book, room access, access rules, room permissions, access control]
+  steps:
+    tr: ["Kurulum › Erişim denetimi'ni açın.", "Salonu ve kişiyi seçin."]
+    en: ["Open Setup › Access checker.", "Choose the room and the person."]
+  anchor: admin-access-rules
+  permission: [setup.rooms_acl, setup.users]
+  actions: []
+  since: "2026.10"
+
+- id: admin.approval_rules
+  kind: page
+  route: /admin/approval-rules
+  title: {tr: Onay kuralları, en: Approval rules}
+  path: {tr: [Kurulum, Salonlar, Onay kuralları], en: [Setup, Rooms, Approval rules]}
+  synonyms:
+    tr: [onay gerektiren salonlar, onaylayıcı ata, onay akışı, onay modu, tüm talepler onaya gitsin]
+    en: [rooms that need approval, assign approver, approval workflow, approval mode]
+  steps:
+    tr: ["Kurulum › Onay kuralları'nı açın.", "Kural ekleyin."]
+    en: ["Open Setup › Approval rules.", "Add a rule."]
+  anchor: admin-approval-rules
+  permission: [setup.rooms_acl]
+  actions: []
+  since: "2026.10"
+
+- id: admin.sessions
+  kind: page
+  route: /admin/sessions
+  title: {tr: Dönemler, en: Sessions}
+  path: {tr: [Kurulum, Takvim, Dönemler], en: [Setup, Calendar, Sessions]}
+  synonyms:
+    tr: [term, dönem, session, dönem ekle, yarıyıl, akademik takvim, dönem değiştir, güz dönemi, bahar dönemi]
+    en: [add term, semester, academic calendar, change term, sessions, terms]
+  steps:
+    tr: ["Kurulum › Dönemler'i açın.", "Dönem ekle'ye basın."]
+    en: ["Open Setup › Sessions.", "Press Add session."]
+  anchor: admin-group-timetable
+  permission: [setup.sessions]
+  actions: []
+  since: "2026.10"
+
+- id: admin.holidays
+  kind: page
+  route: /admin/holidays
+  title: {tr: Tatiller, en: Holidays}
+  path: {tr: [Kurulum, Takvim, Tatiller], en: [Setup, Calendar, Holidays]}
+  synonyms:
+    tr: [tatil, holiday, tatil ekle, resmi tatil, bayram, kapalı günler, tatil günü]
+    en: [holidays, add holiday, public holiday, closed days, holiday]
+  steps:
+    tr: ["Kurulum › Tatiller'i açın.", "Tatil ekle'ye basın.", "Tarihleri girip kaydedin."]
+    en: ["Open Setup › Holidays.", "Press Add holiday.", "Enter the dates and save."]
+  anchor: admin-holidays-add
+  permission: [setup.sessions]
+  actions: []
+  since: "2026.10"
+
+- id: admin.schedules
+  kind: page
+  route: /admin/schedules
+  title: {tr: Ders saatleri, en: Schedules}
+  path: {tr: [Kurulum, Takvim, Ders saatleri], en: [Setup, Calendar, Schedules]}
+  synonyms:
+    tr: [saat dilimi, period, ders saati, saat dilimleri, periyotlar, zaman çizelgesi, teneffüs, ders süresi]
+    en: [timetable, periods, time slots, crbs periods, lesson times, timetable periods]
+  steps:
+    tr: ["Kurulum › Ders saatleri'ni açın.", "Saatleri düzenleyin."]
+    en: ["Open Setup › Schedules.", "Edit the periods."]
+  anchor: admin-periods
+  permission: [setup.schedules]
+  actions: []
+  since: "2026.10"
+
+- id: admin.weeks
+  kind: page
+  route: /admin/weeks
+  title: {tr: Ders haftaları, en: Timetable weeks}
+  path: {tr: [Kurulum, Takvim, Ders haftaları], en: [Setup, Calendar, Timetable weeks]}
+  synonyms:
+    tr: [a/b haftası, week, hafta, a haftası, b haftası, haftalar, sezon takvimi, sınav haftası]
+    en: [weeks, a/b weeks, crbs weeks, season calendar, exam week]
+  steps:
+    tr: ["Kurulum › Ders haftaları'nı açın."]
+    en: ["Open Setup › Timetable weeks."]
+  anchor: admin-weeks
+  permission: [setup.timetable_weeks]
+  actions: []
+  since: "2026.10"
+
+- id: admin.conflicts
+  kind: page
+  route: /admin/conflicts
+  title: {tr: Rezervasyon çakışmaları, en: Booking conflicts}
+  path: {tr: [Kurulum, Takvim, Rezervasyon çakışmaları], en: [Setup, Calendar, Booking conflicts]}
+  synonyms:
+    tr: [çakışan rezervasyonlar, programla çakışan, çakışma çöz]
+    en: [clashing bookings, conflicts with the timetable, resolve conflicts]
+  steps:
+    tr: ["Kurulum › Rezervasyon çakışmaları'nı açın."]
+    en: ["Open Setup › Booking conflicts."]
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
+- id: admin.settings
+  kind: page
+  route: /admin/settings
+  title: {tr: Kurum ayarları, en: Organisation}
+  path: {tr: [Kurulum, Kurum, Kurum ayarları], en: [Setup, Organisation, Organisation settings]}
+  synonyms:
+    tr: [ayarlar, settings, kurum adı, logo, bakım modu, saat dilimi, genel ayarlar, rezervasyon ayarları]
+    en: [crbs settings, settings, organisation name, logo, maintenance mode, time zone, general settings, booking settings]
+  steps:
+    tr: ["Kurulum › Kurum ayarları'nı açın."]
+    en: ["Open Setup › Organisation."]
+  permission: [setup.settings]
+  actions: []
+  since: "2026.10"
+
+- id: admin.authentication
+  kind: page
+  route: /admin/authentication
+  title: {tr: Oturum açma (LDAP), en: Sign-in (LDAP)}
+  path: {tr: [Kurulum, Kurum, Oturum açma], en: [Setup, Organisation, Sign-in]}
+  synonyms:
+    tr: [giriş, ldap, sso, tek oturum açma, entra, active directory, giriş yöntemleri, saml]
+    en: [authentication, ldap, sso, single sign-on, entra id, active directory, sign-in methods, saml]
+  steps:
+    tr: ["Kurulum › Oturum açma'yı açın."]
+    en: ["Open Setup › Sign-in."]
+  anchor: admin-sso
+  permission: [setup.authentication]
+  actions: []
+  since: "2026.10"
+
+- id: admin.email
+  kind: page
+  route: /admin/email
+  title: {tr: E-posta, en: E-mail}
+  path: {tr: [Kurulum, Kurum, E-posta], en: [Setup, Organisation, E-mail]}
+  synonyms:
+    tr: [smtp, e-posta sunucusu, e-posta şablonları, mail ayarları, test e-postası]
+    en: [smtp, mail server, email templates, mail settings, test email]
+  steps:
+    tr: ["Kurulum › E-posta'yı açın."]
+    en: ["Open Setup › E-mail."]
+  anchor: admin-mail
+  permission: [setup.settings]
+  actions: []
+  since: "2026.10"
+
+- id: admin.audit
+  kind: page
+  route: /admin/audit
+  title: {tr: Denetim kaydı, en: Audit log}
+  path: {tr: [Kurulum, Kurum, Denetim kaydı], en: [Setup, Organisation, Audit log]}
+  synonyms:
+    tr: [kim değiştirdi, değişiklik geçmişi, işlem kayıtları, geri al kaydı]
+    en: [who changed what, change history, activity log, undo history]
+  steps:
+    tr: ["Kurulum › Denetim kaydı'nı açın."]
+    en: ["Open Setup › Audit log."]
+  permission: [audit.view]
+  actions: []
+  since: "2026.10"
+
+- id: admin.kvkk
+  kind: page
+  route: /admin/kvkk
+  title: {tr: KVKK, en: KVKK}
+  path: {tr: [Kurulum, Kurum, KVKK], en: [Setup, Organisation, KVKK]}
+  synonyms:
+    tr: [kişisel veri başvuruları, saklama süreleri, aydınlatma metni düzenle, veri envanteri]
+    en: [data subject requests, retention, privacy notice, data inventory, gdpr]
+  steps:
+    tr: ["Kurulum › KVKK'yı açın."]
+    en: ["Open Setup › KVKK."]
+  permission: [setup.users, setup.settings]
+  actions: []
+  since: "2026.10"
+
+- id: admin.catalog
+  kind: page
+  route: /admin/catalog
+  title: {tr: Katalog, en: Catalogue}
+  path: {tr: [Yönetim, Katalog], en: [Admin, Catalogue]}
+  synonyms:
+    tr: [öğretim elemanları listesi, ders listesi, programlar, şubeler, fakülteler, öğretim elemanı düzenle, ders kataloğu]
+    en: [instructor list, course list, programmes, sections, faculties, edit an instructor, course catalogue]
+  steps:
+    tr: ["Yönetim › Katalog'u açın.", "Listeyi seçin."]
+    en: ["Open Admin › Catalogue.", "Choose the list."]
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
+- id: admin.welcome
+  kind: page
+  route: /admin/welcome
+  title: {tr: Karşılama rehberi, en: Welcome guide}
+  path: {tr: [Kurulum, Kurum, Karşılama rehberi], en: [Setup, Organisation, Welcome guide]}
+  synonyms:
+    tr: [rehberli tur, başlarken listesi, karşılama penceresi, ipuçları, turu kapat, karşılama metinleri]
+    en: [guided tour, getting started list, welcome sheet, feature hints, turn off the tour, welcome texts]
+  steps:
+    tr: ["Kurulum › Karşılama rehberi'ni açın.", "Parçaları açın ya da kapatın."]
+    en: ["Open Setup › Welcome guide.", "Switch the parts on or off."]
+  anchor: nav-welcome-admin
+  permission: [setup.settings, planning.admin]
+  actions: []
+  since: "2026.10"

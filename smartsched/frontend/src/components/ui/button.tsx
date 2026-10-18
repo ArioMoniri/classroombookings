@@ -38,8 +38,10 @@ const buttonVariants = cva(
         bare: "inline-block shrink items-stretch justify-normal whitespace-normal active:not-aria-[haspopup]:scale-100",
       },
       size: {
-        xs: "h-(--control-h-xs) gap-1 px-[calc(var(--control-h-xs)*0.4375)] type-footnote font-medium [&_svg:not([class*='size-'])]:size-3.5",
-        sm: "h-(--control-h-sm) gap-1 px-[calc(var(--control-h-sm)*0.4375)] type-footnote font-medium [&_svg:not([class*='size-'])]:size-3.5",
+        /* mobile audit B/A (2026-10-17): on touch the small sizes are a real 44 px box too; the ::after hit area alone was
+           clipped inside overflow-hidden rows and cards (about 25 M-02 offenders) */
+        xs: "h-(--control-h-xs) pointer-coarse:min-h-11 gap-1 px-[calc(var(--control-h-xs)*0.4375)] type-footnote font-medium [&_svg:not([class*='size-'])]:size-3.5",
+        sm: "h-(--control-h-sm) pointer-coarse:min-h-11 gap-1 px-[calc(var(--control-h-sm)*0.4375)] type-footnote font-medium [&_svg:not([class*='size-'])]:size-3.5",
         md: "h-(--control-h-md) gap-1.5 px-[calc(var(--control-h-md)*0.4375)] type-callout font-medium [&_svg:not([class*='size-'])]:size-4",
         lg: "h-(--control-h-lg) gap-1.5 px-[calc(var(--control-h-lg)*0.4375)] type-body font-medium [&_svg:not([class*='size-'])]:size-4",
         /** @deprecated use size="md" */
@@ -47,9 +49,9 @@ const buttonVariants = cva(
         /** @deprecated use <IconButton size="md" label=…> */
         icon: "size-(--control-h-md) [&_svg:not([class*='size-'])]:size-4",
         /** @deprecated use <IconButton size="xs" label=…> */
-        "icon-xs": "size-(--control-h-xs) [&_svg:not([class*='size-'])]:size-3.5",
+        "icon-xs": "size-(--control-h-xs) pointer-coarse:min-h-11 pointer-coarse:min-w-11 [&_svg:not([class*='size-'])]:size-3.5",
         /** @deprecated use <IconButton size="sm" label=…> */
-        "icon-sm": "size-(--control-h-sm) [&_svg:not([class*='size-'])]:size-3.5",
+        "icon-sm": "size-(--control-h-sm) pointer-coarse:min-h-11 pointer-coarse:min-w-11 [&_svg:not([class*='size-'])]:size-3.5",
         /** @deprecated use <IconButton size="lg" label=…> */
         "icon-lg": "size-(--control-h-lg) [&_svg:not([class*='size-'])]:size-4",
       },
@@ -123,8 +125,8 @@ function BareButton(props: BareButtonProps) {
 }
 
 const iconButtonSize = {
-  xs: "size-(--control-h-xs) [&_svg:not([class*='size-'])]:size-3.5",
-  sm: "size-(--control-h-sm) [&_svg:not([class*='size-'])]:size-3.5",
+  xs: "size-(--control-h-xs) pointer-coarse:min-h-11 pointer-coarse:min-w-11 [&_svg:not([class*='size-'])]:size-3.5",
+  sm: "size-(--control-h-sm) pointer-coarse:min-h-11 pointer-coarse:min-w-11 [&_svg:not([class*='size-'])]:size-3.5",
   md: "size-(--control-h-md) [&_svg:not([class*='size-'])]:size-4",
   lg: "size-(--control-h-lg) [&_svg:not([class*='size-'])]:size-4",
 } as const

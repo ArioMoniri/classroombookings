@@ -15,9 +15,10 @@ export default {
   verified: false,
   async setup({ page }) {
     const tid = await termId(page, process.env.REC_RUN_TERM ?? "2026-GUZ");
-    const list = async () => ((await api(page, `/runs?term_id=${tid}`)).data ?? []).filter((r) => r.kind === "COURSE" && r.horizon === "TERM" && OK.includes(r.status));
+    const list = async () => ((await api(page, `/runs?term_id=${tid}`)).data ?? []).filter((r) => r.kind === "COURSE" && OK.includes(r.status)).sort((a, b) => (a.horizon === "TERM" ? 0 : 1) - (b.horizon === "TERM" ? 0 : 1));
     // a solver run (an imported board is a run too, label "Grid import: …"), finished, not the published one
-    let run = (await list()).find((r) => !r.is_active && (r.placed ?? 0) > 0 && !/^Grid import/i.test(r.label ?? ""));
+    // hard score 100 = every hard rule held (a run that breaks one cannot be published: publish_guard)
+    let run = (await list()).find((r) => !r.is_active && (r.placed ?? 0) > 0 && (r.hard_score ?? 0) >= 100 && !/^Grid import/i.test(r.label ?? ""));
     if (!run) {
       const made = await api(page, "/runs", { method: "POST", body: { term_id: tid, kind: "COURSE", horizon: "TERM", label: "Güz full term", horizon_params: {}, params: { time_limit_s: Number(process.env.REC_RUN_LIMIT ?? 240) } } });
       if (made.status >= 400) throw new Error(`POST /runs: ${made.status} ${JSON.stringify(made.data)}`);

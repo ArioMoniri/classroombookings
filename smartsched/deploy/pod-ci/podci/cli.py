@@ -11,6 +11,7 @@
   prepare-env ENV EXAMPLE K=V...    create/update deploy/.env, generating secrets on the pod
   sync-secrets ENV                  store admin + app secrets from deploy/.env in SSM (SecureString)
   basic-auth FILE                   create the /ci/ basic-auth credentials once, store them in SSM
+  bootstrap-env FILE                write SSM {prefix}/bootstrap/* (deploy-time settings) as KEY='value' lines (0600)
 """
 
 from __future__ import annotations
@@ -84,6 +85,15 @@ def main(argv: list[str] | None = None) -> int:
         for name, (value, secure) in envfile.ssm_values(Path(a.args[0])).items():
             cloud.put_param(name, value, secure)
             log(f"stored {cfg.ssm_prefix}/{name} ({'SecureString' if secure else 'String'})")
+        return 0
+    if cmd == "bootstrap-env":
+        path = Path(a.args[0])
+        values = envfile.bootstrap_env(cloud.get_params_under("bootstrap"))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch(mode=0o600, exist_ok=True)
+        path.chmod(0o600)
+        path.write_text(envfile.shell_exports(values), encoding="utf-8")
+        log(f"{path}: deploy-time settings {sorted(values) or 'none'} (values not shown)")
         return 0
     if cmd == "basic-auth":
         path = Path(a.args[0])

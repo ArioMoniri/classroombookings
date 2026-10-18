@@ -33,10 +33,10 @@ async def _setup(client, parsed_bahar_list) -> tuple[dict[str, str], int, int]:
     return h, tid, mr
 
 
-def _check(stats: dict, *, seed_source: str = "settings") -> None:
+def _check(stats: dict) -> None:
     assert stats["weights_effective"]["room_preference"] == 3, stats.get("weights_source")
     assert stats["weights_source"]["room_preference"] == "settings"
-    assert stats["seed"] == {"value": 7, "source": seed_source} if seed_source == "settings" else True
+    assert stats["seed"] == {"value": 7, "source": "settings"}
 
 
 async def _get(client, h, run_id: int) -> dict:

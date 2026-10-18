@@ -59,6 +59,8 @@ export const OrgPublicAuth = z.object({
   auth: PublicAuth.nullish(),
   /** the institution's KVKK notice (footer link); rendered only when the backend provides it */
   kvkk_notice_url: z.string().nullish(),
+  /** AU-B / AUX-03 (auth.md §4.1): passkeys on, passwordless passkey sign-in, "Bu cihazı hatırla" days */
+  passkeys: z.object({ enabled: z.boolean().default(false), sign_in: z.boolean().default(false), trusted_device_days: z.number().default(30) }).nullish(),
 });
 export type OrgPublicAuth = z.infer<typeof OrgPublicAuth>;
 
@@ -80,6 +82,10 @@ export const ExchangeOut = z.object({
   next: z.string().nullish(),
   welcome: z.enum(["self", "invited", "bound"]).nullish(),
   inviter_name: z.string().nullish(),
+  /** AU-16: the policy wants 2FA for the role and the provider asserted none (step-up notice, shown once) */
+  idp_mfa_missing: z.boolean().default(false),
+  idp_mfa_message_tr: z.string().nullish(),
+  idp_mfa_message_en: z.string().nullish(),
 });
 export type ExchangeOut = z.infer<typeof ExchangeOut>;
 
@@ -154,6 +160,8 @@ export const Invite = z.object({
   expires_at: z.string(),
   created_by: z.number().nullish(),
   link: z.string().nullish(),
+  /** RF-03: with `send_email`, whether the invitation e-mail went out (`SENT`, else `UNSENT` / `FAILED`) */
+  email_status: z.string().nullish(),
 });
 export type Invite = z.infer<typeof Invite>;
 
@@ -165,6 +173,9 @@ export interface InviteIn {
   department_id?: number | null;
   instructor_id?: number | null;
   days?: number | null;
+  /** RF-03: e-mail the link at once (themed invitation e-mail); needs SMTP (`inviteMail().configured`) */
+  send_email?: boolean;
+  locale?: "tr" | "en";
 }
 
 export const IdentityStatus = z.enum(["linked", "invited", "invite_expired", "binding", "none"]);
@@ -178,6 +189,10 @@ export const UserIdentityStatus = z.object({
   self_signup_at: z.string().nullish(),
   break_glass: z.boolean().default(false),
   instructor_id: z.number().nullish(),
+  /** AU-18 (API.md §13): SmartSched 2FA per user; null = identity-provider-only (no tag, no 2FA filter match) */
+  mfa_state: z.enum(["on", "off", "pending"]).nullish().catch(null),
+  /** `pending` only: end of the grace period once it started (first sign-in under the policy) */
+  mfa_grace_until: z.string().nullish(),
 });
 export type UserIdentityStatus = z.infer<typeof UserIdentityStatus>;
 export const UserStatusMap = z.record(z.string(), UserIdentityStatus);
@@ -195,6 +210,8 @@ export const identity = {
   addMapping: (body: { claim: "role" | "group"; value: string; role_id: number }) => request("/auth/sso/admin/entra/mappings", { method: "POST", body, schema: Mapping, silent: true }),
   deleteMapping: (id: number) => request<void>(`/auth/sso/admin/entra/mappings/${id}`, { method: "DELETE", silent: true }),
   invites: () => request("/auth/sso/admin/invites", { schema: z.array(Invite), silent: true }),
+  /** RF-03: whether SMTP is set up, so the users screen's invite sheet can e-mail the link (setup.users) */
+  inviteMail: () => request("/auth/sso/admin/invite-mail", { schema: z.object({ configured: z.boolean() }), silent: true }),
   createInvite: (body: InviteIn) => request("/auth/sso/admin/invites", { method: "POST", body, schema: Invite, silent: true }),
   renewInvite: (id: number) => request(`/auth/sso/admin/invites/${id}/renew`, { method: "POST", schema: Invite, silent: true }),
   deleteInvite: (id: number) => request<void>(`/auth/sso/admin/invites/${id}`, { method: "DELETE", silent: true }),
@@ -214,6 +231,7 @@ export const identityKeys = {
   mappings: ["identity", "mappings"] as const,
   invites: ["identity", "invites"] as const,
   userStatus: ["identity", "user-status"] as const,
+  inviteMail: ["identity", "invite-mail"] as const,
   instructors: (q: string, limit: number) => ["identity", "instructors", q, limit] as const,
 };
 

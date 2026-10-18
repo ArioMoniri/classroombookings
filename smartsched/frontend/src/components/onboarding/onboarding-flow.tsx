@@ -7,6 +7,7 @@ import { AiUsageBanner } from "@/components/admin/ai/my-ai-usage";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { BusyGlyph } from "@/components/ui/busy-label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { ACTIVE_JOB, councilApi, type CommitIn, type CommitOut, type DecisionIn } from "@/lib/api/council";
 import { problemText } from "@/lib/api/error-text";
@@ -179,7 +180,20 @@ export function OnboardingFlow({ initialJobId = null }: { initialJobId?: number 
       ) : null}
       {/* what earlier reviews taught the intake (resettable): inspect and forget before the next upload */}
       {jobId === null ? <IntakeMemoryPanel compact /> : null}
+      {/* mobile-b phase 2 (CLS 0.55 at 390 on /onboarding/<id>): the progress card and the review land in slots that
+          already hold their height, instead of the page growing twice as the job and then the review arrive */}
+      {jobId !== null && !job.data && !job.isError ? (
+        <div className="min-h-[70dvh] space-y-4" aria-busy="true" data-testid="onboarding-loading">
+          <Skeleton className="h-40 rounded-2xl" />
+          <Skeleton className="h-80 rounded-2xl" />
+        </div>
+      ) : null}
       {job.data ? <CouncilProgress job={job.data} /> : null}
+      {job.data && reviewable && !ACTIVE_JOB.has(job.data.status) && !review.data && !review.isError ? (
+        <div className="min-h-[50dvh]" aria-busy="true" data-testid="onboarding-review-loading">
+          <Skeleton className="h-80 rounded-2xl" />
+        </div>
+      ) : null}
       {job.data?.status === "FAILED" ? <p className="type-callout text-status-infeasible-fg" role="alert">{job.data.error}</p> : null}
       {job.data && !ACTIVE_JOB.has(job.data.status) && review.data ? (
         <>

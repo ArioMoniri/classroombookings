@@ -75,7 +75,7 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
       {/* fields at their natural widths that wrap as whole fields: three equal columns squeezed the horizon control
           into its select fallback at 1440 (each control keeps one row and one height, review §3 Generate) */}
       <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
-        <div className="grid min-w-48 gap-1.5">
+        <div className="grid min-w-48 max-w-full gap-1.5">
           <Label htmlFor="scope-term">{t("studio.scope.term")}</Label>
           <NativeSelect
             id="scope-term"
@@ -93,13 +93,15 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
             ))}
           </NativeSelect>
         </div>
-        <div className="grid gap-1.5">
+        {/* 200 % text (mobile-b phase 2): min-w-0 / max-w-full let the segment fall back to its select instead of
+            pushing the page sideways (the label row measured 391–477 px at 390) */}
+        <div className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)] gap-1.5">
           <span id="scope-kind" className="text-sm font-medium">
             {t("studio.scope.kind")}
           </span>
           <SegmentedControl semantics="radiogroup" aria-labelledby="scope-kind" value={kind} onValueChange={onKind} data-testid="scope-kind" options={[{ value: "COURSE", label: t("studio.kind.COURSE"), testId: "kind-COURSE" }, { value: "EXAM", label: t("studio.kind.EXAM"), testId: "kind-EXAM" }]} />
         </div>
-        <div className="grid gap-1.5">
+        <div className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)] gap-1.5">
           <span id="scope-horizon" className="text-sm font-medium">
             {t("studio.scope.horizon")}
           </span>

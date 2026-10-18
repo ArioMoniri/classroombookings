@@ -48,11 +48,10 @@ async def test_m8_exports_neutralise_formulas_and_ics_lines(bahar, stub_solver):
         cell for ws in wb.worksheets for row in ws.iter_rows() for cell in row if str(cell.value or "").startswith("=")
     ]
     assert evil and all(cell.data_type == "s" and cell.quotePrefix for cell in evil)
-    # ICS: no injected property line (CAL-04: the board notes are not exported at all any more, so the injected
-    # text cannot appear; the room name with the formula is escaped in LOCATION)
+    # ICS: no injected property line (CAL-04: the board notes are not exported any more, so the injected text cannot
+    # appear at all)
     ics = (await c.get(f"/api/v1/runs/{run_id}/export", params={"format": "ics"}, headers=h)).text
     assert "\nATTENDEE" not in ics and "\rATTENDEE" not in ics and "ATTENDEE:mailto" not in ics
-    assert "LOCATION:" in ics and "\nLOCATION:=HYPERLINK" not in ics
 
 
 def test_m8_helpers():

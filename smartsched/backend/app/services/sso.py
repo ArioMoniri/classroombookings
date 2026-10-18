@@ -161,6 +161,8 @@ PUBLIC_CODES: dict[str, str] = {
     # wave 3b: several providers
     "domain": "domain",
     "invite_provider": "invite_provider",
+    # AU-16: the policy requires 2FA for the role and the provider asserted no MFA ("IdP MFA'yı zorunlu tut" on)
+    "idp_mfa": "idp_mfa_required",
 }
 
 #: the public codes in Turkish and English (GET /auth/sso/providers ``messages``; sign-in.md §6.2/§6.3 copy)
@@ -218,6 +220,12 @@ MESSAGES: dict[str, dict[str, str]] = {
     "invite_provider": {
         "tr": "Bu davet başka bir giriş yöntemi için. Davet e-postasındaki düğmeyi kullanın.",
         "en": "This invitation is for another sign-in method. Use the button in the invitation e-mail.",
+    },
+    "idp_mfa_required": {
+        "tr": "Kurumunuz bu rol için iki aşamalı doğrulama istiyor. Kimlik sağlayıcınızda çok adımlı doğrulamayı açıp "
+        "yeniden giriş yapın; sorun sürerse yöneticinize başvurun.",
+        "en": "Your institution requires two-step verification for this role. Turn on multi-factor authentication at "
+        "your identity provider and sign in again; if it keeps happening, contact your administrator.",
     },
     "sso_required": {
         "tr": "Bu hesap için parola ile giriş kapalı. 'Microsoft ile giriş yap' düğmesini kullanın.",
@@ -1598,6 +1606,9 @@ async def _resolve_login(
         raise SsoError("disabled", "account disabled", user_id=user.id)
     _touch(ident, claims)
     await _apply_mapping(db, prov, user, claims)
+    from app.services import mfa as _mfa  # AU-16: MFA asserted by the provider when the policy requires it
+
+    await _mfa.idp_mfa_gate(db, prov, user, claims)
     user.last_login_at = utcnow()
     method = "saml" if prov.kind == idp_kinds.SAML else "oidc"
     await events.emit(db, "user.logged_in", {"user_id": user.id, "auth_method": method})
@@ -2202,7 +2213,7 @@ async def set_instructor(db: AsyncSession, actor: User, user_id: int, instructor
 async def user_status(db: AsyncSession) -> dict[str, dict[str, Any]]:
     """Per user (sign-in.md §13 columns): ``status`` (``linked`` | ``invited`` | ``invite_expired`` | ``binding`` |
     ``none``), ``auth_methods``, ``invite``, ``binding_pending``, ``self_signup_at``, ``break_glass``,
-    ``instructor_id``."""
+    ``instructor_id``, ``mfa_state`` / ``mfa_grace_until`` (AU-B, :func:`app.services.mfa.list_states`)."""
     now: datetime = utcnow()
     invites = {i.user_id: i for i in (await db.execute(select(SsoInvite))).scalars()}
     kinds_of = {p.name: p.kind for p in (await _provider_names(db)).values()}
@@ -2214,6 +2225,9 @@ async def user_status(db: AsyncSession) -> dict[str, dict[str, Any]]:
     glass = set((await db.execute(select(User.id).where(*_break_glass_filter()))).scalars())
     linked = await db.execute(select(Instructor.id, Instructor.user_id).where(Instructor.user_id.is_not(None)))
     instructors = {uid: iid for iid, uid in linked}
+    from app.services import mfa as mfa_svc  # AU-B (AUX-F ask): the Users list's 2FA tag and filter
+
+    mfa_states = await mfa_svc.list_states(db)
     out: dict[str, dict[str, Any]] = {}
     for u in (await db.execute(select(User).order_by(User.id))).scalars():
         inv, ident = invites.get(u.id), idents.get(u.id)
@@ -2253,6 +2267,8 @@ async def user_status(db: AsyncSession) -> dict[str, dict[str, Any]]:
             "break_glass": u.id in glass,
             "instructor_id": instructors.get(u.id),
             "providers": [i.provider for i in all_idents.get(u.id, [])],
+            "mfa_state": mfa_states.get(u.id, {}).get("mfa_state"),
+            "mfa_grace_until": mfa_states.get(u.id, {}).get("mfa_grace_until"),
         }
     return out
 

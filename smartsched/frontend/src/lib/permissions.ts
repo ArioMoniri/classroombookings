@@ -159,7 +159,9 @@ export type AdminSectionId =
   | "authentication"
   | "email"
   | "ai"
-  | "ops";
+  | "ops"
+  | "catalog"
+  | "welcome";
 
 export interface AdminSection {
   id: AdminSectionId;
@@ -191,6 +193,11 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   // administrator without setup rights reaches these two screens and no other setup section
   { id: "ai", href: "/admin/ai", labelKey: "aiAdmin.title", descriptionKey: "aiAdmin.lead", permission: ["planning.admin", "setup.settings"], group: "organisation" },
   { id: "ops", href: "/admin/ops", labelKey: "ops.title", descriptionKey: "ops.lead", permission: ["planning.admin", "setup.settings"], group: "organisation" },
+  // RF-05: Katalog (instructors, courses, programmes, faculties, sections of the imported workbooks); planning.view
+  // reads, planning.edit writes (backend catalog_admin.py)
+  { id: "catalog", href: "/admin/catalog", labelKey: "catalog.title", descriptionKey: "catalog.lead", permission: ["planning.view"], group: "organisation" },
+  // WG-08: Yönetim › Karşılama rehberi (the welcome guide's switches, texts and completion rates)
+  { id: "welcome", href: "/admin/welcome", labelKey: "welcome.admin.nav", descriptionKey: "welcome.admin.lead", permission: ["setup.settings", "planning.admin"], group: "organisation" },
 ];
 
 export function adminSectionsFor(perms: readonly string[] | undefined | null): AdminSection[] {

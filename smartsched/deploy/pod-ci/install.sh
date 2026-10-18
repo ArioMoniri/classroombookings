@@ -26,7 +26,9 @@ getent group docker >/dev/null || groupadd --system docker
 if ! id "$CI_USER" >/dev/null 2>&1; then
   useradd --system --home-dir "$STATE" --shell /usr/sbin/nologin --user-group --groups docker "$CI_USER"
 fi
-install -d -o "$CI_USER" -g "$CI_USER" -m 750 "$STATE" "$STATE/logs" "$STATE/work" "$STATE/cache"
+install -d -o "$CI_USER" -g "$CI_USER" -m 750 "$STATE" "$STATE/logs" "$STATE/work" "$STATE/cache" "$STATE/backups"
+# backup.sh's success metric, read by Alloy in the observability profile (SmartSchedBackupStale)
+install -d -o "$CI_USER" -g "$CI_USER" -m 755 /var/lib/smartsched /var/lib/smartsched/textfile
 touch "$STATE/queue-signal" "$STATE/update-request"
 chown "$CI_USER:$CI_USER" "$STATE/queue-signal" "$STATE/update-request"
 
@@ -36,9 +38,15 @@ install -d -m 755 "$DEST.new"
 cp -r "$HERE/podci" "$HERE/gates" "$DEST.new/"
 find "$DEST.new" -name '__pycache__' -prune -exec rm -rf {} +
 chmod 755 "$DEST.new"/gates/*.sh
-if [[ -d "$DEST" ]]; then mv "$DEST" "$DEST.old"; fi
-mv "$DEST.new" "$DEST"
-rm -rf "$DEST.old"
+# Replace the contents in place, keeping the directory itself: a worker started from $DEST (WorkingDirectory)
+# would otherwise lose its cwd mid-run ("Unable to read current working directory", pod runs #60/#61).
+if [[ -d "$DEST" ]]; then
+  find "$DEST" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  cp -a "$DEST.new"/. "$DEST"/
+  rm -rf "$DEST.new"
+else
+  mv "$DEST.new" "$DEST"
+fi
 
 # Config: written once; later edits on the pod are kept.
 if [[ ! -f "$CONF" ]]; then
@@ -60,7 +68,7 @@ install -m 644 "$HERE"/systemd/*.service "$HERE"/systemd/*.timer "$HERE"/systemd
 systemctl daemon-reload
 if [[ $NO_START -eq 0 ]]; then
   systemctl enable --now smartsched-ci-web.service smartsched-ci-poll.timer smartsched-ci-worker.timer \
-    smartsched-ci-worker.path smartsched-ci-update.path smartsched-upload-purge.timer
+    smartsched-ci-worker.path smartsched-ci-update.path smartsched-upload-purge.timer smartsched-backup.timer
   # boot: the last good app stack comes back (gates/stack-up.sh; compose restart policies cover the rest)
   systemctl enable smartsched-stack.service
   if [[ $UPGRADE -eq 1 ]]; then systemctl restart smartsched-ci-web.service; fi

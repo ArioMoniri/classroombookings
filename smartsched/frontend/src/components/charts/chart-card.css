@@ -1,0 +1,77 @@
+/* SmartSched charts (CH-02, docs/design/v3/charts.md §8). Three free transitions.dev recipes, re-implemented
+   (Transitions.dev License: commercial use and modification allowed, no redistribution; see
+   src/components/ui/LICENSES/transitions-dev-LICENSE.txt). Only opacity and transform animate. */
+
+/* transitions.dev: skeleton-reveal (free). Pulse 1000 ms while fetching (stops with the work: the skeleton unmounts);
+   reveal retimed 400 → 180 ms (--dur-base) and opacity only: no blur on a plot larger than 400 × 300 (motion skill §4). */
+.ch-skel[data-pulse="true"] > * {
+  animation: ch-pulse 1000ms ease-in-out infinite;
+}
+@keyframes ch-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.ch-plot[data-reveal="true"] {
+  animation: ch-fade var(--dur-base, 180ms) var(--ease-out, ease-out) both;
+}
+@keyframes ch-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* transitions.dev: text-states-swap (free). 150 ms, 4 px rise; the enter half only (the old text is gone at once, so
+   the new numbers are never delayed), no blur. Summary sentence (period change) and "Veriyi indir → İndirildi ✓". */
+.ch-swap[data-swap="true"] {
+  display: inline-block;
+  animation: ch-swap-in 150ms ease-in-out both;
+}
+@keyframes ch-swap-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* transitions.dev: tooltip (free). 150 ms in after an 80 ms delay; out is instant (ECharts hides the root with
+   display:none, ≤ the recipe's 50 ms). `scale` is its own property, so ECharts' inline translate is untouched. The
+   tooltip is the solid EvilCharts variant: fading an ancestor of glass would strip its blur (backdrop-root rule). */
+.ch-tt {
+  animation: ch-tt-in 150ms var(--ease-out, ease-out) 80ms both;
+}
+@keyframes ch-tt-in {
+  from { opacity: 0; scale: 0.97; }
+  to { opacity: 1; scale: 1; }
+}
+
+/* Reduced motion: no pulse, no travel, no scale; fades of ≤ 100 ms remain. */
+@media (prefers-reduced-motion: reduce) {
+  .ch-skel > * { animation: none !important; }
+  .ch-swap[data-swap="true"] { animation: none !important; }
+  .ch-plot[data-reveal="true"] { animation-duration: 100ms; animation-timing-function: linear; }
+  .ch-tt { animation: ch-fade 100ms linear 80ms both; }
+}
+:root[data-motion="reduced"] .ch-skel > *,
+:root[data-motion="reduced"] .ch-swap[data-swap="true"] {
+  animation: none !important;
+}
+
+/* CH-03 print (charts.md §5.6): the renderer is already SVG (chart-renderer.ts listens to beforeprint / print media);
+   hide the controls and print the table twin under the chart. */
+@media print {
+  [data-chart-card] [data-chart-menu],
+  [data-chart-card] [data-chart-period],
+  [data-chart-card] [data-chart-footer] {
+    display: none !important;
+  }
+  [data-chart-card] [data-chart-table].sr-only {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    clip: auto !important;
+    clip-path: none !important;
+    white-space: normal !important;
+  }
+  [data-chart-card] {
+    break-inside: avoid;
+  }
+}

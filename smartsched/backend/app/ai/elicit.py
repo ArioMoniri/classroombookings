@@ -96,6 +96,7 @@ async def propose(
         system=build_system(ctx, lang),
         messages=[{"role": "user", "content": user_content}],
         tools=[catalog.PROPOSE_CONSTRAINTS_TOOL],
+        force_tool=catalog.PROPOSE_CONSTRAINTS_TOOL["name"],  # HB-13: named / emulated on local servers
         max_tokens=MAX_TOKENS,
         effort=EFFORT,
         disable_parallel_tool_use=True,

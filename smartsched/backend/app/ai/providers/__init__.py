@@ -4,6 +4,12 @@ Each provider has an id, TR/EN labels, the secret fields an admin can set (store
 Anthropic key keeps its historic row ``anthropic_api_key``), the plain config fields and a factory. Only the
 ``anthropic`` SDK is required; the other adapters talk REST through ``httpx`` (OpenAI-compatible, Gemini) or use the
 ``anthropic`` SDK's Bedrock client (Bedrock; listing models may use ``boto3`` when installed).
+
+Voice (VO-01 / VO-10, owner decision 2026-10-18: cloud audio APIs chosen by admins, never on-prem Whisper): every
+spec declares its ``capabilities`` (``text`` = the chat / tools gateway, ``stt`` = speech to text through
+:mod:`app.ai.voice`), the ``regions`` it can run in and a short data-retention note for the KVKK transfer record.
+``azure_speech``, ``google_stt`` and ``deepgram`` are speech-only (``{"stt"}``): :func:`make_adapter` refuses them
+and only :func:`app.ai.voice.registry.make_speech_adapter` builds them.
 """
 
 from __future__ import annotations
@@ -40,6 +46,13 @@ class ProviderSpec:
     default_base_url: str = ""
     #: whether Claude model ids (and the claude-api pricing table) apply
     claude: bool = False
+    #: ``text`` (chat / tools gateway) and / or ``stt`` (speech to text, :mod:`app.ai.voice`)
+    capabilities: frozenset[str] = frozenset({"text"})
+    #: where the provider can process data (for the KVKK transfer record; the admin records the one in use)
+    regions: tuple[str, ...] = ()
+    #: the provider's data-retention terms in one line (TR, EN), shown next to the transfer record
+    retention_tr: str = ""
+    retention_en: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -50,17 +63,59 @@ class ProviderSpec:
             "config": list(self.config),
             "keyless": self.keyless,
             "default_base_url": self.default_base_url,
+            "capabilities": sorted(self.capabilities),
+            "regions": list(self.regions),
+            "retention_tr": self.retention_tr,
+            "retention_en": self.retention_en,
         }
+
+
+TEXT = frozenset({"text"})
+TEXT_STT = frozenset({"text", "stt"})
+STT = frozenset({"stt"})
+#: Deepgram's EU endpoint (GA 2025-12-03; research 2026-10-17-voice-ai.md §2.2)
+DEEPGRAM_EU = "https://api.eu.deepgram.com"
 
 
 PROVIDERS: dict[str, ProviderSpec] = {
     p.id: p
     for p in (
-        ProviderSpec("anthropic", "Anthropic (Claude)", "Anthropic (Claude)", ("api_key",), (), claude=True),
         ProviderSpec(
-            "openai", "OpenAI", "OpenAI", ("api_key",), ("base_url",), default_base_url=DEFAULT_BASE_URLS["openai"]
+            "anthropic",
+            "Anthropic (Claude)",
+            "Anthropic (Claude)",
+            ("api_key",),
+            (),
+            claude=True,
+            regions=("global", "us"),
         ),
-        ProviderSpec("azure_openai", "Azure OpenAI", "Azure OpenAI", ("api_key",), ("base_url",)),
+        ProviderSpec(
+            "openai",
+            "OpenAI",
+            "OpenAI",
+            ("api_key",),
+            ("base_url",),
+            default_base_url=DEFAULT_BASE_URLS["openai"],
+            capabilities=TEXT_STT,
+            regions=("us", "eu"),
+            retention_tr="AB veri yerleşimi yalnızca yeni AB projelerinde; uygun müşterilerde bölgede sıfır saklama. "
+            "Projenizin ayarını ve sözleşmenizi doğrulayın.",
+            retention_en="EU data residency only for new EU projects; zero retention in region for eligible "
+            "customers. Check your project setting and agreement.",
+        ),
+        ProviderSpec(
+            "azure_openai",
+            "Azure OpenAI",
+            "Azure OpenAI",
+            ("api_key",),
+            ("base_url", "region"),
+            capabilities=TEXT_STT,
+            regions=("westeurope", "swedencentral", "germanywestcentral", "francecentral", "eu-data-zone"),
+            retention_tr="Microsoft ürün koşulları ve DPA geçerlidir; kötüye kullanım izlemesi için istekler bir "
+            "süre tutulabilir. Kaynağınızın bölgesini ve izleme ayarını doğrulayın.",
+            retention_en="Microsoft product terms and DPA apply; requests may be kept for a while for abuse "
+            "monitoring. Check your resource's region and monitoring setting.",
+        ),
         ProviderSpec(
             "openrouter",
             "OpenRouter",
@@ -78,7 +133,19 @@ PROVIDERS: dict[str, ProviderSpec] = {
             keyless=True,
             default_base_url=DEFAULT_BASE_URLS["openai_compatible"],
         ),
-        ProviderSpec("gemini", "Google Gemini", "Google Gemini", ("api_key",), ("base_url",)),
+        ProviderSpec(
+            "gemini",
+            "Google Gemini",
+            "Google Gemini",
+            ("api_key",),
+            ("base_url",),
+            capabilities=TEXT_STT,
+            regions=("global",),
+            retention_tr="Ücretli katman: eğitimde kullanılmaz, kötüye kullanım için sınırlı süre kayıt tutulur. "
+            "Gemini API AB bölgesi garantisi vermez.",
+            retention_en="Paid tier: not used for training, logged for a limited period for abuse monitoring. "
+            "The Gemini API gives no EU region guarantee.",
+        ),
         ProviderSpec(
             "bedrock",
             "AWS Bedrock (Claude)",
@@ -95,6 +162,46 @@ PROVIDERS: dict[str, ProviderSpec] = {
             ("project_id", "region"),
             keyless=True,
             claude=True,
+        ),
+        ProviderSpec(
+            "azure_speech",
+            "Azure AI Speech (hızlı yazıya dökme)",
+            "Azure AI Speech (fast transcription)",
+            ("api_key",),
+            ("base_url", "region"),
+            capabilities=STT,
+            regions=("westeurope", "northeurope", "swedencentral", "germanywestcentral", "francecentral"),
+            retention_tr="Microsoft ürün koşulları ve DPA geçerlidir; Speech kaynağını AB bölgesinde açın ve "
+            "saklama koşulunu sözleşmeden doğrulayın.",
+            retention_en="Microsoft product terms and DPA apply; create the Speech resource in an EU region and "
+            "check the retention terms in your agreement.",
+        ),
+        ProviderSpec(
+            "google_stt",
+            "Google Cloud Speech-to-Text (Chirp 3)",
+            "Google Cloud Speech-to-Text (Chirp 3)",
+            ("api_key",),
+            ("project_id", "region"),
+            capabilities=STT,
+            regions=("eu", "us"),
+            retention_tr="Google Cloud DPA geçerlidir; konum 'eu' ile ses AB çoklu bölgesinde işlenir. Veri "
+            "günlüğü (data logging) kapalı kalmalı.",
+            retention_en="The Google Cloud DPA applies; with location 'eu' the audio is processed in the EU "
+            "multi-region. Keep data logging off.",
+        ),
+        ProviderSpec(
+            "deepgram",
+            "Deepgram (AB)",
+            "Deepgram (EU)",
+            ("api_key",),
+            ("base_url", "region"),
+            default_base_url=DEEPGRAM_EU,
+            capabilities=STT,
+            regions=("eu", "us"),
+            retention_tr="AB uç noktası api.eu.deepgram.com; istekler model geliştirme programından çıkarılarak "
+            "(mip_opt_out) gönderilir. Saklama süresi sözleşmeye göre.",
+            retention_en="EU endpoint api.eu.deepgram.com; requests opt out of the model improvement programme "
+            "(mip_opt_out). Retention per agreement.",
         ),
     )
 }
@@ -128,6 +235,8 @@ def make_adapter(
     cfg = config or {}
     if provider not in PROVIDERS:
         raise ProviderError(f"unknown AI provider {provider!r}")
+    if "text" not in PROVIDERS[provider].capabilities:
+        raise ProviderUnsupported(f"{provider} is a speech-to-text provider; it cannot answer text requests")
     if provider == "anthropic":
         if not secrets.get("api_key") and raw is None:
             raise ProviderError("no Anthropic API key configured")
@@ -180,7 +289,11 @@ def make_adapter(
 
 
 __all__ = [
+    "DEEPGRAM_EU",
     "PROVIDERS",
+    "STT",
+    "TEXT",
+    "TEXT_STT",
     "AnthropicAdapter",
     "BedrockAdapter",
     "GBlock",

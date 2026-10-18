@@ -13,9 +13,10 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Response
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
-from app.api.deps import DB, Viewer
+from app.api.deps import DB, Planner, Viewer
 from app.models import ScheduleRun, Term
 from app.services import scenario_compare as sc
 from app.services import utilisation as util
@@ -166,3 +167,156 @@ async def instructor_heatmap(
         src = f"run-{data['run_id']}"
         return _csv(util.instructor_heatmap_csv(data), f"egitmen-yuku-{src}.csv")
     return data
+
+
+# ------------------------------------------------------------------------------------------- adaptive (AS-05..)
+# aggregate demand ledger (AS-05), peak hours (AS-06), forecasts (AS-07, AS-10, AS-11); app/services/{demand,peaks,
+# forecast,exam_load}.py. Every view answers on an empty install with ``confidence: "none"`` and a ``needs`` text.
+
+
+@router.get("/demand", response_model=None)
+async def demand_view(
+    db: DB,
+    _: Viewer,
+    term_id: int | None = None,
+    group_by: Literal[
+        "weekday_period", "period", "weekday", "headcount_band", "feature", "building", "period_kind"
+    ] = "weekday_period",
+) -> dict[str, Any]:
+    """Find-room / booking demand cells; counts under 5 come back as ``"<5"`` (KVKK)."""
+    from app.services import demand
+
+    return await demand.demand(db, term_id=term_id, group_by=group_by)
+
+
+@router.get("/peaks", response_model=None)
+async def peaks_view(
+    db: DB,
+    _: Viewer,
+    term_id: int | None = None,
+    group_by: Literal["campus", "building", "room_type", "capacity_band"] = "building",
+    period_kind: Literal["LECTURE", "EXAM", "MAKEUP", "SUMMER", "ADD_DROP", "MIDTERM"] = "LECTURE",
+    threshold: float | None = Query(None, ge=50, le=100),
+    format: Fmt = "json",  # noqa: A002
+) -> dict[str, Any] | Response:
+    """Peak cells (weekday x period x group) with 80 % ranges; ``confidence: none`` + ``needs`` without data."""
+    from app.services import peaks
+
+    data = await peaks.peaks(db, term_id=term_id, group_by=group_by, period_kind=period_kind, threshold=threshold)
+    if format == "csv":
+        import csv
+        import io
+
+        from app.core.export_safety import safe_writer
+
+        buf = io.StringIO()
+        w = safe_writer(csv.writer(buf))
+        w.writerow(["group_by", "group", "day", "period", "value", "lo80", "hi80", "n_weeks", "seat_fill", "peak"])
+        for c in data["cells"]:
+            w.writerow(
+                [
+                    group_by,
+                    c["group"],
+                    c["day"],
+                    c["period"],
+                    c["value"],
+                    c["lo80"],
+                    c["hi80"],
+                    c["n_weeks"],
+                    c["seat_fill"] if c["seat_fill"] is not None else "",
+                    int(c["peak"]),
+                ]
+            )
+        return _csv(buf.getvalue(), f"yogun-saatler-{data['term_id'] or 'yok'}-{group_by}.csv")
+    return data
+
+
+@router.get("/forecast/demand", response_model=None)
+async def forecast_demand(
+    db: DB,
+    _: Viewer,
+    term_id: int | None = None,
+    group_by: Literal["building", "weekday", "period", "tag", "capacity_band", "cell"] = "building",
+) -> dict[str, Any]:
+    """Room demand per group: ``requests`` (the term's own list), ``seasonal_naive`` or ``none`` + ``needs``."""
+    from app.services import forecast
+
+    return await forecast.demand_forecast(db, term_id, group_by)
+
+
+@router.get("/forecast/shortfall", response_model=None)
+async def forecast_shortfall(db: DB, _: Viewer, term_id: int, peaks_only: bool = False) -> dict[str, Any]:
+    """Demand vs suitable supply per (weekday, period, room group) with the competing requests."""
+    from app.services import forecast
+
+    try:
+        return await forecast.shortfall(db, term_id, peaks_only=peaks_only)
+    except LookupError as exc:
+        raise HTTPException(
+            404, {"code": "term_not_found", "message_tr": "dönem bulunamadı", "message_en": "term not found"}
+        ) from exc
+
+
+class WhatIfIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    term_id: int
+    enrolment_pct: float = Field(0.0, ge=-90, le=200)
+    scope: Literal["all", "faculty", "program"] = "all"
+    scope_value: str | None = Field(None, max_length=255)
+    rooms_closed: list[int] = Field(default_factory=list, max_length=500)
+    extra_sections: int = Field(0, ge=0, le=200)
+    solve: bool = False
+
+
+@router.post("/forecast/what-if", response_model=None)
+async def forecast_what_if(body: WhatIfIn, db: DB, user: Planner) -> dict[str, Any]:
+    """Room fit and shortfall today vs the scenario; ``solve: true`` queues a draft run "Senaryo: ..." (never
+    active)."""
+    from app.services import forecast
+
+    if body.scope != "all" and not body.scope_value:
+        raise HTTPException(
+            422,
+            {
+                "code": "scope_value",
+                "message": "a faculty or programme scope needs scope_value",
+                "message_en": "a faculty or programme scope needs scope_value",
+                "message_tr": "fakülte ya da program kapsamı için scope_value gerekli",
+            },
+        )
+    try:
+        return await forecast.what_if(db, body.term_id, body.model_dump(), user)
+    except LookupError as exc:
+        raise HTTPException(
+            404, {"code": "term_not_found", "message_tr": "dönem bulunamadı", "message_en": "term not found"}
+        ) from exc
+
+
+@router.get("/forecast/exams/advice", response_model=None)
+async def forecast_exams_advice(db: DB, _: Viewer, term_id: int) -> dict[str, Any]:
+    """AS-12 exam date advisor: load cards and ranked date / slot moves for the term's exam requests. Advice only:
+    ``changes_nothing`` is always true; a planner applies a move on /exams."""
+    from app.services import exam_advisor
+
+    try:
+        return await exam_advisor.advise_term(db, term_id)
+    except LookupError as exc:
+        raise HTTPException(
+            404, {"code": "term_not_found", "message_tr": "dönem bulunamadı", "message_en": "term not found"}
+        ) from exc
+
+
+@router.get("/forecast/exams", response_model=None)
+async def forecast_exams(
+    db: DB, _: Viewer, term_id: int, students_per_invigilator: int | None = Query(None, ge=5, le=500)
+) -> dict[str, Any]:
+    """Exam seats per day and slot vs exam capacity, invigilators vs the pool, exam-week bookings, draft holds."""
+    from app.services import exam_load
+
+    try:
+        return await exam_load.exam_forecast(db, term_id, students_per_invigilator=students_per_invigilator)
+    except LookupError as exc:
+        raise HTTPException(
+            404, {"code": "term_not_found", "message_tr": "dönem bulunamadı", "message_en": "term not found"}
+        ) from exc

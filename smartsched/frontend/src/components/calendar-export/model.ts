@@ -229,9 +229,10 @@ export function nextFocus(rows: Subscription[], removedId: Subscription["id"]): 
 }
 
 /** Push connections that need "Daha az izinle yeniden bağlan" (an old, broad Google grant). */
-export function legacyProviders(options: ExportOptions | undefined, subs: Subscription[] | undefined): Set<string> {
+export function legacyProviders(options: ExportOptions | undefined, subs: Subscription[] | undefined, connections?: PushChannel[]): Set<string> {
   const out = new Set<string>();
-  for (const p of options?.channels.push ?? []) if (p.connected && p.legacy_scope) out.add(p.provider);
+  // a bookings-only legacy connection has no export scopes, so no row: its connection says so
+  for (const p of [...(options?.channels.push ?? []), ...(connections ?? [])]) if (p.connected && p.legacy_scope) out.add(p.provider);
   for (const x of subs ?? []) if (x.channel === "push" && x.legacy_scope && x.provider) out.add(x.provider);
   return out;
 }

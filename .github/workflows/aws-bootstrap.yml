@@ -7,6 +7,13 @@
 # Trigger: commit + push a change to infra/aws/POD_ACTION whose first line is
 #     up | status | logs | stop | start | cost | down destroy
 #     (optional: region=<aws-region>, pod=gracious|universal or branch=<deploy branch>; default pod gracious)
+#     `up` also takes deploy-time settings as key=value (quote values with spaces), mapped to the
+#     `smartsched_aws.py up` flags of docs/deploy/ONE-CLICK.md: org= admin= acme= ai= ai-base-url= smtp-host=
+#     smtp-port= smtp-security= smtp-user= smtp-from= smtp-from-name= security= observability=on|off.
+#     domain= is refused: the AWS pod's domain is always <elastic-ip>.sslip.io.
+#     e.g. `echo "up pod=universal org=\"Örnek Üniversitesi\" admin=it@uni.edu.tr $(date -u +%FT%TZ)" > infra/aws/POD_ACTION`
+# Optional repo secrets AI_API_KEY, SMTP_PASSWORD, GOOGLE_CLIENT_ID/_SECRET, MICROSOFT_CLIENT_ID/_SECRET/_TENANT
+# reach `up` as environment variables only (stored as SSM SecureString / String; values never printed).
 # e.g. `echo "up $(date -u +%FT%TZ)" > infra/aws/POD_ACTION` (the timestamp makes every push a change), or
 #      `echo "up pod=universal $(date -u +%FT%TZ)" > infra/aws/POD_ACTION` for the empty (universal) deploy.
 # `down` deletes the pod and its data; it needs the second word `destroy` (`down destroy pod=universal`).
@@ -35,6 +42,10 @@ on:
         default: status
       confirm_down:
         description: "type destroy to allow `down`"
+        type: string
+        default: ""
+      settings:
+        description: "deploy-time settings for `up`, as on the POD_ACTION line (e.g. org=\"Örnek Üniversitesi\" admin=it@uni.edu.tr)"
         type: string
         default: ""
       pod:
@@ -77,7 +88,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          sparse-checkout: infra/aws
+          # the seed tool lets `up` check the deploy-time settings before any AWS call
+          sparse-checkout: |
+            infra/aws
+            smartsched/deploy/seed
           persist-credentials: false
 
       - name: Resolve command
@@ -87,15 +101,19 @@ jobs:
           DISPATCH_CONFIRM: ${{ inputs.confirm_down }}
           DISPATCH_REGION: ${{ inputs.region }}
           DISPATCH_POD: ${{ inputs.pod }}
+          DISPATCH_SETTINGS: ${{ inputs.settings }}
         run: |
           set -euo pipefail
+          settings=""
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             cmd="$DISPATCH_COMMAND"; confirm="$DISPATCH_CONFIRM"; region="$DISPATCH_REGION"; pod="$DISPATCH_POD"
+            settings="${DISPATCH_SETTINGS:-}"
           else
             line="$(head -n1 infra/aws/POD_ACTION 2>/dev/null || true)"
             read -r cmd confirm _ <<< "$line" || true
             region="$(grep -oE 'region=[a-z0-9-]+' <<< "$line" | cut -d= -f2 || true)"
             pod="$(grep -oE '(pod|branch)=[A-Za-z0-9._/-]+' <<< "$line" | head -n1 | cut -d= -f2 || true)"
+            settings="$line"
           fi
           case "${pod:-gracious}" in
             gracious|claude/gracious-cerf-w1598m) pod=gracious ;;
@@ -113,11 +131,59 @@ jobs:
           esac
           region="${region:-${REGION_SECRET:-us-east-1}}"
           if ! [[ "$region" =~ ^[a-z0-9-]+$ ]]; then echo "::error::invalid region '$region'"; exit 1; fi
-          echo "command=$cmd" >> "$GITHUB_OUTPUT"
-          echo "pod=$pod" >> "$GITHUB_OUTPUT"
-          echo "region=$region" >> "$GITHUB_OUTPUT"
+          # deploy-time settings -> `up` flags, NUL-separated (argv, never eval); only the flag names are logged
+          python3 - "$cmd" "$settings" "${RUNNER_TEMP:-$PWD}/pod-flags" <<'PY'
+          import shlex, sys
+          cmd, line, out = sys.argv[1], sys.argv[2], sys.argv[3]
+          FLAGS = {"org": "--org-name", "admin": "--admin-email", "acme": "--acme-email", "ai": "--ai-provider",
+                   "ai-provider": "--ai-provider", "ai-base-url": "--ai-base-url", "smtp-host": "--smtp-host",
+                   "smtp-port": "--smtp-port", "smtp-security": "--smtp-security", "smtp-user": "--smtp-user",
+                   "smtp-from": "--smtp-from", "smtp-from-name": "--smtp-from-name", "security": "--security-contact",
+                   "security-contact": "--security-contact"}
+          ROUTING = {"region", "pod", "branch"}
+          def fail(msg):
+              print(f"::error::{msg}")
+              sys.exit(1)
+          try:
+              words = shlex.split(line)
+          except ValueError as exc:
+              fail(f"cannot parse the settings ({exc}); quote values with spaces in double quotes")
+          args = []
+          for w in words[1:]:
+              if "=" not in w:
+                  continue  # the confirm word, the timestamp
+              key, value = w.split("=", 1)
+              key = key.lower()
+              if key in ROUTING:
+                  continue
+              if key == "domain":
+                  fail("domain= is not supported on the AWS pod: its domain is always <elastic-ip>.sslip.io "
+                       "(docs/deploy/ONE-CLICK.md); use deploy.sh --domain on your own server")
+              if any(c in value for c in "\r\n\0"):
+                  fail(f"{key}= holds a control character")
+              if key == "observability":
+                  if value.lower() not in ("on", "off", "1", "0", "true", "false"):
+                      fail("observability=on|off")
+                  args.append("--observability" if value.lower() in ("on", "1", "true") else "--no-observability")
+              elif key in FLAGS:
+                  if not value.strip():
+                      fail(f"{key}= is empty")
+                  args += [FLAGS[key], value.strip()]
+              else:
+                  fail(f"unknown setting '{key}' (org admin acme ai ai-base-url smtp-host smtp-port smtp-security "
+                       "smtp-user smtp-from smtp-from-name security observability)")
+          if cmd != "up":
+              if args:
+                  print(f"::notice::deploy-time settings apply to 'up' only; ignored for '{cmd}'")
+              args = []
+          with open(out, "w", encoding="utf-8") as fh:
+              fh.write("".join(a + "\0" for a in args))
+          names = [a for a in args if a.startswith("--")]
+          print("up flags: " + (" ".join(names) if names else "(none)"))
+          PY
           # the AWS SDK needs a concrete region; `auto` is resolved by the script
-          if [ "$region" = "auto" ]; then echo "aws_region=us-east-1" >> "$GITHUB_OUTPUT"; else echo "aws_region=$region" >> "$GITHUB_OUTPUT"; fi
+          aws_region="$region"; if [ "$region" = "auto" ]; then aws_region=us-east-1; fi
+          { echo "command=$cmd"; echo "pod=$pod"; echo "region=$region"; echo "aws_region=$aws_region"; } >> "$GITHUB_OUTPUT"
           echo "pod action: $cmd (pod $pod, region $region)"
 
       - name: AWS credentials (OIDC role)
@@ -167,10 +233,23 @@ jobs:
           POD_COMMAND: ${{ steps.cmd.outputs.command }}
           POD_REGION: ${{ steps.cmd.outputs.region }}
           POD_NAME: ${{ steps.cmd.outputs.pod }}
+          # optional repo secrets for `up` (empty = not set); smartsched_aws.py reads them from the environment
+          # and stores them as SSM SecureString / String. Never echoed: GitHub masks them, the script logs names only.
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          MICROSOFT_TENANT: ${{ secrets.MICROSOFT_TENANT }}
         run: |
           set -euo pipefail
           extra=()
           if [ "$POD_COMMAND" = "down" ]; then extra+=(--yes); fi
+          # the deploy-time flags the Resolve step parsed from POD_ACTION (empty unless `up`)
+          if [ "$POD_COMMAND" = "up" ] && [ -s "$RUNNER_TEMP/pod-flags" ]; then
+            mapfile -d '' -t settings < "$RUNNER_TEMP/pod-flags"; extra+=("${settings[@]}")
+          fi
           /tmp/venv/bin/python infra/aws/smartsched_aws.py "$POD_COMMAND" --pod "$POD_NAME" \
             --region "$POD_REGION" --output-json /tmp/result.json "${extra[@]}" > /dev/null
           cat /tmp/result.json

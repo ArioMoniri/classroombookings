@@ -3,9 +3,12 @@
 
 1. route: the feature (declared scope or the call stack) -> provider + model + effort / caps / fallback;
 2. KVKK transfer basis for a feature that can carry personal data (R-AI-03; 409 ``ai_transfer_basis_missing``);
-3. tool-round cap, per-user requests per minute and concurrent calls;
+3. tool-round cap and per-user requests per minute (``ai_reservations`` rows, shared by every worker; HB-10);
 4. the input guard on the person's typed text, once per interaction (+ the optional model-based scope check);
-5. limits: reserve the estimated tokens / cost against the org budget and the user's limits;
+5. what the model is known to handle (HB-13): tools / images it lacks refuse with ``model_lacks_capability``, a
+   prompt that leaves no room in its context window with ``context_too_small``; ``max_tokens`` is clamped to the
+   room left; then the limits: reserve the estimated tokens / cost against the quota chain (org → feature → faculty
+   → department → role → user) and the person's concurrent calls, in ``ai_reservations`` (HB-10);
 6. caps (``max_tokens``, effort, timeout) and the guard preamble in ``system``;
 7. the provider call (one retry on the route's fallback provider / model after a provider failure);
 8. output guard (only offered tools, schema-valid structured output, no links / code in free text);
@@ -28,6 +31,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from app.ai import capabilities as capmod
 from app.ai import guardrails as g
 from app.ai.context import current_actor, current_scope
 from app.ai.gateway import PERSONAL_FEATURES, ResolvedRoute
@@ -36,6 +40,7 @@ from app.ai.providers.base import ProviderError, output_schema
 
 log = logging.getLogger(__name__)
 
+#: in-process limiters of the single-worker era; the gateway now counts from ``ai_reservations`` (HB-10)
 _RATE = g.RateLimiter()
 _CONCURRENCY = g.ConcurrencyGate()
 #: tests only: an ``httpx`` transport for the REST adapters (OpenAI-compatible, Gemini)
@@ -43,8 +48,12 @@ TEST_TRANSPORT: list[Any] = [None]
 
 
 def reset_state() -> None:
+    """Tests: forget the per-minute counts and open calls of earlier requests."""
+    from app.services import ai_usage as meter
+
     _RATE.reset()
     _CONCURRENCY.reset()
+    meter.reset_rate_window()
 
 
 class AIGuardError(HTTPException):
@@ -65,6 +74,10 @@ _STATUS = {
     "rate_limited": 429,
     "too_many_concurrent": 429,
     "tool_rounds_exceeded": 429,
+    "ai_faculty_limit_reached": 429,
+    "ai_department_limit_reached": 429,
+    "ai_feature_limit_reached": 429,
+    "ai_unit_limit_reached": 429,
     "ai_transfer_basis_missing": 409,
 }
 
@@ -79,6 +92,8 @@ class GatewayContext:
     guards: dict[str, Any]
     limits: dict[str, Any]
     synced_prices: dict[str, dict[str, tuple[float | None, float | None]]]
+    #: provider -> model -> capability record (HB-12; :func:`app.ai.gateway.model_capabilities`)
+    capabilities: dict[str, dict[str, dict[str, Any]]] = field(default_factory=dict)
     user_id: int | None = None
     timeout_s: float = 120.0
     max_retries: int = 3
@@ -91,6 +106,9 @@ class GatewayContext:
         if provider == "vertex" and not cfg.get("project_id"):
             return False
         return provider in PROVIDERS and has_credentials(provider, self.secrets.get(provider) or {})
+
+    def caps_of(self, provider: str, model: str) -> dict[str, Any] | None:
+        return (self.capabilities.get(provider) or {}).get(model)
 
     def adapter(self, provider: str, model: str, temperature: float | None) -> ProviderAdapter:
         key = (provider, model)
@@ -189,8 +207,8 @@ async def run_call(
         cap = int(route.max_tool_rounds or rr.caps.get("max_tool_rounds") or 0)
         if cap and inter.rounds > cap:
             raise await refuse("tool_rounds_exceeded", "refused_by_guardrail", f"rounds>{cap}")
-    if user_id is not None and gw.guards.get("rate_limit", True):
-        if not _RATE.hit(user_id, per_minute=int(gw.limits.get("requests_per_minute") or 0)):
+    if user_id is not None and gw.guards.get("rate_limit", True):  # counted over every worker (HB-10)
+        if not await meter.rate_hit(user_id, per_minute=int(gw.limits.get("requests_per_minute") or 0)):
             raise await refuse("rate_limited", "refused_by_guardrail", "per_minute")
     # 4. input guard (once per interaction)
     if inter is not None and inter.user_text and not inter.checked:
@@ -216,23 +234,39 @@ async def run_call(
     cap_tokens = int(route.max_tokens or rr.caps.get("max_tokens") or 0)
     if cap_tokens and max_tokens > cap_tokens:
         max_tokens = cap_tokens
+    # 5a. what the model is known to handle (HB-13): tools / images it lacks, the prompt against its context window
+    model_caps = gw.caps_of(provider, model)
+    issue = capmod.call_issue(model_caps, kwargs)
+    if issue is not None:
+        raise await refuse(issue, "refused_by_guardrail", f"{provider}:{model}"[:120])
+    fitted = capmod.fit_context(model_caps, kwargs, max_tokens)
+    if fitted is None:
+        raise await refuse(
+            "context_too_small", "refused_by_guardrail", f"window={model_caps and model_caps.get('context_window')}"
+        )
+    max_tokens = fitted
     est_tokens = int(chars / 3.5) + min(max_tokens or 4000, 4000)
     rate = gw.synced_prices.get(provider, {}).get(model)
     est_cost = estimate_cost_usd(model, int(chars / 3.5), min(max_tokens or 4000, 4000), provider=provider, prices=rate)
-    concurrency_key = user_id
-    if concurrency_key is not None and not _CONCURRENCY.acquire(
-        concurrency_key, limit=int(gw.limits.get("max_concurrent") or 0)
-    ):
-        raise await refuse("too_many_concurrent", "refused_by_guardrail", "concurrent")
+    timeout = float(route.timeout_s or rr.caps.get("timeout_s") or 300)
     reservation = None
     try:
         from app.core.db import get_session_factory
 
-        try:
+        try:  # the quota chain, the in-flight estimates and the concurrency gate of every worker (HB-10)
             async with get_session_factory()() as s:
-                reservation = await meter.reserve(s, user_id=user_id, est_tokens=est_tokens, est_cost=est_cost)
+                reservation = await meter.reserve(
+                    s,
+                    user_id=user_id,
+                    est_tokens=est_tokens,
+                    est_cost=est_cost,
+                    feature=feature,
+                    max_concurrent=int(gw.limits.get("max_concurrent") or 0),
+                    timeout_s=timeout,
+                )
         except meter.LimitRefusal as exc:
-            raise await refuse(exc.code, "limit_reached", exc.scope) from None
+            outcome = "refused_by_guardrail" if exc.code == "too_many_concurrent" else "limit_reached"
+            raise await refuse(exc.code, outcome, exc.scope) from None
         # 6. caps + effort + preamble
         call = {k: v for k, v in kwargs.items() if k != "_effort"}
         call.update(model=model, max_tokens=max_tokens or kwargs.get("max_tokens"))
@@ -245,7 +279,6 @@ async def run_call(
         else:
             call.pop("output_config", None)
         call["system"] = _with_preamble(call.get("system"))
-        timeout = float(route.timeout_s or rr.caps.get("timeout_s") or 300)
         # 7. provider call with one fallback
         message, served_provider, served_model = await _call_with_fallback(
             client,
@@ -300,9 +333,7 @@ async def run_call(
         await meter.record(**common, outcome="ok")
         return message
     finally:
-        meter.settle(reservation)
-        if concurrency_key is not None:
-            _CONCURRENCY.release(concurrency_key)
+        await meter.release(reservation)
         await meter.check_alerts(user_id)
 
 
@@ -330,8 +361,17 @@ async def _call_with_fallback(
     last: Exception | None = None
     for i, (prov, mod) in enumerate(attempts):
         payload = {**call, "model": mod}
+        if i:  # the fallback model may lack a capability or have a smaller window (HB-13): skip it then
+            fb_caps = gw.caps_of(prov, mod)
+            fitted = capmod.fit_context(fb_caps, payload, int(payload.get("max_tokens") or 0))
+            if fitted is None or capmod.call_issue(fb_caps, payload) is not None:
+                log.info("ai fallback %s/%s cannot take this request; skipped", prov, mod)
+                continue
+            if fitted:
+                payload["max_tokens"] = fitted
         try:
             adapter = gw.adapter(prov, mod, route.temperature)
+            adapter.capabilities = gw.caps_of(prov, mod)  # named tool choice / emulation / PDF pages (HB-13)
             coro = adapter.stream(payload, on_event) if stream else adapter.create(payload)
             message = await asyncio.wait_for(coro, timeout=timeout)
             return message, prov, mod

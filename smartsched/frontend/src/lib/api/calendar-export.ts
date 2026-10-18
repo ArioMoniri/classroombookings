@@ -10,14 +10,15 @@
  * - `GET /calendar/export/classes.ics`, `/department/{id}.ics`, `/bookings.ics`: one-off files (JWT through the
  *   panel's proxy cookie, `Content-Disposition: attachment`).
  * - `PUT /calendar/connectors/{provider}/scopes`: the push scopes of a connected account (queues a reconcile).
- * - Admin: the new fields of `GET/PUT /calendar/admin/settings` and `GET /calendar/admin/status`.
+ * - Admin: `GET/PUT /calendar/admin/export-settings` (flat switches, push rules, status counts).
+ * The contract is lane CAL-B's API.md (scratch cal/API.md, 2026-10-17); the adapters below read its shapes.
  *
  * Every schema is lenient (`.catch`, `.nullish`, defaults): an older backend answers without the new fields, and the
  * screens then show only what exists (no fake buttons).
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { IntegrationSettings, afKeys, approvalFirst } from "./approval-first";
+import { IntegrationSettings, afKeys } from "./approval-first";
 import { HttpError, buildUrl, request } from "./client";
 
 const s = { silent: true } as const;
@@ -111,6 +112,8 @@ export const ExportOptions = z.object({
     })
     .default({ link: true, file: true, push: [] }),
   fields: z.record(z.string(), z.boolean()).nullish(),
+  /** CAL-07 `channels.push.verification`: verified accounts only, the institution's domain */
+  push_verification: z.object({ required: z.boolean().default(false), domain: z.string().nullish() }).nullish(),
   consent: Consent.nullish(),
   /** where "Planlama ofisine yaz" writes to (the organisation's contact address) */
   contact_email: z.string().nullish(),
@@ -149,7 +152,9 @@ export const SubscriptionCreated = z
   .object({
     id: z.union([z.number(), z.string()]),
     urls: SubscriptionUrls,
-    preview: z.object({ fields: z.array(z.string()).nullish(), sample: SampleEvent.nullish() }).passthrough().nullish(),
+    /** shown before the approval from the options; the answer's copy is not read (API.md: fields are `{key, label_*}`) */
+    preview: z.unknown().optional(),
+    url_known: z.boolean().nullish(),
   })
   .passthrough();
 export type SubscriptionCreated = z.infer<typeof SubscriptionCreated>;
@@ -214,11 +219,12 @@ export function adaptOptions(raw: unknown): unknown {
   if (isObj(ch) && ch.push !== undefined && !Array.isArray(ch.push)) {
     const push = isObj(ch.push)
       ? Object.entries(ch.push)
-          .filter(([, p]) => isObj(p) && "configured" in p)
+          .filter(([k, p]) => k !== "verification" && isObj(p) && "configured" in p)
           .map(([provider, p]) => ({ provider, configured: !!(p as Raw).configured, connected: !!(p as Raw).connected }))
       : [];
     const avail = (c: unknown) => (typeof c === "boolean" ? c : isObj(c) ? c.available !== false : true);
     out.channels = { link: avail(ch.link), file: avail(ch.file), push };
+    if (isObj(ch.push) && isObj(ch.push.verification)) out.push_verification = ch.push.verification;
   }
   return out;
 }
@@ -281,52 +287,69 @@ export const ExportOptionsIn = z.preprocess(adaptOptions, ExportOptions);
 
 /* ------------------------------------------------------------------------------------------- admin */
 
-export const DEPARTMENT_RULES = ["own", "taught", "permission"] as const;
-export type DepartmentRule = (typeof DEPARTMENT_RULES)[number];
-export const ADMIN_FIELDS = ["title", "department", "co_instructors", "link"] as const;
-export type AdminField = (typeof ADMIN_FIELDS)[number];
+export const ADMIN_SCOPE_KEYS = { my_classes: "export_my_classes", department_classes: "export_department_classes", my_bookings: "export_my_bookings" } as const;
+export const ADMIN_FIELD_KEYS = { title: "export_field_course_title", department: "export_field_department", co_instructors: "export_field_co_instructors", link: "export_field_link" } as const;
+export type AdminField = keyof typeof ADMIN_FIELD_KEYS;
+export const ADMIN_FIELDS = Object.keys(ADMIN_FIELD_KEYS) as AdminField[];
 
-/** The CAL-09 part of `GET /calendar/admin/settings`; every key is optional (absent = the backend lacks it). */
-export const ExportAdminSettings = z
-  .object({
-    export_scopes: z.record(z.string(), z.boolean()).nullish(),
-    department_rule: z.record(z.string(), z.boolean()).nullish(),
-    export_fields: z.record(z.string(), z.boolean()).nullish(),
-    feed_past_days: z.number().nullish(),
-    feed_future_days: z.number().nullish(),
-    feed_cancelled_grace_days: z.number().nullish(),
-    push_verified_only: z.boolean().nullish(),
-    push_allowed_domains: z.array(z.string()).nullish(),
-    calendar_client_source: z.enum(["identity", "own"]).nullish().catch(null),
-    google_scope_mode: z.enum(["app_created", "events"]).nullish().catch(null),
-  })
-  .passthrough();
-export type ExportAdminSettings = z.infer<typeof ExportAdminSettings>;
-export type ExportAdminSettingsIn = Partial<{
-  export_scopes: Record<string, boolean>;
-  department_rule: Record<string, boolean>;
-  export_fields: Record<string, boolean>;
-  feed_past_days: number;
-  feed_future_days: number;
-  feed_cancelled_grace_days: number;
-  push_verified_only: boolean;
-  push_allowed_domains: string[];
-  calendar_client_source: "identity" | "own";
-  google_scope_mode: "app_created" | "events";
-}>;
-
+const flag = z.boolean().nullish();
 export const ExportAdminStatus = z
   .object({
-    active_links: z.number().default(0),
-    links_by_scope: z.record(z.string(), z.number()).default({}),
-    connections: z.array(z.object({ provider: z.string(), count: z.number().default(0), by_scope: z.record(z.string(), z.number()).default({}) })).default([]),
+    links: z.record(z.string(), z.number()).default({}),
+    connections: z.record(z.string(), z.number()).default({}),
+    connections_by_scope: z.record(z.string(), z.number()).default({}),
+    needs_attention: z.number().default(0),
+    least_privilege_flagged: z.number().default(0),
     failed_jobs: z.number().default(0),
-    last_reconcile_at: when,
+    nightly_reconcile: z.object({ at: z.string().nullish(), queued: z.number().nullish() }).nullish(),
   })
   .passthrough();
 export type ExportAdminStatus = z.infer<typeof ExportAdminStatus>;
 
+/** `GET /calendar/admin/export-settings` (CAL-B API.md, `setup.settings`): flat switches, the push rules, the status. */
+export const ExportAdminSettings = z
+  .object({
+    export_my_classes: flag,
+    export_department_classes: flag,
+    export_my_bookings: flag,
+    export_field_course_title: flag,
+    export_field_department: flag,
+    export_field_co_instructors: flag,
+    export_field_link: flag,
+    push_verified_only: flag,
+    push_allowed_domains: z.array(z.string()).nullish(),
+    calendar_client_source: z.enum(["identity", "own"]).nullish().catch(null),
+    fields_always: z.array(z.string()).default([]),
+    identity_clients: z.record(z.string(), z.boolean()).default({}),
+    status: ExportAdminStatus.nullish(),
+  })
+  .passthrough();
+export type ExportAdminSettings = z.infer<typeof ExportAdminSettings>;
+export type ExportAdminSettingsIn = Partial<{
+  export_my_classes: boolean;
+  export_department_classes: boolean;
+  export_my_bookings: boolean;
+  export_field_course_title: boolean;
+  export_field_department: boolean;
+  export_field_co_instructors: boolean;
+  export_field_link: boolean;
+  push_verified_only: boolean;
+  push_allowed_domains: string[];
+  calendar_client_source: "identity" | "own";
+}>;
+
 /* ------------------------------------------------------------------------------------------- calls */
+
+/** The `scopes` of a connect call: never empty and never absent, so every new connection is least-privilege and
+ * SmartSched-owned. A legacy connection that pushed bookings only (no `export_scopes`) reconnects with `my_bookings`. */
+export function connectScopes(scopes: readonly string[] | null | undefined): string[] {
+  const out: string[] = [];
+  for (const x of scopes ?? []) {
+    const v = typeof x === "string" ? x.trim() : "";
+    if (v && !out.includes(v)) out.push(v);
+  }
+  return out.length ? out : ["my_bookings"];
+}
 
 /** The one-off file path for a scope (relative to /api/v1). */
 export function filePath(kind: ScopeKind, departmentId?: number | null): string {
@@ -400,16 +423,15 @@ export const calendarExportApi = {
   },
   download: (kind: ScopeKind, departmentId: number | null | undefined, fallback: string) => download(filePath(kind, departmentId), fallback),
   pushScopes: (provider: string, scopes: string[]) => request(`/calendar/connectors/${provider}/scopes`, { ...s, method: "PUT", body: { scopes } }),
-  /** starts the provider's OAuth round trip; the scopes ride along so the backend can apply them on the callback */
-  connect: (provider: string, returnPath: string, scopes: string[]) =>
-    request(`/calendar/connectors/${provider}/connect`, { ...s, method: "POST", body: { return_path: returnPath, scopes }, schema: z.object({ authorize_url: z.string() }) }),
+  /** starts the provider's OAuth round trip; the scopes ride along so the backend can apply them on the callback.
+   * Always with `scopes` (API.md: without them the backend makes a legacy bookings-only grant on the primary calendar). */
+  connect: (provider: string, returnPath: string, scopes: readonly string[]) =>
+    request(`/calendar/connectors/${provider}/connect`, { ...s, method: "POST", body: { return_path: returnPath, scopes: connectScopes(scopes) }, schema: z.object({ authorize_url: z.string() }) }),
   resync: (provider: string) => request(`/calendar/connectors/${provider}/resync`, { ...s, method: "POST", schema: z.object({ queued: z.number() }).passthrough() }),
   disconnect: (provider: string) => request(`/calendar/connectors/${provider}`, { ...s, method: "DELETE" }),
   admin: {
-    /** the same call (and cache entry) as the KVKK / push panels: the answer is parsed as theirs, the CAL-09 part is read with `select` */
-    get: () => approvalFirst.integrations.get(),
-    put: (body: ExportAdminSettingsIn) => request("/calendar/admin/settings", { ...s, method: "PUT", body, schema: IntegrationSettings }),
-    status: () => request("/calendar/admin/status", { ...s, schema: ExportAdminStatus }),
+    get: () => request("/calendar/admin/export-settings", { ...s, schema: ExportAdminSettings }),
+    put: (body: ExportAdminSettingsIn) => request("/calendar/admin/export-settings", { ...s, method: "PUT", body, schema: ExportAdminSettings }),
   },
 };
 
@@ -419,7 +441,7 @@ export const calendarExportApi = {
 export const calendarExportKeys = {
   options: ["calendar-export", "options"] as const,
   subscriptions: ["calendar-export", "subscriptions"] as const,
-  adminStatus: ["calendar-export", "admin-status"] as const,
+  admin: ["calendar-export", "admin-settings"] as const,
 };
 
 export function useExportOptions(enabled = true) {
@@ -443,22 +465,21 @@ export function useRefreshCalendar() {
   return () => qc.invalidateQueries({ predicate: (q) => q.queryKey.some((k) => typeof k === "string" && /calendar/i.test(k)) });
 }
 
-/** The CAL-09 settings share the cache entry of the KVKK / push panels (same endpoint). */
+/** CAL-09 settings; a backend without the endpoint answers 404 and the panels show nothing extra. */
 export function useExportAdminSettings(enabled = true) {
-  return useQuery({ queryKey: afKeys.integrations, queryFn: calendarExportApi.admin.get, enabled, retry: false, select: (d) => ExportAdminSettings.parse(d) });
+  return useQuery({ queryKey: calendarExportKeys.admin, queryFn: calendarExportApi.admin.get, enabled, retry: false });
+}
+
+/** Past days and the cancelled grace days: `PUT /calendar/admin/settings` (the KVKK card's endpoint and cache). */
+export function useSaveFeedHorizon() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { feed_past_days: number; feed_cancelled_grace_days: number }) => request("/calendar/admin/settings", { ...s, method: "PUT", body, schema: IntegrationSettings }),
+    onSuccess: (data) => qc.setQueryData(afKeys.integrations, data),
+  });
 }
 
 export function useSaveExportAdminSettings() {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: calendarExportApi.admin.put,
-    onSuccess: (data) => {
-      qc.setQueryData(afKeys.integrations, data);
-      void qc.invalidateQueries({ queryKey: calendarExportKeys.adminStatus });
-    },
-  });
-}
-
-export function useExportAdminStatus(enabled = true) {
-  return useQuery({ queryKey: calendarExportKeys.adminStatus, queryFn: calendarExportApi.admin.status, enabled, retry: false, staleTime: 30_000 });
+  return useMutation({ mutationFn: calendarExportApi.admin.put, onSuccess: (data) => qc.setQueryData(calendarExportKeys.admin, data) });
 }
