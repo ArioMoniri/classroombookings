@@ -303,6 +303,16 @@ interface StateProps {
   anotherFile: () => void;
 }
 
+/** KVKK N3: what happens to the file: kept encrypted ≤ 10 min while a stage lives, otherwise read only and not kept. */
+function PrivacyLine({ staged }: { staged: boolean }) {
+  const { t } = useI18n();
+  return (
+    <p className="type-caption text-label-2" data-testid="helper-file-privacy">
+      {t(staged ? "helper.file.privacyRead" : "helper.file.privacyNotKept")}
+    </p>
+  );
+}
+
 function ExpiredLine({ reread }: { reread: () => void }) {
   const { t } = useI18n();
   return (
@@ -402,7 +412,7 @@ function FileCardView({ entry, card, titleId, reread }: StateProps & { card: Fil
         defaultOpen={card.state === "unknown"}
       />
       {card.ai_sorted ? <p className="type-caption text-label-2">{t("helper.file.aiSorted")}</p> : null}
-      {card.state !== "unknown" ? <p className="type-caption text-label-2">{t("helper.file.privacyRead")}</p> : null}
+      <PrivacyLine staged={!!entry.stage} />
     </Frame>
   );
 }
@@ -427,6 +437,7 @@ function ChooserView({ entry, card, titleId, reread }: StateProps & { card: Choi
         </>
       )}
       {entry.notice ? <p className="type-footnote text-status-infeasible-fg" role="alert">{pickText(entry.notice, locale)}</p> : null}
+      <PrivacyLine staged={!!entry.stage} />
     </Frame>
   );
 }

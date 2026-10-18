@@ -68,23 +68,31 @@ export function useFilePicker(onFiles: (files: File[]) => void, opts: { testId?:
 export function AttachButton({ onFiles, className, withLabel = false }: { onFiles: (files: File[]) => void; className?: string; withLabel?: boolean }) {
   const { t } = useI18n();
   const picker = useFilePicker(onFiles);
+  // KVKK N4: what happens to a picked file, said before the pick (visible with the words, the icon's description otherwise)
+  const hintId = useId();
   if (withLabel) {
     // Rehber modu: the same 📎 with its words, under the search field
     return (
       <>
-        <Button variant="ghost" size="md" onClick={picker.open} data-testid="helper-attach" data-tour="helper-attach" className={cn("min-h-11 self-start", className)}>
+        <Button variant="ghost" size="md" onClick={picker.open} aria-describedby={hintId} data-testid="helper-attach" data-tour="helper-attach" className={cn("min-h-11 self-start", className)}>
           <Paperclip aria-hidden />
           {t("helper.file.attach")}
         </Button>
+        <p id={hintId} className="-mt-1 px-3 type-caption text-label-2" data-testid="helper-attach-privacy">
+          {t("helper.file.attachHint")}
+        </p>
         {picker.input}
       </>
     );
   }
   return (
     <>
-      <IconButton label={t("helper.file.attach")} onClick={picker.open} data-testid="helper-attach" data-tour="helper-attach" className={cn("size-11", className)}>
+      <IconButton label={t("helper.file.attach")} onClick={picker.open} aria-describedby={hintId} data-testid="helper-attach" data-tour="helper-attach" className={cn("size-11", className)}>
         <Paperclip aria-hidden />
       </IconButton>
+      <span id={hintId} hidden>
+        {t("helper.file.attachHint")}
+      </span>
       {picker.input}
     </>
   );

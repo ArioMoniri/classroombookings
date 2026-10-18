@@ -115,7 +115,7 @@ describe("detected", () => {
     const what = within(card).getByTestId("helper-file-what");
     expect(what).toHaveAttribute("aria-expanded", "false");
     expect(within(card).queryByTestId("helper-file-explain")).toBeNull();
-    expect(card).toHaveTextContent("Dosya yalnızca türünü anlamak için okunur ve en çok 10 dakika şifreli tutulur. Açılan sayfada Önizle'ye basana kadar hiçbir şey kaydedilmez.");
+    expect(card).toHaveTextContent("Dosya yalnızca türünü anlamak için okunur ve en çok 10 dakika şifreli tutulur. Açılan sayfada Önizle'ye basana kadar içe aktarma kaydına dönüşmez; veriler yalnızca Uygula ile kayıtlara işlenir.");
     fireEvent.click(what);
     expect(within(card).getByTestId("helper-file-explain")).toHaveTextContent("Haftalık derslik takvimi, her hafta için bir sayfadır.");
   });
@@ -371,5 +371,41 @@ describe("refused / error / several files", () => {
     show();
     expect(screen.getByTestId("helper-file-collapsed")).toHaveTextContent("Haftalık derslik takvimi · kapandı");
     expect(screen.queryByTestId("helper-card-file-detected")).toBeNull();
+  });
+});
+
+describe("what happens to the file (KVKK N3 / N4)", () => {
+  const READ = "Dosya yalnızca türünü anlamak için okunur ve en çok 10 dakika şifreli tutulur";
+  const NOT_KEPT = "Dosya yalnızca türünü anlamak için okundu; tutulmadı.";
+
+  it("a staged file says it is kept encrypted for 10 minutes", () => {
+    seed({ kind: "card", card: DETECTED });
+    show();
+    expect(screen.getByTestId("helper-file-privacy")).toHaveTextContent(READ);
+  });
+
+  it("without a stage (needs_planner, HELPER_FILE_STAGE=off) it says the file was only read and not kept", () => {
+    seed({ kind: "card", card: { ...DETECTED, state: "needs_planner", primary: { feature_id: "my_classes", params: {}, label: tr("Derslerim'i aç"), carries_file: false } } }, { stage: null });
+    show();
+    expect(screen.getByTestId("helper-file-privacy")).toHaveTextContent(NOT_KEPT);
+  });
+
+  it("the chooser says it too", () => {
+    const choice = {
+      v: 1 as const,
+      id: "c0ffee13",
+      type: "choice" as const,
+      action: "classify_file",
+      arg: "kind",
+      args: { upload_token: TOKEN },
+      question: tr("Bu dosya hangisi?"),
+      options: [
+        { value: "planning_list", label: tr("Planlama listesi"), hint: tr("Ders talepleri") },
+        { value: "exam_list", label: tr("Sınav listesi"), hint: tr("Sınav talepleri") },
+      ],
+    };
+    seed({ kind: "card", card: choice });
+    show();
+    expect(within(screen.getByTestId("helper-card-file-ambiguous")).getByTestId("helper-file-privacy")).toHaveTextContent(READ);
   });
 });

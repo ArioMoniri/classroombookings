@@ -300,6 +300,51 @@ describe("/import step 1: the wrong-kind check before the upload (M-20)", () => 
   });
 });
 
+describe("/import: the check's stage never outlives its use (KVKK N2)", () => {
+  const STAGE = { upload_token: TOKEN, expires_at: new Date(Date.now() + 600_000).toISOString(), size: 1, format: "xlsx" };
+  const drops = () => calls.filter((c) => /^DELETE .*\/helper\/files\//.test(c));
+
+  it("an upload that sends the bytes (kind kept despite the check) drops the check's stage", async () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "kind=exam-list";
+    classifyOut = { card: planningCard(), stage: STAGE };
+    wrap(<ImportWizard />);
+    const input = screen.getByTestId("import-dropzone").parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["x"], "final.xlsx")] } });
+    await screen.findByTestId("import-switch-kind");
+    // the importer refuses the exam-list kind; the bytes went, so the stage is not wanted any more
+    fireEvent.click(screen.getByTestId("import-start"));
+    await screen.findByTestId("import-preview");
+    expect(up.fn.mock.calls[0]![1]).toBeInstanceOf(File);
+    await waitFor(() => expect(drops()).toHaveLength(1));
+  });
+
+  it("leaving the page with a live check drops its stage", async () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "kind=planning-list";
+    classifyOut = { card: planningCard(), stage: STAGE };
+    const view = wrap(<ImportWizard />);
+    const input = screen.getByTestId("import-dropzone").parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["x"], "bahar.xlsx")] } });
+    await waitFor(() => expect(forms).toHaveLength(1));
+    await act(async () => undefined);
+    expect(drops()).toHaveLength(0);
+    view.unmount();
+    await waitFor(() => expect(drops()).toHaveLength(1));
+  });
+
+  it("says what happens to the file under the picker and under the 'Türünü bilmiyor musunuz?' zone", () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "";
+    const { unmount } = wrap(<ImportWizard />);
+    expect(screen.getByTestId("import-kind-drop-privacy")).toHaveTextContent("Dosya yalnızca türünü anlamak için okunur");
+    unmount();
+    nav.search = "kind=planning-list";
+    wrap(<ImportWizard />);
+    expect(screen.getByTestId("import-privacy")).toHaveTextContent("Dosya yalnızca türünü anlamak için okunur");
+  });
+});
+
 describe("setup wizard: the router's kind label and the import hint (§8.4)", () => {
   it("names the handed file's kind next to its extension, and says an Excel importer file also goes through İçe aktar", () => {
     useFileHandoffStore.getState().set(handoff({ featureId: "onboarding", kind: "planning_list", params: {} }));

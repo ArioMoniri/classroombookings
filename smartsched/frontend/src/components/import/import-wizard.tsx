@@ -97,6 +97,10 @@ export function ImportWizard() {
   const [detecting, setDetecting] = useState(false);
   /** HB-23c step 1 (M-20): the classify of the person's own file; its stage spares the second upload */
   const [probe, setProbe] = useState<{ file: File; stage: Stage | null; kind: string | null } | null>(null);
+  // KVKK N2: the check's stage never outlives the page (leaving it drops the stage the person no longer needs)
+  const probeRef = useRef(probe);
+  probeRef.current = probe;
+  useEffect(() => () => dropStage(probeRef.current?.stage), []);
   const fileRef = useRef<File | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [upload, setUpload] = useState<UploadState>({ phase: "idle" });
@@ -248,6 +252,11 @@ export function ImportWizard() {
     // the step-1 probe staged this very file for this kind: send its token, not the bytes again
     const probeToken = !handedItem && probe && probe.file === file && probe.kind === kind && probe.stage && Date.parse(probe.stage.expires_at) > Date.now() ? probe.stage.upload_token : null;
     const token = handedItem?.token ?? probeToken;
+    // the bytes go this time: the check's stage is not needed any more (KVKK N2)
+    if (!probeToken && probe?.stage) {
+      dropStage(probe.stage);
+      setProbe({ ...probe, stage: null });
+    }
     // a staged file has no bytes to send: straight to "the server reads it"
     setUpload(token ? { phase: "processing" } : { phase: "uploading", pct: 0 });
     try {
@@ -363,6 +372,7 @@ export function ImportWizard() {
               <>
                 {handedExpired ? <HandedFileExpired /> : null}
                 <MagneticDrop files={file ? [file] : []} onFiles={(f) => onFile(f[0] ?? null)} upload={upload} disabled={busy} />
+                <p className="type-caption text-label-2" data-testid="import-privacy">{t("helper.file.privacyRead")}</p>
               </>
             )}
             {suggested ? (

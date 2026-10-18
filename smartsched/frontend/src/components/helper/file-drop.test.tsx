@@ -117,6 +117,20 @@ describe("the sheet's ways in", () => {
     expect(await screen.findByTestId("helper-attach")).toHaveTextContent("Dosya ekle");
   });
 
+  it("the 📎 says what happens to a file before it is picked (KVKK N4)", async () => {
+    vi.mocked(helperApi.status).mockResolvedValue(status({ mode: "index", reason: "index_mode" }));
+    await openSheet();
+    const attach = await screen.findByTestId("helper-attach");
+    expect(screen.getByTestId("helper-attach-privacy")).toHaveTextContent("Dosya yalnızca türünü anlamak için okunur");
+    expect(attach).toHaveAccessibleDescription(/yalnızca türünü anlamak için okunur/);
+  });
+
+  it("the composer's 📎 carries the same line as its description", async () => {
+    await openSheet();
+    const attach = within(await screen.findByTestId("helper-composer")).getByTestId("helper-attach");
+    expect(attach).toHaveAccessibleDescription(/yalnızca türünü anlamak için okunur/);
+  });
+
   it("admins see 'Elimde bir dosya var, ne yapayım?' as the first starter", async () => {
     await openSheet();
     const starters = await screen.findByTestId("helper-starters");
@@ -133,7 +147,7 @@ describe("the sheet's ways in", () => {
     expect(target).toHaveTextContent("Dosyayı buraya bırakın. Ne olduğunu ve ne yapacağınızı söyleyeyim.");
     expect(target).toHaveTextContent("en çok 15 MB");
     // KVKK review C3 (Art. 10): what really happens to the file
-    expect(target).toHaveTextContent("Dosya yalnızca türünü anlamak için okunur ve en çok 10 dakika şifreli tutulur. Açılan sayfada Önizle'ye basana kadar hiçbir şey kaydedilmez.");
+    expect(target).toHaveTextContent("Dosya yalnızca türünü anlamak için okunur ve en çok 10 dakika şifreli tutulur. Açılan sayfada Önizle'ye basana kadar içe aktarma kaydına dönüşmez.");
     fireEvent.dragLeave(log, { dataTransfer: { types: ["Files"], files: [] } });
     expect(screen.queryByTestId("helper-file-drop")).toBeNull();
   });

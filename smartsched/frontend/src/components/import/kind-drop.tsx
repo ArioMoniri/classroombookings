@@ -60,6 +60,9 @@ export function KindDrop({ onFile, busy }: { onFile: (file: File) => void; busy:
           </span>
         </span>
       </BareButton>
+      <p className="px-3 pb-3 type-caption text-label-2" data-testid="import-kind-drop-privacy">
+        {t("helper.file.privacyRead")}
+      </p>
       <label htmlFor={inputId} className="sr-only">
         {t("helper.file.dontKnow")}
       </label>
