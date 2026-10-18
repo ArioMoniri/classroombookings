@@ -213,6 +213,11 @@ from app.api.v1 import helper_turn as helper_turn_api  # noqa: E402
 
 api_router.include_router(helper_turn_api.router)
 
+# AI HB-11: faculty quota managers (GET /ai/faculty/usage, PUT /ai/faculty/allocations; lane HB-B)
+from app.api.v1 import ai_faculty as ai_faculty_api  # noqa: E402
+
+api_router.include_router(ai_faculty_api.router)
+
 # AU-B two-step sign-in, passkeys, trusted devices, admin MFA reset / reset link (app/api/v1/mfa.py)
 from app.api.v1 import mfa as mfa_api  # noqa: E402
 

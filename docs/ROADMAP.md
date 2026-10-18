@@ -3203,7 +3203,7 @@ Gates:
 
 Ranked tickets:
 
-- [ ] HB-01 · ai-engineer · no migration · **can start now** · Feature index and no-AI search core.
+- [x] HB-01 · ai-engineer · no migration · **can start now** · Feature index and no-AI search core.
   - `app/helper/features.yaml`: id, route, title/synonyms/steps TR+EN, the `data-tour` anchor (WG-05 names), permission any-of, audiences, `actions[]`, `since`.
   - `app/helper/index.py`: loader with schema validation; BM25 over text folded with `guardrails.fold` plus a light Turkish suffix strip; field weights; the permission filter applied before ranking.
   - `app/helper/data/routes.json`: generated from `frontend/src/app/**/page.tsx` by `scripts/helper/routes.py`.
@@ -3215,6 +3215,7 @@ Ranked tickets:
   vitest asks (frontend owner): `nav-index.test.ts`, which fails when an `href` in `nav-config.ts` or `admin/nav-items.ts` has no index entry.
   files: new `backend/app/helper/{__init__,index,features.yaml}`, `backend/app/helper/data/routes.json`, `scripts/helper/routes.py`, `backend/tests/helper/**`.
   collision: WG-B/WG-F own the anchor names. Read only; ask WG-F for any missing `data-tour` ids.
+  done (app/ai/helper/features.yaml + index.py: Turkish-folded BM25, permission filter before ranking, kind/path/≤ 3 steps/CRBS synonyms (A3), every nav-config/admin nav href has an entry with the same permission; tests/helper/test_hb_01_index.py 11 incl. where_queries.json top-1/top-3; the vitest nav-index.test.ts stays with HX-01; hb-a-2026-10-18)
 - [ ] HB-02 · ai-engineer · no migration · **can start now** · `GET /helper/search?q=&limit=`: index hits as `nav` cards, plus data hits from the palette's sources (courses, sections, instructors, programmes, booking rooms) through the person's own permissions; no AI, no metering.
   accept:
   - pytest: 4 personas × 10 queries; a 403 source is skipped, not fatal;
@@ -3222,7 +3223,8 @@ Ranked tickets:
   - Turkish-first strings.
   files: new `backend/app/api/v1/helper.py` (search route only), `backend/app/helper/search.py`, tests. Ask: one `include_router` line in `backend/app/api/v1/router.py` (router owner).
   frontend twin (HX, designer lane): a "Nasıl yapılır" group in `command-palette.tsx`.
-- [ ] HB-03 · ai-engineer · no migration · **can start now** · Action registry core and the 10 read actions.
+  part done (GET /helper/search: pages + where ("Nerede?" group, A5) as nav cards, rooms / courses / instructors / programmes / sections through the person's permissions, a 403 source is skipped; test_hb_02_search.py 5 (4 personas x 10 queries); hb-a-2026-10-18). open: p95 < 50 ms on the seeded stack (E2E TO RUN)
+- [x] HB-03 · ai-engineer · no migration · **can start now** · Action registry core and the 10 read actions.
   - `@action` decorator: name, kind, permission any-of, pydantic `args` (`extra="forbid"` → strict tool schema), service, REST twin `route`, card, `rate`.
   - `tools_for(access, hits, settings)` gives ≤ 10 tools.
   - Read actions 1–10 of the research doc §5.2: open_feature, search_site, find_free_rooms, room_day_schedule, my_bookings, my_requests_status, approvals_inbox, run_status, requests_needing_review, my_ai_usage.
@@ -3233,7 +3235,8 @@ Ranked tickets:
   - the strict-schema budget (`catalog.py:820-826` rules) holds for any 10-tool subset;
   - read actions are side-effect free (no `session.add`/commit, checked with a session spy).
   files: new `backend/app/helper/actions/{__init__,registry,nav,bookings,approvals,planning,usage}.py`, tests.
-- [ ] HB-04 · backend · **migration (next head at merge time; VO-02, AS-03/05/13 and CAL also plan one: re-check `alembic heads`, never two heads)** · Helper tables:
+  done (registry + 10 reads, strict tool schemas, tools_for ≤ 10 with taint; new app/ai/helper/tooluse.py validates every model tool call before it runs (stop reasons, offered names, strict args, same checks as the card endpoint, tokens hidden from the model), used by HB-06's run_turn; test_hb_03_registry.py 8 + test_hb_03_tooluse.py 3 (mocked anthropic SDK; live smoke skipped without ANTHROPIC_API_KEY); hb-a-2026-10-18)
+- [x] HB-04 · backend · **migration (next head at merge time; VO-02, AS-03/05/13 and CAL also plan one: re-check `alembic heads`, never two heads)** · Helper tables:
   - `helper_action_invocations`: id, user_id, action, args_hash, preview_hash, nonce **unique**, status `previewed/confirmed/done/failed/undone`, audit_id, undo_of, created_at, expires_at;
   - `helper_threads`, `helper_messages`, `helper_notes`, `helper_events` (columns in research §5.4 and §5.7).
   - SQLite + PostgreSQL; RLS policies owner-scoped (like `ai_usage`; fan-out not needed).
@@ -3243,7 +3246,8 @@ Ranked tickets:
   - RLS: a teacher reads only their own rows;
   - the purge job test.
   files: new `backend/alembic/versions/00NN_helper.py`, `backend/app/models/helper.py`, `backend/app/models/__init__.py` (export), `backend/app/core/rls.py` only if a new policy helper is needed (ask the W3-SEC owner), tests.
-- [ ] HB-05 · ai-engineer · no migration (tables from HB-04) · Write actions with preview, confirm, idempotency, audit and undo:
+  done (alembic 0044_helper, SQLite + PostgreSQL round trip, RLS owner-only, purge; test_hb_04_migration.py 4; hb-a-2026-10-18)
+- [x] HB-05 · ai-engineer · no migration (tables from HB-04) · Write actions with preview, confirm, idempotency, audit and undo:
   - actions: `create_booking`, `cancel_my_booking`, `withdraw_my_request`, `decide_approval`, `undo_last_helper_action`;
   - `preview()` uses the service's check path (`booking_policies.enforce`, free-slot check) with no writes;
   - confirm token: HMAC (user, action, canonical args, preview hash, exp 10 min, nonce);
@@ -3258,6 +3262,7 @@ Ranked tickets:
   - approval mode `all` turns `create_booking` into a request;
   - red-team RA-01, 03, 04, 05, 06, 11 (research §7.2) pass offline.
   files: `backend/app/helper/actions/{bookings,approvals,undo}.py`, `backend/app/helper/confirm.py`, `backend/app/api/v1/helper.py` (confirm/undo routes), tests.
+  done (5 writes in actions/writes.py; confirm.py: HMAC token, once-only nonce claim, preview hash re-check (409 changed + new card), audit helper.action.<name> / helper.confirm_rejected, undo through bookings_undo (24 h, before the start); own single bookings / cancels / withdrawals one tap R1, approver decides R2, no publish/invite write; test_hb_05_writes.py 6 + red team RA-01/03/04/05/06/11; API contract scratchpad/helper/API.md; hb-a-2026-10-18)
 - [ ] HB-06 · ai-engineer · no migration · **after the security follow-up and VO-01 (same lines in `context.py`/`gateway.py`)** · Gateway feature `helper` and the turn loop.
   - Registration:
     - `FEATURES`/`FEATURE_LABELS` ("Yardımcı"/"Helper");
@@ -3279,14 +3284,15 @@ Ranked tickets:
   - every SSE `card` validates against `/helper/schema`;
   - one `ai_usage` row per model call with feature `helper`.
   files: `backend/app/ai/context.py`, `backend/app/ai/gateway.py` (`DEFAULT_CAPS`, `PERSONAL_FEATURES`), `backend/app/ai/guardrails.py` (`MAX_INPUT_CHARS` only), new `backend/app/helper/{turn,cards}.py`, `backend/app/ai/prompts/helper.md`, `backend/app/api/v1/helper.py`, tests.
-- [ ] HB-07 · ai-engineer · no migration · **can start now; align with `docs/design/v3/helper.md` when it lands** · Card contract `helper.card.v1`: pydantic union `answer`/`nav`/`list`/`facts`/`form`/`confirm`/`result`/`limit`/`refusal`/`error` (research §5.3), `GET /helper/schema` (cards + action arg schemas), and form-field kinds derived from action `args`.
+- [x] HB-07 · ai-engineer · no migration · **can start now; align with `docs/design/v3/helper.md` when it lands** · Card contract `helper.card.v1`: pydantic union `answer`/`nav`/`list`/`facts`/`form`/`confirm`/`result`/`limit`/`refusal`/`error` (research §5.3), `GET /helper/schema` (cards + action arg schemas), and form-field kinds derived from action `args`.
   accept:
   - snapshot test of the JSON Schema;
   - no card field can carry a URL or HTML (schema pattern + test);
   - every TR string has an EN twin;
   - the designer signs off the field list in `helper.md` (or lists the differences as asks).
   files: new `backend/app/schemas/helper.py`, `backend/app/helper/cards.py` (builders), tests. Frontend twin: HX renderer (designer lane).
-- [ ] HB-08 · ai-engineer · no migration · **can start now** · Helper guardrails:
+  done (schema.py helper.card.v1 incl. choice (A2), follow_ups ≤ 2 (A7), list ≤ 5 rows (A8); GET /helper/schema; POST /helper/actions/{name}/card with no model call (A4), confirm directly when resolved (A1); GET /helper/status (A6) index-only until an admin routes helper; every string field a plain/identifier pattern, args neutralised instead of a 500; choice pick fixed (room option values as text); snapshot tests/helper/fixtures/helper_card_v1.schema.json; test_hb_07_cards.py 5; designer differences in API.md; hb-a-2026-10-18)
+- [x] HB-08 · ai-engineer · no migration · **can start now** · Helper guardrails:
   - `app/helper/guard.py`: off-scope means no scheduling signal and an index score below the threshold, which gives a 0-token refusal card + the top 3 hits;
   - the index vocabulary feeds the scope check;
   - "answer names a page without a `nav` card" replaces the text with the index answer;
@@ -3298,7 +3304,8 @@ Ranked tickets:
   - RA-13/RA-14 pass;
   - `POST /ai/admin/redteam` includes the helper cases.
   files: new `backend/app/helper/guard.py`, `backend/app/ai/redteam_guard_cases.json` (append), `backend/app/ai/redteam.py` (case loader only if needed), tests.
-- [ ] HB-09 · ai-engineer · no migration (tables from HB-04) · **can start after HB-04** · Memory with consent:
+  done (guard.py, helper cases in redteam_guard_cases.json, redteam_actions.json RA-01…15 with tests/helper/test_hb_redteam_actions.py (one test per id) + test_hb_redteam_turn.py (RA-02, RA-09 through HB-B's run_turn with the fake SDK); test_hb_08_guard.py 8; RA-10/11/15 keep their live parts for HB-10/HB-11/HB-06; hb-a-2026-10-18)
+- [x] HB-09 · ai-engineer · no migration (tables from HB-04) · **can start after HB-04** · Memory with consent:
   - `GET/POST/DELETE /helper/notes`; a note is created only from a user action (`source=user_button|user_confirmed`);
   - limits: ≤ 20 notes, ≤ 200 chars each;
   - a person's name from the redactor list is refused in a note;
@@ -3308,6 +3315,7 @@ Ranked tickets:
   - pytest for consent, limits, purge, DSR export lists notes and threads, erasure deletes them;
   - RA-12 passes.
   files: new `backend/app/helper/memory.py`, routes in `backend/app/api/v1/helper.py`, tests. Asks (KVKK owner): one `DATA_CLASSES` row and the purge registration in `backend/app/services/kvkk.py`.
+  done (memory.py: notes only on Hatırla / Not ekle, 20 x 200, no person's name, 180 days since last use, threads 30 days, admin switch PUT /helper/admin/settings (audited ai.helper), the person's switch, withdrawal of ai_personal deletes notes (withdraw effect helper_notes_deleted), KVKK export rows {kind: note|thread|action} + erasure, prompt_notes for the turn loop; test_hb_09_memory.py 4; hb-a-2026-10-18)
 - [ ] HB-10 · backend · **migration (next head, after VO-02's `ai_usage` migration; after the security follow-up hands off `services/ai_usage.py`)** · Quota chain and multi-worker reservations.
   - Columns: `ai_usage.department_id`, `ai_usage.faculty_id` (snapshot at record time; index `(created_at, faculty_id)`).
   - Table `ai_reservations`.
@@ -3697,6 +3705,7 @@ passkeys and the stack's SMTP sink catches mail.
     Create failures are silent;
   - tsc, eslint, `check-design.mjs` clean.
   files: new `frontend/src/lib/api/auth-security.ts`, `frontend/src/components/auth/passkey.ts` + tests.
+  part done (lib/api/auth-security.ts: schemas + hooks incl. AU-15 sessions, AU-16 idp-mfa, admin session revoke, usePasswordMinLength; paths pinned against the regenerated OpenAPI subset __fixtures__/au-b-openapi.json (33 routes); components/auth/passkey.ts + tests; vitest green); open: none at unit level; aux-f-2026-10-18
 - [ ] AUX-02 · frontend · no migration · Input-box system: OTP slots, recovery field, autofill styling (auth.md §10).
   - `components/auth/otp-input.tsx`:
     - built on `input-otp` (MIT; SOURCES.md row);
@@ -3716,6 +3725,7 @@ passkeys and the stack's SMTP sink catches mail.
   - axe clean;
   - at 390 the slots are ≥ 44 px and the text ≥ 16 px.
   files: new `frontend/src/components/auth/{otp-input,recovery-code-field}.tsx` + tests; ask: `ui/field-styles.ts`.
+  part done (auth/otp-input.tsx on input-otp 1.5.0, recovery-code-field.tsx; vitest paste/one-textbox/keys; SOURCES row); open: ask ui owner `:autofill` rule in ui/field-styles.ts; 390 px check on the stack; aux-f-2026-10-18
 - [ ] AUX-03 · frontend · no migration · Sign-in page: passkeys in door 2 (auth.md §4.1–§4.3, §4.6).
   - When `/org/public` says `passkeys_enabled && passkey_first_factor` (ask A1e):
     - the identifier gets `autocomplete="username webauthn"`;
@@ -3733,6 +3743,7 @@ passkeys and the stack's SMTP sink catches mail.
   - doorsFor tests extended;
   - no layout shift on first paint.
   files: new `frontend/src/components/auth/passkey-door.tsx` + tests; edits in `components/auth/{sign-in-page,local-sign-in,signin-model}.tsx/ts` (sign-in owner informed); `messages/{tr,en}.json` keys `signin.passkey.*`.
+  part done (passkey-door.tsx, door rules, conditional get/create, signin.passkey.* copy; vitest); open: Playwright with a virtual authenticator; aux-f-2026-10-18
 - [ ] AUX-04 · frontend · no migration · **after AU-B's challenge route** · 2FA step and enrolment notice (auth.md §5).
   - `/login/verify`, in the same `SignInShell`:
     - account line + "Farklı bir hesap";
@@ -3752,6 +3763,7 @@ passkeys and the stack's SMTP sink catches mail.
   - with the keypad open at 390, "Doğrula" is visible;
   - focus never lands on `<body>`.
   files: new `frontend/src/app/login/verify/page.tsx`, `frontend/src/app/login/setup-2fa/page.tsx`, `frontend/src/components/auth/{mfa-step,other-methods,enrol-notice}.tsx` + tests; `messages/*` keys `signin.mfa.*`, `signin.enrol.*`.
+  part done (/login/verify, /login/setup-2fa, mfa-step, other-methods, enrol-notice; vitest); open: e2e/au-signin-security.spec.ts §16.1–16.3; aux-f-2026-10-18
 - [ ] AUX-05 · frontend · no migration · Set-password form and forgot-password lines (auth.md §4.4, §4.5).
   - `SetPasswordForm`:
     - one field with show/hide, `autocomplete=new-password`, `passwordrules`;
@@ -3764,6 +3776,7 @@ passkeys and the stack's SMTP sink catches mail.
   accept: vitest — the repeat field is gone; errors are linked with `aria-describedby`; the expired-link copy shows;
   after success the person lands on the enrolment notice when the policy requires 2FA.
   files: new `frontend/src/components/auth/set-password-form.tsx` + tests; asks: `identity/local-invite-accept.tsx` (W3-IDP), `admin/reset-password.tsx` (owner).
+  part done (set-password-form.tsx, reset / invite through the route handler with a session; change-password-form uses password_min_length 12 / 8; vitest); open: asks W3-IDP (local-invite-accept delegates) and admin/reset-password owner; aux-f-2026-10-18
 - [ ] AUX-06 · frontend · no migration · Profil › Giriş ve güvenlik: section, re-auth, 2FA setup (auth.md §6.1–§6.3, §6.7, §6.8).
   - `SecuritySection` (`id="security"`):
     - rows Parola (moves `PasswordForm` in), İki aşamalı doğrulama, Geçiş anahtarları, Oturumlar / Hatırlanan
@@ -3787,6 +3800,7 @@ passkeys and the stack's SMTP sink catches mail.
   - SSO user: no 2FA or passkey rows;
   - the QR has ≥ 4 modules of quiet zone in dark mode.
   files: new `frontend/src/components/profile/security/{security-section,password-row,mfa-row,mfa-setup-sheet,recovery-codes,reauth-dialog}.tsx` + tests; ask profile owner: mount in `admin/profile-view.tsx` after `MicrosoftAccountSection`.
+  part done (security-section, mfa-row, mfa-setup-sheet, totp-setup (key behind 'QR kodunu tarayamıyor musunuz?' at ≥ 1024, fresh key on restart), recovery-codes (.txt / copy / print, Bitir after the tick, close warning), reauth-dialog (password reused 10 min, memory only); security-section.test.tsx 7 tests); open: e2e §16.6; 'Uygulamayı değiştir' waits for AU-B (totp/start refuses already_enabled); aux-f-2026-10-18
 - [ ] AUX-07 · frontend · no migration · Profil: passkeys list, remembered devices, then sessions and history (auth.md §6.4–§6.6).
   - Passkey rows:
     - provider icon and name from the AAGUID (MIT list), with the name editable right after adding;
@@ -3804,6 +3818,7 @@ passkeys and the stack's SMTP sink catches mail.
   - lists are `<ul>`;
   - no IP shown.
   files: new `frontend/src/components/profile/security/{passkeys-list,trusted-devices,sessions-list,sign-in-history}.tsx`, `frontend/src/components/profile/security/aaguid.ts` (+ the MIT data file and a SOURCES.md row) + tests.
+  part done (passkeys-list, aaguid.ts, trusted-devices, sessions-list (AU-15: current first, 'Oturumu kapat', 'Diğer cihazlardan çıkış yap' also forgets remembered devices, no network shown), sign-in-history; vitest); open: e2e §16.2 / §16.4; aux-f-2026-10-18
 - [ ] AUX-08 · frontend · no migration · Admin › Kullanıcılar additions (auth.md §7).
   - Method tags "Yerel · 2FA" and "Yerel · 2FA bekleniyor ({date})".
   - Filter "İki aşamalı doğrulama: Tümü / Açık / Kapalı / Bekleniyor".
@@ -3826,6 +3841,7 @@ passkeys and the stack's SMTP sink catches mail.
   - a link to a user without e-mail offers the code;
   - phones act from the edit sheet (bottom-sheet dialogs, 44 px targets).
   files: new `frontend/src/components/admin/users-security.tsx` + tests; ask admin users owner: mounts in `admin/users-admin.tsx` and `admin/users-admin-identity.tsx`, the method-tag line in `users-admin-identity-model.ts`.
+  part done (components/admin/users-security.tsx: useUserSecurity → menuItems / block / dialogs, MfaMethodTag, MfaFilterSelect, reset and link dialogs with every refusal, 'Oturumları sonlandır' (AU-15) with a confirm; users-security.test.tsx 10 tests); open: ask A5 mount in users-admin.tsx + edit sheet; ask AU-B per-user mfa_state / mfa_grace_until in the users status map for the tag and filter; aux-f-2026-10-18
 - [ ] AUX-09 · motion · no migration · Free transitions.dev recipes and motion rows (auth.md §11.1–§11.2).
   - Add the free "Text states swap", "Icon swap", "Success check" (retimed to 240 ms, y 8 px, blur 4 px) and "Page
     side-by-side" (220 ms, blur 0) with `npx transitions-dev add <name>`, **free only**. Keep the
@@ -3849,6 +3865,7 @@ passkeys and the stack's SMTP sink catches mail.
   - reduced transparency: opaque;
   - no `will-change` left on idle fields.
   files: `frontend/src/components/ui/transitions/transitions-dev.css` (ui owner informed), `components/ui/SOURCES.md`, the AUX parts above; `frontend/e2e/motion-audit.spec.ts` (append case).
+  part done (free recipes re-implemented in components/auth/auth.css with reduced-motion stops; will-change moved to .t-input.is-shaking; SOURCES rows); open: motion-audit sign-in-security case (e2e lane); aux-f-2026-10-18
 - [ ] AUX-10 · motion · no migration · Sign-in hero (auth.md §11.3–§11.4).
   - `components/auth/signin-hero.tsx`:
     - `docs/lottie/hero-solver-{light,dark}.json` played with `lottie-react`, lazy-loaded at ≥ 1024 px only, after
@@ -3883,6 +3900,7 @@ passkeys and the stack's SMTP sink catches mail.
   - the save bar is sticky above the tab bar on phones (M-05);
   - the role chips wrap and are 44 px.
   files: new `frontend/src/components/settings/signin-security.tsx` + tests; ask: `components/settings/settings-view.tsx` (one tab entry).
+  part done (components/settings/signin-security.tsx: segmented policy, role chips + Tüm roller, grace, live sentence, passkeys + nested passwordless, Gelişmiş remember 0/7/30, SSO note, self banner, Zorunlu / Kapalı confirms, phone save capsule; signin-security.test.tsx 7 tests incl. the AU-16 IdpMfaSwitch); open: ask A6 tab entry in settings-view.tsx; ask AU-B counts for the live sentence; e2e §16.9 at 390; aux-f-2026-10-18
 - [ ] AUX-12 · tester · Persona runs of auth.md §16 (checks 1–13) on an own stack (`REC_TEACHER=1 REC_LANG=tr`).
   - Run at 1440 mouse and 390 touch.
   - Chromium virtual authenticator for passkeys; the SMTP sink for the six (later nine) security e-mails.

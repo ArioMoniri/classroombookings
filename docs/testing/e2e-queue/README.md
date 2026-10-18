@@ -88,3 +88,16 @@ On pass: tick VO-06/07/08 and VO-05.
 9. The hosted Motion Agent polish of book sheet open + drag (orchestrator go given; name it in the report).
 7. AS-18 live: upload a grid with a "Vize haftası" sheet in the council and commit → /seasons/terms/{id}/periods lists a draft MIDTERM segment.
 8. /analytics/forecast: a new term of a published season shows the "düşük güven" badge and wide ranges.
+
+## Mobile B (390×844, 768×1024 touch, 844×390 landscape; tr-TR)
+1. CLS ≤ 0.1 (buffered observer from navigation) on /runs/<id>, /generate step 2 (phone+tablet), /onboarding/1, /moderation (all tabs),
+   /exams/invigilation, /admin, /admin/audit with filters, /dashboard, /admin/ai (overview, providers), /settings?tab=integrations, /admin/ops.
+2. M-05 run-publish at 768: 44 px, fixed, not covered at scroll 0/400/end; publish sheet at 844×390: confirm visible; Escape → focus on run-publish.
+3. M-07/M-02 at 768: Studio step-2 cards and /classes cards show 0 targets under 44 px.
+4. M-04: Studio filters sheet is a bottom sheet at 390, ≤ 640 px wide at 768; filters-apply works.
+5. Timetable at 768: toolbar 44 px; column-tag ≥ 12 px; Escape from the inspector → calendar-event chip.
+6. Root 32 px at 390: scrollWidth ≤ 390 on /generate step 1, /analytics/heatmap, /admin/rooms, /runs/compare (and the charts PeriodPicker wraps).
+7. M-05 at 390: compare-apply after picking a pair, recreate-open, invig-new, group-new.
+8. M-10 at 768: /admin/users new-user dialog is one column, each ≥ 280 px.
+9. Studio step 3 with a rule switched off: contrast ≥ 4.5:1 light and dark.
+10. Hosted Motion Agent fix: publish → "✓ Yayında" (run-published-check).

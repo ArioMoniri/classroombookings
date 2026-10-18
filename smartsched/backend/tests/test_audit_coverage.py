@@ -407,6 +407,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/ai/admin/providers/{provider}/sync": (E, "app.api.v1.ai_admin"),
     "POST /api/v1/ai/admin/providers/{provider}/test": (T, "ai_usage + setting ai.provider.<p>.test"),
     "PUT /api/v1/ai/admin/providers/{provider}/capabilities": (E, "app.api.v1.ai_admin"),
+    "PUT /api/v1/ai/faculty/allocations": (E, "app.api.v1.ai_faculty"),
     "PUT /api/v1/ai/admin/routes": (E, "app.api.v1.ai_admin"),
     "PUT /api/v1/ai/admin/limits": (E, "app.api.v1.ai_admin"),
     "POST /api/v1/ai/admin/limits/topup": (E, "app.api.v1.ai_admin"),

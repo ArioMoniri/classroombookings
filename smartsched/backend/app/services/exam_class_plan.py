@@ -55,9 +55,7 @@ def _run_weeks(run: ScheduleRun, term: Term) -> set[int]:
     return set(horizon_weeks(run, term))
 
 
-def blocks_from_rows(
-    rows: Iterable[Any], wanted: set[tuple[int, int]], all_weeks: set[int]
-) -> list[sm.Block]:
+def blocks_from_rows(rows: Iterable[Any], wanted: set[tuple[int, int]], all_weeks: set[int]) -> list[sm.Block]:
     """Blocks of course assignment rows on the wanted (week, weekday) pairs (pure; rows need ``day``,
     ``start_period``, ``end_period``, ``room_ids``, ``weeks`` / ``week``).  A row without weeks covers
     ``all_weeks`` (the run's horizon)."""

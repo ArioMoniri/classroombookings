@@ -184,7 +184,14 @@ class _Ctx:
         rows_other = day.rows - (x.rows if present else 0)
         peak = self._peak_units(rows_other + x.rows) - self._peak_units(rows_other)
         front = int(d in self.last and x.seats >= self.cfg.large_seats)
-        return {"clash": clash, "cohort_day": cohort, "back_to_back": b2b, "front_load": front, "seats": seats, "peak": peak}
+        return {
+            "clash": clash,
+            "cohort_day": cohort,
+            "back_to_back": b2b,
+            "front_load": front,
+            "seats": seats,
+            "peak": peak,
+        }
 
     def move_delta(self, x: ExamItem, d: date, start: int) -> dict[str, int]:
         end = start + (x.end - x.start)
@@ -560,7 +567,7 @@ def items_from_exam_list(parsed: Any, *, with_room_only: bool = True) -> list[Ex
         and (not with_room_only or getattr(r.definitive, "room_codes", None))
     ]
     out: list[ExamItem] = []
-    for key, group in _group(rows, lambda r: r.merge_key or ("row", r.row)).items():
+    for _key, group in _group(rows, lambda r: r.merge_key or ("row", r.row)).items():
         group = sorted(group, key=lambda r: r.row)
         head = group[0]
         out.append(

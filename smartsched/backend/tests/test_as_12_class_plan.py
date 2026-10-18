@@ -23,6 +23,7 @@ from app.services import exam_class_plan as ecp
 from app.services.solver_bridge import build_solver_input
 from app.solver import model as sm
 from app.solver.cpsat import solve
+from sqlalchemy import select
 
 TERM_START = dt.date(2026, 2, 16)  # a Monday: week 8 Monday is 6 April 2026
 WEEK8_MON = TERM_START + dt.timedelta(weeks=7)
@@ -43,7 +44,15 @@ async def _seed(s, *, publish_course: bool = True, exam_date: dt.date = WEEK8_MO
     course = Course(code="FIZ101", display_code="FIZ 101")
     s.add(course)
     await s.flush()
-    sec = Section(term_id=term.id, course_id=course.id, program_id=prog.id, class_year=1, class_years=[1], enrolment=40)
+    sec = Section(
+        term_id=term.id,
+        course_id=course.id,
+        program_id=prog.id,
+        class_year=1,
+        class_years=[1],
+        enrolment=40,
+        source_key="FIZ101-1",
+    )
     s.add(sec)
     await s.flush()
     mr = MeetingRequest(
@@ -116,7 +125,7 @@ async def test_class_plan_blocks_only_the_exam_weekday_of_the_exam_week(engine):
         ids = await _seed(s, exam_date=WEEK8_MON + dt.timedelta(days=1))  # Tuesday: the class meets on Mondays
         term = await s.get(Term, ids["term"])
         assert term is not None
-        weeks_rows = list((await s.execute(Week.__table__.select().where(Week.term_id == term.id))).all())
+        weeks_rows = list((await s.execute(select(Week).where(Week.term_id == term.id))).scalars())
         ev = sm.Event(
             id=ids["exam"],
             kind="exam",
@@ -126,9 +135,10 @@ async def test_class_plan_blocks_only_the_exam_weekday_of_the_exam_week(engine):
             weeks=frozenset({8}),
             fixed_day=2,
             fixed_start=3,
+            allowed_days=frozenset({2}),
             fixed_date=WEEK8_MON + dt.timedelta(days=1),
         )
-        blocks, stats = await ecp.course_blocks(s, term, weeks_rows, [ev])  # type: ignore[arg-type]
+        blocks, stats = await ecp.course_blocks(s, term, weeks_rows, [ev])
     assert blocks == [] and stats["status"] == "applied" and stats["blocks"] == 0
 
 
