@@ -892,3 +892,34 @@
   permission: [setup.users, setup.settings]
   actions: []
   since: "2026.10"
+
+- id: admin.catalog
+  kind: page
+  route: /admin/catalog
+  title: {tr: Katalog, en: Catalogue}
+  path: {tr: [Yönetim, Katalog], en: [Admin, Catalogue]}
+  synonyms:
+    tr: [öğretim elemanları listesi, ders listesi, programlar, şubeler, fakülteler, öğretim elemanı düzenle, ders kataloğu]
+    en: [instructor list, course list, programmes, sections, faculties, edit an instructor, course catalogue]
+  steps:
+    tr: ["Yönetim › Katalog'u açın.", "Listeyi seçin."]
+    en: ["Open Admin › Catalogue.", "Choose the list."]
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
+- id: admin.welcome
+  kind: page
+  route: /admin/welcome
+  title: {tr: Karşılama rehberi, en: Welcome guide}
+  path: {tr: [Kurulum, Kurum, Karşılama rehberi], en: [Setup, Organisation, Welcome guide]}
+  synonyms:
+    tr: [rehberli tur, başlarken listesi, karşılama penceresi, ipuçları, turu kapat, karşılama metinleri]
+    en: [guided tour, getting started list, welcome sheet, feature hints, turn off the tour, welcome texts]
+  steps:
+    tr: ["Kurulum › Karşılama rehberi'ni açın.", "Parçaları açın ya da kapatın."]
+    en: ["Open Setup › Welcome guide.", "Switch the parts on or off."]
+  anchor: nav-welcome-admin
+  permission: [setup.settings, planning.admin]
+  actions: []
+  since: "2026.10"

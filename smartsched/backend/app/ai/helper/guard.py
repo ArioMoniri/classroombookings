@@ -19,8 +19,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from app.ai import guardrails as g
-from app.ai.helper.index import STOPWORDS, Hit, fold_phrase, get_index, stem
-from app.services.bookings_perms import PERMISSION_NAMES
+from app.ai.helper.index import STOPWORDS, Hit, fold_phrase, get_index
 
 #: longest text a person may type into the helper
 MAX_INPUT_CHARS = 1000
@@ -46,21 +45,12 @@ class Verdict:
 
 
 def _known_share(text: str) -> float:
-    """Share of the text's meaningful words that are in the index vocabulary (exact stem, or one edit away)."""
+    """Share of the text's meaningful words the index knows (exact stem, surface form, or one typo away)."""
     idx = get_index()
-    vocab = idx.vocabulary()
     words = [w for w in _WORD.findall(g.fold(text)) if w not in STOPWORDS and len(w) >= 2]
     if not words:
         return 0.0
-    known = 0
-    for w in words:
-        s = stem(w)
-        if s in vocab or w in vocab:
-            known += 1
-            continue
-        if len(s) >= 5 and any(c for c, _f in idx._expand(s)):  # noqa: SLF001 - the search's own typo rule
-            known += 1
-    return known / len(words)
+    return sum(1 for w in words if idx.knows(w)) / len(words)
 
 
 def check(text: str, perms: Iterable[str]) -> Verdict:
@@ -82,28 +72,21 @@ def check(text: str, perms: Iterable[str]) -> Verdict:
     return Verdict(False, OUT_OF_SCOPE, REFUSAL_TR, REFUSAL_EN, hits, "index_vocabulary")
 
 
-def _all_perms() -> frozenset[str]:
-    return frozenset(PERMISSION_NAMES)
-
-
-def ground_answer(answer: str, emitted_feature_ids: Iterable[str], perms: Iterable[str]) -> bool:
-    """``True`` when the model's answer may stand: it names no index page (title or crumb path) for which no ``nav``
-    card was sent this turn, and it shows no crumb path ("A › B") at all without a ``nav`` card. ``False`` = replace
-    the text with the index answer."""
+def ground_answer(answer: str, emitted_feature_ids: Iterable[str]) -> bool:
+    """``True`` when the model's answer may stand: it names no index page title for which no ``nav`` card was sent
+    this turn, and shows no crumb path ("A › B") without any ``nav`` card. ``False`` = replace the text with the
+    index answer (the person then sees only paths the server built, for pages they may open)."""
     emitted = set(emitted_feature_ids)
-    folded = f" {fold_phrase(answer)} "
     if "›" in (answer or "") and not emitted:
         return False
-    held = frozenset(perms)
+    folded = f" {fold_phrase(answer)} "
     for e in get_index().entries:
         if e.id in emitted:
             continue
         for title in (e.title.tr, e.title.en):
             t = fold_phrase(title)
             if len(t) >= 5 and f" {t} " in folded:
-                # a page the person cannot open is never named; a visible one needs its nav card
                 return False
-    del held
     return True
 
 

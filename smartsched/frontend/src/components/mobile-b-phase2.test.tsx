@@ -160,3 +160,12 @@ describe("fix 11 · moderation on touch: card rows on tablets, 44 px chips", () 
     for (const c of chips) expect(c).toContain("pointer-coarse:min-h-11");
   });
 });
+
+describe("fix 11 · /dashboard 'Tümünü gör' is a 44 px target on touch (measured 75×16)", () => {
+  it("both links are inline-flex boxes of 44 px on a coarse pointer", () => {
+    const lines = read("dashboard/dashboard-view.tsx").split("\n");
+    const links = lines.map((l, i) => (l.includes('t("dashboard.viewAll")') ? lines[i - 1] : null)).filter(Boolean) as string[];
+    expect(links).toHaveLength(2);
+    for (const l of links) expect(l).toMatch(/inline-flex[^"]*pointer-coarse:min-h-11/);
+  });
+});

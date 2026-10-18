@@ -126,7 +126,7 @@ def visible(entry: FeatureEntry, perms: Iterable[str]) -> bool:
 
 #: folded words that carry no meaning for "where is it" (question words, pronouns, light verbs)
 STOPWORDS = frozenset(
-    """nasil nerede nereden neresi nereye nerden ne neden hangi hangisi kim bir ve ile veya mi mu icin ben bana beni
+    """nasil nerede nereden neresi nereye nerden ne neden hangi hangisi kim kac bir ve ile veya mi mu icin ben bana beni
     benim sen siz bu su o da de ki ya yok istiyorum isterim istedim lazim olur gibi gore kadar ederim eder et etmek
     edilir edebilirim yaparim yapilir yapabilirim yapmak yapiyorum bulurum bulabilirim acarim gorurum var mi miyim
     teki deki daki the a an to where is are can how do does i me of for in on at what which want need it this that
@@ -251,6 +251,11 @@ class Index:
 
     def vocabulary(self) -> frozenset[str]:
         return frozenset(self._vocab)
+
+    def knows(self, word: str) -> bool:
+        """Whether a (folded) word is in the index vocabulary, by its stem, its surface form or one typo away."""
+        s = stem(word)
+        return s in self._idf or word in self._idf or (len(s) >= 5 and bool(self._expand(s)))
 
     def _expand(self, term: str) -> list[tuple[str, float]]:
         """The index terms a query term stands for: itself, else close spellings and prefixes (typos, cut words)."""

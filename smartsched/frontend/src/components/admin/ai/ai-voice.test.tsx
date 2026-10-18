@@ -57,7 +57,7 @@ vi.mock("@/lib/api/client", async (orig) => {
         return out({
           default: null,
           features: {},
-          effective: { voice_stt: { provider: "", model: "", source: "none", caps: {} } },
+          effective: { voice_stt: { source: "none", caps: {} } }, // the real answer has no provider / model here
           feature_list: [],
           efforts: ["low"],
           legacy_model: "claude-opus-5-5",

@@ -111,7 +111,8 @@ export const Route = z.object({
   fallback_model: z.string().nullish(),
 });
 export type Route = z.infer<typeof Route>;
-const Effective = Route.extend({ source: z.string(), caps: z.record(z.string(), z.unknown()).default({}) });
+// `voice_stt` with no route answers `{source: "none", caps}` without provider / model (VO-B)
+const Effective = Route.extend({ provider: z.string().default(""), model: z.string().default(""), source: z.string(), caps: z.record(z.string(), z.unknown()).default({}) });
 export const Routes = z.object({
   default: Route.nullish(),
   features: z.record(z.string(), Route.nullish()).default({}),

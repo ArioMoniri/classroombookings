@@ -216,7 +216,7 @@ export function DashboardView() {
           <CardHeader>
             <CardTitle>{t("dashboard.lastRuns")}</CardTitle>
             <CardAction>
-              <Link href="/runs" className={cn("relative type-callout font-medium text-tint-text hover:underline", coarseHitArea)}>
+              <Link href="/runs" className={cn("relative inline-flex items-center type-callout font-medium text-tint-text hover:underline pointer-coarse:min-h-11", coarseHitArea)}>
                 {t("dashboard.viewAll")}
               </Link>
             </CardAction>
@@ -246,7 +246,7 @@ export function DashboardView() {
               {t("glass.dashboard.toReview")} <span className="font-normal text-label-3 tabular-nums">{pending.data ? n(pending.data.total) : ""}</span>
             </CardTitle>
             <CardAction>
-              <Link href="/requests?status=NEEDS_REVIEW" className={cn("relative type-callout font-medium text-tint-text hover:underline", coarseHitArea)}>
+              <Link href="/requests?status=NEEDS_REVIEW" className={cn("relative inline-flex items-center type-callout font-medium text-tint-text hover:underline pointer-coarse:min-h-11", coarseHitArea)}>
                 {t("dashboard.viewAll")}
               </Link>
             </CardAction>

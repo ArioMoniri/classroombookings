@@ -6960,7 +6960,8 @@
       "me": {
         "line": "Sesli giriş: bugün {day} dk{dayLimit} · bu ay {month} dk{monthLimit}",
         "of": " / {n}"
-      }
+      },
+      "regions": "Bölge: {regions}"
     }
   },
   "charts": {

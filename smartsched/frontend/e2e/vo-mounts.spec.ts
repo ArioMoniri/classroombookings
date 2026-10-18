@@ -260,6 +260,24 @@ test("6. the site policy blocks the microphone; a browser without the grant says
     await focusNotOnBody(page);
     await ctx.close();
   }
+  // the VO-05 edge header microphone=(self) (nginx default.conf:108, Caddyfile:24; no nginx binary on this host, so
+  // the header is put on the documents here): getUserMedia works and the recording starts
+  {
+    const ctx = await browser.newContext({ ...DESKTOP, baseURL: BASE, permissions: ["microphone"] });
+    await ctx.route("**/*", async (route) => {
+      if (route.request().resourceType() !== "document") return route.continue();
+      const res = await route.fetch();
+      await route.fulfill({ response: res, headers: { ...res.headers(), "permissions-policy": "camera=(), microphone=(self), geolocation=(), payment=(), usb=(), interest-cohort=()" } });
+    });
+    const page = await ctx.newPage();
+    await login(page);
+    await page.goto(`/runs/${runId}`);
+    expect(await page.evaluate(() => (document as unknown as { featurePolicy?: { allowsFeature(f: string): boolean } }).featurePolicy?.allowsFeature("microphone"))).toBe(true);
+    await chatMic(page).click();
+    await expect(page.getByTestId("voice-mic-chat")).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
+    await page.getByTestId("voice-cancel").click();
+    await ctx.close();
+  }
   // no grant: a browser without the fake-UI flag answers the prompt with "Block"
   const plain = await chromium.launch({ args: ["--use-fake-device-for-media-stream"] });
   const ctx = await plain.newContext({ ...DESKTOP, baseURL: BASE });

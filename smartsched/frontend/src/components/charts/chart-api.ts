@@ -28,7 +28,6 @@ export function useChartApi(ref: RefObject<HTMLElement | null>, onReady?: (api: 
         const inst = findInstance(ref.current);
         if (!inst) return;
         const x = inst.convertToPixel({ xAxisIndex: 0 }, index) as unknown as number;
-        (window as unknown as Record<string, unknown>).__dbg = { x, h: inst.getHeight(), xa: JSON.stringify((inst.getOption() as Record<string, unknown>).xAxis).slice(0, 200), tt: JSON.stringify((inst.getOption() as Record<string, unknown>).tooltip).slice(0, 300) };
         if (!Number.isFinite(x)) return;
         inst.dispatchAction({ type: "showTip", x, y: inst.getHeight() / 2 } as Action);
       },

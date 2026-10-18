@@ -6961,7 +6961,8 @@
       "me": {
         "line": "Voice input: today {day} min{dayLimit} · this month {month} min{monthLimit}",
         "of": " / {n}"
-      }
+      },
+      "regions": "Region: {regions}"
     }
   },
   "charts": {

@@ -190,6 +190,10 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
     };
   }, [renderer, reduce, patterns, f, first?.kind, partial, height, onReady]);
 
+  // The plot element is memoised: keyboard focus, the live text and the CSV label re-render the card, and a re-rendered
+  // EvilCharts chart re-pushes its option (`notMerge`), which would drop a keyboard-shown tooltip.
+  const plot = useMemo(() => children(ctx), [children, ctx]);
+
   const downloadCsv = () => {
     downloadText(csvFilename(id, range?.from, range?.to), toCsv(rows, columns, f.locale, f));
     setDownloaded(true);
@@ -321,7 +325,7 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
               data-renderer={renderer}
               data-testid={`chart-plot-${id}`}
             >
-              <div aria-hidden="true">{inView ? children(ctx) : <ChartSkeleton height={height} />}</div>
+              <div aria-hidden="true">{inView ? plot : <ChartSkeleton height={height} />}</div>
             </div>
           ) : null}
         </div>
