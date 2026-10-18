@@ -60,6 +60,63 @@ describe("Göster", () => {
     expect(useHelperStore.getState().entries).toHaveLength(1);
   });
 
+  it("HX-18 M1: a target under the open desktop sheet moves the sheet aside; Yardımcıya dön brings it back", async () => {
+    const rect = (left: number, width: number) => ({ x: left, y: 80, left, top: 80, width, height: 40, right: left + width, bottom: 120, toJSON: () => ({}) }) as DOMRect;
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      return this.hasAttribute("data-helper-sheet") ? rect(1040, 400) : rect(1300, 100);
+    });
+    renderHelper(
+      <>
+        <button type="button" data-tour="admin-holidays-add">Tatil ekle</button>
+        <div data-helper-sheet="" />
+        <ShowMeHost />
+      </>,
+    );
+    act(() => {
+      useHelperStore.getState().openSheet();
+      useHelperStore.getState().startShowMe("admin.holidays", false);
+    });
+    expect(await screen.findByTestId("tour-ring")).toBeInTheDocument();
+    expect(useHelperStore.getState().open).toBe(false);
+    expect(useHelperStore.getState().showMe?.reopen).toBe(true);
+    fireEvent.click(screen.getByTestId("helper-step-back"));
+    expect(useHelperStore.getState().open).toBe(true);
+  });
+
+  it("HX-18 M1: a target clear of the sheet keeps the sheet open", async () => {
+    const rect = (left: number, width: number) => ({ x: left, y: 80, left, top: 80, width, height: 40, right: left + width, bottom: 120, toJSON: () => ({}) }) as DOMRect;
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      return this.hasAttribute("data-helper-sheet") ? rect(1040, 400) : rect(200, 100);
+    });
+    renderHelper(
+      <>
+        <button type="button" data-tour="admin-holidays-add">Tatil ekle</button>
+        <div data-helper-sheet="" />
+        <ShowMeHost />
+      </>,
+    );
+    act(() => {
+      useHelperStore.getState().openSheet();
+      useHelperStore.getState().startShowMe("admin.holidays", false);
+    });
+    expect(await screen.findByTestId("tour-ring")).toBeInTheDocument();
+    expect(useHelperStore.getState().open).toBe(true);
+  });
+
+  it("HX-18 m12: on a phone the target scrolls to the upper half (block start), not under the docked card", async () => {
+    media(false);
+    renderHelper(
+      <>
+        <button type="button" data-tour="admin-holidays-add">Tatil ekle</button>
+        <ShowMeHost />
+      </>,
+    );
+    act(() => useHelperStore.getState().startShowMe("admin.holidays", true));
+    expect(await screen.findByTestId("tour-ring")).toBeInTheDocument();
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "start" }));
+    expect(screen.getByText("Tatil ekle").style.scrollMarginTop).not.toBe("");
+  });
+
   it("a missing anchor shows the path and says the button is not on the page", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     renderHelper(<ShowMeHost />);

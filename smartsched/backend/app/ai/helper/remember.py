@@ -193,6 +193,7 @@ async def undo(session: AsyncSession, access: Access, inv: HelperActionInvocatio
     )
     if getattr(claimed, "rowcount", 0) != 1:
         await session.rollback()
+        await session.refresh(access.user)
         raise ActionRefused(409, "already_undone", "Bu işlem zaten geri alındı.", "This was already undone.")
     removed = 0
     if inv.entity_id is not None:
