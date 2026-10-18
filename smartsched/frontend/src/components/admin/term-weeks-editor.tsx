@@ -34,7 +34,8 @@ export function TermWeeksEditor() {
   const weeks = useTermWeeks(termId);
   const [advanced, setAdvanced] = useState(false);
   const id = useId();
-  if (!termId) return null;
+  // no planning access (GET /terms/{id}/weeks refused): the section is left out, like AS-F's profiles on 403
+  if (!termId || weeks.isError) return null;
   return (
     <Card className="gap-4 px-5" data-testid="term-weeks">
       <section aria-labelledby={`${id}-title`} className="flex flex-col gap-4">

@@ -1341,10 +1341,28 @@ async def finish(
         user, welcome = await _resolve_login(db, prov, cfg, claims, data.get("invite_id"))
     except SsoError as err:
         await db.rollback()
+        await _note_saml_response(db, slug, err.detail)
         if purpose == "test":
             return await _finish_test(db, slug, data, claims, err)
         return await refuse(db, err, purpose, claims, slug=slug)
     return await _issue_ticket(db, user, return_path, welcome)
+
+
+async def _note_saml_response(db: AsyncSession, slug: str, detail: str | None) -> None:
+    """Keep the provider's response check rows current (idp2-2026-10-18): an AES-CBC assertion in an unsigned
+    Response adds the "assertion_encryption" refusal row the wizard shows; a response that passed removes it. The
+    caller's next commit (test report, refusal audit, ticket) stores it."""
+    from app.services.identity import errors as idp_errors
+
+    prov = await get_provider(db, slug=slug)
+    if prov is None:
+        return
+    opts = dict(prov.options or {})
+    before = list(opts.get("discovery_checks") or [])
+    after = idp_errors.response_checks(before, detail)
+    if after != before:
+        opts["discovery_checks"] = after
+        prov.options = opts
 
 
 async def _exchange_and_validate(cfg: OidcClient, code: str, verifier: str, nonce_hash: str | None) -> dict[str, Any]:
@@ -1434,6 +1452,7 @@ async def finish_saml(db: AsyncSession, *, slug: str, saml_response: str | None,
             claims = idp_saml.parse_response(cfg, saml_response[: 2 * idp_saml.MAX_XML], request_id, datetime.now(UTC))
         except idp_saml.SamlError as exc:
             raise SsoError(exc.code, exc.detail) from exc
+        await _note_saml_response(db, slug, None)
         claims["_kind"] = idp_kinds.SAML
         claims["_trust_email"] = True
         claims["_roles"] = []

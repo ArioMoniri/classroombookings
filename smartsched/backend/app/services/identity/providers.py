@@ -819,7 +819,9 @@ async def discover(
                             opts["issuer"] = endpoints["issuer"]
                     if row.kind == kinds.ENTRA:
                         checks.append(errors.check("tenant", True, tenant=row.tenant_id or ""))
-    opts["discovery_ok"], opts["discovery_checks"] = ok, checks
+    # the rows about the IdP's responses (an AES-CBC refusal) outlive a metadata re-read
+    kept = [c for c in opts.get("discovery_checks") or [] if c.get("key") in errors.RESPONSE_CHECKS]
+    opts["discovery_ok"], opts["discovery_checks"] = ok, checks + kept
     row.options = opts
     row.last_check_at, row.last_check_ok = utcnow(), ok
     row.last_check_detail = (
@@ -830,7 +832,7 @@ async def discover(
         await audit.record(
             db, "sso.provider_discover", "sso_provider", row.id, after={"ok": ok, "provider": row.name}, actor=actor
         )
-    return {"ok": ok, "checks": checks}
+    return {"ok": ok, "checks": checks + kept}
 
 
 async def _saml_metadata(opts: dict[str, Any]) -> tuple[bool, list[dict[str, Any]]]:

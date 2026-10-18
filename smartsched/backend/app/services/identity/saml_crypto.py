@@ -7,7 +7,8 @@
   (``encrypt_secret``, like ``client_secret``) and never logged, audited or returned.
 * **EncryptedAssertion** (:func:`decrypt_element`, XML Encryption 1.0 / 1.1): key transport RSA-OAEP
   (``rsa-oaep-mgf1p``; xmlenc 1.1 ``rsa-oaep`` with SHA-1/224/256/384/512 digests and MGF1); data AES-128/192/256 in
-  GCM or CBC. RSA PKCS#1 v1.5 key transport is refused (Bleichenbacher). Every failure after the algorithm checks
+  GCM or CBC (CBC only inside a signed Response: saml.py checks :func:`data_mode` first, idp2-2026-10-18). RSA
+  PKCS#1 v1.5 key transport is refused (Bleichenbacher). Every failure after the algorithm checks
   answers the same text, so an attacker learns nothing about the padding (Jager & Somorovsky 2011).
 * **HTTP-Redirect signatures** (:func:`sign_redirect`): RSA-SHA256 over ``SAMLRequest=…&RelayState=…&SigAlg=…``
   (SAML bindings §3.4.4.1).
@@ -234,6 +235,14 @@ def _encrypted_keys(container: Any, data: Any) -> list[Any]:
     inside: list[Any] = data.findall("ds:KeyInfo/xenc:EncryptedKey", NS)
     beside: list[Any] = container.findall("xenc:EncryptedKey", NS)
     return inside or beside
+
+
+def data_mode(container: Any) -> str | None:
+    """``"gcm"`` or ``"cbc"`` for the data encryption of an ``EncryptedAssertion``, read before any decryption;
+    ``None`` when the algorithm is missing or unsupported (the decryptor refuses it then)."""
+    data = container.find("xenc:EncryptedData", NS)
+    alg = _algorithm(data) if data is not None else ""
+    return DATA_ALGS[alg][0] if alg in DATA_ALGS else None
 
 
 def decrypt_element(container: Any, key_pem: str) -> bytes:

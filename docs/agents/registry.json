@@ -3769,6 +3769,14 @@
       "ledger": "IDP-2: SAML wizard fields, CBC rule",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a9d1770407c4fcc45",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:38",
+      "left_off": "is the pod up yet"
     }
   ]
 }

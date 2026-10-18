@@ -8,6 +8,16 @@ from __future__ import annotations
 import re
 from typing import Any
 
+#: AES-CBC encrypted assertion in an unsigned Response (idp2-2026-10-18): the check row and the test-login hint
+CBC_UNSIGNED_TR = (
+    "Şifreli onay AES-CBC kullanıyor; yanıt imzalı değilse kabul edilmez. IdP'de yanıt imzalamayı açın ya da "
+    "AES-GCM seçin."
+)
+CBC_UNSIGNED_EN = (
+    "The encrypted assertion uses AES-CBC; it is refused unless the response is signed. Turn on response signing "
+    "at the IdP or choose AES-GCM."
+)
+
 #: check key -> (ok TR, ok EN, failed TR, failed EN); ``{name}`` placeholders come from the call
 CHECKS: dict[str, tuple[str, str, str, str]] = {
     "discovery": (
@@ -46,6 +56,12 @@ CHECKS: dict[str, tuple[str, str, str, str]] = {
         "Meta veri imzası federasyon sertifikasıyla doğrulanamadı.",
         "The metadata signature could not be verified with the federation certificate.",
     ),
+    "assertion_encryption": (
+        "Şifreli onay kabul edildi.",
+        "The encrypted assertion was accepted.",
+        "Şifreli onay kabul edilmedi.",
+        "The encrypted assertion was refused.",
+    ),
     "library": (
         "SAML kütüphanesi yüklü.",
         "The SAML library is installed.",
@@ -71,6 +87,10 @@ REASONS: dict[tuple[str, str], tuple[str, str]] = {
     ("metadata_signature", "expired"): (
         "Meta verinin geçerlilik süresi (validUntil) dolmuş. Federasyonun güncel meta verisini alın.",
         "The metadata has expired (validUntil). Fetch the federation's current metadata.",
+    ),
+    ("assertion_encryption", "cbc_unsigned"): (
+        CBC_UNSIGNED_TR,
+        CBC_UNSIGNED_EN,
     ),
 }
 
@@ -116,6 +136,7 @@ TRANSLATIONS: tuple[tuple[re.Pattern[str], str, str, int | None], ...] = tuple(
             "The audience is not SmartSched's entity id. Use the entity id from step 2 at the IdP.",
             2,
         ),
+        (r"aes-cbc", CBC_UNSIGNED_TR, CBC_UNSIGNED_EN, None),
         (
             r"no SP decryption key",
             "IdP onayı şifreli gönderiyor ama SmartSched'de SP çözme anahtarı yok. Sağlayıcıda SP anahtarı "
@@ -202,6 +223,19 @@ def check(key: str, ok: bool, reason: str = "", **values: str) -> dict[str, Any]
     if not ok and reason:
         row["detail"] = reason[:200]
     return row
+
+
+#: check rows that come from the IdP's responses (sign-ins), not from its metadata: a metadata re-read keeps them
+RESPONSE_CHECKS = ("assertion_encryption",)
+
+
+def response_checks(checks: list[dict[str, Any]], detail: str | None) -> list[dict[str, Any]]:
+    """The provider's check rows after a SAML response: the CBC refusal row is added when ``detail`` is that
+    refusal and dropped after a response that passed (``detail`` ``None``)."""
+    out = [c for c in checks if c.get("key") not in RESPONSE_CHECKS]
+    if detail and "aes-cbc" in detail:
+        out.append(check("assertion_encryption", False, "cbc_unsigned"))
+    return out
 
 
 def translate(raw: str | None) -> dict[str, Any] | None:

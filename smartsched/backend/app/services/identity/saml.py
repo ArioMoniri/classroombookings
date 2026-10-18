@@ -19,7 +19,8 @@ What the SP does (HTTP-Redirect AuthnRequest, HTTP-POST response to the ACS):
   state row), ``NotBefore`` / ``NotOnOrAfter`` (2 minutes of skew), the audience (the SP entity id) and the bearer
   subject confirmation. An ``EncryptedAssertion`` is decrypted with the SP key (app/services/identity/
   saml_crypto.py): inside a signed Response the signature covers the ciphertext; otherwise the decrypted assertion
-  must carry its own valid signature. Without an SP key it is refused.
+  must carry its own valid signature and the data encryption must be AES-GCM (AES-CBC in an unsigned Response is
+  refused before decryption, :data:`CBC_UNSIGNED`). Without an SP key it is refused.
 * **Requests** are signed (HTTP-Redirect ``SigAlg`` + ``Signature``, RSA-SHA256) when the provider's
   ``sign_requests`` is on (off by default); the SP metadata then says ``AuthnRequestsSigned="true"`` and publishes
   the SP certificate for signing; with an SP key it is always published for encryption.
@@ -91,6 +92,10 @@ class MetadataError(ValueError):
 def pem_certificate(text: str) -> str:
     """A pasted certificate (PEM or base64, NBSP / line breaks tolerated) as PEM; ``ValueError`` otherwise."""
     return saml_crypto.pem_certificate(text)
+
+
+#: the refusal detail of an AES-CBC encrypted assertion in an unsigned Response (errors.py translates it)
+CBC_UNSIGNED = "aes-cbc encrypted assertion in an unsigned response is refused: sign the response or use AES-GCM"
 
 
 class SamlError(Exception):
@@ -427,6 +432,10 @@ def parse_response(cfg: SamlConfig, saml_response: str, request_id: str | None, 
         found = root.findall("saml:Assertion", NS)
         encrypted = root.findall("saml:EncryptedAssertion", NS)
         if len(found) + len(encrypted) == 1 and encrypted:
+            if saml_crypto.data_mode(encrypted[0]) == "cbc":
+                # AES-CBC carries no integrity of its own: only a signed Response vouches for the ciphertext.
+                # Refused before decrypting (no padding oracle); AES-GCM is authenticated and stays accepted.
+                raise SamlError("invalid_token", CBC_UNSIGNED)
             found = [_decrypt(cfg, encrypted[0])]
         elif encrypted:
             found = []

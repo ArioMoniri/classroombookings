@@ -326,13 +326,15 @@ async def test_encrypted_assertions_sign_in_with_the_sp_key(fed, caplog) -> None
     rid, relay = await sp.start(next="/bookings")
     loc = await sp.post(relay, encrypt_assertion(saml_response(rid, acs=sp.acs, audience=sp.entity), cert))
     assert "ticket" in query_of(loc), loc
-    # ADFS (AES-256-CBC, EncryptedKey inside KeyInfo) and xmlenc 1.1 RSA-OAEP with SHA-256
-    for kwargs in (
-        {"data_alg": XENC + "aes256-cbc", "key_in_keyinfo": True},
-        {"key_alg": XENC11 + "rsa-oaep", "sha256": True},
+    # ADFS (AES-256-CBC, EncryptedKey inside KeyInfo; CBC only inside a signed Response, idp2-2026-10-18) and
+    # xmlenc 1.1 RSA-OAEP with SHA-256
+    for kwargs, signed_response in (
+        ({"data_alg": XENC + "aes256-cbc", "key_in_keyinfo": True}, True),
+        ({"key_alg": XENC11 + "rsa-oaep", "sha256": True}, False),
     ):
         rid, relay = await sp.start()
         resp = encrypt_assertion(saml_response(rid, acs=sp.acs, audience=sp.entity), cert, **kwargs)
+        resp = sign_response(resp) if signed_response else resp
         assert "ticket" in query_of(await sp.post(relay, resp)), kwargs
     # a signed response around an encrypted, unsigned assertion (the response signature covers the ciphertext)
     rid, relay = await sp.start()
@@ -361,6 +363,94 @@ async def test_encrypted_assertions_sign_in_with_the_sp_key(fed, caplog) -> None
     assert all("PRIVATE KEY" not in json.dumps(a, default=str) for a in audits)
     assert "PRIVATE KEY" not in caplog.text
     assert len(idents) == 1
+
+
+async def _test_login(env: Any, sp: Any, pid: int, response_of: Any) -> dict[str, Any]:
+    """Run the wizard's test login with the IdP answering ``response_of(request_id)``; the report."""
+    r = (await env.client.post(f"{ADMIN}/{pid}/test", headers=env.admin)).json()
+    q = {k: v[0] for k, v in parse_qs(urlsplit(r["authorize_url"]).query).items()}
+    rid = etree.fromstring(zlib.decompress(base64.b64decode(q["SAMLRequest"]), -15)).get("ID")
+    await sp.post(q["RelayState"], response_of(rid))
+    return (await env.client.get(f"{ADMIN}/{pid}/test/{r['test_id']}", headers=env.admin)).json()
+
+
+async def test_aes_cbc_needs_a_signed_response(fed) -> None:  # type: ignore[no-untyped-def]
+    """idp2-2026-10-18 (orchestrator's decision): AES-CBC has no integrity of its own, so an unsigned Response around
+    a CBC-encrypted assertion is refused before anything is decrypted (no padding oracle), even when the decrypted
+    assertion would carry a valid signature. Inside a signed Response CBC passes; AES-GCM passes either way."""
+    env, _federation, p = fed
+    await _configure(env, p["id"])
+    await _sp_key(env, p["id"])
+    assert (await env.put(p["id"], enabled=True)).status_code == 200
+    sp = SamlIdp(env, "yetkim")
+    cert = await _sp_cert(env, "yetkim")
+    cbc = {"data_alg": XENC + "aes256-cbc", "key_in_keyinfo": True}
+
+    # unsigned Response, CBC-encrypted signed assertion: refused, with the reason in the provider's check rows
+    rid, relay = await sp.start()
+    loc = await sp.post(relay, encrypt_assertion(saml_response(rid, acs=sp.acs, audience=sp.entity), cert, **cbc))
+    assert query_of(loc)["error"] == "failed"
+    async with dbmod.get_session_factory()() as s:
+        (ev,) = (await s.execute(select(AuditEvent).where(AuditEvent.action == "auth.login_refused"))).scalars()
+    assert "aes-cbc" in ev.after["detail"] and ev.after["reason"] == "invalid_token"
+    out = (await env.client.get(f"{ADMIN}/{p['id']}", headers=env.admin)).json()
+    print("DBG", out["discovery"]); row = _row(out["discovery"]["checks"], "assertion_encryption")
+    assert row["ok"] is False and row["detail"] == "cbc_unsigned"
+    assert row["tr"] == (
+        "Şifreli onay AES-CBC kullanıyor; yanıt imzalı değilse kabul edilmez. IdP'de yanıt imzalamayı açın ya da "
+        "AES-GCM seçin."
+    )
+    assert "AES-CBC" in row["en"] and "sign" in row["en"] and "AES-GCM" in row["en"]
+    # the wizard's test login says the same, in both languages
+    report = await _test_login(
+        env, sp, p["id"], lambda r: encrypt_assertion(saml_response(r, acs=sp.acs, audience=sp.entity), cert, **cbc)
+    )
+    assert report["ok"] is False and report["hint"]["tr"] == row["tr"] and report["hint"]["en"] == row["en"]
+    # re-reading the metadata keeps the row (it is about the IdP's responses, not its metadata)
+    assert (await env.client.post(f"{ADMIN}/{p['id']}/discover", headers=env.admin)).status_code == 200
+    out = (await env.client.get(f"{ADMIN}/{p['id']}", headers=env.admin)).json()
+    assert _row(out["discovery"]["checks"], "assertion_encryption")["ok"] is False
+
+    # the same CBC assertion inside a signed Response: accepted, and the refusal row goes away
+    rid, relay = await sp.start()
+    resp = sign_response(encrypt_assertion(saml_response(rid, acs=sp.acs, audience=sp.entity), cert, **cbc))
+    assert "ticket" in query_of(await sp.post(relay, resp))
+    out = (await env.client.get(f"{ADMIN}/{p['id']}", headers=env.admin)).json()
+    assert all(c["key"] != "assertion_encryption" for c in out["discovery"]["checks"])
+
+    # AES-GCM with an unsigned Response (the assertion signed) passes as before
+    rid, relay = await sp.start()
+    resp = encrypt_assertion(saml_response(rid, acs=sp.acs, audience=sp.entity), cert)
+    assert "ticket" in query_of(await sp.post(relay, resp))
+    report = await _test_login(
+        env, sp, p["id"], lambda r: encrypt_assertion(saml_response(r, acs=sp.acs, audience=sp.entity), cert)
+    )
+    assert report["ok"] is True
+
+
+def test_cbc_refusal_happens_before_any_decryption(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """No padding oracle: an unsigned Response with CBC never reaches the decryptor."""
+    from app.services.identity import saml_crypto
+
+    called: list[int] = []
+    monkeypatch.setattr(saml_crypto, "decrypt_element", lambda *a, **k: called.append(1) or b"")
+    _key, sp_cert = _keypair("sp.uni.edu.tr")
+    cfg = idp_saml.SamlConfig(
+        slug="x",
+        issuer=IDP_ENTITY,
+        tenant_id="t",
+        sso_url=SSO_URL,
+        certs=(CERT.decode(),),
+        sp_entity_id="e",
+        acs_url="https://panel/acs",
+        sp_key=_key.decode(),
+    )
+    resp = encrypt_assertion(
+        saml_response("_r1", acs=cfg.acs_url, audience="e"), sp_cert.decode(), data_alg=XENC + "aes128-cbc"
+    )
+    with pytest.raises(idp_saml.SamlError) as exc:
+        idp_saml.parse_response(cfg, resp, "_r1", datetime.now(UTC))
+    assert "aes-cbc" in exc.value.detail and not called
 
 
 async def test_without_an_sp_key_an_encrypted_assertion_is_refused(fed) -> None:  # type: ignore[no-untyped-def]
