@@ -136,6 +136,13 @@ export function stageIdOf(token: string): string | null {
 export const sidOf = (stage: Pick<Stage, "upload_token" | "sid">): string | null => stage.sid ?? stageIdOf(stage.upload_token);
 
 /** 410 `stage_expired` / `stage_used` (§6.3): the token can no longer be used. */
+/** HB-23d UX-27: why a stage is gone ("stage_replaced": a file picked in another window took its place), else null */
+export function stageGoneCode(err: unknown): string | null {
+  if (!(err instanceof HttpError)) return null;
+  const d = err.detail as { code?: unknown; detail?: { code?: unknown } } | null | undefined;
+  return d && typeof d === "object" ? (typeof d.code === "string" ? d.code : typeof d.detail?.code === "string" ? d.detail.code : null) : null;
+}
+
 export function isStageGone(err: unknown): boolean {
   if (!(err instanceof HttpError)) return false;
   if (err.status === 410) return true;

@@ -93,3 +93,16 @@ async def test_setup_rooms_may_edit_a_room_and_its_photo(env):  # noqa: F811
     assert (await c.post(f"/api/v1/rooms/{a101}/photo", files=files, headers=teacher)).status_code == 403
     r = await c.post(f"/api/v1/rooms/{a101}/photo", files=files, headers=clerk)
     assert r.status_code == 200 and r.json()["photo_url"], r.text
+
+
+async def test_setup_rooms_may_read_the_room_list(env):  # noqa: F811
+    """HB-23d UX-03: the room-master import diffs the file against GET /rooms; a room administrator (setup.rooms
+    without planning rights) applies a room master, so they read the list they are about to change."""
+    rid = await _role(env, "Derslik sorumlusu", ["setup.rooms"])
+    _, clerk = await env.user("derslik.sorumlusu@uni.edu.tr", role=None, role_id=rid)
+    r = await env.client.get("/api/v1/rooms", headers=clerk)
+    assert r.status_code == 200, r.text
+    assert any(x["code"] == "A101" for x in r.json())
+    # a teacher still cannot
+    _, teacher = await env.user("ogretmen.liste@uni.edu.tr")
+    assert (await env.client.get("/api/v1/rooms", headers=teacher)).status_code == 403

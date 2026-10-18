@@ -313,11 +313,11 @@ function PrivacyLine({ staged }: { staged: boolean }) {
   );
 }
 
-function ExpiredLine({ reread }: { reread: () => void }) {
+function ExpiredLine({ reread, gone }: { reread: () => void; gone?: string | null }) {
   const { t } = useI18n();
   return (
     <div className="flex flex-col gap-2" data-testid="helper-file-expired">
-      <p className="type-footnote text-label-2">{t("helper.file.expired")}</p>
+      <p className="type-footnote text-label-2">{t(gone === "stage_replaced" ? "helper.file.replaced" : "helper.file.expired")}</p>
       <PrimaryButton label={t("helper.file.reread")} onClick={reread} testId="helper-file-reread" />
     </div>
   );
@@ -376,7 +376,7 @@ function FileCardView({ entry, card, titleId, reread }: StateProps & { card: Fil
       ) : null}
 
       {entry.expired ? (
-        <ExpiredLine reread={reread} />
+        <ExpiredLine reread={reread} gone={entry.gone} />
       ) : (
         <div className="mt-1 flex flex-col gap-2">
           {card.state === "unknown" ? (
@@ -425,7 +425,7 @@ function ChooserView({ entry, card, titleId, reread }: StateProps & { card: Choi
   return (
     <Frame testId="helper-card-file-ambiguous" titleId={titleId} title={pickText(card.question, locale)} icon={FileQuestion}>
       {entry.expired ? (
-        <ExpiredLine reread={reread} />
+        <ExpiredLine reread={reread} gone={entry.gone} />
       ) : (
         <>
           <KindRadios label={pickText(card.question, locale)} options={rows} onPick={(v) => void router.pick(entry.key, v)} picked={entry.picked} tintId={`file-tint-${entry.key}`} />

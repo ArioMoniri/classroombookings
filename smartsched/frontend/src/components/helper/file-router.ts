@@ -18,7 +18,7 @@
 import { useMemo } from "react";
 import { HttpError } from "@/lib/api/client";
 import { helperRefusal } from "@/lib/api/helper";
-import { CLASSIFY_MAX_BYTES, dropStage, helperFilesApi, isStageGone, sidOf, type FileAnswerCard, type FileRoute } from "@/lib/api/helper-files";
+import { CLASSIFY_MAX_BYTES, dropStage, helperFilesApi, isStageGone, sidOf, stageGoneCode, type FileAnswerCard, type FileRoute } from "@/lib/api/helper-files";
 import { usePermissions } from "@/lib/api/shell-extra";
 import { translate, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
@@ -52,7 +52,7 @@ export const entryFiles = (key: string): File[] | null => files.get(key) ?? null
 const update = (key: string, patch: Partial<FileEntry> | ((e: FileEntry) => Partial<FileEntry>)) => useHelperStore.getState().updateFile(key, patch);
 
 const shown = (key: string, card: FileAnswerCard, stage: FileEntry["stage"], more: Pick<FileEntry, "resend"> = {}) =>
-  update(key, (e) => ({ phase: "shown", view: { kind: "card", card }, stage: stage ?? null, expired: false, notice: null, seq: e.seq + 1, ...more }));
+  update(key, (e) => ({ phase: "shown", view: { kind: "card", card }, stage: stage ?? null, expired: false, gone: null, notice: null, seq: e.seq + 1, ...more }));
 
 const dropAll = (e: Pick<FileEntry, "stage">) => dropStage(e.stage);
 
@@ -185,7 +185,7 @@ export function useFileRouter() {
         const out = await helperFilesApi.route(token, kind, activeTermId());
         shown(key, out.card, e.stage);
       } catch (err) {
-        if (isStageGone(err)) update(key, { expired: true, stage: null });
+        if (isStageGone(err)) update(key, { expired: true, stage: null, gone: stageGoneCode(err) });
         else {
           const card = helperRefusal(err).card;
           if (card && (card.type === "refusal" || card.type === "error")) shown(key, card, e.stage);
@@ -239,7 +239,7 @@ export function useFileRouter() {
       try {
         await helperFilesApi.handoff({ upload_token: stage.upload_token, kind, feature_id: route.feature_id, params: wire });
       } catch (err) {
-        if (isStageGone(err)) update(key, { expired: true, stage: null });
+        if (isStageGone(err)) update(key, { expired: true, stage: null, gone: stageGoneCode(err) });
         else update(key, { notice: both(err instanceof HttpError && err.status === 403 ? "helper.file.notAllowed" : "helper.file.error") });
         return;
       }

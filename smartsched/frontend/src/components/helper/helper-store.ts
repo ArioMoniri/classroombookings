@@ -88,6 +88,8 @@ export interface FileEntry {
   resend?: boolean;
   /** the token's 10 minutes passed (or the server said 410): "Dosyayı yeniden oku" */
   expired?: boolean;
+  /** HB-23d UX-27: the server's reason when the stage went away ("stage_replaced"…); null = the 10 minutes */
+  gone?: string | null;
   /** a localised line under the card (the button's error) */
   notice?: { tr: string; en: string } | null;
   /** bumps when a new card arrives, so the view moves the focus to its title once */
