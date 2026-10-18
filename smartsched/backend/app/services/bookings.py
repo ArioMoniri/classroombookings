@@ -692,13 +692,33 @@ async def _who_and_department(
 async def _open_date(session: AsyncSession, info: TermInfo, d: date) -> DateInfo:
     di = (await date_infos(session, info, [d]))[d]
     if not di.open:
-        msg = {
-            "holiday": f"{d:%d.%m.%Y} is a holiday ({di.holiday})",
-            "no_week": f"{d:%d.%m.%Y} has no timetable week",
-            "date_range": f"{d:%d.%m.%Y} is outside the term",
-        }[di.reason or "date_range"]
-        raise _conflict(di.reason or "closed", msg)
+        reason = di.reason or "date_range"
+        en, tr = {
+            "holiday": (f"{d:%d.%m.%Y} is a holiday ({di.holiday})", f"{d:%d.%m.%Y} tatil ({di.holiday})"),
+            "no_week": (f"{d:%d.%m.%Y} has no timetable week", f"{d:%d.%m.%Y} için ders haftası yok"),
+            "date_range": (f"{d:%d.%m.%Y} is outside the term", f"{d:%d.%m.%Y} dönem dışında"),
+        }[reason]
+        raise _conflict(reason, en, message_en=en, message_tr=tr)
     return di
+
+
+DAY_EN = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+DAY_TR = {1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi", 7: "Pazar"}
+
+
+async def _open_day(session: AsyncSession, info: TermInfo, room: Room, d: date) -> None:
+    """BUG-01: a weekday the room's schedule offers no bookable period on (Sunday on a Monday-Friday schedule) is a
+    closed day: refused as ``closed_day`` ("22.02.2026 Pazar rezervasyona kapalı bir gün"), not as a generic
+    ``calendar`` error (the find-room screen closes the same days, ``find_room.closed_label``)."""
+    schedule = await applied_schedule(session, info, room)
+    if schedule is None:
+        return  # period_for names the missing schedule
+    offered = {int(x) for p in schedule.periods if p.bookable for x in (p.days or [])}
+    if offered and d.isoweekday() not in offered:
+        wd = d.isoweekday()
+        en = f"{d:%d.%m.%Y} is a {DAY_EN[wd]}, closed for bookings"
+        tr = f"{d:%d.%m.%Y} {DAY_TR[wd]} rezervasyona kapalı bir gün"
+        raise _conflict("closed_day", en, message_en=en, message_tr=tr, weekday=wd)
 
 
 def _slot_rows(b: Booking) -> list[BookingSlot]:
@@ -819,6 +839,7 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
     need = await approvals.need_for(session, access, room, "book_single", info.term.id)
     try:
         await _open_date(session, info, body.date)
+        await _open_day(session, info, room, body.date)
         period = await period_for(session, info, room, body.period_id, body.date)
     except CalendarError as exc:
         raise _conflict("calendar", str(exc)) from exc
@@ -959,6 +980,7 @@ async def plan_recurring(session: AsyncSession, access: Access, body: RecurIn) -
     need = await approvals.need_for(session, access, room, "book_recur", info.term.id)
     try:
         anchor = await _open_date(session, info, body.date)
+        await _open_day(session, info, room, body.date)
         period = await period_for(session, info, room, body.period_id, body.date)
     except CalendarError as exc:
         raise _conflict("calendar", str(exc)) from exc
@@ -1448,6 +1470,7 @@ async def update(
             if info is None or not (info.start <= new_date <= info.end):
                 raise CalendarError(f"{new_date:%d.%m.%Y} is outside the booking's term")
             await _open_date(session, info, new_date)
+            await _open_day(session, info, new_room, new_date)
             period = await period_for(session, info, new_room, data.get("period_id", b.period_id), new_date)
         except CalendarError as exc:
             raise _conflict("calendar", str(exc)) from exc
