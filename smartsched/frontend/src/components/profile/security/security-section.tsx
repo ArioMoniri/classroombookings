@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { authSecurityKeys, useMfaStatus } from "@/lib/api/auth-security";
+import { IdentityLinkRows } from "@/components/identity/profile-identities";
 import { useOrgPublic } from "@/lib/api/crbs";
 import { useI18n } from "@/lib/i18n/provider";
 import { HistoryRow } from "./sign-in-history";
@@ -67,6 +68,8 @@ export function SecuritySection() {
                 />
                 <MfaRow status={s} org={org} onChanged={refresh} />
                 {s.reason !== "mfa_off" ? <PasskeysRow status={s} org={org} onChanged={refresh} /> : null}
+                {/* idp-2026-10-18: link / unlink a Google, OIDC or SAML sign-in (Microsoft has its own section) */}
+                <IdentityLinkRows />
               </>
             )}
             <SessionsRow devices={s.trusted_devices} onChanged={refresh} />

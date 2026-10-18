@@ -3803,6 +3803,7 @@
     }
   },
   "profile": {
+    "identities": {"notLinked": "Not linked. Link it to sign in to this account with it too.", "linkedOn": "linked on {date}", "providerOff": "This sign-in method is off at the moment; you can still unlink it.", "link": "Link", "unlink": "Unlink", "linkTitle": "Link your {provider} account", "linkBody": "After you confirm you go to the {provider} sign-in page and come back here.", "linkAck": "From now on my {provider} account will sign in to this SmartSched account.", "linkConfirm": "Continue to {provider}", "linkIncomplete": "Tick the confirmation first.", "unlinkTitle": "Unlink {provider}?", "unlinkBody": "You will no longer sign in to this account with {provider}. Your password stays the same; you can link it again at any time.", "unlinked": "{provider} unlinked", "linkedNotice": "Your {provider} account is linked. You can now sign in with it too.", "failed": "That did not work. Try again.", "error": {"already_linked": "This {provider} account is linked to another SmartSched account, or this account is already linked.", "domain": "This {provider} account is not in the institution's allowed domains. Try your institution account.", "cancelled": "Linking was not completed. You can try again at any time.", "failed": "{provider} could not be linked. Try again; if it persists, contact your administrator."}},
     "microsoft": {
       "title": "Microsoft account",
       "account": "Microsoft work or school account",

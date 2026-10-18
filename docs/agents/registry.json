@@ -3727,6 +3727,18 @@
       "ledger": "RF-F: import diff, period grid, weeks UI",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a877a08f4b4c8b853",
+      "description": "RF-C: RF-14 band times, RF-15 exam edits",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 10:28",
+      "scope": "",
+      "goal": "Ledger name `rf-c-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack; `nice`, pytest only on touched files); never `pkill …",
+      "ledger": "RF-C: RF-14 band times, RF-15 exam edits",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

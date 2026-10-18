@@ -3802,6 +3802,7 @@
     }
   },
   "profile": {
+    "identities": {"notLinked": "Bağlı değil. Bağlarsanız bu hesaba onunla da giriş yapabilirsiniz.", "linkedOn": "{date} tarihinde bağlandı", "providerOff": "Bu giriş yolu şu an kapalı; bağlantıyı yine de kaldırabilirsiniz.", "link": "Bağla", "unlink": "Bağlantıyı kaldır", "linkTitle": "{provider} hesabınızı bağlayın", "linkBody": "Onaylayınca {provider} giriş sayfasına gidersiniz, giriş yapınca buraya dönersiniz.", "linkAck": "Bundan sonra {provider} hesabım bu SmartSched hesabına giriş yapacak.", "linkConfirm": "{provider} sayfasına devam et", "linkIncomplete": "Önce onayı işaretleyin.", "unlinkTitle": "{provider} bağlantısı kaldırılsın mı?", "unlinkBody": "Bundan sonra {provider} ile bu hesaba giriş yapamazsınız. Parolanız aynı kalır; istediğiniz zaman yeniden bağlayabilirsiniz.", "unlinked": "{provider} bağlantısı kaldırıldı", "linkedNotice": "{provider} hesabınız bağlandı. Artık onunla da giriş yapabilirsiniz.", "failed": "Olmadı. Tekrar deneyin.", "error": {"already_linked": "Bu {provider} hesabı başka bir SmartSched hesabına bağlı ya da bu hesap zaten bağlı.", "domain": "Bu {provider} hesabı kurumun izin verdiği alan adlarında değil. Kurum hesabınızla deneyin.", "cancelled": "Bağlama tamamlanmadı. İstediğiniz zaman yeniden deneyebilirsiniz.", "failed": "{provider} bağlanamadı. Tekrar deneyin; sorun sürerse yöneticinize başvurun."}},
     "microsoft": {
       "title": "Microsoft hesabı",
       "account": "Microsoft iş veya okul hesabı",
