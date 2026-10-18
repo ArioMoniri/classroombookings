@@ -104,6 +104,12 @@ describe("card renderer", () => {
     expect(b.container).toBeEmptyDOMElement();
   });
 
+  it("names the note an answer used (Notunuza göre)", () => {
+    const c = HelperCard.parse({ ...card("answer"), notes_used: ["Tercih edilen bina: B blok"] });
+    renderHelper(<EntryView entry={{ ...entry("answer"), card: c }} />, { host: makeHost() });
+    expect(screen.getByTestId("helper-notes-used")).toHaveTextContent("Notunuza göre: Tercih edilen bina: B blok");
+  });
+
   it("an unknown write action falls back to text + Menüde ara", () => {
     const odd = { ...card("confirm"), action: "transfer_money" } as HelperCard;
     renderHelper(<EntryView entry={{ ...entry("confirm"), card: odd }} />, { host: makeHost() });

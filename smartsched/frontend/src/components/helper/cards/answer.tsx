@@ -1,7 +1,7 @@
 "use client";
 /**
  * HX-04: `answer` — plain paragraphs in the log, no bubble, never links or markup; "Dizinden" for index answers.
- * An AI answer carries thumbs up / down (`POST /helper/feedback` with the turn id; one per turn, a second one replaces it).
+ * A note that shaped the answer is named under it ("Notunuza göre: …", `notes_used`). An AI answer carries thumbs up / down (`POST /helper/feedback` with the turn id; one per turn, a second one replaces it).
  */
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { useState } from "react";
@@ -43,6 +43,13 @@ export function AnswerView({ card, entry }: { card: AnswerCard; entry?: CardEntr
           {p}
         </p>
       ))}
+      {card.notes_used?.length ? (
+        <ul className="flex flex-col gap-0.5 type-footnote text-label-2" data-testid="helper-notes-used">
+          {card.notes_used.map((n, i) => (
+            <li key={i}>{t("helper.memory.used", { note: n })}</li>
+          ))}
+        </ul>
+      ) : null}
       {card.source === "index" ? <p className="type-footnote text-label-3">{t("helper.card.fromIndex")}</p> : null}
       {card.source === "ai" && entry?.turnId ? <Feedback turnId={entry.turnId} /> : null}
     </div>
