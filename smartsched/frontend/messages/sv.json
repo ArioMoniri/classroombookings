@@ -151,5 +151,20 @@
     "usage": {
       "day": "Dag"
     }
+  },
+  "charts": {
+    "bookings": {
+      "week": "Vecka"
+    },
+    "audit": {
+      "day": "Dag"
+    }
+  },
+  "adaptive": {
+    "peaks": {
+      "col": {
+        "weeks": "Veckor"
+      }
+    }
   }
 }

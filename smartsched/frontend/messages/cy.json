@@ -151,5 +151,20 @@
     "usage": {
       "day": "Dydd"
     }
+  },
+  "charts": {
+    "bookings": {
+      "week": "Wythnos"
+    },
+    "audit": {
+      "day": "Dydd"
+    }
+  },
+  "adaptive": {
+    "peaks": {
+      "col": {
+        "weeks": "Wythnosau"
+      }
+    }
   }
 }

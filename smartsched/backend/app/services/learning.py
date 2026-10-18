@@ -46,6 +46,7 @@ from typing import Any
 from sqlalchemy import delete, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.importers import normalize as n
 from app.models import (
     ConstraintRow,
     Course,
@@ -90,7 +91,8 @@ LEVELS = ((0.8, "high", "Yüksek"), (0.6, "medium", "Orta"), (0.5, "low", "Düş
 _DAYS_TR = {1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi", 7: "Pazar"}
 _DAYS_EN = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
 _BAND_TR = {"morning": "sabah", "afternoon": "öğleden sonra", "evening": "akşam"}
-_BAND_TIME = {"morning": "08:30–13:20", "afternoon": "13:30–18:00", "evening": "18:00–22:50"}
+#: a band's clock times in a stored sentence, e.g. "(08:30–13:20)": refreshed from the grid at read time (RF-14)
+_BAND_HOURS_RE = re.compile(r"\(\d{2}:\d{2}–\d{2}:\d{2}\)")
 _SEASON_MONTH = {"BAHAR": 2, "FINAL": 6, "BUT": 6, "YAZ": 7, "GUZ": 9}
 _BACK, _FRONT = set("aıouAIOU"), set("eiöüEİÖÜ")
 _HARD = set("fstkçşhpFSTKÇŞHP")
@@ -110,6 +112,29 @@ class LearningError(Exception):
 
 
 # ------------------------------------------------------------------------------------------------ helpers
+
+
+def band_hours(name: str) -> str:
+    """The clock times of a learning band in the period grid in use (``08:30–13:20`` for ``morning`` by default).
+    RF-14: read from ``normalize.PERIODS`` at every call (admins edit the grid, RF-09; it changes in place), never
+    cached at import time; ``""`` for an unknown band."""
+    rng = band_range(name)
+    if rng is None or not 1 <= rng[0] <= rng[1] <= len(n.PERIODS):
+        return ""
+    return f"{n.PERIODS[rng[0] - 1].start:%H:%M}–{n.PERIODS[rng[1] - 1].end:%H:%M}"
+
+
+def _band_of_prior(p: LearnedPrior) -> str | None:
+    return p.value if p.attribute == "period" else None
+
+
+def _value_label(p: LearnedPrior) -> Any:
+    """The stored value label of a prior, a period band with the current grid's times (RF-14)."""
+    label = (p.evidence or {}).get("value_label")
+    band = _band_of_prior(p)
+    if band is None or not isinstance(label, dict):
+        return label
+    return {k: _fill(v, "", band) if isinstance(v, str) else v for k, v in label.items()}
 
 
 def locative(text: str) -> str:
@@ -226,7 +251,7 @@ def _value_text(attribute: str, value: str, rooms: Mapping[int, Room]) -> dict[s
         tr_b = f"{value} Blok"
         return {"tr": tr_b, "en": f"{value} block", "tr_loc": locative(tr_b), "en_loc": f"in {value} block"}
     if attribute == "period":
-        band, hours = _BAND_TR.get(value, value), _BAND_TIME.get(value, "")
+        band, hours = _BAND_TR.get(value, value), band_hours(value)
         return {
             "tr": f"{band} saatleri ({hours})",
             "en": f"the {value} ({hours})",
@@ -687,8 +712,12 @@ async def _subject_labels(
     return out
 
 
-def _fill(text: str, subject: str) -> str:
-    return text.replace("{subject}", subject)
+def _fill(text: str, subject: str, band: str | None = None) -> str:
+    """A stored sentence for display: ``{subject}`` filled; for a period band, the clock times written when the
+    habit was learned become the current grid's (RF-14: an admin may have changed the grid since)."""
+    out = text.replace("{subject}", subject)
+    hours = band_hours(band) if band else ""
+    return _BAND_HOURS_RE.sub(f"({hours})", out) if hours else out
 
 
 async def _feedback_state(session: AsyncSession, term_id: int) -> dict[tuple[str, str, str, str], SuggestionFeedback]:
@@ -844,6 +873,7 @@ def _render(
             state, why = "hidden", "room_too_small"
     expl = p.explanation or {}
     subj = str(label["label"])
+    band = _band_of_prior(p)
     proposal = dict(p.proposal or {})
     params = {**dict(proposal.get("params") or {}), "event_ids": [mr.id for mr in free]}
     lvl = level_of(p.confidence)
@@ -857,9 +887,15 @@ def _render(
         },
         "attribute": p.attribute,
         "value": p.value,
-        "value_label": (p.evidence or {}).get("value_label"),
-        "claim": {"tr": _fill(str(expl.get("claim_tr", "")), subj), "en": _fill(str(expl.get("claim_en", "")), subj)},
-        "explanation": {"tr": _fill(str(expl.get("tr", "")), subj), "en": _fill(str(expl.get("en", "")), subj)},
+        "value_label": _value_label(p),
+        "claim": {
+            "tr": _fill(str(expl.get("claim_tr", "")), subj, band),
+            "en": _fill(str(expl.get("claim_en", "")), subj, band),
+        },
+        "explanation": {
+            "tr": _fill(str(expl.get("tr", "")), subj, band),
+            "en": _fill(str(expl.get("en", "")), subj, band),
+        },
         "if_accepted": if_accepted(weight),
         "proposal": {"kind": proposal.get("kind"), "params": params, "hardness": "soft", "weight": weight},
         "support": {"rows": p.support, "total": p.total, "seen_terms": p.terms_count},
@@ -907,14 +943,17 @@ async def priors_for(
                 "subject": {"type": p.subject_type, "id": p.subject_key, "label": subj},
                 "attribute": p.attribute,
                 "value": p.value,
-                "value_label": (p.evidence or {}).get("value_label"),
+                "value_label": _value_label(p),
                 "score": p.score,
                 "support": p.support,
                 "total": p.total,
                 "terms_count": p.terms_count,
                 "confidence": p.confidence,
                 "suggestible": p.suggestible,
-                "explanation": {"tr": _fill(str(expl.get("tr", "")), subj), "en": _fill(str(expl.get("en", "")), subj)},
+                "explanation": {
+                    "tr": _fill(str(expl.get("tr", "")), subj, _band_of_prior(p)),
+                    "en": _fill(str(expl.get("en", "")), subj, _band_of_prior(p)),
+                },
                 "evidence": p.evidence or {},
             }
         )
@@ -1038,7 +1077,8 @@ async def accept(
     labels = await _subject_labels(session, [(p.subject_type, p.subject_key)])
     safe = str(labels.get((p.subject_type, p.subject_key), {"safe": f"#{p.subject_key}"})["safe"])
     expl = p.explanation or {}
-    stored = {"tr": _fill(str(expl.get("tr", "")), safe), "en": _fill(str(expl.get("en", "")), safe)}
+    band = _band_of_prior(p)
+    stored = {"tr": _fill(str(expl.get("tr", "")), safe, band), "en": _fill(str(expl.get("en", "")), safe, band)}
     row = ConstraintRow(
         term_id=p.term_id,
         run_id=None,
@@ -1058,7 +1098,7 @@ async def accept(
             "request_ids": (p.evidence or {}).get("request_ids", [])[:20],
             "scope": scope,
         },
-        nl_text=_fill(str(expl.get("claim_tr", "")), safe),
+        nl_text=_fill(str(expl.get("claim_tr", "")), safe, band),
         enabled=True,
         created_by=actor.id,
     )

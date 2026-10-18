@@ -3,7 +3,7 @@
 # pinned backend dependencies (pip-audit --no-deps on requirements.lock, python image) and in the frontend's runtime
 # dependencies (npm audit --omit=dev on package-lock.json, Playwright image, lockfile only). REPORT ONLY: the
 # findings are printed and never fail the gate; both need the advisory databases online (PyPI / OSV, npm registry).
-# Roadmap F13: a hash-pinned lock (pip-compile --generate-hashes + pip install --require-hashes).
+# F13 (done): the lock is hash-pinned (`make lock`); the image and pod CI install it with --require-hashes.
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$WS/src"
 set +e

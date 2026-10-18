@@ -141,3 +141,8 @@ On pass: tick VO-06/07/08 and VO-05.
 
 - **RF-B** (seeded gracious stack): /import lists the seven seeded workbooks as "İlk kurulum (sistem)" with report and download; edit A102 capacity, remove PC from A103, rename a programme, edit and archive an exam, edit the row-431 rule, set week 1 to Tatil, re-import each file, and every edit survives; exam-list preview with one changed cell shows the conflict, "Uygula" applies once and a second apply is refused; `PUT /period-grid` P1 → 08:00 shows on the timetable, find-room and a "from grid" booking period, also on a second worker within 30 s; the users 2FA filter returns matches beyond page 1 and never IdP-only users.
 - **CH-M:** /runs score line (≥ 3 finished runs; dot tap and ←/→ Enter open the run); /admin/audit daily chart and the phone toggle; /my-bookings and /profile tiles with no ECharts chunk requested. Update `e2e/loop-r2-laneB.spec.ts:140` (removed `mine-totals` sentence → tiles).
+
+## Added 2026-10-18 10:35 UTC
+
+- **Sweeper 2** (390 touch, M-05/M-02; 1440 unchanged): Save sits in the capsule above the tab bar at scroll 0/400/end on `/admin/ai?tab=limits`, `?tab=models`, `/programs/new` with and without drafts, `/settings?tab=ai` with and without a key. Fix 15 re-measure: Studio "İleri" at 390, "Şablondan seç" at 768, timetable "Filtreler" at 390 (worst long frame ≤ 200 ms; take a trace for Filtreler). A5: Yoğunluk Sıkı → table rows 32 px on /classes (> 80 rows) with no gaps; Rahat → 44 px. `/grafana/`: admin 200, teacher 403, signed out 302. Run chat: a second message keeps earlier context (live model).
+- **Pod CI:** the first gracious deploy after this tree installs the backend with `--require-hashes` (hashed locks); watch the backend gate on arm64.

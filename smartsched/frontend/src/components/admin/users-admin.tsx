@@ -99,14 +99,16 @@ export function UsersAdmin() {
     }
     if (changed) router.replace(next.size ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
   }, [q, role, dept, enabled, idFilter, method, params, pathname, router]);
+  // the 2FA filter (AU-18 mfa_state) is a server parameter too (RF-B `mfa_state=`): total and paging cover every page
+  const [mfaFilter, setMfaFilter] = useState<MfaFilter>("");
   const phone = useIsPhone();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const activeFilters = [role, dept, enabled, idFilter === "all" ? "" : idFilter, method].filter(Boolean).length;
+  const activeFilters = [role, dept, enabled, idFilter === "all" ? "" : idFilter, method, mfaFilter].filter(Boolean).length;
   const usersAdmin = can("setup.users");
   // the identity chips and the method select filter on the server (`identity=`, `self_signup_days=7`), with
   // server paging and the server's total; only setup.users sees the identity columns, so only they filter by it
   const base = { q: q || undefined, role_id: role ? Number(role) : undefined, department_id: dept ? Number(dept) : undefined, enabled: enabled === "" ? undefined : enabled === "1" };
-  const query = { ...base, ...(usersAdmin ? identityQuery(idFilter, method) : {}), sort, limit: PAGE, offset: page * PAGE };
+  const query = { ...base, ...(usersAdmin ? identityQuery(idFilter, method) : {}), ...(usersAdmin && mfaFilter ? { mfa_state: mfaFilter } : {}), sort, limit: PAGE, offset: page * PAGE };
   const users = useUserSearch(query);
   // the chip counts: the server's totals for the same filters (limit 1)
   const invitedCount = useUserSearch({ ...base, ...identityQuery("invited", ""), limit: 1 }, usersAdmin);
@@ -153,10 +155,10 @@ export function UsersAdmin() {
     const m = methodView(statusOf(u), u.auth_source);
     return { id: u.id, name: u.displayname || u.full_name || u.username || u.email || "", email: u.email, account: securityAccount(m), providerName: m === "microsoft" || m === "microsoftInvite" ? "Microsoft" : null, mfa: mfaListState(statusOf(u)), role: u.role, lastLoginAt: u.last_login_at };
   };
-  // the 2FA filter (AU-18 mfa_state in the status map); it narrows the loaded page
-  const [mfaFilter, setMfaFilter] = useState<MfaFilter>("");
+  // the filter is applied by the server; a row whose known state in the status map disagrees (the map refreshed
+  // while the page was cached) is still left out, an unknown state is trusted to the server
   const mfaKnown = usersAdmin && Object.values(idStatus.data ?? {}).some((x) => mfaListState(x) !== null);
-  const rows = mfaKnown ? visible.filter((u) => matchesMfaFilter(mfaListState(statusOf(u)), mfaFilter)) : visible;
+  const rows = mfaKnown && mfaFilter ? visible.filter((u) => { const s = mfaListState(statusOf(u)); return s === null || matchesMfaFilter(s, mfaFilter); }) : visible;
 
   return (
     <div className="flex flex-col gap-5">
@@ -279,7 +281,7 @@ export function UsersAdmin() {
                 <option value="ldap">{t("sso.users.method.ldap")}</option>
                 <option value="binding">{t("sso.users.status.binding")}</option>
               </SelectField>
-              {mfaKnown ? <MfaFilterSelect value={mfaFilter} onChange={(v) => setMfaFilter(v)} className="min-w-44" /> : null}
+              {mfaKnown ? <MfaFilterSelect value={mfaFilter} onChange={(v) => (setMfaFilter(v), setPage(0))} className="min-w-44" /> : null}
             </div>
           ) : null}
         </>
@@ -344,7 +346,7 @@ export function UsersAdmin() {
                   <option value="ldap">{t("sso.users.method.ldap")}</option>
                   <option value="binding">{t("sso.users.status.binding")}</option>
                 </SelectField>
-              {mfaKnown ? <MfaFilterSelect value={mfaFilter} onChange={(v) => setMfaFilter(v)} className="min-w-44" /> : null}
+              {mfaKnown ? <MfaFilterSelect value={mfaFilter} onChange={(v) => (setMfaFilter(v), setPage(0))} className="min-w-44" /> : null}
               </div>
             ) : null}
           </div>

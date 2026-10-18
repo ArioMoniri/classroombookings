@@ -151,5 +151,20 @@
     "usage": {
       "day": "Día"
     }
+  },
+  "charts": {
+    "bookings": {
+      "week": "Semana"
+    },
+    "audit": {
+      "day": "Día"
+    }
+  },
+  "adaptive": {
+    "peaks": {
+      "col": {
+        "weeks": "Semanas"
+      }
+    }
   }
 }

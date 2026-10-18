@@ -151,5 +151,20 @@
     "usage": {
       "day": "Tag"
     }
+  },
+  "charts": {
+    "bookings": {
+      "week": "Woche"
+    },
+    "audit": {
+      "day": "Tag"
+    }
+  },
+  "adaptive": {
+    "peaks": {
+      "col": {
+        "weeks": "Wochen"
+      }
+    }
   }
 }

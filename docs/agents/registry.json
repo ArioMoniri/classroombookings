@@ -3641,7 +3641,8 @@
       "goal": "Ledger name `sweep2-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; `nice`, vitest `--maxWorkers=1 --testTimeout=30000`…",
       "ledger": "Sweeper 2: unowned leftovers",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 10:32"
     },
     {
       "id": "abd7229ecad9bc094",
@@ -3739,6 +3740,14 @@
       "ledger": "RF-C: RF-14 band times, RF-15 exam edits",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a8917f02184aa4b6f",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:28",
+      "left_off": "is the pod up yet"
     }
   ]
 }

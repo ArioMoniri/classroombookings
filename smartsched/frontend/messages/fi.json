@@ -151,5 +151,20 @@
     "usage": {
       "day": "päivää"
     }
+  },
+  "charts": {
+    "bookings": {
+      "week": "viikko"
+    },
+    "audit": {
+      "day": "päivää"
+    }
+  },
+  "adaptive": {
+    "peaks": {
+      "col": {
+        "weeks": "viikot"
+      }
+    }
   }
 }

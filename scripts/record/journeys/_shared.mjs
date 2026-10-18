@@ -16,6 +16,14 @@ export async function login(page, { email, password }) {
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
+  await quietWelcome(page);
+}
+
+/** The welcome guide (components/welcome, 2026-10-18) opens a sheet on a user's first visit to a home page. A take
+ * shows the feature, not the guide: tell the server this user dismissed it ("Don't show again"), as a person would.
+ * Older builds have no /welcome: the call fails quietly. */
+export async function quietWelcome(page) {
+  await api(page, "/welcome/events", { method: "POST", body: { guide_key: "sheet", event: "dismissed" } }).catch(() => undefined);
 }
 
 /** Same-origin API call through the Next proxy (the httpOnly cookie carries the JWT). */

@@ -231,7 +231,7 @@ export function uploadImportWithProgress(
   kind: ImportKind,
   file: File | null,
   term: Pick<Term, "id" | "code" | "start_date">,
-  opts: { dsn?: string; onProgress?: (p: UploadProgress) => void; signal?: AbortSignal } = {},
+  opts: { dsn?: string; onProgress?: (p: UploadProgress) => void; signal?: AbortSignal; dryRun?: boolean; onConflict?: "keep" | "take" } = {},
 ): Promise<ImportJob> {
   const fd = new FormData();
   if (file) fd.append(kind === "crbs" ? "files" : "file", file);
@@ -240,6 +240,9 @@ export function uploadImportWithProgress(
   if (kind === "planning-list") fd.append("week_count", "14");
   fd.append("term_id", String(term.id));
   if (opts.dsn) fd.append("dsn", opts.dsn);
+  // RF-06: a workbook preview (nothing written; POST /imports/{id}/apply imports it); the CRBS dump has its own dry run
+  if (opts.dryRun && kind !== "crbs") fd.append("dry_run", "true");
+  if (opts.onConflict && (kind === "planning-list" || kind === "exam-list")) fd.append("on_conflict", opts.onConflict);
   return new Promise<ImportJob>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_PREFIX}/imports/${kind}`);

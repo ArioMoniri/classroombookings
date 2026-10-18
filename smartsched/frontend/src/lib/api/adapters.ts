@@ -162,6 +162,11 @@ export function importJob(v: unknown): unknown {
       ...(num(summary.warnings_shown) !== null ? { warnings_shown: num(summary.warnings_shown) } : {}),
       ...(typeof summary.warnings_truncated === "boolean" ? { warnings_truncated: summary.warnings_truncated } : {}),
       ...(str(summary.detected_kind) ? { detected_kind: str(summary.detected_kind) } : {}),
+      // RF-06 preview fields
+      ...(typeof summary.dry_run === "boolean" ? { dry_run: summary.dry_run } : {}),
+      ...(num(summary.applied_job_id) !== null ? { applied_job_id: num(summary.applied_job_id) } : {}),
+      ...(num(summary.preview_of) !== null ? { preview_of: num(summary.preview_of) } : {}),
+      ...(isRec(summary.diff) ? { diff: summary.diff } : {}),
     },
     error: str(v.error) ?? null,
     created_at: utcIso(v.created_at) ?? new Date().toISOString(),

@@ -52,7 +52,7 @@ export function IdentityLinkRows({ navigate = goTo, notice: given }: { navigate?
   const [ack, setAck] = useState(false);
   const [ackError, setAckError] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [focusSlug, setFocusSlug] = useState<string | null>(null);
+  const focusSlug = useRef<string | null>(null);
   const ackId = useId();
   const noticeRef = useRef<HTMLDivElement>(null);
   const d = q.data;
@@ -62,13 +62,13 @@ export function IdentityLinkRows({ navigate = goTo, notice: given }: { navigate?
   }, [notice, d]);
   // after unlinking, the row's button changes: keep the focus on the row ("Bağla"), never on <body>
   useEffect(() => {
-    if (!focusSlug) return;
-    const el = document.querySelector<HTMLElement>(`[data-testid="idp-link-${focusSlug}"]`);
+    if (!focusSlug.current) return;
+    const el = document.querySelector<HTMLElement>(`[data-testid="idp-link-${focusSlug.current}"]`);
     if (el) {
       el.focus();
-      setFocusSlug(null);
+      focusSlug.current = null;
     }
-  }, [focusSlug, d]);
+  }, [d]);
 
   if (!d || !d.has_password || d.providers.length === 0) return null;
   const label = (p: LinkedProvider) => (locale === "en" ? (p.label_en ?? p.label) : p.label);
@@ -91,8 +91,8 @@ export function IdentityLinkRows({ navigate = goTo, notice: given }: { navigate?
     try {
       await run((pw) => identity.unlinkProvider(p.slug, pw));
       toast.success(t("profile.identities.unlinked", { provider: label(p) }));
+      focusSlug.current = p.slug;
       await qc.invalidateQueries({ queryKey: identityKeys.myIdentities });
-      setFocusSlug(p.slug);
     } catch (e) {
       if (!(e instanceof ReauthCancelled)) toast.error(apiProblem(e, locale).text ?? t("profile.identities.failed"));
     } finally {

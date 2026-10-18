@@ -151,5 +151,20 @@
     "usage": {
       "day": "Den"
     }
+  },
+  "charts": {
+    "bookings": {
+      "week": "Týden"
+    },
+    "audit": {
+      "day": "Den"
+    }
+  },
+  "adaptive": {
+    "peaks": {
+      "col": {
+        "weeks": "Týdny"
+      }
+    }
   }
 }

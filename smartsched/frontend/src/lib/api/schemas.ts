@@ -221,10 +221,23 @@ export const ImportJob = z.object({
     warnings_truncated: z.boolean().optional(),
     /** the kind the file looks like when it is not the chosen one (backend WrongFileError, admin persona M-20) */
     detected_kind: z.string().nullable().optional(),
+    /** RF-06: a preview (`dry_run=true`): nothing was written; `diff` lists what an apply would change */
+    dry_run: z.boolean().optional(),
+    /** RF-06: the job that applied this preview (once), and on that job the preview it came from */
+    applied_job_id: z.number().nullable().optional(),
+    preview_of: z.number().nullable().optional(),
+    /** RF-06: `summary.diff` of a preview, parsed by `importDiff` (lib/api/rf-admin.ts) */
+    diff: z.unknown().optional(),
   }),
   /** short, path-free reason of a FAILED job */
   error: z.string().nullable().optional(),
   created_at: z.string(),
+  term_code: z.string().nullable().optional(),
+  /** RF-08: who imported: `user` (created_by_name) or `system`; `source` upload | cli | seed (null before alembic 0047) */
+  actor: z.string().nullable().optional(),
+  source: z.string().nullable().optional(),
+  created_by_id: z.number().nullable().optional(),
+  created_by_name: z.string().nullable().optional(),
 });
 export type ImportJob = z.infer<typeof ImportJob>;
 
