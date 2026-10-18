@@ -158,6 +158,9 @@ test("§16.2: 'Bu cihazı 30 gün hatırla' skips the step next time; 'Diğer ci
   await page.getByTestId("mfa-remember").click();
   await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(await unusedCode(secret));
   await page.waitForURL((u) => !u.pathname.startsWith("/login"));
+  // let the landing page settle (router.refresh is still loading): a goto right away was aborted by it (e2e lane 2026-10-18)
+  await expect(page.locator("#main")).toBeVisible();
+  await page.waitForTimeout(1500);
   // a new session on the same browser (ss_td kept, the session cookie dropped)
   const keep = (await context.cookies()).filter((c) => c.name === "ss_td");
   expect(keep).toHaveLength(1);
