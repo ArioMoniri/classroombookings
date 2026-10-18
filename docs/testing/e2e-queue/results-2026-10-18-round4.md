@@ -342,3 +342,25 @@ Accounts used: admin@smartsched.local (setup and API checks only), e2eb.admin (Y
 | Empty | "needs" texts: dashboard / timetable / analytics / forecast / find-room | pass (dashboard, timetable) | same | fail | Dashboard: one next step. Timetable: "Bu dönem için henüz bir program yok." + Program oluştur / Excel'den içe aktar. Forecast and heatmap: "Önce bir dönem seçin." with an empty select and no next step. find-room: Ara disabled, no reason. /reserve: no next step. /bookings: English "(no term covers 18.10.2026)" (E2EB-F03, F07). shots/e2eb-empty-pre-analytics-forecast-390.webp, e2eb-empty-pre-find-room-390.webp, e2eb-empty-pre-bookings-1440.webp **FIX-I:** forecast / heatmap / advisor fixed since 2f60217f + 54fcfd25 (NoTerms); find-room and /reserve next steps: FIX-J (running, E2EB-F03); English text fixed now (FIX-I, E2EB-F07): calendar refusals carry message_tr / message_en ("18.10.2026 hiçbir dönemin içinde değil."). |
 | Empty | no raw keys, no fake numbers | pass | pass | pass (minor) | No raw keys before import. After import with nothing published, the heatmap says "Genel doluluk %0" next to "4.508 oda-periyot dolu" (E2EB-F21) |
 | Empty | M-01 / 02 / 03 / 05 on those screens | n/a | pass before import; fail after | minor | Before import: all clean; find-room primary 714–758. After import: dashboard "Çizelge oluştur" link 100×20 and /reserve feature chips 28 px (E2EB-F08). shots/e2eb-empty-post-dashboard-390.webp |
+
+## FIX-I triage (lane `fix-i-2026-10-18`, 2026-10-18 16:30 UTC, unit level)
+
+This run predates FIX-A 33027e28, FIX-D 67c496b9, FIX-F 2f60217f, FIX-E 0fd6fc9b and FIX-G 54fcfd25, and also FIX-B
+87e55c58, FIX-C 44d1149a and 8280c6b1 (all after the tested build 70f237b). Every fail / partial row above has a
+**FIX-I:** note with one of: *fixed since (commit)*, *fixed now (FIX-I)*, *still open* (with the owner) or *env/test-only*.
+Counted per row (a row with parts counts under its main verdict): fixed since 22 · fixed now 22 · still open 4 (AS-B 3; RF-B 1, RF-B 2, RF-F history → FIX-J/FIX-K) · env/test-only 8
+(56 rows: the 36 fail + 19 partial rows and WG-09 11). Re-checks: docs/testing/e2e-queue/README.md "FIX-I".
+
+**Blocked rows: what each needs** (not built here)
+- **AI key / routed model:** HX helper "at 100 % the composer is disabled", "staff approve and reject", HB-D `context`,
+  HX-15/16/17 "Bu sayfa" chip, HX-18 m2 forced colours, Sweeper 2 "/settings?tab=ai with a key" and "run chat keeps
+  context". A provider key on an own stack (not the shared org key).
+- **nginx in front of the stack:** VO-F 3 (Permissions-Policy, ~5 MB body), Sweeper 2 `/grafana/`.
+- **A fake OIDC IdP:** AU-B 5 (`idp_mfa_required` / `idp_mfa_missing`); RF-B 5 IdP-only users (a linked identity).
+- **Solver budget (an own stack and `stack.sh runs`):** AS-B 1 (a third run for `seed.source=settings`), AS-B 2 (a Bahar
+  TERM run), AS-B API EXAM `class_plan`, AS-S 2 (an exam solver run).
+- **KVKK seed:** RF-B 3, RF-C re-import, RF-F apply, the council re-run: masked fixtures (`stack.sh fixtures`,
+  `E2E_FIXTURES_DIR`; FIX-J's upload guard; e2e/helpers.ts now refuses raw fixtures on a recording stack).
+- **Others:** SMTP sink / dev outbox (RF-1 3, RF-2 5), a second uvicorn worker (RF-B 4, AU-B 2 second-worker part), a
+  pod (Pod CI), the hosted Motion Agent (Mobile A 9, Mobile B 10), a test clock (AUX §9d), a faculty-manager account
+  (HB-D faculty usage), "Uygula" on shared terms (AS-B 6), seasonal-naive data (AS-F "düşük güven").

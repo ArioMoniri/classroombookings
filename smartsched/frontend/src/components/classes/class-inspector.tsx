@@ -200,7 +200,8 @@ export function ClassInspector(p: InspectorProps) {
       <header className="flex items-start gap-3 px-4 pt-4 pb-3" style={chipVars(slot)}>
         <span aria-hidden className="mt-1 h-10 w-[3px] shrink-0 rounded-full" style={{ background: "var(--chip-bar)" }} />
         <div className="min-w-0 flex-1">
-          <h2 className="type-title-3 leading-[22px] font-semibold">{code}{section ? ` §${section}` : ""}</h2>
+          {/* E2EB-F11: takes focus after a touch tap opens the inspector (timetable/inspector-focus.ts) */}
+          <h2 tabIndex={-1} data-inspector-heading className="type-title-3 leading-[22px] font-semibold outline-hidden focus-visible:outline-2 focus-visible:outline-(--focus)">{code}{section ? ` §${section}` : ""}</h2>
           {name ? <p className="truncate type-callout text-label-2">{name}</p> : null}
           <p className="truncate type-footnote text-label-2">{[prog, years.length ? (lang === "tr" ? `${years.join("–")}. sınıf` : `year ${years.join("–")}`) : null].filter(Boolean).join(" · ")}</p>
           <p className={cn("mt-1 flex items-center gap-1.5 type-footnote font-medium", statusLine.tone === "feasible" && "text-status-feasible-fg", statusLine.tone === "warning" && "text-status-warning-fg", statusLine.tone === "infeasible" && "text-status-infeasible-fg", statusLine.tone === "neutral" && "text-label-2")} data-testid="inspector-status">
