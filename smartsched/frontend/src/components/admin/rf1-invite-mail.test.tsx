@@ -11,6 +11,8 @@ vi.mock("sonner", async (orig) => ({ ...(await orig<typeof import("sonner")>()),
 let configured = true;
 let emailStatus = "SENT";
 let posts: Record<string, unknown>[] = [];
+/** holds GET /invite-mail back until released (the loading state) */
+let mailGate: Promise<void> | null = null;
 
 function mockApi() {
   posts = [];
@@ -20,7 +22,10 @@ function mockApi() {
       const u = String(url);
       const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
       if (u.includes("/auth/me")) return json({ id: 1, username: "admin", role: "ADMIN", permissions: ["setup.users"], department_id: null });
-      if (u.includes("/auth/sso/admin/invite-mail")) return json({ configured });
+      if (u.includes("/auth/sso/admin/invite-mail")) {
+        if (mailGate) await mailGate;
+        return json({ configured });
+      }
       if (u.includes("/auth/sso/admin/invites") && init?.method === "POST") {
         const body = JSON.parse(String(init.body)) as Record<string, unknown>;
         posts.push(body);
@@ -56,6 +61,7 @@ afterEach(() => {
   vi.clearAllMocks();
   configured = true;
   emailStatus = "SENT";
+  mailGate = null;
 });
 
 describe("invite sheet: Davet e-postası gönder (RF-03)", () => {
@@ -101,6 +107,18 @@ describe("invite sheet: Davet e-postası gönder (RF-03)", () => {
     await waitFor(() => expect(screen.getByTestId("invite-send-mail")).toHaveAttribute("aria-checked", "true"));
     await fillAndSubmit();
     await waitFor(() => expect(toast.warning).toHaveBeenCalledWith("Davet oluşturuldu ama e-posta gönderilemedi. Bağlantıyı kopyalayıp iletin.", expect.anything()));
+  });
+
+  it("does not say 'E-posta ayarlanmadı' while the SMTP status is still loading (e2e 2026-10-18)", async () => {
+    let release: () => void = () => undefined;
+    mailGate = new Promise<void>((r) => (release = r));
+    renderIt();
+    const hint = await screen.findByTestId("invite-mail-hint");
+    expect(hint).not.toHaveTextContent("E-posta ayarlanmadı");
+    expect(hint).toHaveTextContent("Kontrol ediliyor");
+    release();
+    await waitFor(() => expect(screen.getByTestId("invite-send-mail")).toHaveAttribute("aria-checked", "true"));
+    expect(screen.getByTestId("invite-mail-hint")).toHaveTextContent("Bağlantı bu adrese e-postayla gider");
   });
 
   it("is English in English", async () => {

@@ -401,7 +401,8 @@ function InviteForm({ onDone, domainHint, canListRoles }: { onDone: () => void; 
           <span className="min-w-0">
             <span className="block type-callout font-semibold text-label-1">{t("sso.users.invite.sendMail")}</span>
             <span className="block type-footnote text-label-2" id={`${groupName}-mail`} data-testid="invite-mail-hint">
-              {mailReady ? (sendMail ? t("sso.users.invite.sendMailOn") : t("sso.users.invite.sendMailSkip")) : t("sso.users.invite.sendMailOff")}
+              {/* while GET /invite-mail is pending the sheet does not claim "E-posta ayarlanmadı" (e2e 2026-10-18) */}
+              {mail.isPending ? t("busy.checking") : mailReady ? (sendMail ? t("sso.users.invite.sendMailOn") : t("sso.users.invite.sendMailSkip")) : t("sso.users.invite.sendMailOff")}
             </span>
             {mail.isSuccess && !mailReady ? (
               <Link href="/admin/email" className="mt-1 inline-flex min-h-11 items-center type-footnote font-medium text-tint-text underline-offset-2 hover:underline sm:min-h-0" data-testid="invite-mail-setup">

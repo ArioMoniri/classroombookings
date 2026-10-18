@@ -3227,7 +3227,7 @@
       "ledger": "AS-B resume: adaptive backend",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-18 08:55"
+      "finished_at": "2026-10-18 09:25"
     },
     {
       "id": "ad78b5988298d3673",
@@ -3261,7 +3261,7 @@
       "ledger": "AUX-F resume: sign-in UI",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-18 09:13"
+      "finished_at": "2026-10-18 09:27"
     },
     {
       "id": "a41d85f83c1f7a95d",
@@ -3398,7 +3398,8 @@
       "goal": "You are lane AS-F (adaptive scheduling frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - docs/agents/briefs/COMMON.md. The Resource rule applies: no stack, no build, no Playwright, vitest with --maxWorkers=1. The Simplicity principle is v…",
       "ledger": "AS-F: adaptive scheduling UI",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 09:24"
     },
     {
       "id": "a0de75a8c91913521",
@@ -3451,6 +3452,14 @@
       "status": "finished",
       "finished_at": "2026-10-18 09:15",
       "left_off": "is the pod deployed yet"
+    },
+    {
+      "id": "a8212ca23bcca0598",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:26",
+      "left_off": "<analysis> This session is the focused-wright orchestrator for SmartSched, branch claude/focused-wright-ktt0ss. It runs many subagent lanes, commits their work as checkpoints, merges into the gracious and universal branches, and is trying to get the AWS pod deployed. Major events: - Pod start via POD_ACTION from gracious worked. Pod CI gates kept failing: - frontend OOM; - mypy saml unused ignore;…"
     }
   ]
 }
