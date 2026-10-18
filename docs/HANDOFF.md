@@ -63,11 +63,11 @@ the locked-class self-move (decided 2026-10-18: re-deciding the lock), T-R1-25 p
   deploys `claude/gracious-cerf-w1598m` (institution data) and builds `claude/smartsched-universal` (empty profile).
 
 ### Manual pod-CI refresh (owner, from a machine with AWS admin credentials or AWS CloudShell)
-Use this only when the pod still fails on its old installed gate scripts. It installs pod CI from the current gracious branch:
+Use this only when the pod still fails on its old installed gate scripts. It stops the self-update watcher first (an older install.sh raced it, 2026-10-18 14:40 UTC: `cp: cannot stat /opt/smartsched-ci.new/...`); the install re-enables it. It installs pod CI from the current gracious branch:
 ```bash
 CMD=$(aws ssm send-command --region us-east-1 --instance-ids i-0c04b735e03446110 \
   --document-name AWS-RunShellScript --comment "smartsched pod-ci upgrade" \
-  --parameters 'commands=["set -e","rm -rf /tmp/podci-new","git clone --depth 1 --branch claude/gracious-cerf-w1598m https://github.com/ArioMoniri/classroombookings.git /tmp/podci-new","bash /tmp/podci-new/smartsched/deploy/pod-ci/install.sh --upgrade","systemctl list-timers \"smartsched-*\" --no-pager"]' \
+  --parameters 'commands=["set -e","systemctl stop smartsched-ci-update.path smartsched-ci-update.service || true","rm -rf /tmp/podci-new","git clone --depth 1 --branch claude/gracious-cerf-w1598m https://github.com/ArioMoniri/classroombookings.git /tmp/podci-new","bash /tmp/podci-new/smartsched/deploy/pod-ci/install.sh --upgrade","systemctl list-timers \"smartsched-*\" --no-pager"]' \
   --query Command.CommandId --output text)
 sleep 60
 aws ssm get-command-invocation --region us-east-1 --instance-id i-0c04b735e03446110 --command-id "$CMD" \
