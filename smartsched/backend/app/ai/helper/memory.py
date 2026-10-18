@@ -25,6 +25,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.helper.actions.registry import ActionRefused
+from app.ai.helper.schema import utc_iso
 from app.core import rls
 from app.importers import normalize as n
 from app.models import Instructor, User
@@ -91,9 +92,9 @@ def note_out(x: HelperNote) -> dict[str, Any]:
         "id": x.id,
         "text": x.text,
         "source": x.source,
-        "created_at": x.created_at.isoformat(),
-        "last_used_at": x.last_used_at.isoformat(),
-        "expires_at": x.expires_at.isoformat(),
+        "created_at": utc_iso(x.created_at),
+        "last_used_at": utc_iso(x.last_used_at),
+        "expires_at": utc_iso(x.expires_at),
     }
 
 

@@ -4195,7 +4195,8 @@
       "goal": "Ledger name `fix-a-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack; `nice`, pytest on touched files); never `pkill -f`; Tu…",
       "ledger": "FIX-A: security, solver, council, helper",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 14:14"
     },
     {
       "id": "a60a39a9a126b9d49",

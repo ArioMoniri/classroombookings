@@ -207,3 +207,10 @@ On pass: tick VO-06/07/08 and VO-05.
 ## Added 2026-10-18 14:05 UTC
 
 - **FIX-C** (1440 and 390, tr-TR and en): /login, /reserve, /dashboard first paint with no message keys and no hydration error; palette language toggle and profile language switch; /admin/welcome texts in both languages; lazy shell: ⌘K palette, "?" shortcuts, ⌘J helper and "Göster", welcome sheet on first sign-in, KVKK notice gate; bundle re-measure (`$E/bundle.py`; /dashboard ≈ 552 kB gz first load, /login ≈ 421); `e2e/charts-a11y.spec.ts` at both sizes, axis text 12 px on /dashboard, /admin/ai?tab=usage, /admin/ops; AI usage CSV has 5 features + Toplam; `e2e/wg-admin.spec.ts:67` ×3 (with the delta "Güncellendi" fix); `e2e/vo-admin.spec.ts` item 1 (Turkish failure sentence); `e2e/vo-mounts.spec.ts` test 3 (422 and text kept) and test 1 ×4 on fresh stacks.
+
+## FIX-A (2026-10-18): session revoke, horizon, council merge/term, taken-slot copy
+- AU-B 3b: sign in on A and B, use only A, `POST /auth/sessions/revoke-others` with A → `GET /auth/me` with B = 401, A = 200; repeat with `uvicorn --workers 2`.
+- AS-B 2: `POST /runs {term_id:1, kind:COURSE, horizon:TERM}` → `stats.horizon_skipped_weeks` = [16,17,18,19], no class in weeks 16–19.
+- Council full re-run (7 fixtures): Güz group shows 2026-GUZ / term_id 2 and commits into term 2 with no new term; the NERMİN person_merge pair is blocking before the first commit; no surprise 409.
+- HB-02: a slot taken between card and confirm → the card shows "Bu saat az önce doldu.".
+- Commit panel: how a blocking plan item with `term_candidates` looks (no dedicated UI yet; editing the code works).

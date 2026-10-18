@@ -2471,6 +2471,8 @@
       "rooms": "{n, plural, one {in # room} other {in # rooms}}",
       "empty": "No free periods you can reserve on this day.",
       "emptyWeek": "No free periods you can reserve this week.",
+      "closedDay": "This day is closed for booking.",
+      "goNext": "Go to {date}",
       "reserveAt": "Reserve {room}, {date}, {time}",
       "deptFirst": "Rooms your department uses come first.",
       "loading": "Looking for free periods…",

@@ -2470,6 +2470,8 @@
       "rooms": "{n} derslikte",
       "empty": "Bu gün rezerve edebileceğiniz boş ders saati yok.",
       "emptyWeek": "Bu hafta rezerve edebileceğiniz boş ders saati yok.",
+      "closedDay": "Bu gün rezervasyona kapalı.",
+      "goNext": "{date} gününe git",
       "reserveAt": "{room}, {date}, {time} saatini rezerve et",
       "deptFirst": "Bölümünüzün kullandığı derslikler önce gelir.",
       "loading": "Boş saatler aranıyor…",

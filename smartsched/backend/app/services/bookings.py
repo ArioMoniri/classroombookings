@@ -1981,6 +1981,16 @@ async def grid(
                 seen_periods.setdefault(p.id, p)
     periods = sorted(seen_periods.values(), key=lambda p: (p.time_start, p.start_period, p.id))
     period_days = {int(x) for p in periods for x in (p.days or [])}
+    if d is None and period_days and target.isoweekday() not in period_days:
+        # HX12B-F01 / PER-F01: today has no periods (a weekend): open on the next teaching day (and its week)
+        _, nxt = await _prev_next(session, info, target, "day", period_days)
+        if nxt is not None:
+            target = nxt
+            if display == "day":
+                dates = [target]
+            else:
+                monday = target - timedelta(days=target.isoweekday() - 1)
+                dates = [monday + timedelta(days=i) for i in range(7)]
     if display == "day":
         periods = [p for p in periods if target.isoweekday() in (p.days or [])]
     elif period_days:
@@ -2036,6 +2046,8 @@ async def grid(
                         status, reason = "unavailable", "limit"
                     elif not single and not recur:
                         status, reason = "unavailable", "permissions"
+                    elif past and not may_book_past and day < t:
+                        status, reason = "unavailable", "past"  # PER-F10: a past day reads "Geçmiş", not "Çok yakın"
                     elif single and not recur and day < min_date:
                         status, reason = "unavailable", "range_min"
                     elif single and not recur and day > max_date:
@@ -2138,8 +2150,10 @@ async def _prev_next(
         before = [d for d, x in infos.items() if d < target and ok(x)]
         after = [d for d, x in infos.items() if d > target and ok(x)]
     else:
-        before = [d for d, x in infos.items() if d <= target - timedelta(days=7) and ok(x)]
-        after = [d for d, x in infos.items() if d >= target + timedelta(days=7) and ok(x)]
+        # PER-F01: from the Monday of the shown week, so a weekend target's "next" is the coming week
+        monday = target - timedelta(days=target.isoweekday() - 1)
+        before = [d for d, x in infos.items() if d < monday and ok(x)]
+        after = [d for d, x in infos.items() if d >= monday + timedelta(days=7) and ok(x)]
     return (max(before) if before else None), (min(after) if after else None)
 
 

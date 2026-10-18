@@ -17,10 +17,19 @@ A8) and with the architecture doc §5.3. Rules:
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    PlainSerializer,
+    TypeAdapter,
+    WithJsonSchema,
+)
 
 from app.ai.sanitize import strip_controls
 
@@ -36,6 +45,22 @@ def _plain(v: str) -> str:
     if _FORBIDDEN.search(v):
         raise ValueError("cards carry no URL, HTML or markup")
     return v
+
+
+def utc_iso(value: datetime) -> str:
+    """A time on the wire: aware UTC with a "Z", to the second (HB18-F01). The project stores naive UTC
+    (``utcnow``); a naive ISO string is read as *local* time by the browser's ``Date.parse``, so every helper time
+    goes out through this."""
+    aware = value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+    return aware.replace(tzinfo=None).isoformat(timespec="seconds") + "Z"
+
+
+#: a helper card time: validated as a datetime, sent as :func:`utc_iso`
+UtcDatetime = Annotated[
+    datetime,
+    PlainSerializer(utc_iso, return_type=str, when_used="json"),
+    WithJsonSchema({"type": "string", "format": "date-time"}),
+]
 
 
 LINK_MARK = "[bağlantı]"
@@ -228,7 +253,7 @@ class ConfirmCard(CardBase):
     action: Name
     risk: Literal["R1", "R2"]
     token: Token
-    expires_at: datetime
+    expires_at: UtcDatetime
     preview: list[PreviewLine] = Field(max_length=8)
     #: R2: who else is affected ("P. T.'ye bildirim gider")
     affected: Txt | None = None
@@ -263,7 +288,7 @@ class ResultCard(CardBase):
     message: Txt
     entity: Entity | None = None
     undo_token: Token | None = None
-    undo_expires_at: datetime | None = None
+    undo_expires_at: UtcDatetime | None = None
     follow_ups: list[FollowUp] = Field(default_factory=list, max_length=2)
 
 
@@ -318,6 +343,8 @@ def card_json_schema() -> dict[str, Any]:
 
 
 __all__ = [
+    "UtcDatetime",
+    "utc_iso",
     "CARD_ADAPTER",
     "CARD_TYPES",
     "CARD_VERSION",

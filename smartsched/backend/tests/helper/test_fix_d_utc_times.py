@@ -14,8 +14,8 @@ from app.ai.helper.actions import registry as reg
 
 from tests.crbs_env import env  # noqa: F401
 from tests.helper.support import H, card, personas
-from tests.helper.test_hb_d_asks import _consent
 from tests.helper.test_hb_05_writes import THU
+from tests.helper.test_hb_d_asks import _consent
 
 
 def _aware_utc(text: str) -> datetime:
@@ -78,7 +78,7 @@ async def test_helper_api_times_are_aware_utc(env) -> None:  # noqa: F811
             _aware_utc(row["undo_expires_at"])
 
     await _consent(t.uid)
-    n = await env.client.post(f"{H}/notes", json={"text": "Pazartesi B blok"}, headers=t.headers)
+    n = await env.client.post(f"{H}/notes", json={"text": "Pazartesi B blok", "source": "user_confirmed"}, headers=t.headers)
     assert n.status_code == 201, n.text
     notes = (await env.client.get(f"{H}/notes", headers=t.headers)).json()
     items = notes["notes"] if isinstance(notes, dict) else notes

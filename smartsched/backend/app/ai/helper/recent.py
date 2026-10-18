@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.helper import cards
+from app.ai.helper import cards, schema
 from app.models.base import utcnow
 from app.models.helper import HelperActionInvocation, HelperNote
 from app.services.bookings_perms import Access
@@ -120,13 +120,13 @@ async def recent(session: AsyncSession, access: Access, limit: int = 5) -> list[
             "entity_id": inv.entity_id,
             "feature_id": feature if feature in known else None,
             "label": {"tr": cards.clean(tr, 120), "en": cards.clean(en, 120)},
-            "at": (inv.done_at or inv.created_at).isoformat(),
+            "at": schema.utc_iso(inv.done_at or inv.created_at),
             "status": inv.status,
             "undoable": undoable,
         }
         if undoable and until is not None:
             row["undo_token"] = cf.undo_token(access.user_id, inv.id, until)
-            row["undo_expires_at"] = until.isoformat()
+            row["undo_expires_at"] = schema.utc_iso(until)
         out.append(row)
     return out
 

@@ -448,7 +448,7 @@ async def summary(session: AsyncSession, days: int = 7, now: datetime | None = N
     actions = [{"action": a, **funnel[a]} for a in sorted(funnel)]
     return {
         "days": days,
-        "since": since.isoformat(timespec="seconds"),
+        "since": s.utc_iso(since),
         "turns": turns,
         "fallback": fallback,
         "deflection": deflection,

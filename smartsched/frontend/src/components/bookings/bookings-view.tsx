@@ -42,6 +42,7 @@ import { CalendarSyncPanel } from "./calendar-sync";
 import { CancelManyDialog } from "./cancel-many-dialog";
 import { DepartmentBar, useDepartmentLens } from "./department-lens";
 import { FreeSlotsList } from "./free-slots-list";
+import { ClosedDayNotice, isClosedDay } from "./closed-day";
 import { addDays } from "./date-format";
 import { freeSlotsByRoom } from "./reserve-model";
 import { EntityIcon } from "@/components/admin/icons";
@@ -604,7 +605,9 @@ export function BookingsView() {
 
       <HiddenPeriodsChip count={hiddenCount} revealed={revealHidden} onToggle={toggleHidden} />
       <div aria-busy={grid.isFetching} data-stale={stale ? "true" : undefined} className="relative transition-opacity duration-(--dur-fast) data-[stale=true]:opacity-60" data-testid="booking-grid-wrap">
-        {g && lens === "free" ? (
+        {g && isClosedDay(g) ? (
+          <ClosedDayNotice next={g.nav.next} long={fmt.long} onGo={(d) => setParams({ date: d })} />
+        ) : g && lens === "free" ? (
           <FreeSlotsList
             rooms={freeRooms}
             loading={grid.isFetching || weekGrids.some((x) => x.isLoading)}
