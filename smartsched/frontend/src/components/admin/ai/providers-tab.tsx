@@ -24,6 +24,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { StatusWord } from "./ai-kit";
 import { errorMessage, firstSpeechModel, providerLabel, providerStatus } from "./ai-model";
+import { providerFailureText } from "./provider-failure";
 
 const SECRET_LABEL: Record<string, MessageKey> = {
   api_key: "aiAdmin.provider.key",
@@ -254,7 +255,7 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
               ? t("voice.admin.testOk", { preview: p.last_test.transcript_preview })
               : p.last_test.ok
                 ? t("aiAdmin.provider.testOk", { detail: p.last_test.detail ?? "" })
-                : t("aiAdmin.provider.testFail", { detail: p.last_test.detail ?? "" })}
+                : t("aiAdmin.provider.testFail", { detail: providerFailureText(p.last_test.detail, t) })}
           </p>
         ) : null}
       </div>
@@ -295,7 +296,8 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
                   // a speech-only provider answers with the transcript of the sample clip: show it ("Ses testi başarılı:
                   // “…”"), and a passing test clears the earlier failure (e2e 2026-10-18, vo-admin 5)
                   onSuccess: (r) => {
-                    if (!r.ok) return setError(t("aiAdmin.provider.testFail", { detail: r.detail }));
+                    // F-VO-1: the provider's English reason becomes a coded sentence in the reader's language
+                    if (!r.ok) return setError(t("aiAdmin.provider.testFail", { detail: providerFailureText(r.detail, t) }));
                     setError(null);
                     toast.success(r.transcript_preview ? t("voice.admin.testOk", { preview: r.transcript_preview }) : t("aiAdmin.provider.testOk", { detail: r.detail }));
                   },
@@ -316,7 +318,7 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
               onClick={() =>
                 voiceTest.mutate(
                   { p: p.id, model: sttModel },
-                  { onSuccess: (r) => (r.ok ? toast.success(t("voice.admin.testOk", { preview: r.transcript_preview ?? r.detail })) : setError(t("voice.admin.testFail", { detail: r.detail }))), onError: fail },
+                  { onSuccess: (r) => (r.ok ? toast.success(t("voice.admin.testOk", { preview: r.transcript_preview ?? r.detail })) : setError(t("voice.admin.testFail", { detail: providerFailureText(r.detail, t) }))), onError: fail },
                 )
               }
               data-testid={`ai-provider-voice-test-${p.id}`}

@@ -4158,3 +4158,39 @@ rule: no stack, no next build, no Playwright); every item below waits for its E2
   frames from elapsed time and draws nothing of the hero in a frame after keydown/beforeinput/input/pointerdown or
   while isInputPending(); the pass still ends at 4.67 s; SignInHero memoised, player props stable; signin-hero tests
   +5. open: e2e/au-signin-hero.spec.ts ×3 under load)
+
+### FIX-A: e2e results 2026-10-18 backend fixes (fix-a-2026-10-18)
+Source: docs/testing/e2e-queue/results-2026-10-18.md (AU-B, AS-B, HB-02 note, council full re-run notes 1 and 2).
+- [x] F-AUB-1 (major, security) "Diğer cihazlardan çıkış yap" let a token that was issued but had not made a request
+  yet survive (no session row to mark; rows are written on a token's first request).
+  done (security.user_token adds claim `se` = the user's `sessions_epoch` at issue; sessions.check refuses the first
+  request of a token whose `se` is behind the epoch (401 "session revoked", nothing recorded); revoke_others moves
+  the epoch on even when no other row exists; tests/test_fix_a_revoke_fresh_tokens.py 3 (sign in twice, revoke from
+  the first before the second made a request -> 401, also with an empty cache); unit level, e2e queued; fix-a-2026-10-18)
+- [x] F-ASB-1 `stats.horizon_skipped_weeks` missing for a real Bahar import (`week_count` 15, 19 week rows).
+  done (solver_bridge `_calendar_horizon`: a TERM COURSE run's raw horizon is the term's week rows plus
+  1..week_count; course_weeks drops HOLIDAY/EXAM/MAKEUP, weeks past week_count are never planned (week 16 "Yaz
+  Dönemi" stored as LECTURE stays out) but are listed; EXAM runs unchanged; tests/test_fix_a_horizon_skipped_weeks.py
+  3 on the real bahar grid import: planned 1-15, skipped [16, 17, 18, 19], a HOLIDAY week 12 -> [12, 16..19]; unit
+  level, e2e queued; fix-a-2026-10-18)
+- [x] Council note 1: a blocking person-merge question appeared only after the first group's commit (Güz -> 409).
+  done (review.person_merge_items asks "Aynı kişi mi?" between two not-yet-known people named by files of two planner
+  groups before any commit (`person:pair:<digest>`, `file_indexes` of both files, blocks either group's commit,
+  writes nothing at the first commit); the question the second commit raises against the person the first one
+  created inherits that answer (legacy_id), so no second 409; commit.concerns() reads `file_indexes`;
+  tests/council/test_fix_a_person_merge_across_groups.py on the real Bahar row 1100 / Güz row 274 (ACU 313,
+  "Nermin Kılıç Akdoğan" / "NERMİN KILIÇ AKOĞLAN"); unit level, e2e queued; fix-a-2026-10-18)
+- [x] Council note 2: the Güz workbooks created `2026-2027-GUZ` next to the seeded `2026-GUZ`.
+  done (orchestrator decision: new app/council/term_match.py matches a planner group to an existing term by season
+  words in any spelling (Güz/GUZ/Fall/Autumn, İ/ı/NBSP folded), the calendar year (academic year either way) or an
+  overlapping date range (a non-overlapping range rules a term out); one match -> the group takes that code
+  (`proposed_code` kept, `term_id`), two -> the plan item is blocking with `term_candidates` (edit {code} picks one,
+  accept creates the planner's term); applied after the planner (orchestrator, review re-run), in commit._term when
+  the code is the planner's, and in review._term_ids; tests/council/test_fix_a_term_match.py 12 (both keys 2026-GUZ and
+  2026-2027-GUZ commit into the seeded term, no new term; two candidates asked); unit level, e2e queued; fix-a-2026-10-18)
+- [x] HX/HB copy: a taken slot said "Bu saat dolu." while the helper cards say "Bu saat az önce doldu.".
+  done (bookings.py SLOT_TAKEN / SLOT_HELD: `conflict` refusals carry message_tr/message_en — a booking or a lost race
+  "Bu saat az önce doldu." / "This slot was just taken.", the published timetable and a reserved block their own
+  words; the helper's refusal prefers the service's message_tr, so writes.py is untouched; the booking UI keeps its
+  own conflict texts (booking-errors.ts ignores message_tr for `conflict`); tests/helper/test_fix_a_slot_taken_copy.py
+  2; unit level, e2e queued; fix-a-2026-10-18)

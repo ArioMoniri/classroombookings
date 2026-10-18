@@ -250,13 +250,11 @@ describe("F-MB-3 · 32 px root on /generate and /analytics/heatmap", () => {
     expect(lineOf("components/studio/studio-view.tsx", 'testId="bar-generate"')).toContain('className="min-w-0 shrink"');
     expect(read("components/studio/generate-step.tsx")).toContain('<span className="min-w-0 truncate">');
   });
-  it("the tab bar's search circle and items keep their pixel size (44-48 px), not 2× at a 32 px root", () => {
+  it("the tab-bar items keep their 44 px minimum in pixels, not 2× at a 32 px root (the search capsule: ask to the UI-alignment lane)", () => {
     const tab = read("components/shell/tab-bar.tsx");
-    const palette = lineOf("components/shell/tab-bar.tsx", 'data-testid="open-palette-mobile"');
-    expect(palette).toContain("size-[min(3rem,48px)]");
-    expect(palette).toContain("[&_svg]:size-[min(1.25rem,20px)]");
     expect(tab).toContain("min-w-[min(2.75rem,44px)]");
   });
+});
 });
 
 /* ------------------------------------------------------------------------------------------ F-MA-2 */

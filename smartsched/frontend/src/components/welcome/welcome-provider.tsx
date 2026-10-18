@@ -83,7 +83,7 @@ function WelcomeHost() {
       if (!autoBudgetFree()) return;
       if (isSheet) {
         spendAutoBudget("sheet");
-        openSheet({ mode: "auto", kind: show.kind === "delta" ? "delta" : "sheet", deltaAudiences: show.audiences ?? undefined, updated: show.kind !== "delta" && (!!show.updated || !!data.sheet.updated) });
+        openSheet({ mode: "auto", kind: show.kind === "delta" ? "delta" : "sheet", deltaAudiences: show.audiences ?? undefined, updated: !!show.updated || !!data.sheet.updated });
         event.mutate({ guide_key: "sheet", event: "shown" });
       } else if (show.key) {
         spendAutoBudget(`hint:${show.key}`);

@@ -405,8 +405,9 @@ async def test_provider(
     provider: str, body: TestIn, db: DB, user: AIAdmin, probe: bool = Query(False)
 ) -> dict[str, Any]:
     """A tiny real call (a few output tokens, no tools) with the stored credentials; metered as ``test``. With
-    ``probe=true`` (HB-12) three tiny calls find out what the model can do (forced tool, JSON schema, a 32×32
-    image; under 1000 tokens, one ``test`` row) and the result is stored as the model's ``probe`` capabilities."""
+    ``probe=true`` (HB-12) three small calls find out what the model can do (forced tool, JSON schema, a 32×32
+    image; at most 512 output tokens each, one ``test`` row) and the result is stored as the model's ``probe``
+    capabilities; a capability a call could not prove (cut off, unreachable, 5xx) stays unknown (HB-F)."""
     p = _provider(provider)
     stored = (await gw.synced_models(db, p)).get("models") or []
     synced = [m.get("id") for m in stored]

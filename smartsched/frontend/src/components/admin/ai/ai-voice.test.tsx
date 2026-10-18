@@ -214,7 +214,10 @@ describe("speech-only provider: Bağlantıyı test et (e2e 2026-10-18, vo-admin 
     await act(async () => {
       fireEvent.click(btn);
     });
-    expect(await screen.findByTestId("ai-provider-error-deepgram")).toHaveTextContent("Deepgram rejected the API key");
+    // F-VO-1: the provider's English reason is mapped to Turkish text
+    const failed = await screen.findByTestId("ai-provider-error-deepgram");
+    expect(failed).toHaveTextContent("Test başarısız: Sağlayıcı API anahtarını kabul etmedi. Anahtarı denetleyin.");
+    expect(failed).not.toHaveTextContent("rejected");
     await act(async () => {
       fireEvent.click(btn);
     });

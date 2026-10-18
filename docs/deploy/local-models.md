@@ -18,7 +18,7 @@ institution network. Only the feature index and the BM25 search run on the pod. 
 | Size | GPU | Model (example) | Context | Concurrent helper users |
 |---|---|---|---|---|
 | Small (pilot) | 1× 16 GB (RTX 4080 / A4000 class) | Qwen3.5-9B Q4 (`qwen3.5:9b` on Ollama, `Qwen/Qwen3.5-9B` on vLLM) | 16–32k | 1–3 |
-| **Recommended** | 1× 24 GB (RTX 4090 / L4 / A5000) | Gemma 4 26B-A4B (`gemma4:26b`) or Qwen3-14B Q4/Q5 | 32k | 5–10 |
+| **Recommended** | 1× 24 GB (RTX 4090 / L4 / A5000 / A10) | **Qwen3-14B Q4** (`qwen3:14b`, benched for the helper) or Gemma 4 26B-A4B (`gemma4:26b`) | 16–32k | 5–10 |
 | Large (faculty-wide) | 1× 48 GB (L40S / A6000) | Qwen3-32B or Gemma 4 31B at Q8 / FP8 | 32k+ | 10+ |
 
 - The helper needs a model that can call tools and has a context of at least 8k tokens. Chat needs 16k or more.
@@ -28,6 +28,11 @@ institution network. Only the feature index and the BM25 search run on the pod. 
   top. The HB-17 bench publishes measured numbers in `docs/testing/ai/2026-10-local-models.md`.
 - Use **vLLM** for a shared service. It enforces strict tool schemas and supports named tool choice and batching.
   **Ollama** is fine for a pilot.
+- **Which model for the helper (HB-17 re-bench, 2026-10-18, one 24 GB A10, Ollama, 16k context):** recommend
+  **`qwen3:14b` (Q4, 24 GB GPU)**. It reached the booking confirm card 10/10, made 0 writes without a click and
+  scored 35/40 overall, at p50 ≈ 10 s / p95 ≈ 29 s per AI turn. Use `qwen2.5:14b-instruct` only where "where is it"
+  speed matters more than bookings (p50 3.5 s / p95 6.5 s, but 3/10 bookings and 28/40 overall). Details:
+  `docs/testing/hb-17-local-bench-2026-10-18.md`, "Re-bench after HB-E".
 
 ## 2. vLLM on the GPU host (recommended)
 
@@ -71,18 +76,30 @@ docker run -d --name ollama --restart unless-stopped --gpus all \
 docker exec ollama ollama pull qwen3.5:9b
 ```
 
-Without Docker (cloud-init or a systemd unit), **export `HOME` before the first `ollama` command**. cloud-init runs
-`runcmd` without `$HOME`, and the `ollama` CLI then panics before it starts (HB-17 bench, 2026-10-18):
+Without Docker there are two cases (HB-17 bench and re-bench, 2026-10-18):
 
-```sh
-# cloud-init runcmd / a systemd ExecStartPre script
-export HOME=/root OLLAMA_CONTEXT_LENGTH=16384 OLLAMA_HOST=127.0.0.1:11434
-ollama serve &                        # or the packaged ollama.service with the same Environment= lines
-ollama pull qwen3.5:9b
-```
+- **The CLI runs as root** (cloud-init `runcmd`, a root shell script): **export `HOME=/root` before the first
+  `ollama` command**. cloud-init runs `runcmd` without `$HOME`, and the `ollama` CLI then panics before it starts.
 
-In a systemd unit, set the same values with `Environment=HOME=/root`, `Environment=OLLAMA_CONTEXT_LENGTH=16384` and
-`Environment=OLLAMA_HOST=…` in the `[Service]` section.
+  ```sh
+  # cloud-init runcmd (runs as root, without $HOME)
+  export HOME=/root OLLAMA_CONTEXT_LENGTH=16384 OLLAMA_HOST=127.0.0.1:11434
+  ollama serve &
+  ollama pull qwen3:14b
+  ```
+
+- **The packaged `ollama.service`** (the install script's unit, `User=ollama`, with its own home directory): do **not**
+  set `HOME=/root` there. The `ollama` user cannot write `/root/.ollama`, and the service then never starts (the
+  re-bench lost a launch to this). Give the unit only the two Ollama variables, in a drop-in (`systemctl edit ollama`):
+
+  ```ini
+  [Service]
+  Environment=OLLAMA_CONTEXT_LENGTH=16384
+  Environment=OLLAMA_HOST=127.0.0.1:11434
+  ```
+
+  Then `systemctl daemon-reload && systemctl restart ollama`, and pull the model as root with `HOME` set
+  (`HOME=/root ollama pull qwen3:14b`) or as the `ollama` user.
 
 ### Next to the stack (optional compose profile `ollama`)
 
@@ -155,7 +172,8 @@ curl -sS -X PUT "$API/ai/admin/providers/openai_compatible" -H "$H" -H 'Content-
        "api_key": "'"$(cat /etc/smartsched-llm.key)"'"}'
 # 2. sync: lists the models and sniffs their capabilities (tools, tool_choice, json_schema, vision, context)
 curl -sS -X POST "$API/ai/admin/providers/openai_compatible/sync" -H "$H"
-# 3. probe: three tiny calls (forced tool, JSON schema, a 32x32 image; < 1000 tokens, metered "test")
+# 3. probe: three small calls (forced tool + an auto retry, JSON schema, a 32x32 image; at most 512 output tokens
+#    each, so a thinking model has room to reason first; a few thousand tokens in total, metered "test")
 curl -sS -X POST "$API/ai/admin/providers/openai_compatible/test?probe=true" -H "$H" \
   -H 'Content-Type: application/json' -d '{"model": "qwen3.5-9b"}'
 # 4. route the helper (and any other feature) to it; a model without tools is refused (422 model_lacks_capability)
@@ -172,6 +190,15 @@ For the compose profile, the base URL is `http://ollama:11434/v1` and the model 
 - The probe stores its findings only when at least one call reached the server, so a Test during an outage does not
   block routing. Its forced tool call uses a neutral message, so a server that ignores `tool_choice` (Ollama) shows
   `tool_choice: no`; SmartSched then sends a forced single tool as a JSON schema instead (HB-13).
+- A probe call that proves nothing leaves that capability **unknown**, and sync's value stands: a call cut off at
+  `max_tokens` with no answer (a thinking model that spent its budget reasoning), a lost connection, a timeout or a
+  5xx (HB-F bugs A and D). Only a 4xx or a wrong answer is a "no". Unknown capabilities are left out of the probe's
+  result line.
+- **A free tunnel may rotate its host name.** A quick tunnel without an account (for example a `trycloudflare.com`
+  URL) gets a new random host name on every restart, so the stored base URL stops working without any error on the
+  model host. After a tunnel restart, update the base URL (step 1) and sync again; for anything beyond a test, use a
+  named tunnel or the internal address. A tunnel host name resolves to a public address, so SmartSched treats it as a
+  cloud transfer (section 6).
 - Run the probe after the sync on an Ollama server: it loads the model, and its last step reads the served window
   from `/api/ps` (see section 3).
 - **/admin/ai › Yardımcı** shows the helper's mode. Once a feature route exists, the person's status chip reads
@@ -204,6 +231,8 @@ bul". The answer must be in Turkish, come with `nav` / `list` cards, and add one
 | `422 model_lacks_capability` when routing | sync / probe found no tool support | use a tool-capable model; for vLLM add `--enable-auto-tool-choice --tool-call-parser …` |
 | `context_too_small` | the server's context is smaller than the prompt | raise `--max-model-len` / `OLLAMA_CONTEXT_LENGTH` to ≥ 16384, then sync again |
 | `context_unverified` on the provider card or route | Ollama had not loaded the model at sync, so only its maximum is known | run **Test** (probe) once; it loads the model and reads `/api/ps` |
-| `ollama` panics in cloud-init / systemd (`$HOME is not defined`) | the CLI needs `HOME` | `export HOME=/root` (or `Environment=HOME=/root`) before `ollama` |
+| `ollama` panics in cloud-init (`$HOME is not defined`) | the CLI runs as root without `HOME` | `export HOME=/root` before `ollama` in `runcmd`; never set `HOME=/root` in the packaged `ollama.service` (section 3) |
+| `ollama.service` does not start after adding `Environment=HOME=/root` | the unit runs as `User=ollama`, which cannot use `/root` | remove that line; the unit needs only `OLLAMA_CONTEXT_LENGTH` and `OLLAMA_HOST` |
+| The provider stops answering after the tunnel restarted | a free tunnel gave the server a new host name | update the base URL and sync again (section 5) |
 | `unsafe_url` / address refused | `allow_local` off, or the name resolves to a public address | turn on "Yerel sunucu"; use the internal address |
 | Slow first answer | the model loads on the first request | Ollama: `OLLAMA_KEEP_ALIVE` (compose sets 30m); vLLM loads at start |
