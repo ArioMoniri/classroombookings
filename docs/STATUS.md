@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `d0244db` (committed 2026-10-18 10:51 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `4d756d0` (committed 2026-10-18 10:59 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -177,7 +177,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-346 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 317 · stopped 11 · superseded 7.
+354 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 324 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -190,8 +190,9 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `AS-S` | solver-engineer | 2026-10-18 07:56 |
 | `HB-B` | ai-engineer | 2026-10-18 07:56 |
 | `E2E lane` | general-purpose | 2026-10-18 08:59 |
-| `HX helper chat frontend` | frontend-engineer | 2026-10-18 09:35 |
-| `IDP-2` | claude | 2026-10-18 10:38 |
+| `HB-D` | ai-engineer | 2026-10-18 10:55 |
+| `Shell integration` | frontend-engineer | 2026-10-18 10:55 |
+| `CI lane` | devops-engineer | 2026-10-18 11:02 |
 
 <!-- /AUTO:agents -->
 
@@ -258,7 +259,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **426 ticked · 427 open** checkboxes in 100 sections (96 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **426 ticked · 435 open** checkboxes in 100 sections (96 with open items).
 
 <details><summary>Per section</summary>
 
@@ -359,9 +360,9 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 14 | 7 |
 | Voice for AI features (owner request 2026-10-17) | 5 | 8 |
 | Charts & telemetry views (owner request 2026-10-17) | 8 | 4 |
-| Real-not-fake & admin editability (owner request 2026-10-17; audit… | 14 | 4 |
+| Real-not-fake & admin editability (owner request 2026-10-17; audit… | 14 | 5 |
 | AI helper: backend, governance, local models (owner request 2026-10-17) | 14 | 6 |
-| AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 1 | 13 |
+| AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 1 | 20 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — UX | 0 | 12 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — backend | 17 | 1 |
 

@@ -22,16 +22,20 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 |---|---|---|---|---|
 | Shell integration | `shell-int-2026-10-18` | HX mounts (/admin/ai helper tab, faculty view and allocation editor, nav entry, Yardımcıya sor), data-tour anchors, hand-over prefill params, helper motion audit spec, RF-16 period grid at app start | HX PROGRESS rows, helper.md | — |
 | HB-D | `hb-d-2026-10-18` | Remember card, `context` on /helper/turn, `/helper/actions/recent` | helper API.md | — |
-| HX design | `hx-design-2026-10-18` | HB-07 sign-off on 8 contract differences, HX-12 design audit | helper.md | — |
+| HX-18 | `hx-18-2026-10-18` | Helper design-audit fixes M1–M8 + minors | helper design audit | — |
+| CI green | `ci-green-2026-10-18` | Reproduce every pod-CI gate we can on HEAD and fix failures; gate status doc | pod-ci gates | — |
 | Launch video | `media-launch` | Recordly + Lottie + Remotion videos | MEDIA.md | final UI |
 | E2E lane | `e2e-2026-10-18` | docs/testing/e2e-queue section by section → results-2026-10-18.md | e2e-queue README | — |
 
-Done 2026-10-18: IDP-2 (CBC needs a signed Response; SAML wizard Gelişmiş), HX (HX-01 done; HX-02..11 part done, e2e pending), RF-F (RF-06, RF-08 ticked; RF-09 part done: client still uses fixed period times → RF-16), RF-C (RF-14, RF-15), IDP (RF-12, encrypted assertions, request signing, profile linking; e2e pending), Sweeper 2 (W3-AI capsule + history spotlighting, F13 hashed locks, /grafana/ drift test, mobile B capsules, fix 15 two of three, A5 density rows), HB-C (HB-14, HB-15; HB-16 part done: needs a GPU host walk-through), CH-B (chart routes; CH-07/10/11 wait on e2e only), RF-B (RF-06/08/09 backend, `mfa_state` filter), CH-M (CH-08 done; CH-07/10/11 frontend waiting on CH-B), HB-B (HB-06, HB-10..13; e2e pending), WG-09 (part done: e2e pending, hosted fix unspent), RF-M (RF-04, RF-10; e2e pending), AUX-10 (part done: e2e pending, the hosted fix "signin-hero-settle" is unspent because `TRANSITIONS_AGENT_LICENSE` is not set in this session), HB-A (HB-01/03..05/07..09), AS-B, AS-F, AUX-F, AU-B, CAL-F, VO-F, WG-F, charts p2, mobile A/B, RF-1, RF-2, sweeper.
+Done 2026-10-18: HX design (HB-07 signed off; HX-12 helper audit written, 0 blockers / 8 major), IDP-2 (CBC needs a signed Response; SAML wizard Gelişmiş), HX (HX-01 done; HX-02..11 part done, e2e pending), RF-F (RF-06, RF-08 ticked; RF-09 part done: client still uses fixed period times → RF-16), RF-C (RF-14, RF-15), IDP (RF-12, encrypted assertions, request signing, profile linking; e2e pending), Sweeper 2 (W3-AI capsule + history spotlighting, F13 hashed locks, /grafana/ drift test, mobile B capsules, fix 15 two of three, A5 density rows), HB-C (HB-14, HB-15; HB-16 part done: needs a GPU host walk-through), CH-B (chart routes; CH-07/10/11 wait on e2e only), RF-B (RF-06/08/09 backend, `mfa_state` filter), CH-M (CH-08 done; CH-07/10/11 frontend waiting on CH-B), HB-B (HB-06, HB-10..13; e2e pending), WG-09 (part done: e2e pending, hosted fix unspent), RF-M (RF-04, RF-10; e2e pending), AUX-10 (part done: e2e pending, the hosted fix "signin-hero-settle" is unspent because `TRANSITIONS_AGENT_LICENSE` is not set in this session), HB-A (HB-01/03..05/07..09), AS-B, AS-F, AUX-F, AU-B, CAL-F, VO-F, WG-F, charts p2, mobile A/B, RF-1, RF-2, sweeper.
 
 ## Queued (start when a slot frees; at most 8 agents)
 
 | Next | Starts after | Notes |
 |---|---|---|
+| HX-15/16/17 (recent actions, page chip, Hatırla card) | HB-D | frontend |
+| HX-19 helper sheet drag-to-dismiss + exit timing | HX-18 | motion |
+| HX-12b 12-screen simplicity audit with screenshots | pod health 200 | tester, with the tester wave |
 | **Tester wave** against the pod over HTTPS (not a local stack): WG-10 role testers, CAL-10 academician (T1–T19), round-4 personas (staff, academician, admin; Simplicity), AS-20 adaptive, CH-12 charts, VO-09 voice (fixtures, bench, personas), AUX-12 sign-in (auth.md §16 checks 1–13), HB-18 helper red team and personas | pod health 200 | reports in docs/testing/ |
 | HB-17 local-model bench + HB-16 GPU walk-through | running in child session session_01PJDxbGh1r6tTTr7RXHJySF (Lambda A10, cap 2.5 h, teardown check 13:25 UTC) | tester |
 | HB-07 design sign-off on the 4 card-contract differences | HX report | design-pro, review only |

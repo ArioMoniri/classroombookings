@@ -322,9 +322,9 @@ describe("compare runs", () => {
 describe("period facts (derived from @/lib/time only)", async () => {
   const p = await import("./periods");
   it("day bounds, the transition period and the daytime/evening split", () => {
-    expect([p.DAY_START, p.DAY_END]).toEqual(["08:30", "22:50"]);
-    expect(p.TRANSITION_PERIOD).toBe(12);
-    expect([p.TRANSITION.start, p.TRANSITION.end]).toEqual(["17:30", "18:00"]);
-    expect([p.LAST_DAYTIME_PERIOD, p.FIRST_EVENING_PERIOD]).toEqual([11, 13]);
+    expect([p.dayStart(), p.dayEnd()]).toEqual(["08:30", "22:50"]);
+    expect(p.transitionPeriod()).toBe(12);
+    expect([p.transition().start, p.transition().end]).toEqual(["17:30", "18:00"]);
+    expect([p.lastDaytimePeriod(), p.firstEveningPeriod()]).toEqual([11, 13]);
   });
 });

@@ -83,6 +83,20 @@ def check(text: str, perms: Iterable[str], *, min_coverage: float = MIN_COVERAGE
     return Verdict(False, OUT_OF_SCOPE, REFUSAL_TR, REFUSAL_EN, hits, "index_vocabulary")
 
 
+def check_note(text: str) -> Verdict:
+    """The pre-card verdict for the text of a "bunu hatırla: …" note (HB-D). A note is the person's own preference,
+    so the scope check does not apply, but it reaches every later prompt (as a spotlighted ``user_notes`` block), so
+    instructions and role hand-offs are refused before a card is shown."""
+    raw = text or ""
+    v = g.check_user_input(raw, "helper", scope_check=False)
+    if not v.allowed:
+        return Verdict(False, v.reason_code, v.message_tr, v.message_en, rule=v.rule)
+    if _ROLE_HANDOFF.search(g.fold(raw)):
+        tr, en = g.message_for("prompt_injection_roleplay")
+        return Verdict(False, "prompt_injection_roleplay", tr, en, rule="helper_role_handoff")
+    return Verdict(True)
+
+
 def ground_answer(answer: str, emitted_feature_ids: Iterable[str]) -> bool:
     """``True`` when the model's answer may stand: it names no index page title for which no ``nav`` card was sent
     this turn, and shows no crumb path ("A › B") without any ``nav`` card. ``False`` = replace the text with the
@@ -101,4 +115,4 @@ def ground_answer(answer: str, emitted_feature_ids: Iterable[str]) -> bool:
     return True
 
 
-__all__ = ["MAX_INPUT_CHARS", "OUT_OF_SCOPE", "REFUSAL_EN", "REFUSAL_TR", "Verdict", "check", "ground_answer"]
+__all__ = ["MAX_INPUT_CHARS", "OUT_OF_SCOPE", "REFUSAL_EN", "REFUSAL_TR", "Verdict", "check", "check_note", "ground_answer"]

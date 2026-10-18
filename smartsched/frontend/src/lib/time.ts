@@ -1,6 +1,7 @@
 /**
- * Period / time helpers for the 18-period daily grid (docs/DATA_ANALYSIS.md "Time grid").
- * All helpers are pure and locale-neutral; day names are resolved via Intl in the UI.
+ * Period / time helpers for the 18-period daily grid (docs/DATA_ANALYSIS.md "Time grid"). The clock times are the
+ * university's (`GET /period-grid`, RF-09 / RF-16), applied at app start; the built-in times are the fallback.
+ * All helpers are locale-neutral and read the grid at call time; day names are resolved via Intl in the UI.
  */
 
 export interface Period {
@@ -26,11 +27,68 @@ const PERIOD_ENDS = [
   "18:40", "19:30", "20:20", "21:10", "22:00", "22:50",
 ] as const;
 
-export const PERIODS: readonly Period[] = PERIOD_STARTS.map((start, i) => ({
-  index: i + 1,
-  start,
-  end: PERIOD_ENDS[i],
-}));
+/** The built-in grid (docs/DATA_ANALYSIS.md): the fallback while `GET /period-grid` loads, and on an error. */
+export const DEFAULT_PERIODS: readonly Period[] = Object.freeze(
+  PERIOD_STARTS.map((start, i) => Object.freeze({ index: i + 1, start, end: PERIOD_ENDS[i] })),
+);
+
+/**
+ * The grid in use (RF-16). It starts as the defaults and is replaced in place by `applyPeriodGrid` when the app
+ * shell has read `GET /period-grid` (components/shell/period-grid-gate.tsx), so every reader sees the admin-edited
+ * times without a rebuild. Read it at call time; never derive a module-level value from it.
+ */
+export const PERIODS: readonly Period[] = DEFAULT_PERIODS.map((p) => ({ ...p }));
+
+let gridVersion = 0;
+const gridListeners = new Set<() => void>();
+
+/** Bumped on every change of the grid in use (useSyncExternalStore snapshot). */
+export function periodGridVersion(): number {
+  return gridVersion;
+}
+
+export function subscribePeriodGrid(listener: () => void): () => void {
+  gridListeners.add(listener);
+  return () => gridListeners.delete(listener);
+}
+
+function setGrid(rows: readonly Period[]): void {
+  const live = PERIODS as Period[];
+  let changed = false;
+  rows.forEach((r, i) => {
+    const cur = live[i];
+    if (cur.start !== r.start || cur.end !== r.end) {
+      cur.start = r.start;
+      cur.end = r.end;
+      changed = true;
+    }
+  });
+  if (!changed) return;
+  gridVersion += 1;
+  gridListeners.forEach((l) => l());
+}
+
+/**
+ * Use the server's grid (`GET /period-grid` `periods`, "08:30" or the Turkish "08.30"). Anything but 18 readable
+ * periods, each ending after it starts, is ignored and the grid in use stays. Returns whether it was applied.
+ */
+export function applyPeriodGrid(rows: readonly { start: string; end: string }[] | null | undefined): boolean {
+  if (!Array.isArray(rows) || rows.length !== PERIODS_PER_DAY) return false;
+  const next: Period[] = [];
+  for (const [i, r] of rows.entries()) {
+    const a = typeof r?.start === "string" ? parseClock(r.start) : null;
+    const b = typeof r?.end === "string" ? parseClock(r.end) : null;
+    if (a === null || b === null || b <= a) return false;
+    next.push({ index: i + 1, start: formatClock(a), end: formatClock(b) });
+  }
+  setGrid(next);
+  return true;
+}
+
+/** Back to the built-in grid (tests; a signed-out shell). */
+export function resetPeriodGrid(): void {
+  setGrid(DEFAULT_PERIODS);
+}
 
 /** Minutes since midnight for "HH:MM" / "HH.MM" / "H:MM". Returns null when unparsable. */
 export function parseClock(text: string): number | null {

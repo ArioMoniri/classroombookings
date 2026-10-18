@@ -133,9 +133,18 @@ async def _names_another_person(session: AsyncSession, user: User, text: str) ->
     return Redactor(people).text(text) != text
 
 
-async def add_note(session: AsyncSession, user: User, text: str, source: str) -> dict[str, Any]:
-    if source not in ("user_button", "user_confirmed"):
-        raise ActionRefused(422, "source", "Not yalnızca sizin onayınızla kaydedilir.", "A note is saved only by you.")
+CONSENT_MISSING = (
+    "Notlar için Profil › Gizlilik'te yapay zekâ rızanız gerekir.",
+    "Notes need your AI consent under Profile › Privacy.",
+)
+
+
+async def check_note(
+    session: AsyncSession, user: User, text: str, *, require_consent: bool = False
+) -> tuple[str, dict[str, Any]]:
+    """The rules every note passes, without writing: the switches (and, for the helper's "Bunu hatırla" card, the
+    ``ai_personal`` consent), not empty, ≤ 200 characters, ≤ 20 notes, no other person's name. Returns the cleaned
+    text and the memory state; :class:`ActionRefused` otherwise."""
     st = await state(session, user)
     if not st["institution_enabled"]:
         raise ActionRefused(
@@ -151,6 +160,11 @@ async def add_note(session: AsyncSession, user: User, text: str, source: str) ->
             "Yardımcı belleğiniz kapalı; Profil › Yardımcı'dan açabilirsiniz.",
             "Your helper memory is off; switch it on in Profile › Helper.",
         )
+    if require_consent:
+        from app.services import kvkk
+
+        if not await kvkk.has_consent(session, user.id, "ai_personal"):
+            raise ActionRefused(409, "consent_missing", *CONSENT_MISSING)
     clean = " ".join((n.clean_text(text) or "").split())
     if not clean:
         raise ActionRefused(422, "empty", "Not boş olamaz.", "The note cannot be empty.")
@@ -175,6 +189,15 @@ async def add_note(session: AsyncSession, user: User, text: str, source: str) ->
             "Notlar yalnızca sizin tercihleriniz içindir; başka birinin adını içeremez.",
             "Notes are for your own preferences; they cannot name another person.",
         )
+    return clean, st
+
+
+async def add_note(
+    session: AsyncSession, user: User, text: str, source: str, *, require_consent: bool = False
+) -> dict[str, Any]:
+    if source not in ("user_button", "user_confirmed"):
+        raise ActionRefused(422, "source", "Not yalnızca sizin onayınızla kaydedilir.", "A note is saved only by you.")
+    clean, st = await check_note(session, user, text, require_consent=require_consent)
     now = utcnow()
     note = HelperNote(
         user_id=user.id,
@@ -409,7 +432,9 @@ async def erase(session: AsyncSession, user_id: int) -> int:
 __all__ = [
     "MAX_CHARS",
     "MAX_NOTES",
+    "CONSENT_MISSING",
     "add_note",
+    "check_note",
     "delete_all",
     "delete_note",
     "dsr_rows",

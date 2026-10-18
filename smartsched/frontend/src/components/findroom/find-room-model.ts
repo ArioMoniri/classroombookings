@@ -7,6 +7,7 @@ import type { EffectiveQuery } from "@/lib/api/booking-policies";
 import type { ApprovalRequest, FeatureFilter, FindAlternative, FindQuery, FindRow } from "@/lib/api/wave1";
 import { isSelectable } from "@/components/bookings/grid-model";
 import { periodVisible, slotLabel, type LabelFormat, type SlotDisplay } from "@/components/bookings/slot-display";
+import { PERIODS } from "@/lib/time";
 
 export type WhenMode = "date" | "weekday" | "range";
 export type TimeMode = "clock" | "periods" | "duration";
@@ -63,12 +64,13 @@ export function emptyForm(today: string): FindForm {
     dateTo: today,
     weekdays: [],
     time: "clock",
-    start: "10:10",
-    end: "12:30",
+    // RF-16: P3–P5 and P1 of the grid in use (10:10–12:30 and 08:30 by default)
+    start: PERIODS[2].start,
+    end: PERIODS[4].end,
     startPeriod: 3,
     endPeriod: 5,
     durationPeriods: 2,
-    windowStart: "08:30",
+    windowStart: PERIODS[0].start,
     windowEnd: "17:00",
     headcount: "",
     purpose: "teaching",

@@ -3355,6 +3355,7 @@ Ranked tickets:
   - the designer signs off the field list in `helper.md` (or lists the differences as asks).
   files: new `backend/app/schemas/helper.py`, `backend/app/helper/cards.py` (builders), tests. Frontend twin: HX renderer (designer lane).
   done (schema.py helper.card.v1 incl. choice (A2), follow_ups ≤ 2 (A7), list ≤ 5 rows (A8); GET /helper/schema; POST /helper/actions/{name}/card with no model call (A4), confirm directly when resolved (A1); GET /helper/status (A6) index-only until an admin routes helper; every string field a plain/identifier pattern, args neutralised instead of a 500; choice pick fixed (room option values as text); snapshot tests/helper/fixtures/helper_card_v1.schema.json; test_hb_07_cards.py 5; designer differences in API.md; hb-a-2026-10-18)
+  design sign-off (the field list is signed off. All 8 HX differences are accepted: #1–#5 as they are (#5 on the condition that a target under the docked sheet is not ringed behind it), #6–#8 deferred to HB-D (proposed HX-15/16/17). Recorded in docs/design/v3/helper.md §17.1, with §0/§2.3/§2.4/§3.1/§3.3/§4.2/§4.3/§5.1/§10/§12 aligned; hx-design-2026-10-18)
 - [x] HB-08 · ai-engineer · no migration · **can start now** · Helper guardrails:
   - `app/helper/guard.py`: off-scope means no scheduling signal and an index score below the threshold, which gives a 0-token refusal card + the top 3 hits;
   - the index vocabulary feeds the scope check;
@@ -3699,6 +3700,8 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
   accept: a report `docs/testing/2026-10-xx-simplicity-audit.md` with pass/fail per rule per screen, screenshots, and tickets for each failure.
   files: that report only.
   testers: — (designer run; academician and admin personas).
+  part done (helper-surface design audit from code: docs/testing/audits/2026-10-18-helper-design-audit.md, 0 blockers, 8 major, 14 minor, each with file:line and a fix; check-design passed; contrast computed from globals.css tokens; Mobbin references; hx-design-2026-10-18)
+  open: the ticket's own acceptance (12 app screens at 1440 and 390, with screenshots) needs a stack, which the 2026-10-18 resource rule forbids → proposed HX-12b; fixes → proposed HX-18/HX-19/HB-21.
 - [ ] HX-13 · tester · no migration · Persona runs of `helper.md` §15 together with HB-18 (one run, both reports).
   - Academician (phone): "Ara veya sor" → Nerede → Göster → book with one click → undo.
   - Approver: decide from the helper.
@@ -3715,6 +3718,13 @@ Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to cla
   - The composer mic when VO lands (the transcript fills the box; voice doc).
   - An A2UI v1.0 adapter for `helper.card.v1` and the MCP Apps `ui://` card templates with HB-19/HB-20 (external assistants; KVKK review first).
   - Optional per-institution "Yardım bağlantısı" in the Rehber modu footer.
+- [ ] HX-15 · frontend · "Son yaptıklarınız" group in the palette and sheet from `GET /helper/actions/recent` — after HB-D
+- [ ] HX-16 · frontend · "Bu sayfa: …" context chip sending `context` on `/helper/turn` — after HB-D
+- [ ] HX-17 · frontend · "Hatırla" remember card (save only on click, undo) — after HB-D
+- [ ] HX-18 · frontend · design audit fixes M1–M8 and the minors (docs/testing/audits/2026-10-18-helper-design-audit.md) — running
+- [ ] HX-19 · motion · phone drag-to-dismiss and exit timing for the helper sheet
+- [ ] HB-21 · backend · threads-only delete (keep notes) and faculty usage as a share of the allowance — with HB-D
+- [ ] HX-12b · tester · the 12-screen simplicity audit with screenshots at 1440 and 390 — needs a stack (pod or e2e lane)
 
 **Sequence:**
 1. HX-01 starts with HB-01/02/07, then HX-02.

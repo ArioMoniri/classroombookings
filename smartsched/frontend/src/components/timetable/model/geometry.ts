@@ -4,7 +4,7 @@
  * prefix-sum table instead of `p * rowH`.
  */
 import { PERIODS, PERIODS_PER_DAY, parseClock } from "@/lib/time";
-import { TRANSITION_PERIOD } from "./periods";
+import { transitionPeriod } from "./periods";
 
 export type Density = "compact" | "standard" | "comfortable";
 
@@ -23,10 +23,11 @@ export const MIN_CHIP_W = 72;
 export const GUTTER_W = 56;
 export const ROOM_HEADER_H = 48;
 export const BAND_H = 24;
-export const P12 = TRANSITION_PERIOD;
 export const P12_SCALE = 0.6;
-export const DAY_START_MIN = parseClock(PERIODS[0].start) ?? 510;
-export const DAY_END_MIN = parseClock(PERIODS[PERIODS_PER_DAY - 1].end) ?? 1370;
+/** RF-16: the grid is the server's, so these are read at call time (no module-level values from PERIODS). */
+export const p12 = (): number => transitionPeriod();
+export const dayStartMin = (): number => parseClock(PERIODS[0].start) ?? 510;
+export const dayEndMin = (): number => parseClock(PERIODS[PERIODS_PER_DAY - 1].end) ?? 1370;
 
 export function clampZoom(z: number): number {
   return Math.min(ROW_STEPS.length, Math.max(1, Math.round(z)));
@@ -45,7 +46,8 @@ export interface RowTable {
 
 /** Prefix-sum table of period rows for a base row height (P12 at 0.6×, rounded to whole px). */
 export function rowTable(rowH: number): RowTable {
-  const heights = PERIODS.map((p) => (p.index === P12 ? Math.round(rowH * P12_SCALE) : rowH));
+  const transitionRow = p12();
+  const heights = PERIODS.map((p) => (p.index === transitionRow ? Math.round(rowH * P12_SCALE) : rowH));
   const tops = [0];
   for (const h of heights) tops.push(tops[tops.length - 1] + h);
   return { tops, heights, total: tops[tops.length - 1] };
@@ -91,20 +93,21 @@ export function nearestPeriodStart(t: RowTable, y: number): number {
 /* ----------------------------------------------------------------- day timeline (minutes → x) */
 
 export function minuteX(min: number, pxPerMin: number): number {
-  return (Math.min(DAY_END_MIN, Math.max(DAY_START_MIN, min)) - DAY_START_MIN) * pxPerMin;
+  const start = dayStartMin();
+  return (Math.min(dayEndMin(), Math.max(start, min)) - start) * pxPerMin;
 }
 
 export function periodStartMin(p: number): number {
-  return parseClock(PERIODS[Math.min(PERIODS_PER_DAY, Math.max(1, p)) - 1].start) ?? DAY_START_MIN;
+  return parseClock(PERIODS[Math.min(PERIODS_PER_DAY, Math.max(1, p)) - 1].start) ?? dayStartMin();
 }
 
 export function periodEndMin(p: number): number {
-  return parseClock(PERIODS[Math.min(PERIODS_PER_DAY, Math.max(1, p)) - 1].end) ?? DAY_END_MIN;
+  return parseClock(PERIODS[Math.min(PERIODS_PER_DAY, Math.max(1, p)) - 1].end) ?? dayEndMin();
 }
 
-/** Period containing (or, in a break, following) a minute of the day; null outside 08:30–22:50. */
+/** Period containing (or, in a break, following) a minute of the day; null outside the teaching day (08:30–22:50 by default). */
 export function periodAtMinute(min: number): number | null {
-  if (min < DAY_START_MIN || min > DAY_END_MIN) return null;
+  if (min < dayStartMin() || min > dayEndMin()) return null;
   for (let p = 1; p <= PERIODS_PER_DAY; p++) {
     if (min < periodEndMin(p)) return p;
   }
@@ -116,7 +119,7 @@ export function periodAtMinute(min: number): number | null {
  * 10-minute break it sits on the boundary between the two rows (calendar.md §7.4).
  */
 export function nowOffset(t: RowTable, min: number): number | null {
-  if (min < DAY_START_MIN || min > DAY_END_MIN) return null;
+  if (min < dayStartMin() || min > dayEndMin()) return null;
   for (let p = 1; p <= PERIODS_PER_DAY; p++) {
     const s = periodStartMin(p);
     const e = periodEndMin(p);

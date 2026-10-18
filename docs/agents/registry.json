@@ -3848,7 +3848,8 @@
       "goal": "Ledger name `hx-design-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first. This is a review lane: change only docs (docs/design/v3/helper.md, a new review file), no app code, no commits, no stack. Tickets HB-07 (design sign-of…",
       "ledger": "HX design sign-off and audit",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 11:02"
     },
     {
       "id": "a02d5264c6ae8676d",
@@ -3865,6 +3866,26 @@
       "status": "finished",
       "finished_at": "2026-10-18 10:57",
       "left_off": "is the pod up yet"
+    },
+    {
+      "id": "aeb03a710c34b62d8",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:00",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ad30507745fef3c1e",
+      "description": "CI lane: make every pod gate green",
+      "subagent_type": "devops-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 11:02",
+      "scope": "",
+      "goal": "Ledger name `ci-green-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first. No commits (the orchestrator commits). Never `pkill -f`. No Docker stack and no `next build` in this container. Run everything under `nice -n 10`, one h…",
+      "ledger": "CI lane: make every pod gate green",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

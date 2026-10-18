@@ -5,6 +5,10 @@ Events: ``run_started`` {turn_id}, ``tool_start`` {name}, ``tool`` {name, ok}, `
 ``error`` {status, detail} on an unexpected failure. Index mode (the default until an admin routes ``helper``)
 makes no model call; every AI failure falls back to index mode inside the stream (:mod:`app.ai.helper_turn`).
 
+Body: ``{text 1..1000, lang tr|en, context?: {route ≤ 200, entity_kind?: room | booking | approval_request,
+entity_id? ≥ 1}}`` (HB-D). A bad shape is a 422 before the stream; an unknown route or an unreadable entity is
+dropped silently inside the turn.
+
 The router is mounted next to ``app.api.v1.helper`` (``/api/v1/helper``), so ``GET /helper/status`` sees the route
 and reports ``turn_available``.
 """
@@ -31,11 +35,23 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/helper", tags=["helper"])
 
 
+class PageContextIn(BaseModel):
+    """The page the person has open (HB-D). Only its shape is checked here; :mod:`app.ai.helper.page_context` drops
+    a route outside the feature index or the person's pages and an entity they cannot read. Never a permission."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    route: str = Field(min_length=1, max_length=200)
+    entity_kind: Literal["room", "booking", "approval_request"] | None = None
+    entity_id: int | None = Field(default=None, ge=1)
+
+
 class TurnIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     text: str = Field(min_length=1, max_length=1000)
     lang: Literal["tr", "en"] = "tr"
+    context: PageContextIn | None = None
 
 
 def _sse(kind: str, data: dict[str, Any]) -> str:
@@ -68,7 +84,8 @@ async def post_turn(body: TurnIn, db: DB, access: CurrentAccess) -> StreamingRes
                     return
                 access = await load_access(s, user)
                 t0 = time.monotonic()
-                result = await run_turn(s, access, body.text, body.lang, emit=emit)
+                ctx = body.context.model_dump() if body.context is not None else None
+                result = await run_turn(s, access, body.text, body.lang, emit=emit, context=ctx)
                 # HB-14: one query row + metrics + the GenAI log line; no prompt text (never raises)
                 await telemetry.record_turn(s, access, body.text, result, latency_s=time.monotonic() - t0)
                 await s.commit()
@@ -92,4 +109,4 @@ async def post_turn(body: TurnIn, db: DB, access: CurrentAccess) -> StreamingRes
     )
 
 
-__all__ = ["TurnIn", "router"]
+__all__ = ["PageContextIn", "TurnIn", "router"]

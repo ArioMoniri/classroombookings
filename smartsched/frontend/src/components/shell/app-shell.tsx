@@ -26,6 +26,7 @@ import { useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { PrivacyNoticeGate } from "@/components/privacy/notice-gate";
 import { WelcomePageSlot, WelcomeProvider } from "@/components/welcome";
 import { HelperRoot } from "@/components/helper/helper-root";
+import { PeriodGridGate } from "./period-grid-gate";
 
 function OfflineBanner() {
   const { t } = useI18n();
@@ -183,7 +184,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="mx-auto w-full max-w-[1600px]">
             {/* WG-06 / WG-07: the hint strip and the "Başlarken" card at the top of the page */}
             <WelcomePageSlot />
-            <RouteGuard>{children}</RouteGuard>
+            {/* RF-16: the university's period grid (GET /period-grid) before the first screen that shows times */}
+            <PeriodGridGate>
+              <RouteGuard>{children}</RouteGuard>
+            </PeriodGridGate>
           </div>
         </main>
       </div>
