@@ -4,13 +4,14 @@
 
 <a href="docs/launch/media/smartsched-launch.mp4">
   <picture>
-    <source media="(prefers-reduced-motion: reduce)" srcset="docs/launch/media/smartsched-loop-poster.png">
-    <img alt="SmartSched in 10 seconds: a member of staff books a free room on a phone in a few taps" src="docs/launch/media/smartsched-loop.webp" width="100%">
+    <source media="(prefers-reduced-motion: reduce)" srcset="docs/launch/media/smartsched-hero-poster.png">
+    <img alt="SmartSched on the desktop: a full-term solver run that keeps every hard rule is published, a room is found and booked, a class is moved in the timetable" src="docs/launch/media/smartsched-hero.webp" width="100%">
   </picture>
 </a>
 <sub>▶ <a href="docs/launch/media/smartsched-launch.mp4">Launch video (1080p60, MP4)</a> ·
 <a href="docs/launch/media/smartsched-launch-av1.webm">AV1</a> ·
-<a href="docs/launch/media/smartsched-launch-vertical.mp4">vertical, for phones</a></sub>
+<a href="docs/launch/media/smartsched-launch-vertical.mp4">vertical, for phones</a> ·
+<a href="docs/launch/media/smartsched-loop.webp">booking on a phone (loop)</a></sub>
 
 <p align="center">
   <a href="LICENSE.txt"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/License-AGPL--3.0-3DA639?style=flat-square"></a>
@@ -34,104 +35,22 @@ Recorded on the real backend with the real 2026 workbooks, rendered offline at 6
 
 <table>
   <tr>
-    <td width="50%" valign="top">
-      <a href="docs/images/recordings/reserve-panel.mp4"><picture><source srcset="docs/launch/media/clips/reserve-slot.webp" type="image/webp"><img alt="Screen recording: Reserve a free period. Point at a free period, click, confirm. The cell then shows You." src="docs/images/recordings/reserve-slot.gif" width="100%"></picture></a>
-      <br><sub><b>Reserve a free period.</b> Point at a free period, click, confirm. The cell then shows You.</sub>
-    </td>
-    <td width="50%" valign="top">
-      <a href="docs/images/recordings/reserve-panel.mp4"><picture><source srcset="docs/launch/media/clips/reserve-drag.webp" type="image/webp"><img alt="Screen recording: Book several periods. Drag across free periods of one room. One sheet books them together." src="docs/images/recordings/reserve-drag.gif" width="100%"></picture></a>
-      <br><sub><b>Book several periods.</b> Drag across free periods of one room. One sheet books them together.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top">
       <a href="docs/images/recordings/find-room.mp4"><picture><source srcset="docs/launch/media/clips/find-room.webp" type="image/webp"><img alt="Screen recording: Find a room. Head count and a feature. Rooms that fit come first, near fits after, each with its reason." src="docs/images/recordings/find-room.gif" width="100%"></picture></a>
       <br><sub><b>Find a room.</b> Head count and a feature. Rooms that fit come first, near fits after, each with its reason.</sub>
     </td>
-    <td width="50%" valign="top">
-      <a href="docs/images/recordings/audit-undo.mp4"><picture><source srcset="docs/launch/media/clips/audit-undo.webp" type="image/webp"><img alt="Screen recording: Undo from the audit log. A move shows the room before and after. Undo puts it back." src="docs/images/recordings/audit-undo.gif" width="100%"></picture></a>
-      <br><sub><b>Undo from the audit log.</b> A move shows the room before and after. Undo puts it back.</sub>
+    <td width="33%" valign="top">
+      <a href="docs/images/recordings/reserve-panel.mp4"><picture><source srcset="docs/launch/media/clips/reserve-slot.webp" type="image/webp"><img alt="Screen recording: Reserve a free period. Point at a free period, click, confirm. The cell then shows You." src="docs/images/recordings/reserve-slot.gif" width="100%"></picture></a>
+      <br><sub><b>Reserve a free period.</b> Point at a free period, click, confirm. The cell then shows You.</sub>
     </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
+    <td width="33%" valign="top">
       <a href="docs/images/recordings/calendar-move.mp4"><picture><source srcset="docs/launch/media/clips/calendar-move.webp" type="image/webp"><img alt="Screen recording: Move a class. Only free rooms that fit are offered. The server checks the move before it is saved." src="docs/images/recordings/calendar-move.gif" width="100%"></picture></a>
       <br><sub><b>Move a class.</b> Only free rooms that fit are offered. The server checks the move before it is saved.</sub>
     </td>
-    <td width="50%" valign="top">
-      <a href="docs/images/recordings/studio-rule-fix.mp4"><picture><source srcset="docs/launch/media/clips/precheck-fix.webp" type="image/webp"><img alt="Screen recording: Pre-check and fix. The Studio checks the plan against the term's data and applies one of its fixes." src="docs/images/recordings/precheck-fix.gif" width="100%"></picture></a>
-      <br><sub><b>Pre-check and fix.</b> The Studio checks the plan against the term's data and applies one of its fixes.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <a href="docs/images/recordings/onboarding-intake.mp4"><img alt="Screen recording: Start from an empty instance. Drop the exam workbook with AI off. It is read, a term is proposed, reviewed and saved." src="docs/images/recordings/onboarding.gif" width="100%"></a>
-      <br><sub><b>Start from an empty instance.</b> Drop the exam workbook with AI off. It is read, a term is proposed, reviewed and saved.</sub>
-    </td>
-    <td width="50%" valign="top">
-      <a href="docs/images/recordings/launch-reserve-phone.mp4"><picture><source srcset="docs/launch/media/clips/reserve-phone.webp" type="image/webp"><img alt="Screen recording: Quick reserve on a phone. A day, a period, how many people, a free room: one tap books it, and the receipt can undo it." src="docs/images/recordings/reserve-phone.gif" width="100%"></picture></a>
-      <br><sub><b>Quick reserve on a phone.</b> A day, a period, how many people, a free room: one tap books it, and the receipt can undo it.</sub>
-    </td>
   </tr>
 </table>
 
-<details>
-<summary><strong>Every recording</strong> (11 full takes, MP4)</summary>
-
-<table>
-  <tr>
-    <td width="25%" valign="top">
-      <a href="docs/images/recordings/reserve-panel.mp4"><img alt="Still from the recording: Reservation panel: a click, a drag, room details" src="docs/images/recordings/reserve-panel-poster.png" width="100%"></a>
-      <br><sub><a href="docs/images/recordings/reserve-panel.mp4">Reservation panel: a click, a drag, room details</a> · <a href="docs/images/recordings/reserve-panel-tr.mp4">Turkish</a></sub>
-    </td>
-    <td width="25%" valign="top">
-      <a href="docs/images/recordings/find-room.mp4"><img alt="Still from the recording: Find a room" src="docs/images/recordings/find-room-poster.png" width="100%"></a>
-      <br><sub><a href="docs/images/recordings/find-room.mp4">Find a room</a></sub>
-    </td>
-    <td width="25%" valign="top">
-      <a href="docs/images/recordings/audit-undo.mp4"><img alt="Still from the recording: Audit log with undo" src="docs/images/recordings/audit-undo-poster.png" width="100%"></a>
-      <br><sub><a href="docs/images/recordings/audit-undo.mp4">Audit log with undo</a></sub>
-    </td>
-    <td width="25%" valign="top">
-      <a href="docs/images/recordings/calendar-move.mp4"><img alt="Still from the recording: Move a class in the calendar, then undo" src="docs/images/recordings/calendar-move-poster.png" width="100%"></a>
-      <br><sub><a href="docs/images/recordings/calendar-move.mp4">Move a class in the calendar, then undo</a></sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="25%" valign="top">
-      <a href="docs/images/recordings/studio-rule-fix.mp4"><img alt="Still from the recording: Studio: a rule from a template, the pre-check and a fix" src="docs/images/recordings/studio-rule-fix-poster.png" width="100%"></a>
-      <br><sub><a href="docs/images/recordings/studio-rule-fix.mp4">Studio: a rule from a template, the pre-check and a fix</a></sub>
-    </td>
-    <td width="25%" valign="top">
-      <a href="docs/images/recordings/onboarding-intake.mp4"><img alt="Still from the recording: Onboarding an empty instance" src="docs/images/recordings/onboarding-intake-poster.png" width="100%"></a>
-      <br><sub><a href="docs/images/recordings/onboarding-intake.mp4">Onboarding an empty instance</a></sub>
-    </td>
-    <td width="25%" valign="top">
-      <a href="docs/images/recordings/room-booking.mp4"><img alt="Still from the recording: Book a room with a note, My bookings" src="docs/images/recordings/room-booking-poster.png" width="100%"></a>
-      <br><sub><a href="docs/images/recordings/room-booking.mp4">Book a room with a note, My bookings</a></sub>
-    </td>
-    <td width="25%" valign="top">
-      <a href="docs/images/recordings/admin-user.mp4"><img alt="Still from the recording: Create an account and pick its role" src="docs/images/recordings/admin-user-poster.png" width="100%"></a>
-      <br><sub><a href="docs/images/recordings/admin-user.mp4">Create an account and pick its role</a></sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="25%" valign="top">
-      <a href="docs/images/recordings/run-report-fix.mp4"><img alt="Still from the recording: Run report: apply a suggested fix" src="docs/images/recordings/run-report-fix-poster.png" width="100%"></a>
-      <br><sub><a href="docs/images/recordings/run-report-fix.mp4">Run report: apply a suggested fix</a></sub>
-    </td>
-    <td width="25%" valign="top">
-      <a href="docs/images/recordings/launch-reserve-phone.mp4"><img alt="Still from the recording: Quick reserve on a phone (390x844, touch)" src="docs/images/recordings/launch-reserve-phone-poster.png" width="100%"></a>
-      <br><sub><a href="docs/images/recordings/launch-reserve-phone.mp4">Quick reserve on a phone (390x844, touch)</a></sub>
-    </td>
-    <td width="25%" valign="top">
-      <a href="docs/images/recordings/approval-flow.mp4"><img alt="Still from the recording: A request that needs approval, approved" src="docs/images/recordings/approval-flow-poster.png" width="100%"></a>
-      <br><sub><a href="docs/images/recordings/approval-flow.mp4">A request that needs approval, approved</a></sub>
-    </td>
-  </tr>
-</table>
-
-</details>
+[More clips](docs/launch/README.md#more-clips) (7 more clips, 11 full takes) are in the launch notes.
 
 <!-- /AUTO:recordings -->
 

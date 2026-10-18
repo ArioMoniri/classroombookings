@@ -10,7 +10,7 @@ container; "reported" means a third-party source that could not be confirmed.
 | Question | Decision | Main evidence |
 |---|---|---|
 | How to render | **Offline, frame by frame, in headless Chromium** (`scripts/record/launch/`: our own compositor page + `lottie-web` already in the frontend lockfile), from **lossless captures** (Chrome screencast PNG frames at 1.5x on desktop, 2x on the phone) | No screen video in the chain, so the camera, cursor and captions are exactly 60 fps whatever the host load was during the take (the old clips were 20 fps GIFs; the host's load average is 25-37 on 4 cores). Remotion does the same job; its free licence applies (individual open-source project, owner-confirmed 2026-10-17), see §3 for why the first release keeps this renderer |
-| Hero video | **MP4, H.264 High, 1920x1080, 60 fps, `+faststart`, ≤ 25 MB**; plus **AV1 in WebM** (SVT-AV1, 10-bit) for browsers that play AV1; plus a **1080x1920 vertical cut** | H.264 is the only codec GitHub's own docs recommend for attachments (§4.1); AV1 is smaller at equal quality but not universal on Apple devices |
+| Hero video | **MP4, H.264 High, 1920x1080, 60 fps, `+faststart`, crf 15 `-tune animation`, ≤ 60 MB** (2026-10-18: ≤ 25 MB at crf 18 was too soft for UI text); plus **AV1 in WebM** (SVT-AV1, 10-bit) for browsers that play AV1; plus a **1080x1920 vertical cut** | H.264 is the only codec GitHub's own docs recommend for attachments (§4.1); AV1 is smaller at equal quality but not universal on Apple devices |
 | README top | **Animated WebP loop** (1280 px, 30 fps, ≤ 5 MB) with a PNG poster, linking to the MP4 | GitHub serves a repository `.webp` as `content-type: image/webp` (checked, §4.2) and the README already shows WebP screens; `<video>` with a repository path is not playable (the raw host sends MP4 as `application/octet-stream` + `nosniff`, checked) |
 | Inline player in the README | Only through a **`github.com/user-attachments/...` URL**, which a person creates by dragging the MP4 into GitHub's web editor (≤ 10 MB on a free plan). `launch.sh encode` writes `smartsched-launch-attach.mp4` (≤ 9.8 MB) for that | GitHub docs: video attachments 10 MB (free) / 100 MB (paid) (§4.1); reported: GitHub expands a bare user-attachments URL into a `<video>` element |
 | GIF | **Kept only as a fallback**, not for new media | 10 MB image limit, 256 colours, frame delays in 1/100 s (60 fps impossible, 50 fps max); a GIF of a moving camera costs ~2.5 MB per second at 1040 px (RECORDLY.md §7) |
@@ -69,7 +69,7 @@ camera track = an `interpolate`d transform, `@remotion/lottie` for the Lottie la
 
 ### 4.3 Consequences for the README
 
-1. Top of the README: `<a href="docs/launch/media/smartsched-launch.mp4"><img src="docs/launch/media/smartsched-loop.webp" width="100%"></a>`.
+1. Top of the README: `<a href="docs/launch/media/smartsched-launch.mp4"><img src="docs/launch/media/smartsched-hero.webp" width="100%"></a>` (the desktop hero since 2026-10-18; it was the phone loop `smartsched-loop.webp`, now linked under it).
    Because GitHub does not pause WebP for reduced motion, the loop is short (10 s), calm (no flashes), and wrapped in
    `<picture><source media="(prefers-reduced-motion: reduce)" srcset="…poster.png">`; whether GitHub keeps that media
    query is to be confirmed on the rendered README after the commit (command in docs/launch/README.md §4).
@@ -81,7 +81,7 @@ camera track = an `interpolate`d transform, `@remotion/lottie` for the Lottie la
 
 | Encoder | Use | Settings and why |
 |---|---|---|
-| libx264 (H.264 High) | launch MP4, vertical MP4, attach MP4 | `-profile:v high -preset slow -crf 18…28` (lowest CRF that fits the byte budget), `yuv420p`, keyframe every 4 s, `+faststart` (the moov atom first: playback starts before the download ends) |
+| libx264 (H.264 High) | launch MP4, vertical MP4, attach MP4 | `-profile:v high -preset slow -tune animation -crf 15…` (lowest CRF of the ladder that fits the byte budget; 2026-10-18, was 18…28), BT.709, `yuv420p`, keyframe every 4 s, `+faststart` (the moov atom first: playback starts before the download ends) |
 | libsvtav1 | `smartsched-launch-av1.webm` | `-preset 5 -crf 34 -g 240`, 10-bit (`yuv420p10le`: no banding on the soft gradients). SVT-AV1 upstream is at 4.x ([Phoronix, 2026-01-25](https://www.phoronix.com/search/AV1)); 1.7.0 here is older but produces standard AV1 |
 | libx265 (HEVC) | not used | Plays in Safari and on Apple/Android hardware, but not in Firefox or Chrome on Linux without system codecs; AV1 + H.264 cover the same ground royalty-free |
 | libwebp_anim | README loop | lossy, quality 80 → 50 ladder until ≤ 5 MB at 1280 px / 30 fps |

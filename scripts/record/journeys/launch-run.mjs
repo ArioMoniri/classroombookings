@@ -64,12 +64,20 @@ export default {
     await rec.step(tr(ctx, "Publish: the dialog says what is left out before anyone sees the plan", "Yayınlayın: plan görünmeden önce neyin dışarıda kaldığı söylenir"), async () => {
       const btn = page.getByTestId("run-publish");
       await rec.click(btn, { after: 800 });
-      for (const id of ["publish-partial-ack", "publish-scope-ack"]) {
-        const box = page.getByTestId(id);
-        if (await box.isVisible().catch(() => false)) await rec.click(box, { after: 500 });
-      }
+      const partial = page.getByTestId("publish-partial-ack");
+      await partial.waitFor({ state: "visible", timeout: 4000 }).catch(() => undefined);
+      if (await partial.isVisible().catch(() => false)) await rec.click(partial, { after: 500 });
       const confirm = page.locator('[data-testid="publish-confirm"], [data-testid="publish-confirm-reduction"]').first();
       await rec.click(confirm, { after: 300 });
+      // a run that covers fewer weeks than the published one: the server answers scope_reduction, the dialog then
+      // names the weeks that leave the timetable and asks once more
+      const scope = page.getByTestId("publish-scope-ack");
+      await scope.waitFor({ state: "visible", timeout: 5000 }).catch(() => undefined);
+      if (await scope.isVisible().catch(() => false)) {
+        await rec.frame(page.getByTestId("publish-scope-reduction"), { dwell: 900 });
+        await rec.click(scope, { after: 500 });
+        await rec.click(page.getByTestId("publish-confirm-reduction"), { after: 300 });
+      }
     }, { hold: 200 });
     await rec.step(tr(ctx, "Published: bookings, calendars and the dashboard now follow this plan", "Yayınlandı: rezervasyonlar, takvimler ve pano artık bu planı izler"), async () => {
       await page.getByTestId("run-published").waitFor({ timeout: 60_000 });

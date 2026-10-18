@@ -3,7 +3,9 @@
 //   steps[]   caption + time span + the bounding box the camera should frame
 //   pointer[] {t, x, y, type: move|down|up|click} in CSS pixels of the viewport (= video pixels)
 // Times are milliseconds on the recorder clock; record.mjs maps them onto the video clock with a
-// sync flash (a magenta frame painted at a logged instant and found again in the video).
+// sync flash (a magenta frame painted at a logged instant and found again in the video). With a `clock`
+// (lib/frameclock.mjs, the launch video's deterministic capture) the recorder clock is the page's virtual time and
+// every wait is page time, so the log and the frames share one clock and need no sync.
 
 export const SYNC_COLOR = "#ff00ff";
 
@@ -12,8 +14,9 @@ const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) 
 
 export class Recorder {
   /** @param {import('playwright').Page} page */
-  constructor(page, { speed = 1, viewport, log = () => {}, touch = false, virtualPointer = false } = {}) {
+  constructor(page, { speed = 1, viewport, log = () => {}, touch = false, virtualPointer = false, clock = null } = {}) {
     this.page = page;
+    this.clock = clock;
     // virtualPointer (record.mjs --engine frames): the renderer draws the cursor from the logged track, so a move is
     // logged as an eased path on its planned schedule and the real mouse jumps once. Under load every
     // page.mouse.move round trip can take 100+ ms, which stretched a 0.6 s move to several seconds of video.
@@ -24,7 +27,7 @@ export class Recorder {
     this.speed = speed; // >1 = slower, more deliberate demo
     this.viewport = viewport;
     this.log = log;
-    this.t0 = performance.now(); // the launch renderer maps screencast frame times onto this clock
+    this.t0 = clock ? 0 : performance.now(); // the launch renderer maps screencast frame times onto this clock
     this.pointer = [];
     this.steps = [];
     this.marks = {};
@@ -34,11 +37,16 @@ export class Recorder {
   }
 
   now() {
-    return Math.round(performance.now() - this.t0);
+    return this.clock ? +this.clock.now().toFixed(1) : Math.round(performance.now() - this.t0);
+  }
+
+  /** Real time, or page time with a clock. */
+  sleep(ms) {
+    return this.clock ? this.clock.sleep(ms) : sleep(ms);
   }
 
   async wait(ms) {
-    await sleep(ms * this.speed);
+    await this.sleep(ms * this.speed);
   }
 
   /** Paint a full-viewport magenta frame for ~`ms`; returns {start, end} on the recorder clock. */
@@ -51,7 +59,7 @@ export class Recorder {
       return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     }, SYNC_COLOR);
     const start = this.now();
-    await sleep(ms);
+    await this.sleep(ms);
     await this.page.evaluate(() => {
       document.getElementById("__rec_sync")?.remove();
       return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -98,13 +106,21 @@ export class Recorder {
   async box(target) {
     const loc = typeof target === "string" ? this.page.locator(target) : target;
     await loc.first().waitFor({ state: "visible", timeout: 30_000 });
+    if (this.clock) {
+      // page time is captured frame by frame: scroll the way a person's wheel does (smoothly), not as a jump cut
+      const pre = await loc.first().boundingBox();
+      if (pre && (pre.y < 72 || pre.y + pre.height > this.viewport.height - 16)) {
+        await loc.first().evaluate((el) => el.scrollIntoView({ block: "center", behavior: "smooth" })).catch(() => undefined);
+        await this.sleep(750);
+      }
+    }
     await loc.first().scrollIntoViewIfNeeded().catch(() => undefined);
     let b = await loc.first().boundingBox();
     if (!b) throw new Error(`no bounding box for ${target}`);
     // under the translucent top bar or at the bottom edge: bring it to the middle (a click there would hit the bar)
     if (b.y < 72 || b.y + b.height > this.viewport.height - 16) {
-      await loc.first().evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" })).catch(() => undefined);
-      await sleep(250);
+      await loc.first().evaluate((el, smooth) => el.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "instant" }), !!this.clock).catch(() => undefined);
+      await this.sleep(this.clock ? 750 : 250);
       b = (await loc.first().boundingBox()) ?? b;
     }
     return b;
@@ -150,7 +166,7 @@ export class Recorder {
       // a finger does not hover: no pointer travel, a short pause while it "reaches" the target
       this.pos = { x, y };
       this.pointer.push({ t: this.now(), x, y, type: "move" });
-      await sleep(Math.min(420, 200 + Math.hypot(x - from.x, y - from.y) * 0.4) * this.speed);
+      await this.sleep(Math.min(420, 200 + Math.hypot(x - from.x, y - from.y) * 0.4) * this.speed);
       return;
     }
     const dist = Math.hypot(x - from.x, y - from.y);
@@ -164,7 +180,7 @@ export class Recorder {
       }
       await this.page.mouse.move(x, y);
       const left = t0 + ms - this.now();
-      if (left > 0) await sleep(left);
+      if (left > 0) await this.sleep(left);
       this.pos = { x, y };
       return;
     }
@@ -174,7 +190,7 @@ export class Recorder {
       const py = from.y + (y - from.y) * u;
       await this.page.mouse.move(px, py);
       this.pointer.push({ t: this.now(), x: px, y: py, type: "move" });
-      await sleep(ms / n);
+      await this.sleep(ms / n);
     }
     this.pos = { x, y };
   }
@@ -195,7 +211,7 @@ export class Recorder {
         const ny = b.y + b.height * at[1];
         this.pointer.push({ t: this.now() + 120, x: nx, y: ny, type: "move" });
         await this.page.mouse.move(nx, ny);
-        await sleep(120);
+        await this.sleep(120);
         this.pos = { x: nx, y: ny };
       }
     }
@@ -215,7 +231,7 @@ export class Recorder {
     }
     await this.page.mouse.down();
     this.pointer.push({ t: this.now(), x: this.pos.x, y: this.pos.y, type: "down" });
-    await sleep(70);
+    await this.sleep(70);
     await this.page.mouse.up();
     this.pointer.push({ t: this.now(), x: this.pos.x, y: this.pos.y, type: "click" });
     await this.wait(after);
@@ -266,7 +282,7 @@ export class Recorder {
       const py = from0.y + (ty - from0.y) * u;
       await this.page.mouse.move(px, py);
       this.pointer.push({ t: this.now(), x: px, y: py, type: "move" });
-      await sleep(22 * this.speed);
+      await this.sleep(22 * this.speed);
     }
     this.pos = { x: tx, y: ty };
     await this.wait(150);

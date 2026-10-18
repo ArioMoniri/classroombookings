@@ -45,6 +45,8 @@ const GEO = {
   },
   // README feature clips: one take, the card fills the frame, the caption under it
   clip: { size: [1600, 960], card: { x: 80, y: 32, w: 1440, h: 810 }, capY: 868, capFont: 30, chipX: 100, chipY: 52, chipFont: 22 },
+  // the README hero loop: desktop takes only, the card as large as the frame allows, the caption under it
+  hero: { size: [1920, 1080], card: { x: 136, y: 24, w: 1648, h: 927 }, capY: 978, capFont: 32, chipX: 160, chipY: 44, chipFont: 24 },
   // phone clips: the phone in its frame, the caption under it
   "phone-clip": { size: [720, 1280], phone: { x: 120, y: 92, w: 480, h: 844 * (480 / 390) }, phoneCapY: 1188, capFont: 24, capWrap: true, capW: 660, chipX: 24, chipY: 20, chipFont: 18 },
 };
@@ -118,8 +120,32 @@ function buildClip({ format, take, steps, title }) {
   };
 }
 
+/** The README hero (owner, 2026-10-18: the README must show the desktop product, not only the phone): a short loop of
+ * the main desktop moments from the launch takes and the clip takes (render.mjs --takes OUT/takes:OUT/clip-takes). */
+function buildHero() {
+  const g = "hero";
+  const T = Object.fromEntries(TAKES.map((t) => [t.journey, takeName(t)]));
+  const C = (journey) => `${journey}-light${(process.env.LAUNCH_UI_LANG ?? "en") === "en" ? "" : `-${process.env.LAUNCH_UI_LANG}`}`;
+  return {
+    size: GEO.hero.size,
+    crossfadeMs: 500,
+    lotties: [],
+    scenes: [
+      takeScene({ id: "hero-run", captions: { 1: "A full-term solver run: every hard rule held" }, views: [{ take: T["launch-run"], steps: [1, 1], maxMs: 4200 }] }, g),
+      takeScene({ id: "hero-publish", views: [{ take: T["launch-run"], steps: [4, 5], maxMs: 4800 }] }, g),
+      takeScene({ id: "hero-find", views: [{ take: C("find-room"), clip: "find-room", maxMs: 5600 }] }, g),
+      takeScene({ id: "hero-reserve", views: [{ take: C("reserve-panel"), clip: "reserve-slot", maxMs: 5200 }] }, g),
+      { ...takeScene({ id: "hero-move", views: [{ take: C("calendar-move"), clip: "calendar-move", maxMs: 5600 }] }, g), overlapNext: false },
+    ],
+    // a still camera: the whole app reads at 1280 px, and an animated WebP only stores what changes between frames
+    // (with the spring camera every frame changed: 22 s were 6.7 MB at 24 fps, still frames 2.9 MB at 30 fps)
+    camera: { desktop: { zoom: false }, phone: { zoom: false } },
+  };
+}
+
 export function buildStory({ format = "landscape", story = "launch", take, steps, title } = {}) {
   if (story === "clip") return buildClip({ format, take, steps, title });
+  if (story === "hero") return buildHero();
   const g = GEO[format];
   const T = Object.fromEntries(TAKES.map((t) => [t.journey, takeName(t)]));
   const lottieFrames = { "hero-solver": 180, "file-to-rules": 150, "nl-to-rules": 150, "precheck-fix": 120 };

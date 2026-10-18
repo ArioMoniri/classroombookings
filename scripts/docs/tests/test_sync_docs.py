@@ -388,15 +388,34 @@ class RecordingsTests(unittest.TestCase):
 
     def test_real_clips_render_featured_grid_and_every_take(self) -> None:
         text = sd.gen_recordings(ctx("README.md"))
+        more = sd.gen_recordings_more(ctx("docs/launch/README.md"))
         data = json.loads((REPO / "docs/images/recordings/clips.json").read_text(encoding="utf-8"))
+        self.assertLessEqual(len(data["featured"]), 3)
         for clip in data["featured"]:
             self.assertIn(f'src="docs/images/recordings/{clip["id"]}.gif"', text)
             self.assertIn(f"<b>{clip['title']}.</b>", text)
-        for take in data["takes"]:
-            self.assertIn(f'href="docs/images/recordings/{take["id"]}.mp4"', text)
-            self.assertIn(f'src="docs/images/recordings/{take["id"]}-poster.png"', text)
-        self.assertIn(f"({len(data['takes'])} full takes, MP4)", text)
+        self.assertIn(f"[More clips](docs/launch/README.md#more-clips) ({len(data['more'])} more clips, {len(data['takes'])} full takes)", text)
+        for clip in data["more"]:
+            self.assertIn(f"<b>{clip['title']}.</b>", more)
+            self.assertNotIn(f"<b>{clip['title']}.</b>", text)
+        for take in data["takes"]:  # links relative to docs/launch/README.md
+            self.assertIn(f'href="../images/recordings/{take["id"]}.mp4"', more)
+            self.assertIn(f'src="../images/recordings/{take["id"]}-poster.png"', more)
+        self.assertIn(f"Every full take ({len(data['takes'])}, MP4)", more)
         self.assertEqual(text, sd.gen_recordings(ctx("README.md")))  # deterministic
+
+    def test_more_than_three_featured_clips_is_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rec = root / "docs/images/recordings"
+            rec.mkdir(parents=True)
+            (rec / "clips.json").write_text(json.dumps({
+                "featured": [{"id": "a", "take": "t", "title": "A", "caption": "c"}] * 4, "takes": [],
+            }), encoding="utf-8")
+            (rec / "a.gif").write_bytes(b"x")
+            (rec / "t.mp4").write_bytes(b"x")
+            with self.assertRaises(sd.SyncError):
+                sd.gen_recordings(sd.Context(root=root, target=root / "README.md"))
 
     def test_missing_media_file_is_an_error(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -411,8 +430,9 @@ class RecordingsTests(unittest.TestCase):
             (rec / "t.mp4").write_bytes(b"x")
             c = sd.Context(root=root, target=root / "README.md")
             with self.assertRaises(sd.SyncError):
-                sd.gen_recordings(c)  # t-poster.png is missing
+                sd.gen_recordings_more(c)  # t-poster.png is missing
             (rec / "t-poster.png").write_bytes(b"x")
+            self.assertIn('src="docs/images/recordings/t-poster.png"', sd.gen_recordings_more(c))
             out = sd.gen_recordings(c)
             self.assertIn('<a href="docs/images/recordings/t.mp4"><img alt="Screen recording: A. c"', out)
             self.assertIn('src="docs/images/recordings/a.gif"', out)

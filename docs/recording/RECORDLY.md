@@ -274,6 +274,15 @@ What changed against §5, and why:
 | Dead air | `REC_GIF_MAX_HOLD` (GIF only) | still stretches > 2 s (`LAUNCH_MAX_IDLE_MS`) are cut to 2 s in every output |
 | Outputs | MP4 1280-1600 px 30 fps, GIF 1040-1120 px 20 fps ≤ 9 MB | launch MP4 1920x1080 60 fps + AV1 WebM + vertical 1080x1920 + attach MP4 ≤ 9.8 MB + WebP loop ≤ 5 MB; clips: MP4 1600x960 60 fps, WebP 1280 px 30 fps ≤ 4 MB, GIF fallback 25 fps ≤ 9 MB |
 
+**2026-10-18: deterministic capture.** The owner found the first launch video choppy: only 2655 of its 4738 frames
+were unique and freezedetect found 228 freezes of 50 ms or more, because the app's own animations had been sampled by
+the screencast at about 30 paints per second (fewer under load) and the 60 fps output repeated frames. The capture row
+above is now: the page runs on Chromium's virtual time under BeginFrame control (`lib/frameclock.mjs`), and every
+1/60 s of page time is rendered and kept, so in-app animations, smooth scrolls and toasts have a real frame each
+(docs/launch/README.md §3). The compositor page is driven the same way (`HeadlessExperimental.beginFrame` with a
+screenshot after each `draw()`): a `Page.captureScreenshot` now and then returned the previous frame, and two renders
+of the same second differed. `launch.sh check` (`launch/quality.py`) is the gate: judder, freezes and VMAF.
+
 `stack.sh` learned `REC_IGNORE_TS=1` (build the copy with `typescript.ignoreBuildErrors`): checkpoint commits of
 in-flight lanes did not type-check on 2026-10-17 (`86370b3`), and a recording should not wait for that.
 

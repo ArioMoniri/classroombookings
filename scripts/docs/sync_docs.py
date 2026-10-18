@@ -976,38 +976,63 @@ def _esc(text: str) -> str:
     return text.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def gen_recordings(ctx: Context) -> str:
+def _recordings(ctx: Context) -> dict[str, Any]:
     try:
         data = json.loads(ctx.read(CLIPS))
     except json.JSONDecodeError as exc:
         raise SyncError(f"{CLIPS}: {exc}") from exc
-    featured = data.get("featured") or []
-    takes = data.get("takes") or []
-    if not isinstance(featured, list) or not isinstance(takes, list):
-        raise SyncError(f"{CLIPS}: 'featured' and 'takes' must be lists")
-    out: list[str] = []
-    if data.get("note"):
-        out += [str(data["note"]) + " Each clip opens its full take (MP4).", ""]
-    out.append("<table>")
-    for i in range(0, len(featured), 2):
+    for key in ("featured", "more", "takes"):
+        if not isinstance(data.get(key) or [], list):
+            raise SyncError(f"{CLIPS}: '{key}' must be a list")
+    return data
+
+
+def _clip_table(ctx: Context, clips: list[dict[str, Any]], cols: int = 2) -> list[str]:
+    out = ["<table>"]
+    width = f"{100 // cols}%"
+    for i in range(0, len(clips), cols):
         out.append("  <tr>")
-        for clip in featured[i:i + 2]:
+        row = clips[i:i + cols]
+        for clip in row:
             mp4 = _media(ctx, f"{clip['take']}.mp4")
             title, caption = _esc(str(clip["title"])), _esc(str(clip.get("caption", "")))
             img = _clip_img(ctx, str(clip["id"]), f"Screen recording: {title}. {caption}")
             out += [
-                '    <td width="50%" valign="top">',
+                f'    <td width="{width}" valign="top">',
                 f'      <a href="{mp4}">{img}</a>',
                 f"      <br><sub><b>{title}.</b> {caption}</sub>",
                 "    </td>",
             ]
-        if len(featured[i:i + 2]) == 1:
-            out.append('    <td width="50%"></td>')
+        out += [f'    <td width="{width}"></td>'] * (cols - len(row))
         out.append("  </tr>")
-    out += ["</table>", ""]
+    return out + ["</table>"]
+
+
+def gen_recordings(ctx: Context) -> str:
+    """README: the featured clips (at most three) and a pointer to the rest (docs/launch/README.md, `recordings-more`)."""
+    data = _recordings(ctx)
+    featured = data.get("featured") or []
+    if len(featured) > 3:
+        raise SyncError(f"{CLIPS}: at most 3 featured clips in the README (owner, 2026-10-18), found {len(featured)}")
+    out: list[str] = []
+    if data.get("note"):
+        out += [str(data["note"]) + " Each clip opens its full take (MP4).", ""]
+    out += _clip_table(ctx, featured, cols=max(1, len(featured))) + [""]
+    n_more, n_takes = len(data.get("more") or []), len(data.get("takes") or [])
+    if n_more or n_takes:
+        out.append(f"[More clips]({_href(ctx, 'docs/launch/README.md')}#more-clips) ({n_more} more clips, {n_takes} full takes) are in the launch notes.")
+    return "\n".join(out)
+
+
+def gen_recordings_more(ctx: Context) -> str:
+    """docs/launch/README.md: the clips the README does not show, and every full take."""
+    data = _recordings(ctx)
+    more, takes = data.get("more") or [], data.get("takes") or []
+    out: list[str] = []
+    if more:
+        out += _clip_table(ctx, more) + [""]
     if takes:
-        out += ["<details>", f"<summary><strong>Every recording</strong> ({len(takes)} full takes, MP4)</summary>", "",
-                "<table>"]
+        out += [f"Every full take ({len(takes)}, MP4):", "", "<table>"]
         for i in range(0, len(takes), 4):
             out.append("  <tr>")
             for take in takes[i:i + 4]:
@@ -1024,7 +1049,7 @@ def gen_recordings(ctx: Context) -> str:
                     "    </td>",
                 ]
             out.append("  </tr>")
-        out += ["</table>", "", "</details>"]
+        out += ["</table>"]
     return "\n".join(out)
 
 # driver
@@ -1041,6 +1066,7 @@ GENERATORS: dict[str, Callable[[Context], str | None]] = {
     "languages": gen_languages,
     "formats": gen_formats,
     "recordings": gen_recordings,
+    "recordings-more": gen_recordings_more,
     "last-updated": gen_last_updated,
 }
 VOLATILE = frozenset({"last-updated"})
