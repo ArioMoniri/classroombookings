@@ -81,7 +81,9 @@ export function useChartKeyboard({ count, api, describe, announce, onSelect }: {
   // F-CH-2: a key pressed while the chart's chunk is still loading (the 390 touch run focused the plot ~50 ms
   // after it appeared) had no API to call; show the focused bucket as soon as the chart is ready
   const indexRef = useRef(index);
-  indexRef.current = index;
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
   useEffect(() => {
     if (api && indexRef.current != null) api.showTip(indexRef.current);
   }, [api]);
