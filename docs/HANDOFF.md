@@ -98,6 +98,8 @@ Round-2 sweeper (after lanes C and E finish): `ui/date-field.tsx` calendar butto
 
 ## Progress log (newest first)
 
+- **2026-10-18 09:40 UTC**: owner decision: no S3 or other off-host backups; backups stay on the pod (nightly, 7 days). Recorded in docs/deploy/ONE-CLICK.md §2. Decision closed.
+
 - **2026-10-18 09:29 UTC**: all four pod gates were clean on HEAD (backend ruff check, ruff format --check, mypy; frontend tsc --noEmit = 0), and the earlier red tests (AS-12 class plan, kvkk batch3, studio draft race) pass. Merged focused-wright 6ac43924 into gracious (20f8db8d) and gracious into universal (3135b758). Each branch kept its own POD_ACTION; universal kept `SEED_PROFILE=empty`. The pod deploys gracious by polling; health check due about 10:10. Lanes finished: AS-B, AS-F, AUX-F. Started: RF-B, AUX-10, RF-M (see LANES.md).
 
 - 2026-10-18 11:55 UTC — **AU-B asks done** (AU-18): per-user mfa_state / mfa_grace_until in the users status map (a fixed number of queries), required/enrolled people counts on the policy, 'Uygulamayı değiştir' (the old app keeps working until the new one is confirmed; recovery codes and trusted devices stay; a new `mfa_app_changed` security mail), wording 'iki aşamalı doğrulama'. 378/378 regression tests. 0045_user_sessions contains sessions_epoch (never deployed); the head is now 0046_ai_quota_units.

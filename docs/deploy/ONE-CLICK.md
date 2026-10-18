@@ -135,7 +135,8 @@ never printed. `domain=` is refused there: the pod's domain is always the sslip.
 
 On the pod, backups run as `smartsched-backup.timer`: nightly at 02:30 Istanbul time, 7 days kept in
 `/var/lib/smartsched-ci/backups` on the pod disk. That protects against a bad migration or a deletion, but not
-against losing the volume. Uploads are purged by `smartsched-upload-purge.timer`.
+against losing the volume. Off-host (S3) backups are not set up, by the owner's decision of 2026-10-18: backups stay
+on the pod. Uploads are purged by `smartsched-upload-purge.timer`.
 
 ## 3. First login checklist (Kurulum)
 
