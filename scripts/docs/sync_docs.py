@@ -943,12 +943,33 @@ RECORDINGS_DIR = "docs/images/recordings"
 CLIPS = RECORDINGS_DIR + "/clips.json"
 
 
+CLIPS_WEBP_DIR = "docs/launch/media/clips"  # WebP renders of the featured clips (docs/launch/README.md §1)
+
+
+def _href(ctx: Context, rel: str) -> str:
+    return PurePosixPath(os.path.relpath(ctx.root / rel, ctx.target.parent).replace(os.sep, "/")).as_posix()
+
+
 def _media(ctx: Context, name: str) -> str:
     """The href of a recording file, checked to exist: a renamed or missing file fails the sync."""
     rel = f"{RECORDINGS_DIR}/{name}"
     if not ctx.path(rel).is_file():
         raise SyncError(f"{CLIPS}: {rel} does not exist")
-    return PurePosixPath(os.path.relpath(ctx.root / rel, ctx.target.parent).replace(os.sep, "/")).as_posix()
+    return _href(ctx, rel)
+
+
+def _clip_img(ctx: Context, clip_id: str, alt: str) -> str:
+    """The inline image of a featured clip: the WebP when the launch lane rendered one (about half the bytes of the
+    GIF), with the GIF as the <img> fallback when both exist; a browser fetches only one of them."""
+    webp_rel, gif_rel = f"{CLIPS_WEBP_DIR}/{clip_id}.webp", f"{RECORDINGS_DIR}/{clip_id}.gif"
+    webp = _href(ctx, webp_rel) if ctx.path(webp_rel).is_file() else None
+    gif = _href(ctx, gif_rel) if ctx.path(gif_rel).is_file() else None
+    if webp and gif:
+        return (f'<picture><source srcset="{webp}" type="image/webp">'
+                f'<img alt="{alt}" src="{gif}" width="100%"></picture>')
+    if webp or gif:
+        return f'<img alt="{alt}" src="{webp or gif}" width="100%">'
+    raise SyncError(f"{CLIPS}: neither {webp_rel} nor {gif_rel} exists")
 
 
 def _esc(text: str) -> str:
@@ -971,12 +992,12 @@ def gen_recordings(ctx: Context) -> str:
     for i in range(0, len(featured), 2):
         out.append("  <tr>")
         for clip in featured[i:i + 2]:
-            gif = _media(ctx, f"{clip['id']}.gif")
             mp4 = _media(ctx, f"{clip['take']}.mp4")
             title, caption = _esc(str(clip["title"])), _esc(str(clip.get("caption", "")))
+            img = _clip_img(ctx, str(clip["id"]), f"Screen recording: {title}. {caption}")
             out += [
                 '    <td width="50%" valign="top">',
-                f'      <a href="{mp4}"><img alt="Screen recording: {title}. {caption}" src="{gif}" width="100%"></a>',
+                f'      <a href="{mp4}">{img}</a>',
                 f"      <br><sub><b>{title}.</b> {caption}</sub>",
                 "    </td>",
             ]

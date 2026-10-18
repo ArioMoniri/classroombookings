@@ -4102,6 +4102,14 @@
       "ledger": "BUG lane: find-room Sunday, audit labels",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a6053724e53e0fe8a",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:31",
+      "left_off": "is the pod up yet"
     }
   ]
 }

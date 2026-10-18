@@ -368,9 +368,41 @@ async def affected_class_targets(session: AsyncSession, ev: Any) -> tuple[set[in
     return users, programs
 
 
+#: CAL-13: invigilation-plan changes that reach the pushed "Sınav görevlerim" calendars
+DUTY_ACTIONS = ("invigilation.activate", "invigilation.reassign", "invigilation.add_duty")
+
+
+async def moves_published_exams(session: AsyncSession, ev: Any) -> bool:
+    """A move of rows of a published EXAM run (the own exams of ``my_duties``)."""
+    from app.models import Assignment, ScheduleRun
+
+    if not str(ev.action).startswith("assignment."):
+        return False
+    ids = {int(i[0]) for i in ev.items if str(i[0]).isdigit()}
+    if not ids:
+        return False
+    q = (
+        select(Assignment.id)
+        .join(ScheduleRun, ScheduleRun.id == Assignment.run_id)
+        .where(Assignment.id.in_(sorted(ids)), ScheduleRun.is_active.is_(True), ScheduleRun.kind == "EXAM")
+        .limit(1)
+    )
+    return (await session.execute(q)).first() is not None
+
+
+async def on_invigilation_event(session: AsyncSession, ev: Any) -> None:
+    """CAL-13: a published or edited invigilation plan queues the class reconcile of every ``my_duties`` push."""
+    from app.services import calendar_connectors
+
+    if ev.action in DUTY_ACTIONS and (ev.payload or {}).get("active", True):
+        await calendar_connectors.queue_classes(session, duties_only=True)
+
+
 async def on_domain_event(session: AsyncSession, ev: Any) -> None:
     from app.services import calendar_connectors, webhooks
 
+    if ev.action in CLASS_ACTIONS and await moves_published_exams(session, ev):
+        await calendar_connectors.queue_classes(session, duties_only=True)
     if ev.action in CLASS_ACTIONS:
         targets = await affected_class_targets(session, ev)
         if targets is None:
@@ -389,3 +421,4 @@ def register() -> None:
 
     for pattern in ("booking.*", "series.*", "approval.*", "run.activate", "run.delete", "assignment.*"):
         events.subscribe(pattern, on_domain_event)
+    events.subscribe("invigilation.*", on_invigilation_event)

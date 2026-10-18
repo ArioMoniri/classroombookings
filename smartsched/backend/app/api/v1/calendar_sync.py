@@ -264,11 +264,18 @@ async def feed_department_classes(token: str, department_id: int, request: Reque
     return await serve_feed(request, db, token, "department_classes", department_id)
 
 
+@router.get("/feeds/{token}/duties.ics")
+async def feed_my_duties(token: str, request: Request, db: DB) -> Response:
+    """CAL-13 "Sınav görevlerim": the invigilation duties of the active plan and the own exams of the published exam
+    timetable of the instructor record(s) linked to the link's owner."""
+    return await serve_feed(request, db, token, "my_duties", None)
+
+
 # --------------------------------------------------------------------------------------------------
 # CAL-03 subscriptions (scope-bound links) and the export options
 # --------------------------------------------------------------------------------------------------
 
-ScopeKind = Literal["my_classes", "department_classes", "my_bookings", "room", "room_group"]
+ScopeKind = Literal["my_classes", "department_classes", "my_bookings", "room", "room_group", "my_duties"]
 
 
 class SubscriptionIn(BaseModel):
@@ -465,6 +472,14 @@ async def export_department(department_id: int, request: Request, db: DB, access
 @router.get("/export/bookings.ics")
 async def export_my_bookings(request: Request, db: DB, access: CurrentAccess) -> Response:
     return await _file(request, db, access, "my_bookings", None, "rezervasyonlarim.ics")
+
+
+@router.get("/export/duties.ics")
+async def export_my_duties(request: Request, db: DB, access: CurrentAccess) -> Response:
+    """CAL-13: "Sınav görevlerim" as a one-off file (same engine and UIDs as the link)."""
+    from app.services import calendar_duties as cd
+
+    return await _file(request, db, access, "my_duties", None, f"sinav-gorevlerim-{await cd.term_slug(db)}.ics")
 
 
 # --------------------------------------------------------------------------------------------------
@@ -781,6 +796,7 @@ class ExportSettingsIn(BaseModel):
     export_my_classes: bool | None = None
     export_department_classes: bool | None = None
     export_my_bookings: bool | None = None
+    export_my_duties: bool | None = None
     export_field_course_title: bool | None = None
     export_field_department: bool | None = None
     export_field_co_instructors: bool | None = None

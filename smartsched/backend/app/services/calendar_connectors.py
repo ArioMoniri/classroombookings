@@ -1289,8 +1289,12 @@ def pushes_bookings(scopes: Any) -> bool:
     return scopes is None or "my_bookings" in scopes
 
 
+#: CAL-13: pushed through the class reconcile too (``class:exam-…`` item keys)
+UID_SCOPES = ("my_classes", "my_duties")
+
+
 def class_scopes(scopes: Any) -> list[str]:
-    return [str(x) for x in scopes or [] if str(x) == "my_classes" or str(x).startswith("department_classes:")]
+    return [str(x) for x in scopes or [] if str(x) in UID_SCOPES or str(x).startswith("department_classes:")]
 
 
 async def _expand_full(session: AsyncSession, conn: CalendarConnection) -> None:
@@ -1382,7 +1386,11 @@ async def desired_classes(session: AsyncSession, conn: CalendarConnection) -> di
     access = await load_access(session, user)
     own = await cc.linked_instructor_ids(session, user.id)
     filters: list[cc.ScopeFilter] = []
+    duties = False
     for scope in scopes:
+        if scope == "my_duties":
+            duties = bool(own)
+            continue
         if scope == "my_classes":
             if own:
                 filters.append(cc.ScopeFilter(instructor_ids=frozenset(own)))
@@ -1390,14 +1398,23 @@ async def desired_classes(session: AsyncSession, conn: CalendarConnection) -> di
         raw = scope.split(":", 1)[1]
         if raw.isdigit() and await cc.department_allowed(session, access, int(raw)):
             filters.append(cc.ScopeFilter(program_id=int(raw)))
-    if not filters:
+    if not filters and not duties:
         return {}
     today = await booking_svc.today(session)
     since, horizon = today - timedelta(days=PUSH_PAST_DAYS), await cc.horizon_end(session, today)
-    snaps = await cc.snapshots(session, since, horizon)
+    snaps = await cc.snapshots(session, since, horizon) if filters else []
     base, _ = await feeds.public_base(session)
     ctx = cc.EventContext(fields=await cc.fields_setting(session), own_instructor_ids=frozenset(own), base_url=base)
     out: dict[str, ClassItem] = {}
+    if duties:  # CAL-13 "Sınav görevlerim"
+        from app.services import calendar_duties as cd
+
+        dctx = cd.duty_context(ctx)
+        dsel = await cd.select_duties(session, frozenset(own), since, cd.horizon(today), grace_days=0)
+        for o, _rev in dsel.live:
+            desc = cc.description(o, dctx)
+            fp = hashlib.sha256(f"{o.fingerprint}|{desc or ''}".encode()).hexdigest()
+            out[o.uid] = ClassItem(o.uid, o.start, o.end, o.summary(), o.location, desc, fp)
     for flt in filters:
         sel = await cc.select_classes(session, flt, since, horizon, grace_days=0, snaps=snaps)
         for o, _rev in sel.live:
@@ -1509,12 +1526,14 @@ def check_export_scopes(raw: list[str]) -> list[tuple[str, int | None]]:
     for item in raw:
         text = str(item).strip()
         kind, _, ident = text.partition(":")
-        if kind in ("my_classes", "my_bookings") and not ident:
+        if kind in ("my_classes", "my_bookings", "my_duties") and not ident:
             out.append((kind, None))
         elif kind == "department_classes" and ident.isdigit():
             out.append((kind, int(ident)))
         else:
-            raise ValueError(f"unknown push scope {text!r}: my_classes, my_bookings or department_classes:<id>")
+            raise ValueError(
+                f"unknown push scope {text!r}: my_classes, my_bookings, my_duties or department_classes:<id>"
+            )
     if not out:
         raise ValueError("at least one scope")
     return list(dict.fromkeys(out))
@@ -1525,21 +1544,26 @@ def scope_strings(scopes: list[tuple[str, int | None]]) -> list[str]:
 
 
 async def queue_classes(
-    session: AsyncSession, *, user_ids: set[int] | None = None, programs: set[int] | None = None
+    session: AsyncSession,
+    *,
+    user_ids: set[int] | None = None,
+    programs: set[int] | None = None,
+    duties_only: bool = False,
 ) -> int:
     """One ``classes`` job per affected connection (diff-based, so a re-publish of 600 classes is one job per
     connection): every connection with a class scope, or only those of ``user_ids`` (my_classes) and ``programs``
-    (department_classes:<id>) when the change is known to be narrower."""
+    (department_classes:<id>) when the change is known to be narrower. ``duties_only`` (CAL-13): only the
+    connections that push ``my_duties`` (an invigilation plan was published or edited)."""
     if not await feeds.sync_enabled(session):
         return 0
     q = select(CalendarConnection).where(CalendarConnection.status == "ACTIVE")
     added = 0
     for conn in (await session.execute(q)).scalars():
         scopes = class_scopes(conn.export_scopes)
-        if not scopes:
+        if not scopes or (duties_only and "my_duties" not in scopes):
             continue
         if user_ids is not None or programs is not None:
-            mine = "my_classes" in scopes and conn.user_id in (user_ids or set())
+            mine = ("my_duties" if duties_only else "my_classes") in scopes and conn.user_id in (user_ids or set())
             dep = any(s.split(":", 1)[1] in {str(p) for p in programs or set()} for s in scopes if ":" in s)
             if not (mine or dep):
                 continue

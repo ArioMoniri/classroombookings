@@ -2,6 +2,16 @@
 
 <p align="center"><b>Timetabling, exam planning and room booking for a university.</b></p>
 
+<a href="docs/launch/media/smartsched-launch.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="docs/launch/media/smartsched-loop-poster.png">
+    <img alt="SmartSched in 10 seconds: a member of staff books a free room on a phone in a few taps" src="docs/launch/media/smartsched-loop.webp" width="100%">
+  </picture>
+</a>
+<sub>▶ <a href="docs/launch/media/smartsched-launch.mp4">Launch video (1080p60, MP4)</a> ·
+<a href="docs/launch/media/smartsched-launch-av1.webm">AV1</a> ·
+<a href="docs/launch/media/smartsched-launch-vertical.mp4">vertical, for phones</a></sub>
+
 <p align="center">
   <a href="LICENSE.txt"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/License-AGPL--3.0-3DA639?style=flat-square"></a>
   <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white">
@@ -25,31 +35,31 @@ Recorded on the real backend with the real 2026 workbooks, rendered offline at 6
 <table>
   <tr>
     <td width="50%" valign="top">
-      <a href="docs/images/recordings/reserve-panel.mp4"><img alt="Screen recording: Reserve a free period. Point at a free period, click, confirm. The cell then shows You." src="docs/images/recordings/reserve-slot.gif" width="100%"></a>
+      <a href="docs/images/recordings/reserve-panel.mp4"><picture><source srcset="docs/launch/media/clips/reserve-slot.webp" type="image/webp"><img alt="Screen recording: Reserve a free period. Point at a free period, click, confirm. The cell then shows You." src="docs/images/recordings/reserve-slot.gif" width="100%"></picture></a>
       <br><sub><b>Reserve a free period.</b> Point at a free period, click, confirm. The cell then shows You.</sub>
     </td>
     <td width="50%" valign="top">
-      <a href="docs/images/recordings/reserve-panel.mp4"><img alt="Screen recording: Book several periods. Drag across free periods of one room. One sheet books them together." src="docs/images/recordings/reserve-drag.gif" width="100%"></a>
+      <a href="docs/images/recordings/reserve-panel.mp4"><picture><source srcset="docs/launch/media/clips/reserve-drag.webp" type="image/webp"><img alt="Screen recording: Book several periods. Drag across free periods of one room. One sheet books them together." src="docs/images/recordings/reserve-drag.gif" width="100%"></picture></a>
       <br><sub><b>Book several periods.</b> Drag across free periods of one room. One sheet books them together.</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <a href="docs/images/recordings/find-room.mp4"><img alt="Screen recording: Find a room. Head count and a feature. Rooms that fit come first, near fits after, each with its reason." src="docs/images/recordings/find-room.gif" width="100%"></a>
+      <a href="docs/images/recordings/find-room.mp4"><picture><source srcset="docs/launch/media/clips/find-room.webp" type="image/webp"><img alt="Screen recording: Find a room. Head count and a feature. Rooms that fit come first, near fits after, each with its reason." src="docs/images/recordings/find-room.gif" width="100%"></picture></a>
       <br><sub><b>Find a room.</b> Head count and a feature. Rooms that fit come first, near fits after, each with its reason.</sub>
     </td>
     <td width="50%" valign="top">
-      <a href="docs/images/recordings/audit-undo.mp4"><img alt="Screen recording: Undo from the audit log. A move shows the room before and after. Undo puts it back." src="docs/images/recordings/audit-undo.gif" width="100%"></a>
+      <a href="docs/images/recordings/audit-undo.mp4"><picture><source srcset="docs/launch/media/clips/audit-undo.webp" type="image/webp"><img alt="Screen recording: Undo from the audit log. A move shows the room before and after. Undo puts it back." src="docs/images/recordings/audit-undo.gif" width="100%"></picture></a>
       <br><sub><b>Undo from the audit log.</b> A move shows the room before and after. Undo puts it back.</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <a href="docs/images/recordings/calendar-move.mp4"><img alt="Screen recording: Move a class. Only free rooms that fit are offered. The server checks the move before it is saved." src="docs/images/recordings/calendar-move.gif" width="100%"></a>
+      <a href="docs/images/recordings/calendar-move.mp4"><picture><source srcset="docs/launch/media/clips/calendar-move.webp" type="image/webp"><img alt="Screen recording: Move a class. Only free rooms that fit are offered. The server checks the move before it is saved." src="docs/images/recordings/calendar-move.gif" width="100%"></picture></a>
       <br><sub><b>Move a class.</b> Only free rooms that fit are offered. The server checks the move before it is saved.</sub>
     </td>
     <td width="50%" valign="top">
-      <a href="docs/images/recordings/studio-rule-fix.mp4"><img alt="Screen recording: Pre-check and fix. The Studio checks the plan against the term's data and applies one of its fixes." src="docs/images/recordings/precheck-fix.gif" width="100%"></a>
+      <a href="docs/images/recordings/studio-rule-fix.mp4"><picture><source srcset="docs/launch/media/clips/precheck-fix.webp" type="image/webp"><img alt="Screen recording: Pre-check and fix. The Studio checks the plan against the term's data and applies one of its fixes." src="docs/images/recordings/precheck-fix.gif" width="100%"></picture></a>
       <br><sub><b>Pre-check and fix.</b> The Studio checks the plan against the term's data and applies one of its fixes.</sub>
     </td>
   </tr>
@@ -59,7 +69,7 @@ Recorded on the real backend with the real 2026 workbooks, rendered offline at 6
       <br><sub><b>Start from an empty instance.</b> Drop the exam workbook with AI off. It is read, a term is proposed, reviewed and saved.</sub>
     </td>
     <td width="50%" valign="top">
-      <a href="docs/images/recordings/launch-reserve-phone.mp4"><img alt="Screen recording: Quick reserve on a phone. A day, a period, how many people, a free room: one tap books it, and the receipt can undo it." src="docs/images/recordings/reserve-phone.gif" width="100%"></a>
+      <a href="docs/images/recordings/launch-reserve-phone.mp4"><picture><source srcset="docs/launch/media/clips/reserve-phone.webp" type="image/webp"><img alt="Screen recording: Quick reserve on a phone. A day, a period, how many people, a free room: one tap books it, and the receipt can undo it." src="docs/images/recordings/reserve-phone.gif" width="100%"></picture></a>
       <br><sub><b>Quick reserve on a phone.</b> A day, a period, how many people, a free room: one tap books it, and the receipt can undo it.</sub>
     </td>
   </tr>
@@ -368,6 +378,19 @@ a real backend. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 The table is generated from [`docs/features.yml`](docs/features.yml) on every sync. Items that are
 backend only so far are listed in [docs/STATUS.md](docs/STATUS.md).
 
+Built on 17–18 October 2026. Most of the screens below are tested at unit level only so far; "e2e pending" means
+the browser check on a running stack has not been run yet ([docs/ROADMAP.md](docs/ROADMAP.md) has each ticket).
+
+- **Helper (Yardımcı):** search pages, rooms, courses and people without AI, live cards that preview, confirm and undo an action, and notes kept only when you press Hatırla. Backend done; palette, sheet and cards part done, e2e pending. [helper.md](docs/design/v3/helper.md)
+- **Adaptive scheduling:** season profiles (draft, activate, revert), peak hours, demand forecast with 80 % ranges and exam-period load. Backend done; the exam date advisor and the /admin/weeks and /analytics screens part done, e2e pending. [Research](docs/research/2026-10-17-adaptive-scheduling.md)
+- **Calendar export:** "Derslerim" and department classes as subscription links, .ics files and Google / Microsoft push. Backend done; the "Takvimime ekle" sheet and admin settings part done, e2e pending; "Sınav görevlerim" in progress. [Research](docs/research/2026-10-17-calendar-export.md)
+- **Welcome guide:** a welcome sheet per role, a short tour, the "Başlarken" checklist and Yönetim › Karşılama rehberi. Backend done; screens part done, e2e pending. [welcome-guide.md](docs/design/v3/welcome-guide.md)
+- **Voice:** speak into the AI fields; the transcript is shown for review, audio is never stored. Backend done; microphone button and admin screen part done, e2e pending. [Research](docs/research/2026-10-17-voice-ai.md)
+- **Sign-in:** two-step sign-in (authenticator app, recovery codes), passkeys, remembered devices and sessions, and linking a Google, OIDC or SAML account in Profil › Güvenlik. Backend done; screens part done, e2e pending. [auth.md](docs/design/v3/auth.md)
+- **Charts:** dashboard, AI usage, operations and run-score charts with keyboard access and a table twin done (unit level); bookings per week, audit events per day and personal statistics part done; e2e pending. [charts.md](docs/design/v3/charts.md)
+- **Re-import keeps admin edits:** a workbook upload is a preview first and lists what changes and which of your edits are kept. Done, e2e pending. [Audit](docs/testing/audits/2026-10-17-no-mock-and-editability.md)
+- **Editable class periods:** the Ders saatleri page (/admin/schedules) sets the 18 period times and every screen reads them; term weeks get a kind (Ders, Sınav, Tatil, Bütünleme). Part done, e2e pending. [Audit](docs/testing/audits/2026-10-17-no-mock-and-editability.md)
+
 <!-- AUTO:status only=done -->
 
 Done 67 · Backend only 7 · In progress 2 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
@@ -465,6 +488,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `187b995` (committed 2026-10-18 12:23 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `687452e` (committed 2026-10-18 12:31 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

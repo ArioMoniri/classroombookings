@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `187b995` (committed 2026-10-18 12:23 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `687452e` (committed 2026-10-18 12:31 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -177,11 +177,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-374 agents in [`docs/agents/registry.json`](agents/registry.json): running 11 · finished 345 · stopped 11 · superseded 7.
+377 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 347 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
-| `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
 | `WG-F` | frontend-engineer | 2026-10-17 22:58 |
 | `AS-B` | backend-engineer | 2026-10-17 23:01 |
 | `VO-F` | frontend-engineer | 2026-10-17 23:16 |
@@ -192,6 +191,8 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `E2E lane` | general-purpose | 2026-10-18 08:59 |
 | `CI lane` | devops-engineer | 2026-10-18 11:02 |
 | `CAL-13` | backend-engineer | 2026-10-18 12:23 |
+| `BUG lane` | backend-engineer | 2026-10-18 12:31 |
+| `README media pass` | design-pro | 2026-10-18 12:31 |
 
 <!-- /AUTO:agents -->
 

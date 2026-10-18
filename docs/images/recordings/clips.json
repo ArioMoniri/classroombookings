@@ -1,5 +1,5 @@
 {
-  "_comment": "Source of the README 'See it work' block (scripts/docs/sync_docs.py, block `recordings`). Edit captions here, never in README.md. `featured` clips are GIFs shown inline; every take is an MP4 with a poster. scripts/record/refresh.sh rebuilds the files under the same names.",
+  "_comment": "Source of the README 'See it work' block (scripts/docs/sync_docs.py, block `recordings`). Edit captions here, never in README.md. `featured` clips are shown inline as the WebP in docs/launch/media/clips/<id>.webp when it exists (the GIF here as its fallback), else the GIF; every take is an MP4 with a poster. scripts/record/refresh.sh rebuilds the files under the same names.",
   "note": "Recorded on the real backend with the real 2026 workbooks, rendered offline at 60 fps (docs/launch/README.md). Instructor names are reduced to initials.",
   "featured": [
     {
