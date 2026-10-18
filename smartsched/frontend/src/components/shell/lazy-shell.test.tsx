@@ -9,7 +9,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const read = (rel: string) => readFileSync(path.resolve(import.meta.dirname, "..", rel), "utf8");
-const staticImports = (text: string) => [...text.matchAll(/^import\s+(?!type\b)[^;]*?from\s+"([^"]+)"/gms)].map((m) => m[1]);
+const staticImports = (text: string) => [...text.matchAll(/^import\s+(?!type\b)[^;]*?from\s+"([^"]+)"/gm)].map((m) => m[1]);
 
 describe("shell: lazy parts are not static imports", () => {
   it("app-shell imports the palette, shortcuts, welcome and privacy gate lazily", () => {
