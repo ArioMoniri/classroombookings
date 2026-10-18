@@ -60,3 +60,10 @@ calm and obvious:
 - defaults that work without configuration;
 - the CRBS path (look at the week → click a free slot → book) stays two taps.
 Testers report "overwhelming" or "where do I click?" as a **major** finding, with a screenshot.
+
+## Resource rule after the 2026-10-18 restarts (owner's host: 4 cores, shared)
+Two container restarts came from too many parallel stacks and builds. Until the orchestrator says otherwise:
+- Do NOT start an app stack (`stack.sh`) and do NOT run `next build` or Playwright. Run unit tests only (pytest
+  targeted files, vitest on your files), `tsc --noEmit` scoped to your files, eslint, ruff and mypy.
+- List the e2e checks your lane needs in your report under "E2E TO RUN". A single e2e lane runs them one stack at a time.
+- Use `nice -n 10`, and run vitest with `--maxWorkers=1 --testTimeout=30000`.
