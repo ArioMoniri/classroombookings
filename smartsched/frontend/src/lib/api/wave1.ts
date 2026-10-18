@@ -379,6 +379,8 @@ export const AuditEvent = z.object({
   request_id: z.string().nullish(),
   ip_hash: z.string().nullish(),
   children: z.array(z.record(z.string(), z.unknown())).nullish(),
+  /** BUG-02: {field: {id: name}} for the id fields (room_id → "A 101"), only the names this viewer may see */
+  refs: z.record(z.string(), z.record(z.string(), z.string())).default({}),
 });
 export type AuditEvent = z.infer<typeof AuditEvent>;
 export const AuditPage = z.object({ items: z.array(AuditEvent), next_cursor: z.number().nullish() });

@@ -36,9 +36,8 @@ from app.core.security import decode_access_token
 from app.models import AuditEvent, Booking, User
 from app.schemas.audit import AuditEventOut, AuditPage, UndoOut
 from app.services import audit as audit_svc
-from app.services import audit_refs
+from app.services import audit_refs, bookings_undo
 from app.services import bookings as bsvc
-from app.services import bookings_undo
 from app.services import program_drafts as drafts_svc
 from app.services.bookings_perms import Access
 from app.services.chart_stats import day_start_utc  # from / to are Europe/Istanbul days (CH-10)
@@ -166,8 +165,7 @@ async def list_events(
     via = await _undo_via(db, rows)
     refs = await audit_refs.refs_for(db, access, rows)  # BUG-02: names behind the id fields, for this viewer
     items = [
-        _with_undo({**_out(r, full), "undone": r.id in undone, "refs": refs.get(r.id, {})}, via.get(r.id))
-        for r in rows
+        _with_undo({**_out(r, full), "undone": r.id in undone, "refs": refs.get(r.id, {})}, via.get(r.id)) for r in rows
     ]
     return {"items": items, "next_cursor": rows[-1].id if more and rows else None}
 

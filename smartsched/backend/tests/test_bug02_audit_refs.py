@@ -42,7 +42,12 @@ async def test_other_peoples_names_stay_hidden_without_view_other_users(env):  #
     ayse_id, ayse = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")
     r = await env.client.post(
         "/api/v1/bookings",
-        json={"room_id": env.rooms["A101"], "date": MON.isoformat(), "period_id": env.periods["P1"], "user_id": mehmet_id},
+        json={
+            "room_id": env.rooms["A101"],
+            "date": MON.isoformat(),
+            "period_id": env.periods["P1"],
+            "user_id": mehmet_id,
+        },
         headers=env.admin,
     )
     assert r.status_code == 201, r.text

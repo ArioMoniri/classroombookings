@@ -174,6 +174,27 @@ describe("CalendarExportSheet", () => {
     expect(screen.getByTestId("cal-link-note")).toHaveTextContent("Bağlantıyı açmayın, abone olun");
   });
 
+  it("CAL-13 Sınav görevlerim: its own card, the duty consent and never-sent line, a my_duties link", async () => {
+    api.options = baseOptions({
+      scopes: [...(baseOptions().scopes as unknown[]), { kind: "my_duties", available: true, preview: { upcoming_count: 7, fields: ["course_code", "room", "time", "department"] } }],
+    });
+    const user = userEvent.setup();
+    renderSheet();
+    const card = await screen.findByTestId("cal-scope-my_duties");
+    expect(card).toHaveTextContent("Sınav görevlerim");
+    expect(card).toHaveTextContent("Gözetmenlikleriniz ve kendi sınavlarınız");
+    expect(card).toHaveTextContent("7 yaklaşan etkinlik");
+    await user.click(card);
+    await user.click(await screen.findByTestId("cal-channel-link"));
+    expect(await screen.findByTestId("cal-never")).toHaveTextContent("Öğrenci bilgisi, not ve diğer gözetmenlerin adları gönderilmez.");
+    expect(screen.getByTestId("cal-approve-where")).toHaveTextContent("Sınav görevlerim");
+    expect(screen.getByTestId("cal-consent")).toHaveTextContent("Sınav görevlerimin seçtiğim takvime gönderilmesini onaylıyorum.");
+    await user.click(screen.getByTestId("cal-consent-tick"));
+    await user.click(screen.getByTestId("cal-submit"));
+    expect(await screen.findByTestId("cal-link")).toBeInTheDocument();
+    expect(api.calls.find((c) => c.path === "/calendar/subscriptions" && c.method === "POST")?.body).toEqual({ scope_kind: "my_duties", scope_id: null, channel: "link" });
+  });
+
   it("department scope sends its department id and no consent box when the consent is given", async () => {
     api.options = baseOptions({ consent: { purpose: "calendar_sync", required: true, granted: true } });
     const user = userEvent.setup();

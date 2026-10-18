@@ -23,7 +23,7 @@ import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import { ACTION_PREFIXES, ACTION_SENTENCES, ARCHIVED_KINDS, archivedCounts, auditQuery, auditReason, auditSubject, auditTail, canUndo, dedupeOptions, diffRows, emptyAuditFilters, ENTITY_ALIASES, ENTITY_TYPES, isProgramUndo, undoBlockers, undoReasons, valueText, type AuditFilterForm } from "./audit-model";
+import { ACTION_PREFIXES, ACTION_SENTENCES, ARCHIVED_KINDS, archivedCounts, auditQuery, auditReason, auditSubject, auditTail, canUndo, dedupeOptions, diffRows, diffValueText, emptyAuditFilters, ENTITY_ALIASES, ENTITY_TYPES, fieldLabel, isProgramUndo, undoBlockers, undoReasons, type AuditFilterForm } from "./audit-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { DateField } from "@/components/ui/date-field";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -364,12 +364,13 @@ function EventRow({ event: e, onUndo }: { event: AuditEvent; onUndo: () => void 
                 <TableBody>
                   {rows.map((r) => (
                     <TableRow key={r.field} data-changed={r.changed || undefined}>
-                      <TableCell className="pl-3 font-mono type-footnote text-label-2">{r.field}</TableCell>
-                      <TableCell className={cn("max-w-64 truncate type-footnote", r.changed ? "text-status-infeasible-fg line-through decoration-1" : "text-label-2")} title={valueText(r.before, words)}>
-                        {valueText(r.before, words)}
+                      {/* BUG-02: the field's label ("Derslik"), and names for the ids this viewer may see (e.refs) */}
+                      <TableCell className="pl-3 type-footnote text-label-2">{fieldLabel(r.field, t)}</TableCell>
+                      <TableCell className={cn("max-w-64 truncate type-footnote", r.changed ? "text-status-infeasible-fg line-through decoration-1" : "text-label-2")} title={diffValueText(r.field, r.before, e.refs, words)}>
+                        {diffValueText(r.field, r.before, e.refs, words)}
                       </TableCell>
-                      <TableCell className={cn("max-w-64 truncate pr-3 type-footnote", r.changed ? "font-medium text-status-feasible-fg" : "text-label-2")} title={valueText(r.after, words)}>
-                        {valueText(r.after, words)}
+                      <TableCell className={cn("max-w-64 truncate pr-3 type-footnote", r.changed ? "font-medium text-status-feasible-fg" : "text-label-2")} title={diffValueText(r.field, r.after, e.refs, words)}>
+                        {diffValueText(r.field, r.after, e.refs, words)}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -3138,6 +3138,7 @@
       "freeNow": "Free now: {rooms}",
       "noDiff": "No field details for this change.",
       "field": "Field",
+      "f": {"id": "Record no", "room_id": "Room", "new_room_id": "New room", "user_id": "Person", "owner_user_id": "Room owner", "created_by": "Created by", "cancelled_by": "Cancelled by", "decided_by": "Decided by", "approver_id": "Approver", "department_id": "Department", "period_id": "Period", "term_id": "Term", "series_id": "Recurring booking", "room_group_id": "Room group", "building_id": "Building", "schedule_id": "Schedule", "default_schedule_id": "Default schedule", "role_id": "Role", "date": "Date", "start_period": "First period", "end_period": "Last period", "status": "Status", "notes": "Notes", "headcount": "Headcount", "cancel_reason": "Cancellation reason", "name": "Name", "code": "Code", "display_name": "Display name", "description": "Description", "capacity": "Capacity", "exam_capacity": "Exam capacity", "is_bookable": "Bookable", "bookable": "Bookable", "location": "Location", "tags": "Features", "pos": "Order", "email": "Email", "username": "Username", "firstname": "First name", "lastname": "Last name", "full_name": "Full name", "enabled": "Enabled", "permissions": "Permissions", "days": "Days", "time_start": "Start time", "time_end": "End time", "date_start": "Start date", "date_end": "End date", "start_date": "Start date", "end_date": "End date", "key": "Setting", "value": "Value", "is_selectable": "Open for bookings"},
       "before": "Before",
       "after": "After",
       "yes": "yes",
@@ -6170,7 +6171,8 @@
       "my_classes": "My classes",
       "department_classes": "My department's classes",
       "department_named": "{department} classes",
-      "my_bookings": "My bookings"
+      "my_bookings": "My bookings",
+      "my_duties": "My exam duties"
     },
     "what": {
       "title": "What would you like to add?",
@@ -6178,6 +6180,7 @@
       "my_classesPlain": "The classes you teach, from the published timetable",
       "department_classes": "Every class of {department}",
       "my_bookings": "Your room bookings and requests",
+      "my_duties": "Your invigilation duties and your own exams, from the published plan",
       "upcoming": "{n, plural, =0 {No upcoming events} one {# upcoming event} other {# upcoming events}}",
       "writeOffice": "Write to the planning office",
       "writeOfficeSubject": "SmartSched: please link my account to my instructor record"
@@ -6225,11 +6228,13 @@
       },
       "never": "No student data, notes or names of other instructors are sent.",
       "neverWithCo": "No student data or notes are sent.",
+      "neverDuties": "No student data, notes or names of other invigilators are sent.",
       "sample": "Sample event",
       "sampleNone": "No upcoming events this term yet; they are added once published.",
       "section": "Section",
       "consent": "I agree that my timetable is sent to the calendar I chose. I can withdraw this at any time.",
       "consentBookings": "I agree that my bookings are sent to the calendar I chose. I can withdraw this at any time.",
+      "consentDuties": "I agree that my exam duties are sent to the calendar I chose. I can withdraw this at any time.",
       "notice": "Privacy notice",
       "needConsent": "Tick the box to continue.",
       "submit": "Approve and add",
@@ -6309,7 +6314,9 @@
         "department_classes": "My department's classes",
         "department_classesHint": "Every published class of a department.",
         "my_bookings": "My bookings",
-        "my_bookingsHint": "Room bookings and requests."
+        "my_bookingsHint": "Room bookings and requests.",
+        "my_duties": "My exam duties",
+        "my_dutiesHint": "Duties of the published invigilation plan and the person's own exams."
       },
       "who": "Who may export a department's classes?",
       "rule": {

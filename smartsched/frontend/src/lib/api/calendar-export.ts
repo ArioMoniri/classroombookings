@@ -7,7 +7,8 @@
  *   may export, the configured channels, the field allow-list, the `calendar_sync` consent state, a real sample event.
  * - `GET /calendar/subscriptions` / `POST` / `DELETE /{id}` / `POST /{id}/rotate`: scope-bound links and push scopes.
  *   A link's token is shown once, in the POST answer (`urls {https, webcal, google, outlook}`).
- * - `GET /calendar/export/classes.ics`, `/department/{id}.ics`, `/bookings.ics`: one-off files (JWT through the
+ * - `GET /calendar/export/classes.ics`, `/department/{id}.ics`, `/bookings.ics`, `/duties.ics` (CAL-13 "Sınav
+ *   görevlerim": invigilation duties + own exams): one-off files (JWT through the
  *   panel's proxy cookie, `Content-Disposition: attachment`).
  * - `PUT /calendar/connectors/{provider}/scopes`: the push scopes of a connected account (queues a reconcile).
  * - Admin: `GET/PUT /calendar/admin/export-settings` (flat switches, push rules, status counts).
@@ -25,7 +26,7 @@ const s = { silent: true } as const;
 
 /* ------------------------------------------------------------------------------------------- schemas */
 
-export const SCOPE_KINDS = ["my_classes", "department_classes", "my_bookings"] as const;
+export const SCOPE_KINDS = ["my_classes", "department_classes", "my_bookings", "my_duties"] as const;
 export type ScopeKind = (typeof SCOPE_KINDS)[number];
 export const PROVIDERS = ["google", "microsoft"] as const;
 export type Provider = (typeof PROVIDERS)[number];
@@ -287,7 +288,7 @@ export const ExportOptionsIn = z.preprocess(adaptOptions, ExportOptions);
 
 /* ------------------------------------------------------------------------------------------- admin */
 
-export const ADMIN_SCOPE_KEYS = { my_classes: "export_my_classes", department_classes: "export_department_classes", my_bookings: "export_my_bookings" } as const;
+export const ADMIN_SCOPE_KEYS = { my_classes: "export_my_classes", department_classes: "export_department_classes", my_bookings: "export_my_bookings", my_duties: "export_my_duties" } as const;
 export const ADMIN_FIELD_KEYS = { title: "export_field_course_title", department: "export_field_department", co_instructors: "export_field_co_instructors", link: "export_field_link" } as const;
 export type AdminField = keyof typeof ADMIN_FIELD_KEYS;
 export const ADMIN_FIELDS = Object.keys(ADMIN_FIELD_KEYS) as AdminField[];
@@ -312,6 +313,7 @@ export const ExportAdminSettings = z
     export_my_classes: flag,
     export_department_classes: flag,
     export_my_bookings: flag,
+    export_my_duties: flag,
     export_field_course_title: flag,
     export_field_department: flag,
     export_field_co_instructors: flag,
@@ -329,6 +331,7 @@ export type ExportAdminSettingsIn = Partial<{
   export_my_classes: boolean;
   export_department_classes: boolean;
   export_my_bookings: boolean;
+  export_my_duties: boolean;
   export_field_course_title: boolean;
   export_field_department: boolean;
   export_field_co_instructors: boolean;
@@ -355,6 +358,7 @@ export function connectScopes(scopes: readonly string[] | null | undefined): str
 export function filePath(kind: ScopeKind, departmentId?: number | null): string {
   if (kind === "my_classes") return "/calendar/export/classes.ics";
   if (kind === "department_classes") return `/calendar/export/department/${departmentId ?? 0}.ics`;
+  if (kind === "my_duties") return "/calendar/export/duties.ics";
   return "/calendar/export/bookings.ics";
 }
 

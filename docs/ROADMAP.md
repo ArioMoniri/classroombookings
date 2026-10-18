@@ -4100,3 +4100,23 @@ scratchpad `auth/API.md` (summarised in the research §9). Alembic `0043_mfa`; d
   unit tests only, E2E pending; au-b-2026-10-18)
 - [ ] AU-17 Frontend: route handler passes `mfa_required` through, stores `ss_td` cookie, forwards `X-Trusted-Device`
   (AUX / frontend lane). open.
+
+### Bugs seen while recording the launch video (2026-10-18)
+- [x] BUG-01 Find-room offered Sunday (a closed day) as "Boş"; "Rezerve et" then toasted "Bu derslik az önce doldu".
+  Root cause: the stack's schedule offers its periods Monday-Friday (`setup_api.py` `from-grid?days=1,2,3,4,5`);
+  find-room closed holidays, out-of-term and no-week dates but ignored the schedule's weekdays, the day grid had no
+  Sunday period, so the reserve step's empty span fell into the "just taken" toast; a direct POST was refused as a
+  generic English-only `calendar` error.
+  done (find_room.py: weekdays no room's applied schedule offers are closed dates, reason `closed_day`, every closed
+  date carries a TR/EN `label` ("Pazar rezervasyona kapalı"), per-room week for room groups, other-day alternatives
+  skip closed weekdays, latent KeyError (500) on a single closed date with "Dolu olanları da göster" fixed;
+  bookings.py `_open_day`: 409 `closed_day` with message_tr/en on create, recurring and move, `_open_date` refusals
+  get message_tr; frontend find-room-model `spanRefusal` toasts `wave1.find.dayClosed` for a closed day, the closed
+  dates alert shows the label; tests/test_bug01_find_room_closed_day.py 4, find-room-model.test.ts +1; unit level,
+  e2e queued; bugs-2026-10-18)
+- [x] BUG-02 The audit diff showed raw field names and ids (`room_id 14 -> 17`).
+  done (app/services/audit_refs.py: `refs` {field: {id: name}} on GET /audit and /audit/{id} (+ children), rooms only
+  with room.view or audit.view, people only for audit.view, the viewer themself or book_*.view_other_users on the
+  booking's room; audit-model `fieldLabel` (wave1.audit.f.* TR/EN, "Derslik"; plain words for unknown fields, never
+  snake_case) + `diffValueText`; tests/test_bug02_audit_refs.py 2, bug02-audit-fields.test.ts 3; unit level, e2e
+  queued; bugs-2026-10-18)

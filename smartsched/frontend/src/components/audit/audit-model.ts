@@ -262,6 +262,83 @@ export function diffRows(e: Pick<AuditEvent, "before" | "after" | "diff">): Diff
   return keys.map((field) => ({ field, before: before[field], after: after[field], changed: JSON.stringify(before[field]) !== JSON.stringify(after[field]) }));
 }
 
+/** BUG-02: the field column of the diff table in the UI language ("room_id" → "Derslik" / "Room"). */
+export const AUDIT_FIELD_KEYS: Record<string, MessageKey> = {
+  id: "wave1.audit.f.id",
+  room_id: "wave1.audit.f.room_id",
+  new_room_id: "wave1.audit.f.new_room_id",
+  user_id: "wave1.audit.f.user_id",
+  owner_user_id: "wave1.audit.f.owner_user_id",
+  created_by: "wave1.audit.f.created_by",
+  cancelled_by: "wave1.audit.f.cancelled_by",
+  decided_by: "wave1.audit.f.decided_by",
+  approver_id: "wave1.audit.f.approver_id",
+  department_id: "wave1.audit.f.department_id",
+  period_id: "wave1.audit.f.period_id",
+  term_id: "wave1.audit.f.term_id",
+  series_id: "wave1.audit.f.series_id",
+  room_group_id: "wave1.audit.f.room_group_id",
+  building_id: "wave1.audit.f.building_id",
+  schedule_id: "wave1.audit.f.schedule_id",
+  default_schedule_id: "wave1.audit.f.default_schedule_id",
+  role_id: "wave1.audit.f.role_id",
+  date: "wave1.audit.f.date",
+  start_period: "wave1.audit.f.start_period",
+  end_period: "wave1.audit.f.end_period",
+  status: "wave1.audit.f.status",
+  notes: "wave1.audit.f.notes",
+  headcount: "wave1.audit.f.headcount",
+  cancel_reason: "wave1.audit.f.cancel_reason",
+  name: "wave1.audit.f.name",
+  code: "wave1.audit.f.code",
+  display_name: "wave1.audit.f.display_name",
+  description: "wave1.audit.f.description",
+  capacity: "wave1.audit.f.capacity",
+  exam_capacity: "wave1.audit.f.exam_capacity",
+  is_bookable: "wave1.audit.f.is_bookable",
+  bookable: "wave1.audit.f.bookable",
+  location: "wave1.audit.f.location",
+  tags: "wave1.audit.f.tags",
+  pos: "wave1.audit.f.pos",
+  email: "wave1.audit.f.email",
+  username: "wave1.audit.f.username",
+  firstname: "wave1.audit.f.firstname",
+  lastname: "wave1.audit.f.lastname",
+  full_name: "wave1.audit.f.full_name",
+  enabled: "wave1.audit.f.enabled",
+  permissions: "wave1.audit.f.permissions",
+  days: "wave1.audit.f.days",
+  time_start: "wave1.audit.f.time_start",
+  time_end: "wave1.audit.f.time_end",
+  date_start: "wave1.audit.f.date_start",
+  date_end: "wave1.audit.f.date_end",
+  start_date: "wave1.audit.f.start_date",
+  end_date: "wave1.audit.f.end_date",
+  key: "wave1.audit.f.key",
+  value: "wave1.audit.f.value",
+  is_selectable: "wave1.audit.f.is_selectable",
+};
+
+/** A field's label; a field without one reads as plain words ("max_active_bookings" → "Max active bookings"), never a key. */
+export function fieldLabel(field: string, t: (key: MessageKey, vars?: Record<string, string | number>) => string): string {
+  const key = AUDIT_FIELD_KEYS[field];
+  if (key) return t(key);
+  const words = field.replace(/_id$/, "").replace(/[._]+/g, " ").trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : field;
+}
+
+/** `refs` of an audit event (app/services/audit_refs.py): {field: {id: name}}, only names this viewer may see. */
+export type AuditRefs = Record<string, Record<string, string>>;
+
+/** A diff cell: the name the backend resolved for an id field ("A 101" for room_id 14), else {@link valueText}. */
+export function diffValueText(field: string, v: unknown, refs?: AuditRefs | null, words?: { yes: string; no: string }): string {
+  if ((typeof v === "number" || typeof v === "string") && v !== "") {
+    const name = refs?.[field]?.[String(v)];
+    if (name) return name;
+  }
+  return valueText(v, words);
+}
+
 /** A value as one line: null / empty → "—", objects as compact JSON, booleans as ✓ / ✗ words by the caller. */
 export function valueText(v: unknown, words: { yes: string; no: string } = { yes: "true", no: "false" }): string {
   if (v === null || v === undefined || v === "") return "—";

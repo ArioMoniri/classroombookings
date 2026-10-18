@@ -23,7 +23,9 @@ FRI, SAT, SUN = date(2026, 2, 20), date(2026, 2, 21), date(2026, 2, 22)
 async def _weekdays_only(env) -> None:  # noqa: F811
     """The stack's schedule: every period Monday-Friday (setup_api.py ``from-grid?days=1,2,3,4,5``)."""
     for pid in env.periods.values():
-        r = await env.client.put(f"/api/v1/booking-admin/periods/{pid}", json={"days": [1, 2, 3, 4, 5]}, headers=env.admin)
+        r = await env.client.put(
+            f"/api/v1/booking-admin/periods/{pid}", json={"days": [1, 2, 3, 4, 5]}, headers=env.admin
+        )
         assert r.status_code == 200, r.text
 
 
@@ -42,7 +44,10 @@ async def test_sunday_is_a_closed_day_not_free_rooms(env):  # noqa: F811
     assert out["alternatives"] == []
     (closed,) = out["closed_dates"]
     assert closed["date"] == "2026-02-22" and closed["reason"] == "closed_day"
-    assert closed["label"]["tr"] == "Pazar rezervasyona kapalı" and closed["label"]["en"] == "Sunday is closed for bookings"
+    assert (
+        closed["label"]["tr"] == "Pazar rezervasyona kapalı"
+        and closed["label"]["en"] == "Sunday is closed for bookings"
+    )
     # with the busy rooms shown, every room reads "closed", never "free"
     every = (await env.client.post(FIND, json={**body, "include_busy": True}, headers=ayse)).json()
     assert every["results"] and {x["status"] for x in every["results"]} <= {"closed", "too_small", "feature_missing"}
@@ -56,7 +61,10 @@ async def test_range_over_a_weekend_keeps_friday_and_closes_saturday_and_sunday(
     body = {"date_from": FRI.isoformat(), "date_to": SUN.isoformat(), "start": "20:00", "end": "20:40", "headcount": 20}
     out = (await env.client.post(FIND, json=body, headers=ayse)).json()
     assert [s["date"] for s in out["slots"]] == ["2026-02-20"]
-    assert {c["date"]: c["reason"] for c in out["closed_dates"]} == {"2026-02-21": "closed_day", "2026-02-22": "closed_day"}
+    assert {c["date"]: c["reason"] for c in out["closed_dates"]} == {
+        "2026-02-21": "closed_day",
+        "2026-02-22": "closed_day",
+    }
     assert out["closed_dates"][0]["label"]["tr"] == "Cumartesi rezervasyona kapalı"
     free = [x for x in out["results"] if x["status"] == "free"]
     assert free, "Friday evening has free rooms"
@@ -69,7 +77,9 @@ async def test_seven_day_schedule_keeps_sunday_open(env):  # noqa: F811
     """No regression: a schedule that offers Sunday (the crbs_env default, from-grid 1..7) still finds rooms."""
     find_api.FIND_LIMIT.reset()
     _, ayse = await env.user("ayse.yilmaz@uni.edu.tr")
-    out = (await env.client.post(FIND, json={"date": SUN.isoformat(), "start": 3, "headcount": 20}, headers=ayse)).json()
+    out = (
+        await env.client.post(FIND, json={"date": SUN.isoformat(), "start": 3, "headcount": 20}, headers=ayse)
+    ).json()
     assert out["closed_dates"] == [] and out["summary"]["free"] > 0
 
 
@@ -85,7 +95,12 @@ async def test_booking_on_a_closed_day_says_the_day_is_closed(env):  # noqa: F81
     # a holiday is refused as a holiday (Turkish text too), never as "taken"
     hol = await env.client.post(
         "/api/v1/holidays",
-        json={"term_id": env.term_id, "name": "Ulusal Egemenlik ve Çocuk Bayramı", "date_start": "2026-04-23", "date_end": "2026-04-23"},
+        json={
+            "term_id": env.term_id,
+            "name": "Ulusal Egemenlik ve Çocuk Bayramı",
+            "date_start": "2026-04-23",
+            "date_end": "2026-04-23",
+        },
         headers=env.admin,
     )
     assert hol.status_code == 201, hol.text

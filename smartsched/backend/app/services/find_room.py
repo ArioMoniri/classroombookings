@@ -413,7 +413,9 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
     room_days = {r.id: await slot_periods.days(r) for r in rooms}
     offered = {wd for ds in room_days.values() if ds for wd in ds}
     why_closed: dict[date, str | None] = {
-        d: dinfos[d].reason if not dinfos[d].open else ("closed_day" if offered and d.isoweekday() not in offered else None)
+        d: dinfos[d].reason
+        if not dinfos[d].open
+        else ("closed_day" if offered and d.isoweekday() not in offered else None)
         for d in dates
     }
     open_dates = [d for d in dates if why_closed[d] is None]

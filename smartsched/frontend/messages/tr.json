@@ -3137,6 +3137,7 @@
       "freeNow": "Şu an boş: {rooms}",
       "noDiff": "Bu değişiklik için alan ayrıntısı yok.",
       "field": "Alan",
+      "f": {"id": "Kayıt no", "room_id": "Derslik", "new_room_id": "Yeni derslik", "user_id": "Kişi", "owner_user_id": "Derslik sorumlusu", "created_by": "Oluşturan", "cancelled_by": "İptal eden", "decided_by": "Karar veren", "approver_id": "Onaylayıcı", "department_id": "Bölüm", "period_id": "Ders saati", "term_id": "Dönem", "series_id": "Tekrarlayan rezervasyon", "room_group_id": "Derslik grubu", "building_id": "Bina", "schedule_id": "Ders saati düzeni", "default_schedule_id": "Varsayılan ders saati düzeni", "role_id": "Rol", "date": "Tarih", "start_period": "İlk ders saati", "end_period": "Son ders saati", "status": "Durum", "notes": "Not", "headcount": "Kişi sayısı", "cancel_reason": "İptal nedeni", "name": "Ad", "code": "Kod", "display_name": "Görünen ad", "description": "Açıklama", "capacity": "Kapasite", "exam_capacity": "Sınav kapasitesi", "is_bookable": "Rezerve edilebilir", "bookable": "Rezerve edilebilir", "location": "Konum", "tags": "Özellikler", "pos": "Sıra", "email": "E-posta", "username": "Kullanıcı adı", "firstname": "Ad", "lastname": "Soyad", "full_name": "Ad soyad", "enabled": "Etkin", "permissions": "Yetkiler", "days": "Günler", "time_start": "Başlangıç saati", "time_end": "Bitiş saati", "date_start": "Başlangıç tarihi", "date_end": "Bitiş tarihi", "start_date": "Başlangıç tarihi", "end_date": "Bitiş tarihi", "key": "Ayar", "value": "Değer", "is_selectable": "Rezervasyona açık"},
       "before": "Önce",
       "after": "Sonra",
       "yes": "evet",
@@ -6169,7 +6170,8 @@
       "my_classes": "Derslerim",
       "department_classes": "Bölümümün dersleri",
       "department_named": "{department} dersleri",
-      "my_bookings": "Rezervasyonlarım"
+      "my_bookings": "Rezervasyonlarım",
+      "my_duties": "Sınav görevlerim"
     },
     "what": {
       "title": "Neyi eklemek istiyorsunuz?",
@@ -6177,6 +6179,7 @@
       "my_classesPlain": "Verdiğiniz dersler, yayımlanmış programdan",
       "department_classes": "{department} bölümünün tüm dersleri",
       "my_bookings": "Derslik rezervasyonlarınız ve talepleriniz",
+      "my_duties": "Gözetmenlikleriniz ve kendi sınavlarınız, yayımlanmış plandan",
       "upcoming": "{n, plural, =0 {Yaklaşan etkinlik yok} other {# yaklaşan etkinlik}}",
       "writeOffice": "Planlama ofisine yaz",
       "writeOfficeSubject": "SmartSched: hesabımı öğretim elemanı kaydıma bağlayın"
@@ -6224,11 +6227,13 @@
       },
       "never": "Öğrenci bilgisi, not ve diğer öğretim elemanlarının adları gönderilmez.",
       "neverWithCo": "Öğrenci bilgisi ve notlar gönderilmez.",
+      "neverDuties": "Öğrenci bilgisi, not ve diğer gözetmenlerin adları gönderilmez.",
       "sample": "Örnek etkinlik",
       "sampleNone": "Bu dönemde henüz yaklaşan etkinlik yok; yayımlandıklarında eklenir.",
       "section": "Şube",
       "consent": "Ders programımın seçtiğim takvime gönderilmesini onaylıyorum. İstediğim zaman geri alabilirim.",
       "consentBookings": "Rezervasyonlarımın seçtiğim takvime gönderilmesini onaylıyorum. İstediğim zaman geri alabilirim.",
+      "consentDuties": "Sınav görevlerimin seçtiğim takvime gönderilmesini onaylıyorum. İstediğim zaman geri alabilirim.",
       "notice": "Aydınlatma metni",
       "needConsent": "Devam etmek için onay kutusunu işaretleyin.",
       "submit": "Onayla ve ekle",
@@ -6308,7 +6313,9 @@
         "department_classes": "Bölümümün dersleri",
         "department_classesHint": "Bir bölümün yayımlanmış tüm dersleri.",
         "my_bookings": "Rezervasyonlarım",
-        "my_bookingsHint": "Derslik rezervasyonları ve talepler."
+        "my_bookingsHint": "Derslik rezervasyonları ve talepler.",
+        "my_duties": "Sınav görevlerim",
+        "my_dutiesHint": "Yayımlanmış gözetmen planındaki görevler ve kişinin kendi sınavları."
       },
       "who": "Bölüm derslerini kimler dışa aktarabilir?",
       "rule": {

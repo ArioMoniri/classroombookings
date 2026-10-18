@@ -21,7 +21,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AuditEvent, Building, BookingPeriod, BookingSchedule, Program, Role, Room, RoomGroup, Term, User
+from app.models import AuditEvent, BookingPeriod, BookingSchedule, Building, Program, Role, Room, RoomGroup, Term, User
 from app.services.audit import user_label
 from app.services.bookings_perms import Access
 

@@ -37,7 +37,8 @@ function reasonOf(available: boolean, code: string | null | undefined, text: { t
   return { reason: "other", reasonText: own };
 }
 
-/** Step 1 cards in the doc's order (Derslerim, Bölümümün dersleri, Rezervasyonlarım); unknown kinds are dropped. */
+/** Step 1 cards in the doc's order (Derslerim, Bölümümün dersleri, Rezervasyonlarım, then CAL-13 Sınav görevlerim);
+ * unknown kinds are dropped. */
 export function scopeChoices(options: ExportOptions | undefined, locale: string): ScopeChoice[] {
   if (!options) return [];
   const out: ScopeChoice[] = [];
@@ -119,6 +120,8 @@ export const channelKey = (c: Channel): string => (c.kind === "push" ? `push:${c
 /** The research doc's bullets, in its order; the backend's list for the scope wins when it sends one. */
 export function approvalFields(choice: Pick<ScopeChoice, "kind" | "fields">, adminFields?: Record<string, boolean> | null): FieldKey[] {
   const known = new Set<string>(["code", "title", "room", "time", "department", "co_instructors", "link", "booking_title"]);
+  // CAL-13: a duty never carries the other invigilators' names, whatever the class setting says
+  if (choice.kind === "my_duties") known.delete("co_instructors");
   if (choice.fields?.length) return choice.fields.filter((f): f is FieldKey => known.has(f));
   if (choice.kind === "my_bookings") return ["booking_title", "room", "time"];
   const on = (k: string, dflt: boolean) => (adminFields && k in adminFields ? !!adminFields[k] : dflt);
@@ -126,7 +129,7 @@ export function approvalFields(choice: Pick<ScopeChoice, "kind" | "fields">, adm
   if (on("title", false)) out.push("title");
   out.push("room", "time");
   if (on("department", true)) out.push("department");
-  if (on("co_instructors", false)) out.push("co_instructors");
+  if (choice.kind !== "my_duties" && on("co_instructors", false)) out.push("co_instructors");
   if (on("link", false)) out.push("link");
   return out;
 }
@@ -267,7 +270,8 @@ export function pushScope(kind: ScopeKind, departmentId: number | null): string 
 
 /** The fallback file name ("derslerim-2026-bahar.ics"). */
 export function fileName(kind: ScopeKind, termSlug: string | null | undefined, departmentName?: string | null): string {
-  const base = kind === "my_classes" ? "derslerim" : kind === "my_bookings" ? "rezervasyonlarim" : `bolum-${slug(departmentName ?? "dersleri")}`;
+  const base =
+    kind === "my_classes" ? "derslerim" : kind === "my_bookings" ? "rezervasyonlarim" : kind === "my_duties" ? "sinav-gorevlerim" : `bolum-${slug(departmentName ?? "dersleri")}`;
   return `${[base, termSlug ? slug(termSlug) : null].filter(Boolean).join("-")}.ics`;
 }
 

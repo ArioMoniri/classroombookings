@@ -4,7 +4,7 @@
  * plain view over the sheet's state (export-sheet.tsx owns the calls). Cards on steps 1 and 2 are the action (one tap
  * each); a scope or a channel that is not available is shown with its reason, never as a fake button.
  */
-import { BookOpen, CalendarDays, CalendarPlus, Check, ChevronRight, Copy, Download, Link2, Mail, RefreshCw, Users } from "lucide-react";
+import { BookOpen, CalendarDays, CalendarPlus, Check, ChevronRight, ClipboardCheck, Copy, Download, Link2, Mail, RefreshCw, Users } from "lucide-react";
 import Link from "next/link";
 import { useId, useState, type ReactNode, type RefObject } from "react";
 import { toast } from "sonner";
@@ -38,7 +38,7 @@ export function providerName(p: string, t: T): string {
 
 export function scopeName(kind: string, t: T, department?: string | null): string {
   if (kind === "department_classes" && department) return t("calendarExport.scope.department_named", { department });
-  if (kind === "my_classes" || kind === "department_classes" || kind === "my_bookings") return t(`calendarExport.scope.${kind}`);
+  if (kind === "my_classes" || kind === "department_classes" || kind === "my_bookings" || kind === "my_duties") return t(`calendarExport.scope.${kind}`);
   return kind;
 }
 
@@ -79,7 +79,7 @@ export function Advanced({ children, testId, className }: { children: ReactNode;
 const cardClass = "flex w-full min-h-14 items-start gap-3 rounded-2xl bg-fill-3 px-4 py-3 text-left edge-control transition-colors hover:bg-fill-2";
 
 function ScopeIcon({ kind }: { kind: string }) {
-  const Icon = kind === "my_classes" ? BookOpen : kind === "department_classes" ? Users : CalendarDays;
+  const Icon = kind === "my_classes" ? BookOpen : kind === "department_classes" ? Users : kind === "my_duties" ? ClipboardCheck : CalendarDays;
   return <Icon className="mt-0.5 size-5 shrink-0 text-tint-text" aria-hidden />;
 }
 
@@ -97,7 +97,9 @@ export function WhatStep({ choices, onPick, notLinked, contactEmail }: { choices
               : t("calendarExport.what.my_classesPlain")
             : c.kind === "department_classes"
               ? t("calendarExport.what.department_classes", { department: c.departmentName ?? "" })
-              : t("calendarExport.what.my_bookings");
+              : c.kind === "my_duties"
+                ? t("calendarExport.what.my_duties")
+                : t("calendarExport.what.my_bookings");
         const name = c.kind === "department_classes" && c.departmentName ? t("calendarExport.scope.department_named", { department: c.departmentName }) : scopeName(c.kind, t);
         const why = reasonText(c, t);
         const body = (
@@ -243,7 +245,11 @@ export function ApproveStep({
         ))}
       </ul>
       <p className="type-footnote text-label-2" data-testid="cal-never">
-        {fields.includes("co_instructors") ? t("calendarExport.approve.neverWithCo") : t("calendarExport.approve.never")}
+        {choice.kind === "my_duties"
+          ? t("calendarExport.approve.neverDuties")
+          : fields.includes("co_instructors")
+            ? t("calendarExport.approve.neverWithCo")
+            : t("calendarExport.approve.never")}
       </p>
       <figure className="grid gap-1 rounded-2xl bg-fill-3 px-4 py-3 edge-control" data-testid="cal-sample">
         <figcaption className="type-caption font-medium text-label-3">{t("calendarExport.approve.sample")}</figcaption>
@@ -261,7 +267,13 @@ export function ApproveStep({
         <div className="grid gap-1" data-testid="cal-consent">
           <label htmlFor={consentId} className="flex min-h-11 cursor-pointer items-start gap-3 type-callout text-label-1">
             <Checkbox id={consentId} ref={consentRef} checked={consent} onCheckedChange={(v) => onConsent(v === true)} className="mt-0.5" data-testid="cal-consent-tick" />
-            <span>{choice.kind === "my_bookings" ? t("calendarExport.approve.consentBookings") : t("calendarExport.approve.consent")}</span>
+            <span>
+              {choice.kind === "my_bookings"
+                ? t("calendarExport.approve.consentBookings")
+                : choice.kind === "my_duties"
+                  ? t("calendarExport.approve.consentDuties")
+                  : t("calendarExport.approve.consent")}
+            </span>
           </label>
           <Link href={GRANT_PATH} className="ml-8 w-fit type-footnote font-medium text-tint-text underline-offset-4 hover:underline" data-testid="cal-notice-link">
             {t("calendarExport.approve.notice")}

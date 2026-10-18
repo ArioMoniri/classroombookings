@@ -20,7 +20,8 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 
 | Lane | Ledger name | What | Brief / tickets | Waits on |
 |---|---|---|---|---|
-| Video re-render | child session session_01M8ntN927QstdjmChCTLUTw | deterministic 60 fps capture, crf 14–16, quality gate (≥ 95 % unique frames in motion, VMAF ≥ 95); commits media to this branch with pull --rebase | launch README | — |
+| UI alignment | child session session_01UPxzgkGbNvb8HD7j17oMKw (own stack) | top bar / search / toolbar icon centre lines (owner: search icon off-level), e2e/ui-alignment.spec.ts, before/after shots | design tokens | — |
+| Video re-render | child session session_01M8ntN927QstdjmChCTLUTw | desktop hero loop (owner: README showed phone only), README cut to hero + ≤ 3 clips, captures after the alignment fix; deterministic 60 fps capture, crf 14–16, quality gate (≥ 95 % unique frames in motion, VMAF ≥ 95); commits media to this branch with pull --rebase | launch README | — |
 | Tester wave | child session (own private stack) | round-4 personas, WG-10, CAL-10, AS-20, CH-12, VO-09, AUX-12, HB-18, HX-12b, every e2e-queue section; reports in docs/testing/round4/ | e2e queue | — |
 | HB-17 re-bench | child session (Lambda A10, cap 1.5 h) | qwen2.5:14b and qwen3:14b on the HB-E fixes, 80 turns | hb-17 bench report | — |
 | CI green | `ci-green-2026-10-18` | Reproduce every pod-CI gate we can on HEAD and fix failures; gate status doc | pod-ci gates | — |
