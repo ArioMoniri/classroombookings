@@ -17,3 +17,7 @@ Each lane lists the browser checks it could not run. The e2e lane runs them one 
 4. wg-hints.spec.ts, plus axe on the hinted pages.
 5. wg-admin.spec.ts, then M-01/02/03/05 on /admin/welcome.
 On pass: tick WG-04..08 `[x]` in docs/ROADMAP.md.
+
+## Sweeper (ops backup card)
+1. /admin/ops shows the "Yedek" card with "Son yedek: …" (desktop + phone).
+2. After writing a 30-hour-old timestamp into /var/lib/smartsched/textfile/backup.prom, the card turns to a warning.
