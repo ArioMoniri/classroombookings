@@ -4102,7 +4102,8 @@
       "goal": "Ledger name `bugs-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss (backend smartsched/backend, small frontend changes in smartsched/frontend). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first (each bug gets a failing test fir…",
       "ledger": "BUG lane: find-room Sunday, audit labels",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 12:52"
     },
     {
       "id": "a6053724e53e0fe8a",

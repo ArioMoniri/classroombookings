@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `e30ef59` (committed 2026-10-18 12:34 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `36464b2` (committed 2026-10-18 12:52 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -177,7 +177,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-378 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 348 · stopped 11 · superseded 7.
+381 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 353 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -191,8 +191,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `E2E lane` | general-purpose | 2026-10-18 08:59 |
 | `CI lane` | devops-engineer | 2026-10-18 11:02 |
 | `CAL-13` | backend-engineer | 2026-10-18 12:23 |
-| `BUG lane` | backend-engineer | 2026-10-18 12:31 |
-| `README media pass` | design-pro | 2026-10-18 12:31 |
 
 <!-- /AUTO:agents -->
 
@@ -259,7 +257,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **437 ticked · 425 open** checkboxes in 100 sections (96 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **439 ticked · 425 open** checkboxes in 101 sections (96 with open items).
 
 <details><summary>Per section</summary>
 
@@ -365,6 +363,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 8 | 14 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — UX | 0 | 12 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — backend | 17 | 1 |
+| Bugs seen while recording the launch video (2026-10-18) | 2 | 0 |
 
 </details>
 

@@ -99,6 +99,11 @@
   "wave1": {
     "find": {
       "weeks": "Wythnosau"
+    },
+    "audit": {
+      "f": {
+        "days": "Dyddiau"
+      }
     }
   },
   "moderation": {

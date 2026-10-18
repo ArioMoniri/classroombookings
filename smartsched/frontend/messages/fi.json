@@ -99,6 +99,11 @@
   "wave1": {
     "find": {
       "weeks": "viikot"
+    },
+    "audit": {
+      "f": {
+        "days": "päivät"
+      }
     }
   },
   "moderation": {

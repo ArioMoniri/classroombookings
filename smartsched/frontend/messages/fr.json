@@ -99,6 +99,11 @@
   "wave1": {
     "find": {
       "weeks": "Semaines"
+    },
+    "audit": {
+      "f": {
+        "days": "Jours"
+      }
     }
   },
   "moderation": {
