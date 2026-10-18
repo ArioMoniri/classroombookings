@@ -257,7 +257,7 @@ Multi-selection shows a summary ("6 ders · 412 öğrenci · 3 bina · 2 sorunlu
 Wireframe: `wireframes/all-classes-mobile.svg`.
 - **Nav**: large title "Tüm dersler" with the subtitle "1.529 ders · Run #42", collapsing on scroll. Glass circle buttons top-right: Filtre (with a badge for the active filter count) and ⋯ (Grupla, Sırala, Görünümler, Dışa aktar).
 - **Scope chips** (horizontally scrollable, with counts; Shopify #11) = saved views: "Tümü 1.529 · Yerleşmeyen 21 · Sorunlu 7 · Değişen 17 · Akşam 96".
-- **Search**: the detached glass search circle at the bottom next to the shell's tab bar expands into a field on tap (iOS 26 idiom, Shopify #11). Same token grammar, with token suggestions as chips above the keyboard.
+- **Search**: a detached glass search capsule next to the shell's tab bar, built like a tab (20 px glyph on the tabs' icon line, label "Ara"); it opens the search on tap. Decided 2026-10-18 (owner: the glyph-only circle sat below the tab icons), replacing the glyph-only circle of the iOS 26 idiom (Shopify #11). Same token grammar, with token suggestions as chips above the keyboard.
 - **Group headers**: inset-grouped section headers on `--mat-thick` (motion pattern §15), sticky: "Eczacılık Fakültesi · 184".
 - **Card** (opaque, inset grouped list cell, 12 px radius, 16 px padding):
   ```
