@@ -1163,7 +1163,7 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, Any]:
     data["welcome_guide"] = await welcome_svc.dsr_rows(session, uid)
     from app.services import mfa as mfa_svc  # AU-B: what is on and when; never a secret, a code or a key
 
-    data["sign_in_security"] = await mfa_svc.dsr_rows(session, uid)
+    data["sign_in_security"] = await mfa_svc.dsr_rows(session, uid)  # type: ignore[assignment]
     data.update(await _person_records(session, user, rooms))
     return await _scrub_others(session, user, data)
 
@@ -1832,8 +1832,8 @@ EXPORT_FILES: dict[str, tuple[str, str]] = {
         "The welcome guide's state for you (shown, snoozed, tour step, items done).",
     ),
     "sign_in_security": (
-        "Giriş güvenliğiniz: doğrulama uygulaması açık mı, kalan kurtarma kodu sayısı, geçiş anahtarlarınızın adları ve "
-        "tarihleri, güvenilir cihazlar (gizli anahtarlar ve kodlar dışa aktarılmaz).",
+        "Giriş güvenliğiniz: doğrulama uygulaması açık mı, kalan kurtarma kodu sayısı, geçiş anahtarlarınızın adları "
+        "ve tarihleri, güvenilir cihazlar (gizli anahtarlar ve kodlar dışa aktarılmaz).",
         "Your sign-in security: whether the authenticator app is on, recovery codes left, your passkeys' names and "
         "dates, trusted devices (secrets and codes are never exported).",
     ),

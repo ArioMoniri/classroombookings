@@ -414,7 +414,10 @@ TR: dict[str, str] = {
         "girişte parolanızdan sonra doğrulama uygulamanızdaki kod ya da geçiş anahtarınız istenecek."
     ),
     "mfa_enabled.cta": "Güvenlik ayarlarını aç",
-    "mfa_enabled.after": "Kurtarma kodlarınızı güvenli bir yerde saklayın; telefonunuzu kaybederseniz onlarla girersiniz.",
+    "mfa_enabled.after": (
+        "Kurtarma kodlarınızı güvenli bir yerde saklayın; telefonunuzu kaybederseniz onlarla "
+        "girersiniz."
+    ),
     "mfa_enabled.note": "Bunu siz yapmadınız mı? Hemen parolanızı değiştirin ve yöneticinize haber verin.",
     "mfa_disabled.subject": "İki adımlı doğrulama kapatıldı",
     "mfa_disabled.preheader": "Girişte artık yalnızca parolanız soruluyor.",
@@ -433,8 +436,14 @@ TR: dict[str, str] = {
         "Doğrulama uygulaması, kurtarma kodları ve güvenilir cihazlar kaldırıldı; tüm oturumlarınız kapatıldı."
     ),
     "mfa_reset_by_admin.cta": "Doğrulamayı yeniden aç",
-    "mfa_reset_by_admin.after": "Giriş yaptıktan sonra Profil › Güvenlik bölümünden doğrulama uygulamanızı yeniden ekleyin.",
-    "mfa_reset_by_admin.note": "Böyle bir talepte bulunmadınız mı? Hemen yöneticinize ya da bilgi işlem birimine haber verin.",
+    "mfa_reset_by_admin.after": (
+        "Giriş yaptıktan sonra Profil › Güvenlik bölümünden doğrulama uygulamanızı yeniden "
+        "ekleyin."
+    ),
+    "mfa_reset_by_admin.note": (
+        "Böyle bir talepte bulunmadınız mı? Hemen yöneticinize ya da bilgi işlem birimine haber "
+        "verin."
+    ),
     "passkey_added.subject": "Hesabınıza yeni bir geçiş anahtarı eklendi",
     "passkey_added.preheader": "{device} adlı geçiş anahtarı eklendi.",
     "passkey_added.heading": "Yeni geçiş anahtarı eklendi",
@@ -452,7 +461,10 @@ TR: dict[str, str] = {
         "kod artık geçersiz; {remaining} kodunuz kaldı."
     ),
     "mfa_recovery_code_used.cta": "Yeni kurtarma kodları oluştur",
-    "mfa_recovery_code_used.note": "Bu giriş size ait değil mi? Hemen parolanızı değiştirin ve yöneticinize haber verin.",
+    "mfa_recovery_code_used.note": (
+        "Bu giriş size ait değil mi? Hemen parolanızı değiştirin ve yöneticinize haber "
+        "verin."
+    ),
     "password_reset_link_by_admin.subject": "Parola sıfırlama bağlantınız",
     "password_reset_link_by_admin.preheader": "Bağlantı {valid_hours} saat geçerli ve bir kez kullanılabilir.",
     "password_reset_link_by_admin.heading": "Yeni parolanızı belirleyin",
@@ -465,7 +477,10 @@ TR: dict[str, str] = {
         "Bağlantı {valid_hours} saat geçerlidir ve bir kez kullanılabilir. İki adımlı doğrulamanız açıksa girişte yine "
         "sorulur."
     ),
-    "password_reset_link_by_admin.note": "Böyle bir şey istemediniz mi? Bağlantıyı açmayın ve yöneticinize haber verin.",
+    "password_reset_link_by_admin.note": (
+        "Böyle bir şey istemediniz mi? Bağlantıyı açmayın ve yöneticinize haber "
+        "verin."
+    ),
     "passkey_removed.subject": "Hesabınızdan bir geçiş anahtarı kaldırıldı",
     "passkey_removed.preheader": "{device} adlı geçiş anahtarı artık kullanılamaz.",
     "passkey_removed.heading": "Geçiş anahtarı kaldırıldı",
@@ -482,7 +497,10 @@ TR: dict[str, str] = {
         "kodlarınızın hiçbiri artık çalışmaz."
     ),
     "recovery_codes_regenerated.cta": "Güvenlik ayarlarını aç",
-    "recovery_codes_regenerated.note": "Bunu siz yapmadınız mı? Hemen parolanızı değiştirin ve yöneticinize haber verin.",
+    "recovery_codes_regenerated.note": (
+        "Bunu siz yapmadınız mı? Hemen parolanızı değiştirin ve yöneticinize haber "
+        "verin."
+    ),
     "mfa_required.subject": "İki adımlı doğrulama zorunlu oldu",
     "mfa_required.preheader": "{grace_days} gün içinde doğrulama uygulaması ya da geçiş anahtarı ekleyin.",
     "mfa_required.heading": "İki adımlı doğrulamayı açın",
@@ -914,7 +932,10 @@ EN: dict[str, str] = {
     "passkey_removed.subject": "A passkey was removed from your account",
     "passkey_removed.preheader": "The passkey {device} no longer works.",
     "passkey_removed.heading": "Passkey removed",
-    "passkey_removed.intro": "Hello {name}, the passkey {device} was removed from your {org} SmartSched account on {when}.",
+    "passkey_removed.intro": (
+        "Hello {name}, the passkey {device} was removed from your {org} SmartSched account on "
+        "{when}."
+    ),
     "passkey_removed.cta": "Open security settings",
     "passkey_removed.note": "Wasn't this you? Change your password now and tell your administrator.",
     "recovery_codes_regenerated.subject": "New recovery codes were created",
