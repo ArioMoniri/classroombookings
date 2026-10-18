@@ -3812,6 +3812,42 @@
       "status": "finished",
       "finished_at": "2026-10-18 10:51",
       "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a2732883e399ed001",
+      "description": "HB-D: remember card, context, recent",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 10:55",
+      "scope": "",
+      "goal": "Ledger name `hb-d-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack; `nice`, pytest on touched files); never `pkill -f`; …",
+      "ledger": "HB-D: remember card, context, recent",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a266acd34c5192a44",
+      "description": "Shell integration: HX mounts, RF-16",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 10:55",
+      "scope": "",
+      "goal": "Ledger name `shell-int-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWo…",
+      "ledger": "Shell integration: HX mounts, RF-16",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "ac4f4193a873c4e78",
+      "description": "HX design sign-off and audit",
+      "subagent_type": "design-pro",
+      "isolation": null,
+      "started_at": "2026-10-18 10:55",
+      "scope": "",
+      "goal": "Ledger name `hx-design-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first. This is a review lane: change only docs (docs/design/v3/helper.md, a new review file), no app code, no commits, no stack. Tickets HB-07 (design sign-of…",
+      "ledger": "HX design sign-off and audit",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
