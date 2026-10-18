@@ -3956,7 +3956,8 @@
       "goal": "Ledger name `hb-e-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend (plus one frontend zod pattern). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first (each fix gets a test that fails before it); r…",
       "ledger": "HB-E: fix bench bugs 1-5, P1, P2",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 11:56"
     },
     {
       "id": "a1afb651664dfc21e",
@@ -3993,6 +3994,14 @@
       "ledger": "RF-16b: non-blocking period grid",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a0724f960a52c30b3",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:46",
+      "left_off": "is the pod up yet"
     }
   ]
 }

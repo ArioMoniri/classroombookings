@@ -22,7 +22,7 @@ import { useMe } from "@/lib/api/hooks";
 import { usePermissions } from "@/lib/permissions";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, tween, useReduce } from "@/lib/motion";
-import { dayName } from "@/lib/time";
+import { dayName, usePeriodGridVersion } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { AgendaLens } from "./agenda-lens";
 import { BoardStrip } from "./board-strip";
@@ -115,6 +115,8 @@ export interface CalendarViewProps {
 
 export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, className }: CalendarViewProps) {
   const { t, locale, n } = useI18n();
+  // RF-16b: a late period grid re-renders the toolbar, sidebar and lenses in place (no remount: focus, scroll kept)
+  usePeriodGridVersion();
   const lang = locale === "tr" ? "tr" : "en";
   const reduce = useReduce();
   const router = useRouter();

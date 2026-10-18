@@ -1,8 +1,11 @@
 /**
  * Period / time helpers for the 18-period daily grid (docs/DATA_ANALYSIS.md "Time grid"). The clock times are the
- * university's (`GET /period-grid`, RF-09 / RF-16), applied at app start; the built-in times are the fallback.
- * All helpers are locale-neutral and read the grid at call time; day names are resolved via Intl in the UI.
+ * university's (`GET /period-grid`, RF-09 / RF-16), applied by the app shell without blocking (RF-16b): the device's
+ * cached grid or the built-in times show first, and a different server grid replaces them in place. All helpers are
+ * locale-neutral and read the grid at call time; day names are resolved via Intl in the UI. A view that keeps
+ * derived values (memo, React.memo) subscribes with `usePeriodGridVersion()` so it re-renders when the times change.
  */
+import { useSyncExternalStore } from "react";
 
 export interface Period {
   /** 1-based index */
@@ -51,6 +54,17 @@ export function subscribePeriodGrid(listener: () => void): () => void {
   gridListeners.add(listener);
   return () => gridListeners.delete(listener);
 }
+
+/**
+ * RF-16b: the grid's version for a component (`useSyncExternalStore`). Reading it re-renders the component when the
+ * times change (a late `GET /period-grid`, an edit on /admin/schedules); put it in the deps of memoised values that
+ * read the grid. The server snapshot is 0: the server always renders the built-in grid.
+ */
+export function usePeriodGridVersion(): number {
+  return useSyncExternalStore(subscribePeriodGrid, periodGridVersion, serverGridVersion);
+}
+
+const serverGridVersion = () => 0;
 
 function setGrid(rows: readonly Period[]): void {
   const live = PERIODS as Period[];

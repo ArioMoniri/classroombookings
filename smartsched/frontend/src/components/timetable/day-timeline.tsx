@@ -7,7 +7,7 @@
  */
 import { animate, motion, useMotionValue } from "motion/react";
 import { memo, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { PERIODS, PERIODS_PER_DAY } from "@/lib/time";
+import { PERIODS, PERIODS_PER_DAY, usePeriodGridVersion } from "@/lib/time";
 import { springs, useReduce } from "@/lib/motion";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -77,6 +77,8 @@ function DayTimelineImpl(p: DayTimelineProps) {
   const ptr = useRef<{ id: number; x: number; y: number; ev: CalEvent | null; started: boolean; meta: boolean } | null>(null);
   const gx = useMotionValue(0);
   const gy = useMotionValue(0);
+  // RF-16b: the period header and bar positions follow a late period grid (memoised view: subscribe)
+  usePeriodGridVersion();
   const width = LABEL_W + minuteX(dayEndMin(), p.pxPerMin);
   const rowIndex = useMemo(() => new Map(p.rooms.map((r, i) => [r.id, i])), [p.rooms]);
 

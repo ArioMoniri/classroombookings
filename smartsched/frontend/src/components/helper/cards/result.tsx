@@ -55,7 +55,7 @@ export function ResultView({ card, entry }: { card: ResultCard; entry: CardEntry
         ) : undefined
       }
     >
-      <p tabIndex={-1} data-focus-target="" data-testid="helper-card-result" className="flex items-start gap-2 type-body text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-(--focus) rounded-sm">
+      <p tabIndex={-1} data-focus-target="" data-testid="helper-card-result" className="flex items-start gap-2 type-body text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) rounded-sm">
         <span aria-hidden className={cn("mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-(--mat-thick-solid)", card.ok ? "helper-check bg-status-feasible-fg" : "bg-status-infeasible-fg")}>
           {card.ok ? <Check className="size-3.5 stroke-[3]" /> : <X className="size-3.5 stroke-[3]" />}
         </span>

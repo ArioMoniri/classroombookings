@@ -29,7 +29,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { PERIODS, PERIODS_PER_DAY } from "@/lib/time";
+import { PERIODS, PERIODS_PER_DAY, usePeriodGridVersion } from "@/lib/time";
 import { dur, ease, springs, useReduce } from "@/lib/motion";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -146,7 +146,9 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
   const reduce = useReduce();
   const gridId = useId();
   const scroller = useRef<HTMLDivElement>(null);
-  const rows: RowTable = useMemo(() => rowTable(rowH), [rowH]);
+  // RF-16b: the row table and gutter times follow a late period grid (memoised view: subscribe)
+  const gridVersion = usePeriodGridVersion();
+  const rows: RowTable = useMemo(() => rowTable(rowH), [rowH, gridVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const [view, setView] = useState({ left: 0, top: 0, width: 1200, height: 800 });
   const [cursor, setCursor] = useState<{ col: number; p: number }>({ col: 0, p: 1 });
   const [drag, setDrag] = useState<DragState | null>(null);

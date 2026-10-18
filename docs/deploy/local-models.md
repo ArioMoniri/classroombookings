@@ -71,6 +71,19 @@ docker run -d --name ollama --restart unless-stopped --gpus all \
 docker exec ollama ollama pull qwen3.5:9b
 ```
 
+Without Docker (cloud-init or a systemd unit), **export `HOME` before the first `ollama` command**. cloud-init runs
+`runcmd` without `$HOME`, and the `ollama` CLI then panics before it starts (HB-17 bench, 2026-10-18):
+
+```sh
+# cloud-init runcmd / a systemd ExecStartPre script
+export HOME=/root OLLAMA_CONTEXT_LENGTH=16384 OLLAMA_HOST=127.0.0.1:11434
+ollama serve &                        # or the packaged ollama.service with the same Environment= lines
+ollama pull qwen3.5:9b
+```
+
+In a systemd unit, set the same values with `Environment=HOME=/root`, `Environment=OLLAMA_CONTEXT_LENGTH=16384` and
+`Environment=OLLAMA_HOST=…` in the `[Service]` section.
+
 ### Next to the stack (optional compose profile `ollama`)
 
 `smartsched/deploy/docker-compose.yml` has an `ollama` service. It is **off by default** and starts only with the
@@ -103,6 +116,12 @@ services:
   endpoint ignores `num_ctx`, so a small context silently cuts the helper's system prompt and tools. SmartSched clamps
   `max_tokens` to the synced context and refuses `context_too_small` before sending (HB-13), but only when the
   context is known.
+- **The served window is what `GET /api/ps` shows**, not what `POST /api/show` shows. `/api/show` reports the model's
+  maximum (`model_info.<arch>.context_length`, e.g. 32768 for Qwen2.5 14B). `/api/ps` reports `context_length` of a
+  *loaded* model, which follows `OLLAMA_CONTEXT_LENGTH` (e.g. 16384). Check it on the host with
+  `curl -s http://127.0.0.1:11434/api/ps`. SmartSched reads `/api/ps` at sync and again at the end of the probe, and
+  stores the smaller of the two (HB-17 bug 2). If the model was not loaded at sync, the provider card and the route
+  show **`context_unverified`** ("bağlam penceresi henüz bilinmiyor") until the probe (Test) has loaded it once.
 - Ollama does not support `tool_choice`. SmartSched emulates single-tool features (rules, intake) with a JSON schema
   (HB-13). Multi-tool features (helper, chat) work, but Ollama does not enforce the argument schemas. The server
   validates every argument and the helper falls back to index mode after two bad rounds.
@@ -150,6 +169,11 @@ For the compose profile, the base URL is `http://ollama:11434/v1` and the model 
   URL (no SSRF to internal hosts). Plain `http` is accepted only for a local address.
 - Sync shows the capabilities per model (`source: provider`). The probe overwrites them with measured values
   (`source: probe`). If a server hides them, an admin can set them per model (audited).
+- The probe stores its findings only when at least one call reached the server, so a Test during an outage does not
+  block routing. Its forced tool call uses a neutral message, so a server that ignores `tool_choice` (Ollama) shows
+  `tool_choice: no`; SmartSched then sends a forced single tool as a JSON schema instead (HB-13).
+- Run the probe after the sync on an Ollama server: it loads the model, and its last step reads the served window
+  from `/api/ps` (see section 3).
 - **/admin/ai › Yardımcı** shows the helper's mode. Once a feature route exists, the person's status chip reads
   **Yerel model**.
 
@@ -179,5 +203,7 @@ bul". The answer must be in Turkish, come with `nav` / `list` cards, and add one
 | Helper always answers from the index ("Rehber modu") | no `helper` route, `mode: index` in /admin/ai › Yardımcı, or no consent | route the helper (section 5), check the Yardımcı tab, check Profil › Gizlilik |
 | `422 model_lacks_capability` when routing | sync / probe found no tool support | use a tool-capable model; for vLLM add `--enable-auto-tool-choice --tool-call-parser …` |
 | `context_too_small` | the server's context is smaller than the prompt | raise `--max-model-len` / `OLLAMA_CONTEXT_LENGTH` to ≥ 16384, then sync again |
+| `context_unverified` on the provider card or route | Ollama had not loaded the model at sync, so only its maximum is known | run **Test** (probe) once; it loads the model and reads `/api/ps` |
+| `ollama` panics in cloud-init / systemd (`$HOME is not defined`) | the CLI needs `HOME` | `export HOME=/root` (or `Environment=HOME=/root`) before `ollama` |
 | `unsafe_url` / address refused | `allow_local` off, or the name resolves to a public address | turn on "Yerel sunucu"; use the internal address |
 | Slow first answer | the model loads on the first request | Ollama: `OLLAMA_KEEP_ALIVE` (compose sets 30m); vLLM loads at start |

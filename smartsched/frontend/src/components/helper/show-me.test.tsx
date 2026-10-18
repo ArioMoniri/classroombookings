@@ -1,6 +1,7 @@
 /** HX-07 (helper.md §3.3): Göster = navigate, wait for the anchor, ring it, one step card; Esc ends on the target. */
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "@/lib/api/endpoints";
 import { useHelperStore } from "./helper-store";
 import { ShowMeHost } from "./show-me";
 import { renderHelper, resetHelperStore } from "./test-helpers";
@@ -115,6 +116,35 @@ describe("Göster", () => {
     expect(await screen.findByTestId("tour-ring")).toBeInTheDocument();
     expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "start" }));
     expect(screen.getByText("Tatil ekle").style.scrollMarginTop).not.toBe("");
+  });
+
+  it("Yayınla is on the run's page: Göster from /runs goes to the published run first", async () => {
+    pathname = "/runs";
+    vi.spyOn(api.runs, "list").mockResolvedValue([{ id: 3, status: "OPTIMAL", is_active: false }, { id: 5, status: "FEASIBLE", is_active: true }] as never);
+    renderHelper(
+      <>
+        <button type="button" data-tour="runs-publish">Yayınla</button>
+        <ShowMeHost />
+      </>,
+    );
+    act(() => useHelperStore.getState().startShowMe("runs.publish", false));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/runs/5"));
+    expect(await screen.findByTestId("tour-ring")).toBeInTheDocument();
+  });
+
+  it("on a run's page Göster stays on that run", async () => {
+    pathname = "/runs/12";
+    const list = vi.spyOn(api.runs, "list");
+    renderHelper(
+      <>
+        <button type="button" data-tour="runs-export">Dışa aktar</button>
+        <ShowMeHost />
+      </>,
+    );
+    act(() => useHelperStore.getState().startShowMe("runs.export", false));
+    expect(await screen.findByTestId("tour-ring")).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalled();
   });
 
   it("a missing anchor shows the path and says the button is not on the page", async () => {

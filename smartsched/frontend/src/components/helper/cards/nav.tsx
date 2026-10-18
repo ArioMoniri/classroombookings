@@ -4,7 +4,9 @@
  * the route, the anchor and the permission come from the client's link map, so an id the client cannot map, or one
  * this person may not open, renders nothing (double filter). Buttons: "Göster" (an anchor exists), "Sayfayı aç",
  * and "Burada yap" when the entry has an action this person may run here. Hand-overs keep the page's own dialog:
- * the calendar entry reads "Takvimime ekle", the invite entry "Davet penceresini aç".
+ * the calendar entry reads "Takvimime ekle", the invite entry "Davet penceresini aç", the publish entry "Yayınlama
+ * penceresini aç", each opening the page's own dialog by its address format (handover-links.ts); Yayınla and Dışa
+ * aktar open the run (`/runs/<id>`), as their buttons are only there.
  *
  * `compact` (Rehber modu hits, the index rows of a limit / refusal / error card): one 44 px row (56 px on phones) like
  * the palette's rows: icon, title, grey path and a trailing "Göster" hint. A tap does "Göster" when the control has an
@@ -17,6 +19,7 @@ import { trackHelper } from "@/lib/api/helper";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { canOpenFeature, featureById, featureHref, pathLine } from "../feature-links";
+import { handoverHref, isRunScoped, resolveRunId, runFeatureHref } from "../handover-links";
 import type { NavCard } from "../schema.gen";
 import { pickText, useCardHost } from "./context";
 import { HelperCardFrame } from "./frame";
@@ -24,9 +27,10 @@ import { HelperCardFrame } from "./frame";
 /** Actions that make sense as "Burada yap" with no arguments (a read, or a write that answers its form). */
 const DO_HERE = ["find_free_rooms", "create_booking", "my_bookings", "my_requests_status", "approvals_inbox", "run_status", "requests_needing_review", "my_ai_usage"];
 
-const HANDOVER_LABEL: Record<string, "helper.where.calendar" | "helper.where.invite"> = {
+const HANDOVER_LABEL: Record<string, "helper.where.calendar" | "helper.where.invite" | "helper.where.publish"> = {
   "profile.calendar": "helper.where.calendar",
   "admin.users.invite": "helper.where.invite",
+  "runs.publish": "helper.where.publish",
 };
 
 export function NavView({ card, compact = false }: { card: NavCard; compact?: boolean }) {
@@ -44,7 +48,11 @@ export function NavView({ card, compact = false }: { card: NavCard; compact?: bo
   const openLabel = HANDOVER_LABEL[card.feature_id] ? t(HANDOVER_LABEL[card.feature_id]!) : t("helper.where.open");
   const open = () => {
     trackHelper({ kind: "nav_click", feature_id: card.feature_id });
-    host.go(href);
+    if (isRunScoped(entry)) {
+      void resolveRunId(window.location.pathname).then((runId) => host.go(handoverHref(card.feature_id, { runId }) ?? runFeatureHref(card.feature_id, runId)));
+      return;
+    }
+    host.go(handoverHref(card.feature_id) ?? href);
   };
   if (compact) {
     return (

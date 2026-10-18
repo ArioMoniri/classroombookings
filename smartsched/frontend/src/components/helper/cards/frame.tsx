@@ -48,7 +48,7 @@ export function HelperCardFrame({
 export function CancelledLine() {
   const { t } = useI18n();
   return (
-    <p tabIndex={-1} data-focus-target="" data-testid="helper-card-cancelled" className="rounded-sm type-footnote text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-(--focus)">
+    <p tabIndex={-1} data-focus-target="" data-testid="helper-card-cancelled" className="rounded-sm type-footnote text-label-2 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
       {t("helper.card.cancelled")}
     </p>
   );

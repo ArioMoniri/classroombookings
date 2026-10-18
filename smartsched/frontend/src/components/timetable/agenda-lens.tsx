@@ -7,7 +7,7 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { AlertTriangle, Lock } from "lucide-react";
 import { memo, useMemo, useRef } from "react";
-import { PERIODS } from "@/lib/time";
+import { PERIODS, usePeriodGridVersion } from "@/lib/time";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { chipVars } from "./event-chip";
@@ -40,6 +40,8 @@ export interface AgendaProps {
 function AgendaImpl(p: AgendaProps) {
   const { t, locale } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
+  // RF-16b: the section times follow a late period grid (memoised view: subscribe)
+  const gridVersion = usePeriodGridVersion();
   const items = useMemo<Item[]>(() => {
     const out: Item[] = [];
     for (const d of p.days) {
@@ -75,7 +77,7 @@ function AgendaImpl(p: AgendaProps) {
       }
     }
     return out;
-  }, [p.days, p.dates, p.events, p.todayIso, p.nowMin, p.compact, t]);
+  }, [p.days, p.dates, p.events, p.todayIso, p.nowMin, p.compact, t, gridVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rowH = p.compact ? 64 : 44;
   const v = useVirtualizer({

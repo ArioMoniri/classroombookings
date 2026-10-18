@@ -37,12 +37,12 @@ import { errorText, pickLang, useFacets, useMyRequests, useRecentSearches, w1Key
 import { intlLocale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { altWhyQuery, asRequestable, buildQuery, emptyForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, buildingLabel, periodOptions, recentParts, SHOWN, slotsFor, whyQuery, wholeSpan, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildQuery, clockDefaults, emptyForm, regridForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, buildingLabel, periodOptions, recentParts, SHOWN, slotsFor, whyQuery, wholeSpan, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsCompact, useIsPhone } from "@/components/bookings/use-is-phone";
-import { PERIODS } from "@/lib/time";
+import { PERIODS, usePeriodGridVersion } from "@/lib/time";
 
 const STATUS: Record<string, { icon: LucideIcon; cls: string; key: MessageKey }> = {
   free: { icon: CheckCircle2, cls: "bg-status-feasible text-status-feasible-fg", key: "wave1.find.status.free" },
@@ -110,6 +110,14 @@ export function FindRoomView() {
     const text = params.get("text");
     const head = params.get("headcount");
     setForm((p) => (p ? { ...p, date: init.date, weekday: init.weekday, dateFrom: init.dateFrom, dateTo: init.dateTo } : { ...init, text: text ?? "", headcount: head ?? "" }));
+  }
+  // RF-16b: a late period grid moves the default clock fields the person has not changed (and the placeholders)
+  const gridVersion = usePeriodGridVersion();
+  const [grid, setGrid] = useState(() => ({ version: gridVersion, clocks: clockDefaults() }));
+  if (grid.version !== gridVersion) {
+    const clocks = clockDefaults();
+    setGrid({ version: gridVersion, clocks });
+    setForm((p) => (p ? regridForm(p, grid.clocks, clocks) : p));
   }
   const f = form ?? emptyForm(today || "2026-01-01");
   const set = <K extends keyof FindForm>(k: K, v: FindForm[K]) => setForm((p) => ({ ...(p ?? f), [k]: v }));

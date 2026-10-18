@@ -56,7 +56,11 @@ function useRecentUndo() {
   const undo = async (r: RecentAction, event: { nativeEvent?: Event } | Event | undefined): Promise<"skipped" | "ok" | "refused"> => {
     if (!r.undo_token || busy !== null || !activation.trusted(event)) return "skipped";
     setBusy(r.id);
-    setErrors(({ [r.id]: _drop, ...rest }) => rest);
+    setErrors((e) => {
+      const rest = { ...e };
+      delete rest[r.id];
+      return rest;
+    });
     let out: "ok" | "refused" = "refused";
     try {
       const card = await helperApi.undo(r.undo_token);
@@ -114,7 +118,7 @@ export function RecentActions() {
             <li key={r.id} className="flex min-h-11 items-center gap-2 py-1.5 not-last:edge-hairline-b" data-testid={`helper-recent-${r.id}`}>
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="break-words type-callout text-label-1">{v.label}</span>
-                <span tabIndex={-1} data-recent-status={r.id} data-testid={`helper-recent-status-${r.id}`} className="rounded-sm type-footnote text-label-3 outline-hidden focus-visible:outline-2 focus-visible:outline-(--focus)">
+                <span tabIndex={-1} data-recent-status={r.id} data-testid={`helper-recent-status-${r.id}`} className="rounded-sm type-footnote text-label-3 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
                   {v.meta}
                 </span>
                 {v.error ? (

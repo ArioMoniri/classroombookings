@@ -21,7 +21,7 @@ import { BusyGlyph } from "@/components/ui/busy-label";
 import type { ClassRow } from "@/lib/api/classes";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n";
-import { dayName, formatDate, periodRangeLabel } from "@/lib/time";
+import { dayName, formatDate, periodRangeLabel, usePeriodGridVersion } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { aggregate, groupKey, type Density } from "./classes-model";
 import { BareButton } from "@/components/shell/bare-button";
@@ -117,6 +117,8 @@ export function StatusCell({ r }: { r: ClassRow }) {
 
 function ClassTableImpl(p: ClassTableProps) {
   const { t, locale } = useI18n();
+  // RF-16b: the time cells follow a late period grid (memoised view: subscribe)
+  const gridVersion = usePeriodGridVersion();
   const lang = locale === "tr" ? "tr" : "en";
   const scroller = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState<{ row: number; col: number }>({ row: 0, col: 2 });
@@ -129,7 +131,7 @@ function ClassTableImpl(p: ClassTableProps) {
     if (date && sp && ep) return `${formatDate(date, locale, { weekday: "short", day: "numeric", month: "short" })} ${periodRangeLabel(sp, ep)}`;
     if (!day || !sp || !ep) return null;
     return `${dayName(day, locale, "short")} ${periodRangeLabel(sp, ep)}`;
-  }, [locale]);
+  }, [locale, gridVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const columnDefs = useMemo<ColumnDef<ClassRow>[]>(() => {
     const groupCol = (id: string): ColumnDef<ClassRow> => ({ id: `g_${id}`, accessorFn: (r) => groupKey(r, id).key, enableSorting: false });

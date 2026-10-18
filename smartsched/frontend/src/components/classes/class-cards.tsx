@@ -14,7 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { ClassRow } from "@/lib/api/classes";
 import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
-import { dayName, periodRangeLabel } from "@/lib/time";
+import { dayName, periodRangeLabel, usePeriodGridVersion } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { groupKey } from "./classes-model";
 import { BareButton } from "@/components/shell/bare-button";
@@ -28,6 +28,8 @@ function calendarHref(r: ClassRow, runId: number | null): string {
 
 const Card = memo(function Card({ r, runId, selected, selectMode, onOpen, onToggle, onLock, onExplain, readOnly }: { r: ClassRow; runId: number | null; selected: boolean; selectMode: boolean; onOpen: () => void; onToggle: () => void; onLock: () => void; onExplain: () => void; readOnly: boolean }) {
   const { t, locale } = useI18n();
+  // RF-16b: the card's time follows a late period grid (memoised card: subscribe)
+  usePeriodGridVersion();
   const lang = locale === "tr" ? "tr" : "en";
   const reduce = useReduce();
   const x = useMotionValue(0);

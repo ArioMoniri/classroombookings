@@ -6,6 +6,8 @@
  * the sheet closed first and the card is docked at the bottom, the target scrolled to the upper half (HX-18 m12). On
  * desktop a target under the open sheet moves the sheet aside first (HX-18 M1); "Yardımcıya dön" brings it back. A missing anchor shows the path and "Bu düğme şu an
  * bu sayfada görünmüyor." Esc or "Anladım" ends it with the focus on the target; reduced motion: the ring jumps.
+ * Yayınla and Dışa aktar live on a run's page only: "Göster" goes to the run first (the address's, else the published
+ * one, else the newest finished one; handover-links.ts).
  */
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
@@ -17,6 +19,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { featureById, pathLine } from "./feature-links";
+import { isRunScoped, resolveRunId, runFeatureHref } from "./handover-links";
 import { useHelperStore } from "./helper-store";
 import { DESKTOP_SHEET } from "./helper-sheet";
 
@@ -53,12 +56,16 @@ function ShowMe({ featureId }: { featureId: string }) {
   // navigate, then wait for the anchor
   useEffect(() => {
     if (!entry) return;
-    const [path] = entry.route.split("#");
-    if (path && path !== pathname) router.push(entry.route);
-    if (!entry.anchor) return;
     const ctrl = new AbortController();
-    void waitForAnchor(entry.anchor, 3000, ctrl.signal).then((el) => {
+    const anchor = entry.anchor;
+    void (async () => {
+      const route = isRunScoped(entry) ? runFeatureHref(entry.id, await resolveRunId(pathname)) : entry.route;
       if (ctrl.signal.aborted) return;
+      const [path] = route.split("#");
+      if (path && path !== pathname) router.push(route);
+      return anchor ? waitForAnchor(anchor, 3000, ctrl.signal) : undefined;
+    })().then((el) => {
+      if (ctrl.signal.aborted || el === undefined) return;
       if (!el) return setFound({ state: "missing" });
       // HX-18 M1: the desktop sheet is fixed over the right column and the ring draws above it, so a control under
       // it would be ringed but not clickable: move the sheet aside (the thread stays; "Yardımcıya dön" reopens it)

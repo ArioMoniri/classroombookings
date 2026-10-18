@@ -53,6 +53,23 @@ export function isoDate(text: string | null | undefined): string | null {
   return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+/** RF-16b: the form's clock defaults from the grid in use (P3 start, P5 end, P1 start). */
+export function clockDefaults(): Pick<FindForm, "start" | "end" | "windowStart"> {
+  return { start: PERIODS[2].start, end: PERIODS[4].end, windowStart: PERIODS[0].start };
+}
+
+/**
+ * RF-16b: a late `GET /period-grid` moves the default clock fields the person has not changed (still equal to the
+ * `before` grid's defaults) to the `after` grid's; typed values stay. Returns the same form when nothing moves.
+ */
+export function regridForm(form: FindForm, before: ReturnType<typeof clockDefaults>, after: ReturnType<typeof clockDefaults>): FindForm {
+  const keys = (["start", "end", "windowStart"] as const).filter((k) => form[k] === before[k] && before[k] !== after[k]);
+  if (!keys.length) return form;
+  const next = { ...form };
+  for (const k of keys) next[k] = after[k];
+  return next;
+}
+
 export function emptyForm(today: string): FindForm {
   today = isoDate(today) ?? today;
   return {
@@ -65,12 +82,10 @@ export function emptyForm(today: string): FindForm {
     weekdays: [],
     time: "clock",
     // RF-16: P3–P5 and P1 of the grid in use (10:10–12:30 and 08:30 by default)
-    start: PERIODS[2].start,
-    end: PERIODS[4].end,
+    ...clockDefaults(),
     startPeriod: 3,
     endPeriod: 5,
     durationPeriods: 2,
-    windowStart: PERIODS[0].start,
     windowEnd: "17:00",
     headcount: "",
     purpose: "teaching",
