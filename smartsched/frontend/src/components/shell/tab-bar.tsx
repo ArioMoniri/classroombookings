@@ -10,7 +10,6 @@ import { useI18n } from "@/lib/i18n/provider";
 import { springs, useReduce } from "@/lib/motion";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
-import { IconButton } from "@/components/ui/button";
 import { BareButton } from "./bare-button";
 import { useUiStore } from "@/stores/ui";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
@@ -37,6 +36,8 @@ const PILL = "pointer-events-none absolute inset-0 -z-10 rounded-full bg-(--mat-
 const ITEM = "relative isolate flex min-h-12 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-full px-1 max-[22.5rem]:px-0 [@media(max-height:500px)]:min-h-11 [@media(max-height:500px)]:flex-row [@media(max-height:500px)]:gap-1.5";
 /** T-R2-04 (R2-A-01, R2-S-07): the label never runs into its neighbour: it truncates inside its column (safety net) */
 const LABEL = "type-caption whitespace-nowrap min-w-0 max-w-full truncate";
+/** the glyph box: 20 px icons (tokens §A3) on one line for every tab, the detached search included */
+const ICON = "relative flex [&_svg]:size-5 [&_svg]:stroke-[1.75]";
 /**
  * Tab-bar-only labels (nav.tab.*): a 390 px phone gives each of four or five columns 59–74 px, so the sidebar words
  * ("Rezervasyonlar", "Rezervasyonlarım") overlapped (T-R2-04). The sidebar, ⌘K and the crumbs keep the full words.
@@ -84,7 +85,7 @@ export function TabBar() {
     const content = (
       <>
         {active ? <motion.span layoutId="tab-pill" aria-hidden className={PILL} style={{ borderRadius: 999 }} transition={morph} /> : null}
-        <span aria-hidden className={cn("relative flex [&_svg]:size-5 [&_svg]:stroke-[1.75]", active ? "text-tint-text" : "text-label-2")}>
+        <span aria-hidden className={cn(ICON, active ? "text-tint-text" : "text-label-2")}>
           {icon}
         </span>
         <span aria-hidden data-slot="tab-label" className={cn(LABEL, active ? "font-semibold text-tint-text" : "text-label-2")}>
@@ -122,7 +123,7 @@ export function TabBar() {
   // too, the two bars took about 200 px of a phone. The top bar carries the menu (drawer) and search there.
   if (hasOwnBottomBar(pathname)) return null;
   return (
-    <div data-slot="tab-bar" className="pointer-events-none fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] [@media(max-height:500px)]:bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-40 flex items-end justify-center gap-2 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] lg:hidden">
+    <div data-slot="tab-bar" className="pointer-events-none fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] [@media(max-height:500px)]:bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-40 flex items-center justify-center gap-2 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] lg:hidden">
       <LayoutGroup id="tab-bar">
         <nav aria-label={t("glass.shell.tabs")} data-glass="chrome" className="glass-chrome pointer-events-auto min-w-0 flex-1 rounded-full p-1 sm:max-w-md sm:flex-none [@media(max-height:500px)]:p-0">
           <ul className="grid grid-flow-col auto-cols-[minmax(0,1fr)] items-center gap-0.5">
@@ -131,9 +132,18 @@ export function TabBar() {
           </ul>
         </nav>
       </LayoutGroup>
-      <IconButton label={t("helper.trigger.name")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className="glass-chrome pointer-events-auto size-12 shrink-0 rounded-full text-label-1 hover:bg-transparent max-[22.5rem]:hidden [@media(max-height:500px)]:size-11 [&_svg]:size-5" data-testid="open-palette-mobile">
-        <Search aria-hidden />
-      </IconButton>
+      {/* ui-alignment 2026-10-18: the detached search is a tab of its own (same capsule padding, ITEM box, 20 px icon and
+          label), so its glyph sits on the tabs' icon line; the 48 px circle centred a 16 px glyph 12 px below them */}
+      <BareButton aria-label={t("helper.trigger.name")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className="glass-chrome pointer-events-auto shrink-0 rounded-full p-1 font-normal max-[22.5rem]:hidden [@media(max-height:500px)]:p-0" data-testid="open-palette-mobile">
+        <span className={cn(ITEM, "px-3")}>
+          <span aria-hidden className={cn(ICON, "text-label-2")}>
+            <Search />
+          </span>
+          <span aria-hidden data-slot="tab-label" className={cn(LABEL, "text-label-2")}>
+            {t("common.search")}
+          </span>
+        </span>
+      </BareButton>
     </div>
   );
 }

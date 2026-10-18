@@ -347,7 +347,7 @@ export function BookingsView() {
   const roomPicker = (wide = false) => (
     <>
       <span className="sr-only">{t("crbs.toolbar.room")}</span>
-      <SelectField value={String(g?.rooms[0]?.id ?? "")} onChange={(e) => setParams({ room: e.target.value })} aria-label={t("crbs.toolbar.room")} className={wide ? "min-w-0 flex-1" : undefined} data-testid="room-select">
+      <SelectField value={String(g?.rooms[0]?.id ?? "")} onChange={(e) => setParams({ room: e.target.value })} aria-label={t("crbs.toolbar.room")} className={wide ? "min-w-0 flex-1" : undefined} fieldSize={wide ? "md" : "sm"} data-testid="room-select">
         {/* CRBS filter/room.php: rooms under their room group */}
         {roomOptions(rooms.data ?? [], g?.rooms ?? [], t("reserve.toolbar.ungrouped")).map((grp) =>
           grp.label === null ? (
@@ -377,7 +377,7 @@ export function BookingsView() {
   const sessionPicker = (wide = false) => (
     <>
       <span className="sr-only">{t("crbs.toolbar.session")}</span>
-      <SelectField value={String(g?.term.id ?? "")} aria-label={t("crbs.toolbar.session")} onChange={(e) => setParams({ term: e.target.value, date: null })} className={wide ? "w-full" : undefined} data-testid="session-select">
+      <SelectField value={String(g?.term.id ?? "")} aria-label={t("crbs.toolbar.session")} onChange={(e) => setParams({ term: e.target.value, date: null })} className={wide ? "w-full" : undefined} fieldSize={wide ? "md" : "sm"} data-testid="session-select">
         {/* CRBS grid/Controls.php: "Current and future" and "Past" */}
         {[
           { label: t("reserve.toolbar.current"), items: sessions.filter((s) => s.is_current || !dates.data?.today || s.end >= dates.data.today) },
@@ -494,7 +494,7 @@ export function BookingsView() {
           {displayControl()}
           <div className="flex items-center gap-1">
             {navPrev}
-            {g ? <DatePicker {...datePickerProps(g)} /> : <Skeleton className="h-8 w-48 rounded-full" />}
+            {g ? <DatePicker {...datePickerProps(g)} size="sm" /> : <Skeleton className="h-(--control-h-sm) w-48 rounded-full" />}
             {navNext}
             <ToolbarButton onClick={goToday}>{t("crbs.toolbar.today")}</ToolbarButton>
           </div>

@@ -10,6 +10,7 @@ import { Alert as UiAlert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { BusyLabel } from "@/components/ui/busy-label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { FieldSize } from "@/components/ui/field-styles";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
@@ -84,12 +85,13 @@ export function Field({ label, hint, error, children, htmlFor, className }: { la
   );
 }
 
-/** The design-system NativeSelect (field surface, --control-h, centred chevron); 16 px text on touch phones. */
-export function SelectField({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+/** The design-system NativeSelect (field surface, --control-h, centred chevron); 16 px text on touch phones.
+ *  `fieldSize`: the control size (`sm` in a toolbar of sm controls; the native `size` attribute is dropped). */
+export function SelectField({ className, children, fieldSize = "md", ...props }: SelectHTMLAttributes<HTMLSelectElement> & { fieldSize?: FieldSize }) {
   const { size: _size, ...rest } = props;
   void _size;
   return (
-    <NativeSelect {...rest} className={className}>
+    <NativeSelect {...rest} size={fieldSize} className={className}>
       {children}
     </NativeSelect>
   );

@@ -30,10 +30,12 @@ interface Props {
   compact?: boolean;
   /** a "Today" button in the popover (compact toolbar: the toolbar has no room for it) */
   onToday?: () => void;
+  /** the trigger's control size: `sm` in a toolbar of sm controls (ui-alignment 2026-10-18: one height per row) */
+  size?: "sm" | "md";
   className?: string;
 }
 
-export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, today, fmt, compact, onToday, className }: Props) {
+export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, today, fmt, compact, onToday, size = "md", className }: Props) {
   const { t, locale } = useI18n();
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(value.slice(0, 7));
@@ -77,7 +79,7 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
         }
       }}
     >
-      <PopoverTrigger render={<Button variant="outline" className={cn("min-w-0 justify-start", className)} data-testid="date-picker-trigger" />}>
+      <PopoverTrigger render={<Button variant="outline" size={size} className={cn("min-w-0 justify-start", className)} data-testid="date-picker-trigger" />}>
         <CalendarDays aria-hidden />
         {compact ? (
           <>

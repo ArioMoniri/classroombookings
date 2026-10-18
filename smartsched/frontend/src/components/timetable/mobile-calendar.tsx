@@ -111,7 +111,9 @@ export function MobileCalendar(p: MobileCalendarProps) {
           <h1 className="type-title-1 capitalize" data-testid="calendar-title">{big}</h1>
           <p className="type-callout text-label-2">{sub}</p>
         </div>
-        <div className="flex gap-2 pt-1">
+        {/* ui-alignment 2026-10-18: one 48 px row (--control-h-lg on touch): the subject capsule was a 40 px circle around a
+            44 px trigger, 4 px above the lens button's centre, with 14 px glyphs beside its 16 px one */}
+        <div className="flex items-center gap-2 pt-1">
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="outline" size="icon-lg" aria-label={t("calendar.lens.label")} />}><CalendarDays /></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -122,8 +124,8 @@ export function MobileCalendar(p: MobileCalendarProps) {
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          <span className="glass-chrome flex size-10 items-center justify-center rounded-full" data-glass="chrome">
-            <SubjectPicker model={p.model} subject={p.subject} onSubject={p.onSubject} condensed />
+          <span className="glass-chrome flex h-(--control-h-lg) min-w-(--control-h-lg) items-center justify-center rounded-full px-0.5" data-glass="chrome">
+            <SubjectPicker model={p.model} subject={p.subject} onSubject={p.onSubject} condensed size="md" />
           </span>
         </div>
       </header>
