@@ -148,15 +148,12 @@ export function UsersAdmin() {
     if (u) reset.mutate(u, { onSuccess: (tok) => setToken({ user: u, token: tok }), onError: toastError });
   };
   const security = useUserSecurity({ meId: userId, onShowCode: showCode });
-  const mfaGrace = (u: AdminUser) => {
-    const v = (statusOf(u) as { mfa_grace_until?: unknown } | undefined)?.mfa_grace_until;
-    return typeof v === "string" ? v : null;
-  };
+  const mfaGrace = (u: AdminUser) => statusOf(u)?.mfa_grace_until ?? null;
   const secUser = (u: AdminUser): SecurityUser => {
     const m = methodView(statusOf(u), u.auth_source);
     return { id: u.id, name: u.displayname || u.full_name || u.username || u.email || "", email: u.email, account: securityAccount(m), providerName: m === "microsoft" || m === "microsoftInvite" ? "Microsoft" : null, mfa: mfaListState(statusOf(u)), role: u.role, lastLoginAt: u.last_login_at };
   };
-  // the 2FA filter appears once the status map carries mfa_state (AU-B); it narrows the loaded page
+  // the 2FA filter (AU-18 mfa_state in the status map); it narrows the loaded page
   const [mfaFilter, setMfaFilter] = useState<MfaFilter>("");
   const mfaKnown = usersAdmin && Object.values(idStatus.data ?? {}).some((x) => mfaListState(x) !== null);
   const rows = mfaKnown ? visible.filter((u) => matchesMfaFilter(mfaListState(statusOf(u)), mfaFilter)) : visible;

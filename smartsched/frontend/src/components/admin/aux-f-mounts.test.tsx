@@ -77,6 +77,27 @@ describe("Admin › Kullanıcılar (A5)", () => {
   });
 });
 
+describe("2FA state in the list (AU-18)", () => {
+  it("tags 'pending' without a grace date as 'ilk girişte başlar', shows the filter, and the filter narrows the rows", async () => {
+    const OTHER = { ...USER, id: 8, username: "mehmet", email: "mehmet@ornek.edu.tr", displayname: "Mehmet Kaya" };
+    routes["/api/v1/users/search"] = () => res(200, { items: [USER, OTHER], total: 2, limit: 25, offset: 0 });
+    routes["/api/v1/auth/sso/admin/user-status"] = () => res(200, { "7": { status: "none", auth_methods: ["local"], mfa_state: "pending", mfa_grace_until: null }, "8": { status: "none", auth_methods: ["local"], mfa_state: "on", mfa_grace_until: null } });
+    wrap(<UsersAdmin />);
+    expect((await screen.findAllByTestId("mfa-tag-pending"))[0]).toHaveTextContent("2FA bekleniyor (ilk girişte başlar)");
+    expect(screen.getAllByTestId("mfa-tag")[0]).toHaveTextContent("2FA");
+    const filter = screen.getAllByTestId("mfa-filter")[0]!;
+    fireEvent.change(filter, { target: { value: "on" } });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "ayse için işlemler" })).toBeNull());
+    expect(screen.getByRole("button", { name: "mehmet için işlemler" })).toBeInTheDocument();
+  });
+
+  it("no mfa_state anywhere (identity-provider-only map): no filter", async () => {
+    wrap(<UsersAdmin />);
+    await screen.findByRole("button", { name: "ayse için işlemler" });
+    expect(screen.queryByTestId("mfa-filter")).toBeNull();
+  });
+});
+
 describe("Ayarlar (A6)", () => {
   it("shows the 'Giriş güvenliği' tab with setup.authentication and opens the policy card", async () => {
     nav.search = "tab=signin-security";

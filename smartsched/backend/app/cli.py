@@ -235,12 +235,16 @@ async def _set_setting(args: argparse.Namespace) -> int:
 
 
 def _backtest(args: argparse.Namespace) -> int:
-    """``backtest adaptive [--json]``: B1-B7 on the real fixture workbooks; exit 1 when a backtest misses its target."""
+    """``backtest adaptive [--json]``: B1-B9 on the real fixture workbooks; exit 1 when a backtest misses its target.
+    B4 (learning) and B8 (peak smoothing) build their own databases and are left out with ``--skip-db``."""
     from app.services import backtest
+    from app.services import backtest_solver as bs
 
     results = backtest.run_all()
     if not args.skip_db:
         results.insert(3, asyncio.run(backtest.b4_standalone()))
+        b7 = next((i for i, r in enumerate(results) if r.id == "B7"), len(results) - 1)
+        results.insert(b7 + 1, asyncio.run(bs.b8_standalone()))
     if args.json:
         print(json.dumps([r.as_dict() for r in results], ensure_ascii=False, indent=2, default=str))
     else:
@@ -296,10 +300,12 @@ def main(argv: list[str] | None = None) -> int:
     ss.add_argument("value", help="text, true/false, a number or JSON (languages)")
     bt = sub.add_parser("backtest", help="backtests of the adaptive-scheduling models on the fixture workbooks")
     bt.add_argument(
-        "suite", choices=["adaptive"], help="adaptive: B1-B7 (docs/research/2026-10-17-adaptive-scheduling.md)"
+        "suite", choices=["adaptive"], help="adaptive: B1-B9 (docs/research/2026-10-17-adaptive-scheduling.md)"
     )
     bt.add_argument("--json", action="store_true", help="print the results as JSON")
-    bt.add_argument("--skip-db", action="store_true", help="leave out B4 (it builds a temporary database, ~2 min)")
+    bt.add_argument(
+        "--skip-db", action="store_true", help="leave out B4 and B8 (they build temporary databases, ~3 min)"
+    )
     args = p.parse_args(argv)
     if args.cmd == "backtest":
         return _backtest(args)

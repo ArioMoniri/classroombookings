@@ -456,8 +456,10 @@ def run_all(fx: Fixtures | None = None) -> list[Result]:
         b3_building_demand(fx.bahar_grid, fx.guz_grid, fx.guz_list),
         b5_what_if(fx.bahar_list),
         exam_day_load(fx.exam_list),
-        b7_slot_holds(fx.exam_list),
     ]
+    from app.services import backtest_solver as bs  # AS-S backtests (B6 advisor, B9 weight learning)
+
+    out += [bs.b6_exam_advisor(fx.exam_list), b7_slot_holds(fx.exam_list), bs.b9_weight_learning()]
     return out
 
 

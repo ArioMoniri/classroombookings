@@ -78,7 +78,7 @@ export function SigninSecuritySettings() {
       </Card>
     );
   if (!q.data) return <Alert tone="error">{t("auth.policy.loadFailed")}</Alert>;
-  return <PolicyEditor key={q.dataUpdatedAt} saved={toForm(q.data)} counts={q.data as unknown as { required_people?: number; enrolled_people?: number }} />;
+  return <PolicyEditor key={q.dataUpdatedAt} saved={toForm(q.data)} counts={{ required_people: q.data.required_people, enrolled_people: q.data.enrolled_people }} />;
 }
 
 function PolicyEditor({ saved, counts }: { saved: PolicyForm; counts: { required_people?: number; enrolled_people?: number } }) {
@@ -128,8 +128,10 @@ function PolicyEditor({ saved, counts }: { saved: PolicyForm; counts: { required
   // §9 banner: the saved rule covers this admin and they have no second factor yet
   const meUncovered = me && me.required && !me.totp.enabled && me.passkeys.length === 0 && me.account_type !== "sso";
   const graceOptions = (GRACE_CHOICES as readonly number[]).includes(form.mfa_grace_days) ? GRACE_CHOICES : [...GRACE_CHOICES, form.mfa_grace_days].sort((a, b) => a - b);
+  // AU-18 counts describe the SAVED policy: shown while the form still has its Zorunlu and roles
+  const sameScope = saved.mfa_policy === "required_for_roles" && JSON.stringify([...saved.mfa_roles].sort()) === JSON.stringify([...form.mfa_roles].sort());
   const sentence =
-    typeof counts.required_people === "number" && typeof counts.enrolled_people === "number"
+    sameScope && typeof counts.required_people === "number" && typeof counts.enrolled_people === "number"
       ? t("auth.policy.liveSentence", { n: counts.required_people, m: counts.enrolled_people, date: shortDate(graceEnd(form.mfa_grace_days), locale) })
       : t("auth.policy.graceSentence", { date: shortDate(graceEnd(form.mfa_grace_days), locale) });
 

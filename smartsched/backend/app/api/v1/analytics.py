@@ -293,6 +293,20 @@ async def forecast_what_if(body: WhatIfIn, db: DB, user: Planner) -> dict[str, A
         ) from exc
 
 
+@router.get("/forecast/exams/advice", response_model=None)
+async def forecast_exams_advice(db: DB, _: Viewer, term_id: int) -> dict[str, Any]:
+    """AS-12 exam date advisor: load cards and ranked date / slot moves for the term's exam requests. Advice only:
+    ``changes_nothing`` is always true; a planner applies a move on /exams."""
+    from app.services import exam_advisor
+
+    try:
+        return await exam_advisor.advise_term(db, term_id)
+    except LookupError as exc:
+        raise HTTPException(
+            404, {"code": "term_not_found", "message_tr": "dönem bulunamadı", "message_en": "term not found"}
+        ) from exc
+
+
 @router.get("/forecast/exams", response_model=None)
 async def forecast_exams(
     db: DB, _: Viewer, term_id: int, students_per_invigilator: int | None = Query(None, ge=5, le=500)

@@ -450,6 +450,8 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/learning/calibration/apply": (E, "app.services.learning_versions"),
     "PUT /api/v1/learning/priors/{prior_id}/habit": (E, "app.services.learning_versions"),
     "PUT /api/v1/learning/settings": (E, "app.api.v1.learning"),
+    # AS-14: a learned-weights draft profile goes through seasons.create_profile / update_profile (season_profile.*)
+    "POST /api/v1/learning/weights/propose": (E, "app.services.seasons"),
     # AI helper (app/ai/helper; app/api/v1/helper.py): action cards are reads or dry-run previews
     "POST /api/v1/helper/actions/{name}/card": (N, "a read, or a write's dry-run preview with a signed token"),
     "POST /api/v1/helper/actions/confirm": (E, "app.ai.helper.confirm"),

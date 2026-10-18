@@ -189,6 +189,10 @@ export const UserIdentityStatus = z.object({
   self_signup_at: z.string().nullish(),
   break_glass: z.boolean().default(false),
   instructor_id: z.number().nullish(),
+  /** AU-18 (API.md §13): SmartSched 2FA per user; null = identity-provider-only (no tag, no 2FA filter match) */
+  mfa_state: z.enum(["on", "off", "pending"]).nullish().catch(null),
+  /** `pending` only: end of the grace period once it started (first sign-in under the policy) */
+  mfa_grace_until: z.string().nullish(),
 });
 export type UserIdentityStatus = z.infer<typeof UserIdentityStatus>;
 export const UserStatusMap = z.record(z.string(), UserIdentityStatus);

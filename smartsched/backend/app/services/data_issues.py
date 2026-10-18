@@ -289,6 +289,16 @@ GROUPS: tuple[GroupSpec, ...] = (
         "Bir gün ya da saatte çok sınav var veya bir sınıfın günde 2'den fazla sınavı var; tarih önerisidir.",
         "Too many exams on a day or in a slot, or a cohort has more than 2 exams a day; advice only.",
     ),
+    # AS-12 reverse warning (course runs): a published exam of the same term in one of the run's class rooms
+    GroupSpec(
+        "exam_overlap",
+        "Sınav çakışması - Exam overlap",
+        "Sınavla çakışan dersler",
+        "Classes that meet an exam's room",
+        "Yayımlanmış bir sınav bu dersin odasını aynı gün ve saatte kullanıyor; dersi başka odaya alın ya da sınav "
+        "tarihini değiştirin.",
+        "A published exam uses this class's room on the same day and time; move the class or the exam date.",
+    ),
     GroupSpec(
         "other",
         "Diğer - Other",
@@ -2231,6 +2241,9 @@ async def build_data_issues(session: AsyncSession, run: ScheduleRun) -> dict[str
         from app.services.forecast import peak_pressure
 
         from_text["peak_pressure"] = await peak_pressure(session, run.term_id)
+        from app.services.exam_class_plan import exam_overlaps
+
+        from_text["exam_overlap"] = await exam_overlaps(session, run)
     groups_out: list[dict[str, Any]] = []
     for spec in GROUPS:
         items: list[dict[str, Any]] = []

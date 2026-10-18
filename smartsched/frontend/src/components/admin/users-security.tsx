@@ -50,8 +50,8 @@ export function securityAccount(method: MethodView): SecurityAccount {
 export type MfaListState = "on" | "off" | "pending";
 export type MfaFilter = "" | MfaListState;
 
-/** The list's 2FA state. Ask AU-B: the users status map carries `mfa_state` + `mfa_grace_until` per user; until then
- *  the tag and the filter read nothing (unknown → no tag, every filter but "Tümü" empty). */
+/** The list's 2FA state from the users status map (AU-18 `mfa_state`): `null` for identity-provider-only accounts
+ *  (no tag, matches no 2FA filter). `mfa_grace_until` is null for `pending` until the first sign-in under the policy. */
 export function mfaListState(s: unknown): MfaListState | null {
   const v = s && typeof s === "object" ? (s as { mfa_state?: unknown }).mfa_state : undefined;
   return v === "on" || v === "off" || v === "pending" ? v : null;
@@ -117,7 +117,7 @@ export function MfaMethodTag({ state, graceUntil }: { state: MfaListState | null
     return (
       <Badge variant="secondary" className="gap-1 text-status-warning-fg" data-testid="mfa-tag-pending">
         <ShieldAlert aria-hidden className="size-3.5" />
-        {graceUntil ? t("auth.admin.tagPendingDate", { date: shortDate(graceUntil, locale) }) : t("auth.admin.tagPending")}
+        {graceUntil ? t("auth.admin.tagPendingDate", { date: shortDate(graceUntil, locale) }) : t("auth.admin.tagPendingFirst")}
       </Badge>
     );
   return null;

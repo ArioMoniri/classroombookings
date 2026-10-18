@@ -59,6 +59,7 @@ def test_classify_maps_every_named_group() -> None:
         "time_snapped",  # the list's times, not a diagnosis
         "peak_pressure",  # AS-09: computed from the term's requests, not a diagnosis
         "exam_load",  # AS-09: computed from the exam list, not a diagnosis
+        "exam_overlap",  # AS-12: the published exams vs the course run, not a diagnosis
     }
     assert {g.code for g in GROUPS} == set(cases) | board_only
     for group, d in cases.items():

@@ -105,4 +105,17 @@ describe("SeasonProfiles", () => {
     await act(async () => { fireEvent.click(screen.getByTestId("pf-save")); });
     expect(await screen.findByTestId("pf-error")).toHaveTextContent("ağırlık 0 ile 10000 arasında olmalı");
   });
+
+  it("'Düzenlemelerden ağırlık öner' shows the backend's needs sentence with fewer than 5 edits, else focuses the draft", async () => {
+    vi.spyOn(seasonsApi, "profiles").mockResolvedValue(list([{ ...base, key: "learned_bahar", status: "draft", origin: "learned" }]));
+    const propose = vi.spyOn(seasonsApi, "proposeWeights").mockResolvedValueOnce({ edits: 3, confidence: "none", needs: { tr: "En az 5 elle düzenleme gerekli (şu an 3)", en: "x" }, proposal: null });
+    mount();
+    await act(async () => { fireEvent.click(await screen.findByTestId("profile-propose")); });
+    await waitFor(() => expect(propose).toHaveBeenCalledWith(2));
+    expect(await screen.findByTestId("profile-propose-note")).toHaveTextContent("En az 5 elle düzenleme gerekli (şu an 3)");
+    propose.mockResolvedValueOnce({ edits: 12, confidence: "medium", needs: null, proposal: { profile_id: 4, key: "learned_bahar", version: 1 } });
+    await act(async () => { fireEvent.click(screen.getByTestId("profile-propose")); });
+    await waitFor(() => expect(screen.queryByTestId("profile-propose-note")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getAllByTestId("profile-row").find((r) => r.dataset.rowKey === "learned_bahar")));
+  });
 });

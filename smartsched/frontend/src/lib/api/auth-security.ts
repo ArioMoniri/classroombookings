@@ -102,6 +102,9 @@ export const MfaPolicy = z.object({
   passkey_first_factor: z.boolean().default(false),
   /** "Bu cihazı hatırla": 0 (off), 7 or 30 days (ask A1d) */
   trusted_device_days: z.number().default(30),
+  /** AU-18: active accounts the saved policy requires 2FA of now, and of those the ones with a factor (0 unless Zorunlu) */
+  required_people: z.number().optional(),
+  enrolled_people: z.number().optional(),
 });
 export type MfaPolicy = z.infer<typeof MfaPolicy>;
 
@@ -116,7 +119,8 @@ export const MfaStatus = z.object({
   passkeys_available: z.boolean().default(false),
   required: z.boolean().default(false),
   grace_until: ts,
-  totp: z.object({ enabled: z.boolean(), enabled_at: ts }),
+  /** AU-18 `change_pending`: "Uygulamayı değiştir" started and not confirmed yet (expires after 15 min) */
+  totp: z.object({ enabled: z.boolean(), enabled_at: ts, change_pending: z.boolean().default(false) }),
   recovery_codes: z.object({ remaining: z.number(), total: z.number() }),
   passkeys: z.array(PasskeyRow).default([]),
   trusted_devices: z.array(TrustedDevice).default([]),
@@ -127,6 +131,8 @@ export const MfaStatus = z.object({
 export type MfaStatus = z.infer<typeof MfaStatus>;
 
 export const TotpStart = z.object({
+  /** AU-18: an app is already on, so this is "Uygulamayı değiştir" (the old app works until the new one confirms) */
+  replacing: z.boolean().default(false),
   secret: z.string(),
   otpauth_uri: z.string(),
   issuer: z.string(),
@@ -139,7 +145,8 @@ export const TotpStart = z.object({
 export type TotpStart = z.infer<typeof TotpStart>;
 
 export const RecoveryCodesOut = z.object({ recovery_codes: z.array(z.string()) });
-export const TotpConfirmOut = z.object({ enabled: z.literal(true), recovery_codes: z.array(z.string()) });
+/** After a change (`changed: true`) the codes are `[]`: the saved codes and remembered devices stay. */
+export const TotpConfirmOut = z.object({ enabled: z.literal(true), changed: z.boolean().default(false), recovery_codes: z.array(z.string()).default([]) });
 export const DisableOut = z.object({ disabled: z.boolean(), passkeys_remaining: z.number().default(0) });
 export const RegisterOptionsOut = z.object({ challenge_token: z.string().optional(), options: z.record(z.string(), z.unknown()) });
 export type RegisterOptionsOut = z.infer<typeof RegisterOptionsOut>;

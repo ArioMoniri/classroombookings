@@ -25,6 +25,7 @@ scope: term | persistent}                                                       
 ``GET /learning/habits``                                        planning.view    RF-07 per-habit overrides
 ``PUT /learning/priors/{id}/habit`` {state, reason, value, weight} planning.admin disable / correct / tune / clear
 ``GET|PUT /learning/settings`` {nightly_refresh}                planning.admin   nightly refresh 03:15 on/off
+``POST /learning/weights/propose`` {term_id}                     planning.admin   AS-14 learned-weights draft profile
 ==============================================================  ===============  ======================================
 
 Nothing here applies a suggestion by itself; a memory reset removes learned memory only, never requests, runs,
@@ -193,6 +194,32 @@ class CalibrationIn(BaseModel):
 
     attribute: str = Field(max_length=16)
     min_confidence: float | None = None
+
+
+class WeightsProposeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    term_id: int
+
+
+@router.post("/weights/propose")
+async def weights_propose(body: WeightsProposeIn, db: DB, user: AdminUser) -> dict[str, Any]:
+    """AS-14: learn soft-weight ratios from the term's manual edits and write (or refresh) one **draft** season
+    profile (origin ``learned``, audited ``season_profile.create`` / ``update``); an admin activates it on
+    /admin/weeks. Fewer edits than ``weight_learning.MIN_EDITS``: no draft, ``proposal: null`` and ``needs``."""
+    from app.services import seasons, weight_learning
+
+    try:
+        out = await weight_learning.propose_for_term(db, body.term_id, actor=user)
+    except seasons.SeasonError as exc:  # a learned weight the profile rules refuse (422, TR + EN)
+        await db.rollback()
+        raise HTTPException(exc.status, exc.as_detail()) from exc
+    except LookupError as exc:
+        await db.rollback()
+        raise HTTPException(
+            404, {"code": "term_not_found", "message_tr": "dönem bulunamadı", "message_en": "term not found"}
+        ) from exc
+    await db.commit()
+    return out
 
 
 class LearningSettingsIn(BaseModel):

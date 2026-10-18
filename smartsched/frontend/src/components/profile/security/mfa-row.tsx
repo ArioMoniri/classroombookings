@@ -3,8 +3,8 @@
  * "İki aşamalı doğrulama" row (docs/design/v3/auth.md §6.2, §6.3; AUX-06). Off: one tint "Aç" (the section's only
  * primary) → the setup sheet (re-authentication first when the sign-in is older than 10 minutes). On: "Yönet" with
  * "Yeni kurtarma kodları oluştur" and "Kapat" ("Kapat" hidden when the policy requires it, with the reason). The
- * shield draws a ✓ once when it turns on (free Success check, auth.css). "Uygulamayı değiştir" waits for AU-B
- * (`totp/start` refuses `already_enabled` while an app is on).
+ * shield draws a ✓ once when it turns on (free Success check, auth.css). "Uygulamayı değiştir" (AU-18): the same
+ * sheet with `replacing: true`, no new codes; `totp.change_pending` shows a note while a change waits.
  */
 import { ChevronDown, ShieldCheck, ShieldOff } from "lucide-react";
 import { useMemo, useRef, useState, type FormEvent } from "react";
@@ -42,6 +42,7 @@ export function MfaRow({ status, org, onChanged }: { status: MfaStatus; org?: st
   const { t, locale } = useI18n();
   const { run, dialog } = useReauth();
   const [setup, setSetup] = useState(false);
+  const [changing, setChanging] = useState(false);
   const [justOn, setJustOn] = useState(false);
   const [regen, setRegen] = useState<"ask" | string[] | null>(null);
   const [off, setOff] = useState(false);
@@ -69,10 +70,11 @@ export function MfaRow({ status, org, onChanged }: { status: MfaStatus; org?: st
     return <SecurityRow title={t("auth.security.mfa")} status={t("auth.security.mfaOrgOff")} testId="security-mfa" />;
   }
 
-  const openSetup = async () => {
+  const openSetup = async (change = false) => {
     try {
       started.current = run((pw) => authSecurity.totpStart(pw));
       await started.current;
+      setChanging(change);
       setSetup(true);
     } catch (e) {
       if (!(e instanceof ReauthCancelled)) toast.error(mfaErrorText(e, locale) ?? t("auth.admin.errGeneric"));
@@ -132,12 +134,17 @@ export function MfaRow({ status, org, onChanged }: { status: MfaStatus; org?: st
         <>
           {statusLine}
           {on && status.required ? <p className="mt-1 type-footnote text-label-3">{t("auth.security.requiredNote")}</p> : null}
+          {appOn && status.totp.change_pending ? (
+            <p className="mt-1 type-footnote text-status-warning-fg" data-testid="mfa-change-pending">
+              {t("auth.setup.changePending")}
+            </p>
+          ) : null}
         </>
       }
       testId="security-mfa"
       action={
         !on ? (
-          <Button type="button" shape="rect" onClick={() => void openSetup()} data-testid="mfa-turn-on">
+          <Button type="button" shape="rect" onClick={() => void openSetup(false)} data-testid="mfa-turn-on">
             {t("auth.security.turnOn")}
           </Button>
         ) : (
@@ -150,6 +157,12 @@ export function MfaRow({ status, org, onChanged }: { status: MfaStatus; org?: st
               <DropdownMenuItem onClick={() => setRegen("ask")} data-testid="mfa-new-codes">
                 {t("auth.security.newCodes")}
               </DropdownMenuItem>
+              {/* AU-18: the old app keeps working until the new one's code verifies */}
+              {appOn ? (
+                <DropdownMenuItem onClick={() => void openSetup(true)} data-testid="mfa-change-app">
+                  {t("auth.security.changeApp")}
+                </DropdownMenuItem>
+              ) : null}
               {appOn && !status.required ? (
                 <DropdownMenuItem variant="destructive" onClick={() => setOff(true)} data-testid="mfa-turn-off">
                   {t("auth.security.turnOff")}
@@ -166,9 +179,10 @@ export function MfaRow({ status, org, onChanged }: { status: MfaStatus; org?: st
         onOpenChange={setSetup}
         transport={transport}
         org={org}
-        onDone={() => {
+        changing={changing}
+        onDone={(changed) => {
           setJustOn(true);
-          toast.success(t("auth.enrol.done"));
+          toast.success(changed ? t("auth.setup.changeDone") : t("auth.enrol.done"));
           onChanged();
         }}
       />

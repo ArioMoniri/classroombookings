@@ -175,6 +175,41 @@ describe("SecuritySection", () => {
   });
 });
 
+describe("Uygulamayı değiştir (AU-18)", () => {
+  const ON = { ...STATUS, totp: { enabled: true, enabled_at: "2026-10-01T09:00:00", change_pending: false }, recovery_codes: { remaining: 8, total: 10 } };
+
+  it("starts with replacing: true, says the old app keeps working, and ends without step 3 or new codes", async () => {
+    routes["GET /api/v1/auth/mfa"] = () => res(200, ON);
+    routes["POST /api/v1/auth/mfa/totp/start"] = () => res(200, { ...START, replacing: true });
+    routes["POST /api/v1/auth/mfa/totp/confirm"] = () => res(200, { enabled: true, changed: true, recovery_codes: [] });
+    wrap();
+    fireEvent.click(await screen.findByTestId("mfa-manage"));
+    fireEvent.click(await screen.findByTestId("mfa-change-app"));
+    const sheet = await screen.findByTestId("mfa-setup-sheet");
+    expect(sheet).toHaveTextContent("Doğrulama uygulamasını değiştirin");
+    expect(within(sheet).getByTestId("mfa-setup-step")).toHaveTextContent("Adım 1–2 / 2");
+    expect(await within(sheet).findByTestId("setup-replacing")).toHaveTextContent("Eski uygulamanız, yenisinin kodu doğrulanana kadar çalışmaya devam eder");
+    fireEvent.paste(within(sheet).getByRole("textbox", { name: "Doğrulama kodu" }), { clipboardData: { getData: () => "222333" } });
+    await waitFor(() => expect(toasts.success).toHaveBeenCalledWith("Doğrulama uygulaması değiştirildi. Kurtarma kodlarınız ve hatırlanan cihazlarınız değişmedi."));
+    expect(screen.queryByTestId("setup-step-3")).toBeNull();
+    expect(screen.queryByTestId("recovery-codes")).toBeNull();
+  });
+
+  it("a code of the old app is refused with the 'new app' sentence; a pending change shows its note", async () => {
+    routes["GET /api/v1/auth/mfa"] = () => res(200, { ...ON, totp: { ...ON.totp, change_pending: true } });
+    routes["POST /api/v1/auth/mfa/totp/start"] = () => res(200, { ...START, replacing: true });
+    routes["POST /api/v1/auth/mfa/totp/confirm"] = () => res(422, { detail: { code: "invalid_code" } });
+    wrap();
+    expect(await screen.findByTestId("mfa-change-pending")).toHaveTextContent("Yeni bir uygulama bağlanmayı bekliyor");
+    fireEvent.click(screen.getByTestId("mfa-manage"));
+    fireEvent.click(await screen.findByTestId("mfa-change-app"));
+    const sheet = await screen.findByTestId("mfa-setup-sheet");
+    await within(sheet).findByTestId("setup-replacing");
+    fireEvent.paste(within(sheet).getByRole("textbox", { name: "Doğrulama kodu" }), { clipboardData: { getData: () => "111111" } });
+    expect(await within(sheet).findByText("Kod doğru değil. Yeni uygulamanın gösterdiği güncel kodu girin.")).toBeInTheDocument();
+  });
+});
+
 describe("helpers", () => {
   it("orders the current session first, then by last activity", () => {
     expect(orderSessions(SESSIONS).map((s) => s.id)).toEqual([1, 2]);

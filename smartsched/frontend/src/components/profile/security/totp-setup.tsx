@@ -26,7 +26,8 @@ import "@/components/auth/auth.css";
 export interface TotpTransport {
   /** `fresh`: a new key (restart after the 15-minute expiry); otherwise the transport may hand out the answer it has */
   start: (fresh?: boolean) => Promise<TotpStart>;
-  confirm: (code: string) => Promise<{ recovery_codes?: string[] }>;
+  /** `changed: true` (AU-18 "Uygulamayı değiştir"): no new codes, the setup ends after the check */
+  confirm: (code: string) => Promise<{ recovery_codes?: string[]; changed?: boolean }>;
 }
 
 export type SetupStep = "connect" | "codes";
@@ -34,7 +35,7 @@ export type SetupStep = "connect" | "codes";
 /** "ABCD EFGH …": the key in groups of 4. */
 export const groupKey = (secret: string) => (secret.match(/.{1,4}/g) ?? []).join(" ");
 
-export function TotpSetup({ transport, org, onStep, onDone, finishLabel }: { transport: TotpTransport; org?: string | null; onStep?: (s: SetupStep) => void; onDone: (codes: string[]) => void; finishLabel?: string }) {
+export function TotpSetup({ transport, org, onStep, onDone, finishLabel, changing = false }: { transport: TotpTransport; org?: string | null; onStep?: (s: SetupStep) => void; onDone: (codes: string[], changed?: boolean) => void; finishLabel?: string; changing?: boolean }) {
   const { t } = useI18n();
   const wide = useMediaQuery("(min-width: 1024px)");
   const [data, setData] = useState<TotpStart | null>(null);
@@ -113,13 +114,15 @@ export function TotpSetup({ transport, org, onStep, onDone, finishLabel }: { tra
       setState("success");
       const next = out.recovery_codes ?? [];
       const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      window.setTimeout(() => setCodes(next), reduce ? 0 : 240);
+      // a changed app keeps the saved codes: no step 3, done once the ✓ has shown
+      if (out.changed) window.setTimeout(() => onDone([], true), reduce ? 0 : 240);
+      else window.setTimeout(() => setCodes(next), reduce ? 0 : 240);
     } catch (e) {
       const c = mfaErrorCode(e);
       if (c === "enrolment_expired") setExpired(true);
       else {
         setState("error");
-        setMessage(t("auth.mfa.wrong"));
+        setMessage(changing || data?.replacing ? t("auth.setup.changeWrong") : t("auth.mfa.wrong"));
         setErrorKey((k) => k + 1);
         setCode("");
         otpRef.current?.focus();
@@ -195,6 +198,11 @@ export function TotpSetup({ transport, org, onStep, onDone, finishLabel }: { tra
 
   return (
     <div className="auth-step-in flex flex-col gap-5" data-testid="setup-step-12">
+      {data?.replacing ? (
+        <Alert tone="info" data-testid="setup-replacing">
+          {t("auth.setup.changeLead")}
+        </Alert>
+      ) : null}
       <section className="flex flex-col gap-3">
         <h3 className="type-headline text-label-1">1 · {t("auth.setup.step1")}</h3>
         <p className="type-callout text-label-2">{wide ? t("auth.setup.step1Text") : t("auth.setup.step1Phone")}</p>

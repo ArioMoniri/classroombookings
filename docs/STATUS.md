@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `5ef2a5f` (committed 2026-10-18 08:50 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `e0a810a` (committed 2026-10-18 09:15 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -177,7 +177,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-305 agents in [`docs/agents/registry.json`](agents/registry.json): running 14 · finished 273 · stopped 11 · superseded 7.
+311 agents in [`docs/agents/registry.json`](agents/registry.json): running 12 · finished 281 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -190,11 +190,9 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `AS-S` | solver-engineer | 2026-10-18 07:56 |
 | `HB-B` | ai-engineer | 2026-10-18 07:56 |
 | `HB-A resume` | ai-engineer | 2026-10-18 08:18 |
-| `AUX-F resume` | frontend-engineer | 2026-10-18 08:23 |
 | `HB-B resume` | ai-engineer | 2026-10-18 08:28 |
-| `AS-S resume` | solver-engineer | 2026-10-18 08:30 |
-| `Mobile B resume` | general-purpose | 2026-10-18 08:36 |
 | `AS-F` | frontend-engineer | 2026-10-18 08:50 |
+| `E2E lane` | general-purpose | 2026-10-18 08:59 |
 
 <!-- /AUTO:agents -->
 
@@ -261,7 +259,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **395 ticked · 451 open** checkboxes in 100 sections (96 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **409 ticked · 438 open** checkboxes in 100 sections (96 with open items).
 
 <details><summary>Per section</summary>
 
@@ -359,14 +357,14 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Calendar export & sync for academicians (owner request 2026-10-17) | 7 | 6 |
 | Wave 3b — W3-IDP identity providers (2026-10-17) | 5 | 1 |
 | Welcome guide per role (owner request 2026-10-17) | 3 | 8 |
-| Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 13 | 8 |
+| Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 14 | 7 |
 | Voice for AI features (owner request 2026-10-17) | 5 | 8 |
 | Charts & telemetry views (owner request 2026-10-17) | 7 | 5 |
 | Real-not-fake & admin editability (owner request 2026-10-17; audit… | 5 | 7 |
-| AI helper: backend, governance, local models (owner request 2026-10-17) | 0 | 20 |
+| AI helper: backend, governance, local models (owner request 2026-10-17) | 12 | 8 |
 | AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 0 | 14 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — UX | 0 | 12 |
-| Sign-in, 2FA and passkeys (owner request 2026-10-18) — backend | 16 | 1 |
+| Sign-in, 2FA and passkeys (owner request 2026-10-18) — backend | 17 | 1 |
 
 </details>
 

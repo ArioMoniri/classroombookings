@@ -102,6 +102,14 @@ describe("SigninSecuritySettings", () => {
     expect(screen.getByTestId("policy-sso-note")).toHaveTextContent("kimlik sağlayıcısı korur");
   });
 
+  it("AU-18 counts: the live sentence for the saved Zorunlu scope; the plain sentence once the roles change", async () => {
+    routes["GET /api/v1/admin/auth/mfa-policy"] = () => res(200, { ...POLICY, mfa_policy: "required_for_roles", mfa_roles: ["ADMIN", "PLANNER"], required_people: 12, enrolled_people: 5 });
+    wrap(<SigninSecuritySettings />);
+    expect(await screen.findByTestId("policy-sentence")).toHaveTextContent(/^Bu ayarla 12 kişi .+ tarihine kadar kurmalı; 5 kişi zaten kurdu\.$/);
+    fireEvent.click(screen.getByTestId("policy-role-TEACHER"));
+    expect(screen.getByTestId("policy-sentence")).toHaveTextContent(/^Bu ayarla seçilen rollerdeki kişiler .+ tarihine kadar kurmalı\.$/);
+  });
+
   it("the rule covers this admin without 2FA: the banner with 'Şimdi kur'", async () => {
     routes["GET /api/v1/auth/mfa"] = () => res(200, { ...ME, required: true, grace_until: "2026-11-01T09:00:00" });
     wrap(<SigninSecuritySettings />);

@@ -520,6 +520,36 @@
   actions: []
   since: "2026.10"
 
+- id: analytics.forecast
+  kind: page
+  route: /analytics/forecast
+  title: {tr: Tahmin ve senaryo, en: Forecast and what-if}
+  path: {tr: [Sonuçlar, Tahmin ve senaryo], en: [Results, Forecast and what-if]}
+  synonyms:
+    tr: [oda talebi tahmini, gelecek dönem talep, oda yetmeyecek saatler, senaryo, öğrenci sayısı artarsa, kapasite planlama, yoğun saatler]
+    en: [room demand forecast, next term demand, room shortfall, what if, student numbers grow, capacity planning, peak hours]
+  steps:
+    tr: ["Sonuçlar › Tahmin ve senaryo'yu açın.", "Senaryo için yüzdeyi yazıp Senaryoyu hesapla'ya basın."]
+    en: ["Open Results › Forecast and what-if.", "Type a percentage and press Calculate the scenario."]
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
+- id: exams.advisor
+  kind: page
+  route: /exams/advisor
+  title: {tr: Sınav yükü ve öneriler, en: Exam load and advice}
+  path: {tr: [Sonuçlar, Sınav yükü ve öneriler], en: [Results, Exam load and advice]}
+  synonyms:
+    tr: [sınav yükü, en yoğun sınav günü, sınav koltuk yetmiyor, gözetmen eksik, sınav günü dengesi, sınav önerileri]
+    en: [exam load, busiest exam day, exam seats short, invigilators short, exam day balance, exam advice]
+  steps:
+    tr: ["Sonuçlar › Sınav yükü ve öneriler'i açın."]
+    en: ["Open Results › Exam load and advice."]
+  permission: [planning.view]
+  actions: []
+  since: "2026.10"
+
 - id: exams.invigilation
   kind: page
   route: /exams/invigilation

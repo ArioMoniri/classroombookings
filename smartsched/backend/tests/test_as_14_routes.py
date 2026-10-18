@@ -22,6 +22,8 @@ async def test_propose_without_edits_writes_no_draft(client):  # type: ignore[no
     assert r.status_code == 200, r.text
     out = r.json()
     assert out["term_id"] == tid and out["term_code"] == "2026-BAHAR" and out["proposal"] is None
+    assert out["edits"] == 0 and out["confidence"] == "none"
+    assert out["needs"]["tr"] == "En az 5 elle düzenleme gerekli (şu an 0)" and out["needs"]["en"]
     async with get_session_factory()() as s:
         assert list((await s.execute(select(SeasonProfile))).scalars()) == []
     r = await client.post("/api/v1/learning/weights/propose", json={"term_id": 999_999}, headers=h)
