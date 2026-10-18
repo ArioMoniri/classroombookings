@@ -6,7 +6,7 @@
  */
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import axe from "axe-core";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError } from "@/lib/api/client";
 import { helperApi } from "@/lib/api/helper";
@@ -28,6 +28,15 @@ const entry = (name: FixtureName, over: Partial<CardEntry> = {}): CardEntry => {
 };
 
 const future = () => new Date(Date.now() + 9 * 60_000).toISOString();
+
+/** Hands the real runner to the test (set after render, as an effect). */
+function Grab({ onRunner }: { onRunner: (r: ReturnType<typeof useHelperRunner>) => void }) {
+  const runner = useHelperRunner();
+  useEffect(() => {
+    onRunner(runner);
+  });
+  return null;
+}
 
 /** The real runner over the store, like the sheet. */
 function Harness() {
@@ -170,20 +179,16 @@ describe("confirm / undo plumbing", () => {
 
   it("typed 'evet' does not confirm and says to press the button", async () => {
     const confirm = vi.spyOn(helperApi, "confirm");
-    let runner: ReturnType<typeof useHelperRunner> | null = null;
-    function Grab() {
-      runner = useHelperRunner();
-      return null;
-    }
+    const box: { runner: ReturnType<typeof useHelperRunner> | null } = { runner: null };
     renderHelper(
       <>
-        <Grab />
+        <Grab onRunner={(r) => (box.runner = r)} />
         <Harness />
       </>,
     );
     pushConfirm();
     await act(async () => {
-      await runner!.ask("evet");
+      await box.runner!.ask("evet");
     });
     expect(confirm).not.toHaveBeenCalled();
     expect(stream).not.toHaveBeenCalled();
@@ -244,19 +249,15 @@ describe("confirm / undo plumbing", () => {
     const grid = await import("@/lib/api/crbs");
     vi.spyOn(grid.crbs.bookings, "grid").mockResolvedValue({ periods: [{ id: 3, name: "3", time_start: "10:00", time_end: "10:50", start_period: 3, end_period: 3 }] } as never);
     const cardCall = vi.spyOn(helperApi, "card").mockResolvedValueOnce(card("form")).mockResolvedValueOnce({ ...card("confirm"), expires_at: future() } as HelperCard);
-    let runner: ReturnType<typeof useHelperRunner> | null = null;
-    function Grab() {
-      runner = useHelperRunner();
-      return null;
-    }
+    const box: { runner: ReturnType<typeof useHelperRunner> | null } = { runner: null };
     renderHelper(
       <>
-        <Grab />
+        <Grab onRunner={(r) => (box.runner = r)} />
         <Harness />
       </>,
     );
     await act(async () => {
-      await runner!.runAction("create_booking", { room: "A 204", date: "2026-10-19" }, { hints: { time: "10:00" } });
+      await box.runner!.runAction("create_booking", { room: "A 204", date: "2026-10-19" }, { hints: { time: "10:00" } });
     });
     expect(cardCall).toHaveBeenLastCalledWith("create_booking", { room: "12", date: "2026-10-19", period_id: 3 });
     expect(screen.getByTestId("helper-card-confirm")).toBeInTheDocument();

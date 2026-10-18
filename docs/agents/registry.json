@@ -3662,7 +3662,8 @@
       "goal": "Ledger name `idp-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend (frontend at smartsched/frontend for one small screen). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack…",
       "ledger": "IDP lane: SAML hardening, linking",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 10:37"
     },
     {
       "id": "a3cf4c45ec0d39e6b",
@@ -3747,6 +3748,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-18 10:28",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "afabce26ca6c5dfea",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:34",
       "left_off": "is the pod up yet"
     }
   ]
