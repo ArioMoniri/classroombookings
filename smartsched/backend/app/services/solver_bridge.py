@@ -1104,6 +1104,15 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     from app.services.bookings_solver import booking_blocks
 
     blocks.extend(await booking_blocks(session, term, weeks_rows, week_set))
+    if exam:
+        # AS-12: the published class plan of the same term on the exam dates (midterms, early finals)
+        from app.services.exam_class_plan import STATS_KEY as CLASS_PLAN_KEY
+        from app.services.exam_class_plan import course_blocks
+
+        plan_blocks, plan_stats = await course_blocks(session, term, list(weeks_rows), events)
+        blocks.extend(plan_blocks)
+        if plan_stats:
+            run.stats = {**(run.stats or {}), CLASS_PLAN_KEY: plan_stats}
 
     cons = list(
         (

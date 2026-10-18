@@ -207,6 +207,37 @@ export const ExamForecast = z.object({
 });
 export type ExamForecast = z.infer<typeof ExamForecast>;
 
+/* ------------------------------------------------------------------ exam advisor (AS-12, advice only) */
+
+export const AdviceCard = z.object({
+  kind: z.string(),
+  date: z.string().nullable().catch(null).optional(),
+  text: Pair,
+  request_ids: z.array(z.number()).catch([]).default([]),
+  suggestion_ranks: z.array(z.number()).catch([]).default([]),
+});
+export type AdviceCard = z.infer<typeof AdviceCard>;
+const Place = z.object({ date: z.string(), start: z.number().optional(), end: z.number().optional(), label: Pair.nullable().catch(null).optional() });
+export const AdviceMove = z.object({
+  rank: z.number(),
+  exam_id: z.number(),
+  request_ids: z.array(z.number()).catch([]).default([]),
+  label: z.string().default(""),
+  from: Place,
+  to: Place,
+  kind: z.string().default("date"),
+  text: Pair,
+});
+export type AdviceMove = z.infer<typeof AdviceMove>;
+export const ExamAdvice = z.object({
+  confidence: Confidence,
+  needs: Pair.nullable().catch(null).optional(),
+  basis: Pair.nullable().catch(null).optional(),
+  cards: z.array(AdviceCard).catch([]).default([]),
+  suggestions: z.array(AdviceMove).catch([]).default([]),
+});
+export type ExamAdvice = z.infer<typeof ExamAdvice>;
+
 /* ------------------------------------------------------------------ api + hooks */
 
 export const adaptiveApi = {
@@ -216,6 +247,8 @@ export const adaptiveApi = {
   shortfall: (termId: number) => request("/analytics/forecast/shortfall", { query: { term_id: termId, peaks_only: true }, schema: Shortfall, ...s }),
   whatIf: (body: WhatIfIn) => request("/analytics/forecast/what-if", { method: "POST", body, schema: WhatIfOut, ...s }),
   exams: (termId: number) => request("/analytics/forecast/exams", { query: { term_id: termId }, schema: ExamForecast, ...s }),
+  /** AS-12 date advisor (AS-B route): cards + ranked moves; nothing changes */
+  examAdvice: (termId: number) => request("/analytics/forecast/exams/advice", { query: { term_id: termId }, schema: ExamAdvice, ...s }),
 };
 
 const noRetry = (n: number, e: unknown) => !(e instanceof HttpError && [401, 403, 404, 422].includes(e.status)) && n < 2;
@@ -225,6 +258,7 @@ export const adaptiveKeys = {
   demand: (termId: number | null, g: string) => ["adaptive", "demand", termId, g] as const,
   shortfall: (termId: number | null) => ["adaptive", "shortfall", termId] as const,
   exams: (termId: number | null) => ["adaptive", "exams", termId] as const,
+  advice: (termId: number | null) => ["adaptive", "exam-advice", termId] as const,
 };
 
 export function usePeaks(q: PeaksQuery, enabled = true) {
@@ -238,6 +272,10 @@ export function useShortfall(termId: number | null) {
 }
 export function useExamForecast(termId: number | null) {
   return useQuery({ queryKey: adaptiveKeys.exams(termId), queryFn: () => adaptiveApi.exams(termId ?? 0), enabled: termId !== null, retry: noRetry, staleTime: 5 * 60_000 });
+}
+/** a 404 means the route is not deployed yet: the panel then falls back to the cards it derives from the load */
+export function useExamAdvice(termId: number | null) {
+  return useQuery({ queryKey: adaptiveKeys.advice(termId), queryFn: () => adaptiveApi.examAdvice(termId ?? 0), enabled: termId !== null, retry: noRetry, staleTime: 5 * 60_000 });
 }
 export function useWhatIf() {
   return useMutation({ mutationFn: (body: WhatIfIn) => adaptiveApi.whatIf(body) });

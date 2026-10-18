@@ -115,3 +115,7 @@ On pass: tick VO-06/07/08 and VO-05.
 2. A term with a published course run: a midterm exam request in lecture week 8 in a room a class holds → the exam lands elsewhere; the course run's data issues list `exam_overlap`.
 3. /exams with the Final term: the advisor panel shows the 3 June peak-day card and ranked moves; accepting one lowers the count on refresh (1440 + 390 touch).
 4. Planner: 5+ manual moves in a child run, then POST /learning/weights/propose → a draft "learned" profile in /admin/weeks that changes no run until activated.
+7. Users list: 2FA tag and filter for on / pending (before and after the first sign-in) / an IdP-only user with no tag.
+8. Policy screen counts change after one person enrols. 9. Profil › Güvenlik › Uygulamayı değiştir: the old code works until
+   the new one is confirmed, then fails; recovery codes still work; the `mfa_app_changed` mail arrives.
+10. The sign-in page shows the "iki aşamalı doğrulama" wording for idp_mfa_required.

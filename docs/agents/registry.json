@@ -3176,7 +3176,7 @@
       "ledger": "AU-B resume: sessions + IdP MFA",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-18 08:35"
+      "finished_at": "2026-10-18 09:15"
     },
     {
       "id": "ac382c44d3ca2cce4",
@@ -3435,6 +3435,14 @@
       "status": "finished",
       "finished_at": "2026-10-18 09:00",
       "left_off": "is the pod deployed yet and whats the admin login"
+    },
+    {
+      "id": "adc5066d3a7d967cd",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 09:13",
+      "left_off": "when is the pod deployed and live"
     }
   ]
 }

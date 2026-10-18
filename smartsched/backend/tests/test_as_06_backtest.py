@@ -85,6 +85,26 @@ def test_as_06_cli_backtest_json(
     code = cli.main(["backtest", "adaptive", "--json", "--skip-db"])  # B4: tests/test_as_13_learning.py
     out = json.loads(capsys.readouterr().out)
     ids = [r["id"] for r in out]
-    assert {"B1", "B2", "B3", "B5", "B7"} <= set(ids)
+    assert {"B1", "B2", "B3", "B5", "B6", "B7", "B9"} <= set(ids) and "B8" not in ids  # B8 needs a database
     assert code == (0 if all(r["passed"] for r in out) else 1)
     assert all(r["passed"] for r in out), [(r["id"], r["metrics"]) for r in out if not r["passed"]]
+
+
+def test_as_06_cli_runs_b4_and_b8_with_a_database(
+    monkeypatch, capsys, parsed_bahar_grid, parsed_guz_grid, parsed_bahar_list, parsed_guz_list, parsed_exam_list
+):
+    from app import cli
+    from app.services import backtest_solver as bs
+
+    fx = bt.Fixtures(parsed_bahar_grid, parsed_guz_grid, parsed_bahar_list, parsed_guz_list, parsed_exam_list)
+    monkeypatch.setattr(bt, "load_fixtures", lambda: fx)
+
+    async def fake(rid):  # the standalone runs build their own databases (~2 min); their maths is tested elsewhere
+        return bt.Result(rid, rid, {}, {}, True)
+
+    monkeypatch.setattr(bt, "b4_standalone", lambda: fake("B4"))
+    monkeypatch.setattr(bs, "b8_standalone", lambda: fake("B8"))
+    code = cli.main(["backtest", "adaptive", "--json"])
+    ids = [r["id"] for r in json.loads(capsys.readouterr().out)]
+    assert code == 0 and {"B4", "B8"} <= set(ids)
+    assert ids.index("B4") == 3 and ids.index("B8") == ids.index("B7") + 1

@@ -3976,5 +3976,11 @@ scratchpad `auth/API.md` (summarised in the research §9). Alembic `0043_mfa`; d
 - [x] AU-16 IdP-asserted MFA (`amr` / `acr`, OIDC / Entra) when the policy requires 2FA for the role: per-provider
   "IdP MFA'yı zorunlu tut" (off by default) refuses with `idp_mfa_required`, else a one-time step-up notice on the
   exchange; `GET/PUT /admin/auth/providers/.../idp-mfa`. done (mfa.idp_mfa_gate in sso._resolve_login; test_au_b_sessions)
+- [x] AU-18 AUX-F asks (2026-10-18): `mfa_state` (on | off | pending | null for IdP-only) + `mfa_grace_until` in
+  `GET /auth/sso/admin/user-status`; `required_people` / `enrolled_people` in `GET/PUT /admin/auth/mfa-policy`;
+  "Uygulamayı değiştir" (`totp/start` with an app on → `replacing`, old app works until the new one is confirmed,
+  codes kept, `auth.mfa_app_changed` + e-mail `mfa_app_changed`); "iki aşamalı doğrulama" in every AU-B string.
+  done (mfa.list_states / policy_out / totp_on, sso.user_status, kinds/strings/samples; tests/test_au_b_aux_asks.py;
+  unit tests only, E2E pending; au-b-2026-10-18)
 - [ ] AU-17 Frontend: route handler passes `mfa_required` through, stores `ss_td` cookie, forwards `X-Trusted-Device`
   (AUX / frontend lane). open.

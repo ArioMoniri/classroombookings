@@ -122,7 +122,17 @@ export interface SegmentIn {
   status?: "draft" | "active";
 }
 
+/** AS-14 `POST /learning/weights/propose {term_id}`: a draft "learned" profile from the term's manual edits, or `needs` */
+export const WeightProposal = z.object({
+  edits: z.number().catch(0).default(0),
+  confidence: z.string().default("none"),
+  needs: Pair.nullable().catch(null).optional(),
+  proposal: z.object({ profile_id: z.number().nullable().optional(), key: z.string().optional(), version: z.number().optional() }).passthrough().nullable().catch(null).optional(),
+});
+export type WeightProposal = z.infer<typeof WeightProposal>;
+
 export const seasonsApi = {
+  proposeWeights: (termId: number) => request("/learning/weights/propose", { method: "POST", body: { term_id: termId }, schema: WeightProposal, ...s }),
   profiles: () => request("/seasons/profiles", { schema: ProfileList, ...s }),
   create: (body: ProfileIn) => request("/seasons/profiles", { method: "POST", body, schema: Profile, ...s }),
   update: (id: number, body: Partial<ProfileIn>) => request(`/seasons/profiles/${id}`, { method: "PUT", body, schema: Profile, ...s }),
@@ -155,6 +165,7 @@ export function useProfileActions() {
   const qc = useQueryClient();
   const done = () => qc.invalidateQueries({ queryKey: seasonKeys.all });
   return {
+    propose: useMutation({ mutationFn: (termId: number) => seasonsApi.proposeWeights(termId), onSuccess: done }),
     create: useMutation({ mutationFn: (body: ProfileIn) => seasonsApi.create(body), onSuccess: done }),
     update: useMutation({ mutationFn: (v: { id: number; body: Partial<ProfileIn> }) => seasonsApi.update(v.id, v.body), onSuccess: done }),
     activate: useMutation({ mutationFn: (id: number) => seasonsApi.activate(id), onSuccess: done }),

@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { BusyLabel } from "@/components/ui/busy-label";
+import { useActiveTerm } from "@/components/shell/term-switcher";
 import { HttpError } from "@/lib/api/client";
 import { apiText, useProfileActions, useProfiles, type AppliesTo, type Profile, type ProfileList } from "@/lib/api/seasons";
 import { useI18n } from "@/lib/i18n/provider";
@@ -54,6 +55,22 @@ export function SeasonProfiles() {
     pendingFocus.current = null;
   }, [groups]);
 
+  const termId = useActiveTerm().term?.id ?? null;
+  const [proposeNote, setProposeNote] = useState<string | null>(null);
+  const propose = () => {
+    if (termId === null) return;
+    act.propose.mutate(termId, {
+      onSuccess: (out) => {
+        if (out.proposal?.key) {
+          setProposeNote(null);
+          toast.success(t("seasons.proposed", { v: out.proposal.version ?? 1 }));
+          setFocusKey(out.proposal.key);
+        } else setProposeNote(out.needs?.[lang] || t("seasons.proposeNone"));
+      },
+      onError: (e) => toast.error(apiText(e, locale)),
+    });
+  };
+
   const run = () => {
     if (!confirm) return;
     const { kind, profile, key } = confirm;
@@ -77,14 +94,25 @@ export function SeasonProfiles() {
       <SectionTitle
         id="season-profiles"
         actions={
-          <Button ref={newRef} onClick={() => setEditing({ profile: null })} data-testid="profile-new">
-            <Plus /> {t("seasons.new")}
-          </Button>
+          <span className="flex flex-wrap gap-2">
+            {/* AS-14: a learned draft from the term's manual edits; only an admin activates it */}
+            <Button variant="outline" onClick={propose} disabled={termId === null || act.propose.isPending} data-testid="profile-propose">
+              <BusyLabel busy={act.propose.isPending} label={t("busy.working")}>{t("seasons.propose")}</BusyLabel>
+            </Button>
+            <Button ref={newRef} onClick={() => setEditing({ profile: null })} data-testid="profile-new">
+              <Plus /> {t("seasons.new")}
+            </Button>
+          </span>
         }
       >
         {t("seasons.title")}
       </SectionTitle>
       <p className="-mt-2 type-callout text-label-2">{t("seasons.lead")}</p>
+      {proposeNote ? (
+        <p role="status" className="rounded-lg bg-fill-3 px-3 py-2 type-callout text-label-1" data-testid="profile-propose-note">
+          {proposeNote}
+        </p>
+      ) : null}
       <Card className="py-0">
         {q.isLoading ? (
           <Loading className="px-4" />

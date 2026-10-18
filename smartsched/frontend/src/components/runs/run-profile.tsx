@@ -13,6 +13,8 @@ export interface RunProfileInfo {
   /** weights whose source is not the code default, with the source */
   changed: { key: string; value: number; source: "settings" | "profile" | "run" }[];
   skipped: number[];
+  /** AS-08: the peak-smoothing weight the run used (shown only when > 0) */
+  peakSmoothing: number;
 }
 
 const rec = (v: unknown): Record<string, unknown> | null => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
@@ -36,6 +38,7 @@ export function runProfileInfo(stats: Record<string, unknown> | undefined): RunP
     profile: p ? { key: String(p.key ?? ""), version: Number(p.version ?? 1), name: { tr: String(name?.tr ?? p.key ?? ""), en: String(name?.en ?? name?.tr ?? p.key ?? "") } } : null,
     changed: changed.sort((a, b) => a.key.localeCompare(b.key)),
     skipped,
+    peakSmoothing: typeof eff?.peak_smoothing === "number" ? eff.peak_smoothing : 0,
   };
 }
 
@@ -68,6 +71,7 @@ export function RunProfileLine({ r }: { r: Pick<ScheduleRun, "stats_detail"> }) 
           {head} · {t("adaptive.run.defaults")}
         </p>
       )}
+      {info.peakSmoothing > 0 ? <p data-testid="run-peak-smoothing">{t("adaptive.run.peakSmoothing", { n: info.peakSmoothing })}</p> : null}
       {info.skipped.length ? <p>{t("adaptive.run.skipped", { weeks: info.skipped.join(", ") })}</p> : null}
     </div>
   );
