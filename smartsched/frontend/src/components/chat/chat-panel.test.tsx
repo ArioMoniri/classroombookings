@@ -62,6 +62,26 @@ describe("ChatPanel streaming (ai-engineer follow-up)", () => {
     expect(sendChat).not.toHaveBeenCalled();
   });
 
+  it("puts focus back in the message box when the reply is in (the box is disabled while it streams; e2e 2026-10-18)", async () => {
+    stream.mockImplementation(async (_run: number, _msg: string, _lang: string, on: (e: StreamEvent) => void) => {
+      on({ event: "text", data: { text: "Tamam" } });
+      await new Promise<void>((r) => (release = r));
+      on({ event: "done", data: { message_id: 1 } });
+    });
+    renderPanel();
+    const box = screen.getByRole("textbox");
+    await userEvent.type(box, "Hello{Enter}");
+    expect(await screen.findByText("Tamam")).toBeInTheDocument();
+    // a browser drops focus to <body> when the focused box turns disabled; jsdom keeps it there, so stand in for it
+    const box2 = screen.getByRole("textbox");
+    Object.defineProperty(document, "activeElement", { configurable: true, get: () => document.body });
+    const focus = vi.spyOn(box2, "focus");
+    release();
+    await vi.waitFor(() => expect(box2).not.toBeDisabled());
+    await vi.waitFor(() => expect(focus).toHaveBeenCalled());
+    delete (document as unknown as { activeElement?: unknown }).activeElement;
+  });
+
   it("falls back to the non-streaming call when the stream cannot start", async () => {
     stream.mockRejectedValue(new Error("405"));
     renderPanel();

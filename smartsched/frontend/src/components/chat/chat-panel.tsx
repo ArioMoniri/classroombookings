@@ -245,9 +245,20 @@ export function ChatPanel({ runId, className, prefill = null }: { runId: number;
     root?.querySelector("textarea")?.setAttribute("data-testid", "chat-input");
     root?.querySelector(`button[aria-label="${CSS.escape(t("chat.send"))}"]`)?.setAttribute("data-testid", "chat-send");
   });
+  // the composer is disabled while a reply streams, so the browser drops focus to <body>: once the turn is over and
+  // the box is enabled again, focus goes back to it (focus never stays on <body>; e2e 2026-10-18, vo-mounts 1)
+  const busyTurn = noKey || send.isPending || streaming;
+  const refocus = useRef(false);
+  useEffect(() => {
+    if (busyTurn || !refocus.current) return;
+    refocus.current = false;
+    const a = document.activeElement;
+    if (!a || a === document.body) composerRef.current?.querySelector("textarea")?.focus();
+  }, [busyTurn]);
   const lang = locale === "en" ? "en" : "tr";
   const qc = useQueryClient();
   const submit = async (msg: string) => {
+    refocus.current = true;
     let last = INITIAL_STREAM;
     let started = false;
     setLive({ user: msg, s: INITIAL_STREAM });

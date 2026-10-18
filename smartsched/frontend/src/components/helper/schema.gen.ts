@@ -4,7 +4,7 @@
 import { z } from "zod";
 
 export const HELPER_CARD_SCHEMA_ID = "helper.card.v1";
-export const HELPER_CARD_SCHEMA_SHA256 = "6c6a981c5e8675dcd991e5bfb21d3d5b583c04a602e217771243c5361b59b914";
+export const HELPER_CARD_SCHEMA_SHA256 = "658d579d68cf204ba8789db6711158439f96bf28c6a654d151d040dab50508fa";
 
 /** One person-facing text in both languages (Turkish first). */
 export const Txt = z.strictObject({
@@ -199,7 +199,7 @@ export type RowAction = z.infer<typeof RowAction>;
 export const Row = z.strictObject({
   actions: z.array(RowAction).max(3).optional(),
   cells: z.record(z.string().regex(new RegExp("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$")).max(64), z.union([z.string().max(400).regex(new RegExp("^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$")), Txt])),
-  id: z.string().regex(new RegExp("^[A-Za-z0-9_\\-:]{1,64}$")),
+  id: z.string().regex(new RegExp("^[A-Za-z0-9_\\-:.]{1,64}$")),
 });
 export type Row = z.infer<typeof Row>;
 

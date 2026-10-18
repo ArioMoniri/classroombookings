@@ -141,7 +141,8 @@ class RowAction(_Strict):
 
 
 class Row(_Strict):
-    id: Annotated[str, Field(pattern=r"^[A-Za-z0-9_\-:]{1,64}$")]
+    #: ``feature:profile.calendar``, ``room:12``: feature ids are dotted (HB-17 bug 1)
+    id: Annotated[str, Field(pattern=r"^[A-Za-z0-9_\-:.]{1,64}$")]
     cells: dict[Name, Plain | Txt]
     actions: list[RowAction] = Field(default_factory=list, max_length=3)
 

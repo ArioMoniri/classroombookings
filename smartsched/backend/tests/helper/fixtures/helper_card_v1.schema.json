@@ -1373,7 +1373,7 @@
           "type": "object"
         },
         "id": {
-          "pattern": "^[A-Za-z0-9_\\-:]{1,64}$",
+          "pattern": "^[A-Za-z0-9_\\-:.]{1,64}$",
           "title": "Id",
           "type": "string"
         }

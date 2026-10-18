@@ -41,7 +41,9 @@ test.beforeAll(async () => {
   const runs = (await (await admin.get(`${API}/runs`)).json()) as { id: number }[] | { items: { id: number }[] };
   runId = (Array.isArray(runs) ? runs : runs.items)[0]!.id;
   await admin.dispose();
-  browser = await chromium.launch({ args: FAKE_MIC });
+  // E2E_CHROMIUM_CHANNEL=chromium: the full Chromium build. The headless shell's renderer crashes in
+  // SpeechRecognition.available() (live captions "on_device", voice-captions.tsx); full Chromium answers it (e2e lane 2026-10-18)
+  browser = await chromium.launch({ args: FAKE_MIC, channel: process.env.E2E_CHROMIUM_CHANNEL || undefined });
 });
 
 test.afterAll(async () => {

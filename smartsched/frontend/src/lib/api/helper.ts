@@ -8,14 +8,15 @@
  * - `GET /helper/actions`: the actions this person may run (shortcuts are hidden for the others).
  * - `POST /helper/actions/{name}/card` `{args}`: a card with **no model call**; a write is only previewed (confirm /
  *   form / choice). `POST /helper/actions/confirm` / `undo` `{token}`: the card's button and "Geri al".
- * - `POST /helper/turn` `{text, lang}`: one question, streamed as `text/event-stream` of server-built cards
- *   (components/helper/stream.ts).
+ * - `POST /helper/turn` `{text, lang, context?}`: one question, streamed as `text/event-stream` of server-built cards
+ *   (components/helper/stream.ts). `context` (HB-D, HX-16) is the "Bu sayfa: …" chip: {@link TurnContext}.
+ * - `GET /helper/actions/recent?limit=` (HB-D, HX-15): "Son işlemler", the person's own confirmed helper actions.
  * - `GET/PUT /helper/memory`, `GET/POST/DELETE /helper/notes`, `DELETE /helper/threads` (HB-21): Profil › Yardımcı.
  *
  * Cards are parsed with the zod generated from the server's JSON Schema (components/helper/schema.gen.ts). Errors
  * keep the project's shape `detail = {code, message_tr, message_en, card}`; {@link errorCard} reads the card.
  */
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { HelperCard, NavCard, Txt } from "@/components/helper/schema.gen";
 import { HttpError, request } from "./client";
@@ -96,6 +97,37 @@ export const HelperNote = z.object({
 });
 export type HelperNote = z.infer<typeof HelperNote>;
 
+/**
+ * HB-D §3 `GET /helper/actions/recent`: one of the person's own confirmed helper actions, newest first. The label is
+ * already worded by the server (TR and EN, database values only); `undo_token` is there only while `undoable`.
+ */
+export const RecentAction = z.object({
+  id: z.number(),
+  action: z.string(),
+  kind: z.string().nullish(),
+  entity_id: z.number().nullish(),
+  feature_id: z.string().nullish(),
+  label: Txt,
+  /** naive UTC ("2026-02-16T08:01:12") */
+  at: z.string(),
+  status: z.enum(["done", "undone"]).catch("done"),
+  undoable: z.boolean().catch(false),
+  undo_token: z.string().nullish(),
+  undo_expires_at: z.string().nullish(),
+});
+export type RecentAction = z.infer<typeof RecentAction>;
+
+/**
+ * HB-D §2 `POST /helper/turn` `context`: the page the person is on ("Bu sayfa: …" chip), never page text. The server
+ * answers 422 before the stream for any other shape, so the client parses it with the same rules first.
+ */
+export const TurnContext = z.strictObject({
+  route: z.string().min(1).max(200),
+  entity_kind: z.enum(["room", "booking", "approval_request"]).optional(),
+  entity_id: z.number().int().min(1).optional(),
+});
+export type TurnContext = z.infer<typeof TurnContext>;
+
 export const DeletedOut = z.object({ notes: z.number().catch(0), threads: z.number().catch(0) }).passthrough();
 /** HB-21 `DELETE /helper/threads`: the counts deleted and the notes kept. */
 export const ThreadsDeletedOut = z.object({ threads: z.number().catch(0), messages: z.number().catch(0), notes_kept: z.number().catch(0) }).passthrough();
@@ -147,6 +179,8 @@ export const helperApi = {
   card: (name: string, args: ActionArgs) => request(`/helper/actions/${encodeURIComponent(name)}/card`, { ...s, method: "POST", body: { args }, schema: HelperCard }),
   confirm: (token: string) => request("/helper/actions/confirm", { ...s, method: "POST", body: { token }, schema: HelperCard }),
   undo: (token: string) => request("/helper/actions/undo", { ...s, method: "POST", body: { token }, schema: HelperCard }),
+  /** HB-D: "Son işlemler" (1..20) */
+  recent: (limit = 5) => request("/helper/actions/recent", { ...s, query: { limit }, schema: listOf(RecentAction) }),
   memory: () => request("/helper/memory", { ...s, schema: HelperMemory }),
   setMemory: (enabled: boolean) => request("/helper/memory", { ...s, method: "PUT", body: { enabled }, schema: HelperMemory }),
   notes: () => request("/helper/notes", { ...s, schema: z.array(HelperNote) }),
@@ -166,6 +200,7 @@ export const helperKeys = {
   search: (q: string, termId?: number | null) => ["helper", "search", q, termId ?? null] as const,
   memory: ["helper", "memory"] as const,
   notes: ["helper", "notes"] as const,
+  recent: ["helper", "recent"] as const,
 };
 
 export const useHelperStatus = (enabled = true) => useQuery({ queryKey: helperKeys.status, queryFn: helperApi.status, enabled, staleTime: 60_000, retry: false });
@@ -181,6 +216,23 @@ export function useHelperSearch(q: string, termId?: number | null, enabled = tru
     staleTime: 30_000,
     retry: false,
   });
+}
+
+/** "Son işlemler" (HX-15): the palette shows 3 of them, the sheet 5; one cache. */
+export const RECENT_LIMIT = 5;
+export const useHelperRecent = (enabled = true) =>
+  useQuery({ queryKey: helperKeys.recent, queryFn: () => helperApi.recent(RECENT_LIMIT), enabled, staleTime: 30_000, retry: false });
+
+/**
+ * After a helper write was confirmed or undone (the card's button, "Geri al" in a card or in "Son işlemler"):
+ * "Son işlemler" again, and for a note (`remember_note`, HX-17) Profil › Yardımcı's notes and memory count.
+ */
+export function invalidateAfterHelperWrite(qc: QueryClient, action: string | null | undefined): void {
+  void qc.invalidateQueries({ queryKey: helperKeys.recent });
+  if (action === "remember_note") {
+    void qc.invalidateQueries({ queryKey: helperKeys.notes });
+    void qc.invalidateQueries({ queryKey: helperKeys.memory });
+  }
 }
 
 export const useHelperMemory = (enabled = true) => useQuery({ queryKey: helperKeys.memory, queryFn: helperApi.memory, enabled, retry: false });
