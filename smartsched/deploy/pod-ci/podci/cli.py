@@ -1,7 +1,7 @@
 """python3 -m podci <command>   (systemd units in ../systemd call these)
 
   poll            git ls-remote the branches, queue new commits, heartbeat + idle check, wake the worker
-  work            run queued jobs one at a time (flock); safe to kill and restart
+  work            run queued jobs one at a time (flock), their gates concurrently by needs; safe to kill and restart
   web             serve /ci/ on PODCI_WEB_BIND:PODCI_WEB_PORT
   heartbeat       heartbeat metrics + idle self-stop only
   cleanup         disk cleanup to below PODCI_DISK_MAX_PERCENT

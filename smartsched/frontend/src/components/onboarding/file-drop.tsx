@@ -126,22 +126,22 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
               <thead>
                 <tr className="text-left type-footnote text-label-2 edge-hairline-b">
                   <th scope="col" className="px-4 py-2 font-semibold">{c.colName}</th>
-                  <th scope="col" className="px-2 py-2 font-semibold">{c.colType}</th>
-                  <th scope="col" className="px-2 py-2 text-right font-semibold">{c.colSize}</th>
-                  <th scope="col" className="px-2 py-2 font-semibold">{c.colRoute}</th>
+                  <th scope="col" className="max-sm:hidden px-2 py-2 font-semibold">{c.colType}</th>
+                  <th scope="col" className="max-sm:hidden px-2 py-2 text-right font-semibold">{c.colSize}</th>
+                  <th scope="col" className="max-sm:hidden px-2 py-2 font-semibold">{c.colRoute}</th>
                   <th scope="col" className="w-12 px-2 py-2"><span className="sr-only">{t("onboarding.remove")}</span></th>
                 </tr>
               </thead>
               <tbody>
                 {staged.map((f) => (
                   <tr key={`staged:${f.name}:${f.size}`} className="bg-tint-soft edge-hairline-b" data-testid="onboarding-handed-file">
-                    <td className="max-w-0 truncate px-4 py-1.5 text-label-1">
+                    <td className="px-4 py-1.5 text-label-1 break-all sm:max-w-0 sm:truncate sm:break-normal">
                       {f.name}
                       {chip}
                     </td>
-                    <td className="px-2 py-1.5 text-label-2">{handedKind ? `${t(KIND_KEYS[handedKind]!)} · ${ext(f.name)}` : ext(f.name)}</td>
-                    <td className="px-2 py-1.5 text-right text-label-2">{n(Math.max(1, Math.ceil(f.size / 1024)))} KB</td>
-                    <td className="px-2 py-1.5"><MethodBadge method={predictedRoute(f.name) === "ai" ? (useAi ? "ai" : "off") : "direct"} /></td>
+                    <td className="max-sm:hidden px-2 py-1.5 text-label-2">{handedKind ? `${t(KIND_KEYS[handedKind]!)} · ${ext(f.name)}` : ext(f.name)}</td>
+                    <td className="max-sm:hidden px-2 py-1.5 text-right text-label-2">{n(Math.max(1, Math.ceil(f.size / 1024)))} KB</td>
+                    <td className="max-sm:hidden px-2 py-1.5"><MethodBadge method={predictedRoute(f.name) === "ai" ? (useAi ? "ai" : "off") : "direct"} /></td>
                     <td className="px-2 py-1">
                       <IconButton size="sm" label={t("helper.file.removeName", { name: f.name })} onClick={() => handed.remove()}>
                         <X aria-hidden />
@@ -151,13 +151,13 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
                 ))}
                 {files.map((f) => (
                   <tr key={`${f.name}:${f.size}`} className="edge-hairline-b" data-testid={fromHelper.has(f) ? "onboarding-handed-file" : undefined}>
-                    <td className="max-w-0 truncate px-4 py-1.5 text-label-1">
+                    <td className="px-4 py-1.5 text-label-1 break-all sm:max-w-0 sm:truncate sm:break-normal">
                       {f.name}
                       {fromHelper.has(f) ? chip : null}
                     </td>
-                    <td className="px-2 py-1.5 text-label-2">{ext(f.name)}</td>
-                    <td className="px-2 py-1.5 text-right text-label-2">{n(Math.max(1, Math.ceil(f.size / 1024)))} KB</td>
-                    <td className="px-2 py-1.5"><MethodBadge method={predictedRoute(f.name) === "ai" ? (useAi ? "ai" : "off") : "direct"} /></td>
+                    <td className="max-sm:hidden px-2 py-1.5 text-label-2">{ext(f.name)}</td>
+                    <td className="max-sm:hidden px-2 py-1.5 text-right text-label-2">{n(Math.max(1, Math.ceil(f.size / 1024)))} KB</td>
+                    <td className="max-sm:hidden px-2 py-1.5"><MethodBadge method={predictedRoute(f.name) === "ai" ? (useAi ? "ai" : "off") : "direct"} /></td>
                     <td className="px-2 py-1">
                       <IconButton size="sm" label={c.remove(f.name)} onClick={() => setFiles((prev) => prev.filter((p) => p !== f))}>
                         <X aria-hidden />
@@ -192,6 +192,7 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
             <Button
               className="ml-auto"
               data-testid="onboarding-start"
+              data-handed-primary=""
               disabled={busy}
               onClick={() => {
                 const uploadTokens = staged.flatMap((i) => (i.token ? [i.token] : []));

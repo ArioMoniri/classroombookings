@@ -188,6 +188,10 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
   useEffect(() => {
     const id = requestAnimationFrame(() => {
       if (!useHelperStore.getState().open) return;
+      // HB-23d DS-05 / UX-08: a control of the sheet that already has the focus (a card handed in from /import, the 📎
+      // of "Göster") keeps it
+      const a = document.activeElement;
+      if (a && a !== document.body && a.closest('[data-testid="helper-sheet"]')) return;
       const field = composerRef.current?.querySelector<HTMLTextAreaElement>("textarea:not([disabled])") ?? guideRef.current;
       field?.focus();
     });
@@ -213,7 +217,8 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
 
   return (
     <CardHostContext.Provider value={host}>
-      <header className="flex h-14 shrink-0 items-center gap-2 px-2 edge-hairline-b [&>:not(h2)]:relative [&>:not(h2)]:z-20">
+      {/* HB-23d DS-08: at 200 % text the row wraps instead of pushing ✕ / ⋯ off the sheet */}
+      <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 px-2 py-1 edge-hairline-b [&>:not(h2)]:relative [&>:not(h2)]:z-20 [&>button]:shrink-0">
         {!desktop ? <IconButton label={t("helper.close")} onClick={onClose} data-testid="helper-close" className="size-11"><X aria-hidden /></IconButton> : null}
         <h2 id={titleId} className="type-headline min-w-0 flex-1 truncate pl-2 text-label-1">
           {t("helper.title")}

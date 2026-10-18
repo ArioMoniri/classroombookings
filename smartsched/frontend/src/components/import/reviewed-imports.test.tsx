@@ -26,6 +26,7 @@ vi.mock("@/lib/api/hooks", async (orig) => ({
 
 import { CrbsUpgrade } from "./crbs-upgrade";
 import { RoomMasterImport } from "./room-master-import";
+import { useFileHandoffStore } from "@/components/helper/file-handoff";
 
 const report = (dry: boolean): UpgradeReport => ({
   dry_run: dry,
@@ -121,5 +122,23 @@ describe("room master", () => {
     await waitFor(() => expect(state.upload).toHaveBeenCalledTimes(1));
     expect(state.upload.mock.calls[0]![0]).toBe("room-master");
     expect(await screen.findByTestId("room-master-result")).toHaveTextContent("2 rows read · 1 rooms updated · 1 created");
+  });
+
+  it("HB-23d UX-03: a room master handed over by the helper is already here: diff shown, focus on apply, sent by token", async () => {
+    const csv = new File(["code;capacity;exam_capacity;tags\nA 101;60;30;PC\n"], "room_master.csv", { type: "text/csv" });
+    useFileHandoffStore.getState().set(
+      { featureId: "import", kind: "room_master", params: { kind: "room-master" }, items: [{ token: "tok.sig", sid: "s1", name: "room_master.csv", size: csv.size, format: "csv", expiresAt: Date.now() + 600_000 }], at: Date.now() },
+      [csv],
+    );
+    wrap(<RoomMasterImport term={{ id: 1, code: "2026-BAHAR", start_date: "2026-02-02" }} onStep={() => undefined} onBack={() => undefined} />);
+    expect(await screen.findByTestId("room-master-counts")).toHaveTextContent("1 rooms change");
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("room-master-apply")));
+    await userEvent.click(screen.getByTestId("room-master-apply"));
+    await waitFor(() => expect(state.upload).toHaveBeenCalledTimes(1));
+    const [kind, file, , opts] = state.upload.mock.calls[0]!;
+    expect(kind).toBe("room-master");
+    expect(file).toBeNull();
+    expect(opts).toMatchObject({ uploadToken: "tok.sig", filename: "room_master.csv" });
+    expect(useFileHandoffStore.getState().handoff).toBeNull();
   });
 });

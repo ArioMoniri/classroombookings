@@ -30,6 +30,21 @@ beforeEach(() => {
 });
 
 describe("Göster", () => {
+  it("HB-23d UX-08: 'Dosyanın ne olduğunu öğren' opens the helper and puts the focus on its 📎 (not 'görünmüyor')", async () => {
+    renderHelper(
+      <>
+        <button type="button" data-tour="helper-attach">Dosya ekle</button>
+        <ShowMeHost />
+      </>,
+    );
+    act(() => useHelperStore.getState().startShowMe("helper.files", false));
+    expect(useHelperStore.getState().open).toBe(true);
+    expect(push).not.toHaveBeenCalled();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByText("Dosya ekle")));
+    expect(screen.queryByTestId("helper-step-missing")).toBeNull();
+  });
+
+
   it("navigates, rings the control and ends with the focus on it (Esc)", async () => {
     renderHelper(
       <>

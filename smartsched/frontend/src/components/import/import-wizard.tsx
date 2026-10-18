@@ -14,6 +14,7 @@ import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { HttpError } from "@/lib/api/client";
+import { helperRefusal } from "@/lib/api/helper";
 import { uploadImportWithProgress } from "@/lib/api/shell-extra";
 import { dropStage, helperFilesApi, isStageGone, sidOf, type FileCard, type Stage } from "@/lib/api/helper-files";
 import { fileHandoffHref, handedFile, useFileHandoffStore, useHelperFileHandoff } from "@/components/helper/file-handoff";
@@ -109,6 +110,8 @@ export function ImportWizard() {
   const [flow, setFlow] = useState<FlowStep>("upload");
   /** the kind the server says the file is (wrong-file refusal, admin persona M-20) */
   const [suggested, setSuggested] = useState<ImportKind | null>(null);
+  /** HB-23d UX-09: the check refused the file (KVKK guard, unreadable…): its own reason, and no start */
+  const [refused, setRefused] = useState<string | null>(null);
   const busy = upload.phase === "uploading" || upload.phase === "processing";
   /** RF-06: every workbook upload is a preview first (`dry_run`); `job` is the applied import */
   const [preview, setPreview] = useState<ImportJob | null>(null);
@@ -184,6 +187,7 @@ export function ImportWizard() {
     fileRef.current = f;
     setUpload({ phase: "idle" });
     setSuggested(null);
+    setRefused(null);
     if (f && !/\.(xlsx|xlsm)$/i.test(f.name)) {
       toast.error(t("glass.import.onlyXlsx"));
       return;
@@ -205,6 +209,12 @@ export function ImportWizard() {
       return;
     }
     const c = out.card;
+    if (c.type === "refusal") {
+      const why = locale === "en" ? c.message.en : c.message.tr;
+      setRefused(why);
+      setUpload({ phase: "error", message: why });
+      return;
+    }
     const importer = c.type === "file" && c.state === "detected" && c.primary?.feature_id === "import" ? String(c.primary.params.kind ?? "") : null;
     const known = KINDS.find((k) => k.kind === importer)?.kind ?? null;
     setProbe({ file: f, stage: out.stage ?? null, kind: known });
@@ -293,9 +303,14 @@ export function ImportWizard() {
       const failed = e instanceof HttpError && e.detail && typeof e.detail === "object" && "summary" in e.detail ? (e.detail as ImportJob) : null;
       const detected = KINDS.find((k) => k.kind === failed?.summary.detected_kind && k.kind !== kind)?.kind ?? null;
       setSuggested(detected);
+      // a coded refusal (KVKK guard, term check…) carries its own reason: show it, not the template hint
+      const coded = !detected && !failed ? helperRefusal(e) : null;
+      const reason = coded && coded.code !== "error" && coded.code !== "network" ? (locale === "en" ? coded.en : coded.tr) : null;
       setUpload({
         phase: "error",
-        message: detected
+        message: reason
+          ? reason
+          : detected
           ? t("importFlows.wrongFile", { kind: t(KINDS.find((k) => k.kind === detected)!.label) })
           : status === 413
             ? t("glass.import.tooLarge")
@@ -310,7 +325,7 @@ export function ImportWizard() {
     }
   };
 
-  const canStart = file !== null || !!handedItem;
+  const canStart = (file !== null && !refused) || !!handedItem;
   const counts = job ? countBySeverity(job.summary.warnings) : null;
 
   return (
@@ -384,7 +399,7 @@ export function ImportWizard() {
             ) : null}
             <div className="flex items-center justify-between">
               <Button variant="ghost" onClick={() => router.replace("/import")}>{t("common.back")}</Button>
-              <Button onClick={() => void start()} {...busyProps(busy, !canStart)} data-testid="import-start">
+              <Button onClick={() => void start()} {...busyProps(busy, !canStart)} data-testid="import-start" data-handed-primary="">
                 <BusyLabel busy={busy} label={upload.phase === "processing" ? t("rf.preview.reading") : t("import.importing")}>{t("rf.preview.start")}</BusyLabel>
               </Button>
             </div>
