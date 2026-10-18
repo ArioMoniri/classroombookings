@@ -97,14 +97,31 @@ async def test_hb_03_tool_calls_are_validated_before_they_run(env) -> None:  # n
             [
                 _msg(
                     {"type": "text", "text": "Bakıyorum."},
-                    _use(1, "find_free_rooms", {"date": THU.isoformat(), "start": "08:30", "end": "09:20",
-                                                "headcount": 0, "building": "", "text": ""}),
-                    _use(2, "create_booking", {"room": "A 102", "date": THU.isoformat(),
-                                               "period_id": env.periods["P1"], "notes": ""}),
-                    _use(3, "create_booking", {"room": "A 102", "date": THU.isoformat(), "period_id": "P1",
-                                               "notes": "", "on_behalf_of": 7}),
-                    _use(4, "decide_approval", {"request_id": 1, "decision": "approve", "reason_code": "",
-                                                "reason": ""}),
+                    _use(
+                        1,
+                        "find_free_rooms",
+                        {
+                            "date": THU.isoformat(),
+                            "start": "08:30",
+                            "end": "09:20",
+                            "headcount": 0,
+                            "building": "",
+                            "text": "",
+                        },
+                    ),
+                    _use(
+                        2,
+                        "create_booking",
+                        {"room": "A 102", "date": THU.isoformat(), "period_id": env.periods["P1"], "notes": ""},
+                    ),
+                    _use(
+                        3,
+                        "create_booking",
+                        {"room": "A 102", "date": THU.isoformat(), "period_id": "P1", "notes": "", "on_behalf_of": 7},
+                    ),
+                    _use(
+                        4, "decide_approval", {"request_id": 1, "decision": "approve", "reason_code": "", "reason": ""}
+                    ),
                     _use(5, "drop_all_tables", {}),
                     _use(6, "my_bookings", "not an object"),  # type: ignore[arg-type]
                 )
@@ -123,8 +140,12 @@ async def test_hb_03_tool_calls_are_validated_before_they_run(env) -> None:  # n
     seen = by["toolu_02"].model_content()
     assert c["token"] not in seen and "token" not in json.loads(seen)
     assert json.loads(seen)["waiting_for"] == "the_user_button"
-    for bad, code in (("toolu_03", "invalid_args"), ("toolu_04", "not_offered"), ("toolu_05", "not_offered"),
-                      ("toolu_06", "invalid_args")):
+    for bad, code in (
+        ("toolu_03", "invalid_args"),
+        ("toolu_04", "not_offered"),
+        ("toolu_05", "not_offered"),
+        ("toolu_06", "invalid_args"),
+    ):
         assert by[bad].is_error and by[bad].card["code"] == code, (bad, by[bad].card)
     assert "on_behalf_of" in by["toolu_03"].model_content()  # the model learns what to fix (RA-15)
     # nothing was written by the model's turn: no booking, no invocation row (only the button writes)
@@ -148,9 +169,7 @@ async def test_hb_03_tainted_reads_drop_writes_for_the_rest_of_the_turn(env) -> 
         tainting = [a.name for a in reg.permitted(access) if a.taints]
         assert tainting, "an action that returns other people's free text is marked taints (RA-02)"
         offered = tooluse.offered(reg.tools_for(access))
-        out = await tooluse.apply_message(
-            ctx, _msg(_use(1, tainting[0], {})), offered=offered
-        )
+        out = await tooluse.apply_message(ctx, _msg(_use(1, tainting[0], {})), offered=offered)
         assert out[0].taints is True
         assert tooluse.writes_allowed_after(out) is False
         assert not any(reg.get(n).kind == "write" for n in tooluse.offered(reg.tools_for(access, allow_writes=False)))  # type: ignore[union-attr]

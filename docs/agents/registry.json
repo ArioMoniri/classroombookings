@@ -3277,6 +3277,18 @@
       "ledger": "VO-F resume: voice UI",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a0b4897c0dc379dc1",
+      "description": "HB-B resume: capabilities, local, quotas",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 08:28",
+      "scope": "",
+      "goal": "You are lane HB-B (AI helper second slice and governance), re-created after a container restart. Some of your earlier work is committed in /home/user/classroombookings (branch claude/focused-wright-ktt0ss), for example `tests/ai/test_hb_12_capabilities.py` and the capability parts of `app/ai/**` and…",
+      "ledger": "HB-B resume: capabilities, local, quotas",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

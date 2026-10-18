@@ -47,7 +47,9 @@ def _insert_rows(con, uid: int, nonce: str) -> None:  # type: ignore[no-untyped-
         "insert into helper_action_invocations (user_id, action, args_hash, preview_hash, nonce, status, created_at,"
         f" expires_at) values ({uid}, 'create_booking', 'a', 'p', '{nonce}', 'done', {NOW}, {NOW})"
     )
-    con.execute(f"insert into helper_threads (user_id, title, created_at, last_at) values ({uid}, 'Salon', {NOW}, {NOW})")
+    con.execute(
+        f"insert into helper_threads (user_id, title, created_at, last_at) values ({uid}, 'Salon', {NOW}, {NOW})"
+    )
     tid = con.execute("select max(id) from helper_threads").fetchone()[0]
     con.execute(
         "insert into helper_messages (thread_id, user_id, role, text, cards, created_at)"
@@ -109,10 +111,16 @@ def test_hb_04_postgres_round_trip(pg_server) -> None:  # noqa: F811
             for table in sorted(TABLES):
                 on = c.execute(text("select relrowsecurity from pg_class where relname = :t"), {"t": table}).scalar()
                 assert on is True, table
-                pols = c.execute(
-                    text("select polname from pg_policy p join pg_class t on t.oid = p.polrelid where t.relname = :t"),
-                    {"t": table},
-                ).scalars().all()
+                pols = (
+                    c.execute(
+                        text(
+                            "select polname from pg_policy p join pg_class t on t.oid = p.polrelid where t.relname = :t"
+                        ),
+                        {"t": table},
+                    )
+                    .scalars()
+                    .all()
+                )
                 assert pols == ["rls_owner"], table
         eng.dispose()
         _run(url, command.downgrade, PREV)

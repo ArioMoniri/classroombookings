@@ -36,8 +36,7 @@ from app.models.base import utcnow
 from app.models.booking import BOOKED, PENDING
 from app.models.catalog import Room
 from app.services import approvals as asvc
-from app.services import audit
-from app.services import booking_policies
+from app.services import audit, booking_policies
 from app.services import bookings as bsvc
 from app.services.bookings_calendar import CalendarError, period_for, resolve_term
 from app.services.bookings_perms import effective_limits
@@ -68,8 +67,14 @@ TR_BY_CODE = {
 
 def refusal(exc: bsvc.BookingError) -> ActionRefused:
     d = dict(exc.data)
-    tr = d.pop("message_tr", None) or TR_BY_CODE.get(exc.code) or (
-        "Rezervasyon kuralları buna izin vermiyor." if exc.code.startswith("policy") else "Bu işlem şu an yapılamadı."
+    tr = (
+        d.pop("message_tr", None)
+        or TR_BY_CODE.get(exc.code)
+        or (
+            "Rezervasyon kuralları buna izin vermiyor."
+            if exc.code.startswith("policy")
+            else "Bu işlem şu an yapılamadı."
+        )
     )
     en = d.pop("message_en", None) or exc.message
     keep = {k: v for k, v in d.items() if k in ("conflict", "alternatives", "request_id", "booking_id", "earliest")}
@@ -232,14 +237,33 @@ def _booking_form(a: CreateBookingArgs, missing: list[str], room: Room | None) -
         risk="R1",
         missing=missing,
         fields=[
-            s.FormField(name="room", label=cards.txt("Salon", "Room"), kind="room", required=True,
-                        value=str(room.id) if room else (a.room or None), options_source="rooms"),
-            s.FormField(name="date", label=cards.txt("Tarih", "Date"), kind="date", required=True,
-                        value=a.date or None),
-            s.FormField(name="period_id", label=cards.txt("Ders saati", "Period"), kind="period", required=True,
-                        value=a.period_id or None, options_source="periods"),
-            s.FormField(name="notes", label=cards.txt("Amaç", "Purpose"), kind="text", required=False,
-                        value=a.notes or None, max_length=255),
+            s.FormField(
+                name="room",
+                label=cards.txt("Salon", "Room"),
+                kind="room",
+                required=True,
+                value=str(room.id) if room else (a.room or None),
+                options_source="rooms",
+            ),
+            s.FormField(
+                name="date", label=cards.txt("Tarih", "Date"), kind="date", required=True, value=a.date or None
+            ),
+            s.FormField(
+                name="period_id",
+                label=cards.txt("Ders saati", "Period"),
+                kind="period",
+                required=True,
+                value=a.period_id or None,
+                options_source="periods",
+            ),
+            s.FormField(
+                name="notes",
+                label=cards.txt("Amaç", "Purpose"),
+                kind="text",
+                required=False,
+                value=a.notes or None,
+                max_length=255,
+            ),
         ],
     )
 
@@ -265,8 +289,12 @@ async def preview_create_booking(ctx: Ctx, a: CreateBookingArgs) -> Preview | s.
     if a.room:
         rooms = await resolve_rooms(ctx, a.room)
         if not rooms:
-            raise ActionRefused(404, "room_not_found", f"“{a.room}” adında bir salon bulunamadı.",
-                                f"No room called “{a.room}” was found.")
+            raise ActionRefused(
+                404,
+                "room_not_found",
+                f"“{a.room}” adında bir salon bulunamadı.",
+                f"No room called “{a.room}” was found.",
+            )
         if len(rooms) > 1:
             return _choice("room", rooms, a.model_dump(), "create_booking")
         room = rooms[0]
@@ -297,8 +325,12 @@ async def preview_create_booking(ctx: Ctx, a: CreateBookingArgs) -> Preview | s.
             left = await bsvc.remaining_bookings(session, access)
             if left is not None and left < 1:
                 limits = await effective_limits(session, access.user)
-                raise bsvc.BookingError(409, "max_active_bookings", "you already have the maximum active bookings",
-                                        limit=limits["max_active_bookings"])
+                raise bsvc.BookingError(
+                    409,
+                    "max_active_bookings",
+                    "you already have the maximum active bookings",
+                    limit=limits["max_active_bookings"],
+                )
         if need is not None:
             await bsvc._refuse_duplicate_request(session, access, room, d, period, user_id)  # noqa: SLF001
         held = await bsvc.find_conflict(session, room.id, d, period.start_period, period.end_period)
@@ -331,11 +363,19 @@ async def preview_create_booking(ctx: Ctx, a: CreateBookingArgs) -> Preview | s.
         action="create_booking",
         risk="R1",
         args={"room": str(room.id), "date": d.isoformat(), "period_id": period.id, "notes": a.notes},
-        facts={"room": room.id, "date": d.isoformat(), "period": period.id, "request": request,
-               "unpublished": unpublished, "notes": a.notes},
+        facts={
+            "room": room.id,
+            "date": d.isoformat(),
+            "period": period.id,
+            "request": request,
+            "unpublished": unpublished,
+            "notes": a.notes,
+        },
         lines=lines,
         button=cards.txt(f"{verb_tr}: {room.display_name} · {tr_when}", f"{verb_en}: {room.display_name} · {en_when}"),
-        title=cards.txt("Rezervasyon talebi" if request else "Rezervasyon", "Booking request" if request else "Booking"),
+        title=cards.txt(
+            "Rezervasyon talebi" if request else "Rezervasyon", "Booking request" if request else "Booking"
+        ),
         undoable=not request,
         warnings=warnings,
     )
@@ -361,8 +401,10 @@ async def execute_create_booking(ctx: Ctx, a: CreateBookingArgs, p: Preview) -> 
     if b.status == PENDING:
         return cf.Executed(
             entity=s.Entity(kind="booking", id=b.id, feature_id="my_requests"),
-            message=cards.txt(f"Talebiniz gönderildi: {name} · {tr_when}. Onaycı karar verince bildirim alırsınız.",
-                              f"Your request was sent: {name} · {en_when}. You are notified when it is decided."),
+            message=cards.txt(
+                f"Talebiniz gönderildi: {name} · {tr_when}. Onaycı karar verince bildirim alırsınız.",
+                f"Your request was sent: {name} · {en_when}. You are notified when it is decided.",
+            ),
             follow_ups=[s.FollowUp(label=cards.txt("Taleplerim", "My requests"), action="my_requests_status")],
         )
     return cf.Executed(
@@ -407,13 +449,23 @@ async def preview_cancel(ctx: Ctx, a: CancelArgs) -> Preview | s.CardBase:
         raise ActionRefused(404, "not_found", "Rezervasyon bulunamadı.", "Booking not found.")
     if not bsvc.is_owner(ctx.access, b):
         # owner default: the helper cancels only the person's own bookings (RA-03), whatever their role allows
-        raise ActionRefused(403, "not_cancelable", "Yardımcı yalnızca kendi rezervasyonlarınızı iptal eder.",
-                            "The helper only cancels your own bookings.")
+        raise ActionRefused(
+            403,
+            "not_cancelable",
+            "Yardımcı yalnızca kendi rezervasyonlarınızı iptal eder.",
+            "The helper only cancels your own bookings.",
+        )
     if b.series_id:
-        raise ActionRefused(422, "recurring", "Tekrarlayan rezervasyonlar Rezervasyonlarım sayfasından iptal edilir.",
-                            "Recurring bookings are cancelled on the My bookings page.")
+        raise ActionRefused(
+            422,
+            "recurring",
+            "Tekrarlayan rezervasyonlar Rezervasyonlarım sayfasından iptal edilir.",
+            "Recurring bookings are cancelled on the My bookings page.",
+        )
     if b.status != BOOKED:
-        raise ActionRefused(409, "already_cancelled", TR_BY_CODE["already_cancelled"], "The booking is already cancelled.")
+        raise ActionRefused(
+            409, "already_cancelled", TR_BY_CODE["already_cancelled"], "The booking is already cancelled."
+        )
     if not await bsvc.can_cancel(ctx.session, ctx.access, b, room):
         raise ActionRefused(403, "not_cancelable", TR_BY_CODE["not_cancelable"], "You may not cancel this booking.")
     period = await ctx.session.get(BookingPeriod, b.period_id)
@@ -446,8 +498,13 @@ async def execute_cancel(ctx: Ctx, a: CancelArgs, p: Preview) -> cf.Executed:
         message=cards.txt("Rezervasyon iptal edildi.", "Booking cancelled."),
         undo_event_id=await _booking_audit_event(ctx, "booking.cancel", a.booking_id),
         undo_until=await _undo_until(ctx, d, period),
-        follow_ups=[s.FollowUp(label=cards.txt("Boş salon bul", "Find a free room"), action="find_free_rooms",
-                               args={"date": d.isoformat()})],
+        follow_ups=[
+            s.FollowUp(
+                label=cards.txt("Boş salon bul", "Find a free room"),
+                action="find_free_rooms",
+                args={"date": d.isoformat()},
+            )
+        ],
     )
 
 
@@ -476,8 +533,9 @@ async def preview_withdraw(ctx: Ctx, a: RequestArgs) -> Preview | s.CardBase:
     if req is None or req.requested_by != ctx.access.user_id:
         raise ActionRefused(404, "not_found", "Talep bulunamadı.", "Request not found.")
     if req.status != PENDING:
-        raise ActionRefused(409, "not_pending", "Bu talep artık beklemiyor; geri çekilemez.",
-                            "This request is no longer pending.")
+        raise ActionRefused(
+            409, "not_pending", "Bu talep artık beklemiyor; geri çekilemez.", "This request is no longer pending."
+        )
     room = await ctx.session.get(Room, req.room_id)
     rows = await asvc.bookings_of(ctx.session, req)
     first = rows[0] if rows else None
@@ -494,8 +552,12 @@ async def preview_withdraw(ctx: Ctx, a: RequestArgs) -> Preview | s.CardBase:
         title=cards.txt("Talebi geri çek", "Withdraw the request"),
         undoable=False,
         danger=True,
-        warnings=[cards.txt("Bu işlem geri alınamaz; gerekirse yeni bir talep gönderin.",
-                            "This cannot be undone; send a new request if needed.")],
+        warnings=[
+            cards.txt(
+                "Bu işlem geri alınamaz; gerekirse yeni bir talep gönderin.",
+                "This cannot be undone; send a new request if needed.",
+            )
+        ],
     )
 
 
@@ -515,7 +577,9 @@ async def execute_withdraw(ctx: Ctx, a: RequestArgs, p: Preview) -> cf.Executed:
 
 
 class DecideArgs(Args):
-    request_id: Annotated[int, Field(ge=0, description="id of a pending request from approvals_inbox; 0 = not chosen")] = 0
+    request_id: Annotated[
+        int, Field(ge=0, description="id of a pending request from approvals_inbox; 0 = not chosen")
+    ] = 0
     decision: Literal["approve", "reject"] = "approve"
     reason_code: Literal["", "room_unavailable", "capacity", "policy", "other"] = ""
     reason: Annotated[str, Field(max_length=1000, description="why, for a rejection; '' = none")] = ""
@@ -545,10 +609,19 @@ async def preview_decide(ctx: Ctx, a: DecideArgs) -> Preview | s.CardBase:
     snap = req.rule_snapshot or asvc.rule_snapshot(None)
     approvers = await asvc.step_approvers(ctx.session, room, snap, req.step)
     if ctx.access.user not in approvers:
-        raise ActionRefused(403, "not_an_approver", "Bu adımın onaycısı değilsiniz.", "You are not an approver of this step.")
+        raise ActionRefused(
+            403, "not_an_approver", "Bu adımın onaycısı değilsiniz.", "You are not an approver of this step."
+        )
     others = [u for u in approvers if u.id != ctx.access.user_id]
-    if a.decision == "approve" and req.requested_by == ctx.access.user_id and not snap.get("allow_self_approve") and others:
-        raise ActionRefused(403, "self_approval", "Kendi talebinizi onaylayamazsınız.", "You cannot approve your own request.")
+    if (
+        a.decision == "approve"
+        and req.requested_by == ctx.access.user_id
+        and not snap.get("allow_self_approve")
+        and others
+    ):
+        raise ActionRefused(
+            403, "self_approval", "Kendi talebinizi onaylayamazsınız.", "You cannot approve your own request."
+        )
     if a.decision == "reject":
         try:
             asvc.check_reason(a.reason_code or None, a.reason or None)
@@ -561,15 +634,38 @@ async def preview_decide(ctx: Ctx, a: DecideArgs) -> Preview | s.CardBase:
                 missing=["reason_code"],
                 message=cards.txt("Reddetmek için bir gerekçe seçin ya da yazın.", "Pick or write a reason to reject."),
                 fields=[
-                    s.FormField(name="request_id", label=cards.txt("Talep", "Request"), kind="number", required=True,
-                                value=req.id),
-                    s.FormField(name="decision", label=cards.txt("Karar", "Decision"), kind="select", required=True,
-                                value="reject", options=[s.Option(value="reject", label=cards.txt("Reddet", "Reject"))]),
-                    s.FormField(name="reason_code", label=cards.txt("Gerekçe", "Reason"), kind="select", required=True,
-                                options=[s.Option(value=k, label=cards.txt(tr, en))
-                                         for k, (tr, en) in asvc.REASON_CODES.items()], options_source="reasons"),
-                    s.FormField(name="reason", label=cards.txt("Açıklama", "Note"), kind="textarea", required=False,
-                                max_length=1000),
+                    s.FormField(
+                        name="request_id",
+                        label=cards.txt("Talep", "Request"),
+                        kind="number",
+                        required=True,
+                        value=req.id,
+                    ),
+                    s.FormField(
+                        name="decision",
+                        label=cards.txt("Karar", "Decision"),
+                        kind="select",
+                        required=True,
+                        value="reject",
+                        options=[s.Option(value="reject", label=cards.txt("Reddet", "Reject"))],
+                    ),
+                    s.FormField(
+                        name="reason_code",
+                        label=cards.txt("Gerekçe", "Reason"),
+                        kind="select",
+                        required=True,
+                        options=[
+                            s.Option(value=k, label=cards.txt(tr, en)) for k, (tr, en) in asvc.REASON_CODES.items()
+                        ],
+                        options_source="reasons",
+                    ),
+                    s.FormField(
+                        name="reason",
+                        label=cards.txt("Açıklama", "Note"),
+                        kind="textarea",
+                        required=False,
+                        max_length=1000,
+                    ),
                 ],
             )
     requester = await ctx.session.get(User, req.requested_by) if req.requested_by else None
@@ -587,17 +683,31 @@ async def preview_decide(ctx: Ctx, a: DecideArgs) -> Preview | s.CardBase:
     ]
     if not approve:
         code_tr, code_en = asvc.REASON_CODES.get(a.reason_code, ("", ""))
-        lines.append(line("Gerekçe", "Reason", " · ".join(x for x in (code_tr, a.reason) if x),
-                          " · ".join(x for x in (code_en, a.reason) if x)))
+        lines.append(
+            line(
+                "Gerekçe",
+                "Reason",
+                " · ".join(x for x in (code_tr, a.reason) if x),
+                " · ".join(x for x in (code_en, a.reason) if x),
+            )
+        )
     return Preview(
         action="decide_approval",
         risk="R2",
         args={"request_id": req.id, "decision": a.decision, "reason_code": a.reason_code, "reason": a.reason},
-        facts={"request": req.id, "status": req.status, "step": req.step, "decision": a.decision,
-               "reason_code": a.reason_code, "reason": a.reason},
+        facts={
+            "request": req.id,
+            "status": req.status,
+            "step": req.step,
+            "decision": a.decision,
+            "reason_code": a.reason_code,
+            "reason": a.reason,
+        },
         lines=lines,
-        button=cards.txt(f"{'Onayla' if approve else 'Reddet'}: {room.display_name} · {tr_when}",
-                         f"{'Approve' if approve else 'Reject'}: {room.display_name} · {en_when}"),
+        button=cards.txt(
+            f"{'Onayla' if approve else 'Reddet'}: {room.display_name} · {tr_when}",
+            f"{'Approve' if approve else 'Reject'}: {room.display_name} · {en_when}",
+        ),
         title=cards.txt("Talep kararı", "Request decision"),
         affected=cards.txt(f"{who} kişisine bildirim gider.", f"{who} is notified."),
         undoable=False,
@@ -623,8 +733,10 @@ async def execute_decide(ctx: Ctx, a: DecideArgs, p: Preview) -> cf.Executed:
     approve = a.decision == "approve"
     return cf.Executed(
         entity=s.Entity(kind="approval_request", id=a.request_id, feature_id="approvals"),
-        message=cards.txt("Onaylandı." if approve else "Reddedildi; kişiye gerekçe gönderildi.",
-                          "Approved." if approve else "Rejected; the reason was sent."),
+        message=cards.txt(
+            "Onaylandı." if approve else "Reddedildi; kişiye gerekçe gönderildi.",
+            "Approved." if approve else "Rejected; the reason was sent.",
+        ),
         follow_ups=[s.FollowUp(label=cards.txt("Bekleyen talepler", "Pending requests"), action="approvals_inbox")],
     )
 
@@ -651,8 +763,9 @@ async def preview_undo(ctx: Ctx, _a: NoArgs) -> Preview | s.CardBase:
 
     inv = await cf.last_undoable(ctx.session, ctx.access)
     if inv is None or inv.undo_event_id is None:
-        raise ActionRefused(404, "nothing_to_undo", "Geri alınacak bir yardımcı işlemi yok.",
-                            "There is no helper action to undo.")
+        raise ActionRefused(
+            404, "nothing_to_undo", "Geri alınacak bir yardımcı işlemi yok.", "There is no helper action to undo."
+        )
     try:
         ev, rows = await bookings_undo.check(ctx.session, ctx.access, inv.undo_event_id)
     except bsvc.BookingError as exc:
@@ -662,15 +775,21 @@ async def preview_undo(ctx: Ctx, _a: NoArgs) -> Preview | s.CardBase:
     period = await ctx.session.get(BookingPeriod, b.period_id)
     tr_when, en_when = _when(b.date, period) if period else day_label(b.date)
     name = room.display_name if room else ""
-    what_tr, what_en = (("Rezervasyonu iptal eder", "Cancels the booking") if ev.action == "booking.create"
-                        else ("Rezervasyonu yeniden yapar", "Books it again"))
+    what_tr, what_en = (
+        ("Rezervasyonu iptal eder", "Cancels the booking")
+        if ev.action == "booking.create"
+        else ("Rezervasyonu yeniden yapar", "Books it again")
+    )
     return Preview(
         action="undo_last_helper_action",
         risk="R1",
         args={},
         facts={"invocation": inv.id, "event": inv.undo_event_id},
-        lines=[line("Salon", "Room", name), line("Zaman", "When", tr_when, en_when),
-               line("Geri alma", "Undo", what_tr, what_en)],
+        lines=[
+            line("Salon", "Room", name),
+            line("Zaman", "When", tr_when, en_when),
+            line("Geri alma", "Undo", what_tr, what_en),
+        ],
         button=cards.txt(f"Geri al: {name} · {tr_when}", f"Undo: {name} · {en_when}"),
         title=cards.txt("Son işlemi geri al", "Undo the last action"),
         undoable=False,

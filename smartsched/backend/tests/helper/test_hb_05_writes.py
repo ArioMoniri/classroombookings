@@ -35,13 +35,13 @@ async def _count(model, *where) -> int:  # type: ignore[no-untyped-def]
         return int((await s.execute(select(func.count()).select_from(model).where(*where))).scalar_one())
 
 
-async def _book_card(env, p, room: str = "A 102", period: str = "P1"):  # type: ignore[no-untyped-def]
+async def _book_card(env, p, room: str = "A 102", period: str = "P1"):  # type: ignore[no-untyped-def]  # noqa: F811
     r = await card(env, p, "create_booking", room=room, date=THU.isoformat(), period_id=env.periods[period])
     assert r.status_code == 200, r.text
     return r.json()
 
 
-async def _confirm(env, p, token: str):  # type: ignore[no-untyped-def]
+async def _confirm(env, p, token: str):  # type: ignore[no-untyped-def]  # noqa: F811
     return await env.client.post(f"{H}/actions/confirm", json={"token": token}, headers=p.headers)
 
 
@@ -55,7 +55,7 @@ def test_hb_05_write_actions_drift() -> None:
             assert frozenset(a.permission) == guard, name
         assert a.gate == _gate(route), name
         fields = _fields(route)
-        for arg, f in a.route_args.items():
+        for f in a.route_args.values():
             assert f in fields, (name, f, sorted(fields))
         for arg in a.args.model_fields:
             assert arg in a.route_args or arg in a.resolved, (name, arg)
@@ -88,7 +88,11 @@ async def test_hb_05_preview_confirm_replay_and_undo(env) -> None:  # noqa: F811
     async with dbmod.get_session_factory()() as s:
         b = await s.get(Booking, b_id)
         assert b is not None and b.status == "BOOKED" and b.user_id == t.uid
-        ev = (await s.execute(select(AuditEvent).where(AuditEvent.action == "helper.action.create_booking"))).scalars().one()
+        ev = (
+            (await s.execute(select(AuditEvent).where(AuditEvent.action == "helper.action.create_booking")))
+            .scalars()
+            .one()
+        )
         assert ev.after["via"] == "helper" and ev.actor_id == t.uid
         inv = (await s.execute(select(HelperActionInvocation))).scalars().one()
         assert inv.status == "done" and inv.audit_id == ev.id and inv.entity_id == b_id and inv.undo_event_id
@@ -162,7 +166,9 @@ async def test_hb_05_approval_mode_all_makes_a_request_then_withdraw_and_decide(
     async with dbmod.get_session_factory()() as s:
         req2_id = (
             await s.execute(
-                select(ApprovalRequest.id).where(ApprovalRequest.requested_by == t.uid, ApprovalRequest.status == "PENDING")
+                select(ApprovalRequest.id).where(
+                    ApprovalRequest.requested_by == t.uid, ApprovalRequest.status == "PENDING"
+                )
             )
         ).scalar_one()
     assert res2["ok"]
@@ -186,7 +192,12 @@ async def test_hb_05_cancel_own_only_and_undo_last(env) -> None:  # noqa: F811
     r = await card(env, t, "cancel_my_booking", booking_id=other.json()["id"])
     assert r.status_code in (403, 404) and r.json()["detail"]["card"]["type"] == "refusal"
     # the admin may cancel others' bookings on the page, but the helper cancels only their own
-    r = await card(env, admin, "cancel_my_booking", booking_id=(await env.book(t.headers, "A201", date(2026, 2, 18), "P3")).json()["id"])
+    r = await card(
+        env,
+        admin,
+        "cancel_my_booking",
+        booking_id=(await env.book(t.headers, "A201", date(2026, 2, 18), "P3")).json()["id"],
+    )
     assert r.status_code == 403 and r.json()["detail"]["code"] == "not_cancelable"
     # own cancel, then "Son yaptığımı geri al" re-books it
     mine = await env.book(t.headers, "A102", THU, "P1")

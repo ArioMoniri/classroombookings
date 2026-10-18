@@ -159,8 +159,12 @@ async def confirm(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any
         spec = writes.WRITES.get(str(p.get("a")))
         if spec is not None:
             if reg.RATE.hit(access.user_id, spec.action):
-                raise refused(429, "rate_limited", "Çok sık denediniz; bir dakika sonra yeniden deneyin.",
-                              "Too many tries; try again in a minute.")
+                raise refused(
+                    429,
+                    "rate_limited",
+                    "Çok sık denediniz; bir dakika sonra yeniden deneyin.",
+                    "Too many tries; try again in a minute.",
+                )
             await gate(spec.action, db, access)
         return await cf.confirm(db, access, body.token)
     except reg.ActionRefused as exc:
@@ -169,7 +173,7 @@ async def confirm(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any
 
 @router.post("/actions/undo")
 async def undo(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
-    """"Geri al" on a result card (24 h, and only before the booking starts; ``bookings_undo`` decides)."""
+    """ "Geri al" on a result card (24 h, and only before the booking starts; ``bookings_undo`` decides)."""
     from app.ai.helper import confirm as cf
 
     try:
@@ -244,7 +248,7 @@ async def delete_note(note_id: int, db: DB, user: CurrentUser) -> None:
 
 @router.delete("/notes")
 async def delete_notes(db: DB, user: CurrentUser, history: bool = False) -> dict[str, int]:
-    """"Tümünü sil" (notes); with ``history=true`` also "Geçmişi sil" (the conversation threads)."""
+    """ "Tümünü sil" (notes); with ``history=true`` also "Geçmişi sil" (the conversation threads)."""
     from app.ai.helper import memory
 
     return await memory.delete_all(db, user, history=history)

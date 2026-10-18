@@ -89,7 +89,9 @@ def verify(token: str) -> dict[str, Any]:
     return payload
 
 
-def confirm_token(user_id: int, action: str, args: dict[str, Any], preview_hash: str, now: datetime) -> tuple[str, datetime]:
+def confirm_token(
+    user_id: int, action: str, args: dict[str, Any], preview_hash: str, now: datetime
+) -> tuple[str, datetime]:
     exp = now + TOKEN_TTL
     payload = {
         "k": "confirm",
@@ -157,11 +159,15 @@ async def confirm(session: AsyncSession, access: Access, token: str) -> dict[str
         raise ActionRefused(403, "bad_token", "Bu onay geçerli değil.", "This confirmation is not valid.")
     if p.get("u") != access.user_id:
         await _reject(session, access, "other_user", action)
-        raise ActionRefused(403, "other_user", "Bu onay başka bir hesaba ait.", "This confirmation belongs to another account.")
+        raise ActionRefused(
+            403, "other_user", "Bu onay başka bir hesaba ait.", "This confirmation belongs to another account."
+        )
     now = utcnow()
     if _ts(p["exp"]) <= now:
         await _reject(session, access, "expired", action)
-        raise ActionRefused(410, "expired", "Bu öneri eskidi. Yenileyin.", "This suggestion is out of date. Refresh it.")
+        raise ActionRefused(
+            410, "expired", "Bu öneri eskidi. Yenileyin.", "This suggestion is out of date. Refresh it."
+        )
     spec = writes.WRITES[action]
     if spec.action.name != action or not spec.action.allowed(access):
         await _reject(session, access, "not_allowed", action)
@@ -316,7 +322,10 @@ async def undo_invocation(
         await session.rollback()
         d = exc.data
         raise ActionRefused(
-            exc.status, exc.code, str(d.get("message_tr") or exc.message), exc.message,
+            exc.status,
+            exc.code,
+            str(d.get("message_tr") or exc.message),
+            exc.message,
             **{k: v for k, v in d.items() if k in ("alternatives", "later")},
         ) from exc
     if not record:
@@ -368,9 +377,7 @@ async def undo(session: AsyncSession, access: Access, token: str) -> dict[str, A
     if p.get("u") != access.user_id:
         raise ActionRefused(403, "other_user", "Bu işlem başka bir hesaba ait.", "This belongs to another account.")
     if _ts(p["exp"]) <= utcnow():
-        raise ActionRefused(
-            410, "too_old", "Geri alma süresi doldu.", "The time to undo this has passed."
-        )
+        raise ActionRefused(410, "too_old", "Geri alma süresi doldu.", "The time to undo this has passed.")
     inv = await session.get(HelperActionInvocation, int(p["i"]))
     if inv is None:
         raise ActionRefused(404, "not_found", "İşlem bulunamadı.", "The action was not found.")

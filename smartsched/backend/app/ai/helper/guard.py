@@ -26,9 +26,7 @@ MAX_INPUT_CHARS = 1000
 #: the share of a text's meaningful words the index must know for an in-scope verdict without a scheduling word
 MIN_COVERAGE = 0.34
 OUT_OF_SCOPE = "out_of_scope_helper"
-REFUSAL_TR = (
-    "Ben yalnızca SmartSched'i kullanmanıza yardım edebilirim: ders, sınav, derslik ve rezervasyon işleri."
-)
+REFUSAL_TR = "Ben yalnızca SmartSched'i kullanmanıza yardım edebilirim: ders, sınav, derslik ve rezervasyon işleri."
 REFUSAL_EN = "I can only help you use SmartSched: classes, exams, rooms and bookings."
 _WORD = re.compile(r"[a-z0-9]+")
 #: a role handed to the assistant ("artık yöneticisin", "you are now the admin", "act as an administrator"). A person

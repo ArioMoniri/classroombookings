@@ -110,10 +110,14 @@ async def _names_another_person(session: AsyncSession, user: User, text: str) ->
     async with rls.system_scope(session):
         users = (await session.execute(select(User).where(User.id != user.id))).scalars().all()
         instructors = (
-            await session.execute(
-                select(Instructor).where((Instructor.user_id.is_(None)) | (Instructor.user_id != user.id))
+            (
+                await session.execute(
+                    select(Instructor).where((Instructor.user_id.is_(None)) | (Instructor.user_id != user.id))
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     for u in users:
         variants = [u.full_name or "", f"{u.firstname or ''} {u.lastname or ''}"]
         variants = [v for v in (n.clean_text(x) or "" for x in variants) if len(v.split()) >= 2]
@@ -133,23 +137,43 @@ async def add_note(session: AsyncSession, user: User, text: str, source: str) ->
         raise ActionRefused(422, "source", "Not yalnızca sizin onayınızla kaydedilir.", "A note is saved only by you.")
     st = await state(session, user)
     if not st["institution_enabled"]:
-        raise ActionRefused(409, "memory_off_institution", "Yardımcı belleği kurumunuzda kapalı.",
-                            "Helper memory is switched off for your institution.")
+        raise ActionRefused(
+            409,
+            "memory_off_institution",
+            "Yardımcı belleği kurumunuzda kapalı.",
+            "Helper memory is switched off for your institution.",
+        )
     if not st["enabled"]:
-        raise ActionRefused(409, "memory_off", "Yardımcı belleğiniz kapalı; Profil › Yardımcı'dan açabilirsiniz.",
-                            "Your helper memory is off; switch it on in Profile › Helper.")
+        raise ActionRefused(
+            409,
+            "memory_off",
+            "Yardımcı belleğiniz kapalı; Profil › Yardımcı'dan açabilirsiniz.",
+            "Your helper memory is off; switch it on in Profile › Helper.",
+        )
     clean = " ".join((n.clean_text(text) or "").split())
     if not clean:
         raise ActionRefused(422, "empty", "Not boş olamaz.", "The note cannot be empty.")
     if len(clean) > MAX_CHARS:
-        raise ActionRefused(422, "too_long", f"Not en fazla {MAX_CHARS} karakter olabilir.",
-                            f"A note can be at most {MAX_CHARS} characters.")
+        raise ActionRefused(
+            422,
+            "too_long",
+            f"Not en fazla {MAX_CHARS} karakter olabilir.",
+            f"A note can be at most {MAX_CHARS} characters.",
+        )
     if st["notes"] >= MAX_NOTES:
-        raise ActionRefused(409, "too_many", f"En fazla {MAX_NOTES} not saklanır; önce birini silin.",
-                            f"At most {MAX_NOTES} notes are kept; delete one first.")
+        raise ActionRefused(
+            409,
+            "too_many",
+            f"En fazla {MAX_NOTES} not saklanır; önce birini silin.",
+            f"At most {MAX_NOTES} notes are kept; delete one first.",
+        )
     if await _names_another_person(session, user, clean):
-        raise ActionRefused(422, "names_a_person", "Notlar yalnızca sizin tercihleriniz içindir; başka birinin adını içeremez.",
-                            "Notes are for your own preferences; they cannot name another person.")
+        raise ActionRefused(
+            422,
+            "names_a_person",
+            "Notlar yalnızca sizin tercihleriniz içindir; başka birinin adını içeremez.",
+            "Notes are for your own preferences; they cannot name another person.",
+        )
     now = utcnow()
     note = HelperNote(
         user_id=user.id,
@@ -237,23 +261,39 @@ async def dsr_rows(session: AsyncSession, user_id: int) -> dict[str, Any]:
     """The person's notes and conversation history, for the DSR export (``helper``)."""
     async with rls.system_scope(session):
         notes = (
-            await session.execute(select(HelperNote).where(HelperNote.user_id == user_id).order_by(HelperNote.id))
-        ).scalars().all()
+            (await session.execute(select(HelperNote).where(HelperNote.user_id == user_id).order_by(HelperNote.id)))
+            .scalars()
+            .all()
+        )
         threads = (
-            await session.execute(select(HelperThread).where(HelperThread.user_id == user_id).order_by(HelperThread.id))
-        ).scalars().all()
+            (
+                await session.execute(
+                    select(HelperThread).where(HelperThread.user_id == user_id).order_by(HelperThread.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
         messages = (
-            await session.execute(
-                select(HelperMessage).where(HelperMessage.user_id == user_id).order_by(HelperMessage.id)
+            (
+                await session.execute(
+                    select(HelperMessage).where(HelperMessage.user_id == user_id).order_by(HelperMessage.id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         actions = (
-            await session.execute(
-                select(HelperActionInvocation)
-                .where(HelperActionInvocation.user_id == user_id)
-                .order_by(HelperActionInvocation.id)
+            (
+                await session.execute(
+                    select(HelperActionInvocation)
+                    .where(HelperActionInvocation.user_id == user_id)
+                    .order_by(HelperActionInvocation.id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     by_thread: dict[int, list[dict[str, Any]]] = {}
     for m in messages:
         by_thread.setdefault(m.thread_id, []).append({"role": m.role, "text": m.text, "created_at": m.created_at})
@@ -264,8 +304,14 @@ async def dsr_rows(session: AsyncSession, user_id: int) -> dict[str, Any]:
             for t in threads
         ],
         "actions": [
-            {"action": a.action, "status": a.status, "entity": a.entity_type, "entity_id": a.entity_id,
-             "created_at": a.created_at, "done_at": a.done_at}
+            {
+                "action": a.action,
+                "status": a.status,
+                "entity": a.entity_type,
+                "entity_id": a.entity_id,
+                "created_at": a.created_at,
+                "done_at": a.done_at,
+            }
             for a in actions
         ],
     }
@@ -282,7 +328,9 @@ async def erase(session: AsyncSession, user_id: int) -> int:
             )
             total += int(getattr(res, "rowcount", 0) or 0)
         await session.execute(
-            update(HelperEvent).where(HelperEvent.user_id == user_id).values(user_id=None)
+            update(HelperEvent)
+            .where(HelperEvent.user_id == user_id)
+            .values(user_id=None)
             .execution_options(synchronize_session=False)
         )
     return total

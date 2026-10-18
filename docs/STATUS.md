@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `4069185` (committed 2026-10-18 07:57 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `0ff9ac5` (committed 2026-10-18 08:28 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -177,7 +177,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-281 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 253 · stopped 11 · superseded 7.
+295 agents in [`docs/agents/registry.json`](agents/registry.json): running 16 · finished 261 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -185,12 +185,18 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `WG-F` | frontend-engineer | 2026-10-17 22:58 |
 | `AS-B` | backend-engineer | 2026-10-17 23:01 |
 | `VO-F` | frontend-engineer | 2026-10-17 23:16 |
-| `RF-1` | general-purpose | 2026-10-17 23:22 |
 | `HB-A` | ai-engineer | 2026-10-17 23:28 |
 | `AUX-F` | frontend-engineer | 2026-10-18 00:04 |
 | `AS-S` | solver-engineer | 2026-10-18 07:56 |
 | `HB-B` | ai-engineer | 2026-10-18 07:56 |
-| `Sweeper` | general-purpose | 2026-10-18 07:56 |
+| `AS-B resume` | backend-engineer | 2026-10-18 08:18 |
+| `AU-B resume` | backend-engineer | 2026-10-18 08:18 |
+| `CAL-F resume` | frontend-engineer | 2026-10-18 08:18 |
+| `HB-A resume` | ai-engineer | 2026-10-18 08:18 |
+| `RF-2 resume` | backend-engineer | 2026-10-18 08:18 |
+| `AUX-F resume` | frontend-engineer | 2026-10-18 08:23 |
+| `VO-F resume` | frontend-engineer | 2026-10-18 08:27 |
+| `HB-B resume` | ai-engineer | 2026-10-18 08:28 |
 
 <!-- /AUTO:agents -->
 
@@ -257,7 +263,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **384 ticked · 461 open** checkboxes in 100 sections (96 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **389 ticked · 456 open** checkboxes in 100 sections (96 with open items).
 
 <details><summary>Per section</summary>
 
@@ -358,11 +364,11 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 12 | 8 |
 | Voice for AI features (owner request 2026-10-17) | 5 | 8 |
 | Charts & telemetry views (owner request 2026-10-17) | 3 | 9 |
-| Real-not-fake & admin editability (owner request 2026-10-17; audit… | 1 | 11 |
+| Real-not-fake & admin editability (owner request 2026-10-17; audit… | 4 | 8 |
 | AI helper: backend, governance, local models (owner request 2026-10-17) | 0 | 20 |
 | AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 0 | 14 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — UX | 0 | 12 |
-| Sign-in, 2FA and passkeys (owner request 2026-10-18) — backend | 14 | 3 |
+| Sign-in, 2FA and passkeys (owner request 2026-10-18) — backend | 16 | 1 |
 
 </details>
 
