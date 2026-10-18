@@ -6224,7 +6224,8 @@
         "department": "Department name",
         "co_instructors": "Names of the other instructors",
         "link": "A SmartSched link",
-        "booking_title": "Booking title"
+        "booking_title": "Booking title",
+        "duty": "Course code, exam time and room"
       },
       "never": "No student data, notes or names of other instructors are sent.",
       "neverWithCo": "No student data or notes are sent.",

@@ -105,6 +105,11 @@ describe("approvalFields", () => {
   it("has its own list for bookings", () => {
     expect(approvalFields({ kind: "my_bookings", fields: null })).toEqual(["booking_title", "room", "time"]);
   });
+  it("CAL-13: a duty has its own bullet (code, exam time, room), never the class 'code and section' one", () => {
+    expect(approvalFields({ kind: "my_duties", fields: null })).toEqual(["duty", "department"]);
+    expect(approvalFields({ kind: "my_duties", fields: ["code", "room", "time", "department", "co_instructors", "link"] })).toEqual(["duty", "department", "link"]);
+    expect(approvalFields({ kind: "my_duties", fields: null }, { department: false, co_instructors: true })).toEqual(["duty"]);
+  });
 });
 
 describe("sampleLine", () => {

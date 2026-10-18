@@ -33,7 +33,8 @@ export type Provider = (typeof PROVIDERS)[number];
 /** the reason codes the sheet has its own sentence for; any other code shows the backend's text or a generic line */
 export const REASONS = ["department_not_allowed", "not_linked", "scope_disabled", "no_published_run", "sync_disabled"] as const;
 export type Reason = (typeof REASONS)[number];
-export const FIELD_KEYS = ["code", "title", "room", "time", "department", "co_instructors", "link", "booking_title"] as const;
+/** `duty` is CAL-13's one bullet for an exam duty (course code, exam time and room); it is never a backend key */
+export const FIELD_KEYS = ["code", "title", "room", "time", "department", "co_instructors", "link", "booking_title", "duty"] as const;
 export type FieldKey = (typeof FIELD_KEYS)[number];
 
 const when = z.string().nullish();

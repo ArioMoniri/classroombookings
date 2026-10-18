@@ -187,6 +187,9 @@ describe("CalendarExportSheet", () => {
     await user.click(card);
     await user.click(await screen.findByTestId("cal-channel-link"));
     expect(await screen.findByTestId("cal-never")).toHaveTextContent("Öğrenci bilgisi, not ve diğer gözetmenlerin adları gönderilmez.");
+    // a duty is not a class section: its own bullet, never "Ders kodu ve şube"
+    const dutyFields = within(screen.getByTestId("cal-fields")).getAllByRole("listitem").map((li) => li.textContent);
+    expect(dutyFields).toEqual(["Ders kodu, sınav saati ve derslik", "Bölüm adı"]);
     expect(screen.getByTestId("cal-approve-where")).toHaveTextContent("Sınav görevlerim");
     expect(screen.getByTestId("cal-consent")).toHaveTextContent("Sınav görevlerimin seçtiğim takvime gönderilmesini onaylıyorum.");
     await user.click(screen.getByTestId("cal-consent-tick"));

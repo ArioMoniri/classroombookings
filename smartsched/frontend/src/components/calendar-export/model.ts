@@ -119,6 +119,17 @@ export const channelKey = (c: Channel): string => (c.kind === "push" ? `push:${c
 
 /** The research doc's bullets, in its order; the backend's list for the scope wins when it sends one. */
 export function approvalFields(choice: Pick<ScopeChoice, "kind" | "fields">, adminFields?: Record<string, boolean> | null): FieldKey[] {
+  if (choice.kind === "my_duties") return dutyFields(classFields(choice, adminFields));
+  return classFields(choice, adminFields);
+}
+
+/** CAL-13: a duty carries no section, so its course code, exam time and room are one bullet of their own. */
+function dutyFields(fields: FieldKey[]): FieldKey[] {
+  const rest = fields.filter((f) => f !== "code" && f !== "room" && f !== "time" && f !== "duty");
+  return ["duty", ...rest];
+}
+
+function classFields(choice: Pick<ScopeChoice, "kind" | "fields">, adminFields?: Record<string, boolean> | null): FieldKey[] {
   const known = new Set<string>(["code", "title", "room", "time", "department", "co_instructors", "link", "booking_title"]);
   // CAL-13: a duty never carries the other invigilators' names, whatever the class setting says
   if (choice.kind === "my_duties") known.delete("co_instructors");

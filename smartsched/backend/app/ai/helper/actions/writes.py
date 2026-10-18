@@ -332,6 +332,9 @@ async def preview_create_booking(ctx: Ctx, a: CreateBookingArgs) -> Preview | s.
         need = await asvc.need_for(session, access, room, "book_single", info.term.id)
         try:
             await bsvc._open_date(session, info, d)  # noqa: SLF001 - the create path's own check
+            # BUG-01: a weekday the schedule does not offer (Sunday on Monday-Friday) is refused as ``closed_day``
+            # with "… rezervasyona kapalı bir gün" on the card (refusal() carries message_tr/en), not ``calendar``
+            await bsvc._open_day(session, info, room, d)  # noqa: SLF001
             period_id = a.period_id or await _period_at(session, info, room, d, a.start)
             period = await period_for(session, info, room, period_id, d)
         except CalendarError as exc:

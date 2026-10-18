@@ -3430,7 +3430,8 @@
       "goal": "You are the single E2E lane for SmartSched (repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss). Read these first: - docs/agents/briefs/COMMON.md. You are the ONE lane allowed to run an app stack, but only one stack at a time. Run it with `nice -n 10`, stop it after each section,…",
       "ledger": "E2E lane: run the queued browser checks",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 13:02"
     },
     {
       "id": "a0508738010d2ad42",
@@ -3888,7 +3889,8 @@
       "goal": "Ledger name `ci-green-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first. No commits (the orchestrator commits). Never `pkill -f`. No Docker stack and no `next build` in this container. Run everything under `nice -n 10`, one h…",
       "ledger": "CI lane: make every pod gate green",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 12:59"
     },
     {
       "id": "afecc131aef7f8f01",
@@ -4164,7 +4166,24 @@
       "goal": "Ledger name `small-fix-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first; no commits; tests first; resource rule (no stack; `nice`, pytest and vitest on touched files only); never `pkill -f`. Two small follow-ups: 1. Backend:…",
       "ledger": "Small follow-ups: helper Sunday, duties copy",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 13:02"
+    },
+    {
+      "id": "a6969329beba31abb",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:58",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a76cc26410f851732",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 13:00",
+      "left_off": "<analysis> I am the single E2E lane subagent. I worked through the queue section by section, wrote results into docs/testing/e2e-queue/results-2026-10-18.md, made small test-first fixes in finished lanes, and ticked ROADMAP tickets where a section was fully green. The final hand-off must go through SubagentHandback. Order of work and the state of each section: 1. RF-1: done; product fix in users-a…"
     }
   ]
 }

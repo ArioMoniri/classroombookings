@@ -6223,7 +6223,8 @@
         "department": "Bölüm adı",
         "co_instructors": "Diğer öğretim elemanlarının adları",
         "link": "SmartSched bağlantısı",
-        "booking_title": "Rezervasyon başlığı"
+        "booking_title": "Rezervasyon başlığı",
+        "duty": "Ders kodu, sınav saati ve derslik"
       },
       "never": "Öğrenci bilgisi, not ve diğer öğretim elemanlarının adları gönderilmez.",
       "neverWithCo": "Öğrenci bilgisi ve notlar gönderilmez.",
