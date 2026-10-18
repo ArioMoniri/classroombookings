@@ -87,7 +87,7 @@ def parse_week_kind(value: Any) -> str:
     from app.schemas.messages import Refusal
 
     text = " ".join((n.tr_casefold(n.clean_text(value) or "")).split())
-    kind = _WEEK_KIND_WORDS.get(text) or next((k for k in WEEK_KINDS if k.lower() == text), None)
+    kind = _WEEK_KIND_WORDS.get(text) or next((k for k in WEEK_KINDS if text in (k.lower(), n.tr_casefold(k))), None)
     if kind is None:
         raise Refusal(
             "week_kind_invalid",

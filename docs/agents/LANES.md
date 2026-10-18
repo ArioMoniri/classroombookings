@@ -25,11 +25,11 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | HX | `hx-2026-10-18` | Helper frontend HX-01..13 (HX-09 after HB-14/15) | helper.md, scratchpad helper/API.md | HB-C for HX-09 |
 | RF-B | `rf-b-2026-10-18` | RF-06, RF-08, RF-09 backend, `/users/search?mfa_state` | audit doc | — |
 | CH-M | `ch-m-2026-10-18` | CH-07, CH-08, CH-10, CH-11 chart migrations | charts.md | — |
-| WG-09 | `wg-09-2026-10-18` | Welcome-guide motion pass | welcome-guide.md | — |
+| Sweeper 2 | `sweep2-2026-10-18` | W3-AI phone Save buttons and chat-history spotlighting, F13 hash-pinned lock, `/grafana/` nginx locations, mobile B fix 15 + capsules, audit A5 | LANES queue | — |
 | Launch video | `media-launch` | Recordly + Lottie + Remotion videos | MEDIA.md | final UI |
 | E2E lane | `e2e-2026-10-18` | docs/testing/e2e-queue section by section → results-2026-10-18.md | e2e-queue README | — |
 
-Done 2026-10-18: RF-M (RF-04, RF-10; e2e pending), AUX-10 (part done: e2e pending, the hosted fix "signin-hero-settle" is unspent because `TRANSITIONS_AGENT_LICENSE` is not set in this session), HB-A (HB-01/03..05/07..09), AS-B, AS-F, AUX-F, AU-B, CAL-F, VO-F, WG-F, charts p2, mobile A/B, RF-1, RF-2, sweeper.
+Done 2026-10-18: WG-09 (part done: e2e pending, hosted fix unspent), RF-M (RF-04, RF-10; e2e pending), AUX-10 (part done: e2e pending, the hosted fix "signin-hero-settle" is unspent because `TRANSITIONS_AGENT_LICENSE` is not set in this session), HB-A (HB-01/03..05/07..09), AS-B, AS-F, AUX-F, AU-B, CAL-F, VO-F, WG-F, charts p2, mobile A/B, RF-1, RF-2, sweeper.
 
 ## Queued (start when a slot frees; at most 8 agents)
 
@@ -38,7 +38,6 @@ Done 2026-10-18: RF-M (RF-04, RF-10; e2e pending), AUX-10 (part done: e2e pendin
 | **Tester wave** against the pod over HTTPS (not a local stack): WG-10 role testers, CAL-10 academician (T1–T19), round-4 personas (staff, academician, admin; Simplicity), AS-20 adaptive, CH-12 charts, VO-09 voice (fixtures, bench, personas), AUX-12 sign-in (auth.md §16 checks 1–13), HB-18 helper red team and personas | pod health 200 | reports in docs/testing/ |
 | HB-17 local-model bench of helper features | HB-C (HB-16 profile) | tester |
 | HB-07 design sign-off on the 4 card-contract differences | HX report | design-pro, review only |
-| Sweeper 2 | a free slot | W3-AI phone capsule Save buttons on Limitler and Modeller, chat-history spotlighting (ROADMAP:2603–2604); F13 hash-pinned `requirements.lock` (W3E-05); `/grafana/` nginx locations (ROADMAP:2585); mobile B fix 15 (slow taps, measure first), wizard-start/draft-open and ai-policy save capsules; audit A5 (data-table virtualiser row height under compact) |
 | IDP lane | a free slot | RF-12 SAML metadata signature; encrypted SAML assertions, SP request signing, non-Entra profile-linking UI (ROADMAP:2707) |
 | CAL-13 exam/invigilation duties scope | a published invigilation plan in the fixtures (AS-12 advisor data exists now) | |
 | Council full re-run (round-3 lane C, lost) | E2E lane, on its stack | queued in e2e-queue |

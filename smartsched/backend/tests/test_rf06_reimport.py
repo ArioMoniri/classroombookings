@@ -247,7 +247,7 @@ async def test_admin_removed_room_tag_is_not_added_back(client) -> None:  # type
 async def test_dry_run_returns_a_diff_and_apply_imports_the_previewed_file(client, tmp_path) -> None:  # type: ignore[no-untyped-def]  # noqa: F811
     h = await login(client)
     await _upload(client, h, "exam-list", EXAM_LIST, term_code=FINAL)
-    ex2 = await _exam_by_row(2)
+    ex2, ex4 = await _exam_by_row(2), await _exam_by_row(4)
     await client.put(f"{API}/requests/exams/{ex2.id}", json={"enrolment": 30}, headers=h)
     async with dbmod.get_session_factory()() as s:
         before = (await s.execute(select(func.count(ExamRequest.id)))).scalar()
@@ -264,7 +264,7 @@ async def test_dry_run_returns_a_diff_and_apply_imports_the_previewed_file(clien
     assert conflict["conflicts"][0]["file"] == 28
     # nothing was written
     assert (await _exam(ex2.id)).enrolment == 30
-    assert (await _exam_by_row(4)).archived is False
+    assert (await _exam(ex4.id)).archived is False
     async with dbmod.get_session_factory()() as s:
         assert (await s.execute(select(func.count(ExamRequest.id)))).scalar() == before
 
@@ -275,7 +275,7 @@ async def test_dry_run_returns_a_diff_and_apply_imports_the_previewed_file(clien
     applied = (await client.get(f"{API}/imports/{applied_id}", headers=h)).json()
     assert applied["status"] == "DONE" and applied["summary"]["preview_of"] == preview["id"]
     assert applied["actor"] == "user" and applied["created_by_id"] is not None
-    assert (await _exam_by_row(4)).archived is True and (await _exam(ex2.id)).enrolment == 30
+    assert (await _exam(ex4.id)).archived is True and (await _exam(ex2.id)).enrolment == 30
     got = (await client.get(f"{API}/imports/{preview['id']}", headers=h)).json()
     assert got["summary"]["applied_job_id"] == applied_id
     # a preview is applied once

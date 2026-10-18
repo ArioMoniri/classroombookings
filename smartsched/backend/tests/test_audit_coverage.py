@@ -212,6 +212,11 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "POST /api/v1/imports/weekly-grid": (J, "import_jobs"),
     "POST /api/v1/imports/room-master": (J, "import_jobs"),
     "POST /api/v1/imports/crbs": (J, "import_jobs"),
+    # RF-06: apply a previewed import (dry_run); the job records who, the finished import writes import.run
+    "POST /api/v1/imports/{job_id}/apply": (J, "import_jobs (created_by, preview_of) + import.run"),
+    # RF-09: the period grid (clock times of P1-P18)
+    "PUT /api/v1/period-grid": (E, "app.services.period_grid"),
+    "DELETE /api/v1/period-grid": (E, "app.services.period_grid"),
     # learned suggestions (P19-L2..L4)
     "POST /api/v1/learning/refresh": (E, "app.api.v1.learning"),  # learning.refresh (actor, term, counts)
     "POST /api/v1/learning/suggestions/{prior_id}/accept": (E, "app.services.learning"),
@@ -335,6 +340,7 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/terms/{term_id}": (T, "Term"),
     "DELETE /api/v1/terms/{term_id}": (T, "Term"),
     "PUT /api/v1/terms/{term_id}/weeks": (T, "Week"),
+    "PATCH /api/v1/terms/{term_id}/weeks/{index}": (T, "Week"),  # RF-09: one week, marked edited
     "PUT /api/v1/terms/{term_id}/relaxation-policy": (E, "app.api.v1.terms"),  # term.relaxation_policy
     "POST /api/v1/terms/{term_id}/elicit": (N, "AI proposals, nothing written"),
     "POST /api/v1/terms/{term_id}/elicit/accept": (J, "ai_proposal_decisions + constraints.source_ref (AI agent)"),

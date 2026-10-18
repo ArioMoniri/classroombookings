@@ -4,6 +4,7 @@
 # proxy (nginx). Profile "legacy": crbs (php-apache) + crbs-db (MySQL) for the old CRBS app.
 # Profile "observability" (./deploy.sh --observability): prometheus, loki, alloy, grafana (observability/README.md;
 # measured ~0.5 GB RSS, capped at 768 MiB together; Grafana at /grafana/ behind the SmartSched admin session).
+# Profile "ollama": an optional local OpenAI-compatible model server (docs/deploy/local-models.md); off by default.
 #
 # There is no separate "worker" service: app/cli.py has no worker command and solver/import jobs run
 # in the backend's in-process asyncio queue (app/workers/queue.py, status persisted in the DB rows).
@@ -437,6 +438,39 @@ services:
           memory: ${GRAFANA_MEMORY:-384m}
     logging: *default-logging
 
+  # Optional local model server (HB-16, docs/deploy/local-models.md): only with `--profile ollama`, never in the
+  # default stack, and not on the 8 GB pod by default (a 9B model with a 16k context needs ~10 GB). Internal only,
+  # no published port: the backend reaches it as http://ollama:11434/v1 (/admin/ai › Sağlayıcılar › OpenAI uyumlu,
+  # "Yerel sunucu" = allow_local). Models are pulled by the admin (`ollama pull`), never by compose. For a GPU add
+  # the device reservation from the runbook; a separate GPU host (vLLM) is the recommended setup.
+  ollama:
+    profiles: ["ollama"]
+    image: ollama/ollama:0.40.6@sha256:265409e1d931028a8f7d5a32bcbafddd7bffbc6cc629d77efe9560adf692a5e7
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      # the helper's system prompt + tools need ≥ 8k; Ollama's own default (4k) truncates them silently
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-16384}
+      OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_NUM_PARALLEL: "2"
+    volumes:
+      - ollama-models:/root/.ollama
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    cap_drop: [ALL]
+    <<: *hardening
+    deploy:
+      resources:
+        limits:
+          memory: ${OLLAMA_MEMORY:-12g}
+    logging: *default-logging
+
 volumes:
   pgdata:
   uploads:
@@ -447,3 +481,4 @@ volumes:
   loki-data:
   alloy-data:
   grafana-data:
+  ollama-models:

@@ -132,3 +132,7 @@ On pass: tick VO-06/07/08 and VO-05.
 - **AUX-10:** `e2e/au-signin-hero.spec.ts` (one pass ≤ 5 s, no loop, reduced motion shows the poster and downloads no player, nothing at 390).
 - **HB-02:** p95 of `GET /helper/search` under 50 ms on the seeded stack, 4 personas. HB-A cases 2–4 (confirm, result, undo; `/helper/status` reasons; notes withdrawn with `ai_personal`).
 - **Council full re-run** (round-3 lane C's final run was lost): run it once on the gracious stack and record the result.
+
+## Added 2026-10-18 10:05 UTC
+
+- **WG-09** (1440 mouse and 390×844 touch, tr-TR, reduced motion on and off): first sign-in as academician shows the sheet in about 240 ms and quick-reserve plays once then rests; reopening shows only the poster; reduced motion downloads no lottie chunk. Cards settle by 240 ms; the tour ring follows 1:1 while scrolling, and the scrim must not flash between steps; the checklist tick takes 240 ms; reduced transparency makes surfaces opaque. Add a `welcome` block to `e2e/motion-audit.spec.ts` (sheet open, tour step, checklist tick: ≤ 3 dropped frames, no finite animation over 300 ms except the Lottie).

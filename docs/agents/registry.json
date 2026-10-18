@@ -3518,7 +3518,8 @@
       "goal": "Ledger name `wg-09-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--maxW…",
       "ledger": "WG-09 welcome guide motion designer",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 10:03"
     },
     {
       "id": "a66d9f96c30f3c9bd",
@@ -3617,6 +3618,14 @@
       "status": "finished",
       "finished_at": "2026-10-18 09:58",
       "left_off": "raise idle to 240 min while testers run"
+    },
+    {
+      "id": "ad43549fa2636893d",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:01",
+      "left_off": "raise idle window to 240 while testers run"
     }
   ]
 }

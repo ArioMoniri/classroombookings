@@ -451,6 +451,32 @@ Audit: `e2e/au-signin-hero.spec.ts` (ends ≤ 5 s and does not loop, no LoAF > 5
 poster under reduced motion, motion-audit case: no finite animation > 300 ms, ≤ 2 backdrop-filter surfaces,
 pointer-events none, hidden in forced colours).
 
+### 3.20 Welcome guide (`docs/design/v3/welcome-guide.md` §8; WG-09, wg-09-2026-10-18)
+
+Purpose: "a guide for you appeared; these are the parts; look here now; done, and the server knows." This surface
+uses a stricter ceiling: **≤ 240 ms per one-shot motion, delays included**. It uses tweens from
+`components/welcome/motion.ts` (the shared springs settle in 270–285 ms, and nothing here is dragged). Waiver against
+§1's spring-first rule: none of these elements is grabbed or re-targeted by a finger. Hosted Motion Agent fixes used: 0
+(`TRANSITIONS_AGENT_LICENSE` was not set; the one approved fix for the sheet-open + hero moment is still unspent).
+
+| Moment | Animation | Token | Reduced motion | Reduced transparency |
+|---|---|---|---|---|
+| Welcome sheet opens | ui/dialog `t-modal`: desktop scale .96 → 1 + opacity; phone 2.5 rem up | `--spring-glass-morph` / `--spring-sheet` curves over `--dur-slow` (240 ms); exit `--dur-fast` `--ease-in` | none (globals.css T-R2-07) | sheet opaque |
+| Cards first reveal | y 8 → 0 + opacity, stagger 30 ms, max 5 | `dur.fast` + `staggerRule.step`, ≤ 240 ms total | none | same |
+| Lottie hero | after 240 ms: player fades in, plays 0 → poster frame once (`quick-reserve` 0 → 86 for academician/staff/dept admin/approver, others reuse the set), holds; once per page load | `dur.slow` fade; clip ≤ 3 s, inner tweens ≤ 9 f | poster PNG, no request | same (no glass on the hero) |
+| Phone card paging | x ±24 + opacity; dot pill `layoutId` | `dur.base` in, `dur.fast` out; dot `dur.base` | 100 ms fade, instant out | same |
+| Tour step card in | floater opacity + card scale .98 → 1 (`@starting-style`) | `--dur-fast` `--ease-out` | 100 ms fade | opaque card |
+| Spotlight ring re-target | one ring, `layout` with `layoutDependency={target}` (scroll follows 1:1, no trailing) | `dur.slow` `ease.inOut` | jumps | unchanged |
+| Checklist tick | fill, then path draw | `dur.fast` + `dur.fast` (240 ms) | instant | same |
+| Checklist progress | `scaleX`, no overshoot | `dur.slow` `ease.out` | instant | same |
+| All done disc / "Yeni" badge | scale .8 / .6 → 1 + opacity, no bounce | `dur.base` `ease.out` | instant | same |
+| Hint popover / strip | opacity + scale .98 / opacity + y −6 | `dur.fast` / `dur.base` | 100 ms fade / instant | opaque popover |
+
+Audit: `components/welcome/motion.test.ts` (ceiling + source guard), `welcome-hero.test.tsx`, `welcome-motion.test.tsx`;
+the welcome block for `e2e/motion-audit.spec.ts` is listed in the WG-09 report as an e2e item (sheet open, tour step,
+checklist tick: ≤ 3 dropped frames, no finite animation > 300 ms except the Lottie, reduced motion = end state, reduced
+transparency = opaque).
+
 ## 4. Key flows end to end
 
 **Generate (Studio → island → report)**
