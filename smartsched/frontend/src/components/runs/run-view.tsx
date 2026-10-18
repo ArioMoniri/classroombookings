@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowLeft, CheckCircle2, Download, Info, XOctagon } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, Download, Info, XOctagon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -376,89 +376,103 @@ export function RunView({ id }: { id: number }) {
           {/* One plain card: the headline sentence, then one KPI row (Vercel H7). The 517/530 ring gauge is gone — it
               repeated the KPI and the headline (review 2026-10-15 §3 Run report). */}
           <Card className="gap-0 p-5 sm:p-6" role="region" data-testid="run-hero" aria-label={t("runs.report")}>
-            <div className="grid gap-6 @container/hero xl:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
-              <div className="min-w-0">
-                <Verdict r={r} headline={headline} exceptions={exceptions} truth={truth} outcome={outcome} />
-                <RunScenarioLine r={r} />
-                {partial ? (
-                  <p className="mt-1 type-callout text-label-2" data-testid="partial-hint">
-                    {/* "every placed class keeps every rule" only when the truth says so (round-1 R1-M-04) */}
-                    {(truth ? truth.verdict === "clean" : !exceptions.length) ? t("glass.report.partialHint", { n: n(unplaced) }) : t("glass.report.partialHintUnplaced", { n: n(unplaced) })}
-                  </p>
-                ) : null}
-                <MissingWeeks runId={r.id} stats={r.stats_detail ?? r.stats} />
-                <RunPolicyLine r={r} />
-                <RunProfileLine r={r} />
-                {canPlan && finished && PUBLISHABLE.has(r.status) ? (
-                  // round-1 R1-S-06: ERROR / FAILED / INFEASIBLE runs have nothing to publish
-                  // phones: the same button becomes a capsule above the tab bar (MOBILE.md M-05; round-1 R1-S-16: "Yayınla"
-                  // sat outside the bottom 40 %); one element, one test id, on every viewport
-                  // mobile-b phase 2: touch tablets (768, coarse pointer, below lg) get the same capsule
-                  <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:pointer-events-none max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-sm:z-30 max-sm:mt-0 max-sm:justify-end max-sm:px-4 max-lg:pointer-coarse:pointer-events-none max-lg:pointer-coarse:fixed max-lg:pointer-coarse:inset-x-0 max-lg:pointer-coarse:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-lg:pointer-coarse:z-30 max-lg:pointer-coarse:mt-0 max-lg:pointer-coarse:justify-end max-lg:pointer-coarse:px-4" data-testid="run-publish-row">
-                    <div className="max-sm:pointer-events-auto max-sm:rounded-full max-sm:bg-(--mat-thick-solid) max-sm:p-1 max-sm:shadow-elev-3 max-sm:edge-hairline max-sm:[&_button]:min-h-11 max-sm:[&_button]:rounded-full max-sm:[&_button]:px-5 max-lg:pointer-coarse:pointer-events-auto max-lg:pointer-coarse:rounded-full max-lg:pointer-coarse:bg-(--mat-thick-solid) max-lg:pointer-coarse:p-1 max-lg:pointer-coarse:shadow-elev-3 max-lg:pointer-coarse:edge-hairline max-lg:pointer-coarse:[&_button]:min-h-11 max-lg:pointer-coarse:[&_button]:rounded-full max-lg:pointer-coarse:[&_button]:px-5">
-                      <PublishRunButton run={r} published={publishedId} exceptions={truth ? [] : exceptions} truth={truth} autoOpen={publishRequested(params, r.id)} />
-                    </div>
+            {/* HX12B-F05 (fix-h-2026-10-18): the hero answers "Yayınlayayım mı?": the verdict sentence and the one primary.
+                The figures (partial hint, missing weeks, policy and profile lines, the KPI row, the soft bars) wait
+                behind "Ayrıntılar", closed by default; forced moves stay in view (they need the planner's eye) */}
+            <div className="min-w-0">
+              <Verdict r={r} headline={headline} exceptions={exceptions} truth={truth} outcome={outcome} />
+              <RunScenarioLine r={r} />
+              {canPlan && finished && PUBLISHABLE.has(r.status) ? (
+                // round-1 R1-S-06: ERROR / FAILED / INFEASIBLE runs have nothing to publish
+                // phones: the same button becomes a capsule above the tab bar (MOBILE.md M-05; round-1 R1-S-16: "Yayınla"
+                // sat outside the bottom 40 %); one element, one test id, on every viewport
+                // mobile-b phase 2: touch tablets (768, coarse pointer, below lg) get the same capsule
+                <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:pointer-events-none max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-sm:z-30 max-sm:mt-0 max-sm:justify-end max-sm:px-4 max-lg:pointer-coarse:pointer-events-none max-lg:pointer-coarse:fixed max-lg:pointer-coarse:inset-x-0 max-lg:pointer-coarse:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-lg:pointer-coarse:z-30 max-lg:pointer-coarse:mt-0 max-lg:pointer-coarse:justify-end max-lg:pointer-coarse:px-4" data-testid="run-publish-row">
+                  <div className="max-sm:pointer-events-auto max-sm:rounded-full max-sm:bg-(--mat-thick-solid) max-sm:p-1 max-sm:shadow-elev-3 max-sm:edge-hairline max-sm:[&_button]:min-h-11 max-sm:[&_button]:rounded-full max-sm:[&_button]:px-5 max-lg:pointer-coarse:pointer-events-auto max-lg:pointer-coarse:rounded-full max-lg:pointer-coarse:bg-(--mat-thick-solid) max-lg:pointer-coarse:p-1 max-lg:pointer-coarse:shadow-elev-3 max-lg:pointer-coarse:edge-hairline max-lg:pointer-coarse:[&_button]:min-h-11 max-lg:pointer-coarse:[&_button]:rounded-full max-lg:pointer-coarse:[&_button]:px-5">
+                    <PublishRunButton run={r} published={publishedId} exceptions={truth ? [] : exceptions} truth={truth} autoOpen={publishRequested(params, r.id)} />
                   </div>
-                ) : null}
-                {/* HX12B-F07: an imported board has no solver figures to show */}
-                {isImportBoard(r) ? null : (
-                <dl className="mt-5 grid gap-x-6 gap-y-4 pt-4 hairline-t [grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr))]">
-                  {[
-                    { k: t("glass.report.placed"), v: placed, suffix: total ? ` / ${n(total)}` : "" },
-                    { k: t("runs.unplaced"), v: unplaced },
-                    { k: t("glass.report.problems"), v: problems },
-                  ].map((x) => (
-                    <div key={x.k} className="min-w-0">
-                      <dt className="type-footnote text-label-2">{x.k}</dt>
-                      <dd className="flex items-baseline type-kpi text-label-1" data-testid={`kpi-${x.k}`}>
-                        {/* a static report: plain numbers (the rolling digits exposed "0 1 2 … 9" to assistive tech, R1-M-27) */}
-                        {hasTimetable || (x.k === t("glass.report.problems") && outcome.kind !== "cancelled") ? (
-                          <>
-                            <span className="tabular-nums">{n(x.v)}</span>
-                            {x.suffix ? <span className="type-callout font-normal text-label-2">{x.suffix}</span> : null}
-                          </>
-                        ) : (
-                          <span aria-label={locale === "tr" ? "çizelge yok" : "no timetable"}>—</span>
-                        )}
-                      </dd>
-                      {x.k === t("glass.report.problems") && reportable && summary.isPending ? (
-                        // the "Veri notları N" line arrives with the summary: keep its line (CLS)
-                        <p className="type-footnote" aria-hidden="true" data-testid="kpi-data-notes-pending">&nbsp;</p>
-                      ) : null}
-                      {x.k === t("glass.report.problems") && truth && outcome.kind !== "cancelled" ? (
-                        <p className="type-footnote text-label-2" data-testid="kpi-data-notes">
-                          {locale === "tr" ? `Veri notları ${n(dataNotes)}` : `Data notes ${n(dataNotes)}`}
-                        </p>
-                      ) : null}
-                    </div>
-                  ))}
+                </div>
+              ) : null}
+              {extras.forcedOverrides.length ? (
+                <section className="mt-4 grid gap-1.5 rounded-lg bg-status-warning px-3 py-2" data-testid="forced-overrides" aria-labelledby="forced-title">
+                  <h3 id="forced-title" className="flex items-center gap-1.5 type-callout font-semibold text-status-warning-fg">
+                    <AlertTriangle aria-hidden className="size-4" />
+                    {locale === "tr" ? `${n(extras.forcedOverrides.length)} gerekçeli zorunlu taşıma` : `${n(extras.forcedOverrides.length)} forced move(s) with a reason`}
+                  </h3>
+                  <ul className="grid gap-1 type-footnote text-label-1">
+                    {extras.forcedOverrides.map((o, i) => (
+                      <li key={i}>
+                        <span className="font-medium">{o.reason}</span>
+                        {o.conflicts.length ? <span className="text-label-2"> · {o.conflicts.slice(0, 3).join("; ")}</span> : null}
+                        {o.by_name ? <span className="text-label-2"> · {o.by_name}</span> : null}
+                        {o.at ? <time dateTime={o.at} className="text-label-2"> · {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(o.at))}</time> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {isBaselineRun(r) ? <BaselineRunCard r={r} /> : null}
+              <details className="group mt-4 rounded-xl bg-fill-3 px-3 py-2" data-testid="run-details">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 type-callout font-medium text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) pointer-coarse:min-h-11">
+                  <span>
+                    {t("glass.report.details")}
+                    <span className="block type-footnote font-normal text-label-3">{t("glass.report.detailsHint")}</span>
+                  </span>
+                  <ChevronDown aria-hidden className="size-4 shrink-0 text-label-3 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="grid gap-6 pt-2 pb-2 @container/hero xl:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
                   <div className="min-w-0">
-                    <dt className="type-footnote text-label-2">{t("runs.solveTime")}</dt>
-                    <dd className="type-kpi text-label-1">{duration(r)}</dd>
-                  </div>
-                </dl>
-                )}
-                {isBaselineRun(r) ? <BaselineRunCard r={r} /> : null}
-                {extras.forcedOverrides.length ? (
-                  <section className="mt-4 grid gap-1.5 rounded-lg bg-status-warning px-3 py-2" data-testid="forced-overrides" aria-labelledby="forced-title">
-                    <h3 id="forced-title" className="flex items-center gap-1.5 type-callout font-semibold text-status-warning-fg">
-                      <AlertTriangle aria-hidden className="size-4" />
-                      {locale === "tr" ? `${n(extras.forcedOverrides.length)} gerekçeli zorunlu taşıma` : `${n(extras.forcedOverrides.length)} forced move(s) with a reason`}
-                    </h3>
-                    <ul className="grid gap-1 type-footnote text-label-1">
-                      {extras.forcedOverrides.map((o, i) => (
-                        <li key={i}>
-                          <span className="font-medium">{o.reason}</span>
-                          {o.conflicts.length ? <span className="text-label-2"> · {o.conflicts.slice(0, 3).join("; ")}</span> : null}
-                          {o.by_name ? <span className="text-label-2"> · {o.by_name}</span> : null}
-                          {o.at ? <time dateTime={o.at} className="text-label-2"> · {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(o.at))}</time> : null}
-                        </li>
+                    {partial ? (
+                      <p className="mt-1 type-callout text-label-2" data-testid="partial-hint">
+                        {/* "every placed class keeps every rule" only when the truth says so (round-1 R1-M-04) */}
+                        {(truth ? truth.verdict === "clean" : !exceptions.length) ? t("glass.report.partialHint", { n: n(unplaced) }) : t("glass.report.partialHintUnplaced", { n: n(unplaced) })}
+                      </p>
+                    ) : null}
+                    <MissingWeeks runId={r.id} stats={r.stats_detail ?? r.stats} />
+                    <RunPolicyLine r={r} />
+                    <RunProfileLine r={r} />
+                    {/* HX12B-F07: an imported board has no solver figures to show */}
+                    {isImportBoard(r) ? null : (
+                    <dl className="mt-5 grid gap-x-6 gap-y-4 pt-4 hairline-t [grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr))]">
+                      {[
+                        { k: t("glass.report.placed"), v: placed, suffix: total ? ` / ${n(total)}` : "" },
+                        { k: t("runs.unplaced"), v: unplaced },
+                        { k: t("glass.report.problems"), v: problems },
+                      ].map((x) => (
+                        <div key={x.k} className="min-w-0">
+                          <dt className="type-footnote text-label-2">{x.k}</dt>
+                          <dd className="flex items-baseline type-kpi text-label-1" data-testid={`kpi-${x.k}`}>
+                            {/* a static report: plain numbers (the rolling digits exposed "0 1 2 … 9" to assistive tech, R1-M-27) */}
+                            {hasTimetable || (x.k === t("glass.report.problems") && outcome.kind !== "cancelled") ? (
+                              <>
+                                <span className="tabular-nums">{n(x.v)}</span>
+                                {x.suffix ? <span className="type-callout font-normal text-label-2">{x.suffix}</span> : null}
+                              </>
+                            ) : (
+                              <span aria-label={locale === "tr" ? "çizelge yok" : "no timetable"}>—</span>
+                            )}
+                          </dd>
+                          {x.k === t("glass.report.problems") && reportable && summary.isPending ? (
+                            // the "Veri notları N" line arrives with the summary: keep its line (CLS)
+                            <p className="type-footnote" aria-hidden="true" data-testid="kpi-data-notes-pending">&nbsp;</p>
+                          ) : null}
+                          {x.k === t("glass.report.problems") && truth && outcome.kind !== "cancelled" ? (
+                            <p className="type-footnote text-label-2" data-testid="kpi-data-notes">
+                              {locale === "tr" ? `Veri notları ${n(dataNotes)}` : `Data notes ${n(dataNotes)}`}
+                            </p>
+                          ) : null}
+                        </div>
                       ))}
-                    </ul>
-                  </section>
-                ) : null}
-              </div>
-              {hasTimetable && !isImportBoard(r) ? <SoftBreakdown score={r.soft_score} breakdown={r.objective_breakdown} weights={r.params.weights} /> : null}
+                      <div className="min-w-0">
+                        <dt className="type-footnote text-label-2">{t("runs.solveTime")}</dt>
+                        <dd className="type-kpi text-label-1">{duration(r)}</dd>
+                      </div>
+                    </dl>
+                    )}
+                  </div>
+                  {hasTimetable && !isImportBoard(r) ? <SoftBreakdown score={r.soft_score} breakdown={r.objective_breakdown} weights={r.params.weights} /> : null}
+                </div>
+              </details>
             </div>
           </Card>
 

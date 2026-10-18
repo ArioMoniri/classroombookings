@@ -98,8 +98,23 @@ export const ParseWarning = z.object({
   value: z.string().nullable(),
   message: z.string(),
   severity: z.enum(["error", "warning", "info"]),
+  /** PER-F05 (fix-h-2026-10-18): the importer's code and its sentences (app/importers/warning_text.py) */
+  code: z.string().optional(),
+  message_tr: z.string().optional(),
+  message_en: z.string().optional(),
 });
 export type ParseWarning = z.infer<typeof ParseWarning>;
+
+/** PER-F05: one importer warning code with its count and its most frequent sentences (`summary.warning_groups`) */
+export const WarningGroup = z.object({
+  code: z.string(),
+  label_tr: z.string(),
+  label_en: z.string(),
+  count: z.number(),
+  variants: z.number().optional(),
+  items: z.array(z.object({ message_tr: z.string(), message_en: z.string(), count: z.number(), rows: z.array(z.number()).default([]) })).default([]),
+});
+export type WarningGroup = z.infer<typeof WarningGroup>;
 
 export const MeetingRequest = z.object({
   id: z.number(),
@@ -219,6 +234,21 @@ export const ImportJob = z.object({
     warnings_count: z.number().optional(),
     warnings_shown: z.number().optional(),
     warnings_truncated: z.boolean().optional(),
+    /** PER-F04 (fix-h-2026-10-18): the season / year the file names against the target term (previews, newer backends) */
+    term_check: z
+      .object({
+        target_id: z.number(),
+        target_name: z.string(),
+        file_season: z.string().nullable().optional(),
+        file_year: z.number().nullable().optional(),
+        source: z.string().nullable().optional(),
+        mismatch: z.boolean(),
+        suggested_term_id: z.number().nullable().optional(),
+        suggested_term_name: z.string().nullable().optional(),
+      })
+      .optional(),
+    /** PER-F05: all of the import's warnings grouped by code (newer backends) */
+    warning_groups: z.array(WarningGroup).optional(),
     /** the kind the file looks like when it is not the chosen one (backend WrongFileError, admin persona M-20) */
     detected_kind: z.string().nullable().optional(),
     /** RF-06: a preview (`dry_run=true`): nothing was written; `diff` lists what an apply would change */

@@ -156,8 +156,16 @@ export function importJob(v: unknown): unknown {
       skipped: skipped ?? 0,
       warnings: [
         ...skippedRows.map((r) => ({ row: num(r.row, 0), field: "", value: str(r.detail), message: str(r.reason) ?? "", severity: "error" })),
-        ...arr(summary.warnings).map(warning),
+        // PER-F05: `warning_items[i]` is the code and the sentences of `warnings[i]` (same order, newer backends)
+        ...arr(summary.warnings).map((w, i) => {
+          const base = warning(w) as Record<string, unknown>;
+          const item = arr(summary.warning_items)[i];
+          if (!isRec(item)) return base;
+          return { ...base, ...(str(item.code) ? { code: str(item.code) } : {}), ...(str(item.message_tr) ? { message_tr: str(item.message_tr) } : {}), ...(str(item.message_en) ? { message_en: str(item.message_en) } : {}) };
+        }),
       ],
+      ...(Array.isArray(summary.warning_groups) ? { warning_groups: summary.warning_groups } : {}),
+      ...(isRec(summary.term_check) ? { term_check: summary.term_check } : {}),
       ...(num(summary.warnings_count) !== null ? { warnings_count: num(summary.warnings_count) } : {}),
       ...(num(summary.warnings_shown) !== null ? { warnings_shown: num(summary.warnings_shown) } : {}),
       ...(typeof summary.warnings_truncated === "boolean" ? { warnings_truncated: summary.warnings_truncated } : {}),

@@ -40,3 +40,14 @@ export function termMismatch(filename: string, target: { name: string } | undefi
   const likely = terms.find((t) => seasonOf(t.name) === file) ?? null;
   return { target: target.name, likely: likely ? { id: likely.id, name: likely.name } : null };
 }
+
+/**
+ * PER-F04 (fix-h-2026-10-18): the server's reading of the file (`summary.term_check`: its name, else its sheet
+ * titles, matched like the council's term matcher). When the server answered, it decides: `null` = no mismatch.
+ * `undefined` = an older backend, so the caller falls back to the file-name check above.
+ */
+export function serverTermMismatch(check: { target_name: string; mismatch: boolean; suggested_term_id?: number | null; suggested_term_name?: string | null } | undefined): TermMismatch | null | undefined {
+  if (!check) return undefined;
+  if (!check.mismatch) return null;
+  return { target: check.target_name, likely: check.suggested_term_id != null && check.suggested_term_name ? { id: check.suggested_term_id, name: check.suggested_term_name } : null };
+}

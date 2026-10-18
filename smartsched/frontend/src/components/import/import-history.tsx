@@ -103,7 +103,7 @@ function HistoryDetail({ job }: { job: ImportJob }) {
         {t("rf.history.counts", { rows: n(job.summary.rows), created: n(job.summary.created), updated: n(job.summary.updated), skipped: n(job.summary.skipped) })}
       </p>
       <TruncatedWarnings summary={job.summary} />
-      {job.summary.warnings.length ? <ParseWarningsTable warnings={job.summary.warnings} /> : <p className="type-footnote text-label-2">{t("rf.history.noWarnings")}</p>}
+      {job.summary.warnings.length ? <ParseWarningsTable warnings={job.summary.warnings} groups={job.summary.warning_groups} /> : <p className="type-footnote text-label-2">{t("rf.history.noWarnings")}</p>}
     </div>
   );
 }

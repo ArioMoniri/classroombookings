@@ -351,10 +351,10 @@ test("12. one-time reset code (shown once) and the reset-password page; setup is
   const target = anon.url().includes("/login") ? page : anon;
   if (target === page) test.info().annotations.push({ type: "shell", description: "proxy.ts redirects signed-out visitors from /reset-password to /login" });
   await target.goto(`/reset-password?token=${encodeURIComponent(code)}`);
-  await target.locator("#rs-pw").fill("Yeni-Parola-2026!");
-  await target.locator("#rs-pw2").fill("Yeni-Parola-2026!");
-  await target.getByRole("button", { name: "Yeni parolayı kaydet" }).click();
-  await expect(target.getByTestId("reset-done")).toBeVisible();
+  // AUX12-F07 (fix-h): one field with show/hide (SetPasswordForm); the reset signs the person in, or says it is done
+  await target.getByTestId("set-password-input").fill("Yeni-Parola-2026!");
+  await target.getByTestId("set-password-submit").click();
+  await expect(target.getByTestId("set-password-done").or(target.locator("main#main"))).toBeVisible({ timeout: 20_000 });
   await loginToken(TEACHER.username, "Yeni-Parola-2026!");
   TEACHER.password = "Yeni-Parola-2026!";
   // the first-run wizard only runs while there are no users

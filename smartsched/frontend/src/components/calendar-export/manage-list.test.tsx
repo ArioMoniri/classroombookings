@@ -153,6 +153,11 @@ describe("CalendarExportManage", () => {
     const user = userEvent.setup();
     renderList();
     await user.click(await screen.findByTestId("cal-rotate-3"));
+    // CAL10-F05: it asks first and names the effect; nothing is sent before the confirm
+    const ask = await screen.findByTestId("cal-rotate-dialog");
+    expect(ask).toHaveTextContent("Eski bağlantı hemen çalışmaz; takvim uygulamanızda yeni bağlantıya yeniden abone olun.");
+    expect(api.calls.filter((c) => c.method !== "GET")).toEqual([]);
+    await user.click(screen.getByTestId("cal-rotate-confirm"));
     const paths = () => api.calls.filter((c) => c.method !== "GET").map((c) => `${c.method} ${c.path}`);
     await waitFor(() => expect(paths()).toEqual(["POST /calendar/subscriptions/3/rotate", "POST /calendar/subscriptions", "DELETE /calendar/subscriptions/3"]));
     expect(api.calls.find((c) => c.method === "POST" && c.path === "/calendar/subscriptions")?.body).toEqual({ scope_kind: "department_classes", scope_id: 7, channel: "link" });

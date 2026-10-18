@@ -273,7 +273,9 @@ function BookForm({ target, fmt, onDone, onBooked, onOtherRooms }: { target: Boo
             ]}
           />
         ) : null}
-        {dayChoices.length > 1 ? (
+        {/* HX12B-F11 (fix-h-2026-10-18): one control for the period. With a run of free periods the chips below are
+            it; the select (CRBS single_form) stays only when the chips cannot show, to move a lone period */}
+        {dayChoices.length > 1 && run.length <= 1 ? (
           <Field label={t("reserve.book.period")} htmlFor="book-period">
             <SelectField id="book-period" value={String(first.period_id)} onChange={(e) => pickPeriod(Number(e.target.value))} data-testid="book-period">
               {dayChoices.map((s) => {

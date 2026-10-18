@@ -83,10 +83,10 @@ test("real backend: login → dashboard → classes → rooms → studio run →
   await expect(events.first()).toBeVisible({ timeout: 30_000 });
   expect(await events.count()).toBeGreaterThan(5);
 
-  // ---- settings load from the backend; the users tab lists the seeded admin
+  // ---- settings load from the backend; Kullanıcılar (Kurulum, PER-F07: no second copy under Ayarlar) lists the seeded admin
   await page.goto("/settings");
   await expect(page.getByTestId("settings")).toBeVisible();
-  await page.getByTestId("tab-users").click();
+  await page.goto("/admin/users");
   // the users table renders the address twice (a column, and under the name on phones): the one shown
   await expect(page.getByText(ADMIN_EMAIL).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 });
 });

@@ -21,6 +21,7 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert as UiAlert } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ResponsiveDialog } from "@/components/approvals/responsive-dialog";
@@ -113,6 +114,16 @@ export function CalendarSyncAdmin() {
           </div>
           <Switch id="calendar-sync-switch" checked={!!s?.calendar_sync_enabled} disabled={!s || save.isPending} onCheckedChange={setCalendar} data-testid="calendar-sync-switch" />
         </div>
+        {/* CAL10-F02 (fix-h-2026-10-18): without the panel's public address no calendar app can follow a subscription
+            link (people get only the .ics file); say so where the switch is, with the way to the address field */}
+        {s && !s.public_url?.trim() ? (
+          <UiAlert tone="warning" title={t("notifications.admin.calendar.noUrlTitle")} className="my-2" data-testid="calendar-sync-no-url">
+            {t("notifications.admin.calendar.noUrl")}{" "}
+            <a href="#cp-public-url" className="font-medium text-tint-text underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center" onClick={() => window.requestAnimationFrame(() => document.getElementById("cp-public-url")?.focus())}>
+              {t("notifications.admin.calendar.noUrlAction")}
+            </a>
+          </UiAlert>
+        ) : null}
         {s ? s.calendar_sync_signoff ? <SignoffRecord signoff={s.calendar_sync_signoff} /> : <p className="pt-1 type-footnote text-label-3" data-testid="calendar-no-signoff">{t("notifications.admin.calendar.noSignoff")}</p> : null}
         {/* CAL-09: scopes, who may export a department, the field allow-list, the horizon and the status counts */}
         <ExportScopeSettings />

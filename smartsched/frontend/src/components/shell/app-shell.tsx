@@ -25,7 +25,7 @@ import { HelperRoot } from "@/components/helper/helper-root";
 import { PeriodGridGate } from "./period-grid-gate";
 import { WelcomeSettle } from "./welcome-settle";
 // F-CH-1: palette, shortcuts, welcome guide and privacy gate in their own chunks (lazy-shell.tsx)
-import { LazyCommandPalette, LazyPrivacyNoticeGate, LazyShortcutsSheet, LazyWelcomePageSlot, LazyWelcomeProvider } from "./lazy-shell";
+import { LazyCommandPalette, LazyPrivacyNoticeGate, LazyShortcutsSheet, LazyWelcomeHomeCardSlot, LazyWelcomePageSlot, LazyWelcomeProvider } from "./lazy-shell";
 
 function OfflineBanner() {
   const { t } = useI18n();
@@ -183,12 +183,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="mx-auto w-full max-w-[1600px]">
             {/* F-MB-1: on /dashboard, /reserve and /admin the card and the page appear together (no push-down) */}
             <WelcomeSettle>
-              {/* WG-06 / WG-07: the hint strip and the "Başlarken" card at the top of the page */}
+              {/* WG-06 / WG-07: the hint strip at the top of the page */}
               <LazyWelcomePageSlot />
               {/* RF-16: the university's period grid (GET /period-grid) before the first screen that shows times */}
               <PeriodGridGate>
                 <RouteGuard>{children}</RouteGuard>
               </PeriodGridGate>
+              {/* HX12B-F10: the "Başlarken" card after the page's own task (desktop only; phones use "Daha") */}
+              <LazyWelcomeHomeCardSlot />
             </WelcomeSettle>
           </div>
         </main>

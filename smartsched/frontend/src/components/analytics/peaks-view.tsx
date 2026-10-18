@@ -4,6 +4,7 @@
  * the published history (backend `GET /analytics/peaks`, services/peaks.py). One sentence names the busiest hour, the
  * peak list gives each value with its 80 % range in text (never colour alone), the period profile sits in the shared
  * ChartCard, and the CSV is the backend's. An empty install shows the `needs` sentence, never a blank chart.
+ * AS20-F14 (FIX-G): with no term at all, only the "Henüz dönem yok" block with its İçe aktar link (no controls).
  */
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
@@ -19,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { adaptiveApi, PEAK_GROUPS, PEAK_KINDS, usePeaks, type PeakGroup, type PeakKind } from "@/lib/api/adaptive";
 import { useI18n } from "@/lib/i18n/provider";
 import { CsvButton } from "./csv-button";
-import { ConfidenceNote, RangeText } from "./forecast-bits";
+import { ConfidenceNote, NoTerms, RangeText } from "./forecast-bits";
 
 const SHOWN = 12;
 const SERIES = ["value"] as const;
@@ -29,13 +30,14 @@ type ProfileRow = { period: string; value: number };
 export function PeaksView() {
   const { t, locale, n } = useI18n();
   const lang = locale === "tr" ? "tr" : "en";
-  const { term, terms } = useActiveTerm();
+  const { term, terms, isLoading: termsLoading } = useActiveTerm();
   const [termId, setTermId] = useState<number | null>(null);
   const [group, setGroup] = useState<PeakGroup>("building");
   const [kind, setKind] = useState<PeakKind>("LECTURE");
   const [all, setAll] = useState(false);
   const query = { term_id: termId ?? term?.id ?? null, group_by: group, period_kind: kind };
-  const q = usePeaks(query, query.term_id !== null || terms.length === 0);
+  // AS20-F14: with no term the NoTerms block below says what to do; nothing to ask the backend
+  const q = usePeaks(query, query.term_id !== null);
   const d = q.data;
   const peaks = useMemo(() => [...(d?.peaks ?? [])].sort((a, b) => b.value - a.value), [d]);
   const rows = useMemo<ProfileRow[]>(() => (d?.period_profile ?? []).map((p) => ({ period: t("adaptive.peaks.periodN", { n: p.period }), value: p.value / 100 })), [d, t]);
@@ -44,6 +46,14 @@ export function PeaksView() {
   const top = peaks[0];
   const groupText = (g: string) => (g === "*" ? t("adaptive.peaks.allRooms") : g);
   const pct = (v: number) => `%${n(Math.round(v))}`;
+
+  if (!termsLoading && terms.length === 0) {
+    return (
+      <div className="flex min-w-0 flex-col gap-4" data-testid="peaks-view">
+        <NoTerms />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-w-0 flex-col gap-4" data-testid="peaks-view">

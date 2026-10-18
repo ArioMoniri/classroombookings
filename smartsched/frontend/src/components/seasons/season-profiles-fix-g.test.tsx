@@ -44,7 +44,8 @@ describe("SeasonProfiles · planner drafts, admin approves", () => {
   it("a planner sees Düzenle and Taslağı sil, never the approval actions", async () => {
     vi.spyOn(seasonsApi, "profiles").mockResolvedValue({ profiles: list, weight_keys: [], defaults: {}, seasons: [], period_kinds: [], can_activate: false });
     mount();
-    const rows = await screen.findAllByTestId("profile-row");
+    const live = await screen.findByTestId("profile-list");
+    const rows = within(live).getAllByTestId("profile-row");
     expect(rows).toHaveLength(2);
     expect(screen.queryByTestId("profile-activate")).toBeNull();
     expect(screen.queryByTestId("profile-revert")).toBeNull();
@@ -67,6 +68,8 @@ describe("SeasonProfiles · planner drafts, admin approves", () => {
     const old = screen.getByTestId("profile-retired");
     expect(old).toHaveTextContent("Eski profiller (1)");
     expect(within(old).getByText("Eski C")).toBeInTheDocument();
+    // a retired version is read-only: no actions on its row
+    expect(within(old).queryByTestId("profile-edit")).toBeNull();
   });
 
   it("/admin/weeks lets a planner in (the week editors stay behind setup.timetable_weeks)", () => {

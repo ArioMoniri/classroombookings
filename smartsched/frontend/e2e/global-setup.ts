@@ -5,7 +5,8 @@
  * environment when they are not set explicitly:
  *   E2E_BOARD_RUN   the imported weekly board of the term (a FEASIBLE COURSE run made by the grid import)
  *   E2E_SOLVER_RUN  the newest finished full-term COURSE run the solver produced (e2e-backend-entry.sh makes one)
- *   AUDIT_RUN       the run report the motion audit measures (defaults to E2E_SOLVER_RUN)
+ *   AUDIT_RUN       the run report the motion audit measures (defaults to E2E_SOLVER_RUN, else the newest finished
+ *                   solver run of any horizon, else the board; CH12-F09: an import board has no issue groups)
  *   E2E_EDIT_RUN    the run calendar.spec.ts edits (the seeded "e2e: Bahar 3. hafta (takvim düzenlemeleri)")
  * Values set here are inherited by the test workers.
  */
@@ -19,7 +20,7 @@ const TERM = process.env.E2E_TERM_CODE ?? "2026-BAHAR";
 const USABLE = new Set(["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL"]);
 
 type Term = { id: number; code: string };
-type Run = { id: number; term_id: number; kind: string; horizon: string; status: string; label: string | null; created_at?: string };
+type Run = { id: number; term_id: number; kind: string; horizon: string; status: string; label: string | null; created_at?: string; stats?: { solver?: string } | null };
 
 export default async function globalSetup(): Promise<void> {
   const ctx = await request.newContext();
@@ -57,7 +58,9 @@ export default async function globalSetup(): Promise<void> {
       const edit = runs.find((r) => r.label === "e2e: Bahar 3. hafta (takvim düzenlemeleri)" && USABLE.has(r.status));
       if (edit) process.env.E2E_EDIT_RUN = String(edit.id);
     }
-    process.env.AUDIT_RUN ??= process.env.E2E_SOLVER_RUN ?? process.env.E2E_BOARD_RUN;
+    // CH12-F09: the run report needs a solver run (an import board has no issue groups): any horizon will do
+    const anySolver = [...runs].reverse().find((r) => r.kind === "COURSE" && USABLE.has(r.status) && r.stats?.solver !== undefined && String(r.id) !== process.env.E2E_BOARD_RUN);
+    process.env.AUDIT_RUN ??= process.env.E2E_SOLVER_RUN ?? (anySolver ? String(anySolver.id) : undefined) ?? process.env.E2E_BOARD_RUN;
     console.log(`e2e: backend ${API}, term ${TERM} #${term.id}, board run #${process.env.E2E_BOARD_RUN ?? "?"}, solver run #${process.env.E2E_SOLVER_RUN ?? "?"}, edit run #${process.env.E2E_EDIT_RUN ?? "?"}, audit run #${process.env.AUDIT_RUN ?? "?"}`);
   } finally {
     await ctx.dispose();

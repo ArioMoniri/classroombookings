@@ -59,7 +59,7 @@ describe("HX12B-F07: an imported board never claims '✓ 0/632 ders yerleşti'",
     tr(<Verdict r={board} truth={truth} outcome={{ kind: "done" } as never} />);
     const v = screen.getByTestId("run-verdict");
     expect(v).toHaveAttribute("data-state", "imported");
-    expect(v).toHaveTextContent("İçe aktarılan pano: çözücü çalışmadı.");
+    expect(v).toHaveTextContent("İçe aktarılan çizelge: çözücü çalışmadı.");
     expect(v.className).not.toMatch(/feasible/);
   });
   it("a solver run whose clean truth placed nothing is not green", async () => {

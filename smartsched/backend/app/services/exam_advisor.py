@@ -17,8 +17,9 @@ cohort-day excess and **no** clash.  The moves are ranked in the order found; ea
 accepted (``basis`` says so).  Ties break on fewer seats, then the exam id, the date and the start, so the same
 list always gives the same advice.
 
-The exam count of a day is the number of exam-list rows (programme exams), the same unit as
-``exam_load.day_load`` (Final 2026: Wednesday 3 June, 126); a merge group counts its rows.
+The exam count of a day is the number of **sittings**: a merge group (one shared exam listed once per programme)
+counts once, the same unit as ``exam_load.exam_forecast`` / ``exam_load_issues`` (AS20-F13, FIX-G; Final 2026:
+Wednesday 3 June, 98 sittings, 1.67x the weekday mean; it was 126 exam-list rows before). ``basis`` names it.
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ from typing import Any
 
 from app.services.exam_load import day_label
 
-#: conflict cost per unit (a clash outweighs everything; a peak-day row is the cheapest unit that still moves)
+#: conflict cost per unit (a clash outweighs everything; a peak-day sitting is the cheapest unit that still moves)
 WEIGHTS: dict[str, int] = {
     "clash": 100,
     "cohort_day": 30,
@@ -87,11 +88,11 @@ def _monday(d: date) -> date:
 
 
 def period_dates(items: Sequence[ExamItem]) -> list[date]:
-    """Weekdays of the weeks that hold at least 5 % of the exam rows (the ``day_load`` period)."""
-    total = sum(i.rows for i in items)
+    """Weekdays of the weeks that hold at least 5 % of the sittings (the ``day_load`` period)."""
+    total = len(items)
     per_week: Counter[date] = Counter()
     for i in items:
-        per_week[_monday(i.date)] += i.rows
+        per_week[_monday(i.date)] += 1
     mondays = sorted(m for m, k in per_week.items() if k >= 0.05 * total) or sorted(per_week)
     return [m + timedelta(days=k) for m in mondays for k in range(5)]
 
@@ -101,14 +102,15 @@ def period_dates(items: Sequence[ExamItem]) -> list[date]:
 
 @dataclass
 class _Day:
-    rows: int = 0
+    #: sittings on the day (a merge group counts once; AS20-F13)
+    exams: int = 0
     by_key: dict[str, dict[int, tuple[int, int]]] = field(default_factory=lambda: defaultdict(dict))
     seats: Counter[int] = field(default_factory=Counter)
     cohort_n: Counter[str] = field(default_factory=Counter)
     items: dict[int, ExamItem] = field(default_factory=dict)
 
     def add(self, x: ExamItem) -> None:
-        self.rows += x.rows
+        self.exams += 1
         for k in x.keys:
             self.by_key[k][x.id] = (x.start, x.end)
         for c in x.cohorts:
@@ -118,7 +120,7 @@ class _Day:
         self.items[x.id] = x
 
     def remove(self, x: ExamItem) -> None:
-        self.rows -= x.rows
+        self.exams -= 1
         for k in x.keys:
             self.by_key[k].pop(x.id, None)
         for c in x.cohorts:
@@ -136,7 +138,7 @@ class _Ctx:
         self.dates = sorted(set(dates) if dates else set(period_dates(items)))
         on_period = [i for i in items if i.date in set(self.dates)]
         weekdays = [d for d in self.dates if d.isoweekday() <= 5] or self.dates
-        self.mean = sum(i.rows for i in on_period if i.date in set(weekdays)) / max(1, len(weekdays))
+        self.mean = sum(1 for i in on_period if i.date in set(weekdays)) / max(1, len(weekdays))
         self.target = max(1, math.ceil(self.mean * cfg.peak_ratio)) if on_period else 0
         self.last = set(self.dates[-cfg.last_days :]) if cfg.last_days > 0 else set()
         self.threshold = exam_capacity * cfg.seat_pct / 100.0 if exam_capacity > 0 else None
@@ -167,8 +169,8 @@ class _Ctx:
             return 0
         return math.ceil(max(0.0, seats - self.threshold) / SEAT_UNIT)
 
-    def _peak_units(self, rows: int) -> int:
-        return max(0, rows - self.target) if self.target else 0
+    def _peak_units(self, exams: int) -> int:
+        return max(0, exams - self.target) if self.target else 0
 
     def contribution(self, day: _Day, d: date, x: ExamItem, start: int, end: int, present: bool) -> dict[str, int]:
         """Units ``x`` adds to day ``d`` at ``start..end`` (``present``: ``x`` is already counted in ``day``)."""
@@ -181,8 +183,8 @@ class _Ctx:
         for p in range(start, end + 1):
             other = day.seats[p] - (x.seats if present and x.start <= p <= x.end else 0)
             seats += self._seat_units(other + x.seats) - self._seat_units(other)
-        rows_other = day.rows - (x.rows if present else 0)
-        peak = self._peak_units(rows_other + x.rows) - self._peak_units(rows_other)
+        exams_other = day.exams - (1 if present else 0)
+        peak = self._peak_units(exams_other + 1) - self._peak_units(exams_other)
         front = int(d in self.last and x.seats >= self.cfg.large_seats)
         return {
             "clash": clash,
@@ -236,17 +238,17 @@ def findings(ctx: _Ctx) -> list[dict[str, Any]]:
         if not day.items:
             continue
         lab = day_label(d)
-        if ctx.target and day.rows > ctx.target and d in set(ctx.dates):
+        if ctx.target and day.exams > ctx.target and d in set(ctx.dates):
             out.append(
                 {
                     "kind": "peak_day",
                     "date": d.isoformat(),
                     "request_ids": sorted(r for x in day.items.values() for r in x.request_ids),
-                    "params": {"exams": day.rows, "target": ctx.target, "weekday_mean": round(ctx.mean, 2)},
+                    "params": {"exams": day.exams, "target": ctx.target, "weekday_mean": round(ctx.mean, 2)},
                     "text": _t(
-                        f"{lab['tr']}: {day.rows} sınav; hedef en çok {ctx.target} (hafta içi ortalama "
+                        f"{lab['tr']}: {day.exams} sınav; hedef en çok {ctx.target} (hafta içi ortalama "
                         f"{ctx.mean:.1f})".replace(".", ","),
-                        f"{lab['en']}: {day.rows} exams; target at most {ctx.target} (weekday mean {ctx.mean:.1f})",
+                        f"{lab['en']}: {day.exams} exams; target at most {ctx.target} (weekday mean {ctx.mean:.1f})",
                     ),
                 }
             )
@@ -341,7 +343,7 @@ def findings(ctx: _Ctx) -> list[dict[str, Any]]:
 def _counts(ctx: _Ctx) -> dict[str, Any]:
     f = findings(ctx)
     c = Counter(x["kind"] for x in f)
-    per_day = {d: day.rows for d, day in ctx.days.items() if day.rows}
+    per_day = {d: day.exams for d, day in ctx.days.items() if day.exams}
     period = [d for d in ctx.dates if d in per_day] or sorted(per_day)
     peak = max(period, key=lambda d: (per_day.get(d, 0), -d.toordinal()), default=None)
     return {
@@ -484,10 +486,12 @@ def advise(
     cfg = cfg or AdvisorConfig()
     ordered = sorted(items, key=lambda i: i.id)
     basis = _t(
-        "Sınav listesindeki tarih ve saatlerden hesaplandı. Öneriler sırayla uygulanırsa geçerlidir (her biri "
+        "Sınav listesindeki tarih ve saatlerden hesaplandı; birleşik sınavlar (birden çok programın aynı oturumu) "
+        "bir kez sayılır. Öneriler sırayla uygulanırsa geçerlidir (her biri "
         "öncekilerin kabul edildiğini varsayar); hiçbir şey otomatik değişmez, sınav talebini düzenleyerek kabul "
         "edilir.",
-        "Computed from the dates and times of the exam list. The moves hold in order (each assumes the earlier ones "
+        "Computed from the dates and times of the exam list; a shared exam (one sitting for several programmes) "
+        "counts once. The moves hold in order (each assumes the earlier ones "
         "were accepted); nothing changes automatically: accept one by editing the exam request.",
     )
     if not ordered:

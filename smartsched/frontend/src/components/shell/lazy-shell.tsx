@@ -18,6 +18,8 @@ const ShortcutsSheet = dynamic(() => import("./shortcuts-sheet").then((m) => m.S
 
 export const LazyWelcomeProvider = dynamic(() => import("@/components/welcome/welcome-provider").then((m) => m.WelcomeProvider), { ssr: false });
 export const LazyWelcomePageSlot = dynamic(() => import("@/components/welcome/page-slot").then((m) => m.WelcomePageSlot), { ssr: false });
+// HX12B-F10: the "Başlarken" home card, below the page (same chunk as the slot)
+export const LazyWelcomeHomeCardSlot = dynamic(() => import("@/components/welcome/page-slot").then((m) => m.WelcomeHomeCardSlot), { ssr: false });
 export const LazyPrivacyNoticeGate = dynamic(() => import("@/components/privacy/notice-gate").then((m) => m.PrivacyNoticeGate), { ssr: false });
 
 /** true from the first time `open` is true (render-time latch, no extra frame) */

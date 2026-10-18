@@ -126,7 +126,7 @@ export function RoomMasterImport({ term, onStep, onBack }: { term: Pick<Term, "i
         </CardHeader>
         <CardContent className="space-y-4">
           <TruncatedWarnings summary={job.summary} />
-          {job.summary.warnings.length ? <ParseWarningsTable warnings={job.summary.warnings} /> : <p className="type-callout text-label-2">{t("import.noWarnings")}</p>}
+          {job.summary.warnings.length ? <ParseWarningsTable warnings={job.summary.warnings} groups={job.summary.warning_groups} /> : <p className="type-callout text-label-2">{t("import.noWarnings")}</p>}
           <Button variant="outline" onClick={onBack}>{t("import.again")}</Button>
         </CardContent>
       </Card>

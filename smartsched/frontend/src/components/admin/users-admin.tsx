@@ -195,14 +195,16 @@ export function UsersAdmin() {
               {phone ? null : t("crbs.users.import")}
             </Button>
             {/* local accounts are the exception once Microsoft is on (break-glass, service accounts) */}
-            <Button variant={msEnabled && usersAdmin ? "outline" : "default"} size={phone ? "icon" : "default"} onClick={() => setEditing("new")} data-testid="users-new" data-tour={msEnabled && usersAdmin ? undefined : "admin-users-invite"} aria-label={phone ? (msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")) : undefined} title={phone ? (msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")) : undefined}>
+            {/* HX12B-F15 (fix-h-2026-10-18): on a phone the screen's one primary keeps its words ("Yeni kullanıcı", or
+                "Davet et" once Microsoft is on); only the secondary actions shrink to labelled icons */}
+            <Button variant={msEnabled && usersAdmin ? "outline" : "default"} size={phone && msEnabled && usersAdmin ? "icon" : "default"} className={phone && !(msEnabled && usersAdmin) ? "min-h-11 rounded-full px-4" : undefined} onClick={() => setEditing("new")} data-testid="users-new" data-tour={msEnabled && usersAdmin ? undefined : "admin-users-invite"} aria-label={phone && msEnabled && usersAdmin ? t("sso.users.createLocal") : undefined} title={phone && msEnabled && usersAdmin ? t("sso.users.createLocal") : undefined}>
               <UserPlus aria-hidden />
-              {phone ? null : msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")}
+              {phone && msEnabled && usersAdmin ? null : msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")}
             </Button>
             {msEnabled && usersAdmin ? (
-              <Button size={phone ? "icon" : "default"} onClick={() => setInviteOpen(true)} data-testid="users-invite" data-tour="admin-users-invite" aria-label={phone ? t("sso.users.inviteAction") : undefined} title={phone ? t("sso.users.inviteAction") : undefined}>
+              <Button className={phone ? "min-h-11 rounded-full px-4" : undefined} onClick={() => setInviteOpen(true)} data-testid="users-invite" data-tour="admin-users-invite">
                 <Mail aria-hidden />
-                {phone ? null : t("sso.users.inviteAction")}
+                {t("sso.users.inviteAction")}
               </Button>
             ) : null}
           </>

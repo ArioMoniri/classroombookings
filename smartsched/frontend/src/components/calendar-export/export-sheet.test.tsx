@@ -272,6 +272,22 @@ describe("CalendarExportSheet", () => {
     await waitFor(() => expect(screen.getByTestId("cal-push-done")).toHaveTextContent(/Eklendi · Son eşitleme: bugün \d\d:\d\d/));
   }, 10_000);
 
+  it("CAL10-F04: steps 2 and 3 take focus on their heading, even when the sheet pulls focus to itself after the tapped card unmounts", async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByTestId("cal-scope-my_classes"));
+    const heading = screen.getByRole("heading", { name: "Nasıl eklemek istiyorsunuz?" });
+    await waitFor(() => expect(heading).toHaveFocus());
+    // what the dialog's focus manager did on the stack once the clicked card was gone: focus on the popup itself
+    act(() => screen.getByTestId("cal-sheet").focus());
+    expect(heading).toHaveFocus();
+    await user.click(screen.getByTestId("cal-channel-link"));
+    await waitFor(() => expect(screen.getByTestId("cal-step-heading")).toHaveTextContent("Takviminize şunlar gönderilecek"));
+    act(() => screen.getByTestId("cal-sheet").focus());
+    expect(screen.getByTestId("cal-step-heading")).toHaveFocus();
+    expect(screen.getByTestId("cal-step")).toHaveTextContent("Adım 3/3");
+  });
+
   it("back returns to the previous step", async () => {
     const user = userEvent.setup();
     renderSheet();

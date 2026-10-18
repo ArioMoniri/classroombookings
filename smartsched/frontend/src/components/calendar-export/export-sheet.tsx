@@ -104,6 +104,18 @@ function Flow({ onClose, resume }: { onClose: () => void; resume: PendingPush | 
     const id = window.requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
     return () => window.cancelAnimationFrame(id);
   }, [step, options.isSuccess]);
+  // CAL10-F04 (fix-h-2026-10-18): the tapped card unmounts with its step and the dialog's focus manager parks focus on
+  // the sheet itself (`DIV#cal-sheet`), so the new heading was never announced. Focus never rests on the container:
+  // whenever it lands there, it goes to the current step's heading
+  useEffect(() => {
+    const popup = headingRef.current?.closest<HTMLElement>('[data-testid="cal-sheet"]');
+    if (!popup) return;
+    const onFocusIn = (e: FocusEvent) => {
+      if (e.target === popup) headingRef.current?.focus({ preventScroll: true });
+    };
+    popup.addEventListener("focusin", onFocusIn);
+    return () => popup.removeEventListener("focusin", onFocusIn);
+  }, [options.isSuccess]);
 
   const needsConsent = !!o?.consent?.required && !o.consent.granted;
   const goto = (s: Step) => {

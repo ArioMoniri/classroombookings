@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 from datetime import date
 from typing import Annotated, Any
@@ -39,6 +40,7 @@ from app.services import bookings as bsvc
 from app.services import calendar_feeds as feeds
 from app.services import public_schedule as svc
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/public/schedule", tags=["public"])
 admin_router = APIRouter(prefix="/public-schedule/admin", tags=["public"])
 SettingsAdmin = Annotated[User, Depends(require_permission("setup.settings"))]
@@ -54,7 +56,10 @@ CACHE_OK = "public, max-age=0, must-revalidate"
 NO_STORE = {"Cache-Control": "no-store"}
 
 
-def _not_found() -> HTTPException:
+def _not_found(exc: Exception | None = None, path: str = "") -> HTTPException:
+    """The same 404 for every refusal; the reason (off / date / unknown) goes to the server log only (CH12-F10)."""
+    reason = getattr(exc, "reason", None) or ("date" if isinstance(exc, ValueError) else "unknown")
+    log.info("public_schedule.not_found reason=%s path=%r", reason, path)
     return HTTPException(404, "not found", headers=NO_STORE)
 
 
@@ -79,7 +84,7 @@ async def _day(db: DB, value: str | None) -> date:
             return date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
         return date.fromisoformat(text)
     except ValueError as exc:
-        raise _not_found() from exc
+        raise _not_found(exc, "date") from exc
 
 
 async def _cached(request: Request, db: DB, out: dict[str, Any]) -> Response:
@@ -108,7 +113,7 @@ async def public_index(request: Request, db: DB) -> Response:
     try:
         out = await svc.index(db)
     except svc.NotFound as exc:
-        raise _not_found() from exc
+        raise _not_found(exc, "index") from exc
     return await _cached(request, db, out)
 
 
@@ -121,7 +126,7 @@ async def public_room(
     try:
         out = await svc.room_day(db, code, d)
     except svc.NotFound as exc:
-        raise _not_found() from exc
+        raise _not_found(exc, f"rooms/{code[:32]}") from exc
     return await _cached(request, db, await _with_slot_labels(db, out))
 
 
@@ -134,7 +139,7 @@ async def public_building(
     try:
         out = await svc.building_day(db, code, d)
     except svc.NotFound as exc:
-        raise _not_found() from exc
+        raise _not_found(exc, f"buildings/{code[:32]}") from exc
     return await _cached(request, db, await _with_slot_labels(db, out))
 
 

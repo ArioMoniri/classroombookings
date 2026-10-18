@@ -569,13 +569,13 @@
   kind: page
   route: /rooms
   title: {tr: Derslikler, en: Rooms}
-  path: {tr: [Ana veriler, Derslikler], en: [Master data, Rooms]}
+  path: {tr: [Planlama, Derslikler], en: [Plan, Rooms]}
   synonyms:
     tr: [derslik listesi, salon listesi, salon kapasiteleri, salon özellikleri]
     en: [room list, room capacities, room features]
   steps:
-    tr: ["Ana veriler › Derslikler'i açın."]
-    en: ["Open Master data › Rooms."]
+    tr: ["Planlama › Derslikler'i açın."]
+    en: ["Open Plan › Rooms."]
   permission: [planning.view, setup.rooms]
   actions: []
   since: "2026.10"
@@ -783,6 +783,21 @@
   actions: []
   since: "2026.10"
 
+- id: admin.booking_rules
+  kind: page
+  route: /admin/booking-rules
+  title: {tr: Rezervasyon kuralları, en: Booking rules}
+  path: {tr: [Kurulum, Salonlar, Rezervasyon kuralları], en: [Setup, Rooms, Booking rules]}
+  synonyms:
+    tr: [rezervasyon sınırları, önceden bildirim, ne kadar ileri rezervasyon, sessiz saatler, kapalı tarihler, sınav dönemi modu]
+    en: [booking limits, booking notice, how far ahead, quiet hours, closed dates, exam period mode]
+  steps:
+    tr: ["Kurulum › Rezervasyon kuralları'nı açın.", "Yeni kural'a basın."]
+    en: ["Open Setup › Booking rules.", "Press New rule."]
+  permission: [setup.settings]
+  actions: []
+  since: "2026.10"
+
 - id: admin.sessions
   kind: page
   route: /admin/sessions
@@ -843,7 +858,8 @@
     tr: ["Kurulum › Ders haftaları'nı açın."]
     en: ["Open Setup › Timetable weeks."]
   anchor: admin-weeks
-  permission: [setup.timetable_weeks]
+  # AS20-F09 (FIX-G): planners reach the page for the season profile drafts
+  permission: [setup.timetable_weeks, planning.edit]
   actions: []
   since: "2026.10"
 

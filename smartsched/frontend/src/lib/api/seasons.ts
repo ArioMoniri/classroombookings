@@ -63,8 +63,8 @@ export const ProfileList = z.object({
   defaults: z.record(z.string(), z.number()).default({}),
   seasons: z.array(Labelled).default([]),
   period_kinds: z.array(Labelled).default([]),
-  /** AS20-F09: the caller may approve (activate / revert / retire); a planner drafts only */
-  can_activate: z.boolean().default(true),
+  /** AS20-F09: the caller may approve (activate / revert / retire); a planner drafts only (absent = an admin's list) */
+  can_activate: z.boolean().optional(),
 });
 export type ProfileList = z.infer<typeof ProfileList>;
 

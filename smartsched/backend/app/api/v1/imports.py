@@ -73,7 +73,13 @@ async def _refuse_if_locked(term_code: str) -> None:
 
 
 async def _start_job(
-    db: DB, job: ImportJob, run: Any, *, term_code: str | None = None, dry_run: bool = False
+    db: DB,
+    job: ImportJob,
+    run: Any,
+    *,
+    term_code: str | None = None,
+    dry_run: bool = False,
+    upload: tuple[str | None, Path] | None = None,
 ) -> ImportJob:
     """Queue the import. With ``term_code`` the job holds that term's write lock (``term_lock``) for the whole
     import - the API's early check and the worker share the one lock row, so two imports of a term never write
@@ -87,7 +93,13 @@ async def _start_job(
         try:
             if dry_run:
                 async with factory() as session:
-                    return await import_jobs.run_preview(session, run)
+                    out = await import_jobs.run_preview(session, run)
+                    if upload is not None:
+                        # PER-F04 (fix-h-2026-10-18): the season and year the file names against the target term
+                        from app.services.import_term_check import term_check
+
+                        out |= await term_check(session, term_code=term_code, filename=upload[0], path=upload[1])
+                    return out
             if term_code is None:
                 async with factory() as session:
                     report: ImportReport = await run(session)
@@ -221,7 +233,7 @@ async def _upload_job(
     job = await _new_job(db, kind, file.filename, term_code, user, params=params, dry_run=dry_run)
     path = await _save_upload(db, job, file, full_load=full_load)
     run = _runner(kind, path, file.filename, term_code, params)
-    return await _start_job(db, job, run, term_code=term_code, dry_run=dry_run)
+    return await _start_job(db, job, run, term_code=term_code, dry_run=dry_run, upload=(file.filename, path))
 
 
 @router.post("/planning-list", response_model=ImportJobOut, status_code=202)

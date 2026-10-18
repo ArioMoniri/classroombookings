@@ -198,7 +198,7 @@ export function ImportPreview({ job, onApplied, onCancel, termWarning = null }: 
             </Button>
             <div id={warnId} hidden={!showWarnings} className="space-y-3">
               <TruncatedWarnings summary={job.summary} />
-              <ParseWarningsTable warnings={job.summary.warnings} />
+              <ParseWarningsTable warnings={job.summary.warnings} groups={job.summary.warning_groups} />
             </div>
           </div>
         ) : null}

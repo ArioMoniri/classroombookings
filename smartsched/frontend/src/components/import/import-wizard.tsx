@@ -1,6 +1,6 @@
 "use client";
 
-import { termMismatch } from "./term-hint";
+import { serverTermMismatch, termMismatch } from "./term-hint";
 import { Check, ChevronRight, Database, FileSpreadsheet, Grid3x3, ListChecks, Warehouse, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -234,7 +234,7 @@ export function ImportWizard() {
         <ImportPreview
           key={preview.id}
           job={preview}
-          termWarning={termMismatch(preview.filename, terms.find((x) => x.id === effectiveTerm), terms)}
+          termWarning={serverTermMismatch(preview.summary.term_check) ?? (preview.summary.term_check ? null : termMismatch(preview.filename, terms.find((x) => x.id === effectiveTerm), terms))}
           onCancel={cancelPreview}
           onApplied={(j) => {
             setJob(j);
@@ -274,7 +274,7 @@ export function ImportWizard() {
           </Card>
           <Card>
             <CardHeader><CardTitle>{t("import.warningsTable")}</CardTitle></CardHeader>
-            <CardContent className="space-y-3"><TruncatedWarnings summary={job.summary} /><ParseWarningsTable warnings={job.summary.warnings} /></CardContent>
+            <CardContent className="space-y-3"><TruncatedWarnings summary={job.summary} /><ParseWarningsTable warnings={job.summary.warnings} groups={job.summary.warning_groups} /></CardContent>
           </Card>
           <div className="flex flex-wrap items-center gap-2">
             <Button nativeButton={false} render={<Link href="/requests?status=NEEDS_REVIEW" />}>{t("import.goRequests")}</Button>

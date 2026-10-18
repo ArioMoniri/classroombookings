@@ -6,6 +6,8 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from app.importers.warning_text import warning_groups, warning_items
+
 #: how many warning texts a job summary lists (the count is always complete)
 WARNINGS_LISTED = 500
 
@@ -67,4 +69,8 @@ class ImportReport:
         d["warnings_truncated"] = d["warnings_count"] > d["warnings_shown"]
         d["rows_skipped"] = d["rows_skipped"][:500]
         d["warning_summary"] = [{"text": t, "count": c} for t, c in self.warning_summary()]
+        # PER-F05 (fix-h-2026-10-18): per listed warning a code + Turkish / English sentence, and all warnings
+        # grouped by code (the strings above stay for older clients and the job history)
+        d["warning_items"] = warning_items(d["warnings"])
+        d["warning_groups"] = warning_groups(self.warnings)
         return d

@@ -1,6 +1,7 @@
 """AS-11: exam-period demand on Final 2026 (``final_planlama_listesi_2026_v2.xlsx``).
 
-* peak day Wednesday 3 June 2026 (126 exams), peak-to-mean 1.86 ± 0.01 over the weekdays of the exam weeks;
+* peak day Wednesday 3 June 2026 (98 sittings: a shared exam counts once), peak-to-mean 1.67 ± 0.01 over the
+  weekdays of the exam weeks (AS20-F13, re-baselined 2026-10-18 by FIX-G from 126 exam-list rows, 1.86);
 * **B7**: the ``slots`` hold frees room-periods against the whole-week closure, with no exam room-period bookable;
 * ``GET /analytics/forecast/exams`` from the imported exam list: the peak slot's seats stay within the exam-capacity
   sum; without bookings in exam weeks the booking part says ``none`` + needs.
@@ -25,8 +26,8 @@ from tests.conftest import EXAM_LIST, FIXTURES
 def test_as_11_peak_day_and_ratio(parsed_exam_list):
     r = bt.exam_day_load(parsed_exam_list)
     assert r.passed, r.metrics
-    assert r.metrics["peak_day"] == "2026-06-03" and r.metrics["peak_exams"] == 126
-    assert r.metrics["peak_to_mean"] == pytest.approx(1.86, abs=0.01)
+    assert r.metrics["peak_day"] == "2026-06-03" and r.metrics["peak_exams"] == 98
+    assert r.metrics["peak_to_mean"] == pytest.approx(1.67, abs=0.01)
     assert r.metrics["peak_label"]["tr"] == "3 Haziran 2026 Çarşamba"
 
 

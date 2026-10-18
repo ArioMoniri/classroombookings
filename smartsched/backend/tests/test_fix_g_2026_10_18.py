@@ -99,3 +99,62 @@ async def test_as20_f09_viewer_and_segments_stay_closed(client):
     assert (await client.post("/api/v1/seasons/profiles", json=_body("v"), headers=viewer)).status_code == 403
     # the season calendar (segments) stays an admin tool
     assert (await client.post("/api/v1/seasons/terms/1/segments", json={}, headers=planner)).status_code == 403
+
+
+# ------------------------------------------------------------------------------------------------ AS20-F13
+
+
+def test_as20_f13_advisor_counts_a_merge_group_once() -> None:
+    from datetime import date
+
+    from app.services import exam_advisor as ea
+
+    d1, d2 = date(2026, 6, 1), date(2026, 6, 2)
+    items = [
+        # one shared exam listed by three programmes: one sitting
+        ea.ExamItem(id=1, request_ids=(1, 2, 3), label="ORT101", date=d1, start=1, end=2, seats=90, rows=3),
+        ea.ExamItem(id=4, request_ids=(4,), label="A", date=d1, start=3, end=4, seats=30),
+        ea.ExamItem(id=5, request_ids=(5,), label="B", date=d2, start=1, end=2, seats=30),
+    ]
+    s = ea.summary(items)
+    assert s["peak_day"] == d1.isoformat() and s["peak_exams"] == 2
+    out = ea.advise(items)
+    assert "bir kez" in out["basis"]["tr"] and "counts once" in out["basis"]["en"]
+
+
+def test_as20_f13_one_unit_for_the_advisor_the_forecast_and_b6a(parsed_exam_list) -> None:  # type: ignore[no-untyped-def]
+    from app.services import backtest as bt
+    from app.services import exam_advisor as ea
+
+    b6a = bt.exam_day_load(parsed_exam_list).metrics
+    adv = ea.summary(ea.items_from_exam_list(parsed_exam_list))
+    assert (adv["peak_day"], adv["peak_exams"]) == (b6a["peak_day"], b6a["peak_exams"]) == ("2026-06-03", 98)
+    assert adv["weekday_mean"] == b6a["weekday_mean"]
+
+
+# ------------------------------------------------------------------------------------------------ CH12-F10
+
+
+async def test_ch12_f10_public_not_found_logs_its_reason_but_answers_the_same(client, caplog):  # type: ignore[no-untyped-def]
+    import logging
+
+    from app.core import throttle
+
+    throttle.PUBLIC_PER_ADDRESS.reset()
+    pub = "/api/v1/public/schedule"
+    caplog.set_level(logging.INFO, logger="app.api.v1.public_schedule")
+    r = await client.get(f"{pub}/rooms/A204")
+    assert r.status_code == 404 and r.json() == {"detail": "not found"}
+    assert "reason=off" in caplog.text
+    admin = await login(client)
+    assert (
+        await client.put("/api/v1/public-schedule/admin/settings", json={"enabled": True}, headers=admin)
+    ).status_code == 200
+    caplog.clear()
+    r = await client.get(f"{pub}/rooms/A204", params={"date": "2001-01-01"})
+    assert r.status_code == 404 and r.json() == {"detail": "not found"}
+    assert "reason=date" in caplog.text
+    caplog.clear()
+    r = await client.get(f"{pub}/rooms/ZZ999")
+    assert r.status_code == 404 and r.json() == {"detail": "not found"}
+    assert "reason=unknown" in caplog.text
