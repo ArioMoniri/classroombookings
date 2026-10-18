@@ -4,7 +4,7 @@
 import { z } from "zod";
 
 export const HELPER_CARD_SCHEMA_ID = "helper.card.v1";
-export const HELPER_CARD_SCHEMA_SHA256 = "658d579d68cf204ba8789db6711158439f96bf28c6a654d151d040dab50508fa";
+export const HELPER_CARD_SCHEMA_SHA256 = "40ddf912b8befcc0173f5630f04b4edf2088ace30265175bc5a33a705320c120";
 
 /** One person-facing text in both languages (Turkish first). */
 export const Txt = z.strictObject({
@@ -140,6 +140,55 @@ export const FactsCard = z.strictObject({
 });
 export type FactsCard = z.infer<typeof FactsCard>;
 
+/** A hand-over to a page's own flow. The client maps ``feature_id`` → href (``handover-links.fileHandoffHref``); the server never sends a URL. ``carries_file``: the client calls ``POST /helper/files/handoff`` and the page sends the ``upload_token`` instead of the file. */
+export const FileRoute = z.strictObject({
+  carries_file: z.boolean(),
+  feature_id: z.string().max(64).regex(new RegExp("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$")),
+  label: Txt,
+  label_short: Txt.nullish(),
+  params: z.record(z.string().regex(new RegExp("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$")).max(64), z.union([z.string().max(400).regex(new RegExp("^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$")), z.number().int(), z.number(), z.boolean()]).nullable()).optional(),
+});
+export type FileRoute = z.infer<typeof FileRoute>;
+
+export const FileTerm = z.strictObject({
+  matches_active: z.boolean(),
+  name: Txt,
+  source: z.enum(["file_name", "sheet_title"]),
+  term_id: z.number().int().nullable(),
+});
+export type FileTerm = z.infer<typeof FileTerm>;
+
+/** One line of what to watch out for on a file card (helper-file-router.md §4.5), ≤ 4 per card. */
+export const FileWarning = z.strictObject({
+  code: z.string().regex(new RegExp("^[a-z_]{2,48}$")),
+  message: Txt,
+  status: z.enum(["info", "warn", "bad"]).default("info"),
+});
+export type FileWarning = z.infer<typeof FileWarning>;
+
+/** Drop any file: what it is, why (canonical column labels only, never a cell value or a raw header), which term, what to watch out for and one primary hand-over. Ephemeral: never written to ``helper_messages``. */
+export const FileCard = z.strictObject({
+  action: z.literal("classify_file").default("classify_file"),
+  ai_sorted: z.boolean().default(false),
+  certainty: z.enum(["sure", "likely", "unsure"]).nullish(),
+  evidence: Texts.optional(),
+  examples: z.array(z.string().max(64).regex(new RegExp("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"))).max(8).optional(),
+  explain: Texts.optional(),
+  format: z.string().max(64).regex(new RegExp("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$")),
+  id: z.string().regex(new RegExp("^[a-f0-9]{8,32}$")),
+  kind: z.string().max(64).regex(new RegExp("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$")).nullish(),
+  kind_label: Txt.nullish(),
+  primary: FileRoute.nullish(),
+  secondary: z.array(FileRoute).max(2).optional(),
+  state: z.enum(["detected", "unknown", "needs_planner"]),
+  term: FileTerm.nullish(),
+  title: Txt.nullish(),
+  type: z.literal("file"),
+  v: z.literal(1).default(1),
+  warnings: z.array(FileWarning).max(4).optional(),
+});
+export type FileCard = z.infer<typeof FileCard>;
+
 /** helper.md A7: ≤ 2 chips after a result, an action with partial args or a feature to open. */
 export const FollowUp = z.strictObject({
   action: z.string().max(64).regex(new RegExp("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$")).nullish(),
@@ -246,8 +295,8 @@ export const ResultCard = z.strictObject({
 export type ResultCard = z.infer<typeof ResultCard>;
 
 /** SmartSched helper card v1: one of the wire types, switched on `type`. */
-export const HelperCard = z.discriminatedUnion("type", [AnswerCard, NavCard, ListCard, FactsCard, ChoiceCard, FormCard, ConfirmCard, ResultCard, LimitCard, RefusalCard, ErrorCard]);
+export const HelperCard = z.discriminatedUnion("type", [AnswerCard, NavCard, ListCard, FactsCard, ChoiceCard, FormCard, ConfirmCard, ResultCard, LimitCard, RefusalCard, ErrorCard, FileCard]);
 export type HelperCard = z.infer<typeof HelperCard>;
 
-export const CARD_TYPES = ["answer", "choice", "confirm", "error", "facts", "form", "limit", "list", "nav", "refusal", "result"] as const;
+export const CARD_TYPES = ["answer", "choice", "confirm", "error", "facts", "file", "form", "limit", "list", "nav", "refusal", "result"] as const;
 export type CardType = (typeof CARD_TYPES)[number];

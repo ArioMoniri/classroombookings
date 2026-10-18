@@ -10,7 +10,7 @@
  * "Nerede?" row (or Shift+Enter on a page) opens it **and** rings the control ("Göster"). With AI off there is no
  * ask row (Nerede? and Kısayollar stay); at a hard limit the ask row is disabled with the reason.
  */
-import { CornerDownLeft, FileText, MapPin, MessageCircleQuestion, Zap } from "lucide-react";
+import { CornerDownLeft, FileText, MapPin, MessageCircleQuestion, Paperclip, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useCommandState } from "cmdk";
@@ -79,6 +79,11 @@ function usePaletteActions() {
       close();
       const opener = triggerElement();
       requestAnimationFrame(() => useHelperStore.getState().openSheet({ opener, ask: q }));
+    },
+    pickFile: () => {
+      close();
+      const opener = triggerElement();
+      requestAnimationFrame(() => useHelperStore.getState().openSheet({ opener, pickFile: true }));
     },
     run: (action: string, args: Record<string, string | number>, hints?: { time?: string; period?: number }) => {
       close();
@@ -202,6 +207,23 @@ export function HelperPaletteTop({ query }: { query: string }) {
   );
 }
 
+/** HB-23c (helper-file-router.md §8.3): "dosya" / "file" → "Dosya ekle ve ne olduğunu öğren" (the sheet + the picker) */
+const FILE_QUERY = /(^|\s)(dosya|dosyam|dosyamı|dosyayı|file|files|excel)(\s|$)/i;
+
+function FileShortcutRow() {
+  const { t } = useI18n();
+  const act = usePaletteActions();
+  return (
+    <CommandGroup heading={t("helper.palette.groups.shortcuts")} data-testid="palette-group-shortcuts">
+      <CommandItem value="helper-shortcut-attach_file" onSelect={() => act.pickFile()} className={ROW} data-testid="palette-shortcut-attach_file">
+        <Paperclip aria-hidden />
+        <span className="min-w-0 flex-1 truncate">{t("helper.file.paletteRow")}</span>
+        <CornerDownLeft aria-hidden className="ml-auto" />
+      </CommandItem>
+    </CommandGroup>
+  );
+}
+
 function ShortcutRow({ q }: { q: string }) {
   const { t } = useI18n();
   const actions = useHelperActions();
@@ -210,7 +232,7 @@ function ShortcutRow({ q }: { q: string }) {
   const intent = parseIntent(q);
   const label = useShortcutLabel(intent);
   const set = actions.data ? new Set(actions.data.map((a) => a.name)) : null;
-  if (!intent || !label || !allowed(intent, set)) return null;
+  if (!intent || !label || !allowed(intent, set)) return FILE_QUERY.test(q.toLocaleLowerCase("tr-TR")) ? <FileShortcutRow /> : null;
   return (
     <CommandGroup heading={t("helper.palette.groups.shortcuts")} data-testid="palette-group-shortcuts">
       <CommandItem value={`helper-shortcut-${intent.action}`} onSelect={() => act.run(intent.action, intent.args, intent.hints)} className={ROW} data-testid={`palette-shortcut-${intent.action}`}>

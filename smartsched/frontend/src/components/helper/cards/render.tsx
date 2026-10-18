@@ -16,6 +16,7 @@ import { ChoiceView } from "./choice";
 import { ConfirmView } from "./confirm";
 import { pickText, useCardHost } from "./context";
 import { FactsView } from "./facts";
+import { FileEntryView } from "./file";
 import { FormView } from "./form";
 import { ListView } from "./list";
 import { NavView } from "./nav";
@@ -92,6 +93,8 @@ export function EntryView({ entry }: { entry: LogEntry }) {
   }
   if (entry.kind === "note") return <p className="type-callout text-label-2" data-testid="helper-note-line">{pickText(entry.text, host.locale)}</p>;
   if (entry.kind === "fallback") return <FallbackView />;
+  // HB-23c: the file router's ephemeral entry (file chip + its card)
+  if (entry.kind === "file") return <FileEntryView entry={entry} />;
   const card = entry.card;
   const writeLike = card.type === "confirm" || card.type === "form" || card.type === "choice" || card.type === "result";
   if (writeLike && (!card.action || !KNOWN_ACTIONS.has(card.action))) return <FallbackView />;

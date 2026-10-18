@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `e428c08` (committed 2026-10-18 16:35 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `c846753` (committed 2026-10-18 18:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -182,7 +182,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-405 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 377 · stopped 11 · superseded 7.
+412 agents in [`docs/agents/registry.json`](agents/registry.json): running 7 · finished 387 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -193,9 +193,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `AUX-F` | frontend-engineer | 2026-10-18 00:04 |
 | `AS-S` | solver-engineer | 2026-10-18 07:56 |
 | `HB-B` | ai-engineer | 2026-10-18 07:56 |
-| `FIX-I` | general-purpose | 2026-10-18 15:42 |
-| `FIX-K` | general-purpose | 2026-10-18 16:18 |
-| `README + repo presentation redesign` | design-pro | 2026-10-18 16:19 |
 
 <!-- /AUTO:agents -->
 
@@ -262,7 +259,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **447 ticked · 440 open** checkboxes in 104 sections (98 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **449 ticked · 441 open** checkboxes in 105 sections (99 with open items).
 
 <details><summary>Per section</summary>
 
@@ -372,6 +369,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | FIX-B (e2e results 2026-10-18: phone layout stability, reflow, settings M-05, hydration… | 0 | 8 |
 | FIX-A: e2e results 2026-10-18 backend fixes (fix-a-2026-10-18) | 5 | 0 |
 | FIX-C: e2e results 2026-10-18 bundle, charts, welcome and voice fixes (fix-c-2026-10-18) | 0 | 8 |
+| HB-23 · Helper file router (owner 2026-10-18) | 2 | 1 |
 
 </details>
 

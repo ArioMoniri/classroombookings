@@ -37,6 +37,8 @@ import { useReduce } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 import { CardHostContext, pickText, type CardHost } from "./cards/context";
+import { AttachButton, SheetDropZone, filesFromPaste, useFilePicker } from "./file-drop";
+import { dropLiveStages, forgetEntryFiles, useFileRouter } from "./file-router";
 import { EntryView } from "./cards/render";
 import { GuideMode } from "./guide";
 import { PageContextChip, toTurnContext, usePageContext } from "./page-context";
@@ -194,6 +196,18 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
 
   const role = starterRole(can);
   const empty = entries.length === 0 && !turn.busy;
+  // HB-23c: 📎 / paste / drop → the file router (no model; works in Rehber modu too)
+  const fileRouter = useFileRouter();
+  const attach = (list: File[]) => void fileRouter.attach(list);
+  const starterPicker = useFilePicker(attach, { testId: "helper-starter-file-input" });
+  const fileStarter = role === "admin" || role === "planner";
+  // the palette's "Dosya ekle…" row and the empty-state links open the picker once the sheet is here (the person's
+  // activation is still fresh: one frame after their Enter / click)
+  const pendingPick = useHelperStore((s) => s.pendingPick);
+  const openPicker = starterPicker.open;
+  useEffect(() => {
+    if (pendingPick && useHelperStore.getState().takePick()) openPicker();
+  }, [pendingPick, openPicker]);
   const notes = memory.data?.enabled ? memory.data.notes : 0;
   const guide = !mode.ai || mode.blocked;
 
@@ -208,7 +222,14 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
         <DropdownMenu>
           <DropdownMenuTrigger render={<IconButton label={t("helper.menu")} className="size-11" data-testid="helper-menu"><MoreHorizontal aria-hidden /></IconButton>} />
           <DropdownMenuContent align="end" className="min-w-56">
-            <DropdownMenuItem onClick={() => useHelperStore.getState().newThread()} data-testid="helper-new-thread">{t("helper.newThread")}</DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                dropLiveStages();
+                forgetEntryFiles();
+                useHelperStore.getState().newThread();
+              }}
+              data-testid="helper-new-thread"
+            >{t("helper.newThread")}</DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
                 if (!desktop) onClose();
@@ -227,7 +248,11 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
       {empty ? (
         <div className="flex flex-col gap-3 px-4 pt-4" data-testid="helper-empty">
           <p className="type-body text-label-1">{mode.ai ? t("helper.empty") : t("helper.guide.title")}</p>
-          {mode.ai && !mode.blocked ? <Starters role={role} onPick={(s) => void askHere(s)} /> : null}
+          {mode.ai && !mode.blocked ? (
+            <Starters role={role} onPick={(s) => void askHere(s)} first={fileStarter ? { label: t("helper.file.starter"), onPick: starterPicker.open } : undefined} />
+          ) : fileStarter ? (
+            <Starters role={role} onPick={() => undefined} only={{ label: t("helper.file.starter"), onPick: starterPicker.open }} />
+          ) : null}
           <RecentActions />
           {notes > 0 ? (
             <p className="type-footnote text-label-2" data-testid="helper-memory-used">
@@ -239,7 +264,10 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
           ) : null}
         </div>
       ) : null}
-      <Log busy={turn.busy} desktop={desktop} />
+      {starterPicker.input}
+      <SheetDropZone onFiles={attach}>
+        <Log busy={turn.busy} desktop={desktop} />
+      </SheetDropZone>
       <footer className="flex shrink-0 flex-col gap-2 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] edge-hairline-t">
         {turn.error ? (
           <Alert
@@ -259,12 +287,22 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
         {mode.ai ? <AiUsageBanner /> : null}
         {mode.ai && mode.blocked ? <p className="type-callout text-label-2" data-testid="helper-blocked">{t("helper.limitReason")}</p> : null}
         {guide ? <GuideMode inputRef={guideRef} seed={guideSeed} showLead={!mode.ai} /> : null}
+        {guide ? <AttachButton onFiles={attach} withLabel /> : null}
         <p className="sr-only" role="status" data-testid="helper-context-live">
           {contextLive}
         </p>
         {chipOn && page ? <PageContextChip page={page} onRemove={removeContext} /> : null}
         {mode.ai ? (
-          <div ref={composerRef} data-testid="helper-composer">
+          <div
+            ref={composerRef}
+            data-testid="helper-composer"
+            onPaste={(e) => {
+              const list = filesFromPaste(e);
+              if (!list.length) return;
+              e.preventDefault();
+              attach(list);
+            }}
+          >
             <PromptComposer
               onSend={(text) => void askHere(text)}
               busy={turn.busy}
@@ -273,6 +311,7 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
               label={t("helper.composer.label")}
               sendLabel={t("helper.composer.send")}
               stopLabel={t("helper.composer.stop")}
+              leading={<AttachButton onFiles={attach} />}
               className="[&_textarea]:text-base [&_button]:pointer-coarse:size-11"
             />
           </div>
@@ -322,6 +361,12 @@ export function HelperSheet() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, desktop]);
+
+  // HB-23c (§6.3): any close (✕, Esc, ⌘J, a drag, a page change) deletes the live file stages; a handed-over one is
+  // the target page's by then
+  useEffect(() => {
+    if (!open) dropLiveStages();
+  }, [open]);
 
   // a page change on a phone ends the full-screen sheet (it was a hand-over)
   const lastPath = useRef(pathname);

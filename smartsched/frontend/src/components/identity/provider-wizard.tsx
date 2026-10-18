@@ -416,8 +416,10 @@ function TextField({
 }
 
 function ValuesStep({ p, setup, onNext }: { p: Provider; setup: Setup; onNext: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { save, error, conflict, pending } = useSave(p);
+  // E2EB-F15: once the federation fixed its metadata, the admin re-reads it here (step 4 is locked while in error)
+  const discover = useIdpMutation(() => idp.discover(p.id));
   const [v, setV] = useState({
     tenant_id: p.tenant_id ?? "",
     client_id: p.client_id ?? "",
@@ -476,6 +478,18 @@ function ValuesStep({ p, setup, onNext }: { p: Provider; setup: Setup; onNext: (
           >
             {t("identity.save")}
           </BusyButton>
+          {p.kind === "saml" && p.saml?.metadata_url ? (
+            <BusyButton
+              variant="outline"
+              busy={discover.isPending}
+              busyLabel={t("identity.test.checking")}
+              className="min-h-11"
+              onClick={() => discover.mutate(undefined, { onSuccess: (out) => (out.ok ? toast.success(t("identity.values.rediscoverOk")) : toast.warning(t("identity.values.rediscoverFailed"))), onError: (e) => toast.error(problemText(e, locale) ?? t("identity.saveFailed")) })}
+              data-testid="idp-values-rediscover"
+            >
+              {t("identity.values.rediscover")}
+            </BusyButton>
+          ) : null}
           <Button variant="outline" className="min-h-11" disabled={!p.configured} onClick={onNext} data-testid="idp-values-next">
             {t("identity.next")}
           </Button>

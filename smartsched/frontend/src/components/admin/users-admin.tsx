@@ -56,6 +56,9 @@ import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { useBookingFormat } from "@/components/bookings/use-booking-format";
 import { Alert, ConfirmDialog, Field, Loading, PageTitle, SelectField } from "./kit";
 import { useErrorToast } from "./admin-gate";
+import { handedFile, useHelperFileHandoff } from "@/components/helper/file-handoff";
+import { HandedFileRow } from "@/components/helper/handed-file-row";
+import { HelperFileLink } from "@/components/helper/file-link";
 import { normaliseScopes } from "@/components/approvals/approvals-model";
 import { ScopePicker, scopeLabel, useScopeLookups } from "@/components/approvals/scope-picker";
 import type { Scope } from "@/lib/api/wave1";
@@ -151,7 +154,14 @@ export function UsersAdmin() {
     for (const k of ["invite", "email", "name"]) next.delete(k);
     router.replace(next.size ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
   }, [handover, handoverOpened, providers.isPending, usersAdmin, router, pathname]);
-  const [importOpen, setImportOpen] = useState(false);
+  // HB-23c: ?import=1 (the helper's "Kullanıcıları içe aktar") opens the import sheet once; the key leaves the address
+  const [importOpen, setImportOpen] = useState(() => params.get("import") === "1");
+  useEffect(() => {
+    if (params.get("import") !== "1") return;
+    const next = new URLSearchParams(window.location.search);
+    for (const k of ["import", "from"]) next.delete(k);
+    router.replace(next.size ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
+  }, [params, router, pathname]);
   const [token, setToken] = useState<{ user: AdminUser; token: ResetToken } | null>(null);
   const [deleting, setDeleting] = useState<AdminUser | null>(null);
   const toastError = useErrorToast();
@@ -501,6 +511,8 @@ export function UsersAdmin() {
           </Table>
         )}
       </Card>
+      {/* HB-23c (helper-file-router.md §8.4): only the admin so far, no filter: the helper reads a user list */}
+      {users.data && total === 1 && !q && !role && !dept && !enabled ? <HelperFileLink /> : null}
       {total > PAGE ? (
         <div className="flex items-center justify-between type-callout text-label-2">
           <span>{t("crbs.users.page", { from: page * PAGE + 1, to: Math.min(total, (page + 1) * PAGE), total })}</span>
@@ -951,6 +963,12 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
   const { t } = useI18n();
   const departments = useDepartments();
   const [file, setFile] = useState<File | null>(null);
+  // HB-23c: the CSV the helper handed over (a staged token) replaces the file field until ✕
+  const handed = useHelperFileHandoff("admin.users");
+  const handedRaw = handed.expired ? null : (handed.handoff?.items[0] ?? null);
+  // HELPER_FILE_STAGE=off: the browser's File itself (no token); gone after a reload
+  const handedBytes = handedRaw && !handedRaw.token ? handedFile(handedRaw) : null;
+  const handedItem = handedRaw && (handedRaw.token || handedBytes) ? handedRaw : null;
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
   const [dept, setDept] = useState("");
@@ -959,7 +977,7 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const m = useCrbsMutation(
-    () => crbs.users.import(file as File, { password: password || undefined, role_id: role.startsWith("id:") ? Number(role.slice(3)) : null, department_id: dept ? Number(dept) : null, enabled, force_password_reset: force }),
+    () => crbs.users.import(handedItem?.token ? null : (handedBytes ?? file), { password: password || undefined, role_id: role.startsWith("id:") ? Number(role.slice(3)) : null, department_id: dept ? Number(dept) : null, enabled, force_password_reset: force, upload_token: handedItem?.token ?? undefined }),
     [["crbs", "users"]],
   );
   const close = (o: boolean) => {
@@ -980,7 +998,11 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
         {!result ? (
           <div className="flex flex-col gap-3">
             <Field label={t("crbs.import.file")} htmlFor="imp-file" hint={`${t("crbs.import.columns")} ${t("crbs.import.headerHint")}`}>
-              <Input id="imp-file" type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              {handedItem ? (
+                <HandedFileRow item={handedItem} onRemove={handed.remove} testId="users-handed-file" />
+              ) : (
+                <Input id="imp-file" type="file" accept=".csv,text/csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              )}
             </Field>
             <p className="type-headline text-label-1">{t("crbs.import.defaults")}</p>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -1062,10 +1084,13 @@ function ImportDialog({ open, onOpenChange, canListRoles }: { open: boolean; onO
           </Button>
           {!result ? (
             <Button
-              disabled={!file || m.isPending}
+              disabled={(!file && !handedItem) || m.isPending}
               onClick={() =>
                 m.mutate(undefined, {
-                  onSuccess: setResult,
+                  onSuccess: (r) => {
+                    if (handedItem) handed.consumed();
+                    setResult(r);
+                  },
                   onError: (e) => setError(bookingErrorMessage(crbsError(e), t)),
                 })
               }

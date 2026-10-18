@@ -126,7 +126,10 @@ export async function request<T = unknown>(path: string, opts: RequestOptions<T>
   if (!res.ok) {
     const err = await parseError(res);
     if (res.status === 401 && !/^\/?auth\/(login|change-password)\b/.test(path)) unauthorizedListeners.forEach((l) => l(path));
-    if (!silent) errorListeners.forEach((l) => l(err));
+    // FIX-K (HX12B-F06): a background read the role may not make never toasts "izni gerekiyor"; the screen that
+    // asked shows its own no-access state. A refused action (POST / PUT / PATCH / DELETE) still toasts.
+    const backgroundRefusal = res.status === 403 && method === "GET";
+    if (!silent && !backgroundRefusal) errorListeners.forEach((l) => l(err));
     throw err;
   }
   if (res.status === 204) return undefined as T;

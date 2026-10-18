@@ -297,9 +297,11 @@ export const MemoryForgetOut = z.object({ id: z.number(), forgotten: z.number(),
 export type MemoryForgetOut = z.infer<typeof MemoryForgetOut>;
 
 export const councilApi = {
-  create: (files: File[], opts: { mode?: "auto" | "general"; lang?: string; yearHint?: number; ai?: boolean } = {}) => {
+  /** `uploadTokens` (HB-23c): files the helper staged, admitted like uploaded ones (helper-file-router.md §6.5) */
+  create: (files: File[], opts: { mode?: "auto" | "general"; lang?: string; yearHint?: number; ai?: boolean; uploadTokens?: string[] } = {}) => {
     const fd = new FormData();
     for (const f of files) fd.append("files", f, f.name);
+    for (const tk of opts.uploadTokens ?? []) fd.append("upload_tokens", tk);
     fd.append("mode", opts.mode ?? "auto");
     fd.append("lang", opts.lang ?? "en");
     if (opts.yearHint) fd.append("year_hint", String(opts.yearHint));

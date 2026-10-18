@@ -1,5 +1,6 @@
 "use client";
 
+import { HelperFileLink } from "@/components/helper/file-link";
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, FileUp, PlayCircle, XOctagon } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
@@ -8,7 +9,7 @@ import { trPercent } from "@/components/common/tr-suffix";
 import { isImportBoard, partialCounts, runDotTone } from "@/components/runs/runs-list";
 import { useActiveTerm, useTermKindLabel } from "@/components/shell/term-switcher";
 import { useRememberedTermWeek, weekOfTerm } from "@/components/shell/workspace";
-import { Button, IconButton } from "@/components/ui/button";
+import { Button, IconButton, buttonVariants } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/data-table";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -35,13 +36,14 @@ function relative(iso: string, locale: string): string {
   return rtf.format(-Math.round(hours / 24), "day");
 }
 
-function HeroStatus({ plan }: { plan: ScheduleRun | undefined }) {
+export function HeroStatus({ plan }: { plan: ScheduleRun | undefined }) {
   const { t, n } = useI18n();
   if (!plan) {
     return (
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 type-title-3 text-label-2" data-testid="dashboard-plan">
         {t("glass.dashboard.noPlan")}
-        <Link href="/generate" className={cn("relative type-body font-medium text-tint-text hover:underline", coarseHitArea)}>
+        {/* E2EB-F08: a real 44 px control on touch (the hit area was clipped in the wrapping line) */}
+        <Link href="/generate" className={cn(buttonVariants({ variant: "outline", size: "md" }), "pointer-coarse:min-h-11")} data-testid="dashboard-make-plan">
           {t("glass.dashboard.makePlan")}
         </Link>
       </p>
@@ -150,7 +152,14 @@ export function DashboardView() {
     return (
       <div data-testid="dashboard">
         <PageHeader title={t("dashboard.title")} />
-        <EmptyState title={t("glass.dashboard.emptyTitle")} description={t("glass.dashboard.emptyBody")} animation="file-to-rules" animationLabel={t("glass.dashboard.emptyTitle")} actions={<Button nativeButton={false} render={<Link href="/import" />}>{t("dashboard.import")}</Button>} />
+        <EmptyState title={t("glass.dashboard.emptyTitle")} description={t("glass.dashboard.emptyBody")} animation="file-to-rules" animationLabel={t("glass.dashboard.emptyTitle")} actions={
+            <>
+              <Button nativeButton={false} render={<Link href="/import" />}>{t("dashboard.import")}</Button>
+              {/* HB-23c (helper-file-router.md §8.4): a fresh install; the helper says what a file is */}
+              <HelperFileLink />
+            </>
+          }
+        />
       </div>
     );
   }

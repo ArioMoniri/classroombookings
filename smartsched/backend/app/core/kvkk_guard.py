@@ -30,7 +30,7 @@ FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures"
 #: title tokens (lower case, without the dot) that are not part of a person's name
 _TITLES = {
     "prof", "doç", "dr", "öğr", "üyesi", "üye", "gör", "arş", "uzm", "eğt", "eğitmen", "okt", "ecz", "öğretim",
-    "görevlisi", "asst", "assoc", "yrd", "tek", "hoca", "öğretmen",
+    "görevlisi", "asst", "assoc", "yrd", "tek", "hoca", "öğretmen", "öğ", "üy", "eğit", "psk", "gr", "gö",
 }  # fmt: skip
 _WORD = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*")
 _TAG = re.compile(r"<[^>]+>")

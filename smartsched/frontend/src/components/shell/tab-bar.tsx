@@ -11,6 +11,7 @@ import { springs, useReduce } from "@/lib/motion";
 import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { BareButton } from "./bare-button";
+import { TINT_ONLY_OVER_CONTENT, useTintOnlyChrome } from "./blur-budget";
 import { useUiStore } from "@/stores/ui";
 import { ADMIN_NAV_ITEMS } from "@/components/admin/nav-items";
 import { QUICK_RESERVE_ITEM } from "./nav-config";
@@ -71,6 +72,8 @@ export function TabBar() {
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const setDrawerOpen = useUiStore((s) => s.setDrawerOpen);
   const hydrated = useHydrated();
+  // FIX-K: with the helper sheet open (or a glass-heavy route) the bar keeps its tint but drops its blur pass
+  const tintOnly = useTintOnlyChrome();
   const morph = reduce ? { duration: 0 } : springs.glassMorph;
   const { can } = usePermissions();
   // a teacher has no planning tabs: the bookings entries (admin/nav-items) take their place; a linked academician
@@ -130,9 +133,10 @@ export function TabBar() {
   // too, the two bars took about 200 px of a phone. The top bar carries the menu (drawer) and search there.
   if (hasOwnBottomBar(pathname)) return null;
   return (
-    <div data-slot="tab-bar" className="pointer-events-none fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] [@media(max-height:500px)]:bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-40 flex items-center justify-center gap-2 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] lg:hidden">
+    // FIX-K: a container, so the search capsule can step aside at a 32 px root text size (root-rem container query)
+    <div data-slot="tab-bar" className="@container pointer-events-none fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] [@media(max-height:500px)]:bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-40 flex items-center justify-center gap-2 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] lg:hidden">
       <LayoutGroup id="tab-bar">
-        <nav aria-label={t("glass.shell.tabs")} data-glass="chrome" className="glass-chrome pointer-events-auto min-w-0 flex-1 rounded-full p-1 sm:max-w-md sm:flex-none [@media(max-height:500px)]:p-0">
+        <nav aria-label={t("glass.shell.tabs")} data-glass="chrome" className={cn("glass-chrome pointer-events-auto min-w-0 flex-1 rounded-full p-1 sm:max-w-md sm:flex-none [@media(max-height:500px)]:p-0", tintOnly && TINT_ONLY_OVER_CONTENT)}>
           <ul className="grid grid-flow-col auto-cols-[minmax(0,1fr)] items-center gap-0.5">
             {tabs.map((tab) => item(tab.href, t(tab.labelKey), <tab.icon />, tab.href === activeHref, { href: tab.href, count: tab.badge ? badges[tab.badge] : undefined, testId: `tab-${navTestId(tab.href)}` }))}
             {item("more", t("glass.shell.more"), <MoreHorizontal />, moreActive, { onClick: () => setDrawerOpen(true), testId: "open-drawer" })}
@@ -141,7 +145,7 @@ export function TabBar() {
       </LayoutGroup>
       {/* ui-alignment 2026-10-18: the detached search is a tab of its own (same capsule padding, ITEM box, 20 px icon and
           label), so its glyph sits on the tabs' icon line; the 48 px circle centred a 16 px glyph 12 px below them */}
-      <BareButton aria-label={t("helper.trigger.name")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className="glass-chrome pointer-events-auto shrink-0 rounded-full p-1 font-normal max-[22.5rem]:hidden [@media(max-height:500px)]:p-0" data-testid="open-palette-mobile">
+      <BareButton aria-label={t("helper.trigger.name")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className={cn("glass-chrome pointer-events-auto shrink-0 rounded-full p-1 font-normal max-[22.5rem]:hidden @max-[22.5rem]:hidden [@media(max-height:500px)]:p-0", tintOnly && TINT_ONLY_OVER_CONTENT)} data-testid="open-palette-mobile">
         <span className={cn(ITEM, "px-[min(0.75rem,12px)]")}>
           <span aria-hidden className={cn(ICON, "text-label-2")}>
             <Search />

@@ -12,7 +12,8 @@ import { fileURLToPath } from "node:url";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const brand = (f) => pathToFileURL(resolve(REPO, "docs/images/brand", f)).href;
-export const BRAND = { lockup: brand("smartsched-lockup-light.svg"), mark: brand("smartsched-mark-light.svg"), repo: "github.com/ArioMoniri/classroombookings" };
+export const BRAND = { lockup: brand("smartsched-lockup-light.svg"), mark: brand("smartsched-mark-light.svg") };
+// no repository address, branch or host anywhere in the video (owner, 2026-10-18: the repository and branches will move)
 
 /** The takes launch.sh records (record.mjs --engine frames): name = journey id + device suffix. */
 export const TAKES = [
@@ -53,7 +54,6 @@ const GEO = {
 GEO.landscape.size = [1920, 1080];
 GEO.vertical.size = [1080, 1920];
 
-const FEATURES = ["CP-SAT timetables", "Exam planning", "Run reports", "Room booking", "Approvals", "Calendar sync", "AI with guardrails", "Turkish + English"];
 const layer = (L, tf, alpha) => ({ ...L, transform: tf, opacity: alpha });
 const html = (cls, h, style) => ({ kind: "html", cls, html: h, style });
 
@@ -203,15 +203,9 @@ export function buildStory({ format = "landscape", story = "launch", take, steps
         const V = format === "vertical";
         const lw = V ? 820 : 760;
         return [
-          html("logo", `<img src="${BRAND.lockup}" style="width:100%">`, { left: `${(c.W - lw) / 2}px`, top: `${V ? 640 : 300}px`, width: `${lw}px`, opacity: String(s(0)) }),
-          html("title", `University timetabling, exams and room booking.`, { left: "50%", transform: "translateX(-50%)", textAlign: "center", top: `${V ? 900 : 500}px`, width: `${V ? 960 : 1500}px`,
+          html("logo", `<img src="${BRAND.lockup}" style="width:100%">`, { left: `${(c.W - lw) / 2}px`, top: `${V ? 820 : 410}px`, width: `${lw}px`, opacity: String(s(0)) }),
+          html("title", `University timetabling, exams and room booking.`, { left: "50%", transform: "translateX(-50%)", textAlign: "center", top: `${V ? 1040 : 620}px`, width: `${V ? 960 : 1500}px`,
             fontSize: `${V ? 46 : 44}px`, fontWeight: "600", opacity: String(s(0.35)) }),
-          ...(V
-            ? [html("chip", `<b style="width:34px;height:34px;font-size:18px">★</b>Open source · AGPL-3.0`, { left: "50%", transform: "translateX(-50%)", top: "1060px", fontSize: "30px", padding: "10px 24px 10px 12px", whiteSpace: "nowrap", opacity: String(s(0.7)) }),
-               html("title", BRAND.repo, { left: "50%", transform: "translateX(-50%)", textAlign: "center", top: "1150px", width: "1000px", fontSize: "32px", fontWeight: "600", color: "#1E3A8A", opacity: String(s(0.9)) })]
-            : [html("chip", `<b style="width:34px;height:34px;font-size:18px">★</b>Open source · AGPL-3.0 · ${BRAND.repo}`, { left: "50%", transform: "translateX(-50%)", top: "610px", fontSize: "28px", padding: "10px 24px 10px 12px", whiteSpace: "nowrap", opacity: String(s(0.7)) })]),
-          html("title", FEATURES.map((f) => `<span style="display:inline-block;margin:6px 8px;padding:8px 18px;border-radius:999px;background:rgba(255,255,255,.7);border:1px solid rgba(15,23,42,.08)">${f}</span>`).join(""),
-            { left: "50%", transform: "translateX(-50%)", textAlign: "center", top: `${V ? 1260 : 720}px`, width: `${V ? 980 : 1500}px`, fontSize: `${V ? 26 : 24}px`, fontWeight: "500", color: "#334155", opacity: String(s(1.0)) }),
         ];
       },
     },

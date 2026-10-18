@@ -92,6 +92,12 @@ export function IdentityProvidersPanel({ initialSetup = null, showInvites = true
   );
 }
 
+/** E2EB-F14: the Turkish / English text of the first failed connection check, or null when none is stored. */
+export function checkFailureText(p: Pick<Provider, "discovery">, locale: string): string | null {
+  const bad = p.discovery.checks.find((c) => !c.ok);
+  return bad ? (locale === "en" ? bad.en : bad.tr) : null;
+}
+
 function lastCheck(t: ReturnType<typeof useI18n>["t"], p: Provider, locale: string): string {
   if (!p.last_check_at) return t("identity.neverChecked");
   const d = new Date(p.last_check_at);
@@ -131,7 +137,8 @@ function ProviderRow({ p, first, last, ids, onSetup }: { p: Provider; first: boo
           <StatusWord status={p.status} /> · {lastCheck(t, p, locale)}
         </p>
         <p className="type-footnote text-label-3">{changedLine(t, p, locale)}</p>
-        {p.status === "error" && p.last_check_detail ? <p className="type-footnote text-status-infeasible-fg">{p.last_check_detail}</p> : null}
+        {/* E2EB-F14: the failed check's own sentence, never its key ("discovery: metadata_signature") */}
+        {p.status === "error" && p.last_check_detail ? <p className="type-footnote text-status-infeasible-fg" data-testid={`idp-row-error-${p.name}`}>{checkFailureText(p, locale) ?? t("identity.lastCheckFailed")}</p> : null}
       </div>
       <div className="flex items-center gap-1">
         <IconButton label={t("identity.moveUp", { name })} size="sm" disabled={first || order.isPending} onClick={() => move(-1)} className="pointer-coarse:size-11">

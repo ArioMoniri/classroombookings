@@ -127,6 +127,23 @@ export const PLANNING_ROUTES: readonly { prefix: string; permission: string | st
   { prefix: "/classes", permission: "planning.view" },
 ];
 
-export function planningRequirement(pathname: string): string | string[] | undefined {
+/**
+ * Routes whose query widens the page's permission, matching the server's route (not the feature-index entry):
+ * `/import?kind=room-master` is `planning.edit` or `setup.rooms` (imports.py `RoomsEditor`), so the helper's room
+ * master card opens it for a rooms-only admin (HB-23d).
+ */
+const QUERY_ROUTES: readonly { path: string; param: string; value: string; permission: string[] }[] = [
+  { path: "/import", param: "kind", value: "room-master", permission: ["planning.edit", "setup.rooms"] },
+];
+
+export function planningRequirement(pathname: string, search?: string | URLSearchParams | null): string | string[] | undefined {
+  if (search) {
+    const q = typeof search === "string" ? new URLSearchParams(search) : search;
+    const hit = QUERY_ROUTES.find((r) => pathname === r.path && q.get(r.param) === r.value);
+    if (hit) return hit.permission;
+  }
   return PLANNING_ROUTES.find((r) => pathname === r.prefix || pathname.startsWith(`${r.prefix}/`))?.permission;
 }
+
+/** the paths whose permission depends on the query (the shell reads the search params only there) */
+export const queryDependentRoute = (pathname: string): boolean => QUERY_ROUTES.some((r) => r.path === pathname);

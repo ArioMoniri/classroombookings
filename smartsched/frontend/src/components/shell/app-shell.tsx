@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useAppearancePreferences } from "@/components/ui/appearance-preferences";
 import { KeyboardClearance } from "@/components/ui/keyboard-clearance";
@@ -17,11 +17,13 @@ import { MobileDrawer } from "./mobile-drawer";
 import { Sidebar } from "./sidebar";
 import { TabBar } from "./tab-bar";
 import { MobileTopBar, TopBar } from "./top-bar";
-import { planningRequirement } from "./nav-config";
+import { planningRequirement, queryDependentRoute } from "./nav-config";
 import { useGlobalShortcuts } from "./use-global-shortcuts";
 import { useWorkspaceStore, useWorkspaceUser } from "./workspace";
 import { useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { HelperRoot } from "@/components/helper/helper-root";
+import { PageFileTarget } from "@/components/helper/page-file-target";
+import { clearHelperFileSession } from "@/components/helper/file-session";
 import { PeriodGridGate } from "./period-grid-gate";
 import { WelcomeSettle } from "./welcome-settle";
 // F-CH-1: palette, shortcuts, welcome guide and privacy gate in their own chunks (lazy-shell.tsx)
@@ -107,7 +109,10 @@ function UserSync() {
       if (leaving) return;
       leaving = true;
       const next = `${window.location.pathname}${window.location.search}`;
-      void fetch("/api/auth/logout", { method: "POST" })
+      // KVKK (HB-23 review, condition 10): no file hand-over (token + name) survives into the next session
+      void clearHelperFileSession()
+        .catch(() => undefined)
+        .then(() => fetch("/api/auth/logout", { method: "POST" }))
         .catch(() => undefined)
         .finally(() => {
           // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full load drops every cached query of the dead session
@@ -137,12 +142,28 @@ function UserSync() {
  * is known after hydration (no #418 mismatch, no flash of planner chrome).
  */
 function RouteGuard({ children }: { children: ReactNode }) {
-  const { t } = useI18n();
   const pathname = usePathname();
+  // only a query-dependent route (/import?kind=room-master) reads the search params, inside its own Suspense, so every
+  // other page keeps its server render
+  if (queryDependentRoute(pathname))
+    return (
+      <Suspense fallback={null}>
+        <QueryRouteGuard pathname={pathname}>{children}</QueryRouteGuard>
+      </Suspense>
+    );
+  return <PathGuard pathname={pathname} need={planningRequirement(pathname)}>{children}</PathGuard>;
+}
+
+function QueryRouteGuard({ pathname, children }: { pathname: string; children: ReactNode }) {
+  const search = useSearchParams();
+  return <PathGuard pathname={pathname} need={planningRequirement(pathname, search)}>{children}</PathGuard>;
+}
+
+function PathGuard({ pathname, need, children }: { pathname: string; need: string | string[] | undefined; children: ReactNode }) {
+  const { t } = useI18n();
   const router = useRouter();
   const me = useMeFull();
   const hydrated = useHydrated();
-  const need = planningRequirement(pathname);
   const known = hydrated && !me.isLoading;
   const denied = !!need && known && !me.isError && !hasPermission(me.data?.permissions, need);
   const home = denied && pathname === "/dashboard";
@@ -204,6 +225,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <LazyCommandPalette />
       {/* HX-03: the helper sheet ("Yardımcı"), ⌘J and "Göster" */}
       <HelperRoot />
+      {/* HB-23c: an OS file dragged onto any signed-in desktop page → the helper's file router (quiet edge outline) */}
+      <PageFileTarget />
       <LazyShortcutsSheet />
       <Shortcuts />
       <UserSync />

@@ -20,6 +20,7 @@ from app.schemas.catalog import (
     parse_week_kind,
 )
 from app.schemas.messages import Refusal, problem
+from app.services.week_snapshots import matches_import
 
 router = APIRouter(prefix="/terms", tags=["terms"])
 #: CRBS ``Sessions`` controller: creating, editing and deleting sessions needs ``setup.sessions``; the
@@ -233,7 +234,8 @@ async def patch_week(term_id: int, index: int, body: WeekPatch, db: DB, _: Plann
     for k, v in changed.items():
         setattr(row, k, v)
     if changed:
-        row.edited = True
+        # E2EA2-F06: back to the file's values -> no longer edited (the board import updates it again)
+        row.edited = (await matches_import(db, row)) is not True
     await db.commit()
     await db.refresh(row)
     return row

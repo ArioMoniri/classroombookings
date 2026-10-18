@@ -95,17 +95,25 @@ function el(tag, cls, parent, style = {}) {
   return e;
 }
 
-/** Inner content of a screen: the captured frame through the camera, the cursor, ripples, taps. */
-function screenContent(L, box, parent) {
-  const s = box.w / L.cam.w; // output px per CSS px of the take
-  // the cached element itself, already decoded (draw() awaits it): a new <img> with the same src decodes again on its
-  // own schedule, and a screenshot taken before that showed a blank screen for a frame
-  const e = image(L.src);
+function placeFrame(src, L, s, parent) {
+  const e = image(src);
   const im = e.img.isConnected ? e.img.cloneNode() : e.img;
   im.className = "";
   im.removeAttribute("style");
   Object.assign(im.style, { width: px(L.srcW * s), height: px(L.srcH * s), transform: `translate(${px(-L.cam.x * s)}, ${px(-L.cam.y * s)})` });
   parent.appendChild(im);
+  return im;
+}
+
+/** Inner content of a screen: the captured frame through the camera, the cursor, ripples, taps. */
+function screenContent(L, box, parent) {
+  const s = box.w / L.cam.w; // output px per CSS px of the take
+  // across an off-camera cut the last frame before it lies under the new one, which fades in (render.mjs joins)
+  if (L.under) placeFrame(L.under.src, L, s, parent);
+  // the cached element itself, already decoded (draw() awaits it): a new <img> with the same src decodes again on its
+  // own schedule, and a screenshot taken before that showed a blank screen for a frame
+  const im = placeFrame(L.src, L, s, parent);
+  if (L.under) im.style.opacity = String(L.under.a);
   const to = (p) => ({ x: (p.x - L.cam.x) * s, y: (p.y - L.cam.y) * s });
   for (const r of L.ripples ?? []) {
     const p = to(r); const u = r.age; const d = (24 + 70 * u) * Math.max(1, s * 0.9);
@@ -166,6 +174,7 @@ window.draw = async (S) => {
   const waits = [];
   for (const L of S.layers) {
     if (L.src) waits.push(image(L.src).ready);
+    if (L.under) waits.push(image(L.under.src).ready);
     drawLayer(L, root);
   }
   for (const A of Object.values(anims)) if (!A.holder.dataset.used) A.holder.style.display = "none";

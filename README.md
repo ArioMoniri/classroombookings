@@ -31,6 +31,8 @@
 <a href="docs/launch/media/smartsched-launch-vertical.mp4">vertical, for phones</a> ·
 <a href="docs/launch/media/smartsched-loop.webp">booking on a phone (loop)</a></sub>
 
+https://github.com/user-attachments/assets/ef9a1d4a-ab84-43d8-abc6-15e5bd7fd8b4
+
 SmartSched reads the Excel workbooks a planning office already keeps, places every class it can with a
 CP-SAT solver, explains the ones it cannot place, and runs the
 [classroombookings](https://www.classroombookings.com/) booking grid on top of the result. It is a
@@ -201,6 +203,8 @@ flowchart LR
 Solver runs, imports, calendar push, webhooks and the approvals sweep run as jobs inside the backend. The design,
 the domain model and the solver contract are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the pipeline from
 import to publish is in [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
+Detailed diagrams (C4 context and containers, backend components, key flows, data model, deployment, states) are in
+[docs/architecture/](docs/architecture/README.md).
 
 ## Screenshots
 
@@ -210,76 +214,33 @@ import to publish is in [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md).
 **Staff who book rooms**
 
 <table>
-<tr>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/bookings-day-dark.webp"><img alt="Booking grid for A Blok on the next teaching day: rooms as rows, periods as columns, timetable classes holding their slots and free cells marked Free" src="docs/images/screens/bookings-day-light.webp" width="320"></picture><br><sub>Booking grid by day</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/bookings-room-dark.webp"><img alt="Booking grid for room A 101 across the week, with its timetable classes and free periods" src="docs/images/screens/bookings-room-light.webp" width="320"></picture><br><sub>Booking grid by room</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/reserve-sheet-dark.webp"><img alt="The booking sheet open on a free period: room, date, period, an optional note and the Reserve button" src="docs/images/screens/reserve-sheet-light.webp" width="320"></picture><br><sub>Reservation panel</sub></td>
-</tr>
-<tr>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/free-slots-dark.webp"><img alt="Free slots view: the free periods of the day grouped by room, each a button that books it" src="docs/images/screens/free-slots-light.webp" width="320"></picture><br><sub>Free slots list</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/room-details-dark.webp"><img alt="Room details for A 101: seats, building and features, its day, the next free slot and other rooms free at the same time" src="docs/images/screens/room-details-light.webp" width="320"></picture><br><sub>Room details</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/find-room-dark.webp"><img alt="Find a room: date, time, head count and the computer lab feature, with ranked free rooms and their reasons" src="docs/images/screens/find-room-light.webp" width="320"></picture><br><sub>Find a room</sub></td>
-</tr>
-<tr>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-sync-dark.webp"><img alt="Sync to calendar, switched on by the administrator: private feed links for my bookings, a room and a department with copy, Google, Outlook and Apple buttons; the link addresses are blurred because they carry a private token" src="docs/images/screens/calendar-sync-light.webp" width="320"></picture><br><sub>Calendar sync</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/my-bookings-dark.webp"><img alt="My bookings: upcoming bookings with totals, CSV export and the calendar feed" src="docs/images/screens/my-bookings-light.webp" width="320"></picture><br><sub>My bookings</sub></td>
-</tr>
+<tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/bookings-day-dark.webp"><img alt="Booking grid for A Blok on the next teaching day: rooms as rows, periods as columns, timetable classes holding their slots and free cells marked Free" src="docs/images/screens/bookings-day-light.webp" width="320"></picture><br><sub>Booking grid by day</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/bookings-room-dark.webp"><img alt="Booking grid for room A 101 across the week, with its timetable classes and free periods" src="docs/images/screens/bookings-room-light.webp" width="320"></picture><br><sub>Booking grid by room</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/reserve-sheet-dark.webp"><img alt="The booking sheet open on a free period: room, date, period, an optional note and the Reserve button" src="docs/images/screens/reserve-sheet-light.webp" width="320"></picture><br><sub>Reservation panel</sub></td></tr>
+<tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/free-slots-dark.webp"><img alt="Free slots view: the free periods of the day grouped by room, each a button that books it" src="docs/images/screens/free-slots-light.webp" width="320"></picture><br><sub>Free slots list</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/room-details-dark.webp"><img alt="Room details for A 101: seats, building and features, its day, the next free slot and other rooms free at the same time" src="docs/images/screens/room-details-light.webp" width="320"></picture><br><sub>Room details</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/find-room-dark.webp"><img alt="Find a room: date, time, head count and the computer lab feature, with ranked free rooms and their reasons" src="docs/images/screens/find-room-light.webp" width="320"></picture><br><sub>Find a room</sub></td></tr>
+<tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-sync-dark.webp"><img alt="Sync to calendar, switched on by the administrator: private feed links for my bookings, a room and a department with copy, Google, Outlook and Apple buttons; the link addresses are blurred because they carry a private token" src="docs/images/screens/calendar-sync-light.webp" width="320"></picture><br><sub>Calendar sync</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/my-bookings-dark.webp"><img alt="My bookings: upcoming bookings with totals, CSV export and the calendar feed" src="docs/images/screens/my-bookings-light.webp" width="320"></picture><br><sub>My bookings</sub></td></tr>
 </table>
 
 **Academic staff**
 
 <table>
-<tr>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-week-dark.webp"><img alt="Calendar Week view of the busiest room in week 3 of the published Güz timetable" src="docs/images/screens/calendar-week-light.webp" width="320"></picture><br><sub>A room's week</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-inspector-dark.webp"><img alt="The class inspector next to the week: when and where, seats, instructor as initials, and why the class is in this room" src="docs/images/screens/calendar-inspector-light.webp" width="320"></picture><br><sub>Class inspector</sub></td>
-</tr>
+<tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-week-dark.webp"><img alt="Calendar Week view of the busiest room in week 3 of the published Güz timetable" src="docs/images/screens/calendar-week-light.webp" width="320"></picture><br><sub>A room's week</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-inspector-dark.webp"><img alt="The class inspector next to the week: when and where, seats, instructor as initials, and why the class is in this room" src="docs/images/screens/calendar-inspector-light.webp" width="320"></picture><br><sub>Class inspector</sub></td></tr>
 </table>
 
 **Coordinators and administrators**
 
 <table>
-<tr>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/dashboard-dark.webp"><img alt="Dashboard for Güz 2026-27: room use this week, classes that still need a room, requests waiting for review, use through the day and by building" src="docs/images/screens/dashboard-light.webp" width="320"></picture><br><sub>Dashboard</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/onboarding-review-dark.webp"><img alt="Onboarding review of the Final 2026 exam planning list: the proposed term and the items that need a decision" src="docs/images/screens/onboarding-review-light.webp" width="320"></picture><br><sub>Onboarding review</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/import-dark.webp"><img alt="Import page: the kinds of workbook it reads, a drop zone and the import history" src="docs/images/screens/import-light.webp" width="320"></picture><br><sub>Imports</sub></td>
-</tr>
-<tr>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-scope-dark.webp"><img alt="Generator Studio scope step: term, classes or exams, a week, a month or the whole term" src="docs/images/screens/studio-scope-light.webp" width="320"></picture><br><sub>Studio: scope</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-rules-dark.webp"><img alt="Generator Studio rules step: rules as sentences grouped into Must and Try to" src="docs/images/screens/studio-rules-light.webp" width="320"></picture><br><sub>Studio: rules</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-precheck-dark.webp"><img alt="Generator Studio pre-check: problems in the data grouped by kind, each with fixes" src="docs/images/screens/studio-precheck-light.webp" width="320"></picture><br><sub>Studio: pre-check</sub></td>
-</tr>
-<tr>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/run-report-dark.webp"><img alt="Run report for Güz week 3: classes placed with every hard rule kept, the soft score and what could not be placed" src="docs/images/screens/run-report-light.webp" width="320"></picture><br><sub>Run report</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/run-diagnoses-dark.webp"><img alt="Classes without a room, each with the reason, the rooms that would fit and what holds them, and fixes" src="docs/images/screens/run-diagnoses-light.webp" width="320"></picture><br><sub>Unplaced classes</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/run-data-issues-dark.webp"><img alt="Problems found in the workbooks themselves, grouped, with an Excel export" src="docs/images/screens/run-data-issues-light.webp" width="320"></picture><br><sub>Problems in the data</sub></td>
-</tr>
-<tr>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-board-dark.webp"><img alt="Calendar Board view for week 3: rooms as columns, periods as rows, classes as blocks" src="docs/images/screens/calendar-board-light.webp" width="320"></picture><br><sub>Calendar: board</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-term-dark.webp"><img alt="Calendar Term view of the Bahar 2026 board: room use for each day of the term" src="docs/images/screens/calendar-term-light.webp" width="320"></picture><br><sub>Calendar: term</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/classes-dark.webp"><img alt="All classes of the term grouped by faculty with status, programme, instructor initials, size and room" src="docs/images/screens/classes-light.webp" width="320"></picture><br><sub>All classes</sub></td>
-</tr>
-<tr>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/classes-inspector-dark.webp"><img alt="All classes with one class open in the inspector" src="docs/images/screens/classes-inspector-light.webp" width="320"></picture><br><sub>All classes: inspector</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/rooms-dark.webp"><img alt="Rooms as cards with seats, exam seats, features and use per weekday" src="docs/images/screens/rooms-light.webp" width="320"></picture><br><sub>Rooms</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/audit-dark.webp"><img alt="Audit log filtered to bookings with one change expanded to its before and after values" src="docs/images/screens/audit-light.webp" width="320"></picture><br><sub>Audit log</sub></td>
-</tr>
-<tr>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/room-features-dark.webp"><img alt="Setup, Rooms, Features: typed features adopted from the room master's tags, with the values per room" src="docs/images/screens/room-features-light.webp" width="320"></picture><br><sub>Room features</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/admin-users-dark.webp"><img alt="Setup, Users: accounts with role and last sign-in" src="docs/images/screens/admin-users-light.webp" width="320"></picture><br><sub>Users</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/admin-roles-dark.webp"><img alt="Setup, Roles: roles with booking limits and permissions" src="docs/images/screens/admin-roles-light.webp" width="320"></picture><br><sub>Roles</sub></td>
-</tr>
-<tr>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/settings-ai-dark.webp"><img alt="Settings, AI: the AI intake and vision switches, off by default, with the KVKK notice" src="docs/images/screens/settings-ai-light.webp" width="320"></picture><br><sub>AI policy</sub></td>
-</tr>
+<tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/dashboard-dark.webp"><img alt="Dashboard for Güz 2026-27: room use this week, classes that still need a room, requests waiting for review, use through the day and by building" src="docs/images/screens/dashboard-light.webp" width="320"></picture><br><sub>Dashboard</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/onboarding-review-dark.webp"><img alt="Onboarding review of the Final 2026 exam planning list: the proposed term and the items that need a decision" src="docs/images/screens/onboarding-review-light.webp" width="320"></picture><br><sub>Onboarding review</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/import-dark.webp"><img alt="Import page: the kinds of workbook it reads, a drop zone and the import history" src="docs/images/screens/import-light.webp" width="320"></picture><br><sub>Imports</sub></td></tr>
+<tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-scope-dark.webp"><img alt="Generator Studio scope step: term, classes or exams, a week, a month or the whole term" src="docs/images/screens/studio-scope-light.webp" width="320"></picture><br><sub>Studio: scope</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-rules-dark.webp"><img alt="Generator Studio rules step: rules as sentences grouped into Must and Try to" src="docs/images/screens/studio-rules-light.webp" width="320"></picture><br><sub>Studio: rules</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/studio-precheck-dark.webp"><img alt="Generator Studio pre-check: problems in the data grouped by kind, each with fixes" src="docs/images/screens/studio-precheck-light.webp" width="320"></picture><br><sub>Studio: pre-check</sub></td></tr>
+<tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/run-report-dark.webp"><img alt="Run report for Güz week 3: classes placed with every hard rule kept, the soft score and what could not be placed" src="docs/images/screens/run-report-light.webp" width="320"></picture><br><sub>Run report</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/run-diagnoses-dark.webp"><img alt="Classes without a room, each with the reason, the rooms that would fit and what holds them, and fixes" src="docs/images/screens/run-diagnoses-light.webp" width="320"></picture><br><sub>Unplaced classes</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/run-data-issues-dark.webp"><img alt="Problems found in the workbooks themselves, grouped, with an Excel export" src="docs/images/screens/run-data-issues-light.webp" width="320"></picture><br><sub>Problems in the data</sub></td></tr>
+<tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-board-dark.webp"><img alt="Calendar Board view for week 3: rooms as columns, periods as rows, classes as blocks" src="docs/images/screens/calendar-board-light.webp" width="320"></picture><br><sub>Calendar: board</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/calendar-term-dark.webp"><img alt="Calendar Term view of the Bahar 2026 board: room use for each day of the term" src="docs/images/screens/calendar-term-light.webp" width="320"></picture><br><sub>Calendar: term</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/classes-dark.webp"><img alt="All classes of the term grouped by faculty with status, programme, instructor initials, size and room" src="docs/images/screens/classes-light.webp" width="320"></picture><br><sub>All classes</sub></td></tr>
+<tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/classes-inspector-dark.webp"><img alt="All classes with one class open in the inspector" src="docs/images/screens/classes-inspector-light.webp" width="320"></picture><br><sub>All classes: inspector</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/rooms-dark.webp"><img alt="Rooms as cards with seats, exam seats, features and use per weekday" src="docs/images/screens/rooms-light.webp" width="320"></picture><br><sub>Rooms</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/audit-dark.webp"><img alt="Audit log filtered to bookings with one change expanded to its before and after values" src="docs/images/screens/audit-light.webp" width="320"></picture><br><sub>Audit log</sub></td></tr>
+<tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/room-features-dark.webp"><img alt="Setup, Rooms, Features: typed features adopted from the room master's tags, with the values per room" src="docs/images/screens/room-features-light.webp" width="320"></picture><br><sub>Room features</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/admin-users-dark.webp"><img alt="Setup, Users: accounts with role and last sign-in" src="docs/images/screens/admin-users-light.webp" width="320"></picture><br><sub>Users</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/admin-roles-dark.webp"><img alt="Setup, Roles: roles with booking limits and permissions" src="docs/images/screens/admin-roles-light.webp" width="320"></picture><br><sub>Roles</sub></td></tr>
+<tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/settings-ai-dark.webp"><img alt="Settings, AI: the AI intake and vision switches, off by default, with the KVKK notice" src="docs/images/screens/settings-ai-light.webp" width="320"></picture><br><sub>AI policy</sub></td></tr>
 </table>
 
 **On a phone**
 
 <table>
-<tr>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/mobile-bookings-dark.webp"><img alt="Bookings on a phone: the free slots list" src="docs/images/screens/mobile-bookings-light.webp" width="260"></picture><br><sub>Bookings</sub></td>
-<td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/mobile-timetable-dark.webp"><img alt="Calendar Day view on a phone" src="docs/images/screens/mobile-timetable-light.webp" width="260"></picture><br><sub>Timetable</sub></td>
-</tr>
+<tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/mobile-bookings-dark.webp"><img alt="Bookings on a phone: the free slots list" src="docs/images/screens/mobile-bookings-light.webp" width="260"></picture><br><sub>Bookings</sub></td><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/screens/mobile-timetable-dark.webp"><img alt="Calendar Day view on a phone" src="docs/images/screens/mobile-timetable-light.webp" width="260"></picture><br><sub>Timetable</sub></td></tr>
 </table>
 
 </details>
@@ -443,11 +404,11 @@ Arayüz Türkçe ve İngilizcedir.
 ## Licence
 
 A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rodway, licensed under the
-[GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html) ([LICENSE.txt](LICENSE.txt)).
+[GNU Affero General Public License v3.0 or later](https://www.gnu.org/licenses/agpl-3.0.html) ([LICENSE.txt](LICENSE.txt)).
 To cite SmartSched, use [CITATION.cff](CITATION.cff) or GitHub's "Cite this repository" button.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `e428c08` (committed 2026-10-18 16:35 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `c846753` (committed 2026-10-18 18:12 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

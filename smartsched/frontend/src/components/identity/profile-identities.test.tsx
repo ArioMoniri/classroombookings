@@ -135,6 +135,27 @@ describe("IdentityLinkRows", () => {
     await waitFor(() => expect(document.activeElement).toBe(link));
   });
 
+  it("E2EB-F16 (FIX-K): the 'bağlandı' notice goes with the unlink, and the ?sso / ?provider keys leave the address", async () => {
+    window.history.replaceState(null, "", "/profile?tab=security&sso=linked&provider=yetkim");
+    routes["POST /api/v1/auth/sso/yetkim/unlink"] = () => {
+      identities = { has_password: true, providers: [KC, { ...YETKIM, linked: false, email_at_login: null, linked_at: null }] };
+      return res(204);
+    };
+    wrap();
+    expect(await screen.findByTestId("idp-notice-yetkim")).toBeTruthy();
+    await waitFor(() => expect(window.location.search).toBe("?tab=security"));
+    fireEvent.click(screen.getByTestId("idp-unlink-yetkim"));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Bağlantıyı kaldır" }));
+    const pw = await screen.findByTestId("reauth-password").catch(() => null);
+    if (pw) {
+      fireEvent.change(pw, { target: { value: "parola" } });
+      fireEvent.click(screen.getByTestId("reauth-submit"));
+    }
+    await screen.findByTestId("idp-link-yetkim");
+    expect(screen.queryByTestId("idp-notice-yetkim")).toBeNull();
+    window.history.replaceState(null, "", "/");
+  });
+
   it("the return from the provider is shown on its row (linked or the reason)", async () => {
     expect(readLinkNotice("?sso=linked&provider=keycloak")).toEqual({ provider: "keycloak", kind: "linked" });
     expect(readLinkNotice("?error=already_linked&provider=yetkim")).toEqual({ provider: "yetkim", kind: "already_linked" });
