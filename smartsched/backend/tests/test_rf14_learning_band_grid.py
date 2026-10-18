@@ -35,7 +35,7 @@ def _faculty_grid() -> None:
     senate's circular); every other period keeps its default time."""
     times: list[tuple[str, str]] = list(DEFAULT)
     times[0] = ("08.00", "08:40 ")
-    times[11] = ("17.10", "17.50")
+    times[11] = ("17.30", "17.50")
     n.set_period_grid(period_grid.parse([{"start": s, "end": e} for s, e in times]))
 
 
