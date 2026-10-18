@@ -2591,7 +2591,8 @@
       "goal": "You are the **launch video producer** of SmartSched (ledger `media-launch-2026-10-17`). Read /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/MEDIA.md and COMMON.md (same folder) and follow them. You own: `scripts/record/**`, `docs/lottie/**`, `docs/i…",
       "ledger": "Launch video producer (Recordly + Lottie)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 12:30"
     },
     {
       "id": "ad073418ff56391f3",
@@ -4069,6 +4070,14 @@
       "ledger": "CAL-13: exam duties calendar scope",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a80dbab6d0ccc994d",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 12:23",
+      "left_off": "is the pod up yet"
     }
   ]
 }

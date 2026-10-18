@@ -7,7 +7,8 @@
 > Lottie intro/outro), so motion is 60 fps whatever the host load was during the take. The per-feature README clips
 > keep their names and are rendered the same way (`launch.sh clips`). See [§8](#8-launch-video-and-60-fps-clips-2026-10-17),
 > [docs/launch/README.md](../launch/README.md) and the research behind it, [docs/launch/RESEARCH.md](../launch/RESEARCH.md).
-> The ffmpeg-expression compositor below (§5) still works and stays the route for quick GIF takes.
+> The ffmpeg-expression compositor below (§5) still works and stays the route for quick GIF takes. Current README media:
+> rendered 2026-10-18 from snapshot `a39559b` (sizes in docs/launch/README.md §1 and §5).
 
 How to make the SmartSched "how to use" recordings: by hand with **Recordly** on a Mac (best
 quality), or automatically with the pipeline in `scripts/record/`, which drives the real app with

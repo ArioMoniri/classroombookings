@@ -20,7 +20,7 @@ superset of classroombookings: every behaviour of the original is kept and check
 
 <!-- AUTO:recordings -->
 
-Recorded on the real backend with the real 2026 workbooks. Instructor names are reduced to initials. Each clip opens its full take (MP4).
+Recorded on the real backend with the real 2026 workbooks, rendered offline at 60 fps (docs/launch/README.md). Instructor names are reduced to initials. Each clip opens its full take (MP4).
 
 <table>
   <tr>
@@ -58,12 +58,15 @@ Recorded on the real backend with the real 2026 workbooks. Instructor names are 
       <a href="docs/images/recordings/onboarding-intake.mp4"><img alt="Screen recording: Start from an empty instance. Drop the exam workbook with AI off. It is read, a term is proposed, reviewed and saved." src="docs/images/recordings/onboarding.gif" width="100%"></a>
       <br><sub><b>Start from an empty instance.</b> Drop the exam workbook with AI off. It is read, a term is proposed, reviewed and saved.</sub>
     </td>
-    <td width="50%"></td>
+    <td width="50%" valign="top">
+      <a href="docs/images/recordings/launch-reserve-phone.mp4"><img alt="Screen recording: Quick reserve on a phone. A day, a period, how many people, a free room: one tap books it, and the receipt can undo it." src="docs/images/recordings/reserve-phone.gif" width="100%"></a>
+      <br><sub><b>Quick reserve on a phone.</b> A day, a period, how many people, a free room: one tap books it, and the receipt can undo it.</sub>
+    </td>
   </tr>
 </table>
 
 <details>
-<summary><strong>Every recording</strong> (9 full takes, MP4)</summary>
+<summary><strong>Every recording</strong> (11 full takes, MP4)</summary>
 
 <table>
   <tr>
@@ -106,6 +109,14 @@ Recorded on the real backend with the real 2026 workbooks. Instructor names are 
     <td width="25%" valign="top">
       <a href="docs/images/recordings/run-report-fix.mp4"><img alt="Still from the recording: Run report: apply a suggested fix" src="docs/images/recordings/run-report-fix-poster.png" width="100%"></a>
       <br><sub><a href="docs/images/recordings/run-report-fix.mp4">Run report: apply a suggested fix</a></sub>
+    </td>
+    <td width="25%" valign="top">
+      <a href="docs/images/recordings/launch-reserve-phone.mp4"><img alt="Still from the recording: Quick reserve on a phone (390x844, touch)" src="docs/images/recordings/launch-reserve-phone-poster.png" width="100%"></a>
+      <br><sub><a href="docs/images/recordings/launch-reserve-phone.mp4">Quick reserve on a phone (390x844, touch)</a></sub>
+    </td>
+    <td width="25%" valign="top">
+      <a href="docs/images/recordings/approval-flow.mp4"><img alt="Still from the recording: A request that needs approval, approved" src="docs/images/recordings/approval-flow-poster.png" width="100%"></a>
+      <br><sub><a href="docs/images/recordings/approval-flow.mp4">A request that needs approval, approved</a></sub>
     </td>
   </tr>
 </table>
@@ -454,6 +465,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `6267696` (committed 2026-10-18 12:08 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `187b995` (committed 2026-10-18 12:23 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

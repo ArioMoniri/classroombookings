@@ -8,6 +8,26 @@ and not Remotion, Recordly or a screen recorder: [RESEARCH.md](RESEARCH.md).
 
 <!-- launch:deliverables (rewritten by hand from dist/REPORT.txt after each render) -->
 
+Render of 2026-10-18 from snapshot `a39559b` (UI in English, captions English, light theme), 80.4 s:
+
+| File | Size | Measured |
+|---|---|---|
+| `smartsched-launch.mp4` | 17.12 MB | 1920x1080, 60 fps, H.264 High crf 18, ~1.7 Mbit/s |
+| `smartsched-launch-av1.webm` | 8.74 MB | 1920x1080, 60 fps, AV1 10-bit (SVT-AV1 preset 6, crf 34) |
+| `smartsched-launch-vertical.mp4` | 14.06 MB | 1080x1920, 60 fps, H.264 High crf 18, ~1.4 Mbit/s |
+| `smartsched-loop.webp` | 0.50 MB | 1280x720, 30 fps, 9.9 s (the phone booking scene) |
+| `smartsched-launch.en.vtt`, 3 posters | 1.1 MB | |
+| not committed: `smartsched-launch-attach.mp4` | 8.00 MB | 1920x1080, 30 fps, crf 24 (fits GitHub's 10 MB free-plan attachment limit) |
+| not committed: `smartsched-loop.avif` | 0.18 MB | 1280x720, 30 fps |
+
+README clips (`docs/images/recordings`, names unchanged; MP4 1600x960 60 fps, GIF 25 fps; WebP 1280 px 30 fps in
+`media/clips/`): reserve-slot GIF 8.52 MB / WebP 2.04 MB · reserve-drag 6.59 / 1.47 · find-room 1.47 / 0.50 ·
+audit-undo 4.26 / 1.41 · calendar-move 7.56 (800 px) / 3.70 · precheck-fix 7.97 / 3.03 · **reserve-phone (new, 390x844
+touch)** 1.63 / 0.60 · approval-request – / 3.07 · approval-approve – / 1.36 (the approval clips are WebP only; their
+take `approval-flow.mp4` is in the README list). Takes: reserve-panel 5.17 MB, find-room 1.38, audit-undo 2.58,
+calendar-move 7.41, studio-rule-fix 6.57, approval-flow 2.67, launch-reserve-phone 0.51 (all 60 fps).
+`onboarding` (needs an empty instance) keeps its 2026-10-16 GIF and MP4.
+
 | File (`docs/launch/media/`) | What | Format |
 |---|---|---|
 | `smartsched-launch.mp4` | the hero cut, landscape | 1920x1080, 60 fps, H.264 High, yuv420p, `+faststart`, ≤ 25 MB |
@@ -30,9 +50,9 @@ The per-feature README clips keep their names (`docs/images/recordings/clips.jso
 |---|---|---|
 | 0 | Intro: the SmartSched lockup, the `hero-solver` Lottie (vector, drawn at 1056 px), the tagline | Lottie |
 | 1 | "Start from the planning office's own workbooks" (`file-to-rules` Lottie) → the import page: the workbook kinds, then an edited room master whose two changes are listed before anything is saved | `launch-import` |
-| 2 | Solve: a real full-term solver run of Güz 2026-27; the verdict says every hard rule was kept | `launch-run` steps 0-1 |
+| 2 | Solve: a real solver run on Güz 2026-27 (the journey takes the newest finished run with every hard rule held, preferring a full-term run; on `a39559b` the 240 s full-term run ended with hard score 99, so the take shows run #7, week 3: 524/530 placed, hard rules held, 270 accepted exceptions) | `launch-run` steps 0-1 |
 | 3 | "Nothing is dropped silently" (`precheck-fix` Lottie) → the run report: each unplaced class, why, and what would fix it | `launch-run` steps 2-3 |
-| 4 | Publish, with the dialog that names what is left out | `launch-run` steps 4-5 |
+| 4 | Publish, with the dialog that names the 6 classes left out and, for a week run, the weeks it removes from the published timetable | `launch-run` steps 4-5 |
 | 5 | A member of staff books a room on a phone with quick reserve (`/reserve`), touch taps shown as finger dots | `launch-reserve` (390x844, `isMobile`, `hasTouch`) |
 | 6 | The approver opens the request and approves it | `approval-flow` steps 2-4 |
 | 7 | The admin views of wave 3: AI console (providers/models, usage, limits, guardrails) and the operations panel | `launch-admin` |
@@ -110,4 +130,12 @@ curl -sS -H "Accept: application/vnd.github.html+json" \
 ## 5. Media weight
 
 <!-- launch:weight (filled from dist/REPORT.txt) -->
-See §1 and `docs/recording/RECORDLY.md` §8 for the measured sizes of this render.
+
+| | Before (2026-10-16) | After (2026-10-18) |
+|---|---|---|
+| README clips | 7 GIFs, 1040-1120 px, 20 fps nominal (10-17 fps effective after dropping still frames), 30.6 MB | 8 GIFs, 504-1120 px, 25 fps, 44.0 MB; the 7 new ones as WebP 1280 px 30 fps: 12.8 MB (onboarding stays a 6.0 MB GIF) |
+| Full takes | MP4 1280x838, 20 fps, 0.26-0.36 Mbit/s | MP4 1600x960 (phone 720x1280), 60 fps, 0.4-2.0 Mbit/s |
+| Launch video | none | 1920x1080 60 fps 17.1 MB (+ AV1 8.7 MB, vertical 14.1 MB) |
+| README page load (images only; MP4s are links) | ~34 MB | ~48 MB with GIFs; **~23 MB** once the generator shows WebP (ask in the hand-off) |
+| `check_readme.py` "referenced media" (incl. linked MP4s) | 43.3 MB | 81.4 MB |
+

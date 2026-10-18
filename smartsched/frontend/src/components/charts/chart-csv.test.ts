@@ -39,6 +39,15 @@ describe("toCsv", () => {
   });
 });
 
+describe("percent header (e2e 2026-10-18: /dashboard CSV read 'Dolu derslik (%) (%)')", () => {
+  it("adds ' (%)' only when the label does not already say it", () => {
+    const cols: ChartColumn<{ p: string; u: number }>[] = [{ key: "p", label: "Ders saati" }, { key: "u", label: "Dolu derslik (%)", kind: "percent" }];
+    expect(toCsv([{ p: "08:30", u: 0.5 }], cols, "tr").replace(/^\uFEFF/, "").split("\r\n")[0]).toBe("Ders saati;Dolu derslik (%)");
+    const plain: ChartColumn<{ u: number }>[] = [{ key: "u", label: "Doluluk", kind: "percent" }];
+    expect(toCsv([{ u: 0.5 }], plain, "tr").replace(/^\uFEFF/, "").split("\r\n")[0]).toBe("Doluluk (%)");
+  });
+});
+
 describe("tableModel (the table twin) matches the CSV rows", () => {
   it("has one body row per CSV data row, in the same order, formatted for reading", () => {
     const f = makeChartFormat("tr");
