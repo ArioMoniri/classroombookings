@@ -4371,7 +4371,8 @@
       "ledger": "FIX-I: triage round-4 e2e fails",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-18 16:27"
+      "finished_at": "2026-10-18 16:28",
+      "left_off": "FIX-K replied after I sent my report. It kept my E2EB-F09 fix, my E2EA2-F04 fix and my Esc fix for E2EB-F11 unchanged. It also added the other half of F11: when a class chip is tapped, focus now moves to the inspector heading, but only if it had fallen to `<main>` or `<body>`. That change is in `timetable/calendar-view.tsx`, `class-inspector.tsx` and a new `timetable/inspector-focus.ts`. It doesn'…"
     },
     {
       "id": "a53fe52604aa0c19c",
