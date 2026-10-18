@@ -41,6 +41,14 @@ describe("DailyChart on the ChartCard shell (CH-05)", { timeout: 20_000 }, () =>
     expect(screen.getByTestId("chart-legend-ai-daily-tokens")).toHaveTextContent("SohbetKurallarİçe aktarmaAçıklamaGörselDiğer");
   });
 
+  it("F-CH-4: five features are five named columns + Toplam (no Diğer); the CSV header says so", () => {
+    render(<DailyChart rows={[row("2026-10-12", { chat: 5, rules: 4, explain: 3, booking_nl: 2, voice_stt: 1 }), row("2026-10-13", { chat: 5 }), row("2026-10-14", { rules: 1 })]} loading={false} />);
+    const fig = screen.getByRole("figure", { name: "Günlük token kullanımı" });
+    expect(screen.getByTestId("bar")).toHaveAttribute("data-series", "chat,rules,explain,booking_nl,voice_stt");
+    const heads = within(within(fig).getByRole("table")).getAllByRole("columnheader").map((h) => h.textContent);
+    expect(heads).toEqual(["Gün", "Sohbet", "Kurallar", "Açıklama", "booking_nl", "voice_stt", "Toplam"]);
+  });
+
   it("a filtered-out series keeps the others' colours", () => {
     render(<DailyChart rows={[row("2026-10-12", { chat: 5, intake: 5 }), row("2026-10-13", { chat: 5 }), row("2026-10-14", { intake: 1 })]} loading={false} />);
     expect(screen.getByTestId("bar")).toHaveAttribute("data-series", "chat,intake");

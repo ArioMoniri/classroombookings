@@ -4207,7 +4207,9 @@
       "goal": "Ledger name `fix-b-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright here; vitest `--maxWork…",
       "ledger": "FIX-B: mobile, CLS, overflow, focus",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 13:34",
+      "left_off": "Waiting for the suite to finish."
     },
     {
       "id": "a86f9a684b6abf99e",
@@ -4255,6 +4257,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-18 13:33",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a6c8722843af04391",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 13:34",
       "left_off": "is the pod up yet"
     }
   ]

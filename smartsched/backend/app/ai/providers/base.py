@@ -92,6 +92,9 @@ class ModelInfo:
 class ProviderError(RuntimeError):
     """A provider failure, already reduced to a short text without upstream bodies or keys."""
 
+    #: the HTTP status the server answered with, when there was one (the probe treats a 5xx as "unknown", HB-F bug D)
+    status: int | None = None
+
 
 class ProviderUnsupported(ProviderError):
     """The request uses something this provider cannot express (a PDF document block, vision on a text model)."""

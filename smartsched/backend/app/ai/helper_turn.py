@@ -23,7 +23,8 @@
    * **taint**: once a result carried other people's free text, the next rounds get read tools only;
    * a ``confirm`` card ends the turn (only the person's button writes);
    * the first message starts with today's date and time in the institution's time zone (``bookings.now_local``,
-     weekday in Turkish and English; HB-17 bug 3: without it a local model invented the year of "perşembe");
+     weekday in Turkish and English; HB-17 bug 3: without it a local model invented the year of "perşembe"), then
+     the next 7 days with their dates (HB-F bug C: a local model computed "perşembe" -> date itself and got it wrong);
    * the person's helper notes (HB-09 ``memory.prompt_notes``; none while memory is off) go into the first message
      as one spotlighted ``user_notes`` block;
    * the page the person has open (HB-D ``context``, :mod:`app.ai.helper.page_context`: an index route they may
@@ -48,6 +49,7 @@ import logging
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -153,13 +155,23 @@ def _index_context(hits: list[Any]) -> str:
 
 
 async def _today_line(session: AsyncSession) -> str:
-    """``Today is 2026-02-16 (Pazartesi / Monday), 08:00.`` from the institution's clock (trusted server data)."""
+    """``Today is 2026-02-16 (Pazartesi / Monday), 08:00.`` from the institution's clock (trusted server data), then
+    the next 7 days with their dates (``Salı 2026-02-17 / Tuesday (yarın / tomorrow); …; Pazartesi 2026-02-23 /
+    Monday``), so the model reads "perşembe" off the list instead of computing it (HB-F bug C)."""
     from app.ai.helper.actions.common import WEEKDAYS_EN, WEEKDAYS_TR
     from app.services import bookings as bsvc
 
     now = await bsvc.now_local(session)
     wd = now.weekday()
-    return f"Today is {now:%Y-%m-%d} ({WEEKDAYS_TR[wd]} / {WEEKDAYS_EN[wd]}), {now:%H:%M}."
+    days = []
+    for n in range(1, 8):
+        d = now.date() + timedelta(days=n)
+        tag = " (yarın / tomorrow)" if n == 1 else ""
+        days.append(f"{WEEKDAYS_TR[d.weekday()]} {d:%Y-%m-%d} / {WEEKDAYS_EN[d.weekday()]}{tag}")
+    return (
+        f"Today is {now:%Y-%m-%d} ({WEEKDAYS_TR[wd]} / {WEEKDAYS_EN[wd]}), {now:%H:%M}.\n"
+        f"Next 7 days (use these dates for a weekday name): {'; '.join(days)}."
+    )
 
 
 def _spotlit(message: dict[str, Any]) -> dict[str, Any]:

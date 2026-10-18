@@ -21,7 +21,9 @@ Three layers, later ones win per field (a ``None`` never overwrites a fact):
    list; an ``openai_compatible`` server is sniffed with safe requests on the same host, through the same
    ``url_guard`` check as every call (:meth:`app.ai.providers.openai_compat.OpenAICompatAdapter.sniff`);
 2. **probe** (``source: probe``, ``POST /ai/admin/providers/{p}/test?probe=true``, metered as ``test``): a forced
-   single-tool call, a JSON-schema call and a 32×32 image, under 1000 tokens in total (:func:`probe`);
+   single-tool call (an ``auto`` retry when it is not honoured), a JSON-schema call and a 32×32 image, at most
+   :data:`PROBE_MAX_TOKENS` output tokens each (:func:`probe`); a call that proves nothing (cut off at ``max_tokens``
+   with no content, a lost connection, a timeout, a 5xx) leaves its capabilities ``None``, so sync's value stands;
 3. **admin** (``source: admin``, audited ``ai.provider.capabilities``): for servers that hide what they can do.
 
 :func:`route_issues` turns the per-feature needs into route errors (``model_lacks_capability``,
@@ -38,6 +40,8 @@ import struct
 import zlib
 from datetime import UTC, datetime
 from typing import Any
+
+import httpx
 
 BOOL_KEYS = ("tools", "tool_choice", "strict_tools", "json_schema", "vision", "pdf", "parallel_tools")
 CAP_KEYS = (*BOOL_KEYS, "context_window")
@@ -565,23 +569,63 @@ def _valid(data: Any) -> bool:
     )
 
 
+#: output tokens per probe call (HB-F bug A): a thinking model (qwen3, Qwen3.5, reasoning models on vLLM) reasons
+#: before it answers and stopped at ``length`` with no tool call under the old 64
+PROBE_MAX_TOKENS = 512
+
+
+def _cut_off(message: Any) -> bool:
+    """A ``max_tokens`` stop with no content (no text, no tool call): the model ran out of room while thinking, which
+    proves nothing about what it can do (HB-F bug A)."""
+    if getattr(message, "stop_reason", None) != "max_tokens":
+        return False
+    blocks = getattr(message, "content", None) or []
+    return not _text(message).strip() and not any(getattr(b, "type", "") == "tool_use" for b in blocks)
+
+
+def _unreached(exc: BaseException) -> bool:
+    """A failure that says nothing about the model (HB-F bug D): the connection was lost, the call timed out or the
+    server answered 5xx. A 4xx (a rejected named tool choice, an unsupported image) is a fact and stays ``False``."""
+    status = getattr(exc, "status", None)
+    if status is None:
+        status = getattr(exc, "status_code", None)  # anthropic.APIStatusError
+    if isinstance(status, int) and not isinstance(status, bool):
+        return status >= 500
+    try:
+        import anthropic
+    except ImportError:  # pragma: no cover - the SDK is a hard dependency
+        sdk_transport: tuple[type[BaseException], ...] = ()
+    else:
+        sdk_transport = (anthropic.APIConnectionError,)  # includes APITimeoutError
+    return isinstance(exc, (httpx.TransportError, TimeoutError, ConnectionError, *sdk_transport))
+
+
+def _failed(exc: BaseException) -> bool | None:
+    """The capability value a failed probe call leaves: ``None`` (unknown) when the server was not reached, else
+    ``False``."""
+    return None if _unreached(exc) else False
+
+
 #: the forced call's message does not ask for the tool: only a server that honours ``tool_choice`` calls it, so one
 #: that ignores the named choice (Ollama) is reported ``tool_choice: False`` (HB-17 bug 4)
 NEUTRAL_ASK = "Say hello in one word."
 
 
 async def probe(adapter: Any, model: str) -> tuple[dict[str, Any], ProbeUsage]:
-    """Three tiny calls (each ≤ 64 output tokens) on ``adapter``: a forced single-tool call with a neutral message
-    (``tools``, ``tool_choice``, ``strict_tools``; an ``auto`` retry that asks for the tool tells "tools without tool
-    choice" apart), a JSON-schema answer (``json_schema``) and a 32×32 red square (``vision``). A failing call is a
-    ``False``; nothing raises. When a call reached the server, the adapter's ``served_window`` (an Ollama model is
-    loaded now) gives the window actually served (``context_window``, ``context_verified``)."""
+    """Three small calls (each ≤ :data:`PROBE_MAX_TOKENS` = 512 output tokens, room for a thinking model to reason
+    first) on ``adapter``: a forced single-tool call with a neutral message (``tools``, ``tool_choice``,
+    ``strict_tools``; an ``auto`` retry that asks for the tool tells "tools without tool choice" apart), a JSON-schema
+    answer (``json_schema``) and a 32×32 red square (``vision``). Nothing raises. A call the server refused (4xx) or
+    answered wrongly is ``False``; a call that proves nothing is ``None`` (unknown, so sync's value stands): one cut
+    off at ``max_tokens`` with no content (HB-F bug A), a lost connection, a timeout or a 5xx (bug D). When a call
+    reached the server, the adapter's ``served_window`` (an Ollama model is loaded now) gives the window actually
+    served (``context_window``, ``context_verified``)."""
     usage = ProbeUsage()
     found: dict[str, Any] = {}
     # the adapter must send exactly what the probe asks (no capability-based degrade while probing)
     saved = getattr(adapter, "capabilities", None)
     adapter.capabilities = {"tool_choice": True, "json_schema": True, "pdf": False}
-    base = {"model": model, "max_tokens": 64, "system": "You are a capability probe. Follow the instruction exactly."}
+    base = {"model": model, "max_tokens": PROBE_MAX_TOKENS, "system": "You are a capability probe. Follow the instruction exactly."}
     ask_tool = {"role": "user", "content": "Call report_colour with colour blue and count 2."}
     try:
         try:
@@ -596,13 +640,14 @@ async def probe(adapter: Any, model: str) -> tuple[dict[str, Any], ProbeUsage]:
             usage.add(msg)
             # a call the adapter emulated after the server answered in prose is not an honoured tool choice
             calls = [] if getattr(msg, "emulated", False) else _tool_calls(msg, PROBE_TOOL["name"])
-        except Exception:  # noqa: BLE001 - a server that rejects named tool choice answers 400
+            choice: bool | None = None if _cut_off(msg) else bool(calls)
+        except Exception as exc:  # noqa: BLE001 - a server that rejects named tool choice answers 400
             calls = []
-            found["tool_choice"] = False
+            choice = _failed(exc)
         if calls:
-            found.update(tools=True, tool_choice=found.get("tool_choice", True), strict_tools=_valid(calls[0].input))
+            found.update(tools=True, tool_choice=True, strict_tools=_valid(calls[0].input))
         else:
-            found["tool_choice"] = False
+            found["tool_choice"] = choice
             try:
                 msg = await adapter.create(
                     {
@@ -614,11 +659,11 @@ async def probe(adapter: Any, model: str) -> tuple[dict[str, Any], ProbeUsage]:
                 )
                 usage.add(msg)
                 calls = _tool_calls(msg, PROBE_TOOL["name"])
-                found["tools"] = bool(calls)
+                found["tools"] = None if _cut_off(msg) else bool(calls)
                 if calls:
                     found["strict_tools"] = _valid(calls[0].input)
-            except Exception:  # noqa: BLE001
-                found["tools"] = False
+            except Exception as exc:  # noqa: BLE001
+                found["tools"] = _failed(exc)
         try:
             msg = await adapter.create(
                 {
@@ -628,10 +673,13 @@ async def probe(adapter: Any, model: str) -> tuple[dict[str, Any], ProbeUsage]:
                 }
             )
             usage.add(msg)
-            data = json.loads(_text(msg) or "null")
-            found["json_schema"] = isinstance(data, dict) and isinstance(data.get("answer"), str)
-        except Exception:  # noqa: BLE001
-            found["json_schema"] = False
+            if _cut_off(msg):
+                found["json_schema"] = None
+            else:
+                data = json.loads(_text(msg) or "null")
+                found["json_schema"] = isinstance(data, dict) and isinstance(data.get("answer"), str)
+        except Exception as exc:  # noqa: BLE001 - also an answer that is not JSON (a fact: False)
+            found["json_schema"] = _failed(exc)
         try:
             msg = await adapter.create(
                 {
@@ -651,9 +699,12 @@ async def probe(adapter: Any, model: str) -> tuple[dict[str, Any], ProbeUsage]:
                 }
             )
             usage.add(msg)
-            found["vision"] = any(w in _text(msg).lower() for w in ("red", "kırmızı", "kirmizi", "rouge", "rot"))
-        except Exception:  # noqa: BLE001
-            found["vision"] = False
+            if _cut_off(msg):
+                found["vision"] = None
+            else:
+                found["vision"] = any(w in _text(msg).lower() for w in ("red", "kırmızı", "kirmizi", "rouge", "rot"))
+        except Exception as exc:  # noqa: BLE001
+            found["vision"] = _failed(exc)
         reader = getattr(adapter, "served_window", None)
         if usage.calls and inspect.iscoroutinefunction(reader):
             try:
@@ -674,6 +725,7 @@ __all__ = [
     "MIN_OUTPUT_TOKENS",
     "NEEDS",
     "NEUTRAL_ASK",
+    "PROBE_MAX_TOKENS",
     "PROBE_SCHEMA",
     "PROBE_TOOL",
     "RED_PNG_B64",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -17,8 +18,12 @@ def resolve(tmp_path: Path, line: str) -> tuple[int, dict[str, str], str]:
     (tmp_path / "infra/aws").mkdir(parents=True)
     (tmp_path / "infra/aws/POD_ACTION").write_text(line + "\n")
     out = tmp_path / "out"
+    # the step calls python3; the CI image has it in /usr/local/bin only, so put this interpreter on the PATH
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    (bindir / "python3").symlink_to(sys.executable)
     r = subprocess.run(["bash", "-c", script], cwd=tmp_path, capture_output=True, text=True,
-                       env={"PATH": "/usr/bin:/bin", "GITHUB_OUTPUT": str(out), "GITHUB_EVENT_NAME": "push"})
+                       env={"PATH": f"{bindir}:/usr/bin:/bin", "GITHUB_OUTPUT": str(out), "GITHUB_EVENT_NAME": "push"})
     vals = dict(x.split("=", 1) for x in out.read_text().split()) if out.exists() else {}
     return r.returncode, vals, r.stdout + r.stderr
 

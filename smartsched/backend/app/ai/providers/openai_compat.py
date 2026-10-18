@@ -393,6 +393,12 @@ def _per_mtok(per_token: Any) -> float | None:
 
 
 def _status_error(status: int, name: str) -> ProviderError:
+    err = _status_text(status, name)
+    err.status = status
+    return err
+
+
+def _status_text(status: int, name: str) -> ProviderError:
     if status == 401:
         return ProviderError(f"{name} rejected the API key (authentication error)")
     if status == 403:
