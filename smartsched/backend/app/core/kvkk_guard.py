@@ -126,17 +126,16 @@ def check(data: bytes, filename: str | None) -> None:
     if is_seed_workbook(data):
         raise KvkkRefused(
             "kvkk_seed_workbook",
-            "KVKK: bu dosya maskelenmemiş örnek çalışma kitaplarından biri. Bu test yığınında yalnızca maskelenmiş "
-            "kopyayı yükleyin ($REC_WORKDIR/fixtures).",
-            "KVKK: this is one of the unmasked seed workbooks. On this test stack upload only the masked copy "
-            "($REC_WORKDIR/fixtures).",
+            "KVKK: bu dosya maskelenmemiş örnek çalışma kitaplarından biri. Bu test ortamında maskelenmiş "
+            "kopyayı kullanın.",
+            "KVKK: this is one of the unmasked seed workbooks. On this test system use the masked copy.",
         )
     n = unmasked_hits(data, filename)
     if n:
         raise KvkkRefused(
             "kvkk_unmasked_names",
-            f"KVKK: dosyada maskelenmemiş {n} kişi adı var. Bu test yığınında adlar yalnızca baş harfleriyle "
-            "yüklenebilir; maskelenmiş kopyayı kullanın ($REC_WORKDIR/fixtures).",
-            f"KVKK: the file holds {n} unmasked person names. On this test stack names may only be uploaded as "
-            "initials; use the masked copy ($REC_WORKDIR/fixtures).",
+            f"KVKK: dosyada maskelenmemiş {n} kişi adı var. Bu test ortamında adlar yalnızca baş harfleriyle "
+            "yüklenebilir; maskelenmiş kopyayı kullanın.",
+            f"KVKK: the file holds {n} unmasked person names. On this test system names may only be uploaded as "
+            "initials; use the masked copy.",
         )

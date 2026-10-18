@@ -136,10 +136,10 @@ async def create_job(
     db: DB,
     user: Planner,
     files: list[UploadFile] = File(default=[], description="any number of schedule files, any format"),
-    upload_tokens: list[str] = Form(
-        default=[], description="files the helper read (HB-23b): one upload_token per file, instead of the upload"
-    ),
-    upload_names: list[str] = Form(default=[], description="optional browser file names, parallel to upload_tokens"),
+    upload_token: str | None = Form(None, description="the one file the helper read (HB-23b), instead of an upload"),
+    upload_tokens: list[str] = Form(default=[], description="deprecated alias of upload_token (at most one)"),
+    upload_name: str | None = Form(None, description="optional browser file name of the upload_token file"),
+    upload_names: list[str] = Form(default=[], description="deprecated alias of upload_name"),
     mode: str = Form("auto", description="auto (fast path for known shapes) | general (council for every file)"),
     lang: str = Form("en"),
     year_hint: int | None = Form(None),
@@ -149,13 +149,15 @@ async def create_job(
     st = get_settings()
     if mode not in ("auto", "general"):
         raise HTTPException(400, "mode must be auto or general")
-    if not files and not upload_tokens:
-        raise HTTPException(400, "upload at least one file")
-    from app.api.v1.helper_files import look
+    from app.api.v1.helper_files import look, one_token
 
-    for tok in upload_tokens:  # every hand-over checked before anything is written or consumed
-        look(request, user, tok)
-    if len(files) + len(upload_tokens) > st.council_max_files:
+    token = one_token(upload_token, upload_tokens)  # HB-23d N5: one live stage per person, so one token
+    if not files and not token:
+        raise HTTPException(400, "upload at least one file")
+    handed_as = upload_name or (upload_names[0] if upload_names else None)
+    if token:
+        look(request, user, token)  # checked before anything is written or consumed
+    if len(files) + (1 if token else 0) > st.council_max_files:
         raise HTTPException(413, f"at most {st.council_max_files} files per job")
     # the same intake rules as /imports (app/core/safe_files.py): each upload streamed to disk with a byte cap,
     # a readable type, and OOXML containers (by extension or sniffed) inspected before any parser sees them
@@ -225,11 +227,11 @@ async def create_job(
             except safe_files.UnsafeFileError as exc:
                 raise HTTPException(exc.status, f"{name}: {exc.message}") from exc
             yield name, size, target.read_bytes()  # at most `limit` bytes
-        for i, tok in enumerate(upload_tokens):
-            ext, data, meta = await take(request, user, tok)
+        if token:
+            ext, data, meta = await take(request, user, token)
             if len(data) > limit:
-                raise HTTPException(413, f"file {i + 1}: larger than the per-file limit")
-            name = handed_name(meta, ext, upload_names[i] if i < len(upload_names) else None)
+                raise HTTPException(413, "the helper's file is larger than the per-file limit")
+            name = handed_name(meta, ext, handed_as)
             target = storage.job_dir(job.id) / storage.stored_name(len(entries), name)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)

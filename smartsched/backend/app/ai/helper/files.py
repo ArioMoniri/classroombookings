@@ -23,12 +23,15 @@ cell value or the workbook's raw header text (one fixture header names a person)
 :func:`~app.ai.helper.schema.scrub`, are cut to 40 characters and are dropped when the KVKK name list or the
 ``ai_personal`` redactor finds a name in them.
 
-**Stage (§6.3):** when a route carries the file, the bytes are encrypted with AES-256-GCM under a random per-stage key
-that exists only inside the signed ``upload_token`` (crypto-shredding: the server keeps no key). The token is bound to
-the person and their sign-in session, lives 10 minutes and is consumed once (:func:`consume` renames the stage to
-``.claimed`` atomically and leaves a ``.used`` tombstone, so a second use answers 410 ``stage_used``). One stage set per
-person; :func:`sweep` deletes anything older than 10 minutes. ``HELPER_FILE_STAGE=off`` stages nothing (the browser
-sends the File again). Classify writes no database row, no job, no audit row and no plain file.
+**Stage (§6.3):** when a route carries the file, the bytes are encrypted with AES-256-GCM under a key derived (HKDF)
+from a random per-stage part that exists only inside the signed ``upload_token`` and a part from ``APP_SECRET``
+(crypto-shredding: the server alone cannot open a stage, and neither can the token alone). The token is bound to the
+person and their sign-in session, lives 10 minutes and is consumed once (:func:`consume` renames the stage to
+``.claimed`` atomically and leaves a ``.used`` tombstone, so a second use answers 410 ``stage_used``). One stage per
+person: every classify drops the previous one. At most 10 minutes on disk (HB-23d N1): a read of an expired token
+deletes its stage, and :func:`sweep` (every :data:`SWEEP_INTERVAL_S` seconds) deletes a stage once it is within one
+interval of its 10 minutes. ``HELPER_FILE_STAGE=off`` stages nothing (the browser sends the File again). Classify
+writes no database row, no job, no audit row and no plain file.
 """
 
 from __future__ import annotations
@@ -61,6 +64,8 @@ from app.services.bookings_perms import Access
 log = logging.getLogger("smartsched.helper.files")
 
 STAGE_TTL_S = 600
+#: the sweeper's period; a stage older than ``STAGE_TTL_S - SWEEP_INTERVAL_S`` goes, so none outlives 10 minutes
+SWEEP_INTERVAL_S = 15.0
 RATE_PER_MINUTE = 20
 RATE_PER_DAY = 200
 HEAD_ROWS = 200
@@ -203,7 +208,10 @@ KINDS: dict[str, KindInfo] = {
     ),
     "timetable_other": KindInfo(
         ("Çizelge (farklı düzen)", "Timetable (other layout)"),
-        ("farklı düzende bir çizelge", "a timetable in another layout"),
+        (
+            "derslik çizelgesi (haftalık takvim düzeninde değil)",
+            "a room timetable (not in the weekly-board layout)",
+        ),
         (
             "Bu bir derslik çizelgesi, ama içe aktarma ekranının okuduğu haftalık takvim düzeninde değil. Kurulum "
             "sihirbazı bu düzeni de okur ve size sorar.",
@@ -701,6 +709,15 @@ class TermGuess:
     year: int | None = None
 
 
+#: the longest button label the card shows in full (design review DS-12)
+LABEL_MAX = 48
+
+
+def _fit(*labels: str) -> str:
+    """The first label that fits :data:`LABEL_MAX` (the last one always does)."""
+    return next((lab for lab in labels if len(lab) <= LABEL_MAX), labels[-1])
+
+
 def _import_route(kind: str, term: TermGuess | None, year: int | None) -> RouteSpec:
     params: dict[str, Any] = {"kind": _IMPORT_KIND[kind]}
     if term is not None and term.term_id is not None:
@@ -709,9 +726,13 @@ def _import_route(kind: str, term: TermGuess | None, year: int | None) -> RouteS
         params["year"] = year
     obj_tr, obj_en = _IMPORT_OBJECT[kind]
     if term is not None and not term.matches_active:
-        label = (f"{term.name[0]} dönemine {obj_tr} olarak aktar", f"Import into {term.name[1]} as {obj_en}")
-        short_tr = f"{term.name[0]} dönemine aktar"
-        short = (short_tr, f"Import into {term.name[1]}") if len(short_tr) <= 28 else None
+        short_tr, short_en = f"{term.name[0]} dönemine aktar", f"Import into {term.name[1]}"
+        # DS-12: a button label fits 48 characters; the kind is on the card's badge already
+        label = (
+            _fit(f"{term.name[0]} dönemine {obj_tr} olarak aktar", short_tr, "Dosyanın dönemine aktar"),
+            _fit(f"Import into {term.name[1]} as {obj_en}", short_en, "Import into the file's term"),
+        )
+        short = (short_tr, short_en) if len(short_tr) <= 28 else None
     else:
         label, short = (f"{obj_tr[0].upper()}{obj_tr[1:]} olarak içe aktar", f"Import as {obj_en}"), None
     return RouteSpec("import", params, label, True, ("planning.edit",), short)
@@ -765,14 +786,15 @@ _MY_REQUESTS = _alt("my_requests", "Taleplerim'i aç", "Open My requests")
 _CALENDAR = _alt("profile.calendar", "Takvimime ekle", "Add to my calendar", {"calendar": 1})
 
 
-def alternatives(kind: str, sig: Signals) -> list[RouteSpec]:
-    """The person's own pages when the file is the planning team's job (no file is carried)."""
+def alternatives(kind: str, sig: Signals, *, calendar_on: bool = True) -> list[RouteSpec]:
+    """The person's own pages when the file is the planning team's job (no file is carried). ``calendar_on``:
+    the institution's calendar sync switch; off, "Takvimime ekle" would end at "kapalı" (UX-06), so it is left out."""
     if kind in ("planning_list", "exam_list"):
         return [_MY_CLASSES]
     if kind in ("weekly_grid", "room_master", "room_list", "timetable_other"):
         return [_FIND_ROOM]
     if kind == "calendar_ics":
-        return [_CALENDAR, _RESERVE]
+        return [_CALENDAR, _RESERVE] if calendar_on else []
     if kind == "request_list":
         hit = _first_hit(sig)
         f = set(hit.fields if hit else [])
@@ -813,7 +835,14 @@ class Plan:
 
 
 def plan_for(
-    access: Access, kind: str, sig: Signals, term: TermGuess | None, year: int | None, context: str | None = None
+    access: Access,
+    kind: str,
+    sig: Signals,
+    term: TermGuess | None,
+    year: int | None,
+    context: str | None = None,
+    *,
+    calendar_on: bool = True,
 ) -> Plan:
     held = [r for r in file_routes(kind, sig, term, year) if _visible(access, r)]
     if held:
@@ -822,7 +851,7 @@ def plan_for(
         if context:
             secondary.sort(key=lambda r: r.feature_id != context)
         return Plan(primary, secondary[:2], False)
-    alts = [r for r in alternatives(kind, sig) if _visible(access, r)]
+    alts = [r for r in alternatives(kind, sig, calendar_on=calendar_on) if _visible(access, r)]
     return Plan(alts[0] if alts else None, alts[1:2], True)
 
 
@@ -884,6 +913,19 @@ def _active_year(active: Any) -> int | None:
 
 
 # ================================================================================================ evidence
+
+
+#: the room master's column keys in words (UX-20 / DS-11: never the raw keys on a card)
+ROOM_COLUMN_LABELS: dict[str, tuple[str, str]] = {
+    "code": ("derslik kodu", "room code"),
+    "capacity": ("kapasite", "capacity"),
+    "exam_capacity": ("sınav kapasitesi", "exam capacity"),
+    "tags": ("etiketler", "tags"),
+    "building": ("bina", "building"),
+    "floor": ("kat", "floor"),
+    "bookable": ("rezerve edilebilir", "bookable"),
+    "notes": ("notlar", "notes"),
+}
 
 
 def _labels_line(labels: list[tuple[str, str]], kind_label: tuple[str, str]) -> tuple[str, str]:
@@ -980,7 +1022,7 @@ def evidence(kind: str, sig: Signals, safe_title: _Titles) -> list[tuple[str, st
     elif kind == "exam_list" and sig.exam_keys and sig.format in _IMPORTER_TABULAR:
         lines.append(_labels_line(_keys_labels(sig.exam_keys, _EXAM_ORDER), info.label))
     elif kind == "room_master" and sig.room_master_cols:
-        lines.append(_labels_line([(c, c) for c in sig.room_master_cols], info.label))
+        lines.append(_labels_line([ROOM_COLUMN_LABELS.get(c, (c, c)) for c in sig.room_master_cols], info.label))
     elif kind in ("users_csv", "staff_list") and sig.users_fields:
         tr, en = _labels_line(
             [USER_LABELS[f] for f in sig.users_fields if f in USER_LABELS], ("kullanıcı listesi", "user list")
@@ -1109,6 +1151,16 @@ async def _term_locked(term: TermGuess | None) -> bool:
     return False
 
 
+async def _calendar_on(session: AsyncSession) -> bool:
+    """The institution's calendar sync switch (with its KVKK sign-off), as the /profile calendar sheet reads it."""
+    from app.services import calendar_feeds
+
+    try:
+        return bool(await calendar_feeds.sync_enabled(session))
+    except Exception:  # noqa: BLE001 - a settings problem must not break classify; off is the safe answer
+        return False
+
+
 async def kind_card(
     session: AsyncSession,
     access: Access,
@@ -1119,16 +1171,31 @@ async def kind_card(
     active_term_id: int | None,
     context: str | None,
     safe_title: _Titles,
+    picked: bool = False,
 ) -> Built:
-    """The ``file`` card for one kind (detected or needs_planner) and its routable kinds."""
+    """The ``file`` card for one kind (detected or needs_planner) and its routable kinds. ``picked``: the person
+    chose the kind in the chooser (UX-16: "Seçiminiz", not "büyük olasılıkla")."""
     info = KINDS[kind]
     term, active = await guess_term(session, sig, active_term_id) if kind in TERM_KINDS else (None, None)
     year = (term.year if term else None) or _active_year(active) if kind == "weekly_grid" else None
-    plan = plan_for(access, kind, sig, term, year, context)
-    certainty = band(score) if score is not None else "sure"
+    calendar_on = await _calendar_on(session) if kind == "calendar_ics" else True
+    plan = plan_for(access, kind, sig, term, year, context, calendar_on=calendar_on)
+    certainty = "sure" if picked or score is None else band(score)
     warnings: list[s.FileWarning] = []
     if plan.needs_planner:
-        if kind == "calendar_ics" and plan.primary is not None:
+        if kind == "calendar_ics" and not calendar_on:
+            title = cards.txt("Bu bir takvim dosyası", "This is a calendar file")
+            warnings.append(
+                _warn(
+                    "calendar_sync_off",
+                    "info",
+                    "Takvim aktarımı kurumunuzda kapalı; dosyayı Outlook ya da Google Takvim'e kendiniz "
+                    "ekleyebilirsiniz.",
+                    "Calendar sync is turned off at your institution; you can add the file to Outlook or Google "
+                    "Calendar yourself.",
+                )
+            )
+        elif kind == "calendar_ics" and plan.primary is not None:
             title = cards.txt("Bu bir takvim dosyası", "This is a calendar file")
             warnings.append(
                 _warn(
@@ -1149,8 +1216,8 @@ async def kind_card(
             )
             if plan.primary is not None:
                 title = cards.txt(
-                    f"Bu dosya bir {info.phrase[0]}. Bunu {team[0]} içe aktarır. Sizin için:",
-                    f"This file is {info.phrase[1]}. {team[1][0].upper()}{team[1][1:]} imports it. For you:",
+                    f"Bu dosya bir {info.phrase[0]}. Bunu {team[0]} içe aktarır.",
+                    f"This file is {info.phrase[1]}. {team[1][0].upper()}{team[1][1:]} imports it.",
                 )
             else:
                 title = cards.txt(
@@ -1163,12 +1230,14 @@ async def kind_card(
                     _warn(
                         "my_classes_known",
                         "info",
-                        "Derslerinizi SmartSched zaten biliyor; dosyayı yüklemenize gerek yok.",
-                        "SmartSched already knows your classes; you don't need to upload the file.",
+                        "Derslerinizi Derslerim sayfasında görebilirsiniz; dosyayı yüklemenize gerek yok.",
+                        "You can see your classes on the My classes page; you don't need to upload the file.",
                     )
                 )
     else:
-        if certainty == "sure":
+        if picked:
+            title = cards.txt(f"Seçiminiz: {info.label[0]}", f"Your choice: {info.label[1]}")
+        elif certainty == "sure":
             title = cards.txt(f"Bu bir {info.phrase[0]}", f"This is {info.phrase[1]}")
         else:
             title = cards.txt(f"Bu büyük olasılıkla bir {info.phrase[0]}", f"This is most likely {info.phrase[1]}")
@@ -1179,10 +1248,10 @@ async def kind_card(
                 _warn(
                     "term_mismatch",
                     "warn",
-                    f"Dosya {term.name[0]} diyor; şu an {cards.clean(active.name, 60)} seçili. Düğme dosyanın "
-                    "dönemine aktarır.",
-                    f"The file says {term.name[1]}; {cards.clean(active.name, 60)} is selected now. The button imports "
-                    "into the file's term.",
+                    f"Dosya {term.name[0]} diyor; şu an {cards.clean(active.name, 60)} seçili. İçe aktar düğmesi "
+                    f"dosyayı {term.name[0]} dönemine aktarır.",
+                    f"The file says {term.name[1]}; {cards.clean(active.name, 60)} is selected now. The import button "
+                    f"imports the file into {term.name[1]}.",
                 )
             )
         if imports and term is None:
@@ -1204,6 +1273,15 @@ async def kind_card(
                     "bitince yapılır.",
                     f"Another import is writing {term.name[1]} right now. The preview opens; applying waits until it "
                     "finishes.",
+                )
+            )
+        if kind == "timetable_other" and plan.primary is not None and plan.primary.feature_id == "onboarding":
+            warnings.append(
+                _warn(
+                    "layout_wizard",
+                    "info",
+                    "İçe aktar ekranı yalnızca haftalık takvim düzenini okur; bu düzeni Kurulum sihirbazı okur.",
+                    "The import screen reads the weekly-board layout only; the setup wizard reads this layout.",
                 )
             )
         if kind in _IMPORT_KIND and sig.card_format not in _EXCEL:
@@ -1309,8 +1387,8 @@ def unknown_card(access: Access, sig: Signals) -> Built:
         state="unknown",
         format=sig.card_format,
         evidence=s.Texts(
-            tr=[f"Bu dosyayı tanıyamadım. {fmt_tr} biçiminde, ama tanıdığım sütunlar yok."],
-            en=[f"I couldn't recognise this file. It is {fmt_en}, but I found no columns I know."],
+            tr=[f"Dosya {fmt_tr} biçiminde, ama tanıdığım sütunlar yok."],
+            en=[f"The file is {fmt_en}, but I found no columns I know."],
         ),
         secondary=[_route(ONBOARDING)] if onboarding else [],
         explain=_accepted_explain(),
@@ -1356,7 +1434,15 @@ async def build(
         if forced_kind not in kinds or score is None:
             raise KindNotAllowed(forced_kind)
         return await kind_card(
-            session, access, sig, forced_kind, score, active_term_id=active_term_id, context=context, safe_title=titles
+            session,
+            access,
+            sig,
+            forced_kind,
+            score,
+            active_term_id=active_term_id,
+            context=context,
+            safe_title=titles,
+            picked=True,
         )
     state = decide(cands)
     if state == "unknown":
@@ -1419,11 +1505,11 @@ class Refusal:
 async def read_file(name: str, data: bytes) -> tuple[Signals | None, Refusal | None]:
     """Precheck (rlimit child) → KVKK guard (test stacks) → signals (rlimit child). A refusal never stages."""
     from app.core import kvkk_guard, safe_files
-    from app.council import i18n
     from app.council.render import RenderError
 
     ext = re.sub(r"[^a-z0-9]", "", PurePath(name).suffix.lower())[:8]
     shown = f".{ext}" if ext else "?"
+    unreadable = _unreadable(ext)
     if not data:
         return None, Refusal("file_empty", "Dosya boş.", "The file is empty.")
     try:
@@ -1438,12 +1524,14 @@ async def read_file(name: str, data: bytes) -> tuple[Signals | None, Refusal | N
                 f"Bu tür dosyayı okuyamıyorum ({shown}).",
                 f"I can't read this type of file ({shown}).",
             )
-        return None, Refusal("file_type_unsupported", i18n.localize(msg, "tr") or msg, msg)
-    except safe_files.UnsafeFileError as exc:
+        # UX-07 / DS-07: the reader's own words (English, sometimes an exception name) never reach the card
+        log.info("helper file precheck refused: %s", type(exc).__name__)
+        return None, Refusal("file_unreadable", *unreadable)
+    except safe_files.UnsafeFileError:
         return None, Refusal(
             "file_unsafe",
             "Bu dosya güvenle okunamıyor: çok büyük ya da bozuk bir içerik var.",
-            f"This file can't be read safely: {exc.message}.",
+            "This file can't be read safely: it is too large or holds broken content.",
         )
     try:
         await asyncio.to_thread(kvkk_guard.check, data, name)
@@ -1453,13 +1541,22 @@ async def read_file(name: str, data: bytes) -> tuple[Signals | None, Refusal | N
         sig = await safe_files.run_isolated(read_signals, name, data)
     except (RenderError, safe_files.UnsafeFileError, ValueError, OSError) as exc:
         log.info("helper file read failed: %s", type(exc).__name__)
-        return None, Refusal(
-            "file_read_failed",
-            "Dosya okunamadı. Tekrar deneyin ya da başka bir dosya seçin.",
-            "The file couldn't be read. Try again or choose another file.",
-            status=-1,
-        )
+        return None, Refusal("file_read_failed", *unreadable, status=-1)
     return sig, None
+
+
+def _unreadable(ext: str) -> tuple[str, str]:
+    """A file the readers could not open, in plain words with its format (never the reader's exception text)."""
+    fmt = FORMAT_NAMES.get("image" if ext in ("png", "jpg", "jpeg", "heic", "webp") else ext)
+    if fmt is None:
+        return (
+            "Bu dosyayı okuyamadım. Dosya bozuk ya da korumalı olabilir; başka bir kopyasını deneyin.",
+            "I couldn't read this file. It may be damaged or protected; try another copy.",
+        )
+    return (
+        f"Bu {fmt[0]} dosyasını okuyamadım. Dosya bozuk ya da korumalı olabilir; başka bir kopyasını deneyin.",
+        f"I couldn't read this {fmt[1]} file. It may be damaged or protected; try another copy.",
+    )
 
 
 def refusal_card(access: Access, r: Refusal) -> s.CardBase:
@@ -1631,7 +1728,8 @@ def clear(user_id: int) -> int:
 
 
 def stage(data: bytes, sig: Signals, kinds: list[str], user_id: int, sess: str, *, replace: bool = True) -> Staged:
-    """Encrypt ``data`` under a fresh key that only the returned token carries; mode 0600; 10 minutes."""
+    """Encrypt ``data`` under a key derived from a fresh part only the returned token carries and a part from
+    ``APP_SECRET``; mode 0600; 10 minutes."""
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
     if replace:
@@ -1666,6 +1764,7 @@ def _check(token: str, user_id: int, sess: str) -> dict[str, Any]:
     if p.get("u") != user_id or p.get("ss") != sess:
         raise _err("stage_other_user")
     if int(p.get("e") or 0) <= now():
+        delete(str(p["s"]), user_id)  # past its expiry: refused and deleted now, not at the next sweep
         raise _err("stage_expired")
     return p
 
@@ -1745,15 +1844,17 @@ def delete(sid: str, user_id: int) -> bool:
 
 
 def sweep() -> int:
-    """Delete every stage (and tombstone) older than 10 minutes; returns how many files went."""
+    """Delete every stage (and tombstone) that is within one sweep interval of its 10 minutes, so the next tick
+    can never come after a stage's expiry; returns how many files went."""
     d = Path(get_settings().upload_dir) / "helper-stage"
     if not d.is_dir():
         return 0
     n = 0
     t = now()
+    limit = STAGE_TTL_S - SWEEP_INTERVAL_S
     for p in d.iterdir():
         try:
-            if p.is_file() and t - p.stat().st_mtime > STAGE_TTL_S:
+            if p.is_file() and t - p.stat().st_mtime > limit:
                 p.unlink(missing_ok=True)
                 n += 1
         except OSError:
@@ -1775,8 +1876,8 @@ async def _sweep_loop(interval: float) -> None:
         await asyncio.sleep(interval)
 
 
-def start_sweeper(interval: float = 60.0) -> None:
-    """Every minute (and once now, at start-up)."""
+def start_sweeper(interval: float = SWEEP_INTERVAL_S) -> None:
+    """Every :data:`SWEEP_INTERVAL_S` seconds (and once now, at start-up)."""
     global _sweeper
     if _sweeper is None or _sweeper.done():
         _sweeper = asyncio.create_task(_sweep_loop(interval), name="helper-file-stage-sweeper")
@@ -1810,6 +1911,7 @@ __all__ = [
     "KINDS",
     "RATE_PER_MINUTE",
     "STAGE_TTL_S",
+    "SWEEP_INTERVAL_S",
     "Signals",
     "StageError",
     "all_labels_tr",

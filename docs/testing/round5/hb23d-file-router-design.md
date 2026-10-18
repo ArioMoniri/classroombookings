@@ -185,3 +185,51 @@ Size: S = under 1 h, M = half a day, L = more than a day.
 - Contrast method: text colour alpha-blended over the stacked backgrounds up to the first opaque ancestor. Glass
   surfaces were approximated by their tint, so the values are an estimate. Every value cleared 4.5:1 with margin
   (lowest 5.65).
+
+## Re-check (round 2)
+
+Re-checked 2026-10-18 on the rebuilt stack (:3623 / :8623), with the same accounts, files and method. Only the majors
+were re-checked, at the sizes and modes where they were found. Screenshots end in `-r2`. The raw results are in the
+review scratch file `res-r2.json`.
+
+**BLUF: 8 of 10 majors are fixed.**
+- DS-04 is still open (focus lands on `<main>`, not "Başlat") and is downgraded to minor, because focus is no longer lost.
+- DS-08 is fixed for what it reported, but the re-check found a **new major**, DS-22: at 32 px root text the helper log
+  viewport shrinks to 48 px (390) or 92 px (1440).
+- One new minor, DS-23.
+- **Still open: 0 blocker, 1 major (DS-22), 13 minor.** That is the 11 minors from round 1 (not re-checked), plus
+  DS-04 (downgraded) and DS-23.
+
+| Id | Round 2 | Evidence (1440 / 390) |
+|---|---|---|
+| DS-01 | ✅ fixed | "Başka bir tür seç" → focus on the first radio, "Planlama listesi". "Önceki karta dön" → the detected title. Same at both sizes. `other-kind-1440-r2.png`, `other-kind-390-r2.png` |
+| DS-02 | ✅ fixed | "Vazgeç" → `helper-file-cancelled`, "Dosya okunmadı.", at both sizes. `reading-cancel-1440-r2.png`, `reading-cancel-390-r2.png` |
+| DS-03 | ✅ fixed | 410 `stage_expired` on hand-over → focus on "Dosyayı yeniden oku"; the page stays on /dashboard. `expired-1440-r2.png`, `expired-390-r2.png` |
+| DS-04 | ❌ open, now minor | After the hand-over to `/onboarding?from=helper`, focus is on `<main>` at both sizes, not on "Başlat · 2 dosya" (§10: the page's own primary). It is no longer `<body>`, so it is downgraded to minor. `handed-onboarding-1440-r2.png`, `handed-onboarding-390-r2.png`. Source: `components/onboarding/file-drop.tsx`; add a hand-over focus effect like `import-wizard.tsx:116-122` that targets the start button |
+| DS-05 | ✅ fixed | `/import` step 0 with `room_master.csv` → focus on the card title "Bu bir derslik ana listesi" at both sizes. `import-step0-helper-1440-r2.png`, `import-step0-helper-390-r2.png` |
+| DS-06 | ✅ fixed | Card enter: opacity reaches 1 at 139 ms, and the last opacity or transform change is at 276 ms (≤ 300). No 400 ms WAAPI animation is left. Reduced motion has only 0.01 ms opacity, with no transform |
+| DS-07 | ✅ fixed | `belge.pdf` → "Bu PDF dosyasını okuyamadım. Dosya bozuk ya da korumalı olabilir; başka bir kopyasını deneyin." plus one primary, "Başka dosya seç". No exception text. `unknown-pdf-1440-r2.png`, `unknown-pdf-390-r2.png` |
+| DS-08 | ✅ fixed (as reported) | At 32 px the header wraps and the controls are inside the viewport: ✕ at x 1144–1176 and ⋯ at x 1040–1128 (1440); ✕ at x 16–104 and ⋯ at x 16–104 (390). Card buttons stay inside the sheet: log `scrollWidth` equals `clientWidth`, and there is no page horizontal scroll. See DS-22 for what remains. `detected-1440-32px-r2.png`, `detected-1440-32px-buttons-r2.png`, `detected-390-32px-r2.png`, `detected-390-32px-buttons-r2.png` |
+| DS-09 | ✅ fixed | Forced colours: the primary now has a `1px solid` border in the system colour. `detected-1440-forced-r2.png` |
+| DS-10 | ✅ fixed (phone) | At 390, both handed rows show the full name ("room_master.csv", "seminar.ics") and "Yardımcıdan geldi", with no clipping. See DS-23 for desktop |
+
+**Hand-over now closes the sheet on desktop (UX-02).** This harms nothing in the §11.4 checklist:
+- Focus still lands on "Önizle".
+- The file row is there.
+- Re-opening the helper shows the entry collapsed to "Haftalık derslik takvimi · sayfası açıldı". The thread isn't lost, and no stage is deleted.
+- §8.1 calls the desktop sheet non-modal but does not require it to stay open.
+- Evidence: `handed-import-1440-r2.png`.
+
+### DS-22 · major (new) · M: at 32 px root text the helper log is a 48 to 92 px slot
+- **Repro:** open a detected card (`Bahar_son.xlsx`), then set `document.documentElement.style.fontSize = "32px"`.
+- **Expected:** reflow at 200 % keeps the card usable, with the log taking most of the height and the footer staying compact.
+- **Actual:** in a 844 px tall phone viewport, the wrapped header is 272 px, the footer is 496 px and the **log is 48 px**. At 1440 × 900 the header is 168 px, the footer 496 px and the log 92 px. The card is 1,572 px tall, so the person reads it through a slot one or two lines high. At 16 px the log is 560–568 px.
+- **What fills the footer:** the guide lead, the 88 px guide field, "Dosya ekle", and the new privacy caption under it.
+- **Screenshot:** `detected-390-32px-r2.png`, `detected-1440-32px-buttons-r2.png`.
+- **Suggested fix:** at large text, hide the guide lead and the caption, or let the footer scroll with the log. Keep the header to one row by moving the status chip into the ⋯ menu.
+- **Source:** `components/helper/helper-sheet.tsx:216-246` (header) and `:271-300` (footer).
+
+### DS-23 · minor (new) · S: on desktop `/onboarding`, handed names are cut and the chip is hidden
+- **Actual:** at 1440, the name cell is 212 px wide while the row has spare width. It reads "room_master.csv…" and "seminar.ics…", and "Yardımcıdan geldi" sits past the ellipsis, so it can't be seen.
+- **Screenshot:** `handed-onboarding-1440-r2.png`.
+- **Source:** `components/onboarding/file-drop.tsx:138-141,154-157`. Apply the phone layout (chip on its own line) at every width.

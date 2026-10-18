@@ -129,10 +129,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     from app.ai.helper import files as helper_files
 
-    helper_files.sweep()  # HB-23b: encrypted file stages older than 10 minutes go at start-up
+    helper_files.sweep()  # HB-23b: encrypted file stages near or past their 10 minutes go at start-up
     if settings.environment != "test":  # tests call the sweep directly; no timers inside the test loop
         approvals_sweeper.start()
-        helper_files.start_sweeper()  # and every minute
+        helper_files.start_sweeper()  # and every 15 s (HB-23d N1: no stage outlives 10 minutes)
         from app.workers import reminders
 
         reminders.start()  # RF-11: booking reminders before the start (bookings.reminder_lead_hours)

@@ -279,7 +279,13 @@ async def test_crbs_dump(rc):
     assert any("bookings" in line for line in c["evidence"]["tr"])
 
 
-async def test_ics_planner_vs_academician(rc):
+async def test_ics_planner_vs_academician(rc, monkeypatch):
+    from app.services import calendar_feeds
+
+    async def sync_on(session):  # type: ignore[no-untyped-def]
+        return True  # "Takvimime ekle" is offered only with the institution's calendar sync on (HB-23d UX-06)
+
+    monkeypatch.setattr(calendar_feeds, "sync_enabled", sync_on)
     admin = await login(rc)
     c = (await card_of(rc, admin, HF / "seminar.ics"))["card"]
     assert c["kind"] == "calendar_ics" and c["primary"]["feature_id"] == "onboarding"
@@ -524,7 +530,7 @@ async def test_imports_accept_upload_token(rc):
 async def test_council_accepts_upload_tokens(rc):
     h = await login(rc)
     token = (await card_of(rc, h, FIX / "room_master.csv"))["stage"]["upload_token"]
-    r = await rc.post("/api/v1/council/jobs", data={"upload_tokens": token, "ai": "false"}, headers=h)
+    r = await rc.post("/api/v1/council/jobs", data={"upload_token": token, "ai": "false"}, headers=h)
     assert r.status_code == 202, r.text
     files = r.json()["files"]
     assert len(files) == 1 and files[0]["format"] == "csv" and files[0]["filename"].startswith("helper-")

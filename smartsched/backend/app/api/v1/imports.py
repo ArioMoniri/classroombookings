@@ -470,28 +470,40 @@ async def import_crbs_endpoint(
     user: Planner,
     dsn: str | None = Form(None),
     files: list[UploadFile] = File(default=[]),
-    upload_tokens: list[str] = Form(default=[]),
+    upload_token: str | None = Form(None),
+    upload_tokens: list[str] = Form(default=[], description="deprecated alias of upload_token (at most one)"),
 ) -> ImportJob:
     """Either a MySQL DSN (``mysql://user:pass@host/db``) or one or more SQL dump files. A live DSN is for
     planning admins and allow-listed hosts only (``crbs_dsn.check_dsn``, review D16); dumps never connect.
-    ``upload_tokens`` (HB-23b): dumps the helper read, one token per dump."""
+    ``upload_token`` (HB-23b / HB-23d N5): the one dump the helper read (a person has one live stage at a time).
+    The token is checked first, the DSN rules next, and the token is consumed only after both passed."""
+    from app.api.v1.helper_files import one_token
     from app.importers.crbs_legacy import import_crbs
     from app.services import crbs_dsn
 
-    if not dsn and not files and not upload_tokens:
+    token = one_token(upload_token, upload_tokens)
+    if not dsn and not files and not token:
         raise HTTPException(400, "provide a dsn or SQL dump files")
+    if dsn and token:
+        raise problem(
+            422,
+            "dsn_or_token",
+            "Bağlantı adresi (DSN) ile yardımcıdan gelen dosya birlikte gönderilemez; birini seçin.",
+            "Send either a connection address (DSN) or the helper's file, not both.",
+        )
+    handed = await incoming(request, user, None, token, None) if token else None  # owner, session, expiry
     if dsn:
         await crbs_dsn.check_dsn(db, dsn, user)  # 403 / 422 before any job or connection exists
     items = [Incoming(f.filename, upload=f) for f in files]
-    for tok in upload_tokens:
-        items.append(await _resolve(await incoming(request, user, None, tok, None)))
+    if handed is not None:
+        items.append(await _resolve(handed))  # consumed only now, after every check passed
     job = await _new_job(
         db,
         "crbs",
         ", ".join(i.filename or "?" for i in items) if items else dsn.split("@")[-1] if dsn else None,
         None,
         user,
-        source="helper" if upload_tokens else "upload",
+        source="helper" if handed is not None else "upload",
     )
     paths = [await _store(db, job, i) for i in items]
     source: Any = dsn if dsn else paths
