@@ -292,8 +292,12 @@ def test_no_third_party_llm_gateway_in_the_dependencies() -> None:
     package = (BACKEND.parent / "frontend/package.json").read_text(encoding="utf-8").lower()
     for name in ("litellm", "langchain", "llama-index", "llama_index", "portkey", "openrouter"):
         assert name not in lock and name not in pyproject and f'"{name}' not in package, name
-    pins = [ln for ln in lock.splitlines() if ln and not ln.startswith("#")]
+    # the lock is hash-pinned (F13): a requirement line, then its indented `--hash=sha256:...` continuation lines
+    lines = [ln for ln in lock.splitlines() if ln.strip() and not ln.startswith("#")]
+    pins = [ln for ln in lines if not ln[0].isspace()]
     assert pins and all("==" in ln for ln in pins)  # every backend dependency pinned to one version
+    assert all(ln.strip().startswith("--hash=sha256:") for ln in lines if ln[0].isspace())
+    assert lock.count("--hash=sha256:") >= len(pins)  # and hashed
 
 
 def test_nginx_grafana_behind_admin_forward_auth_and_metrics_never_routed() -> None:
