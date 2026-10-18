@@ -3072,8 +3072,8 @@
       "ledger": "AU-B: 2FA, passkeys, admin resets",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-18 07:56",
-      "left_off": "Waiting for the rerun."
+      "finished_at": "2026-10-18 07:57",
+      "left_off": "Waiting."
     },
     {
       "id": "aa8b9be94ac997055",
@@ -3122,6 +3122,14 @@
       "ledger": "Sweeper: small queued fixes",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a4d4cfb2b530c6b14",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 07:57",
+      "left_off": "is the pod deployed yet"
     }
   ]
 }

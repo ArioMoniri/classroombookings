@@ -145,14 +145,16 @@ do_clips() {
         -compression_level 6 -preset picture -loop 0 -an "$CL/$id.webp"
       [[ $(size "$CL/$id.webp") -le 4000000 ]] && break
     done
-    # GIF fallback: 25 fps (an exact 4/100 s delay), diff palette, a width ladder until <= 9 MB
-    local gw; for gw in 1120 1040 960 880 800; do
+    # GIF fallback: 25 fps (an exact 4/100 s delay) or 20 fps (5/100 s), diff palette, a width ladder until <= 9 MB
+    local gw gfps spec
+    for spec in "1120 25" "1040 25" "960 25" "880 25" "800 25" "960 20" "880 20" "800 20" "720 20"; do
+      read -r gw gfps <<<"$spec"
       [[ "$device" == phone ]] && gw=$((gw * 45 / 100))
-      $N ffmpeg -nostdin -hide_banner -loglevel error -y -i "$src" -vf "fps=25,scale=$gw:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=256:stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle" \
+      $N ffmpeg -nostdin -hide_banner -loglevel error -y -i "$src" -vf "fps=$gfps,scale=$gw:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=256:stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle" \
         -loop 0 "$CL/$id.gif"
       [[ $(size "$CL/$id.gif") -le 9000000 ]] && break
     done
-    log "clip $id: webp ${w}px/${fps}fps q$q $(mb "$CL/$id.webp"), gif ${gw}px/25fps $(mb "$CL/$id.gif"), take $(mb "$CL/$take.mp4")"
+    log "clip $id: webp ${w}px/${fps}fps q$q $(mb "$CL/$id.webp"), gif ${gw}px/${gfps}fps $(mb "$CL/$id.gif"), take $(mb "$CL/$take.mp4")"
   done <<<"$list"
 }
 

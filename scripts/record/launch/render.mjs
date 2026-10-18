@@ -279,11 +279,16 @@ function stateAt(t) {
     if (t < s.start || t > s.end) continue;
     const { fin, fout } = sceneAlpha(s, t);
     const local = t - s.start;
-    const alpha = Math.min(fin, fout);
+    // a transition is a short overlap, not a long double exposure: the outgoing scene is gone by 65 % of the crossfade
+    // and the incoming one starts at 35 %; text (captions, chips, titles) does not overlap at all
+    const cardS = (a) => clamp((a - 0.35) / 0.65, 0, 1);
+    const textS = (a) => clamp((a - 0.5) / 0.5, 0, 1);
+    const alpha = Math.min(cardS(fin), cardS(fout));
+    const textAlpha = Math.min(textS(fin), textS(fout));
     // enter: rise + scale from 0.965; exit: fade (the next scene covers it)
     const enterK = 1 - fin;
     const tf = `translateY(${(enterK * 36).toFixed(2)}px) scale(${(1 - enterK * 0.035).toFixed(4)})`;
-    for (const L of s.render({ t, local, alpha, fin, fout, tf, W, H, viewState, captionFor, keysFor, captionLayer, chipLayer, esc, ease, easeOut, clamp, caps, preload, BRAND })) layers.push(L);
+    for (const L of s.render({ t, local, alpha, textAlpha, fin, fout, tf, W, H, viewState, captionFor, keysFor, captionLayer, chipLayer, esc, ease, easeOut, clamp, caps, preload, BRAND })) layers.push(L);
   }
   return { W, H, layers, preload: [...new Set(preload)].slice(0, 6), caps };
 }
